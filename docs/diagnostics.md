@@ -2,7 +2,7 @@
 
 <!-- Generated file: do not edit by hand. -->
 
-This page is generated from the catalog table in `crates/leaf/diagnostics/src/catalog.rs`,
+This page is generated from the catalog tables in `crates/leaf/diagnostics/src/catalog.rs`,
 the single registry of diagnostic codes; `specforge explain <CODE>` prints the
 same text. Every code emitted by the compiler, the CLI, or a first-party
 extension has exactly one entry, and each entry names its owner: `core` for the
@@ -267,13 +267,18 @@ Level: error
 ```
 E016: Referenced file does not exist
 
-A file-reference field on an entity, or a file-reference member of a typed block
-or block list item, points at a path that doesn't exist under the field's base:
-the spec root, or, when the field declares `file_base` `project`, the project
-root. Fix the path, or create the missing file; a similarly-named file is
-suggested when one is found.
+A `@specforge/checks` files, structured or media check (`file`, `dir`, `glob`,
+`size`, `digest`, `encoding`, `line_range`, `json`, `yaml`, `toml`, `pointer`,
+`markdown_anchor`, `image`, `svg`, `pdf`, `media`) names a path that is not
+there under the root it reads: the project root, or the root its `root` argument
+or the value's `<name>/` prefix names. `file` also reports a directory and `dir`
+a file, and `glob` matching fewer than its `min` entries. It sits on the value.
+A path that leaves its root is E094 and one that exists under another case is
+W174, both reported by the host before anything is read. Fix the path, or create
+the missing file; a similarly named file in the path's own directory inside its
+root is suggested when one is found.
 
-Owner: core
+Owner: @specforge/checks
 Level: error
 ```
 
@@ -388,19 +393,19 @@ entry writes, the name of a builtin, or an extension another entry already
 loads); its handshake or one of its describe categories failed or does not
 parse, so its declaration cannot be read (`specforge add` and `specforge
 publish` refuse such a binary); or a call the host makes on the loaded extension
-failed. The host calls thirteen exports: the handshake and describe, a command,
+failed. The host calls fourteen exports: the handshake and describe, a command,
 an MCP tool, an MCP resource, a compiler pass, a collector, a custom validator,
 a scanner, the migration hook, an MCP prompt, the renderer of an agent's or
-skill's body and a hook. Each call fails when the export traps (a limit of its
-sandbox included: its time, its fuel or its memory, the trap naming which), when
-the extension does not route it, or when it answers output that is not the
-protocol type the operation owes (a collector's test whose status is not
-`passed`, `failed` or `skipped`, say); the message names the operation, the
-export and the extension (`command cmd__x() of '@acme/x' trapped: ...`). What
-the failure costs is the operation's: a check pass's is the compile's error, an
-analyze pass's a finding of that pass, a scanner's makes `infer` approximate.
-Report the failure to the extension's author, and confirm the extension is
-installed and up to date.
+skill's body, a hook and a value checker. Each call fails when the export traps
+(a limit of its sandbox included: its time, its fuel or its memory, the trap
+naming which), when the extension does not route it, or when it answers output
+that is not the protocol type the operation owes (a collector's test whose
+status is not `passed`, `failed` or `skipped`, say); the message names the
+operation, the export and the extension (`command cmd__x() of '@acme/x' trapped:
+...`). What the failure costs is the operation's: a check pass's is the
+compile's error, an analyze pass's a finding of that pass, a scanner's makes
+`infer` approximate. Report the failure to the extension's author, and confirm
+the extension is installed and up to date.
 
 Owner: core
 Level: error
@@ -575,21 +580,22 @@ Level: error
 E045: Invalid test report
 
 `specforge collect` couldn't get a test report: the runner's command couldn't be
-started, it finished without writing a report at the collector's declared
-location (often because the tests didn't build), `--no-run` found no existing
-report, or a report file couldn't be read. Check the runner's output above the
-error and the report path. `specforge stats`, `specforge analyze` and every MCP
-tool that reads coverage report the same code when `specforge-report.json`
-exists but can't be read or parsed (a recorded test's status is `passed`,
-`failed` or `skipped`, and every test has a name: a report in another
-vocabulary, such as one written before 1.4, is not usable), or when a judged
-rule reads the report (ADR 0290), or when a check, compute or guard pass that
-declares `reads_tests` is sent it (protocol 1.11.0), or when a `--test-results`
-(`test_results`) file can't be read or doesn't exist (over MCP:
-`schema_mismatch`, `permission_denied`, `file_not_found`, `invalid_input` when
-`specforge-report.json` is a link that leads outside the project, or
-`internal_error`), rather than scoring the project as if no test ran: run
-`specforge collect` again to rewrite it, or fix or remove the file.
+started, it was stopped (past the 600 s collector deadline or its 64 MiB output
+cap, with its whole process group: ADR 0335), it finished without writing a
+report at the collector's declared location (often because the tests didn't
+build), `--no-run` found no existing report, or a report file couldn't be read.
+Check the runner's output above the error and the report path. `specforge
+stats`, `specforge analyze` and every MCP tool that reads coverage report the
+same code when `specforge-report.json` exists but can't be read or parsed (a
+recorded test's status is `passed`, `failed` or `skipped`, and every test has a
+name: a report in another vocabulary, such as one written before 1.4, is not
+usable), or when a judged rule reads the report (ADR 0290), or when a check,
+compute or guard pass that declares the `tests` input is sent it (ADR 0293, ADR
+0337), or when a `--test-results` (`test_results`) file can't be read or doesn't
+exist (over MCP: `schema_mismatch`, `permission_denied`, `file_not_found`,
+`invalid_input` when `specforge-report.json` is a link that leads outside the
+project, or `internal_error`), rather than scoring the project as if no test
+ran: run `specforge collect` again to rewrite it, or fix or remove the file.
 
 Owner: core
 Level: error
@@ -717,15 +723,20 @@ Level: error
 ```
 E059: Test command not approved
 
-A runner extension declares the command that runs its tests, and `specforge
-collect` only runs it after you approve it for the project. The approval is
-asked at an interactive prompt and remembered per project, extension and
-command, in your user-level `~/.specforge/collector-consent.json`, never in the
-project. Without a terminal (CI, `--format json`) nothing is asked: pass `--yes`
-to run the command, or `--no-run` to parse a report the runner already wrote.
-The MCP server never asks: approve the command once with `specforge collect` in
-a terminal, or call `specforge.collect` without `run` to parse the existing
-report.
+A runner extension declares the command that runs its tests as a process
+capability, and `specforge collect` only runs it after this machine approves
+that capability for the project (ADR 0335 D2). The approval is asked at an
+interactive prompt, or given with `specforge grants approve <extension>
+<scope>`, and remembered per project, extension, provenance (a builtin by its
+name, a third-party extension by its blob's digest) and scope, in your
+user-level `~/.specforge/consent.json`, never in the project: a changed command,
+a wider scope or a new blob asks again. Without a terminal (CI, `--format json`)
+nothing is asked: pass `--yes` to run the command without remembering it, or
+`--no-run` to parse a report the runner already wrote. When the consent store
+cannot be used (W186) nothing is asked whose answer it would lose. The MCP
+server never asks: approve the command with `specforge grants approve` or once
+with `specforge collect` in a terminal, or call `specforge.collect` without
+`run` to parse the existing report.
 
 Owner: core
 Level: error
@@ -1250,10 +1261,10 @@ Level: error
 E088: Extension speaks a protocol this specforge does not
 
 An extension's handshake states a newer protocol: a newer minor of the host's
-major (`1.16.0` under a `1.15.0` host) or a newer major (ADR 0326): it was built
+major (`2.1.0` under a `2.0.0` host) or a newer major (ADR 0326): it was built
 with a newer SDK and may declare what this specforge does not know and would
 drop, so it is not loaded; an older minor still loads. Or it states an older
-major (`0.9.0` under a `1.x` host): it was built for a protocol this specforge
+major (`1.15.0` under a `2.x` host): it was built for a protocol this specforge
 no longer speaks; install a version of the extension built for this protocol's
 major, or rebuild it with a specforge-extension-sdk of that protocol (ADR 0326
 D1b). Or its component imports a `specforge:host` interface (a host port such as
@@ -1264,6 +1275,314 @@ its version and this specforge's protocol (ADR 0326 D1a). `specforge add`,
 that speaks the extension's protocol, or provides the port (`specforge
 --version` names the protocol a binary speaks), or install a version of the
 extension built for this one.
+
+Owner: core
+Level: error
+```
+
+## E089
+
+```
+E089: Extension imports a port it does not declare
+
+An extension's component imports a `specforge:host` port (`http`, `fs`,
+`process` or `git`) and declares no capability of that port (ADR 0335 D5). A
+guest imports only the ports it calls, so it would call one that every grant
+answers `denied(scope)`: it is refused when it loads, naming the extension and
+the port, rather than failing at a call. `specforge:host/types` alone needs
+nothing. Declare a capability of the port with the SDK (`Capability::http`,
+`fs`, `process`, `git`), or stop calling it.
+
+Owner: core
+Level: error
+```
+
+## E090
+
+```
+E090: Effect outside the granted scope
+
+An extension asked the host for an effect its grant does not cover (ADR 0335
+D2): the call kind may not use that port at all (a pass, validator, prompt,
+renderer, scanner, migration or hook never reaches the network or runs a
+command, and only `collect` runs a process), no capability it declares covers
+the request (another host, method, scheme, root, op or command), or the
+project's effects ceiling (`effects` in `specforge.json`) narrows the capability
+that would. The host does not perform it. The message names the extension, the
+request in one line (no header or body) and the capability that came closest.
+Declare a capability that covers it, or widen `effects` if the project means to
+allow it; an effect a call kind may never make is the extension's to remove.
+
+Owner: core
+Level: error
+```
+
+## E091
+
+```
+E091: The URL is not valid
+
+A field whose check is `@specforge/checks:url` (or another of the links family)
+holds a text that is no absolute URL, or one that carries a user name or
+password. It is never fetched. Write the whole URL with its scheme, and keep
+credentials out of it: a value is committed, and an approved secret is the way
+to send one.
+
+Owner: @specforge/checks
+Level: error
+```
+
+## E092
+
+```
+E092: The URL's scheme is not allowed
+
+The URL's scheme is outside the check's `schemes` (by default only `https`).
+`javascript:`, `data:` and `file:` are never allowed, whatever `schemes` says.
+It is never fetched. Change the URL, or add its scheme to the check's `schemes`.
+
+Owner: @specforge/checks
+Level: error
+```
+
+## E093
+
+```
+E093: The URL answered that the page is gone
+
+After at most 5 redirects, the URL answered 404 or 410: a definite answer that
+the page does not exist. Fix the link or remove it. A field whose check says
+`status: "warn"` reports W183 instead.
+
+Owner: @specforge/checks
+Level: error
+```
+
+## E094
+
+```
+E094: Path leaves its root
+
+A path a check reads (a `@specforge/checks` files check, or a path-valued
+extension check) leaves the root it is read in (ADR 0335): an absolute path
+(`/etc/passwd`, `C:/x`), a `..` that climbs above the root, or a link whose
+target lies outside it. Every path the host reads is resolved inside a root, the
+spec root or the project root, or the root its `<name>/` prefix names: lexically
+first, then link by link on disk. The path is not read and no sibling is
+suggested. Name a file inside the root; a spec-rooted check names a project file
+as `<project>/…`.
+
+Owner: core
+Level: error
+```
+
+## E095
+
+```
+E095: Unknown path root
+
+A path a check reads starts with a `<name>/` prefix that names no root (ADR
+0335). The roots are `<spec>` and `<project>`; a path without a prefix is read
+in its check's root (the one its `root` argument names, or the checker's
+default). Write a known prefix, or drop it.
+
+Owner: core
+Level: error
+```
+
+## E096
+
+```
+E096: A file differs from its pinned digest
+
+A `@specforge/checks:digest` value reads `path@sha256:<64 hex digits>`, and the
+file's SHA-256 is another. If the change is intended, write the new digest; if
+not, restore the file. A missing file is E016, and a malformed pin is E103.
+
+Owner: @specforge/checks
+Level: error
+```
+
+## E097
+
+```
+E097: The file does not parse
+
+A `@specforge/checks` structured check (`json`, `yaml`, `toml`, or a `pointer`'s
+file) read a file that does not parse as its format, or is not UTF-8: the
+message names the parser's reason and the line and column. A `pointer` whose
+file's format its extension does not say, and whose `format` argument names
+none, is E097 too. Fix the file, or name its `format`. A file over the 1 MiB a
+structured check reads is W176 and is not checked.
+
+Owner: @specforge/checks
+Level: error
+```
+
+## E098
+
+```
+E098: The pointer or anchor names nothing in its file
+
+A `@specforge/checks:pointer` value's JSON pointer (`path#/a/0`, RFC 6901 in its
+fragment form) names no member of the file's tree, or a `markdown_anchor`
+value's `#anchor` is no heading slug, `{#id}` or HTML `id` of the Markdown file,
+as GitHub renders them. The finding sits on the `#` part: a pointer's message
+names the deepest part that exists, and an anchor's help lists the file's
+headings. Fix the fragment, or the file.
+
+Owner: @specforge/checks
+Level: error
+```
+
+## E099
+
+```
+E099: The image, SVG, PDF or media file is not one, or not of an allowed format
+
+A `@specforge/checks` media check read the file a value names, under its root or
+from an https URL, and it is not what the check reads: `image` found no image
+signature (or a whole file whose size does not read) or a format outside its
+`formats` (by default png, jpeg, webp, gif, svg, avif); `svg` found XML that is
+not well formed, or whose root is not `<svg>`; `pdf` found no `%PDF-` header, no
+`startxref` or a cross-reference that does not read; `media` found no container
+it knows (mp4, mov, m4a, webm, mkv, avi, wav, mp3, ogg, flac, aac) or one
+outside its `formats`. A URL that answers 404 or 410, or names another scheme
+than https, is E099 too. Fix the file or the value, or allow its format. A
+network that did not answer is W172, not E099.
+
+Owner: @specforge/checks
+Level: error
+```
+
+## E103
+
+```
+E103: The value is not well formed
+
+A format, a check digit, the name a files, git or pointer check reads, the URL
+or `formats` of a media check, or a registries check's package, DOI or ORCID iD
+is malformed by the standard its checker names (`@specforge/checks`, ADR 0338):
+the message names the standard, or the digit it expected, and the finding points
+at the part that is wrong when it can. Correct the value. No family switch gates
+it, since several families report it; turning a family's switch off stops its
+checkers.
+
+Owner: @specforge/checks
+Level: error
+```
+
+## E104
+
+```
+E104: The URL's content type is not allowed
+
+A `@specforge/checks:content_type` value answered a `Content-Type` outside the
+check's `allow`, or none. Point the link at the right resource, or add the type
+to `allow`.
+
+Owner: @specforge/checks
+Level: error
+```
+
+## E105
+
+```
+E105: The package, release, DOI or ORCID iD is not registered
+
+A `@specforge/checks` registries check asked the identifier's own resolver and
+got a definite no: `package`, `advisory` or `license_of` found no such package
+on crates.io, npm or PyPI (a 404), or no release its requirement admits once
+yanked releases are left out (the message names the newest release that is not
+yanked, and the finding sits on the requirement); `doi` found a DOI doi.org does
+not register (`responseCode` 100, or a 404); `orcid` found an iD ORCID has no
+record of (404 or 410). Fix the value. A registry that is down, limits the rate
+or wants credentials is W181 or W182, and one that did not answer W172, never
+E105.
+
+Owner: @specforge/checks
+Level: error
+```
+
+## E106
+
+```
+E106: A commit, ref or file at a revision is not found
+
+A `@specforge/checks` git check (`commit`, `ref`, `file_at`) names something
+this repository does not have. Fix the name. A miss git cannot vouch for is not
+reported: with no repository, in a shallow clone, or for a tag in a clone that
+fetched none, the check stays unchecked (I207).
+
+Owner: @specforge/checks
+Level: error
+```
+
+## E109
+
+```
+E109: Effects or roots not used as written
+
+A member of `effects` or `roots` in `specforge.json` is not used as written (ADR
+0335 D2.3): a port that is not `http`, `fs`, `git` or `process`, a port that is
+neither `"off"` nor an object (`process` is `"off"` or absent: a command runs as
+declared or not at all), a member the port does not take (`http`: `hosts`,
+`schemes`, `methods`; `fs`: `roots`, `ops`; `git`: `ops`), a list item that is
+no host pattern, scheme, HTTP method or op, a root named `spec`, `project` or
+`temp` (built in; `temp` is the verbs' scratch root, ADR 0339) or not a word, or
+a root whose path is empty or is no directory once resolved from the project
+root. The member or item is ignored and the rest is kept; the diagnostic points
+at its key. Either key that is not an object is E069. `effects` only narrows
+what extensions declare: an absent port is not narrowed, `"off"` removes it, an
+object keeps only what it lists.
+
+Owner: core
+Level: error
+```
+
+## E112
+
+```
+E112: The URL's fragment is not in the page
+
+A `@specforge/checks:url_anchor` value's `#fragment` names no `id` attribute,
+and no `name` of an `<a>`, in the page as served, read to its first 1 MiB with
+no script run. A page cut off at that cap with no match is not decided. Fix the
+fragment or the page.
+
+Owner: @specforge/checks
+Level: error
+```
+
+## E113
+
+```
+E113: The SVG carries active content
+
+A `@specforge/checks:svg` value's file holds a `<script>` element, an event
+attribute (`onload`, `onclick` and every other `on…`), a `javascript:` URL in
+an `href` or in what an animation sets, or an entity the check does not expand
+where one could hide either. The message names the first one and its line and
+column. An SVG shown through an `<img>` runs no script, but one opened, inlined
+or embedded does: remove it.
+
+Owner: @specforge/checks
+Level: error
+```
+
+## E114
+
+```
+E114: Short name taken by a core command
+
+An extension whose short name (its `ext_short`, else the last segment of its
+name: `@acme/check` is `check`) is the name of a core command of `specforge`
+(`check`, `files`, `git`, `http`, `run`, …) declares commands or prompts. The
+binary matches its own command first, so the CLI routes none of them: `specforge
+check list` runs the core `check`. MCP still serves the commands as
+`specforge.<short>.<id>`, and `specforge prompt <short>.<id>` still renders a
+prompt. Give the extension another short name (`ext_short`; the SDK's
+`#[extension(short = "...")]`).
 
 Owner: core
 Level: error
@@ -1939,13 +2258,50 @@ I205: Test inputs not judged
 
 A judged rule (ADR 0290) reads the recorded tests of an entity as an input (a
 `test(..)` selector, or a verdict that cites tests), or a check, compute or
-guard pass declares `reads_tests` (protocol 1.11.0), but no test results are
-recorded: there is no `specforge-report.json`, or every chain of a `test(..)`
-input reads references whose facts no collect has stored (ADR 0331). Run
-`specforge collect`. The rule's other inputs are judged as usual and the test
-input is left out of the comparison, so a verdict is not made stale by results
-that are not there. Nothing is wrong with the project. A report that exists but
-cannot be used is E045.
+guard pass declares the `tests` input (ADR 0293, ADR 0337), but no test results
+are recorded: there is no `specforge-report.json`, or every chain of a
+`test(..)` input reads references whose facts no collect has stored (ADR 0331).
+Run `specforge collect`. The rule's other inputs are judged as usual and the
+test input is left out of the comparison, so a verdict is not made stale by
+results that are not there. Nothing is wrong with the project. A report that
+exists but cannot be used is E045.
+
+Owner: core
+Level: info
+```
+
+## I206
+
+```
+I206: Value checks not run
+
+Some value checks were not run on this machine (ADR 0337): the run was offline,
+in `cached` mode with no fresh record in the effects journal
+(`.specforge/effects/`), the effect was not approved here, or the run's budget
+was spent (scope `budget`: too many probes on one value, too long, or too many
+bytes, a registry's index past the 16 MiB its check reads among them). One
+summary per compile counts them by scope (`links 2, registries 3`). The values
+are left unchecked, not failed, and nothing is wrong with the project. Run
+`specforge check` at a terminal (it runs `--effects auto`), or `--effects
+online`, to perform them. A `machine` diagnostic: `--strict` never promotes it,
+and the gate's warning baseline never counts it.
+
+Owner: core
+Level: info
+```
+
+## I207
+
+```
+I207: Checked values not judged
+
+A judged rule (ADR 0290) reads an entity whose checked values include one this
+machine did not check (I206): its outcome is `unknown`. Like a missing test
+report (I205), that input is left out of the freshness comparison, so a verdict
+is not made stale, nor red, by a check that did not run offline or on a fresh
+clone (ADR 0337). Run the checks with effects (`specforge check` at a terminal,
+or `--effects online`) to judge it. A `machine` diagnostic: `--strict` never
+promotes it.
 
 Owner: core
 Level: info
@@ -2663,14 +3019,20 @@ Level: warning
 ## W019
 
 ```
-W019: Unknown field type
+W019: Unknown field type or checker
 
 An extension manifest declares a field whose `field_type` value the compiler
 doesn't recognize (it must be one of `string`, `integer`, `bool`, `date`,
 `enum`, `enum_list`, `identifier`, `string_list`, `reference`, `reference_list`,
 `block` or `block_list`); a member of a block or block list is a field and is
-read the same way, and one with an unknown type is dropped. Correct the field's
-`field_type` in the manifest.
+read the same way, and one with an unknown type is dropped. Or a field names a
+value checker that leads nowhere: no loaded extension is the one it names, the
+extension declares no checker of that name, a name without an extension is not
+the declaring extension's own checker, another extension's checker is used
+without declaring it a peer, or an `any_of` branch names nothing. The check is
+dropped. A checker of an optional peer the project does not load is no mistake:
+its check is inert. Correct the field's `field_type` or the check's name,
+declare the peer, or enable the extension.
 
 Owner: core
 Level: warning
@@ -2714,10 +3076,9 @@ other than `block` or `block_list`, a `block_list` with none, a member named
 twice or not one identifier, a member that declares `derived_from`,
 `target_kinds` together with `target_kind`, on a type other than `reference` or
 `reference_list`, or naming one kind, a `minimum` or `maximum` on a type other
-than `integer` (or `number`, a setting's) or a `minimum` above the `maximum`, a
-field of type `number` on a kind (the `.spec` grammar has no decimal literal,
-ADR 0305), and a `file_base` other than `spec` or `project`, or without
-`file_reference`; a `scoped_by` field with `target_kinds` scopes nothing. Who
+than `integer` (or `number`, a setting's) or a `minimum` above the `maximum`,
+and a field of type `number` on a kind (the `.spec` grammar has no decimal
+literal, ADR 0305); a `scoped_by` field with `target_kinds` scopes nothing. Who
 writes a field is checked too (ADR 0287): a `writer` other than `computed`,
 `harness`, `human` or `verdict`, `harness` or `verdict` on a member, a computed
 or verdict field that is also `required`, `immutable`, `append_only` or
@@ -2772,12 +3133,15 @@ command the extension declares, `tools` or `paths` on a hook of an event that
 takes none, a `timeout_ms` of 0 or above the ceiling (30 s, or the sandbox's),
 `writes` on a `statusline` hook, a hook export that is not `hook__<id>`, an
 attribution with an empty field, and a prompt step whose `agent` is no agent of
-the extension or of a declared peer. A pass's or command's `reads` that the host
-would serve empty are W021 too (ADR 0293), the pass or command being kept: a
-read whose name is no word or is repeated, that names neither or both of `field`
-and `glob`, a `field` that is not `kind.field` or that no loaded extension
-declares, a `base` on a glob or other than `spec` or `project`, and a glob that
-is empty, absolute, climbs with `..`, or has more than four `**` segments.
+the extension or of a declared peer. An input the host would serve empty is W021
+too (ADR 0293, ADR 0337), the call being kept: an input its call kind is not
+served, a collector's included, or a second one of a kind served once (`tests`,
+`state`, `graph`, `slash_commands`, `git`), a `setting` input naming the call's
+own extension or no extension and setting, and a `files` input whose name is no
+word or is repeated, that names neither or both of `field` and `glob`, a `field`
+that is not `kind.field` or that no loaded extension declares, a `root` on a
+glob or that is no root's name, and a glob that is empty, absolute, climbs with
+`..`, or has more than four `**` segments.
 
 Owner: core
 Level: warning
@@ -3600,12 +3964,13 @@ give, so the extension runs without it. A component is granted no capability,
 whatever it declares: no directory, environment, arguments, stdin, socket or
 name lookup (ADR 0037). So a `sandbox_policy` key other than `max_execution_ms`
 and `max_memory_mb` that asks for something (`network_access: true`, a non-empty
-`allowed_paths`, a misspelled limit), and a surface's `sandbox` override, grant
-nothing. A declared limit above the host's ceiling (30000 ms per call, 512 MB of
-linear memory) is held to the ceiling. The message names the extension and the
-key. Remove the key, or lower the limit. An extension that needs a file's
-content gets it in its input (an analyzer is handed each file); one that needs
-the network can't run in SpecForge.
+`allowed_paths`, a misspelled limit) is not a limit the host reads, and it and a
+surface's `sandbox` override grant nothing. A declared limit above the host's
+ceiling (30000 ms per call, 512 MB of linear memory) is held to the ceiling. The
+message names the extension and the key. Remove the key, or lower the limit. An
+extension that needs a file's content gets it in its input (an analyzer is
+handed each file); one that needs the network, a file outside its input or a
+command declares a capability (ADR 0335 D2).
 
 Owner: core
 Level: warning
@@ -3833,12 +4198,269 @@ Level: warning
 W169: Older specforge on PATH
 
 `specforge doctor` ran the first `specforge` on PATH with `--version` and it
-speaks an older extension protocol minor than the specforge running doctor, or
-than an extension the project loads, or names no protocol at all (a release from
-before `--version` named it). The hooks and the MCP server that `specforge
-install` writes run `specforge` from PATH, so they run that binary, which
-refuses the project's newer extensions (E088) or would drop what they declare.
-Update the specforge on PATH, or put this one first on PATH (ADR 0326).
+speaks an older extension protocol than the specforge running doctor, or than an
+extension the project loads, or names no protocol at all (a release from before
+`--version` named it). The hooks and the MCP server that `specforge install`
+writes run `specforge` from PATH, so they run that binary, which refuses the
+project's newer extensions (E088) or would drop what they declare. Update the
+specforge on PATH, or put this one first on PATH (ADR 0326).
+
+Owner: core
+Level: warning
+```
+
+## W170
+
+```
+W170: Effects not approved on this machine
+
+A capability an extension uses here (an HTTP request, a command, a write) needs
+this machine's approval and has none (ADR 0335 D2.4), or a root it reads (a
+named one, or the spec root) lies outside the project and is not approved.
+Approvals are per machine and per project, kept in `~/.specforge/consent.json`,
+never in the project: a builtin's by its name, a third-party extension's by the
+digest of its blob, so a new blob asks again, as does a wider scope. Only the
+scopes the run uses are listed. Approve them with `specforge grants approve
+<extension> <scope>...` (`--root <name>` for a root), or pass `--yes` to allow
+them for one run. A `machine` diagnostic: `--strict` never promotes it, and the
+gate's warning baseline never counts it.
+
+Owner: core
+Level: warning
+```
+
+## W171
+
+```
+W171: Capability narrowed by the project's effects ceiling
+
+`effects` in `specforge.json` narrows a capability an extension declares (ADR
+0335 D2.3): a host, scheme, method, root or op it lists is not allowed, or the
+port is `"off"`. One per extension and capability, naming what was removed, and
+"it grants nothing" when nothing is left; the diagnostic points at the ceiling
+key that narrowed it. What the ceiling removes is refused when the extension
+asks for it (E090). Widen `effects` if the project means to allow it, or leave
+it: the warning says what the extension cannot do here.
+
+Owner: core
+Level: warning
+```
+
+## W172
+
+```
+W172: The URL or name did not answer
+
+The DNS lookup, the connection, the TLS handshake or the wait for an answer
+failed, a `@specforge/checks:dns` name does not resolve, or a server answered a
+media check's request for part of a file with all of it, past the 1 MiB that is
+read, or a registry's answer did not read as its format (one over the 16 MiB
+read leaves its value unchecked, I206). It says nothing about the project, only
+what this machine's network saw, so retry later or check the network. A
+`machine` diagnostic: `--strict` never promotes it, and the gate's warning
+baseline never counts it.
+
+Owner: @specforge/checks
+Level: warning
+```
+
+## W173
+
+```
+W173: The URL redirected where it was not followed
+
+A redirect left the hosts this run is granted, downgraded https to http or went
+past 5 hops, or a `@specforge/checks:redirect` value ended on a host outside
+`hosts`. Point the link at the final URL, or widen `hosts` if the destination is
+intended. A `machine` diagnostic: `--strict` never promotes it, and the gate's
+warning baseline never counts it.
+
+Owner: @specforge/checks
+Level: warning
+```
+
+## W174
+
+```
+W174: Path case differs from the disk
+
+A path a check reads names a file that exists only under another case
+(`README.md` for `Readme.md`) (ADR 0335). Each name is compared with its
+directory's listing on every OS, so a spec that passes on a case-insensitive
+macOS or Windows disk does not fail on Linux. The message names the spelling on
+disk; write it.
+
+Owner: core
+Level: warning
+```
+
+## W175
+
+```
+W175: Path uses backslashes
+
+A path a check reads uses `\` as a separator (ADR 0335). It is read as `/`, so
+the path resolves on every OS, but a spec writes `/`. Replace each backslash
+with `/`.
+
+Owner: core
+Level: warning
+```
+
+## W176
+
+```
+W176: A file is not what its check asks
+
+A `@specforge/checks` files check found a file over its `size`, in another
+`encoding`, a `line_range` past the file's end, or more matches of a `glob` than
+its `max`; a structured or `svg` check found a file over the 1 MiB it reads, or
+one that is no regular file; or a `pdf` check asked for `max_pages` could not
+read the page count (its page tree in an encrypted object stream, or past what
+three rounds of reads reach), so the limit is not checked. Fix the file, or the
+check's arguments.
+
+Owner: @specforge/checks
+Level: warning
+```
+
+## W177
+
+```
+W177: The image, SVG, PDF or media file is over its limit
+
+A `@specforge/checks` media check's file is longer than its `max_bytes`, an
+image has more pixels than its `max_pixels`, or a PDF has more pages than its
+`max_pages`. No limit is set unless the check names it. Shrink the file, or
+raise the limit.
+
+Owner: @specforge/checks
+Level: warning
+```
+
+## W178
+
+```
+W178: The URL's certificate expires soon
+
+A `@specforge/checks:tls` value's certificate has a `not_after` within the
+check's `days` (14 by default). Renew it, or lower `days`.
+
+Owner: @specforge/checks
+Level: warning
+```
+
+## W179
+
+```
+W179: The package release has an advisory, or a licence that is not allowed
+
+A `@specforge/checks:advisory` value's package resolves to a release OSV lists
+an advisory for (withdrawn ones are not reported): the message names its id, its
+aliases and the first version a range of it names as fixed. Or a `license_of`
+value's release states a licence its `allow` does not admit (an SPDX expression
+holds when the licences `allow` names satisfy it), or states none as SPDX.
+Upgrade or replace the package, or widen `allow` if the licence is accepted.
+
+Owner: @specforge/checks
+Level: warning
+```
+
+## W180
+
+```
+W180: A path is not tracked by git
+
+A `@specforge/checks:tracked` value names a path that is not in the commit at
+HEAD: it is ignored, untracked or only staged. Commit it, or stop naming it.
+
+Owner: @specforge/checks
+Level: warning
+```
+
+## W181
+
+```
+W181: The URL answered with another status
+
+After at most 5 redirects, the URL answered 429, a 5xx or another status that is
+neither success nor gone. Whether the page exists is not decided, so retry
+later. A `machine` diagnostic: `--strict` never promotes it, and the gate's
+warning baseline never counts it.
+
+Owner: @specforge/checks
+Level: warning
+```
+
+## W182
+
+```
+W182: The URL needs credentials
+
+The URL answered 401 or 403: the page needs credentials this machine did not
+send, so whether it exists is not decided. Approve a secret for the extension if
+it should be read, or drop the check. A `machine` diagnostic: `--strict` never
+promotes it, and the gate's warning baseline never counts it.
+
+Owner: @specforge/checks
+Level: warning
+```
+
+## W183
+
+```
+W183: The URL answered that the page is gone (lowered)
+
+After at most 5 redirects, the URL answered 404 or 410, on a field whose check
+says `status: "warn"`, so the project asks for a warning rather than E093. Fix
+the link or remove it.
+
+Owner: @specforge/checks
+Level: warning
+```
+
+## W186
+
+```
+W186: Consent store not usable
+
+The user's consent store (`~/.specforge/consent.json`, or the file
+`SPECFORGE_CONSENT_FILE` names) cannot be used (ADR 0335 D2.5): it cannot be
+read, is not JSON or not a consent store, was written by a newer specforge (a
+higher `version`), it lies inside the project, where a repository could approve
+its own effects (a `SPECFORGE_CONSENT_FILE` there, or a home directory that is
+the project or lies in it), `SPECFORGE_CONSENT_FILE` names it by a relative
+path, it or its directory belongs to another user or is writable by its group or
+others (on Unix, where someone else could approve effects for you; a shared
+directory such as `/tmp` is refused), or there is no home directory to hold it
+(the store never falls back to a shared directory). Nothing in it is approved,
+and nothing is written over it: an approval given now is not kept. The message
+names the file and why. Fix the file or move it away, update specforge, or point
+`SPECFORGE_CONSENT_FILE` at an absolute path outside the project.
+
+Owner: core
+Level: warning
+```
+
+## W189
+
+```
+W189: Check or checker the registry refuses
+
+An extension declares a value checker or a field's check the host cannot run,
+and it is dropped while the rest of the declaration is kept. A checker: a name
+that is not snake_case or is declared twice, an `applies_to` naming a type that
+holds no value a checker reads (it reads `string`, `string_list`, `identifier`,
+`date` and `integer`), an argument named `severity` (severity is a code: give an
+enum argument whose values select one code each, and list both codes) or of a
+form a setting cannot have, a scope the extension declares no capability for, a
+code its catalogue lacks, a `value` other than `text`, `url` or `path`, a
+`root_arg` that is none of its arguments or sits on a checker whose values are
+not paths. A check: a field type its checker does not read, a `computed` or
+`verdict` field or a field of a kind a collector writes (their values are not
+authored), arguments the checker's schema refuses, or an `any_of` with fewer
+than two branches or nested. Also a `root_arg` value that names no root. Correct
+the declaration in the extension's source and rebuild it.
 
 Owner: core
 Level: warning

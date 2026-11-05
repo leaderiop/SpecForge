@@ -145,7 +145,8 @@ fn ops_opens_file_content_only_through_the_containment() {
             .replace('\\', "/");
         let name = file.file_name().unwrap().to_string_lossy().into_owned();
         let skipped = rel.starts_with("containment/")
-            || rel == "analysis/collect/process.rs"
+            // The user's consent store, outside every project (ADR 0335 D2.5).
+            || rel == "consent.rs"
             || rel.contains("/tests/")
             || rel.starts_with("registry/testing/")
             || name == "tests.rs"

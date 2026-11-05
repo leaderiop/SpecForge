@@ -1,0 +1,125 @@
+{
+  "category": "entities",
+  "items": [
+    {
+      "description": "What one check said of one value (ADR 0336), written by the checks collector: check:<entity>/<field>#<item>@<checker>",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "fields": [
+        {
+          "default_value": null,
+          "description": "The id of the checked entity",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "entity",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The checked field's declared path",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "field",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The value's place in its list; 0 for a single value",
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "name": "item",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The checker, qualified: @specforge/checks:url",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "checker",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "passed (no finding), failed (a finding) or skipped (not performed)",
+          "edge": null,
+          "enum_values": [
+            "passed",
+            "failed",
+            "skipped"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "status",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "What its probes answered: ok, status:404, unreachable:dns, …",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "outcome",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The codes it found",
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "codes",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "When its oldest journaled answer was observed (RFC 3339, UTC): the journal record's; absent when it read only the disk or git",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "observed_at",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The digest of what its probes answered, free of when (sha256:<hex>)",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "digest",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": null,
+      "keyword": null,
+      "lsp_icon": null,
+      "name": "check_outcome",
+      "open_fields": false,
+      "result": "status",
+      "schemes": [
+        "check"
+      ],
+      "semantic_token": null,
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": [],
+      "writer": "collector"
+    }
+  ]
+}

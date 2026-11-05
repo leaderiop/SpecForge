@@ -1,5 +1,5 @@
 //! A project that sets no setting reads, calls and reports as it did before ADR 0288: no settings
-//! diagnostic, and no call input holds a `settings` key.
+//! diagnostic, and no call input holds a `settings` key. And `checks` in `specforge.json` attaches value checks.
 
 use std::sync::Arc;
 
@@ -472,4 +472,121 @@ fn a_number_setting_keeps_its_bounds() {
         "{}",
         found[0].message
     );
+}
+
+mod attached_checks {
+    use super::*;
+
+    fn checkers(name: &'static str) -> ContributionsBuilder {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(name, "1.0.0"));
+        c.code("W001", |d| {
+            d.title("A finding").explanation("A finding.");
+        });
+        c.checker("url", |k| {
+            k.applies_to(&["string"])
+                .codes(&["W001"])
+                .plan(|_| PlannedItem::default());
+        });
+        c
+    }
+
+    fn service() -> ContributionsBuilder {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@pin/service", "1.0.0"));
+        c.kind("service", |k| {
+            k.keyword("service");
+            k.field("health", |f| {
+                f.field_type(FieldType::String);
+            });
+        });
+        c
+    }
+
+    /// An extension with checkers, by name and builder.
+    type Checkers = (&'static str, fn() -> ContributionsBuilder);
+
+    fn compiled(fields: Value, extra: &[Checkers]) -> specforge_project::CompiledProject {
+        let mut runtime = InProcessRuntime::new().with(service);
+        let mut names = vec!["@pin/service"];
+        for (name, build) in extra {
+            runtime = runtime.with(*build);
+            names.push(name);
+        }
+        TestProject::new()
+            .config(move |c| {
+                c["name"] = "p".into();
+                c["checks"] = json!({ "fields": fields });
+            })
+            .enabling(&names)
+            .installing_enabled()
+            .file("a.spec", "service a \"A\" {}\n")
+            .compile_in(Arc::new(runtime))
+    }
+
+    fn coded(project: &specforge_project::CompiledProject, code: &str) -> Vec<Diagnostic> {
+        project
+            .diagnostics()
+            .into_iter()
+            .filter(|d| d.code == code)
+            .collect()
+    }
+
+    fn one() -> ContributionsBuilder {
+        checkers("@pin/one")
+    }
+
+    fn two() -> ContributionsBuilder {
+        checkers("@pin/two")
+    }
+
+    #[test]
+    fn an_attached_check_on_an_unknown_field_is_w019_at_its_key() {
+        let project = compiled(json!({"service.nope": "url"}), &[("@pin/one", one)]);
+        let found = coded(&project, "W019");
+        assert_eq!(found.len(), 1, "{:?}", project.diagnostics());
+        assert!(found[0].message.contains("service.nope"), "{found:?}");
+        let span = found[0].span.as_ref().expect("spanned at its key");
+        assert_eq!(span.file.as_ref(), "specforge.json");
+    }
+
+    #[test]
+    fn an_ambiguous_short_name_is_w019_listing_both() {
+        let project = compiled(
+            json!({"service.health": "url"}),
+            &[("@pin/one", one), ("@pin/two", two)],
+        );
+        let found = coded(&project, "W019");
+        assert_eq!(found.len(), 1, "{:?}", project.diagnostics());
+        for name in ["@pin/one:url", "@pin/two:url"] {
+            assert!(found[0].message.contains(name), "{found:?}");
+        }
+    }
+
+    #[test]
+    fn a_unique_short_name_resolves() {
+        let project = compiled(json!({"service.health": "url"}), &[("@pin/one", one)]);
+        assert!(
+            coded(&project, "W019").is_empty(),
+            "{:?}",
+            project.diagnostics()
+        );
+        let checks = project.environment().registries().checks();
+        let calls: Vec<_> = checks
+            .on("service", "health")
+            .iter()
+            .flat_map(|c| c.calls())
+            .collect();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].extension, "@pin/one");
+    }
+
+    #[test]
+    fn a_check_its_checker_refuses_is_w189_at_its_key() {
+        let project = compiled(
+            json!({"service.health": {"checker": "url", "args": {"x": 1}}}),
+            &[("@pin/one", one)],
+        );
+        let found = coded(&project, "W189");
+        assert_eq!(found.len(), 1, "{:?}", project.diagnostics());
+        assert!(found[0].span.is_some());
+    }
 }

@@ -6,7 +6,12 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use crate::{CommandFormat, CommandGraph, CommandInput, CommandOutput, ContributionsBuilder};
-use specforge_protocol_types::{CommandArgType, FileFacts};
+use specforge_protocol_types::{
+    CheckFinding, CheckItem, CheckPhase, CheckValuesInput, CommandArgType, FileFacts, PlannedItem,
+    ProbeOutcome,
+};
+
+pub use crate::host::in_process::{InProcessHost, serve};
 
 /// Wraps a [`ContributionsBuilder`] and asserts on its wire output.
 pub struct MockHost(pub ContributionsBuilder);
@@ -49,6 +54,83 @@ impl MockHost {
             serde_json::from_str(&self.handshake_json()).expect("actual is valid JSON");
         let e: serde_json::Value = serde_json::from_str(expected).expect("expected is valid JSON");
         assert_eq!(a, e, "handshake wire output mismatch");
+    }
+
+    /// What `checker` plans for a value of `text`, as `__check_values` answers it.
+    pub fn plan(&self, checker: &str, text: &str, args: serde_json::Value) -> PlannedItem {
+        self.check_values(CheckPhase::Plan, checker, text, args, Vec::new(), None)
+            .expect("a plan answers every value")
+    }
+
+    /// What `checker` judges of a value of `text` once its probes answered `outcomes`.
+    pub fn judge(
+        &self,
+        checker: &str,
+        text: &str,
+        args: serde_json::Value,
+        outcomes: Vec<ProbeOutcome>,
+    ) -> Vec<CheckFinding> {
+        self.check_values(CheckPhase::Judge, checker, text, args, outcomes, None)
+            .unwrap_or_else(|| panic!("'{checker}' left '{text}' unchecked"))
+            .findings
+    }
+
+    /// Whether `checker`'s judge leaves a value of `text` unchecked once its probes answered `outcomes`
+    /// ([`crate::Judged::Unchecked`]): the reply holds no answer for it.
+    pub fn unchecked(
+        &self,
+        checker: &str,
+        text: &str,
+        args: serde_json::Value,
+        outcomes: Vec<ProbeOutcome>,
+    ) -> bool {
+        self.check_values(CheckPhase::Judge, checker, text, args, outcomes, None)
+            .is_none()
+    }
+
+    /// What `checker` answers in a judge round, handed that round's `outcomes` and the `carry` its last round
+    /// asked for: findings, or the probes of another round with the carry to hand back; none when it leaves the value
+    /// unchecked.
+    pub fn judge_round(
+        &self,
+        checker: &str,
+        text: &str,
+        args: serde_json::Value,
+        outcomes: Vec<ProbeOutcome>,
+        carry: Option<serde_json::Value>,
+    ) -> Option<PlannedItem> {
+        self.check_values(CheckPhase::Judge, checker, text, args, outcomes, carry)
+    }
+
+    fn check_values(
+        &self,
+        phase: CheckPhase,
+        checker: &str,
+        text: &str,
+        args: serde_json::Value,
+        outcomes: Vec<ProbeOutcome>,
+        carry: Option<serde_json::Value>,
+    ) -> Option<PlannedItem> {
+        let serde_json::Value::Object(args) = args else {
+            panic!("a checker's args are an object");
+        };
+        let input = CheckValuesInput {
+            phase,
+            items: vec![CheckItem {
+                id: 0,
+                checker: checker.to_string(),
+                entity: "an_entity".to_string(),
+                field: "a_field".to_string(),
+                item: 0,
+                text: text.to_string(),
+                args,
+                outcomes,
+                carry,
+            }],
+        };
+        let answer = crate::checker::answer(&self.0.checkers.borrow(), &input)
+            .unwrap_or_else(|why| panic!("{why}"));
+        answer.items.into_iter().next()
     }
 }
 

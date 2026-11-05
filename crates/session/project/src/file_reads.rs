@@ -11,10 +11,14 @@
 //! reads that are slow.
 
 use std::collections::BTreeMap;
-use std::path::{Component, Path, PathBuf};
+use std::path::Path;
+
+use specforge_effects::contained::{Contained, Resolved};
+use specforge_effects::fs::SKIPPED;
+use specforge_effects::{Root, Roots};
 
 use specforge_protocol_types::{FileFact, FileFacts, FileRead};
-use specforge_registry::{Disk, EntitySnapshot, paths_named, read_problem};
+use specforge_registry::{Disk, DiskLookup, EntitySnapshot, paths_named, read_problem};
 
 use crate::judged::file_digest;
 
@@ -26,27 +30,16 @@ pub const TEXT_BUDGET: usize = 1024 * 1024;
 pub const MAX_FILES: usize = 2000;
 /// The most entries (files and directories) one glob visits, matched or not.
 pub const MAX_VISITS: usize = 20_000;
-/// Directories a glob does not enter unless a literal segment of the pattern names them: version control, the tool's
-/// own state, and the usual build and dependency output.
-const SKIPPED: [&str; 9] = [
-    ".git",
-    ".specforge",
-    ".next",
-    ".venv",
-    "dist",
-    "node_modules",
-    "target",
-    "vendor",
-    ".svn",
-];
 
 /// Where the files are read from.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct FileSource<'a> {
     /// Every `exists`, `list` and `read` goes through it.
     pub disk: &'a dyn Disk,
     pub project_root: &'a Path,
     pub spec_root: &'a Path,
+    /// The roots a value's `<root>/` prefix may name.
+    pub roots: Roots,
 }
 
 impl crate::Environment {
@@ -56,6 +49,7 @@ impl crate::Environment {
             disk,
             project_root: self.root(),
             spec_root: self.spec_root(),
+            roots: self.read_roots(),
         }
     }
 }
@@ -81,23 +75,13 @@ impl Memo {
     }
 }
 
-/// A read in progress: where the files are, and the project root with its links resolved (when the disk has links),
-/// which every path read must stay under (ADR 0293: a link out of the project is `outside_project`).
+/// A read in progress: where the files are, and the one containment every path read resolves through (ADR 0293,
+/// ADR 0335: a path that leaves the project, by `..`, as an absolute path or through a link, is `outside_project`).
+/// shortcut: the check and the read are two calls, so a link swapped between them is read; the same race
+/// `ContainedDisk` closes by holding the file, which a recording disk cannot do.
 struct Ctx<'a> {
     source: &'a FileSource<'a>,
-    real_root: Option<PathBuf>,
-}
-
-impl Ctx<'_> {
-    /// Whether `at`, with its links resolved, leaves the project. shortcut: the check and the read are two calls, so a
-    /// link swapped between them is read; the same race `ContainedDisk` closes by holding the file, which a
-    /// recording disk cannot do.
-    fn escapes(&self, at: &Path) -> bool {
-        match (&self.real_root, self.source.disk.canonical(at)) {
-            (Some(root), Some(real)) => !real.starts_with(root),
-            _ => false,
-        }
-    }
+    contained: &'a Contained<'a>,
 }
 
 /// The facts `reads` ask for, by read name. A read that is malformed (`read_problem`) or repeats an earlier name is
@@ -107,9 +91,11 @@ pub fn read(
     entities: &EntitySnapshot,
     source: &FileSource<'_>,
 ) -> BTreeMap<String, FileFacts> {
+    let lookup = DiskLookup(source.disk);
+    let contained = Contained::new(&source.roots, &lookup);
     let ctx = Ctx {
         source,
-        real_root: source.disk.canonical(source.project_root),
+        contained: &contained,
     };
     let mut files = BTreeMap::new();
     for read in reads {
@@ -136,28 +122,31 @@ fn field_facts(
 ) -> FileFacts {
     let source = ctx.source;
     let (kind, declared) = field.split_once('.').unwrap_or((field, ""));
-    let base = match read.base.as_deref() {
-        Some("spec") => source.spec_root,
-        _ => source.project_root,
-    };
+    let base = read
+        .root
+        .as_deref()
+        .and_then(Root::parse)
+        .unwrap_or(Root::Project);
     // One fact per (entity, path): the same path named twice by one entity is one file.
-    let mut named: BTreeMap<(String, String), Option<PathBuf>> = BTreeMap::new();
+    let mut named: BTreeMap<(String, String), Option<Resolved>> = BTreeMap::new();
     for record in entities.records().iter().filter(|r| r.kind == kind) {
         for written in paths_named(record, declared) {
-            let inside = inside(source.project_root, written, base);
-            let shown = inside
-                .as_ref()
-                .map_or_else(|| written.replace('\\', "/"), |rel| slashed(rel));
-            named
-                .entry((record.id.clone(), shown))
-                .or_insert_with(|| inside.map(|rel| source.project_root.join(rel)));
+            let resolved = ctx.contained.resolve(written, base.clone()).ok();
+            let shown = resolved.as_ref().map_or_else(
+                || written.replace('\\', "/"),
+                |r| {
+                    r.at.strip_prefix(source.project_root)
+                        .map_or_else(|_| r.rel.clone(), slashed)
+                },
+            );
+            named.entry((record.id.clone(), shown)).or_insert(resolved);
         }
     }
     let truncated = named.len() > MAX_FILES;
     let facts = named
         .into_iter()
         .take(MAX_FILES)
-        .map(|((entity, path), at)| fact(ctx, path, Some(entity), at.as_deref(), read.text, budget))
+        .map(|((entity, path), at)| fact(ctx, path, Some(entity), at.as_ref(), read.text, budget))
         .collect();
     FileFacts { facts, truncated }
 }
@@ -180,7 +169,7 @@ fn glob_facts(read: &FileRead, glob: &str, ctx: &Ctx<'_>, budget: &mut usize) ->
     let mut found = Found::default();
     let first = source.project_root.join(&start);
     // A literal prefix that is itself a link out of the project is not entered.
-    if !ctx.escapes(&first) {
+    if start.is_empty() || ctx.contained.resolve(&start, Root::Project).is_ok() {
         let real = source.disk.canonical(&first);
         walk(ctx, &start, real.as_deref(), &plan, &mut found);
     }
@@ -194,8 +183,8 @@ fn glob_facts(read: &FileRead, glob: &str, ctx: &Ctx<'_>, budget: &mut usize) ->
     let facts = files
         .into_iter()
         .map(|path| {
-            let at = source.project_root.join(&path);
-            fact(ctx, path, None, Some(&at), read.text, budget)
+            let at = ctx.contained.resolve(&path, Root::Project).ok();
+            fact(ctx, path, None, at.as_ref(), read.text, budget)
         })
         .collect();
     FileFacts { facts, truncated }
@@ -269,12 +258,12 @@ fn walk(ctx: &Ctx<'_>, dir: &str, real: Option<&Path>, plan: &Walk<'_>, found: &
     }
 }
 
-/// The facts of the file at `at` (`None`: the path is outside the project and is not read).
+/// The facts of the file `at` resolves to (`None`: the path leaves the project and is not read).
 fn fact(
     ctx: &Ctx<'_>,
     path: String,
     entity: Option<String>,
-    at: Option<&Path>,
+    at: Option<&Resolved>,
     text: bool,
     budget: &mut usize,
 ) -> FileFact {
@@ -284,28 +273,19 @@ fn fact(
         ..FileFact::default()
     };
     let source = ctx.source;
-    let Some(at) = at else {
+    let Some(resolved) = at else {
         fact.error = Some("outside_project".into());
         return fact;
     };
-    fact.exists = source.disk.exists(at);
+    let at = resolved.at.as_path();
+    // A name that differs in case from the disk's is absent on every OS, as Linux sees it (ADR 0335).
+    fact.exists = source.disk.exists(at) && resolved.case.is_none();
     if !fact.exists {
-        return fact;
-    }
-    if ctx.escapes(at) {
-        fact.exists = false;
-        fact.error = Some("outside_project".into());
         return fact;
     }
     // A text read never carries a secret-looking file, by its name or the name a link resolves to. Its existence is
     // still a fact and still a check input.
-    if text
-        && (withheld(&fact.path)
-            || source
-                .disk
-                .canonical(at)
-                .is_some_and(|real| withheld(&slashed(&real))))
-    {
+    if text && resolved.withheld {
         fact.error = Some("denied".into());
         return fact;
     }
@@ -337,48 +317,6 @@ fn fact(
         Err(_) => fact.error = Some("unreadable".into()),
     }
     fact
-}
-
-/// `joined` relative to `root`, lexically normalised, when it stays inside: an absolute path (even one under the
-/// root) or one that climbs out with `..` is outside. A link is judged where the file is read ([`Ctx::escapes`]).
-fn inside(root: &Path, written: &str, base: &Path) -> Option<PathBuf> {
-    if Path::new(written).has_root() || Path::new(written).is_absolute() {
-        return None;
-    }
-    let joined = base.join(written);
-    let mut out = PathBuf::new();
-    for component in joined.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                out.pop();
-            }
-            other => out.push(other),
-        }
-    }
-    out.strip_prefix(root)
-        .ok()
-        .map(Path::to_path_buf)
-        .filter(|rel| !rel.as_os_str().is_empty())
-}
-
-/// Whether the file at `path` looks like it holds a credential, which a read for text does not hand to a guest:
-/// `.env` and `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `.npmrc`, `.netrc`, `credentials*` and
-/// `.git/config`. shortcut: names only, and no project can opt a file in; upgrade when a project needs to.
-fn withheld(path: &str) -> bool {
-    let path = path.to_ascii_lowercase();
-    let name = path.rsplit('/').next().unwrap_or_default();
-    name == ".env"
-        || name.starts_with(".env.")
-        || name.ends_with(".pem")
-        || name.ends_with(".key")
-        || name.starts_with("id_rsa")
-        || name.starts_with("id_ed25519")
-        || name == ".npmrc"
-        || name == ".netrc"
-        || name.starts_with("credentials")
-        || path == ".git/config"
-        || path.ends_with("/.git/config")
 }
 
 fn slashed(path: &Path) -> String {

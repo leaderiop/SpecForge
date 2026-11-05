@@ -84,20 +84,6 @@ type EnhancementRegisteredPayload "Enhancement Registered Payload" {
 
 // ── Contribution Lifecycle Events ──────────────────────────
 
-event contribution_permission_denied "Contribution Permission Denied" {
-  channel "wasm.contribution_permission_denied"
-  payload ContributionPermissionDeniedPayload
-  verify integration "emits contribution_permission_denied with correct callSite and hostFunction"
-}
-
-type ContributionPermissionDeniedPayload "Contribution Permission Denied Payload" {
-  extensionName string
-  callSite      string
-  hostFunction  string
-  reason        string
-  verify unit "ContributionPermissionDeniedPayload schema is valid"
-}
-
 // ── Discovery Events ──────────────────────────────────────
 // Terminal events (consumers []) are intentionally leaf events for
 // observability, audit trails, and CLI output. Not every event requires

@@ -1,20 +1,12 @@
 use super::*;
-use crate::analysis::collect::Collector;
 use specforge_test_macros::test as specforge_test;
 use std::path::Path;
+use std::sync::Arc;
+use std::time::SystemTime;
 
-fn collector(report: &str) -> Collector {
-    Collector {
-        extension: "@acme/runner".into(),
-        name: "acme".into(),
-        export: "collect__acme".into(),
-        detect: vec!["acme.config.*".into()],
-        run: vec!["acme".into(), "--out={report}".into()],
-        report: report.into(),
-        capture: None,
-        writes: false,
-        reads: Vec::new(),
-    }
+/// A machine running real programs.
+fn real_machine() -> ProcessMachine {
+    ProcessMachine::new(Arc::new(specforge_process::Runner))
 }
 
 /// Run `argv` in `dir` with `report` as its report location.
@@ -25,7 +17,7 @@ fn run(
     capture: Option<&mut dyn Write>,
     output: RunnerOutput,
 ) -> Result<Ran, RunFailure> {
-    ProcessMachine::with_store(dir.join("consent.json")).run(
+    real_machine().run(
         &CollectorCommand {
             argv,
             dir,
@@ -68,25 +60,6 @@ fn the_process_machine_keeps_the_port_contract() {
     )
     .unwrap_err();
     assert!(matches!(failure, RunFailure::NotRun(_)));
-
-    let machine = ProcessMachine::with_store(dir.path().join("consent.json"));
-    let mut c = collector("r.json");
-    let approval = c.approval(dir.path());
-    assert!(!machine.approved(&approval));
-    machine.approve(&approval).unwrap();
-    assert!(machine.approved(&approval));
-    assert!(!machine.approved(&c.approval(&dir.path().join("other"))));
-    c.run.push("--extra".into());
-    let changed = c.approval(dir.path());
-    assert!(!machine.approved(&changed), "a changed command re-prompts");
-    machine.approve(&changed).unwrap();
-    assert_eq!(machine.load().approved.len(), 1, "approval replaced");
-
-    // A store whose parent is a file cannot be written.
-    let file = dir.path().join("a-file");
-    std::fs::write(&file, "").unwrap();
-    let stuck = ProcessMachine::with_store(file.join("consent.json"));
-    assert!(stuck.approve(&approval).is_err());
 }
 
 #[cfg(unix)]
@@ -136,23 +109,115 @@ fn a_captured_stdout_is_kept_in_every_output_mode() {
     }
 }
 
+#[cfg(unix)]
 #[specforge_test(
-    behavior = "approve_collector_command",
-    verify = "consent is keyed by project, extension and command"
+    behavior = "run_collector_command",
+    verify = "a collector command past its deadline is stopped"
 )]
-fn consent_is_keyed_by_project_extension_and_command() {
+fn a_command_past_the_deadline_is_stopped() {
     let dir = tempfile::tempdir().unwrap();
-    let machine = ProcessMachine::with_store(dir.path().join("consent.json"));
-    let root = dir.path();
-    let mut c = collector("r.json");
-    let approval = c.approval(root);
-    assert!(!machine.approved(&approval));
-    machine.approve(&approval).unwrap();
-    assert!(machine.approved(&approval));
-    assert!(!machine.approved(&c.approval(&root.join("other"))));
-    c.run.push("--extra".into());
-    let changed = c.approval(root);
-    assert!(!machine.approved(&changed), "a changed command re-prompts");
-    machine.approve(&changed).unwrap();
-    assert_eq!(machine.load().approved.len(), 1, "approval replaced");
+    let root = dir.path().to_path_buf();
+    let (tx, rx) = std::sync::mpsc::channel();
+    // The run is left to finish on its thread when the pin fails.
+    std::thread::spawn(move || {
+        let argv = vec!["sh".to_string(), "-c".into(), "sleep 30".into()];
+        let ran = real_machine()
+            .with_deadline(std::time::Duration::from_secs(1))
+            .run(
+                &CollectorCommand {
+                    argv: &argv,
+                    dir: &root,
+                    report: &root.join("r.json"),
+                    output: RunnerOutput::Discard,
+                },
+                None,
+            );
+        let _ = tx.send(matches!(ran, Err(RunFailure::Stopped { .. })));
+    });
+    let stopped = rx.recv_timeout(std::time::Duration::from_secs(5));
+    assert_eq!(stopped, Ok(true), "the command outlived its deadline");
+}
+
+/// A capture that cannot be written: a full disk.
+#[cfg(unix)]
+struct Full;
+
+#[cfg(unix)]
+impl Write for Full {
+    fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+        Err(std::io::Error::other("no space left"))
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_capture_that_cannot_be_written_is_a_capture_failure() {
+    let dir = tempfile::tempdir().unwrap();
+    let argv = vec!["sh".to_string(), "-c".into(), "echo hi".into()];
+    let failure = run(
+        &argv,
+        dir.path(),
+        &dir.path().join("r.json"),
+        Some(&mut Full),
+        RunnerOutput::Discard,
+    )
+    .unwrap_err();
+    assert!(
+        matches!(&failure, RunFailure::Capture(e) if e.to_string() == "no space left"),
+        "{failure:?}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_stopped_command_says_why_in_the_class_words() {
+    let dir = tempfile::tempdir().unwrap();
+    let argv = vec!["sh".to_string(), "-c".into(), "sleep 30".into()];
+    let ran = real_machine()
+        .with_deadline(std::time::Duration::from_secs(1))
+        .run(
+            &CollectorCommand {
+                argv: &argv,
+                dir: dir.path(),
+                report: &dir.path().join("r.json"),
+                output: RunnerOutput::Discard,
+            },
+            None,
+        );
+    let Err(RunFailure::Stopped { why }) = ran else {
+        panic!("stopped: {ran:?}")
+    };
+    assert_eq!(why, "did not finish before its deadline (1 s)");
+}
+
+#[cfg(windows)]
+#[specforge_test(
+    behavior = "run_collector_command",
+    verify = "a .cmd shim on PATH runs as a collector command on Windows"
+)]
+#[expect(
+    unsafe_code,
+    reason = "set_var before any thread of this test reads the environment; the test runs in its own process under nextest"
+)]
+fn a_cmd_shim_on_path_runs() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("shim.cmd"), "@exit /b 3\r\n").unwrap();
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    let mut paths = vec![dir.path().to_path_buf()];
+    paths.extend(std::env::split_paths(&path));
+    // SAFETY: no other thread of this test reads the environment.
+    unsafe { std::env::set_var("PATH", std::env::join_paths(paths).unwrap()) };
+    let argv = vec!["shim".to_string()];
+    let ran = run(
+        &argv,
+        dir.path(),
+        &dir.path().join("r.json"),
+        None,
+        RunnerOutput::Discard,
+    )
+    .unwrap();
+    assert_eq!(ran.exit_code, Some(3));
 }

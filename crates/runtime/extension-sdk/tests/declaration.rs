@@ -11,7 +11,7 @@
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::testing::MockHost;
 use specforge_extension_sdk::{ExtensionDeclaration, HandshakeResponse, Served, no_other_exports};
-use specforge_protocol_types::{DeclaredCategory, DescribeResponse};
+use specforge_protocol_types::{DeclaredCategory, DescribeResponse, Hosts, PortScope};
 
 fn reports() -> ContributionsBuilder {
     let mut meta = ExtensionMeta::new("@acme/reports", "0.1.0");
@@ -611,4 +611,42 @@ fn a_route_step_goes_on_from_the_start_or_a_named_step() {
             ("check", Some("start")),
         ]
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "call_host_ports_from_the_sdk",
+    verify = "an extension declares a capability with its port, scope, call kinds and reason"
+)]
+fn an_extension_declares_a_capability() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/caps", "1.0.0"));
+    c.capability(
+        Capability::http("links")
+            .hosts(&["*.example.com"])
+            .methods(&[HttpMethod::Head])
+            .call_kinds(&[Operation::Command])
+            .why("check that the links answer"),
+    );
+    c.capability(
+        Capability::process("tests")
+            .argv(&["cargo", "test"])
+            .why("run the project's tests"),
+    );
+
+    let declared = c.declaration().capabilities;
+
+    assert_eq!(declared.len(), 2, "both, in order: {declared:?}");
+    assert_eq!(declared[0].name, "links");
+    assert_eq!(declared[0].why, "check that the links answer");
+    assert_eq!(declared[0].call_kinds, [Operation::Command]);
+    let PortScope::Http(http) = &declared[0].port else {
+        panic!("not http: {:?}", declared[0].port)
+    };
+    assert_eq!(http.hosts, Hosts::List(vec!["*.example.com".to_string()]));
+    assert_eq!(http.methods, [HttpMethod::Head]);
+    assert_eq!(declared[1].name, "tests");
+    assert!(declared[1].call_kinds.is_empty());
+    let PortScope::Process(process) = &declared[1].port else {
+        panic!("not process: {:?}", declared[1].port)
+    };
+    assert_eq!(process.argv, ["cargo", "test"]);
 }

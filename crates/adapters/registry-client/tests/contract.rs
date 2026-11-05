@@ -26,7 +26,11 @@ fn the_http_client_keeps_the_client_contract() {
         default_registry: true,
     };
     let credential = RegistryCredential::new(registry.url.clone(), server.token());
-    assert_client_contract(&HttpRegistryClient::new(), &registry, &credential);
+    assert_client_contract(
+        &HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new())),
+        &registry,
+        &credential,
+    );
 }
 
 #[specforge_test_macros::test(
@@ -62,7 +66,7 @@ fn the_http_client_keeps_the_scope_contract() {
     };
     let credential = |token: &str| RegistryCredential::new(registry.url.clone(), token);
     assert_scope_contract(
-        &HttpRegistryClient::new(),
+        &HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new())),
         &registry,
         &credential(server.token()),
         &credential(&server.issue("publisher")),
@@ -108,7 +112,11 @@ fn the_private_contract_holds_over_http() {
         default_registry: true,
     };
     let credential = RegistryCredential::new(registry.url.clone(), server.token());
-    assert_private_client_contract(&HttpRegistryClient::new(), &registry, &credential);
+    assert_private_client_contract(
+        &HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new())),
+        &registry,
+        &credential,
+    );
 }
 
 #[specforge_test_macros::test(
@@ -143,7 +151,7 @@ fn an_address_no_registry_serves_is_not_a_registry() {
         default_registry: true,
     };
     let credential = RegistryCredential::new(registry.url.clone(), server.token());
-    let client = HttpRegistryClient::new();
+    let client = HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()));
     let tool = PackageName::parse("@contract/tool").unwrap();
     let version = Version::new(1, 0, 0);
 

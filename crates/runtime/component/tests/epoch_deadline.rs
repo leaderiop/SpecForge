@@ -11,10 +11,15 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
-use std::sync::Arc;
+use std::sync::{Arc, Barrier};
 use std::time::{Duration, Instant};
 
+use crate::probe_support::{
+    PROBE, SlowHttp, call_ports, lent, ports_with_http, probe_runtime, reported,
+};
+use serde_json::json;
 use specforge_component::ComponentRuntime;
+use specforge_protocol_types::Operation;
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::Limits;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
@@ -76,7 +81,11 @@ fn trap_kind(result: &WasmCallResult) -> String {
 fn execution_deadline_traps_long_running_export() {
     let runtime = ComponentRuntime::new();
     runtime
-        .load("@spin", &spin_component_bytes())
+        .load(
+            "@spin",
+            &spin_component_bytes(),
+            specforge_wasm::Provenance::third_party(&spin_component_bytes()),
+        )
         .expect("spin component instantiates");
     runtime.apply_limits(
         "@spin",
@@ -108,7 +117,11 @@ fn execution_deadline_traps_long_running_export() {
 fn zero_deadline_traps_without_ticking() {
     let runtime = ComponentRuntime::new();
     runtime
-        .load("@spin", &spin_component_bytes())
+        .load(
+            "@spin",
+            &spin_component_bytes(),
+            specforge_wasm::Provenance::third_party(&spin_component_bytes()),
+        )
         .expect("spin component instantiates");
     runtime.apply_limits(
         "@spin",
@@ -134,10 +147,18 @@ fn zero_deadline_traps_without_ticking() {
 fn deadline_is_scoped_to_one_extension() {
     let runtime = ComponentRuntime::new();
     runtime
-        .load("@spin", &spin_component_bytes())
+        .load(
+            "@spin",
+            &spin_component_bytes(),
+            specforge_wasm::Provenance::third_party(&spin_component_bytes()),
+        )
         .expect("spin component instantiates");
     runtime
-        .load("@sdk/greet", &greet_wasm_bytes())
+        .load(
+            "@sdk/greet",
+            &greet_wasm_bytes(),
+            specforge_wasm::Provenance::third_party(&greet_wasm_bytes()),
+        )
         .expect("greet component instantiates");
     runtime.apply_limits(
         "@spin",
@@ -163,10 +184,18 @@ fn deadline_is_scoped_to_one_extension() {
 fn different_extensions_run_concurrently() {
     let runtime = Arc::new(ComponentRuntime::new());
     runtime
-        .load("@spin", &spin_component_bytes())
+        .load(
+            "@spin",
+            &spin_component_bytes(),
+            specforge_wasm::Provenance::third_party(&spin_component_bytes()),
+        )
         .expect("spin component instantiates");
     runtime
-        .load("@sdk/greet", &greet_wasm_bytes())
+        .load(
+            "@sdk/greet",
+            &greet_wasm_bytes(),
+            specforge_wasm::Provenance::third_party(&greet_wasm_bytes()),
+        )
         .expect("greet component instantiates");
     // Long enough that the slow call is definitely still executing while the
     // fast extension is served.
@@ -218,7 +247,11 @@ fn different_extensions_run_concurrently() {
 fn same_extension_calls_still_serialize() {
     let runtime = Arc::new(ComponentRuntime::new());
     runtime
-        .load("@sdk/greet", &greet_wasm_bytes())
+        .load(
+            "@sdk/greet",
+            &greet_wasm_bytes(),
+            specforge_wasm::Provenance::third_party(&greet_wasm_bytes()),
+        )
         .expect("greet component instantiates");
 
     // Concurrent calls into the SAME extension share its Store; the
@@ -235,4 +268,145 @@ fn same_extension_calls_still_serialize() {
             other => panic!("concurrent same-extension call failed: {other:?}"),
         }
     }
+}
+
+/// The probe through the component runtime, with its limits.
+fn probe_held_to(execution_ms: u32) -> ComponentRuntime {
+    let runtime = probe_runtime();
+    runtime.apply_limits(
+        PROBE,
+        Limits {
+            execution_ms,
+            memory_mb: 512,
+        },
+    );
+    runtime
+}
+
+#[specforge_test(
+    behavior = "bound_a_host_port_call",
+    verify = "a port call that outlasts the guest's deadline does not trap the guest"
+)]
+fn a_port_call_that_outlasts_the_guests_deadline_does_not_trap_it() {
+    let runtime = probe_held_to(200);
+    let http = SlowHttp {
+        started: Arc::new(Barrier::new(1)),
+        sleep: Duration::from_millis(600),
+    };
+    let lent = lent(&ports_with_http(Arc::new(http)));
+    let answer = call_ports(
+        &runtime,
+        "http",
+        "https://example.test/a",
+        Operation::Command,
+        Some(lent),
+    );
+    assert_eq!(reported(answer)["ok"], 200);
+}
+
+#[specforge_test(
+    behavior = "bound_a_host_port_call",
+    verify = "a port call does not hold its extension's lock"
+)]
+fn a_port_call_does_not_hold_its_extensions_lock() {
+    let runtime = Arc::new(probe_held_to(5_000));
+    let started = Arc::new(Barrier::new(2));
+    let http = SlowHttp {
+        started: Arc::clone(&started),
+        sleep: Duration::from_millis(800),
+    };
+    let lent = lent(&ports_with_http(Arc::new(http)));
+    let calling = Arc::clone(&runtime);
+    let a = std::thread::spawn(move || {
+        call_ports(
+            &calling,
+            "http",
+            "https://example.test/a",
+            Operation::Command,
+            Some(lent),
+        )
+    });
+    // A's port has started, and sleeps.
+    started.wait();
+    let before = Instant::now();
+    let handshake = runtime.call_export(PROBE, "__handshake", b"{}");
+    let waited = before.elapsed();
+    assert!(matches!(handshake, WasmCallResult::Ok(_)), "{handshake:?}");
+    assert!(
+        waited < Duration::from_millis(400),
+        "the handshake waited {waited:?} on the port call"
+    );
+    assert_eq!(reported(a.join().unwrap())["ok"], 200);
+}
+
+#[specforge_test(
+    behavior = "bound_a_host_port_call",
+    verify = "a guest that spins after a port call still traps at its own deadline"
+)]
+fn a_guest_that_spins_after_a_port_call_still_traps() {
+    let runtime = probe_held_to(200);
+    let http = SlowHttp {
+        started: Arc::new(Barrier::new(1)),
+        sleep: Duration::from_millis(600),
+    };
+    let lent = lent(&ports_with_http(Arc::new(http)));
+    let input =
+        json!({"port": "http", "target": "https://example.test/a", "spin": true}).to_string();
+    let before = Instant::now();
+    let answer = runtime.call_with_ports(
+        PROBE,
+        "cmd__ports",
+        input.as_bytes(),
+        Operation::Command,
+        Some(lent),
+    );
+    assert_eq!(trap_kind(&answer), "deadline_exceeded");
+    assert!(
+        before.elapsed() >= Duration::from_millis(800),
+        "the guest's 200 ms came after the port's 600 ms: {:?}",
+        before.elapsed()
+    );
+}
+
+/// Under a work budget no clock runs: the suites that hold every call to one are not touched by a slow port, and a
+/// guest that spins after it is stopped by its work, not by a deadline.
+#[test]
+fn under_a_work_budget_a_port_call_spends_nothing_and_a_spin_runs_out_of_work() {
+    let blob = std::fs::read(specforge_component::committed::PROBE.path()).unwrap();
+    let runtime = ComponentRuntime::new().with_work_budget(specforge_component::DEFAULT_FUEL_LIMIT);
+    runtime
+        .load(PROBE, &blob, specforge_wasm::Provenance::third_party(&blob))
+        .unwrap();
+    runtime.apply_limits(
+        PROBE,
+        Limits {
+            execution_ms: 10,
+            memory_mb: 512,
+        },
+    );
+    let slow = || {
+        lent(&ports_with_http(Arc::new(SlowHttp {
+            started: Arc::new(Barrier::new(1)),
+            sleep: Duration::from_millis(100),
+        })))
+    };
+    let answer = call_ports(
+        &runtime,
+        "http",
+        "https://example.test/a",
+        Operation::Command,
+        Some(slow()),
+    );
+    assert_eq!(reported(answer)["ok"], 200);
+
+    let input =
+        json!({"port": "http", "target": "https://example.test/a", "spin": true}).to_string();
+    let answer = runtime.call_with_ports(
+        PROBE,
+        "cmd__ports",
+        input.as_bytes(),
+        Operation::Command,
+        Some(slow()),
+    );
+    assert_eq!(trap_kind(&answer), "fuel_exhausted");
 }

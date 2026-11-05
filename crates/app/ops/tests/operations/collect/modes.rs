@@ -1,10 +1,9 @@
 //! What each collect mode reads, and so what it refuses (ADR 0125 D7): a run and a no-run read the
 //! collector's declared report and capture, so a bad one is refused; `--report` reads only the files it names.
 
-use super::{Fixture, Runner, paths};
+use super::{Fixture, Machine, Runner, paths};
 use specforge_ops::analysis::collect::{CollectField, Mode, Outcome};
 use specforge_ops::asking::Asking;
-use specforge_ops::testing::ScriptedMachine;
 use specforge_ops::{Containment, OpErrorKind, Refusal};
 use specforge_test_macros::test as specforge_test;
 
@@ -17,7 +16,7 @@ fn given(fx: &Fixture, containment: &Containment) -> Result<Outcome, Refusal<Col
         Mode::Reports(&files),
         containment,
         Asking::Nobody,
-        &ScriptedMachine::new(),
+        &Machine::new(),
     )
 }
 
@@ -81,7 +80,7 @@ fn reports_mode_reads_past_a_report_location_that_lands_outside() {
 #[test]
 fn no_run_refuses_a_report_location_declared_outside() {
     let fx = Fixture::new(vec![Runner::new("acme").report("../x.json")]);
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     let refusal = fx.no_run(Some("acme"), &machine).unwrap_err();
 
@@ -98,7 +97,7 @@ fn no_run_refuses_a_report_location_declared_outside() {
 #[test]
 fn no_run_refuses_an_unknown_capture() {
     let fx = Fixture::new(vec![Runner::new("acme").capturing("stderr")]);
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     let refusal = fx.no_run(Some("acme"), &machine).unwrap_err();
 
@@ -116,7 +115,7 @@ fn no_run_refuses_an_unknown_capture() {
 fn no_run_refuses_a_report_location_that_lands_outside() {
     let fx = Fixture::new(vec![Runner::new("acme").report("out2/a.json")]);
     let _outside = link_out(&fx);
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     let refusal = fx
         .collect_with(

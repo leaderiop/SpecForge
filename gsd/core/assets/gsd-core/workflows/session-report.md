@@ -38,7 +38,7 @@ Read the `milestone` and `phase` entities for the milestone name and goals (`spe
 Check for existing reports:
 ```bash
 _REPORTS=()   # reports are not kept: the report is shown, not written
-if [ -e "${_REPORTS[0]}" ]; then ls -la "${_REPORTS[@]}"; else echo "No previous reports"; fi
+if [ -e "${_REPORTS[0]}" ]; then specforge files stat "${_REPORTS[@]}" --format human; else echo "No previous reports"; fi
 ```
 </step>
 

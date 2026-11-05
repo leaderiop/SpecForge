@@ -52,7 +52,7 @@ Phases:
 What to commit:
 
 ```bash
-git add spec && git commit -m "docs: initialize [project-name] ([N] phases)" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs: initialize [project-name] ([N] phases)" && specforge collect --runner gsd-git --yes
 ```
 
 </format>
@@ -89,8 +89,8 @@ Each task gets its own commit immediately after completion.
 
 ```bash
 # Standard task
-git add src/api/auth.ts src/types/user.ts
-git commit -m "feat(08-02): create user registration endpoint
+specforge git commit --add src/api/auth.ts --add src/types/user.ts \
+  -m "feat(08-02): create user registration endpoint
 
 - POST /auth/register validates email and password
 - Checks for duplicate users
@@ -98,8 +98,8 @@ git commit -m "feat(08-02): create user registration endpoint
 "
 
 # TDD task - RED phase
-git add src/__tests__/jwt.test.ts
-git commit -m "test(07-02): add failing test for JWT generation
+specforge git commit --add src/__tests__/jwt.test.ts \
+  -m "test(07-02): add failing test for JWT generation
 
 - Tests token contains user ID claim
 - Tests token expires in 1 hour
@@ -107,8 +107,8 @@ git commit -m "test(07-02): add failing test for JWT generation
 "
 
 # TDD task - GREEN phase
-git add src/utils/jwt.ts
-git commit -m "feat(07-02): implement JWT generation
+specforge git commit --add src/utils/jwt.ts \
+  -m "feat(07-02): implement JWT generation
 
 - Uses jose library for signing
 - Includes user ID and expiry claims
@@ -137,7 +137,7 @@ SUMMARY: the `summary` entity of phase XX-name
 What to commit:
 
 ```bash
-git add spec && git commit -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs({phase}-{plan}): complete [plan-name] plan" && specforge collect --runner gsd-git --yes
 ```
 
 **Note:** Code files NOT included - already committed per-task.
@@ -157,7 +157,7 @@ Current: [task name]
 What to commit:
 
 ```bash
-git add spec && git commit -m "docs(pause): [phase-name] paused at task [X]/[Y]" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs(pause): [phase-name] paused at task [X]/[Y]" && specforge collect --runner gsd-git --yes
 ```
 
 </format>

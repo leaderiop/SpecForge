@@ -74,7 +74,7 @@ fn surfaces() -> Value {
     json!([{
         "commands": [{
             "id": "stats", "title": "Stats", "description": "Show the project's statistics", "export": "cmd__stats",
-            "args": [], "reads_state": true,
+            "args": [], "inputs": [{"input": "state"}],
         }, {
             "id": "approve", "title": "Approve", "description": "Record a person's approval",
             "export": "cmd__approve", "args": [], "writes": true, "human": true,
@@ -101,12 +101,12 @@ fn surfaces() -> Value {
             {"command": "stats", "tools": ["read"]},
         ],
         "hooks": [
-            hook("write_guard", "pre_tool", json!({"tools": ["write"], "on_failure": "deny", "when": "workflow.hooks", "reads_git": true})),
+            hook("write_guard", "pre_tool", json!({"tools": ["write"], "on_failure": "deny", "when": "workflow.hooks", "inputs": [{"input": "git"}]})),
             hook("injection_scan", "post_tool", json!({"tools": ["read"]})),
-            hook("isolation", "pre_tool", json!({"tools": ["agent"], "hosts": ["claude-code"], "reads_settings": ["@t/ui:workflow.ui_phase", "@t/none:x"]})),
+            hook("isolation", "pre_tool", json!({"tools": ["agent"], "hosts": ["claude-code"], "inputs": [{"input": "setting", "extension": "@t/ui", "name": "workflow.ui_phase"}, {"input": "setting", "extension": "@t/none", "name": "x"}]})),
             hook("validate_commit", "pre_commit", json!({"on_failure": "deny"})),
-            hook("statusline", "statusline", json!({"reads_graph": true, "reads_state": true})),
-            hook("context_monitor", "post_tool", json!({"reads_state": true, "reads_git_status": true})),
+            hook("statusline", "statusline", json!({"inputs": [{"input": "graph"}, {"input": "state"}]})),
+            hook("context_monitor", "post_tool", json!({"inputs": [{"input": "state"}, {"input": "git", "status": true}]})),
             hook("session_cursor", "session_start", json!({})),
             hook("record_hook", "post_tool", json!({"tools": ["write"], "writes": true, "paths": ["{spec_root}/**"]})),
             hook("settings_reload", "file_changed", json!({"paths": ["specforge.json"]})),

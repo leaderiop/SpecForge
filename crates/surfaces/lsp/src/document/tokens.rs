@@ -49,10 +49,12 @@ pub const TOKEN_TYPES: &[&str] = &[
 pub const TOKEN_MODIFIERS: &[&str] = &[
     "declaration", // bit 0: entity declaration site
     "reference",   // bit 1: a reference to an entity
+    "checked",     // bit 2: a string value whose field has checks (ADR 0336)
 ];
 
 pub const MOD_DECLARATION: u32 = 1 << 0;
 pub const MOD_REFERENCE: u32 = 1 << 1;
+pub const MOD_CHECKED: u32 = 1 << 2;
 
 /// A classified token: its line, UTF-16 start and length, text, type (one
 /// of [`TOKEN_TYPES`]) and modifier bits.
@@ -88,7 +90,15 @@ fn classify(
     let role = syntax.roles[i];
     match lexeme.kind {
         LexemeKind::Comment => return Some(("comment", 0)),
-        LexemeKind::Str { .. } => return Some(("string", 0)),
+        LexemeKind::Str { .. } => {
+            let checked = matches!(role, Role::Value | Role::Item)
+                && syntax.key_of[i]
+                    .and_then(|key| syntax.member_path(text, key))
+                    .is_some_and(|(kind, path)| {
+                        !view.registries().checks().on(kind, &path).is_empty()
+                    });
+            return Some(("string", if checked { MOD_CHECKED } else { 0 }));
+        }
         LexemeKind::Number
             if matches!(role, Role::Value | Role::Item)
                 && !syntax.reference_position(text, i as u32, view.registries().field_forms()) =>

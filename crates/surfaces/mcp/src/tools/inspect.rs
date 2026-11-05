@@ -9,7 +9,7 @@ use specforge_common::shape::Shape;
 use specforge_common::{DiagnosticList, SourceSpan};
 
 use specforge_graph::{AnnotationJson, FieldJson, MethodJson, Obligation, VerdictJson};
-use specforge_ops::read::inspect::{EntityCoverage, EntityFacts, JudgementJson};
+use specforge_ops::read::inspect::{EntityCoverage, EntityFacts, JudgementJson, ValueCheckJson};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::args::Arguments;
@@ -73,6 +73,9 @@ pub struct Reply {
     /// Where each judged rule that judges it stands (ADR 0290); absent when none does.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     judgements: Vec<JudgementJson>,
+    /// One row per checker per checked value it holds (ADR 0336); absent when none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    checks: Vec<ValueCheckJson>,
     /// Its obligations, as the graph export writes them; absent when it declares none.
     #[serde(skip_serializing_if = "Option::is_none")]
     verify_declarations: Option<Vec<Obligation>>,
@@ -155,6 +158,7 @@ impl Reply {
             methods: facts.members.methods.clone(),
             verdicts: facts.members.verdicts.clone(),
             judgements: facts.judgements.iter().map(JudgementJson::of).collect(),
+            checks: facts.checks.clone(),
             verify_declarations: declared.then(|| facts.obligations.to_vec()),
             referenced_by: refs.referenced_by().into_iter().map(String::from).collect(),
             refers_to: refs.refers_to().into_iter().map(String::from).collect(),

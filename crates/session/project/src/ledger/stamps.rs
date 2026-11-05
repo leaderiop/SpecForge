@@ -32,6 +32,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use specforge_common::SourceRoot;
+use specforge_effects::UnixMillis;
 use specforge_registry::{Disk, PlainDisk};
 
 use super::Changes;
@@ -183,6 +184,7 @@ impl Stamps {
         inputs: &SessionInputs,
         scope: Scope<'_>,
         sources: &dyn Disk,
+        now: UnixMillis,
     ) -> Changes {
         let Some(root) = inputs.sources() else {
             return Changes::default();
@@ -220,6 +222,8 @@ impl Stamps {
                 }
             }
         }
+        // An effect record a check consulted changes when its time is up, whatever the batch (ADR 0337 D5).
+        changes.check_inputs.extend(self.expired(now).check_inputs);
         let mut regions: Vec<String> = match scope {
             Scope::Everything => inputs.everything(),
             Scope::Reached(reach) => reach.regions.clone(),
@@ -273,12 +277,40 @@ impl Stamps {
     }
 }
 
+impl Stamps {
+    /// The effect rows whose record expires at or before `now`: check inputs.
+    pub(super) fn expired(&self, now: UnixMillis) -> Changes {
+        let mut changes = Changes::default();
+        for (class, path) in self.inputs.keys() {
+            if let Class::Effect { expires: Some(at) } = class
+                && *at <= now
+            {
+                changes.check_inputs.push(path.clone());
+            }
+        }
+        changes
+    }
+
+    /// The earliest expiry of an effect row.
+    pub(super) fn next_expiry(&self) -> Option<UnixMillis> {
+        self.inputs
+            .keys()
+            .filter_map(|(class, _)| match class {
+                Class::Effect { expires } => *expires,
+                _ => None,
+            })
+            .min()
+    }
+}
+
 /// Note a change to a row of `class`, reached by `path`: what a change to it
 /// is. A hop's is its source's, whatever the stamps say for a pending one.
 fn note(changes: &mut Changes, class: &Class, path: &Path) {
     match class {
         Class::Environment => changes.environment.push(path.to_path_buf()),
-        Class::Check | Class::Listing | Class::Ref => changes.check_inputs.push(path.to_path_buf()),
+        Class::Check | Class::Listing | Class::Ref | Class::Effect { .. } => {
+            changes.check_inputs.push(path.to_path_buf());
+        }
         Class::Hop(key) => changes.sources.push(key.clone()),
         // `changes` reads the fact stores again for it.
         Class::Facts { .. } => {}

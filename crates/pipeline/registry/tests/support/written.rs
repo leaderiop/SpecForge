@@ -5,16 +5,15 @@
 //! ADR 0115).
 
 use std::collections::HashSet;
-use std::path::Path;
 
 use specforge_common::Diagnostic;
 use specforge_extension_sdk::prelude::*;
 use specforge_graph::GraphBuild;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::rules::NoVerdicts;
-use specforge_registry::{Disk, EntitySnapshot, RegistryBuild};
+use specforge_registry::{EntitySnapshot, RegistryBuild};
 
-use super::{NoDisk, declare};
+use super::declare;
 
 /// `ticket`: an enum, a bool, an integer, a string list, a string and a reference to another
 /// `ticket`.
@@ -59,12 +58,7 @@ pub fn tickets() -> ExtensionDeclaration {
 /// The snapshot of `files` read with `build`. Panics on a parse error: a test's text is valid
 /// `.spec`.
 pub fn snapshot_of(build: &RegistryBuild, files: &[(&str, &str)]) -> EntitySnapshot {
-    EntitySnapshot::of(
-        &graph_of(build, files),
-        build,
-        Path::new("/spec"),
-        Path::new("/"),
-    )
+    EntitySnapshot::of(&graph_of(build, files), build)
 }
 
 /// The graph build of `files` with `build`'s own graph inputs.
@@ -83,19 +77,9 @@ pub fn linked(build: &RegistryBuild, files: &[(&str, &str)]) -> Vec<Diagnostic> 
     graph_of(build, files).diagnostics().to_vec()
 }
 
-/// What the checks report on `files`, in `RegistryBuild::check`'s order, with nothing on disk
-/// (`NoDisk`) and no custom verdicts. The graph build's own diagnostics (E003, I004, I005, W143,
+/// What the checks report on `files`, in `RegistryBuild::check`'s order, with no custom verdicts. The graph build's own diagnostics (E003, I004, I005, W143,
 /// ...) are not included.
 pub fn checked(build: &RegistryBuild, files: &[(&str, &str)]) -> Vec<Diagnostic> {
-    checked_on(build, files, &NoDisk)
-}
-
-/// `checked`, reading files through `disk`.
-pub fn checked_on(
-    build: &RegistryBuild,
-    files: &[(&str, &str)],
-    disk: &dyn Disk,
-) -> Vec<Diagnostic> {
     let snapshot = snapshot_of(build, files);
-    build.check(&snapshot.rule_input(disk), &NoVerdicts)
+    build.check(&snapshot.rule_input(), &NoVerdicts)
 }

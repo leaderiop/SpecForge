@@ -75,7 +75,7 @@ impl Fixture {
             "name": "p",
             "version": "0.1.0",
             "spec_root": "spec",
-            "extensions": ["@specforge/software", "@sdk/docref=ext/docref.wasm"],
+            "extensions": ["@specforge/software", "@specforge/checks", "@sdk/docref=ext/docref.wasm"],
         });
         fs::write(root.join("specforge.json"), config.to_string()).unwrap();
         fs::copy(
@@ -110,12 +110,23 @@ impl Fixture {
 
 const PLAIN: &str = "gadget gadget_one \"G\" {\n}\n";
 
-/// A gadget naming `guide.md` in the sibling `outside/` directory (from the
-/// spec root: `spec/../../outside/guide.md`).
-const NAMES_OUTSIDE: &str = "gadget gadget_one \"G\" {\n  docs [\"../../outside/guide.md\"]\n}\n";
-
 /// A gadget naming `docs/guide.md` under the project root.
-const NAMES_INSIDE: &str = "gadget gadget_one \"G\" {\n  docs [\"../docs/guide.md\"]\n}\n";
+const NAMES_INSIDE: &str = "gadget gadget_one \"G\" {\n  docs [\"<project>/docs/guide.md\"]\n}\n";
+
+/// Links the source `spec/link.spec` to `outside/guide.spec`, which does not exist yet: what reaches outside the
+/// watched directories (a file reference never does, ADR 0335). The link and its target.
+#[cfg(unix)]
+fn link_outside(fixture: &Fixture) -> (PathBuf, PathBuf) {
+    let (link, target) = (
+        fixture.root.join("spec/link.spec"),
+        fixture.parent.join("outside/guide.spec"),
+    );
+    std::os::unix::fs::symlink(&target, &link).unwrap();
+    (link, target)
+}
+
+/// The source `link_outside`'s target holds.
+const GUIDE: &str = "gadget gadget_two \"G\" {\n}\n";
 
 fn codes(applied: &Applied) -> Vec<&str> {
     applied
@@ -133,6 +144,7 @@ fn applied(event: &WatchEvent) -> &Applied {
     }
 }
 
+#[cfg(unix)]
 #[spec(
     behavior = "watch_file_system_for_changes",
     verify = "an edit that names a file outside the watched directories moves the watchers"
@@ -142,13 +154,12 @@ fn an_edit_naming_a_file_outside_the_roots_rearms_on_its_directory() {
     let (mut watch, recorder) = fixture.watch();
     assert_eq!(recorder.armed().len(), 1, "armed at start");
 
-    fixture.write("spec/a.spec", NAMES_OUTSIDE);
-    let events = watch.changed(&[fixture.root.join("spec/a.spec")]);
+    let (link, _) = link_outside(&fixture);
+    let events = watch.changed(&[link]);
 
     assert_eq!(events.len(), 1, "{events:?}");
     let sources = applied(&events[0]);
     assert_eq!(sources.update.kind, UpdateKind::Sources);
-    assert!(codes(sources).contains(&"E016"), "{:?}", codes(sources));
     let outside = WatchRoot {
         dir: fixture.parent.join("outside"),
         recursive: true,
@@ -158,6 +169,7 @@ fn an_edit_naming_a_file_outside_the_roots_rearms_on_its_directory() {
     assert!(armed[1].contains(&outside), "{armed:?}");
 }
 
+#[cfg(unix)]
 #[spec(
     behavior = "watch_file_system_for_changes",
     verify = "after the watchers move, the session catches up on what changed while they did"
@@ -165,19 +177,16 @@ fn an_edit_naming_a_file_outside_the_roots_rearms_on_its_directory() {
 fn what_changes_while_the_watchers_move_is_caught_up() {
     let fixture = Fixture::new(PLAIN);
     let (mut watch, recorder) = fixture.watch();
-    let guide = fixture.parent.join("outside/guide.md");
-    recorder.on_watch(move || fs::write(&guide, "# guide\n").unwrap());
+    let (link, guide) = link_outside(&fixture);
+    recorder.on_watch(move || fs::write(&guide, GUIDE).unwrap());
 
-    fixture.write("spec/a.spec", NAMES_OUTSIDE);
-    let events = watch.changed(&[fixture.root.join("spec/a.spec")]);
+    let events = watch.changed(&[link]);
 
     assert_eq!(events.len(), 2, "{events:?}");
     let first = applied(&events[0]);
     assert_eq!(first.update.kind, UpdateKind::Sources);
-    assert!(codes(first).contains(&"E016"));
     let catch_up = applied(&events[1]);
-    assert_eq!(catch_up.update.kind, UpdateKind::Checks);
-    assert!(!codes(catch_up).contains(&"E016"), "{:?}", codes(catch_up));
+    assert_eq!(catch_up.update.kind, UpdateKind::Sources);
     assert_eq!(catch_up.changed, catch_up.update.rebuilt_files);
 }
 
@@ -216,7 +225,7 @@ fn a_moved_spec_root_rearms_and_catches_up() {
         "name": "p",
         "version": "0.1.0",
         "spec_root": "../specs",
-        "extensions": ["@specforge/software", "@sdk/docref=ext/docref.wasm"],
+        "extensions": ["@specforge/software", "@specforge/checks", "@sdk/docref=ext/docref.wasm"],
     });
     fixture.write("specforge.json", &config.to_string());
     let events = watch.changed(&[fixture.root.join("specforge.json")]);
@@ -237,6 +246,7 @@ fn a_moved_spec_root_rearms_and_catches_up() {
     assert!(armed.last().unwrap().contains(&moved), "{armed:?}");
 }
 
+#[cfg(unix)]
 #[spec(
     behavior = "watch_file_system_for_changes",
     verify = "a failed move of the watchers is reported and the session still catches up"
@@ -245,11 +255,10 @@ fn a_failed_rearm_is_reported_and_the_session_still_catches_up() {
     let fixture = Fixture::new(PLAIN);
     let (mut watch, recorder) = fixture.watch();
     recorder.refuse_from_now_on();
-    let guide = fixture.parent.join("outside/guide.md");
-    recorder.on_watch(move || fs::write(&guide, "# guide\n").unwrap());
+    let (link, guide) = link_outside(&fixture);
+    recorder.on_watch(move || fs::write(&guide, GUIDE).unwrap());
 
-    fixture.write("spec/a.spec", NAMES_OUTSIDE);
-    let events = watch.changed(&[fixture.root.join("spec/a.spec")]);
+    let events = watch.changed(&[link]);
 
     let [first, refused, catch_up] = &events[..] else {
         panic!("{events:?}");
@@ -259,9 +268,10 @@ fn a_failed_rearm_is_reported_and_the_session_still_catches_up() {
         matches!(refused, WatchEvent::Unwatched(e) if e == "boom"),
         "{refused:?}"
     );
-    assert_eq!(applied(catch_up).update.kind, UpdateKind::Checks);
+    assert_eq!(applied(catch_up).update.kind, UpdateKind::Sources);
 }
 
+#[cfg(unix)]
 #[spec(
     behavior = "watch_file_system_for_changes",
     verify = "a failed move of the watchers is reported and the session still catches up"
@@ -271,8 +281,8 @@ fn a_failed_rearm_with_nothing_stale_ends_on_the_report() {
     let (mut watch, recorder) = fixture.watch();
     recorder.refuse_from_now_on();
 
-    fixture.write("spec/a.spec", NAMES_OUTSIDE);
-    let events = watch.changed(&[fixture.root.join("spec/a.spec")]);
+    let (link, _) = link_outside(&fixture);
+    let events = watch.changed(&[link]);
 
     let [first, refused] = &events[..] else {
         panic!("{events:?}");
@@ -303,13 +313,13 @@ fn what_was_written_before_the_watchers_is_applied_at_the_start() {
 
 #[test]
 fn changed_paths_are_named_by_key_or_by_path_under_the_root() {
-    let fixture = Fixture::new(NAMES_OUTSIDE);
+    let fixture = Fixture::new(NAMES_INSIDE);
     let (mut watch, _) = fixture.watch();
-    let guide = fixture.parent.join("outside/guide.md");
+    let guide = fixture.root.join("docs/guide.md");
     fs::write(&guide, "# guide\n").unwrap();
     // A path changes something only when its file is not as the session
     // read it: write the other two again, differently.
-    fixture.write("spec/a.spec", &format!("{NAMES_OUTSIDE}\n"));
+    fixture.write("spec/a.spec", &format!("{NAMES_INSIDE}\n"));
     let config = fs::read_to_string(fixture.root.join("specforge.json")).unwrap();
     fixture.write("specforge.json", &format!("{config}\n"));
 
@@ -319,17 +329,10 @@ fn changed_paths_are_named_by_key_or_by_path_under_the_root() {
         guide.clone(),
     ]);
 
-    // A reload covers all three; the batch names them: the outside path
-    // absolute, the config under the root, the source by its key.
+    // A reload covers all three; the batch names them: the checked file and the config under the root,
+    // the source by its key.
     let named = &applied(&events[0]).changed;
-    assert_eq!(
-        named,
-        &[
-            guide.to_string_lossy().into_owned(),
-            "spec/a.spec".to_string(),
-            "specforge.json".to_string()
-        ]
-    );
+    assert_eq!(named, &["docs/guide.md", "spec/a.spec", "specforge.json"]);
 }
 
 #[test]
@@ -665,8 +668,9 @@ fn a_sources_directory_link_pointed_elsewhere_is_seen() {
 )]
 fn a_named_file_behind_a_directory_link_pointed_elsewhere_is_rechecked() {
     let fixture =
-        Fixture::new("gadget gadget_one \"G\" {\n  docs [\"../docs/linked/guide.md\"]\n}\n");
-    let outside = fixture.parent.join("outside");
+        Fixture::new("gadget gadget_one \"G\" {\n  docs [\"<project>/docs/linked/guide.md\"]\n}\n");
+    // The versions lie in the project: a link out of it is E094 (ADR 0335).
+    let outside = fixture.root.join("versions");
     for dir in ["v1", "v2"] {
         fs::create_dir_all(outside.join(dir)).unwrap();
     }
@@ -692,4 +696,42 @@ fn a_named_file_behind_a_directory_link_pointed_elsewhere_is_rechecked() {
         "{:?}",
         codes(applied(&events[0]))
     );
+}
+
+#[spec(
+    behavior = "watch_file_system_for_changes",
+    verify = "a watch wakes when an effect record the checks consulted expires and runs the checks again"
+)]
+fn watch_wakes_at_the_next_expiry() {
+    let now = || specforge_effects::UnixMillis::now().unwrap();
+    let fixture = Fixture::new(PLAIN);
+    fixture.write(".specforge/effects/journal/ab/record.json", "{}");
+    let record = fixture
+        .root
+        .join(".specforge/effects/journal/ab/record.json");
+    let mut session =
+        ProjectSession::open(&specforge_common::ProjectRoot::of(&fixture.root).unwrap());
+    let expiry = now().plus(std::time::Duration::from_millis(200));
+    session.stamp_consulted(vec![specforge_project::Consulted {
+        path: record,
+        expires: Some(expiry),
+    }]);
+    let mut watch = SessionWatch::start(session, Recorder::default()).unwrap();
+    let (sender, batches) = std::sync::mpsc::channel();
+
+    let batch = watch.next_batch(&batches).expect("the clock's batch");
+    assert!(batch.is_empty(), "no file changed");
+    assert!(now() >= expiry, "woken at the expiry, not before");
+    let events = watch.changed(&batch);
+    assert_eq!(events.len(), 1, "{events:?}");
+    assert_eq!(applied(&events[0]).update.kind, UpdateKind::Checks);
+    assert_eq!(
+        watch.session().next_expiry(),
+        None,
+        "the run consulted no record"
+    );
+
+    // Nothing expires: the loop waits on its watchers alone, and ends when they do.
+    drop(sender);
+    assert!(watch.next_batch(&batches).is_none());
 }

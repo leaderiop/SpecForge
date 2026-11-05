@@ -51,8 +51,7 @@ static AUDIT_UAT: Spec = Spec {
         tools: &["read", "search", "shell"],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: None,
 };
 
@@ -70,8 +69,7 @@ static AUDIT_MILESTONE: Spec = Spec {
         tools: &["read", "search", "shell", "agent", "write"],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: Some(integration),
 };
 

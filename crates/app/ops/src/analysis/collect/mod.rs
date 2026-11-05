@@ -10,9 +10,11 @@
 //! keyed here ([`facts`]); the caller stores them with the plans.
 //!
 //! The CLI and MCP are adapters: they hand the operation who can be asked
-//! (`crate::asking::Asking`) and the machine it runs on ([`CollectorMachine`], ADR 0125),
-//! and present the [`Outcome`].
+//! (`crate::asking::Asking`), the machine it runs on ([`CollectorMachine`], ADR 0125) and this
+//! machine's approvals (the `Consent` port, ADR 0335 D2), and present the [`Outcome`]. A collector's
+//! command is its extension's process capability, run only through that extension's grant.
 
+mod approval;
 mod collector;
 mod convention;
 mod dispatch;
@@ -22,10 +24,10 @@ mod merge;
 mod process;
 
 pub use crate::machine::{
-    CollectorCommand, CollectorMachine, CommandApproval, REPORT_ENV, Ran, RunFailure, RunnerOutput,
+    CollectorCommand, CollectorMachine, REPORT_ENV, Ran, RunFailure, RunnerOutput,
 };
 use collector::detect;
-pub use collector::{Collector, collectors};
+pub use collector::{Collector, collectors, uses_here};
 pub use dispatch::dispatch;
 use dispatch::dispatch_over;
 use evidence::{Evidence, Source};
@@ -39,6 +41,7 @@ use crate::{CollectedFacts, CollectedPlan, EditDocument};
 use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_common::{Code, Diagnostic, DiagnosticList, ProjectPath, codes};
+use specforge_project::Environment;
 use specforge_project::coverage::TestReport;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -71,7 +74,7 @@ pub struct Request<'a> {
     /// inside `caller.containment()` (ADR 0104 D3, ADR 0112 D2): the report, a collector's
     /// report files and its captured output; a name that lands outside is refused before any
     /// command runs, for every collector whose mode reads it. `caller.asking()` decides whether a collector's command may run; the consent
-    /// store is read first (ADR 0110).
+    /// store is read first (ADR 0110, ADR 0335 D2.4).
     pub caller: Caller<'a>,
 }
 
@@ -197,14 +200,15 @@ pub enum CollectStatus {
 /// results or the report holds that runner's tests, and the report is written only when a merge changed it. The
 /// facts collectors answer are admitted (E116) and keyed (I209) here, and stored by the caller with the plans. Every refusal that needs no run (a
 /// report location or capture the mode reads, a command, an approval) is decided for every selected
-/// collector before the first command runs (ADR 0125 D5, D7); the request's `caller.asking()` decides whether a
-/// collector's command may run, and its `announce` is told just before it runs. The machine runs
-/// the commands and keeps the approvals. Without a root, or at a root that holds no project:
-/// `no_project`.
+/// collector before the first command runs (ADR 0125 D5, D7): each command runs through its extension's grant
+/// (ADR 0335 D2), the approvals it needs settled with the request's `caller.asking()` and kept in `consent`; a
+/// command the grant refuses is E090. Its `announce` is told just before a command runs. The machine runs the
+/// commands. Without a root, or at a root that holds no project: `no_project`.
 pub fn collect(
     view: &ProjectView,
     request: Request,
     machine: &dyn CollectorMachine,
+    consent: &dyn specforge_effects::Consent,
 ) -> Result<Outcome, Refusal<CollectField>> {
     let root = view.project_root()?;
     if !view.env().config_found() {
@@ -223,7 +227,7 @@ pub fn collect(
     let (asking, containment) = (caller.asking(), caller.containment());
     let known = &KnownEntities::of(view.entities());
     let available = collectors(view.registries().declarations());
-    let (selected, chosen) = select(&available, runner, root)?;
+    let (selected, chosen) = select(&available, runner, root, publishes(view.env(), &mode))?;
     if let Mode::Reports(_) = mode
         && selected.len() > 1
     {
@@ -249,25 +253,23 @@ pub fn collect(
     let mut stores = Vec::new();
     let mut runners = Vec::new();
     let mut plans: Vec<CollectedPlan> = Vec::new();
-    let mut diagnostics = Vec::new();
+    // Reported whether or not this run needs an approval (ADR 0335 D2.5): `--yes` and a report-only run say it too.
+    let mut diagnostics: Vec<Diagnostic> = consent
+        .list()
+        .err()
+        .map(|error| crate::consent::unusable_store(&error))
+        .into_iter()
+        .collect();
     let mut unsaved_approvals = Vec::new();
     // Decided for every collector before anything runs (ADR 0125 D5): a refusal that needs no run never
     // follows an earlier collector's command.
     let planned = selected
         .into_iter()
         .map(|collector| {
-            Source::plan(
-                collector,
-                mode,
-                root,
-                asking,
-                containment,
-                machine,
-                &mut unsaved_approvals,
-            )
-            .map(|source| (collector, source))
+            Source::plan(collector, mode, root, containment).map(|source| (collector, source))
         })
         .collect::<Result<Vec<_>, OpError>>()?;
+    approval::settle_runs(view, &planned, asking, consent, &mut unsaved_approvals)?;
     for (collector, source) in planned {
         let Evidence {
             files,
@@ -284,14 +286,33 @@ pub fn collect(
             Err(error) => return Err(error.into()),
         };
 
+        let lent = crate::extension::lend::port_call(
+            view,
+            caller,
+            &collector.extension,
+            specforge_protocol_types::Operation::Collect,
+        );
         let mut collected = dispatch_over(
             view.runtime().map(|r| r.as_ref()),
             collector,
             &files,
             stdout.as_deref(),
             Some(view),
+            lent.clone(),
         )
-        .map_err(|error| OpError::of(OpErrorKind::Internal, error.diagnostic()))?;
+        .map_err(|error| {
+            let mut failed = OpError::of(OpErrorKind::Internal, error.diagnostic());
+            // A failure has no diagnostics of its own: what a guest was refused, this collector or an earlier one,
+            // goes with its message, or failing would hide it.
+            let earlier = diagnostics.iter().filter(|d| codes::E090.matches(&d.code));
+            for denial in earlier.chain(&error.denials) {
+                failed.message.push_str(&format!("\n{denial}"));
+            }
+            failed
+        })?;
+        if let Some(lent) = lent {
+            diagnostics.extend(lent.take_denials());
+        }
         let (by_convention, diags) = convention::resolve(&collected.unlinked, known);
         diagnostics.extend(diags);
         let by_convention_count = by_convention.iter().map(|e| e.test_results.len()).sum();
@@ -388,12 +409,13 @@ enum Chosen {
 }
 
 /// The collectors to use: the one `runner` names, else every collector
-/// whose detection files are present. A runner no collector answers to is
-/// invalid input about the runner (E058).
+/// whose detection files are present, and with `publish` every collector that reads the checks' outcomes. A runner
+/// no collector answers to is invalid input about the runner (E058).
 fn select<'a>(
     available: &'a [Collector],
     runner: Option<&str>,
     root: &Path,
+    publish: bool,
 ) -> Result<(Vec<&'a Collector>, Chosen), Refusal<CollectField>> {
     if available.is_empty() {
         return Err(fail(
@@ -425,14 +447,24 @@ fn select<'a>(
                 .about(CollectField::Runner)
             });
     }
-    let detected = detect(available, root);
+    let mut detected = detect(available, root);
+    let (publishers, runners): (Vec<&Collector>, Vec<&Collector>) =
+        available.iter().partition(|c| c.reads_outcomes());
+    let published = publishers.into_iter().filter(|_| publish);
     // A project that enabled a single runner chose it: detection only
     // decides between several (vitest configured inside vite.config.ts,
     // for one, has no file of its own to detect).
-    if detected.is_empty() && available.len() == 1 {
-        return Ok((vec![&available[0]], Chosen::Named));
+    if let ([], [only]) = (detected.as_slice(), runners.as_slice()) {
+        return Ok((
+            std::iter::once(*only).chain(published).collect(),
+            Chosen::Named,
+        ));
     }
     if detected.is_empty() {
+        let published: Vec<&Collector> = published.collect();
+        if !published.is_empty() {
+            return Ok((published, Chosen::Named));
+        }
         return Err(fail(
             OpErrorKind::PreconditionFailed,
             codes::E058,
@@ -444,7 +476,26 @@ fn select<'a>(
         )
         .into());
     }
+    detected.extend(published);
     Ok((detected, Chosen::Detected))
+}
+
+/// Whether a plain `collect` adds the collectors that read the checks' outcomes: never to a reports run.
+fn publishes(env: &Environment, mode: &Mode<'_>) -> bool {
+    env.config().checks.publish && !matches!(mode, Mode::Reports(_))
+}
+
+/// Whether this `collect` selects a collector that reads the checks' outcomes: only then does the compile it reads owe
+/// the values phase (ADR 0336 D5). A selection that fails reads none, and `collect` reports it.
+pub fn reads_outcomes(
+    env: &Environment,
+    root: &Path,
+    runner: Option<&str>,
+    mode: &Mode<'_>,
+) -> bool {
+    let available = collectors(env.registries().declarations());
+    select(&available, runner, root, publishes(env, mode))
+        .is_ok_and(|(selected, _)| selected.iter().any(|c| c.reads_outcomes()))
 }
 
 /// The report `collect` merges new results into: `specforge-report.json`,

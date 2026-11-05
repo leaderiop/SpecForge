@@ -15,6 +15,9 @@ pub(crate) struct Args {
     #[command(flatten)]
     project: crate::project::ProjectArg,
 
+    #[command(flatten)]
+    effects: crate::effects::EffectsOption,
+
     /// Promote warnings to errors
     #[arg(long)]
     strict: bool,
@@ -55,22 +58,30 @@ impl Args {
             lint_profiles: self.lint.clone(),
             severity: self.severity,
             since: self.since.clone(),
+            effects: None,
         }
     }
 
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let format = match self.output.format(terminal) {
             Ok(format) => format,
             Err(exit) => return exit,
         };
         let runtime: SharedRuntime =
             Arc::new(specforge_component::ComponentRuntime::with_user_cache());
+        let mode = crate::effects::mode(
+            self.effects.effects,
+            crate::effects::Command::Check,
+            crate::asking::can_answer(format, terminal.facts()),
+            terminal.facts().ci,
+        );
         run_in(
-            &self.project,
+            (&self.project, mode),
             runtime,
             (format, self.output.pick()),
             &self.options(),
             terminal,
+            ports,
         )
     }
 }
@@ -80,11 +91,12 @@ impl Args {
 /// severity filter shows rendered, and the verdict over everything as the
 /// exit code. With a pick, the JSON form prints only the values it reaches.
 fn run_in(
-    project: &crate::project::ProjectArg,
+    (project, mode): (&crate::project::ProjectArg, specforge_effects::EffectsMode),
     runtime: SharedRuntime,
     (format, pick): (OutputFormat, Option<&Pick>),
     options: &CheckOptions,
     terminal: &Terminal,
+    ports: &specforge_effects::Ports,
 ) -> Exit {
     // Notes for a person: a JSON reader's stderr stays empty (ADR 0120).
     let notes = Notes::new(terminal, format);
@@ -93,14 +105,14 @@ fn run_in(
             "note: --lint pedantic is the default: info diagnostics are always reported"
         ));
     }
-    let compiled = match project.compile_in(runtime) {
+    let compiled = match project.compile_for(runtime, ports, mode) {
         Ok(compiled) => compiled,
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
     let outcome = match check(&ProjectView::of(&compiled), options) {
         Ok(outcome) => outcome,
         // A revision git does not name is a usage error, as an unknown flag value is.
-        Err(error) if error.error.code == specforge_ops::analysis::check::UNKNOWN_REVISION => {
+        Err(error) if error.error.code == specforge_ops::UNKNOWN_REVISION => {
             return Refusal::measuring(format).report(terminal, &error);
         }
         Err(error) => return Refusal::of(format).report(terminal, &error),
@@ -215,11 +227,15 @@ mod tests {
         let human = |dir: &tempfile::TempDir| {
             let (terminal, capture) = Terminal::captured("", Facts::PIPED);
             let exit = run_in(
-                &crate::project::ProjectArg::at(dir.path()),
+                (
+                    &crate::project::ProjectArg::at(dir.path()),
+                    specforge_effects::EffectsMode::Cached,
+                ),
                 std::sync::Arc::new(audit_extension()),
                 (OutputFormat::Human, None),
                 &CheckOptions::default(),
                 &terminal,
+                &crate::ports(),
             );
             (exit, capture)
         };

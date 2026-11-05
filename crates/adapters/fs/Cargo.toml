@@ -1,0 +1,24 @@
+[package]
+name = "specforge-fs"
+description = "The adapter behind the effect plane's Fs port: std::fs behind Contained, a capped read that never answers a withheld file, and a bounded walk that skips dependency directories and does not descend through links (ADR 0335)"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+specforge-common = { workspace = true }
+specforge-effects = { path = "../../kernel/effects" }
+# A person's listing (`specforge files list`, ADR 0339): `.gitignore` honoured, globs matched. Versions named here, not
+# in the root's workspace table, which every builtin blob compiles from.
+globset = "0.4"
+ignore = "0.4"
+
+[dev-dependencies]
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

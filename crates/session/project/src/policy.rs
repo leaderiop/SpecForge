@@ -114,11 +114,12 @@ impl DiagnosticPolicy {
     }
 
     /// Promote warnings to errors when strict: for findings that have no
-    /// project-level lints (analysis passes).
+    /// project-level lints (analysis passes). A machine diagnostic is never promoted: this machine decided it, not
+    /// the project (ADR 0337 D7).
     pub fn promote(&self, diagnostics: &mut [Diagnostic]) {
         if self.strict {
             for diagnostic in diagnostics {
-                if diagnostic.severity == Severity::Warning {
+                if diagnostic.severity == Severity::Warning && !diagnostic.machine {
                     diagnostic.severity = Severity::Error;
                 }
             }

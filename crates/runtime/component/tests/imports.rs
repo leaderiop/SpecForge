@@ -21,7 +21,11 @@ fn a_component_importing_a_host_port_this_specforge_lacks_is_refused_naming_it()
     let runtime = ComponentRuntime::new();
 
     let error = runtime
-        .load("@acme/newer", &importing(&[NEWER_PORT], PROTOCOL_VERSION))
+        .load(
+            "@acme/newer",
+            &importing(&[NEWER_PORT], PROTOCOL_VERSION),
+            specforge_wasm::Provenance::third_party(&importing(&[NEWER_PORT], PROTOCOL_VERSION)),
+        )
         .unwrap_err()
         .to_string();
 
@@ -37,7 +41,11 @@ fn a_component_importing_a_host_port_this_specforge_lacks_is_refused_naming_it()
 fn a_component_importing_an_empty_host_port_instance_is_refused_too() {
     let runtime = ComponentRuntime::new();
 
-    let loaded = runtime.load("@acme/empty", &importing_empty(NEWER_PORT));
+    let loaded = runtime.load(
+        "@acme/empty",
+        &importing_empty(NEWER_PORT),
+        specforge_wasm::Provenance::third_party(&importing_empty(NEWER_PORT)),
+    );
 
     assert!(loaded.is_err(), "an empty instance of a host port loads");
 }
@@ -53,6 +61,10 @@ fn a_component_importing_a_foreign_interface_is_refused_naming_it() {
         .load(
             "@acme/foreign",
             &importing(&["acme:x/y@1.0.0"], PROTOCOL_VERSION),
+            specforge_wasm::Provenance::third_party(&importing(
+                &["acme:x/y@1.0.0"],
+                PROTOCOL_VERSION,
+            )),
         )
         .unwrap_err()
         .to_string();

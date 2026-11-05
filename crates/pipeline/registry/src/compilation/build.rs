@@ -25,8 +25,8 @@ use super::sides;
 use super::validate::validate_extension_testability;
 use crate::rules::{CustomVerdicts, Registries, Rules};
 use crate::{
-    CommandRoutes, EdgeRegistry, FieldRegistry, KindRegistry, RouteRegistry, SettingsRegistry,
-    refuse_malformed_tool_schemas, register_surface_contributions,
+    CheckRegistry, CommandRoutes, EdgeRegistry, FieldRegistry, KindRegistry, RouteRegistry,
+    SettingsRegistry, refuse_malformed_tool_schemas, register_surface_contributions,
 };
 
 /// The phase a pass declares to run with every compile instead of under
@@ -130,14 +130,10 @@ impl DeclaredPass {
         &self.pass.baseline
     }
 
-    /// The project files the pass reads (ADR 0293), as declared; a malformed read is W021 at the declaration check.
-    pub fn reads(&self) -> &[specforge_protocol_types::FileRead] {
-        &self.pass.reads
-    }
-
-    /// Whether the pass receives the recorded test report (a check, compute or guard pass; protocol 1.11.0).
-    pub fn reads_tests(&self) -> bool {
-        self.pass.reads_tests
+    /// What the pass declares the host serves it (ADR 0337 D2): its file reads (ADR 0293; a malformed read is W021 at
+    /// the declaration check) and the recorded test report (a check, compute or guard pass).
+    pub fn inputs(&self) -> specforge_protocol_types::Inputs<'_> {
+        specforge_protocol_types::Inputs(&self.pass.inputs)
     }
 
     /// `<extension>:<pass>`, the name `specforge analyze` runs it by.
@@ -174,6 +170,8 @@ pub struct RegistryBuild {
     settings: SettingsRegistry,
     /// The routes `specforge trace` follows, checked against the registries and the judged rules (ADR 0330).
     routes: RouteRegistry,
+    /// Every field's value checks, resolved, and the checkers the registry kept (ADR 0336).
+    checks: CheckRegistry,
     /// The extensions' commands as the CLI and MCP route them; a shadowed
     /// one is E039 (ADR 0097).
     pub(crate) commands: CommandRoutes,
@@ -186,7 +184,8 @@ pub struct RegistryBuild {
     declaration_diagnostics: Vec<Reported>,
     /// Populate (E026, W018, W019, W021, I004, then the edge types' W021),
     /// W017, the rule set's (W150, W147 or W112 per declared rule), then the routes' E118 and W195, then
-    /// E039 for a shared code namespace, then the settings' W019 and W021 — in that order.
+    /// E039 for a shared code namespace, then the settings' W019 and W021, then the value checks' W019 and W189 — in
+    /// that order.
     registry_diagnostics: Vec<Reported>,
     /// The custom rules' probes (W112), set by [`Self::probe`]; empty until then.
     probe_diagnostics: Vec<Diagnostic>,
@@ -238,6 +237,27 @@ impl RegistryBuild {
         }
         // The graph reads the schemes kept.
         self.graph_inputs = self.derived_graph_inputs();
+    }
+
+    /// Add the checks `specforge.json` `checks` attaches after each field's declared ones (ADR 0336), and report what it
+    /// names wrongly (W019, W189) at the key `at` locates.
+    pub fn attach_checks(
+        &mut self,
+        config: &specforge_common::ChecksConfig,
+        at: &dyn Fn(&[&str]) -> Option<specforge_common::SourceSpan>,
+    ) {
+        let (checks, diagnostics) = crate::registries::checks::attach(
+            std::mem::take(&mut self.checks),
+            config,
+            &self.declarations,
+            &self.fields,
+            &self.kinds,
+            &self.candidates,
+            at,
+        );
+        self.checks = checks;
+        self.registry_diagnostics
+            .extend(about(BuildPart::Registries, diagnostics));
     }
 
     /// The kinds the declarations register, each under its keyword (first
@@ -300,6 +320,11 @@ impl RegistryBuild {
     /// Every declared pass with its extension, in order (both phases).
     pub fn passes(&self) -> &[DeclaredPass] {
         &self.passes
+    }
+
+    /// Every field's value checks, resolved, and the checkers the registry kept (ADR 0336).
+    pub fn checks(&self) -> &CheckRegistry {
+        &self.checks
     }
 
     /// The extensions' commands as the CLI and MCP route them, each under
@@ -418,7 +443,7 @@ impl RegistryBuild {
         self.passes.iter().filter(|p| p.is_guard_phase())
     }
 
-    /// How many check, compute or guard passes declare `reads_tests`: the compile then reads the recorded report once
+    /// How many check, compute or guard passes declare the `tests` input: the compile then reads the recorded report once
     /// (and says I205 or E045 when it cannot).
     pub fn passes_reading_tests(&self) -> usize {
         let compile_or_write =
@@ -426,7 +451,7 @@ impl RegistryBuild {
         self.passes
             .iter()
             .filter(compile_or_write)
-            .filter(|p| p.reads_tests())
+            .filter(|p| p.inputs().tests())
             .count()
     }
 
@@ -535,6 +560,10 @@ pub fn build_registries_with(
     registry_diagnostics.extend(about(BuildPart::Registries, route_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Collision, namespace_diagnostics));
     registry_diagnostics.extend(about(BuildPart::Registries, settings_diagnostics));
+    // The value checks: W019 and W189.
+    let (checks, check_diagnostics) =
+        crate::registries::checks::build(&declarations, &fields, &kinds, &codes, &candidates);
+    registry_diagnostics.extend(about(BuildPart::Registries, check_diagnostics));
 
     // A slash command names a prompt or command the registry kept; then the host's names are claimed (E039).
     surface_diagnostics.extend(about(
@@ -560,6 +589,7 @@ pub fn build_registries_with(
         codes,
         settings,
         routes,
+        checks,
         commands,
         passes,
         declaration_diagnostics,

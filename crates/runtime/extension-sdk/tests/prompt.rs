@@ -147,7 +147,7 @@ fn a_prompt_reads_the_state_it_is_sent() {
     c.prompt("status", |p| {
         p.title("Status")
             .description("Status")
-            .reads_state()
+            .input(Input::State)
             .handler(|call| {
                 let active = call
                     .state()

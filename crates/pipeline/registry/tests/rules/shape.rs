@@ -51,6 +51,21 @@ fn unrecognized_pattern_kind_produces_warning() {
 
 #[spec(
     behavior = "parse_validation_rule_pattern",
+    verify = "a declared file_exists rule is W112 naming the checker that replaced it"
+)]
+fn a_file_exists_rule_names_the_checker_that_replaced_it() {
+    let mut declared = rule("W102", "file_exists");
+    declared.field = Some("docs".to_string());
+    let built = one(declared);
+    assert!(built.rules.is_empty());
+    assert_eq!(
+        built.coded("W112")[0].message,
+        "extension '@test': unrecognized validation pattern kind 'file_exists'; a field whose value names a file carries `@specforge/checks:file` instead"
+    );
+}
+
+#[spec(
+    behavior = "parse_validation_rule_pattern",
     verify = "all required fields validated on each rule"
 )]
 fn misconfigured_one_of_with_empty_values_produces_warning() {
@@ -77,7 +92,6 @@ fn field_requiring_check_without_field_produces_warning() {
     for (check, declared_constraint) in [
         ("missing_field_when_flag_set", None),
         ("missing_required_field", None),
-        ("file_exists", None),
         (
             "field_value_constraint",
             Some(constraint("one_of", None, &["draft"])),
@@ -421,7 +435,6 @@ fn a_property_its_check_does_not_read_is_w147() {
             &["edge_type", "constraint", "wasm_function"],
         ),
         ("missing_required_field", edge, None, None, &["edge_type"]),
-        ("file_exists", None, any(), None, &["constraint"]),
         (
             "field_value_constraint",
             edge,

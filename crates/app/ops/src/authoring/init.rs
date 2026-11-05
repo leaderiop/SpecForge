@@ -176,7 +176,7 @@ pub fn init(req: &Request, runtime: &dyn WasmRuntime) -> Result<Outcome, Refusal
     if req.dir.join(STARTER_FILE).exists() {
         return Err(starter_exists(req.dir).about(InitField::Dir));
     }
-    let enclosing = enclosing::judged(&crate::containment::landing(req.dir))
+    let enclosing = enclosing::judged(&specforge_effects::RealFs::landing(req.dir))
         .map_err(|e| e.about(InitField::Dir))?;
 
     let name = match req.name {

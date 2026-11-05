@@ -4,4 +4,4 @@
 
 mod load;
 
-pub use load::{Loaded, load_declaration};
+pub use load::{Loaded, check_protocol_version, load_declaration};

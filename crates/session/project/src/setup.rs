@@ -42,6 +42,8 @@ pub enum SetupPart {
     Surfaces,
     /// `specforge.json` `settings` not used as written (E086, E087, W166).
     Settings,
+    /// `specforge.json` `effects` and `roots` not used as written (E109), or narrowing a declared capability (W171).
+    Effects,
     /// Two contributions claim one name: a kind keyword (E026), an edge label
     /// (W018), a rule code (W023), a command, MCP tool or resource name
     /// (E039), a provider scheme (E057).

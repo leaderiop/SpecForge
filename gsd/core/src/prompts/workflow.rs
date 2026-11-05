@@ -47,10 +47,9 @@ pub struct Spec {
     pub gates: &'static [&'static str],
     pub steps: &'static [Step],
     pub slash: Option<Slash>,
-    /// The prompt reads the extension's state (`call.state()`).
-    pub reads_state: bool,
-    /// The prompt receives the slash commands the project serves (`PromptCall::slash_commands`, ADR 0316).
-    pub reads_slash_commands: bool,
+    /// What the host serves the prompt beside the graph every prompt reads (ADR 0337): `State` for `call.state()`,
+    /// `SlashCommands` for `PromptCall::slash_commands` (ADR 0316).
+    pub inputs: &'static [specforge_extension_sdk::Input],
     /// A closing section of the prompt's own (`spec_phase`'s judging text).
     pub tail: Option<fn(&PromptCall<'_>) -> String>,
 }
@@ -169,7 +168,7 @@ fn handle(spec: &'static Spec, call: &PromptCall<'_>) -> Result<PromptOutput, St
     })
 }
 
-/// A prompt's closing line about the active workstream (`reads_state`).
+/// A prompt's closing line about the active workstream (the `state` input).
 pub fn workstream_tail(call: &PromptCall<'_>) -> String {
     match crate::commands::support::active_workstream(call.state()) {
         Some(id) => format!("\n\nActive workstream: {id}."),
@@ -191,17 +190,14 @@ fn source_path(spec: &Spec) -> Option<String> {
 pub fn declare(c: &mut ContributionsBuilder, spec: &'static Spec) {
     c.prompt(spec.id, |p| {
         p.title(spec.title)
-            .reads_graph()
+            .input(specforge_extension_sdk::Input::Graph)
             .description(spec.description);
         // `update` is our text, not a port: its prompt names no upstream file (its slash binding does)
         if let Some(path) = source_path(spec) {
             p.attribution(attribution(&path));
         }
-        if spec.reads_state {
-            p.reads_state();
-        }
-        if spec.reads_slash_commands {
-            p.reads_slash_commands();
+        for input in spec.inputs {
+            p.input(input.clone());
         }
         args::declare(p, spec.args);
         if let Some(subject) = spec.subject {

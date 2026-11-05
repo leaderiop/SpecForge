@@ -27,7 +27,7 @@ const MAX_OVERRIDES: usize = 3;
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("verify_rules", |p| {
-        p.phase("check").reads_tests().run(check);
+        p.phase("check").input(Input::Tests).run(check);
     });
 }
 

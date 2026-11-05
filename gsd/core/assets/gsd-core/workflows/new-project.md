@@ -297,7 +297,7 @@ Do not compress. Capture everything gathered.
 
 ```bash
 # no folder to create: the entities live in the spec
-git add spec && git commit -m "docs: initialize project" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs: initialize project" && specforge collect --runner gsd-git --yes
 ```
 
 ## 5. Workflow Preferences
@@ -640,7 +640,7 @@ Record the settings with all choices (the settings default the rest):
 **Commit config.json:**
 
 ```bash
-git add spec && git commit -m "chore: add project config" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "chore: add project config" && specforge collect --runner gsd-git --yes
 ```
 
 ## 5.1. Sub-Repo Detection
@@ -937,7 +937,7 @@ If "adjust": Return to scoping.
 **Commit requirements:**
 
 ```bash
-git add spec && git commit -m "docs: define v1 requirements" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs: define v1 requirements" && specforge collect --runner gsd-git --yes
 ```
 
 ## 7.5. Project Structure Mode
@@ -1119,7 +1119,7 @@ This ensures new projects get the default GSD workflow-enforcement guidance and 
 **Commit roadmap (after approval or auto mode):**
 
 ```bash
-git add spec && git commit -m "docs: create roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs: create roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
 ```
 
 ## 9. Done

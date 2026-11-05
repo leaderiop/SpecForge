@@ -203,12 +203,12 @@ type McpPromptArgument "Mcp Prompt Argument" {
 // McpInferGapsResult and McpTraceChainResult.
 
 type McpInspectResult "Mcp Inspect Result" {
-  entity_id           string          @readonly
-  kind                string          @readonly
+  entity_id           string           @readonly
+  kind                string           @readonly
   /// Absent when the entity declares no title.
-  title               string          @optional
+  title               string           @optional
   /// The extension that declares the entity's kind; absent when none does.
-  source_extension    string          @optional
+  source_extension    string           @optional
   /// The entity's kind is testable, the standing the LSP hover shows.
   testable            boolean
   /// The entity declares at least one verify obligation.
@@ -216,37 +216,39 @@ type McpInspectResult "Mcp Inspect Result" {
   /// Its kind must declare obligations (a no_verify_statements rule targets
   /// it): why an exempt entity is exempt.
   obligated           boolean
-  source_span         SourceSpan      @readonly
+  source_span         SourceSpan       @readonly
   /// The file the entity is written in, relative to the spec root.
-  file                string          @readonly
+  file                string           @readonly
   /// The revision of that file as the project was read (sha256:<digest>): what specforge.edit and
   /// specforge.rename name to be refused when the file has changed since (ADR 0289).
-  revision            string          @readonly
+  revision            string           @readonly
   /// The field text of the field the entity's extension declares headline and
   /// normative (a behavior's contract); absent when its kind declares none.
-  contract            string          @optional
+  contract            string           @optional
   /// Every field the entity declares, by name (its verify statements are
   /// `verify_declarations`).
   fields              object
   /// The written paths of the fields and members in `fields` a compute pass gave; absent when none.
-  computed            string[]        @optional
+  computed            string[]         @optional
   /// Each annotated field's annotations, by its name (a block field's entry's by outer.key); absent when none.
-  annotations         object          @optional
+  annotations         object           @optional
   /// Its methods, as the graph export writes them; absent when none.
-  methods             MethodJson[]    @optional
+  methods             MethodJson[]     @optional
   /// The entities that reference this one (incoming), distinct, sorted.
   referenced_by       string[]
   /// The entities this one references (outgoing), distinct, sorted.
   refers_to           string[]
   /// Its references in a fact scheme that name no fact (ADR 0327): why they have no edge; absent when none.
-  unheld              UnheldJson[]    @optional
+  unheld              UnheldJson[]     @optional
   /// Its verdict statements as the graph export writes them; absent when it has none.
-  verdicts            VerdictJson[]   @optional
+  verdicts            VerdictJson[]    @optional
   /// Where each judged rule that judges it stands (ADR 0290); absent when none does.
-  judgements          JudgementJson[] @optional
+  judgements          JudgementJson[]  @optional
+  /// One row per checker per checked value it holds (ADR 0336); absent when none.
+  checks              ValueCheckJson[] @optional
   /// Its obligations, each its kind (absent for a bare verify) and its text, as the graph export
   /// writes them and specforge.edit reads them; absent when it declares none.
-  verify_declarations Obligation[]    @optional
+  verify_declarations Obligation[]     @optional
   /// Whether the entity counts (exempt, not_testable) and, when it does, how
   /// it is proven, as specforge.coverage's row says.
   coverage_status     CoverageStatus
@@ -409,13 +411,13 @@ type McpLockEntry "Mcp Lock Entry" {
 }
 
 type McpExtensionInfo "Mcp Extension Info" {
-  name             string            @readonly
+  name             string                  @readonly
   /// The loaded version; else an installed extension's locked one; else the
   /// version a legacy name@version entry writes; absent otherwise.
-  version          string            @optional
+  version          string                  @optional
   /// "builtin", the lock entry's source ("registry", "local:<path>"), or
   /// "file:<path>" for a .wasm file entry of specforge.json.
-  source           string            @readonly
+  source           string                  @readonly
   /// The entity kinds the extension contributes.
   entity_kinds     string[]
   /// The project's entities of those kinds.
@@ -424,10 +426,34 @@ type McpExtensionInfo "Mcp Extension Info" {
   /// "loaded"; "not_loaded" (enabled, but not installed or it failed to
   /// load); "not_configured" (installed, but not enabled).
   status           "loaded" | "not_loaded" | "not_configured"
-  /// The file reads its passes, commands and collectors declare (ADR 0293), each with what it asks for; absent while it
-  /// declares none.
-  reads            McpDeclaredRead[] @optional
+  /// The inputs its passes, commands, prompts, hooks and collectors declare (ADR 0293, ADR 0337), each with what it
+  /// asks for; absent while it declares none.
+  inputs           McpDeclaredRead[]       @optional
+  /// The capabilities it declares (ADR 0335 D2.1), each with its scope; absent while it declares none.
+  capabilities     McpDeclaredCapability[] @optional
+  /// The checkers it declares (ADR 0336); absent while it declares none.
+  checkers         McpDeclaredChecker[]    @optional
   verify unit "McpExtensionInfo schema is valid"
+}
+
+type McpDeclaredCapability "Mcp Declared Capability" {
+  /// Its scope name.
+  name  string
+  /// Its port and scope in one line ("process cargo test", "http GET api.example.com").
+  scope string
+  why   string
+  verify unit "McpDeclaredCapability schema is valid"
+}
+
+type McpDeclaredChecker "Mcp Declared Checker" {
+  name       string
+  /// The field types it reads.
+  applies_to string[]
+  /// The capabilities its probes ask under; absent for a pure checker.
+  scopes     string[] @optional
+  /// The codes its findings may carry; absent when it declares none.
+  codes      string[] @optional
+  verify unit "McpDeclaredChecker schema is valid"
 }
 
 type McpProvidersResult "Mcp Providers Result" {
@@ -572,8 +598,8 @@ type McpProviderInfo "Mcp Provider Info" {
 
 type McpDoctorFinding "Mcp Doctor Finding" {
   /// What the finding is about: config, lock, binary, load, structural_only, providers,
-  /// declaration, peer, registry, rule, surface, conflict, shadowing, toolchain or host.
-  about       "config" | "lock" | "binary" | "load" | "structural_only" | "providers" | "declaration" | "peer" | "registry" | "rule" | "surface" | "conflict" | "shadowing" | "toolchain" | "host"
+  /// declaration, peer, registry, rule, surface, conflict, shadowing, toolchain, grants or host.
+  about       "config" | "lock" | "binary" | "load" | "structural_only" | "providers" | "declaration" | "peer" | "registry" | "rule" | "surface" | "conflict" | "shadowing" | "toolchain" | "grants" | "host"
   check       string
   /// The diagnostic's severity; the disk checks' own are error or warn.
   status      "error" | "warn" | "info"
@@ -589,24 +615,63 @@ type McpDoctorFinding "Mcp Doctor Finding" {
 }
 
 type McpDoctorExtension "Mcp Doctor Extension" {
-  name              string            @readonly
+  name              string             @readonly
   /// The version the extensions listing gives it; absent when it has none.
-  version           string            @optional
+  version           string             @optional
   /// Where it comes from: builtin, the lock entry's source, file:<path>, or unknown.
   source            string
   /// "loaded"; "not_loaded" (enabled, but not installed or it failed to
   /// load); "not_configured" (installed, but not enabled).
   status            "loaded" | "not_loaded" | "not_configured"
   enhancement_count integer
-  /// The file reads its passes, commands and collectors declare (ADR 0293), each with what it asks for; absent while it
-  /// declares none.
-  reads             McpDeclaredRead[] @optional
+  /// The inputs its passes, commands, prompts, hooks and collectors declare (ADR 0293, ADR 0337), each with what it
+  /// asks for; absent while it declares none.
+  inputs            McpDeclaredRead[]  @optional
+  /// Each capability it declares and its grant here, as specforge grants lists them (ADR 0335 D2); absent while
+  /// it declares none.
+  capabilities      McpCapabilityRow[] @optional
   verify unit "McpDoctorExtension schema is valid"
 }
 
+type McpCapabilityRow "Mcp Capability Row" {
+  /// Its scope name.
+  name        string
+  /// "http", "fs", "git" or "process".
+  port        string
+  /// What the project's effects ceiling leaves of it, in one line; the declared scope when it leaves nothing.
+  scope       string
+  why         string
+  /// The call kinds it is declared for; none: every kind the gate lets use its port.
+  call_kinds  string[]
+  /// What the effects ceiling removed (W171).
+  narrowed    string[]
+  /// A run here uses it: a detected collector's command.
+  in_use      boolean
+  state       "none-needed" | "approved" | "not-approved" | "narrowed-out"
+  /// When this machine approved it (RFC 3339).
+  approved_at string @optional
+  verify unit "McpCapabilityRow schema is valid"
+}
+
+type McpGrantRoot "Mcp Grant Root" {
+  name     string
+  /// Its canonical target.
+  target   string
+  /// Under the project root: it needs no approval.
+  inside   boolean
+  /// An outside root this machine approved.
+  approved boolean
+  verify unit "McpGrantRoot schema is valid"
+}
+
 type McpDeclaredRead "Mcp Declared Read" {
-  /// The pass, command or collector that declares the read: "pass:<name>", "command:<id>" or "collector:<name>".
+  /// The call that declares the input: "pass:<name>", "command:<id>", "prompt:<id>", "hook:<id>" or
+  /// "collector:<name>".
   owner string
+  /// The input's tag (ADR 0337): files, tests, state, graph, slash_commands, git or setting.
+  input string
+  /// A files input's read name, a setting's "<extension>:<name>", "status" for a git input that asks for it; else
+  /// empty.
   name  string
   /// The "kind.field" whose paths are read; absent for a glob read.
   field string @optional
@@ -633,6 +698,8 @@ type McpDoctorReport "Mcp Doctor Report" {
   /// Entity enhancements keyed by the entity kind they target.
   enhancements    object
   findings        McpDoctorFinding[]
+  /// The named roots of specforge.json, inside or outside the project; absent while it names none.
+  roots           McpGrantRoot[] @optional
   verify unit "McpDoctorReport schema is valid"
 }
 

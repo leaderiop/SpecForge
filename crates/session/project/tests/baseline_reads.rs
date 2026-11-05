@@ -6,11 +6,12 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 use specforge_common::regular::MAX_FILE_BYTES;
+use specforge_effects::git::{Git, Located, Sha};
+use specforge_effects::testing::FakeGit;
 use specforge_project::baseline::Baseline;
-use specforge_project::history::{History, Located, Sha};
 use specforge_project::judged::file_digest;
 use specforge_project::testing::{
-    FakeHistory, TestProject, gsd_facts_project, gsd_facts_serving, gsd_history_runtime, pass_input,
+    TestProject, gsd_facts_project, gsd_facts_serving, gsd_history_runtime, pass_input,
 };
 use specforge_test::prelude::*;
 use specforge_wasm::testing::InProcessRuntime;
@@ -18,17 +19,17 @@ use specforge_wasm::testing::InProcessRuntime;
 /// The compute pass `scan`: it reads the files `plan.files_modified` names and the sources under `src`.
 fn scan_runtime() -> InProcessRuntime {
     gsd_facts_serving(
-        json!([{"name": "scan", "phase": "compute", "baseline": ["plan"], "reads": [
-            {"name": "modified", "field": "plan.files_modified", "text": true},
-            {"name": "sources", "glob": "src/**/*.rs"},
+        json!([{"name": "scan", "phase": "compute", "baseline": ["plan"], "inputs": [
+            {"input": "files", "name": "modified", "field": "plan.files_modified", "text": true},
+            {"input": "files", "name": "sources", "glob": "src/**/*.rs"},
         ]}]),
     )
 }
 
 /// A fake repository at `project` whose commit holds only `a.spec` as a spec, and `src/lib.rs` and
 /// `src/nested/deep.rs` as other files.
-fn commit(project: &TestProject) -> FakeHistory {
-    let mut fake = FakeHistory::repo(
+fn commit(project: &TestProject) -> FakeGit {
+    let mut fake = FakeGit::repo(
         project.root(),
         &"c".repeat(40),
         vec![("a.spec".into(), project.read("a.spec").into_bytes())],
@@ -41,9 +42,9 @@ fn commit(project: &TestProject) -> FakeHistory {
 }
 
 /// The baseline of `fake`'s `HEAD` in `project` over `runtime`.
-fn baseline_of(project: &TestProject, runtime: &Arc<InProcessRuntime>, fake: &FakeHistory) {
+fn baseline_of(project: &TestProject, runtime: &Arc<InProcessRuntime>, fake: &FakeGit) {
     let env = project.environment_in(runtime.clone());
-    let Located::Repo(place) = History::locate(fake, project.root()) else {
+    let Located::Repo(place) = Git::locate(fake, project.root()) else {
         panic!("a repository")
     };
     let sha = Sha::new("c".repeat(40));
@@ -104,7 +105,7 @@ fn a_glob_read_at_the_baseline_lists_the_commits_tree() {
 fn a_baseline_asks_no_tree_without_a_reading_compute_pass() {
     let project = crate::computed::project("verification V \"V\" {\n  phase 03\n}\n");
     let runtime = Arc::new(gsd_history_runtime(json!([])));
-    let fake = FakeHistory::repo(
+    let fake = FakeGit::repo(
         project.root(),
         &"c".repeat(40),
         vec![("a.spec".into(), project.read("a.spec").into_bytes())],
@@ -189,14 +190,14 @@ fn a_baseline_compiles_to_the_same_bytes_twice() {
     let runtime = Arc::new(scan_runtime());
     let env = project.environment_in(runtime.clone());
     let fake = commit(&project);
-    let Located::Repo(place) = History::locate(&fake, project.root()) else {
+    let Located::Repo(place) = Git::locate(&fake, project.root()) else {
         panic!("a repository")
     };
     let sha = Sha::new("c".repeat(40));
     let compile = || {
         let fetch = |keys: &[String]| {
             let asked: Vec<PathBuf> = keys.iter().map(PathBuf::from).collect();
-            let found = History::blobs(&fake, &place, &sha, &asked).unwrap();
+            let found = Git::blobs(&fake, &place, &sha, &asked).unwrap();
             keys.iter()
                 .cloned()
                 .zip(found.into_iter().map(|(_, bytes)| bytes))
@@ -204,14 +205,14 @@ fn a_baseline_compiles_to_the_same_bytes_twice() {
         };
         let sizes = |keys: &[String]| {
             let asked: Vec<PathBuf> = keys.iter().map(PathBuf::from).collect();
-            let found = History::sizes(&fake, &place, &sha, &asked).unwrap();
+            let found = Git::sizes(&fake, &place, &sha, &asked).unwrap();
             keys.iter()
                 .cloned()
                 .zip(found.into_iter().map(|(_, size)| size))
                 .collect::<Vec<_>>()
         };
-        let files = History::files(&fake, &place, &sha, Path::new("")).unwrap();
-        let tree = History::tree(&fake, &place, &sha, Path::new("")).unwrap();
+        let files = Git::files(&fake, &place, &sha, Path::new(""), &|_| true).unwrap();
+        let tree = Git::tree(&fake, &place, &sha, Path::new("")).unwrap();
         let baseline = Baseline::compile(
             &env,
             sha.clone(),
@@ -239,10 +240,10 @@ fn a_baseline_compiles_to_the_same_bytes_twice() {
 fn at(
     project: &TestProject,
     runtime: &Arc<InProcessRuntime>,
-    fake: &FakeHistory,
+    fake: &FakeGit,
 ) -> Result<(), String> {
     let env = project.environment_in(runtime.clone());
-    let Located::Repo(place) = History::locate(fake, project.root()) else {
+    let Located::Repo(place) = Git::locate(fake, project.root()) else {
         panic!("a repository")
     };
     Baseline::at(&env, fake, &place, &Sha::new("c".repeat(40))).map(|_| ())
@@ -269,7 +270,7 @@ fn a_baseline_git_could_not_fully_read_is_not_cached() {
     // a tree git could not list is an unreadable baseline, never an empty one
     let project = gsd_facts_project();
     let mut fake = commit(&project);
-    fake.tree_fail = Some(specforge_project::history::HistoryError("no tree".into()));
+    fake.tree_fail = Some(specforge_effects::git::GitError("no tree".into()));
     let why = at(&project, &runtime, &fake).expect_err("an unreadable baseline");
     assert!(why.contains("no tree"), "{why}");
     at(&project, &runtime, &fake).expect_err("still unreadable");
@@ -333,7 +334,7 @@ fn a_spec_a_pass_reads_is_not_fetched_again() {
     );
     project.write("a.spec", &spec);
     let runtime = Arc::new(scan_runtime());
-    let mut fake = FakeHistory::repo(
+    let mut fake = FakeGit::repo(
         project.root(),
         &"c".repeat(40),
         vec![("a.spec".into(), spec.clone().into_bytes())],
@@ -353,7 +354,7 @@ fn a_subdirectory_project_reads_its_own_files() {
     let project = gsd_facts_project();
     let top = project.root().parent().unwrap().to_path_buf();
     let dir = PathBuf::from(project.root().file_name().unwrap());
-    let mut fake = FakeHistory::repo(
+    let mut fake = FakeGit::repo(
         &top,
         &"c".repeat(40),
         vec![(dir.join("a.spec"), project.read("a.spec").into_bytes())],
@@ -385,8 +386,8 @@ fn a_path_only_a_computed_value_names_is_read_in_a_later_run() {
     ]);
     let passes = json!([
         {"name": "first", "phase": "compute", "baseline": ["plan"], "computes": ["plan.touched"]},
-        {"name": "second", "phase": "compute", "baseline": ["plan"], "reads": [
-            {"name": "touched", "field": "plan.touched", "text": true},
+        {"name": "second", "phase": "compute", "baseline": ["plan"], "inputs": [
+            {"input": "files", "name": "touched", "field": "plan.touched", "text": true},
         ]},
     ]);
     let none = json!({"diagnostics": [], "summary": {}, "values": []});

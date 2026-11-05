@@ -7,10 +7,14 @@
 //! answer for `surfaces` is served raw, as a guest built before ADR 0037
 //! would give it, so each surface still carries the `sandbox` override the
 //! protocol no longer has (the host reports it as W153 and grants nothing).
+//! It also calls the four `specforge:host` ports, through a capability each
+//! (its `cmd__ports` and `__pass_ports` exports), to prove a port is reached
+//! only through a grant.
 //! The component blob is vendored at `fixtures/sandbox-probe/wasm/sandbox_probe.wasm`
 //! (refresh: `cargo run -p xtask --bin revendor`).
 
 use serde_json::{json, Value};
+use specforge_extension_sdk::host::{self, Denial, HostError, HttpRequest, ProcessRequest};
 use specforge_extension_sdk::prelude::*;
 use std::io::Read;
 use std::net::ToSocketAddrs;
@@ -35,6 +39,22 @@ impl Contributions for Probe {
         c.kind("probe_target", |k| {
             k.description("Something to probe").testable(false);
         });
+        c.capability(
+            Capability::http("probe-http")
+                .hosts(&["example.test"])
+                .why("prove a guest reaches the http port through its grant"),
+        );
+        c.capability(
+            Capability::fs("probe-fs")
+                .ops(&[FsAccess::Stat])
+                .why("prove the same of the fs port"),
+        );
+        c.capability(
+            Capability::process("probe-process")
+                .argv(&["probe-tool"])
+                .why("prove the same of the process port"),
+        );
+        c.capability(Capability::git("probe-git").why("prove the same of the git port"));
         c.command("probe", |cmd| {
             cmd.title("Probe the sandbox")
                 .description("Try every capability and report what was granted")
@@ -160,4 +180,53 @@ fn report(dir: &str, port: Option<i64>) -> Value {
     })
 }
 
-specforge_extension_sdk::component_guest!(build = specforge_extension_build);
+/// What the guest reports of a port's answer.
+fn answered<T>(answer: Result<T, HostError>, ok: impl FnOnce(T) -> Value) -> Value {
+    match answer {
+        Ok(value) => ok(value),
+        Err(HostError::Denied(Denial::CallKind(why))) => json!({"denied": "call_kind", "why": why}),
+        Err(HostError::Denied(Denial::Scope(why))) => json!({"denied": "scope", "why": why}),
+        Err(HostError::Failed(failure)) => json!({"failed": failure.class}),
+    }
+}
+
+/// The exports the host calls directly with `{"port", "target", "spin"}`: each calls the port named, and spins
+/// forever afterwards when told to.
+fn ports(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+    if export != "cmd__ports" && export != "__pass_ports" {
+        return None;
+    }
+    let asked: Value = serde_json::from_slice(input).ok()?;
+    let target = asked["target"].as_str().unwrap_or_default().to_string();
+    let answer = match asked["port"].as_str().unwrap_or_default() {
+        "http" => answered(
+            host::http::send(&HttpRequest {
+                method: "GET".to_string(),
+                url: target,
+                ..HttpRequest::default()
+            }),
+            |r| json!({"ok": r.status, "bytes": r.body.len(), "truncated": r.truncated}),
+        ),
+        "fs" => answered(
+            host::fs::stat("project", &target),
+            |e| json!({"ok": e.is_some()}),
+        ),
+        "process" => answered(
+            host::process::run(&ProcessRequest {
+                argv: vec![target],
+                ..ProcessRequest::default()
+            }),
+            |o| json!({"ok": o.exit_code, "truncated": o.truncated}),
+        ),
+        "git" => answered(host::git::commit(&target), |sha| json!({"ok": sha})),
+        other => json!({"failed": format!("no port {other}")}),
+    };
+    if asked["spin"] == true {
+        loop {
+            std::hint::spin_loop();
+        }
+    }
+    Some(Ok(answer.to_string().into_bytes()))
+}
+
+specforge_extension_sdk::component_guest!(build = specforge_extension_build, handler = ports);

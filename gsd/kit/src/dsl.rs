@@ -17,7 +17,7 @@ pub enum Ty {
     /// A list of values of a vocabulary, each once (ADR 0285).
     Enums(&'static [&'static str]),
     Strs,
-    /// Paths of project files, from the project root: the host's `E016` checks that each exists.
+    /// Paths of project files, from the project root: `@specforge/checks:file` reports a missing one (E016).
     Files,
     Ref(&'static str),
     Refs(&'static str),
@@ -266,9 +266,11 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
             f.field_type(FieldType::StringList);
         }
         Ty::Files => {
-            f.field_type(FieldType::StringList)
-                .file_reference()
-                .file_base(FileBase::Project);
+            f.field_type(FieldType::StringList);
+            // Only an authored value is checked: the host drops a check on a field it writes itself (W189).
+            if field.writer == Writer::Author {
+                f.file(Root::Project);
+            }
         }
         Ty::Ref(target) => {
             f.field_type(FieldType::Reference)

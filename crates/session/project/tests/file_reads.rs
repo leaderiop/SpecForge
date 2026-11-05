@@ -10,6 +10,7 @@ use specforge_project::testing::{
     pass_input,
 };
 use specforge_project::{SharedRuntime, UpdateKind};
+use specforge_test::prelude::*;
 use specforge_wasm::testing::InProcessRuntime;
 
 fn facts<'a>(input: &'a Value, read: &str) -> &'a Vec<Value> {
@@ -182,6 +183,22 @@ fn a_path_outside_the_project_is_outside_project() {
     assert_eq!(fact(&input, "modified", "src/lib.rs")["exists"], true);
 }
 
+/// A written name compares with the directory's listing (ADR 0335): a case variant of a file on disk is absent on
+/// macOS and Windows as on Linux, and its text is not read.
+#[specforge_test(
+    behavior = "dispatch_collector",
+    verify = "a read path whose case differs from the disk is absent on every OS"
+)]
+fn a_read_path_whose_case_differs_is_absent() {
+    let project = project_of(&plan_naming(&["SRC/LIB.RS", "src/lib.rs"]));
+    let (_, _, input) = probed(project, modified());
+
+    let variant = fact(&input, "modified", "SRC/LIB.RS");
+    assert_eq!(variant["exists"], false, "{variant}");
+    assert!(variant.get("text").is_none(), "{variant}");
+    assert_eq!(fact(&input, "modified", "src/lib.rs")["exists"], true);
+}
+
 #[test]
 fn a_file_over_the_cap_has_facts_and_no_text() {
     let project = project_of(&plan_naming(&["big.txt"])).file("big.txt", "a".repeat(70_000));
@@ -237,6 +254,23 @@ fn the_text_budget_of_a_read_is_one_mib() {
     let over_budget = found.iter().filter(|f| f["error"] == "budget").count();
     // 17 x 60,000 bytes fit in 1 MiB; the 18th does not.
     assert_eq!((with_text, over_budget), (17, 3), "{found:?}");
+}
+
+#[test]
+fn a_field_read_honours_a_root_prefix_in_the_value() {
+    let project = gsd_facts_project()
+        .config(|c| c["spec_root"] = "specs".into())
+        .file(
+            "specs/a.spec",
+            plan_naming(&["<spec>/notes.md", "<nowhere>/a.md"]),
+        )
+        .file("specs/notes.md", "note");
+    let (_, _, input) = probed(project, modified());
+    assert_eq!(fact(&input, "modified", "specs/notes.md")["exists"], true);
+    assert_eq!(
+        fact(&input, "modified", "<nowhere>/a.md")["error"],
+        "outside_project"
+    );
 }
 
 #[test]
@@ -528,6 +562,7 @@ fn passes_with_equal_reads_share_one_walk() {
         disk: &disk,
         project_root: std::path::Path::new("/p"),
         spec_root: std::path::Path::new("/p"),
+        roots: specforge_effects::Roots::new("/p", "/p"),
     };
     let read = |name: &str| FileRead {
         name: name.into(),

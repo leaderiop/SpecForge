@@ -31,14 +31,14 @@ impl Args {
     /// binary whose declaration has errors is refused before any network
     /// call. The declaration's warnings, then what reading the registry
     /// configuration reported, go to stderr whatever the result.
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let format = self.output.format;
         let extension = self.extension.as_deref().unwrap_or(self.project.path());
         let root = match self.project.root() {
             Ok(root) => root,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };
-        let registry = ConfiguredRegistry::for_project(&root, "publish");
+        let registry = ConfiguredRegistry::for_project(&root, "publish", ports);
         let runtime = ComponentRuntime::with_user_cache();
         let report = publish(extension, &registry, &runtime);
         let notes = Notes::new(terminal, format);

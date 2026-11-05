@@ -967,7 +967,7 @@ fn a_z3_that_does_not_run_says_why() {
     assert_eq!(code, Some(0));
     assert_eq!(
         prove["findings"][0]["message"],
-        "the SMT solver z3 does not run (`z3 --version` failed: exit status: 1): `specforge analyze --prove` skips its consistency and entailment checks"
+        "the SMT solver z3 does not run (`z3 --version` exited with status 1): `specforge analyze --prove` skips its consistency and entailment checks"
     );
     assert!(prove["summary"]["solver"].is_null(), "{prove}");
 }

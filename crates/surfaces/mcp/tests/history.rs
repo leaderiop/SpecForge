@@ -4,8 +4,9 @@ use std::sync::Arc;
 
 use crate::support::*;
 use serde_json::{Value, json};
+use specforge_effects::testing::FakeGit;
 use specforge_project::SharedRuntime;
-use specforge_project::testing::{FakeHistory, GSD_EXTENSION, gsd_history_runtime, history};
+use specforge_project::testing::{GSD_EXTENSION, gsd_history_runtime};
 use specforge_test_macros::test as specforge_test;
 
 const BASE: &str = "milestone v1.0 \"One\" {}\n\nphase 03 \"Three\" {\n  milestone v1.0\n}\n\n";
@@ -34,18 +35,17 @@ fn validate_since_judges_per_request() {
         .enabling(&[GSD_EXTENSION])
         .file("a.spec", decision("project"));
     // HEAD holds what the tree holds; `main` held another origin.
-    let mut fake = FakeHistory::repo(
+    let mut fake = FakeGit::repo(
         project.root(),
         &"a".repeat(40),
         vec![("a.spec".into(), decision("project").into_bytes())],
     );
     fake.named.push((
         "main".into(),
-        specforge_project::history::Sha::new("b".repeat(40)),
+        specforge_effects::git::Sha::new("b".repeat(40)),
         vec![("a.spec".into(), decision("context").into_bytes())],
     ));
-    let _installed = history::install(Arc::new(fake));
-    let mut server = Served::initialized_in(project, runtime);
+    let mut server = Served::initialized_in_git(project, runtime, Arc::new(fake));
     let plain = server.call_tool("specforge.validate", json!({}));
     assert!(!codes(&plain).contains(&"E084".to_string()), "{plain}");
     let since = server.call_tool("specforge.validate", json!({"since": "main"}));
@@ -54,5 +54,31 @@ fn validate_since_judges_per_request() {
     let again = server.call_tool("specforge.validate", json!({}));
     assert!(!codes(&again).contains(&"E084".to_string()), "{again}");
     let unknown = server.call_tool("specforge.validate", json!({"since": "nosuch"}));
+    assert_eq!(unknown["result"]["isError"], true, "{unknown}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_validate_tool",
+    verify = "validate's effects re-runs the check for that request only, and replay refuses nothing it holds"
+)]
+fn validate_effects_reruns_per_request() {
+    let runtime: SharedRuntime = Arc::new(gsd_history_runtime(json!([])));
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[GSD_EXTENSION])
+        .file("a.spec", decision("project"));
+    let fake = FakeGit::repo(
+        project.root(),
+        &"a".repeat(40),
+        vec![("a.spec".into(), decision("project").into_bytes())],
+    );
+    let mut server = Served::initialized_in_git(project, runtime, Arc::new(fake));
+    let plain = codes(&server.call_tool("specforge.validate", json!({})));
+    // No check asks for an effect yet: every mode reports what the served session does, and replay misses nothing.
+    for mode in ["replay", "online", "auto", "cached"] {
+        let reply = server.call_tool("specforge.validate", json!({"effects": mode}));
+        assert_eq!(codes(&reply), plain, "{mode}: {reply}");
+    }
+    let unknown = server.call_tool("specforge.validate", json!({"effects": "always"}));
     assert_eq!(unknown["result"]["isError"], true, "{unknown}");
 }

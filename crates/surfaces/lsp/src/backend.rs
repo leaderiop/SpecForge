@@ -15,12 +15,14 @@ use crate::reaction::Reaction;
 use crate::views;
 use crate::{ClientSupport, LspState, answers};
 
+use specforge_effects::Ports;
 use specforge_ops::authoring::format;
 
 /// The language server's service: the LSP methods and the editor client's own requests (ADR 0268).
-/// `main` and the tests build it here, so both serve the same methods.
-pub fn service() -> (LspService<Backend>, ClientSocket) {
-    LspService::build(Backend::new)
+/// `main` and the tests build it here, so both serve the same methods; every project it opens asks `ports`' git port
+/// of version control.
+pub fn service(ports: Ports) -> (LspService<Backend>, ClientSocket) {
+    LspService::build(move |client| Backend::new(client, ports))
         .custom_method(views::GRAPH, Backend::graph)
         .custom_method(views::ENTITY, Backend::entity)
         .finish()
@@ -55,8 +57,8 @@ pub struct Backend {
 }
 
 impl Backend {
-    pub fn new(client: Client) -> Self {
-        let state = Arc::new(RwLock::new(LspState::new()));
+    pub fn new(client: Client, ports: Ports) -> Self {
+        let state = Arc::new(RwLock::new(LspState::with_git(ports.git)));
         let (gone, closed) = watch::channel(());
         let runtime = RuntimeSource::project();
         let reaction: Shared = Arc::new(Mutex::new(Reaction::new(
@@ -298,6 +300,16 @@ impl LanguageServer for Backend {
         .await
     }
 
+    async fn document_link(&self, params: DocumentLinkParams) -> Result<Option<Vec<DocumentLink>>> {
+        self.answering("textDocument/documentLink", |state| {
+            Ok(crate::links::document_links(
+                state,
+                &params.text_document.uri,
+            ))
+        })
+        .await
+    }
+
     async fn semantic_tokens_full(
         &self,
         params: SemanticTokensParams,
@@ -348,6 +360,11 @@ impl Backend {
         method: &str,
         answer: impl FnOnce(&LspState) -> Result<T>,
     ) -> Result<T> {
+        // An effect record the checks consulted whose time is up is applied first (ADR 0337 D5).
+        let expired = (self.state.read().await.session()).is_some_and(|s| !s.expired().is_empty());
+        if expired {
+            react(&self.reaction, Change::Expired).await;
+        }
         let outcome = {
             let state = self.state.read().await;
             crate::unwind::unwinding(|| answer(&state))

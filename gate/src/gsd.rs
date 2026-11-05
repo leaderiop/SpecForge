@@ -26,8 +26,10 @@ pub fn run(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     let wasm = |name: &str| target.join("wasm32-wasip2/release").join(name);
     let cargo = |args: &[&str]| {
         let mut cmd = ctx.cmd("cargo");
+        // An incremental guest is another blob than CI's, and the suite's work budget was calibrated on CI's.
         cmd.current_dir(ctx.repo.root.join("gsd"))
             .env("CARGO_TARGET_DIR", &target)
+            .env_remove("CARGO_INCREMENTAL")
             .args(args);
         cmd
     };

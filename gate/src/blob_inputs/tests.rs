@@ -9,8 +9,9 @@ fn fed(paths: &[&str]) -> Vec<String> {
 }
 
 /// The blobs that record their inputs today: the builtins. The fixtures join at the round's re-vendor.
-const BUILTIN_CRATES: [&str; 11] = [
+const BUILTIN_CRATES: [&str; 12] = [
     "extensions/cargo-test",
+    "extensions/checks",
     "extensions/code/core",
     "extensions/formal",
     "extensions/governance",
@@ -72,6 +73,15 @@ fn protocol_types_and_the_root_manifest_feed_every_builtin() {
 fn a_test_only_sdk_file_feeds_no_blob() {
     assert!(fed(&["crates/runtime/extension-sdk/src/testing.rs"]).is_empty());
     assert!(fed(&["crates/surfaces/lsp/src/lib.rs"]).is_empty());
+}
+
+#[test]
+fn a_change_to_the_checks_kit_feeds_the_checks_blob() {
+    let fed_blobs = fed(&["crates/leaf/checks-kit/src/digits.rs"]);
+    assert!(
+        fed_blobs.iter().any(|blob| blob == "extensions/checks"),
+        "{fed_blobs:?}"
+    );
 }
 
 #[test]

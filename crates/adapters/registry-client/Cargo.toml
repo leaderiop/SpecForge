@@ -1,6 +1,6 @@
 [package]
 name = "specforge-registry-client"
-description = "The package-registry client: search, resolve and publish over HTTP, credentials, publisher key pinning and package signing"
+description = "The package-registry client: search, resolve and publish through the effect plane's Http port, credentials, publisher key pinning and package signing"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
@@ -18,7 +18,11 @@ specforge-protocol-types = { path = "../../leaf/protocol-types" }
 specforge-registry-wire = { path = "../registry-wire" }
 serde = { workspace = true }
 serde_json = { workspace = true }
-reqwest = { workspace = true }
+specforge-effects = { path = "../../kernel/effects" }
+# A status's reason phrase.
+http = "1"
+# The contract's check that a `wasm_url` is absolute.
+url = { version = "2.5", optional = true }
 httpdate = "1"
 ed25519-dalek = "2.2.0"
 getrandom = "0.3"
@@ -27,9 +31,11 @@ chrono = "0.4.41"
 
 [features]
 # A package registry in memory and the client contract (ADR 0044).
-testing = []
+testing = ["dep:url"]
 
 [dev-dependencies]
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
+specforge-http = { path = "../http" }
 specforge-registry-client = { path = ".", features = ["testing"] }
 specforge-registry-server = { path = "../../surfaces/registry-server", features = ["testing"] }
 specforge-test = { workspace = true }

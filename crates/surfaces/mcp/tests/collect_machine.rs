@@ -29,21 +29,22 @@ fn project() -> TestProject {
     verify = "specforge.collect runs a command the user approved, its output discarded"
 )]
 fn collect_runs_a_command_the_user_approved() {
-    let machine = Arc::new(ScriptedMachine::new().approving_every_command().answering(
-        ScriptedRun {
-            files: vec![(
+    let machine = Arc::new(ScriptedMachine::new().answering(ScriptedRun {
+        files: vec![(
                     "t.json".into(),
                     json!({"entries": [
                         {"entity_id": "alpha", "test_name": "works", "status": "passed"}
                     ]})
                     .to_string(),
                 )],
-            exit_code: Some(0),
-            ..ScriptedRun::default()
-        },
-    ));
-    let server =
-        McpServer::new().with_collector_machine(Arc::clone(&machine) as Arc<dyn CollectorMachine>);
+        exit_code: Some(0),
+        ..ScriptedRun::default()
+    }));
+    let server = McpServer::new()
+        .with_collector_machine(Arc::clone(&machine) as Arc<dyn CollectorMachine>)
+        .with_consent(Arc::new(
+            specforge_effects::testing::MemoryConsent::approving_everything(),
+        ));
     let mut served = Served::over(project(), server);
 
     let resp = call_tool(&mut served, "specforge.collect", json!({"run": true}));

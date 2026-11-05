@@ -1,8 +1,7 @@
 //! Who can be asked to consent to what an operation would otherwise refuse (ADR 0110): a publisher key
-//! change (add, update) or a collector's command (collect). The surface decides once per command and
+//! change (add, update), an extension's capability (a collector's command among them) or a root outside the
+//! project (ADR 0335 D2.4). The surface decides once per command and
 //! hands the value to the operation; the operation, or the adapter it calls, puts each question to it.
-
-use std::path::Path;
 
 /// Where the key a package is expected to be signed with comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,14 +26,29 @@ pub enum Question<'q> {
         /// Where `expected` comes from.
         from: ExpectedFrom,
     },
-    /// A collector's declared command would run in the project (collect).
-    RunCommand {
-        /// The extension that declares the collector.
+    /// An extension's capability needs this machine's approval (ADR 0335 D2.4).
+    Capability {
+        /// The extension that declares it.
         extension: &'q str,
-        /// The command line.
-        argv: &'q [String],
-        /// The project root it runs in.
-        root: &'q Path,
+        /// Its scope name.
+        scope: &'q str,
+        /// What it allows, in one line (`process cargo test`, `http GET crates.io`).
+        summary: &'q str,
+        /// Why the extension says it needs it.
+        why: &'q str,
+        /// The project it is approved for.
+        project: &'q str,
+        /// A process capability's command line, as declared (`{report}` unexpanded).
+        command: Option<&'q [String]>,
+    },
+    /// A named root resolves outside the project and needs this machine's approval.
+    Root {
+        /// Its name in `specforge.json` `roots`.
+        name: &'q str,
+        /// Its canonical target.
+        target: &'q str,
+        /// The project it is approved for.
+        project: &'q str,
     },
 }
 
@@ -113,12 +127,19 @@ pub mod testing {
             /// Where `expected` comes from.
             from: ExpectedFrom,
         },
-        /// A collector's command.
-        RunCommand {
-            /// The extension that declares the collector.
+        /// An extension's capability.
+        Capability {
+            /// The extension that declares it.
             extension: String,
-            /// The command line.
-            argv: Vec<String>,
+            /// Its scope name.
+            scope: String,
+        },
+        /// A root outside the project.
+        Root {
+            /// Its name.
+            name: String,
+            /// Its canonical target.
+            target: String,
         },
     }
 
@@ -153,11 +174,15 @@ pub mod testing {
                     offered: offered.to_string(),
                     from,
                 },
-                Question::RunCommand {
-                    extension, argv, ..
-                } => Asked::RunCommand {
+                Question::Capability {
+                    extension, scope, ..
+                } => Asked::Capability {
                     extension: extension.to_string(),
-                    argv: argv.to_vec(),
+                    scope: scope.to_string(),
+                },
+                Question::Root { name, target, .. } => Asked::Root {
+                    name: name.to_string(),
+                    target: target.to_string(),
                 },
             });
             self.answer
@@ -201,14 +226,16 @@ mod tests {
     #[test]
     fn an_asker_is_put_each_question_and_its_answer_is_the_answer() {
         let scripted = Scripted::answering(false);
-        let argv = vec!["cargo".to_string(), "test".to_string()];
         let asking = Asking::Ask(&scripted);
 
         assert!(!asking.answers(&key_change()));
-        assert!(!asking.answers(&Question::RunCommand {
+        assert!(!asking.answers(&Question::Capability {
             extension: "@specforge/cargo-test",
-            argv: &argv,
-            root: Path::new("."),
+            scope: "tests",
+            summary: "process cargo test",
+            why: "run the tests",
+            project: "/p",
+            command: None,
         }));
 
         assert_eq!(
@@ -220,9 +247,9 @@ mod tests {
                     offered: "k2".to_string(),
                     from: ExpectedFrom::UserPin,
                 },
-                Asked::RunCommand {
+                Asked::Capability {
                     extension: "@specforge/cargo-test".to_string(),
-                    argv,
+                    scope: "tests".to_string(),
                 },
             ]
         );

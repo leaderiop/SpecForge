@@ -28,7 +28,7 @@ fn owns(layer: &str) -> Option<&'static str> {
             "The programs: the specforge CLI, the language server, the MCP server and the package registry server. Each turns its protocol into calls on the layers below."
         }
         "adapters" => {
-            "The package registry over HTTP, from both ends: its contract, the client, and the adapter behind the operations' Registry port (ADR 0010, ADR 0044)."
+            "Pure-Rust adapters behind the effect plane's and the operations' ports: the process runner, HTTP, files, git, the package registry and the agent hosts (ADR 0010, ADR 0044, ADR 0335)."
         }
         "app" => {
             "The user-level operations every surface shares: a typed request in, a typed outcome or a refusal out (ADR 0015)."
@@ -43,7 +43,7 @@ fn owns(layer: &str) -> Option<&'static str> {
             "From parsed files to output: import resolution, the graph build, the Registry build and its checks, formatting, migration and the export formats."
         }
         "kernel" => {
-            "The .spec language and what every host crate shares: the grammar, the lexer and parser, the diagnostic, spans, symbols and the project root."
+            "The .spec language and what every host crate shares: the grammar, the lexer and parser, the diagnostic, spans, symbols, the project root, and the effect plane's ports and containment."
         }
         "leaf" => {
             "Crates with no SpecForge dependency but the guest wire: the wire itself, the diagnostic catalog, the coverage rule, the cycle answer, package names and the repository root. Guests build from some of them (ADR 0050)."

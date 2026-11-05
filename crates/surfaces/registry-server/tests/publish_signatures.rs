@@ -72,7 +72,7 @@ fn signed_publish_round_trips_through_http_boundary() {
         wasm_bytes,
         &registry,
         Some(&credential),
-        &HttpRegistryClient::new(),
+        &HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new())),
         &key,
     )
     .expect("signed publish should succeed");
@@ -80,10 +80,9 @@ fn signed_publish_round_trips_through_http_boundary() {
 
     // Metadata serves the signature object, the key id, and the manifest.
     let metadata_url = signed_ext_address(&server);
-    let body: serde_json::Value = reqwest::blocking::get(&metadata_url)
-        .expect("metadata request")
-        .json()
-        .expect("metadata json");
+    let body: serde_json::Value =
+        serde_json::from_slice(&send(specforge_effects::http::get(metadata_url)).body)
+            .expect("metadata json");
     assert!(
         body.get("key_id").is_none(),
         "the key id is not a wire field"
@@ -120,7 +119,7 @@ fn a_rate_limited_publish_is_r003() {
     });
     let (registry, credential) = client_of(&server);
     let key = SigningKey::generate();
-    let client = HttpRegistryClient::new();
+    let client = HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()));
     let publish = |version: &str| {
         publish_to_registry(
             &DeclaredPackage::of(&manifest_of(version)).unwrap(),
@@ -151,7 +150,6 @@ const MALFORMED: &str = r#"{"sig":"x","keyId":"y","pubkey":"z","signedAt":"now"}
     verify = "the registry refuses a signature that is not a package signature, and the version stays publishable"
 )]
 fn a_signature_the_client_would_refuse_is_refused_and_the_version_stays_publishable() {
-    use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
     use specforge_package::{PackageName, Version};
     use specforge_registry_client::RegistryClient;
     use specforge_registry_wire::form;
@@ -163,19 +161,24 @@ fn a_signature_the_client_would_refuse_is_refused_and_the_version_stays_publisha
     let wasm: &[u8] = b"\0asm-fake-extension-bytes";
 
     // 1. What no client sends is refused, and nothing is stored.
-    let response = reqwest::blocking::Client::new()
-        .put(signed_ext_address(&server))
-        .header(AUTHORIZATION, format!("Bearer {}", server.token()))
-        .header(CONTENT_TYPE, form::content_type("p12"))
-        .body(form::body("p12", &manifest, wasm, Some(MALFORMED)))
-        .send()
-        .expect("the local registry answers");
-    assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
-    let body: serde_json::Value = response.json().unwrap();
+    let response = send(specforge_effects::HttpRequest {
+        method: "PUT".into(),
+        headers: vec![
+            specforge_effects::Header::sensitive(
+                "Authorization",
+                format!("Bearer {}", server.token()),
+            ),
+            specforge_effects::Header::plain("Content-Type", form::content_type("p12")),
+        ],
+        body: Some(form::body("p12", &manifest, wasm, Some(MALFORMED))),
+        ..specforge_effects::http::get(signed_ext_address(&server))
+    });
+    assert_eq!(response.status, Some(400), "{response:?}");
+    let body: serde_json::Value = serde_json::from_slice(&response.body).unwrap();
     assert_eq!(body["error"]["code"], "INVALID_SIGNATURE", "{body}");
 
     // 2. The version is still publishable, and what is published verifies and pins.
-    let client = HttpRegistryClient::new();
+    let client = HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()));
     publish_to_registry(
         &DeclaredPackage::of(&declaration).unwrap(),
         wasm,
@@ -249,4 +252,19 @@ fn tampered_manifest_fails_offline_verification() {
         ))
         .unwrap_err();
     assert_eq!(err, SignatureError::DoesNotVerify);
+}
+
+/// `request` sent to the local registry (a loopback address), which answers.
+fn send(request: specforge_effects::HttpRequest) -> specforge_effects::HttpOutcome {
+    use specforge_effects::Http as _;
+    let request = specforge_effects::HttpRequest {
+        allow_private: specforge_effects::Private::Any,
+        ..request
+    };
+    let outcome = specforge_http::Client::new().request(&request, &specforge_effects::http::Any);
+    assert!(
+        outcome.status.is_some(),
+        "the local registry answers: {outcome:?}"
+    );
+    outcome
 }

@@ -536,7 +536,7 @@ fn docref_project(spec: &str) -> TestProject {
     fs::create_dir_all(root.join("ext")).unwrap();
     fs::write(
         root.join("specforge.json"),
-        r#"{"name":"p","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software","@sdk/docref=ext/docref.wasm"]}"#,
+        r#"{"name":"p","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software","@specforge/checks","@sdk/docref=ext/docref.wasm"]}"#,
     )
     .unwrap();
     fs::copy(
@@ -553,11 +553,10 @@ fn gadget_naming(reference: &str) -> String {
     format!("gadget gadget_one \"G\" {{\n  docs [\"{reference}\"]\n}}\n")
 }
 
-/// How `spec/a.spec` of a `docref_project` spells a file in `outside/<rest>`,
-/// a sibling temp directory: from `spec/`, two levels up is their parent.
-fn outside_reference(outside: &TempDir, rest: &str) -> String {
-    let name = outside.path().file_name().unwrap().to_string_lossy();
-    format!("../../{name}/{rest}")
+/// How `spec/a.spec` of a `docref_project` spells a file at `<rest>` under the project root, outside the spec root
+/// (a files check never reads outside the project, ADR 0335).
+fn project_reference(rest: &str) -> String {
+    format!("<project>/{rest}")
 }
 
 /// The diagnostic codes an event reports.
@@ -572,15 +571,12 @@ fn codes(event: &serde_json::Value) -> Vec<String> {
 
 #[specforge_test(
     behavior = "classify_project_changes",
-    verify = "a file a file_reference field names re-runs the checks"
+    verify = "a file a files check names re-runs the checks"
 )]
-fn watch_rechecks_when_a_referenced_file_outside_the_root_appears() {
-    let outside = TempDir::new().unwrap();
-    fs::create_dir_all(outside.path().join("shared")).unwrap();
-    let project = docref_project(&gadget_naming(&outside_reference(
-        &outside,
-        "shared/guide.md",
-    )));
+fn watch_rechecks_when_a_referenced_file_outside_the_spec_root_appears() {
+    let project = docref_project(&gadget_naming(&project_reference("shared/guide.md")));
+    let outside = project.root();
+    fs::create_dir_all(outside.join("shared")).unwrap();
 
     let (rx, child) = spawn_watch(&project);
     let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60))
@@ -589,7 +585,7 @@ fn watch_rechecks_when_a_referenced_file_outside_the_root_appears() {
     assert!(codes(&ready).contains(&"E016".to_string()), "{ready}");
     settle(&rx);
 
-    fs::write(outside.path().join("shared/guide.md"), "# guide\n").unwrap();
+    fs::write(outside.join("shared/guide.md"), "# guide\n").unwrap();
     let event = next_event(&rx, Duration::from_secs(20));
     drop(child);
     let event = event.expect("no event after the referenced file appeared");
@@ -605,12 +601,12 @@ fn watch_rechecks_when_a_referenced_file_outside_the_root_appears() {
 
 #[specforge_test(
     behavior = "watch_file_system_for_changes",
-    verify = "after an edit names a file outside the watched directories, a change to it is seen"
+    verify = "after an edit names a file outside the spec root, a change to it is seen"
 )]
-fn watch_follows_a_file_an_edit_names_outside_its_roots() {
-    let outside = TempDir::new().unwrap();
-    fs::create_dir_all(outside.path().join("shared")).unwrap();
+fn watch_follows_a_file_an_edit_names_outside_the_spec_root() {
     let project = docref_project("gadget gadget_one \"G\" {\n}\n");
+    let outside = project.root();
+    fs::create_dir_all(outside.join("shared")).unwrap();
 
     let (rx, child) = spawn_watch(&project);
     let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60))
@@ -621,7 +617,7 @@ fn watch_follows_a_file_an_edit_names_outside_its_roots() {
 
     fs::write(
         project.root().join("spec/a.spec"),
-        gadget_naming(&outside_reference(&outside, "shared/guide.md")),
+        gadget_naming(&project_reference("shared/guide.md")),
     )
     .unwrap();
     let edited = next_event(&rx, Duration::from_secs(20)).expect("no rebuild after the edit");
@@ -629,7 +625,7 @@ fn watch_follows_a_file_an_edit_names_outside_its_roots() {
     assert!(codes(&edited).contains(&"E016".to_string()), "{edited}");
     settle(&rx);
 
-    fs::write(outside.path().join("shared/guide.md"), "# guide\n").unwrap();
+    fs::write(outside.join("shared/guide.md"), "# guide\n").unwrap();
     let event = next_event(&rx, Duration::from_secs(20));
     drop(child);
     let event = event.expect("no event after the file the edit named appeared");
@@ -649,11 +645,8 @@ fn watch_follows_a_file_an_edit_names_outside_its_roots() {
     verify = "a file the checks read is seen when it is created in a directory that did not exist"
 )]
 fn watch_sees_a_referenced_file_created_in_a_new_directory() {
-    let outside = TempDir::new().unwrap();
-    let project = docref_project(&gadget_naming(&outside_reference(
-        &outside,
-        "nodir/guide.md",
-    )));
+    let project = docref_project(&gadget_naming(&project_reference("nodir/guide.md")));
+    let outside = project.root();
 
     let (rx, child) = spawn_watch(&project);
     let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60))
@@ -662,8 +655,8 @@ fn watch_sees_a_referenced_file_created_in_a_new_directory() {
     assert!(codes(&ready).contains(&"E016".to_string()), "{ready}");
     settle(&rx);
 
-    fs::create_dir_all(outside.path().join("nodir")).unwrap();
-    fs::write(outside.path().join("nodir/guide.md"), "# guide\n").unwrap();
+    fs::create_dir_all(outside.join("nodir")).unwrap();
+    fs::write(outside.join("nodir/guide.md"), "# guide\n").unwrap();
 
     // The directory's creation is a check input's change; the file may be
     // seen with it or after the watcher moved into the new directory. The

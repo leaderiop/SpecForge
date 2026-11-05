@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use specforge_common::shape::Shape;
 use specforge_protocol_types::FieldDescriptor;
-use specforge_registry::{FieldRegistryEntry, FieldType, RegistryBuild};
+use specforge_registry::{
+    CheckCall, CheckRegistry, FieldRegistryEntry, FieldType, RegistryBuild, ResolvedCheck,
+};
 
 // ---------------------------------------------------------------------------
 // Slice 1: Schema Types
@@ -135,9 +137,9 @@ pub struct SchemaField {
     pub minimum: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub maximum: Option<i64>,
-    /// Where a file field's relative paths start, when it is not the spec root.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub file_base: Option<String>,
+    /// The checks its values pass (ADR 0336), each resolved to `<extension>:<checker>`, declared ones first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checks: Vec<SchemaCheck>,
     /// Who writes the field besides its author, `computed` or `harness` (ADR 0287).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub writer: Option<String>,
@@ -147,6 +149,37 @@ pub struct SchemaField {
     /// The baseline list is a prefix of the current one (ADR 0287).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub append_only: bool,
+}
+
+/// A check as the schema lists it: one checker with its args, or a value that passes when one branch does.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Shape)]
+#[shape(define)]
+pub struct SchemaCheck {
+    /// `<extension>:<checker>`; absent for an `any_of`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checker: Option<String>,
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub args: serde_json::Map<String, serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub any_of: Vec<SchemaCheck>,
+}
+
+impl SchemaCheck {
+    fn of(check: &ResolvedCheck) -> Self {
+        let call = |call: &CheckCall| SchemaCheck {
+            checker: Some(call.qualified().to_string()),
+            args: call.args.clone(),
+            any_of: Vec::new(),
+        };
+        match check {
+            ResolvedCheck::One(one) => call(one),
+            ResolvedCheck::AnyOf(calls) => SchemaCheck {
+                checker: None,
+                args: serde_json::Map::new(),
+                any_of: calls.iter().map(call).collect(),
+            },
+        }
+    }
 }
 
 /// A plain optional string field: tests spell only what they exercise.
@@ -166,7 +199,7 @@ impl Default for SchemaField {
             target_kinds: Vec::new(),
             minimum: None,
             maximum: None,
-            file_base: None,
+            checks: Vec::new(),
             writer: None,
             immutable: false,
             append_only: false,
@@ -198,14 +231,25 @@ impl SchemaField {
         form
     }
 
-    /// The schema's field for a registered one: everything its declaration
-    /// says.
-    fn of(entry: &FieldRegistryEntry) -> Self {
-        Self::described(entry.declared(), entry.source_extension())
+    /// The schema's field for a registered one of `kind`: everything its declaration says, and the checks the
+    /// registry resolved for it.
+    fn of(entry: &FieldRegistryEntry, kind: &str, checks: &CheckRegistry) -> Self {
+        let declared = entry.declared();
+        Self::described(
+            declared,
+            entry.source_extension(),
+            &declared.name,
+            &|path: &str| checks.on(kind, path).iter().map(SchemaCheck::of).collect(),
+        )
     }
 
-    /// The schema's field for a declared field or member (`declared` is read: its type is canonical).
-    fn described(declared: &FieldDescriptor, source_extension: &str) -> Self {
+    /// The schema's field for a declared field or member at `path` (`declared` is read: its type is canonical).
+    fn described(
+        declared: &FieldDescriptor,
+        source_extension: &str,
+        path: &str,
+        checks_on: &dyn Fn(&str) -> Vec<SchemaCheck>,
+    ) -> Self {
         let field_type = FieldType::parse(&declared.field_type).unwrap_or(FieldType::String);
         SchemaField {
             name: declared.name.clone(),
@@ -221,12 +265,15 @@ impl SchemaField {
             members: declared
                 .members
                 .iter()
-                .map(|member| Self::described(member, source_extension))
+                .map(|member| {
+                    let path = format!("{path}.{}", member.name);
+                    Self::described(member, source_extension, &path, checks_on)
+                })
                 .collect(),
             target_kinds: declared.target_kinds.clone(),
             minimum: declared.minimum,
             maximum: declared.maximum,
-            file_base: declared.file_base.clone(),
+            checks: checks_on(path),
             writer: declared.writer.clone(),
             immutable: declared.immutable,
             append_only: declared.append_only,
@@ -346,7 +393,7 @@ pub fn generate_schema(build: &RegistryBuild) -> GraphProtocolSchema {
             let mut kind_fields: Vec<SchemaField> = fields
                 .fields_for_kind(&entry.kind_name)
                 .into_iter()
-                .map(SchemaField::of)
+                .map(|field| SchemaField::of(field, &entry.kind_name, build.checks()))
                 .collect();
             kind_fields.sort_by(|a, b| a.name.cmp(&b.name));
 

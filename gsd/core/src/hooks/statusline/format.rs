@@ -4,6 +4,7 @@
 //! token count, the model badge, the context meter and the layout. What feeds them is `statusline.rs`.
 
 use serde_json::Value;
+use specforge_extension_sdk::prelude::{GitEntryKind, GitStatus};
 
 /// The GSD state segment's inputs, as upstream's `readGsdState` builds them from STATE.md. An empty string is
 /// absent, as it is in JavaScript's `if (s.status)`.
@@ -328,7 +329,7 @@ pub fn render_meter(m: &Meter, suffix: &str) -> String {
     }
 }
 
-/// What `git status --porcelain=v2 --branch` says (`parseGitStatus`).
+/// What the typed git status says (`parseGitStatus`).
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct GitInfo {
     pub branch: String,
@@ -339,29 +340,34 @@ pub struct GitInfo {
     pub untracked: u32,
 }
 
-/// Upstream's `parseGitStatus`: none when the text has no branch header. A conflict counts as unstaged; a detached
-/// head is `(detached)`, as porcelain v2 spells it.
-pub fn parse_git_status(text: &str) -> Option<GitInfo> {
-    let mut info = GitInfo::default();
-    for line in text.split('\n') {
-        if let Some(head) = line.strip_prefix("# branch.head ") {
-            info.branch = head.trim().to_string();
-        } else if let Some(ab) = line.strip_prefix("# branch.ab ") {
-            let mut counts = ab.split_whitespace().map(|c| c[1..].parse::<u32>().ok());
-            if let (Some(Some(a)), Some(Some(b))) = (counts.next(), counts.next()) {
-                (info.ahead, info.behind) = (a, b);
+impl GitInfo {
+    /// Upstream's `parseGitStatus` over the typed status: an entry with an index change is staged, one with a
+    /// worktree change or a conflict unstaged (a conflict only unstaged); a detached head is `(detached)`, as porcelain
+    /// v2 spells it.
+    pub fn of(status: &GitStatus) -> Self {
+        let mut info = GitInfo {
+            branch: status
+                .branch
+                .head
+                .clone()
+                .unwrap_or_else(|| "(detached)".to_string()),
+            ahead: status.branch.ahead,
+            behind: status.branch.behind,
+            ..GitInfo::default()
+        };
+        for entry in &status.entries {
+            match entry.kind {
+                GitEntryKind::Changed | GitEntryKind::Renamed => {
+                    info.staged += u32::from(entry.index.is_some());
+                    info.unstaged += u32::from(entry.worktree.is_some());
+                }
+                GitEntryKind::Unmerged => info.unstaged += 1,
+                GitEntryKind::Untracked => info.untracked += 1,
+                GitEntryKind::Ignored => {}
             }
-        } else if line.starts_with("1 ") || line.starts_with("2 ") {
-            let mut xy = line[2..].chars();
-            info.staged += u32::from(xy.next().is_some_and(|c| c != '.'));
-            info.unstaged += u32::from(xy.next().is_some_and(|c| c != '.'));
-        } else if line.starts_with("u ") {
-            info.unstaged += 1;
-        } else if line.starts_with("? ") {
-            info.untracked += 1;
         }
+        info
     }
-    (!info.branch.is_empty()).then_some(info)
 }
 
 /// Upstream's `buildGitSegment`, plain (D-r44-13): the divider, the branch and the markers, or `✓` when there are none.

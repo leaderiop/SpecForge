@@ -1,11 +1,11 @@
 //! Every refusal collect makes, in process (ADR 0125): its kind, its code, what it is about, and that
 //! neither a command ran nor a report was written.
 
-use super::{Fixture, Runner};
+use super::{Fixture, Machine, Runner};
 use specforge_ops::analysis::collect::{CollectField, Mode, Outcome};
 use specforge_ops::asking::Asking;
 use specforge_ops::asking::testing::Scripted;
-use specforge_ops::testing::{ScriptedFailure, ScriptedMachine, ScriptedRun};
+use specforge_ops::testing::{ScriptedFailure, ScriptedRun};
 use specforge_ops::{Containment, OpErrorKind, Refusal};
 use specforge_test_macros::test as specforge_test;
 
@@ -19,7 +19,7 @@ fn refused(result: Result<Outcome, Refused>) -> Refused {
 }
 
 /// Nothing ran and nothing was recorded.
-fn untouched(fx: &Fixture, machine: &ScriptedMachine) {
+fn untouched(fx: &Fixture, machine: &Machine) {
     assert!(machine.runs().is_empty(), "{:?}", machine.runs());
     assert!(fx.report().is_none(), "specforge-report.json was written");
 }
@@ -31,7 +31,7 @@ fn acme() -> Fixture {
 #[test]
 fn no_enabled_collector_is_e058_naming_how_to_add_one() {
     let fx = Fixture::new(Vec::new());
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     let refusal = refused(fx.run(Asking::Yes, &machine));
 
@@ -53,7 +53,7 @@ fn no_enabled_collector_is_e058_naming_how_to_add_one() {
 )]
 fn no_match_among_several_collectors_is_e058_listing_them() {
     let fx = Fixture::new(vec![Runner::new("first"), Runner::new("second")]);
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     let refusal = refused(fx.run(Asking::Yes, &machine));
 
@@ -80,7 +80,7 @@ fn no_match_among_several_collectors_is_e058_listing_them() {
 #[test]
 fn an_unknown_runner_is_e058_about_the_runner() {
     let fx = acme();
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     let refusal = refused(fx.no_run(Some("nope"), &machine));
 
@@ -96,7 +96,7 @@ fn reports_mode_with_several_collectors_is_e058() {
     fx.write("first.cfg", "");
     fx.write("second.cfg", "");
     let files = [fx.root().join("x.json")];
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     let refusal = refused(fx.collect_with(
         None,
@@ -121,7 +121,7 @@ fn reports_mode_with_several_collectors_is_e058() {
 #[test]
 fn a_report_location_declared_outside_is_e058() {
     let fx = Fixture::new(vec![Runner::new("acme").report("../x.json")]);
-    let machine = ScriptedMachine::new().approving_every_command();
+    let machine = Machine::new().approving_everything();
 
     let refusal = refused(fx.run(Asking::Nobody, &machine));
 
@@ -140,7 +140,7 @@ fn a_report_location_declared_outside_is_e058() {
 )]
 fn an_unknown_capture_is_refused() {
     let fx = Fixture::new(vec![Runner::new("acme").capturing("stderr")]);
-    let machine = ScriptedMachine::new().approving_every_command();
+    let machine = Machine::new().approving_everything();
 
     let refusal = refused(fx.run(Asking::Nobody, &machine));
 
@@ -159,7 +159,7 @@ fn a_report_location_that_lands_outside_is_outside_root() {
     let fx = Fixture::new(vec![Runner::new("acme").report("out2/a.json")]);
     let outside = tempfile::tempdir().unwrap();
     std::os::unix::fs::symlink(outside.path(), fx.root().join("out2")).unwrap();
-    let machine = ScriptedMachine::new().approving_every_command();
+    let machine = Machine::new().approving_everything();
 
     let refusal = refused(fx.collect_with(
         None,
@@ -177,7 +177,7 @@ fn a_report_location_that_lands_outside_is_outside_root() {
 #[test]
 fn an_unapproved_command_with_nobody_to_ask_is_e059() {
     let fx = acme();
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     let refusal = refused(fx.run(Asking::Nobody, &machine));
 
@@ -192,6 +192,8 @@ fn an_unapproved_command_with_nobody_to_ask_is_e059() {
         suggestion.contains("`specforge collect` in a terminal"),
         "{suggestion}"
     );
+    // The store it names is the one in use, not a hard-coded path.
+    assert!(suggestion.contains("(kept in memory)"), "{suggestion}");
     untouched(&fx, &machine);
 }
 
@@ -199,7 +201,7 @@ fn an_unapproved_command_with_nobody_to_ask_is_e059() {
 fn an_asker_that_says_no_is_e059_and_remembers_nothing() {
     let fx = acme();
     let asker = Scripted::answering(false);
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     let refusal = refused(fx.run(Asking::Ask(&asker), &machine));
 
@@ -212,7 +214,7 @@ fn an_asker_that_says_no_is_e059_and_remembers_nothing() {
 #[test]
 fn a_collector_that_declares_no_command_is_e045() {
     let fx = Fixture::new(vec![Runner::new("acme").run(&[])]);
-    let machine = ScriptedMachine::new().approving_every_command();
+    let machine = Machine::new().approving_everything();
 
     let refusal = refused(fx.run(Asking::Nobody, &machine));
 
@@ -228,8 +230,8 @@ fn a_collector_that_declares_no_command_is_e045() {
 #[test]
 fn a_command_that_cannot_start_is_e045() {
     let fx = acme();
-    let machine = ScriptedMachine::new()
-        .approving_every_command()
+    let machine = Machine::new()
+        .approving_everything()
         .answering(ScriptedRun {
             fails: Some(ScriptedFailure::NotRun),
             ..ScriptedRun::default()
@@ -249,8 +251,8 @@ fn a_command_that_cannot_start_is_e045() {
 #[test]
 fn a_capture_that_cannot_be_written_is_e045() {
     let fx = Fixture::new(vec![Runner::new("acme").capturing_stdout()]);
-    let machine = ScriptedMachine::new()
-        .approving_every_command()
+    let machine = Machine::new()
+        .approving_everything()
         .answering(ScriptedRun {
             fails: Some(ScriptedFailure::Capture),
             ..ScriptedRun::default()
@@ -269,8 +271,8 @@ fn a_capture_that_cannot_be_written_is_e045() {
 #[test]
 fn a_run_that_writes_no_report_is_e045() {
     let fx = acme();
-    let machine = ScriptedMachine::new()
-        .approving_every_command()
+    let machine = Machine::new()
+        .approving_everything()
         .answering(ScriptedRun {
             exit_code: Some(101),
             ..ScriptedRun::default()
@@ -290,7 +292,7 @@ fn a_run_that_writes_no_report_is_e045() {
 #[test]
 fn no_run_without_a_report_says_how_to_get_one() {
     let fx = acme();
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     let refusal = refused(fx.no_run(None, &machine));
 
@@ -309,7 +311,7 @@ fn no_run_without_a_report_says_how_to_get_one() {
 fn reports_mode_files_that_do_not_exist_are_e045() {
     let fx = acme();
     let files = [fx.root().join("missing.json")];
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     let refusal = refused(fx.collect_with(
         Some("acme"),
@@ -328,7 +330,7 @@ fn reports_mode_files_that_do_not_exist_are_e045() {
 fn an_export_that_traps_is_an_internal_refusal_with_e028() {
     let fx = Fixture::new(vec![Runner::new("acme").trapping()]);
     fx.write("out/acme.json", "{}");
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     let refusal = refused(fx.no_run(None, &machine));
 
@@ -346,10 +348,37 @@ fn a_report_that_cannot_be_written_is_e056() {
     let fx = acme();
     fx.write("out/acme.json", "{}");
     std::fs::create_dir(fx.root().join("specforge-report.json")).unwrap();
-    let machine = ScriptedMachine::new();
+    let machine = Machine::new();
 
     let refusal = refused(fx.no_run(None, &machine));
 
     assert_eq!(refusal.error.code, "E056");
     assert!(machine.runs().is_empty());
+}
+
+#[specforge_test(
+    behavior = "approve_capability",
+    verify = "a ceiling that turns process off refuses collect with E090 before anything runs"
+)]
+fn a_ceiling_without_process_refuses_with_e090_before_anything_runs() {
+    let fx = Fixture::configured(
+        vec![Runner::new("acme").proving("a", "t")],
+        r#"{"name": "demo", "effects": {"process": "off"}}"#,
+    );
+    let asker = Scripted::answering(true);
+    let machine = Machine::new();
+
+    let refusal = fx.run(Asking::Ask(&asker), &machine).unwrap_err();
+
+    assert_eq!(refusal.error.code, "E090", "{refusal:?}");
+    assert!(
+        refusal.error.message.contains("@acme/acme"),
+        "{}",
+        refusal.error.message
+    );
+    assert!(
+        asker.asked().is_empty(),
+        "nothing the ceiling removed is asked for"
+    );
+    untouched(&fx, &machine);
 }

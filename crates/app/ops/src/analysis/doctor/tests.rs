@@ -166,6 +166,7 @@ fn doctor_lists_the_extensions_the_listing_lists() {
                 origin: specforge_installed::Origin::File {
                     path: "greet.wasm".into(),
                 },
+                provenance: None,
                 loaded: true,
                 failure: None,
                 warnings: Vec::new(),
@@ -664,7 +665,7 @@ fn without_a_root_a_missing_module_is_a_load_finding() {
 
 #[test]
 fn doctor_lists_declared_reads() {
-    use specforge_protocol_types::{CommandDescriptor, CompilerPassDescriptor, FileRead};
+    use specforge_protocol_types::{CommandDescriptor, CompilerPassDescriptor, FileRead, Input};
     let read = |name: &str| FileRead {
         name: name.into(),
         glob: Some("*.md".into()),
@@ -673,18 +674,18 @@ fn doctor_lists_declared_reads() {
     let mut declaration = Assembled::declaration("@acme/a", "1.0.0");
     declaration.passes = vec![CompilerPassDescriptor {
         name: "p".into(),
-        reads: vec![
-            read("one"),
-            FileRead {
+        inputs: vec![
+            Input::Files(read("one")),
+            Input::Files(FileRead {
                 text: true,
                 ..read("two")
-            },
+            }),
         ],
         ..Default::default()
     }];
     declaration.surfaces.commands = vec![CommandDescriptor {
         id: "c".into(),
-        reads: vec![read("three")],
+        inputs: vec![Input::Files(read("three")), Input::State],
         ..Default::default()
     }];
     let fixture = Assembled::new().declarations(vec![
@@ -696,15 +697,103 @@ fn doctor_lists_declared_reads() {
 
     let reads = |name: &str| {
         let row = report.extensions.iter().find(|e| e.name == name).unwrap();
-        row.reads.iter().map(|r| r.line()).collect::<Vec<_>>()
+        row.inputs.iter().map(|r| r.line()).collect::<Vec<_>>()
     };
     assert_eq!(
         reads("@acme/a"),
         [
             "pass:p one: *.md",
             "pass:p two: *.md (with text)",
-            "command:c three: *.md"
+            "command:c three: *.md",
+            "command:c state"
         ]
     );
     assert!(reads("@acme/b").is_empty());
+}
+
+/// `@acme/runner`: a collector run on a `Cargo.toml` at the root, and an http capability nothing here uses.
+fn declaring_capabilities() -> specforge_protocol_types::ExtensionDeclaration {
+    use specforge_extension_sdk::{Capability, ContributionsBuilder, ExtensionMeta};
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/runner", "1.0.0"));
+    c.collector("unit", |collector| {
+        collector
+            .detect_files(&["Cargo.toml"])
+            .run(&["cargo", "test"])
+            .collect(|_| Ok(Default::default()));
+    });
+    c.capability(
+        Capability::http("api")
+            .hosts(&["api.example.com"])
+            .why("read the release feed"),
+    );
+    c.declaration()
+}
+
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor lists each capability with its grant here, and W170 only for the scopes a run here uses"
+)]
+fn doctor_lists_capabilities_and_w170_only_for_scopes_in_use() {
+    use crate::analysis::grants::GrantState;
+    let fixture = Assembled::new().declarations(vec![declaring_capabilities()]);
+    fixture.write("Cargo.toml", "");
+    let view = fixture.view();
+    let consent = specforge_effects::testing::MemoryConsent::default();
+
+    let report = diagnose(&view, &ScriptedSolver::ready()).with_grants(&view, &consent);
+
+    let runner = report
+        .extensions
+        .iter()
+        .find(|e| e.name == "@acme/runner")
+        .expect("the runner is listed");
+    let rows: Vec<(&str, GrantState, bool)> = runner
+        .capabilities
+        .iter()
+        .map(|row| (row.name.as_str(), row.state, row.in_use))
+        .collect();
+    assert_eq!(
+        rows,
+        [
+            ("unit", GrantState::NotApproved, true),
+            ("api", GrantState::NotApproved, false),
+        ]
+    );
+    let grants: Vec<&Finding> = report.about(Part::Grants).collect();
+    assert_eq!(grants.len(), 1, "{grants:?}");
+    assert_eq!(grants[0].code, "W170");
+    assert_eq!(grants[0].status, FindingStatus::Warn);
+    assert!(grants[0].check.contains("'unit'"), "{}", grants[0].check);
+    assert!(!grants[0].check.contains("'api'"), "{}", grants[0].check);
+    assert!(
+        grants[0]
+            .remediation
+            .contains("specforge grants approve @acme/runner unit"),
+        "{}",
+        grants[0].remediation
+    );
+    assert!(report.ok(), "a warning leaves doctor healthy");
+}
+
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "a consent store doctor cannot use is a W186 grants finding"
+)]
+fn an_unusable_consent_store_is_a_doctor_finding() {
+    let fixture = Assembled::new().declarations(vec![declaring_capabilities()]);
+    fixture.write("Cargo.toml", "");
+    let view = fixture.view();
+    let consent = specforge_effects::testing::MemoryConsent::unusable("not JSON");
+
+    let report = diagnose(&view, &ScriptedSolver::ready()).with_grants(&view, &consent);
+
+    let codes: Vec<&str> = report
+        .about(Part::Grants)
+        .map(|f| f.code.as_str())
+        .collect();
+    assert_eq!(
+        codes,
+        ["W186"],
+        "nothing in an unusable store is asked about"
+    );
 }

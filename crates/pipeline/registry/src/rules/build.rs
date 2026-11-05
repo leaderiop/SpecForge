@@ -1,14 +1,13 @@
 //! Declared descriptor → [`Rule`]: its shape checked (W112 for a rule that
 //! cannot work as declared), its references resolved against the
-//! registries, then the host's E006 and E016 rules.
+//! registries, then the host's E006 rules.
 
 use std::collections::HashSet;
 
 use specforge_common::{Diagnostic, Severity, codes};
 use specforge_diagnostics::{Codebook, Level, qualify};
 use specforge_protocol_types::{
-    CheckKind, ConstraintKind, ExtensionDeclaration, FileBase, ValidationRuleDescriptor,
-    ValidationSeverity,
+    CheckKind, ConstraintKind, ExtensionDeclaration, ValidationRuleDescriptor, ValidationSeverity,
 };
 
 use super::check::{Check, EdgeScope, Obligations, ValueConstraint};
@@ -47,6 +46,8 @@ pub(super) fn build(
         for descriptor in &declaration.validation_rules {
             diagnostics.extend(code_misuse(codes, extension, descriptor, &mut misused));
             let built = shape(descriptor, extension).and_then(|mut rule| {
+                // Where an extension's finding enters: its code says whether this machine decides it.
+                rule.declared.machine = codes.machine(extension, &descriptor.code);
                 if rule.declared.judged.is_some() && !judged_codes.insert(descriptor.code.clone()) {
                     return Err(cannot_fire(
                         extension,
@@ -252,10 +253,16 @@ fn ignore_unread(descriptor: &ValidationRuleDescriptor, rule: &mut Rule) -> Vec<
 fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule, Diagnostic> {
     let r = descriptor;
     let Some(check_kind) = CheckKind::parse(&r.check) else {
+        // The host's own file rule is gone: a field reads a path through a checker now.
+        let instead = if r.check == "file_exists" {
+            "; a field whose value names a file carries `@specforge/checks:file` instead"
+        } else {
+            ""
+        };
         return Err(Diagnostic::new(
             codes::W112,
             format!(
-                "extension '{extension}': unrecognized validation pattern kind '{}'",
+                "extension '{extension}': unrecognized validation pattern kind '{}'{instead}",
                 r.check
             ),
         ));
@@ -319,10 +326,6 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
         }
         CheckKind::MissingRequiredField => Check::MissingField {
             field: requires_field()?,
-        },
-        CheckKind::FileExists => Check::FileExists {
-            field: requires_field()?,
-            base: FileBase::Spec,
         },
         CheckKind::FieldValueConstraint => {
             let Some(c) = r.constraint.as_ref() else {
@@ -452,6 +455,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
             }),
             wasm_function: r.wasm_function.clone(),
             judged,
+            machine: false,
         },
     })
 }
@@ -501,12 +505,6 @@ fn resolve(
         && !specforge_common::structural::is_structural(kind)
     {
         return Ok(None);
-    }
-    // An extension's own `file_exists` rule reads its field's base too (ADR 0285).
-    if let (Check::FileExists { field, base }, Some(kind)) =
-        (&mut rule.check, rule.target.as_deref())
-    {
-        *base = base_of(registries, kind, field);
     }
     let reads_statements = matches!(
         rule.check,
@@ -587,12 +585,9 @@ fn resolve(
     Ok(Some(rule))
 }
 
-/// The host's rules, after the extensions': one E006 per `required` field, then one E016 per
-/// `file_reference` field, each by (kind, field).
+/// The host's rules, after the extensions': one E006 per `required` field, by (kind, field).
 fn host_rules(registries: Registries<'_>) -> Vec<Rule> {
-    let mut rules = required_field_rules(registries);
-    rules.extend(file_reference_rules(registries));
-    rules
+    required_field_rules(registries)
 }
 
 /// One E006 rule per `required` field or member of a typed block, owned by the host, by (kind, declared path): a
@@ -625,43 +620,4 @@ fn required_field_rules(registries: Registries<'_>) -> Vec<Rule> {
             declared: Declared::default(),
         })
         .collect()
-}
-
-/// One E016 rule per `file_reference` field or member, owned by the host, by (kind, declared path): a
-/// `file_exists` rule over the field (ADR 0118), reading its paths from the base the field declares (ADR 0285).
-fn file_reference_rules(registries: Registries<'_>) -> Vec<Rule> {
-    let mut referenced: Vec<(String, String)> = Vec::new();
-    for (kind, field, entry) in registries.fields.iter() {
-        entry.declared().for_each_path(field, &mut |path, d| {
-            if d.file_reference {
-                referenced.push((kind.to_string(), path));
-            }
-        });
-    }
-    referenced.sort();
-    referenced
-        .into_iter()
-        .map(|(kind, field)| {
-            let base = base_of(registries, &kind, &field);
-            Rule {
-                code: codes::E016.id().to_string(),
-                severity: Severity::of(codes::E016),
-                template: "file reference '{value}' in entity '{id}' does not exist".to_string(),
-                target: Some(kind),
-                message_field: Some(field.clone()),
-                origin: Origin::Host,
-                check_kind: CheckKind::FileExists,
-                check: Check::FileExists { field, base },
-                declared: Declared::default(),
-            }
-        })
-        .collect()
-}
-
-/// The base the field or member `path` of `kind` declares; the spec root when it declares none.
-fn base_of(registries: Registries<'_>, kind: &str, path: &str) -> FileBase {
-    registries
-        .fields
-        .get_path(kind, path)
-        .map_or(FileBase::Spec, |(_, form)| form.base())
 }

@@ -11,8 +11,12 @@ use specforge_graph::{
     Applied, Computed, FileChange, Graph, GraphBuild, compute_graph_delta, moved_nodes,
 };
 
+mod checked;
 mod disk;
+mod effects;
 mod judged;
+
+pub use checked::{CheckedValue, CheckedValues, ValueOutcome};
 
 use crate::coverage::{REPORT_FILE, Recorded, RecordedCoverage, ReportError, TestReport};
 use crate::ledger::{Reads, Unrecorded};
@@ -51,28 +55,29 @@ pub struct CompiledProject {
     /// E025 for the unreadable sources, then the resolver's (E025, I004,
     /// W113, W027).
     import_diagnostics: Vec<Diagnostic>,
-    /// What the checks on the graph reported: the registry build's checks
-    /// and the extensions' rules, then the check-phase passes. Empty when
-    /// the last update skipped them.
+    /// What the checks on the graph reported: the registry build's checks and the extensions' rules, then the
+    /// check-phase passes. Empty when the last update skipped them.
     check_diagnostics: Vec<Diagnostic>,
     /// The values the compute passes gave at the last check (ADR 0287); empty when the checks were skipped.
     computed: Arc<Computed>,
     judgements: Arc<crate::judged::Judgements>,
+    /// The outcome class of each value the checks checked, which a judged verdict digests (ADR 0337 §6).
+    checked_values: Arc<CheckedValues>,
+    /// Every checked value's rows at the last check (ADR 0336): what the surfaces read.
+    value_checks: Arc<crate::values::ValueChecks>,
     digests: Arc<crate::judged::DigestMemo>,
-    /// The graph's entity snapshot, the recorded test report and the
-    /// coverage: seeded with the snapshot the checks read; made over the
-    /// graph on first use after an update that skipped them.
+    /// What checkers answered, kept across this project's later states (ADR 0336).
+    check_cache: Arc<crate::values::CheckCache>,
+    /// The graph's entity snapshot, the recorded test report and the coverage: seeded with the snapshot the checks
+    /// read; made over the graph on first use after an update that skipped them.
     recorded: OnceLock<RecordedCoverage>,
-    /// What it reports ([`Self::diagnostics`]), in the one report order,
-    /// made on first use after a change and shared: a session's update holds
-    /// it as what the session reports now, and the next update as what it
-    /// reported before (ADR 0074).
+    /// What it reports ([`Self::diagnostics`]), in the one report order, made on first use after a change and
+    /// shared: a session's update holds it as what the session reports now, and the next as what it reported
+    /// before (ADR 0074).
     reported: OnceLock<Arc<[Diagnostic]>>,
-    /// The one answer to rooted or detached ([`Self::root`], ADR 0047 D4, ADR 0121).
-    /// `false` for a detached project (no project on disk: an editor with
-    /// no workspace folder, MCP while nothing is served): it has no root,
-    /// and imports are not resolved, with no spec root to resolve them
-    /// against (ADR 0030 D5).
+    /// The one answer to rooted or detached ([`Self::root`], ADR 0047 D4, ADR 0121). `false` for a detached
+    /// project (no project on disk: an editor with no workspace folder, MCP while nothing is served): it has no
+    /// root, and imports are not resolved, with no spec root to resolve them against (ADR 0030 D5).
     on_disk: bool,
     /// The last update skipped the checks (the typing fast path): none is
     /// reported until an update runs them (ADR 0136 D4).
@@ -83,30 +88,37 @@ pub struct CompiledProject {
     /// Renames applied to the editor's buffers and not yet saved (ADR 0289): the checks read the ledger as they will
     /// have written it. Empty but for a session of an editor.
     ledger_overlay: Vec<Arc<crate::harness::LedgerOverlay>>,
+    /// One call's own effects ([`Self::effects_rerun`]); none: the environment's.
+    effects: Option<Arc<specforge_effects::Effects>>,
+}
+
+/// What one run of the checks gave, held until the run's read of the project ends.
+struct CheckRun {
+    diagnostics: Vec<Diagnostic>,
+    entities: Arc<EntitySnapshot>,
+    computed: Computed,
+    judgements: crate::judged::Judgements,
+    value_checks: crate::values::ValueChecks,
+    checked_values: Arc<CheckedValues>,
 }
 
 impl CompiledProject {
-    /// Compile the project at `root`, its extensions loaded into `runtime`
-    /// (without one no extension loads), which its environment holds, its
-    /// sources read from the plain file system. It keeps no stamp (ADR 0030).
+    /// Compile the project at `root`, its extensions loaded into `runtime` (without one no extension loads), which
+    /// its environment holds, its sources read from the plain file system. It keeps no stamp (ADR 0030).
     pub fn compile(root: &ProjectRoot, runtime: Option<SharedRuntime>) -> Self {
         Self::compile_through(Environment::load(root, runtime), &PlainDisk)
     }
 
-    /// The project of `env`, each source read through `sources` (ADR 0166): a
-    /// surface that bounds its request hands its containment's disk, and a
-    /// source the disk refuses is that source's E025, absent from the graph
-    /// (ADR 0145 D2). The environment and the checks read the plain file
-    /// system (ADR 0145 D3), as a session's do. A caller that read the
-    /// environment first (a migration plans with its field forms, ADR 0186)
-    /// compiles in that load.
+    /// The project of `env`, each source read through `sources` (ADR 0166): a surface that bounds its request hands
+    /// its containment's disk, and a source the disk refuses is that source's E025, absent from the graph (ADR 0145
+    /// D2). The environment and the checks read the plain file system (ADR 0145 D3), as a session's do. A caller
+    /// that read the environment first (a migration plans with its field forms, ADR 0186) compiles in that load.
     pub fn compile_through(env: Environment, sources: &dyn Disk) -> Self {
         Self::checked(env, &mut Unrecorded::through(sources))
     }
 
-    /// Compile the project of an environment already loaded (the CLI routes
-    /// an extension command on it first): its sources read from the plain
-    /// file system, its graph built and checked in the environment's runtime.
+    /// Compile the project of an environment already loaded (the CLI routes an extension command on it first): its
+    /// sources read from the plain file system, its graph built and checked in the environment's runtime.
     pub fn of(env: Environment) -> Self {
         Self::checked(env, &mut Unrecorded::plain())
     }
@@ -425,12 +437,16 @@ impl CompiledProject {
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
             judgements: Arc::default(),
+            checked_values: Arc::default(),
+            value_checks: Arc::default(),
             digests: Arc::default(),
+            check_cache: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk: false,
             checks_skipped: false,
             ledger_overlay: Vec::new(),
+            effects: None,
             baseline: None,
         }
     }
@@ -450,12 +466,16 @@ impl CompiledProject {
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
             judgements: Arc::default(),
+            checked_values: Arc::default(),
+            value_checks: Arc::default(),
             digests: Arc::default(),
+            check_cache: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
             checks_skipped: false,
             ledger_overlay: Vec::new(),
+            effects: None,
             baseline: None,
         }
     }
@@ -480,12 +500,16 @@ impl CompiledProject {
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
             judgements: Arc::default(),
+            checked_values: Arc::default(),
+            value_checks: Arc::default(),
             digests: Arc::default(),
+            check_cache: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::from(Arc::<[Diagnostic]>::from(reported)),
             on_disk: rooted,
             checks_skipped: false,
             ledger_overlay: Vec::new(),
+            effects: None,
             baseline: None,
         }
     }
@@ -529,12 +553,16 @@ impl CompiledProject {
             check_diagnostics: Vec::new(),
             computed: Arc::default(),
             judgements: Arc::default(),
+            checked_values: Arc::default(),
+            value_checks: Arc::default(),
             digests: Arc::default(),
+            check_cache: Arc::default(),
             recorded: OnceLock::new(),
             reported: OnceLock::new(),
             on_disk,
             checks_skipped: false,
             ledger_overlay: Vec::new(),
+            effects: None,
             baseline: None,
         }
     }
@@ -566,18 +594,17 @@ impl CompiledProject {
         applied
     }
 
-    /// Every check on the current graph, over a snapshot of it taken now
-    /// (ADR 0019), in the environment's runtime, reading the file system
-    /// through the disk `reads` gives them (ADR 0107); the memo starts again
-    /// from that snapshot.
+    /// Every check on the current graph, over a snapshot of it taken now (ADR 0019), in the environment's runtime,
+    /// reading the file system through the disk `reads` gives them (ADR 0107), each effect record it consults an
+    /// input (ADR 0337 D5); the memo starts again from that snapshot.
     pub(crate) fn check(&mut self, reads: &mut impl Reads) {
         let env = Arc::clone(&self.env);
         let this = &*self;
         let graph = &this.graph;
         let mut outcome = None;
-        let held = self.baseline.clone();
-        let mut baseline = None;
+        let (held, mut baseline) = (self.baseline.clone(), None);
         reads.run_checks(|disk| {
+            this.effects().take_log();
             // The files `HEAD` is named by are read first, so each is an input of this run: a commit changes one.
             let stamp = crate::baseline::Baseline::ref_stamp(&env, disk);
             let read = match held {
@@ -598,24 +625,59 @@ impl CompiledProject {
                     crate::harness::overlay::through(disk, this, &this.ledger_overlay, &mut ledger);
                 &overlaid
             };
-            let checked = env.checked(Some(graph), &authored, disk, &read.read, &this.digests);
+            // Before the rules: a verdict digests what the checks found (ADR 0337 §6).
+            let values = crate::values::run(
+                &env,
+                &authored,
+                this.effects(),
+                disk,
+                &this.check_cache,
+                &|file| this.sources.text(file).cloned(),
+            );
+            // No checker at all leaves the values a test gave (`with_checked_values`).
+            let checked_values = if env.registries().checks().is_empty() {
+                Arc::clone(&this.checked_values)
+            } else {
+                Arc::new(values.checks.outcome_classes())
+            };
+            let checked = env.checked(
+                Some(graph),
+                &authored,
+                disk,
+                &read.read,
+                &this.digests,
+                &checked_values,
+            );
             baseline = Some(read);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
-            let mut diagnostics = checked.diagnostics;
+            let mut diagnostics = values.diagnostics;
+            diagnostics.extend(checked.diagnostics);
+            // What this machine did not perform of them: an effect's, once for the run.
+            diagnostics.extend(crate::effects::not_run(&this.effects().log()));
             // A write that was interrupted (ADR 0289): the next writer rolls it back, a check only says so.
             // Read through the checks' disk, so a journal that appears or goes is an input; a detached project has none.
             if let Some(root) = this.root() {
                 diagnostics.extend(crate::journal::pending(root, disk));
             }
-            outcome = Some((diagnostics, entities, checked.computed, checked.judgements));
+            outcome = Some(CheckRun {
+                diagnostics,
+                entities,
+                computed: checked.computed,
+                judgements: checked.judgements,
+                value_checks: values.checks,
+                checked_values,
+            });
+            this.consulted()
         });
         self.checks_skipped = false;
         self.baseline = baseline;
-        if let Some((diagnostics, entities, computed, judgements)) = outcome {
-            self.check_diagnostics = diagnostics;
-            self.computed = Arc::new(computed);
-            self.judgements = Arc::new(judgements);
-            self.recorded = OnceLock::from(RecordedCoverage::of(entities));
+        if let Some(run) = outcome {
+            self.value_checks = Arc::new(run.value_checks);
+            self.checked_values = run.checked_values;
+            self.check_diagnostics = run.diagnostics;
+            self.computed = Arc::new(run.computed);
+            self.judgements = Arc::new(run.judgements);
+            self.recorded = OnceLock::from(RecordedCoverage::of(run.entities));
             self.reported = OnceLock::new();
         }
     }
@@ -643,6 +705,11 @@ impl CompiledProject {
     /// memo is made over the graph on first use.
     pub(crate) fn skip_checks(&mut self) {
         self.check_diagnostics = Vec::new();
+        self.value_checks = Arc::default();
+        // No checker at all leaves the values a test gave (`with_checked_values`).
+        if !self.env.registries().checks().is_empty() {
+            self.checked_values = Arc::default();
+        }
         self.computed = Arc::default();
         self.judgements = Arc::default();
         self.recorded = OnceLock::new();
@@ -693,108 +760,4 @@ impl CompiledProject {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use specforge_registry::{Asked, MemoryDisk, PlainDisk};
-    use specforge_test_macros::test as specforge_test;
-
-    const MISSING_IMPORT: &str = "use \"missing\"\nbehavior a \"A\" {\n}\n";
-
-    #[test]
-    fn a_detached_project_has_no_root_and_resolves_no_import() {
-        let mut detached = CompiledProject::detached();
-        assert_eq!(detached.root(), None);
-        detached.apply(vec![(
-            "a.spec".into(),
-            Read::Text(MISSING_IMPORT.to_string()),
-        )]);
-        let imports = |p: &CompiledProject| -> Vec<Diagnostic> {
-            p.diagnostics()
-                .into_iter()
-                .filter(|d| d.code == "W113" || d.code == "I004" || d.code == "E025")
-                .collect()
-        };
-        assert!(
-            imports(&detached).is_empty(),
-            "{:?}",
-            detached.diagnostics()
-        );
-
-        // The same text in a project on disk resolves its imports.
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("specforge.json"), r#"{"extensions": []}"#).unwrap();
-        std::fs::write(dir.path().join("a.spec"), MISSING_IMPORT).unwrap();
-        let compiled = CompiledProject::compile(
-            &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
-            None,
-        );
-        assert!(
-            !imports(&compiled).is_empty(),
-            "{:?}",
-            compiled.diagnostics()
-        );
-    }
-
-    #[test]
-    fn a_detached_project_asks_no_disk_for_its_report() {
-        let disk = MemoryDisk::new().with_file("/specforge-report.json", b"{");
-        assert!(
-            CompiledProject::detached()
-                .recorded(&disk)
-                .unwrap()
-                .report
-                .is_none()
-        );
-        assert!(disk.asked().is_empty());
-    }
-
-    #[test]
-    fn a_rooted_project_reads_its_report_through_the_disk_it_is_given() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("specforge.json"), r#"{"extensions": []}"#).unwrap();
-        let project = CompiledProject::compile(
-            &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
-            None,
-        );
-        let file = project.root().unwrap().join("specforge-report.json");
-        let disk = MemoryDisk::new().with_file(
-            &file,
-            br#"{"results":{"a":{"tests":[{"name":"t","status":"passed"}]}}}"#,
-        );
-        assert!(project.test_report(&disk).unwrap().is_some());
-        assert_eq!(disk.asked(), [Asked::Read(file)]);
-        // Nothing on the file system: the memo re-keys on content.
-        assert!(project.test_report(&PlainDisk).unwrap().is_none());
-    }
-
-    #[specforge_test(
-        behavior = "snapshot_entities_once",
-        verify = "the checks, the check passes and the coverage of one compile read one snapshot"
-    )]
-    fn skipping_the_checks_reports_none_and_scores_the_graph_on_first_use() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(
-            dir.path().join("specforge.json"),
-            r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software"]}"#,
-        )
-        .unwrap();
-        std::fs::write(dir.path().join("a.spec"), "behavior alpha \"A\" {\n}\n").unwrap();
-        let runtime = specforge_component::ComponentRuntime::with_user_cache();
-        let mut project = CompiledProject::compile(
-            &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
-            Some(Arc::new(runtime)),
-        );
-        let checked = project.diagnostics();
-        assert!(checked.iter().any(|d| d.code == "W006"), "{checked:?}");
-        assert!(!project.checks_skipped());
-
-        project.skip_checks();
-        assert!(project.checks_skipped());
-        assert!(
-            project.diagnostics().iter().all(|d| d.code != "W006"),
-            "{:?}",
-            project.diagnostics()
-        );
-        assert_eq!(project.entities().kind_of("alpha"), Some("behavior"));
-    }
-}
+mod tests;

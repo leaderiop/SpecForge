@@ -213,8 +213,8 @@ pub(super) fn declare(c: &mut ContributionsBuilder) {
         h.description("Warns of an edit made outside a GSD command, and refuses a force-add on an agent branch")
             .tools(&["write", "edit", "shell"])
             .when("hooks.workflow_guard")
-            .reads_state()
-            .reads_git()
+            .input(Input::State)
+            .input(Input::git())
             .handler(|call| Ok(workflow_guard(&Facts::of(call))));
     });
 }

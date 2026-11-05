@@ -48,8 +48,8 @@ Display banner: `GSD > VALIDATE PHASE {N}: {name}`
 ## 1. Detect Input State
 
 ```bash
-VALIDATION_FILE=$(ls "${PHASE_DIR}"/*-VALIDATION.md 2>/dev/null | head -1)
-SUMMARY_FILES=$(ls "${PHASE_DIR}"/*-SUMMARY.md 2>/dev/null)
+VALIDATION_FILE=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-VALIDATION.md' --pick '.entries[0].path' 2>/dev/null)
+SUMMARY_FILES=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-SUMMARY.md' --pick '.entries[].path' 2>/dev/null)
 ```
 
 - **State A** (`VALIDATION_FILE` non-empty): Audit existing
@@ -72,8 +72,8 @@ State A: Parse from existing VALIDATION.md Test Infrastructure table.
 State B: Filesystem scan:
 
 ```bash
-find . -name "pytest.ini" -o -name "jest.config.*" -o -name "vitest.config.*" -o -name "pyproject.toml" 2>/dev/null | head -10
-find . \( -name "*.test.*" -o -name "*.spec.*" -o -name "test_*" \) -not -path "*/node_modules/*" 2>/dev/null | head -40
+specforge files list --kind file --glob pytest.ini --glob 'jest.config.*' --glob 'vitest.config.*' --glob pyproject.toml --max 10 --pick '.entries[].path' 2>/dev/null
+specforge files list --glob '*.test.*' --glob '*.spec.*' --glob 'test_*' --max 40 --pick '.entries[].path' 2>/dev/null
 ```
 
 ### 2d. Cross-Reference
@@ -155,10 +155,10 @@ Handle return:
 ## 7. Commit
 
 ```bash
-git add {test_files}
-git commit -m "test(phase-${PHASE}): add Nyquist validation tests"
+specforge git commit --add {each test file, one --add each} \
+  -m "test(phase-${PHASE}): add Nyquist validation tests"
 
-git add spec && git commit -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes; : \
+specforge git commit --add spec -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes; : \
   --files "${PHASE_DIR}/${PADDED_PHASE}-VALIDATION.md"
 ```
 

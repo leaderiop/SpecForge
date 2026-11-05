@@ -7,13 +7,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use specforge_common::{CustomRuleFailure, Diagnostic, DiagnosticData, codes};
 use specforge_cycles::cycles;
 
-use super::files;
 use super::verdicts::{CustomCall, CustomVerdicts, Subject, Verdict, VerdictError};
 use super::{Origin, Rule};
 use crate::entity::{Direction, EntityRecord, FieldRecord, RuleInput};
 use specforge_common::SourceSpan;
 use specforge_graph::field_form::declared_path;
-use specforge_protocol_types::FileBase;
 
 /// One variant per check kind; each carries what it reads, resolved.
 #[derive(Debug, Clone)]
@@ -42,11 +40,6 @@ pub(crate) enum Check {
     /// The entities on a cycle of the edges of `edge_type`.
     Cycle {
         edge_type: String,
-    },
-    /// Every path `field` (a declared path) names exists under `base`.
-    FileExists {
-        field: String,
-        base: FileBase,
     },
     VerifyKindAllowlist {
         allowed: Vec<String>,
@@ -123,9 +116,6 @@ pub(super) fn run(
     }
     if let Check::Cycle { edge_type } = &rule.check {
         return cycle_rule(rule, edge_type, input);
-    }
-    if let Check::FileExists { field, base } = &rule.check {
-        return missing_files(rule, field, *base, input);
     }
     let mut diagnostics = Vec::new();
     let mut failures = Vec::new();
@@ -231,7 +221,7 @@ fn evaluate(
                 && record.field(field).is_none_or(str::is_empty),
         ),
         // Run over the input by `cycles` and `missing_files`.
-        Check::Cycle { .. } | Check::FileExists { .. } | Check::Judged => Ok(None),
+        Check::Cycle { .. } | Check::Judged => Ok(None),
         Check::VerifyKindAllowlist { allowed } => Ok(record
             .obligations
             .iter()
@@ -386,6 +376,7 @@ fn diagnostic(rule: &Rule, message: String, record: &EntityRecord) -> Diagnostic
     let mut diagnostic = match &rule.origin {
         Origin::Extension(extension) => {
             Diagnostic::from_extension(extension, rule.code.clone(), rule.severity, message)
+                .decided_by_machine(rule.declared.machine)
         }
         Origin::Host => Diagnostic::untyped(rule.code.clone(), rule.severity, message),
     };
@@ -488,27 +479,4 @@ pub(super) fn probe(rule: &Rule, verdicts: &dyn CustomVerdicts) -> Option<Diagno
             )),
         ),
     }
-}
-
-/// A `file_exists` rule over `input`: each path an entity it applies to names in `field` that
-/// does not exist, by entity id then path order, with a close sibling as the help
-/// ([`files::missing`], ADR 0118). `{value}` is the missing path.
-fn missing_files(
-    rule: &Rule,
-    field: &str,
-    base: FileBase,
-    input: &RuleInput<'_>,
-) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-    for record in input.entities.iter().filter(|e| rule.applies_to(&e.kind)) {
-        for missing in files::missing(record, field, base, input) {
-            let violation = Violation {
-                suggestion: missing.suggestion,
-                span: missing.span,
-                ..Violation::value(missing.path)
-            };
-            diagnostics.push(report(rule, record, violation));
-        }
-    }
-    diagnostics
 }

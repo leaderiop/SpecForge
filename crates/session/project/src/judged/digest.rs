@@ -1,4 +1,6 @@
-//! The digests (ADR 0290): `sha256:<64 hex>` over canonical JSON, or over a file's bytes.
+//! The digests (ADR 0290): `sha256:<64 hex>` over canonical JSON, or over a file's bytes. An `entities` input
+//! digests each entity's digest, and, for an entity whose values the checks checked, the outcome class of each
+//! (`[field, item, checker, class]`, `unknown` when not performed; ADR 0337 §6): never when it was observed.
 
 use specforge_graph::wire::entity_bytes;
 use specforge_graph::{FieldForms, Graph, Node};

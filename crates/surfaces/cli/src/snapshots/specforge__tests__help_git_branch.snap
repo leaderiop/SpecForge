@@ -1,0 +1,16 @@
+---
+source: crates/surfaces/cli/src/main.rs
+expression: command.clone().render_long_help().to_string()
+---
+Create or delete a branch
+
+Usage: specforge git branch <COMMAND>
+
+Commands:
+  create  Create a branch at a revision (HEAD when absent)
+  delete  Delete a branch: never HEAD's, and one with commits HEAD does not hold only with --force
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help
+          Print help

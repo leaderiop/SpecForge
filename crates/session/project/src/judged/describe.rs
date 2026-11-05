@@ -64,6 +64,7 @@ pub fn describe<'p>(
             project.entities(),
             disk,
             project.digests(),
+            project.checked_values(),
         )
         .inputs(node, rule, cited)
     });

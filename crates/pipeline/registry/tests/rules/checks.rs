@@ -629,3 +629,19 @@ fn a_constraint_over_a_member_path_judges_each_item() {
         ["behavior 'b1' has invalid items[1].kind='web'"]
     );
 }
+
+/// A rule's finding of a code the extension catalogs `machine` is marked machine (ADR 0337 D7).
+#[test]
+fn a_rule_finding_of_a_machine_code_is_marked_machine() {
+    let mut declaration = super::declaring_with_kinds(vec![rule("W100", "no_incoming_edges")]);
+    declaration.codes[0].machine = true;
+    let built = super::rules_of(vec![declaration]);
+    let diagnostics = check(&built, &[entity("b1", "behavior", 0, 2)]);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+    assert!(diagnostics[0].machine);
+    let plain = check(
+        &one(rule("W100", "no_incoming_edges")),
+        &[entity("b1", "behavior", 0, 2)],
+    );
+    assert!(!plain[0].machine);
+}

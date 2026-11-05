@@ -370,9 +370,15 @@ pub(crate) fn consistency(
             }
         }
     }
-    // ADR 0293: a read the host would serve empty is told, once.
+    // ADR 0293, ADR 0337 D2: an input the host would serve empty is told, once.
     diagnostics.extend(
-        super::reads::problems(declaration, loaded)
+        crate::inputs::problems(declaration, loaded)
+            .into_iter()
+            .map(warn),
+    );
+    // ADR 0335 D2.1: a capability that is not sound grants nothing, and is told.
+    diagnostics.extend(
+        super::capabilities::problems(declaration)
             .into_iter()
             .map(warn),
     );

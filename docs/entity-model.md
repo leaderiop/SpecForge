@@ -117,12 +117,15 @@ Extensions declare each field with one of twelve types (`specforge_protocol_type
 | `block` | a nested `{ ... }` block; with declared members, each is read by its own type | read by the extension's passes; E061 and E006 per member |
 | `block_list` | `[ { a 1 } { a 2 } ]`, a list of blocks with the same declared members | E061 and E006 per member of each item |
 
-A reference may name any of several kinds (`target_kinds`), an integer may be bounded (`minimum`, `maximum`), and a
-`file_reference` field reads its paths from the spec root or, declaring `file_base project`, the project root.
-A field can also declare an `edge` (its references become typed graph edges), `required`, `file_reference` (each
-value is a path that must exist), `normative` (it states what the entity promises; the review document quotes it
+A reference may name any of several kinds (`target_kinds`), and an integer may be bounded (`minimum`, `maximum`).
+A field can also declare an `edge` (its references become typed graph edges), `required`, `checks` (the checks each
+value passes, such as `@specforge/checks:file`: each value is a path that must exist under the root it names),
+`normative` (it states what the entity promises; the review document quotes it
 whole) and `headline` (it is the entity's one-line statement, as a behavior's `contract` is). The core knows none of
-these fields by name: it reads the flags. `specforge model` renders the declared vocabulary of a project
+these fields by name: it reads the flags. A field may also declare `checks`, the checks its values pass (ADR 0336). The
+value stays plain, a URL a string; the extension's checker reads it, and may ask the host to look at the world for it.
+`specforge.json` `checks` attaches more to a declared field. `inspect`, the hover and `export --with-checks` show each
+value's outcome; a value whose check could not run is not judged, and nothing goes red for it. `specforge model` renders the declared vocabulary of a project
 ([model docs](model/README.md)); the [quick reference](quick-reference.md) lists every builtin field and relation.
 
 ### A relation is written on one side

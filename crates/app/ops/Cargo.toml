@@ -17,6 +17,8 @@ testing = ["dep:specforge-extension-sdk", "specforge-project/testing", "specforg
 serde = { workspace = true }
 serde_json = { workspace = true }
 specforge-diagnostics = { path = "../../leaf/diagnostics" }
+# The effect plane: its ports, and `Contained`, the one path containment (ADR 0335).
+specforge-effects = { path = "../../kernel/effects" }
 specforge-common = { workspace = true }
 specforge-emitter = { path = "../../pipeline/emitter" }
 specforge-formatter = { workspace = true }
@@ -35,14 +37,25 @@ chrono = "0.4.41"
 getrandom = "0.3"
 sha2 = { workspace = true }
 strsim = { workspace = true }
+# `specforge files search` and `list` (ADR 0339): the pattern and the globs a person types.
+regex = { workspace = true }
+globset = "0.4"
+# `specforge http --header`: a typed header's name and value as the wire takes them.
+http = "1"
 
 [dev-dependencies]
 specforge-repo-root = { path = "../../leaf/repo-root" }
+# The one process runner, in the tests that run a real program (a fake z3, a specforge on PATH).
+specforge-process = { path = "../../adapters/process" }
+# The real file port, in the test that holds a guest off a real journal.
+specforge-fs = { path = "../../adapters/fs" }
 # The production adapter, in the tests that load the builtins.
 specforge-component = { workspace = true, features = ["testing"] }
 specforge-ops = { path = ".", features = ["testing"] }
 # The project a test builds, and the sample sources.
 specforge-project = { workspace = true, features = ["testing"] }
+# The fake ports (a scripted git), injected where a test compiles a project.
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
 # Extensions declared with the SDK, served in process.
 specforge-extension-sdk = { path = "../../runtime/extension-sdk" }
 # One diagnostic of each kind the host builds, for the diagnostics JSON pin.

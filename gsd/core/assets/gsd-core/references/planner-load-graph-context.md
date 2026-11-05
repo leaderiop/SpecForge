@@ -21,7 +21,7 @@ The same response carries `graph_path` — the resolved graph location. Substitu
 Query the graph for phase-relevant dependency context (single query per D-06). Prefer the `graphify` CLI when it is on PATH; fall back to the built-in reader otherwise:
 
 ```bash
-if command -v graphify >/dev/null 2>&1; then
+if specforge run --which graphify >/dev/null 2>&1; then
   graphify query "<phase-goal-keyword>" --graph "<graph>" --budget 2000
   graphify affected "<phase-goal-keyword>" --graph "<graph>" --depth 2
 else

@@ -26,8 +26,15 @@ pub use wit_bindgen as __wit_bindgen;
 /// the decision to the rule's `wasm_function` (see
 /// [`RuleBuilder::wasm_function`]).
 pub use specforge_protocol_types::{
-    CheckKind, Cite, ConstraintKind, EditPlan, FieldType, FieldWriter, FileBase, PlanObligation,
-    PlanOp,
+    CheckKind, Cite, ConstraintKind, EditPlan, FieldType, FieldWriter, Input, PlanObligation,
+    PlanOp, Root, RootedPath,
+};
+
+pub use specforge_protocol_types::{
+    ByteRange, CapabilityDescriptor, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan,
+    CheckRef, CheckStatus, CheckValuesInput, CheckerDescriptor, FsAccess, GitOp, HttpMethod,
+    MAX_PROBE_ROUNDS, Operation, OutcomeClass, OutcomeData, PlannedItem, PortScope, Probe,
+    ProbeOutcome, StatEntry, ValueForm,
 };
 
 pub use specforge_protocol_types::{
@@ -65,9 +72,12 @@ pub use surface::{ArgBuilder, CommandBuilder, CommandCall, McpResourceBuilder, M
 pub use vocabulary::Vocabulary;
 
 mod builders;
+mod capability;
+mod checker;
 mod command_graph;
 mod contrib;
 mod guest;
+pub mod host;
 pub mod host_contrib;
 mod plan;
 pub mod prompt;
@@ -79,6 +89,8 @@ pub use builders::{
     FieldConstraintBuilder, JudgedBuilder, JudgedTargetBuilder, KindBuilder, PassBuilder,
     RuleBuilder,
 };
+pub use capability::Capability;
+pub use checker::{CheckerBuilder, Judged};
 pub use command_graph::{CommandGraph, CommandInput};
 pub use guest::{ExportHandler, Served, answer_export, no_other_exports};
 pub use host_contrib::{
@@ -157,6 +169,7 @@ pub struct ContributionsBuilder {
     slash_commands: Vec<specforge_protocol_types::SlashCommandDescriptor>,
     hooks: Vec<specforge_protocol_types::HookDescriptor>,
     operations: operations::Operations,
+    checkers: checker::Checkers,
     raw: RawCategories,
 }
 
@@ -279,6 +292,17 @@ impl ContributionsBuilder {
             collect,
         );
         self.decl.collectors.push(b.descriptor);
+        if let Some(argv) = b.run {
+            let argv: Vec<&str> = argv.iter().map(String::as_str).collect();
+            self.capability(
+                Capability::process(name)
+                    .argv(&argv)
+                    .call_kinds(&[Operation::Collect])
+                    .why(&format!(
+                        "run the command whose report the collector '{name}' reads"
+                    )),
+            );
+        }
         self
     }
 
@@ -605,11 +629,11 @@ pub mod prelude {
     pub use crate::{
         AnalyzerBuilder, CheckKind, CodeBuilder, ConstraintKind, Contributions,
         ContributionsBuilder, EdgeBuilder, EnhancementBuilder, ExtensionMeta, FieldBuilder,
-        FieldConstraintBuilder, FieldType, FileBase, FileReadSpec, KindBuilder, MigrationInput,
+        FieldConstraintBuilder, FieldType, FileReadSpec, Input, KindBuilder, MigrationInput,
         PassAnswer, PassBaseline, PassBaselineEntity, PassBuilder, PassDiagnostic, PassEdge,
-        PassEntity, PassInput, PassOutput, PassSeverity, PassSpan, PassValue, RuleBuilder,
-        ScanRequest, ScanResponse, ScannedItem, Settings, TestResult, TestResults, TestStatus,
-        Vocabulary,
+        PassEntity, PassInput, PassOutput, PassSeverity, PassSpan, PassValue, Root, RootedPath,
+        RuleBuilder, ScanRequest, ScanResponse, ScannedItem, Settings, TestResult, TestResults,
+        TestStatus, Vocabulary,
     };
     pub use crate::{
         Annotates, ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence,
@@ -618,13 +642,19 @@ pub mod prelude {
         PromptStepBuilder, RouteAnnotationBuilder, RouteBuilder, RouteStepBuilder,
     };
     pub use crate::{
+        ByteRange, CheckFinding, CheckItem, CheckRef, CheckerBuilder, Judged, MAX_PROBE_ROUNDS,
+        OutcomeClass, OutcomeData, PlannedItem, Probe, ProbeOutcome, StatEntry, ValueForm,
+    };
+    pub use crate::{Capability, FsAccess, GitOp, HttpMethod, Operation};
+    pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
         CollectorBuilder, Fact, PlanBuilder,
     };
     pub use specforge_extension_sdk_macros::extension;
     pub use specforge_protocol_types::{
-        Attribution, Decision, HookEvent, HookOutput, PromptOutput, RenderKind, ServedSlash,
-        StatePatch, StateView, Trigger, TriggerKind,
+        Attribution, Decision, GitBranch, GitChange, GitEntry, GitEntryKind, GitStatus, HookEvent,
+        HookOutput, PromptOutput, RenderKind, ServedSlash, StatePatch, StateView, Trigger,
+        TriggerKind,
     };
     pub use specforge_protocol_types::{
         SandboxPolicy, ValidationSeverity, ValidatorContext, ValidatorVerdict,

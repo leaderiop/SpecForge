@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 /// under `name` in the input's `files`.
 ///
 /// Exactly one of `field` and `glob` names the files; a read that names neither or both, a `name` that is no word or
-/// repeats, or a `base` on a glob is W021 and served empty.
+/// repeats, or a `root` on a glob is W021 and served empty.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileRead {
     /// The key of this read in the input's `files`: a word `[a-z][a-z0-9_]*`, unique among the owner's reads.
@@ -23,10 +23,11 @@ pub struct FileRead {
     /// from the project root.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub glob: Option<String>,
-    /// Where a field's relative paths start: `spec` (the spec root) or `project` (the default; a path in a spec names
-    /// a project file). A string, as a field's `file_base` is: an unknown base costs the read, not the declaration.
+    /// The root a field's bare paths start at: `spec`, `project` (the default; a path in a spec names a project file)
+    /// or a root `specforge.json` names; a value's own `<root>/` prefix overrides it. A string, as a name that is no
+    /// root's costs the read, not the declaration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub base: Option<String>,
+    pub root: Option<String>,
     /// Send each file's text (UTF-8, at most 64 KiB) as well as its facts.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub text: bool,

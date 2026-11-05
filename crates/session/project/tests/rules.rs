@@ -4,9 +4,6 @@
 //! of an in-process extension. A pin that still encodes a bug says which
 //! ticket of plan 02 flips it.
 
-use std::fs;
-use std::path::Path;
-
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 use specforge_extension_sdk::prelude::*;
@@ -83,7 +80,7 @@ fn x007(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
 }
 
 /// The three nodes of the plan's reproduction: `alpha` and `beta` depend
-/// on each other, `gamma` names a file only the spec root holds.
+/// on each other, `gamma` writes a `doc`.
 const NODES: &str = r#"node alpha "Alpha" {
   deps [beta]
 }
@@ -93,12 +90,11 @@ node beta "Beta" {
 }
 
 node gamma "Gamma" {
-  doc "pin-only-under-spec-root.md"
+  doc "gamma.md"
 }
 "#;
 
-/// A project (`spec_root: "spec"`) whose `spec/nodes.spec` is `source`,
-/// with `spec/pin-only-under-spec-root.md` present.
+/// A project (`spec_root: "spec"`) whose `spec/nodes.spec` is `source`.
 fn project(source: &str) -> TestProject {
     TestProject::new()
         .config(|c| {
@@ -107,10 +103,7 @@ fn project(source: &str) -> TestProject {
         })
         .enabling(&[EXT])
         .installing_enabled()
-        .files(&[
-            ("spec/nodes.spec", source),
-            ("spec/pin-only-under-spec-root.md", "# pin\n"),
-        ])
+        .files(&[("spec/nodes.spec", source)])
 }
 
 /// The compile of the project with the extension declaring `rules`.
@@ -243,30 +236,6 @@ fn a_cycle_rule_naming_an_undeclared_edge_type_is_inert_and_w021() {
         [
             "extension '@pin/rules': rule 'X003' references edge type 'NoSuchEdge' not declared among its edges or its peers' edges"
         ]
-    );
-}
-
-// REGRESSION (01-T5): file_exists resolves against the spec root, never the
-// working directory. Never flipped.
-#[test]
-fn file_exists_reads_the_spec_root_whatever_the_working_directory() {
-    let rules = json!([{
-        "code": "X004", "severity": "warning", "check": "file_exists",
-        "message_template": "X004 '{id}': missing file '{value}'",
-        "target_kind": "node", "field": "doc"
-    }]);
-    let dir = project(NODES);
-    // The test's working directory does not hold the file.
-    assert!(!Path::new("pin-only-under-spec-root.md").exists());
-
-    let diagnostics = compile_with(&dir, rules.clone(), false).diagnostics();
-    assert!(messages(&diagnostics, "X004").is_empty(), "{diagnostics:?}");
-
-    fs::remove_file(dir.root().join("spec/pin-only-under-spec-root.md")).unwrap();
-    let diagnostics = compile_with(&dir, rules, false).diagnostics();
-    assert_eq!(
-        messages(&diagnostics, "X004"),
-        ["X004 'gamma': missing file 'pin-only-under-spec-root.md'"]
     );
 }
 

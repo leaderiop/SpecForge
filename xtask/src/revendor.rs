@@ -142,7 +142,11 @@ fn write_snapshots() -> Result<usize, String> {
     let mut kept = Vec::new();
     for blob in COMMITTED.iter().filter(|blob| blob.is_sdk()) {
         runtime
-            .load(blob.name, &blob.read())
+            .load(
+                blob.name,
+                &blob.read(),
+                specforge_wasm::Provenance::third_party(&blob.read()),
+            )
             .map_err(|e| format!("{}: {e}", blob.name))?;
         let dir = root.join(blob.key());
         std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;

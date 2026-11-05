@@ -11,7 +11,9 @@ mod declared_reads;
 #[cfg(test)]
 mod fixtures;
 pub mod gate;
+pub(crate) mod inputs;
 mod inventory;
+pub mod lend;
 mod list;
 mod lock_plan;
 mod names;
@@ -32,7 +34,10 @@ pub use candidate::{
     Installable, LocalComponent, LocalFile, WASM_TARGET, builtin_declaration, not_a_builtins_name,
     target_dir,
 };
-pub use declared_reads::{DeclaredRead, declared_reads};
+pub use declared_reads::{
+    DeclaredCapability, DeclaredChecker, DeclaredRead, declared_capabilities, declared_checkers,
+    declared_inputs,
+};
 pub use inventory::{Inventory, ProjectExtension, Selection, Status, inventory};
 pub use list::{
     ExtensionInfo, ExtensionsDocument, LockedExtension, ProviderRow, ProviderStatus,

@@ -155,3 +155,33 @@ fn a_cited_file_is_a_relative_path_inside_the_project() {
     };
     assert!(judged_inputs(&view, &request).is_ok());
 }
+
+#[cfg(unix)]
+#[specforge_test(
+    behavior = "answer_judged_inputs",
+    verify = "a cited file that links out of the project is unknown"
+)]
+fn a_cited_file_through_a_link_out_is_unknown() {
+    let project = gsd_judged_project("");
+    let outside = tempfile::TempDir::new().unwrap();
+    std::fs::write(outside.path().join("secret.md"), "secret\n").unwrap();
+    std::os::unix::fs::symlink(
+        outside.path().join("secret.md"),
+        project.root().join("out.md"),
+    )
+    .unwrap();
+    let compiled = project.compile_in(Arc::new(gsd_judged_runtime()) as SharedRuntime);
+    let view = ProjectView::of(&compiled);
+    let cited = [specforge_protocol_types::Cite::File {
+        file: "out.md".into(),
+    }];
+    let request = InputsRequest {
+        entity: PLAN,
+        rule: W311,
+        cited: &cited,
+    };
+    let refused = judged_inputs(&view, &request)
+        .expect_err("a cited file that links out is not the project's")
+        .into_error();
+    assert_eq!(refused.code.to_string(), "unknown_cite");
+}

@@ -13,7 +13,7 @@ detect.
 # Resolve build command: project config > Xcode > Makefile > language sniff
 BUILD_CMD="{{setting:workflow.build_command|}}"   # workflow.build_command (the settings)
 if [ -z "$BUILD_CMD" ]; then
-  XCODEPROJ=$(find . -maxdepth 2 -name "*.xcodeproj" -not -path "*/node_modules/*" 2>/dev/null | head -1)
+  XCODEPROJ=$(specforge files list --depth 2 --kind dir --glob '*.xcodeproj' --pick '.entries[0].path' 2>/dev/null)
   if [ -n "$XCODEPROJ" ]; then
     # Xcode project: get first scheme from xcodebuild -list -json
     XCODE_SCHEME=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('project',{}).get('schemes',[None])[0] or '')" 2>/dev/null || true)
@@ -54,7 +54,7 @@ if [ -z "$BUILD_CMD" ]; then
   elif [ -f "go.mod" ]; then
     BUILD_CMD="go build ./..."
   elif [ -f "pyproject.toml" ] || [ -f "requirements.txt" ]; then
-    BUILD_CMD="python -m py_compile $(find . -name '*.py' -not -path './spec/*' -not -path './node_modules/*' | head -20 | tr '\n' ' ')"
+    BUILD_CMD="python -m py_compile $(specforge files list --kind file --glob '*.py' --max 20 --pick '.entries[].path' | tr '\n' ' ')"
   elif [ -f "package.json" ] && grep -q '"build"' package.json; then
     # #5346: the project's own package manager (packageManager field, then lockfile), npm if unresolved.
     BUILD_CMD=$(specforge gsd resolve-package-manager build 2>/dev/null || echo "npm run build")
@@ -68,7 +68,7 @@ fi
 # Run build with 5-minute timeout
 BUILD_EXIT=0
 if [ -n "$BUILD_CMD" ]; then
-  timeout 300 bash -c "$BUILD_CMD" 2>&1
+  specforge run --deadline 300s -- bash -c "$BUILD_CMD" 2>&1
   BUILD_EXIT=$?
   if [ "${BUILD_EXIT}" -eq 0 ]; then
     echo "✓ Post-merge build gate passed"
@@ -77,7 +77,7 @@ if [ -n "$BUILD_CMD" ]; then
   else
     echo "✗ Post-merge build gate failed (exit code ${BUILD_EXIT})"
     # gsd-handoff:begin wave-failure-record
-    _GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(pwd | cksum | cut -d' ' -f1)"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+    _GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
     printf '.\n' >> "$_GSD_HANDOFF/wave-failures"  # one line per failed gate; a variable would not survive the next block (#4915)
     # gsd-handoff:end wave-failure-record
   fi
@@ -96,7 +96,7 @@ fi
 # Resolve test command: project config > Xcode > Makefile > language sniff
 TEST_CMD="{{setting:workflow.test_command|}}"   # workflow.test_command (the settings)
 if [ -z "$TEST_CMD" ]; then
-  XCODEPROJ=$(find . -maxdepth 2 -name "*.xcodeproj" -not -path "*/node_modules/*" 2>/dev/null | head -1)
+  XCODEPROJ=$(specforge files list --depth 2 --kind dir --glob '*.xcodeproj' --pick '.entries[0].path' 2>/dev/null)
   if [ -n "$XCODEPROJ" ]; then
     # Xcode project: reuse scheme + simulator resolved above (or re-detect)
     if [ -z "${XCODE_SCHEME:-}" ]; then
@@ -146,7 +146,7 @@ fi
 TEST_CMD="$TEST_CMD"   # normalize-test-command is not part of @gsd/core: the command runs as configured
 TEST_GATE_TIMEOUT="{{setting:workflow.test_gate_timeout|600}}"   # workflow.test_gate_timeout (the settings)
 TEST_EXIT=0
-timeout "$TEST_GATE_TIMEOUT" bash -c "$TEST_CMD" 2>&1
+specforge run --deadline "$TEST_GATE_TIMEOUT" -- bash -c "$TEST_CMD" 2>&1
 TEST_EXIT=$?
 if [ "${TEST_EXIT}" -eq 0 ]; then
   echo "✓ Post-merge test gate passed — no cross-plan conflicts"
@@ -155,7 +155,7 @@ elif [ "${TEST_EXIT}" -eq 124 ]; then
 else
   echo "✗ Post-merge test gate failed (exit code ${TEST_EXIT})"
   # gsd-handoff:begin wave-failure-record
-  _GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(pwd | cksum | cut -d' ' -f1)"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+  _GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
   printf '.\n' >> "$_GSD_HANDOFF/wave-failures"  # one line per failed gate; a variable would not survive the next block (#4915)
   # gsd-handoff:end wave-failure-record
 fi

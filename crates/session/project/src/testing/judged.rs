@@ -96,7 +96,7 @@ pub fn gsd_judged_wire() -> Value {
             vec![
                 reference("phase", "phase"),
                 references("requirements", "requirement"),
-                json!({"name": "files_modified", "field_type": "string_list", "file_reference": true, "file_base": "project"}),
+                json!({"name": "files_modified", "field_type": "string_list", "checks": [{"checker": "@specforge/checks:file", "args": {"root": "project"}}]}),
                 json!({"name": "status", "field_type": "string", "writer": "computed"}),
             ],
         ),
@@ -144,7 +144,7 @@ pub fn gsd_judged_wire() -> Value {
             Some("plan"),
             vec![
                 reference("plan", "plan"),
-                json!({"name": "path", "field_type": "string", "file_reference": true, "file_base": "project"}),
+                json!({"name": "path", "field_type": "string", "checks": [{"checker": "@specforge/checks:file", "args": {"root": "project"}}]}),
             ],
         ),
         kind(
@@ -152,8 +152,8 @@ pub fn gsd_judged_wire() -> Value {
             Some("plan"),
             vec![
                 reference("plan", "plan"),
-                json!({"name": "from", "field_type": "string", "file_reference": true, "file_base": "project"}),
-                json!({"name": "to", "field_type": "string", "file_reference": true, "file_base": "project"}),
+                json!({"name": "from", "field_type": "string", "checks": [{"checker": "@specforge/checks:file", "args": {"root": "project"}}]}),
+                json!({"name": "to", "field_type": "string", "checks": [{"checker": "@specforge/checks:file", "args": {"root": "project"}}]}),
                 json!({"name": "pattern", "field_type": "string"}),
             ],
         ),
@@ -260,6 +260,8 @@ pub fn gsd_judged_rules() -> Value {
 /// The kinds, the rules and the `plan_check` setting of `@gsd/core`, as `c` contributes them (no pass).
 pub fn declare_gsd_judged(c: &mut ContributionsBuilder) {
     c.optional_peer(CODE_CORE, "^1.0");
+    // The real one needs it; here the file checks stay inert unless a project loads it.
+    c.optional_peer("@specforge/checks", "^1.0");
     c.raw_category(DeclaredCategory::Entities, gsd_judged_wire());
     super::declare_rules(c, gsd_judged_rules());
     // A judged rule's judge is an agent of its extension (W112, ADR 0292).

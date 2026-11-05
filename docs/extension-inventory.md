@@ -5,12 +5,15 @@ declares. They are a **starter set**: examples of what extensions do, aimed at s
 them is part of the core, a project loads only the ones it lists in `specforge.json`, and your own extensions use
 the same SDK ([extension model](extension-model.md)).
 
-Together the four vocabulary builtins declare 22 entity kinds and 56 edge types. Five more declare no kinds:
+Together the four vocabulary builtins declare 22 entity kinds and 56 edge types. Six more declare no kinds:
 `@specforge/testing` and the runner extensions `@specforge/cargo-test` and `@specforge/vitest` handle test
 obligations and results ([ADR 0002](adr/0002-test-runner-extensions.md)); `@specforge/rust` and
 `@specforge/typescript` read source code for `specforge infer`. `@code/core`, the first builtin of a family
 (ADR 0328), declares the two collector-written kinds of test facts ([ADR 0329](adr/0329-code-core-holds-test-facts-and-their-ids.md)), and
-`@javascript/node-test` collects them from `node --test`.
+`@javascript/node-test` collects them from `node --test`. `@specforge/checks` declares the generic value
+checkers, which any field's `checks` can name ([ADR 0338](adr/0338-one-foundation-extension-holds-the-generic-value-checkers.md)),
+and one collector-written kind, `check_outcome`, which its `checks` collector publishes when named or under
+`checks.publish`.
 
 The counts and lists on this page are read from the builtins' pinned declarations
 (`crates/runtime/component/tests/declarations/`); tests hold the kind count and the edge tables to them.
@@ -30,6 +33,7 @@ The counts and lists on this page are read from the builtins' pinned declaration
 | `@specforge/typescript` | 0 | 0 | -- | none |
 | `@code/core` | 2 (collector-written) | 1 | -- | none |
 | `@javascript/node-test` | 0 | 0 | -- | code/core (required) |
+| `@specforge/checks` | 1 (collector-written) | 0 | -- | none |
 
 Extensions load after the peers they declare; extensions with no peer between them keep the order
 `specforge.json` lists them in (ADR 0041). A required peer must be loaded (E027); an optional one, when loaded,
@@ -313,6 +317,62 @@ are not checked and its failing tests are not reported, so a test not written ye
 `@javascript/node-test` is its first runner pack: its collector `node-test`, detected by a `package.json`, runs
 `node --test` with the `spec` reporter to standard output and the `junit` reporter to `.specforge/reports/node-test.xml`,
 and names each test after the nearest `package.json` with a `name` ([guide](guides/node-test-facts.md)).
+
+## @specforge/checks
+
+The generic value checkers ([ADR 0338](adr/0338-one-foundation-extension-holds-the-generic-value-checkers.md)): each
+decided by a cross-industry standard, attached to a field by its `checks` or by `specforge.json`'s `checks.fields`, and
+run in the values phase ([ADR 0336](adr/0336-a-field-declares-the-checks-its-values-pass.md)). A
+checker reads only the text and what the host's probes answer; the host contains every path and performs every probe.
+Eight bool settings, each on by default, switch the families: a family that is off is not called, sends no probe and
+adds no scope to W170, and its setting `gates` the codes only it reports (a code more than one family reports, such as
+E103, E016, W176 or W172, is shared, so none gates it).
+
+| Family (switch) | Scope | Checkers and their arguments | Codes |
+|-----------------|-------|------------------------------|-------|
+| files (`families.files`) | `files` (fs: stat, read, walk) | `file`, `dir`, `glob` (`min`, `max`), `size` (`min`, `max`), `digest` (`<path>@sha256:<hex>`), `encoding` (`bom`, `line_ends`), `line_range` (`<path>:<from>-<to>`); each takes `root` (default `project`) | E016, E096, W176, E103 |
+| formats (`families.formats`) | none | `email`, `semver` (`prerelease`), `semver_range`, `spdx` (`deprecated`), `iso_date` (`form`), `iso_duration`, `cron` (`seconds`), `regex`, `uuid` (`version`), `mime`, `bcp47`, `iso3166` (`form`), `iso4217` (`form`), `iana_tz` (`canonical`), `e164`, `ip` (`version`), `cidr` (`strict`), `hostname` (`wildcard`), `port` (`zero`), `hex_color` | E103 |
+| digits (`families.digits`) | none | `luhn`, `mod11`, `mod97`, `gtin`, `isbn`, `iban` | E103 |
+| links (`families.links`) | `links` (http: HEAD, GET, from the values) | `url` (`schemes`, default `https`; `status`), `url_anchor` (as `url`), `content_type` (`allow`), `redirect` (`hosts`, `*.` wildcards), `tls` (`days`, default 14), `dns` (a host name) | E091, E092, E093, E104, E112, W172, W173, W178, W181, W182, W183, E103 |
+| git (`families.git`) | `git` | `commit` (`min_len`, default 7), `ref` (`kind`: `tag`, `branch` or `any`), `file_at` (`<revision>:<path>`), `tracked` (`root`) | E106, W180, E103 |
+| structured (`families.structured`) | `files` (fs: read) | `json`, `yaml`, `toml` (a path), `pointer` (`<path>#<json pointer>`; `format`), `markdown_anchor` (`<path>#<heading slug>`); each takes `root` | E097, E098, E016, W176, E103 |
+| media (`families.media`) | `files` for a path; `media-remote` (http: GET, https, from the values) for a URL | `image` (`formats`, `max_bytes`, `max_pixels`), `media` (`formats`, `max_bytes`), `svg` (`max_bytes`), `pdf` (`max_bytes`, `max_pages`); each takes `root` | E099, E113, W177, E016, W172, W173, W176, W181, W182, E103 |
+| registries (`families.registries`) | `registries` (http: GET and `POST (query)`, https, seven fixed hosts) | `package` (`crates:<name>@<req>`, `npm:<name>@<range>`, `pypi:<name><specifier>`), `advisory` (as `package`), `license_of` (`allow`, SPDX ids), `doi`, `orcid` | E105, W179, E103, W172, W181, W182 |
+
+A links checker reads the answer after at most 5 redirects: only 404 or 410 is an error (E093, or W183 on a field
+whose check says `status: "warn"`); 401 and 403 are W182, 429, 5xx and any other status W181, a host that cannot be
+reached W172, and a redirect not followed W173. W172, W173, W181 and W182 are the remote's answers, so they are
+`machine`. A malformed or relative URL, or one with credentials, is E091 and a scheme outside `schemes` E092, both
+never fetched; a HEAD answered 405 or 501 is asked once more as a GET.
+
+The structured checkers read a file of at most 1 MiB under its root and parse it (E097 when it does not, with the
+parser's line and column); `pointer` and `markdown_anchor` then look up the fragment, E098 when it names nothing. YAML
+and TOML convert to JSON's tree, so one pointer reads all three. JSON Schema is not checked: a schema is a pack's to
+bring.
+
+The media checkers read a file's head (`image`, `media`), its whole text up to 1 MiB (`svg`), or a PDF's first 1 KiB
+and last 64 KiB, asking a third read of the span its cross-reference names when the page tree sits between. A URL is
+read the same way through `media-remote`; a server that ignores the range is W172. A file that is not what the checker
+reads is E099, an SVG with a script, an `on*` attribute or a `javascript:` URL is E113, and a file over a limit the
+check names is W177; there are no default limits.
+
+The registries checkers ask each identifier's own resolver. `package` reads the ecosystem's index and finds the newest
+release its requirement admits, yanked releases left out; `advisory` then POSTs that release to OSV, and `license_of`
+reads its record and holds its SPDX expression to `allow`. `doi` asks doi.org's handle API and `orcid` ORCID's public
+API. A definite no is E105, an advisory or a licence outside `allow` W179, and an outage, a rate limit or a demand for
+credentials W181, W182 or W172, never E105.
+
+The `regex` checker accepts exactly what the kernel's `matches` accepts: one engine, the workspace's `regex`. Domain
+identifiers (a national drug code, a jurisdiction's tax number) go in packs built on `specforge-checks-kit`, not here.
+
+It declares one collector-written kind and the collector that writes it:
+
+| Kind | Scheme and id | Fields |
+|------|---------------|--------|
+| `check_outcome` | `check:<entity>/<field>#<item>@<checker>` | `entity`, `field`, `item`, `checker`, `status` (`passed`, `failed`, `skipped`; the kind's `result`), `outcome` (`ok`, `status:404`, `unreachable:dns`, …), `codes`, `observed_at` (RFC 3339) |
+
+The `checks` collector reads only the `check_outcomes` input and declares no detection, command or report: it runs
+when named (`specforge collect --runner checks`) or, on a plain collect, under `checks.publish`.
 
 ## Related
 

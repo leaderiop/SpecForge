@@ -1,0 +1,42 @@
+[package]
+name = "specforge-effects"
+description = "The effect plane: the Process, Http, Fs and Git ports every host effect goes through, their canonical digests, the one path containment, and the grant, ceiling and consent policy that decide each effect (ADR 0335)"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+autotests = false
+
+[features]
+# `specforge_effects::testing`: the ports' fakes and the contracts every adapter keeps. No production code reads it.
+testing = ["dep:httparse"]
+# `EffectsMode` as a clap `ValueEnum`: the CLI's `--effects` is the enum itself.
+clap = ["dep:clap"]
+
+[dependencies]
+# `find_close_match` for a contained suggestion; `path_glob` for a walk.
+specforge-common = { path = "../common" }
+# `Sha256`, and the package ceiling an HTTP body is held to.
+specforge-package = { path = "../../leaf/package" }
+# The wire types of every request and outcome class.
+specforge-protocol-types = { path = "../../leaf/protocol-types" }
+clap = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# `testing::server`'s request parser: a loopback server's tests read what was sent.
+httparse = { version = "1.10", optional = true }
+# The parser the Http adapter requests with: a grant judges the host that is connected to.
+url = "2.5"
+
+[dev-dependencies]
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }
+specforge-effects = { path = ".", features = ["testing"] }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true
+
+[[test]]
+name = "suite"
+path = "tests/suite.rs"

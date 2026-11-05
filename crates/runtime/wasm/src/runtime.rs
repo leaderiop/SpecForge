@@ -1,4 +1,7 @@
+use crate::ports::PortCall;
 use crate::sandbox::Limits;
+use specforge_effects::Provenance;
+use specforge_protocol_types::Operation;
 
 /// Result of calling a Wasm export function.
 #[derive(Debug, Clone)]
@@ -130,17 +133,21 @@ impl std::error::Error for LoadError {}
 /// `Any` lets a test ask a shared runtime whether it is the in-process one
 /// ([`crate::testing::InProcessRuntime::of`]).
 pub trait WasmRuntime: std::any::Any + Send + Sync {
-    /// Compile the component `bytes` and register it under `name`,
-    /// replacing what was loaded under it. The bytes are the ones the
+    /// Compile the component `bytes` and register it under `name`, with where it came from
+    /// (`provenance`, ADR 0335 D2.6), replacing what was loaded under it. The bytes are the ones the
     /// caller checked: the runtime reads nothing else. A refusal names no
     /// key: the caller names its subject.
-    fn load(&self, name: &str, bytes: &[u8]) -> Result<(), LoadError>;
+    fn load(&self, name: &str, bytes: &[u8], provenance: Provenance) -> Result<(), LoadError>;
+
+    /// The provenance `name` was loaded with ([`Self::load`]), carried by a rename; `None` when nothing is loaded
+    /// under it.
+    fn provenance(&self, name: &str) -> Option<Provenance>;
 
     /// Register what is loaded as `from` under `to` instead, without
-    /// compiling it again. False when `from` is not loaded.
+    /// compiling it again, with its provenance. False when `from` is not loaded.
     fn rename(&self, from: &str, to: &str) -> bool;
 
-    /// Drop what is loaded as `name`. False when nothing was.
+    /// Drop what is loaded as `name`, and its provenance. False when nothing was.
     fn unload(&self, name: &str) -> bool;
 
     /// Call an export function on a loaded module.
@@ -157,6 +164,21 @@ pub trait WasmRuntime: std::any::Any + Send + Sync {
     ) -> WasmCallResult {
         self.call_export(extension_name, export_name, input)
     }
+
+    /// A call of kind `kind` (an effectful one, or none reaches a port), its `specforge:host` imports served through
+    /// `lent` (ADR 0335 D4). `None`: nothing is lent, so a port it calls is answered `denied(scope)`.
+    fn call_with_ports(
+        &self,
+        extension_name: &str,
+        export_name: &str,
+        input: &[u8],
+        kind: Operation,
+        lent: Option<PortCall>,
+    ) -> WasmCallResult;
+
+    /// The `specforge:host` interfaces `extension_name`'s guest imports: empty for one that calls no port, and for
+    /// what is not loaded.
+    fn host_imports(&self, extension_name: &str) -> Vec<String>;
 
     /// Hold `extension_name`'s later calls to `limits` (its handshake's
     /// sandbox, ADR 0037): the component runtime enforces them, the

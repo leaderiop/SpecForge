@@ -624,3 +624,29 @@ fn preset(
     }
     resolved
 }
+
+impl crate::Environment {
+    /// The settings `specforge.json` sets, resolved: each extension's effective values, the codes they gate and
+    /// the severities they raise (ADR 0288).
+    pub fn settings(&self) -> &ResolvedSettings {
+        &self.settings
+    }
+
+    /// The E086, E087 and W166 the settings produced, in file order.
+    pub fn settings_diagnostics(&self) -> &[Diagnostic] {
+        &self.settings_diagnostics
+    }
+}
+
+/// Add the checks `config`'s `checks` attaches to `registries`, each problem spanned at its key in `specforge.json`.
+pub(crate) fn attach_checks(
+    registries: &mut specforge_registry::RegistryBuild,
+    config: &specforge_common::ProjectConfig,
+) {
+    let text = config.text.as_deref().unwrap_or_default();
+    let index = json_span::index(text);
+    registries.attach_checks(&config.checks, &|path| {
+        let key = index.locate(path)?.key.clone()?;
+        Some(json_span::span(text, "specforge.json", key))
+    });
+}

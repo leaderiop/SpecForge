@@ -30,7 +30,6 @@ expression: "digest(&load(&runtime, &[\"@sdk/greet\"]))"
       "exempts_obligations": false,
       "field_name": "style",
       "field_type": "Enum([\"warm\", \"formal\"])",
-      "file_reference": false,
       "headline": false,
       "inverse_of": null,
       "kind_name": "greeting",

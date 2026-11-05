@@ -1,258 +1,140 @@
-// Host function ABI contracts for Wasm extensions
+// The host ports a guest reaches an effect through (ADR 0335 D4)
 //
-// Design note: Host functions are synchronous RPC-style ABI calls within a
-// single compilation step, not asynchronous pipeline stages. They do NOT
-// produce events themselves — traceability comes from the calling behavior's
-// events, not from the host function invocation. This is an intentional architectural
-// decision: host functions are leaf operations in the call chain, not
-// pipeline stages that trigger downstream consumers.
+// An extension has two faces for effects: what the host serves a call as declared inputs, and the four granted
+// ports specforge:host/{http,fs,process,git}@0.1.0. Every instance links the four; what one call may do is decided
+// per call, by its kind and its extension's grant. Nothing ever prompts mid-call. A port call is a synchronous leaf
+// operation of the call that made it: it produces no event of its own, and an effect's record is the effects
+// journal's (ADR 0337).
 
 use "invariants/wasm"
 use "invariants/zero-entity-core"
 use "ports/outbound"
 use "types/wasm"
-use "types/zero-entity-core"
 
 defaults behavior {
   features   [wasm_host_function_api]
   invariants [wasm_sandbox_integrity, host_function_type_safety, extension_isolation]
-  types      [HostFunctionBinding]
+  types      [HostPortDenial]
   ports      [WasmRuntime]
 }
 
-behavior provide_host_function_query_graph "Provide Host Function: query_graph" {
-  invariants [wasm_sandbox_integrity, host_function_type_safety]
-  category   query
+behavior link_host_ports "Link Host Ports" {
+  category command
   requires {
-    graph_built "compiled graph is available for querying"
+    instance_built "the host is building an instance of a loaded component"
   }
   ensures {
-    valid_json_returned "query_graph returns valid JSON graph string"
-  }
-  contract   """
-    The specforge.query_graph host function MUST expose the compiled
-    graph as a JSON string to the calling extension, with all its
-    entities, edges and metadata.
-  """
-  verify unit "query_graph returns valid JSON graph"
-  verify unit "graph includes entities and edges"
-  verify contract "Provide Host Function: query_graph: query_graph host function holds — graph_built, valid_json_returned"
-}
-
-behavior provide_host_function_emit_diagnostic "Provide Host Function: emit_diagnostic" {
-  invariants [host_function_type_safety]
-  category   query
-  requires {
-    diagnostic_collection_available "compiler's diagnostic collection is available for appending"
-  }
-  ensures {
-    diagnostic_added        "diagnostic is added to the compiler's diagnostic collection"
-    rendered_like_core      "extension diagnostics are rendered identically to core diagnostics"
-    malformed_input_trapped "malformed diagnostic input produces Wasm trap"
-  }
-  contract   """
-    The specforge.emit_diagnostic host function MUST accept a diagnostic
-    object with severity, code, message, and optional source span. The
-    diagnostic MUST be added to the compiler's diagnostic collection and
-    rendered like core diagnostics.
-  """
-  verify unit "emit_diagnostic adds to compiler diagnostic collection"
-  verify unit "extension diagnostics rendered like core diagnostics"
-  verify unit "malformed diagnostic input produces Wasm trap"
-  verify unit "optional source span omitted without error"
-  verify unit "diagnostic severity validated against allowed values"
-  verify contract "Provide Host Function: emit_diagnostic: emit_diagnostic host function holds — diagnostic_collection_available, diagnostic_added, rendered_like_core, malformed_input_trapped"
-}
-
-// NOTE: Entity kinds and edge types are registered DECLARATIVELY from
-// extension declarations by the registry build (see registry_build_kinds
-// and registry_build_edges in behaviors/zero-entity-registries.spec).
-// The specforge.add_graph_node and specforge.add_graph_edge host functions
-// allow extensions to add graph node and edge INSTANCES at runtime during
-// contribution exports. These do NOT register new entity kinds or edge types —
-// they add instances of already-declared kinds to the graph.
-
-behavior provide_host_function_add_graph_node "Provide Host Function: add_graph_node" {
-  invariants [host_function_type_safety, zero_domain_knowledge_core]
-  category   query
-  types      [HostFunctionBinding, ExtensionDeclaration]
-  requires {
-    entity_kind_declared "entity kind for the node is declared in a loaded extension manifest"
-    graph_available      "mutable graph is available for adding node instances"
-  }
-  ensures {
-    node_added               "graph node instance is added for declared entity kind with validated field values"
-    undeclared_kind_rejected "nodes with undeclared entity kinds are rejected"
-    node_participates        "added nodes participate in resolution and validation like parser-produced nodes"
-  }
-  contract   """
-    The specforge.add_graph_node host function MUST accept a graph node
-    instance with an entity kind, ID, and field values. The entity kind
-    MUST already be declared in the extension's manifest — this function
-    adds node instances to the graph, NOT new entity kinds. The runtime
-    MUST reject nodes whose entity kind is not declared by any loaded
-    extension manifest. Field values MUST be validated against the kind's
-    declared schema. Added nodes MUST participate in resolution and
-    validation like parser-produced nodes.
-  """
-  verify unit "adds graph node instance for declared entity kind"
-  verify unit "rejects node for undeclared entity kind"
-  verify unit "validates field values against kind schema"
-  verify contract "Provide Host Function: add_graph_node: add_graph_node host function holds — entity_kind_declared, graph_available, node_added, undeclared_kind_rejected, node_participates"
-}
-
-behavior provide_host_function_add_graph_edge "Provide Host Function: add_graph_edge" {
-  invariants [host_function_type_safety, zero_domain_knowledge_core]
-  category   query
-  requires {
-    edge_type_declared      "edge label corresponds to an edge type declared in a loaded extension manifest"
-    source_and_target_exist "both source and target nodes exist in the graph"
-  }
-  ensures {
-    edge_added                "graph edge instance is added for declared edge type"
-    undeclared_label_rejected "edges with undeclared labels are rejected"
-    missing_nodes_rejected    "edges with missing source or target nodes are rejected"
-    edge_participates         "added edges participate in graph queries and validation like parser-produced edges"
-  }
-  contract   """
-    The specforge.add_graph_edge host function MUST accept a graph edge
-    instance with a label, source node ID, and target node ID. The edge
-    label MUST correspond to an edge type already declared in a loaded
-    extension manifest — this function adds edge instances to the graph,
-    NOT new edge types. The runtime MUST reject edges whose label is not
-    declared by any loaded extension manifest. Both source and target
-    nodes MUST exist in the graph. Added edges MUST participate in
-    graph queries and validation like parser-produced edges.
-  """
-  verify unit "adds graph edge instance for declared edge type"
-  verify unit "rejects edge for undeclared edge label"
-  verify unit "rejects edge when source or target node missing"
-  verify contract "Provide Host Function: add_graph_edge: add_graph_edge host function holds — edge_type_declared, source_and_target_exist, edge_added, undeclared_label_rejected, missing_nodes_rejected, edge_participates"
-}
-
-behavior provide_host_function_read_file "Provide Host Function: read_file" {
-  category query
-  types    [HostFunctionBinding, SandboxPolicy]
-  ports    [WasmRuntime, FileSystem]
-  requires {
-    parser_call_site "call originates from a parser contribution export (not validator, renderer, or provider)"
-    spec_root_known  "project's spec root path is known for path scoping enforcement"
-  }
-  ensures {
-    path_scoped         "resolved path is under the project's spec root; paths escaping via .. are rejected"
-    pattern_restricted  "file path matches one of the calling extension's declared parser file patterns"
-    size_limited        "files exceeding max_read_file_size (default 1MB) are rejected, not truncated"
-    non_parser_rejected "calls from non-parser contribution exports return permission error"
+    four_linked           "every instance links specforge:host/{http,fs,process,git}@0.1.0, whatever its grant"
+    pure_kind_denied      "a call kind the gate keeps from the port is answered denied(call-kind) and nothing runs"
+    never_prompted        "no port call prompts: an approval is settled before the call's first effect"
+    imports_what_it_calls "a guest imports only the interfaces it calls, so a guest that calls none imports none"
   }
   contract """
-    The specforge.read_file host function MUST accept a file path and return
-    the file content as a string to the calling extension. The host MUST
-    enforce all of the following constraints:
-
-    1. Path scoping: the resolved path MUST be under the project's spec root.
-       Paths containing ".." that escape the spec root MUST be rejected.
-    2. Pattern restriction: the file path MUST match one of the calling
-       extension's declared parser file patterns (e.g., *.feature, *.proto).
-       Files not matching any declared pattern MUST be rejected.
-    3. Read-only: no write, rename, or delete operations are exposed.
-    4. Size limit: files exceeding SandboxPolicy.max_read_file_size
-       (default 1MB) MUST be rejected with a diagnostic, not silently
-       truncated.
-
-    The specforge.read_file host function MUST only be callable from parser
-    contribution exports. Calls from validators, renderers, providers, or
-    entity contributions MUST return a permission error.
+    Every instance MUST link the four specforge:host ports and their
+    shared types interface. A port call from a call kind the gate
+    (ADR 0335 D2.2) keeps from that port MUST be answered denied(call-kind)
+    without running. A port call MUST NOT prompt: what a call may do is
+    settled before it starts.
   """
-  verify unit "reads file under spec root successfully"
-  verify unit "rejects path escaping spec root via .."
-  verify unit "rejects file not matching declared parser patterns"
-  verify unit "rejects file exceeding max_read_file_size"
-  verify unit "read_file from validator contribution returns permission error"
-  verify unit "read_file from renderer contribution returns permission error"
-  verify contract "Provide Host Function: read_file: read_file host function holds — parser_call_site, spec_root_known, path_scoped, pattern_restricted, size_limited, non_parser_rejected"
+  verify unit "a pure call that calls a port is answered denied(call-kind) and no port runs"
+  verify integration "every instance links the four ports, and a guest that calls none imports none"
 }
 
-behavior provide_host_function_emit_file "Provide Host Function: emit_file" {
-  category query
-  types    [HostFunctionBinding, SandboxPolicy]
-  ports    [WasmRuntime, FileSystem]
+behavior grant_a_host_port_call "Grant a Host Port Call" {
+  category command
+  ports    [WasmRuntime, Http, Fs, Process, Git]
   requires {
-    output_directory_known "project output directory is known for path validation"
-    sandbox_policy_ready   "sandbox policy with allowed_output_extensions is computed for the extension"
+    call_lent "an effectful call was lent its extension's grant and the ports"
   }
   ensures {
-    path_scoped_to_output        "file path is validated to be within project output directory"
-    extension_allowlist_enforced "only files with allowed extensions (.json, .html, .csv, .svg, .dot, .xml, .txt, .pdf) are written"
-    no_code_generation           "code file extensions (.rs, .py, .js, .ts, .go, etc.) are always rejected"
+    inside_runs      "a request inside the grant runs through the call's effects mode and journal"
+    outside_denied   "a request outside the grant is answered denied(scope) and reported as E090"
+    answer_held      "every byte payload of an answer is held to a quarter of the guest's memory and says when it was cut"
+    no_secret_enters "no secret value enters a guest: a request cannot carry one, an answer shows none, and a program a guest runs does not inherit one"
+    no_host_opt_in   "a guest cannot open what only the host may: private addresses, the program's PATH or loader, a commit's withheld file"
   }
   contract """
-    The specforge.emit_file host function MUST accept a file path and
-    content from the extension. Valid files MUST be written to disk
-    relative to the project output directory. The host MUST reject
-    paths outside the output directory. Extensions MUST only use emit_file
-    for non-code outputs (reports, traceability matrices, dashboards,
-    graph visualizations).
-
-    WHITELIST MODEL: The runtime MUST enforce a strict allowlist for
-    output file extensions. The default allowed_output_extensions is:
-    [.json, .html, .csv, .svg, .dot, .xml, .txt, .pdf]. All other
-    extensions MUST be rejected unless explicitly added to
-    SandboxPolicy.allowed_output_extensions in specforge.json or the
-    extension manifest. This is a whitelist — unlisted extensions are
-    denied by default. Note: .yaml/.yml are NOT in the defaults —
-    extensions that need YAML output MUST explicitly opt in via their
-    manifest or project config.
-
-    Extensions MUST NOT use emit_file to generate source code,
-    configuration files, or executable artifacts — SpecForge provides
-    context, agents produce output.
+    An effectful call (a command, an MCP tool or resource, a collector) runs
+    a port only inside its grant (ADR 0335 D2). A request the gate, the
+    declaration or the ceiling refuses MUST be answered denied(scope) and
+    reported as E090 against the extension; one that lacks this machine's
+    approval MUST be answered denied(scope) without E090 (ADR 0335 D2.7).
+    Every byte payload of an answer MUST be held to a quarter of the guest's
+    max_memory_mb and flagged truncated when cut, so an answer never traps
+    the guest's memory. A secret MUST stay on the host (ADR 0288, ADR 0335
+    D6): the host attaches it to a granted request, the guest's request has
+    no place for one, and a program the guest runs MUST NOT inherit the
+    variable a declared secret names.
   """
-  verify unit "valid file path within output directory is written"
-  verify unit "file path outside output directory is rejected"
-  verify unit "file with non-allowed extension is rejected"
-  verify unit "file with .json extension is accepted"
-  verify unit "file with .html extension is accepted"
-  verify unit "emit_file rejects .rs extension"
-  verify unit "emit_file rejects .py extension"
-  verify unit "emit_file rejects .go extension"
-  verify unit "emit_file rejects .js extension"
-  verify unit "emit_file rejects .ts extension"
-  verify unit "emit_file rejects .sh extension"
-  verify contract "Provide Host Function: emit_file: emit_file host function holds — output_directory_known, sandbox_policy_ready, path_scoped_to_output, extension_allowlist_enforced, no_code_generation"
+  verify unit "a command's port call inside its grant reaches the port"
+  verify unit "a port call outside the grant is answered denied(scope) and reported as E090"
+  verify unit "a port's answer is held to a quarter of the guest's memory and says it was truncated"
+  verify unit "the in-process runtime answers a port call as the component runtime does"
+  verify unit "a secret the host attaches never shows in what a guest is answered"
+  verify unit "a program a guest runs inherits no declared secret and cannot set its PATH or loader"
+  verify unit "a guest cannot open the private-address opt-in or read a withheld file at a commit"
+  verify integration "the sandbox probe reaches each of the four ports through its grant: a command three, a collector process"
 }
 
-behavior provide_host_function_http_get "Provide Host Function: http_get" {
-  category query
-  types    [HostFunctionBinding, SandboxPolicy]
+behavior bound_a_host_port_call "Bound a Host Port Call" {
+  category command
   requires {
-    provider_call_site   "call originates from a provider contribution export (not validator, renderer, or entity)"
-    sandbox_policy_ready "sandbox policy with allowed_domains and timeout configuration is computed"
+    call_running "a guest is running under its limits and has called a port"
   }
   ensures {
-    domain_allowlist_enforced "requests to disallowed domains are rejected"
-    timeout_enforced          "per-request timeout (default 5s) and total budget (15s) are enforced"
-    timeout_produces_warning  "timeout failures produce W-level warning, not hard error"
-    non_provider_rejected     "calls from non-provider contribution exports return permission error"
+    guest_time_only "the epoch deadline counts the guest's own time: a port call's time is not spent from it"
+    port_bounded    "a port call is bounded by its own deadline and the call's port budget"
+    lock_free       "an effectful call of a guest that imports a port holds no lock of its extension while it runs"
   }
   contract """
-    The specforge.http_get host function MUST fetch a URL and return
-    the response body to the calling extension. The URL MUST be validated
-    against the sandbox policy's allowed domains. Requests to disallowed
-    domains MUST be rejected. Timeouts MUST be enforced. The default
-    per-request timeout MUST be 5 seconds. The total time budget for all
-    http_get calls within a single compilation MUST NOT exceed 15 seconds.
-    Timeout failures MUST produce a W-level warning diagnostic, not a hard
-    error, to preserve the seconds-to-value guarantee (P8). The timeout is
-    configurable via SandboxPolicy. The specforge.http_get host function
-    MUST only be callable from providers contribution exports. Calls from
-    validators, renderers, or entities contributions MUST return a
-    permission error.
+    Epoch interruption MUST bound a call's guest time only (ADR 0037 D3): a
+    port's time is bounded by the port's own deadline and a per-call port
+    budget of 600 s. An effectful call of a guest that imports a port MUST
+    run on its own instance, so it holds no lock of its extension. Fuel
+    counts guest instructions only, so a work budget is untouched by a
+    port's time.
   """
-  verify unit "allowed domain returns response body"
-  verify unit "disallowed domain is rejected"
-  verify unit "timeout is enforced"
-  verify unit "timeout defaults to 5 seconds when not configured"
-  verify unit "timeout failure produces warning, not error"
-  verify unit "http_get from validator contribution returns permission error"
-  verify contract "Provide Host Function: http_get: http_get host function holds — provider_call_site, sandbox_policy_ready, domain_allowlist_enforced, timeout_enforced, timeout_produces_warning, non_provider_rejected"
+  verify unit "a port call that outlasts the guest's deadline does not trap the guest"
+  verify unit "a guest that spins after a port call still traps at its own deadline"
+  verify unit "a port call does not hold its extension's lock"
+}
+
+behavior refuse_an_unbacked_port_import "Refuse an Unbacked Port Import" {
+  category command
+  requires {
+    declaration_read "the extension's declaration was read from its describe"
+  }
+  ensures {
+    e089_refused "a port the component imports with no capability of that port declared fails the load with E089, every such port listed"
+  }
+  contract """
+    An extension that imports a specforge:host port (types aside) MUST
+    declare a capability of that port; otherwise it is not loaded (E089).
+    A capability without an import is legitimate: declared probes use
+    capabilities too.
+  """
+  verify unit "an extension that imports a port no capability backs is not loaded (E089)"
+  verify integration "the environment load reports E089 naming the extension and the port"
+}
+
+behavior call_host_ports_from_the_sdk "Call Host Ports from the SDK" {
+  category command
+  requires {
+    sdk_linked "an extension is built against the SDK"
+  }
+  ensures {
+    typed_client   "host::{http,fs,process,git} call the ports in the protocol's types"
+    outside_denied "a port called where no host serves it is answered denied(call-kind)"
+    declared       "an extension declares each capability its imports use, with its port, scope, call kinds and reason"
+  }
+  contract """
+    The SDK MUST offer one client per port in the protocol's types, over
+    the one WIT package it ships. In a component each call is the import; in
+    process (an extension's own tests) it is the host served on the thread,
+    and with none it is answered denied(call-kind), the answer a pure call
+    gets.
+  """
+  verify unit "every port request and answer survives the SDK's WIT conversion"
+  verify unit "a port called outside any host is answered denied(call-kind)"
+  verify unit "an extension declares a capability with its port, scope, call kinds and reason"
 }

@@ -345,10 +345,10 @@ pub(super) const SCENARIOS: &[Scenario] = &[
     },
 ];
 
-/// Where the CLI and MCP behave differently today, and why. Later steps of
-/// plan 03 delete rows; only spec-sanctioned differences should remain.
+/// Where the CLI and MCP behave differently today, and why. A row goes once the
+/// surfaces agree; only spec-sanctioned differences should remain.
 pub(super) const EXPECTED_DIVERGENCES: &[(&str, Aspect, &str)] = &[
-    // export: both surfaces export through `specforge_ops::read::export` (O2) and
+    // export: both surfaces export through `specforge_ops::read::export` and
     // report its notices, but only the CLI keeps `.specforge/schema-cache.json`.
     // The MCP export tool is a read-only query: if it rewrote the cache, the
     // next CLI export would miss its W053.

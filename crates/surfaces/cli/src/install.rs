@@ -59,8 +59,8 @@ pub(crate) struct UninstallArgs {
 }
 
 impl InstallArgs {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
-        let project = match self.project.compile() {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::fixed().report(terminal, &error),
         };
@@ -85,8 +85,8 @@ impl InstallArgs {
 }
 
 impl UninstallArgs {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
-        let project = match self.project.compile() {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::fixed().report(terminal, &error),
         };

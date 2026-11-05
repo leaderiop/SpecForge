@@ -92,11 +92,19 @@ behavior digest_judged_inputs "Digest a Judged Rule's Inputs" {
   verify unit "a proof the store does not hold leaves the input unjudged, and one the store lost stales it"
   verify unit "a cited entity is digested by the resolution that accepted it"
   verify unit "a cited file outside the project is not read"
+  verify unit "a judged file input through a link out of the project digests as outside_project and is not read"
+  verify unit "a judged file input reads a spec-prefixed path from the spec root"
+  verify unit "a file input that only a case variant on disk matches digests as absent on every OS"
   verify unit "a spec source that declares nothing digests as its bytes"
   verify unit "a reference digests as the graph links it"
   verify unit "incremental digests equal cold digests"
   verify unit "a memo hit still watches its file"
   verify unit "a file change the session has not applied misses the memo"
+  verify unit "an entity without checked values digests as it did before checked values"
+  verify unit "a checked value whose outcome class changes stales the verdict that read it"
+  verify unit "a value rechecked later with the same outcome class stales nothing"
+  verify unit "a checked value's outcome is digested by its fixed tag, never by how it is shown"
+  verify unit "a verdict over a checked value digests its outcome class"
 }
 
 behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
@@ -134,6 +142,7 @@ behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
   verify unit "a pass input carries each entity's judgements as they were written"
   verify unit "re-verification reads the baseline's judgements"
   verify unit "a baseline whose files git could not read is neither cached nor judged"
+  verify unit "an input with a value this machine did not check is skipped like a missing report, and reported as I207"
 }
 
 behavior answer_judged_inputs "Answer a Judged Rule's Inputs" {
@@ -149,6 +158,7 @@ behavior answer_judged_inputs "Answer a Judged Rule's Inputs" {
   verify unit "the inputs query answers the basis a set_verdict checks"
   verify unit "the verdict inputs tool answers what the inputs query answers"
   verify unit "a cited file is a relative path inside the project"
+  verify unit "a cited file that links out of the project is unknown"
   verify unit "inspect, query, the graph export and a command's graph list each entity's judgements"
   verify unit "a pass sees the tests a verdict cites"
 }

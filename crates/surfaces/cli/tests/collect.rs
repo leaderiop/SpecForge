@@ -126,7 +126,7 @@ fn test_collect_json_format_in_empty_dir() {
 }
 
 #[specforge_test(
-    behavior = "approve_collector_command",
+    behavior = "approve_capability",
     verify = "unapproved command without a terminal fails with E059 and runs nothing"
 )]
 fn unapproved_command_without_a_terminal_is_refused() {
@@ -144,7 +144,7 @@ fn unapproved_command_without_a_terminal_is_refused() {
 
 #[cfg(unix)]
 #[specforge_test(
-    behavior = "approve_collector_command",
+    behavior = "approve_capability",
     verify = "--yes runs the declared command"
 )]
 fn yes_runs_the_declared_command() {
@@ -268,4 +268,19 @@ mod tests {
         text.contains(r#""obligations_proven": 2"#) || text.contains(r#""obligations_proven":2"#),
         "{text}"
     );
+}
+
+#[test]
+fn collect_takes_an_effects_mode() {
+    let fixture = Fixture::new();
+    fixture
+        .cmd(&["collect", "--yes", "--effects", "cached"])
+        .assert()
+        .success();
+    assert!(fixture.ran());
+    fixture
+        .cmd(&["collect", "--effects", "sometimes"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("sometimes"));
 }

@@ -131,6 +131,7 @@ pub fn run_command_on(
         args.as_object().unwrap(),
         CommandFormat::Json,
         host,
+        specforge_ops::testing::caller(),
     )
     .map_err(refusal)
 }

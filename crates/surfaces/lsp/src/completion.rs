@@ -30,7 +30,9 @@ pub fn items(
     place: Place<'_>,
 ) -> Vec<CompletionItem> {
     let registries = view.registries();
-    let edit = cursor.word_edit();
+    let edit = cursor
+        .path_part_edit()
+        .unwrap_or_else(|| cursor.word_edit());
     let holder = holder(cursor, view, place);
     let mut items = match cursor.completion() {
         CompletionSite::Keywords { prefix } => keywords(prefix, view, &Skeletons::at(view, place)),
@@ -155,7 +157,9 @@ pub fn items(
             });
             value(registries.fields(), kind, &field, prefix, view, from)
         }
-        CompletionSite::Nothing => Vec::new(),
+        CompletionSite::Nothing => cursor
+            .string_value()
+            .map_or_else(Vec::new, |value| crate::links::path_items(view, &value)),
     };
     for item in &mut items {
         let new_text = item
@@ -180,7 +184,7 @@ pub fn items(
 }
 
 /// The path of the entity block around the cursor: the one of its kind and name whose block holds the cursor's line.
-fn holder(cursor: &Cursor<'_>, view: &ProjectView, place: Place<'_>) -> Option<Sym> {
+pub(crate) fn holder(cursor: &Cursor<'_>, view: &ProjectView, place: Place<'_>) -> Option<Sym> {
     let at = cursor.entity()?;
     let name = at.id?;
     let line = cursor.position().line as usize + 1;

@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor};
 
 use crate::compilation::build_registries;
@@ -27,12 +25,7 @@ fn the_validator_context_names_each_reference_once_dangling_included() {
     declaration.handshake.version = "1.0.0".into();
     let registries = build_registries(vec![declaration]);
     let source = "node a \"A\" {\n  parts [a2, ghost, a2]\n}\nnode a2 \"A2\" {\n}\n";
-    let snapshot = EntitySnapshot::of(
-        &super::graph_of(source, &registries),
-        &registries,
-        Path::new(""),
-        Path::new(""),
-    );
+    let snapshot = EntitySnapshot::of(&super::graph_of(source, &registries), &registries);
 
     let context = snapshot.validator_context("a").expect("a is an entity");
     let referenced: Vec<(&str, Option<&str>)> = context

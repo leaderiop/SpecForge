@@ -1347,10 +1347,10 @@ fn contract_dispatch_surface_command() {
     // The sandbox probe (fixtures/sandbox-probe), in the component runtime
     // every extension runs in. Its `probe` command reports its input and
     // what it got when it tried every capability; its `trap` command panics.
-    let probe = specforge_component::committed::PROBE.path();
     let runtime = specforge_component::ComponentRuntime::new();
-    let blob = std::fs::read(&probe).unwrap();
-    runtime.load("@test/probe", &blob).unwrap();
+    let blob = std::fs::read(specforge_component::committed::PROBE.path()).unwrap();
+    let provenance = specforge_wasm::Provenance::third_party(&blob);
+    runtime.load("@test/probe", &blob, provenance).unwrap();
     let dir = project_dir(
         json!({"name": "probed", "version": "0.1.0", "extensions": ["@test/probe"]}),
         "probe_target t1 \"Target\" {\n}\n",

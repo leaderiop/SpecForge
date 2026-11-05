@@ -473,7 +473,7 @@ Read ROADMAP.md to get the next phase's name and goal.
 **Check if next phase has CONTEXT.md:**
 
 ```bash
-ls the phase `*[X+1`]*/*-CONTEXT.md 2>/dev/null || true
+specforge files list --kind file --no-ignore --glob '*-CONTEXT.md' --format human 2>/dev/null || true  # the next phase's
 ```
 
 **If next phase exists:**

@@ -1,7 +1,6 @@
 //! A project that declares no history reports the same inside and outside a git repository (ADR 0287).
 
 use std::path::Path;
-use std::process::Command;
 
 use crate::support::{Cli, TestProject};
 
@@ -11,28 +10,9 @@ fn fixture() -> TestProject {
     )
 }
 
+/// A repository at `root` with one commit of everything under it, built with no git program.
 pub(crate) fn git_repo(root: &Path) {
-    for args in [
-        &["init", "-q", "-b", "main"][..],
-        &["add", "-A"],
-        &[
-            "-c",
-            "user.email=t@t",
-            "-c",
-            "user.name=t",
-            "commit",
-            "-q",
-            "-m",
-            "c",
-        ],
-    ] {
-        let status = Command::new("git")
-            .args(args)
-            .current_dir(root)
-            .status()
-            .unwrap();
-        assert!(status.success(), "git {args:?}");
-    }
+    specforge_git::testing::Repo::init(root).commit_all("c");
 }
 
 #[specforge_test_macros::test(
@@ -59,6 +39,31 @@ fn check_cache_is_gone() {
     Cli::on(&dir).run(&["check", "--cache"]).exits(2);
     let plain = Cli::on(&dir).run(&["check", "--format", "json"]);
     assert!(!plain.stdout.contains("W144"), "{}", plain.stdout);
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_git_baseline",
+    verify = "check since reads history with no git program on PATH"
+)]
+fn check_since_reads_history_with_no_git_on_path() {
+    let repo = fixture();
+    git_repo(repo.root());
+    // Nothing to install: the history is read in process, so a machine with no git program reads it too.
+    let empty = tempfile::tempdir().unwrap();
+    let unknown = Cli::on(&repo)
+        .env("PATH", empty.path())
+        .run(&["check", "--since", "nosuch", "--format", "json"]);
+    assert_eq!(unknown.code, 2, "{}{}", unknown.stdout, unknown.stderr);
+    assert!(
+        unknown.stdout.contains("unknown_revision") || unknown.stderr.contains("unknown_revision"),
+        "{}{}",
+        unknown.stdout,
+        unknown.stderr
+    );
+    let head = Cli::on(&repo)
+        .env("PATH", empty.path())
+        .run(&["check", "--since", "HEAD", "--format", "json"]);
+    assert!(!head.stdout.contains("W164"), "{}", head.stdout);
 }
 
 #[specforge_test_macros::test(

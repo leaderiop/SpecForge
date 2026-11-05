@@ -30,6 +30,11 @@ pub(crate) enum Class {
     /// harness ledger, and (`listing`) the store directory and each key directory in it, which any file directly in
     /// it reaches. Its change reads every fact store again.
     Facts { listing: bool },
+    /// An effects journal record a check consulted (ADR 0337 D5): its rewrite runs the checks again, and so does
+    /// reaching `expires` (none: it never answers again, so no clock re-runs it).
+    Effect {
+        expires: Option<specforge_effects::UnixMillis>,
+    },
 }
 
 impl Class {
@@ -139,7 +144,10 @@ impl Recording<'_> {
     pub(super) fn covers(&self, class: &Class) -> bool {
         match self {
             Recording::Environment { .. } => true,
-            Recording::Checks => matches!(class, Class::Check | Class::Listing | Class::Ref),
+            Recording::Checks => matches!(
+                class,
+                Class::Check | Class::Listing | Class::Ref | Class::Effect { .. }
+            ),
             Recording::Source { key, .. } => matches!(class, Class::Hop(hop) if hop == key),
             Recording::Sources => matches!(class, Class::Hop(_)),
             Recording::Facts => matches!(class, Class::Facts { .. }),
@@ -156,6 +164,7 @@ impl Recording<'_> {
                 Reading::File => Class::Check,
                 Reading::Listing => Class::Listing,
                 Reading::Ref => Class::Ref,
+                Reading::Effect { expires } => Class::Effect { expires },
             }),
             Recording::Source { key, path: file } => {
                 (path != *file).then(|| Class::Hop((*key).to_string()))

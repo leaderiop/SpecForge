@@ -58,6 +58,10 @@ pub fn initialize_result() -> InitializeResult {
             ),
             document_formatting_provider: Some(OneOf::Left(true)),
             document_range_formatting_provider: Some(OneOf::Left(true)),
+            document_link_provider: Some(DocumentLinkOptions {
+                resolve_provider: Some(false),
+                work_done_progress_options: Default::default(),
+            }),
             ..Default::default()
         },
     }

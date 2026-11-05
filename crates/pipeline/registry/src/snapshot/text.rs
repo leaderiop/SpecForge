@@ -30,6 +30,14 @@ pub fn field_text(value: &FieldValue) -> String {
     }
 }
 
+/// Where each item of a list is written; empty for any other value.
+pub fn field_item_spans(value: &FieldValue) -> Vec<specforge_common::SourceSpan> {
+    match value {
+        FieldValue::List(items) => items.iter().map(|item| item.span.clone()).collect(),
+        _ => Vec::new(),
+    }
+}
+
 /// A list-shaped value's items, unjoined, each as its text: the list's
 /// items' texts, a variant list's or type union's members, each expression's display form, a block's keys, a block list's items each as its keys in braces. `None` for a scalar. [`field_text`]
 /// is these joined.

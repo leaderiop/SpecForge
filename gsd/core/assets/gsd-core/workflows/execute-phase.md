@@ -113,7 +113,7 @@ Reset the wave-failure tally (#4915). Fenced `bash` blocks are separate shells, 
 
 ```bash
 # gsd-handoff:begin wave-failure-reset
-_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(pwd | cksum | cut -d' ' -f1)"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 : > "$_GSD_HANDOFF/wave-failures"
 # gsd-handoff:end wave-failure-reset
 ```
@@ -270,7 +270,7 @@ Pure doc-only / config-only / test-only tasks return `is_behavior_adding=false` 
 Look for a `.continue-here.md` in the current phase directory:
 
 ```bash
-ls ${phase_dir}/.continue-here.md 2>/dev/null || true
+specforge files stat ${phase_dir}/.continue-here.md --format human 2>/dev/null || true
 ```
 
 If `.continue-here.md` exists, parse its "Critical Anti-Patterns" table for rows with `severity` = `blocking`.
@@ -304,27 +304,27 @@ Check `branching_strategy` from init:
 Fork the new phase branch off `origin/HEAD` (the project's default branch), not the current HEAD — otherwise consecutive phases compound and stay unpushed (#2916). If `$BRANCH_NAME` already exists locally, reuse it as-is.
 
 ```bash
-DEFAULT_BRANCH=$(git config --get init.defaultBranch 2>/dev/null \
+DEFAULT_BRANCH=$(v=$(specforge git config init.defaultBranch --pick .value 2>/dev/null) && [ -n "$v" ] && echo "$v" \
   || git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' \
   || echo main)
 
-if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
-  git switch "$BRANCH_NAME" || { echo "ERROR: Could not switch to existing branch '$BRANCH_NAME'." >&2; exit 1; }
+if [ "$(specforge git rev "refs/heads/$BRANCH_NAME" --pick '.revs[0].exists')" = true ]; then
+  specforge git switch "$BRANCH_NAME" || { echo "ERROR: Could not switch to existing branch '$BRANCH_NAME'." >&2; exit 1; }
 else
   if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then  # #2916
-    git show-ref --verify --quiet "refs/remotes/origin/$DEFAULT_BRANCH" \
+    [ "$(specforge git rev "refs/remotes/origin/$DEFAULT_BRANCH" --pick '.revs[0].exists')" = true ] \
       || { echo "ERROR: fetch origin/$DEFAULT_BRANCH failed and no local copy exists. Refusing to create '$BRANCH_NAME' off current HEAD (#2916)." >&2; exit 1; }
     echo "WARNING: fetch origin/$DEFAULT_BRANCH failed; using local copy as base." >&2
   fi
-  if [ -n "$(git status --porcelain)" ]; then
+  if [ "$(specforge git status --pick .clean)" = false ]; then
     echo "WARNING: Uncommitted changes will be carried onto '$BRANCH_NAME' (branched off origin/$DEFAULT_BRANCH, not previous HEAD)."
   else
-    git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null && git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null || true
+    specforge git switch "$DEFAULT_BRANCH" >/dev/null 2>&1 && specforge git merge "origin/$DEFAULT_BRANCH" --ff-only >/dev/null 2>&1 || true
   fi
   # Pinned base (#2916); --no-track (#2498). #2639: warn if local ahead of origin.
-  AHEAD=$(git rev-list --count "origin/$DEFAULT_BRANCH..$DEFAULT_BRANCH" 2>/dev/null || echo 0)
+  AHEAD=$(specforge git log "origin/$DEFAULT_BRANCH..$DEFAULT_BRANCH" --pick .count 2>/dev/null || echo 0)
   [ "$AHEAD" != "0" ] && [ -n "$AHEAD" ] && echo "WARNING: $DEFAULT_BRANCH is $AHEAD ahead of origin — '$BRANCH_NAME' won't include those commits (#2639)." >&2
-  git checkout -b "$BRANCH_NAME" "origin/$DEFAULT_BRANCH" --no-track \
+  specforge git switch "$BRANCH_NAME" --create --at "origin/$DEFAULT_BRANCH" \
     || { echo "ERROR: Could not create '$BRANCH_NAME' from origin/$DEFAULT_BRANCH (#2916)." >&2; exit 1; }
 fi
 ```
@@ -438,7 +438,7 @@ Report:
 <step name="cross_ai_delegation">
 **Optional step 2.5 — Delegate plans to an external AI runtime.** Runs after plan discovery, before wave execution. Activates when `--cross-ai` forces all incomplete plans, `--no-cross-ai` disables it entirely, or (default) a plan's `cross_ai: true` frontmatter agrees with the `workflow.cross_ai_execution` config. **Only `ready` plans are eligible (#4628) — a not-ready plan is never delegated over incomplete predecessors.** If no plan is marked, skip to execute_waves; if marked but `workflow.cross_ai_command` is unset, error and tell the user to set it.
 
-For each marked plan: build a self-contained prompt from the plan's `<objective>`/`<tasks>` plus PROJECT.md context, warn on a dirty working tree, then run the configured command **wrapped in `timeout "${CROSS_AI_TIMEOUT}"` (config `workflow.cross_ai_timeout`, default 300s) — never run it unbounded** — with the prompt piped to **stdin, never shell-interpolated, to prevent injection**. On success (exit 0): validate the captured SUMMARY output is non-empty and structurally valid before writing it as the plan's SUMMARY.md, update STATE/ROADMAP, mark handled. On failure (non-zero exit, or the summary fails that validation): show the error, warn about possible partial edits, and offer **retry** / **skip** (falls back to the normal executor) / **abort**. Successfully handled plans are removed from execute_waves' list; skipped-to-fallback plans remain in it.
+For each marked plan: build a self-contained prompt from the plan's `<objective>`/`<tasks>` plus PROJECT.md context, warn on a dirty working tree, then run the configured command **wrapped in `specforge run --deadline "${CROSS_AI_TIMEOUT}"` (config `workflow.cross_ai_timeout`, default 300s) — never run it unbounded** — with the prompt piped to **stdin, never shell-interpolated, to prevent injection**. On success (exit 0): validate the captured SUMMARY output is non-empty and structurally valid before writing it as the plan's SUMMARY.md, update STATE/ROADMAP, mark handled. On failure (non-zero exit, or the summary fails that validation): show the error, warn about possible partial edits, and offer **retry** / **skip** (falls back to the normal executor) / **abort**. Successfully handled plans are removed from execute_waves' list; skipped-to-fallback plans remain in it.
 
 Exact bash and per-branch wording: `gsd-core/workflows/execute-phase/detail/elaboration.md` § 2.
 </step>
@@ -461,9 +461,9 @@ when the orchestrator legitimately runs from a feature worktree.
 
 ```bash
 # gsd:guard=orchestrator-cwd-drift
-ORCHESTRATOR_WT=$(git rev-parse --show-toplevel 2>/dev/null) || {
+ORCHESTRATOR_WT=$(specforge git repo --pick .top 2>/dev/null) || {
   echo "FATAL: execute_waves entry is not inside a git worktree (#48)." >&2; exit 1; }
-ORCH_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+ORCH_BRANCH=$(specforge git head --pick .branch 2>/dev/null)
 if printf '%s' "$ORCH_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)'; then
   echo "FATAL: orchestrator cwd is inside an agent worktree (branch '$ORCH_BRANCH', root '$ORCHESTRATOR_WT') — refusing to execute waves (#48). A prior isolation=\"worktree\" dispatch drifted the cwd; re-run from the orchestrator's own worktree." >&2
   # #1856 handoff: the refusal above is correct, but on its own it is a dead end —
@@ -473,16 +473,16 @@ if printf '%s' "$ORCH_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)'; t
   # each is `|| true`-guarded so a failure degrades to the plain refusal above
   # rather than crashing before the message prints.
   _WT_BASE=""
-  for _ref in "$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)" \
+  for _ref in "$(specforge git head --pick .upstream 2>/dev/null || true)" \
               origin/next origin/main next main; do
     [ -n "$_ref" ] || continue
-    if git rev-parse --verify --quiet "$_ref" >/dev/null 2>&1; then _WT_BASE="$_ref"; break; fi
+    if [ "$(specforge git rev "$_ref" --pick '.revs[0].exists' 2>/dev/null)" = true ]; then _WT_BASE="$_ref"; break; fi
   done
   _WT_AHEAD=""
-  [ -n "$_WT_BASE" ] && _WT_AHEAD=$(git rev-list --count "$_WT_BASE..HEAD" 2>/dev/null || true)
+  [ -n "$_WT_BASE" ] && _WT_AHEAD=$(specforge git log "$_WT_BASE..HEAD" --pick .count 2>/dev/null || true)
   # Count BEFORE truncating, so a long list reports its true size rather than
   # under-reporting what is stranded — which is the whole point of this report.
-  _WT_DIRTY_ALL=$(git status --porcelain 2>/dev/null || true)
+  _WT_DIRTY_ALL=$(specforge git status --pick '.entries[].path' 2>/dev/null || true)
   _WT_DIRTY_N=0
   [ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(printf '%s\n' "$_WT_DIRTY_ALL" | wc -l | tr -d ' ')
   _WT_HAS_COMMITS=0
@@ -492,7 +492,7 @@ if printf '%s' "$ORCH_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)'; t
   echo "── Handoff: what is in this worktree (#1856) ──" >&2
   if [ "$_WT_HAS_COMMITS" -eq 1 ]; then
     echo "  $_WT_AHEAD commit(s) on '$ORCH_BRANCH' not on '$_WT_BASE':" >&2
-    git log --oneline --no-decorate "$_WT_BASE..HEAD" 2>/dev/null | head -20 | sed 's/^/    /' >&2 || true
+    specforge git log "$_WT_BASE..HEAD" --max 20 --pick '.commits[].subject' 2>/dev/null | sed 's/^/    /' >&2 || true
     [ "$_WT_AHEAD" -gt 20 ] 2>/dev/null && echo "    … and $((_WT_AHEAD - 20)) more" >&2
     echo "  These live ONLY on this branch. Switching away without integrating loses them." >&2
   fi
@@ -645,17 +645,17 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
    Before spawning, capture the current HEAD:
    ```bash
-   EXPECTED_BASE=$(git rev-parse HEAD)
+   EXPECTED_BASE=$(specforge git head --pick .sha)
    DISPATCH_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-   EXPECTED_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+   EXPECTED_BRANCH=$(specforge git head --pick .branch)
     if [ "${USE_WORKTREES:-true}" != "false" ] && [ "${USE_WORKTREES_FOR_PLAN:-true}" != "false" ] && [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then
-     M=$(mktemp "${TMPDIR:-/tmp}/gsd-worktree-wave-XXXXXX") && mv "$M" "$M.tsv" && WAVE_WORKTREE_MANIFEST="$M.tsv" || exit 1  # XXXXXX must be path-final on BSD/macOS (#1520)
+     WAVE_WORKTREE_MANIFEST=$(specforge files temp --prefix gsd-worktree-wave- --suffix .tsv --pick .path) || exit 1  # one private file, its suffix kept (#1520)
      # Persist the dispatch-time orchestrator worktree root so wave-cleanup can pin back to the
      # orchestrator's OWN worktree — NOT `git worktree list`'s first entry (always the main
      # checkout), which pins a non-primary (per-phase lane) orchestrator off its branch (#630).
      # Dispatch runs from the orchestrator's lane, so show-toplevel here is the correct root.
-     ORCH_ROOT=$(git rev-parse --show-toplevel)
-     printf 'orchestrator_root\t%s\n' "$ORCH_ROOT" > "$WAVE_WORKTREE_MANIFEST.tmp" && mv "$WAVE_WORKTREE_MANIFEST.tmp" "$WAVE_WORKTREE_MANIFEST"   # one tab-separated record per line: orchestrator_root<TAB>root, then worktree<TAB>path<TAB>branch per worktree
+     ORCH_ROOT=$(specforge git repo --pick .top)
+     printf 'orchestrator_root\t%s\n' "$ORCH_ROOT" > "$WAVE_WORKTREE_MANIFEST.tmp" && specforge files move "$WAVE_WORKTREE_MANIFEST.tmp" "$WAVE_WORKTREE_MANIFEST" >/dev/null   # one tab-separated record per line: orchestrator_root<TAB>root, then worktree<TAB>path<TAB>branch per worktree
      export WAVE_WORKTREE_MANIFEST
    fi
    ```
@@ -837,9 +837,9 @@ increases monotonically across waves. `{status}` is `complete` (success),
    if [ "$SKIP_HOOKS" = "true" ]; then
      # Stash uncommitted changes under a named ref so we always pop (bare `git stash` strands them on hook/script failure). #3542: `refs/stash` is shared across worktrees, so this helper runs ONLY in the orchestrator's main checkout after all wave worktrees have been merged + removed; executors are forbidden from running any `git stash` subcommand (see `<destructive_git_prohibition>` in `agents/gsd-executor.md`).
      STASHED=false
-     if (! git diff --quiet || ! git diff --cached --quiet) && git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
+     if [ "$(specforge git diff --pick .count 2>/dev/null)" != 0 ] && specforge git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
      git hook run pre-commit 2>&1 || echo "⚠ Pre-commit hooks failed — review before continuing"
-     [ "$STASHED" = "true" ] && (git stash pop >/dev/null 2>&1 || echo "⚠ Could not pop gsd-post-wave-hook stash — recover manually")
+     [ "$STASHED" = "true" ] && (specforge git stash pop >/dev/null 2>&1 || echo "⚠ Could not pop gsd-post-wave-hook stash — recover manually")
    fi
    ```
    If hooks fail: report the failure and ask "Fix hook issues now?" or "Continue to next wave?"
@@ -871,13 +871,13 @@ increases monotonically across waves. `{status}` is `complete` (success),
    # lane) orchestrator off its own branch, tripping the #3174 assertion below (#630). Byte-identical
    # for a primary orchestrator (its root IS the first entry); the fallback covers pre-#630 manifests.
    PRIMARY_WT=$(while IFS=$'\t' read -r tag a || [ -n "$tag" ]; do [ "$tag" = orchestrator_root ] && { printf '%s' "$a"; break; }; done 2>/dev/null < "${WAVE_WORKTREE_MANIFEST:-}")
-   [ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
+   [ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(specforge git worktrees --pick '.worktrees[main=true].path')
    if [ -z "$PRIMARY_WT" ]; then
      echo "FATAL: could not resolve orchestrator worktree before cleanup" >&2
      exit 1
    fi
    if [ -n "$PRIMARY_WT" ] && [ "$(pwd -P 2>/dev/null)" != "$(cd "$PRIMARY_WT" 2>/dev/null && pwd -P)" ]; then echo "⚠ Orchestrator CWD drifted to $(pwd) — pinning to $PRIMARY_WT before worktree cleanup (#3174)"; cd "$PRIMARY_WT" || { echo "FATAL: cannot cd to primary worktree $PRIMARY_WT" >&2; exit 1; }; fi
-   ORCH_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+   ORCH_BRANCH=$(specforge git head --pick .branch)
    [ -z "${EXPECTED_BRANCH:-}" ] || [ "$ORCH_BRANCH" = "$EXPECTED_BRANCH" ] || { echo "FATAL: orchestrator on '$ORCH_BRANCH' but expected '$EXPECTED_BRANCH' before worktree cleanup — refusing to merge (#3174-class drift)" >&2; exit 1; }
 
    # Fail closed: SDK refusal (safety guard #3174/#3384) must surface — do not swallow exit 1.
@@ -893,20 +893,20 @@ increases monotonically across waves. `{status}` is `complete` (success),
    # Same fix as the templated path: resolve the dispatch-time orchestrator root from the manifest,
    # not `git worktree list`'s first entry (always the main checkout — wrong for a lane orchestrator).
    PRIMARY_WT=$(while IFS=$'\t' read -r tag a || [ -n "$tag" ]; do [ "$tag" = orchestrator_root ] && { printf '%s' "$a"; break; }; done 2>/dev/null < "${WAVE_WORKTREE_MANIFEST:-}")
-   [ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')
+   [ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(specforge git worktrees --pick '.worktrees[main=true].path')
    if [ -n "$PRIMARY_WT" ] && [ "$(pwd -P 2>/dev/null)" != "$(cd "$PRIMARY_WT" 2>/dev/null && pwd -P)" ]; then echo "⚠ Orchestrator CWD drifted to $(pwd) — pinning to $PRIMARY_WT before cleanup-tail (#3174)"; cd "$PRIMARY_WT" || { echo "FATAL: cannot cd to primary worktree $PRIMARY_WT" >&2; exit 1; }; fi
    # Cleanup-tail: remove residual agent worktrees after a cross-wave-dependency deviation.
    # Uses only the current wave manifest to avoid touching unrelated active agents (#3384).
-   WT_PATHS_FILE=$(mktemp "${TMPDIR:-/tmp}/gsd-worktree-paths-XXXXXX")
+   WT_PATHS_FILE=$(specforge files temp --prefix gsd-worktree-paths- --pick .path)
    { if [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then echo "ERROR: cannot read worktree manifest (unset): WAVE_WORKTREE_MANIFEST is unset" >&2; false; elif [ ! -e "$WAVE_WORKTREE_MANIFEST" ]; then echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest does not exist" >&2; false; else ( SEEN=0; ROOTS=0; while IFS= read -r l || [ -n "$l" ]; do tag=${l%%$'\t'*}; a=${l#"$tag"}; a=${a#$'\t'}; a=${a%%$'\t'*}; case "$tag" in '') continue ;; orchestrator_root) ROOTS=$((ROOTS + 1)); [ "$ROOTS" -eq 1 ] || { echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest holds more than one orchestrator_root line" >&2; exit 1; } ;; worktree) [ -z "$a" ] || printf '%s\n' "$a" ;; *) echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: unknown record '$tag'" >&2; exit 1 ;; esac; SEEN=1; done < "$WAVE_WORKTREE_MANIFEST"; [ "$SEEN" -eq 1 ] || { echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest is empty" >&2; exit 1; } ); fi; } > "$WT_PATHS_FILE" || { echo "BLOCKED: cannot read WAVE_WORKTREE_MANIFEST; refusing cleanup (#3384)." >&2; exit 1; }
    while IFS= read -r WT; do
      [ -z "$WT" ] && continue
-     WT_BRANCH=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null)
+     WT_BRANCH=$(specforge git head --path "$WT" --pick .branch 2>/dev/null)
      [ -z "$WT_BRANCH" ] || [ "$WT_BRANCH" = "HEAD" ] && continue
      echo "Cleaning up residual worktree: $WT (branch: $WT_BRANCH)"
      git worktree unlock "$WT" 2>/dev/null || true
-     if ! git worktree remove "$WT" --force; then
-       WT_NAME=$(basename "$WT")
+     if ! specforge git worktree remove "$WT" --force; then
+       WT_NAME=${WT##*/}
        if [ -f ".git/worktrees/${WT_NAME}/locked" ]; then
          echo "⚠ Worktree $WT is locked — unlock failed; manual cleanup required:"
          echo "    git worktree unlock \"$WT\" && git worktree remove \"$WT\" --force && git branch -D \"$WT_BRANCH\""
@@ -914,10 +914,10 @@ increases monotonically across waves. `{status}` is `complete` (success),
          echo "⚠ Residual worktree at $WT — remove failed; manual cleanup required"
        fi
      else
-       git branch -D "$WT_BRANCH" 2>/dev/null || true
+       specforge git branch delete "$WT_BRANCH" --force --pick .name 2>/dev/null || true
      fi
    done < "$WT_PATHS_FILE"
-   git worktree prune
+   specforge git worktree prune
    ```
 
    **When to skip step 5.5:**
@@ -963,8 +963,8 @@ increases monotonically across waves. `{status}` is `complete` (success),
      done
 
      # Only commit tracking files if they actually changed
-     if ! git diff --quiet spec/ 2>/dev/null; then
-       git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): update tracking after wave ${N}" && specforge collect --runner gsd-git --yes
+     if [ "$(specforge git diff --pick .count -- spec/ 2>/dev/null)" != 0 ]; then
+       specforge git commit --add spec -m "docs(phase-${PHASE_NUMBER}): update tracking after wave ${N}" && specforge collect --runner gsd-git --yes
      fi
    elif [ "${TEST_EXIT}" -eq 124 ]; then
      echo "⚠ Skipping tracking update — test suite timed out. Plans remain in-progress. Run tests manually to confirm."
@@ -1001,7 +1001,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
    ```bash
    # gsd-handoff:begin wave-failure-read
-   _GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(pwd | cksum | cut -d' ' -f1)"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+   _GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
    WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
    echo "WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT}"
    # gsd-handoff:end wave-failure-read
@@ -1226,7 +1226,7 @@ blocked: 0
 
 Commit the file:
 ```bash
-git add spec && git commit -m "test({phase_num}): persist human verification items as UAT" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "test({phase_num}): persist human verification items as UAT" && specforge collect --runner gsd-git --yes
 ```
 
 **Step B: Present to user**:
@@ -1316,7 +1316,7 @@ These items are tracked and will appear in `/gsd:progress` and `/gsd:audit-uat`.
 ```
 
 ```bash
-git add spec && git commit -m "docs(phase-{X}): complete phase execution" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs(phase-{X}): complete phase execution" && specforge collect --runner gsd-git --yes
 ```
 </step>
 
@@ -1352,9 +1352,9 @@ Copy failure must NOT block phase completion.
 
 ```bash
 shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
-PENDING_DIR=$(mktemp -d)   # no todo folder: todos are not entities of @gsd/core, so nothing is closed
-COMPLETED_DIR=$(mktemp -d)
-mkdir -p "$COMPLETED_DIR"
+PENDING_DIR=$(specforge files temp --dir --pick .path)   # no todo folder: todos are not entities of @gsd/core, so nothing is closed
+COMPLETED_DIR=$(specforge files temp --dir --pick .path)
+specforge files mkdir "$COMPLETED_DIR" >/dev/null
 PHASE_NUM="${PHASE_NUMBER}"
 #2576
 normalize_phase_num() {
@@ -1367,13 +1367,13 @@ for TODO_FILE in "$PENDING_DIR"/*.md; do
   RP=$(awk '/^---/{c++;next} c==1 && /^resolves_phase:/{print $2;exit} c==2{exit}' "$TODO_FILE" 2>/dev/null || true)
   RP_NORM=$(normalize_phase_num "$RP")
   [ -n "$RP_NORM" ] && [ "$RP_NORM" = "$PHASE_NUM_NORM" ] || continue
-  mv "$TODO_FILE" "$COMPLETED_DIR/"
-  CLOSED+=("$(basename "$TODO_FILE")")
+  specforge files move "$TODO_FILE" "$COMPLETED_DIR" >/dev/null
+  CLOSED+=("${TODO_FILE##*/}")
 done
 if [ ${#CLOSED[@]} -gt 0 ]; then
   ADDED=(); REMOVED=()
   for f in "${CLOSED[@]}"; do ADDED+=("$COMPLETED_DIR/$f"); REMOVED+=("$PENDING_DIR/$f"); done
-  git add spec && git commit -m "docs(phase-${PHASE_NUMBER}): close ${#CLOSED[@]} resolved todo(s)" && specforge collect --runner gsd-git --yes
+  specforge git commit --add spec -m "docs(phase-${PHASE_NUMBER}): close ${#CLOSED[@]} resolved todo(s)" && specforge collect --runner gsd-git --yes
   echo "◆ Closed ${#CLOSED[@]} todo(s) for Phase ${PHASE_NUMBER}:"; printf '  ✓ %s\n' "${CLOSED[@]}"
 fi
 ```

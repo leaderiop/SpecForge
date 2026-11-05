@@ -6,12 +6,11 @@
 
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 /// SHA-256 of `bytes`, lowercase hex: a package binary's digest as a registry records it (`PackageMetadata::sha256`)
 /// and as a signature covers it.
 pub fn sha256_hex(bytes: &[u8]) -> String {
-    hex::encode(Sha256::digest(bytes))
+    specforge_package::Sha256::of(bytes).to_string()
 }
 
 /// What a publisher signs for a package: its name and version as its declaration states them, and the SHA-256 of

@@ -254,6 +254,114 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   no project before it runs (ADR 0014, ADR 0024). The `path`, and every path an argument names, resolves inside
   the served project (while none is served, the server's root): one that leaves it is `invalid_input`, so
   "another project" is one nested in the served one (`specforge_ops::Containment`, ADR 0092, ADR 0104).
+- **Effect plane**: every effect the host performs (for an extension, a check, a CLI verb or itself) goes through one of
+  four **ports** the caller passes: Process, Http, Fs and Git (`specforge_effects`, ADR 0335). Each is an object-safe
+  trait shared as an `Arc`; a surface builds the adapters once, at its composition root (`specforge_effects::Ports`).
+  Each request and outcome has a canonical digest, and an outcome's class (`ok`, `exit:<n>`, `deadline`, `capped`,
+  `outside`, `unreachable:tls`, ...) is the same on every OS.
+- **Port (effect)**: one of the effect plane's four traits and its adapter: **Process** (`specforge_process::Runner`:
+  a deadline, a process group or Job kill, an environment without secrets, PATHEXT, output caps), **Http**
+  (`specforge_http::Client`: rustls on ring with the platform verifier, redirects followed under the caller's policy,
+  private addresses refused, a whole-request timeout, a body cap), **Fs** (`specforge_fs::LocalFs`: std::fs behind
+  **Contained**) and **Git** (`specforge_git::GitCli`: the git command line through the Process port, read-only). Tests
+  use `specforge_effects::testing`'s fakes, held to the same `*_contract` functions; there is no process-global
+  default, so with no git port given no git is asked.
+- **Contained**: the one path containment (`specforge_effects::Contained`, ADR 0335): a path written in a **root** is
+  resolved lexically, then where its links land, its case checked against the disk and its name against the
+  deny-list (a withheld name). One that leaves its root is refused (E094), an unknown root is E095, a case variant
+  W174, a backslash W175. E016, judged file inputs, K11 reads and a request's **Containment** all resolve through it.
+- **Root (of a path)**: the directory a written path is read against: `project`, `spec`, or a named one; a
+  `<root>/` prefix names another (`specforge_effects::Roots`, `specforge_protocol_types::Root`).
+- **Rooted path**: a path as a value writes it: bare, which takes its reader's default root, or `<root>/rest`, which names
+  one (`specforge_protocol_types::RootedPath`, ADR 0336 D6). One parser reads it on the host and in a guest, for value
+  checks, K11 reads, the judged `file()` selector and MCP project paths. It reads syntax only: where a path may lead is
+  **Contained**'s.
+- **Value check**: a check one value of a field must pass, named by the field's `checks` or attached by `specforge.json`
+  `checks` (`specforge_protocol_types::CheckRef`, ADR 0336). The value stays plain in its field type's form. It runs in
+  the **values phase**, first in a compile; its outcome is `passed`, `failed` or `not_run` (`CheckStatus`), and one that
+  did not run is not judged and fails nothing (I206, W170, I207). `inspect`, the hover and `export --with-checks` show
+  it (`specforge_project::values::ValueChecks`). It writes no fact unless a collector declares the `check_outcomes` input
+  and is named by `--runner` or runs under `checks.publish`. Not a validation rule, which reads the graph, and not a
+  verdict, which a judge gives.
+- **Checker**: what an extension declares to read one value (`CheckerDescriptor`, ADR 0336 D3), qualified by its
+  extension: its field types, args, scopes and codes. `__check_values` calls it in two pure phases, once per extension per
+  phase: `plan` answers findings or **probes**, `judge` findings from their outcomes (`CheckPhase`).
+- **Checker family**: the checkers of `@specforge/checks` that share a scope and a switch: files, formats, digits, links
+  and git (ADR 0338 D3).
+- **Family switch**: the bool setting `families.<family>`, on by default: each of its checkers runs only while it is on
+  (`when`), and it gates the codes only that family reports (ADR 0338 D3).
+- **Checks kit**: `specforge-checks-kit`, the leaf crate of bare algorithms, parsers and pinned tables that
+  `@specforge/checks` and domain packs compile; it holds no probes, roots or codes (ADR 0338 D5).
+- **Probe**: an effect a **checker** asks the host to perform on a value (`specforge_protocol_types::Probe`: `fs.*`,
+  `http.*`, `dns.resolve`, `git.*`), inside the scopes it declares (E090). The host contains its path, deduplicates it,
+  performs it through the effect plane and answers a `ProbeOutcome`; a guest never performs one, and never hears about a
+  path outside its root.
+- **Input (of a call)**: one thing a call declares the host serves it before the call, one variant of
+  `inputs: Vec<Input>` on a pass, command, prompt, hook or collector: `files` (a `FileRead`), `tests`, `state`,
+  `graph`, `slash_commands`, `git { status, when }` (its status a typed `GitStatus`), `setting { extension, name }` or
+  `check_outcomes` (a collector's).
+  One table says what each call kind is served; an input it is not served is W021 and is served empty (ADR 0337 D2).
+- **Effect record**: one performed effect as the journal keeps it (`specforge_effects::EffectRecord`, ADR 0335 D3,
+  ADR 0337 D3): what may be shown of the request (never a secret) and its digest, the outcome's class and digest,
+  `observed_at`, `ttl_s`, and the digest of a payload kept beside it.
+- **Effects journal**: `.specforge/effects/journal/`, one effect record per request digest, per machine and gitignored;
+  a fresh record answers the request again, an unreadable one is a miss (`specforge_effects::EffectJournal`, ADR 0337
+  D3). A record a check consulted is a recorded input whose change or expiry re-runs the checks (D5). Not the
+  **Write journal**.
+- **Effects mode**: whether a run performs, reuses or replays an http or process effect: `online`, `auto` (a fresh
+  record, else performed when approved), `cached` (a fresh record only) or `replay` (any record, a miss refuses the
+  run). Sessions are `cached`; the CLI's `--effects` chooses, `check` defaulting to `auto` when someone can answer.
+  What a run lends an extension runs in a mode too: `online` for what a person ran, `cached` for an agent's call or a
+  dry run, each unless asked otherwise (ADR 0337 D4).
+- **Machine diagnostic**: a finding this machine decided (its approvals, its network, its journal), flagged
+  `machine`; `--strict` never promotes it and the gate's warning baseline never counts it (I206, I207, W170; ADR 0337 D7).
+- **Capability**: one effect an extension declares it may ask the host for, in its `capabilities` describe category: a
+  **scope name**, a `why`, the call kinds it is for and one port scope (`http` hosts, schemes, methods and an optional
+  secret header; `fs` roots and ops; a `process` argv template and the variables its program inherits or a guest may
+  set; `git` ops). A collector with a command names its
+  `process` capability. A bad one is W021 and grants nothing (`specforge_protocol_types::CapabilityDescriptor`, ADR
+  0335 D2.1).
+- **Scope name**: a capability's name, a word unique in its extension: what an approval, `specforge grants` and a
+  denial name it by.
+- **Gate (call kind)**: the host's fixed table of the ports each call kind may use: collect every port, a command
+  every port but process, an MCP tool reads and may use http, a pass reads (`specforge_effects::gate`, ADR 0335 D2.2).
+  Not a setting's **Gate**.
+- **Effects ceiling**: what `effects` in `specforge.json` leaves of every capability: it can only narrow, `"off"`
+  removes a port. Each capability it narrows is W171; what is not used as written is E109
+  (`specforge_effects::EffectsCeiling`, ADR 0335 D2.3).
+- **Named root**: a root `roots` in `specforge.json` names beside `spec` and `project`, resolved once per load to its
+  canonical target, inside or outside the project; one outside needs a root approval (ADR 0335 D2.3).
+- **Grant**: what one extension may make the host do here: what it declares, under the call kind's gate, under the
+  effects ceiling, and approved on this machine, decided once per extension and environment. It permits each request
+  (or denies it: E090 for the gate, the declaration or the ceiling) and names the approvals a run needs
+  (`specforge_effects::Grant`, ADR 0335 D2).
+- **Verb**: a core command that performs one port's effects for whoever types it: `specforge files`, `run`, `http`
+  and `git` (`specforge_ops::verbs`, ADR 0339). It is the user's own act, under the **User grant**; it has no MCP
+  tool. Not an extension's command.
+- **User grant**: the grant of a **Verb**: every port and request, approved, with no call kind's gate, only the
+  **Effects ceiling** narrowing it, and only the roots this machine may reach (a root outside the project once
+  approved) (`specforge_effects::Grant::user`, ADR 0339 D2).
+- **Verb answer**: what a **Verb** prints: one JSON document by default, `--pick` over it, a short listing under
+  `--format human`; `run` instead passes its program's output and exit through (124 at its deadline) (ADR 0339 D4).
+- **Temp root**: the verb-only root `temp`, `<project>/.specforge/tmp/`, made on first use: where `files temp` makes
+  scratch files, the one part of the host's own state a **Verb** may write (ADR 0339 D2).
+- **Granted import**: a `specforge:host` port an effectful call kind (a command, an MCP tool or resource, a collector)
+  calls, answered by the **Port session** under the call's **Grant**: an extension's other face for effects, beside its
+  declared inputs (ADR 0335 D4).
+- **Port session**: what one call may do through the ports, made from its kind, what its caller lent and its limits. It
+  decides each request before any effect, sets what only the host may set, holds an answer to a quarter of the guest's
+  memory and spends the call's port budget (`specforge_wasm::PortSession`, ADR 0335 D4).
+- **Approval**: this machine's consent to a capability (per project, extension, **Provenance** and scope name; it
+  covers any narrower grant) or to a named root outside the project (per project and canonical target). File and git
+  reads inside the project need none; http, process and writes do. Settled before a run's first effect, asked only
+  for what the run uses (`specforge_ops::settle::settle`, ADR 0335 D2.4).
+- **Consent store**: where approvals are kept: the user's `~/.specforge/consent.json`, outside every project, behind
+  the `Consent` port (`specforge_ops::consent::UserConsent`; `testing::MemoryConsent`). Written privately and
+  atomically under a sidecar lock; one it cannot use approves nothing and is never written over (W186). `specforge
+  grants` lists, approves and revokes (ADR 0335 D2.5).
+- **Provenance**: where a loaded extension's code came from: a builtin, or a third party and its blob's digest. An
+  approval is keyed by it, so a builtin's survives an upgrade and a new third-party blob asks again
+  (`specforge_effects::Provenance`, ADR 0335 D2.6).
 - **Containment**: what a request may reach on disk: every path (the CLI, ADR 0092 D6) or the paths that land inside
   one directory (an MCP request's bound, or the call's project). Lent by the **Caller** in the operation's request and
   applied where the operation opens or writes the file (a lock plan narrows it to its project, ADR 0137) (`specforge_ops::Containment`, ADR 0104). MCP builds one per call (`Call`), bounds the call's views by it and
@@ -276,7 +384,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Project file**: a file of the project an operation reads or writes. It is opened only as a **held path**
   (`specforge_ops::Containment::resolve`): at where its name landed (`real`), and replaced
   atomically through a temp created new beside it, keeping its permissions (ADR 0104, ADR 0112, ADR 0128), and read through the **regular read**.
-- **Held path**: a name a request's containment resolved (`specforge_ops::Held`, ADR 0272): as the caller wrote it
+- **Held path**: a name a request's containment resolved (`specforge_ops::Held`, ADR 0272; where it lands is
+  **Contained**'s walk, `RealFs::landing`): as the caller wrote it
   (`named`, what every message quotes), read against its base (`at`, links not followed: where an owned name is
   written, what a runner is handed), and where it lands (`real`, what is opened). A document or record names it by
   its project path (`Held::shown`), and a file under a held directory is its `entry`.
@@ -543,16 +652,16 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   extension declares is skipped silently when its extension declares an optional peer the project does not load, and
   is I004 otherwise (ADR 0096).
 - **Rule set**: the extensions' declared validation rules plus the host's E006 rules for required
-  fields and E016 rules for file-reference fields, each turned once per registry build into a typed rule that carries only what its check
+  fields, each turned once per registry build into a typed rule that carries only what its check
   reads, resolved against the registries (a compiled regex, an edge rule's edge type and the fields that
   write it). An edge rule counts the edges of its edge type; a cycle rule follows them and reports every member of a cycle (ADR 0196). It runs itself over the entity snapshot's records (`RuleInput`, ADR
   0019), cycles included, and answers which rule applies to a kind, which the snapshot's standing
   reads (`specforge_registry::rules::Rules`, ADR 0020). A declared rule that cannot work is W112; a
   property its check does not read is W147.
 - **Named paths**: the paths an entity's field names: a scalar's text, or each item of a list, when not
-  empty; a block, an expression group, a variant list or a type union names none. Every `file_exists` rule,
-  E016 among them, reads them and suggests a close sibling of a missing one
-  (`specforge_registry::rules::files`, ADR 0118).
+  empty; a block, an expression group, a variant list or a type union names none. A pass's or command's `field`
+  read hands them to the host (`specforge_registry::rules::paths_named`, ADR 0293); no rule reads a path, a value
+  checker does (`@specforge/checks:file`, E016, ADR 0336).
 - **Structural checks**: the host's own checks over the entity snapshot's records, run by the
   registry build before the rule set, in this order: W012 (a `ref` nothing references), then, unless the project is structural-only, E024, E013, E014, W020 and E061
   (`specforge_registry`'s `checks`, ADR 0031). E022 is the linker's (ADR 0117). None reads a graph node. Whether every reference
@@ -664,9 +773,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`MemberPath`, ADR 0285).
 - **Member (of a block)**: a field a typed block declares. Not an entity's members (below), and not a type member (a
   field written in a `type` entity, ADR 0282): a typed block's member is never a type expression.
-- **File base**: where a `file_reference` field's relative paths start, `spec` (the spec root, the default) or
-  `project` (the directory of `specforge.json`), declared by the field (`file_base`, ADR 0285; ADR 0118 D1 for the
-  default).
+- **Default root (of a path)**: where a bare path starts, the root its reader names: a check's `root` argument
+  (`@specforge/checks:file`, the project root when it names none), a `files` input's `root`; a `<name>/` prefix
+  overrides it (ADR 0335, ADR 0336). A field declares none.
 - **Members**: what an entity holds besides its id, kind, title and obligations, as every output writes it
   (`specforge_graph::Members`, ADR 0222): its fields' values (`FieldJson`), the annotations written after them, by the
   field's name (an entry of a block field's by `outer.key`), and its methods (`MethodJson`: name, parameters with their
@@ -1234,8 +1343,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Asking**: who can be asked to consent to what an operation would otherwise refuse (a publisher key change, a
   collector's command): yes to everything (`--yes`), nobody (MCP, `--format json`, stdin that is no terminal), or an
   `Asker` (the CLI's terminal, a test's script). A surface builds it once per command, inside its **Caller**, which add,
-  update and collect read it from (`specforge_ops::asking`, ADR 0110). Collect asks it only for a command the
-  **Collector machine** has no approval for.
+  update and collect read it from (`specforge_ops::asking`, ADR 0110). Collect asks it only for the **Approvals** its
+  run uses and this machine has not given, once per scope or root, before the first command (ADR 0335 D2.4).
 - **Diagnostic policy**: lint profiles (a closed set: `inferred`, `pedantic`) and strict promotion
   (`specforge_project::DiagnosticPolicy`). It is the only thing that changes a diagnostic's severity
   after the diagnostic is built. A profile's diagnostics come from the check that applies it
@@ -1269,8 +1378,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   migration hook — over the `WasmRuntime` port. Its input and answer are protocol types
   (`specforge_protocol_types`) the SDK shares; every failure is one `CallError`, E028, naming the
   operation, the export and the extension (`specforge_wasm::calls::ExtensionCalls`, ADR 0013).
-- **Sandbox**: what the host holds an extension to. It is granted no capability (no preopened
-  directory, environment, arguments, stdin, socket or name lookup), and it is held to two limits its
+- **Sandbox**: what the host holds an extension to. It gets no WASI capability (no preopened
+  directory, environment, arguments, stdin, socket or name lookup); what it may reach is its **Grant**. It is held to two limits its
   handshake's `sandbox_policy` may declare, each at most the host's ceiling (30 000 ms per call,
   512 MB of linear memory) and the ceiling when undeclared; every call also gets the whole fuel
   budget. The loader applies them once it has read the handshake; the component runtime enforces them, and a call that
@@ -1614,9 +1723,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (tests). `specforge analyze --prove` and doctor take it as an argument; doctor's toolchain finding is
   the W098 the prove pass reports. A test chooses the solver it sees (ADR 0079).
 - **Collector machine**: the machine collect runs on (`specforge_ops::analysis::collect::CollectorMachine`, port
-  `CollectorMachine`): it runs a collector's command (and answers when it started) and keeps the user's approvals of
-  commands. Its adapters are a child process with the user-level consent store (`ProcessMachine`) and a scripted
-  machine (tests). The caller passes it; collect decides every refusal that needs no run before the machine runs
+  `CollectorMachine`): it runs a collector's command (and answers when it started). The approvals are the **Consent
+  store**'s, passed beside it. Its adapters are a child process (`ProcessMachine`) and a scripted machine (tests). The caller passes it; collect decides every refusal that needs no run before the machine runs
   anything (ADR 0125).
 - **Collect mode**: how `collect` gets each collector's evidence (`specforge_ops::analysis::collect::Mode`): run
   the declared command and read its report (`Run`), read the report it already wrote (`NoRun`, `--no-run`), or
@@ -1631,10 +1739,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge-harness`, one `path key digest` line per recorded value, merged by union) says it was; with no line it
   is E083. A **Move record** (`<new> moved:<old>`) follows an entity across a rename so its lines and its history do.
   The ledger also holds the digest of each fact store, one line per collector (ADR 0327).
-- **History port**: the trait (`specforge_project::history::History`) that locates the repository, names commits and
-  merge-bases and lists files at one; the git CLI is its only adapter (ADR 0287).
+- **Git port**: the effect plane's trait (`specforge_effects::git::Git`, formerly the History port) that locates the
+  repository, names commits and merge-bases and lists files at one; the git CLI is its only adapter (ADR 0287,
+  ADR 0335). A surface gives it to each environment and session it opens; with none given, no git is asked.
 - **Baseline**: the project compiled at the git commit `HEAD` names (or the merge-base under `check --since`),
-  read through the `History` port only when something declares history; what an immutable or append-only value is
+  read through the **Git port** only when something declares history; what an immutable or append-only value is
   judged against and what a pass receives as `previous` (ADR 0287); a compute pass's declared reads see the files
   the commit holds (ADR 0300). The old build cache and `lifecycle_field` are gone.
 - **Edit plan**: what a writing command or collector answers to write (`EditPlan`, protocol 1.9.0): ordered typed ops
@@ -1680,7 +1789,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `previous`, and its errors refuse the write (ADR 0289).
 - **Write lock**: `.specforge/write.lock`, held by every host write of a project that has a `.specforge/`.
 - **Write journal**: the record of a commit in progress; the next writer rolls an interrupted one back, and W167 reports
-  one that is pending (ADR 0289).
+  one that is pending (ADR 0289). Not the **Effects journal**.
 - **Setting**: a typed value an extension declares under a dotted name (K3 `FieldForm`, JSON default, absent = unset) and
   a project sets in `specforge.json` under the extension's name; a **Setting family** has `*` segments (ADR 0288). A
   setting may be a `number` (a decimal within inclusive bounds) and a bool setting may declare `gates_when_on` codes (ADR 0305).

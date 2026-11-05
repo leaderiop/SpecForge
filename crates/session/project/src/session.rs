@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, ProjectConfig, ProjectRoot};
+use specforge_effects::{EffectsMode, Ports, SharedConsent, SharedGit, UnixMillis};
 use specforge_graph::{Applied, GraphDelta, NodeChange};
 
 use crate::buffers::{Buffer, Held};
@@ -155,6 +156,18 @@ pub struct ProjectSession {
     /// The editor buffers the session holds: each is the truth for its file
     /// until released (ADR 0046).
     held: Held,
+    /// What each environment load is given of the outside.
+    outside: Outside,
+}
+
+/// What a session's every environment load is given of the outside: the git port (ADR 0287, ADR 0335; none: no
+/// judgement against history) and the effects mode and ports a surface chose (ADR 0337 D4; none: `cached`).
+#[derive(Clone, Default)]
+struct Outside {
+    git: Option<SharedGit>,
+    effects: Option<(EffectsMode, Ports, SharedConsent)>,
+    /// What its values phase may spend; none: a run's.
+    value_budget: Option<crate::values::ValueBudget>,
 }
 
 /// A project whose environment is loaded and whose sources are not read yet
@@ -168,6 +181,8 @@ struct OpeningProject {
     /// What the loaded environment depends on, stamped; the sources are
     /// stamped by `finish`.
     ledger: Ledger,
+    /// What the environment was given of the outside.
+    outside: Outside,
 }
 
 impl OpeningProject {
@@ -200,6 +215,7 @@ impl OpeningProject {
             source: self.source,
             ledger,
             held,
+            outside: self.outside,
         };
         session.project.check(&mut session.ledger);
         session
@@ -215,7 +231,28 @@ impl ProjectSession {
             source: RuntimeSource::Fixed(None),
             ledger: Ledger::detached(),
             held: Held::default(),
+            outside: Outside::default(),
         }
+    }
+
+    /// The same session, every environment it loads from now on (an open into it, a reopen, a reload) asking `git` of
+    /// version control: a surface gives it to a detached session, then opens the project into it.
+    pub fn with_git(mut self, git: SharedGit) -> Self {
+        self.outside.git = Some(git);
+        self
+    }
+
+    /// The same session, every environment it loads from now on running its effects in `mode` through `ports`, under
+    /// `consent` (`watch`'s `--effects`, built by [`crate::effects::of`]).
+    pub fn with_effects(mut self, mode: EffectsMode, ports: Ports, consent: SharedConsent) -> Self {
+        self.outside.effects = Some((mode, ports, consent));
+        self
+    }
+
+    /// The same session, every environment it loads from now on holding its values phase to `budget`.
+    pub fn with_value_budget(mut self, budget: crate::values::ValueBudget) -> Self {
+        self.outside.value_budget = Some(budget);
+        self
     }
 
     /// Open the project at `root`, running its extensions in the project's
@@ -245,7 +282,7 @@ impl ProjectSession {
         source: RuntimeSource,
         disk: Option<SourceDisk>,
     ) -> Self {
-        Self::begin_open(root, source, disk).finish()
+        Self::begin_open(root, source, disk, Outside::default()).finish()
     }
 
     /// The first half of [`Self::open_from`] and [`Self::reopen`]: the
@@ -255,18 +292,30 @@ impl ProjectSession {
         root: &ProjectRoot,
         source: RuntimeSource,
         disk: Option<SourceDisk>,
+        outside: Outside,
     ) -> OpeningProject {
         // The ledger stamps each input in the read that reads it: the config,
         // the lock and the modules in the environment load, the sources by
         // `finish`.
         let mut ledger = Ledger::opening_through(disk);
-        let env = Environment::read_through(&mut ledger, root, |config| {
+        let mut env = Environment::read_through(&mut ledger, root, |config| {
             source.runtime_for(root.dir(), config)
         });
+        if let Some(git) = &outside.git {
+            env = env.with_git(Arc::clone(git));
+        }
+        if let Some((mode, ports, consent)) = &outside.effects {
+            let effects = crate::effects::of(*mode, ports, &env, root, consent.as_ref());
+            env = env.with_effects(effects);
+        }
+        if let Some(budget) = outside.value_budget {
+            env = env.with_value_budget(budget);
+        }
         OpeningProject {
             env: Arc::new(env),
             source,
             ledger,
+            outside,
         }
     }
 
@@ -359,7 +408,7 @@ impl ProjectSession {
     /// Every file a buffer holds is left out. A detached session returns
     /// nothing: its sources are its buffers.
     pub fn changes<'p>(&self, paths: impl IntoIterator<Item = &'p Path>) -> Changes {
-        let mut changes = self.ledger.changes(paths);
+        let mut changes = self.ledger.changes(paths, UnixMillis::now_or_end());
         self.held.leave_out(&mut changes.sources);
         changes
     }
@@ -497,7 +546,7 @@ impl ProjectSession {
         loaded: impl FnOnce(&Arc<Environment>),
     ) -> Update {
         self.update(|s| {
-            let opening = Self::begin_open(root, source, disk);
+            let opening = Self::begin_open(root, source, disk, s.outside.clone());
             loaded(opening.environment());
             let buffers = std::mem::take(&mut s.held).into_buffers();
             let mut next = opening.finish_holding(buffers);
@@ -575,9 +624,30 @@ impl ProjectSession {
     /// it read, every file a buffer holds left out, whatever happened to it.
     /// A session that was not opened from disk reports nothing.
     pub fn stale(&self) -> Changes {
-        let mut changes = self.ledger.stale();
+        let mut changes = self.ledger.stale(UnixMillis::now_or_end());
         self.held.leave_out(&mut changes.sources);
         changes
+    }
+
+    /// The effect records a check consulted that have expired by now (ADR 0337 D5): check inputs whose change is the
+    /// clock's, not the disk's. What a server applies before a request, though no file changed. A clock that
+    /// cannot be read expires them all (`UnixMillis::now_or_end`): no record is fresh by a clock that cannot vouch.
+    pub fn expired(&self) -> Changes {
+        self.ledger.expired(UnixMillis::now_or_end())
+    }
+
+    /// When the earliest effect record a check consulted expires: when a watch wakes to run the checks again.
+    /// None: no record a check consulted expires.
+    pub fn next_expiry(&self) -> Option<UnixMillis> {
+        self.ledger.next_expiry()
+    }
+
+    /// Record `consulted` as the effect records the last run of the checks consulted, in place of that run's
+    /// check inputs (tests: a session whose checks consulted the effects journal, ADR 0337 D5).
+    #[cfg(feature = "testing")]
+    pub fn stamp_consulted(&mut self, consulted: Vec<crate::Consulted>) {
+        use crate::ledger::Reads;
+        self.ledger.run_checks(|_| consulted);
     }
 
     /// Bring the session up to date with disk, without a watcher: apply

@@ -94,13 +94,15 @@ pub fn run(
     }
 
     let spec = spec_root(view);
-    let git_on = declared
-        .git_when
-        .as_ref()
-        .is_none_or(|s| on(view, extension, std::slice::from_ref(s)));
-    let history = ((declared.reads_git || declared.reads_git_status) && git_on)
-        .then(|| view.env().history())
-        .flatten();
+    let served = crate::extension::inputs::Serve::new(view, extension, &declared.inputs);
+    // The `git` input, collected only while its `when` setting is on (ADR 0320).
+    let git = specforge_protocol_types::Inputs(&declared.inputs)
+        .git()
+        .filter(|git| {
+            git.when
+                .is_none_or(|s| on(view, extension, &[s.to_string()]))
+        });
+    let history = git.and_then(|_| view.env().git());
     let tool = event.tool.as_ref();
     let at = crate::extension::command::instant();
     let input = HookInput::<RawGraph> {
@@ -132,16 +134,9 @@ pub fn run(
         },
         git: history
             .as_ref()
-            .and_then(|h| facts::git(&**h, &cwd, declared.reads_git_status)),
+            .and_then(|h| facts::git(&**h, &cwd, git.is_some_and(|git| git.status))),
         change: event.change.clone(),
-        other_settings: declared
-            .reads_settings
-            .iter()
-            .filter_map(|entry| {
-                let (ext, name) = entry.split_once(':')?;
-                crate::host::render::setting(view, ext, name).map(|v| (entry.clone(), v))
-            })
-            .collect(),
+        other_settings: served.other_settings(),
         shell: tool
             .filter(|t| t.class == "shell")
             .and_then(|t| facts::shell_words(&t.input)),
@@ -155,18 +150,13 @@ pub fn run(
         prompt: event.prompt.clone(),
         response: event.response.clone(),
         status: event.status.clone(),
-        graph: declared.reads_graph.then(|| {
-            RawGraph::new(crate::extension::command::graph_export(view))
-                .expect("the graph export is one JSON value")
-        }),
+        graph: served.graph(),
         revisions: if declared.writes {
             crate::revision::of_project(view.project())
         } else {
             Default::default()
         },
-        state: declared
-            .reads_state
-            .then(|| crate::host::state::read(view, extension, event.session.as_deref())),
+        state: served.state(event.session.as_deref()),
     };
     let called = view.runtime().map(|runtime| {
         ExtensionCalls::new(runtime.as_ref()).run_hook(

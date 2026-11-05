@@ -16,7 +16,6 @@
             "formal"
           ],
           "field_type": "enum",
-          "file_reference": false,
           "inverse_of": null,
           "name": "style",
           "required": true,

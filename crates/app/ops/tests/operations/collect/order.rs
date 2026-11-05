@@ -1,12 +1,12 @@
 //! The order collect decides in: a refusal that needs no run comes before any collector's command runs
 //! (ADR 0125 D5; `spec/behaviors/mcp-operations.spec`: "invalid_input before any command runs").
 
-use super::{Fixture, Runner};
+use super::{Fixture, Machine, Runner};
 use specforge_ops::analysis::collect::Mode;
 use specforge_ops::analysis::collect::RunnerOutput;
 use specforge_ops::asking::Asking;
 use specforge_ops::asking::testing::{Asked, Scripted};
-use specforge_ops::testing::{ScriptedMachine, ScriptedRun};
+use specforge_ops::testing::ScriptedRun;
 use specforge_ops::{Containment, OpErrorKind};
 
 /// `first` then `second`, both detected.
@@ -18,8 +18,8 @@ fn two(second: Runner) -> Fixture {
 }
 
 /// A machine that would run `first` and write its report, if it were asked to.
-fn first_runs() -> ScriptedMachine {
-    ScriptedMachine::new().answering(ScriptedRun {
+fn first_runs() -> Machine {
+    Machine::new().answering(ScriptedRun {
         files: vec![("".into(), "{}".to_string())],
         exit_code: Some(0),
         ..ScriptedRun::default()
@@ -45,7 +45,7 @@ fn no_command_runs_when_a_later_collector_is_not_approved() {
     assert_eq!(refusal.error.code, "E059");
     let asked = asker.asked();
     assert!(
-        matches!(asked.as_slice(), [Asked::RunCommand { extension, .. }] if extension == "@acme/second"),
+        matches!(asked.as_slice(), [Asked::Capability { extension, .. }] if extension == "@acme/second"),
         "{asked:?}"
     );
     assert!(machine.runs().is_empty(), "{:?}", machine.runs());
@@ -54,7 +54,7 @@ fn no_command_runs_when_a_later_collector_is_not_approved() {
 #[test]
 fn no_command_runs_when_a_later_capture_is_unknown() {
     let fx = two(Runner::new("second").capturing("stderr"));
-    let machine = first_runs().approving_every_command();
+    let machine = first_runs().approving_everything();
 
     let refusal = fx.run(Asking::Nobody, &machine).unwrap_err();
 
@@ -73,7 +73,7 @@ fn no_command_runs_when_a_later_report_location_leaves_the_project() {
     let fx = two(Runner::new("second").report("out2/second.json"));
     let outside = tempfile::tempdir().unwrap();
     std::os::unix::fs::symlink(outside.path(), fx.root().join("out2")).unwrap();
-    let machine = first_runs().approving_every_command();
+    let machine = first_runs().approving_everything();
 
     let refusal = fx
         .collect_with(

@@ -21,7 +21,8 @@ fn the_handshake_names_gsd_core_and_its_tracked_release() {
 }
 
 /// A truth's `proof` names `@code/core`'s test facts (ADR 0331 D2), and a project works without them: the peer is
-/// optional, so `specforge add @gsd/core` does not enable it and a project without it is no W021.
+/// optional, so `specforge add @gsd/core` does not enable it and a project without it is no W021. A `files` field
+/// needs `@specforge/checks`, a required peer.
 #[test]
 fn the_handshake_names_code_core_as_an_optional_peer() {
     let host = MockHost::new(build());
@@ -29,7 +30,10 @@ fn the_handshake_names_code_core_as_an_optional_peer() {
         serde_json::from_str(&host.handshake_json()).expect("the handshake is JSON");
     assert_eq!(
         handshake["peer_dependencies"],
-        serde_json::json!([{"name": "@code/core", "version": "^1.0", "optional": true}])
+        serde_json::json!([
+            {"name": "@code/core", "version": "^1.0", "optional": true},
+            {"name": "@specforge/checks", "version": "^1.0", "optional": false},
+        ])
     );
 }
 
@@ -403,8 +407,10 @@ fn canonical_ref_paths_are_files_from_the_project_root() {
         .and_then(|m| m.iter().find(|m| m["name"] == "paths"))
         .expect("paths");
     assert_eq!(paths["field_type"], "string_list");
-    assert_eq!(paths["file_reference"], true);
-    assert_eq!(paths["file_base"], "project");
+    assert_eq!(
+        paths["checks"],
+        serde_json::json!([{"checker": "@specforge/checks:file", "args": {"root": "project"}}])
+    );
 }
 
 #[test]

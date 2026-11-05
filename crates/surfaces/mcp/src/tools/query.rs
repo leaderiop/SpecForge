@@ -68,6 +68,7 @@ impl CoreTool for Tool {
     const SPEC: ReplySpec = ReplySpec::Document("the agent export, ADR 0007");
     const OPEN_VALUES: &'static [&'static str] = &[
         "$.nodes[]",
+        "$.schema.entity_kinds[].fields[].checks[].args",
         "$.nodes[].fields",
         "$.nodes[].annotations",
         "$.nodes[].verdicts[].members",

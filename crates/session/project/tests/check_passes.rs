@@ -30,12 +30,11 @@ const EXT: &str = "@test/passes";
 pub(crate) fn passes_extension() -> InProcessRuntime {
     InProcessRuntime::new().with(|| {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
-        // `docs` names files (a file reference field): the checks report
-        // a missing one (E016).
+        // `docs` names files: a project that attaches `@specforge/checks:file` to it reports a missing one (E016).
         c.kind("gadget", |k| {
             k.keyword("gadget");
             k.field("docs", |f| {
-                f.field_type(FieldType::StringList).file_reference();
+                f.field_type(FieldType::StringList);
             });
         });
         for (code, title) in [
@@ -468,6 +467,7 @@ fn a_pass_finding_with_a_code_it_may_not_use_is_reported() {
             title: "t".to_string(),
             explanation: "e".to_string(),
             docs: None,
+            machine: false,
         }],
     )
     .unwrap();
@@ -512,16 +512,15 @@ fn previous_is_the_baseline_of_the_declared_kinds() {
     let head = format!("{}{spec}", crate::computed::BASE);
     let project = crate::computed::project(spec);
     let sha = "9f8e7d6000000000000000000000000000000000";
-    let fake = Arc::new(specforge_project::testing::FakeHistory::repo(
+    let fake: specforge_effects::SharedGit = Arc::new(specforge_effects::testing::FakeGit::repo(
         project.root(),
         sha,
         vec![("a.spec".into(), head.into_bytes())],
     ));
-    let _installed = specforge_project::testing::history::install(fake);
     let runtime = Arc::new(specforge_project::testing::gsd_history_runtime(
         json!([{"entity": "v1.0/03/V", "field": "status", "value": "passed"}]),
     ));
-    project.compile_in(runtime.clone());
+    project.compile_with(runtime.clone(), Some(fake));
     let input = last_input(&runtime, "__pass_verify_status");
     let previous = &input["previous"];
     assert_eq!(previous["revision"], sha);
@@ -530,4 +529,43 @@ fn previous_is_the_baseline_of_the_declared_kinds() {
     let fields = &previous["entities"]["v1.0/03/V"]["fields"];
     assert_eq!(fields["phase"], "v1.0/03");
     assert_eq!(fields["status"], "passed", "computed values are included");
+}
+
+/// A pass finding of a code the extension catalogs `machine` is marked machine where it enters the host
+/// (ADR 0337 D7); its other findings are the project's.
+#[test]
+fn a_pass_finding_of_a_machine_code_is_marked_machine() {
+    let output = PassOutput {
+        diagnostics: vec![
+            PassDiagnostic::new("W951", PassSeverity::Warning, "unreachable"),
+            PassDiagnostic::new("W950", PassSeverity::Warning, "plain"),
+        ],
+        summary: Default::default(),
+        values: Vec::new(),
+    };
+    let code = |local: &str, machine| specforge_diagnostics::ExtensionCode {
+        local: local.to_string(),
+        title: "t".to_string(),
+        explanation: "e".to_string(),
+        docs: None,
+        machine,
+    };
+    let mut book = specforge_diagnostics::Codebook::default();
+    book.add("@acme/links", vec![code("W950", false), code("W951", true)])
+        .unwrap();
+    let findings = specforge_project::passes::pass_findings(
+        "@acme/links",
+        "links",
+        output,
+        &specforge_registry::EntitySnapshot::default(),
+        &book,
+    );
+    let marked: Vec<_> = findings
+        .iter()
+        .map(|d| (d.code.as_str(), d.machine))
+        .collect();
+    assert_eq!(
+        marked,
+        [("acme.links/W950", false), ("acme.links/W951", true)]
+    );
 }

@@ -162,14 +162,14 @@ Check that API routes have consumers.
 
 ```bash
 # Next.js App Router
-find src/app/api -name "route.ts" 2>/dev/null | while read route; do
+specforge files list src/app/api --kind file --glob route.ts --pick '.entries[].path' 2>/dev/null | while read route; do
   # Extract route path from file path
   path=$(echo "$route" | sed 's|src/app/api||' | sed 's|/route.ts||')
   echo "/api$path"
 done
 
 # Next.js Pages Router
-find src/pages/api -name "*.ts" 2>/dev/null | while read route; do
+specforge files list src/pages/api --kind file --glob '*.ts' --pick '.entries[].path' 2>/dev/null | while read route; do
   path=$(echo "$route" | sed 's|src/pages/api||' | sed 's|\.ts||')
   echo "/api$path"
 done
@@ -258,7 +258,7 @@ verify_auth_flow() {
   fi
 
   # Step 3: API route exists
-  local api_route=$(find src -path "*api/auth*" -name "*.ts" 2>/dev/null | head -1)
+  local api_route=$(specforge files list src --kind file --glob '*api/auth*.ts' --pick '.entries[0].path' 2>/dev/null)
   [ -n "$api_route" ] && echo "✓ API route: $api_route" || echo "✗ API route: MISSING"
 
   # Step 4: Redirect after success
@@ -280,7 +280,7 @@ verify_data_flow() {
   echo "=== Data Flow: $component → $api_route ==="
 
   # Step 1: Component exists
-  local comp_file=$(find src -name "*$component*" -name "*.tsx" 2>/dev/null | head -1)
+  local comp_file=$(specforge files list src --kind file --glob "*$component*.tsx" --pick '.entries[0].path' 2>/dev/null)
   [ -n "$comp_file" ] && echo "✓ Component: $comp_file" || echo "✗ Component: MISSING"
 
   if [ -n "$comp_file" ]; then
@@ -298,7 +298,7 @@ verify_data_flow() {
   fi
 
   # Step 5: API route exists and returns data
-  local route_file=$(find src -path "*$api_route*" -name "*.ts" 2>/dev/null | head -1)
+  local route_file=$(specforge files list src --kind file --glob "*$api_route*.ts" --pick '.entries[0].path' 2>/dev/null)
   [ -n "$route_file" ] && echo "✓ API route: $route_file" || echo "✗ API route: MISSING"
 
   if [ -n "$route_file" ]; then
@@ -317,7 +317,7 @@ verify_form_flow() {
 
   echo "=== Form Flow: $form_component → $api_route ==="
 
-  local form_file=$(find src -name "*$form_component*" -name "*.tsx" 2>/dev/null | head -1)
+  local form_file=$(specforge files list src --kind file --glob "*$form_component*.tsx" --pick '.entries[0].path' 2>/dev/null)
 
   if [ -n "$form_file" ]; then
     # Step 1: Has form element

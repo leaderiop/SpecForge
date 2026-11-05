@@ -135,6 +135,7 @@ mod tests {
                     title: "Audit failed".into(),
                     explanation: "Fix the audit.".into(),
                     docs: None,
+                    machine: false,
                 })
                 .collect();
             book.add(extension, entries).unwrap();

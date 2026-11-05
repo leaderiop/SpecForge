@@ -35,7 +35,6 @@ fn sample_schema() -> GraphProtocolSchema {
                     target_kinds: Vec::new(),
                     minimum: None,
                     maximum: None,
-                    file_base: None,
                     ..Default::default()
                 }],
             },
@@ -71,7 +70,6 @@ fn optional_field(name: &str) -> SchemaField {
         target_kinds: Vec::new(),
         minimum: None,
         maximum: None,
-        file_base: None,
         ..Default::default()
     }
 }

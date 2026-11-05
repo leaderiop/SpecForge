@@ -47,6 +47,12 @@ pub enum TokenReference {
     File(PathBuf),
 }
 
+/// Whether the user file at `path` is there and another user could have written it (ADR 0178): it counts as missing,
+/// since what it holds may be theirs. Never on Windows, which has no such mode to read.
+pub(crate) fn foreign(path: &Path) -> bool {
+    std::fs::metadata(path).is_ok_and(|meta| specforge_common::fresh::not_private(&meta).is_some())
+}
+
 impl CredentialStore {
     /// An empty store whose files live in `dir`.
     pub fn empty(dir: impl Into<PathBuf>) -> Self {
@@ -56,11 +62,11 @@ impl CredentialStore {
         }
     }
 
-    /// `<dir>/credentials.json`, or an empty store when there is none. R012 when it can't be read or
+    /// `<dir>/credentials.json`, or an empty store when there is none or another user could have written it. R012 when it can't be read or
     /// parsed (a file keyed by aliases, from before ADR 0178, is one: its keys are not roots).
     pub fn read(dir: &Path) -> Result<Self, Diagnostic> {
         let path = dir.join(CREDENTIALS_FILE);
-        if !path.exists() {
+        if !path.exists() || foreign(&path) {
             return Ok(Self::empty(dir));
         }
 
@@ -268,7 +274,8 @@ struct Stored {
     secret: String,
 }
 
-const CREDENTIALS_FILE: &str = "credentials.json";
+/// The credential store's file in the user's directory.
+pub const CREDENTIALS_FILE: &str = "credentials.json";
 
 #[cfg(test)]
 mod tests {

@@ -1,0 +1,335 @@
+//! The Git port's writes through `Gix` (ADR 0339 D5): staging is libgit2's, the commit object and its ref move gix's.
+
+use specforge_effects::git::{Git, Staging};
+use specforge_git::Gix;
+use specforge_git::testing::Repo;
+
+use super::place;
+
+/// The paths `repo`'s index holds.
+fn indexed(repo: &Repo) -> Vec<String> {
+    let index = repo.open().index().unwrap();
+    index
+        .entries()
+        .iter()
+        .map(|e| e.path(&index).to_string())
+        .collect()
+}
+
+#[test]
+fn staging_a_directory_keeps_its_ignore_rules_and_a_removal_keeps_the_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write(".gitignore", "*.log\n").write("keep.txt", "k");
+    repo.commit_all("first");
+    repo.write("spec/a.spec", "a")
+        .write("spec/build.log", "noise");
+    let place = place(&repo);
+    let staging = Staging {
+        add: vec!["spec".into()],
+        remove: vec!["keep.txt".into()],
+        ..Staging::default()
+    };
+    Gix::default().stage(&place, &staging).unwrap();
+    assert_eq!(indexed(&repo), [".gitignore", "spec/a.spec"]);
+    assert!(
+        repo.dir().join("keep.txt").is_file(),
+        "the file stays on disk"
+    );
+    let committed = Gix::default()
+        .commit_index(&place, "second\n", false)
+        .unwrap();
+    assert_eq!(committed.branch.as_deref(), Some("main"));
+    assert_eq!(committed.files, ["keep.txt", "spec/a.spec"]);
+    assert_eq!(repo.sha("main"), committed.sha.as_str());
+}
+
+#[test]
+fn staging_all_takes_tracked_changes_and_deletions_and_no_untracked_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a").write("b.txt", "b");
+    repo.commit_all("first");
+    repo.write("a.txt", "changed")
+        .delete("b.txt")
+        .write("new.txt", "n");
+    let place = place(&repo);
+    let staging = Staging {
+        all: true,
+        ..Staging::default()
+    };
+    Gix::default().stage(&place, &staging).unwrap();
+    assert_eq!(indexed(&repo), ["a.txt"]);
+    let committed = Gix::default()
+        .commit_index(&place, "tracked\n", false)
+        .unwrap();
+    assert_eq!(committed.files, ["a.txt", "b.txt"]);
+    assert!(
+        Gix::default()
+            .commit_index(&place, "again\n", false)
+            .is_err(),
+        "nothing staged"
+    );
+}
+
+/// git's state files of an operation in progress, written as git writes them.
+fn in_progress(repo: &Repo, files: &[&str]) {
+    for file in files {
+        let at = repo.git_dir().join(file);
+        std::fs::create_dir_all(at.parent().unwrap()).unwrap();
+        std::fs::write(at, "x\n").unwrap();
+    }
+}
+
+/// As git: a commit at a rebase's `edit` stop continues the rebase, which this port does not, so it is refused and
+/// the rebase's todo list survives; so does an `am` and a bisect.
+#[test]
+fn a_write_during_a_rebase_am_or_bisect_is_refused_and_keeps_its_state() {
+    for state in [
+        "rebase-merge/git-rebase-todo",
+        "rebase-apply/applying",
+        "BISECT_LOG",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = Repo::init(dir.path());
+        repo.write("a.txt", "a");
+        repo.commit_all("first");
+        repo.write("a.txt", "b");
+        in_progress(&repo, &[state]);
+        let place = place(&repo);
+        let staging = Staging {
+            all: true,
+            ..Staging::default()
+        };
+        let refused = Gix::default().stage(&place, &staging).unwrap_err();
+        assert!(refused.0.contains("in progress"), "{state}: {refused}");
+        let refused = Gix::default()
+            .commit_index(&place, "m\n", true)
+            .unwrap_err();
+        assert!(refused.0.contains("in progress"), "{state}: {refused}");
+        assert!(repo.git_dir().join(state).exists(), "{state} survives");
+    }
+}
+
+/// As git: a stopped `cherry-pick A..B` keeps its `sequencer/`, which a commit here would have ended.
+#[test]
+fn a_commit_during_a_cherry_pick_of_several_commits_keeps_the_sequencer() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a");
+    let head = repo.commit_all("first");
+    in_progress(&repo, &["sequencer/todo"]);
+    std::fs::write(repo.git_dir().join("CHERRY_PICK_HEAD"), format!("{head}\n")).unwrap();
+    assert!(
+        Gix::default()
+            .commit_index(&place(&repo), "m\n", true)
+            .is_err()
+    );
+    assert!(repo.git_dir().join("sequencer/todo").exists());
+    assert!(repo.git_dir().join("CHERRY_PICK_HEAD").exists());
+}
+
+/// As git ("Cannot do a soft reset in the middle of a merge"): `reset --soft` refuses while `MERGE_HEAD` is there.
+#[test]
+fn a_soft_reset_in_the_middle_of_a_merge_is_refused() {
+    use specforge_effects::git::{ResetMode, Sha};
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a");
+    let first = repo.commit_all("first");
+    repo.write("a.txt", "b");
+    let second = repo.commit_all("second");
+    std::fs::write(repo.git_dir().join("MERGE_HEAD"), format!("{first}\n")).unwrap();
+    let refused = Gix::default().reset(&place(&repo), &Sha::new(first), ResetMode::Soft);
+    assert!(refused.is_err());
+    assert_eq!(repo.sha("HEAD"), second);
+}
+
+/// A commit that concludes a merge removes the merge's own files and nothing else: a bisect's `BISECT_START` stays.
+#[test]
+fn a_commit_concluding_a_merge_removes_only_the_merges_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a");
+    let first = repo.commit_all("first");
+    repo.write("a.txt", "b");
+    repo.commit_all("second");
+    std::fs::write(repo.git_dir().join("MERGE_HEAD"), format!("{first}\n")).unwrap();
+    in_progress(&repo, &["MERGE_MSG", "BISECT_START"]);
+    let committed = Gix::default().commit_index(&place(&repo), "merged\n", false);
+    assert!(committed.is_ok(), "{committed:?}");
+    assert!(!repo.git_dir().join("MERGE_HEAD").exists());
+    assert!(!repo.git_dir().join("MERGE_MSG").exists());
+    assert!(repo.git_dir().join("BISECT_START").exists());
+}
+
+/// As git, even with `--force`: a branch a linked worktree has checked out is not deleted.
+#[test]
+fn a_branch_another_worktree_has_checked_out_is_not_deleted() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a");
+    let first = repo.commit_all("first");
+    let linked = tempfile::tempdir().unwrap();
+    repo.linked_worktree(&linked.path().join("wt"), "side", &first);
+    let refused = Gix::default().branch_delete(&place(&repo), "side");
+    assert!(refused.is_err(), "{refused:?}");
+    assert_eq!(repo.sha("side"), first);
+}
+
+/// A fast-forward is all or nothing: when the branch cannot move (here another git holds its lock, as one moving it
+/// would), no file and no index entry changes, so the checkout never runs ahead of the ref.
+#[test]
+fn a_fast_forward_whose_branch_cannot_move_changes_no_file() {
+    use specforge_effects::git::Sha;
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a");
+    let first = repo.commit_all("first");
+    repo.branch("side", &first).head_on("side");
+    repo.write("a.txt", "b");
+    let side = repo.commit_all("second");
+    repo.head_on("main");
+    repo.write("a.txt", "a");
+    repo.stage_all();
+    let lock = repo.git_dir().join("refs/heads/main.lock");
+    std::fs::write(&lock, "").unwrap();
+    let merged = Gix::default().merge(&place(&repo), &Sha::new(side), None, "m\n");
+    assert!(merged.is_err(), "{merged:?}");
+    assert_eq!(repo.sha("HEAD"), first);
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("a.txt")).unwrap(),
+        "a"
+    );
+    assert_eq!(
+        indexed_blob(&repo, "a.txt"),
+        repo.sha(&format!("{first}:a.txt"))
+    );
+}
+
+/// The blob the index holds for `path`.
+fn indexed_blob(repo: &Repo, path: &str) -> String {
+    let git = repo.open();
+    let index = git.index_or_empty().unwrap();
+    let entry = index.entry_by_path(path.into()).unwrap();
+    entry.id.to_string()
+}
+
+/// `git add` refuses a path that matches nothing, and an ignored one unless `--force`; a deleted tracked file is
+/// staged as its removal.
+#[test]
+fn staging_refuses_a_path_matching_nothing_and_an_ignored_one_without_force_as_git_add_does() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write(".gitignore", "*.log\nbuild/\n")
+        .write("gone.txt", "g");
+    repo.commit_all("first");
+    repo.delete("gone.txt")
+        .write("run.log", "l")
+        .write("build/out.txt", "o");
+    let place = place(&repo);
+    let add = |paths: &[&str], force| Staging {
+        add: paths.iter().map(|p| (*p).to_string()).collect(),
+        force,
+        ..Staging::default()
+    };
+    let refused = Gix::default()
+        .stage(&place, &add(&["gone.txt", "missing.txt"], false))
+        .unwrap_err();
+    assert!(
+        refused.0.contains("missing.txt did not match any files"),
+        "{refused}"
+    );
+    for ignored in ["run.log", "build"] {
+        let refused = Gix::default()
+            .stage(&place, &add(&[ignored], false))
+            .unwrap_err();
+        assert!(refused.0.contains("is ignored"), "{ignored}: {refused}");
+    }
+    assert_eq!(
+        indexed(&repo),
+        [".gitignore", "gone.txt"],
+        "a refusal stages nothing"
+    );
+    Gix::default()
+        .stage(&place, &add(&["gone.txt", "run.log", "build"], true))
+        .unwrap();
+    assert_eq!(indexed(&repo), [".gitignore", "build/out.txt", "run.log"]);
+}
+
+/// libgit2 runs no filter driver, so a file whose attributes name one (`filter=lfs`) is refused, naming the driver,
+/// rather than staged raw, whether it is named, under a directory named, or a tracked change `--all` takes.
+#[test]
+fn staging_a_file_whose_attributes_name_a_filter_driver_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write(
+        ".gitattributes",
+        "*.bin filter=lfs diff=lfs merge=lfs -text\n",
+    )
+    .write("old.bin", "tracked");
+    repo.commit_all("first");
+    repo.write("new.bin", "raw").write("old.bin", "changed");
+    let place = place(&repo);
+    for staging in [
+        Staging {
+            add: vec!["new.bin".into()],
+            ..Staging::default()
+        },
+        Staging {
+            add: vec!["*".into()],
+            ..Staging::default()
+        },
+        Staging {
+            all: true,
+            ..Staging::default()
+        },
+    ] {
+        let refused = Gix::default().stage(&place, &staging).unwrap_err();
+        assert!(
+            refused.0.contains("filter driver `lfs`") && refused.0.contains("stage it with git"),
+            "{staging:?}: {refused}"
+        );
+    }
+    assert_eq!(
+        indexed_blob(&repo, "old.bin"),
+        repo.open()
+            .rev_parse_single("HEAD:old.bin")
+            .unwrap()
+            .to_string(),
+        "nothing was staged"
+    );
+}
+
+/// A path the config names is interpolated as git interpolates one: `~user/` is that user's home, a relative path
+/// stays as written, and an unset key is none.
+#[cfg(unix)]
+#[test]
+fn a_config_path_is_interpolated_as_git_does() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    let place = place(&repo);
+    assert_eq!(
+        Gix::default()
+            .config_path(&place, "core.hooksPath")
+            .unwrap(),
+        None
+    );
+    repo.config("[core]\n\thooksPath = rel/hooks");
+    assert_eq!(
+        Gix::default()
+            .config_path(&place, "core.hooksPath")
+            .unwrap(),
+        Some(std::path::PathBuf::from("rel/hooks"))
+    );
+    let (Ok(user), Some(home)) = (std::env::var("USER"), std::env::home_dir()) else {
+        return; // no user to name here
+    };
+    repo.config(&format!("[core]\n\thooksPath = ~{user}/hooks"));
+    assert_eq!(
+        Gix::default()
+            .config_path(&place, "core.hooksPath")
+            .unwrap(),
+        Some(home.join("hooks"))
+    );
+}

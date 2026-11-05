@@ -228,7 +228,13 @@ fn a_loads_warnings_name_the_extension_its_handshake_declares() {
         );
         b
     });
-    runtime.load("entry.wasm", b"\0asm named").unwrap();
+    runtime
+        .load(
+            "entry.wasm",
+            b"\0asm named",
+            specforge_wasm::Provenance::third_party(b"\0asm named"),
+        )
+        .unwrap();
 
     let loaded = load_declaration(&runtime, "entry.wasm").unwrap();
 
@@ -246,4 +252,52 @@ fn a_loads_warnings_name_the_extension_its_handshake_declares() {
             warning.message
         );
     }
+}
+
+#[specforge_test_macros::test(
+    behavior = "refuse_an_unbacked_port_import",
+    verify = "an extension that imports a port no capability backs is not loaded (E089)"
+)]
+fn an_unbacked_port_import_fails_the_load() {
+    const HTTP: &str = "specforge:host/http@0.1.0";
+    fn bare() -> ContributionsBuilder {
+        ContributionsBuilder::new(ExtensionMeta::new("@acme/net", "0.1.0"))
+    }
+    fn backed() -> ContributionsBuilder {
+        let mut b = bare();
+        b.capability(
+            Capability::http("api")
+                .hosts(&["example.test"])
+                .why("call it"),
+        );
+        b
+    }
+    let loaded = |build: fn() -> ContributionsBuilder, imports: &[&str]| {
+        let runtime = InProcessRuntime::new()
+            .with(build)
+            .importing("@acme/net", imports);
+        load_declaration(&runtime, "@acme/net").map(|loaded| loaded.declaration.name().to_string())
+    };
+
+    assert_eq!(
+        loaded(bare, &[HTTP, "specforge:host/fs@0.1.0"]),
+        Err(ProtocolError::UnbackedImport {
+            extension: "@acme/net".to_string(),
+            ports: vec![HTTP.to_string(), "specforge:host/fs@0.1.0".to_string()],
+        })
+    );
+    // Only the port with no capability is named, and a capability of another port backs nothing.
+    assert_eq!(
+        loaded(backed, &["specforge:host/fs@0.1.0", HTTP]),
+        Err(ProtocolError::UnbackedImport {
+            extension: "@acme/net".to_string(),
+            ports: vec!["specforge:host/fs@0.1.0".to_string()],
+        })
+    );
+    assert_eq!(loaded(backed, &[HTTP]), Ok("@acme/net".to_string()));
+    assert_eq!(
+        loaded(bare, &["specforge:host/types@0.1.0"]),
+        Ok("@acme/net".to_string()),
+        "the shared types ask for nothing"
+    );
 }

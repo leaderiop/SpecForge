@@ -42,7 +42,7 @@
     "",
     "6. **Commit changes:**",
     "   ```bash",
-    "   git add spec && git commit -m \"docs: review backlog — promoted N, removed M\" && specforge collect --runner gsd-git --yes",
+    "   specforge git commit --add spec -m \"docs: review backlog — promoted N, removed M\" && specforge collect --runner gsd-git --yes",
     "   ```",
     "",
     "7. **Report summary:**",
@@ -61,7 +61,7 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
   ],
-  "bytes": 11118,
+  "bytes": 11123,
   "end": [
     "",
     "3. **Present the list to the user** via AskUserQuestion:",
@@ -85,7 +85,7 @@
     "",
     "6. **Commit changes:**",
     "   ```bash",
-    "   git add spec && git commit -m \"docs: review backlog — promoted N, removed M\" && specforge collect --runner gsd-git --yes",
+    "   specforge git commit --add spec -m \"docs: review backlog — promoted N, removed M\" && specforge collect --runner gsd-git --yes",
     "   ```",
     "",
     "7. **Report summary:**",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:80efd49fd4aef41ff1b693db0e4c71fdc8e106486f509424cee59b2202d5aaec",
+    "digest": "sha256:3fed9eda404b612f58a6d55c2bb2a1f548d9774cf411b622698856d0d7c34b2d",
     "prompt": "@gsd/core@VERSION:review_backlog",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "80efd49fd4aef41ff1b693db0e4c71fdc8e106486f509424cee59b2202d5aaec"
+  "sha256": "3fed9eda404b612f58a6d55c2bb2a1f548d9774cf411b622698856d0d7c34b2d"
 }

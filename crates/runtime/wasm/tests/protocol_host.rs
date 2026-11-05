@@ -285,7 +285,7 @@ fn handshake_invalid_json_returns_deserialization_error() {
 
 #[test]
 fn compatible_protocol_versions_load() {
-    for version in ["1.0.0", "1.0.1", "1.1.0", "1.1.7", "1.9.3"] {
+    for version in ["2.0.0", "2.0.1", "2.0.7"] {
         let runtime = InProcessRuntime::new()
             .with(declaring("@test/ext"))
             .answer_raw("@test/ext", "__handshake", raw(&handshake_with(version)));

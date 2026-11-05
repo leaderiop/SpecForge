@@ -18,9 +18,9 @@ impl Args {
     /// `path`, its proof percentage read from what `specforge collect` last
     /// recorded there; a report that is there but unusable is an error
     /// (exit 2), as in `analyze`.
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let format = self.output.format;
-        let project = match self.project.compile() {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::measuring(self.output.format).report(terminal, &error),
         };
@@ -97,7 +97,7 @@ mod tests {
                 format: OutputFormat::Human,
             },
         }
-        .run(&terminal);
+        .run(&terminal, &crate::ports());
 
         assert_eq!(exit, Exit::Passed);
         assert!(

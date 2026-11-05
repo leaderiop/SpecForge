@@ -167,16 +167,14 @@ behavior se_parse_gherkin_statements "Register Gherkin Field" {
   category command
   contract """
     The @specforge/software extension MUST declare a gherkin field with
-    type string_list and file_reference=true on the behavior entity kind
-    via the FieldRegistry. The field is parsed as a standard StringList
-    value — no dedicated grammar rule or AST type is needed. File
-    existence validation is handled by the generic
-    validate_file_reference_paths behavior (E016). The gherkin field
+    type string_list on the behavior entity kind via the FieldRegistry.
+    The field is parsed as a standard StringList value — no dedicated
+    grammar rule or AST type is needed. A project checks that each file
+    exists by attaching `@specforge/checks:file` to it (E016). The gherkin field
     is NOT a core grammar construct — it is a regular extension-declared
     field like any other.
   """
   verify unit "gherkin field registered with type string_list"
-  verify unit "gherkin field has file_reference=true"
   verify unit "gherkin values parsed as standard StringList"
 }
 

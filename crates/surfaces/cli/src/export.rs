@@ -46,6 +46,11 @@ pub(crate) struct Args {
     #[arg(long, conflicts_with = "no_schema")]
     with_schema: bool,
 
+    /// Give each entity in a `graph` or `context` export its checked values' outcomes as `checks`. Plain values
+    /// otherwise.
+    #[arg(long)]
+    with_checks: bool,
+
     /// Fail unless a reader of this schema version reads the export: the same major version, not newer than the project's schema
     #[arg(long)]
     schema_version: Option<String>,
@@ -80,6 +85,7 @@ impl Args {
             schema: export::Schema::of_flags(self.with_schema, self.no_schema)?,
             schema_version: self.schema_version.as_deref(),
             coverage: None,
+            with_checks: self.with_checks,
         })
     }
 
@@ -91,7 +97,7 @@ impl Args {
     /// what changed, is the version the export carries. After a successful
     /// export that schema replaces the cache, so the next export compares
     /// against it. The export is written whatever the comparison finds.
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         // checked here, not by clap's `conflicts_with`: `--format` has a default, and `--format graph` is taken
         if self.pick.is_some() && self.format != export::Format::Graph {
             errln!(
@@ -100,7 +106,7 @@ impl Args {
             );
             return Exit::Unjudged;
         }
-        let project = match self.project.compile() {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::fixed().report(terminal, &error),
         };
@@ -195,8 +201,8 @@ impl SchemaArgs {
     /// pretty printed. With `--publish`, the JSON Schema an export of that
     /// format conforms to. An unknown kind is refused with the closest one
     /// (exit 1).
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
-        let project = match self.project.compile() {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::fixed().report(terminal, &error),
         };

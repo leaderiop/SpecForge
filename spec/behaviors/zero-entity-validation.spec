@@ -37,7 +37,7 @@ behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
     vocabulary's kinds: no_incoming_edges, no_outgoing_edges, no_edges,
     missing_field_when_flag_set, missing_required_field,
     conditional_field_required, field_value_constraint, cycle_detection,
-    file_exists, verify_kind_allowlist, no_verify_statements, custom.
+    verify_kind_allowlist, no_verify_statements, custom.
     A rule that cannot work as declared — an unrecognized check, a field,
     constraint, edge type or wasm_function its check requires and lacks, an
     empty values list, a regex that does not compile — or a rule that reads
@@ -51,6 +51,7 @@ behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
   verify unit "parses no_incoming_edges pattern from manifest"
   verify unit "parses missing_field_when_flag_set pattern from manifest"
   verify unit "unrecognized pattern kind produces warning"
+  verify unit "a declared file_exists rule is W112 naming the checker that replaced it"
   verify unit "all required fields validated on each rule"
   verify unit "parses field_value_constraint pattern from manifest"
   verify unit "a cycle_detection rule without an edge_type produces W112 and is not registered"
@@ -101,12 +102,10 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
     of its edge type, whichever fields write them (every entity of a
     strongly connected set of those edges, whichever entity the cycle
     closes through).
-    file_exists MUST check that file-reference fields point to existing
-    files, a relative path resolved against the spec root (never the
-    working directory). A list field's items are each a path, a scalar's text is one; an empty
-    value, a block, an expression group, a variant list or a type union names none. A missing
-    path's diagnostic suggests a close sibling in its directory. A rule without a target kind applies to entities
-    of every kind. custom MUST dispatch to the Wasm function registered by
+    A rule without a target kind applies to entities of every kind. No
+    rule reads a path: a field whose value names a file carries a value
+    check (`@specforge/checks:file`), and a declared `file_exists` rule is
+    W112 naming it. custom MUST dispatch to the Wasm function registered by
     register_custom_validation_patterns. Each pattern violation MUST
     produce a diagnostic with the configured code and severity.
   """
@@ -126,11 +125,6 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "a cycle_detection rule reports an entity whose cycle closes through an entity already reported"
   verify unit "an edge rule no loaded field can satisfy at its target kind is inert"
   verify unit "the builtin extensions' rules register with no W112, W147 or W021"
-  verify unit "file_exists reports missing file-reference field targets"
-  verify unit "file_exists resolves a relative path against the spec root, never the working directory"
-  verify unit "file_exists checks each item of a list field as its own path"
-  verify unit "file_exists reads no path in a block, an expression group or an empty value"
-  verify unit "a missing path a file_exists rule names suggests a close sibling"
   verify unit "custom pattern dispatches to registered Wasm function"
   verify unit "pattern violation produces diagnostic with configured code and severity"
   verify unit "an edge from an entity to itself is no incoming edge: a builtin no_incoming_edges rule reports an entity only it references"
@@ -194,9 +188,8 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
     `fail` with the offending field and value), read strictly: an answer
     that is not a verdict is a failed call (call_extension_exports), never
     a pass or a fail.
-    The function body MAY call the `specforge.query_graph` host function
-    (see provide_host_function_query_graph) to access the compiled graph
-    for cross-entity semantic checks and custom graph traversals.
+    The function body MAY read the graph a call is handed for cross-entity
+    semantic checks and custom graph traversals.
     On failure, the engine MUST emit a diagnostic using the pattern's
     configured code, severity, and message template. Unresolvable
     wasm_function names MUST produce a warning (W112) at registration
@@ -315,10 +308,10 @@ behavior check_entities_in_one_order "Check the Entities in One Order" {
     snapshot_taken "the entity snapshot of the built graph is taken with the registry build it was built with"
   }
   ensures {
-    one_order              "the structural checks and the rule set run in one fixed order, the same on every surface"
-    one_gate               "with no entity kind registered, the checks that read kinds, fields and identifiers do not run"
-    gate_announced         "extensions that load but declare no entity kind leave one W151 naming the entities nobody checks"
-    reads_through_the_disk "every check reads the file system only through the disk it is given"
+    one_order      "the structural checks and the rule set run in one fixed order, the same on every surface"
+    one_gate       "with no entity kind registered, the checks that read kinds, fields and identifiers do not run"
+    gate_announced "extensions that load but declare no entity kind leave one W151 naming the entities nobody checks"
+    reads_no_file  "no check reads the file system"
   }
   contract   """
     After the entity snapshot is taken, the registry build MUST run every
@@ -328,11 +321,9 @@ behavior check_entities_in_one_order "Check the Entities in One Order" {
     fields (W020), verify statements on a kind that accepts none (W158),
     field values that cannot be their declared type (E061), values
     written in the other form than their field's (W159), then the
-    rule set: the extensions' rules by code, then the host's E006 rules
-    and its E016 rules, which report a path a file-reference field names
-    that does not exist (E016 is the host's file_exists rule for each
-    file-reference field, registry_build_rules). Check, watch, the LSP and MCP MUST report them in this
-    order, and no check reads a graph node.
+    rule set: the extensions' rules by code, then the host's E006 rules.
+    Check, watch, the LSP and MCP MUST report them in this order, and no
+    check reads a graph node.
 
     When no loaded extension declares an entity kind, the project is
     structural-only: E024, E013, E014, W020, W158 and E061 MUST NOT run,
@@ -350,17 +341,16 @@ behavior check_entities_in_one_order "Check the Entities in One Order" {
     a compile reports it with the graph build's diagnostics, before these
     checks.
 
-    The checks read the file system only through the disk they are
-    given; what they read there is the session's check inputs.
+    No check reads the file system: a path a field names is read by a
+    value checker, in the values phase.
   """
-  verify unit "the structural checks run in one order: W012, E024, E013, E014, W020, W158, E061, W159, then the rule set, the host's E006 and E016 rules last"
+  verify unit "the structural checks run in one order: W012, E024, E013, E014, W020, W158, E061, W159, then the rule set, the host's E006 rules last"
   verify unit "with no entity kind registered, E024, E013, E014, W020, W158 and E061 do not run, and W012 and the rules still do"
   verify unit "extensions that load but declare no entity kind report one W151 naming the unchecked entities"
   verify unit "an entity ID equal to a structural keyword or a registered kind's keyword is E013"
   verify unit "an entity ID shorter than 2 or longer than 60 characters is E014"
   verify unit "a fact's id is exempt from the identifier length contract"
   verify unit "the entity-ID rule answers for an ID exactly what E013 and E014 report of it"
-  verify unit "the checks read only through their disk: the paths file_exists rules read, E016's among them, and the directory a missing path's suggestion lists"
   verify integration "a compile reports the structural checks in the order the registry build runs them"
   verify unit "E013 and E014 judge an entity's name, not its path"
 }
@@ -490,7 +480,7 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a value that is not the declared integer, bool or enum type is an error"
   verify unit "no reference field of the repository's spec holds a bare number, date or boolean"
   verify unit "a block field with no declared members is an open map of named text entries"
-  verify unit "no builtin or pinned example declaration declares a member, a target union, a bound, a file base, an enum list or a block list"
+  verify unit "no builtin or pinned example declaration declares a member, a target union, a bound, an enum list or a block list"
   verify unit "a reference field reads a bare word as the name it spells, whether or not the word could be a number or a date"
   verify unit "a bare word is read by its field's declared type: a reference its name, an integer its difference, a date its day"
   verify unit "a list on a field declared as a single value is an error"
@@ -518,7 +508,7 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a typed block reads and admits each member by its own declared type"
   verify unit "an integer outside its declared minimum or maximum is E061 naming the bounds"
   verify unit "E061, E006, W020 and the declarative rules reach every member of every item of a typed block"
-  verify unit "a field descriptor carries its members, target kinds, bounds and file base on the wire"
+  verify unit "a field descriptor carries its members, target kinds and bounds on the wire"
   verify unit "a typed block is stored with each member coerced by its form, and a single block on a block list is its one item"
   verify unit "a block list takes a list of blocks and a typed block writes an object closed to its members"
   verify unit "the walker yields every typed member of a stored value by its member path, and reading_at reads a declared member path"

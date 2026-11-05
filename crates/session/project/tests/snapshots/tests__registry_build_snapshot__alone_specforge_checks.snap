@@ -1,0 +1,204 @@
+---
+source: crates/session/project/tests/registry_build_snapshot.rs
+expression: "digest(&load(&runtime, &[name]))"
+---
+{
+  "check_passes": [],
+  "commands": [],
+  "diagnostics": [],
+  "edges": {},
+  "ext_short": {
+    "@specforge/checks": "checks"
+  },
+  "extension_info": [
+    [
+      "@specforge/checks",
+      "1.0.0"
+    ]
+  ],
+  "fields": {
+    "check_outcome.checker": {
+      "derived_from": null,
+      "description": "The checker, qualified: @specforge/checks:url",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "checker",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "check_outcome",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@specforge/checks",
+      "target_kind": null
+    },
+    "check_outcome.codes": {
+      "derived_from": null,
+      "description": "The codes it found",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "codes",
+      "field_type": "StringList",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "check_outcome",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@specforge/checks",
+      "target_kind": null
+    },
+    "check_outcome.digest": {
+      "derived_from": null,
+      "description": "The digest of what its probes answered, free of when (sha256:<hex>)",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "digest",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "check_outcome",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@specforge/checks",
+      "target_kind": null
+    },
+    "check_outcome.entity": {
+      "derived_from": null,
+      "description": "The id of the checked entity",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "entity",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "check_outcome",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@specforge/checks",
+      "target_kind": null
+    },
+    "check_outcome.field": {
+      "derived_from": null,
+      "description": "The checked field's declared path",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "field",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "check_outcome",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@specforge/checks",
+      "target_kind": null
+    },
+    "check_outcome.item": {
+      "derived_from": null,
+      "description": "The value's place in its list; 0 for a single value",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "item",
+      "field_type": "Integer",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "check_outcome",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@specforge/checks",
+      "target_kind": null
+    },
+    "check_outcome.observed_at": {
+      "derived_from": null,
+      "description": "When its oldest journaled answer was observed (RFC 3339, UTC): the journal record's; absent when it read only the disk or git",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "observed_at",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "check_outcome",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@specforge/checks",
+      "target_kind": null
+    },
+    "check_outcome.outcome": {
+      "derived_from": null,
+      "description": "What its probes answered: ok, status:404, unreachable:dns, …",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "outcome",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "check_outcome",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@specforge/checks",
+      "target_kind": null
+    },
+    "check_outcome.status": {
+      "derived_from": null,
+      "description": "passed (no finding), failed (a finding) or skipped (not performed)",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "status",
+      "field_type": "Enum([\"passed\", \"failed\", \"skipped\"])",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "check_outcome",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@specforge/checks",
+      "target_kind": null
+    }
+  },
+  "graph_inputs": {
+    "absent_targets": {},
+    "derived_references": [],
+    "field_forms": {
+      "check_outcome.checker": "string",
+      "check_outcome.codes": "string_list",
+      "check_outcome.digest": "string",
+      "check_outcome.entity": "string",
+      "check_outcome.field": "string",
+      "check_outcome.item": "integer",
+      "check_outcome.observed_at": "string",
+      "check_outcome.outcome": "string",
+      "check_outcome.status": "enum (passed, failed, skipped)"
+    },
+    "member_kinds": []
+  },
+  "kinds": {
+    "check_outcome": {
+      "allowed_verify_kinds": [],
+      "contract_target": false,
+      "declares_types": false,
+      "description": "What one check said of one value (ADR 0336), written by the checks collector: check:<entity>/<field>#<item>@<checker>",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "has_body_parser": false,
+      "kind_name": "check_outcome",
+      "lsp_icon": null,
+      "open_fields": false,
+      "semantic_token": null,
+      "singleton": false,
+      "source_extension": "@specforge/checks",
+      "supports_verify": false,
+      "testable": false
+    }
+  },
+  "manifest_surfaces": [],
+  "rules": [],
+  "shadowed": 0
+}

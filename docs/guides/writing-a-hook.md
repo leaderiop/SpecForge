@@ -49,20 +49,22 @@ A sandboxed guest cannot read files or run commands, so the host computes what a
 - `shell`: a shell tool's command as words (POSIX quoting; a command the host cannot split gives none);
 - `commit`: the message (absent when it is not given with `-m`) and whether it amends;
 - `prompt`, `response`, `status`: what the host sent for those events;
-- `graph` (`reads_graph`; with computed values and judgements, ADR 0299), `revisions` (`writes`) and `state` (`reads_state`), only when declared.
+- `graph` (a `graph` input; with computed values and judgements, ADR 0299), `revisions` (`writes`) and `state` (a `state`
+  input), only when declared.
 
 ## Hosts, git, other settings and a file watch
 
-Each is a declaration on the hook; a hook that declares none is sent none of it.
+Each is a declaration on the hook; a hook that declares none is sent none of it. What the host reads for a hook is one
+list of inputs (protocol 2.0.0, ADR 0337), declared with `h.input(Input::..)`.
 
 ```rust
 c.hook("codex_only_tip", HookEvent::UserPrompt, |h| {
     h.hosts(&["codex"]); // wired only on Codex; the host comes from the adapter, never from the event
 });
 c.hook("branch_note", HookEvent::PostTool, |h| {
-    h.reads_git_status() // or `.reads_git()` for the head alone
+    h.input(Input::git().status()) // or `Input::git()` for the head alone
         .handler(|call| {
-            let git = call.facts().git; // toplevel, git_dir, branch and, with status, the porcelain text
+            let git = call.facts().git; // toplevel, git_dir, branch and, with status, the typed `GitStatus`
             Ok(HookOutput::default())
         });
 });
@@ -70,19 +72,21 @@ c.hook("reload_notice", HookEvent::FileChanged, |h| {
     h.paths(&["specforge.json"]).handler(|call| Ok(HookOutput::allow())); // `change`: change, add or unlink
 });
 c.hook("ui_gate", HookEvent::PreTool, |h| {
-    h.reads_setting("@acme/x", "x.y") // read it with `call.other_setting("@acme/x", "x.y")`
+    h.input(Input::setting("@acme/x", "x.y")) // read it with `call.other_setting("@acme/x", "x.y")`
         .handler(|call| Ok(HookOutput::allow()));
 });
 ```
 
 - **`hosts`** (ADR 0322): install renders the hook only on the hosts named (`claude-code`, `codex`, `cursor`), and
   `specforge hook` is a no-op on any other.
-- **`reads_git` / `reads_git_status`** (ADR 0320): the input carries the repository the working directory is in. Every
+- **`Input::git()` / `Input::git().status()`** (ADR 0320): the input carries the repository the working directory is
+  in; `.status()` adds its typed status (branch, ahead and behind, and each entry with its index and worktree change),
+  parsed once by the host. `.when("setting")` collects it only while that bool setting is on. Every
   path outside the project also carries `real` (symlinks resolved), `toplevel` (the repository it is in) and
   `in_git_dir`, so a guard compares repositories as git does, not by prefix.
 - **A shell tool's `commands`** are its command split at the control operators, each as words; a commit's `cleanup`
   lists its cleanup modes in order.
-- **`reads_setting`** (ADR 0323): the value of one setting of another extension, or nothing when it is absent.
+- **`Input::setting`** (ADR 0323): the value of one setting of another extension, or nothing when it is absent.
 - **`file_changed`** (ADR 0321): see Events. A hook that reads no graph and writes nothing is answered without a compile
   (ADR 0324).
 - **Fail closed** (ADR 0324): a hook whose policy is `deny` fails closed when `specforge` is missing from the host's
@@ -109,7 +113,7 @@ reading and says so.
 
 ## State
 
-A hook that declares `reads_state` is sent `state.project` and, when the host names a session, `state.session`: small
+A hook that declares the `state` input is sent `state.project` and, when the host names a session, `state.session`: small
 JSON objects the host keeps under `.specforge/state/<extension>/` (git-ignored). Answer `state` as merge patches
 (RFC 7396; `null` removes a key) and the host applies them after the plan, under the write lock. Each document holds at
 most 64 KiB; a patch over it is refused whole and reported as a notice, and nothing changes. Sessions untouched for 30

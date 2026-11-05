@@ -73,8 +73,8 @@ impl Args {
     /// `specforge model`: the model operation over the project compiled at
     /// `path`. The model on stdout, the notices (I020) on stderr, a refusal
     /// as `error[CODE]` with its hint (exit 1).
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
-        let project = match self.project.compile() {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::fixed().report(terminal, &error),
         };

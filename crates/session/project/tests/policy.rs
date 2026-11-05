@@ -157,3 +157,48 @@ fn lint_profiles_are_a_closed_set() {
         DiagnosticPolicy::default().apply(reported, no_lint)
     );
 }
+
+#[specforge_test(
+    behavior = "check_diagnostic_policy",
+    verify = "strict never promotes a machine diagnostic, an extension's included"
+)]
+fn strict_never_promotes_a_machine_diagnostic() {
+    let machine = Diagnostic::from_extension("@acme/links", "acme/W901", Severity::Warning, "m")
+        .decided_by_machine(true);
+    let promoted = DiagnosticPolicy::strict(true).apply(vec![machine, warning()], no_lint);
+    assert_eq!(
+        promoted[0].severity,
+        Severity::Warning,
+        "this machine decided it"
+    );
+    assert_eq!(
+        promoted[1].severity,
+        Severity::Error,
+        "the project's warning is promoted"
+    );
+    assert_eq!(specforge_common::compute_exit_code(&promoted[..1]), 0);
+}
+
+#[specforge_test(
+    behavior = "check_diagnostic_policy",
+    verify = "the value checks a run did not perform are one I206, counted by scope"
+)]
+fn i206_counts_each_scope_once() {
+    let mut log = specforge_effects::mode::Log::default();
+    assert!(
+        specforge_project::effects::not_run(&log).is_none(),
+        "every check ran"
+    );
+    log.not_run.insert("registries".into(), 3);
+    log.not_run.insert("links".into(), 2);
+    let i206 = specforge_project::effects::not_run(&log).expect("five not run");
+    assert_eq!(i206.code, "I206");
+    assert_eq!(i206.severity, Severity::Info);
+    assert!(i206.machine);
+    assert!(
+        i206.message
+            .starts_with("5 value checks not run on this machine (links 2, registries 3)"),
+        "{}",
+        i206.message
+    );
+}

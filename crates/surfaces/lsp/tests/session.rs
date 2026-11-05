@@ -47,7 +47,7 @@ pub fn docref_project(spec: &str) -> tempfile::TempDir {
         "name": "p",
         "version": "0.1.0",
         "spec_root": "spec",
-        "extensions": ["@specforge/software", "@sdk/docref=ext/docref.wasm"],
+        "extensions": ["@specforge/software", "@specforge/checks", "@sdk/docref=ext/docref.wasm"],
     });
     std::fs::write(root.join("specforge.json"), config.to_string()).unwrap();
     std::fs::copy(
@@ -61,7 +61,8 @@ pub fn docref_project(spec: &str) -> tempfile::TempDir {
 
 /// A gadget of the docref project naming `../docs/guide.md` (from `spec/`:
 /// `docs/guide.md` under the root), which does not exist.
-pub const NAMES_GUIDE: &str = "gadget gadget_one \"G\" {\n  docs [\"../docs/guide.md\"]\n}\n";
+pub const NAMES_GUIDE: &str =
+    "gadget gadget_one \"G\" {\n  docs [\"<project>/docs/guide.md\"]\n}\n";
 
 /// The `didChangeWatchedFiles` watchers of a `client/registerCapability` request.
 pub fn registered_globs(registration: &Value) -> Vec<String> {
@@ -88,7 +89,8 @@ impl Session {
     pub fn spawn() -> Session {
         let (client_to_server, server_stdin) = tokio::io::duplex(1 << 20);
         let (server_stdout, server_to_client) = tokio::io::duplex(1 << 20);
-        let (service, socket) = specforge_lsp::backend::service();
+        let (service, socket) =
+            specforge_lsp::backend::service(specforge_effects::testing::ports());
         let server = tokio::spawn(async move {
             Server::new(server_stdin, server_stdout, socket)
                 .serve(service)

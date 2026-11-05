@@ -19,6 +19,7 @@ fn hover_explains_a_third_party_code() {
                 title: "Greeting missing".into(),
                 explanation: "Add a greeting.".into(),
                 docs: Some("https://greet.dev/codes#e901".into()),
+                machine: false,
             }],
         )
         .unwrap();

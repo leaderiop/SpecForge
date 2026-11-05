@@ -87,6 +87,10 @@ pub struct ProjectRef<'a> {
     pub solver: &'a dyn Solver,
     /// The host's collector machine (the server's): what `specforge.collect` runs commands on.
     pub machine: &'a dyn CollectorMachine,
+    /// The host's approvals (the server's), when it gave some; none: the user's consent store for this project.
+    pub consent: Option<&'a dyn specforge_effects::Consent>,
+    /// The server's effect-plane adapters (ADR 0335): what a tool reaches the network and the disk through.
+    pub ports: &'a specforge_effects::Ports,
     /// The project view, built once for the call: rooted at the project
     /// root, reporting what the server reports for the project.
     view: ProjectView<'a>,
@@ -99,6 +103,32 @@ impl<'a> ProjectRef<'a> {
     /// ADR 0183), nobody to ask. A tool hands it to the operation's request and builds none of its own.
     pub fn caller(&self) -> Caller<'_> {
         lent(self.view.containment())
+    }
+
+    /// The host's approvals, or the user's consent store for this project, held in `user`.
+    pub fn consent_or_users<'c>(
+        &self,
+        user: &'c mut Option<specforge_ops::consent::UserConsent>,
+    ) -> &'c dyn specforge_effects::Consent
+    where
+        'a: 'c,
+    {
+        match self.consent {
+            Some(consent) => consent,
+            None => user.insert(specforge_ops::consent::UserConsent::user(self.root.dir())),
+        }
+    }
+
+    /// `run` under [`Self::caller`], which lends the server's ports to an effectful extension call in `mode`, under
+    /// stored approvals only (ADR 0335 D4).
+    pub fn lend<R>(
+        &self,
+        mode: specforge_effects::EffectsMode,
+        run: impl FnOnce(Caller<'_>) -> R,
+    ) -> R {
+        let mut user = None;
+        let consent = self.consent_or_users(&mut user);
+        run(self.caller().lending(self.ports, consent, mode))
     }
 
     /// Whether it is the served project (not one a `path` named): the server
@@ -158,11 +188,12 @@ pub struct Call<'s> {
 impl<'s> Call<'s> {
     /// A call on `target`, resolved by [`resolve`].
     pub(crate) fn new(state: &'s mut McpState, target: CallTarget) -> Self {
-        let other = match &target {
-            CallTarget::Other(session) => session.project().root(),
-            _ => None,
+        let containment = match &target {
+            CallTarget::Other(session) if session.project().root().is_some() => {
+                containment::of_project(session.project(), state.consent.as_deref())
+            }
+            _ => containment::bound(state),
         };
-        let containment = other.map_or_else(|| containment::bound(state), Containment::within);
         Call {
             state,
             target,
@@ -221,6 +252,8 @@ impl<'s> Call<'s> {
                     source: self.state.source(),
                     solver: &*self.state.solver,
                     machine: &*self.state.collector_machine,
+                    consent: self.state.consent.as_deref(),
+                    ports: &self.state.ports,
                     view,
                     served: true,
                 })
@@ -241,6 +274,8 @@ impl<'s> Call<'s> {
                     source: self.state.source(),
                     solver: &*self.state.solver,
                     machine: &*self.state.collector_machine,
+                    consent: self.state.consent.as_deref(),
+                    ports: &self.state.ports,
                     view,
                     served: false,
                 })

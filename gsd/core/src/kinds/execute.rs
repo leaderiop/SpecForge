@@ -8,7 +8,7 @@ const ACTUALS: &[Field] = &[int("tasks"), int("commits")];
 
 /// `NN-MM-SUMMARY.md`, named `03-02-SUMMARY` and scoped by its plan. It lives in the plan's own file, so the executors
 /// of one wave never write the same file. GSD's `actuals.tokens` is absent until a harness exists (decision U4).
-// Paths are `strs`, not `files`: a commit may delete or rename a path, so the host's E016 would fire on it.
+// Paths are `strs`, not `files`: a commit may delete or rename a path, so the file check's E016 would fire on it.
 pub const SUMMARY: Kind = Kind::new(
     "summary",
     "What a plan did when it ended (GSD NN-MM-SUMMARY.md)",

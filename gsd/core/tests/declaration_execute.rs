@@ -97,15 +97,11 @@ fn the_execute_kinds_declare_the_fields_of_the_model() {
     for field in ["duration", "actuals", "files_created", "files_modified"] {
         assert_eq!(writer("summary", field), "computed", "{field}");
     }
-    // A path a commit touched may be deleted or renamed since: text, never the host's `file_reference` (E016).
+    // A path a commit touched may be deleted or renamed since: text, never a file check (E016).
     for field in ["files_created", "files_modified"] {
-        assert_ne!(
-            field_of("summary", field)["file_reference"],
-            true,
-            "{field}"
-        );
+        assert!(field_of("summary", field)["checks"].is_null(), "{field}");
     }
-    assert_ne!(field_of("deviation", "files")["file_reference"], true);
+    assert!(field_of("deviation", "files")["checks"].is_null());
 }
 
 #[test]
@@ -181,7 +177,7 @@ fn the_commit_kind_is_harness_written() {
     // The commit is in the project scope, and a path it touched is text: a later commit may delete it.
     assert!(kind_of("commit")["scoped_by"].is_null());
     for field in ["files", "created"] {
-        assert_ne!(field_of("commit", field)["file_reference"], true, "{field}");
+        assert!(field_of("commit", field)["checks"].is_null(), "{field}");
     }
     // The task and the plan read their commits back by one name each.
     for field in ["task", "plan"] {
@@ -317,22 +313,30 @@ fn the_model_counts_its_fields() {
 
 #[test]
 fn the_git_collector_runs_git_log_and_writes_a_plan() {
-    let git = MockHost::new(build())
-        .declaration()
+    let declaration = MockHost::new(build()).declaration();
+    let git = declaration
         .collectors
-        .into_iter()
+        .iter()
         .find(|c| c.name == "gsd-git")
         .expect("the gsd-git collector");
+    // Its command is the process capability it names (ADR 0335 D2.1).
+    let run = declaration
+        .capabilities
+        .iter()
+        .find(|c| Some(&c.name) == git.capability.as_ref())
+        .and_then(|c| match &c.port {
+            specforge_extension_sdk::PortScope::Process(process) => Some(process.argv.clone()),
+            _ => None,
+        })
+        .expect("the gsd-git process capability");
     assert!(git.writes, "it creates the commit entities");
     assert_eq!(git.capture.as_deref(), Some("stdout"));
-    assert_eq!(git.run[..2], ["git", "-c"]);
-    assert!(
-        git.run.contains(&"--numstat".to_string()) && git.run.contains(&"--summary".to_string())
-    );
+    assert_eq!(run[..2], ["git", "-c"]);
+    assert!(run.contains(&"--numstat".to_string()) && run.contains(&"--summary".to_string()));
     // Merges are read (for the parents a commit descends through), not recorded.
-    assert!(git.run.contains(&"log".to_string()) && !git.run.contains(&"--no-merges".to_string()));
+    assert!(run.contains(&"log".to_string()) && !run.contains(&"--no-merges".to_string()));
     // The trailer before the subject, unfolded: the subject stays last (ADR 0331 D3).
-    assert!(git.run.contains(
+    assert!(run.contains(
         &"--format=%x00%H%x1f%P%x1f%at%x1f%(trailers:key=Gsd-Task,valueonly,unfold,separator=%x1e)%x1f%s"
             .to_string()
     ));
@@ -368,7 +372,7 @@ fn the_junit_collector_reads_a_report_and_is_handed_the_graph() {
     assert!(junit.writes);
     assert_eq!(junit.report.as_deref(), Some("junit.xml"));
     // GSD is language-agnostic: no command to run, and no detection that would select it for a plain `collect`.
-    assert!(junit.run.is_empty());
+    assert!(junit.capability.is_none());
     assert!(junit.auto_detect.is_none());
     assert!(junit.capture.is_none());
     assert_eq!(junit.input_formats, ["junit-xml"]);

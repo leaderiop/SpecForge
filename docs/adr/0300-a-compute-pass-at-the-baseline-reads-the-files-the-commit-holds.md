@@ -4,6 +4,8 @@
 [ADR 0287](0287-who-writes-a-field-is-declared.md) (the baseline),
 [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (the on-demand blob fetch at a commit) and
 [ADR 0293](0293-a-pass-or-command-declares-the-project-files-it-reads.md) (declared reads). No protocol change.
+**Amended by** [ADR 0339](0339-a-verb-the-user-types-reaches-the-ports-under-the-ceiling.md) D5 (D5 below: under
+gix a blob a partial clone lacks reads `unreadable` on every machine; `GIT_NO_LAZY_FETCH` and the git 2.44 clause go).
 
 ## Context
 

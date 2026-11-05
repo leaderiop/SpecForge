@@ -124,7 +124,7 @@ fn report(call: &CommandCall<'_>, action: &str) -> Result<CommandOutput, String>
     if all.is_empty() {
         human.push_str("no workstreams\n");
     }
-    // Only `progress` says which workstream is active, as upstream's does (`reads_state`).
+    // Only `progress` says which workstream is active, as upstream's does (the `state` input).
     let Some(active) = active else {
         return Ok(answer(call, json!({ "workstreams": rows }), human, None));
     };
@@ -258,7 +258,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     c.command("workstreams", |cmd| {
         cmd.description("Manage workstreams: list them, show their status and progress, create one, say whether one is complete, or switch to one")
             .writes()
-            .reads_state()
+            .input(Input::State)
             .arg("action", |a| {
                 a.required().one_of(ACTIONS).description("what to do");
             })

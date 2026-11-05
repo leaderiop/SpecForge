@@ -35,10 +35,10 @@ impl Args {
     /// compiled at `path` (ADR 0015, "Prompt read views"), the document the
     /// review prompt renders. An unknown entity is E003, a recorded report that
     /// cannot be read E045; either exits 1, as every read view refuses.
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let format = self.output.format;
         let request = self.request();
-        let project = match self.project.compile() {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };

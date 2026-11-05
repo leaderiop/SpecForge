@@ -29,7 +29,11 @@ impl CoreTool for Tool {
         // The same report `specforge doctor` prints (`DoctorReport::document`), as
         // the spec's McpDoctorReport. Credential health is the user's, not the
         // project's: only the CLI reports it.
-        let report = specforge_ops::analysis::doctor::diagnose(&project.view(), project.solver);
+        let view = project.view();
+        let mut user = None;
+        let consent = project.consent_or_users(&mut user);
+        let report = specforge_ops::analysis::doctor::diagnose(&view, project.solver)
+            .with_grants(&view, consent);
         Ok(report.document().into())
     }
 }

@@ -15,6 +15,7 @@ const NEEDLES: &[&str] = &[
     "fs::remove_file(",
     "fs::remove_dir_all(",
     "fs::create_dir_all(",
+    "fs::create_dir(",
     "fs::copy(",
     "File::create(",
     "File::open(",
@@ -24,28 +25,22 @@ const NEEDLES: &[&str] = &[
 /// `(file under src/, needle, how many lines, why it is not a project file held by a containment)`.
 const ALLOWED: &[(&str, &str, usize, &str)] = &[
     (
+        "verbs/mod.rs",
+        "fs::create_dir(",
+        1,
+        "the verbs' temp root under .specforge, which the host owns (ADR 0339)",
+    ),
+    (
+        "consent.rs",
+        "File::open(",
+        1,
+        "the user's consent store, not a project file",
+    ),
+    (
         "change/journal.rs",
         "fs::remove_file(",
         2,
         "the write journal under .specforge, which the host owns",
-    ),
-    (
-        "analysis/collect/process.rs",
-        "fs::read_to_string(",
-        1,
-        "the user's consent store, not a project file",
-    ),
-    (
-        "analysis/collect/process.rs",
-        "fs::create_dir_all(",
-        1,
-        "the user's consent store, not a project file",
-    ),
-    (
-        "analysis/collect/process.rs",
-        "fs::write(",
-        1,
-        "the user's consent store, not a project file",
     ),
     (
         "solver.rs",

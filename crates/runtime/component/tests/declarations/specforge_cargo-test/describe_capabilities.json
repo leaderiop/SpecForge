@@ -1,0 +1,19 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "argv": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--no-fail-fast"
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "name": "cargo-test",
+      "port": "process",
+      "why": "run the command whose report the collector 'cargo-test' reads"
+    }
+  ]
+}

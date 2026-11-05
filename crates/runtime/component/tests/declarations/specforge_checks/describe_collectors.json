@@ -1,0 +1,16 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "auto_detect": null,
+      "export": "collect__checks",
+      "input_formats": [],
+      "inputs": [
+        {
+          "input": "check_outcomes"
+        }
+      ],
+      "name": "checks"
+    }
+  ]
+}

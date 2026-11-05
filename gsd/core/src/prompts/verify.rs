@@ -69,8 +69,7 @@ static VERIFY_WORK: Spec = Spec {
         tools: &["read", "shell", "search", "edit", "write", "agent"],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: Some(uat),
 };
 
@@ -90,8 +89,7 @@ static VALIDATE_PHASE: Spec = Spec {
         ],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: None,
 };
 
@@ -111,8 +109,7 @@ static ADD_TESTS: Spec = Spec {
         ],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: None,
 };
 

@@ -341,11 +341,35 @@ expression: listing
           ],
           "type": "object"
         },
+        "SchemaCheck": {
+          "additionalProperties": false,
+          "properties": {
+            "any_of": {
+              "items": {
+                "$ref": "#/$defs/SchemaCheck"
+              },
+              "type": "array"
+            },
+            "args": {
+              "type": "object"
+            },
+            "checker": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "SchemaField": {
           "additionalProperties": false,
           "properties": {
             "append_only": {
               "type": "boolean"
+            },
+            "checks": {
+              "items": {
+                "$ref": "#/$defs/SchemaCheck"
+              },
+              "type": "array"
             },
             "default_value": {
               "type": "string"
@@ -378,9 +402,6 @@ expression: listing
                 "enum_list",
                 "block_list"
               ],
-              "type": "string"
-            },
-            "file_base": {
               "type": "string"
             },
             "immutable": {
@@ -473,6 +494,52 @@ expression: listing
           ],
           "type": "object"
         },
+        "ValueCheckJson": {
+          "additionalProperties": false,
+          "properties": {
+            "checker": {
+              "type": "string"
+            },
+            "codes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "field": {
+              "type": "string"
+            },
+            "from_cache": {
+              "type": "boolean"
+            },
+            "item": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "observed_at": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "outcome": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "field",
+            "item",
+            "value",
+            "checker",
+            "status",
+            "from_cache"
+          ],
+          "type": "object"
+        },
         "VerdictJson": {
           "additionalProperties": false,
           "properties": {
@@ -526,6 +593,12 @@ expression: listing
                       "type": "array"
                     },
                     "type": "object"
+                  },
+                  "checks": {
+                    "items": {
+                      "$ref": "#/$defs/ValueCheckJson"
+                    },
+                    "type": "array"
                   },
                   "computed": {
                     "items": {
@@ -651,6 +724,12 @@ expression: listing
                       "type": "array"
                     },
                     "type": "object"
+                  },
+                  "checks": {
+                    "items": {
+                      "$ref": "#/$defs/ValueCheckJson"
+                    },
+                    "type": "array"
                   },
                   "computed": {
                     "items": {
@@ -808,6 +887,16 @@ expression: listing
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
+        "effects": {
+          "description": "Whether this check performs, reuses or replays an http or process effect (ADR 0337): cached (the default) performs none and answers from the effects journal; replay answers only from it and refuses not_in_journal on a miss; online and auto perform effects for this call, re-running the checks over the served project",
+          "enum": [
+            "online",
+            "auto",
+            "cached",
+            "replay"
+          ],
+          "type": "string"
+        },
         "lint": {
           "description": "Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json; pedantic is the default and adds nothing)",
           "items": {
@@ -1362,6 +1451,11 @@ expression: listing
         "scope": {
           "description": "Scope to entity subgraph",
           "type": "string"
+        },
+        "with_checks": {
+          "default": false,
+          "description": "Give each entity in a graph or context export its checked values' outcomes as `checks` (ADR 0336); without it, plain values",
+          "type": "boolean"
         },
         "with_schema": {
           "default": false,
@@ -2019,11 +2113,35 @@ expression: listing
     },
     "outputSchema": {
       "$defs": {
+        "SchemaCheck": {
+          "additionalProperties": false,
+          "properties": {
+            "any_of": {
+              "items": {
+                "$ref": "#/$defs/SchemaCheck"
+              },
+              "type": "array"
+            },
+            "args": {
+              "type": "object"
+            },
+            "checker": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "SchemaField": {
           "additionalProperties": false,
           "properties": {
             "append_only": {
               "type": "boolean"
+            },
+            "checks": {
+              "items": {
+                "$ref": "#/$defs/SchemaCheck"
+              },
+              "type": "array"
             },
             "default_value": {
               "type": "string"
@@ -2056,9 +2174,6 @@ expression: listing
                 "enum_list",
                 "block_list"
               ],
-              "type": "string"
-            },
-            "file_base": {
               "type": "string"
             },
             "immutable": {
@@ -3079,6 +3194,52 @@ expression: listing
           ],
           "type": "object"
         },
+        "ValueCheckJson": {
+          "additionalProperties": false,
+          "properties": {
+            "checker": {
+              "type": "string"
+            },
+            "codes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "field": {
+              "type": "string"
+            },
+            "from_cache": {
+              "type": "boolean"
+            },
+            "item": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "observed_at": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "outcome": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "field",
+            "item",
+            "value",
+            "checker",
+            "status",
+            "from_cache"
+          ],
+          "type": "object"
+        },
         "VerdictJson": {
           "additionalProperties": false,
           "properties": {
@@ -3113,6 +3274,12 @@ expression: listing
             "type": "array"
           },
           "type": "object"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/ValueCheckJson"
+          },
+          "type": "array"
         },
         "computed": {
           "items": {
@@ -6262,6 +6429,63 @@ expression: listing
           "items": {
             "additionalProperties": false,
             "properties": {
+              "capabilities": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "scope": {
+                      "type": "string"
+                    },
+                    "why": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "scope",
+                    "why"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "checkers": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "applies_to": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "codes": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "scopes": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "applies_to"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
               "entity_count": {
                 "minimum": 0,
                 "type": "integer"
@@ -6272,10 +6496,7 @@ expression: listing
                 },
                 "type": "array"
               },
-              "name": {
-                "type": "string"
-              },
-              "reads": {
+              "inputs": {
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -6283,6 +6504,9 @@ expression: listing
                       "type": "string"
                     },
                     "glob": {
+                      "type": "string"
+                    },
+                    "input": {
                       "type": "string"
                     },
                     "name": {
@@ -6297,12 +6521,16 @@ expression: listing
                   },
                   "required": [
                     "owner",
+                    "input",
                     "name",
                     "text"
                   ],
                   "type": "object"
                 },
                 "type": "array"
+              },
+              "name": {
+                "type": "string"
               },
               "source": {
                 "type": "string"
@@ -7776,14 +8004,69 @@ expression: listing
           "items": {
             "additionalProperties": false,
             "properties": {
+              "capabilities": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "approved_at": {
+                      "type": "string"
+                    },
+                    "call_kinds": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "in_use": {
+                      "type": "boolean"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "narrowed": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "port": {
+                      "type": "string"
+                    },
+                    "scope": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "enum": [
+                        "none-needed",
+                        "approved",
+                        "not-approved",
+                        "narrowed-out"
+                      ],
+                      "type": "string"
+                    },
+                    "why": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "port",
+                    "scope",
+                    "why",
+                    "call_kinds",
+                    "narrowed",
+                    "in_use",
+                    "state"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
               "enhancement_count": {
                 "minimum": 0,
                 "type": "integer"
               },
-              "name": {
-                "type": "string"
-              },
-              "reads": {
+              "inputs": {
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -7791,6 +8074,9 @@ expression: listing
                       "type": "string"
                     },
                     "glob": {
+                      "type": "string"
+                    },
+                    "input": {
                       "type": "string"
                     },
                     "name": {
@@ -7805,12 +8091,16 @@ expression: listing
                   },
                   "required": [
                     "owner",
+                    "input",
                     "name",
                     "text"
                   ],
                   "type": "object"
                 },
                 "type": "array"
+              },
+              "name": {
+                "type": "string"
               },
               "source": {
                 "type": "string"
@@ -8411,6 +8701,42 @@ expression: listing
                 "properties": {
                   "about": {
                     "enum": [
+                      "grants"
+                    ],
+                    "type": "string"
+                  },
+                  "check": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "remediation": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "error",
+                      "warn",
+                      "info"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "check",
+                  "status",
+                  "code",
+                  "remediation",
+                  "about"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "about": {
+                    "enum": [
                       "host"
                     ],
                     "type": "string"
@@ -8457,6 +8783,33 @@ expression: listing
         "ok": {
           "type": "boolean"
         },
+        "roots": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "approved": {
+                "type": "boolean"
+              },
+              "inside": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "target",
+              "inside",
+              "approved"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
         "z3_available": {
           "type": "boolean"
         }
@@ -8491,6 +8844,16 @@ expression: listing
           "default": false,
           "description": "Plan a writing collector's edits and write none of them (the report is still recorded)",
           "type": "boolean"
+        },
+        "effects": {
+          "description": "Whether an http or process effect the collector asks for is performed, reused or replayed (ADR 0337): cached (the default) performs none and answers from the effects journal; replay answers only from it; online and auto perform what the collector's approved capabilities allow",
+          "enum": [
+            "online",
+            "auto",
+            "cached",
+            "replay"
+          ],
+          "type": "string"
         },
         "path": {
           "description": "Project root path (the served project if omitted)",

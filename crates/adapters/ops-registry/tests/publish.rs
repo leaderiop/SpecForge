@@ -48,7 +48,7 @@ impl World {
     }
 
     fn registry(&self, token: Option<&str>) -> ConfiguredRegistry {
-        ConfiguredRegistry::for_project(&self.project.project_root(), "publish")
+        ConfiguredRegistry::for_project(&self.project.project_root(), "publish", &crate::ports())
             .as_user(User::at(self.project.home(), token.map(str::to_string)))
             .with_client(self.client.clone())
     }
@@ -100,7 +100,7 @@ fn the_adapter_refuses_before_any_request_in_this_order() {
     let empty = TestProject::new().without_config();
     let home = TempDir::new().unwrap();
     let client = MemoryClient::new().accepting("t");
-    let error = ConfiguredRegistry::for_project(&empty.project_root(), "publish")
+    let error = ConfiguredRegistry::for_project(&empty.project_root(), "publish", &crate::ports())
         .as_user(User::at(home.path(), Some("t".into())))
         .with_client(client.clone())
         .publish(&pkg("@acme/x", "1.0.0").package(), WASM)
@@ -449,8 +449,9 @@ fn a_retry_after_beyond_the_longest_backoff_is_not_waited_for() {
         window: std::time::Duration::from_secs(60),
     });
     let (project, home) = on_server(&server);
-    let registry = ConfiguredRegistry::for_project(&project.project_root(), "publish")
-        .as_user(User::at(home.path(), Some(server.token().to_string())));
+    let registry =
+        ConfiguredRegistry::for_project(&project.project_root(), "publish", &crate::ports())
+            .as_user(User::at(home.path(), Some(server.token().to_string())));
 
     registry
         .publish(&pkg("@acme/x", "1.0.0").package(), WASM)
@@ -483,8 +484,9 @@ fn a_rate_limited_publish_is_sent_again_after_its_wait() {
         window: std::time::Duration::from_secs(1),
     });
     let (project, home) = on_server(&server);
-    let registry = ConfiguredRegistry::for_project(&project.project_root(), "publish")
-        .as_user(User::at(home.path(), Some(server.token().to_string())));
+    let registry =
+        ConfiguredRegistry::for_project(&project.project_root(), "publish", &crate::ports())
+            .as_user(User::at(home.path(), Some(server.token().to_string())));
 
     registry
         .publish(&pkg("@acme/x", "1.0.0").package(), WASM)
@@ -517,9 +519,10 @@ fn an_unset_token_variable_is_r010_before_any_request() {
     let home = home_with_credentials(
         r#"{"registries":{"https://acme.invalid":{"token_env":"P16_UNSET_TOKEN_VARIABLE"}}}"#,
     );
-    let registry = ConfiguredRegistry::for_project(&world.project.project_root(), "publish")
-        .as_user(User::at(home.path(), None))
-        .with_client(world.client.clone());
+    let registry =
+        ConfiguredRegistry::for_project(&world.project.project_root(), "publish", &crate::ports())
+            .as_user(User::at(home.path(), None))
+            .with_client(world.client.clone());
 
     let error = registry
         .publish(&pkg("@acme/x", "1.0.0").package(), WASM)
@@ -549,9 +552,10 @@ fn a_token_variable_is_sent_as_the_bearer_token() {
     );
     // SAFETY: the variable is named by this test only.
     unsafe { std::env::set_var("P16_TOKEN_A", "t") };
-    let registry = ConfiguredRegistry::for_project(&world.project.project_root(), "publish")
-        .as_user(User::at(home.path(), None))
-        .with_client(world.client.clone());
+    let registry =
+        ConfiguredRegistry::for_project(&world.project.project_root(), "publish", &crate::ports())
+            .as_user(User::at(home.path(), None))
+            .with_client(world.client.clone());
 
     registry
         .publish(&pkg("@acme/x", "1.0.0").package(), WASM)
@@ -577,9 +581,10 @@ fn a_token_file_is_sent_as_the_bearer_token() {
         &serde_json::json!({"registries": {"https://acme.invalid": {"token_file": file}}})
             .to_string(),
     );
-    let registry = ConfiguredRegistry::for_project(&world.project.project_root(), "publish")
-        .as_user(User::at(home.path(), None))
-        .with_client(world.client.clone());
+    let registry =
+        ConfiguredRegistry::for_project(&world.project.project_root(), "publish", &crate::ports())
+            .as_user(User::at(home.path(), None))
+            .with_client(world.client.clone());
 
     registry
         .publish(&pkg("@acme/x", "1.0.0").package(), WASM)
@@ -598,9 +603,10 @@ fn an_unreadable_token_file_is_r011_before_any_request() {
     let home = home_with_credentials(
         r#"{"registries":{"https://acme.invalid":{"token_file":"/nonexistent/p16-token"}}}"#,
     );
-    let registry = ConfiguredRegistry::for_project(&world.project.project_root(), "publish")
-        .as_user(User::at(home.path(), None))
-        .with_client(world.client.clone());
+    let registry =
+        ConfiguredRegistry::for_project(&world.project.project_root(), "publish", &crate::ports())
+            .as_user(User::at(home.path(), None))
+            .with_client(world.client.clone());
 
     let error = registry
         .publish(&pkg("@acme/x", "1.0.0").package(), WASM)

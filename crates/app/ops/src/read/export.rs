@@ -162,6 +162,9 @@ pub struct Request<'a> {
     /// (`coverage_status`, `ProjectCoverage::statuses`). `None`, the default: no node carries one.
     /// Query's `include_coverage` sets it; `specforge export` never does.
     pub coverage: Option<&'a ProjectCoverage>,
+    /// Give every exported node its checked values' outcomes as `checks` (graph and context); plain values otherwise
+    /// (`--with-checks`, ADR 0336).
+    pub with_checks: bool,
 }
 
 impl Request<'_> {
@@ -324,6 +327,9 @@ fn export_versioned(
     let selected = selection.selected(None);
     let statuses = request.coverage.map(ProjectCoverage::statuses);
     let judgements = view.project().judgements().listed();
+    let checks = request
+        .with_checks
+        .then(|| super::inspect::value_checks(view));
     let options = EmitOptions {
         format: request.format().emit_format(),
         selected: Some(&selected),
@@ -334,6 +340,7 @@ fn export_versioned(
         coverage: statuses.as_ref(),
         computed: Some(view.computed()),
         judgements: Some(&judgements),
+        checks: checks.as_ref(),
     };
     let document = emit(view.graph(), &options).map_err(failure)?;
     Ok(Noticed::new(document, selection.into_notices()))

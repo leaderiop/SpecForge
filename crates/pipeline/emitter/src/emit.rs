@@ -65,6 +65,9 @@ pub struct EmitOptions<'a> {
     /// Each entity's judgements by id (ADR 0290). With it, a node whose entity has some lists them as `judgements`
     /// (graph). Default: None. Its `verdicts` are always written.
     pub judgements: Option<&'a BTreeMap<String, Vec<Judgement>>>,
+    /// Each entity's checked values by id (ADR 0336). With it, a node whose entity has some lists them as `checks`
+    /// (graph and context); a token budget counts the key. Default: None.
+    pub checks: Option<&'a BTreeMap<String, Vec<crate::json::ValueCheckJson>>>,
 }
 
 /// Default: graph format 1.0 of the whole graph against the unversioned
@@ -81,6 +84,7 @@ impl Default for EmitOptions<'_> {
             coverage: None,
             computed: None,
             judgements: None,
+            checks: None,
         }
     }
 }
@@ -147,6 +151,7 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
         coverage: options.coverage,
         computed: options.computed,
         judgements: options.judgements,
+        checks: options.checks,
     };
     match options.token_budget {
         None => shape.render(&selected, None),
@@ -199,6 +204,7 @@ struct Shape<'a> {
     coverage: Option<&'a BTreeMap<String, Status>>,
     computed: Option<&'a Computed>,
     judgements: Option<&'a BTreeMap<String, Vec<Judgement>>>,
+    checks: Option<&'a BTreeMap<String, Vec<crate::json::ValueCheckJson>>>,
 }
 
 impl Shape<'_> {
@@ -210,7 +216,13 @@ impl Shape<'_> {
                 .envelope(
                     graph,
                     Some(ExportVersion::V1),
-                    graph_nodes(graph, self.coverage, self.computed, self.judgements),
+                    graph_nodes(
+                        graph,
+                        self.coverage,
+                        self.computed,
+                        self.judgements,
+                        self.checks,
+                    ),
                     budget,
                 )
                 .to_json(),
@@ -218,7 +230,13 @@ impl Shape<'_> {
                 .envelope(
                     graph,
                     None,
-                    context_nodes(graph, self.fields, self.coverage, self.computed),
+                    context_nodes(
+                        graph,
+                        self.fields,
+                        self.coverage,
+                        self.computed,
+                        self.checks,
+                    ),
                     budget,
                 )
                 .to_json(),
@@ -276,11 +294,12 @@ fn graph_nodes(
     coverage: Option<&BTreeMap<String, Status>>,
     computed: Option<&Computed>,
     judgements: Option<&BTreeMap<String, Vec<Judgement>>>,
+    checks: Option<&BTreeMap<String, Vec<crate::json::ValueCheckJson>>>,
 ) -> Vec<crate::json::JsonNode> {
     graph
         .nodes()
         .into_iter()
-        .map(|n| crate::json::graph_node(n, status_of(n, coverage), computed, judgements))
+        .map(|n| crate::json::graph_node(n, status_of(n, coverage), computed, judgements, checks))
         .collect()
 }
 
@@ -289,11 +308,12 @@ fn context_nodes(
     fields: &FieldRegistry,
     coverage: Option<&BTreeMap<String, Status>>,
     computed: Option<&Computed>,
+    checks: Option<&BTreeMap<String, Vec<crate::json::ValueCheckJson>>>,
 ) -> Vec<crate::context::ContextNode> {
     graph
         .nodes()
         .into_iter()
-        .map(|n| crate::context::context_node(n, fields, status_of(n, coverage), computed))
+        .map(|n| crate::context::context_node(n, fields, status_of(n, coverage), computed, checks))
         .collect()
 }
 

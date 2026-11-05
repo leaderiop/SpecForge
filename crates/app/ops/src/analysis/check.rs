@@ -12,10 +12,10 @@ use specforge_common::{Diagnostic, Severity};
 use specforge_project::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile};
 
 use crate::view::ProjectView;
-use crate::{OpError, OpErrorKind, Refusal};
+use crate::{NOT_IN_JOURNAL, OpError, OpErrorKind, Refusal, UNKNOWN_REVISION};
 
 /// What to report. `Default` is a plain `specforge check`.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default)]
 pub struct CheckOptions {
     /// Promote warnings to errors, before the verdict.
     pub strict: bool,
@@ -24,6 +24,9 @@ pub struct CheckOptions {
     pub severity: Option<Severity>,
     /// Judge history against the merge-base of this revision and `HEAD` (`--since`) instead of `HEAD`.
     pub since: Option<String>,
+    /// This call's own effects (MCP `validate`'s `effects`, ADR 0337 D4): the checks run again in them over the
+    /// served compile, as `since` re-judges. None: the compile's.
+    pub effects: Option<std::sync::Arc<specforge_effects::Effects>>,
 }
 
 pub use specforge_common::Counts;
@@ -73,10 +76,10 @@ pub enum CheckField {
     LintProfiles,
     /// The revision history is judged since.
     Since,
+    /// The effects mode (ADR 0337).
+    Effects,
 }
 
-/// A `since` revision the repository does not name (`InvalidInput`).
-pub const UNKNOWN_REVISION: &str = "unknown_revision";
 /// A severity filter naming no severity (`InvalidInput`).
 pub const UNKNOWN_SEVERITY: &str = "unknown_severity";
 /// A lint profile naming no profile (`InvalidInput`).
@@ -101,6 +104,22 @@ pub fn parse_severity(name: &str) -> Result<Severity, Refusal<CheckField>> {
                 .about(CheckField::Severity))
         }
     }
+}
+
+/// An effects mode not among [`specforge_effects::EffectsMode::NAMES`] (`InvalidInput`).
+pub const UNKNOWN_EFFECTS: &str = "unknown_effects";
+
+/// The effects mode `name` names; another name is [`UNKNOWN_EFFECTS`], about the effects mode.
+pub fn parse_effects(name: &str) -> Result<specforge_effects::EffectsMode, Refusal<CheckField>> {
+    specforge_effects::EffectsMode::parse(&name.to_ascii_lowercase()).ok_or_else(|| {
+        unknown(
+            UNKNOWN_EFFECTS,
+            "effects mode",
+            name,
+            &specforge_effects::EffectsMode::NAMES,
+        )
+        .about(CheckField::Effects)
+    })
 }
 
 /// The lint profiles `names` name; the first unknown one is
@@ -157,11 +176,18 @@ pub fn check(
     if view.root().is_none() && !options.lint_profiles.is_empty() {
         return Err(OpError::no_project(NO_ROOT).into());
     }
+    // This call's effects run the checks again over the served compile: nothing is recompiled, so a view's own
+    // findings (I017) stay.
+    let rerun = options
+        .effects
+        .as_ref()
+        .map(|effects| view.project().effects_rerun(std::sync::Arc::clone(effects)));
+    let base = rerun.as_ref().unwrap_or(view.project());
     let since = options
         .since
         .as_deref()
         .map(|revision| {
-            view.project().judged_since(revision).map_err(|unknown| {
+            base.judged_since(revision).map_err(|unknown| {
                 Refusal::about(
                     CheckField::Since,
                     OpError::new(
@@ -173,19 +199,34 @@ pub fn check(
             })
         })
         .transpose()?;
+    let judged = since.as_ref().or(rerun.as_ref());
     let policy = DiagnosticPolicy {
         strict: options.strict,
         lint_profiles: options.lint_profiles.clone(),
     };
     let reported = policy.apply(
-        since
-            .as_ref()
-            .map_or_else(|| view.reported(), |judged| view.reported_over(judged)),
+        judged.map_or_else(|| view.reported(), |judged| view.reported_over(judged)),
         |profile| match profile {
             LintProfile::Inferred => crate::read::infer::lint(view),
             LintProfile::Pedantic => Vec::new(),
         },
     );
+    // A replay that missed a record cannot vouch for anything it checked.
+    let misses = judged.unwrap_or(view.project()).effects().log().misses;
+    if !misses.is_empty() {
+        let listed: Vec<String> = misses.iter().map(|miss| format!("  {miss}")).collect();
+        return Err(OpError::new(
+            OpErrorKind::PreconditionFailed,
+            NOT_IN_JOURNAL,
+            format!(
+                "the replay effects mode found no journal record of {} effect(s) the checks asked for:\n{}",
+                misses.len(),
+                listed.join("\n")
+            ),
+        )
+        .with_suggestion("run once in the online or auto effects mode to record them")
+        .into());
+    }
     let counts = Counts::of(&reported);
     Ok(CheckOutcome {
         reported,
@@ -383,6 +424,63 @@ mod tests {
         assert_eq!(
             profile.suggestion.as_deref(),
             Some("did you mean 'pedantic'?")
+        );
+    }
+
+    #[test]
+    fn a_replay_miss_refuses_not_in_journal_listing_each_request() {
+        use specforge_effects::{
+            EffectJournal, EffectRequest, Effects, HttpRequest, RecordDigest, UnixMillis,
+        };
+        let dir = project(&[CLEAN]);
+        let root = specforge_common::ProjectRoot::of(dir.path()).unwrap();
+        let env = specforge_project::Environment::load(&root, None)
+            .with_effects(Effects::replay(EffectJournal::at(root.dir())));
+        let compiled = CompiledProject::of(env);
+        assert!(check(&ProjectView::of(&compiled), &CheckOptions::default()).is_ok());
+        // An effect the checks asked for that the journal never recorded.
+        let request = EffectRequest::Http(HttpRequest {
+            method: "GET".into(),
+            url: "https://example.org/".into(),
+            ..HttpRequest::default()
+        });
+        let served = compiled
+            .effects()
+            .serve("links", &request, UnixMillis(0), |_| {
+                unreachable!("replay performs nothing")
+            });
+        assert_eq!(served, specforge_effects::Served::Miss);
+        let refused = check(&ProjectView::of(&compiled), &CheckOptions::default()).unwrap_err();
+        assert_eq!(refused.error.code, NOT_IN_JOURNAL);
+        let listed = format!("GET https://example.org/ ({})", RecordDigest::of(&request));
+        assert!(
+            refused.error.message.contains(&listed),
+            "{}",
+            refused.error.message
+        );
+    }
+
+    #[test]
+    fn an_effects_rerun_judges_in_the_calls_effects_over_the_served_compile() {
+        use specforge_effects::{EffectJournal, Effects, EffectsMode};
+        let dir = project(&[CLEAN]);
+        let root = specforge_common::ProjectRoot::of(dir.path()).unwrap();
+        let compiled = CompiledProject::of(specforge_project::Environment::load(&root, None));
+        let options = CheckOptions {
+            effects: Some(std::sync::Arc::new(Effects::replay(EffectJournal::at(
+                root.dir(),
+            )))),
+            ..CheckOptions::default()
+        };
+        let view = ProjectView::of(&compiled);
+        assert_eq!(
+            check(&view, &options).unwrap().reported,
+            check(&view, &CheckOptions::default()).unwrap().reported
+        );
+        assert_eq!(
+            compiled.effects().mode(),
+            EffectsMode::Cached,
+            "the served compile is unchanged"
         );
     }
 

@@ -235,3 +235,11 @@ fn read(config: Option<&Value>) -> (Vec<Provider>, Vec<(SetupPart, Diagnostic)>)
 
     (providers, diagnostics)
 }
+
+impl crate::Environment {
+    /// The configured providers, registered once against the loaded
+    /// declarations (ADR 0004 D3-c).
+    pub fn providers(&self) -> &Providers {
+        &self.providers
+    }
+}

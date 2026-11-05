@@ -3,6 +3,7 @@ resolver = "3"
 exclude = ["extensions", "fixtures", "gsd"]
 members = [
     # leaf
+    "crates/leaf/checks-kit",
     "crates/leaf/coverage",
     "crates/leaf/cycles",
     "crates/leaf/diagnostics",
@@ -11,6 +12,7 @@ members = [
     "crates/leaf/repo-root",
     # kernel
     "crates/kernel/common",
+    "crates/kernel/effects",
     "crates/kernel/parser",
     "crates/kernel/shape-macros",
     "crates/kernel/tree-sitter",
@@ -33,9 +35,12 @@ members = [
     # app
     "crates/app/ops",
     # adapters
+    "crates/adapters/fs",
     "crates/adapters/git",
     "crates/adapters/hosts",
+    "crates/adapters/http",
     "crates/adapters/ops-registry",
+    "crates/adapters/process",
     "crates/adapters/registry-client",
     "crates/adapters/registry-wire",
     # surfaces
@@ -113,8 +118,14 @@ notify = "8.2.0"
 tower-lsp = "0.20.0"
 tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread", "io-std", "io-util", "time"] }
 
-# HTTP
-reqwest = { version = "0.12.15", default-features = false, features = ["rustls-tls", "json", "blocking", "multipart"] }
+# HTTP: the Http port's adapter (`specforge-http`, ADR 0335). rustls on ring with the platform verifier; aws-lc-rs
+# never enters the lock.
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls-no-provider", "system-proxy"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-platform-verifier = "0.7"
+webpki-root-certs = "1"
+# Typed HTTP headers: a ranged answer's `Content-Range`, read on the host where no blob cap weighs a parser.
+headers = "0.4"
 
 # CLI
 clap = { version = "4.5.60", features = ["derive"] }

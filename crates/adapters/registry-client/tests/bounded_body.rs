@@ -2,9 +2,10 @@
 //! declares (64 MiB when it declares none), any other answer no longer than 64 MiB, all of it within the
 //! client's timeout. The registry here is a socket that sends the bodies a real one would not.
 
-use std::io::{Read as _, Write as _};
+use std::io::Write as _;
 use std::time::{Duration, Instant};
 
+use specforge_effects::testing::server::Server;
 use specforge_package::{PackageName, Version};
 use specforge_registry_client::HttpRegistryClient;
 use specforge_registry_client::registry_client::{RegistryClient, RegistryError};
@@ -96,30 +97,15 @@ fn metadata_json(size: Option<u64>) -> String {
 
 /// A registry that answers a path ending `/download` with `download` and any other with `metadata`.
 fn serve(metadata: Body, download: Body) -> RegistryConfig {
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let root = RegistryRoot::parse(&format!(
-        "http://127.0.0.1:{}",
-        listener.local_addr().unwrap().port()
-    ))
-    .unwrap();
-    std::thread::spawn(move || {
-        for stream in listener.incoming() {
-            let Ok(mut stream) = stream else { continue };
-            let mut head = Vec::new();
-            let mut byte = [0u8; 1];
-            while !head.ends_with(b"\r\n\r\n") && stream.read(&mut byte).is_ok_and(|n| n == 1) {
-                head.push(byte[0]);
-            }
-            let head = String::from_utf8_lossy(&head);
-            let path = head.split_whitespace().nth(1).unwrap_or("");
-            // The client hangs up on a body it refuses: a write error is its answer, not the fixture's.
-            let _ = if path.ends_with("/download") {
-                download.send(&mut stream)
-            } else {
-                metadata.send(&mut stream)
-            };
-        }
+    let server = Server::serve(move |_, request, stream| {
+        // The client hangs up on a body it refuses: a write error is its answer, not the fixture's.
+        let _ = if request.path.ends_with("/download") {
+            download.send(stream)
+        } else {
+            metadata.send(stream)
+        };
     });
+    let root = RegistryRoot::parse(&server.base).unwrap();
     RegistryConfig {
         alias: "slow".into(),
         url: root,
@@ -158,7 +144,7 @@ fn a_download_larger_than_its_reply_declares_is_refused_before_it_is_read() {
         Body::Length(metadata_json(Some(10)).into_bytes()),
         Body::Length(vec![0; 1024 * 1024]),
     );
-    let client = HttpRegistryClient::new();
+    let client = HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()));
     let (name, version) = the_package();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
     let error = refused(client.download(&metadata, &registry, None));
@@ -178,7 +164,7 @@ fn a_chunked_download_is_cut_at_the_size_its_reply_declares() {
         Body::Length(metadata_json(Some(10)).into_bytes()),
         Body::zeros(1024 * 1024),
     );
-    let client = HttpRegistryClient::new();
+    let client = HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()));
     let (name, version) = the_package();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
     let error = refused(client.download(&metadata, &registry, None));
@@ -198,7 +184,7 @@ fn a_download_whose_reply_declares_no_size_is_held_to_64_mib() {
         Body::Length(metadata_json(None).into_bytes()),
         Body::zeros(MAX + 1),
     );
-    let client = HttpRegistryClient::new();
+    let client = HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()));
     let (name, version) = the_package();
     let metadata = client.metadata(&name, &version, &registry, None).unwrap();
     let error = refused(client.download(&metadata, &registry, None));
@@ -223,7 +209,10 @@ fn a_registry_answer_larger_than_64_mib_is_refused() {
         Body::zeros(0),
     );
     let (name, version) = the_package();
-    let error = refused(HttpRegistryClient::new().metadata(&name, &version, &registry, None));
+    let error = refused(
+        HttpRegistryClient::new(std::sync::Arc::new(specforge_http::Client::new()))
+            .metadata(&name, &version, &registry, None),
+    );
     let message = r009(error);
     assert!(message.contains("64 MiB"), "{message}");
 }
@@ -242,9 +231,13 @@ fn a_body_still_arriving_after_the_timeout_is_r004() {
             every: Duration::from_millis(100),
         },
     );
-    let client = HttpRegistryClient::new().with_timeout(Duration::from_secs(1));
+    let http = std::sync::Arc::new(specforge_http::Client::new());
     let (name, version) = the_package();
-    let metadata = client.metadata(&name, &version, &registry, None).unwrap();
+    // The metadata on the default timeout: a busy suite must not time it out. Only the download races the short one.
+    let metadata = HttpRegistryClient::new(http.clone())
+        .metadata(&name, &version, &registry, None)
+        .unwrap();
+    let client = HttpRegistryClient::new(http).with_timeout(Duration::from_secs(1));
     let started = Instant::now();
     let error = refused(client.download(&metadata, &registry, None));
     assert_eq!(error.to_diagnostic().code, "R004", "{error:?}");

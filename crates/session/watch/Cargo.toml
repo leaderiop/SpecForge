@@ -17,6 +17,7 @@ tokio = ["dep:tokio"]
 
 [dependencies]
 notify = { workspace = true }
+specforge-effects = { path = "../../kernel/effects" }
 specforge-project = { workspace = true }
 tokio = { workspace = true, optional = true, features = ["sync", "time"] }
 
@@ -26,6 +27,8 @@ specforge-watch = { path = ".", features = ["tokio"] }
 # The committed blobs the tests load (`specforge_component::committed`).
 specforge-component = { path = "../../runtime/component", features = ["testing"] }
 serde_json = { workspace = true }
+# `ProjectSession::stamp_consulted`: a session whose checks consulted the effects journal.
+specforge-project = { workspace = true, features = ["testing"] }
 specforge-common = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }

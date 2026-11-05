@@ -1,7 +1,7 @@
 #[cfg(feature = "testing")]
 use specforge_common::ExtensionEntry;
 #[cfg(feature = "testing")]
-use specforge_wasm::{LoadError, WasmRuntime};
+use specforge_wasm::{LoadError, Provenance, WasmRuntime};
 
 /// One builtin extension: its package name, its crate under `extensions/`, the component
 /// `build-blobs` vendors into `<crate_dir>/wasm/`, and the vendored bytes this host embeds.
@@ -39,6 +39,7 @@ builtins! {
     "@specforge/typescript" in "typescript" as "specforge_ext_typescript.wasm",
     "@code/core" in "code/core" as "specforge_ext_code_core.wasm",
     "@javascript/node-test" in "javascript/node-test" as "specforge_ext_javascript_node_test.wasm",
+    "@specforge/checks" in "checks" as "specforge_ext_checks.wasm",
 }
 
 /// (name, bytes) of every builtin, read from [`BUILTINS`]: what the extension load reads
@@ -73,7 +74,7 @@ pub fn load_builtins_for(runtime: &dyn WasmRuntime, requested: &[String]) -> Res
             .iter()
             .any(|entry| ExtensionEntry::parse(entry) == ExtensionEntry::Named(name))
         {
-            runtime.load(name, wasm_bytes)?;
+            runtime.load(name, wasm_bytes, Provenance::builtin(wasm_bytes))?;
         }
     }
     Ok(())
@@ -84,7 +85,7 @@ pub fn load_builtins_for(runtime: &dyn WasmRuntime, requested: &[String]) -> Res
 #[cfg(feature = "testing")]
 pub fn load_builtins(runtime: &dyn WasmRuntime) -> Result<(), LoadError> {
     for (name, wasm_bytes) in BUILTIN_EXTENSIONS {
-        runtime.load(name, wasm_bytes)?;
+        runtime.load(name, wasm_bytes, Provenance::builtin(wasm_bytes))?;
     }
     Ok(())
 }

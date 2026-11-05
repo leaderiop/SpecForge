@@ -174,6 +174,31 @@ fn code_constants_are_their_catalog_entries() {
     );
 }
 
+/// The `machine` codes are the effects summaries and the links family's transport answers: the constant and the
+/// entry agree, and every other core code is the project's.
+#[specforge_test(
+    invariant = "diagnostic_code_uniqueness",
+    verify = "a core code's constant carries its catalogued machine marker"
+)]
+fn machine_codes_are_effect_summaries() {
+    let machine: Vec<&str> = CATALOG
+        .iter()
+        .filter(|e| e.machine)
+        .map(|e| e.code)
+        .collect();
+    assert_eq!(
+        machine,
+        ["I206", "I207", "W170", "W172", "W173", "W181", "W182"]
+    );
+    for code in [codes::I206, codes::I207] {
+        assert!(code.machine(), "{code}");
+        assert_eq!(code.level(), Level::Info, "{code}");
+    }
+    assert!(codes::W170.machine());
+    assert_eq!(codes::W170.level(), Level::Warning);
+    assert!(!codes::W112.machine());
+}
+
 /// C3: hand-written docs cite only catalogued codes. `docs/diagnostics.md`
 /// is generated from the catalog, and ADRs are dated records that quote
 /// the codes of their time; an extension's local code (E901) is never in the static catalog.
@@ -429,4 +454,21 @@ fn explain_catalog_matches_emitted_codes() {
         problems.len(),
         problems.join("\n  ")
     );
+}
+
+#[test]
+fn checks_transport_codes_are_machine() {
+    let machine = |id: &str| {
+        CATALOG
+            .iter()
+            .find(|entry| entry.code == id)
+            .unwrap_or_else(|| panic!("{id} is not catalogued"))
+            .machine
+    };
+    for id in ["W172", "W173", "W181", "W182"] {
+        assert!(machine(id), "{id}");
+    }
+    for id in ["W178", "W183"] {
+        assert!(!machine(id), "{id}");
+    }
 }

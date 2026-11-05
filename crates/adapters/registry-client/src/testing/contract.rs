@@ -104,7 +104,7 @@ pub fn assert_client_contract(
     );
     assert!(!metadata.wasm_url.is_empty(), "K4: wasm_url");
     assert_eq!(
-        reqwest::Url::parse(&metadata.wasm_url)
+        url::Url::parse(&metadata.wasm_url)
             .map(String::from)
             .as_deref(),
         Ok(metadata.wasm_url.as_str()),

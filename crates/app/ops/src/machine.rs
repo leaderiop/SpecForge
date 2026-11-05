@@ -1,9 +1,9 @@
-//! What collect asks the machine it runs on (ADR 0125): run a collector's command, and the user's approvals of
-//! commands. Two adapters: [`ProcessMachine`](crate::analysis::collect::ProcessMachine) (a child process and the
-//! user's consent store) and `specforge_ops::testing::ScriptedMachine` (tests). A base module, as the solver's
+//! What collect asks the machine it runs on (ADR 0125): run a collector's command. Whether it may run is the
+//! grant's and the `Consent` port's (ADR 0335 D2). Two adapters:
+//! [`ProcessMachine`](crate::analysis::collect::ProcessMachine) (a child process) and
+//! `specforge_ops::testing::ScriptedMachine` (tests). A base module, as the solver's
 //! port is: the adapters and the test support name it without reaching into the analysis group.
 
-use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::path::Path;
 use std::time::SystemTime;
@@ -53,37 +53,8 @@ pub enum RunFailure {
     NotRun(std::io::Error),
     /// Its standard output could not be written to the capture.
     Capture(std::io::Error),
-}
-
-/// One approval: this project may run this extension's collector with this command. A changed command is a
-/// different approval. Built only by [`of`](Self::of), so a key is always the canonical project path.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CommandApproval {
-    project: String,
-    extension: String,
-    collector: String,
-    run: Vec<String>,
-}
-
-impl CommandApproval {
-    /// The approval a collector of `extension` named `collector` needs to run `run` in `root`
-    /// (canonicalized).
-    pub fn new(extension: &str, collector: &str, run: &[String], root: &Path) -> Self {
-        let project = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-        CommandApproval {
-            project: project.display().to_string(),
-            extension: extension.to_string(),
-            collector: collector.to_string(),
-            run: run.to_vec(),
-        }
-    }
-
-    /// Same project, extension and collector: an approval replaces another for a changed command.
-    pub fn replaces(&self, other: &Self) -> bool {
-        self.project == other.project
-            && self.extension == other.extension
-            && self.collector == other.collector
-    }
+    /// It was stopped, with its whole process group: past the collector deadline or its output cap (ADR 0335).
+    Stopped { why: String },
 }
 
 /// The machine collect runs on.
@@ -95,12 +66,4 @@ pub trait CollectorMachine: Send + Sync {
         command: &CollectorCommand<'_>,
         capture: Option<&mut dyn Write>,
     ) -> Result<Ran, RunFailure>;
-
-    /// Whether the user approved `approval` before. A store that is missing or unreadable approves nothing.
-    fn approved(&self, approval: &CommandApproval) -> bool;
-
-    /// Remember the user's approval, replacing one for the same project, extension and collector.
-    /// `Err`: why it could not be remembered (the collect still runs the command;
-    /// `Outcome::unsaved_approvals`).
-    fn approve(&self, approval: &CommandApproval) -> Result<(), String>;
 }

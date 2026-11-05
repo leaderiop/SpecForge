@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 # The hook's share of the check list (gate/src/checks.rs, `cargo gate list`) on the staged files.
-# Install once: scripts/setup-hooks.sh. Skip in an emergency: git commit --no-verify (CI runs the whole list).
+# Install once: scripts/setup-hooks.sh.
 cd "$(git rev-parse --show-toplevel)" && exec cargo gate hook

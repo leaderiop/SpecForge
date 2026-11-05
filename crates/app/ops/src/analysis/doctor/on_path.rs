@@ -5,11 +5,11 @@
 
 use std::ffi::OsStr;
 use std::path::PathBuf;
-use std::process::Command;
 use std::time::Duration;
 
-use specforge_common::process::run;
 use specforge_common::{Diagnostic, codes};
+use specforge_effects::process::request;
+use specforge_effects::{Output, Process, ProcessClass};
 use specforge_protocol_types::{PROTOCOL_VERSION, protocol_minor};
 
 use super::{About, Finding, FindingStatus};
@@ -25,36 +25,46 @@ const PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OnPath {
     pub program: PathBuf,
-    /// The first line its `--version` printed; none when it failed or did not answer in time.
-    pub answer: Option<String>,
+    /// The first line its `--version` printed, or how the run ended without one, in the words that follow its
+    /// name (`exited with status 1`).
+    pub answer: Result<String, String>,
 }
 
 impl OnPath {
-    /// The first `specforge` in the directories of `path` (a `PATH` value), run with `--version`; none when no
-    /// directory holds one.
-    pub fn find(path: Option<&OsStr>) -> Option<OnPath> {
+    /// The first `specforge` in the directories of `path` (a `PATH` value), run by `process` with `--version`;
+    /// none when no directory holds one.
+    pub fn find(path: Option<&OsStr>, process: &dyn Process) -> Option<OnPath> {
         let name = format!("specforge{}", std::env::consts::EXE_SUFFIX);
         let program = std::env::split_paths(path?)
             .map(|dir| dir.join(&name))
             .find(|candidate| candidate.is_file())?;
-        let answer = run(Command::new(&program).arg("--version"), PROBE_TIMEOUT)
-            .ok()
-            .filter(|ran| ran.status.success())
-            .and_then(|ran| {
-                ran.text()
-                    .lines()
-                    .next()
-                    .map(|line| line.trim().to_string())
-            });
+        // A request carries words: a program path that is not one is not run as a mangled other path.
+        let Some(spelled) = program.to_str() else {
+            let answer = Err("has a path that is not UTF-8".to_string());
+            return Some(OnPath { program, answer });
+        };
+        let mut probe = request([spelled, "--version"], PROBE_TIMEOUT);
+        probe.text = true;
+        let ran = process.run(&probe, &std::env::temp_dir(), Output::Buffer);
+        let answer = match ran.class {
+            ProcessClass::Exited(0) => ran
+                .text()
+                .lines()
+                .next()
+                .map(|line| line.trim().to_string())
+                .ok_or_else(|| "printed nothing".to_string()),
+            class => Err(class.to_string()),
+        };
         Some(OnPath { program, answer })
     }
 
-    /// The protocol its version line names (`specforge 0.3.0 (9229143f5, protocol 1.15.0)`); none from a
+    /// The protocol its version line names (`specforge 0.3.0 (9229143f5, protocol 2.0.0)`); none from a
     /// binary too old to print one.
     fn protocol(&self) -> Option<&str> {
         let (_, version) = self
             .answer
-            .as_deref()?
+            .as_deref()
+            .ok()?
             .strip_suffix(')')?
             .rsplit_once("protocol ")?;
         Some(version)
@@ -62,7 +72,7 @@ impl OnPath {
 }
 
 /// What doctor says of `found`, the `specforge` on PATH, against this binary's protocol and the protocols of the
-/// extensions `view` loaded: W169 when it speaks an older minor (or names none), an info finding when there is
+/// extensions `view` loaded: W169 when it speaks an older protocol (or names none), an info finding when there is
 /// no `specforge` on PATH, nothing when it is new enough.
 pub fn finding(found: Option<&OnPath>, view: &ProjectView) -> Option<Finding> {
     let Some(found) = found else {
@@ -91,10 +101,10 @@ pub fn finding(found: Option<&OnPath>, view: &ProjectView) -> Option<Finding> {
     let path = found.program.display();
     let speaks = match (spoken, found.answer.as_deref()) {
         (Some(version), _) => format!("speaks extension protocol {version}"),
-        (None, Some(answer)) => {
+        (None, Ok(answer)) => {
             format!("names no protocol (`specforge --version` printed `{answer}`)")
         }
-        (None, None) => "does not answer `specforge --version`".to_string(),
+        (None, Err(why)) => format!("does not answer `specforge --version` (it {why})"),
     };
     // An old binary is older than every extension: three name the point, the count says the rest.
     let loads = match extensions.len() {
@@ -146,7 +156,9 @@ mod tests {
     fn answering(answer: Option<&str>) -> OnPath {
         OnPath {
             program: PathBuf::from("/opt/bin/specforge"),
-            answer: answer.map(str::to_string),
+            answer: answer
+                .map(str::to_string)
+                .ok_or_else(|| "exited with status 1".to_string()),
         }
     }
 
@@ -219,7 +231,7 @@ mod tests {
         assert!(
             silent
                 .check
-                .contains("does not answer `specforge --version`"),
+                .contains("does not answer `specforge --version` (it exited with status 1)"),
             "{}",
             silent.check
         );
@@ -229,7 +241,7 @@ mod tests {
     fn a_specforge_on_path_of_this_protocol_or_newer_says_nothing() {
         for line in [
             format!("specforge 0.3.0 (9229143f5, protocol {PROTOCOL_VERSION})"),
-            "specforge 0.4.0 (protocol 1.99.0)".to_string(),
+            "specforge 0.4.0 (protocol 2.99.0)".to_string(),
         ] {
             assert!(judged(Some(&answering(Some(&line)))).is_none(), "{line}");
         }
@@ -253,14 +265,15 @@ mod tests {
         std::fs::write(&program, "not a program").unwrap();
         let path = std::env::join_paths([empty.path(), holding.path()]).unwrap();
 
-        let found = OnPath::find(Some(&path)).unwrap();
+        let runner = specforge_process::Runner;
+        let found = OnPath::find(Some(&path), &runner).unwrap();
 
         assert_eq!(found.program, program);
-        assert_eq!(
-            found.answer, None,
+        assert!(
+            found.answer.is_err(),
             "a file that does not run gives no answer"
         );
-        assert_eq!(OnPath::find(Some(empty.path().as_os_str())), None);
-        assert_eq!(OnPath::find(None), None);
+        assert_eq!(OnPath::find(Some(empty.path().as_os_str()), &runner), None);
+        assert_eq!(OnPath::find(None, &runner), None);
     }
 }

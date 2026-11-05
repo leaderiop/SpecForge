@@ -20,34 +20,32 @@ use crate::buffers::check_runs;
 const EXT: &str = "@test/owed";
 const NOTE: &str = "note n \"N\" {\n  doc \"guide.md\"\n}\n";
 
-/// A `note` kind whose `doc` a `file_exists` rule F001 reads, and a check pass that counts runs.
+/// A `note` kind whose `doc` names a file under the spec root, and a check pass that counts runs; the builtins'
+/// component beside it serves `@specforge/checks`.
 fn owed() -> Arc<InProcessRuntime> {
-    Arc::new(InProcessRuntime::new().with(|| {
-        let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
-        c.kind("note", |k| {
-            k.keyword("note");
-            k.field("doc", |f| {
-                f.field_type(FieldType::String);
-            });
-        });
-        c.rule("F001", |r| {
-            r.check(CheckKind::FileExists)
-                .severity(ValidationSeverity::Warning)
-                .target_kind("note")
-                .field("doc")
-                .message_template("note '{id}': missing '{value}'");
-        });
-        c.pass("count", |p| {
-            p.phase("check").run(|_: &PassInput| {
-                vec![PassDiagnostic::new(
-                    "I990",
-                    PassSeverity::Info,
-                    "the checks ran",
-                )]
-            });
-        });
-        c
-    }))
+    Arc::new(
+        InProcessRuntime::new()
+            .with(|| {
+                let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
+                c.kind("note", |k| {
+                    k.keyword("note");
+                    k.field("doc", |f| {
+                        f.field_type(FieldType::String);
+                    });
+                });
+                c.pass("count", |p| {
+                    p.phase("check").run(|_: &PassInput| {
+                        vec![PassDiagnostic::new(
+                            "I990",
+                            PassSeverity::Info,
+                            "the checks ran",
+                        )]
+                    });
+                });
+                c
+            })
+            .beside(specforge_project::testing::component_runtime()),
+    )
 }
 
 fn opened(rt: &Arc<InProcessRuntime>) -> (TestProject, ProjectSession) {
@@ -55,20 +53,23 @@ fn opened(rt: &Arc<InProcessRuntime>) -> (TestProject, ProjectSession) {
         .config(|c| {
             c["name"] = "p".into();
             c["spec_root"] = "spec".into();
+            c["checks"] = serde_json::json!({ "fields": { "note.doc": [
+                { "checker": "@specforge/checks:file", "args": { "root": "spec" } }
+            ] } });
         })
-        .enabling(&[EXT])
+        .enabling(&[EXT, "@specforge/checks"])
         .installing(&[EXT])
         .file("spec/a.spec", NOTE);
     let session = dir.session_in(Arc::clone(rt) as SharedRuntime);
     (dir, session)
 }
 
-fn f001(session: &ProjectSession) -> usize {
+fn e016(session: &ProjectSession) -> usize {
     session
         .project()
         .diagnostics()
         .iter()
-        .filter(|d| d.code.ends_with("/F001"))
+        .filter(|d| d.code == "E016")
         .count()
 }
 
@@ -95,7 +96,7 @@ fn created_guide(dir: &TestProject) -> PathBuf {
 fn a_current_source_and_a_changed_check_input_run_the_checks() {
     let rt = owed();
     let (dir, mut session) = opened(&rt);
-    assert_eq!(f001(&session), 1);
+    assert_eq!(e016(&session), 1);
     let a = dir.root().join("spec/a.spec");
     touch(&a);
     let guide = created_guide(&dir);
@@ -109,7 +110,7 @@ fn a_current_source_and_a_changed_check_input_run_the_checks() {
     assert_eq!(update.kind, UpdateKind::Checks);
     assert!(update.rebuilt_files.is_empty());
     assert_eq!(check_runs(&rt) - before, 1);
-    assert_eq!(f001(&session), 0);
+    assert_eq!(e016(&session), 0);
     assert!(session.stale().is_empty());
 }
 
@@ -122,7 +123,7 @@ fn ensure_fresh_applies_a_current_source_and_a_changed_check_input_at_once() {
 
     session.ensure_fresh().expect("a check input changed");
 
-    assert_eq!(f001(&session), 0);
+    assert_eq!(e016(&session), 0);
     assert!(session.ensure_fresh().is_none());
 }
 
@@ -145,7 +146,7 @@ fn a_relinked_source_and_a_changed_check_input_run_the_checks() {
 
     assert!(update.inputs_changed);
     assert!(update.rebuilt_files.is_empty());
-    assert_eq!(f001(&session), 0, "{:?}", update.kind);
+    assert_eq!(e016(&session), 0, "{:?}", update.kind);
     assert!(session.stale().is_empty());
 }
 
@@ -168,7 +169,7 @@ fn a_changed_source_and_a_changed_check_input_run_the_checks_once() {
     assert_eq!(update.kind, UpdateKind::Sources);
     assert_eq!(update.rebuilt_files, ["spec/a.spec"]);
     assert_eq!(check_runs(&rt) - before, 1);
-    assert_eq!(f001(&session), 0);
+    assert_eq!(e016(&session), 0);
     assert!(session.stale().is_empty());
 }
 
@@ -188,7 +189,7 @@ fn an_environment_change_covers_a_changed_check_input() {
     let update = session.apply(&changes).expect("the environment changed");
 
     assert_eq!(update.kind, UpdateKind::Environment);
-    assert_eq!(f001(&session), 0);
+    assert_eq!(e016(&session), 0);
     assert!(session.stale().is_empty());
 }
 
@@ -206,5 +207,5 @@ fn a_held_source_and_a_changed_check_input_run_the_checks() {
         .expect("a check input changed");
 
     assert_eq!(update.kind, UpdateKind::Checks);
-    assert_eq!(f001(&session), 0);
+    assert_eq!(e016(&session), 0);
 }

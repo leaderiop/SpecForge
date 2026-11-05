@@ -16,7 +16,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tower_lsp::lsp_types::*;
 
-use specforge_project::{ProjectSession, RuntimeSource};
+use specforge_project::RuntimeSource;
 use specforge_watch::{Follower, Following};
 
 use crate::LspState;
@@ -284,9 +284,10 @@ impl<E: Editor> Reaction<E> {
     /// An update panicked: the session is lost, so the state falls back to an empty one rather
     /// than a stale copy.
     fn lose_session(&mut self, panic: String) -> Option<Applied> {
-        self.state
-            .blocking_write()
-            .set_session(ProjectSession::detached());
+        let mut state = self.state.blocking_write();
+        let detached = state.detached();
+        state.set_session(detached);
+        drop(state);
         self.editor.log(
             MessageType::ERROR,
             format!("specforge-lsp: recompile failed: {panic}"),

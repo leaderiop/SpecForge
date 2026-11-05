@@ -94,6 +94,14 @@ impl<'p> Cli<'p> {
         self.env("CARGO_HOME", cargo).env("RUSTUP_HOME", rustup)
     }
 
+    /// The directory that holds the binary under test: a `PATH` that finds `specforge`.
+    pub fn binary_dir() -> PathBuf {
+        std::path::Path::new(env!("CARGO_BIN_EXE_specforge"))
+            .parent()
+            .expect("the binary is in a directory")
+            .to_path_buf()
+    }
+
     /// Feed `bytes` on stdin.
     pub fn stdin(mut self, bytes: impl Into<Vec<u8>>) -> Self {
         self.stdin = bytes.into();
@@ -137,6 +145,11 @@ impl<'p> Cli<'p> {
     /// [`Self::bare`]'s command, unrun.
     pub fn bare_command(&self, args: &[&str]) -> assert_cmd::Command {
         self.assert(self.process(args, false, &[]))
+    }
+
+    /// [`Self::bare`]'s command, unrun and unwrapped, for a test that sets its streams and its session itself.
+    pub fn std_command(&self, args: &[&str]) -> Command {
+        self.process(args, false, &[])
     }
 
     /// [`Self::run`]'s command started as a long-running child (`watch`), its stdout and stderr piped, stopped
@@ -288,6 +301,26 @@ impl Run {
                 self.stdout, self.stderr
             )
         })
+    }
+
+    /// A verb's answer (ADR 0339 D4): stdout as JSON, its `effect` checked (a `digest` that is null or a record's,
+    /// an `observed_at`, a `from_journal`) and taken out, so what remains is the port's answer alone.
+    pub fn answer(&self) -> serde_json::Value {
+        let mut answer = self.json();
+        let effect = answer
+            .as_object_mut()
+            .and_then(|fields| fields.remove("effect"))
+            .unwrap_or_else(|| panic!("the answer says no effect: {}", self.stdout));
+        assert!(
+            effect["observed_at"].is_u64()
+                && effect["from_journal"].is_boolean()
+                && (effect["digest"].is_null()
+                    || effect["digest"]
+                        .as_str()
+                        .is_some_and(|d| d.starts_with("sha256:"))),
+            "{effect}"
+        );
+        answer
     }
 
     /// Panics with the streams unless the exit code is `code`; `self` for chaining.

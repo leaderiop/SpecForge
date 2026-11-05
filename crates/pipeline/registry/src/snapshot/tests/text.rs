@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use specforge_graph::ValueShape;
 use specforge_parser::FieldValue;
 use specforge_test_macros::test as specforge_test;
@@ -67,7 +65,7 @@ fn every_variant_has_a_value_shape() {
 "#;
     let registries = RegistryBuild::default();
     let graph = super::graph_of(source, &registries);
-    let snapshot = EntitySnapshot::of(&graph, &registries, Path::new("."), Path::new("."));
+    let snapshot = EntitySnapshot::of(&graph, &registries);
     let record = snapshot.records().iter().find(|r| r.id == "x").unwrap();
     let shapes: Vec<(&str, ValueShape)> = record
         .fields

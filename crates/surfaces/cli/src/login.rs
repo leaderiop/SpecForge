@@ -64,7 +64,7 @@ fn parse_root(text: &str) -> Result<RegistryRoot, String> {
 }
 
 impl Args {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         login(
             self.registry.as_deref(),
             Given {
@@ -75,18 +75,20 @@ impl Args {
             &self.project,
             self.output.format,
             terminal,
+            ports,
         )
     }
 }
 
 impl LogoutArgs {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         logout(
             self.registry.as_deref(),
             self.url,
             &self.project,
             self.output.format,
             terminal,
+            ports,
         )
     }
 }
@@ -107,6 +109,7 @@ fn login(
     project: &ProjectArg,
     format: OutputFormat,
     terminal: &Terminal,
+    ports: &specforge_effects::Ports,
 ) -> Exit {
     let refuse = |error: &OpError| Refusal::of(format).report(terminal, error);
     let source = match (given.token, given.token_env, given.token_file) {
@@ -133,7 +136,7 @@ fn login(
         Ok(root) => root,
         Err(error) => return refuse(&error),
     };
-    let registry = ConfiguredRegistry::for_project(&root, "login");
+    let registry = ConfiguredRegistry::for_project(&root, "login", ports);
     let result = registry.log_in(registry_alias, source);
     Notes::new(terminal, format).beside(&registry.reported());
     let logged_in = match result {
@@ -175,16 +178,17 @@ fn logout(
     project: &ProjectArg,
     format: OutputFormat,
     terminal: &Terminal,
+    ports: &specforge_effects::Ports,
 ) -> Exit {
     let refuse = |error: &OpError| Refusal::of(format).report(terminal, error);
     let logged_out = match url {
-        Some(root) => User::current().log_out(&root),
+        Some(root) => User::current(std::sync::Arc::clone(&ports.git)).log_out(&root),
         None => {
             let root = match project.root() {
                 Ok(root) => root,
                 Err(error) => return refuse(&error),
             };
-            let registry = ConfiguredRegistry::for_project(&root, "logout");
+            let registry = ConfiguredRegistry::for_project(&root, "logout", ports);
             let result = registry.log_out(registry_alias);
             Notes::new(terminal, format).beside(&registry.reported());
             result

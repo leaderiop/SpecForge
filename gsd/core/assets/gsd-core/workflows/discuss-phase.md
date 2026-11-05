@@ -168,7 +168,7 @@ fi
 Look for a `.continue-here.md` in the current phase directory:
 
 ```bash
-ls ${phase_dir}/.continue-here.md 2>/dev/null || true
+specforge files stat ${phase_dir}/.continue-here.md --format human 2>/dev/null || true
 ```
 
 If `.continue-here.md` exists, parse its "Critical Anti-Patterns" table for rows with `severity` = `blocking`.
@@ -202,7 +202,7 @@ Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md lo
 Check if CONTEXT.md already exists using `has_context` from init.
 
 ```bash
-ls ${phase_dir}/*-CONTEXT.md 2>/dev/null || true
+specforge files list ${phase_dir} --depth 1 --kind file --no-ignore --glob '*-CONTEXT.md' --format human 2>/dev/null || true
 ```
 
 **If exists:**
@@ -215,7 +215,7 @@ ls ${phase_dir}/*-CONTEXT.md 2>/dev/null || true
 
 Check for an interrupted discussion checkpoint:
 ```bash
-ls ${phase_dir}/*-DISCUSS-CHECKPOINT.json 2>/dev/null || true
+specforge files list ${phase_dir} --depth 1 --kind file --no-ignore --glob '*-DISCUSS-CHECKPOINT.json' --format human 2>/dev/null || true
 ```
 
 If a checkpoint file exists:
@@ -252,8 +252,8 @@ For each CONTEXT.md read: extract `<decisions>` (locked preferences), `<specific
 
 **Spike/sketch findings:** Check for project-local skills:
 ```bash
-SPIKE_FINDINGS=$(ls ./.claude/skills/spike-findings-*/SKILL.md 2>/dev/null | head -1 || true)
-SKETCH_FINDINGS=$(ls ./.claude/skills/sketch-findings-*/SKILL.md 2>/dev/null | head -1 || true)
+SPIKE_FINDINGS=$(specforge files list .claude/skills --depth 2 --kind file --no-ignore --glob 'spike-findings-*/SKILL.md' --pick '.entries[0].path' 2>/dev/null || true)
+SKETCH_FINDINGS=$(specforge files list .claude/skills --depth 2 --kind file --no-ignore --glob 'sketch-findings-*/SKILL.md' --pick '.entries[0].path' 2>/dev/null || true)
 RAW_SPIKES=""     # spikes and sketches are not part of @gsd/core; set these only if the project keeps some
 RAW_SKETCHES=""
 ```
@@ -390,7 +390,7 @@ DISCUSSION-LOG.md is for human reference only (audits, retrospectives) and is NO
 
 Use values from init: `phase_dir`, `expected_phase_dir`, `phase_slug`, `padded_phase`. If `phase_dir` is null:
 ```bash
-mkdir -p "${expected_phase_dir}"
+specforge files mkdir "${expected_phase_dir}" >/dev/null
 ```
 
 Set `phase_dir="${expected_phase_dir}"` after creation.
@@ -464,12 +464,12 @@ Substitute live values from the discussion log accumulator (area names, options 
 
 **Clean up checkpoint file** — CONTEXT.md is now the canonical record:
 ```bash
-rm -f "${phase_dir}/${padded_phase}-DISCUSS-CHECKPOINT.json"
+specforge files remove --force "${phase_dir}/${padded_phase}-DISCUSS-CHECKPOINT.json" >/dev/null
 ```
 
 Commit phase context and discussion log:
 ```bash
-git add spec && git commit -m "docs(${padded_phase}): capture phase context" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs(${padded_phase}): capture phase context" && specforge collect --runner gsd-git --yes
 ```
 
 Confirm: "Committed: docs(${padded_phase}): capture phase context"

@@ -26,7 +26,7 @@ fn handshake_request_json_field_names() {
 
 #[test]
 fn protocol_version_constant() {
-    assert_eq!(PROTOCOL_VERSION, "1.15.0");
+    assert_eq!(PROTOCOL_VERSION, "2.0.0");
 }
 
 // ── Step 2: HandshakeResponse ──
@@ -538,11 +538,11 @@ fn collector_descriptor_with_auto_detect() {
             file_patterns: vec!["**/target/**/junit.xml".to_string()],
             env_vars: vec!["CARGO_TARGET_DIR".to_string()],
         }),
-        run: vec![],
+        capability: None,
         report: None,
         capture: None,
         writes: false,
-        reads: vec![],
+        inputs: vec![],
     };
     let json = serde_json::to_string(&collector).unwrap();
     let decoded: CollectorDescriptor = serde_json::from_str(&json).unwrap();

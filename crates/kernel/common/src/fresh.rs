@@ -6,7 +6,7 @@
 
 use std::ffi::OsString;
 use std::fs::{File, OpenOptions};
-use std::io::{ErrorKind, Result, Write as _};
+use std::io::{ErrorKind, Read as _, Result, Write as _};
 use std::path::{Path, PathBuf};
 
 /// Replace `path` atomically: write `<path>.tmp` (the file name with `.tmp` appended, beside `path`),
@@ -49,13 +49,7 @@ pub fn replace_file(path: &Path, contents: &[u8]) -> Result<()> {
 /// unlinked first, never followed, and what is at `path` (its mode, a link) is replaced, not kept. On
 /// failure the temp is removed and `path` is as it was.
 pub fn replace_private(path: &Path, contents: &[u8]) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        let mut dirs = std::fs::DirBuilder::new();
-        dirs.recursive(true);
-        #[cfg(unix)]
-        std::os::unix::fs::DirBuilderExt::mode(&mut dirs, 0o700);
-        dirs.create(parent)?;
-    }
+    private_parent(path)?;
     let temp = temporary(path);
     unlink(&temp)?;
     let mut options = OpenOptions::new();
@@ -73,6 +67,108 @@ pub fn replace_private(path: &Path, contents: &[u8]) -> Result<()> {
         let _ = std::fs::remove_file(&temp);
     }
     written
+}
+
+/// What [`replace_private`] wrote at `path`: its bytes, when it is a file of this user that no one else may touch. A
+/// link, a file of another mode (a git checkout writes 0644) or of another owner is `PermissionDenied`, so a project
+/// cannot commit one in the store's place. Elsewhere than unix no mode is set, so this cannot tell, and reads it.
+pub fn read_private(path: &Path) -> Result<Vec<u8>> {
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::custom_flags(&mut options, libc::O_NOFOLLOW);
+    let mut file = options.open(path)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt as _;
+        let meta = file.metadata()?;
+        #[expect(unsafe_code, reason = "geteuid(2) takes nothing and cannot fail")]
+        // SAFETY: no argument, no memory, and the call always succeeds.
+        let me = unsafe { libc::geteuid() };
+        if !meta.is_file() || meta.mode() & 0o077 != 0 || meta.uid() != me {
+            return Err(ErrorKind::PermissionDenied.into());
+        }
+    }
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)?;
+    Ok(bytes)
+}
+
+/// Create the missing parent directories of `path`, 0700 (unix).
+pub fn private_parent(path: &Path) -> Result<()> {
+    let Some(parent) = path.parent() else {
+        return Ok(());
+    };
+    let mut dirs = std::fs::DirBuilder::new();
+    dirs.recursive(true);
+    #[cfg(unix)]
+    std::os::unix::fs::DirBuilderExt::mode(&mut dirs, 0o700);
+    dirs.create(parent)
+}
+
+/// Open the sidecar lock file `path`, created 0600 (unix). A link at the name is refused, never followed: creating
+/// through a dangling link would make a file wherever it points. Elsewhere than unix the name is looked at first.
+pub fn open_private_lock(path: &Path) -> Result<File> {
+    let mut options = OpenOptions::new();
+    options.create(true).truncate(false).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+    }
+    #[cfg(not(unix))]
+    if std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink()) {
+        return Err(std::io::Error::other("it is a link"));
+    }
+    options.open(path)
+}
+
+/// Make the existing directory `path` readable by its owner alone (`0700`, unix) through a handle that refuses a link
+/// at the name (`O_NOFOLLOW`), so a link swapped in is never followed to chmod what it points at. Elsewhere than unix
+/// no mode exists, and nothing changes.
+pub fn owner_only_dir(path: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
+        let dir = OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_DIRECTORY)
+            .open(path)?;
+        dir.set_permissions(std::fs::Permissions::from_mode(0o700))?;
+    }
+    #[cfg(not(unix))]
+    let _ = path;
+    Ok(())
+}
+
+/// Why the file or directory `meta` describes is not this user's alone to write: it belongs to another user, or its
+/// group or others may write it. `None` when it is, and always elsewhere than unix, where no such mode exists
+/// (ADR 0178). For what a private file trusts: another user could have created it first and filled it.
+pub fn not_private(meta: &std::fs::Metadata) -> Option<&'static str> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt as _;
+        #[expect(unsafe_code, reason = "geteuid(2) takes nothing and always succeeds")]
+        let me = unsafe { libc::geteuid() };
+        judged_private(meta.uid(), meta.mode(), me)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = meta;
+        None
+    }
+}
+
+/// [`not_private`] of an `owner` and a `mode`, for the user `me`.
+#[cfg(unix)]
+fn judged_private(owner: u32, mode: u32, me: u32) -> Option<&'static str> {
+    if owner != me {
+        Some("belongs to another user")
+    } else if mode & 0o022 != 0 {
+        Some("is writable by its group or others")
+    } else {
+        None
+    }
 }
 
 /// A new file at `path`, to stream into: the name is unlinked first (a link, never its target; a
@@ -100,6 +196,37 @@ fn temporary(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn private_means_this_users_and_no_one_elses_to_write() {
+        for mode in [0o600, 0o644, 0o700, 0o755, 0o400] {
+            assert_eq!(judged_private(501, mode, 501), None, "{mode:o}");
+        }
+        for mode in [0o620, 0o602, 0o660, 0o666, 0o770, 0o707, 0o1777] {
+            assert_eq!(
+                judged_private(501, mode, 501),
+                Some("is writable by its group or others"),
+                "{mode:o}"
+            );
+        }
+        for (owner, me) in [(502, 501), (0, 501), (501, 0)] {
+            assert_eq!(
+                judged_private(owner, 0o600, me),
+                Some("belongs to another user"),
+                "{owner} as {me}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_file_this_user_just_made_privately_is_private() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("x");
+        replace_private(&path, b"x").unwrap();
+        assert_eq!(not_private(&std::fs::metadata(&path).unwrap()), None);
+        assert_eq!(not_private(&std::fs::metadata(dir.path()).unwrap()), None);
+    }
 
     #[cfg(unix)]
     #[test]

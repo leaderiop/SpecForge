@@ -1,0 +1,186 @@
+package specforge:host@0.1.0;
+
+/// Why a port call did not run, or how it failed.
+interface types {
+  /// The host refused the call before any effect.
+  variant denial {
+    /// This call kind may not use the port (a pass, a validator, a hook, ...): the message says who may.
+    call-kind(string),
+    /// The request is outside the extension's grant for this call: the message names what was asked.
+    scope(string),
+  }
+  /// The port did not answer: `class` is the journal's outcome class (`unreachable:dns`, `deadline`, `missing`, ...).
+  record failure {
+    class: string,
+    message: string,
+  }
+  variant host-error {
+    denied(denial),
+    failed(failure),
+  }
+}
+
+/// One request; redirects are followed by the host, each hop granted again.
+interface http {
+  use types.{host-error};
+  record header {
+    name: string,
+    value: string,
+    sensitive: bool,
+  }
+  /// `body-cap` and `timeout-ms` are held to the host's ceilings; 0 asks for the most the call may have.
+  record request {
+    method: string,
+    url: string,
+    headers: list<header>,
+    body: option<list<u8>>,
+    body-cap: u64,
+    timeout-ms: u64,
+    max-redirects: u32,
+    keep-headers: list<string>,
+  }
+  record response-header {
+    name: string,
+    value: string,
+  }
+  /// An answer that came, whatever its status. `truncated`: the body stopped at a cap.
+  record response {
+    status: u16,
+    headers: list<response-header>,
+    body: list<u8>,
+    truncated: bool,
+    final-url: string,
+  }
+  send: func(req: request) -> result<response, host-error>;
+}
+
+/// Reads under a named root (`spec`, `project` or a root `specforge.json` names).
+interface fs {
+  use types.{host-error};
+  enum entry-kind {
+    file,
+    dir,
+    other,
+  }
+  record entry {
+    kind: entry-kind,
+    size: u64,
+    modified-ms: option<u64>,
+  }
+  record content {
+    bytes: list<u8>,
+    truncated: bool,
+  }
+  record listing {
+    entries: list<string>,
+    truncated: bool,
+  }
+  /// None: the path does not exist.
+  stat: func(root: string, path: string) -> result<option<entry>, host-error>;
+  read: func(root: string, path: string, max-bytes: u64) -> result<content, host-error>;
+  walk: func(root: string, path: string, glob: option<string>, max-entries: u32) -> result<listing, host-error>;
+}
+
+/// One program, its argv as a capability declares it, in the project's directory.
+interface process {
+  use types.{host-error};
+  /// `value` none: the variable is removed.
+  record env-var {
+    name: string,
+    value: option<string>,
+  }
+  /// `deadline-ms` and `output-cap` are held to the host's ceilings; 0 asks for the most the call may have.
+  record run-request {
+    argv: list<string>,
+    env: list<env-var>,
+    stdin: option<list<u8>>,
+    deadline-ms: u64,
+    output-cap: u64,
+    text: bool,
+  }
+  /// A run that ended. `exit-code` none: it was stopped at the output cap, and `truncated` says so.
+  record run-output {
+    exit-code: option<s32>,
+    stdout: list<u8>,
+    stderr: list<u8>,
+    truncated: bool,
+  }
+  run: func(req: run-request) -> result<run-output, host-error>;
+}
+
+/// Reads of the project's repository: no write, and no place to name another one.
+interface git {
+  use types.{host-error};
+  record repo {
+    toplevel: string,
+    shallow: bool,
+  }
+  record tree-entry {
+    path: string,
+    file: bool,
+  }
+  record file-size {
+    path: string,
+    size: option<u64>,
+  }
+  record blob {
+    path: string,
+    bytes: option<list<u8>>,
+  }
+  /// `truncated`: the answer's cap stopped them; the blobs after it have no bytes.
+  record blobs-answer {
+    blobs: list<blob>,
+    truncated: bool,
+  }
+  record branch-status {
+    oid: option<string>,
+    head: option<string>,
+    upstream: option<string>,
+    ahead: u32,
+    behind: u32,
+  }
+  enum entry-kind {
+    changed,
+    renamed,
+    unmerged,
+    untracked,
+    ignored,
+  }
+  enum change {
+    modified,
+    type-changed,
+    added,
+    deleted,
+    renamed,
+    copied,
+    unmerged,
+  }
+  record entry {
+    kind: entry-kind,
+    path: string,
+    orig-path: option<string>,
+    index: option<change>,
+    worktree: option<change>,
+  }
+  record status-answer {
+    branch: branch-status,
+    entries: list<entry>,
+  }
+  /// None: the project is in no repository.
+  locate: func() -> result<option<repo>, host-error>;
+  /// The commit a revision names; none when it names none.
+  commit: func(revision: string) -> result<option<string>, host-error>;
+  merge-base: func(a: string, b: string) -> result<option<string>, host-error>;
+  tree: func(commit: string, dir: string) -> result<list<tree-entry>, host-error>;
+  sizes: func(commit: string, paths: list<string>) -> result<list<file-size>, host-error>;
+  blobs: func(commit: string, paths: list<string>) -> result<blobs-answer, host-error>;
+  branch: func() -> result<string, host-error>;
+  status: func() -> result<status-answer, host-error>;
+}
+
+world ports {
+  import http;
+  import fs;
+  import process;
+  import git;
+}

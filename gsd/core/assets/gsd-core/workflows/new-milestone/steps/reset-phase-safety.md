@@ -9,7 +9,7 @@ If `--reset-phase-numbers` is active:
 If `phase_dir_count > 0` and `phase_archive_path` is available:
 
 ```bash
-mkdir -p "${phase_archive_path}"
+specforge files mkdir "${phase_archive_path}" >/dev/null
 : # nothing to archive: phases stay with their milestone, and ids are milestone-scoped, so new 01-* phases cannot collide with the old ones
 ```
 

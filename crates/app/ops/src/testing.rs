@@ -24,9 +24,7 @@ use specforge_protocol_types::PeerDependency;
 use specforge_wasm::testing::InProcessRuntime;
 
 use crate::asking::Asking;
-use crate::machine::{
-    CollectorCommand, CollectorMachine, CommandApproval, Ran, RunFailure, RunnerOutput,
-};
+use crate::machine::{CollectorCommand, CollectorMachine, Ran, RunFailure, RunnerOutput};
 use crate::solver::{Availability, SolveFailure, Solver, Z3};
 use crate::view::ProjectView;
 use crate::{Caller, Containment};
@@ -278,11 +276,9 @@ pub struct RanCommand {
 }
 
 /// A collector machine that does what a test scripts: it records each command line, writes the scripted
-/// report files and stdout, answers a fixed start time, and keeps approvals in memory (ADR 0125).
+/// report files and stdout, and answers a fixed start time (ADR 0125). Approvals are the `Consent` port's:
+/// `specforge_effects::testing::MemoryConsent`.
 pub struct ScriptedMachine {
-    every_command: bool,
-    unable_to_remember: Option<String>,
-    approved: Mutex<Vec<CommandApproval>>,
     script: Mutex<VecDeque<ScriptedRun>>,
     ran: Mutex<Vec<RanCommand>>,
 }
@@ -300,33 +296,12 @@ impl ScriptedMachine {
         SystemTime::UNIX_EPOCH + Duration::from_secs(2_000_000)
     }
 
-    /// Nothing approved, nothing scripted: a run panics, naming the command.
+    /// Nothing scripted: a run panics, naming the command.
     pub fn new() -> Self {
         ScriptedMachine {
-            every_command: false,
-            unable_to_remember: None,
-            approved: Mutex::new(Vec::new()),
             script: Mutex::new(VecDeque::new()),
             ran: Mutex::new(Vec::new()),
         }
-    }
-
-    /// Also approving `approval`, as if the user approved it before.
-    pub fn approving(self, approval: CommandApproval) -> Self {
-        self.approved.lock().unwrap().push(approval);
-        self
-    }
-
-    /// Every command approved: what a test needs when it is not about consent.
-    pub fn approving_every_command(mut self) -> Self {
-        self.every_command = true;
-        self
-    }
-
-    /// `approve` fails with `why`.
-    pub fn unable_to_remember(mut self, why: &str) -> Self {
-        self.unable_to_remember = Some(why.to_string());
-        self
     }
 
     /// The next run does `run`.
@@ -338,11 +313,6 @@ impl ScriptedMachine {
     /// The commands it ran, in order.
     pub fn runs(&self) -> Vec<RanCommand> {
         self.ran.lock().unwrap().clone()
-    }
-
-    /// What it holds approved now (scripted plus remembered).
-    pub fn approvals(&self) -> Vec<CommandApproval> {
-        self.approved.lock().unwrap().clone()
     }
 }
 
@@ -400,19 +370,5 @@ impl CollectorMachine for ScriptedMachine {
             exit_code: run.exit_code,
             started: Self::started(),
         })
-    }
-
-    fn approved(&self, approval: &CommandApproval) -> bool {
-        self.every_command || self.approved.lock().unwrap().contains(approval)
-    }
-
-    fn approve(&self, approval: &CommandApproval) -> Result<(), String> {
-        if let Some(why) = &self.unable_to_remember {
-            return Err(why.clone());
-        }
-        let mut approved = self.approved.lock().unwrap();
-        approved.retain(|a| !approval.replaces(a));
-        approved.push(approval.clone());
-        Ok(())
     }
 }

@@ -11,6 +11,7 @@ use specforge_registry::{Disk, EntitySnapshot};
 
 use super::inputs::{Cited, Cx};
 use super::{DigestMemo, Judgements};
+use crate::CheckedValues;
 use crate::Environment;
 use crate::coverage::ReportRead;
 use crate::harness::{Harness, LEDGER_FILE, Ledger, VERDICT_KEY, digest};
@@ -173,7 +174,8 @@ fn given(
 }
 
 /// Every judged rule's state on every entity of `graph`, and the diagnostics: a rule's own for each entity whose
-/// verdict does not hold, W168 for a verdict that cannot be read, I205 once when test inputs were not judged, E045
+/// verdict does not hold, W168 for a verdict that cannot be read, I205 once when test inputs were not judged, I207 once
+/// when checked values were not (a check this machine did not perform, ADR 0337 §6), E045
 /// when the report is unusable. `ledger` is the bytes of `specforge-harness`. A rule gated by its setting reads nothing.
 pub fn evaluate(
     env: &Environment,
@@ -181,6 +183,7 @@ pub fn evaluate(
     entities: &EntitySnapshot,
     disk: &dyn Disk,
     memo: &DigestMemo,
+    checked: &CheckedValues,
     ledger: &[u8],
 ) -> Evaluated {
     let registries = env.registries();
@@ -195,9 +198,9 @@ pub fn evaluate(
     let all: Vec<&JudgedRule> = registries.judged_rules().collect();
     let ledger = Ledger::parse(&String::from_utf8_lossy(ledger)).ledger;
     let harness = Harness::of(registries);
-    let cx = Cx::new(env, graph, entities, disk, memo);
+    let cx = Cx::new(env, graph, entities, disk, memo, checked);
     let forms = registries.field_forms();
-    let mut unjudged = 0usize;
+    let (mut unjudged, mut unchecked) = (0usize, 0usize);
     for node in graph.nodes() {
         let (id, kind) = (node.id.raw.as_str(), node.kind.raw.as_str());
         let mut read: Vec<(&JudgedRule, &VerdictMember)> = Vec::new();
@@ -287,8 +290,16 @@ pub fn evaluate(
                         )
                     } else {
                         let now = cx.inputs(node, rule, &Cited::of(verdict));
-                        if !now.unjudged.is_empty() {
+                        // A value not checked here is I207's; any other input not judged is I205's.
+                        if now
+                            .unjudged
+                            .iter()
+                            .any(|name| !now.unchecked.contains(name))
+                        {
                             unjudged += 1;
+                        }
+                        if !now.unchecked.is_empty() {
+                            unchecked += 1;
                         }
                         judgement.files = now.files.clone();
                         let before = recorded_inputs(verdict);
@@ -344,6 +355,15 @@ pub fn evaluate(
             }
             out.judgements.insert(id, judgement);
         }
+    }
+    if unchecked > 0 {
+        out.diagnostics.push(Diagnostic::new(
+            codes::I207,
+            format!(
+                "checked values of {unchecked} judged verdicts were not judged: their checks did not run on this \
+                 machine (I206); run `specforge check --effects online`"
+            ),
+        ));
     }
     if unjudged > 0 {
         match cx.report() {

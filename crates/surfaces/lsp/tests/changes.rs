@@ -243,6 +243,23 @@ fn a_disk_change_to_an_open_document_is_ignored() {
 }
 
 #[test]
+fn the_served_session_performs_no_effect() {
+    let served = two_files();
+    let state = served.state();
+    let effects = state
+        .session()
+        .expect("a session")
+        .project()
+        .environment()
+        .effects();
+    assert_eq!(effects.mode(), specforge_effects::EffectsMode::Cached);
+    assert!(
+        effects.ports().is_none(),
+        "an editor's session holds no port"
+    );
+}
+
+#[test]
 fn readers_keep_the_last_graph_while_the_session_is_out() {
     let mut served = two_files();
     let (rebuilding, found) = served.rebuilding(|state| {
@@ -566,4 +583,34 @@ fn a_nested_project_created_while_open_leaves_the_workspace_project() {
         FileChangeType::DELETED,
     )]));
     assert!(served.state().graph().node("sigma").is_some());
+}
+
+#[spec(
+    behavior = "classify_project_changes",
+    verify = "the LSP applies an expired effect record the checks consulted before it answers a request"
+)]
+fn an_expired_effect_record_is_applied_before_a_request() {
+    let mut served = two_files();
+    assert!(
+        served.apply(Change::Expired).is_none(),
+        "nothing expired: nothing to apply"
+    );
+    let record = served
+        .root()
+        .join(".specforge/effects/journal/ab/record.json");
+    std::fs::create_dir_all(record.parent().unwrap()).unwrap();
+    std::fs::write(&record, "{}").unwrap();
+    let consulted = specforge_project::Consulted {
+        path: record,
+        expires: Some(specforge_effects::UnixMillis(1)),
+    };
+    served.with_session(|session| session.stamp_consulted(vec![consulted]));
+    let applied = served
+        .apply(Change::Expired)
+        .expect("the expired record runs the checks again");
+    assert!(applied.changed);
+    assert!(
+        served.apply(Change::Expired).is_none(),
+        "the run consulted no record: nothing expires again"
+    );
 }

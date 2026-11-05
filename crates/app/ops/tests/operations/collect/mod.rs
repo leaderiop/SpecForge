@@ -1,10 +1,12 @@
 //! `collect` end to end in process (ADR 0125): runners declared through the SDK, an in-process runtime
-//! answering each export, and a `ScriptedMachine` standing for the machine. Nothing here spawns a
-//! process, reads the environment or the wall clock.
+//! answering each export, and a [`Machine`] standing for the machine: a `ScriptedMachine` and a
+//! `MemoryConsent` holding its approvals (ADR 0335 D2). Nothing here spawns a process, reads the
+//! environment or the wall clock.
 
 mod facts;
 mod modes;
 mod order;
+mod outcomes;
 mod plans;
 mod reads;
 mod refusals;
@@ -15,18 +17,85 @@ mod runs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use specforge_effects::testing::MemoryConsent;
+use specforge_effects::{
+    Approval, CapabilityApproval, Consent, EffectsCeiling, Grant, Provenance, Roots,
+};
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
 use specforge_ops::analysis::collect::{
-    CollectField, Collector, CommandApproval, Mode, Outcome, Request, collectors,
+    CollectField, Collector, Mode, Outcome, Request, collectors,
 };
 use specforge_ops::asking::Asking;
-use specforge_ops::testing::{ScriptedMachine, Viewed};
+use specforge_ops::testing::{RanCommand, ScriptedMachine, ScriptedRun, Viewed};
 use specforge_ops::{Caller, Containment, Refusal};
 use specforge_protocol_types::{
     CollectEntityResult, CollectOutput, ExtensionDeclaration, FileRead, TestResult, TestStatus,
 };
 use specforge_wasm::testing::{InProcessRuntime, RecordedCall};
 use specforge_wasm::{WasmCallResult, WasmTrapInfo};
+
+/// The machine a collect runs on, as a test scripts it: its runs and this machine's approvals.
+pub struct Machine {
+    scripted: ScriptedMachine,
+    consent: MemoryConsent,
+}
+
+impl Default for Machine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Machine {
+    /// Nothing approved, nothing scripted.
+    pub fn new() -> Self {
+        Machine {
+            scripted: ScriptedMachine::new(),
+            consent: MemoryConsent::default(),
+        }
+    }
+
+    /// Every capability approved: what a test needs when it is not about consent.
+    pub fn approving_everything(mut self) -> Self {
+        self.consent = MemoryConsent::approving_everything();
+        self
+    }
+
+    /// Also approving `approval`, as if the user approved it before.
+    pub fn approving(self, approval: Approval) -> Self {
+        self.consent.approve(approval).unwrap();
+        self
+    }
+
+    /// An approval cannot be stored: `why`.
+    pub fn unable_to_remember(mut self, why: &str) -> Self {
+        self.consent = MemoryConsent::unable_to_remember(why);
+        self
+    }
+
+    /// The store cannot be used at all: `why`.
+    pub fn unusable_store(mut self, why: &str) -> Self {
+        self.consent = MemoryConsent::unusable(why);
+        self
+    }
+
+    /// The next run does `run`.
+    pub fn answering(mut self, run: ScriptedRun) -> Self {
+        self.scripted = self.scripted.answering(run);
+        self
+    }
+
+    /// The commands it ran, in order.
+    pub fn runs(&self) -> Vec<RanCommand> {
+        self.scripted.runs()
+    }
+
+    /// The scope of each approval it holds now.
+    pub fn approvals(&self) -> Vec<String> {
+        let held = self.consent.list().unwrap();
+        held.capabilities.into_iter().map(|a| a.scope).collect()
+    }
+}
 
 /// What a runner's export answers.
 enum Answer {
@@ -42,7 +111,7 @@ pub struct Runner {
     run: Vec<String>,
     report: String,
     capture: Option<String>,
-    reads: Vec<FileRead>,
+    reads: Vec<specforge_protocol_types::Input>,
     answer: Answer,
 }
 
@@ -72,6 +141,18 @@ impl Runner {
         self
     }
 
+    /// It declares no detection file.
+    pub fn detecting_nothing(mut self) -> Self {
+        self.detect.clear();
+        self
+    }
+
+    /// It declares `inputs` as raw JSON; a tag this protocol does not know costs it the inputs.
+    pub fn inputs_raw(mut self, inputs: serde_json::Value) -> Self {
+        self.reads = serde_json::from_value(inputs).unwrap_or_default();
+        self
+    }
+
     pub fn capturing_stdout(self) -> Self {
         self.capturing("stdout")
     }
@@ -83,9 +164,9 @@ impl Runner {
     }
 
     /// It declares `read` under `name`.
-    pub fn reading(mut self, name: &str, mut read: FileRead) -> Self {
-        read.name = name.to_string();
-        self.reads.push(read);
+    pub fn reading(mut self, name: &str, read: FileRead) -> Self {
+        self.reads
+            .push(specforge_protocol_types::Input::files(name, read));
         self
     }
 
@@ -129,7 +210,7 @@ impl Runner {
         // The report and the capture as declared, whatever they are.
         declaration.collectors[0].report = Some(self.report.clone());
         declaration.collectors[0].capture = self.capture.clone();
-        declaration.collectors[0].reads = self.reads.clone();
+        declaration.collectors[0].inputs = self.reads.clone();
         declaration
     }
 }
@@ -139,11 +220,17 @@ pub struct Fixture {
     dir: tempfile::TempDir,
     project: specforge_project::testing::Assembled,
     collectors: Vec<Collector>,
+    declarations: Vec<ExtensionDeclaration>,
     pub runtime: Arc<InProcessRuntime>,
 }
 
 impl Fixture {
     pub fn new(runners: Vec<Runner>) -> Self {
+        Self::configured(runners, r#"{"name": "demo"}"#)
+    }
+
+    /// The same, with `config` as its `specforge.json`.
+    pub fn configured(runners: Vec<Runner>, config: &str) -> Self {
         let mut runtime = InProcessRuntime::new();
         for runner in &runners {
             let result = match &runner.answer {
@@ -162,8 +249,8 @@ impl Fixture {
         let declarations: Vec<ExtensionDeclaration> =
             runners.iter().map(Runner::declaration).collect();
         let collectors = collectors(&declarations);
+        let kept = declarations.clone();
         let dir = tempfile::tempdir().unwrap();
-        let config = r#"{"name": "demo"}"#;
         std::fs::write(dir.path().join("specforge.json"), config).unwrap();
         let shared: specforge_project::SharedRuntime = Arc::clone(&runtime) as _;
         let project = specforge_project::testing::Assembled::assembling_at(dir.path(), |root| {
@@ -184,12 +271,18 @@ impl Fixture {
             dir,
             project,
             collectors,
+            declarations: kept,
             runtime,
         }
     }
 
     pub fn root(&self) -> &Path {
         self.dir.path()
+    }
+
+    /// The collectors the project's extensions declare, by name.
+    pub fn declared_collectors(&self) -> Vec<&str> {
+        self.collectors.iter().map(|c| c.name.as_str()).collect()
     }
 
     /// Write `contents` at `path` under the root.
@@ -213,10 +306,30 @@ impl Fixture {
         Some(serde_json::from_str(&raw).unwrap())
     }
 
-    /// The approval runner `name`'s command needs here.
-    pub fn approval(&self, name: &str) -> CommandApproval {
+    /// The approval runner `name`'s command needs here: its extension's process capability, keyed as collect
+    /// keys an extension the runtime did not load (a third party, by its name).
+    pub fn approval(&self, name: &str) -> Approval {
         let collector = self.collectors.iter().find(|c| c.name == name).unwrap();
-        collector.approval(self.root())
+        let declaration = self
+            .declarations
+            .iter()
+            .find(|d| d.name() == collector.extension)
+            .unwrap();
+        let grant = Grant::decide(
+            declaration,
+            &Provenance::third_party(collector.extension.as_bytes()),
+            &EffectsCeiling::default(),
+            &Roots::new(self.root(), self.root()),
+            &MemoryConsent::default(),
+        );
+        let scope = collector.capability.as_deref().unwrap();
+        let granted = grant
+            .capabilities()
+            .iter()
+            .find(|g| g.declared.name == scope)
+            .unwrap();
+        let key: CapabilityApproval = grant.key(granted).unwrap();
+        Approval::Capability(key)
     }
 
     /// Where runner `name`'s report is, as the project spells it.
@@ -232,7 +345,7 @@ impl Fixture {
         mode: Mode<'_>,
         containment: &Containment,
         asking: Asking<'_>,
-        machine: &ScriptedMachine,
+        machine: &Machine,
     ) -> Result<Outcome, Refusal<CollectField>> {
         let view = self.project.view();
         specforge_ops::analysis::collect::collect(
@@ -243,7 +356,8 @@ impl Fixture {
                 announce: &mut |_, _| {},
                 caller: Caller::new(containment, asking),
             },
-            machine,
+            &machine.scripted,
+            &machine.consent,
         )
     }
 
@@ -251,7 +365,7 @@ impl Fixture {
     pub fn run(
         &self,
         asking: Asking<'_>,
-        machine: &ScriptedMachine,
+        machine: &Machine,
     ) -> Result<Outcome, Refusal<CollectField>> {
         self.collect_with(
             None,
@@ -266,7 +380,7 @@ impl Fixture {
     pub fn no_run(
         &self,
         runner: Option<&str>,
-        machine: &ScriptedMachine,
+        machine: &Machine,
     ) -> Result<Outcome, Refusal<CollectField>> {
         self.collect_with(
             runner,
@@ -284,7 +398,7 @@ impl Fixture {
             Mode::Reports(files),
             &Containment::unbounded(),
             Asking::Nobody,
-            &ScriptedMachine::new(),
+            &Machine::new(),
         )
     }
 

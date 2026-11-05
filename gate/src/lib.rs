@@ -3,6 +3,7 @@
 
 mod baseline;
 pub mod blob_inputs;
+mod blob_size;
 mod change_set;
 mod checks;
 pub mod crate_map;
@@ -10,6 +11,7 @@ mod doc_links;
 mod gsd;
 pub mod judge;
 pub mod layers;
+pub mod objects;
 mod repo;
 mod root_layout;
 mod run;

@@ -39,7 +39,7 @@ jobs:
               . -> target
               gsd -> target/gsd
           - shard: specs
-            checks: pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,crate-map,links,doc-links,root-layout,builtins,guests,published-schemas,specs,spec-modules
+            checks: pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,blob-size,crate-map,links,doc-links,root-layout,builtins,guests,published-schemas,specs,spec-modules
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -77,7 +77,7 @@ jobs:
       - name: Every check of the list is in a shard
         if: matrix.shard == 'lint'
         run: |
-          sharded="build,tests,guests,dogfood,rustfmt,clippy,gsd,doctests,audit,pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,crate-map,links,doc-links,root-layout,builtins,published-schemas,specs,spec-modules"
+          sharded="build,tests,guests,dogfood,rustfmt,clippy,gsd,doctests,audit,pending-snapshots,spec-format,grammar,zero-entity,layers,file-size,blob-size,crate-map,links,doc-links,root-layout,builtins,published-schemas,specs,spec-modules"
           listed=$(cargo gate list | awk '/^[a-z]/ && $2 != "bootstrap" {print $1}' | sort)
           missing=$(comm -23 <(echo "$listed") <(tr , '\n' <<<"$sharded" | sort))
           if [ -n "$missing" ]; then echo "checks in no shard: $missing"; exit 1; fi
@@ -170,6 +170,33 @@ jobs:
           name: reports-tests-${{ matrix.part }}
           path: target/specforge
           retention-days: 1
+
+  effect-plane:
+    # The effect plane's adapters on the other two OSes (ADR 0335): the process group or Job kill, PATHEXT and `.cmd`
+    # shims, the platform TLS verifier, the file walk and git through the runner. Not one of `cargo gate`'s shards; it
+    # builds only these crates.
+    name: Effect plane (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: effect-plane
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+      - name: The ports' adapters
+        # Every adapter test, so one run names every platform failure.
+        run: cargo nextest run --no-fail-fast -p specforge-effects -p specforge-process -p specforge-fs -p specforge-http -p specforge-git
+      - name: The collector machine's runner tests
+        run: cargo nextest run -p specforge-ops --lib -E "test(/^analysis::collect::process::/)"
 
   dogfood:
     # Every test of every partition and guest reported into target/specforge; dogfood judges them together.

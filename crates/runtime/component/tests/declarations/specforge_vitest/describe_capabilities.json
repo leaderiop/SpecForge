@@ -1,0 +1,22 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "argv": [
+        "npx",
+        "--no",
+        "vitest",
+        "run",
+        "--reporter=default",
+        "--reporter=json",
+        "--outputFile.json={report}"
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "name": "vitest",
+      "port": "process",
+      "why": "run the command whose report the collector 'vitest' reads"
+    }
+  ]
+}

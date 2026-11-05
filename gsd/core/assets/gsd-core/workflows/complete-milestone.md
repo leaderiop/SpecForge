@@ -191,7 +191,7 @@ git log --oneline --grep="feat(" | head -20
 git diff --stat FIRST_COMMIT..LAST_COMMIT | tail -1
 find . -name "*.swift" -o -name "*.ts" -o -name "*.py" | xargs wc -l 2>/dev/null || true
 git log --format="%ai" FIRST_COMMIT | tail -1
-git log --format="%ai" LAST_COMMIT | head -1
+specforge git log LAST_COMMIT --max 1 --pick '.commits[0].author.time'
 ```
 
 Present:
@@ -414,7 +414,7 @@ PROJECT_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .project_path)
 # #5195: PROJECT.md is shared across workstreams. Stage it only in flat mode (no --ws, no active workstream) — the same test the review step is gated on, so the two cannot disagree.
 _gsd_flat_mode() { local j; j=$(specforge gsd workstreams progress --pick .active) || return 1; [ -z "$GSD_WS" ] && [ -z "$j" ]; }
 _gsd_flat_mode || PROJECT_PATH=""
-git add spec && git commit -m "chore: archive v[X.Y] milestone files" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "chore: archive v[X.Y] milestone files" && specforge collect --runner gsd-git --yes
 ```
 
 This creates a durable checkpoint in git history. If anything fails after this point, the working tree can be reconstructed from git.
@@ -494,7 +494,7 @@ If the "## Cross-Milestone Trends" section exists, update the tables with new da
 
 **Commit:**
 ```bash
-git add spec && git commit -m "docs: update retrospective for v${VERSION}" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs: update retrospective for v${VERSION}" && specforge collect --runner gsd-git --yes
 ```
 
 </step>
@@ -525,7 +525,7 @@ See: the `project` entity (updated [today])
 
 Check the project's `branching_strategy` (from `init.execute-phase`/`init.complete-milestone`). `"none"` skips straight to `git_tag`. For `"phase"` or `"milestone"`, list the matching branches (by the configured prefix template); no branches found also skips to `git_tag`. Resolve the base branch through the single shared resolver, never a bare `main`/`master` fallback (Issue #1146):
 ```bash
-BASE_BRANCH=$(git config --get init.defaultBranch 2>/dev/null || echo main)
+BASE_BRANCH=$(specforge git config init.defaultBranch --pick .value 2>/dev/null); BASE_BRANCH=${BASE_BRANCH:-main}
 ```
 
 If branches exist, present them and ask (AskUserQuestion): **Squash merge** (recommended) / **Merge with history** / **Delete without merging** / **Keep branches**. All three merge/delete options iterate every matching branch (phase strategy) or the one milestone branch, checking out `BASE_BRANCH` first and returning to the original branch after; both merge options strip the spec from staging first when `commit_docs` is false. "Keep branches" just reports them as preserved for manual handling.
@@ -549,7 +549,7 @@ Exact bash for each of the four options (squash, history-preserving merge, delet
 Commit what is left (archive files and ROADMAP.md were already committed in the safety commit in `reorganize_roadmap_and_delete_originals`).
 
 ```bash
-git commit -m "chore: complete v[X.Y] milestone"
+specforge git commit -m "chore: complete v[X.Y] milestone"
 ```
 
 Confirm: "Committed: chore: complete v[X.Y] milestone"

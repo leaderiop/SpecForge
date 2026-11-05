@@ -87,9 +87,16 @@ term coverage "Coverage" {
 }
 
 term declarative_validation "Declarative Validation" {
-  definition "The pattern-based validation engine where extensions declare validation rules as data (ValidationRulePattern entries in the manifest) rather than imperative code. The core compiler interprets these patterns. Patterns include: no_incoming_edges, no_outgoing_edges, missing_field_when_flag_set, field_value_constraint, cycle_detection, file_exists, and custom (Wasm-backed)."
+  definition "The pattern-based validation engine where extensions declare validation rules as data (ValidationRulePattern entries in the manifest) rather than imperative code. The core compiler interprets these patterns. Patterns include: no_incoming_edges, no_outgoing_edges, missing_field_when_flag_set, field_value_constraint, cycle_detection, and custom (Wasm-backed)."
   context    "All 47 product diagnostic codes are declared as validation patterns. The engine executes them deterministically in diagnostic-code order."
   aliases    ["pattern_validation", "rule_engine"]
+  tags       ["core", "validation"]
+}
+
+term t_value_check "Value Check" {
+  definition "A check one value of a field must pass, declared by the field's checks or attached by specforge.json. The value stays plain in its field type's form. An extension's checker reads it in two pure phases, plan and judge, and any effect it needs is a probe the host performs through the effect plane, containing every path itself. A check that could not run is not judged and fails nothing."
+  context    "ADR 0336. Runs first in a compile, because a judged verdict digests each checked value's outcome class."
+  aliases    ["checker", "probe"]
   tags       ["core", "validation"]
 }
 

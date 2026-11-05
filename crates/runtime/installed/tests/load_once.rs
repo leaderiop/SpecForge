@@ -301,6 +301,14 @@ fn an_entry_of_an_older_protocol_major_is_refused_with_e088() {
         "{suggestion}"
     );
     assert!(!runtime.unload("@acme/major"), "nothing is left loaded");
+    // The guest every builtin was before protocol 2.0.0 (ADR 0337) is older too.
+    let (reports, _) = load_speaking("1.15.0");
+    assert_eq!(reports[0].code, "E088");
+    assert!(
+        reports[0].message.contains("older than"),
+        "{:?}",
+        reports[0]
+    );
 }
 
 /// An entry `@acme/importing` whose load the runtime refuses with `error`: what was reported, and the runtime.
@@ -359,4 +367,41 @@ fn an_entry_importing_a_foreign_interface_is_e028_naming_it() {
         "extension '@acme/importing' imports acme:x/y@1.0.0, which is neither WASI nor a specforge host port, \
          so no specforge loads it"
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "refuse_an_unbacked_port_import",
+    verify = "the environment load reports E089 naming the extension and the port"
+)]
+fn an_unbacked_import_is_e089() {
+    const BYTES: &[u8] = b"\0asm importing";
+    let dir = TempDir::new().unwrap();
+    let builtins = Builtins(&[("@acme/importing", BYTES)]);
+    let runtime = InProcessRuntime::new()
+        .binary(BYTES, || {
+            ContributionsBuilder::new(ExtensionMeta::new("@acme/importing", "0.1.0"))
+        })
+        .importing("@acme/importing", &["specforge:host/http@0.1.0"]);
+
+    let loaded = Installed::at(dir.path()).load(
+        &entries(&["@acme/importing"]),
+        &builtins,
+        &runtime,
+        &PlainDisk,
+    );
+    let reports = reported(dir.path(), &loaded);
+
+    assert_eq!(reports.len(), 1, "{reports:?}");
+    assert_eq!(reports[0].code, "E089");
+    assert!(
+        reports[0].message.contains("'@acme/importing'"),
+        "{:?}",
+        reports[0]
+    );
+    assert!(
+        reports[0].message.contains("specforge:host/http@0.1.0"),
+        "{:?}",
+        reports[0]
+    );
+    assert!(!runtime.unload("@acme/importing"), "nothing is left loaded");
 }

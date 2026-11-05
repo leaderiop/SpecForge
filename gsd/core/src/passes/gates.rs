@@ -36,7 +36,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
             let guard = p.guard().reports(&[code]);
             // Only E515 reads the recorded tests.
             if *code == "E515" {
-                guard.reads_tests();
+                guard.input(Input::Tests);
             }
             guard.run(*check);
         });

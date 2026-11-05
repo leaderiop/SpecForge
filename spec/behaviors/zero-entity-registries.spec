@@ -565,7 +565,6 @@ behavior registry_build_rules "Registry Build Collects Rules" {
     rules_collected        "Every declared rule that parses is in the build's rules with the extension that declared it, ordered by code"
     duplicates_warned      "A local code two extensions declare is two codes, and two extensions that share a code namespace are E039"
     required_enforced      "Every field registered as required has a host-generated E006 rule"
-    files_enforced         "Every field registered as a file reference has a host-generated E016 rule"
     unloaded_targets_inert "A rule whose target kind or edge type no loaded extension declares is not registered, so it reports nothing"
     rule_codes_checked     "A rule whose code its extension may not use is reported (W150) and still registered"
   }
@@ -590,8 +589,10 @@ behavior registry_build_rules "Registry Build Collects Rules" {
     undeclared kind (registry_build_declaration_consistency). After the
     extensions' rules,
     the rule set MUST contain a host-generated E006 rule, owned by no
-    extension, for every field registered as required, then an E016
-    file_exists rule for every field registered as a file reference.
+    extension, for every field registered as required. No rule reads a
+    path: a field whose value names a file carries a value check
+    (`@specforge/checks:file`), and a declared `file_exists` rule is W112
+    naming it.
 
     Each rule's code is checked against the diagnostic catalog when it
     is registered: an extension's rule uses a code its own catalog lists,
@@ -609,10 +610,9 @@ behavior registry_build_rules "Registry Build Collects Rules" {
   verify unit "a rule targeting a kind no loaded extension declares reports nothing"
   verify unit "extensions produce E006 rules for required fields"
   verify unit "E006 covers all required fields from builtin extensions"
-  verify unit "extensions produce E016 rules for file-reference fields"
   verify unit "a rule whose code the extension may not use is reported (W150) and still registered"
   verify unit "every builtin rule uses a code its extension owns, at the catalogued level"
-  verify contract "Registry Build Collects Rules: rule collection holds — declarations_in_load_order, rules_collected, duplicates_warned, required_enforced, files_enforced, unloaded_targets_inert, rule_codes_checked"
+  verify contract "Registry Build Collects Rules: rule collection holds — declarations_in_load_order, rules_collected, duplicates_warned, required_enforced, unloaded_targets_inert, rule_codes_checked"
 }
 
 behavior registry_build_declaration_consistency "Registry Build Checks Declaration Consistency" {
@@ -671,7 +671,7 @@ behavior registry_build_declaration_consistency "Registry Build Checks Declarati
   verify unit "a rule's target_extension, loaded, must declare its target kind and edge type; not loaded, the rule is inert and costs no W021"
   verify unit "cross-validation uses no domain-specific logic"
   verify integration "a declaration's W021 does not fail the compile, and its kinds still register"
-  verify unit "a malformed members, target kinds, bound or file base attribute is W021 and costs the attribute, not the field"
+  verify unit "a malformed members, target kinds or bound attribute is W021 and costs the attribute, not the field"
   verify contract "Registry Build Checks Declaration Consistency: declaration consistency holds — declarations_in_load_order, peers_loaded, references_resolved, authoring_errors_diagnosed, compile_not_failed"
 }
 

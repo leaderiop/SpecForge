@@ -95,10 +95,10 @@ pub struct CommandInput<G = GraphWire> {
     /// only to a command that declares `writes` (protocol 1.9.0, ADR 0289).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub revisions: BTreeMap<String, String>,
-    /// The extension's state, for a command that declares `reads_state` (protocol 1.10.0, ADR 0292).
+    /// The extension's state, for a command that declares the `state` input (protocol 1.10.0, ADR 0292).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<crate::StateView>,
-    /// The facts of the files the command's `reads` name, by read name (protocol 1.11.0, ADR 0293).
+    /// The facts of the files the command's `files` inputs name, by read name (protocol 1.11.0, ADR 0293).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub files: crate::FileMap,
     /// The host that called the command (`claude-code`, `codex`, `cursor`), when it is known; absent otherwise
@@ -353,7 +353,7 @@ pub struct PassInput {
     /// Why the host runs the pass; absent reads a write (protocol 1.10.0, ADR 0291). Sent to a guard pass only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trigger: Option<crate::Trigger>,
-    /// The facts of the files the pass's `reads` name, by read name (protocol 1.11.0, ADR 0293).
+    /// The facts of the files the pass's `files` inputs name, by read name (protocol 1.11.0, ADR 0293).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub files: crate::FileMap,
     /// The fact stores the session served, by collector and key (protocol 1.15.0, ADR 0327 D6).
@@ -707,9 +707,12 @@ pub struct CollectInput<G = GraphWire> {
     pub graph: Option<G>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub revisions: BTreeMap<String, String>,
-    /// The facts of the files the collector `reads`, by read name (ADR 0293).
+    /// The facts of the files the collector's `files` inputs name, by read name (ADR 0293).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub files: crate::FileMap,
+    /// Each checked value's outcome, for a collector that declares `check_outcomes` (ADR 0336).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub check_outcomes: Vec<crate::CheckOutcome>,
 }
 
 impl<G> Default for CollectInput<G> {
@@ -723,6 +726,7 @@ impl<G> Default for CollectInput<G> {
             graph: None,
             revisions: BTreeMap::new(),
             files: crate::FileMap::new(),
+            check_outcomes: Vec::new(),
         }
     }
 }

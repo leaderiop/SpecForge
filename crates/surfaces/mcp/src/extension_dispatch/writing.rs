@@ -49,6 +49,7 @@ pub(super) fn run(
     entry: &ToolEntry,
     command: &ExtensionCommand,
     arguments: &Value,
+    mode: specforge_effects::EffectsMode,
 ) -> ToolOutcome {
     let mut given = arguments.as_object().cloned().unwrap_or_default();
     let dry_run = match given.remove(DRY_RUN) {
@@ -61,7 +62,7 @@ pub(super) fn run(
         }
     };
     let (mutation, dispatched) = match call.project() {
-        Ok(project) => attempt(&project, command, &given, call.host(), dry_run),
+        Ok(project) => attempt(&project, command, &given, call.host(), dry_run, mode),
         Err(refused) => return mutation::refused(&entry.name, dry_run, refused, call.events()),
     };
     if let Some(event) = dispatched {
@@ -77,21 +78,25 @@ fn attempt(
     given: &serde_json::Map<String, Value>,
     host: Option<Host>,
     dry_run: bool,
+    mode: specforge_effects::EffectsMode,
 ) -> (Mutation<CommandReply>, Option<McpEvent>) {
     let started = std::time::Instant::now();
-    let run = match execute(
-        &project.view(),
-        command,
-        given,
-        CommandFormat::Json,
-        host,
-        dry_run,
-        project.caller(),
-        Surface::Mcp,
-    ) {
+    let run = project.lend(mode, |caller| {
+        execute(
+            &project.view(),
+            command,
+            given,
+            CommandFormat::Json,
+            host,
+            dry_run,
+            caller,
+            Surface::Mcp,
+        )
+    });
+    let run = match run {
         Ok(run) => run,
         Err(RunError::Args(refused)) => return (Err(refused_args(&refused).into()), None),
-        Err(RunError::Call(error)) => return (Err(failed_call(&error.diagnostic()).into()), None),
+        Err(RunError::Call(error)) => return (Err(failed_call(&error).into()), None),
         Err(RunError::NoProject(error)) => return (Err(McpError::from(error).into()), None),
         Err(RunError::Gate(error) | RunError::State(error)) => {
             return (Err(McpError::from(*error).into()), None);

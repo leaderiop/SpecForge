@@ -84,8 +84,7 @@ static NEXT: Spec = Spec {
         tools: &["read", "shell", "search", "skill", "ask_user"],
         effort: Some("low"),
     }),
-    reads_state: false,
-    reads_slash_commands: true,
+    inputs: &[specforge_extension_sdk::Input::SlashCommands],
     tail: Some(not_installed),
 };
 
@@ -109,8 +108,7 @@ static PROGRESS: Spec = Spec {
         tools: &["read", "shell", "search", "skill", "ask_user"],
         effort: Some("low"),
     }),
-    reads_state: true,
-    reads_slash_commands: false,
+    inputs: &[specforge_extension_sdk::Input::State],
     tail: Some(workflow::workstream_tail),
 };
 
@@ -130,8 +128,7 @@ static MANAGER: Spec = Spec {
         ],
         effort: None,
     }),
-    reads_state: false,
-    reads_slash_commands: false,
+    inputs: &[],
     tail: None,
 };
 

@@ -12,11 +12,10 @@ feature se_gherkin_bridge "Gherkin Bridge" {
   """
   solution """
     The @specforge/software extension declares a gherkin field with type
-    string_list and file_reference=true on behavior entities via the
-    FieldRegistry. The field is parsed as a standard StringList value —
-    no dedicated grammar rule or AST type is needed. File existence
-    validation is handled by the generic validate_file_reference_paths
-    behavior which operates on any field with file_reference=true (E016).
+    string_list on behavior entities via the FieldRegistry. The field is
+    parsed as a standard StringList value — no dedicated grammar rule or
+    AST type is needed. A project checks that each file exists by
+    attaching `@specforge/checks:file` to it (E016).
   """
 }
 

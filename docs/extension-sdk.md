@@ -7,8 +7,8 @@
 >
 > `call(name, export-name, input) -> result<list<u8>, string>` dispatches `__handshake` / `__describe` from the
 > builder, every declared surface and operation to the handler declared with it, and any other export name to the
-> guest's `handler`. Host functions (the old `HostApi`) were removed with the extism runtime; a typed component
-> host-import surface is future work.
+> guest's `handler`. A guest reaches an effect only through the `specforge:host` ports: see
+> [Capabilities and host ports](#capabilities-and-host-ports).
 
 ## Overview
 
@@ -26,7 +26,7 @@ The SDK provides:
 - **Builders** that declare every contribution with the handler that answers it
 - **`component_guest!`**, which serves the declaration as a wasip2 component
 - **`testing`** -- a runtime-free mock host
-- **Host functions (planned)** -- the typed import surface is future work; guests today are pure-compute and receive all context as call input (see [Host Functions](#host-functions))
+- **`host`** -- the four `specforge:host` ports a command, an MCP tool or resource and a collector may call (see [Capabilities and host ports](#capabilities-and-host-ports))
 
 There are no hand-written JSON manifests and no export registration: the declaration the builder builds is what the
 host loads and what `specforge publish` uploads (ADR 0012).
@@ -311,7 +311,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 
 ### Fields
 
-`FieldBuilder` declares a field: `field_type(FieldType::..)`, then `required()`, `description(..)`, `edge(label)`, `target_kind(..)`, `inverse_of(..)` (the name the target kind reads the relation by; never a field of the target kind, and never two kinds linking each other: both are W162), `normative()`, `exempts_obligations()`, `headline()`, `proof_role(..)`, `derived_from(..)`, `file_reference()` (string values are file paths) and `file_base(FileBase::Project)` (relative paths start at the project root, not the spec root), `target_kinds(&[..])` (a reference names any of several kinds), `minimum(n)` and `maximum(n)` (an integer's inclusive bounds), `member(name, |m| ..)` (a field of a `block` or `block_list`, declared as a field is) and `enum_list(&V)` (a list of a vocabulary's values, each once). Who writes the field is declared too (ADR 0287): `computed()` (a compute pass gives the value; one written by hand is E082), `harness()` (a command's plan sets it and the host records it in `specforge-harness`; E083 without a line), `immutable()` (a value that differs from its git baseline is E084) and `append_only()` (a list that rewrites its baseline's items is E085; a kind's `append_only()` makes removing an entity E085). A pass declares `compute()` and `computes(&["kind.field"])` to answer `PassOutput.values` (`PassValue { entity, field, value }`), and `baseline(&["kind"])` for the kinds it reads as `previous`. `vocabulary(&V)` declares the field an `enum` of a `Vocabulary` (`const V: Vocabulary = Vocabulary::new(&[..]).absent_as(..)`): its values, in order, and the value an absent field counts as; the host refuses another value (E061). It is the only way to declare an enum. A field's type is declared, not inferred:
+`FieldBuilder` declares a field: `field_type(FieldType::..)`, then `required()`, `description(..)`, `edge(label)`, `target_kind(..)`, `inverse_of(..)` (the name the target kind reads the relation by; never a field of the target kind, and never two kinds linking each other: both are W162), `normative()`, `exempts_obligations()`, `headline()`, `proof_role(..)`, `derived_from(..)`, `target_kinds(&[..])` (a reference names any of several kinds), `minimum(n)` and `maximum(n)` (an integer's inclusive bounds), `member(name, |m| ..)` (a field of a `block` or `block_list`, declared as a field is), `enum_list(&V)` (a list of a vocabulary's values, each once), and the checks its values pass (ADR 0336, see [Value checkers](#value-checkers)): `check(checker)`, `check_with(checker, args)`, `any_of([CheckRef::named(..), ..])` and `file(Root::Spec)`, the `file` check of `@specforge/checks` with that root. Who writes the field is declared too (ADR 0287): `computed()` (a compute pass gives the value; one written by hand is E082), `harness()` (a command's plan sets it and the host records it in `specforge-harness`; E083 without a line), `immutable()` (a value that differs from its git baseline is E084) and `append_only()` (a list that rewrites its baseline's items is E085; a kind's `append_only()` makes removing an entity E085). A pass declares `compute()` and `computes(&["kind.field"])` to answer `PassOutput.values` (`PassValue { entity, field, value }`), and `baseline(&["kind"])` for the kinds it reads as `previous`. `vocabulary(&V)` declares the field an `enum` of a `Vocabulary` (`const V: Vocabulary = Vocabulary::new(&[..]).absent_as(..)`): its values, in order, and the value an absent field counts as; the host refuses another value (E061). It is the only way to declare an enum. A field's type is declared, not inferred:
 
 | `FieldType` | Holds |
 |---|---|
@@ -359,7 +359,6 @@ One `const` per vocabulary; the field declaration, the list filters, the passes 
 | `MissingFieldWhenFlagSet`, `MissingRequiredField` | `field` (required) |
 | `FieldValueConstraint` | `field` and a `constraint`: `NonEmpty`, `OneOf` with `values`, or `Matches` with a `pattern` |
 | `CycleDetection` | `edge_type` (required) |
-| `FileExists` | the path in `field` (required) |
 | `Custom` | the rule's own function (below) |
 | `ConditionalFieldRequired` | `field`, and a `WhenFieldEquals` constraint |
 | `VerifyKindAllowlist` | the `constraint` values |
@@ -403,11 +402,11 @@ descriptor, and routes the export to the handler. The CLI runs it as `specforge 
 | `cmd.category(..)` | A CLI grouping |
 | `cmd.arg(name, \|a\| ..)` | Declares an arg (below) |
 | `cmd.handler(\|call\| ..)` | The function answering it: `CommandCall` in, `CommandOutput` out |
-| `cmd.reads(name, FileReadSpec::field("kind.field").text())` | Project files the host reads for the call (protocol 1.11.0, ADR 0293): `call.files(name)` holds their facts and, with `.text()`, their capped text; `FileReadSpec::glob("src/**/*.rs")` names files by pattern |
+| `cmd.input(Input::files(name, FileReadSpec::field("kind.field").text()))` | Project files the host reads for the call (ADR 0293, ADR 0337): `call.files(name)` holds their facts and, with `.text()`, their capped text; `FileReadSpec::glob("src/**/*.rs")` names files by pattern. `cmd.input(Input::State)` asks for the extension's state |
 
 A command's `call.now()` is the host's clock when it was called, `YYYY-MM-DDTHH:MM:SSZ` (RFC 3339, UTC, seconds; protocol 1.11.0, ADR 0294), the same instant as `call.today()`; a hook's `call.now()` and a writing collector's input carry it too. A prompt and a pass are not told the time.
 
-A command's `call.host()` is the host that called it (`claude-code`, `codex` or `cursor`, when known; protocol 1.13.0, ADR 0318): on the command line it is `--host <host>`, which the host adds to every extension command, so a command declares no arg of that name. After `cmd.reads_state()` (a command or a prompt), `call.state()` holds the extension's `StateView` (ADR 0310). `Trigger` and `TriggerKind` are in the prelude, and `Settings::number(key)` reads a number setting.
+A command's `call.host()` is the host that called it (`claude-code`, `codex` or `cursor`, when known; protocol 1.13.0, ADR 0318): on the command line it is `--host <host>`, which the host adds to every extension command, so a command declares no arg of that name. After `cmd.input(Input::State)` (a command or a prompt), `call.state()` holds the extension's `StateView` (ADR 0310). `Trigger` and `TriggerKind` are in the prelude, and `Settings::number(key)` reads a number setting.
 
 An arg is a string unless its builder says otherwise:
 
@@ -464,7 +463,8 @@ c.render(|call| Ok(format!("# {}\n", call.id())));
 ```
 
 `agent`, `skill` and `hook` panic on a name already declared, so the extension's first test finds it. A hook builder
-has `tools`, `paths`, `timeout_ms`, `on_failure_deny`, `reads_graph`, `reads_state`, `writes` and `when`; its handler
+has `tools`, `paths`, `timeout_ms`, `on_failure_deny`, `input` (`Graph`, `State`, `git()`, `setting(..)`), `writes`
+and `when`; its handler
 receives the host's facts (`call.facts()`) and `call.plan()` builds an edit plan the way a writing command does. The
 extension reads and patches its state through `HookInput.state` and `HookOutput::with_state`.
 
@@ -493,8 +493,8 @@ c.prompt("plan_phase", |p| {
 ```
 
 `PromptCall` reads the typed arguments (`str`, `bool`, `integer`, `list`), `host()` (`claude-code`, `codex` or
-`cursor` when known), `cwd()`, `today()` and, after `p.reads_graph()`, `graph()`, after `p.reads_state()`, `state()`, and
-after `p.reads_slash_commands()`, `slash_commands()` (the project's served slash commands). `p.when("setting")` serves
+`cursor` when known), `cwd()`, `today()` and, after `p.input(Input::Graph)`, `graph()`, after `p.input(Input::State)`,
+`state()`, and after `p.input(Input::SlashCommands)`, `slash_commands()` (the project's served slash commands). `p.when("setting")` serves
 the prompt only while a bool setting of the extension is not false; call it again to require another (all must be on).
 `a.rest()` makes a string argument the free-text tail; an argument that is not `required()` and is the `subject` is
 optional, and the handler answers `PromptOutput::user(..).with_subject(path)` for the entity it picked. An argument is `string`, `integer`, `bool`, `date`,
@@ -553,14 +553,16 @@ in `contribute` ([ADR 0002](adr/0002-test-runner-extensions.md)):
 c.collector("cargo-test", |k| {
     k.input_format("specforge-test-json")
         .detect_files(&["Cargo.toml"])            // project-root files that select it
-        .run(&["cargo", "test", "--workspace"])  // `{report}` expands to the report path
+        .run(&["cargo", "test", "--workspace"])  // declares its process capability; `{report}` is the report path
         .report("target/specforge")               // file or directory, inside the project
         .capture_stdout()                         // also pass the command's stdout
         .collect(|input: &CollectInput| Ok(collect(input))); // the handler
 });
 ```
 
-`specforge collect` runs the declared command in the project root, after
+`.run(argv)` declares the collector's `process` capability, named after it, and names it; an extension that
+declares its capabilities itself (`c.capability(Capability::process("tests").argv(..).why(..))`) names one with
+`k.capability("tests")`. `specforge collect` runs that command in the project root, after
 the user approves it once for the project, with `SPECFORGE_REPORT` set to
 the absolute report path. It then reads the report (the file, or every
 `*.json` file directly inside the directory) and calls the extension's
@@ -573,8 +575,8 @@ in a report answers its `Err`), plus the tests the report doesn't link
 (`unlinked`), which the host links by naming convention when it can. With `capture_stdout()`, the command's output still
 reaches the user's terminal, and the host also keeps it (in
 `<name>.stdout.txt` inside a report directory) and passes it as
-`CollectInput::stdout`. `k.reads(name, FileReadSpec::glob("package.json").text())` declares a project file the
-collector reads, as a command's `reads` does: its input's `files[name]` holds the facts (and, with `.text()`, the
+`CollectInput::stdout`. `k.input(Input::files(name, FileReadSpec::glob("package.json").text()))` declares a project
+file the collector reads, as a command's `files` input does: its input's `files[name]` holds the facts (and, with `.text()`, the
 capped text), read by the host after the run. The guest never runs anything itself.
 
 A handler may also answer `facts` (protocol 1.15.0, ADR 0327), the entities it observed, each of a kind its
@@ -585,8 +587,49 @@ let mut output = CollectOutput { entity_results: vec![], ..Default::default() };
 output.facts.push(Fact::new("test", "js:pkg/a.test.js#adds").title("adds").field("file", "pkg/a.test.js"));
 ```
 
+`k.input(Input::CheckOutcomes)` makes it a reader of the checks' outcomes (ADR 0336), its evidence
+`CollectInput::check_outcomes`: it needs no command and no report, is never detected, and runs when `--runner` names it or
+under `checks.publish`.
+
 `CollectInput::cwd` holds the project root for every collector, so a handler can name a report's files from the
 root.
+
+### Value checkers
+
+A checker reads one value of a field that names it, and may ask the host to look at the world for it (ADR 0336). Its two
+phases are pure: `plan` answers from the text, findings or probes, and `judge` from what the probes answered. Neither
+performs an effect, and the host contains every path before a guest hears about it.
+
+```rust
+c.code("E901", |d| { d.title("A dead page").explanation("The page does not answer."); });
+c.capability(Capability::http("links").hosts(&["*.example.com"]).why("check that the docs answer"));
+c.checker("page", |k| {
+    k.applies_to(&["string"])
+        .scope("links")                     // the capability its probes use; none: a pure checker
+        .codes(&["E901"])                   // every code a finding may carry, each catalogued
+        .value(ValueForm::Url)              // for the editor only: document links
+        .plan(|item: &CheckItem| {
+            PlannedItem::probes(vec![Probe::HttpHead { url: item.text.clone(), redirects: 0 }])
+        })
+        .judge(|item: &CheckItem| {
+            let dead = item.outcomes.iter().any(|o| o.class != OutcomeClass::Ok);
+            dead.then(|| CheckFinding::new("E901", format!("{} does not answer", item.text)))
+                .into_iter()
+                .collect()
+        });
+});
+c.kind("service", |k| {
+    k.keyword("service");
+    k.field("docs", |f| { f.field_type(FieldType::String).check("page"); });
+});
+```
+
+`arg(name, |a| ..)` declares an argument, as a setting declares its form; none may be named `severity`, since a gentler
+reading is another code the checker lists. `root_arg(name)` says which argument names a bare path's default root.
+`when(setting)`, called once per setting, switches the checker with bool settings of the extension: while one is false the
+checker is not called, sends no probe and adds no scope to W170; a setting's `gates(&[..])` lists the codes it silences.
+`check` names the extension's own checker by its name and another extension's as `@acme/x:name`, a declared peer. See
+[Category: checkers](extension-protocol.md#category-checkers) for the phases, the probes and the codes the host reports.
 
 ### Compiler passes
 
@@ -618,14 +661,15 @@ and `specforge check` exits 1 on its errors. Check passes run in their
 after/before order; a trap or malformed answer is E028. Any other phase, or
 none, runs the pass only under `specforge analyze`, which skips check passes.
 
-A pass may declare `p.reads(name, FileReadSpec::field("plan.files_modified"))` or `FileReadSpec::glob(..)` (add `.text()` for the
-file's text, at most 64 KiB; `.base(FileBase::Spec)` for a field whose relative paths start at the spec) and receives the facts
+A pass may declare `p.input(Input::files(name, FileReadSpec::field("plan.files_modified")))` or `FileReadSpec::glob(..)`
+(add `.text()` for the
+file's text, at most 64 KiB; `.root(Root::Spec)` for a field whose bare paths start at the spec root) and receives the facts
 under `input.files[name]` (protocol 1.11.0, ADR 0293): `{path, entity?, exists, bytes?, lines?, digest?, text?, error?}`,
 and `truncated` on a glob that matched over 2000 files. A file the host reads is a check input, so the pass runs again
-when it changes. `p.reads_tests()` makes a check, compute or guard pass receive the recorded test report as `test_results`
+when it changes. `p.input(Input::Tests)` makes a check, compute or guard pass receive the recorded test report as `test_results`
 (an analyze pass always does); with no report recorded the host reports I205 once, and E045 for one it cannot use.
-Limit: the git baseline (`previous`) a compute pass is given is computed without the test report, so a value a `reads_tests`
-compute pass derives from tests is unknown in `previous` and known now; compare such a value against `previous` only for
+Limit: the git baseline (`previous`) a compute pass is given is computed without the test report, so a value a compute pass
+with the `tests` input derives from tests is unknown in `previous` and known now; compare such a value against `previous` only for
 fields the pass does not derive from tests.
 
 A pass receives `PassInput`: `entities` (each with its field texts by name
@@ -728,28 +772,80 @@ entity) and each step share `field`, `judgement` and `annotate` through the `Ann
 the route followed when several start at one kind. The builders don't check the route: the host's registry does,
 against the loaded kinds, when the extension loads.
 
-## Host Functions
+## Capabilities and host ports
 
-**Status: not callable from guests today.** The old `HostApi` import surface
-was removed with the extism runtime (see the banner at the top of this page).
-Guests are pure-compute wasip2 components: the host passes everything a guest
-needs as call input (e.g. the `ValidatorContext` snapshot for `validate__*`
-exports, the entity snapshot for `__pass_*`), and the guest's return value is
-the only channel back.
+A guest has no capability of its own: no file, socket, environment or clock beyond WASI's empty ones. It reaches an
+effect only through the four `specforge:host` ports, and a call is answered from what the host decided before it
+started, so nothing ever prompts mid-call.
 
-A typed component host-import surface is future work. When it lands, guests
-will import the functions below, each allowed only from the call sites listed
-(the contracts are specified in `spec/behaviors/wasm-host-functions.spec`):
+**Declare** what the extension uses. A capability names one port and its scope, and says why, in words a person
+approves on this machine:
 
-| Function | Purpose | Allowed call sites |
-|----------|---------|--------------------|
-| `host_emit_diagnostic` | Emit a diagnostic to the host's collection | all |
-| `host_read_file` | Read a file from the project (sandbox-checked) | Validator, Provider, Parser, Analyzer |
-| `host_emit_file` | Write renderer/collector output (sandbox-checked) | Renderer, Collector |
-| `host_http_get` | Fetch from an allowlisted domain | Provider |
-| `host_query_graph` | Scope-limited query of the entity graph (replaces the phantom `query`/`resolve_ref` pair) | all |
-| `host_add_graph_node` | Add a graph node | Parser |
-| `host_add_graph_edge` | Add a graph edge | Parser |
+```rust
+c.capability(
+    Capability::http("links")
+        .hosts(&["*.example.com"])
+        .methods(&[HttpMethod::Head])
+        .why("check that the links the specs write answer"),
+);
+c.capability(Capability::fs("reports").roots(&["project"]).why("read the coverage reports"));
+c.capability(Capability::git("history").why("compare a file with its last commit"));
+c.capability(
+    Capability::process("tests")
+        .argv(&["cargo", "test"])
+        .call_kinds(&[Operation::Collect])
+        .why("run the project's tests"),
+);
+```
+
+**Call** a port. A guest imports only the interfaces it calls, and importing one that no capability backs refuses the
+load (E089):
+
+```rust
+let response = host::http::send(&HttpRequest { method: "HEAD".into(), url, ..Default::default() })?;
+let report = host::fs::read("project", "target/report.json", 0)?;
+let branch = host::git::branch()?;
+```
+
+| Port | Functions | Call kinds that may use it |
+|------|-----------|----------------------------|
+| `host::http` | `send` | command, MCP tool and resource, collector |
+| `host::fs` | `stat`, `read`, `walk` | command, MCP tool and resource, collector |
+| `host::git` | `locate`, `commit`, `merge_base`, `tree`, `sizes`, `blobs`, `branch`, `status` | command, MCP tool and resource, collector |
+| `host::process` | `run` | collector |
+
+Every other call kind (a pass, a validator, a hook) is answered `Denial::CallKind` and nothing runs. Those kinds get
+what they need as the call's input.
+
+**What a guest can't do**, whatever it asks:
+
+- see a secret: the host attaches a capability's `secret_header` to the requests it permits, and the secret never
+  shows in an answer. A program a guest runs inherits no declared secret, and nothing of the host's environment but
+  what a program needs to work and the names its capability's `.env(&[..])` declares;
+- open the private-address opt-in, or set a program's variable its capability does not declare;
+- read a file the host withholds (credentials), from disk or at a commit.
+
+**What it gets back:** `Err(HostError::Denied(..))` for a request outside its grant (reported to the person as E090, and
+to the guest as `Denial::Scope`), `Err(HostError::Failed(..))` with a stable class for a port that failed, and an answer
+held to a quarter of the guest's memory, which says `truncated` when it was cut. A port's time does not count against
+the guest's `execution_ms`; it is bounded by the port's own deadline and 600 s across one call.
+
+**Test** with `testing::serve`, which puts a fake host on the thread for the length of a call. A port nobody overrode
+answers `Denial::CallKind`, as it does for a call kind no port is for:
+
+```rust
+use specforge_extension_sdk::testing::{InProcessHost, serve};
+
+struct Fake;
+impl InProcessHost for Fake {
+    fn git_branch(&self) -> Result<String, HostError> {
+        Ok("main".to_string())
+    }
+}
+
+let branch = serve(std::rc::Rc::new(Fake), || host::git::branch());
+assert_eq!(branch.unwrap(), "main");
+```
 
 ## Building and Testing
 
@@ -851,19 +947,13 @@ struct Gherkin;
 impl Contributions for Gherkin {
     fn contribute(c: &mut ContributionsBuilder) {
         c.peer("@specforge/software", "^1.0");
+        c.peer("@specforge/checks", "^1.0");
         c.enhance("behavior", |e| {
             e.field("gherkin", |f| {
                 f.field_type(FieldType::StringList)
                     .description("BDD scenario files")
-                    .file_reference();
+                    .file(Root::Spec);
             });
-        });
-        c.rule("W904", |r| {
-            r.check(CheckKind::FileExists)
-                .target_kind("behavior")
-                .field("gherkin")
-                .severity(ValidationSeverity::Warning)
-                .message_template("behavior '{id}' names a gherkin file that does not exist");
         });
     }
 }

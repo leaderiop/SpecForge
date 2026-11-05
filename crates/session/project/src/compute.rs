@@ -16,7 +16,7 @@ use crate::judged::Judgements;
 use crate::passes::{PassContext, pass_findings, pass_input};
 
 /// What the compute passes read besides the snapshot: the disk their `reads` are read through (ADR 0293) and the
-/// recorded report for those that declare `reads_tests`.
+/// recorded report for those that declare the `tests` input.
 #[derive(Clone, Copy)]
 pub(crate) struct Reads<'a> {
     pub disk: &'a dyn Disk,
@@ -53,9 +53,10 @@ pub(crate) fn run(
             payload.previous = baseline
                 .filter(|_| !declared.baseline().is_empty())
                 .map(|b| b.pass_view(declared.baseline()));
-            payload.test_results = tests.filter(|_| declared.reads_tests()).cloned();
-            if !declared.reads().is_empty() {
-                payload.files = memo.read(declared.reads(), &seen, &env.file_source(disk));
+            payload.test_results = tests.filter(|_| declared.inputs().tests()).cloned();
+            let reads = declared.inputs().files();
+            if !reads.is_empty() {
+                payload.files = memo.read(&reads, &seen, &env.file_source(disk));
             }
             ExtensionCalls::encode(&payload)
         };

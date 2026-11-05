@@ -38,8 +38,8 @@ impl Args {
     /// their enhancements, conflicts, shadowed keywords, installed
     /// binaries) plus registry credential health. Exit 1 on any
     /// error-level finding or credential failure.
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
-        let project = match self.project.compile() {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::of(self.output.format).report(terminal, &error),
         };
@@ -51,11 +51,18 @@ impl Args {
         let renderers: Vec<&dyn specforge_ops::host::HostRenderer> =
             hosts.iter().map(AsRef::as_ref).collect();
         let caller = crate::caller::of(false, self.output.format, terminal);
-        let report = diagnose(&view, &Z3::default()).with_hosts(
-            specforge_ops::host::diagnose::findings(&view, &renderers, caller),
-        );
-        let credentials = User::current().credential_health();
-        let found = OnPath::find(std::env::var_os("PATH").as_deref());
+        let process = std::sync::Arc::clone(&ports.process);
+        let consent = view
+            .root()
+            .map(specforge_ops::consent::UserConsent::user)
+            .unwrap_or_else(specforge_ops::consent::UserConsent::of_home);
+        let report = diagnose(&view, &Z3::new(process.clone(), Z3::DEFAULT_TIMEOUT))
+            .with_hosts(specforge_ops::host::diagnose::findings(
+                &view, &renderers, caller,
+            ))
+            .with_grants(&view, &consent);
+        let credentials = User::current(std::sync::Arc::clone(&ports.git)).credential_health();
+        let found = OnPath::find(std::env::var_os("PATH").as_deref(), &*process);
         let path_binary = on_path::finding(found.as_ref(), &view);
 
         match self.output.format {
@@ -133,8 +140,18 @@ fn render_human(
             ext.source,
             ext.enhancement_count
         );
-        for read in &ext.reads {
+        for read in &ext.inputs {
             line!("      reads {}", read.line());
+        }
+        for capability in &ext.capabilities {
+            line!("      may {}", crate::grants::capability_line(capability));
+        }
+    }
+    if !report.roots.is_empty() {
+        line!();
+        line!("Named roots:");
+        for root in &report.roots {
+            line!("  {}", crate::grants::root_line(root));
         }
     }
 
@@ -242,6 +259,7 @@ fn render_human(
         ("Rules", Part::Rule),
         ("Surfaces", Part::Surface),
         ("Toolchain", Part::Toolchain),
+        ("Grants", Part::Grants),
         ("Hosts", Part::Host),
     ] {
         let mut findings = report.about(part).peekable();
@@ -334,12 +352,14 @@ mod tests {
         let mut declaration = declaring_feature_and_uses("acme");
         declaration.passes = vec![specforge_protocol_types::CompilerPassDescriptor {
             name: "scan".into(),
-            reads: vec![specforge_protocol_types::FileRead {
-                name: "env".into(),
-                glob: Some(".env*".into()),
-                text: true,
-                ..Default::default()
-            }],
+            inputs: vec![specforge_protocol_types::Input::Files(
+                specforge_protocol_types::FileRead {
+                    name: "env".into(),
+                    glob: Some(".env*".into()),
+                    text: true,
+                    ..Default::default()
+                },
+            )],
             ..Default::default()
         }];
         let project = specforge_project::testing::Assembled::over(

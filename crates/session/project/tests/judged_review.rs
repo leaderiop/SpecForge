@@ -218,7 +218,7 @@ fn a_cited_file_outside_the_project_is_not_read() {
             .iter()
             .find(|f| f.path == file)
             .expect("the cited file");
-        assert_eq!(read.digest, "unreadable", "{file}");
+        assert_eq!(read.digest, "outside_project", "{file}");
     }
 }
 
@@ -227,9 +227,9 @@ fn a_cited_file_outside_the_project_is_not_read() {
     verify = "a baseline whose files git could not read is neither cached nor judged"
 )]
 fn a_failed_blob_read_poisons_no_baseline() {
+    use specforge_effects::git::{Git, GitError, Located, Sha};
+    use specforge_effects::testing::FakeGit;
     use specforge_project::baseline::Baseline;
-    use specforge_project::history::{History, HistoryError, Located, Sha};
-    use specforge_project::testing::FakeHistory;
     use std::path::PathBuf;
     let project = gsd_judged_project("");
     record(&project, PLAN, W311, "passed");
@@ -242,9 +242,9 @@ fn a_failed_blob_read_poisons_no_baseline() {
             project.read("specforge-harness").into_bytes(),
         ),
     ];
-    let mut fake = FakeHistory::repo(project.root(), id.as_str(), files);
-    fake.blobs_fail = Some(HistoryError("git went away".into()));
-    let Located::Repo(place) = History::locate(&fake, project.root()) else {
+    let mut fake = FakeGit::repo(project.root(), id.as_str(), files);
+    fake.blobs_fail = Some(GitError("git went away".into()));
+    let Located::Repo(place) = Git::locate(&fake, project.root()) else {
         panic!("a repository")
     };
     let env = compiled.environment();

@@ -1,10 +1,10 @@
 //! The collectors runner extensions declare: what selects each, the command it runs, where its report
 //! lands.
 
-use crate::machine::CommandApproval;
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
-use specforge_protocol_types::{ExtensionDeclaration, FileRead};
+use specforge_effects::Uses;
+use specforge_protocol_types::{ExtensionDeclaration, Input, Inputs, Operation, PortScope};
 use std::path::Path;
 
 /// A collector contributed by an enabled extension.
@@ -21,8 +21,19 @@ pub struct Collector {
     pub capture: Option<String>,
     /// It answers an edit plan, so it receives the graph and the revisions (ADR 0289).
     pub writes: bool,
-    /// The project files it reads; its input's `files` carries their facts (ADR 0293).
-    pub reads: Vec<FileRead>,
+    /// What the host serves it before the call: `files`, whose facts its input's `files` carries (ADR 0293,
+    /// ADR 0337 D2).
+    pub inputs: Vec<Input>,
+    /// The process capability its command is (ADR 0335 D2.1): the scope a run is granted and approved under.
+    pub capability: Option<String>,
+}
+
+impl Collector {
+    /// Whether its evidence is the checks' outcomes (ADR 0336): it is no test runner, so it is never detected nor the
+    /// project's one runner, and it runs when named or under `checks.publish`.
+    pub(super) fn reads_outcomes(&self) -> bool {
+        Inputs(&self.inputs).check_outcomes()
+    }
 }
 
 /// The only `capture` value: the command's standard output.
@@ -33,7 +44,8 @@ pub fn collectors(declarations: &[ExtensionDeclaration]) -> Vec<Collector> {
     declarations
         .iter()
         .flat_map(|d| {
-            d.collectors.iter().map(|c| Collector {
+            let sound = d.sound_capabilities();
+            d.collectors.iter().map(move |c| Collector {
                 extension: d.name().to_string(),
                 name: c.name.clone(),
                 export: c.export.clone(),
@@ -42,32 +54,54 @@ pub fn collectors(declarations: &[ExtensionDeclaration]) -> Vec<Collector> {
                     .as_ref()
                     .map(|d| d.file_patterns.clone())
                     .unwrap_or_default(),
-                run: c.run.clone(),
+                run: c
+                    .capability
+                    .as_ref()
+                    .and_then(|name| sound.iter().find(|s| &s.name == name))
+                    .and_then(|s| match &s.port {
+                        PortScope::Process(process) => Some(process.argv.clone()),
+                        _ => None,
+                    })
+                    .unwrap_or_default(),
                 report: c
                     .report
                     .clone()
                     .unwrap_or_else(|| format!(".specforge/reports/{}.json", c.name)),
                 capture: c.capture.clone(),
                 writes: c.writes,
-                reads: c.reads.clone(),
+                inputs: c.inputs.clone(),
+                capability: c.capability.clone(),
             })
         })
         .collect()
-}
-
-impl Collector {
-    /// The approval running this collector's declared command in `root` needs.
-    pub fn approval(&self, root: &Path) -> CommandApproval {
-        CommandApproval::new(&self.extension, &self.name, &self.run, root)
-    }
 }
 
 /// Collectors whose detection files are present at the project root.
 pub(super) fn detect<'a>(collectors: &'a [Collector], root: &Path) -> Vec<&'a Collector> {
     collectors
         .iter()
-        .filter(|c| c.detect.iter().any(|p| pattern_matches(root, p)))
+        .filter(|c| !c.reads_outcomes() && c.detect.iter().any(|p| pattern_matches(root, p)))
         .collect()
+}
+
+/// The scopes a collect run here would use, per extension: each detected collector's process capability (ADR 0335
+/// D2): what `specforge grants` and doctor call in use.
+pub fn uses_here(declarations: &[ExtensionDeclaration], root: &Path) -> Vec<(String, Uses)> {
+    let all = collectors(declarations);
+    let mut uses: Vec<(String, Uses)> = Vec::new();
+    for collector in detect(&all, root) {
+        let Some(scope) = &collector.capability else {
+            continue;
+        };
+        let used = (Operation::Collect, scope.clone());
+        match uses.iter_mut().find(|(e, _)| *e == collector.extension) {
+            Some((_, of)) => {
+                of.insert(used);
+            }
+            None => uses.push((collector.extension.clone(), Uses::from([used]))),
+        }
+    }
+    uses
 }
 
 /// A detection pattern is a path relative to the project root whose last
@@ -157,11 +191,12 @@ pub(super) fn capture_path(
 }
 
 /// The captured standard output at `held`, if there is one. Runner output
-/// isn't always UTF-8 (tests print what they like), so it's read lossily.
+/// isn't always UTF-8 (tests print what they like), so it's read lossily, and
+/// `\r\n` as `\n` (a Windows runner's lines).
 pub(super) fn read_capture(held: &Held) -> Option<String> {
     held.read()
         .ok()
-        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+        .map(|bytes| specforge_effects::process::text(&bytes))
 }
 
 /// The declared command with `{report}` expanded.

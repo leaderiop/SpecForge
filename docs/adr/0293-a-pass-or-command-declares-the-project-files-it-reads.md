@@ -8,6 +8,8 @@
 [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) (the file digest a judged rule and a verdict
 already use) and [ADR 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md) (the hook globs and
 `PathFact`). Takes extension protocol 1.11.0. Extended by [ADR 0300](0300-a-compute-pass-at-the-baseline-reads-the-files-the-commit-holds.md) (a compute pass at the baseline reads the commit's files). Extended by [ADR 0304](0304-a-judged-input-reads-a-path-field-goes-on-past-a-reference-and-a-pass-sees-the-tests-a-verdict-cites.md) (a `file()` input may end at a string path).
+Amended by [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md) (D1: `FileRead` is `Input::Files`; D5: a served input carries a disk stamp or a record).
+Amended by [ADR 0336](0336-a-field-declares-the-checks-its-values-pass.md) (D3: one containment, `Contained`, and `FileRead.root` names a root).
 
 ## Context
 
@@ -100,3 +102,11 @@ equal reads share one walk. A glob lists every non-matching entry under a `**`, 
 
 **Amendment (2026-11-02, ports plan 00 R1-b).** A collector declares `reads` too (protocol 1.15); its input carries
 `files`.
+
+## Amendment (2026-11-03, ports round, [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md))
+
+- **D1.** `FileRead` is `Input::Files`, one variant of the single declared-input list `inputs: Vec<Input>` on every
+  descriptor that declares inputs (pass, command, prompt, hook, collector). One table says what each call kind is
+  served, exactly what was served before; an input its call kind is not served is W021 and is served empty.
+- **D5.** fs and git reads keep their disk stamps (`Check` and `Ref` rows). An http or process effect a check consulted
+  is recorded as an `Effect` row (ADR 0133 amendment).

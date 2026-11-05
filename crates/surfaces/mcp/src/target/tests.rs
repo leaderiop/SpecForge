@@ -200,7 +200,7 @@ fn each_target_refusal_names_its_argument() {
 
 #[test]
 fn a_target_that_needs_a_project_refuses_when_none_is_served() {
-    let mut state = McpState::new();
+    let mut state = McpState::new(crate::real_ports());
     let revision = Revision::Negotiated(crate::lifecycle::LATEST_PROTOCOL_VERSION);
     let mut refused = |spec| resolve(&mut state, revision, spec, &serde_json::json!({}));
 
@@ -295,7 +295,7 @@ fn a_calls_caller_lends_the_containment_its_view_reads_through() {
     let canonical = std::fs::canonicalize(dir.path()).unwrap();
 
     // The served project.
-    let mut state = McpState::new();
+    let mut state = McpState::new(crate::real_ports());
     state.serve(&root);
     let served = Call::new(&mut state, CallTarget::Served);
     let project = served.project().unwrap();
@@ -313,7 +313,7 @@ fn a_calls_caller_lends_the_containment_its_view_reads_through() {
     ));
 
     // Another project a call names.
-    let mut other = McpState::new();
+    let mut other = McpState::new(crate::real_ports());
     let session = Box::new(other.open(&root));
     let call = Call::new(&mut other, CallTarget::Other(session));
     let project = call.project().unwrap();
@@ -326,7 +326,7 @@ fn a_calls_caller_lends_the_containment_its_view_reads_through() {
     ));
 
     // Nothing served: the empty session's view and the caller are the request's bound.
-    let mut empty = McpState::new();
+    let mut empty = McpState::new(crate::real_ports());
     let call = Call::new(
         &mut empty,
         CallTarget::EmptySession(NoProject {
@@ -342,7 +342,7 @@ fn a_calls_caller_lends_the_containment_its_view_reads_through() {
     assert!(std::ptr::eq(given.view.containment(), call.containment()));
 
     // A directory init creates: the caller is the call's.
-    let mut fresh = McpState::new();
+    let mut fresh = McpState::new(crate::real_ports());
     let call = Call::new(
         &mut fresh,
         CallTarget::New {

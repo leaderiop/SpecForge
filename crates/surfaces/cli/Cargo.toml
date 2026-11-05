@@ -31,26 +31,40 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 specforge-common = { workspace = true }
 specforge-diagnostics = { path = "../../leaf/diagnostics" }
+specforge-effects = { path = "../../kernel/effects", features = ["clap"] }
 specforge-formatter = { workspace = true }
 specforge-package = { path = "../../leaf/package" }
 specforge-protocol-types = { path = "../../leaf/protocol-types" }
 specforge-watch = { path = "../../session/watch" }
 chrono = "0.4.41"
+# `SignedDuration`'s parser for the verbs' `--deadline` and `--timeout`.
+jiff = { version = "0.2.39", default-features = false, features = ["std"] }
 specforge-component = { workspace = true }
 specforge-mcp = { workspace = true }
 specforge-ops = { workspace = true }
+specforge-fs = { path = "../../adapters/fs" }
 specforge-git = { path = "../../adapters/git" }
+specforge-http = { path = "../../adapters/http" }
 specforge-hosts = { path = "../../adapters/hosts" }
 specforge-ops-registry = { path = "../../adapters/ops-registry" }
+specforge-process = { path = "../../adapters/process" }
 specforge-project = { workspace = true }
 
+# A pseudo-terminal for the test of a pass-through run that reads its terminal.
+[target.'cfg(unix)'.dev-dependencies]
+libc = "0.2"
+
 [dev-dependencies]
+# The repositories the tests that commit build, with no git program.
+specforge-git = { path = "../../adapters/git", features = ["testing"] }
 specforge-repo-root = { path = "../../leaf/repo-root" }
 # The test project and the MCP driver over it (`tests/support`).
 specforge-project = { workspace = true, features = ["testing"] }
 specforge-mcp = { workspace = true, features = ["testing"] }
 specforge-ops = { workspace = true, features = ["testing"] }
 specforge-registry = { workspace = true }
+# The fake ports (`specforge_effects::testing`): a test gives a surface fakes, or a fake git.
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
 specforge-emitter = { path = "../../pipeline/emitter" }
 # Extensions declared with the SDK, served in process (`specforge_wasm::testing`).
 specforge-extension-sdk = { path = "../../runtime/extension-sdk" }

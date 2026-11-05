@@ -46,7 +46,10 @@ impl CoreTool for Tool {
         group: ToolGroup::Core,
     };
     const SPEC: ReplySpec = ReplySpec::Document("specforge schema's GraphProtocolSchema document");
-    const OPEN_VALUES: &'static [&'static str] = &["$.validation_rules[]"];
+    const OPEN_VALUES: &'static [&'static str] = &[
+        "$.validation_rules[]",
+        "$.entity_kinds[].fields[].checks[].args",
+    ];
     type Args = Args;
     type Input = View;
     type Returns = Answered<Reply>;

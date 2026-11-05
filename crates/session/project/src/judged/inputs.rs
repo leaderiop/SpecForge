@@ -5,19 +5,21 @@
 use std::cell::OnceCell;
 use std::collections::BTreeSet;
 use std::io::ErrorKind;
-use std::path::{Component, Path, PathBuf};
+use std::path::Path;
 
 use serde_json::{Value, json};
+use specforge_effects::Root;
+use specforge_effects::contained::{Contained, Refused};
 use specforge_graph::{Graph, Node, wire};
 use specforge_package::Sha256;
 use specforge_protocol_types::JudgedFile;
 use specforge_registry::judged::{CITED, CITED_TESTS, Chain, JudgedRule, Selector};
-use specforge_registry::{Disk, EntitySnapshot, FileStamp};
+use specforge_registry::{Disk, DiskLookup, EntitySnapshot, FileStamp};
 
 use super::{DigestMemo, entity_digest, file_digest};
 use crate::coverage::{ReportRead, read_report};
 use crate::select::{FileRef, Selection};
-use crate::{CompiledProject, Environment};
+use crate::{CheckedValues, CompiledProject, Environment, ValueOutcome};
 
 /// What a verdict cites (`cited`, `cited_tests`): entity references as written, file paths, test names.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -66,6 +68,9 @@ pub struct Inputs {
     /// chains could be read (entities that are no facts with no usable report, references whose facts no collect has
     /// stored; ADR 0331 D7), and `cited_tests` with no usable report. Each digests as `none`, and freshness skips it.
     pub unjudged: Vec<String>,
+    /// The inputs of [`Self::unjudged`] left unjudged because a value they read was not checked on this machine
+    /// (`unknown`, I206): counted for I207, not I205 (ADR 0337 §6).
+    pub unchecked: Vec<String>,
     /// Each named input as it was read: what it picked and its digest.
     pub reports: Vec<InputReport>,
     /// What the verdict cites, resolved, and its digest.
@@ -111,6 +116,7 @@ pub fn inputs(
         project.entities(),
         disk,
         project.digests(),
+        project.checked_values(),
     );
     Some(cx.inputs(node, rule, cited))
 }
@@ -122,6 +128,8 @@ pub(super) struct Cx<'a> {
     entities: &'a EntitySnapshot,
     disk: &'a dyn Disk,
     memo: &'a DigestMemo,
+    /// The outcome class of each value the checks checked (ADR 0337 §6).
+    checked: &'a CheckedValues,
     report: OnceCell<ReportRead>,
     selection: Selection<'a>,
     /// The schemes the served fact stores hold facts of, read once.
@@ -160,6 +168,7 @@ impl<'a> Cx<'a> {
         entities: &'a EntitySnapshot,
         disk: &'a dyn Disk,
         memo: &'a DigestMemo,
+        checked: &'a CheckedValues,
     ) -> Self {
         Self {
             env,
@@ -167,6 +176,7 @@ impl<'a> Cx<'a> {
             entities,
             disk,
             memo,
+            checked,
             report: OnceCell::new(),
             selection: Selection::of(graph, env.registries()),
             held: OnceCell::new(),
@@ -187,34 +197,57 @@ impl<'a> Cx<'a> {
         })
     }
 
-    fn entity_set(&self, selector: &str, ids: impl IntoIterator<Item = String>) -> Value {
+    /// The digest of an `entities` input: `[digest, id]` per entity, as before checked values (ADR 0290), or
+    /// `[digest, id, {"checks": [[field, item, checker, class], ...]}]` for an entity whose values were checked (ADR
+    /// 0337 §6). When a value was observed is never digested. `true` with it when a check was not performed (`unknown`).
+    fn entity_set(&self, selector: &str, ids: impl IntoIterator<Item = String>) -> (Value, bool) {
+        let mut unknown = false;
         let members: Vec<Value> = ids
             .into_iter()
-            .map(|id| json!([self.entity(&id), id]))
+            .map(|id| match self.checked.of(&id) {
+                [] => json!([self.entity(&id), id]),
+                checks => {
+                    unknown |= checks.iter().any(|c| c.outcome == ValueOutcome::Unknown);
+                    let checks: Vec<Value> = checks
+                        .iter()
+                        .map(|c| json!([c.field, c.item, c.checker, c.outcome.tag()]))
+                        .collect();
+                    json!([self.entity(&id), id, {"checks": checks}])
+                }
+            })
             .collect();
-        json!({"selector": selector, "members": members})
+        (json!({"selector": selector, "members": members}), unknown)
     }
 
     /// A file's digest and where it is shown: `absent` and `unreadable` are digests, and a `.spec` source digests as
     /// the entities it declares, so a verdict recorded into it does not stale a reader of it.
     fn file(&self, file: &FileRef) -> JudgedFile {
         let root = self.env.root();
-        let base = if file.project {
-            root
-        } else {
-            self.env.spec_root()
+        let lookup = DiskLookup(self.disk);
+        // A file outside its root is not read: an absolute path, a `..` that climbs out, a link out, a root that is
+        // not known or lies outside the project (ADR 0335, ADR 0336 D6).
+        let roots = self.env.read_roots();
+        let contained = Contained::new(&roots, &lookup);
+        let resolved = match contained.resolve(&file.path, file.root.clone()) {
+            Ok(resolved) => resolved,
+            Err(refused) => {
+                return JudgedFile {
+                    path: file.path.clone(),
+                    digest: match refused {
+                        Refused::Empty => "unreadable",
+                        _ => "outside_project",
+                    }
+                    .to_string(),
+                };
+            }
         };
-        let abs = normalize(&base.join(&file.path));
-        // A file outside the project is not read: an absolute path, or one that climbs out with `..`.
-        let inside = abs.starts_with(root) || abs.starts_with(normalize(self.env.spec_root()));
-        let shown = if inside {
-            abs.strip_prefix(root)
-                .unwrap_or(&abs)
-                .to_string_lossy()
-                .replace('\\', "/")
-        } else {
-            file.path.clone()
-        };
+        let variant = resolved.case.is_some();
+        let abs = resolved.at;
+        let shown = abs
+            .strip_prefix(root)
+            .unwrap_or(&abs)
+            .to_string_lossy()
+            .replace('\\', "/");
         let declared_by = |abs: &Path| -> Vec<(String, String)> {
             let key = abs
                 .strip_prefix(self.env.spec_root())
@@ -237,7 +270,8 @@ impl<'a> Cx<'a> {
             })
         };
         let digest = match self.disk.stamp(&abs) {
-            _ if !inside => "unreadable".to_string(),
+            // Only a case variant on disk: absent, as to every reader of a project file, on every OS (ADR 0335 D3).
+            _ if variant => "absent".to_string(),
             Err(e) if e.kind() == ErrorKind::NotFound => "absent".to_string(),
             Err(_) => "unreadable".to_string(),
             Ok(stamp) if abs.extension().is_some_and(|e| e == "spec") => {
@@ -396,11 +430,13 @@ impl<'a> Cx<'a> {
                 Selector::Entities(chain) => {
                     let ids = select.entities(id, chain);
                     let members: Vec<String> = ids.iter().cloned().collect();
-                    (
-                        "entities",
-                        members,
-                        Some(hash(&self.entity_set(&shown, ids))),
-                    )
+                    let (set, unknown) = self.entity_set(&shown, ids);
+                    // A check not performed leaves the input unjudged, as a missing report does (I207, not I205).
+                    if unknown {
+                        out.unjudged.push(name.clone());
+                        out.unchecked.push(name.clone());
+                    }
+                    ("entities", members, Some(hash(&set)))
                 }
                 Selector::FilesOf(chain) => {
                     let value = self.files(&shown, &select.files(id, chain), &mut out.files);
@@ -410,8 +446,8 @@ impl<'a> Cx<'a> {
                     let files = paths
                         .iter()
                         .map(|path| FileRef {
+                            root: Root::Project,
                             path: path.clone(),
-                            project: true,
                         })
                         .collect();
                     let value = self.files(&shown, &files, &mut out.files);
@@ -458,8 +494,8 @@ impl<'a> Cx<'a> {
                 .files
                 .iter()
                 .map(|path| FileRef {
+                    root: Root::Project,
                     path: path.clone(),
-                    project: true,
                 })
                 .collect();
             let cited_from = out.files.len();
@@ -514,18 +550,3 @@ impl<'a> Cx<'a> {
 
 /// The digest of a `test(..)` input that links nothing, and of one that could not be judged ([`Inputs::unjudged`]).
 pub(super) const NONE: &str = "none";
-
-/// `path` with `.` and `..` resolved lexically.
-fn normalize(path: &Path) -> PathBuf {
-    let mut out = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                out.pop();
-            }
-            other => out.push(other),
-        }
-    }
-    out
-}

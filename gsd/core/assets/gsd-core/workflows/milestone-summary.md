@@ -86,11 +86,11 @@ Try each method in order until one succeeds:
 
 **Method 1 — Tagged milestone** (check first):
 ```bash
-git tag -l "v${VERSION}" | head -1
+[ "$(specforge git rev "refs/tags/v${VERSION}" --pick '.revs[0].exists')" = true ] && echo "v${VERSION}"
 ```
 If the tag exists:
 ```bash
-git log v${VERSION} --oneline | wc -l
+specforge git log v${VERSION} --pick .count
 git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
 ```
 

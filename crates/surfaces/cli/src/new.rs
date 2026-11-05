@@ -258,7 +258,7 @@ fn inputs(fields: &[FieldInfo], matches: &ArgMatches) -> Result<BTreeMap<String,
 }
 
 impl Args {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         // First reading: the kind, and the format a refusal before the fields are known is printed in.
         let first = match command(None)
             .no_binary_name(true)
@@ -281,7 +281,7 @@ impl Args {
         };
         // The project the words name is read before the line can be (ADR 0053 D7a): the fields are its own.
         let project = ProjectArg::scan(&self.args);
-        let compiled = match project.compile() {
+        let compiled = match project.compile(ports) {
             Ok(compiled) => compiled,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };

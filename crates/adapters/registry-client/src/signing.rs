@@ -46,13 +46,15 @@ impl SigningKey {
     }
 }
 
-/// Load the signing key at `path`, generating one when there is none. A key file that is there and
+/// Load the signing key at `path`, generating one when there is none or another user could have written it. A key file that is there and
 /// can't be read, or is not a key, is an error and is left as it is: a replaced key is a changed key
 /// for whoever pinned it.
 ///
 /// Returns the key and whether it was newly created.
 pub fn load_or_create_signing_key_at(path: &Path) -> Result<(SigningKey, bool), String> {
     let read = match std::fs::read_to_string(path) {
+        // A key another user could have written counts as missing: they would know its secret.
+        Ok(_) if crate::credentials::foreign(path) => None,
         Ok(content) => Some(content),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
         Err(e) => {
@@ -110,6 +112,19 @@ pub fn load_or_create_signing_key_at(path: &Path) -> Result<(SigningKey, bool), 
 mod tests {
     use super::*;
     use chrono::TimeZone;
+
+    #[cfg(unix)]
+    #[test]
+    fn a_key_another_user_could_have_written_is_replaced() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("signing-key.json");
+        let (planted, _) = load_or_create_signing_key_at(&path).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o666)).unwrap();
+        let (key, created) = load_or_create_signing_key_at(&path).unwrap();
+        assert!(created);
+        assert_ne!(key.key_id(), planted.key_id());
+    }
 
     #[test]
     fn signing_key_persists_and_reloads_identically() {

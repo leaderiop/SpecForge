@@ -1015,6 +1015,6 @@ COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
 # `-f` FOLLOWS a symlink, so this could hand the commit helper a link the script above just
 # refused to write through -- the guard and its consumer disagreeing about the same path.
 if [ "$COMMIT_DOCS" = "true" ] && [ -f "${DISPOSITION_FILE}" ] && [ ! -L "${DISPOSITION_FILE}" ]; then
-  git add spec && git commit -m "docs(${PADDED}): record code review disposition" && specforge collect --runner gsd-git --yes
+  specforge git commit --add spec -m "docs(${PADDED}): record code review disposition" && specforge collect --runner gsd-git --yes
 fi
 ```

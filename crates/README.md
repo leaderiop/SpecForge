@@ -41,14 +41,17 @@ The programs: the specforge CLI, the language server, the MCP server and the pac
 
 ### `adapters`
 
-The package registry over HTTP, from both ends: its contract, the client, and the adapter behind the operations' Registry port (ADR 0010, ADR 0044).
+Pure-Rust adapters behind the effect plane's and the operations' ports: the process runner, HTTP, files, git, the package registry and the agent hosts (ADR 0010, ADR 0044, ADR 0335).
 
 | Crate | Package | Owns |
 |---|---|---|
-| [`git`](adapters/git/) | `specforge-git` | The adapter behind specforge-project's History port: the git command line, read-only, hardened, with a deadline on every call (ADR 0287) |
+| [`fs`](adapters/fs/) | `specforge-fs` | The adapter behind the effect plane's Fs port: std::fs behind Contained, a capped read that never answers a withheld file, and a bounded walk that skips dependency directories and does not descend through links (ADR 0335) |
+| [`git`](adapters/git/) | `specforge-git` | The adapter behind the effect plane's Git port: gix in process, so the git program is never run (ADR 0287, ADR 0335, ADR 0339) |
 | [`hosts`](adapters/hosts/) | `specforge-hosts` | The agent hosts' adapters behind specforge-ops' host port: Claude Code, Codex and Cursor file layouts, config merges and hook protocols, which know no contribution's meaning (ADR 0292) |
+| [`http`](adapters/http/) | `specforge-http` | The adapter behind the effect plane's Http port: one lazily built reqwest client on rustls with ring and the platform verifier, its redirects followed under the caller's policy, private addresses refused, a whole-request timeout and a body cap (ADR 0335) |
 | [`ops-registry`](adapters/ops-registry/) | `specforge-ops-registry` | Which registries a project uses, and the adapter behind specforge-ops' Registry port: the fetch policy over the registry client and the publish signed as the user (ADR 0010) |
-| [`registry-client`](adapters/registry-client/) | `specforge-registry-client` | The package-registry client: search, resolve and publish over HTTP, credentials, publisher key pinning and package signing |
+| [`process`](adapters/process/) | `specforge-process` | The adapter behind the effect plane's Process port: the one runner every spawn goes through, with a deadline, a group or Job kill, an environment policy, Windows program resolution and output caps (ADR 0335) |
+| [`registry-client`](adapters/registry-client/) | `specforge-registry-client` | The package-registry client: search, resolve and publish through the effect plane's Http port, credentials, publisher key pinning and package signing |
 | [`registry-wire`](adapters/registry-wire/) | `specforge-registry-wire` | The package registry's HTTP contract: paths, JSON bodies, the publish form, the package signature, error codes (ADR 0044, ADR 0061) |
 
 ### `app`
@@ -95,11 +98,12 @@ From parsed files to output: import resolution, the graph build, the Registry bu
 
 ### `kernel`
 
-The .spec language and what every host crate shares: the grammar, the lexer and parser, the diagnostic, spans, symbols and the project root.
+The .spec language and what every host crate shares: the grammar, the lexer and parser, the diagnostic, spans, symbols, the project root, and the effect plane's ports and containment.
 
 | Crate | Package | Owns |
 |---|---|---|
 | [`common`](kernel/common/) | `specforge-common` | What every host crate shares: the diagnostic and its source span, the interned symbol, the project root and its specforge.json, .spec discovery, the JSON shape (ADR 0048) and how diagnostics print |
+| [`effects`](kernel/effects/) | `specforge-effects` | The effect plane: the Process, Http, Fs and Git ports every host effect goes through, their canonical digests, the one path containment, and the grant, ceiling and consent policy that decide each effect (ADR 0335) |
 | [`parser`](kernel/parser/) | `specforge-parser` | The .spec language read from text: the one lexer, the recovered syntax, the AST, the expression grammar and the format version (ADR 0038, ADR 0063) |
 | [`shape-macros`](kernel/shape-macros/) | `specforge-shape-macros` | Derive macro for specforge-common: a type's JSON shape is derived beside its serialization (ADR 0048) |
 | [`tree-sitter`](kernel/tree-sitter/) | `tree-sitter-specforge` | The tree-sitter grammar of the .spec language: grammar.js, the generated parser and its scanner, the node-kind and field vocabulary, and the editor queries |
@@ -110,6 +114,7 @@ Crates with no SpecForge dependency but the guest wire: the wire itself, the dia
 
 | Crate | Package | Owns |
 |---|---|---|
+| [`checks-kit`](leaf/checks-kit/) | `specforge-checks-kit` | The bare algorithms, parsers and pinned tables of generic value checks, for @specforge/checks and the domain packs that build on it |
 | [`coverage`](leaf/coverage/) | `specforge-coverage` | The coverage rule of @specforge/testing: which obligations a project's recorded tests prove, per entity and in summary; linked by the extension's Wasm pass and the host surfaces |
 | [`cycles`](leaf/cycles/) | `specforge-cycles` | Which nodes of a directed graph lie on a cycle, and one closed walk through each: the host's W061, W113 and cycle rules and the formal and product guests read it |
 | [`diagnostics`](leaf/diagnostics/) | `specforge-diagnostics` | The catalog of SpecForge diagnostic codes: titles, owners, levels and explanations |

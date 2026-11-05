@@ -26,7 +26,7 @@ SPECLESS_FALLBACK=true; [[ "$SPECLESS_CFG" == "false" ]] && SPECLESS_FALLBACK=fa
 # source of truth for the canonical SPEC headings (suffix-tolerant) and table-row counting, replacing
 # ad-hoc awk (contract pinned by tests/spec-section.test.cjs). Resolve via the edge-probe install-dir
 # idiom; build only in a source checkout, else fail loud (never silently mis-detect).
-_GSD_RT="${RUNTIME_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+_GSD_RT="${RUNTIME_DIR:-$(specforge git repo --pick .top 2>/dev/null || pwd)}"
 _gsd_lib() { for _d in "$_GSD_RT/gsd-core/bin/lib" "$_GSD_RT/bin/lib" "$_GSD_RT/.claude/bin/lib" "$HOME/.claude/gsd-core/bin/lib" "$HOME/.claude/bin/lib"; do [ -f "$_d/$1" ] && { echo "$_d/$1"; return; }; done; }
 SPEC_SECTION_JS=$(_gsd_lib spec-section.cjs)
 if [ -z "$SPEC_SECTION_JS" ] && [ -f "$_GSD_RT/tsconfig.build.json" ] && [ -f "$_GSD_RT/src/spec-section.cts" ]; then
@@ -67,7 +67,7 @@ phase requirement IDs (`{phase_req_ids}`) instead of a SPEC interview. Leave `$C
 ```bash
 # Resolve the compiled edge-probe.cjs against the GSD install dir via RUNTIME_DIR (#448) — NOT the
 # consuming project's git root — falling back to git toplevel / $HOME/.claude (spec-phase.md:198 idiom).
-_GSD_RT="${RUNTIME_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+_GSD_RT="${RUNTIME_DIR:-$(specforge git repo --pick .top 2>/dev/null || pwd)}"
 EDGE_PROBE_JS=$(for _c in \
   "$_GSD_RT/gsd-core/bin/lib/edge-probe.cjs" "$_GSD_RT/bin/lib/edge-probe.cjs" \
   "$_GSD_RT/.claude/bin/lib/edge-probe.cjs" "$HOME/.claude/gsd-core/bin/lib/edge-probe.cjs" \
@@ -88,7 +88,7 @@ fi
 # THE ONE DIVERGENCE (D-02): source requirements from THIS phase. Populate the heredoc from
 # {phase_req_ids}, pulling each requirement's text from REQUIREMENTS.md: {"id","text","shapes"?}.
 # mktemp suffix trick is BSD/GNU portable (#1520).
-REQS_JSON=$(mktemp "${TMPDIR:-/tmp}/edge-probe-reqs-XXXXXX") && mv "$REQS_JSON" "${REQS_JSON}.json" && REQS_JSON="${REQS_JSON}.json" || exit 1
+REQS_JSON=$(specforge files temp --prefix edge-probe-reqs- --suffix .json --pick .path) || exit 1
 cat > "$REQS_JSON" <<'JSON'
 [
   { "id": "R1", "text": "<replace: requirement text from REQUIREMENTS.md for each {phase_req_ids} id>" }
@@ -103,11 +103,11 @@ fi
 # Invoke + CAPTURE, exit-checked (engine FAILS CLOSED exit 2 on bad shape; a bare COVERAGE=$(node …)
 # would swallow it and fall through to prose re-derivation = fail-OPEN).
 if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
-  rm -f "$REQS_JSON"
+  specforge files remove --force "$REQS_JSON" >/dev/null
   echo "ERROR: edge-probe engine failed (invalid shapes or bad input) — fix the requirement(s); never proceed with empty coverage." >&2
   exit 1
 fi
-rm -f "$REQS_JSON"
+specforge files remove --force "$REQS_JSON" >/dev/null
 # Exit-0-but-garbage guard: report must parse as JSON with { items[], coverage{} }.
 if [ -z "$COVERAGE" ]; then
   echo "ERROR: edge-probe produced an unparseable/malformed coverage report — refusing to proceed." >&2

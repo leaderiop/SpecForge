@@ -441,7 +441,7 @@ fn a_collectors_malformed_read_is_w021_and_served_empty() {
     let mut c = extension("@acme/x", "1.0.0");
     c.collector("x", |collector| {
         collector
-            .reads("Bad Name", FileReadSpec::glob("package.json"))
+            .input(Input::files("Bad Name", FileReadSpec::glob("package.json")))
             .collect(|_| Ok(CollectOutput::default()));
     });
 

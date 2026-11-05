@@ -11,9 +11,19 @@
 
 use serde_json::{Value, json};
 use specforge_component::ComponentRuntime;
-use specforge_protocol_types::{CommandInput, RawGraph};
+use specforge_effects::testing::{self, MemoryConsent};
+use specforge_effects::{
+    EffectJournal, EffectsCeiling, Grant, Http, HttpOutcome, HttpRequest, OutcomeClass, Ports,
+    Provenance, Redirects, Roots,
+};
+use specforge_effects::{ResolveOutcome, ResolveRequest, TlsOutcome, TlsRequest};
+use specforge_protocol_types::{CommandInput, Operation, RawGraph};
+use specforge_wasm::PortCall;
+use specforge_wasm::protocol::load_declaration;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 use std::net::TcpListener;
+use std::sync::{Arc, Barrier};
+use std::time::Duration;
 
 pub const PROBE: &str = "@test/probe";
 
@@ -21,7 +31,9 @@ pub fn probe_runtime() -> ComponentRuntime {
     let path = specforge_component::committed::PROBE.path();
     let blob = std::fs::read(path).expect("vendored sandbox probe blob");
     let runtime = ComponentRuntime::new();
-    runtime.load(PROBE, &blob).expect("the probe instantiates");
+    runtime
+        .load(PROBE, &blob, specforge_wasm::Provenance::third_party(&blob))
+        .expect("the probe instantiates");
     runtime
 }
 
@@ -105,3 +117,82 @@ pub const ALL: &[&str] = &[
     "connect",
     "resolve",
 ];
+
+// ── The probe's `ports` export (ADR 0335 D4) ─────────────────────────────────
+
+/// What the probe is lent: `ports` under the probe's own grant, every approval given. Declared by an instance of its
+/// own, as a load applies the limits it declares, over those a test set.
+pub fn lent(ports: &Ports) -> PortCall {
+    let declared = load_declaration(&probe_runtime(), PROBE)
+        .expect("the probe declares itself")
+        .declaration;
+    let roots = Roots::new("/project", "/project/spec");
+    let grant = Grant::decide(
+        &declared,
+        &Provenance::third_party(PROBE.as_bytes()),
+        &EffectsCeiling::default(),
+        &roots,
+        &MemoryConsent::approving_everything(),
+    );
+    PortCall::online(ports, EffectJournal::detached(), roots, grant, Vec::new())
+}
+
+/// What the probe's `cmd__ports` reports of calling `port` on `target`.
+pub fn call_ports(
+    runtime: &ComponentRuntime,
+    port: &str,
+    target: &str,
+    kind: Operation,
+    lent: Option<PortCall>,
+) -> WasmCallResult {
+    let input = json!({"port": port, "target": target}).to_string();
+    runtime.call_with_ports(PROBE, "cmd__ports", input.as_bytes(), kind, lent)
+}
+
+/// The JSON a call answered.
+pub fn reported(result: WasmCallResult) -> Value {
+    match result {
+        WasmCallResult::Ok(bytes) => {
+            serde_json::from_slice(&bytes).expect("the probe reports JSON")
+        }
+        WasmCallResult::Trap(trap) => panic!("the probe trapped: {trap:?}"),
+    }
+}
+
+/// An HTTP port that waits on `gate` once started, then sleeps `sleep`, then answers 200: a port call that takes as
+/// long as a test needs.
+pub struct SlowHttp {
+    pub started: Arc<Barrier>,
+    pub sleep: Duration,
+}
+
+impl Http for SlowHttp {
+    fn request(&self, request: &HttpRequest, _redirects: &dyn Redirects) -> HttpOutcome {
+        self.started.wait();
+        std::thread::sleep(self.sleep);
+        HttpOutcome {
+            class: OutcomeClass::Ok,
+            status: Some(200),
+            final_url: request.url.clone(),
+            headers: Vec::new(),
+            body: Vec::new(),
+            detail: None,
+        }
+    }
+
+    fn resolve(&self, request: &ResolveRequest) -> ResolveOutcome {
+        testing::FakeHttp::new().resolve(request)
+    }
+
+    fn tls(&self, request: &TlsRequest) -> TlsOutcome {
+        testing::FakeHttp::new().tls(request)
+    }
+}
+
+/// [`testing::ports`] with `http`.
+pub fn ports_with_http(http: Arc<dyn Http>) -> Ports {
+    Ports {
+        http,
+        ..testing::ports()
+    }
+}

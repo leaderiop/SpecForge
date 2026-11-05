@@ -27,6 +27,67 @@ pub fn is_structural(keyword: &str) -> bool {
     KEYWORDS.contains(&keyword)
 }
 
+/// Every core command of the `specforge` binary, by its name on the command line: an extension whose short name is
+/// one of them has no CLI route (E114), since the binary matches the core command first. The CLI's tests keep it
+/// equal to the clap tree. It is written out, not derived: the clap tree lives in the CLI, a surface, and the
+/// registry that reports E114 sits below every surface, so the one list lives here and the CLI checks against it.
+pub const CORE_COMMANDS: &[&str] = &[
+    "init",
+    "check",
+    "export",
+    "schema",
+    "model",
+    "outline",
+    "query",
+    "trace",
+    "format",
+    "stats",
+    "explore",
+    "review",
+    "infer-guide",
+    "prompt",
+    "add",
+    "remove",
+    "extensions",
+    "publish",
+    "search",
+    "analyze",
+    "watch",
+    "new",
+    "set",
+    "unset",
+    "link",
+    "unlink",
+    "delete",
+    "update",
+    "login",
+    "logout",
+    "providers",
+    "settings",
+    "grants",
+    "collect",
+    "harness",
+    "hook",
+    "install",
+    "uninstall",
+    "doctor",
+    "mcp",
+    "migrate",
+    "completions",
+    "explain",
+    "infer-status",
+    "extension",
+    "files",
+    "run",
+    "http",
+    "git",
+];
+
+/// `name` is one of [`CORE_COMMANDS`].
+pub fn is_core_command(name: &str) -> bool {
+    CORE_COMMANDS.contains(&name)
+}
+
 /// The kind a block's body is read as (ADR 0224): the kind a `defaults <kind>` header names (ADR 0149 D1), else the
 /// block's own keyword. The formatter (each value's form) and the editor (completion, hover, tokens) ask it; the
 /// graph's defaults module reads a defaults block by its name, the same answer.

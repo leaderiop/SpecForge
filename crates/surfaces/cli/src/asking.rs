@@ -1,22 +1,29 @@
-//! Who a command can ask (ADR 0110): the terminal answers a publisher key change (`add`, `update`) and a
-//! collector's command (`collect`) when someone can answer.
+//! Who a command can ask (ADR 0110): the terminal answers a publisher key change (`add`, `update`), a
+//! collector's command (`collect`), and an extension's capability or a root outside the project (ADR 0335 D2.4)
+//! when someone can answer.
 
 use crate::outcome::OutputFormat;
-use crate::terminal::Terminal;
+use crate::terminal::{Facts, Terminal};
+use specforge_common::remedy::printable;
 use specforge_ops::asking::{Asker, Asking, ExpectedFrom, Question};
 
 /// Who a command can ask: `--yes` answers everything; a human-format command whose stdin is a terminal asks
 /// it; under `--format json`, or with nobody at stdin, nobody can be asked.
 pub(crate) fn of<'t>(yes: bool, format: OutputFormat, terminal: &'t Terminal) -> Asking<'t> {
-    let can_answer = format == OutputFormat::Human && terminal.facts().interactive;
-    Asking::of(yes, can_answer.then_some(terminal as &dyn Asker))
+    let answers = can_answer(format, terminal.facts());
+    Asking::of(yes, answers.then_some(terminal as &dyn Asker))
+}
+
+/// Whether someone can answer a command of `format` run under `facts`: human output, and a terminal at stdin.
+pub(crate) fn can_answer(format: OutputFormat, facts: Facts) -> bool {
+    format == OutputFormat::Human && facts.interactive
 }
 
 impl Asker for Terminal {
     fn answer(&self, question: &Question<'_>) -> bool {
         match question {
             Question::KeyChange { .. } => self.ask(&key_change(question)),
-            Question::RunCommand { .. } => self.ask(&run_command(question)),
+            Question::Capability { .. } | Question::Root { .. } => self.ask(&approval(question)),
         }
     }
 }
@@ -32,6 +39,7 @@ fn key_change(question: &Question<'_>) -> String {
     else {
         return String::new();
     };
+    let [package, expected, offered] = [package, expected, offered].map(|text| printable(text));
     match from {
         ExpectedFrom::UserPin => format!(
             "KEY CHANGE for '{package}': pinned '{expected}' but new package is signed '{offered}'\ntrust the new key and re-pin? [y/N] "
@@ -42,21 +50,48 @@ fn key_change(question: &Question<'_>) -> String {
     }
 }
 
-/// The run-command question as the terminal shows it (today's bytes).
-fn run_command(question: &Question<'_>) -> String {
-    let Question::RunCommand {
-        extension,
-        argv,
-        root,
-    } = question
-    else {
-        return String::new();
-    };
-    format!(
-        "{extension} wants to run this command in {}:\n  {}\nAllow it for this project? [y/N] ",
-        root.display(),
-        argv.join(" ")
-    )
+/// A capability or outside-root question as the terminal shows it (ADR 0335 D2.4). A collector's command keeps
+/// the bytes it had before capabilities: the extension, the project and the command. Every field is an extension's
+/// or a project's text, shown printable (ADR 0244): none can erase the line a person is approving.
+fn approval(question: &Question<'_>) -> String {
+    match question {
+        Question::Capability {
+            extension,
+            project,
+            command: Some(argv),
+            ..
+        } => format!(
+            "{} wants to run this command in {}:\n  {}\nAllow it for this project? [y/N] ",
+            printable(extension),
+            printable(project),
+            printable(&argv.join(" "))
+        ),
+        Question::Capability {
+            extension,
+            scope,
+            summary,
+            why,
+            project,
+            command: None,
+        } => {
+            let [extension, scope, summary, why, project] =
+                [extension, scope, summary, why, project].map(|text| printable(text));
+            format!(
+                "{extension} asks for '{scope}': {summary}\n  why: {why}\nAllow it for {project}? [y/N] "
+            )
+        }
+        Question::Root {
+            name,
+            target,
+            project,
+        } => {
+            let [name, target, project] = [name, target, project].map(|text| printable(text));
+            format!(
+                "root '{name}' lies outside the project, at {target}\nAllow extensions to read it for {project}? [y/N] "
+            )
+        }
+        _ => String::new(),
+    }
 }
 
 #[cfg(test)]
@@ -67,7 +102,9 @@ mod tests {
     const INTERACTIVE: Facts = Facts {
         color_out: false,
         color_err: false,
+        out_terminal: true,
         interactive: true,
+        ci: false,
     };
 
     fn change(from: ExpectedFrom) -> Question<'static> {
@@ -107,15 +144,18 @@ mod tests {
     }
 
     #[specforge_test_macros::test(
-        behavior = "approve_collector_command",
+        behavior = "approve_capability",
         verify = "a terminal that can answer is asked; with nobody to ask, or under --format json, only an approved command runs"
     )]
     fn a_collector_command_is_asked_of_a_terminal_that_can_answer() {
         let argv = vec!["cargo".to_string(), "test".to_string()];
-        let question = Question::RunCommand {
+        let question = Question::Capability {
             extension: "@specforge/cargo-test",
-            argv: &argv,
-            root: std::path::Path::new("/p"),
+            scope: "cargo-test",
+            summary: "process cargo test",
+            why: "run the tests",
+            project: "/p",
+            command: Some(&argv),
         };
         let (terminal, capture) = Terminal::captured("y\n", INTERACTIVE);
         assert!(of(false, OutputFormat::Human, &terminal).answers(&question));
@@ -133,6 +173,65 @@ mod tests {
         for format in [OutputFormat::Human, OutputFormat::Json] {
             assert_eq!(who(true, format, Facts::PIPED), "Yes");
         }
+    }
+
+    /// The escape sequences a hostile field carries; `\u{9b}` is the one-byte CSI, `\u{202e}` reorders what is shown.
+    const ERASES: &str = "\u{1b}[1A\u{1b}[2K\u{9b}2J\u{202e}";
+
+    fn shown(question: &Question<'_>) -> String {
+        let (terminal, capture) = Terminal::captured("n\n", INTERACTIVE);
+        assert!(!(&terminal as &dyn Asker).answer(question));
+        capture.stderr()
+    }
+
+    #[test]
+    fn no_field_of_a_question_reaches_the_terminal_as_a_control_sequence() {
+        let argv = vec![format!("cargo{ERASES}"), format!("test{ERASES}")];
+        let capability = |command| Question::Capability {
+            extension: ERASES,
+            scope: ERASES,
+            summary: ERASES,
+            why: ERASES,
+            project: ERASES,
+            command,
+        };
+        for question in [
+            capability(None),
+            capability(Some(&argv)),
+            Question::Root {
+                name: ERASES,
+                target: ERASES,
+                project: ERASES,
+            },
+            Question::KeyChange {
+                package: ERASES,
+                expected: ERASES,
+                offered: ERASES,
+                from: ExpectedFrom::UserPin,
+            },
+        ] {
+            let text = shown(&question);
+            for raw in ['\u{1b}', '\u{9b}', '\u{202e}'] {
+                assert!(!text.contains(raw), "{raw:?} in {text:?}");
+            }
+            assert!(text.contains("\\u{1b}[1A"), "{text:?}");
+        }
+    }
+
+    #[test]
+    fn the_line_a_hostile_why_tried_to_erase_is_still_there() {
+        let text = shown(&Question::Capability {
+            extension: "@x/a",
+            scope: "token",
+            summary: "http GET a.example, sending $SECRET",
+            why: "\u{1b}[1A\u{1b}[2K",
+            project: "/p",
+            command: None,
+        });
+        assert_eq!(
+            text,
+            "@x/a asks for 'token': http GET a.example, sending $SECRET\n  why: \\u{1b}[1A\\u{1b}[2K\nAllow it for /p? [y/N] "
+        );
     }
 
     #[test]

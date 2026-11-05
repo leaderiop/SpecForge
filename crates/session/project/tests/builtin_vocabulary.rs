@@ -69,7 +69,7 @@ fn keys_and_types(value: &serde_json::Value, found: &mut Vec<String>) {
 
 #[specforge_test_macros::test(
     behavior = "check_field_value_types",
-    verify = "no builtin or pinned example declaration declares a member, a target union, a bound, a file base, an enum list or a block list"
+    verify = "no builtin or pinned example declaration declares a member, a target union, a bound, an enum list or a block list"
 )]
 fn no_builtin_field_declares_a_k3_attribute() {
     let mut files = 0;
@@ -92,7 +92,6 @@ fn no_builtin_field_declares_a_k3_attribute() {
                 "target_kinds",
                 "minimum",
                 "maximum",
-                "file_base",
                 "enum_list",
                 "block_list",
             ] {
@@ -150,7 +149,7 @@ fn no_builtin_declares_a_writer_or_history_flag() {
 
 #[specforge_test_macros::test(
     behavior = "load_extension_settings",
-    verify = "no builtin declares a feature flag or a setting"
+    verify = "no builtin declares a feature flag, and none but @specforge/checks a setting: its family switches"
 )]
 fn the_builtins_declare_no_settings() {
     let declarations = pinned_builtin_declarations().unwrap();
@@ -160,11 +159,26 @@ fn the_builtins_declare_no_settings() {
             "{}",
             declaration.name()
         );
+        let text = serde_json::to_string(declaration).unwrap();
+        if declaration.name() == "@specforge/checks" {
+            let names: Vec<String> =
+                serde_json::from_str::<serde_json::Value>(&text).unwrap()["settings"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|s| s["name"].as_str().unwrap_or_default().to_string())
+                    .collect();
+            assert!(
+                !names.is_empty() && names.iter().all(|n| n.starts_with("families.")),
+                "{names:?}"
+            );
+        } else {
+            assert!(
+                !text.contains("\"settings\""),
+                "{} declares settings",
+                declaration.name()
+            );
+        }
     }
-    let text = serde_json::to_string(&declarations).unwrap();
-    assert!(
-        !text.contains("\"settings\""),
-        "a builtin declares settings"
-    );
     assert!(declarations.len() > 5);
 }

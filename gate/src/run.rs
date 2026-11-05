@@ -368,6 +368,19 @@ pub(crate) fn schedule(steps: &[Step], states: &[State]) -> Wave {
     Wave { start, blocked }
 }
 
+/// The file compiling checks take turns on, one per machine and user, whichever worktree they run from.
+fn compile_lock_path() -> PathBuf {
+    std::env::temp_dir().join("specforge-gate-compile.lock")
+}
+
+/// Waits until no other gate on this machine compiles, and holds that turn until the file drops. The OS releases the
+/// lock when its holder dies, even a killed one. A lock that cannot be taken only loses the queueing, so the check runs.
+fn compile_turn(path: &Path) -> Option<File> {
+    let file = File::create(path).ok()?;
+    file.lock().ok()?;
+    Some(file)
+}
+
 /// Whether `--only`'s comma-separated list (every name when `None`) names `check`.
 pub(crate) fn named(only: Option<&str>, check: &str) -> bool {
     only.is_none_or(|list| list.split(',').any(|name| name == check))
@@ -474,6 +487,7 @@ pub fn run(
                 let (done, specforge, changes, log_dir) =
                     (done.clone(), &specforge, &changes, &log_dir);
                 scope.spawn(move || {
+                    let _turn = check.compiles.then(|| compile_turn(&compile_lock_path()));
                     let began = Instant::now();
                     let result = run_one(check, selection, mode, repo, changes, specforge, log_dir);
                     let _ = done.send((k, result, began.elapsed()));

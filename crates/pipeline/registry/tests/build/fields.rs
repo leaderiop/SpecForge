@@ -4,7 +4,7 @@
 
 use specforge_common::Severity;
 use specforge_extension_sdk::Vocabulary;
-use specforge_protocol_types::{ExtensionDeclaration, FileBase};
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
     FieldDescriptor, FieldRegistryEntry, FieldType, ProofRole, UnknownFieldType,
 };
@@ -483,9 +483,7 @@ fn a_blocks_members_register_by_path() {
                         m.field_type(FieldType::Integer).minimum(0).maximum(100);
                     })
                     .member("path", |m| {
-                        m.field_type(FieldType::String)
-                            .file_reference()
-                            .file_base(FileBase::Project);
+                        m.field_type(FieldType::String);
                     });
             });
         });
@@ -498,9 +496,7 @@ fn a_blocks_members_register_by_path() {
     assert!(phase.required());
     let (_, score) = fields.get_path("thing", "requires.score").unwrap();
     assert_eq!(score.bounds(), (Some(0), Some(100)));
-    let (declared, path) = fields.get_path("thing", "requires.path").unwrap();
-    assert_eq!(path.base(), FileBase::Project);
-    assert!(declared.file_reference);
+    assert!(fields.get_path("thing", "requires.path").is_some());
     assert!(fields.get_path("thing", "requires").is_some());
     assert!(fields.get_path("thing", "requires.nope").is_none());
     let names: Vec<_> = fields

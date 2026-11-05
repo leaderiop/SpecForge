@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use specforge_wasm::testing::InProcessRuntime;
 
+use super::NOW;
 use crate::ledger::recorded::Recording;
 use crate::ledger::{Ledger, Reading, Reads};
 use crate::sources::Read;
@@ -36,13 +37,13 @@ fn a_config_written_after_its_read_is_stale() {
     let (dir, root) = project(CONFIG);
     let mut ledger = Ledger::opening_through(None);
     Environment::read_through(&mut ledger, &root, |_| None);
-    assert!(ledger.stale().is_empty());
+    assert!(ledger.stale(NOW).is_empty());
     rewrite(
         &dir.path().join("specforge.json"),
         &format!("{CONFIG}\n\n// written after the read\n"),
     );
     assert_eq!(
-        ledger.stale().environment,
+        ledger.stale(NOW).environment,
         [dir.path().join("specforge.json")]
     );
 }
@@ -59,9 +60,9 @@ fn a_module_written_after_its_read_is_stale() {
     Environment::read_through(&mut ledger, &root, |_| {
         Some(Arc::new(InProcessRuntime::new()) as SharedRuntime)
     });
-    assert!(ledger.stale().is_empty());
+    assert!(ledger.stale(NOW).is_empty());
     rewrite(&module, "second, longer");
-    assert_eq!(ledger.stale().environment, [module]);
+    assert_eq!(ledger.stale(NOW).environment, [module]);
 }
 
 #[test]
@@ -73,18 +74,18 @@ fn a_source_that_is_no_source_any_more_leaves_the_record() {
     let sources = env.config().sources(root.dir());
     assert_eq!(ledger.discover(&sources, false), ["sub/c.spec"]);
     ledger.source(&sources, "sub/c.spec");
-    assert!(ledger.stale().is_empty());
+    assert!(ledger.stale(NOW).is_empty());
 
     // A nested project took it.
     let marker = dir.path().join("sub/specforge.json");
     rewrite(&marker, CONFIG);
     let reads = ledger.reread(&["sub/c.spec".to_string()]);
     assert!(matches!(reads[0].1, Read::Gone));
-    assert!(ledger.stale().sources.is_empty());
+    assert!(ledger.stale(NOW).sources.is_empty());
 
     // The marker goes: its return is seen.
     fs::remove_file(&marker).unwrap();
-    assert_eq!(ledger.stale().sources, ["sub/c.spec"]);
+    assert_eq!(ledger.stale(NOW).sources, ["sub/c.spec"]);
 }
 
 #[test]
@@ -94,10 +95,10 @@ fn a_source_read_as_gone_is_recorded_and_stays_unchanged_while_it_is_gone() {
     let env = Environment::read_through(&mut ledger, &root, |_| None);
     let sources = env.config().sources(root.dir());
     assert!(matches!(ledger.source(&sources, "late.spec"), Read::Gone));
-    assert!(ledger.stale().sources.is_empty());
+    assert!(ledger.stale(NOW).sources.is_empty());
 
     rewrite(&dir.path().join("late.spec"), "behavior c \"C\" {\n}\n");
-    assert_eq!(ledger.stale().sources, ["late.spec"]);
+    assert_eq!(ledger.stale(NOW).sources, ["late.spec"]);
 }
 
 #[test]
@@ -108,7 +109,7 @@ fn a_source_never_read_is_changed() {
     let env = Environment::read_through(&mut ledger, &root, |_| None);
     let sources = env.config().sources(root.dir());
     assert_eq!(ledger.discover(&sources, false), ["a.spec"]);
-    assert_eq!(ledger.stale().sources, ["a.spec"]);
+    assert_eq!(ledger.stale(NOW).sources, ["a.spec"]);
 }
 
 #[test]
@@ -116,8 +117,8 @@ fn a_detached_ledger_reads_every_key_as_gone_and_records_nothing() {
     let mut ledger = Ledger::detached();
     let reads = ledger.reread(&["/p/a.spec".to_string()]);
     assert!(matches!(reads[0].1, Read::Gone));
-    assert!(ledger.stale().is_empty());
-    assert!(ledger.changes([Path::new("/p/a.spec")]).is_empty());
+    assert!(ledger.stale(NOW).is_empty());
+    assert!(ledger.changes([Path::new("/p/a.spec")], NOW).is_empty());
     let run = ledger.checks();
     assert!(run.read(Reading::File, Path::new("/p/x.md"), &PlainDisk, |_| true));
     run.finish(Recording::Checks);

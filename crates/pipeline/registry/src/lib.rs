@@ -17,13 +17,14 @@ pub mod snapshot;
 mod invariants;
 
 // --- What the checks see of the file system (ADR 0107) ---
-pub use disk::{Asked, Disk, FileStamp, MemoryDisk, PlainDisk};
+pub use disk::{Asked, Disk, DiskLookup, FileStamp, MemoryDisk, PlainDisk, Ranged};
 
 // --- Core registries ---
 pub use registries::{
-    DeclaredSetting, EdgeRegistry, EdgeRegistryEntry, EdgeWriter, ExtensionSettings, FieldProblem,
-    FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry, Parent, Route,
-    RouteAnnotation, RouteRegistry, RouteStep, SettingsRegistry, Skipped, UnknownFieldType,
+    CheckCall, CheckRegistry, DeclaredSetting, EdgeRegistry, EdgeRegistryEntry, EdgeWriter,
+    ExtensionSettings, FieldProblem, FieldRegistry, FieldRegistryEntry, KindRegistry,
+    KindRegistryEntry, Parent, QualifiedChecker, ResolvedCheck, Route, RouteAnnotation,
+    RouteRegistry, RouteStep, SettingsRegistry, Skipped, UnknownFieldType,
 };
 
 // --- Extension vocabulary (shared with the SDK through the protocol types) ---
@@ -56,9 +57,11 @@ pub use snapshot::{EntitySnapshot, Standing};
 // --- Registry compilation (plan 05): one build, and the graph checks ---
 pub use compilation::{
     BuildPart, CHECK_PHASE, COMPUTE_PHASE, CandidateVocabulary, DeclaredPass, RegistryBuild,
-    build_registries, build_registries_with, extension_codes, read_problem, reports,
+    build_registries, build_registries_with, extension_codes, reports,
 };
+pub use inputs::{CallKind, read_problem, served};
 pub use rules::paths_named;
 
 // Module paths external code names directly (`specforge_registry::surface::`).
+pub mod inputs;
 pub mod surface;

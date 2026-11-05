@@ -5,13 +5,10 @@
 mod checks;
 mod custom;
 mod cycles;
-mod files;
 mod judged;
 mod order;
 mod shape;
 mod written;
-
-use std::path::Path;
 
 use specforge_common::{Diagnostic, SourceSpan, Sym};
 use specforge_protocol_types::{
@@ -21,7 +18,7 @@ use specforge_registry::entity::{Direction, EdgeRecord, EntityRecord, RuleInput}
 use specforge_registry::rules::{NoVerdicts, Rules};
 use specforge_registry::{CandidateVocabulary, RegistryBuild};
 
-use crate::support::{NoDisk, declare};
+use crate::support::declare;
 
 /// What the build made of some declared rules: the rule set and the
 /// diagnostics its rules step reported (W112 and W147, then W023).
@@ -87,6 +84,7 @@ fn catalog_of(rules: &[ValidationRuleDescriptor]) -> Vec<specforge_protocol_type
             title: "A test rule".to_string(),
             explanation: "A test rule's finding.".to_string(),
             docs: None,
+            machine: false,
         })
         .collect()
 }
@@ -165,26 +163,17 @@ pub fn entity(id: &str, kind: &str, incoming: usize, outgoing: usize) -> EntityR
         .with_edges(Direction::Outgoing, None, outgoing)
 }
 
-/// The rules' input over `entities`, with no edges and no spec root.
+/// The rules' input over `entities`, with no edges.
 pub fn over(entities: &[EntityRecord]) -> RuleInput<'_> {
     RuleInput {
         entities,
         edges: &[],
-        spec_root: Path::new(""),
-        project_root: Path::new(""),
-        disk: &NoDisk,
     }
 }
 
 /// The rules' input over `entities` and `edges`.
 pub fn with_edges<'a>(entities: &'a [EntityRecord], edges: &'a [EdgeRecord]) -> RuleInput<'a> {
-    RuleInput {
-        entities,
-        edges,
-        spec_root: Path::new(""),
-        project_root: Path::new(""),
-        disk: &NoDisk,
-    }
+    RuleInput { entities, edges }
 }
 
 /// `rules` checked over `entities` without a runtime.

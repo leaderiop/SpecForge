@@ -7,6 +7,10 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
+
+pub use specforge_common::regular::Ranged;
+use specforge_protocol_types::ByteRange;
 
 /// The file system as the checks and the environment load read it. Each call
 /// is one read; an adapter may record it (a project session's ledger stamps
@@ -25,6 +29,31 @@ pub trait Disk {
     /// most 64 MiB is read (ADR 0264): anything else is an error naming what
     /// it is.
     fn read(&self, path: &Path) -> io::Result<Vec<u8>>;
+    /// The bytes `range` names of the file at `path`, where they start and how long it is. The default reads it whole
+    /// as [`Self::read`] does; the plain file system reads only those, of a regular file of any size. A session records
+    /// it as it records a read.
+    fn read_range(&self, path: &Path, range: ByteRange) -> io::Result<Ranged> {
+        let bytes = self.read(path)?;
+        let length = bytes.len() as u64;
+        let within = range.within(length);
+        let slice = usize::try_from(within.start).unwrap_or(usize::MAX)
+            ..usize::try_from(within.end).unwrap_or(usize::MAX);
+        Ok(Ranged {
+            bytes: bytes[slice].to_vec(),
+            start: within.start,
+            length,
+        })
+    }
+    /// The SHA-256 of the file at `path` in lowercase hex, and its length; `TimedOut` once `deadline` passes. The
+    /// default reads it whole; the plain file system streams a file of any size. A session records it as a read.
+    fn digest(&self, path: &Path, deadline: Instant) -> io::Result<(String, u64)> {
+        let _ = deadline;
+        let bytes = self.read(path)?;
+        Ok((
+            specforge_package::Sha256::of(&bytes).to_string(),
+            bytes.len() as u64,
+        ))
+    }
     /// [`Self::read`] of a file the git baseline is named by (`HEAD`, a ref, `packed-refs`): a session records it
     /// as an input of its own kind, watched through its directory's own entries (ADR 0287).
     fn read_ref(&self, path: &Path) -> io::Result<Vec<u8>> {
@@ -48,6 +77,20 @@ pub trait Disk {
     }
 }
 
+/// A [`Disk`] as `Contained` asks it (ADR 0335): its links resolved, and its listings, so a session records what a
+/// check listed.
+pub struct DiskLookup<'a>(pub &'a dyn Disk);
+
+impl specforge_effects::Lookup for DiskLookup<'_> {
+    fn canonical(&self, path: &Path) -> Option<PathBuf> {
+        self.0.canonical(path)
+    }
+
+    fn names(&self, dir: &Path) -> Option<Vec<String>> {
+        self.0.list(dir)
+    }
+}
+
 /// What a file looked like (see [`Disk::stamp`]): its length and modification time, and its content's hash when the
 /// time alone cannot be trusted (modified within the filesystem's granularity of now), or when a disk has no time.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -58,6 +101,11 @@ pub struct FileStamp {
 }
 
 impl FileStamp {
+    /// The file's length in bytes.
+    pub fn size(&self) -> u64 {
+        self.len
+    }
+
     /// The stamp of `bytes`, whatever file held them: their length and hash.
     pub fn of(bytes: &[u8]) -> Self {
         Self {
@@ -91,6 +139,14 @@ impl Disk for PlainDisk {
 
     fn read(&self, path: &Path) -> io::Result<Vec<u8>> {
         specforge_common::regular::read(path)
+    }
+
+    fn read_range(&self, path: &Path, range: ByteRange) -> io::Result<Ranged> {
+        specforge_common::regular::read_range(path, |length| range.within(length))
+    }
+
+    fn digest(&self, path: &Path, deadline: Instant) -> io::Result<(String, u64)> {
+        specforge_common::regular::digest(path, Some(deadline))
     }
 
     fn is_dir(&self, path: &Path) -> bool {

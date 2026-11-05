@@ -11,13 +11,17 @@
 
 use crate::probe_support;
 
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use probe_support::{ALL, Bait, PROBE, granted_nothing, probe_runtime};
+use probe_support::{
+    ALL, Bait, PROBE, call_ports, granted_nothing, lent, ports_with_http, probe_runtime, reported,
+};
 use serde_json::json;
 use specforge_component::ComponentRuntime;
 use specforge_component::fixtures::custom_bridge;
-use specforge_protocol_types::{CommandInput, RawGraph};
+use specforge_effects::testing::FakeHttp;
+use specforge_protocol_types::{CommandInput, Operation, RawGraph};
 use specforge_test_macros::test as specforge_test;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 use specforge_wasm::{ExtensionCalls, Limits, LoadError};
@@ -38,7 +42,11 @@ const DECLARES_NOTHING: &str = r#"{"protocol_version":"1.0.0","name":"@repro/gro
 fn grower(pages: u32, handshake: &str) -> ComponentRuntime {
     let runtime = ComponentRuntime::new();
     runtime
-        .load("@repro/grow", &bridge_component(pages, 0, false, handshake))
+        .load(
+            "@repro/grow",
+            &bridge_component(pages, 0, false, handshake),
+            specforge_wasm::Provenance::third_party(&bridge_component(pages, 0, false, handshake)),
+        )
         .expect("the growing guest instantiates");
     let handshake = ExtensionCalls::new(&runtime)
         .handshake("@repro/grow")
@@ -178,7 +186,11 @@ fn every_call_gets_the_whole_fuel_budget() {
     // the instance's calls would run out on the third.
     let runtime = ComponentRuntime::new().with_fuel_limit(1_000_000);
     runtime
-        .load("@repro/spin", &bridge_component(0, 50_000, false, "{}"))
+        .load(
+            "@repro/spin",
+            &bridge_component(0, 50_000, false, "{}"),
+            specforge_wasm::Provenance::third_party(&bridge_component(0, 50_000, false, "{}")),
+        )
         .expect("the spinning guest instantiates");
     for call in 1..=10 {
         let result = runtime.call_export("@repro/spin", "anything", b"{}");
@@ -188,7 +200,11 @@ fn every_call_gets_the_whole_fuel_budget() {
     // One call that spends more than the whole budget traps, naming it.
     let runtime = ComponentRuntime::new().with_fuel_limit(1_000_000);
     runtime
-        .load("@repro/spin", &bridge_component(0, 400_000, false, "{}"))
+        .load(
+            "@repro/spin",
+            &bridge_component(0, 400_000, false, "{}"),
+            specforge_wasm::Provenance::third_party(&bridge_component(0, 400_000, false, "{}")),
+        )
         .expect("the spinning guest instantiates");
     let result = runtime.call_export("@repro/spin", "anything", b"{}");
     assert_eq!(trap_kind(&result), "fuel_exhausted", "{result:?}");
@@ -206,7 +222,11 @@ fn every_call_gets_the_whole_fuel_budget() {
 fn a_limit_trap_names_its_limit() {
     let runtime = ComponentRuntime::new();
     runtime
-        .load("@repro/spin", &bridge_component(0, u32::MAX, false, "{}"))
+        .load(
+            "@repro/spin",
+            &bridge_component(0, u32::MAX, false, "{}"),
+            specforge_wasm::Provenance::third_party(&bridge_component(0, u32::MAX, false, "{}")),
+        )
         .expect("the spinning guest instantiates");
     runtime.apply_limits(
         "@repro/spin",
@@ -258,7 +278,11 @@ fn the_sandbox_contract_holds() {
     // execution_time_enforced: the instruction budget
     let runtime = ComponentRuntime::new().with_fuel_limit(1_000_000);
     runtime
-        .load("@repro/spin", &bridge_component(0, 400_000, false, "{}"))
+        .load(
+            "@repro/spin",
+            &bridge_component(0, 400_000, false, "{}"),
+            specforge_wasm::Provenance::third_party(&bridge_component(0, 400_000, false, "{}")),
+        )
         .unwrap();
     let result = runtime.call_export("@repro/spin", "anything", b"{}");
     assert_eq!(trap_kind(&result), "fuel_exhausted", "{result:?}");
@@ -266,7 +290,11 @@ fn the_sandbox_contract_holds() {
     // execution_time_enforced, deadline_never_early: the wall clock
     let runtime = ComponentRuntime::new();
     runtime
-        .load("@repro/spin", &bridge_component(0, u32::MAX, false, "{}"))
+        .load(
+            "@repro/spin",
+            &bridge_component(0, u32::MAX, false, "{}"),
+            specforge_wasm::Provenance::third_party(&bridge_component(0, u32::MAX, false, "{}")),
+        )
         .unwrap();
     runtime.apply_limits(
         "@repro/spin",
@@ -300,7 +328,11 @@ fn guest_held_to(
     body: &str,
 ) -> Result<ComponentRuntime, LoadError> {
     let runtime = ComponentRuntime::new();
-    runtime.load("@repro/limits", &custom_bridge(outside, host, body, "{}"))?;
+    runtime.load(
+        "@repro/limits",
+        &custom_bridge(outside, host, body, "{}"),
+        specforge_wasm::Provenance::third_party(&custom_bridge(outside, host, body, "{}")),
+    )?;
     runtime.apply_limits(
         "@repro/limits",
         Limits {
@@ -453,7 +485,11 @@ fn an_extension_that_cannot_restart_is_unloaded_with_its_reason() {
 fn a_call_cut_at_its_budget_names_the_budget() {
     let runtime = ComponentRuntime::new();
     runtime
-        .load("@repro/spin", &bridge_component(0, u32::MAX, false, "{}"))
+        .load(
+            "@repro/spin",
+            &bridge_component(0, u32::MAX, false, "{}"),
+            specforge_wasm::Provenance::third_party(&bridge_component(0, u32::MAX, false, "{}")),
+        )
         .expect("the spinning guest instantiates");
     runtime.apply_limits("@repro/spin", Limits::CEILING);
     let result = runtime.call_export_within("@repro/spin", "anything", b"{}", 50);
@@ -473,7 +509,11 @@ fn a_work_budget_replaces_the_callers_time_budget() {
     // A budget of 0 ms traps at the guest's first checkpoint, unless the work budget lifts it.
     let runtime = ComponentRuntime::new().with_work_budget(1_000_000);
     runtime
-        .load("@repro/spin", &bridge_component(0, 50_000, false, "{}"))
+        .load(
+            "@repro/spin",
+            &bridge_component(0, 50_000, false, "{}"),
+            specforge_wasm::Provenance::third_party(&bridge_component(0, 50_000, false, "{}")),
+        )
         .expect("the spinning guest instantiates");
     let result = runtime.call_export_within("@repro/spin", "anything", b"{}", 0);
     assert!(answered(&result), "{result:?}");
@@ -481,7 +521,11 @@ fn a_work_budget_replaces_the_callers_time_budget() {
     // Work past the budget traps, naming it, whatever the time budget.
     let runtime = ComponentRuntime::new().with_work_budget(1_000_000);
     runtime
-        .load("@repro/spin", &bridge_component(0, 400_000, false, "{}"))
+        .load(
+            "@repro/spin",
+            &bridge_component(0, 400_000, false, "{}"),
+            specforge_wasm::Provenance::third_party(&bridge_component(0, 400_000, false, "{}")),
+        )
         .expect("the spinning guest instantiates");
     let result = runtime.call_export_within("@repro/spin", "anything", b"{}", u32::MAX);
     assert_eq!(trap_kind(&result), "fuel_exhausted", "{result:?}");
@@ -500,7 +544,11 @@ fn under_a_work_budget_the_extensions_limit_is_work() {
     // The limit's work: 50 ms at the reference rate. A spin past it traps on its instructions, naming the limit.
     let runtime = ComponentRuntime::new().with_work_budget(u64::MAX);
     runtime
-        .load("@repro/spin", &bridge_component(0, u32::MAX, false, "{}"))
+        .load(
+            "@repro/spin",
+            &bridge_component(0, u32::MAX, false, "{}"),
+            specforge_wasm::Provenance::third_party(&bridge_component(0, u32::MAX, false, "{}")),
+        )
         .expect("the spinning guest instantiates");
     runtime.apply_limits(
         "@repro/spin",
@@ -522,7 +570,11 @@ fn under_a_work_budget_the_extensions_limit_is_work() {
     // Work inside the limit answers however long it takes: a 1 ms limit is 20 M instructions, not a millisecond.
     let runtime = ComponentRuntime::new().with_work_budget(u64::MAX);
     runtime
-        .load("@repro/spin", &bridge_component(0, 1_000_000, false, "{}"))
+        .load(
+            "@repro/spin",
+            &bridge_component(0, 1_000_000, false, "{}"),
+            specforge_wasm::Provenance::third_party(&bridge_component(0, 1_000_000, false, "{}")),
+        )
         .expect("the spinning guest instantiates");
     runtime.apply_limits(
         "@repro/spin",
@@ -533,4 +585,28 @@ fn under_a_work_budget_the_extensions_limit_is_work() {
     );
     let result = runtime.call_export_within("@repro/spin", "anything", b"{}", 0);
     assert!(answered(&result), "{result:?}");
+}
+
+#[test]
+fn a_ports_answer_never_traps_the_guests_memory() {
+    let runtime = probe_runtime();
+    runtime.apply_limits(
+        PROBE,
+        Limits {
+            execution_ms: 5_000,
+            memory_mb: 16,
+        },
+    );
+    let http = FakeHttp::new().route("https://example.test/big", 200, vec![0u8; 64 << 20]);
+    let lent = lent(&ports_with_http(Arc::new(http)));
+    let answer = reported(call_ports(
+        &runtime,
+        "http",
+        "https://example.test/big",
+        Operation::Command,
+        Some(lent),
+    ));
+    assert_eq!(answer["ok"], 200, "{answer}");
+    assert_eq!(answer["truncated"], true, "{answer}");
+    assert_eq!(answer["bytes"], 4 << 20, "{answer}");
 }

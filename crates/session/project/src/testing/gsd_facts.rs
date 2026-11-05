@@ -5,7 +5,7 @@
 //! - [`FACTS_EXTENSION`] (`@t/facts`): the kinds `phase` (`criteria`, a `string_list` whose items hold `, `) and
 //!   `plan` (`phase`, `files_modified` a `string_list` of project paths)
 //! - the check passes `files` (reads the field `plan.files_modified` with its text, as `modified`, and the glob
-//!   `src/**/*.rs` as `sources`), `tests` (declares `reads_tests`) and `lists` (declares nothing), each answering
+//!   `src/**/*.rs` as `sources`), `tests` (declares the `tests` input) and `lists` (declares nothing), each answering
 //!   no finding; the runtime records every input
 //!
 //! [`gsd_facts_project`] is a project of one phase, one plan naming `src/lib.rs` (which exists) and `docs/gone.md`
@@ -47,11 +47,11 @@ pub fn gsd_facts_wire() -> Value {
 /// The passes of [`FACTS_EXTENSION`], as the wire carries them.
 pub fn gsd_facts_passes() -> Value {
     json!([
-        {"name": "files", "phase": "check", "reads": [
-            {"name": "modified", "field": "plan.files_modified", "text": true},
-            {"name": "sources", "glob": "src/**/*.rs"},
+        {"name": "files", "phase": "check", "inputs": [
+            {"input": "files", "name": "modified", "field": "plan.files_modified", "text": true},
+            {"input": "files", "name": "sources", "glob": "src/**/*.rs"},
         ]},
-        {"name": "tests", "phase": "check", "reads_tests": true},
+        {"name": "tests", "phase": "check", "inputs": [{"input": "tests"}]},
         {"name": "lists", "phase": "check"},
     ])
 }
@@ -126,7 +126,18 @@ pub fn gsd_facts_serving(passes: Value) -> InProcessRuntime {
     runtime
 }
 
-/// [`gsd_facts_serving`] with one check pass `probe` declaring `reads` (as the wire carries them).
+/// [`gsd_facts_serving`] with one check pass `probe` declaring each of `reads` (`FileRead`s as the wire carries them)
+/// as a `files` input.
 pub fn gsd_facts_probe(reads: Value) -> InProcessRuntime {
-    gsd_facts_serving(json!([{"name": "probe", "phase": "check", "reads": reads}]))
+    let inputs: Vec<Value> = reads
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|read| {
+            let mut input = read.clone();
+            input["input"] = json!("files");
+            input
+        })
+        .collect();
+    gsd_facts_serving(json!([{"name": "probe", "phase": "check", "inputs": inputs}]))
 }

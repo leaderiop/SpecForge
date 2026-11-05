@@ -63,7 +63,7 @@ fn name(text: &str) -> PackageName {
 fn the_adapter_requests_these_paths() {
     let served = serving(&["1.4.0", "2.0.0-beta.1"]);
     let dir = project_with(&default_registry(served.root().as_str()));
-    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add")
+    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add", &crate::ports())
         .as_user(User::at(dir.home(), None));
 
     // The registry is asked for the versions, and ops picks among them:
@@ -123,7 +123,7 @@ fn the_adapter_asks_no_registry_for_a_name_none_serves() {
         r#"{{"alias":"acme","url":"{}","scope_filter":"@acme"}}"#,
         served.root().as_str()
     ));
-    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add");
+    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add", &crate::ports());
 
     let error = registry.versions(&name("@other/x")).unwrap_err();
     assert_eq!(error.code, "R-OPS-001", "{error:?}");
@@ -148,7 +148,8 @@ fn the_registry_is_chosen_once() {
     let served = serving(&["1.0.0"]);
     let dir = project_with(&default_registry(served.root().as_str()));
     let home = User::at(dir.home(), None);
-    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add").as_user(home);
+    let registry =
+        ConfiguredRegistry::for_project(&dir.project_root(), "add", &crate::ports()).as_user(home);
 
     assert_eq!(
         registry.versions(&name("@acme/tool")).unwrap(),
@@ -191,7 +192,7 @@ fn a_scope_filter_that_is_no_scope_asks_no_registry() {
             "{},{private_entry}",
             default_registry(public.root().as_str())
         ));
-        let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add");
+        let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add", &crate::ports());
 
         let error = registry.versions(&name("@sdk/zeta")).unwrap_err();
 
@@ -216,7 +217,7 @@ fn a_scope_filter_that_is_no_scope_asks_no_registry() {
 fn a_locked_version_served_as_other_bytes_is_refused_before_its_download() {
     let served = serving(&["1.0.0"]);
     let dir = project_with(&default_registry(served.root().as_str()));
-    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add")
+    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add", &crate::ports())
         .as_user(User::at(dir.home(), None));
 
     let other = specforge_installed::hex_sha256(b"other");
@@ -242,7 +243,7 @@ fn a_locked_version_served_as_other_bytes_is_refused_before_its_download() {
 fn an_unsigned_package_is_refused_before_its_download() {
     let served = serving(&["1.0.0"]); // unsigned
     let dir = project_with(&default_registry(served.root().as_str()));
-    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add")
+    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add", &crate::ports())
         .as_user(User::at(dir.home(), None));
 
     let error = registry
@@ -274,7 +275,7 @@ fn an_unsigned_package_for_a_pinned_name_is_refused_before_its_download() {
         &dir,
         r#"{"pins":{"@acme/tool":"k1"},"trusted_keys":[],"denied_keys":[]}"#,
     );
-    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add")
+    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add", &crate::ports())
         .as_user(User::at(dir.home(), None));
 
     let error = registry
@@ -298,7 +299,7 @@ fn an_unreadable_known_keys_store_refuses_an_unsigned_package_before_its_downloa
     let dir = project_with(&default_registry(served.root().as_str()));
     let broken = r#"{"pins":{},}"#;
     store(&dir, broken);
-    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add")
+    let registry = ConfiguredRegistry::for_project(&dir.project_root(), "add", &crate::ports())
         .as_user(User::at(dir.home(), None));
 
     let error = registry

@@ -4,8 +4,6 @@
 
 pub mod written;
 
-use std::path::Path;
-
 use specforge_common::{Diagnostic, SourceSpan, Sym};
 use specforge_extension_sdk::PeerDependency;
 use specforge_extension_sdk::prelude::*;
@@ -13,7 +11,7 @@ use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::entity::{EntityRecord, RuleInput};
 use specforge_registry::rules::NoVerdicts;
 use specforge_registry::{
-    CandidateVocabulary, Disk, RegistryBuild, build_registries, build_registries_with,
+    CandidateVocabulary, RegistryBuild, build_registries, build_registries_with,
 };
 
 /// A builder for the extension `name`, version 1.0.0.
@@ -47,6 +45,7 @@ pub fn catalogue_rule_codes(mut declaration: ExtensionDeclaration) -> ExtensionD
                     title: "A test rule".to_string(),
                     explanation: "A test rule's finding.".to_string(),
                     docs: None,
+                    machine: false,
                 });
         }
     }
@@ -168,23 +167,6 @@ pub fn build_with(
     build_registries_with(declarations.into_iter().collect(), candidates)
 }
 
-/// A file system with nothing on it: every file the checks ask for is missing.
-pub struct NoDisk;
-
-impl Disk for NoDisk {
-    fn exists(&self, _: &Path) -> bool {
-        false
-    }
-
-    fn list(&self, _: &Path) -> Option<Vec<String>> {
-        None
-    }
-
-    fn read(&self, _: &Path) -> std::io::Result<Vec<u8>> {
-        Err(std::io::ErrorKind::NotFound.into())
-    }
-}
-
 /// Every check of `build` over `records` (no edges, spec root `/spec`, no
 /// custom verdicts): what `RegistryBuild::check` reports, in its order.
 pub fn check(build: &RegistryBuild, records: &[EntityRecord]) -> Vec<Diagnostic> {
@@ -192,9 +174,6 @@ pub fn check(build: &RegistryBuild, records: &[EntityRecord]) -> Vec<Diagnostic>
         &RuleInput {
             entities: records,
             edges: &[],
-            spec_root: Path::new("/spec"),
-            project_root: Path::new("/spec"),
-            disk: &NoDisk,
         },
         &NoVerdicts,
     )

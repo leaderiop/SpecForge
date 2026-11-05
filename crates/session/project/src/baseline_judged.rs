@@ -98,7 +98,15 @@ pub(crate) fn judge(
             files: &files,
             absent: RefCell::new(BTreeSet::new()),
         };
-        let evaluated = evaluate(env, graph, entities, &disk, &DigestMemo::default(), ledger);
+        let evaluated = evaluate(
+            env,
+            graph,
+            entities,
+            &disk,
+            &DigestMemo::default(),
+            &crate::CheckedValues::default(),
+            ledger,
+        );
         let wanted: Vec<String> = disk
             .absent
             .into_inner()

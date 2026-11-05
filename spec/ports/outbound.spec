@@ -21,6 +21,53 @@ port FileSystem "File System" {
   verify integration "FileSystem contract is satisfied"
 }
 
+port Process "Process" {
+  direction outbound
+  category  "effects/process"
+  // The effect plane's process port (ADR 0335): one program run to its end or
+  // to its deadline (600 s at most), its whole process group or Job killed
+  // past the deadline or the output cap, its environment without secrets.
+  // Its adapter is specforge-process's Runner; the solver, git, the
+  // extension build and collect's machine run through it.
+  method run(argv: string[], dir: string, deadlineMs: integer) -> Result<string, string>
+  verify integration "Process contract is satisfied"
+}
+
+port Http "Http" {
+  direction outbound
+  category  "effects/http"
+  // The effect plane's HTTP port (ADR 0335): one request, its redirects
+  // followed under the caller's policy (never https to http), a private
+  // address refused unless asked for, one timeout for the whole request and
+  // a body cap. Its adapter is specforge-http's Client; the registry client
+  // sends every call through it.
+  method request(method: string, url: string, timeoutMs: integer) -> Result<string, string>
+  verify integration "Http contract is satisfied"
+}
+
+port Fs "Fs" {
+  direction outbound
+  category  "effects/fs"
+  // The effect plane's file port (ADR 0335): stat, read (at most 1 MiB, never
+  // a withheld name) and walk (at most 20 000 entries, no link entered) a
+  // path under a named root, resolved through Contained first. Its adapter is
+  // specforge-fs's LocalFs.
+  method run(root: string, path: string, op: string) -> Result<string, string>
+  verify integration "Fs contract is satisfied"
+}
+
+port Git "Git" {
+  direction outbound
+  category  "effects/git"
+  // The effect plane's git port (ADR 0287, ADR 0335): locate the repository
+  // a directory is in, name commits and merge-bases, and read the files,
+  // tree, sizes and blobs at one, read-only. Its adapter is specforge-git's
+  // GitCli, run through the Process port. A surface gives it to every
+  // environment and session it opens; with none given, no git is asked.
+  method locate(dir: string) -> Result<string, string>
+  verify integration "Git contract is satisfied"
+}
+
 port SourceParser "Source Parser" {
   direction outbound
   category  "compiler/parser"
@@ -135,16 +182,31 @@ port Editor "Editor" {
   verify integration "Editor contract is satisfied"
 }
 
+port Consent "Consent" {
+  direction outbound
+  category  "effects/consent"
+  // This machine's approvals of extension effects (ADR 0335 D2.4, D2.5):
+  // a capability by project, extension, provenance and scope, and a named
+  // root outside the project by its target. Its adapter is the user's
+  // consent store, ~/.specforge/consent.json, outside every project, read
+  // and written whole under a lock and replaced privately; the fake is
+  // specforge_effects::testing::MemoryConsent.
+  method approved(approval: string) -> Result<boolean, string>
+  method approve(approval: string) -> Result<void, string>
+  method revoke(which: string) -> Result<integer, string>
+  method list() -> Result<string[], string>
+  verify integration "Consent contract is satisfied"
+}
+
 port CollectorMachine "Collector Machine" {
   direction outbound
   category  "analysis/collect"
   // What collect asks the machine it runs on (ADR 0125): run a collector's
-  // command to its end (answering when it started), and the user's approvals
-  // of commands. Its adapters are a child process with the user-level consent
-  // store (production) and a scripted machine (tests).
+  // command to its end (answering when it started). Whether it may run is
+  // the grant's and the Consent port's (ADR 0335 D2). Its adapters are a
+  // child process run through the Process port, held to a deadline and an
+  // output cap (ADR 0335) (production), and a scripted machine (tests).
   method run(command: CollectorCommand) -> Result<CollectorRun, CollectorRunFailure>
-  method approved(approval: CommandApproval) -> Result<boolean, never>
-  method approve(approval: CommandApproval) -> Result<void, string>
   verify integration "CollectorMachine contract is satisfied"
 }
 

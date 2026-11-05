@@ -26,7 +26,6 @@ pub mod gsd_facts;
 pub mod gsd_hosts;
 pub mod gsd_prompts;
 pub mod gsd_writes;
-pub mod history;
 pub mod judged;
 pub mod routed;
 pub mod scoped;
@@ -53,7 +52,6 @@ pub use gsd_writes::{
     CORE, GSD_WRITES_EXTENSIONS, GUARDED, GsdWrites, OTHER, UI, gsd_writes_answer, gsd_writes_wire,
     revision_of,
 };
-pub use history::{FakeHistory, Installed, install};
 pub use judged::{
     CODE_CORE, GSD_JUDGED, GSD_JUDGED_SPEC, PLAN_CHECK_INPUTS, code_core_builder, code_core_tests,
     declare_gsd_judged, gsd_judged_builder, gsd_judged_project, gsd_judged_rules,
@@ -79,7 +77,9 @@ use specforge_common::{ExtensionEntry, ProjectRoot};
 use specforge_wasm::WasmRuntime;
 use specforge_wasm::testing::InProcessRuntime;
 
-use crate::{CompiledProject, ProjectSession, SharedRuntime, Update};
+use specforge_effects::SharedGit;
+
+use crate::{CompiledProject, ProjectSession, RuntimeSource, SharedRuntime, Update};
 
 /// A project on disk with its own HOME. Built by value (`TestProject::new().enabling(..).file(..)`); every
 /// builder call writes through to disk at once, so the directory is always what the value says.
@@ -93,6 +93,8 @@ pub struct TestProject {
     extensions: Option<Vec<String>>,
     /// What [`Self::serving`] serves; [`Self::compile`] and [`Self::session`] load into it.
     served: Option<Arc<InProcessRuntime>>,
+    /// The git port every load asks of version control ([`Self::with_git`]); none: no port.
+    git: Option<SharedGit>,
 }
 
 impl Default for TestProject {
@@ -110,6 +112,7 @@ impl TestProject {
             config: Some(json!({"name": "t", "version": "0.1.0", "extensions": []})),
             extensions: None,
             served: None,
+            git: None,
         };
         project.write_config();
         project
@@ -125,6 +128,7 @@ impl TestProject {
             config: None,
             extensions: None,
             served: None,
+            git: None,
         };
         copy_tree(fixture.as_ref(), project.root());
         let config = std::fs::read(project.root().join("specforge.json"))
@@ -318,44 +322,83 @@ impl TestProject {
         compiled
     }
 
+    /// The same project, every compile, environment and session of it asking `git` of version control (a
+    /// `specforge_effects::testing::FakeGit`), as a surface gives its git port (ADR 0335).
+    pub fn with_git(mut self, git: SharedGit) -> Self {
+        self.git = Some(git);
+        self
+    }
+
     /// The project compiled with `runtime`.
     pub fn compile_in(&self, runtime: SharedRuntime) -> CompiledProject {
+        self.compile_with(runtime, self.git.clone())
+    }
+
+    /// The project compiled with `runtime`, asking `git` (none: no git port) instead of [`Self::with_git`]'s.
+    pub fn compile_with(&self, runtime: SharedRuntime, git: Option<SharedGit>) -> CompiledProject {
         self.record_declarations(&*runtime);
-        CompiledProject::compile(&self.project_root(), Some(runtime))
+        CompiledProject::compile_through(
+            self.load(Some(runtime), git),
+            &specforge_registry::PlainDisk,
+        )
     }
 
     /// The project's environment loaded in `runtime`, as [`Self::compile_in`] loads it.
     pub fn environment_in(&self, runtime: SharedRuntime) -> crate::Environment {
         self.record_declarations(&*runtime);
-        crate::Environment::load(&self.project_root(), Some(runtime))
+        self.load(Some(runtime), self.git.clone())
     }
 
     /// The project compiled with no runtime: no extension loads (structure only).
     pub fn compile_bare(&self) -> CompiledProject {
-        CompiledProject::compile(&self.project_root(), None)
+        CompiledProject::compile_through(
+            self.load(None, self.git.clone()),
+            &specforge_registry::PlainDisk,
+        )
     }
 
     /// The project opened as the LSP and watch open it (the plain disk): the served runtime, else the
     /// project's own ([`crate::RuntimeSource::project`]).
     pub fn session(&self) -> ProjectSession {
         match &self.served {
-            Some(served) => ProjectSession::open_with_runtime(
-                &self.project_root(),
-                Some(Arc::clone(served) as SharedRuntime),
-            ),
-            None => ProjectSession::open(&self.project_root()),
+            Some(served) => self.open(RuntimeSource::Fixed(Some(
+                Arc::clone(served) as SharedRuntime
+            ))),
+            None => self.open(RuntimeSource::project()),
         }
     }
 
     /// The project opened with `runtime` for every load.
     pub fn session_in(&self, runtime: SharedRuntime) -> ProjectSession {
         self.record_declarations(&*runtime);
-        ProjectSession::open_with_runtime(&self.project_root(), Some(runtime))
+        self.open(RuntimeSource::Fixed(Some(runtime)))
     }
 
     /// The project opened with no runtime.
     pub fn session_bare(&self) -> ProjectSession {
-        ProjectSession::open_with_runtime(&self.project_root(), None)
+        self.open(RuntimeSource::Fixed(None))
+    }
+
+    /// The project's environment in `runtime`, asking `git`.
+    fn load(&self, runtime: Option<SharedRuntime>, git: Option<SharedGit>) -> crate::Environment {
+        let env = crate::Environment::load(&self.project_root(), runtime);
+        match git {
+            Some(git) => env.with_git(git),
+            None => env,
+        }
+    }
+
+    /// The project opened from `source`, a surface's way when it has a git port: into a detached session that
+    /// holds it.
+    fn open(&self, source: RuntimeSource) -> ProjectSession {
+        match &self.git {
+            Some(git) => {
+                let mut session = ProjectSession::detached().with_git(Arc::clone(git));
+                session.reopen(&self.project_root(), source, |_| {});
+                session
+            }
+            None => ProjectSession::open_from(&self.project_root(), source),
+        }
     }
 
     /// The runtime every CLI command compiles with (the component runtime with the per-user compile cache), unless a

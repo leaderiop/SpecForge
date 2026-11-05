@@ -11,7 +11,7 @@ impl Guest for TestComponent {
         match export_name.as_str() {
             "__handshake" => {
                 let body = format!(
-                    r#"{{"protocol_version":"1.0.0","name":"{name}","version":"0.1.0","contribution_flags":{{}},"peer_dependencies":[],"sandbox_policy":null}}"#
+                    r#"{{"protocol_version":"2.0.0","name":"{name}","version":"0.1.0","contribution_flags":{{}},"peer_dependencies":[],"sandbox_policy":null}}"#
                 );
                 Ok(body.into_bytes())
             }

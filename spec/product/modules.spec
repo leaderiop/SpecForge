@@ -1,6 +1,7 @@
 // Modules — code packages that implement features
 
 use "extensions/cargo-test/features"
+use "extensions/checks/features"
 use "extensions/javascript/node-test/features"
 use "extensions/testing/features"
 use "extensions/vitest/features"
@@ -16,6 +17,12 @@ use "features/validation"
 use "features/wasm"
 use "ports/inbound"
 use "ports/outbound"
+
+module specforge_checks_kit "specforge-checks-kit" {
+  family      core
+  description "The bare algorithms, parsers and pinned tables of generic value checks, for @specforge/checks and the domain packs that build on it"
+  tags        ["leaf"]
+}
 
 module specforge_coverage "specforge-coverage" {
   family      core
@@ -75,6 +82,13 @@ module specforge_parser "specforge-parser" {
   features    [spec_file_parsing, error_recovery_during_parsing]
   depends_on  [specforge_common, specforge_repo_root, tree_sitter_specforge]
   tags        ["parser", "pipeline"]
+}
+
+module specforge_effects "specforge-effects" {
+  family      core
+  description "The effect plane: the Process, Http, Fs and Git ports every host effect goes through, their canonical digests, the one path containment, and the grant, ceiling and consent policy that decide each effect (ADR 0335)"
+  depends_on  [specforge_common, specforge_package, specforge_protocol_types]
+  tags        ["kernel"]
 }
 
 module specforge_shape_macros "specforge-shape-macros" {
@@ -141,6 +155,7 @@ module specforge_registry "specforge-registry" {
     specforge_coverage,
     specforge_cycles,
     specforge_diagnostics,
+    specforge_effects,
     specforge_graph,
     specforge_package,
     specforge_parser,
@@ -195,7 +210,12 @@ module specforge_wasm "specforge-wasm" {
   family      core
   description "The host side of the extension protocol: the WasmRuntime port, every typed extension call and its E028 failure, the sandbox limits and the in-process test runtime (ADR 0013, ADR 0037)"
   features    [wasm_extension_runtime, wasm_extension_authoring]
-  depends_on  [specforge_common, specforge_extension_sdk, specforge_protocol_types]
+  depends_on  [
+    specforge_common,
+    specforge_effects,
+    specforge_extension_sdk,
+    specforge_protocol_types,
+  ]
   tags        ["wasm", "runtime"]
 }
 
@@ -207,6 +227,7 @@ module specforge_project "specforge-project" {
     specforge_component,
     specforge_coverage,
     specforge_diagnostics,
+    specforge_effects,
     specforge_extension_sdk,
     specforge_graph,
     specforge_installed,
@@ -224,7 +245,7 @@ module specforge_watch "specforge-watch" {
   family      core
   description "What keeps a project session current from the file system: the file watcher, and the debounce rule and the follow loop watch and the LSP share (ADR 0035, ADR 0099)"
   features    [incremental_compilation]
-  depends_on  [specforge_project]
+  depends_on  [specforge_effects, specforge_project]
   tags        ["watch", "incremental"]
 }
 
@@ -234,6 +255,7 @@ module specforge_ops "specforge-ops" {
   depends_on  [
     specforge_common,
     specforge_diagnostics,
+    specforge_effects,
     specforge_emitter,
     specforge_extension_sdk,
     specforge_formatter,
@@ -250,10 +272,17 @@ module specforge_ops "specforge-ops" {
   tags        ["app"]
 }
 
+module specforge_fs "specforge-fs" {
+  family      integration
+  description "The adapter behind the effect plane's Fs port: std::fs behind Contained, a capped read that never answers a withheld file, and a bounded walk that skips dependency directories and does not descend through links (ADR 0335)"
+  depends_on  [specforge_common, specforge_effects]
+  tags        ["adapters"]
+}
+
 module specforge_git "specforge-git" {
   family      integration
-  description "The adapter behind specforge-project's History port: the git command line, read-only, hardened, with a deadline on every call (ADR 0287)"
-  depends_on  [specforge_common, specforge_project]
+  description "The adapter behind the effect plane's Git port: gix in process, so the git program is never run (ADR 0287, ADR 0335, ADR 0339)"
+  depends_on  [specforge_common, specforge_effects]
   tags        ["adapters"]
 }
 
@@ -264,11 +293,19 @@ module specforge_hosts "specforge-hosts" {
   tags        ["adapters"]
 }
 
+module specforge_http "specforge-http" {
+  family      integration
+  description "The adapter behind the effect plane's Http port: one lazily built reqwest client on rustls with ring and the platform verifier, its redirects followed under the caller's policy, private addresses refused, a whole-request timeout and a body cap (ADR 0335)"
+  depends_on  [specforge_effects]
+  tags        ["adapters"]
+}
+
 module specforge_ops_registry "specforge-ops-registry" {
   family      integration
   description "Which registries a project uses, and the adapter behind specforge-ops' Registry port: the fetch policy over the registry client and the publish signed as the user (ADR 0010)"
   depends_on  [
     specforge_common,
+    specforge_effects,
     specforge_ops,
     specforge_package,
     specforge_protocol_types,
@@ -278,11 +315,19 @@ module specforge_ops_registry "specforge-ops-registry" {
   tags        ["adapters"]
 }
 
+module specforge_process "specforge-process" {
+  family      integration
+  description "The adapter behind the effect plane's Process port: the one runner every spawn goes through, with a deadline, a group or Job kill, an environment policy, Windows program resolution and output caps (ADR 0335)"
+  depends_on  [specforge_effects]
+  tags        ["adapters"]
+}
+
 module specforge_registry_client "specforge-registry-client" {
   family      integration
-  description "The package-registry client: search, resolve and publish over HTTP, credentials, publisher key pinning and package signing"
+  description "The package-registry client: search, resolve and publish through the effect plane's Http port, credentials, publisher key pinning and package signing"
   depends_on  [
     specforge_common,
+    specforge_effects,
     specforge_package,
     specforge_protocol_types,
     specforge_registry_wire,
@@ -304,14 +349,18 @@ module specforge_cli "specforge-cli" {
   depends_on  [
     specforge_git,
     specforge_hosts,
+    specforge_http,
     specforge_common,
     specforge_component,
     specforge_diagnostics,
+    specforge_effects,
     specforge_formatter,
+    specforge_fs,
     specforge_mcp,
     specforge_ops,
     specforge_ops_registry,
     specforge_package,
+    specforge_process,
     specforge_project,
     specforge_protocol_types,
     specforge_watch,
@@ -334,9 +383,13 @@ module specforge_lsp "specforge-lsp" {
     specforge_git,
     specforge_common,
     specforge_diagnostics,
+    specforge_effects,
+    specforge_fs,
     specforge_graph,
+    specforge_http,
     specforge_ops,
     specforge_parser,
+    specforge_process,
     specforge_project,
     specforge_protocol_types,
     specforge_registry,
@@ -361,11 +414,16 @@ module specforge_mcp "specforge-mcp" {
   depends_on  [
     specforge_common,
     specforge_component,
+    specforge_effects,
+    specforge_fs,
+    specforge_git,
     specforge_graph,
+    specforge_http,
     specforge_mcp_macros,
     specforge_ops,
     specforge_ops_registry,
     specforge_parser,
+    specforge_process,
     specforge_project,
     specforge_protocol_types,
     specforge_registry,
@@ -449,6 +507,14 @@ module specforge_package_vitest "specforge-package-vitest" {
   features    [vt_vitest_collection, test_result_collection]
   depends_on  [specforge_package_testing, specforge_wasm]
   tags        ["extension", "traceability"]
+}
+
+module specforge_package_checks "specforge-package-checks" {
+  family      extension
+  description "Wasm package for @specforge/checks: the generic value checkers in five families, built on specforge-checks-kit"
+  features    [ck_value_checks]
+  depends_on  [specforge_checks_kit]
+  tags        ["extension", "validation"]
 }
 
 module specforge_package_javascript_node_test "specforge-package-javascript-node-test" {

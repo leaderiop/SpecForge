@@ -109,7 +109,11 @@ fn the_k20c_hook_members_round_trip() {
         input.event,
         specforge_protocol_types::HookEvent::FileChanged
     );
-    assert_eq!(input.git.as_ref().unwrap().branch, "worktree-agent-x");
+    let git = input.git.as_ref().unwrap();
+    assert_eq!(git.branch, "worktree-agent-x");
+    let status = git.status.as_ref().unwrap();
+    assert_eq!(status.branch.ahead, 1);
+    assert_eq!(status.entries[0].orig_path.as_deref(), Some("a.rs"));
     assert_eq!(input.commit.as_ref().unwrap().cleanup, ["verbatim"]);
     assert_eq!(input.commands[1], ["git", "add", "-f", "x"]);
 }

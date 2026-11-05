@@ -41,6 +41,8 @@ pub struct Served {
     extensions: Vec<(String, Declare)>,
     /// The `settings` object of the written `specforge.json`.
     settings: serde_json::Value,
+    /// The `spec_root` of the written `specforge.json`.
+    spec_root: Option<String>,
     /// The runtime serving the declared extensions, built when the reaction is: its recorded
     /// calls are what the project ran.
     served: Option<Arc<InProcessRuntime>>,
@@ -57,6 +59,7 @@ impl Served {
             runtime,
             extensions: Vec::new(),
             settings: serde_json::Value::Null,
+            spec_root: None,
             served: None,
             opening: Vec::new(),
         }
@@ -104,6 +107,14 @@ impl Served {
         self
     }
 
+    /// The server asks `git` of version control, as `main` gives it the git command line (ADR 0335). Before
+    /// [`Self::open`]: the state is a fresh one holding it.
+    pub fn git(mut self, git: specforge_effects::SharedGit) -> Served {
+        assert!(self.reaction.is_none(), "give the git port before opening");
+        self.state = Arc::new(RwLock::new(LspState::with_git(git)));
+        self
+    }
+
     /// The written `specforge.json` carries `settings` (ADR 0288).
     pub fn settings(mut self, settings: serde_json::Value) -> Served {
         self.settings = settings;
@@ -119,6 +130,12 @@ impl Served {
             LspState::new(),
             Runtime::Given(Arc::new(runtime), names),
         )
+    }
+
+    /// The written `specforge.json` names `spec_root`.
+    pub fn spec_root(mut self, spec_root: &std::path::Path) -> Served {
+        self.spec_root = Some(spec_root.display().to_string());
+        self
     }
 
     /// The client declared `support` at initialize.
@@ -211,6 +228,9 @@ impl Served {
             if !self.settings.is_null() {
                 config["settings"] = self.settings.clone();
             }
+            if let Some(spec_root) = &self.spec_root {
+                config["spec_root"] = spec_root.clone().into();
+            }
             std::fs::write(self.dir.path().join("specforge.json"), config.to_string()).unwrap();
             // What the in-process runtime serves, the project has installed.
             specforge_installed::testing::install(self.dir.path(), &*runtime, &names);
@@ -285,6 +305,14 @@ impl Served {
 
     pub fn uri(&self, file: &str) -> Url {
         Url::from_file_path(self.dir.path().join(file)).unwrap()
+    }
+
+    /// `f` over the session the state holds.
+    pub fn with_session<R>(
+        &self,
+        f: impl FnOnce(&mut specforge_project::ProjectSession) -> R,
+    ) -> R {
+        f(self.state.blocking_write().session_mut().expect("held"))
     }
 
     /// The state, read.

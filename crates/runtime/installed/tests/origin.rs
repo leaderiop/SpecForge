@@ -3,7 +3,9 @@
 
 use specforge_installed::testing::install;
 use specforge_installed::{Builtins, EnabledExtension, Installed, LockSource, Origin};
+use specforge_registry::PlainDisk;
 use specforge_wasm::testing::InProcessRuntime;
+use specforge_wasm::{Provenance, WasmRuntime};
 use tempfile::TempDir;
 
 use crate::load::{entries, extension, load_with, runtime};
@@ -145,4 +147,45 @@ fn the_loader_is_the_entry_that_loaded_else_the_first_tried() {
     // Nothing loaded: the first the load tried, a named entry before a file.
     assert_eq!(loader(&[file(false), named(false)]), some(&named(false)));
     assert_eq!(loader(&[]), None);
+}
+
+#[specforge_test_macros::test(
+    behavior = "load_extension_manifests",
+    verify = "a builtin loads as a builtin, and an installed or file entry with the digest of its bytes"
+)]
+fn a_builtin_loads_as_builtin_and_a_file_entry_with_its_digest() {
+    let dir = project();
+    let runtime = InProcessRuntime::new()
+        .with(extension("@acme/a"))
+        .with(extension("@acme/core"))
+        .binary(b"\0asm tool", extension("@acme/tool"));
+    let builtins = Builtins(&[("@acme/core", b"\0asm core")]);
+
+    let loaded = Installed::at(dir.path()).load(
+        &entries(&["@acme/core", "@acme/a", "tool.wasm"]),
+        &builtins,
+        &runtime,
+        &PlainDisk,
+    );
+
+    let recorded: Vec<Option<Provenance>> = loaded
+        .enabled
+        .iter()
+        .map(|e| e.provenance.clone())
+        .collect();
+    assert_eq!(recorded[0], Some(Provenance::builtin(b"\0asm core")));
+    assert!(
+        matches!(&recorded[1], Some(p) if !p.is_builtin()),
+        "{recorded:?}"
+    );
+    assert_eq!(recorded[2], Some(Provenance::third_party(b"\0asm tool")));
+    // The runtime holds the same value, under the name each loaded as (the file entry's after its rename).
+    for (name, provenance) in [
+        ("@acme/core", &recorded[0]),
+        ("@acme/a", &recorded[1]),
+        ("@acme/tool", &recorded[2]),
+    ] {
+        assert_eq!(&runtime.provenance(name), provenance, "{name}");
+    }
+    assert_eq!(runtime.provenance("file:tool.wasm"), None);
 }

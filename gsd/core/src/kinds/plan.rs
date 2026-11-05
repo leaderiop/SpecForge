@@ -18,7 +18,7 @@ const COUPLING: &[Field] = &[rf("peer", "plan").r(), str("reason").r()];
 const ESTIMATE: &[Field] = &[int("tokens")];
 
 /// `NN-MM-PLAN.md`, named `03-02` and scoped by its phase; a quick plan has no phase and is named by its quick id.
-// Paths are `strs`, not `files`: a plan names files it will create, so the host's E016
+// Paths are `strs`, not `files`: a plan names files it will create, so the file check's E016
 // ("this file does not exist") would fire on every one.
 pub const PLAN: Kind = Kind::new(
     "plan",

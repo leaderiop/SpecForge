@@ -1,0 +1,21 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "argv": [
+        "node",
+        "--test",
+        "--test-reporter=spec",
+        "--test-reporter-destination=stdout",
+        "--test-reporter=junit",
+        "--test-reporter-destination={report}"
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "name": "node-test",
+      "port": "process",
+      "why": "run the command whose report the collector 'node-test' reads"
+    }
+  ]
+}

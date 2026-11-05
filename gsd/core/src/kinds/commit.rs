@@ -9,7 +9,7 @@ use crate::collectors::LinkedBy;
 /// (the DSL refuses a required harness field), and its name already carries it. `task.commits` and `plan.commits` are
 /// the inverses of the two references. A `Gsd-Task: <plan>/<task>` trailer names the task first, else the subject's
 /// title does (ADR 0331 D3); `linked_by` says which.
-// Paths are `strs`, not `files`: a later commit may delete or rename them, and the host's E016 would fire. They are
+// Paths are `strs`, not `files`: a later commit may delete or rename them, and the file check's E016 would fire. They are
 // repository-relative, as git prints them.
 /// `linked_by`'s values, as gsd-git writes them.
 const LINKED_BY: &[&str] = &[LinkedBy::Trailer.as_str(), LinkedBy::Title.as_str()];

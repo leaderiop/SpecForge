@@ -17,9 +17,9 @@ impl Args {
     /// `specforge extensions`: every extension the project enables, has
     /// locked or loaded, alphabetically, with the entity kinds each
     /// registered and how many of the project's entities use them.
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let format = self.output.format;
-        let project = match self.project.compile() {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };
@@ -76,8 +76,14 @@ fn print_human(terminal: &Terminal, entries: &[extension::ExtensionInfo]) {
             entry.name,
             entry.source
         );
-        for read in &entry.reads {
+        for read in &entry.inputs {
             outln!(terminal, "      reads {}", read.line());
+        }
+        for capability in &entry.capabilities {
+            outln!(terminal, "      may {}", capability.line());
+        }
+        for checker in &entry.checkers {
+            outln!(terminal, "      checks {}", checker.line());
         }
     }
     outln!(terminal);
@@ -103,10 +109,13 @@ mod tests {
             entity_kinds: Vec::new(),
             entity_count: 0,
             validation_rules: 0,
-            reads,
+            inputs: reads,
+            capabilities: Vec::new(),
+            checkers: Vec::new(),
         };
         let read = extension::DeclaredRead {
             owner: "pass:scan".into(),
+            input: "files".into(),
             name: "env".into(),
             field: None,
             glob: Some(".env*".into()),

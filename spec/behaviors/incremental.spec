@@ -55,7 +55,7 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
   verify integration "a specforge.lock change reloads the environment"
   verify integration "a .wasm file no extension loads changes nothing"
   verify integration "after spec_root changes, files under the new spec root are watched"
-  verify integration "after an edit names a file outside the watched directories, a change to it is seen"
+  verify integration "after an edit names a file outside the spec root, a change to it is seen"
   verify integration "a file the checks read is seen when it is created in a directory that did not exist"
   verify unit "a fact store and the harness ledger are watched inputs when a collector-written kind is loaded"
   verify integration "the ready event names the spec root as the path given names the project"
@@ -72,6 +72,7 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
   verify unit "a batch of an unchanged source and a created named file is rechecked"
   verify unit "a source whose directory link is pointed elsewhere is seen"
   verify unit "a named file behind a directory link pointed elsewhere is rechecked"
+  verify unit "a watch wakes when an effect record the checks consulted expires and runs the checks again"
 }
 
 behavior classify_project_changes "Classify Project Changes" {
@@ -92,7 +93,7 @@ behavior classify_project_changes "Classify Project Changes" {
     environment inputs, and the target of each of these that is a
     symlink; every path the checks read is a check input:
     every file a
-    file_reference field or a file_exists rule names, which the checks
+    files check names, which the checks
     look for, and every directory a missing named file's suggestion listed, and the
     target of each of these that is a symlink; a specforge.json
     in a directory below the spec root marks a nested project, and its
@@ -132,9 +133,8 @@ behavior classify_project_changes "Classify Project Changes" {
   verify unit "a discovered .spec file is a source keyed from the project root"
   verify unit "specforge.json, specforge.lock and a loaded extension module are environment changes"
   verify unit "a .wasm file no extension loads changes nothing"
-  verify unit "a file a file_reference field names re-runs the checks"
-  verify unit "a file a file_exists rule names re-runs the checks"
-  verify unit "a file beside a missing file a file_exists rule names changes its suggestion"
+  verify unit "a file a files check names re-runs the checks"
+  verify unit "a file beside a missing file a files check names changes its suggestion"
   verify unit "a session's check inputs are the paths its checks read"
   verify unit "a check input that is a symlink is followed to its target"
   verify unit "an environment input that is a symlink is followed to its target"
@@ -166,6 +166,13 @@ behavior classify_project_changes "Classify Project Changes" {
   verify unit "a directory link on the way to an input outside the root is watched by its own directory"
   verify unit "a directory link on the way to an environment or check input pointed elsewhere is that input's change"
   verify unit "a change under a spec root outside the project, through a link too, is that source's change"
+  verify unit "an effect record a check consulted re-runs the checks once it expires"
+  verify unit "an effect record a check consulted re-runs the checks when it is rewritten"
+  verify unit "an effect record a check consulted that is fresh and unchanged changes nothing"
+  verify unit "a session wakes at the earliest expiry of the effect records its checks consulted"
+  verify unit "an expired effect record beside the fact stores' rows re-runs the checks and reads no fact store"
+  verify unit "the LSP applies an expired effect record the checks consulted before it answers a request"
+  verify unit "a file a checked field names re-runs the checks"
 }
 
 behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
@@ -209,6 +216,7 @@ behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
   verify integration "after the LSP's watchers move, the session catches up on what changed while they did"
   verify integration "the LSP's catch-up keeps an open buffer"
   verify unit "a nested project appearing below the spec root takes its files out of the session, and its removal puts them back"
+  verify unit "a project opens with cached effects and no ports, over its own effects journal"
   verify unit "a source that reads as the session holds it does not drop a check input changed with it"
   verify unit "a changed source and a changed check input run the checks once"
   verify unit "an environment reload covers a check input changed with it"

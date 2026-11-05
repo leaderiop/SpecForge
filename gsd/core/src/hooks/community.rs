@@ -284,8 +284,8 @@ pub(super) fn declare(c: &mut ContributionsBuilder) {
     c.hook("session_state", HookEvent::SessionStart, |h| {
         h.description("Starts a session with the project's progress, blockers and workstream")
             .when("hooks.community")
-            .reads_graph()
-            .reads_state()
+            .input(Input::Graph)
+            .input(Input::State)
             .handler(|call| {
                 let mode = Settings::current()
                     .string("mode")

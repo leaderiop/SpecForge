@@ -1,8 +1,9 @@
 //! The compute pass: every `C` field of the model is listed in `computes`, as the kernel needs a compute pass for
 //! each computed field it declares (W021 otherwise). It answers `context.digest` and the values of execution
 //! (`execute`: plan (`draft`, `checked`, `ready` from the plan-check verdicts, then execution) and task status, a summary's duration, actuals and key files, a deliverable check's status). It
-//! declares `reads_tests`, to read the report for the checks only, so a compile without `specforge-report.json` says
-//! I205 once. `progress` answers the requirement, phase, milestone, project, workstream, context and retrospective values.
+//! declares the `tests` input, to read the report for the checks only, so a compile without `specforge-report.json`
+//! says I205 once. `progress` answers the requirement, phase, milestone, project, workstream, context and
+//! retrospective values.
 //!
 //! `verify` answers a verification's status, score and re-verification, `uat` a session's totals and status and a
 //! gap's resolution, `audit` a validation's coverage, a milestone audit and the windows and proposals, and `ladder` the
@@ -29,7 +30,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
         let names: Vec<&str> = computes.iter().map(String::as_str).collect();
         p.compute()
             .computes(&names)
-            .reads_tests()
+            .input(Input::Tests)
             .baseline(&[
                 "verification",
                 "truth",

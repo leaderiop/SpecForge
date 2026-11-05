@@ -41,9 +41,9 @@ impl Args {
     /// stderr under human output and are the document's `notices` under
     /// JSON; a refusal (an unknown entity, E003) is `error[CODE]` with the
     /// closest entity as its hint (exit 1).
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let format = self.output.format;
-        let project = match self.project.compile() {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };

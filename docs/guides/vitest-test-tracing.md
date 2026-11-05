@@ -103,7 +103,8 @@ npx --no vitest run --reporter=default --reporter=json --outputFile.json=<report
 - **No downloads:** `--no` means it only runs the project's own vitest; it
   never downloads one.
 - **Approval:** the first run asks you to approve the command, and the answer
-  is remembered per project and command in `~/.specforge/collector-consent.json`.
+  is remembered per project and extension in `~/.specforge/consent.json`.
+  `specforge grants` lists it; `specforge grants approve` and `revoke` change it.
 - **Failing tests:** they don't make `collect` fail. They're recorded, and
   `analyze` reports them (A014).
 - **Unproven obligations:** `analyze` lists the obligations no passing test

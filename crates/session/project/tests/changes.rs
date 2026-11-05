@@ -5,15 +5,14 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use serde_json::json;
 use specforge_project::testing::{TestProject, compile_at, disk_changed};
-use specforge_project::{Buffer, ProjectSession, SharedRuntime, UpdateKind, WatchRoot, Watched};
+use specforge_project::{Buffer, ProjectSession, UpdateKind, WatchRoot, Watched};
 use specforge_test::prelude::*;
 use tempfile::TempDir;
 
-use crate::check_passes::{passes_extension, project as passes_project};
+use crate::check_reads::{docs_project, docs_runtime};
 
 fn write(root: &Path, path: &str, text: &str) {
     let path = root.join(path);
@@ -378,13 +377,12 @@ fn an_unloaded_wasm_changes_nothing() {
 
 #[specforge_test(
     behavior = "classify_project_changes",
-    verify = "a file a file_reference field names re-runs the checks"
+    verify = "a file a files check names re-runs the checks"
 )]
 fn a_referenced_file_reruns_the_checks() {
-    let dir = passes_project("gadget doc \"Doc\" {\n  docs [\"docs/guide.md\"]\n}\n");
+    let dir = docs_project("gadget doc \"Doc\" {\n  docs [\"docs/guide.md\"]\n}\n");
     let root = dir.root();
-    let ext = Arc::new(passes_extension());
-    let mut session = dir.session_in(Arc::clone(&ext) as SharedRuntime);
+    let mut session = dir.session_in(docs_runtime());
     let e016 = |session: &ProjectSession| {
         session
             .project()
@@ -409,10 +407,9 @@ fn a_referenced_file_reruns_the_checks() {
     verify = "an update that names a new file the checks read changes the session's inputs"
 )]
 fn an_update_that_names_a_new_file_changes_the_inputs() {
-    let dir = passes_project("gadget doc \"Doc\" {\n}\n");
+    let dir = docs_project("gadget doc \"Doc\" {\n}\n");
     let root = dir.root();
-    let ext = Arc::new(passes_extension());
-    let mut session = dir.session_in(Arc::clone(&ext) as SharedRuntime);
+    let mut session = dir.session_in(docs_runtime());
     let before = session.inputs().clone();
 
     // An edit that names a file: the inputs gain it.
@@ -444,92 +441,17 @@ fn an_update_that_names_a_new_file_changes_the_inputs() {
     // A reload that moves the spec root changes them.
     fs::write(
         root.join("specforge.json"),
-        json!({"name": "p", "version": "0.1.0", "extensions": ["@test/passes"], "spec_root": "other"})
-            .to_string(),
+        json!({
+            "name": "p",
+            "version": "0.1.0",
+            "extensions": ["@test/passes", "@specforge/checks"],
+            "checks": { "fields": { "gadget.docs": ["@specforge/checks:file"] } },
+            "spec_root": "other",
+        })
+        .to_string(),
     )
     .unwrap();
     assert!(session.reload_environment().inputs_changed);
-}
-
-/// An extension whose `note` kind's `doc` (a string) and `docs` (a list)
-/// a `file_exists` rule `F001` reads.
-pub(crate) fn file_rule_extension() -> specforge_wasm::testing::InProcessRuntime {
-    use specforge_extension_sdk::prelude::*;
-    specforge_wasm::testing::InProcessRuntime::new().with(|| {
-        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/files", "1.0.0"));
-        c.kind("note", |k| {
-            k.keyword("note");
-            k.field("doc", |f| {
-                f.field_type(FieldType::String);
-            });
-            k.field("docs", |f| {
-                f.field_type(FieldType::StringList);
-            });
-        });
-        for (code, field) in [("F001", "doc"), ("F002", "docs")] {
-            c.rule(code, |r| {
-                r.check(CheckKind::FileExists)
-                    .severity(ValidationSeverity::Warning)
-                    .target_kind("note")
-                    .field(field)
-                    .message_template("note '{id}': missing '{value}'");
-            });
-        }
-        c
-    })
-}
-
-#[specforge_test(
-    behavior = "classify_project_changes",
-    verify = "a file a file_exists rule names re-runs the checks"
-)]
-fn a_file_a_file_exists_rule_names_reruns_the_checks() {
-    let (dir, _) = open(
-        json!({"name": "c", "version": "0.1.0", "spec_root": "spec", "extensions": ["@test/files"]}),
-        &[(
-            "spec/a.spec",
-            "note n \"N\" {\n  doc \"guide.md\"\n  docs [\"more/one.md\"]\n}\n",
-        )],
-    );
-    let root = dir.root();
-    let ext = Arc::new(file_rule_extension());
-    specforge_installed::testing::install(root, &*ext, &["@test/files"]);
-    let mut session = dir.session_in(Arc::clone(&ext) as SharedRuntime);
-    let missing = |session: &ProjectSession| -> Vec<String> {
-        session
-            .project()
-            .diagnostics()
-            .iter()
-            .filter(|d| d.code.contains("/F"))
-            .map(|d| d.message.clone())
-            .collect()
-    };
-    assert_eq!(
-        missing(&session),
-        [
-            "note 'n': missing 'guide.md'",
-            "note 'n': missing 'more/one.md'"
-        ]
-    );
-
-    // A file named by a scalar field, under the spec root.
-    write(root, "spec/guide.md", "# Guide\n");
-    let guide = root.join("spec/guide.md");
-    let update = session
-        .apply(&session.changes([guide.as_path()]))
-        .expect("a file a file_exists rule names changed");
-    assert_eq!(update.kind, UpdateKind::Checks);
-    assert_eq!(missing(&session), ["note 'n': missing 'more/one.md'"]);
-
-    // An item of a list field, in a directory that did not exist.
-    write(root, "spec/more/one.md", "# One\n");
-    let one = root.join("spec/more/one.md");
-    session.apply(&session.changes([one.as_path()])).unwrap();
-    assert!(
-        missing(&session).is_empty(),
-        "{:?}",
-        session.project().diagnostics()
-    );
 }
 
 #[specforge_test(
@@ -590,18 +512,12 @@ fn a_detached_session_has_no_inputs() {
 /// paths of every input the session reaches, as a test spells them:
 /// config, lock, module, then each of `docs` resolved against
 /// the root (the spec root), and a sibling of the last in its directory.
+/// A file reference never reaches outside the root (ADR 0335): the module is the outside input.
 struct InputsLayout {
     project: TestProject,
-    _outside: TempDir,
     _far: TempDir,
-    elsewhere: TempDir,
     /// The module in `_far`, and the directory it lies in.
     module: PathBuf,
-    /// A file that exists in an existing directory outside the root.
-    out_guide: PathBuf,
-    /// A file in a directory outside the root that does not exist, in a
-    /// directory (`elsewhere`) nothing else is in.
-    far_guide: PathBuf,
     /// A file in a directory under the root that does not exist.
     missing_sub: PathBuf,
     /// Another file in that missing directory.
@@ -609,21 +525,18 @@ struct InputsLayout {
 }
 
 fn inputs_layout() -> InputsLayout {
-    let outside = TempDir::new().unwrap();
     let far = TempDir::new().unwrap();
-    let elsewhere = TempDir::new().unwrap();
     let module_dir = fs::canonicalize(far.path()).unwrap().join("mods");
     fs::create_dir_all(&module_dir).unwrap();
     let module = module_dir.join("ext.wasm");
-    let outside_name = outside.path().file_name().unwrap().to_string_lossy();
-    let elsewhere_name = elsewhere.path().file_name().unwrap().to_string_lossy();
-    let project = passes_project("");
+    let project = docs_project("");
     fs::write(
         project.root().join("specforge.json"),
         json!({
             "name": "p",
             "version": "0.1.0",
-            "extensions": ["@test/passes", format!("@acme/far={}", module.display())],
+            "extensions": ["@test/passes", "@specforge/checks", format!("@acme/far={}", module.display())],
+            "checks": { "fields": { "gadget.docs": ["@specforge/checks:file"] } },
         })
         .to_string(),
     )
@@ -631,20 +544,14 @@ fn inputs_layout() -> InputsLayout {
     write(
         project.root(),
         "a.spec",
-        &format!(
-            "gadget doc \"Doc\" {{\n  docs [\"../{outside_name}/guide.md\", \"missing/sub.md\", \"../{elsewhere_name}/far/deep/guide.md\"]\n}}\n"
-        ),
+        "gadget doc \"Doc\" {\n  docs [\"missing/sub.md\"]\n}\n",
     );
     let root = project.root();
     InputsLayout {
-        out_guide: root.join(format!("../{outside_name}/guide.md")),
-        far_guide: root.join(format!("../{elsewhere_name}/far/deep/guide.md")),
         missing_sub: root.join("missing/sub.md"),
         missing_x: root.join("missing/x.md"),
         project,
-        _outside: outside,
         _far: far,
-        elsewhere,
         module,
     }
 }
@@ -658,8 +565,7 @@ fn inputs_layout() -> InputsLayout {
 fn every_input_lies_under_a_watch_root() {
     let layout = inputs_layout();
     let root = layout.project.root();
-    let ext = Arc::new(passes_extension());
-    let session = layout.project.session_in(ext as SharedRuntime);
+    let session = layout.project.session_in(docs_runtime());
     let roots: Vec<_> = session
         .inputs()
         .watch_roots()
@@ -667,24 +573,11 @@ fn every_input_lies_under_a_watch_root() {
         .map(|root| root.dir)
         .collect();
 
-    // A directory created on the way to the missing directory outside the
-    // root is the input's change, whatever the stamps say.
-    let elsewhere = fs::canonicalize(layout.elsewhere.path()).unwrap();
-    fs::create_dir(elsewhere.join("far")).unwrap();
-    assert_eq!(
-        session
-            .changes([elsewhere.join("far").as_path()])
-            .check_inputs(),
-        vec![elsewhere.join("far")]
-    );
-
     let inputs = [
         root.join("specforge.json"),
         root.join("specforge.lock"),
         layout.module.clone(),
-        layout.out_guide.clone(),
         layout.missing_sub.clone(),
-        layout.far_guide.clone(),
         // A file in a missing file's directory changes the E016 suggestion.
         layout.missing_x.clone(),
     ];
@@ -700,22 +593,11 @@ fn every_input_lies_under_a_watch_root() {
             .map(|dir| dir.join(path.file_name().unwrap()))
             .unwrap();
         assert!(
-            roots.iter().any(|watched| canonical.starts_with(watched))
-                || canonical.starts_with(&elsewhere),
+            roots.iter().any(|watched| canonical.starts_with(watched)),
             "{} is under no watch root of {roots:?}",
             path.display()
         );
     }
-
-    // The missing directory outside the root is watched from its nearest
-    // existing ancestor, for that ancestor's own entries.
-    assert!(
-        session.inputs().watch_roots().contains(&WatchRoot {
-            dir: elsewhere.clone(),
-            recursive: false
-        }),
-        "{roots:?}"
-    );
 }
 
 /// A source that becomes a symlink, or stops being one, moves what a

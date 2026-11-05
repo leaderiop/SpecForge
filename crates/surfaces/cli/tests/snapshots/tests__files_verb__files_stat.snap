@@ -1,0 +1,41 @@
+---
+source: crates/surfaces/cli/tests/files_verb.rs
+expression: steady(run.json())
+---
+{
+  "entries": [
+    {
+      "exists": true,
+      "kind": "file",
+      "modified_ms": "<modified_ms>",
+      "name": "main.rs",
+      "parent": "src",
+      "path": "src/main.rs",
+      "real": "<real>",
+      "root": "project",
+      "size": 37
+    },
+    {
+      "exists": true,
+      "kind": "dir",
+      "modified_ms": "<modified_ms>",
+      "name": "src",
+      "parent": ".",
+      "path": "src",
+      "real": "<real>",
+      "root": "project",
+      "size": null
+    },
+    {
+      "exists": false,
+      "kind": null,
+      "modified_ms": null,
+      "name": "nosuch.txt",
+      "parent": ".",
+      "path": "nosuch.txt",
+      "real": "<real>",
+      "root": "project",
+      "size": null
+    }
+  ]
+}

@@ -23,9 +23,9 @@ impl Args {
     /// prompt's overview or kind-scope data without the prompt's own
     /// `output_format` and `validation` text. An undeclared kind is
     /// `unknown_kind` naming the closest declared kind (exit 1).
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let format = self.output.format;
-        let project = match self.project.compile() {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };

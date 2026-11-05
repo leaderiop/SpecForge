@@ -51,7 +51,9 @@ fn run(dir: &Path, words: &[&str]) -> Ran {
     line.extend(["--path", dir.to_str().unwrap()]);
     let parsed = Line::try_parse_from(line).unwrap_or_else(|e| panic!("{words:?}: {e}"));
     let (terminal, capture) = Terminal::captured("", Facts::PIPED);
-    let exit = parsed.args.run_in(&terminal, Some(runtime()));
+    let exit = parsed
+        .args
+        .run_in(&terminal, Some(runtime()), &crate::ports());
     Ran {
         exit,
         stdout: capture.stdout(),

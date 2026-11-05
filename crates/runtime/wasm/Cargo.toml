@@ -13,6 +13,8 @@ path = "tests/main.rs"
 
 [dependencies]
 specforge-protocol-types = { path = "../../leaf/protocol-types" }
+# `Provenance`, which a load records (ADR 0335 D2.6).
+specforge-effects = { path = "../../kernel/effects" }
 specforge-common = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -33,6 +35,8 @@ specforge-wasm = { path = ".", features = ["testing"] }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 specforge-extension-sdk = { path = "../extension-sdk" }
+tempfile = { workspace = true }
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
 
 [lints]
 workspace = true

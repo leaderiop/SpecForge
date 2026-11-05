@@ -52,8 +52,7 @@ macro_rules! router {
                 tools: &["read", "skill"],
                 effort: None,
             }),
-            reads_state: false,
-            reads_slash_commands: true,
+            inputs: &[specforge_extension_sdk::Input::SlashCommands],
             tail: Some($tail),
         };
     };

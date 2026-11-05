@@ -14,11 +14,13 @@ pub(crate) fn is_http_url(docs: &str) -> bool {
     })
 }
 
-/// Whether `declaration` reports diagnostics, so has codes to catalogue: through its validation rules or its
-/// passes, the two channels that carry a code. An extension outside `@specforge` that reports catalogues its codes
+/// Whether `declaration` reports diagnostics, so has codes to catalogue: through its validation rules, its passes or
+/// its value checkers, the channels that carry a code. An extension outside `@specforge` that reports catalogues its codes
 /// (ADR 0328 D2); one that only collects (`@javascript/node-test`) has none.
 pub fn reports(declaration: &ExtensionDeclaration) -> bool {
-    !declaration.validation_rules.is_empty() || !declaration.passes.is_empty()
+    !declaration.validation_rules.is_empty()
+        || !declaration.passes.is_empty()
+        || !declaration.checkers.is_empty()
 }
 
 /// `declaration`'s `codes` as the code book reads them: an entry E030 refuses (not a local
@@ -41,6 +43,7 @@ pub fn extension_codes(declaration: &ExtensionDeclaration) -> Vec<ExtensionCode>
             title: entry.title.clone(),
             explanation: entry.explanation.clone(),
             docs: entry.docs.clone(),
+            machine: entry.machine,
         })
         .collect()
 }

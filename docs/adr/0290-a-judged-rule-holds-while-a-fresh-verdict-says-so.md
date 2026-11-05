@@ -4,6 +4,7 @@
 [ADR 0287](0287-who-writes-a-field-is-declared.md) and [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md).
 Takes extension protocol 1.9.0. Extended by [ADR 0297](0297-a-judged-rules-finding-is-not-an-error-a-write-adds.md) (a judged rule's finding is not an error a write adds) and by [ADR 0299](0299-the-graph-a-call-receives-carries-what-every-surface-shows.md) (a call's graph lists the judgements). Extended by [ADR 0304](0304-a-judged-input-reads-a-path-field-goes-on-past-a-reference-and-a-pass-sees-the-tests-a-verdict-cites.md) (a judged input reads a path field and goes on past a reference).
 Amended by [ADR 0331](0331-the-gsd-requirement-thread.md) (D3: a `test(..)` input takes several chains and reads a fact's own result; nothing linked is the value `none`; a chain to unloaded kinds only is inert, not W112).
+Amended by [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md) (a verdict digests each checked value's outcome class; an unknown one is I207).
 
 ## Context
 
@@ -51,3 +52,11 @@ digests through move records (a rename stales what read the renamed entity, whic
 A new rule check, statement, writer, two codes (W168, I205), a protocol minor, a ledger key namespace, a memo the graph
 delta feeds, and a history question. The registry's `Verdict` stays a custom rule's pass or fail, and the new words are
 `Judgement` and `Verdict` statement.
+
+## Amendment (2026-11-03, ports round, [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md))
+
+- **D-new.** An entity a judged selector picks that has checked values digests
+  `[digest, id, {"checks": [[field, item, checker, class], …]}]`, with each value's outcome class (`ok`, `status:404`,
+  `missing`, …); one without digests as before, so no existing verdict goes stale. `observed_at` is never digested.
+- A check not performed digests as `unknown`: its input joins `Inputs::unjudged` (freshness skips it, as a missing
+  report) and `Inputs::unchecked`, and I207 counts those verdicts apart from I205.

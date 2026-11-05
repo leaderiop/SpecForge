@@ -73,7 +73,8 @@ the same commit (`--only specs` or `--only file-size` for one section). `--only`
 
 ## 7. PR
 
-One PR for the round, one commit group per plan. Every commit body (`briefs/execute.md` rule 2) carries boxed ASCII
+One PR for the round, one commit group per plan. Plans that ran in parallel land with a merge commit, not a replay: each
+was checked on its own base, conflicts are resolved once, and the gate runs on the merged result. Every commit body (`briefs/execute.md` rule 2) carries boxed ASCII
 diagrams of the problem and the before/after. The PR body is the round's report: a Mermaid graph of the waves and
 dependencies, a table of plans (card, ADR, commits, defects fixed), a Mermaid before/after per plan (taken from the
 review's cards), the security fixes, the breaking changes, the decisions taken, the verification output and what

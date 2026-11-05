@@ -70,6 +70,9 @@ pub struct ToolEntry {
     /// `mutation`: an extension holds no capability to write.
     pub group: ToolGroup,
     pub kind: ToolKind,
+    /// It takes the host's `effects` argument beside its own: its extension declares an http or process capability,
+    /// and it declares no argument of the name.
+    pub takes_effects: bool,
 }
 
 /// What a tool call runs.
@@ -103,10 +106,14 @@ pub struct ResourceEntry {
 impl ToolEntry {
     /// The tool as `tools/list` describes it.
     pub fn descriptor(&self, revision: Revision) -> ToolDescriptor<'_> {
-        let input_schema = match &self.kind {
+        let mut input_schema = match &self.kind {
             ToolKind::McpTool { input_schema, .. } => input_schema.clone(),
             ToolKind::Command(command) => command.input_schema(),
         };
+        if self.takes_effects {
+            input_schema["properties"][crate::extension_dispatch::EFFECTS] =
+                crate::extension_dispatch::effects_schema();
+        }
         let writes = self.writes();
         ToolDescriptor {
             name: self.name.clone(),
@@ -167,6 +174,17 @@ impl ResourceEntry {
     }
 }
 
+/// Whether `declaration` can ask for what an effects mode decides: an http or process capability.
+fn effectful(declaration: &specforge_protocol_types::ExtensionDeclaration) -> bool {
+    declaration.sound_capabilities().iter().any(|capability| {
+        matches!(
+            capability.port,
+            specforge_protocol_types::PortScope::Http(_)
+                | specforge_protocol_types::PortScope::Process(_)
+        )
+    })
+}
+
 impl ExtensionSurfaceTable {
     /// The table of `registries`' declarations, beside `core_tools` and
     /// `core_resources`: explicit tools by extension load order, then
@@ -181,6 +199,7 @@ impl ExtensionSurfaceTable {
         let mut table = ExtensionSurfaceTable::default();
         for declaration in registries.declarations() {
             let extension = declaration.name();
+            let effectful = effectful(declaration);
             for tool in &declaration.surfaces.mcp_tools {
                 let refused = table.tool_name_taken(&tool.name, core_tools).or_else(|| {
                     tool_input::refusal(&tool.input_schema)
@@ -207,6 +226,10 @@ impl ExtensionSurfaceTable {
                         input_schema: tool.input_schema.clone(),
                         output_schema: tool.output_schema.clone(),
                     },
+                    takes_effects: effectful
+                        && tool.input_schema["properties"]
+                            .get(crate::extension_dispatch::EFFECTS)
+                            .is_none(),
                 });
             }
             for resource in &declaration.surfaces.mcp_resources {
@@ -260,12 +283,21 @@ impl ExtensionSurfaceTable {
                 table.stats.conflicts += 1;
                 continue;
             }
+            let effectful = registries
+                .declarations()
+                .iter()
+                .any(|d| d.name() == command.extension() && effectful(d));
             table.tools.push(ToolEntry {
                 name,
                 extension: command.extension().to_string(),
                 description: command.description().to_string(),
                 group: ToolGroup::Core,
                 kind: ToolKind::Command(Box::new(command.clone())),
+                takes_effects: effectful
+                    && !command
+                        .args()
+                        .iter()
+                        .any(|arg| arg.name == crate::extension_dispatch::EFFECTS),
             });
             table.stats.promoted += 1;
         }

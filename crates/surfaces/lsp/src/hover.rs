@@ -10,7 +10,8 @@ use specforge_ops::read::inspect::{EntityCoverage, EntityFacts, obligations_tabl
 use specforge_ops::read::trace::RouteTrace;
 use specforge_parser::{FieldValue, ListItem, TypeMember, Written};
 use specforge_project::coverage::Status;
-use specforge_registry::FieldRegistry;
+use specforge_project::values::{CheckStatus, ValueRow};
+use specforge_registry::{CheckCall, FieldRegistry, ResolvedCheck};
 use std::collections::BTreeMap;
 use tower_lsp::lsp_types::{Position, Range};
 
@@ -364,6 +365,108 @@ pub fn hover_field_info(
     parts.push(format!("*{}*", entry.source_extension()));
 
     Some(parts.join("  \n"))
+}
+
+/// The `checks:` line of a field's hover (ADR 0336): each check by its checker's name, with its args. `None` for a
+/// field with none.
+pub fn checks_line(checks: &[ResolvedCheck]) -> Option<String> {
+    let call = |call: &CheckCall| {
+        let args: Vec<String> = call
+            .args
+            .iter()
+            .map(|(name, value)| match value.as_str() {
+                Some(text) => format!("{name} {text}"),
+                None => format!("{name} {value}"),
+            })
+            .collect();
+        match args.as_slice() {
+            [] => call.checker.clone(),
+            _ => format!("{} ({})", call.checker, args.join(", ")),
+        }
+    };
+    let names: Vec<String> = checks
+        .iter()
+        .map(|check| match check {
+            ResolvedCheck::One(one) => call(one),
+            ResolvedCheck::AnyOf(calls) => {
+                let branches: Vec<String> = calls.iter().map(call).collect();
+                format!("any of {}", branches.join(" | "))
+            }
+        })
+        .collect();
+    (!names.is_empty()).then(|| format!("checks: {}", names.join(", ")))
+}
+
+/// One line per checker that read the string `text` of `field` (its declared path), for a value's hover: what it
+/// found and how old that is, or why it did not run (`mode`, the run's effects mode). `None` for a value no checker
+/// read. `now` is Unix milliseconds.
+pub fn checked_value(
+    rows: &[ValueRow],
+    field: &str,
+    text: &str,
+    mode: &str,
+    now: u64,
+) -> Option<String> {
+    let lines: Vec<String> = rows
+        .iter()
+        .filter(|row| row.value == text && declared_path(&row.field) == field)
+        .map(|row| check_line(row, mode, now))
+        .collect();
+    (!lines.is_empty()).then(|| lines.join("  \n"))
+}
+
+/// `links[1].href` as declared: `links.href`.
+fn declared_path(written: &str) -> String {
+    let mut path = String::with_capacity(written.len());
+    let mut indexed = false;
+    for c in written.chars() {
+        match c {
+            '[' => indexed = true,
+            ']' => indexed = false,
+            c if !indexed => path.push(c),
+            _ => {}
+        }
+    }
+    path
+}
+
+fn check_line(row: &ValueRow, mode: &str, now: u64) -> String {
+    let mut line = format!("`{}`", row.checker.checker);
+    match row.status {
+        CheckStatus::NotRun => {
+            line.push_str(&format!(" · not run ({mode})"));
+            return line;
+        }
+        CheckStatus::Failed => line.push_str(&format!(" · failed ({})", row.codes.join(", "))),
+        CheckStatus::Passed if !row.codes.is_empty() => {
+            line.push_str(&format!(" · {}", row.codes.join(", ")));
+        }
+        CheckStatus::Passed => line.push_str(" · passed"),
+    }
+    // A pure checker asked nothing of the world, and the disk and git answer as of now: only a journaled answer ages.
+    if let Some(observed) = row.observed_at {
+        if let Some(class) = &row.outcome_class {
+            line.push_str(&format!(" · {class}"));
+        }
+        line.push_str(&format!(
+            " · checked {} ago",
+            age(now.saturating_sub(observed))
+        ));
+    }
+    line
+}
+
+/// `millis` in the largest unit that fits.
+fn age(millis: u64) -> String {
+    const MINUTE: u64 = 60_000;
+    const HOUR: u64 = 60 * MINUTE;
+    const DAY: u64 = 24 * HOUR;
+    match millis {
+        ..MINUTE => "under a minute".to_string(),
+        MINUTE..HOUR => format!("{} min", millis / MINUTE),
+        HOUR..DAY => format!("{} h", millis / HOUR),
+        _ => format!("{} d", millis / DAY),
+    }
 }
 
 /// A union's members as written, joined with ` | `.

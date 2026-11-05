@@ -44,7 +44,10 @@ impl Contributions for NodeTest {
                     "--test-reporter-destination={report}",
                 ])
                 .report(REPORT)
-                .reads(PACKAGES, FileReadSpec::glob("**/package.json").text())
+                .input(Input::files(
+                    PACKAGES,
+                    FileReadSpec::glob("**/package.json").text(),
+                ))
                 .collect(collect);
         });
     }

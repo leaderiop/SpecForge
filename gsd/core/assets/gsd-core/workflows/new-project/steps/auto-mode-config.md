@@ -165,7 +165,7 @@ Record the settings with all choices (the settings default the rest):
 
 ```bash
 # no folder to create: the entities live in the spec
-git add spec && git commit -m "chore: add project config" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "chore: add project config" && specforge collect --runner gsd-git --yes
 ```
 
 **Persist auto-advance chain flag to config (survives context compaction):**

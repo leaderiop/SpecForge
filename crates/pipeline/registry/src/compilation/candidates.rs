@@ -162,6 +162,11 @@ impl<'a> UnloadedPeers<'a> {
         Self { peers, candidates }
     }
 
+    /// Whether `extension` is one of them.
+    pub(crate) fn names(&self, extension: &str) -> bool {
+        self.peers.contains(&extension)
+    }
+
     /// Whether one of them declares the kind written `keyword`.
     pub(crate) fn declare(&self, keyword: &str) -> bool {
         self.candidates

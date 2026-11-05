@@ -1,0 +1,65 @@
+{
+  "phase": "judge",
+  "items": [
+    {
+      "id": 0,
+      "checker": "url",
+      "entity": "health",
+      "field": "docs",
+      "item": 0,
+      "text": "https://example.com/a",
+      "outcomes": [
+        {
+          "probe": { "probe": "http.head", "url": "https://example.com/a", "redirects": 5 },
+          "class": "status:404",
+          "data": { "kind": "http", "status": 404, "final_url": "https://example.com/a" },
+          "observed_at": 1700000000000,
+          "from_cache": true
+        },
+        {
+          "probe": { "probe": "fs.stat", "root": "spec", "path": "a.md" },
+          "class": "missing",
+          "data": { "kind": "stat", "size": 0, "near": "a.mdx" },
+          "observed_at": 1700000000000
+        },
+        {
+          "probe": { "probe": "fs.read", "root": "spec", "path": "a.md", "range": { "kind": "suffix", "len": 2 } },
+          "class": "ok",
+          "data": { "kind": "bytes", "bytes": [104, 105], "start": 7, "length": 9, "truncated": true },
+          "observed_at": 1700000000000
+        },
+        {
+          "probe": { "probe": "fs.walk", "root": "spec", "path": "d", "glob": "*" },
+          "class": "ok",
+          "data": { "kind": "walk", "entries": ["d/a.md"] },
+          "observed_at": 1700000000000
+        },
+        {
+          "probe": { "probe": "dns.resolve", "host": "example.com" },
+          "class": "ok",
+          "data": { "kind": "resolve", "addresses": ["93.184.216.34"] },
+          "observed_at": 1700000000000
+        },
+        {
+          "probe": { "probe": "http.tls", "host": "example.com", "port": 443 },
+          "class": "unreachable:tls",
+          "data": { "kind": "tls", "not_after": "2030-01-01", "issuer": "CA", "chain_valid": false },
+          "observed_at": 1700000000000
+        },
+        {
+          "probe": { "probe": "git.ref", "name": "main" },
+          "class": "ok",
+          "data": { "kind": "git", "found": true, "oid": "abc" },
+          "observed_at": 1700000000000
+        },
+        {
+          "probe": { "probe": "git.object", "rev": "nope" },
+          "class": "ok",
+          "data": { "kind": "none" },
+          "observed_at": 1700000000000
+        }
+      ],
+      "carry": { "round": 2 }
+    }
+  ]
+}

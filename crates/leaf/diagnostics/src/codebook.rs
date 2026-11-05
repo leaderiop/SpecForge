@@ -17,6 +17,8 @@ pub struct ExtensionCode {
     pub explanation: String,
     /// An absolute `http(s)` URL, when the extension documents the code.
     pub docs: Option<String>,
+    /// This machine decides a finding of it, not the project (`CodeDescriptor.machine`, ADR 0337 D7).
+    pub machine: bool,
 }
 
 /// Two loaded extensions share one code namespace.
@@ -59,7 +61,7 @@ pub struct Described<'a> {
 }
 
 /// The level a local code's letter states.
-fn letter_level(local: &str) -> Option<Level> {
+pub fn letter_level(local: &str) -> Option<Level> {
     match local.as_bytes().first()? {
         b'E' => Some(Level::Error),
         b'W' => Some(Level::Warning),
@@ -168,6 +170,17 @@ impl Codebook {
         }
     }
 
+    /// Whether a finding of `code` that `extension` reports is decided by this machine, not the project (ADR 0337
+    /// D7): a first-party extension's own catalogued code's `machine` marker, another's own catalog entry's.
+    pub fn machine(&self, extension: &str, code: &str) -> bool {
+        if extension.starts_with(FIRST_PARTY) {
+            return lookup(code).is_some_and(|entry| entry.owner == extension && entry.machine);
+        }
+        self.owned_by(extension)
+            .and_then(|owned| owned.codes.get(&code.to_uppercase()))
+            .is_some_and(|entry| entry.machine)
+    }
+
     /// Whether `extension`'s own catalog lists `local`. False for a
     /// first-party extension (it declares no `codes`) and for an extension
     /// that does not own its namespace.
@@ -176,6 +189,15 @@ impl Codebook {
             && self
                 .owned_by(extension)
                 .is_some_and(|owned| owned.codes.contains_key(&local.to_uppercase()))
+    }
+
+    /// Whether `code` is `extension`'s own, for a setting that gates or raises it: a first-party extension's in the
+    /// static catalog, another's in its catalog.
+    pub fn owns(&self, extension: &str, code: &str) -> bool {
+        if extension.starts_with(FIRST_PARTY) {
+            return lookup(code).is_some_and(|entry| entry.owner == extension);
+        }
+        self.catalogued(extension, code)
     }
 
     /// The qualified forms (`gsd/W304`) of a bare `local` code that loaded
@@ -240,6 +262,7 @@ mod tests {
                 title: "t".into(),
                 explanation: "e".into(),
                 docs: None,
+                machine: false,
             })
             .collect();
         book.add(extension, entries).unwrap();
@@ -407,5 +430,41 @@ mod tests {
             );
         }
         assert_eq!(acme.check("@acme/x", "W950", Level::Warning), Ok(()));
+    }
+
+    #[test]
+    fn machine_reads_the_owners_own_entry() {
+        let mut book = book("@acme/links", &["W900"]);
+        book.add(
+            "@acme/links",
+            vec![ExtensionCode {
+                local: "W901".into(),
+                title: "t".into(),
+                explanation: "e".into(),
+                docs: None,
+                machine: true,
+            }],
+        )
+        .unwrap();
+        assert!(
+            book.machine("@acme/links", "w901"),
+            "its own entry marks it"
+        );
+        assert!(!book.machine("@acme/links", "W900"));
+        assert!(
+            !book.machine("@acme/other", "W901"),
+            "not the owner of the namespace"
+        );
+        // A first-party extension reads the static catalog, and only its own entries.
+        assert!(!book.machine("@specforge/checks", "I206"), "I206 is core's");
+    }
+
+    #[test]
+    fn a_first_party_extension_owns_only_the_static_catalogs_codes_it_is_owner_of() {
+        let book = Codebook::default();
+        assert!(book.owns("@specforge/checks", "W176"));
+        assert!(!book.owns("@specforge/checks", "E001"));
+        assert!(!book.owns("@specforge/product", "W176"));
+        assert!(!book.owns("@specforge/checks", "W999"));
     }
 }

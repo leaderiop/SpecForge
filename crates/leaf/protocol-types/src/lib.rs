@@ -31,15 +31,22 @@ use std::fmt;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 pub mod calls;
+mod capability;
+mod checks;
 mod code_catalog;
 pub mod command_args;
 mod contrib;
 mod declaration;
+mod effects;
 mod field;
+mod inputs;
 mod judged;
+mod operation;
 mod plan;
+mod ports;
 mod prompt;
 mod reads;
+mod rooted;
 mod route;
 mod settings;
 mod surface;
@@ -48,20 +55,42 @@ mod trigger;
 mod version;
 mod vocabulary;
 pub use calls::*;
+pub use capability::{
+    CAPABILITY_KEYS, CapabilityDescriptor, CapabilityProblem, FsAccess, FsScope, GitOp, GitScope,
+    Hosts, HttpMethod, HttpScope, MAX_CAPABILITY_BYTES, Owner, PortScope, ProcessScope,
+    SecretHeader, WRITING_KINDS, capability_problems, is_host_pattern, is_scope_name,
+};
+pub use checks::{
+    ByteRange, CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan,
+    CheckRef, CheckStatus, CheckValuesInput, CheckerDescriptor, MAX_PROBE_ROUNDS, MAX_QUERY_BYTES,
+    OutcomeData, PlannedItem, Probe, ProbeOutcome, StatEntry, ValueForm,
+};
 pub use code_catalog::CodeDescriptor;
 pub use contrib::*;
 pub use declaration::{
     DECLARED_CATEGORIES, DeclaredCategory, ExtensionDeclaration, UnknownKey, is_valid_short,
     protocol_minor,
 };
+pub use effects::{
+    AttachedSecret, EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome,
+    OutcomeClass, Private, ProcessRequest, REDACTED, Redirected, ResolveRequest, TlsRequest,
+    UnknownClass, Unreachable,
+};
 pub use field::FieldDescriptor;
+pub use inputs::{GitInput, Input, InputKind, Inputs};
 pub use judged::{JudgedDescriptor, JudgedFile, JudgedInput, JudgedTarget, Judgement};
+pub use operation::Operation;
 pub use plan::{Cite, EditPlan, PlanObligation, PlanOp, Revision};
+pub use ports::{
+    Denial, Failure, FileSize, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob, GitBlobs,
+    GitRepo, GitTreeEntry, HostError, HttpResponse, ProcessOutput,
+};
 pub use prompt::{
     Attribution, PromptArgDescriptor, PromptDescriptor, PromptInput, PromptMessage, PromptOutput,
     PromptRole, PromptStep, ServedSlash,
 };
 pub use reads::{FileFact, FileFacts, FileMap, FileRead};
+pub use rooted::{PrefixProblem, Root, RootedPath};
 pub use route::{ROUTE_START, RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor};
 pub use settings::{
     Family, PresetDescriptor, PresetEntry, SecretDescriptor, SettingDescriptor, SettingsItem,
@@ -71,8 +100,7 @@ pub use surface::*;
 pub use trigger::{Trigger, TriggerKind};
 pub use version::PROTOCOL_VERSION;
 pub use vocabulary::{
-    CheckKind, ConstraintKind, FieldType, FieldWriter, FileBase, GUARD_PHASE, JudgementState,
-    ProofRole,
+    CheckKind, ConstraintKind, FieldType, FieldWriter, GUARD_PHASE, JudgementState, ProofRole,
 };
 
 /// Errors that can occur during the extension protocol lifecycle.
@@ -100,6 +128,14 @@ pub enum ProtocolError {
     DescribeFailed { category: String, reason: String },
     /// JSON deserialization of a protocol message failed.
     DeserializationError(String),
+    /// Its guest imports a `specforge:host` port no capability it declares backs (ADR 0335 D5): every grant of it
+    /// would answer `denied(scope)`, so it is refused here rather than at a call.
+    UnbackedImport {
+        /// The name its handshake declares.
+        extension: String,
+        /// Each such port, in import order.
+        ports: Vec<String>,
+    },
 }
 
 impl fmt::Display for ProtocolError {
@@ -129,6 +165,11 @@ impl fmt::Display for ProtocolError {
                 write!(f, "describe '{}' failed: {}", category, reason)
             }
             Self::DeserializationError(msg) => write!(f, "deserialization error: {}", msg),
+            Self::UnbackedImport { extension, ports } => write!(
+                f,
+                "extension '{extension}' imports {}, which no capability it declares backs",
+                ports.join(", ")
+            ),
         }
     }
 }
@@ -460,11 +501,11 @@ pub struct AutoDetectConfig {
 
 /// Describes a test result collector.
 ///
-/// A runner extension declares the command that runs its test runner
-/// (`run`, an argv whose elements may contain the `{report}` placeholder)
+/// A runner extension names the `process` capability whose command runs its test runner
+/// (`capability`, its argv's elements may contain the `{report}` placeholder; ADR 0335 D2)
 /// and where the runner leaves its report (`report`, a file or directory
-/// relative to the project root). The host runs the command, with the
-/// user's consent, and passes the report bytes to the pure `export`
+/// relative to the project root). The host runs the command, once this
+/// machine approves it, and passes the report bytes to the pure `export`
 /// (ADR 0002). With `capture: "stdout"` the host also keeps the command's
 /// standard output and passes it along, for runners whose results only
 /// appear there.
@@ -475,8 +516,10 @@ pub struct CollectorDescriptor {
     pub export: String,
     #[serde(default)]
     pub auto_detect: Option<AutoDetectConfig>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub run: Vec<String>,
+    /// The `process` capability (a name from the extension's `capabilities`) whose argv the host runs; none for a
+    /// collector that only reads a report (ADR 0335 D2.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -484,9 +527,9 @@ pub struct CollectorDescriptor {
     /// It answers an edit plan the host applies, and receives the graph and revisions (protocol 1.9.0).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub writes: bool,
-    /// The project files the collector reads; its input's `files` carries their facts (ADR 0293).
+    /// What the host serves the collector before the call: `files` (ADR 0293, ADR 0337 D2).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub reads: Vec<FileRead>,
+    pub inputs: Vec<Input>,
 }
 
 // ── Analyzer Protocol Types ──
@@ -598,12 +641,10 @@ pub struct CompilerPassDescriptor {
     /// codes it names (protocol 1.10.0, ADR 0291).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub reports: Vec<String>,
-    /// The project files the pass reads; the input's `files` carries their facts (protocol 1.11.0, ADR 0293).
+    /// What the host serves the pass before the call: `files` (their facts in the input's `files`, ADR 0293) and
+    /// `tests` (the recorded report as `test_results`, a check, compute or guard pass) (ADR 0337 D2).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub reads: Vec<FileRead>,
-    /// A check, compute or guard pass receives the recorded test report as `test_results` (protocol 1.11.0).
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub reads_tests: bool,
+    pub inputs: Vec<Input>,
 }
 
 // ── Feature Flag Descriptor ──

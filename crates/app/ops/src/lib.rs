@@ -22,6 +22,7 @@
 //! | [`extension`] | what a project installs, enables and lists, what an author publishes, the commands extensions declare | base |
 //! | [`analysis`] | check, analyze with its passes and the prove pass, collect, doctor | base, read, extension |
 //! | [`authoring`] | the operations that write a project's sources: init, format, rename, migrate, the typed edits, and the fixes offered for a diagnostic (ADR 0161) | base, read, extension |
+//! | [`verbs`] | the verbs a person or an agent types: `files`, `run`, `http` and `git`, each the user's own act under the user grant (ADR 0339) | base |
 
 pub mod analysis;
 pub mod asking;
@@ -30,6 +31,7 @@ mod caller;
 mod change;
 pub mod config;
 mod config_edit;
+pub mod consent;
 mod containment;
 mod edit_report;
 mod error;
@@ -44,10 +46,12 @@ pub mod registry;
 mod report;
 pub mod revision;
 pub mod schema_version;
+pub mod settle;
 pub mod solver;
 mod source_key;
 #[cfg(feature = "testing")]
 pub mod testing;
+pub mod verbs;
 mod verdict;
 pub mod view;
 mod writes;
@@ -56,7 +60,7 @@ pub use caller::Caller;
 pub use change::{FILE_CHANGED, FILE_UNREADABLE, FILE_UNWRITABLE};
 pub use containment::{ContainedDisk, Containment, Held, OUTSIDE_ROOT, Outside, ReadFailure};
 pub use edit_report::{CollectedFacts, CollectedPlan, EditDocument, EditReport};
-pub use error::{OpError, OpErrorKind};
+pub use error::{NOT_IN_JOURNAL, OpError, OpErrorKind, UNKNOWN_REVISION};
 pub use noticed::Noticed;
 pub use refusal::Refusal;
 pub use verdict::RunVerdict;

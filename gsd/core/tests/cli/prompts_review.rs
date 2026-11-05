@@ -152,8 +152,18 @@ fn review_probes_the_local_servers_and_needs_no_runtime_lib() {
         .find(|l| l.starts_with("for lane in \"ollama"))
         .expect("the probe line");
     assert!(probe.contains(" http://127.0.0.1:9\""), "{probe}");
+    // the real binary first on PATH: the probe asks `specforge http`
+    let real = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
     let out = std::process::Command::new("bash")
         .args(["-c", probe])
+        .env(
+            "PATH",
+            format!(
+                "{}:{}",
+                real.parent().expect("its directory").display(),
+                std::env::var("PATH").unwrap_or_default()
+            ),
+        )
         .output()
         .expect("bash");
     assert_eq!(
@@ -179,16 +189,16 @@ fn review_probes_the_local_default_for_an_empty_host_setting() {
         .lines()
         .find(|l| l.starts_with("for lane in \"ollama"))
         .expect("the probe line");
-    // a `curl` that records the URL it was given and finds nothing
+    // a `specforge` that records the URL `http get` was given and reaches nothing
     let bin = p.root().join("stub-bin");
     std::fs::create_dir_all(&bin).expect("a stub dir");
-    let curl = bin.join("curl");
+    let stub = bin.join("specforge");
     std::fs::write(
-        &curl,
-        "#!/bin/sh\nfor a; do u=$a; done\necho \"$u\" >> \"$(dirname \"$0\")/urls\"\nexit 7\n",
+        &stub,
+        "#!/bin/sh\necho \"$3\" >> \"$(dirname \"$0\")/urls\"\nexit 1\n",
     )
     .expect("the stub");
-    std::fs::set_permissions(&curl, std::os::unix::fs::PermissionsExt::from_mode(0o755))
+    std::fs::set_permissions(&stub, std::os::unix::fs::PermissionsExt::from_mode(0o755))
         .expect("chmod");
     let out = std::process::Command::new("bash")
         .args(["-c", probe])
@@ -207,7 +217,7 @@ fn review_probes_the_local_default_for_an_empty_host_setting() {
         "ollama:missing\nlm_studio:missing\nllama_cpp:missing\n"
     );
     assert_eq!(
-        std::fs::read_to_string(bin.join("urls")).expect("curl ran"),
+        std::fs::read_to_string(bin.join("urls")).expect("specforge ran"),
         "http://localhost:11434/v1/models\nhttp://localhost:1234/v1/models\nhttp://127.0.0.1:9/v1/models\n"
     );
 }

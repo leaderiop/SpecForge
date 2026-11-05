@@ -1,5 +1,5 @@
-//! File reads on the wire (protocol 1.11.0, ADR 0293): the declaration of `reads` and `reads_tests`, the `files` of an
-//! input, and that none of them is written while absent.
+//! A call's inputs on the wire (protocol 2.0.0, ADR 0337 D2): one tagged `inputs` list, the `files` of an input
+//! (ADR 0293), and that none of them is written while absent.
 #![allow(
     clippy::unwrap_used,
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
@@ -8,8 +8,9 @@
 use serde_json::{Value, json};
 use specforge_protocol_types::{
     CollectorDescriptor, CommandDescriptor, CommandInput, CompilerPassDescriptor, DeclaredCategory,
-    DescribeResponse, ExtensionDeclaration, FileFact, FileFacts, FileRead, HandshakeResponse,
-    PROTOCOL_VERSION, PassInput, UnknownKey,
+    DescribeResponse, ExtensionDeclaration, FileFact, FileFacts, FileRead, GitInput,
+    HandshakeResponse, HookDescriptor, Input, Inputs, PROTOCOL_VERSION, PassInput,
+    PromptDescriptor, UnknownKey,
 };
 
 fn round_trip<T>(value: &T) -> Value
@@ -82,54 +83,117 @@ fn file_read_round_trips_and_stays_off_the_wire_when_absent() {
     );
 }
 
-#[test]
-fn a_pass_declaring_reads_and_reads_tests_round_trips() {
+#[specforge_test_macros::test(
+    behavior = "load_extension_declaration",
+    verify = "a call's inputs are one tagged list on the wire, and a descriptor that declares none writes no inputs"
+)]
+fn inputs_round_trip_as_one_tagged_list() {
     let pass = CompilerPassDescriptor {
         name: "audit".into(),
         phase: Some("check".into()),
-        reads: vec![FileRead {
-            name: "files".into(),
-            glob: Some("src/**".into()),
-            ..Default::default()
-        }],
-        reads_tests: true,
+        inputs: vec![
+            Input::files(
+                "sources",
+                FileRead {
+                    glob: Some("src/**/*.rs".into()),
+                    ..Default::default()
+                },
+            ),
+            Input::Tests,
+        ],
         ..Default::default()
     };
-    let written = round_trip(&pass);
-    assert_eq!(written["reads_tests"], true);
-    assert_eq!(written["reads"][0]["glob"], "src/**");
-    // A pass that declares neither writes neither.
-    let plain = serde_json::to_value(CompilerPassDescriptor::default()).unwrap();
-    assert!(plain.get("reads").is_none() && plain.get("reads_tests").is_none());
-}
-
-#[test]
-fn a_command_declaring_reads_round_trips() {
+    assert_eq!(
+        round_trip(&pass)["inputs"],
+        json!([{"input": "files", "name": "sources", "glob": "src/**/*.rs"}, {"input": "tests"}])
+    );
+    let hook = HookDescriptor {
+        id: "guard".into(),
+        export: "hook__guard".into(),
+        inputs: vec![
+            Input::Graph,
+            Input::State,
+            Input::git().status().when("workflow.git"),
+            Input::setting("@gsd/security", "security.injection_blocking"),
+        ],
+        ..Default::default()
+    };
+    assert_eq!(
+        round_trip(&hook)["inputs"],
+        json!([{"input": "graph"}, {"input": "state"},
+               {"input": "git", "status": true, "when": "workflow.git"},
+               {"input": "setting", "extension": "@gsd/security", "name": "security.injection_blocking"}])
+    );
+    let prompt = PromptDescriptor {
+        inputs: vec![Input::SlashCommands, Input::git()],
+        ..Default::default()
+    };
+    assert_eq!(
+        round_trip(&prompt)["inputs"],
+        json!([{"input": "slash_commands"}, {"input": "git"}])
+    );
     let command = CommandDescriptor {
         id: "verify".into(),
-        reads: vec![FileRead {
-            name: "plans".into(),
-            field: Some("plan.files_modified".into()),
-            base: Some("spec".into()),
-            ..Default::default()
-        }],
+        inputs: vec![Input::files(
+            "plans",
+            FileRead {
+                field: Some("plan.files_modified".into()),
+                root: Some("spec".into()),
+                ..Default::default()
+            },
+        )],
         ..Default::default()
     };
-    let written = round_trip(&command);
-    assert_eq!(written["reads"][0]["base"], "spec");
-    assert!(
-        serde_json::to_value(CommandDescriptor::default())
-            .unwrap()
-            .get("reads")
-            .is_none()
+    assert_eq!(round_trip(&command)["inputs"][0]["root"], "spec");
+    let collector = CollectorDescriptor {
+        name: "node".into(),
+        export: "collect__node".into(),
+        inputs: vec![Input::files(
+            "manifest",
+            FileRead {
+                glob: Some("package.json".into()),
+                text: true,
+                ..Default::default()
+            },
+        )],
+        ..Default::default()
+    };
+    assert_eq!(
+        round_trip(&collector)["inputs"],
+        json!([{"input": "files", "name": "manifest", "glob": "package.json", "text": true}])
     );
+    // A descriptor that declares none writes none.
+    for plain in [
+        serde_json::to_value(CompilerPassDescriptor::default()).unwrap(),
+        serde_json::to_value(CommandDescriptor::default()).unwrap(),
+        serde_json::to_value(CollectorDescriptor::default()).unwrap(),
+        serde_json::to_value(PromptDescriptor::default()).unwrap(),
+        serde_json::to_value(HookDescriptor::default()).unwrap(),
+    ] {
+        assert!(plain.get("inputs").is_none(), "{plain}");
+    }
+    // The accessor every host site reads them through.
+    let inputs = Inputs(&hook.inputs);
+    assert!(inputs.graph() && inputs.state() && !inputs.tests() && !inputs.slash_commands());
+    assert_eq!(
+        inputs.git(),
+        Some(GitInput {
+            status: true,
+            when: Some("workflow.git")
+        })
+    );
+    assert_eq!(
+        inputs.settings().collect::<Vec<_>>(),
+        [("@gsd/security", "security.injection_blocking")]
+    );
+    assert_eq!(Inputs(&pass.inputs).files()[0].name, "sources");
 }
 
 #[specforge_test_macros::test(
     behavior = "load_extension_declaration",
     verify = "a describe item key the protocol does not define produces W138"
 )]
-fn an_unknown_key_in_a_read_is_w138() {
+fn an_unknown_key_in_an_input_is_w138() {
     let handshake = HandshakeResponse {
         protocol_version: PROTOCOL_VERSION.to_string(),
         name: "@acme/reads".to_string(),
@@ -142,11 +206,14 @@ fn an_unknown_key_in_a_read_is_w138() {
         |category| {
             let items = match category {
                 DeclaredCategory::Passes => json!([
-                    {"name": "audit", "reads": [{"name": "files", "glob": "src/**", "txet": true}]},
+                    {"name": "audit", "inputs": [{"input": "files", "name": "files", "glob": "src/**", "txet": true},
+                                                {"input": "git", "status": true, "when": "x", "extension": "y",
+                                                 "field": "a.b", "root": "spec", "text": true}]},
                 ]),
                 DeclaredCategory::Surfaces => json!([{"commands": [
                     {"id": "go", "title": "Go", "description": "Go", "export": "cmd__go",
-                     "reads": [{"name": "files", "field": "plan.files", "bsae": "spec"}]},
+                     "inputs": [{"input": "files", "name": "files", "field": "plan.files", "bsae": "spec"}],
+                     "reads_state": true},
                 ]}]),
                 _ => json!([]),
             };
@@ -164,34 +231,12 @@ fn an_unknown_key_in_a_read_is_w138() {
         .collect();
     assert_eq!(
         keys,
-        [("surfaces", "bsae"), ("passes", "txet")],
+        [
+            ("surfaces", "reads_state"),
+            ("surfaces", "bsae"),
+            ("passes", "txet")
+        ],
         "{unknown:?}"
-    );
-}
-
-#[test]
-fn a_collector_declaring_reads_round_trips() {
-    let collector = CollectorDescriptor {
-        name: "node".into(),
-        export: "collect__node".into(),
-        reads: vec![FileRead {
-            name: "manifest".into(),
-            glob: Some("package.json".into()),
-            text: true,
-            ..Default::default()
-        }],
-        ..Default::default()
-    };
-    let written = round_trip(&collector);
-    assert_eq!(
-        written["reads"],
-        json!([{"name": "manifest", "glob": "package.json", "text": true}])
-    );
-    assert!(
-        serde_json::to_value(CollectorDescriptor::default())
-            .unwrap()
-            .get("reads")
-            .is_none()
     );
 }
 
@@ -199,7 +244,7 @@ fn a_collector_declaring_reads_round_trips() {
     behavior = "load_extension_declaration",
     verify = "a describe item key the protocol does not define produces W138"
 )]
-fn an_unknown_key_in_a_collectors_read_is_w138() {
+fn an_unknown_key_in_a_collectors_input_is_w138() {
     let handshake = HandshakeResponse {
         protocol_version: PROTOCOL_VERSION.to_string(),
         name: "@acme/reads".to_string(),
@@ -213,7 +258,7 @@ fn an_unknown_key_in_a_collectors_read_is_w138() {
             let items = match category {
                 DeclaredCategory::Collectors => json!([
                     {"name": "node", "input_formats": [], "export": "collect__node",
-                     "reads": [{"name": "manifest", "glob": "package.json", "txet": true}]},
+                     "inputs": [{"input": "files", "name": "manifest", "glob": "package.json", "txet": true}]},
                 ]),
                 _ => json!([]),
             };

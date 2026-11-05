@@ -65,7 +65,7 @@ pub(crate) fn rendered(
     render(view, prompt, given, host).map_err(|error| {
         Box::new(match error {
             RenderError::Refused(e) | RenderError::Gate(e) => McpError::from(*e),
-            RenderError::Call(e) => crate::extension_dispatch::failed_call(&e.diagnostic()),
+            RenderError::Call(e) => crate::extension_dispatch::failed_call(&e),
         })
     })
 }

@@ -15,14 +15,14 @@ type PeerDependency "Peer Dependency" {
   verify unit "PeerDependency schema is valid"
 }
 
-type HostFunctionBinding "Host Function Binding" {
-  name          string @readonly
-  input_schema  string
-  output_schema string
-  verify unit "HostFunctionBinding schema is valid"
+type HostPortDenial "Host Port Denial" {
+  port    string @readonly
+  reason  string
+  message string
+  verify unit "HostPortDenial schema is valid"
 }
 
-type SandboxPolicy "The limits an extension asks its sandbox to hold it to (ADR 0037). The host grants a component no capability, so the policy declares limits only, each held to the host's ceiling (30000 ms, 512 MB); an undeclared limit is the ceiling. The permission settings the planned host functions would read (allowed paths, domains, output extensions, file and HTTP limits) come with that surface (behaviors/wasm-host-functions.spec)." {
+type SandboxPolicy "The limits an extension asks its sandbox to hold it to (ADR 0037). The host grants a component no capability, so the policy declares limits only, each held to the host's ceiling (30000 ms, 512 MB); an undeclared limit is the ceiling. What an extension may reach is its capabilities, under its grant (behaviors/wasm-host-functions.spec)." {
   // Wall-clock budget of one call, in milliseconds
   max_execution_ms integer @optional
   // Ceiling of the instance's linear memory, in MiB
@@ -104,12 +104,25 @@ type CollectorRun "What running it produced: its exit code and a start time no l
 type CollectorRunFailure "Why a command produced no run: it did not start, or its output could not be captured." = not_run
   | capture
 
-type CommandApproval "One approval: this project may run this extension's collector with this command." {
-  project   string
-  extension string
-  collector string
-  run       string[]
-  verify unit "CommandApproval schema is valid"
+type CapabilityApproval "One approval of an extension's capability on this machine (ADR 0335 D2.4): the project, the extension, its provenance and the scope, with the scope granted, stored whole." {
+  project     string
+  extension   string
+  provenance  string
+  scope       string
+  granted     string
+  call_kinds  string[]
+  digest      string
+  specforge   string
+  approved_at string
+  verify unit "a capability approval covers a narrower granted scope, and a wider one or a new argv asks again"
+}
+
+type RootApproval "One approval of a named root outside the project on this machine: the project, the root's name and its canonical target." {
+  project     string
+  root        string
+  target      string
+  approved_at string
+  verify unit "a root approval holds for its canonical target, and a root re-pointed elsewhere asks again"
 }
 
 type CollectorDescriptor "Collector Descriptor" {
@@ -117,7 +130,7 @@ type CollectorDescriptor "Collector Descriptor" {
   input_formats string[]
   auto_detect   CollectorAutoDetect @optional
   export        string
-  run           string[]            @optional
+  capability    string              @optional
   report        string              @optional
   capture       string              @optional
   verify unit "CollectorDescriptor schema is valid"

@@ -49,10 +49,13 @@ impl KnownKeys {
     }
 }
 
-/// The trust store at `path`. A missing file is an empty store. A file that can't be read, or isn't
-/// the store's JSON, is an error saying why: a store read as empty would trust any key and drop
-/// `denied_keys`.
+/// The trust store at `path`. A missing file is an empty store, and so is one another user could have written
+/// (its pins may be theirs). A file that can't be read, or isn't the store's JSON, is an error saying why: a store
+/// read as empty would trust any key and drop `denied_keys`.
 pub fn load_known_keys_at(path: &std::path::Path) -> Result<KnownKeys, String> {
+    if crate::credentials::foreign(path) {
+        return Ok(KnownKeys::default());
+    }
     match std::fs::read_to_string(path) {
         Ok(content) => serde_json::from_str(&content).map_err(|e| e.to_string()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(KnownKeys::default()),
@@ -79,6 +82,19 @@ mod tests {
         let store = load_known_keys_at(&dir.path().join("known-keys.json")).unwrap();
         assert_eq!(store, KnownKeys::default());
         assert!(store.pin_for("@acme/x").is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_store_another_user_could_have_written_loads_empty() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("known-keys.json");
+        let mut keys = KnownKeys::default();
+        keys.pin("@acme/x", "k1");
+        save_known_keys_at(&path, &keys).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o666)).unwrap();
+        assert_eq!(load_known_keys_at(&path).unwrap(), KnownKeys::default());
     }
 
     #[test]

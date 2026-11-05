@@ -11,10 +11,12 @@ use specforge_common::ProjectConfig;
 use specforge_registry::{Disk, PlainDisk};
 use specforge_test_macros::test as specforge_test;
 
+use super::NOW;
 use crate::ledger::disk::RunDisk;
 use crate::ledger::inputs::{WatchRoot, Watched};
 use crate::ledger::recorded::Recording;
-use crate::ledger::{Changes, Ledger, Reads, SessionInputs};
+use crate::ledger::{Changes, Consulted, Ledger, Reads, SessionInputs};
+use specforge_effects::UnixMillis;
 
 /// `t/root` (the project and its spec root), `t/mid` (where middle hops live),
 /// `t/out` (targets) and `t/far` (exists, empty), all canonical.
@@ -205,13 +207,13 @@ fn every_input_is_reached_by_its_name_each_hop_and_a_directory_above() {
         (case.record)(&l, &mut ledger, &input);
         change_behind(&case, &l, &input);
         for path in reaching(&case, &l, &input) {
-            let changes = ledger.changes([path.as_path()]);
+            let changes = ledger.changes([path.as_path()], NOW);
             assert_eq!(slot(&case, &changes), case.slot, "{}: {path:?}", case.name);
         }
         let beside = l.out.join("sibling.x");
         fs::write(&beside, "x").unwrap();
         assert!(
-            ledger.changes([beside.as_path()]).is_empty(),
+            ledger.changes([beside.as_path()], NOW).is_empty(),
             "{}: a sibling of the target is not an input",
             case.name
         );
@@ -231,7 +233,7 @@ fn an_input_pointed_elsewhere_is_its_change() {
         let hop = l.mid.join(case.file);
         fs::remove_file(&hop).unwrap();
         std::os::unix::fs::symlink(l.out.join(format!("other-{}", case.file)), &hop).unwrap();
-        let changes = ledger.changes([hop.as_path()]);
+        let changes = ledger.changes([hop.as_path()], NOW);
         assert_eq!(slot(&case, &changes), case.slot, "{}", case.name);
     }
 }
@@ -313,13 +315,13 @@ fn a_missing_directory_on_the_way_to_an_input_is_pending() {
         fs::create_dir(l.far.join("beside")).unwrap();
         let beside = l.far.join("beside");
         assert!(
-            ledger.changes([beside.as_path()]).is_empty(),
+            ledger.changes([beside.as_path()], NOW).is_empty(),
             "{}: a directory beside is nothing",
             case.name
         );
         fs::create_dir(l.far.join("new")).unwrap();
         let created = l.far.join("new");
-        let changes = ledger.changes([created.as_path()]);
+        let changes = ledger.changes([created.as_path()], NOW);
         assert_eq!(slot(&case, &changes), case.slot, "{}", case.name);
     }
 }
@@ -352,6 +354,131 @@ fn stale_sees_a_change_behind_every_input() {
         let mut ledger = fresh(&l);
         (case.record)(&l, &mut ledger, &input);
         change_behind(&case, &l, &input);
-        assert_eq!(slot(&case, &ledger.stale()), case.slot, "{}", case.name);
+        assert_eq!(slot(&case, &ledger.stale(NOW)), case.slot, "{}", case.name);
     }
+}
+
+/// Record the effects journal records at `consulted` as one run of the checks consulted them (ADR 0337 D5).
+fn record_effects(ledger: &mut Ledger, consulted: &[(&Path, Option<UnixMillis>)]) {
+    let consulted = consulted
+        .iter()
+        .map(|(path, expires)| Consulted {
+            path: path.to_path_buf(),
+            expires: *expires,
+        })
+        .collect();
+    ledger.run_checks(|_| consulted);
+}
+
+/// An hour after [`NOW`].
+fn in_an_hour() -> UnixMillis {
+    NOW.plus(std::time::Duration::from_secs(3_600))
+}
+
+/// A journal record under the project's effects journal.
+fn journal_record(l: &Layout, name: &str) -> PathBuf {
+    let dir = l.root.join(".specforge/effects/journal/ab");
+    fs::create_dir_all(&dir).unwrap();
+    let record = dir.join(format!("{name}.json"));
+    fs::write(&record, "{}").unwrap();
+    record
+}
+
+#[specforge_test(
+    behavior = "classify_project_changes",
+    verify = "an effect record a check consulted re-runs the checks once it expires"
+)]
+fn an_expired_effect_record_reruns_the_checks() {
+    let l = layout();
+    let record = journal_record(&l, "a");
+    let mut ledger = fresh(&l);
+    record_effects(&mut ledger, &[(&record, Some(UnixMillis(1)))]);
+    assert_eq!(ledger.expired(NOW).check_inputs, vec![record.clone()]);
+    assert_eq!(ledger.stale(NOW).check_inputs, vec![record.clone()]);
+    // No file changed: the clock alone reaches it, whatever the batch.
+    assert_eq!(ledger.changes([], NOW).check_inputs, vec![record]);
+}
+
+#[specforge_test(
+    behavior = "classify_project_changes",
+    verify = "an effect record a check consulted re-runs the checks when it is rewritten"
+)]
+fn a_rewritten_effect_record_reruns_the_checks() {
+    let l = layout();
+    let record = journal_record(&l, "a");
+    let mut ledger = fresh(&l);
+    record_effects(&mut ledger, &[(&record, Some(in_an_hour()))]);
+    fs::write(&record, r#"{"rewritten":true}"#).unwrap();
+    assert_eq!(
+        ledger.changes([record.as_path()], NOW).check_inputs,
+        vec![record.clone()]
+    );
+    assert_eq!(ledger.stale(NOW).check_inputs, vec![record]);
+}
+
+#[specforge_test(
+    behavior = "classify_project_changes",
+    verify = "an effect record a check consulted that is fresh and unchanged changes nothing"
+)]
+fn a_fresh_unchanged_record_changes_nothing() {
+    let l = layout();
+    let record = journal_record(&l, "a");
+    let never = journal_record(&l, "process");
+    let mut ledger = fresh(&l);
+    record_effects(
+        &mut ledger,
+        &[(&record, Some(in_an_hour())), (&never, None)],
+    );
+    assert!(ledger.expired(NOW).is_empty());
+    assert!(ledger.stale(NOW).is_empty());
+    assert!(ledger.changes([record.as_path()], NOW).is_empty());
+}
+
+#[specforge_test(
+    behavior = "classify_project_changes",
+    verify = "a session wakes at the earliest expiry of the effect records its checks consulted"
+)]
+fn next_expiry_is_the_earliest_row_expiry() {
+    let l = layout();
+    let (a, b, c) = (
+        journal_record(&l, "a"),
+        journal_record(&l, "b"),
+        journal_record(&l, "c"),
+    );
+    let mut ledger = fresh(&l);
+    assert_eq!(ledger.next_expiry(), None);
+    let soon = in_an_hour();
+    record_effects(
+        &mut ledger,
+        &[
+            (&a, Some(soon.plus(std::time::Duration::from_millis(10)))),
+            (&b, Some(soon)),
+            (&c, None),
+        ],
+    );
+    assert_eq!(ledger.next_expiry(), Some(soon));
+    // The next run's records replace this run's.
+    record_effects(&mut ledger, &[(&c, None)]);
+    assert_eq!(ledger.next_expiry(), None);
+}
+
+#[specforge_test(
+    behavior = "classify_project_changes",
+    verify = "an expired effect record beside the fact stores' rows re-runs the checks and reads no fact store"
+)]
+fn an_effect_row_beside_fact_rows_leaves_the_fact_stores_unread() {
+    let l = layout();
+    let record = journal_record(&l, "a");
+    let harness = l.root.join(crate::harness::LEDGER_FILE);
+    fs::create_dir_all(harness.parent().unwrap()).unwrap();
+    fs::write(&harness, "").unwrap();
+    let mut ledger = fresh(&l);
+    let run = ledger.run();
+    run.read(super::super::Reading::File, &harness, &PlainDisk, |_| ());
+    run.finish(Recording::Facts);
+    record_effects(&mut ledger, &[(&record, Some(UnixMillis(1)))]);
+    let stale = ledger.stale(NOW);
+    assert_eq!(stale.check_inputs, vec![record]);
+    assert!(stale.sources.is_empty(), "no fact store is read again");
+    assert!(stale.environment.is_empty());
 }

@@ -95,7 +95,7 @@ Use full relative paths. Group by topic area.]
 5. Commit:
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-git add spec && git commit -m "docs(${padded_phase}): generate context from PRD" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs(${padded_phase}): generate context from PRD" && specforge collect --runner gsd-git --yes
 ```
 
 6. Set `context_content` to the generated CONTEXT.md content and continue to step 5 (Handle Research).

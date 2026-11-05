@@ -72,6 +72,14 @@ pub(crate) const ANSWER_LONG_HELP: &str = concat!(
      is the command's."
 );
 
+/// The long help of `--pick` on a verb (`files`, `http`, `git`), whose answer is JSON by default.
+pub(crate) const VERB_LONG_HELP: &str = concat!(
+    "Print only the values at this path of the verb's JSON answer, one per line, e.g. '.entries[].path' on files \
+     list or '.branch' on git head. ",
+    rules!(),
+    " It takes no --format human: errors print as they do under json, and the exit code is the verb's."
+);
+
 /// `--format human|json` beside `--pick`, for a core command whose JSON form is its answer (`check`, `settings`):
 /// with `--pick` the format is `json` unless one is given, so an explicit `--format human` can be refused.
 #[derive(clap::Args, Clone, Debug)]
@@ -118,7 +126,18 @@ pub(crate) fn print_json(
     match pick {
         Some(pick) => {
             let value = serde_json::to_value(document).expect("serialize JSON output");
-            out!(terminal, "{}", pick.lines(&value));
+            let lines = pick.lines(&value);
+            // A picked string is a file's text, a commit subject or a response: exact into a pipe, which a script
+            // reads, but escaped before a terminal, where an escape sequence would act (ADR 0339 D4).
+            if terminal.facts().out_terminal {
+                out!(
+                    terminal,
+                    "{}",
+                    specforge_common::remedy::printable_lines(&lines)
+                );
+            } else {
+                out!(terminal, "{lines}");
+            }
         }
         None => terminal.json(document),
     }
@@ -358,6 +377,26 @@ impl Pick {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A picked string with an escape sequence reaches a pipe exactly and a terminal escaped, newlines kept.
+    #[test]
+    fn a_picked_string_is_escaped_before_a_terminal_only() {
+        use crate::terminal::{Facts, Terminal};
+        let document = serde_json::json!({"text": "red \u{1b}[31mX\nnext"});
+        let pick = Pick::parse(".text").unwrap();
+        let printed = |facts: Facts| {
+            let (terminal, capture) = Terminal::captured("", facts);
+            print_json(&terminal, Some(&pick), &document);
+            capture.stdout()
+        };
+        assert_eq!(printed(Facts::PIPED), "red \u{1b}[31mX\nnext\n");
+        let on_terminal = printed(Facts {
+            out_terminal: true,
+            ..Facts::PIPED
+        });
+        assert!(!on_terminal.contains('\u{1b}'), "{on_terminal:?}");
+        assert!(on_terminal.contains("\nnext"), "{on_terminal:?}");
+    }
     use serde_json::json;
 
     fn picked(path: &str, document: &Value) -> String {

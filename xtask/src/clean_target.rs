@@ -1,7 +1,8 @@
 //! `clean-target`: free the disk a long session fills. Cargo never deletes the rlibs, test binaries and
 //! dep-info a changed hash replaced, so `<target>/<profile>/deps` keeps every build of every crate. This keeps
 //! the newest file of each (stem, extension) pair, removes `incremental/` (off in `.cargo/config.toml`, so only
-//! stale ones exist) and `blob-stage/` (rebuilt by `revendor`), and reports what it freed. `--dry-run` only reports.
+//! stale ones exist) and `blob-stage/` (rebuilt by `revendor`), drops the debug objects no build reuses
+//! (`gate::objects`), and reports what it freed. `--dry-run` only reports.
 
 use std::collections::HashMap;
 use std::fs;
@@ -19,6 +20,11 @@ fn main() {
     let target = &repo.target_dir;
     let mut freed = 0u64;
     for profile in fs::read_dir(target).into_iter().flatten().flatten() {
+        freed += gate::objects::prune(
+            &profile.path().join("deps"),
+            gate::objects::KEEP_RECENT,
+            dry,
+        );
         freed += dedupe(&profile.path().join("deps"), dry);
         freed += remove(&profile.path().join("incremental"), dry);
     }

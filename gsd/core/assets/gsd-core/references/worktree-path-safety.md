@@ -134,13 +134,13 @@ detects drift before every commit.
 
 ```bash
 if [ -f .git ]; then  # we are in a worktree
-  WT_GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
+  WT_GIT_DIR=$(specforge git repo --pick .git_dir 2>/dev/null)
   case "$WT_GIT_DIR" in
     *.git/worktrees/*)
       SENTINEL="$WT_GIT_DIR/gsd-spawn-toplevel"
-      [ ! -f "$SENTINEL" ] && git rev-parse --show-toplevel > "$SENTINEL" 2>/dev/null
+      [ ! -f "$SENTINEL" ] && specforge git repo --pick .top > "$SENTINEL" 2>/dev/null
       EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
-      ACTUAL_TL=$(git rev-parse --show-toplevel 2>/dev/null)
+      ACTUAL_TL=$(specforge git repo --pick .top 2>/dev/null)
       if [ -n "$EXPECTED_TL" ] && [ "$ACTUAL_TL" != "$EXPECTED_TL" ]; then
         echo "FATAL: cwd drifted from spawn-time worktree root (#3097)" >&2
         echo "  Spawn-time: $EXPECTED_TL" >&2
@@ -165,7 +165,7 @@ is silently lost.
 Before any Edit or Write using an absolute path:
 
 ```bash
-WT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+WT_ROOT=$(specforge git repo --pick .top 2>/dev/null)
 # Fail fast if ABS_PATH resolves outside the worktree
 if [[ "$ABS_PATH" != "$WT_ROOT"* ]]; then
   echo "WARNING: $ABS_PATH is outside the worktree ($WT_ROOT)" >&2
@@ -193,8 +193,8 @@ next executor meets it again.
 ```bash
 # WT_ROOT as in step 0b. MAIN_ROOT is the checkout this worktree was created from — the one an
 # orchestrator-cwd path points at.
-WT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-MAIN_ROOT=$(cd "$(git rev-parse --git-common-dir)/.." 2>/dev/null && pwd -P)
+WT_ROOT=$(specforge git repo --pick .top 2>/dev/null)
+MAIN_ROOT=$(cd "$(specforge git repo --pick .common_dir)/.." 2>/dev/null && pwd -P)
 # Resolve a path the way the shell would land in it. A relative path is taken from the second
 # argument — the cwd a chained `cd` has reached so far — or the worktree root. An existing directory resolves through `cd && pwd -P`; a file through its directory (a
 # symlinked file through its link target first), so a symlink or `..` hop inside the worktree that

@@ -4,6 +4,7 @@
 0292](0292-an-extension-contributes-agents-skills-commands-and-hooks.md).
 Extends [ADR 0287](0287-who-writes-a-field-is-declared.md) (the history port gains `branch` and `status`).
 Takes extension protocol 1.14.0.
+Amended by [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md): `reads_git`, `reads_git_status` and `git_when` are one `git` input (`Input::Git { status, when }`), and `GitFacts.status` is a typed `GitStatus`, not porcelain text.
 
 ## Context
 

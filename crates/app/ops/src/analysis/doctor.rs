@@ -49,6 +49,8 @@ pub struct DoctorReport {
     pub installed_count: usize,
     /// Every problem, once, in report order, each saying what it is about.
     pub findings: Vec<Finding>,
+    /// The named roots of `specforge.json`, inside or outside the project, and whether an outside one is approved.
+    pub roots: Vec<crate::analysis::grants::RootRow>,
 }
 
 #[derive(Debug, Clone, Serialize, Shape)]
@@ -64,10 +66,14 @@ pub struct ExtensionHealth {
     /// Whether it is part of the compiled project, as the listing says.
     pub status: Status,
     pub enhancement_count: usize,
-    /// The file reads its passes and commands declare (ADR 0293), each with what it asks for; not listed while it
-    /// declares none.
+    /// The inputs its passes, commands, prompts, hooks and collectors declare (ADR 0293, ADR 0337 D2), each with what
+    /// it asks for; not listed while it declares none.
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub reads: Vec<crate::extension::DeclaredRead>,
+    pub inputs: Vec<crate::extension::DeclaredRead>,
+    /// Each capability it declares and its grant here, as `specforge grants` lists them (ADR 0335 D2); not listed
+    /// while it declares none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<crate::analysis::grants::CapabilityRow>,
 }
 
 #[derive(Debug, Clone, Serialize, Shape)]
@@ -199,6 +205,9 @@ pub enum About {
     /// The SMT solver `specforge analyze --prove` asks does not run here: the
     /// W098 it reports.
     Toolchain,
+    /// What the extensions may make the host do here (ADR 0335 D2): the consent store cannot be used (W186), or
+    /// a run here uses effects this machine has not approved (W170).
+    Grants,
     /// A host's files install wrote: one edited since (`host_file_edited`, with its `path`), or an install that
     /// would write something else now (`host_install_stale`).
     Host {
@@ -225,6 +234,7 @@ pub enum Part {
     Conflict,
     Shadowing,
     Toolchain,
+    Grants,
     Host,
 }
 
@@ -246,6 +256,7 @@ impl About {
             About::Conflict { .. } => Part::Conflict,
             About::Shadowing { .. } => Part::Shadowing,
             About::Toolchain => Part::Toolchain,
+            About::Grants => Part::Grants,
             About::Host { .. } => Part::Host,
         }
     }
@@ -323,6 +334,37 @@ impl DoctorReport {
         self
     }
 
+    /// This report with each extension's capabilities and their grant here, the named roots, and what the grants
+    /// warn of (W186, W170): `consent` is this machine's store. A view without a root has no grants to list.
+    pub fn with_grants(
+        mut self,
+        view: &ProjectView,
+        consent: &dyn specforge_effects::Consent,
+    ) -> Self {
+        let Ok(listing) = crate::analysis::grants::list(view, consent) else {
+            return self;
+        };
+        for extension in listing.extensions {
+            if let Some(health) = self
+                .extensions
+                .iter_mut()
+                .find(|h| h.name == extension.extension)
+            {
+                health.capabilities = extension.capabilities;
+            }
+        }
+        self.roots = listing.roots;
+        let codes = view.registries().codes();
+        self.findings.extend(
+            listing
+                .diagnostics
+                .0
+                .iter()
+                .map(|diagnostic| Finding::of(About::Grants, diagnostic, codes)),
+        );
+        self
+    }
+
     /// The one document both surfaces return: `{ok, extensions_ok,
     /// cache_status, installed_count, z3_available, extensions,
     /// enhancements, conflicts: [message…], findings: [...]}`.
@@ -337,6 +379,7 @@ impl DoctorReport {
             enhancements: self.enhancements.clone(),
             conflicts: self.conflicts().map(|f| f.check.clone()).collect(),
             findings: self.findings.clone(),
+            roots: self.roots.clone(),
         }
     }
 }
@@ -360,6 +403,9 @@ pub struct DoctorDocument {
     /// The `check` of each conflicting finding.
     pub conflicts: Vec<String>,
     pub findings: Vec<Finding>,
+    /// The named roots of `specforge.json` ([`DoctorReport::with_grants`]); absent while it names none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub roots: Vec<crate::analysis::grants::RootRow>,
 }
 
 /// The health report of the project the view was compiled from: its loaded
@@ -380,10 +426,11 @@ pub fn diagnose(view: &ProjectView, solver: &dyn Solver) -> DoctorReport {
             source: extension.origin.source(),
             status: extension.status,
             enhancement_count: extension.declaration.map_or(0, |d| d.enhancements.len()),
-            reads: extension
+            inputs: extension
                 .declaration
-                .map(crate::extension::declared_reads)
+                .map(crate::extension::declared_inputs)
                 .unwrap_or_default(),
+            capabilities: Vec::new(),
         })
         .collect();
 
@@ -515,6 +562,7 @@ pub fn diagnose(view: &ProjectView, solver: &dyn Solver) -> DoctorReport {
         enhancements,
         installed_count: view.lock().entries().len(),
         findings,
+        roots: Vec::new(),
     }
 }
 
@@ -522,7 +570,7 @@ pub fn diagnose(view: &ProjectView, solver: &dyn Solver) -> DoctorReport {
 /// so a new part is a compile error here.
 fn about(part: SetupPart, diagnostic: &Diagnostic) -> About {
     match part {
-        SetupPart::Config | SetupPart::Settings => About::Config,
+        SetupPart::Config | SetupPart::Settings | SetupPart::Effects => About::Config,
         SetupPart::Lock => About::Lock,
         SetupPart::Entry(_) => About::Load,
         SetupPart::StructuralOnly => About::StructuralOnly,

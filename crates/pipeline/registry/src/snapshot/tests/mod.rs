@@ -7,7 +7,6 @@ mod text;
 mod validator;
 
 use std::collections::HashSet;
-use std::path::Path;
 
 use specforge_graph::GraphBuild;
 use specforge_protocol_types::{
@@ -16,7 +15,6 @@ use specforge_protocol_types::{
 };
 
 use crate::compilation::{RegistryBuild, build_registries};
-use crate::disk::MemoryDisk;
 use crate::rules::NoVerdicts;
 use crate::snapshot::EntitySnapshot;
 
@@ -90,12 +88,7 @@ fn declared(
 }
 
 fn snapshot(source: &str, registries: &RegistryBuild) -> EntitySnapshot {
-    EntitySnapshot::of(
-        &graph_of(source, registries),
-        registries,
-        Path::new(""),
-        Path::new(""),
-    )
+    EntitySnapshot::of(&graph_of(source, registries), registries)
 }
 
 /// The ids W004 reports on `source` (rules on `behavior` and `type`).
@@ -110,7 +103,7 @@ fn w004_ids(source: &str, abstract_behaviors: bool) -> Vec<String> {
     let snapshot = snapshot(source, &registries);
     let mut ids: Vec<String> = registries
         .rules()
-        .check(&snapshot.rule_input(&MemoryDisk::new()), &NoVerdicts)
+        .check(&snapshot.rule_input(), &NoVerdicts)
         .into_iter()
         .map(|d| d.message.split('\'').nth(1).unwrap().to_string())
         .collect();
@@ -134,7 +127,5 @@ fn a_graph_built_in_another_registry_build_is_not_read() {
             HashSet::new(),
         ),
         &registries,
-        Path::new(""),
-        Path::new(""),
     );
 }

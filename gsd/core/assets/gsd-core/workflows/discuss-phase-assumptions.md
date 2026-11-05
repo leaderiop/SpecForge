@@ -122,7 +122,7 @@ Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md lo
 Check if CONTEXT.md already exists using `has_context` from init.
 
 ```bash
-ls ${phase_dir}/*-CONTEXT.md 2>/dev/null || true
+specforge files list ${phase_dir} --depth 1 --kind file --no-ignore --glob '*-CONTEXT.md' --format human 2>/dev/null || true
 ```
 
 **If exists:**
@@ -603,7 +603,7 @@ Write file.
 Commit phase context and discussion log:
 
 ```bash
-git add spec && git commit -m "docs(${padded_phase}): capture phase context (assumptions mode)" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs(${padded_phase}): capture phase context (assumptions mode)" && specforge collect --runner gsd-git --yes
 ```
 
 Confirm: "Committed: docs(${padded_phase}): capture phase context (assumptions mode)"

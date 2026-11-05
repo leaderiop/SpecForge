@@ -23,7 +23,11 @@ fn compile_cache_dir_is_populated_on_first_load() {
     let runtime = ComponentRuntime::new_with_compile_cache(cache_dir.clone());
     let bytes = std::fs::read(component_path()).expect("fixture component bytes");
     runtime
-        .load("@test/component", &bytes)
+        .load(
+            "@test/component",
+            &bytes,
+            specforge_wasm::Provenance::third_party(&bytes),
+        )
         .expect("fixture component compiles");
     let entries: Vec<_> = std::fs::read_dir(&cache_dir)
         .expect("cache dir exists")
@@ -42,12 +46,20 @@ fn second_runtime_reuses_cache_and_still_loads() {
     let first = ComponentRuntime::new_with_compile_cache(cache_dir.clone());
     let bytes = std::fs::read(component_path()).expect("fixture component bytes");
     first
-        .load("@test/component", &bytes)
+        .load(
+            "@test/component",
+            &bytes,
+            specforge_wasm::Provenance::third_party(&bytes),
+        )
         .expect("first compile");
     // A fresh engine over the same cache dir exercises the deserialize path.
     let second = ComponentRuntime::new_with_compile_cache(cache_dir);
     second
-        .load("@test/component", &bytes)
+        .load(
+            "@test/component",
+            &bytes,
+            specforge_wasm::Provenance::third_party(&bytes),
+        )
         .expect("cache-hit load");
     let result = second.call_export("@test/component", "__handshake", b"");
     match result {
@@ -69,6 +81,10 @@ fn unwritable_cache_dir_degrades_to_no_cache_with_warning() {
     let runtime = ComponentRuntime::new_with_compile_cache(blocker.join("cache"));
     let bytes = std::fs::read(component_path()).expect("fixture component bytes");
     runtime
-        .load("@test/component", &bytes)
+        .load(
+            "@test/component",
+            &bytes,
+            specforge_wasm::Provenance::third_party(&bytes),
+        )
         .expect("component compiles even when cache setup fails");
 }

@@ -1,4 +1,5 @@
 use specforge_common::{Diagnostic, ProjectConfig, ProjectRoot};
+use specforge_effects::Ports;
 use specforge_graph::Graph;
 use specforge_ops::Containment;
 use specforge_ops::analysis::collect::{CollectorMachine, ProcessMachine};
@@ -59,29 +60,43 @@ pub struct McpState {
     /// The SMT solver doctor checks: z3 from PATH unless the host gave
     /// another ([`crate::McpServer::with_solver`]).
     pub(crate) solver: Arc<dyn Solver>,
-    /// The machine `specforge.collect` runs commands on and keeps approvals in: the user's unless the
-    /// host gave another ([`crate::McpServer::with_collector_machine`], ADR 0125).
+    /// The machine `specforge.collect` runs commands on: the user's unless the host gave another
+    /// ([`crate::McpServer::with_collector_machine`], ADR 0125).
     pub(crate) collector_machine: Arc<dyn CollectorMachine>,
+    /// This machine's approvals (ADR 0335 D2.5): the user's consent store for the call's project unless the host
+    /// gave another ([`crate::McpServer::with_consent`]). The server never asks: only what is stored counts.
+    pub(crate) consent: Option<specforge_effects::SharedConsent>,
     /// The host the client named in `initialize` (`clientInfo.name`), when it is one SpecForge renders prompts for.
     pub(crate) host: Option<specforge_ops::host::Host>,
+    /// The effect plane's adapters (ADR 0335), the ones the host built ([`crate::McpServer::over`]): every session
+    /// the server opens asks `ports.git` of version control, and the solver and the collector machine run through
+    /// `ports.process` unless the host gave others.
+    pub(crate) ports: Ports,
 }
 
 impl McpState {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(ports: Ports) -> Self {
         Self {
             phase: ServerPhase::Uninitialized,
             protocol_version: crate::lifecycle::LATEST_PROTOCOL_VERSION,
-            session: ProjectSession::detached(),
+            session: ProjectSession::detached().with_git(Arc::clone(&ports.git)),
             generation: 0,
             surfaces: ExtensionSurfaceTable::empty(),
             root: None,
             events: Box::new(Discard),
             subscriptions: Subscriptions::new(),
             extension_runtime: None,
-            solver: Arc::new(Z3::default()),
-            collector_machine: Arc::new(ProcessMachine::user()),
+            solver: Arc::new(Z3::new(Arc::clone(&ports.process), Z3::DEFAULT_TIMEOUT)),
+            collector_machine: Arc::new(ProcessMachine::new(Arc::clone(&ports.process))),
+            consent: None,
             host: None,
+            ports,
         }
+    }
+
+    /// A session with no project, opening the next one with the server's git port.
+    pub(crate) fn detached(&self) -> ProjectSession {
+        ProjectSession::detached().with_git(Arc::clone(&self.ports.git))
     }
 
     /// The server's root is `root` from now on (`initialize`): the project
@@ -237,7 +252,9 @@ impl McpState {
     /// A session of the project at `root`, its extensions running as
     /// [`Self::source`] says: how another project a call names is opened.
     pub(crate) fn open(&self, root: &ProjectRoot) -> ProjectSession {
-        ProjectSession::open_through(root, self.source(), Some(contained(root)))
+        let mut session = self.detached();
+        session.reopen_through(root, self.source(), Some(contained(root)), |_| {});
+        session
     }
 
     /// Bring the served project up to date with disk (behavior
@@ -303,7 +320,7 @@ impl McpState {
         self.phase = ServerPhase::ShuttingDown;
         // The queue stays: the host sends it after the shutdown response.
         let released = self.subscriptions.disconnect(&mut *self.events);
-        self.session = ProjectSession::detached();
+        self.session = self.detached();
         self.generation += 1;
         self.surfaces = ExtensionSurfaceTable::empty();
         released

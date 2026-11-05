@@ -15,13 +15,17 @@ use specforge_extension_sdk::{
     McpResourceContent, McpResourceRequest, MigrationInput, PassAnswer, ScanRequest, ScanResponse,
     ScannedItem, Served,
 };
-use specforge_protocol_types::{CommandInput as WireCommandInput, DeclaredCategory, RawGraph};
+use specforge_protocol_types::{
+    CommandInput as WireCommandInput, DeclaredCategory, Operation, RawGraph,
+};
 use specforge_wasm::{
-    CallError, CallFailure, ExtensionCalls, Operation, WasmCallResult, WasmRuntime, WasmTrapInfo,
+    CallError, CallFailure, ExtensionCalls, WasmCallResult, WasmRuntime, WasmTrapInfo,
     pass_diagnostics, testing::InProcessRuntime,
 };
 
 use crate::op_table::{export_of, perform};
+
+pub(crate) mod ports;
 
 const EXT: &str = "@calls/x";
 

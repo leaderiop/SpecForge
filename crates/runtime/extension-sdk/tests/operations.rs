@@ -458,3 +458,107 @@ fn the_sdk_collector_answers_facts() {
                "fields": {"cwd": "/p", "file": "a.test.js", "line": 3}}]})
     );
 }
+
+mod checkers {
+    use serde_json::json;
+    use specforge_extension_sdk::prelude::*;
+    use specforge_extension_sdk::{CheckPhase, CheckPlan, CheckValuesInput};
+    use specforge_protocol_types::CHECK_VALUES_EXPORT;
+
+    fn extension() -> ContributionsBuilder {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/values", "1.0.0"));
+        c.checker("no_todo", |k| {
+            k.applies_to(&["string"]).codes(&["W001"]).plan(|item| {
+                PlannedItem::findings(vec![CheckFinding::new("W001", item.text.clone())])
+            });
+        });
+        c.checker("reachable", |k| {
+            k.applies_to(&["string"])
+                .scope("links")
+                .value(ValueForm::Url)
+                .plan(|item| {
+                    PlannedItem::probes(vec![Probe::HttpHead {
+                        url: item.text.clone(),
+                        redirects: 5,
+                    }])
+                })
+                .judge(|item| {
+                    vec![CheckFinding::new(
+                        "W002",
+                        format!("{}", item.outcomes.len()),
+                    )]
+                });
+        });
+        c
+    }
+
+    fn call(phase: CheckPhase, checker: &str) -> Result<Vec<u8>, String> {
+        let input = CheckValuesInput {
+            phase,
+            items: vec![CheckItem {
+                id: 7,
+                checker: checker.into(),
+                text: "t".into(),
+                ..Default::default()
+            }],
+        };
+        let input = serde_json::to_vec(&input).unwrap();
+        extension()
+            .dispatch_export(CHECK_VALUES_EXPORT, &input)
+            .unwrap()
+    }
+
+    fn answered(phase: CheckPhase, checker: &str) -> PlannedItem {
+        let plan: CheckPlan = serde_json::from_slice(&call(phase, checker).unwrap()).unwrap();
+        plan.items.into_iter().next().unwrap()
+    }
+
+    #[test]
+    fn a_checker_is_declared_and_routed_by_name() {
+        let declaration = extension().declaration();
+        assert_eq!(declaration.checkers.len(), 2);
+        assert_eq!(declaration.checkers[1].scopes, ["links"]);
+
+        let plan = answered(CheckPhase::Plan, "no_todo");
+        assert_eq!((plan.id, plan.findings[0].code.as_str()), (7, "W001"));
+        let plan = answered(CheckPhase::Plan, "reachable");
+        assert_eq!(plan.findings, []);
+        assert_eq!(plan.probes.len(), 1);
+
+        let judged = answered(CheckPhase::Judge, "reachable");
+        assert_eq!((judged.id, judged.findings[0].code.as_str()), (7, "W002"));
+        assert_eq!(answered(CheckPhase::Judge, "no_todo").findings, []);
+        assert!(call(CheckPhase::Plan, "other").is_err());
+    }
+
+    #[test]
+    fn a_field_names_its_checks() {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/values", "1.0.0"));
+        c.kind("service", |k| {
+            k.field("docs", |f| {
+                f.field_type(FieldType::String)
+                    .file(Root::Spec)
+                    .check("no_todo")
+                    .check_with("@acme/links:url", json!({"status": "warn"}))
+                    .any_of([CheckRef::named("a"), CheckRef::named("b")]);
+            });
+        });
+        let checks = &c.declaration().entities[0].fields[0].checks;
+        assert_eq!(checks.len(), 4);
+        assert_eq!(
+            serde_json::to_value(&checks[0]).unwrap(),
+            json!({"checker": "@specforge/checks:file", "args": {"root": "spec"}})
+        );
+        assert_eq!(
+            serde_json::to_value(&checks[3]).unwrap(),
+            json!({"any_of": [{"checker": "a"}, {"checker": "b"}]})
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "checker 'x' declares no plan")]
+    fn a_checker_without_a_plan_is_refused_at_build() {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/values", "1.0.0"));
+        c.checker("x", |_| {});
+    }
+}

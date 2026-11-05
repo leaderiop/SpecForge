@@ -28,10 +28,10 @@ pub(crate) struct GcArgs {
 }
 
 impl Action {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let Action::Gc(args) = self;
         let format = args.output.format;
-        let compiled = match args.project.compile() {
+        let compiled = match args.project.compile(ports) {
             Ok(compiled) => compiled,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };

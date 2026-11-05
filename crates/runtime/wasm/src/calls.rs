@@ -22,100 +22,23 @@
 use std::fmt;
 use std::marker::PhantomData;
 
+use crate::ports::PortCall;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use specforge_common::remedy::{DECLARED_LINES, hold_printable, printable};
 use specforge_common::{Diagnostic, DiagnosticData, Severity, SourceSpan, Sym, codes};
 use specforge_protocol_types::{
-    CollectInput, CollectOutput, CommandInput, CommandOutput, DeclaredCategory, DescribeRequest,
-    DescribeResponse, HandshakeRequest, HandshakeResponse, McpResourceContent, McpResourceRequest,
-    MigrationInput, PROTOCOL_VERSION, PassAnswer, PassDiagnostic, PassInput, PassOutput,
-    PassSeverity, PassSpan, PromptInput, PromptOutput, RawGraph, ScanRequest, ScanResponse,
-    ValidatorContext, ValidatorVerdict, pass_export,
+    CHECK_VALUES_EXPORT, CheckPlan, CheckValuesInput, CollectInput, CollectOutput, CommandInput,
+    CommandOutput, DeclaredCategory, DescribeRequest, DescribeResponse, HandshakeRequest,
+    HandshakeResponse, McpResourceContent, McpResourceRequest, MigrationInput, Operation,
+    PROTOCOL_VERSION, PassAnswer, PassDiagnostic, PassInput, PassOutput, PassSeverity, PassSpan,
+    PromptInput, PromptOutput, RawGraph, ScanRequest, ScanResponse, ValidatorContext,
+    ValidatorVerdict, pass_export,
 };
 
 use crate::runtime::{WasmCallResult, WasmRuntime};
 use crate::sandbox::Sandbox;
-
-/// The operation a call performs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Operation {
-    Handshake,
-    Describe,
-    Command,
-    McpTool,
-    McpResource,
-    Pass,
-    Collect,
-    Validate,
-    Scan,
-    Migrate,
-    Prompt,
-    Render,
-    Hook,
-}
-
-impl Operation {
-    /// Whether the host writes its answer's text into its own messages, help and listings (the
-    /// declaration, a pass's diagnostics and summary, a validator's verdict, a prompt's messages), so the answer is read
-    /// printable (ADR 0244). A command's, an MCP tool's or resource's answer is the extension's own
-    /// output, and a collector's or scanner's is data matched against the project: read as answered.
-    pub const fn reads_text(self) -> bool {
-        matches!(
-            self,
-            Operation::Handshake
-                | Operation::Describe
-                | Operation::Pass
-                | Operation::Validate
-                | Operation::Prompt
-                | Operation::Render
-                | Operation::Hook
-        )
-    }
-
-    /// Every operation.
-    pub const ALL: [Operation; 13] = [
-        Operation::Handshake,
-        Operation::Describe,
-        Operation::Command,
-        Operation::McpTool,
-        Operation::McpResource,
-        Operation::Pass,
-        Operation::Collect,
-        Operation::Validate,
-        Operation::Scan,
-        Operation::Migrate,
-        Operation::Prompt,
-        Operation::Render,
-        Operation::Hook,
-    ];
-
-    /// How a message names the operation.
-    pub fn label(self) -> &'static str {
-        match self {
-            Operation::Handshake => "handshake",
-            Operation::Describe => "describe",
-            Operation::Command => "command",
-            Operation::McpTool => "MCP tool",
-            Operation::McpResource => "MCP resource",
-            Operation::Pass => "compiler pass",
-            Operation::Collect => "collector",
-            Operation::Validate => "custom validator",
-            Operation::Scan => "scanner",
-            Operation::Migrate => "migration hook",
-            Operation::Prompt => "MCP prompt",
-            Operation::Render => "renderer",
-            Operation::Hook => "hook",
-        }
-    }
-}
-
-impl fmt::Display for Operation {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.label())
-    }
-}
 
 /// Why a call failed.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -144,6 +67,8 @@ pub struct CallError {
     pub extension: String,
     pub export: String,
     pub failure: CallFailure,
+    /// What the call was refused before it failed (ADR 0335 D4): failing is no way for a guest to hide an E090.
+    pub denials: Vec<Diagnostic>,
 }
 
 impl CallError {
@@ -158,6 +83,7 @@ impl CallError {
             extension: extension.to_string(),
             export: export.to_string(),
             failure,
+            denials: Vec::new(),
         }
     }
 
@@ -221,14 +147,24 @@ pub struct Handshake {
 
 /// The operations on loaded extensions, over a runtime; see the module
 /// docs.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct ExtensionCalls<'r> {
     runtime: &'r dyn WasmRuntime,
+    /// What an effectful call's port requests are served through.
+    lent: Option<PortCall>,
 }
 
 impl<'r> ExtensionCalls<'r> {
     pub fn new(runtime: &'r dyn WasmRuntime) -> Self {
-        ExtensionCalls { runtime }
+        ExtensionCalls {
+            runtime,
+            lent: None,
+        }
+    }
+
+    /// These calls, with `lent` behind the ports of each effectful one (ADR 0335 D4). No other call sees it.
+    pub fn with_ports(self, lent: Option<PortCall>) -> Self {
+        ExtensionCalls { lent, ..self }
     }
 
     /// `value` encoded once, for [`Self::run_pass`]. Never fails: a value
@@ -435,6 +371,21 @@ impl<'r> ExtensionCalls<'r> {
         )
     }
 
+    /// An extension's value checkers on `input`: its plans or its judgements, by the input's phase (ADR 0336).
+    pub fn check_values(
+        &self,
+        extension: &str,
+        input: &CheckValuesInput,
+    ) -> Result<CheckPlan, CallError> {
+        self.call_typed(
+            Operation::CheckValues,
+            extension,
+            CHECK_VALUES_EXPORT,
+            input,
+            "CheckPlan",
+        )
+    }
+
     /// An analyzer's scan export on one source file.
     pub fn scan(
         &self,
@@ -480,8 +431,14 @@ impl<'r> ExtensionCalls<'r> {
         bytes: &[u8],
         expected: &'static str,
     ) -> Result<O, CallError> {
-        let answer = self.call_raw(operation, extension, export, bytes)?;
-        decode(operation, extension, export, &answer, expected)
+        self.call_raw(operation, extension, export, bytes)
+            .and_then(|answer| decode(operation, extension, export, &answer, expected))
+            .map_err(|mut error| {
+                if let Some(lent) = &self.lent {
+                    error.denials = lent.take_denials();
+                }
+                error
+            })
     }
 
     /// The members every call but the handshake and describe carries (ADR 0288): the extension's own settings
@@ -534,10 +491,14 @@ impl<'r> ExtensionCalls<'r> {
             }
             None => bytes,
         };
-        match self
-            .runtime
-            .call_export_within(extension, export, bytes, max_ms)
-        {
+        let answer = if operation.is_effectful() {
+            self.runtime
+                .call_with_ports(extension, export, bytes, operation, self.lent.clone())
+        } else {
+            self.runtime
+                .call_export_within(extension, export, bytes, max_ms)
+        };
+        match answer {
             WasmCallResult::Ok(answer) => Ok(answer),
             WasmCallResult::Trap(trap) => {
                 let failure = if trap.kind == "extension_not_found" {

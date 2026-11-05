@@ -1,10 +1,10 @@
 //! What a hook is told that its sandbox cannot read (ADR 0292): the paths its tool names with what the disk says of
 //! them, a shell tool's command as words, and the commit a `git commit` makes.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde_json::Value;
-use specforge_project::history::{History, Located};
+use specforge_effects::git::{Git, Located};
 use specforge_protocol_types::{CommitFact, GitFacts, PathFact};
 
 use crate::host::shell;
@@ -27,37 +27,11 @@ pub fn path_names(input: &Value) -> Vec<String> {
     out
 }
 
-/// `path` made absolute against `cwd`, with `.` and `..` resolved and, as far as the path exists, its links.
-fn absolute(cwd: &Path, path: &str) -> PathBuf {
-    let joined = if Path::new(path).is_absolute() {
-        PathBuf::from(path)
-    } else {
-        cwd.join(path)
-    };
-    // Component by component, so a link is followed before a `..` after it (as the OS does) and a path that does not
-    // exist yet is its nearest existing ancestor's real path plus the rest.
-    let mut resolved = PathBuf::new();
-    for part in joined.components() {
-        match part {
-            std::path::Component::ParentDir => {
-                resolved.pop();
-            }
-            std::path::Component::CurDir => {}
-            other => {
-                resolved.push(other);
-                if let Ok(real) = std::fs::canonicalize(&resolved) {
-                    resolved = real;
-                }
-            }
-        }
-    }
-    resolved
-}
-
 /// `path` relative to `root` with `/`, when it lies inside.
 pub fn relative_to(root: &Path, cwd: &Path, path: &str) -> Option<String> {
     let real_root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
-    let inside = absolute(cwd, path);
+    // Made absolute against `cwd` and walked link by link, so a link is followed before a `..` after it (ADR 0335).
+    let inside = specforge_effects::RealFs::landing(&cwd.join(path));
     let rel = inside.strip_prefix(&real_root).ok()?;
     Some(rel.to_string_lossy().replace('\\', "/"))
 }
@@ -79,7 +53,9 @@ pub fn path_facts(root: &Path, cwd: &Path, spec_root: &str, input: &Value) -> Ve
                     || rel == spec_root
                     || rel.starts_with(&format!("{spec_root}/"));
                 PathFact {
-                    real: absolute(cwd, &name).to_string_lossy().into_owned(),
+                    real: specforge_effects::RealFs::landing(&cwd.join(&name))
+                        .to_string_lossy()
+                        .into_owned(),
                     path: rel,
                     in_project: true,
                     in_spec_root,
@@ -90,7 +66,9 @@ pub fn path_facts(root: &Path, cwd: &Path, spec_root: &str, input: &Value) -> Ve
                 }
             }
             None => PathFact {
-                real: absolute(cwd, &name).to_string_lossy().into_owned(),
+                real: specforge_effects::RealFs::landing(&cwd.join(&name))
+                    .to_string_lossy()
+                    .into_owned(),
                 path: name,
                 in_project: false,
                 in_spec_root: false,
@@ -104,8 +82,8 @@ pub fn path_facts(root: &Path, cwd: &Path, spec_root: &str, input: &Value) -> Ve
 }
 
 /// What git says of the repository `cwd` is in (ADR 0320): none outside one, or when git cannot be asked. `status`
-/// adds the porcelain status; a branch git cannot give is empty, a status it cannot give is none.
-pub fn git(history: &dyn History, cwd: &Path, status: bool) -> Option<GitFacts> {
+/// adds the typed status; a branch git cannot give is empty, a status it cannot give is none.
+pub fn git(history: &dyn Git, cwd: &Path, status: bool) -> Option<GitFacts> {
     let Located::Repo(place) = history.locate(cwd) else {
         return None;
     };
@@ -114,7 +92,7 @@ pub fn git(history: &dyn History, cwd: &Path, status: bool) -> Option<GitFacts> 
         git_dir: place.git_dir.to_string_lossy().into_owned(),
         branch: history.branch(&place).unwrap_or_default(),
         status: if status {
-            history.status(&place).ok().map(|status| status.porcelain)
+            history.status(&place).ok()
         } else {
             None
         },
@@ -124,7 +102,7 @@ pub fn git(history: &dyn History, cwd: &Path, status: bool) -> Option<GitFacts> 
 /// For a path outside the project, the repository it is in and whether it is inside a `.git` directory (ADR 0320).
 // shortcut: `in_git_dir` is by name, so a `--separate-git-dir` repository's directory is not seen; upgrade when a
 // hook needs it.
-pub fn outside_git(history: &dyn History, fact: &mut PathFact) {
+pub fn outside_git(history: &dyn Git, fact: &mut PathFact) {
     let real = Path::new(&fact.real);
     fact.in_git_dir = real.components().any(|c| c.as_os_str() == ".git");
     if let Some(Located::Repo(place)) = real
@@ -320,12 +298,10 @@ mod tests {
         std::fs::create_dir_all(base.join("wt")).unwrap();
         std::os::unix::fs::symlink(base.join("main/src"), base.join("wt/mainsrc")).unwrap();
         let wt = base.join("wt");
-        assert_eq!(
-            absolute(&wt, "mainsrc/new/a.ts"),
-            base.join("main/src/new/a.ts")
-        );
+        let landing = |path: &str| specforge_effects::RealFs::landing(&wt.join(path));
+        assert_eq!(landing("mainsrc/new/a.ts"), base.join("main/src/new/a.ts"));
         // `..` after a link is the link target's parent, as the OS reads it.
-        assert_eq!(absolute(&wt, "mainsrc/../x.ts"), base.join("main/x.ts"));
+        assert_eq!(landing("mainsrc/../x.ts"), base.join("main/x.ts"));
     }
 
     fn commit_of(command: &str) -> Option<CommitFact> {

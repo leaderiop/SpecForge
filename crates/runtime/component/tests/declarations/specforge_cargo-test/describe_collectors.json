@@ -8,6 +8,7 @@
           "Cargo.toml"
         ]
       },
+      "capability": "cargo-test",
       "capture": "stdout",
       "export": "collect__cargo_test",
       "input_formats": [
@@ -15,13 +16,7 @@
         "libtest-stdout"
       ],
       "name": "cargo-test",
-      "report": "target/specforge",
-      "run": [
-        "cargo",
-        "test",
-        "--workspace",
-        "--no-fail-fast"
-      ]
+      "report": "target/specforge"
     }
   ]
 }

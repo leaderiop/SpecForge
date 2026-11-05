@@ -6,6 +6,7 @@ use std::path::Path;
 use serde_json::Value;
 
 use crate::baseline::{self, Baseline, FileSizes};
+use crate::blob_size;
 use crate::checks::{self, Selection};
 use crate::doc_links;
 use crate::judge;
@@ -229,8 +230,10 @@ pub fn guests(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     for (manifest, passes) in runs {
         for &(what, before, after) in passes {
             let mut cmd = ctx.cmd("cargo");
+            // What `build-blobs` does: an incremental guest is another build than CI's.
             cmd.env("CARGO_TARGET_DIR", &target)
-                .env("SPECFORGE_REPORT", &reports);
+                .env("SPECFORGE_REPORT", &reports)
+                .env_remove("CARGO_INCREMENTAL");
             cmd.args(before)
                 .args(["--manifest-path", &manifest])
                 .args(after);
@@ -366,6 +369,17 @@ pub fn file_size(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     }
 }
 
+pub fn blob_size(ctx: &Ctx, _: &Selection) -> Result<(), String> {
+    let source = if ctx.mode == Mode::Hook {
+        blob_size::Source::Staged
+    } else {
+        blob_size::Source::Working
+    };
+    let found = blob_size::measure(&ctx.repo.root, &tracked_paths(ctx)?, source);
+    ctx.log(&format!("{} blobs, cap {} B", found.len(), blob_size::CAP));
+    finish(blob_size::verdict(&found))
+}
+
 pub fn specs(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     let found = project_diagnostics(ctx)?;
     let verdict = judge::spec_verdict(&found, &Baseline::read(&ctx.repo.root)?.specs, false);
@@ -491,7 +505,8 @@ fn first_problem(lines: &[String]) -> String {
         .map_or_else(String::new, |l| l.trim().to_string())
 }
 
-/// `specforge check --path <project> --format json` for every project: each one's diagnostics.
+/// `specforge check --path <project> --format json --effects cached` for every project: each one's diagnostics. The
+/// gate never reaches the network: it judges what the effects journal holds (ADR 0337 D7).
 fn project_diagnostics(ctx: &Ctx) -> Result<BTreeMap<String, Vec<Value>>, String> {
     let specforge = ctx.specforge()?;
     let mut found = BTreeMap::new();
@@ -502,6 +517,8 @@ fn project_diagnostics(ctx: &Ctx) -> Result<BTreeMap<String, Vec<Value>>, String
             &project.root,
             "--format",
             "json",
+            "--effects",
+            "cached",
         ]))?;
         let diagnostics: Value = serde_json::from_str(&out).map_err(|e| {
             format!(

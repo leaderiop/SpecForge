@@ -2,9 +2,10 @@
 //! `hook__*` export, what a hook answers, and the time a hook is held to.
 
 use serde_json::Value;
+use specforge_protocol_types::Operation;
 use specforge_protocol_types::{HookInput, HookOutput, RawGraph, RenderInput};
 use specforge_wasm::testing::InProcessRuntime;
-use specforge_wasm::{CallFailure, ExtensionCalls, Operation};
+use specforge_wasm::{CallFailure, ExtensionCalls};
 
 const EXT: &str = "@calls/host";
 

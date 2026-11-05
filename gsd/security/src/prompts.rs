@@ -162,7 +162,7 @@ fn handle(call: &PromptCall<'_>) -> Result<PromptOutput, String> {
 pub fn declare(c: &mut ContributionsBuilder) {
     c.prompt(ID, |p| {
         p.title("Verify a phase's threat mitigations")
-            .reads_graph()
+            .input(Input::Graph)
             .description(DESCRIPTION)
             .attribution(gsd_kit::agent::attribution("commands/gsd/secure-phase.md"));
         args::declare(p, ARGS);

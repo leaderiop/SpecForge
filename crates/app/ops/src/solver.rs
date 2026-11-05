@@ -1,19 +1,19 @@
 //! The SMT solver the prove pass asks and doctor checks (ADR 0079).
 //!
 //! One port, [`Solver`]: whether the solver runs here, and its answer to one
-//! SMT-LIB2 script. [`Z3`] is the production adapter: it runs `z3` from `PATH`,
-//! ends every call at a timeout (its probe at [`Z3::PROBE_TIMEOUT`], a solve at
-//! its own), and words the one W098 that says z3 does not run. Tests use
+//! SMT-LIB2 script. [`Z3`] is the production adapter: it runs `z3` from `PATH`
+//! through the effect plane's Process port (ADR 0335), ends every call at a
+//! deadline (its probe at [`Z3::PROBE_TIMEOUT`], a solve at its own), and words
+//! the one W098 that says z3 does not run. Tests use
 //! `specforge_ops::testing::ScriptedSolver`.
 
-use std::ffi::OsString;
-use std::process::{Command, ExitStatus};
 use std::time::Duration;
 #[cfg(test)]
 use std::time::Instant;
 
-use specforge_common::process::{Ran, RunError, run};
 use specforge_common::{Diagnostic, codes};
+use specforge_effects::process::request;
+use specforge_effects::{Output, ProcessClass, ProcessOutcome, SharedProcess};
 
 /// What `specforge analyze --prove` (the prove pass) and doctor (its toolchain
 /// finding) ask an SMT solver.
@@ -45,10 +45,11 @@ pub enum SolveFailure {
     Failed,
 }
 
-/// The production adapter: `z3` from `PATH`.
-#[derive(Debug, Clone)]
+/// The production adapter: `z3` from `PATH`, run by `process`.
+#[derive(Clone)]
 pub struct Z3 {
-    program: OsString,
+    process: SharedProcess,
+    program: std::path::PathBuf,
     timeout: Duration,
     probe_timeout: Duration,
 }
@@ -60,10 +61,12 @@ impl Z3 {
     /// How long `z3 --version` may take before z3 counts as not running.
     pub const PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 
-    /// z3 from `PATH`, each solve stopped past `timeout`.
-    pub fn with_timeout(timeout: Duration) -> Self {
+    /// z3 from `PATH`, run by `process`, each solve stopped past `timeout` ([`Self::DEFAULT_TIMEOUT`] unless
+    /// `--prove-timeout` says otherwise).
+    pub fn new(process: SharedProcess, timeout: Duration) -> Self {
         Self {
-            program: OsString::from("z3"),
+            process,
+            program: std::path::PathBuf::from("z3"),
             timeout,
             probe_timeout: Self::PROBE_TIMEOUT,
         }
@@ -87,42 +90,48 @@ impl Z3 {
 impl Z3 {
     /// The adapter over another program and probe timeout: a test's fake `z3`.
     pub(crate) fn at(
-        program: impl Into<OsString>,
+        program: impl AsRef<std::path::Path>,
         timeout: Duration,
         probe_timeout: Duration,
     ) -> Self {
         Self {
-            program: program.into(),
-            timeout,
+            program: program.as_ref().to_path_buf(),
             probe_timeout,
+            ..Self::new(std::sync::Arc::new(specforge_process::Runner), timeout)
         }
     }
 }
 
-impl Default for Z3 {
-    fn default() -> Self {
-        Self::with_timeout(Self::DEFAULT_TIMEOUT)
+impl Z3 {
+    /// `z3` with `args`, stopped past `deadline`.
+    fn run(&self, args: &[&str], deadline: Duration) -> ProcessOutcome {
+        // A request carries words: a program path that is not one is refused, never mangled into another path.
+        let Some(program) = self.program.to_str() else {
+            return ProcessOutcome::of(ProcessClass::CannotStart(format!(
+                "its program path is not UTF-8: {}",
+                self.program.display()
+            )));
+        };
+        let argv = std::iter::once(program).chain(args.iter().copied());
+        let mut asked = request(argv, deadline);
+        asked.text = true;
+        self.process
+            .run(&asked, &std::env::temp_dir(), Output::Buffer)
     }
 }
 
 impl Solver for Z3 {
     fn availability(&self) -> Availability {
-        let why = match run(
-            Command::new(&self.program).arg("--version"),
-            self.probe_timeout,
-        ) {
-            Ok(ran) if ran.status.success() => {
+        let ran = self.run(&["--version"], self.probe_timeout);
+        let why = match ran.class {
+            ProcessClass::Exited(0) => {
                 return Availability::Ready {
                     version: ran.text().lines().next().unwrap_or("z3").trim().to_string(),
                 };
             }
-            Ok(Ran { status, .. }) => Unrunnable::Exited(status),
-            Err(RunError::NotFound) => Unrunnable::NotOnPath,
-            Err(RunError::CannotStart(error)) => Unrunnable::CannotStart(error.to_string()),
-            Err(RunError::TimedOut) => Unrunnable::ProbeTimedOut(self.probe_timeout),
-            Err(RunError::Lost) => {
-                Unrunnable::CannotStart("it ended without an answer".to_string())
-            }
+            ProcessClass::NotFound => Unrunnable::NotOnPath,
+            ProcessClass::DeadlineExceeded => Unrunnable::ProbeTimedOut(self.probe_timeout),
+            other => Unrunnable::Ran(other),
         };
         Availability::Unavailable(unavailable(why))
     }
@@ -136,14 +145,14 @@ impl Solver for Z3 {
             COUNTER.fetch_add(1, Ordering::Relaxed)
         ));
         std::fs::write(&tmp, script).map_err(|_| SolveFailure::Failed)?;
-        let result = run(Command::new(&self.program).arg(&tmp), self.timeout);
+        let ran = self.run(&[&tmp.to_string_lossy()], self.timeout);
         let _ = std::fs::remove_file(&tmp);
-        match result {
-            Ok(ran) => Ok(ran.text()),
-            Err(RunError::TimedOut) => Err(SolveFailure::TimedOut {
+        match ran.class {
+            ProcessClass::Exited(_) => Ok(ran.text()),
+            ProcessClass::DeadlineExceeded => Err(SolveFailure::TimedOut {
                 after: self.timeout,
             }),
-            Err(_) => Err(SolveFailure::Failed),
+            _ => Err(SolveFailure::Failed),
         }
     }
 }
@@ -151,8 +160,8 @@ impl Solver for Z3 {
 /// Why z3 does not run here.
 enum Unrunnable {
     NotOnPath,
-    Exited(ExitStatus),
-    CannotStart(String),
+    /// `z3 --version` ran or tried to and gave no version: how, in the words that follow it.
+    Ran(ProcessClass),
     ProbeTimedOut(Duration),
 }
 
@@ -167,12 +176,8 @@ fn unavailable(why: Unrunnable) -> Diagnostic {
             format!("the SMT solver z3 is not on PATH: {SKIPPED}"),
             "install z3 (https://github.com/Z3Prover/z3) and put it on PATH",
         ),
-        Unrunnable::Exited(status) => (
-            format!("the SMT solver z3 does not run (`z3 --version` failed: {status}): {SKIPPED}"),
-            REINSTALL,
-        ),
-        Unrunnable::CannotStart(error) => (
-            format!("the SMT solver z3 does not run ({error}): {SKIPPED}"),
+        Unrunnable::Ran(class) => (
+            format!("the SMT solver z3 does not run (`z3 --version` {class}): {SKIPPED}"),
             REINSTALL,
         ),
         Unrunnable::ProbeTimedOut(after) => (
@@ -189,7 +194,10 @@ fn unavailable(why: Unrunnable) -> Diagnostic {
 /// answers.
 #[cfg(test)]
 pub(crate) fn real_z3() -> Z3 {
-    let z3 = Z3::default();
+    let z3 = Z3::new(
+        std::sync::Arc::new(specforge_process::Runner),
+        Z3::DEFAULT_TIMEOUT,
+    );
     assert!(
         matches!(z3.availability(), Availability::Ready { .. }),
         "z3 is required for this test: install it (brew install z3 / apt-get install z3); CI installs it"
@@ -219,11 +227,9 @@ mod tests {
     )]
     fn process_outliving_the_timeout_is_killed() {
         let started = Instant::now();
-        let out = run(
-            std::process::Command::new("sleep").arg("30"),
-            Duration::from_millis(200),
-        );
-        assert!(matches!(out, Err(RunError::TimedOut)));
+        let z3 = Z3::at("sleep", Duration::from_secs(30), Duration::from_secs(5));
+        let out = z3.run(&["30"], Duration::from_millis(200));
+        assert_eq!(out.class, ProcessClass::DeadlineExceeded);
         assert!(started.elapsed() < Duration::from_secs(10));
     }
 
@@ -235,11 +241,9 @@ mod tests {
     fn a_solver_that_leaves_a_child_is_stopped_at_the_timeout() {
         // `sh` forks `sleep`, which keeps the stdout pipe after `sh` is killed.
         let started = Instant::now();
-        let out = run(
-            std::process::Command::new("sh").args(["-c", "sleep 30; true"]),
-            Duration::from_millis(200),
-        );
-        assert!(matches!(out, Err(RunError::TimedOut)));
+        let z3 = Z3::at("sh", Duration::from_secs(30), Duration::from_secs(5));
+        let out = z3.run(&["-c", "sleep 30; true"], Duration::from_millis(200));
+        assert_eq!(out.class, ProcessClass::DeadlineExceeded);
         assert!(
             started.elapsed() < Duration::from_secs(10),
             "{:?}",
@@ -314,8 +318,7 @@ mod tests {
             panic!("a z3 that exits 1 does not run")
         };
         assert!(
-            w098.message
-                .contains("`z3 --version` failed: exit status: 1"),
+            w098.message.contains("`z3 --version` exited with status 1"),
             "{}",
             w098.message
         );

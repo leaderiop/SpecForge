@@ -39,6 +39,7 @@ Commands:
   logout        Remove registry credentials
   providers     List configured providers
   settings      List each extension's settings: the value, where it came from, what it gates and each secret's status
+  grants        List what the project's extensions may make the host do and this machine's approvals of it
   collect       Run the project's test runners and record which entities their tests prove
   harness       The harness ledger: specforge-harness records the values only a command's plan sets
   hook          Run one hook for a host's event: read from stdin, answered on stdout in the host's own protocol
@@ -51,6 +52,10 @@ Commands:
   explain       Explain a diagnostic code
   infer-status  Show inference progress (analyzed files, gaps, stale entries)
   extension     Extension authoring commands
+  files         Stat, list, search, change and digest files in the project's roots: the Fs port for people and agents (ADR 0339)
+  http          Send an HTTP request under the project's effects ceiling: its answer as JSON, a declared secret attached by --secret and never shown (ADR 0339)
+  git           Read and change the repository the project is in, with no git program: its place, history and status, and commits, branches, worktrees and merges under the effects ceiling, as JSON (ADR 0339)
+  run           Run a program: its output and exit pass through (124 at --deadline, 127 not found, 126 cannot start), or --format json captures them (ADR 0339)
   help          Print this message or the help of the given subcommand(s)
 
 Options:

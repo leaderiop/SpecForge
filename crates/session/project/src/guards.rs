@@ -28,7 +28,7 @@ pub(crate) fn run(
     let report = env
         .registries()
         .guard_passes()
-        .any(|declared| declared.reads_tests())
+        .any(|declared| declared.inputs().tests())
         .then(|| read_report(env.root(), entities, disk));
     let context = PassContext {
         previous: Some(previous),

@@ -285,62 +285,17 @@ behavior compute_field_values "Compute Field Values" {
   verify unit "a computed field or member is never required and never scaffolded"
   verify unit "every surface shows a computed value as a field and marks it computed"
   verify unit "the graph a command and a writing collector receive carries the computed values"
-  verify unit "the graph a reads_graph hook receives carries the computed values"
+  verify unit "the graph a hook with the graph input receives carries the computed values"
   verify unit "a call over a checked project runs no compute pass"
   verify unit "hover marks a computed field and completion offers none"
   verify unit "MCP inspect shows a computed value"
-}
-
-behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
-  features   [wasm_host_function_api]
-  invariants [wasm_sandbox_integrity]
-  category   command
-  types      [ExtensionDeclaration, SandboxPolicy]
-  ports      [WasmRuntime]
-  requires {
-    sandbox_policy_ready    "sandbox policy has been computed for the extension"
-    contribution_type_known "the contribution type of the current export call site is known"
-  }
-  ensures {
-    contribution_permission_denied_emitted "contribution_permission_denied event is emitted when unauthorized host function is called"
-    per_call_site_enforced                 "permissions are enforced per export call site, not per extension"
-    unauthorized_calls_rejected            "calls to unauthorized host functions are rejected"
-  }
-  contract   """
-    Host function permissions MUST be enforced per export call site, not
-    per extension. An extension's validator export MUST only access query_graph
-    and emit_diagnostic. An extension's renderer export MUST additionally
-    access emit_file. An extension's provider export MUST additionally access
-    http_get. An extension's entity contribution exports MUST only access
-    query_graph, add_graph_node, and add_graph_edge. Collector contributions
-    MUST only access query_graph and emit_file. An extension's parser
-    contribution exports MUST only access emit_diagnostic, add_graph_node,
-    add_graph_edge, and read_file. Parsers do NOT get query_graph because
-    they run during graph construction, not after (per ADR
-    extension_file_parsers). Calls to unauthorized host functions MUST be
-    rejected.
-
-    Surface contributions (cmd__, mcp__ exports) are granted no
-    capability at all (invariant surface_sandbox_ceiling,
-    behaviors/surface-contributions.spec). This behavior covers
-    compile-time contribution call sites only.
-  """
-  produces   [contribution_permission_denied]
-  verify unit "validator export limited to query_graph and emit_diagnostic"
-  verify unit "renderer export additionally allows emit_file"
-  verify unit "provider export additionally allows http_get"
-  verify unit "entity contribution export limited to query_graph, add_graph_node, and add_graph_edge"
-  verify unit "collector contribution export limited to query_graph and emit_file"
-  verify unit "parser contribution export limited to emit_diagnostic, add_graph_node, add_graph_edge, and read_file"
-  verify unit "unauthorized host function call is rejected"
-  verify contract "Enforce Per-Call-Site Permissions: per-call-site permission enforcement holds — sandbox_policy_ready, contribution_type_known, contribution_permission_denied_emitted, per_call_site_enforced, unauthorized_calls_rejected"
 }
 
 // -- Collector Contribution Behaviors -----
 
 // Cross-ref: the collect flow (ADR 0002) spans these behaviors:
 // register_collector_contributions → auto_detect_collector →
-// approve_collector_command → run_collector_command → dispatch_collector →
+// approve_capability → run_collector_command → dispatch_collector →
 // ingest_collector_report. The CLI entry point is `specforge collect`; the
 // MCP entry point is provide_mcp_collect_tool (behaviors/mcp-operations.spec).
 behavior register_collector_contributions "Register Collector Contributions" {
@@ -402,6 +357,10 @@ behavior auto_detect_collector "Auto-Detect Collector" {
     available.
   """
   produces   []
+  verify unit "a collector reading check outcomes is not run by a plain collect"
+  verify unit "a check outcomes input on anything but a collector is W021 and served empty"
+  verify unit "checks.publish adds a collector reading check outcomes to a plain collect, and never to a reports run"
+  verify unit "a collect owes the values phase only when a selected collector reads check outcomes"
   verify unit "file pattern match selects collector"
   verify unit "wildcards match within the last path segment"
   verify unit "no match emits E058 with available collectors"
@@ -409,49 +368,64 @@ behavior auto_detect_collector "Auto-Detect Collector" {
   verify contract "Auto-Detect Collector: collector auto-detection holds — collector_registered_fired, all_matches_selected, runner_flag_selects_one, single_collector_used, no_match_diagnosed"
 }
 
-behavior approve_collector_command "Approve Collector Command" {
+behavior approve_capability "Approve Capability" {
   invariants [extension_isolation]
   category   validation
-  types      [CollectorDescriptor]
-  ports      [CollectorMachine]
+  types      [CollectorDescriptor, CapabilityApproval, RootApproval]
+  ports      [Consent, CollectorMachine]
   requires {
-    command_declared "the selected collector declares a command"
+    command_declared "the selected collector names a process capability its extension declares"
   }
   ensures {
     consent_outside_project   "approvals are stored in the user-level consent store, never in the project"
-    changed_command_reprompts "an approval covers one project, extension, collector and exact argv; any change asks again"
+    changed_command_reprompts "an approval covers one project, extension provenance and scope; a wider scope, a new argv or another blob asks again"
     non_interactive_refuses   "without a terminal, or with JSON output, an unapproved command is refused with E059 unless --yes is passed"
   }
   contract   """
-    `specforge collect` runs a collector's command only after the user
-    approves it. It shows the extension, the project root and the exact
-    command, asks once (y or yes, in any case, approves; any other answer
-    refuses), and remembers the answer per project, extension,
-    collector and argv in `~/.specforge/collector-consent.json`
-    (`$SPECFORGE_CONSENT_FILE` overrides). The store lives outside the
-    project, so a cloned repository can't approve its own commands. A
-    changed command asks again. Without a terminal, or with `--format
-    json`, nothing is asked: an unapproved command fails with E059, `--yes`
-    runs it without recording an approval, and `--no-run` parses an
-    existing report. The MCP server never prompts and runs only approved
-    commands. With several collectors, every approval is asked before any
-    command runs.
+    An extension's effects run only through its grant (ADR 0335 D2): what
+    it declares as a capability, held to the call kind's gate and the
+    project's effects ceiling, and approved on this machine. A collector's
+    command is its extension's process capability, so `specforge collect`
+    runs it only once this machine approves that capability, and a root
+    outside the project an fs capability reads needs its own approval.
+    Every approval a run needs is decided before its first effect: a
+    terminal is asked once per scope or root, showing the extension and
+    the command or what the scope allows (y or yes, in any case, approves;
+    any other answer refuses), and a yes is remembered in
+    `~/.specforge/consent.json` (`$SPECFORGE_CONSENT_FILE` overrides; a
+    store inside the project is refused, whichever names it). An approval is keyed by project,
+    extension, provenance (a builtin by its name, a third-party extension
+    by its blob's digest) and scope, and stores the granted scope whole:
+    it covers a narrower grant, while a wider scope, a changed command or
+    a new blob asks again. `specforge grants` lists, approves and revokes
+    them. The store lives outside the project, so a cloned repository
+    can't approve its own effects; one that cannot be used is W186 and
+    approves nothing. Without a terminal, or with `--format json`,
+    nothing is asked: an unapproved command fails with E059, `--yes` runs
+    it without recording an approval, and `--no-run` parses an existing
+    report. A command the grant refuses (a ceiling that turns process off,
+    a command the capability does not declare) is E090 before anything
+    runs. The MCP server never prompts and runs only approved commands.
   """
   produces   []
-  verify unit "consent is keyed by project, extension and command"
+  verify unit "an approval is keyed by project, extension provenance and scope, and covers narrower grants"
+  verify unit "the consent store is replaced privately and atomically, never through a link"
+  verify unit "an approval is never written over a consent store that cannot be read"
+  verify integration "a third-party collector asks again after its blob changes"
+  verify integration "a ceiling that turns process off refuses collect with E090 before anything runs"
   verify integration "unapproved command without a terminal fails with E059 and runs nothing"
   verify integration "--yes runs the declared command"
   verify unit "a terminal that can answer is asked; with nobody to ask, or under --format json, only an approved command runs"
-  verify contract "Approve Collector Command: consent holds — command_declared, consent_outside_project, changed_command_reprompts, non_interactive_refuses"
+  verify contract "Approve Capability: consent holds — command_declared, consent_outside_project, changed_command_reprompts, non_interactive_refuses"
 }
 
 behavior run_collector_command "Run Collector Command" {
   invariants [extension_isolation]
   category   command
   types      [CollectorDescriptor]
-  ports      [FileSystem, CollectorMachine]
+  ports      [FileSystem, CollectorMachine, Process]
   requires {
-    command_approved "approve_collector_command allowed the command"
+    command_approved "approve_capability allowed the command"
   }
   ensures {
     report_inside_project  "a report location outside the project (absolute or with ..) is refused with E058"
@@ -493,6 +467,8 @@ behavior run_collector_command "Run Collector Command" {
   verify unit "an unknown capture is refused"
   verify unit "a detected collector with no evidence is skipped and the others are kept"
   verify unit "a named collector with no evidence is still E045"
+  verify unit "a collector command past its deadline is stopped"
+  verify unit "a .cmd shim on PATH runs as a collector command on Windows"
   verify contract "Run Collector Command: collector command execution holds — command_approved, report_inside_project, stale_report_ignored, report_path_exported, failing_tests_recorded, refused_before_running"
 }
 
@@ -551,12 +527,16 @@ behavior dispatch_collector "Dispatch Collector" {
     change under the write lock.
   """
   produces   [collector_dispatched]
+  verify unit "a collector named by the runner receives each checked value's outcome"
+  verify unit "a collector reading check outcomes needs no command and no report"
+  verify unit "published outcomes are stored under the collect key"
   verify unit "reads a file or every json file in a directory"
   verify unit "the collector receives a CollectInput and answers a CollectOutput, and an answer that is not one is an error naming the collector"
   verify unit "--report reads only the named files, whatever the collector declares"
   verify unit "each report file reaches the collector by its project path, however it was named"
   verify unit "a collector receives the facts of the files it declares it reads, and none when it declares none"
   verify unit "a collector's read is held to the project and withholds a credential's text, as a pass's is"
+  verify unit "a read path whose case differs from the disk is absent on every OS"
   verify unit "every collector is sent the project root as cwd; only a writing collector the date, the graph and the revisions"
   verify unit "a collector's facts are stored under the key of the commit they were collected at and their digest is recorded in specforge-harness"
   verify unit "facts that name a kind no collector writes, or an id outside its kind's schemes, are E116 and none of them is stored"
@@ -745,7 +725,12 @@ behavior run_doctor_check "Run Doctor Check" {
     remediation that names a command MUST name one the user can run as
     written. A finding whose diagnostic offers no
     suggestion of its own MUST quote the catalogue's explanation of its
-    code. specforge doctor --format json MUST produce machine-readable
+    code. Doctor MUST list each extension's capabilities with their grant
+    here, as specforge grants lists them, and the named roots of
+    specforge.json; a consent store it cannot use is a W186 grants finding,
+    and an extension whose capabilities a run here uses unapproved is one
+    W170 grants finding, never one for a capability nothing here uses (ADR
+    0335 D2). specforge doctor --format json MUST produce machine-readable
     JSON output for CI integration.
   """
   produces   [doctor_check_completed]
@@ -776,6 +761,8 @@ behavior run_doctor_check "Run Doctor Check" {
   verify integration "doctor reports a lock entry whose hash is not ASCII as an unreadable lock, without crashing"
   verify contract "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
   verify unit "a stored token expiry that is not an RFC 3339 timestamp makes the credential store unreadable, and doctor writes no control character"
+  verify unit "doctor lists each capability with its grant here, and W170 only for the scopes a run here uses"
+  verify unit "a consent store doctor cannot use is a W186 grants finding"
 }
 
 // -- Extension Source Resolution -----

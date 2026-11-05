@@ -40,7 +40,7 @@ milestone sequence or remove stale entries.
 
 6. **Commit changes:**
    ```bash
-   git add spec && git commit -m "docs: review backlog — promoted N, removed M" && specforge collect --runner gsd-git --yes
+   specforge git commit --add spec -m "docs: review backlog — promoted N, removed M" && specforge collect --runner gsd-git --yes
    ```
 
 7. **Report summary:**

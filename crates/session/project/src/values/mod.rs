@@ -1,0 +1,798 @@
+//! The values phase (ADR 0336): every value whose field has checks, planned by its checkers, its findings placed on
+//! the value. It reads the authored snapshot, so a computed or collected value is never checked.
+
+mod budget;
+mod cache;
+mod collect;
+mod dispatch;
+mod local;
+mod network;
+mod place;
+
+use std::collections::{BTreeMap, HashSet};
+
+use specforge_common::{Diagnostic, Severity};
+use specforge_effects::{Effects, OutcomeClass};
+pub use specforge_protocol_types::CheckStatus;
+use specforge_protocol_types::{
+    CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckValuesInput,
+    MAX_PROBE_ROUNDS, Operation, PlannedItem, Probe, ProbeOutcome,
+};
+use specforge_registry::{CheckCall, Disk, EntitySnapshot, QualifiedChecker, ResolvedCheck};
+use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Limits};
+
+use crate::Environment;
+use crate::compiled::{CheckedValue, CheckedValues, ValueOutcome};
+pub use budget::ValueBudget;
+pub(crate) use cache::CheckCache;
+use collect::Value;
+
+/// The most values one run checks; the rest are not judged and count toward I206 as [`budget::OVER`].
+const VALUE_CAP: usize = 10_000;
+
+/// One checker's reading of one value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ValueRow {
+    /// The written path of the field or member (`links[1].href`).
+    pub field: String,
+    pub item: usize,
+    pub checker: QualifiedChecker,
+    pub value: String,
+    pub status: CheckStatus,
+    /// The class of what its probes answered: `Ok` for a checker with none; `None` when it did not run.
+    pub outcome_class: Option<OutcomeClass>,
+    /// When its oldest journaled answer was observed (Unix milliseconds); `None` when no answer has a record.
+    pub observed_at: Option<u64>,
+    pub from_cache: bool,
+    /// The digest of what its probes answered, free of when; `None` when it did not run.
+    pub digest: Option<String>,
+    /// The codes it found, as written by the checker.
+    pub codes: Vec<String>,
+}
+
+/// Every entity's checked values, by entity id, each in collection order.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ValueChecks(BTreeMap<String, Vec<ValueRow>>);
+
+impl ValueChecks {
+    /// `id`'s rows; empty when none of its values has a check.
+    pub fn of(&self, id: &str) -> &[ValueRow] {
+        self.0.get(id).map_or(&[], Vec::as_slice)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &[ValueRow])> {
+        self.0
+            .iter()
+            .map(|(id, rows)| (id.as_str(), rows.as_slice()))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Every row as a collector that declares `check_outcomes` receives it, by entity id then collection order.
+    pub fn outcomes(&self) -> Vec<CheckOutcome> {
+        self.iter()
+            .flat_map(|(entity, rows)| {
+                rows.iter().map(move |row| CheckOutcome {
+                    entity: entity.to_string(),
+                    field: row.field.clone(),
+                    item: row.item as u32,
+                    value: row.value.clone(),
+                    checker: row.checker.to_string(),
+                    status: row.status,
+                    outcome: row.outcome_class,
+                    observed_at: row.observed_at,
+                    from_cache: row.from_cache,
+                    digest: row.digest.clone(),
+                    codes: row.codes.clone(),
+                })
+            })
+            .collect()
+    }
+
+    /// What a judged verdict digests of them (ADR 0337 §6): a value not run is `unknown` (I207), and the verdict stays
+    /// fresh.
+    pub fn outcome_classes(&self) -> CheckedValues {
+        let mut values = CheckedValues::default();
+        for (id, rows) in &self.0 {
+            for row in rows {
+                values.insert(
+                    id,
+                    CheckedValue {
+                        field: row.field.clone(),
+                        item: row.item,
+                        checker: row.checker.to_string(),
+                        outcome: row
+                            .outcome_class
+                            .map_or(ValueOutcome::Unknown, ValueOutcome::Class),
+                    },
+                );
+            }
+        }
+        values
+    }
+}
+
+/// What one run of the phase gave.
+#[derive(Debug, Default)]
+pub(crate) struct Phase {
+    pub diagnostics: Vec<Diagnostic>,
+    pub checks: ValueChecks,
+}
+
+/// One call of a checker on one value.
+struct Planned<'a> {
+    value: usize,
+    /// Which of the value's checks it belongs to.
+    check: usize,
+    call: &'a CheckCall,
+    /// Its id in its extension's call.
+    id: u32,
+}
+
+impl Planned<'_> {
+    fn key(&self) -> CallKey {
+        CallKey::of(&self.call.extension, self.id)
+    }
+}
+
+/// A call of a checker: its extension, and its id in that extension's call.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct CallKey {
+    extension: String,
+    id: u32,
+}
+
+impl CallKey {
+    fn of(extension: &str, id: u32) -> Self {
+        CallKey {
+            extension: extension.to_string(),
+            id,
+        }
+    }
+}
+
+/// How the phase asks a checker: through the cache, then the extension.
+struct Asking<'a> {
+    env: &'a Environment,
+    effects: &'a Effects,
+    calls: ExtensionCalls<'a>,
+    cache: &'a CheckCache,
+    dir: Option<std::path::PathBuf>,
+}
+
+impl Asking<'_> {
+    /// `extension`'s answers to `items` in `phase`: from the cache, the rest from the extension. No item leaves no
+    /// call. A call that fails is the extension's whole answer (E028).
+    fn ask(
+        &self,
+        extension: &str,
+        phase: CheckPhase,
+        items: Vec<CheckItem>,
+    ) -> Result<Vec<PlannedItem>, specforge_wasm::CallError> {
+        let shelf = cache::Shelf::of(self.env, self.cache, self.dir.as_deref(), extension);
+        let (mut known, unknown) = shelf.split(phase, items);
+        for (keys, items) in self.batches(extension, unknown) {
+            let input = CheckValuesInput { phase, items };
+            let answer = self.calls.check_values(extension, &input)?;
+            let mut unanswered = keys.len();
+            for item in answer.items {
+                if let Some(key) = keys.get(&item.id) {
+                    unanswered = unanswered.saturating_sub(1);
+                    shelf.keep(key.clone(), &item);
+                    known.push(item);
+                }
+            }
+            // A value left out of the reply (its judge could not judge the answers) is unchecked, never a pass.
+            if unanswered > 0 {
+                self.effects.count_not_run(budget::OVER, unanswered);
+            }
+        }
+        shelf.save();
+        Ok(known)
+    }
+}
+
+impl Asking<'_> {
+    /// `items` in calls `extension`'s guest can hold ([`call_cap`]), each item with its key. An item no call can hold
+    /// is not asked: it is not judged, and counts toward I206.
+    fn batches(
+        &self,
+        extension: &str,
+        items: Vec<(String, CheckItem)>,
+    ) -> Vec<(BTreeMap<u32, String>, Vec<CheckItem>)> {
+        let cap = self.call_cap(extension);
+        let mut batches: Vec<(BTreeMap<u32, String>, Vec<CheckItem>)> = Vec::new();
+        let mut held = 0;
+        for (key, item) in items {
+            let mut counted = Counted(0);
+            let size =
+                serde_json::to_writer(&mut counted, &item).map_or(usize::MAX, |()| counted.0);
+            if size > cap {
+                self.effects.count_not_run(budget::OVER, 1);
+                continue;
+            }
+            if batches.is_empty() || held + size > cap {
+                batches.push(Default::default());
+                held = 0;
+            }
+            held += size;
+            let (keys, items) = batches.last_mut().expect("just pushed");
+            keys.insert(item.id, key);
+            items.push(item);
+        }
+        batches
+    }
+
+    /// The most input one call of `extension` carries: a quarter of the memory its sandbox allows, since the guest
+    /// holds the JSON, what it decodes it into and its answer at once.
+    fn call_cap(&self, extension: &str) -> usize {
+        let ceiling = Limits::CEILING.memory_mb;
+        let declared = self
+            .env
+            .registries()
+            .declarations()
+            .iter()
+            .find(|declaration| declaration.name() == extension)
+            .and_then(|declaration| declaration.handshake.sandbox_policy.as_ref()?.max_memory_mb);
+        ((declared.unwrap_or(ceiling).min(ceiling) as usize) << 20) / 4
+    }
+}
+
+/// A writer that keeps nothing but how many bytes it was given: an item's size, measured without a copy of it.
+struct Counted(usize);
+
+impl std::io::Write for Counted {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0 += bytes.len();
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// What one call of a checker came to.
+#[derive(Debug, Default)]
+struct Settled {
+    findings: Vec<CheckFinding>,
+    /// What the host itself reports on the value in its place (E090, E094, E095, W174, W175).
+    host: Vec<Diagnostic>,
+    /// The checker has the last word: its plan needed no probe or already failed the value, or it judged the answers.
+    judged: bool,
+    class: Option<OutcomeClass>,
+    observed: Observed,
+}
+
+/// Where the answers of a row come from: when the oldest journaled one was observed, whether one came from the
+/// journal, and their digest.
+#[derive(Debug, Clone, Default)]
+struct Observed {
+    at: Option<u64>,
+    from_cache: bool,
+    digest: Option<String>,
+}
+
+impl Observed {
+    /// What `outcomes` came to. A disk or git answer has no journal record, so it gives no time: two runs over the same
+    /// tree say the same. The digest leaves out the time and the cache for that reason too.
+    fn of(outcomes: &[ProbeOutcome]) -> Observed {
+        let journaled = |outcome: &&ProbeOutcome| {
+            matches!(
+                outcome.probe,
+                Probe::HttpHead { .. }
+                    | Probe::HttpGet { .. }
+                    | Probe::HttpPostQuery { .. }
+                    | Probe::HttpTls { .. }
+                    | Probe::DnsResolve { .. }
+            )
+        };
+        // Lean: a body is digested by its own digest, never expanded into a JSON array.
+        let answered: Vec<_> = outcomes
+            .iter()
+            .map(|outcome| {
+                (
+                    &outcome.probe,
+                    &outcome.class,
+                    network::lean_data(&outcome.data),
+                )
+            })
+            .collect();
+        Observed {
+            at: outcomes
+                .iter()
+                .filter(journaled)
+                .map(|o| o.observed_at)
+                .min(),
+            from_cache: outcomes.iter().any(|outcome| outcome.from_cache),
+            digest: Some(specforge_effects::digest(&answered)),
+        }
+    }
+}
+
+impl Settled {
+    fn fails(&self) -> bool {
+        place::any_error(&self.findings) || self.host.iter().any(|d| d.severity == Severity::Error)
+    }
+}
+
+/// Run the phase over `entities` in `env`: plan, perform the probes through `effects` and `disk`, judge what was
+/// performed, place the findings. `text_of` gives a source's text, to place a finding inside a value.
+pub(crate) fn run(
+    env: &Environment,
+    entities: &EntitySnapshot,
+    effects: &Effects,
+    disk: &dyn Disk,
+    cache: &CheckCache,
+    text_of: &dyn Fn(&str) -> Option<std::sync::Arc<str>>,
+) -> Phase {
+    let registries = env.registries();
+    let checks = registries.checks();
+    let mut phase = Phase::default();
+    let wanted = env.value_budget() != ValueBudget::NO_PHASE && !checks.is_empty();
+    let Some(runtime) = env.runtime().filter(|_| wanted) else {
+        return phase;
+    };
+    let running = |call: &CheckCall| running(env, call);
+    let mut values = collect::values(entities, checks, text_of);
+    values.retain(|value| {
+        value
+            .checks
+            .iter()
+            .any(|check| check.calls().iter().any(running))
+    });
+    if values.len() > VALUE_CAP {
+        let over = values.split_off(VALUE_CAP);
+        effects.count_not_run(budget::OVER, over.len());
+        for value in &over {
+            for check in value.checks {
+                for call in check.calls().iter().filter(|call| running(call)) {
+                    phase.checks.add_not_run(value, call);
+                }
+            }
+        }
+    }
+    let planned = planned(&values, &running);
+    let asking = Asking {
+        env,
+        effects,
+        calls: ExtensionCalls::new(runtime.as_ref()),
+        cache,
+        dir: cache::dir_of(effects.journal()),
+    };
+    let answers = plans(&asking, &values, &planned, &mut phase.diagnostics);
+    let settled = performed_and_judged(
+        &asking,
+        effects,
+        disk,
+        &values,
+        &planned,
+        &answers,
+        &mut phase.diagnostics,
+    );
+    let mut misused = HashSet::new();
+    let mut by_value: Vec<Vec<&Planned>> = Vec::new();
+    by_value.resize_with(values.len(), Vec::new);
+    for one in &planned {
+        by_value[one.value].push(one);
+    }
+    for (index, value) in values.iter().enumerate() {
+        for (position, check) in value.checks.iter().enumerate() {
+            let branches: Vec<&Planned> = by_value[index]
+                .iter()
+                .filter(|one| one.check == position)
+                .copied()
+                .collect();
+            settle(
+                value,
+                check,
+                &branches,
+                &settled,
+                registries,
+                &mut misused,
+                &mut phase,
+            );
+        }
+    }
+    phase
+}
+
+/// Whether `call`'s checker is on: a `when` setting that is false leaves it uncalled, so it sends no probe and asks no
+/// scope, and its value owes nothing.
+fn running(env: &Environment, call: &CheckCall) -> bool {
+    let checker = env
+        .registries()
+        .checks()
+        .checker(&call.extension, &call.checker);
+    let settings = env.settings().of(&call.extension);
+    checker.is_none_or(|checker| {
+        checker.when.iter().all(|name| {
+            settings
+                .and_then(|values| values.get(name))
+                .and_then(|setting| setting.value.as_ref())
+                != Some(&serde_json::Value::Bool(false))
+        })
+    })
+}
+
+/// Which calls are dropped: those of a value's checks after one whose every branch failed in its plan (an invalid URL
+/// is never fetched).
+fn dropped(planned: &[Planned<'_>], answers: &BTreeMap<CallKey, PlannedItem>) -> HashSet<CallKey> {
+    let failed = |one: &Planned<'_>| {
+        answers
+            .get(&one.key())
+            .is_some_and(|plan| place::any_error(&plan.findings))
+    };
+    let mut dropped = HashSet::new();
+    for (index, one) in planned.iter().enumerate() {
+        let mut same_check = planned
+            .iter()
+            .filter(|other| other.value == one.value && other.check == one.check);
+        if !same_check.all(failed) {
+            continue;
+        }
+        for later in planned[index..]
+            .iter()
+            .filter(|later| later.value == one.value && later.check > one.check)
+        {
+            dropped.insert(later.key());
+        }
+    }
+    dropped
+}
+
+/// A call whose probes are on their way: those of its round, every answer so far, the findings its plan and judge
+/// gave, and what its judge carries to the next round.
+struct Open<'p, 'a> {
+    one: &'p Planned<'a>,
+    probes: Vec<Probe>,
+    /// The probes asked in the rounds before this one.
+    before: usize,
+    /// Every round's answers as the host keeps them ([`lean`]): what the row says it observed.
+    outcomes: Vec<ProbeOutcome>,
+    findings: Vec<CheckFinding>,
+    carry: Option<serde_json::Value>,
+}
+
+/// Each answered call settled: its probes performed, and the judge call of those all answered, for up to
+/// [`MAX_PROBE_ROUNDS`] rounds: a judge may ask for more probes, performed within the same budget, the per-value probe
+/// cap held over every round. A later round's judge is sent that round's answers and what it carried, never the earlier
+/// rounds' answers again. A failing judge (E028, once) leaves its extension's values not judged, and so does one asking
+/// for a round past the last (E028, once per checker).
+fn performed_and_judged(
+    asking: &Asking<'_>,
+    effects: &Effects,
+    disk: &dyn Disk,
+    values: &[Value<'_>],
+    planned: &[Planned<'_>],
+    answers: &BTreeMap<CallKey, PlannedItem>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> BTreeMap<CallKey, Settled> {
+    let dropped = dropped(planned, answers);
+    let mut settled = BTreeMap::new();
+    let mut open = Vec::new();
+    for one in planned {
+        let key = one.key();
+        let Some(plan) = answers.get(&key) else {
+            continue;
+        };
+        if dropped.contains(&key) {
+            settled.insert(key, Settled::default());
+            continue;
+        }
+        let fails = place::any_error(&plan.findings);
+        if plan.probes.is_empty() || fails {
+            settled.insert(
+                key,
+                Settled {
+                    findings: plan.findings.clone(),
+                    judged: true,
+                    class: Some(OutcomeClass::Ok),
+                    observed: Observed::of(&[]),
+                    ..Settled::default()
+                },
+            );
+            continue;
+        }
+        open.push(Open {
+            one,
+            probes: plan.probes.clone(),
+            before: 0,
+            outcomes: Vec::new(),
+            findings: plan.findings.clone(),
+            carry: None,
+        });
+    }
+    let mut spent = budget::Spent::starting(asking.env.value_budget());
+    let mut endless = HashSet::new();
+    for round in 1..=MAX_PROBE_ROUNDS {
+        if open.is_empty() {
+            break;
+        }
+        let asked: Vec<dispatch::Asked<'_>> = open
+            .iter()
+            .map(|call| dispatch::Asked {
+                value: &values[call.one.value],
+                call: call.one.call,
+                probes: &call.probes,
+                before: call.before,
+            })
+            .collect();
+        let readings = dispatch::dispatch(asking.env, effects, disk, &asked, &mut spent);
+        let mut judge: BTreeMap<&str, Vec<CheckItem>> = BTreeMap::new();
+        let mut waiting = BTreeMap::new();
+        for (mut call, reading) in open.drain(..).zip(readings) {
+            let key = call.one.key();
+            if !reading.answered() {
+                settled.insert(
+                    key,
+                    Settled {
+                        findings: call.findings,
+                        host: reading.refused,
+                        class: reading.refused_class,
+                        ..Settled::default()
+                    },
+                );
+                continue;
+            }
+            // The judge reads this round's answers and what it carried; the host keeps every round's, lean.
+            call.outcomes
+                .extend(reading.outcomes.iter().map(network::lean));
+            let class = call
+                .outcomes
+                .iter()
+                .map(|outcome| outcome.class)
+                .find(|class| *class != OutcomeClass::Ok)
+                .unwrap_or(OutcomeClass::Ok);
+            settled.insert(
+                key.clone(),
+                Settled {
+                    findings: call.findings.clone(),
+                    class: Some(class),
+                    observed: Observed::of(&call.outcomes),
+                    ..Settled::default()
+                },
+            );
+            let mut item = item_of(call.one, &values[call.one.value]);
+            item.outcomes = reading.outcomes;
+            item.carry = call.carry.clone();
+            judge
+                .entry(&call.one.call.extension)
+                .or_default()
+                .push(item);
+            waiting.insert(key, call);
+        }
+        for (extension, items) in judge {
+            let items = match asking.ask(extension, CheckPhase::Judge, items) {
+                Ok(items) => items,
+                Err(error) => {
+                    diagnostics.push(error.diagnostic());
+                    continue;
+                }
+            };
+            for item in items {
+                let key = CallKey::of(extension, item.id);
+                let (Some(settled), Some(mut call)) = (settled.get_mut(&key), waiting.remove(&key))
+                else {
+                    continue;
+                };
+                if item.probes.is_empty() {
+                    settled.findings.extend(item.findings);
+                    settled.judged = true;
+                } else if round == MAX_PROBE_ROUNDS {
+                    if endless.insert((extension, call.one.call.checker.as_str())) {
+                        diagnostics.push(past_the_last_round(extension, &call.one.call.checker));
+                    }
+                } else {
+                    call.findings.extend(item.findings);
+                    call.before += call.probes.len();
+                    call.probes = item.probes;
+                    call.carry = item.carry;
+                    open.push(call);
+                }
+            }
+        }
+    }
+    diagnostics.extend(dispatch::approvals(effects, &spent));
+    settled
+}
+
+/// E028: `checker` of `extension` asked for a round of probes past the last.
+fn past_the_last_round(extension: &str, checker: &str) -> Diagnostic {
+    let failure = CallFailure::Malformed {
+        expected: "CheckPlan",
+        reason: format!(
+            "its checker '{checker}' asked for a fourth round of probes; a judge asks for at most {} more",
+            MAX_PROBE_ROUNDS - 1
+        ),
+    };
+    CallError::new(
+        Operation::CheckValues,
+        extension,
+        CHECK_VALUES_EXPORT,
+        failure,
+    )
+    .diagnostic()
+}
+
+fn item_of(one: &Planned<'_>, value: &Value<'_>) -> CheckItem {
+    CheckItem {
+        id: one.id,
+        checker: one.call.checker.clone(),
+        entity: value.entity.to_string(),
+        field: value.field.to_string(),
+        item: value.item as u32,
+        text: value.text.to_string(),
+        args: one.call.args.clone(),
+        outcomes: Vec::new(),
+        carry: None,
+    }
+}
+
+/// One [`Planned`] per running call of each check of each value, ids counted per extension.
+fn planned<'a>(values: &'a [Value<'a>], running: &dyn Fn(&CheckCall) -> bool) -> Vec<Planned<'a>> {
+    let mut next: BTreeMap<&str, u32> = BTreeMap::new();
+    let mut planned = Vec::new();
+    for (index, value) in values.iter().enumerate() {
+        for (position, check) in value.checks.iter().enumerate() {
+            for call in check.calls().iter().filter(|call| running(call)) {
+                let id = next.entry(&call.extension).or_default();
+                planned.push(Planned {
+                    value: index,
+                    check: position,
+                    call,
+                    id: *id,
+                });
+                *id += 1;
+            }
+        }
+    }
+    planned
+}
+
+/// Each extension's answers, by extension and id. A failing extension (E028, once) has none, so its values are not
+/// judged; the others still run.
+fn plans(
+    asking: &Asking<'_>,
+    values: &[Value<'_>],
+    planned: &[Planned<'_>],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> BTreeMap<CallKey, PlannedItem> {
+    let mut answers = BTreeMap::new();
+    for declaration in asking.env.registries().declarations() {
+        let extension = declaration.name();
+        let items: Vec<CheckItem> = planned
+            .iter()
+            .filter(|one| one.call.extension == extension)
+            .map(|one| item_of(one, &values[one.value]))
+            .collect();
+        if items.is_empty() {
+            continue;
+        }
+        match asking.ask(extension, CheckPhase::Plan, items) {
+            Ok(items) => {
+                for item in items {
+                    answers.insert(CallKey::of(extension, item.id), item);
+                }
+            }
+            Err(error) => diagnostics.push(error.diagnostic()),
+        }
+    }
+    answers
+}
+
+/// One check of one value settled: its findings placed, a row per call. An `any_of` passes when one branch yields no
+/// error-level finding; a branch not run could have been that one, so nothing goes red for it.
+fn settle(
+    value: &Value<'_>,
+    check: &ResolvedCheck,
+    branches: &[&Planned<'_>],
+    answers: &BTreeMap<CallKey, Settled>,
+    registries: &specforge_registry::RegistryBuild,
+    misused: &mut HashSet<(String, String)>,
+    phase: &mut Phase,
+) {
+    let answer = |one: &&Planned<'_>| answers.get(&one.key());
+    let passing = branches
+        .iter()
+        .find(|one| answer(one).is_some_and(|settled| settled.judged && !settled.fails()));
+    let some_not_run = branches
+        .iter()
+        .any(|one| answer(one).is_none_or(|settled| !settled.judged && !settled.fails()));
+    let any_of = matches!(check, ResolvedCheck::AnyOf(_));
+    let one_of = any_of.then(|| {
+        let names: Vec<&str> = branches
+            .iter()
+            .map(|one| one.call.checker.as_str())
+            .collect();
+        format!("one of: {}", names.join(", "))
+    });
+    for one in branches {
+        let Some(settled) = answer(one) else {
+            phase.checks.add_not_run(value, one.call);
+            continue;
+        };
+        // What an `any_of` reports: the passing branch's findings, or every branch's when none passes.
+        let reported = !any_of
+            || match passing {
+                Some(pass) => pass.id == one.id && pass.call.extension == one.call.extension,
+                None => !some_not_run,
+            };
+        let status = match (any_of, passing.is_some(), some_not_run) {
+            (false, _, _) if settled.fails() => CheckStatus::Failed,
+            (false, _, _) if settled.judged => CheckStatus::Passed,
+            (false, _, _) => CheckStatus::NotRun,
+            (true, true, _) => CheckStatus::Passed,
+            (true, false, true) => CheckStatus::NotRun,
+            (true, false, false) => CheckStatus::Failed,
+        };
+        let mut kept = Vec::new();
+        if reported {
+            for finding in &settled.findings {
+                phase.diagnostics.extend(place::misuse(
+                    registries,
+                    one.call,
+                    &finding.code,
+                    misused,
+                ));
+                let placed =
+                    place::finding(registries, one.call, finding, value, one_of.as_deref());
+                phase.diagnostics.push(placed);
+                kept.push(finding.code.clone());
+            }
+            for host in &settled.host {
+                phase.diagnostics.push(host.clone());
+                kept.push(host.code.to_string());
+            }
+        }
+        phase.checks.add(
+            value,
+            one.call,
+            status,
+            settled.class.filter(|_| status != CheckStatus::NotRun),
+            kept,
+            settled.observed.clone(),
+        );
+    }
+}
+
+impl ValueChecks {
+    fn add(
+        &mut self,
+        value: &Value<'_>,
+        call: &CheckCall,
+        status: CheckStatus,
+        outcome_class: Option<OutcomeClass>,
+        codes: Vec<String>,
+        observed: Observed,
+    ) {
+        self.0
+            .entry(value.entity.to_string())
+            .or_default()
+            .push(ValueRow {
+                field: value.field.to_string(),
+                item: value.item,
+                checker: call.qualified(),
+                value: value.text.to_string(),
+                status,
+                outcome_class,
+                observed_at: observed.at,
+                from_cache: observed.from_cache,
+                digest: observed.digest.filter(|_| status != CheckStatus::NotRun),
+                codes,
+            });
+    }
+
+    fn add_not_run(&mut self, value: &Value<'_>, call: &CheckCall) {
+        self.add(
+            value,
+            call,
+            CheckStatus::NotRun,
+            None,
+            Vec::new(),
+            Observed::default(),
+        );
+    }
+}

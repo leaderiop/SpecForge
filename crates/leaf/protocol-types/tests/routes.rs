@@ -97,9 +97,12 @@ fn a_routes_category_round_trips() {
         DeclaredCategory::from_name("routes"),
         Some(DeclaredCategory::Routes)
     );
+    // Routes come right after settings; capabilities (ADR 0335) and checkers (ADR 0336) after them.
     assert_eq!(
-        DeclaredCategory::ALL.last(),
-        Some(&DeclaredCategory::Routes)
+        DeclaredCategory::ALL
+            .iter()
+            .position(|c| *c == DeclaredCategory::Routes),
+        Some(DeclaredCategory::ALL.len() - 3)
     );
     // A declaration with no route serializes no `routes` key: stored declarations stay byte-identical.
     let stored = serde_json::to_value(ExtensionDeclaration::default()).unwrap();

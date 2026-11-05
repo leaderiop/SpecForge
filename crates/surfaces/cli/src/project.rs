@@ -8,6 +8,8 @@ use std::sync::Arc;
 
 use specforge_common::ProjectRoot;
 use specforge_component::ComponentRuntime;
+use specforge_effects::{EffectsMode, Ports};
+
 use specforge_ops::OpError;
 use specforge_project::{CompiledProject, Environment, SharedRuntime};
 
@@ -80,13 +82,32 @@ impl ProjectArg {
     /// (`specforge_ops::view::ProjectView::of`). The compiled project's
     /// environment holds that runtime, which every operation over its view
     /// calls extensions in.
-    pub(crate) fn compile(&self) -> Result<CompiledProject, OpError> {
-        Ok(compile_at(&self.root()?))
+    pub(crate) fn compile(&self, ports: &Ports) -> Result<CompiledProject, OpError> {
+        Ok(compiled(
+            &self.root()?,
+            Some(Arc::new(ComponentRuntime::with_user_cache())),
+            ports,
+            EffectsMode::Cached,
+        ))
     }
 
     /// [`Self::compile`] with the extensions in `runtime` (`check`'s tests give theirs).
-    pub(crate) fn compile_in(&self, runtime: SharedRuntime) -> Result<CompiledProject, OpError> {
-        Ok(CompiledProject::compile(&self.root()?, Some(runtime)))
+    pub(crate) fn compile_in(
+        &self,
+        runtime: SharedRuntime,
+        ports: &Ports,
+    ) -> Result<CompiledProject, OpError> {
+        self.compile_for(runtime, ports, EffectsMode::Cached)
+    }
+
+    /// [`Self::compile_in`] in effects `mode` (`check`'s, chosen under its terminal's facts).
+    pub(crate) fn compile_for(
+        &self,
+        runtime: SharedRuntime,
+        ports: &Ports,
+        mode: EffectsMode,
+    ) -> Result<CompiledProject, OpError> {
+        Ok(compiled(&self.root()?, Some(runtime), ports, mode))
     }
 
     /// The project at `path` (tests that hold a path already).
@@ -96,7 +117,8 @@ impl ProjectArg {
     }
 }
 
-/// The environment of the project at `dir`, its root falling back to the current directory, its sources not read.
+/// The environment of the project at `dir`, its root falling back to the current directory, its sources not read,
+/// with no git port: the caller gives its own.
 pub(crate) fn load_dir(dir: &Path) -> Environment {
     let root = ProjectRoot::of(dir).unwrap_or_else(|_| {
         ProjectRoot::of(Path::new(".")).expect("the current directory is a root")
@@ -105,8 +127,27 @@ pub(crate) fn load_dir(dir: &Path) -> Environment {
 }
 
 /// [`ProjectArg::compile`] for a root already resolved.
-pub(crate) fn compile_at(root: &ProjectRoot) -> CompiledProject {
-    CompiledProject::compile(root, Some(Arc::new(ComponentRuntime::with_user_cache())))
+pub(crate) fn compile_at(root: &ProjectRoot, ports: &Ports) -> CompiledProject {
+    compiled(
+        root,
+        Some(Arc::new(ComponentRuntime::with_user_cache())),
+        ports,
+        EffectsMode::Cached,
+    )
+}
+
+/// The project at `root` compiled in `runtime` from the plain file system, asking `ports.git` of version control,
+/// its effects in `mode` over the project's journal: `auto` performs what the user's consent store approved.
+pub(crate) fn compiled(
+    root: &ProjectRoot,
+    runtime: Option<SharedRuntime>,
+    ports: &Ports,
+    mode: EffectsMode,
+) -> CompiledProject {
+    let consent = specforge_ops::consent::UserConsent::user(root.dir());
+    CompiledProject::of(specforge_project::effects::environment(
+        root, runtime, ports, mode, &consent,
+    ))
 }
 
 #[cfg(test)]

@@ -38,9 +38,5 @@ expression: found
   [
     "test.shapes/W900",
     "widget 'w_one' links nothing"
-  ],
-  [
-    "E016",
-    "file reference 'missing.md' in entity 'g_docs' does not exist"
   ]
 ]

@@ -279,3 +279,59 @@ fn an_entrys_load_diagnostics_come_together_in_entry_order() {
         ]
     );
 }
+
+#[specforge_test(
+    behavior = "load_extension_manifests",
+    verify = "the effects ceiling in specforge.json narrows a declared capability with W171 at its key, and a named root resolves once at load"
+)]
+fn a_ceiling_narrows_a_declared_capability_with_w171() {
+    let dir = TempDir::new().unwrap();
+    let root = dir.path().join("p");
+    std::fs::create_dir_all(dir.path().join("vendor")).unwrap();
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join("specforge.json"),
+        json!({
+            "extensions": ["@acme/links"],
+            "effects": {"http": {"hosts": ["crates.io"]}},
+            "roots": {"vendor": "../vendor", "gone": "gone"},
+        })
+        .to_string(),
+    )
+    .unwrap();
+    let served = Arc::new(InProcessRuntime::new().with(|| {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/links", "1.0.0"));
+        c.capability(
+            Capability::http("links")
+                .hosts(&["*.example.com", "crates.io"])
+                .why("check links"),
+        );
+        c
+    }));
+    specforge_installed::testing::install(&root, &*served, &["@acme/links"]);
+    let rt: SharedRuntime = served;
+    let env = Environment::load(&specforge_common::ProjectRoot::of(&root).unwrap(), Some(rt));
+
+    let effects: Vec<_> = env
+        .setup_diagnostics()
+        .into_iter()
+        .filter(|s| s.part == SetupPart::Effects)
+        .map(|s| (s.diagnostic.code.as_str(), s.diagnostic.message.as_str()))
+        .collect();
+    assert_eq!(effects.len(), 2, "{effects:#?}");
+    assert_eq!(effects[0].0, "W171");
+    assert!(
+        effects[0].1.contains("capability 'links' of '@acme/links'"),
+        "{}",
+        effects[0].1
+    );
+    assert_eq!(effects[1].0, "E109");
+    assert!(effects[1].1.contains("`roots.gone`"), "{}", effects[1].1);
+    let named: Vec<(&str, bool)> = env
+        .effects_allowed()
+        .roots
+        .iter()
+        .map(|r| (r.name.as_str(), r.inside))
+        .collect();
+    assert_eq!(named, [("vendor", false)]);
+}

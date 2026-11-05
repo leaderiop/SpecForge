@@ -112,6 +112,81 @@
         "description": "One extension's settings: a setting name to its value."
       }
     },
+    "checks": {
+      "type": "object",
+      "description": "Value checks the project attaches to declared fields (ADR 0336): they run after the checks a field declares. A field or checker that leads nowhere is W019, a check its checker refuses is W189, each at its key.",
+      "properties": {
+        "fields": {
+          "type": "object",
+          "description": "`kind.field` (or a member path `kind.field.member`) to the checks it attaches.",
+          "additionalProperties": {
+            "oneOf": [
+              { "$ref": "#/$defs/checkRef" },
+              { "type": "array", "items": { "$ref": "#/$defs/checkRef" } }
+            ]
+          }
+        },
+        "publish": {
+          "type": "boolean",
+          "description": "A plain `specforge collect` also runs every collector that declares the `check_outcomes` input.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "effects": {
+      "type": "object",
+      "description": "The project's effects ceiling (ADR 0335 D2.3): it only narrows what extensions declare. An absent port is not narrowed, \"off\" removes it, an object keeps only what it lists. Each extension capability it narrows is W171; a member not used as written is E109.",
+      "properties": {
+        "http": {
+          "oneOf": [
+            { "const": "off" },
+            {
+              "type": "object",
+              "properties": {
+                "hosts": { "type": "array", "items": { "type": "string" }, "description": "Hosts, or `*.`-prefixed host patterns." },
+                "schemes": { "type": "array", "items": { "enum": ["http", "https"] } },
+                "methods": { "type": "array", "items": { "type": "string" }, "description": "HTTP methods (GET, HEAD, POST, ...)." }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "fs": {
+          "oneOf": [
+            { "const": "off" },
+            {
+              "type": "object",
+              "properties": {
+                "roots": { "type": "array", "items": { "type": "string" }, "description": "Root names: spec, project, or one `roots` names." },
+                "ops": { "type": "array", "items": { "enum": ["stat", "read", "walk", "write"] } }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "git": {
+          "oneOf": [
+            { "const": "off" },
+            {
+              "type": "object",
+              "properties": {
+                "ops": { "type": "array", "items": { "enum": ["read", "write"] } }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "process": { "const": "off", "description": "A command runs as declared or not at all." }
+      },
+      "additionalProperties": false
+    },
+    "roots": {
+      "type": "object",
+      "description": "Extra roots an fs capability may name, by name, each a directory relative to the project root (ADR 0335 D2.3). `spec` and `project` are built in. A root outside the project needs this machine's approval.",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$", "not": { "enum": ["spec", "project"] } },
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
     "personas": {
       "type": "object",
       "description": "Persona definitions for capability validation. Keys are persona IDs.",
@@ -160,6 +235,29 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "checkRef": {
+      "description": "A check: a checker's name (`file`, `@specforge/checks:file`), a checker with its arguments, or a value that passes when one branch does.",
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "checker": { "type": "string" },
+            "args": { "type": "object" }
+          },
+          "required": ["checker"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "any_of": { "type": "array", "items": { "$ref": "#/$defs/checkRef" } }
+          },
+          "required": ["any_of"],
+          "additionalProperties": false
+        }
+      ]
+    },
     "provider": {
       "type": "object",
       "description": "One provider instance: the ref scheme it serves, its alias, the extension that implements it, and that extension's settings.",

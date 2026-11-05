@@ -357,9 +357,8 @@ fn ends_at_file(
             registries
                 .fields
                 .get_path(kind, &rest)
-                .is_some_and(|(declared, form)| {
-                    declared.file_reference
-                        || matches!(form.field_type(), FieldType::String | FieldType::StringList)
+                .is_some_and(|(_, form)| {
+                    matches!(form.field_type(), FieldType::String | FieldType::StringList)
                 })
         };
         if kinds.iter().all(file) {

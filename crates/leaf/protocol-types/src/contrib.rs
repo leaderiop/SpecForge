@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
-use crate::{Attribution, EditPlan, GraphWire, Revision};
+use crate::{Attribution, EditPlan, GraphWire, Input, Revision};
 
 /// `when` on the wire (protocol 1.13.0, ADR 0317): a setting name or a list of them, all of which must be on. A name
 /// reads and writes as a string, so a declaration with one is byte-for-byte what it was; several write a list.
@@ -131,10 +131,6 @@ pub struct HookDescriptor {
     /// What a trap, a timeout or a malformed answer does.
     #[serde(default, skip_serializing_if = "OnFailure::is_allow")]
     pub on_failure: OnFailure,
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub reads_graph: bool,
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub reads_state: bool,
     /// The hook may answer an edit plan (the host applies it with `Origin::Hook`).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub writes: bool,
@@ -144,20 +140,11 @@ pub struct HookDescriptor {
     /// The hosts it is installed on, each one of [`HOOK_HOSTS`]; empty: every host (ADR 0322).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hosts: Vec<String>,
-    /// The input carries `git` (the repository the `cwd` is in) and, for an out-of-project path, its `toplevel` and
-    /// `in_git_dir` (ADR 0320).
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub reads_git: bool,
-    /// `git.status` too, `git status --porcelain=v2 --branch` as git wrote it; implies `reads_git`.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub reads_git_status: bool,
-    /// A bool setting of the extension: git facts are collected only while it is on, so a hook that needs them for an
-    /// option pays for them only then. Unset: always (ADR 0320).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub git_when: Option<String>,
-    /// Settings of other extensions the input carries as `other_settings`, each `<extension>:<setting>` (ADR 0323).
+    /// What the host serves the hook before the call: `graph`, `state`, `git` (the repository the `cwd` is in and,
+    /// for an out-of-project path, its `toplevel` and `in_git_dir`, ADR 0320) and `setting`s of other extensions, in
+    /// `other_settings` (ADR 0323) (ADR 0337 D2).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub reads_settings: Vec<String>,
+    pub inputs: Vec<Input>,
     /// `hook__<id>`.
     pub export: String,
 }
@@ -327,10 +314,10 @@ pub struct HookInput<G = GraphWire> {
     /// `file_changed`: what happened to the file (`change`, `add` or `unlink`), its path in `paths` (ADR 0321).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub change: Option<String>,
-    /// A hook that declares `reads_git` (ADR 0320): none outside a repository.
+    /// A hook that declares the `git` input (ADR 0320): none outside a repository.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub git: Option<GitFacts>,
-    /// A hook that declares `reads_settings`: the value of each setting, keyed as the hook wrote it (ADR 0323).
+    /// A hook that declares `setting` inputs: the value of each setting, keyed as the hook wrote it (ADR 0323).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub other_settings: BTreeMap<String, Value>,
     /// `user_prompt`: what the user typed.
@@ -342,13 +329,13 @@ pub struct HookInput<G = GraphWire> {
     /// `statusline`: the host's status JSON (model, context window).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<Value>,
-    /// A hook that declares `reads_graph`.
+    /// A hook that declares the `graph` input.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub graph: Option<G>,
     /// A hook that declares `writes`: the revision of every source of the compile, as a writing command's.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub revisions: BTreeMap<String, Revision>,
-    /// A hook that declares `reads_state`.
+    /// A hook that declares the `state` input.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<StateView>,
 }
@@ -378,10 +365,10 @@ pub struct PathFact {
     /// The path made absolute against the `cwd`, `.` and `..` resolved, links followed as far as it exists (ADR 0320).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub real: String,
-    /// `reads_git`, outside the project: the top directory of the repository the real path is in.
+    /// The `git` input, outside the project: the top directory of the repository the real path is in.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub toplevel: Option<String>,
-    /// `reads_git`, outside the project: a component of the real path is `.git`.
+    /// The `git` input, outside the project: a component of the real path is `.git`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub in_git_dir: bool,
 }
@@ -396,9 +383,102 @@ pub struct GitFacts {
     /// `git branch --show-current`: empty when `HEAD` is detached.
     #[serde(default)]
     pub branch: String,
-    /// `reads_git_status`: `git status --porcelain=v2 --branch`, as git wrote it.
+    /// The `git` input with `status`: the worktree's typed status (protocol 2.0.0).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<String>,
+    pub status: Option<GitStatus>,
+}
+
+/// What git says of a worktree (protocol 2.0.0, ADR 0337 D2): its branch and its entries, parsed once by the host's
+/// Git adapter (`git status --porcelain=v2 --branch -z`, or a library filling the same type).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GitStatus {
+    pub branch: GitBranch,
+    /// In git's order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub entries: Vec<GitEntry>,
+}
+
+impl GitStatus {
+    /// It holds a change `HEAD` does not: an entry that is not `ignored` (ADR 0327 D3).
+    pub fn dirty(&self) -> bool {
+        self.entries.iter().any(|e| e.kind != GitEntryKind::Ignored)
+    }
+}
+
+/// The `# branch.*` headers.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GitBranch {
+    /// `branch.oid`; none for `(initial)`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oid: Option<String>,
+    /// `branch.head`; none for `(detached)`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub head: Option<String>,
+    /// `branch.upstream`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upstream: Option<String>,
+    /// `branch.ab +A -B`; 0 without an upstream.
+    #[serde(default)]
+    pub ahead: u32,
+    #[serde(default)]
+    pub behind: u32,
+}
+
+/// One path git lists.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GitEntry {
+    pub kind: GitEntryKind,
+    /// From the repository's top, `/`-separated.
+    pub path: String,
+    /// The path it was renamed or copied from (`renamed` only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub orig_path: Option<String>,
+    /// The index's change (X); none when unchanged, untracked or ignored.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub index: Option<GitChange>,
+    /// The worktree's change (Y); likewise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worktree: Option<GitChange>,
+}
+
+/// The kind of a status line: `1`, `2` (a copy included), `u`, `?` and `!`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GitEntryKind {
+    Changed,
+    Renamed,
+    Unmerged,
+    Untracked,
+    Ignored,
+}
+
+/// One side's change: `M`, `T`, `A`, `D`, `R`, `C` and `U`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum GitChange {
+    Modified,
+    TypeChanged,
+    Added,
+    Deleted,
+    Renamed,
+    Copied,
+    Unmerged,
+}
+
+impl GitChange {
+    /// The change porcelain writes as `letter`; none for `.` or an unknown letter.
+    pub fn of(letter: char) -> Option<Self> {
+        Some(match letter {
+            'M' => GitChange::Modified,
+            'T' => GitChange::TypeChanged,
+            'A' => GitChange::Added,
+            'D' => GitChange::Deleted,
+            'R' => GitChange::Renamed,
+            'C' => GitChange::Copied,
+            'U' => GitChange::Unmerged,
+            _ => return None,
+        })
+    }
 }
 
 /// The commit a `pre_commit` hook fires on.

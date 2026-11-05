@@ -168,6 +168,8 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify integration "the environment reports its own diagnostics, then the registry build's, before any source"
   verify integration "the environment says what part of the setup each of its diagnostics is about, and reports an entry's load diagnostics together"
   verify contract "Load Extension Manifests: extension manifest loading holds — all_files_parsed, extensions_config_available, all_extensions_attempted, loaded_manifests_available, failed_extensions_diagnosed, loaded_event_fired, extension_isolation"
+  verify unit "a builtin loads as a builtin, and an installed or file entry with the digest of its bytes"
+  verify integration "the effects ceiling in specforge.json narrows a declared capability with W171 at its key, and a named root resolves once at load"
 }
 
 behavior load_extension_settings "Load Extension Settings" {
@@ -178,10 +180,11 @@ behavior load_extension_settings "Load Extension Settings" {
   ports      [WasmRuntime]
   contract   """
     An extension declares typed settings, presets and secrets (ADR 0288); specforge.json sets them. A project
-    that sets none reads, calls and reports as before, and the builtins declare none.
+    that sets none reads, calls and reports as before, and no builtin but @specforge/checks (its family
+    switches) declares one.
   """
   verify unit "a project without settings reads and calls as it did before settings existed"
-  verify unit "no builtin declares a feature flag or a setting"
+  verify unit "no builtin declares a feature flag, and none but @specforge/checks a setting: its family switches"
   verify unit "the SDK declares a setting, a preset and a secret, and a feature flag is a bool setting"
   verify unit "json admitted by a form conforms to the form's published schema, and json the schema refuses is refused"
   verify integration "the environment reports a setting not used as written after the registry build's diagnostics"
@@ -256,6 +259,8 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify unit "a code catalog crosses the wire and a guest older than 1.7 is not asked for it"
   verify unit "a code entry is declared with its title, explanation and docs"
   verify unit "a describe item key the protocol does not define produces W138"
+  verify unit "a call's inputs are one tagged list on the wire, and a descriptor that declares none writes no inputs"
+  verify unit "an input its call kind is not served, or a second one of a kind served once, is W021 and served empty, and the call is kept"
   verify unit "the declared categories are the protocol's only describe categories"
   verify unit "an absent short is the name's last segment"
   verify unit "a declaration's default short name is its package name's base"
@@ -312,6 +317,10 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
   verify integration "the registry build of the builtins matches its pinned snapshot"
   verify unit "a declaration with an empty name or version produces E030"
   verify unit "a malformed ext_short produces E030"
+  verify unit "a capability that is not sound is W021 and grants nothing"
+  verify unit "a collector whose capability names no process capability it declares is W021"
+  verify unit "a capability that may POST to the hosts values name is W021"
+  verify unit "a capability keeping more than 16 MiB or a sixteenth of its memory is W021"
   verify unit "peer dependencies are checked in the registry build"
   verify unit "declared passes are ordered in the registry build"
   verify unit "a pass constraint cycle produces W145 and keeps declaration order"
@@ -613,6 +622,7 @@ behavior list_installed_extensions "List Installed Extensions" {
     entries and the kinds the graph uses).
     Output order MUST be deterministic (alphabetical by extension name).
   """
+  verify unit "the extensions listing names each checker"
   verify unit "list shows all installed extensions"
   verify unit "list includes entity counts and entity types"
   verify unit "output order is deterministic"
@@ -830,7 +840,7 @@ behavior search_registry "Search Registry" {
   invariants [diagnostic_determinism, multi_error_collection, offline_first_extension_resolution]
   category   query
   types      [RegistryConfig, SearchQuery, SearchResults, SearchHit, CompilerConfig]
-  ports      [RegistryClient]
+  ports      [RegistryClient, Http]
   produces   [registry_search_completed]
   requires {
     registries_available      "At least one registry is configured in specforge.json"
@@ -1585,6 +1595,8 @@ behavior support_private_registries "Support Private Registries" {
   verify unit "error messages do not leak authentication details"
   verify unit "a download from another origin carries no credential"
   verify unit "a read carries the credential kept for its registry's root, and none kept for another root"
+  verify unit "a user store another user could have written counts as missing"
+  verify unit "a user store the git worktree it lies in tracks is refused before any request"
   verify unit "an unusable stored credential refuses the read before any request"
   verify integration "a private registry refuses an anonymous read and answers an authenticated one"
   verify integration "a registry that requires a token to read is read with the stored credential"

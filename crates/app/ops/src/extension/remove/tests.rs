@@ -106,6 +106,7 @@ fn a_name_two_entries_enable_is_refused() {
             origin: Origin::File {
                 path: "greet.wasm".into(),
             },
+            provenance: None,
             loaded: true,
             failure: None,
             warnings: Vec::new(),
@@ -463,6 +464,7 @@ fn remove_selects_a_file_entry_by_its_text_its_path_or_its_name() {
             origin: Origin::File {
                 path: "greet.wasm".into(),
             },
+            provenance: None,
             loaded: true,
             failure: None,
             warnings: Vec::new(),
@@ -598,6 +600,7 @@ fn every_refusal_of_a_name_is_about_it() {
             origin: Origin::File {
                 path: "greet.wasm".into(),
             },
+            provenance: None,
             loaded: true,
             failure: None,
             warnings: Vec::new(),

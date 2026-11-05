@@ -1,0 +1,39 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "hosts": {
+        "list": [
+          "example.test"
+        ]
+      },
+      "name": "probe-http",
+      "port": "http",
+      "why": "prove a guest reaches the http port through its grant"
+    },
+    {
+      "name": "probe-fs",
+      "ops": [
+        "stat"
+      ],
+      "port": "fs",
+      "why": "prove the same of the fs port"
+    },
+    {
+      "argv": [
+        "probe-tool"
+      ],
+      "name": "probe-process",
+      "port": "process",
+      "why": "prove the same of the process port"
+    },
+    {
+      "name": "probe-git",
+      "ops": [
+        "read"
+      ],
+      "port": "git",
+      "why": "prove the same of the git port"
+    }
+  ]
+}

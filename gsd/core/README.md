@@ -23,7 +23,7 @@ extensions and the profiles declare it as their peer.
 | Settings | the 181 GSD configuration keys `@gsd/core` declares (a count of declarations; ACCEPTANCE counts the inventory's 212 keys, 161 built here, on that basis), typed with GSD's default, and 12 families (`models.*`, `granularities.*`, …), `specforge.agent_variant`, the ten `specforge.surface.<cluster>` settings that show or hide skills; the 15 `model_overrides.<agent>` keys belong to the `model_overrides.*` family and are set by a preset | `src/settings/keys.rs`, model in [spec/settings.md](spec/settings.md) |
 | Profiles | `profile` (`gsd-compat` by default, `gsd-strict`, `gsd-plus`), presetting five settings and raising rule severities; `model_profile` presets the 15 `model_overrides.<agent>` and `workflow.compact_content` presets `specforge.agent_variant` | `src/settings/profiles.rs` |
 | Gates | the four `specforge.*` settings and the `workflow.*` toggles switch off the rules [spec/rules.md](spec/rules.md#setting-gated-rules) lists | `src/settings/gates.rs` |
-| Secrets | the key half of the seven search flags (`brave_search_key` … `jina_key`), read from `BRAVE_API_KEY` … `JINA_API_KEY` | `src/settings/profiles.rs` |
+| Secrets | the key half of the seven search flags (`brave_search_key` … `jina_key`), read from `BRAVE_API_KEY` … `JINA_API_KEY`; `github_token`, read from `GH_TOKEN`, for the pull requests ship and pr-branch open | `src/settings/profiles.rs` |
 
 A setting is declared before the round that reads it, so most are inert today; `specforge settings` lists what a
 project resolves them to. A rule whose code is in the book is silent until its round.

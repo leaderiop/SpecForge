@@ -13,13 +13,20 @@
 
 use crate::probe_support;
 
+use std::sync::Arc;
+
 use probe_support::{
-    ALL, Bait, PROBE, command_input, declared_surfaces, granted_nothing, probe_runtime,
+    ALL, Bait, PROBE, call_ports, command_input, declared_surfaces, granted_nothing, lent,
+    ports_with_http, probe_runtime, reported,
 };
 use serde_json::{Value, json};
+use specforge_effects::testing::{FakeFs, FakeGit, FakeHttp, FakeProcess};
+use specforge_effects::{Ports, ProcessClass};
+use specforge_protocol_types::Operation;
 use specforge_test_macros::test as specforge_test;
-use specforge_wasm::ExtensionCalls;
 use specforge_wasm::protocol::load_declaration;
+use specforge_wasm::testing::assert_port_contract;
+use specforge_wasm::{ExtensionCalls, WasmCallResult, WasmRuntime};
 
 #[specforge_test(
     behavior = "dispatch_surface_command",
@@ -205,4 +212,91 @@ fn an_export_reaches_no_file_and_no_socket() {
         .expect("the probe answers");
     granted_nothing(&report, ALL);
     bait.untouched();
+}
+
+#[specforge_test(
+    behavior = "grant_a_host_port_call",
+    verify = "the sandbox probe reaches each of the four ports through its grant: a command three, a collector process"
+)]
+fn the_probe_reaches_each_port_through_its_grant() {
+    let runtime = probe_runtime();
+    let (http, process) = (
+        Arc::new(FakeHttp::new().route("https://example.test/a", 200, "answer")),
+        Arc::new(FakeProcess::new().answering("probe-tool", ProcessClass::Exited(4), "out")),
+    );
+    let dir = tempfile::tempdir().unwrap();
+    let ports = Ports {
+        http: http.clone(),
+        process: process.clone(),
+        fs: Arc::new(FakeFs::new().with_file("/project/a.md", "a")),
+        git: Arc::new(FakeGit::repo(dir.path(), "abc123", Vec::new())),
+    };
+    let lent = lent(&ports);
+    let call = |port: &str, target: &str, kind| {
+        reported(call_ports(&runtime, port, target, kind, Some(lent.clone())))
+    };
+
+    let answer = call("http", "https://example.test/a", Operation::Command);
+    assert_eq!(answer["ok"], 200, "{answer}");
+    assert_eq!(answer["bytes"], 6, "{answer}");
+    let answer = call("fs", "a.md", Operation::Command);
+    assert_eq!(answer["ok"], true, "{answer}");
+    let answer = call("git", "HEAD", Operation::Command);
+    assert_eq!(answer["ok"], "abc123", "{answer}");
+    let answer = call("process", "probe-tool", Operation::Collect);
+    assert_eq!(answer["ok"], 4, "{answer}");
+
+    // The gate keeps a command from a process; asking is E090.
+    let answer = call("process", "probe-tool", Operation::Command);
+    assert_eq!(answer["denied"], "call_kind", "{answer}");
+    assert_eq!(process.requests().len(), 1, "only the collector's ran");
+    assert_eq!(lent.take_denials().len(), 1);
+
+    // Outside its grant, nothing runs: a host it does not declare, a program it does not declare.
+    let answer = call("http", "https://elsewhere.test/", Operation::Command);
+    assert_eq!(answer["denied"], "scope", "{answer}");
+    assert_eq!(http.requests().len(), 1);
+    let answer = call("process", "cat", Operation::Collect);
+    assert_eq!(answer["denied"], "scope", "{answer}");
+    assert_eq!(process.requests().len(), 1);
+    assert_eq!(lent.take_denials().len(), 2);
+}
+
+#[specforge_test(
+    behavior = "link_host_ports",
+    verify = "a pure call that calls a port is answered denied(call-kind) and no port runs"
+)]
+fn the_probes_pass_is_denied_its_call_kind() {
+    let runtime = probe_runtime();
+    let input = json!({"port": "fs", "target": "a.md"}).to_string();
+    let answer = reported(runtime.call_export(PROBE, "__pass_ports", input.as_bytes()));
+    assert_eq!(answer["denied"], "call_kind", "{answer}");
+}
+
+#[specforge_test(
+    behavior = "grant_a_host_port_call",
+    verify = "the in-process runtime answers a port call as the component runtime does"
+)]
+fn the_component_runtime_keeps_the_port_contract() {
+    let runtime = probe_runtime();
+    let http = Arc::new(FakeHttp::new().route("https://example.test/a", 200, "answer"));
+    let ports = ports_with_http(http.clone());
+    assert_port_contract(
+        &runtime,
+        PROBE,
+        "cmd__ports",
+        &|| lent(&ports),
+        "https://example.test/a",
+        "https://elsewhere.test/a",
+    );
+    assert_eq!(http.requests().len(), 1, "only the granted request ran");
+}
+
+#[test]
+fn a_guest_after_a_trap_is_lent_a_fresh_session() {
+    let runtime = probe_runtime();
+    let trapped = runtime.call_with_ports(PROBE, "cmd__trap", b"{}", Operation::Command, None);
+    assert!(matches!(trapped, WasmCallResult::Trap(_)));
+    let answer = reported(call_ports(&runtime, "fs", "a", Operation::Command, None));
+    assert_eq!(answer["denied"], "scope", "{answer}");
 }

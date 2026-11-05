@@ -1,6 +1,6 @@
 # The user's registry files are written privately and atomically
 
-**Status:** accepted (2026-10-21, architecture round 21, plan 02). Amends [ADR 0178](0178-a-registry-credential-belongs-to-its-registry-root.md) (D3: `User` spells the signing key's and the known keys' names and hands doctor the key's path; D4 and the platform amendment: every file of the user's directory, not only a kept secret, is 0600 in a 0700 directory, written by `replace_private`). Follows [ADR 0144](0144-a-project-file-is-written-by-replacing-its-name.md) (the same temporary-name discipline; its D2, "a file keeps its permissions", does not hold for a private file) and keeps [ADR 0059](0059-trust-pins-are-written-with-the-lock-plan.md) D2 (the pins are replaced whole; now also synced).
+**Status:** accepted (2026-10-21, architecture round 21, plan 02). Amends [ADR 0178](0178-a-registry-credential-belongs-to-its-registry-root.md) (D3: `User` spells the signing key's and the known keys' names and hands doctor the key's path; D4 and the platform amendment: every file of the user's directory, not only a kept secret, is 0600 in a 0700 directory, written by `replace_private`). Follows [ADR 0144](0144-a-project-file-is-written-by-replacing-its-name.md) (the same temporary-name discipline; its D2, "a file keeps its permissions", does not hold for a private file) and keeps [ADR 0059](0059-trust-pins-are-written-with-the-lock-plan.md) D2 (the pins are replaced whole; now also synced). Amended by [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md) D2.5 (the consent store joins the private files, written under a sidecar lock).
 
 ## Context
 
@@ -56,3 +56,10 @@
 
 A reproduced concurrent first publish (two processes both creating the key); a user on a file system where `rename`
 is not atomic; a Windows user asking for an ACL.
+
+## Amendment (2026-11-03, ports round, plan 02, [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md) D2.5)
+
+`consent.json`, the user's approvals of what extensions may make the host do, joins the private files: it goes
+through `replace_private` (0600 in a 0700 directory, atomic). Its writes are read-modify-write, so each holds an
+exclusive lock on the sidecar `consent.json.lock` from the read to the rename; two approvals at once both land. A
+store that cannot be read, or that a newer specforge wrote, is never written over (W186).

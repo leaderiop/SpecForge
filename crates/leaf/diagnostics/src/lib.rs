@@ -4,7 +4,7 @@
 //! `specforge explain <CODE>` and the MCP `specforge.explain` tool print an
 //! entry, MCP diagnostics and the LSP carry its title and docs link, doctor
 //! quotes its explanation, and `docs/diagnostics.md` is generated from
-//! [`CATALOG`]. The catalog is one table (`catalog.rs`) that generates both
+//! [`CATALOG`]. The catalog is the table in `catalog.rs`, with `catalog_checks.rs` merged in, and it generates
 //! [`CATALOG`] and a typed constant for every core code ([`codes`]): the
 //! host names a core code as `codes::W112`, a [`Code`] whose level is the
 //! catalogued one. The tests in `tests.rs` fail when an emitted
@@ -14,16 +14,19 @@
 #[macro_use]
 mod catalog_macro;
 mod catalog;
+mod catalog_checks;
+mod catalog_merged;
 mod code;
 mod codebook;
 mod extension;
 mod namespace;
 
-pub use catalog::{CATALOG, codes};
+pub use catalog::codes;
+pub use catalog_merged::CATALOG;
 #[doc(hidden)]
 pub use code::prefix_states;
 pub use code::{Code, GradedCode};
-pub use codebook::{Codebook, Described, ExtensionCode, SharedNamespace};
+pub use codebook::{Codebook, Described, ExtensionCode, SharedNamespace, letter_level};
 pub use extension::CodeMisuse;
 pub use namespace::{CodeRef, code_namespace, is_local_code, qualify};
 
@@ -43,6 +46,9 @@ pub struct CodeEntry {
     /// `E`/`W`/`I` prefix states it (the table does not compile otherwise);
     /// an `A###` finding's severity is set by its pass.
     pub level: Level,
+    /// This machine decides it (its approvals, its network or its journal), not the project: `--strict` never
+    /// promotes it and the gate's warning baseline never counts it (ADR 0337 D7).
+    pub machine: bool,
     /// What triggers the diagnostic and how to fix it.
     pub explanation: &'static str,
 }
@@ -144,7 +150,7 @@ const DOCS_HEADER: &str = "# SpecForge Diagnostic Codes
 
 <!-- Generated file: do not edit by hand. -->
 
-This page is generated from the catalog table in `crates/leaf/diagnostics/src/catalog.rs`,
+This page is generated from the catalog tables in `crates/leaf/diagnostics/src/catalog.rs`,
 the single registry of diagnostic codes; `specforge explain <CODE>` prints the
 same text. Every code emitted by the compiler, the CLI, or a first-party
 extension has exactly one entry, and each entry names its owner: `core` for the

@@ -225,7 +225,7 @@ classifier.
 # Resolve the compiled edge-probe.cjs against the GSD install dir via RUNTIME_DIR (#448)
 # — NOT the consuming project's git root — falling back to git toplevel / $HOME/.claude.
 # Mirrors the ui-safety-gate.cjs resolution idiom at autonomous.md:290 / plan-phase.md:631.
-_GSD_RT="${RUNTIME_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+_GSD_RT="${RUNTIME_DIR:-$(specforge git repo --pick .top 2>/dev/null || pwd)}"
 EDGE_PROBE_JS=$(for _c in \
   "$_GSD_RT/gsd-core/bin/lib/edge-probe.cjs" \
   "$_GSD_RT/bin/lib/edge-probe.cjs" \
@@ -268,7 +268,7 @@ fi
 # and is never translated. Keep every `id` exactly as it appears in the SPEC.
 # BSD/macOS mktemp only randomizes XXXXXX when it is the final path component, so make a
 # suffixless temp then append the extension — portable across BSD + GNU (#1520).
-REQS_JSON=$(mktemp "${TMPDIR:-/tmp}/edge-probe-reqs-XXXXXX") && mv "$REQS_JSON" "${REQS_JSON}.json" && REQS_JSON="${REQS_JSON}.json" || exit 1
+REQS_JSON=$(specforge files temp --prefix edge-probe-reqs- --suffix .json --pick .path) || exit 1
 cat > "$REQS_JSON" <<'JSON'
 [
   { "id": "R1", "text": "<replace: requirement text from the SPEC>" }
@@ -278,7 +278,7 @@ JSON
 # `<replace: …>` placeholder (a forgotten substitution would otherwise yield a
 # meaningful-looking but bogus coverage report). Fail loud, not silent no-op.
 if [ "$(specforge gsd edge-probe-requirements --requirements "$(< "$REQS_JSON")" --pick .valid)" != true ]; then
-  rm -f "$REQS_JSON"
+  specforge files remove --force "$REQS_JSON" >/dev/null
   echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from the SPEC Requirements before Step 5.5 runs." >&2   # also when the JSON is over the command line's limit (32,767 characters on Windows): it is passed as an argument
   exit 1
 fi
@@ -294,11 +294,11 @@ fi
 # the engine validation exists to protect. Make the run fatal, then validate the captured
 # report is well-formed JSON before the resolution loop consumes it.
 if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
-  rm -f "$REQS_JSON"
+  specforge files remove --force "$REQS_JSON" >/dev/null
   echo "ERROR: edge-probe engine failed (invalid shapes or bad input) — fix the requirement(s) and re-run; never proceed with empty coverage." >&2
   exit 1
 fi
-rm -f "$REQS_JSON"
+specforge files remove --force "$REQS_JSON" >/dev/null
 # Exit-0-but-garbage guard: the report must parse as JSON with the expected { items[], coverage{} } shape.
 if [ -z "$COVERAGE" ]; then
   echo "ERROR: edge-probe produced an unparseable or malformed coverage report — refusing to proceed with the resolution loop." >&2
@@ -512,7 +512,7 @@ Write to: `{phase_dir}/{padded_phase}-SPEC.md`
 ## Step 7: Commit
 
 ```bash
-git add spec && git commit -m "spec(phase-${phase_number}): add SPEC.md for ${phase_name} — ${requirement_count} requirements (#2213)" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "spec(phase-${phase_number}): add SPEC.md for ${phase_name} — ${requirement_count} requirements (#2213)" && specforge collect --runner gsd-git --yes
 ```
 
 If `commit_docs` is false the CLI returns `skipped`; SPEC.md is written, not committed.

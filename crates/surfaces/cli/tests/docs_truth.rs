@@ -27,6 +27,10 @@ pub(crate) fn manifest_domain_kinds() -> BTreeSet<String> {
             std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         let doc: serde_json::Value = serde_json::from_str(&raw).expect("valid describe JSON");
         for item in doc["items"].as_array().expect("items array") {
+            // Facts a collector writes are no kind anyone types in a `.spec` file.
+            if item["writer"] == "collector" {
+                continue;
+            }
             let keyword = item["keyword"]
                 .as_str()
                 .or_else(|| item["name"].as_str())

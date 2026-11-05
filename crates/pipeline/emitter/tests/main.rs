@@ -21,6 +21,7 @@ mod outline;
 mod outline_codes;
 mod outline_owner;
 mod schema;
+mod schema_checks;
 mod scope;
 mod stress;
 mod support;

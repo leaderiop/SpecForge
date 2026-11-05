@@ -128,7 +128,7 @@ behavior require_block_titles "Require Block Titles" {
 // WITHOUT knowledge of entity semantics. They check: dangling references,
 // duplicate IDs, import cycles, unreferenced structural nodes (W012 for any
 // grammar-level structural kind — ref, spec — with zero incoming edges),
-// and file-reference existence. Extension-defined entity kinds opt into
+// (a file a field names is a value check's: @specforge/checks). Extension-defined entity kinds opt into
 // generic unreferenced detection via extension-defined `no_incoming_edges`
 // ValidationRulePatterns. Domain-specific unreferenced rules (e.g., W001 unreferenced
 // entity) are extension-defined ValidationRulePatterns.
@@ -181,73 +181,6 @@ behavior detect_unreferenced_refs "Detect Unreferenced Refs" {
   verify unit "structural node with at least one incoming edge suppresses W012"
   verify contract "Detect Unreferenced Refs: unreferenced ref detection holds — graph_built_fired, unreferenced_detected, referenced_nodes_clean"
   verify unit "spec block is a root container and does not produce W012"
-}
-
-// Core structural validation: checks file existence for ANY field declared as
-// a file reference in extension metadata. This is purely structural and
-// domain-agnostic — the core checks that referenced files exist, just like it
-// checks that referenced entity IDs exist (E003). This mechanism applies to
-// any file-reference field registered by any extension (e.g., gherkin from
-// @specforge/software, or a future openapi field from another extension).
-// W018 (missing file-reference field on supported kind) is an extension-level
-// concern: it is declared as a missing_field_when_flag_set ValidationRulePattern
-// by the owning extension, not hardcoded in core. The core only handles E016.
-behavior validate_file_reference_paths "Validate File Reference Paths" {
-  features   [structural_validation, se_gherkin_bridge]
-  // reference_resolution_completeness applies here because file paths are a form
-  // of reference that must resolve: just as entity-ID references must resolve to
-  // graph nodes, file-path references must resolve to existing filesystem entries.
-  // Both are "references" in the graph-integrity sense — unresolved file paths
-  // violate the same completeness guarantee as dangling entity references.
-  category   validation
-  invariants [reference_resolution_completeness, validation_pipeline_ordering]
-  ports      [FileSystem]
-  consumes   [graph_built]
-  // Diagnostics from this validator flow into the declarative_validation_executed
-  // aggregate and ultimately to validation_complete. No separate event produced.
-  requires {
-    graph_built_fired    "graph_built event has fired, confirming the in-memory graph is fully constructed"
-    filesystem_available "FileSystem port is available for checking file existence"
-  }
-  ensures {
-    missing_files_diagnosed "Every non-existent file path in a file-reference field produces an E016 diagnostic"
-    existing_files_pass     "File-reference fields pointing to existing files produce no diagnostic"
-  }
-  contract   """
-    This behavior performs generic file-path validation for any entity
-    field whose extension metadata declares it as a file reference.
-    The validation is domain-agnostic: the core does not interpret the
-    semantics of the referenced file — it only checks existence.
-    Any extension can register file-reference fields (e.g., gherkin
-    from @specforge/software, openapi, protobuf, schema) and they
-    will all be validated by this same mechanism.
-
-    File existence (E016): every file path in a file-reference field
-    MUST reference an existing file relative to the spec root.
-    Non-existent files MUST produce an E016 diagnostic. A field is a
-    file reference on the kinds whose registry entry declares it so: a
-    field of the same name on another kind is not one. Its value names
-    its paths: a single value's text, quoted or a bare word, or each item of
-    a list; an empty value names none, and so do a block and an expression
-    group. E016 is a rule the host builds for each such field; it runs with
-    the rule set, after E006.
-
-    Field-presence warnings (e.g., W018 for missing file-reference
-    field on a supported kind) are NOT handled here — they are declared
-    as missing_field_when_flag_set ValidationRulePatterns in the owning
-    extension manifest and executed by the declarative validation engine.
-  """
-  verify unit "non-existent file reference produces E016"
-  verify unit "existing file reference passes silently"
-  verify unit "multiple file references in same entity each validated independently"
-  verify unit "relative path resolved from the spec root"
-  verify unit "a file reference is read from the spec root and suggests a close sibling there"
-  verify unit "a field another kind declares as a file reference is not one on this kind"
-  verify unit "a single path on a file-reference field is checked like a one-item list"
-  verify unit "a bare word on a file-reference field is a path"
-  verify integration "a compile checks a bare word on a file-reference field as a path"
-  verify unit "a file field declaring the project base reads its relative paths from the directory of specforge.json"
-  verify contract "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass"
 }
 
 // W017 (testable kind without verify support) is registry_build_kinds, in behaviors/zero-entity-registries.spec.
@@ -326,7 +259,7 @@ behavior report_entities_without_contract_obligations "Report Entities Without C
 behavior read_git_baseline "Read the Git Baseline" {
   features [ci_integration]
   category validation
-  ports    [FileSystem]
+  ports    [FileSystem, Git]
   requires {
     history_declared "an immutable or append-only field, an append-only kind, or a pass naming a baseline kind is loaded"
   }
@@ -366,6 +299,7 @@ behavior read_git_baseline "Read the Git Baseline" {
   verify unit "a baseline asks for the commit's tree only when a compute pass reads, and runs each compute pass once"
   verify unit "a file git cannot give or a file over the cap is not absent at the baseline"
   verify unit "check since judges history against the merge-base and refuses an unknown revision"
+  verify integration "check since reads history with no git program on PATH"
   verify unit "validate since judges per request"
 }
 
@@ -460,4 +394,63 @@ behavior check_collected_kinds "Check Collected Kinds" {
   """
   produces []
   verify unit "an entity of a kind a collector writes, written in a spec file, is E115"
+}
+
+behavior check_field_values "Check Field Values" {
+  category   validation
+  invariants [validation_pipeline_ordering]
+  ports      [FileSystem]
+  consumes   [graph_built]
+  contract   """
+    Every value of a field that declares checks is given to its checkers. A checker
+    plans from the text alone, or names the effects it needs (probes) and judges what
+    they answered; its findings land on the value, under its extension's namespace.
+    What this machine did not perform is not judged, and nothing goes red for it.
+  """
+  verify unit "a pure checker's finding is on the list item it read"
+  verify unit "a finding's byte range points inside the quotes of the value"
+  verify unit "a code the checker did not declare is W150 and the finding is kept"
+  verify unit "a failing checker is E028 once per run and its values are not judged"
+  verify unit "any_of passes when one branch yields no error-level finding"
+  verify unit "a check on a block member reads each written item"
+  verify unit "a probe outside its checker's scopes is E090 and not performed"
+  verify unit "two values naming one URL make one request"
+  verify unit "a later check's probes are dropped after an earlier error"
+  verify unit "a value whose probe was not performed is not judged and counts toward I206"
+  verify unit "only the scopes these values use are asked for with W170"
+  verify unit "a dns probe runs through the Http port under its checker's scope"
+  verify unit "a file value that leaves its root is E094 on the value"
+  verify unit "a missing file suggests no name from outside its root"
+  verify unit "one extension's approval approves no other extension's request"
+  verify unit "a capability approved for another kind of call does not approve a check request"
+  verify unit "a redirect to a host outside the grant is refused on the checker's path"
+  verify unit "an answer read from the journal is the answer a live request gave"
+  verify unit "a git probe this machine cannot answer is not judged"
+  verify unit "a git probe asks the Git port and needs no journal"
+  verify unit "a file probe reads a held prefix, and a walk stays under its root"
+  verify unit "a suffix read serves a file's last bytes, where they start and the file's length"
+  verify unit "a 200 to a suffix request is sliced when small and range:ignored when large"
+  verify unit "a prefix and a suffix of one URL are two journal records"
+  verify unit "a second round reads the span the first named"
+  verify unit "a fourth round of probes is E028 naming the checker, and its value is not judged"
+  verify unit "a cached check replays every round without calling the guest"
+  verify unit "a POST query to a listed host is performed, kept to its capability's max_bytes, journaled by body and answered again"
+  verify unit "a POST query to a host only a value names is E090 and never sent"
+  verify unit "a checker asked again in a later run is not called"
+  verify unit "changed args miss the checker cache"
+  verify unit "changed settings miss the checker cache"
+  verify unit "a new blob digest misses the checker cache"
+  verify unit "a cold run reads the checker cache from disk"
+  verify unit "a detached project writes no checker cache"
+  verify unit "a record fetched with one extension's secret answers no other extension in any mode"
+  verify unit "a 401 one extension was answered does not answer another"
+  verify unit "a committed effect record or checker memo forges no pass"
+  verify unit "a checker whose when setting is off is not called and asks no scope"
+  verify unit "a spec root outside the project is an outside root a probe needs approval to read"
+  verify unit "what is over a run's budget is not run and counts toward I206 as budget"
+  verify unit "a judge call stays inside its guest's memory limit"
+  verify unit "an escape sequence in a probe's answer reaches a finding printable"
+  verify unit "a checker's memo read from disk reaches a finding printable"
+  verify unit "a spec string's escape reads no control character but a newline, a tab or a return"
+  verify unit "a redirect one extension's grant permits reaches no other extension without its own grant"
 }

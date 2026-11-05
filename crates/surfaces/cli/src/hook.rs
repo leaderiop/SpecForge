@@ -47,18 +47,20 @@ pub(crate) struct Args {
 }
 
 impl Args {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    /// The hook reads git through its own timed port, not `_ports.git`, so its host never waits on a status.
+    pub(crate) fn run(self, terminal: &Terminal, _ports: &specforge_effects::Ports) -> Exit {
         let mut stdin = Vec::new();
         // One byte past the limit says it was passed; a stdin that cannot be read is what was read of it.
         let _ = std::io::stdin()
             .take(STDIN_LIMIT + 1)
             .read_to_end(&mut stdin);
         let cwd = std::env::current_dir().unwrap_or_default();
-        // A hook's git facts degrade quietly after 1.5 s, as upstream's probes do (ADR 0320).
-        specforge_project::history::set_default(Some(std::sync::Arc::new(
-            specforge_git::GitCli::with_timeout(std::time::Duration::from_millis(1_500)),
-        )));
-        self.run_with(&stdin, &cwd, crate::project::load_dir, terminal)
+        // A hook's git status degrades quietly after 1.5 s, as upstream's probes do (ADR 0320).
+        let git: specforge_effects::SharedGit = std::sync::Arc::new(specforge_git::Gix::within(
+            std::time::Duration::from_millis(1_500),
+        ));
+        let load = |dir: &Path| crate::project::load_dir(dir).with_git(git);
+        self.run_with(&stdin, &cwd, load, terminal)
     }
 
     /// Over `stdin`; `load` loads the environment at a root, and is called only for an event the hook fires on.
@@ -163,10 +165,9 @@ fn answer(
     let env = load(&root);
     // The spec guard reads the graph for the spec root; an unknown route is answered from the registries alone.
     let compile = args.route == SPEC_GUARD
-        || env
-            .registries()
-            .hook(&args.route)
-            .is_some_and(|h| h.item.reads_graph || h.item.writes);
+        || env.registries().hook(&args.route).is_some_and(|h| {
+            specforge_protocol_types::Inputs(&h.item.inputs).graph() || h.item.writes
+        });
     let project = if compile {
         CompiledProject::of(env)
     } else {

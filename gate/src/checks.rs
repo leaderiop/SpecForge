@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use crate::blob_inputs;
+use crate::blob_size;
 use crate::change_set::{ChangeSet, Pattern};
 use crate::crate_map;
 use crate::judge;
@@ -170,6 +171,20 @@ pub static CHECKS: &[Check] = &[
         after: &[],
         fix: "split the file along its sections, or put new code and tests in a new module (a listed file may not grow); one that shrank, moved or went: cargo gate baseline --only file-size",
         run: steps::file_size,
+    },
+    Check {
+        name: blob_size::CHECK,
+        proves: concat!(
+            "every committed .wasm blob (the staged one, at the hook) is at most ",
+            blob_size::cap!(),
+            " B (ADR 0338 D8)"
+        ),
+        reach: Reach::Hook,
+        trigger: Trigger::Paths(&["**/*.wasm", "gate/src/blob_size.rs"]),
+        compiles: false,
+        after: &[],
+        fix: "shrink the blob: feature-gate or drop a dependency, or move a family to its own extension; the cap is ADR 0338 D8",
+        run: steps::blob_size,
     },
     Check {
         name: "crate-map",

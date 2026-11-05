@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use serde::Deserialize;
+
 use crate::{Diagnostic, Exclude, ExcludeEntry, ExcludeError, codes};
 
 /// What one `specforge.json` `extensions` entry enables: the one reading
@@ -99,6 +101,8 @@ pub struct ProjectConfig {
     /// its usable entries, in file order; each unusable one is an E069.
     pub exclude: Exclude,
     pub inference: InferenceConfig,
+    /// The checks `checks` attaches to declared fields, and whether their outcomes are published (ADR 0336).
+    pub checks: ChecksConfig,
     pub raw: Option<serde_json::Value>,
     /// The text `raw` was parsed from: what the settings resolver locates a key in (ADR 0288).
     pub text: Option<String>,
@@ -114,6 +118,15 @@ impl ProjectConfig {
         };
         crate::SourceRoot::new(root.to_path_buf(), dir, self.exclude.clone())
     }
+}
+
+/// `specforge.json` `checks`, read here for its types and resolved in the registry build.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ChecksConfig {
+    /// Each `kind.field` (or member path) with the checks it attaches, by that key's order.
+    pub fields: Vec<(String, Vec<specforge_protocol_types::CheckRef>)>,
+    /// A plain `specforge collect` also runs every collector of check outcomes.
+    pub publish: bool,
 }
 
 /// Project-level inference hints that override/append to extension defaults.
@@ -138,7 +151,8 @@ pub enum ConfigProblem {
     NotAnObject { path: PathBuf },
     /// A key the config defines has the wrong JSON type (`name`,
     /// `version`, `spec_root`: a string; `extensions`, `exclude`: an
-    /// array; `settings`: an object). That key's default is used; every other key is kept.
+    /// array; `settings`, `effects`, `roots`, `checks`: an object; `checks.publish`: a bool; `checks.fields`: an
+    /// object of checks). That key's default is used; every other key is kept.
     WrongType {
         path: PathBuf,
         key: &'static str,
@@ -351,12 +365,19 @@ pub fn parse_project_config(path: &Path, content: &str) -> ConfigRead {
             "spec_root" => config.spec_root = string_key(&path, "spec_root", item, &mut problems),
             "extensions" => config.extensions = list_key(&path, "extensions", item, &mut problems),
             "exclude" => config.exclude = exclude_key(&path, item, &mut problems),
-            // Read where the settings resolve (ADR 0288); here only its type.
-            "settings" if !item.is_object() => problems.push(ConfigProblem::WrongType {
-                path: path.clone(),
-                key: "settings",
-                expected: "an object",
-            }),
+            "checks" => config.checks = checks_key(&path, item, &mut problems),
+            // Read where they resolve (ADR 0288, ADR 0335 D2.3); here only their type.
+            key @ ("settings" | "effects" | "roots") if !item.is_object() => {
+                problems.push(ConfigProblem::WrongType {
+                    path: path.clone(),
+                    key: match key {
+                        "settings" => "settings",
+                        "effects" => "effects",
+                        _ => "roots",
+                    },
+                    expected: "an object",
+                })
+            }
             _ => {}
         }
     }
@@ -367,6 +388,62 @@ pub fn parse_project_config(path: &Path, content: &str) -> ConfigRead {
         config,
         problems,
         found: true,
+    }
+}
+
+/// `checks`: a member of the wrong type is a problem, and its default is used.
+fn checks_key(
+    path: &Path,
+    value: &serde_json::Value,
+    problems: &mut Vec<ConfigProblem>,
+) -> ChecksConfig {
+    let mut wrong = |key: &'static str, expected: &'static str| {
+        problems.push(ConfigProblem::WrongType {
+            path: path.to_path_buf(),
+            key,
+            expected,
+        });
+    };
+    let mut checks = ChecksConfig::default();
+    let Some(object) = value.as_object() else {
+        wrong("checks", "an object");
+        return checks;
+    };
+    match object.get("publish") {
+        None => {}
+        Some(serde_json::Value::Bool(publish)) => checks.publish = *publish,
+        Some(_) => wrong("checks.publish", "true or false"),
+    }
+    match object.get("fields") {
+        None => {}
+        Some(serde_json::Value::Object(fields)) => {
+            for (field, written) in fields {
+                match read_checks(written) {
+                    Some(refs) => checks.fields.push((field.clone(), refs)),
+                    None => wrong(
+                        "checks.fields",
+                        "an object whose values are a checker's name, a check, or a list of them",
+                    ),
+                }
+            }
+        }
+        Some(_) => wrong("checks.fields", "an object"),
+    }
+    checks
+}
+
+/// The checks one `checks.fields` value writes: a checker's name, a check object, or a list of them; `None` when it
+/// holds anything else.
+fn read_checks(written: &serde_json::Value) -> Option<Vec<specforge_protocol_types::CheckRef>> {
+    use specforge_protocol_types::CheckRef;
+    let one = |item: &serde_json::Value| match item {
+        serde_json::Value::String(name) => Some(CheckRef::named(name)),
+        serde_json::Value::Object(_) => CheckRef::deserialize(item).ok(),
+        _ => None,
+    };
+    match written {
+        serde_json::Value::Array(items) => items.iter().map(one).collect(),
+        single => one(single).map(|check| vec![check]),
     }
 }
 

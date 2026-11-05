@@ -130,7 +130,7 @@ fn a_core_tool_spec_is_derived_from_its_module() {
 fn a_core_tool_runs_its_handler_on_its_input() {
     let tool = spec(&ReadProbe);
     let log = EventLog::new();
-    let mut state = McpState::new();
+    let mut state = McpState::new(crate::real_ports());
     state.events = Box::new(log.clone());
     let mut call = Call::new(
         &mut state,
@@ -210,7 +210,7 @@ fn a_refused_mutation_reports_a_failed_mutation() {
 
     // A preview reaches `complete` as one: no event, no `files_written`.
     let log = EventLog::new();
-    let mut state = McpState::new();
+    let mut state = McpState::new(crate::real_ports());
     state.events = Box::new(log.clone());
     let mut call = Call::new(
         &mut state,

@@ -49,9 +49,16 @@ impl Default for McpServer {
 }
 
 impl McpServer {
+    /// A server over the real adapters, built here: what a test or an embedder that builds no ports of its own
+    /// serves with. A surface passes the ports it built ([`Self::over`]).
     pub fn new() -> Self {
+        Self::over(real_ports())
+    }
+
+    /// A server whose effects go through `ports`, the effect-plane adapters its surface built once (ADR 0335).
+    pub fn over(ports: specforge_effects::Ports) -> Self {
         Self {
-            state: McpState::new(),
+            state: McpState::new(ports),
         }
     }
 
@@ -59,9 +66,13 @@ impl McpServer {
     /// by `initialize` (unless the client names a `projectRoot`), or by the
     /// first request that finds one there.
     pub fn with_project_root(root: std::path::PathBuf) -> Self {
-        let mut server = Self::new();
-        server.state.root = Some(root);
-        server
+        Self::new().serving(root)
+    }
+
+    /// The same server, its root `root` ([`Self::with_project_root`]).
+    pub fn serving(mut self, root: std::path::PathBuf) -> Self {
+        self.state.root = Some(root);
+        self
     }
 
     /// The same server, its events recorded into `sink` instead of
@@ -238,14 +249,32 @@ impl McpServer {
         self
     }
 
-    /// The same server, `specforge.collect` running commands and keeping approvals on `machine` instead of
-    /// the user's (`specforge_ops::testing::ScriptedMachine`, ADR 0125).
+    /// The same server, `specforge.collect` running commands on `machine` instead of the user's
+    /// (`specforge_ops::testing::ScriptedMachine`, ADR 0125).
     pub fn with_collector_machine(
         mut self,
         machine: std::sync::Arc<dyn specforge_ops::analysis::collect::CollectorMachine>,
     ) -> Self {
         self.state.collector_machine = machine;
         self
+    }
+
+    /// The same server, its effects approved by `consent` instead of the user's consent store
+    /// (`specforge_effects::testing::MemoryConsent`, ADR 0335 D2.5).
+    pub fn with_consent(mut self, consent: specforge_effects::SharedConsent) -> Self {
+        self.state.consent = Some(consent);
+        self
+    }
+}
+
+/// The real adapters, built here: [`McpServer::new`]'s.
+fn real_ports() -> specforge_effects::Ports {
+    let process: specforge_effects::SharedProcess = std::sync::Arc::new(specforge_process::Runner);
+    specforge_effects::Ports {
+        git: std::sync::Arc::new(specforge_git::Gix::default()),
+        process,
+        http: std::sync::Arc::new(specforge_http::Client::new()),
+        fs: std::sync::Arc::new(specforge_fs::LocalFs),
     }
 }
 

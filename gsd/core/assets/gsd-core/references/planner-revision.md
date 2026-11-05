@@ -97,7 +97,7 @@ plans, or apply a `fix_hint` that contradicts a constraint from Step 2.5 — tha
 ### Step 6: Commit
 
 ```bash
-git add spec && git commit -m "fix($PHASE): revise plans based on checker feedback" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "fix($PHASE): revise plans based on checker feedback" && specforge collect --runner gsd-git --yes
 ```
 
 ### Step 7: Return Revision Summary

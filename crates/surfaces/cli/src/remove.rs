@@ -29,14 +29,14 @@ impl Args {
     /// `specforge remove`: the shared remove operation over the view of a fresh
     /// compile of the project, whose loaded declarations say which extensions
     /// depend on the one removed.
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         let format = self.output.format;
         let root = match self.project.root() {
             Ok(root) => root,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };
         let path = root.dir();
-        let project = crate::project::compile_at(&root);
+        let project = crate::project::compile_at(&root, ports);
         let request = RemoveRequest {
             name: &self.name,
             force: self.force,

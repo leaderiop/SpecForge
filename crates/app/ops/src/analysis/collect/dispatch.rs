@@ -4,8 +4,9 @@ use super::collector::Collector;
 use crate::view::ProjectView;
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
+use specforge_protocol_types::Operation;
 use specforge_protocol_types::{CollectInput, CollectOutput, CollectReportFile, RawGraph};
-use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Operation};
+use specforge_wasm::{CallError, CallFailure, ExtensionCalls, PortCall};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -77,7 +78,7 @@ pub fn dispatch(
     reports: &[CollectReportFile],
     stdout: Option<&str>,
 ) -> Result<CollectOutput, CallError> {
-    dispatch_over(runtime, collector, reports, stdout, None)
+    dispatch_over(runtime, collector, reports, stdout, None, None)
 }
 
 /// [`dispatch`], with `view`'s project root as `cwd` (ADR 0327); a collector that declares `writes` also receives the
@@ -89,8 +90,12 @@ pub(super) fn dispatch_over(
     reports: &[CollectReportFile],
     stdout: Option<&str>,
     view: Option<&ProjectView<'_>>,
+    lent: Option<PortCall>,
 ) -> Result<CollectOutput, CallError> {
     let writing = view.filter(|_| collector.writes);
+    let serve = view.map(|view| {
+        crate::extension::inputs::Serve::new(view, &collector.extension, &collector.inputs)
+    });
     let at = crate::extension::command::instant();
     let input = CollectInput {
         reports: reports.to_vec(),
@@ -110,15 +115,14 @@ pub(super) fn dispatch_over(
         revisions: writing
             .map(|view| crate::revision::of_project(view.project()))
             .unwrap_or_default(),
-        files: match view {
-            // A collect runs once: its files are read from the plain disk (ADR 0293).
-            Some(view) if !collector.reads.is_empty() => specforge_project::file_reads::read(
-                &collector.reads,
-                view.entities(),
-                &view.env().file_source(&specforge_registry::PlainDisk),
-            ),
-            _ => Default::default(),
-        },
+        files: serve
+            .as_ref()
+            .map(|serve| serve.files())
+            .unwrap_or_default(),
+        check_outcomes: serve
+            .as_ref()
+            .map(|serve| serve.check_outcomes())
+            .unwrap_or_default(),
     };
     let Some(runtime) = runtime else {
         return Err(CallError::new(
@@ -128,5 +132,6 @@ pub(super) fn dispatch_over(
             CallFailure::NotLoaded,
         ));
     };
-    ExtensionCalls::new(runtime).collect_writing(&collector.extension, &collector.export, &input)
+    let calls = ExtensionCalls::new(runtime).with_ports(lent);
+    calls.collect_writing(&collector.extension, &collector.export, &input)
 }

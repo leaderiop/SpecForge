@@ -17,7 +17,7 @@ use specforge_common::shape::Shape;
 use specforge_common::{Codebook, DiagnosticList};
 use specforge_ops::analysis::check::Counts;
 use specforge_ops::{OpError, OpErrorKind};
-use specforge_project::{DiagnosticsDelta, GraphDelta, ProjectSession, UpdateKind};
+use specforge_project::{DiagnosticsDelta, GraphDelta, ProjectSession, RuntimeSource, UpdateKind};
 use specforge_watch::{Applied, DEFAULT_DEBOUNCE_WINDOW, Notify, SessionWatch, WatchEvent};
 
 // `specforge watch`'s command line.
@@ -32,24 +32,35 @@ pub(crate) struct Args {
     /// Check every incremental rebuild against a cold rebuild (slower)
     #[arg(long, default_value_t = false)]
     verify_incremental: bool,
+
+    #[command(flatten)]
+    effects: crate::effects::EffectsOption,
 }
 
 impl Args {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+        let mode = crate::effects::mode(
+            self.effects.effects,
+            crate::effects::Command::Other,
+            false,
+            terminal.facts().ci,
+        );
         watch_project(
-            &self.project,
+            (&self.project, mode),
             self.output.format,
             self.verify_incremental,
             terminal,
+            ports,
         )
     }
 }
 
 fn watch_project(
-    project: &ProjectArg,
+    (project, mode): (&ProjectArg, specforge_effects::EffectsMode),
     format: OutputFormat,
     verify_incremental: bool,
     terminal: &Terminal,
+    ports: &specforge_effects::Ports,
 ) -> Exit {
     // A debug build checks every rebuild (ProjectSession); a release build
     // only when asked (the check costs a cold rebuild per change).
@@ -57,7 +68,14 @@ fn watch_project(
         Ok(root) => root,
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
-    let mut session = ProjectSession::open(&root);
+    let mut session = ProjectSession::detached()
+        .with_git(std::sync::Arc::clone(&ports.git))
+        .with_effects(
+            mode,
+            ports.clone(),
+            std::sync::Arc::new(specforge_ops::consent::UserConsent::user(root.dir())),
+        );
+    session.reopen(&root, RuntimeSource::project(), |_| {});
     if verify_incremental {
         session.set_verify_incremental(true);
     }
@@ -91,7 +109,8 @@ fn watch_project(
     // environment input reloads the environment, a check input re-runs the
     // checks; anything else changes nothing.
     let debug = std::env::var("SPECFORGE_WATCH_DEBUG").is_ok();
-    for batch in &batches {
+    // An effect record the checks consulted wakes the loop when it expires: the checks run again (ADR 0337 D5).
+    while let Some(batch) = watch.next_batch(&batches) {
         if debug {
             let changes = watch
                 .session()

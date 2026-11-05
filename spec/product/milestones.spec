@@ -254,7 +254,7 @@ milestone zero_entity_core "Phase 9: Zero-Entity Core Architecture" {
 }
 
 milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
-  description   "Wasm component runtime with compile caching, sandbox enforcement, peer dependency validation, and surface contribution dispatch. The host-function import surface is not part of it: it is planned as Phase 15 (wasm_host_functions)."
+  description   "Wasm component runtime with compile caching, sandbox enforcement, peer dependency validation, and surface contribution dispatch. The host-port import surface is not part of it: it is Phase 15 (wasm_host_functions)."
   status        completed
   start_date    2026-01-15
   target_date   2026-02-01
@@ -317,6 +317,7 @@ milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
     specforge_package_cargo_test,
     specforge_package_vitest,
     specforge_package_javascript_node_test,
+    specforge_package_checks,
     specforge_test_lib,
     specforge_test_macros_lib,
     specforge_registry_server,
@@ -431,18 +432,18 @@ milestone migration "Phase 14: Migration" {
 }
 
 milestone wasm_host_functions "Phase 15: Wasm Host Functions" {
-  description   "The host-import surface extensions call into: graph queries, diagnostic emission, graph node and edge registration, scoped file reads, non-code file output and allowlisted HTTP, each granted per contribution call site. Planned: the component runtime's bridge world imports nothing today (its one export is call), so an extension reaches the host only through the typed extension calls."
+  description   "The host ports extensions call into: the four granted ports specforge:host/{http,fs,process,git}, each answered per call under the extension's grant."
   status        planned
   owner         "specforge-team"
   contributors  ["specforge-team"]
   depends_on    [wasm_runtime]
   features      [wasm_host_function_api]
-  modules       [specforge_wasm]
+  modules       [specforge_wasm, specforge_fs, specforge_http]
   tags          ["h2", "runtime"]
   exit_criteria [
-    "The bridge world imports the seven host functions (query_graph, emit_diagnostic, add_graph_node, add_graph_edge, read_file, emit_file, http_get) and an SDK guest calls each",
-    "Per-call-site permissions enforce least-privilege for each contribution export",
-    "An unauthorized host call is rejected and reported, without failing the compile",
+    "Every instance links the four ports and an SDK guest calls each",
+    "A call kind the gate keeps from a port, or a request outside the grant, is denied before any effect",
+    "A denied call is reported, without failing the compile",
   ]
 }
 

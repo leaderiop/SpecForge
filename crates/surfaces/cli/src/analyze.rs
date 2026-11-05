@@ -61,8 +61,11 @@ pub(crate) struct Args {
 
 impl Args {
     /// The solver `--prove` asks.
-    fn solver(&self) -> Z3 {
-        Z3::with_timeout(std::time::Duration::from_secs(self.prove_timeout))
+    fn solver(&self, ports: &specforge_effects::Ports) -> Z3 {
+        Z3::new(
+            std::sync::Arc::clone(&ports.process),
+            std::time::Duration::from_secs(self.prove_timeout),
+        )
     }
 
     /// The analysis the flags ask for: any pass name (the passes are the
@@ -88,8 +91,8 @@ impl Args {
         }
     }
 
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
-        let project = match self.project.compile() {
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+        let project = match self.project.compile(ports) {
             Ok(project) => project,
             Err(error) => return Refusal::measuring(self.output.format).report(terminal, &error),
         };
@@ -97,7 +100,7 @@ impl Args {
         // on stderr otherwise; analyze measures, so it cannot judge the
         // project either way.
         let format = self.output.format;
-        let z3 = self.solver();
+        let z3 = self.solver(ports);
         let caller = crate::caller::of(false, format, terminal);
         let outcome = match analyze(&ProjectView::of(&project), &self.options(&z3, caller)) {
             Ok(outcome) => outcome,
@@ -232,7 +235,7 @@ mod summary_tests {
 
     #[test]
     fn the_flags_build_the_analysis_options() {
-        let (plain_args, z3) = (args(&[]), super::Z3::default());
+        let (plain_args, z3) = (args(&[]), args(&[]).solver(&crate::ports()));
         let (terminal, _) = Terminal::captured("", Facts::PIPED);
         let caller = crate::caller::of(false, OutputFormat::Human, &terminal);
         let plain = plain_args.options(&z3, caller);
@@ -262,11 +265,14 @@ mod summary_tests {
     fn the_prove_timeout_is_the_solvers_and_needs_prove() {
         use std::time::Duration;
         // One number: the flag's default is the adapter's.
-        assert_eq!(args(&["--prove"]).solver().timeout(), Z3::DEFAULT_TIMEOUT);
+        assert_eq!(
+            args(&["--prove"]).solver(&crate::ports()).timeout(),
+            Z3::DEFAULT_TIMEOUT
+        );
         assert_eq!(Z3::DEFAULT_TIMEOUT, Duration::from_secs(30));
         assert_eq!(
             args(&["--prove", "--prove-timeout", "5"])
-                .solver()
+                .solver(&crate::ports())
                 .timeout(),
             Duration::from_secs(5)
         );

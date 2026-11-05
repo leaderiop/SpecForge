@@ -45,7 +45,15 @@ fn extension_here(project: &TestProject, ext: &str, rest: Vec<String>) -> (i32, 
     let runtime: SharedRuntime = Arc::new(fixture().runtime());
     let env = project.environment_in(runtime);
     let (terminal, capture) = Terminal::captured("", Facts::PIPED);
-    let code = run_in(env, &project.project_root(), ext, rest, &[], &terminal);
+    let code = run_in(
+        env,
+        &project.project_root(),
+        ext,
+        rest,
+        &[],
+        &terminal,
+        &specforge_effects::testing::ports(),
+    );
     (code, capture.stdout(), capture.stderr())
 }
 

@@ -27,6 +27,8 @@ pub struct Args {
     with_schema: bool,
     /// Leave the schema out of a graph export (Graph Protocol 1.0)
     no_schema: bool,
+    /// Give each entity in a graph or context export its checked values' outcomes as `checks` (ADR 0336); without it, plain values
+    with_checks: bool,
 }
 
 /// `specforge.export`: the export `specforge export` writes, through the
@@ -69,6 +71,7 @@ impl CoreTool for Tool {
             schema,
             schema_version: args.schema_version.as_deref(),
             coverage: None,
+            with_checks: args.with_checks,
         };
 
         Ok(Answer::noticed(

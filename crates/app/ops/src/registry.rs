@@ -430,6 +430,12 @@ pub const CONTRIBUTES: OptionTable<DeclaredCategory> = OptionTable {
             DeclaredCategory::Settings,
         ),
         category("routes", "trace routes", DeclaredCategory::Routes),
+        category(
+            "capabilities",
+            "effect capabilities",
+            DeclaredCategory::Capabilities,
+        ),
+        category("checkers", "value checkers", DeclaredCategory::Checkers),
     ],
     default: None,
 };

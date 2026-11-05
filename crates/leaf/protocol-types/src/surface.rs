@@ -52,11 +52,9 @@ pub struct CommandDescriptor {
     /// The arg holding the entity the command acts on; it scopes `gates`. Absent, the project.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subject: Option<String>,
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub reads_state: bool,
-    /// The project files the command reads; the input's `files` carries their facts (protocol 1.11.0, ADR 0293).
+    /// What the host serves the command before the call: `files` and `state` (ADR 0337 D2).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub reads: Vec<FileRead>,
+    pub inputs: Vec<Input>,
 }
 
 /// Describes an argument to a CLI command.

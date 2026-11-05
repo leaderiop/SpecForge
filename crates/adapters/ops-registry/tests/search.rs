@@ -51,7 +51,7 @@ impl World {
     }
 
     fn registry(&self) -> ConfiguredRegistry {
-        ConfiguredRegistry::for_project(&self.project.project_root(), "search")
+        ConfiguredRegistry::for_project(&self.project.project_root(), "search", &crate::ports())
             .as_user(User::at(self.project.home(), None))
             .with_client(self.client.clone())
     }

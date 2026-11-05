@@ -1,0 +1,1609 @@
+{
+  "category": "checkers",
+  "items": [
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016"
+      ],
+      "name": "file",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.files"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016"
+      ],
+      "name": "dir",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.files"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "min",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "max",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "W176",
+        "E103"
+      ],
+      "name": "glob",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.files"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "min",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "max",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "W176"
+      ],
+      "name": "size",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.files"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E096",
+        "E103",
+        "W176"
+      ],
+      "name": "digest",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.files"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "bool",
+          "inverse_of": null,
+          "name": "bom",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "lf",
+            "crlf",
+            "any"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "line_ends",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "W176"
+      ],
+      "name": "encoding",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.files"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "W176",
+        "E103"
+      ],
+      "name": "line_range",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.files"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "email",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "bool",
+          "inverse_of": null,
+          "name": "prerelease",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "semver",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "semver_range",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "bool",
+          "inverse_of": null,
+          "name": "deprecated",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "spdx",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list",
+        "date"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "date",
+            "datetime",
+            "any"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "form",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "iso_date",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "iso_duration",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "bool",
+          "inverse_of": null,
+          "name": "seconds",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "cron",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "regex",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "maximum": 8,
+          "minimum": 1,
+          "name": "version",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "uuid",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "mime",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "bcp47",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "alpha2",
+            "alpha3",
+            "numeric",
+            "any"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "form",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "iso3166",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "alpha2",
+            "alpha3",
+            "numeric",
+            "any"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "form",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "iso4217",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "bool",
+          "inverse_of": null,
+          "name": "canonical",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "iana_tz",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "e164",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "4",
+            "6"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "version",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "ip",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "bool",
+          "inverse_of": null,
+          "name": "strict",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "cidr",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "bool",
+          "inverse_of": null,
+          "name": "wildcard",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "hostname",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list",
+        "integer"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "bool",
+          "inverse_of": null,
+          "name": "zero",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "port",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "hex_color",
+      "when": "families.formats"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "luhn",
+      "when": "families.digits"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "mod11",
+      "when": "families.digits"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "mod97",
+      "when": "families.digits"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "gtin",
+      "when": "families.digits"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "isbn",
+      "when": "families.digits"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103"
+      ],
+      "name": "iban",
+      "when": "families.digits"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "schemes",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "error",
+            "warn"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "status",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E091",
+        "E092",
+        "E093",
+        "W183",
+        "W182",
+        "W181",
+        "W172",
+        "W173"
+      ],
+      "name": "url",
+      "scopes": [
+        "links"
+      ],
+      "value": "url",
+      "when": "families.links"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "schemes",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "error",
+            "warn"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "status",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E091",
+        "E092",
+        "E093",
+        "W183",
+        "W182",
+        "W181",
+        "W172",
+        "W173",
+        "E112"
+      ],
+      "name": "url_anchor",
+      "scopes": [
+        "links"
+      ],
+      "value": "url",
+      "when": "families.links"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "schemes",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "error",
+            "warn"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "status",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "allow",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E091",
+        "E092",
+        "E093",
+        "W183",
+        "W182",
+        "W181",
+        "W172",
+        "W173",
+        "E104"
+      ],
+      "name": "content_type",
+      "scopes": [
+        "links"
+      ],
+      "value": "url",
+      "when": "families.links"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "schemes",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "error",
+            "warn"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "status",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "hosts",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E091",
+        "E092",
+        "E093",
+        "W183",
+        "W182",
+        "W181",
+        "W172",
+        "W173"
+      ],
+      "name": "redirect",
+      "scopes": [
+        "links"
+      ],
+      "value": "url",
+      "when": "families.links"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "days",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E091",
+        "E092",
+        "W172",
+        "W178"
+      ],
+      "name": "tls",
+      "scopes": [
+        "links"
+      ],
+      "value": "url",
+      "when": "families.links"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103",
+        "W172"
+      ],
+      "name": "dns",
+      "scopes": [
+        "links"
+      ],
+      "when": "families.links"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "maximum": 64,
+          "minimum": 4,
+          "name": "min_len",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103",
+        "E106"
+      ],
+      "name": "commit",
+      "scopes": [
+        "git"
+      ],
+      "when": "families.git"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "tag",
+            "branch",
+            "any"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "kind",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103",
+        "E106"
+      ],
+      "name": "ref",
+      "scopes": [
+        "git"
+      ],
+      "when": "families.git"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103",
+        "E106"
+      ],
+      "name": "file_at",
+      "scopes": [
+        "git"
+      ],
+      "when": "families.git"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "W180"
+      ],
+      "name": "tracked",
+      "root_arg": "root",
+      "scopes": [
+        "git"
+      ],
+      "value": "path",
+      "when": "families.git"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E097",
+        "W176"
+      ],
+      "name": "json",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.structured"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E097",
+        "W176"
+      ],
+      "name": "yaml",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.structured"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E097",
+        "W176"
+      ],
+      "name": "toml",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.structured"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "enum_values": [
+            "json",
+            "yaml",
+            "toml"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "format",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E097",
+        "E098",
+        "E103",
+        "W176"
+      ],
+      "name": "pointer",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.structured"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E098",
+        "W176"
+      ],
+      "name": "markdown_anchor",
+      "root_arg": "root",
+      "scopes": [
+        "files"
+      ],
+      "value": "path",
+      "when": "families.structured"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "formats",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "max_bytes",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "max_pixels",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E099",
+        "E103",
+        "W172",
+        "W173",
+        "W176",
+        "W177",
+        "W181",
+        "W182"
+      ],
+      "name": "image",
+      "root_arg": "root",
+      "scopes": [
+        "files",
+        "media-remote"
+      ],
+      "value": "path",
+      "when": "families.media"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "formats",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "max_bytes",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E099",
+        "E103",
+        "W172",
+        "W173",
+        "W176",
+        "W177",
+        "W181",
+        "W182"
+      ],
+      "name": "media",
+      "root_arg": "root",
+      "scopes": [
+        "files",
+        "media-remote"
+      ],
+      "value": "path",
+      "when": "families.media"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "max_bytes",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E099",
+        "E103",
+        "W172",
+        "W173",
+        "W176",
+        "W177",
+        "W181",
+        "W182",
+        "E113"
+      ],
+      "name": "svg",
+      "root_arg": "root",
+      "scopes": [
+        "files",
+        "media-remote"
+      ],
+      "value": "path",
+      "when": "families.media"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "root",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "max_bytes",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "integer",
+          "inverse_of": null,
+          "minimum": 0,
+          "name": "max_pages",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E016",
+        "E099",
+        "E103",
+        "W172",
+        "W173",
+        "W176",
+        "W177",
+        "W181",
+        "W182"
+      ],
+      "name": "pdf",
+      "root_arg": "root",
+      "scopes": [
+        "files",
+        "media-remote"
+      ],
+      "value": "path",
+      "when": "families.media"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103",
+        "E105",
+        "W172",
+        "W173",
+        "W181",
+        "W182"
+      ],
+      "name": "package",
+      "scopes": [
+        "registries"
+      ],
+      "when": "families.registries"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103",
+        "E105",
+        "W172",
+        "W173",
+        "W181",
+        "W182",
+        "W179"
+      ],
+      "name": "advisory",
+      "scopes": [
+        "registries"
+      ],
+      "when": "families.registries"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "args": [
+        {
+          "default_value": null,
+          "description": null,
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "allow",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "codes": [
+        "E103",
+        "E105",
+        "W172",
+        "W173",
+        "W181",
+        "W182",
+        "W179"
+      ],
+      "name": "license_of",
+      "scopes": [
+        "registries"
+      ],
+      "when": "families.registries"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103",
+        "E105",
+        "W172",
+        "W173",
+        "W181",
+        "W182"
+      ],
+      "name": "doi",
+      "scopes": [
+        "registries"
+      ],
+      "when": "families.registries"
+    },
+    {
+      "applies_to": [
+        "string",
+        "string_list"
+      ],
+      "codes": [
+        "E103",
+        "E105",
+        "W172",
+        "W173",
+        "W181",
+        "W182"
+      ],
+      "name": "orcid",
+      "scopes": [
+        "registries"
+      ],
+      "when": "families.registries"
+    }
+  ]
+}

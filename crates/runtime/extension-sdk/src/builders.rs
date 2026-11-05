@@ -1,7 +1,7 @@
 use crate::{
     CheckKind, CollectInput, CollectOutput, ConstraintKind, EdgeTypeDescriptor,
     EntityEnhancementDescriptor, EntityKindDescriptor, FieldConstraintDescriptor, FieldDescriptor,
-    FieldType, FieldWriter, FileBase, PassAnswer, PassInput, ScanRequest, ScanResponse,
+    FieldType, FieldWriter, PassAnswer, PassInput, ScanRequest, ScanResponse,
     ValidationRuleDescriptor, ValidationSeverity, ValidatorContext, ValidatorVerdict, Vocabulary,
     operations,
 };
@@ -255,15 +255,6 @@ impl FieldBuilder {
         self.0.derived_from = Some(source.to_string());
         self
     }
-    pub fn file_reference(&mut self) -> &mut Self {
-        self.0.file_reference = true;
-        self
-    }
-    /// Where a [`Self::file_reference`] field's relative paths start (ADR 0285): the spec root by default.
-    pub fn file_base(&mut self, base: FileBase) -> &mut Self {
-        self.0.file_base = Some(base.as_str().to_string());
-        self
-    }
     /// The kinds a reference field may name when it names more than one, exclusive with [`Self::target_kind`]
     /// (ADR 0285).
     pub fn target_kinds(&mut self, kinds: &[&str]) -> &mut Self {
@@ -397,6 +388,12 @@ impl CodeBuilder {
     /// An absolute `http(s)` URL the editor links the code to.
     pub fn docs(&mut self, url: &str) -> &mut Self {
         self.0.docs = Some(url.to_string());
+        self
+    }
+    /// A finding of this code is decided by the machine that runs the check (its approvals, network or effects
+    /// journal), not the project: `--strict` never promotes it and the gate's warning baseline never counts it.
+    pub fn machine(&mut self) -> &mut Self {
+        self.0.machine = true;
         self
     }
 }
@@ -706,6 +703,8 @@ impl AnalyzerBuilder {
 pub struct CollectorBuilder {
     pub(crate) descriptor: CollectorDescriptor,
     pub(crate) collect: Option<operations::Wire>,
+    /// The argv [`CollectorBuilder::run`] gave: the collector's process capability, declared with it.
+    pub(crate) run: Option<Vec<String>>,
 }
 
 impl CollectorBuilder {
@@ -716,13 +715,14 @@ impl CollectorBuilder {
                 input_formats: Vec::new(),
                 export: format!("collect__{}", name.replace('-', "_")),
                 auto_detect: None,
-                run: Vec::new(),
+                capability: None,
                 report: None,
                 capture: None,
                 writes: false,
-                reads: Vec::new(),
+                inputs: Vec::new(),
             },
             collect: None,
+            run: None,
         }
     }
     /// What the collector does: `handler` receives the report files
@@ -762,10 +762,18 @@ impl CollectorBuilder {
             .extend(patterns.iter().map(|p| p.to_string()));
         self
     }
-    /// The command the host runs, with consent. `{report}` in any argument
-    /// expands to the absolute report path.
+    /// The command the host runs once this machine approves it (`{report}` in an argument: the absolute report path).
+    /// It declares and names the [`process`](crate::Capability::process) capability named after the collector.
     pub fn run(&mut self, argv: &[&str]) -> &mut Self {
-        self.descriptor.run = argv.iter().map(|a| a.to_string()).collect();
+        self.run = Some(argv.iter().map(|a| a.to_string()).collect());
+        self.descriptor.capability = Some(self.descriptor.name.clone());
+        self
+    }
+    /// The `process` capability (one the extension declares with
+    /// [`ContributionsBuilder::capability`](crate::ContributionsBuilder::capability)) whose command the host runs.
+    pub fn capability(&mut self, name: &str) -> &mut Self {
+        self.run = None;
+        self.descriptor.capability = Some(name.to_string());
         self
     }
     /// Report file or directory the runner writes, relative to the project

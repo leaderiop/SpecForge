@@ -9,7 +9,8 @@
 //! `--report` skip running and parse an existing report instead. The flow
 //! itself lives in [`specforge_ops::analysis::collect`], shared with MCP; this
 //! adapter only hands the operation who can be asked (`--yes`, the
-//! terminal, or nobody) and the machine it runs on (`ProcessMachine`, ADR 0125), and presents the
+//! terminal, or nobody), the machine it runs on (`ProcessMachine`, ADR 0125) and this machine's approvals
+//! (`UserConsent`, ADR 0335 D2.5), and presents the
 //! outcome.
 
 use crate::notes::Notes;
@@ -20,6 +21,7 @@ use specforge_ops::analysis::collect::{
 };
 use specforge_ops::view::ProjectView;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 // `specforge collect`'s command line.
 #[derive(clap::Args)]
@@ -48,24 +50,25 @@ pub(crate) struct Args {
     yes: bool,
 
     #[command(flatten)]
+    effects: crate::effects::EffectsOption,
+
+    #[command(flatten)]
     output: OutputArg,
 }
 
 impl Args {
-    pub(crate) fn run(self, terminal: &Terminal) -> Exit {
-        collect_at(&self, terminal)
+    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+        collect_at(&self, terminal, ports)
     }
 }
 
-fn collect_at(options: &Args, terminal: &Terminal) -> Exit {
+fn collect_at(options: &Args, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
     let format = options.output.format;
     // The project the path is in (ADR 0029 D6); collect refuses one that is none.
     let root = match options.project.root() {
         Ok(root) => root,
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
-
-    let project = crate::project::compile_at(&root);
 
     let mode = if !options.reports.is_empty() {
         Mode::Reports(&options.reports)
@@ -77,6 +80,28 @@ fn collect_at(options: &Args, terminal: &Terminal) -> Exit {
     } else {
         Mode::Run(RunnerOutput::Inherit)
     };
+    let env = specforge_project::effects::environment(
+        &root,
+        Some(Arc::new(
+            specforge_component::ComponentRuntime::with_user_cache(),
+        )),
+        ports,
+        crate::effects::mode(
+            options.effects.effects,
+            crate::effects::Command::Collect,
+            crate::asking::can_answer(format, terminal.facts()),
+            terminal.facts().ci,
+        ),
+        &specforge_ops::consent::UserConsent::user(root.dir()),
+    );
+    // The checks' rows have no other reader here, so with none selected no value is probed.
+    let env = if collect::reads_outcomes(&env, root.dir(), options.runner.as_deref(), &mode) {
+        env
+    } else {
+        env.with_value_budget(specforge_project::values::ValueBudget::NO_PHASE)
+    };
+    let project = specforge_project::CompiledProject::of(env);
+
     let notes = Notes::new(terminal, format);
     let mut announce = |collector: &Collector, argv: &[String]| {
         notes.person(format_args!(
@@ -86,16 +111,28 @@ fn collect_at(options: &Args, terminal: &Terminal) -> Exit {
             argv.join(" ")
         ));
     };
+    let consent = specforge_ops::consent::UserConsent::user(root.dir());
     let request = Request {
         runner: options.runner.as_deref(),
         mode,
         announce: &mut announce,
-        caller: crate::caller::of(options.yes, format, terminal),
+        caller: crate::caller::of(options.yes, format, terminal)
+            .lending(
+                ports,
+                &consent,
+                crate::effects::lent(options.effects.effects),
+            )
+            .previewing(options.dry_run),
     };
     // The view is rooted where the project compiled: the report lands where
     // every view over the project reads it.
     let view = ProjectView::of(&project);
-    let mut outcome = match collect::collect(&view, request, &ProcessMachine::user()) {
+    let mut outcome = match collect::collect(
+        &view,
+        request,
+        &ProcessMachine::new(std::sync::Arc::clone(&ports.process)),
+        &consent,
+    ) {
         Ok(outcome) => outcome,
         Err(e) => {
             return Refusal::of(format).report(terminal, &e);
