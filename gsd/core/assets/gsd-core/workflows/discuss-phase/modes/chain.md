@@ -28,14 +28,14 @@ Apply response_language to all user-facing prose — narration between tool call
    interrupted `--auto` chain. This does NOT touch `workflow.auto_advance`
    (the user's persistent settings preference):
    ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
-   if [[ ! "$GSD_ARGS" =~ --auto ]] && [[ ! "$GSD_ARGS" =~ --chain ]]; then
-     : # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
-   fi
+
+
+
    ```
 
 3. Read consolidated auto-mode (`active` = chain flag OR user preference):

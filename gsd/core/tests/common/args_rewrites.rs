@@ -146,4 +146,27 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/validate-phase.md", 24, 24),
     ("gsd-core/workflows/verify-work.md", 47, 48),
     ("gsd-core/workflows/new-project.md", 37, 37),
+    // The read-loaded files and complete-milestone: the --ws test, the unread --auto parse, the dead chain-flag
+    // branches and the comments about the parent's argument text go with the captures.
+    ("gsd-core/workflows/complete-milestone.md", 256, 256),
+    ("gsd-core/workflows/discuss-phase-assumptions.md", 70, 70),
+    ("gsd-core/workflows/discuss-phase-assumptions.md", 678, 678),
+    ("gsd-core/workflows/discuss-phase-assumptions.md", 680, 680),
+    ("gsd-core/workflows/discuss-phase/modes/chain.md", 34, 34),
+    ("gsd-core/workflows/discuss-phase/modes/chain.md", 36, 36),
+    (
+        "gsd-core/workflows/execute-phase/steps/codebase-drift-gate.md",
+        73,
+        76,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        29,
+        29,
+    ),
+    (
+        "gsd-core/workflows/verify-work/steps/mvp-uat-framing.md",
+        15,
+        15,
+    ),
 ];

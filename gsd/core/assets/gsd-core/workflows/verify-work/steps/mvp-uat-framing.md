@@ -9,13 +9,13 @@
 **User-story format guard.** When `MVP_MODE=true`, also verify the phase's goal is in User Story format via the centralized validator:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
-# #4772: this file is Read, not textually substituted - write the parent command's original argument string in place of $ARGUMENTS so --ws reaches the query.
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
 PHASE_GOAL=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')
 USER_STORY_VALID=$(specforge gsd user-story-validate --story "$PHASE_GOAL" --pick .valid)
 if [ "$USER_STORY_VALID" != "true" ]; then

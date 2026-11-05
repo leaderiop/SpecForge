@@ -22,14 +22,14 @@ The phase goal is the `**Goal**` of this phase in ROADMAP.md, loaded explicitly 
 value for both callers, never left for the model to resolve. Resolve the rest the same way:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 PHASE_NUMBER="${PHASE_ID##*/}"; PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]')   # the phase's inputs; the commands below are specforge commands: there is no launcher to define
 TDD_MODE=${TDD_MODE:-false}   # the loop capability is not part of @gsd/core: --tdd is read from the arguments
-# #4772: this file is Read, not textually substituted - write the parent command's original argument string in place of $ARGUMENTS so --ws reaches the query.
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
 VERIFIER_SKILLS=""; RESPONSE_LANGUAGE=$(specforge settings --extension @gsd/core --pick '.extensions[0].settings[name=response_language].value' 2>/dev/null)   # the host install carries the skills of gsd-verifier; the language is a setting
 CONTEXT_WINDOW="{{setting:context_window|200000}}"   # context_window (the settings)
 PHASE_GOAL=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')

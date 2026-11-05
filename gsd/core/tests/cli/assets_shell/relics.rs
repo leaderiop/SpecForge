@@ -104,17 +104,17 @@ fn a_chunked_plan_resumes_past_its_entity() {
     let p = taskboard();
     let text = asset("gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md");
     let check = block(&text, "PLAN_ENTITY=", "fi");
-    for (plan, args, want) in [
-        ("01-01", "", "skip"),
-        ("09-09", "", "plan"),
-        ("01-01", "--reviews", "plan"),
+    for (plan, reviews, want) in [
+        ("01-01", "false", "skip"),
+        ("09-09", "false", "plan"),
+        ("01-01", "true", "plan"),
     ] {
         let script = format!(
-            "PHASE_ID=v1.0/01; plan_id={plan}; GSD_ARGS={args}; S=plan\n{}\nprintf %s \"$S\"",
+            "PHASE_ID=v1.0/01; plan_id={plan}; REVIEWS={reviews}; S=plan\n{}\nprintf %s \"$S\"",
             check.replace(": # resume safety", "S=skip # resume safety")
         );
         let (out, err, _) = sh.run_in(p.root(), &script);
-        assert_eq!(out, want, "{plan} {args}: {err}");
+        assert_eq!(out, want, "{plan} reviews={reviews}: {err}");
     }
 }
 
@@ -129,7 +129,7 @@ fn the_verify_step_reads_its_own_inputs() {
     let p = taskboard();
     p.settings(serde_json::json!({ "response_language": "fr" }));
     let text = asset("gsd-core/workflows/execute-phase/steps/verify-phase-goal.md");
-    let resolve = block(&text, "IFS= read -rd ''", "PHASE_GOAL=");
+    let resolve = block(&text, "PHASE_NUMBER=", "PHASE_GOAL=");
     let (out, err, _) = sh.run_in(
         p.root(),
         &format!(

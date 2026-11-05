@@ -78,11 +78,11 @@ Exact per-category bash (including the `todos` 5-per-scan cap, and the phase-sco
 **Use `init.manager` for canonical readiness check:**
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
 INIT_MANAGER=$(specforge query "$MILESTONE" --depth 1 --format json)
 
 ```
@@ -248,14 +248,14 @@ If additional details are needed (e.g., user-provided "Delivered" summary, git r
 **Resolve the PROJECT.md review gate first.** PROJECT.md is shared across workstreams, so the review runs in flat mode only: no `--ws` in the arguments and no active workstream (`specforge gsd workstreams progress` answers the one `specforge gsd workstreams switch` made active as `active`). SpecForge's INIT carries no `section_manifest`, so the gate reads the workstream itself; when it cannot be read, the review is skipped rather than rewrite the shared PROJECT.md under a workstream (#5195).
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
 GSD_ACTIVE_WS=$(specforge gsd workstreams progress --pick .active) || GSD_ACTIVE_WS='(unreadable)'
 # GSD_ACTIVE_WS is the active workstream: empty when none is, "(unreadable)" when the command failed
-[ -z "$GSD_WS" ] && [ -z "$GSD_ACTIVE_WS" ] && echo "PROJECT_MD_REVIEW=run" || echo "PROJECT_MD_REVIEW=skip"
+[ -z "$GSD_ACTIVE_WS" ] && echo "PROJECT_MD_REVIEW=run" || echo "PROJECT_MD_REVIEW=skip"
 ```
 
 <!-- gsd:section id="project-md-evolution-review" when="state:flat-mode" -->
@@ -333,11 +333,11 @@ After `milestone complete` has archived, reorganize ROADMAP.md with milestone gr
 
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
 
 
 # the roadmap is the milestone's phase entities: backlog phases stay entities, nothing to extract
@@ -355,11 +355,11 @@ GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/
 
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
 
 
 
@@ -398,11 +398,11 @@ GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/
 **Safety commit — commit archive files BEFORE deleting any originals:**
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
 
 
 # the commit stages spec: the archive is entities, with no state, roadmap or project file to name
@@ -424,11 +424,11 @@ MILESTONES.md is workstream-scoped the same way STATE.md/ROADMAP.md are (the mil
 **The `requirement` entities stay** (they are the milestone's history; no file is archived or cleared):
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
 
 
 # a field of the answer is read with --pick, never jq

@@ -459,19 +459,7 @@ fn no_file_read_by_reference_holds_an_arg_token() {
 
 /// The files whose shell fences still read the argument text (`$ARGUMENTS`, `$GSD_ARGS`) the render splices: each is
 /// rewritten to read its typed values through `{{arg:}}` (ADR 0340 D6).
-const ARGS_PENDING: &[&str] = &[
-    "gsd-core/workflows/complete-milestone.md",
-    "gsd-core/workflows/complete-milestone/detail/elaboration.md",
-    "gsd-core/workflows/diagnose-issues.md",
-    "gsd-core/workflows/discuss-phase-assumptions.md",
-    "gsd-core/workflows/discuss-phase.md",
-    "gsd-core/workflows/discuss-phase/modes/chain.md",
-    "gsd-core/workflows/execute-phase/steps/codebase-drift-gate.md",
-    "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
-    "gsd-core/workflows/secure-phase.md",
-    "gsd-core/workflows/transition.md",
-    "gsd-core/workflows/verify-work/steps/mvp-uat-framing.md",
-];
+const ARGS_PENDING: &[&str] = &[];
 
 const TERMINATORS: [&str; 2] = ["GSD_ARGS_END", "GSD_QUICK_BATCH_ARGS_END"];
 

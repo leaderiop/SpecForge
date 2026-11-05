@@ -63,14 +63,14 @@ Capture the idea in "Deferred Ideas". Don't lose it, don't act on it.
 Phase number from argument (required).
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-AUTO_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--auto([[:space:]]|$) ]]; then AUTO_PARAM="--auto"; fi
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 AGENT_SKILLS_ANALYZER=""   # the host install carries the skills of gsd-assumptions-analyzer
@@ -673,13 +673,13 @@ Check for auto-advance trigger:
 1. Parse `--auto` flag from $ARGUMENTS
 2. Sync chain flag:
    ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-   if [[ ! "$GSD_ARGS" =~ --auto ]]; then
-     : # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
-   fi
+
+
+
+
+
+
+
    ```
 3. Read consolidated auto-mode (`active` = chain flag OR user preference):
    ```bash

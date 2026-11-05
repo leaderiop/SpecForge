@@ -447,11 +447,11 @@ This returns all phases with goals, disk status, and completion info.
 **Section-manifest gate (#2994):** `specforge` needs no setup — fetch the dedicated `init.transition` bundle for the workstream-collision-check gate below:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
 INIT_TRANSITION=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 ```
