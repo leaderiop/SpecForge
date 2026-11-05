@@ -318,6 +318,39 @@ fn a_squash_stages_the_merge_with_no_second_parent_and_a_commit_ends_it() {
 }
 
 #[test]
+fn a_squash_with_a_conflict_leaves_it_in_the_index_with_no_merge_head() {
+    use specforge_effects::git::Merging;
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "one\n");
+    let first = repo.commit_all("first");
+    repo.branch("side", &first).head_on("side");
+    repo.write("a.txt", "side\n");
+    let side = repo.commit_all("on side");
+    repo.head_on("main").write("a.txt", "main\n");
+    repo.commit_all("on main");
+    let place = place(&repo);
+    let head = repo.sha("HEAD");
+    let squash = Merging {
+        squash: true,
+        ..Merging::default()
+    };
+    let merged = Gix::default()
+        .merge(&place, &Sha::new(side.as_str()), &squash)
+        .unwrap();
+    assert_eq!(merged.sha, None);
+    assert_eq!(merged.conflicts.len(), 1, "{merged:?}");
+    assert_eq!(merged.conflicts[0].path, "a.txt");
+    assert!(read(&repo, "a.txt").unwrap().contains("<<<<<<<"));
+    assert_eq!(repo.sha("HEAD"), head);
+    assert!(
+        !repo.git_dir().join("MERGE_HEAD").exists(),
+        "a squash records no merge"
+    );
+    assert!(repo.git_dir().join("SQUASH_MSG").exists());
+}
+
+#[test]
 fn a_merge_without_commit_keeps_merge_head_for_the_commit_that_records_it() {
     use specforge_effects::git::{Merging, Recording};
     let (_dir, repo, side) = diverged();
@@ -339,6 +372,35 @@ fn a_merge_without_commit_keeps_merge_head_for_the_commit_that_records_it() {
     assert_eq!(committed.parents.len(), 2);
     assert_eq!(committed.parents[1].as_str(), side);
     assert!(!repo.git_dir().join("MERGE_HEAD").exists());
+}
+
+#[test]
+fn a_commit_of_some_paths_is_refused_during_a_merge_as_git_refuses_it() {
+    use specforge_effects::git::{Merging, Recording};
+    let (_dir, repo, side) = diverged();
+    let place = place(&repo);
+    let git = Gix::default();
+    let no_commit = Merging {
+        fast_forward: Some(false),
+        no_commit: true,
+        ..Merging::default()
+    };
+    git.merge(&place, &Sha::new(side.as_str()), &no_commit)
+        .unwrap();
+    let head = repo.sha("HEAD");
+    let only = Recording {
+        only: vec!["s.txt".into()],
+        ..Recording::default()
+    };
+    let refused = git.commit_index(&place, "part\n", &only).unwrap_err();
+    assert!(
+        refused
+            .0
+            .contains("a commit of the whole index, not of some paths"),
+        "{refused}"
+    );
+    assert_eq!(repo.sha("HEAD"), head, "nothing recorded");
+    assert!(repo.git_dir().join("MERGE_HEAD").exists());
 }
 
 #[test]
