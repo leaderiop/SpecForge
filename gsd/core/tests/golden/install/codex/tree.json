@@ -40,8 +40,8 @@
     "sha256": "a6b75dc59aaf418356886c9d4c4394db86ee3ebea9b3580aef3f566d47568a08"
   },
   ".codex/agents/gsd-planner.toml": {
-    "bytes": 49681,
-    "sha256": "eca416d1c813ec663ec19165bfae421f7ea9d5e7333b3f2c7bce3c86b4c58f8d"
+    "bytes": 49615,
+    "sha256": "92544207337021b662ce97f285f88f081ed22fd76ae9a4f1d5924576cb6a2a72"
   },
   ".codex/agents/gsd-project-researcher.toml": {
     "bytes": 18356,

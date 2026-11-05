@@ -44,7 +44,7 @@
     "PHASE_ARG=$(echo \"$GSD_ARGS\" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)",
     "GSD_WS=$(echo \" $GSD_ARGS\" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \\1/p' | head -n 1)",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)",
-    "if [[ \"$INIT\" == @file:* ]]; then INIT=$(cat \"${INIT#@file:}\"); fi",
+    "",
     "AGENT_SKILLS_AUDITOR=\"\"   # the host install carries the skills of gsd-security-auditor",
     "```",
     "",
@@ -61,7 +61,7 @@
     "",
     "Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == \"step\"` and `ref.skill == \"secure-phase\"`."
   ],
-  "bytes": 19166,
+  "bytes": 19100,
   "end": [
     "## Threat Register",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:4fa37740b60eafddc2116af29279c75491626404e04a022bcf7fe73664259a9d",
+    "digest": "sha256:5b1565e500b24388e932f3a055075797753fc8e9d7ba43731a48e459a8fc012f",
     "prompt": "@gsd/security@VERSION:secure_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "4fa37740b60eafddc2116af29279c75491626404e04a022bcf7fe73664259a9d"
+  "sha256": "5b1565e500b24388e932f3a055075797753fc8e9d7ba43731a48e459a8fc012f"
 }

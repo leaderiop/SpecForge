@@ -49,7 +49,7 @@
     "PHASE_ARG=$(echo \"$GSD_ARGS\" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)",
     "GSD_WS=$(echo \" $GSD_ARGS\" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \\1/p' | head -n 1)",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)",
-    "if [[ \"$INIT\" == @file:* ]]; then INIT=$(cat \"${INIT#@file:}\"); fi",
+    "",
     "```",
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.",
@@ -61,7 +61,7 @@
     "CONFIG=$(specforge settings)",
     "```"
   ],
-  "bytes": 46746,
+  "bytes": 46680,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:6636666a171b68e3f37efe79e7b4ae076fe41ace3eac593d412f6c6c9bba2932",
+    "digest": "sha256:4631b7e2ccf8a1de23639c6270caa5827a5c512b6cd2f950de3b6ef06c1da4d1",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "6636666a171b68e3f37efe79e7b4ae076fe41ace3eac593d412f6c6c9bba2932"
+  "sha256": "4631b7e2ccf8a1de23639c6270caa5827a5c512b6cd2f950de3b6ef06c1da4d1"
 }

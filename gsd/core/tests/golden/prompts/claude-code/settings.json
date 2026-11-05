@@ -33,7 +33,7 @@
     "RESPONSE_LANGUAGE=\"\"   # response_language (the settings)",
     ": # config-ensure-section: every setting has its default, so there is no section to create",
     "INIT=$(specforge gsd progress-report --format json)",
-    "if [[ \"$INIT\" == @file:* ]]; then INIT=$(cat \"${INIT#@file:}\"); fi",
+    "",
     "# the settings live in specforge.json: there is no config path to resolve, and no active workstream (#2282).",
     "if [[ -z \"${GSD_CONFIG_PATH:-}\" ]]; then",
     "  if false; then   # there is no active-workstream file: the settings are one file, specforge.json",
@@ -61,7 +61,7 @@
     "- `workflow.plan_check` — spawn plan checker during plan-phase",
     "- `workflow.verifier` — spawn verifier during execute-phase"
   ],
-  "bytes": 45559,
+  "bytes": 45493,
   "end": [
     "These settings apply to future /gsd-plan-phase and /gsd-execute-phase runs.",
     "",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f9d07c5c0e5afafd371ab7422ee0c0429904b98e708096a0253d3e799d32d6f3",
+    "digest": "sha256:490a0c3266bfe62fad1bf5aa286493cc68776247370ddb9e7d93be65d22388da",
     "prompt": "@gsd/core@VERSION:settings"
   },
-  "sha256": "f9d07c5c0e5afafd371ab7422ee0c0429904b98e708096a0253d3e799d32d6f3"
+  "sha256": "490a0c3266bfe62fad1bf5aa286493cc68776247370ddb9e7d93be65d22388da"
 }

@@ -58,7 +58,7 @@ RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the se
 # guard it gates — reflects the EXPLICITLY requested workstream, not
 # whatever ambient GSD_WORKSTREAM/session pointer happens to be active.
 INIT_EARLY=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT_EARLY" == @file:* ]]; then INIT_EARLY=$(cat "${INIT_EARLY#@file:}"); fi
+
 ```
 
 `GSD_WS` must chain to every downstream routing suggestion in this workflow (Step 4's shared-file guard, and the `/gsd:discuss-phase`/`/gsd:plan-phase` routing hints below) per the routing-propagation contract in `gsd-core/references/workstream-flag.md` — never let it silently drop.
@@ -308,7 +308,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 RESET_PHASE_NUMBERS_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--reset-phase-numbers([[:space:]]|$) ]]; then RESET_PHASE_NUMBERS_PARAM="--reset-phase-numbers"; fi
 GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 INIT=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-project-researcher
 AGENT_SKILLS_SYNTHESIZER=""   # the host install carries the skills of gsd-research-synthesizer
 AGENT_SKILLS_ROADMAPPER=""   # the host install carries the skills of gsd-roadmapper

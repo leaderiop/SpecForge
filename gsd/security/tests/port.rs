@@ -191,8 +191,8 @@ fn the_secure_phase_assets_are_upstreams_but_for_the_ported_lines() {
             REWRITTEN.contains(&(*path, n))
         });
     }
-    // the ported lines: 11 name a tool, 18 are listed above (the command and the template are upstream's)
-    assert_eq!(changed, 29, "the number of changed lines");
+    // the ported lines: 12 name a tool, 18 are listed above (the command and the template are upstream's)
+    assert_eq!(changed, 30, "the number of changed lines");
 }
 
 /// The ported workflows' hook line, asked here too: the hooks of every capability extension at `verify:post`, one

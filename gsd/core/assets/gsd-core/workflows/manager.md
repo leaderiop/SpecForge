@@ -27,7 +27,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 # the commands below are specforge commands: there is no launcher to define
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT=$(specforge gsd progress-report --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 ```
 
 Parse JSON for: `milestone_version`, `milestone_name`, `phases`, `percent`, `total_plans`, `total_summaries` (what `progress-report` prints; each phase has `number`, `name`, `plans`, `summaries`, `status`). The rest is derived, there is no init JSON: `phase_count` is the length of `phases`; `completed_count` counts status `Complete`; `in_progress_count` counts `In Progress`; `all_complete` is `completed_count == phase_count`; `recommended_actions` has one entry per phase that is not `Complete`, in order (`Pending` → `/gsd-discuss-phase N`, or `/gsd-plan-phase N` once a `context` entity exists, `specforge query "$MILESTONE/N" --depth 1 --kinds context`; `Planned` or `In Progress` → `/gsd-execute-phase N`); `waiting_signal` is always absent (no background-work signal here); `queued_milestone_version`, `queued_milestone_name` and `queued_phases` are absent (skip the Queued section); `response_language` is `{{setting:response_language|}}`; `manager_flags` are the settings `{{setting:manager.flags.discuss|}}`, `{{setting:manager.flags.plan|}}` and `{{setting:manager.flags.execute|}}`.
@@ -74,7 +74,7 @@ GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT=$(specforge gsd progress-report --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 ```
 
 Parse the full JSON. Build the dashboard display.

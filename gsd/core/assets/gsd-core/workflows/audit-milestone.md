@@ -26,7 +26,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 # the commands below are specforge commands: there is no launcher to define
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 AGENT_SKILLS_CHECKER=""   # the host install carries the skills of gsd-integration-checker
 ```
 

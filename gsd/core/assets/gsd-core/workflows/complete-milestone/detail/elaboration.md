@@ -10,11 +10,11 @@ names.
 
 If user chooses [A] (Acknowledge):
 1. Re-run `specforge check --format json` to get structured data.
-2. Acknowledge every open item through the `audit-open acknowledge` CLI writer — this is what actually suppresses each item starting at the NEXT `audit-open` scan; the STATE.md table in step 3 is a disclosure record only, it is no longer the suppression mechanism. Every acknowledge call's exit status is accumulated (`ACK_FAILURES`); the step HALTS before closing if any failed — a refusal (`unsupported_heading_shape`, `ambiguous`, `not_found`, missing file, etc.) must never be silently discarded and let the close proceed as if everything were suppressed. `AUDIT_JSON` uses the same `@file:` large-payload sentinel handling `INIT_MANAGER` uses in `verify_readiness` below — `io.output` swaps any JSON payload over 50000 chars for a `@file:<path>` marker, and feeding that literal string to `jq` would silently make every loop body below iterate zero times:
+2. Acknowledge every open item through the `audit-open acknowledge` CLI writer — this is what actually suppresses each item starting at the NEXT `audit-open` scan; the STATE.md table in step 3 is a disclosure record only, it is no longer the suppression mechanism. Every acknowledge call's exit status is accumulated (`ACK_FAILURES`); the step HALTS before closing if any failed — a refusal (`unsupported_heading_shape`, `ambiguous`, `not_found`, missing file, etc.) must never be silently discarded and let the close proceed as if everything were suppressed.
    ```bash
 # the commands below are specforge commands: there is no launcher to define
    AUDIT_JSON=$(specforge check --format json)
-   if [[ "$AUDIT_JSON" == @file:* ]]; then AUDIT_JSON=$(cat "${AUDIT_JSON#@file:}"); fi
+
    MILESTONE_VERSION="v[X.Y]"   # already known from ROADMAP.md's active milestone header — the same identifier `milestone.complete` uses in the archive_milestone step
 
    ACK_FAILURES=0
@@ -111,7 +111,7 @@ If user chooses [A] (Acknowledge):
      exit 1
    fi
    ```
-   `todos` is the only category the scanner caps (5 entries per scan, with a remainder count for the rest). Re-run `specforge check --format json` (through the same `@file:` handling above) and repeat the `todos` block until it reports no `todos` items — every other category always returns its full open set in one pass.
+   `todos` is the only category the scanner caps (5 entries per scan, with a remainder count for the rest). Re-run `specforge check --format json` and repeat the `todos` block until it reports no `todos` items — every other category always returns its full open set in one pass.
 3. Re-run `specforge check --format json` once more and write the items just acknowledged as new rows to STATE.md under `## Deferred Items` — append to the existing table (creating the section if absent) rather than overwriting it, preserving rows recorded at earlier milestone closes:
    ```markdown
    ## Deferred Items
@@ -153,9 +153,9 @@ GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1) # Read-loaded file: write the command's original argument string in place of $GSD_ARGS
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 INIT_CM=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT_CM" == @file:* ]]; then INIT_CM=$(cat "${INIT_CM#@file:}"); fi
+
 ```
 
 Extract `branching_strategy`, `phase_branch_template`, `milestone_branch_template`, and `commit_docs` from init JSON. Extract `git_create_tag` and `section_manifest` from `INIT_CM` (used by the `git_tag` step below).

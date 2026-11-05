@@ -41,7 +41,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 # the commands below are specforge commands: there is no launcher to define
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 ```
 
 Extract from init JSON: `phase_dir`, `phase_number`, `phase_name`, `response_language`.

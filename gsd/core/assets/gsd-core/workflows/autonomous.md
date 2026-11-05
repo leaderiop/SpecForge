@@ -81,9 +81,9 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 # the commands below are specforge commands: there is no launcher to define
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT=$(specforge gsd progress-report --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 INIT_AUTONOMOUS='{"section_manifest":null}'   # no init bundle: every section of this workflow is part of the prompt
-if [[ "$INIT_AUTONOMOUS" == @file:* ]]; then INIT_AUTONOMOUS=$(cat "${INIT_AUTONOMOUS#@file:}"); fi
+
 ```
 
 Extract `section_manifest` from `INIT_AUTONOMOUS` (used by the `converge-*` sections below and in step 3).

@@ -61,7 +61,7 @@
     "GSD_ARGS=${GSD_ARGS%$'\\n'}",
     "# the commands below are specforge commands: there is no launcher to define"
   ],
-  "bytes": 72010,
+  "bytes": 71860,
   "end": [
     "| CONT-03 | Phase 3 | Pending |",
     "| CONT-04 | Phase 3 | Pending |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:31158927d3bd343b5427c6fb5ee5e199e428740c38784316e01db6c2189bb33c",
+    "digest": "sha256:8fc21ef88a46108e6a4eeeaf9f712c784d17467f3f2db857bb581186aa06c61d",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "31158927d3bd343b5427c6fb5ee5e199e428740c38784316e01db6c2189bb33c"
+  "sha256": "8fc21ef88a46108e6a4eeeaf9f712c784d17467f3f2db857bb581186aa06c61d"
 }

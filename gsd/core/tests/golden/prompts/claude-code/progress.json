@@ -51,7 +51,7 @@
     "FORENSIC_PARAM=\"\"; if [[ \"$GSD_ARGS\" =~ (^|[[:space:]])--forensic([[:space:]]|$) ]]; then FORENSIC_PARAM=\"--forensic\"; fi",
     "GSD_WS=$(echo \" $GSD_ARGS\" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \\1/p' | head -n 1)",
     "INIT=$(specforge gsd progress-report --format json)",
-    "if [[ \"$INIT\" == @file:* ]]; then INIT=$(cat \"${INIT#@file:}\"); fi",
+    "",
     "```",
     "",
     "Extract from init JSON: `project_exists`, `roadmap_exists`, `state_exists`, `requirements_exists`, `planning_exists`, `milestones_exists`, `init_incomplete`, `phases`, `current_phase`, `next_phase`, `milestone_version`, `completed_count`, `phase_count`, `paused_at`, `state_path`, `roadmap_path`, `project_path`, `config_path`, `phase_mvp_mode`.",
@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 69873,
+  "bytes": 69807,
   "end": [
     "| 3     | ○      | 0/2   | 0%       |",
     "```",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:3e86a94daf5811df1d34dcfb3810156773b56786529c9a19290b2025c62a5f90",
+    "digest": "sha256:5bc376b2cd4190b683b25935faaa374ac701fd2a38b4dadfd50a2e0137a3695b",
     "prompt": "@gsd/core@VERSION:progress",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "3e86a94daf5811df1d34dcfb3810156773b56786529c9a19290b2025c62a5f90"
+  "sha256": "5bc376b2cd4190b683b25935faaa374ac701fd2a38b4dadfd50a2e0137a3695b"
 }

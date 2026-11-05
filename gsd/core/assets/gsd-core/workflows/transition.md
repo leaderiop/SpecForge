@@ -453,7 +453,7 @@ GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT_TRANSITION=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$INIT_TRANSITION" == @file:* ]]; then INIT_TRANSITION=$(cat "${INIT_TRANSITION#@file:}"); fi
+
 ```
 
 Extract from `INIT_TRANSITION`: `other_active_workstreams`, `section_manifest`.

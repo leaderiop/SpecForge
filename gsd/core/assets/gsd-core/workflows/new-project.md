@@ -38,7 +38,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 # the commands below are specforge commands: there is no launcher to define
 AUTO_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--auto([[:space:]]|$) ]]; then AUTO_PARAM="--auto"; fi
 INIT=$(specforge check --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-project-researcher
 AGENT_SKILLS_SYNTHESIZER=""   # the host install carries the skills of gsd-research-synthesizer
 AGENT_SKILLS_ROADMAPPER=""   # the host install carries the skills of gsd-roadmapper

@@ -589,3 +589,21 @@ fn no_shell_line_reads_a_phase_directory() {
         found.join("\n")
     );
 }
+
+/// No asset reads an `@file:` payload: SpecForge prints its answer, never a marker naming a file that holds it
+/// (ADR 0343 D4).
+#[test]
+fn no_asset_reads_a_file_payload() {
+    let found: Vec<String> = specforge_only::shell_assets()
+        .into_iter()
+        .flat_map(|(path, lines)| {
+            lines
+                .iter()
+                .enumerate()
+                .filter(|(_, l)| l.contains("@file:"))
+                .map(|(n, l)| format!("{path}:{}: {l}", n + 2))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert!(found.is_empty(), "@file: reads:\n{}", found.join("\n"));
+}

@@ -4,8 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 861 rows.
-../security/assets/gsd-core/workflows/secure-phase.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 795 rows.
 ../security/assets/gsd-core/workflows/secure-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -54,7 +53,6 @@ agents/gsd-plan-checker.md	grep	grep '52 test files'
 agents/gsd-plan-checker.md	grep	grep '714 passed'
 agents/gsd-plan-checker.md	grep	grep -c
 agents/gsd-plan-checker.md	grep	grep -q
-agents/gsd-planner.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 agents/gsd-planner.md	cat	if [ -e "${_SUMMARIES[0]}" ]; then cat "${_SUMMARIES[@]}"; fi
 agents/gsd-planner.md	cat	if [ -e "${_CTX[0]}" ]; then cat "${_CTX[@]}"; fi   # From /gsd:discuss-phase
 agents/gsd-planner.md	cat	if [ -e "${_RESEARCH[0]}" ]; then cat "${_RESEARCH[@]}"; fi   # Research output
@@ -134,10 +132,6 @@ gsd-core/references/planner-verify-command-grounding.md	grep	grep -c
 gsd-core/references/planner-verify-command-grounding.md	grep	grep -q
 gsd-core/references/planner-verify-command-grounding.md	grep	grep -c "Agent" README.md
 gsd-core/references/planner-verify-command-grounding.md	grep	grep -c "quickstart"
-gsd-core/references/planning-config.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
-gsd-core/references/planning-config.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
-gsd-core/references/planning-config.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
-gsd-core/references/planning-config.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/references/planning-config.md	sed	PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
 gsd-core/references/planning-config.md	sed	PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
 gsd-core/references/planning-config.md	sed	PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
@@ -258,19 +252,15 @@ gsd-core/templates/milestone.md	tail	git diff --stat feat(XX-XX)..feat(YY-YY) | 
 gsd-core/templates/milestone.md	wc	find . -name "*.swift" -o -name "*.ts" | xargs wc -l
 gsd-core/templates/user-setup.compact.md	grep	grep -r "USER-SETUP" the spec finds all phases with user requirements.
 gsd-core/templates/user-setup.md	grep	grep -r "USER-SETUP" the spec finds all phases with user requirements.
-gsd-core/workflows/add-tests.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/add-tests.md	grep	grep -r "{scenario keyword}" {e2e test directory} 2>/dev/null || true
 gsd-core/workflows/add-tests.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/add-tests.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-gsd-core/workflows/audit-milestone.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/audit-milestone.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/audit-milestone.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/autonomous.md	awk	FROM_PHASE=$(echo "$GSD_ARGS" | grep -oE '\-\-from\s+[0-9]+[A-Z]?(\.[0-9]+)*' | awk '{print $2}')
 gsd-core/workflows/autonomous.md	awk	TO_PHASE=$(echo "$GSD_ARGS" | grep -oE '\-\-to\s+[0-9]+[A-Z]?(\.[0-9]+)*' | awk '{print $2}')
 gsd-core/workflows/autonomous.md	awk	ONLY_PHASE=$(echo "$GSD_ARGS" | grep -oE '\-\-only\s+[0-9]+[A-Z]?(\.[0-9]+)*' | awk '{print $2}')
 gsd-core/workflows/autonomous.md	awk	MAX_CYCLES_ARG=$(echo "$GSD_ARGS" | grep -oE '\-\-max-cycles\s+[0-9]+' | awk '{print $2}')
-gsd-core/workflows/autonomous.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
-gsd-core/workflows/autonomous.md	cat	if [[ "$INIT_AUTONOMOUS" == @file:* ]]; then INIT_AUTONOMOUS=$(cat "${INIT_AUTONOMOUS#@file:}"); fi
 gsd-core/workflows/autonomous.md	grep	FROM_PHASE=$(echo "$GSD_ARGS" | grep -oE '\-\-from\s+[0-9]+[A-Z]?(\.[0-9]+)*' | awk '{print $2}')
 gsd-core/workflows/autonomous.md	grep	TO_PHASE=$(echo "$GSD_ARGS" | grep -oE '\-\-to\s+[0-9]+[A-Z]?(\.[0-9]+)*' | awk '{print $2}')
 gsd-core/workflows/autonomous.md	grep	ONLY_PHASE=$(echo "$GSD_ARGS" | grep -oE '\-\-only\s+[0-9]+[A-Z]?(\.[0-9]+)*' | awk '{print $2}')
@@ -289,7 +279,6 @@ gsd-core/workflows/autonomous.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* 
 gsd-core/workflows/autonomous.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/autonomous.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/complete-milestone.md	awk	BACKLOG_SECTION=$(awk '/^## Backlog/{found=1} found{print}' "$ROADMAP_PATH")
-gsd-core/workflows/complete-milestone.md	cat	if [[ "$INIT_MANAGER" == @file:* ]]; then INIT_MANAGER=$(cat "${INIT_MANAGER#@file:}"); fi
 gsd-core/workflows/complete-milestone.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/complete-milestone.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/complete-milestone.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -304,16 +293,12 @@ gsd-core/workflows/complete-milestone.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -n
 gsd-core/workflows/complete-milestone.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/complete-milestone.md	wc	find . -name "*.swift" -o -name "*.ts" -o -name "*.py" | xargs wc -l 2>/dev/null || true
 gsd-core/workflows/complete-milestone.md	xargs	find . -name "*.swift" -o -name "*.ts" -o -name "*.py" | xargs wc -l 2>/dev/null || true
-gsd-core/workflows/complete-milestone/detail/elaboration.md	cat	if [[ "$AUDIT_JSON" == @file:* ]]; then AUDIT_JSON=$(cat "${AUDIT_JSON#@file:}"); fi
-gsd-core/workflows/complete-milestone/detail/elaboration.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
-gsd-core/workflows/complete-milestone/detail/elaboration.md	cat	if [[ "$INIT_CM" == @file:* ]]; then INIT_CM=$(cat "${INIT_CM#@file:}"); fi
 gsd-core/workflows/complete-milestone/detail/elaboration.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1) # Read-loaded file: write the command's original argument string in place of $GSD_ARGS
 gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1) # Read-loaded file: write the command's original argument string in place of $GSD_ARGS
 gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	BRANCH_PREFIX=$(echo "$PHASE_BRANCH_TEMPLATE" | sed 's/{.*//')
 gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	BRANCH_PREFIX=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed 's/{.*//')
 gsd-core/workflows/diagnose-issues.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/diagnose-issues.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-gsd-core/workflows/discuss-phase-assumptions.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/discuss-phase-assumptions.md	grep	grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" 2>/dev/null | head -10
 gsd-core/workflows/discuss-phase-assumptions.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/discuss-phase-assumptions.md	head	grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" 2>/dev/null | head -10
@@ -328,7 +313,6 @@ gsd-core/workflows/discuss-phase.md	sort	specforge query "$MILESTONE" --depth 2 
 gsd-core/workflows/discuss-phase/modes/advisor.md	cat	PROFILE_CONTENT=$(cat "$HOME/.claude/gsd-core/USER-PROFILE.md" 2>/dev/null || true)
 gsd-core/workflows/discuss-phase/modes/power.md	head	SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)
 gsd-core/workflows/execute-phase.md	awk	RP=$(awk '/^---/{c++;next} c==1 && /^resolves_phase:/{print $2;exit} c==2{exit}' "$TODO_FILE" 2>/dev/null || true)
-gsd-core/workflows/execute-phase.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/execute-phase.md	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
 gsd-core/workflows/execute-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/execute-phase.md	head	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
@@ -374,7 +358,6 @@ gsd-core/workflows/execute-phase/steps/regression-gate-run.md	grep	if [ -f "Make
 gsd-core/workflows/execute-phase/steps/regression-gate.md	cat	cat > "$_GSD_HANDOFF/regression-files" <<'GSD_REGRESSION_FILES'
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-gsd-core/workflows/execute-plan.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/execute-plan.md	cat	specforge gsd raise-blocker "$(cat "${BLOCKER_TEXT_FILE}")" --phase "${PHASE}"
 gsd-core/workflows/execute-plan.md	grep	PHASE=$(echo "$PLAN_PATH" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*-[0-9]+')
 gsd-core/workflows/execute-plan.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -392,8 +375,6 @@ gsd-core/workflows/extract-learnings.md	xargs	PHASE_ARG=$(echo "$GSD_ARGS" | sed
 gsd-core/workflows/graduation.md	sort	specforge query "$MILESTONE" --depth 2 --kinds lesson --pick '.nodes[kind=lesson].id' | sort | tail -n "$GRADUATION_WINDOW"
 gsd-core/workflows/graduation.md	tail	specforge query "$MILESTONE" --depth 2 --kinds lesson --pick '.nodes[kind=lesson].id' | sort | tail -n "$GRADUATION_WINDOW"
 gsd-core/workflows/list-workspaces.md	grep	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 "$WORKSPACE_BASE" 2>/dev/null); WORKSPACE_COUNT=$(echo "$WORKSPACES" | grep -c . || true)
-gsd-core/workflows/manager.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
-gsd-core/workflows/manager.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/manager.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/manager.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/manager.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -404,11 +385,8 @@ gsd-core/workflows/milestone-summary.md	sed	VERSION=$(echo "$GSD_ARGS" | sed -nE
 gsd-core/workflows/milestone-summary.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/milestone-summary.md	sort	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 gsd-core/workflows/milestone-summary.md	tr	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
-gsd-core/workflows/new-milestone.md	cat	if [[ "$INIT_EARLY" == @file:* ]]; then INIT_EARLY=$(cat "${INIT_EARLY#@file:}"); fi
-gsd-core/workflows/new-milestone.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/new-milestone.md	sed	MILESTONE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 gsd-core/workflows/new-milestone.md	xargs	MILESTONE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
-gsd-core/workflows/new-project.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/new-project.md	cat	DEFAULTS_RAW=$(cat "${GSD_HOME:-$HOME}/.gsd/defaults.json" 2>/dev/null)
 gsd-core/workflows/new-workspace.md	grep	CHILD_REPOS=$(for d in */; do [ -d "${d}.git" ] && echo "${d%/}"; done); CHILD_REPO_COUNT=$(echo "$CHILD_REPOS" | grep -c . || true)
 gsd-core/workflows/next.md	awk	MAX_CYCLES_ARG=$(echo "$GSD_ARGS" | grep -oE '\-\-max-cycles\s+[0-9]+' | awk '{print $2}')
@@ -418,7 +396,6 @@ gsd-core/workflows/pause-work.md	cut	phase=$(specforge gsd progress-report --pic
 gsd-core/workflows/pause-work.md	grep	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 gsd-core/workflows/pause-work.md	head	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 gsd-core/workflows/plan-phase.md	awk	PHASE_DESC="Goal: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')"$'\n'"Success criteria: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.success_criteria[]' | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')"
-gsd-core/workflows/plan-phase.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/plan-phase.md	grep	FRAMEWORK_LINE=$(grep "Selected Framework:" "${AI_SPEC_FILE}" | head -1)
 gsd-core/workflows/plan-phase.md	grep	grep -l "## Validation Architecture" "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null || true
 gsd-core/workflows/plan-phase.md	grep	PLAN_REQS=$(grep -h "requirements_addressed\|requirements:" ${PHASE_DIR}/*-PLAN.md 2>/dev/null | tr -d '[]' | tr ',' '\n' | sed 's/^[[:space:]]*//' | sort -u)
@@ -456,7 +433,6 @@ gsd-core/workflows/plan-review-convergence.md	awk	MAX_CYCLES=$(echo "$GSD_ARGS" 
 gsd-core/workflows/plan-review-convergence.md	awk	HIGH_LINES=$(echo "$REVIEW_AGENT_RETURN" | awk '/^## Current HIGH Concerns/{found=1; next} found && /^##/{exit} found{print}')
 gsd-core/workflows/plan-review-convergence.md	awk	ACTIONABLE_LINES=$(echo "$REVIEW_AGENT_RETURN" | awk '/^## Current Actionable Non-HIGH Concerns/{found=1; next} found && /^##/{exit} found{print}')
 gsd-core/workflows/plan-review-convergence.md	awk	if OPEN_CONFLICTS=$(awk '
-gsd-core/workflows/plan-review-convergence.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/plan-review-convergence.md	grep	PHASE=$(echo "$GSD_ARGS" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*' | head -1)
 gsd-core/workflows/plan-review-convergence.md	grep	MAX_CYCLES=$(echo "$GSD_ARGS" | grep -oE '\-\-max-cycles\s+[0-9]+' | awk '{print $2}')
 gsd-core/workflows/plan-review-convergence.md	grep	DEFAULT_REVIEWERS=$(printf '%s' "$DEFAULT_REVIEWERS_JSON" | tr -d '[]"' | tr ',' '\n' | grep .)   # one slug per line: the setting renders as a JSON list of slugs
@@ -495,7 +471,6 @@ gsd-core/workflows/pr-branch.md	sed	else SPEC_PATHSPEC="$SPEC_ROOT/"; SPEC_RE="^
 gsd-core/workflows/pr-branch.md	tr	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
 gsd-core/workflows/pr-branch.md	tr	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
 gsd-core/workflows/pr-branch.md	tr	FORBIDDEN_RE="$SPEC_RE|^($(echo "$TRANSIENT_FILES" | tr ' ' '|'))$"
-gsd-core/workflows/progress.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/progress.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/progress.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/progress.md	wc	specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id' | wc -l
@@ -504,8 +479,6 @@ gsd-core/workflows/progress/steps/forensic-audit.md	grep	specforge git status --
 gsd-core/workflows/progress/steps/forensic-audit.md	head	specforge git status --pick '.tracked[]' 2>/dev/null | grep -v "^spec/" | grep -v "^\.\." | head -10
 gsd-core/workflows/quick-batch.md	cat	cat > "$QB_PARSE_FILE" 2>&1 <<'GSD_QUICK_BATCH_ARGS_END'   # the argument block is read as typed: take jobs, validate, research and resume from it
 gsd-core/workflows/quick-batch.md	cat	QB_PARSE_JSON=$(cat "$QB_PARSE_FILE"); specforge files remove --force "$QB_PARSE_FILE" >/dev/null
-gsd-core/workflows/quick-batch.md	cat	if [[ "$QB_PARSE_JSON" == @file:* ]]; then QB_PARSE_JSON=$(cat "${QB_PARSE_JSON#@file:}"); fi
-gsd-core/workflows/quick-batch.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/quick-batch.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/quick-batch.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/quick-batch/steps/batch-init.md	grep	QB_ITEMS=$(sed -E 's/^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]+//' "$TASK_FILE" | grep -v '^[[:space:]]*$'); QB_CREATE_LIST=$([ "$(printf '%s\n' "$QB_ITEMS" | grep -c .)" -ge 2 ] && printf '%s\n' "$QB_ITEMS" | while IFS= read -r t; do printf '%s\t%s\n' "$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)" "$t"; done)   # one quick_id<TAB>description line per item, list markers stripped, at least 2 items, one quick id (<yymmdd>-<3 base-36>) per item; the batch router is not part of @gsd/core
@@ -521,12 +494,10 @@ gsd-core/workflows/quick-batch/steps/research-phase.md	cut	SLUG=$(printf '%s' "$
 gsd-core/workflows/quick-batch/steps/research-phase.md	sed	SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | cut -c1-40 | sed 's/^-//; s/-$//')
 gsd-core/workflows/quick-batch/steps/research-phase.md	tr	SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | cut -c1-40 | sed 's/^-//; s/-$//')
 gsd-core/workflows/quick-batch/steps/research-phase.md	tr	SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | cut -c1-40 | sed 's/^-//; s/-$//')
-gsd-core/workflows/quick-batch/steps/resume-mode.md	cat	if [[ "$QB_RESUME_JSON" == @file:* ]]; then QB_RESUME_JSON=$(cat "${QB_RESUME_JSON#@file:}"); fi
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	cut	SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | cut -c1-40 | sed 's/^-//; s/-$//')
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	sed	SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | cut -c1-40 | sed 's/^-//; s/-$//')
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	tr	SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | cut -c1-40 | sed 's/^-//; s/-$//')
 gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	tr	SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | cut -c1-40 | sed 's/^-//; s/-$//')
-gsd-core/workflows/quick.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/quick.md	grep	DEFAULT_BRANCH=$(printf '%s' "{{setting:git.base_branch|}}" | grep . \
 gsd-core/workflows/quick.md	grep	|| specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . \
 gsd-core/workflows/quick.md	grep	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
@@ -541,11 +512,9 @@ gsd-core/workflows/quick.md	tr	file_list_filtered=$(echo "${file_list}" | tr ' '
 gsd-core/workflows/quick.md	tr	file_list_filtered=$(echo "${file_list}" | tr ' ' '\n' | grep -v '^spec/' | tr '\n' ' ')
 gsd-core/workflows/remove-workspace.md	sed	STRATEGY=$(sed -n 's/^Strategy: *//p' "$WORKSPACE_PATH/WORKSPACE.md" 2>/dev/null)   # from the manifest
 gsd-core/workflows/remove-workspace.md	sed	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
-gsd-core/workflows/resume-project.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/resume-project.md	grep	for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -vxF -f <(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=summary].fields.plan')); do   # each plan no summary names
 gsd-core/workflows/resume-project.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/resume-project.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-gsd-core/workflows/review.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/review.md	cat	cat "${RUN_DIR}/.plans-manifest.md" >> "${RUN_DIR}/gsd-review-instructions.md"
 gsd-core/workflows/review.md	cat	cat "${RUN_DIR}/.plans-manifest.md" >> "${RUN_DIR}/gsd-review-prompt.md"
 gsd-core/workflows/review.md	cat	cat "$LANE_RESULT" >> "$RUN_DIR/gsd-review-lane-results.jsonl"
@@ -562,8 +531,6 @@ gsd-core/workflows/review.md	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',
 gsd-core/workflows/review.md	wc	[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL" | tr -d ' ')
 gsd-core/workflows/settings-advanced.md	cat	cat "$GSD_CONFIG_PATH"
 gsd-core/workflows/settings-advanced.md	cat	cat "$GSD_CONFIG_PATH" | python3 -c "import sys,json; c=json.load(sys.stdin); mp=c.get('model_policy',{}); print(json.dumps(mp,indent=2))" 2>/dev/null || echo "{}"
-gsd-core/workflows/settings.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
-gsd-core/workflows/ship.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/ship.md	cat	REVIEW_STDERR=$(cat "${REVIEW_STDERR_FILE}" 2>/dev/null)
 gsd-core/workflows/ship.md	grep	WINDOWS_OPEN_COUNT=$([ "$WINDOWS_STATUSES" = '?' ] && echo '?' || printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
 gsd-core/workflows/ship.md	grep	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && for f in subject body; do specforge git log "$SHIP_NOTE_SHA" --max 1 --pick ".commits[0].$f"; done | grep -q '\[ci skip\]'; then
@@ -572,15 +539,12 @@ gsd-core/workflows/ship.md	head	STATE_STATUS=$(specforge gsd progress-report 2>/
 gsd-core/workflows/ship.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 gsd-core/workflows/ship.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/ship.md	xargs	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
-gsd-core/workflows/spec-phase.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/spec-phase.md	cat	cat > "$REQS_JSON" <<'JSON'
 gsd-core/workflows/spec-phase.md	head	SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)
-gsd-core/workflows/transition.md	cat	if [[ "$INIT_TRANSITION" == @file:* ]]; then INIT_TRANSITION=$(cat "${INIT_TRANSITION#@file:}"); fi
 gsd-core/workflows/transition.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/transition.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/transition.md	sort	(specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true) | sort
 gsd-core/workflows/transition.md	sort	(specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true) | sort
-gsd-core/workflows/ultraplan-phase.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/ultraplan-phase.md	grep	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 gsd-core/workflows/ultraplan-phase.md	head	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 gsd-core/workflows/ultraplan-phase.md	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
@@ -588,15 +552,12 @@ gsd-core/workflows/ultraplan-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 
 gsd-core/workflows/ultraplan-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/ultraplan-phase.md	sort	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 gsd-core/workflows/undo.md	grep	grep -E "\(0*${TARGET_PHASE}(-[0-9]+)?\):"
-gsd-core/workflows/validate-phase.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/validate-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/validate-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 gsd-core/workflows/validate-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/validate-phase.md	xargs	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 gsd-core/workflows/verify-work.md	awk	BASE=$(grep -oE '^plan_head_before: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
 gsd-core/workflows/verify-work.md	awk	AFTER=$(grep -oE '^plan_head_after: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
-gsd-core/workflows/verify-work.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
-gsd-core/workflows/verify-work.md	cat	if [[ "$CHECKPOINT" == @file:* ]]; then CHECKPOINT=$(cat "${CHECKPOINT#@file:}"); fi
 gsd-core/workflows/verify-work.md	grep	BASE=$(grep -oE '^plan_head_before: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
 gsd-core/workflows/verify-work.md	grep	CLAIMED=$(grep -oE '^commits: [0-9]+' "$SUMMARY_FILE" | grep -oE '[0-9]+' || echo absent)
 gsd-core/workflows/verify-work.md	grep	CLAIMED=$(grep -oE '^commits: [0-9]+' "$SUMMARY_FILE" | grep -oE '[0-9]+' || echo absent)
@@ -610,19 +571,15 @@ gsd-core/workflows/verify-work.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.*
 gsd-core/workflows/verify-work.md	xargs	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 gsd-core/workflows/verify-work/steps/mvp-uat-framing.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/verify-work/steps/mvp-uat-framing.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-prompt:add_tests	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:add_tests	grep	grep -r "{scenario keyword}" {e2e test directory} 2>/dev/null || true
 prompt:add_tests	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:add_tests	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-prompt:audit_milestone	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:audit_milestone	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:audit_milestone	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:autonomous	awk	FROM_PHASE=$(echo "$GSD_ARGS" | grep -oE '\-\-from\s+[0-9]+[A-Z]?(\.[0-9]+)*' | awk '{print $2}')
 prompt:autonomous	awk	TO_PHASE=$(echo "$GSD_ARGS" | grep -oE '\-\-to\s+[0-9]+[A-Z]?(\.[0-9]+)*' | awk '{print $2}')
 prompt:autonomous	awk	ONLY_PHASE=$(echo "$GSD_ARGS" | grep -oE '\-\-only\s+[0-9]+[A-Z]?(\.[0-9]+)*' | awk '{print $2}')
 prompt:autonomous	awk	MAX_CYCLES_ARG=$(echo "$GSD_ARGS" | grep -oE '\-\-max-cycles\s+[0-9]+' | awk '{print $2}')
-prompt:autonomous	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
-prompt:autonomous	cat	if [[ "$INIT_AUTONOMOUS" == @file:* ]]; then INIT_AUTONOMOUS=$(cat "${INIT_AUTONOMOUS#@file:}"); fi
 prompt:autonomous	grep	FROM_PHASE=$(echo "$GSD_ARGS" | grep -oE '\-\-from\s+[0-9]+[A-Z]?(\.[0-9]+)*' | awk '{print $2}')
 prompt:autonomous	grep	TO_PHASE=$(echo "$GSD_ARGS" | grep -oE '\-\-to\s+[0-9]+[A-Z]?(\.[0-9]+)*' | awk '{print $2}')
 prompt:autonomous	grep	ONLY_PHASE=$(echo "$GSD_ARGS" | grep -oE '\-\-only\s+[0-9]+[A-Z]?(\.[0-9]+)*' | awk '{print $2}')
@@ -640,11 +597,9 @@ prompt:autonomous	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0
 prompt:autonomous	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:autonomous	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:autonomous	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-prompt:config	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:config	cat	cat "$GSD_CONFIG_PATH"
 prompt:config	cat	cat "$GSD_CONFIG_PATH" | python3 -c "import sys,json; c=json.load(sys.stdin); mp=c.get('model_policy',{}); print(json.dumps(mp,indent=2))" 2>/dev/null || echo "{}"
 prompt:execute_phase	awk	RP=$(awk '/^---/{c++;next} c==1 && /^resolves_phase:/{print $2;exit} c==2{exit}' "$TODO_FILE" 2>/dev/null || true)
-prompt:execute_phase	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:execute_phase	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
 prompt:execute_phase	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:execute_phase	head	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
@@ -656,7 +611,6 @@ prompt:execute_phase	tr	[ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(printf '%s\n' "
 prompt:execute_phase	tr	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
 prompt:execute_phase	wc	[ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(printf '%s\n' "$_WT_DIRTY_ALL" | wc -l | tr -d ' ')
 prompt:execute_phase	wc	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
-prompt:execute_plan	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:execute_plan	cat	specforge gsd raise-blocker "$(cat "${BLOCKER_TEXT_FILE}")" --phase "${PHASE}"
 prompt:execute_plan	grep	PHASE=$(echo "$PLAN_PATH" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*-[0-9]+')
 prompt:execute_plan	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -671,8 +625,6 @@ prompt:extract_learnings	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +(
 prompt:extract_learnings	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 prompt:extract_learnings	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:extract_learnings	xargs	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
-prompt:manager	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
-prompt:manager	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:manager	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:manager	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:manager	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -683,18 +635,14 @@ prompt:milestone_summary	sed	VERSION=$(echo "$GSD_ARGS" | sed -nE 's/.*--milesto
 prompt:milestone_summary	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:milestone_summary	sort	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 prompt:milestone_summary	tr	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
-prompt:new_milestone	cat	if [[ "$INIT_EARLY" == @file:* ]]; then INIT_EARLY=$(cat "${INIT_EARLY#@file:}"); fi
-prompt:new_milestone	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:new_milestone	sed	MILESTONE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 prompt:new_milestone	xargs	MILESTONE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
-prompt:new_project	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:new_project	cat	DEFAULTS_RAW=$(cat "${GSD_HOME:-$HOME}/.gsd/defaults.json" 2>/dev/null)
 prompt:onboard	sed	ENTITIES=$(for k in project milestone phase requirement; do specforge export --kinds "$k" --pick '.nodes[].id' 2>/dev/null | sed "s|^|$k |"; done)   # one "<kind> <id>" line per entity: a project is not linked to its milestones, so the listing is by kind; empty when there is none
 prompt:pause_work	cut	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 prompt:pause_work	grep	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 prompt:pause_work	head	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 prompt:plan_phase	awk	PHASE_DESC="Goal: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')"$'\n'"Success criteria: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.success_criteria[]' | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')"
-prompt:plan_phase	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:plan_phase	grep	FRAMEWORK_LINE=$(grep "Selected Framework:" "${AI_SPEC_FILE}" | head -1)
 prompt:plan_phase	grep	grep -l "## Validation Architecture" "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null || true
 prompt:plan_phase	grep	PLAN_REQS=$(grep -h "requirements_addressed\|requirements:" ${PHASE_DIR}/*-PLAN.md 2>/dev/null | tr -d '[]' | tr ',' '\n' | sed 's/^[[:space:]]*//' | sort -u)
@@ -724,7 +672,6 @@ prompt:plan_review_convergence	awk	MAX_CYCLES=$(echo "$GSD_ARGS" | grep -oE '\-\
 prompt:plan_review_convergence	awk	HIGH_LINES=$(echo "$REVIEW_AGENT_RETURN" | awk '/^## Current HIGH Concerns/{found=1; next} found && /^##/{exit} found{print}')
 prompt:plan_review_convergence	awk	ACTIONABLE_LINES=$(echo "$REVIEW_AGENT_RETURN" | awk '/^## Current Actionable Non-HIGH Concerns/{found=1; next} found && /^##/{exit} found{print}')
 prompt:plan_review_convergence	awk	if OPEN_CONFLICTS=$(awk '
-prompt:plan_review_convergence	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:plan_review_convergence	grep	PHASE=$(echo "$GSD_ARGS" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*' | head -1)
 prompt:plan_review_convergence	grep	MAX_CYCLES=$(echo "$GSD_ARGS" | grep -oE '\-\-max-cycles\s+[0-9]+' | awk '{print $2}')
 prompt:plan_review_convergence	grep	DEFAULT_REVIEWERS=$(printf '%s' "$DEFAULT_REVIEWERS_JSON" | tr -d '[]"' | tr ',' '\n' | grep .)   # one slug per line: the setting renders as a JSON list of slugs
@@ -765,7 +712,6 @@ prompt:pr_branch	tr	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | 
 prompt:pr_branch	tr	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
 prompt:pr_branch	tr	FORBIDDEN_RE="$SPEC_RE|^($(echo "$TRANSIENT_FILES" | tr ' ' '|'))$"
 prompt:progress	awk	MAX_CYCLES_ARG=$(echo "$GSD_ARGS" | grep -oE '\-\-max-cycles\s+[0-9]+' | awk '{print $2}')
-prompt:progress	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:progress	grep	MAX_CYCLES_ARG=$(echo "$GSD_ARGS" | grep -oE '\-\-max-cycles\s+[0-9]+' | awk '{print $2}')
 prompt:progress	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:progress	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -773,7 +719,6 @@ prompt:progress	wc	specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test
 prompt:quick	awk	grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} ' spec 2>/dev/null | awk '{print $2}'   # the quick plans: the plans with no phase
 prompt:quick	awk	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 prompt:quick	awk	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
-prompt:quick	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:quick	grep	DEFAULT_BRANCH=$(printf '%s' "" | grep . \
 prompt:quick	grep	|| specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . \
 prompt:quick	grep	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
@@ -796,17 +741,13 @@ prompt:quick	tr	file_list_filtered=$(echo "${file_list}" | tr ' ' '\n' | grep -v
 prompt:quick	tr	file_list_filtered=$(echo "${file_list}" | tr ' ' '\n' | grep -v '^spec/' | tr '\n' ' ')
 prompt:quick_batch	cat	cat > "$QB_PARSE_FILE" 2>&1 <<'GSD_QUICK_BATCH_ARGS_END'   # the argument block is read as typed: take jobs, validate, research and resume from it
 prompt:quick_batch	cat	QB_PARSE_JSON=$(cat "$QB_PARSE_FILE"); specforge files remove --force "$QB_PARSE_FILE" >/dev/null
-prompt:quick_batch	cat	if [[ "$QB_PARSE_JSON" == @file:* ]]; then QB_PARSE_JSON=$(cat "${QB_PARSE_JSON#@file:}"); fi
-prompt:quick_batch	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:quick_batch	cat	cat > "$QUICK_BATCH_PARSE_FILE" 2>&1 <<'GSD_QUICK_BATCH_ARGS_END'
 prompt:quick_batch	cat	QUICK_BATCH_PARSE=$(cat "$QUICK_BATCH_PARSE_FILE"); specforge files remove --force "$QUICK_BATCH_PARSE_FILE" >/dev/null
 prompt:quick_batch	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:quick_batch	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-prompt:resume_work	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:resume_work	grep	for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -vxF -f <(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=summary].fields.plan')); do   # each plan no summary names
 prompt:resume_work	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:resume_work	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-prompt:review	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:review	cat	cat "${RUN_DIR}/.plans-manifest.md" >> "${RUN_DIR}/gsd-review-instructions.md"
 prompt:review	cat	cat "${RUN_DIR}/.plans-manifest.md" >> "${RUN_DIR}/gsd-review-prompt.md"
 prompt:review	cat	cat "$LANE_RESULT" >> "$RUN_DIR/gsd-review-lane-results.jsonl"
@@ -821,8 +762,6 @@ prompt:review	tr	[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL" | tr -d ' ')
 prompt:review	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
 prompt:review	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
 prompt:review	wc	[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL" | tr -d ' ')
-prompt:settings	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
-prompt:ship	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:ship	cat	REVIEW_STDERR=$(cat "${REVIEW_STDERR_FILE}" 2>/dev/null)
 prompt:ship	grep	WINDOWS_OPEN_COUNT=$([ "$WINDOWS_STATUSES" = '?' ] && echo '?' || printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
 prompt:ship	grep	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && for f in subject body; do specforge git log "$SHIP_NOTE_SHA" --max 1 --pick ".commits[0].$f"; done | grep -q '\[ci skip\]'; then
@@ -831,10 +770,8 @@ prompt:ship	head	STATE_STATUS=$(specforge gsd progress-report 2>/dev/null | head
 prompt:ship	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 prompt:ship	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:ship	xargs	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
-prompt:spec_phase	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:spec_phase	cat	cat > "$REQS_JSON" <<'JSON'
 prompt:spec_phase	head	SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)
-prompt:ultraplan_phase	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:ultraplan_phase	grep	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 prompt:ultraplan_phase	head	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 prompt:ultraplan_phase	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
@@ -842,15 +779,12 @@ prompt:ultraplan_phase	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A
 prompt:ultraplan_phase	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:ultraplan_phase	sort	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 prompt:undo	grep	grep -E "\(0*${TARGET_PHASE}(-[0-9]+)?\):"
-prompt:validate_phase	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:validate_phase	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:validate_phase	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 prompt:validate_phase	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:validate_phase	xargs	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 prompt:verify_work	awk	BASE=$(grep -oE '^plan_head_before: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
 prompt:verify_work	awk	AFTER=$(grep -oE '^plan_head_after: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
-prompt:verify_work	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
-prompt:verify_work	cat	if [[ "$CHECKPOINT" == @file:* ]]; then CHECKPOINT=$(cat "${CHECKPOINT#@file:}"); fi
 prompt:verify_work	grep	BASE=$(grep -oE '^plan_head_before: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
 prompt:verify_work	grep	CLAIMED=$(grep -oE '^commits: [0-9]+' "$SUMMARY_FILE" | grep -oE '[0-9]+' || echo absent)
 prompt:verify_work	grep	CLAIMED=$(grep -oE '^commits: [0-9]+' "$SUMMARY_FILE" | grep -oE '[0-9]+' || echo absent)

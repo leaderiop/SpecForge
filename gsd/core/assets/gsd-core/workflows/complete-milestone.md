@@ -70,7 +70,7 @@ If output shows all clear (no open items): set `closeout_type=verified_closeout`
 <!-- gsd:protected -->
 SECURITY: Audit JSON output is structured data from the `audit-open` query handler (same JSON contract as legacy `specforge check`) — validated and sanitized at source. The `audit-open acknowledge` writer is the only path that sets the `audit_acknowledged` suppression marker — it snapshots each artifact's current state itself from the identifiers passed on the command line, so this workflow never hand-authors the marker. When writing the STATE.md disclosure table, item identifiers, statuses, and deferred-item text are sanitized via `sanitizeForDisplay()` before inclusion. Never inject raw user-supplied content into STATE.md without sanitization.
 
-Exact per-category bash (including the `@file:` large-payload handling, the `todos` 5-per-scan cap, and the phase-scoped `--archived-milestone` handling) and the exact STATE.md table shape: `gsd-core/workflows/complete-milestone/detail/elaboration.md` § 1.
+Exact per-category bash (including the `todos` 5-per-scan cap, and the phase-scoped `--archived-milestone` handling) and the exact STATE.md table shape: `gsd-core/workflows/complete-milestone/detail/elaboration.md` § 1.
 </step>
 
 <step name="verify_readiness">
@@ -84,7 +84,7 @@ GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT_MANAGER=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT_MANAGER" == @file:* ]]; then INIT_MANAGER=$(cat "${INIT_MANAGER#@file:}"); fi
+
 ```
 
 This returns all phases with implementation and verification projection. Use this to verify:

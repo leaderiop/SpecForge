@@ -93,12 +93,12 @@ specforge git commit --add spec -m "docs: update state" && specforge collect --r
 
 # Load config via state load (returns JSON):
 INIT=$(specforge gsd progress-report --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 # commit_docs is available in the JSON output
 
 # Or use init commands which include commit_docs:
 INIT=$(specforge query "$MILESTONE/01" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 # commit_docs is included in all init command outputs
 ```
 
@@ -198,14 +198,14 @@ To use uncommitted mode:
 Use `init execute-phase` which returns all config as JSON:
 ```bash
 INIT=$(specforge query "$MILESTONE/01" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 # JSON output includes: branching_strategy, phase_branch_template, milestone_branch_template
 ```
 
 Or use `state load` for the config values:
 ```bash
 INIT=$(specforge gsd progress-report --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 # Parse branching_strategy, phase_branch_template, milestone_branch_template from JSON
 ```
 

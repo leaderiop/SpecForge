@@ -30,7 +30,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 # the commands below are specforge commands: there is no launcher to define
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT=$(specforge gsd progress-report --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 ```
 
 Parse JSON for: `milestone_version`, `milestone_name`, `phases`, `percent`, `total_plans`, `total_summaries` (what `progress-report` prints). The routing facts below are not in it, they come from the graph: `state_exists` is `milestone_version` non-null (the project state is computed); `roadmap_exists` is `phases` non-empty; `project_exists` and `planning_exists` are `[ -n "$(specforge export --kinds project --pick '.nodes[].id')" ]`; `requirements_exists` is the same with `--kinds requirement`; `init_incomplete` is a project without a roadmap or without requirements; `has_interrupted_agent` is false (this extension keeps no agent registry).

@@ -58,10 +58,10 @@
     "# the commands below are specforge commands: there is no launcher to define",
     "GSD_WS=$(echo \" $GSD_ARGS\" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \\1/p' | head -n 1)",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)",
-    "if [[ \"$INIT\" == @file:* ]]; then INIT=$(cat \"${INIT#@file:}\"); fi",
+    "",
     "```"
   ],
-  "bytes": 23005,
+  "bytes": 22939,
   "end": [
     "",
     "---",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:3062fe66327691f516a21dcf2bd2c069c7dae6cf1a0aba65a5826ff15588cf38",
+    "digest": "sha256:42c313cdd2214ddaf3d63605ee6c7921ab31897f529563cfe86856ab51ed0ff9",
     "prompt": "@gsd/core@VERSION:add_tests",
     "subject": "v1.0/02"
   },
-  "sha256": "3062fe66327691f516a21dcf2bd2c069c7dae6cf1a0aba65a5826ff15588cf38"
+  "sha256": "42c313cdd2214ddaf3d63605ee6c7921ab31897f529563cfe86856ab51ed0ff9"
 }

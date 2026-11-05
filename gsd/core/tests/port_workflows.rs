@@ -138,6 +138,12 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/spec-phase.md", 63),
     ("gsd-core/workflows/spec-phase.md", 74),
     ("gsd-core/workflows/plan-phase.md", 639),
+    // SpecForge never prints an `@file:` payload: the prose that taught its guard is gone with the guard.
+    ("gsd-core/workflows/complete-milestone.md", 71),
+    (
+        "gsd-core/workflows/complete-milestone/detail/elaboration.md",
+        11,
+    ),
 ];
 
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not

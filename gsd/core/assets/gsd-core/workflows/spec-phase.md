@@ -59,7 +59,7 @@ Rotate through these perspectives — each naturally surfaces different blindspo
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 ```
 
 Parse JSON for: `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`, `state_path`, `requirements_path`, `roadmap_path`, `planning_path`, `response_language`, `commit_docs` (the phase's spec is read below, from the graph).

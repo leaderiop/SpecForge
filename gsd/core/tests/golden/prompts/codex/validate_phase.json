@@ -44,7 +44,7 @@
     "PHASE_ARG=$(echo \"$GSD_ARGS\" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)",
     "GSD_WS=$(echo \" $GSD_ARGS\" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \\1/p' | head -n 1)",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)",
-    "if [[ \"$INIT\" == @file:* ]]; then INIT=$(cat \"${INIT#@file:}\"); fi",
+    "",
     "AGENT_SKILLS_AUDITOR=\"\"   # the host install carries the skills of gsd-nyquist-auditor",
     "```",
     "",
@@ -61,7 +61,7 @@
     "",
     "If no active validate-phase step hook exists: exit with \"Nyquist validation is disabled. Enable via $gsd-settings.\""
   ],
-  "bytes": 27110,
+  "bytes": 27044,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:8e5d7489db3e57ce175c2b216b4ddbdf544addcd304cbde3e74e42af90e063ed",
+    "digest": "sha256:4d9fec40fb9b6742d03ca0a085f430f9aadbb9c226299cd5eedbebd84ecfc2c6",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "8e5d7489db3e57ce175c2b216b4ddbdf544addcd304cbde3e74e42af90e063ed"
+  "sha256": "4d9fec40fb9b6742d03ca0a085f430f9aadbb9c226299cd5eedbebd84ecfc2c6"
 }

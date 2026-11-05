@@ -72,7 +72,7 @@ RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the se
 AUTO_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--auto([[:space:]]|$) ]]; then AUTO_PARAM="--auto"; fi
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 AGENT_SKILLS_ANALYZER=""   # the host install carries the skills of gsd-assumptions-analyzer
 # #2072: resolve the routed model so model_overrides / models.discuss are honored
 # (the resolver maps gsd-assumptions-analyzer → phaseType "discuss"); thread it below.
