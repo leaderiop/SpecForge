@@ -102,7 +102,7 @@ pub const BLOB_CAP: u64 = 16 * 1024 * 1024;
 /// The most bytes of one file's patch: a longer one is cut at a line, and the file says `truncated`.
 pub const PATCH_CAP: usize = 1024 * 1024;
 
-/// The most commits a log lists when none is asked; its count still counts every commit it walks.
+/// The most commits a log lists when none is asked; its count still counts every commit it walks (but past a `-S`).
 pub const LOG_MAX: usize = 1000;
 
 /// Whether `bytes` are binary as git decides: a NUL in the first 8000.
@@ -113,7 +113,9 @@ pub fn is_binary(bytes: &[u8]) -> bool {
 /// What a log walked: how many commits it keeps (`rev-list --count`) and the first of them, newest first.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GitLog {
-    pub count: usize,
+    /// Every commit the log keeps, or none when a `-S` log (which reads each commit's blobs) stopped at the first
+    /// commit past its listing rather than read the rest of the history to count it.
+    pub count: Option<usize>,
     pub commits: Vec<GitCommit>,
 }
 

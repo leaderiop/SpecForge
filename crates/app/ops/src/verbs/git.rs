@@ -124,7 +124,8 @@ pub const HOOK_REFUSED: &str = "hook_refused";
 /// `git log`'s answer: the commits, newest first, and how many (`rev-list --count`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct LogAnswer {
-    pub count: usize,
+    /// Every commit the log keeps; `null` when a `-S` log stopped past its listing rather than read the whole history.
+    pub count: Option<usize>,
     /// The listing stopped at its `--max` (or at [`LOG_MAX`] when none was given) before `count` commits.
     pub truncated: bool,
     pub commits: Vec<GitCommit>,
@@ -483,7 +484,7 @@ pub fn log(verbs: &Verbs, request: &LogRequest) -> Result<LogAnswer, OpError> {
     };
     if tips.is_empty() {
         return Ok(LogAnswer {
-            count: 0,
+            count: Some(0),
             truncated: false,
             commits: Vec::new(),
         });
@@ -520,7 +521,7 @@ pub fn log(verbs: &Verbs, request: &LogRequest) -> Result<LogAnswer, OpError> {
     }
     Ok(LogAnswer {
         count: log.count,
-        truncated: log.count > log.commits.len(),
+        truncated: log.count.is_none_or(|count| count > log.commits.len()),
         commits: log.commits,
     })
 }

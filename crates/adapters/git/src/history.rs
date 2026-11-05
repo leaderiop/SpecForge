@@ -29,6 +29,7 @@ pub(crate) fn log(repo: &gix::Repository, query: &LogQuery) -> Result<GitLog, Gi
     let paths = wanted_paths(&query.paths);
     let filter = Filter::of(query)?;
     let mut log = GitLog::default();
+    let mut count = 0;
     // with `oldest`, the last `max` kept, newest first: only their ids until the walk ends
     let mut oldest = std::collections::VecDeque::new();
     for info in walk {
@@ -36,7 +37,7 @@ pub(crate) fn log(repo: &gix::Repository, query: &LogQuery) -> Result<GitLog, Gi
         let listed = query.oldest || query.max.is_none_or(|max| log.commits.len() < max);
         if paths.is_empty() && filter.is_none() && !listed {
             // past the listing, a commit is only counted, as `rev-list --count` counts it
-            log.count += 1;
+            count += 1;
             continue;
         }
         let commit = repo
@@ -48,7 +49,11 @@ pub(crate) fn log(repo: &gix::Repository, query: &LogQuery) -> Result<GitLog, Gi
         if !paths.is_empty() && !touches(repo, &commit, &paths, query.first_parent)? {
             continue;
         }
-        log.count += 1;
+        if !listed && filter.as_ref().is_some_and(|f| f.pickaxe.is_some()) {
+            // counting the rest would read every blob of the history: one more kept commit says there is more
+            return Ok(log);
+        }
+        count += 1;
         if query.oldest {
             oldest.push_back(info.id);
             if query.max.is_some_and(|max| oldest.len() > max) {
@@ -64,6 +69,7 @@ pub(crate) fn log(repo: &gix::Repository, query: &LogQuery) -> Result<GitLog, Gi
             .map_err(|e| failed(&format!("read {kept}"), &e))?;
         log.commits.push(commit_of(&commit)?);
     }
+    log.count = Some(count);
     Ok(log)
 }
 

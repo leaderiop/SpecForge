@@ -590,6 +590,33 @@ fn a_log_past_its_max_counts_every_commit() {
             },
         )
         .unwrap();
-    assert_eq!(log.count, 5);
+    assert_eq!(log.count, Some(5));
     assert_eq!(log.commits.len(), 2);
+}
+
+/// With `-S`, which reads each commit's blobs, a log stops once its listing is full and one more commit is kept: it is
+/// not counted, so the answer says only that there is more.
+#[test]
+fn a_pickaxe_log_stops_past_its_max_and_counts_nothing() {
+    use specforge_effects::git::LogQuery;
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    for n in 0..5 {
+        repo.write(&format!("f{n}.txt"), "needle\n");
+        repo.commit_all(&format!("c{n}"));
+    }
+    let query = |max| LogQuery {
+        tips: vec![Sha::new(repo.sha("HEAD"))],
+        max: Some(max),
+        pickaxe: Some("needle".into()),
+        ..LogQuery::default()
+    };
+    let log = Gix::default().log(&place(&repo), &query(2)).unwrap();
+    assert_eq!((log.count, log.commits.len()), (None, 2));
+    let all = Gix::default().log(&place(&repo), &query(9)).unwrap();
+    assert_eq!(
+        (all.count, all.commits.len()),
+        (Some(5), 5),
+        "a walk that ends counts"
+    );
 }
