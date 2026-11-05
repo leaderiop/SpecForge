@@ -487,6 +487,17 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     // The manifest's temp file comes from `specforge files temp`, which keeps its suffix: upstream's comment explains
     // a mktemp that is gone.
     ("gsd-core/workflows/quick.md", 424, 425),
+    // Branches no input reaches (ADR 0343 D4): todos are @gsd/ops entities, a requirement is complete when a summary
+    // lists it, and quick commits every spec change with the work.
+    ("gsd-core/workflows/execute-phase.md", 1352, 1352),
+    ("gsd-core/workflows/execute-phase.md", 1355, 1373),
+    ("gsd-core/workflows/execute-phase.md", 1375, 1376),
+    ("gsd-core/workflows/execute-plan.md", 522, 522),
+    ("gsd-core/workflows/execute-plan.md", 524, 524),
+    ("gsd-core/workflows/execute-plan.md", 527, 527),
+    ("gsd-core/workflows/quick.md", 719, 720),
+    ("gsd-core/workflows/quick.md", 723, 723),
+    ("gsd-core/workflows/quick.md", 725, 728),
 ];
 
 fn root() -> PathBuf {

@@ -1351,31 +1351,31 @@ Copy failure must NOT block phase completion.
 **Auto-close todos whose `resolves_phase` matches this phase (#2433)**, after `update_roadmap`.
 
 ```bash
-shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
-PENDING_DIR=$(specforge files temp --dir --pick .path)   # no todo folder: todos are not entities of @gsd/core, so nothing is closed
-COMPLETED_DIR=$(specforge files temp --dir --pick .path)
-specforge files mkdir "$COMPLETED_DIR" >/dev/null
-PHASE_NUM="${PHASE_NUMBER}"
-#2576
-normalize_phase_num() {
-  printf '%s' "${1//\"/}" | sed 's/^0*\([0-9]\)/\1/'
-}
-PHASE_NUM_NORM=$(normalize_phase_num "$PHASE_NUM")
-CLOSED=()
-for TODO_FILE in "$PENDING_DIR"/*.md; do
-  [ -f "$TODO_FILE" ] || continue
-  RP=$(awk '/^---/{c++;next} c==1 && /^resolves_phase:/{print $2;exit} c==2{exit}' "$TODO_FILE" 2>/dev/null || true)
-  RP_NORM=$(normalize_phase_num "$RP")
-  [ -n "$RP_NORM" ] && [ "$RP_NORM" = "$PHASE_NUM_NORM" ] || continue
-  specforge files move "$TODO_FILE" "$COMPLETED_DIR" >/dev/null
-  CLOSED+=("${TODO_FILE##*/}")
-done
-if [ ${#CLOSED[@]} -gt 0 ]; then
-  ADDED=(); REMOVED=()
-  for f in "${CLOSED[@]}"; do ADDED+=("$COMPLETED_DIR/$f"); REMOVED+=("$PENDING_DIR/$f"); done
-  specforge git commit --add spec -m "docs(phase-${PHASE_NUMBER}): close ${#CLOSED[@]} resolved todo(s)" && specforge collect --runner gsd-git --yes
-  echo "◆ Closed ${#CLOSED[@]} todo(s) for Phase ${PHASE_NUMBER}:"; printf '  ✓ %s\n' "${CLOSED[@]}"
-fi
+: # todos are @gsd/ops entities: with @gsd/core alone there is none to close
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ```
 
 No matches: skip silently, never blocks.

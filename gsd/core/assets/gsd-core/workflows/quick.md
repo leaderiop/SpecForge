@@ -718,16 +718,16 @@ Build file list:
 - If `${QUICK_DIR}/${quick_id}-deferred-items.md` exists: `${QUICK_DIR}/${quick_id}-deferred-items.md`
 
 ```bash
-# Explicitly stage all artifacts before commit — PLAN.md may be untracked
-# if the executor ran without worktree isolation and committed docs early
+# every spec change is committed with the work: stage the files the task touched, and spec
+
 # the quick plan, its summary and the spec changes are committed with the work (#1783)
-COMMIT_DOCS="true"   # commit_docs: every spec change is committed with the work
-if [ "$COMMIT_DOCS" = "false" ]; then
-  file_list_filtered=$(echo "${file_list}" | tr ' ' '\n' | grep -v '^spec/' | tr '\n' ' ')
-  ADDS=(); for f in ${file_list_filtered}; do [ -e "$f" ] || [ -n "$(specforge git show "HEAD:$f" --pick .sha 2>/dev/null)" ] && ADDS+=(--add "$f"); done
-else
-  ADDS=(); for f in ${file_list}; do [ -e "$f" ] || [ -n "$(specforge git show "HEAD:$f" --pick .sha 2>/dev/null)" ] && ADDS+=(--add "$f"); done
-fi
+
+
+
+
+
+ADDS=(); for f in ${file_list}; do [ -e "$f" ] || [ -n "$(specforge git show "HEAD:$f" --pick .sha 2>/dev/null)" ] && ADDS+=(--add "$f"); done
+
 specforge git commit "${ADDS[@]}" --add spec -m "docs(quick-${quick_id}): ${DESCRIPTION}" && specforge collect --runner gsd-git --yes
 ```
 
