@@ -1469,12 +1469,12 @@ fn migrate_json_lists_each_file_and_its_backup() {
 }
 
 // ===================================================================
-// Plan 14, T0 pins: what migrate prints today
+// Pins: what migrate prints today
 // ===================================================================
 
 /// The migration document's `diagnostics` are the problems of `specforge.json`
-/// the run went around (plan 03): none for a usable config, but the key is
-/// there (the summary's own list stays gone, plan 14 D4).
+/// the run went around: none for a usable config, but the key is
+/// there (the summary has no list of its own).
 #[test]
 fn migrate_json_diagnostics_are_the_configs_problems() {
     let tmp = project();
@@ -1494,7 +1494,7 @@ fn migrate_json_diagnostics_are_the_configs_problems() {
 }
 
 /// A dry-run diff labels each file with its path from the project root, so
-/// that `patch -p1` applies it there (plan 14 D14).
+/// that `patch -p1` applies it there.
 #[test]
 fn dry_run_diff_labels_are_relative_to_the_project_root() {
     let tmp = project();
@@ -1583,7 +1583,7 @@ fn a_format_only_migration_passes_silently() {
     );
 }
 
-// --- plan 03: a specforge.json that hides the project's sources ---
+// --- a specforge.json that hides the project's sources ---
 
 /// The `0.9`-header text of a spec file, to migrate.
 const OLD: &str = "// specforge-format: 0.9\nbehavior alpha \"Alpha\" {\n}\n";

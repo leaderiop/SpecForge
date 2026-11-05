@@ -1,10 +1,18 @@
 //! The Git port's writes through `Gix` (ADR 0339 D5): staging is libgit2's, the commit object and its ref move gix's.
 
-use specforge_effects::git::{Git, Staging};
+use specforge_effects::git::{ConflictSide, Git, Recording, Removal, Restoring, Staging};
 use specforge_git::Gix;
 use specforge_git::testing::Repo;
 
 use super::place;
+
+/// A recording that allows an empty commit.
+fn empty() -> Recording {
+    Recording {
+        allow_empty: true,
+        ..Recording::default()
+    }
+}
 
 /// The paths `repo`'s index holds.
 fn indexed(repo: &Repo) -> Vec<String> {
@@ -37,11 +45,34 @@ fn staging_a_directory_keeps_its_ignore_rules_and_a_removal_keeps_the_file() {
         "the file stays on disk"
     );
     let committed = Gix::default()
-        .commit_index(&place, "second\n", false)
+        .commit_index(&place, "second\n", &Recording::default())
         .unwrap();
     assert_eq!(committed.branch.as_deref(), Some("main"));
     assert_eq!(committed.files, ["keep.txt", "spec/a.spec"]);
     assert_eq!(repo.sha("main"), committed.sha.as_str());
+}
+
+#[test]
+fn staging_leaves_out_what_except_names_as_a_negative_pathspec_does() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("spec/old.spec", "o").write("keep.txt", "k");
+    repo.commit_all("first");
+    repo.delete("spec/old.spec")
+        .write("spec/new.spec", "n")
+        .write("specs/x.txt", "x")
+        .write("src/b.txt", "b");
+    let staging = Staging {
+        add: vec!["*".into()],
+        except: vec!["spec".into()],
+        ..Staging::default()
+    };
+    Gix::default().stage(&place(&repo), &staging).unwrap();
+    // spec/ is neither added to nor removed from; specs/ is another directory
+    assert_eq!(
+        indexed(&repo),
+        ["keep.txt", "spec/old.spec", "specs/x.txt", "src/b.txt"]
+    );
 }
 
 #[test]
@@ -61,12 +92,12 @@ fn staging_all_takes_tracked_changes_and_deletions_and_no_untracked_file() {
     Gix::default().stage(&place, &staging).unwrap();
     assert_eq!(indexed(&repo), ["a.txt"]);
     let committed = Gix::default()
-        .commit_index(&place, "tracked\n", false)
+        .commit_index(&place, "tracked\n", &Recording::default())
         .unwrap();
     assert_eq!(committed.files, ["a.txt", "b.txt"]);
     assert!(
         Gix::default()
-            .commit_index(&place, "again\n", false)
+            .commit_index(&place, "again\n", &Recording::default())
             .is_err(),
         "nothing staged"
     );
@@ -104,7 +135,7 @@ fn a_write_during_a_rebase_am_or_bisect_is_refused_and_keeps_its_state() {
         let refused = Gix::default().stage(&place, &staging).unwrap_err();
         assert!(refused.0.contains("in progress"), "{state}: {refused}");
         let refused = Gix::default()
-            .commit_index(&place, "m\n", true)
+            .commit_index(&place, "m\n", &empty())
             .unwrap_err();
         assert!(refused.0.contains("in progress"), "{state}: {refused}");
         assert!(repo.git_dir().join(state).exists(), "{state} survives");
@@ -122,7 +153,7 @@ fn a_commit_during_a_cherry_pick_of_several_commits_keeps_the_sequencer() {
     std::fs::write(repo.git_dir().join("CHERRY_PICK_HEAD"), format!("{head}\n")).unwrap();
     assert!(
         Gix::default()
-            .commit_index(&place(&repo), "m\n", true)
+            .commit_index(&place(&repo), "m\n", &empty())
             .is_err()
     );
     assert!(repo.git_dir().join("sequencer/todo").exists());
@@ -156,7 +187,7 @@ fn a_commit_concluding_a_merge_removes_only_the_merges_files() {
     repo.commit_all("second");
     std::fs::write(repo.git_dir().join("MERGE_HEAD"), format!("{first}\n")).unwrap();
     in_progress(&repo, &["MERGE_MSG", "BISECT_START"]);
-    let committed = Gix::default().commit_index(&place(&repo), "merged\n", false);
+    let committed = Gix::default().commit_index(&place(&repo), "merged\n", &Recording::default());
     assert!(committed.is_ok(), "{committed:?}");
     assert!(!repo.git_dir().join("MERGE_HEAD").exists());
     assert!(!repo.git_dir().join("MERGE_MSG").exists());
@@ -194,7 +225,11 @@ fn a_fast_forward_whose_branch_cannot_move_changes_no_file() {
     repo.stage_all();
     let lock = repo.git_dir().join("refs/heads/main.lock");
     std::fs::write(&lock, "").unwrap();
-    let merged = Gix::default().merge(&place(&repo), &Sha::new(side), None, "m\n");
+    let merging = specforge_effects::git::Merging {
+        message: "m\n".into(),
+        ..Default::default()
+    };
+    let merged = Gix::default().merge(&place(&repo), &Sha::new(side), &merging);
     assert!(merged.is_err(), "{merged:?}");
     assert_eq!(repo.sha("HEAD"), first);
     assert_eq!(
@@ -331,5 +366,397 @@ fn a_config_path_is_interpolated_as_git_does() {
             .config_path(&place, "core.hooksPath")
             .unwrap(),
         Some(home.join("hooks"))
+    );
+}
+
+#[test]
+fn removing_takes_a_directory_with_r_and_its_files_off_the_disk() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("keep.txt", "k")
+        .write("spec/a.spec", "a")
+        .write("spec/deep/b.spec", "b");
+    repo.commit_all("first");
+    let place = place(&repo);
+    let git = Gix::default();
+    let refused = git
+        .remove(&place, &["spec".into()], Removal::default())
+        .unwrap_err();
+    assert!(refused.0.contains("recursively without -r"), "{refused}");
+    let refused = git
+        .remove(&place, &["gone".into()], Removal::default())
+        .unwrap_err();
+    assert!(
+        refused.0.contains("gone did not match any files"),
+        "{refused}"
+    );
+    repo.write("spec/untracked.txt", "u");
+    let recursive = Removal {
+        recursive: true,
+        ..Removal::default()
+    };
+    let removed = git.remove(
+        &place,
+        &["spec".into(), "gone".into()],
+        Removal {
+            ignore_unmatch: true,
+            ..recursive
+        },
+    );
+    assert_eq!(removed.unwrap(), ["spec/a.spec", "spec/deep/b.spec"]);
+    assert_eq!(indexed(&repo), ["keep.txt"]);
+    assert!(
+        !repo.dir().join("spec/deep").exists(),
+        "an emptied directory goes"
+    );
+    assert!(
+        repo.dir().join("spec/untracked.txt").is_file(),
+        "an untracked file stays"
+    );
+}
+
+#[test]
+fn a_glob_pathspec_removes_and_restores_the_files_it_names_at_any_depth() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.spec", "base\n")
+        .write("sub/b.spec", "base\n")
+        .write("keep.txt", "k\n");
+    repo.commit_all("first");
+    repo.write("a.spec", "changed\n")
+        .write("sub/b.spec", "changed\n")
+        .write("new.spec", "n\n")
+        .write("src/x.js", "x\n");
+    let place = place(&repo);
+    let git = Gix::default();
+    let everything = Staging {
+        add: vec!["*".into()],
+        ..Staging::default()
+    };
+    git.stage(&place, &everything).unwrap();
+    let spec = vec![":(glob)**/*.spec".to_string()];
+    let forced = Removal {
+        recursive: true,
+        force: true,
+        ..Removal::default()
+    };
+    let removed = git.remove(&place, &spec, forced).unwrap();
+    assert_eq!(removed, ["a.spec", "new.spec", "sub/b.spec"]);
+    assert_eq!(indexed(&repo), ["keep.txt", "src/x.js"]);
+    let from_head = Restoring {
+        source: Some(specforge_effects::git::Sha::new(repo.sha("HEAD"))),
+        staged: true,
+        worktree: true,
+        ..Restoring::default()
+    };
+    git.restore(&place, &spec, &from_head).unwrap();
+    assert_eq!(
+        indexed(&repo),
+        ["a.spec", "keep.txt", "src/x.js", "sub/b.spec"]
+    );
+    let read = |rel: &str| std::fs::read_to_string(repo.dir().join(rel)).unwrap();
+    assert_eq!(
+        (read("a.spec"), read("sub/b.spec")),
+        ("base\n".into(), "base\n".into())
+    );
+    assert!(!repo.dir().join("new.spec").exists());
+    let none = vec![":(glob)**/*.md".to_string()];
+    let refused = git.restore(&place, &none, &from_head).unwrap_err();
+    assert!(refused.0.contains("did not match any files"), "{refused}");
+}
+
+/// `a.txt` at the top, `dir/keep`, `dir/x` and `dir/sub/y` under `dir`, all committed.
+fn tree_with_dir() -> (tempfile::TempDir, Repo) {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a\n")
+        .write("dir/keep", "k\n")
+        .write("dir/x", "x\n")
+        .write("dir/sub/y", "y\n");
+    repo.commit_all("first");
+    (dir, repo)
+}
+
+#[test]
+fn removing_combines_the_pathspecs_an_exclude_taking_back_what_an_include_names() {
+    let (_dir, repo) = tree_with_dir();
+    let place = place(&repo);
+    let forced = Removal {
+        recursive: true,
+        force: true,
+        ..Removal::default()
+    };
+    let removed = Gix::default()
+        .remove(&place, &["dir".into(), ":!dir/keep".into()], forced)
+        .unwrap();
+    assert_eq!(removed, ["dir/sub/y", "dir/x"]);
+    assert_eq!(indexed(&repo), ["a.txt", "dir/keep"]);
+    assert!(repo.dir().join("dir/keep").is_file());
+}
+
+#[test]
+fn removing_the_whole_tree_needs_r_whether_named_or_left_by_an_exclude() {
+    let (_dir, repo) = tree_with_dir();
+    let place = place(&repo);
+    let git = Gix::default();
+    for spec in [".", ":!a.txt"] {
+        let refused = git
+            .remove(&place, &[spec.into()], Removal::default())
+            .unwrap_err();
+        assert!(
+            refused.0.contains("not removing . recursively without -r"),
+            "{spec}: {refused}"
+        );
+    }
+    let refused = git
+        .remove(
+            &place,
+            &["nomatch".into(), ":!dir".into()],
+            Removal::default(),
+        )
+        .unwrap_err();
+    assert!(
+        refused.0.contains("nomatch did not match any files"),
+        "{refused}"
+    );
+    assert_eq!(indexed(&repo).len(), 4, "nothing removed");
+    let recursive = Removal {
+        recursive: true,
+        ..Removal::default()
+    };
+    let removed = git.remove(&place, &[":!a.txt".into()], recursive).unwrap();
+    assert_eq!(removed, ["dir/keep", "dir/sub/y", "dir/x"]);
+    assert_eq!(indexed(&repo), ["a.txt"]);
+}
+
+#[test]
+fn restoring_combines_the_pathspecs_an_exclude_keeping_its_file_as_it_is() {
+    let (_dir, repo) = tree_with_dir();
+    for rel in ["dir/keep", "dir/x", "dir/sub/y"] {
+        repo.write(rel, "changed\n");
+    }
+    let place = place(&repo);
+    Gix::default()
+        .restore(
+            &place,
+            &["dir".into(), ":!dir/keep".into()],
+            &Restoring::default(),
+        )
+        .unwrap();
+    let read = |rel: &str| std::fs::read_to_string(repo.dir().join(rel)).unwrap();
+    assert_eq!(
+        (read("dir/keep"), read("dir/x"), read("dir/sub/y")),
+        ("changed\n".into(), "x\n".into(), "y\n".into())
+    );
+    Gix::default()
+        .restore(
+            &place,
+            &["dir".into(), ":!dir".into()],
+            &Restoring::default(),
+        )
+        .unwrap();
+    assert_eq!(
+        read("dir/keep"),
+        "changed\n",
+        "nothing named: nothing restored"
+    );
+}
+
+#[test]
+fn removing_a_changed_file_needs_force_and_cached_keeps_it_on_disk() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a").write("b.txt", "b");
+    repo.commit_all("first");
+    repo.write("a.txt", "changed");
+    let place = place(&repo);
+    let git = Gix::default();
+    let refused = git
+        .remove(&place, &["a.txt".into()], Removal::default())
+        .unwrap_err();
+    assert!(refused.0.contains("local modifications"), "{refused}");
+    assert!(
+        refused.0.contains("specforge git rm -f -- a.txt")
+            && refused.0.contains("specforge git rm --cached -- a.txt"),
+        "{refused}"
+    );
+    let cached = Removal {
+        cached: true,
+        ..Removal::default()
+    };
+    // the index still matches HEAD, so --cached loses nothing
+    assert_eq!(
+        git.remove(&place, &["a.txt".into()], cached).unwrap(),
+        ["a.txt"]
+    );
+    assert!(repo.dir().join("a.txt").is_file());
+    repo.write("b.txt", "changed");
+    let forced = Removal {
+        force: true,
+        ..Removal::default()
+    };
+    assert_eq!(
+        git.remove(&place, &["b.txt".into()], forced).unwrap(),
+        ["b.txt"]
+    );
+    assert!(!repo.dir().join("b.txt").exists());
+    assert_eq!(indexed(&repo), Vec::<String>::new());
+}
+
+#[test]
+fn removing_a_conflicted_path_takes_every_stage() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("keep.txt", "k");
+    repo.commit_all("first");
+    repo.conflict("c.txt", "base\n", "ours\n", "theirs\n");
+    let removed = Gix::default()
+        .remove(&place(&repo), &["c.txt".into()], Removal::default())
+        .unwrap();
+    assert_eq!(removed, ["c.txt"]);
+    assert_eq!(indexed(&repo), ["keep.txt"]);
+}
+
+#[cfg(unix)]
+#[test]
+fn removing_never_follows_a_link_out_of_the_worktree() {
+    let outside = tempfile::tempdir().unwrap();
+    std::fs::write(outside.path().join("x.txt"), "precious").unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("d/x.txt", "x");
+    repo.commit_all("first");
+    std::fs::remove_dir_all(repo.dir().join("d")).unwrap();
+    std::os::unix::fs::symlink(outside.path(), repo.dir().join("d")).unwrap();
+    let refused = Gix::default()
+        .remove(&place(&repo), &["d/x.txt".into()], Removal::default())
+        .unwrap_err();
+    assert!(refused.0.contains("beyond a symbolic link"), "{refused}");
+    assert!(outside.path().join("x.txt").is_file());
+    assert_eq!(indexed(&repo), ["d/x.txt"], "nothing changed");
+}
+
+#[test]
+fn restoring_takes_a_side_of_a_conflict_or_head_into_the_index_and_the_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a\n");
+    repo.commit_all("first");
+    repo.conflict("c.txt", "base\n", "ours\n", "theirs\n");
+    let place = place(&repo);
+    let git = Gix::default();
+    let theirs = Restoring {
+        side: Some(ConflictSide::Theirs),
+        ..Restoring::default()
+    };
+    git.restore(&place, &["c.txt".into()], &theirs).unwrap();
+    let read = |rel: &str| std::fs::read_to_string(repo.dir().join(rel)).unwrap();
+    assert_eq!(read("c.txt"), "theirs\n");
+    // the conflict stays for the add that resolves it, as git checkout --theirs leaves it
+    let status = git.status(&place).unwrap();
+    assert_eq!(
+        status.entries[0].kind,
+        specforge_effects::git::GitEntryKind::Unmerged
+    );
+    git.stage(
+        &place,
+        &Staging {
+            add: vec!["c.txt".into()],
+            ..Staging::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(indexed(&repo), ["a.txt", "c.txt"]);
+    let resolved = git.status(&place).unwrap();
+    assert_eq!(
+        resolved.entries[0].kind,
+        specforge_effects::git::GitEntryKind::Changed
+    );
+    repo.write("a.txt", "changed\n");
+    git.stage(
+        &place,
+        &Staging {
+            add: vec!["a.txt".into()],
+            ..Staging::default()
+        },
+    )
+    .unwrap();
+    let both = Restoring {
+        source: Some(specforge_effects::git::Sha::new(repo.sha("HEAD"))),
+        staged: true,
+        worktree: true,
+        ..Restoring::default()
+    };
+    git.restore(&place, &["a.txt".into()], &both).unwrap();
+    assert_eq!(read("a.txt"), "a\n");
+    assert!(
+        git.status(&place)
+            .unwrap()
+            .entries
+            .iter()
+            .all(|e| e.path != "a.txt")
+    );
+}
+
+#[test]
+fn a_commit_of_some_paths_on_an_unborn_head_starts_from_nothing_and_a_broken_head_refuses() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a").write("b.txt", "b");
+    repo.stage_all();
+    let place = place(&repo);
+    let only = Recording {
+        only: vec!["a.txt".into()],
+        ..Recording::default()
+    };
+    let committed = Gix::default()
+        .commit_index(&place, "root\n", &only)
+        .unwrap();
+    assert_eq!(
+        committed.files,
+        ["a.txt"],
+        "an unborn HEAD is the empty tree"
+    );
+    repo.detach(&"1".repeat(40));
+    let refused = Gix::default()
+        .commit_index(&place, "lost\n", &only)
+        .unwrap_err();
+    assert!(refused.0.contains("HEAD"), "{refused}");
+}
+
+#[test]
+fn a_commit_of_some_paths_leaves_the_rest_staged_and_takes_an_author() {
+    use specforge_effects::git::Sha;
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a").write("b.txt", "b");
+    let first = repo.commit_all("first");
+    repo.write("a.txt", "a2")
+        .write("b.txt", "b2")
+        .write("d/c.txt", "c");
+    repo.stage_all();
+    let place = place(&repo);
+    let only = Recording {
+        only: vec!["a.txt".into(), "d".into()],
+        author_of: Some(Sha::new(first.as_str())),
+        ..Recording::default()
+    };
+    let committed = Gix::default()
+        .commit_index(&place, "some\n", &only)
+        .unwrap();
+    assert_eq!(committed.files, ["a.txt", "d/c.txt"]);
+    let status = Gix::default().status(&place).unwrap();
+    let staged: Vec<_> = status.entries.iter().map(|e| e.path.as_str()).collect();
+    assert_eq!(staged, ["b.txt"], "b.txt stays staged");
+    let log = repo.open();
+    let head = log.head_commit().unwrap();
+    let author = head.author().unwrap();
+    let theirs = log
+        .find_commit(gix::ObjectId::from_hex(first.as_bytes()).unwrap())
+        .unwrap();
+    assert_eq!(
+        author.time,
+        theirs.author().unwrap().time,
+        "the author's time is the reused commit's"
     );
 }

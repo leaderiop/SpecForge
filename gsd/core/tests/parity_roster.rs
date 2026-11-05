@@ -306,7 +306,7 @@ fn cli_modules_match_the_snapshot() {
         match module {
             Module::Ported(file) => {
                 assert!(core_dir().join(file).is_file(), "{pattern}: {file}");
-                // The file's `//!` header says it ports the module (REVIEW-r44 M11): a row pointed at another file fails.
+                // The file's `//!` header says it ports the module: a row pointed at another file fails.
                 let text = std::fs::read_to_string(core_dir().join(file)).expect("a source file");
                 let header: String = text
                     .lines()
@@ -399,7 +399,7 @@ fn config_keys_match_the_snapshot() {
 
 /// Whether `header` names the module `pattern` (`phase.cjs`, or a prefix row `profile*`) as a whole file name: the
 /// file name stands at a word start (after a space, `/`, a backtick or a comma) and, for an exact row, ends there too
-/// (REVIEW-r44 post-fix N4: a substring matched prose words and other modules).
+/// (a substring matched prose words and other modules).
 fn header_names(header: &str, pattern: &str) -> bool {
     let (stem, prefix) = match pattern.strip_suffix('*') {
         Some(p) => (p, true),
@@ -480,7 +480,7 @@ fn the_acceptance_counts_match() {
     assert_eq!(accept::config_keys()[0], 212);
 }
 
-/// REVIEW-k20b m5: each family's "Where" file in ACCEPTANCE.md exists.
+/// Each family's "Where" file in ACCEPTANCE.md exists.
 #[test]
 fn each_acceptance_where_path_exists() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");

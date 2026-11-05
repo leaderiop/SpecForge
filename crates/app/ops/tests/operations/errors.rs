@@ -83,7 +83,7 @@ fn tracing_an_unknown_entity_is_e003_with_a_suggestion() {
     assert_eq!(far.suggestion, None);
 }
 
-// Plan 05 (T2): a missing entity is one refusal on every read view.
+// A missing entity is one refusal on every read view.
 #[specforge_test_macros::test(
     invariant = "mcp_structured_error_responses",
     verify = "a missing entity is one E003 refusal naming the closest entity on every read view"

@@ -1,4 +1,4 @@
-//! A name is unique within its scope (ADR 0284, plan K2): what a project with no scoped kind keeps.
+//! A name is unique within its scope (ADR 0284): what a project with no scoped kind keeps.
 
 use std::collections::{HashMap, HashSet};
 

@@ -1,4 +1,4 @@
-//! The exploration (plan 04, ADR 0015 "Prompt read views"): where to start
+//! The exploration (ADR 0015 "Prompt read views"): where to start
 //! reading a project's graph.
 
 use specforge_ops::Noticed;

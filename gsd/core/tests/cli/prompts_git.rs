@@ -122,7 +122,7 @@ fn undo_shell(p: &Project, text: &str, setup: &str, starts: &[&str], echo: &str)
     String::from_utf8_lossy(&out.stdout).trim().to_string()
 }
 
-/// REVIEW-r43 M1: `--phase v2.0/01` rendered as `--phase 01`, so the query resolved `v1.0/01` (the open milestone)
+/// `--phase v2.0/01` rendered as `--phase 01`, so the query resolved `v1.0/01` (the open milestone)
 /// and offered that phase's commits for `git revert`.
 #[test]
 fn undo_keeps_the_milestone_of_the_phase_it_was_given() {
@@ -205,7 +205,7 @@ fn autonomous_bounds_stay_numbers_of_the_open_milestone() {
 }
 
 /// Runs `script` with bash in `dir`, answering stdout. The built `specforge` is first on PATH: the blocks read git
-/// through `specforge git` (plan 08 T17).
+/// through `specforge git`.
 fn bash_in(dir: &std::path::Path, script: &str) -> String {
     let real = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
     let out = Command::new("bash")
@@ -230,7 +230,7 @@ fn bash_in(dir: &std::path::Path, script: &str) -> String {
     String::from_utf8_lossy(&out.stdout).trim().to_string()
 }
 
-/// REVIEW-r43 M6: `specforge-harness` is a file at the project root, not a directory, and only the spec root is the
+/// `specforge-harness` is a file at the project root, not a directory, and only the spec root is the
 /// spec: a commit of a `.spec` and the harness alone is planning noise, a build's `app.spec` is code.
 #[test]
 fn pr_branch_filters_the_harness_file_and_the_spec_root() {
@@ -276,7 +276,7 @@ fn pr_branch_filters_the_harness_file_and_the_spec_root() {
     );
 }
 
-/// REVIEW-r43 M5: `git.base_branch` is declared, so pr-branch and quick start from it; the fallbacks are the remote's
+/// `git.base_branch` is declared, so pr-branch and quick start from it; the fallbacks are the remote's
 /// head, then `main` (not `init.defaultBranch`, the user's default for new repositories).
 #[test]
 fn pr_branch_and_quick_start_from_the_declared_base_branch() {

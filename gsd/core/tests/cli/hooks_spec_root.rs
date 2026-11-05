@@ -1,4 +1,4 @@
-//! The hooks that key on "in the spec root" with `spec_root: "."` (REVIEW-r44 M1): the kernel calls every project path
+//! The hooks that key on "in the spec root" with `spec_root: "."`: the kernel calls every project path
 //! one then, and only a `.spec` file is a spec file.
 
 use serde_json::{Value, json};

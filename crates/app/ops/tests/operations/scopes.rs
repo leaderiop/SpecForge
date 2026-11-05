@@ -1,4 +1,4 @@
-//! A name is unique within its scope (ADR 0284, plan K2): what the read and edit operations take and write.
+//! A name is unique within its scope (ADR 0284): what the read and edit operations take and write.
 
 use std::collections::BTreeMap;
 

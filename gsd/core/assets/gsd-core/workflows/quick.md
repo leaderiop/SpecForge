@@ -175,7 +175,7 @@ If the project uses git submodules, worktree isolation is unsafe **only when the
 # the commit and surface the conflict rather than silently corrupting the
 # submodule state.
 if [ -f .gitmodules ]; then
-  SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
+  SUBMODULE_PATHS=$(specforge git submodules --pick '.submodules[].path' 2>/dev/null)
 else
   SUBMODULE_PATHS=""
 fi
@@ -202,7 +202,7 @@ already exists locally, reuse it as-is so resumed work is not rebased.
 
 ```bash
 DEFAULT_BRANCH=$(printf '%s' "{{setting:git.base_branch|}}" | grep . \
-  || git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . \
+  || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . \
   || echo main)
 
 if [ "$(specforge git rev "refs/heads/$branch_name" --pick '.revs[0].exists')" = true ]; then
@@ -268,7 +268,7 @@ QUICK_DIR="${task_dir}"
 # Worktree-relative form for an isolated executor (#5085): the guard blocks absolute paths outside its worktree.
 _QTOP=$(specforge git repo --pick .top 2>/dev/null)
 _QTOP_DIR=$(specforge git repo --path "$QUICK_DIR" --pick .top 2>/dev/null)
-QUICK_DIR_REL=$(git -C "$QUICK_DIR" rev-parse --show-prefix 2>/dev/null)
+QUICK_DIR_REL=$(specforge git repo --in "$QUICK_DIR" --pick .prefix 2>/dev/null)
 QUICK_DIR_REL="${QUICK_DIR_REL%/}"
 if [ -z "$QUICK_DIR_REL" ] || [ "$_QTOP" != "$_QTOP_DIR" ]; then QUICK_DIR_REL="$QUICK_DIR"; fi
 ```

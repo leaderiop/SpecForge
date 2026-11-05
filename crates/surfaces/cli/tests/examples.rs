@@ -1,8 +1,8 @@
 //! The shipped examples and a project of every builtin check as they did before protocol 1.11.0 (ADR 0293 to 0296).
 //!
 //! Each golden under `golden/examples/` was captured with `specforge check --format json` of the binary built at
-//! `655208c10`, the commit before kernel round 35, never from this branch: a golden recorded after the change would
-//! prove nothing. The builtins embedded here are the 1.10.0 blobs until the round is re-vendored, so this proves the
+//! `655208c10`, the commit before protocol 1.11.0, never from this branch: a golden recorded after the change would
+//! prove nothing. The builtins embedded here are the 1.10.0 blobs until they are re-vendored, so this proves the
 //! host's half (the new inputs, `values` and the clock leave an extension that declares nothing as it was); the
 //! coordinator runs it again after the re-vendor for the guests' half.
 

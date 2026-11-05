@@ -259,7 +259,7 @@ fn new_names_a_date_fields_value_as_a_calendar_day() {
     );
 }
 
-/// 05-D1, D2: format keeps a padded value, check reports it before and after, and a typed edit of the block works.
+/// Format keeps a padded value, check reports it before and after, and a typed edit of the block works.
 #[specforge_test_macros::test(
     behavior = "format_spec_files",
     verify = "format keeps a padded value, and check reports it after as before"

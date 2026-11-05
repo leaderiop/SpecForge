@@ -241,7 +241,7 @@ decision d2 "E" {
     );
 }
 
-// -- the builtins' field vocabularies (plan 01) --
+// -- the builtins' field vocabularies --
 
 /// A project of the four builtins that declare vocabularies, over `spec`.
 fn vocabulary_project(spec: &str) -> (TestProject, CompiledProject) {
@@ -540,7 +540,7 @@ fn the_lists_take_every_value_check_admits() {
     }
 }
 
-/// A product launch in its own words (plan 03, ADR 0279).
+/// A product launch in its own words (ADR 0279).
 const OWN_WORDS: &str = r#"module marketing "Marketing" {
   family workstream
 }

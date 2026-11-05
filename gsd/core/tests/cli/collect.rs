@@ -251,7 +251,7 @@ fn a_repository_without_commits_is_e045() {
     }
 }
 
-/// 04-D2: a plain `collect --yes` in a repository with a commit runs gsd-git, as a GSD project's own collect does.
+/// A plain `collect --yes` in a repository with a commit runs gsd-git, as a GSD project's own collect does.
 #[test]
 fn a_plain_collect_in_a_repository_records_the_commits() {
     let p = repository();
@@ -272,7 +272,7 @@ fn gsd_git(run: &Run) -> serde_json::Value {
         .unwrap_or_default()
 }
 
-/// 04-U2: a repository with no commit yet has no branch ref, so gsd-git is not detected (and `git log` would fail).
+/// A repository with no commit yet has no branch ref, so gsd-git is not detected (and `git log` would fail).
 #[test]
 fn a_plain_collect_in_an_unborn_repository_does_not_run_gsd_git() {
     let p = project("execute");
@@ -317,7 +317,7 @@ fn a_plain_collect_without_git_on_path_skips_gsd_git() {
     assert!(recorded(&p).is_empty());
 }
 
-/// 04-D3: the executor's `Gsd-Task:` trailer names the task of a commit whose subject names no plan.
+/// The executor's `Gsd-Task:` trailer names the task of a commit whose subject names no plan.
 #[test]
 fn a_trailer_names_the_task_of_a_commit_without_a_scope() {
     let p = repository();
@@ -564,7 +564,7 @@ fn the_junit_collector_is_never_run_by_a_plain_collect() {
     );
 }
 
-/// K17 (ADR 0297): a failing test never refuses the commits `gsd-git` records. Under `gsd-strict` a failing result is an
+/// A failing test never refuses the commits `gsd-git` records. Under `gsd-strict` a failing result is an
 /// Error (gsd/W408) the report alone causes. `collect` runs one runner per call and `gsd-junit` answers no plan, so the
 /// report and the commits are two calls here; the same-call case (the plan judged with the report its collect wrote) is
 /// proved in the kernel (`collect/report_first.rs` of `specforge-ops`).

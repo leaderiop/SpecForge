@@ -1,8 +1,8 @@
 //! What the host sends the command, collector, scanner and migration-hook
 //! exports, compared with the wire goldens in
 //! `crates/runtime/wasm/tests/wire/`, and what a collector's failure
-//! becomes. These were plan 04's T1 characterization pins; T5 and T7
-//! flipped the ones that pinned a bug.
+//! becomes. They began as characterization pins; the ones that pinned a bug
+//! were flipped when it was fixed.
 
 use std::fs;
 use std::path::PathBuf;
@@ -100,7 +100,7 @@ fn a_collector_receives_a_collect_input_and_answers_a_collect_output() {
         WasmCallResult::Ok(answer.to_string().into_bytes()),
     );
     let read = dispatch(Some(&runtime), &collector(), &reports(), None).unwrap();
-    // flipped in T7: `stdout` is absent when nothing was captured, not null
+    // flipped: `stdout` is absent when nothing was captured, not null
     golden("collect.input.json", &runtime.calls()[0].input);
     assert_eq!(read.entity_results[0].entity_id, "a");
     let test = &read.entity_results[0].test_results[0];
@@ -112,7 +112,7 @@ fn a_collector_receives_a_collect_input_and_answers_a_collect_output() {
     dispatch(Some(&runtime), &collector(), &reports(), Some("out")).unwrap();
     assert_eq!(runtime.calls()[1].input["stdout"], "out");
 
-    // flipped in T7: an answer that is not a CollectOutput (an empty array
+    // flipped: an answer that is not a CollectOutput (an empty array
     // or object, a test without a name, not JSON) is an error naming the
     // collector, never empty results; a trap is too.
     let missing_name = json!({"entity_results": [{"entity_id": "a", "test_results": [

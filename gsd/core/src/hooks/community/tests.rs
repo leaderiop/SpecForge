@@ -269,7 +269,7 @@ fn a_heredoc_message_is_judged_by_its_body() {
     assert!(denied("$(cat <<\nfeat: x", &[]));
 }
 
-/// REVIEW-r44 M2: the shapes upstream blocks, because git does not get the body the text shows.
+/// The shapes upstream blocks, because git does not get the body the text shows.
 #[test]
 fn a_heredoc_the_shell_would_change_is_judged_by_its_opener() {
     // a bare delimiter: bash expands the body (`$UNSET`, `${LONG}`), so git gets something else

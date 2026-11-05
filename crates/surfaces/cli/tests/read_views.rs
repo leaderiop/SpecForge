@@ -1025,7 +1025,7 @@ fn cli_and_mcp_query_are_one_document() {
     assert_queries_agree(&mut served(rv1()));
 }
 
-// --- explore, review and infer-guide (plan 04) ---
+// --- explore, review and infer-guide ---
 
 /// The payload of the prompt `name` (its second message, as JSON) for
 /// `arguments`, one `specforge mcp` session each.

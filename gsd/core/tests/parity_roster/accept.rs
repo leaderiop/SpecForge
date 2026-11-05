@@ -46,7 +46,7 @@ pub fn agents() -> Counts {
 pub fn hooks() -> Counts {
     use gsd_core::hooks::roster::Disposition;
     let of = |f: fn(&Disposition) -> bool| HOOK_ROSTER.iter().filter(|(_, d)| f(d)).count();
-    // Windsurf is a later host: its renderings are named and open, not built (REVIEW-r44 M6).
+    // Windsurf is a later host: its renderings are named and open, not built.
     let open = of(|d| matches!(d, Disposition::Rendering("windsurf")));
     let na = of(|d| matches!(d, Disposition::Dropped(_)));
     counts(HOOK_ROSTER.len() - na - open, 0, na, open)

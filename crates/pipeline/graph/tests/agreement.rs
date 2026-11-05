@@ -1,4 +1,4 @@
-//! The linker and the finder read every block alike (ADR 0163, round 18 amendment): each edge is a token its source
+//! The linker and the finder read every block alike (ADR 0163, as amended): each edge is a token its source
 //! holds, and each token a placed block holds that names an entity is that block's edge.
 
 use specforge_graph::{

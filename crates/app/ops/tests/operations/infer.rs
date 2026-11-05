@@ -64,7 +64,7 @@ fn the_inferred_lint_adds_nothing_without_a_manifest() {
 }
 
 /// An unusable manifest is an error the check reports (and fails on), not
-/// a false pass (plan 06 R4).
+/// a false pass.
 #[specforge_test(
     behavior = "detect_stale_source_anchor",
     verify = "the inferred profile reports a manifest it cannot use as E071"

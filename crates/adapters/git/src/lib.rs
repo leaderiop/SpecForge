@@ -7,16 +7,15 @@
 //! No lazy fetch (ADR 0300 D5, amended by ADR 0339): gix never asks a partial clone's promisor remote, so a blob the
 //! clone lacks reads as missing on every machine. A tree listing reads no blob at all.
 
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use gix::bstr::ByteSlice as _;
 use gix::sec::trust::DefaultForLevel as _;
 use specforge_effects::git::{
     Blob, CommitFile, Committed, DiffQuery, DiffSide, Git, GitBlob, GitBranch, GitBranchRef,
-    GitChange, GitEntry, GitEntryKind, GitError, GitFileDiff, GitLog, GitPlace, GitRemote,
-    GitStash, GitStatus, GitWorktree, Located, LogQuery, Merged, ObjectKind, ResetMode, Sha, Sized,
-    Staging, TreeEntry,
+    GitError, GitFileDiff, GitLog, GitPlace, GitRemote, GitStash, GitStatus, GitSubmodule,
+    GitWorktree, Located, LogQuery, Merged, Merging, ObjectKind, Recording, Removal, ResetMode,
+    Restoring, Sha, Sized, Staging, TreeEntry,
 };
 
 mod branching;
@@ -24,11 +23,12 @@ mod history;
 mod merging;
 mod refs;
 use refs::{branch_of, local_branch};
+mod status;
 #[cfg(feature = "testing")]
 pub mod testing;
 mod write;
 
-use history::{commit_of, file_diff, index_tree, touches, tree_of, wanted_paths};
+use history::{file_diff, index_tree, tree_of, wanted_paths};
 
 /// The `Git` port read through gix.
 #[derive(Debug, Clone, Copy, Default)]
@@ -225,6 +225,28 @@ impl Git for Gix {
             .map(|commit| Sha::new(commit.id.to_string())))
     }
 
+    fn sorted(&self, place: &GitPlace, commits: &[Sha]) -> Result<Vec<Sha>, GitError> {
+        let repo = open(place)?;
+        let mut dated = Vec::with_capacity(commits.len());
+        let mut seen = std::collections::HashSet::new();
+        // a commit named twice is listed once, at its first place
+        for sha in commits.iter().filter(|sha| seen.insert(sha.as_str())) {
+            let read = |e: &dyn std::fmt::Display| failed(&format!("read {}", sha.short()), e);
+            let time = repo
+                .find_commit(id(sha)?)
+                .map_err(|e| read(&e))?
+                .committer()
+                .map_err(|e| read(&e))?
+                .time()
+                .map_err(|e| read(&e))?
+                .seconds;
+            dated.push((time, sha.clone()));
+        }
+        // stable: a tie keeps the order given
+        dated.sort_by_key(|(time, _)| std::cmp::Reverse(*time));
+        Ok(dated.into_iter().map(|(_, sha)| sha).collect())
+    }
+
     fn merge_base(&self, place: &GitPlace, a: &Sha, b: &Sha) -> Result<Option<Sha>, GitError> {
         let repo = open(place)?;
         match repo.merge_base(id(a)?, id(b)?) {
@@ -380,41 +402,13 @@ impl Git for Gix {
     }
 
     fn log(&self, place: &GitPlace, query: &LogQuery) -> Result<GitLog, GitError> {
-        use gix::revision::walk::Sorting;
-        use gix::traverse::commit::simple::CommitTimeOrder;
-        let repo = open(place)?;
-        let tips = query.tips.iter().map(id).collect::<Result<Vec<_>, _>>()?;
-        let hidden = query.hidden.iter().map(id).collect::<Result<Vec<_>, _>>()?;
-        let mut walk = repo
-            .rev_walk(tips)
-            .with_hidden(hidden)
-            .sorting(Sorting::ByCommitTime(CommitTimeOrder::NewestFirst));
-        if query.first_parent {
-            walk = walk.first_parent_only();
-        }
-        let walk = walk.all().map_err(|e| failed("walk the history", &e))?;
-        let paths = wanted_paths(&query.paths);
-        let mut log = GitLog::default();
-        for info in walk {
-            let info = info.map_err(|e| failed("walk the history", &e))?;
-            let listed = query.max.is_none_or(|max| log.commits.len() < max);
-            if paths.is_empty() && !listed {
-                // past the listing, a commit is only counted, as `rev-list --count` counts it
-                log.count += 1;
-                continue;
-            }
-            let commit = repo
-                .find_commit(info.id)
-                .map_err(|e| failed(&format!("read {}", info.id), &e))?;
-            if !paths.is_empty() && !touches(&repo, &commit, &paths, query.first_parent)? {
-                continue;
-            }
-            log.count += 1;
-            if listed {
-                log.commits.push(commit_of(&commit)?);
-            }
-        }
-        Ok(log)
+        history::log(&open(place)?, query)
+    }
+
+    fn date(&self, text: &str) -> Result<i64, GitError> {
+        gix::date::parse(text, Some(std::time::SystemTime::now()))
+            .map(|time| time.seconds)
+            .map_err(|e| GitError(format!("{text:?} is no date git reads: {e}")))
     }
 
     fn diff(&self, place: &GitPlace, query: &DiffQuery) -> Result<Vec<GitFileDiff>, GitError> {
@@ -480,6 +474,34 @@ impl Git for Gix {
         refs::worktrees(&open(place)?)
     }
 
+    fn superproject(&self, place: &GitPlace) -> Result<Option<PathBuf>, GitError> {
+        let Some(parent) = place.toplevel.parent() else {
+            return Ok(None);
+        };
+        let Located::Repo(outer) = self.locate(parent) else {
+            return Ok(None);
+        };
+        let Some(rel) = place
+            .toplevel
+            .strip_prefix(&outer.toplevel)
+            .ok()
+            .and_then(tree_path)
+        else {
+            return Ok(None);
+        };
+        let index = open(&outer)?
+            .index_or_empty()
+            .map_err(|e| failed("read the index", &e))?;
+        let submodule = index
+            .entry_by_path(rel.as_str().into())
+            .is_some_and(|entry| entry.mode == gix::index::entry::Mode::COMMIT);
+        Ok(submodule.then_some(outer.toplevel))
+    }
+
+    fn submodules(&self, place: &GitPlace) -> Result<Vec<GitSubmodule>, GitError> {
+        refs::submodules(&open(place)?)
+    }
+
     fn remotes(&self, place: &GitPlace) -> Result<Vec<GitRemote>, GitError> {
         Ok(refs::remotes(&open(place)?))
     }
@@ -500,13 +522,33 @@ impl Git for Gix {
         write::stage(place, staging)
     }
 
+    fn remove(
+        &self,
+        place: &GitPlace,
+        paths: &[String],
+        removal: Removal,
+    ) -> Result<Vec<String>, GitError> {
+        write::remove(place, paths, removal)
+    }
+
     fn commit_index(
         &self,
         place: &GitPlace,
         message: &str,
-        allow_empty: bool,
+        recording: &Recording,
     ) -> Result<Committed, GitError> {
-        write::commit(self, place, message, allow_empty)
+        write::commit(self, place, message, recording)
+    }
+
+    fn message(&self, place: &GitPlace, commit: &Sha) -> Result<String, GitError> {
+        let repo = open(place)?;
+        let found = repo
+            .find_commit(id(commit)?)
+            .map_err(|e| failed(&format!("read {}", commit.short()), &e))?;
+        let message = found
+            .message_raw()
+            .map_err(|e| failed(&format!("read {}", commit.short()), &e))?;
+        Ok(String::from_utf8_lossy(message).into_owned())
     }
 
     fn branch_create(&self, place: &GitPlace, name: &str, at: &Sha) -> Result<(), GitError> {
@@ -539,18 +581,26 @@ impl Git for Gix {
         branching::worktree_remove(place, path)
     }
 
+    fn init(&self, dir: &Path) -> Result<bool, GitError> {
+        branching::init(dir)
+    }
+
+    fn worktree_lock(
+        &self,
+        place: &GitPlace,
+        path: &Path,
+        lock: bool,
+        reason: Option<&str>,
+    ) -> Result<(), GitError> {
+        branching::worktree_lock(place, path, lock, reason)
+    }
+
     fn worktree_prune(&self, place: &GitPlace) -> Result<Vec<PathBuf>, GitError> {
         branching::worktree_prune(place)
     }
 
-    fn merge(
-        &self,
-        place: &GitPlace,
-        theirs: &Sha,
-        fast_forward: Option<bool>,
-        message: &str,
-    ) -> Result<Merged, GitError> {
-        merging::merge(self, place, theirs, fast_forward, message)
+    fn merge(&self, place: &GitPlace, theirs: &Sha, merging: &Merging) -> Result<Merged, GitError> {
+        merging::merge(self, place, theirs, merging)
     }
 
     fn reset(&self, place: &GitPlace, to: &Sha, mode: ResetMode) -> Result<(), GitError> {
@@ -561,10 +611,9 @@ impl Git for Gix {
         &self,
         place: &GitPlace,
         paths: &[String],
-        source: Option<&Sha>,
-        staged: bool,
+        restoring: &Restoring,
     ) -> Result<(), GitError> {
-        merging::restore(place, paths, source, staged)
+        merging::restore(place, paths, restoring)
     }
 
     fn stash_push(
@@ -584,166 +633,25 @@ impl Git for Gix {
         merging::stashes(place)
     }
 
-    fn pick(&self, place: &GitPlace, commit: &Sha, revert: bool) -> Result<Merged, GitError> {
-        merging::pick(self, place, commit, revert)
+    fn pick(
+        &self,
+        place: &GitPlace,
+        commit: &Sha,
+        revert: bool,
+        record: bool,
+    ) -> Result<Merged, GitError> {
+        if record {
+            merging::pick(self, place, commit, revert)
+        } else {
+            merging::pick_staged(place, commit, revert)
+        }
+    }
+
+    fn pick_end(&self, place: &GitPlace, abort: bool) -> Result<bool, GitError> {
+        merging::pick_end(place, abort)
     }
 
     fn status(&self, place: &GitPlace) -> Result<GitStatus, GitError> {
-        let repo = open(place)?;
-        let branch = branch_of(&repo)?;
-        let started = std::time::Instant::now();
-        let interrupt = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        // The timer ends when the status does (its sender dropped), or raises `interrupt` at the deadline.
-        let (done, timer) = std::sync::mpsc::channel::<()>();
-        if let Some(deadline) = self.deadline {
-            let raise = std::sync::Arc::clone(&interrupt);
-            std::thread::spawn(move || {
-                if let Err(std::sync::mpsc::RecvTimeoutError::Timeout) =
-                    timer.recv_timeout(deadline)
-                {
-                    raise.store(true, std::sync::atomic::Ordering::Relaxed);
-                }
-            });
-        }
-        let items = repo
-            .status(gix::progress::Discard)
-            .map_err(|e| failed("read the status", &e))?
-            .should_interrupt_owned(std::sync::Arc::clone(&interrupt))
-            .untracked_files(gix::status::UntrackedFiles::Collapsed)
-            .index_worktree_rewrites(None)
-            .into_iter(None)
-            .map_err(|e| failed("read the status", &e))?;
-        let mut tracked: BTreeMap<String, GitEntry> = BTreeMap::new();
-        let mut untracked = Vec::new();
-        for item in items {
-            let item = item.map_err(|e| failed("read the status", &e))?;
-            note(&mut tracked, &mut untracked, item);
-        }
-        drop(done);
-        let late = self.deadline.is_some_and(|d| started.elapsed() >= d);
-        if late || interrupt.load(std::sync::atomic::Ordering::Relaxed) {
-            return Err(GitError(format!(
-                "git gave up the status after {:?}",
-                self.deadline.unwrap_or_default()
-            )));
-        }
-        Ok(status_of(branch, tracked, untracked))
-    }
-}
-
-/// The status `tracked` and `untracked` make, in git's order: the tracked entries by path, then the untracked paths.
-fn status_of(
-    branch: GitBranch,
-    tracked: BTreeMap<String, GitEntry>,
-    mut untracked: Vec<String>,
-) -> GitStatus {
-    let mut entries: Vec<GitEntry> = tracked
-        .into_values()
-        .map(|mut entry| {
-            // a conflict is one line whatever else the index says of its path
-            if entry.kind == GitEntryKind::Unmerged {
-                entry.index = Some(GitChange::Unmerged);
-                entry.worktree = Some(GitChange::Unmerged);
-                entry.orig_path = None;
-            }
-            entry
-        })
-        .collect();
-    untracked.sort();
-    entries.extend(untracked.into_iter().map(|path| GitEntry {
-        kind: GitEntryKind::Untracked,
-        path,
-        orig_path: None,
-        index: None,
-        worktree: None,
-    }));
-    GitStatus { branch, entries }
-}
-
-/// The tracked entry of `path`, a plain change until an item says more.
-fn entry_at<'a>(
-    tracked: &'a mut BTreeMap<String, GitEntry>,
-    path: &gix::bstr::BStr,
-) -> &'a mut GitEntry {
-    tracked.entry(path.to_string()).or_insert_with(|| GitEntry {
-        kind: GitEntryKind::Changed,
-        path: path.to_string(),
-        orig_path: None,
-        index: None,
-        worktree: None,
-    })
-}
-
-/// One status item onto the tracked entries (by path) or the untracked paths.
-fn note(
-    tracked: &mut BTreeMap<String, GitEntry>,
-    untracked: &mut Vec<String>,
-    item: gix::status::Item,
-) {
-    use gix::diff::index::Change as Staged;
-    use gix::status::index_worktree::Item as Worktree;
-    use gix::status::plumbing::index_as_worktree::{Change, EntryStatus};
-    match item {
-        gix::status::Item::TreeIndex(change) => match change {
-            Staged::Addition { location, .. } => {
-                entry_at(tracked, location.as_ref()).index = Some(GitChange::Added)
-            }
-            Staged::Deletion { location, .. } => {
-                entry_at(tracked, location.as_ref()).index = Some(GitChange::Deleted)
-            }
-            Staged::Modification {
-                location,
-                previous_entry_mode,
-                entry_mode,
-                ..
-            } => {
-                let kind =
-                    |mode: gix::index::entry::Mode| mode.to_tree_entry_mode().map(|m| m.kind());
-                entry_at(tracked, location.as_ref()).index =
-                    Some(if kind(previous_entry_mode) != kind(entry_mode) {
-                        GitChange::TypeChanged
-                    } else {
-                        GitChange::Modified
-                    });
-            }
-            Staged::Rewrite {
-                source_location,
-                location,
-                ..
-            } => {
-                let entry = entry_at(tracked, location.as_ref());
-                entry.kind = GitEntryKind::Renamed;
-                entry.orig_path = Some(source_location.to_string());
-                entry.index = Some(GitChange::Renamed);
-            }
-        },
-        gix::status::Item::IndexWorktree(Worktree::Modification {
-            rela_path, status, ..
-        }) => {
-            let change = match status {
-                EntryStatus::Conflict { .. } => {
-                    entry_at(tracked, rela_path.as_ref()).kind = GitEntryKind::Unmerged;
-                    return;
-                }
-                EntryStatus::Change(Change::Removed) => GitChange::Deleted,
-                EntryStatus::Change(Change::Type { .. }) => GitChange::TypeChanged,
-                EntryStatus::Change(
-                    Change::Modification { .. } | Change::SubmoduleModification(_),
-                ) => GitChange::Modified,
-                EntryStatus::IntentToAdd => GitChange::Added,
-                EntryStatus::NeedsUpdate(_) => return,
-            };
-            entry_at(tracked, rela_path.as_ref()).worktree = Some(change);
-        }
-        gix::status::Item::IndexWorktree(Worktree::DirectoryContents { entry, .. }) => {
-            if entry.status == gix::dir::entry::Status::Untracked {
-                let mut path = entry.rela_path.to_string();
-                if entry.disk_kind == Some(gix::dir::entry::Kind::Directory) {
-                    path.push('/');
-                }
-                untracked.push(path);
-            }
-        }
-        gix::status::Item::IndexWorktree(Worktree::Rewrite { .. }) => {}
+        status::read(place, self.deadline)
     }
 }

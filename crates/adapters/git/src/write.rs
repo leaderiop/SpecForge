@@ -6,7 +6,7 @@
 use std::path::Path;
 
 use specforge_effects::git::{
-    Committed, DiffQuery, DiffSide, Git as _, GitError, GitPlace, Sha, Staging,
+    Committed, DiffQuery, DiffSide, Git as _, GitError, GitPlace, Recording, Removal, Sha, Staging,
 };
 
 use crate::{Gix, failed, id, open};
@@ -26,7 +26,7 @@ fn owned(place: &GitPlace) -> Result<(), GitError> {
 /// The operation in progress in this worktree that no write of the port continues or may end: a rebase, an `am`, a
 /// bisect, or a sequencer (a cherry-pick or revert of several commits), as git's own state files say. A write in the
 /// middle of one (a commit at a rebase's `edit` stop) would end it and lose its todo list.
-fn foreign_operation(place: &GitPlace) -> Option<&'static str> {
+pub(crate) fn foreign_operation(place: &GitPlace) -> Option<&'static str> {
     let at = |name: &str| place.git_dir.join(name).exists();
     if at("rebase-apply") {
         Some(if at("rebase-apply/applying") {
@@ -39,16 +39,23 @@ fn foreign_operation(place: &GitPlace) -> Option<&'static str> {
     } else if at("BISECT_LOG") {
         Some("a bisect")
     } else if at("sequencer") {
-        Some("a cherry-pick or revert of several commits")
+        Some(SEQUENCER)
     } else {
         None
     }
 }
 
+/// A sequencer's [`foreign_operation`], which `cherry-pick --quit` and `revert --quit` end.
+pub(crate) const SEQUENCER: &str = "a cherry-pick or revert of several commits";
+
 /// A write only where [`owned`] and with no [`foreign_operation`] in progress.
 pub(crate) fn writable(place: &GitPlace) -> Result<(), GitError> {
     owned(place)?;
     match foreign_operation(place) {
+        Some(SEQUENCER) => Err(GitError(format!(
+            "{SEQUENCER} is in progress: finish it with git, or end it with specforge git cherry-pick --quit \
+             (specforge git revert --quit) first"
+        ))),
         Some(operation) => Err(GitError(format!(
             "{operation} is in progress: finish or abort it with git first"
         ))),
@@ -74,12 +81,13 @@ pub(crate) fn gix_owned(place: &GitPlace) -> Result<gix::Repository, GitError> {
     open(place)
 }
 
-/// The files of a merge, cherry-pick or revert a commit concludes, which git removes once it is recorded. Never
+/// The files of a merge, squash, cherry-pick or revert a commit concludes, which git removes once it is recorded. Never
 /// libgit2's `cleanup_state`, which also deletes a rebase's, a bisect's and a sequencer's.
-const CONCLUDED: [&str; 6] = [
+const CONCLUDED: [&str; 7] = [
     "MERGE_HEAD",
     "MERGE_MSG",
     "MERGE_MODE",
+    "SQUASH_MSG",
     "CHERRY_PICK_HEAD",
     "REVERT_HEAD",
     "AUTO_MERGE",
@@ -128,6 +136,14 @@ pub(crate) fn stage(place: &GitPlace, staging: &Staging) -> Result<(), GitError>
     // stops the staging (libgit2 runs none, so it would be staged raw), and the refusal names it.
     let refused = std::cell::RefCell::new(None);
     let mut unfiltered = |path: &Path, _: &[u8]| -> i32 {
+        // a positive answer skips the file, as libgit2 reads it
+        if staging
+            .except
+            .iter()
+            .any(|except| except == "*" || path.starts_with(except))
+        {
+            return 1;
+        }
         // a deletion reads no file, so no filter runs on it
         if !place.toplevel.join(path).exists() {
             return 0;
@@ -180,6 +196,227 @@ pub(crate) fn stage(place: &GitPlace, staging: &Staging) -> Result<(), GitError>
     index.write().map_err(|e| failed("write the index", &e))
 }
 
+/// `git rm`: the entries at `paths` out of the index and, unless cached, their files off the disk; nothing changes
+/// when a path is refused. A file is removed only below real directories of the worktree, never through a link.
+pub(crate) fn remove(
+    place: &GitPlace,
+    paths: &[String],
+    removal: Removal,
+) -> Result<Vec<String>, GitError> {
+    let repo = libgit2(place)?;
+    let mut index = repo.index().map_err(|e| failed("read the index", &e))?;
+    let files: Vec<String> = index
+        .iter()
+        .map(|entry| String::from_utf8_lossy(&entry.path).into_owned())
+        .collect();
+    let mut specs = pathspecs(paths)?;
+    if let Some(spec) = specs.unmatched(&files)
+        && !removal.ignore_unmatch
+    {
+        return Err(GitError(format!("{spec} did not match any files")));
+    }
+    let mut removed = std::collections::BTreeSet::new();
+    for file in files {
+        let Some(named) = specs.named(&file) else {
+            continue;
+        };
+        if named.whole && !removal.recursive {
+            return Err(GitError(format!(
+                "not removing {} recursively without -r",
+                named.spec
+            )));
+        }
+        removed.insert(file);
+    }
+    if !removal.force {
+        for path in &removed {
+            refuse_changed(&repo, path, removal.cached)?;
+        }
+    }
+    // every file is found before anything changes, so a refused one leaves the index and the disk as they were
+    let mut files = Vec::new();
+    if !removal.cached {
+        for path in &removed {
+            files.extend(landing(&place.toplevel, path)?);
+        }
+    }
+    for path in &removed {
+        index
+            .remove_path(Path::new(path))
+            .map_err(|e| failed(&format!("remove {path} from the index"), &e))?;
+    }
+    index.write().map_err(|e| failed("write the index", &e))?;
+    for file in &files {
+        remove_file(&place.toplevel, file)?;
+    }
+    Ok(removed.into_iter().collect())
+}
+
+/// git's pathspecs, parsed and matched by gix and combined as git combines them: a file is named when a spec names
+/// it and no exclude (`:!x`) does, and when every spec is an exclude, every file the excludes leave. A spec is a path
+/// (a file, or a directory and what is under it, `.` the whole tree), a glob, or magic such as `:(glob)**/*.spec`.
+pub(crate) struct Pathspecs {
+    texts: Vec<String>,
+    all: gix::pathspec::Search,
+    /// Each spec that is no exclude, on its own, with its place in `texts`.
+    each: Vec<(usize, gix::pathspec::Search)>,
+}
+
+/// How a file is named: by which spec, and whether as one under the directory the spec names (`whole`).
+pub(crate) struct Named<'a> {
+    pub(crate) spec: &'a str,
+    pub(crate) whole: bool,
+}
+
+pub(crate) fn pathspecs(texts: &[String]) -> Result<Pathspecs, GitError> {
+    let refused =
+        |text: &str, e: &dyn std::fmt::Display| GitError(format!("{text} is not a pathspec: {e}"));
+    let search = |text: &str, specs: Vec<gix::pathspec::Pattern>| {
+        gix::pathspec::Search::from_specs(specs, None, Path::new("")).map_err(|e| refused(text, &e))
+    };
+    let mut patterns = Vec::new();
+    for text in texts {
+        let mut pattern = gix::pathspec::parse(text.as_bytes(), gix::pathspec::Defaults::default())
+            .map_err(|e| refused(text, &e))?;
+        pattern
+            .normalize(Path::new(""), Path::new(""))
+            .map_err(|e| refused(text, &e))?;
+        // gix keeps the whole tree (`.`) as the text ".", a prefix no path has: an empty path matches every one
+        if pattern.is_nil() {
+            pattern = gix::pathspec::Pattern::from_literal(&[], pattern.signature);
+        }
+        patterns.push(pattern);
+    }
+    let mut each = Vec::new();
+    for (at, pattern) in patterns.iter().enumerate() {
+        if !pattern.is_excluded() {
+            each.push((at, search(&texts[at], vec![pattern.clone()])?));
+        }
+    }
+    Ok(Pathspecs {
+        all: search(&texts.join(" "), patterns)?,
+        texts: texts.to_vec(),
+        each,
+    })
+}
+
+fn named_by(search: &mut gix::pathspec::Search, path: &str) -> Option<(usize, bool)> {
+    use gix::pathspec::search::MatchKind;
+    search
+        .pattern_matching_relative_path(path.into(), Some(false), &mut |_, _, _, _| false)
+        .filter(|found| !found.is_excluded())
+        .map(|found| {
+            (
+                found.sequence_number,
+                matches!(found.kind, MatchKind::Prefix | MatchKind::Always),
+            )
+        })
+}
+
+impl Pathspecs {
+    /// Whether the file at `path` (relative to the top) is one the pathspecs name.
+    pub(crate) fn matches(&mut self, path: &str) -> bool {
+        named_by(&mut self.all, path).is_some()
+    }
+
+    /// The spec that names the file at `path`, if one does and no exclude takes it back.
+    pub(crate) fn named(&mut self, path: &str) -> Option<Named<'_>> {
+        let (at, whole) = named_by(&mut self.all, path)?;
+        Some(Named {
+            // past the last spec: the whole tree that only excludes leave
+            spec: self.texts.get(at).map_or(".", String::as_str),
+            whole,
+        })
+    }
+
+    /// The first spec, excludes aside, that names none of `files` on its own (git's "did not match any files").
+    pub(crate) fn unmatched(&mut self, files: &[String]) -> Option<&str> {
+        for (at, search) in &mut self.each {
+            if !files.iter().any(|file| named_by(search, file).is_some()) {
+                return Some(&self.texts[*at]);
+            }
+        }
+        None
+    }
+}
+
+/// Refused as `git rm` refuses without `-f`: a file whose index differs from `HEAD` and from the disk, or (unless
+/// `cached`, which keeps the file) either one. A conflicted file is removed whatever its sides hold.
+fn refuse_changed(repo: &git2::Repository, path: &str, cached: bool) -> Result<(), GitError> {
+    use git2::Status;
+    let status = repo
+        .status_file(Path::new(path))
+        .map_err(|e| failed(&format!("read {path}'s status"), &e))?;
+    if status.contains(Status::CONFLICTED) {
+        return Ok(());
+    }
+    let staged = status.intersects(
+        Status::INDEX_NEW
+            | Status::INDEX_MODIFIED
+            | Status::INDEX_RENAMED
+            | Status::INDEX_TYPECHANGE,
+    );
+    let local = status.intersects(Status::WT_MODIFIED | Status::WT_TYPECHANGE);
+    let refused = if cached {
+        staged && local
+    } else {
+        staged || local
+    };
+    if !refused {
+        return Ok(());
+    }
+    let what = match (staged, local) {
+        (true, true) => "staged content different from both the file and HEAD",
+        (true, false) => "changes staged in the index",
+        _ => "local modifications",
+    };
+    Err(GitError(format!(
+        "{path} has {what}: remove it with specforge git rm -f -- {path}, or keep the file with \
+         specforge git rm --cached -- {path}"
+    )))
+}
+
+/// Where the file at `path` under `top` is, when there is one to remove: none when it is gone or is a directory (a
+/// submodule's, which git leaves). Each directory on the way must be a real one, never a link that would lead the
+/// removal out of the worktree.
+fn landing(top: &Path, path: &str) -> Result<Option<std::path::PathBuf>, GitError> {
+    let rel = Path::new(path);
+    if !rel
+        .components()
+        .all(|c| matches!(c, std::path::Component::Normal(_)))
+    {
+        return Err(GitError(format!("{path} is no path inside the worktree")));
+    }
+    let mut at = top.to_path_buf();
+    let mut parts = rel.components().peekable();
+    while let Some(part) = parts.next() {
+        at.push(part);
+        let Ok(meta) = std::fs::symlink_metadata(&at) else {
+            return Ok(None);
+        };
+        if parts.peek().is_none() {
+            return Ok((!meta.is_dir()).then_some(at));
+        }
+        if meta.file_type().is_symlink() {
+            return Err(GitError(format!(
+                "{path} is beyond a symbolic link: it is not removed"
+            )));
+        }
+        if !meta.is_dir() {
+            return Ok(None);
+        }
+    }
+    Ok(None)
+}
+
+/// `file` off the disk, and the directories under `top` it leaves empty, as `git rm` removes them.
+fn remove_file(top: &Path, file: &Path) -> Result<(), GitError> {
+    std::fs::remove_file(file).map_err(|e| failed(&format!("remove {}", file.display()), &e))?;
+    let mut dir = file.to_path_buf();
+    while dir.pop() && dir != top && std::fs::remove_dir(&dir).is_ok() {}
+    Ok(())
+}
+
 /// The filter driver `path`'s attributes name (`filter=lfs`), when they name one: git has no driver of its own, so
 /// any is a program the repository's config would run.
 fn filter_driver(repo: &git2::Repository, path: &Path) -> Result<Option<String>, GitError> {
@@ -228,7 +465,7 @@ pub(crate) fn commit(
     gix_port: &Gix,
     place: &GitPlace,
     message: &str,
-    allow_empty: bool,
+    recording: &Recording,
 ) -> Result<Committed, GitError> {
     // a merge the user resolved concludes as git concludes it: MERGE_HEAD's commits are parents too, and the
     // operation's state (a merge's, a cherry-pick's, a revert's) is ended once the commit is recorded
@@ -251,17 +488,35 @@ pub(crate) fn commit(
             | git2::RepositoryState::CherryPick
             | git2::RepositoryState::Revert
     );
+    if merging && !recording.only.is_empty() {
+        return Err(GitError(
+            "a merge, cherry-pick or revert is in progress: it is concluded by a commit of the whole index, not of \
+             some paths"
+                .into(),
+        ));
+    }
+    let author = match &recording.author_of {
+        Some(sha) => Some(author_of(
+            &repo
+                .find_commit(
+                    git2::Oid::from_str(sha.as_str())
+                        .map_err(|e| failed("read a commit id", &e))?,
+                )
+                .map_err(|e| failed(&format!("read {}", sha.short()), &e))?,
+        )?),
+        None => None,
+    };
     let committed = record(
         gix_port,
         place,
         message,
         parents,
-        allow_empty || merging,
-        None,
+        recording.allow_empty || merging,
+        author.as_ref(),
+        &recording.only,
     )?;
-    if merging {
-        conclude(place)?;
-    }
+    // as git: a commit ends what the files describe, a squash's SQUASH_MSG too
+    conclude(place)?;
     Ok(committed)
 }
 
@@ -281,8 +536,64 @@ pub(crate) struct Author {
     pub time: String,
 }
 
+/// The author of `commit`, its time as git writes one.
+pub(crate) fn author_of(commit: &git2::Commit<'_>) -> Result<Author, GitError> {
+    let who = commit.author();
+    let offset = who.when().offset_minutes().saturating_mul(60);
+    // `write_to`, not `Display`: an offset past ±99 hours (a hostile commit's) is an error, never a panic.
+    let mut time = Vec::new();
+    gix::date::Time::new(who.when().seconds(), offset)
+        .write_to(&mut time)
+        .map_err(|e| failed("write the commit's author time", &e))?;
+    Ok(Author {
+        name: String::from_utf8_lossy(who.name_bytes()).into_owned(),
+        email: String::from_utf8_lossy(who.email_bytes()).into_owned(),
+        time: String::from_utf8_lossy(&time).into_owned(),
+    })
+}
+
+/// `HEAD`'s tree with the index's entries at or under `only` in place of its own there, as `git commit -- <paths>`
+/// records it.
+fn only_tree(
+    repo: &git2::Repository,
+    index: &git2::Index,
+    only: &[String],
+) -> Result<git2::Oid, GitError> {
+    let at = |e: git2::Error| failed("build the commit's tree", &e);
+    let under = |path: &[u8]| {
+        only.iter().any(|o| {
+            o == "*" || path == o.as_bytes() || path.starts_with(format!("{o}/").as_bytes())
+        })
+    };
+    let mut tree = git2::Index::new().map_err(at)?;
+    // only an unborn HEAD starts from nothing: a HEAD that cannot be read is an error, never an empty base
+    match repo.head() {
+        Ok(head) => {
+            let head = head
+                .peel_to_tree()
+                .map_err(|e| failed("read HEAD's tree", &e))?;
+            tree.read_tree(&head).map_err(at)?;
+        }
+        Err(e) if e.code() == git2::ErrorCode::UnbornBranch => {}
+        Err(e) => return Err(failed("read HEAD", &e)),
+    }
+    let dropped: Vec<std::path::PathBuf> = tree
+        .iter()
+        .filter(|entry| under(&entry.path))
+        .map(|entry| std::path::PathBuf::from(String::from_utf8_lossy(&entry.path).into_owned()))
+        .collect();
+    for path in dropped {
+        tree.remove_path(&path).map_err(at)?;
+    }
+    for entry in index.iter().filter(|entry| under(&entry.path)) {
+        tree.add(&entry).map_err(at)?;
+    }
+    tree.write_tree_to(repo).map_err(at)
+}
+
 /// Record the index as a commit on `HEAD`: its parents `HEAD`'s commit unless `parents` names them (a merge), its
-/// author the configured identity unless `author` names one.
+/// author the configured identity unless `author` names one, its tree the index's, or `HEAD`'s with the index's
+/// entries at `only`.
 pub(crate) fn record(
     gix_port: &Gix,
     place: &GitPlace,
@@ -290,6 +601,7 @@ pub(crate) fn record(
     parents: Option<Vec<Sha>>,
     allow_empty: bool,
     author: Option<&Author>,
+    only: &[String],
 ) -> Result<Committed, GitError> {
     let tree = {
         let repo = libgit2(place)?;
@@ -299,9 +611,13 @@ pub(crate) fn record(
                 "the index holds a conflict: resolve it and stage the files first".into(),
             ));
         }
-        let tree = index
-            .write_tree()
-            .map_err(|e| failed("write the index's tree", &e))?;
+        let tree = if only.is_empty() {
+            index
+                .write_tree()
+                .map_err(|e| failed("write the index's tree", &e))?
+        } else {
+            only_tree(&repo, &index, only)?
+        };
         gix::ObjectId::from_hex(tree.to_string().as_bytes())
             .map_err(|e| failed("read the index's tree", &e))?
     };

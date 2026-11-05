@@ -1,4 +1,4 @@
-//! The shell a ported workflow shows (REVIEW-r42 M4). The port rule checks which lines changed, not whether the new
+//! The shell a ported workflow shows. The port rule checks which lines changed, not whether the new
 //! line is valid, so a mechanical `.planning/x` -> "the spec" swap left `rm -f the spec` in a bash fence. For each fenced
 //! bash block that differs from upstream's: it still parses where upstream's did (in each bash: `shells`), and none of its code lines carries
 //! prose standing in for a path.
@@ -172,7 +172,7 @@ fn no_bash_code_line_carries_prose_for_a_path() {
     );
 }
 
-/// REVIEW-r43 Minor 1: `the spec` joined to the word or path after it (`the specquick/`, `the spec.continue-here.md`,
+/// `the spec` joined to the word or path after it (`the specquick/`, `the spec.continue-here.md`,
 /// `the `phase` entities03-auth`), in prose and in inline code as well as in a fence. The pattern is not `\bthe spec\b`:
 /// the join has no word boundary after `spec`.
 #[test]

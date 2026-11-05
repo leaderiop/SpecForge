@@ -95,7 +95,7 @@ fn a_reference_reads_the_setting_it_names() {
     assert!(!set.contains("{{setting:"), "an unfilled token");
 }
 
-/// REVIEW-r42 N2: a file read through `reference` is converted for the host that asks, like the inlined text.
+/// A file read through `reference` is converted for the host that asks, like the inlined text.
 #[test]
 fn reference_converts_the_text_for_the_host() {
     let p = twin();

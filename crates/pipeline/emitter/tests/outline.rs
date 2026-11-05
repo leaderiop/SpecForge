@@ -1022,7 +1022,7 @@ fn transitive_dependencies_are_the_same_on_every_run() {
 }
 
 // ==========================================================================
-// Declared text in the text diagrams (plan 16)
+// Declared text in the text diagrams
 // ==========================================================================
 
 fn quoted(version: &str) -> Vec<ExtensionDeclaration> {

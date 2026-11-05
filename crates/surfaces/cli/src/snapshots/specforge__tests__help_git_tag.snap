@@ -14,6 +14,9 @@ Options:
       --at <REV>
           The commit tagged; HEAD when absent
 
+      --in <DIR>
+          Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
+
   -m, --message <MESSAGE>
           An annotated tag's message, by git's configured identity
 

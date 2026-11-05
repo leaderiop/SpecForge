@@ -1,4 +1,4 @@
-//! How a core command ends (plan 02, ADR 0029): what it prints when its
+//! How a core command ends (ADR 0029): what it prints when its
 //! operation refuses, and the exit code of its verdict.
 //!
 //! `refusals_after` is the table of every refusal as the binary writes it

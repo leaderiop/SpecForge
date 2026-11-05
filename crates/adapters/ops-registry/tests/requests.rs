@@ -1,7 +1,5 @@
 //! What `ConfiguredRegistry` asks a registry for: the request path of every call, recorded by the real
 //! registry server in process (ADR 0044).
-//!
-//! Plan 12 §3 R1, R4 and R6.
 #![allow(
     clippy::unwrap_used,
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"

@@ -219,6 +219,10 @@ enum Commands {
     /// Read and change the repository the project is in, with no git program: its place, history and status, and
     /// commits, branches, worktrees and merges under the effects ceiling, as JSON (ADR 0339)
     Git {
+        /// Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every
+        /// typed path read from it
+        #[arg(long = "in", value_name = "DIR", global = true)]
+        in_dir: Option<std::path::PathBuf>,
         #[command(subcommand)]
         action: verbs::git::Action,
     },
@@ -351,7 +355,9 @@ fn run(command: Commands, terminal: &Terminal, ports: &Ports) -> Exit {
         Commands::InferStatus(args) => args.run(terminal, ports),
         Commands::Files { action } => action.run(terminal, ports),
         Commands::Http { action } => action.run(terminal, ports),
-        Commands::Git { action } => action.run(terminal, ports),
+        Commands::Git { in_dir, action } => {
+            verbs::git::run(in_dir.as_deref(), action, terminal, ports)
+        }
         Commands::External(_) => unreachable!("main runs an extension command itself"),
         Commands::Run(_) => unreachable!("main runs a program itself"),
         Commands::Extension { action } => action.run(terminal, ports),
@@ -384,7 +390,7 @@ mod tests {
     }
 
     /// Every core command's `--help` is pinned, so moving the arguments out
-    /// of this file cannot change a byte of it (plan 11).
+    /// of this file cannot change a byte of it.
     #[test]
     fn every_core_command_help_is_pinned() {
         let mut root = declared();
@@ -549,7 +555,7 @@ mod tests {
     }
 
     /// `specforge query --depth` defaults to the query operation's constant,
-    /// the one `specforge.query`'s schema advertises (plan 08 T8).
+    /// the one `specforge.query`'s schema advertises.
     #[test]
     fn the_query_depth_default_is_the_operations() {
         let command = Cli::command();

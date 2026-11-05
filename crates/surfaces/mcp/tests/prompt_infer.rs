@@ -545,7 +545,7 @@ fn infer_file_scope_lists_nothing_for_an_unanchored_file() {
 }
 
 /// Over a `specforge-infer.json` that cannot be used, the plan refuses with
-/// E071 instead of listing every source file as unanalyzed (plan 06 R6),
+/// E071 instead of listing every source file as unanalyzed,
 /// which every `mark_analyzed` would then refuse.
 #[specforge_test(
     behavior = "provide_infer_plan_scope",

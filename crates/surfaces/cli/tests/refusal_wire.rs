@@ -1,5 +1,5 @@
-//! What the CLI prints for the refusals of analyze and trace, pinned once before any of them moves (round 13,
-//! plan 10). ADR 0029 D9a: the human rendering and the streams are the binary contract, so each run is printed
+//! What the CLI prints for the refusals of analyze and trace, pinned once before any of them moves.
+//! ADR 0029 D9a: the human rendering and the streams are the binary contract, so each run is printed
 //! whole (`$ specforge …`, the exit code, both streams), the project root redacted.
 
 use crate::support::{Cli, TestProject, mcp_process};

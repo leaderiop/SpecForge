@@ -1,4 +1,4 @@
-//! What the host read of the files a scan names (K11). A path the host did not serve is never "missing": a
+//! What the host read of the files a scan names. A path the host did not serve is never "missing": a
 //! `budget`, `too_large`, `denied` or `unreadable` error, a truncated read, or no fact at all means "not checked".
 
 use std::collections::{BTreeMap, BTreeSet};

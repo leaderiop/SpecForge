@@ -437,7 +437,7 @@ fn an_unmarked_skill_is_foreign() {
     }
 }
 
-/// REVIEW-r44 post-fix N5: the Cursor rendering of the session start is a `sessionStart` entry of the installed
+/// The Cursor rendering of the session start is a `sessionStart` entry of the installed
 /// `hooks.json`, present once `hooks.community` is on and absent by default (the roster's `gsd-cursor-session-start.js`).
 #[test]
 fn cursor_renders_the_session_start_of_the_community_hook() {

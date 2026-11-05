@@ -161,3 +161,37 @@ fn a_hook_that_cannot_run_refuses_the_commit() {
     );
     assert_eq!(repo.sha("HEAD"), first);
 }
+
+#[cfg(unix)]
+#[test]
+fn hook_run_runs_a_hook_as_a_commit_would() {
+    let (project, repo, _) = committed();
+    let missing = git(&project, &["hook", "run", "pre-commit"]).exits(1);
+    assert_eq!(
+        missing.json()["code"],
+        "hook_cannot_run",
+        "{}",
+        missing.stdout
+    );
+    let ignored = git(&project, &["hook", "run", "pre-commit", "--ignore-missing"]).exits(0);
+    assert_eq!(ignored.answer()["ran"], false);
+    hook(&repo, "pre-commit", "echo \"checked $1\" >&2");
+    let empty = tempfile::tempdir().unwrap();
+    // bare: the harness's trailing --path would land after `--`, among the hook's arguments
+    let ran = Cli::on(&project)
+        .env("PATH", empty.path())
+        .bare(&["git", "hook", "run", "pre-commit", "--", "staged"])
+        .exits(0);
+    assert_eq!(ran.answer()["ran"], true);
+    assert!(ran.stderr.contains("checked staged"), "{}", ran.stderr);
+    hook(&repo, "pre-commit", "exit 3");
+    let refused = git(&project, &["hook", "run", "pre-commit"]).exits(1);
+    let error = refused.json();
+    assert_eq!(error["code"], "hook_refused", "{}", refused.stdout);
+    assert!(
+        error.get("suggestion").is_none(),
+        "no commit to skip: {error}"
+    );
+    let path = git(&project, &["hook", "run", "../../outside"]).exits(1);
+    assert_eq!(path.json()["code"], "invalid_input", "{}", path.stdout);
+}

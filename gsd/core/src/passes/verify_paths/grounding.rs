@@ -1,6 +1,6 @@
 //! Where a verify command runs, read from its text and never executed: a port of `resolveVerifyCommandTarget`
 //! (`src/verify-command-grounding.cts`) up to the point where it touches the disk. The guest has no disk, so it only
-//! names the paths to look at; the host reads them (K11) and the check pass judges the facts.
+//! names the paths to look at; the host reads them and the check pass judges the facts.
 //!
 //! shortcut: the guest does not know the project root, so an absolute target, or one that climbs out of the project,
 //! is `Outside` whether or not it exists (GSD probes a climb that names a sibling, and lets an absolute path inside

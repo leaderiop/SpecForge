@@ -19,7 +19,7 @@ use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{RegistryBuild, build_registries};
 use specforge_wasm::testing::InProcessRuntime;
 
-/// A project of five kinds of connectedness (plan 04): `hub` is referenced
+/// A project of five kinds of connectedness: `hub` is referenced
 /// by `linked`; `lonely` and `alone` reference nothing and nothing references
 /// them; `dangling`'s only reference does not resolve; `selfish` references
 /// only itself.

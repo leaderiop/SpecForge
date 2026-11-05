@@ -340,7 +340,7 @@ fn the_git_collector_runs_git_log_and_writes_a_plan() {
         &"--format=%x00%H%x1f%P%x1f%at%x1f%(trailers:key=Gsd-Task,valueonly,unfold,separator=%x1e)%x1f%s"
             .to_string()
     ));
-    // Detected by a branch ref (ADR 0331 D4, 04-U2): a plain `specforge collect` in a repository with a commit runs it.
+    // Detected by a branch ref (ADR 0331 D4): a plain `specforge collect` in a repository with a commit runs it.
     let detect = git.auto_detect.as_ref().expect("gsd-git is detected");
     assert_eq!(
         detect.file_patterns,

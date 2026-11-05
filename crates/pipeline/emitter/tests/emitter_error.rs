@@ -1,6 +1,6 @@
 //! The emitter's failures are typed: each variant carries what its message
 //! names, `code()` is the catalogued diagnostic it is, and the message
-//! carries no code (plan 05 T1, ADR 0015 "Query" Q4).
+//! carries no code (ADR 0015 "Query" Q4).
 
 use specforge_common::{SourceSpan, Sym};
 use specforge_diagnostics::codes;

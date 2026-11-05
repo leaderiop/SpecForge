@@ -83,7 +83,7 @@ fn accepting_twice_is_refused() {
     assert_eq!(p.fields_of("v1.0/01/01-SECURITY/AR2")["accepted_by"], "bob");
 }
 
-/// REVIEW-security-part2 M1: U4 holds. `at` is a harness field, so an agent cannot write a person's acceptance.
+/// Only a person accepts a risk: `at` is a harness field, so an agent cannot write a person's acceptance.
 fn agent_accepts(p: &Project, extra: &[&str]) -> harness::Run {
     let mut args = vec![
         "new",

@@ -590,7 +590,7 @@ mod tests {
             pick.printed(&nodes.to_string(), Some(&fields)).unwrap(),
             "abc\u{1f}feat: a\u{1f}c1\u{1f}2\u{1f}\n\u{1f}tab\there\\nnext \\\\ end\u{1f}c2\u{1f}\u{1f}\n\u{1f}\u{1f}c3\u{1f}\u{1f}[\"a\",\"b\"]\n"
         );
-        // a unit separator in a cell is written out, so it cannot split the row (re-review item 5)
+        // a unit separator in a cell is written out, so it cannot split the row
         assert_eq!(escaped("a\u{1f}b"), "a\\x1fb");
         // a value that is null still holds its row; an item missing from the path holds none
         let one = Fields::parse("id").unwrap();

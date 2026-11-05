@@ -117,7 +117,7 @@ pub fn assert_client_contract(
         .expect("K5: download of the metadata's wasm_url");
     assert_eq!(&bytes, wasm, "K5: the published bytes");
 
-    // K14: a reply declaring fewer bytes than its binary is refused, naming size_bytes (ADR 0250).
+    // A reply declaring fewer bytes than its binary is refused, naming size_bytes (ADR 0250).
     let short = PackageMetadata {
         size_bytes: wasm.len() as u64 - 1,
         ..metadata.clone()
@@ -135,7 +135,7 @@ pub fn assert_client_contract(
         "K14: {diagnostic:?}"
     );
 
-    // K15: a reply declaring no size is held to the ceiling only.
+    // A reply declaring no size is held to the ceiling only.
     let unsized_reply = PackageMetadata {
         size_bytes: 0,
         ..metadata.clone()
@@ -319,7 +319,7 @@ pub fn assert_client_contract(
         "K11: the receipt names what was stored"
     );
 
-    // K12: an upload is the package its manifest declares: a manifest naming another version than the upload,
+    // An upload is the package its manifest declares: a manifest naming another version than the upload,
     // or one that is no declaration, is refused and stores nothing.
     let four = contract_declaration("4.0.0");
     let package = DeclaredPackage::of(&four).unwrap();
@@ -372,7 +372,7 @@ pub fn assert_client_contract(
     }
 }
 
-/// The scope clause of the client contract (K13): a scope belongs to the account of the first publish
+/// The scope clause of the client contract: a scope belongs to the account of the first publish
 /// that stored a package in it. `owner` and `same_account` hold credentials of one account, `other_account`
 /// of another; all three are accepted for publishing by `registry`.
 pub fn assert_scope_contract(
@@ -414,7 +414,7 @@ pub fn assert_scope_contract(
         .expect("K13: another token of the owning account publishes into its scope");
 }
 
-/// The private client contract (plan 16): what every `RegistryClient` adapter does against a registry that
+/// The private client contract: what every `RegistryClient` adapter does against a registry that
 /// requires a token to read and holds nothing yet. `credential` must be one `registry` accepts.
 pub fn assert_private_client_contract(
     client: &dyn RegistryClient,

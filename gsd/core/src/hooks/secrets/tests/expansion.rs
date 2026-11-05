@@ -1,4 +1,4 @@
-//! The command substitutions inside a parameter expansion (F7 review), a divergence from gsd-core: upstream's lexer
+//! The command substitutions inside a parameter expansion, a divergence from gsd-core: upstream's lexer
 //! jumps from `${` to the next `}` and reads nothing inside, so `echo ${x:-$(cat .env)}` is allowed there.
 
 use super::v1_19::bash;

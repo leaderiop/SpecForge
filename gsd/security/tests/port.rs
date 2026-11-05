@@ -135,7 +135,7 @@ fn single_writer_the_description_says_it_returns_a_verdict() {
     );
 }
 
-// The command file, the workflow and the template (plan 16 T22), under the same rule: a line may differ only where
+// The command file, the workflow and the template, under the same rule: a line may differ only where
 // upstream's names a ported tool, or where it is listed here with its reason.
 
 /// Body lines (0-based) of `gsd-core/workflows/secure-phase.md` that differ although upstream's names no ported tool.
@@ -195,8 +195,8 @@ fn the_secure_phase_assets_are_upstreams_but_for_the_ported_lines() {
     assert_eq!(changed, 29, "the number of changed lines");
 }
 
-/// Plan 16 T4's line, asked here too: the hooks of every capability extension at `verify:post`, one answer per line
-/// (G4, plan 05 T1).
+/// The ported workflows' hook line, asked here too: the hooks of every capability extension at `verify:post`, one
+/// answer per line, merged by no jq.
 #[test]
 fn the_hooks_line_asks_the_capability_extensions() {
     let workflow =
@@ -206,7 +206,7 @@ fn the_hooks_line_asks_the_capability_extensions() {
     ));
 }
 
-/// REVIEW-security-part2 M1: step 4 option 2 must not tell the agent to close threats the person did not accept.
+/// Step 4 option 2 must not tell the agent to close threats the person did not accept.
 #[test]
 fn the_secure_phase_text_does_not_close_accepted_threats() {
     let workflow =

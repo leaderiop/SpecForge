@@ -219,7 +219,7 @@ fn no_guard_traps_on_a_hostile_input() {
     );
 }
 
-/// G2: the injection family's matcher is linear, so the mebibyte link that hid an injection behind a trap is scanned,
+/// The injection family's matcher is linear, so the mebibyte link that hid an injection behind a trap is scanned,
 /// and the phrase after it is reported. With `security.injection_blocking` on, one finding is LOW: advice, no block.
 #[test]
 fn the_injection_family_does_not_trap_on_a_mebibyte() {
@@ -261,7 +261,7 @@ fn the_injection_family_does_not_trap_on_a_mebibyte() {
     }
 }
 
-/// G2: three phrases after the mebibyte link are HIGH, so with `security.injection_blocking` on the scanner blocks the
+/// Three phrases after the mebibyte link are HIGH, so with `security.injection_blocking` on the scanner blocks the
 /// read on Claude Code: the hostile prefix cannot buy the injection an allow by running the scan past its budget.
 #[test]
 fn an_injection_block_survives_a_mebibyte_of_hostile_text() {
@@ -298,7 +298,7 @@ fn an_injection_block_survives_a_mebibyte_of_hostile_text() {
     }
 }
 
-/// G2: the largest event a hook accepts, one run of spaces or only newlines, is scanned by both hooks without a trap.
+/// The largest event a hook accepts, one run of spaces or only newlines, is scanned by both hooks without a trap.
 /// A newline is two bytes of JSON, so that input is half the size; each payload is checked against the cap, so it is
 /// really read. The time is printed, not pinned: a wall-clock bound fails under a loaded gate, so the work is bounded
 /// by [`WORK`](super::harness::WORK) here and by count in `the_matcher_does_linear_work`.

@@ -21,7 +21,7 @@ const FORBIDDEN: [&str; 7] = [
 ];
 
 /// `specforge prompt gsd.<id> --host <host> --format json -- <args>`: the line an installed skill writes, whose first
-/// `--` ends the host's options (REVIEW-k20b M2).
+/// `--` ends the host's options.
 pub fn prompt(p: &Project, id: &str, args: &[&str], host: &str) -> Run {
     let name = format!("gsd.{id}");
     let mut all = vec![

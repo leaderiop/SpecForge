@@ -1,7 +1,7 @@
 //! What the host sends compiler passes and custom validators, compared
 //! with the wire goldens in `crates/runtime/wasm/tests/wire/`, how it
-//! reads their answers, and what a failure becomes. These were plan 04's
-//! T1 characterization pins; T6 and T7 flipped the ones that pinned a bug.
+//! reads their answers, and what a failure becomes. They began as
+//! characterization pins; the ones that pinned a bug were flipped when it was fixed.
 
 use std::collections::HashSet;
 use std::fs;
@@ -160,7 +160,7 @@ fn c4_the_pass_input_of_an_analysis() {
         proved_claims: Some(&proved),
         ..PassContext::of(compiled.entities())
     });
-    // flipped in T6, then by plan 08: a test's `runner` is the report's own
+    // flipped: a test's `runner` is the report's own
     // key and not sent; its name, status, `verify` and `duration_ms` are
     golden("pass.input.json", &serde_json::to_value(&input).unwrap());
 }
@@ -179,7 +179,7 @@ fn c4_the_pass_input_of_a_compile_carries_the_baseline() {
     ));
     let runtime = Arc::new(runtime());
     dir.compile_with(runtime.clone(), Some(fake));
-    // flipped in T6: `test_results` and `proved_claims` are absent, not null
+    // flipped: `test_results` and `proved_claims` are absent, not null
     golden(
         "pass.check.input.json",
         &last_input(&runtime, "__pass_audit"),
@@ -244,7 +244,7 @@ fn c4_a_pass_answer_is_bare_or_with_a_summary_and_comes_back_sorted() {
             ],
             "{all:?}"
         );
-        // flipped in T6: a guest cannot set the host's diagnostic data (D9)
+        // flipped: a guest cannot set the host's diagnostic data
         assert!(found[2].data.is_none(), "{:?}", found[2]);
         // The entity a diagnostic names is the host's subject data (ADR 0016).
         assert_eq!(
@@ -297,7 +297,7 @@ fn c4_a_failing_check_pass_is_e028() {
     verify = "an analyze pass that traps is reported as an E028 finding of that pass"
 )]
 fn c4_a_failing_analyze_pass_is_an_e028_finding_of_its_report() {
-    // flipped in T6: was no report at all, a stderr line
+    // flipped: was no report at all, a stderr line
     let dir = project();
     let runtime = Arc::new(runtime().answer_raw(
         EXT,

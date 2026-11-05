@@ -1,4 +1,4 @@
-//! The capability points of the ported workflows (plan 16 T4): the hook line asks every capability extension, and
+//! The capability points of the ported workflows: the hook line asks every capability extension, and
 //! with none loaded it answers what every branch reads as "no hooks".
 
 use std::process::Command;
@@ -53,7 +53,7 @@ fn the_hook_line_is_empty_without_a_capability() {
     assert_eq!(json, "", "{err}");
 }
 
-/// G4 (plan 05 T1): the hook line holds one compact JSON answer per capability extension that answers, in the
+/// The hook line holds one compact JSON answer per capability extension that answers, in the
 /// loop's order, with no jq: `@gsd/security` as built, and an `ai` capability a shim answers for.
 #[test]
 fn the_hook_line_holds_one_answer_per_capability_extension() {
@@ -78,7 +78,7 @@ fn the_hook_line_holds_one_answer_per_capability_extension() {
     for answer in &answers {
         assert!(answer["activeHooks"].is_array(), "{answer}");
     }
-    // the security gate asks `security-hooks` for its active security entries (plan 05 review R9): the pick prints
+    // the security gate asks `security-hooks` for its active security entries: the pick prints
     // the capId of each, as the answer's activeHooks hold them
     let out = Command::new(std::env::var("SPECFORGE_BIN").expect("SPECFORGE_BIN"))
         .current_dir(p.root())
@@ -136,7 +136,7 @@ fn run_after(before: &str, workflow: &str, var: &str, bin: &std::path::Path) -> 
     )
 }
 
-/// Re-review of plan 05, item 1: verify:post's secure-phase step counts as enabled when it is only skipped (the phase
+/// Verify:post's secure-phase step counts as enabled when it is only skipped (the phase
 /// already has its `security_audit`), so the gate lines of verify-work and verify-phase-goal ask `security-hooks`
 /// without `--after-fingerprint`, which would move it to `skippedHooks`: with an audit, the gate still runs.
 #[test]
@@ -191,7 +191,7 @@ fn shim(dir: &std::path::Path, name: &str, body: &str) {
     std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).expect("executable");
 }
 
-/// REVIEW-security-part1 m1: a loaded capability that refuses is warned about; "not loaded" (exit 2) stays silent.
+/// A loaded capability that refuses is warned about; "not loaded" (exit 2) stays silent.
 #[test]
 fn a_capability_that_fails_is_warned_about_not_hidden() {
     let bin = tempfile::tempdir().expect("a bin dir");
@@ -206,10 +206,10 @@ fn a_capability_that_fails_is_warned_about_not_hidden() {
     assert!(!err.contains("ai-hooks"), "{err}");
 }
 
-/// REVIEW-security-part1 M2 and m3: the `security-gate` line of every workflow that has one fails closed when the
+/// The `security-gate` line of every workflow that has one fails closed when the
 /// command fails, and does not spawn it (or print an error) when no security hook is active, e.g. `@gsd/security`
-/// is not loaded. Plan 05 review R9: "active" is `security-hooks`' own answer, its active entries with `capId`
-/// security, not a substring of the hook line's text, which a skipped security hook also held. Re-review item 1: the
+/// is not loaded. "Active" is `security-hooks`' own answer, its active entries with `capId`
+/// security, not a substring of the hook line's text, which a skipped security hook also held. The
 /// question carries no `--after-fingerprint`, so at verify:post a hook skipped for an existing audit still counts.
 #[test]
 fn the_security_gate_line_fails_closed_and_stays_quiet_when_off() {

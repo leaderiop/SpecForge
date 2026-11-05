@@ -95,7 +95,7 @@ pub const SECURITY_AUDIT: Kind = Kind::new(
 .scoped_by("phase");
 
 /// A line of the Accepted Risks Log, named `AR1` and scoped by its audit. A person's record: `accept_risk` is the
-/// human-attested command that writes it. The kind is not `human` (plan 16 said it would be): the host refuses a human
+/// human-attested command that writes it. The kind is not `human`, though a person's record: the host refuses a human
 /// command's plan to create a human-only entity ("write it in your editor"), so the command could not write it.
 /// Instead `at` is a harness field only `accept_risk` writes, and only a risk with an `at` counts (`passes.rs`), so an
 /// agent's `specforge new accepted_risk` is no acceptance. A kernel round could let a human command write a human kind.

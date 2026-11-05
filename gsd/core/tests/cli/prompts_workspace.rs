@@ -108,7 +108,7 @@ fn update_flags_say_what_they_do_here() {
     }
 }
 
-/// REVIEW-r43 Minor 4: remove-workspace refuses a name that leaves `~/gsd-workspaces` and a workspace that does not
+/// Remove-workspace refuses a name that leaves `~/gsd-workspaces` and a workspace that does not
 /// exist, before anything is deleted. The setup line of the rendered `--remove` is run with a temp HOME.
 #[test]
 fn remove_workspace_guards_the_name_and_the_path() {

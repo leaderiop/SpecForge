@@ -1,4 +1,4 @@
-//! Settings read at render time (REVIEW-r42 M1). Upstream's workflows read a setting with `gsd-tools config-get <key>`
+//! Settings read at render time. Upstream's workflows read a setting with `gsd-tools config-get <key>`
 //! and fall back to a default. A ported line cannot run a tool at that point, and a literal default would make the
 //! prompt route on the default whatever the project sets, so the line carries `{{setting:<key>|<fallback>}}` and the
 //! render replaces it with the value of the settings block (`settings::block()`), or the fallback for a key nothing sets.

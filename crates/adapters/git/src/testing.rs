@@ -43,7 +43,11 @@ impl Repo {
             clock: Cell::new(1_700_000_000),
         };
         repo.head_on("main");
-        repo.config("[user]\n\tname = Test\n\temail = test@example.com");
+        // the files are written as the tests write them whatever the host's system config says (a Windows git sets
+        // core.autocrlf, which libgit2 and gix both follow, as git does)
+        repo.config(
+            "[user]\n\tname = Test\n\temail = test@example.com\n[core]\n\tautocrlf = false",
+        );
         repo
     }
 
@@ -52,7 +56,7 @@ impl Repo {
         let repo = Repo::init(dir);
         std::fs::create_dir_all(git_dir.parent().unwrap()).unwrap();
         std::fs::rename(dir.join(".git"), git_dir).unwrap();
-        std::fs::write(dir.join(".git"), format!("gitdir: {}\n", git_dir.display())).unwrap();
+        std::fs::write(dir.join(".git"), format!("gitdir: {}\n", slashed(git_dir))).unwrap();
         Repo {
             git_dir: git_dir.to_path_buf(),
             common_dir: git_dir.to_path_buf(),
@@ -154,6 +158,24 @@ impl Repo {
         index.sort_entries();
         index.write(gix::index::write::Options::default()).unwrap();
         self.write(rel, ours);
+    }
+
+    /// The index records the repository at `rel` as a submodule at `sha` (a gitlink), as `git submodule add` stages
+    /// it.
+    pub fn gitlink(&self, rel: &str, sha: &str) -> &Self {
+        let repo = self.open();
+        let mut index = index_of(&repo);
+        index.remove_entries(|_, path, _| path == rel.as_bytes());
+        index.dangerously_push_entry(
+            Stat::default(),
+            gix::ObjectId::from_hex(sha.as_bytes()).unwrap(),
+            Flags::empty(),
+            Mode::COMMIT,
+            rel.as_bytes().as_bstr(),
+        );
+        index.sort_entries();
+        index.write(gix::index::write::Options::default()).unwrap();
+        self
     }
 
     /// A commit of the index on `HEAD` (its branch, or `HEAD` itself when detached): its sha.
@@ -290,12 +312,12 @@ impl Repo {
         std::fs::write(private.join("commondir"), "../..\n").unwrap();
         std::fs::write(
             private.join("gitdir"),
-            format!("{}\n", path.join(".git").display()),
+            format!("{}\n", slashed(&path.join(".git"))),
         )
         .unwrap();
         std::fs::write(
             path.join(".git"),
-            format!("gitdir: {}\n", private.display()),
+            format!("gitdir: {}\n", slashed(&private)),
         )
         .unwrap();
         let linked = Repo {
@@ -315,6 +337,11 @@ impl Repo {
         linked.stage_all();
         linked
     }
+}
+
+/// `path` as git writes it into a `gitdir` file, `/` separated on Windows too: libgit2 splits such a path on `/` only.
+fn slashed(path: &Path) -> String {
+    path.display().to_string().replace('\\', "/")
 }
 
 /// Every file under `dir` but the git directory, from `top`, `/` separated.

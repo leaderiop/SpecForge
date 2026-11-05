@@ -5,7 +5,7 @@ use crate::view_support::{Assembled, Viewed, plain};
 use specforge_test::prelude::*;
 
 // ===========================================================================
-// `specforge export` records the cache: the operation (plan 02, ADR 0029 D7)
+// `specforge export` records the cache: the operation (ADR 0029 D7)
 // ===========================================================================
 
 fn recorded_project() -> Assembled {
@@ -99,7 +99,7 @@ fn a_failed_export_leaves_the_cache() {
 }
 
 // ===========================================================================
-// Every document names the project's versioned schema (plan 11, ADR 0015)
+// Every document names the project's versioned schema (ADR 0015)
 // ===========================================================================
 
 /// A project whose versioned schema is 2.0.0: its cache recorded a kind the

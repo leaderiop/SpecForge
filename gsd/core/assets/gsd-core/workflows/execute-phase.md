@@ -141,7 +141,7 @@ If the project uses git submodules, worktree isolation is unsafe **only when a p
 # Parse submodule paths from .gitmodules once (empty if no .gitmodules).
 # SUBMODULE_PATHS is a newline-separated list of repo-relative paths.
 if [ -f .gitmodules ]; then
-  SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
+  SUBMODULE_PATHS=$(specforge git submodules --pick '.submodules[].path' 2>/dev/null)
 else
   SUBMODULE_PATHS=""
 fi
@@ -305,7 +305,7 @@ Fork the new phase branch off `origin/HEAD` (the project's default branch), not 
 
 ```bash
 DEFAULT_BRANCH=$(v=$(specforge git config init.defaultBranch --pick .value 2>/dev/null) && [ -n "$v" ] && echo "$v" \
-  || git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' \
+  || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null \
   || echo main)
 
 if [ "$(specforge git rev "refs/heads/$BRANCH_NAME" --pick '.revs[0].exists')" = true ]; then
@@ -838,7 +838,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
      # Stash uncommitted changes under a named ref so we always pop (bare `git stash` strands them on hook/script failure). #3542: `refs/stash` is shared across worktrees, so this helper runs ONLY in the orchestrator's main checkout after all wave worktrees have been merged + removed; executors are forbidden from running any `git stash` subcommand (see `<destructive_git_prohibition>` in `agents/gsd-executor.md`).
      STASHED=false
      if [ "$(specforge git diff --pick .count 2>/dev/null)" != 0 ] && specforge git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
-     git hook run pre-commit 2>&1 || echo "⚠ Pre-commit hooks failed — review before continuing"
+     specforge git hook run pre-commit 2>&1 || echo "⚠ Pre-commit hooks failed — review before continuing"
      [ "$STASHED" = "true" ] && (specforge git stash pop >/dev/null 2>&1 || echo "⚠ Could not pop gsd-post-wave-hook stash — recover manually")
    fi
    ```
@@ -904,7 +904,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
      WT_BRANCH=$(specforge git head --path "$WT" --pick .branch 2>/dev/null)
      [ -z "$WT_BRANCH" ] || [ "$WT_BRANCH" = "HEAD" ] && continue
      echo "Cleaning up residual worktree: $WT (branch: $WT_BRANCH)"
-     git worktree unlock "$WT" 2>/dev/null || true
+     specforge git worktree unlock "$WT" >/dev/null 2>&1 || true
      if ! specforge git worktree remove "$WT" --force; then
        WT_NAME=${WT##*/}
        if [ -f ".git/worktrees/${WT_NAME}/locked" ]; then

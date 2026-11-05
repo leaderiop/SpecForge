@@ -1,9 +1,9 @@
-//! Plan 03 (F9): the body lines (0-based) of the workflow assets that read JSON with jq, or check a path with bash,
-//! where upstream's run node; G4 (plan 04): the lines that read a SpecForge answer with `--pick` where upstream's
-//! read its tools' JSON. `port_workflows` reads them as more `REWRITTEN` and `REWRITTEN_SPANS` rows.
+//! The body lines (0-based) of the workflow assets that read JSON with jq, or check a path with bash, where
+//! upstream's run node, and the lines that read a SpecForge answer with `--pick` where upstream's read its tools' JSON.
+//! `port_workflows` reads them as more `REWRITTEN` and `REWRITTEN_SPANS` rows.
 
 pub const LINES: &[(&str, usize)] = &[
-    // Plan 03 (F9) T2: the `_gsd_field` helper reads its field with jq; upstream's runs node.
+    // The `_gsd_field` helper reads its field with jq; upstream's runs node.
     ("gsd-core/workflows/autonomous.md", 165),
     ("gsd-core/workflows/autonomous.md", 612),
     ("gsd-core/workflows/autonomous.md", 738),
@@ -16,7 +16,7 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/new-milestone.md", 535),
     ("gsd-core/workflows/new-milestone.md", 624),
     ("gsd-core/workflows/plan-phase.md", 619),
-    // G4 plan 04 T2: a caller of `_gsd_field` reads its field of the same block's answer with --pick; the
+    // A caller of `_gsd_field` reads its field of the same block's answer with --pick; the
     // helper's line above is a comment where no caller is left.
     ("gsd-core/workflows/autonomous.md", 739),
     ("gsd-core/workflows/complete-milestone.md", 342),
@@ -34,7 +34,7 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/new-milestone.md", 625),
     ("gsd-core/workflows/new-milestone.md", 626),
     ("gsd-core/workflows/new-milestone.md", 627),
-    // G4 plan 04 T3: a field of a `specforge gsd` answer is read with --pick; progress-report's phases are read
+    // A field of a `specforge gsd` answer is read with --pick; progress-report's phases are read
     // by index, and their counts are `plans` / `summaries`, the fields it has.
     ("gsd-core/workflows/next.md", 108),
     ("gsd-core/workflows/next.md", 125),
@@ -42,10 +42,10 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/progress.md", 209),
     ("gsd-core/workflows/progress.md", 216),
     ("gsd-core/workflows/progress.md", 217),
-    // G4 plan 04 T4: a graph read takes its values with --pick; progress's verification status is the entity's
+    // A graph read takes its values with --pick; progress's verification status is the entity's
     // field (upstream's `.status` read a field the graph answer does not have).
     ("gsd-core/workflows/progress.md", 324),
-    // G4 plan 04 review: a field of a phase's query answer is re-asked with --pick; plan-phase's `_gsd_field` copy is
+    // A field of a phase's query answer is re-asked with --pick; plan-phase's `_gsd_field` copy is
     // gone.
     ("gsd-core/workflows/plan-phase.md", 620),
     ("gsd-core/workflows/plan-phase.md", 621),
@@ -65,7 +65,7 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/verify-work.md", 655),
     ("gsd-core/workflows/verify-work.md", 693),
     ("gsd-core/workflows/verify-work.md", 695),
-    // G4 plan 04 review: a bundle no line reads any more is gone; its line and its `@file:` line are empty.
+    // A bundle no line reads any more is gone; its line and its `@file:` line are empty.
     ("gsd-core/workflows/autonomous.md", 164),
     ("gsd-core/workflows/autonomous.md", 611),
     ("gsd-core/workflows/autonomous.md", 737),
@@ -78,14 +78,14 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/new-milestone.md", 534),
     ("gsd-core/workflows/new-milestone.md", 623),
     ("gsd-core/workflows/verify-work.md", 691),
-    // G4 plan 04 review: progress's #3218 comment names the fields the report has.
+    // Progress's #3218 comment names the fields the report has.
     ("gsd-core/workflows/progress.md", 210),
     ("gsd-core/workflows/progress.md", 211),
     ("gsd-core/workflows/progress.md", 212),
     ("gsd-core/workflows/progress.md", 213),
     ("gsd-core/workflows/progress.md", 214),
     ("gsd-core/workflows/progress.md", 215),
-    // Plan 03 (F9) T3: a field of a JSON answer is read with jq; upstream's line runs node.
+    // A field of a JSON answer is read with jq; upstream's line runs node.
     ("gsd-core/references/dispatch-isolation-gate.md", 77),
     ("gsd-core/references/specless-probe-fallback.md", 97),
     ("gsd-core/references/specless-probe-fallback.md", 110),
@@ -128,15 +128,15 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/spec-phase.md", 301),
     ("gsd-core/workflows/spec-phase.md", 320),
     ("gsd-core/workflows/spec-phase.md", 321),
-    // Plan 03 (F9) T4: the wave's worktree manifest is written and read with jq.
+    // The wave's worktree manifest is written and read with jq.
     ("gsd-core/workflows/execute-phase.md", 656),
     ("gsd-core/workflows/execute-phase.md", 871),
     ("gsd-core/workflows/execute-phase.md", 893),
     ("gsd-core/workflows/execute-phase.md", 899),
-    // G4 plan 05 T1: a `*_HOOKS_JSON` holds one capability extension's answer per line, merged by no jq.
+    // A `*_HOOKS_JSON` holds one capability extension's answer per line, merged by no jq.
     ("gsd-core/references/loop-hook-dispatch.md", 21),
     ("gsd-core/workflows/autonomous.md", 552),
-    // G4 plan 05 T2: an upstream-shaped answer is built by no jq: each field is picked from the graph, a status is
+    // An upstream-shaped answer is built by no jq: each field is picked from the graph, a status is
     // routed by a `case`, a list is a loop over picked ids; a line left empty keeps the line count.
     ("gsd-core/workflows/complete-milestone.md", 96),
     ("gsd-core/workflows/complete-milestone.md", 97),
@@ -224,7 +224,7 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/verify-work.md", 715),
     ("gsd-core/workflows/verify-work.md", 716),
     ("gsd-core/workflows/verify-work.md", 717),
-    // G4 plan 05 T3: the wave's worktree manifest is tab-separated lines, its file `.tsv`; the quick batch's list is
+    // The wave's worktree manifest is tab-separated lines, its file `.tsv`; the quick batch's list is
     // `quick_id<TAB>description` lines, its merge-eligible prefix a bash array, its route a `case`.
     ("gsd-core/workflows/execute-phase.md", 650),
     ("gsd-core/workflows/quick-batch/steps/batch-init.md", 30),
@@ -235,7 +235,7 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 16),
     ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 24),
     ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 30),
-    // G4 plan 05 T4: the remaining jq lines are gone. A value is picked (`--pick`, a selector on any field), a list is
+    // The remaining jq lines are gone. A value is picked (`--pick`, a selector on any field), a list is
     // filtered with grep or case, gh filters with `--jq`, a stub is literal text, and a review lane's, curl's or a
     // user's JSON is printed raw for the agent to read. The verifier's user-story guard reads the phase goal, and the
     // regression gate keeps every verification when no phase is named.
@@ -345,7 +345,7 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/spec-phase.md", 326),
     ("gsd-core/workflows/spec-phase.md", 329),
     ("gsd-core/workflows/verify-work.md", 99),
-    // G4 plan 05 T5: the prose that named jq as a requirement: review's lanes write their raw JSON for the agent and
+    // The prose that named jq as a requirement: review's lanes write their raw JSON for the agent and
     // have no jq prerequisite (the probe and its "install jq" note are gone), and quick's status read needs no JSON tool.
     ("gsd-core/workflows/quick/steps/quick-verification.md", 38),
     ("gsd-core/workflows/review.md", 33),
@@ -373,19 +373,19 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/review.md", 59),
     ("gsd-core/workflows/review.md", 86),
     ("gsd-core/workflows/review.md", 87),
-    // G4 plan 05 review R3: the user story is checked by `specforge gsd user-story-validate`, whose canonical regex
+    // The user story is checked by `specforge gsd user-story-validate`, whose canonical regex
     // (`\S` at each slot, one line) the prose now names.
     ("gsd-core/workflows/mvp-phase.md", 104),
     (
         "gsd-core/workflows/verify-work/steps/mvp-uat-framing.md",
         26,
     ),
-    // G4 plan 05 review R5: a lane's plan coverage is `specforge gsd plan-coverage`, over the phase's own plans: the
+    // A lane's plan coverage is `specforge gsd plan-coverage`, over the phase's own plans: the
     // prose names it, and the manifest path the check no longer reads is gone.
     ("gsd-core/workflows/review.md", 622),
     ("gsd-core/workflows/review.md", 623),
     ("gsd-core/workflows/review.md", 641),
-    // G4 plan 05 review R9: a `*_HOOKS_JSON` is one answer per capability extension, so the prose reads the
+    // A `*_HOOKS_JSON` is one answer per capability extension, so the prose reads the
     // `activeHooks` of every line.
     ("gsd-core/references/autonomous-ui-design-contract.md", 13),
     ("gsd-core/workflows/execute-phase.md", 986),
@@ -395,7 +395,7 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/ship.md", 115),
     ("gsd-core/workflows/ship.md", 538),
     ("gsd-core/workflows/verify-work.md", 80),
-    // G4 plan 05 review R10: quick's worktree manifests are tab-separated like the wave's, the batch's manifest is
+    // Quick's worktree manifests are tab-separated like the wave's, the batch's manifest is
     // `quick_id<TAB>description` lines, and the batch's create check reads the list, not a stale `$?`.
     ("gsd-core/workflows/quick-batch/steps/batch-init.md", 29),
     ("gsd-core/workflows/quick-batch/steps/planner-wave.md", 154),
@@ -427,7 +427,7 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/quick.md", 426),
     ("gsd-core/workflows/quick.md", 427),
     ("gsd-core/workflows/quick.md", 543),
-    // G4 plan 05 review R12: no seam ran for a sub-repository, so its exit is a failure; quick's empty-scope reason
+    // No seam ran for a sub-repository, so its exit is a failure; quick's empty-scope reason
     // names what was read, with no resolver's exit 69.
     ("gsd-core/workflows/pr-branch.md", 162),
     ("gsd-core/workflows/quick.md", 598),
@@ -436,7 +436,7 @@ pub const LINES: &[(&str, usize)] = &[
 ];
 
 pub const SPANS: &[(&str, usize, usize)] = &[
-    // Plan 03 (F9) T3: multi-line node scripts, here jq (a JSON read) or bash (a path or git check).
+    // Multi-line node scripts, here jq (a JSON read) or bash (a path or git check).
     ("gsd-core/workflows/pr-branch.md", 95, 126),
     ("gsd-core/workflows/pr-branch.md", 181, 183),
     ("gsd-core/workflows/pr-branch.md", 191, 199),

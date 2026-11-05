@@ -294,7 +294,7 @@ fn watch_and_check(fixture: &str) -> (serde_json::Value, serde_json::Value, serd
 }
 
 /// The resolver's E025 reaches watch at startup and after a rebuild, with
-/// everything else `check` reports (plan 01, D1).
+/// everything else `check` reports.
 #[specforge_test(
     behavior = "emit_incremental_diagnostics",
     verify = "total diagnostic set matches full rebuild"
@@ -319,7 +319,7 @@ fn watch_reports_what_check_reports_for_a_missing_import() {
 }
 
 /// An extension that fails to load (E028) is reported by watch as by
-/// `check`, before and after a rebuild (plan 01, D2).
+/// `check`, before and after a rebuild.
 #[specforge_test(
     behavior = "rebuild_affected_subgraph",
     verify = "incremental rebuild equals cold rebuild"
@@ -787,7 +787,7 @@ fn watch_reports_what_check_reports_when_an_excluded_import_target_appears() {
 
 /// A directory moved inside the spec root, its file removed, another file
 /// declaring the same ID written: watch reports what `check` reports, and
-/// no E002 for the entity that left with the directory (plan 03, repro 1).
+/// no E002 for the entity that left with the directory.
 #[specforge_test(
     behavior = "watch_file_system_for_changes",
     verify = "a directory moved inside the spec root leaves watch reporting what check reports"
@@ -837,7 +837,7 @@ fn watch_reports_what_check_reports_after_a_directory_move() {
 }
 
 /// An edit to a symlinked source's target, in a directory outside the
-/// project, is seen as an edit to the link (plan 03, repro 4).
+/// project, is seen as an edit to the link.
 #[cfg(unix)]
 #[specforge_test(
     behavior = "watch_file_system_for_changes",

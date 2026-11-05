@@ -1,4 +1,4 @@
-//! G4 (plan 04): the lines that read a SpecForge answer with `--pick`, run as the asset holds them under bash with
+//! The lines that read a SpecForge answer with `--pick`, run as the asset holds them under bash with
 //! no jq on the `PATH`, on the taskboard fixture (`gsd/parity/fixtures/taskboard`): phases 01 (2 of 2 plans
 //! summarised), 02 (0 of 1), 02.1 and 03 (no plan), 67% of the plans summarised, no workstream.
 
@@ -155,7 +155,7 @@ fn a_graph_read_is_picked() {
         plans.starts_with("v1.0/01/01-01\nv1.0/01/01-02\n"),
         "{plans}"
     );
-    // review reads the phase's own plans (plan 05 review R5), as upstream's `*-PLAN.md` glob of the phase did
+    // review reads the phase's own plans, as upstream's `*-PLAN.md` glob of the phase did
     let own: String = plans
         .lines()
         .filter(|id| id.starts_with("v1.0/01/"))
@@ -187,7 +187,7 @@ fn a_graph_read_is_picked() {
             "TASK_COUNT",
             "[2]",
         ),
-        // the progress report's count of the phase's own plans (plan 05 review R7), where depth 2 reached 02's too
+        // the progress report's count of the phase's own plans, where depth 2 reached 02's too
         (
             "next.md",
             "PHASE_NUM=01",

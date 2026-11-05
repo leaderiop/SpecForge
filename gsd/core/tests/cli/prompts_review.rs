@@ -55,7 +55,7 @@ fn review_backlog_step_is_the_phase_command() {
     );
 }
 
-/// REVIEW-r43 M4 and M13: the promote line the backlog review shows is run on a backlogged project, and its pick
+/// The promote line the backlog review shows is run on a backlogged project, and its pick
 /// reads the number the command answered (`--pick .to`, a full id). A backlog item of another milestone is listed and
 /// promoted.
 #[test]
@@ -110,7 +110,7 @@ fn the_backlog_review_lists_and_promotes_across_milestones() {
     );
 }
 
-/// REVIEW-r43 Minor 10: the reviewer settings no lane runner reads are named inert in the review prompt.
+/// The reviewer settings no lane runner reads are named inert in the review prompt.
 #[test]
 fn the_review_names_its_inert_reviewer_settings() {
     let p = twin();

@@ -1,4 +1,4 @@
-//! Parity harness (architecture plan 01, step P0).
+//! Parity harness.
 //!
 //! `specforge check`, MCP `specforge.validate`, the LSP and `specforge watch`
 //! each assemble the compiler on their own. This harness runs every fixture
@@ -91,7 +91,7 @@ enum Surface {
 
 /// One known disagreement between a surface and `check`, on one fixture.
 struct Divergence {
-    /// The plan's bug ID (plan 01 §6), for the step that will close it.
+    /// The defect's ID, as the change that will close it names it.
     id: &'static str,
     fixture: &'static str,
     surface: Surface,

@@ -31,7 +31,7 @@ if [ "${USE_WORKTREES}" != "false" ]; then
     # An array (not a space-joined string) keeps each path a single git argument
     # under `set -u` word-splitting rules (ShellCheck SC2086), as the git commit
     # lines below pass it.
-    git add "${QUICK_PREDISPATCH_PATHS[@]}"
+    specforge git add "${QUICK_PREDISPATCH_PATHS[@]}"
     # No-op skip if nothing actually staged (idempotent re-runs).
     if [ "$(specforge git diff --staged --pick .count -- "${QUICK_PREDISPATCH_PATHS[@]}")" = 0 ]; then
       echo "ℹ Pre-dispatch artifact commit skipped (no staged changes)"
@@ -40,10 +40,10 @@ if [ "${USE_WORKTREES}" != "false" ]; then
       # workflow.worktree_skip_hooks=true, honor that opt-in only.
       SKIP_HOOKS="{{setting:workflow.worktree_skip_hooks|}}"   # workflow.worktree_skip_hooks (the settings)
       if [ "$SKIP_HOOKS" = "true" ]; then
-        git commit --no-verify -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
+        specforge git commit --no-verify -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
           || { echo "ERROR: pre-dispatch artifact commit failed (--no-verify path). Aborting before executor dispatch." >&2; exit 1; }
       else
-        git commit -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
+        specforge git commit -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
           || { echo "ERROR: pre-dispatch artifact commit failed — likely a pre-commit hook failure. Fix the hook output above (or set workflow.worktree_skip_hooks=true to bypass) and re-run." >&2; exit 1; }
       fi
       QUICK_PLAN_COMMIT=$(specforge git head --pick .sha)
@@ -56,7 +56,7 @@ if [ "${USE_WORKTREES}" != "false" ]; then
   # commit attempt so it holds whether the planner already committed the plan or this
   # step just did. Empty when docs commits are off, for a root commit, and with no plan commit.
   if [ "$COMMIT_DOCS" != "false" ]; then
-    _GSD_PLAN_AT=$(git log -1 --format=%H --pickaxe-regex -S "^plan ${quick_id} " -- spec 2>/dev/null || true)
+    _GSD_PLAN_AT=$(specforge git log --max 1 --pickaxe-regex -S "^plan ${quick_id} " --pick '.commits[0].sha' -- spec 2>/dev/null || true)
     QUICK_PLAN_PARENT=""
     [ -z "$_GSD_PLAN_AT" ] || QUICK_PLAN_PARENT=$(specforge git rev "${_GSD_PLAN_AT}^" --pick '.revs[0].sha' 2>/dev/null || true)
   fi

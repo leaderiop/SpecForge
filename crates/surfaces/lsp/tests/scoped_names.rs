@@ -1,4 +1,4 @@
-//! A path is read one segment at a time, and the editor shows the full path (ADR 0284, plan K2).
+//! A path is read one segment at a time, and the editor shows the full path (ADR 0284).
 
 use specforge_lsp::answers;
 use specforge_project::testing::{SCOPED_EXTENSION, scoped_kinds};

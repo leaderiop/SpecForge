@@ -1,5 +1,5 @@
 //! A reference value, a list item and a use binding may be a path of names joined by `/`, optionally rooted at the
-//! project (ADR 0284, plan K2).
+//! project (ADR 0284).
 
 use specforge_parser::lex::{LexemeKind, lex};
 use specforge_parser::{FieldValue, Written, parse};

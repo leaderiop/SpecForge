@@ -169,6 +169,45 @@ pub(crate) fn worktree_remove(place: &GitPlace, path: &Path) -> Result<(), GitEr
         .map_err(|e| failed(&format!("remove the worktree at {}", path.display()), &e))
 }
 
+/// `git init`: `dir` made a repository by gix, `HEAD` on `main` whatever a config's `init.defaultBranch` says, unless
+/// it holds one already.
+pub(crate) fn init(dir: &Path) -> Result<bool, GitError> {
+    if std::fs::symlink_metadata(dir.join(".git")).is_ok() {
+        return Ok(false);
+    }
+    // isolated: no system or global config, whose init.defaultBranch (Git for Windows sets master) gix would follow;
+    // the branch is gix's own default, main
+    gix::ThreadSafeRepository::init_opts(
+        dir,
+        gix::create::Kind::WithWorktree,
+        gix::create::Options::default(),
+        gix::open::Options::isolated(),
+    )
+    .map_err(|e| failed(&format!("make {} a repository", dir.display()), &e))?;
+    Ok(true)
+}
+
+pub(crate) fn worktree_lock(
+    place: &GitPlace,
+    path: &Path,
+    lock: bool,
+    reason: Option<&str>,
+) -> Result<(), GitError> {
+    let repo = libgit2(place)?;
+    let worktree = linked(&repo, path)?;
+    let at = |e: git2::Error| failed(&format!("read the worktree at {}", path.display()), &e);
+    let locked = !matches!(
+        worktree.is_locked().map_err(at)?,
+        git2::WorktreeLockStatus::Unlocked
+    );
+    match (lock, locked) {
+        (true, true) => Err(GitError(format!("{} is already locked", path.display()))),
+        (false, false) => Err(GitError(format!("{} is not locked", path.display()))),
+        (true, false) => worktree.lock(reason).map_err(at),
+        (false, true) => worktree.unlock().map_err(at),
+    }
+}
+
 pub(crate) fn worktree_prune(place: &GitPlace) -> Result<Vec<PathBuf>, GitError> {
     let repo = libgit2(place)?;
     let names = repo

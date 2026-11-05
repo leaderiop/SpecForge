@@ -1,7 +1,8 @@
 //! Ported from gsd-core v1.19.0 hooks/lib/injection-patterns.js and hooks/gsd-read-injection-scanner.js, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD
 //!
-//! The backtracker `regex.rs` ran before plan 01 (G2), kept as the oracle of `the_matcher_agrees_with_the_oracle`: a
-//! closure per step, restarted at every position. It is quadratic on `MD-LINK-USERINFO`, so it only sees short inputs.
+//! The backtracker `regex.rs` ran before the linear-time matcher, kept as the oracle of
+//! `the_matcher_agrees_with_the_oracle`: a closure per step, restarted at every position. It is quadratic on
+//! `MD-LINK-USERINFO`, so it only sees short inputs.
 
 use crate::hooks::injection::regex::{Node, Regex};
 

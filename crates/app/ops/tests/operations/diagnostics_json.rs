@@ -3,8 +3,8 @@
 //! R001, the registry client; I202, inference, whose fields are written in
 //! another order) and a level constructor (E003, the graph; A010, the
 //! `contracts` pass, whose level its pass sets). Each is built by the
-//! production function that reports it, so the pin holds while plan 11
-//! moves those functions to typed codes.
+//! production function that reports it, so the pin follows any change to
+//! those functions.
 
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;

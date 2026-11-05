@@ -6,8 +6,11 @@ use specforge_git::testing::Repo;
 
 use crate::support::{Cli, TestProject};
 
+mod diff;
 mod hooks;
+mod picking;
 mod signing;
+mod staging;
 mod writes;
 
 /// A project in a repository with one commit, `HEAD` on `main`.
@@ -41,7 +44,72 @@ fn repo_names_the_top_and_the_git_directory() {
             "common_dir": format!("{top}/.git"),
             "linked": false,
             "shallow": false,
+            "prefix": "",
+            "superproject": null,
         })
+    );
+}
+
+/// `--in <dir>` runs a verb as if typed in `dir`, as `git -C` does: the repository `dir` is in (a nested one
+/// included), `dir`'s prefix, and the repository the nested one is a submodule of.
+#[test]
+fn in_runs_a_verb_as_if_typed_in_its_directory() {
+    let (project, repo, _) = committed();
+    let top = project.root().canonicalize().unwrap();
+    let top = top.to_string_lossy().replace('\\', "/");
+    std::fs::create_dir_all(project.root().join("docs/deep")).unwrap();
+    let deep = git(&project, &["repo", "--in", "docs/deep"])
+        .exits(0)
+        .answer();
+    assert_eq!(
+        (deep["top"].clone(), deep["prefix"].clone()),
+        (json!(top), json!("docs/deep/"))
+    );
+    let nested = Repo::init(&project.root().join("vendor/lib"));
+    nested.write("x.txt", "x\n");
+    let inner = nested.commit_all("inner");
+    let answer = git(&project, &["repo", "--in", "vendor/lib"])
+        .exits(0)
+        .answer();
+    assert_eq!(
+        (
+            answer["top"].clone(),
+            answer["prefix"].clone(),
+            answer["superproject"].clone()
+        ),
+        (json!(format!("{top}/vendor/lib")), json!(""), json!(null)),
+        "a nested repository is a submodule only once the outer index records it"
+    );
+    repo.gitlink("vendor/lib", &inner);
+    let picked = |args: &[&str]| git(&project, args).exits(0).stdout;
+    assert_eq!(
+        picked(&["repo", "--in", "vendor/lib", "--pick", ".superproject"]),
+        format!("{top}\n")
+    );
+    assert_eq!(
+        picked(&["log", "--in", "vendor/lib", "--pick", ".commits[].subject"]),
+        "inner\n"
+    );
+    git(&project, &["repo", "--in", "nosuch"]).exits(2);
+}
+
+/// `--in` is held to the invoking project's roots as a typed path is: a repository elsewhere is refused, and the
+/// remedy is the whole command run from there.
+#[test]
+fn in_is_held_to_the_projects_roots() {
+    let (project, _repo, _) = committed();
+    let elsewhere = tempfile::tempdir().unwrap();
+    Repo::init(elsewhere.path()).write("x.txt", "x\n");
+    let dir = elsewhere.path().to_string_lossy().into_owned();
+    let refused = git(&project, &["status", "--in", &dir, "--pick", ".clean"]).exits(1);
+    assert_eq!(refused.stdout, "");
+    assert!(refused.stderr.contains("root"), "{}", refused.stderr);
+    assert!(
+        refused
+            .stderr
+            .contains("specforge git status --pick .clean"),
+        "{}",
+        refused.stderr
     );
 }
 
@@ -128,7 +196,7 @@ fn rev_names_each_revision_or_that_it_names_nothing() {
 }
 
 #[test]
-fn status_is_typed_with_clean_and_the_untracked_paths() {
+fn status_is_typed_with_clean_and_the_tracked_and_untracked_paths() {
     let (project, repo, sha) = committed();
     assert_eq!(
         git(&project, &["status", "--pick", ".clean"])
@@ -146,6 +214,7 @@ fn status_is_typed_with_clean_and_the_untracked_paths() {
                 {"kind": "untracked", "path": "new.txt"},
             ],
             "clean": false,
+            "tracked": ["a.txt"],
             "untracked": ["new.txt"],
         })
     );
@@ -318,86 +387,6 @@ fn log_with_three_dots_hides_every_merge_base_of_a_criss_cross() {
     assert_eq!(subjects, ["ma", "mb"]);
 }
 
-/// A project on branch `feature` off `main`: `a.txt` changed, `c.txt` added, `bin.dat` binary.
-fn feature() -> (TestProject, Repo) {
-    let (project, repo, first) = committed();
-    repo.branch("feature", &first).head_on("feature");
-    repo.write("a.txt", "one\nmore\n")
-        .write("c.txt", "c\n")
-        .write("bin.dat", "\0\u{1}\u{2}");
-    repo.commit_all("feature");
-    (project, repo)
-}
-
-#[test]
-fn diff_lists_the_files_a_branch_changed_since_its_base() {
-    let (project, _repo) = feature();
-    assert_eq!(
-        git(
-            &project,
-            &["diff", "--base", "main", "--pick", ".files[].path"]
-        )
-        .exits(0)
-        .stdout,
-        "a.txt\nbin.dat\nc.txt\n"
-    );
-    let diff = git(&project, &["diff", "--base", "main"]).exits(0).answer();
-    assert_eq!(diff["count"], 3);
-    assert_eq!(
-        diff["files"],
-        json!([
-            {"path": "a.txt", "old_path": null, "status": "modified", "added": 1, "removed": 0, "binary": false},
-            {"path": "bin.dat", "old_path": null, "status": "added", "added": 0, "removed": 0, "binary": true},
-            {"path": "c.txt", "old_path": null, "status": "added", "added": 1, "removed": 0, "binary": false},
-        ])
-    );
-}
-
-#[test]
-fn diff_gives_the_patch_of_a_text_file() {
-    let (project, _repo) = feature();
-    assert_eq!(
-        git(
-            &project,
-            &[
-                "diff",
-                "--base",
-                "main",
-                "--patch",
-                "--pick",
-                ".files[0].patch",
-                "--",
-                "a.txt"
-            ]
-        )
-        .exits(0)
-        .stdout,
-        "@@ -1,1 +1,2 @@\n one\n+more\n\n"
-    );
-}
-
-#[test]
-fn diff_compares_with_the_index_and_the_worktree() {
-    let (project, repo, _) = committed();
-    repo.write("a.txt", "staged\n").stage(&["a.txt"]);
-    repo.write("a.txt", "on disk\n").write("untracked.txt", "u");
-    let side = |args: &[&str]| {
-        let mut all = vec!["diff"];
-        all.extend_from_slice(args);
-        all.extend_from_slice(&["--patch", "--pick", ".files"]);
-        git(&project, &all).exits(0).json()
-    };
-    assert_eq!(
-        side(&["--staged"])[0]["patch"],
-        "@@ -1,1 +1,1 @@\n-one\n+staged\n"
-    );
-    // the untracked file is in no diff, as git leaves it out
-    let worktree = side(&[]);
-    assert_eq!(worktree.as_array().map(Vec::len), Some(1), "{worktree}");
-    assert_eq!(worktree[0]["patch"], "@@ -1,1 +1,1 @@\n-one\n+on disk\n");
-    assert_eq!(side(&["--worktree"]), worktree);
-}
-
 #[test]
 fn show_answers_a_file_at_a_revision() {
     let (project, repo, _, _) = two_commits();
@@ -413,22 +402,6 @@ fn show_answers_a_file_at_a_revision() {
     );
     let refused = git(&project, &["show", "HEAD"]);
     assert_eq!(refused.json()["code"], "not_a_blob", "{}", refused.stdout);
-}
-
-#[test]
-fn diff_names_a_rename_and_its_old_path() {
-    let (project, repo, _) = committed();
-    repo.write("a.txt", "one\ntwo\nthree\nfour\n");
-    repo.commit_all("longer");
-    repo.delete("a.txt")
-        .write("moved.txt", "one\ntwo\nthree\nfour\n");
-    repo.commit_all("moved");
-    assert_eq!(
-        git(&project, &["diff", "--base", "HEAD~1", "--pick", ".files"])
-            .exits(0)
-            .json(),
-        json!([{"path": "moved.txt", "old_path": "a.txt", "status": "renamed", "added": 0, "removed": 0, "binary": false}])
-    );
 }
 
 #[test]
@@ -503,8 +476,8 @@ fn remotes_never_print_the_credentials_in_a_url() {
     assert_eq!(
         out.answer()["remotes"],
         json!([
-            {"name": "origin", "url": "https://github.com/acme/widgets.git", "push_url": "https://github.com/acme/widgets.git", "host": "github.com", "path": "acme/widgets"},
-            {"name": "ssh", "url": "ssh://git@gitlab.com/group/tool.git", "push_url": "ssh://git@gitlab.com/group/tool.git", "host": "gitlab.com", "path": "group/tool"},
+            {"name": "origin", "url": "https://github.com/acme/widgets.git", "push_url": "https://github.com/acme/widgets.git", "host": "github.com", "path": "acme/widgets", "head": null},
+            {"name": "ssh", "url": "ssh://git@gitlab.com/group/tool.git", "push_url": "ssh://git@gitlab.com/group/tool.git", "host": "gitlab.com", "path": "group/tool", "head": null},
         ])
     );
 }
@@ -519,10 +492,193 @@ fn remotes_split_each_url_into_its_host_and_path() {
     assert_eq!(
         git(&project, &["remotes"]).exits(0).answer(),
         json!({"remotes": [
-            {"name": "local", "url": "/srv/git/mirror.git", "push_url": "/srv/git/mirror.git", "host": null, "path": "/srv/git/mirror.git"},
-            {"name": "origin", "url": "https://github.com/acme/widgets.git", "push_url": "git@github.com:acme/widgets.git", "host": "github.com", "path": "acme/widgets"},
-            {"name": "scp", "url": "git@gitlab.com:group/sub/tool.git", "push_url": "git@gitlab.com:group/sub/tool.git", "host": "gitlab.com", "path": "group/sub/tool"},
+            {"name": "local", "url": "/srv/git/mirror.git", "push_url": "/srv/git/mirror.git", "host": null, "path": "/srv/git/mirror.git", "head": null},
+            {"name": "origin", "url": "https://github.com/acme/widgets.git", "push_url": "git@github.com:acme/widgets.git", "host": "github.com", "path": "acme/widgets", "head": null},
+            {"name": "scp", "url": "git@gitlab.com:group/sub/tool.git", "push_url": "git@gitlab.com:group/sub/tool.git", "host": "gitlab.com", "path": "group/sub/tool", "head": null},
         ]})
+    );
+}
+
+/// `log` keeps the commits git's flags keep: `--grep` (a regex per line), `--no-merges`, `--since`/`--until` (git's
+/// dates), `-S` (a text, or a regex with `--pickaxe-regex`, within the paths), and lists them `--reverse`.
+#[test]
+fn log_filters_as_git_filters_and_lists_oldest_first() {
+    let (project, repo, first) = committed();
+    repo.write("plan.spec", "plan 7 \"x\" {}\n");
+    let planned = repo.commit_all("feat(01-02): plan it\n\nbody");
+    repo.write("b.txt", "plan 7 in prose\n");
+    let red = repo.commit_all("test(01-02): red");
+    let merge = repo.merge("Merge side", &first);
+    let picked = |args: &[&str]| git(&project, args).exits(0).stdout;
+    let shas = |shas: &[&str]| shas.iter().map(|s| format!("{s}\n")).collect::<String>();
+    assert_eq!(
+        picked(&[
+            "log",
+            "--grep",
+            r"^feat\((0*1)-(0*2)\):",
+            "--pick",
+            ".commits[].sha"
+        ]),
+        shas(&[&planned])
+    );
+    assert_eq!(
+        picked(&["log", "--grep", "^body$", "--pick", ".count"]),
+        "1\n"
+    );
+    assert_eq!(picked(&["log", "--no-merges", "--pick", ".count"]), "3\n");
+    assert_eq!(
+        picked(&["log", "--reverse", "--pick", ".commits[].sha"]),
+        shas(&[&first, &planned, &red, &merge])
+    );
+    assert_eq!(
+        picked(&["log", "--reverse", "--max", "2", "--pick", ".commits[].sha"]),
+        shas(&[&red, &merge]),
+        "--max keeps the newest, as git applies -n before --reverse"
+    );
+    assert_eq!(
+        picked(&["log", "-S", "plan 7", "--pick", ".commits[].sha"]),
+        shas(&[&red, &planned])
+    );
+    assert_eq!(
+        picked(&[
+            "log",
+            "-S",
+            "^plan 7 ",
+            "--pickaxe-regex",
+            "--pick",
+            ".commits[].sha",
+            "--",
+            "plan.spec"
+        ]),
+        shas(&[&planned])
+    );
+    // the test clock: the first commit at 1700000000 (22:13:20 UTC), each next one a minute later
+    assert_eq!(
+        picked(&[
+            "log",
+            "--since",
+            "2023-11-14 22:14:00 +0000",
+            "--until",
+            "2023-11-14 22:15:30 +0000",
+            "--pick",
+            ".commits[].sha"
+        ]),
+        shas(&[&red, &planned])
+    );
+    assert_eq!(
+        picked(&["log", "--since", "24 hours ago", "--pick", ".count"]),
+        "0\n"
+    );
+    git(&project, &["log", "--since", "not a date"]).exits(1);
+    git(&project, &["log", "--grep", "feat("]).exits(1);
+}
+
+/// `rev --sorted` orders commits by committer date as `rev-list --no-walk=sorted`, newest first or `--reverse`, reading
+/// more revisions from `--stdin`; a revision that names no commit refuses them all.
+#[test]
+fn rev_sorted_orders_commits_by_their_date() {
+    let (project, repo, first) = committed();
+    repo.write("b.txt", "b");
+    let second = repo.commit_all("second");
+    repo.write("c.txt", "c");
+    let third = repo.commit_all("third");
+    let picked = |args: &[&str]| git(&project, args).exits(0).stdout;
+    assert_eq!(
+        picked(&[
+            "rev",
+            "--sorted",
+            &second,
+            &first,
+            &third,
+            "--pick",
+            ".revs[].sha"
+        ]),
+        format!("{third}\n{second}\n{first}\n")
+    );
+    assert_eq!(
+        picked(&[
+            "rev",
+            "--sorted",
+            "--reverse",
+            &third,
+            &first,
+            "--pick",
+            ".revs[0].sha"
+        ]),
+        format!("{first}\n")
+    );
+    let empty = tempfile::tempdir().unwrap();
+    let piped = Cli::on(&project)
+        .env("PATH", empty.path())
+        .stdin(format!("{first}\n{third}\n"))
+        .run(&["git", "rev", "--sorted", "--stdin", "--pick", ".revs[].sha"])
+        .exits(0)
+        .stdout;
+    assert_eq!(piped, format!("{third}\n{first}\n"));
+    // a commit named twice (by sha and by HEAD) is listed once, as --no-walk lists it
+    assert_eq!(
+        picked(&[
+            "rev",
+            "--sorted",
+            &third,
+            "HEAD",
+            &first,
+            "--pick",
+            ".revs[].sha"
+        ]),
+        format!("{third}\n{first}\n")
+    );
+    assert_eq!(picked(&["rev", "--sorted", "--pick", ".revs[].sha"]), "");
+    let refused = git(&project, &["rev", "--sorted", &first, "nosuch"]).exits(1);
+    assert_eq!(
+        refused.json()["code"],
+        "unknown_revision",
+        "{}",
+        refused.stdout
+    );
+}
+
+/// `submodules` reads `.gitmodules` as git's config parser does, and lists no path that leaves the top.
+#[test]
+fn submodules_list_what_gitmodules_declares() {
+    let (project, repo, _) = committed();
+    assert_eq!(
+        git(&project, &["submodules"]).exits(0).answer(),
+        json!({"submodules": []})
+    );
+    repo.write(
+        ".gitmodules",
+        "[submodule \"lib\"]\n\tpath = vendor/lib\n\turl = https://bot:tok@example.com/acme/lib.git\n\
+         [submodule \"out\"]\n\tpath = ../escape\n\turl = ../escape.git\n\
+         [submodule \"docs\"]\n\tpath = docs/site\n",
+    );
+    assert_eq!(
+        git(&project, &["submodules"]).exits(0).answer(),
+        json!({"submodules": [
+            {"name": "lib", "path": "vendor/lib", "url": "https://example.com/acme/lib.git"},
+            {"name": "docs", "path": "docs/site", "url": null},
+        ]})
+    );
+}
+
+/// `origin/HEAD`, which a clone writes, names the remote's default branch.
+#[test]
+fn remotes_name_the_default_branch_their_head_points_at() {
+    let (project, repo, sha) = committed();
+    repo.remote("origin", "https://github.com/acme/widgets.git")
+        .remote("fork", "https://github.com/me/widgets.git")
+        .set_ref("refs/remotes/origin/trunk", &sha);
+    std::fs::write(
+        repo.git_dir().join("refs/remotes/origin/HEAD"),
+        "ref: refs/remotes/origin/trunk\n",
+    )
+    .unwrap();
+    assert_eq!(
+        git(&project, &["remotes", "--pick", ".remotes[].head"])
+            .exits(0)
+            .stdout,
+        "trunk\n",
+        "a remote with no HEAD has none"
     );
 }
 

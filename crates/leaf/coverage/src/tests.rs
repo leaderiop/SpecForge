@@ -492,7 +492,7 @@ fn a_pass_entity_is_read_as_the_host_decided_it() {
     assert!(Entity::from(&wire).referenced);
 }
 
-/// 11-D1: "unverified" is the glossary's word for what counts and is not proven
+/// "Unverified" is the glossary's word for what counts and is not proven
 /// (ADR 0015 D4); the summary's declared counts must not use it.
 #[specforge_test(
     behavior = "te_coverage_pass",

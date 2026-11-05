@@ -149,7 +149,7 @@ async fn e2e_references_nonexistent() {
     assert!(result.is_null(), "Expected null for nonexistent references");
 }
 
-// -- answers from shared navigation (plan 05) ---------------------------------
+// -- answers from shared navigation --------------------------------------------
 
 /// `"line:char-line:char"` of an LSP range, 0-based UTF-16.
 fn lsp_range(range: &Value) -> String {

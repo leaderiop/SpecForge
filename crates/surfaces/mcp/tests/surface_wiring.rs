@@ -1143,7 +1143,7 @@ fn an_extension_resources_content_and_mime_type_are_returned() {
     assert_eq!(content["text"], "{\"commands\":2}", "{resp}");
 }
 
-// --- What MCP serves from `@test/cmds`, pinned (plan 06 T1) ---
+// --- What MCP serves from `@test/cmds`, pinned ---
 //
 // Characterization: these describe today's listings, the args a command's
 // export receives over MCP and the errors a command tool answers. Later

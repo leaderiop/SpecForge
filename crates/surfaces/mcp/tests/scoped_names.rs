@@ -1,4 +1,4 @@
-//! An MCP resource names an entity by its path, percent-encoded in the one `{entity_id}` segment (ADR 0284, plan K2).
+//! An MCP resource names an entity by its path, percent-encoded in the one `{entity_id}` segment (ADR 0284).
 
 use crate::support::*;
 use serde_json::{Value, json};

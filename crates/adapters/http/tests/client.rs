@@ -479,6 +479,25 @@ fn a_hop_the_scope_allows_as_a_get_is_sent_as_a_get_with_no_body() {
 }
 
 #[test]
+fn a_head_redirected_by_a_303_stays_a_head() {
+    let next_heads = Server::reply(|_, _| ok("there"));
+    let next = next_heads.base.clone();
+    let base = Server::reply(move |_, _| redirect(303, &format!("{next}/"))).base;
+    let heading = HttpRequest {
+        method: "HEAD".to_string(),
+        ..private(&format!("{base}/"))
+    };
+    let outcome = only_methods(&[HttpMethod::Head]).request(&heading, &Any);
+    assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
+    let head = next_heads
+        .next(Duration::from_secs(5))
+        .unwrap()
+        .head
+        .to_ascii_lowercase();
+    assert!(head.starts_with("head / "), "{head}");
+}
+
+#[test]
 fn a_hop_that_keeps_its_method_is_judged_with_it() {
     for status in [307, 308] {
         let next_heads = Server::reply(|_, _| ok("there"));

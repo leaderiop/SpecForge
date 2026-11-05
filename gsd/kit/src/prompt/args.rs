@@ -53,7 +53,7 @@ impl Arg {
         }
     }
     /// An optional reference, written `--name <id>` with its full id (`--phase v2.0/01`): the milestone is part of
-    /// what the person named (REVIEW-r43 M1).
+    /// what the person named.
     pub const fn optional_reference(name: &'static str, kind: &'static str) -> Arg {
         Arg {
             name,

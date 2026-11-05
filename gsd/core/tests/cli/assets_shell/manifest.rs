@@ -1,6 +1,6 @@
-//! G4 (plan 05 T3): execute-phase's wave worktree manifest is tab-separated lines (`orchestrator_root<TAB>root`, then
+//! Execute-phase's wave worktree manifest is tab-separated lines (`orchestrator_root<TAB>root`, then
 //! `worktree<TAB>path<TAB>branch`), written and read by bash with `git`, `cat` and `specforge` alone on the `PATH`.
-//! Every way the list cannot be read blocks the cleanup, as F9's checks did.
+//! Every way the list cannot be read blocks the cleanup, as the jq checks before it did.
 
 use super::{Shell, asset, line, q};
 

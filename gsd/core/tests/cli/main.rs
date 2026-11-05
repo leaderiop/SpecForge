@@ -1,6 +1,10 @@
 //! Black-box tests: the `specforge` binary on small projects that load the built `@gsd/core` (ADR gsd/0001 D5, D7).
 
 mod agents;
+// The extension's own UTC clock text, to build times relative to now.
+#[path = "../../src/time.rs"]
+#[allow(dead_code, reason = "only utc is used here")]
+mod clock;
 // shells out through `bash` and links with `std::os::unix`
 #[cfg(unix)]
 mod assets_shell;

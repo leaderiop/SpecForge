@@ -1,4 +1,4 @@
-//! K14 (ADR 0294): a command input carries `now`, RFC 3339 UTC, beside `today`.
+//! A command input carries `now`, RFC 3339 UTC, beside `today`.
 
 use serde_json::json;
 use specforge_project::testing::CORE;

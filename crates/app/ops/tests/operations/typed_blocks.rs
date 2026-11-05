@@ -1,4 +1,4 @@
-//! Typed edits address a block member by its path (ADR 0285, plan K3): `set`, `unset`, `append` and `remove`.
+//! Typed edits address a block member by its path (ADR 0285): `set`, `unset`, `append` and `remove`.
 
 use serde_json::json;
 use specforge_ops::authoring::edit::{self, Edit};

@@ -1,5 +1,5 @@
 //! Golden outputs of `prompts/list` and `prompts/get` for every core
-//! prompt, over one project on disk (plan 07 T0). They pin what the
+//! prompt, over one project on disk. They pin what the
 //! prompts answer; a change to a prompt's output shows here as a snapshot
 //! diff, in the commit that makes it.
 

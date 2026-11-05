@@ -313,7 +313,7 @@ fn a_block_with_a_kept_region_is_block_unreadable() {
 
 const TWO_LINE: &str = "invariant\n  task_unique \"Unique\" {\n  guarantee \"x\"\n}\n\nbehavior\n  list_tasks \"List\" {\n  invariants [task_unique]\n}\n";
 
-/// A header written over two lines is edited like any other (round 20, plan 04 R5).
+/// A header written over two lines is edited like any other.
 #[test]
 fn typed_edits_work_on_a_header_written_over_two_lines() {
     let c = project(&[("tasks.spec", TWO_LINE)]);
@@ -399,7 +399,7 @@ fn a_number_sets_an_integer_field() {
     let number = |n: i64| Input::Number(n.into());
     let text = after(&c, "fm.spec", &[set("slow_disk", "rpn", number(42))]);
     assert_eq!(text, FAILURE_MODES.replace("rpn      10", "rpn      42"));
-    // A whole number written with a fraction part (JSON `42.0`) is the same number (REVIEW-k20b N7).
+    // A whole number written with a fraction part (JSON `42.0`) is the same number.
     let whole = Input::Number(serde_json::Number::from_f64(42.0).unwrap());
     let text = after(&c, "fm.spec", &[set("slow_disk", "rpn", whole)]);
     assert_eq!(text, FAILURE_MODES.replace("rpn      10", "rpn      42"));

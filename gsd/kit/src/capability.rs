@@ -1,6 +1,6 @@
 //! The capability-hook renderer: the per-capability part of gsd-core's `loop-resolver.cts` (`resolveLoopHooks`), so a
 //! capability extension answers `<cap>_hooks <point>` as `gsd-tools loop render-hooks <point>` answered for its
-//! capability (ADR gsd/0002, plan 16 D-S-3).
+//! capability (ADR gsd/0002).
 //!
 //! The capability's own `capability.json` (`steps`, `contributions`, `gates`) is the input. A hook is active when its
 //! `when` (a dotted settings key) is truthy and its `pointFrom`, if any, names the point. An inactive hook is absent,

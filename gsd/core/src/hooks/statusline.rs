@@ -6,8 +6,8 @@
 //! session's state for the context monitor.
 //!
 //! `statusline.show_git` adds the branch and the work-state markers after the directory, from the status the host reads
-//! (`git status --porcelain=v2 --branch`, ADR 0320): `main+2~1?3↑1`, or `main✓` when clean. Known cost
-//! (REVIEW-k20c-part2 m1): the hook declares the status read statically, so the host runs `git status` on every render
+//! (`git status --porcelain=v2 --branch`, ADR 0320): `main+2~1?3↑1`, or `main✓` when clean. Known cost: the hook
+//! declares the status read statically, so the host runs `git status` on every render
 //! even while `show_git` is off, under the git adapter's deadline. Upstream spawns nothing then and drops the segment
 //! at 1.5 s. A fact flag gated by a setting, and a shorter deadline, are the kernel's to add.
 //!

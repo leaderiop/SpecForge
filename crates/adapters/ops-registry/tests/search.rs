@@ -1,5 +1,5 @@
 //! `ConfiguredRegistry::search`: every configured registry is asked, each with its own credential; the
-//! hits are merged by name and version, the first registry winning (ADR 0044 as amended by plan 16).
+//! hits are merged by name and version, the first registry winning (ADR 0044).
 #![allow(
     clippy::unwrap_used,
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"

@@ -1,5 +1,5 @@
 //! For each code of `@gsd/security`: a test that makes it fire on a named project and a test that keeps it silent on
-//! that project's twin (plan 16 T25). Both are `#[test]` fns under `tests/` whose name or body names the code;
+//! that project's twin. Both are `#[test]` fns under `tests/` whose name or body names the code;
 //! `parity_rules.rs` checks that they exist, `parity_roster.rs` counts them.
 
 pub const RULE_EVIDENCE: [(&str, &str, &str); 2] = [

@@ -18,7 +18,7 @@ const FORBIDDEN: [&str; 9] = [
     "gsd.cjs",
     "~/.claude/gsd-core",
     "$HOME/.claude/gsd-core",
-    // plan 16 T5: the security branches read @gsd/security's gate, not a SECURITY.md file.
+    // The security branches read @gsd/security's gate, not a SECURITY.md file.
     "SECURITY_FILE",
     "-SECURITY.md",
 ];
@@ -205,7 +205,7 @@ fn every_referenced_path_is_embedded() {
     assert_eq!(later, listed, "files no workflow embeds");
 }
 
-/// close-milestone keeps the requirements (REVIEW-r42 C1): upstream deletes REQUIREMENTS.md after archiving it, but the
+/// close-milestone keeps the requirements: upstream deletes REQUIREMENTS.md after archiving it, but the
 /// entities are the milestone's history (W506 and the audit read them), so no rendered prompt may tell an agent to
 /// delete, remove or `git rm` one.
 #[test]
@@ -228,7 +228,7 @@ fn no_prompt_tells_the_agent_to_delete_a_requirement() {
     assert!(seen >= 4, "{seen} renders");
 }
 
-/// A setting a workflow reads is the setting (REVIEW-r42 M1), never a default written into the line: no render keeps
+/// A setting a workflow reads is the setting, never a default written into the line: no render keeps
 /// a token or says "this is its default", and the settings the lines read are keys of the roster.
 #[test]
 fn no_render_keeps_a_setting_token_or_a_literal_default() {
@@ -270,7 +270,7 @@ fn every_setting_a_line_reads_is_a_key_of_the_roster() {
 }
 
 /// upstream installs a workflow without its `<!-- gsd:section -->` marker lines, and without the runtime notes of
-/// another runtime (REVIEW-r42 M5).
+/// another runtime.
 #[test]
 fn a_claude_render_has_no_section_markers_and_no_copilot_notes() {
     let mut seen = 0;
@@ -289,7 +289,7 @@ fn a_claude_render_has_no_section_markers_and_no_copilot_notes() {
     assert!(seen > 17, "{seen} renders");
 }
 
-/// No text removes a phase on the normal path (REVIEW-r42 N1): phases of a completed milestone stay with it (ids are
+/// No text removes a phase on the normal path: phases of a completed milestone stay with it (ids are
 /// milestone-scoped), so `phase --remove` and `--unlink-references` appear only in review-backlog's 999.x case. Scans
 /// every asset (what `reference` serves) and every rendered prompt.
 #[test]
@@ -314,7 +314,7 @@ fn no_text_tells_the_agent_to_remove_a_phase() {
     }
 }
 
-/// Plan 16 T5: the threat-ID gate reads `threat-ids`, whose answer holds `threat_id_duplicate_count`.
+/// the threat-ID gate reads `threat-ids`, whose answer holds `threat_id_duplicate_count`.
 #[test]
 fn the_threat_id_gate_reads_threat_ids() {
     // exit 2 is "not loaded": no duplicates; any other failure is an error the text must not read as none

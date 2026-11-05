@@ -4,8 +4,8 @@
 
 use std::collections::BTreeSet;
 
-/// Why a case is not ported. Each reason starts with one of these: D-r44-2's six, and `diverges:`, the one amendment
-/// (REVIEW-r44 M5): a deliberate difference that `gsd/parity/ACCEPTANCE.md` lists under "Known divergences".
+/// Why a case is not ported. Each reason starts with one of these: six reasons upstream's environment explains, and
+/// `diverges:`, a deliberate difference that `gsd/parity/ACCEPTANCE.md` lists under "Known divergences".
 const REASONS: [&str; 7] = [
     "git:",
     "env:",
@@ -65,7 +65,7 @@ pub fn cases(src: &str) -> Vec<Case> {
         if rest.trim().is_empty() {
             rest = lines.get(n + 1).copied().unwrap_or_default();
         }
-        // A title that is not a literal is still a case (REVIEW-r44 M5): it is named by its expression and must be
+        // A title that is not a literal is still a case: it is named by its expression and must be
         // ported or skipped like any other, never dropped.
         let title = literal(rest).unwrap_or_else(|| {
             let expr = rest.split([',', ')']).next().unwrap_or_default().trim();

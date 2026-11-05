@@ -1,5 +1,5 @@
 //! A refusal of the whole project (its registry configuration, the user's credential store) is the
-//! operation's, given once: never once per locked package or per configured registry (plan 10).
+//! operation's, given once: never once per locked package or per configured registry.
 
 use crate::support::{Cli, TestProject};
 use specforge_test_macros::test as specforge_test;

@@ -162,7 +162,7 @@ fn smart_entry_writes_nothing() {
     unchanged(&p, &before);
 }
 
-/// REVIEW-r43 Minor 23: a backlog phase (`999.x`) is in no count and is never the current phase. Mutation: deleting
+/// A backlog phase (`999.x`) is in no count and is never the current phase. Mutation: deleting
 /// the `999.` filter in `signals` makes the total one higher and changes the current phase.
 #[test]
 fn a_backlog_phase_is_in_no_count() {
@@ -181,7 +181,7 @@ fn a_backlog_phase_is_in_no_count() {
     assert_eq!(before["situation"], after["situation"]);
 }
 
-/// REVIEW-r43 Minor 23: `verify_failed` is read from the computed `verification.status == gaps_found` of the current
+/// `verify_failed` is read from the computed `verification.status == gaps_found` of the current
 /// phase. Mutation: deleting that read makes the situation `executing`, not `verify-failed`.
 #[test]
 fn a_gaps_found_verification_of_the_current_phase_is_verify_failed() {

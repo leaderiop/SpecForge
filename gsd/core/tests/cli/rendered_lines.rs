@@ -1,7 +1,7 @@
-//! The lines every one of the 44 prompts shows (REVIEW-r43): r42's regression tests ran the lines of the lifecycle
-//! prompts only, so r43's new lines slipped past them. Each prompt is rendered once for `claude-code` on its golden
-//! project, and the checks run over all of the text: the shell the Rust side writes parses, no prose is joined to a path,
-//! and every `specforge settings` line is one the host accepts.
+//! The lines every one of the 44 prompts shows: the earlier regression tests ran the lines of the lifecycle prompts
+//! only, so new lines in the other prompts slipped past them. Each prompt is rendered once for `claude-code` on its
+//! golden project, and the checks run over all of the text: the shell the Rust side writes parses, no prose is joined
+//! to a path, and every `specforge settings` line is one the host accepts.
 
 use std::io::Write;
 use std::process::{Command, Stdio};
@@ -81,7 +81,7 @@ fn tail(text: &str) -> &str {
 }
 
 /// A single-word placeholder (`<paths>`) is a value the agent fills: it stands for one word in the fence. A
-/// placeholder with spaces in it is prose, and bash reads it as a redirection (REVIEW-r43 Minor 2).
+/// placeholder with spaces in it is prose, and bash reads it as a redirection.
 fn filled(code: &str) -> String {
     Regex::new(r"<[A-Za-z0-9_.-]+>")
         .expect("a regex")
@@ -144,7 +144,7 @@ fn lacks(id: &str, needle: &str) {
     assert!(!text(id).contains(needle), "{id} still has `{needle}`");
 }
 
-/// The lines REVIEW-r43 M2 found: a project is linked to none of its milestones, phases, pauses or lessons, so each
+/// The lines a review found: a project is linked to none of its milestones, phases, pauses or lessons, so each
 /// of these lists by kind.
 #[test]
 fn the_project_rooted_lines_list_by_kind() {
@@ -249,7 +249,7 @@ fn concrete(word: &str) -> Option<String> {
     (!word.contains('<') && !word.contains('$')).then_some(word)
 }
 
-/// REVIEW-r43 M3: five line shapes that the host refuses or stores wrongly (a block as a bare word, `null` for an
+/// Five line shapes that the host refuses or stores wrongly (a block as a bare word, `null` for an
 /// enum, a JSON list as one word, a value that starts with `--`). Every `specforge settings set|unset @gsd/core ...`
 /// line of the 44 prompts is run with `--dry-run` on the twin.
 #[test]
@@ -312,7 +312,7 @@ fn every_settings_line_is_accepted_by_the_host() {
     );
 }
 
-/// REVIEW-r43 M9 and M10: no prompt writes upstream GSD's `~/.gsd/defaults.json`, and none takes an API key in the
+/// No prompt writes upstream GSD's `~/.gsd/defaults.json`, and none takes an API key in the
 /// conversation or `export`s one.
 #[test]
 fn no_prompt_writes_the_global_defaults_or_takes_a_key() {
@@ -334,7 +334,7 @@ fn no_prompt_writes_the_global_defaults_or_takes_a_key() {
     );
 }
 
-/// REVIEW-r43 M11: a "Parse JSON for:" line that follows `specforge gsd progress-report --format json` may name only
+/// A "Parse JSON for:" line that follows `specforge gsd progress-report --format json` may name only
 /// fields that command prints (`roadmap_exists` or `manager_flags` decided routing and were never there). The fields
 /// are the top-level keys of the real output on the twin.
 #[test]
@@ -388,7 +388,7 @@ fn workflow(name: &str) -> String {
     .unwrap_or_else(|e| panic!("{name}: {e}"))
 }
 
-/// REVIEW-r43 post-fix N5: the leftovers of the Minor 22 and M10 text mismatches.
+/// The text mismatches a first fix left behind.
 #[test]
 fn the_post_fix_text_leftovers_stay_fixed() {
     // progress asks for the next phase of the milestone, padded as phase ids are
@@ -410,7 +410,7 @@ fn the_post_fix_text_leftovers_stay_fixed() {
     assert!(!integrations.contains("written plaintext only to `config.json`"));
 }
 
-/// G4 (plan 05): no rendered line runs jq, neither an asset's (`port_tools` scans those) nor one the Rust side writes
+/// No rendered line runs jq, neither an asset's (`port_tools` scans those) nor one the Rust side writes
 /// (`src/prompts/`). gh's own `--jq` filter is not jq.
 #[test]
 fn no_rendered_line_runs_jq() {

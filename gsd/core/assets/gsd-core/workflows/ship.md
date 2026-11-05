@@ -320,11 +320,11 @@ Reconstruct the per-commit TDD gate trail before squash-merge discards it. Walk 
 ```bash
 # Anchor on the merge-base so a stale local ${BASE_BRANCH} ref cannot over-count.
 RANGE_BASE=$(specforge git merge-base "${BASE_BRANCH}" HEAD --pick .sha)
-git log "${RANGE_BASE}..HEAD" --no-merges --reverse \
-  --format='%H%x1f%s%x1f%(trailers:key=gate-status,valueonly,separator=%x2c)%x1e'
+specforge git log "${RANGE_BASE}..HEAD" --no-merges --reverse \
+  --pick '.commits[]'
 ```
 
-Records are separated by `\x1e`; the fields inside each are `\x1f`-separated — `<sha>`, `<subject>`, `<gate-status value>`.
+Each line is one commit as compact JSON — its `sha`, its `subject`, and its `trailers` (every `gate-status` value, in order, under `trailers["gate-status"]`).
 
 Pair commits by their conventional-commit type (the `type:` prefix of the subject):
 
@@ -336,7 +336,7 @@ Surface each commit's `gate-status:` value, normalized to exactly one of `skill`
 
 **Self-suppress when every commit is missing (#2431):** the execute pipeline only writes `gate-status:` trailers when TDD mode is active. If every commit in the scan normalizes to `missing`, skip this section and the aggregate trailer (step 9) entirely — a 100%-missing table is pure noise. Only emit when at least one commit carries a real value (`skill`, `fallback`, or `exempt`).
 
-Harden every table cell against injection, not just subjects: escape `|` as `\|` and strip `\r`/`\n` from both commit subjects and the rendered `gate-status` value. Prefer NUL (`-z` / `%x00`) record separation, and reject any record whose fields contain the `\x1f`/`\x1e` delimiters, so an adversarial commit message cannot corrupt record or field boundaries.
+Harden every table cell against injection, not just subjects: escape `|` as `\|` and strip `\r`/`\n` from both commit subjects and the rendered `gate-status` value. Read each line as JSON, never by splitting on a delimiter, so an adversarial commit message cannot corrupt record or field boundaries.
 
 ```markdown
 ## TDD Audit
@@ -398,8 +398,8 @@ If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:
 
 1. **Generate diff and stats:**
    ```bash
-   DIFF=$(git diff ${BASE_BRANCH}...HEAD)
-   DIFF_STATS=$(git diff --stat ${BASE_BRANCH}...HEAD)
+   DIFF=$(specforge git diff --base ${BASE_BRANCH} --merge-base --patch --format human)
+   DIFF_STATS=$(specforge git diff --base ${BASE_BRANCH} --merge-base --stat --format human)
    ```
 
 2. **Load phase context from STATE.md:**

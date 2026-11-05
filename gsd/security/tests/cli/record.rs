@@ -228,7 +228,7 @@ fn a_suffixed_id_names_one_threat() {
     assert!(p.fields_of(T2).get("status").is_none());
 }
 
-/// REVIEW-security-part2 m2: a phase's audit is written beside that phase's plans, not in the file of whichever audit
+/// A phase's audit is written beside that phase's plans, not in the file of whichever audit
 /// came first.
 #[test]
 fn each_phases_audit_lands_beside_its_own_plans() {

@@ -711,7 +711,7 @@ fn add_refuses_an_unsigned_package_without_allow_unsigned() {
     assert_refused(&output, &dir, "R-TRUST-001");
 }
 
-// §3 R3 (plan 05): nothing asked a registry, so its configuration is not shown.
+// Nothing asked a registry, so its configuration is not shown.
 #[specforge_test(
     behavior = "configure_registries",
     verify = "an operation shows the registry configuration's diagnostics once it has asked a registry"
@@ -980,7 +980,7 @@ fn login_with_an_unknown_registry_is_refused_before_any_request() {
 }
 
 // ---------------------------------------------------------------
-// Pins of plan 16 (T0): what the registry commands do today
+// Pins: what the registry commands do today
 // ---------------------------------------------------------------
 
 #[specforge_test(
@@ -1089,7 +1089,7 @@ fn an_unsigned_add_reports_w155_in_both_formats() {
 }
 
 // ---------------------------------------------------------------
-// login keeps a secret or a reference (plan 16, T3)
+// login keeps a secret or a reference
 // ---------------------------------------------------------------
 
 #[specforge_test(
@@ -1239,7 +1239,7 @@ fn add_from_a_private_registry_with_a_stored_credential() {
 }
 
 // ---------------------------------------------------------------
-// Plan 09: trust pins. These tests pin today's behaviour (a refused install
+// Trust pins. These tests pin today's behaviour (a refused install
 // pins its publisher key); the ticket that fixes it flips them.
 // ---------------------------------------------------------------
 

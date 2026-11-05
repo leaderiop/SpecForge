@@ -6,10 +6,254 @@ use std::path::Path;
 
 use gix::bstr::ByteSlice as _;
 use specforge_effects::git::{
-    BLOB_CAP, DiffStatus, GitCommit, GitError, GitFileDiff, GitPerson, PATCH_CAP, Sha, is_binary,
+    BLOB_CAP, DiffStatus, GitCommit, GitError, GitFileDiff, GitLog, GitPerson, LogQuery, PATCH_CAP,
+    Sha, is_binary,
 };
 
 use crate::{failed, id};
+
+/// The commits `query` keeps, newest first, or the oldest ones with `query.oldest`.
+pub(crate) fn log(repo: &gix::Repository, query: &LogQuery) -> Result<GitLog, GitError> {
+    use gix::revision::walk::Sorting;
+    use gix::traverse::commit::simple::CommitTimeOrder;
+    let tips = query.tips.iter().map(id).collect::<Result<Vec<_>, _>>()?;
+    let hidden = query.hidden.iter().map(id).collect::<Result<Vec<_>, _>>()?;
+    let mut walk = repo
+        .rev_walk(tips)
+        .with_hidden(hidden)
+        .sorting(Sorting::ByCommitTime(CommitTimeOrder::NewestFirst));
+    if query.first_parent {
+        walk = walk.first_parent_only();
+    }
+    let walk = walk.all().map_err(|e| failed("walk the history", &e))?;
+    let paths = wanted_paths(&query.paths);
+    let filter = Filter::of(query)?;
+    let mut log = GitLog::default();
+    let mut count = 0;
+    // with `oldest`, the last `max` kept, newest first: only their ids until the walk ends
+    let mut oldest = std::collections::VecDeque::new();
+    for info in walk {
+        let info = info.map_err(|e| failed("walk the history", &e))?;
+        let listed = query.oldest || query.max.is_none_or(|max| log.commits.len() < max);
+        if paths.is_empty() && filter.is_none() && !listed {
+            // past the listing, a commit is only counted, as `rev-list --count` counts it
+            count += 1;
+            continue;
+        }
+        let commit = repo
+            .find_commit(info.id)
+            .map_err(|e| failed(&format!("read {}", info.id), &e))?;
+        if !keeps(filter.as_ref(), repo, &commit, &paths)? {
+            continue;
+        }
+        if !paths.is_empty() && !touches(repo, &commit, &paths, query.first_parent)? {
+            continue;
+        }
+        if !listed && filter.as_ref().is_some_and(|f| f.pickaxe.is_some()) {
+            // counting the rest would read every blob of the history: one more kept commit says there is more
+            return Ok(log);
+        }
+        count += 1;
+        if query.oldest {
+            oldest.push_back(info.id);
+            if query.max.is_some_and(|max| oldest.len() > max) {
+                oldest.pop_front();
+            }
+        } else if listed {
+            log.commits.push(commit_of(&commit)?);
+        }
+    }
+    for kept in oldest {
+        let commit = repo
+            .find_commit(kept)
+            .map_err(|e| failed(&format!("read {kept}"), &e))?;
+        log.commits.push(commit_of(&commit)?);
+    }
+    log.count = Some(count);
+    Ok(log)
+}
+
+/// The most bytes a compiled `--grep` or `-S` pattern may take: a larger one is refused, never built.
+const PATTERN_CAP: usize = 1 << 20;
+
+/// A typed pattern, compiled with `^` and `$` at each line as git's regex matching has them.
+fn pattern(what: &str, source: &str) -> Result<regex::bytes::Regex, GitError> {
+    regex::bytes::RegexBuilder::new(source)
+        .multi_line(true)
+        .size_limit(PATTERN_CAP)
+        .build()
+        .map_err(|e| GitError(format!("the {what} pattern {source:?} is no regex: {e}")))
+}
+
+/// What a log keeps of each commit besides its paths: `--grep`, `--since`, `--until`, `--no-merges` and `-S`.
+pub(crate) struct Filter {
+    grep: Option<regex::bytes::Regex>,
+    since: Option<i64>,
+    until: Option<i64>,
+    no_merges: bool,
+    pickaxe: Option<regex::bytes::Regex>,
+}
+
+impl Filter {
+    /// The filter `query` asks; `None` when it keeps every commit.
+    pub(crate) fn of(query: &specforge_effects::git::LogQuery) -> Result<Option<Filter>, GitError> {
+        let filter = Filter {
+            grep: query
+                .grep
+                .as_deref()
+                .map(|p| pattern("--grep", p))
+                .transpose()?,
+            since: query.since,
+            until: query.until,
+            no_merges: query.no_merges,
+            pickaxe: query
+                .pickaxe
+                .as_deref()
+                .map(|p| pattern("-S", p))
+                .transpose()?,
+        };
+        let none = filter.grep.is_none()
+            && filter.since.is_none()
+            && filter.until.is_none()
+            && !filter.no_merges
+            && filter.pickaxe.is_none();
+        Ok((!none).then_some(filter))
+    }
+}
+
+/// Whether `filter` keeps `commit` (no filter keeps every one); its paths are the log's.
+pub(crate) fn keeps(
+    filter: Option<&Filter>,
+    repo: &gix::Repository,
+    commit: &gix::Commit<'_>,
+    paths: &[String],
+) -> Result<bool, GitError> {
+    let Some(filter) = filter else {
+        return Ok(true);
+    };
+    let at = |e: &dyn std::fmt::Display| failed(&format!("read {}", commit.id), e);
+    let parents = commit.parent_ids().count();
+    if filter.no_merges && parents > 1 {
+        return Ok(false);
+    }
+    if filter.since.is_some() || filter.until.is_some() {
+        let time = commit
+            .committer()
+            .map_err(|e| at(&e))?
+            .time()
+            .map_err(|e| at(&e))?
+            .seconds;
+        if filter.since.is_some_and(|since| time < since)
+            || filter.until.is_some_and(|until| time > until)
+        {
+            return Ok(false);
+        }
+    }
+    if let Some(grep) = &filter.grep {
+        let message = commit.message_raw().map_err(|e| at(&e))?;
+        if !grep.is_match(message) {
+            return Ok(false);
+        }
+    }
+    match &filter.pickaxe {
+        Some(pickaxe) => picked(repo, commit, pickaxe, paths, parents),
+        None => Ok(true),
+    }
+}
+
+/// How many times `rx` matches the blob `id` names; none for a binary blob or one over [`BLOB_CAP`], which `-S` does
+/// not read.
+fn matches(
+    repo: &gix::Repository,
+    id: Option<gix::ObjectId>,
+    rx: &regex::bytes::Regex,
+) -> Option<usize> {
+    let Some(id) = id else {
+        return Some(0);
+    };
+    let header = repo.find_header(id).ok()?;
+    if header.kind() != gix::objs::Kind::Blob || header.size() > BLOB_CAP {
+        return None;
+    }
+    let blob = repo.find_blob(id).ok()?;
+    (!is_binary(&blob.data)).then(|| rx.find_iter(&blob.data).count())
+}
+
+/// Whether `commit` changes how many times `rx` matches in a file at `paths` against its one parent, or against
+/// nothing for a root commit (`-S`): a merge, whose diff git does not show, never does.
+fn picked(
+    repo: &gix::Repository,
+    commit: &gix::Commit<'_>,
+    rx: &regex::bytes::Regex,
+    paths: &[String],
+    parents: usize,
+) -> Result<bool, GitError> {
+    use gix::object::tree::diff::ChangeDetached as Change;
+    if parents > 1 {
+        return Ok(false);
+    }
+    let at = |e: &dyn std::fmt::Display| failed(&format!("read {}", commit.id), e);
+    let new = commit.tree().map_err(|e| at(&e))?;
+    let old = match commit.parent_ids().next() {
+        Some(parent) => repo
+            .find_commit(parent)
+            .map_err(|e| at(&e))?
+            .tree()
+            .map_err(|e| at(&e))?,
+        None => repo.empty_tree(),
+    };
+    let changes = repo
+        .diff_tree_to_tree(&old, &new, None)
+        .map_err(|e| failed("diff two trees", &e))?;
+    for change in changes {
+        let (location, old, new) = match change {
+            Change::Addition {
+                location,
+                entry_mode,
+                id,
+                ..
+            } => (location, None, entry_mode.is_blob().then_some(id)),
+            Change::Deletion {
+                location,
+                entry_mode,
+                id,
+                ..
+            } => (location, entry_mode.is_blob().then_some(id), None),
+            Change::Modification {
+                location,
+                previous_entry_mode,
+                previous_id,
+                entry_mode,
+                id,
+            } => (
+                location,
+                previous_entry_mode.is_blob().then_some(previous_id),
+                entry_mode.is_blob().then_some(id),
+            ),
+            Change::Rewrite {
+                location,
+                source_entry_mode,
+                source_id,
+                entry_mode,
+                id,
+                ..
+            } => (
+                location,
+                source_entry_mode.is_blob().then_some(source_id),
+                entry_mode.is_blob().then_some(id),
+            ),
+        };
+        if old.is_none() && new.is_none() || !kept(&location.to_str_lossy(), paths) {
+            continue;
+        }
+        if let (Some(before), Some(after)) = (matches(repo, old, rx), matches(repo, new, rx))
+            && before != after
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
 
 /// The paths a log or a diff keeps, slash-separated with no trailing slash; empty when one of them is the top.
 pub(crate) fn wanted_paths(paths: &[String]) -> Vec<String> {
@@ -64,7 +308,7 @@ fn entries_at(
 /// Whether `commit` changes something at `paths`. A merge counts when it differs from every parent it follows, as
 /// git's default history simplification shows it.
 // shortcut: git also prunes the parents a merge is the same as from the walk; upgrade if a block needs that order
-pub(crate) fn touches(
+fn touches(
     repo: &gix::Repository,
     commit: &gix::Commit<'_>,
     paths: &[String],
@@ -109,7 +353,7 @@ fn person(signature: gix::actor::SignatureRef<'_>) -> GitPerson {
 }
 
 /// A commit as a log answers it.
-pub(crate) fn commit_of(commit: &gix::Commit<'_>) -> Result<GitCommit, GitError> {
+fn commit_of(commit: &gix::Commit<'_>) -> Result<GitCommit, GitError> {
     let at = |e: &dyn std::fmt::Display| failed(&format!("read {}", commit.id), e);
     let message = commit.message().map_err(|e| at(&e))?;
     let mut trailers: BTreeMap<String, Vec<String>> = BTreeMap::new();

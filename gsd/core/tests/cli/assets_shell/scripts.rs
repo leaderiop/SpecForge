@@ -43,9 +43,9 @@ fn the_commit_readers_read_the_commit_entities() {
     assert_eq!(out, hash, "{err}");
 }
 
-/// Review of plan 03, item 1: the TDD gate (execute-phase.md, `TDD_MODE`) runs from `RED_IDS=$(` through its
+/// The TDD gate (execute-phase.md, `TDD_MODE`) runs from `RED_IDS=$(` through its
 /// `TDD GATE TRIPPED` exit. A test-file commit outside the plan, or a plan commit that touches no test file, is no RED
-/// commit; a commit of the plan that touches a test file is. Re-review item 3: the plan named by its short id (`01-01`)
+/// commit; a commit of the plan that touches a test file is. The plan named by its short id (`01-01`)
 /// finds the same commits as by its full one, which a commit's `plan` field holds.
 #[test]
 fn the_tdd_gate_finds_the_red_commit_among_the_plans_own_commits() {
@@ -142,8 +142,8 @@ fn repository(dir: &Path, state: &str) {
     }
 }
 
-/// T3: pr-branch's sub-repository scan and its path check, bash where upstream's were node scripts (G4 plan 05 T4:
-/// no jq either). With `planning.sub_repos` empty here they are not reached; they still keep upstream's refusals.
+/// Pr-branch's sub-repository scan and its path check, bash where upstream's were node scripts (no jq either). With
+/// `planning.sub_repos` empty here they are not reached; they still keep upstream's refusals.
 #[test]
 fn the_sub_repo_scan_keeps_its_refusals() {
     let Some(sh) = Shell::without_jq() else {
@@ -167,8 +167,9 @@ fn the_sub_repo_scan_keeps_its_refusals() {
     );
     let theirs = block(&up, "node -e \"", "\"$DIRTY_FILE\"");
     let dirty = top.path().join("dirty");
+    // run from the project, as pr-branch is: `specforge git --in` is held to the roots of the project it is typed in
     let setup = format!(
-        "ROOT={}\nDIRTY_FILE={}\nSUB_REPOS_JSON={}",
+        "ROOT={}\ncd \"$ROOT\"\nDIRTY_FILE={}\nSUB_REPOS_JSON={}",
         q(&root.display().to_string()),
         q(&dirty.display().to_string()),
         q(r#"["a","b","c","l","../outside","a\nb",5,"d;rm","missing"]"#)
@@ -215,7 +216,7 @@ fn the_sub_repo_scan_keeps_its_refusals() {
     }
 }
 
-/// Re-review of plan 05, item 2: pr-branch's filter (`FILTER_PATHS`, what each cherry-picked commit loses, and
+/// Pr-branch's filter (`FILTER_PATHS`, what each cherry-picked commit loses, and
 /// `FORBIDDEN_RE`, what `verify` asserts is gone) is the spec files for both layouts: under `spec/`, and, with the spec
 /// root at the project root (`.`), the `.spec` files at any depth, never the whole tree. Run in a scratch repository: a
 /// commit that touches code, spec files and the harness ledger keeps only its code.

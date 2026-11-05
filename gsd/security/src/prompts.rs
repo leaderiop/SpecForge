@@ -1,5 +1,5 @@
-//! `/gsd-secure-phase` as the prompt `secure_phase`, ported from upstream's command and workflow (plan 16 T22). The
-//! pipeline is `gsd_kit::prompt`; the text is `assets/`. The workflow's `SECURITY.md` is the phase's `security_audit`
+//! `/gsd-secure-phase` as the prompt `secure_phase`, ported from upstream's command and workflow. The pipeline is
+//! `gsd_kit::prompt`; the text is `assets/`. The workflow's `SECURITY.md` is the phase's `security_audit`
 //! entity: the tail of the prompt says so and ends with upstream's template, whose columns are the kinds' fields.
 
 use gsd_kit::prompt::args::{self, Arg};

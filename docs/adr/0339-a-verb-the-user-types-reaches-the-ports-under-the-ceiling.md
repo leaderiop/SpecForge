@@ -181,3 +181,41 @@ marked git2 goes to vendored libgit2.
 - Every core command added later is one more name an extension cannot take (E114); the CLI's tests keep the list
   equal to the clap tree.
 - The verbs widen what a project's `effects` ceiling governs: a ceiling that switches a port off refuses the verb too.
+
+## Amendment (2026-11-05, git verbs for GSD's blocks)
+
+`specforge git` grows the verbs and flags GSD's shell blocks used the git program for, so 119 of the 142 git rows of
+GSD's ledger now call only specforge (107 once the review below put 12 back). The same rules hold: gix first, vendored libgit2 where gix writes nothing, every
+path held to the roots, a write refused unless gix trusts the git dir, hooks run only as git runs them.
+
+- **Every verb.** `--in <dir>` runs it as `git -C <dir>` does, held to the roots like a typed path.
+- **Reads.** `repo` names the prefix and the superproject; `remotes` names each remote's default branch (its
+  `refs/remotes/<r>/HEAD`); `status` names its tracked paths beside the untracked ones; `submodules` lists what
+  `.gitmodules` declares; `rev --sorted` orders commits by commit date and `--stdin` reads more revisions; `log` takes
+  `--grep`, `--since`/`--after`, `--until`/`--before`, `--no-merges`, `-S`, `--reverse`; `diff` takes `--merge-base`,
+  `--stat` and `--shortstat`, and its answer totals `added` and `removed`.
+- **Writes.** `add` (`-A`, `--except`), `rm` (`-r`, `--cached`, `-f`, `--ignore-unmatch`), `restore` (`-S`/`--staged`
+  with `-W`/`--worktree`, `--ours`, `--theirs`), `cherry-pick`/`revert` `-n`, `--quit`, `--abort`, `commit -C <rev>`
+  and `commit -- <path>…`, `merge --squash` and `--no-commit`, `hook run <name> [--ignore-missing] -- <arg>…`,
+  `worktree lock [--reason]` and `unlock`, and `init [<dir>]`.
+- **Where they differ from git.**
+  - `--in` stands for `-C`, and `submodules` is its own verb rather than `submodule status`.
+  - `--grep` takes a Rust regex; there is no `-E` and no basic regex.
+  - `diff --stat` prints numstat lines and git's summary line, not histograms; gix writes an added file's hunk header
+    as `@@ -1,0 +1,n @@` where git writes `-0,0`.
+  - `add --except <path>` stands for the negative pathspec `:!<path>`.
+  - `--abort` refuses a sequencer the git program started (a `sequencer/` directory); `--quit` forgets the pick
+    and removes the sequencer. `--abort` also refuses, as `reset --merge` does, a path with unstaged changes.
+  - `rm` has no `-q`: its human listing is the only output.
+  - `rm` and `restore` take a pathspec with magic (`:(glob)**/*.spec`), matched by gix, only from the
+    repository's top: git reads one from the current directory.
+  - `commit -- <path>` records an untracked path too, and is refused during a merge.
+  - `merge --squash` writes `SQUASH_MSG` without git's `Date:` line.
+  - `init` names its branch `main` whatever a system or global `init.defaultBranch` says, and never re-initialises:
+    on an existing repository it answers `created: false`.
+  - `log -S` past its `--max` stops at the first further commit it keeps: `count` is `null`, `truncated` true.
+  - `worktree remove`, like `worktree add`, is held to the roots.
+- **What stays.** Push, fetch, `ls-remote` and `remote show` reach a remote (D6). `worktree add` and a local `clone`
+  into `$HOME/gsd-workspaces` write outside the project's roots (D2), and so do remove-workspace's `git -C` reads and
+  `worktree remove` there, and worktree-path-safety's pin of the orchestrator's checkout, which also compares both
+  toplevels in git's own spelling. The ledger's `D git` heading says so for its 35 rows.

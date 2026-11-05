@@ -782,7 +782,7 @@ invariant responsive "System Stays Responsive" {
 
 // A formal `property` accepts verify statements (`supports_verify`) but its
 // kind is not declared testable, so it stays out of the coverage
-// denominator and is never A001 (plan 02, S4).
+// denominator and is never A001.
 #[specforge_test(
     invariant = "testable_entity_classification",
     verify = "testable=false entity excluded from coverage"

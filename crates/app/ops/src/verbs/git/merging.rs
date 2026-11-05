@@ -7,9 +7,12 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 use specforge_common::remedy::printable;
-use specforge_effects::git::{GitConflict, GitEntryKind, GitPlace, GitStash, Merged, ResetMode};
+use specforge_effects::git::{
+    ConflictSide, GitConflict, GitEntryKind, GitPlace, GitStash, Merged, Merging, ResetMode,
+    Restoring,
+};
 
-use super::commit::{Signed, in_repository, refuse_signing, write_failed};
+use super::commit::{Signed, pathspecs, refuse_signing, write_failed};
 use super::{commit_named, failed};
 use crate::verbs::Verbs;
 use crate::{OpError, OpErrorKind};
@@ -44,6 +47,13 @@ pub struct ResetAnswer {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RestoreAnswer {
     pub restored: Vec<String>,
+}
+
+/// `git cherry-pick --quit` or `--abort`'s answer (`git revert`'s too).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PickEndAnswer {
+    /// A cherry-pick or a revert was in progress and is over.
+    pub ended: bool,
 }
 
 /// `git stash push`'s answer.
@@ -99,12 +109,23 @@ fn clean_tree(
 
 const COMMIT_OR_STASH: &str = "commit or stash the changes first";
 
+/// What `git merge` is asked beyond the revision.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MergeRequest {
+    pub fast_forward: FastForward,
+    pub message: Option<String>,
+    /// Leave the merge staged for a commit to record (`--no-commit`).
+    pub no_commit: bool,
+    /// Leave the merged tree staged as one change, no second parent (`--squash`).
+    pub squash: bool,
+}
+
 pub fn merge(
     verbs: &Verbs,
     revision: &str,
-    fast_forward: FastForward,
-    message: Option<&str>,
+    request: &MergeRequest,
 ) -> Result<MergeAnswer, OpError> {
+    let fast_forward = request.fast_forward;
     let place = verbs.place_to_write("merge")?;
     let theirs = commit_named(verbs, &place, revision)?;
     let git = &verbs.ports().git;
@@ -117,6 +138,8 @@ pub fn merge(
     let up_to_date = base.as_ref() == Some(&theirs);
     let forwards = ours.is_none() || base == ours;
     let commits = !up_to_date
+        && !request.no_commit
+        && !request.squash
         && !matches!(
             (fast_forward, forwards),
             (FastForward::Only, _) | (FastForward::Allowed, true)
@@ -126,7 +149,7 @@ pub fn merge(
     }
     clean_tree(verbs, &place, "a merge", COMMIT_OR_STASH)?;
     let branch = git.head(&place).map_err(failed)?.head;
-    let message = match message {
+    let message = match request.message.as_deref() {
         Some(message) => super::cleaned(message).ok_or_else(|| {
             OpError::new(
                 OpErrorKind::InvalidInput,
@@ -146,10 +169,16 @@ pub fn merge(
         FastForward::Only => Some(true),
         FastForward::Never => Some(false),
     };
+    let merging = Merging {
+        fast_forward: mode,
+        message,
+        no_commit: request.no_commit,
+        squash: request.squash,
+    };
     verbs
         .ports()
         .git
-        .merge(&place, &theirs, mode, &message)
+        .merge(&place, &theirs, &merging)
         .map(MergeAnswer::from)
         .map_err(write_failed)
 }
@@ -182,23 +211,42 @@ pub fn reset(
     })
 }
 
+/// What `git restore` is asked.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RestoreRequest {
+    /// The revision the paths come from.
+    pub source: Option<String>,
+    pub staged: bool,
+    /// The files too when `staged`; they are restored when neither is asked.
+    pub worktree: bool,
+    pub side: Option<ConflictSide>,
+}
+
 /// The named files back as the index (or `source`) has them, their changes discarded; with `staged`, their index
-/// entries back as `HEAD` (or `source`) has them.
+/// entries back as `HEAD` (or `source`) has them, and the files too with `worktree`; with a side, a conflicted
+/// file as that side of it has it.
 pub fn restore(
     verbs: &Verbs,
     paths: &[PathBuf],
-    source: Option<&str>,
-    staged: bool,
+    request: &RestoreRequest,
 ) -> Result<RestoreAnswer, OpError> {
     let place = verbs.place_to_write("restore")?;
-    let restored = in_repository(verbs, &place, paths)?;
-    let source = source
+    let restored = pathspecs(verbs, &place, paths)?;
+    let source = request
+        .source
+        .as_deref()
         .map(|revision| commit_named(verbs, &place, revision))
         .transpose()?;
+    let restoring = Restoring {
+        source,
+        staged: request.staged,
+        worktree: request.worktree || !request.staged,
+        side: request.side,
+    };
     verbs
         .ports()
         .git
-        .restore(&place, &restored, source.as_ref(), staged)
+        .restore(&place, &restored, &restoring)
         .map_err(write_failed)?;
     Ok(RestoreAnswer { restored })
 }
@@ -236,17 +284,63 @@ pub fn stash_list(verbs: &Verbs) -> Result<StashesAnswer, OpError> {
     })
 }
 
-/// Apply `revision` onto `HEAD` and record it (`revert`: its inverse), or stop on conflicts.
-pub fn pick(verbs: &Verbs, revision: &str, revert: bool) -> Result<MergeAnswer, OpError> {
+/// Apply `revision` onto `HEAD` (`revert`: its inverse) and record it, or stop on conflicts. Unless `record`, it is
+/// applied onto the index and left staged (`--no-commit`): the index may hold staged changes then, as git lets a
+/// second `-n` stack on the first, but no file may differ from it.
+pub fn pick(
+    verbs: &Verbs,
+    revision: &str,
+    revert: bool,
+    record: bool,
+) -> Result<MergeAnswer, OpError> {
     let what = if revert { "revert" } else { "cherry-pick" };
     let place = verbs.place_to_write(what)?;
-    refuse_signing(verbs, &place, Signed::Commit)?;
-    clean_tree(verbs, &place, &format!("a {what}"), COMMIT_OR_STASH)?;
+    if record {
+        refuse_signing(verbs, &place, Signed::Commit)?;
+        clean_tree(verbs, &place, &format!("a {what}"), COMMIT_OR_STASH)?;
+    } else {
+        unstaged_clean(verbs, &place, &format!("a {what} left staged"))?;
+    }
     let commit = commit_named(verbs, &place, revision)?;
     verbs
         .ports()
         .git
-        .pick(&place, &commit, revert)
+        .pick(&place, &commit, revert, record)
         .map(MergeAnswer::from)
         .map_err(write_failed)
+}
+
+/// End the cherry-pick or revert in progress: `--quit` keeps the index and the files, `--abort` puts back what it
+/// staged or left conflicted.
+pub fn pick_end(verbs: &Verbs, revert: bool, abort: bool) -> Result<PickEndAnswer, OpError> {
+    let what = if revert { "revert" } else { "cherry-pick" };
+    let place = verbs.place_to_write(what)?;
+    let ended = verbs
+        .ports()
+        .git
+        .pick_end(&place, abort)
+        .map_err(write_failed)?;
+    Ok(PickEndAnswer { ended })
+}
+
+/// Refused when a file differs from the index or a path is conflicted: staged changes are allowed.
+fn unstaged_clean(verbs: &Verbs, place: &GitPlace, what: &str) -> Result<(), OpError> {
+    let status = verbs.ports().git.status(place).map_err(failed)?;
+    let unstaged = status
+        .entries
+        .iter()
+        .find(|e| e.kind == GitEntryKind::Unmerged || e.worktree.is_some());
+    match unstaged {
+        None => Ok(()),
+        Some(entry) => Err(OpError::new(
+            OpErrorKind::PreconditionFailed,
+            super::DIRTY_TREE,
+            format!(
+                "{} has unstaged changes ({} among them): {what} would mix them in or lose them",
+                printable(&place.toplevel.to_string_lossy()),
+                printable(&entry.path)
+            ),
+        )
+        .with_suggestion("stage, commit or stash the changes first")),
+    }
 }

@@ -1,4 +1,4 @@
-//! The connectivity rule of the project view (plan 04, ADR 0015 "Prompt read
+//! The connectivity rule of the project view (ADR 0015 "Prompt read
 //! views"): one `Degree` per entity, stats' unconnected count and the count
 //! of entities per kind.
 

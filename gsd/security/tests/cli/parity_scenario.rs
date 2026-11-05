@@ -1,6 +1,6 @@
-//! The vault twin answers as gsd-tools did over the vault fixture (plan 16 T24): hooks, threat IDs, the ship gate, the
+//! The vault twin answers as gsd-tools did over the vault fixture: hooks, threat IDs, the ship gate, the
 //! audit trail and the settings, each compared with the golden `record-security.sh` recorded from gsd-core 1.19.0
-//! (`gsd/parity/goldens/vault/`). A difference the plan names is normalised here and listed in ACCEPTANCE.
+//! (`gsd/parity/goldens/vault/`). A known difference is normalised here and listed in ACCEPTANCE.
 
 use std::process::Command;
 
@@ -200,7 +200,7 @@ fn the_ship_gate_blocks_as_check_predicate_did() {
 fn the_audit_trail_appends_once_per_change_as_append_audit_did() {
     let p = project();
     // the fixture's trail ends at (3 found, 1 closed, 2 open); this verdict closes more. It names no duplicate ID but
-    // `T-01-SC`, which both plans keep by design (REVIEW-security-part2 M2: that case was once avoided here)
+    // `T-01-SC`, which both plans keep by design (that case was once avoided here)
     let verdict = json!({"threats": [
         {"id": "T-01-01", "status": "closed", "evidence": "src/vault.js:20"},
         {"id": "T-01-03", "status": "closed"},

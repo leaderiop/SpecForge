@@ -141,7 +141,7 @@ fn discuss_phase_requires_its_phase() {
     assert_ne!(run.code, 0, "{}", run.all());
 }
 
-/// `$MILESTONE` and `$PROJECT` are in the shell blocks of the workflows (REVIEW-r42 minor 2): the prompt says what they are.
+/// `$MILESTONE` and `$PROJECT` are in the shell blocks of the workflows: the prompt says what they are.
 #[test]
 fn the_shell_ids_are_named_in_the_text() {
     let p = twin();
@@ -172,7 +172,7 @@ fn the_shell_ids_are_named_in_the_text() {
     );
 }
 
-/// REVIEW-r42 N6: `$MILESTONE` is never an abandoned milestone, as `specforge gsd phase` never acts on one.
+/// `$MILESTONE` is never an abandoned milestone, as `specforge gsd phase` never acts on one.
 #[test]
 fn the_shell_ids_skip_an_abandoned_milestone() {
     let p = twin();
@@ -203,8 +203,8 @@ const SPEC_READERS: [&str; 6] = [
     "plan-phase.md",
 ];
 
-/// The graph read that stands for upstream's `has_spec` / `spec_path` init facts (G4: plan-phase's shell block in plan
-/// 04, the prose runs in plan 05).
+/// The graph read that stands for upstream's `has_spec` / `spec_path` init facts, in plan-phase's shell block and in
+/// the prose runs.
 const PHASE_SPEC_PICK: &str = "--pick '.nodes[kind=phase_spec].id' | head -1";
 
 fn served(p: &super::harness::Project, file: &str) -> String {

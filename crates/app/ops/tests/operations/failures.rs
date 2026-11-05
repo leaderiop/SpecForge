@@ -1,4 +1,4 @@
-//! How operations fail and judge (plan 02, ADR 0029): an unusable test
+//! How operations fail and judge (ADR 0029): an unusable test
 //! report is one `OpError` on every view, a format run's verdict inputs,
 //! the project a migration compiles. The unlinked tests were pinned before
 //! ops decided any of it; the ticket that changed a pinned fact flipped it.

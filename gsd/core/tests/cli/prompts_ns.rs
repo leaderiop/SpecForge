@@ -81,7 +81,7 @@ fn ns_skills_route() {
                     _ => assert!(what.ends_with("(served by @gsd/core)"), "{name}: {what}"),
                 }
             }
-            // REVIEW-r43 Minor 18: a router has no shell block and does not know what is installed on the host
+            // A router has no shell block and does not know what is installed on the host
             assert!(
                 !text.contains("In the shell blocks above"),
                 "{router} {host}"

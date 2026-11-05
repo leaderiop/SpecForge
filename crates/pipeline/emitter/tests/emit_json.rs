@@ -329,7 +329,7 @@ fn references_between_generic_entities_produce_edges() {
     );
 }
 
-// -- The wire form of a field value (ADR 0064, plan 01).
+// -- The wire form of a field value (ADR 0064).
 
 fn exported_fields(fields: FieldMap) -> serde_json::Value {
     let mut graph = Graph::new();

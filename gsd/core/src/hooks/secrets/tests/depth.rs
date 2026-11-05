@@ -1,4 +1,4 @@
-//! The span reader's depth cap (F7), a divergence from gsd-core: upstream's reader recurses without one, and a stack
+//! The span reader's depth cap, a divergence from gsd-core: upstream's reader recurses without one, and a stack
 //! overflow lands in its fail-open catch. Here a command nested past `MAX_SPAN_DEPTH` spans is denied as
 //! `command-too-nested`, and one at the cap is judged as before.
 
@@ -104,7 +104,7 @@ fn heavy(n: usize) -> String {
 /// The bash 3.2 reading's read: `cat .env` runs where the `)` on a body line closes the substitution.
 const B32: &str = ": $(cat <<E\n)\ncat .env\nE\n)\n";
 
-/// F7 review: 600 KB of heredoc bodies read about 3.5 M tokens and ran past the 5000 ms budget, a trap the `allow`
+/// 600 KB of heredoc bodies read about 3.5 M tokens and ran past the 5000 ms budget, a trap the `allow`
 /// policy let through. The scan stops at `MAX_SCAN_TOKENS` and the command is denied; the work is bounded by the
 /// tokens read (the limit, and the one tokenize that crosses it), not by the clock.
 #[test]

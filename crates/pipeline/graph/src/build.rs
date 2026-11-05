@@ -423,7 +423,7 @@ fn partition_by_file(diagnostics: &[Diagnostic]) -> HashMap<String, Vec<Diagnost
 /// The incremental graph is the cold one: every node's kind, file, position, title, fields and methods, and every
 /// edge. It is the graph delta's comparison plus positions (each node's file, line and column, and the spans in its
 /// expressions and methods): the delta ignores them by contract, and an incremental build that misplaces a node is
-/// wrong even when nothing changed (ADR 0032, round 7 amendment). Where names are written is not the graph's: the
+/// wrong even when nothing changed (ADR 0032, as amended). Where names are written is not the graph's: the
 /// finder reads the build's own parses (ADR 0176).
 fn compare_graph_contents(incremental: &Graph, cold: &Graph) -> Result<(), String> {
     let node_sigs = |g: &Graph| -> BTreeMap<String, String> {

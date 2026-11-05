@@ -43,11 +43,15 @@ pub trait Http: Send + Sync {
 /// An HTTP port as the composition root shares it.
 pub type SharedHttp = Arc<dyn Http>;
 
-/// The method a redirect answered `status` to a `method` request is sent with: a `GET` after a 303, or after a 301 or
-/// 302 from a `POST`, as browsers do, and its own otherwise. A hop sent as a `GET` carries no body. Every adapter sends
-/// each hop with it and every grant judges the hop by it, so what is judged is what is sent.
+/// The method a redirect answered `status` to a `method` request is sent with: a `GET` after a 303 to anything but a
+/// `HEAD`, or after a 301 or 302 from a `POST`, as the Fetch standard says, and its own otherwise. A hop sent as a
+/// `GET` carries no body. Every adapter sends each hop with it and every grant judges the hop by it, so what is judged
+/// is what is sent.
 pub fn hop_method(status: u16, method: &str) -> &str {
-    if status == 303 || (matches!(status, 301 | 302) && method.eq_ignore_ascii_case("POST")) {
+    let head = method.eq_ignore_ascii_case("HEAD");
+    if (status == 303 && !head)
+        || (matches!(status, 301 | 302) && method.eq_ignore_ascii_case("POST"))
+    {
         "GET"
     } else {
         method

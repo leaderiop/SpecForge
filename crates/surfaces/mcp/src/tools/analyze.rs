@@ -31,7 +31,7 @@ pub struct Args {
 /// project's environment was loaded in (ADR 0015, "The runtime travels with
 /// the environment"): the served session's, or the session another project
 /// was opened as for this call. With no project served and no `path`, there is nothing to
-/// analyze: a no-project refusal (plan 01 D7).
+/// analyze: a no-project refusal.
 pub(crate) struct Tool;
 
 impl ArgumentOf<AnalyzeField> for Tool {

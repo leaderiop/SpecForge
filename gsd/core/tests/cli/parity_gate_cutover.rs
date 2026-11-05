@@ -189,7 +189,7 @@ fn gate_cutover_tdd_verdicts_reproduce() {
     let p = repository();
     p.settings(json!({ "workflow.tdd_mode": true }));
     p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T1);
-    // W403 is silent until the collector has run, so the silence is only evidence after `collect` (REVIEW-r44 M10).
+    // W403 is silent until the collector has run, so the silence is only evidence after `collect`.
     assert_eq!(p.collect(&["--runner", "gsd-git"]).code, 0);
     junit(&p, &[("adds a task", true)]);
     assert!(messages(&p, "W403").is_empty());

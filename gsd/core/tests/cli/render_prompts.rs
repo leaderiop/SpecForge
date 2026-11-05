@@ -385,7 +385,7 @@ fn help_lists_the_prompt_slash_commands() {
     }
 }
 
-/// Plan 05 review R6: `/gsd-pr-branch` reads the spec root from the host, `{{project:spec_root}}` filled at render,
+/// `/gsd-pr-branch` reads the spec root from the host, `{{project:spec_root}}` filled at render,
 /// not a `sed` over `specforge.json`; an unset spec root is the project root (`.`), not `spec`.
 #[test]
 fn the_spec_root_is_spelled_by_the_host() {

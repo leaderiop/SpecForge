@@ -194,7 +194,7 @@ fn stats_includes_diagnostic_summary() {
 
 // A type may declare a struct member named `verify`; the entity's
 // obligations are its verify statements wherever they sit among its fields,
-// so the member must not hide them (plan 02, S2).
+// so the member must not hide them.
 #[specforge_test(
     behavior = "compute_project_statistics",
     verify = "stats reports coverage percentage"
@@ -295,7 +295,7 @@ fn debug_body(stats: &impl std::fmt::Debug) -> String {
     text[text.find('{').unwrap()..].to_string()
 }
 
-// Pins what the surfaces' stats path computed before plan 02 T3 (the
+// Pins what the surfaces' stats path computed before it moved into ops (the
 // coverage rule over the registries, then the tally): moved behind the
 // stats operation, it must stay byte-identical. No spec obligation.
 #[test]
@@ -334,7 +334,7 @@ fn stats_document_leaves_proof_pct_out_without_results() {
     );
 }
 
-/// 11-D1: "verified" is the glossary's word for what counts and is
+/// "Verified" is the glossary's word for what counts and is
 /// proven; stats must not print it for entities that only declare.
 #[specforge_test(
     behavior = "compute_project_statistics",

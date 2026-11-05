@@ -310,11 +310,11 @@ PHASE_INT=${PHASE%%[!0-9]*}; PHASE_REST=${PHASE#"$PHASE_INT"}
 PHASE_N="$((10#$PHASE_INT))${PHASE_REST//./\\.}"
 PLAN_N=$((10#${PLAN}))
 # Check for RED gate commit
-git log --oneline -E --grep="^test\((0*${PHASE_N})-(0*${PLAN_N})\):" | head -1
+specforge git log --grep="^test\((0*${PHASE_N})-(0*${PLAN_N})\):" --max 1 --format human
 # Check for GREEN gate commit  
-git log --oneline -E --grep="^feat\((0*${PHASE_N})-(0*${PLAN_N})\):" | head -1
+specforge git log --grep="^feat\((0*${PHASE_N})-(0*${PLAN_N})\):" --max 1 --format human
 # Check for optional REFACTOR gate commit
-git log --oneline -E --grep="^refactor\((0*${PHASE_N})-(0*${PLAN_N})\):" | head -1
+specforge git log --grep="^refactor\((0*${PHASE_N})-(0*${PLAN_N})\):" --max 1 --format human
 ```
 
 If RED or GREEN gate commits are missing, or no GREEN commit follows a RED commit (#5275), add a `## TDD Gate Compliance` section to SUMMARY.md with the violation details.

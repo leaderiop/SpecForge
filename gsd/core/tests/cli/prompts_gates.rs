@@ -1,4 +1,4 @@
-//! The gates of the lifecycle prompts (REVIEW-r42 M6). A refused prompt answers a `gate_failed` JSON that names the
+//! The gates of the lifecycle prompts. A refused prompt answers a `gate_failed` JSON that names the
 //! failing code and lists the gates, and it writes nothing: the tree is byte-identical after the refusal. Each gate
 //! has a pair: the project that trips it, and the same project once the cause is gone.
 

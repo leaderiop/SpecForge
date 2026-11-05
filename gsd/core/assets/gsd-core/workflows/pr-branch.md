@@ -28,7 +28,7 @@ default branch via the single resolver (#1146).
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 CURRENT_BRANCH=$(specforge git head --pick .branch)
-TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
+TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 ```
 
 Check preconditions:
@@ -121,7 +121,7 @@ printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9
     esac
     # Exclude untracked-only repos: seam filters ?? lines, so detection must match.
     # shortcut: no 10 s timeout as node's execFileSync had (no portable `timeout`); a hung git hangs the scan
-    if git -C "$resolved" status --porcelain 2>/dev/null | grep -qv '^??'; then
+    if specforge git status --in "$resolved" --pick '.tracked[]' 2>/dev/null | grep -q .; then
       printf '%s\n' "$r"
     fi
   done
@@ -236,7 +236,7 @@ Classify commits:
 
 ```bash
 # Get all commits ahead of target
-git log --oneline "$TARGET".."$CURRENT_BRANCH" --no-merges
+specforge git log "$TARGET".."$CURRENT_BRANCH" --no-merges --format human
 ```
 
 **Canonical path declarations.** These three lines are the single source of truth for the
@@ -385,7 +385,7 @@ files would be overwritten by merge"*, and every remaining commit is silently dr
 for HASH in $(printf '%s' "$INCLUDED_COMMITS"); do
   # A modify/delete conflict on a filtered path is EXPECTED and is resolved below — the
   # filtered path is absent from HEAD by construction. Do not treat it as a failure here.
-  git cherry-pick --no-commit "$HASH" || true
+  specforge git cherry-pick --no-commit "$HASH" || true
 
   # One path per LINE, not per space (#4605) — a discovered `<milestone>-phases/`
   # directory can contain a space, so `for P in $(printf ...)` would word-split it
@@ -393,8 +393,8 @@ for HASH in $(printf '%s' "$INCLUDED_COMMITS"); do
   # time instead, matching the newline-safe pattern used to build $FILTER_PATHS above.
   while IFS= read -r P; do
     [ -n "$P" ] || continue
-    git rm -r -f -q --ignore-unmatch -- "$P" 2>/dev/null || true
-    git checkout HEAD -- "$P" 2>/dev/null || true
+    specforge git rm -r -f --ignore-unmatch -- "$P" >/dev/null 2>&1 || true
+    specforge git restore --source HEAD --staged --worktree -- "$P" >/dev/null 2>&1 || true
   done <<FILTER_PATHS_EOF
 $FILTER_PATHS
 FILTER_PATHS_EOF
@@ -445,9 +445,9 @@ FILTER_PATHS_EOF
     if echo "$P" | grep -Eq "$FORBIDDEN_RE"; then continue; fi
     if echo "$P" | grep -Eq "$STRUCTURAL_RE"; then continue; fi
     if [ "$(specforge git rev "$HASH:$P" --pick '.revs[0].exists' 2>/dev/null)" = true ]; then
-      git checkout --theirs -- "$P" && git add -- "$P" # gsd-scan-ignore: #4606 -- see block comment above
+      specforge git restore --theirs -- "$P" >/dev/null && specforge git add -- "$P" # gsd-scan-ignore: #4606 -- see block comment above
     else
-      git rm -f -q -- "$P" 2>/dev/null || true
+      specforge git rm -f -- "$P" >/dev/null 2>&1 || true
     fi
   done <<UNMERGED_PATHS_EOF
 $UNMERGED_PATHS
@@ -465,7 +465,7 @@ UNMERGED_PATHS_EOF
     # $PR_BRANCH is disposable and every commit on it was cherry-picked, and the
     # clean-tree precondition guarantees the user had nothing uncommitted, so a hard
     # reset here cannot destroy anything of theirs.
-    git cherry-pick --quit 2>/dev/null || true
+    specforge git cherry-pick --quit 2>/dev/null || true
     specforge git reset HEAD --hard --yes --pick .sha >/dev/null
     if specforge git switch "$CURRENT_BRANCH" --pick .branch >/dev/null; then
       specforge git branch delete "$PR_BRANCH" --force >/dev/null 2>&1 || true
@@ -482,11 +482,11 @@ UNMERGED_PATHS_EOF
   # Nothing left after filtering (possible when a pick's only surviving content was
   # planning state): clear the sequencer rather than failing on an empty commit.
   if [ "$(specforge git diff --staged --pick .count)" = 0 ]; then
-    git cherry-pick --quit 2>/dev/null || true
+    specforge git cherry-pick --quit 2>/dev/null || true
     continue
   fi
 
-  git commit -q -C "$HASH"
+  specforge git commit -C "$HASH" >/dev/null
 done
 ```
 

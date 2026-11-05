@@ -1,4 +1,4 @@
-//! A `credentials.json` that cannot be read is R012 for every reader (ADR 0045, amended in round 16):
+//! A `credentials.json` that cannot be read is R012 for every reader (ADR 0045, as amended):
 //! login and logout refuse before they write or delete anything.
 
 use crate::support::registry::project_on;

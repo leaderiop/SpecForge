@@ -3,7 +3,7 @@
 
 use serde_json::json;
 
-use super::cmd_execute::{CHECKPOINT, PLAN, PLANTED, SETUP, STARTED, SUMMARY, stale_plan_check};
+use super::cmd_execute::{CHECKPOINT, PLAN, PLANTED, SETUP, SUMMARY, stale_plan_check, started};
 use super::cmd_milestone::ready;
 use super::cmd_refactor::{PHASE, busy, with_source};
 use super::cmd_verify::unanswered;
@@ -65,7 +65,7 @@ fn cases() -> Vec<Case> {
         Case {
             command: "complete-plan",
             project: planted,
-            args: |_| strs(&[SUMMARY, "--started", STARTED]),
+            args: |_| strs(&[SUMMARY, "--started", started()]),
             shows: "started",
         },
         Case {
@@ -253,7 +253,7 @@ fn a_failing_gate_refuses_and_an_off_setting_allows() {
     p.settings(json!({ "profile": "gsd-strict", "workflow.tdd_mode": true }));
     let kept = bytes(&p);
     refused(
-        &gsd(&p, "complete-plan", &[SUMMARY, "--started", STARTED]),
+        &gsd(&p, "complete-plan", &[SUMMARY, "--started", started()]),
         "gate_failed",
         &["W404", PLAN],
     );
@@ -263,7 +263,7 @@ fn a_failing_gate_refuses_and_an_off_setting_allows() {
         gsd(
             &p,
             "complete-plan",
-            &[SUMMARY, "--started", STARTED, "--dry-run"]
+            &[SUMMARY, "--started", started(), "--dry-run"]
         )
         .code,
         0
@@ -281,7 +281,7 @@ fn a_failing_gate_refuses_and_an_off_setting_allows() {
 fn every_command_refuses_an_unknown_entity_with_its_name() {
     let unknown: [(&str, Vec<&str>); 15] = [
         ("start-plan", vec!["NOPE"]),
-        ("complete-plan", vec!["NOPE", "--started", STARTED]),
+        ("complete-plan", vec!["NOPE", "--started", started()]),
         (
             "answer-checkpoint",
             vec!["NOPE", "--option", "x", "--by", "ada"],

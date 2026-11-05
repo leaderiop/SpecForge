@@ -386,7 +386,7 @@ fn resources_subscribe_guards() {
     assert!(resp["error"].is_object(), "must reject missing uri");
 }
 
-// ---- Pins: who hears about what (plan 12, T0) ----
+// ---- Pins: who hears about what ----
 
 /// What `subscriptions` queued, as the transport writes it.
 fn drained(subscriptions: &mut Subscriptions) -> Vec<serde_json::Value> {

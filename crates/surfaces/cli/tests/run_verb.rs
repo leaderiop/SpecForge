@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
-use crate::support::{Cli, TestProject};
+use crate::support::{Cli, TestProject, files_under};
 
 /// What the child does, read from `RUN_VERB_CHILD`: `exit:<n>`, `sleep`, `echo` (stdin to stdout), `env:<name>`,
 /// `cwd` (its directory and `PWD`) or `talk` (a line to each stream). Outside a `specforge run` it does nothing and passes.
@@ -141,7 +141,7 @@ fn a_pass_through_run_is_journaled_as_its_argv_digest_and_how_it_ended() {
         .bare(&args(&["run", "--"], &argv))
         .exits(3);
     let journal = project.root().join(".specforge/effects/journal");
-    let records: Vec<Value> = walkdir(&journal)
+    let records: Vec<Value> = files_under(&journal)
         .into_iter()
         .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
         .map(|path| serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap())
@@ -167,7 +167,6 @@ fn a_pass_through_run_is_journaled_as_its_argv_digest_and_how_it_ended() {
     );
 }
 
-/// Every file under `dir`.
 /// A command the user typed may carry a token: neither a pass-through nor a captured run writes its argv to the
 /// journal, and a replay still answers with the argv it was asked.
 #[test]
@@ -184,7 +183,7 @@ fn no_record_holds_a_typed_argv_in_clear() {
         .exits(0)
         .json();
     let journal = project.root().join(".specforge/effects/journal");
-    let files = walkdir(&journal);
+    let files = files_under(&journal);
     assert!(files.len() >= 3, "two records and a payload: {files:?}");
     for path in files {
         let text = String::from_utf8_lossy(&std::fs::read(&path).unwrap()).into_owned();
@@ -203,19 +202,6 @@ fn no_record_holds_a_typed_argv_in_clear() {
         .json();
     assert_eq!(replayed["argv"], live["argv"]);
     assert_eq!(replayed["argv"][argv.len() - 1], token);
-}
-
-fn walkdir(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
-    let mut found = Vec::new();
-    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            found.extend(walkdir(&path));
-        } else {
-            found.push(path);
-        }
-    }
-    found
 }
 
 #[test]

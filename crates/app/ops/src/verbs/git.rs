@@ -4,26 +4,32 @@
 use serde::Serialize;
 use specforge_effects::git::{
     DiffQuery, DiffSide, GitBranchRef, GitCommit, GitError, GitFileDiff, GitPlace, GitRemote,
-    GitStatus, LOG_MAX, Located, LogQuery, ObjectKind, Sha, Tracking, is_binary,
+    GitStatus, GitSubmodule, LOG_MAX, Located, LogQuery, ObjectKind, Sha, Tracking, is_binary,
 };
 
 use super::{USER, Verbs, slashed};
 use crate::{OpError, OpErrorKind, UNKNOWN_REVISION};
+use specforge_effects::RealFs;
 
 mod branching;
 mod commit;
 mod merging;
 
 pub use branching::{
-    PrunedAnswer, RefAnswer, branch_create, branch_delete, switch, tag, worktree_add,
-    worktree_prune, worktree_remove,
+    InitAnswer, LockAnswer, PrunedAnswer, RefAnswer, branch_create, branch_delete, init, switch,
+    tag, worktree_add, worktree_lock, worktree_prune, worktree_remove,
 };
-pub use commit::{CommitAnswer, CommitRequest, cleaned, commit};
+pub use commit::{
+    AddRequest, CommitAnswer, CommitRequest, HookAnswer, RmAnswer, add, cleaned, commit, hook_run,
+    rm,
+};
 pub use merging::{
-    FastForward, MergeAnswer, ResetAnswer, RestoreAnswer, StashAnswer, StashesAnswer, merge, pick,
-    reset, restore, stash_list, stash_pop, stash_push,
+    FastForward, MergeAnswer, MergeRequest, PickEndAnswer, ResetAnswer, RestoreAnswer,
+    RestoreRequest, StashAnswer, StashesAnswer, merge, pick, pick_end, reset, restore, stash_list,
+    stash_pop, stash_push,
 };
 pub use specforge_effects::git::ResetMode;
+pub use specforge_effects::git::{ConflictSide, Removal};
 
 /// `git repo`'s answer: where the repository is.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -35,6 +41,12 @@ pub struct RepoAnswer {
     /// A linked worktree: its git directory is not the common one.
     pub linked: bool,
     pub shallow: bool,
+    /// The current directory from the top, `/`-ended as `git rev-parse --show-prefix` prints it (`""` at the top);
+    /// none when the current directory is outside the working tree.
+    pub prefix: Option<String>,
+    /// The top of the repository this one is a submodule of (`--show-superproject-working-tree`), absolute; none when
+    /// it is no submodule.
+    pub superproject: Option<String>,
 }
 
 /// `git head`'s answer.
@@ -72,6 +84,9 @@ pub struct StatusAnswer {
     pub status: GitStatus,
     /// Nothing `HEAD` does not hold: no tracked change, conflict or untracked file (ADR 0327 D3).
     pub clean: bool,
+    /// The paths of the tracked entries (a change, a rename, a conflict), in git's order: the lines of `git status
+    /// --porcelain` but the `??` ones.
+    pub tracked: Vec<String>,
     /// The paths of the untracked entries, in git's order.
     pub untracked: Vec<String>,
 }
@@ -109,7 +124,8 @@ pub const HOOK_REFUSED: &str = "hook_refused";
 /// `git log`'s answer: the commits, newest first, and how many (`rev-list --count`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct LogAnswer {
-    pub count: usize,
+    /// Every commit the log keeps; `null` when a `-S` log stopped past its listing rather than read the whole history.
+    pub count: Option<usize>,
     /// The listing stopped at its `--max` (or at [`LOG_MAX`] when none was given) before `count` commits.
     pub truncated: bool,
     pub commits: Vec<GitCommit>,
@@ -123,6 +139,17 @@ pub struct LogRequest {
     pub paths: Vec<String>,
     pub first_parent: bool,
     pub max: Option<usize>,
+    /// Oldest first; `max` still keeps the newest, as git applies `-n` before `--reverse`.
+    pub reverse: bool,
+    /// A regex a line of the message matches (`--grep`).
+    pub grep: Option<String>,
+    /// Dates as git reads them (`--since`, `--until`).
+    pub since: Option<String>,
+    pub until: Option<String>,
+    pub no_merges: bool,
+    /// The text, or with `pickaxe_regex` the regex, whose count in a file a commit changes (`-S`).
+    pub pickaxe: Option<String>,
+    pub pickaxe_regex: bool,
 }
 
 /// The side `git diff` compares its base with.
@@ -141,6 +168,9 @@ pub struct DiffRequest {
     pub head: DiffHead,
     pub paths: Vec<String>,
     pub patch: bool,
+    /// Compare from where the base and the head's commit (HEAD for the index or the worktree) meet, as `git diff
+    /// A...B` and `--merge-base` do.
+    pub merge_base: bool,
 }
 
 /// `git diff`'s answer: the base commit, the head (a commit, `index` or `worktree`) and the changed files by path.
@@ -149,6 +179,9 @@ pub struct DiffAnswer {
     pub base: String,
     pub head: String,
     pub count: usize,
+    /// The lines the text files gain and lose, as `--shortstat` totals them.
+    pub added: u64,
+    pub removed: u64,
     pub files: Vec<GitFileDiff>,
 }
 
@@ -195,6 +228,12 @@ pub struct Worktree {
     pub current: bool,
 }
 
+/// `git submodules`' answer: what `.gitmodules` declares.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SubmodulesAnswer {
+    pub submodules: Vec<GitSubmodule>,
+}
+
 /// `git remotes`' answer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RemotesAnswer {
@@ -209,11 +248,16 @@ impl Verbs {
             .map_err(|denial| super::outside_ceiling(&denial.request, &denial))
     }
 
-    /// [`Self::place`] for a write: the ceiling lets git be changed (`git` `write`) as well as asked.
-    fn place_to_write(&self, question: &str) -> Result<GitPlace, OpError> {
+    /// The ceiling lets git be changed (`git` `write`) as well as asked `question`.
+    fn permit_git_write(&self, question: &str) -> Result<(), OpError> {
         self.grant
             .permits_git_write(USER, question)
-            .map_err(|denial| super::outside_ceiling(&denial.request, &denial))?;
+            .map_err(|denial| super::outside_ceiling(&denial.request, &denial))
+    }
+
+    /// [`Self::place`] for a write: the ceiling lets git be changed (`git` `write`) as well as asked.
+    fn place_to_write(&self, question: &str) -> Result<GitPlace, OpError> {
+        self.permit_git_write(question)?;
         let place = self.place(question)?;
         // Before anything runs, a hook included: a repository another user owns runs none of its hooks.
         self.ports()
@@ -223,10 +267,18 @@ impl Verbs {
         Ok(place)
     }
 
-    /// The repository the project is in, once the ceiling lets git be asked `question`.
+    /// The repository the current directory is in, as git finds it, when the project holds the current directory (a
+    /// repository nested in the project, or `--in`); else the project's. Once the ceiling lets git be asked
+    /// `question`.
     fn place(&self, question: &str) -> Result<GitPlace, OpError> {
         self.permit_git(question)?;
-        match self.ports().git.locate(self.root().dir()) {
+        let project = RealFs::landing(self.root().dir());
+        let from = if self.cwd().starts_with(&project) {
+            self.cwd()
+        } else {
+            self.root().dir()
+        };
+        match self.ports().git.locate(from) {
             Located::Repo(place) => Ok(place),
             Located::NotARepository => Err(OpError::new(
                 OpErrorKind::PreconditionFailed,
@@ -249,12 +301,23 @@ fn failed(error: GitError) -> OpError {
 
 pub fn repo(verbs: &Verbs) -> Result<RepoAnswer, OpError> {
     let place = verbs.place("repo")?;
+    let superproject = verbs.ports().git.superproject(&place).map_err(failed)?;
+    let prefix = verbs.cwd().strip_prefix(&place.toplevel).ok().map(|rel| {
+        let rel = slashed(rel);
+        if rel.is_empty() {
+            rel
+        } else {
+            format!("{rel}/")
+        }
+    });
     Ok(RepoAnswer {
         top: slashed(&place.toplevel),
         git_dir: slashed(&place.git_dir),
         common_dir: slashed(&place.common_dir),
         linked: place.git_dir != place.common_dir,
         shallow: place.shallow,
+        prefix,
+        superproject: superproject.as_deref().map(slashed),
     })
 }
 
@@ -275,8 +338,40 @@ pub fn head(verbs: &Verbs) -> Result<HeadAnswer, OpError> {
     })
 }
 
-pub fn revs(verbs: &Verbs, asked: &[String]) -> Result<RevsAnswer, OpError> {
+/// How `git rev --sorted` orders the commits it is given: newest first by committer date, or oldest first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RevOrder {
+    pub reverse: bool,
+}
+
+pub fn revs(
+    verbs: &Verbs,
+    asked: &[String],
+    order: Option<RevOrder>,
+) -> Result<RevsAnswer, OpError> {
     let place = verbs.place("rev")?;
+    if let Some(order) = order {
+        // as `rev-list --no-walk=sorted`: every revision names a commit, or none is answered
+        let commits = asked
+            .iter()
+            .map(|rev| commit_named(verbs, &place, rev.trim()))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut sorted = verbs.ports().git.sorted(&place, &commits).map_err(failed)?;
+        if order.reverse {
+            sorted.reverse();
+        }
+        return Ok(RevsAnswer {
+            revs: sorted
+                .into_iter()
+                .map(|sha| Rev {
+                    rev: sha.as_str().to_string(),
+                    sha: Some(sha.as_str().to_string()),
+                    kind: Some(ObjectKind::Commit),
+                    exists: true,
+                })
+                .collect(),
+        });
+    }
     let mut revs = Vec::with_capacity(asked.len());
     for rev in asked {
         let found = verbs.ports().git.resolve(&place, rev).map_err(failed)?;
@@ -293,14 +388,20 @@ pub fn revs(verbs: &Verbs, asked: &[String]) -> Result<RevsAnswer, OpError> {
 pub fn status(verbs: &Verbs) -> Result<StatusAnswer, OpError> {
     let place = verbs.place("status")?;
     let status = verbs.ports().git.status(&place).map_err(failed)?;
-    let untracked = status
-        .entries
-        .iter()
-        .filter(|e| e.kind == specforge_effects::git::GitEntryKind::Untracked)
-        .map(|e| e.path.clone())
-        .collect();
+    use specforge_effects::git::GitEntryKind as Kind;
+    let paths = |kept: &dyn Fn(Kind) -> bool| {
+        status
+            .entries
+            .iter()
+            .filter(|e| kept(e.kind))
+            .map(|e| e.path.clone())
+            .collect()
+    };
+    let tracked = paths(&|kind| matches!(kind, Kind::Changed | Kind::Renamed | Kind::Unmerged));
+    let untracked = paths(&|kind| kind == Kind::Untracked);
     Ok(StatusAnswer {
         clean: !status.dirty(),
+        tracked,
         untracked,
         status,
     })
@@ -330,6 +431,25 @@ fn commit_named(verbs: &Verbs, place: &GitPlace, revision: &str) -> Result<Sha, 
                 format!("{revision} names no commit"),
             )
         })
+}
+
+/// A user's value the port refused as no date or no pattern (`InvalidInput`).
+fn invalid(error: GitError) -> OpError {
+    OpError::new(
+        OpErrorKind::InvalidInput,
+        OpErrorKind::InvalidInput.as_str(),
+        error.0,
+    )
+}
+
+/// `pattern`, once it is a regex.
+fn checked(pattern: String) -> Result<String, OpError> {
+    match regex::Regex::new(&pattern) {
+        Ok(_) => Ok(pattern),
+        Err(error) => Err(invalid(GitError(format!(
+            "{pattern:?} is no regex: {error}"
+        )))),
+    }
 }
 
 /// `HEAD` for an empty side of a range.
@@ -364,29 +484,51 @@ pub fn log(verbs: &Verbs, request: &LogRequest) -> Result<LogAnswer, OpError> {
     };
     if tips.is_empty() {
         return Ok(LogAnswer {
-            count: 0,
+            count: Some(0),
             truncated: false,
             commits: Vec::new(),
         });
     }
+    let date = |text: &Option<String>| -> Result<Option<i64>, OpError> {
+        text.as_deref()
+            .map(|text| verbs.ports().git.date(text).map_err(invalid))
+            .transpose()
+    };
+    let pickaxe = request.pickaxe.as_deref().map(|text| {
+        if request.pickaxe_regex {
+            text.to_string()
+        } else {
+            regex::escape(text)
+        }
+    });
     let query = LogQuery {
         tips,
         hidden,
         paths: request.paths.clone(),
         first_parent: request.first_parent,
+        // with --reverse and no -n, the oldest commits are the ones listed, git's whole reversed log cut at the cap
         max: Some(request.max.unwrap_or(LOG_MAX)),
+        oldest: request.reverse && request.max.is_none(),
+        grep: request.grep.clone().map(checked).transpose()?,
+        since: date(&request.since)?,
+        until: date(&request.until)?,
+        no_merges: request.no_merges,
+        pickaxe: pickaxe.map(checked).transpose()?,
     };
-    let log = verbs.ports().git.log(&place, &query).map_err(failed)?;
+    let mut log = verbs.ports().git.log(&place, &query).map_err(failed)?;
+    if request.reverse {
+        log.commits.reverse();
+    }
     Ok(LogAnswer {
         count: log.count,
-        truncated: log.count > log.commits.len(),
+        truncated: log.count.is_none_or(|count| count > log.commits.len()),
         commits: log.commits,
     })
 }
 
 pub fn diff(verbs: &Verbs, request: &DiffRequest) -> Result<DiffAnswer, OpError> {
     let place = verbs.place("diff")?;
-    let base = commit_named(verbs, &place, request.base.as_deref().unwrap_or("HEAD"))?;
+    let mut base = commit_named(verbs, &place, request.base.as_deref().unwrap_or("HEAD"))?;
     let (head, named) = match &request.head {
         DiffHead::Revision(Some(revision)) => {
             let sha = commit_named(verbs, &place, revision)?;
@@ -401,6 +543,24 @@ pub fn diff(verbs: &Verbs, request: &DiffRequest) -> Result<DiffAnswer, OpError>
             (DiffSide::Worktree, "worktree".to_string())
         }
     };
+    if request.merge_base {
+        let against = match &head {
+            DiffSide::Commit(sha) => sha.clone(),
+            DiffSide::Index | DiffSide::Worktree => commit_named(verbs, &place, "HEAD")?,
+        };
+        base = verbs
+            .ports()
+            .git
+            .merge_base(&place, &base, &against)
+            .map_err(failed)?
+            .ok_or_else(|| {
+                invalid(GitError(format!(
+                    "{} and {} share no history: there is no merge base to compare from",
+                    base.short(),
+                    against.short()
+                )))
+            })?;
+    }
     let query = DiffQuery {
         base: base.clone(),
         head,
@@ -408,10 +568,13 @@ pub fn diff(verbs: &Verbs, request: &DiffRequest) -> Result<DiffAnswer, OpError>
         patch: request.patch,
     };
     let files = verbs.ports().git.diff(&place, &query).map_err(failed)?;
+    let text = || files.iter().filter(|file| !file.binary);
     Ok(DiffAnswer {
         base: base.as_str().to_string(),
         head: named,
         count: files.len(),
+        added: text().map(|file| u64::from(file.added)).sum(),
+        removed: text().map(|file| u64::from(file.removed)).sum(),
         files,
     })
 }
@@ -496,4 +659,10 @@ pub fn remotes(verbs: &Verbs) -> Result<RemotesAnswer, OpError> {
     let place = verbs.place("remotes")?;
     let remotes = verbs.ports().git.remotes(&place).map_err(failed)?;
     Ok(RemotesAnswer { remotes })
+}
+
+pub fn submodules(verbs: &Verbs) -> Result<SubmodulesAnswer, OpError> {
+    let place = verbs.place("submodules")?;
+    let submodules = verbs.ports().git.submodules(&place).map_err(failed)?;
+    Ok(SubmodulesAnswer { submodules })
 }

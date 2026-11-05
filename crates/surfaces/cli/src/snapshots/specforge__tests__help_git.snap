@@ -4,10 +4,10 @@ expression: command.clone().render_long_help().to_string()
 ---
 Read and change the repository the project is in, with no git program: its place, history and status, and commits, branches, worktrees and merges under the effects ceiling, as JSON (ADR 0339)
 
-Usage: specforge git <COMMAND>
+Usage: specforge git [OPTIONS] <COMMAND>
 
 Commands:
-  repo         Where the repository is: its top directory, git directory and common directory
+  repo         Where the repository is: its top directory, git directory and common directory, the current directory's prefix and the repository it is a submodule of
   head         HEAD's commit and branch, whether it is detached or unborn, and its upstream
   rev          What each revision names: its sha and kind, or that it names nothing
   status       The working tree's status: each changed, conflicted and untracked path, and whether it is clean
@@ -19,6 +19,11 @@ Commands:
   branches     The local branches with their upstream and how far each is ahead and behind, or the remote-tracking ones
   worktrees    The main worktree and the linked ones, with the branch each is on
   remotes      The remotes, with each URL's host and `owner/repo` path
+  submodules   The submodules `.gitmodules` declares: each name, path and URL
+  add          Stage files as the worktree has them; ignore rules kept, a filter driver refused
+  rm           Take files out of the index and off the disk (--cached: the index alone); a changed one needs -f
+  init         Make a directory a repository, unless it is one
+  hook         Run one of the repository's hooks
   commit       Record a commit: stage the paths named, run the repository's hooks, commit by git's configured identity
   branch       Create or delete a branch
   switch       Move HEAD to a branch, its files checked out; a file the worktree changed is never overwritten
@@ -28,10 +33,13 @@ Commands:
   reset        Move HEAD to a revision, and the index (--mixed, the default) and the files (--hard) with it
   restore      Put files back as the index has them (or --source), discarding their changes; --staged: their index entries
   stash        Set the worktree's changes aside, bring them back, or list them
-  cherry-pick  Apply a commit onto HEAD and record it with its author and message; conflicts exit 1
-  revert       Record a commit that undoes another; conflicts exit 1
+  cherry-pick  Apply a commit onto HEAD and record it with its author and message (or stage it, -n); conflicts exit 1
+  revert       Record a commit that undoes another (or stage its undoing, -n); conflicts exit 1
   help         Print this message or the help of the given subcommand(s)
 
 Options:
+      --in <DIR>
+          Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
+
   -h, --help
           Print help

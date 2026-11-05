@@ -1,4 +1,4 @@
-//! How a core tool's arguments are listed and read (plan 08, ADR 0033).
+//! How a core tool's arguments are listed and read (ADR 0033).
 //!
 //! The first two tests are snapshots of the core tools' listing, byte for
 //! byte as a client receives it, and of what a call answers (and writes)
@@ -19,7 +19,7 @@ fn core_tool_listing_today() {
 
 /// The defaults of the read views' arguments are the operation's: the query
 /// depth and the search limit that `specforge_ops::read::query` holds, which the
-/// CLI's `--depth` default reads too (plan 08 T8).
+/// CLI's `--depth` default reads too.
 #[test]
 fn the_read_view_defaults_are_the_operations() {
     let tools = core_tools();

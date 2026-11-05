@@ -1,4 +1,4 @@
-//! How set, unset, link, unlink and create read a `field.entry` path (ADR 0151, amended by round 16 plan 09).
+//! How set, unset, link, unlink and create read a `field.entry` path (ADR 0151).
 
 use super::*;
 use crate::navigate::compile;

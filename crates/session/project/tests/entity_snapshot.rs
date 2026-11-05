@@ -3,7 +3,7 @@
 //! compiler pass reads; who owes obligations under an untargeted obligation
 //! rule; and where `file_exists` resolves a path. The probe extension
 //! `@pin/snapshot` declares, in process, the rules that echo what each
-//! reader saw (plan 01 §3, Appendix A).
+//! reader saw.
 
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;

@@ -94,7 +94,7 @@ If the project uses git submodules, parse `SUBMODULE_PATHS` from `.gitmodules` e
 
 ```bash
 if [ -f .gitmodules ]; then
-  SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
+  SUBMODULE_PATHS=$(specforge git submodules --pick '.submodules[].path' 2>/dev/null)
 else
   SUBMODULE_PATHS=""
 fi

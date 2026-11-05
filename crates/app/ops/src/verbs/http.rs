@@ -257,7 +257,15 @@ pub fn request(
                 class: outcome.class,
                 digest: Blob::of(&outcome.body).sha256,
             },
-            payload: answered.and_then(|answer| serde_json::to_vec(&answer).ok()),
+            // The typed URL is the user's and may carry a token: the payload keeps neither it nor a final URL that is
+            // still it, and reading the record puts both back from the request asked.
+            payload: answered.and_then(|mut answer| {
+                if answer.final_url == answer.url {
+                    answer.final_url.clear();
+                }
+                answer.url.clear();
+                serde_json::to_vec(&answer).ok()
+            }),
         }
     });
     match served {
@@ -271,7 +279,15 @@ pub fn request(
             .map(serde_json::from_slice::<HttpAnswer>)
         {
             Some(Ok(kept)) => Ok(Answered {
-                answer: kept,
+                answer: HttpAnswer {
+                    final_url: if kept.final_url.is_empty() {
+                        request.url.clone()
+                    } else {
+                        kept.final_url
+                    },
+                    url: request.url.clone(),
+                    ..kept
+                },
                 effect: Effect {
                     digest: Some(RecordDigest::asked_by(USER, &asked)),
                     observed_at,

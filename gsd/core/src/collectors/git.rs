@@ -52,7 +52,7 @@ const FORMAT: &str = "--format=%x00%H%x1f%P%x1f%at%x1f%(trailers:key=Gsd-Task,va
 /// `commit.linked_by`: what found a commit's task.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum LinkedBy {
-    /// Its `Gsd-Task:` trailer, written as the trailer's own key (owner decision 04-U1).
+    /// Its `Gsd-Task:` trailer, written as the trailer's own key.
     Trailer,
     /// Its subject's title.
     Title,
@@ -70,7 +70,7 @@ impl LinkedBy {
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.collector(NAME, |k| {
-        // A branch ref: a repository with a commit. An unborn one has neither, and `git log` fails there (04-U2).
+        // A branch ref: a repository with a commit. An unborn one has neither, and `git log` fails there.
         k.input_format("git-log")
             .detect_files(&[".git/refs/heads/*", ".git/packed-refs"])
             .run(&[

@@ -1,4 +1,4 @@
-//! A core tool's refusal names the argument it is about (ADR 0033, plan 11).
+//! A core tool's refusal names the argument it is about (ADR 0033).
 
 use crate::support::*;
 use serde_json::{Value, json};

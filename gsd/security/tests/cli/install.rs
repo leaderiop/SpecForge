@@ -1,4 +1,4 @@
-//! What `specforge install <host>` writes for the files `@gsd/security` owns (plan 16 T23): the auditor on each host
+//! What `specforge install <host>` writes for the files `@gsd/security` owns: the auditor on each host
 //! (the full body on Claude Code, the compact one on Codex and Cursor) and the `/gsd-secure-phase` skill, pinned by
 //! goldens, with the report rows that name them. Core's own files are not compared here: its goldens cover them,
 //! unchanged.
@@ -199,7 +199,7 @@ fn without_security_nothing_of_it_is_installed() {
     }
 }
 
-/// REVIEW-security-part2 M4: the installed auditor reads core's references through `specforge gsd reference`, as core's
+/// The installed auditor reads core's references through `specforge gsd reference`, as core's
 /// agents do; `~/.claude/gsd-core/` does not exist in a SpecForge install.
 #[test]
 fn the_installed_auditor_names_no_upstream_install_path() {
@@ -218,7 +218,7 @@ fn the_installed_auditor_names_no_upstream_install_path() {
     }
 }
 
-/// REVIEW-security-part2 m5: `/gsd-secure-phase` is in core's `audit_review` cluster, so hiding the cluster (a setting
+/// `/gsd-secure-phase` is in core's `audit_review` cluster, so hiding the cluster (a setting
 /// of `@gsd/core`) hides the skill too; the auditor stays.
 #[test]
 fn hiding_the_audit_review_cluster_hides_the_secure_phase_skill() {

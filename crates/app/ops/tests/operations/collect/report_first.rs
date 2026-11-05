@@ -1,4 +1,4 @@
-//! K17 (ADR 0297, D2): a writing collector's plan is judged against the project with the report its collect wrote,
+//! A writing collector's plan is judged against the project with the report its collect wrote,
 //! so an error the recorded results alone cause (a check pass that declares the `tests` input) does not refuse the plan.
 //! `@t/tests` reports E900 for every failed result; `@t/core`'s `git` collector answers a failing result and a plan.
 

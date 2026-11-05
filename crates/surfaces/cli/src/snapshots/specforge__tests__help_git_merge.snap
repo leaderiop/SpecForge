@@ -14,8 +14,17 @@ Options:
       --ff-only
           Refuse unless HEAD can fast-forward
 
+      --in <DIR>
+          Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
+
       --no-ff
           Record a merge commit even when HEAD could fast-forward
+
+      --no-commit
+          Leave the merge staged, MERGE_HEAD kept, for specforge git commit to record
+
+      --squash
+          Leave the merged files staged as one change, HEAD unmoved and no second parent, for a commit to record
 
   -m, --message <MESSAGE>
           The merge commit's message

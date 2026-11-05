@@ -2,11 +2,14 @@
 source: crates/surfaces/cli/src/main.rs
 expression: command.clone().render_long_help().to_string()
 ---
-Where the repository is: its top directory, git directory and common directory
+Where the repository is: its top directory, git directory and common directory, the current directory's prefix and the repository it is a submodule of
 
 Usage: specforge git repo [OPTIONS]
 
 Options:
+      --in <DIR>
+          Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
+
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)
           

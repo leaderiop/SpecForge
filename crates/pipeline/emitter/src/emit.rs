@@ -50,7 +50,7 @@ pub struct EmitOptions<'a> {
     pub attach_schema: bool,
     /// Token budget for truncated output (default: None = no limit).
     pub token_budget: Option<usize>,
-    /// The Registry build the graph was built in (ADR 0123, amended in round 20): the kinds and
+    /// The Registry build the graph was built in (ADR 0123, as amended): the kinds and
     /// edge types DOT styles, the fields context and markdown keep, the forms markdown links by.
     /// Default: the empty build, a project with no extension.
     pub registries: &'a RegistryBuild,

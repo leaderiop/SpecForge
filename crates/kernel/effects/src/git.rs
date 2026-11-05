@@ -102,7 +102,7 @@ pub const BLOB_CAP: u64 = 16 * 1024 * 1024;
 /// The most bytes of one file's patch: a longer one is cut at a line, and the file says `truncated`.
 pub const PATCH_CAP: usize = 1024 * 1024;
 
-/// The most commits a log lists when none is asked; its count still counts every commit it walks.
+/// The most commits a log lists when none is asked; its count still counts every commit it walks (but past a `-S`).
 pub const LOG_MAX: usize = 1000;
 
 /// Whether `bytes` are binary as git decides: a NUL in the first 8000.
@@ -113,7 +113,9 @@ pub fn is_binary(bytes: &[u8]) -> bool {
 /// What a log walked: how many commits it keeps (`rev-list --count`) and the first of them, newest first.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GitLog {
-    pub count: usize,
+    /// Every commit the log keeps, or none when a `-S` log (which reads each commit's blobs) stopped at the first
+    /// commit past its listing rather than read the rest of the history to count it.
+    pub count: Option<usize>,
     pub commits: Vec<GitCommit>,
 }
 
@@ -174,7 +176,21 @@ pub struct LogQuery {
     pub paths: Vec<String>,
     /// Follow only each commit's first parent.
     pub first_parent: bool,
+    /// At most this many listed: the newest (`git log -n`), or the oldest with [`LogQuery::oldest`].
     pub max: Option<usize>,
+    /// [`LogQuery::max`] keeps the oldest commits walked rather than the newest.
+    pub oldest: bool,
+    /// Only the commits a line of whose message this regex matches (`--grep`, Rust's regex syntax).
+    pub grep: Option<String>,
+    /// Only the commits whose committer date is at or after this time, seconds since the epoch (`--since`).
+    pub since: Option<i64>,
+    /// Only the commits whose committer date is at or before this time (`--until`).
+    pub until: Option<i64>,
+    /// No commit with more than one parent (`--no-merges`).
+    pub no_merges: bool,
+    /// Only the commits that change how many times this regex matches in a file of [`LogQuery::paths`] against their
+    /// parent (`git log -S --pickaxe-regex`): a merge never does, a root commit is compared with nothing.
+    pub pickaxe: Option<String>,
 }
 
 /// The side a diff compares its base with.
@@ -274,9 +290,22 @@ pub struct GitRemote {
     pub host: Option<String>,
     /// The URL's path: `owner/repo` with `.git` stripped for a host, the path itself for a local one.
     pub path: String,
+    /// The remote's default branch, as its `refs/remotes/<name>/HEAD` names it (`main`, as `git symbolic-ref --short`
+    /// gives it less the remote's name); none when the clone recorded none.
+    pub head: Option<String>,
 }
 
-/// What a commit stages before it records the index: paths from the repository's top.
+/// A submodule `.gitmodules` declares.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct GitSubmodule {
+    pub name: String,
+    /// Where it is checked out, from the repository's top.
+    pub path: String,
+    /// Where it is cloned from, credentials removed; none when unset or unreadable.
+    pub url: Option<String>,
+}
+
+/// What `git add` stages, or a commit before it records the index: paths from the repository's top.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Staging {
     /// The files at or under each path as the worktree has them, ignore rules kept; a deleted file leaves the index.
@@ -289,6 +318,66 @@ pub struct Staging {
     pub all: bool,
     /// Stage an ignored path `add` names too (`git add --force`).
     pub force: bool,
+    /// Left out of `add` and `all`: the files at or under each, whatever else names them (`:!path`).
+    pub except: Vec<String>,
+}
+
+/// Which side of a conflict a file is restored from: the index's stage 2 (`--ours`) or 3 (`--theirs`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConflictSide {
+    Ours,
+    Theirs,
+}
+
+/// What `git restore` puts back, and from where.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Restoring {
+    /// The commit the paths come from; the index when none, or `HEAD` for `staged`.
+    pub source: Option<Sha>,
+    /// The index's entries (`--staged`).
+    pub staged: bool,
+    /// The files (`--worktree`); with `staged`, both from the source.
+    pub worktree: bool,
+    /// A conflicted file from that side (`--ours`, `--theirs`).
+    pub side: Option<ConflictSide>,
+}
+
+/// How `git merge` merges.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Merging {
+    /// `Some(true)`: a fast-forward or nothing (`--ff-only`); `Some(false)`: always a merge (`--no-ff`).
+    pub fast_forward: Option<bool>,
+    /// The merge commit's message.
+    pub message: String,
+    /// Leave the merge staged, unrecorded (`--no-commit`).
+    pub no_commit: bool,
+    /// Leave the merged tree staged as one change with no second parent (`--squash`).
+    pub squash: bool,
+}
+
+/// How `git rm` removes: what it may take and whether the files go too.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Removal {
+    /// Every file under a directory named (`-r`); without it a directory is refused.
+    pub recursive: bool,
+    /// The index entries alone, the files left on disk (`--cached`).
+    pub cached: bool,
+    /// Remove a file whose index or worktree differs from `HEAD` too (`-f`).
+    pub force: bool,
+    /// A path that matches no entry is passed over, not refused (`--ignore-unmatch`).
+    pub ignore_unmatch: bool,
+}
+
+/// How a commit records the index.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Recording {
+    /// Record even when the tree matches `HEAD`'s (`--allow-empty`).
+    pub allow_empty: bool,
+    /// Only the index's entries at or under these paths (from the repository's top), over `HEAD`'s tree: the other
+    /// staged changes stay staged (`git commit -- <paths>`).
+    pub only: Vec<String>,
+    /// The commit whose author (name, email and time) this one takes (`git commit -C`).
+    pub author_of: Option<Sha>,
 }
 
 /// A commit the port recorded.
@@ -345,6 +434,16 @@ pub trait Git: Send + Sync {
     fn locate(&self, dir: &Path) -> Located;
     /// The commit `revision` names in `place`; `None` when it names none (an unborn `HEAD`, an unknown name).
     fn commit(&self, place: &GitPlace, revision: &str) -> Result<Option<Sha>, GitError>;
+    /// `commits` newest first by committer date, each once, as `git rev-list --no-walk=sorted` orders them (a tie
+    /// keeps the order given).
+    fn sorted(&self, _place: &GitPlace, _commits: &[Sha]) -> Result<Vec<Sha>, GitError> {
+        Err(GitError::unanswered())
+    }
+    /// The time `text` names as git reads a date (`--since`): ISO 8601, RFC 2822, a unix time, or relative to now
+    /// (`24 hours ago`, `yesterday`), seconds since the epoch.
+    fn date(&self, _text: &str) -> Result<i64, GitError> {
+        Err(GitError::unanswered())
+    }
     /// The nearest common ancestor of two commits.
     fn merge_base(&self, place: &GitPlace, a: &Sha, b: &Sha) -> Result<Option<Sha>, GitError>;
     /// Every best common ancestor of two commits: a criss-cross history has more than one, and `A...B` hides them all.
@@ -435,6 +534,16 @@ pub trait Git: Send + Sync {
     fn worktrees(&self, _place: &GitPlace) -> Result<Vec<GitWorktree>, GitError> {
         Err(GitError::unanswered())
     }
+    /// The top of the repository whose submodule `place` is, as `git rev-parse --show-superproject-working-tree`
+    /// finds it: the repository above `place`'s top whose index holds that top as a submodule. None when there is none.
+    fn superproject(&self, _place: &GitPlace) -> Result<Option<PathBuf>, GitError> {
+        Err(GitError::unanswered())
+    }
+    /// The submodules the worktree's `.gitmodules` declares, in its order (`git config --file .gitmodules`): one whose
+    /// path is absolute or leaves the top is left out. Empty when there is no `.gitmodules`.
+    fn submodules(&self, _place: &GitPlace) -> Result<Vec<GitSubmodule>, GitError> {
+        Err(GitError::unanswered())
+    }
     /// The remotes, by name.
     fn remotes(&self, _place: &GitPlace) -> Result<Vec<GitRemote>, GitError> {
         Err(GitError::unanswered())
@@ -458,6 +567,18 @@ pub trait Git: Send + Sync {
         Err(GitError::unwritable())
     }
     /// Create the branch `name` at `at`; `Err` when it exists or is no valid branch name.
+    /// Take the index entries at `paths` (from the repository's top; `*` the top itself) out of the index, a
+    /// conflicted one's every stage, and unless `removal.cached` their files, as `git rm` does: the paths removed.
+    /// Nothing is removed when one is refused: a path matching no entry, a directory without `recursive`, a file
+    /// with changes unless `force`.
+    fn remove(
+        &self,
+        _place: &GitPlace,
+        _paths: &[String],
+        _removal: Removal,
+    ) -> Result<Vec<String>, GitError> {
+        Err(GitError::unwritable())
+    }
     fn branch_create(&self, _place: &GitPlace, _name: &str, _at: &Sha) -> Result<(), GitError> {
         Err(GitError::unwritable())
     }
@@ -489,18 +610,36 @@ pub trait Git: Send + Sync {
     fn worktree_remove(&self, _place: &GitPlace, _path: &Path) -> Result<(), GitError> {
         Err(GitError::unwritable())
     }
+    /// Make `dir` a repository with its worktree, as `git init` does: true when one was made, false when `dir` holds
+    /// one already (left as it is).
+    fn init(&self, _dir: &Path) -> Result<bool, GitError> {
+        Err(GitError::unwritable())
+    }
+    /// Lock the linked worktree whose top is `path`, so no prune or removal drops it (`reason` kept in its `locked`
+    /// file), or with `lock` false unlock it. Refused when it is already in the state asked, as git refuses.
+    fn worktree_lock(
+        &self,
+        _place: &GitPlace,
+        _path: &Path,
+        _lock: bool,
+        _reason: Option<&str>,
+    ) -> Result<(), GitError> {
+        Err(GitError::unwritable())
+    }
     /// Drop the records of the linked worktrees whose directories are gone: where each was.
     fn worktree_prune(&self, _place: &GitPlace) -> Result<Vec<PathBuf>, GitError> {
         Err(GitError::unwritable())
     }
-    /// Merge `theirs` into `HEAD`: a fast-forward when `fast_forward` is not `Some(false)` and history allows,
-    /// refused when it is `Some(true)` and history does not; else a merge commit with `message`, or the conflicts.
+    /// Merge `theirs` into `HEAD` as `merging` says: a fast-forward when `fast_forward` is not `Some(false)` and
+    /// history allows (never with `squash`), refused when it is `Some(true)` and history does not; else a merge
+    /// commit with `message`, or the conflicts. With `no_commit` the merge is left in the index, `MERGE_HEAD` kept
+    /// for the commit that concludes it; with `squash` it is left in the index as one change, no `MERGE_HEAD`, its
+    /// message in `SQUASH_MSG`.
     fn merge(
         &self,
         _place: &GitPlace,
         _theirs: &Sha,
-        _fast_forward: Option<bool>,
-        _message: &str,
+        _merging: &Merging,
     ) -> Result<Merged, GitError> {
         Err(GitError::unwritable())
     }
@@ -508,14 +647,14 @@ pub trait Git: Send + Sync {
     fn reset(&self, _place: &GitPlace, _to: &Sha, _mode: ResetMode) -> Result<(), GitError> {
         Err(GitError::unwritable())
     }
-    /// The files at `paths` as the index has them, or as `source` does; with `staged`, the index's entries as `HEAD`
-    /// (or `source`) has them, the files untouched.
+    /// The files at `paths` back as `restoring` says: the files as the index (or its `source`) has them; with
+    /// `staged`, the index's entries as `HEAD` (or the `source`) has them, the files too with `worktree`; with a
+    /// `side`, a conflicted file as that stage of the index has it, the conflict left for a `git add`.
     fn restore(
         &self,
         _place: &GitPlace,
         _paths: &[String],
-        _source: Option<&Sha>,
-        _staged: bool,
+        _restoring: &Restoring,
     ) -> Result<(), GitError> {
         Err(GitError::unwritable())
     }
@@ -536,20 +675,39 @@ pub trait Git: Send + Sync {
     fn stashes(&self, _place: &GitPlace) -> Result<Vec<GitStash>, GitError> {
         Err(GitError::unanswered())
     }
-    /// Apply `commit` onto `HEAD` and record it (`revert`: its inverse), or the conflicts.
-    fn pick(&self, _place: &GitPlace, _commit: &Sha, _revert: bool) -> Result<Merged, GitError> {
+    /// Apply `commit` onto `HEAD` (`revert`: its inverse) and record it, or the conflicts. Unless `record`, it is
+    /// applied onto the index as it stands and left staged (`--no-commit`), a revert's `REVERT_HEAD` kept as git
+    /// keeps it.
+    fn pick(
+        &self,
+        _place: &GitPlace,
+        _commit: &Sha,
+        _revert: bool,
+        _record: bool,
+    ) -> Result<Merged, GitError> {
         Err(GitError::unwritable())
     }
-    /// Record the index as a commit on `HEAD` with `message` (kept byte for byte), by the identity the repository's
-    /// configuration names, and move `HEAD`'s branch to it. `Err` when the index matches `HEAD` and `allow_empty` is
-    /// false, or holds a conflict.
+    /// End the cherry-pick or revert in progress: its state goes, the index and the files stay (`--quit`), or with
+    /// `abort` the paths it staged or left conflicted go back to `HEAD` too (`--abort`). Whether one was in
+    /// progress; `abort` with none is refused, as git refuses it.
+    fn pick_end(&self, _place: &GitPlace, _abort: bool) -> Result<bool, GitError> {
+        Err(GitError::unwritable())
+    }
+    /// Record the index (or, with `recording.only`, `HEAD`'s tree with the index's entries at those paths) as a
+    /// commit on `HEAD` with `message` (kept byte for byte), committed by the identity the repository's
+    /// configuration names and authored by it or by `recording.author_of`'s author, and move `HEAD`'s branch to it.
+    /// `Err` when the tree matches `HEAD`'s and `allow_empty` is false, or the index holds a conflict.
     fn commit_index(
         &self,
         _place: &GitPlace,
         _message: &str,
-        _allow_empty: bool,
+        _recording: &Recording,
     ) -> Result<Committed, GitError> {
         Err(GitError::unwritable())
+    }
+    /// The message of `commit`, byte for byte as it is stored (`git cat-file`'s, after the headers).
+    fn message(&self, _place: &GitPlace, _commit: &Sha) -> Result<String, GitError> {
+        Err(GitError::unanswered())
     }
 }
 

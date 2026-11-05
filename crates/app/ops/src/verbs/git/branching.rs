@@ -31,6 +31,57 @@ fn refused(code: &'static str, message: String, suggestion: &str) -> OpError {
     OpError::new(OpErrorKind::PreconditionFailed, code, message).with_suggestion(suggestion)
 }
 
+/// `git init`'s answer: the repository's top and whether it was made (false: one was there).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct InitAnswer {
+    pub top: String,
+    pub created: bool,
+}
+
+/// `git init [<dir>]`: the directory (read from the current directory, held to the project's roots, made by gix
+/// when missing) made a repository unless it holds one.
+pub fn init(verbs: &Verbs, dir: Option<&Path>) -> Result<InitAnswer, OpError> {
+    verbs.permit_git_write("init")?;
+    let at = held(verbs, dir.unwrap_or(Path::new(".")))?;
+    let created = verbs.ports().git.init(&at).map_err(write_failed)?;
+    Ok(InitAnswer {
+        top: slashed(&at),
+        created,
+    })
+}
+
+/// `git worktree lock` and `unlock`'s answer: the worktree and whether it is locked now.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct LockAnswer {
+    pub path: String,
+    pub locked: bool,
+}
+
+/// Lock the linked worktree at `path` (read from the current directory) against a prune or a removal, `reason` kept
+/// with it, or unlock it (`lock` false).
+pub fn worktree_lock(
+    verbs: &Verbs,
+    path: &Path,
+    lock: bool,
+    reason: Option<&str>,
+) -> Result<LockAnswer, OpError> {
+    let place = verbs.place_to_write(if lock {
+        "worktree lock"
+    } else {
+        "worktree unlock"
+    })?;
+    let at = landed(verbs, path);
+    verbs
+        .ports()
+        .git
+        .worktree_lock(&place, &at, lock, reason)
+        .map_err(write_failed)?;
+    Ok(LockAnswer {
+        path: slashed(&at),
+        locked: lock,
+    })
+}
+
 /// The branch `HEAD` is on, when one is.
 fn current(verbs: &Verbs, place: &GitPlace) -> Result<Option<String>, OpError> {
     Ok(verbs.ports().git.head(place).map_err(failed)?.head)
@@ -195,11 +246,12 @@ pub fn worktree_add(
     })
 }
 
-/// Remove the linked worktree at `path`, its directory with it: one with a change or an untracked file only when
-/// `force` (`git worktree remove --force`).
+/// Remove the linked worktree at `path` (held to the project's roots), its directory with it: one with a change or an
+/// untracked file only when `force` (`git worktree remove --force`).
 pub fn worktree_remove(verbs: &Verbs, path: &Path, force: bool) -> Result<PrunedAnswer, OpError> {
     let place = verbs.place_to_write("worktree remove")?;
-    let at = landed(verbs, path);
+    // its files are deleted: held to the roots, as `worktree add` holds where it writes
+    let at = held(verbs, path)?;
     let git = &verbs.ports().git;
     if !force {
         let top = std::fs::canonicalize(&at).ok();

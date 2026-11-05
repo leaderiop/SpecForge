@@ -1,5 +1,4 @@
-//! `specforge check` and MCP `specforge.validate`, characterized
-//! (architecture plan 08, T0).
+//! `specforge check` and MCP `specforge.validate`, characterized.
 //!
 //! What each surface answers on the parity fixtures, pinned as insta
 //! snapshots before the two surfaces move onto one check operation: the
@@ -72,7 +71,7 @@ fn cli_check_json_golden() {
 }
 
 /// The human rendering (no TTY, so no colour): the annotated diagnostics
-/// and the summary line, byte for byte (architecture plan 04, T0).
+/// and the summary line, byte for byte.
 #[test]
 fn cli_check_human_golden() {
     for name in FIXTURES {

@@ -1,4 +1,4 @@
-//! What a name, a value word and an expression read as today, before a value is one word (ADR 0283, plan K1).
+//! What a name, a value word and an expression read as today, before a value is one word (ADR 0283).
 
 use specforge_parser::lex::{LexemeKind, lex};
 use specforge_parser::testing::corpus;

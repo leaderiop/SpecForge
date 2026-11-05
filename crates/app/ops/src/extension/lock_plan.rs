@@ -1,4 +1,4 @@
-//! The lock plan (ADR 0041, amendment round 7; ADR 0065): the one way `add`, `update`, `init` and
+//! The lock plan (ADR 0041, as amended; ADR 0065): the one way `add`, `update`, `init` and
 //! `remove` change what a project installs and enables.
 //!
 //! An operation opens the plan for its verb ([`LockPlan::adding`], [`LockPlan::updating`],

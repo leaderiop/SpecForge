@@ -230,7 +230,7 @@ fn a_symlink_into_the_main_checkout_is_refused() {
     }
 }
 
-/// REVIEW-k20c-part2 M2: the kernel resolves the nearest existing ancestor, so a directory that does not exist yet
+/// The kernel resolves the nearest existing ancestor, so a directory that does not exist yet
 /// under the link, or a `..` after it, still lands in the main checkout. Needs lane K's `absolute` fix.
 #[cfg(unix)]
 #[test]
@@ -254,7 +254,7 @@ fn a_new_path_under_a_symlink_into_the_main_checkout_is_refused() {
     }
 }
 
-/// REVIEW-k20c-part2 M2: when the worktree has no `specforge.json` of its own the project is the main checkout, and
+/// When the worktree has no `specforge.json` of its own the project is the main checkout, and
 /// the main checkout's files are "in the project". Upstream compares the toplevel of every target and denies.
 #[test]
 fn a_worktree_without_its_own_specforge_json_still_guards_the_main_checkout() {

@@ -2,15 +2,27 @@
 source: crates/surfaces/cli/src/main.rs
 expression: command.clone().render_long_help().to_string()
 ---
-Apply a commit onto HEAD and record it with its author and message; conflicts exit 1
+Apply a commit onto HEAD and record it with its author and message (or stage it, -n); conflicts exit 1
 
-Usage: specforge git cherry-pick [OPTIONS] <REVISION>
+Usage: specforge git cherry-pick [OPTIONS] [REVISION]
 
 Arguments:
-  <REVISION>
+  [REVISION]
           The commit
 
 Options:
+      --in <DIR>
+          Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
+
+  -n, --no-commit
+          Apply it onto the index as it stands and leave it staged, unrecorded; a second one stacks on the first
+
+      --quit
+          End the cherry-pick or revert in progress, the index and the files left as they are
+
+      --abort
+          End the cherry-pick or revert in progress and put back as HEAD has them the paths it staged or conflicted
+
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)
           

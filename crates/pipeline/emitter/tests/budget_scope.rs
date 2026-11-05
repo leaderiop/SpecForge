@@ -1,4 +1,4 @@
-//! A token budget and a scoped export (plan 07, 07-D1): the scope entity is
+//! A token budget and a scoped export: the scope entity is
 //! the export's subject, so the budget cuts every other entity first.
 
 use serde_json::Value;

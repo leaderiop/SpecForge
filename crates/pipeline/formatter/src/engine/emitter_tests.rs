@@ -226,7 +226,7 @@ fn one_line_collapses_whitespace_between_lexemes() {
     assert!(out.contains("@since \"a  b\""), "{out}");
 }
 
-// --- Plan 14: a broken document reads as the parser reads it ---
+// --- a broken document reads as the parser reads it ---
 
 const UNCLOSED_STRING: &str = "behavior a1 \"A\" {\n  contract \"x\n}\n\nbehavior b1 \"B\" {\n  contract    \"y\"\n}\n\nbehavior c1 \"C\" {\n  contract \"z\"\n}\n";
 

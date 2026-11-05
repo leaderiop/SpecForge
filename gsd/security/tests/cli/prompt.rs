@@ -1,4 +1,4 @@
-//! `/gsd-secure-phase` as the prompt `secure_phase` (plan 16 T22), through the real `specforge` binary over projects
+//! `/gsd-secure-phase` as the prompt `secure_phase`, through the real `specforge` binary over projects
 //! that load both extensions: rendered for each host with the settings filled, its steps, its phase picked when none
 //! is named, and a golden per host.
 
@@ -205,7 +205,7 @@ fn secure_phase_goldens() {
     }
 }
 
-/// REVIEW-security-part1 m4: the preamble names this extension, not core: its settings command is accepted, its
+/// The preamble names this extension, not core: its settings command is accepted, its
 /// harness-field writer is its own, and the table has the security file.
 #[test]
 fn the_preamble_is_security_s_not_cores() {
@@ -230,7 +230,7 @@ fn the_preamble_is_security_s_not_cores() {
     }
 }
 
-/// REVIEW-security-part2 m1: core's `response_language` and `workflow.text_mode` reach `/gsd-secure-phase` as they
+/// Core's `response_language` and `workflow.text_mode` reach `/gsd-secure-phase` as they
 /// reach core's prompts (a prompt reads only its own extension's settings, so `@gsd/security` follows them).
 #[test]
 fn the_prompt_honours_core_response_language() {

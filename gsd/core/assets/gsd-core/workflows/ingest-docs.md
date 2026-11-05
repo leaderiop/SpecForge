@@ -79,7 +79,7 @@ Git initialisation (Bug #3491 — never create a nested `.git` inside an existin
 - If `has_git: false` and `MODE=new`: initialize git:
 
 ```bash
-git init
+specforge git init
 ```
 
 **Detect runtime** using the same pattern as `new-project.md`:

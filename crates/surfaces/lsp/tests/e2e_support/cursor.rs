@@ -1,5 +1,5 @@
 //! What the entity under a cursor is, and what completes there, over a
-//! project with `@specforge/software` (plan 06's fixtures).
+//! project with `@specforge/software`.
 
 use super::*;
 
@@ -265,7 +265,7 @@ fn selected<'a>(resp: &Value, opened: &'a [(String, String)]) -> Option<&'a str>
 }
 
 /// Entity IDs written in a comment, a string, a `use` binding and an enum
-/// value, beside the entities they spell (plan 06's R5 file).
+/// value, beside the entities they spell.
 const PROSE_ONLY: &str = concat!(
     "use { token } from \"types/core\"\n",
     "\n",

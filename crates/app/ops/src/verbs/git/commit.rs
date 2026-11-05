@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use specforge_common::remedy::printable;
-use specforge_effects::git::{GitError, GitPlace, Staging};
+use specforge_effects::git::{GitError, GitPlace, Recording, Removal, Staging};
 use specforge_effects::process::{OUTPUT_CAP, USER_CEILING};
 use specforge_effects::{
     Ceiling, EffectRequest, EnvVar, Output, ProcessClass, ProcessRequest, Shown,
@@ -19,6 +19,11 @@ use crate::{OpError, OpErrorKind};
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CommitRequest {
     pub message: String,
+    /// The commit whose message and author this one reuses (`-C`), in place of `message`.
+    pub reuse_message: Option<String>,
+    /// Commit only the files at or under these paths, read from the current directory, as the worktree has them;
+    /// what else is staged stays staged (`git commit -- <paths>`).
+    pub only: Vec<PathBuf>,
     /// Staged first, read from the current directory: the files at or under each, as the worktree has them.
     pub add: Vec<PathBuf>,
     /// Out of the index first (`git rm --cached`), the files left on disk.
@@ -55,14 +60,27 @@ pub(super) fn write_failed(error: GitError) -> OpError {
 pub fn commit(verbs: &Verbs, request: &CommitRequest) -> Result<CommitAnswer, OpError> {
     let place = verbs.place_to_write("commit")?;
     refuse_signing(verbs, &place, Signed::Commit)?;
-    let mut message = cleaned(&request.message).ok_or_else(empty_message)?;
+    let git = &verbs.ports().git;
+    let reused = request
+        .reuse_message
+        .as_deref()
+        .map(|revision| super::commit_named(verbs, &place, revision))
+        .transpose()?;
+    let typed = match &reused {
+        Some(sha) => git.message(&place, sha).map_err(write_failed)?,
+        None => request.message.clone(),
+    };
+    let mut message = cleaned(&typed).ok_or_else(empty_message)?;
+    let only = in_repository(verbs, &place, &request.only)?;
+    let mut add = in_repository(verbs, &place, &request.add)?;
+    add.extend(only.iter().cloned());
     let staging = Staging {
-        add: in_repository(verbs, &place, &request.add)?,
+        add,
         remove: in_repository(verbs, &place, &request.remove)?,
         all: request.all,
         force: request.force,
+        except: Vec::new(),
     };
-    let git = &verbs.ports().git;
     if staging != Staging::default() {
         git.stage(&place, &staging).map_err(write_failed)?;
     }
@@ -78,7 +96,12 @@ pub fn commit(verbs: &Verbs, request: &CommitRequest) -> Result<CommitAnswer, Op
         .map_err(write_failed)?
         .to_string_lossy()
         .into_owned();
-    hooks.run("prepare-commit-msg", &[file.clone(), "message".to_string()])?;
+    // as git hands the hook its source: `commit` and the commit for -C, else `message`
+    let source = match &reused {
+        Some(sha) => vec![file.clone(), "commit".to_string(), sha.as_str().to_string()],
+        None => vec![file.clone(), "message".to_string()],
+    };
+    hooks.run("prepare-commit-msg", &source)?;
     if verify {
         hooks.run("commit-msg", &[file])?;
     }
@@ -87,7 +110,15 @@ pub fn commit(verbs: &Verbs, request: &CommitRequest) -> Result<CommitAnswer, Op
         .map_err(write_failed)
         .and_then(|edited| cleaned(&edited).ok_or_else(empty_message))?;
     let committed = git
-        .commit_index(&place, &message, request.allow_empty)
+        .commit_index(
+            &place,
+            &message,
+            &Recording {
+                allow_empty: request.allow_empty,
+                only,
+                author_of: reused,
+            },
+        )
         .map_err(write_failed)?;
     if verify {
         // as git: the commit is made, whatever post-commit answers
@@ -103,6 +134,110 @@ pub fn commit(verbs: &Verbs, request: &CommitRequest) -> Result<CommitAnswer, Op
             .collect(),
         files: committed.files,
     })
+}
+
+/// What `git add` is asked.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct AddRequest {
+    /// Read from the current directory: the files at or under each, as the worktree has them.
+    pub paths: Vec<PathBuf>,
+    /// Every file under the top, untracked ones too, when no path is named (`git add -A`).
+    pub all: bool,
+    /// Left out, whatever else names them (`git add -- ':!path'`).
+    pub except: Vec<PathBuf>,
+    /// Stage an ignored path too (`git add --force`).
+    pub force: bool,
+}
+
+/// `git add`: stage the files named as the worktree has them, a deleted one leaving the index, and answer the
+/// status after.
+pub fn add(verbs: &Verbs, request: &AddRequest) -> Result<super::StatusAnswer, OpError> {
+    let place = verbs.place_to_write("add")?;
+    let mut add = in_repository(verbs, &place, &request.paths)?;
+    if add.is_empty() && request.all {
+        add.push("*".to_string());
+    }
+    let staging = Staging {
+        add,
+        force: request.force,
+        except: in_repository(verbs, &place, &request.except)?,
+        ..Staging::default()
+    };
+    verbs
+        .ports()
+        .git
+        .stage(&place, &staging)
+        .map_err(write_failed)?;
+    super::status(verbs)
+}
+
+/// `git rm`'s answer: the paths taken out of the index, from the repository's top.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RmAnswer {
+    pub removed: Vec<String>,
+}
+
+/// `git rm`: the index entries at `paths` (read from the current directory) out of the index, and unless
+/// `removal.cached` their files off the disk.
+pub fn rm(verbs: &Verbs, paths: &[PathBuf], removal: Removal) -> Result<RmAnswer, OpError> {
+    let place = verbs.place_to_write("rm")?;
+    let mut specs = pathspecs(verbs, &place, paths)?;
+    // the top is a directory, which git removes only with -r: as `*` it would be a glob that names every file
+    for (spec, typed) in specs.iter_mut().zip(paths) {
+        if spec == "*" && held(verbs, typed)? == place.toplevel {
+            *spec = ".".into();
+        }
+    }
+    let paths = specs;
+    let removed = verbs
+        .ports()
+        .git
+        .remove(&place, &paths, removal)
+        .map_err(write_failed)?;
+    Ok(RmAnswer { removed })
+}
+
+/// `git hook run`'s answer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct HookAnswer {
+    /// The hook was there and ran (and passed); false only under `ignore_missing`.
+    pub ran: bool,
+}
+
+/// `git hook run <name> -- <args>`: the repository's hook `name`, found and run as a commit runs its hooks. A hook
+/// that is not there is refused unless `ignore_missing`; a name is a hook's file name, never a path.
+pub fn hook_run(
+    verbs: &Verbs,
+    name: &str,
+    args: &[String],
+    ignore_missing: bool,
+) -> Result<HookAnswer, OpError> {
+    let named = !name.is_empty()
+        && !name.starts_with('.')
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'));
+    if !named {
+        return Err(OpError::new(
+            OpErrorKind::InvalidInput,
+            OpErrorKind::InvalidInput.as_str(),
+            format!(
+                "{} names no hook: a hook's name is its file's, such as pre-commit",
+                printable(name)
+            ),
+        ));
+    }
+    let place = verbs.place_to_write("hook run")?;
+    let ran = Hooks::of(verbs, &place)?.run_for(name, args, false)?;
+    if !ran && !ignore_missing {
+        return Err(OpError::new(
+            OpErrorKind::PreconditionFailed,
+            super::HOOK_CANNOT_RUN,
+            format!("the repository has no {name} hook git would run"),
+        )
+        .with_suggestion("specforge git hook run --ignore-missing answers ran: false instead"));
+    }
+    Ok(HookAnswer { ran })
 }
 
 /// What git signs when the repository asks: every commit, or every annotated tag.
@@ -200,6 +335,40 @@ pub(super) fn in_repository(
         .collect()
 }
 
+/// [`in_repository`], except that a pathspec with magic (`:(glob)**/*.spec`) is passed on for the adapter to match,
+/// as `git rm` and `git restore` take one. It is read from the repository's top, so it is refused unless the current
+/// directory is that top, held to the roots for a write.
+pub(super) fn pathspecs(
+    verbs: &Verbs,
+    place: &GitPlace,
+    typed: &[PathBuf],
+) -> Result<Vec<String>, OpError> {
+    let magic = |path: &PathBuf| path.to_string_lossy().starts_with(':');
+    if !typed.iter().any(magic) {
+        return in_repository(verbs, place, typed);
+    }
+    if held(verbs, Path::new("."))? != place.toplevel {
+        return Err(OpError::new(
+            OpErrorKind::InvalidInput,
+            OpErrorKind::InvalidInput.as_str(),
+            format!(
+                "a pathspec with magic is read from the repository's top, {}, not from this directory",
+                printable(&place.toplevel.to_string_lossy())
+            ),
+        )
+        .with_suggestion("run it from the repository's top, or name the top with specforge git <verb> --in"));
+    }
+    typed
+        .iter()
+        .map(|path| match magic(path) {
+            true => Ok(path.to_string_lossy().into_owned()),
+            false => {
+                in_repository(verbs, place, std::slice::from_ref(path)).map(|mut one| one.remove(0))
+            }
+        })
+        .collect()
+}
+
 /// Where `path` (read from the current directory) lands, once the project's roots hold it for a write and it is not
 /// the host's own state or a credential file. shortcut: the name itself is checked, not each file under a directory
 /// (`.specforge/` is git-ignored by `specforge init`); upgrade if a directory-wide write must skip them.
@@ -258,8 +427,18 @@ impl<'v> Hooks<'v> {
     /// stdout keeps the answer. A hook that fails refuses; one that cannot run refuses too (fail closed) and names
     /// `--no-verify`.
     pub(super) fn run(&self, name: &str, args: &[String]) -> Result<(), OpError> {
+        self.run_for(name, args, true).map(|_| ())
+    }
+
+    /// [`Hooks::run`], and whether the hook was there to run; a failure names the commit it stops only when
+    /// `committing`.
+    fn run_for(&self, name: &str, args: &[String], committing: bool) -> Result<bool, OpError> {
         let Some(hook) = self.find(name) else {
-            return Ok(());
+            return Ok(false);
+        };
+        let advice = |error: OpError| match committing {
+            true => error.with_suggestion(no_verify(name)),
+            false => error,
         };
         let program = hook.to_string_lossy().replace('\\', "/");
         // Windows runs a hook script through the `sh` the runner finds, as Git for Windows does.
@@ -289,7 +468,7 @@ impl<'v> Hooks<'v> {
         let shown = printable(&hook.to_string_lossy()).into_owned();
         self.verbs
             .permit(&EffectRequest::Process(request.clone()))
-            .map_err(|refused| refused.with_suggestion(no_verify(name)))?;
+            .map_err(advice)?;
         let outcome = self.verbs.ports().process.run_within(
             &request,
             &self.place.toplevel,
@@ -299,22 +478,25 @@ impl<'v> Hooks<'v> {
             },
             Ceiling::User,
         );
+        let stopped = if committing {
+            ": nothing was committed"
+        } else {
+            ""
+        };
         match outcome.class {
-            ProcessClass::Exited(0) => Ok(()),
+            ProcessClass::Exited(0) => Ok(true),
             ProcessClass::NotFound | ProcessClass::CannotStart(_) | ProcessClass::NoDirectory => {
-                Err(OpError::new(
+                Err(advice(OpError::new(
                     OpErrorKind::PreconditionFailed,
                     super::HOOK_CANNOT_RUN,
                     format!("the {name} hook {shown} {}", outcome.class),
-                )
-                .with_suggestion(no_verify(name)))
+                )))
             }
-            class => Err(OpError::new(
+            class => Err(advice(OpError::new(
                 OpErrorKind::PreconditionFailed,
                 super::HOOK_REFUSED,
-                format!("the {name} hook {shown} {class}: nothing was committed"),
-            )
-            .with_suggestion(no_verify(name))),
+                format!("the {name} hook {shown} {class}{stopped}"),
+            ))),
         }
     }
 }

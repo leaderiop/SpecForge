@@ -1,4 +1,4 @@
-//! Navigation parity harness (architecture plan 05, T1).
+//! Navigation parity harness.
 //!
 //! The LSP and MCP answer the same navigation questions about the same project: where an entity is
 //! declared, what references it, which entities match a text, which diagnostics are about an

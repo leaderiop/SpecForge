@@ -1,5 +1,5 @@
-//! Installed (non-builtin) extensions load from the lock file (plan 03,
-//! O4.4, ADR 0004 D3-b). Until this, no third-party extension had ever
+//! Installed (non-builtin) extensions load from the lock file (ADR 0004
+//! D3-b). Until this, no third-party extension had ever
 //! loaded through `check`: the loader keyed modules by file stem while
 //! compile looked them up by name, and nothing read the lock.
 
@@ -873,10 +873,10 @@ fn removing_a_wasm_file_no_entry_names_is_not_found() {
     );
 }
 
-// ── plan 05 pins: the management operations before they take the project view ──
+// ── pins: the management operations before they take the project view ──
 
-// R1 (plan 05): doctor names a `.wasm` file entry by its file, as the
-// extensions listing does (it called it "builtin" before 05-T4).
+// Doctor names a `.wasm` file entry by its file, as the
+// extensions listing does (it used to call it "builtin").
 #[specforge_test(
     behavior = "run_doctor_check",
     verify = "doctor lists the extensions the extensions listing lists, each with its version, source and status"
@@ -911,7 +911,7 @@ fn doctor_lists_a_wasm_file_entry_with_its_file_source() {
     }
 }
 
-// R2 (plan 05): a removal with an unreadable specforge.json refuses before
+// A removal with an unreadable specforge.json refuses before
 // it writes anything (it used to uninstall the binary and empty the lock
 // first). Fixed, the same removal finishes cleanly.
 #[specforge_test(
