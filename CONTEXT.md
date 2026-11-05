@@ -1801,6 +1801,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   and an `attribution`, rendered by a `prompt__<id>` export. Served as `specforge.<short>.<id>` (MCP), `specforge prompt`
   and `specforge <short> <id>`; the host appends a message with the version, a digest, the attribution and each step's
   gate. It is not a contract: only a gate refuses (ADR 0291).
+- **Argument placeholder**: `{{arg:<name>|<fallback>}}` in a shell fence of a file a gsd prompt inlines; the render
+  writes the typed value of the declared argument there, escaped for double quotes, or the fallback when it is absent.
+  No fence re-parses `$ARGUMENTS` (ADR 0340).
 - **Command gate**: `gates` (local codes) and a `subject` argument on a command or prompt; the call is refused
   `gate_failed` before its export runs while a gated code is an error in the subject's scope, a guard pass that
   `reports` it asked once with a `trigger` (ADR 0291).
