@@ -404,7 +404,7 @@ If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:
 
 2. **Load phase context from STATE.md:**
    ```bash
-   STATE_STATUS=$(specforge gsd progress-report 2>/dev/null | head -20)
+   STATE_STATUS=$(specforge gsd progress-report 2>/dev/null)
    ```
 
 3. **Build review prompt and pipe to command via stdin:**

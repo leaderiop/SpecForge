@@ -404,7 +404,7 @@ fi
 
 <step name="generate_user_setup">
 ```bash
-specforge query "$PLAN_ID" --kinds user_setup --format context | head -50
+specforge query "$PLAN_ID" --kinds user_setup --format context
 ```
 
 If user_setup exists: create `{phase}-USER-SETUP.md` using the template at `~/.claude/gsd-core/templates/user-setup.md` (or its `~/.claude/gsd-core/templates/user-setup.compact.md` variant — resolve per `~/.claude/gsd-core/references/compact-content-gate.md` §"Streams 1b and 4"). Per service: env vars table, account setup checklist, dashboard config, local dev notes, verification commands. Status "Incomplete". Set `USER_SETUP_CREATED=true`. If empty/missing: skip.

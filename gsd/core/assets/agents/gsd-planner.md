@@ -673,7 +673,7 @@ For phases not selected, retain from digest:
 
 **From RETROSPECTIVE.md (if exists):**
 ```bash
-specforge export --kinds retrospective --format context 2>/dev/null | tail -100
+specforge export --kinds retrospective --format context 2>/dev/null
 ```
 
 Read the most recent milestone retrospective and cross-milestone trends. Extract:
