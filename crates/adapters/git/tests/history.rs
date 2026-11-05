@@ -168,9 +168,11 @@ fn history_lists_a_commits_tree() {
     let head: Sha = Gix::default().commit(&place, "HEAD").unwrap().unwrap();
     let mut all = Gix::default().tree(&place, &head, Path::new("")).unwrap();
     all.sort();
-    let mut expected = vec![("spec/a.spec".into(), true), ("src/a.ts".into(), true)];
-    #[cfg(unix)]
-    expected.push(("src/l.ts".into(), false));
+    // A link is a tree entry only where the test could make one.
+    let expected: Vec<(PathBuf, bool)> = [("spec/a.spec".into(), true), ("src/a.ts".into(), true)]
+        .into_iter()
+        .chain(cfg!(unix).then(|| ("src/l.ts".into(), false)))
+        .collect();
     assert_eq!(all, expected);
     let mut under = Gix::default()
         .tree(&place, &head, Path::new("src"))

@@ -189,9 +189,13 @@ fn landed(to: &Place, target: &Path, source: &Resolved, roots: &Roots) -> Place 
 /// A new empty file, or directory, only its owner may read (`0600`, `0700`).
 fn private(at: &Path, dir: bool) -> std::io::Result<()> {
     if dir {
-        let mut builder = std::fs::DirBuilder::new();
+        let builder = std::fs::DirBuilder::new();
         #[cfg(unix)]
-        std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+        let builder = {
+            let mut builder = builder;
+            std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+            builder
+        };
         builder.create(at)
     } else {
         let mut options = std::fs::OpenOptions::new();
