@@ -249,3 +249,55 @@ fn a_hardcoded_count_is_found() {
     let (out, err, _) = sh.run_in(p.path(), &format!("file=c.ts\n{check}"));
     assert_eq!(out, "c.ts:1:5: let count = 5;\n", "{check}\n{err}");
 }
+
+/// The lines of the `# gsd-handoff:begin <name>` block of `path`.
+fn handoff_block(path: &str, name: &str) -> String {
+    let text = super::asset(path);
+    super::block(
+        &text,
+        &format!("# gsd-handoff:begin {name}"),
+        &format!("# gsd-handoff:end {name}"),
+    )
+}
+
+/// Fenced blocks are separate shells: each opens the same hand-off directory, so a count recorded in one and a file
+/// list written in one reach the block that reads them, and a reset clears what an earlier run left.
+#[test]
+fn the_handoff_blocks_share_one_directory() {
+    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
+        return;
+    };
+    let p = crate::harness::taskboard();
+    let run = |script: String| {
+        let (out, err, code) = sh.run_in(p.root(), &script);
+        assert_eq!(code, 0, "{script}\n{err}");
+        out
+    };
+    const PHASE: &str = "gsd-core/workflows/execute-phase.md";
+    const GATE: &str = "gsd-core/workflows/execute-phase/steps/post-merge-gate.md";
+    let read = || run(handoff_block(PHASE, "wave-failure-read"));
+    assert!(read().contains("WAVE_FAILURE_COUNT=0"), "no tally yet");
+    run(handoff_block(PHASE, "wave-failure-reset"));
+    assert!(read().contains("WAVE_FAILURE_COUNT=0"), "an empty tally");
+    run(handoff_block(GATE, "wave-failure-record"));
+    run(handoff_block(GATE, "wave-failure-record"));
+    assert!(read().contains("WAVE_FAILURE_COUNT=2"), "{}", read());
+    run(handoff_block(PHASE, "wave-failure-reset"));
+    assert!(read().contains("WAVE_FAILURE_COUNT=0"), "reset");
+
+    const LIST: &str = "gsd-core/workflows/execute-phase/steps/regression-gate.md";
+    const GATE_RUN: &str = "gsd-core/workflows/execute-phase/steps/regression-gate-run.md";
+    let listed = || {
+        run(format!(
+            "{}\nprintf '%s' \"$REGRESSION_FILES\"",
+            handoff_block(GATE_RUN, "regression-files-read")
+        ))
+    };
+    run(handoff_block(LIST, "regression-files-write"));
+    assert_eq!(
+        listed(),
+        "tests/test_example_one.py tests/test_example_two.py "
+    );
+    run(handoff_block(LIST, "regression-files-reset"));
+    assert_eq!(listed(), "", "a reset list is gone");
+}

@@ -21,4 +21,27 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         34,
         34,
     ),
+    ("gsd-core/references/planner-chunked.md", 10, 10),
+    ("gsd-core/workflows/discuss-phase.md", 219, 219),
+    ("gsd-core/workflows/discuss-phase.md", 378, 378),
+    (
+        "gsd-core/workflows/discuss-phase/modes/default.md",
+        126,
+        126,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
+        34,
+        34,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
+        38,
+        38,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
+        61,
+        61,
+    ),
 ];

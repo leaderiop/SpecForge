@@ -564,9 +564,6 @@ fn every_graph_read_picks_nodes_or_edges() {
 
 /// Files still kept under the phase directory, each waiting for a home of its own: they are not entities.
 const PHASE_DIR_FILES: &[&str] = &[
-    // the discuss checkpoint and the chunked plan's outline are scratch files: a named temp file replaces the directory
-    "DISCUSS-CHECKPOINT",
-    "PLAN-OUTLINE",
     // REVIEWS.md is written by /gsd:review at a path the model composes; no review entity answers it yet
     "REVIEWS.md",
 ];

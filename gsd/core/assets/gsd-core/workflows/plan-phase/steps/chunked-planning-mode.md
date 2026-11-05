@@ -33,12 +33,12 @@ fi
 
 ### 8.5.1 Outline Phase (outline-only mode, ~2 min)
 
-**Resume detection:** If `${PHASE_DIR}/${PADDED_PHASE}-PLAN-OUTLINE.md` exists and contains
+**Resume detection:** If the outline file (below, a stable temp file of this milestone's phase) contains
 the `## OUTLINE COMPLETE` marker (written by the outline agent — #2762), skip to 8.5.2.
 
 ```bash
-OUTLINE_FILE="${PHASE_DIR}/${PADDED_PHASE}-PLAN-OUTLINE.md"
-if [[ -f "$OUTLINE_FILE" ]] && grep -q "^## OUTLINE COMPLETE" "$OUTLINE_FILE"; then
+OUTLINE_FILE=$(specforge files temp --name "gsd-outline-${MILESTONE}-${PADDED_PHASE}.md" --pick .path) || exit 1
+if specforge files search -q '^## OUTLINE COMPLETE' "$OUTLINE_FILE"; then
   : # reuse existing outline — skip to 8.5.2
 fi
 ```
@@ -60,7 +60,7 @@ Agent(
 
   **Chunked mode: outline-only.**
   Do NOT write any PLAN.md files in this Task.
-  Write only: {PHASE_DIR}/{PADDED_PHASE}-PLAN-OUTLINE.md
+  Write only: {OUTLINE_FILE}
 
   The outline must be a markdown table with columns:
   Plan ID | Objective | Wave | Depends On | Requirements
@@ -80,7 +80,7 @@ Agent(
 - **`false`:** issue the same Agent() call but omit `run_in_background`; await its ordinary runtime-native completion and consume the real returned result. Skip `gsd_stall_watch` entirely and treat a recognized `## OUTLINE COMPLETE` return exactly like `marker_received`; empty or unrecognized returns keep the existing Retry/Stop path.
 
 Handle return:
-- **`marker_received`:** Read `PLAN-OUTLINE.md`, extract plan list. Continue to 8.5.2.
+- **`marker_received`:** Read `$OUTLINE_FILE`, extract plan list. Continue to 8.5.2.
 - **`stalled` / any other return or empty:** Display error. Offer: 1) Retry outline, 2) Stop.
 
 ### 8.5.2 Per-Plan Tasks (single-plan mode, ~3-5 min each)

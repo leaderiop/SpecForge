@@ -11,8 +11,8 @@ Run prior phases' test suites to catch cross-phase regressions BEFORE verificati
 # Find all VERIFICATION.md files from prior phases in current milestone
 PRIOR_VERIFICATIONS=$(for v in $(specforge query "$MILESTONE" --depth 2 --kinds verification --pick '.nodes[kind=verification].id' 2>/dev/null); do case "$v" in ("$PHASE_ID/"*) ;; (*) echo "$v" ;; esac; done)   # every verification but this phase's, by the phase's exact id; with no phase named, every one is prior
 # gsd-handoff:begin regression-files-reset
-_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-rm -f "$_GSD_HANDOFF/regression-files"  # a list left by an earlier run must never reach this gate (#4915)
+_GSD_HANDOFF=$(specforge files temp --dir --name gsd-handoff --pick .path) || exit 1
+specforge files remove --force "$_GSD_HANDOFF/regression-files" >/dev/null  # a list left by an earlier run must never reach this gate (#4915)
 # gsd-handoff:end regression-files-reset
 ```
 
@@ -30,7 +30,7 @@ write none when no test file was found:
 
 ```bash
 # gsd-handoff:begin regression-files-write
-_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+_GSD_HANDOFF=$(specforge files temp --dir --name gsd-handoff --pick .path) || exit 1
 cat > "$_GSD_HANDOFF/regression-files" <<'GSD_REGRESSION_FILES'
 tests/test_example_one.py
 tests/test_example_two.py

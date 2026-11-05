@@ -9,7 +9,7 @@ shorter-lived Tasks to bound the blast radius of Windows stdio hangs.
 
 ### outline-only
 
-Write **only** `{PHASE_DIR}/{PADDED_PHASE}-PLAN-OUTLINE.md`. Do not write any PLAN.md files.
+Write **only** `{OUTLINE_FILE}`, the path the orchestrator names. Do not write any PLAN.md files.
 Return:
 
 ```markdown
@@ -49,6 +49,6 @@ to the next plan entry from the outline.
 
 ## Resume Behaviour
 
-If the orchestrator detects that `PLAN-OUTLINE.md` already exists (from a prior interrupted
+If the orchestrator detects that the outline already holds its marker (from a prior interrupted
 run), it skips the outline-only Task and goes directly to single-plan Tasks, skipping any
 `{plan_id}-PLAN.md` files that already exist on disk.

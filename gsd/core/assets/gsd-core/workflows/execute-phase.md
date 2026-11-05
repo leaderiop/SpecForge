@@ -113,7 +113,7 @@ Reset the wave-failure tally (#4915). Fenced `bash` blocks are separate shells, 
 
 ```bash
 # gsd-handoff:begin wave-failure-reset
-_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+_GSD_HANDOFF=$(specforge files temp --dir --name gsd-handoff --pick .path) || exit 1
 : > "$_GSD_HANDOFF/wave-failures"
 # gsd-handoff:end wave-failure-reset
 ```
@@ -1001,8 +1001,8 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
    ```bash
    # gsd-handoff:begin wave-failure-read
-   _GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-   WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
+   _GSD_HANDOFF=$(specforge files temp --dir --name gsd-handoff --pick .path) || exit 1
+   WAVE_FAILURE_COUNT=$(specforge files read "$_GSD_HANDOFF/wave-failures" --pick .lines 2>/dev/null) || WAVE_FAILURE_COUNT=0
    echo "WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT}"
    # gsd-handoff:end wave-failure-read
    ```
