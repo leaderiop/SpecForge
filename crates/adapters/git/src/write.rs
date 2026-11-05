@@ -218,7 +218,7 @@ fn added(
         .map_err(|e| failed("read the ignore rules", &e))?;
     if ignored && !force {
         return Err(GitError(format!(
-            "{path} is ignored by the repository's ignore rules: add --force to stage it anyway"
+            "{path} is ignored by the repository's ignore rules: it is staged only when forced, as with specforge git commit --force"
         )));
     }
     Ok(())

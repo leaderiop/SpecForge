@@ -322,7 +322,7 @@ impl<'v> Hooks<'v> {
 fn no_verify(name: &str) -> String {
     if name == "prepare-commit-msg" {
         return format!(
-            "fix what the {name} hook reports: git runs it even under --no-verify, and so does specforge"
+            "fix what the {name} hook reports: git runs it even when no hook is to run, and so does specforge"
         );
     }
     format!(

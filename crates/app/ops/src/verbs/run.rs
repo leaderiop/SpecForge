@@ -105,7 +105,7 @@ fn place(verbs: &Verbs, run: &Run) -> Result<PathBuf, OpError> {
         return Err(OpError::new(
             OpErrorKind::InvalidInput,
             OpErrorKind::InvalidInput.as_str(),
-            format!("--in {} is not a directory", verbs.shown(&located.at)),
+            format!("{} is not a directory to run in", verbs.shown(&located.at)),
         ));
     }
     Ok(located.at)
