@@ -252,7 +252,7 @@ For each approved E2E test:
 
 1. **Check for existing tests** covering the same scenario:
    ```bash
-   grep -r "{scenario keyword}" {e2e test directory} 2>/dev/null || true
+   specforge files search '{scenario keyword}' {e2e test directory} --format human
    ```
    If found, extend rather than duplicate.
 

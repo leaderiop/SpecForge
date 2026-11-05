@@ -10,7 +10,7 @@ After determining `files_modified`, extract the key interfaces/types/exports fro
 
 ```bash
 # Extract type definitions, interfaces, and exports from relevant files
-grep -n "export\\|interface\\|type\\|class\\|function" {relevant_source_files} 2>/dev/null | head -50
+specforge files search 'export|interface|type|class|function' {relevant_source_files} --max 50 --format human
 ```
 
 Embed these in the plan's `<context>` section as an `<interfaces>` block:

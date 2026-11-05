@@ -246,7 +246,7 @@ Lightweight scan of existing code to inform assumption generation.
 Extract key terms from phase goal, search for related files.
 
 ```bash
-grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" 2>/dev/null | head -10
+specforge files search -l '{term1}|{term2}' src app --glob '*.ts' --glob '*.tsx' --max 10 --pick '.files[]'
 ```
 
 Read the 3-5 most relevant files.

@@ -35,9 +35,9 @@ than a single full read.
 If no codebase map exists:
 1. Extract key terms from the phase goal (e.g., "feed" → "post", "card",
    "list"; "auth" → "login", "session", "token")
-2. `grep -rlE "{term1}|{term2}" src/ app/ --include="*.ts" ...` (use `-E`
-   for extended regex so the `|` alternation works on both GNU grep and BSD
-   grep / macOS), and `ls` the conventional component/hook/util dirs
+2. `specforge files search -l '{term1}|{term2}' src app --glob '*.ts' ...` (one regex syntax
+   everywhere, and a directory that is missing is listed, not an error),
+   and `ls` the conventional component/hook/util dirs
 3. Read the 3–5 most relevant files
 
 ## Output (internal `<codebase_context>`)

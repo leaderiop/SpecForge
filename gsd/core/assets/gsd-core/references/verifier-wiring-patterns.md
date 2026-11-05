@@ -15,30 +15,30 @@ Artifacts that pass Levels 1-3 (exist, substantive, wired) can still be hollow i
 
 ```bash
 # Find state variables that are rendered in JSX/TSX
-grep -n -E "useState|useQuery|useSWR|useStore|props\." "$artifact" 2>/dev/null
+specforge files search 'useState|useQuery|useSWR|useStore|props\.' "$artifact" --format human
 ```
 
 2. **Trace the data source** — where does that variable get populated?
 
 ```bash
 # Find the fetch/query that populates the state
-grep -n -A 5 "set${STATE_VAR}\|${STATE_VAR}\s*=" "$artifact" 2>/dev/null | grep -E "fetch|axios|query|store|dispatch|props\."
+specforge files search -U "(set${STATE_VAR}|${STATE_VAR}[ \t]*=)(.*\n){0,5}?.*(fetch|axios|query|store|dispatch|props\.)" "$artifact" --format human
 ```
 
 3. **Verify the source produces real data** — does the API/store return actual data or static/empty values?
 
 ```bash
 # Check the API route or data source for real DB queries vs static returns
-grep -n -E "prisma\.|db\.|query\(|findMany|findOne|select|FROM" "$source_file" 2>/dev/null
+specforge files search 'prisma\.|db\.|query\(|findMany|findOne|select|FROM' "$source_file" --format human
 # Flag: static returns with no query
-grep -n -E "return.*json\(\s*\[\]|return.*json\(\s*\{\}" "$source_file" 2>/dev/null
+specforge files search 'return.*json\(\s*\[\]|return.*json\(\s*\{\}' "$source_file" --format human
 ```
 
 4. **Check for disconnected props** — props passed to child components that are hardcoded empty at the call site
 
 ```bash
 # Find where the component is used and check prop values
-grep -r -A 3 "<${COMPONENT_NAME}" "${search_path:-src/}" --include="*.tsx" 2>/dev/null | grep -E "=\{(\[\]|\{\}|null|''|\"\")\}"
+specforge files search -U "<${COMPONENT_NAME}(.*\n){0,3}?.*=\{(\[\]|\{\}|null|''|\"\")\}" "${search_path:-src/}" --glob '*.tsx' --format human
 ```
 
 > These two status tables are intentionally mirrored in `agents/gsd-verifier.md`.
@@ -67,8 +67,8 @@ grep -r -A 3 "<${COMPONENT_NAME}" "${search_path:-src/}" --include="*.tsx" 2>/de
 ### Pattern: Component → API
 
 ```bash
-grep -E "fetch\(['\"].*$api_path|axios\.(get|post).*$api_path" "$component" 2>/dev/null
-grep -A 5 "fetch\|axios" "$component" | grep -E "await|\.then|setData|setState" 2>/dev/null
+specforge files search "fetch\(['\"].*$api_path|axios\.(get|post).*$api_path" "$component" --format human
+specforge files search -U '(fetch|axios)(.*\n){0,5}?.*(await|\.then|setData|setState)' "$component" --format human
 ```
 
 Status: WIRED (call + response handling) | PARTIAL (call, no response use) | NOT_WIRED (no call)
@@ -76,8 +76,8 @@ Status: WIRED (call + response handling) | PARTIAL (call, no response use) | NOT
 ### Pattern: API → Database
 
 ```bash
-grep -E "prisma\.$model|db\.$model|$model\.(find|create|update|delete)" "$route" 2>/dev/null
-grep -E "return.*json.*\w+|res\.json\(\w+" "$route" 2>/dev/null
+specforge files search "prisma\.$model|db\.$model|$model\.(find|create|update|delete)" "$route" --format human
+specforge files search 'return.*json.*\w+|res\.json\(\w+' "$route" --format human
 ```
 
 Status: WIRED (query + result returned) | PARTIAL (query, static return) | NOT_WIRED (no query)
@@ -85,8 +85,8 @@ Status: WIRED (query + result returned) | PARTIAL (query, static return) | NOT_W
 ### Pattern: Form → Handler
 
 ```bash
-grep -E "onSubmit=\{|handleSubmit" "$component" 2>/dev/null
-grep -A 10 "onSubmit.*=" "$component" | grep -E "fetch|axios|mutate|dispatch" 2>/dev/null
+specforge files search 'onSubmit=\{|handleSubmit' "$component" --format human
+specforge files search -U 'onSubmit.*=(.*\n){0,10}?.*(fetch|axios|mutate|dispatch)' "$component" --format human
 ```
 
 Status: WIRED (handler + API call) | STUB (only logs/preventDefault) | NOT_WIRED (no handler)
@@ -94,8 +94,8 @@ Status: WIRED (handler + API call) | STUB (only logs/preventDefault) | NOT_WIRED
 ### Pattern: State → Render
 
 ```bash
-grep -E "useState.*$state_var|\[$state_var," "$component" 2>/dev/null
-grep -E "\{.*$state_var.*\}|\{$state_var\." "$component" 2>/dev/null
+specforge files search "useState.*$state_var|\[$state_var," "$component" --format human
+specforge files search "\{.*$state_var.*\}|\{$state_var\." "$component" --format human
 ```
 
 Status: WIRED (state displayed) | NOT_WIRED (state exists, not rendered)

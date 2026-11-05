@@ -78,7 +78,7 @@ true   # codebase maps are not part of @gsd/core
 Extract key terms from the phase goal. Search for related files:
 
 ```bash
-grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" 2>/dev/null | head -10 || true
+specforge files search -l '{term1}|{term2}' src app --glob '*.ts' --glob '*.tsx' --glob '*.js' --glob '*.jsx' --max 10 --pick '.files[]'
 for d in src/components src/hooks src/lib src/utils; do specforge files list "$d" --depth 1 --format human 2>/dev/null; done || true
 ```
 

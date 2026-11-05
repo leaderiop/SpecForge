@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 271 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 237 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	cat	PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
@@ -34,15 +34,7 @@ commands/gsd/quick.md	grep	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"'
 commands/gsd/quick.md	head	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 commands/gsd/quick.md	head	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 gsd-core/references/agent-contracts.md	wc	wc -l
-gsd-core/references/autonomous-smart-discuss.md	grep	grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" 2>/dev/null | head -10 || true
-gsd-core/references/autonomous-smart-discuss.md	head	grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" 2>/dev/null | head -10 || true
 gsd-core/references/checkpoints.md	seq	for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done
-gsd-core/references/few-shot-examples/verifier.md	grep	grep -n "scope" gsd-core/bin/validate-commit.js
-gsd-core/references/few-shot-examples/verifier.md	grep	grep -n "feedback-loop\|extractFeedback" gsd-core/bin/check-subagent-output.js
-gsd-core/references/few-shot-examples/verifier.md	grep	grep -rn "require.*feedback-loop" gsd-core/bin/
-gsd-core/references/few-shot-examples/verifier.md	grep	grep "architecture_graph\|architecture_guard" gsd-core/bin/lib/config-schema.json
-gsd-core/references/few-shot-examples/verifier.md	grep	grep "architecture" gsd-core/bin/lib/config.cjs
-gsd-core/references/few-shot-examples/verifier.md	grep	grep -rn "\/\[a-zA-Z\]\/" gsd-core/bin/
 gsd-core/references/planner-antipatterns.md	grep	grep -c 'LITERAL' file == 0
 gsd-core/references/planner-antipatterns.md	grep	! grep -Eq 'PAT' file
 gsd-core/references/planner-antipatterns.md	grep	grep -c 'PAT' file == 0
@@ -55,8 +47,6 @@ gsd-core/references/planner-antipatterns.md	grep	grep '714 tests'
 gsd-core/references/planner-antipatterns.md	grep	grep '52 test files'
 gsd-core/references/planner-antipatterns.md	grep	npm test 2>&1 | grep '714 passed'
 gsd-core/references/planner-antipatterns.md	grep	npm test 2>&1 | grep -E '[0-9]+ passed'
-gsd-core/references/planner-interface-context.md	grep	grep -n "export\\|interface\\|type\\|class\\|function" {relevant_source_files} 2>/dev/null | head -50
-gsd-core/references/planner-interface-context.md	head	grep -n "export\\|interface\\|type\\|class\\|function" {relevant_source_files} 2>/dev/null | head -50
 gsd-core/references/planner-verify-command-grounding.md	grep	grep -c
 gsd-core/references/planner-verify-command-grounding.md	grep	grep -q
 gsd-core/references/planner-verify-command-grounding.md	grep	grep -c "Agent" README.md
@@ -73,31 +63,11 @@ gsd-core/references/planning-config.md	sed	BRANCH_NAME=$(echo "$MILESTONE_BRANCH
 gsd-core/references/planning-config.md	sed	BRANCH_NAME=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed "s/{milestone}/$MILESTONE_VERSION/g" | sed "s/{slug}/$MILESTONE_SLUG/g")
 gsd-core/references/planning-config.md	tr	PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
 gsd-core/references/planning-config.md	tr	MILESTONE_SLUG=$(echo "$MILESTONE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-gsd-core/references/scout-codebase.md	grep	grep -rlE "{term1}|{term2}" src/ app/ --include="*.ts" ...
 gsd-core/references/specless-probe-fallback.md	cat	cat > "$REQS_JSON" <<'JSON'
 gsd-core/references/specless-probe-fallback.md	grep	EDGE_ABSENT=1;   node "$SPEC_SECTION_JS" "$SPEC_FILE" edges       2>/dev/null | grep -q '"supplied":true' && EDGE_ABSENT=0
 gsd-core/references/specless-probe-fallback.md	grep	PROHIB_ABSENT=1; node "$SPEC_SECTION_JS" "$SPEC_FILE" prohibitions 2>/dev/null | grep -q '"supplied":true' && PROHIB_ABSENT=0
 gsd-core/references/verification-patterns.md	grep	npx prisma migrate status 2>/dev/null | grep -v "pending"
 gsd-core/references/verification-patterns.md	tr	v=$(printenv "$VAR_NAME"); case "$(printf %s "$v" | tr '[:upper:]' '[:lower:]')" in
-gsd-core/references/verifier-phase-gates.md	grep	grep -rn -E "it\.skip|describe\.skip|test\.skip|xit\(|xdescribe\(|xtest\(|@pytest\.mark\.skip|@unittest\.skip|#\[ignore\]|\.pending|it\.todo|test\.todo" "$TEST_FILE"
-gsd-core/references/verifier-phase-gates.md	grep	grep -rn -E "writeFileSync|writeFile|fs\.write|open\(.*w\)" "$TEST_DIRS"
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -n -E "useState|useQuery|useSWR|useStore|props\." "$artifact" 2>/dev/null
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -n -A 5 "set${STATE_VAR}\|${STATE_VAR}\s*=" "$artifact" 2>/dev/null | grep -E "fetch|axios|query|store|dispatch|props\."
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -n -A 5 "set${STATE_VAR}\|${STATE_VAR}\s*=" "$artifact" 2>/dev/null | grep -E "fetch|axios|query|store|dispatch|props\."
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -n -E "prisma\.|db\.|query\(|findMany|findOne|select|FROM" "$source_file" 2>/dev/null
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -n -E "return.*json\(\s*\[\]|return.*json\(\s*\{\}" "$source_file" 2>/dev/null
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -r -A 3 "<${COMPONENT_NAME}" "${search_path:-src/}" --include="*.tsx" 2>/dev/null | grep -E "=\{(\[\]|\{\}|null|''|\"\")\}"
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -r -A 3 "<${COMPONENT_NAME}" "${search_path:-src/}" --include="*.tsx" 2>/dev/null | grep -E "=\{(\[\]|\{\}|null|''|\"\")\}"
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -E "fetch\(['\"].*$api_path|axios\.(get|post).*$api_path" "$component" 2>/dev/null
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -A 5 "fetch\|axios" "$component" | grep -E "await|\.then|setData|setState" 2>/dev/null
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -A 5 "fetch\|axios" "$component" | grep -E "await|\.then|setData|setState" 2>/dev/null
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -E "prisma\.$model|db\.$model|$model\.(find|create|update|delete)" "$route" 2>/dev/null
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -E "return.*json.*\w+|res\.json\(\w+" "$route" 2>/dev/null
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -E "onSubmit=\{|handleSubmit" "$component" 2>/dev/null
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -A 10 "onSubmit.*=" "$component" | grep -E "fetch|axios|mutate|dispatch" 2>/dev/null
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -A 10 "onSubmit.*=" "$component" | grep -E "fetch|axios|mutate|dispatch" 2>/dev/null
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -E "useState.*$state_var|\[$state_var," "$component" 2>/dev/null
-gsd-core/references/verifier-wiring-patterns.md	grep	grep -E "\{.*$state_var.*\}|\{$state_var\." "$component" 2>/dev/null
 gsd-core/references/worktree-path-safety.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 gsd-core/references/worktree-path-safety.md	grep	_T=$( printf '%s' "$CMD" | grep -oE "${_OPEN}(${_ENV}${_EXEC}|${_ENV}${_VERB}[[:space:]]+|${_DIR})${_TOK}" \
 gsd-core/references/worktree-path-safety.md	grep	if _P=$(printf '%s' "$BODY" | grep -oE "^${_ENV}${_EVAL}"); then K=E
@@ -111,11 +81,8 @@ gsd-core/references/worktree-path-safety.md	sed	BODY=$(printf '%s' "$RAW" | sed 
 gsd-core/references/worktree-path-safety.md	sed	| sed -E 's/^[[:space:]]*(-C|--chdir)([[:space:]]+|=)//' || true)
 gsd-core/templates/user-setup.compact.md	grep	grep -r "USER-SETUP" the spec finds all phases with user requirements.
 gsd-core/templates/user-setup.md	grep	grep -r "USER-SETUP" the spec finds all phases with user requirements.
-gsd-core/workflows/add-tests.md	grep	grep -r "{scenario keyword}" {e2e test directory} 2>/dev/null || true
 gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	BRANCH_PREFIX=$(echo "$PHASE_BRANCH_TEMPLATE" | sed 's/{.*//')
 gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	BRANCH_PREFIX=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed 's/{.*//')
-gsd-core/workflows/discuss-phase-assumptions.md	grep	grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" 2>/dev/null | head -10
-gsd-core/workflows/discuss-phase-assumptions.md	head	grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" 2>/dev/null | head -10
 gsd-core/workflows/execute-phase.md	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
 gsd-core/workflows/execute-phase.md	tr	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
 gsd-core/workflows/execute-phase.md	wc	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
@@ -209,7 +176,6 @@ gsd-core/workflows/ultraplan-phase.md	head	CC_VERSION="$(claude --version 2>/dev
 gsd-core/workflows/ultraplan-phase.md	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 gsd-core/workflows/ultraplan-phase.md	sort	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 gsd-core/workflows/undo.md	grep	grep -E "\(0*${TARGET_PHASE}(-[0-9]+)?\):"
-prompt:add_tests	grep	grep -r "{scenario keyword}" {e2e test directory} 2>/dev/null || true
 prompt:execute_phase	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
 prompt:execute_phase	tr	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
 prompt:execute_phase	wc	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}

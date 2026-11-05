@@ -80,7 +80,7 @@ From PLAN and SUMMARY files, map each requirement to the test files that are sup
 For ALL test files linked to requirements, search for disabled/skipped patterns:
 
 ```bash
-grep -rn -E "it\.skip|describe\.skip|test\.skip|xit\(|xdescribe\(|xtest\(|@pytest\.mark\.skip|@unittest\.skip|#\[ignore\]|\.pending|it\.todo|test\.todo" "$TEST_FILE"
+specforge files search 'it\.skip|describe\.skip|test\.skip|xit\(|xdescribe\(|xtest\(|@pytest\.mark\.skip|@unittest\.skip|#\[ignore\]|\.pending|it\.todo|test\.todo' "$TEST_FILE" --format human
 ```
 
 **Rule:** A disabled test linked to a requirement = requirement NOT tested.
@@ -92,7 +92,7 @@ grep -rn -E "it\.skip|describe\.skip|test\.skip|xit\(|xdescribe\(|xtest\(|@pytes
 Search for scripts/utilities that generate expected values by running the system under test:
 
 ```bash
-grep -rn -E "writeFileSync|writeFile|fs\.write|open\(.*w\)" "$TEST_DIRS"
+specforge files search 'writeFileSync|writeFile|fs\.write|open\(.*w\)' "$TEST_DIRS" --format human
 ```
 
 For each match, check if it also imports the system/service/module being tested. If a script both imports the system-under-test AND writes expected output values → CIRCULAR.
