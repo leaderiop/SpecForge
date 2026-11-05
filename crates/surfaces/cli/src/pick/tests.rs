@@ -7,10 +7,13 @@ use super::*;
 fn a_picked_string_is_escaped_before_a_terminal_only() {
     use crate::terminal::{Facts, Terminal};
     let document = serde_json::json!({"text": "red \u{1b}[31mX\nnext"});
-    let pick = Pick::parse(".text").unwrap();
+    let picked: Picked = Picked {
+        pick: Some(Pick::parse(".text").unwrap()),
+        ..Picked::default()
+    };
     let printed = |facts: Facts| {
         let (terminal, capture) = Terminal::captured("", facts);
-        print_json(&terminal, Some(&pick), &Shape::default(), &document);
+        picked.print_json(&terminal, &document);
         capture.stdout()
     };
     assert_eq!(printed(Facts::PIPED), "red \u{1b}[31mX\nnext\n");

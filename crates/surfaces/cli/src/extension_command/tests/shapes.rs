@@ -2,7 +2,7 @@
 //! declares an arg of the name.
 
 use super::*;
-use crate::pick::Shape;
+use crate::pick::Picked;
 
 #[test]
 fn the_shapes_print_a_commands_answer() {
@@ -62,11 +62,9 @@ fn a_command_declaring_count_keeps_it_and_still_takes_first() {
     // the declared `count` is the command's arg, not a shape
     let (args, _) = sent_by(&c, &argv[1..]).unwrap();
     assert_eq!(args["count"], 7);
-    let shape = Shape::of_matches(sub, &added);
-    let pick = Pick::parse(".a[]").unwrap();
     assert_eq!(
-        pick.printed(r#"{"a": [1, 2, 3]}"#, None, &shape),
-        Ok("1\n".into())
+        Picked::of_matches(sub, &added).printed(r#"{"a": [1, 2, 3]}"#),
+        Some(Ok("1\n".into()))
     );
     // a command that declares `pick` has none of the host's: no shape either
     let mut own = contribution();

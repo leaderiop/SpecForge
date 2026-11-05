@@ -16,11 +16,12 @@ use specforge_ops::consent::UserConsent;
 use specforge_ops::verbs::{Answered, Verbs};
 
 use crate::outcome::{Exit, OutputFormat, Refusal};
-use crate::pick::{self, Pick};
+use crate::pick;
 use crate::terminal::{Terminal, errln};
 
 /// What every verb's leaf takes: the project, the output format (json by default) and `--pick`.
 #[derive(clap::Args, Clone, Debug)]
+#[command(mut_arg(pick::PICK, |arg| arg.long_help(pick::VERB_LONG_HELP)))]
 pub(crate) struct VerbArgs {
     #[command(flatten)]
     project: crate::project::ProjectArg,
@@ -29,11 +30,8 @@ pub(crate) struct VerbArgs {
     #[arg(long, default_value = "json")]
     format: OutputFormat,
 
-    #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = pick::HELP, long_help = pick::VERB_LONG_HELP)]
-    pick: Option<Pick>,
-
     #[command(flatten)]
-    shape: pick::Shape,
+    picked: pick::Picked,
 
     /// The effects mode: online (the default; auto is online), cached or replay. http sends the request, answers a
     /// GET from a fresh record of the effects journal (cached), or answers from the journal alone (replay); files and
@@ -50,8 +48,8 @@ impl VerbArgs {
 
     /// The output format, or the usage error (exit 2) of `--pick` beside `--format human`.
     pub(crate) fn format(&self, terminal: &Terminal) -> Result<OutputFormat, Exit> {
-        match (&self.pick, self.format) {
-            (Some(_), OutputFormat::Human) => {
+        match (self.picked.picks(), self.format) {
+            (true, OutputFormat::Human) => {
                 errln!(
                     terminal,
                     "error: --pick reads the JSON answer: it takes no --format human"
@@ -109,14 +107,12 @@ impl VerbArgs {
         match answer {
             Ok(answer) => {
                 match format {
-                    OutputFormat::Json => {
-                        pick::print_json(terminal, self.pick.as_ref(), &self.shape, &answer)
-                    }
+                    OutputFormat::Json => self.picked.print_json(terminal, &answer),
                     OutputFormat::Human => human(terminal, &answer),
                 }
                 Exit::Passed
             }
-            Err(error) => refusal(format, self.pick.is_some()).report(terminal, &error),
+            Err(error) => refusal(format, self.picked.picks()).report(terminal, &error),
         }
     }
 }

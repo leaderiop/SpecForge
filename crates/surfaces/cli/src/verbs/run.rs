@@ -10,10 +10,11 @@ use specforge_ops::verbs::run::{self as ran, Run};
 
 use super::shown;
 use crate::outcome::{Exit, OutputFormat};
-use crate::pick::{self, Pick};
+use crate::pick;
 use crate::terminal::{Terminal, errln, outln};
 
 #[derive(clap::Args)]
+#[command(mut_arg(pick::PICK, |arg| arg.long_help(pick::VERB_LONG_HELP)))]
 pub(crate) struct RunArgs {
     /// The program, then its arguments (after `--` when one starts with `-`)
     #[arg(
@@ -45,11 +46,8 @@ pub(crate) struct RunArgs {
     #[arg(long, default_value = "human")]
     format: OutputFormat,
 
-    #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = pick::HELP, long_help = pick::VERB_LONG_HELP)]
-    pick: Option<Pick>,
-
     #[command(flatten)]
-    shape: pick::Shape,
+    picked: pick::Picked,
 
     /// With --format json: whether the run is performed (online, the default; auto is online) or answered from the
     /// effects journal (replay). A program asks for something to happen, so cached performs it too
@@ -61,7 +59,7 @@ impl RunArgs {
     /// The exit code: the program's own, or the verb's.
     pub(crate) fn run(self, terminal: &Terminal, ports: &Ports) -> i32 {
         // --pick reads the JSON answer, so it asks for one: a pass-through run has none to pick from.
-        let json = self.format == OutputFormat::Json || self.pick.is_some();
+        let json = self.format == OutputFormat::Json || self.picked.picks();
         let format = if json {
             OutputFormat::Json
         } else {
@@ -80,7 +78,7 @@ impl RunArgs {
         let verbs = match super::open(&self.project, ports) {
             Ok(verbs) => verbs,
             Err(error) => {
-                return super::refusal(format, self.pick.is_some())
+                return super::refusal(format, self.picked.picks())
                     .report(terminal, &error)
                     .code();
             }
@@ -96,7 +94,7 @@ impl RunArgs {
             return match format {
                 // The answer says what was found: printed, it is the run's success.
                 OutputFormat::Json => {
-                    pick::print_json(terminal, self.pick.as_ref(), &self.shape, &answer);
+                    self.picked.print_json(terminal, &answer);
                     Exit::Passed.code()
                 }
                 // As `command -v`: the paths found, and 1 when one is missing.
@@ -114,10 +112,10 @@ impl RunArgs {
         if json {
             return match ran::capture(&verbs, &run, mode) {
                 Ok(answer) => {
-                    pick::print_json(terminal, self.pick.as_ref(), &self.shape, &answer);
+                    self.picked.print_json(terminal, &answer);
                     Exit::Passed.code()
                 }
-                Err(error) => super::refusal(format, self.pick.is_some())
+                Err(error) => super::refusal(format, self.picked.picks())
                     .report(terminal, &error)
                     .code(),
             };
@@ -132,7 +130,7 @@ impl RunArgs {
                 }
                 code
             }
-            Err(error) => super::refusal(format, self.pick.is_some())
+            Err(error) => super::refusal(format, self.picked.picks())
                 .report(terminal, &error)
                 .code(),
         }

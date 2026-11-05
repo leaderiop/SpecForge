@@ -1,7 +1,7 @@
 //! What a writing command's plan became, as the command line prints it (ADR 0289): the command's own output first,
 //! then the plan's diff (`--dry-run`) or the files written; a refused plan fails the command with the refusal.
 
-use crate::pick::{Pick, Shape};
+use crate::pick::Picked;
 use crate::terminal::{Terminal, err, out, outln};
 use serde_json::{Value, json};
 use specforge_ops::authoring::apply::{CommandRun, PlanOutcome};
@@ -17,13 +17,13 @@ use std::path::Path;
 pub(super) fn ended(
     run: CommandRun,
     format: CommandFormat,
-    pick: Option<(&Pick, &Shape)>,
+    picked: &Picked,
     root: &Path,
     terminal: &Terminal,
 ) -> i32 {
     // A state patch the host refused is reported beside what the run did, and the exit code is not 0.
     let state = run.state_refused.clone();
-    let code = printed(run, format, pick, root, terminal);
+    let code = printed(run, format, picked, root, terminal);
     match state {
         Some(refusal) => {
             err!(terminal, "{}", refused(&refusal, format));
@@ -36,7 +36,7 @@ pub(super) fn ended(
 fn printed(
     run: CommandRun,
     format: CommandFormat,
-    pick: Option<(&Pick, &Shape)>,
+    picked: &Picked,
     root: &Path,
     terminal: &Terminal,
 ) -> i32 {
@@ -54,9 +54,9 @@ fn printed(
         return 1;
     }
     // `--pick` reads the command's own answer, whether or not this run answered a plan
-    if let Some((pick, shape)) = pick {
+    if let Some(printed) = picked.printed(&output.stdout) {
         err!(terminal, "{}", output.stderr);
-        return match pick.printed(&output.stdout, None, shape) {
+        return match printed {
             Ok(lines) => {
                 out!(terminal, "{lines}");
                 output.exit_code

@@ -86,6 +86,7 @@ pub(crate) const VERB_LONG_HELP: &str = concat!(
 /// `--format human|json` beside `--pick`, for a core command whose JSON form is its answer (`check`, `settings`):
 /// with `--pick` the format is `json` unless one is given, so an explicit `--format human` can be refused.
 #[derive(clap::Args, Clone, Debug)]
+#[command(mut_arg(PICK, |arg| arg.long_help(ANSWER_LONG_HELP)))]
 pub(crate) struct PickedOutputArg {
     /// Output format: human or json (json with --pick)
     #[arg(
@@ -95,19 +96,16 @@ pub(crate) struct PickedOutputArg {
     )]
     format: OutputFormat,
 
-    #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = HELP, long_help = ANSWER_LONG_HELP)]
-    pick: Option<Pick>,
-
     #[command(flatten)]
-    shape: Shape,
+    picked: Picked,
 }
 
 impl PickedOutputArg {
     /// The format, or the usage error (exit 2) of `--pick` beside `--format human`.
     pub(crate) fn format(&self, terminal: &Terminal) -> Result<OutputFormat, Exit> {
         // a usage error, not a note: written under either format
-        match (&self.pick, self.format) {
-            (Some(_), OutputFormat::Human) => {
+        match (self.picked.picks(), self.format) {
+            (true, OutputFormat::Human) => {
                 errln!(
                     terminal,
                     "error: --pick implies --format json: it takes no --format human"
@@ -118,12 +116,126 @@ impl PickedOutputArg {
         }
     }
 
-    pub(crate) fn pick(&self) -> Option<&Pick> {
-        self.pick.as_ref()
+    pub(crate) fn picked(&self) -> &Picked {
+        &self.picked
+    }
+}
+
+/// What a command reads beside `--pick`'s path: the `--fields` rows of `query` and `export` ([`FieldRows`], ADR 0325
+/// D7), or none ([`NoRows`]).
+pub(crate) trait Rows: clap::Args + clap::FromArgMatches {
+    /// The `--fields` keys given.
+    fn fields(&self) -> Option<&Fields>;
+}
+
+// No `--fields`: a command whose items are not entities. (A `///` here would be the about of the command it is
+// flattened in.)
+#[derive(clap::Args, Clone, Debug, Default)]
+#[group(skip)]
+pub(crate) struct NoRows {}
+
+impl Rows for NoRows {
+    fn fields(&self) -> Option<&Fields> {
+        None
+    }
+}
+
+// `--fields`, on `query` and `export`.
+#[derive(clap::Args, Clone, Debug, Default)]
+#[group(skip)]
+pub(crate) struct FieldRows {
+    #[arg(long, value_name = "KEYS", requires = PICK, conflicts_with_all = [COUNT, JOIN], value_parser = Fields::parse, help = FIELDS_HELP, long_help = FIELDS_LONG_HELP)]
+    fields: Option<Fields>,
+}
+
+impl Rows for FieldRows {
+    fn fields(&self) -> Option<&Fields> {
+        self.fields.as_ref()
+    }
+}
+
+// `--pick`, the rows beside it and the shape its values print in: one value, passed whole. `--pick`'s long help is
+// the command's, set by `mut_arg(PICK, …)` where it is flattened.
+#[derive(clap::Args, Clone, Debug, Default)]
+pub(crate) struct Picked<R: Rows = NoRows> {
+    #[arg(id = PICK, long, value_name = "PATH", value_parser = Pick::parse, help = HELP)]
+    pick: Option<Pick>,
+
+    #[command(flatten)]
+    rows: R,
+
+    #[command(flatten)]
+    shape: Shape,
+}
+
+impl<R: Rows> Picked<R> {
+    /// Whether `--pick` was given.
+    pub(crate) fn picks(&self) -> bool {
+        self.pick.is_some()
     }
 
-    pub(crate) fn shape(&self) -> &Shape {
-        &self.shape
+    /// `document` as the JSON form prints it, or the values `--pick` reaches in it, in the shape.
+    pub(crate) fn print_json(&self, terminal: &Terminal, document: &impl serde::Serialize) {
+        let Some(pick) = &self.pick else {
+            return terminal.json(document);
+        };
+        let value = serde_json::to_value(document).expect("serialize JSON output");
+        let lines = self.shape.print(pick.texts(&value, self.rows.fields()));
+        // A picked string is a file's text, a commit subject or a response: exact into a pipe, which a script
+        // reads, but escaped before a terminal, where an escape sequence would act (ADR 0339 D4).
+        if terminal.facts().out_terminal {
+            out!(
+                terminal,
+                "{}",
+                specforge_common::remedy::printable_lines(&lines)
+            );
+        } else {
+            out!(terminal, "{lines}");
+        }
+    }
+
+    /// What `--pick` prints for an answer printed as text (`None` without `--pick`): nothing for an empty answer,
+    /// else `Err` with the refusal when it is not JSON.
+    pub(crate) fn printed(&self, answer: &str) -> Option<Result<String, String>> {
+        let pick = self.pick.as_ref()?;
+        Some(pick.printed(answer, self.rows.fields(), &self.shape))
+    }
+}
+
+impl Picked {
+    /// The host options of an extension command (ADR 0325 D4, D8): `--pick` and the shapes `added` names (of
+    /// [`SHAPES`]), the args this type derives, each shape conflicting only with the other shapes added, so a
+    /// declared `count` keeps `--first`.
+    pub(crate) fn host_args(added: &[&str]) -> Vec<clap::Arg> {
+        use clap::Args as _;
+        let derived = Self::augment_args(clap::Command::new(""));
+        derived
+            .get_arguments()
+            .filter(|arg| arg.get_id() == PICK || added.contains(&arg.get_id().as_str()))
+            .map(|arg| {
+                let kept: Vec<clap::Id> = derived
+                    .get_arg_conflicts_with(arg)
+                    .into_iter()
+                    .map(|other| other.get_id().clone())
+                    .filter(|id| added.contains(&id.as_str()))
+                    .collect();
+                // the order the empty command gave it is reset: the host's command orders it
+                arg.clone()
+                    .display_order(None)
+                    .conflicts_with(clap::builder::Resettable::Reset)
+                    .conflicts_with_all(kept)
+            })
+            .collect()
+    }
+
+    /// What an extension command's `matches` hold for the host options `added` names: a name the command declares
+    /// is its own arg, never read here.
+    pub(crate) fn of_matches(matches: &clap::ArgMatches, added: &[&str]) -> Self {
+        Self {
+            pick: matches.try_get_one::<Pick>(PICK).ok().flatten().cloned(),
+            rows: NoRows {},
+            shape: Shape::of_matches(matches, added),
+        }
     }
 }
 
@@ -176,33 +288,9 @@ const LAST: &str = "last";
 pub(crate) const JOIN: &str = "join";
 
 impl Shape {
-    /// The host options of the shapes `added` names (of [`SHAPES`]), as an extension command takes them: the args
-    /// this type derives, each conflicting only with the other shapes added, so a declared `count` keeps `--first`.
-    pub(crate) fn host_args(added: &[&str]) -> Vec<clap::Arg> {
-        use clap::Args as _;
-        let derived = Self::augment_args(clap::Command::new(""));
-        derived
-            .get_arguments()
-            .filter(|arg| added.contains(&arg.get_id().as_str()))
-            .map(|arg| {
-                let kept: Vec<clap::Id> = derived
-                    .get_arg_conflicts_with(arg)
-                    .into_iter()
-                    .map(|other| other.get_id().clone())
-                    .filter(|id| added.contains(&id.as_str()))
-                    .collect();
-                // the order the empty command gave it is reset: the host's command orders it
-                arg.clone()
-                    .display_order(None)
-                    .conflicts_with(clap::builder::Resettable::Reset)
-                    .conflicts_with_all(kept)
-            })
-            .collect()
-    }
-
     /// The shape `matches` holds for the host options `added` names: a name the command declares is its own arg,
     /// never read here.
-    pub(crate) fn of_matches(matches: &clap::ArgMatches, added: &[&str]) -> Self {
+    fn of_matches(matches: &clap::ArgMatches, added: &[&str]) -> Self {
         let has = |name: &str| added.contains(&name);
         Self {
             count: has(COUNT) && matches.get_flag(COUNT),
@@ -233,33 +321,6 @@ impl Shape {
             Some(separator) => kept.join(separator) + "\n",
             None => kept.iter().map(|text| format!("{text}\n")).collect(),
         }
-    }
-}
-
-/// `document` as the JSON form prints it, or the values `pick` reaches in it, in `shape`.
-pub(crate) fn print_json(
-    terminal: &Terminal,
-    pick: Option<&Pick>,
-    shape: &Shape,
-    document: &impl serde::Serialize,
-) {
-    match pick {
-        Some(pick) => {
-            let value = serde_json::to_value(document).expect("serialize JSON output");
-            let lines = shape.print(pick.texts(&value, None));
-            // A picked string is a file's text, a commit subject or a response: exact into a pipe, which a script
-            // reads, but escaped before a terminal, where an escape sequence would act (ADR 0339 D4).
-            if terminal.facts().out_terminal {
-                out!(
-                    terminal,
-                    "{}",
-                    specforge_common::remedy::printable_lines(&lines)
-                );
-            } else {
-                out!(terminal, "{lines}");
-            }
-        }
-        None => terminal.json(document),
     }
 }
 
@@ -475,7 +536,7 @@ impl Pick {
 
     /// What `--pick` prints in `shape` for an answer printed as text: nothing for an empty answer, else `Err` with
     /// the answer when it is not JSON.
-    pub(crate) fn printed(
+    fn printed(
         &self,
         answer: &str,
         fields: Option<&Fields>,

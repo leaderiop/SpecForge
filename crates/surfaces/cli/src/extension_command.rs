@@ -19,7 +19,7 @@
 //! it answers is applied by the host (`plan.rs`, ADR 0289).
 
 use crate::outcome::Exit;
-use crate::pick::{PICK, Pick, Shape};
+use crate::pick::{PICK, Picked};
 use crate::project::ProjectArg;
 use crate::terminal::{Stream, Terminal, err, errln, out};
 use clap::builder::PossibleValuesParser;
@@ -216,10 +216,9 @@ pub(crate) fn run_in(
         return INVALID_INPUT_EXIT;
     };
 
-    let pick = matches.try_get_one::<Pick>(PICK).ok().flatten();
-    let shape = Shape::of_matches(matches, &kernel_shapes(command));
+    let picked = Picked::of_matches(matches, &kernel_shapes(command));
     let format = format_value(matches);
-    if pick.is_some()
+    if picked.picks()
         && matches.value_source(FORMAT) == Some(ValueSource::CommandLine)
         && format != CommandFormat::Json
     {
@@ -237,7 +236,7 @@ pub(crate) fn run_in(
         );
         return INVALID_INPUT_EXIT;
     }
-    let format = if pick.is_some() {
+    let format = if picked.picks() {
         CommandFormat::Json
     } else {
         format
@@ -278,13 +277,7 @@ pub(crate) fn run_in(
         },
     );
     match outcome {
-        Ok(run) => plan::ended(
-            run,
-            format,
-            pick.map(|pick| (pick, &shape)),
-            root.dir(),
-            terminal,
-        ),
+        Ok(run) => plan::ended(run, format, &picked, root.dir(), terminal),
         Err(error) => ended(Err(error), format, terminal),
     }
 }
@@ -639,15 +632,9 @@ fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
             );
         }
         if kernel_picks(command) {
-            sub = sub.arg(
-                Arg::new(PICK)
-                    .long(PICK)
-                    .value_name("PATH")
-                    .value_parser(Pick::parse)
-                    .help(crate::pick::HELP)
-                    .long_help(crate::pick::COMMAND_LONG_HELP),
-            );
-            sub = sub.args(Shape::host_args(&kernel_shapes(command)));
+            sub = sub
+                .args(Picked::host_args(&kernel_shapes(command)))
+                .mut_arg(PICK, |arg| arg.long_help(crate::pick::COMMAND_LONG_HELP));
         }
         if command.writes() {
             sub = sub.arg(

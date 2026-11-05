@@ -1,6 +1,6 @@
 use crate::notes::Notes;
 use crate::outcome::{Exit, OutputFormat, Refusal};
-use crate::pick::{Pick, PickedOutputArg, Shape};
+use crate::pick::{Picked, PickedOutputArg};
 use crate::terminal::{Terminal, err, errln};
 use clap::builder::{PossibleValuesParser, TypedValueParser};
 use specforge_common::{Diagnostic, Severity, diagnostic_summary, render_diagnostics};
@@ -78,7 +78,7 @@ impl Args {
         run_in(
             (&self.project, mode),
             runtime,
-            (format, self.output.pick(), self.output.shape()),
+            (format, self.output.picked()),
             &self.options(),
             terminal,
             ports,
@@ -93,7 +93,7 @@ impl Args {
 fn run_in(
     (project, mode): (&crate::project::ProjectArg, specforge_effects::EffectsMode),
     runtime: SharedRuntime,
-    (format, pick, shape): (OutputFormat, Option<&Pick>, &Shape),
+    (format, picked): (OutputFormat, &Picked),
     options: &CheckOptions,
     terminal: &Terminal,
     ports: &specforge_effects::Ports,
@@ -125,7 +125,7 @@ fn run_in(
                 &shown,
                 ProjectView::of(&compiled).registries().codes(),
             );
-            crate::pick::print_json(terminal, pick, shape, &entries);
+            picked.print_json(terminal, &entries);
         }
         OutputFormat::Human => {
             let color = terminal.facts().color_err;
@@ -232,7 +232,7 @@ mod tests {
                     specforge_effects::EffectsMode::Cached,
                 ),
                 std::sync::Arc::new(audit_extension()),
-                (OutputFormat::Human, None, &Shape::default()),
+                (OutputFormat::Human, &Picked::default()),
                 &CheckOptions::default(),
                 &terminal,
                 &crate::ports(),

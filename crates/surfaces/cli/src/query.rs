@@ -1,7 +1,7 @@
 use crate::notes::Notes;
 use crate::options;
 use crate::outcome::{Exit, Refusal};
-use crate::pick::Pick;
+use crate::pick::{FieldRows, Picked};
 use crate::terminal::{Terminal, err, errln, out, outln};
 use specforge_ops::read::export::Format;
 use specforge_ops::read::judged::{InputsRequest, judged_inputs};
@@ -11,6 +11,7 @@ use specforge_protocol_types::Cite;
 
 // `specforge query`'s command line.
 #[derive(clap::Args)]
+#[command(mut_arg(crate::pick::PICK, |arg| arg.long_help(crate::pick::QUERY_LONG_HELP)))]
 pub(crate) struct Args {
     /// Entity ID to query
     entity: String,
@@ -56,14 +57,8 @@ pub(crate) struct Args {
     #[arg(long, requires = "inputs", value_name = "TEST")]
     cite_test: Vec<String>,
 
-    #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = crate::pick::HELP, long_help = crate::pick::QUERY_LONG_HELP)]
-    pick: Option<Pick>,
-
-    #[arg(long, value_name = "KEYS", requires = crate::pick::PICK, conflicts_with_all = [crate::pick::COUNT, crate::pick::JOIN], value_parser = crate::pick::Fields::parse, help = crate::pick::FIELDS_HELP, long_help = crate::pick::FIELDS_LONG_HELP)]
-    fields: Option<crate::pick::Fields>,
-
     #[command(flatten)]
-    shape: crate::pick::Shape,
+    picked: Picked<FieldRows>,
 }
 
 impl Args {
@@ -84,7 +79,7 @@ impl Args {
     /// hint (exit 1).
     pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
         // checked here, not by clap's `conflicts_with`: `--format` has a default, and `--format graph` is taken
-        if self.pick.is_some()
+        if self.picked.picks()
             && (self.format != Format::Graph || self.inputs.is_some() || self.include_coverage)
         {
             errln!(
@@ -108,19 +103,14 @@ impl Args {
         }
         match query(view, &self.request()) {
             Ok(document) => {
-                let document = Notes::fixed(terminal).noticed(document);
-                match &self.pick {
-                    Some(pick) => {
-                        match pick.printed(&document.to_string(), self.fields.as_ref(), &self.shape)
-                        {
-                            Ok(lines) => out!(terminal, "{lines}"),
-                            Err(refused) => {
-                                err!(terminal, "{refused}");
-                                return Exit::Failed;
-                            }
-                        }
+                let document = Notes::fixed(terminal).noticed(document).to_string();
+                match self.picked.printed(&document) {
+                    Some(Ok(lines)) => out!(terminal, "{lines}"),
+                    Some(Err(refused)) => {
+                        err!(terminal, "{refused}");
+                        return Exit::Failed;
                     }
-                    None => outln!(terminal, "{}", document),
+                    None => outln!(terminal, "{document}"),
                 }
                 Exit::Passed
             }
