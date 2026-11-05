@@ -158,12 +158,19 @@ fn steps(path: &Path) -> impl Iterator<Item = Step> {
     })
 }
 
-/// Where `path` lands: made absolute and walked component by component. `..` leaves the real directory reached so
-/// far (after its links); every existing component is replaced by its canonical form; a link whose target does not
-/// exist is replaced by its target (read against the link's directory) and the walk goes on, at most [`MAX_LINKS`]
-/// times (then the name lands at itself). A missing tail is joined on.
+/// Where `path` lands: made absolute when it has no root (a rooted path keeps the drive it names or lacks, so a
+/// Windows `\p` is not given the current drive and stays comparable with a root spelled the same way; a link target
+/// written `\x` with no drive then lands outside a root that names one: a refusal, never an escape), then walked
+/// component by component. `..` leaves the real directory reached so far (after its links); every existing component
+/// is replaced by its canonical form; a link whose target does not exist is replaced by its target (read against the
+/// link's directory) and the walk goes on, at most [`MAX_LINKS`] times (then the name lands at itself). A missing
+/// tail is joined on.
 pub fn landing(lookup: &dyn Lookup, path: &Path) -> PathBuf {
-    let path = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    let path = if path.has_root() {
+        path.to_path_buf()
+    } else {
+        std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf())
+    };
     let mut pending: VecDeque<Step> = steps(&path).collect();
     let mut landed = PathBuf::new();
     let mut links = 0;
