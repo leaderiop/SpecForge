@@ -127,8 +127,8 @@ fn prepare_commit_msg_runs_under_no_verify_and_its_trailer_is_committed_as_git_d
 fn hooks_path_reads_from_the_home_directory_as_git_does() {
     use std::os::unix::fs::PermissionsExt as _;
     let (project, repo, _) = committed();
-    let home = tempfile::tempdir().unwrap();
-    let at = home.path().join("my-hooks/pre-commit");
+    // The run's HOME is the project's own (`Cli` sets it).
+    let at = project.home().join("my-hooks/pre-commit");
     std::fs::create_dir_all(at.parent().unwrap()).unwrap();
     std::fs::write(
         &at,
@@ -140,7 +140,6 @@ fn hooks_path_reads_from_the_home_directory_as_git_does() {
     let empty = tempfile::tempdir().unwrap();
     let refused = Cli::on(&project)
         .env("PATH", empty.path())
-        .env("HOME", home.path())
         .run(&["git", "commit", "--allow-empty", "-m", "subject"])
         .exits(1);
     assert!(refused.stdout.contains("pre-commit"), "{}", refused.stdout);
