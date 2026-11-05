@@ -14,8 +14,8 @@ use gix::sec::trust::DefaultForLevel as _;
 use specforge_effects::git::{
     Blob, CommitFile, Committed, DiffQuery, DiffSide, Git, GitBlob, GitBranch, GitBranchRef,
     GitError, GitFileDiff, GitLog, GitPlace, GitRemote, GitStash, GitStatus, GitSubmodule,
-    GitWorktree, Located, LogQuery, Merged, ObjectKind, Removal, ResetMode, Sha, Sized, Staging,
-    TreeEntry,
+    GitWorktree, Located, LogQuery, Merged, ObjectKind, Removal, ResetMode, Restoring, Sha, Sized,
+    Staging, TreeEntry,
 };
 
 mod branching;
@@ -590,10 +590,9 @@ impl Git for Gix {
         &self,
         place: &GitPlace,
         paths: &[String],
-        source: Option<&Sha>,
-        staged: bool,
+        restoring: &Restoring,
     ) -> Result<(), GitError> {
-        merging::restore(place, paths, source, staged)
+        merging::restore(place, paths, restoring)
     }
 
     fn stash_push(

@@ -7,7 +7,9 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 use specforge_common::remedy::printable;
-use specforge_effects::git::{GitConflict, GitEntryKind, GitPlace, GitStash, Merged, ResetMode};
+use specforge_effects::git::{
+    ConflictSide, GitConflict, GitEntryKind, GitPlace, GitStash, Merged, ResetMode, Restoring,
+};
 
 use super::commit::{Signed, in_repository, refuse_signing, write_failed};
 use super::{commit_named, failed};
@@ -189,23 +191,42 @@ pub fn reset(
     })
 }
 
+/// What `git restore` is asked.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RestoreRequest {
+    /// The revision the paths come from.
+    pub source: Option<String>,
+    pub staged: bool,
+    /// The files too when `staged`; they are restored when neither is asked.
+    pub worktree: bool,
+    pub side: Option<ConflictSide>,
+}
+
 /// The named files back as the index (or `source`) has them, their changes discarded; with `staged`, their index
-/// entries back as `HEAD` (or `source`) has them.
+/// entries back as `HEAD` (or `source`) has them, and the files too with `worktree`; with a side, a conflicted
+/// file as that side of it has it.
 pub fn restore(
     verbs: &Verbs,
     paths: &[PathBuf],
-    source: Option<&str>,
-    staged: bool,
+    request: &RestoreRequest,
 ) -> Result<RestoreAnswer, OpError> {
     let place = verbs.place_to_write("restore")?;
     let restored = in_repository(verbs, &place, paths)?;
-    let source = source
+    let source = request
+        .source
+        .as_deref()
         .map(|revision| commit_named(verbs, &place, revision))
         .transpose()?;
+    let restoring = Restoring {
+        source,
+        staged: request.staged,
+        worktree: request.worktree || !request.staged,
+        side: request.side,
+    };
     verbs
         .ports()
         .git
-        .restore(&place, &restored, source.as_ref(), staged)
+        .restore(&place, &restored, &restoring)
         .map_err(write_failed)?;
     Ok(RestoreAnswer { restored })
 }

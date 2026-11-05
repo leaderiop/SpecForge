@@ -55,12 +55,24 @@ pub(crate) struct RestoreArgs {
     pub(super) paths: Vec<std::path::PathBuf>,
 
     /// Take them from this commit instead
-    #[arg(long, value_name = "REV")]
+    #[arg(short, long, value_name = "REV")]
     pub(super) source: Option<String>,
 
-    /// Restore their index entries (from HEAD, or --source), not the files
-    #[arg(long)]
+    /// Restore their index entries (from HEAD, or --source), not the files unless --worktree is given too
+    #[arg(short = 'S', long)]
     pub(super) staged: bool,
+
+    /// Restore the files (the default); with --staged, the index entries and the files both
+    #[arg(short = 'W', long)]
+    pub(super) worktree: bool,
+
+    /// A conflicted file as our side of it has it (the index's stage 2)
+    #[arg(long, conflicts_with_all = ["theirs", "source", "staged"])]
+    pub(super) ours: bool,
+
+    /// A conflicted file as their side of it has it (the index's stage 3); git add resolves it
+    #[arg(long, conflicts_with_all = ["source", "staged"])]
+    pub(super) theirs: bool,
 
     #[command(flatten)]
     pub(super) verb: VerbArgs,

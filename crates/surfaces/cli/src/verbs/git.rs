@@ -440,7 +440,20 @@ impl Action {
                 &args.verb,
                 terminal,
                 ports,
-                |v| git::restore(v, &args.paths, args.source.as_deref(), args.staged),
+                |v| {
+                    let side = match (args.ours, args.theirs) {
+                        (true, _) => Some(git::ConflictSide::Ours),
+                        (_, true) => Some(git::ConflictSide::Theirs),
+                        _ => None,
+                    };
+                    let request = git::RestoreRequest {
+                        source: args.source.clone(),
+                        staged: args.staged,
+                        worktree: args.worktree,
+                        side,
+                    };
+                    git::restore(v, &args.paths, &request)
+                },
                 |t, a| {
                     for path in &a.restored {
                         outln!(t, "{}", shown(path));

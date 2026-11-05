@@ -320,6 +320,26 @@ pub struct Staging {
     pub except: Vec<String>,
 }
 
+/// Which side of a conflict a file is restored from: the index's stage 2 (`--ours`) or 3 (`--theirs`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConflictSide {
+    Ours,
+    Theirs,
+}
+
+/// What `git restore` puts back, and from where.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Restoring {
+    /// The commit the paths come from; the index when none, or `HEAD` for `staged`.
+    pub source: Option<Sha>,
+    /// The index's entries (`--staged`).
+    pub staged: bool,
+    /// The files (`--worktree`); with `staged`, both from the source.
+    pub worktree: bool,
+    /// A conflicted file from that side (`--ours`, `--theirs`).
+    pub side: Option<ConflictSide>,
+}
+
 /// How `git rm` removes: what it may take and whether the files go too.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Removal {
@@ -582,14 +602,14 @@ pub trait Git: Send + Sync {
     fn reset(&self, _place: &GitPlace, _to: &Sha, _mode: ResetMode) -> Result<(), GitError> {
         Err(GitError::unwritable())
     }
-    /// The files at `paths` as the index has them, or as `source` does; with `staged`, the index's entries as `HEAD`
-    /// (or `source`) has them, the files untouched.
+    /// The files at `paths` back as `restoring` says: the files as the index (or its `source`) has them; with
+    /// `staged`, the index's entries as `HEAD` (or the `source`) has them, the files too with `worktree`; with a
+    /// `side`, a conflicted file as that stage of the index has it, the conflict left for a `git add`.
     fn restore(
         &self,
         _place: &GitPlace,
         _paths: &[String],
-        _source: Option<&Sha>,
-        _staged: bool,
+        _restoring: &Restoring,
     ) -> Result<(), GitError> {
         Err(GitError::unwritable())
     }

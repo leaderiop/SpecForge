@@ -1,6 +1,6 @@
 //! The Git port's writes through `Gix` (ADR 0339 D5): staging is libgit2's, the commit object and its ref move gix's.
 
-use specforge_effects::git::{Git, Removal, Staging};
+use specforge_effects::git::{ConflictSide, Git, Removal, Restoring, Staging};
 use specforge_git::Gix;
 use specforge_git::testing::Repo;
 
@@ -470,4 +470,66 @@ fn removing_never_follows_a_link_out_of_the_worktree() {
     assert!(refused.0.contains("beyond a symbolic link"), "{refused}");
     assert!(outside.path().join("x.txt").is_file());
     assert_eq!(indexed(&repo), ["d/x.txt"], "nothing changed");
+}
+
+#[test]
+fn restoring_takes_a_side_of_a_conflict_or_head_into_the_index_and_the_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a\n");
+    repo.commit_all("first");
+    repo.conflict("c.txt", "base\n", "ours\n", "theirs\n");
+    let place = place(&repo);
+    let git = Gix::default();
+    let theirs = Restoring {
+        side: Some(ConflictSide::Theirs),
+        ..Restoring::default()
+    };
+    git.restore(&place, &["c.txt".into()], &theirs).unwrap();
+    let read = |rel: &str| std::fs::read_to_string(repo.dir().join(rel)).unwrap();
+    assert_eq!(read("c.txt"), "theirs\n");
+    // the conflict stays for the add that resolves it, as git checkout --theirs leaves it
+    let status = git.status(&place).unwrap();
+    assert_eq!(
+        status.entries[0].kind,
+        specforge_effects::git::GitEntryKind::Unmerged
+    );
+    git.stage(
+        &place,
+        &Staging {
+            add: vec!["c.txt".into()],
+            ..Staging::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(indexed(&repo), ["a.txt", "c.txt"]);
+    let resolved = git.status(&place).unwrap();
+    assert_eq!(
+        resolved.entries[0].kind,
+        specforge_effects::git::GitEntryKind::Changed
+    );
+    repo.write("a.txt", "changed\n");
+    git.stage(
+        &place,
+        &Staging {
+            add: vec!["a.txt".into()],
+            ..Staging::default()
+        },
+    )
+    .unwrap();
+    let both = Restoring {
+        source: Some(specforge_effects::git::Sha::new(repo.sha("HEAD"))),
+        staged: true,
+        worktree: true,
+        ..Restoring::default()
+    };
+    git.restore(&place, &["a.txt".into()], &both).unwrap();
+    assert_eq!(read("a.txt"), "a\n");
+    assert!(
+        git.status(&place)
+            .unwrap()
+            .entries
+            .iter()
+            .all(|e| e.path != "a.txt")
+    );
 }

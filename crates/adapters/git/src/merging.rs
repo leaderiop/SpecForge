@@ -4,7 +4,9 @@
 //! `git commit` records one.
 
 use gix::refs::transaction::PreviousValue;
-use specforge_effects::git::{GitConflict, GitError, GitPlace, GitStash, Merged, ResetMode, Sha};
+use specforge_effects::git::{
+    ConflictSide, GitConflict, GitError, GitPlace, GitStash, Merged, ResetMode, Restoring, Sha,
+};
 
 use crate::write::{Author, conclude, gix_owned, head_of, libgit2, libgit2_read, record, safe};
 use crate::{Gix, failed, id};
@@ -194,18 +196,32 @@ pub(crate) fn reset(place: &GitPlace, to: &Sha, mode: ResetMode) -> Result<(), G
 pub(crate) fn restore(
     place: &GitPlace,
     paths: &[String],
-    source: Option<&Sha>,
-    staged: bool,
+    restoring: &Restoring,
 ) -> Result<(), GitError> {
     let repo = libgit2(place)?;
-    let from = match source {
+    let mut checkout = git2::build::CheckoutBuilder::new();
+    // the user asked for these files back: their changes are what is discarded
+    checkout.force().remove_untracked(false);
+    for path in paths {
+        checkout.path(path);
+    }
+    if let Some(side) = restoring.side {
+        match side {
+            ConflictSide::Ours => checkout.use_ours(true),
+            ConflictSide::Theirs => checkout.use_theirs(true),
+        };
+        return repo
+            .checkout_index(None, Some(&mut checkout))
+            .map_err(|e| failed("restore the files from a side of their conflict", &e));
+    }
+    let from = match &restoring.source {
         Some(sha) => Some(
             repo.find_object(oid(sha)?, None)
                 .map_err(|e| failed("read the commit to restore from", &e))?,
         ),
         None => None,
     };
-    if staged {
+    if restoring.staged {
         let head = match from {
             Some(from) => Some(from),
             None => repo
@@ -213,15 +229,18 @@ pub(crate) fn restore(
                 .and_then(|head| head.peel(git2::ObjectType::Commit))
                 .ok(),
         };
+        if restoring.worktree {
+            // a checkout of the source's tree writes the index's entries and the files both
+            let Some(head) = head else {
+                return Err(GitError("HEAD has no commit to restore from".into()));
+            };
+            return repo
+                .checkout_tree(&head, Some(&mut checkout))
+                .map_err(|e| failed("restore the index and the files", &e));
+        }
         return repo
             .reset_default(head.as_ref(), paths)
             .map_err(|e| failed("restore the index", &e));
-    }
-    let mut checkout = git2::build::CheckoutBuilder::new();
-    // the user asked for these files back: their changes are what is discarded
-    checkout.force().remove_untracked(false);
-    for path in paths {
-        checkout.path(path);
     }
     match from {
         Some(from) => repo.checkout_tree(&from, Some(&mut checkout)),

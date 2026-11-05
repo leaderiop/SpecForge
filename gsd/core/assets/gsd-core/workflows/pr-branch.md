@@ -394,7 +394,7 @@ for HASH in $(printf '%s' "$INCLUDED_COMMITS"); do
   while IFS= read -r P; do
     [ -n "$P" ] || continue
     specforge git rm -r -f --ignore-unmatch -- "$P" >/dev/null 2>&1 || true
-    git checkout HEAD -- "$P" 2>/dev/null || true
+    specforge git restore --source HEAD --staged --worktree -- "$P" >/dev/null 2>&1 || true
   done <<FILTER_PATHS_EOF
 $FILTER_PATHS
 FILTER_PATHS_EOF
@@ -445,7 +445,7 @@ FILTER_PATHS_EOF
     if echo "$P" | grep -Eq "$FORBIDDEN_RE"; then continue; fi
     if echo "$P" | grep -Eq "$STRUCTURAL_RE"; then continue; fi
     if [ "$(specforge git rev "$HASH:$P" --pick '.revs[0].exists' 2>/dev/null)" = true ]; then
-      git checkout --theirs -- "$P" && git add -- "$P" # gsd-scan-ignore: #4606 -- see block comment above
+      specforge git restore --theirs -- "$P" >/dev/null && specforge git add -- "$P" # gsd-scan-ignore: #4606 -- see block comment above
     else
       specforge git rm -f -- "$P" >/dev/null 2>&1 || true
     fi
