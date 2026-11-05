@@ -6,7 +6,7 @@
 use std::path::Path;
 
 use specforge_effects::git::{
-    Committed, DiffQuery, DiffSide, Git as _, GitError, GitPlace, Sha, Staging,
+    Committed, DiffQuery, DiffSide, Git as _, GitError, GitPlace, Removal, Sha, Staging,
 };
 
 use crate::{Gix, failed, id, open};
@@ -186,6 +186,136 @@ pub(crate) fn stage(place: &GitPlace, staging: &Staging) -> Result<(), GitError>
             .map_err(staged)?;
     }
     index.write().map_err(|e| failed("write the index", &e))
+}
+
+/// `git rm`: the entries at `paths` out of the index and, unless cached, their files off the disk; nothing changes
+/// when a path is refused. A file is removed only below real directories of the worktree, never through a link.
+pub(crate) fn remove(
+    place: &GitPlace,
+    paths: &[String],
+    removal: Removal,
+) -> Result<Vec<String>, GitError> {
+    let repo = libgit2(place)?;
+    let mut index = repo.index().map_err(|e| failed("read the index", &e))?;
+    let mut removed = std::collections::BTreeSet::new();
+    for path in paths {
+        let under = format!("{path}/");
+        let matched: Vec<String> = index
+            .iter()
+            .map(|entry| String::from_utf8_lossy(&entry.path).into_owned())
+            .filter(|at| path == "*" || at == path || at.starts_with(&under))
+            .collect();
+        if matched.is_empty() {
+            if removal.ignore_unmatch {
+                continue;
+            }
+            return Err(GitError(format!("{path} did not match any files")));
+        }
+        if !removal.recursive && matched.iter().any(|at| at != path) {
+            return Err(GitError(format!(
+                "not removing {path} recursively without -r"
+            )));
+        }
+        removed.extend(matched);
+    }
+    if !removal.force {
+        for path in &removed {
+            refuse_changed(&repo, path, removal.cached)?;
+        }
+    }
+    // every file is found before anything changes, so a refused one leaves the index and the disk as they were
+    let mut files = Vec::new();
+    if !removal.cached {
+        for path in &removed {
+            files.extend(landing(&place.toplevel, path)?);
+        }
+    }
+    for path in &removed {
+        index
+            .remove_path(Path::new(path))
+            .map_err(|e| failed(&format!("remove {path} from the index"), &e))?;
+    }
+    index.write().map_err(|e| failed("write the index", &e))?;
+    for file in &files {
+        remove_file(&place.toplevel, file)?;
+    }
+    Ok(removed.into_iter().collect())
+}
+
+/// Refused as `git rm` refuses without `-f`: a file whose index differs from `HEAD` and from the disk, or (unless
+/// `cached`, which keeps the file) either one. A conflicted file is removed whatever its sides hold.
+fn refuse_changed(repo: &git2::Repository, path: &str, cached: bool) -> Result<(), GitError> {
+    use git2::Status;
+    let status = repo
+        .status_file(Path::new(path))
+        .map_err(|e| failed(&format!("read {path}'s status"), &e))?;
+    if status.contains(Status::CONFLICTED) {
+        return Ok(());
+    }
+    let staged = status.intersects(
+        Status::INDEX_NEW
+            | Status::INDEX_MODIFIED
+            | Status::INDEX_RENAMED
+            | Status::INDEX_TYPECHANGE,
+    );
+    let local = status.intersects(Status::WT_MODIFIED | Status::WT_TYPECHANGE);
+    let refused = if cached {
+        staged && local
+    } else {
+        staged || local
+    };
+    if !refused {
+        return Ok(());
+    }
+    let what = match (staged, local) {
+        (true, true) => "staged content different from both the file and HEAD",
+        (true, false) => "changes staged in the index",
+        _ => "local modifications",
+    };
+    Err(GitError(format!(
+        "{path} has {what}: remove it with -f, or keep the file with --cached"
+    )))
+}
+
+/// Where the file at `path` under `top` is, when there is one to remove: none when it is gone or is a directory (a
+/// submodule's, which git leaves). Each directory on the way must be a real one, never a link that would lead the
+/// removal out of the worktree.
+fn landing(top: &Path, path: &str) -> Result<Option<std::path::PathBuf>, GitError> {
+    let rel = Path::new(path);
+    if !rel
+        .components()
+        .all(|c| matches!(c, std::path::Component::Normal(_)))
+    {
+        return Err(GitError(format!("{path} is no path inside the worktree")));
+    }
+    let mut at = top.to_path_buf();
+    let mut parts = rel.components().peekable();
+    while let Some(part) = parts.next() {
+        at.push(part);
+        let Ok(meta) = std::fs::symlink_metadata(&at) else {
+            return Ok(None);
+        };
+        if parts.peek().is_none() {
+            return Ok((!meta.is_dir()).then_some(at));
+        }
+        if meta.file_type().is_symlink() {
+            return Err(GitError(format!(
+                "{path} is beyond a symbolic link: it is not removed"
+            )));
+        }
+        if !meta.is_dir() {
+            return Ok(None);
+        }
+    }
+    Ok(None)
+}
+
+/// `file` off the disk, and the directories under `top` it leaves empty, as `git rm` removes them.
+fn remove_file(top: &Path, file: &Path) -> Result<(), GitError> {
+    std::fs::remove_file(file).map_err(|e| failed(&format!("remove {}", file.display()), &e))?;
+    let mut dir = file.to_path_buf();
+    while dir.pop() && dir != top && std::fs::remove_dir(&dir).is_ok() {}
+    Ok(())
 }
 
 /// The filter driver `path`'s attributes name (`filter=lfs`), when they name one: git has no driver of its own, so

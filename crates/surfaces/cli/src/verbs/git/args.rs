@@ -256,6 +256,32 @@ pub(crate) struct AddArgs {
 }
 
 #[derive(clap::Args)]
+pub(crate) struct RmArgs {
+    /// The files, from the current directory
+    #[arg(required = true, value_name = "PATH")]
+    pub(super) paths: Vec<std::path::PathBuf>,
+
+    /// Remove every file under a directory named
+    #[arg(short)]
+    pub(super) recursive: bool,
+
+    /// Remove a file whose index or disk differs from HEAD too
+    #[arg(short, long)]
+    pub(super) force: bool,
+
+    /// Take them out of the index alone, the files left on disk
+    #[arg(long)]
+    pub(super) cached: bool,
+
+    /// Pass over a path that matches no file, rather than refuse
+    #[arg(long)]
+    pub(super) ignore_unmatch: bool,
+
+    #[command(flatten)]
+    pub(super) verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
 pub(crate) struct CommitArgs {
     /// The message; given more than once, each is a paragraph of its own (as `git commit -m` takes them)
     #[arg(short, long = "message", value_name = "MESSAGE", required = true)]

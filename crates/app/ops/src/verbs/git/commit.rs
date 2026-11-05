@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use specforge_common::remedy::printable;
-use specforge_effects::git::{GitError, GitPlace, Staging};
+use specforge_effects::git::{GitError, GitPlace, Removal, Staging};
 use specforge_effects::process::{OUTPUT_CAP, USER_CEILING};
 use specforge_effects::{
     Ceiling, EffectRequest, EnvVar, Output, ProcessClass, ProcessRequest, Shown,
@@ -139,6 +139,25 @@ pub fn add(verbs: &Verbs, request: &AddRequest) -> Result<super::StatusAnswer, O
         .stage(&place, &staging)
         .map_err(write_failed)?;
     super::status(verbs)
+}
+
+/// `git rm`'s answer: the paths taken out of the index, from the repository's top.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RmAnswer {
+    pub removed: Vec<String>,
+}
+
+/// `git rm`: the index entries at `paths` (read from the current directory) out of the index, and unless
+/// `removal.cached` their files off the disk.
+pub fn rm(verbs: &Verbs, paths: &[PathBuf], removal: Removal) -> Result<RmAnswer, OpError> {
+    let place = verbs.place_to_write("rm")?;
+    let paths = in_repository(verbs, &place, paths)?;
+    let removed = verbs
+        .ports()
+        .git
+        .remove(&place, &paths, removal)
+        .map_err(write_failed)?;
+    Ok(RmAnswer { removed })
 }
 
 /// What git signs when the repository asks: every commit, or every annotated tag.

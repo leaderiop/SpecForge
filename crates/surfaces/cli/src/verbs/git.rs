@@ -65,6 +65,8 @@ pub(crate) enum Action {
     Submodules(Plain),
     /// Stage files as the worktree has them; ignore rules kept, a filter driver refused
     Add(AddArgs),
+    /// Take files out of the index and off the disk (--cached: the index alone); a changed one needs -f
+    Rm(RmArgs),
     /// Record a commit: stage the paths named, run the repository's hooks, commit by git's configured identity
     Commit(CommitArgs),
     /// Create or delete a branch
@@ -289,6 +291,25 @@ impl Action {
                     ports,
                     |v| git::add(v, &request),
                     |_, _| {},
+                )
+            }
+            Action::Rm(args) => {
+                let removal = git::Removal {
+                    recursive: args.recursive,
+                    cached: args.cached,
+                    force: args.force,
+                    ignore_unmatch: args.ignore_unmatch,
+                };
+                answer(
+                    &args.verb,
+                    terminal,
+                    ports,
+                    |v| git::rm(v, &args.paths, removal),
+                    |t, a| {
+                        for path in &a.removed {
+                            outln!(t, "rm '{}'", shown(path));
+                        }
+                    },
                 )
             }
             Action::Commit(args) => {

@@ -14,7 +14,8 @@ use gix::sec::trust::DefaultForLevel as _;
 use specforge_effects::git::{
     Blob, CommitFile, Committed, DiffQuery, DiffSide, Git, GitBlob, GitBranch, GitBranchRef,
     GitError, GitFileDiff, GitLog, GitPlace, GitRemote, GitStash, GitStatus, GitSubmodule,
-    GitWorktree, Located, LogQuery, Merged, ObjectKind, ResetMode, Sha, Sized, Staging, TreeEntry,
+    GitWorktree, Located, LogQuery, Merged, ObjectKind, Removal, ResetMode, Sha, Sized, Staging,
+    TreeEntry,
 };
 
 mod branching;
@@ -517,6 +518,15 @@ impl Git for Gix {
 
     fn stage(&self, place: &GitPlace, staging: &Staging) -> Result<(), GitError> {
         write::stage(place, staging)
+    }
+
+    fn remove(
+        &self,
+        place: &GitPlace,
+        paths: &[String],
+        removal: Removal,
+    ) -> Result<Vec<String>, GitError> {
+        write::remove(place, paths, removal)
     }
 
     fn commit_index(

@@ -393,7 +393,7 @@ for HASH in $(printf '%s' "$INCLUDED_COMMITS"); do
   # time instead, matching the newline-safe pattern used to build $FILTER_PATHS above.
   while IFS= read -r P; do
     [ -n "$P" ] || continue
-    git rm -r -f -q --ignore-unmatch -- "$P" 2>/dev/null || true
+    specforge git rm -r -f --ignore-unmatch -- "$P" >/dev/null 2>&1 || true
     git checkout HEAD -- "$P" 2>/dev/null || true
   done <<FILTER_PATHS_EOF
 $FILTER_PATHS
@@ -447,7 +447,7 @@ FILTER_PATHS_EOF
     if [ "$(specforge git rev "$HASH:$P" --pick '.revs[0].exists' 2>/dev/null)" = true ]; then
       git checkout --theirs -- "$P" && git add -- "$P" # gsd-scan-ignore: #4606 -- see block comment above
     else
-      git rm -f -q -- "$P" 2>/dev/null || true
+      specforge git rm -f -- "$P" >/dev/null 2>&1 || true
     fi
   done <<UNMERGED_PATHS_EOF
 $UNMERGED_PATHS

@@ -320,6 +320,19 @@ pub struct Staging {
     pub except: Vec<String>,
 }
 
+/// How `git rm` removes: what it may take and whether the files go too.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Removal {
+    /// Every file under a directory named (`-r`); without it a directory is refused.
+    pub recursive: bool,
+    /// The index entries alone, the files left on disk (`--cached`).
+    pub cached: bool,
+    /// Remove a file whose index or worktree differs from `HEAD` too (`-f`).
+    pub force: bool,
+    /// A path that matches no entry is passed over, not refused (`--ignore-unmatch`).
+    pub ignore_unmatch: bool,
+}
+
 /// A commit the port recorded.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Committed {
@@ -507,6 +520,18 @@ pub trait Git: Send + Sync {
         Err(GitError::unwritable())
     }
     /// Create the branch `name` at `at`; `Err` when it exists or is no valid branch name.
+    /// Take the index entries at `paths` (from the repository's top; `*` the top itself) out of the index, a
+    /// conflicted one's every stage, and unless `removal.cached` their files, as `git rm` does: the paths removed.
+    /// Nothing is removed when one is refused: a path matching no entry, a directory without `recursive`, a file
+    /// with changes unless `force`.
+    fn remove(
+        &self,
+        _place: &GitPlace,
+        _paths: &[String],
+        _removal: Removal,
+    ) -> Result<Vec<String>, GitError> {
+        Err(GitError::unwritable())
+    }
     fn branch_create(&self, _place: &GitPlace, _name: &str, _at: &Sha) -> Result<(), GitError> {
         Err(GitError::unwritable())
     }

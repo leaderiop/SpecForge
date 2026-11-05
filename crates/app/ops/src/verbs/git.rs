@@ -19,11 +19,12 @@ pub use branching::{
     PrunedAnswer, RefAnswer, branch_create, branch_delete, switch, tag, worktree_add,
     worktree_prune, worktree_remove,
 };
-pub use commit::{AddRequest, CommitAnswer, CommitRequest, add, cleaned, commit};
+pub use commit::{AddRequest, CommitAnswer, CommitRequest, RmAnswer, add, cleaned, commit, rm};
 pub use merging::{
     FastForward, MergeAnswer, PickEndAnswer, ResetAnswer, RestoreAnswer, StashAnswer,
     StashesAnswer, merge, pick, pick_end, reset, restore, stash_list, stash_pop, stash_push,
 };
+pub use specforge_effects::git::Removal;
 pub use specforge_effects::git::ResetMode;
 
 /// `git repo`'s answer: where the repository is.

@@ -1,6 +1,6 @@
 //! The Git port's writes through `Gix` (ADR 0339 D5): staging is libgit2's, the commit object and its ref move gix's.
 
-use specforge_effects::git::{Git, Staging};
+use specforge_effects::git::{Git, Removal, Staging};
 use specforge_git::Gix;
 use specforge_git::testing::Repo;
 
@@ -355,4 +355,119 @@ fn a_config_path_is_interpolated_as_git_does() {
             .unwrap(),
         Some(home.join("hooks"))
     );
+}
+
+#[test]
+fn removing_takes_a_directory_with_r_and_its_files_off_the_disk() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("keep.txt", "k")
+        .write("spec/a.spec", "a")
+        .write("spec/deep/b.spec", "b");
+    repo.commit_all("first");
+    let place = place(&repo);
+    let git = Gix::default();
+    let refused = git
+        .remove(&place, &["spec".into()], Removal::default())
+        .unwrap_err();
+    assert!(refused.0.contains("recursively without -r"), "{refused}");
+    let refused = git
+        .remove(&place, &["gone".into()], Removal::default())
+        .unwrap_err();
+    assert!(
+        refused.0.contains("gone did not match any files"),
+        "{refused}"
+    );
+    repo.write("spec/untracked.txt", "u");
+    let recursive = Removal {
+        recursive: true,
+        ..Removal::default()
+    };
+    let removed = git.remove(
+        &place,
+        &["spec".into(), "gone".into()],
+        Removal {
+            ignore_unmatch: true,
+            ..recursive
+        },
+    );
+    assert_eq!(removed.unwrap(), ["spec/a.spec", "spec/deep/b.spec"]);
+    assert_eq!(indexed(&repo), ["keep.txt"]);
+    assert!(
+        !repo.dir().join("spec/deep").exists(),
+        "an emptied directory goes"
+    );
+    assert!(
+        repo.dir().join("spec/untracked.txt").is_file(),
+        "an untracked file stays"
+    );
+}
+
+#[test]
+fn removing_a_changed_file_needs_force_and_cached_keeps_it_on_disk() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a").write("b.txt", "b");
+    repo.commit_all("first");
+    repo.write("a.txt", "changed");
+    let place = place(&repo);
+    let git = Gix::default();
+    let refused = git
+        .remove(&place, &["a.txt".into()], Removal::default())
+        .unwrap_err();
+    assert!(refused.0.contains("local modifications"), "{refused}");
+    let cached = Removal {
+        cached: true,
+        ..Removal::default()
+    };
+    // the index still matches HEAD, so --cached loses nothing
+    assert_eq!(
+        git.remove(&place, &["a.txt".into()], cached).unwrap(),
+        ["a.txt"]
+    );
+    assert!(repo.dir().join("a.txt").is_file());
+    repo.write("b.txt", "changed");
+    let forced = Removal {
+        force: true,
+        ..Removal::default()
+    };
+    assert_eq!(
+        git.remove(&place, &["b.txt".into()], forced).unwrap(),
+        ["b.txt"]
+    );
+    assert!(!repo.dir().join("b.txt").exists());
+    assert_eq!(indexed(&repo), Vec::<String>::new());
+}
+
+#[test]
+fn removing_a_conflicted_path_takes_every_stage() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("keep.txt", "k");
+    repo.commit_all("first");
+    repo.conflict("c.txt", "base\n", "ours\n", "theirs\n");
+    let removed = Gix::default()
+        .remove(&place(&repo), &["c.txt".into()], Removal::default())
+        .unwrap();
+    assert_eq!(removed, ["c.txt"]);
+    assert_eq!(indexed(&repo), ["keep.txt"]);
+}
+
+#[cfg(unix)]
+#[test]
+fn removing_never_follows_a_link_out_of_the_worktree() {
+    let outside = tempfile::tempdir().unwrap();
+    std::fs::write(outside.path().join("x.txt"), "precious").unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("d/x.txt", "x");
+    repo.commit_all("first");
+    std::fs::remove_dir_all(repo.dir().join("d")).unwrap();
+    std::os::unix::fs::symlink(outside.path(), repo.dir().join("d")).unwrap();
+    let refused = Gix::default()
+        .remove(&place(&repo), &["d/x.txt".into()], Removal::default())
+        .unwrap_err();
+    assert!(refused.0.contains("beyond a symbolic link"), "{refused}");
+    assert!(outside.path().join("x.txt").is_file());
+    assert_eq!(indexed(&repo), ["d/x.txt"], "nothing changed");
 }
