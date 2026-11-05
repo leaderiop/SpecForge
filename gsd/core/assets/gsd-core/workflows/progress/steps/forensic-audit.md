@@ -74,7 +74,7 @@ Emit:
 **Check 6 — Uncommitted code**
 
 ```bash
-git status --porcelain 2>/dev/null | grep -v "^??" | grep -v "^spec/" | grep -v "^\.\." | head -10
+specforge git status --pick '.tracked[]' 2>/dev/null | grep -v "^spec/" | grep -v "^\.\." | head -10
 ```
 
 If output is non-empty (modified/staged files outside the spec), flag as uncommitted code.

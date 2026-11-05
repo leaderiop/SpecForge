@@ -121,7 +121,7 @@ The `completed_work` blocks, `remaining_work`, `decisions_made` (references to `
 not from memory — a narrated `[]` over a dirty tree is how 14 plans' worth of uncommitted
 code went invisible in the wild:
 ```bash
-UNCOMMITTED=$(git status --porcelain)
+UNCOMMITTED=$(specforge git status --format human)
 # One array entry per line ("XY path"); truncate the list at 50 entries and note the
 # elided count, but NEVER round it to empty — a non-empty porcelain output is the single
 # most load-bearing fact a resume session needs.

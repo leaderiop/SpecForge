@@ -121,7 +121,7 @@ printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9
     esac
     # Exclude untracked-only repos: seam filters ?? lines, so detection must match.
     # shortcut: no 10 s timeout as node's execFileSync had (no portable `timeout`); a hung git hangs the scan
-    if git -C "$resolved" status --porcelain 2>/dev/null | grep -qv '^??'; then
+    if specforge git status --in "$resolved" --pick '.tracked[]' 2>/dev/null | grep -q .; then
       printf '%s\n' "$r"
     fi
   done

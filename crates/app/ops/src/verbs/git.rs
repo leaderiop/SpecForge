@@ -79,6 +79,9 @@ pub struct StatusAnswer {
     pub status: GitStatus,
     /// Nothing `HEAD` does not hold: no tracked change, conflict or untracked file (ADR 0327 D3).
     pub clean: bool,
+    /// The paths of the tracked entries (a change, a rename, a conflict), in git's order: the lines of `git status
+    /// --porcelain` but the `??` ones.
+    pub tracked: Vec<String>,
     /// The paths of the untracked entries, in git's order.
     pub untracked: Vec<String>,
 }
@@ -319,14 +322,20 @@ pub fn revs(verbs: &Verbs, asked: &[String]) -> Result<RevsAnswer, OpError> {
 pub fn status(verbs: &Verbs) -> Result<StatusAnswer, OpError> {
     let place = verbs.place("status")?;
     let status = verbs.ports().git.status(&place).map_err(failed)?;
-    let untracked = status
-        .entries
-        .iter()
-        .filter(|e| e.kind == specforge_effects::git::GitEntryKind::Untracked)
-        .map(|e| e.path.clone())
-        .collect();
+    use specforge_effects::git::GitEntryKind as Kind;
+    let paths = |kept: &dyn Fn(Kind) -> bool| {
+        status
+            .entries
+            .iter()
+            .filter(|e| kept(e.kind))
+            .map(|e| e.path.clone())
+            .collect()
+    };
+    let tracked = paths(&|kind| matches!(kind, Kind::Changed | Kind::Renamed | Kind::Unmerged));
+    let untracked = paths(&|kind| kind == Kind::Untracked);
     Ok(StatusAnswer {
         clean: !status.dirty(),
+        tracked,
         untracked,
         status,
     })

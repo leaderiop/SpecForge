@@ -173,7 +173,7 @@ fn rev_names_each_revision_or_that_it_names_nothing() {
 }
 
 #[test]
-fn status_is_typed_with_clean_and_the_untracked_paths() {
+fn status_is_typed_with_clean_and_the_tracked_and_untracked_paths() {
     let (project, repo, sha) = committed();
     assert_eq!(
         git(&project, &["status", "--pick", ".clean"])
@@ -191,6 +191,7 @@ fn status_is_typed_with_clean_and_the_untracked_paths() {
                 {"kind": "untracked", "path": "new.txt"},
             ],
             "clean": false,
+            "tracked": ["a.txt"],
             "untracked": ["new.txt"],
         })
     );
