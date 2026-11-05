@@ -178,6 +178,14 @@ pub(crate) struct SearchArgs {
     #[arg(long, short = 'i')]
     ignore_case: bool,
 
+    /// Search what .gitignore and .ignore leave out too
+    #[arg(long)]
+    no_ignore: bool,
+
+    /// Search names that start with `.` (a file the host withholds, such as `.env`, is still never read)
+    #[arg(long)]
+    hidden: bool,
+
     /// The pattern is a literal string, not a regular expression
     #[arg(long, short = 'F')]
     fixed_strings: bool,
@@ -381,6 +389,8 @@ impl SearchArgs {
             pattern: self.pattern,
             paths: self.paths,
             globs: self.globs,
+            ignore: !self.no_ignore,
+            hidden: self.hidden,
             ignore_case: self.ignore_case,
             fixed: self.fixed_strings,
             invert: self.invert_match,

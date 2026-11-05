@@ -20,6 +20,12 @@ Options:
   -i, --ignore-case
           Match letters in any case
 
+      --no-ignore
+          Search what .gitignore and .ignore leave out too
+
+      --hidden
+          Search names that start with `.` (a file the host withholds, such as `.env`, is still never read)
+
   -F, --fixed-strings
           The pattern is a literal string, not a regular expression
 

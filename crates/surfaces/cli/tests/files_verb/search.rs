@@ -413,3 +413,37 @@ fn no_dash_never_reads_stdin() {
     drop(child.stdin.take());
     assert_eq!(status.code(), Some(0));
 }
+
+/// `--hidden` and `--no-ignore` walk what `list` walks with them; the host's state and a secret stay unread.
+#[test]
+fn hidden_and_no_ignore_reach_dot_files_and_ignored_files() {
+    let project = project().files(&[
+        (".hidden.txt", "hello\n"),
+        (".env", "hello=secret\n"),
+        (".specforge/effects/journal/y.json", "hello\n"),
+    ]);
+    let paths = |extra: &[&str]| {
+        let mut all = vec!["files", "search", "hello"];
+        all.extend_from_slice(extra);
+        all.extend_from_slice(&["--pick", ".matches[].path"]);
+        Cli::on(&project).run(&all).exits(0).stdout
+    };
+    assert_eq!(paths(&[]), "src/lib/util.rs\nsrc/main.rs\n");
+    assert_eq!(
+        paths(&["--hidden"]),
+        ".hidden.txt\nsrc/lib/util.rs\nsrc/main.rs\n"
+    );
+    assert_eq!(
+        paths(&["--no-ignore"]),
+        "build/out.txt\nsrc/lib/util.rs\nsrc/main.rs\n"
+    );
+    let both = paths(&["--hidden", "--no-ignore"]);
+    assert_eq!(
+        both,
+        ".hidden.txt\nbuild/out.txt\nsrc/lib/util.rs\nsrc/main.rs\n"
+    );
+    assert!(
+        !both.contains(".env") && !both.contains(".specforge"),
+        "{both}"
+    );
+}

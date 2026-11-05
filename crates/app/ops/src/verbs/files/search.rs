@@ -99,6 +99,10 @@ pub struct Search {
     pub pattern: String,
     pub paths: Vec<PathBuf>,
     pub globs: Vec<String>,
+    /// Leave out what `.gitignore` ignores, as `list` does.
+    pub ignore: bool,
+    /// Walk names that start with `.`.
+    pub hidden: bool,
     pub ignore_case: bool,
     /// The pattern is a literal, not a regex.
     pub fixed: bool,
@@ -190,8 +194,8 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
                             globs: search.globs.clone(),
                             kind: Some(FileKind::File),
                             depth: None,
-                            ignore: true,
-                            hidden: false,
+                            ignore: search.ignore,
+                            hidden: search.hidden,
                             max_entries: LIST_MAX,
                         },
                     );
