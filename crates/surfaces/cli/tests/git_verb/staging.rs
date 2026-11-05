@@ -77,6 +77,24 @@ fn rm_takes_files_out_of_the_index_and_off_the_disk() {
 }
 
 #[test]
+fn rm_of_the_top_needs_r_as_git_says() {
+    let (project, _repo, _) = committed();
+    let refused = git(&project, &["rm", "."]).exits(1);
+    assert!(
+        refused
+            .stdout
+            .contains("not removing . recursively without -r"),
+        "{}",
+        refused.stdout
+    );
+    assert!(project.root().join("a.txt").is_file());
+    let tracked = git(&project, &["status", "--pick", ".tracked"])
+        .exits(0)
+        .json();
+    assert_eq!(tracked, serde_json::json!([]), "nothing staged");
+}
+
+#[test]
 fn restore_takes_their_side_of_a_conflict_or_head_into_both() {
     let (project, repo, _) = committed();
     repo.conflict("c.txt", "base\n", "ours\n", "theirs\n");

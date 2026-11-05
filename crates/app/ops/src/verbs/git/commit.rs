@@ -181,7 +181,14 @@ pub struct RmAnswer {
 /// `removal.cached` their files off the disk.
 pub fn rm(verbs: &Verbs, paths: &[PathBuf], removal: Removal) -> Result<RmAnswer, OpError> {
     let place = verbs.place_to_write("rm")?;
-    let paths = pathspecs(verbs, &place, paths)?;
+    let mut specs = pathspecs(verbs, &place, paths)?;
+    // the top is a directory, which git removes only with -r: as `*` it would be a glob that names every file
+    for (spec, typed) in specs.iter_mut().zip(paths) {
+        if spec == "*" && held(verbs, typed)? == place.toplevel {
+            *spec = ".".into();
+        }
+    }
+    let paths = specs;
     let removed = verbs
         .ports()
         .git
