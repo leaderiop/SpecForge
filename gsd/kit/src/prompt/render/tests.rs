@@ -99,3 +99,25 @@ fn typed_text_is_never_rescanned() {
         "\"\\$ARGUMENTS {{arg:b|y}}\" {{arg:b|y}} $ARGUMENTS"
     );
 }
+
+/// A setting's value is data: the settings and the typed values are filled in one scan, so a setting that holds an
+/// `{{arg:}}` token or `$ARGUMENTS` renders as its own text, escaped, and the preamble's block shows it as set.
+#[test]
+fn a_setting_value_is_never_filled_again() {
+    let settings = r#"{"a": "{{arg:target|}}", "b": "$ARGUMENTS"}"#;
+    let values: Values = [("target", Some("T".to_string()))].into_iter().collect();
+    let input = Input {
+        settings,
+        ..input("typed", &values)
+    };
+    let out = assemble(
+        "<<START>>A=\"{{setting:a|}}\" B=\"{{setting:b|}}\" T=\"{{arg:target|}}\" $ARGUMENTS",
+        &input,
+    );
+    let at = out.rfind("<<START>>").expect("the marker") + "<<START>>".len();
+    assert_eq!(
+        &out[at..],
+        "A=\"{{arg:target|}}\" B=\"\\$ARGUMENTS\" T=\"T\" typed"
+    );
+    assert!(out.contains(settings), "the preamble's block: {out}");
+}

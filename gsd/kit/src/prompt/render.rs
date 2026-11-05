@@ -1,11 +1,11 @@
 //! The render pipeline (D-r42-6): one pure function from a prompt's command file, the host and the argument text to
 //! the text a model reads. The export and the native tests call the same function.
 //!
-//! In order: the preamble (ours), the command file with its `<execution_context>` includes inlined, the settings its
-//! lines read filled in (`setting`), the prompt's own tail, then the references re-pointed (D-r42-5) and the whole
-//! converted for the host (D-r42-12). Re-pointing comes first: Codex's `.claude` rewrite would otherwise hide the paths.
-//! Then `$ARGUMENTS` and the `{{arg:}}` placeholders are filled, last: the typed text is data no rewrite runs on
-//! (ADR 0340). The host's adapter header goes in front, unconverted.
+//! In order: the preamble (ours), the command file with its `<execution_context>` includes inlined, and the prompt's
+//! own tail, each with its references re-pointed (D-r42-5) and converted for the host (D-r42-12). Re-pointing comes
+//! first: Codex's `.claude` rewrite would otherwise hide the paths. Then the command file's tokens are filled in one
+//! scan, last: `{{setting:}}` (`setting`), `{{arg:}}` and `$ARGUMENTS`. A setting and the typed text are data no
+//! rewrite and no later fill runs on (ADR 0340 D3). The host's adapter header goes in front, unconverted.
 
 use super::args::Values;
 use super::{compose, host, preamble, setting, shell, token};
@@ -90,15 +90,22 @@ fn arg_value(values: &Values) -> impl Fn(&str, &str) -> Option<String> {
     }
 }
 
-/// `text` with `$ARGUMENTS` (not `$ARGUMENTS_X`) replaced by `arguments` and each `{{arg:}}` as [`arg_value`] says, in
-/// one scan that never rescans what it wrote: typed text holding either form stays data.
-fn fill_arguments(text: &str, arguments: &str, values: &Values) -> String {
-    let replacement = if arguments.is_empty() {
+/// The template (`text`, converted for the host) with its tokens filled in one scan: each `{{setting:}}` as
+/// [`setting::value_of`] says, each `{{arg:}}` as [`arg_value`] says, and `$ARGUMENTS` (not `$ARGUMENTS_X`) by the
+/// argument text. The scan never rescans what it wrote, so a setting or typed text holding a token stays data.
+fn fill(text: &str, input: &Input<'_>) -> String {
+    let arguments = if input.arguments.is_empty() {
         "(no arguments)"
     } else {
-        arguments
+        input.arguments
     };
-    token::fill(text, &[("arg", &arg_value(values))], Some(replacement))
+    let setting = setting::value_of(input.settings, runtime(input.host));
+    let arg = arg_value(input.values);
+    token::fill(
+        text,
+        &[("setting", &setting), ("arg", &arg)],
+        Some(arguments),
+    )
 }
 
 /// The text of the prompt, or why it cannot be built.
@@ -122,20 +129,23 @@ fn wrapper(workflow: &str) -> String {
 
 /// [`render`] over the text of the command file.
 pub fn assemble(command: &str, input: &Input<'_>) -> String {
-    let mut text = preamble::text(input.host, input.settings, input.extension, input.files);
-    text.push_str(&setting::fill(
-        &inline_includes(command, input.asset),
+    let convert = |text: &str| host::convert(input.host, &(input.repoint)(text, input.host));
+    let mut text = convert(&preamble::text(
+        input.host,
         input.settings,
-        runtime(input.host),
+        input.extension,
+        input.files,
+    ));
+    // filled after every rewrite, so no rewrite runs on a value; the preamble and the tail are ours, never scanned
+    text.push_str(&fill(
+        &convert(&inline_includes(command, input.asset)),
+        input,
     ));
     if !input.tail.is_empty() {
         text.push_str("\n\n");
-        text.push_str(input.tail);
+        text.push_str(&convert(input.tail));
     }
-    let converted = host::convert(input.host, &(input.repoint)(&text, input.host));
-    // filled after every rewrite, so no rewrite runs on typed text
-    let body = fill_arguments(&converted, input.arguments, input.values);
-    format!("{}{body}", header(input.host))
+    format!("{}{text}", header(input.host))
 }
 
 /// The runtime a host is called in the settings: `claude-code` is `claude`.

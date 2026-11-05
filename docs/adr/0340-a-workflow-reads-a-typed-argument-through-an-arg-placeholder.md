@@ -34,8 +34,9 @@ text.
 ## D3. One scan, after the host conversion
 
 The fill runs where `$ARGUMENTS` was substituted: after the re-pointing and the host conversion. One left-to-right
-scan replaces the earliest of `$ARGUMENTS` and `{{arg:`, and never rescans what it wrote, so a typed `$ARGUMENTS` or
-`{{arg:x|y}}` stays data. A declared name with a value writes it escaped as a setting is (`"`, `\`, `$` and the
+scan of the command file and the files it inlines replaces the earliest of `{{setting:`, `$ARGUMENTS` and `{{arg:`,
+and never rescans what it wrote, so a typed or set `$ARGUMENTS` or `{{arg:x|y}}` stays data. The preamble (which
+shows the settings block) and the prompt's tail are not scanned. A declared name with a value writes it escaped as a setting is (`"`, `\`, `$` and the
 backtick). A declared name without one writes the fallback.
 
 ## D4. Where a placeholder stands
