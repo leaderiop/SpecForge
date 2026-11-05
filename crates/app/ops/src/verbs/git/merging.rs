@@ -46,6 +46,13 @@ pub struct RestoreAnswer {
     pub restored: Vec<String>,
 }
 
+/// `git cherry-pick --quit` or `--abort`'s answer (`git revert`'s too).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PickEndAnswer {
+    /// A cherry-pick or a revert was in progress and is over.
+    pub ended: bool,
+}
+
 /// `git stash push`'s answer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct StashAnswer {
@@ -236,17 +243,68 @@ pub fn stash_list(verbs: &Verbs) -> Result<StashesAnswer, OpError> {
     })
 }
 
-/// Apply `revision` onto `HEAD` and record it (`revert`: its inverse), or stop on conflicts.
-pub fn pick(verbs: &Verbs, revision: &str, revert: bool) -> Result<MergeAnswer, OpError> {
+/// Apply `revision` onto `HEAD` (`revert`: its inverse) and record it, or stop on conflicts. Unless `record`, it is
+/// applied onto the index and left staged (`--no-commit`): the index may hold staged changes then, as git lets a
+/// second `-n` stack on the first, but no file may differ from it.
+pub fn pick(
+    verbs: &Verbs,
+    revision: &str,
+    revert: bool,
+    record: bool,
+) -> Result<MergeAnswer, OpError> {
     let what = if revert { "revert" } else { "cherry-pick" };
     let place = verbs.place_to_write(what)?;
-    refuse_signing(verbs, &place, Signed::Commit)?;
-    clean_tree(verbs, &place, &format!("a {what}"), COMMIT_OR_STASH)?;
+    if record {
+        refuse_signing(verbs, &place, Signed::Commit)?;
+        clean_tree(verbs, &place, &format!("a {what}"), COMMIT_OR_STASH)?;
+    } else {
+        unstaged_clean(verbs, &place, &format!("a {what} --no-commit"))?;
+    }
     let commit = commit_named(verbs, &place, revision)?;
     verbs
         .ports()
         .git
-        .pick(&place, &commit, revert)
+        .pick(&place, &commit, revert, record)
         .map(MergeAnswer::from)
         .map_err(write_failed)
+}
+
+/// End the cherry-pick or revert in progress: `--quit` keeps the index and the files, `--abort` puts back what it
+/// staged or left conflicted.
+pub fn pick_end(verbs: &Verbs, revert: bool, abort: bool) -> Result<PickEndAnswer, OpError> {
+    let what = match (revert, abort) {
+        (false, false) => "cherry-pick --quit",
+        (false, true) => "cherry-pick --abort",
+        (true, false) => "revert --quit",
+        (true, true) => "revert --abort",
+    };
+    let place = verbs.place_to_write(what)?;
+    let ended = verbs
+        .ports()
+        .git
+        .pick_end(&place, abort)
+        .map_err(write_failed)?;
+    Ok(PickEndAnswer { ended })
+}
+
+/// Refused when a file differs from the index or a path is conflicted: staged changes are allowed.
+fn unstaged_clean(verbs: &Verbs, place: &GitPlace, what: &str) -> Result<(), OpError> {
+    let status = verbs.ports().git.status(place).map_err(failed)?;
+    let unstaged = status
+        .entries
+        .iter()
+        .find(|e| e.kind == GitEntryKind::Unmerged || e.worktree.is_some());
+    match unstaged {
+        None => Ok(()),
+        Some(entry) => Err(OpError::new(
+            OpErrorKind::PreconditionFailed,
+            super::DIRTY_TREE,
+            format!(
+                "{} has unstaged changes ({} among them): {what} would mix them in or lose them",
+                printable(&place.toplevel.to_string_lossy()),
+                printable(&entry.path)
+            ),
+        )
+        .with_suggestion("stage, commit or stash the changes first")),
+    }
 }

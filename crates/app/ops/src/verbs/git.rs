@@ -21,8 +21,8 @@ pub use branching::{
 };
 pub use commit::{AddRequest, CommitAnswer, CommitRequest, add, cleaned, commit};
 pub use merging::{
-    FastForward, MergeAnswer, ResetAnswer, RestoreAnswer, StashAnswer, StashesAnswer, merge, pick,
-    reset, restore, stash_list, stash_pop, stash_push,
+    FastForward, MergeAnswer, PickEndAnswer, ResetAnswer, RestoreAnswer, StashAnswer,
+    StashesAnswer, merge, pick, pick_end, reset, restore, stash_list, stash_pop, stash_push,
 };
 pub use specforge_effects::git::ResetMode;
 

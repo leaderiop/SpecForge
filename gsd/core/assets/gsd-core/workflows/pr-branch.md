@@ -385,7 +385,7 @@ files would be overwritten by merge"*, and every remaining commit is silently dr
 for HASH in $(printf '%s' "$INCLUDED_COMMITS"); do
   # A modify/delete conflict on a filtered path is EXPECTED and is resolved below — the
   # filtered path is absent from HEAD by construction. Do not treat it as a failure here.
-  git cherry-pick --no-commit "$HASH" || true
+  specforge git cherry-pick --no-commit "$HASH" || true
 
   # One path per LINE, not per space (#4605) — a discovered `<milestone>-phases/`
   # directory can contain a space, so `for P in $(printf ...)` would word-split it
@@ -465,7 +465,7 @@ UNMERGED_PATHS_EOF
     # $PR_BRANCH is disposable and every commit on it was cherry-picked, and the
     # clean-tree precondition guarantees the user had nothing uncommitted, so a hard
     # reset here cannot destroy anything of theirs.
-    git cherry-pick --quit 2>/dev/null || true
+    specforge git cherry-pick --quit 2>/dev/null || true
     specforge git reset HEAD --hard --yes --pick .sha >/dev/null
     if specforge git switch "$CURRENT_BRANCH" --pick .branch >/dev/null; then
       specforge git branch delete "$PR_BRANCH" --force >/dev/null 2>&1 || true
@@ -482,7 +482,7 @@ UNMERGED_PATHS_EOF
   # Nothing left after filtering (possible when a pick's only surviving content was
   # planning state): clear the sequencer rather than failing on an empty commit.
   if [ "$(specforge git diff --staged --pick .count)" = 0 ]; then
-    git cherry-pick --quit 2>/dev/null || true
+    specforge git cherry-pick --quit 2>/dev/null || true
     continue
   fi
 

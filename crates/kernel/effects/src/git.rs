@@ -585,8 +585,22 @@ pub trait Git: Send + Sync {
     fn stashes(&self, _place: &GitPlace) -> Result<Vec<GitStash>, GitError> {
         Err(GitError::unanswered())
     }
-    /// Apply `commit` onto `HEAD` and record it (`revert`: its inverse), or the conflicts.
-    fn pick(&self, _place: &GitPlace, _commit: &Sha, _revert: bool) -> Result<Merged, GitError> {
+    /// Apply `commit` onto `HEAD` (`revert`: its inverse) and record it, or the conflicts. Unless `record`, it is
+    /// applied onto the index as it stands and left staged (`--no-commit`), a revert's `REVERT_HEAD` kept as git
+    /// keeps it.
+    fn pick(
+        &self,
+        _place: &GitPlace,
+        _commit: &Sha,
+        _revert: bool,
+        _record: bool,
+    ) -> Result<Merged, GitError> {
+        Err(GitError::unwritable())
+    }
+    /// End the cherry-pick or revert in progress: its state goes, the index and the files stay (`--quit`), or with
+    /// `abort` the paths it staged or left conflicted go back to `HEAD` too (`--abort`). Whether one was in
+    /// progress; `abort` with none is refused, as git refuses it.
+    fn pick_end(&self, _place: &GitPlace, _abort: bool) -> Result<bool, GitError> {
         Err(GitError::unwritable())
     }
     /// Record the index as a commit on `HEAD` with `message` (kept byte for byte), by the identity the repository's

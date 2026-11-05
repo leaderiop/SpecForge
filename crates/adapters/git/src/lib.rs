@@ -604,8 +604,22 @@ impl Git for Gix {
         merging::stashes(place)
     }
 
-    fn pick(&self, place: &GitPlace, commit: &Sha, revert: bool) -> Result<Merged, GitError> {
-        merging::pick(self, place, commit, revert)
+    fn pick(
+        &self,
+        place: &GitPlace,
+        commit: &Sha,
+        revert: bool,
+        record: bool,
+    ) -> Result<Merged, GitError> {
+        if record {
+            merging::pick(self, place, commit, revert)
+        } else {
+            merging::pick_staged(place, commit, revert)
+        }
+    }
+
+    fn pick_end(&self, place: &GitPlace, abort: bool) -> Result<bool, GitError> {
+        merging::pick_end(place, abort)
     }
 
     fn status(&self, place: &GitPlace) -> Result<GitStatus, GitError> {

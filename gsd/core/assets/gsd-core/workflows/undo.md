@@ -537,7 +537,7 @@ Sort COMMITS in reverse chronological order (newest first). If commits came from
 
 For each commit hash in COMMITS:
 ```bash
-git revert --no-commit ${HASH}
+specforge git revert --no-commit ${HASH}
 ```
 
 If any revert fails (merge conflict or error):
@@ -545,7 +545,7 @@ If any revert fails (merge conflict or error):
 2. Run cleanup — handle both first-call and mid-sequence cases:
    ```bash
    # Try git revert --abort first (works if this is the first failed revert)
-   git revert --abort 2>/dev/null
+   specforge git revert --abort 2>/dev/null
    # If prior --no-commit reverts already staged cleanly before this failure,
    # revert --abort may be a no-op. Clean up staged and working tree changes:
    specforge git reset HEAD --pick .sha 2>/dev/null
@@ -567,17 +567,17 @@ After all reverts are staged successfully, create a single commit:
 
 For MODE=phase:
 ```bash
-git commit -m "revert(${TARGET_PHASE}): undo phase ${TARGET_PHASE} — ${REVERT_REASON}"
+specforge git commit -m "revert(${TARGET_PHASE}): undo phase ${TARGET_PHASE} — ${REVERT_REASON}"
 ```
 
 For MODE=plan:
 ```bash
-git commit -m "revert(${TARGET_PLAN}): undo plan ${TARGET_PLAN} — ${REVERT_REASON}"
+specforge git commit -m "revert(${TARGET_PLAN}): undo plan ${TARGET_PLAN} — ${REVERT_REASON}"
 ```
 
 For MODE=last:
 ```bash
-git commit -m "revert: undo ${N} selected commits — ${REVERT_REASON}"
+specforge git commit -m "revert: undo ${N} selected commits — ${REVERT_REASON}"
 ```
 </step>
 

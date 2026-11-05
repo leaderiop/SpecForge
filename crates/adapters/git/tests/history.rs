@@ -15,6 +15,8 @@ use specforge_git::Gix;
 use specforge_git::testing::Repo;
 use specforge_test::prelude::*;
 
+#[path = "history/picking.rs"]
+mod picking;
 #[path = "history/spike.rs"]
 mod spike;
 #[path = "history/writes.rs"]

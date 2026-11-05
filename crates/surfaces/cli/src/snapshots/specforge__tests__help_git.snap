@@ -30,8 +30,8 @@ Commands:
   reset        Move HEAD to a revision, and the index (--mixed, the default) and the files (--hard) with it
   restore      Put files back as the index has them (or --source), discarding their changes; --staged: their index entries
   stash        Set the worktree's changes aside, bring them back, or list them
-  cherry-pick  Apply a commit onto HEAD and record it with its author and message; conflicts exit 1
-  revert       Record a commit that undoes another; conflicts exit 1
+  cherry-pick  Apply a commit onto HEAD and record it with its author and message (or stage it, -n); conflicts exit 1
+  revert       Record a commit that undoes another (or stage its undoing, -n); conflicts exit 1
   help         Print this message or the help of the given subcommand(s)
 
 Options:

@@ -102,7 +102,20 @@ pub(crate) struct StashPopArgs {
 #[derive(clap::Args)]
 pub(crate) struct PickArgs {
     /// The commit
-    pub(super) revision: String,
+    #[arg(required_unless_present_any = ["quit", "abort"], conflicts_with_all = ["quit", "abort"])]
+    pub(super) revision: Option<String>,
+
+    /// Apply it onto the index as it stands and leave it staged, unrecorded; a second one stacks on the first
+    #[arg(short, long)]
+    pub(super) no_commit: bool,
+
+    /// End the cherry-pick or revert in progress, the index and the files left as they are
+    #[arg(long, conflicts_with_all = ["abort", "no_commit"])]
+    pub(super) quit: bool,
+
+    /// End the cherry-pick or revert in progress and put back as HEAD has them the paths it staged or conflicted
+    #[arg(long, conflicts_with = "no_commit")]
+    pub(super) abort: bool,
 
     #[command(flatten)]
     pub(super) verb: VerbArgs,

@@ -8,6 +8,7 @@ use crate::support::{Cli, TestProject};
 
 mod diff;
 mod hooks;
+mod picking;
 mod signing;
 mod staging;
 mod writes;

@@ -299,14 +299,7 @@ pub(crate) fn pick(
     }
     let original = String::from_utf8_lossy(picked.message_bytes()).into_owned();
     let (message, author) = if revert {
-        let subject = original.lines().next().unwrap_or_default();
-        (
-            format!(
-                "Revert \"{subject}\"\n\nThis reverts commit {commit}.\n",
-                commit = commit.as_str()
-            ),
-            None,
-        )
+        (reverting(&original, commit), None)
     } else {
         let who = picked.author();
         let offset = who.when().offset_minutes().saturating_mul(60);
@@ -336,4 +329,168 @@ pub(crate) fn pick(
         fast_forward: false,
         conflicts: Vec::new(),
     })
+}
+
+/// The message git gives a revert of the commit `original` is the message of.
+fn reverting(original: &str, commit: &Sha) -> String {
+    let subject = original.lines().next().unwrap_or_default();
+    format!(
+        "Revert \"{subject}\"\n\nThis reverts commit {commit}.\n",
+        commit = commit.as_str()
+    )
+}
+
+/// Apply `commit` (or its inverse, `revert`) onto the index as it stands and leave it staged, the files with it
+/// (`git cherry-pick -n`, `git revert -n`): a three-way merge of trees, so a second one stacks on the first. As git,
+/// a revert leaves `REVERT_HEAD` and a cherry-pick no `CHERRY_PICK_HEAD`; both leave the message in `MERGE_MSG`.
+pub(crate) fn pick_staged(
+    place: &GitPlace,
+    commit: &Sha,
+    revert: bool,
+) -> Result<Merged, GitError> {
+    let repo = libgit2(place)?;
+    let read = |e: git2::Error| failed("read the commit", &e);
+    let picked = repo.find_commit(oid(commit)?).map_err(read)?;
+    if picked.parent_count() > 1 {
+        return Err(GitError(format!(
+            "{} is a merge: git needs -m to say which parent it undoes or applies, which specforge does not take",
+            commit.short()
+        )));
+    }
+    let parent = match picked.parent(0) {
+        Ok(parent) => parent.tree().map_err(read)?,
+        // a root commit: against the empty tree, as git takes it
+        Err(_) => {
+            let empty = repo
+                .treebuilder(None)
+                .and_then(|builder| builder.write())
+                .map_err(|e| failed("write the empty tree", &e))?;
+            repo.find_tree(empty).map_err(read)?
+        }
+    };
+    let mut index = repo.index().map_err(|e| failed("read the index", &e))?;
+    if index.has_conflicts() {
+        return Err(GitError(
+            "the index holds a conflict: resolve or abort it first".into(),
+        ));
+    }
+    let ours = index
+        .write_tree()
+        .and_then(|tree| repo.find_tree(tree))
+        .map_err(|e| failed("read the index as a tree", &e))?;
+    let own = picked.tree().map_err(read)?;
+    let (base, theirs) = if revert {
+        (&own, &parent)
+    } else {
+        (&parent, &own)
+    };
+    let mut merged = repo
+        .merge_trees(base, &ours, theirs, None)
+        .map_err(|e| failed(if revert { "revert" } else { "cherry-pick" }, &e))?;
+    let mut checkout = safe();
+    checkout.allow_conflicts(true).conflict_style_merge(true);
+    repo.checkout_index(Some(&mut merged), Some(&mut checkout))
+        .map_err(|e| failed("check out the applied files", &e))?;
+    let original = String::from_utf8_lossy(picked.message_bytes()).into_owned();
+    let message = if revert {
+        reverting(&original, commit)
+    } else {
+        original
+    };
+    let state = |name: &str, text: &str| {
+        std::fs::write(place.git_dir.join(name), text)
+            .map_err(|e| failed(&format!("write {name}"), &e))
+    };
+    state("MERGE_MSG", &message)?;
+    if revert {
+        state("REVERT_HEAD", &format!("{}\n", commit.as_str()))?;
+    }
+    Ok(Merged {
+        sha: None,
+        fast_forward: false,
+        conflicts: conflicts(&repo)?,
+    })
+}
+
+/// End the cherry-pick or revert in progress (`--quit`), and with `abort` put back as `HEAD` has them the paths
+/// the index changed or holds conflicted, as git's `reset --merge` does, other files' changes kept (`--abort`).
+pub(crate) fn pick_end(place: &GitPlace, abort: bool) -> Result<bool, GitError> {
+    let repo = libgit2(place)?;
+    let sequencer = place.git_dir.join("sequencer");
+    let sequenced = std::fs::symlink_metadata(&sequencer).is_ok();
+    let in_progress = sequenced
+        || ["CHERRY_PICK_HEAD", "REVERT_HEAD"]
+            .iter()
+            .any(|name| place.git_dir.join(name).exists());
+    if abort {
+        if !in_progress {
+            return Err(GitError("no cherry-pick or revert is in progress".into()));
+        }
+        if sequenced {
+            return Err(GitError(
+                "a sequence of picks git started is in progress: specforge aborts a single cherry-pick or revert, \
+                 so --quit it, then reset"
+                    .into(),
+            ));
+        }
+        rolled_back(&repo)?;
+    }
+    if sequenced {
+        // a link is removed itself, never followed
+        let gone = match std::fs::symlink_metadata(&sequencer) {
+            Ok(meta) if meta.is_dir() => std::fs::remove_dir_all(&sequencer),
+            _ => std::fs::remove_file(&sequencer),
+        };
+        gone.map_err(|e| failed("remove the sequencer's state", &e))?;
+    }
+    conclude(place)?;
+    Ok(in_progress)
+}
+
+/// The paths the index stages against `HEAD` or holds conflicted, back as `HEAD` has them in the index and on disk.
+fn rolled_back(repo: &git2::Repository) -> Result<(), GitError> {
+    let head = repo
+        .head()
+        .and_then(|head| head.peel_to_commit())
+        .map_err(|e| failed("read HEAD", &e))?;
+    let tree = head.tree().map_err(|e| failed("read HEAD", &e))?;
+    let index = repo.index().map_err(|e| failed("read the index", &e))?;
+    let mut paths = std::collections::BTreeSet::new();
+    for conflict in index
+        .conflicts()
+        .map_err(|e| failed("read the index", &e))?
+    {
+        let conflict = conflict.map_err(|e| failed("read the index", &e))?;
+        for entry in [conflict.our, conflict.their, conflict.ancestor]
+            .into_iter()
+            .flatten()
+        {
+            paths.insert(String::from_utf8_lossy(&entry.path).into_owned());
+        }
+    }
+    let staged = repo
+        .diff_tree_to_index(Some(&tree), Some(&index), None)
+        .map_err(|e| failed("compare the index with HEAD", &e))?;
+    for delta in staged.deltas() {
+        for file in [delta.old_file(), delta.new_file()] {
+            if let Some(path) = file.path() {
+                paths.insert(path.to_string_lossy().into_owned());
+            }
+        }
+    }
+    if paths.is_empty() {
+        return Ok(());
+    }
+    let mut checkout = git2::build::CheckoutBuilder::new();
+    checkout
+        .force()
+        .remove_untracked(false)
+        .disable_pathspec_match(true);
+    for path in &paths {
+        checkout.path(path);
+    }
+    repo.checkout_tree(tree.as_object(), Some(&mut checkout))
+        .map_err(|e| failed("put the files back", &e))?;
+    repo.reset_default(Some(head.as_object()), &paths)
+        .map_err(|e| failed("put the index back", &e))
 }

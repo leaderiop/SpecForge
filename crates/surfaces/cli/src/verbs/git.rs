@@ -86,9 +86,9 @@ pub(crate) enum Action {
     /// Set the worktree's changes aside, bring them back, or list them
     #[command(subcommand)]
     Stash(StashAction),
-    /// Apply a commit onto HEAD and record it with its author and message; conflicts exit 1
+    /// Apply a commit onto HEAD and record it with its author and message (or stage it, -n); conflicts exit 1
     CherryPick(PickArgs),
-    /// Record a commit that undoes another; conflicts exit 1
+    /// Record a commit that undoes another (or stage its undoing, -n); conflicts exit 1
     Revert(PickArgs),
 }
 
@@ -447,13 +447,25 @@ impl Action {
                     }
                 })
             }
-            Action::CherryPick(args) => merged(&args.verb, terminal, ports, |v| {
-                git::pick(v, &args.revision, false)
-            }),
-            Action::Revert(args) => merged(&args.verb, terminal, ports, |v| {
-                git::pick(v, &args.revision, true)
-            }),
+            Action::CherryPick(args) => picked(args, false, terminal, ports),
+            Action::Revert(args) => picked(args, true, terminal, ports),
         }
+    }
+}
+
+/// A cherry-pick or a revert (`revert`), or the end of the one in progress (`--quit`, `--abort`).
+fn picked(args: PickArgs, revert: bool, terminal: &Terminal, ports: &Ports) -> Exit {
+    match args.revision {
+        Some(revision) => merged(&args.verb, terminal, ports, |v| {
+            git::pick(v, &revision, revert, !args.no_commit)
+        }),
+        None => answer(
+            &args.verb,
+            terminal,
+            ports,
+            |v| git::pick_end(v, revert, args.abort),
+            |_, _| {},
+        ),
     }
 }
 
