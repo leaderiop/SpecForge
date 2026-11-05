@@ -169,13 +169,21 @@ pub(crate) fn worktree_remove(place: &GitPlace, path: &Path) -> Result<(), GitEr
         .map_err(|e| failed(&format!("remove the worktree at {}", path.display()), &e))
 }
 
-/// `git init`: `dir` made a repository by gix (its default branch `init.defaultBranch`, else `main`), unless it holds
-/// one already.
+/// `git init`: `dir` made a repository by gix, `HEAD` on `main` whatever a config's `init.defaultBranch` says, unless
+/// it holds one already.
 pub(crate) fn init(dir: &Path) -> Result<bool, GitError> {
     if std::fs::symlink_metadata(dir.join(".git")).is_ok() {
         return Ok(false);
     }
-    gix::init(dir).map_err(|e| failed(&format!("make {} a repository", dir.display()), &e))?;
+    // isolated: no system or global config, whose init.defaultBranch (Git for Windows sets master) gix would follow;
+    // the branch is gix's own default, main
+    gix::ThreadSafeRepository::init_opts(
+        dir,
+        gix::create::Kind::WithWorktree,
+        gix::create::Options::default(),
+        gix::open::Options::isolated(),
+    )
+    .map_err(|e| failed(&format!("make {} a repository", dir.display()), &e))?;
     Ok(true)
 }
 

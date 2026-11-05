@@ -164,6 +164,13 @@ fn commit_of_paths_after_the_separator_leaves_the_rest_staged() {
 #[test]
 fn init_makes_the_project_a_repository_unless_it_is_one() {
     let project = crate::support::TestProject::new();
+    // as Git for Windows' system config says: init names its branch main whatever a config says
+    std::fs::create_dir_all(project.home()).unwrap();
+    std::fs::write(
+        project.home().join(".gitconfig"),
+        "[init]\n\tdefaultBranch = master\n",
+    )
+    .unwrap();
     let made = git(&project, &["init", "--format", "human"]).exits(0);
     assert!(
         made.stdout
