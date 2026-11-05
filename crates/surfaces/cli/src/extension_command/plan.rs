@@ -1,7 +1,7 @@
 //! What a writing command's plan became, as the command line prints it (ADR 0289): the command's own output first,
 //! then the plan's diff (`--dry-run`) or the files written; a refused plan fails the command with the refusal.
 
-use crate::pick::Pick;
+use crate::pick::{Pick, Shape};
 use crate::terminal::{Terminal, err, out, outln};
 use serde_json::{Value, json};
 use specforge_ops::authoring::apply::{CommandRun, PlanOutcome};
@@ -12,12 +12,12 @@ use std::path::Path;
 
 /// Print `run` and return the exit code: the command's own when its plan was applied or previewed, 1 for a plan
 /// the host refused. `root` names the files written. With `pick`, stdout holds only the values at its path of the
-/// command's own answer (never the `{output, plan, files_written}` document), and an answer that is not JSON fails
-/// a command that passed.
+/// command's own answer, in its shape (never the `{output, plan, files_written}` document), and an answer that is not
+/// JSON fails a command that passed.
 pub(super) fn ended(
     run: CommandRun,
     format: CommandFormat,
-    pick: Option<&Pick>,
+    pick: Option<(&Pick, &Shape)>,
     root: &Path,
     terminal: &Terminal,
 ) -> i32 {
@@ -36,7 +36,7 @@ pub(super) fn ended(
 fn printed(
     run: CommandRun,
     format: CommandFormat,
-    pick: Option<&Pick>,
+    pick: Option<(&Pick, &Shape)>,
     root: &Path,
     terminal: &Terminal,
 ) -> i32 {
@@ -54,9 +54,9 @@ fn printed(
         return 1;
     }
     // `--pick` reads the command's own answer, whether or not this run answered a plan
-    if let Some(pick) = pick {
+    if let Some((pick, shape)) = pick {
         err!(terminal, "{}", output.stderr);
-        return match pick.printed(&output.stdout, None, &crate::pick::Shape::default()) {
+        return match pick.printed(&output.stdout, None, shape) {
             Ok(lines) => {
                 out!(terminal, "{lines}");
                 output.exit_code

@@ -164,7 +164,71 @@ pub(crate) struct Shape {
     join: Option<String>,
 }
 
+/// The shapes' names: an extension command takes each as a host option unless it declares an arg of the name.
+pub(crate) const SHAPES: [&str; 4] = [COUNT, FIRST, LAST, JOIN];
+const COUNT: &str = "count";
+const FIRST: &str = "first";
+const LAST: &str = "last";
+const JOIN: &str = "join";
+
 impl Shape {
+    /// The host options of the shapes `added` names (of [`SHAPES`]), as an extension command takes them: each
+    /// requires `pick`, and conflicts only with the other shapes added, so a declared `count` keeps `--first`.
+    pub(crate) fn host_args(added: &[&'static str], pick: &'static str) -> Vec<clap::Arg> {
+        use clap::{Arg, ArgAction};
+        let among = |names: &[&'static str]| -> Vec<&'static str> {
+            names
+                .iter()
+                .copied()
+                .filter(|name| added.contains(name))
+                .collect()
+        };
+        added
+            .iter()
+            .map(|&name| {
+                let arg = Arg::new(name).long(name).requires(pick);
+                match name {
+                    COUNT => arg
+                        .action(ArgAction::SetTrue)
+                        .conflicts_with_all(among(&[FIRST, LAST, JOIN]))
+                        .help(COUNT_HELP)
+                        .long_help(COUNT_LONG_HELP),
+                    FIRST => arg
+                        .value_name("N")
+                        .value_parser(clap::value_parser!(usize))
+                        .conflicts_with_all(among(&[LAST]))
+                        .help(FIRST_HELP),
+                    LAST => arg
+                        .value_name("N")
+                        .value_parser(clap::value_parser!(usize))
+                        .help(LAST_HELP),
+                    _ => arg
+                        .value_name("SEP")
+                        .help(JOIN_HELP)
+                        .long_help(JOIN_LONG_HELP),
+                }
+            })
+            .collect()
+    }
+
+    /// The shape `matches` holds for the host options `added` names: a name the command declares is its own arg,
+    /// never read here.
+    pub(crate) fn of_matches(matches: &clap::ArgMatches, added: &[&str]) -> Self {
+        let has = |name: &str| added.contains(&name);
+        Self {
+            count: has(COUNT) && matches.get_flag(COUNT),
+            first: has(FIRST)
+                .then(|| matches.get_one::<usize>(FIRST).copied())
+                .flatten(),
+            last: has(LAST)
+                .then(|| matches.get_one::<usize>(LAST).copied())
+                .flatten(),
+            join: has(JOIN)
+                .then(|| matches.get_one::<String>(JOIN).cloned())
+                .flatten(),
+        }
+    }
+
     /// `texts` (one per value or row reached, in document order) as the shape prints them.
     fn print(&self, texts: Vec<String>) -> String {
         if self.count {

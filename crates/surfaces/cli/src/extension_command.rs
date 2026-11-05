@@ -19,7 +19,7 @@
 //! it answers is applied by the host (`plan.rs`, ADR 0289).
 
 use crate::outcome::Exit;
-use crate::pick::Pick;
+use crate::pick::{Pick, Shape};
 use crate::project::ProjectArg;
 use crate::terminal::{Stream, Terminal, err, errln, out};
 use clap::builder::PossibleValuesParser;
@@ -221,6 +221,7 @@ pub(crate) fn run_in(
     };
 
     let pick = matches.try_get_one::<Pick>(PICK).ok().flatten();
+    let shape = Shape::of_matches(matches, &kernel_shapes(command));
     let format = format_value(matches);
     if pick.is_some()
         && matches.value_source(FORMAT) == Some(ValueSource::CommandLine)
@@ -281,7 +282,13 @@ pub(crate) fn run_in(
         },
     );
     match outcome {
-        Ok(run) => plan::ended(run, format, pick, root.dir(), terminal),
+        Ok(run) => plan::ended(
+            run,
+            format,
+            pick.map(|pick| (pick, &shape)),
+            root.dir(),
+            terminal,
+        ),
         Err(error) => ended(Err(error), format, terminal),
     }
 }
@@ -464,6 +471,17 @@ fn kernel_picks(command: &ExtensionCommand) -> bool {
     !command.args().iter().any(|a| a.name == PICK)
 }
 
+/// The `--pick` shapes the host gives `command` (ADR 0325 D8): with its `--pick`, each it declares no arg of the name.
+fn kernel_shapes(command: &ExtensionCommand) -> Vec<&'static str> {
+    if !kernel_picks(command) {
+        return Vec::new();
+    }
+    crate::pick::SHAPES
+        .into_iter()
+        .filter(|shape| !command.args().iter().any(|a| a.name == *shape))
+        .collect()
+}
+
 /// Whether `e` is clap's help or version rather than a usage error.
 fn is_display(e: &clap::Error) -> bool {
     use clap::error::ErrorKind;
@@ -633,6 +651,7 @@ fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
                     .help(crate::pick::HELP)
                     .long_help(crate::pick::COMMAND_LONG_HELP),
             );
+            sub = sub.args(Shape::host_args(&kernel_shapes(command), PICK));
         }
         if command.writes() {
             sub = sub.arg(
