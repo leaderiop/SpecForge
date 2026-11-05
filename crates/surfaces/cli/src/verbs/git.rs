@@ -788,10 +788,5 @@ fn answer<T: serde::Serialize>(
     ask: impl FnOnce(&Verbs) -> Result<T, OpError>,
     human: impl FnOnce(&Terminal, &T),
 ) -> Exit {
-    let format = match verb.format(terminal) {
-        Ok(format) => format,
-        Err(exit) => return exit,
-    };
-    let answer = verb.open(ports).and_then(|verbs| ask(&verbs));
-    verb.print(terminal, format, answer, human)
+    verb.answer(terminal, ports, |verbs| ask(&verbs), human)
 }

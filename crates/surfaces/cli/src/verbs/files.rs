@@ -4,6 +4,8 @@ use std::path::PathBuf;
 
 use specforge_effects::Ports;
 use specforge_effects::fs::FileKind;
+use specforge_ops::OpError;
+use specforge_ops::verbs::Verbs;
 use specforge_ops::verbs::files::{self, ChangeAnswer, LIST_MAX, List, SEARCH_MAX, Search, Temp};
 
 use super::{VerbArgs, shown};
@@ -183,16 +185,39 @@ pub(crate) struct SearchArgs {
 impl Action {
     pub(crate) fn run(self, terminal: &Terminal, ports: &Ports) -> Exit {
         match self {
-            Action::Stat(args) => args.run(terminal, ports),
+            Action::Stat(args) => args.verb.answer(
+                terminal,
+                ports,
+                |verbs| files::stat(&verbs, &args.paths),
+                |terminal, answer| {
+                    for entry in &answer.entries {
+                        let what = match (entry.kind, entry.size) {
+                            (Some(kind), Some(size)) => format!("{kind} {size} B"),
+                            (Some(kind), None) => kind.to_string(),
+                            (None, _) => "missing".to_string(),
+                        };
+                        outln!(terminal, "{}  {what}", shown(&entry.path));
+                    }
+                },
+            ),
             Action::List(args) => args.run(terminal, ports),
             Action::Search(args) => args.run(terminal, ports),
-            Action::Temp(args) => args.run(terminal, ports),
-            Action::Mkdir(args) => {
-                let paths = args.paths;
-                changes(&args.verb, terminal, ports, |verbs| {
-                    files::mkdir(verbs, &paths)
-                })
+            Action::Temp(args) => {
+                let temp = Temp {
+                    dir: args.dir,
+                    prefix: args.prefix,
+                    suffix: args.suffix,
+                };
+                args.verb.answer(
+                    terminal,
+                    ports,
+                    |verbs| files::temp(verbs, &temp),
+                    |terminal, answer| outln!(terminal, "{}", shown(&answer.path)),
+                )
             }
+            Action::Mkdir(args) => changes(&args.verb, terminal, ports, |verbs| {
+                files::mkdir(verbs, &args.paths)
+            }),
             Action::Copy(args) => changes(&args.verb, terminal, ports, |verbs| {
                 files::copy(verbs, &args.from, &args.to)
             }),
@@ -202,7 +227,17 @@ impl Action {
             Action::Remove(args) => changes(&args.verb, terminal, ports, |verbs| {
                 files::remove(verbs, &args.paths, args.recursive, args.force)
             }),
-            Action::Digest(args) => args.run(terminal, ports),
+            Action::Digest(args) => args.verb.answer(
+                terminal,
+                ports,
+                |verbs| files::digest(&verbs, &args.paths, args.text.as_deref()),
+                |terminal, answer| {
+                    for digest in &answer.digests {
+                        let path = digest.path.as_deref().unwrap_or("--text");
+                        outln!(terminal, "{}  {}", digest.sha256, shown(path));
+                    }
+                },
+            ),
         }
     }
 }
@@ -212,92 +247,22 @@ fn changes(
     verb: &VerbArgs,
     terminal: &Terminal,
     ports: &Ports,
-    change: impl FnOnce(&specforge_ops::verbs::Verbs) -> Result<ChangeAnswer, specforge_ops::OpError>,
+    change: impl FnOnce(&Verbs) -> Result<ChangeAnswer, OpError>,
 ) -> Exit {
-    let format = match verb.format(terminal) {
-        Ok(format) => format,
-        Err(exit) => return exit,
-    };
-    let answer = verb.open(ports).and_then(|verbs| change(&verbs));
-    verb.print(terminal, format, answer, |terminal, answer| {
-        for path in &answer.changed {
-            outln!(terminal, "{}", shown(path));
-        }
-    })
-}
-
-impl TempArgs {
-    fn run(self, terminal: &Terminal, ports: &Ports) -> Exit {
-        let format = match self.verb.format(terminal) {
-            Ok(format) => format,
-            Err(exit) => return exit,
-        };
-        let temp = Temp {
-            dir: self.dir,
-            prefix: self.prefix,
-            suffix: self.suffix,
-        };
-        let answer = self
-            .verb
-            .open(ports)
-            .and_then(|verbs| files::temp(verbs, &temp));
-        self.verb
-            .print(terminal, format, answer, |terminal, answer| {
-                outln!(terminal, "{}", shown(&answer.path));
-            })
-    }
-}
-
-impl DigestArgs {
-    fn run(self, terminal: &Terminal, ports: &Ports) -> Exit {
-        let format = match self.verb.format(terminal) {
-            Ok(format) => format,
-            Err(exit) => return exit,
-        };
-        let answer = self
-            .verb
-            .open(ports)
-            .and_then(|verbs| files::digest(&verbs, &self.paths, self.text.as_deref()));
-        self.verb
-            .print(terminal, format, answer, |terminal, answer| {
-                for digest in &answer.digests {
-                    let path = digest.path.as_deref().unwrap_or("--text");
-                    outln!(terminal, "{}  {}", digest.sha256, shown(path));
-                }
-            })
-    }
-}
-
-impl StatArgs {
-    fn run(self, terminal: &Terminal, ports: &Ports) -> Exit {
-        let format = match self.verb.format(terminal) {
-            Ok(format) => format,
-            Err(exit) => return exit,
-        };
-        let answer = self
-            .verb
-            .open(ports)
-            .and_then(|verbs| files::stat(&verbs, &self.paths));
-        self.verb
-            .print(terminal, format, answer, |terminal, answer| {
-                for entry in &answer.entries {
-                    let what = match (entry.kind, entry.size) {
-                        (Some(kind), Some(size)) => format!("{kind} {size} B"),
-                        (Some(kind), None) => kind.to_string(),
-                        (None, _) => "missing".to_string(),
-                    };
-                    outln!(terminal, "{}  {what}", shown(&entry.path));
-                }
-            })
-    }
+    verb.answer(
+        terminal,
+        ports,
+        |verbs| change(&verbs),
+        |terminal, answer| {
+            for path in &answer.changed {
+                outln!(terminal, "{}", shown(path));
+            }
+        },
+    )
 }
 
 impl ListArgs {
     fn run(self, terminal: &Terminal, ports: &Ports) -> Exit {
-        let format = match self.verb.format(terminal) {
-            Ok(format) => format,
-            Err(exit) => return exit,
-        };
         let list = List {
             dir: self.dir,
             globs: self.globs,
@@ -310,12 +275,11 @@ impl ListArgs {
             hidden: self.hidden,
             max: self.max,
         };
-        let answer = self
-            .verb
-            .open(ports)
-            .and_then(|verbs| files::list(&verbs, &list));
-        self.verb
-            .print(terminal, format, answer, |terminal, answer| {
+        self.verb.answer(
+            terminal,
+            ports,
+            |verbs| files::list(&verbs, &list),
+            |terminal, answer| {
                 for entry in &answer.entries {
                     let slash = if entry.kind == "dir" { "/" } else { "" };
                     outln!(terminal, "{}{slash}", shown(&entry.path));
@@ -323,16 +287,13 @@ impl ListArgs {
                 if answer.truncated {
                     outln!(terminal, "(stopped at {} entries)", answer.count);
                 }
-            })
+            },
+        )
     }
 }
 
 impl SearchArgs {
     fn run(self, terminal: &Terminal, ports: &Ports) -> Exit {
-        let format = match self.verb.format(terminal) {
-            Ok(format) => format,
-            Err(exit) => return exit,
-        };
         let search = Search {
             pattern: self.pattern,
             paths: self.paths,
@@ -340,12 +301,11 @@ impl SearchArgs {
             ignore_case: self.ignore_case,
             max: self.max,
         };
-        let answer = self
-            .verb
-            .open(ports)
-            .and_then(|verbs| files::search(&verbs, &search));
-        self.verb
-            .print(terminal, format, answer, |terminal, answer| {
+        self.verb.answer(
+            terminal,
+            ports,
+            |verbs| files::search(&verbs, &search),
+            |terminal, answer| {
                 for found in &answer.matches {
                     outln!(
                         terminal,
@@ -359,6 +319,7 @@ impl SearchArgs {
                 if answer.truncated {
                     outln!(terminal, "(stopped at {} matches)", answer.count);
                 }
-            })
+            },
+        )
     }
 }

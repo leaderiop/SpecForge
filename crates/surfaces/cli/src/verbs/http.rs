@@ -93,26 +93,25 @@ impl Action {
 
 impl AskArgs {
     fn run(self, method: &str, terminal: &Terminal, ports: &Ports) -> Exit {
-        let format = match self.verb.format(terminal) {
-            Ok(format) => format,
-            Err(exit) => return exit,
-        };
         let mode = self.effects.unwrap_or(EffectsMode::Online);
-        let answer = self.verb.open(ports).and_then(|verbs| {
-            let ask = self.ask(method, &verbs)?;
-            // A replay sends nothing, so it needs no credential.
-            if let Some(secret) = &ask.secret
-                && mode != EffectsMode::Replay
-            {
-                sent::secret_is_set(secret, |name| std::env::var(name).ok())?;
-            }
-            sent::request(&verbs, &ask, mode)
-        });
-        self.verb
-            .print(terminal, format, answer, |terminal, answer: &HttpAnswer| {
+        self.verb.answer(
+            terminal,
+            ports,
+            |verbs| {
+                let ask = self.ask(method, &verbs)?;
+                // A replay sends nothing, so it needs no credential.
+                if let Some(secret) = &ask.secret
+                    && mode != EffectsMode::Replay
+                {
+                    sent::secret_is_set(secret, |name| std::env::var(name).ok())?;
+                }
+                sent::request(&verbs, &ask, mode)
+            },
+            |terminal, answer: &HttpAnswer| {
                 // The body as the server sent it, made safe for a terminal; a HEAD has none.
                 out!(terminal, "{}", shown(&answer.body));
-            })
+            },
+        )
     }
 
     /// What the arguments ask: a JSON body of the fields, or the body file, and the declared secret.

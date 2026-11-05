@@ -2,12 +2,9 @@
 //! 127 when not found and 126 when it cannot start; `--format json` captures the run instead, and `--which` finds
 //! programs without running any.
 
-use std::path::PathBuf;
 use std::time::Duration;
 
 use specforge_effects::{EffectsMode, Ports};
-use specforge_ops::consent::UserConsent;
-use specforge_ops::verbs::Verbs;
 use specforge_ops::verbs::run::{self as ran, Run};
 
 use super::shown;
@@ -72,7 +69,7 @@ impl RunArgs {
             );
             return Exit::Unjudged.code();
         }
-        let verbs = match self.open(ports) {
+        let verbs = match super::open(&self.project, ports) {
             Ok(verbs) => verbs,
             Err(error) => {
                 return super::refusal(format, self.pick.is_some())
@@ -129,12 +126,5 @@ impl RunArgs {
                 .report(terminal, &error)
                 .code(),
         }
-    }
-
-    fn open(&self, ports: &Ports) -> Result<Verbs, specforge_ops::OpError> {
-        let root = self.project.root()?;
-        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        let consent = UserConsent::user(root.dir());
-        Ok(Verbs::open(&root, &cwd, ports, &consent))
     }
 }

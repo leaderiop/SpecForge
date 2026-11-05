@@ -48,17 +48,25 @@ impl VerbArgs {
         }
     }
 
-    /// The verbs of the project at `--path`, typed in the current directory, through `ports`.
-    pub(crate) fn open(&self, ports: &Ports) -> Result<Verbs, OpError> {
-        let root = self.project.root()?;
-        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        let consent = UserConsent::user(root.dir());
-        Ok(Verbs::open(&root, &cwd, ports, &consent))
+    /// `ask` of the verbs at `--path`, printed as the format asks: what every verb's leaf does.
+    pub(crate) fn answer<T: serde::Serialize>(
+        &self,
+        terminal: &Terminal,
+        ports: &Ports,
+        ask: impl FnOnce(Verbs) -> Result<T, OpError>,
+        human: impl FnOnce(&Terminal, &T),
+    ) -> Exit {
+        let format = match self.format(terminal) {
+            Ok(format) => format,
+            Err(exit) => return exit,
+        };
+        let answer = open(&self.project, ports).and_then(ask);
+        self.print(terminal, format, answer, human)
     }
 
     /// Print `answer` as the format asks (`human` prints it with `human`), or report its refusal; `failed` decides
     /// whether a printed answer still exits 1.
-    pub(crate) fn print<T: serde::Serialize>(
+    fn print<T: serde::Serialize>(
         &self,
         terminal: &Terminal,
         format: OutputFormat,
@@ -76,6 +84,14 @@ impl VerbArgs {
             Err(error) => refusal(format, self.pick.is_some()).report(terminal, &error),
         }
     }
+}
+
+/// The verbs of the project `project` names, typed in the current directory, through `ports`.
+pub(crate) fn open(project: &crate::project::ProjectArg, ports: &Ports) -> Result<Verbs, OpError> {
+    let root = project.root()?;
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let consent = UserConsent::user(root.dir());
+    Ok(Verbs::open(&root, &cwd, ports, &consent))
 }
 
 /// How a verb reports a refusal: the JSON error document on stdout, or with `--pick` `error[CODE]` on stderr, so a
