@@ -14,6 +14,11 @@ use specforge_protocol_types::{PrefixProblem, Root, RootedPath};
 /// The name of the verbs' scratch root (ADR 0339).
 pub const TEMP: &str = "temp";
 
+/// The verbs' scratch root, [`TEMP`], as a path names it.
+pub fn temp_root() -> Root {
+    Root::Named(TEMP.to_string())
+}
+
 /// A project's roots: the project root, the spec root and the roots its configuration names.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Roots {

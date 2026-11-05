@@ -41,8 +41,7 @@ pub struct RunAnswer {
     pub argv: Vec<String>,
     /// The exit `run` passes through: the program's own, or 124, 126 or 127.
     pub exit: i32,
-    /// `exited`, `signalled`, `deadline`, `output_capped`, `not_found` or `cannot_start`.
-    pub outcome: String,
+    pub outcome: RunOutcome,
     pub stdout: String,
     pub stderr: String,
     pub duration_ms: u64,
@@ -67,30 +66,30 @@ pub struct Program {
     pub path: Option<String>,
 }
 
-/// The exit `run` passes through for a run that ended as `class`: the program's own, 124 at its deadline, 127 when not
-/// found, 126 when it cannot start, else 1.
-pub fn exit_of(class: &ProcessClass) -> i32 {
-    match class {
-        ProcessClass::Exited(code) => *code,
-        ProcessClass::DeadlineExceeded => 124,
-        ProcessClass::NotFound => 127,
-        ProcessClass::CannotStart(_) | ProcessClass::NoDirectory => 126,
-        ProcessClass::Signalled
-        | ProcessClass::OutputCapped
-        | ProcessClass::Uncaptured(_)
-        | ProcessClass::Lost(_) => 1,
-    }
+/// How a run ended, as its answer says it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RunOutcome {
+    Exited,
+    Signalled,
+    Deadline,
+    OutputCapped,
+    NotFound,
+    CannotStart,
+    Lost,
 }
 
-fn outcome_word(class: &ProcessClass) -> &'static str {
+/// How a run that ended as `class` is answered, and the exit `run` passes through for it: the program's own, 124 at
+/// its deadline, 127 when not found, 126 when it cannot start, else 1.
+pub fn ending(class: &ProcessClass) -> (RunOutcome, i32) {
     match class {
-        ProcessClass::Exited(_) => "exited",
-        ProcessClass::Signalled => "signalled",
-        ProcessClass::DeadlineExceeded => "deadline",
-        ProcessClass::OutputCapped => "output_capped",
-        ProcessClass::NotFound => "not_found",
-        ProcessClass::CannotStart(_) | ProcessClass::NoDirectory => "cannot_start",
-        ProcessClass::Uncaptured(_) | ProcessClass::Lost(_) => "lost",
+        ProcessClass::Exited(code) => (RunOutcome::Exited, *code),
+        ProcessClass::Signalled => (RunOutcome::Signalled, 1),
+        ProcessClass::DeadlineExceeded => (RunOutcome::Deadline, 124),
+        ProcessClass::OutputCapped => (RunOutcome::OutputCapped, 1),
+        ProcessClass::NotFound => (RunOutcome::NotFound, 127),
+        ProcessClass::CannotStart(_) | ProcessClass::NoDirectory => (RunOutcome::CannotStart, 126),
+        ProcessClass::Uncaptured(_) | ProcessClass::Lost(_) => (RunOutcome::Lost, 1),
     }
 }
 
@@ -276,10 +275,11 @@ fn answered(
         let cut = &bytes[..bytes.len().min(ANSWER_BYTES)];
         specforge_effects::process::text(cut)
     };
+    let (outcome, exit) = ending(class);
     RunAnswer {
         argv: argv.to_vec(),
-        exit: exit_of(class),
-        outcome: outcome_word(class).to_string(),
+        exit,
+        outcome,
         stdout: kept(stdout),
         stderr: kept(stderr),
         duration_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),

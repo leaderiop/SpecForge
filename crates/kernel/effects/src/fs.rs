@@ -205,6 +205,23 @@ pub enum FileKind {
     Other,
 }
 
+impl FileKind {
+    /// `file`, `dir` or `other`: what an answer says, and what a person reads.
+    pub const fn name(self) -> &'static str {
+        match self {
+            FileKind::File => "file",
+            FileKind::Dir => "dir",
+            FileKind::Other => "other",
+        }
+    }
+}
+
+impl serde::Serialize for FileKind {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.name())
+    }
+}
+
 /// A path's kind, size and modification time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FsStat {

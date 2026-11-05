@@ -12,7 +12,7 @@ use specforge_common::{Diagnostic, Severity};
 use specforge_project::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile};
 
 use crate::view::ProjectView;
-use crate::{NOT_IN_JOURNAL, OpError, OpErrorKind, Refusal};
+use crate::{NOT_IN_JOURNAL, OpError, OpErrorKind, Refusal, UNKNOWN_REVISION};
 
 /// What to report. `Default` is a plain `specforge check`.
 #[derive(Debug, Clone, Default)]
@@ -80,8 +80,6 @@ pub enum CheckField {
     Effects,
 }
 
-/// A `since` revision the repository does not name (`InvalidInput`).
-pub const UNKNOWN_REVISION: &str = "unknown_revision";
 /// A severity filter naming no severity (`InvalidInput`).
 pub const UNKNOWN_SEVERITY: &str = "unknown_severity";
 /// A lint profile naming no profile (`InvalidInput`).

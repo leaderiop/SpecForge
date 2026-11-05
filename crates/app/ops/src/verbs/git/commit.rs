@@ -47,7 +47,7 @@ pub struct CommitAnswer {
 pub(super) fn write_failed(error: GitError) -> OpError {
     OpError::new(
         OpErrorKind::PreconditionFailed,
-        "git_refused",
+        super::GIT_REFUSED,
         printable(&error.0).into_owned(),
     )
 }
@@ -130,7 +130,7 @@ pub(super) fn refuse_signing(verbs: &Verbs, place: &GitPlace, what: Signed) -> R
         };
         return Err(OpError::new(
             OpErrorKind::PreconditionFailed,
-            "signing_unsupported",
+            super::SIGNING_UNSUPPORTED,
             format!(
                 "the repository asks every {kind} to be signed ({key}), and specforge signs none"
             ),
@@ -185,7 +185,7 @@ pub(super) fn in_repository(
             let rel = at.strip_prefix(&place.toplevel).map_err(|_| {
                 OpError::new(
                     OpErrorKind::InvalidInput,
-                    "outside_repository",
+                    super::OUTSIDE_REPOSITORY,
                     format!(
                         "{} is outside the repository at {}",
                         printable(&path.to_string_lossy()),
@@ -204,7 +204,7 @@ pub(super) fn in_repository(
 /// the host's own state or a credential file. shortcut: the name itself is checked, not each file under a directory
 /// (`.specforge/` is git-ignored by `specforge init`); upgrade if a directory-wide write must skip them.
 pub(super) fn held(verbs: &Verbs, path: &Path) -> Result<PathBuf, OpError> {
-    let (located, _) = verbs.located(path, Access::Write)?;
+    let located = verbs.located(path, &Access::Write)?;
     if specforge_effects::contained::withheld(&located.rel) {
         return Err(OpError::new(
             OpErrorKind::PermissionDenied,
@@ -304,14 +304,14 @@ impl<'v> Hooks<'v> {
             ProcessClass::NotFound | ProcessClass::CannotStart(_) | ProcessClass::NoDirectory => {
                 Err(OpError::new(
                     OpErrorKind::PreconditionFailed,
-                    "hook_cannot_run",
+                    super::HOOK_CANNOT_RUN,
                     format!("the {name} hook {shown} {}", outcome.class),
                 )
                 .with_suggestion(no_verify(name)))
             }
             class => Err(OpError::new(
                 OpErrorKind::PreconditionFailed,
-                "hook_refused",
+                super::HOOK_REFUSED,
                 format!("the {name} hook {shown} {class}: nothing was committed"),
             )
             .with_suggestion(no_verify(name))),

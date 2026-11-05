@@ -86,7 +86,7 @@ fn clean_tree(
         None => Ok(()),
         Some(entry) => Err(OpError::new(
             OpErrorKind::PreconditionFailed,
-            "dirty_tree",
+            super::DIRTY_TREE,
             format!(
                 "{} has changes ({} among them): {what} would mix them in or lose them",
                 printable(&place.toplevel.to_string_lossy()),

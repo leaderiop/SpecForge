@@ -207,7 +207,7 @@ pub fn worktree_remove(verbs: &Verbs, path: &Path, force: bool) -> Result<Pruned
             Located::Repo(there) if Some(&there.toplevel) == top.as_ref() => {
                 if git.status(&there).map_err(failed)?.dirty() {
                     return Err(refused(
-                        "dirty_tree",
+                        super::DIRTY_TREE,
                         format!(
                             "the worktree at {} has changes or untracked files",
                             printable(&at.to_string_lossy())

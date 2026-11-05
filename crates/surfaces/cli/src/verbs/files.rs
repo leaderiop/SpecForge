@@ -192,8 +192,8 @@ impl Action {
                 |terminal, answer| {
                     for entry in &answer.entries {
                         let what = match (entry.kind, entry.size) {
-                            (Some(kind), Some(size)) => format!("{kind} {size} B"),
-                            (Some(kind), None) => kind.to_string(),
+                            (Some(kind), Some(size)) => format!("{} {size} B", kind.name()),
+                            (Some(kind), None) => kind.name().to_string(),
                             (None, _) => "missing".to_string(),
                         };
                         outln!(terminal, "{}  {what}", shown(&entry.path));
@@ -281,7 +281,7 @@ impl ListArgs {
             |verbs| files::list(&verbs, &list),
             |terminal, answer| {
                 for entry in &answer.entries {
-                    let slash = if entry.kind == "dir" { "/" } else { "" };
+                    let slash = if entry.kind == FileKind::Dir { "/" } else { "" };
                     outln!(terminal, "{}{slash}", shown(&entry.path));
                 }
                 if answer.truncated {

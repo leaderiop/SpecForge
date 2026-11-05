@@ -123,7 +123,7 @@ impl RunArgs {
         terminal.flush();
         match ran::pass_through(&verbs, &run) {
             Ok(class) => {
-                let code = ran::exit_of(&class);
+                let (_, code) = ran::ending(&class);
                 if !matches!(class, specforge_effects::ProcessClass::Exited(_)) {
                     errln!(terminal, "specforge run: {} {class}", shown(&self.argv[0]));
                 }

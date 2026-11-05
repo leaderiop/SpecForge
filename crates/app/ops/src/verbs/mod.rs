@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use serde::Serialize;
 use specforge_common::{ProjectRoot, codes};
-use specforge_effects::contained::TEMP;
+use specforge_effects::contained::temp_root;
 use specforge_effects::grant::one_line;
 use specforge_effects::{
     Consent, Denial, EffectRequest, FsOp, FsRequest, Grant, Ports, RealFs, RecordDigest, Root,
@@ -119,7 +119,7 @@ impl Verbs {
         let temp = temp_of(root);
         if let Some(at) = temp.as_deref().and_then(held_temp) {
             roots = roots.with_temp(at.clone());
-            landed.push((Root::Named(TEMP.to_string()), at));
+            landed.push((temp_root(), at));
         }
         landed.sort_by_key(|(_, at)| std::cmp::Reverse(at.components().count()));
         Verbs {
@@ -133,11 +133,12 @@ impl Verbs {
         }
     }
 
-    /// These verbs with the `temp` root made (owner only) and reachable: `Err` when it cannot be made, or lands
-    /// outside the directory it is made in.
-    pub fn with_temp(mut self) -> Result<Self, OpError> {
-        if self.roots.get(&Root::Named(TEMP.to_string())).is_some() {
-            return Ok(self);
+    /// These verbs with the `temp` root made (owner only) and reachable, and where it lies, links resolved: `Err` when
+    /// it cannot be made, or lands outside the directory it is made in.
+    pub fn make_temp_root(mut self) -> Result<(Self, PathBuf), OpError> {
+        if let Some(at) = self.temp_root() {
+            let at = at.to_path_buf();
+            return Ok((self, at));
         }
         let refused = |why: String| {
             OpError::new(
@@ -160,15 +161,15 @@ impl Verbs {
             ))
         })?;
         self.roots = self.roots.clone().with_temp(at.clone());
-        self.landed.push((Root::Named(TEMP.to_string()), at));
+        self.landed.push((temp_root(), at.clone()));
         self.landed
             .sort_by_key(|(_, at)| std::cmp::Reverse(at.components().count()));
-        Ok(self)
+        Ok((self, at))
     }
 
     /// Where the `temp` root lies, links resolved, once made.
     pub fn temp_root(&self) -> Option<&Path> {
-        self.roots.get(&Root::Named(TEMP.to_string()))
+        self.roots.get(&temp_root())
     }
 
     pub fn ports(&self) -> &Ports {
@@ -193,10 +194,7 @@ impl Verbs {
     /// root holds, or one whose links lead out of every root, is refused, and so is one the ceiling leaves no root for
     /// (E090).
     pub fn held(&self, typed: &Path, op: FsOp) -> Result<(Located, FsRequest), OpError> {
-        let (located, op) = self.located(typed, Access::Fs(op))?;
-        let Access::Fs(op) = op else {
-            unreachable!("an fs access is held as one")
-        };
+        let located = self.located(typed, &Access::Fs(op.clone()))?;
         let request = FsRequest {
             root: located.root.as_str().to_string(),
             path: located.rel.clone(),
@@ -206,10 +204,10 @@ impl Verbs {
     }
 
     /// [`Self::held`] for any `access`: a write is permitted by the root's `write` op.
-    pub fn located(&self, typed: &Path, access: Access) -> Result<(Located, Access), OpError> {
+    pub fn located(&self, typed: &Path, access: &Access) -> Result<Located, OpError> {
         let written = self.cwd.join(typed);
         // A write changes the name itself: a link is moved or removed, never what it points at.
-        let at = match (&access, written.file_name(), written.parent()) {
+        let at = match (access, written.file_name(), written.parent()) {
             (Access::Write, Some(name), Some(parent)) => RealFs::landing(parent).join(name),
             _ => RealFs::landing(&written),
         };
@@ -219,7 +217,7 @@ impl Verbs {
                 continue;
             };
             let rel = slashed(rel);
-            let permitted = match &access {
+            let permitted = match access {
                 Access::Fs(op) => self.permit_fs(&FsRequest {
                     root: root.as_str().to_string(),
                     path: rel.clone(),
@@ -234,7 +232,7 @@ impl Verbs {
                         rel,
                         at,
                     };
-                    return Ok((located, access));
+                    return Ok(located);
                 }
                 Err(error) => {
                     refused.get_or_insert(error);
@@ -317,12 +315,15 @@ fn outside_ceiling(what: &str, denial: &Denial) -> OpError {
     )
 }
 
+/// The `temp` root's directory in the host's state (`.specforge/tmp`).
+const TEMP_DIR: &str = "tmp";
+
 /// Where the `temp` root of the project at `root` lies: in the project's own state, or the home directory's for a
 /// loose root (as its effects journal is); none for a loose root with no home.
 fn temp_of(root: &ProjectRoot) -> Option<PathBuf> {
     specforge_effects::journal::state_base(root).map(|base| {
         base.join(specforge_effects::contained::HOST_STATE)
-            .join("tmp")
+            .join(TEMP_DIR)
     })
 }
 
@@ -334,7 +335,7 @@ fn held_temp(temp: &Path) -> Option<PathBuf> {
     let expected = std::fs::canonicalize(base)
         .ok()?
         .join(specforge_effects::contained::HOST_STATE)
-        .join("tmp");
+        .join(TEMP_DIR);
     (real.is_dir() && real == expected).then_some(real)
 }
 

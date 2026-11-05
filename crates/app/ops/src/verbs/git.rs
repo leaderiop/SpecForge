@@ -8,7 +8,7 @@ use specforge_effects::git::{
 };
 
 use super::{USER, Verbs, slashed};
-use crate::{OpError, OpErrorKind};
+use crate::{OpError, OpErrorKind, UNKNOWN_REVISION};
 
 mod branching;
 mod commit;
@@ -87,8 +87,26 @@ pub struct ConfigAnswer {
     pub values: Vec<String>,
 }
 
-/// A revision that names no commit: the code `check --since` refuses one with.
-const UNKNOWN_REVISION: &str = "unknown_revision";
+/// The place is in no repository (`PreconditionFailed`).
+pub const NOT_A_REPOSITORY: &str = "not_a_repository";
+/// No git port answers here (`PreconditionFailed`).
+pub const GIT_UNAVAILABLE: &str = "git_unavailable";
+/// The port failed (`Internal`).
+pub const GIT_FAILED: &str = "git_failed";
+/// A `show` path names a tree, not a file (`InvalidInput`).
+pub const NOT_A_BLOB: &str = "not_a_blob";
+/// The worktree has changes a checkout, merge or pick would lose (`PreconditionFailed`).
+pub const DIRTY_TREE: &str = "dirty_tree";
+/// The port refused or failed a write (`PreconditionFailed`).
+pub const GIT_REFUSED: &str = "git_refused";
+/// The repository asks for a signature specforge cannot make (`PreconditionFailed`).
+pub const SIGNING_UNSUPPORTED: &str = "signing_unsupported";
+/// A path to commit is outside the repository's worktree (`InvalidInput`).
+pub const OUTSIDE_REPOSITORY: &str = "outside_repository";
+/// A hook could not be started (`PreconditionFailed`).
+pub const HOOK_CANNOT_RUN: &str = "hook_cannot_run";
+/// A hook refused the commit (`PreconditionFailed`).
+pub const HOOK_REFUSED: &str = "hook_refused";
 
 /// `git log`'s answer: the commits, newest first, and how many (`rev-list --count`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -214,12 +232,12 @@ impl Verbs {
             Located::Repo(place) => Ok(place),
             Located::NotARepository => Err(OpError::new(
                 OpErrorKind::PreconditionFailed,
-                "not_a_repository",
+                NOT_A_REPOSITORY,
                 format!("{} is in no git repository", self.root().dir().display()),
             )),
             Located::Unavailable(why) => Err(OpError::new(
                 OpErrorKind::PreconditionFailed,
-                "git_unavailable",
+                GIT_UNAVAILABLE,
                 format!("git cannot read the repository: {why}"),
             )),
         }
@@ -228,7 +246,7 @@ impl Verbs {
 
 /// A port's failure as the verb's.
 fn failed(error: GitError) -> OpError {
-    OpError::new(OpErrorKind::Internal, "git_failed", error.0)
+    OpError::new(OpErrorKind::Internal, GIT_FAILED, error.0)
 }
 
 pub fn repo(verbs: &Verbs) -> Result<RepoAnswer, OpError> {
@@ -427,7 +445,7 @@ pub fn show(verbs: &Verbs, revision: &str) -> Result<ShowAnswer, OpError> {
         Some((_, kind)) if kind != ObjectKind::Blob => {
             return Err(OpError::new(
                 OpErrorKind::InvalidInput,
-                "not_a_blob",
+                NOT_A_BLOB,
                 format!("{revision} names no file: give `<rev>:<path>`"),
             ));
         }

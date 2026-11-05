@@ -4,7 +4,7 @@
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
-use specforge_effects::contained::TEMP;
+use specforge_effects::contained::{TEMP, temp_root};
 use specforge_effects::fs::{FileKind, READ_CEILING};
 use specforge_effects::{FsChange, FsChanged, FsOp, ListRequest, OutcomeClass, Place, Root};
 
@@ -31,8 +31,8 @@ pub struct StatEntry {
     pub name: String,
     pub parent: String,
     pub exists: bool,
-    /// `file`, `dir` or `other`; none when it does not exist.
-    pub kind: Option<&'static str>,
+    /// None when it does not exist.
+    pub kind: Option<FileKind>,
     /// A file's size in bytes.
     pub size: Option<u64>,
     /// Milliseconds since the Unix epoch, when the file system keeps it.
@@ -49,7 +49,7 @@ pub struct StatAnswer {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ListEntry {
     pub path: String,
-    pub kind: &'static str,
+    pub kind: FileKind,
     pub size: u64,
 }
 
@@ -106,14 +106,6 @@ pub struct Search {
     pub max: usize,
 }
 
-fn kind_name(kind: FileKind) -> &'static str {
-    match kind {
-        FileKind::File => "file",
-        FileKind::Dir => "dir",
-        FileKind::Other => "other",
-    }
-}
-
 /// Each of `paths`: its kind, size and modification time, or that it does not exist.
 pub fn stat(verbs: &Verbs, paths: &[PathBuf]) -> Result<StatAnswer, OpError> {
     let mut entries = Vec::new();
@@ -143,7 +135,7 @@ pub fn stat(verbs: &Verbs, paths: &[PathBuf]) -> Result<StatAnswer, OpError> {
             name,
             parent,
             exists: stat.is_some(),
-            kind: stat.map(|stat| kind_name(stat.kind)),
+            kind: stat.map(|stat| stat.kind),
             // A directory's size is the file system's, not its contents'.
             size: stat
                 .filter(|stat| stat.kind == FileKind::File)
@@ -199,7 +191,7 @@ pub fn list(verbs: &Verbs, list: &List) -> Result<ListAnswer, OpError> {
         .iter()
         .map(|entry| ListEntry {
             path: verbs.shown_in(&located.root, &entry.path),
-            kind: kind_name(entry.kind),
+            kind: entry.kind,
             size: entry.size,
         })
         .collect();
@@ -382,9 +374,9 @@ pub fn temp(verbs: Verbs, temp: &Temp) -> Result<TempAnswer, OpError> {
         root: TEMP.to_string(),
         path: name.clone(),
     };
-    verbs.permit_write(&Root::Named(TEMP.to_string()), &name)?;
+    verbs.permit_write(&temp_root(), &name)?;
     // Made once permitted: a refused `temp` makes nothing.
-    let verbs = verbs.with_temp()?;
+    let (verbs, root) = verbs.make_temp_root()?;
     changed(
         &verbs,
         verbs
@@ -392,7 +384,6 @@ pub fn temp(verbs: Verbs, temp: &Temp) -> Result<TempAnswer, OpError> {
             .fs
             .change(verbs.roots(), &FsChange::Create { at, dir: temp.dir }),
     )?;
-    let root = verbs.temp_root().unwrap_or(Path::new(""));
     Ok(TempAnswer {
         path: root.join(name).to_string_lossy().into_owned(),
     })
@@ -418,7 +409,7 @@ pub fn mkdir(verbs: &Verbs, paths: &[PathBuf]) -> Result<ChangeAnswer, OpError> 
 
 /// `from` copied onto `to`, or into it when it is a directory; a directory with what it holds.
 pub fn copy(verbs: &Verbs, from: &Path, to: &Path) -> Result<ChangeAnswer, OpError> {
-    let (source, _) = verbs.located(from, Access::Fs(FsOp::Read { max_bytes: 0 }))?;
+    let source = verbs.located(from, &Access::Fs(FsOp::Read { max_bytes: 0 }))?;
     let change = FsChange::Copy {
         from: place(&source),
         to: written(verbs, to)?,
@@ -487,7 +478,7 @@ pub fn digest(
                 format!("{shown} is not a file"),
             ));
         }
-        let (located, _) = verbs.located(typed, Access::Fs(FsOp::Read { max_bytes: 0 }))?;
+        let located = verbs.located(typed, &Access::Fs(FsOp::Read { max_bytes: 0 }))?;
         let digest = verbs.ports().fs.digest(verbs.roots(), &place(&located));
         if digest.class != OutcomeClass::Ok {
             return Err(refused(digest.class, &shown));
@@ -511,8 +502,8 @@ pub fn digest(
 /// `typed`, held for a write.
 fn written(verbs: &Verbs, typed: &Path) -> Result<Place, OpError> {
     verbs
-        .located(typed, Access::Write)
-        .map(|(located, _)| place(&located))
+        .located(typed, &Access::Write)
+        .map(|located| place(&located))
 }
 
 fn place(located: &Located) -> Place {

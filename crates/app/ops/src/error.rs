@@ -11,6 +11,9 @@ use crate::{Refusal, Writes};
 /// `--effects replay` met an effect its journal holds no record of (ADR 0337 D4): a refusal, not a finding.
 pub const NOT_IN_JOURNAL: &str = "not_in_journal";
 
+/// A revision the repository does not name (`InvalidInput`): `check --since` and the git verb refuse one with it.
+pub const UNKNOWN_REVISION: &str = "unknown_revision";
+
 /// What kind of failure an operation reports: the closed set every surface
 /// maps its own codes from (MCP's `ErrorCode`), decided where the failure is
 /// raised (ADR 0024 D7). [`OpError::code`] stays what the CLI prints
