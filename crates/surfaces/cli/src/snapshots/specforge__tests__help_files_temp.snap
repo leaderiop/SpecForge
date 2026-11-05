@@ -2,7 +2,7 @@
 source: crates/surfaces/cli/src/main.rs
 expression: command.clone().render_long_help().to_string()
 ---
-A new empty file, or directory, with a name no other has, in the project's temp root (only you may read it)
+A new empty file, or directory, with a name no other has (or the one --name gives), in the project's temp root (only you may read it)
 
 Usage: specforge files temp [OPTIONS]
 
@@ -19,6 +19,9 @@ Options:
           The name's end, such as `.json`
           
           [default: ""]
+
+      --name <NAME>
+          One stable name, no separator: the same path every call, made when missing and kept when it is there
 
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)

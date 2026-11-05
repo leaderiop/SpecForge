@@ -606,3 +606,68 @@ fn list_lines_counts_each_file_and_the_total() {
         .exits(0);
     assert_eq!(human.stdout, "src/lib/util.rs  1\n1 lines\n");
 }
+
+/// `temp --name`: one path in the temp root, the same every call, its contents kept; a file or with `--dir` a
+/// directory.
+#[test]
+fn temp_name_is_the_same_path_every_call() {
+    let project = project();
+    let path = |args: &[&str]| {
+        let mut all = vec!["files", "temp"];
+        all.extend_from_slice(args);
+        all.extend_from_slice(&["--pick", ".path"]);
+        Cli::on(&project)
+            .run(&all)
+            .exits(0)
+            .stdout
+            .trim()
+            .to_string()
+    };
+    let first = path(&["--name", "ledger"]);
+    assert!(first.ends_with("/.specforge/tmp/ledger"), "{first}");
+    std::fs::write(&first, "kept\n").unwrap();
+    assert_eq!(path(&["--name", "ledger"]), first);
+    assert_eq!(std::fs::read_to_string(&first).unwrap(), "kept\n");
+    let dir = path(&["--dir", "--name", "gsd-handoff"]);
+    std::fs::write(std::path::Path::new(&dir).join("wave-failures"), ".\n").unwrap();
+    assert_eq!(path(&["--dir", "--name", "gsd-handoff"]), dir);
+    assert!(std::path::Path::new(&dir).join("wave-failures").is_file());
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(&dir).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o700);
+    }
+}
+
+#[test]
+fn temp_name_refuses_the_other_kind_a_link_and_a_separator() {
+    let project = project();
+    Cli::on(&project)
+        .run(&["files", "temp", "--name", "plain"])
+        .exits(0);
+    let other = Cli::on(&project)
+        .run(&["files", "temp", "--dir", "--name", "plain"])
+        .exits(1);
+    assert_eq!(other.json()["code"], "invalid_input", "{}", other.stdout);
+    for name in ["a/b", "..", ""] {
+        Cli::on(&project)
+            .run(&["files", "temp", "--name", name])
+            .exits(1);
+    }
+    Cli::on(&project)
+        .run(&["files", "temp", "--name", "x", "--prefix", "p"])
+        .exits(2);
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(
+            project.root().join("src/main.rs"),
+            project.root().join(".specforge/tmp/linked"),
+        )
+        .unwrap();
+        let link = Cli::on(&project)
+            .run(&["files", "temp", "--name", "linked"])
+            .exits(1);
+        assert_eq!(link.json()["code"], "invalid_input", "{}", link.stdout);
+    }
+}

@@ -280,6 +280,8 @@ pub struct Temp {
     pub dir: bool,
     pub prefix: String,
     pub suffix: String,
+    /// One stable name, the same path every call, in place of a new one.
+    pub name: Option<String>,
 }
 
 /// `files mkdir`, `copy`, `move` and `remove`'s answer.
@@ -305,16 +307,35 @@ pub struct DigestAnswer {
     pub digests: Vec<Digested>,
 }
 
-/// A new empty file (`0600`), or directory (`0700`), with a name no other has, in the `temp` root, made on first use.
+/// A new empty file (`0600`), or directory (`0700`), with a name no other has, in the `temp` root, made on first use;
+/// with `name`, that one path, made when missing and kept when it is there.
 pub fn temp(verbs: Verbs, temp: &Temp) -> Result<TempAnswer, OpError> {
-    for (what, part) in [("prefix", &temp.prefix), ("suffix", &temp.suffix)] {
+    let invalid = |why: String| {
+        OpError::new(
+            OpErrorKind::InvalidInput,
+            OpErrorKind::InvalidInput.as_str(),
+            why,
+        )
+    };
+    let named = temp.name.iter().map(|name| ("name", name));
+    for (what, part) in [
+        ("name's prefix", &temp.prefix),
+        ("name's suffix", &temp.suffix),
+    ]
+    .into_iter()
+    .chain(named)
+    {
         if part.contains(['/', '\\']) || part.contains("..") || part.chars().any(char::is_control) {
-            return Err(OpError::new(
-                OpErrorKind::InvalidInput,
-                OpErrorKind::InvalidInput.as_str(),
-                format!("the name's {what} {part:?} takes no separator and no `..`"),
-            ));
+            return Err(invalid(format!(
+                "the {what} {part:?} takes no separator and no `..`"
+            )));
         }
+    }
+    if let Some(name) = &temp.name {
+        if name.is_empty() {
+            return Err(invalid("the name is empty".to_string()));
+        }
+        return stable_temp(verbs, name, temp.dir);
     }
     let mut random = [0u8; 8];
     getrandom::fill(&mut random).map_err(|error| {
@@ -343,6 +364,71 @@ pub fn temp(verbs: Verbs, temp: &Temp) -> Result<TempAnswer, OpError> {
     Ok(TempAnswer {
         path: root.join(name).to_string_lossy().into_owned(),
     })
+}
+
+/// `<temp root>/<name>`: made (owner-only) when missing, kept when it is there with the kind `dir` asks, refused when
+/// it is the other kind or a link.
+fn stable_temp(verbs: Verbs, name: &str, dir: bool) -> Result<TempAnswer, OpError> {
+    verbs.permit_write(&temp_root(), name)?;
+    let (verbs, root) = verbs.make_temp_root()?;
+    let typed = root.join(name);
+    let answer = TempAnswer {
+        path: typed.to_string_lossy().into_owned(),
+    };
+    // A write names the link itself, a read where it lands: they differ only for a link.
+    if verbs.located(&typed, &Access::Write)?.at
+        != verbs.located(&typed, &Access::Fs(FsOp::Stat))?.at
+    {
+        return Err(OpError::new(
+            OpErrorKind::InvalidInput,
+            OpErrorKind::InvalidInput.as_str(),
+            format!("{} is a link", answer.path),
+        ));
+    }
+    let kept = |verbs: &Verbs| -> Result<Option<TempAnswer>, OpError> {
+        let stat = verbs.ports().fs.run(
+            verbs.roots(),
+            &specforge_effects::FsRequest {
+                root: TEMP.to_string(),
+                path: name.to_string(),
+                op: FsOp::Stat,
+            },
+        );
+        match (stat.class, stat.stat.map(|stat| stat.kind)) {
+            (OutcomeClass::Missing, _) => Ok(None),
+            (OutcomeClass::Ok, Some(kind)) if (kind == FileKind::Dir) == dir => {
+                Ok(Some(answer.clone()))
+            }
+            (OutcomeClass::Ok, _) => Err(OpError::new(
+                OpErrorKind::InvalidInput,
+                OpErrorKind::InvalidInput.as_str(),
+                format!(
+                    "{} is there, and not a {}",
+                    answer.path,
+                    if dir { "directory" } else { "file" }
+                ),
+            )),
+            (class, _) => Err(refused(class, &answer.path)),
+        }
+    };
+    if let Some(answer) = kept(&verbs)? {
+        return Ok(answer);
+    }
+    let made = verbs.ports().fs.change(
+        verbs.roots(),
+        &FsChange::Create {
+            at: Place {
+                root: TEMP.to_string(),
+                path: name.to_string(),
+            },
+            dir,
+        },
+    );
+    match changed(&verbs, made) {
+        Ok(_) => Ok(answer),
+        // Another call made it first: what it made is answered when it is the kind asked.
+        Err(error) => kept(&verbs)?.ok_or(error),
+    }
 }
 
 /// Each of `paths` made, with its missing parents.

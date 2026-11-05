@@ -24,7 +24,8 @@ pub(crate) enum Action {
     Search(SearchArgs),
     /// A file's text (at most 1 MiB), how many bytes were read and its lines
     Read(ReadArgs),
-    /// A new empty file, or directory, with a name no other has, in the project's temp root (only you may read it)
+    /// A new empty file, or directory, with a name no other has (or the one --name gives), in the project's temp root
+    /// (only you may read it)
     Temp(TempArgs),
     /// Make each directory, with its missing parents
     Mkdir(PathsArgs),
@@ -51,6 +52,10 @@ pub(crate) struct TempArgs {
     /// The name's end, such as `.json`
     #[arg(long, default_value = "")]
     suffix: String,
+
+    /// One stable name, no separator: the same path every call, made when missing and kept when it is there
+    #[arg(long, conflicts_with_all = ["prefix", "suffix"])]
+    name: Option<String>,
 
     #[command(flatten)]
     verb: VerbArgs,
@@ -293,6 +298,7 @@ impl Action {
                     dir: args.dir,
                     prefix: args.prefix,
                     suffix: args.suffix,
+                    name: args.name,
                 };
                 args.verb.answer(
                     terminal,
