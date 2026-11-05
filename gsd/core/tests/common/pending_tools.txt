@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 339 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 271 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	cat	PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
@@ -77,76 +77,8 @@ gsd-core/references/scout-codebase.md	grep	grep -rlE "{term1}|{term2}" src/ app/
 gsd-core/references/specless-probe-fallback.md	cat	cat > "$REQS_JSON" <<'JSON'
 gsd-core/references/specless-probe-fallback.md	grep	EDGE_ABSENT=1;   node "$SPEC_SECTION_JS" "$SPEC_FILE" edges       2>/dev/null | grep -q '"supplied":true' && EDGE_ABSENT=0
 gsd-core/references/specless-probe-fallback.md	grep	PROHIB_ABSENT=1; node "$SPEC_SECTION_JS" "$SPEC_FILE" prohibitions 2>/dev/null | grep -q '"supplied":true' && PROHIB_ABSENT=0
-gsd-core/references/verification-patterns.md	grep	grep -E "(TODO|FIXME|XXX|HACK|PLACEHOLDER)" "$file"
-gsd-core/references/verification-patterns.md	grep	grep -E "implement|add later|coming soon|will be" "$file" -i
-gsd-core/references/verification-patterns.md	grep	grep -E "// \.\.\.|/\* \.\.\. \*/|# \.\.\." "$file"
-gsd-core/references/verification-patterns.md	grep	grep -E "placeholder|lorem ipsum|coming soon|under construction" "$file" -i
-gsd-core/references/verification-patterns.md	grep	grep -E "sample|example|test data|dummy" "$file" -i
-gsd-core/references/verification-patterns.md	grep	grep -E "\[.*\]|<.*>|\{.*\}" "$file"  # Template brackets left in
-gsd-core/references/verification-patterns.md	grep	grep -E "return null|return undefined|return \{\}|return \[\]" "$file"
-gsd-core/references/verification-patterns.md	grep	grep -E "pass$|\.\.\.|\bnothing\b" "$file"
-gsd-core/references/verification-patterns.md	grep	grep -E "console\.(log|warn|error).*only" "$file"  # Log-only functions
-gsd-core/references/verification-patterns.md	grep	grep -E "id.*=.*['\"].*['\"]" "$file"  # Hardcoded string IDs
-gsd-core/references/verification-patterns.md	grep	grep -E "count.*=.*\d+|length.*=.*\d+" "$file"  # Hardcoded counts
-gsd-core/references/verification-patterns.md	grep	grep -E "\\\$\d+\.\d{2}|\d+ items" "$file"  # Hardcoded display values
-gsd-core/references/verification-patterns.md	grep	[ -f "$component_path" ] && grep -E "export (default |)function|export const.*=.*\(" "$component_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "return.*<" "$component_path" | grep -v "return.*null" | grep -v "placeholder" -i
-gsd-core/references/verification-patterns.md	grep	grep -E "return.*<" "$component_path" | grep -v "return.*null" | grep -v "placeholder" -i
-gsd-core/references/verification-patterns.md	grep	grep -E "return.*<" "$component_path" | grep -v "return.*null" | grep -v "placeholder" -i
-gsd-core/references/verification-patterns.md	grep	grep -E "<[A-Z][a-zA-Z]+|className=|onClick=|onChange=" "$component_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "props\.|useState|useEffect|useContext|\{.*\}" "$component_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "^import.*from" "$component_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "\{ .* \}.*props|\bprops\.[a-zA-Z]+" "$component_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "fetch\(|axios\.|useSWR|useQuery|getServerSideProps|getStaticProps" "$component_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "export (async )?(function|const) (GET|POST|PUT|PATCH|DELETE)" "$route_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "\.(get|post|put|patch|delete)\(" "$route_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "prisma\.|db\.|mongoose\.|sql|query|find|create|update|delete" "$route_path" -i
-gsd-core/references/verification-patterns.md	grep	grep -E "try|catch|throw|error|Error" "$route_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "Response\.json|res\.json|res\.send|return.*\{" "$route_path" | grep -v "message.*not implemented" -i
-gsd-core/references/verification-patterns.md	grep	grep -E "Response\.json|res\.json|res\.send|return.*\{" "$route_path" | grep -v "message.*not implemented" -i
-gsd-core/references/verification-patterns.md	grep	grep -E "^import.*prisma|^import.*db|^import.*client" "$route_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "req\.json\(\)|req\.body|request\.json\(\)" "$route_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "schema\.parse|validate|zod|yup|joi" "$route_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "^model $model_name|CREATE TABLE $table_name|export const $table_name" "$schema_path"
-gsd-core/references/verification-patterns.md	grep	grep -A 20 "model $model_name" "$schema_path" | grep -E "^\s+\w+\s+\w+"
-gsd-core/references/verification-patterns.md	grep	grep -A 20 "model $model_name" "$schema_path" | grep -E "^\s+\w+\s+\w+"
-gsd-core/references/verification-patterns.md	grep	grep -E "@relation|REFERENCES|FOREIGN KEY" "$schema_path"
-gsd-core/references/verification-patterns.md	grep	grep -A 20 "model $model_name" "$schema_path" | grep -E "Int|DateTime|Boolean|Float|Decimal|Json"
-gsd-core/references/verification-patterns.md	grep	grep -A 20 "model $model_name" "$schema_path" | grep -E "Int|DateTime|Boolean|Float|Decimal|Json"
 gsd-core/references/verification-patterns.md	grep	npx prisma migrate status 2>/dev/null | grep -v "pending"
-gsd-core/references/verification-patterns.md	grep	[ -f "$hook_path" ] && grep -E "export (default )?(function|const)" "$hook_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "useState|useEffect|useCallback|useMemo|useRef|useContext" "$hook_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "return \{|return \[" "$hook_path"
-gsd-core/references/verification-patterns.md	grep	grep -r "import.*$hook_name" src/ --include="*.tsx" --include="*.ts" | grep -v "$hook_path"
-gsd-core/references/verification-patterns.md	grep	grep -r "import.*$hook_name" src/ --include="*.tsx" --include="*.ts" | grep -v "$hook_path"
-gsd-core/references/verification-patterns.md	grep	grep -r "$hook_name()" src/ --include="*.tsx" --include="*.ts" | grep -v "$hook_path"
-gsd-core/references/verification-patterns.md	grep	grep -r "$hook_name()" src/ --include="*.tsx" --include="*.ts" | grep -v "$hook_path"
-gsd-core/references/verification-patterns.md	grep	grep -r "process\.env\.$VAR_NAME|env\.$VAR_NAME" src/ --include="*.ts" --include="*.tsx"
-gsd-core/references/verification-patterns.md	grep	grep -E "$VAR_NAME" src/env.ts src/env.mjs 2>/dev/null
-gsd-core/references/verification-patterns.md	grep	grep -E "fetch\(['\"].*$api_path|axios\.(get|post).*$api_path" "$component_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "fetch\(|axios\." "$component_path" | grep -v "^.*//.*fetch"
-gsd-core/references/verification-patterns.md	grep	grep -E "fetch\(|axios\." "$component_path" | grep -v "^.*//.*fetch"
-gsd-core/references/verification-patterns.md	grep	grep -E "await.*fetch|\.then\(|setData|setState" "$component_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "prisma\.$model|db\.query|Model\.find" "$route_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "await.*prisma|await.*db\." "$route_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "return.*json.*data|res\.json.*result" "$route_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "onSubmit=\{|handleSubmit" "$component_path"
-gsd-core/references/verification-patterns.md	grep	grep -A 10 "onSubmit.*=" "$component_path" | grep -E "fetch|axios|mutate|dispatch"
-gsd-core/references/verification-patterns.md	grep	grep -A 10 "onSubmit.*=" "$component_path" | grep -E "fetch|axios|mutate|dispatch"
-gsd-core/references/verification-patterns.md	grep	grep -A 5 "onSubmit" "$component_path" | grep -v "only.*preventDefault" -i
-gsd-core/references/verification-patterns.md	grep	grep -A 5 "onSubmit" "$component_path" | grep -v "only.*preventDefault" -i
-gsd-core/references/verification-patterns.md	grep	grep -E "\{.*messages.*\}|\{.*data.*\}|\{.*items.*\}" "$component_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "\.map\(|\.filter\(|\.reduce\(" "$component_path"
-gsd-core/references/verification-patterns.md	grep	grep -E "\{[a-zA-Z_]+\." "$component_path"  # Variable interpolation
-gsd-core/references/verification-patterns.md	grep	local stubs=$(grep -c -E "TODO|FIXME|placeholder|not implemented" "$file" 2>/dev/null || echo 0)
-gsd-core/references/verification-patterns.md	grep	grep -q "$api_path" "$component" && echo "WIRED: $component → $api_path" || echo "NOT_WIRED: $component → $api_path"
-gsd-core/references/verification-patterns.md	grep	local has_pattern=$(grep -c -E "$pattern" "$file" 2>/dev/null || echo 0)
-gsd-core/references/verification-patterns.md	grep	grep -n "\.env" file.md
-gsd-core/references/verification-patterns.md	grep	grep -n "\.env\b" file.md
 gsd-core/references/verification-patterns.md	tr	v=$(printenv "$VAR_NAME"); case "$(printf %s "$v" | tr '[:upper:]' '[:lower:]')" in
-gsd-core/references/verification-patterns.md	wc	wc -l "$route_path"  # More than 10-15 lines suggests real implementation
-gsd-core/references/verification-patterns.md	wc	[ $(wc -l < "$hook_path") -gt 10 ]
-gsd-core/references/verification-patterns.md	wc	local lines=$(wc -l < "$file" 2>/dev/null || echo 0)
 gsd-core/references/verifier-phase-gates.md	grep	grep -rn -E "it\.skip|describe\.skip|test\.skip|xit\(|xdescribe\(|xtest\(|@pytest\.mark\.skip|@unittest\.skip|#\[ignore\]|\.pending|it\.todo|test\.todo" "$TEST_FILE"
 gsd-core/references/verifier-phase-gates.md	grep	grep -rn -E "writeFileSync|writeFile|fs\.write|open\(.*w\)" "$TEST_DIRS"
 gsd-core/references/verifier-wiring-patterns.md	grep	grep -n -E "useState|useQuery|useSWR|useStore|props\." "$artifact" 2>/dev/null

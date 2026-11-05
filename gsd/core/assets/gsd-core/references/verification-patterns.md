@@ -24,33 +24,33 @@ These patterns indicate placeholder code regardless of file type:
 **Comment-based stubs:**
 ```bash
 # Grep patterns for stub comments
-grep -E "(TODO|FIXME|XXX|HACK|PLACEHOLDER)" "$file"
-grep -E "implement|add later|coming soon|will be" "$file" -i
-grep -E "// \.\.\.|/\* \.\.\. \*/|# \.\.\." "$file"
+specforge files search '(TODO|FIXME|XXX|HACK|PLACEHOLDER)' "$file" --format human
+specforge files search -i 'implement|add later|coming soon|will be' "$file" --format human
+specforge files search '// \.\.\.|/\* \.\.\. \*/|# \.\.\.' "$file" --format human
 ```
 
 **Placeholder text in output:**
 ```bash
 # UI placeholder patterns
-grep -E "placeholder|lorem ipsum|coming soon|under construction" "$file" -i
-grep -E "sample|example|test data|dummy" "$file" -i
-grep -E "\[.*\]|<.*>|\{.*\}" "$file"  # Template brackets left in
+specforge files search -i 'placeholder|lorem ipsum|coming soon|under construction' "$file" --format human
+specforge files search -i 'sample|example|test data|dummy' "$file" --format human
+specforge files search '\[.*\]|<.*>|\{.*\}' "$file" --format human  # Template brackets left in
 ```
 
 **Empty or trivial implementations:**
 ```bash
 # Functions that do nothing
-grep -E "return null|return undefined|return \{\}|return \[\]" "$file"
-grep -E "pass$|\.\.\.|\bnothing\b" "$file"
-grep -E "console\.(log|warn|error).*only" "$file"  # Log-only functions
+specforge files search 'return null|return undefined|return \{\}|return \[\]' "$file" --format human
+specforge files search 'pass$|\.\.\.|\bnothing\b' "$file" --format human
+specforge files search 'console\.(log|warn|error).*only' "$file" --format human  # Log-only functions
 ```
 
 **Hardcoded values where dynamic expected:**
 ```bash
 # Hardcoded IDs, counts, or content
-grep -E "id.*=.*['\"].*['\"]" "$file"  # Hardcoded string IDs
-grep -E "count.*=.*\d+|length.*=.*\d+" "$file"  # Hardcoded counts
-grep -E "\\\$\d+\.\d{2}|\d+ items" "$file"  # Hardcoded display values
+specforge files search "id.*=.*['\"].*['\"]" "$file" --format human  # Hardcoded string IDs
+specforge files search 'count.*=.*\d+|length.*=.*\d+' "$file" --format human  # Hardcoded counts
+specforge files search '\$\d+\.\d{2}|\d+ items' "$file" --format human  # Hardcoded display values
 ```
 
 </stub_detection>
@@ -62,19 +62,19 @@ grep -E "\\\$\d+\.\d{2}|\d+ items" "$file"  # Hardcoded display values
 **Existence check:**
 ```bash
 # File exists and exports component
-[ -f "$component_path" ] && grep -E "export (default |)function|export const.*=.*\(" "$component_path"
+[ -f "$component_path" ] && specforge files search 'export (default |)function|export const.*=.*\(' "$component_path" --format human
 ```
 
 **Substantive check:**
 ```bash
 # Returns actual JSX, not placeholder
-grep -E "return.*<" "$component_path" | grep -v "return.*null" | grep -v "placeholder" -i
+specforge files search 'return.*<' "$component_path" --and-not 'return.*null' --and-not '(?i)placeholder' --format human
 
 # Has meaningful content (not just wrapper div)
-grep -E "<[A-Z][a-zA-Z]+|className=|onClick=|onChange=" "$component_path"
+specforge files search '<[A-Z][a-zA-Z]+|className=|onClick=|onChange=' "$component_path" --format human
 
 # Uses props or state (not static)
-grep -E "props\.|useState|useEffect|useContext|\{.*\}" "$component_path"
+specforge files search 'props\.|useState|useEffect|useContext|\{.*\}' "$component_path" --format human
 ```
 
 **Stub patterns specific to React:**
@@ -96,14 +96,14 @@ onSubmit={(e) => e.preventDefault()}  // Only prevents default, does nothing
 **Wiring check:**
 ```bash
 # Component imports what it needs
-grep -E "^import.*from" "$component_path"
+specforge files search '^import.*from' "$component_path" --format human
 
 # Props are actually used (not just received)
 # Look for destructuring or props.X usage
-grep -E "\{ .* \}.*props|\bprops\.[a-zA-Z]+" "$component_path"
+specforge files search '\{ .* \}.*props|\bprops\.[a-zA-Z]+' "$component_path" --format human
 
 # API calls exist (for data-fetching components)
-grep -E "fetch\(|axios\.|useSWR|useQuery|getServerSideProps|getStaticProps" "$component_path"
+specforge files search 'fetch\(|axios\.|useSWR|useQuery|getServerSideProps|getStaticProps' "$component_path" --format human
 ```
 
 **Functional verification (human required):**
@@ -124,25 +124,25 @@ grep -E "fetch\(|axios\.|useSWR|useQuery|getServerSideProps|getStaticProps" "$co
 [ -f "$route_path" ]
 
 # Exports HTTP method handlers (Next.js App Router)
-grep -E "export (async )?(function|const) (GET|POST|PUT|PATCH|DELETE)" "$route_path"
+specforge files search 'export (async )?(function|const) (GET|POST|PUT|PATCH|DELETE)' "$route_path" --format human
 
 # Or Express-style handlers
-grep -E "\.(get|post|put|patch|delete)\(" "$route_path"
+specforge files search '\.(get|post|put|patch|delete)\(' "$route_path" --format human
 ```
 
 **Substantive check:**
 ```bash
 # Has actual logic, not just return statement
-wc -l "$route_path"  # More than 10-15 lines suggests real implementation
+specforge files read "$route_path" --pick .lines  # More than 10-15 lines suggests real implementation
 
 # Interacts with data source
-grep -E "prisma\.|db\.|mongoose\.|sql|query|find|create|update|delete" "$route_path" -i
+specforge files search -i 'prisma\.|db\.|mongoose\.|sql|query|find|create|update|delete' "$route_path" --format human
 
 # Has error handling
-grep -E "try|catch|throw|error|Error" "$route_path"
+specforge files search 'try|catch|throw|error|Error' "$route_path" --format human
 
 # Returns meaningful response
-grep -E "Response\.json|res\.json|res\.send|return.*\{" "$route_path" | grep -v "message.*not implemented" -i
+specforge files search 'Response\.json|res\.json|res\.send|return.*\{' "$route_path" --and-not '(?i)message.*not implemented' --format human
 ```
 
 **Stub patterns specific to API routes:**
@@ -170,13 +170,13 @@ export async function POST(req) {
 **Wiring check:**
 ```bash
 # Imports database/service clients
-grep -E "^import.*prisma|^import.*db|^import.*client" "$route_path"
+specforge files search '^import.*prisma|^import.*db|^import.*client' "$route_path" --format human
 
 # Actually uses request body (for POST/PUT)
-grep -E "req\.json\(\)|req\.body|request\.json\(\)" "$route_path"
+specforge files search 'req\.json\(\)|req\.body|request\.json\(\)' "$route_path" --format human
 
 # Validates input (not just trusting request)
-grep -E "schema\.parse|validate|zod|yup|joi" "$route_path"
+specforge files search 'schema\.parse|validate|zod|yup|joi' "$route_path" --format human
 ```
 
 **Functional verification (human or automated):**
@@ -197,19 +197,19 @@ grep -E "schema\.parse|validate|zod|yup|joi" "$route_path"
 [ -f "prisma/schema.prisma" ] || [ -f "drizzle/schema.ts" ] || [ -f "src/db/schema.sql" ]
 
 # Model/table is defined
-grep -E "^model $model_name|CREATE TABLE $table_name|export const $table_name" "$schema_path"
+specforge files search "^model $model_name|CREATE TABLE $table_name|export const $table_name" "$schema_path" --format human
 ```
 
 **Substantive check:**
 ```bash
-# Has expected fields (not just id)
-grep -A 20 "model $model_name" "$schema_path" | grep -E "^\s+\w+\s+\w+"
+# Has expected fields (not just id): a field line within 20 lines of the model
+specforge files search -U "model $model_name\b(.*\n){1,20}?[ \t]+\w+[ \t]+\w+" "$schema_path" --format human
 
 # Has relationships if expected
-grep -E "@relation|REFERENCES|FOREIGN KEY" "$schema_path"
+specforge files search '@relation|REFERENCES|FOREIGN KEY' "$schema_path" --format human
 
-# Has appropriate field types (not all String)
-grep -A 20 "model $model_name" "$schema_path" | grep -E "Int|DateTime|Boolean|Float|Decimal|Json"
+# Has appropriate field types (not all String), within 20 lines of the model
+specforge files search -U "model $model_name\b(.*\n){0,20}?.*(Int|DateTime|Boolean|Float|Decimal|Json)" "$schema_path" --format human
 ```
 
 **Stub patterns specific to schemas:**
@@ -257,19 +257,19 @@ npx prisma db execute --stdin <<< "SELECT COUNT(*) FROM $table_name"
 **Existence check:**
 ```bash
 # File exists and exports function
-[ -f "$hook_path" ] && grep -E "export (default )?(function|const)" "$hook_path"
+[ -f "$hook_path" ] && specforge files search 'export (default )?(function|const)' "$hook_path" --format human
 ```
 
 **Substantive check:**
 ```bash
 # Hook uses React hooks (for custom hooks)
-grep -E "useState|useEffect|useCallback|useMemo|useRef|useContext" "$hook_path"
+specforge files search 'useState|useEffect|useCallback|useMemo|useRef|useContext' "$hook_path" --format human
 
 # Has meaningful return value
-grep -E "return \{|return \[" "$hook_path"
+specforge files search 'return \{|return \[' "$hook_path" --format human
 
 # More than trivial length
-[ $(wc -l < "$hook_path") -gt 10 ]
+[ "$(specforge files read "$hook_path" --pick .lines)" -gt 10 ]
 ```
 
 **Stub patterns specific to hooks:**
@@ -292,11 +292,11 @@ export function useUser() {
 
 **Wiring check:**
 ```bash
-# Hook is actually imported somewhere
-grep -r "import.*$hook_name" src/ --include="*.tsx" --include="*.ts" | grep -v "$hook_path"
+# Hook is actually imported somewhere ($hook_file is the hook's file name: its own file is left out)
+specforge files search "import.*$hook_name" src --glob '*.tsx' --glob '*.ts' --glob "!$hook_file" --format human
 
 # Hook is actually called
-grep -r "$hook_name()" src/ --include="*.tsx" --include="*.ts" | grep -v "$hook_path"
+specforge files search "$hook_name\(\)" src --glob '*.tsx' --glob '*.ts' --glob "!$hook_file" --format human
 ```
 
 </hooks_utilities>
@@ -335,8 +335,8 @@ still be checked against `.env.example`, which the secret-read guard exempts fro
 protected-file patterns.
 
 One guard-matching note worth knowing when auditing docs for `.env` mentions: the guard
-treats a grep PATTERN whose last path segment is a secret file name as a file operand, so
-`grep -n "\.env" file.md` is denied while `grep -n "\.env\b" file.md` is allowed.
+treats a search PATTERN whose last path segment is a secret file name as a file operand, so
+`specforge files search '\.env' file.md` is denied while `specforge files search '\.env\b' file.md` is allowed.
 
 **Stub patterns specific to env:**
 ```bash
@@ -350,10 +350,10 @@ NEXT_PUBLIC_API_URL=http://localhost:3000  # Still pointing to localhost in prod
 **Wiring check:**
 ```bash
 # Variable is actually used in code
-grep -r "process\.env\.$VAR_NAME|env\.$VAR_NAME" src/ --include="*.ts" --include="*.tsx"
+specforge files search "process\.env\.$VAR_NAME|env\.$VAR_NAME" src --glob '*.ts' --glob '*.tsx' --format human
 
 # Variable is in validation schema (if using zod/etc for env)
-grep -E "$VAR_NAME" src/env.ts src/env.mjs 2>/dev/null
+specforge files search "$VAR_NAME" src/env.ts src/env.mjs --format human
 ```
 
 </environment_config>
@@ -370,13 +370,13 @@ Wiring verification checks that components actually communicate. This is where m
 
 ```bash
 # Find the fetch/axios call
-grep -E "fetch\(['\"].*$api_path|axios\.(get|post).*$api_path" "$component_path"
+specforge files search "fetch\(['\"].*$api_path|axios\.(get|post).*$api_path" "$component_path" --format human
 
 # Verify it's not commented out
-grep -E "fetch\(|axios\." "$component_path" | grep -v "^.*//.*fetch"
+specforge files search 'fetch\(|axios\.' "$component_path" --and-not '^.*//.*fetch' --format human
 
 # Check the response is used
-grep -E "await.*fetch|\.then\(|setData|setState" "$component_path"
+specforge files search 'await.*fetch|\.then\(|setData|setState' "$component_path" --format human
 ```
 
 **Red flags:**
@@ -397,13 +397,13 @@ fetch('/api/message')  // Typo - should be /api/messages
 
 ```bash
 # Find the database call
-grep -E "prisma\.$model|db\.query|Model\.find" "$route_path"
+specforge files search "prisma\.$model|db\.query|Model\.find" "$route_path" --format human
 
 # Verify it's awaited
-grep -E "await.*prisma|await.*db\." "$route_path"
+specforge files search 'await.*prisma|await.*db\.' "$route_path" --format human
 
 # Check result is returned
-grep -E "return.*json.*data|res\.json.*result" "$route_path"
+specforge files search 'return.*json.*data|res\.json.*result' "$route_path" --format human
 ```
 
 **Red flags:**
@@ -423,13 +423,13 @@ return Response.json(messages)  // Returns Promise, not data
 
 ```bash
 # Find onSubmit handler
-grep -E "onSubmit=\{|handleSubmit" "$component_path"
+specforge files search 'onSubmit=\{|handleSubmit' "$component_path" --format human
 
-# Check handler has content
-grep -A 10 "onSubmit.*=" "$component_path" | grep -E "fetch|axios|mutate|dispatch"
+# Check handler has content: a call within 10 lines of the handler
+specforge files search -U 'onSubmit.*=(.*\n){0,10}?.*(fetch|axios|mutate|dispatch)' "$component_path" --format human
 
-# Verify not just preventDefault
-grep -A 5 "onSubmit" "$component_path" | grep -v "only.*preventDefault" -i
+# Verify not just preventDefault: a handler whose body is only `e.preventDefault()` is a stub
+specforge files search -A 5 'onSubmit' "$component_path" --format human
 ```
 
 **Red flags:**
@@ -452,13 +452,13 @@ onSubmit={() => {}}
 
 ```bash
 # Find state usage in JSX
-grep -E "\{.*messages.*\}|\{.*data.*\}|\{.*items.*\}" "$component_path"
+specforge files search '\{.*messages.*\}|\{.*data.*\}|\{.*items.*\}' "$component_path" --format human
 
 # Check map/render of state
-grep -E "\.map\(|\.filter\(|\.reduce\(" "$component_path"
+specforge files search '\.map\(|\.filter\(|\.reduce\(' "$component_path" --format human
 
 # Verify dynamic content
-grep -E "\{[a-zA-Z_]+\." "$component_path"  # Variable interpolation
+specforge files search '\{[a-zA-Z_]+\.' "$component_path" --format human  # Variable interpolation
 ```
 
 **Red flags:**
@@ -544,7 +544,7 @@ check_exists() {
 # 2. Check for stub patterns
 check_stubs() {
   local file="$1"
-  local stubs=$(grep -c -E "TODO|FIXME|placeholder|not implemented" "$file" 2>/dev/null || echo 0)
+  local stubs=$(specforge files search 'TODO|FIXME|placeholder|not implemented' "$file" --pick .count)
   [ "$stubs" -gt 0 ] && echo "STUB_PATTERNS: $stubs in $file"
 }
 
@@ -552,7 +552,7 @@ check_stubs() {
 check_wiring() {
   local component="$1"
   local api_path="$2"
-  grep -q "$api_path" "$component" && echo "WIRED: $component → $api_path" || echo "NOT_WIRED: $component → $api_path"
+  specforge files search -q -F "$api_path" "$component" && echo "WIRED: $component → $api_path" || echo "NOT_WIRED: $component → $api_path"
 }
 
 # 4. Check substantive (more than N lines, has expected patterns)
@@ -560,8 +560,8 @@ check_substantive() {
   local file="$1"
   local min_lines="$2"
   local pattern="$3"
-  local lines=$(wc -l < "$file" 2>/dev/null || echo 0)
-  local has_pattern=$(grep -c -E "$pattern" "$file" 2>/dev/null || echo 0)
+  local lines; lines=$(specforge files read "$file" --pick .lines 2>/dev/null) || lines=0
+  local has_pattern; has_pattern=$(specforge files search "$pattern" "$file" --pick .count 2>/dev/null) || has_pattern=0
   [ "$lines" -ge "$min_lines" ] && [ "$has_pattern" -gt 0 ] && echo "SUBSTANTIVE: $file" || echo "THIN: $file ($lines lines, $has_pattern matches)"
 }
 ```

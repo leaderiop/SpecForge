@@ -217,8 +217,10 @@ fn the_env_variable_use_is_found() {
     let p = sample();
     let search = line_with(&super::asset(PATTERNS), r"process\.env\.$VAR_NAME");
     let (out, err, _) = sh.run_in(p.path(), &format!("VAR_NAME=API_KEY\n{search}"));
-    // pinned: the `|` of a basic regex is a literal, so the use is not found
-    assert_eq!(out, "", "{search}\n{err}");
+    assert_eq!(
+        out, "src/a.ts:1:13: const key = process.env.API_KEY;\n",
+        "{search}\n{err}"
+    );
 }
 
 /// `check_substantive` on a file long enough but without the pattern reports one count of lines and one of matches.
@@ -233,11 +235,7 @@ fn a_thin_file_names_its_count_once() {
         p.path(),
         &format!("{check}\ncheck_substantive thin.ts 10 export"),
     );
-    // pinned: `grep -c` prints 0 and fails, so `|| echo 0` adds a second 0
-    assert!(
-        out.starts_with("THIN: thin.ts (") && out.ends_with("lines, 0\n0 matches)\n"),
-        "{out}{err}"
-    );
+    assert_eq!(out, "THIN: thin.ts (12 lines, 0 matches)\n", "{err}");
 }
 
 /// The stub catalog's hard-coded count check finds `count = 5`.
@@ -249,11 +247,5 @@ fn a_hardcoded_count_is_found() {
     let p = sample();
     let check = line_with(&super::asset(PATTERNS), r"count.*=.*\d+");
     let (out, err, _) = sh.run_in(p.path(), &format!("file=c.ts\n{check}"));
-    let (version, _, _) = sh.run_in(p.path(), "grep --version");
-    // pinned: `\d` is no digit class in GNU grep's extended regex; BSD grep and ugrep read it as one
-    assert_eq!(
-        out.contains("count = 5"),
-        !version.contains("GNU grep"),
-        "{check}\n{version}{err}"
-    );
+    assert_eq!(out, "c.ts:1:5: let count = 5;\n", "{check}\n{err}");
 }
