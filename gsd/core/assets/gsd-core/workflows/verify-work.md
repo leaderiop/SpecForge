@@ -181,39 +181,39 @@ specforge query "$PHASE_ID" --depth 2 --kinds summary --format context
 
 Read each summary to extract testable deliverables.
 
-**Commit-claim reconciliation (#3968).** A SUMMARY's `commits:` frontmatter is a MEASURED
-number (the executor derives it from its on-disk plan commit ledger and records the base as
-`plan_head_before:`), and this is where that claim is checked against reality with the SAME
-instrument — the executor's own narration is never the last word. For each `*-SUMMARY.md`:
-```bash
-BASE=$(grep -oE '^plan_head_before: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
-CLAIMED=$(grep -oE '^commits: [0-9]+' "$SUMMARY_FILE" | grep -oE '[0-9]+' || echo absent)
-ACTUAL=$(specforge git log "${BASE}"..HEAD --pick .count)
-AFTER=$(grep -oE '^plan_head_after: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
-```
-- A `commits: absent` or `plan_head_before: absent` SUMMARY (pre-#3968 legacy) is reported as
-  a WARNING with the measured git state, not a mismatch.
-- **Bounded reconciliation (#4670).** A SUMMARY carrying `plan_head_after:` (the executor's
-  HEAD at its measurement moment — after the last task commit, before the SUMMARY commit) is
-  reconciled against the plan's OWN window:
-```bash
-if [ "$(specforge git log HEAD.."$AFTER" --pick .count 2>/dev/null)" = 0 ] \
-   && [ "$(specforge git log "${BASE}..${AFTER}" --pick .count)" = "$CLAIMED" ]; then
-  : # consistent
-fi
-```
-  Consistent → done. Anything else is a **BLOCKER** — `commit_claim_mismatch` with both
-  numbers and the SUMMARY path: commits claimed but never made (#3968), task commits lost
-  after the fact, or the plan's recorded window rewritten afterwards (a rebase/amend/cherry-pick
-  of those commits makes `$AFTER` a non-ancestor — recount that plan's commits manually
-  before treating it as a genuine mismatch). The unbounded `${BASE}..HEAD` count is NOT
-  evidence either way: it grows with every later plan's commits and execute-phase's own
-  phase-completion commit, so an honest plan would read as a mismatch (#4670).
-- **Legacy fallback (#4670).** A SUMMARY with a base but no `plan_head_after:` (pre-#4670)
-  cannot be bounded to its own window — report the measured `${BASE}..HEAD` count as a
-  **WARNING** with the SUMMARY's task-commit list for manual counting. The old
-  `ACTUAL == CLAIMED` / `ACTUAL == CLAIMED + 1` tolerance was a guess that later plans'
-  commits defeat; it must never produce a BLOCKER on the unsound window.
+**Commit counts are the graph's.** A summary's `actuals.commits` is computed from the plan's recorded commits, so it cannot claim a count: there is nothing to reconcile.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </step>
 
 <step name="extract_tests">

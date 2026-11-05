@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 738 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 718 rows.
 ../security/assets/gsd-core/workflows/secure-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -233,8 +233,6 @@ gsd-core/references/worktree-path-safety.md	grep	grep -F 'if cd ../main; then' R
 gsd-core/references/worktree-path-safety.md	sed	| sed '/^$/d' )
 gsd-core/references/worktree-path-safety.md	sed	BODY=$(printf '%s' "$RAW" | sed -E "s/^(&&|&|;|[|][|]|[|]|[(]|[{])?[[:space:]]*//")
 gsd-core/references/worktree-path-safety.md	sed	| sed -E 's/^[[:space:]]*(-C|--chdir)([[:space:]]+|=)//' || true)
-gsd-core/templates/milestone.md	tail	git diff --stat feat(XX-XX)..feat(YY-YY) | tail -1
-gsd-core/templates/milestone.md	wc	find . -name "*.swift" -o -name "*.ts" | xargs wc -l
 gsd-core/templates/user-setup.compact.md	grep	grep -r "USER-SETUP" the spec finds all phases with user requirements.
 gsd-core/templates/user-setup.md	grep	grep -r "USER-SETUP" the spec finds all phases with user requirements.
 gsd-core/workflows/add-tests.md	grep	grep -r "{scenario keyword}" {e2e test directory} 2>/dev/null || true
@@ -275,8 +273,6 @@ gsd-core/workflows/complete-milestone.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -n
 gsd-core/workflows/complete-milestone.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/complete-milestone.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/complete-milestone.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-gsd-core/workflows/complete-milestone.md	wc	find . -name "*.swift" -o -name "*.ts" -o -name "*.py" | xargs wc -l 2>/dev/null || true
-gsd-core/workflows/complete-milestone.md	xargs	find . -name "*.swift" -o -name "*.ts" -o -name "*.py" | xargs wc -l 2>/dev/null || true
 gsd-core/workflows/complete-milestone/detail/elaboration.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1) # Read-loaded file: write the command's original argument string in place of $GSD_ARGS
 gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1) # Read-loaded file: write the command's original argument string in place of $GSD_ARGS
 gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	BRANCH_PREFIX=$(echo "$PHASE_BRANCH_TEMPLATE" | sed 's/{.*//')
@@ -492,8 +488,6 @@ gsd-core/workflows/review.md	tr	[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL"
 gsd-core/workflows/review.md	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
 gsd-core/workflows/review.md	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
 gsd-core/workflows/review.md	wc	[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL" | tr -d ' ')
-gsd-core/workflows/settings-advanced.md	cat	cat "$GSD_CONFIG_PATH"
-gsd-core/workflows/settings-advanced.md	cat	cat "$GSD_CONFIG_PATH" | python3 -c "import sys,json; c=json.load(sys.stdin); mp=c.get('model_policy',{}); print(json.dumps(mp,indent=2))" 2>/dev/null || echo "{}"
 gsd-core/workflows/ship.md	cat	REVIEW_STDERR=$(cat "${REVIEW_STDERR_FILE}" 2>/dev/null)
 gsd-core/workflows/ship.md	grep	WINDOWS_OPEN_COUNT=$([ "$WINDOWS_STATUSES" = '?' ] && echo '?' || printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
 gsd-core/workflows/ship.md	grep	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && for f in subject body; do specforge git log "$SHIP_NOTE_SHA" --max 1 --pick ".commits[0].$f"; done | grep -q '\[ci skip\]'; then
@@ -519,12 +513,6 @@ gsd-core/workflows/validate-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE '
 gsd-core/workflows/validate-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 gsd-core/workflows/validate-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/validate-phase.md	xargs	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
-gsd-core/workflows/verify-work.md	awk	BASE=$(grep -oE '^plan_head_before: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
-gsd-core/workflows/verify-work.md	awk	AFTER=$(grep -oE '^plan_head_after: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
-gsd-core/workflows/verify-work.md	grep	BASE=$(grep -oE '^plan_head_before: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
-gsd-core/workflows/verify-work.md	grep	CLAIMED=$(grep -oE '^commits: [0-9]+' "$SUMMARY_FILE" | grep -oE '[0-9]+' || echo absent)
-gsd-core/workflows/verify-work.md	grep	CLAIMED=$(grep -oE '^commits: [0-9]+' "$SUMMARY_FILE" | grep -oE '[0-9]+' || echo absent)
-gsd-core/workflows/verify-work.md	grep	AFTER=$(grep -oE '^plan_head_after: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
 gsd-core/workflows/verify-work.md	grep	UAT_BLOCKERS=$(printf '%s\n' "$UAT_BLOCKED" | grep -c .)
 gsd-core/workflows/verify-work.md	head	VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' | head -1)
 gsd-core/workflows/verify-work.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -560,8 +548,6 @@ prompt:autonomous	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0
 prompt:autonomous	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:autonomous	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:autonomous	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-prompt:config	cat	cat "$GSD_CONFIG_PATH"
-prompt:config	cat	cat "$GSD_CONFIG_PATH" | python3 -c "import sys,json; c=json.load(sys.stdin); mp=c.get('model_policy',{}); print(json.dumps(mp,indent=2))" 2>/dev/null || echo "{}"
 prompt:execute_phase	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
 prompt:execute_phase	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:execute_phase	head	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
@@ -726,12 +712,6 @@ prompt:validate_phase	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-
 prompt:validate_phase	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 prompt:validate_phase	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:validate_phase	xargs	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
-prompt:verify_work	awk	BASE=$(grep -oE '^plan_head_before: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
-prompt:verify_work	awk	AFTER=$(grep -oE '^plan_head_after: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
-prompt:verify_work	grep	BASE=$(grep -oE '^plan_head_before: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
-prompt:verify_work	grep	CLAIMED=$(grep -oE '^commits: [0-9]+' "$SUMMARY_FILE" | grep -oE '[0-9]+' || echo absent)
-prompt:verify_work	grep	CLAIMED=$(grep -oE '^commits: [0-9]+' "$SUMMARY_FILE" | grep -oE '[0-9]+' || echo absent)
-prompt:verify_work	grep	AFTER=$(grep -oE '^plan_head_after: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
 prompt:verify_work	grep	UAT_BLOCKERS=$(printf '%s\n' "$UAT_BLOCKED" | grep -c .)
 prompt:verify_work	head	VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' | head -1)
 prompt:verify_work	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -916,7 +896,7 @@ prompt:workspace	git	if ! git worktree remove "$WORKSPACE_PATH/$REPO_NAME" 2>&1;
 
 # E network: the host HTTP service and a GitHub provider (R3). 0 rows.
 
-# F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 78 rows.
+# F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 76 rows.
 agents/gsd-executor.md	npx	npx --yes
 agents/gsd-nyquist-auditor.compact.md	pytest	pytest {file} -v
 agents/gsd-nyquist-auditor.md	pytest	pytest {file} -v
@@ -988,10 +968,8 @@ gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcodebuild	XCODE_SCHEM
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcrun	XCODE_SIM=$(xcrun simctl list devices available 2>/dev/null | sed -n 's/.*(\([A-F0-9-]\{8,\}\)).*/\1/p' | head -1)
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcrun	XCODE_SIM=$(xcrun simctl list devices available 2>/dev/null | sed -n 's/.*(\([A-F0-9-]\{8,\}\)).*/\1/p' | head -1)
 gsd-core/workflows/execute-plan.md	vercel	vercel --yes
-gsd-core/workflows/settings-advanced.md	python3	cat "$GSD_CONFIG_PATH" | python3 -c "import sys,json; c=json.load(sys.stdin); mp=c.get('model_policy',{}); print(json.dumps(mp,indent=2))" 2>/dev/null || echo "{}"
 gsd-core/workflows/spec-phase.md	node	if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
 gsd-core/workflows/spec-phase.md	npm	npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true
-prompt:config	python3	cat "$GSD_CONFIG_PATH" | python3 -c "import sys,json; c=json.load(sys.stdin); mp=c.get('model_policy',{}); print(json.dumps(mp,indent=2))" 2>/dev/null || echo "{}"
 prompt:execute_plan	vercel	vercel --yes
 prompt:spec_phase	node	if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
 prompt:spec_phase	npm	npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true
@@ -1012,15 +990,13 @@ gsd-core/references/research-documentation-lookup.md	ctx7	ctx7 docs <libraryId> 
 gsd-core/references/worktree-path-safety.md	command	command -v bash
 gsd-core/references/worktree-path-safety.md	command	command -v bash
 
-# I files: specforge files: walk, glob, match (R4). 18 rows.
+# I files: specforge files: walk, glob, match (R4). 16 rows.
 commands/gsd/quick.md	stat	stat -f "%SB" -t "%Y-%m-%d"
 commands/gsd/quick.md	stat	stat -c "%w"
 gsd-core/references/worktree-path-safety.md	basename	|| ( cd -- "$(dirname -- "$p")" 2>/dev/null && printf '%s/%s' "$(pwd -P)" "$(basename -- "$p")" ) \
 gsd-core/references/worktree-path-safety.md	dirname	if [ -L "$p" ] && ! [ -d "$p" ]; then t=$(readlink "$p"); case "$t" in /*) p=$t ;; *) p="$(dirname -- "$p")/$t" ;; esac; fi
 gsd-core/references/worktree-path-safety.md	dirname	|| ( cd -- "$(dirname -- "$p")" 2>/dev/null && printf '%s/%s' "$(pwd -P)" "$(basename -- "$p")" ) \
 gsd-core/references/worktree-path-safety.md	readlink	if [ -L "$p" ] && ! [ -d "$p" ]; then t=$(readlink "$p"); case "$t" in /*) p=$t ;; *) p="$(dirname -- "$p")/$t" ;; esac; fi
-gsd-core/templates/milestone.md	find	find . -name "*.swift" -o -name "*.ts" | xargs wc -l
-gsd-core/workflows/complete-milestone.md	find	find . -name "*.swift" -o -name "*.ts" -o -name "*.py" | xargs wc -l 2>/dev/null || true
 gsd-core/workflows/list-workspaces.md	ls	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 "$WORKSPACE_BASE" 2>/dev/null); WORKSPACE_COUNT=$(echo "$WORKSPACES" | grep -c . || true)
 gsd-core/workflows/new-project.md	find	find -type d
 gsd-core/workflows/new-workspace.md	ls	if [ -d "$TARGET_PATH" ] && [ "$(ls -A "$TARGET_PATH" 2>/dev/null)" ]; then

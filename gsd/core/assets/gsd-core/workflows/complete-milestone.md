@@ -187,11 +187,11 @@ Wait for confirmation.
 Calculate milestone statistics:
 
 ```bash
-specforge git log --grep="feat\(" --max 20 --format human
-specforge git diff --base FIRST_COMMIT --head LAST_COMMIT --shortstat --format human
-find . -name "*.swift" -o -name "*.ts" -o -name "*.py" | xargs wc -l 2>/dev/null || true
-specforge git log FIRST_COMMIT --reverse --pick '.commits[0].author.time'
-specforge git log LAST_COMMIT --max 1 --pick '.commits[0].author.time'
+specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.stats'   # {files, loc, phases, plans, tasks, days}: loc counts inserted + deleted lines
+
+
+
+
 ```
 
 Present:
@@ -202,7 +202,7 @@ Milestone Stats:
 - Plans: [Z] total
 - Tasks: [N] total (from phase summaries)
 - Files modified: [M]
-- Lines of code: [LOC] [language]
+- Lines changed: [stats.loc]
 - Timeline: [Days] days ([Start] → [End])
 - Git range: feat(XX-XX) → feat(YY-YY)
 ```

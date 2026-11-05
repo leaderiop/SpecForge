@@ -149,4 +149,11 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         9,
         9,
     ),
+    // Stats, settings and commit counts are the graph's and the settings' answers.
+    ("gsd-core/workflows/complete-milestone.md", 188, 192),
+    ("gsd-core/workflows/complete-milestone.md", 203, 203),
+    ("gsd-core/templates/milestone.md", 53, 54),
+    ("gsd-core/workflows/settings-advanced.md", 44, 44),
+    ("gsd-core/workflows/settings-advanced.md", 608, 608),
+    ("gsd-core/workflows/verify-work.md", 182, 214),
 ];
