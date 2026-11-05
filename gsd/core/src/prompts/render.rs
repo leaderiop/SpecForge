@@ -15,6 +15,8 @@ pub struct Input<'a> {
     pub host: &'a str,
     /// What `$ARGUMENTS` stands for (`args::text`).
     pub arguments: &'a str,
+    /// The values of the `{{arg:}}` placeholders (`args::values`).
+    pub values: &'a [(&'a str, Option<String>)],
     /// The settings block of the preamble (`settings::block()`).
     pub settings: &'a str,
     /// The prompt's own closing section, when it has one.
@@ -27,6 +29,7 @@ impl<'a> Input<'a> {
             command: self.command,
             host: self.host,
             arguments: self.arguments,
+            values: self.values,
             settings: self.settings,
             extension: "@gsd/core",
             files: gsd_kit::prompt::preamble::FILES,

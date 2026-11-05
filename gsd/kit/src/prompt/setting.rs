@@ -6,13 +6,9 @@
 const OPEN: &str = "{{setting:";
 const CLOSE: &str = "}}";
 
-/// A value as shell text inside double quotes: a string as it is, a list or number as JSON; `"`, `\`, `$` and a
-/// backtick are escaped so a setting can never end the quote or run a command.
-fn shell_text(value: &serde_json::Value) -> String {
-    let raw = match value {
-        serde_json::Value::String(s) => s.clone(),
-        other => other.to_string(),
-    };
+/// `raw` as shell text inside double quotes: `"`, `\`, `$` and a backtick are escaped so a value can never end the
+/// quote or run a command.
+pub(crate) fn shell_text(raw: &str) -> String {
     let mut out = String::with_capacity(raw.len());
     for c in raw.chars() {
         if matches!(c, '"' | '\\' | '$' | '`') {
@@ -38,7 +34,9 @@ pub fn fill(text: &str, block: &str, runtime: &str) -> String {
         };
         let (key, fallback) = after[..end].split_once('|').unwrap_or((&after[..end], ""));
         match values.get(key.trim()) {
-            Some(value) => out.push_str(&shell_text(value)),
+            // a string as it is, a list or number as JSON
+            Some(serde_json::Value::String(s)) => out.push_str(&shell_text(s)),
+            Some(other) => out.push_str(&shell_text(&other.to_string())),
             None => out.push_str(if fallback == "@host" {
                 runtime
             } else {

@@ -37,12 +37,18 @@ use specforge_extension_sdk::prelude::*;
 pub use spec::GATES;
 
 /// The text of the prompt of upstream command `command` for `host`, as the handler builds it without a tail: the
-/// native tests render every flag combination through it.
-pub fn render_text(command: &str, host: &str, arguments: &str) -> Result<String, String> {
+/// native tests render every flag combination through it. `values` are the placeholders' (`args::values`).
+pub fn render_text(
+    command: &str,
+    host: &str,
+    arguments: &str,
+    values: &[(&str, Option<String>)],
+) -> Result<String, String> {
     render::render(&render::Input {
         command,
         host,
         arguments,
+        values,
         settings: &crate::settings::block(),
         tail: "",
     })

@@ -2,6 +2,7 @@
 //! upstream path or tool name survives (D-r42 black-box invariants), and every name the text points at is known.
 
 use std::collections::BTreeSet;
+use std::path::Path;
 
 use gsd_core::prompts::{asset, asset_paths, render_text, repoint, without_notice};
 use regex::Regex;
@@ -41,37 +42,56 @@ const NOT_PORTED: &[&str] = &[
     "gsd-core/workflows/node-repair.md",
 ];
 
-/// Every prompt as `(command stem, argument texts)`: none, every flag, every enum value, text and integer options.
-fn prompts() -> Vec<(String, Vec<String>)> {
+/// One render's input: the argument text and every declared name with its placeholder value (`args::values`).
+type Combo = (String, Vec<(String, Option<String>)>);
+
+/// Every prompt as `(command stem, combinations)`: none, every flag, every enum value, text and integer options.
+fn prompts() -> Vec<(String, Vec<Combo>)> {
     let declaration = gsd_core::build().declaration();
     declaration
         .surfaces
         .prompts
         .iter()
         .map(|p| {
+            // `(name, words, value)` of each given argument
+            let combo = |given: &[(String, String, String)]| -> Combo {
+                let words: Vec<&str> = given.iter().map(|(_, w, _)| w.as_str()).collect();
+                let values = p
+                    .args
+                    .iter()
+                    .map(|a| {
+                        let value = given.iter().find(|(n, _, _)| *n == a.name);
+                        (a.name.clone(), value.map(|(_, _, v)| v.clone()))
+                    })
+                    .collect();
+                (words.join(" "), values)
+            };
             let mut base = Vec::new();
-            for _ in p.args.iter().filter(|a| a.required) {
-                base.push("03".to_string());
+            for a in p.args.iter().filter(|a| a.required) {
+                base.push((a.name.clone(), "03".to_string(), "03".to_string()));
             }
-            let mut texts = vec![base.join(" ")];
+            let mut texts = vec![combo(&base)];
             let mut flags = base.clone();
             for a in &p.args {
                 let option = format!("--{}", a.name.replace('_', "-"));
+                let name = a.name.clone();
                 match a.field_type.as_str() {
-                    "bool" => flags.push(option),
-                    "integer" => flags.push(format!("{option} 2")),
-                    "string" => flags.push(format!("{option} \"text\"")),
+                    "bool" => flags.push((name, option, "true".to_string())),
+                    "integer" => flags.push((name, format!("{option} 2"), "2".to_string())),
+                    "string" => {
+                        flags.push((name, format!("{option} \"text\""), "text".to_string()))
+                    }
                     "enum" => {
                         for value in &a.enum_values {
                             let mut one = base.clone();
-                            one.push(format!("{option} {value}"));
-                            texts.push(one.join(" "));
+                            one.push((name.clone(), format!("{option} {value}"), value.clone()));
+                            texts.push(combo(&one));
                         }
                     }
                     _ => {}
                 }
             }
-            texts.push(flags.join(" "));
+            texts.push(combo(&flags));
             (p.id.replace('_', "-"), texts)
         })
         .collect()
@@ -80,10 +100,14 @@ fn prompts() -> Vec<(String, Vec<String>)> {
 /// `(command, host, arguments, text)` for the whole sweep.
 fn sweep() -> Vec<(String, &'static str, String, String)> {
     let mut all = Vec::new();
-    for (command, texts) in prompts() {
+    for (command, combos) in prompts() {
         for host in HOSTS {
-            for arguments in &texts {
-                let text = render_text(&command, host, arguments)
+            for (arguments, values) in &combos {
+                let values: Vec<(&str, Option<String>)> = values
+                    .iter()
+                    .map(|(n, v)| (n.as_str(), v.clone()))
+                    .collect();
+                let text = render_text(&command, host, arguments, &values)
                     .unwrap_or_else(|e| panic!("{command} on {host} with '{arguments}': {e}"));
                 all.push((command.clone(), host, arguments.clone(), text));
             }
@@ -334,4 +358,192 @@ fn the_threat_id_gate_reads_threat_ids() {
             "{workflow}: does not parse the count from THREAT_IDS_JSON"
         );
     }
+}
+
+/// Every embedded asset of @gsd/core and @gsd/security as `(path under assets/, text)`.
+fn asset_files() -> Vec<(String, String)> {
+    fn walk(base: &Path, dir: &Path, out: &mut Vec<(String, String)>) {
+        for entry in std::fs::read_dir(dir).expect("a directory").flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(base, &path, out);
+            } else if path.extension().is_some_and(|e| e == "md") {
+                let rel = path.strip_prefix(base).expect("under the base");
+                let text = std::fs::read_to_string(&path).expect("an asset");
+                out.push((rel.to_string_lossy().replace('\\', "/"), text));
+            }
+        }
+    }
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut out = Vec::new();
+    for dir in ["assets", "../security/assets"] {
+        let base = root.join(dir);
+        walk(&base, &base, &mut out);
+    }
+    out
+}
+
+/// The 1-based lines of `text` inside a `bash`/`sh` fence, with their text.
+fn shell_lines(text: &str) -> Vec<(usize, &str)> {
+    let mut out = Vec::new();
+    let mut open = false;
+    for (i, line) in text.split('\n').enumerate() {
+        let mark = line.trim_start();
+        if open && mark.starts_with("```") {
+            open = false;
+        } else if open {
+            out.push((i + 1, line));
+        } else if mark == "```bash" || mark == "```sh" {
+            open = true;
+        }
+    }
+    out
+}
+
+/// No placeholder survives a render: on every host and flag combination, each `{{arg:}}` names a declared argument.
+#[test]
+fn no_render_keeps_an_arg_token() {
+    for (command, host, arguments, text) in sweep() {
+        assert!(
+            !text.contains("{{arg:"),
+            "{command} on {host} with '{arguments}': a token"
+        );
+    }
+}
+
+/// A placeholder's value is escaped for double quotes, so it stands only inside them, in a shell fence (ADR 0340 D4).
+#[test]
+fn an_arg_token_sits_in_double_quotes_in_a_shell_fence() {
+    for (path, text) in asset_files() {
+        let fenced: BTreeSet<usize> = shell_lines(&text).into_iter().map(|(n, _)| n).collect();
+        for (i, line) in text.split('\n').enumerate() {
+            for (at, _) in line.match_indices("{{arg:") {
+                assert!(
+                    fenced.contains(&(i + 1)),
+                    "{path}:{}: outside a shell fence",
+                    i + 1
+                );
+                let before = &line[..at];
+                let quotes = before
+                    .char_indices()
+                    .filter(|&(j, c)| c == '"' && !before[..j].ends_with('\\'))
+                    .count();
+                assert!(
+                    quotes % 2 == 1,
+                    "{path}:{}: not in double quotes: {line}",
+                    i + 1
+                );
+            }
+        }
+    }
+}
+
+/// `reference` fills no placeholder: only a file a prompt inlines may hold one (ADR 0340 D4, D5).
+#[test]
+fn no_file_read_by_reference_holds_an_arg_token() {
+    let rx = Regex::new(r#"<file path="([^"]+)">"#).expect("a regex");
+    let mut inlined: BTreeSet<String> = BTreeSet::new();
+    for (command, _, _, text) in sweep().iter().filter(|(_, h, _, _)| *h == "claude-code") {
+        inlined.insert(format!("commands/gsd/{command}.md"));
+        inlined.extend(rx.captures_iter(text).map(|c| c[1].to_string()));
+    }
+    for (path, text) in asset_files() {
+        if text.contains("{{arg:") {
+            assert!(
+                inlined.contains(&path),
+                "{path} is read through reference and holds an arg token"
+            );
+        }
+    }
+}
+
+/// The files whose shell fences still read the argument text (`$ARGUMENTS`, `$GSD_ARGS`) the render splices: each is
+/// rewritten to read its typed values through `{{arg:}}` (ADR 0340 D6).
+const ARGS_PENDING: &[&str] = &[
+    "gsd-core/references/autonomous-smart-discuss.md",
+    "gsd-core/workflows/add-tests.md",
+    "gsd-core/workflows/audit-milestone.md",
+    "gsd-core/workflows/autonomous.md",
+    "gsd-core/workflows/complete-milestone.md",
+    "gsd-core/workflows/complete-milestone/detail/elaboration.md",
+    "gsd-core/workflows/diagnose-issues.md",
+    "gsd-core/workflows/discuss-phase-assumptions.md",
+    "gsd-core/workflows/discuss-phase.md",
+    "gsd-core/workflows/discuss-phase/modes/chain.md",
+    "gsd-core/workflows/execute-phase.md",
+    "gsd-core/workflows/execute-phase/steps/codebase-drift-gate.md",
+    "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+    "gsd-core/workflows/execute-plan.md",
+    "gsd-core/workflows/extract-learnings.md",
+    "gsd-core/workflows/manager.md",
+    "gsd-core/workflows/milestone-summary.md",
+    "gsd-core/workflows/new-milestone.md",
+    "gsd-core/workflows/new-project.md",
+    "gsd-core/workflows/next.md",
+    "gsd-core/workflows/plan-phase.md",
+    "gsd-core/workflows/plan-phase/steps/auto-advance-check.md",
+    "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
+    "gsd-core/workflows/plan-phase/steps/closed-phase-gate.md",
+    "gsd-core/workflows/plan-review-convergence.md",
+    "gsd-core/workflows/pr-branch.md",
+    "gsd-core/workflows/progress.md",
+    "gsd-core/workflows/quick-batch.md",
+    "gsd-core/workflows/quick.md",
+    "gsd-core/workflows/resume-project.md",
+    "gsd-core/workflows/review.md",
+    "gsd-core/workflows/secure-phase.md",
+    "gsd-core/workflows/ship.md",
+    "gsd-core/workflows/transition.md",
+    "gsd-core/workflows/ultraplan-phase.md",
+    "gsd-core/workflows/validate-phase.md",
+    "gsd-core/workflows/verify-work.md",
+    "gsd-core/workflows/verify-work/steps/mvp-uat-framing.md",
+];
+
+const TERMINATORS: [&str; 2] = ["GSD_ARGS_END", "GSD_QUICK_BATCH_ARGS_END"];
+
+/// The ratchet of ADR 0340 D6: a shell line that reads the argument text is in a file of `ARGS_PENDING`, every listed
+/// file still has one, and the capture heredocs left open and close only in the form the render stamps (#5637).
+#[test]
+fn no_shell_block_reads_the_raw_argument_text() {
+    let reads = Regex::new(r"\$\{?(ARGUMENTS|GSD_ARGS)\b").expect("a regex");
+    let opener =
+        Regex::new(r#"<<[-~]?\s*["']?(GSD_(?:QUICK_BATCH_)?ARGS_END)\b"#).expect("a regex");
+    let mut reading = BTreeSet::new();
+    for (path, text) in asset_files() {
+        for (n, line) in shell_lines(&text) {
+            if reads.is_match(line) {
+                assert!(
+                    ARGS_PENDING.contains(&path.as_str()),
+                    "{path}:{n} reads the argument text: {line}"
+                );
+                reading.insert(path.clone());
+            }
+        }
+        let (mut opened, mut closed) = (0, 0);
+        for (i, line) in text.lines().enumerate() {
+            if let Some(token) = opener.captures(line).map(|c| c[1].to_string()) {
+                assert!(
+                    line.contains(&format!("<<'{token}'")),
+                    "{path}:{} opens {token} in a form the render does not stamp",
+                    i + 1
+                );
+                opened += 1;
+            }
+            if TERMINATORS.contains(&line.trim()) {
+                assert!(
+                    TERMINATORS.contains(&line),
+                    "{path}:{} closes with an indented or padded line",
+                    i + 1
+                );
+                closed += 1;
+            }
+        }
+        assert_eq!(opened, closed, "{path}: every opener has its closing line");
+    }
+    let listed: BTreeSet<String> = ARGS_PENDING.iter().map(|p| p.to_string()).collect();
+    assert_eq!(
+        reading, listed,
+        "ARGS_PENDING lists exactly the files that still read"
+    );
 }

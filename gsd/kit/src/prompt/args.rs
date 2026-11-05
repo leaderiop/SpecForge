@@ -178,3 +178,72 @@ pub fn render_text(args: &[Arg], values: impl Fn(&str) -> Option<Value>) -> Stri
 pub fn text(call: &PromptCall<'_>, args: &[Arg]) -> String {
     render_text(args, |name| call.arg(name).cloned())
 }
+
+/// The value an `{{arg:<name>|…}}` placeholder takes for `value` (ADR 0340 D2), unescaped: an entity's full path, a
+/// bound's last segment, `true`/`false`, a decimal, or the string; an empty string is absent.
+pub fn shell_value(arg: &Arg, value: &Value) -> Option<String> {
+    match (&arg.kind, value) {
+        (Kind::Bound(_), Value::String(path)) => Some(written(path).to_string()),
+        (_, Value::String(text)) if text.is_empty() => None,
+        (_, Value::String(text)) => Some(text.clone()),
+        (Kind::Flag, Value::Bool(on)) => Some(on.to_string()),
+        (Kind::Integer, Value::Number(n)) => Some(n.to_string()),
+        _ => None,
+    }
+}
+
+/// Every declared name of `args` with the value its placeholder takes in `call`, or `None` when it was not given.
+pub fn values(call: &PromptCall<'_>, args: &[Arg]) -> Vec<(&'static str, Option<String>)> {
+    args.iter()
+        .map(|arg| {
+            let value = call.arg(arg.name).and_then(|v| shell_value(arg, v));
+            (arg.name, value)
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::{Arg, shell_value};
+
+    #[test]
+    fn a_value_by_kind() {
+        let value = |arg: Arg, v| shell_value(&arg, &v);
+        assert_eq!(
+            value(Arg::reference("phase", "phase"), json!("v1.0/02")).as_deref(),
+            Some("v1.0/02")
+        );
+        assert_eq!(
+            value(Arg::subject("phase", "phase"), json!("v1.0/02")).as_deref(),
+            Some("v1.0/02")
+        );
+        assert_eq!(
+            value(Arg::bound("from", "phase"), json!("v1.0/02")).as_deref(),
+            Some("02")
+        );
+        assert_eq!(
+            value(Arg::flag("tdd"), json!(true)).as_deref(),
+            Some("true")
+        );
+        assert_eq!(
+            value(Arg::flag("tdd"), json!(false)).as_deref(),
+            Some("false")
+        );
+        assert_eq!(
+            value(Arg::integer("max_cycles"), json!(3)).as_deref(),
+            Some("3")
+        );
+        assert_eq!(
+            value(Arg::text("name"), json!("Bob's app")).as_deref(),
+            Some("Bob's app")
+        );
+        assert_eq!(value(Arg::text("name"), json!("")), None);
+        assert_eq!(value(Arg::rest("task"), json!("")), None);
+        assert_eq!(
+            value(Arg::one_of("mode", &["a", "b"]), json!("b")).as_deref(),
+            Some("b")
+        );
+    }
+}

@@ -4,8 +4,8 @@
 //! In order: the preamble (ours), the command file with its `<execution_context>` includes inlined, the settings its
 //! lines read filled in (`setting`), the prompt's own tail, then the references re-pointed (D-r42-5) and the whole
 //! converted for the host (D-r42-12). Re-pointing comes first: Codex's `.claude` rewrite would otherwise hide the paths.
-//! Then the heredoc terminators are stamped and `$ARGUMENTS` replaced, last: the typed text is data no rewrite runs on
-//! (#5637). The host's adapter header goes in front, unconverted.
+//! Then the heredoc terminators are stamped, and `$ARGUMENTS` and the `{{arg:}}` placeholders filled, last: the typed
+//! text is data no rewrite runs on (#5637, ADR 0340). The host's adapter header goes in front, unconverted.
 //!
 //! Also ports gsd-core bin/lib modules: args-terminator.cjs (the collision-free terminator, stamped per render).
 
@@ -18,6 +18,8 @@ pub struct Input<'a> {
     pub host: &'a str,
     /// What `$ARGUMENTS` stands for (`args::text`).
     pub arguments: &'a str,
+    /// Every declared argument with the value its `{{arg:<name>|…}}` placeholder takes (`args::values`).
+    pub values: &'a [(&'a str, Option<String>)],
     /// The settings block of the preamble (`settings::block()`).
     pub settings: &'a str,
     /// The extension the prompt belongs to (`@gsd/core`): the preamble names it as the owner of the settings and of the
@@ -80,8 +82,12 @@ fn inline_includes(command: &str, asset: fn(&str) -> Option<&'static str>) -> St
     out
 }
 
-/// `$ARGUMENTS` (not `$ARGUMENTS_X`) replaced by `text`.
-fn substitute_arguments(text: &str, arguments: &str) -> String {
+const ARG_OPEN: &str = "{{arg:";
+
+/// `text` with `$ARGUMENTS` (not `$ARGUMENTS_X`) replaced by `arguments` and each `{{arg:<name>|<fallback>}}` by the
+/// declared name's value in `values`, escaped for double quotes, else its fallback (ADR 0340). One left-to-right scan
+/// that never rescans what it wrote: typed text holding either form stays data. An undeclared name keeps its token.
+fn fill_arguments(text: &str, arguments: &str, values: &[(&str, Option<String>)]) -> String {
     let replacement = if arguments.is_empty() {
         "(no arguments)"
     } else {
@@ -89,15 +95,38 @@ fn substitute_arguments(text: &str, arguments: &str) -> String {
     };
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
-    while let Some(at) = rest.find("$ARGUMENTS") {
-        let tail = &rest[at + "$ARGUMENTS".len()..];
+    loop {
+        let dollar = rest.find("$ARGUMENTS");
+        let arg = rest.find(ARG_OPEN);
+        let at = match (dollar, arg) {
+            (None, None) => break,
+            (Some(d), Some(a)) => d.min(a),
+            (Some(d), None) => d,
+            (None, Some(a)) => a,
+        };
         out.push_str(&rest[..at]);
-        let word = tail
-            .chars()
-            .next()
-            .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_');
-        out.push_str(if word { "$ARGUMENTS" } else { replacement });
-        rest = tail;
+        if Some(at) == dollar {
+            let tail = &rest[at + "$ARGUMENTS".len()..];
+            let word = tail
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_');
+            out.push_str(if word { "$ARGUMENTS" } else { replacement });
+            rest = tail;
+            continue;
+        }
+        let after = &rest[at + ARG_OPEN.len()..];
+        let Some(end) = after.find("}}") else {
+            out.push_str(&rest[at..]);
+            return out;
+        };
+        let (name, fallback) = after[..end].split_once('|').unwrap_or((&after[..end], ""));
+        match values.iter().find(|(n, _)| *n == name) {
+            Some((_, Some(value))) => out.push_str(&setting::shell_text(value)),
+            Some((_, None)) => out.push_str(fallback),
+            None => out.push_str(&rest[at..at + ARG_OPEN.len() + end + 2]),
+        }
+        rest = &after[end + 2..];
     }
     out.push_str(rest);
     out
@@ -178,9 +207,10 @@ pub fn assemble(command: &str, input: &Input<'_>) -> String {
     // the render knows the arguments, so the terminator is chosen to be one they cannot contain (#5637; upstream stamps
     // a per-install nonce because its installed files hold the heredoc); spliced after every rewrite, so the text
     // the terminator was chosen against is the text the heredoc holds
-    let body = substitute_arguments(
+    let body = fill_arguments(
         &stamp_terminators(&converted, input.arguments),
         input.arguments,
+        input.values,
     );
     format!("{}{body}", header(input.host))
 }

@@ -8,6 +8,7 @@ fn input<'a>(host: &'a str, arguments: &'a str) -> Input<'a> {
         command: "x",
         host,
         arguments,
+        values: &[],
         settings: "{}",
         tail: "",
     }

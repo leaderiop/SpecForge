@@ -37,7 +37,7 @@ fn stamps_the_quick_batch_terminator_the_same_way() {
 fn leaves_prose_that_names_the_token_mid_line_alone() {
     let prose = "The capture ends at `GSD_ARGS_END` on its own line.\n";
     assert_eq!(stamp_terminators(prose, HOSTILE), prose);
-    // nor the forms the stamp does not recognise, which the assets never use (`heredoc_source_form.rs`)
+    // nor the forms the stamp does not recognise, which the assets never use (`ported_text.rs`)
     let other = " GSD_ARGS_END\nGSD_ARGS_END \n\tGSD_ARGS_END\n<<-'GSD_ARGS_END'\n<<GSD_ARGS_END\nNOT_GSD_ARGS_END\n";
     assert_eq!(stamp_terminators(other, HOSTILE), other);
 }
@@ -137,6 +137,7 @@ fn the_arguments_are_spliced_after_the_host_rewrites() {
             command: "quick",
             host,
             arguments: typed,
+            values: &[],
             settings: "",
             extension: "@gsd/core",
             files: &[],
@@ -155,4 +156,64 @@ fn the_arguments_are_spliced_after_the_host_rewrites() {
         // the template's own note is still filtered for the host
         assert_eq!(out.contains("codex only"), host == "codex", "{host}: {out}");
     }
+}
+
+fn input<'a>(arguments: &'a str, values: &'a [(&'a str, Option<String>)]) -> Input<'a> {
+    Input {
+        command: "x",
+        host: "claude-code",
+        arguments,
+        values,
+        settings: "",
+        extension: "@gsd/core",
+        files: &[],
+        tail: "",
+        asset: no_asset,
+        repoint: same,
+    }
+}
+
+/// The body of a render: the text after the preamble's last line.
+fn filled(command: &str, arguments: &str, values: &[(&str, Option<String>)]) -> String {
+    let out = assemble(command, &input(arguments, values));
+    let at = out.rfind("<<START>>").expect("the marker") + "<<START>>".len();
+    out[at..].to_string()
+}
+
+#[test]
+fn an_arg_token_takes_the_typed_value_escaped_for_double_quotes() {
+    let values = [("target", Some("a\"b\\c $(touch X) `id`".to_string()))];
+    assert_eq!(
+        filled("<<START>>T=\"{{arg:target|main}}\"", "", &values),
+        "T=\"a\\\"b\\\\c \\$(touch X) \\`id\\`\""
+    );
+}
+
+#[test]
+fn an_absent_arg_takes_its_fallback_and_an_undeclared_one_stays() {
+    let values = [("ws", None), ("milestone", None)];
+    assert_eq!(
+        filled(
+            "<<START>>W=\"{{arg:ws|}}\" M=\"{{arg:milestone|$MILESTONE}}\" X=\"{{arg:other|y}}\" O={{arg:ws",
+            "",
+            &values
+        ),
+        "W=\"\" M=\"$MILESTONE\" X=\"{{arg:other|y}}\" O={{arg:ws"
+    );
+}
+
+#[test]
+fn typed_text_is_never_rescanned() {
+    let values = [
+        ("a", Some("$ARGUMENTS {{arg:b|y}}".to_string())),
+        ("b", Some("B".to_string())),
+    ];
+    assert_eq!(
+        filled(
+            "<<START>>\"{{arg:a|}}\" $ARGUMENTS",
+            "{{arg:b|y}} $ARGUMENTS",
+            &values
+        ),
+        "\"\\$ARGUMENTS {{arg:b|y}}\" {{arg:b|y}} $ARGUMENTS"
+    );
 }
