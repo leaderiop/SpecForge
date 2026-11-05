@@ -159,7 +159,6 @@ pub(crate) fn index_tree(
     worktree: bool,
 ) -> Result<(gix::ObjectId, Unread), GitError> {
     let mut unread = Unread::new();
-    use gix::objs::tree::EntryKind;
     let index = repo
         .index_or_empty()
         .map_err(|e| failed("read the index", &e))?;
@@ -170,11 +169,9 @@ pub(crate) fn index_tree(
         if entry.stage() != gix::index::entry::Stage::Unconflicted {
             continue;
         }
-        let kind = match entry.mode {
-            gix::index::entry::Mode::SYMLINK => EntryKind::Link,
-            gix::index::entry::Mode::FILE_EXECUTABLE => EntryKind::BlobExecutable,
-            gix::index::entry::Mode::COMMIT => EntryKind::Commit,
-            _ => EntryKind::Blob,
+        // a mode no tree entry has is no file to diff
+        let Some(kind) = entry.mode.to_tree_entry_mode().map(|mode| mode.kind()) else {
+            continue;
         };
         tree.upsert(entry.path(&index), kind, entry.id)
             .map_err(|e| failed("build a tree", &e))?;

@@ -103,14 +103,21 @@ pub fn resolve(program: &str, path: Option<&OsStr>, pathext: Option<&OsStr>) -> 
                 .collect()
         }
     };
-    let dirs: Vec<PathBuf> = if named.components().count() > 1 || named.is_absolute() {
-        vec![PathBuf::new()]
-    } else {
-        std::env::split_paths(path?).collect()
-    };
-    dirs.iter()
+    dirs(program, path)?
+        .iter()
         .flat_map(|dir| candidates(dir))
         .find(|candidate| candidate.is_file())
+}
+
+/// Where `program` is looked for: as named, when it names a directory, else each directory of `path` (none: no
+/// `PATH`).
+fn dirs(program: &str, path: Option<&OsStr>) -> Option<Vec<PathBuf>> {
+    let named = Path::new(program);
+    if named.components().count() > 1 || named.is_absolute() {
+        Some(vec![PathBuf::new()])
+    } else {
+        Some(std::env::split_paths(path?).collect())
+    }
 }
 
 impl Process for Runner {
@@ -123,13 +130,8 @@ impl Process for Runner {
                 std::env::var_os("PATHEXT").as_deref(),
             );
         }
-        let named = Path::new(program);
-        let dirs: Vec<PathBuf> = if named.components().count() > 1 || named.is_absolute() {
-            vec![PathBuf::new()]
-        } else {
-            std::env::split_paths(&path?).collect()
-        };
-        dirs.iter()
+        dirs(program, path.as_deref())?
+            .iter()
             .map(|dir| dir.join(program))
             .find(|candidate| executable(candidate))
     }

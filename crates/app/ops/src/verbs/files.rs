@@ -291,8 +291,8 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
             }
             budget = budget.saturating_sub(outcome.bytes.len() as u64);
             answer.truncated |= outcome.truncated;
-            // A file with a NUL in its first 8 KiB is binary, and not searched.
-            if outcome.bytes.iter().take(8 * 1024).any(|b| *b == 0) {
+            // A binary file, as git decides one (a NUL in its first 8000 bytes), is not searched.
+            if specforge_effects::git::is_binary(&outcome.bytes) {
                 continue;
             }
             let text = String::from_utf8_lossy(&outcome.bytes);
