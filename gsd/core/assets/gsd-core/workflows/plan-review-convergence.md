@@ -391,9 +391,9 @@ fi
 Read `CYCLE_SUMMARY: current_high=N current_actionable=M` from the review agent's return and write its two numbers below; write the `## Current HIGH Concerns` and `## Current Actionable Non-HIGH Concerns` sections into `HIGH_LINES`/`ACTIONABLE_LINES` the same way. A return with no `CYCLE_SUMMARY` line did not honor the contract: stop and retry, or switch reviewer.
 
 ```bash
-# written from the agent's return: <current_high> and <current_actionable>, each a whole number
-HIGH_COUNT=<current_high>
-ACTIONABLE_COUNT=<current_actionable>
+# written from the agent's return: {current_high} and {current_actionable}, each a whole number
+HIGH_COUNT="{current_high}"
+ACTIONABLE_COUNT="{current_actionable}"
 IFS= read -rd '' HIGH_LINES <<'END' || true   # the lines under "## Current HIGH Concerns"
 <those lines; no line when the section is absent>
 END

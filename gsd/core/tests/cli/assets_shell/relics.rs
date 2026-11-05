@@ -71,7 +71,7 @@ fn the_review_counts_are_written_by_the_model_and_checked() {
         return;
     };
     let text = asset("gsd-core/workflows/plan-review-convergence.md");
-    let counts = block(&text, "HIGH_COUNT=<current_high>", "UNRESOLVED_COUNT=");
+    let counts = block(&text, "HIGH_COUNT=", "UNRESOLVED_COUNT=");
     let show = "printf '[%s][%s][%s]' \"$UNRESOLVED_COUNT\" \"$HIGH_LINES\" \"$ACTIONABLE_LINES\"";
     let written = |high: &str| {
         let mut sections = [Some("- a\n- b"), None].into_iter();
@@ -83,8 +83,8 @@ fn the_review_counts_are_written_by_the_model_and_checked() {
             })
             .collect::<Vec<_>>()
             .join("\n")
-            .replace("<current_high>", high)
-            .replace("<current_actionable>", "1");
+            .replace("{current_high}", high)
+            .replace("{current_actionable}", "1");
         sh.run(&format!("{filled}\n{show}"))
     };
     assert_eq!(written("2"), "[3][- a\n- b\n][]");

@@ -53,7 +53,7 @@ no parser of that extension's files.
 
 ## D6. Text a subagent returns is the model's
 
-The model writes the values it read (`HIGH_COUNT=<n>`); the shell checks them (`-z`, a number), and never parses a
+The model writes the values it read (`HIGH_COUNT="{current_high}"`); the shell checks them (`-z`, a number), and never parses a
 variable no line assigned.
 
 ## Rejected
