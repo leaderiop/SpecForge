@@ -282,7 +282,7 @@ module specforge_fs "specforge-fs" {
 module specforge_git "specforge-git" {
   family      integration
   description "The adapter behind the effect plane's Git port: gix in process, so the git program is never run (ADR 0287, ADR 0335, ADR 0339)"
-  depends_on  [specforge_effects]
+  depends_on  [specforge_common, specforge_effects]
   tags        ["adapters"]
 }
 
