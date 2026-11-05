@@ -235,7 +235,7 @@ fn a_quick_tasks_changed_files_are_its_commits_files() {
 }
 
 /// execute-phase's worktree handoff: the commits ahead of the base and the uncommitted paths, counted whole and
-/// listed indented, at most 20 of them.
+/// listed indented, at most 20 of them; a read that fails or finds nothing prints no line.
 #[test]
 fn the_worktree_handoff_counts_and_lists_what_is_left_indented() {
     let Some(sh) = Shell::without_jq() else {
@@ -246,20 +246,28 @@ fn the_worktree_handoff_counts_and_lists_what_is_left_indented() {
         ("feat: two", &[("b.txt", "2\n")]),
     ]);
     let base = p.git(&["rev-list", "--max-parents=0", "HEAD"], T1);
-    for n in 1..=22 {
-        p.write(&format!("u{n:02}.txt"), "left\n");
-    }
     let text = asset("gsd-core/workflows/execute-phase.md");
     let code = [
-        "_WT_DIRTY_ALL=$(",
-        "[ -n \"$_WT_DIRTY_ALL\" ] && { _WT_DIRTY_N=",
-        "printf '    %s\\n' \"$(specforge git log",
-        "printf '    %s\\n' \"$(specforge git status",
+        "_WT_DIRTY=$(",
+        "_WT_DIRTY_N=0",
+        "[ -n \"$_WT_DIRTY\" ] && { _WT_DIRTY_N=",
+        "_WT_LOG=$(specforge git log",
     ]
     .map(|start| line(&text, start))
     .join("\n");
+    // nothing left and a base git does not know: no line, and the tolerated failure is not the script's
+    let (out, err, code_of) = run(
+        &sh,
+        &p,
+        &format!("_WT_BASE=no-such-ref\n{code}\nprintf '[%s]' \"$_WT_DIRTY_N\""),
+    );
+    assert_eq!((out.as_str(), err.as_str(), code_of), ("[0]", "", 0));
+    for n in 1..=22 {
+        p.write(&format!("u{n:02}.txt"), "left\n");
+    }
+    let shown = line(&text, "printf '    %s\\n' \"$_WT_DIRTY\"");
     let script = format!(
-        "_WT_BASE={}\n{code}\nprintf '[%s]' \"$_WT_DIRTY_N\"",
+        "_WT_BASE={}\n{code}\n{shown}\nprintf '[%s]' \"$_WT_DIRTY_N\"",
         base.trim()
     );
     let (out, err, _) = run(&sh, &p, &script);
