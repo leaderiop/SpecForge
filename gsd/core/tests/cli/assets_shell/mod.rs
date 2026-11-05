@@ -10,6 +10,7 @@ mod pick;
 mod relics;
 mod review;
 mod scripts;
+mod search;
 mod shapes;
 
 /// The tools the `--pick` lines call besides `specforge`: no jq.
