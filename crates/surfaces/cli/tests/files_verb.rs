@@ -145,6 +145,33 @@ fn search_answers_each_matching_line() {
     assert!(!ignored.stdout.contains("build/"), "{}", ignored.stdout);
 }
 
+/// A line with two matches is answered once, at its first; a CRLF line's text holds no `\r`.
+#[test]
+fn search_reports_every_line_once_and_the_first_column() {
+    let project = project().files(&[("notes/crlf.txt", "say hello, hello\r\nno\r\nhello\r\n")]);
+    let run = Cli::on(&project)
+        .run(&["files", "search", "hello", "notes"])
+        .exits(0)
+        .json();
+    let matches = run["matches"].as_array().cloned().unwrap_or_default();
+    let seen: Vec<(u64, u64, &str)> = matches
+        .iter()
+        .map(|found| {
+            (
+                found["line"].as_u64().unwrap_or(0),
+                found["column"].as_u64().unwrap_or(0),
+                found["text"].as_str().unwrap_or_default(),
+            )
+        })
+        .collect();
+    assert_eq!(seen, [(1, 5, "say hello, hello"), (3, 1, "hello")], "{run}");
+    // A line anchor holds at a CRLF line's end.
+    let anchored = Cli::on(&project)
+        .run(&["files", "search", "hello$", "notes", "--pick", ".count"])
+        .exits(0);
+    assert_eq!(anchored.stdout, "2\n");
+}
+
 #[test]
 fn a_path_from_a_subdirectory_is_read_from_there_and_printed_from_there() {
     let project = project();

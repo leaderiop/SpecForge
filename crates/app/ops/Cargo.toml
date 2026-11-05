@@ -37,9 +37,15 @@ chrono = "0.4.41"
 getrandom = "0.3"
 sha2 = { workspace = true }
 strsim = { workspace = true }
-# `specforge files search` and `list` (ADR 0339): the pattern and the globs a person types.
+# `specforge git log --grep` and `-S` (ADR 0339): the pattern a person types.
 regex = { workspace = true }
+# `specforge files search` and `list` (ADR 0339): the globs a person types, checked before a walk.
 globset = "0.4"
+# `specforge files search` runs on ripgrep's own engine (ADR 0339's amendment): exact versions, named here, not in the
+# root's workspace table, which every builtin blob compiles from.
+grep-matcher = "=0.1.9"
+grep-regex = "=0.1.14"
+grep-searcher = "=0.1.17"
 # `specforge http --header`: a typed header's name and value as the wire takes them.
 http = "1"
 

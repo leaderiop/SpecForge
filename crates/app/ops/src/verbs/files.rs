@@ -3,6 +3,9 @@
 
 use std::path::{Path, PathBuf};
 
+use grep_matcher::{LineTerminator, Matcher as _};
+use grep_regex::{RegexMatcher, RegexMatcherBuilder};
+use grep_searcher::{BinaryDetection, Searcher, SearcherBuilder, Sink, SinkMatch};
 use serde::Serialize;
 use specforge_effects::contained::{TEMP, temp_root};
 use specforge_effects::fs::{FileKind, READ_CEILING};
@@ -203,19 +206,19 @@ pub fn list(verbs: &Verbs, list: &List) -> Result<ListAnswer, OpError> {
     })
 }
 
-/// The lines under `search.paths` that match `search.pattern`, the first match of each line.
+/// The lines under `search.paths` that match `search.pattern`: each line once, at its first match.
+///
+/// ripgrep's own engine runs on the bytes the `Fs` port read (ADR 0339's amendment): a `grep-regex` matcher and a
+/// `grep-searcher` searcher over the slice, never over a path, which would open a file past the port.
 pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
     checked_globs(&search.globs)?;
-    let pattern = regex::RegexBuilder::new(&search.pattern)
-        .case_insensitive(search.ignore_case)
-        .build()
-        .map_err(|error| {
-            OpError::new(
-                OpErrorKind::InvalidInput,
-                OpErrorKind::InvalidInput.as_str(),
-                format!("the pattern does not parse: {error}"),
-            )
-        })?;
+    let matcher = matcher(search, &search.pattern)?;
+    let mut searcher = SearcherBuilder::new()
+        .line_number(true)
+        .line_terminator(LineTerminator::crlf())
+        // A binary file is skipped before it is searched, by git's rule.
+        .binary_detection(BinaryDetection::none())
+        .build();
     let mut answer = SearchAnswer {
         matches: Vec::new(),
         count: 0,
@@ -288,27 +291,89 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
             if specforge_effects::git::is_binary(&outcome.bytes) {
                 continue;
             }
-            let text = String::from_utf8_lossy(&outcome.bytes);
             let shown = verbs.shown_in(&root, &rel);
-            for (at, line) in text.lines().enumerate() {
-                let Some(found) = pattern.find(line) else {
-                    continue;
-                };
-                if answer.matches.len() >= search.max {
-                    answer.truncated = true;
-                    break;
-                }
-                answer.matches.push(Match {
-                    path: shown.clone(),
-                    line: at + 1,
-                    column: line[..found.start()].chars().count() + 1,
-                    text: line.chars().take(LINE_CHARS).collect(),
-                });
-            }
+            let mut found = Found {
+                matcher: &matcher,
+                path: &shown,
+                max: search.max,
+                answer: &mut answer,
+            };
+            searcher
+                .search_slice(&matcher, &outcome.bytes, &mut found)
+                .map_err(|error| {
+                    OpError::new(
+                        OpErrorKind::Internal,
+                        OpErrorKind::Internal.as_str(),
+                        format!("the search of {shown} stopped: {error}"),
+                    )
+                })?;
         }
     }
     answer.count = answer.matches.len();
     Ok(answer)
+}
+
+/// `pattern` as `search` asks it matched, as ripgrep builds its matcher: a line's `^` and `$` at each line, CRLF lines
+/// read without their `\r`, and no match that crosses a line (a pattern that needs a `\n` is refused).
+fn matcher(search: &Search, pattern: &str) -> Result<RegexMatcher, OpError> {
+    RegexMatcherBuilder::new()
+        .case_insensitive(search.ignore_case)
+        .multi_line(true)
+        .crlf(true)
+        .build(pattern)
+        .map_err(|error| {
+            OpError::new(
+                OpErrorKind::InvalidInput,
+                OpErrorKind::InvalidInput.as_str(),
+                format!("the pattern does not parse: {error}"),
+            )
+        })
+}
+
+/// The answer one file's search adds to: each line the searcher reports, until the answer holds `max`.
+struct Found<'a> {
+    matcher: &'a RegexMatcher,
+    path: &'a str,
+    max: usize,
+    answer: &'a mut SearchAnswer,
+}
+
+impl Sink for Found<'_> {
+    type Error = std::io::Error;
+
+    fn matched(&mut self, _: &Searcher, found: &SinkMatch<'_>) -> Result<bool, Self::Error> {
+        if self.answer.matches.len() >= self.max {
+            self.answer.truncated = true;
+            return Ok(false);
+        }
+        let bytes = found.bytes();
+        let column = match self.matcher.find(bytes) {
+            Ok(Some(at)) => {
+                String::from_utf8_lossy(&bytes[..at.start()])
+                    .chars()
+                    .count()
+                    + 1
+            }
+            _ => 1,
+        };
+        self.answer.matches.push(Match {
+            path: self.path.to_string(),
+            line: found.line_number().unwrap_or(0) as usize,
+            column,
+            text: line_text(bytes),
+        });
+        Ok(true)
+    }
+}
+
+/// A line the searcher reported, without its terminator, at most [`LINE_CHARS`] characters.
+fn line_text(line: &[u8]) -> String {
+    let line = line.strip_suffix(b"\n").unwrap_or(line);
+    let line = line.strip_suffix(b"\r").unwrap_or(line);
+    String::from_utf8_lossy(line)
+        .chars()
+        .take(LINE_CHARS)
+        .collect()
 }
 
 /// `files temp`'s answer.
