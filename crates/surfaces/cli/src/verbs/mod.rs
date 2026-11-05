@@ -13,7 +13,7 @@ use std::time::Duration;
 use specforge_effects::Ports;
 use specforge_ops::OpError;
 use specforge_ops::consent::UserConsent;
-use specforge_ops::verbs::Verbs;
+use specforge_ops::verbs::{Answered, Verbs};
 
 use crate::outcome::{Exit, OutputFormat, Refusal};
 use crate::pick::{self, Pick};
@@ -48,7 +48,8 @@ impl VerbArgs {
         }
     }
 
-    /// `ask` of the verbs at `--path`, printed as the format asks: what every verb's leaf does.
+    /// `ask` of the verbs at `--path`, a local read or write (`files`, `git`) performed in every effects mode, printed
+    /// as the format asks with its `effect`.
     pub(crate) fn answer<T: serde::Serialize>(
         &self,
         terminal: &Terminal,
@@ -56,12 +57,30 @@ impl VerbArgs {
         ask: impl FnOnce(Verbs) -> Result<T, OpError>,
         human: impl FnOnce(&Terminal, &T),
     ) -> Exit {
+        self.answered(
+            terminal,
+            ports,
+            |verbs| ask(verbs).map(Answered::performed),
+            human,
+        )
+    }
+
+    /// [`Self::answer`] for a verb whose answer says how it was had (`http`, through the effects journal).
+    pub(crate) fn answered<T: serde::Serialize>(
+        &self,
+        terminal: &Terminal,
+        ports: &Ports,
+        ask: impl FnOnce(Verbs) -> Result<Answered<T>, OpError>,
+        human: impl FnOnce(&Terminal, &T),
+    ) -> Exit {
         let format = match self.format(terminal) {
             Ok(format) => format,
             Err(exit) => return exit,
         };
         let answer = open(&self.project, ports).and_then(ask);
-        self.print(terminal, format, answer, human)
+        self.print(terminal, format, answer, |terminal, answered| {
+            human(terminal, &answered.answer);
+        })
     }
 
     /// Print `answer` as the format asks (`human` prints it with `human`), or report its refusal; `failed` decides

@@ -5,14 +5,15 @@
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
-use specforge_effects::journal::{Answer, Blob};
+use specforge_effects::journal::{Answer, Blob, RecordDigest};
+use specforge_effects::mode::USER;
 use specforge_effects::process::{Ceiling, Output, USER_CEILING};
 use specforge_effects::{
     EffectJournal, EffectRequest, Effects, EffectsMode, Outcome, ProcessClass, ProcessRequest,
     Served, UnixMillis,
 };
 
-use super::Verbs;
+use super::{Answered, Effect, Verbs};
 use crate::{OpError, OpErrorKind};
 
 /// The most bytes a run captured under `--format json` may write to each of stdout and stderr (the runner's 64 MiB):
@@ -124,7 +125,11 @@ pub fn pass_through(verbs: &Verbs, run: &Run) -> Result<ProcessClass, OpError> {
 /// `run --format json`: the program run with a null stdin and its output captured, through the effects journal in
 /// `mode` (its record is the user's; `cached` performs it, since a program asks for something to happen, and `replay`
 /// answers from the journal alone).
-pub fn capture(verbs: &Verbs, run: &Run, mode: EffectsMode) -> Result<RunAnswer, OpError> {
+pub fn capture(
+    verbs: &Verbs,
+    run: &Run,
+    mode: EffectsMode,
+) -> Result<Answered<RunAnswer>, OpError> {
     let mut request = request(verbs, run, CAPTURE_CAP)?;
     // A captured run reads nothing from the terminal.
     request.stdin = Some(Vec::new());
@@ -160,10 +165,22 @@ pub fn capture(verbs: &Verbs, run: &Run, mode: EffectsMode) -> Result<RunAnswer,
         }
     });
     match served {
-        Served::Outcome { answer, .. } => answer
+        Served::Outcome {
+            answer,
+            from_journal,
+            observed_at,
+        } => answer
             .payload
             .as_deref()
             .and_then(|payload| serde_json::from_slice(payload).ok())
+            .map(|answer| Answered {
+                answer,
+                effect: Effect {
+                    digest: Some(RecordDigest::asked_by(USER, &asked)),
+                    observed_at,
+                    from_journal,
+                },
+            })
             .ok_or_else(|| {
                 OpError::new(
                     OpErrorKind::Internal,

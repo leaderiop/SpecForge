@@ -12,11 +12,13 @@ pub mod run;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use serde::Serialize;
 use specforge_common::{ProjectRoot, codes};
 use specforge_effects::contained::TEMP;
 use specforge_effects::grant::one_line;
 use specforge_effects::{
-    Consent, Denial, EffectRequest, FsOp, FsRequest, Grant, Ports, RealFs, Root, Roots,
+    Consent, Denial, EffectRequest, FsOp, FsRequest, Grant, Ports, RealFs, RecordDigest, Root,
+    Roots, UnixMillis,
 };
 use specforge_project::Environment;
 use specforge_protocol_types::Operation;
@@ -40,6 +42,48 @@ pub struct Verbs {
     landed: Vec<(Root, PathBuf)>,
     /// Where the `temp` root lies, made or not: `<project>/.specforge/tmp`, under the home directory for a loose root.
     temp: Option<PathBuf>,
+}
+
+/// How a verb's answer was had (ADR 0339 D4): the request's record digest, when it was observed, and whether the
+/// effects journal answered it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Effect {
+    /// The key of the request's record in the effects journal; none for a local read or write (`files`, `git`), which
+    /// no record holds (ADR 0337 D3).
+    pub digest: Option<RecordDigest>,
+    /// When the answer was observed: its record's time when the journal answered, else now.
+    pub observed_at: UnixMillis,
+    /// The answer is the journal's record, not the port's now.
+    pub from_journal: bool,
+}
+
+impl Effect {
+    /// A local read or write, performed now in every mode (ADR 0337 D4).
+    pub fn performed() -> Self {
+        Effect {
+            digest: None,
+            observed_at: UnixMillis::now_or_end(),
+            from_journal: false,
+        }
+    }
+}
+
+/// A verb's answer and how it was had: `answer`'s fields, then `effect`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Answered<T> {
+    #[serde(flatten)]
+    pub answer: T,
+    pub effect: Effect,
+}
+
+impl<T> Answered<T> {
+    /// `answer` of a local read or write ([`Effect::performed`]).
+    pub fn performed(answer: T) -> Self {
+        Answered {
+            answer,
+            effect: Effect::performed(),
+        }
+    }
 }
 
 /// What a verb does at a path: an fs request's op, or a write.

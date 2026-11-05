@@ -33,7 +33,7 @@ fn repo_names_the_top_and_the_git_directory() {
     let top = project.root().canonicalize().unwrap();
     let top = top.to_string_lossy().replace('\\', "/");
     assert_eq!(
-        git(&project, &["repo"]).exits(0).json(),
+        git(&project, &["repo"]).exits(0).answer(),
         json!({
             "top": top,
             "git_dir": format!("{top}/.git"),
@@ -48,7 +48,7 @@ fn repo_names_the_top_and_the_git_directory() {
 fn head_names_the_branch_and_its_commit() {
     let (project, repo, sha) = committed();
     assert_eq!(
-        git(&project, &["head"]).exits(0).json(),
+        git(&project, &["head"]).exits(0).answer(),
         json!({
             "sha": sha,
             "branch": "main",
@@ -66,13 +66,13 @@ fn head_names_the_branch_and_its_commit() {
         "main\n"
     );
     repo.detach(&sha);
-    let detached = git(&project, &["head"]).exits(0).json();
+    let detached = git(&project, &["head"]).exits(0).answer();
     assert_eq!(
         (detached["detached"].clone(), detached["branch"].clone()),
         (json!(true), json!(null))
     );
     repo.head_on("next");
-    let unborn = git(&project, &["head"]).exits(0).json();
+    let unborn = git(&project, &["head"]).exits(0).answer();
     assert_eq!(
         (
             unborn["unborn"].clone(),
@@ -93,7 +93,7 @@ fn head_counts_the_commits_ahead_of_and_behind_the_upstream() {
     repo.commit_all("ours");
     repo.remote("origin", "https://example.com/acme/widgets.git")
         .upstream("main", &theirs);
-    let head = git(&project, &["head"]).exits(0).json();
+    let head = git(&project, &["head"]).exits(0).answer();
     assert_eq!(
         (
             head["upstream"].clone(),
@@ -111,7 +111,7 @@ fn rev_names_each_revision_or_that_it_names_nothing() {
     assert_eq!(
         git(&project, &["rev", "HEAD", "main:a.txt", "nosuch"])
             .exits(0)
-            .json(),
+            .answer(),
         json!({"revs": [
             {"rev": "HEAD", "sha": sha, "kind": "commit", "exists": true},
             {"rev": "main:a.txt", "sha": blob, "kind": "blob", "exists": true},
@@ -137,7 +137,7 @@ fn status_is_typed_with_clean_and_the_untracked_paths() {
     );
     repo.write("a.txt", "changed\n").write("new.txt", "n");
     assert_eq!(
-        git(&project, &["status"]).exits(0).json(),
+        git(&project, &["status"]).exits(0).answer(),
         json!({
             "branch": {"oid": sha, "head": "main", "ahead": 0, "behind": 0},
             "entries": [
@@ -161,11 +161,11 @@ fn config_answers_every_value_and_the_one_git_applies() {
     let (project, repo, _) = committed();
     repo.config("[user]\n\tname = Ada");
     assert_eq!(
-        git(&project, &["config", "user.name"]).exits(0).json(),
+        git(&project, &["config", "user.name"]).exits(0).answer(),
         json!({"key": "user.name", "value": "Ada", "values": ["Test", "Ada"]})
     );
     assert_eq!(
-        git(&project, &["config", "no.such"]).exits(0).json(),
+        git(&project, &["config", "no.such"]).exits(0).answer(),
         json!({"key": "no.such", "value": null, "values": []})
     );
 }
@@ -205,7 +205,7 @@ fn two_commits() -> (TestProject, Repo, String, String) {
 #[test]
 fn log_answers_a_range_with_its_messages_and_trailers() {
     let (project, _repo, first, second) = two_commits();
-    let log = git(&project, &["log", "HEAD~1..HEAD"]).exits(0).json();
+    let log = git(&project, &["log", "HEAD~1..HEAD"]).exits(0).answer();
     assert_eq!(log["count"], 1);
     let commit = &log["commits"][0];
     assert_eq!(
@@ -288,7 +288,7 @@ fn log_with_three_dots_walks_what_either_side_reaches_and_not_both() {
     assert_eq!(
         git(&project, &["merge-base", "main", "side"])
             .exits(0)
-            .json(),
+            .answer(),
         json!({"sha": first})
     );
 }
@@ -340,7 +340,7 @@ fn diff_lists_the_files_a_branch_changed_since_its_base() {
         .stdout,
         "a.txt\nbin.dat\nc.txt\n"
     );
-    let diff = git(&project, &["diff", "--base", "main"]).exits(0).json();
+    let diff = git(&project, &["diff", "--base", "main"]).exits(0).answer();
     assert_eq!(diff["count"], 3);
     assert_eq!(
         diff["files"],
@@ -407,7 +407,7 @@ fn show_answers_a_file_at_a_revision() {
         "one\n\n"
     );
     assert_eq!(
-        git(&project, &["show", "HEAD:a.txt"]).exits(0).json(),
+        git(&project, &["show", "HEAD:a.txt"]).exits(0).answer(),
         json!({"sha": repo.sha("HEAD:a.txt"), "bytes": 8, "binary": false, "truncated": false, "text": "one\ntwo\n"})
     );
     let refused = git(&project, &["show", "HEAD"]);
@@ -439,7 +439,7 @@ fn branches_name_their_upstream_and_how_far_each_is_ahead_and_behind() {
         .upstream("main", &first);
     repo.branch("side", &first);
     assert_eq!(
-        git(&project, &["branches"]).exits(0).json(),
+        git(&project, &["branches"]).exits(0).answer(),
         json!({"branches": [
             {"name": "main", "sha": second, "current": true, "upstream": "origin/main", "ahead": 1, "behind": 0},
             {"name": "side", "sha": first, "current": false, "upstream": null, "ahead": 0, "behind": 0},
@@ -474,7 +474,7 @@ fn worktrees_list_the_main_one_then_the_linked_ones() {
             .replace('\\', "/")
     };
     assert_eq!(
-        git(&project, &["worktrees"]).exits(0).json(),
+        git(&project, &["worktrees"]).exits(0).answer(),
         json!({"worktrees": [
             {"path": slashed(project.root()), "branch": "main", "sha": sha, "main": true, "locked": false, "current": true},
             {"path": slashed(linked.dir()), "branch": "feature", "sha": sha, "main": false, "locked": false, "current": false},
@@ -500,7 +500,7 @@ fn remotes_never_print_the_credentials_in_a_url() {
         out.stdout
     );
     assert_eq!(
-        out.json()["remotes"],
+        out.answer()["remotes"],
         json!([
             {"name": "origin", "url": "https://github.com/acme/widgets.git", "push_url": "https://github.com/acme/widgets.git", "host": "github.com", "path": "acme/widgets"},
             {"name": "ssh", "url": "ssh://git@gitlab.com/group/tool.git", "push_url": "ssh://git@gitlab.com/group/tool.git", "host": "gitlab.com", "path": "group/tool"},
@@ -516,7 +516,7 @@ fn remotes_split_each_url_into_its_host_and_path() {
         .remote("scp", "git@gitlab.com:group/sub/tool.git")
         .remote("local", "/srv/git/mirror.git");
     assert_eq!(
-        git(&project, &["remotes"]).exits(0).json(),
+        git(&project, &["remotes"]).exits(0).answer(),
         json!({"remotes": [
             {"name": "local", "url": "/srv/git/mirror.git", "push_url": "/srv/git/mirror.git", "host": null, "path": "/srv/git/mirror.git"},
             {"name": "origin", "url": "https://github.com/acme/widgets.git", "push_url": "git@github.com:acme/widgets.git", "host": "github.com", "path": "acme/widgets"},

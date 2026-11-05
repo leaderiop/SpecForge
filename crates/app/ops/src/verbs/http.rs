@@ -12,7 +12,8 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use specforge_common::remedy::printable;
 use specforge_effects::http::{MAX_REDIRECTS, TIMEOUT_CEILING, host_of};
-use specforge_effects::journal::{Answer, Blob};
+use specforge_effects::journal::{Answer, Blob, RecordDigest};
+use specforge_effects::mode::USER;
 use specforge_effects::{
     EffectJournal, EffectRequest, Effects, EffectsMode, FsOp, Outcome, OutcomeClass, Redirects,
     Served, UnixMillis,
@@ -22,7 +23,7 @@ use specforge_protocol_types::{
     Unreachable,
 };
 
-use super::Verbs;
+use super::{Answered, Effect, Verbs};
 use crate::{NOT_IN_JOURNAL, OpError, OpErrorKind};
 
 /// The most body bytes an answer keeps unless asked for another cap.
@@ -88,9 +89,6 @@ pub struct HttpAnswer {
     /// The header a declared secret was attached as: its name, never its value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub secret_header: Option<String>,
-    /// The answer is the effects journal's, not the server's now.
-    #[serde(default)]
-    pub from_journal: bool,
 }
 
 /// The declared secret `named` (`<extension>:<name>`, the extension as `specforge.json` loads it) of `declarations`,
@@ -193,7 +191,11 @@ pub fn secret_is_set(
 }
 
 /// `ask` sent through the `Http` port in `mode`, judged by the user grant first and on every redirect.
-pub fn request(verbs: &Verbs, ask: &Ask, mode: EffectsMode) -> Result<HttpAnswer, OpError> {
+pub fn request(
+    verbs: &Verbs,
+    ask: &Ask,
+    mode: EffectsMode,
+) -> Result<Answered<HttpAnswer>, OpError> {
     let request = built(verbs, ask)?;
     let asked = EffectRequest::Http(request.clone());
     verbs.permit(&asked)?;
@@ -232,7 +234,6 @@ pub fn request(verbs: &Verbs, ask: &Ask, mode: EffectsMode) -> Result<HttpAnswer
                 body: String::from_utf8_lossy(&body).into_owned(),
                 truncated,
                 secret_header: request.secret.as_ref().map(|secret| secret.header.clone()),
-                from_journal: false,
             }
         });
         // An answer is the record's payload; a request no server answered keeps its class alone.
@@ -248,16 +249,20 @@ pub fn request(verbs: &Verbs, ask: &Ask, mode: EffectsMode) -> Result<HttpAnswer
         Served::Outcome {
             answer,
             from_journal,
-            ..
+            observed_at,
         } => match answer
             .payload
             .as_deref()
             .map(serde_json::from_slice::<HttpAnswer>)
         {
-            Some(Ok(mut kept)) => {
-                kept.from_journal = from_journal;
-                Ok(kept)
-            }
+            Some(Ok(kept)) => Ok(Answered {
+                answer: kept,
+                effect: Effect {
+                    digest: Some(RecordDigest::asked_by(USER, &asked)),
+                    observed_at,
+                    from_journal,
+                },
+            }),
             Some(Err(_)) => Err(OpError::new(
                 OpErrorKind::Internal,
                 OpErrorKind::Internal.as_str(),

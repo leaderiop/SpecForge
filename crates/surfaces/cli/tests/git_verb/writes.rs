@@ -36,7 +36,7 @@ fn commit_stages_the_paths_named_and_keeps_the_trailers_byte_for_byte() {
     let message = "feat: spec\n\nGsd-Task: 7\nCo-Authored-By: A <a@example.com>\n";
     let answer = git(&project, &["commit", "--add", "spec", "-m", message])
         .exits(0)
-        .json();
+        .answer();
     let sha = answer["sha"].as_str().unwrap().to_string();
     assert_eq!(
         answer,
@@ -106,9 +106,9 @@ fn commit_all_stages_tracked_changes_and_leaves_untracked_files_out() {
         .write("new.txt", "untracked\n");
     let answer = git(&project, &["commit", "-a", "-m", "tracked only"])
         .exits(0)
-        .json();
+        .answer();
     assert_eq!(answer["files"], json!(["a.txt", "b.txt"]));
-    let status = git(&project, &["status"]).exits(0).json();
+    let status = git(&project, &["status"]).exits(0).answer();
     assert_eq!(status["untracked"], json!(["new.txt"]));
 }
 
@@ -119,7 +119,7 @@ fn commit_with_nothing_staged_refuses_unless_empty_is_allowed() {
     assert_eq!(refused.json()["code"], "git_refused", "{}", refused.stdout);
     let empty = git(&project, &["commit", "--allow-empty", "-m", "marker"])
         .exits(0)
-        .json();
+        .answer();
     assert_eq!(empty["parents"], json!([first]));
     assert_eq!(empty["files"], json!([]));
 }
@@ -148,7 +148,7 @@ fn a_failing_pre_commit_hook_refuses_and_nothing_is_committed() {
     // --no-verify runs no hook
     let answer = git(&project, &["commit", "--no-verify", "-m", "change"])
         .exits(0)
-        .json();
+        .answer();
     assert_eq!(answer["files"], json!(["a.txt"]));
 }
 
@@ -183,7 +183,7 @@ fn the_commit_msg_hook_edits_the_message_and_post_commit_runs_after() {
     hook(&repo, "post-commit", "echo ran > post-commit.ran\nexit 7");
     let answer = git(&project, &["commit", "--allow-empty", "-m", "subject"])
         .exits(0)
-        .json();
+        .answer();
     let log = git(&project, &["log", "--max", "1", "--pick", ".commits[0]"])
         .exits(0)
         .json();
@@ -216,7 +216,7 @@ fn prepare_commit_msg_runs_under_no_verify_and_its_trailer_is_committed_as_git_d
         &["commit", "--allow-empty", "--no-verify", "-m", "subject"],
     )
     .exits(0)
-    .json();
+    .answer();
     let log = git(&project, &["log", "--max", "1", "--pick", ".commits[0]"])
         .exits(0)
         .json();
@@ -287,7 +287,7 @@ fn a_commit_on_a_detached_head_moves_head_alone() {
     repo.detach(&first);
     let answer = git(&project, &["commit", "--allow-empty", "-m", "detached"])
         .exits(0)
-        .json();
+        .answer();
     assert_eq!(answer["branch"], json!(null));
     assert_eq!(repo.sha("HEAD"), answer["sha"].as_str().unwrap());
     assert_eq!(repo.sha("main"), first, "no branch moved");
@@ -305,7 +305,7 @@ fn a_commit_in_a_linked_worktree_moves_its_branch() {
         &["commit", "--add", "f.txt", "-m", "f"],
     )
     .exits(0)
-    .json();
+    .answer();
     assert_eq!(answer["branch"], "feature");
     assert_eq!(answer["files"], json!(["f.txt"]));
     assert_eq!(repo.sha("feature"), answer["sha"].as_str().unwrap());
@@ -320,7 +320,7 @@ fn a_branch_is_created_at_a_revision_and_deleted_once_head_holds_it() {
     assert_eq!(
         git(&project, &["branch", "create", "topic", "--at", "HEAD~1"])
             .exits(0)
-            .json(),
+            .answer(),
         json!({"name": "topic", "sha": first})
     );
     assert_eq!(repo.sha("topic"), first);
@@ -353,7 +353,7 @@ fn switch_create_moves_head_and_switch_checks_the_files_out() {
     let (project, repo, first) = committed();
     let head = git(&project, &["switch", "--create", "topic"])
         .exits(0)
-        .json();
+        .answer();
     assert_eq!(
         (head["branch"].as_str(), head["sha"].as_str()),
         (Some("topic"), Some(first.as_str()))
@@ -366,7 +366,7 @@ fn switch_create_moves_head_and_switch_checks_the_files_out() {
     assert!(project.root().join("t.txt").is_file(), "topic's files");
     // from a detached HEAD too
     repo.detach(&first);
-    let head = git(&project, &["switch", "main"]).exits(0).json();
+    let head = git(&project, &["switch", "main"]).exits(0).answer();
     assert_eq!(head["detached"], false);
 }
 
@@ -409,7 +409,7 @@ fn an_annotated_tag_names_a_tag_object_and_a_plain_one_the_commit() {
     repo.config("[user]\n\tname = Ada\n\temail = ada@example.com");
     let tag = git(&project, &["tag", "v1", "-m", "release\n"])
         .exits(0)
-        .json();
+        .answer();
     assert_ne!(tag["sha"], json!(first));
     assert_eq!(
         git(&project, &["rev", "v1", "--pick", ".revs[0].kind"])
@@ -419,7 +419,7 @@ fn an_annotated_tag_names_a_tag_object_and_a_plain_one_the_commit() {
     );
     assert_eq!(repo.sha("v1^{commit}"), first);
     assert_eq!(
-        git(&project, &["tag", "v0"]).exits(0).json(),
+        git(&project, &["tag", "v0"]).exits(0).answer(),
         json!({"name": "v0", "sha": first})
     );
     let refused = git(&project, &["tag", "v0"]).exits(1);
@@ -437,7 +437,7 @@ fn a_worktree_is_added_listed_and_removed() {
         &["worktree", "add", &path, "--branch", "feature", "--create"],
     )
     .exits(0)
-    .json();
+    .answer();
     assert_eq!(
         (added["branch"].as_str(), added["sha"].as_str()),
         (Some("feature"), Some(first.as_str()))
@@ -571,7 +571,7 @@ pub(super) fn side(file: &str, side_text: &str) -> (TestProject, Repo, String, S
 #[test]
 fn a_merge_fast_forwards_when_history_allows() {
     let (project, repo, _first, side) = side("s.txt", "side\n");
-    let merged = git(&project, &["merge", "side"]).exits(0).json();
+    let merged = git(&project, &["merge", "side"]).exits(0).answer();
     assert_eq!(
         merged,
         json!({"sha": side, "fast_forward": true, "conflicts": []})
@@ -590,7 +590,7 @@ fn a_three_way_merge_records_a_commit_with_both_parents() {
     let main = repo.commit_all("on main");
     let refused = git(&project, &["merge", "side", "--ff-only"]).exits(1);
     assert_eq!(refused.json()["code"], "git_refused", "{}", refused.stdout);
-    let merged = git(&project, &["merge", "side"]).exits(0).json();
+    let merged = git(&project, &["merge", "side"]).exits(0).answer();
     assert_eq!(merged["fast_forward"], false);
     let log = git(&project, &["log", "--max", "1", "--pick", ".commits[0]"])
         .exits(0)
@@ -612,7 +612,7 @@ fn a_conflicting_merge_answers_its_conflicts_and_leaves_them_to_resolve() {
     let (project, repo, first, _side) = side("a.txt", "one\nside\n");
     repo.write("a.txt", "one\nmain\n");
     let main = repo.commit_all("on main");
-    let merged = git(&project, &["merge", "side"]).exits(1).json();
+    let merged = git(&project, &["merge", "side"]).exits(1).answer();
     assert_eq!(
         merged,
         json!({"sha": null, "fast_forward": false, "conflicts": [{"path": "a.txt", "kind": "both_modified"}]})
@@ -685,7 +685,7 @@ fn restore_puts_a_file_back_and_staged_its_index_entry() {
         std::fs::read_to_string(project.root().join("a.txt")).unwrap(),
         "changed\n"
     );
-    let answer = git(&project, &["restore", "a.txt"]).exits(0).json();
+    let answer = git(&project, &["restore", "a.txt"]).exits(0).answer();
     assert_eq!(answer, json!({"restored": ["a.txt"]}));
     assert_eq!(
         std::fs::read_to_string(project.root().join("a.txt")).unwrap(),
@@ -706,7 +706,7 @@ fn stash_push_cleans_the_tree_and_pop_brings_the_change_back() {
     );
     let list = git(&project, &["stash", "list", "--pick", ".stashes[].message"]).exits(0);
     assert!(list.stdout.contains("wip"), "{}", list.stdout);
-    let popped = git(&project, &["stash", "pop"]).exits(0).json();
+    let popped = git(&project, &["stash", "pop"]).exits(0).answer();
     assert_eq!(popped, json!({"stashes": []}));
     assert_eq!(
         std::fs::read_to_string(project.root().join("a.txt")).unwrap(),
@@ -720,7 +720,7 @@ fn cherry_pick_keeps_the_author_and_revert_undoes_a_commit() {
     repo.write("m.txt", "main\n");
     repo.commit_all("on main");
     repo.config("[user]\n\tname = Ada\n\temail = ada@example.com");
-    let picked = git(&project, &["cherry-pick", "side"]).exits(0).json();
+    let picked = git(&project, &["cherry-pick", "side"]).exits(0).answer();
     let log = git(&project, &["log", "--max", "1", "--pick", ".commits[0]"])
         .exits(0)
         .json();
@@ -762,7 +762,7 @@ fn a_commit_after_a_resolved_conflict_concludes_the_merge() {
     repo.write("a.txt", "one\nboth\n");
     let answer = git(&project, &["commit", "--add", "a.txt", "-m", "Merge side"])
         .exits(0)
-        .json();
+        .answer();
     assert_eq!(answer["parents"], json!([main, side]));
     assert!(
         !repo.git_dir().join("MERGE_HEAD").exists(),

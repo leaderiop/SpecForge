@@ -5,6 +5,7 @@
 use std::time::Duration;
 
 use specforge_effects::{EffectsMode, Ports};
+use specforge_ops::verbs::Answered;
 use specforge_ops::verbs::run::{self as ran, Run};
 
 use super::shown;
@@ -82,7 +83,8 @@ impl RunArgs {
             deadline: self.deadline,
         };
         if self.which {
-            let answer = ran::which(&verbs, &self.argv);
+            // A lookup on this machine, performed in every mode.
+            let answer = Answered::performed(ran::which(&verbs, &self.argv));
             return match format {
                 // The answer says what was found: printed, it is the run's success.
                 OutputFormat::Json => {
@@ -91,12 +93,12 @@ impl RunArgs {
                 }
                 // As `command -v`: the paths found, and 1 when one is missing.
                 OutputFormat::Human => {
-                    for program in &answer.programs {
+                    for program in &answer.answer.programs {
                         if let Some(path) = &program.path {
                             outln!(terminal, "{}", shown(path));
                         }
                     }
-                    let all = answer.programs.iter().all(|program| program.found);
+                    let all = answer.answer.programs.iter().all(|program| program.found);
                     if all { Exit::Passed } else { Exit::Failed }.code()
                 }
             };

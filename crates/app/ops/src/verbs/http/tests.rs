@@ -123,8 +123,11 @@ fn the_secret_is_attached_as_the_request_leaves_and_no_answer_or_record_holds_it
         sent[0].secret.as_ref().map(|s| s.env.as_str()),
         Some("ACME_TOKEN")
     );
-    assert_eq!(answer.secret_header.as_deref(), Some("Authorization"));
-    assert_eq!(answer.json, Some(serde_json::json!({"login": "me"})));
+    assert_eq!(
+        answer.answer.secret_header.as_deref(),
+        Some("Authorization")
+    );
+    assert_eq!(answer.answer.json, Some(serde_json::json!({"login": "me"})));
     let shown = serde_json::to_string(&answer).unwrap();
     assert!(
         !shown.contains("ACME_TOKEN") && !shown.contains("Bearer"),
@@ -190,8 +193,8 @@ fn cached_answers_a_get_again_and_sends_a_post_each_time() {
     let verbs = verbs(&project, &http);
     let first = request(&verbs, &get(url), EffectsMode::Cached).unwrap();
     let again = request(&verbs, &get(url), EffectsMode::Cached).unwrap();
-    assert!(!first.from_journal && again.from_journal);
-    assert_eq!(again.status, 201);
+    assert!(!first.effect.from_journal && again.effect.from_journal);
+    assert_eq!(again.answer.status, 201);
     assert_eq!(http.requests().len(), 1);
     let post = Ask {
         method: "POST".to_string(),
@@ -208,6 +211,7 @@ fn cached_answers_a_get_again_and_sends_a_post_each_time() {
         assert!(
             !request(&verbs, &post, EffectsMode::Cached)
                 .unwrap()
+                .effect
                 .from_journal
         );
     }
@@ -223,6 +227,7 @@ fn cached_answers_a_get_again_and_sends_a_post_each_time() {
     assert!(
         request(&verbs, &post, EffectsMode::Replay)
             .unwrap()
+            .effect
             .from_journal
     );
     let never = request(
@@ -244,9 +249,9 @@ fn a_body_past_the_cap_is_cut_and_read_as_no_json() {
         ..get(url)
     };
     let answer = request(&verbs(&project, &http), &ask, EffectsMode::Online).unwrap();
-    assert!(answer.truncated);
-    assert_eq!(answer.body, r#"{"a":"#);
-    assert_eq!(answer.json, None);
+    assert!(answer.answer.truncated);
+    assert_eq!(answer.answer.body, r#"{"a":"#);
+    assert_eq!(answer.answer.json, None);
 }
 
 #[test]

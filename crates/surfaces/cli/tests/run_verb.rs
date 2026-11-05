@@ -134,7 +134,7 @@ fn which_finds_a_program_and_runs_none() {
             "no-such-program",
         ])
         .exits(0)
-        .json();
+        .answer();
     let path = found["programs"][0]["path"].as_str().unwrap();
     assert!(path.contains("specforge"), "{found}");
     assert_eq!(found["programs"][0]["found"], true);
@@ -199,19 +199,36 @@ fn steady(mut answer: Value) -> Value {
 fn json_captures_the_run_and_replay_answers_it_again() {
     let project = TestProject::new();
     let argv = child();
-    let live = run(&project, "talk")
+    let mut live = run(&project, "talk")
         .bare(&args(&["run", "--format", "json"], &argv))
         .exits(0)
         .json();
-    insta::assert_json_snapshot!("run_captured", steady(live.clone()));
-    // The record is the user's, and a replay is the live answer.
-    let replayed = Cli::on(&project)
+    // The record is the user's, and a replay is the live answer, said to be the journal's.
+    let mut replayed = Cli::on(&project)
         .bare(&args(
             &["run", "--format", "json", "--effects", "replay"],
             &argv,
         ))
         .exits(0)
         .json();
+    let effect = |answer: &mut Value| answer.as_object_mut().unwrap().remove("effect").unwrap();
+    let (was, again) = (effect(&mut live), effect(&mut replayed));
+    assert!(
+        was["digest"]
+            .as_str()
+            .is_some_and(|d| d.starts_with("sha256:")),
+        "{was}"
+    );
+    assert_eq!(
+        (&was["digest"], &was["observed_at"], &was["from_journal"]),
+        (
+            &again["digest"],
+            &again["observed_at"],
+            &serde_json::json!(false)
+        )
+    );
+    assert_eq!(again["from_journal"], true);
+    insta::assert_json_snapshot!("run_captured", steady(live.clone()));
     assert_eq!(replayed, live);
     let picked = run(&project, "exit:4")
         .bare(&args(
@@ -338,7 +355,7 @@ fn a_capture_lets_a_program_write_past_four_mib() {
     let answer = run(&project, "flood")
         .bare(&args(&["run", "--format", "json"], &argv))
         .exits(0)
-        .json();
+        .answer();
     assert_eq!(answer["outcome"], "exited", "{}", answer["stderr"]);
     assert_eq!(answer["exit"], 0);
     assert_eq!(answer["truncated"], true);

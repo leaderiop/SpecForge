@@ -303,6 +303,26 @@ impl Run {
         })
     }
 
+    /// A verb's answer (ADR 0339 D4): stdout as JSON, its `effect` checked (a `digest` that is null or a record's,
+    /// an `observed_at`, a `from_journal`) and taken out, so what remains is the port's answer alone.
+    pub fn answer(&self) -> serde_json::Value {
+        let mut answer = self.json();
+        let effect = answer
+            .as_object_mut()
+            .and_then(|fields| fields.remove("effect"))
+            .unwrap_or_else(|| panic!("the answer says no effect: {}", self.stdout));
+        assert!(
+            effect["observed_at"].is_u64()
+                && effect["from_journal"].is_boolean()
+                && (effect["digest"].is_null()
+                    || effect["digest"]
+                        .as_str()
+                        .is_some_and(|d| d.starts_with("sha256:"))),
+            "{effect}"
+        );
+        answer
+    }
+
     /// Panics with the streams unless the exit code is `code`; `self` for chaining.
     pub fn exits(self, code: i32) -> Self {
         assert_eq!(

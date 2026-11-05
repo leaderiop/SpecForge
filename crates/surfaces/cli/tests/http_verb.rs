@@ -15,7 +15,7 @@ fn a_json_answer_is_read_whole_and_picked() {
     let answer = Cli::on(&project)
         .run(&["http", "get", &url])
         .exits(0)
-        .json();
+        .answer();
     assert_eq!(
         answer,
         json!({
@@ -28,7 +28,6 @@ fn a_json_answer_is_read_whole_and_picked() {
             "body": MODELS,
             "json": {"models": ["a", "b"]},
             "truncated": false,
-            "from_journal": false,
         })
     );
     let picked = Cli::on(&project)
@@ -45,7 +44,7 @@ fn a_status_outside_2xx_is_an_answer_not_a_failure() {
     let answer = Cli::on(&project)
         .run(&["http", "get", &format!("{}/x", server.base)])
         .exits(0)
-        .json();
+        .answer();
     assert_eq!(
         (answer["ok"].clone(), answer["status"].clone()),
         (json!(false), json!(404))
@@ -191,7 +190,7 @@ fn cached_answers_a_get_from_the_journal_and_replay_refuses_what_was_never_sent(
         "--effects",
         "cached",
         "--pick",
-        ".from_journal",
+        ".effect.from_journal",
     ];
     assert_eq!(Cli::on(&project).run(&ask).exits(0).stdout, "false\n");
     assert_eq!(Cli::on(&project).run(&ask).exits(0).stdout, "true\n");

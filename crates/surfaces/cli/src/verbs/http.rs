@@ -94,7 +94,7 @@ impl Action {
 impl AskArgs {
     fn run(self, method: &str, terminal: &Terminal, ports: &Ports) -> Exit {
         let mode = self.effects.unwrap_or(EffectsMode::Online);
-        self.verb.answer(
+        self.verb.answered(
             terminal,
             ports,
             |verbs| {

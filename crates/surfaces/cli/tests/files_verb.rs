@@ -40,14 +40,14 @@ fn stat_answers_each_path_kind_and_size() {
     let project = project();
     let run = Cli::on(&project).run(&["files", "stat", "src/main.rs", "src", "nosuch.txt"]);
     let run = run.exits(0);
-    insta::assert_json_snapshot!("files_stat", steady(run.json()));
+    insta::assert_json_snapshot!("files_stat", steady(run.answer()));
 }
 
 #[test]
 fn list_honours_gitignore_and_never_lists_the_hosts_state() {
     let project = project();
     let run = Cli::on(&project).run(&["files", "list"]).exits(0);
-    insta::assert_json_snapshot!("files_list", run.json());
+    insta::assert_json_snapshot!("files_list", run.answer());
     let all = Cli::on(&project)
         .run(&["files", "list", "--no-ignore", "--pick", ".entries[].path"])
         .exits(0);
@@ -95,7 +95,7 @@ fn search_answers_each_matching_line() {
     let run = Cli::on(&project)
         .run(&["files", "search", "hello", "src"])
         .exits(0);
-    insta::assert_json_snapshot!("files_search", run.json());
+    insta::assert_json_snapshot!("files_search", run.answer());
     let ignored = Cli::on(&project)
         .run(&[
             "files",
@@ -391,7 +391,7 @@ fn digest_is_the_sha256_of_a_file_and_of_text() {
     let run = Cli::on(&project)
         .run(&["files", "digest", "build/out.txt", "--text", "hello\n"])
         .exits(0);
-    insta::assert_json_snapshot!("files_digest", run.json());
+    insta::assert_json_snapshot!("files_digest", run.answer());
     let digests = &run.json()["digests"];
     assert_eq!(digests[0]["sha256"], digests[1]["sha256"]);
     Cli::on(&project).run(&["files", "digest", "src"]).exits(1);
