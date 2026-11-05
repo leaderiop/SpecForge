@@ -136,3 +136,58 @@ fn the_learnings_window_is_the_last_lessons() {
     assert_eq!(window("1"), lesson(2));
     assert_eq!(window("5"), lesson(1) + &lesson(2));
 }
+
+/// `#3352`, `#4097`: the review's last block keeps what only a lane wrote in its run directory: a lane report and a
+/// non-empty `.err` stay, the run's own input copies and an empty `.err` go, and a run with only inputs leaves no
+/// directory. No copy reaches a directory outside the roots.
+#[test]
+fn the_review_block_keeps_only_lane_evidence() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = taskboard();
+    let text = asset("gsd-core/workflows/review.md");
+    let tail = &text[text.rfind("shopt -s nullglob").expect("the last block")..];
+    let script = &tail[..tail.find("\n```").expect("the end of the fence")];
+    let run_dir = p.root().join(".specforge/tmp/gsd-review-run");
+    let block = script.replace("{run_dir}", &run_dir.display().to_string());
+    let fill = |files: &[(&str, &str)]| {
+        std::fs::create_dir_all(&run_dir).expect("a run directory");
+        for (name, body) in files {
+            std::fs::write(run_dir.join(name), body).expect("a run file");
+        }
+    };
+    let names = || {
+        let mut found: Vec<String> = std::fs::read_dir(&run_dir)
+            .expect("the run directory stays")
+            .map(|e| {
+                e.expect("an entry")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        found.sort();
+        found
+    };
+
+    fill(&[
+        ("gsd-review-prompt.md", "p"),
+        ("gsd-review-prompt-claude.md", "p"),
+        ("gsd-review-plan-01.md", "p"),
+        ("gsd-review-claude.md", "a report"),
+        ("gsd-review-claude.err", ""),
+        ("gsd-review-codex.err", "it failed"),
+    ]);
+    let (out, err, code) = sh.run_in(p.root(), &block);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("Review evidence kept at:"), "{out}{err}");
+    assert_eq!(names(), ["gsd-review-claude.md", "gsd-review-codex.err"]);
+    std::fs::remove_dir_all(&run_dir).expect("a clean slate");
+
+    fill(&[("gsd-review-prompt.md", "p"), ("gsd-review-claude.err", "")]);
+    let (out, err, code) = sh.run_in(p.root(), &block);
+    assert_eq!(code, 0, "{err}");
+    assert!(!out.contains("kept at"), "{out}{err}");
+    assert!(!run_dir.exists(), "{out}{err}");
+}

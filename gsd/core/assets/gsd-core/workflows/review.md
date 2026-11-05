@@ -616,7 +616,7 @@ fi
   (not a failure) and stop; do not proceed to `present_results`' summary claiming a review ran.
 - **If `TOTAL_LANE_FAILURE=true`:** do NOT write `REVIEWS.md` and do NOT run the commit below.
   Report the total lane failure to the user (name the lanes that were dispatched and point at
-  their `.err`/stub files preserved under `.review-diagnostics/` by `present_results`) and stop.
+  their `.err`/stub files kept in `RUN_DIR` by `present_results`) and stop.
 - **Otherwise** (at least one lane produced a result — R1, unchanged): proceed exactly as below.
 
 **#3301: plan coverage check.** For each dispatched lane that produced a *real* review (not a
@@ -844,39 +844,39 @@ To incorporate feedback into planning:
   /gsd:plan-phase {N} --reviews
 ```
 
-**#3352 (ADR-3473 §8.5, R3): preserve per-lane evidence before destroying it.** Regardless of
+**#3352 (ADR-3473 §8.5, R3): keep per-lane evidence before cleaning up.** Regardless of
 which branch above ran, the run's temp directory is the only record that a lane failed at all —
-copy it beside the phase's artifacts BEFORE cleanup. A lane that produced no output at all (L4)
-leaves nothing to preserve; that is a smaller diagnostics folder, not a fabricated one, and is
-NOT a preservation failure. This copy is deliberately NOT part of the commit above (N6) — that
+it stays in that directory after this block. A lane that produced no output at all (L4)
+leaves nothing to keep; that is a smaller directory, not a fabricated one, and is
+NOT a failure. The directory is deliberately NOT part of the commit above (N6) — that
 step names only `{padded_phase}-REVIEWS.md` explicitly, never a directory glob, so
-`.review-diagnostics/` is never swept into it.
+`RUN_DIR` is never swept into it.
 
-**#4097: preserve lane OUTPUT, never the run's own input copies.** `RUN_DIR` holds not only
+**#4097: keep lane OUTPUT, never the run's own input copies.** `RUN_DIR` holds not only
 lane outputs — prompt assembly (the `gather_context`/section-copy step above) also writes the
 run's assembled INPUTS there under the same `gsd-review-` prefix: the combined prompt, the
 instructions/roadmap sections, a copy of every plan under review, the project/context/research/
 requirements sections, and the per-lane trimmed prompts. Those are byte-identical duplicates of
-files already committed under the spec; sweeping them into `.review-diagnostics/` buries
-the actual evidence under plan duplicates and grows the phase directory on every run. The
+files already committed under the spec; keeping them buries
+the actual evidence under plan duplicates. The
 exclusion list below is CLOSED and owned here: this workflow itself writes every input
 basename at prompt-assembly time, so a future input file CANNOT silently join the evidence
 set — adding one means adding its stem to this list consciously. Lane slugs never begin with
 any excluded stem (`prompt`, `instructions`, `plan-`, `project`, `roadmap`, `context`,
 `research`, `requirements`), so a lane report can never be excluded by accident.
 
-Preservation and cleanup MUST run in the same fenced block below (a shell variable cannot
-survive across separate fences — each is its own process). `mkdir -p` and every `cp` are
-exit-status checked; `specforge files remove --recursive "$RUN_DIR" >/dev/null` runs ONLY if nothing was preserved (nothing to
-preserve is not a failure) or everything that needed preserving was copied successfully. If
-preservation fails partway, `$RUN_DIR` is left intact and a message names it as the location of
-the un-preserved evidence — a leftover temp directory is far cheaper than destroyed evidence:
+Removing the inputs and the verdict MUST run in the same fenced block below (a shell variable cannot
+survive across separate fences — each is its own process). Every `specforge files remove` is
+exit-status checked; `specforge files remove --recursive "$RUN_DIR" >/dev/null` runs ONLY if no evidence is left.
+Evidence left: the block names `$RUN_DIR`, which holds it, and stops there. If
+a remove fails, `$RUN_DIR` is left intact and a warning names it as the location of
+the run — a leftover temp directory is far cheaper than destroyed evidence:
 
 ```bash
 shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
 RUN_DIR="{run_dir}"
-DIAG_DIR="${TMPDIR:-/tmp}/gsd-review-diagnostics"
+_EVIDENCE=0
 
 # #4097: `gsd-review-*.md` matches BOTH lane outputs (reports, diagnostic stubs) and the
 # run's own assembled input copies (see the #4097 note above). Filter by basename against
@@ -885,53 +885,53 @@ DIAG_DIR="${TMPDIR:-/tmp}/gsd-review-diagnostics"
 # `nullglob` set at the top of this fence keeps an empty RUN_DIR an empty array (#2962).
 # `gsd-review-prompt*` deliberately covers BOTH the combined prompt (`gsd-review-prompt.md`)
 # and the per-lane trimmed prompts (`gsd-review-prompt-<slug>.md`).
-_DIAG_MD=()
+_PRESERVE_OK=true
 for f in "$RUN_DIR"/gsd-review-*.md; do
   case "${f##*/}" in
-    gsd-review-prompt*|gsd-review-instructions*|gsd-review-plan-*|gsd-review-project*|gsd-review-roadmap*|gsd-review-context*|gsd-review-research*|gsd-review-requirements*) ;;
-    *) _DIAG_MD+=("$f") ;;
+    gsd-review-prompt*|gsd-review-instructions*|gsd-review-plan-*|gsd-review-project*|gsd-review-roadmap*|gsd-review-context*|gsd-review-research*|gsd-review-requirements*) specforge files remove "$f" >/dev/null || _PRESERVE_OK=false ;;
+    *) _EVIDENCE=$((_EVIDENCE + 1)) ;;
   esac
 done
-_DIAG_ERR=()
+
 for f in "$RUN_DIR"/gsd-review-*.err; do
-  [ -s "$f" ] && _DIAG_ERR+=("$f")
+  if [ -s "$f" ]; then _EVIDENCE=$((_EVIDENCE + 1)); else specforge files remove "$f" >/dev/null || _PRESERVE_OK=false; fi
 done
 
-_PRESERVE_OK=true
-if [ ${#_DIAG_MD[@]} -gt 0 ] || [ ${#_DIAG_ERR[@]} -gt 0 ]; then
-  # #4351: ONE SUBDIRECTORY PER RUN. A flat copy used each file's SOURCE basename,
-  # and a lane slug is stable across runs — so a second review of the same phase
-  # silently overwrote the first run's evidence for any lane that ran both times.
-  # `cp` over an existing file is a success, so this lost data with no warning, in
-  # the one directory whose entire purpose is to outlive the `rm -rf` below.
-  #
-  # $RUN_DIR is `mktemp -d .../gsd-review-XXXXXX`, so its basename is already
-  # unique per run BY CONSTRUCTION — uniqueness never depends on the clock. The
-  # UTC stamp is only a sort key in front of it, and is omitted entirely if `date`
-  # fails. Lane basenames are unchanged INSIDE the subdirectory, so evidence still
-  # correlates back to its lane, and nothing inside $RUN_DIR is renamed (both
-  # `prepare_trimmed_prompt_for_reviewer` and the lane invocation resolver depend
-  # on those exact basenames).
-  _DIAG_STAMP="$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || true)"
-  _DIAG_RUN_DIR="$DIAG_DIR/${_DIAG_STAMP:+${_DIAG_STAMP}-}${RUN_DIR##*/}"
-  # `mkdir -p` still creates $DIAG_DIR itself, so a plain FILE sitting at
-  # $DIAG_DIR still fails here and still skips the `rm -rf` (#3885).
-  if mkdir -p "$_DIAG_RUN_DIR"; then
-    if [ ${#_DIAG_MD[@]} -gt 0 ] && ! cp "${_DIAG_MD[@]}" "$_DIAG_RUN_DIR/"; then
-      _PRESERVE_OK=false
-    fi
-    if [ ${#_DIAG_ERR[@]} -gt 0 ] && ! cp "${_DIAG_ERR[@]}" "$_DIAG_RUN_DIR/"; then
-      _PRESERVE_OK=false
-    fi
-  else
-    _PRESERVE_OK=false
-  fi
-fi
 
-if [ "$_PRESERVE_OK" = "true" ]; then
-  specforge files remove --recursive "$RUN_DIR" >/dev/null
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if [ "$_PRESERVE_OK" != "true" ]; then
+  echo "WARNING: a review input could not be removed — leaving the run directory intact at: $RUN_DIR" >&2
+elif [ "$_EVIDENCE" -gt 0 ]; then
+  echo "Review evidence kept at: $RUN_DIR"
 else
-  echo "WARNING: evidence preservation to ${_DIAG_RUN_DIR:-$DIAG_DIR} failed — leaving the un-preserved run directory intact at: $RUN_DIR" >&2
+  specforge files remove --recursive "$RUN_DIR" >/dev/null
 fi
 ```
 </step>
