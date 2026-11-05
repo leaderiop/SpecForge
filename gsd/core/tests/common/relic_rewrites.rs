@@ -156,4 +156,9 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/settings-advanced.md", 44, 44),
     ("gsd-core/workflows/settings-advanced.md", 608, 608),
     ("gsd-core/workflows/verify-work.md", 182, 214),
+    // The UI gate reads the phase's computed `frontend` field.
+    ("gsd-core/workflows/progress.md", 377, 377),
+    ("gsd-core/workflows/progress.md", 583, 583),
+    ("gsd-core/workflows/new-project.md", 1154, 1154),
+    ("gsd-core/workflows/new-project.md", 1158, 1158),
 ];

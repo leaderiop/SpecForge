@@ -6,7 +6,6 @@ use super::{Shell, asset, block, q};
 /// The UI gate reads the phase's computed `frontend` field (`@gsd/ui` computes it): no field holds upstream's
 /// `**UI hint**: yes`, so a grep of the phase's text for it is always false.
 #[test]
-#[ignore = "pin: the UI gate still greps the phase's text for a UI hint"]
 fn the_ui_gate_reads_the_phases_frontend_field() {
     let Some(sh) = Shell::without_jq() else {
         return;

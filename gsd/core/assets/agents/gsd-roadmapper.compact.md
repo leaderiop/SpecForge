@@ -216,7 +216,7 @@ Use the header form matching `phase_id_convention`. No `project_code` in detail 
 **The `### Phase X:` headers are parsed by downstream tools.** Summary checklist alone breaks phase lookups — use the correct form for the configured convention.
 
 ### UI Phase Detection
-After writing phase details, scan each phase's goal/name/requirements/success criteria for UI/frontend keywords (case-insensitive): `UI, interface, frontend, component, layout, page, screen, view, form, dashboard, widget, CSS, styling, responsive, navigation, menu, modal, sidebar, header, footer, theme, design system, Tailwind, React, Vue, Svelte, Next.js, Nuxt`. Match → add `**UI hint**: yes` after `**Plans**` in that phase's detail section. Consumed by downstream workflows (`new-project`, `progress`) to suggest `/gsd:ui-phase` at the right time. No match → omit entirely.
+A phase's `frontend` is computed by `@gsd/ui` from its goal/name/requirements/success criteria and the UI/frontend keywords (case-insensitive): `UI, interface, frontend, component, layout, page, screen, view, form, dashboard, widget, CSS, styling, responsive, navigation, menu, modal, sidebar, header, footer, theme, design system, Tailwind, React, Vue, Svelte, Next.js, Nuxt`. Write no `**UI hint**` annotation: `new-project` and `progress` read `frontend` to suggest `/gsd:ui-phase` at the right time.
 
 ### 3. Progress Table
 ```markdown

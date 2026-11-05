@@ -393,7 +393,7 @@ fn workflow(name: &str) -> String {
 fn the_post_fix_text_leftovers_stay_fixed() {
     // progress asks for the next phase of the milestone, padded as phase ids are
     assert!(
-        workflow("progress.md").contains("NEXT_PHASE=$(printf %02d $((Z+1))); NEXT_PHASE_SECTION=$(specforge query \"$MILESTONE/$NEXT_PHASE\"")
+        workflow("progress.md").contains("NEXT_PHASE=$(printf %02d $((Z+1))); NEXT_HAS_UI=$(specforge query \"$MILESTONE/$NEXT_PHASE\"")
     );
     // the ingest staging directory holds the documents' text and is removed at the end
     assert!(

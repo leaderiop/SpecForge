@@ -797,7 +797,7 @@ prompt:workspace	date	TIMESTAMP=$(date +%Y%m%d%H%M%S)
 prompt:workspace	mkdir	mkdir -p "$TARGET_PATH"
 prompt:workspace	rm	rm -rf "$WORKSPACE_PATH"
 
-# C rule: a rule that lives in the shell moves into Rust (R1): a grep -q of a value against a pattern. 58 rows.
+# C rule: a rule that lives in the shell moves into Rust (R1): a grep -q of a value against a pattern. 52 rows.
 agents/gsd-executor.md	grep	if echo "$ACTUAL_BRANCH" | grep -Eq '^(main|master|develop|trunk|release/.*)$'; then
 agents/gsd-executor.md	grep	if ! echo "$ACTUAL_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)[A-Za-z0-9._/-]+$'; then
 gsd-core/references/worktree-branch-check.md	grep	if [ "$HEAD_REF" = "DETACHED" ] || echo "$ACTUAL_BRANCH" | grep -Eq '^(main|master|develop|trunk|release/.*)$'; then
@@ -819,7 +819,6 @@ gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md	grep	print
 gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md	grep	printf '%s' "$EXECUTOR_PROMPT" | grep -q '\${TDD_APPLICABLE' && {
 gsd-core/workflows/new-milestone.md	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 gsd-core/workflows/new-milestone.md	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
-gsd-core/workflows/new-project.md	grep	PHASE1_HAS_UI=$(echo "$PHASE1_SECTION" | grep -qi "UI hint.*yes" && echo "true" || echo "false")
 gsd-core/workflows/next.md	grep	if echo "$GSD_ARGS" | grep -qE '(^|[[:space:]])\-\-(converge|cross-ai)([[:space:]]|$)'; then
 gsd-core/workflows/next.md	grep	if echo "$GSD_ARGS" | grep -qE "(^|[[:space:]])${REVIEW_FLAG}([[:space:]]|$)"; then
 gsd-core/workflows/next.md	grep	if echo "$GSD_ARGS" | grep -qE '\-\-max-cycles\s+[0-9]+'; then
@@ -827,8 +826,6 @@ gsd-core/workflows/plan-review-convergence.md	grep	echo "$GSD_ARGS" | grep -qE '
 gsd-core/workflows/plan-review-convergence.md	grep	echo "$GSD_ARGS" | grep -qE '\-\-ws\s+\S+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE '\-\-ws\s+\S+')
 gsd-core/workflows/plan-review-convergence.md	grep	if echo "$GSD_ARGS" | grep -qE '(^|[[:space:]])--override-gate([[:space:]]|$)'; then
 gsd-core/workflows/plan-review-convergence.md	grep	if echo "$GSD_ARGS" | grep -qE "(^|[[:space:]])${REVIEW_FLAG}([[:space:]]|$)"; then
-gsd-core/workflows/progress.md	grep	PHASE_HAS_UI=$(echo "$PHASE_SECTION" | grep -qi "UI hint.*yes" && echo "true" || echo "false")
-gsd-core/workflows/progress.md	grep	NEXT_HAS_UI=$(echo "$NEXT_PHASE_SECTION" | grep -qi "UI hint.*yes" && echo "true" || echo "false")
 gsd-core/workflows/quick-batch/steps/merge-wave.md	grep	mergeable=(); while IFS= read -r q; do [ -n "$q" ] || continue; printf '%s\n' "$READY" | grep -qxF -- "$q" || break; mergeable+=("$q"); done < <(printf '%s\n' "$WAVE_ORDER")   # quick-batch merge-eligible: the batch router is not part of @gsd/core
 gsd-core/workflows/verify-work.md	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 gsd-core/workflows/verify-work.md	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
@@ -844,13 +841,10 @@ prompt:autonomous	grep	if echo "$GSD_ARGS" | grep -qE '\-\-max-cycles\s+[0-9]+';
 prompt:execute_phase	grep	if printf '%s' "$ORCH_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)'; then
 prompt:new_milestone	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 prompt:new_milestone	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
-prompt:new_project	grep	PHASE1_HAS_UI=$(echo "$PHASE1_SECTION" | grep -qi "UI hint.*yes" && echo "true" || echo "false")
 prompt:plan_review_convergence	grep	echo "$GSD_ARGS" | grep -qE '\-\-ws\s+\S+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE '\-\-ws\s+\S+')
 prompt:plan_review_convergence	grep	echo "$GSD_ARGS" | grep -qE '\-\-ws\s+\S+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE '\-\-ws\s+\S+')
 prompt:plan_review_convergence	grep	if echo "$GSD_ARGS" | grep -qE '(^|[[:space:]])--override-gate([[:space:]]|$)'; then
 prompt:plan_review_convergence	grep	if echo "$GSD_ARGS" | grep -qE "(^|[[:space:]])${REVIEW_FLAG}([[:space:]]|$)"; then
-prompt:progress	grep	PHASE_HAS_UI=$(echo "$PHASE_SECTION" | grep -qi "UI hint.*yes" && echo "true" || echo "false")
-prompt:progress	grep	NEXT_HAS_UI=$(echo "$NEXT_PHASE_SECTION" | grep -qi "UI hint.*yes" && echo "true" || echo "false")
 prompt:progress	grep	if echo "$GSD_ARGS" | grep -qE '(^|[[:space:]])\-\-(converge|cross-ai)([[:space:]]|$)'; then
 prompt:progress	grep	if echo "$GSD_ARGS" | grep -qE "(^|[[:space:]])${REVIEW_FLAG}([[:space:]]|$)"; then
 prompt:progress	grep	if echo "$GSD_ARGS" | grep -qE '\-\-max-cycles\s+[0-9]+'; then

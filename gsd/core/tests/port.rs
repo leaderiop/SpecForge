@@ -300,6 +300,10 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-verifier.md", 385),
     ("gsd-verifier.md", 386),
     ("gsd-verifier.md", 480),
+    // `frontend` is computed by @gsd/ui: the roadmapper writes no UI hint.
+    ("gsd-roadmapper.md", 400),
+    ("gsd-roadmapper.md", 422),
+    ("gsd-roadmapper.compact.md", 217),
 ];
 
 /// Checks one asset against its upstream file: the header, then every line.

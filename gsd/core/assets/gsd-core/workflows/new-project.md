@@ -1153,11 +1153,11 @@ Exit skill and invoke SlashCommand("/gsd:discuss-phase 1 --auto")
 
 **If interactive mode:**
 
-Check if Phase 1 has UI indicators (look for `**UI hint**: yes` in Phase 1 detail section of ROADMAP.md):
+Check whether Phase 1 has a frontend (its computed `frontend` field):
 
 ```bash
-PHASE1_SECTION=$(specforge query "$PHASE1" --depth 1 --format json 2>/dev/null)
-PHASE1_HAS_UI=$(echo "$PHASE1_SECTION" | grep -qi "UI hint.*yes" && echo "true" || echo "false")
+PHASE1_HAS_UI=$(specforge query "$PHASE1" --depth 0 --pick '.nodes[0].fields.frontend' 2>/dev/null)
+PHASE1_HAS_UI=${PHASE1_HAS_UI:-false}   # @gsd/ui computes frontend: false when it is not loaded
 ```
 
 **If Phase 1 has UI (`PHASE1_HAS_UI` is `true`):**

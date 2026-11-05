@@ -52,8 +52,8 @@
     "sha256": "e7ba39077223c736a2e297de48a27092852b87ca2eac12757e12372035ab7ff4"
   },
   ".codex/agents/gsd-roadmapper.toml": {
-    "bytes": 24962,
-    "sha256": "c8b3c81f3376b6e91e41db9f7c90f71473344bf51b4395e649d4d030c9185aac"
+    "bytes": 24878,
+    "sha256": "711a7f7c055efe769e248e299e51b8d4a8d878541361be1b0df616825f2e06ee"
   },
   ".codex/agents/gsd-verifier.toml": {
     "bytes": 51040,

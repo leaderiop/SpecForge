@@ -375,8 +375,8 @@ Check if `{phase_num}-CONTEXT.md` exists in phase directory.
 Check if current phase has UI indicators:
 
 ```bash
-PHASE_SECTION=$(specforge query "${CURRENT_PHASE}" --depth 0 --format context 2>/dev/null)
-PHASE_HAS_UI=$(echo "$PHASE_SECTION" | grep -qi "UI hint.*yes" && echo "true" || echo "false")
+PHASE_HAS_UI=$(specforge query "${CURRENT_PHASE}" --depth 0 --pick '.nodes[0].fields.frontend' 2>/dev/null)
+PHASE_HAS_UI=${PHASE_HAS_UI:-false}   # @gsd/ui computes frontend: false when it is not loaded
 ```
 
 **If CONTEXT.md exists:**
@@ -581,8 +581,8 @@ Read ROADMAP.md to get the next phase's name and goal.
 Check if next phase has UI indicators:
 
 ```bash
-NEXT_PHASE=$(printf %02d $((Z+1))); NEXT_PHASE_SECTION=$(specforge query "$MILESTONE/$NEXT_PHASE" --depth 0 --format context 2>/dev/null)
-NEXT_HAS_UI=$(echo "$NEXT_PHASE_SECTION" | grep -qi "UI hint.*yes" && echo "true" || echo "false")
+NEXT_PHASE=$(printf %02d $((Z+1))); NEXT_HAS_UI=$(specforge query "$MILESTONE/$NEXT_PHASE" --depth 0 --pick '.nodes[0].fields.frontend' 2>/dev/null)
+NEXT_HAS_UI=${NEXT_HAS_UI:-false}   # @gsd/ui computes frontend: false when it is not loaded
 ```
 
 **If next phase has UI (`NEXT_HAS_UI` is `true`):**
