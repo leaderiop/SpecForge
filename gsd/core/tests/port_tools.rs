@@ -5,10 +5,14 @@ use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
+use host_options::HOST_OPTIONS;
+
 #[path = "common/command_word.rs"]
 mod command_word;
 #[path = "common/files.rs"]
 mod files;
+#[path = "common/host_options.rs"]
+mod host_options;
 #[path = "common/specforge_only.rs"]
 mod specforge_only;
 
@@ -412,16 +416,17 @@ fn refusal(
         } else if let Some(long) = w.strip_prefix("--") {
             let long = long.split('=').next().unwrap_or(long);
             let declared = shape.options.iter().find(|(n, _)| n == long);
-            // `--path`, `--format`, `--pick` and the pick's shapes (ADR 0325 D8) belong to the CLI, not to a
-            // command, unless the command declares the name
-            if declared.is_none()
-                && matches!(long, "path" | "format" | "pick" | "first" | "last" | "join")
+            // the CLI's own options belong to no command, unless the command declares the name
+            if let Some((_, takes_value)) = HOST_OPTIONS
+                .iter()
+                .find(|(name, _)| *name == long)
+                .filter(|_| declared.is_none())
             {
-                i += if w.contains('=') { 1 } else { 2 };
-                continue;
-            }
-            if declared.is_none() && long == "count" {
-                i += 1;
+                i += if *takes_value && !w.contains('=') {
+                    2
+                } else {
+                    1
+                };
                 continue;
             }
             match declared {

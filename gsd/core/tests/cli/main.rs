@@ -52,6 +52,8 @@ mod hooks_spec_root;
 mod hooks_statusline;
 mod hooks_support;
 mod hooks_workflow;
+#[path = "../common/host_options.rs"]
+mod host_options;
 mod install_agents;
 mod install_hosts;
 mod install_skills;
