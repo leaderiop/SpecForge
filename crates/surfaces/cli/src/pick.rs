@@ -180,7 +180,7 @@ impl<R: Rows> Picked<R> {
             return terminal.json(document);
         };
         let value = serde_json::to_value(document).expect("serialize JSON output");
-        let lines = self.shape.print(pick.texts(&value, self.rows.fields()));
+        let lines = self.shape.shaped(pick.texts(&value, self.rows.fields()));
         // A picked string is a file's text, a commit subject or a response: exact into a pipe, which a script
         // reads, but escaped before a terminal, where an escape sequence would act (ADR 0339 D4).
         if terminal.facts().out_terminal {
@@ -306,8 +306,8 @@ impl Shape {
         }
     }
 
-    /// `texts` (one per value or row reached, in document order) as the shape prints them.
-    fn print(&self, texts: Vec<String>) -> String {
+    /// The text the shape makes of `texts` (one per value or row reached, in document order); it prints nothing.
+    fn shaped(&self, texts: Vec<String>) -> String {
         if self.count {
             return format!("{}\n", texts.len());
         }
@@ -546,7 +546,7 @@ impl Pick {
             return Ok(String::new());
         }
         serde_json::from_str(answer)
-            .map(|document| shape.print(self.texts(&document, fields)))
+            .map(|document| shape.shaped(self.texts(&document, fields)))
             .map_err(|e| format!("error: --pick: the answer is not JSON ({e})\n"))
     }
 }

@@ -27,7 +27,7 @@ fn a_picked_string_is_escaped_before_a_terminal_only() {
 use serde_json::json;
 
 fn picked(path: &str, document: &Value) -> String {
-    Shape::default().print(Pick::parse(path).unwrap().texts(document, None))
+    Shape::default().shaped(Pick::parse(path).unwrap().texts(document, None))
 }
 
 #[test]

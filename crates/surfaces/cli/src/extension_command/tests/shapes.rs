@@ -28,7 +28,19 @@ fn a_shape_without_pick_is_a_usage_error() {
     for args in [
         &["--count"][..],
         &["--first", "1"],
-        &["--pick", ".a[]", "--count", "--last", "1"],
+        &["--last", "1"],
+        &["--join", ","],
+    ] {
+        let (code, out, err) = quiet(r#"{"a": [1]}"#, "", 0, args);
+        assert_eq!((code, out.as_str()), (2, ""), "{args:?}: {err}");
+    }
+}
+
+#[test]
+fn shapes_that_conflict_are_a_usage_error() {
+    for args in [
+        &["--pick", ".a[]", "--count", "--last", "1"][..],
+        &["--pick", ".a[]", "--count", "--join", ","],
         &["--pick", ".a[]", "--first", "1", "--last", "1"],
     ] {
         let (code, out, err) = quiet(r#"{"a": [1]}"#, "", 0, args);
