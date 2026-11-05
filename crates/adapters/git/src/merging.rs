@@ -8,7 +8,7 @@ use specforge_effects::git::{
     ConflictSide, GitConflict, GitError, GitPlace, GitStash, Merged, ResetMode, Restoring, Sha,
 };
 
-use crate::write::{Author, conclude, gix_owned, head_of, libgit2, libgit2_read, record, safe};
+use crate::write::{author_of, conclude, gix_owned, head_of, libgit2, libgit2_read, record, safe};
 use crate::{Gix, failed, id};
 
 fn oid(sha: &Sha) -> Result<git2::Oid, GitError> {
@@ -160,6 +160,7 @@ pub(crate) fn merge(
         Some(vec![ours, theirs.clone()]),
         true,
         None,
+        &[],
     )?;
     conclude(place)?;
     Ok(Merged {
@@ -320,19 +321,7 @@ pub(crate) fn pick(
     let (message, author) = if revert {
         (reverting(&original, commit), None)
     } else {
-        let who = picked.author();
-        let offset = who.when().offset_minutes().saturating_mul(60);
-        // `write_to`, not `Display`: an offset past ±99 hours (a hostile commit's) is an error, never a panic.
-        let mut time = Vec::new();
-        gix::date::Time::new(who.when().seconds(), offset)
-            .write_to(&mut time)
-            .map_err(|e| failed("write the picked commit's author time", &e))?;
-        let author = Author {
-            name: String::from_utf8_lossy(who.name_bytes()).into_owned(),
-            email: String::from_utf8_lossy(who.email_bytes()).into_owned(),
-            time: String::from_utf8_lossy(&time).into_owned(),
-        };
-        (original, Some(author))
+        (original, Some(author_of(&picked)?))
     };
     let committed = record(
         port,
@@ -341,6 +330,7 @@ pub(crate) fn pick(
         Some(vec![head]),
         false,
         author.as_ref(),
+        &[],
     )?;
     conclude(place)?;
     Ok(Merged {

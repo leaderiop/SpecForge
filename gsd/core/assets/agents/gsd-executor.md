@@ -533,7 +533,7 @@ specforge git add src/types/user.ts
 
 **If `sub_repos` is configured (non-empty array from init context):** Use `commit-to-subrepo` to route files to their correct sub-repo:
 ```bash
-git -C "{sub_repo}" commit -m "{type}({phase}-{plan}): {concise task description}" -- file1 file2 ...
+specforge git --in "{sub_repo}" commit -m "{type}({phase}-{plan}): {concise task description}" -- file1 file2 ...
 ```
 **0c. Plan commit ledger (#3968, single-repo — before the first commit):**
 Each Bash call is a FRESH shell, so the ledger persists on disk like the #3097 sentinel above

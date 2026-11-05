@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use specforge_common::remedy::printable;
-use specforge_effects::git::{GitError, GitPlace, Removal, Staging};
+use specforge_effects::git::{GitError, GitPlace, Recording, Removal, Staging};
 use specforge_effects::process::{OUTPUT_CAP, USER_CEILING};
 use specforge_effects::{
     Ceiling, EffectRequest, EnvVar, Output, ProcessClass, ProcessRequest, Shown,
@@ -19,6 +19,11 @@ use crate::{OpError, OpErrorKind};
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CommitRequest {
     pub message: String,
+    /// The commit whose message and author this one reuses (`-C`), in place of `message`.
+    pub reuse_message: Option<String>,
+    /// Commit only the files at or under these paths, read from the current directory, as the worktree has them;
+    /// what else is staged stays staged (`git commit -- <paths>`).
+    pub only: Vec<PathBuf>,
     /// Staged first, read from the current directory: the files at or under each, as the worktree has them.
     pub add: Vec<PathBuf>,
     /// Out of the index first (`git rm --cached`), the files left on disk.
@@ -55,15 +60,27 @@ pub(super) fn write_failed(error: GitError) -> OpError {
 pub fn commit(verbs: &Verbs, request: &CommitRequest) -> Result<CommitAnswer, OpError> {
     let place = verbs.place_to_write("commit")?;
     refuse_signing(verbs, &place, Signed::Commit)?;
-    let mut message = cleaned(&request.message).ok_or_else(empty_message)?;
+    let git = &verbs.ports().git;
+    let reused = request
+        .reuse_message
+        .as_deref()
+        .map(|revision| super::commit_named(verbs, &place, revision))
+        .transpose()?;
+    let typed = match &reused {
+        Some(sha) => git.message(&place, sha).map_err(write_failed)?,
+        None => request.message.clone(),
+    };
+    let mut message = cleaned(&typed).ok_or_else(empty_message)?;
+    let only = in_repository(verbs, &place, &request.only)?;
+    let mut add = in_repository(verbs, &place, &request.add)?;
+    add.extend(only.iter().cloned());
     let staging = Staging {
-        add: in_repository(verbs, &place, &request.add)?,
+        add,
         remove: in_repository(verbs, &place, &request.remove)?,
         all: request.all,
         force: request.force,
         except: Vec::new(),
     };
-    let git = &verbs.ports().git;
     if staging != Staging::default() {
         git.stage(&place, &staging).map_err(write_failed)?;
     }
@@ -79,7 +96,12 @@ pub fn commit(verbs: &Verbs, request: &CommitRequest) -> Result<CommitAnswer, Op
         .map_err(write_failed)?
         .to_string_lossy()
         .into_owned();
-    hooks.run("prepare-commit-msg", &[file.clone(), "message".to_string()])?;
+    // as git hands the hook its source: `commit` and the commit for -C, else `message`
+    let source = match &reused {
+        Some(sha) => vec![file.clone(), "commit".to_string(), sha.as_str().to_string()],
+        None => vec![file.clone(), "message".to_string()],
+    };
+    hooks.run("prepare-commit-msg", &source)?;
     if verify {
         hooks.run("commit-msg", &[file])?;
     }
@@ -88,7 +110,15 @@ pub fn commit(verbs: &Verbs, request: &CommitRequest) -> Result<CommitAnswer, Op
         .map_err(write_failed)
         .and_then(|edited| cleaned(&edited).ok_or_else(empty_message))?;
     let committed = git
-        .commit_index(&place, &message, request.allow_empty)
+        .commit_index(
+            &place,
+            &message,
+            &Recording {
+                allow_empty: request.allow_empty,
+                only,
+                author_of: reused,
+            },
+        )
         .map_err(write_failed)?;
     if verify {
         // as git: the commit is made, whatever post-commit answers

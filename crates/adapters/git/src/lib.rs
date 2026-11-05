@@ -14,8 +14,8 @@ use gix::sec::trust::DefaultForLevel as _;
 use specforge_effects::git::{
     Blob, CommitFile, Committed, DiffQuery, DiffSide, Git, GitBlob, GitBranch, GitBranchRef,
     GitError, GitFileDiff, GitLog, GitPlace, GitRemote, GitStash, GitStatus, GitSubmodule,
-    GitWorktree, Located, LogQuery, Merged, ObjectKind, Removal, ResetMode, Restoring, Sha, Sized,
-    Staging, TreeEntry,
+    GitWorktree, Located, LogQuery, Merged, ObjectKind, Recording, Removal, ResetMode, Restoring,
+    Sha, Sized, Staging, TreeEntry,
 };
 
 mod branching;
@@ -533,9 +533,20 @@ impl Git for Gix {
         &self,
         place: &GitPlace,
         message: &str,
-        allow_empty: bool,
+        recording: &Recording,
     ) -> Result<Committed, GitError> {
-        write::commit(self, place, message, allow_empty)
+        write::commit(self, place, message, recording)
+    }
+
+    fn message(&self, place: &GitPlace, commit: &Sha) -> Result<String, GitError> {
+        let repo = open(place)?;
+        let found = repo
+            .find_commit(id(commit)?)
+            .map_err(|e| failed(&format!("read {}", commit.short()), &e))?;
+        let message = found
+            .message_raw()
+            .map_err(|e| failed(&format!("read {}", commit.short()), &e))?;
+        Ok(String::from_utf8_lossy(message).into_owned())
     }
 
     fn branch_create(&self, place: &GitPlace, name: &str, at: &Sha) -> Result<(), GitError> {

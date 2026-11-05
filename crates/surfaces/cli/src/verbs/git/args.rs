@@ -296,8 +296,22 @@ pub(crate) struct RmArgs {
 #[derive(clap::Args)]
 pub(crate) struct CommitArgs {
     /// The message; given more than once, each is a paragraph of its own (as `git commit -m` takes them)
-    #[arg(short, long = "message", value_name = "MESSAGE", required = true)]
+    #[arg(
+        short,
+        long = "message",
+        value_name = "MESSAGE",
+        required_unless_present = "reuse_message"
+    )]
     pub(super) message: Vec<String>,
+
+    /// Reuse this commit's message and author (name, email and time); the committer is still git's configured one
+    #[arg(short = 'C', long, value_name = "REV", conflicts_with = "message")]
+    pub(super) reuse_message: Option<String>,
+
+    /// Commit only the files at or under these paths (after `--`), as the worktree has them; what else is staged
+    /// stays staged
+    #[arg(last = true, value_name = "PATH")]
+    pub(super) only: Vec<std::path::PathBuf>,
 
     /// Stage the files at or under this path first, as the worktree has them (a deleted one leaves the index)
     #[arg(long, value_name = "PATH")]

@@ -4,7 +4,11 @@ expression: command.clone().render_long_help().to_string()
 ---
 Record a commit: stage the paths named, run the repository's hooks, commit by git's configured identity
 
-Usage: specforge git commit [OPTIONS] --message <MESSAGE>
+Usage: specforge git commit [OPTIONS] [-- <PATH>...]
+
+Arguments:
+  [PATH]...
+          Commit only the files at or under these paths (after `--`), as the worktree has them; what else is staged stays staged
 
 Options:
       --in <DIR>
@@ -12,6 +16,9 @@ Options:
 
   -m, --message <MESSAGE>
           The message; given more than once, each is a paragraph of its own (as `git commit -m` takes them)
+
+  -C, --reuse-message <REV>
+          Reuse this commit's message and author (name, email and time); the committer is still git's configured one
 
       --add <PATH>
           Stage the files at or under this path first, as the worktree has them (a deleted one leaves the index)

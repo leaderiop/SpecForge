@@ -353,6 +353,18 @@ pub struct Removal {
     pub ignore_unmatch: bool,
 }
 
+/// How a commit records the index.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Recording {
+    /// Record even when the tree matches `HEAD`'s (`--allow-empty`).
+    pub allow_empty: bool,
+    /// Only the index's entries at or under these paths (from the repository's top), over `HEAD`'s tree: the other
+    /// staged changes stay staged (`git commit -- <paths>`).
+    pub only: Vec<String>,
+    /// The commit whose author (name, email and time) this one takes (`git commit -C`).
+    pub author_of: Option<Sha>,
+}
+
 /// A commit the port recorded.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Committed {
@@ -648,16 +660,21 @@ pub trait Git: Send + Sync {
     fn pick_end(&self, _place: &GitPlace, _abort: bool) -> Result<bool, GitError> {
         Err(GitError::unwritable())
     }
-    /// Record the index as a commit on `HEAD` with `message` (kept byte for byte), by the identity the repository's
-    /// configuration names, and move `HEAD`'s branch to it. `Err` when the index matches `HEAD` and `allow_empty` is
-    /// false, or holds a conflict.
+    /// Record the index (or, with `recording.only`, `HEAD`'s tree with the index's entries at those paths) as a
+    /// commit on `HEAD` with `message` (kept byte for byte), committed by the identity the repository's
+    /// configuration names and authored by it or by `recording.author_of`'s author, and move `HEAD`'s branch to it.
+    /// `Err` when the tree matches `HEAD`'s and `allow_empty` is false, or the index holds a conflict.
     fn commit_index(
         &self,
         _place: &GitPlace,
         _message: &str,
-        _allow_empty: bool,
+        _recording: &Recording,
     ) -> Result<Committed, GitError> {
         Err(GitError::unwritable())
+    }
+    /// The message of `commit`, byte for byte as it is stored (`git cat-file`'s, after the headers).
+    fn message(&self, _place: &GitPlace, _commit: &Sha) -> Result<String, GitError> {
+        Err(GitError::unanswered())
     }
 }
 

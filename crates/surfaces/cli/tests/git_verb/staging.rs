@@ -106,3 +106,39 @@ fn restore_takes_their_side_of_a_conflict_or_head_into_both() {
     let refused = git(&project, &["restore", "--theirs", "--staged", "c.txt"]).exits(2);
     assert!(refused.stderr.contains("--staged"), "{}", refused.stderr);
 }
+
+#[test]
+fn commit_reuses_a_message_and_its_author_with_c() {
+    let (project, repo, first) = committed();
+    repo.config("[user]\n\tname = Ada\n\temail = ada@example.com");
+    repo.write("a.txt", "two\n");
+    git(&project, &["add", "a.txt"]).exits(0);
+    git(&project, &["commit", "-C", &first]).exits(0);
+    let log = git(&project, &["log", "--max", "1", "--pick", ".commits[0]"])
+        .exits(0)
+        .json();
+    assert_eq!(log["subject"], "first");
+    assert_eq!(log["author"]["name"], "Test", "the reused commit's author");
+    assert_eq!(log["committer"]["name"], "Ada");
+    let refused = git(&project, &["commit", "-C", &first, "-m", "x"]).exits(2);
+    assert!(refused.stderr.contains("--message"), "{}", refused.stderr);
+}
+
+#[test]
+fn commit_of_paths_after_the_separator_leaves_the_rest_staged() {
+    let (project, repo, _) = committed();
+    repo.write("a.txt", "two\n").write("b.txt", "b\n");
+    git(&project, &["add", "b.txt"]).exits(0);
+    let empty = tempfile::tempdir().unwrap();
+    // bare: the harness's own trailing --path would land after `--`, among the paths
+    let committed = crate::support::Cli::on(&project)
+        .env("PATH", empty.path())
+        .bare(&["git", "commit", "-m", "only a", "--", "a.txt"])
+        .exits(0)
+        .answer();
+    assert_eq!(committed["files"], serde_json::json!(["a.txt"]));
+    let tracked = git(&project, &["status", "--pick", ".tracked"])
+        .exits(0)
+        .json();
+    assert_eq!(tracked, serde_json::json!(["b.txt"]));
+}

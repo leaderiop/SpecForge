@@ -315,6 +315,8 @@ impl Action {
             Action::Commit(args) => {
                 let request = git::CommitRequest {
                     message: args.message.join("\n\n"),
+                    reuse_message: args.reuse_message,
+                    only: args.only,
                     add: args.add,
                     remove: args.remove,
                     all: args.all,

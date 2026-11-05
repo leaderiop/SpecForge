@@ -486,7 +486,7 @@ UNMERGED_PATHS_EOF
     continue
   fi
 
-  git commit -q -C "$HASH"
+  specforge git commit -C "$HASH" >/dev/null
 done
 ```
 

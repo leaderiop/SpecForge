@@ -1,10 +1,18 @@
 //! The Git port's writes through `Gix` (ADR 0339 D5): staging is libgit2's, the commit object and its ref move gix's.
 
-use specforge_effects::git::{ConflictSide, Git, Removal, Restoring, Staging};
+use specforge_effects::git::{ConflictSide, Git, Recording, Removal, Restoring, Staging};
 use specforge_git::Gix;
 use specforge_git::testing::Repo;
 
 use super::place;
+
+/// A recording that allows an empty commit.
+fn empty() -> Recording {
+    Recording {
+        allow_empty: true,
+        ..Recording::default()
+    }
+}
 
 /// The paths `repo`'s index holds.
 fn indexed(repo: &Repo) -> Vec<String> {
@@ -37,7 +45,7 @@ fn staging_a_directory_keeps_its_ignore_rules_and_a_removal_keeps_the_file() {
         "the file stays on disk"
     );
     let committed = Gix::default()
-        .commit_index(&place, "second\n", false)
+        .commit_index(&place, "second\n", &Recording::default())
         .unwrap();
     assert_eq!(committed.branch.as_deref(), Some("main"));
     assert_eq!(committed.files, ["keep.txt", "spec/a.spec"]);
@@ -84,12 +92,12 @@ fn staging_all_takes_tracked_changes_and_deletions_and_no_untracked_file() {
     Gix::default().stage(&place, &staging).unwrap();
     assert_eq!(indexed(&repo), ["a.txt"]);
     let committed = Gix::default()
-        .commit_index(&place, "tracked\n", false)
+        .commit_index(&place, "tracked\n", &Recording::default())
         .unwrap();
     assert_eq!(committed.files, ["a.txt", "b.txt"]);
     assert!(
         Gix::default()
-            .commit_index(&place, "again\n", false)
+            .commit_index(&place, "again\n", &Recording::default())
             .is_err(),
         "nothing staged"
     );
@@ -127,7 +135,7 @@ fn a_write_during_a_rebase_am_or_bisect_is_refused_and_keeps_its_state() {
         let refused = Gix::default().stage(&place, &staging).unwrap_err();
         assert!(refused.0.contains("in progress"), "{state}: {refused}");
         let refused = Gix::default()
-            .commit_index(&place, "m\n", true)
+            .commit_index(&place, "m\n", &empty())
             .unwrap_err();
         assert!(refused.0.contains("in progress"), "{state}: {refused}");
         assert!(repo.git_dir().join(state).exists(), "{state} survives");
@@ -145,7 +153,7 @@ fn a_commit_during_a_cherry_pick_of_several_commits_keeps_the_sequencer() {
     std::fs::write(repo.git_dir().join("CHERRY_PICK_HEAD"), format!("{head}\n")).unwrap();
     assert!(
         Gix::default()
-            .commit_index(&place(&repo), "m\n", true)
+            .commit_index(&place(&repo), "m\n", &empty())
             .is_err()
     );
     assert!(repo.git_dir().join("sequencer/todo").exists());
@@ -179,7 +187,7 @@ fn a_commit_concluding_a_merge_removes_only_the_merges_files() {
     repo.commit_all("second");
     std::fs::write(repo.git_dir().join("MERGE_HEAD"), format!("{first}\n")).unwrap();
     in_progress(&repo, &["MERGE_MSG", "BISECT_START"]);
-    let committed = Gix::default().commit_index(&place(&repo), "merged\n", false);
+    let committed = Gix::default().commit_index(&place(&repo), "merged\n", &Recording::default());
     assert!(committed.is_ok(), "{committed:?}");
     assert!(!repo.git_dir().join("MERGE_HEAD").exists());
     assert!(!repo.git_dir().join("MERGE_MSG").exists());
@@ -531,5 +539,42 @@ fn restoring_takes_a_side_of_a_conflict_or_head_into_the_index_and_the_files() {
             .entries
             .iter()
             .all(|e| e.path != "a.txt")
+    );
+}
+
+#[test]
+fn a_commit_of_some_paths_leaves_the_rest_staged_and_takes_an_author() {
+    use specforge_effects::git::Sha;
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a").write("b.txt", "b");
+    let first = repo.commit_all("first");
+    repo.write("a.txt", "a2")
+        .write("b.txt", "b2")
+        .write("d/c.txt", "c");
+    repo.stage_all();
+    let place = place(&repo);
+    let only = Recording {
+        only: vec!["a.txt".into(), "d".into()],
+        author_of: Some(Sha::new(first.as_str())),
+        ..Recording::default()
+    };
+    let committed = Gix::default()
+        .commit_index(&place, "some\n", &only)
+        .unwrap();
+    assert_eq!(committed.files, ["a.txt", "d/c.txt"]);
+    let status = Gix::default().status(&place).unwrap();
+    let staged: Vec<_> = status.entries.iter().map(|e| e.path.as_str()).collect();
+    assert_eq!(staged, ["b.txt"], "b.txt stays staged");
+    let log = repo.open();
+    let head = log.head_commit().unwrap();
+    let author = head.author().unwrap();
+    let theirs = log
+        .find_commit(gix::ObjectId::from_hex(first.as_bytes()).unwrap())
+        .unwrap();
+    assert_eq!(
+        author.time,
+        theirs.author().unwrap().time,
+        "the author's time is the reused commit's"
     );
 }

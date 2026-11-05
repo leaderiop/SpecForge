@@ -40,10 +40,10 @@ if [ "${USE_WORKTREES}" != "false" ]; then
       # workflow.worktree_skip_hooks=true, honor that opt-in only.
       SKIP_HOOKS="{{setting:workflow.worktree_skip_hooks|}}"   # workflow.worktree_skip_hooks (the settings)
       if [ "$SKIP_HOOKS" = "true" ]; then
-        git commit --no-verify -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
+        specforge git commit --no-verify -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
           || { echo "ERROR: pre-dispatch artifact commit failed (--no-verify path). Aborting before executor dispatch." >&2; exit 1; }
       else
-        git commit -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
+        specforge git commit -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
           || { echo "ERROR: pre-dispatch artifact commit failed — likely a pre-commit hook failure. Fix the hook output above (or set workflow.worktree_skip_hooks=true to bypass) and re-run." >&2; exit 1; }
       fi
       QUICK_PLAN_COMMIT=$(specforge git head --pick .sha)

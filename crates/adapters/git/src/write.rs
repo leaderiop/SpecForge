@@ -6,7 +6,7 @@
 use std::path::Path;
 
 use specforge_effects::git::{
-    Committed, DiffQuery, DiffSide, Git as _, GitError, GitPlace, Removal, Sha, Staging,
+    Committed, DiffQuery, DiffSide, Git as _, GitError, GitPlace, Recording, Removal, Sha, Staging,
 };
 
 use crate::{Gix, failed, id, open};
@@ -366,7 +366,7 @@ pub(crate) fn commit(
     gix_port: &Gix,
     place: &GitPlace,
     message: &str,
-    allow_empty: bool,
+    recording: &Recording,
 ) -> Result<Committed, GitError> {
     // a merge the user resolved concludes as git concludes it: MERGE_HEAD's commits are parents too, and the
     // operation's state (a merge's, a cherry-pick's, a revert's) is ended once the commit is recorded
@@ -389,13 +389,32 @@ pub(crate) fn commit(
             | git2::RepositoryState::CherryPick
             | git2::RepositoryState::Revert
     );
+    if merging && !recording.only.is_empty() {
+        return Err(GitError(
+            "a merge, cherry-pick or revert is in progress: it is concluded by a commit of the whole index, not of \
+             some paths"
+                .into(),
+        ));
+    }
+    let author = match &recording.author_of {
+        Some(sha) => Some(author_of(
+            &repo
+                .find_commit(
+                    git2::Oid::from_str(sha.as_str())
+                        .map_err(|e| failed("read a commit id", &e))?,
+                )
+                .map_err(|e| failed(&format!("read {}", sha.short()), &e))?,
+        )?),
+        None => None,
+    };
     let committed = record(
         gix_port,
         place,
         message,
         parents,
-        allow_empty || merging,
-        None,
+        recording.allow_empty || merging,
+        author.as_ref(),
+        &recording.only,
     )?;
     if merging {
         conclude(place)?;
@@ -419,8 +438,56 @@ pub(crate) struct Author {
     pub time: String,
 }
 
+/// The author of `commit`, its time as git writes one.
+pub(crate) fn author_of(commit: &git2::Commit<'_>) -> Result<Author, GitError> {
+    let who = commit.author();
+    let offset = who.when().offset_minutes().saturating_mul(60);
+    // `write_to`, not `Display`: an offset past ±99 hours (a hostile commit's) is an error, never a panic.
+    let mut time = Vec::new();
+    gix::date::Time::new(who.when().seconds(), offset)
+        .write_to(&mut time)
+        .map_err(|e| failed("write the commit's author time", &e))?;
+    Ok(Author {
+        name: String::from_utf8_lossy(who.name_bytes()).into_owned(),
+        email: String::from_utf8_lossy(who.email_bytes()).into_owned(),
+        time: String::from_utf8_lossy(&time).into_owned(),
+    })
+}
+
+/// `HEAD`'s tree with the index's entries at or under `only` in place of its own there, as `git commit -- <paths>`
+/// records it.
+fn only_tree(
+    repo: &git2::Repository,
+    index: &git2::Index,
+    only: &[String],
+) -> Result<git2::Oid, GitError> {
+    let at = |e: git2::Error| failed("build the commit's tree", &e);
+    let under = |path: &[u8]| {
+        only.iter().any(|o| {
+            o == "*" || path == o.as_bytes() || path.starts_with(format!("{o}/").as_bytes())
+        })
+    };
+    let mut tree = git2::Index::new().map_err(at)?;
+    if let Ok(head) = repo.head().and_then(|head| head.peel_to_tree()) {
+        tree.read_tree(&head).map_err(at)?;
+    }
+    let dropped: Vec<std::path::PathBuf> = tree
+        .iter()
+        .filter(|entry| under(&entry.path))
+        .map(|entry| std::path::PathBuf::from(String::from_utf8_lossy(&entry.path).into_owned()))
+        .collect();
+    for path in dropped {
+        tree.remove_path(&path).map_err(at)?;
+    }
+    for entry in index.iter().filter(|entry| under(&entry.path)) {
+        tree.add(&entry).map_err(at)?;
+    }
+    tree.write_tree_to(repo).map_err(at)
+}
+
 /// Record the index as a commit on `HEAD`: its parents `HEAD`'s commit unless `parents` names them (a merge), its
-/// author the configured identity unless `author` names one.
+/// author the configured identity unless `author` names one, its tree the index's, or `HEAD`'s with the index's
+/// entries at `only`.
 pub(crate) fn record(
     gix_port: &Gix,
     place: &GitPlace,
@@ -428,6 +495,7 @@ pub(crate) fn record(
     parents: Option<Vec<Sha>>,
     allow_empty: bool,
     author: Option<&Author>,
+    only: &[String],
 ) -> Result<Committed, GitError> {
     let tree = {
         let repo = libgit2(place)?;
@@ -437,9 +505,13 @@ pub(crate) fn record(
                 "the index holds a conflict: resolve it and stage the files first".into(),
             ));
         }
-        let tree = index
-            .write_tree()
-            .map_err(|e| failed("write the index's tree", &e))?;
+        let tree = if only.is_empty() {
+            index
+                .write_tree()
+                .map_err(|e| failed("write the index's tree", &e))?
+        } else {
+            only_tree(&repo, &index, only)?
+        };
         gix::ObjectId::from_hex(tree.to_string().as_bytes())
             .map_err(|e| failed("read the index's tree", &e))?
     };
