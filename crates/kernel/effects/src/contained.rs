@@ -442,21 +442,39 @@ pub fn withheld(path: &str) -> bool {
     in_host_state(path) || credential(path)
 }
 
-/// Whether `path` looks like it holds a credential: `.env` and `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`,
-/// `.npmrc`, `.netrc`, `credentials*` and `.git/config`. shortcut: names only, and no project can opt a file in;
-/// upgrade when a project needs to.
-fn credential(path: &str) -> bool {
+/// Files that hold a credential whatever their directory.
+const CREDENTIAL_NAMES: [&str; 8] = [
+    ".env",
+    ".envrc",
+    ".npmrc",
+    ".netrc",
+    ".pgpass",
+    ".pypirc",
+    ".dockercfg",
+    ".git-credentials",
+];
+
+/// Files that hold a credential in this directory only: `config` and `config.json` alone are ordinary names.
+const CREDENTIAL_PATHS: [&str; 3] = [".git/config", ".docker/config.json", ".kube/config"];
+
+/// Whether `path` looks like it holds a credential: [`CREDENTIAL_NAMES`], [`CREDENTIAL_PATHS`], `.env.*`, `*.pem`,
+/// `*.key`, `id_rsa*`, `id_ed25519*`, `id_ecdsa*`, `id_dsa*`, `credentials*`, and everything under `.ssh/` but `*.pub`,
+/// `known_hosts` and `config`. shortcut: names only, and no project can opt a file in; upgrade when a project needs to.
+pub fn credential(path: &str) -> bool {
     let path = path.to_ascii_lowercase();
     let name = path.rsplit('/').next().unwrap_or_default();
-    name == ".env"
+    let under =
+        |dir: &str| path.starts_with(&format!("{dir}/")) || path.contains(&format!("/{dir}/"));
+    CREDENTIAL_NAMES.contains(&name)
         || name.starts_with(".env.")
         || name.ends_with(".pem")
         || name.ends_with(".key")
-        || name.starts_with("id_rsa")
-        || name.starts_with("id_ed25519")
-        || name == ".npmrc"
-        || name == ".netrc"
+        || ["id_rsa", "id_ed25519", "id_ecdsa", "id_dsa"]
+            .iter()
+            .any(|key| name.starts_with(key))
         || name.starts_with("credentials")
-        || path == ".git/config"
-        || path.ends_with("/.git/config")
+        || CREDENTIAL_PATHS
+            .iter()
+            .any(|at| path == *at || path.ends_with(&format!("/{at}")))
+        || (under(".ssh") && !(name.ends_with(".pub") || name == "known_hosts" || name == "config"))
 }

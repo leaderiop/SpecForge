@@ -56,7 +56,9 @@ and a hook alone is told the facts of the paths its tool names (`PathFact`, ADR 
   `specforge doctor` list every read an extension declares: its pass or command, its name, the field or glob, and
   whether text is requested (`specforge add` prints no extension detail: the declaration is read at the next load, where
   these two show it); (b) a read that asks for text withholds the text of a path that looks like a credential: `.env`,
-  `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `.npmrc`, `.netrc`, `credentials*` and `.git/config`, by the
+  `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `.npmrc`, `.netrc`, `credentials*` and `.git/config`
+  (2026-11-06: also `.envrc`, `id_ecdsa*`, `id_dsa*`, everything under `.ssh/` but `*.pub`, `known_hosts` and `config`,
+  `.pgpass`, `.pypirc`, `.dockercfg`, `.docker/config.json`, `.kube/config` and `.git-credentials`), by the
   name as written and by the name a link resolves to. The fact has `exists` and `error: "denied"` and no `text`,
   `digest`, `bytes` or `lines`; the path is still a check input, so changing it re-runs the pass. A read that does not
   ask for text is not denied (facts only). Limit: the list is fixed, by name, and no project can opt a file in; a

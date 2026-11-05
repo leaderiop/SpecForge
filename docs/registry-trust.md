@@ -164,7 +164,9 @@ declares, at most the host's ceiling; the host enforces both at execution time
 One declaration does let it see more: a pass or command may declare `reads`, project
 files the host reads and hands over (text capped at 64 KiB a file, 1 MiB a read). A
 text read withholds files that look like credentials (`.env*`, `*.pem`, `*.key`, `id_rsa*`,
-`id_ed25519*`, `.npmrc`, `.netrc`, `credentials*`, `.git/config`) and refuses anything whose
+`id_ed25519*`, `id_ecdsa*`, `id_dsa*`, most of `.ssh/`, `.npmrc`, `.netrc`, `.pgpass`, `.pypirc`,
+`.dockercfg`, `.docker/config.json`, `.kube/config`, `.git-credentials`, `credentials*`,
+`.git/config`) and refuses anything whose
 real path leaves the project, but any other project file is readable, and nothing asks
 you first. `specforge extensions` and `specforge doctor` list every declared read: look
 before you add an extension you do not trust (ADR 0293). The host embeds wasmtime 49.x

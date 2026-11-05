@@ -250,7 +250,9 @@ fn copy(from: &Path, to: &Path, budget: &mut usize) -> std::io::Result<()> {
             std::io::Error::other(format!("more than {LIST_VISITS} entries to copy"))
         })?;
         let name = entry.file_name().to_string_lossy().into_owned();
-        if in_host_state(&name) || specforge_effects::contained::withheld(&name) {
+        // The whole path: `.ssh/deploy_key` is a credential by its directory.
+        let path = entry.path().to_string_lossy().replace('\\', "/");
+        if in_host_state(&name) || specforge_effects::contained::credential(&path) {
             continue;
         }
         copy(&entry.path(), &to.join(&name), budget)?;

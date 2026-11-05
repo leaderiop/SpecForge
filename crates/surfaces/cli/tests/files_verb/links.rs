@@ -103,3 +103,71 @@ fn http_sends_no_second_name_as_a_body() {
     assert!(run.stdout.contains("cannot be sent"), "{}", run.stdout);
     assert!(!run.stdout.contains("hunter2"), "{}", run.stdout);
 }
+
+/// Every name the credential list holds, by its written path: a walk under `--hidden --no-ignore` reads none, and a
+/// typed path is refused.
+#[test]
+fn a_credential_is_read_neither_walked_nor_typed() {
+    let names = [
+        ".ssh/id_ecdsa",
+        ".ssh/id_dsa",
+        ".ssh/id_rsa",
+        ".ssh/id_ed25519",
+        ".ssh/deploy_key",
+        ".ssh/authorized_keys",
+        ".git-credentials",
+        ".netrc",
+        ".pgpass",
+        ".pypirc",
+        ".dockercfg",
+        ".docker/config.json",
+        ".npmrc",
+        ".envrc",
+        ".aws/credentials",
+        ".kube/config",
+    ];
+    let mut project = TestProject::new();
+    for name in names {
+        project = project.file(name, "TOKEN=hunter2\n");
+    }
+    let walked = Cli::on(&project)
+        .run(&["files", "search", "hunter2", "--hidden", "--no-ignore"])
+        .exits(0);
+    assert_eq!(walked.answer()["count"], 0, "{}", walked.stdout);
+    for name in names {
+        let typed = Cli::on(&project)
+            .run(&["files", "read", name, "--pick", ".text"])
+            .exits(1);
+        assert!(
+            !typed.stdout.contains("hunter2"),
+            "{name}: {}",
+            typed.stdout
+        );
+    }
+}
+
+/// What the rule leaves readable in `.ssh`, by what those files hold: nothing secret.
+#[test]
+fn a_public_key_known_hosts_and_the_ssh_config_stay_readable() {
+    let project = TestProject::new().files(&[
+        (".ssh/deploy.pub", "ssh-ed25519 AAA\n"),
+        (".ssh/known_hosts", "github.com ssh-ed25519 AAA\n"),
+        (".ssh/config", "Host x\n"),
+    ]);
+    for name in [".ssh/deploy.pub", ".ssh/known_hosts", ".ssh/config"] {
+        Cli::on(&project).run(&["files", "read", name]).exits(0);
+    }
+}
+
+#[test]
+fn a_directory_copy_leaves_out_what_a_typed_read_refuses() {
+    let project = TestProject::new().files(&[
+        ("keys/.ssh/deploy_key", "TOKEN=hunter2\n"),
+        ("keys/.ssh/known_hosts", "github.com\n"),
+    ]);
+    Cli::on(&project)
+        .run(&["files", "copy", "keys", "copied"])
+        .exits(0);
+    assert!(project.root().join("copied/.ssh/known_hosts").exists());
+    assert!(!project.root().join("copied/.ssh/deploy_key").exists());
+}
