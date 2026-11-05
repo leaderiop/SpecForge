@@ -1,6 +1,6 @@
 //! The fixture and the calls that observe every core tool's reply: the
 //! pins of `tool_replies.rs` and the conformance probe of `revision.rs`
-//! read the same calls (plan 11).
+//! read the same calls.
 
 use serde_json::{Value, json};
 use tempfile::TempDir;

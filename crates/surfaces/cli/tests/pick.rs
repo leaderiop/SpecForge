@@ -94,7 +94,7 @@ fn check_pick_refuses_an_explicit_human_format() {
     assert!(ran.stderr.contains("--pick"), "{}", ran.stderr);
 }
 
-/// Plan 05 re-review, item 5: the cells are joined by the ASCII unit separator (0x1f), which is not IFS whitespace, so
+/// The cells are joined by the ASCII unit separator (0x1f), which is not IFS whitespace, so
 /// `IFS=$'\x1f' read -r` keeps an empty cell where a tab would collapse it, under macOS's bash 3.2 as under bash 5.
 #[test]
 fn fields_rows_keep_an_empty_cell_under_a_plain_read() {

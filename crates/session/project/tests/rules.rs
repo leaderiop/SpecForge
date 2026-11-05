@@ -1,8 +1,7 @@
 //! Extension validation rules through a real load and compile (the rule
 //! set, ADR 0020). Each test declares its rules raw (`raw_category`), so
 //! rules the SDK's builders would refuse can be written, on the kind `node`
-//! of an in-process extension. A pin that still encodes a bug says which
-//! ticket of plan 02 flips it.
+//! of an in-process extension. A pin that still encodes a bug says so.
 
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;
@@ -335,7 +334,7 @@ fn rule_diagnostics_come_in_rule_order_then_entity_id_order() {
     );
 }
 
-// REGRESSION (01-T3): a rule without a target kind obliges every kind, for
+// REGRESSION: a rule without a target kind obliges every kind, for
 // the rule, the standing and the pass input alike. Never flipped.
 #[test]
 fn an_untargeted_obligation_rule_obliges_every_kind_after_the_move() {

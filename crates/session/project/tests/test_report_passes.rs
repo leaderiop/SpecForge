@@ -1,4 +1,4 @@
-//! K12: a check, compute or guard pass that declares the `tests` input receives the recorded test report, and none
+//! A check, compute or guard pass that declares the `tests` input receives the recorded test report, and none
 //! recorded is I205 once (E045 when it cannot be used). A pass that does not declare it is sent what 1.10 sent.
 
 use std::sync::Arc;

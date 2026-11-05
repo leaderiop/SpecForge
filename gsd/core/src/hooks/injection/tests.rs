@@ -577,7 +577,7 @@ fn a_multi_edit_is_scanned_edit_by_edit() {
     assert!(prompt_guard(&f).context.is_some());
 }
 
-// ---------------------------------------------------------------- the matcher's work (G2)
+// ---------------------------------------------------------------- the matcher's work
 
 /// The first run of letters in a pattern's source, escapes skipped: `ignore` of `(?:ignore|…`, `https` of USERINFO.
 fn first_word(source: &str) -> String {

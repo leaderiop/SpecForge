@@ -97,7 +97,7 @@ fn every_block_of_the_todo_app_is_retitled_and_given_a_verify_line_without_a_str
     }
 }
 
-/// 05-D2: a block holding a padded value, which format keeps, takes every verb.
+/// A block holding a padded value, which format keeps, takes every verb.
 #[specforge_test_macros::test(
     behavior = "validate_typed_edit",
     verify = "a block holding a padded value takes a typed edit"

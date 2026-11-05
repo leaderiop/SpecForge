@@ -1,4 +1,4 @@
-//! The compiled project (architecture plan 01, ADR 0004 D1-d).
+//! The compiled project (ADR 0004 D1-d).
 //!
 //! Every surface (`specforge check` and the other CLI commands, watch, the
 //! LSP, MCP) used to assemble "config, extensions, registries, resolve,

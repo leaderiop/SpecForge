@@ -1,4 +1,4 @@
-//! `gsd/E320`, end to end: a verify command's directory is read through the project's files (K11), and every test
+//! `gsd/E320`, end to end: a verify command's directory is read through the project's files, and every test
 //! asserts the full `codes()` list.
 
 use crate::harness::{Project, project};

@@ -1,5 +1,5 @@
 //! W103: a phase has 2 to 5 success criteria (the roadmapper's "2-5 observable behaviors"). It counts the list's
-//! items, which the kernel hands a pass as `values` (K13): the joined field text cannot tell an item that holds a
+//! items, which the kernel hands a pass as `values`: the joined field text cannot tell an item that holds a
 //! comma from two.
 
 use specforge_extension_sdk::prelude::*;

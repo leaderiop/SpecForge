@@ -21,7 +21,7 @@ fn switch_writes_the_active_workstream_to_project_state() {
     assert_eq!(state["active_workstream"], "auth");
 }
 
-/// REVIEW-k20b m3: upstream's `progress` carries `active` (and a row's `active`); `list` and `status` carry none.
+/// Upstream's `progress` carries `active` (and a row's `active`); `list` and `status` carry none.
 #[test]
 fn progress_names_the_active_workstream_per_row() {
     let p = project("workstreams");

@@ -1,4 +1,4 @@
-//! K13 (ADR 0294): a pass sees a list field as its items. Pins for the ticket that delivers it.
+//! A pass sees a list field as its items. Pins for the ticket that delivers it.
 
 use std::sync::Arc;
 

@@ -893,7 +893,7 @@ fn format_prints_how_many_files_it_formatted_and_changed() {
     );
 }
 
-// --- plan 03: a specforge.json that hides the project's sources ---
+// --- a specforge.json that hides the project's sources ---
 
 /// `specforge.json` texts that do not say which files are the project's
 /// sources (or which extensions it loads): every one refuses a rewrite.

@@ -1,6 +1,6 @@
 //! Every format x schema x scope x budget combination `emit` renders, pinned
-//! as one snapshot (plan 14, P2): the refactor of the emitter's envelope and
-//! budget (T5, T6) changes only the cells it names.
+//! as one snapshot: a change to the emitter's envelope or budget changes only
+//! the cells it names.
 
 use specforge_emitter::{
     EmitFormat, EmitOptions, GraphProtocolSchema, estimate_tokens, generate_schema,

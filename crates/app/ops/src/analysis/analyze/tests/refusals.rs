@@ -1,6 +1,6 @@
 //! Every refusal of `analyze`, field by field: the kind, the code, the
 //! message, the suggestion, the entity and the subject each states, pinned
-//! once before any refusal moves (round 13, plan 10).
+//! once before any refusal moves.
 
 use super::*;
 

@@ -2,7 +2,7 @@
 //! its tool needs (`gate-verify-command-paths`, `src/verify-command-grounding.cts`).
 //!
 //! A compute pass writes `task.verify_paths`: the directory and manifest of each `automated` command (the text is only
-//! parsed, never run). A check pass declares a read of that field (K11), so the host hands it the facts of those paths
+//! parsed, never run). A check pass declares a read of that field, so the host hands it the facts of those paths
 //! and the text of the manifests. A directory not yet on disk is `pending_creation` when the plan's own task files or
 //! artifact paths equal or cover it.
 //!

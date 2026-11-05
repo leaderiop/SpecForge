@@ -73,7 +73,7 @@ fn an_unknown_phase_is_refused() {
     assert!(run.all().contains("invalid_input"), "{}", run.all());
 }
 
-/// Fail closed (REVIEW-security-part2 m3 and the brief's contract 2): the gate never answers `block: false` unless the
+/// Fail closed: the gate never answers `block: false` unless the
 /// phase's audit ran and the security entities load and check clean.
 fn at_critical() -> Project {
     let p = model();

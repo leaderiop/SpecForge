@@ -1,4 +1,4 @@
-//! The management operations over MCP (architecture plan 05): the
+//! The management operations over MCP: the
 //! extensions listing, doctor, remove, validate and stats over the served
 //! project, and the inference tools without one.
 
@@ -213,7 +213,7 @@ fn validate_reports_the_served_projects_notices() {
     assert_eq!(verdict["shown"], listed.as_array().unwrap().len(), "{resp}");
 }
 
-// R2 (plan 05): remove_extension with an unreadable specforge.json refuses
+// remove_extension with an unreadable specforge.json refuses
 // before it writes anything (it used to uninstall the binary and empty the
 // lock first).
 #[specforge_test(
@@ -342,7 +342,7 @@ fn infer_gaps_without_a_project_is_refused() {
     assert_no_project_refusal("specforge.infer_gaps");
 }
 
-// R3 (plan 05): an unusable specforge.json is E069 on MCP too: validate's
+// An unusable specforge.json is E069 on MCP too: validate's
 // verdict fails, and doctor lists it as an error finding. It used to be
 // served as "no extensions configured", and doctor found nothing.
 #[specforge_test(
@@ -421,7 +421,7 @@ fn doctor_reports_a_corrupt_lock_as_an_error_finding() {
 }
 
 /// A directory with no `specforge.json` is no project, so the server serves
-/// nothing there (plan 12 T8) and doctor, which acts on the served project,
+/// nothing there and doctor, which acts on the served project,
 /// is refused as no project. The `config_missing` finding is the ops and CLI
 /// doctor's (`doctor in a directory without specforge.json ...`).
 #[test]

@@ -1,4 +1,4 @@
-//! The GSD-shaped extension the r35 kernel tests share (K11-K13), served in process and written as the wire carries
+//! The GSD-shaped extension the r35 kernel tests share, served in process and written as the wire carries
 //! it, so an attribute the host does not read yet is dropped by the descriptor and the test that needs it fails, not
 //! the fixture:
 //!

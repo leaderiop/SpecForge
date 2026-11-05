@@ -1,4 +1,4 @@
-//! The environment's assembly (plan 06): what it derives from the config
+//! The environment's assembly: what it derives from the config
 //! read, the installed extensions and the extension load, in one order.
 
 use std::sync::Arc;

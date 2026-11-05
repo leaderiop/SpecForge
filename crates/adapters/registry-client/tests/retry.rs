@@ -1,4 +1,4 @@
-//! `Retrying`: a rate-limited call is sent again by the spec's backoff (ADR 0044 as amended by plan 16).
+//! `Retrying`: a rate-limited call is sent again by the spec's backoff (ADR 0044).
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

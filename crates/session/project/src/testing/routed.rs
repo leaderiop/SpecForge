@@ -1,4 +1,4 @@
-//! A GSD-shaped extension that declares the route `requirement-thread` (ADR 0330), the one plan 04 gives `@gsd/core`:
+//! A GSD-shaped extension that declares the route `requirement-thread` (ADR 0330), the one `@gsd/core` declares:
 //! from a requirement, its plans, their tasks, their commits, the tests its truths cite (with their `status`) and its
 //! truths (with their E501 judgement). It is [`declare_gsd_judged`] and the kinds the route reaches beyond it, served
 //! in process with [`CODE_CORE`]'s `test` facts and written as the wire carries them.
@@ -55,7 +55,7 @@ pub fn gsd_routed_facts() -> Value {
             "fields": {"file": "app/test/auth.test.js", "name": "keeps a session", "status": "passed"}}])
 }
 
-/// The route `requirement-thread`, as plan 04 declares it.
+/// The route `requirement-thread`, as `@gsd/core` declares it.
 pub fn declare_requirement_thread(c: &mut ContributionsBuilder) {
     c.route("requirement-thread", |r| {
         r.start("requirement")

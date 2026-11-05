@@ -913,7 +913,7 @@ behavior gamma "G" { contract "first" features [alpha] }
         );
     }
 
-    // --- Exports validate against what is published (ADR 0064, plan 01) ---
+    // --- Exports validate against what is published (ADR 0064) ---
 
     /// The messages for which `export` does not conform to `published`: the
     /// published schema's own keywords are held to the checker's, the export is

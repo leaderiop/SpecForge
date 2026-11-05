@@ -1,4 +1,4 @@
-// The per-entry extension load (plan r12-p08): one step for every kind of entry,
+// The per-entry extension load: one step for every kind of entry,
 // so a problem it finds has one message, a refused entry leaves nothing loaded,
 // and a declaration is read once.
 

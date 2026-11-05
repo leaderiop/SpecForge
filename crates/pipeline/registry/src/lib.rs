@@ -54,7 +54,7 @@ pub use checks::{FACTS_DIR, ID_LENGTH, IdRefusal, filed, is_fact_store, refused_
 // --- The entity snapshot: every entity of one built graph as the checks read it (ADR 0019, ADR 0115) ---
 pub use snapshot::{EntitySnapshot, Standing};
 
-// --- Registry compilation (plan 05): one build, and the graph checks ---
+// --- Registry compilation: one build, and the graph checks ---
 pub use compilation::{
     BuildPart, CHECK_PHASE, COMPUTE_PHASE, CandidateVocabulary, DeclaredPass, RegistryBuild,
     build_registries, build_registries_with, extension_codes, reports,

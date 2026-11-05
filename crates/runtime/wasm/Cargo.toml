@@ -19,7 +19,7 @@ specforge-common = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 semver = { workspace = true }
-# The in-process runtime adapter (`testing`, plan 03/04).
+# The in-process runtime adapter (`testing`).
 specforge-extension-sdk = { path = "../extension-sdk", optional = true }
 
 [features]

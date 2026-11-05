@@ -58,7 +58,7 @@ fn quick_creates_a_quick_plan() {
         assert!(!codes.contains(&code.to_string()), "{code}: {codes:?}");
     }
     // P4: a plan with no phase starts and completes through the typed tools. The prompt's STARTED line runs in bash
-    // with only specforge on the PATH (G4 plan 05: it picks the answer, no jq).
+    // with only specforge on the PATH (it picks the answer, no jq).
     let line = text
         .lines()
         .find(|l| {
@@ -222,7 +222,7 @@ fn quick_skips_the_code_reviewer() {
     assert!(steps.iter().all(|s| s["id"] != "code_review"));
 }
 
-/// REVIEW-r43 M12: each batch item gets its own quick id (`<yymmdd>-<3 base-36>`, what `gsd/W323` checks) and keeps its
+/// Each batch item gets its own quick id (`<yymmdd>-<3 base-36>`, what `gsd/W323` checks) and keeps its
 /// task text without the list marker; a batch of fewer than two items is refused.
 #[test]
 fn the_batch_makes_one_quick_id_per_item() {
@@ -295,7 +295,7 @@ fn quick_dispatches_on_the_subcommand_words() {
     assert_ne!(run.code, 0, "list is a word, not an option: {}", run.all());
 }
 
-/// REVIEW-k20b m9: a flag does not move the subcommand words, so the block still starts with `resume`.
+/// A flag does not move the subcommand words, so the block still starts with `resume`.
 #[test]
 fn quick_dispatches_on_a_subcommand_with_a_flag() {
     let p = twin();
@@ -314,7 +314,7 @@ fn quick_dispatches_on_a_subcommand_with_a_flag() {
     }
 }
 
-/// REVIEW-k20b m9: a task that names an option is text after the prompt's own `--` (the second one, the first being
+/// A task that names an option is text after the prompt's own `--` (the second one, the first being
 /// the host's), and is refused without it.
 #[test]
 fn a_task_naming_an_option_is_taken_after_the_prompt_boundary() {
@@ -334,7 +334,7 @@ fn a_task_naming_an_option_is_taken_after_the_prompt_boundary() {
     );
 }
 
-/// REVIEW-r43 Minor 7: the quick id is made once (the init block's), and a `git.quick_branch_template` has its `{num}`
+/// The quick id is made once (the init block's), and a `git.quick_branch_template` has its `{num}`
 /// expanded to it (`{slug}` is the one the agent writes later).
 #[test]
 fn the_quick_id_is_made_once_and_the_branch_template_is_expanded() {
@@ -359,7 +359,7 @@ fn the_quick_id_is_made_once_and_the_branch_template_is_expanded() {
     assert_eq!(branch, format!("quick/{id}-{{slug}}"), "{said}");
 }
 
-/// REVIEW-r43 post-fix N2: the steps read each item's `description`, and quick-batch has no init block to make the
+/// The steps read each item's `description`, and quick-batch has no init block to make the
 /// quick id: its tail says `$quick_id` is the item's `quickId`.
 #[test]
 fn quick_batch_names_where_its_quick_id_comes_from() {
@@ -371,7 +371,7 @@ fn quick_batch_names_where_its_quick_id_comes_from() {
     assert!(quick.contains("init block above"));
 }
 
-/// F8: quick's worktree steps run under bash in the project's git repository, where the quick plan is the entity
+/// Quick's worktree steps run under bash in the project's git repository, where the quick plan is the entity
 /// `plan <id>` in `spec/quick.spec` and no `<id>-PLAN.md` exists.
 mod worktree {
     use std::path::Path;
@@ -504,7 +504,7 @@ mod worktree {
         assert_eq!(rev(&p, "HEAD"), top, "a re-run made a commit");
         assert_eq!(commit, top);
         assert_eq!(parent, prior, "not HEAD^ ({plan_at})");
-        // Review F8 item 2: a later entity that references the plan (`plan <id>`, one space) is not its declaration.
+        // A later entity that references the plan (`plan <id>`, one space) is not its declaration.
         let referenced = p.git_commit(
             "docs: a blocker on the plan",
             &[(
@@ -613,7 +613,7 @@ mod worktree {
         assert_eq!(refused.status.code(), Some(42), "{refused:?}");
     }
 
-    /// Review F8 item 1: a worktree forked from the alternate base (`QUICK_PLAN_PARENT`, a stale `origin/HEAD`) has no
+    /// A worktree forked from the alternate base (`QUICK_PLAN_PARENT`, a stale `origin/HEAD`) has no
     /// plan in its own `spec/`; the first action restores it from the plan commit.
     #[test]
     fn a_worktree_forked_from_the_alternate_base_gets_the_plan_restored() {

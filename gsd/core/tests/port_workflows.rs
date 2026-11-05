@@ -30,7 +30,7 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/references/loop-hook-dispatch.md", 140),
     ("gsd-core/references/loop-hook-dispatch.md", 149),
     ("gsd-core/references/mvp-concepts.md", 4),
-    // REVIEW-r42 C1: upstream deletes REQUIREMENTS.md after archiving it; the requirement entities stay.
+    // Upstream deletes REQUIREMENTS.md after archiving it; the requirement entities stay.
     ("gsd-core/workflows/complete-milestone.md", 23),
     (
         "gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md",
@@ -44,9 +44,9 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/complete-milestone.md", 553),
     ("gsd-core/workflows/complete-milestone.md", 629),
     ("gsd-core/workflows/complete-milestone.md", 630),
-    // REVIEW-r42 M4: a shell line whose path had been swapped for prose.
+    // A shell line whose path had been swapped for prose.
     ("gsd-core/workflows/complete-milestone.md", 220),
-    // Plan 04 T2: no sub-repositories, so no release map (git.repo_tagging is not applicable).
+    // No sub-repositories, so no release map (git.repo_tagging is not applicable).
     ("gsd-core/workflows/complete-milestone.md", 275),
     ("gsd-core/workflows/complete-milestone.md", 313),
     // #5195 without node: SpecForge's INIT has no `section_manifest`; the PROJECT.md gate reads the active workstream.
@@ -65,21 +65,21 @@ const REWRITTEN: &[(&str, usize)] = &[
         8,
     ),
     ("gsd-core/workflows/transition.md", 222),
-    // REVIEW-r42 N1: upstream clears the previous milestone's phase directories; the phases stay with their milestone.
+    // Upstream clears the previous milestone's phase directories; the phases stay with their milestone.
     ("gsd-core/workflows/new-milestone.md", 245),
-    // REVIEW-r42 N5: the ship ledger is the milestone's, as the query below it reads.
+    // The ship ledger is the milestone's, as the query below it reads.
     ("gsd-core/workflows/ship.md", 135),
-    // REVIEW-security-part1 M2: an unreadable security gate is a block, and step 1a says so.
+    // An unreadable security gate is a block, and step 1a says so.
     ("gsd-core/workflows/ship.md", 177),
-    // REVIEW-security-part1 m5: the duplicate scan is `threat-ids`, not `init`.
+    // The duplicate scan is `threat-ids`, not `init`.
     ("gsd-core/workflows/execute-phase.md", 100),
     (
         "gsd-core/workflows/execute-phase/steps/threat-id-gate.md",
         25,
     ),
-    // Plan 16 T6 [security-absent-off]: the threat-ID numbering rule applies when @gsd/security is loaded.
+    // [security-absent-off]: the threat-ID numbering rule applies when @gsd/security is loaded.
     ("gsd-core/references/planner-gap-closure.md", 63),
-    // Plan 16 T5: the security branches read @gsd/security's gate and threat-ID answers, not a SECURITY.md file.
+    // The security branches read @gsd/security's gate and threat-ID answers, not a SECURITY.md file.
     ("gsd-core/workflows/ship.md", 112),
     ("gsd-core/workflows/ship.md", 123),
     ("gsd-core/workflows/ship.md", 124),
@@ -99,7 +99,7 @@ const REWRITTEN: &[(&str, usize)] = &[
         59,
     ),
     ("gsd-core/workflows/verify-work.md", 606),
-    // REVIEW-security-part1 M1: --after-fingerprint takes the phase's id, and the extension decides what "has it" means.
+    // --after-fingerprint takes the phase's id, and the extension decides what "has it" means.
     ("gsd-core/workflows/verify-work.md", 609),
     ("gsd-core/workflows/verify-work.md", 611),
     ("gsd-core/workflows/autonomous.md", 552),
@@ -116,14 +116,14 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/plan-phase.md", 107),
     ("gsd-core/workflows/plan-phase.md", 488),
     ("gsd-core/workflows/audit-milestone.md", 320),
-    // Plan 04 T6 (#5266, #5640): the hosts come from the settings; the check inlines pattern.cjs's helper.
+    // Upstream #5266, #5640: the hosts come from the settings; the check inlines pattern.cjs's helper.
     ("gsd-core/workflows/review.md", 30),
     ("gsd-core/workflows/review.md", 680),
-    // Plan 04 T4: the multi-repo tagging section links its how-to at the tag; git.repo_tagging is not applicable.
+    // The multi-repo tagging section links its how-to at the tag; git.repo_tagging is not applicable.
     ("gsd-core/references/git-integration.md", 306),
     ("gsd-core/references/planning-config.md", 37),
     ("gsd-core/references/planning-config.md", 343),
-    // Plan 04 T3 (#5629): INIT is a `specforge query`, with no `has_spec` / `spec_path`; the spec is the phase's
+    // Upstream #5629: INIT is a `specforge query`, with no `has_spec` / `spec_path`; the spec is the phase's
     // `phase_spec` entity.
     ("gsd-core/workflows/discuss-phase.md", 127),
     ("gsd-core/workflows/discuss-phase.md", 185),
@@ -217,8 +217,7 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/settings.md", 556, 556),
     ("gsd-core/workflows/settings.md", 555, 555),
     ("gsd-core/workflows/settings.md", 554, 554),
-    // REVIEW-r43 M3, M4, M10, M13, M7, M12: settings lines the host accepts, no secret taken in chat, the roadmap-wide
-    // backlog and the batch ids.
+    // Settings lines the host accepts, no secret taken in chat, the roadmap-wide backlog and the batch ids.
     ("gsd-core/workflows/settings-integrations.md", 150, 150),
     ("gsd-core/workflows/settings-integrations.md", 148, 148),
     ("gsd-core/workflows/settings-integrations.md", 146, 146),
@@ -238,7 +237,7 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/quick.md", 203, 203),
     ("gsd-core/workflows/pr-branch.md", 261, 261),
     ("gsd-core/workflows/pr-branch.md", 252, 252),
-    // REVIEW-r43 post-fix N4, N5: the empty-name refusal, the next phase query, the integrations table.
+    // The empty-name refusal, the next phase query, the integrations table.
     ("gsd-core/workflows/settings-integrations.md", 18, 18),
     ("gsd-core/workflows/settings-integrations.md", 19, 19),
     ("gsd-core/workflows/settings-integrations.md", 20, 20),
@@ -262,7 +261,7 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/progress.md", 582, 582),
     ("gsd-core/workflows/ingest-docs.md", 365, 365),
     ("gsd-core/workflows/remove-workspace.md", 17, 17),
-    // REVIEW-r43 M1, Minor 11: undo takes a full id and refuses a closed milestone; planning-config no longer says to
+    // Undo takes a full id and refuses a closed milestone; planning-config no longer says to
     // gitignore or untrack the spec.
     ("gsd-core/workflows/undo.md", 271, 271),
     ("gsd-core/workflows/undo.md", 264, 264),
@@ -408,7 +407,7 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/quick.md", 141, 142),
     ("gsd-core/workflows/quick.md", 254, 254),
     ("gsd-core/workflows/quick.md", 265, 265),
-    // F8 (plan 02): the quick plan is `plan <id>` in spec/quick.spec, not a PLAN.md; the worktree steps commit `spec`,
+    // The quick plan is `plan <id>` in spec/quick.spec, not a PLAN.md; the worktree steps commit `spec`,
     // and the executor checks its own spec/quick.spec, restoring spec/ from QUICK_PLAN_COMMIT when it lacks the plan.
     ("gsd-core/workflows/quick.md", 444, 444),
     ("gsd-core/workflows/quick.md", 448, 471),
@@ -683,10 +682,11 @@ fn the_vendored_tree_lists_every_asset() {
     }
 }
 
-/// Plan 16 T4: every upstream `X=$(gsd_run loop render-hooks <point> --raw)` line (or its `${X:-$(...)}` twin) is, here,
-/// the line that asks each capability extension for its hooks; no stub is left. REVIEW-security-part1 m2: the
-/// `${X:-$(...)}` form asks too, not `${X:-[]}`. m1: a capability that fails is warned about, not hidden (exit 2 is "not loaded" and stays silent). M1: upstream's `--after-fingerprint "$PHASE_DIR"` stays, with the
-/// phase's id for the directory. G4 (plan 05 T1): the line holds one answer per extension, merged by no jq.
+/// Every upstream `X=$(gsd_run loop render-hooks <point> --raw)` line (or its `${X:-$(...)}` twin) is, here, the line
+/// that asks each capability extension for its hooks; no stub is left. The `${X:-$(...)}` form asks too, not
+/// `${X:-[]}`. A capability that fails is warned about, not hidden (exit 2 is "not loaded" and stays silent).
+/// Upstream's `--after-fingerprint "$PHASE_DIR"` stays, with the phase's id for the directory. The line holds one
+/// answer per extension, merged by no jq.
 #[test]
 fn every_hook_stub_asks_the_capability_extensions() {
     const NOTE: &str = "   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order";
@@ -757,7 +757,7 @@ fn every_hook_stub_asks_the_capability_extensions() {
     );
 }
 
-/// REVIEW-security-part1 M2: an empty or unparseable `SECURITY_GATE_JSON` (the command failed) is a block in every
+/// An empty or unparseable `SECURITY_GATE_JSON` (the command failed) is a block in every
 /// workflow that reads it, and ship.md's step 1a no longer says the named branches cannot reach a failed check.
 #[test]
 fn a_security_gate_that_cannot_be_read_blocks() {
@@ -777,7 +777,7 @@ fn a_security_gate_that_cannot_be_read_blocks() {
     }
 }
 
-/// REVIEW-security-part1 m5: the threat-ID duplicates come from `threat-ids`, not from `INIT` (a `specforge query`).
+/// The threat-ID duplicates come from `threat-ids`, not from `INIT` (a `specforge query`).
 #[test]
 fn the_threat_id_gate_names_threat_ids_not_init() {
     let read = |path: &str| {

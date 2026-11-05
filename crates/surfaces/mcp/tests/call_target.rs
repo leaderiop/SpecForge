@@ -1,5 +1,5 @@
 //! Which project an MCP call acts on, and whether it is current with disk
-//! (architecture plan 01): a call's optional `path` and its tool's target decide it before the handler runs.
+//! a call's optional `path` and its tool's target decide it before the handler runs.
 
 use crate::support::nothing_served::{Entry, NOTHING_SERVED_PROBES};
 use crate::support::*;

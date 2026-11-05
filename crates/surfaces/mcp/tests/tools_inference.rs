@@ -531,7 +531,7 @@ fn infer_session_timestamps_are_rfc_3339() {
     }
 }
 
-// --- what the session writes today (plan 06 T0 pins) ---
+// --- what the session writes today (pins) ---
 
 /// Write `text` as the project's inference manifest.
 fn write_manifest(root: &std::path::Path, text: &str) {
@@ -551,7 +551,7 @@ const MANIFEST_WITH_AN_UNREADABLE_SESSION: &str = r#"{
 
 /// A session the manifest cannot read makes the whole manifest unusable:
 /// every action refuses, naming the file and the missing field, and the
-/// file is not touched (plan 06 R1).
+/// file is not touched.
 #[specforge_test(
     behavior = "load_inference_manifest",
     verify = "a session the manifest cannot read refuses the load, and nothing is written"
@@ -606,7 +606,7 @@ fn start_refuses_while_a_session_is_active_after_a_reload() {
 
 /// A write changes only what its step changed: the keys the manifest does
 /// not define survive, at the top level and inside a source entry or a
-/// session (plan 06 R2).
+/// session.
 #[specforge_test(
     behavior = "save_inference_manifest",
     verify = "save keeps keys the manifest does not define, at every level"
@@ -634,7 +634,7 @@ fn a_rewrite_keeps_the_keys_it_does_not_define() {
 }
 
 /// A path is recorded root-relative with `/` separators, so a file is
-/// analyzed or unanalyzed, never both (plan 06 R3).
+/// analyzed or unanalyzed, never both.
 #[specforge_test(
     behavior = "mark_source_file_analyzed",
     verify = "mark records the path root-relative with / separators"
@@ -663,8 +663,7 @@ fn mark_analyzed_records_the_root_relative_path() {
     assert_eq!(manifest["source_index"][0]["path"], "src/lib.rs", "{text}");
 }
 
-/// A file outside the project root is refused and nothing is written
-/// (plan 06 R3).
+/// A file outside the project root is refused and nothing is written.
 #[specforge_test(
     behavior = "mark_source_file_analyzed",
     verify = "mark refuses a file outside the project root"

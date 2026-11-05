@@ -103,7 +103,7 @@ fn cleanup_kept(cleanup: &[String]) -> bool {
 /// shape, so those are judged as they are written: the opener line is the subject. The body is resolved only when the
 /// delimiter is quoted, the `)` closes the substitution with nothing glued after it, the `-m` word is not
 /// single-quoted (git would receive the literal opener) and the commit has no cleanup directive that keeps a blank
-/// first line or trailing blanks (REVIEW-r44 M2). A `<<-` heredoc loses its leading tabs; the resolved subject loses
+/// first line or trailing blanks. A `<<-` heredoc loses its leading tabs; the resolved subject loses
 /// its trailing blanks, as git strips them under the default cleanup.
 fn subject_of<'a>(message: &'a str, command: &str, cleanup: &[String]) -> &'a str {
     let mut lines = message.lines();

@@ -248,7 +248,7 @@ mod tests {
         );
     }
 
-    /// Re-review of plan 05, item 11: a gap's `status` is computed; a graph without it (a view whose checks were
+    /// A gap's `status` is computed; a graph without it (a view whose checks were
     /// skipped) is refused, as the reports refuse (ADR 0299 D4), never counted as open.
     #[test]
     fn a_graph_without_computed_gap_status_is_refused() {

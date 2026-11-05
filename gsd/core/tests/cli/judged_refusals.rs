@@ -1,4 +1,4 @@
-//! What the host's E080 lets through (ADR 0297; REVIEW-r40 C1, M5): a judged rule's finding is never an error a
+//! What the host's E080 lets through (ADR 0297): a judged rule's finding is never an error a
 //! write adds, so a failing verdict replaces a pass, a judged target is created with its verdict owed, and an edit that
 //! stales a passing verdict is written. The finding is reported, and every gate still fails on it.
 

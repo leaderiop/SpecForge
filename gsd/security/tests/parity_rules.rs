@@ -1,4 +1,4 @@
-//! The parity rules check for `@gsd/security` (plan 16 T25): the code book is the codes table of `spec/README.md`,
+//! The parity rules check for `@gsd/security`: the code book is the codes table of `spec/README.md`,
 //! every code fires on a named project and stays silent on its twin, and every divergence tag the crate names is listed
 //! under "Known divergences" in ACCEPTANCE.
 
@@ -217,7 +217,7 @@ fn every_divergence_tag_the_crate_names_is_listed_in_acceptance() {
     }
 }
 
-/// The divergences of `@gsd/security` from upstream 1.19.0 (plan 16's inventory, and the ones the build found).
+/// The divergences of `@gsd/security` from upstream 1.19.0: the ones known before the port and the ones it found.
 pub fn gsd_divergences() -> [&'static str; 16] {
     [
         "blocking-needs-security",

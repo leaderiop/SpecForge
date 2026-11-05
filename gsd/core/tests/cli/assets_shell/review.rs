@@ -1,4 +1,4 @@
-//! The plan 05 re-review (2026-11-01): the lines it found reading the wrong entities, run as the asset holds them
+//! The lines a review found reading the wrong entities, run as the asset holds them
 //! under bash with no jq on the `PATH`. The taskboard fixture: phase 02 depends on phase 01, so a query of phase 01
 //! at depth 2 also reaches 02's plan 02-01.
 

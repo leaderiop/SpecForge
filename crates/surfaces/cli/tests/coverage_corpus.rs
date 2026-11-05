@@ -1,4 +1,4 @@
-//! Coverage characterization corpus (architecture plan 02, step S1).
+//! Coverage characterization corpus.
 //!
 //! Pins what `analyze coverage`, `stats` and the MCP coverage views report
 //! today on one small project (`fixtures/coverage/fx1`) and on the shipped
@@ -189,7 +189,7 @@ fn fx1_mcp_coverage_today() {
     let row =
         |status: &str, obligations: u64, proven: u64| (status.to_string(), obligations, proven);
     // The union Status owes nothing: it does not count toward coverage, so
-    // the unfiltered view leaves it out, as stats does (plan 02 D3).
+    // the unfiltered view leaves it out, as stats does.
     let expected: BTreeMap<String, (String, u64, u64)> = [
         // Payload's statement sits behind its `verify` struct field (S2).
         ("Payload", row("covered", 1, 1)),

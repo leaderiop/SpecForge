@@ -8,7 +8,7 @@
 #
 # As record.sh: the verbs run on a copy of the fixture that is its own git repository, timestamps, dates and hashes are
 # normalised, the goldens are replaced only when every verb succeeded, and a verb that errors fails the script: fix the
-# fixture, never a golden. The fixture's .planning/ is hand-written (plan 16, decision U3); the verbs vouch for it.
+# fixture, never a golden. The fixture's .planning/ is hand-written; the verbs vouch for it.
 set -eu
 
 : "${GSD_CORE_DIR:?set GSD_CORE_DIR to a gsd-core v1.19.0 checkout whose lib is built}"

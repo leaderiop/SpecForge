@@ -363,7 +363,7 @@ fn a_path_in_the_text_never_moves_the_project() {
     // Before the `--` it is the host's, wherever it stands.
     let (_, path) = fallback(&["t.plan_phase", "03", "--path", "/other", "--", "--research"]);
     assert_eq!(path, "/other");
-    // A leading `--path` names the project and is not handed to the prompt (REVIEW-k20b m1).
+    // A leading `--path` names the project and is not handed to the prompt.
     let (words, path) = fallback(&["--path", "/other", "t.ingest"]);
     assert_eq!(path, "/other");
     assert!(!words.iter().any(|w| w == "--path"), "{words:?}");

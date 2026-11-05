@@ -1,4 +1,4 @@
-//! The scan: what the verifier checks by reading the phase's files (K11), not by judging them.
+//! The scan: what the verifier checks by reading the phase's files, not by judging them.
 //!
 //! A compute pass answers `artifact.state` (the file is there, long enough, holds the text and the exports),
 //! `key_link.state` (its `pattern` is in the `from` file or the `to` file), `verification.anti_patterns` (the lexical anti-patterns of

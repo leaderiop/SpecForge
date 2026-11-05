@@ -7,7 +7,7 @@
 //! - `Owned(extension)`: the check belongs to an extension, not to the core.
 //! - `NotApplicable(why)`: the check is the gate engine or the auto-mode runtime, not a rule.
 //! - `NotReproduced(why)`: a core code whose content verdict no twin reaches; each is named in `NotReproduced` here and counted in ACCEPTANCE.md.
-//! - `Diverges(why)`: a twin reaches the verdict and answers differently from upstream (REVIEW-r44 M9); each is
+//! - `Diverges(why)`: a twin reaches the verdict and answers differently from upstream; each is
 //!   listed under "Known divergences" in ACCEPTANCE.md.
 
 pub enum Class {

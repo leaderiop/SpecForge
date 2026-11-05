@@ -186,7 +186,7 @@ fn goto_definition_dispatches_to_import_on_use_line() {
     assert_eq!(location.range, tower_lsp::lsp_types::Range::default());
 }
 
-// -- go-to-definition on a `use` names a project source (04-T0) -------------------
+// -- go-to-definition on a `use` names a project source -------------------------
 
 fn definition_of_use_at_line_zero(
     state: &specforge_lsp::LspState,

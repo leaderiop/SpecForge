@@ -624,7 +624,7 @@ fn context_and_brief_budgets_too_small_fail_with_e062() {
     }
 }
 
-// ── The export matrix (plan 14, P1) ───────────────────────────────────
+// ── The export matrix ─────────────────────────────────────────────────
 
 /// What one cell of the export matrix does.
 #[derive(Debug, PartialEq)]

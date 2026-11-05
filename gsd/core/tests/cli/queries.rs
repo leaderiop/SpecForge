@@ -1,4 +1,4 @@
-//! The `specforge query` lines the ported text shows (REVIEW-r42 M3): upstream read a file glob, the port reads the
+//! The `specforge query` lines the ported text shows: upstream read a file glob, the port reads the
 //! graph, and a query at the default depth of 1 returns nothing for a kind two or three hops away. Each line is run on
 //! the taskboard twin, and it must find the kinds the twin has around its subject.
 
@@ -52,7 +52,7 @@ fn no_query_lacks_its_entity() {
     }
 }
 
-/// What each subject variable of a query line stands for on the twin (REVIEW-r43 M2: `$PROJECT` was not bound, so the
+/// What each subject variable of a query line stands for on the twin (`$PROJECT` was not bound, so the
 /// lines rooted there were never run). A subject outside the table and `UNBOUND` fails the test.
 fn bound(subject: &str) -> Option<&'static str> {
     Some(match subject {
@@ -142,7 +142,7 @@ const UNBOUND: &[&str] = &[
 ];
 
 /// The kinds a `project` links to (a requirement or a project-level decision): nothing links it to a milestone, a
-/// phase, a pause, a handoff, a blocker or a lesson, so a `$PROJECT` query for those is empty (REVIEW-r43 M2).
+/// phase, a pause, a handoff, a blocker or a lesson, so a `$PROJECT` query for those is empty.
 const PROJECT_REACHES: &[&str] = &["decision"];
 
 #[test]

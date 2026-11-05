@@ -1,4 +1,4 @@
-//! What every core tool's outputSchema is (plan 05, ADR 0051).
+//! What every core tool's outputSchema is (ADR 0051).
 //!
 //! The pins are unlinked: they hold the schemas as they are. The ticket that
 //! changes what a pin holds flips it in the same commit.

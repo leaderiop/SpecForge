@@ -1,4 +1,4 @@
-//! The review (plan 04, ADR 0015 "Prompt read views"): the coverage gaps of
+//! The review (ADR 0015 "Prompt read views"): the coverage gaps of
 //! an entity's neighbourhood, or of the whole project.
 
 use specforge_ops::read::explore::{ExplorationRequest, explore};

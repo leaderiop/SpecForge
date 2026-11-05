@@ -1,5 +1,5 @@
 //! The project an MCP server serves is replaced whole, by one install, or
-//! not at all (`mcp_served_project_consistency`, plan 01 P7).
+//! not at all (`mcp_served_project_consistency`).
 
 use crate::support::*;
 use serde_json::{Value, json};

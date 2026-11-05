@@ -160,7 +160,7 @@ fn every_declared_hook_is_valid() {
             );
         }
         assert!(!h.description.is_empty(), "{id}: a description");
-        // upstream's ON_CRASH is ALLOW on every hook; the secret guard fails closed here (F7)
+        // upstream's ON_CRASH is ALLOW on every hook; the secret guard fails closed here
         let policy = if id == "secret_read_guard" {
             "Deny"
         } else {
@@ -249,7 +249,7 @@ fn no_hook_names_an_unknown_command() {
     }
 }
 
-/// REVIEW-r44 M6: a `Rendering(host)` row that counts as built has a rendered line for its event on that host.
+/// A `Rendering(host)` row that counts as built has a rendered line for its event on that host.
 #[test]
 fn a_cursor_rendering_row_has_its_line_in_the_cursor_install() {
     const GOLDEN: &str = include_str!("golden/install/cursor/hooks.json");

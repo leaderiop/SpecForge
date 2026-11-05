@@ -1,6 +1,6 @@
 use super::*;
 
-/// The project's peer set (ADR 0041, amendment round 7) is what an add is judged against.
+/// The project's peer set (ADR 0041, as amended) is what an add is judged against.
 /// These helpers serve the probe extensions of `testing::probes`.
 fn wasm_file(dir: &Path, name: &str, bytes: &[u8]) -> PathBuf {
     let path = dir.join(name);

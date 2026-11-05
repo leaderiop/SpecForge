@@ -1,5 +1,5 @@
 //! What each mutation tool wrote, what it reports and emits, and how the
-//! served project follows (architecture plan 04, ADR 0022).
+//! served project follows (ADR 0022).
 //!
 //! Every pin compares what a call left on disk (a snapshot diff of the
 //! project) with what it reported.

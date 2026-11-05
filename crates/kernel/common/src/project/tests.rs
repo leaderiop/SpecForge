@@ -127,7 +127,7 @@ fn an_entry_names_an_extension_or_a_wasm_file() {
                 path: "ext/greet.wasm",
             },
         ),
-        // Plan 12 §2.2, as P4 reads them today.
+        // The package-reference inputs, as they read today.
         ("@acme/tool@", Named("@acme/tool")), // I2
         // The requirement is split off at the last inner `@`, whatever it holds.
         ("@acme/tool@1.0.0/x", Named("@acme/tool")), // I7

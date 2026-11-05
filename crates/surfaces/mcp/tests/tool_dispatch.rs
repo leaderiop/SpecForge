@@ -1,5 +1,5 @@
-//! How a core tool's dispatch refuses a call, for every tool in the table
-//! (plan 02): the pin that holds the pipeline's refusals, events and
+//! How a core tool's dispatch refuses a call, for every tool in the table:
+//! the pin that holds the pipeline's refusals, events and
 //! invocation categories byte for byte through the tool-module refactor.
 //!
 //! The pin is unlinked: it holds what dispatch does today.

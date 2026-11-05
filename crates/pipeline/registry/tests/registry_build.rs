@@ -1,5 +1,5 @@
 // `build_registries`: the one call that turns loaded declarations into
-// everything the compiler needs from them (architecture plan 05, step R1).
+// everything the compiler needs from them.
 // In-memory declarations, no Wasm.
 
 use specforge_test_macros::test as spec;

@@ -1,4 +1,4 @@
-//! K17 (ADR 0297): a judged rule's finding is never an error a write adds. A failing verdict, a new judged entity
+//! A judged rule's finding is never an error a write adds. A failing verdict, a new judged entity
 //! and an edit that stales a passing verdict are written; the finding is reported. The fixture is `@gsd/core`'s
 //! judged rules ([`specforge_project::testing::gsd_judged_project`]).
 

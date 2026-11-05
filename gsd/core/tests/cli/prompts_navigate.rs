@@ -145,7 +145,7 @@ fn manager_steps_into_the_lifecycle_prompts() {
     }
 }
 
-/// REVIEW-r43 Minor 17 and 22: when `specforge` itself fails, `next` does not recover by running `specforge query`; and
+/// When `specforge` itself fails, `next` does not recover by running `specforge query`; and
 /// its resume scan counts the `plan` and `summary` nodes the query answers, not `plans` and `summaries` arrays.
 #[test]
 fn next_recovers_without_specforge_and_counts_nodes() {

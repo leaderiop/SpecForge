@@ -1,4 +1,4 @@
-//! The inference guide (plan 04, ADR 0015 "Prompt read views"): what an
+//! The inference guide (ADR 0015 "Prompt read views"): what an
 //! agent is told to look for to infer a project's entities from code.
 
 use serde_json::json;

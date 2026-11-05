@@ -711,7 +711,7 @@ fn protocol_error_is_std_error() {
     let _: &dyn std::error::Error = &err;
 }
 
-/// REVIEW-k20b m6: the `when` of a 1.12 slash command, a plain `Option<String>`.
+/// The `when` of a 1.12 slash command, a plain `Option<String>`.
 #[derive(Debug, serde::Deserialize)]
 struct Slash112 {
     #[allow(dead_code, reason = "decoded to be refused or kept")]
@@ -737,7 +737,7 @@ fn a_when_list_is_not_a_1_12_surface() {
     assert!(error.to_string().contains("expected a string"), "{error}");
 }
 
-/// REVIEW-k20c-part1 m1: a 1.13 hook event, a closed enum.
+/// A 1.13 hook event, a closed enum.
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[allow(dead_code, reason = "decoded to be refused or kept")]

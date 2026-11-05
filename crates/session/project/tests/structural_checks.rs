@@ -1,5 +1,4 @@
-//! The structural checks over a compiled project's entities (architecture
-//! plan 04, T0): the order they report in, the gate that switches the kind
+//! The structural checks over a compiled project's entities: the order they report in, the gate that switches the kind
 //! checks off, which fields a files check reads, and which rules fire.
 //! Each pin that encodes a bug says which ticket flips it.
 

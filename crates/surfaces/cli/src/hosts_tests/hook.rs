@@ -136,7 +136,7 @@ fn an_unreadable_event_applies_the_failure_policy() {
     assert!(denied("core.spec_guard", b"{ not json"));
     assert!(denied("t.write_guard", &over));
     assert!(!denied("t.nobody", &over));
-    // The human guard is a deny-policy route too (REVIEW-k20c-part2 m4).
+    // The human guard is a deny-policy route too.
     let run = super::hook_bytes(
         &project,
         "core.human_guard",

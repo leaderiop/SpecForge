@@ -1,4 +1,4 @@
-//! `gsd/E502` (REVIEW-r40 M7, built in K17): an explicit truth is verified only with a passing test recorded for it. The
+//! `gsd/E502`: an explicit truth is verified only with a passing test recorded for it. The
 //! pass needs a fresh passing `gsd/E501` judgement and a recorded report, and both of E501's test inputs stale the
 //! verdict first, so a recorded result never makes E502 appear (D-r39-1); it appears only when a verifier records
 //! `verified` over results that contradict it, and that record is refused (E080 names `gsd/E502`). The verifier records

@@ -526,7 +526,7 @@ fn the_discuss_kinds_declare_every_field_of_discuss_md() {
         "package_audit",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    // + 3: the quick plan's `plan` on context, decision and research (G3).
+    // + 3: the quick plan's `plan` on context, decision and research.
     assert_eq!(total, 95 - 1 + 1 + 1 + 3, "the kinds' fields");
 }
 

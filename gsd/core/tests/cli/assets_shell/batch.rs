@@ -1,4 +1,4 @@
-//! G4 (plan 05 T3): the quick batch's list is tab-separated lines (`quick_id<TAB>description`), its merge-eligible
+//! The quick batch's list is tab-separated lines (`quick_id<TAB>description`), its merge-eligible
 //! prefix a bash array and its verification route a `case`: no jq on the `PATH`.
 
 use super::{Shell, asset, line, q};

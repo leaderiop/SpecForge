@@ -25,7 +25,7 @@ fn plan_checker_inputs_match_rules_md() {
     }
 }
 
-/// E501 reads a truth's tests two ways (owner decision 04-U3, ADR 0331 D7): its `[gsd:<id>]` tags and its proof's
+/// E501 reads a truth's tests two ways (ADR 0331 D7): its `[gsd:<id>]` tags and its proof's
 /// test facts; without `@code/core` the proof chain is inert.
 #[test]
 fn the_truth_verdict_reads_its_tags_and_its_proof() {

@@ -1,4 +1,4 @@
-//! Characterization pins for the prompts' read views (plan 04): what the
+//! Characterization pins for the prompts' read views: what the
 //! explore, review and infer prompts and `specforge.stats` answer today,
 //! bugs included. The ticket that fixes each bug flips its pin in the same
 //! commit. They are unlinked on purpose: they encode today's answers.

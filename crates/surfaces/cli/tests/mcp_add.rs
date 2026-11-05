@@ -1,5 +1,5 @@
-//! `specforge.add_extension` runs the add `specforge add` runs (plan 03,
-//! O4.3): builtins offline, the ADR-0001 diamond gate, and a config
+//! `specforge.add_extension` runs the add `specforge add` runs: builtins
+//! offline, the ADR-0001 diamond gate, and a config
 //! `specforge check` accepts.
 
 use crate::support::{Cli, TestProject};

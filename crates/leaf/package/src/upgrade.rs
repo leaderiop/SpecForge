@@ -1,4 +1,4 @@
-//! What `specforge update` moves a locked package to (ADR 0036 D3, as amended by round 7).
+//! What `specforge update` moves a locked package to (ADR 0036 D3, as amended).
 //!
 //! [`crate::VersionRequirement::pick`] chooses the version a requirement asks for; [`upgrade_target`] is the
 //! one rule that chooses the version an update moves a locked package to. It is `pick` over the range

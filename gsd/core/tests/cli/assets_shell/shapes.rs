@@ -1,4 +1,4 @@
-//! G4 (plan 05 T2): the lines that built an upstream-shaped object with jq, and the lines that read it, run as the
+//! The lines that built an upstream-shaped object with jq, and the lines that read it, run as the
 //! asset holds them under bash with no jq on the `PATH`. The taskboard fixture (`gsd/parity/fixtures/taskboard`):
 //! phases 01 (2 of 2 plans summarised), 02 (0 of 1), 02.1 and 03 (no plan); the execute project, committed, for a
 //! quick task's files. A plan's commits are read in `scripts.rs`.
@@ -213,7 +213,7 @@ fn a_quick_tasks_changed_files_are_its_commits_files() {
         &format!("quick_id=v1.0/01/01-01\n{code}\nprintf '[%s]' \"$CHANGED_FILES\""),
     );
     assert_eq!(out, "[src/a.js src/b.js]", "{err}");
-    // plan 05 review R12: an empty scope says why, in the words of what was read (there is no resolver's status)
+    // an empty scope says why, in the words of what was read (there is no resolver's status)
     let why = block(
         &text,
         "QUICK_SCOPE_RC=0",

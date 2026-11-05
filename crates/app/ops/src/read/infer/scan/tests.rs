@@ -282,7 +282,7 @@ fn a_scanner_that_fails_is_reported_not_dropped() {
     }
 }
 
-// ── The scanner's wire (plan 04 T1: compared with the goldens in
+// ── The scanner's wire (compared with the goldens in
 // `crates/runtime/wasm/tests/wire/`) ──
 
 const EXT: &str = "@pin/ext";

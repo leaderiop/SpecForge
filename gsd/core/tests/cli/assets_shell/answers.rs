@@ -99,7 +99,7 @@ fn the_regression_gate_keeps_every_verification_when_no_phase_is_named() {
     };
     assert_eq!(prior(""), "[v1.0/01/01-VERIFICATION]");
     assert_eq!(prior("v1.0/02"), "[v1.0/01/01-VERIFICATION]");
-    // re-review item 9: the phase is matched by its exact id, `$PHASE_ID/`, never by a number under `$MILESTONE`
+    // the phase is matched by its exact id, `$PHASE_ID/`, never by a number under `$MILESTONE`
     assert_eq!(prior("v1.0/01"), "[]");
     assert_eq!(prior("v2.0/01"), "[v1.0/01/01-VERIFICATION]");
     assert_eq!(prior("v1.0/0"), "[v1.0/01/01-VERIFICATION]");

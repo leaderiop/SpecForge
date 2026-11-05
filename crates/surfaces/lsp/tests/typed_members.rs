@@ -1,4 +1,4 @@
-//! Hover, completion, navigation and semantic tokens read a block member by its path (ADR 0285, plan K3).
+//! Hover, completion, navigation and semantic tokens read a block member by its path (ADR 0285).
 
 use specforge_lsp::{Document, MOD_REFERENCE, answers};
 use specforge_ops::view::ProjectView;

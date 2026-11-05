@@ -6,7 +6,7 @@
 //! registry and `.planning/config.json`, and denies an executor without `isolation:"worktree"` only when the isolation
 //! is `harness-worktree`; in sequential mode (`USE_WORKTREES=false`) it allows. @gsd/core has no worktree isolation:
 //! its execute workflows set `USE_WORKTREES="false"` and tell the agent to omit `isolation`, so every dispatch it
-//! makes is the sequential one (REVIEW-r44 C1). A hook that always allows would cost every `Agent`/`Task` dispatch a
+//! makes is the sequential one. A hook that always allows would cost every `Agent`/`Task` dispatch a
 //! process, so none is installed (r44 post-fix N7) until the `specforge` harness runs executors in worktrees.
 //!
 //! The path guard reads git's answer as upstream does: the cwd's linked worktree (its git directory holds

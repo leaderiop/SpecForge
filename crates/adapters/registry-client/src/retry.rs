@@ -1,4 +1,4 @@
-//! A rate-limited registry call is sent again (`retry_registry_request`, ADR 0044 as amended by plan 16).
+//! A rate-limited registry call is sent again (`retry_registry_request`, ADR 0044).
 
 use std::sync::Arc;
 use std::time::Duration;

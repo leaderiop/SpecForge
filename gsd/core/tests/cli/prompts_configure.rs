@@ -51,7 +51,7 @@ fn config_profile_names_model_profile() {
     );
 }
 
-/// REVIEW-r43 Minor 5: `--profile` is one of the five profiles, so free text never reaches the command line the prompt
+/// `--profile` is one of the five profiles, so free text never reaches the command line the prompt
 /// shows.
 #[test]
 fn config_profile_is_one_of_the_five() {

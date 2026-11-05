@@ -60,7 +60,7 @@ impl SignedContent {
 
     /// The bytes signed at `signed_at`: the compact JSON
     /// `{"name","version","wasmSha256","manifestSha256","signedAt"}`, in that order. The signed bytes, unchanged
-    /// since round 3.
+    /// when the envelope changed.
     fn payload(&self, signed_at: &str) -> Vec<u8> {
         /// Field order is byte order: serde writes a struct's fields in declaration order.
         #[derive(Serialize)]
@@ -349,7 +349,7 @@ mod tests {
         assert_ne!(key_id(&a), key_id(&b));
     }
 
-    /// What `SigningKey::sign_package` wrote before the envelope changed (round 3 to round 7), for the key
+    /// What `SigningKey::sign_package` wrote before the envelope changed, for the key
     /// `[7; 32]` over [`content`] at `2026-09-24T00:00:00+00:00`.
     const ROUND_3_PAYLOAD: &str = r#"{"name":"@acme/greeter","version":"1.2.0","wasmSha256":"73f404b2241beae4ffd7f337f0aee0ce6a6c6c5afdaf7bf2569a673e8a49f017","manifestSha256":"1ce1931132cf580deef76750c19cb605bbe32542a995d0489104603aef505302","signedAt":"2026-09-24T00:00:00+00:00"}"#;
     const ROUND_3_SIG: &str = "f7522b429b4e2480ea9bcc0ff09abf33d8d54c2b0517b0874e29aa12ff8df06f55b61a8b0f91ce08381288a76c362ee4a536e6163f5989d8094e8116705f890f";

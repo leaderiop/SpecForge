@@ -1,4 +1,4 @@
-//! A pass finding's code is its extension's namespace and its own local code (K10).
+//! A pass finding's code is its extension's namespace and its own local code.
 
 use specforge_extension_sdk::prelude::*;
 use specforge_test::prelude::*;

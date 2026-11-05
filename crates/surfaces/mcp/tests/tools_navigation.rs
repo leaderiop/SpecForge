@@ -740,7 +740,7 @@ fn outline_nests_an_entitys_methods() {
     assert!(flat.get("children").is_none(), "{flat}");
 }
 
-// --- the anchors manifest (plan 06 T0 pins) ---
+// --- the anchors manifest (pins) ---
 
 /// A server over `project()` whose root holds `anchors` as
 /// `specforge-anchors.json`.

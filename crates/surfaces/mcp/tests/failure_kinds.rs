@@ -1,6 +1,6 @@
 //! What kind of failure MCP answers for an unusable test report, what
 //! `specforge.format` and `specforge.migrate` return as their verdict, and
-//! what they do with a directory that is no project (plan 02, ADR 0029).
+//! what they do with a directory that is no project (ADR 0029).
 //!
 //! The first block was taken before ops decided any of it; the commit that
 //! changes a pinned fact flips its pin and says so.

@@ -384,7 +384,7 @@ mod tests {
     }
 
     /// Every core command's `--help` is pinned, so moving the arguments out
-    /// of this file cannot change a byte of it (plan 11).
+    /// of this file cannot change a byte of it.
     #[test]
     fn every_core_command_help_is_pinned() {
         let mut root = declared();
@@ -549,7 +549,7 @@ mod tests {
     }
 
     /// `specforge query --depth` defaults to the query operation's constant,
-    /// the one `specforge.query`'s schema advertises (plan 08 T8).
+    /// the one `specforge.query`'s schema advertises.
     #[test]
     fn the_query_depth_default_is_the_operations() {
         let command = Cli::command();

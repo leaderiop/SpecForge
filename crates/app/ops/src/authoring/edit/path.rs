@@ -1,4 +1,4 @@
-//! What an edit's field argument names (ADR 0151, amended by round 16 plan 09, ADR 0285): a field of the entity's
+//! What an edit's field argument names (ADR 0151, ADR 0285): a field of the entity's
 //! kind, `field.entry`, one entry of an open block field the kind declares, or a member path into a typed block or
 //! block list (`completion.audit`, `requires[0].phase`). Every verb reads its argument here first; the kind's
 //! answers stay the registry's, asked through `Site::reading_toward` (ADR 0157 D4).

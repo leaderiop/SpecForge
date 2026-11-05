@@ -164,7 +164,7 @@ fn a_multi_line_text_on_a_list_field_is_left_as_written() {
     assert_eq!(fmt_forms(text), text);
 }
 
-/// 05-D1: the parse keeps a padded value, so format does.
+/// The parse keeps a padded value, so format does.
 #[specforge_test(
     behavior = "apply_format_rules",
     verify = "a padded value is kept as written, as check reads it"
@@ -174,7 +174,7 @@ fn a_padded_value_is_kept_as_written() {
     assert_eq!(fmt_forms(text), text);
 }
 
-/// 05-D5: the parse dedents a one-word `"""` to the word, so W159 names it and format writes it.
+/// The parse dedents a one-word `"""` to the word, so W159 names it and format writes it.
 #[specforge_test(
     behavior = "apply_format_rules",
     verify = "format writes a value in another form exactly where W159's rule names one"
@@ -190,7 +190,7 @@ fn a_multi_line_word_is_written_in_its_fields_form() {
     assert_eq!(fmt_forms(&once), once);
 }
 
-/// 05-D4: the parse reads `true` in a list as a literal, so W159 says quote it and format does.
+/// The parse reads `true` in a list as a literal, so W159 says quote it and format does.
 #[specforge_test(
     behavior = "apply_format_rules",
     verify = "format writes a value in another form exactly where W159's rule names one"
@@ -202,7 +202,7 @@ fn a_bare_true_item_on_a_members_kind_is_quoted() {
     );
 }
 
-/// 05-D3: a quoted number is written as the number it reads to, as `set` writes it.
+/// A quoted number is written as the number it reads to, as `set` writes it.
 #[specforge_test(
     behavior = "apply_format_rules",
     verify = "a quoted number is written as the number it reads to"

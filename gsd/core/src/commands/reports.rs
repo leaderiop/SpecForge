@@ -327,8 +327,8 @@ mod tests {
         assert_eq!(report["milestone_name"], "One");
     }
 
-    /// Re-review of plan 05, item 4: `--phase` reports that phase alone, from its own milestone, which need not be the
-    /// current one; numbers restart per milestone (`--reset-phase-numbers`), so `01` names two phases here.
+    /// `--phase` reports that phase alone, from its own milestone, which need not be the current one; numbers restart
+    /// per milestone (`--reset-phase-numbers`), so `01` names two phases here.
     #[test]
     fn a_phase_is_reported_from_its_own_milestone() {
         let phase = |id: &str, complete: &str| {

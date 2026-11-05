@@ -2045,7 +2045,7 @@ fn a_lock_change_reloads_the_environment() {
 }
 
 /// How long bringing an unchanged project of 1 000 files up to date takes
-/// (plan 01 T2 records it; run with `--ignored --nocapture`).
+/// (run with `--ignored --nocapture`).
 #[test]
 #[ignore = "a measurement, not a check"]
 fn measure_ensure_fresh_on_a_thousand_files() {
@@ -2400,7 +2400,7 @@ fn a_reload_builds_its_runtime_from_the_config_it_read() {
     assert!(std::sync::Arc::ptr_eq(session.runtime().unwrap(), &fixed));
 }
 
-// --- 07-T0: pins for the graph build and the unreadable source ---
+// --- pins for the graph build and the unreadable source ---
 
 /// `a.spec` and a `bad.spec` that is not UTF-8.
 fn project_with_an_unreadable_source() -> TestProject {
@@ -2679,7 +2679,7 @@ fn a_reload_keeps_the_root_it_was_opened_at() {
     assert_eq!(session.project().root(), Some(dir.root()));
 }
 
-// --- 04-T0: imports name the compile's sources ---
+// --- imports name the compile's sources ---
 
 const BARE: &str = r#"{"name":"s","version":"0.1.0","extensions":[]}"#;
 const EXCLUDING_DRAFTS: &str =

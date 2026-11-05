@@ -1,4 +1,4 @@
-//! K11 (ADR 0293): a pass declares the project files it reads and its input carries their facts and capped text; a
+//! A pass declares the project files it reads and its input carries their facts and capped text; a
 //! read file is a check input.
 
 use std::fs;

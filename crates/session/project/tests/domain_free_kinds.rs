@@ -68,7 +68,7 @@ fn rules_and_lifecycles_check_without_software() {
             .file("rules.spec", RULES)
             .file("lifecycle.spec", LIFECYCLE),
     );
-    // The residual (plan 04 §7): a root process no event joins is W134.
+    // What is left: a root process no event joins is W134.
     let codes: Vec<&str> = pairs.iter().map(|(code, _)| code.as_str()).collect();
     assert_eq!(codes, ["W134"], "{pairs:?}");
     assert!(pairs[0].1.contains("'batch_lifecycle'"), "{pairs:?}");

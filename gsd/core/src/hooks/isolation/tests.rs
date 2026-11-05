@@ -404,7 +404,7 @@ fn worktree_path_guard_accounts_for_every_upstream_case() {
     accounting::account(SAFETY_SUITE, &ported, &skipped);
 }
 
-/// REVIEW-r44 M4: the main checkout by a relative path is still the main checkout. The kernel resolves the real path
+/// The main checkout by a relative path is still the main checkout. The kernel resolves the real path
 /// and the repository (so the case of the path no longer matters: git names the repository, not a prefix).
 #[test]
 fn the_main_checkout_is_refused_by_a_relative_path() {
@@ -422,7 +422,7 @@ fn the_main_checkout_is_refused_by_a_relative_path() {
     );
 }
 
-/// REVIEW-k20c-part2 M2: the kernel calls a path in-project by where the project is, and upstream compares the
+/// The kernel calls a path in-project by where the project is, and upstream compares the
 /// toplevel of every target. A project root above the worktree, or a link the lexical name hides, puts the main
 /// checkout "in the project" while its real path is outside the worktree.
 #[test]

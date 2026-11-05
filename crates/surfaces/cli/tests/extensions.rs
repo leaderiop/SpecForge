@@ -1066,7 +1066,7 @@ fn add_rejects_invalid_specifier() {
     assert!(!dir.root().join("specforge.lock").exists());
 }
 
-/// Which inputs `specforge add` takes for a registry package (plan 12 §2.2):
+/// Which inputs `specforge add` takes for a registry package:
 /// E063 is the registry port reached with no registry configured, E054 and
 /// R-RES-003 are the argument refused before any registry is asked.
 #[specforge_test(
@@ -1121,7 +1121,7 @@ fn add_refuses_what_is_not_a_package_before_the_registry() {
     );
 }
 
-/// Plan 12 §3 R3: a module whose declared name is `../../../x` is refused
+/// A module whose declared name is `../../../x` is refused
 /// (E072) with nothing written, and `remove ../../../x` is refused with
 /// nothing deleted, even when a lock entry carries that name. The module is
 /// the greet blob with its name (`@sdk/greet`, 10 bytes) replaced by a
@@ -1653,7 +1653,7 @@ fn extensions_list_each_extensions_kinds_and_entities() {
 }
 
 // ===============================================================
-// Plan 05 pins: the management operations before they take the
+// Pins: the management operations before they take the
 // project view
 // ===============================================================
 
@@ -1766,7 +1766,7 @@ fn a_legacy_entry_that_did_not_load_is_listed_with_its_written_version() {
     assert_eq!(missing["source"], "unknown", "{missing}");
 }
 
-// Panel D5 (plan 05): a directory without specforge.json is a valid
+// A directory without specforge.json is a valid
 // default project, but doctor says so, as a warning.
 #[specforge_test(
     behavior = "run_doctor_check",
@@ -1851,7 +1851,7 @@ const UNUSABLE_CONFIGS: [&str; 3] = [
     r#"{"extensions": "@specforge/product"}"#,
 ];
 
-// R3 (plan 05): a specforge.json that is there and can't be used fails
+// A specforge.json that is there and can't be used fails
 // check with E069 (an error), then an I002 that names the file. It used to
 // compile silently as "no extensions configured".
 #[specforge_test(

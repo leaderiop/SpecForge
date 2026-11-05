@@ -88,7 +88,7 @@ fn complete_milestone_names_close_milestone() {
     assert!(title.contains("specforge gsd close-milestone"), "{title}");
 }
 
-/// REVIEW-r42 N5: the ship text reads the milestone's ledger (every phase of it), as `contributions/README.md` says,
+/// The ship text reads the milestone's ledger (every phase of it), as `contributions/README.md` says,
 /// not one phase's windows and not a "project root" file.
 #[test]
 fn ship_reads_the_ledger_of_the_milestone() {

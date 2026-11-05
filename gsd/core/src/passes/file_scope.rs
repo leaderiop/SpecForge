@@ -1,4 +1,4 @@
-//! The file-scope pass: `gsd/W305` and `gsd/W306`, over the paths of plans and tasks read as list items (K13), so a
+//! The file-scope pass: `gsd/W305` and `gsd/W306`, over the paths of plans and tasks read as list items, so a
 //! path holding a comma stays one path.
 //!
 //! W305: plans of one wave share no path in `files_modified ∪ files_deleted` (the planner's rule,

@@ -1,5 +1,5 @@
 //! The wire text of the refusals of validate, analyze and the trace tool and
-//! prompt, pinned once before any of them moves (round 13, plan 10): one
+//! prompt, pinned once before any of them moves: one
 //! block per call, the request then the McpError (a tool) or the JSON-RPC
 //! error (a prompt), the project root redacted.
 

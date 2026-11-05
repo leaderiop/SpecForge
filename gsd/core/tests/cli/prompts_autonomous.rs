@@ -63,7 +63,7 @@ fn autonomous_names_code_review_and_the_ui_gate_as_not_installed() {
     assert!(text.contains("not installed"), "{text}");
 }
 
-/// REVIEW-r43 Minor 3: the skip-discuss `specforge new context` carries `canonical_refs` in the same line (the entity is
+/// The skip-discuss `specforge new context` carries `canonical_refs` in the same line (the entity is
 /// refused without them), so the line is accepted as written.
 #[test]
 fn the_skip_discuss_context_line_is_accepted() {

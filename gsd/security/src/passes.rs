@@ -1,4 +1,4 @@
-//! The passes of `@gsd/security`: the compute pass for the model's computed fields (plan 16 T11).
+//! The passes of `@gsd/security`: the compute pass for the model's computed fields.
 //!
 //! `threat.blocking` is `status != closed`, no `accepted_risk` naming the threat, and a severity at or above
 //! `workflow.security_block_on` (`none` blocks nothing). `security_audit.threats_open` counts the blocking threats of

@@ -61,7 +61,7 @@ fn parse_names_each_source() {
     assert_eq!(parse("@acme/").unwrap_err().code, "E054");
 }
 
-/// What `parse` makes of every input of plan 12's table (§2.2): a
+/// What `parse` makes of every input of the table below: a
 /// package reference, or the code of the refusal. Nothing reaches a
 /// registry that is not a scoped package name with a requirement.
 #[specforge_test(

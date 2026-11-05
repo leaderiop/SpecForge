@@ -1,4 +1,4 @@
-//! A ported line names only tools that exist (REVIEW-r40 M6): every `specforge <verb>` it adds is a verb of the CLI,
+//! A ported line names only tools that exist: every `specforge <verb>` it adds is a verb of the CLI,
 //! every `specforge gsd <command>` is a declared command, and no agent body keeps a blind rename.
 
 use std::path::{Path, PathBuf};
@@ -76,8 +76,7 @@ const VERBS: &[&str] = &[
     "install", "new", "query", "run", "schema", "set", "settings",
 ];
 
-/// Commands of `@gsd/security` that core's text asks for when it is loaded (plan 16 T5, T6; `security-hooks` for the
-/// security gate, plan 05 review R9).
+/// Commands of `@gsd/security` that core's text asks for when it is loaded (`security-hooks` for the security gate).
 const EXTENSION_COMMANDS: &[&str] = &["security-gate", "security-hooks", "threat-ids"];
 
 #[test]
@@ -141,7 +140,7 @@ fn the_recording_section_matches_k17() {
     assert!(text.contains("replaces an earlier pass"), "{text}");
 }
 
-/// Plan 03 (F9) V8: the `node` lines a shell block keeps, as `(asset, trimmed line)`. Each runs the user's own
+/// The `node` lines a shell block keeps, as `(asset, trimmed line)`. Each runs the user's own
 /// JavaScript project, where node is that project's runtime and the prompt's reader is not SpecForge.
 const KEEP: &[(&str, &str)] = &[
     // the user's dev server (`npm run dev` above it): its readiness probe, as upstream wrote it
@@ -161,7 +160,7 @@ const KEEP: &[(&str, &str)] = &[
     ),
 ];
 
-/// The `node` lines plan 03 left, as `(asset, trimmed line)`, each with its reason. Each must match exactly one line,
+/// The `node` lines still to port, as `(asset, trimmed line)`, each with its reason. Each must match exactly one line,
 /// as a KEEP row must, so the list cannot go stale. None reads SpecForge's JSON. They run upstream code that @gsd/core
 /// does not install, and the step that holds them is optional; gsd/core/README.md names them.
 const PENDING_NODE: &[(&str, &str)] = &[
@@ -217,7 +216,7 @@ fn fenced_code(lines: &[String]) -> Vec<(usize, &str)> {
     out
 }
 
-/// Plan 03 (F9): a shell block runs no node: a project that uses SpecForge may have no node at all. Only code counts:
+/// A shell block runs no node: a project that uses SpecForge may have no node at all. Only code counts:
 /// a line inside a fence that is not a `#` comment. Prose about a node script is not code.
 #[test]
 fn a_shell_block_runs_no_node() {
@@ -270,7 +269,7 @@ fn a_shell_block_runs_no_node() {
     }
 }
 
-/// G4 (plan 04 T1, plan 05 T4): no shell block and no inline-code run of the prose runs jq: a SpecForge answer is
+/// No shell block and no inline-code run of the prose runs jq: a SpecForge answer is
 /// read with `--pick`, a third party's answer by the agent, and gh filters with its own `--jq`. Git Bash on Windows has
 /// no jq, and a `| jq -r` there leaves the variable empty (upstream #2589).
 #[test]

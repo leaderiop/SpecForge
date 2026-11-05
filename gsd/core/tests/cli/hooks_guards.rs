@@ -198,7 +198,7 @@ fn secret_read_guard_denies_cat_env_on_three_hosts() {
     }
 }
 
-/// F7: past the span reader's cap the real wasm denies; before it, the guest stack overflowed at about 2500 spans
+/// Past the span reader's cap the real wasm denies; before it, the guest stack overflowed at about 2500 spans
 /// and the guard's `allow` failure policy let the read through.
 #[test]
 fn a_command_nested_past_the_cap_is_denied_not_trapped() {

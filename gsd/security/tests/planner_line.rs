@@ -1,4 +1,4 @@
-//! The `specforge new threat` line core's planner prompt gives (REVIEW-security-part1 m6), checked against the kind
+//! The `specforge new threat` line core's planner prompt gives, checked against the kind
 //! `@gsd/security` declares: core cannot see that declaration, so its own `specforge new` test skips these kinds.
 
 use gsd_security::build;

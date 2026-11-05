@@ -1,4 +1,4 @@
-//! K16 (ADR 0296): the MCP mutation `specforge.settings_set` writes `specforge.json` through the write lock.
+//! The MCP mutation `specforge.settings_set` writes `specforge.json` through the write lock.
 
 use std::sync::Arc;
 

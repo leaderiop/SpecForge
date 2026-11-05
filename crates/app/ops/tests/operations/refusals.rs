@@ -1,6 +1,6 @@
 //! Every refusal of `check`, `trace` and `affected`, field by field: the kind,
 //! the code, the message, the suggestion, the entity and the subject each
-//! states. They are pinned once, before any refusal moves (round 13, plan 10).
+//! states. They are pinned once, before any refusal moves.
 
 use crate::view_support::{Assembled, Viewed};
 use specforge_common::{Diagnostic, Severity, SourceSpan, Sym};

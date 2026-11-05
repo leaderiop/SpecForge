@@ -179,7 +179,7 @@ fn every_by_construction_row_names_its_refusal() {
     }
 }
 
-/// REVIEW-r44 M9: a verdict a twin reaches and answers differently is a divergence, not an unreached verdict.
+/// A verdict a twin reaches and answers differently is a divergence, not an unreached verdict.
 #[test]
 fn the_divergences_and_the_unreached_verdicts_are_counted_apart() {
     let names = |f: fn(&Class) -> bool| -> Vec<&str> {

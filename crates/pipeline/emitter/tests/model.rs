@@ -1218,7 +1218,7 @@ fn an_extension_without_a_theme_color_is_drawn_grey() {
 }
 
 // =========================================================================
-// Declared text in the text diagrams (plan 16)
+// Declared text in the text diagrams
 // =========================================================================
 
 /// `multi_extension_schema()` with `behavior` renamed to `kind` and its

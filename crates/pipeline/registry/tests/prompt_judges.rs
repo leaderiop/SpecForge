@@ -1,4 +1,4 @@
-//! K15 (ADR 0295): a judged rule's judge may be `prompt:<id>`, a prompt of the rule's own extension.
+//! A judged rule's judge may be `prompt:<id>`, a prompt of the rule's own extension.
 
 use serde_json::json;
 use specforge_protocol_types::{ExtensionDeclaration, PeerDependency};

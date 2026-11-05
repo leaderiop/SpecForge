@@ -1,4 +1,4 @@
-//! What every core tool replies today, defects included (plan 11).
+//! What every core tool replies today, defects included.
 //!
 //! These pins are unlinked: they hold the replies as they are, `null`s and
 //! undeclared keys among them. The ticket that changes what a pin holds

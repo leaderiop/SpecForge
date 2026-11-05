@@ -263,7 +263,7 @@ pub(crate) fn run_in(
         command,
         &given,
         format,
-        // A command that declares its own `host` arg is not told the calling host by it (REVIEW-k20b N12).
+        // A command that declares its own `host` arg is not told the calling host by it.
         matches
             .try_get_one::<String>(HOST)
             .ok()

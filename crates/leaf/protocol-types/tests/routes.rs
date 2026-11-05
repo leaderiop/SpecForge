@@ -20,7 +20,7 @@ fn handshake(version: &str) -> HandshakeResponse {
     }
 }
 
-/// The requirement thread plan 04 declares, by hand.
+/// The requirement thread `@gsd/core` declares, by hand.
 fn route() -> RouteDescriptor {
     let step = |name: &str, via: &str| RouteStepDescriptor {
         name: name.to_string(),

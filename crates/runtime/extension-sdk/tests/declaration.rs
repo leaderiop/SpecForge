@@ -474,7 +474,7 @@ fn the_sdk_declares_the_field_holding_a_facts_result() {
     );
 }
 
-/// The requirement thread plan 04 declares, through the builders.
+/// The requirement thread `@gsd/core` declares, through the builders.
 fn requirement_thread(c: &mut ContributionsBuilder) {
     c.route("requirement-thread", |r| {
         r.start("requirement")

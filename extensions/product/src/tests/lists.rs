@@ -463,7 +463,7 @@ fn the_pages_of_a_list_are_its_entries_once_each() {
 
 mod each_list;
 
-/// Pinned by plan 01: a lifecycle kind's list counts an entity without a
+/// Pinned: a lifecycle kind's list counts an entity without a
 /// status as the kind's absent status, and `bulk-status` still reports it
 /// as `(none)`; the declared default will say the same thing once.
 #[test]

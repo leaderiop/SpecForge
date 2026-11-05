@@ -104,7 +104,7 @@ fn hooks_after(p: &super::harness::Project, point: &str, fingerprint: &str) -> V
     serde_json::from_str(&run.stdout).unwrap_or_else(|e| panic!("JSON ({e}): {}", run.all()))
 }
 
-/// REVIEW-security-part2 M3 (upstream #5105 R2): `--after-fingerprint <phase>` moves the `verify:post` step to
+/// Upstream #5105 R2: `--after-fingerprint <phase>` moves the `verify:post` step to
 /// `skippedHooks` once the phase's audit (`SECURITY.md`) exists, and keeps it active before.
 #[test]
 fn after_fingerprint_skips_the_step_once_the_phases_audit_exists() {

@@ -215,7 +215,7 @@ fn codex_conversion_survives_multibyte_text_before_a_mention() {
     );
 }
 
-/// `transformContentToHyphen` and `filterRuntimeNotesForTarget(claude)` of upstream's install (REVIEW-r42 M5).
+/// `transformContentToHyphen` and `filterRuntimeNotesForTarget(claude)` of upstream's install.
 #[test]
 fn claude_gets_hyphen_names_and_no_other_runtimes_notes() {
     let out = to_claude(
@@ -234,7 +234,7 @@ fn claude_gets_hyphen_names_and_no_other_runtimes_notes() {
 }
 
 /// The probe through upstream's compiled converters (`node`, gsd-core v1.18.0): `convertClaudeToCodexMarkdown`, and
-/// `convertClaudeToCursorMarkdown` then `_applyRuntimeRewrites(cursor, '~/.cursor/')` (REVIEW-r42 minors 4 and 10). The
+/// `convertClaudeToCursorMarkdown` then `_applyRuntimeRewrites(cursor, '~/.cursor/')`. The
 /// two goldens were written by:
 /// `m.convertClaudeToCodexMarkdown(probe)` and
 /// `m._applyRuntimeRewrites(m.convertClaudeToCursorMarkdown(probe), 'cursor', '~/.cursor/', true)`.

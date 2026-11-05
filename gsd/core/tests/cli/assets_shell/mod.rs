@@ -1,5 +1,5 @@
-//! The assets' shell lines, run under bash with a `PATH` that holds no jq and no node: `--pick` reads (plan 04, G4),
-//! the worktree manifest and the batch list as tab-separated lines, and the checks once written with jq (plan 05).
+//! The assets' shell lines, run under bash with a `PATH` that holds no jq and no node: `--pick` reads, the worktree
+//! manifest and the batch list as tab-separated lines, and the checks once written with jq.
 //! Where node is installed, upstream's line runs on the same input and gives the same answer.
 
 use std::path::{Path, PathBuf};
@@ -36,7 +36,7 @@ fn which(tool: &str) -> Option<PathBuf> {
 }
 
 impl Shell {
-    /// G4 (plan 04): `bash` with a `PATH` of [`PICK_TOOLS`] and `specforge` (`SPECFORGE_BIN`), and no jq: a line that
+    /// `bash` with a `PATH` of [`PICK_TOOLS`] and `specforge` (`SPECFORGE_BIN`), and no jq: a line that
     /// still ran jq would print nothing. `None` (and a skip note) when bash is absent.
     fn without_jq() -> Option<Shell> {
         Shell::only(PICK_TOOLS)

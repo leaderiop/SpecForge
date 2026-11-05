@@ -194,7 +194,7 @@ fn approve_validation_writes_by_and_at() {
 fn a_re_answer_leaves_no_member_of_the_earlier_one() {
     let p = unanswered();
     let u2 = "v1.0/01/01-UAT/U2";
-    // An automated result is an agent's (or CI's) call, not a person's (REVIEW-k20a M1).
+    // An automated result is an agent's (or CI's) call, not a person's.
     let run = gsd(
         &p,
         "record-automated-uat",

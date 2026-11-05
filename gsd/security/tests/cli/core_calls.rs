@@ -1,5 +1,5 @@
 //! The commands core's ported text asks of a capability extension are ones a project loading `@gsd/core` and
-//! `@gsd/security` answers (REVIEW-security-part1 N5): core's own tests cannot see security's declaration, and the text's
+//! `@gsd/security` answers: core's own tests cannot see security's declaration, and the text's
 //! `|| echo` fallbacks would hide a rename (the threat-ID hard stop would silently never fire). Black-box through the
 //! binary: a test that links both guests gets two `call` exports, which Linux's linker refuses.
 

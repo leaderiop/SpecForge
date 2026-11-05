@@ -44,8 +44,8 @@ pub(super) fn with_reading<T>(r: Reading, f: impl FnOnce() -> T) -> T {
     f()
 }
 
-/// How many `$( )` spans the reader follows one inside another. Unbounded, the guest stack overflowed at about 2500
-/// (F7), and the guard's failure policy (allow) let the command through; real commands nest fewer than 10.
+/// How many `$( )` spans the reader follows one inside another. Unbounded, the guest stack overflowed at about 2500,
+/// and the guard's failure policy (allow) let the command through; real commands nest fewer than 10.
 pub(super) const MAX_SPAN_DEPTH: usize = 128;
 
 /// How many tokens one call's scan reads across all its rescans (nested scripts, heredoc bodies) and readings. Each
@@ -92,7 +92,7 @@ pub(super) fn judged<T>(f: impl FnOnce() -> T) -> (T, Option<Stop>) {
 
 #[cfg(test)]
 thread_local! {
-    /// The tokens the last `judged` scan on this thread read: a test bounds the guard's work by it (F7).
+    /// The tokens the last `judged` scan on this thread read: a test bounds the guard's work by it.
     pub(super) static LAST_SCANNED: Cell<usize> = const { Cell::new(0) };
 }
 
@@ -152,7 +152,7 @@ struct Tag {
 
 #[cfg(test)]
 thread_local! {
-    /// The characters of the span tags sliced on this thread: a test bounds the span reader's work by it (F7).
+    /// The characters of the span tags sliced on this thread: a test bounds the span reader's work by it.
     pub(super) static TAG_CHARS: Cell<usize> = const { Cell::new(0) };
 }
 
@@ -306,7 +306,7 @@ fn paren_close(s: &[char], mut i: usize, depth: usize) -> usize {
 
 /// The index of the `}` that closes a `${` whose body starts at `i`, or the length; `depth` spans enclose it. The
 /// `$( )` and backtick bodies inside go to `nested`: upstream jumped to the next `}` and read none of them, so
-/// `${x:-$(cat .env)}` ran unread (F7 review).
+/// `${x:-$(cat .env)}` ran unread.
 fn brace_close(s: &[char], mut i: usize, depth: usize, nested: &mut Vec<String>) -> usize {
     if depth >= MAX_SPAN_DEPTH {
         stop(Stop::Nested);

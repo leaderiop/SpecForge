@@ -53,7 +53,7 @@ fn one_compile_reports_every_layers_errors() {
 }
 
 /// A compile keeps the spec root and the resolved files it read (MCP
-/// needs both: plan 01, D8).
+/// needs both).
 #[test]
 fn the_context_view_keeps_the_spec_root_and_the_resolved_files() {
     let dir = project(
@@ -551,7 +551,7 @@ fn a_compile_of_a_loaded_environment_is_the_compile_of_its_root() {
     );
 }
 
-/// Characterization (plan 03 T0): the order `Environment::diagnostics()`
+/// Characterization: the order `Environment::diagnostics()`
 /// reports a missing extension's load failure, the loaded extensions'
 /// declaration diagnostics and the registry build's. The registry build
 /// owning declaration validation changes it (ADR 0012).

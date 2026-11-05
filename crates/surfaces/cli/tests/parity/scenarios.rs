@@ -357,7 +357,7 @@ pub(super) const EXPECTED_DIVERGENCES: &[(&str, Aspect, &str)] = &[
         Aspect::Files,
         "only the CLI writes the schema cache",
     ),
-    // check: both surfaces run `specforge_ops::analysis::check` (plan 08, ADR 0018).
+    // check: both surfaces run `specforge_ops::analysis::check` (ADR 0018).
     // Finding errors fails `specforge check` (exit 1) but is a successful
     // MCP call, whose verdict is `_meta["specforge/check"].ok`.
     (

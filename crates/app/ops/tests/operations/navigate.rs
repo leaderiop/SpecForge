@@ -343,7 +343,7 @@ fn strings_comments_and_verify_texts_are_not_occurrences() {
     );
 }
 
-/// A ref and a behavior listing it (plan 06's R1 fixture).
+/// A ref and a behavior listing it.
 const REFS: &str = concat!(
     "ref gh.issue:42 \"Support Wasm\"\n",
     "\n",

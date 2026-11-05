@@ -107,7 +107,7 @@ fn ingest_docs_takes_a_path() {
     );
 }
 
-/// REVIEW-k20b m1: a `--path` names the project whatever the current directory is. Here the current directory is a
+/// A `--path` names the project whatever the current directory is. Here the current directory is a
 /// project whose `ingest_docs` declares `path`, which once took the option for its own argument.
 #[test]
 fn a_path_names_the_project_when_the_cwd_is_another() {
@@ -157,7 +157,7 @@ fn a_path_names_the_project_when_the_cwd_is_another() {
     );
 }
 
-/// REVIEW-k20b m1: a command with `--path` loads the project it names only; a current directory whose
+/// A command with `--path` loads the project it names only; a current directory whose
 /// `specforge.json` is broken does not refuse it.
 #[test]
 fn a_command_with_path_loads_one_project() {
@@ -183,7 +183,7 @@ fn ingest_docs_description_names_no_planning() {
     assert!(description.contains("SpecForge spec"), "{description}");
 }
 
-/// REVIEW-r43 M8: the blocker gate reads `{conflicts_path}`, so the synthesizer must be told to write it (and the intel
+/// The blocker gate reads `{conflicts_path}`, so the synthesizer must be told to write it (and the intel
 /// files) to the paths the orchestrator gives, and a conflicts file that is missing or unreadable is a blocker.
 #[test]
 fn the_synthesizer_writes_the_conflicts_file_the_gate_reads() {

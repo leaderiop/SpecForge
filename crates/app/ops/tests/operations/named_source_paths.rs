@@ -103,7 +103,7 @@ fn a_source_path_that_leaves_the_root_is_refused_in_one_sentence() {
             assert_eq!(refusal.error.message, message);
         }
     }
-    // A `..` that stays inside is applied where it stands (plan 04's mint).
+    // A `..` that stays inside is applied where it stands when the path is minted.
     let marked = mark(&project, "src/../src/tiny.rs").unwrap();
     assert!(matches!(
         marked.recorded,

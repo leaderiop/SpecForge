@@ -471,7 +471,7 @@ fn two_milestones(empty: bool) -> Project {
     p
 }
 
-/// REVIEW-r43 M13: the backlog is roadmap-wide (upstream's `## Backlog`), so a 999.x of v1.0 is promoted into v1.1.
+/// The backlog is roadmap-wide (upstream's `## Backlog`), so a 999.x of v1.0 is promoted into v1.1.
 #[test]
 fn promote_takes_a_backlog_phase_of_another_milestone() {
     let p = two_milestones(false);

@@ -449,7 +449,7 @@ async fn publish_code(name: &str, version: &str) -> String {
     body["error"]["code"].as_str().expect("a code").to_string()
 }
 
-/// What `publish_package` makes of a name and a version (plan 12 §3 R5): a
+/// What `publish_package` makes of a name and a version: a
 /// name the package module refuses never reaches the signature check.
 #[specforge_test_macros::test(
     behavior = "publish_to_registry",

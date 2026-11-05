@@ -569,7 +569,7 @@ fn rename_result_is_an_mcp_rename_result() {
 }
 
 /// With `spec_root` set, spans name a source by its key (its path from the project
-/// root): rename must read and write the files there (plan 01, D8).
+/// root): rename must read and write the files there.
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
     verify = "specforge.rename renames entity and all references"
@@ -1630,8 +1630,8 @@ fn add_extension_invalid_specifier() {
     assert!(msg.contains("no-at-sign"), "{msg}");
 }
 
-/// `specforge.add_extension` reads its argument as `specforge add` does
-/// (plan 12 §2.2, R2): the same inputs reach the registry port, which this
+/// `specforge.add_extension` reads its argument as `specforge add` does:
+/// the same inputs reach the registry port, which this
 /// server has none behind (E063), and the same ones are refused (E054).
 #[specforge_test(
     behavior = "parse_extension_specifier",
@@ -2258,7 +2258,7 @@ fn add_then_tools_list_shows_the_extension_tools() {
     );
 }
 
-// --- plan 03: a specforge.json that hides the project's sources ---
+// --- a specforge.json that hides the project's sources ---
 
 /// A `specforge.json` that is cut off: no file is known to be a source.
 const TRUNCATED_CONFIG: &str = r#"{"spec_root": "spec", "extensions": ["#;

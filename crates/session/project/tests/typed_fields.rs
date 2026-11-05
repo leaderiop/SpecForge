@@ -1,5 +1,5 @@
 //! A field's type may be a list of words, a block, a union or a range, and a file field declares its base (ADR
-//! 0285, plan K3): what a project with the typed fields of `Assembled::typed()` reads, links, checks and exports.
+//! 0285): what a project with the typed fields of `Assembled::typed()` reads, links, checks and exports.
 
 use specforge_common::Diagnostic;
 use specforge_graph::{Graph, written_tokens};

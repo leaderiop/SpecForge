@@ -1,4 +1,4 @@
-//! G3 (plan 02): the body lines (0-based, inclusive runs) of the quick workflows rewritten because a quick plan's
+//! The body lines (0-based, inclusive runs) of the quick workflows rewritten because a quick plan's
 //! context, decisions and research are entities that name it in `plan`: the discussion and research steps create
 //! them, the reading lists hand a sub-agent a `specforge query` of the plan, context or research (upstream's
 //! parenthesis kept), and the existence checks query the entity. A plan counts as planned when it holds a task, as
