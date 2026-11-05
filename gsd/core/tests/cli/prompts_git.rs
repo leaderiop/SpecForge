@@ -357,6 +357,14 @@ fn pr_branch_target_is_data_not_shell() {
         })
         .collect();
     assert!(shells.contains(&"bash"), "bash is on PATH");
+    if !shells.contains(&"zsh") {
+        // CI installs zsh for the gsd shard, so only a local run may skip it
+        assert!(
+            std::env::var_os("CI").is_none(),
+            "zsh is not on PATH: CI runs the zsh half"
+        );
+        eprintln!("pr_branch_target_is_data_not_shell: zsh is not on PATH, its half is skipped");
+    }
     for host in ["claude-code", "codex", "cursor"] {
         for typed in HOSTILE {
             let text = text_of(&payload(&prompt(
