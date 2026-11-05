@@ -161,7 +161,7 @@ If that also fails, report the error and continue with remaining repos.
 ```bash
 git clone "$SOURCE_REPO_PATH" "$TARGET_PATH/$REPO_NAME" 2>&1
 cd "$TARGET_PATH/$REPO_NAME"
-git checkout -b "$BRANCH_NAME" 2>&1
+specforge git switch "$BRANCH_NAME" --create --pick .branch
 ```
 
 Track results: which repos succeeded, which failed, what branch was used.
