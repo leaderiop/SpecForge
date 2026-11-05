@@ -86,7 +86,7 @@ QB_SPAWN_JSON='{"spawn":[],"pending":[]}'   # quick-batch spawn-plan: the batch 
 
    ```bash
 SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | cut -c1-40 | sed 's/^-//; s/-$//')
-   ITEM_DIR="${quick_dir}/${quick_id}-${SLUG}"
+   ITEM_DIR="${quick_id}"   # the quick plan's id: a quick task is entities, not a directory
    ```
 
    **`isolation == "harness-worktree"`:** one `Agent()` per message,
@@ -113,7 +113,7 @@ SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9'
 
    <constraints>
    - Execute all tasks in the plan; commit each task atomically
-   - Create summary at: ${ITEM_DIR}/${quick_id}-SUMMARY.md with `status: complete` in frontmatter
+   - Record the summary `${quick_id}/${quick_id}-SUMMARY` with `status complete`
    - NEVER invoke /gsd:quick or any other GSD command — you are a leaf, not a coordinator
    - NEVER write the batch notes
    - Do NOT update STATE.md or ROADMAP.md — the orchestrator owns those writes after every item in this dispatch round completes (ADR-1239 single-writer invariant)

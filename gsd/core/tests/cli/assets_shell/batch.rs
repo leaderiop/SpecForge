@@ -111,7 +111,6 @@ fn a_verification_status_routes_the_batch_item() {
 /// A quick-batch item is its quick plan, named by its id: nothing sets a `quick_dir`, so a path built from it is
 /// `/<id>-<slug>`, at the filesystem's root.
 #[test]
-#[ignore = "pin: the item directory is still built from an unset quick_dir"]
 fn a_quick_batch_item_is_its_quick_plan() {
     let Some(sh) = Shell::without_jq() else {
         return;

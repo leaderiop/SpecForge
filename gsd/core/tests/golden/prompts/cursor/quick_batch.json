@@ -61,7 +61,7 @@
     "",
     "<available_agent_types>"
   ],
-  "bytes": 27221,
+  "bytes": 27261,
   "end": [
     "**Otherwise:** proceed to the workflow's normal path — parse the task list",
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:61ea9884d074364aa9e838b1ecd3404c3b5117fb339403b93c3fba3f409507ea",
+    "digest": "sha256:71d5dc88c43e41cd625f69b83c27f015ebfb0ea5d6741ad358be6fe7314b5ffc",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "61ea9884d074364aa9e838b1ecd3404c3b5117fb339403b93c3fba3f409507ea"
+  "sha256": "71d5dc88c43e41cd625f69b83c27f015ebfb0ea5d6741ad358be6fe7314b5ffc"
 }

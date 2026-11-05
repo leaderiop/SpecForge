@@ -161,4 +161,32 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/progress.md", 583, 583),
     ("gsd-core/workflows/new-project.md", 1154, 1154),
     ("gsd-core/workflows/new-project.md", 1158, 1158),
+    // A quick-batch item is its quick plan, named by its id: no `quick_dir` is set.
+    ("gsd-core/workflows/quick-batch.md", 76, 76),
+    ("gsd-core/workflows/quick-batch.md", 83, 84),
+    (
+        "gsd-core/workflows/quick-batch/steps/research-phase.md",
+        23,
+        24,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        87,
+        87,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        114,
+        114,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/verification-wave.md",
+        25,
+        25,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/verification-wave.md",
+        37,
+        37,
+    ),
 ];

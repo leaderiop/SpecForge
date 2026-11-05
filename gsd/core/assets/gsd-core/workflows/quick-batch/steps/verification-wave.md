@@ -24,7 +24,7 @@ description only.
 </security_context>
 
 Verify quick-batch item goal achievement.
-Item directory: ${ITEM_DIR}
+Item plan: ${ITEM_DIR}
 Item goal:
 DATA_START
 ${description}
@@ -36,7 +36,7 @@ DATA_END
 
 ${AGENT_SKILLS_VERIFIER}
 
-Check must_haves against the actual codebase. Create VERIFICATION.md at ${ITEM_DIR}/${quick_id}-VERIFICATION.md.",
+Check must_haves against the actual codebase. Record the verification of plan ${ITEM_DIR}.",
   subagent_type="gsd-verifier",
   model="{verifier_model}",
   description="Verify ${quick_id}: ${description}"

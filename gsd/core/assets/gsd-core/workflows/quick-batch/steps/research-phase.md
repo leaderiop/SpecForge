@@ -22,8 +22,8 @@ way every step does —
 
 ```bash
 SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | cut -c1-40 | sed 's/^-//; s/-$//')
-ITEM_DIR="${quick_dir}/${quick_id}-${SLUG}"
-specforge files mkdir "$ITEM_DIR" >/dev/null; specforge query "${quick_id}" --depth 0 >/dev/null 2>&1 || specforge new plan "${quick_id}" "$description" --in spec/quick.spec --type execute --files_modified "" --objective "$description"  # the research names its plan, so the plan comes first
+ITEM_DIR="${quick_id}"   # the quick plan's id: a quick task is entities, not a directory
+specforge query "${quick_id}" --depth 0 >/dev/null 2>&1 || specforge new plan "${quick_id}" "$description" --in spec/quick.spec --type execute --files_modified "" --objective "$description"  # the research names its plan, so the plan comes first
 ```
 
 Display banner:

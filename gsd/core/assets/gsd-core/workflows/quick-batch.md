@@ -75,15 +75,15 @@ AGENT_SKILLS_VERIFIER=""   # the host install carries the skills of gsd-verifier
 AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-phase-researcher
 ```
 
-Parse `$INIT` for: `planner_model`, `executor_model`, `checker_model`, `verifier_model`, `researcher_model`, `commit_docs`, `quick_dir`, `quick_batches_dir`, `roadmap_exists`, `planning_exists`.
+Parse `$INIT` for: `planner_model`, `executor_model`, `checker_model`, `verifier_model`, `researcher_model`, `commit_docs`, `roadmap_exists`, `planning_exists`.
 
 <!-- #2517 model-omit-on-inherit -->
 
 > **Model omission (#2517).** Every `Agent()` dispatch below (planner, researcher, plan-checker, executor, verifier) MUST omit the `model` parameter entirely when the value it would carry (`planner_model`, `checker_model`, `executor_model`, `verifier_model`, `researcher_model`) is `"inherit"` or empty. An empty value 404s on runtimes without native tier aliases — the default on non-Claude runtimes, where the installer writes `resolve_model_ids:"omit"`. Omitting it inherits the orchestrator's model. See @gsd-core/references/model-profile-resolution.md.
 
 ```bash
-STATE_PATH="${quick_dir%/quick}/STATE.md"
-PROJECT_PATH="${quick_dir%/quick}/PROJECT.md"
+STATE_PATH=""   # the project state is computed: specforge gsd progress-report
+PROJECT_PATH=""   # the project is an entity: specforge query "$PROJECT" --depth 0
 USE_WORKTREES="{{setting:workflow.use_worktrees|}}"   # workflow.use_worktrees (the settings)
 RUNTIME="{{setting:runtime|}}"   # runtime (the settings)
 ```
