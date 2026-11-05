@@ -37,6 +37,8 @@ mod e502_probe;
 mod execute;
 mod execute_rules;
 mod execute_status;
+#[path = "../common/files.rs"]
+mod files;
 mod gates;
 mod harness;
 mod hooks_community;

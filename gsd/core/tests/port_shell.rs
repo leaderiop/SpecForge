@@ -9,6 +9,8 @@ use std::process::{Command, Stdio};
 
 use regex::Regex;
 
+#[path = "common/files.rs"]
+mod files;
 #[path = "common/pending.rs"]
 mod pending;
 
@@ -16,26 +18,20 @@ fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
 
-fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
-    for entry in std::fs::read_dir(dir).expect("a directory").flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            walk(&path, out);
-        } else if path.extension().is_some_and(|e| e == "md") {
-            out.push(path);
-        }
-    }
+/// The files under `dir` with the extension `ext`.
+fn with_extension(dir: &Path, ext: &str) -> Vec<PathBuf> {
+    files::under(dir)
+        .into_iter()
+        .filter(|p| p.extension().is_some_and(|e| e == ext))
+        .collect()
 }
 
 /// `(label, ours, upstream's)` as body lines of every asset that has an upstream file of the same line count.
 fn pairs() -> Vec<(String, Vec<String>, Vec<String>)> {
     let base = root().join("assets");
     let vendored = Path::new(gsd_kit::snapshot!());
-    let mut paths = Vec::new();
-    walk(&base, &mut paths);
-    paths.sort();
     let mut out = Vec::new();
-    for p in paths {
+    for p in with_extension(&base, "md") {
         let rel = p
             .strip_prefix(&base)
             .expect("under assets")
@@ -190,9 +186,8 @@ fn no_text_joins_the_spec_to_a_path() {
         }
     }
     // the Rust side writes text too: its string literals
-    let mut sources = Vec::new();
-    walk_rs(&root().join("src"), &mut sources);
-    walk_rs(&root().join("../kit/src"), &mut sources);
+    let mut sources = with_extension(&root().join("src"), "rs");
+    sources.extend(with_extension(&root().join("../kit/src"), "rs"));
     for path in sources {
         let text = std::fs::read_to_string(&path).expect("a source");
         for (n, line) in text.lines().enumerate() {
@@ -202,15 +197,4 @@ fn no_text_joins_the_spec_to_a_path() {
         }
     }
     assert!(found.is_empty(), "joined words:\n{}", found.join("\n"));
-}
-
-fn walk_rs(dir: &Path, out: &mut Vec<PathBuf>) {
-    for entry in std::fs::read_dir(dir).expect("a directory").flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            walk_rs(&path, out);
-        } else if path.extension().is_some_and(|e| e == "rs") {
-            out.push(path);
-        }
-    }
 }

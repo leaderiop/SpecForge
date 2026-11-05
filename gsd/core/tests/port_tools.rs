@@ -7,22 +7,13 @@ use regex::Regex;
 
 #[path = "common/command_word.rs"]
 mod command_word;
+#[path = "common/files.rs"]
+mod files;
 #[path = "common/specforge_only.rs"]
 mod specforge_only;
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
-}
-
-fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
-    for entry in std::fs::read_dir(dir).expect("a directory").flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            walk(&path, out);
-        } else {
-            out.push(path);
-        }
-    }
 }
 
 /// Body lines of an upstream file; a command or agent file loses its frontmatter.
@@ -50,10 +41,7 @@ fn upstream_body(relative: &str) -> Vec<String> {
 /// Every asset as `(path under assets/, its lines after the header, upstream's body)`.
 fn every_asset() -> Vec<(String, Vec<String>, Vec<String>)> {
     let assets = root().join("assets");
-    let mut paths = Vec::new();
-    walk(&assets, &mut paths);
-    paths.sort();
-    paths
+    files::under(&assets)
         .into_iter()
         .filter(|p| p.extension().is_some_and(|e| e == "md"))
         .map(|p| {
@@ -494,10 +482,10 @@ fn refused_invocations(text: &str) -> Vec<String> {
 
 #[test]
 fn every_gsd_invocation_in_an_asset_or_a_prompt_fits_its_command() {
-    let mut files = Vec::new();
-    walk(&root().join("assets"), &mut files);
-    walk(&root().join("src"), &mut files);
-    walk(&root().join("../kit/src"), &mut files);
+    let files: Vec<PathBuf> = ["assets", "src", "../kit/src"]
+        .iter()
+        .flat_map(|dir| files::under(&root().join(dir)))
+        .collect();
     let mut bad = Vec::new();
     let mut seen = 0;
     for path in files.iter().filter(|p| {
@@ -653,7 +641,7 @@ fn plan_phase_prompts_name_no_unsourced_path() {
 fn execute_phase_holds_no_isolation_value() {
     let base = root().join("assets/gsd-core");
     let mut files = vec![base.join("workflows/execute-phase.md")];
-    walk(&base.join("workflows/execute-phase"), &mut files);
+    files.extend(files::under(&base.join("workflows/execute-phase")));
     for entry in std::fs::read_dir(base.join("references"))
         .expect("references")
         .flatten()

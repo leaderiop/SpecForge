@@ -10,7 +10,7 @@
 
 use regex::Regex;
 
-use super::command_word;
+use super::{command_word, files};
 
 /// What a block may run besides `specforge`: the shell's own keywords and builtins.
 pub const SHELL_WORDS: &[&str] = &[
@@ -70,26 +70,13 @@ pub fn assert_pending(hits: &[Row], listed: Vec<Row>) {
 /// Every asset of `@gsd/core`, and of `@gsd/security` under `../security/assets/`, as `(path, its lines after the
 /// header)`.
 pub fn shell_assets() -> Vec<(String, Vec<String>)> {
-    fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
-        for entry in std::fs::read_dir(dir).expect("a directory").flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                walk(&path, out);
-            } else {
-                out.push(path);
-            }
-        }
-    }
     let mut out = Vec::new();
     for (dir, label) in [
         ("assets", ""),
         ("../security/assets", "../security/assets/"),
     ] {
         let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(dir);
-        let mut paths = Vec::new();
-        walk(&base, &mut paths);
-        paths.sort();
-        for p in paths
+        for p in files::under(&base)
             .iter()
             .filter(|p| p.extension().is_some_and(|e| e == "md"))
         {
@@ -104,6 +91,14 @@ pub fn shell_assets() -> Vec<(String, Vec<String>)> {
 
 /// The shell fences (`bash`, `sh`, `shell`, `zsh`, `powershell`) of `lines`, each as its lines.
 pub fn shell_blocks(lines: &[String]) -> Vec<Vec<&str>> {
+    shell_fences(lines)
+        .into_iter()
+        .map(|(_, block)| block)
+        .collect()
+}
+
+/// [`shell_blocks`] with each fence's language (`bash`).
+pub fn shell_fences(lines: &[String]) -> Vec<(&str, Vec<&str>)> {
     let mut out = Vec::new();
     let mut fence: Option<(char, bool)> = None;
     for line in lines {
@@ -112,12 +107,10 @@ pub fn shell_blocks(lines: &[String]) -> Vec<Vec<&str>> {
             let mark = code.chars().next().unwrap_or('`');
             fence = match fence {
                 None => {
-                    let shell = matches!(
-                        code[3..].trim(),
-                        "bash" | "sh" | "shell" | "zsh" | "powershell"
-                    );
+                    let language = code[3..].trim();
+                    let shell = matches!(language, "bash" | "sh" | "shell" | "zsh" | "powershell");
                     if shell {
-                        out.push(Vec::new());
+                        out.push((language, Vec::new()));
                     }
                     Some((mark, shell))
                 }
@@ -127,7 +120,7 @@ pub fn shell_blocks(lines: &[String]) -> Vec<Vec<&str>> {
             continue;
         }
         if fence.is_some_and(|(_, shell)| shell) {
-            out.last_mut().expect("an open block").push(line.as_str());
+            out.last_mut().expect("an open block").1.push(line.as_str());
         }
     }
     out

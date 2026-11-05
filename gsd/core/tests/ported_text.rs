@@ -8,8 +8,14 @@ use gsd_core::prompts::{asset, asset_paths, render_text, repoint, without_notice
 use regex::Regex;
 use roster::ROSTER;
 
+#[path = "common/command_word.rs"]
+mod command_word;
+#[path = "common/files.rs"]
+mod files;
 #[path = "common/roster.rs"]
 mod roster;
+#[path = "common/specforge_only.rs"]
+mod specforge_only;
 
 const FORBIDDEN: [&str; 9] = [
     ".planning",
@@ -362,42 +368,24 @@ fn the_threat_id_gate_reads_threat_ids() {
 
 /// Every embedded asset of @gsd/core and @gsd/security as `(path under assets/, text)`.
 fn asset_files() -> Vec<(String, String)> {
-    fn walk(base: &Path, dir: &Path, out: &mut Vec<(String, String)>) {
-        for entry in std::fs::read_dir(dir).expect("a directory").flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                walk(base, &path, out);
-            } else if path.extension().is_some_and(|e| e == "md") {
-                let rel = path.strip_prefix(base).expect("under the base");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut out = Vec::new();
+    for dir in ["assets", "../security/assets"] {
+        let base = root.join(dir);
+        for path in files::under(&base) {
+            if path.extension().is_some_and(|e| e == "md") {
+                let rel = path.strip_prefix(&base).expect("under the base");
                 let text = std::fs::read_to_string(&path).expect("an asset");
                 out.push((rel.to_string_lossy().replace('\\', "/"), text));
             }
         }
     }
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let mut out = Vec::new();
-    for dir in ["assets", "../security/assets"] {
-        let base = root.join(dir);
-        walk(&base, &base, &mut out);
-    }
     out
 }
 
-/// The 1-based lines of `text` inside a `bash`/`sh` fence, with their text.
-fn shell_lines(text: &str) -> Vec<(usize, &str)> {
-    let mut out = Vec::new();
-    let mut open = false;
-    for (i, line) in text.split('\n').enumerate() {
-        let mark = line.trim_start();
-        if open && mark.starts_with("```") {
-            open = false;
-        } else if open {
-            out.push((i + 1, line));
-        } else if mark == "```bash" || mark == "```sh" {
-            open = true;
-        }
-    }
-    out
+/// The lines of `text`, for [`specforge_only::shell_fences`].
+fn lines_of(text: &str) -> Vec<String> {
+    text.split('\n').map(String::from).collect()
 }
 
 /// No placeholder survives a render: on every host and flag combination, each `{{arg:}}` names a declared argument.
@@ -415,26 +403,27 @@ fn no_render_keeps_an_arg_token() {
 #[test]
 fn an_arg_token_sits_in_double_quotes_in_a_shell_fence() {
     for (path, text) in asset_files() {
-        let fenced: BTreeSet<usize> = shell_lines(&text).into_iter().map(|(n, _)| n).collect();
-        for (i, line) in text.split('\n').enumerate() {
-            for (at, _) in line.match_indices("{{arg:") {
-                assert!(
-                    fenced.contains(&(i + 1)),
-                    "{path}:{}: outside a shell fence",
-                    i + 1
-                );
-                let before = &line[..at];
-                let quotes = before
-                    .char_indices()
-                    .filter(|&(j, c)| c == '"' && !before[..j].ends_with('\\'))
-                    .count();
-                assert!(
-                    quotes % 2 == 1,
-                    "{path}:{}: not in double quotes: {line}",
-                    i + 1
-                );
+        let lines = lines_of(&text);
+        let mut fenced = 0;
+        for (language, block) in specforge_only::shell_fences(&lines) {
+            for line in block {
+                for (at, _) in line.match_indices("{{arg:") {
+                    fenced += 1;
+                    assert!(
+                        matches!(language, "bash" | "sh"),
+                        "{path}: in a {language} fence: {line}"
+                    );
+                    let before = &line[..at];
+                    let quotes = before
+                        .char_indices()
+                        .filter(|&(j, c)| c == '"' && !before[..j].ends_with('\\'))
+                        .count();
+                    assert!(quotes % 2 == 1, "{path}: not in double quotes: {line}");
+                }
             }
         }
+        let all = text.matches("{{arg:").count();
+        assert_eq!(fenced, all, "{path}: a token outside a shell fence");
     }
 }
 
@@ -481,9 +470,12 @@ fn no_shell_block_reads_the_raw_argument_text() {
     let reads = Regex::new(r"\$\{?(ARGUMENTS|GSD_ARGS)\b").expect("a regex");
     let mut offenders = Vec::new();
     for (path, text) in asset_files() {
-        for (n, line) in shell_lines(&text) {
+        for line in specforge_only::shell_blocks(&lines_of(&text))
+            .into_iter()
+            .flatten()
+        {
             if reads.is_match(line) {
-                offenders.push(format!("{path}:{n} reads the argument text: {line}"));
+                offenders.push(format!("{path} reads the argument text: {line}"));
             }
         }
         for (i, line) in text.lines().enumerate() {

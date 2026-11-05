@@ -10,6 +10,8 @@ use regex::Regex;
 
 #[path = "command_word.rs"]
 mod command_word;
+#[path = "files.rs"]
+mod files;
 #[path = "specforge_only.rs"]
 mod specforge_only;
 

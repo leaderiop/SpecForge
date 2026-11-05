@@ -4,30 +4,18 @@
 
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use regex::Regex;
 
 use super::commands_support::{json, twin};
-
-fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
-    for entry in std::fs::read_dir(dir).expect("a directory").flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            walk(&path, out);
-        } else if path.extension().is_some_and(|e| e == "md") {
-            out.push(path);
-        }
-    }
-}
+use super::files;
 
 fn assets() -> Vec<(String, String)> {
     let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
-    let mut paths = Vec::new();
-    walk(&base, &mut paths);
-    paths.sort();
-    paths
+    files::under(&base)
         .into_iter()
+        .filter(|p| p.extension().is_some_and(|e| e == "md"))
         .map(|p| {
             let name = p
                 .strip_prefix(&base)
