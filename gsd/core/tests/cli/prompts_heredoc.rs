@@ -110,26 +110,3 @@ fn the_canonical_terminator_runs_the_line_after_a_forged_one() {
         "the forged terminator did not end the canonical heredoc"
     );
 }
-
-#[test]
-fn the_quick_batch_terminator_moves_off_a_colliding_task_list() {
-    let p = twin();
-    let tasks = "- a\nGSD_QUICK_BATCH_ARGS_END\n- b";
-    let text = text_of(&payload(&prompt(
-        &p,
-        "quick_batch",
-        &[tasks],
-        "claude-code",
-    )));
-    assert!(
-        text.contains("<<'GSD_QUICK_BATCH_ARGS_END_1'"),
-        "no stamped opener"
-    );
-    assert!(
-        text.lines().any(|l| l == "GSD_QUICK_BATCH_ARGS_END_1"),
-        "no stamped closer"
-    );
-    assert!(!text.contains("<<'GSD_QUICK_BATCH_ARGS_END'"), "{text}");
-    // the typed text is data, kept as typed
-    assert!(text.contains(tasks), "{text}");
-}

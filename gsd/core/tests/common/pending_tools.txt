@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 655 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 643 rows.
 ../security/assets/gsd-core/workflows/secure-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -73,8 +73,6 @@ agents/gsd-verifier.md	grep	node -e "const m = require('$MODULE_PATH'); console.
 agents/gsd-verifier.md	grep	cargo test -- --list 2>/dev/null | grep -q "$PHASE_TEST_PATTERN"   # pytest --collect-only -q · npx vitest list · go test -list '.*'
 agents/gsd-verifier.md	wc	grep -r "import.*$artifact_name" "${search_path:-src/}" --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l
 agents/gsd-verifier.md	wc	grep -r "$artifact_name" "${search_path:-src/}" --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "import" | wc -l
-commands/gsd/quick-batch.md	cat	cat > "$QUICK_BATCH_PARSE_FILE" 2>&1 <<'GSD_QUICK_BATCH_ARGS_END'
-commands/gsd/quick-batch.md	cat	QUICK_BATCH_PARSE=$(cat "$QUICK_BATCH_PARSE_FILE"); specforge files remove --force "$QUICK_BATCH_PARSE_FILE" >/dev/null
 commands/gsd/quick.md	awk	grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} ' spec 2>/dev/null | awk '{print $2}'   # the quick plans: the plans with no phase
 commands/gsd/quick.md	awk	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 commands/gsd/quick.md	awk	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
@@ -397,10 +395,6 @@ gsd-core/workflows/progress.md	wc	specforge query "${CURRENT_PHASE}" --depth 2 -
 gsd-core/workflows/progress/steps/forensic-audit.md	grep	specforge git status --pick '.tracked[]' 2>/dev/null | grep -v "^spec/" | grep -v "^\.\." | head -10
 gsd-core/workflows/progress/steps/forensic-audit.md	grep	specforge git status --pick '.tracked[]' 2>/dev/null | grep -v "^spec/" | grep -v "^\.\." | head -10
 gsd-core/workflows/progress/steps/forensic-audit.md	head	specforge git status --pick '.tracked[]' 2>/dev/null | grep -v "^spec/" | grep -v "^\.\." | head -10
-gsd-core/workflows/quick-batch.md	cat	cat > "$QB_PARSE_FILE" 2>&1 <<'GSD_QUICK_BATCH_ARGS_END'   # the argument block is read as typed: take jobs, validate, research and resume from it
-gsd-core/workflows/quick-batch.md	cat	QB_PARSE_JSON=$(cat "$QB_PARSE_FILE"); specforge files remove --force "$QB_PARSE_FILE" >/dev/null
-gsd-core/workflows/quick-batch.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-gsd-core/workflows/quick-batch.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/quick-batch/steps/batch-init.md	grep	QB_ITEMS=$(sed -E 's/^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]+//' "$TASK_FILE" | grep -v '^[[:space:]]*$'); QB_CREATE_LIST=$([ "$(printf '%s\n' "$QB_ITEMS" | grep -c .)" -ge 2 ] && printf '%s\n' "$QB_ITEMS" | while IFS= read -r t; do printf '%s\t%s\n' "$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)" "$t"; done)   # one quick_id<TAB>description line per item, list markers stripped, at least 2 items, one quick id (<yymmdd>-<3 base-36>) per item; the batch router is not part of @gsd/core
 gsd-core/workflows/quick-batch/steps/batch-init.md	grep	QB_ITEMS=$(sed -E 's/^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]+//' "$TASK_FILE" | grep -v '^[[:space:]]*$'); QB_CREATE_LIST=$([ "$(printf '%s\n' "$QB_ITEMS" | grep -c .)" -ge 2 ] && printf '%s\n' "$QB_ITEMS" | while IFS= read -r t; do printf '%s\t%s\n' "$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)" "$t"; done)   # one quick_id<TAB>description line per item, list markers stripped, at least 2 items, one quick id (<yymmdd>-<3 base-36>) per item; the batch router is not part of @gsd/core
 gsd-core/workflows/quick-batch/steps/batch-init.md	grep	QB_ITEMS=$(sed -E 's/^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]+//' "$TASK_FILE" | grep -v '^[[:space:]]*$'); QB_CREATE_LIST=$([ "$(printf '%s\n' "$QB_ITEMS" | grep -c .)" -ge 2 ] && printf '%s\n' "$QB_ITEMS" | while IFS= read -r t; do printf '%s\t%s\n' "$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)" "$t"; done)   # one quick_id<TAB>description line per item, list markers stripped, at least 2 items, one quick id (<yymmdd>-<3 base-36>) per item; the batch router is not part of @gsd/core
@@ -605,12 +599,6 @@ prompt:quick	paste	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u 
 prompt:quick	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:quick	sed	quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)"; date="$(date -u +%Y-%m-%d)"; timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; task_dir="$quick_id"; quick_dir="$quick_id"; slug=""; branch_name=$(printf '%s' "" | sed "s/{num}/$quick_id/g"); INIT=""   # the quick id is <yymmdd>-<3 base-36>; you write the slug from $DESCRIPTION (and put it where `{slug}` stands in $branch_name)
 prompt:quick	sort	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
-prompt:quick_batch	cat	cat > "$QB_PARSE_FILE" 2>&1 <<'GSD_QUICK_BATCH_ARGS_END'   # the argument block is read as typed: take jobs, validate, research and resume from it
-prompt:quick_batch	cat	QB_PARSE_JSON=$(cat "$QB_PARSE_FILE"); specforge files remove --force "$QB_PARSE_FILE" >/dev/null
-prompt:quick_batch	cat	cat > "$QUICK_BATCH_PARSE_FILE" 2>&1 <<'GSD_QUICK_BATCH_ARGS_END'
-prompt:quick_batch	cat	QUICK_BATCH_PARSE=$(cat "$QUICK_BATCH_PARSE_FILE"); specforge files remove --force "$QUICK_BATCH_PARSE_FILE" >/dev/null
-prompt:quick_batch	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-prompt:quick_batch	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:resume_work	grep	for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -vxF -f <(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=summary].fields.plan')); do   # each plan no summary names
 prompt:resume_work	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:resume_work	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)

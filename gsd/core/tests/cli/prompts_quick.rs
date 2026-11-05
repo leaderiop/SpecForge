@@ -702,8 +702,15 @@ fn quick_batch_binds_its_typed_arguments() {
         &["--jobs", "2", "--validate", "--tasks", "a; b"],
         "claude-code",
     )));
-    // pinned: the agent pastes the argument block into a temp file, reads it back and parses it as JSON
-    assert!(text.contains("cat > \"$QB_PARSE_FILE\""), "{text}");
-    assert!(text.contains("Parse `$QB_PARSE_JSON` for `jobs`"), "{text}");
-    assert!(!text.contains("JOBS=\""), "{text}");
+    for line in [
+        "JOBS=\"2\"",
+        "VALIDATE_MODE=\"true\"",
+        "RESEARCH_MODE=\"false\"",
+        "RESUME_BATCH_ID=\"\"",
+        "TASKS=\"a; b\"",
+    ] {
+        assert!(text.lines().any(|l| l == line), "no {line}: {text}");
+    }
+    assert!(!text.contains("QB_PARSE"), "{text}");
+    assert!(!text.contains("QUICK_BATCH_PARSE"), "{text}");
 }

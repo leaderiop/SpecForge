@@ -38,34 +38,34 @@ RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the se
 
 **If `response_language` is set:** all user-facing questions/prompts/explanations MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English.
 
-Validate the command's `<arguments>` block through the CLI's own grammar — never re-derive it inline (single source of truth: `parseQuickBatchArgs`, `src/quick-batch-dispatch.cts`). The block is raw, attacker-influenced task text — feed it on STDIN through a QUOTED heredoc (`--stdin`), never as a shell argument, so the shell never parses, expands or word-splits it; `quick-batch parse-args` does the whitespace split itself, in Node, after the shell is done. Paste the block's exact contents between the markers:
+The host has parsed and checked the arguments (an undeclared option such as `--discuss` or `--full` is refused before this text renders): read them from these lines.
 
 ```bash
-QB_PARSE_FILE=$(specforge files temp --pick .path)
-cat > "$QB_PARSE_FILE" 2>&1 <<'GSD_QUICK_BATCH_ARGS_END'   # the argument block is read as typed: take jobs, validate, research and resume from it
-<the exact contents of the `<arguments>` block, verbatim>
-GSD_QUICK_BATCH_ARGS_END
-QB_PARSE_RC=$?
-QB_PARSE_JSON=$(cat "$QB_PARSE_FILE"); specforge files remove --force "$QB_PARSE_FILE" >/dev/null
-if [ $QB_PARSE_RC -ne 0 ]; then
-  echo "$QB_PARSE_JSON" >&2
-  exit 1
-fi
+JOBS="{{arg:jobs|auto}}"
+VALIDATE_MODE="{{arg:validate|false}}"
+RESEARCH_MODE="{{arg:research|false}}"
+RESUME_BATCH_ID="{{arg:resume|}}"
+TASK_FILE="{{arg:file|}}"
+TASKS="{{arg:tasks|}}"
+case "$JOBS" in
+  auto|[1-9]|[1-9][0-9]) ;;
+  *) echo "--jobs is auto or a number: $JOBS" >&2; exit 1 ;;
+esac
 
 ```
 
-Parse `$QB_PARSE_JSON` for `jobs` (`"auto"` or an integer), `validate` (bool), `research` (bool), `resume` (batch id or null). Store as `$JOBS`, `$VALIDATE_MODE`, `$RESEARCH_MODE`, `$RESUME_BATCH_ID`.
+`$JOBS` is `auto` or a number, `$VALIDATE_MODE` and `$RESEARCH_MODE` are `true` or `false`, and `$RESUME_BATCH_ID` is the batch to resume (empty unless `--resume <id>`).
 
-Extract the raw task-list text / `--file <path>` from the `<arguments>` block (everything that is not `--jobs <v>`, `--validate`, `--research`, `--resume <id>`, or `--file <path>`'s own flag pair).
+The task list is `$TASK_FILE` (`--file <path>`), else `$TASKS` (the words after the options).
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 VALIDATE_PARAM=""; if [ "$VALIDATE_MODE" = true ]; then VALIDATE_PARAM="--validate"; fi
 RESEARCH_PARAM=""; if [ "$RESEARCH_MODE" = true ]; then RESEARCH_PARAM="--research"; fi
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
 INIT=""   # no init bundle: the settings block and the argument block are all this run needs
 
 AGENT_SKILLS_PLANNER=""   # the host install carries the skills of gsd-planner

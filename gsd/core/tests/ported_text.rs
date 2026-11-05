@@ -484,7 +484,6 @@ const ARGS_PENDING: &[&str] = &[
     "gsd-core/workflows/plan-phase/steps/closed-phase-gate.md",
     "gsd-core/workflows/plan-review-convergence.md",
     "gsd-core/workflows/progress.md",
-    "gsd-core/workflows/quick-batch.md",
     "gsd-core/workflows/quick.md",
     "gsd-core/workflows/resume-project.md",
     "gsd-core/workflows/review.md",

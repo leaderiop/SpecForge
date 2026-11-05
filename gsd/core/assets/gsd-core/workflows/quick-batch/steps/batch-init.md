@@ -4,8 +4,8 @@
 Skip this step entirely if `$RESUME_BATCH_ID` is set (resume-mode.md owns
 that path instead).
 
-**Get the task list.** If `--file <path>` was present in `$ARGUMENTS`, use its
-value as `$TASK_FILE`. Otherwise the remaining, non-flag text of `$ARGUMENTS`
+**Get the task list.** Use `$TASK_FILE` from Step 1 (`--file <path>`) when it is set. Otherwise `$TASKS`
+from Step 1 (the words after the options, `$INLINE_TASK_LIST` below)
 IS the inline task list (a bulleted/numbered list, ≥2 items — the same
 grammar `parseTaskList` enforces).
 

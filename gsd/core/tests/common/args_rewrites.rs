@@ -17,4 +17,15 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         0,
         0,
     ),
+    // quick-batch reads its typed values and checks `--jobs`; the host refuses `--discuss` and `--full`.
+    ("gsd-core/workflows/quick-batch.md", 39, 39),
+    ("gsd-core/workflows/quick-batch.md", 42, 51),
+    ("gsd-core/workflows/quick-batch.md", 55, 55),
+    ("gsd-core/workflows/quick-batch.md", 57, 57),
+    ("commands/gsd/quick-batch.md", 50, 59),
+    ("commands/gsd/quick-batch.md", 61, 68),
+    ("commands/gsd/quick-batch.md", 70, 73),
+    ("commands/gsd/quick-batch.md", 75, 78),
+    ("commands/gsd/quick-batch.md", 98, 98),
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 5, 6),
 ];
