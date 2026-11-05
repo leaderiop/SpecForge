@@ -582,9 +582,9 @@ fn changed_paths(before: &git2::Index, after: &git2::Index) -> std::collections:
 /// End the cherry-pick or revert in progress (`--quit`), and with `abort` put back as `HEAD` has them the paths
 /// the index changed or holds conflicted, as git's `reset --merge` does, other files' changes kept (`--abort`).
 pub(crate) fn pick_end(place: &GitPlace, abort: bool) -> Result<bool, GitError> {
-    let repo = libgit2(place)?;
     let sequencer = place.git_dir.join("sequencer");
     let sequenced = std::fs::symlink_metadata(&sequencer).is_ok();
+    let repo = libgit2(place)?;
     let in_progress = sequenced
         || ["CHERRY_PICK_HEAD", "REVERT_HEAD"]
             .iter()
@@ -643,6 +643,27 @@ fn rolled_back(repo: &git2::Repository) -> Result<(), GitError> {
             if let Some(path) = file.path() {
                 paths.insert(path.to_string_lossy().into_owned());
             }
+        }
+    }
+    // as `git reset --merge`: a staged path whose file has changes the index does not hold would lose them
+    for delta in staged.deltas() {
+        let Some(path) = delta.new_file().path().or_else(|| delta.old_file().path()) else {
+            continue;
+        };
+        let status = repo
+            .status_file(path)
+            .map_err(|e| failed("compare the files with the index", &e))?;
+        if !status.contains(git2::Status::CONFLICTED)
+            && status.intersects(
+                git2::Status::WT_MODIFIED | git2::Status::WT_DELETED | git2::Status::WT_TYPECHANGE,
+            )
+        {
+            let path = path.to_string_lossy();
+            return Err(GitError(format!(
+                "{path} has changes the index does not hold, which the abort would lose: stage them \
+                 (specforge git add -- {path}) or put them back (specforge git restore -- {path}), \
+                 then run specforge git cherry-pick --abort (specforge git revert --abort) again"
+            )));
         }
     }
     if paths.is_empty() {

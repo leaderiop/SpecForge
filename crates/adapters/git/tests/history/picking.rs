@@ -220,6 +220,23 @@ fn abort_puts_back_what_a_revert_staged_and_quit_keeps_it() {
 }
 
 #[test]
+fn abort_refuses_when_a_path_it_puts_back_has_unstaged_changes() {
+    let (_dir, repo, _, changed) = history();
+    let place = place(&repo);
+    let git = Gix::default();
+    git.pick(&place, &Sha::new(changed.as_str()), true, false)
+        .unwrap();
+    repo.write("a.txt", "mine\n");
+    let refused = git.pick_end(&place, true).unwrap_err();
+    assert!(refused.0.contains("a.txt"), "{refused:?}");
+    assert_eq!(read(&repo, "a.txt").as_deref(), Some("mine\n"), "kept");
+    assert!(
+        repo.git_dir().join("REVERT_HEAD").exists(),
+        "still in progress"
+    );
+}
+
+#[test]
 fn abort_resolves_a_conflict_a_revert_left_back_to_head() {
     let (_dir, repo, _, changed) = history();
     let place = place(&repo);
