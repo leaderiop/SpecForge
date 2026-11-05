@@ -125,10 +125,10 @@ pub fn host_of(url: &str) -> Option<String> {
     Url::parse(url).ok()?.host_str().map(str::to_string)
 }
 
-/// The scheme of `url`, lowercased; empty when it has none.
+/// The scheme of `url` as the URL parser reads it, lowercased; empty when it is no URL.
 pub fn scheme(url: &str) -> String {
-    url.split_once("://")
-        .map(|(scheme, _)| scheme.to_ascii_lowercase())
+    Url::parse(url)
+        .map(|url| url.scheme().to_string())
         .unwrap_or_default()
 }
 

@@ -40,6 +40,8 @@ strsim = { workspace = true }
 # `specforge files search` and `list` (ADR 0339): the pattern and the globs a person types.
 regex = { workspace = true }
 globset = "0.4"
+# `specforge http --header`: a typed header's name and value as the wire takes them.
+http = "1"
 
 [dev-dependencies]
 specforge-repo-root = { path = "../../leaf/repo-root" }

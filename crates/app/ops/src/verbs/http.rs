@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use specforge_common::remedy::printable;
-use specforge_effects::http::{MAX_REDIRECTS, TIMEOUT_CEILING, host_of};
+use specforge_effects::http::{MAX_REDIRECTS, TIMEOUT_CEILING, host_of, scheme};
 use specforge_effects::journal::{Answer, Blob, RecordDigest};
 use specforge_effects::mode::USER;
 use specforge_effects::{
@@ -122,7 +122,7 @@ pub fn secret(
             printable(named)
         )));
     };
-    if !url.starts_with("https://") {
+    if scheme(url) != "https" {
         return Err(invalid(format!(
             "a secret rides only an https request, and {} is not one",
             printable(url)
@@ -318,20 +318,25 @@ fn built(verbs: &Verbs, ask: &Ask) -> Result<HttpRequest, OpError> {
     };
     let mut headers = Vec::new();
     for typed in &ask.headers {
-        let Some((name, value)) = typed.split_once(':') else {
+        // `Name: value` as typed; the name and the value are then what the `http` crate accepts on the wire.
+        let parsed = typed.split_once(':').and_then(|(name, value)| {
+            let name = http::HeaderName::from_bytes(name.trim().as_bytes()).ok()?;
+            http::HeaderValue::from_str(value.trim()).ok()?;
+            Some((name, value.trim()))
+        });
+        let Some((name, value)) = parsed else {
             return Err(invalid(format!(
-                "'{}' is no header: write Name: value",
+                "'{}' is no header: write Name: value, a token name and a visible ASCII value",
                 printable(typed)
             )));
         };
-        let name = name.trim();
-        if CREDENTIAL_HEADERS.contains(&name.to_ascii_lowercase().as_str()) {
+        if CREDENTIAL_HEADERS.contains(&name.as_str()) {
             return Err(invalid(format!(
                 "a {name} header carries a credential, which a typed command line would show: attach a declared \
                  secret instead"
             )));
         }
-        headers.push(Header::plain(name, value.trim()));
+        headers.push(Header::plain(name.as_str(), value));
     }
     let typed_type = headers
         .iter()

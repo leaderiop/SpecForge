@@ -166,6 +166,50 @@ fn a_typed_credential_header_is_refused_before_anything_is_sent() {
     assert!(http.requests().is_empty());
 }
 
+/// A header the wire would not take (a name with a space or no name, a value with a control character) is refused
+/// before anything is sent; a valid one is sent as typed; a secret rides only a URL whose parsed scheme is `https`.
+#[test]
+fn an_invalid_header_or_a_secret_off_https_is_refused_before_anything_is_sent() {
+    let project = TestProject::new();
+    let http = Arc::new(FakeHttp::new().route("https://api.acme.dev/", 200, "ok"));
+    for header in ["X Bad: 1", ": empty", "X-Ok: a\u{7}b", "no colon"] {
+        let ask = Ask {
+            headers: vec![header.to_string()],
+            ..get("https://api.acme.dev/")
+        };
+        let error = request(&verbs(&project, &http), &ask, EffectsMode::Online).unwrap_err();
+        assert!(
+            error.message.contains("is no header"),
+            "{header:?}: {}",
+            error.message
+        );
+    }
+    assert!(http.requests().is_empty());
+    let ask = Ask {
+        headers: vec!["Accept:  application/json ".to_string()],
+        ..get("https://api.acme.dev/")
+    };
+    request(&verbs(&project, &http), &ask, EffectsMode::Online).unwrap();
+    let sent = &http.requests()[0].headers[0];
+    assert_eq!(
+        (sent.name.as_str(), sent.value.as_str()),
+        ("accept", "application/json")
+    );
+    for url in ["HTTPS://api.acme.dev/x", "https://api.acme.dev/x"] {
+        assert!(secret(&[acme()], "@acme/tools:token", url).is_ok(), "{url}");
+    }
+    for url in [
+        "http://api.acme.dev/x",
+        "ftp://api.acme.dev/",
+        "api.acme.dev/x",
+    ] {
+        assert!(
+            secret(&[acme()], "@acme/tools:token", url).is_err(),
+            "{url}"
+        );
+    }
+}
+
 #[test]
 fn a_redirect_the_ceiling_leaves_no_host_for_is_refused_with_the_ceilings_words() {
     let project = TestProject::new().config(|config| {

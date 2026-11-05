@@ -4542,6 +4542,7 @@ dependencies = [
  "chrono",
  "getrandom 0.3.4",
  "globset",
+ "http",
  "proc-macro2",
  "proptest",
  "regex",
