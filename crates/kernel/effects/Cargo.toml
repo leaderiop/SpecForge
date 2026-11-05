@@ -9,7 +9,7 @@ autotests = false
 
 [features]
 # `specforge_effects::testing`: the ports' fakes and the contracts every adapter keeps. No production code reads it.
-testing = []
+testing = ["dep:httparse"]
 # `EffectsMode` as a clap `ValueEnum`: the CLI's `--effects` is the enum itself.
 clap = ["dep:clap"]
 
@@ -23,6 +23,8 @@ specforge-protocol-types = { path = "../../leaf/protocol-types" }
 clap = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+# `testing::server`'s request parser: a loopback server's tests read what was sent.
+httparse = { version = "1.10", optional = true }
 # The parser the Http adapter requests with: a grant judges the host that is connected to.
 url = "2.5"
 

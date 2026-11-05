@@ -34,6 +34,7 @@ chrono = "0.4.41"
 testing = ["dep:url"]
 
 [dev-dependencies]
+specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
 specforge-http = { path = "../http" }
 specforge-registry-client = { path = ".", features = ["testing"] }
 specforge-registry-server = { path = "../../surfaces/registry-server", features = ["testing"] }

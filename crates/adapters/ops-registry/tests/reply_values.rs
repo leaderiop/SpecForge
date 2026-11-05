@@ -7,9 +7,9 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
-use std::io::{Read, Write};
-use std::sync::{Arc, Mutex};
+use std::io::Write as _;
 
+use specforge_effects::testing::server::{Server, response};
 use specforge_ops::asking::Asking;
 use specforge_ops::extension::resolve;
 use specforge_ops::registry::{Registry, TrustPolicy};
@@ -29,12 +29,17 @@ const VERIFY: &str = "/v1/auth/verify";
 /// A registry on a local port answering each path with its JSON (a `200`), any other with the protocol's 404.
 struct Fake {
     root: String,
-    requests: Arc<Mutex<Vec<String>>>,
+    server: Server,
 }
 
 impl Fake {
+    /// Each request, as `METHOD path`.
     fn requests(&self) -> Vec<String> {
-        self.requests.lock().unwrap().clone()
+        self.server
+            .requests()
+            .iter()
+            .map(|r| format!("{} {}", r.method, r.path))
+            .collect()
     }
 
     fn downloaded(&self) -> bool {
@@ -43,50 +48,24 @@ impl Fake {
 }
 
 fn serve(answers: Vec<(&'static str, String)>) -> Fake {
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let root = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
-    let requests = Arc::new(Mutex::new(Vec::new()));
-    let seen = Arc::clone(&requests);
-    std::thread::spawn(move || {
-        for stream in listener.incoming() {
-            let Ok(mut stream) = stream else { continue };
-            let mut head = Vec::new();
-            let mut byte = [0u8; 1];
-            while !head.ends_with(b"\r\n\r\n") && stream.read(&mut byte).is_ok_and(|n| n == 1) {
-                head.push(byte[0]);
-            }
-            let head = String::from_utf8_lossy(&head);
-            // Read the request body too: answering a POST unread resets the connection.
-            let length = head
-                .lines()
-                .find_map(|line| {
-                    line.to_ascii_lowercase()
-                        .strip_prefix("content-length:")?
-                        .trim()
-                        .parse()
-                        .ok()
-                })
-                .unwrap_or(0);
-            let _ = stream.read_exact(&mut vec![0u8; length]);
-            let mut words = head.split_whitespace();
-            let (method, path) = (words.next().unwrap_or(""), words.next().unwrap_or(""));
-            seen.lock().unwrap().push(format!("{method} {path}"));
-            let (status, body) = match answers.iter().find(|(key, _)| *key == path) {
-                Some((_, body)) => ("200 OK", body.clone().into_bytes()),
-                None => (
-                    "404 Not Found",
-                    br#"{"error":{"code":"NOT_FOUND","message":"no"}}"#.to_vec(),
-                ),
-            };
-            let _ = write!(
-                stream,
-                "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                body.len()
-            );
-            let _ = stream.write_all(&body);
-        }
+    let server = Server::serve(move |_, request, stream| {
+        let (status, body) = match answers.iter().find(|(key, _)| *key == request.path) {
+            Some((_, body)) => (200, body.clone().into_bytes()),
+            None => (
+                404,
+                br#"{"error":{"code":"NOT_FOUND","message":"no"}}"#.to_vec(),
+            ),
+        };
+        let _ = stream.write_all(&response(
+            status,
+            &[("Content-Type", "application/json")],
+            &body,
+        ));
     });
-    Fake { root, requests }
+    Fake {
+        root: server.base.clone(),
+        server,
+    }
 }
 
 fn digest() -> String {

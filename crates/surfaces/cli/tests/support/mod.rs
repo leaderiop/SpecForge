@@ -8,7 +8,6 @@ pub mod lsp;
 pub mod mcp_process;
 pub mod pairing;
 pub mod registry;
-pub mod server;
 pub mod written;
 
 pub use cli::{Cli, Run};

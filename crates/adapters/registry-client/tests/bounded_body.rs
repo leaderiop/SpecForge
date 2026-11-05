@@ -2,9 +2,10 @@
 //! declares (64 MiB when it declares none), any other answer no longer than 64 MiB, all of it within the
 //! client's timeout. The registry here is a socket that sends the bodies a real one would not.
 
-use std::io::{Read as _, Write as _};
+use std::io::Write as _;
 use std::time::{Duration, Instant};
 
+use specforge_effects::testing::server::Server;
 use specforge_package::{PackageName, Version};
 use specforge_registry_client::HttpRegistryClient;
 use specforge_registry_client::registry_client::{RegistryClient, RegistryError};
@@ -96,30 +97,15 @@ fn metadata_json(size: Option<u64>) -> String {
 
 /// A registry that answers a path ending `/download` with `download` and any other with `metadata`.
 fn serve(metadata: Body, download: Body) -> RegistryConfig {
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let root = RegistryRoot::parse(&format!(
-        "http://127.0.0.1:{}",
-        listener.local_addr().unwrap().port()
-    ))
-    .unwrap();
-    std::thread::spawn(move || {
-        for stream in listener.incoming() {
-            let Ok(mut stream) = stream else { continue };
-            let mut head = Vec::new();
-            let mut byte = [0u8; 1];
-            while !head.ends_with(b"\r\n\r\n") && stream.read(&mut byte).is_ok_and(|n| n == 1) {
-                head.push(byte[0]);
-            }
-            let head = String::from_utf8_lossy(&head);
-            let path = head.split_whitespace().nth(1).unwrap_or("");
-            // The client hangs up on a body it refuses: a write error is its answer, not the fixture's.
-            let _ = if path.ends_with("/download") {
-                download.send(&mut stream)
-            } else {
-                metadata.send(&mut stream)
-            };
-        }
+    let server = Server::serve(move |_, request, stream| {
+        // The client hangs up on a body it refuses: a write error is its answer, not the fixture's.
+        let _ = if request.path.ends_with("/download") {
+            download.send(stream)
+        } else {
+            metadata.send(stream)
+        };
     });
+    let root = RegistryRoot::parse(&server.base).unwrap();
     RegistryConfig {
         alias: "slow".into(),
         url: root,

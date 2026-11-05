@@ -19,6 +19,7 @@ use crate::{
 };
 
 mod http;
+pub mod server;
 
 pub use http::FakeHttp;
 

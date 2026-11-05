@@ -2,8 +2,8 @@
 
 use serde_json::json;
 
-use crate::support::server::Server;
 use crate::support::{Cli, TestProject};
+use specforge_effects::testing::server::Server;
 
 const MODELS: &str = r#"{"models":["a","b"]}"#;
 
@@ -37,7 +37,11 @@ fn a_json_answer_is_read_whole_and_picked() {
         .run(&["http", "get", &url, "--pick", ".json.models[0]"])
         .exits(0);
     assert_eq!(picked.stdout, "a\n");
-    assert!(server.requests()[0].starts_with("GET /v1/models HTTP/1.1"));
+    let seen = &server.requests()[0];
+    assert_eq!(
+        (seen.method.as_str(), seen.path.as_str()),
+        ("GET", "/v1/models")
+    );
 }
 
 #[test]
@@ -104,7 +108,7 @@ fn a_body_is_built_from_fields() {
             "X-Trace: t1",
         ])
         .exits(0);
-    let seen = &server.requests()[0];
+    let seen = server.requests()[0].text();
     assert!(seen.starts_with("POST / HTTP/1.1"), "{seen}");
     let lower = seen.to_ascii_lowercase();
     assert!(lower.contains("content-type: application/json"), "{seen}");
@@ -138,7 +142,7 @@ fn a_long_text_field_is_read_from_a_file_in_the_project() {
             "body=pr.md",
         ])
         .exits(0);
-    let seen = &server.requests()[0];
+    let seen = server.requests()[0].text();
     assert!(
         seen.ends_with(r#"{"body":"Says \"why\".\n\n- a\n","title":"x"}"#),
         "{seen}"
