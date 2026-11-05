@@ -3,7 +3,7 @@
 
 <purpose>
 
-Drive milestone phases autonomously — all remaining phases, a range via `--from N`/`--to N`, or a single phase via `--only N`. For each incomplete phase: discuss → plan → execute using Skill() flat invocations. When `--converge` or `--cross-ai` is set, route the planning step through plan-review convergence before execution. Pauses only for explicit user decisions (grey area acceptance, blockers, validation requests). Re-reads ROADMAP.md after each phase to catch dynamically inserted phases.
+Drive milestone phases autonomously — all remaining phases, a range via `--from N`/`--to N`, or a single phase via `--only N`. For each incomplete phase: discuss → plan → execute using Skill() flat invocations. When `--converge` is set, route the planning step through plan-review convergence before execution. Pauses only for explicit user decisions (grey area acceptance, blockers, validation requests). Re-reads ROADMAP.md after each phase to catch dynamically inserted phases.
 
 </purpose>
 
@@ -88,7 +88,7 @@ INIT_AUTONOMOUS='{"section_manifest":null}'   # no init bundle: every section of
 
 Extract `section_manifest` from `INIT_AUTONOMOUS` (used by the `converge-*` sections below and in step 3).
 
-If `PLAN_STRATEGY` is `converge`, the dispatch below carries `--override-gate` (#4600): the operator's explicit `--converge`/`--cross-ai` overrides the convergence feature gate for this run. Without the flag, `PLAN_STRATEGY` is `local` and this block never appends it.
+If `PLAN_STRATEGY` is `converge`, the dispatch below carries `--override-gate` (#4600): the operator's explicit `--converge` overrides the convergence feature gate for this run. Without the flag, `PLAN_STRATEGY` is `local` and this block never appends it.
 
 ```bash
 
@@ -113,7 +113,7 @@ CONVERGENCE_ARGS=""
 
 
 # #4600: the dispatched convergence workflow re-checks the feature gate in its own §1.5 —
-# an explicit --converge/--cross-ai must override it, so mark this dispatch explicitly.
+# an explicit --converge must override it, so mark this dispatch explicitly.
 # Conditional on PLAN_STRATEGY: a local-strategy run must never carry the override.
 if [ "${PLAN_STRATEGY}" = "converge" ]; then
   CONVERGENCE_ARGS="${CONVERGENCE_ARGS} --override-gate"
@@ -849,8 +849,8 @@ When any phase operation fails or a blocker is detected, present 3 options via A
 - [ ] `--interactive` waits for background agents before post-execution routing
 - [ ] `--interactive` compatible with `--only`, `--from`, and `--to` flags
 - [ ] `--converge` routes planning through `gsd-plan-review-convergence`
-- [ ] `--cross-ai` is accepted as an alias for `--converge`
+- [ ] `--converge` is the one convergence flag: the host refuses `--cross-ai`
 - [ ] `--converge` overrides `workflow.plan_review_convergence=false` for the run — the dispatch carries `--override-gate`, which the convergence workflow's §1.5 gate honors (#4600)
-- [ ] `--converge` forwards reviewer selector flags and `--max-cycles N`
+- [ ] `--converge` forwards no reviewer selector and no `--max-cycles`: the convergence workflow takes its own reviewer and cycle defaults
 - [ ] Default autonomous planning remains `gsd-plan-phase` when convergence is not requested
 </success_criteria>
