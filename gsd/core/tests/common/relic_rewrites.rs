@@ -9,6 +9,13 @@ pub const LINES: &[(&str, usize)] = &[
         "gsd-core/workflows/complete-milestone/detail/elaboration.md",
         11,
     ),
+    // A verification has no next-action or next-command field: each route names its command.
+    ("gsd-core/workflows/progress.md", 505),
+    ("gsd-core/workflows/progress.md", 509),
+    ("gsd-core/workflows/progress.md", 525),
+    ("gsd-core/workflows/progress.md", 529),
+    ("gsd-core/workflows/progress.md", 545),
+    ("gsd-core/workflows/progress.md", 549),
 ];
 
 /// `(path, first, last)`, inclusive.

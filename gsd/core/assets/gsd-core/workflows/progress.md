@@ -504,11 +504,11 @@ All plans have summaries, but canonical verification has not passed (`missing`, 
 
 ## Verification Not Passed
 
-**Phase {phase}** has all plans summarized, but verification reads `${VERIFICATION_STATUS}`. ${VERIFICATION_NEXT_ACTION}
+**Phase {phase}** has all plans summarized, but verification reads `${VERIFICATION_STATUS}`. Re-run the phase's verification: execute-phase resumes at its verification gates.
 
 `/clear` then:
 
-`${VERIFICATION_NEXT_COMMAND}` (omit this line when it is empty)
+`/gsd:execute-phase {phase} ${GSD_WS}` — re-run the verification gates
 
 ---
 ```
@@ -524,11 +524,11 @@ VERIFICATION.md exists with `status: gaps_found` — verification identified gap
 
 ## ⚠ Verification Gaps Found
 
-**{phase_num}-VERIFICATION.md** reports `gaps_found`. ${VERIFICATION_NEXT_ACTION}
+**{phase_num}-VERIFICATION.md** reports `gaps_found`. Plan the gap fixes, then execute them.
 
 `/clear` then:
 
-`${VERIFICATION_NEXT_COMMAND} ${GSD_WS}` — plan the gap fixes (the owner's route: plan-phase --gaps)
+`/gsd:plan-phase {phase} --gaps ${GSD_WS}` — plan the gap fixes
 
 ---
 ```
@@ -544,11 +544,11 @@ VERIFICATION.md exists with `status: human_needed` — automated checks passed b
 
 ## Human Verification Required
 
-**{phase_num}-VERIFICATION.md** reports `human_needed`. ${VERIFICATION_NEXT_ACTION}
+**{phase_num}-VERIFICATION.md** reports `human_needed`. Resolve the remaining manual checks.
 
 `/clear` then:
 
-`${VERIFICATION_NEXT_COMMAND} ${GSD_WS}` — resume human verification (the owner's route: verify-work)
+`/gsd:verify-work {phase} ${GSD_WS}` — resume human verification
 
 ---
 ```

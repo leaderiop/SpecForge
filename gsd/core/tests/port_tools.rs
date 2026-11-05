@@ -599,3 +599,24 @@ fn no_asset_reads_a_file_payload() {
         .collect();
     assert!(found.is_empty(), "@file: reads:\n{}", found.join("\n"));
 }
+
+/// progress.md's routes name their commands: no line reads a verification value that nothing in the file assigns
+/// (the verification entity has no next-action or next-command field, so such a value renders empty).
+#[test]
+fn progress_reads_only_the_verification_values_it_assigns() {
+    let text = std::fs::read_to_string(root().join("assets/gsd-core/workflows/progress.md"))
+        .expect("progress.md");
+    let read = Regex::new(r"\$\{?(VERIFICATION_[A-Z_]+)").expect("a regex");
+    let mut unassigned: Vec<&str> = read
+        .captures_iter(&text)
+        .filter_map(|c| c.get(1))
+        .map(|m| m.as_str())
+        .filter(|name| !text.contains(&format!("{name}=")))
+        .collect();
+    unassigned.sort_unstable();
+    unassigned.dedup();
+    assert!(
+        unassigned.is_empty(),
+        "progress.md reads values nothing assigns: {unassigned:?}"
+    );
+}
