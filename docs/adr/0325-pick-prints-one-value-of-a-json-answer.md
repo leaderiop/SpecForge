@@ -1,10 +1,10 @@
 # `--pick` prints one value of a JSON answer
 
-**Status:** accepted (2026-11-01, GSD follow-ups G4, plan 03; amended by plan 05: `check`, `settings` and
-`export` take it, D6; the selector takes any key and `.` is the whole answer, D1; a dotted key and a scalar that is
-not a string, D1a; `--fields` rows on `query` and `export`, D7; amended 2026-11-05 by the S1 round: the shapes `--count`, `--first`,
-`--last` and `--join`, D8). Extends [ADR
-0318](0318-a-command-is-told-its-host.md) (a host option added unless a command declares the name). No wire change.
+**Status:** accepted (2026-11-01, GSD follow-ups G4, plan 03; amended by plan 05: `check`, `settings` and `export`
+take it, D6; the selector takes any key and `.` is the whole answer, D1; a dotted key and a scalar that is not a
+string, D1a; `--fields` rows on `query` and `export`, D7; amended 2026-11-05 by the S1 round: the shapes `--count`,
+`--first`, `--last` and `--join`, D8). Extends [ADR 0318](0318-a-command-is-told-its-host.md) (a host option added
+unless a command declares the name). No wire change.
 
 ## Context
 
@@ -19,9 +19,10 @@ a `| jq -r` pipe without it leaves the variable empty. Upstream GSD added `--pic
   an array whose string field `<key>` is `<value>`: `[kind=plan]`, `[name=workflow.auto_advance]`,
   `[code=gsd/W205]`). A `.` before `[` may be left out, so jq's
   `.[code=E003]` reads as `[code=E003]`, and `.` alone is the whole answer (one compact line, which a shell
-  reads where the answer is pretty-printed JSON). The value runs to the first `]`, so it may hold `.`, `/` and `=`. Nothing
-  else: no other predicate, no arithmetic, no default. The shell does defaults (`${X:-0}`); counts and cuts are D8's. `n` is ASCII digits with no leading zero (`0` aside); a key holds no
-  whitespace, `]` or `=`. A malformed path is a usage error (exit 2) naming its byte.
+  reads where the answer is pretty-printed JSON). The value runs to the first `]`, so it may hold `.`, `/` and `=`.
+  Nothing else: no other predicate, no arithmetic, no default. The shell does defaults (`${X:-0}`); counts and cuts
+  are D8's. `n` is ASCII digits with no leading zero (`0` aside); a key holds no whitespace, `]` or `=`. A malformed
+  path is a usage error (exit 2) naming its byte.
 - **D1a. The selector's key and value.** The key may be dotted, a path through objects: `[fields.result=issue]`
   selects the nodes whose `fields.result` is `issue`, so a graph read filters by an entity field in one pick instead of
   one query per entity. A dotted key has a name between its dots. A string field is compared by its text; a number,
