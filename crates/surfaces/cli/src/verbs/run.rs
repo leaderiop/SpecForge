@@ -29,6 +29,10 @@ pub(crate) struct RunArgs {
     #[arg(long, value_name = "DURATION", value_parser = super::parse_duration)]
     deadline: Option<Duration>,
 
+    /// Run the program in this directory (from the current directory, in the project's roots), with `PWD` naming it
+    #[arg(long = "in", value_name = "DIR")]
+    dir: Option<std::path::PathBuf>,
+
     /// Print where the runner finds each program, and run none
     #[arg(long)]
     which: bool,
@@ -81,6 +85,7 @@ impl RunArgs {
         let run = Run {
             argv: self.argv.clone(),
             deadline: self.deadline,
+            dir: self.dir.clone(),
         };
         if self.which {
             // A lookup on this machine, performed in every mode.

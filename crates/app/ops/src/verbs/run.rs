@@ -2,6 +2,7 @@
 //! run passes its program's stdin, stdout, stderr and exit through; `--format json` captures it instead, through the
 //! effects journal in the mode asked. A deadline is 124, a program not found 127 and one that cannot start 126.
 
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -9,8 +10,8 @@ use specforge_effects::journal::{Answer, Blob, RecordDigest};
 use specforge_effects::mode::USER;
 use specforge_effects::process::{Ceiling, Output, USER_CEILING};
 use specforge_effects::{
-    EffectJournal, EffectRequest, Effects, EffectsMode, Outcome, ProcessClass, ProcessRequest,
-    Served, UnixMillis,
+    EffectJournal, EffectRequest, Effects, EffectsMode, EnvVar, FsOp, Outcome, ProcessClass,
+    ProcessRequest, Served, UnixMillis,
 };
 
 use super::{Answered, Effect, Verbs};
@@ -29,6 +30,9 @@ pub struct Run {
     pub argv: Vec<String>,
     /// When it is stopped (exit 124); at most a day.
     pub deadline: Option<Duration>,
+    /// The directory it runs in, from the current directory and held to the project's roots; the current directory
+    /// when none.
+    pub dir: Option<PathBuf>,
 }
 
 /// `run --format json`'s answer: what the program did, captured.
@@ -90,8 +94,31 @@ fn outcome_word(class: &ProcessClass) -> &'static str {
     }
 }
 
-/// The request `run` asks, permitted by the user grant.
-fn request(verbs: &Verbs, run: &Run, output_cap: u64) -> Result<ProcessRequest, OpError> {
+/// Where `run` runs: `--in`'s directory, held to the project's roots as a typed path is, else the current
+/// directory.
+fn place(verbs: &Verbs, run: &Run) -> Result<PathBuf, OpError> {
+    let Some(dir) = &run.dir else {
+        return Ok(verbs.cwd().to_path_buf());
+    };
+    let (located, _) = verbs.held(dir, FsOp::Stat)?;
+    if !located.at.is_dir() {
+        return Err(OpError::new(
+            OpErrorKind::InvalidInput,
+            OpErrorKind::InvalidInput.as_str(),
+            format!("--in {} is not a directory", verbs.shown(&located.at)),
+        ));
+    }
+    Ok(located.at)
+}
+
+/// The request `run` asks in `place`, permitted by the user grant. Run elsewhere than the current directory, the
+/// program is told so by `PWD`, as a shell's `cd` tells it, and the request (so its record) names the directory.
+fn request(
+    verbs: &Verbs,
+    run: &Run,
+    place: &Path,
+    output_cap: u64,
+) -> Result<ProcessRequest, OpError> {
     if run.argv.is_empty() {
         return Err(OpError::new(
             OpErrorKind::InvalidInput,
@@ -100,8 +127,16 @@ fn request(verbs: &Verbs, run: &Run, output_cap: u64) -> Result<ProcessRequest, 
         ));
     }
     let deadline = run.deadline.unwrap_or(USER_CEILING).min(USER_CEILING);
+    let env = (place != verbs.cwd())
+        .then(|| EnvVar {
+            name: "PWD".to_string(),
+            value: Some(place.to_string_lossy().into_owned()),
+        })
+        .into_iter()
+        .collect();
     let request = ProcessRequest {
         argv: run.argv.clone(),
+        env,
         deadline_ms: u64::try_from(deadline.as_millis()).unwrap_or(u64::MAX),
         output_cap,
         ..ProcessRequest::default()
@@ -114,7 +149,8 @@ fn request(verbs: &Verbs, run: &Run, output_cap: u64) -> Result<ProcessRequest, 
 /// journaled for audit (ADR 0337 D3) as its request (the argv) and how it ended, with no output: what it printed is
 /// the terminal's, so no record answers it again.
 pub fn pass_through(verbs: &Verbs, run: &Run) -> Result<ProcessClass, OpError> {
-    let request = request(verbs, run, u64::MAX)?;
+    let place = place(verbs, run)?;
+    let request = request(verbs, run, &place, u64::MAX)?;
     let asked = EffectRequest::Process(request.clone());
     let effects = Effects::of(
         EffectsMode::Online,
@@ -124,10 +160,9 @@ pub fn pass_through(verbs: &Verbs, run: &Run) -> Result<ProcessClass, OpError> {
     );
     let mut ended = None;
     effects.serve_user(verbs.ports(), &asked, UnixMillis::now_or_end(), |ports| {
-        let outcome =
-            ports
-                .process
-                .run_within(&request, verbs.cwd(), Output::Inherit, Ceiling::User);
+        let outcome = ports
+            .process
+            .run_within(&request, &place, Output::Inherit, Ceiling::User);
         let answer = Answer {
             outcome: Outcome {
                 class: outcome.class.outcome(),
@@ -155,7 +190,8 @@ pub fn capture(
     run: &Run,
     mode: EffectsMode,
 ) -> Result<Answered<RunAnswer>, OpError> {
-    let mut request = request(verbs, run, CAPTURE_CAP)?;
+    let place = place(verbs, run)?;
+    let mut request = request(verbs, run, &place, CAPTURE_CAP)?;
     // A captured run reads nothing from the terminal.
     request.stdin = Some(Vec::new());
     let asked = EffectRequest::Process(request.clone());
@@ -168,10 +204,9 @@ pub fn capture(
     let now = UnixMillis::now_or_end();
     let served = effects.serve_user(verbs.ports(), &asked, now, |ports| {
         let started = Instant::now();
-        let outcome =
-            ports
-                .process
-                .run_within(&request, verbs.cwd(), Output::Buffer, Ceiling::User);
+        let outcome = ports
+            .process
+            .run_within(&request, &place, Output::Buffer, Ceiling::User);
         let mut answer = answered(
             &run.argv,
             &outcome.class,

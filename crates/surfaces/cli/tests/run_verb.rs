@@ -8,8 +8,8 @@ use serde_json::Value;
 
 use crate::support::{Cli, TestProject};
 
-/// What the child does, read from `RUN_VERB_CHILD`: `exit:<n>`, `sleep`, `echo` (stdin to stdout), `env:<name>` or
-/// `talk` (a line to each stream). Outside a `specforge run` it does nothing and passes.
+/// What the child does, read from `RUN_VERB_CHILD`: `exit:<n>`, `sleep`, `echo` (stdin to stdout), `env:<name>`,
+/// `cwd` (its directory and `PWD`) or `talk` (a line to each stream). Outside a `specforge run` it does nothing and passes.
 #[test]
 fn child_program() {
     let Ok(action) = std::env::var("RUN_VERB_CHILD") else {
@@ -25,6 +25,12 @@ fn child_program() {
         }
         // Past the 4 MiB a capture once stopped at, below its 64 MiB cap.
         "flood" => out.write_all(&vec![b'x'; 5 * 1024 * 1024]).unwrap(),
+        "cwd" => {
+            let cwd = std::env::current_dir().unwrap();
+            let pwd = std::env::var("PWD").unwrap_or_default();
+            writeln!(out, "child:cwd={}", cwd.display()).unwrap();
+            writeln!(out, "child:pwd={pwd}").unwrap();
+        }
         "talk" => {
             writeln!(out, "child:out").unwrap();
             eprintln!("child:err");
@@ -82,6 +88,48 @@ fn the_programs_exit_passes_through() {
     run(&project, "exit:0")
         .bare(&args(&["run"], &argv))
         .exits(0);
+}
+
+/// `--in` runs the program in a directory of the project, held to its roots as a typed path is, and `PWD` says so.
+#[test]
+fn in_runs_the_program_in_a_directory_of_the_project_and_nowhere_else() {
+    let project = TestProject::new().files(&[("sub/dir/x.txt", "x")]);
+    let argv = child();
+    let ran = run(&project, "cwd")
+        .bare(&args(
+            &["run", "--in", "sub/dir", "--format", "json"],
+            &argv,
+        ))
+        .exits(0)
+        .answer();
+    let real = std::fs::canonicalize(project.root().join("sub/dir")).unwrap();
+    let stdout = ran["stdout"].as_str().unwrap();
+    assert!(
+        stdout.contains(&format!("child:cwd={}\n", real.display()))
+            && stdout.contains(&format!("child:pwd={}\n", real.display())),
+        "{stdout}"
+    );
+    let outside = tempfile::tempdir().unwrap();
+    let refused = run(&project, "cwd")
+        .bare(&args(
+            &[
+                "run",
+                "--in",
+                &outside.path().display().to_string(),
+                "--format",
+                "json",
+            ],
+            &argv,
+        ))
+        .exits(1);
+    assert_eq!(refused.json()["code"], "outside_root", "{}", refused.stdout);
+    let file = run(&project, "cwd")
+        .bare(&args(
+            &["run", "--in", "sub/dir/x.txt", "--format", "json"],
+            &argv,
+        ))
+        .exits(1);
+    assert_eq!(file.json()["code"], "invalid_input", "{}", file.stdout);
 }
 
 /// A pass-through run is journaled for audit (ADR 0337 D3): its argv and how it ended, with no output kept.

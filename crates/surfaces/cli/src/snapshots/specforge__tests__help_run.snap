@@ -14,6 +14,9 @@ Options:
       --deadline <DURATION>
           Stop the program and its children after this long and exit 124: `10` or `10s`, `500ms`, `2m`, `1h` (24h when absent, the most)
 
+      --in <DIR>
+          Run the program in this directory (from the current directory, in the project's roots), with `PWD` naming it
+
       --which
           Print where the runner finds each program, and run none
 

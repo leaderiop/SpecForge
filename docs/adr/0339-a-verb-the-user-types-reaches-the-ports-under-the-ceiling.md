@@ -95,7 +95,8 @@ whole port `off`). A request outside it is refused before any effect, with the c
   `{argv, exit, outcome, stdout, stderr, duration_ms, deadline_ms, truncated}` instead, with a null stdin, and exits 0 once it
   answers: the program's exit is the answer's `exit`. A capture holds 64 MiB of each stream (past it the program is
   stopped, `output_capped`) and the answer keeps 1 MiB of each (`truncated`). `--pick` implies `--format json`, so a
-  picked run is a captured one, and `--help` says so. `run --which` answers
+  picked run is a captured one, and `--help` says so. `run --in <dir>` runs it in a
+  directory held to the roots as a typed path is, with `PWD` naming it, so its record names the directory too. `run --which` answers
   where the runner's resolver (PATH, and PATHEXT on Windows) finds each program, and runs nothing.
 - `http` exits 0 when any HTTP answer arrived (a 404 is `ok: false`), 1 when unreachable or refused.
 
