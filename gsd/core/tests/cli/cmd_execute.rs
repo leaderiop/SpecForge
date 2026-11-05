@@ -7,7 +7,17 @@ use super::commands_support::*;
 pub(super) const PLAN: &str = "v1.0/02/02-01";
 pub(super) const SUMMARY: &str = "v1.0/02/02-01/02-01-SUMMARY";
 pub(super) const PLANTED: &str = "summary 02-01-SUMMARY \"Save and load: summary\" {\n  plan                   v1.0/02/02-01\n  status                 complete\n  one_liner              \"Tasks are saved after every change.\"\n  subsystem              \"store\"\n  requirements_completed [STORE-01, STORE-02]\n}\n";
-pub(super) const STARTED: &str = "2026-10-29T09:00:00Z";
+/// An hour before now, as `start-plan` would have answered it: complete-plan refuses a start over a week old, so a
+/// fixed date would fail once it aged.
+pub(super) fn started() -> &'static str {
+    static AT: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |since| since.as_secs());
+        crate::clock::utc(i64::try_from(now).unwrap_or(i64::MAX) - 3600)
+    });
+    &AT
+}
 
 #[test]
 fn complete_plan_writes_both_times_and_their_ledger_lines() {
@@ -15,16 +25,21 @@ fn complete_plan_writes_both_times_and_their_ledger_lines() {
     plant(&p, "spec/plans.spec", PLANTED);
     let status = p.fields_of("v1.0/02")["status"].clone();
     let before = p.codes();
-    let run = gsd(&p, "complete-plan", &[SUMMARY, "--started", STARTED]);
+    let run = gsd(&p, "complete-plan", &[SUMMARY, "--started", started()]);
     assert_eq!(run.code, 0, "{}", run.all());
     let fields = p.fields_of(SUMMARY);
-    assert_eq!(fields["started"], STARTED);
+    assert_eq!(fields["started"], started());
     let completed = fields["completed"].as_str().expect("completed").to_string();
     assert!(
-        completed.len() == 20 && completed.ends_with('Z') && completed.as_str() > STARTED,
+        completed.len() == 20 && completed.ends_with('Z') && completed.as_str() > started(),
         "{completed}"
     );
-    assert!(ledgered(&p, SUMMARY, "started", &format!("\"{STARTED}\"")));
+    assert!(ledgered(
+        &p,
+        SUMMARY,
+        "started",
+        &format!("\"{}\"", started())
+    ));
     assert!(ledgered(
         &p,
         SUMMARY,
@@ -115,7 +130,7 @@ fn complete_plan_is_refused_without_a_tdd_review_under_strict() {
     p.edit("spec/plans.spec", "plan 02-01 \"Save and load tasks.json\" {\n  phase            v1.0/02\n  type             execute", "plan 02-01 \"Save and load tasks.json\" {\n  phase            v1.0/02\n  type             tdd");
     p.settings(json!({ "profile": "gsd-strict", "workflow.tdd_mode": true }));
     let before = bytes(&p);
-    let run = gsd(&p, "complete-plan", &[SUMMARY, "--started", STARTED]);
+    let run = gsd(&p, "complete-plan", &[SUMMARY, "--started", started()]);
     refused(&run, "gate_failed", &["W404", PLAN]);
     assert_eq!(bytes(&p), before);
     // Allowed by default (W404 is a warning there) and with tdd_mode off.
@@ -124,7 +139,7 @@ fn complete_plan_is_refused_without_a_tdd_review_under_strict() {
         gsd(
             &p,
             "complete-plan",
-            &[SUMMARY, "--started", STARTED, "--dry-run"]
+            &[SUMMARY, "--started", started(), "--dry-run"]
         )
         .code,
         0
@@ -138,7 +153,7 @@ fn complete_plan_refuses() {
     let run = gsd(
         &p,
         "complete-plan",
-        &["v1.0/02/02-01/02-01-SUMMARY", "--started", STARTED],
+        &["v1.0/02/02-01/02-01-SUMMARY", "--started", started()],
     );
     assert_eq!(run.code, 1, "{}", run.all());
     assert!(run.all().contains("not found"), "{}", run.all());
@@ -162,11 +177,11 @@ fn complete_plan_refuses() {
         assert_eq!(bytes(&p), planted, "{args:?}");
     }
     assert_eq!(
-        gsd(&p, "complete-plan", &[SUMMARY, "--started", STARTED]).code,
+        gsd(&p, "complete-plan", &[SUMMARY, "--started", started()]).code,
         0
     );
     let done = bytes(&p);
-    let again = gsd(&p, "complete-plan", &[SUMMARY, "--started", STARTED]);
+    let again = gsd(&p, "complete-plan", &[SUMMARY, "--started", started()]);
     refused(&again, "invalid_input", &["already completed"]);
     assert_eq!(bytes(&p), done);
 }
@@ -310,7 +325,7 @@ fn an_executed_plans_stale_plan_check_does_not_refuse_a_gate() {
     refused(&run, "gate_failed", &["E516", SECOND_PLAN]);
     plant(&p, "spec/plans.spec", SECOND_SUMMARY);
     let summary = format!("{SECOND_PLAN}/01-02-SUMMARY");
-    let run = gsd(&p, "complete-plan", &[&summary, "--started", STARTED]);
+    let run = gsd(&p, "complete-plan", &[&summary, "--started", started()]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(
         p.inputs(SECOND_PLAN, "W311")["verdict"]["state"],
