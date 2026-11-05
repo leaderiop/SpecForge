@@ -193,7 +193,8 @@ jobs:
         with:
           tool: nextest
       - name: The ports' adapters
-        run: cargo nextest run -p specforge-effects -p specforge-process -p specforge-fs -p specforge-http -p specforge-git
+        # Every adapter test, so one run names every platform failure.
+        run: cargo nextest run --no-fail-fast -p specforge-effects -p specforge-process -p specforge-fs -p specforge-http -p specforge-git
       - name: The collector machine's runner tests
         run: cargo nextest run -p specforge-ops --lib -E "test(/^analysis::collect::process::/)"
 

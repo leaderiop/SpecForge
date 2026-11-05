@@ -28,10 +28,10 @@ fn baseline(path: &Path) -> bool {
 
 /// Where `repo` is, as the port locates it.
 fn place(repo: &Repo) -> GitPlace {
-    let Located::Repo(place) = Gix::default().locate(repo.dir()) else {
-        panic!("a repository");
-    };
-    place
+    match Gix::default().locate(repo.dir()) {
+        Located::Repo(place) => place,
+        other => panic!("a repository, located as {other:?}"),
+    }
 }
 
 #[specforge_test(port = "Git", verify = "Git contract is satisfied")]
