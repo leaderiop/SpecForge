@@ -193,11 +193,19 @@ pub fn unescaped_value(arg: &Arg, value: &Value) -> Option<String> {
     }
 }
 
-/// Every declared name of `args` with the value its placeholder takes in `call`, or `None` when it was not given.
-pub fn values(call: &PromptCall<'_>, args: &[Arg]) -> Vec<(&'static str, Option<String>)> {
+/// Every declared name of `args` with the value its placeholder takes in `call`, or `None` when it was not given. The
+/// subject `(name, id)` the run is about, given or picked by the handler, takes its id.
+pub fn values(
+    call: &PromptCall<'_>,
+    args: &[Arg],
+    subject: Option<(&str, &str)>,
+) -> Vec<(&'static str, Option<String>)> {
     args.iter()
         .map(|arg| {
-            let value = call.arg(arg.name).and_then(|v| unescaped_value(arg, v));
+            let value = match subject {
+                Some((name, id)) if name == arg.name => Some(id.to_string()),
+                _ => call.arg(arg.name).and_then(|v| unescaped_value(arg, v)),
+            };
             (arg.name, value)
         })
         .collect()
