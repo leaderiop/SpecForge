@@ -11,11 +11,11 @@ Designed for team onboarding — a new contributor can read the output and under
 ## Step 1: Resolve Version
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-VERSION=$(echo "$GSD_ARGS" | sed -nE 's/.*--milestone[[:space:]]+v?([A-Za-z0-9._-]+).*/\1/p'); VERSION=${VERSION:-${MILESTONE#v}}   # --milestone, else the milestone the run is about
+
+
+
+
+VERSION="{{arg:milestone|$MILESTONE}}"; VERSION=${VERSION#v}   # --milestone, else the milestone the run is about
 ```
 
 If `--milestone` is not given:
@@ -60,12 +60,12 @@ Run each of these queries (`eval "$ROADMAP_QUERY"`, and so on). An empty answer 
 Find all phases of the milestone:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
 specforge gsd progress-report --format json
 ```
 

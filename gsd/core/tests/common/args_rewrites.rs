@@ -129,4 +129,6 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         129,
         129,
     ),
+    // milestone-summary takes its milestone typed, else the one the run is about.
+    ("gsd-core/workflows/milestone-summary.md", 16, 16),
 ];

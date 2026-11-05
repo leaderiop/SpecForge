@@ -27,11 +27,11 @@
     "## Step 1: Resolve Version",
     "",
     "```bash",
-    "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true",
-    "--milestone v1.0",
-    "GSD_ARGS_END",
-    "GSD_ARGS=${GSD_ARGS%$'\\n'}",
-    "VERSION=$(echo \"$GSD_ARGS\" | sed -nE 's/.*--milestone[[:space:]]+v?([A-Za-z0-9._-]+).*/\\1/p'); VERSION=${VERSION:-${MILESTONE#v}}   # --milestone, else the milestone the run is about",
+    "",
+    "",
+    "",
+    "",
+    "VERSION=\"v1.0\"; VERSION=${VERSION#v}   # --milestone, else the milestone the run is about",
     "```",
     "",
     "If `--milestone` is not given:",
@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 19832,
+  "bytes": 19428,
   "end": [
     "```",
     "</file>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:92cb94080e6150d13bc1d2b8b432be130e6a470c877c457216769352f777f3c5",
+    "digest": "sha256:dafd44bd3e430b9790bfb72ab5d946eeb8e1f91b4fcae26496103243eabb14d6",
     "prompt": "@gsd/core@VERSION:milestone_summary",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "92cb94080e6150d13bc1d2b8b432be130e6a470c877c457216769352f777f3c5"
+  "sha256": "dafd44bd3e430b9790bfb72ab5d946eeb8e1f91b4fcae26496103243eabb14d6"
 }

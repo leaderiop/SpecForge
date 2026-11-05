@@ -119,3 +119,29 @@ fn a_lesson_written_as_the_text_says_checks_clean() {
     let check = p.run(&["check"]);
     assert!(!check.all().contains("L-02-1"), "{}", check.all());
 }
+
+/// `--milestone` is the version the summary reads; without it, the milestone the run is about.
+#[test]
+fn milestone_summary_reads_the_milestone_it_was_given() {
+    let p = twin();
+    let given = text_of(&payload(&prompt(
+        &p,
+        "milestone_summary",
+        &["--milestone", "v1.0"],
+        "claude-code",
+    )));
+    assert!(
+        given.contains("VERSION=\"v1.0\"; VERSION=${VERSION#v}"),
+        "{given}"
+    );
+    let open = text_of(&payload(&prompt(
+        &p,
+        "milestone_summary",
+        &[],
+        "claude-code",
+    )));
+    assert!(
+        open.contains("VERSION=\"$MILESTONE\"; VERSION=${VERSION#v}"),
+        "{open}"
+    );
+}
