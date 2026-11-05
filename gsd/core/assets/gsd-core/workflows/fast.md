@@ -66,9 +66,9 @@ COMMIT_DOCS="true"   # commit_docs: every spec change is committed with the work
 if [ "$COMMIT_DOCS" = "false" ]; then
   git add -A -- ':!spec'
 else
-  git add -A
+  ADDS=(--add "$(specforge git repo --pick .top)")
 fi
-git commit -m "fix: {concise description of what changed}"
+specforge git commit "${ADDS[@]}" -m "fix: {concise description of what changed}"
 ```
 
 Use conventional commit format: `fix:`, `feat:`, `docs:`, `chore:`, `refactor:` as appropriate.

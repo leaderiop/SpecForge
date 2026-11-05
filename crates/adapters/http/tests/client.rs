@@ -6,44 +6,19 @@
 )]
 
 use std::io::{Read as _, Write as _};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpListener;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, channel};
 use std::time::{Duration, Instant};
 
 use specforge_effects::http::{Any, get};
+use specforge_effects::testing::server::Server;
 use specforge_effects::{
     AttachedSecret, EffectsCeiling, Grant, Header, Http, HttpCeiling, HttpRequest, Narrow,
-    OutcomeClass, Redirected, ResolveRequest, TlsRequest, Unreachable,
+    OutcomeClass, Private, Redirected, ResolveRequest, TlsRequest, Unreachable,
 };
 use specforge_http::Client;
 use specforge_protocol_types::{HttpMethod, Operation};
-
-/// A server on loopback that answers each connection with `answer(n, head)` (the `n`th request, its head) and sends
-/// back each request head. Its address is `http://127.0.0.1:<port>`.
-fn serve(answer: impl Fn(usize, &str) -> String + Send + 'static) -> (String, Receiver<String>) {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let base = format!("http://{}", listener.local_addr().unwrap());
-    let (heads, seen) = channel();
-    std::thread::spawn(move || {
-        for (n, stream) in listener.incoming().enumerate() {
-            let Ok(mut stream) = stream else { continue };
-            let head = head_of(&mut stream);
-            let _ = heads.send(head.clone());
-            let _ = stream.write_all(answer(n, &head).as_bytes());
-        }
-    });
-    (base, seen)
-}
-
-fn head_of(stream: &mut TcpStream) -> String {
-    let mut head = Vec::new();
-    let mut byte = [0u8; 1];
-    while !head.ends_with(b"\r\n\r\n") && stream.read(&mut byte).is_ok_and(|n| n == 1) {
-        head.push(byte[0]);
-    }
-    String::from_utf8_lossy(&head).to_ascii_lowercase()
-}
 
 fn ok(body: &str) -> String {
     format!(
@@ -58,12 +33,48 @@ fn moved(to: &str) -> String {
     )
 }
 
-/// A `GET` of `url` that may reach loopback.
+/// A `GET` of `url` that may reach loopback on every hop.
 fn private(url: &str) -> HttpRequest {
     HttpRequest {
-        allow_private: true,
+        allow_private: Private::Any,
         ..get(url)
     }
+}
+
+/// A person's `GET` of `url`: loopback is theirs to reach at the typed origin only.
+fn typed(url: &str) -> HttpRequest {
+    HttpRequest {
+        allow_private: Private::TypedOrigin,
+        ..get(url)
+    }
+}
+
+/// A typed private address may redirect within its own origin; a redirect to another origin at a loopback address
+/// (as one to `169.254.169.254` would be) is refused and never asked.
+#[test]
+fn only_the_typed_origin_may_be_private_on_a_typed_request() {
+    let other_heads = Server::reply(|_, _| ok("other"));
+    let other = other_heads.base.clone();
+    let base = Server::reply(move |n, _| {
+        if n == 0 {
+            moved("/here")
+        } else if n == 1 {
+            ok("here")
+        } else {
+            moved(&format!("{other}/"))
+        }
+    })
+    .base;
+    let same = Client::new().request(&typed(&format!("{base}/")), &Any);
+    assert_eq!(same.class, OutcomeClass::Ok, "{same:?}");
+    assert_eq!(same.body, b"here");
+    let elsewhere = Client::new().request(&typed(&format!("{base}/")), &Any);
+    assert_eq!(
+        elsewhere.class,
+        OutcomeClass::Unreachable(Unreachable::RefusedAddress),
+        "{elsewhere:?}"
+    );
+    assert!(other_heads.requests().is_empty(), "the hop was requested");
 }
 
 #[specforge_test_macros::test(port = "Http", verify = "Http contract is satisfied")]
@@ -73,7 +84,7 @@ fn the_client_keeps_the_http_contract() {
 
 #[test]
 fn loopback_is_refused_unless_the_request_allows_private_addresses() {
-    let (base, _) = serve(|_, _| ok("hi"));
+    let base = Server::reply(|_, _| ok("hi")).base;
     let client = Client::new();
     let refused = client.request(&get(format!("{base}/")), &Any);
     assert_eq!(
@@ -95,7 +106,7 @@ fn loopback_is_refused_unless_the_request_allows_private_addresses() {
 
 #[test]
 fn redirects_past_the_limit_are_refused() {
-    let (base, _) = serve(|_, _| moved("/again"));
+    let base = Server::reply(|_, _| moved("/again")).base;
     let outcome = Client::new().request(
         &HttpRequest {
             max_redirects: 2,
@@ -109,13 +120,29 @@ fn redirects_past_the_limit_are_refused() {
         "{outcome:?}"
     );
     assert_eq!(outcome.status, Some(302));
+    // The redirect not followed keeps its kept headers: with no redirect to follow, it is the answer.
+    let unfollowed = Client::new().request(
+        &HttpRequest {
+            max_redirects: 0,
+            keep_headers: vec!["location".to_string()],
+            ..private(&format!("{base}/"))
+        },
+        &Any,
+    );
+    assert_eq!(
+        (unfollowed.class, unfollowed.header("location")),
+        (OutcomeClass::Redirect(Redirected::Limit), Some("/again")),
+        "{unfollowed:?}"
+    );
 }
 
 #[test]
 fn a_sensitive_header_is_dropped_on_a_redirect_to_another_origin() {
-    let (other, seen_there) = serve(|_, _| ok("there"));
+    let seen_there = Server::reply(|_, _| ok("there"));
+    let other = seen_there.base.clone();
     let to = format!("{other}/landed");
-    let (base, seen_here) = serve(move |_, _| moved(&to));
+    let seen_here = Server::reply(move |_, _| moved(&to));
+    let base = seen_here.base.clone();
     let outcome = Client::new().request(
         &HttpRequest {
             headers: vec![
@@ -130,25 +157,32 @@ fn a_sensitive_header_is_dropped_on_a_redirect_to_another_origin() {
     assert_eq!(outcome.final_url, format!("{other}/landed"));
     assert!(
         seen_here
-            .recv()
+            .next(Duration::from_secs(5))
             .unwrap()
+            .head
+            .to_ascii_lowercase()
             .contains("authorization: bearer t")
     );
-    let there = seen_there.recv().unwrap();
+    let there = seen_there
+        .next(Duration::from_secs(5))
+        .unwrap()
+        .head
+        .to_ascii_lowercase();
     assert!(!there.contains("authorization"), "{there}");
     assert!(there.contains("x-plain: p"), "{there}");
 }
 
 #[test]
 fn a_body_past_its_cap_is_cut_there_and_capped() {
-    let (base, _) = serve(|n, _| {
+    let base = Server::reply(|n, _| {
         if n == 0 {
             ok("0123456789abcdef")
         } else {
             // No Content-Length: the cap is found while reading.
             "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n0123456789abcdef".into()
         }
-    });
+    })
+    .base;
     let client = Client::new();
     for _ in 0..2 {
         let outcome = client.request(
@@ -165,15 +199,12 @@ fn a_body_past_its_cap_is_cut_there_and_capped() {
 
 #[test]
 fn a_request_is_held_to_its_whole_timeout() {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let base = format!("http://{}", listener.local_addr().unwrap());
-    std::thread::spawn(move || {
-        let (mut stream, _) = listener.accept().unwrap();
-        head_of(&mut stream);
+    let base = Server::serve(|_, _, stream| {
         // Headers, then a body that never ends.
         let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\nslow");
         std::thread::sleep(Duration::from_secs(10));
-    });
+    })
+    .base;
     let started = Instant::now();
     let outcome = Client::new().request(
         &HttpRequest {
@@ -267,32 +298,29 @@ fn only_loopback_address() -> Arc<dyn Http> {
 
 #[test]
 fn a_redirect_the_grant_does_not_permit_stops_as_denied_and_is_never_requested() {
-    let (foreign, foreign_heads) = serve(|_, _| ok("foreign"));
+    let foreign_heads = Server::reply(|_, _| ok("foreign"));
+    let foreign = foreign_heads.base.clone();
     let foreign = foreign.replace("127.0.0.1", "localhost");
-    let (base, _) = serve(move |_, _| moved(&format!("{foreign}/")));
+    let base = Server::reply(move |_, _| moved(&format!("{foreign}/"))).base;
     let outcome = only_loopback_address().request(&private(&format!("{base}/")), &Any);
     assert_eq!(outcome.class, OutcomeClass::Denied, "{outcome:?}");
     assert!(outcome.detail.unwrap().contains("redirects to"));
-    assert!(foreign_heads.try_recv().is_err(), "the hop was requested");
+    assert!(foreign_heads.requests().is_empty(), "the hop was requested");
 }
 
 #[test]
 fn a_redirect_the_grant_permits_is_followed() {
-    let (next, _) = serve(|_, _| ok("there"));
-    let (base, _) = serve(move |_, _| moved(&format!("{next}/")));
+    let next = Server::reply(|_, _| ok("there")).base;
+    let base = Server::reply(move |_, _| moved(&format!("{next}/"))).base;
     let outcome = only_loopback_address().request(&private(&format!("{base}/")), &Any);
     assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
     assert_eq!(outcome.body, b"there");
 }
 
-/// What `seen` received: nothing, for a request that was never sent.
-fn asked(seen: &Receiver<String>) -> Vec<String> {
-    seen.try_iter().collect()
-}
-
 #[test]
 fn a_private_address_is_refused_before_a_proxy_is_asked_for_it() {
-    let (proxy, heads) = serve(|_, _| ok("from behind the proxy"));
+    let heads = Server::reply(|_, _| ok("from behind the proxy"));
+    let proxy = heads.base.clone();
     let client = Client::with_proxy(&proxy);
     for url in [
         "http://localhost:9/admin",
@@ -307,13 +335,14 @@ fn a_private_address_is_refused_before_a_proxy_is_asked_for_it() {
             OutcomeClass::Unreachable(Unreachable::RefusedAddress),
             "{url}: {outcome:?}"
         );
-        assert_eq!(asked(&heads), Vec::<String>::new(), "{url}");
+        assert!(heads.requests().is_empty(), "{url}");
     }
 }
 
 #[test]
 fn a_redirect_through_a_proxy_to_a_private_name_is_refused() {
-    let (proxy, heads) = serve(|_, _| moved("http://localhost:9/admin"));
+    let heads = Server::reply(|_, _| moved("http://localhost:9/admin"));
+    let proxy = heads.base.clone();
     let outcome =
         Client::with_proxy(&proxy).request(&get("http://specforge-proxied.invalid/"), &Any);
     assert_eq!(
@@ -321,34 +350,40 @@ fn a_redirect_through_a_proxy_to_a_private_name_is_refused() {
         OutcomeClass::Unreachable(Unreachable::RefusedAddress),
         "{outcome:?}"
     );
-    assert_eq!(asked(&heads).len(), 1, "the first hop only");
+    assert_eq!(heads.requests().len(), 1, "the first hop only");
 }
 
 /// What the client cannot close (ADR 0335): a name it cannot resolve itself goes to the proxy, which resolves it
 /// where this machine cannot look. Refusing it would break the networks whose only DNS is the proxy's.
 #[test]
 fn a_name_only_the_proxy_can_resolve_is_the_proxys_to_judge() {
-    let (proxy, heads) = serve(|_, _| ok("from behind the proxy"));
+    let heads = Server::reply(|_, _| ok("from behind the proxy"));
+    let proxy = heads.base.clone();
     let outcome =
         Client::with_proxy(&proxy).request(&get("http://specforge-proxied.invalid/"), &Any);
     assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
     assert!(
         heads
-            .recv()
+            .next(Duration::from_secs(5))
             .unwrap()
+            .head
+            .to_ascii_lowercase()
             .starts_with("get http://specforge-proxied.invalid/ ")
     );
 }
 
 #[test]
 fn a_request_that_allows_private_addresses_still_goes_through_the_proxy() {
-    let (proxy, heads) = serve(|_, _| ok("from behind the proxy"));
+    let heads = Server::reply(|_, _| ok("from behind the proxy"));
+    let proxy = heads.base.clone();
     let outcome = Client::with_proxy(&proxy).request(&private("http://localhost:9/"), &Any);
     assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
     assert!(
         heads
-            .recv()
+            .next(Duration::from_secs(5))
             .unwrap()
+            .head
+            .to_ascii_lowercase()
             .starts_with("get http://localhost:9/ ")
     );
 }
@@ -357,18 +392,15 @@ fn a_request_that_allows_private_addresses_still_goes_through_the_proxy() {
 /// failure, not the destination's.
 #[test]
 fn a_request_the_proxy_fails_is_unreachable_proxy() {
-    let (refusing, _) = serve(|_, _| {
-        "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".into()
-    });
-    let (asking, _) = serve(|_, _| {
+    let refusing = Server::reply(
+        |_, _| "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+    )
+    .base;
+    let asking = Server::reply(|_, _| {
         "HTTP/1.1 407 Proxy Authentication Required\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-            .into()
-    });
-    // A port nothing listens on: bound, then let go.
-    let gone = {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        format!("http://{}", listener.local_addr().unwrap())
-    };
+    })
+    .base;
+    let gone = format!("http://127.0.0.1:{}", Server::closed_port());
     for (proxy, url) in [
         (&refusing, "https://specforge-proxied.invalid/"),
         (&asking, "https://specforge-proxied.invalid/"),
@@ -415,14 +447,15 @@ fn posting(url: &str) -> HttpRequest {
 #[test]
 fn a_hop_that_will_be_sent_as_a_get_is_judged_as_a_get() {
     for status in [301, 302, 303] {
-        let (next, next_heads) = serve(|_, _| ok("there"));
-        let (base, _) = serve(move |_, _| redirect(status, &format!("{next}/")));
+        let next_heads = Server::reply(|_, _| ok("there"));
+        let next = next_heads.base.clone();
+        let base = Server::reply(move |_, _| redirect(status, &format!("{next}/"))).base;
 
         let refused =
             only_methods(&[HttpMethod::Post]).request(&posting(&format!("{base}/")), &Any);
         assert_eq!(refused.class, OutcomeClass::Denied, "{status}: {refused:?}");
         assert!(
-            next_heads.try_recv().is_err(),
+            next_heads.requests().is_empty(),
             "{status}: a POST-only scope sent a GET"
         );
     }
@@ -430,12 +463,17 @@ fn a_hop_that_will_be_sent_as_a_get_is_judged_as_a_get() {
 
 #[test]
 fn a_hop_the_scope_allows_as_a_get_is_sent_as_a_get_with_no_body() {
-    let (next, next_heads) = serve(|_, _| ok("there"));
-    let (base, _) = serve(move |_, _| redirect(303, &format!("{next}/")));
+    let next_heads = Server::reply(|_, _| ok("there"));
+    let next = next_heads.base.clone();
+    let base = Server::reply(move |_, _| redirect(303, &format!("{next}/"))).base;
     let outcome = only_methods(&[HttpMethod::Post, HttpMethod::Get])
         .request(&posting(&format!("{base}/")), &Any);
     assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
-    let head = next_heads.recv().unwrap();
+    let head = next_heads
+        .next(Duration::from_secs(5))
+        .unwrap()
+        .head
+        .to_ascii_lowercase();
     assert!(head.starts_with("get / "), "{head}");
     assert!(!head.contains("content-length"), "{head}");
 }
@@ -443,12 +481,17 @@ fn a_hop_the_scope_allows_as_a_get_is_sent_as_a_get_with_no_body() {
 #[test]
 fn a_hop_that_keeps_its_method_is_judged_with_it() {
     for status in [307, 308] {
-        let (next, next_heads) = serve(|_, _| ok("there"));
-        let (base, _) = serve(move |_, _| redirect(status, &format!("{next}/")));
+        let next_heads = Server::reply(|_, _| ok("there"));
+        let next = next_heads.base.clone();
+        let base = Server::reply(move |_, _| redirect(status, &format!("{next}/"))).base;
         let outcome =
             only_methods(&[HttpMethod::Post]).request(&posting(&format!("{base}/")), &Any);
         assert_eq!(outcome.class, OutcomeClass::Ok, "{status}: {outcome:?}");
-        let head = next_heads.recv().unwrap();
+        let head = next_heads
+            .next(Duration::from_secs(5))
+            .unwrap()
+            .head
+            .to_ascii_lowercase();
         assert!(head.starts_with("post / "), "{status}: {head}");
     }
 }
@@ -633,40 +676,11 @@ fn a_host_that_drips_bytes_does_not_outlive_the_deadline() {
     );
 }
 
-/// A server that reads one request whole (its head, then `Content-Length` bytes of body), sends it back, and answers
-/// `answer`; it counts the connections it accepts.
-fn serve_bodies(answer: &'static str) -> (String, Receiver<String>) {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let base = format!("http://{}", listener.local_addr().unwrap());
-    let (requests, seen) = channel();
-    std::thread::spawn(move || {
-        // A server with no answer holds each connection open.
-        let mut held = Vec::new();
-        for stream in listener.incoming() {
-            let Ok(mut stream) = stream else { continue };
-            let head = head_of(&mut stream);
-            let length = head
-                .lines()
-                .find_map(|line| line.strip_prefix("content-length: "))
-                .and_then(|n| n.trim().parse::<usize>().ok())
-                .unwrap_or(0);
-            let mut body = vec![0; length];
-            let _ = stream.read_exact(&mut body);
-            let _ = requests.send(format!("{head}{}", String::from_utf8_lossy(&body)));
-            if answer.is_empty() {
-                held.push(stream);
-            } else {
-                let _ = stream.write_all(answer.as_bytes());
-            }
-        }
-    });
-    (base, seen)
-}
-
 #[test]
 fn a_post_query_sends_its_json_body_and_is_never_retried() {
-    let (base, seen) =
-        serve_bodies("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}");
+    let answering =
+        Server::reply(|_, _| "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}");
+    let base = answering.base.clone();
     let query = |url: String, timeout_ms| HttpRequest {
         method: "POST".into(),
         headers: vec![Header::plain("content-type", "application/json")],
@@ -679,22 +693,26 @@ fn a_post_query_sends_its_json_body_and_is_never_retried() {
     let outcome = client.request(&query(format!("{base}/v1/query"), 5_000), &Any);
     assert_eq!(outcome.status, Some(200), "{outcome:?}");
     assert_eq!(outcome.body, b"{}");
-    let asked = seen.recv_timeout(Duration::from_secs(5)).unwrap();
-    assert!(asked.starts_with("post /v1/query "), "{asked}");
-    assert!(asked.contains("content-type: application/json"), "{asked}");
-    assert!(asked.ends_with(r#"{"package":"serde"}"#), "{asked}");
+    let asked = answering.next(Duration::from_secs(5)).unwrap();
+    assert!(asked.method.eq_ignore_ascii_case("POST"), "{asked:?}");
+    assert_eq!(asked.path, "/v1/query");
+    assert_eq!(asked.header("content-type"), Some("application/json"));
+    assert_eq!(asked.body, br#"{"package":"serde"}"#);
 
     // A server that never answers: the query times out once, and is not sent again.
-    let (silent, heard) = serve_bodies("");
-    let outcome = client.request(&query(format!("{silent}/v1/query"), 300), &Any);
+    let held = std::sync::Mutex::new(Vec::new());
+    let silent = Server::serve(move |_, _, stream| {
+        held.lock().unwrap().push(stream.try_clone().unwrap());
+    });
+    let outcome = client.request(&query(format!("{}/v1/query", silent.base), 300), &Any);
     assert_eq!(
         outcome.class,
         OutcomeClass::Unreachable(Unreachable::Timeout),
         "{outcome:?}"
     );
-    assert!(heard.recv_timeout(Duration::from_secs(2)).is_ok());
+    assert!(silent.next(Duration::from_secs(2)).is_some());
     assert!(
-        heard.recv_timeout(Duration::from_millis(500)).is_err(),
+        silent.next(Duration::from_millis(500)).is_none(),
         "sent once"
     );
 }

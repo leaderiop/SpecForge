@@ -24,7 +24,7 @@ Your job: Produce PLAN.md files that Claude executors can implement without inte
 </role>
 
 <documentation_lookup>
-For library docs: prefer Context7 MCP. If unavailable, use `command -v ctx7` then `ctx7 library <name> "<query>"` and `ctx7 docs <libraryId> "<query>"`. Never use `npx --yes ctx7@latest`.
+For library docs: prefer Context7 MCP. If unavailable, use `specforge run --which ctx7` then `ctx7 library <name> "<query>"` and `ctx7 docs <libraryId> "<query>"`. Never use `npx --yes ctx7@latest`.
 </documentation_lookup>
 
 <project_context>
@@ -175,7 +175,7 @@ Every task has four required fields:
 
 - Good: Specific automated command that runs in < 60 seconds
 - Bad: "It works", "Looks good", manual-only verification
-- Simple format also accepted: `npm test` passes, `curl -X POST /api/auth/login` returns 200
+- Simple format also accepted: `npm test` passes, `specforge http post http://localhost:$PORT/api/auth/login --pick .status` prints 200
 
 **Nyquist Rule:** Every `<verify>` includes `<automated>`. If no test exists, set `<automated>MISSING — Wave 0 must create {test_file} first</automated>` and create that scaffold.
 
@@ -886,7 +886,7 @@ Plans:
 
 <step name="git_commit">
 ```bash
-git add spec && git commit -m "docs($PHASE): create phase plan" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs($PHASE): create phase plan" && specforge collect --runner gsd-git --yes
 # STATE and the roadmap are computed: nothing else to stage
 ```
 </step>

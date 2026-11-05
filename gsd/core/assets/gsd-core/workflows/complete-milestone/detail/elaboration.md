@@ -168,14 +168,14 @@ Extract `branching_strategy`, `phase_branch_template`, `milestone_branch_templat
 
 ```bash
 BRANCH_PREFIX=$(echo "$PHASE_BRANCH_TEMPLATE" | sed 's/{.*//')
-PHASE_BRANCHES=$(git branch --list "${BRANCH_PREFIX}*" 2>/dev/null | sed 's/^\*//' | tr -d ' ')
+PHASE_BRANCHES=$(for b in $(specforge git branches --pick '.branches[].name' 2>/dev/null); do case $b in ("${BRANCH_PREFIX}"*) echo "$b";; esac; done)
 ```
 
 **For "milestone" strategy:**
 
 ```bash
 BRANCH_PREFIX=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed 's/{.*//')
-MILESTONE_BRANCH=$(git branch --list "${BRANCH_PREFIX}*" 2>/dev/null | sed 's/^\*//' | tr -d ' ' | head -1)
+MILESTONE_BRANCH=$(for b in $(specforge git branches --pick '.branches[].name' 2>/dev/null); do case $b in ("${BRANCH_PREFIX}"*) echo "$b"; break;; esac; done)
 ```
 
 **If no branches found:** Skip to git_tag.
@@ -199,8 +199,8 @@ AskUserQuestion with options: Squash merge (Recommended), Merge with history, De
 **Squash merge:**
 
 ```bash
-CURRENT_BRANCH=$(git branch --show-current)
-git checkout ${BASE_BRANCH}
+CURRENT_BRANCH=$(specforge git head --pick .branch)
+specforge git switch ${BASE_BRANCH}
 
 if [ "$BRANCHING_STRATEGY" = "phase" ]; then
   # Rewrapped through unquoted command substitution (gsd-core#4109): a bare
@@ -210,9 +210,9 @@ if [ "$BRANCHING_STRATEGY" = "phase" ]; then
     git merge --squash "$branch"
     # Strip spec/ from staging if commit_docs is false
     if [ "$COMMIT_DOCS" = "false" ]; then
-      git reset HEAD spec/ 2>/dev/null || true
+      specforge git restore spec/ --staged --pick .restored 2>/dev/null || true
     fi
-    git commit -m "feat: $branch for v[X.Y]"
+    specforge git commit -m "feat: $branch for v[X.Y]"
   done
 fi
 
@@ -220,19 +220,19 @@ if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
   git merge --squash "$MILESTONE_BRANCH"
   # Strip spec/ from staging if commit_docs is false
   if [ "$COMMIT_DOCS" = "false" ]; then
-    git reset HEAD spec/ 2>/dev/null || true
+    specforge git restore spec/ --staged --pick .restored 2>/dev/null || true
   fi
-  git commit -m "feat: $MILESTONE_BRANCH for v[X.Y]"
+  specforge git commit -m "feat: $MILESTONE_BRANCH for v[X.Y]"
 fi
 
-git checkout "$CURRENT_BRANCH"
+specforge git switch "$CURRENT_BRANCH"
 ```
 
 **Merge with history:**
 
 ```bash
-CURRENT_BRANCH=$(git branch --show-current)
-git checkout ${BASE_BRANCH}
+CURRENT_BRANCH=$(specforge git head --pick .branch)
+specforge git switch ${BASE_BRANCH}
 
 if [ "$BRANCHING_STRATEGY" = "phase" ]; then
   # Rewrapped through unquoted command substitution (gsd-core#4109): a bare
@@ -242,7 +242,7 @@ if [ "$BRANCHING_STRATEGY" = "phase" ]; then
     git merge --no-ff --no-commit "$branch"
     # Strip spec/ from staging if commit_docs is false
     if [ "$COMMIT_DOCS" = "false" ]; then
-      git reset HEAD spec/ 2>/dev/null || true
+      specforge git restore spec/ --staged --pick .restored 2>/dev/null || true
     fi
     git commit -m "Merge branch '$branch' for v[X.Y]"
   done
@@ -252,12 +252,12 @@ if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
   git merge --no-ff --no-commit "$MILESTONE_BRANCH"
   # Strip spec/ from staging if commit_docs is false
   if [ "$COMMIT_DOCS" = "false" ]; then
-    git reset HEAD spec/ 2>/dev/null || true
+    specforge git restore spec/ --staged --pick .restored 2>/dev/null || true
   fi
   git commit -m "Merge branch '$MILESTONE_BRANCH' for v[X.Y]"
 fi
 
-git checkout "$CURRENT_BRANCH"
+specforge git switch "$CURRENT_BRANCH"
 ```
 
 **Delete without merging:**
@@ -268,12 +268,12 @@ if [ "$BRANCHING_STRATEGY" = "phase" ]; then
   # `$VAR` word-splits under bash but not zsh, collapsing every element onto
   # one iteration there.
   for branch in $(printf '%s' "$PHASE_BRANCHES"); do
-    git branch -d "$branch" 2>/dev/null || git branch -D "$branch"
+    specforge git branch delete "$branch" --pick .name 2>/dev/null || specforge git branch delete "$branch" --force
   done
 fi
 
 if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
-  git branch -d "$MILESTONE_BRANCH" 2>/dev/null || git branch -D "$MILESTONE_BRANCH"
+  specforge git branch delete "$MILESTONE_BRANCH" --pick .name 2>/dev/null || specforge git branch delete "$MILESTONE_BRANCH" --force
 fi
 ```
 

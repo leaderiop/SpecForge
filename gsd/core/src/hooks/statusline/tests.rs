@@ -204,9 +204,9 @@ const SKIPPED: &[(&str, &str)] = &[
     ),
     // v1.19.0 adds, under this prefix, `read-only git spawns opt out of the optional index lock (#5048)`:
     // 'readGitStatus passes GIT_OPTIONAL_LOCKS=0', 'the env inherits the parent environment, not a bare replacement'
-    // and 'the command and its bounds are unchanged'. The kernel's GitCli runs that `git status` and sets
-    // GIT_OPTIONAL_LOCKS=0 on every call (crates/adapters/git/src/lib.rs `call`), pinned by
-    // crates/adapters/git/tests/history.rs `every_git_call_opts_out_of_the_optional_index_lock`.
+    // and 'the command and its bounds are unchanged'. The kernel reads that status through gix in process, which
+    // takes no index lock (crates/adapters/git/src/lib.rs), pinned by crates/adapters/git/tests/history.rs
+    // `status_takes_no_index_lock`.
     (
         "readGitStatus + parseGitStatus against a real repo > ",
         GIT_REAL,

@@ -271,7 +271,7 @@ impl McpServer {
 fn real_ports() -> specforge_effects::Ports {
     let process: specforge_effects::SharedProcess = std::sync::Arc::new(specforge_process::Runner);
     specforge_effects::Ports {
-        git: std::sync::Arc::new(specforge_git::GitCli::new(std::sync::Arc::clone(&process))),
+        git: std::sync::Arc::new(specforge_git::Gix::default()),
         process,
         http: std::sync::Arc::new(specforge_http::Client::new()),
         fs: std::sync::Arc::new(specforge_fs::LocalFs),

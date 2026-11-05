@@ -64,7 +64,7 @@ if [ -n "$(specforge export --kinds project --pick '.nodes[].id' 2>/dev/null)" ]
 
 Work out `project_exists` (`PROJECT_EXISTS` above), `has_git`, `git_worktree_root` and `in_nested_subdir` (from `git rev-parse`).
 
-**Absolute paths (#2376):** a spawned subagent's own cwd may differ from the orchestrator's, so the staging directory is absolute: `INTEL_DIR` (made in the classify step, a scratch directory outside the project) is `{intel_dir}` below, and `{conflicts_path}` is `$INTEL_DIR/INGEST-CONFLICTS.md`. The intel files are staging only; nothing in them is part of the spec.
+**Absolute paths (#2376):** a spawned subagent's own cwd may differ from the orchestrator's, so the staging directory is absolute: `INTEL_DIR` (made in the classify step, a scratch directory in the project's temp root, outside its specs) is `{intel_dir}` below, and `{conflicts_path}` is `$INTEL_DIR/INGEST-CONFLICTS.md`. The intel files are staging only; nothing in them is part of the spec.
 
 **Auto-detect MODE** if not set:
 - `project_exists: true` → `MODE=merge`
@@ -116,16 +116,16 @@ Each entry provides `path` (required, relative to repo root) + `type` (required,
 
 ```bash
 # ADRs
-find {SCAN_PATH} -type f \( -path '*/adr/*' -o -path '*/adrs/*' -o -name 'ADR-*.md' -o -regex '.*/[0-9]\{4\}-.*\.md' \) 2>/dev/null
+specforge files list {SCAN_PATH} --kind file --glob 'adr/*' --glob '*/adr/*' --glob 'adrs/*' --glob '*/adrs/*' --glob 'ADR-*.md' --glob '[0-9][0-9][0-9][0-9]-*.md' --pick '.entries[].path' 2>/dev/null
 
 # PRDs
-find {SCAN_PATH} -type f \( -path '*/prd/*' -o -path '*/prds/*' -o -name 'PRD-*.md' \) 2>/dev/null
+specforge files list {SCAN_PATH} --kind file --glob 'prd/*' --glob '*/prd/*' --glob 'prds/*' --glob '*/prds/*' --glob 'PRD-*.md' --pick '.entries[].path' 2>/dev/null
 
 # SPECs / RFCs
-find {SCAN_PATH} -type f \( -path '*/spec/*' -o -path '*/specs/*' -o -path '*/rfc/*' -o -path '*/rfcs/*' -o -name 'SPEC-*.md' -o -name 'RFC-*.md' \) 2>/dev/null
+specforge files list {SCAN_PATH} --kind file --glob 'spec/*' --glob '*/spec/*' --glob 'specs/*' --glob '*/specs/*' --glob 'rfc/*' --glob '*/rfc/*' --glob 'rfcs/*' --glob '*/rfcs/*' --glob 'SPEC-*.md' --glob 'RFC-*.md' --pick '.entries[].path' 2>/dev/null
 
 # Generic docs (fall-through candidates)
-find {SCAN_PATH} -type f -path '*/docs/*' -name '*.md' 2>/dev/null
+specforge files list {SCAN_PATH} --kind file --glob 'docs/*.md' --glob '*/docs/*.md' --pick '.entries[].path' 2>/dev/null
 ```
 
 De-duplicate the union (a file matched by multiple patterns is one doc).
@@ -171,7 +171,7 @@ On Revise: exit with guidance to re-run with `--manifest` or a narrower path.
 Create staging directory:
 
 ```bash
-INTEL_DIR=$(mktemp -d "${TMPDIR:-/tmp}/gsd-ingest-docs.XXXXXX") && mkdir -p "$INTEL_DIR/classifications/"   # scratch files, outside the project
+INTEL_DIR=$(specforge files temp --dir --prefix gsd-ingest-docs. --pick .path) && specforge files mkdir "$INTEL_DIR/classifications" >/dev/null   # scratch files, in the project's temp root
 ```
 
 For each discovered doc, spawn `gsd-doc-classifier` in parallel. In Claude Code, issue all Task calls in a single message with multiple tool uses so the harness runs them concurrently. For Copilot / sequential runtimes, fall back to sequential dispatch.
@@ -343,7 +343,7 @@ The entities are written through `specforge new` and `specforge set`, so there i
 
 ```bash
 : # no commit: the entities are written by the roadmapper, the staged intel is not committed
-[ -n "$INTEL_DIR" ] && rm -rf "$INTEL_DIR"   # it holds the documents' text; the conflict report was shown at the gate
+[ -n "$INTEL_DIR" ] && specforge files remove --recursive "$INTEL_DIR" >/dev/null   # it holds the documents' text; the conflict report was shown at the gate
 
 
 

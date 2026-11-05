@@ -171,7 +171,7 @@ Max passes: ${BOUNCE_PASSES}
 
 1. **Backup:** Copy `*-PLAN.md` to `*-PLAN.pre-bounce.md`
 ```bash
-cp "${PLAN_FILE}" "${PLAN_FILE%.md}.pre-bounce.md"
+specforge files copy "${PLAN_FILE}" "${PLAN_FILE%.md}.pre-bounce.md" >/dev/null
 ```
 
 2. **Invoke bounce script:**
@@ -199,7 +199,7 @@ After the script returns, check that the bounced file still has valid YAML front
 
 6. **Commit surviving bounced plans:** If at least one plan survived both the frontmatter validation and the checker re-run, commit the changes:
 ```bash
-git add spec && git commit -m "refactor(${padded_phase}): bounce plans through external refinement" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "refactor(${padded_phase}): bounce plans through external refinement" && specforge collect --runner gsd-git --yes
 ```
 
 Display summary:

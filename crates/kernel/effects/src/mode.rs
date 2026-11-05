@@ -336,6 +336,31 @@ impl Effects {
         )
     }
 
+    /// The user's own `request` (`specforge http`, `run --format json`, ADR 0339 D3), judged by the user grant before
+    /// it is asked, performed through `ports` in every mode but `replay`: `online` and `auto` perform it, `cached`
+    /// answers a request that asks for nothing to happen ([`answers_again`]) from a fresh record and performs the rest,
+    /// and `replay` answers from the journal alone. Its record is the user's ([`RecordDigest::asked_by`] with
+    /// [`USER`]), so no extension's record answers it, nor it an extension.
+    pub fn serve_user(
+        &self,
+        ports: &Ports,
+        request: &EffectRequest,
+        now: UnixMillis,
+        perform: impl FnOnce(&Ports) -> Answer,
+    ) -> Served {
+        let digest = RecordDigest::asked_by(USER, request);
+        let again = answers_again(request, false);
+        self.served(
+            USER,
+            request,
+            &digest,
+            Asking::User(ports),
+            again,
+            now,
+            perform,
+        )
+    }
+
     /// The one decision: `request`, found by `digest`, for one who is `asking`; a fresh record answers it only
     /// when it answers `again` ([`answers_again`]).
     #[allow(clippy::too_many_arguments, reason = "one decision's every input")]
@@ -344,7 +369,7 @@ impl Effects {
         scope: &str,
         request: &EffectRequest,
         digest: &RecordDigest,
-        asking: Asking,
+        asking: Asking<'_>,
         again: bool,
         now: UnixMillis,
         perform: impl FnOnce(&Ports) -> Answer,
@@ -352,7 +377,7 @@ impl Effects {
         let Some(shown) = RecordedRequest::of(request) else {
             return Served::Local;
         };
-        let judged = asking != Asking::Unjudged;
+        let judged = !matches!(asking, Asking::Unjudged);
         let found = self.journal.lookup(digest, now);
         let mut log = self.log_lock();
         if let Some(path) = self.journal.path(digest) {
@@ -372,29 +397,34 @@ impl Effects {
             *log.not_run.entry(scope.to_string()).or_default() += 1;
             Served::NotPerformed(why)
         };
-        let ports = match (self.mode, found) {
-            (EffectsMode::Replay, Lookup::Fresh(kept) | Lookup::Expired(kept)) => {
+        let ports = match (self.mode, found, asking) {
+            (EffectsMode::Replay, Lookup::Fresh(kept) | Lookup::Expired(kept), _) => {
                 return answered(kept);
             }
-            (EffectsMode::Replay, Lookup::Missing) => {
+            (EffectsMode::Replay, Lookup::Missing, _) => {
                 log.misses.push(Missed {
                     digest: digest.clone(),
                     request: shown,
                 });
                 return Served::Miss;
             }
-            (EffectsMode::Cached | EffectsMode::Auto, Lookup::Fresh(kept)) if again => {
+            // The user's: only `cached` answers again, and what it does not answer it performs.
+            (EffectsMode::Cached, Lookup::Fresh(kept), Asking::User(_)) if again => {
                 return answered(kept);
             }
-            (EffectsMode::Cached, _) => return not_run(Why::NoFreshRecord),
-            (EffectsMode::Auto, _) if !judged => return not_run(Why::NotApproved),
-            (EffectsMode::Online | EffectsMode::Auto, _) => {
+            (_, _, Asking::User(ports)) => ports,
+            (EffectsMode::Cached | EffectsMode::Auto, Lookup::Fresh(kept), _) if again => {
+                return answered(kept);
+            }
+            (EffectsMode::Cached, _, _) => return not_run(Why::NoFreshRecord),
+            (EffectsMode::Auto, _, _) if !judged => return not_run(Why::NotApproved),
+            (EffectsMode::Online | EffectsMode::Auto, _, _) => {
                 self.ports.as_ref().expect("a live mode holds its ports")
             }
         };
         drop(log);
         let answer = perform(ports);
-        let kept = if asking == Asking::Lent {
+        let kept = if matches!(asking, Asking::Lent) {
             self.journal.keep_lent(digest, request, &answer, now)
         } else {
             self.journal.keep_as(digest, request, &answer, now)
@@ -413,15 +443,20 @@ impl Effects {
     }
 }
 
+/// Who asks for the user's own requests ([`Effects::serve_user`]): what their records are keyed by.
+pub const USER: &str = "the user";
+
 /// Who a request is served for, which decides what a record may answer and what a live mode may perform.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Asking {
+#[derive(Clone, Copy)]
+enum Asking<'a> {
     /// A caller who holds its grant itself: `auto` performs nothing for it.
     Unjudged,
     /// One whose grant [`Effects::serve_for`] judged.
     Judged,
     /// A guest whose grant permitted the request ([`Effects::serve_lent`]).
     Lent,
+    /// The user, whose grant the verb judged ([`Effects::serve_user`]), performing through these ports.
+    User(&'a Ports),
 }
 
 /// Whether a fresh record may stand in for `request`, for every asker (ADR 0335 D4): only when it asks for nothing to

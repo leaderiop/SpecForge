@@ -667,7 +667,7 @@ Plans that assume a tool is available without checking lead to silent failures a
 
 ```bash
 # CLI tools — check if command exists and get version
-command -v $TOOL 2>/dev/null && $TOOL --version 2>/dev/null | head -1
+specforge run --which $TOOL 2>/dev/null && $TOOL --version 2>/dev/null | head -1
 
 # Runtimes — check version meets minimum
 node --version 2>/dev/null
@@ -682,7 +682,7 @@ cargo --version 2>/dev/null
 # Databases / services — check if process is running or port is open
 pg_isready 2>/dev/null
 redis-cli ping 2>/dev/null
-curl -s http://localhost:27017 2>/dev/null
+specforge http get http://localhost:27017 --timeout 2s --pick .ok 2>/dev/null
 
 # Docker
 docker info 2>/dev/null | head -3
@@ -795,7 +795,7 @@ Write to: `$PHASE_DIR/$PADDED_PHASE-RESEARCH.md`
 ## Step 7: Commit Research (optional)
 
 ```bash
-git add -- "<the phase spec files>" && git commit -m "docs($PHASE): research phase domain"
+specforge git commit --add "<the phase spec files>" -m "docs($PHASE): research phase domain"
 ```
 
 ## Step 8: Return Structured Result

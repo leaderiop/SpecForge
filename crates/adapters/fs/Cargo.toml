@@ -9,6 +9,10 @@ repository.workspace = true
 [dependencies]
 specforge-common = { workspace = true }
 specforge-effects = { path = "../../kernel/effects" }
+# A person's listing (`specforge files list`, ADR 0339): `.gitignore` honoured, globs matched. Versions named here, not
+# in the root's workspace table, which every builtin blob compiles from.
+globset = "0.4"
+ignore = "0.4"
 
 [dev-dependencies]
 specforge-test = { workspace = true }

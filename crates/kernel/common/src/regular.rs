@@ -78,17 +78,25 @@ pub fn read_range(
     })
 }
 
-/// The SHA-256 of `path`, in lowercase hex, and how long it is: a regular file of any size, in chunks, so a digest pin
-/// holds a large artifact. `TimedOut` once `deadline` passes.
-pub fn digest(path: &Path, deadline: Instant) -> io::Result<(String, u64)> {
+/// `path`, opened for reading, when it is a regular file of any size (a link is followed): what a caller that streams
+/// or caps its own read opens. The handle opened is checked again.
+pub fn open_any(path: &Path) -> io::Result<File> {
     judge_kind(&std::fs::metadata(path)?)?;
-    let mut file = File::open(path)?;
+    let file = File::open(path)?;
     judge_kind(&file.metadata()?)?;
+    Ok(file)
+}
+
+/// The SHA-256 of `path`, in lowercase hex, and how long it is: a regular file of any size, in chunks, so a digest pin
+/// holds a large artifact. Its kind is judged before it is opened, so a named pipe is refused, never waited on.
+/// `TimedOut` once `deadline`, when there is one, passes.
+pub fn digest(path: &Path, deadline: Option<Instant>) -> io::Result<(String, u64)> {
+    let mut file = open_any(path)?;
     let mut hasher = Sha256::new();
     let mut chunk = vec![0; 1024 * 1024];
     let mut length = 0;
     loop {
-        if Instant::now() >= deadline {
+        if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
             return Err(io::ErrorKind::TimedOut.into());
         }
         let read = file.read(&mut chunk)?;
@@ -181,16 +189,16 @@ mod tests {
         std::fs::write(&path, "abc").unwrap();
         let abc = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
         let later = Instant::now() + Duration::from_secs(60);
-        assert_eq!(digest(&path, later).unwrap(), (abc.to_string(), 3));
+        assert_eq!(digest(&path, Some(later)).unwrap(), (abc.to_string(), 3));
         assert_eq!(specforge_package::Sha256::of(b"abc").as_str(), abc);
 
         let past = Instant::now();
         assert_eq!(
-            digest(&path, past).unwrap_err().kind(),
+            digest(&path, Some(past)).unwrap_err().kind(),
             std::io::ErrorKind::TimedOut
         );
         assert_eq!(
-            digest(dir.path(), later).unwrap_err().kind(),
+            digest(dir.path(), Some(later)).unwrap_err().kind(),
             std::io::ErrorKind::IsADirectory
         );
     }

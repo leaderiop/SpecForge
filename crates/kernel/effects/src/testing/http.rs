@@ -120,6 +120,20 @@ impl FakeHttp {
     }
 }
 
+/// The headers of `headers` that `request` keeps.
+fn kept(headers: &[(String, String)], request: &HttpRequest) -> Vec<(String, String)> {
+    headers
+        .iter()
+        .filter(|(n, _)| {
+            request
+                .keep_headers
+                .iter()
+                .any(|k| k.eq_ignore_ascii_case(n))
+        })
+        .cloned()
+        .collect()
+}
+
 impl Http for FakeHttp {
     fn request(&self, request: &HttpRequest, redirects: &dyn Redirects) -> HttpOutcome {
         self.requests
@@ -159,8 +173,13 @@ impl Http for FakeHttp {
                 } else {
                     None
                 };
+                // As the adapter: the redirect not followed keeps its status and kept headers.
                 if let Some(why) = refused {
-                    return HttpOutcome::failed(&url, OutcomeClass::Redirect(why), to);
+                    return HttpOutcome {
+                        status: Some(route.status),
+                        headers: kept(&route.headers, request),
+                        ..HttpOutcome::failed(&url, OutcomeClass::Redirect(why), to)
+                    };
                 }
                 hops += 1;
                 url = to;
@@ -177,17 +196,7 @@ impl Http for FakeHttp {
                 },
                 status: Some(route.status),
                 final_url: url,
-                headers: route
-                    .headers
-                    .iter()
-                    .filter(|(n, _)| {
-                        request
-                            .keep_headers
-                            .iter()
-                            .any(|k| k.eq_ignore_ascii_case(n))
-                    })
-                    .cloned()
-                    .collect(),
+                headers: kept(&route.headers, request),
                 body: route.body[..route.body.len().min(cap)].to_vec(),
                 detail: None,
             };

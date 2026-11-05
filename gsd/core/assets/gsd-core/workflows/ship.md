@@ -50,7 +50,7 @@ Extract: `branching_strategy`, `branch_name`.
 
 Detect base branch for PRs and merges:
 ```bash
-BASE_BRANCH=$(git config --get init.defaultBranch 2>/dev/null || echo main)
+BASE_BRANCH=$(specforge git config init.defaultBranch --pick .value 2>/dev/null); BASE_BRANCH=${BASE_BRANCH:-main}
 ```
 </step>
 
@@ -76,13 +76,13 @@ Verify the work is ready to ship:
 
 2. **Clean working tree?**
    ```bash
-   git status --short
+   specforge git status --format human
    ```
    If uncommitted changes exist: ask user to commit or stash first.
 
 3. **On correct branch?**
    ```bash
-   CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || true)
+   CURRENT_BRANCH=$(specforge git head --pick .branch 2>/dev/null || true)
    IS_PROTECTED=$(case "$CURRENT_BRANCH" in (main|master|develop|release/*) echo true;; (*) echo false;; esac) || IS_PROTECTED=""
    if [ "$IS_PROTECTED" = true ]; then
      echo "⚠ Current branch '$CURRENT_BRANCH' is a protected branch; shipping should happen from a feature branch." >&2
@@ -95,15 +95,15 @@ Verify the work is ready to ship:
 
 4. **Remote configured?**
    ```bash
-   git remote -v | head -2
+   specforge git remotes --format human
    ```
    Detect `origin` remote. If no remote: error — can't create PR.
 
-5. **`gh` CLI available?**
+5. **GitHub token set?**
    ```bash
-   which gh && gh auth status 2>&1
+   [ "$(specforge http get https://api.github.com/user --secret @gsd/core:github_token --pick .ok)" = true ] && echo github:authenticated
    ```
-   If `gh` not found or not authenticated: provide setup instructions and exit.
+   If GH_TOKEN is unset or GitHub refuses it: tell the user to export a token with the repo scope as GH_TOKEN (a token kept only in gh's keyring is not read) and exit.
 
 6. **Capability ship gates and steps (generic dispatch).**
 
@@ -319,7 +319,7 @@ Reconstruct the per-commit TDD gate trail before squash-merge discards it. Walk 
 
 ```bash
 # Anchor on the merge-base so a stale local ${BASE_BRANCH} ref cannot over-count.
-RANGE_BASE=$(git merge-base "${BASE_BRANCH}" HEAD)
+RANGE_BASE=$(specforge git merge-base "${BASE_BRANCH}" HEAD --pick .sha)
 git log "${RANGE_BASE}..HEAD" --no-merges --reverse \
   --format='%H%x1f%s%x1f%(trailers:key=gate-status,valueonly,separator=%x2c)%x1e'
 ```
@@ -369,17 +369,17 @@ Create the PR using the generated body. Write the body to a temp file first so l
 ```bash
 # BSD/macOS mktemp only randomizes XXXXXX when it is the final path component, so make a
 # suffixless temp then append the extension — portable across BSD + GNU (#1520).
-PR_BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/gsd-pr-body-XXXXXX") && mv "$PR_BODY_FILE" "${PR_BODY_FILE}.md" && PR_BODY_FILE="${PR_BODY_FILE}.md" || exit 1
+PR_BODY_FILE=$(specforge files temp --prefix gsd-pr-body- --suffix .md --pick .path) || exit 1
 trap 'rm -f "${PR_BODY_FILE:-}"' EXIT
 printf '%s\n' "${PR_BODY}" > "${PR_BODY_FILE}"
 
-gh pr create \
-  --title "Phase ${PHASE_NUMBER}: ${PHASE_NAME}" \
-  --body-file "${PR_BODY_FILE}" \
-  --base "${BASE_BRANCH}"
+REPO=$(specforge git remotes --pick '.remotes[name=origin].path'); CURRENT_BRANCH=$(specforge git head --pick .branch)
+PR_NUMBER=$(specforge http post "https://api.github.com/repos/${REPO}/pulls" --secret @gsd/core:github_token --pick .json.number \
+  --field "title=Phase ${PHASE_NUMBER}: ${PHASE_NAME}" --field "head=${CURRENT_BRANCH}" --field "base=${BASE_BRANCH}" \
+  --field-file "body=${PR_BODY_FILE}"); [ -n "$PR_NUMBER" ] || { echo "GitHub created no PR: run the request without --pick to read why"; exit 1; }
 ```
 
-If `--draft` flag was passed: add `--draft`.
+If `--draft` flag was passed: add `--field-json draft=true` to the request.
 
 Report: "PR #{number} created: {url}"
 </step>
@@ -414,8 +414,8 @@ If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:
    # #2358: a per-run temp file (not a shared, unqualified path) so concurrent
    # ship runs — same or different phase, same or different project — never
    # clobber or read each other's stderr. Portable via ${TMPDIR:-/tmp}.
-   REVIEW_STDERR_FILE=$(mktemp "${TMPDIR:-/tmp}/gsd-review-stderr-XXXXXX")
-   REVIEW_OUTPUT=$(echo "${REVIEW_PROMPT}" | timeout 120 ${REVIEW_CMD} 2>"${REVIEW_STDERR_FILE}")
+   REVIEW_STDERR_FILE=$(specforge files temp --prefix gsd-review-stderr- --pick .path)
+   REVIEW_OUTPUT=$(echo "${REVIEW_PROMPT}" | specforge run --deadline 120 -- ${REVIEW_CMD} 2>"${REVIEW_STDERR_FILE}")
    REVIEW_EXIT=$?
    ```
 
@@ -427,7 +427,7 @@ If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:
      echo "WARNING: External review command failed (exit ${REVIEW_EXIT}). stderr: ${REVIEW_STDERR}"
      echo "Continuing with manual review flow..."
    fi
-   rm -f "${REVIEW_STDERR_FILE}"
+   specforge files remove --force "${REVIEW_STDERR_FILE}" >/dev/null
    ```
    On failure, warn with stderr output and fall through to the manual review flow below.
 
@@ -470,7 +470,7 @@ AskUserQuestion:
 
 **If "Request review":**
 ```bash
-gh pr edit ${PR_NUMBER} --add-reviewer "${REVIEWER}"
+REPO=$(specforge git remotes --pick '.remotes[name=origin].path'); specforge http post "https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}/requested_reviewers" --secret @gsd/core:github_token --field-json "reviewers=[\"${REVIEWER}\"]" --pick .ok
 ```
 
 **If "Self-review":**
@@ -491,8 +491,8 @@ merge (#2138). The `[ci skip]` trailer suppresses the redundant pipeline the pus
 would otherwise trigger (GitHub honors `[ci skip]` / `[skip ci]`):
 
 ```bash
-git add spec && git commit -m "docs(${padded_phase}): ship phase ${PHASE_NUMBER} — PR #${PR_NUMBER} [ci skip]" && specforge collect --runner gsd-git --yes
-SHIP_NOTE_SHA=$(git rev-parse HEAD)
+specforge git commit --add spec -m "docs(${padded_phase}): ship phase ${PHASE_NUMBER} — PR #${PR_NUMBER} [ci skip]" && specforge collect --runner gsd-git --yes
+SHIP_NOTE_SHA=$(specforge git head --pick .sha)
 git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
 
 # Preserve the skip-token optimization for repositories without a required-check
@@ -502,28 +502,28 @@ git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note pu
 # The recovery commit message MUST NOT contain any of these tokens.
 # Recovery keys on the head only (BLOCKED, zero checks, skip token), never the review state (#4993).
 
-STATUS="UNKNOWN"
+STATUS="unknown"
 CHECKS=0
 for i in {1..5}; do
-  PR_STATE=$(gh pr view ${PR_NUMBER} --json headRefOid,mergeStateStatus,statusCheckRollup --jq '"\(.headRefOid) \(.mergeStateStatus) \((.statusCheckRollup // []) | length)"' 2>/dev/null || echo '- UNKNOWN 0')   # gh's own --jq filter: "<head> <status> <checks>"
-  HEAD_OID=${PR_STATE%% *}
+  REPO=$(specforge git remotes --pick '.remotes[name=origin].path'); PR_URL="https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}"   # GitHub's REST API: mergeable_state is lower case
+  HEAD_OID=$(specforge http get "$PR_URL" --secret @gsd/core:github_token --pick .json.head.sha 2>/dev/null)
   if [ "$HEAD_OID" = "$SHIP_NOTE_SHA" ]; then
-    STATUS=$(echo "$PR_STATE" | cut -d' ' -f2)
-    CHECKS=${PR_STATE##* }
+    MERGEABLE=$(specforge http get "$PR_URL" --secret @gsd/core:github_token --pick .json.mergeable_state 2>/dev/null); STATUS=${MERGEABLE:-unknown}
+    RUNS=$(specforge http get "https://api.github.com/repos/${REPO}/commits/${SHIP_NOTE_SHA}/check-runs" --secret @gsd/core:github_token --pick .json.total_count 2>/dev/null); STATUSES=$(specforge http get "https://api.github.com/repos/${REPO}/commits/${SHIP_NOTE_SHA}/status" --secret @gsd/core:github_token --pick .json.total_count 2>/dev/null); CHECKS=$(( ${RUNS:-0} + ${STATUSES:-0} ))   # check runs and commit statuses, as gh's statusCheckRollup counts both
   fi
-  if [ "$HEAD_OID" = "$SHIP_NOTE_SHA" ] && [ "$STATUS" != "UNKNOWN" ]; then
+  if [ "$HEAD_OID" = "$SHIP_NOTE_SHA" ] && [ "$STATUS" != "unknown" ]; then
     break
   fi
   sleep 3
 done
 
-if [ "$STATUS" = "BLOCKED" ] && [ "$CHECKS" = "0" ] && git log -1 --format=%B "$SHIP_NOTE_SHA" | grep -q '\[ci skip\]'; then
+if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && for f in subject body; do specforge git log "$SHIP_NOTE_SHA" --max 1 --pick ".commits[0].$f"; done | grep -q '\[ci skip\]'; then
   echo "⚠ PR is BLOCKED with zero checks. The [ci skip] trailer wedged the PR due to required checks."
   echo "Pushing an empty commit to trigger the required pipelines..."
   # a commit with no files is made with git directly (an intentionally empty commit).
-  git commit --allow-empty -m "chore: trigger CI (recover from ship-note skip-token)"
+  specforge git commit --allow-empty -m "chore: trigger CI (recover from ship-note skip-token)"
   git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: recovery push failed — rerun: git push origin ${CURRENT_BRANCH}"
-elif [ "$STATUS" = "UNKNOWN" ]; then
+elif [ "$STATUS" = "unknown" ]; then
   echo "⚠ track_shipping: PR mergeStateStatus is UNKNOWN after polling; PR may require manual check re-trigger."
 fi
 ```
@@ -542,7 +542,7 @@ Read the `activeHooks` of every line of `SHIP_POST_HOOKS_JSON`, one per capabili
 **Branch 1 — no active `ship:post` step hooks (`activeHooks` has no entry with `kind == "step"`):** Skip silently to the report.
 
 **Generic step hook dispatch contract:** For each active entry where `kind == "step"`:
-- Honor `consumes`: if it lists `UAT.md`, resolve `ls "${PHASE_DIR}"/*-UAT.md 2>/dev/null | head -1` and pass it to the dispatch; if a consumed artifact is absent, skip that hook.
+- Honor `consumes`: if it lists `UAT.md`, resolve `specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-UAT.md' --pick '.entries[0].path' 2>/dev/null` and pass it to the dispatch; if a consumed artifact is absent, skip that hook.
 - If `ref.agent` is set, first show the spawn banner, then dispatch the agent named by `ref.agent` (use the exact `ref.agent` value as the subagent type — e.g. `gsd-mempalace-curator` — never `general-purpose`):
 
   ```

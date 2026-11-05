@@ -1,0 +1,67 @@
+---
+source: crates/surfaces/cli/src/main.rs
+expression: command.clone().render_long_help().to_string()
+---
+HEAD a URL: its status and headers
+
+Usage: specforge http head [OPTIONS] <URL>
+
+Arguments:
+  <URL>
+          The URL, `https://` or `http://`
+
+Options:
+  -H, --header <NAME: VALUE>
+          A request header, `Name: value` (repeatable); a credential comes from --secret
+
+  -f, --field <KEY=VALUE>
+          A string field of a JSON body, `key=value` (repeatable)
+
+  -F, --field-json <KEY=JSON>
+          A field of a JSON body given as JSON, `key=<json>` (repeatable): a number, a boolean, an array, an object
+
+      --field-file <KEY=PATH>
+          A string field of a JSON body read from a file in the project's roots, `key=<path>` (repeatable): a long text, such as a pull request's description, with no JSON escaping
+
+      --body-file <PATH>
+          The body, read from a file in the project's roots
+
+      --secret <EXTENSION:NAME>
+          A secret an extension declares, `<extension>:<name>` (e.g. `@gsd/core:github_token`), sent as `Authorization: Bearer <its value>` to the URL's host over https; its value is never printed or recorded
+
+      --timeout <DURATION>
+          Give up after this long: `10s`, `500ms`, `1m` (at most 60s)
+
+      --max-bytes <BYTES>
+          The most body bytes the answer keeps; past it, `truncated` is true
+          
+          [default: 1048576]
+
+      --no-redirects
+          Follow no redirect: a 3xx is the answer, with its `location` header
+
+      --path <PATH>
+          A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)
+          
+          [default: .]
+
+      --format <FORMAT>
+          Output format: json (the default) or human
+          
+          [default: json]
+          [possible values: human, json]
+
+      --pick <PATH>
+          Print only the values at this path of the verb's JSON answer, one per line, e.g. '.entries[].path' on files list or '.branch' on git head. The path is steps: `.key`, `[n]` (digits, no leading zero), `[]` (every item) and `[<key>=<value>]` (the items whose field <key> is <value>, e.g. `[kind=plan]`: <key> may be dotted, `[fields.result=issue]`, and a number, boolean or null is compared as JSON, `[fields.backlog=true]`, `[fields.wave=2]`; an object or array is never selected); a `.` before `[` may be left out, and `.` alone is the whole answer. One line per value reached: a string bare (a newline in it is printed as is), an integer as is and any other number as an f64 (`1.0`, `-0.0`, `1e3` as `1000.0`), a boolean, object or array as compact JSON; null or a missing value prints nothing, and is not an error. It takes no --format human: errors print as they do under json, and the exit code is the verb's.
+
+      --effects <EFFECTS>
+          The effects mode: online (the default; auto is online), cached or replay. http sends the request, answers a GET from a fresh record of the effects journal (cached), or answers from the journal alone (replay); files and git read and write this machine's disk in every mode, and the journal keeps none of it
+
+          Possible values:
+          - online: Performed when granted; the answer is journaled
+          - auto:   A fresh record; else performed when approved; else not performed
+          - cached: A fresh record; else not performed
+          - replay: Any record, expired or not; else a miss
+
+  -h, --help
+          Print help (see a summary with '-h')

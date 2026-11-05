@@ -33,6 +33,138 @@ pub const SKIPPED: &[&str] = &[
 /// `outside`, a withheld name `denied`, an absent one `missing`.
 pub trait Fs: Send + Sync {
     fn run(&self, roots: &Roots, request: &FsRequest) -> FsOutcome;
+
+    /// A person's listing (`specforge files list`, ADR 0339): no guest names one, so only the local adapter answers it
+    /// and every other port, a granted one included, answers `denied`.
+    fn list(&self, _roots: &Roots, _request: &ListRequest) -> FsListing {
+        FsListing::of(OutcomeClass::Denied)
+    }
+
+    /// A person's change (`specforge files mkdir`, `copy`, `move`, `remove`, `temp`): host-only like [`Fs::list`].
+    fn change(&self, _roots: &Roots, _change: &FsChange) -> FsChanged {
+        FsChanged::of(OutcomeClass::Denied, "this port changes no file")
+    }
+
+    /// The SHA-256 of a whole file, streamed (`specforge files digest`): host-only like [`Fs::list`].
+    fn digest(&self, _roots: &Roots, _at: &Place) -> FsDigest {
+        FsDigest::of(OutcomeClass::Denied)
+    }
+}
+
+/// A path in a root, as a person's change names it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Place {
+    pub root: String,
+    /// Relative to the root, `/` separated.
+    pub path: String,
+}
+
+/// A change a person asks of the file system. Host-only: no wire request carries one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FsChange {
+    /// The directory and its missing parents.
+    Mkdir { at: Place },
+    /// A new empty file, or directory, refused when the name exists.
+    Create { at: Place, dir: bool },
+    /// A file, or a directory and what it holds (no link), onto `to`, or into it when it is a directory.
+    Copy { from: Place, to: Place },
+    /// As [`FsChange::Copy`], then `from` is gone.
+    Move { from: Place, to: Place },
+    /// A file, or an empty directory, or with `recursive` a directory and what it holds; never a root itself.
+    Remove { at: Place, recursive: bool },
+}
+
+/// What a change did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FsChanged {
+    pub class: OutcomeClass,
+    /// The paths it made, wrote or removed, root-relative.
+    pub changed: Vec<Place>,
+    /// Why it was refused, for a person.
+    pub detail: Option<String>,
+}
+
+impl FsChanged {
+    /// A refusal of `class`, `detail` saying why.
+    pub fn of(class: OutcomeClass, detail: impl Into<String>) -> Self {
+        FsChanged {
+            class,
+            changed: Vec::new(),
+            detail: Some(detail.into()),
+        }
+    }
+}
+
+/// A file's digest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FsDigest {
+    pub class: OutcomeClass,
+    /// Lowercase hex.
+    pub sha256: String,
+    pub bytes: u64,
+}
+
+impl FsDigest {
+    pub fn of(class: OutcomeClass) -> Self {
+        FsDigest {
+            class,
+            sha256: String::new(),
+            bytes: 0,
+        }
+    }
+}
+
+/// The most entries a person's listing visits.
+pub const LIST_VISITS: usize = 200_000;
+
+/// What a person's listing asks: the entries under `path` in `root`. Host-only: no wire request carries it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ListRequest {
+    pub root: String,
+    /// Relative to the root, `/` separated; empty for the root itself.
+    pub path: String,
+    /// A listed entry matches one of them, relative to `path` (a glob with no `/` matches the entry's name); none:
+    /// every entry.
+    pub globs: Vec<String>,
+    /// Only entries of this kind; none: files and directories.
+    pub kind: Option<FileKind>,
+    /// How deep below `path` an entry may be (1: its direct entries); none: any depth.
+    pub depth: Option<usize>,
+    /// Leave out what `.gitignore`, `.ignore` and git's own excludes ignore.
+    pub ignore: bool,
+    /// List names that start with `.`.
+    pub hidden: bool,
+    pub max_entries: usize,
+}
+
+/// One entry a listing found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Listed {
+    /// Relative to the root, `/` separated.
+    pub path: String,
+    pub kind: FileKind,
+    pub size: u64,
+}
+
+/// What a listing answered.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FsListing {
+    pub class: OutcomeClass,
+    /// Sorted by path.
+    pub entries: Vec<Listed>,
+    /// It stopped at `max_entries` or at [`LIST_VISITS`].
+    pub truncated: bool,
+}
+
+impl FsListing {
+    /// A listing of `class` and no entry.
+    pub fn of(class: OutcomeClass) -> Self {
+        FsListing {
+            class,
+            entries: Vec::new(),
+            truncated: false,
+        }
+    }
 }
 
 /// A file port as the composition root shares it.
@@ -76,6 +208,23 @@ pub enum FileKind {
     Other,
 }
 
+impl FileKind {
+    /// `file`, `dir` or `other`: what an answer says, and what a person reads.
+    pub const fn name(self) -> &'static str {
+        match self {
+            FileKind::File => "file",
+            FileKind::Dir => "dir",
+            FileKind::Other => "other",
+        }
+    }
+}
+
+impl serde::Serialize for FileKind {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.name())
+    }
+}
+
 /// A path's kind, size and modification time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FsStat {
@@ -98,9 +247,10 @@ pub fn held(
     let root = roots.get(&name).ok_or(OutcomeClass::Outside)?.to_path_buf();
     if matches!(request.path.as_str(), "" | "." | "./") {
         // A named root can itself be a directory of the project's own state.
-        if lookup
-            .canonical(&root)
-            .is_some_and(|real| landed_in_host_state(roots, lookup, &real))
+        if !roots.is_temp(&name)
+            && lookup
+                .canonical(&root)
+                .is_some_and(|real| landed_in_host_state(roots, lookup, &real))
         {
             return Err(OutcomeClass::Denied);
         }

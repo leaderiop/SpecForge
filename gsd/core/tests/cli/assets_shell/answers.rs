@@ -1,4 +1,4 @@
-//! G4 (plan 05 T4): the last lines that ran jq, run as the asset holds them under bash with no jq on the `PATH`. A
+//! The last lines that ran jq, run as the asset holds them under bash with no jq on the `PATH`. A
 //! SpecForge answer is read with `--pick`; what the shell cannot check (a reviewer's answer, a stub) is left to the
 //! agent or written as the literal it always was. The taskboard fixture (`gsd/parity/fixtures/taskboard`): phase 01
 //! has the UAT tests U1 (pass), U2 (issue) and U3 (pass) and a verification; plan 02-01 has no summary.
@@ -123,7 +123,7 @@ fn a_setting_is_picked_by_its_name() {
     );
 }
 
-/// Plan 05 review R4: the UAT debt is SpecForge's rule, `specforge gsd verification-debt`, not a `case` on each test's
+/// The UAT debt is SpecForge's rule, `specforge gsd verification-debt`, not a `case` on each test's
 /// `result`. A test with no result is pending and a skip without a `Deferred follow-up` reason is open: the
 /// progress count missed the skip, and verify-work's gates missed both (a missing result matched no pattern).
 #[test]
@@ -162,7 +162,7 @@ fn the_uat_debt_follows_the_uat_test_kinds_rule() {
     }
 }
 
-/// Plan 05 review R5: a lane's plan coverage is `specforge gsd plan-coverage`, over the phase's own plans, not a shell
+/// A lane's plan coverage is `specforge gsd plan-coverage`, over the phase's own plans, not a shell
 /// loop over a manifest file. The manifest and the plan copies list the same plans: the phase's, where the
 /// `--depth 2` query also reached the next phase's 02-01 (upstream globs the phase's own `*-PLAN.md`).
 #[test]
@@ -228,7 +228,7 @@ fn the_plan_coverage_is_specforges() {
     );
 }
 
-/// Plan 05 review R10: quick-batch's create check is the list's own (`QB_CREATE_RC=$?` in a block of its own was
+/// Quick-batch's create check is the list's own (`QB_CREATE_RC=$?` in a block of its own was
 /// always 0, so one item went on), and quick's worktree manifest is tab-separated like the wave's, which it falls
 /// back to, not a `{"worktrees":[]}` file.
 #[test]
@@ -256,9 +256,9 @@ fn the_quick_batch_list_and_the_quick_manifest_are_lines() {
     }
     let text = asset("gsd-core/workflows/quick.md");
     let out = sh.run(&format!(
-        "TMPDIR={}\n{}\n{}\nprintf '%s|%s' \"${{QUICK_WORKTREE_MANIFEST##*.}}\" \"$(cat \"$QUICK_WORKTREE_MANIFEST\")\"",
+        "export HOME={}\n{}\n{}\nprintf '%s|%s' \"${{QUICK_WORKTREE_MANIFEST##*.}}\" \"$(cat \"$QUICK_WORKTREE_MANIFEST\")\"",
         q(&dir.path().display().to_string()),
-        line(&text, "QUICK_WORKTREE_MANIFEST=$(mktemp"),
+        line(&text, "QUICK_WORKTREE_MANIFEST=$(specforge files temp"),
         text.lines()
             .map(str::trim_start)
             .find(|l| l.contains("> \"$QUICK_WORKTREE_MANIFEST\""))
@@ -267,7 +267,7 @@ fn the_quick_batch_list_and_the_quick_manifest_are_lines() {
     assert_eq!(out, "tsv|");
 }
 
-/// Plan 05 review R12: `/gsd-pr-branch` holds no stub that stands for a sub-repository answer (`SUB_REPOS_JSON="[]"`,
+/// `/gsd-pr-branch` holds no stub that stands for a sub-repository answer (`SUB_REPOS_JSON="[]"`,
 /// `RESULT=$(false)`, `REMOTE_SLUG=`): a sub-repository is another SpecForge project, so there is none, and the
 /// sub-repository step reports a failure without one.
 #[test]
@@ -567,32 +567,38 @@ fn the_default_reviewers_are_counted_from_the_setting() {
     );
 }
 
+/// The PR's head, state and checks come from GitHub's REST API, one GET a field; checks are runs plus statuses.
 #[test]
-fn the_pull_request_state_is_one_line_from_gh() {
+fn the_pull_request_state_is_read_from_github_s_rest_api() {
     let Some(sh) = shell() else { return };
     let text = asset("gsd-core/workflows/ship.md");
     let read = [
-        line(&text, "HEAD_OID="),
-        line(&text, "STATUS=$(echo \"$PR_STATE\""),
-        line(&text, "CHECKS="),
-    ]
-    .join("\n");
-    for (state, want) in [
-        ("abc123 BLOCKED 0", "[abc123][BLOCKED][0]"),
-        ("- UNKNOWN 0", "[-][UNKNOWN][0]"),
+        line(&text, "HEAD_OID=$(specforge http get"),
+        line(&text, "MERGEABLE=$(specforge http get"),
+        line(&text, "RUNS=$(specforge http get"),
+    ];
+    let token = "--secret @gsd/core:github_token";
+    assert!(read.iter().all(|l| l.contains(token)));
+    // a `specforge` that answers each field the GET picks, or nothing (exit 1) when the field is unset
+    let stub = "specforge() { case \"$*\" in *head.sha*) v=$H;; *mergeable_state*) v=$M;; *check-runs*) v=$C;; */status*) v=$S;; esac; \
+                [ -n \"$v\" ] && printf '%s\\n' \"$v\" || return 1; }";
+    for (answers, want) in [
+        ("H=abc123 M=blocked C=0 S=0", "[abc123][blocked][0]"),
+        ("H=abc123 M=clean C=3 S=0", "[abc123][clean][3]"),
+        ("H=abc123 M=blocked C=0 S=2", "[abc123][blocked][2]"),
+        ("H=abc123 M=clean C=1 S=2", "[abc123][clean][3]"),
+        ("H= M= C= S=", "[][unknown][0]"),
     ] {
         let out = sh.run(&format!(
-            "PR_STATE={}\n{read}\nprintf '[%s][%s][%s]' \"$HEAD_OID\" \"$STATUS\" \"$CHECKS\"",
-            q(state)
+            "{stub}\n{answers}\nPR_URL=u REPO=acme/w SHIP_NOTE_SHA=abc123\n{}\nprintf '[%s][%s][%s]' \"$HEAD_OID\" \"$STATUS\" \"$CHECKS\"",
+            read.join("\n")
         ));
-        assert_eq!(out, want, "{state}");
+        assert_eq!(out, want, "{answers}");
     }
-    assert!(line(&text, "PR_STATE=$(gh pr view").contains("--jq"));
 }
 
-/// Plan 05 review R8: the edge probe's requirements guard is `specforge gsd edge-probe-requirements`, upstream's rule
-/// (a non-empty array whose every item has a string `text` that is not blank and holds no `<replace:` placeholder),
-/// not two `grep`s: a blank text, a bare object, a `null` item or a non-string text passed them.
+/// The edge probe's requirements guard is `specforge gsd edge-probe-requirements`, upstream's rule: a non-empty array
+/// whose every item has a string `text`, not blank, holding no `<replace:` placeholder (two `grep`s let all of those by).
 #[test]
 fn the_requirements_guard_refuses_a_placeholder_or_an_empty_list() {
     let Some(sh) = shell() else { return };
@@ -680,7 +686,7 @@ fn the_text_scans_read_one_row_per_entity() {
     assert!(summaries.contains("-SUMMARY"), "{summaries}");
 }
 
-/// Re-review of plan 05, item 4: a phase's plan and summary counts are its own, read by its id, not the progress
+/// A phase's plan and summary counts are its own, read by its id, not the progress
 /// report's phase of the same number in the current milestone. Here a later milestone restarts its numbers
 /// (`--reset-phase-numbers`): v2.0/01 has two plans and no summary, v1.0/01 two plans with their summaries.
 #[test]
@@ -724,7 +730,7 @@ fn a_phases_counts_are_read_by_its_own_id() {
     }
 }
 
-/// Re-review of plan 05, item 6: the review text reaches `plan-coverage` as an argument, which a long review can
+/// The review text reaches `plan-coverage` as an argument, which a long review can
 /// overflow (32,767 characters for a whole command line on Windows). A failed check warns and leaves an incomplete
 /// report naming the failure, never the empty file a reader takes for "nothing to report".
 #[test]
@@ -756,7 +762,7 @@ fn a_failed_plan_coverage_check_is_loud() {
     assert!(err.contains("plan-coverage failed for x"), "{err}");
 }
 
-/// Re-review of plan 05, item 7: progress's debt step describes `verification-debt`'s own answer, `{milestone,
+/// Progress's debt step describes `verification-debt`'s own answer, `{milestone,
 /// current, archived, archived_total, blockers}`, not upstream's audit payload, and a debt that could not be read
 /// says so instead of counting as none.
 #[test]

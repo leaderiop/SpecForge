@@ -66,6 +66,39 @@ specforge <ext> <command> [args] --pick .<field>   # one value of the command's 
 specforge prompt <ext>.<prompt> [arguments] [--host claude-code|codex|cursor] [--format json]   # also `specforge <ext> <prompt>` when no command has the name
 # MCP: prompts/list lists them after the core five; specforge.prompt { name, arguments | argv, host? } renders any prompt. A gated command or prompt is refused gate_failed (exit 1) with the failing diagnostics.
 
+# Ports for people and agents (ADR 0339): JSON by default, --pick for one value, the project's effects ceiling applies
+specforge files stat <path>...                      # kind, size, modified_ms, or exists:false
+specforge files list src --glob '*.tsx' --pick '.entries[0].path'   # honours .gitignore (--no-ignore, --hidden, --kind, --depth)
+specforge files search 'TODO|FIXME' src -i          # {matches:[{path,line,column,text}]}
+specforge files temp --suffix .json --pick .path   # a new 0600 file under .specforge/tmp (--dir for a directory)
+specforge files mkdir|copy|move|remove ...         # {changed:[...]}; never a root, the host's state or a credential file
+specforge files digest <file>... --text "$PWD"     # {digests:[{path,sha256,bytes}]}
+specforge run --deadline 10s -- cargo test         # output and exit pass through; 124 deadline, 127 not found, 126 cannot start
+specforge run --format json -- git status         # {argv,exit,outcome,stdout,stderr,duration_ms,truncated}
+specforge run --which node npx                     # where the runner finds each program
+specforge git repo --pick .top                     # the repository, read in process: no git program runs
+specforge git head --pick .branch                  # {sha,branch,detached,unborn,upstream,ahead,behind}
+specforge git rev HEAD~1 main:a.txt                # {revs:[{rev,sha,kind,exists}]}
+specforge git status --pick '.untracked[]'         # the typed status, plus clean and untracked
+specforge git config user.name --pick .value       # {key,value,values}
+specforge git log main..HEAD --pick .count         # {count,commits:[{sha,parents,author,subject,body,trailers}]}
+specforge git diff --base main --pick '.files[].path'  # -- <path>… filters; --staged, --worktree, --patch
+specforge git merge-base main HEAD --pick .sha     # {sha}
+specforge git show HEAD:spec/a.spec --pick .text   # {sha,bytes,binary,text}
+specforge git branches [--remote]                  # {branches:[{name,sha,current,upstream,ahead,behind}]}
+specforge git worktrees                            # {worktrees:[{path,branch,sha,main,locked,current}]}
+specforge git remotes --pick '.remotes[0].path'    # {remotes:[{name,url,push_url,host,path}]}: owner/repo
+specforge git commit --add spec -m 'feat: x'       # {sha,branch,parents,files}: hooks run; --all, --remove, --no-verify
+specforge git branch create|delete NAME            # {name,sha}: --at REV; delete --force for unmerged commits
+specforge git switch [--create] NAME               # the head answer; a changed file is never overwritten
+specforge git tag NAME [-m MSG] [--at REV]         # {name,sha}: annotated with -m
+specforge git worktree add|remove|prune DIR        # add --branch B [--create]; remove --force with changes
+specforge git merge B [--ff-only|--no-ff]          # {sha,fast_forward,conflicts:[{path,kind}]}: conflicts exit 1
+specforge git reset [--soft|--hard --yes] REV      # {sha,mode}; --hard over changes needs --yes
+specforge git restore [--staged] [--source REV] P  # {restored}
+specforge git stash push|pop|list                  # push -m M -u; pop [N]; {stashes:[{index,message,sha}]}
+specforge git cherry-pick|revert REV               # as merge: the new sha, or the conflicts (exit 1)
+
 # Extensions & registry
 specforge extensions                 # list enabled builtins and installed extensions
 specforge add @specforge/product     # enable a builtin, or install @scope/name@version from a registry

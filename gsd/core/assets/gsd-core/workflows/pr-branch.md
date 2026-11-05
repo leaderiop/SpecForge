@@ -27,8 +27,8 @@ default branch via the single resolver (#1146).
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-CURRENT_BRANCH=$(git branch --show-current)
-TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do git rev-parse --verify -q "$b" >/dev/null && echo "$b" && break; done)}
+CURRENT_BRANCH=$(specforge git head --pick .branch)
+TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 ```
 
 Check preconditions:
@@ -37,7 +37,7 @@ Check preconditions:
 - Working tree must be clean
 
 ```bash
-AHEAD=$(git rev-list --count "$TARGET".."$CURRENT_BRANCH" 2>/dev/null)
+AHEAD=$(specforge git log "$TARGET".."$CURRENT_BRANCH" --pick .count 2>/dev/null)
 if [ "$AHEAD" = "0" ]; then
   echo "No commits ahead of $TARGET — nothing to filter."
   exit 0
@@ -48,7 +48,7 @@ fi
 # checkout. An uncommitted edit to a tracked file would be destroyed by that, and
 # git cherry-pick refuses to run against a dirty tree anyway — so fail here, where
 # the message is legible, rather than midway through the cherry-pick loop.
-DIRTY=$(git status --porcelain --untracked-files=no)
+DIRTY=$(for k in changed renamed unmerged; do specforge git status --pick ".entries[kind=$k].path"; done)
 if [ -n "$DIRTY" ]; then
   echo "Working tree has uncommitted changes — commit or stash them first:" >&2
   echo "$DIRTY" >&2
@@ -91,8 +91,8 @@ JSON tool is needed). Write dirty repo names to a temp file so the list survives
 subsequent command executions:
 
 ```bash
-ROOT=$(git rev-parse --show-toplevel)
-DIRTY_FILE=$(mktemp)
+ROOT=$(specforge git repo --pick .top)
+DIRTY_FILE=$(specforge files temp --pick .path)
 
 printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
   # One name per line, so a name may hold the safe characters only: an embedded
@@ -176,7 +176,7 @@ fi
 ```
 
 Only when `$SUBREPO_EXIT` is `0`, read `remote_slug` from the structured result and open the
-companion PR. If `remote_slug` is null (non-GitHub remote), skip `gh pr create` and show
+companion PR. If `remote_slug` is null (non-GitHub remote), skip the pull request and show
 the push URL instead:
 
 ```bash
@@ -216,12 +216,12 @@ if [ -n "$REMOTE_SLUG" ]; then
     fi
   fi
 
-  gh pr create \
-    --repo "$REMOTE_SLUG" \
-    --base "$SUB_TARGET" \
-    --head "$SUB_BRANCH" \
-    --title "$COMMIT_MSG" \
-    --body "Companion PR for root repo branch \`$CURRENT_BRANCH\`."
+  specforge http post "https://api.github.com/repos/$REMOTE_SLUG/pulls" --secret @gsd/core:github_token \
+    --pick .json.html_url \
+    --field "base=$SUB_TARGET" \
+    --field "head=$SUB_BRANCH" \
+    --field "title=$COMMIT_MSG" \
+    --field "body=Companion PR for root repo branch \`$CURRENT_BRANCH\`."
 else
   echo "No GitHub remote detected for $REPO_REL — branch pushed, open PR manually."
 fi
@@ -315,7 +315,7 @@ For each commit, check what it touches:
 
 ```bash
 # For each commit hash
-FILES=$(git diff-tree --no-commit-id --name-only -r $HASH)
+FILES=$(for k in path old_path; do specforge git diff --base "$HASH~1" --head "$HASH" --pick ".files[].$k"; done)
 NON_PLANNING=$(echo "$FILES" | grep -Evc "$FORBIDDEN_RE" || true)
 STRUCTURAL=$(echo "$FILES" | grep -Ec "$STRUCTURAL_RE" || true)
 PLANNING_COUNT=$(echo "$FILES" | grep -Ec "$FORBIDDEN_RE" || true)
@@ -357,7 +357,7 @@ Mixed planning commits: {N} ({included — structural + transient/other, plannin
 PR_BRANCH="${CURRENT_BRANCH}-pr"
 
 # Create PR branch from target
-git checkout -b "$PR_BRANCH" "$TARGET"
+specforge git switch "$PR_BRANCH" --create --at "$TARGET"
 ```
 
 Cherry-pick the included commits, in order, filtering `$FILTER_PATHS` out of each one.
@@ -435,7 +435,7 @@ FILTER_PATHS_EOF
   # #4606 failure this block exists to prevent. Same word-split class as #4109.
   # Snapshot-then-iterate (rather than piping) both keeps the list stable while
   # the body restages paths and keeps the body in THIS shell, not a subshell.
-  UNMERGED_PATHS=$(git diff --name-only --diff-filter=U)
+  UNMERGED_PATHS=$(specforge git status --pick '.entries[kind=unmerged].path')
   while IFS= read -r P; do
     [ -n "$P" ] || continue
     case "$P" in
@@ -444,7 +444,7 @@ FILTER_PATHS_EOF
     esac
     if echo "$P" | grep -Eq "$FORBIDDEN_RE"; then continue; fi
     if echo "$P" | grep -Eq "$STRUCTURAL_RE"; then continue; fi
-    if git cat-file -e "$HASH:$P" 2>/dev/null; then
+    if [ "$(specforge git rev "$HASH:$P" --pick '.revs[0].exists' 2>/dev/null)" = true ]; then
       git checkout --theirs -- "$P" && git add -- "$P" # gsd-scan-ignore: #4606 -- see block comment above
     else
       git rm -f -q -- "$P" 2>/dev/null || true
@@ -457,18 +457,18 @@ UNMERGED_PATHS_EOF
   # improvise a resolution and do not continue, which would drop the rest of the queue.
   # Unwind first: this loop runs in the user's own checkout, so exiting mid-sequence
   # would strand them on a half-built branch with cherry-pick state still live.
-  if [ -n "$(git diff --name-only --diff-filter=U)" ]; then
+  if [ -n "$(specforge git status --pick '.entries[kind=unmerged].path')" ]; then
     echo "Conflict outside the *.spec filter while picking $HASH:" >&2
-    git diff --name-only --diff-filter=U >&2
+    specforge git status --pick '.entries[kind=unmerged].path' >&2
     # Order matters. `--quit` drops the sequencer state but leaves the unmerged index
     # in place, and an unmerged index makes `git checkout` refuse — so reset first.
     # $PR_BRANCH is disposable and every commit on it was cherry-picked, and the
     # clean-tree precondition guarantees the user had nothing uncommitted, so a hard
     # reset here cannot destroy anything of theirs.
     git cherry-pick --quit 2>/dev/null || true
-    git reset -q --hard HEAD
-    if git checkout -q "$CURRENT_BRANCH"; then
-      git branch -q -D "$PR_BRANCH" 2>/dev/null || true
+    specforge git reset HEAD --hard --yes --pick .sha >/dev/null
+    if specforge git switch "$CURRENT_BRANCH" --pick .branch >/dev/null; then
+      specforge git branch delete "$PR_BRANCH" --force >/dev/null 2>&1 || true
       echo "Restored $CURRENT_BRANCH and removed the partial $PR_BRANCH." >&2
     else
       # Never claim a restore that did not happen — say exactly where they are.
@@ -481,7 +481,7 @@ UNMERGED_PATHS_EOF
 
   # Nothing left after filtering (possible when a pick's only surviving content was
   # planning state): clear the sequencer rather than failing on an empty commit.
-  if git diff --cached --quiet; then
+  if [ "$(specforge git diff --staged --pick .count)" = 0 ]; then
     git cherry-pick --quit 2>/dev/null || true
     continue
   fi
@@ -492,7 +492,7 @@ done
 
 Return to original branch:
 ```bash
-git checkout "$CURRENT_BRANCH"
+specforge git switch "$CURRENT_BRANCH"
 ```
 </step>
 
@@ -503,19 +503,19 @@ contradict default mode, which is specified to preserve structural files: a corr
 would report itself as failed on every phase that touched STATE.md, which is every phase.
 
 ```bash
-DIFF_PATHS=$(git diff --name-only "$TARGET".."$PR_BRANCH")
+DIFF_PATHS=$(specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick '.files[].path')
 FORBIDDEN=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
 PLANNING_TOTAL=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
 ALLOWED=$((PLANNING_TOTAL - FORBIDDEN))
 TOTAL_FILES=$(echo "$DIFF_PATHS" | grep -c . || true)
-PR_COMMITS=$(git rev-list --count "$TARGET".."$PR_BRANCH")
+PR_COMMITS=$(specforge git log "$TARGET".."$PR_BRANCH" --pick .count)
 
 # #3679: a DELETED planning path is never legitimate — this workflow only ever
 # excludes content a cherry-picked commit ADDED; pre-existing target-tracked
 # planning files must survive byte-identical. Name-only counting cannot see
 # status (a deleted structural/allowed path verifies clean there), so gate on
 # deletions explicitly, across every planning category.
-PLANNING_DELETIONS=$(git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | cut -f2- | grep -Ec "$FORBIDDEN_RE" || true)
+PLANNING_DELETIONS=$(for p in "[status=deleted].path" "[status=renamed].old_path"; do specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick ".files$p"; done | grep -Ec "$FORBIDDEN_RE" || true)
 
 # Default mode preserves anything of the spec that is neither transient nor
 # structural — config.json, intel/, workstreams/. That is deliberate and unchanged, but it

@@ -61,7 +61,7 @@
     "",
     "Examples:"
   ],
-  "bytes": 47913,
+  "bytes": 48110,
   "end": [
     "- question: \"How thorough should planning be?\"",
     "- header: \"Depth\"",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:24e2d8a17bf17463ab44a78bc22d6324e75064c3abd25bc95cbaffcdee0c348a",
+    "digest": "sha256:8fff865b934a58e68b647a4e116b4a49aec5037d04daa06d81757a9794c001cd",
     "prompt": "@gsd/core@VERSION:undo"
   },
-  "sha256": "24e2d8a17bf17463ab44a78bc22d6324e75064c3abd25bc95cbaffcdee0c348a"
+  "sha256": "8fff865b934a58e68b647a4e116b4a49aec5037d04daa06d81757a9794c001cd"
 }

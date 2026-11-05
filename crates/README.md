@@ -46,7 +46,7 @@ Pure-Rust adapters behind the effect plane's and the operations' ports: the proc
 | Crate | Package | Owns |
 |---|---|---|
 | [`fs`](adapters/fs/) | `specforge-fs` | The adapter behind the effect plane's Fs port: std::fs behind Contained, a capped read that never answers a withheld file, and a bounded walk that skips dependency directories and does not descend through links (ADR 0335) |
-| [`git`](adapters/git/) | `specforge-git` | The adapter behind the effect plane's Git port: the git command line through the Process port, read-only, hardened, with a deadline on every call (ADR 0287, ADR 0335) |
+| [`git`](adapters/git/) | `specforge-git` | The adapter behind the effect plane's Git port: gix in process, so the git program is never run (ADR 0287, ADR 0335, ADR 0339) |
 | [`hosts`](adapters/hosts/) | `specforge-hosts` | The agent hosts' adapters behind specforge-ops' host port: Claude Code, Codex and Cursor file layouts, config merges and hook protocols, which know no contribution's meaning (ADR 0292) |
 | [`http`](adapters/http/) | `specforge-http` | The adapter behind the effect plane's Http port: one lazily built reqwest client on rustls with ring and the platform verifier, its redirects followed under the caller's policy, private addresses refused, a whole-request timeout and a body cap (ADR 0335) |
 | [`ops-registry`](adapters/ops-registry/) | `specforge-ops-registry` | Which registries a project uses, and the adapter behind specforge-ops' Registry port: the fetch policy over the registry client and the publish signed as the user (ADR 0010) |

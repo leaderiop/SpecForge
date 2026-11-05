@@ -153,32 +153,15 @@ fn an_unreadable_event_applies_the_failure_policy() {
     verify = "a hook is told an outside path's real path, and with the git input its toplevel and whether it is inside a git directory"
 )]
 fn a_hook_is_told_the_real_path_and_toplevel_of_an_outside_path() {
-    use std::process::Command;
-    let git = |dir: &std::path::Path, args: &[&str]| {
-        Command::new("git")
-            .args(["-c", "user.name=t", "-c", "user.email=t@t"])
-            .args(args)
-            .current_dir(dir)
-            .status()
-            .is_ok_and(|s| s.success())
-    };
-    if Command::new("git").arg("--version").output().is_err() {
-        return;
-    }
     let project = project(json!({}), json!({}));
     let root = project.root().to_path_buf();
     let other = tempfile::tempdir().unwrap();
     let other_root = std::fs::canonicalize(other.path()).unwrap();
     std::fs::create_dir_all(other_root.join("src")).unwrap();
-    assert!(
-        git(&root, &["init", "-q", "-b", "main"])
-            && git(&root, &["commit", "-q", "--allow-empty", "-m", "init"])
-            && git(&other_root, &["init", "-q", "-b", "main"])
-    );
+    specforge_git::testing::Repo::init(&root).commit("init");
+    specforge_git::testing::Repo::init(&other_root);
     std::os::unix::fs::symlink(other_root.join("src"), root.join("mainsrc")).unwrap();
-    let project = project.with_git(std::sync::Arc::new(specforge_git::GitCli::new(
-        std::sync::Arc::new(specforge_process::Runner),
-    )));
+    let project = project.with_git(std::sync::Arc::new(specforge_git::Gix::default()));
     let canonical_root = std::fs::canonicalize(&root).unwrap();
     let write = |file: &std::path::Path| {
         json!({"hook_event_name": "PreToolUse", "tool_name": "Write", "session_id": "s1", "cwd": root,

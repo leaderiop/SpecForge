@@ -33,7 +33,9 @@ pub use consent::{
 };
 pub use contained::{Contained, Lookup, RealFs, Refused, Resolved, Roots};
 pub use digest::{canonical, digest};
-pub use fs::{Fs, FsOutcome, SharedFs};
+pub use fs::{
+    Fs, FsChange, FsChanged, FsDigest, FsListing, FsOutcome, ListRequest, Listed, Place, SharedFs,
+};
 pub use gate::{Port, gate};
 pub use git::{Git, SharedGit};
 pub use grant::{Denial, Denied, Grant, Granted, Need, OutsideRoot, Uses};
@@ -44,7 +46,8 @@ pub use process::{Ceiling, Output, Process, ProcessClass, ProcessOutcome, Shared
 pub use provenance::Provenance;
 pub use specforge_protocol_types::{
     AttachedSecret, EffectRequest, EnvVar, FsOp, FsRequest, Header, HttpRequest, Outcome,
-    OutcomeClass, ProcessRequest, Redirected, ResolveRequest, Root, TlsRequest, Unreachable,
+    OutcomeClass, Private, ProcessRequest, Redirected, ResolveRequest, Root, TlsRequest,
+    Unreachable,
 };
 pub use time::{ClockError, UnixMillis};
 

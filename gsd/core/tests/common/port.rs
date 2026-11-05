@@ -1,11 +1,33 @@
 //! The port rule (D-r40-5, D-r42-4), shared by the agent bodies and the workflow assets: an asset is upstream's text
-//! line for line, and a line may differ only where upstream's names a tool this port replaced.
+//! line for line, and a line may differ only where upstream's names a tool this port replaced, or runs a program that
+//! `specforge` now answers in its place.
 #![allow(
     dead_code,
     reason = "each test crate that includes this module uses some of it"
 )]
 
 use regex::Regex;
+
+#[path = "command_word.rs"]
+mod command_word;
+#[path = "specforge_only.rs"]
+mod specforge_only;
+
+/// Whether `mine` stands for upstream's line `theirs` as a block that calls only `specforge`: it runs no program
+/// upstream's does not, besides `specforge` and the shell's own words, and leaves out one that upstream's runs.
+pub fn served_by_specforge(theirs: &str, mine: &str) -> bool {
+    let programs = |line: &str| {
+        command_word::commands(line)
+            .into_iter()
+            .filter(|tool| !specforge_only::SHELL_WORDS.contains(&tool.as_str()))
+            .collect::<Vec<_>>()
+    };
+    let (before, after) = (programs(theirs), programs(mine));
+    after
+        .iter()
+        .all(|tool| tool == "specforge" || before.contains(tool))
+        && before.iter().any(|tool| !after.contains(tool))
+}
 
 /// Checks one asset against the body lines of its upstream file: the header line, then every line. `header` is the
 /// upstream path the attribution names; `rewritten` says which body lines (0-based) differ although upstream's names
@@ -40,7 +62,7 @@ pub fn check_lines(
                 "{label}:{n}: still names upstream's tools: {mine}"
             );
             changed += 1;
-        } else if rewritten(n) {
+        } else if rewritten(n) || served_by_specforge(theirs, mine) {
             assert_ne!(
                 mine, theirs,
                 "{label}:{n}: listed as rewritten, but is upstream's"

@@ -295,7 +295,7 @@ GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the
 # a field of the answer is read with --pick, never jq
 STATE_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .state_path)
 PROJECT_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .project_path)
-git add spec && git commit -m "docs: start milestone v[X.Y] [Name]" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs: start milestone v[X.Y] [Name]" && specforge collect --runner gsd-git --yes
 ```
 
 ## 7. Load Context and Resolve Models
@@ -536,7 +536,7 @@ GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the
 
 # a field of the answer is read with --pick, never jq
 REQUIREMENTS_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .requirements_path)
-git add spec && git commit -m "docs: define milestone v[X.Y] requirements" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs: define milestone v[X.Y] requirements" && specforge collect --runner gsd-git --yes
 ```
 
 ## 10. Create Roadmap
@@ -627,7 +627,7 @@ GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the
 ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
 STATE_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .state_path)
 REQUIREMENTS_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .requirements_path)
-git add spec && git commit -m "docs: create milestone v[X.Y] roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs: create milestone v[X.Y] roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
 # #4456: true last consumer of the persisted --ws in this workflow — the
 # round-trip file is no longer needed after this commit.
 # nothing to clean up: no scratch file was written
@@ -673,7 +673,7 @@ files: [existing]
 
 **If any todos were linked:**
 ```bash
-git commit -m "docs: tag [count] pending todos with resolves_phase after milestone v[X.Y] roadmap"
+specforge git commit -m "docs: tag [count] pending todos with resolves_phase after milestone v[X.Y] roadmap"
 ```
 
 Print a summary:

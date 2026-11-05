@@ -11,7 +11,7 @@ Use init context (from load_project_state) which provides `phase_dir`:
 
 ```bash
 # Check for VERIFICATION.md (code verification gaps)
-ls "$phase_dir"/*-VERIFICATION.md 2>/dev/null
+specforge files list "$phase_dir" --depth 1 --kind file --no-ignore --glob '*-VERIFICATION.md' --format human 2>/dev/null
 
 # Check for UAT.md with diagnosed status (user testing gaps)
 grep -l "status: diagnosed" "$phase_dir"/*-UAT.md 2>/dev/null

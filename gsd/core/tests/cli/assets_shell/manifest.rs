@@ -1,11 +1,11 @@
 //! G4 (plan 05 T3): execute-phase's wave worktree manifest is tab-separated lines (`orchestrator_root<TAB>root`, then
-//! `worktree<TAB>path<TAB>branch`), written and read by bash with `git`, `mktemp`, `mv` and `cat` alone on the `PATH`.
+//! `worktree<TAB>path<TAB>branch`), written and read by bash with `git`, `cat` and `specforge` alone on the `PATH`.
 //! Every way the list cannot be read blocks the cleanup, as F9's checks did.
 
 use super::{Shell, asset, line, q};
 
 /// The tools the manifest lines may call: bash's builtins do the rest.
-const TOOLS: &[&str] = &["git", "mktemp", "mv", "cat"];
+const TOOLS: &[&str] = &["git", "cat"];
 
 fn text() -> String {
     asset("gsd-core/workflows/execute-phase.md")
@@ -28,12 +28,13 @@ fn the_manifest_is_written_then_its_root_read_back() {
     let Some(sh) = Shell::only(TOOLS) else { return };
     let tmp = tempfile::tempdir().expect("a dir");
     let text = text();
-    let create = line(&text, "M=$(mktemp");
+    let create = line(&text, "WAVE_WORKTREE_MANIFEST=$(specforge files temp");
     let write = line(&text, "printf 'orchestrator_root\\t%s\\n'");
     let read = read_root(&text);
     for (root, want) in [("/work/lane 2", "/work/lane 2"), ("", "")] {
         let script = format!(
-            "TMPDIR={}\nORCH_ROOT={}\n{create}\n{write}\n{read}\n\
+            // a directory with no specforge.json keeps its temp root under the home directory
+            "export HOME={}\nORCH_ROOT={}\n{create}\n{write}\n{read}\n\
              printf '%s|' \"${{WAVE_WORKTREE_MANIFEST##*.}}\"; cat \"$WAVE_WORKTREE_MANIFEST\"; printf '[%s]' \"$PRIMARY_WT\"; \
              [ ! -e \"$WAVE_WORKTREE_MANIFEST.tmp\" ]",
             q(&tmp.path().display().to_string()),

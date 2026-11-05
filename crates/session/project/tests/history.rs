@@ -2,7 +2,6 @@
 //! watches is what it watched before.
 
 use std::path::Path;
-use std::process::Command;
 use std::sync::Arc;
 
 use serde_json::json;
@@ -15,29 +14,9 @@ use specforge_project::testing::{TestProject, gsd_history_runtime};
 use crate::computed;
 use specforge_test::prelude::*;
 
-/// `git init` and one commit of everything under `root`.
+/// A repository at `root` with one commit of everything under it.
 pub(crate) fn git_repo(root: &Path) {
-    for args in [
-        &["init", "-q", "-b", "main"][..],
-        &["add", "-A"],
-        &[
-            "-c",
-            "user.email=t@t",
-            "-c",
-            "user.name=t",
-            "commit",
-            "-q",
-            "-m",
-            "c",
-        ],
-    ] {
-        let status = Command::new("git")
-            .args(args)
-            .current_dir(root)
-            .status()
-            .unwrap();
-        assert!(status.success(), "git {args:?}");
-    }
+    specforge_git::testing::Repo::init(root).commit_all("c");
 }
 
 #[specforge_test(
@@ -383,21 +362,9 @@ fn committed_session(origin: &str) -> (TestProject, specforge_project::ProjectSe
     (project, session)
 }
 
-/// The git command line, as a surface's git port asks it.
+/// The git port a surface installs.
 fn git_cli() -> SharedGit {
-    Arc::new(specforge_git::GitCli::new(Arc::new(
-        specforge_process::Runner,
-    )))
-}
-
-fn git(root: &Path, args: &[&str]) {
-    let status = Command::new("git")
-        .args(["-c", "user.email=t@t", "-c", "user.name=t"])
-        .args(args)
-        .current_dir(root)
-        .status()
-        .unwrap();
-    assert!(status.success(), "git {args:?}");
+    Arc::new(specforge_git::Gix::default())
 }
 
 #[specforge_test(
@@ -422,7 +389,9 @@ fn a_commit_rechecks_the_session() {
     session.apply(&changes).expect("a source changed");
     assert_eq!(e084(&session), 1);
     // a commit: the ref is a check input, and the check judges against the new commit
-    git(&root, &["commit", "-q", "-am", "decide"]);
+    let repo = specforge_git::testing::Repo::at(&root);
+    repo.stage(&["a.spec"]);
+    repo.commit("decide");
     let branch = root.join(".git/refs/heads/main");
     let changes = session.changes([branch.as_path()]);
     assert_eq!(changes.check_inputs(), std::slice::from_ref(&branch));
@@ -440,19 +409,7 @@ fn refs_outside_the_root_are_watched_by_their_directorys_entries() {
     // The git directory lives outside the project (what a linked worktree's common directory is).
     let elsewhere = tempfile::tempdir().unwrap();
     let gitdir = elsewhere.path().join("g");
-    git(
-        project.root(),
-        &[
-            "init",
-            "-q",
-            "-b",
-            "main",
-            "--separate-git-dir",
-            gitdir.to_str().unwrap(),
-        ],
-    );
-    git(project.root(), &["add", "-A"]);
-    git(project.root(), &["commit", "-q", "-m", "c"]);
+    specforge_git::testing::Repo::init_separate(project.root(), &gitdir).commit_all("c");
     let project = project.with_git(git_cli());
     let session = project.session_in(Arc::new(gsd_history_runtime(json!([]))));
     let gitdir = gitdir.canonicalize().unwrap();

@@ -59,6 +59,7 @@ mod stats;
 mod terminal;
 mod trace;
 mod update;
+mod verbs;
 mod watch;
 
 use clap::{CommandFactory, Parser, Subcommand};
@@ -203,6 +204,27 @@ enum Commands {
         #[command(subcommand)]
         action: extension_authoring::Action,
     },
+    /// Stat, list, search, change and digest files in the project's roots: the Fs port for people and agents
+    /// (ADR 0339)
+    Files {
+        #[command(subcommand)]
+        action: verbs::files::Action,
+    },
+    /// Send an HTTP request under the project's effects ceiling: its answer as JSON, a declared secret attached by
+    /// --secret and never shown (ADR 0339)
+    Http {
+        #[command(subcommand)]
+        action: verbs::http::Action,
+    },
+    /// Read and change the repository the project is in, with no git program: its place, history and status, and
+    /// commits, branches, worktrees and merges under the effects ceiling, as JSON (ADR 0339)
+    Git {
+        #[command(subcommand)]
+        action: verbs::git::Action,
+    },
+    /// Run a program: its output and exit pass through (124 at --deadline, 127 not found, 126 cannot start), or
+    /// --format json captures them (ADR 0339)
+    Run(verbs::run::RunArgs),
     /// An extension's command: `specforge <extension> <command>`, e.g.
     /// `specforge product features` (the project's extensions declare them)
     #[command(external_subcommand)]
@@ -241,6 +263,8 @@ fn main() {
                 .collect();
             extension_command::run(&argv, &builtins, &terminal, &ports)
         }
+        // A program's exit code is its own (ADR 0339 D4).
+        Commands::Run(args) => args.run(&terminal, &ports),
         command => run(command, &terminal, &ports).code(),
     };
     terminal.flush();
@@ -251,7 +275,7 @@ fn main() {
 fn ports() -> Ports {
     let process: specforge_effects::SharedProcess = Arc::new(specforge_process::Runner);
     Ports {
-        git: Arc::new(specforge_git::GitCli::new(Arc::clone(&process))),
+        git: Arc::new(specforge_git::Gix::default()),
         process,
         http: Arc::new(specforge_http::Client::new()),
         fs: Arc::new(specforge_fs::LocalFs),
@@ -325,7 +349,11 @@ fn run(command: Commands, terminal: &Terminal, ports: &Ports) -> Exit {
         Commands::Explain(args) => args.run(terminal),
         Commands::Migrate(args) => args.run(terminal),
         Commands::InferStatus(args) => args.run(terminal, ports),
+        Commands::Files { action } => action.run(terminal, ports),
+        Commands::Http { action } => action.run(terminal, ports),
+        Commands::Git { action } => action.run(terminal, ports),
         Commands::External(_) => unreachable!("main runs an extension command itself"),
+        Commands::Run(_) => unreachable!("main runs a program itself"),
         Commands::Extension { action } => action.run(terminal, ports),
     }
 }
@@ -362,6 +390,22 @@ mod tests {
         let mut root = declared();
         root.build();
         pin_help(&root, &[]);
+    }
+
+    /// `CORE_COMMANDS`, which the registry reads to report E114, is the clap tree's list of core commands.
+    #[test]
+    fn core_commands_are_the_declared_tree() {
+        let mut root = declared();
+        root.build();
+        let mut tree: Vec<&str> = root
+            .get_subcommands()
+            .filter(|sub| sub.get_name() != "help" && !sub.is_allow_external_subcommands_set())
+            .map(clap::Command::get_name)
+            .collect();
+        tree.sort_unstable();
+        let mut listed = specforge_common::structural::CORE_COMMANDS.to_vec();
+        listed.sort_unstable();
+        assert_eq!(tree, listed);
     }
 
     /// The commands that read no project: they take no `--path`.

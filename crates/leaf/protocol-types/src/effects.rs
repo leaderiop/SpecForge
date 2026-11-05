@@ -58,6 +58,27 @@ impl EnvVar {
     }
 }
 
+/// Which hops of an HTTP request may reach a host at a loopback, private or link-local address; every other hop is
+/// held to the public rule.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Private {
+    /// None: a repository's or a guest's request.
+    #[default]
+    Never,
+    /// The request's own URL and a redirect to its origin: the address a person typed is theirs to reach, where a
+    /// redirect to another origin (`169.254.169.254`, `127.0.0.1`) is the server's choice.
+    TypedOrigin,
+    /// Every hop.
+    Any,
+}
+
+impl Private {
+    pub fn is_never(&self) -> bool {
+        *self == Private::Never
+    }
+}
+
 /// An HTTP request.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HttpRequest {
@@ -73,9 +94,9 @@ pub struct HttpRequest {
     pub timeout_ms: u64,
     /// The most redirects followed; one more is `redirect:limit`.
     pub max_redirects: u32,
-    /// A host that resolves to a loopback, private or link-local address may be reached.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub allow_private: bool,
+    /// Which hops may reach a host at a loopback, private or link-local address.
+    #[serde(default, skip_serializing_if = "Private::is_never")]
+    pub allow_private: Private,
     /// The response headers the outcome keeps, by name (case-insensitive).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub keep_headers: Vec<String>,

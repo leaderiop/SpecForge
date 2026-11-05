@@ -16,12 +16,12 @@
     "sha256": "f9e814a4a3bac649a630a472306a0ab84e0089da5cdcb6d1a1b2abd2dd03aee2"
   },
   ".cursor/agents/gsd-executor.md": {
-    "bytes": 46564,
-    "sha256": "77c653dae7e02ab35c6698b6d9291de5a71c688981d0b6088f5a8ad819151d9c"
+    "bytes": 46793,
+    "sha256": "c046686dd65a7c33b24a1d19b34c043d0e0cf15098604b20b6a5b6638452e88e"
   },
   ".cursor/agents/gsd-integration-checker.md": {
-    "bytes": 17262,
-    "sha256": "5bdfbb15f2a6ddb7440dad6ee40fe5729bac7b8ce7c3bf44c916e302b3342236"
+    "bytes": 17508,
+    "sha256": "3ff83f0beb0f178b39f03efbf71bf63040119ae2be38cb175209659eeafec334"
   },
   ".cursor/agents/gsd-nyquist-auditor.md": {
     "bytes": 7748,
@@ -32,32 +32,32 @@
     "sha256": "8b8e79baef179f219bc2df02d3bd9925e0ffb47f21a291c75f0fa1b10685f435"
   },
   ".cursor/agents/gsd-phase-researcher.md": {
-    "bytes": 43837,
-    "sha256": "454f794263142ba12012ad48f7b33238cb5615486669236f394c21c98473e635"
+    "bytes": 43885,
+    "sha256": "afabc2d67dffe2d838993365e6b5227ff223e4c6869a9089eb4a1148e3bad8a7"
   },
   ".cursor/agents/gsd-plan-checker.md": {
-    "bytes": 49580,
-    "sha256": "afc9d89467bc5eb330dc5769138f253627b93b46d2950d742438324c2730839c"
+    "bytes": 49613,
+    "sha256": "d8dd6f1b3af6aea027b35e93268ffede31593f6e77e953f29f5a66817dde8075"
   },
   ".cursor/agents/gsd-planner.md": {
-    "bytes": 49568,
-    "sha256": "0651d019681997733501b2f4e1e5688333c5134632afe98d95183c6078c73a83"
+    "bytes": 49627,
+    "sha256": "4531b8f436c52ccd43b91b7b820ea4e39caa7e70160148ad409cfd0de187a805"
   },
   ".cursor/agents/gsd-project-researcher.md": {
     "bytes": 18302,
     "sha256": "5c330ff8cef2544d42893a2cbfac594c72d7e09b6b7b4c7b91f835b861b3bb4c"
   },
   ".cursor/agents/gsd-research-synthesizer.md": {
-    "bytes": 11017,
-    "sha256": "372fb5516ea463525e70c0e89ab0d6842cb395a887ecf0d668fe4729872962a6"
+    "bytes": 11022,
+    "sha256": "9524108c484f3d1dbdd6b2f2e33c2b66174952eebc274e2720bad7de7f03f7a8"
   },
   ".cursor/agents/gsd-roadmapper.md": {
     "bytes": 24908,
     "sha256": "93973c636e411451cf5df85e4eb43e6780af7f10fdfd7d3281b5b837b0fcf224"
   },
   ".cursor/agents/gsd-verifier.md": {
-    "bytes": 50599,
-    "sha256": "545a08fc638f46369838bacf6d0b62b14ee716c6475eeb1af292bf91561d1edf"
+    "bytes": 50841,
+    "sha256": "e4a433f001f8131ea7718652f600dcfa569384fddc3b306797295f56b4ddbfaf"
   },
   ".cursor/hooks.json": {
     "bytes": 2050,

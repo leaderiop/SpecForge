@@ -335,6 +335,16 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   effects ceiling, and approved on this machine, decided once per extension and environment. It permits each request
   (or denies it: E090 for the gate, the declaration or the ceiling) and names the approvals a run needs
   (`specforge_effects::Grant`, ADR 0335 D2).
+- **Verb**: a core command that performs one port's effects for whoever types it: `specforge files`, `run`, `http`
+  and `git` (`specforge_ops::verbs`, ADR 0339). It is the user's own act, under the **User grant**; it has no MCP
+  tool. Not an extension's command.
+- **User grant**: the grant of a **Verb**: every port and request, approved, with no call kind's gate, only the
+  **Effects ceiling** narrowing it, and only the roots this machine may reach (a root outside the project once
+  approved) (`specforge_effects::Grant::user`, ADR 0339 D2).
+- **Verb answer**: what a **Verb** prints: one JSON document by default, `--pick` over it, a short listing under
+  `--format human`; `run` instead passes its program's output and exit through (124 at its deadline) (ADR 0339 D4).
+- **Temp root**: the verb-only root `temp`, `<project>/.specforge/tmp/`, made on first use: where `files temp` makes
+  scratch files, the one part of the host's own state a **Verb** may write (ADR 0339 D2).
 - **Granted import**: a `specforge:host` port an effectful call kind (a command, an MCP tool or resource, a collector)
   calls, answered by the **Port session** under the call's **Grant**: an extension's other face for effects, beside its
   declared inputs (ADR 0335 D4).

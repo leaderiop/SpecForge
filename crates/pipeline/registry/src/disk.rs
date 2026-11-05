@@ -146,7 +146,7 @@ impl Disk for PlainDisk {
     }
 
     fn digest(&self, path: &Path, deadline: Instant) -> io::Result<(String, u64)> {
-        specforge_common::regular::digest(path, deadline)
+        specforge_common::regular::digest(path, Some(deadline))
     }
 
     fn is_dir(&self, path: &Path) -> bool {

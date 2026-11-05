@@ -176,7 +176,7 @@ If `section_manifest` is `null` or `"automated-ui-verification"` is in its `incl
 Use `phase_dir` from init (or run init if not already done).
 
 ```bash
-ls "$phase_dir"/*-SUMMARY.md 2>/dev/null || true
+specforge files list "$phase_dir" --depth 1 --kind file --no-ignore --glob '*-SUMMARY.md' --format human 2>/dev/null || true
 ```
 
 Read each SUMMARY.md to extract testable deliverables.
@@ -188,7 +188,7 @@ instrument — the executor's own narration is never the last word. For each `*-
 ```bash
 BASE=$(grep -oE '^plan_head_before: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
 CLAIMED=$(grep -oE '^commits: [0-9]+' "$SUMMARY_FILE" | grep -oE '[0-9]+' || echo absent)
-ACTUAL=$(git rev-list --count "${BASE}"..HEAD)
+ACTUAL=$(specforge git log "${BASE}"..HEAD --pick .count)
 AFTER=$(grep -oE '^plan_head_after: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
 ```
 - A `commits: absent` or `plan_head_before: absent` SUMMARY (pre-#3968 legacy) is reported as
@@ -197,8 +197,8 @@ AFTER=$(grep -oE '^plan_head_after: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{prin
   HEAD at its measurement moment — after the last task commit, before the SUMMARY commit) is
   reconciled against the plan's OWN window:
 ```bash
-if git merge-base --is-ancestor "$AFTER" HEAD 2>/dev/null \
-   && [ "$(git rev-list --count "${BASE}..${AFTER}")" = "$CLAIMED" ]; then
+if [ "$(specforge git log HEAD.."$AFTER" --pick .count 2>/dev/null)" = 0 ] \
+   && [ "$(specforge git log "${BASE}..${AFTER}" --pick .count)" = "$CLAIMED" ]; then
   : # consistent
 fi
 ```
@@ -308,7 +308,7 @@ This catches bugs that only manifest on fresh start — race conditions in start
 **Create UAT file with all tests:**
 
 ```bash
-mkdir -p "$PHASE_DIR"
+specforge files mkdir "$PHASE_DIR" >/dev/null
 ```
 
 Build test list from extracted deliverables.
@@ -540,7 +540,7 @@ Exact resume-announcement wording: `gsd-core/workflows/verify-work/detail/elabor
 Run the completion verb — it independently computes the final status (`complete`/`partial`) from the same rows, clears `## Current Test`, and writes + commits ONLY when something material changed (a session whose UAT was already complete and covered must leave the report fresh, #4981):
 
 ```bash
-git add spec && git commit -m "test({phase_num}): complete UAT - {passed} passed, {issues} issues" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "test({phase_num}): complete UAT - {passed} passed, {issues} issues" && specforge collect --runner gsd-git --yes
 ```
 
 `changed: false` → announce that the session was already complete and nothing was written or committed. `changed: true` → the UAT file (frontmatter `status`, `updated`, `## Current Test`) was written and committed in one step.
@@ -576,7 +576,7 @@ Choice [K]:
 
 3. Commit the deferral record:
 ```bash
-git add spec && git commit -m "docs: defer Phase {phase_num} UAT follow-ups to backlog" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs: defer Phase {phase_num} UAT follow-ups to backlog" && specforge collect --runner gsd-git --yes
 ```
 
 **If the user chooses [K]:** continue to the summary unchanged — the deferred items remain in the UAT file's `## Deferred Follow-Ups` section.

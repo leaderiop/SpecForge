@@ -19,15 +19,15 @@ Determine what kind of work is being paused and set the handoff destination acco
 ```bash
 # Check for active phase
 phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
-phase=${phase:+$(basename "$(dirname "$phase")")}
+phase=${phase%/*}; phase=${phase##*/}
 
 # Check for active spike
 spike=""   # spikes are not part of @gsd/core: there is none to detect
-spike=${spike:+$(basename "$(dirname "$spike")")}
+spike=${spike%/*}; spike=${spike##*/}
 
 # Check for active sketch
 sketch=""   # sketches are not part of @gsd/core: there is none to detect
-sketch=${sketch:+$(basename "$(dirname "$sketch")")}
+sketch=${sketch%/*}; sketch=${sketch##*/}
 
 # Check for active deliberation
 deliberation=""   # deliberations are not part of @gsd/core: there is none to detect
@@ -230,7 +230,7 @@ timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 <step name="commit">
 ```bash
-specforge gsd pause "[reason]" --by "[who]" --phase "$MILESTONE/[phase]" --handoff HO1 && git add spec && git commit -m "docs(pause): [context-name] paused at [X]/[Y]" && specforge collect --runner gsd-git --yes
+specforge gsd pause "[reason]" --by "[who]" --phase "$MILESTONE/[phase]" --handoff HO1 && specforge git commit --add spec -m "docs(pause): [context-name] paused at [X]/[Y]" && specforge collect --runner gsd-git --yes
 ```
 </step>
 

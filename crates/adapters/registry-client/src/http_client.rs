@@ -57,7 +57,7 @@ impl HttpRegistryClient {
             body_cap: cap,
             timeout_ms: self.timeout.as_millis() as u64,
             max_redirects: MAX_REDIRECTS,
-            allow_private: true,
+            allow_private: specforge_effects::Private::Any,
             keep_headers: vec!["retry-after".into()],
             secret: None,
         }

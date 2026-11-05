@@ -1,18 +1,29 @@
 [package]
 name = "specforge-git"
-description = "The adapter behind the effect plane's Git port: the git command line through the Process port, read-only, hardened, with a deadline on every call (ADR 0287, ADR 0335)"
+description = "The adapter behind the effect plane's Git port: gix in process, so the git program is never run (ADR 0287, ADR 0335, ADR 0339)"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+# `specforge_git::testing::Repo`: a repository built with gix, for tests in any crate. No production code reads it.
+testing = []
+
 [dependencies]
-# Every git call runs through the effect plane's Process port (ADR 0335).
+specforge-common = { workspace = true }
 specforge-effects = { path = "../../kernel/effects" }
+# Named here, not in the root table: a root entry is every builtin blob's input (ADR 0339 D5).
+gix = { version = "=0.84.0", default-features = false, features = ["status", "blob-diff", "revision", "index", "dirwalk", "excludes", "tree-editor", "sha1"] }
+# The writes gix 0.84.0 lacks (ADR 0339's S2 spike): libgit2 built from source, so nothing is installed, and no
+# network feature, so no OpenSSL.
+git2 = { version = "=0.21.0", default-features = false, features = ["vendored-libgit2"] }
 
 [dev-dependencies]
+# The spike measures gix's merges too.
+gix = { version = "=0.84.0", default-features = false, features = ["merge"] }
 specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
-specforge-process = { path = "../process" }
+specforge-git = { path = ".", features = ["testing"] }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 tempfile = { workspace = true }

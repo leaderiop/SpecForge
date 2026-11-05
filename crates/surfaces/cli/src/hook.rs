@@ -47,19 +47,18 @@ pub(crate) struct Args {
 }
 
 impl Args {
-    pub(crate) fn run(self, terminal: &Terminal, ports: &specforge_effects::Ports) -> Exit {
+    /// The hook reads git through its own timed port, not `_ports.git`, so its host never waits on a status.
+    pub(crate) fn run(self, terminal: &Terminal, _ports: &specforge_effects::Ports) -> Exit {
         let mut stdin = Vec::new();
         // One byte past the limit says it was passed; a stdin that cannot be read is what was read of it.
         let _ = std::io::stdin()
             .take(STDIN_LIMIT + 1)
             .read_to_end(&mut stdin);
         let cwd = std::env::current_dir().unwrap_or_default();
-        // A hook's git facts degrade quietly after 1.5 s, as upstream's probes do (ADR 0320).
-        let git: specforge_effects::SharedGit =
-            std::sync::Arc::new(specforge_git::GitCli::with_timeout(
-                std::sync::Arc::clone(&ports.process),
-                std::time::Duration::from_millis(1_500),
-            ));
+        // A hook's git status degrades quietly after 1.5 s, as upstream's probes do (ADR 0320).
+        let git: specforge_effects::SharedGit = std::sync::Arc::new(specforge_git::Gix::within(
+            std::time::Duration::from_millis(1_500),
+        ));
         let load = |dir: &Path| crate::project::load_dir(dir).with_git(git);
         self.run_with(&stdin, &cwd, load, terminal)
     }

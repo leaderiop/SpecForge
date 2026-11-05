@@ -164,7 +164,8 @@ fn a_secret_is_never_listed_with_its_value() {
     let p = project("empty");
     let listing = p.run_with(&["settings"], &[("BRAVE_API_KEY", "s3cr3t-value")]);
     assert!(!listing.all().contains("s3cr3t-value"), "{}", listing.all());
-    let json = resolved(&p, &[("BRAVE_API_KEY", "s3cr3t-value")]);
+    // GH_TOKEN emptied: a token in the caller's environment would read as set
+    let json = resolved(&p, &[("BRAVE_API_KEY", "s3cr3t-value"), ("GH_TOKEN", "")]);
     assert!(!json.to_string().contains("s3cr3t-value"));
     let core = json["extensions"]
         .as_array()
@@ -173,7 +174,7 @@ fn a_secret_is_never_listed_with_its_value() {
         .find(|e| e["extension"] == "@gsd/core")
         .expect("@gsd/core is listed");
     let secrets = core["secrets"].as_array().expect("secrets");
-    assert_eq!(secrets.len(), 7);
+    assert_eq!(secrets.len(), 8);
     let set: Vec<&str> = secrets
         .iter()
         .filter(|s| s["set"] == true)

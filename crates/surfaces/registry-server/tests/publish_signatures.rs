@@ -258,7 +258,7 @@ fn tampered_manifest_fails_offline_verification() {
 fn send(request: specforge_effects::HttpRequest) -> specforge_effects::HttpOutcome {
     use specforge_effects::Http as _;
     let request = specforge_effects::HttpRequest {
-        allow_private: true,
+        allow_private: specforge_effects::Private::Any,
         ..request
     };
     let outcome = specforge_http::Client::new().request(&request, &specforge_effects::http::Any);

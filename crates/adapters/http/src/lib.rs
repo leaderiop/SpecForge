@@ -18,7 +18,7 @@ use specforge_effects::http::{
     BODY_CEILING, CONNECT_TIMEOUT, TIMEOUT_CEILING, hop_method, status_class,
 };
 use specforge_effects::{
-    Http, HttpOutcome, HttpRequest, OutcomeClass, Redirected, Redirects, ResolveOutcome,
+    Http, HttpOutcome, HttpRequest, OutcomeClass, Private, Redirected, Redirects, ResolveOutcome,
     ResolveRequest, TlsOutcome, TlsRequest, Unreachable,
 };
 
@@ -136,10 +136,7 @@ impl Http for Client {
     fn request(&self, request: &HttpRequest, redirects: &dyn Redirects) -> HttpOutcome {
         let deadline =
             Instant::now() + Duration::from_millis(request.timeout_ms).min(TIMEOUT_CEILING);
-        let client = match self.client(request.allow_private) {
-            Ok(client) => client,
-            Err(why) => return HttpOutcome::unreachable(&request.url, Unreachable::Tls, why),
-        };
+        let typed = Url::parse(&request.url).map(|url| url.origin()).ok();
         let mut url = request.url.clone();
         let mut method = request.method.clone();
         let mut body = request.body.clone();
@@ -156,7 +153,17 @@ impl Http for Client {
                     );
                 }
             };
-            if !request.allow_private && literal(&parsed).is_some_and(|ip| !public(ip)) {
+            // A hop to another origin than the typed one is the server's choice, held to the public rule.
+            let private = match request.allow_private {
+                Private::Never => false,
+                Private::TypedOrigin => typed.as_ref() == Some(&parsed.origin()),
+                Private::Any => true,
+            };
+            let client = match self.client(private) {
+                Ok(client) => client,
+                Err(why) => return HttpOutcome::unreachable(&url, Unreachable::Tls, why),
+            };
+            if !private && literal(&parsed).is_some_and(|ip| !public(ip)) {
                 return HttpOutcome::unreachable(
                     &url,
                     Unreachable::RefusedAddress,
@@ -171,7 +178,7 @@ impl Http for Client {
                     "the request's time ran out",
                 );
             }
-            if !request.allow_private
+            if !private
                 && let Some(url::Host::Domain(name)) = parsed.host()
                 && let Err(refused) = destination(name, left.min(CONNECT_TIMEOUT))
             {
@@ -235,9 +242,12 @@ impl Http for Client {
                 redirects,
             ) {
                 Ok(to) => to,
+                // The redirect not followed keeps its status and kept headers (its `location`): with
+                // `max_redirects` 0, it is what the caller asked for.
                 Err((why, detail)) => {
                     return HttpOutcome {
                         status: Some(status),
+                        headers: kept_headers(&response, request),
                         ..HttpOutcome::failed(&url, OutcomeClass::Redirect(why), detail)
                     };
                 }
@@ -313,15 +323,9 @@ fn hop(
     Ok(to)
 }
 
-/// The final answer from `url`: its kept headers and at most the request's body cap, read before `deadline`.
-fn answer(
-    response: Response,
-    request: &HttpRequest,
-    url: String,
-    deadline: Instant,
-) -> HttpOutcome {
-    let status = response.status().as_u16();
-    let headers = response
+/// The headers of `response` that `request` keeps, by name, in any case.
+fn kept_headers(response: &Response, request: &HttpRequest) -> Vec<(String, String)> {
+    response
         .headers()
         .iter()
         .filter(|(name, _)| {
@@ -333,7 +337,18 @@ fn answer(
         .filter_map(|(name, value)| {
             Some((name.as_str().to_string(), value.to_str().ok()?.to_string()))
         })
-        .collect();
+        .collect()
+}
+
+/// The final answer from `url`: its kept headers and at most the request's body cap, read before `deadline`.
+fn answer(
+    response: Response,
+    request: &HttpRequest,
+    url: String,
+    deadline: Instant,
+) -> HttpOutcome {
+    let status = response.status().as_u16();
+    let headers = kept_headers(&response, request);
     let mut outcome = HttpOutcome {
         class: status_class(status),
         status: Some(status),

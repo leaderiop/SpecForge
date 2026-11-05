@@ -15,7 +15,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); DEFAULT_WORKSPACE_BASE="$HOME/gsd-workspaces"; IS_GIT_REPO=$(git rev-parse --is-inside-work-tree 2>/dev/null || echo false); CWD_REPO_NAME=$(basename "$PROJECT_ROOT"); WORKTREE_AVAILABLE=$(git worktree list >/dev/null 2>&1 && echo true || echo false)
+PROJECT_ROOT=$(specforge git repo --pick .top 2>/dev/null || pwd); DEFAULT_WORKSPACE_BASE="$HOME/gsd-workspaces"; IS_GIT_REPO=$(specforge git repo --pick .top >/dev/null 2>&1 && echo true || echo false); CWD_REPO_NAME=${PROJECT_ROOT##*/}; WORKTREE_AVAILABLE=$(specforge git worktrees >/dev/null 2>&1 && echo true || echo false)
 CHILD_REPOS=$(for d in */; do [ -d "${d}.git" ] && echo "${d%/}"; done); CHILD_REPO_COUNT=$(echo "$CHILD_REPOS" | grep -c . || true)
 ```
 

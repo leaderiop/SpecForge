@@ -204,11 +204,21 @@ fn autonomous_bounds_stay_numbers_of_the_open_milestone() {
     assert!(text.contains("a phase of another milestone is not a bound here"));
 }
 
-/// Runs `script` with bash in `dir`, answering stdout.
+/// Runs `script` with bash in `dir`, answering stdout. The built `specforge` is first on PATH: the blocks read git
+/// through `specforge git` (plan 08 T17).
 fn bash_in(dir: &std::path::Path, script: &str) -> String {
+    let real = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
     let out = Command::new("bash")
         .args(["-ec", script])
         .current_dir(dir)
+        .env(
+            "PATH",
+            format!(
+                "{}:{}",
+                real.parent().expect("its directory").display(),
+                std::env::var("PATH").unwrap_or_default()
+            ),
+        )
         .output()
         .expect("bash");
     assert!(

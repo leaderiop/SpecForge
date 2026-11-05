@@ -104,7 +104,7 @@ The 4 parallel researcher agents write files but do NOT commit. You commit every
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-git add spec && git commit -m "docs: complete project research" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs: complete project research" && specforge collect --runner gsd-git --yes
 ```
 
 ## Step 8: Return Summary

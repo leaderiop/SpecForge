@@ -48,6 +48,6 @@ For each gap that has a `debug_session:` field:
 
 **6. Commit updated artifacts:**
 ```bash
-git add spec && git commit -m "docs(phase-${PARENT_PHASE}): resolve UAT gaps and debug sessions after ${PHASE_NUMBER} gap closure" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs(phase-${PARENT_PHASE}): resolve UAT gaps and debug sessions after ${PHASE_NUMBER} gap closure" && specforge collect --runner gsd-git --yes
 ```
 </step>

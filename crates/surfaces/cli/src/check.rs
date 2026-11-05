@@ -112,7 +112,7 @@ fn run_in(
     let outcome = match check(&ProjectView::of(&compiled), options) {
         Ok(outcome) => outcome,
         // A revision git does not name is a usage error, as an unknown flag value is.
-        Err(error) if error.error.code == specforge_ops::analysis::check::UNKNOWN_REVISION => {
+        Err(error) if error.error.code == specforge_ops::UNKNOWN_REVISION => {
             return Refusal::measuring(format).report(terminal, &error);
         }
         Err(error) => return Refusal::of(format).report(terminal, &error),

@@ -61,12 +61,12 @@ and newlines in the text cannot break out). Paste the exact contents of the
 `<arguments>` block between the heredoc markers, unchanged:
 
 ```bash
-QUICK_BATCH_PARSE_FILE=$(mktemp)
+QUICK_BATCH_PARSE_FILE=$(specforge files temp --pick .path)
 cat > "$QUICK_BATCH_PARSE_FILE" 2>&1 <<'GSD_QUICK_BATCH_ARGS_END'
 <the exact contents of the `<arguments>` block, verbatim>
 GSD_QUICK_BATCH_ARGS_END
 QUICK_BATCH_PARSE_RC=$?
-QUICK_BATCH_PARSE=$(cat "$QUICK_BATCH_PARSE_FILE"); rm -f "$QUICK_BATCH_PARSE_FILE"
+QUICK_BATCH_PARSE=$(cat "$QUICK_BATCH_PARSE_FILE"); specforge files remove --force "$QUICK_BATCH_PARSE_FILE" >/dev/null
 ```
 
 (the commands here are `specforge` commands: nothing is defined by the workflow's preamble — this parse happens

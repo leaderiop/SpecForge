@@ -199,7 +199,7 @@ Extract express-path args from $ARGUMENTS: `PRD_FILE` (`--prd <filepath>`), `ING
 
 **If `phase_found` is false:** Validate phase exists in ROADMAP.md. If valid, create the directory using `expected_phase_dir` from init (includes `project_code` prefix when set):
 ```bash
-mkdir -p "${expected_phase_dir}"
+specforge files mkdir "${expected_phase_dir}" >/dev/null
 ```
 
 Set `phase_dir="${expected_phase_dir}"` after creation.
@@ -299,7 +299,7 @@ If "Run discuss-phase first":
 AI integration activation is owned by the `ai-integration` capability's `plan:pre` step hook. The plan-phase host only discovers existing artifacts here so the planner can consume them; it must not read the capability's config key directly.
 
 ```bash
-AI_SPEC_FILE=$(ls "${PHASE_DIR}"/*-AI-SPEC.md 2>/dev/null | head -1)
+AI_SPEC_FILE=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-AI-SPEC.md' --pick '.entries[0].path' 2>/dev/null)
 AI_SPEC_PATH="${AI_SPEC_FILE}"
 FRAMEWORK_LINE=""
 if [ -n "$AI_SPEC_FILE" ]; then
@@ -542,7 +542,7 @@ A non-zero `GATE_EXIT` is a command failure, including `69` (`UNAVAILABLE`: the 
 **Branch 3 — UI-SPEC already exists (`hasUiSpec` is `true`):**
 
 ```bash
-UI_SPEC_FILE=$(ls "${PHASE_DIR}"/*-UI-SPEC.md 2>/dev/null | head -1)
+UI_SPEC_FILE=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-UI-SPEC.md' --pick '.entries[0].path' 2>/dev/null)
 UI_SPEC_PATH="${UI_SPEC_FILE}"
 ```
 
@@ -568,7 +568,7 @@ Skill(skill="gsd-${ref.skill}", args="${PHASE} --auto ${GSD_WS}")
 After all UI step hooks return, re-read:
 
 ```bash
-UI_SPEC_FILE=$(ls "${PHASE_DIR}"/*-UI-SPEC.md 2>/dev/null | head -1)
+UI_SPEC_FILE=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-UI-SPEC.md' --pick '.entries[0].path' 2>/dev/null)
 UI_SPEC_PATH="${UI_SPEC_FILE}"
 ```
 
@@ -608,7 +608,7 @@ map is refreshed first. (`drift_action: auto-remap` stays at `execute:wave:post`
 ## 6. Check Existing Plans
 
 ```bash
-ls "${PHASE_DIR}"/*-PLAN.md 2>/dev/null || true
+specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-PLAN.md' --format human 2>/dev/null || true
 ```
 
 **If exists AND no `--reviews` flag:** Offer: 1) Add more plans, 2) View existing, 3) Replan from scratch.
@@ -630,8 +630,8 @@ REVIEWS_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .reviews_path)
 PATTERNS_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick .patterns_path)
 
 # Detect spike/sketch findings skills (project-local)
-SPIKE_FINDINGS_PATH=$(ls ./.claude/skills/spike-findings-*/SKILL.md 2>/dev/null | head -1 || true)
-SKETCH_FINDINGS_PATH=$(ls ./.claude/skills/sketch-findings-*/SKILL.md 2>/dev/null | head -1 || true)
+SPIKE_FINDINGS_PATH=$(specforge files list .claude/skills --depth 2 --kind file --no-ignore --glob 'spike-findings-*/SKILL.md' --pick '.entries[0].path' 2>/dev/null || true)
+SKETCH_FINDINGS_PATH=$(specforge files list .claude/skills --depth 2 --kind file --no-ignore --glob 'sketch-findings-*/SKILL.md' --pick '.entries[0].path' 2>/dev/null || true)
 
 # Resolve the phase SPEC (carries the ## Edge Coverage section the planner lifts resolved
 # edges from). UNCONDITIONAL — must NOT live in §4.5 Check AI-SPEC, which is skipped
@@ -642,7 +642,7 @@ SPEC_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec
 SPEC_FILE="${SPEC_PATH}"
 # Resolve the phase UI-SPEC separately (the glob above excludes -UI-SPEC.md); it carries the
 # ## UI Considerations section the planner lifts by the same rule as ## Edge Coverage (#1867).
-UI_SPEC_FILE=$(ls "${PHASE_DIR_FOR_SPEC}"/*-UI-SPEC.md 2>/dev/null | head -1)
+UI_SPEC_FILE=$(specforge files list "${PHASE_DIR_FOR_SPEC}" --depth 1 --kind file --no-ignore --glob '*-UI-SPEC.md' --pick '.entries[0].path' 2>/dev/null)
 UI_SPEC_PATH="${UI_SPEC_FILE}"
 ```
 
@@ -663,7 +663,7 @@ Also skip if all of the following are true:
 In that no-research path, Nyquist artifacts are **not required** for this run.
 
 ```bash
-VALIDATION_EXISTS=$(ls "${PHASE_DIR}"/*-VALIDATION.md 2>/dev/null | head -1)
+VALIDATION_EXISTS=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-VALIDATION.md' --pick '.entries[0].path' 2>/dev/null)
 ```
 
 If missing and Nyquist is still enabled/applicable — ask user:
@@ -725,7 +725,7 @@ Read the active intel step hook from `PLAN_PRE_HOOKS_JSON` where `kind == "step"
 **If an active intel step hook exists:**
 ```bash
 # the intel capability is not part of @gsd/core: there is no API surface to regenerate
-API_SURFACE_PATH="$(dirname "$STATE_PATH")/intel/API-SURFACE.md"
+API_SURFACE_PATH="${STATE_PATH%/*}/intel/API-SURFACE.md"
 echo "✓ API surface regenerated: ${API_SURFACE_PATH}"  # injected into step 8 as HINT
 ```
 
@@ -1244,7 +1244,7 @@ if [ "${CONVERGENCE_ENABLED}" = "true" ] && [ -n "${REVIEWS_FILE}" ]; then
   san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
   LINE="- [ ] REVISION_CONFLICT $(san "${CONFLICT_DIMENSION}")/$(san "${CONFLICT_PLAN}") — required_property: $(san "${CONFLICT_PROPERTY}") | conflicts with: $(san "${CONFLICT_CONSTRAINT}") | alternatives: $(san "${CONFLICT_ALTERNATIVES}")"
   END='<!-- gsd:plan-revision-conflicts:end -->'
-  TMP=$(mktemp "${REVIEWS_FILE}.XXXXXX")
+  TMP=$(specforge files temp --pick .path)
   if ! LINE="$LINE" END="$END" awk '
     { cur = $0; sub(/\r$/, "", cur) }
     cur == ENVIRON["LINE"] { seen = 1 }
@@ -1252,11 +1252,11 @@ if [ "${CONVERGENCE_ENABLED}" = "true" ] && [ -n "${REVIEWS_FILE}" ]; then
     { print }
     END { if (!ins) exit 2 }
   ' "${REVIEWS_FILE}" > "${TMP}"; then
-    rm -f "${TMP}"
+    specforge files remove --force "${TMP}" >/dev/null
     echo "BLOCKED: no end delimiter in '${REVIEWS_FILE}'." >&2
     exit 1
   fi
-  mv "${TMP}" "${REVIEWS_FILE}"
+  specforge files move "${TMP}" "${REVIEWS_FILE}" >/dev/null
 fi
 ```
 
@@ -1270,18 +1270,18 @@ if [ "${CONVERGENCE_ENABLED}" = "true" ] && [ -n "${REVIEWS_FILE}" ]; then
   san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
   PREFIX="- [ ] REVISION_CONFLICT $(san "${CONFLICT_DIMENSION}")/$(san "${CONFLICT_PLAN}") — "
   RES=$(printf '%s' "${CONFLICT_RESOLUTION}" | tr '\r\n\t' '   ')
-  TMP=$(mktemp "${REVIEWS_FILE}.XXXXXX")
+  TMP=$(specforge files temp --pick .path)
   if ! PREFIX="$PREFIX" RES="$RES" awk '
     { cur = $0; sub(/\r$/, "", cur) }
     !d && index(cur, ENVIRON["PREFIX"]) == 1 { print "- [x]" substr(cur, 6) " | resolved: " ENVIRON["RES"]; d = 1; next }
     { print }
     END { if (!d) exit 2 }
   ' "${REVIEWS_FILE}" > "${TMP}"; then
-    rm -f "${TMP}"
+    specforge files remove --force "${TMP}" >/dev/null
     echo "BLOCKED: no open conflict '${CONFLICT_DIMENSION}/${CONFLICT_PLAN}' in '${REVIEWS_FILE}'." >&2
     exit 1
   fi
-  mv "${TMP}" "${REVIEWS_FILE}"
+  specforge files move "${TMP}" "${REVIEWS_FILE}" >/dev/null
 fi
 ```
 
@@ -1367,7 +1367,7 @@ if [ "$GATE_CFG" != "false" ]; then
   # #2770: CONTEXT_PATH from step-1 init doesn't survive into this Bash block;
   # recompute it. Only run when a CONTEXT.md exists (handler fails closed on an
   # empty arg, so an unguarded empty glob would halt a context-less phase).
-  CONTEXT_PATH=$(ls "${PHASE_DIR}"/*-CONTEXT.md 2>/dev/null | head -1)
+  CONTEXT_PATH=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-CONTEXT.md' --pick '.entries[0].path' 2>/dev/null)
   if [ -n "$CONTEXT_PATH" ]; then
     GATE_RESULT=$(specforge check --pick '.[code=gsd/E310].message') && GATE_EXIT=0 || GATE_EXIT=$?   # E310 (decision coverage of the plans): one line per uncovered decision
     # 69 UNAVAILABLE (#5170) = the gate could not look: surface it and stop.
@@ -1449,7 +1449,7 @@ This operation is idempotent: if wave headers or cross-cutting constraints alrea
 If `commit_docs` is true (from the init JSON parsed in step 1), commit the generated plan artifacts (including any ROADMAP.md annotations from step 13c):
 
 ```bash
-git add spec && git commit -m "docs(${PADDED_PHASE}): create phase plan" && specforge collect --runner gsd-git --yes
+specforge git commit --add spec -m "docs(${PADDED_PHASE}): create phase plan" && specforge collect --runner gsd-git --yes
 ```
 
 This commits all PLAN.md files for the phase plus the updated STATE.md and ROADMAP.md to version-control the planning artifacts. Skip this step if `commit_docs` is false.

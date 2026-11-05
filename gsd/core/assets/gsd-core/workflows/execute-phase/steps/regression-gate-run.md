@@ -14,7 +14,7 @@ cannot carry it, because each fenced `bash` block runs as its own shell.
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 # gsd-handoff:begin regression-files-read
-_GSD_HANDOFF="$( { git rev-parse --absolute-git-dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(pwd | cksum | cut -d' ' -f1)"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 REGRESSION_FILES=""
 if [ -s "$_GSD_HANDOFF/regression-files" ]; then
   while IFS= read -r _f; do
@@ -53,7 +53,7 @@ fi
 # with a timeout so a watch-mode runner cannot hang the gate indefinitely.
 REG_TEST_CMD="$REG_TEST_CMD"   # normalize-test-command is not part of @gsd/core: the command runs as configured
 TEST_GATE_TIMEOUT="{{setting:workflow.test_gate_timeout|600}}"   # workflow.test_gate_timeout (the settings)
-timeout "$TEST_GATE_TIMEOUT" bash -c "$REG_TEST_CMD" 2>&1
+specforge run --deadline "$TEST_GATE_TIMEOUT" -- bash -c "$REG_TEST_CMD" 2>&1
 REG_TEST_EXIT=$?
 if [ "$REG_TEST_EXIT" -eq 124 ]; then
   echo "✗ REGRESSION GATE ABORTED — test runner did not exit within ${TEST_GATE_TIMEOUT}s, likely stuck in watch/dev mode (e.g. vitest without 'run'). Run tests one-shot (e.g. 'vitest run'), set workflow.test_command, or raise workflow.test_gate_timeout."

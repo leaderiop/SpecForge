@@ -140,6 +140,16 @@ const REWRITTEN: &[(&str, usize)] = &[
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not
 /// exist here: a state table, a directory, a batch router. Each run opens with a line that says what replaced it.
 const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
+    // pull requests through GitHub's REST API (`specforge http --secret @gsd/core:github_token`): gh's
+    // arguments become fields, its token check a GET of /user, and the states it answers are lower case
+    ("gsd-core/workflows/pr-branch.md", 218, 222),
+    ("gsd-core/workflows/ship.md", 104, 104),
+    ("gsd-core/workflows/ship.md", 375, 377),
+    ("gsd-core/workflows/ship.md", 380, 380),
+    ("gsd-core/workflows/ship.md", 503, 503),
+    ("gsd-core/workflows/ship.md", 512, 512),
+    ("gsd-core/workflows/ship.md", 518, 518),
+    ("gsd-core/workflows/ship.md", 524, 524),
     ("gsd-core/workflows/settings-integrations.md", 334, 334),
     ("gsd-core/workflows/resume-project.md", 34, 34),
     ("gsd-core/workflows/remove-workspace.md", 77, 77),
@@ -520,6 +530,9 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/undo.md", 450, 451),
     ("gsd-core/workflows/undo.md", 465, 466),
     ("gsd-core/workflows/undo.md", 87, 90),
+    // The manifest's temp file comes from `specforge files temp`, which keeps its suffix: upstream's comment explains
+    // a mktemp that is gone.
+    ("gsd-core/workflows/quick.md", 424, 425),
 ];
 
 fn root() -> PathBuf {

@@ -205,8 +205,8 @@ DEFAULT_BRANCH=$(printf '%s' "{{setting:git.base_branch|}}" | grep . \
   || git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . \
   || echo main)
 
-if git show-ref --verify --quiet "refs/heads/$branch_name"; then
-  git switch "$branch_name" \
+if [ "$(specforge git rev "refs/heads/$branch_name" --pick '.revs[0].exists')" = true ]; then
+  specforge git switch "$branch_name" \
     || { echo "ERROR: Could not switch to existing quick-task branch '$branch_name'." >&2; exit 1; }
 else
   # Fetch the default branch so origin/$DEFAULT_BRANCH is current. If the fetch
@@ -214,21 +214,21 @@ else
   # origin/$DEFAULT_BRANCH to fall back on, abort — creating the branch off
   # arbitrary HEAD is exactly the bug #2916 fixed.
   if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then
-    if ! git show-ref --verify --quiet "refs/remotes/origin/$DEFAULT_BRANCH"; then
+    if [ "$(specforge git rev "refs/remotes/origin/$DEFAULT_BRANCH" --pick '.revs[0].exists')" != true ]; then
       echo "ERROR: Could not fetch origin/$DEFAULT_BRANCH and no local copy exists. Refusing to create '$branch_name' off the current HEAD (#2916). Resolve the remote/network issue and retry." >&2
       exit 1
     fi
     echo "WARNING: git fetch origin $DEFAULT_BRANCH failed; using the local copy of origin/$DEFAULT_BRANCH as base." >&2
   fi
 
-  if [ -n "$(git status --porcelain)" ]; then
+  if [ "$(specforge git status --pick .clean)" = false ]; then
     echo "WARNING: Uncommitted changes present. Carrying them onto the new quick-task branch — they will be branched off origin/$DEFAULT_BRANCH (not the previous-task HEAD)."
   else
     # Best-effort: fast-forward the local default branch so subsequent local
     # work sees the latest tip. Failure here is non-fatal because we always
     # create the new branch directly from origin/$DEFAULT_BRANCH below.
-    git switch --quiet "$DEFAULT_BRANCH" 2>/dev/null \
-      && git merge --ff-only --quiet "origin/$DEFAULT_BRANCH" 2>/dev/null \
+    specforge git switch "$DEFAULT_BRANCH" >/dev/null 2>&1 \
+      && specforge git merge "origin/$DEFAULT_BRANCH" --ff-only >/dev/null 2>&1 \
       || true
   fi
 
@@ -241,7 +241,7 @@ else
   # remote-tracking ref wires branch.<name>.merge to refs/heads/$DEFAULT_BRANCH
   # (origin/master), so a GUI sync pushes quick-task commits straight onto
   # origin/$DEFAULT_BRANCH, bypassing PR review (#2498).
-  git checkout -b "$branch_name" "origin/$DEFAULT_BRANCH" --no-track \
+  specforge git switch "$branch_name" --create --at "origin/$DEFAULT_BRANCH" \
     || { echo "ERROR: Could not create '$branch_name' from origin/$DEFAULT_BRANCH (#2916)." >&2; exit 1; }
 fi
 ```
@@ -266,8 +266,8 @@ Create the directory for this quick task:
 QUICK_DIR="${task_dir}"
 : # the quick plan is the entity "${quick_id}": there is no directory to create
 # Worktree-relative form for an isolated executor (#5085): the guard blocks absolute paths outside its worktree.
-_QTOP=$(git rev-parse --show-toplevel 2>/dev/null)
-_QTOP_DIR=$(git -C "$QUICK_DIR" rev-parse --show-toplevel 2>/dev/null)
+_QTOP=$(specforge git repo --pick .top 2>/dev/null)
+_QTOP_DIR=$(specforge git repo --path "$QUICK_DIR" --pick .top 2>/dev/null)
 QUICK_DIR_REL=$(git -C "$QUICK_DIR" rev-parse --show-prefix 2>/dev/null)
 QUICK_DIR_REL="${QUICK_DIR_REL%/}"
 if [ -z "$QUICK_DIR_REL" ] || [ "$_QTOP" != "$_QTOP_DIR" ]; then QUICK_DIR_REL="$QUICK_DIR"; fi
@@ -421,11 +421,11 @@ true   # dispatch-isolation: there is no mode to record (worktree isolation is n
 
 Capture current HEAD before spawning (used for worktree branch check):
 ```bash
-EXPECTED_BASE=$(git rev-parse HEAD)
+EXPECTED_BASE=$(specforge git head --pick .sha)
 if [ "$ISOLATION" = "harness-worktree" ]; then   # keyed on ISOLATION like every other dispatch-coupled branch (#2652)
-  # BSD/macOS mktemp only randomizes XXXXXX when it is the final path component, so make a
-  # suffixless temp then append the extension — portable across BSD + GNU (#1520).
-  QUICK_WORKTREE_MANIFEST=$(mktemp "${TMPDIR:-/tmp}/gsd-quick-worktree-XXXXXX") && mv "$QUICK_WORKTREE_MANIFEST" "${QUICK_WORKTREE_MANIFEST}.tsv" && QUICK_WORKTREE_MANIFEST="${QUICK_WORKTREE_MANIFEST}.tsv" || exit 1
+  # One private file, its .tsv suffix kept: `specforge files temp` randomizes the name before
+  # the suffix on every platform (#1520).
+  QUICK_WORKTREE_MANIFEST=$(specforge files temp --prefix gsd-quick-worktree- --suffix .tsv --pick .path) || exit 1
   : > "$QUICK_WORKTREE_MANIFEST"   # one tab-separated record per line, as the wave's manifest: worktree<TAB>path<TAB>branch<TAB>agent_id<TAB>expected_base<TAB>allowed_bases (comma-separated)
   export QUICK_WORKTREE_MANIFEST
 fi
@@ -724,16 +724,16 @@ Build file list:
 COMMIT_DOCS="true"   # commit_docs: every spec change is committed with the work
 if [ "$COMMIT_DOCS" = "false" ]; then
   file_list_filtered=$(echo "${file_list}" | tr ' ' '\n' | grep -v '^spec/' | tr '\n' ' ')
-  git add ${file_list_filtered} 2>/dev/null
+  ADDS=(); for f in ${file_list_filtered}; do [ -e "$f" ] || [ -n "$(specforge git show "HEAD:$f" --pick .sha 2>/dev/null)" ] && ADDS+=(--add "$f"); done
 else
-  git add ${file_list} 2>/dev/null
+  ADDS=(); for f in ${file_list}; do [ -e "$f" ] || [ -n "$(specforge git show "HEAD:$f" --pick .sha 2>/dev/null)" ] && ADDS+=(--add "$f"); done
 fi
-git add spec && git commit -m "docs(quick-${quick_id}): ${DESCRIPTION}" && specforge collect --runner gsd-git --yes
+specforge git commit "${ADDS[@]}" --add spec -m "docs(quick-${quick_id}): ${DESCRIPTION}" && specforge collect --runner gsd-git --yes
 ```
 
 Get final commit hash:
 ```bash
-commit_hash=$(git rev-parse --short HEAD)
+commit_hash=$(specforge git head --pick .sha); commit_hash=${commit_hash:0:7}
 ```
 
 Display completion output:

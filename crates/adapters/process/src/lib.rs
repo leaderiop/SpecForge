@@ -103,17 +103,39 @@ pub fn resolve(program: &str, path: Option<&OsStr>, pathext: Option<&OsStr>) -> 
                 .collect()
         }
     };
-    let dirs: Vec<PathBuf> = if named.components().count() > 1 || named.is_absolute() {
-        vec![PathBuf::new()]
-    } else {
-        std::env::split_paths(path?).collect()
-    };
-    dirs.iter()
+    dirs(program, path)?
+        .iter()
         .flat_map(|dir| candidates(dir))
         .find(|candidate| candidate.is_file())
 }
 
+/// Where `program` is looked for: as named, when it names a directory, else each directory of `path` (none: no
+/// `PATH`).
+fn dirs(program: &str, path: Option<&OsStr>) -> Option<Vec<PathBuf>> {
+    let named = Path::new(program);
+    if named.components().count() > 1 || named.is_absolute() {
+        Some(vec![PathBuf::new()])
+    } else {
+        Some(std::env::split_paths(path?).collect())
+    }
+}
+
 impl Process for Runner {
+    fn which(&self, program: &str) -> Option<PathBuf> {
+        let path = std::env::var_os("PATH");
+        if cfg!(windows) {
+            return resolve(
+                program,
+                path.as_deref(),
+                std::env::var_os("PATHEXT").as_deref(),
+            );
+        }
+        dirs(program, path.as_deref())?
+            .iter()
+            .map(|dir| dir.join(program))
+            .find(|candidate| executable(candidate))
+    }
+
     fn run_within(
         &self,
         request: &ProcessRequest,
@@ -152,15 +174,26 @@ impl Process for Runner {
         // The deny-list last: a request cannot put a secret back.
         let named = request.env.iter().map(|var| OsString::from(&var.name));
         for name in std::env::vars_os().map(|(name, _)| name).chain(named) {
-            if secret(&name) {
+            if secret(&name) && !ceiling.keeps_secrets() {
                 command.env_remove(name);
             }
         }
-        command.stdin(if request.stdin.is_some() {
-            Stdio::piped()
-        } else {
-            Stdio::null()
+        let terminal = ceiling.reads_the_terminal();
+        command.stdin(match (&request.stdin, terminal) {
+            (Some(_), _) => Stdio::piped(),
+            (None, true) => Stdio::inherit(),
+            (None, false) => Stdio::null(),
         });
+        // A program in front of the person, on their terminal, leads its own group: that group takes the terminal.
+        #[cfg(unix)]
+        let in_front = request.stdin.is_none()
+            && terminal
+            && matches!(output, Output::Inherit)
+            && group::Foreground::wanted();
+        #[cfg(unix)]
+        if in_front {
+            group::Foreground::take_in_child(&mut command);
+        }
         let (stdout, stderr) = match &output {
             Output::Buffer => (Stdio::piped(), Stdio::piped()),
             Output::Tee {
@@ -187,6 +220,9 @@ impl Process for Runner {
             Ok(group) => group,
             Err(why) => return at(ProcessClass::CannotStart(why)),
         };
+        #[cfg(unix)]
+        let _terminal = in_front
+            .then(|| group::Foreground::hand_to(libc::pid_t::try_from(child.id()).unwrap_or(0)));
         let deadline = Duration::from_millis(request.deadline_ms).min(ceiling.limit());
         let cap = request.output_cap.min(OUTPUT_CAP);
         let mut outcome = Watch {
@@ -203,6 +239,18 @@ impl Process for Runner {
         }
         outcome
     }
+}
+
+/// Whether `path` is a file this user may run.
+fn executable(path: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        std::fs::metadata(path)
+            .is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
+    }
+    #[cfg(not(unix))]
+    path.is_file()
 }
 
 /// The value `name` has in the program's environment: the request's last word on it, else the parent's.

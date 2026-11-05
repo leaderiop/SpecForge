@@ -590,11 +590,11 @@ fn a_guest_cannot_open_the_private_address_opt_in_or_read_a_withheld_file_at_a_c
     );
     session(&fakes, Operation::Command)
         .http(HttpRequest {
-            allow_private: true,
+            allow_private: specforge_effects::Private::Any,
             ..http_request("https://example.test/a")
         })
         .expect("inside its grant");
-    assert!(!fakes.http.requests()[0].allow_private);
+    assert!(fakes.http.requests()[0].allow_private.is_never());
 
     for withheld in [".env", "config/.env.production", ".git/config"] {
         let refused = session(&fakes, Operation::Command).git_blobs(SHA, &[withheld.to_string()]);

@@ -12,10 +12,10 @@ Check for existing spike and sketch work that should inform project setup:
 
 ```bash
 # Check for spike findings skill (project-local)
-SPIKE_SKILL=$(ls ./.claude/skills/spike-findings-*/SKILL.md 2>/dev/null | head -1 || true)
+SPIKE_SKILL=$(specforge files list .claude/skills --depth 2 --kind file --no-ignore --glob 'spike-findings-*/SKILL.md' --pick '.entries[0].path' 2>/dev/null || true)
 
 # Check for sketch findings skill (project-local)
-SKETCH_SKILL=$(ls ./.claude/skills/sketch-findings-*/SKILL.md 2>/dev/null | head -1 || true)
+SKETCH_SKILL=$(specforge files list .claude/skills --depth 2 --kind file --no-ignore --glob 'sketch-findings-*/SKILL.md' --pick '.entries[0].path' 2>/dev/null || true)
 
 # Spikes and sketches are not part of @gsd/core; detect them only if the project keeps some
 HAS_SPIKES=""

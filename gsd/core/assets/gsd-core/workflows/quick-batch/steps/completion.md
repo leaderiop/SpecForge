@@ -35,8 +35,8 @@ diverges between bash and zsh, the #4109 word-splitting bug class):
 ```bash
 COMMIT_DOCS="true"   # commit_docs: every spec change is committed with the work
 if [ "$COMMIT_DOCS" != "false" ]; then
-  git add "${BATCH_ARTIFACT_FILES[@]}" 2>/dev/null
-  git commit -m "docs(quick-batch-${BATCH_ID}): ${ITEM_COUNT} item(s)" && specforge collect --runner gsd-git --yes
+  ADDS=(); for f in "${BATCH_ARTIFACT_FILES[@]}"; do [ -e "$f" ] || [ -n "$(specforge git show "HEAD:$f" --pick .sha 2>/dev/null)" ] && ADDS+=(--add "$f"); done
+  specforge git commit "${ADDS[@]}" -m "docs(quick-batch-${BATCH_ID}): ${ITEM_COUNT} item(s)" && specforge collect --runner gsd-git --yes
 fi
 ```
 

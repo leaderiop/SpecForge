@@ -260,8 +260,8 @@ pub const MODULES: &[(&str, Module)] = &[
     ),
     ("prompt-budget.cjs", Ported("../kit/src/prompt/compose.rs")),
     ("quick-batch*", Ported("src/prompts/quick.rs")),
-    // the kernel's GitCli sets GIT_OPTIONAL_LOCKS=0 on every git spawn (crates/adapters/git/src/lib.rs:68); hooks run it
-    // with a 1.5 s timeout (crates/surfaces/cli/src/hook.rs:59)
+    // the kernel reads git through gix in process (crates/adapters/git/src/lib.rs): no git spawn, and a status that
+    // takes no index lock
     ("read-only-git-env.cjs", Host("specforge hook")),
     ("real-home-guard.cjs", Host("specforge install")),
     ("refactor-trigger-command-router.cjs", NotApplicable(ROUTER)),

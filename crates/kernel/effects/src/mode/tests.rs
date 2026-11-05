@@ -369,3 +369,52 @@ fn fs_and_git_are_performed_in_every_mode() {
         EffectsMode::NAMES
     );
 }
+
+/// The user's own request: `cached` answers a fresh `GET` and performs the rest, `replay` answers from the user's
+/// records alone, and no one else's record answers it.
+#[test]
+fn a_users_request_is_performed_in_cached_and_answered_in_replay_from_its_own_record() {
+    let dir = tempfile::tempdir().unwrap();
+    let journal = || EffectJournal::at(dir.path());
+    let live = ports();
+    let performed = Cell::new(0);
+    let perform = |_: &Ports| {
+        performed.set(performed.get() + 1);
+        answer(OutcomeClass::Ok)
+    };
+    let post = EffectRequest::Http(HttpRequest {
+        method: "POST".into(),
+        url: "https://example.com/".into(),
+        ..HttpRequest::default()
+    });
+    let get = http("https://example.com/");
+    // Another's record of the GET answers no user.
+    journal()
+        .keep(&get, &answer(OutcomeClass::Ok), at(1))
+        .unwrap();
+    let cached = Effects::cached(journal());
+    for request in [&get, &post, &get, &post] {
+        let served = cached.serve_user(&live, request, at(2), perform);
+        assert!(matches!(served, Served::Outcome { .. }), "{served:?}");
+    }
+    // The first GET was performed and recorded, the second answered from it; each POST performed.
+    assert_eq!(performed.get(), 3);
+    let replay = Effects::replay(journal());
+    let served = replay.serve_user(&live, &post, at(3), perform);
+    assert!(
+        matches!(
+            served,
+            Served::Outcome {
+                from_journal: true,
+                ..
+            }
+        ),
+        "{served:?}"
+    );
+    let other = http("https://example.com/other");
+    assert_eq!(
+        replay.serve_user(&live, &other, at(3), perform),
+        Served::Miss
+    );
+    assert_eq!(performed.get(), 3);
+}

@@ -381,7 +381,7 @@ SUMMARY_FILES=$(specforge query "$PHASE_ID" --depth 2 --kinds summary --format j
 COMMIT_HASHES=$(grep -oE "[a-f0-9]{7,40}" "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null | head -10)
 if [ -n "$COMMIT_HASHES" ]; then
   # Every hash must be a commit; "missing" is a finding. Not a git repo: report that you could not look.
-  COMMITS_VALID=$(for h in $COMMIT_HASHES; do git cat-file -e "$h^{commit}" 2>/dev/null && echo "$h ok" || echo "$h missing"; done)
+  COMMITS_VALID=$(for h in $COMMIT_HASHES; do [ "$(specforge git rev "$h^{commit}" --pick '.revs[0].exists' 2>/dev/null)" = true ] && echo "$h ok" || echo "$h missing"; done)
 fi
 
 # Fallback: grep for files
@@ -428,13 +428,13 @@ Anti-pattern scanning (Step 7) checks for code smells. Behavioral spot-checks go
 
 ```bash
 # API endpoint returns non-empty data
-curl -s http://localhost:$PORT/api/$ENDPOINT 2>/dev/null | head -c 2000   # read the answer: it passes when it is non-empty data (an array, an object or a string with content)
+specforge http get "http://localhost:$PORT/api/$ENDPOINT" --max-bytes 2000 --pick .body 2>/dev/null   # read the answer: it passes when it is non-empty data (an array, an object or a string with content)
 
 # CLI command produces expected output
 node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND"
 
 # Build produces output files
-ls $BUILD_OUTPUT_DIR/*.{js,css} 2>/dev/null | wc -l
+specforge files list $BUILD_OUTPUT_DIR --depth 1 --kind file --no-ignore --glob '*.js' --glob '*.css' --pick .count 2>/dev/null || echo 0
 
 # Module exports expected functions
 node -e "const m = require('$MODULE_PATH'); console.log(typeof m.$FUNCTION_NAME)" 2>/dev/null | grep -q "function"
@@ -476,7 +476,7 @@ SUMMARY.md probe pass claims are not evidence. If a phase declares or implies pr
 
 ```bash
 # Conventional project probes
-find scripts -path '*/tests/probe-*.sh' -type f 2>/dev/null | sort
+specforge files list scripts --kind file --glob 'tests/probe-*.sh' --glob '*/tests/probe-*.sh' --pick '.entries[].path' 2>/dev/null
 
 # Phase-declared probes
 grep -R -n -E 'probe-[^[:space:]]+\.sh|scripts/.*/tests/probe-.*\.sh' "$PHASE_DIR"/*-PLAN.md "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null
@@ -490,7 +490,7 @@ grep -R -n -E 'probe-[^[:space:]]+\.sh|scripts/.*/tests/probe-.*\.sh' "$PHASE_DI
 
 ```bash
 for probe in "${PROBES[@]}"; do
-  timeout 30 bash "$probe"
+  specforge run --deadline 30 -- bash "$probe"
 done
 ```
 

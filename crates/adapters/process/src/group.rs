@@ -22,6 +22,83 @@ pub fn isolate(command: &mut Command) {
     command.creation_flags(windows_sys::Win32::System::Threading::CREATE_SUSPENDED);
 }
 
+/// The terminal on stdin, handed to a program that runs in front of the person: its group becomes the terminal's
+/// foreground group, so a program that reads the terminal itself (`bash -c 'read x'`) gets its input instead of being
+/// stopped by SIGTTIN, and Ctrl-C reaches it. The host takes the terminal back when it is dropped.
+#[cfg(unix)]
+pub struct Foreground {
+    host: libc::pid_t,
+}
+
+#[cfg(unix)]
+#[expect(
+    unsafe_code,
+    reason = "isatty(3), tcsetpgrp(3), getpgrp(2), getpid(2) and sigprocmask(2) on plain integers and a local mask"
+)]
+impl Foreground {
+    /// Whether stdin is a terminal this process holds in front (its group is the terminal's foreground): only that
+    /// may be handed over, so a host run in the background never takes the terminal.
+    pub fn wanted() -> bool {
+        // SAFETY: isatty, tcgetpgrp and getpgrp take descriptor numbers and read no memory of ours.
+        unsafe {
+            libc::isatty(libc::STDIN_FILENO) == 1
+                && libc::tcgetpgrp(libc::STDIN_FILENO) == libc::getpgrp()
+        }
+    }
+
+    /// The child side, before it runs its program: its new group takes the terminal. Both sides ask, as a shell
+    /// does, so the program never reads before its group holds it.
+    pub fn take_in_child(command: &mut Command) {
+        use std::os::unix::process::CommandExt as _;
+        // SAFETY: the closure calls only async-signal-safe functions (getpid, sigprocmask, tcsetpgrp) between fork and
+        // exec, and allocates nothing.
+        unsafe {
+            command.pre_exec(|| {
+                let _ = with_ttou_blocked(|| libc::tcsetpgrp(libc::STDIN_FILENO, libc::getpid()));
+                Ok(())
+            });
+        }
+    }
+
+    /// The host side, once the child leads `pgid`: the terminal is the child's until this is dropped.
+    pub fn hand_to(pgid: libc::pid_t) -> Foreground {
+        // SAFETY: plain integers.
+        let host = unsafe { libc::getpgrp() };
+        let _ = with_ttou_blocked(|| unsafe { libc::tcsetpgrp(libc::STDIN_FILENO, pgid) });
+        Foreground { host }
+    }
+}
+
+#[cfg(unix)]
+impl Drop for Foreground {
+    fn drop(&mut self) {
+        let host = self.host;
+        // From a background group, tcsetpgrp would stop the host with SIGTTOU unless it is blocked.
+        #[expect(unsafe_code, reason = "tcsetpgrp(3) on plain integers")]
+        let _ = with_ttou_blocked(|| unsafe { libc::tcsetpgrp(libc::STDIN_FILENO, host) });
+    }
+}
+
+/// `call` with SIGTTOU blocked in this thread, the mask restored after.
+#[cfg(unix)]
+#[expect(
+    unsafe_code,
+    reason = "sigemptyset(3), sigaddset(3) and pthread_sigmask(3) on local masks"
+)]
+fn with_ttou_blocked(call: impl FnOnce() -> libc::c_int) -> libc::c_int {
+    // SAFETY: the masks are local, initialised by sigemptyset before use.
+    unsafe {
+        let mut block: libc::sigset_t = std::mem::zeroed();
+        let mut old: libc::sigset_t = std::mem::zeroed();
+        libc::sigemptyset(&mut block);
+        libc::sigaddset(&mut block, libc::SIGTTOU);
+        libc::pthread_sigmask(libc::SIG_BLOCK, &block, &mut old);
+        let result = call();
+        libc::pthread_sigmask(libc::SIG_SETMASK, &old, std::ptr::null_mut());
+        result
+    }
+}
+
 #[cfg(unix)]
 mod live {
     use std::sync::atomic::{AtomicI32, Ordering};
