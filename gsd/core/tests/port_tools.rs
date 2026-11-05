@@ -411,12 +411,20 @@ fn refusal(
             open = true;
         } else if let Some(long) = w.strip_prefix("--") {
             let long = long.split('=').next().unwrap_or(long);
-            // `--path`, `--format` and `--pick` belong to the CLI, not to a command
-            if matches!(long, "path" | "format" | "pick") {
-                i += 2;
+            let declared = shape.options.iter().find(|(n, _)| n == long);
+            // `--path`, `--format`, `--pick` and the pick's shapes (ADR 0325 D8) belong to the CLI, not to a
+            // command, unless the command declares the name
+            if declared.is_none()
+                && matches!(long, "path" | "format" | "pick" | "first" | "last" | "join")
+            {
+                i += if w.contains('=') { 1 } else { 2 };
                 continue;
             }
-            match shape.options.iter().find(|(n, _)| n == long) {
+            if declared.is_none() && long == "count" {
+                i += 1;
+                continue;
+            }
+            match declared {
                 None => return Some(format!("unexpected argument '--{long}'")),
                 Some((_, true)) if !w.contains('=') => i += 1,
                 _ => {}
