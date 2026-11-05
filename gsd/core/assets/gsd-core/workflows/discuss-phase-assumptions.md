@@ -615,7 +615,7 @@ Update STATE.md with session info:
 ```bash
 printf '%s\n' "STATE is computed; record a stop with specforge gsd pause <reason> --by <who>. The session ended with" \
   --stopped-at "Phase ${PHASE} context gathered (assumptions mode)" \
-  --resume-file "${phase_dir}/${padded_phase}-CONTEXT.md"
+  --resume-file "$(specforge query "$PHASE_ID" --depth 1 --kinds context --pick '.nodes[kind=context].id')"
 ```
 
 Commit STATE.md:

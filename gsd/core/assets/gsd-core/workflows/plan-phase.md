@@ -464,11 +464,11 @@ specforge query "$PHASE_ID" --depth 1 --kinds research --pick '.nodes[kind=resea
 
 **If the phase has research:**
 1. Read template: `~/.claude/gsd-core/templates/VALIDATION.md`
-2. Write to `${PHASE_DIR}/${PADDED_PHASE}-VALIDATION.md` (use Write tool)
+2. Record it as the phase's `validation` entity `${PHASE_ID##*/}-VALIDATION` (`specforge new validation … --phase "$PHASE_ID"`), its map rows as `validation_row` entities
 3. Fill frontmatter: `{N}` → phase number, `{phase-slug}` → slug, `{date}` → current date
 4. Verify:
 ```bash
-test -f "${PHASE_DIR}/${PADDED_PHASE}-VALIDATION.md" && echo "VALIDATION_CREATED=true" || echo "VALIDATION_CREATED=false"
+[ -n "$(specforge query "$PHASE_ID" --depth 1 --kinds validation --pick '.nodes[kind=validation].id')" ] && echo "VALIDATION_CREATED=true" || echo "VALIDATION_CREATED=false"
 ```
 5. If `VALIDATION_CREATED=false`: STOP — do not proceed to Step 6
 6. If `commit_docs`: `commit "docs(phase-${PHASE}): add validation strategy"`
@@ -706,12 +706,12 @@ Agent(
 > **ORCHESTRATOR RULE — ALL RUNTIMES**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available. Never call `ScheduleWakeup` or any host wake/sleep-scheduling tool to literalize this wait (#4079) — the Agent() call returns on its own; a partial-args wake call surfaces a red validation error.
 
 **Handle return:**
-- **`## PATTERN MAPPING COMPLETE`:** Update `PATTERNS_PATH` to the created file path, continue to step 8.
+- **`## PATTERN MAPPING COMPLETE`:** Re-read `PATTERNS_PATH`, the pattern map entity's id (below), continue to step 8.
 - **Any error or empty return:** Log warning, continue to step 8 without patterns (non-blocking).
 
 After pattern mapper completes, update the path variable:
 ```bash
-PATTERNS_PATH="${PHASE_DIR}/${PADDED_PHASE}-PATTERNS.md"
+PATTERNS_PATH=$(specforge query "$PHASE_ID" --depth 1 --kinds pattern_map --pick '.nodes[kind=pattern_map].id' 2>/dev/null)   # @gsd/codebase's: empty when it is not loaded
 ```
 
 ## 7.9. Regenerate API-SURFACE.md (intel gate)

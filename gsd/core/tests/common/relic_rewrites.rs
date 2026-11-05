@@ -156,6 +156,17 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         9,
         9,
     ),
+    // A path under the phase directory names the entity: the handoff, the context, the validation, the pattern map.
+    ("gsd-core/workflows/discuss-phase-assumptions.md", 616, 616),
+    ("gsd-core/workflows/discuss-phase.md", 166, 166),
+    ("gsd-core/workflows/discuss-phase.md", 482, 482),
+    ("gsd-core/workflows/execute-phase.md", 268, 268),
+    ("gsd-core/workflows/plan-phase.md", 465, 465),
+    ("gsd-core/workflows/plan-phase.md", 469, 469),
+    ("gsd-core/workflows/plan-phase.md", 707, 707),
+    ("gsd-core/workflows/plan-phase.md", 712, 712),
+    ("gsd-core/workflows/validate-phase.md", 141, 141),
+    ("gsd-core/workflows/validate-phase.md", 160, 160),
     // Stats, settings and commit counts are the graph's and the settings' answers.
     ("gsd-core/workflows/complete-milestone.md", 188, 192),
     ("gsd-core/workflows/complete-milestone.md", 203, 203),

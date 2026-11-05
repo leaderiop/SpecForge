@@ -267,10 +267,10 @@ Pure doc-only / config-only / test-only tasks return `is_behavior_adding=false` 
 <step name="check_blocking_antipatterns" priority="first">
 **MANDATORY — Check for blocking anti-patterns before any other work.**
 
-Look for a `.continue-here.md` in the current phase directory:
+Read the phase's handoff (the entity that holds `.continue-here.md`):
 
 ```bash
-specforge files stat ${phase_dir}/.continue-here.md --format human 2>/dev/null || true
+specforge query "$PHASE_ID" --kinds handoff --format context 2>/dev/null || true
 ```
 
 If `.continue-here.md` exists, parse its "Critical Anti-Patterns" table for rows with `severity` = `blocking`.

@@ -140,7 +140,7 @@ Handle return:
 **State B (create):**
 1. Read template from `~/.claude/gsd-core/templates/VALIDATION.md`
 2. Fill: frontmatter (**set `status: validated`**), Test Infrastructure, Per-Task Map, Manual-Only, Sign-Off
-3. Write to `${PHASE_DIR}/${PADDED_PHASE}-VALIDATION.md`
+3. Record it as the phase's `validation` entity `${PHASE_ID##*/}-VALIDATION` (`specforge new validation … --phase "$PHASE_ID"`), its map rows as `validation_row` entities
 
 **State A (update):**
 1. Update Per-Task Map statuses, add escalated to Manual-Only, update frontmatter (**set `status: validated`**)
@@ -158,8 +158,8 @@ Handle return:
 specforge git commit --add {each test file, one --add each} \
   -m "test(phase-${PHASE}): add Nyquist validation tests"
 
-specforge git commit --add spec -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes; : \
-  --files "${PHASE_DIR}/${PADDED_PHASE}-VALIDATION.md"
+specforge git commit --add spec -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes
+
 ```
 
 ## 8. Results + Routing

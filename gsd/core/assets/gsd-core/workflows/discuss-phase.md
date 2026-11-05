@@ -165,10 +165,10 @@ fi
 <step name="check_blocking_antipatterns" priority="first">
 **MANDATORY — Check for blocking anti-patterns before any other work.**
 
-Look for a `.continue-here.md` in the current phase directory:
+Read the phase's handoff (the entity that holds `.continue-here.md`):
 
 ```bash
-specforge files stat ${phase_dir}/.continue-here.md --format human 2>/dev/null || true
+specforge query "$PHASE_ID" --kinds handoff --format context 2>/dev/null || true
 ```
 
 If `.continue-here.md` exists, parse its "Critical Anti-Patterns" table for rows with `severity` = `blocking`.
@@ -481,7 +481,7 @@ Update STATE.md with session info:
 ```bash
 printf '%s\n' "STATE is computed; record a stop with specforge gsd pause <reason> --by <who>. The session ended with" \
   --stopped-at "Phase ${PHASE} context gathered" \
-  --resume-file "${phase_dir}/${padded_phase}-CONTEXT.md"
+  --resume-file "$(specforge query "$PHASE_ID" --depth 1 --kinds context --pick '.nodes[kind=context].id')"
 
 # STATE is computed: no state commit is needed
 ```

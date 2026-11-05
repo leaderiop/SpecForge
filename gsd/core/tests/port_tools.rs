@@ -551,13 +551,22 @@ fn every_graph_read_picks_nodes_or_edges() {
     );
 }
 
-/// No shell line globs or lists a phase directory: nothing answers one, and the files it held are entities (ADR 0343
-/// D3). The discuss checkpoint is a scratch file of its own.
+/// Files still kept under the phase directory, each waiting for a home of its own: they are not entities.
+const PHASE_DIR_FILES: &[&str] = &[
+    // the discuss checkpoint and the chunked plan's outline are scratch files: a named temp file replaces the directory
+    "DISCUSS-CHECKPOINT",
+    "PLAN-OUTLINE",
+    // REVIEWS.md is written by /gsd:review at a path the model composes; no review entity answers it yet
+    "REVIEWS.md",
+];
+
+/// No shell line builds a path under a phase directory: nothing answers one, and the files it held are entities (ADR
+/// 0343 D3), save [`PHASE_DIR_FILES`].
 #[test]
 fn no_shell_line_reads_a_phase_directory() {
     let dir = r#"\$\{?(PHASE_DIR|phase_dir|PHASE_DIR_FOR_SPEC)\}?"?"#;
     let rx = Regex::new(&format!(
-        r#"{dir}/\*-|specforge files (list|mkdir) [^|]*"?{dir}"#
+        r#"{dir}/|specforge files (list|mkdir) [^|]*"?{dir}"#
     ))
     .expect("a regex");
     let mut found = Vec::new();
@@ -567,7 +576,7 @@ fn no_shell_line_reads_a_phase_directory() {
                 let code = line.trim_start();
                 if !code.starts_with('#')
                     && rx.is_match(code)
-                    && !code.contains("DISCUSS-CHECKPOINT")
+                    && !PHASE_DIR_FILES.iter().any(|f| code.contains(f))
                 {
                     found.push(format!("{path}: {}", line.trim()));
                 }
