@@ -691,3 +691,19 @@ fn no_quick_reading_list_names_an_artifact_file() {
     }
     assert_eq!(found, Vec::<String>::new());
 }
+
+/// Step 1 binds jobs, validate, research, resume and the task list from the typed values.
+#[test]
+fn quick_batch_binds_its_typed_arguments() {
+    let p = twin();
+    let text = text_of(&payload(&prompt(
+        &p,
+        "quick_batch",
+        &["--jobs", "2", "--validate", "--tasks", "a; b"],
+        "claude-code",
+    )));
+    // pinned: the agent pastes the argument block into a temp file, reads it back and parses it as JSON
+    assert!(text.contains("cat > \"$QB_PARSE_FILE\""), "{text}");
+    assert!(text.contains("Parse `$QB_PARSE_JSON` for `jobs`"), "{text}");
+    assert!(!text.contains("JOBS=\""), "{text}");
+}
