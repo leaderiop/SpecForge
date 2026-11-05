@@ -207,8 +207,9 @@ impl Process for Runner {
         group::isolate(&mut command);
         let mut child = match command.spawn() {
             Ok(child) => child,
-            // A missing working directory also spawns NotFound: told apart, it is not a missing program.
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound && !dir.is_dir() => {
+            // A missing working directory fails the spawn too (NotFound on Unix, "the directory name is invalid" on
+            // Windows): told apart, it is not a missing program.
+            Err(_) if !dir.is_dir() => {
                 return at(ProcessClass::NoDirectory);
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
