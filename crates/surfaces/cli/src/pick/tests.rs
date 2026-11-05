@@ -377,3 +377,19 @@ fn the_shape_names_are_the_ids_the_args_derive() {
         assert_eq!(arg.get_long(), Some(arg.get_id().as_str()));
     }
 }
+
+#[test]
+fn a_join_separator_may_start_with_a_hyphen() {
+    use clap::Args as _;
+    let command = Picked::<FieldRows>::augment_args(clap::Command::new("x"));
+    for separator in ["-", "-x", " - ", "--"] {
+        let matches = command
+            .clone()
+            .try_get_matches_from(["x", "--pick", ".a[]", "--join", separator])
+            .unwrap_or_else(|e| panic!("{separator:?}: {e}"));
+        assert_eq!(
+            matches.get_one::<String>(JOIN).map(String::as_str),
+            Some(separator)
+        );
+    }
+}

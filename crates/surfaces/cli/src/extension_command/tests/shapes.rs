@@ -12,6 +12,7 @@ fn the_shapes_print_a_commands_answer() {
         (&["--first", "2"], "1\n2\n"),
         (&["--last", "1", "--join", ","], "3\n"),
         (&["--join", ", "], "1, 2, 3\n"),
+        (&["--join", "-x"], "1-x2-x3\n"),
     ] {
         let mut args = vec!["--pick", ".a[]"];
         args.extend(shape);

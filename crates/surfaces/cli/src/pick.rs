@@ -275,7 +275,7 @@ pub(crate) struct Shape {
     #[arg(id = LAST, long, value_name = "N", requires = PICK, help = LAST_HELP)]
     last: Option<usize>,
 
-    #[arg(id = JOIN, long, value_name = "SEP", requires = PICK, help = JOIN_HELP, long_help = JOIN_LONG_HELP)]
+    #[arg(id = JOIN, long, value_name = "SEP", requires = PICK, allow_hyphen_values = true, help = JOIN_HELP, long_help = JOIN_LONG_HELP)]
     join: Option<String>,
 }
 
