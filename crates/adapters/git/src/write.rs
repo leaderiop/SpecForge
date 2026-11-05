@@ -198,27 +198,28 @@ pub(crate) fn remove(
 ) -> Result<Vec<String>, GitError> {
     let repo = libgit2(place)?;
     let mut index = repo.index().map_err(|e| failed("read the index", &e))?;
+    let files: Vec<String> = index
+        .iter()
+        .map(|entry| String::from_utf8_lossy(&entry.path).into_owned())
+        .collect();
+    let mut specs = pathspecs(paths)?;
+    if let Some(spec) = specs.unmatched(&files)
+        && !removal.ignore_unmatch
+    {
+        return Err(GitError(format!("{spec} did not match any files")));
+    }
     let mut removed = std::collections::BTreeSet::new();
-    for path in paths {
-        let under = format!("{path}/");
-        let mut spec = pathspec(path)?;
-        let matched: Vec<String> = index
-            .iter()
-            .map(|entry| String::from_utf8_lossy(&entry.path).into_owned())
-            .filter(|at| spec.matches(at))
-            .collect();
-        if matched.is_empty() {
-            if removal.ignore_unmatch {
-                continue;
-            }
-            return Err(GitError(format!("{path} did not match any files")));
-        }
-        if !removal.recursive && matched.iter().any(|at| at.starts_with(&under)) {
+    for file in files {
+        let Some(named) = specs.named(&file) else {
+            continue;
+        };
+        if named.whole && !removal.recursive {
             return Err(GitError(format!(
-                "not removing {path} recursively without -r"
+                "not removing {} recursively without -r",
+                named.spec
             )));
         }
-        removed.extend(matched);
+        removed.insert(file);
     }
     if !removal.force {
         for path in &removed {
@@ -244,25 +245,91 @@ pub(crate) fn remove(
     Ok(removed.into_iter().collect())
 }
 
-/// One of git's pathspecs, parsed and matched by gix: a path (a file, or a directory and what is under it, `*` the
-/// whole tree), a glob, or magic such as `:(glob)**/*.spec`.
-pub(crate) struct Pathspec(gix::pathspec::Search);
-
-pub(crate) fn pathspec(text: &str) -> Result<Pathspec, GitError> {
-    let refused = |e: &dyn std::fmt::Display| GitError(format!("{text} is not a pathspec: {e}"));
-    let spec = gix::pathspec::parse(text.as_bytes(), gix::pathspec::Defaults::default())
-        .map_err(|e| refused(&e))?;
-    gix::pathspec::Search::from_specs([spec], None, Path::new(""))
-        .map(Pathspec)
-        .map_err(|e| refused(&e))
+/// git's pathspecs, parsed and matched by gix and combined as git combines them: a file is named when a spec names
+/// it and no exclude (`:!x`) does, and when every spec is an exclude, every file the excludes leave. A spec is a path
+/// (a file, or a directory and what is under it, `.` the whole tree), a glob, or magic such as `:(glob)**/*.spec`.
+pub(crate) struct Pathspecs {
+    texts: Vec<String>,
+    all: gix::pathspec::Search,
+    /// Each spec that is no exclude, on its own, with its place in `texts`.
+    each: Vec<(usize, gix::pathspec::Search)>,
 }
 
-impl Pathspec {
-    /// Whether the file at `path` (relative to the top) is one the pathspec names.
+/// How a file is named: by which spec, and whether as one under the directory the spec names (`whole`).
+pub(crate) struct Named<'a> {
+    pub(crate) spec: &'a str,
+    pub(crate) whole: bool,
+}
+
+pub(crate) fn pathspecs(texts: &[String]) -> Result<Pathspecs, GitError> {
+    let refused =
+        |text: &str, e: &dyn std::fmt::Display| GitError(format!("{text} is not a pathspec: {e}"));
+    let search = |text: &str, specs: Vec<gix::pathspec::Pattern>| {
+        gix::pathspec::Search::from_specs(specs, None, Path::new("")).map_err(|e| refused(text, &e))
+    };
+    let mut patterns = Vec::new();
+    for text in texts {
+        let mut pattern = gix::pathspec::parse(text.as_bytes(), gix::pathspec::Defaults::default())
+            .map_err(|e| refused(text, &e))?;
+        pattern
+            .normalize(Path::new(""), Path::new(""))
+            .map_err(|e| refused(text, &e))?;
+        // gix keeps the whole tree (`.`) as the text ".", a prefix no path has: an empty path matches every one
+        if pattern.is_nil() {
+            pattern = gix::pathspec::Pattern::from_literal(&[], pattern.signature);
+        }
+        patterns.push(pattern);
+    }
+    let mut each = Vec::new();
+    for (at, pattern) in patterns.iter().enumerate() {
+        if !pattern.is_excluded() {
+            each.push((at, search(&texts[at], vec![pattern.clone()])?));
+        }
+    }
+    Ok(Pathspecs {
+        all: search(&texts.join(" "), patterns)?,
+        texts: texts.to_vec(),
+        each,
+    })
+}
+
+fn named_by(search: &mut gix::pathspec::Search, path: &str) -> Option<(usize, bool)> {
+    use gix::pathspec::search::MatchKind;
+    search
+        .pattern_matching_relative_path(path.into(), Some(false), &mut |_, _, _, _| false)
+        .filter(|found| !found.is_excluded())
+        .map(|found| {
+            (
+                found.sequence_number,
+                matches!(found.kind, MatchKind::Prefix | MatchKind::Always),
+            )
+        })
+}
+
+impl Pathspecs {
+    /// Whether the file at `path` (relative to the top) is one the pathspecs name.
     pub(crate) fn matches(&mut self, path: &str) -> bool {
-        self.0
-            .pattern_matching_relative_path(path.into(), Some(false), &mut |_, _, _, _| false)
-            .is_some_and(|found| !found.is_excluded())
+        named_by(&mut self.all, path).is_some()
+    }
+
+    /// The spec that names the file at `path`, if one does and no exclude takes it back.
+    pub(crate) fn named(&mut self, path: &str) -> Option<Named<'_>> {
+        let (at, whole) = named_by(&mut self.all, path)?;
+        Some(Named {
+            // past the last spec: the whole tree that only excludes leave
+            spec: self.texts.get(at).map_or(".", String::as_str),
+            whole,
+        })
+    }
+
+    /// The first spec, excludes aside, that names none of `files` on its own (git's "did not match any files").
+    pub(crate) fn unmatched(&mut self, files: &[String]) -> Option<&str> {
+        for (at, search) in &mut self.each {
+            if !files.iter().any(|file| named_by(search, file).is_some()) {
+                return Some(&self.texts[*at]);
+            }
+        }
+        None
     }
 }
 

@@ -255,6 +255,10 @@ pub(crate) fn restore(
     let expanded;
     let paths = if magic {
         expanded = matched(&repo, paths, restoring.source.as_ref())?;
+        // no path given would restore every path
+        if expanded.is_empty() {
+            return Ok(());
+        }
         expanded.as_slice()
     } else {
         paths
@@ -312,7 +316,8 @@ pub(crate) fn restore(
     .map_err(|e| failed("restore the files", &e))
 }
 
-/// The files of the index and of `source` (else `HEAD`) that `specs` name, each spec matching one at least.
+/// The files of the index and of `source` (else `HEAD`) that `specs` name together, each spec but an exclude
+/// naming one at least.
 fn matched(
     repo: &git2::Repository,
     specs: &[String],
@@ -341,17 +346,15 @@ fn matched(
         })
         .map_err(|e| failed("read the files to restore from", &e))?;
     }
-    let mut named = Vec::new();
-    for spec in specs {
-        let mut search = crate::write::pathspec(spec)?;
-        let found: Vec<&String> = files.iter().filter(|file| search.matches(file)).collect();
-        if found.is_empty() {
-            return Err(GitError(format!("{spec} did not match any files")));
-        }
-        named.extend(found.into_iter().cloned());
+    let files: Vec<String> = files.into_iter().collect();
+    let mut search = crate::write::pathspecs(specs)?;
+    if let Some(spec) = search.unmatched(&files) {
+        return Err(GitError(format!("{spec} did not match any files")));
     }
-    named.sort();
-    named.dedup();
+    let named: Vec<String> = files
+        .into_iter()
+        .filter(|file| search.matches(file))
+        .collect();
     Ok(named)
 }
 

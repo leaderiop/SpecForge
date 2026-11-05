@@ -465,6 +465,103 @@ fn a_glob_pathspec_removes_and_restores_the_files_it_names_at_any_depth() {
     assert!(refused.0.contains("did not match any files"), "{refused}");
 }
 
+/// `a.txt` at the top, `dir/keep`, `dir/x` and `dir/sub/y` under `dir`, all committed.
+fn tree_with_dir() -> (tempfile::TempDir, Repo) {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a\n")
+        .write("dir/keep", "k\n")
+        .write("dir/x", "x\n")
+        .write("dir/sub/y", "y\n");
+    repo.commit_all("first");
+    (dir, repo)
+}
+
+#[test]
+fn removing_combines_the_pathspecs_an_exclude_taking_back_what_an_include_names() {
+    let (_dir, repo) = tree_with_dir();
+    let place = place(&repo);
+    let forced = Removal {
+        recursive: true,
+        force: true,
+        ..Removal::default()
+    };
+    let removed = Gix::default()
+        .remove(&place, &["dir".into(), ":!dir/keep".into()], forced)
+        .unwrap();
+    assert_eq!(removed, ["dir/sub/y", "dir/x"]);
+    assert_eq!(indexed(&repo), ["a.txt", "dir/keep"]);
+    assert!(repo.dir().join("dir/keep").is_file());
+}
+
+#[test]
+fn removing_the_whole_tree_needs_r_whether_named_or_left_by_an_exclude() {
+    let (_dir, repo) = tree_with_dir();
+    let place = place(&repo);
+    let git = Gix::default();
+    for spec in [".", ":!a.txt"] {
+        let refused = git
+            .remove(&place, &[spec.into()], Removal::default())
+            .unwrap_err();
+        assert!(
+            refused.0.contains("not removing . recursively without -r"),
+            "{spec}: {refused}"
+        );
+    }
+    let refused = git
+        .remove(
+            &place,
+            &["nomatch".into(), ":!dir".into()],
+            Removal::default(),
+        )
+        .unwrap_err();
+    assert!(
+        refused.0.contains("nomatch did not match any files"),
+        "{refused}"
+    );
+    assert_eq!(indexed(&repo).len(), 4, "nothing removed");
+    let recursive = Removal {
+        recursive: true,
+        ..Removal::default()
+    };
+    let removed = git.remove(&place, &[":!a.txt".into()], recursive).unwrap();
+    assert_eq!(removed, ["dir/keep", "dir/sub/y", "dir/x"]);
+    assert_eq!(indexed(&repo), ["a.txt"]);
+}
+
+#[test]
+fn restoring_combines_the_pathspecs_an_exclude_keeping_its_file_as_it_is() {
+    let (_dir, repo) = tree_with_dir();
+    for rel in ["dir/keep", "dir/x", "dir/sub/y"] {
+        repo.write(rel, "changed\n");
+    }
+    let place = place(&repo);
+    Gix::default()
+        .restore(
+            &place,
+            &["dir".into(), ":!dir/keep".into()],
+            &Restoring::default(),
+        )
+        .unwrap();
+    let read = |rel: &str| std::fs::read_to_string(repo.dir().join(rel)).unwrap();
+    assert_eq!(
+        (read("dir/keep"), read("dir/x"), read("dir/sub/y")),
+        ("changed\n".into(), "x\n".into(), "y\n".into())
+    );
+    Gix::default()
+        .restore(
+            &place,
+            &["dir".into(), ":!dir".into()],
+            &Restoring::default(),
+        )
+        .unwrap();
+    assert_eq!(
+        read("dir/keep"),
+        "changed\n",
+        "nothing named: nothing restored"
+    );
+}
+
 #[test]
 fn removing_a_changed_file_needs_force_and_cached_keeps_it_on_disk() {
     let dir = tempfile::tempdir().unwrap();
