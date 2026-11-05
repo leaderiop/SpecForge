@@ -43,7 +43,7 @@
     "<purpose>",
     "Batch several `/gsd-quick`-shaped tasks together (#3676, epic #3344, ADR-1239",
     "\"Quick-batch binding\"). ONE coordinator (this workflow) owns every shared",
-    "write — `BATCH.json`, STATE.md, worktree create/merge/cleanup — and never",
+    "write — `BATCH.json`, STATE.md, each executor's dispatch — and never",
     "delegates them to a leaf. Leaves (planner/researcher/checker/executor/",
     "verifier) return structured results only; they never invoke `/gsd-quick`,",
     "never touch `BATCH.json`, and never write STATE.md/ROADMAP.md themselves",
@@ -61,7 +61,7 @@
     "",
     "<available_agent_types>"
   ],
-  "bytes": 26516,
+  "bytes": 25647,
   "end": [
     "**Otherwise:** proceed to the workflow's normal path — parse the task list",
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:6738e93d51bd5cbe4993495da7001356369a377e9b60dc7ccd8cf3c504330ece",
+    "digest": "sha256:2d085a7b707dc17eea55843a14898f257b1f22b28707a45c9e6c60dea4bddb93",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "6738e93d51bd5cbe4993495da7001356369a377e9b60dc7ccd8cf3c504330ece"
+  "sha256": "2d085a7b707dc17eea55843a14898f257b1f22b28707a45c9e6c60dea4bddb93"
 }

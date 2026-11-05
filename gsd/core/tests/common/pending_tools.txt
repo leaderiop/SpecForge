@@ -743,7 +743,7 @@ prompt:workspace	date	TIMESTAMP=$(date +%Y%m%d%H%M%S)
 prompt:workspace	mkdir	mkdir -p "$TARGET_PATH"
 prompt:workspace	rm	rm -rf "$WORKSPACE_PATH"
 
-# C rule: a rule that lives in the shell moves into Rust (R1): a grep -q of a value against a pattern. 47 rows.
+# C rule: a rule that lives in the shell moves into Rust (R1): a grep -q of a value against a pattern. 46 rows.
 agents/gsd-executor.md	grep	if echo "$ACTUAL_BRANCH" | grep -Eq '^(main|master|develop|trunk|release/.*)$'; then
 agents/gsd-executor.md	grep	if ! echo "$ACTUAL_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)[A-Za-z0-9._/-]+$'; then
 gsd-core/references/worktree-branch-check.md	grep	if [ "$HEAD_REF" = "DETACHED" ] || echo "$ACTUAL_BRANCH" | grep -Eq '^(main|master|develop|trunk|release/.*)$'; then
@@ -767,7 +767,6 @@ gsd-core/workflows/plan-review-convergence.md	grep	echo "$GSD_ARGS" | grep -qE '
 gsd-core/workflows/plan-review-convergence.md	grep	echo "$GSD_ARGS" | grep -qE '\-\-ws\s+\S+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE '\-\-ws\s+\S+')
 gsd-core/workflows/plan-review-convergence.md	grep	if echo "$GSD_ARGS" | grep -qE '(^|[[:space:]])--override-gate([[:space:]]|$)'; then
 gsd-core/workflows/plan-review-convergence.md	grep	if echo "$GSD_ARGS" | grep -qE "(^|[[:space:]])${REVIEW_FLAG}([[:space:]]|$)"; then
-gsd-core/workflows/quick-batch/steps/merge-wave.md	grep	mergeable=(); while IFS= read -r q; do [ -n "$q" ] || continue; printf '%s\n' "$READY" | grep -qxF -- "$q" || break; mergeable+=("$q"); done < <(printf '%s\n' "$WAVE_ORDER")   # quick-batch merge-eligible: the batch router is not part of @gsd/core
 gsd-core/workflows/verify-work.md	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 gsd-core/workflows/verify-work.md	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 prompt:autonomous	grep	if echo "$GSD_ARGS" | grep -qE '\-\-from\s+[0-9]'; then
@@ -942,7 +941,7 @@ prompt:workspace	ls	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 "$
 
 # J solver: the z3 decision (R4). 0 rows.
 
-# K not a tool: prose, a placeholder or a bare command name in a shell fence or a run: reword it. 81 rows.
+# K not a tool: prose, a placeholder or a bare command name in a shell fence or a run: reword it. 79 rows.
 agents/gsd-plan-checker.md	estimate-check	estimate-check --calibrated
 commands/gsd/ns-review.md	gsd-code-review	gsd-code-review --fix
 gsd-core/references/autonomous-ui-design-contract.md	Phase	Phase ${PHASE_NUM}: UI-SPEC generation did not produce output — continuing without design contract.
@@ -980,8 +979,6 @@ gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	Complete	Pending | Plan
 gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	Executed	Pending | Planned | In Progress | Executed | Complete | Needs Review
 gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	Planned	Pending | Planned | In Progress | Executed | Complete | Needs Review
 gsd-core/workflows/plan-phase/steps/research-only-modifiers.md	drop	--view requires an existing RESEARCH.md; drop --view to spawn the researcher.
-gsd-core/workflows/quick-batch/steps/merge-wave.md	merge-routing	merge-routing --kind merge_failed --detail "missing durable worktree
-gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	dispatch-isolation	dispatch-isolation --json --cwd-target
 gsd-core/workflows/quick/steps/discussion-phase.md	context	context ${quick_id}-CONTEXT
 gsd-core/workflows/quick/steps/discussion-phase.md	plan	plan ${quick_id}
 gsd-core/workflows/quick/steps/plan-checker-loop.md	iteration	Sending back to planner for revision... (iteration ${N}/2)

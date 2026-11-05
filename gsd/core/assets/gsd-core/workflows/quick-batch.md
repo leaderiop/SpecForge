@@ -3,7 +3,7 @@
 <purpose>
 Batch several `/gsd:quick`-shaped tasks together (#3676, epic #3344, ADR-1239
 "Quick-batch binding"). ONE coordinator (this workflow) owns every shared
-write — `BATCH.json`, STATE.md, worktree create/merge/cleanup — and never
+write — `BATCH.json`, STATE.md, each executor's dispatch — and never
 delegates them to a leaf. Leaves (planner/researcher/checker/executor/
 verifier) return structured results only; they never invoke `/gsd:quick`,
 never touch `BATCH.json`, and never write STATE.md/ROADMAP.md themselves
@@ -84,7 +84,7 @@ Parse `$INIT` for: `planner_model`, `executor_model`, `checker_model`, `verifier
 ```bash
 STATE_PATH=""   # the project state is computed: specforge gsd progress-report
 PROJECT_PATH=""   # the project is an entity: specforge query "$PROJECT" --depth 0
-USE_WORKTREES="{{setting:workflow.use_worktrees|}}"   # workflow.use_worktrees (the settings)
+# @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
 RUNTIME="{{setting:runtime|}}"   # runtime (the settings)
 ```
 
@@ -108,20 +108,20 @@ arithmetic; this is only the raw resolve):
 CAPACITY=1   # dispatch-capacity: one at a time, no background dispatch is part of @gsd/core
 ```
 
-**Resolve isolation now (row 6, 20-22).** Read
-@gsd-core/references/dispatch-isolation-gate.md and run its `Resolve
-ISOLATION`, `Single-agent dispatch sites`, and `Resolve the harness flag`
-blocks in order; they set `ISOLATION`/`HARNESS_FLAG` via `query
-dispatch-isolation`. `ISOLATION` gates every worktree decision below —
-substitute `{harnessFlag}` in Step 6's `Agent()` with `$HARNESS_FLAG`+comma
-when `ISOLATION = "harness-worktree"`, else empty.
+**No isolation to resolve.** `@gsd/core` runs no worktree isolation: every executor runs in sequential mode on the working tree (no isolation gate, no harness flag, no orphan sweep).
 
-If `USE_WORKTREES` is not `"false"`, sweep orphaned worktrees before dispatching anything (mirrors `/gsd:quick`'s own startup sweep):
-```bash
-if [ "$USE_WORKTREES" != "false" ]; then
-: # worktree.reap-orphans: worktree isolation is not part of @gsd/core
-fi
-```
+
+
+
+
+
+
+
+
+
+
+
+
 
 Display banner:
 ```
@@ -165,20 +165,20 @@ before advancing to the next layer.
 
 ---
 
-**Step 6: Worktree create + executor dispatch**
+**Step 6: Executor dispatch (sequential mode)**
 
 Read and execute `gsd-core/workflows/quick-batch/steps/worktree-dispatch.md`.
-Worktree create/executor dispatch is serialized per item (one `git worktree
-add` in flight at a time); already-created worktrees run concurrently up to
-the effective MUTATING-wave concurrency.
+Executors run one item at a time on the working tree (sequential mode).
+
+
 
 ---
 
 **Step 7: Deterministic merge**
 
-Read and execute `gsd-core/workflows/quick-batch/steps/merge-wave.md`. Merges
-apply strictly in the wave's original dispatch order (`quick-batch
-merge-eligible`), never completion order.
+Nothing to merge: every executor committed on the working tree in Step 6, so
+`gsd-core/workflows/quick-batch/steps/merge-wave.md` is not reached.
+
 
 ---
 
@@ -204,10 +204,10 @@ complete item, updates STATE.md, and prints the final batch report.
 - [ ] Planner dispatched per eligible item per DAG layer, full task catalog in prompt, `depends_on`/`files_modified` requested ALWAYS
 - [ ] (--research) Researcher dispatched per item before planning
 - [ ] (--validate) Plan-checker loop runs per item after planning (≤2 iterations)
-- [ ] Worktree create/merge/cleanup serialized; concurrent leaves inside already-created worktrees
-- [ ] `isolation == none` forces a mutating wave's concurrency to 1; a research-only wave is unaffected
-- [ ] Merges apply in deterministic wave order, never completion order
+- [ ] Executors dispatched one item at a time on the working tree (sequential mode)
+- [ ] A mutating wave runs at concurrency 1; a research-only wave is unaffected
+
 - [ ] (--validate) Verifier dispatched per item post-merge; `human_needed` never completes the item, `gaps_found` fails it without rollback or retry
-- [ ] A merge_failed/scope_violation item is marked failed with the worktree PRESERVED
+
 - [ ] `completeQuickItem` called only for genuinely complete items; STATE.md updated; artifacts committed
 </success_criteria>

@@ -240,12 +240,87 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     // @gsd/core runs no worktree isolation: one dispatch template, sequential mode
     ("gsd-core/workflows/execute-phase.md", 634, 634),
     ("gsd-core/workflows/execute-phase.md", 642, 642),
+    ("gsd-core/workflows/execute-phase.md", 690, 690),
     ("gsd-core/workflows/execute-phase.md", 724, 724),
     ("gsd-core/workflows/execute-phase.md", 772, 772),
     ("gsd-core/workflows/execute-phase.md", 822, 822),
     ("gsd-core/workflows/execute-phase.md", 976, 976),
     ("gsd-core/references/dispatch-isolation-gate.md", 127, 128),
     ("gsd-core/references/dispatch-isolation-gate.md", 130, 131),
+    // quick-batch runs no worktree isolation either: its executors dispatch in sequential mode, and nothing is merged
+    ("gsd-core/workflows/quick-batch.md", 4, 4),
+    ("gsd-core/workflows/quick-batch.md", 85, 85),
+    ("gsd-core/workflows/quick-batch.md", 166, 166),
+    ("gsd-core/workflows/quick-batch.md", 169, 171),
+    ("gsd-core/workflows/quick-batch.md", 177, 179),
+    ("gsd-core/workflows/quick-batch.md", 205, 207),
+    ("gsd-core/workflows/quick-batch.md", 209, 209),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        0,
+        0,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        2,
+        3,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        21,
+        22,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        43,
+        43,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        47,
+        47,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        57,
+        57,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        61,
+        67,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        79,
+        80,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        90,
+        91,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        123,
+        123,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        160,
+        160,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        163,
+        165,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/verification-wave.md",
+        73,
+        75,
+    ),
+    ("gsd-core/workflows/quick-batch/steps/completion.md", 24, 25),
     // chunked planning resumes past a plan entity
     (
         "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
@@ -336,6 +411,18 @@ pub const BLANKED: &[(&str, usize, usize)] = &[
         0,
         10,
     ),
+    ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 0, 99),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        6,
+        19,
+    ),
+    (
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+        127,
+        158,
+    ),
+    ("gsd-core/workflows/quick-batch.md", 109, 122),
     ("gsd-core/workflows/execute-phase.md", 127, 131),
     ("gsd-core/workflows/execute-phase.md", 134, 152),
     ("gsd-core/workflows/execute-phase.md", 607, 614),

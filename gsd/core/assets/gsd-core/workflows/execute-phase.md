@@ -689,7 +689,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
        Execute plan {plan_number} of phase {phase_number}-{phase_name}.
        [gsd:dispatch phase="{phase_number}" plan="{plan_id}"]
        Commit each task atomically. Create SUMMARY.md.
-       Do NOT update STATE.md or ROADMAP.md — the orchestrator owns those writes after all worktree agents in the wave complete.
+       Do NOT update STATE.md or ROADMAP.md — the orchestrator owns those writes after every plan in the wave completes (sequential mode).
        </objective>
 
 

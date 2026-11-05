@@ -23,8 +23,8 @@ item is a no-op, same guarantee `/gsd:quick` relies on):
 Items NOT reaching this call — `human_needed`, `failed` (planner/checker/
 merge/verification failure), or still `blocked`/`pending` (a dependency
 failed, row 32) — are left exactly as their respective routing step set
-them. No STATE row, no `complete` status, worktree preserved where
-applicable.
+them. No STATE row, no `complete` status.
+
 
 **Final commit.** Stage every artifact produced this run (PLAN.md, SUMMARY.md,
 `--research` RESEARCH.md, `--validate` VERIFICATION.md, per item, plus

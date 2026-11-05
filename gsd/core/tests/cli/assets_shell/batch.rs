@@ -63,31 +63,6 @@ fn a_task_list_becomes_one_line_per_quick_task() {
 }
 
 #[test]
-fn the_merge_eligible_items_are_the_ready_prefix_of_the_wave() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
-    let text = asset("gsd-core/workflows/quick-batch/steps/merge-wave.md");
-    let eligible = line(&text, "mergeable=()");
-    for (ready, want) in [
-        ("a\nb\nc", "[a][b][c]"),
-        ("a\nc", "[a]"),
-        ("b\nc", ""),
-        ("", ""),
-    ] {
-        let (out, err, _) = sh.run_in(
-            sh.bin.path(),
-            &format!(
-                "WAVE_ORDER={}\nREADY={}\n{eligible}\nfor q in \"${{mergeable[@]}}\"; do printf '[%s]' \"$q\"; done",
-                q("a\nb\nc"),
-                q(ready)
-            ),
-        );
-        assert_eq!(out, want, "{ready:?}: {err}");
-    }
-}
-
-#[test]
 fn a_verification_status_routes_the_batch_item() {
     let Some(sh) = Shell::without_jq() else {
         return;

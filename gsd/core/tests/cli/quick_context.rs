@@ -325,42 +325,24 @@ fn a_quick_reading_list_query_reaches_the_context_decisions_and_findings() {
     assert_eq!(ran, 6, "the reading-list queries");
 }
 
-/// In worktree mode a batch item's executor writes its summary in the item's worktree, which Step 7 merges back
-/// later: the checks before that merge (the crash-window guard, the post-dispatch check, the merge wave's pick) look
-/// in `$WT_PATH`, the item's recorded worktree, and in the primary checkout when there is none (`isolation none`).
+/// A batch item's executor writes its summary on the working tree (`@gsd/core` runs no worktree isolation): the crash-
+/// window guard and the post-dispatch check read it there, and find nothing when the item has none.
 #[test]
-fn a_batch_items_summary_is_looked_for_in_its_worktree_before_the_merge() {
-    let (primary, worktree) = (project("quick-context"), project("quick-context"));
+fn a_batch_items_summary_is_looked_for_on_the_working_tree() {
+    let (without, with) = (project("quick-context"), project("quick-context"));
     let summary = "\nsummary 251101-abc-SUMMARY \"Done\" {\n  plan                   251101-abc\n  status                 complete\n  one_liner              \"Titles are trimmed\"\n  subsystem              \"tasks\"\n  requirements_completed []\n}\n";
-    worktree.write(QUICK, &format!("{}{summary}", worktree.read(QUICK)));
-    let wt = worktree.root().display().to_string();
-    let (mut checks, mut files) = (Vec::new(), Vec::new());
-    for file in [
-        "quick-batch/steps/worktree-dispatch.md",
-        "quick-batch/steps/merge-wave.md",
-    ] {
-        let found = commands(&served(&primary, file), "${quick_id}-SUMMARY\" --depth 0");
-        files.push((file, found.len()));
-        checks.extend(found.into_iter().map(|c| (file, c)));
-    }
-    for (file, check) in &checks {
-        let isolated = bash(&primary, check, "251101-abc", &[("WT_PATH", wt.as_str())]);
-        assert!(
-            isolated.status.success(),
-            "{file}: the worktree's summary is missed: {check}"
-        );
-        let none = bash(&primary, check, "251101-abc", &[("WT_PATH", "")]);
+    with.write(QUICK, &format!("{}{summary}", with.read(QUICK)));
+    let file = "quick-batch/steps/worktree-dispatch.md";
+    let checks = commands(&served(&without, file), "${quick_id}-SUMMARY\" --depth 0");
+    // the crash-window guard and the post-dispatch check
+    assert_eq!(checks.len(), 2, "{checks:?}");
+    for check in &checks {
+        let found = bash(&with, check, "251101-abc", &[]);
+        assert!(found.status.success(), "the summary is missed: {check}");
+        let none = bash(&without, check, "251101-abc", &[]);
         assert!(
             !none.status.success(),
-            "{file}: the primary checkout has no summary: {check}"
+            "a summary is found where none is: {check}"
         );
     }
-    // the guard and the post-dispatch check in worktree-dispatch.md, the pick in merge-wave.md
-    assert_eq!(
-        files,
-        [
-            ("quick-batch/steps/worktree-dispatch.md", 2),
-            ("quick-batch/steps/merge-wave.md", 1)
-        ]
-    );
 }

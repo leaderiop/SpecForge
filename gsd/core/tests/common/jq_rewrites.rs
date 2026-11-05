@@ -193,11 +193,6 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/quick-batch/steps/batch-init.md", 30),
     ("gsd-core/workflows/quick-batch/steps/batch-init.md", 37),
     ("gsd-core/workflows/quick-batch/steps/batch-init.md", 43),
-    ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 11),
-    ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 12),
-    ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 16),
-    ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 24),
-    ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 30),
     // The remaining jq lines are gone. A value is picked (`--pick`, a selector on any field), a list is
     // filtered with grep or case, gh filters with `--jq`, a stub is literal text, and a review lane's, curl's or a
     // user's JSON is printed raw for the agent to read. The verifier's user-story guard reads the phase goal, and the
@@ -366,26 +361,6 @@ pub const LINES: &[(&str, usize)] = &[
     (
         "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
         37,
-    ),
-    (
-        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
-        127,
-    ),
-    (
-        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
-        128,
-    ),
-    (
-        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
-        129,
-    ),
-    (
-        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
-        130,
-    ),
-    (
-        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
-        153,
     ),
     ("gsd-core/workflows/quick.md", 426),
     ("gsd-core/workflows/quick.md", 427),

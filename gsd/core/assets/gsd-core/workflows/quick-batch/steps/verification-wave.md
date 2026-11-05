@@ -72,9 +72,9 @@ case "$STATUS" in passed) QB_VERIFY_ACTION=complete ;; human_needed) QB_VERIFY_A
 | `fail` | `STATUS == "gaps_found"` (or `missing`/`stale`/`unparseable`/`phase_dir_not_found` — anything the query could not resolve to a real answer) | Mark the item `failed` with the routing's `failureReason`. NO automatic gap-fix retry (v1 exclusion), NO rollback of the already-merged commit (row 31/34). Continue with the rest of the batch. |
 
 An item this step marks `human_needed` or `failed` is NOT reverted — its
-worktree was already removed by the successful merge in Step 7 (verification
-runs post-merge, unlike a `merge_failed`/`scope_violation` routing, which
-never reaches this step because the item never merged).
+commits stay on the working tree, where its executor made them in Step 6
+(sequential mode: there is no merge to undo).
+
 
 Continue to Step 9 once every merged item has been verified (or explicitly
 routed to `human_needed`/`failed`).
