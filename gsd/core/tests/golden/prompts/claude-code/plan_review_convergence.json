@@ -61,7 +61,7 @@
     "",
     "```"
   ],
-  "bytes": 75051,
+  "bytes": 75109,
   "end": [
     "- `## Self-Check: FAILED` (summary self-check)",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:793f525bb333aa7d652311f7c40484949742ba9478c58af1093a785009f7f1b0",
+    "digest": "sha256:c6dabdcfdb8aaeb52811e224d7d0a28200ca140391c3899bc70e64c8b3db6a26",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
@@ -211,5 +211,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "793f525bb333aa7d652311f7c40484949742ba9478c58af1093a785009f7f1b0"
+  "sha256": "c6dabdcfdb8aaeb52811e224d7d0a28200ca140391c3899bc70e64c8b3db6a26"
 }

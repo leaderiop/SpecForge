@@ -126,7 +126,7 @@ if [ -z "$REVIEWER_FLAGS" ]; then
 
     if [ -n "$DEFAULT_REVIEWERS" ]; then
       : # leave REVIEWER_FLAGS empty — gsd-review applies review.default_reviewers itself
-      REVIEWER_DISPLAY="review.default_reviewers ($(printf '%s\n' "$DEFAULT_REVIEWERS" | paste -sd, - | sed 's/,/, /g'))"
+      REVIEWER_DISPLAY="review.default_reviewers ($(specforge settings --extension @gsd/core --pick '.extensions[0].settings[name=review.default_reviewers].value[]' --join ', '))"
     else
       REVIEWER_FLAGS="--codex"
       REVIEWER_DISPLAY="--codex (default; configure review.default_reviewers to change)"
