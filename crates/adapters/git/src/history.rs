@@ -23,15 +23,28 @@ pub(crate) fn wanted_paths(paths: &[String]) -> Vec<String> {
     paths
 }
 
-/// Whether `location` is at or under one of `paths` (every location when there are none).
+/// Whether `location` is at or under one of `paths` (every location when there are none), as git's pathspecs match
+/// it.
+// shortcut: the paths are literal pathspecs, no glob or magic, since `touches` looks each one up in a tree; upgrade
+// both together if a block needs `git log -- '*.rs'`
 fn kept(location: &str, paths: &[String]) -> bool {
-    paths.is_empty()
-        || paths.iter().any(|p| {
-            location == p
-                || location
-                    .strip_prefix(p.as_str())
-                    .is_some_and(|r| r.starts_with('/'))
-        })
+    if paths.is_empty() {
+        return true;
+    }
+    let literal = gix::pathspec::Defaults {
+        signature: gix::pathspec::MagicSignature::empty(),
+        search_mode: gix::pathspec::SearchMode::Literal,
+        literal: true,
+    };
+    let specs = paths
+        .iter()
+        .filter_map(|path| gix::pathspec::parse(path.as_bytes(), literal).ok());
+    let Ok(mut search) = gix::pathspec::Search::from_specs(specs, None, Path::new("")) else {
+        return false;
+    };
+    search
+        .pattern_matching_relative_path(location.into(), None, &mut |_, _, _, _| false)
+        .is_some_and(|found| !found.is_excluded())
 }
 
 /// What `tree` holds at each of `paths`.
@@ -432,4 +445,21 @@ fn cut_at_line(mut text: String, max: usize) -> String {
         text.truncate(end);
     }
     text
+}
+
+#[cfg(test)]
+mod tests {
+    use super::kept;
+
+    #[test]
+    fn a_path_keeps_itself_and_what_is_under_it_literally() {
+        let paths = ["src".to_string(), "a.txt".to_string(), "*.rs".to_string()];
+        for location in ["src", "src/lib/x.rs", "a.txt", "*.rs"] {
+            assert!(kept(location, &paths), "{location}");
+        }
+        for location in ["srcx/a.rs", "a.txt2", "b.rs", "SRC/a.rs"] {
+            assert!(!kept(location, &paths), "{location}");
+        }
+        assert!(kept("anything", &[]));
+    }
 }
