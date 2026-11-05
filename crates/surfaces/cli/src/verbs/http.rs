@@ -68,6 +68,10 @@ pub(crate) struct AskArgs {
     #[arg(long, value_name = "BYTES", default_value_t = ANSWER_BYTES)]
     max_bytes: u64,
 
+    /// Follow no redirect: a 3xx is the answer, with its `location` header
+    #[arg(long)]
+    no_redirects: bool,
+
     #[command(flatten)]
     verb: VerbArgs,
 }
@@ -159,6 +163,7 @@ impl AskArgs {
             secret,
             timeout: self.timeout.unwrap_or(DEFAULT_TIMEOUT),
             max_bytes: self.max_bytes,
+            no_redirects: self.no_redirects,
         })
     }
 }

@@ -221,9 +221,12 @@ impl Http for Client {
                 redirects,
             ) {
                 Ok(to) => to,
+                // The redirect not followed keeps its status and kept headers (its `location`): with
+                // `max_redirects` 0, it is what the caller asked for.
                 Err((why, detail)) => {
                     return HttpOutcome {
                         status: Some(status),
+                        headers: kept_headers(&response, request),
                         ..HttpOutcome::failed(&url, OutcomeClass::Redirect(why), detail)
                     };
                 }
@@ -299,15 +302,9 @@ fn hop(
     Ok(to)
 }
 
-/// The final answer from `url`: its kept headers and at most the request's body cap, read before `deadline`.
-fn answer(
-    response: Response,
-    request: &HttpRequest,
-    url: String,
-    deadline: Instant,
-) -> HttpOutcome {
-    let status = response.status().as_u16();
-    let headers = response
+/// The headers of `response` that `request` keeps, by name, in any case.
+fn kept_headers(response: &Response, request: &HttpRequest) -> Vec<(String, String)> {
+    response
         .headers()
         .iter()
         .filter(|(name, _)| {
@@ -319,7 +316,18 @@ fn answer(
         .filter_map(|(name, value)| {
             Some((name.as_str().to_string(), value.to_str().ok()?.to_string()))
         })
-        .collect();
+        .collect()
+}
+
+/// The final answer from `url`: its kept headers and at most the request's body cap, read before `deadline`.
+fn answer(
+    response: Response,
+    request: &HttpRequest,
+    url: String,
+    deadline: Instant,
+) -> HttpOutcome {
+    let status = response.status().as_u16();
+    let headers = kept_headers(&response, request);
     let mut outcome = HttpOutcome {
         class: status_class(status),
         status: Some(status),

@@ -37,6 +37,9 @@ Options:
           
           [default: 1048576]
 
+      --no-redirects
+          Follow no redirect: a 3xx is the answer, with its `location` header
+
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)
           

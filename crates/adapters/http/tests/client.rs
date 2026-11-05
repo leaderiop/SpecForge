@@ -143,6 +143,20 @@ fn redirects_past_the_limit_are_refused() {
         "{outcome:?}"
     );
     assert_eq!(outcome.status, Some(302));
+    // The redirect not followed keeps its kept headers: with no redirect to follow, it is the answer.
+    let unfollowed = Client::new().request(
+        &HttpRequest {
+            max_redirects: 0,
+            keep_headers: vec!["location".to_string()],
+            ..private(&format!("{base}/"))
+        },
+        &Any,
+    );
+    assert_eq!(
+        (unfollowed.class, unfollowed.header("location")),
+        (OutcomeClass::Redirect(Redirected::Limit), Some("/again")),
+        "{unfollowed:?}"
+    );
 }
 
 #[test]

@@ -98,7 +98,11 @@ whole port `off`). A request outside it is refused before any effect, with the c
   picked run is a captured one, and `--help` says so. `run --in <dir>` runs it in a
   directory held to the roots as a typed path is, with `PWD` naming it, so its record names the directory too. `run --which` answers
   where the runner's resolver (PATH, and PATHEXT on Windows) finds each program, and runs nothing.
-- `http` exits 0 when any HTTP answer arrived (a 404 is `ok: false`), 1 when unreachable or refused.
+- `http` answers `{method, url, ok, status, outcome, final_url, headers, content_type, bytes, body, json, truncated}`:
+  `outcome` is the class the journal writes (`ok`, `status:404`, `capped`), `bytes` how many body bytes came. It exits
+  0 when any HTTP answer arrived (a 404 is `ok: false`), 1 when unreachable or refused. `--no-redirects` follows none:
+  the 3xx is the answer (`outcome: redirect:limit`, its `location` kept). ADR 0337 D3 journals no redirect class, so
+  `replay` never answers one.
 
 ## D5. History through gix
 

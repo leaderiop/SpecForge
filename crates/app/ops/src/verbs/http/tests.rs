@@ -32,6 +32,7 @@ fn get(url: &str) -> Ask {
         secret: None,
         timeout: Duration::from_secs(5),
         max_bytes: ANSWER_BYTES,
+        no_redirects: false,
     }
 }
 
@@ -252,6 +253,60 @@ fn a_body_past_the_cap_is_cut_and_read_as_no_json() {
     assert!(answer.answer.truncated);
     assert_eq!(answer.answer.body, r#"{"a":"#);
     assert_eq!(answer.answer.json, None);
+}
+
+/// An answer says its class, its content type and how many body bytes came.
+#[test]
+fn an_answer_says_its_outcome_content_type_and_bytes() {
+    let project = TestProject::new();
+    let url = "https://api.acme.dev/items";
+    let http = Arc::new(FakeHttp::new().route_with(
+        url,
+        404,
+        vec![("content-type", "application/json")],
+        r#"{"no":1}"#,
+    ));
+    let answer = request(&verbs(&project, &http), &get(url), EffectsMode::Online)
+        .unwrap()
+        .answer;
+    assert_eq!(
+        (
+            answer.outcome.as_str(),
+            answer.content_type.as_deref(),
+            answer.bytes
+        ),
+        ("status:404", Some("application/json"), 8)
+    );
+}
+
+/// `--no-redirects`: a 3xx is the answer, with its `location`, and the hop is never asked.
+#[test]
+fn no_redirects_answers_the_redirect_itself() {
+    let project = TestProject::new();
+    let from = "https://api.acme.dev/old";
+    let http = Arc::new(
+        FakeHttp::new()
+            .redirect(from, "https://api.acme.dev/new")
+            .route("https://api.acme.dev/new", 200, "new"),
+    );
+    let verbs = verbs(&project, &http);
+    let ask = Ask {
+        no_redirects: true,
+        ..get(from)
+    };
+    let answer = request(&verbs, &ask, EffectsMode::Online).unwrap().answer;
+    assert_eq!(
+        (answer.status, answer.ok, answer.outcome.as_str()),
+        (302, false, "redirect:limit")
+    );
+    assert_eq!(answer.headers["location"], "https://api.acme.dev/new");
+    assert_eq!((answer.final_url.as_str(), answer.bytes), (from, 0));
+    assert_eq!(http.requests()[0].max_redirects, 0);
+    // Followed, the same request answers where it leads.
+    let followed = request(&verbs, &get(from), EffectsMode::Online)
+        .unwrap()
+        .answer;
+    assert_eq!((followed.status, followed.body.as_str()), (200, "new"));
 }
 
 #[test]

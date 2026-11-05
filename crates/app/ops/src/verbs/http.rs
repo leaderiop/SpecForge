@@ -52,6 +52,8 @@ pub struct Ask {
     pub timeout: Duration,
     /// The most body bytes the answer keeps; past it the answer is `truncated`.
     pub max_bytes: u64,
+    /// Follow no redirect: a 3xx is the answer, its `location` kept.
+    pub no_redirects: bool,
 }
 
 /// A request body.
@@ -75,10 +77,18 @@ pub struct HttpAnswer {
     /// A 2xx answer.
     pub ok: bool,
     pub status: u16,
+    /// The answer's class as the effects journal writes it: `ok`, `status:404`, `capped`, `redirect:limit` (a 3xx
+    /// under `--no-redirects`).
+    pub outcome: String,
     /// The URL that answered, after the redirects followed.
     pub final_url: String,
     /// The kept response headers ([`KEPT_HEADERS`]), lowercased.
     pub headers: BTreeMap<String, String>,
+    /// The response's `content-type`, when it names one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_type: Option<String>,
+    /// How many body bytes were read: past the asked cap, one more than it.
+    pub bytes: u64,
     /// The body as text (invalid UTF-8 replaced), at most the asked cap.
     pub body: String,
     /// The body read as JSON, when it is JSON and whole.
@@ -211,11 +221,13 @@ pub fn request(
     );
     let served = effects.serve_user(verbs.ports(), &asked, UnixMillis::now_or_end(), |ports| {
         let outcome = ports.http.request(&request, &hops);
-        // A server's answer, whole or cut; a refused redirect is no answer, though a status came with it.
-        let answers = matches!(
-            outcome.class,
-            OutcomeClass::Ok | OutcomeClass::Status(_) | OutcomeClass::Capped
-        );
+        // A server's answer, whole or cut; a refused redirect is no answer, though a status came with it, unless no
+        // redirect was to be followed.
+        let answers = match outcome.class {
+            OutcomeClass::Ok | OutcomeClass::Status(_) | OutcomeClass::Capped => true,
+            OutcomeClass::Redirect(Redirected::Limit) => ask.no_redirects,
+            _ => false,
+        };
         let answered = outcome.status.filter(|_| answers).map(|status| {
             let truncated =
                 outcome.class == OutcomeClass::Capped || outcome.body.len() as u64 > ask.max_bytes;
@@ -226,7 +238,10 @@ pub fn request(
                 url: request.url.clone(),
                 ok: (200..300).contains(&status),
                 status,
+                outcome: outcome.class.to_string(),
                 final_url: outcome.final_url.clone(),
+                content_type: outcome.header("content-type").map(str::to_string),
+                bytes: outcome.body.len() as u64,
                 headers: outcome.headers.iter().cloned().collect(),
                 json: (!truncated)
                     .then(|| serde_json::from_slice(&body).ok())
@@ -348,7 +363,7 @@ fn built(verbs: &Verbs, ask: &Ask) -> Result<HttpRequest, OpError> {
         body,
         body_cap: ask.max_bytes.saturating_add(1),
         timeout_ms: u64::try_from(ask.timeout.min(TIMEOUT_CEILING).as_millis()).unwrap_or(u64::MAX),
-        max_redirects: MAX_REDIRECTS,
+        max_redirects: if ask.no_redirects { 0 } else { MAX_REDIRECTS },
         // The user typed the address: a server on this machine or the local network is theirs to reach, but not one a
         // redirect to another origin names.
         allow_private: specforge_effects::Private::TypedOrigin,
