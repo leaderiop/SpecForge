@@ -35,6 +35,9 @@ pub(crate) const FIELDS_LONG_HELP: &str = "With --pick: print one row per item t
      whitespace, so a read keeps an empty cell and the rows never misalign. A backslash, newline, carriage return or \
      0x1f in a cell prints as \\\\, \\n, \\r or \\x1f.";
 
+/// `--pick`'s id: the shapes and `--fields` require it.
+pub(crate) const PICK: &str = "pick";
+
 /// The short help of `--pick`, on every command that takes it.
 pub(crate) const HELP: &str = "Print only the values at this path of the JSON answer, one per line";
 
@@ -88,7 +91,7 @@ pub(crate) struct PickedOutputArg {
     #[arg(
         long,
         default_value = "human",
-        default_value_if("pick", clap::builder::ArgPredicate::IsPresent, "json")
+        default_value_if(PICK, clap::builder::ArgPredicate::IsPresent, "json")
     )]
     format: OutputFormat,
 
@@ -151,25 +154,26 @@ pub(crate) const JOIN_LONG_HELP: &str = "With --pick: print the values kept on o
 /// last n, or on one line joined by a separator.
 #[derive(clap::Args, Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Shape {
-    #[arg(long, requires = "pick", conflicts_with_all = ["first", "last", "join"], help = COUNT_HELP, long_help = COUNT_LONG_HELP)]
+    #[arg(id = COUNT, long, requires = PICK, conflicts_with_all = [FIRST, LAST, JOIN], help = COUNT_HELP, long_help = COUNT_LONG_HELP)]
     count: bool,
 
-    #[arg(long, value_name = "N", requires = "pick", conflicts_with = "last", help = FIRST_HELP)]
+    #[arg(id = FIRST, long, value_name = "N", requires = PICK, conflicts_with = LAST, help = FIRST_HELP)]
     first: Option<usize>,
 
-    #[arg(long, value_name = "N", requires = "pick", help = LAST_HELP)]
+    #[arg(id = LAST, long, value_name = "N", requires = PICK, help = LAST_HELP)]
     last: Option<usize>,
 
-    #[arg(long, value_name = "SEP", requires = "pick", help = JOIN_HELP, long_help = JOIN_LONG_HELP)]
+    #[arg(id = JOIN, long, value_name = "SEP", requires = PICK, help = JOIN_HELP, long_help = JOIN_LONG_HELP)]
     join: Option<String>,
 }
 
-/// The shapes' names: an extension command takes each as a host option unless it declares an arg of the name.
+/// The shapes' names, the ids [`Shape`] derives its args under: an extension command takes each as a host option
+/// unless it declares an arg of the name.
 pub(crate) const SHAPES: [&str; 4] = [COUNT, FIRST, LAST, JOIN];
-const COUNT: &str = "count";
+pub(crate) const COUNT: &str = "count";
 const FIRST: &str = "first";
 const LAST: &str = "last";
-const JOIN: &str = "join";
+pub(crate) const JOIN: &str = "join";
 
 impl Shape {
     /// The host options of the shapes `added` names (of [`SHAPES`]), as an extension command takes them: the args

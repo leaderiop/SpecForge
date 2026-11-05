@@ -360,3 +360,17 @@ fn an_empty_answer_prints_no_shape() {
         );
     }
 }
+
+#[test]
+fn the_shape_names_are_the_ids_the_args_derive() {
+    use clap::Args as _;
+    let derived = Shape::augment_args(clap::Command::new(""));
+    let ids: Vec<&str> = derived
+        .get_arguments()
+        .map(|arg| arg.get_id().as_str())
+        .collect();
+    assert_eq!(ids, SHAPES);
+    for arg in derived.get_arguments() {
+        assert_eq!(arg.get_long(), Some(arg.get_id().as_str()));
+    }
+}

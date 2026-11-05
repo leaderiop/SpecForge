@@ -19,7 +19,7 @@
 //! it answers is applied by the host (`plan.rs`, ADR 0289).
 
 use crate::outcome::Exit;
-use crate::pick::{Pick, Shape};
+use crate::pick::{PICK, Pick, Shape};
 use crate::project::ProjectArg;
 use crate::terminal::{Stream, Terminal, err, errln, out};
 use clap::builder::PossibleValuesParser;
@@ -45,10 +45,6 @@ const HOST: &str = "host";
 
 /// The host's option on a writing command: show its plan, write nothing.
 const DRY_RUN: &str = "dry-run";
-
-/// The host's option on every extension command that declares no arg of the name: print only the values at a path
-/// of the JSON answer (ADR 0325). It asks for `json`.
-const PICK: &str = "pick";
 
 /// The host's option on every extension command that declares no arg of the name: the effects mode of what the command
 /// is lent (ADR 0337 D4).

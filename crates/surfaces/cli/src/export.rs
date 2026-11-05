@@ -67,7 +67,7 @@ pub(crate) struct Args {
     #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = crate::pick::HELP, long_help = crate::pick::EXPORT_LONG_HELP)]
     pick: Option<Pick>,
 
-    #[arg(long, value_name = "KEYS", requires = "pick", conflicts_with_all = ["count", "join"], value_parser = crate::pick::Fields::parse, help = crate::pick::FIELDS_HELP, long_help = crate::pick::FIELDS_LONG_HELP)]
+    #[arg(long, value_name = "KEYS", requires = crate::pick::PICK, conflicts_with_all = [crate::pick::COUNT, crate::pick::JOIN], value_parser = crate::pick::Fields::parse, help = crate::pick::FIELDS_HELP, long_help = crate::pick::FIELDS_LONG_HELP)]
     fields: Option<crate::pick::Fields>,
 
     #[command(flatten)]
