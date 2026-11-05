@@ -112,7 +112,7 @@ Parse JSON for: `researcher_model`, `planner_model`, `checker_model`, `research_
 
 **If `response_language` is set:** All user-facing orchestrator output — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be in `{response_language}`; technical terms, code, paths, and subagent prompts stay in English. Pass `response_language: {value}` into every spawned subagent prompt.
 
-**Entity ids (for <required_reading> blocks):** `state_path`, `roadmap_path`, `requirements_path`, `context_path`, `research_path`, `verification_path`, `uat_path`, `reviews_path` each name an entity, read with `specforge query <id> --format context`. These are empty if the phase has no such entity.
+**Entity ids (for <required_reading> blocks):** `roadmap_path`, `context_path`, `research_path`, `verification_path`, `uat_path` each name an entity, and `requirements_path` holds the phase's requirement ids, one per line: each is read with `specforge query <id> --format context`. These are empty if the phase has no such entity. The project state is computed (`specforge gsd progress-report`), and REVIEWS.md is no entity: neither has a value here.
 
 **If `planning_exists` is false:** Error — run `/gsd:new-project` first.
 
@@ -766,18 +766,18 @@ Planner prompt:
 **Mode:** {standard | gap_closure | reviews}
 
 <required_reading>
-- {state_path} (Project State)
-- {roadmap_path} (Roadmap)
-- {requirements_path} (Requirements)
-- {context_path} (USER DECISIONS from /gsd:discuss-phase)
-- {research_path} (Technical Research)
-- {PATTERNS_PATH} (Pattern Map — analog files and code excerpts, if exists)
-- {verification_path} (Verification Gaps - if --gaps)
-- {uat_path} (UAT Gaps - if --gaps)
-- {reviews_path} (Cross-AI Review Feedback - if --reviews; actionable findings must be incorporated or explicitly deferred/rejected in PLAN.md)
-- {AI_SPEC_PATH} (AI Design Contract — framework and evaluation strategy, if exists)
-- {UI_SPEC_PATH} (UI Design Contract — visual/interaction specs, if exists)
-- {SPEC_PATH} (Phase SPEC — carries the ## Edge Coverage section to lift resolved edges from, if exists)
+- `specforge gsd progress-report` (Project State, computed)
+- `specforge query {roadmap_path} --format context` (Roadmap: the milestone)
+- `specforge query <id> --format context` for each id of {requirements_path} (Requirements)
+- `specforge query {context_path} --format context` (USER DECISIONS from /gsd:discuss-phase)
+- `specforge query {research_path} --format context` (Technical Research)
+- `specforge query {PATTERNS_PATH} --format context` (Pattern Map — analog files and code excerpts, if set)
+- `specforge query {verification_path} --format context` (Verification Gaps - if --gaps)
+- `specforge query {uat_path} --format context` (UAT Gaps - if --gaps)
+
+- `specforge query {AI_SPEC_PATH} --format context` (AI Design Contract — framework and evaluation strategy, if set)
+- `specforge query {UI_SPEC_PATH} --format context` (UI Design Contract — visual/interaction specs, if set)
+- `specforge query {SPEC_PATH} --format context` (Phase SPEC — carries the ## Edge Coverage section to lift resolved edges from, if set)
 - {SPIKE_FINDINGS_PATH} (Spike Findings — validated patterns, constraints, landmines from experiments, if exists)
 - {SKETCH_FINDINGS_PATH} (Sketch Findings — validated design decisions, CSS patterns, visual direction, if exists)
 - {API_SURFACE_PATH} (API Surface — HINT ONLY, when intel capability is active; see <intel_surface_hint> below)
@@ -1047,12 +1047,12 @@ Checker prompt:
 **Mode:** {standard | gap_closure | reviews}
 
 <required_reading>
-- {PHASE_DIR}/*-PLAN.md (Plans to verify)
-- {roadmap_path} (Roadmap)
-- {requirements_path} (Requirements)
-- {context_path} (USER DECISIONS from /gsd:discuss-phase)
-- {research_path} (Technical Research — includes Validation Architecture)
-- {reviews_path} (Cross-AI Review Feedback - if --reviews; verify actionable findings are represented in PLAN.md)
+- `specforge query {PHASE_ID} --kinds plan --format context` (Plans to verify)
+- `specforge query {roadmap_path} --format context` (Roadmap: the milestone)
+- `specforge query <id> --format context` for each id of {requirements_path} (Requirements)
+- `specforge query {context_path} --format context` (USER DECISIONS from /gsd:discuss-phase)
+- `specforge query {research_path} --format context` (Technical Research — includes Validation Architecture)
+
 </required_reading>
 
 ${AGENT_SKILLS_CHECKER}
@@ -1176,8 +1176,8 @@ Revision prompt:
 **Mode:** revision
 
 <required_reading>
-- {PHASE_DIR}/*-PLAN.md (Existing plans)
-- {context_path} (USER DECISIONS from /gsd:discuss-phase)
+- `specforge query {PHASE_ID} --kinds plan --format context` (Existing plans)
+- `specforge query {context_path} --format context` (USER DECISIONS from /gsd:discuss-phase)
 </required_reading>
 
 ${AGENT_SKILLS_PLANNER}
@@ -1459,7 +1459,7 @@ This commits all PLAN.md files for the phase plus the updated STATE.md and ROADM
 Proactive, non-blocking coverage report gated on `workflow.post_planning_gaps`
 (default `true`). Dispatched via the `plan:post` capability gate owned by the
 `gap-analysis` capability (ADR-857 §53). Reads REQUIREMENTS.md and CONTEXT.md
-`<decisions>` and cross-references each REQ-ID / D-ID against `${PHASE_DIR}/*-PLAN.md`.
+`<decisions>` and cross-references each REQ-ID / D-ID against the phase's plan entities.
 
 ```bash
 IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true

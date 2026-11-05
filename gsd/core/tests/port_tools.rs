@@ -629,3 +629,14 @@ fn progress_reads_only_the_verification_values_it_assigns() {
         "progress.md reads values nothing assigns: {unassigned:?}"
     );
 }
+
+/// plan-phase's agent prompts name entities read with `specforge`, never a value with no source: the project state is
+/// computed, REVIEWS.md is no entity and a phase has no directory.
+#[test]
+fn plan_phase_prompts_name_no_unsourced_path() {
+    let text = std::fs::read_to_string(root().join("assets/gsd-core/workflows/plan-phase.md"))
+        .expect("plan-phase.md");
+    for unsourced in ["{state_path}", "{reviews_path}", "{PHASE_DIR}/"] {
+        assert!(!text.contains(unsourced), "plan-phase.md names {unsourced}");
+    }
+}

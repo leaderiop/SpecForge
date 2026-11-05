@@ -167,6 +167,12 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/plan-phase.md", 712, 712),
     ("gsd-core/workflows/validate-phase.md", 141, 141),
     ("gsd-core/workflows/validate-phase.md", 160, 160),
+    // The planner's and the checker's required reading names entities read with `specforge`; the project state is
+    // computed and REVIEWS.md is no entity, so neither is a placeholder.
+    ("gsd-core/workflows/plan-phase.md", 767, 778),
+    ("gsd-core/workflows/plan-phase.md", 1048, 1053),
+    ("gsd-core/workflows/plan-phase.md", 1177, 1178),
+    ("gsd-core/workflows/plan-phase.md", 1460, 1460),
     // Stats, settings and commit counts are the graph's and the settings' answers.
     ("gsd-core/workflows/complete-milestone.md", 188, 192),
     ("gsd-core/workflows/complete-milestone.md", 203, 203),
