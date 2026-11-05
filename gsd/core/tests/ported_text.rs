@@ -5,6 +5,7 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use gsd_core::prompts::{asset, asset_paths, render_text, repoint, without_notice};
+use gsd_kit::prompt::args::Values;
 use regex::Regex;
 use roster::ROSTER;
 
@@ -49,7 +50,7 @@ const NOT_PORTED: &[&str] = &[
 ];
 
 /// One render's input: the argument text and every declared name with its placeholder value (`args::values`).
-type Combo = (String, Vec<(String, Option<String>)>);
+type Combo = (String, Values);
 
 /// Every prompt as `(command stem, combinations)`: none, every flag, every enum value, text and integer options.
 fn prompts() -> Vec<(String, Vec<Combo>)> {
@@ -109,11 +110,7 @@ fn sweep() -> Vec<(String, &'static str, String, String)> {
     for (command, combos) in prompts() {
         for host in HOSTS {
             for (arguments, values) in &combos {
-                let values: Vec<(&str, Option<String>)> = values
-                    .iter()
-                    .map(|(n, v)| (n.as_str(), v.clone()))
-                    .collect();
-                let text = render_text(&command, host, arguments, &values)
+                let text = render_text(&command, host, arguments, values)
                     .unwrap_or_else(|e| panic!("{command} on {host} with '{arguments}': {e}"));
                 all.push((command.clone(), host, arguments.clone(), text));
             }

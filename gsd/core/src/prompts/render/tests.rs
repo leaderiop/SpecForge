@@ -3,12 +3,14 @@ use gsd_kit::prompt::preamble::{self, FILES, MARKER};
 
 const EMBEDDED: &str = "references/verification-patterns.md";
 
+static NO_VALUES: Values = Values::NONE;
+
 fn input<'a>(host: &'a str, arguments: &'a str) -> Input<'a> {
     Input {
         command: "x",
         host,
         arguments,
-        values: &[],
+        values: &NO_VALUES,
         settings: "{}",
         tail: "",
     }

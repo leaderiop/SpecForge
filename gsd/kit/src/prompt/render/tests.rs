@@ -21,7 +21,7 @@ fn the_arguments_are_spliced_after_the_host_rewrites() {
             command: "quick",
             host,
             arguments: typed,
-            values: &[],
+            values: &Values::NONE,
             settings: "",
             extension: "@gsd/core",
             files: &[],
@@ -39,7 +39,7 @@ fn the_arguments_are_spliced_after_the_host_rewrites() {
     }
 }
 
-fn input<'a>(arguments: &'a str, values: &'a [(&'a str, Option<String>)]) -> Input<'a> {
+fn input<'a>(arguments: &'a str, values: &'a Values) -> Input<'a> {
     Input {
         command: "x",
         host: "claude-code",
@@ -56,7 +56,8 @@ fn input<'a>(arguments: &'a str, values: &'a [(&'a str, Option<String>)]) -> Inp
 
 /// The body of a render: the text after the preamble's last line.
 fn filled(command: &str, arguments: &str, values: &[(&str, Option<String>)]) -> String {
-    let out = assemble(command, &input(arguments, values));
+    let values: Values = values.iter().map(|(n, v)| (*n, v.clone())).collect();
+    let out = assemble(command, &input(arguments, &values));
     let at = out.rfind("<<START>>").expect("the marker") + "<<START>>".len();
     out[at..].to_string()
 }

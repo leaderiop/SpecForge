@@ -193,13 +193,32 @@ pub fn unescaped_value(arg: &Arg, value: &Value) -> Option<String> {
     }
 }
 
+/// Every argument a prompt declares, with the value its `{{arg:<name>|…}}` placeholder takes (unescaped), or `None` when
+/// it was not given.
+pub struct Values(Vec<(String, Option<String>)>);
+
+impl Values {
+    /// No declared argument.
+    pub const NONE: Values = Values(Vec::new());
+
+    /// The value of `name`: `None` when the prompt does not declare it, `Some(None)` when it was not given.
+    pub fn get(&self, name: &str) -> Option<Option<&str>> {
+        self.0
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, value)| value.as_deref())
+    }
+}
+
+impl<N: Into<String>> FromIterator<(N, Option<String>)> for Values {
+    fn from_iter<I: IntoIterator<Item = (N, Option<String>)>>(iter: I) -> Values {
+        Values(iter.into_iter().map(|(n, v)| (n.into(), v)).collect())
+    }
+}
+
 /// Every declared name of `args` with the value its placeholder takes in `call`, or `None` when it was not given. The
 /// subject `(name, id)` the run is about, given or picked by the handler, takes its id.
-pub fn values(
-    call: &PromptCall<'_>,
-    args: &[Arg],
-    subject: Option<(&str, &str)>,
-) -> Vec<(&'static str, Option<String>)> {
+pub fn values(call: &PromptCall<'_>, args: &[Arg], subject: Option<(&str, &str)>) -> Values {
     args.iter()
         .map(|arg| {
             let value = match subject {

@@ -42,7 +42,7 @@ pub fn render_text(
     command: &str,
     host: &str,
     arguments: &str,
-    values: &[(&str, Option<String>)],
+    values: &args::Values,
 ) -> Result<String, String> {
     render::render(&render::Input {
         command,

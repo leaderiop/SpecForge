@@ -2,6 +2,7 @@
 //! re-pointing and its own `update` text (ours, not a port: D-r43-16, upstream's workflow installs upstream GSD over
 //! this one).
 
+use gsd_kit::prompt::args::Values;
 use gsd_kit::prompt::render as kit;
 
 use super::{assets, repoint::repoint_for};
@@ -16,7 +17,7 @@ pub struct Input<'a> {
     /// What `$ARGUMENTS` stands for (`args::text`).
     pub arguments: &'a str,
     /// The values of the `{{arg:}}` placeholders (`args::values`).
-    pub values: &'a [(&'a str, Option<String>)],
+    pub values: &'a Values,
     /// The settings block of the preamble (`settings::block()`).
     pub settings: &'a str,
     /// The prompt's own closing section, when it has one.

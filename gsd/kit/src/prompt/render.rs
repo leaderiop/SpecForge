@@ -7,6 +7,7 @@
 //! Then `$ARGUMENTS` and the `{{arg:}}` placeholders are filled, last: the typed text is data no rewrite runs on
 //! (ADR 0340). The host's adapter header goes in front, unconverted.
 
+use super::args::Values;
 use super::{compose, host, preamble, setting, shell};
 
 pub struct Input<'a> {
@@ -17,7 +18,7 @@ pub struct Input<'a> {
     /// What `$ARGUMENTS` stands for (`args::text`).
     pub arguments: &'a str,
     /// Every declared argument with the value its `{{arg:<name>|…}}` placeholder takes (`args::values`).
-    pub values: &'a [(&'a str, Option<String>)],
+    pub values: &'a Values,
     /// The settings block of the preamble (`settings::block()`).
     pub settings: &'a str,
     /// The extension the prompt belongs to (`@gsd/core`): the preamble names it as the owner of the settings and of the
@@ -85,7 +86,7 @@ const ARG_OPEN: &str = "{{arg:";
 /// `text` with `$ARGUMENTS` (not `$ARGUMENTS_X`) replaced by `arguments` and each `{{arg:<name>|<fallback>}}` by the
 /// declared name's value in `values`, escaped for double quotes, else its fallback (ADR 0340). One left-to-right scan
 /// that never rescans what it wrote: typed text holding either form stays data. An undeclared name keeps its token.
-fn fill_arguments(text: &str, arguments: &str, values: &[(&str, Option<String>)]) -> String {
+fn fill_arguments(text: &str, arguments: &str, values: &Values) -> String {
     let replacement = if arguments.is_empty() {
         "(no arguments)"
     } else {
@@ -119,9 +120,9 @@ fn fill_arguments(text: &str, arguments: &str, values: &[(&str, Option<String>)]
             return out;
         };
         let (name, fallback) = after[..end].split_once('|').unwrap_or((&after[..end], ""));
-        match values.iter().find(|(n, _)| *n == name) {
-            Some((_, Some(value))) => out.push_str(&shell::in_double_quotes(value)),
-            Some((_, None)) => out.push_str(fallback),
+        match values.get(name) {
+            Some(Some(value)) => out.push_str(&shell::in_double_quotes(value)),
+            Some(None) => out.push_str(fallback),
             None => out.push_str(&rest[at..at + ARG_OPEN.len() + end + 2]),
         }
         rest = &after[end + 2..];
