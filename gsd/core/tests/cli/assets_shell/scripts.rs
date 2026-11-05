@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use super::{Shell, asset, block, both, line, q, upstream};
+use super::{Shell, asset, block, line};
 
 /// T3, end to end: the commit lines' producer (`specforge query … --kinds commit`) and reader, in a project whose plan
 /// 01-01 has a commit, with `specforge` on a `PATH` that holds no node and no jq. It confirms the field paths the lines
@@ -126,96 +126,6 @@ fn git(dir: &Path, args: &[&str]) {
     );
 }
 
-/// A repository at `dir` with one committed file, then changed (`dirty`) or not, or holding an untracked file only.
-fn repository(dir: &Path, state: &str) {
-    std::fs::create_dir_all(dir).expect("a dir");
-    git(dir, &["init", "-q"]);
-    if state == "untracked" {
-        std::fs::write(dir.join("new"), "x").expect("a file");
-        return;
-    }
-    std::fs::write(dir.join("f"), "x").expect("a file");
-    git(dir, &["add", "f"]);
-    git(dir, &["commit", "-qm", "f"]);
-    if state == "dirty" {
-        std::fs::write(dir.join("f"), "y").expect("a change");
-    }
-}
-
-/// Pr-branch's sub-repository scan and its path check, bash where upstream's were node scripts (no jq either). With
-/// `planning.sub_repos` empty here they are not reached; they still keep upstream's refusals.
-#[test]
-fn the_sub_repo_scan_keeps_its_refusals() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
-    let top = tempfile::tempdir().expect("a dir");
-    let root = top.path().join("root");
-    repository(&root.join("a"), "dirty");
-    repository(&root.join("b"), "clean");
-    repository(&root.join("c"), "untracked");
-    repository(&top.path().join("outside"), "dirty");
-    std::os::unix::fs::symlink(top.path().join("outside"), root.join("l")).expect("a link");
-    let (text, up) = (
-        asset("gsd-core/workflows/pr-branch.md"),
-        upstream("gsd-core/workflows/pr-branch.md"),
-    );
-    let ours = block(
-        &text,
-        "printf '%s' \"$SUB_REPOS_JSON\" | tr",
-        "> \"$DIRTY_FILE\"",
-    );
-    let theirs = block(&up, "node -e \"", "\"$DIRTY_FILE\"");
-    let dirty = top.path().join("dirty");
-    // run from the project, as pr-branch is: `specforge git --in` is held to the roots of the project it is typed in
-    let setup = format!(
-        "ROOT={}\ncd \"$ROOT\"\nDIRTY_FILE={}\nSUB_REPOS_JSON={}",
-        q(&root.display().to_string()),
-        q(&dirty.display().to_string()),
-        q(r#"["a","b","c","l","../outside","a\nb",5,"d;rm","missing"]"#)
-    );
-    both(
-        &sh,
-        &setup,
-        &ours,
-        Some(&theirs),
-        "cat \"$DIRTY_FILE\"",
-        "a",
-    );
-    both(
-        &sh,
-        &format!("{setup}\nSUB_REPOS_JSON=x"),
-        &ours,
-        Some(&theirs),
-        "cat \"$DIRTY_FILE\"",
-        "",
-    );
-
-    let ours = block(&text, "SUB_REPO_DIR=$( (", ") 2>/dev/null)");
-    let theirs = block(&up, "SUB_REPO_DIR=$(node", "2>/dev/null)");
-    let real = std::fs::canonicalize(root.join("a")).expect("a real path");
-    for (rel, want) in [
-        ("a", real.display().to_string()),
-        ("../outside", String::new()),
-        ("l", String::new()),
-        ("missing", String::new()),
-    ] {
-        let setup = format!(
-            "ROOT={}\nREPO_REL={}",
-            q(&root.display().to_string()),
-            q(rel)
-        );
-        both(
-            &sh,
-            &setup,
-            &ours,
-            Some(&theirs),
-            "printf '%s' \"$SUB_REPO_DIR\"",
-            &want,
-        );
-    }
-}
-
 /// Pr-branch's filter (`FILTER_PATHS`, what each cherry-picked commit loses, and
 /// `FORBIDDEN_RE`, what `verify` asserts is gone) is the spec files for both layouts: under `spec/`, and, with the spec
 /// root at the project root (`.`), the `.spec` files at any depth, never the whole tree. Run in a scratch repository: a
@@ -226,7 +136,7 @@ fn the_pr_filter_keeps_the_code_whatever_the_spec_root() {
         return;
     };
     let text = asset("gsd-core/workflows/pr-branch.md");
-    let declare = block(&text, "TRANSIENT_DIRS=", "MILESTONE_PHASES_RE=");
+    let declare = block(&text, "TRANSIENT_DIRS=", "else SPEC_PATHSPEC=");
     let derive = block(&text, "Derive the mode's two projections", "FORBIDDEN_RE=");
     let (_, derive) = derive.split_once("```bash\n").expect("the derive block");
     let filter = block(&text, "while IFS= read -r P; do", "done <<FILTER_PATHS_EOF");
@@ -253,7 +163,7 @@ fn the_pr_filter_keeps_the_code_whatever_the_spec_root() {
         git(dir.path(), &["commit", "-qm", "feat: x"]);
         git(dir.path(), &["checkout", "-q", "-"]);
         let script = format!(
-            "PR_STRICT=true\n{}\n{derive}\nfi\n\
+            "{}\n{derive}\n\
              printf 'a.spec\\nsub/b.spec\\nspec/a.spec\\nsrc/x.js\\nspecforge-harness\\nREADME.md\\n' | grep -E \"$FORBIDDEN_RE\" | tr '\\n' ' '; echo\n\
              git cherry-pick --no-commit feature >/dev/null 2>&1 || true\n{filter}\n$FILTER_PATHS\nFILTER_PATHS_EOF\n\
              git diff --cached --name-only | tr '\\n' ' '",

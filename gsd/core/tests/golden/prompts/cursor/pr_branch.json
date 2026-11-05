@@ -61,18 +61,18 @@
     "fi",
     ""
   ],
-  "bytes": 35899,
+  "bytes": 23916,
   "end": [
     "",
     "Or use /gsd-ship to create the PR automatically.",
     "```",
     "",
-    "When `$OTHER` is non-empty (default mode only — strict forbids all of it), append:",
-    "```",
-    "ℹ️  These spec/ paths are neither transient nor structural, so default mode keeps them:",
-    "{OTHER}",
-    "    (the filter is always strict here: no spec path is kept)",
-    "```",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
     "</step>",
     "",
     "</process>",
@@ -81,8 +81,8 @@
     "- [ ] Working tree was clean before the PR branch was created",
     "- [ ] PR branch created from target",
     "- [ ] Planning-only commits excluded",
-    "- [ ] Zero paths matching the active mode's `$FORBIDDEN_RE` in the PR branch diff —",
-    "      strict: no spec path at all; default: none from `$TRANSIENT_DIRS`",
+    "- [ ] Zero paths matching `$FORBIDDEN_RE` in the PR branch diff: no spec path at all",
+    "",
     "- [ ] No spec path the target branch already tracked was deleted",
     "- [ ] Every included commit landed — none dropped by a failed cherry-pick",
     "- [ ] Commit messages preserved from original",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:d6aee7ee5c890cc166b7522bdb76ad9773cbaf4c3c10f0804e38ceee8f704e9d",
+    "digest": "sha256:ebd7abe46bd2af2a5a5bd50de401595bffe3570b708817782cd96a26f951b242",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "d6aee7ee5c890cc166b7522bdb76ad9773cbaf4c3c10f0804e38ceee8f704e9d"
+  "sha256": "ebd7abe46bd2af2a5a5bd50de401595bffe3570b708817782cd96a26f951b242"
 }

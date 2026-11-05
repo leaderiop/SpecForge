@@ -25,6 +25,9 @@ mod git_rewrites;
 #[path = "common/review_rewrites.rs"]
 mod review_rewrites;
 
+#[path = "common/relic_rewrites.rs"]
+mod relic_rewrites;
+
 /// Body lines (0-based) that differ although upstream's names no ported tool: a relative link that leaves the tree
 /// became the absolute URL of the file at the tag, or where a rewrite fixed a line that names no ported tool but still
 /// told the agent something false.
@@ -138,12 +141,6 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/spec-phase.md", 63),
     ("gsd-core/workflows/spec-phase.md", 74),
     ("gsd-core/workflows/plan-phase.md", 639),
-    // SpecForge never prints an `@file:` payload: the prose that taught its guard is gone with the guard.
-    ("gsd-core/workflows/complete-milestone.md", 71),
-    (
-        "gsd-core/workflows/complete-milestone/detail/elaboration.md",
-        11,
-    ),
 ];
 
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not
@@ -190,7 +187,6 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/settings-integrations.md", 82, 82),
     ("gsd-core/workflows/settings-advanced.md", 496, 496),
     ("gsd-core/workflows/quick.md", 203, 203),
-    ("gsd-core/workflows/pr-branch.md", 261, 261),
     ("gsd-core/workflows/pr-branch.md", 252, 252),
     // The empty-name refusal, the next phase query, the integrations table.
     ("gsd-core/workflows/settings-integrations.md", 18, 18),
@@ -487,17 +483,6 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     // The manifest's temp file comes from `specforge files temp`, which keeps its suffix: upstream's comment explains
     // a mktemp that is gone.
     ("gsd-core/workflows/quick.md", 424, 425),
-    // Branches no input reaches (ADR 0343 D4): todos are @gsd/ops entities, a requirement is complete when a summary
-    // lists it, and quick commits every spec change with the work.
-    ("gsd-core/workflows/execute-phase.md", 1352, 1352),
-    ("gsd-core/workflows/execute-phase.md", 1355, 1373),
-    ("gsd-core/workflows/execute-phase.md", 1375, 1376),
-    ("gsd-core/workflows/execute-plan.md", 522, 522),
-    ("gsd-core/workflows/execute-plan.md", 524, 524),
-    ("gsd-core/workflows/execute-plan.md", 527, 527),
-    ("gsd-core/workflows/quick.md", 719, 720),
-    ("gsd-core/workflows/quick.md", 723, 723),
-    ("gsd-core/workflows/quick.md", 725, 728),
 ];
 
 fn root() -> PathBuf {
@@ -572,11 +557,13 @@ fn workflow_assets_diff_only_in_ported_passages() {
                 REWRITTEN.contains(&(path.as_str(), n))
                     || jq_rewrites::LINES.contains(&(path.as_str(), n))
                     || review_rewrites::LINES.contains(&(path.as_str(), n))
+                    || relic_rewrites::LINES.contains(&(path.as_str(), n))
                     || REWRITTEN_SPANS
                         .iter()
                         .chain(jq_rewrites::SPANS)
                         .chain(quick_rewrites::SPANS)
                         .chain(git_rewrites::SPANS)
+                        .chain(relic_rewrites::SPANS)
                         .any(|(p, a, b)| *p == path && (*a..=*b).contains(&n))
             });
         };

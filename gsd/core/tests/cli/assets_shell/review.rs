@@ -91,6 +91,9 @@ fn the_batch_and_sub_repo_prose_says_what_runs() {
             &[
                 "using the canonical key path",
                 "A non-zero exit code means the key is absent",
+                "SUB_REPOS_JSON",
+                "STRUCTURAL_RE",
+                "default mode",
             ][..],
         ),
     ] {
