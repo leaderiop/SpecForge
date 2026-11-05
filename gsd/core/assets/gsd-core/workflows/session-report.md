@@ -24,7 +24,7 @@ Collect session data from available sources:
 specforge git log --since="24 hours ago" --no-merges --format human 2>/dev/null || echo "No recent commits"
 
 # Count files changed
-git diff --stat HEAD~10 HEAD 2>/dev/null | tail -1 || echo "No diff available"
+specforge git diff --base HEAD~10 --head HEAD --shortstat --format human 2>/dev/null || echo "No diff available"
 ```
 
 Read the computed project state to get:

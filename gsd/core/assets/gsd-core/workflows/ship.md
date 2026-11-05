@@ -398,8 +398,8 @@ If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:
 
 1. **Generate diff and stats:**
    ```bash
-   DIFF=$(git diff ${BASE_BRANCH}...HEAD)
-   DIFF_STATS=$(git diff --stat ${BASE_BRANCH}...HEAD)
+   DIFF=$(specforge git diff --base ${BASE_BRANCH} --merge-base --patch --format human)
+   DIFF_STATS=$(specforge git diff --base ${BASE_BRANCH} --merge-base --stat --format human)
    ```
 
 2. **Load phase context from STATE.md:**

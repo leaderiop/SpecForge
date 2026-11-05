@@ -188,7 +188,7 @@ Calculate milestone statistics:
 
 ```bash
 specforge git log --grep="feat\(" --max 20 --format human
-git diff --stat FIRST_COMMIT..LAST_COMMIT | tail -1
+specforge git diff --base FIRST_COMMIT --head LAST_COMMIT --shortstat --format human
 find . -name "*.swift" -o -name "*.ts" -o -name "*.py" | xargs wc -l 2>/dev/null || true
 specforge git log FIRST_COMMIT --reverse --pick '.commits[0].author.time'
 specforge git log LAST_COMMIT --max 1 --pick '.commits[0].author.time'

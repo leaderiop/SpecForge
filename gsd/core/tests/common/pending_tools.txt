@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 865 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 861 rows.
 ../security/assets/gsd-core/workflows/secure-phase.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ../security/assets/gsd-core/workflows/secure-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
@@ -302,7 +302,6 @@ gsd-core/workflows/complete-milestone.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -n
 gsd-core/workflows/complete-milestone.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/complete-milestone.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/complete-milestone.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-gsd-core/workflows/complete-milestone.md	tail	git diff --stat FIRST_COMMIT..LAST_COMMIT | tail -1
 gsd-core/workflows/complete-milestone.md	wc	find . -name "*.swift" -o -name "*.ts" -o -name "*.py" | xargs wc -l 2>/dev/null || true
 gsd-core/workflows/complete-milestone.md	xargs	find . -name "*.swift" -o -name "*.ts" -o -name "*.py" | xargs wc -l 2>/dev/null || true
 gsd-core/workflows/complete-milestone/detail/elaboration.md	cat	if [[ "$AUDIT_JSON" == @file:* ]]; then AUDIT_JSON=$(cat "${AUDIT_JSON#@file:}"); fi
@@ -400,7 +399,6 @@ gsd-core/workflows/manager.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --
 gsd-core/workflows/manager.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/manager.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/milestone-summary.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-gsd-core/workflows/milestone-summary.md	head	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
 gsd-core/workflows/milestone-summary.md	head	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 gsd-core/workflows/milestone-summary.md	sed	VERSION=$(echo "$GSD_ARGS" | sed -nE 's/.*--milestone[[:space:]]+v?([A-Za-z0-9._-]+).*/\1/p'); VERSION=${VERSION:-${MILESTONE#v}}   # --milestone, else the milestone the run is about
 gsd-core/workflows/milestone-summary.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -562,7 +560,6 @@ gsd-core/workflows/review.md	tr	[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL"
 gsd-core/workflows/review.md	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
 gsd-core/workflows/review.md	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
 gsd-core/workflows/review.md	wc	[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL" | tr -d ' ')
-gsd-core/workflows/session-report.md	tail	git diff --stat HEAD~10 HEAD 2>/dev/null | tail -1 || echo "No diff available"
 gsd-core/workflows/settings-advanced.md	cat	cat "$GSD_CONFIG_PATH"
 gsd-core/workflows/settings-advanced.md	cat	cat "$GSD_CONFIG_PATH" | python3 -c "import sys,json; c=json.load(sys.stdin); mp=c.get('model_policy',{}); print(json.dumps(mp,indent=2))" 2>/dev/null || echo "{}"
 gsd-core/workflows/settings.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
@@ -681,7 +678,6 @@ prompt:manager	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9
 prompt:manager	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:manager	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:milestone_summary	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-prompt:milestone_summary	head	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
 prompt:milestone_summary	head	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 prompt:milestone_summary	sed	VERSION=$(echo "$GSD_ARGS" | sed -nE 's/.*--milestone[[:space:]]+v?([A-Za-z0-9._-]+).*/\1/p'); VERSION=${VERSION:-${MILESTONE#v}}   # --milestone, else the milestone the run is about
 prompt:milestone_summary	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -1008,11 +1004,10 @@ prompt:progress	grep	if echo "$GSD_ARGS" | grep -qE '\-\-max-cycles\s+[0-9]+'; t
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 
-# D git: git, embedded (R2). 83 rows.
+# D git: git, embedded (R2). 73 rows.
 agents/gsd-executor.md	git	git add src/api/auth.ts
 agents/gsd-executor.md	git	git add src/types/user.ts
 agents/gsd-executor.md	git	git -C "{sub_repo}" commit -m "{type}({phase}-{plan}): {concise task description}" -- file1 file2 ...
-gsd-core/workflows/complete-milestone.md	git	git diff --stat FIRST_COMMIT..LAST_COMMIT | tail -1
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git merge --squash "$branch"
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git merge --squash "$MILESTONE_BRANCH"
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git merge --no-ff --no-commit "$branch"
@@ -1025,8 +1020,6 @@ gsd-core/workflows/execute-phase.md	git	git hook run pre-commit 2>&1 || echo "�
 gsd-core/workflows/execute-phase.md	git	git worktree unlock "$WT" 2>/dev/null || true
 gsd-core/workflows/fast.md	git	git add -A -- ':!spec'
 gsd-core/workflows/ingest-docs.md	git	git init
-gsd-core/workflows/milestone-summary.md	git	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
-gsd-core/workflows/milestone-summary.md	git	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
 gsd-core/workflows/new-milestone.md	git	git add "$ARCHIVE_DIR/" "$PHASES_DIR/" 2>/dev/null || true
 gsd-core/workflows/new-workspace.md	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "$BRANCH_NAME" 2>&1
 gsd-core/workflows/new-workspace.md	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "${BRANCH_NAME}-${TIMESTAMP}" 2>&1
@@ -1046,11 +1039,8 @@ gsd-core/workflows/quick.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH";
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	git	git add "${QUICK_PREDISPATCH_PATHS[@]}"
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	git	git commit --no-verify -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	git	git commit -m "docs(${quick_id}): pre-dispatch artifacts for ${DESCRIPTION}" -- "${QUICK_PREDISPATCH_PATHS[@]}" \
-gsd-core/workflows/session-report.md	git	git diff --stat HEAD~10 HEAD 2>/dev/null | tail -1 || echo "No diff available"
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1
 gsd-core/workflows/ship.md	git	git push --set-upstream origin ${CURRENT_BRANCH} 2>&1
-gsd-core/workflows/ship.md	git	DIFF=$(git diff ${BASE_BRANCH}...HEAD)
-gsd-core/workflows/ship.md	git	DIFF_STATS=$(git diff --stat ${BASE_BRANCH}...HEAD)
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: recovery push failed — rerun: git push origin ${CURRENT_BRANCH}"
 gsd-core/workflows/undo.md	git	git revert --no-commit ${HASH}
@@ -1063,8 +1053,6 @@ prompt:execute_phase	git	git hook run pre-commit 2>&1 || echo "⚠ Pre-commit ho
 prompt:execute_phase	git	git worktree unlock "$WT" 2>/dev/null || true
 prompt:fast	git	git add -A -- ':!spec'
 prompt:ingest_docs	git	git init
-prompt:milestone_summary	git	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
-prompt:milestone_summary	git	git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
 prompt:new_milestone	git	git add "$ARCHIVE_DIR/" "$PHASES_DIR/" 2>/dev/null || true
 prompt:pr_branch	git	if git -C "$SUB_REPO_DIR" ls-remote --exit-code --heads origin "$TARGET" \
 prompt:pr_branch	git	SUB_TARGET=$(git -C "$SUB_REPO_DIR" remote show origin 2>/dev/null \
@@ -1080,8 +1068,6 @@ prompt:pr_branch	git	git commit -q -C "$HASH"
 prompt:quick	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1
 prompt:ship	git	git push --set-upstream origin ${CURRENT_BRANCH} 2>&1
-prompt:ship	git	DIFF=$(git diff ${BASE_BRANCH}...HEAD)
-prompt:ship	git	DIFF_STATS=$(git diff --stat ${BASE_BRANCH}...HEAD)
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: recovery push failed — rerun: git push origin ${CURRENT_BRANCH}"
 prompt:undo	git	git revert --no-commit ${HASH}

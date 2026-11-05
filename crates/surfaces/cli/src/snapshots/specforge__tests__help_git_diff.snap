@@ -27,7 +27,16 @@ Options:
           Compare with the tracked files as they are on disk
 
       --patch
-          Give each text file's unified hunks
+          Give each text file's unified hunks; with --format human, each file's patch as git prints it
+
+      --merge-base
+          Compare from where --base and the head meet (`git diff A...B`)
+
+      --stat
+          With --format human: end the file lines with git's summary of files changed, insertions and deletions
+
+      --shortstat
+          With --format human: print only git's summary of files changed, insertions and deletions
 
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)

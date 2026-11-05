@@ -162,6 +162,9 @@ pub struct DiffRequest {
     pub head: DiffHead,
     pub paths: Vec<String>,
     pub patch: bool,
+    /// Compare from where the base and the head's commit (HEAD for the index or the worktree) meet, as `git diff
+    /// A...B` and `--merge-base` do.
+    pub merge_base: bool,
 }
 
 /// `git diff`'s answer: the base commit, the head (a commit, `index` or `worktree`) and the changed files by path.
@@ -170,6 +173,9 @@ pub struct DiffAnswer {
     pub base: String,
     pub head: String,
     pub count: usize,
+    /// The lines the text files gain and lose, as `--shortstat` totals them.
+    pub added: u64,
+    pub removed: u64,
     pub files: Vec<GitFileDiff>,
 }
 
@@ -511,7 +517,7 @@ pub fn log(verbs: &Verbs, request: &LogRequest) -> Result<LogAnswer, OpError> {
 
 pub fn diff(verbs: &Verbs, request: &DiffRequest) -> Result<DiffAnswer, OpError> {
     let place = verbs.place("diff")?;
-    let base = commit_named(verbs, &place, request.base.as_deref().unwrap_or("HEAD"))?;
+    let mut base = commit_named(verbs, &place, request.base.as_deref().unwrap_or("HEAD"))?;
     let (head, named) = match &request.head {
         DiffHead::Revision(Some(revision)) => {
             let sha = commit_named(verbs, &place, revision)?;
@@ -526,6 +532,24 @@ pub fn diff(verbs: &Verbs, request: &DiffRequest) -> Result<DiffAnswer, OpError>
             (DiffSide::Worktree, "worktree".to_string())
         }
     };
+    if request.merge_base {
+        let against = match &head {
+            DiffSide::Commit(sha) => sha.clone(),
+            DiffSide::Index | DiffSide::Worktree => commit_named(verbs, &place, "HEAD")?,
+        };
+        base = verbs
+            .ports()
+            .git
+            .merge_base(&place, &base, &against)
+            .map_err(failed)?
+            .ok_or_else(|| {
+                invalid(GitError(format!(
+                    "{} and {} share no history: there is no merge base to compare from",
+                    base.short(),
+                    against.short()
+                )))
+            })?;
+    }
     let query = DiffQuery {
         base: base.clone(),
         head,
@@ -533,10 +557,13 @@ pub fn diff(verbs: &Verbs, request: &DiffRequest) -> Result<DiffAnswer, OpError>
         patch: request.patch,
     };
     let files = verbs.ports().git.diff(&place, &query).map_err(failed)?;
+    let text = || files.iter().filter(|file| !file.binary);
     Ok(DiffAnswer {
         base: base.as_str().to_string(),
         head: named,
         count: files.len(),
+        added: text().map(|file| u64::from(file.added)).sum(),
+        removed: text().map(|file| u64::from(file.removed)).sum(),
         files,
     })
 }

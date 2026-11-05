@@ -375,9 +375,21 @@ pub(crate) struct DiffArgs {
     #[arg(last = true, value_name = "PATH")]
     pub(super) paths: Vec<String>,
 
-    /// Give each text file's unified hunks
+    /// Give each text file's unified hunks; with --format human, each file's patch as git prints it
     #[arg(long)]
     pub(super) patch: bool,
+
+    /// Compare from where --base and the head meet (`git diff A...B`)
+    #[arg(long, requires = "base")]
+    pub(super) merge_base: bool,
+
+    /// With --format human: end the file lines with git's summary of files changed, insertions and deletions
+    #[arg(long, conflicts_with = "shortstat")]
+    pub(super) stat: bool,
+
+    /// With --format human: print only git's summary of files changed, insertions and deletions
+    #[arg(long, conflicts_with = "patch")]
+    pub(super) shortstat: bool,
 
     #[command(flatten)]
     pub(super) verb: VerbArgs,

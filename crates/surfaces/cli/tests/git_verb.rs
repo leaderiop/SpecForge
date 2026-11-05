@@ -6,6 +6,7 @@ use specforge_git::testing::Repo;
 
 use crate::support::{Cli, TestProject};
 
+mod diff;
 mod hooks;
 mod signing;
 mod writes;
@@ -364,86 +365,6 @@ fn log_with_three_dots_hides_every_merge_base_of_a_criss_cross() {
     assert_eq!(subjects, ["ma", "mb"]);
 }
 
-/// A project on branch `feature` off `main`: `a.txt` changed, `c.txt` added, `bin.dat` binary.
-fn feature() -> (TestProject, Repo) {
-    let (project, repo, first) = committed();
-    repo.branch("feature", &first).head_on("feature");
-    repo.write("a.txt", "one\nmore\n")
-        .write("c.txt", "c\n")
-        .write("bin.dat", "\0\u{1}\u{2}");
-    repo.commit_all("feature");
-    (project, repo)
-}
-
-#[test]
-fn diff_lists_the_files_a_branch_changed_since_its_base() {
-    let (project, _repo) = feature();
-    assert_eq!(
-        git(
-            &project,
-            &["diff", "--base", "main", "--pick", ".files[].path"]
-        )
-        .exits(0)
-        .stdout,
-        "a.txt\nbin.dat\nc.txt\n"
-    );
-    let diff = git(&project, &["diff", "--base", "main"]).exits(0).answer();
-    assert_eq!(diff["count"], 3);
-    assert_eq!(
-        diff["files"],
-        json!([
-            {"path": "a.txt", "old_path": null, "status": "modified", "added": 1, "removed": 0, "binary": false},
-            {"path": "bin.dat", "old_path": null, "status": "added", "added": 0, "removed": 0, "binary": true},
-            {"path": "c.txt", "old_path": null, "status": "added", "added": 1, "removed": 0, "binary": false},
-        ])
-    );
-}
-
-#[test]
-fn diff_gives_the_patch_of_a_text_file() {
-    let (project, _repo) = feature();
-    assert_eq!(
-        git(
-            &project,
-            &[
-                "diff",
-                "--base",
-                "main",
-                "--patch",
-                "--pick",
-                ".files[0].patch",
-                "--",
-                "a.txt"
-            ]
-        )
-        .exits(0)
-        .stdout,
-        "@@ -1,1 +1,2 @@\n one\n+more\n\n"
-    );
-}
-
-#[test]
-fn diff_compares_with_the_index_and_the_worktree() {
-    let (project, repo, _) = committed();
-    repo.write("a.txt", "staged\n").stage(&["a.txt"]);
-    repo.write("a.txt", "on disk\n").write("untracked.txt", "u");
-    let side = |args: &[&str]| {
-        let mut all = vec!["diff"];
-        all.extend_from_slice(args);
-        all.extend_from_slice(&["--patch", "--pick", ".files"]);
-        git(&project, &all).exits(0).json()
-    };
-    assert_eq!(
-        side(&["--staged"])[0]["patch"],
-        "@@ -1,1 +1,1 @@\n-one\n+staged\n"
-    );
-    // the untracked file is in no diff, as git leaves it out
-    let worktree = side(&[]);
-    assert_eq!(worktree.as_array().map(Vec::len), Some(1), "{worktree}");
-    assert_eq!(worktree[0]["patch"], "@@ -1,1 +1,1 @@\n-one\n+on disk\n");
-    assert_eq!(side(&["--worktree"]), worktree);
-}
-
 #[test]
 fn show_answers_a_file_at_a_revision() {
     let (project, repo, _, _) = two_commits();
@@ -459,22 +380,6 @@ fn show_answers_a_file_at_a_revision() {
     );
     let refused = git(&project, &["show", "HEAD"]);
     assert_eq!(refused.json()["code"], "not_a_blob", "{}", refused.stdout);
-}
-
-#[test]
-fn diff_names_a_rename_and_its_old_path() {
-    let (project, repo, _) = committed();
-    repo.write("a.txt", "one\ntwo\nthree\nfour\n");
-    repo.commit_all("longer");
-    repo.delete("a.txt")
-        .write("moved.txt", "one\ntwo\nthree\nfour\n");
-    repo.commit_all("moved");
-    assert_eq!(
-        git(&project, &["diff", "--base", "HEAD~1", "--pick", ".files"])
-            .exits(0)
-            .json(),
-        json!([{"path": "moved.txt", "old_path": "a.txt", "status": "renamed", "added": 0, "removed": 0, "binary": false}])
-    );
 }
 
 #[test]

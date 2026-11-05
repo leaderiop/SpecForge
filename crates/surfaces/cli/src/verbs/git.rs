@@ -2,6 +2,7 @@
 //! reads, and writes under the ceiling's `git` `write`.
 
 use specforge_effects::Ports;
+use specforge_effects::git::DiffStatus;
 use specforge_ops::OpError;
 use specforge_ops::verbs::{Verbs, git};
 
@@ -195,22 +196,15 @@ impl Action {
                     head,
                     paths: args.paths,
                     patch: args.patch,
+                    merge_base: args.merge_base,
                 };
+                let shape = (args.patch, args.stat, args.shortstat);
                 answer(
                     &args.verb,
                     terminal,
                     ports,
                     |v| git::diff(v, &request),
-                    |t, a| {
-                        for file in &a.files {
-                            let counts = if file.binary {
-                                "-\t-".to_string()
-                            } else {
-                                format!("{}\t{}", file.added, file.removed)
-                            };
-                            outln!(t, "{counts}\t{}", shown(&file.path));
-                        }
-                    },
+                    |t, a| diff_human(t, a, shape),
                 )
             }
             Action::MergeBase(args) => {
@@ -441,6 +435,60 @@ impl Action {
             Action::Revert(args) => merged(&args.verb, terminal, ports, |v| {
                 git::pick(v, &args.revision, true)
             }),
+        }
+    }
+}
+
+/// A diff as people read it: a line per file (`--numstat`'s) unless only patches are asked, git's summary
+/// under `--stat` or alone under `--shortstat`, and each file's patch under `--patch`.
+fn diff_human(t: &Terminal, a: &git::DiffAnswer, (patch, stat, shortstat): (bool, bool, bool)) {
+    let plural = |n: u64, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
+    if !shortstat && (stat || !patch) {
+        for file in &a.files {
+            let counts = if file.binary {
+                "-\t-".to_string()
+            } else {
+                format!("{}\t{}", file.added, file.removed)
+            };
+            outln!(t, "{counts}\t{}", shown(&file.path));
+        }
+    }
+    if (stat || shortstat) && a.count > 0 {
+        // git's own wording: insertions when there are any or no deletions, deletions likewise
+        let mut summary = format!(" {} changed", plural(a.count as u64, "file", "files"));
+        if a.added > 0 || a.removed == 0 {
+            summary += &format!(", {}(+)", plural(a.added, "insertion", "insertions"));
+        }
+        if a.removed > 0 || a.added == 0 {
+            summary += &format!(", {}(-)", plural(a.removed, "deletion", "deletions"));
+        }
+        outln!(t, "{summary}");
+    }
+    if !patch {
+        return;
+    }
+    for file in &a.files {
+        let old = file.old_path.as_deref().unwrap_or(&file.path);
+        let side = |prefix: &str, path: &str, absent: bool| match absent {
+            true => "/dev/null".to_string(),
+            false => format!("{prefix}{}", shown(path)),
+        };
+        let (from, to) = (
+            side("a/", old, file.status == DiffStatus::Added),
+            side("b/", &file.path, file.status == DiffStatus::Deleted),
+        );
+        outln!(t, "diff --git a/{} b/{}", shown(old), shown(&file.path));
+        if file.binary {
+            outln!(t, "Binary files {from} and {to} differ");
+            continue;
+        }
+        outln!(t, "--- {from}\n+++ {to}");
+        if let Some(text) = &file.patch {
+            outln!(
+                t,
+                "{}",
+                specforge_common::remedy::printable_lines(text.trim_end_matches('\n'))
+            );
         }
     }
 }

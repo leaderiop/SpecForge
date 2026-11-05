@@ -91,7 +91,7 @@ Try each method in order until one succeeds:
 If the tag exists:
 ```bash
 specforge git log v${VERSION} --pick .count
-git diff --stat $(git log --format=%H --reverse v${VERSION} | head -1)..v${VERSION}
+specforge git diff --base "$(specforge git log "v${VERSION}" --reverse --pick '.commits[0].sha')" --head "v${VERSION}" --stat --format human
 ```
 
 **Method 2 — Project start date** (if no tag):
