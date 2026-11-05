@@ -59,9 +59,9 @@
     "**MANDATORY FIRST STEP — Execute these checks before ANY user interaction:**",
     "",
     "```bash",
-    "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true"
+    ""
   ],
-  "bytes": 89530,
+  "bytes": 89331,
   "end": [
     "| AUTH-03 | Phase 1 | Pending |",
     "| AUTH-04 | Phase 1 | Pending |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2010d3dbf25e5e584825d3c936bf94e9301c4e419ad64bae8bc74fffa7f9777e",
+    "digest": "sha256:cd009fa82b98633e6a743bfad3f14712041dea77f2185897fedab34a7d3faf3d",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "2010d3dbf25e5e584825d3c936bf94e9301c4e419ad64bae8bc74fffa7f9777e"
+  "sha256": "cd009fa82b98633e6a743bfad3f14712041dea77f2185897fedab34a7d3faf3d"
 }

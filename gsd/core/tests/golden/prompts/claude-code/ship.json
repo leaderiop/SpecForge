@@ -40,14 +40,14 @@
     "Parse arguments and load project state:",
     "",
     "```bash",
-    "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true",
-    "01",
-    "GSD_ARGS_END",
-    "GSD_ARGS=${GSD_ARGS%$'\\n'}",
+    "",
+    "",
+    "",
+    "",
     "# the commands below are specforge commands: there is no launcher to define",
     "RESPONSE_LANGUAGE=\"\"   # response_language (the settings)",
-    "PHASE_ARG=$(echo \"$GSD_ARGS\" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)",
-    "GSD_WS=$(echo \" $GSD_ARGS\" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \\1/p' | head -n 1)",
+    "",
+    "",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)",
     "",
     "```",
@@ -61,7 +61,7 @@
     "CONFIG=$(specforge settings)",
     "```"
   ],
-  "bytes": 45908,
+  "bytes": 45630,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:38a1bad18bdda346b40c7bdfabe56ec4497969fd83a784a9f54b00fdb5ee40fe",
+    "digest": "sha256:31c7d3ad93404aa31d8921ce794e3f780810ea6c44d200884101bb1f97709d81",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "38a1bad18bdda346b40c7bdfabe56ec4497969fd83a784a9f54b00fdb5ee40fe"
+  "sha256": "31c7d3ad93404aa31d8921ce794e3f780810ea6c44d200884101bb1f97709d81"
 }

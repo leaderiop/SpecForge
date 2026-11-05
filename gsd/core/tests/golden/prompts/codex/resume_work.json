@@ -40,12 +40,12 @@
     "Load all context in one call:",
     "",
     "```bash",
-    "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true",
-    "(no arguments)",
-    "GSD_ARGS_END",
-    "GSD_ARGS=${GSD_ARGS%$'\\n'}",
+    "",
+    "",
+    "",
+    "",
     "# the commands below are specforge commands: there is no launcher to define",
-    "GSD_WS=$(echo \" $GSD_ARGS\" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \\1/p' | head -n 1)",
+    "",
     "INIT=$(specforge gsd progress-report --format json)",
     "",
     "```",
@@ -61,7 +61,7 @@
     "",
     "<step name=\"load_state\">"
   ],
-  "bytes": 28938,
+  "bytes": 28733,
   "end": [
     "",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b23422a2688fd21d172b79be4aef0f3c026da7f1316244bc54d872e575e86e0c",
+    "digest": "sha256:9ae2905a15cbe328d03588b948b0163b696b010c11323e4fdd3c9184ca38e59b",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "b23422a2688fd21d172b79be4aef0f3c026da7f1316244bc54d872e575e86e0c"
+  "sha256": "9ae2905a15cbe328d03588b948b0163b696b010c11323e4fdd3c9184ca38e59b"
 }

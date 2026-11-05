@@ -41,12 +41,12 @@
     "Bootstrap via manager init:",
     "",
     "```bash",
-    "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true",
-    "(no arguments)",
-    "GSD_ARGS_END",
-    "GSD_ARGS=${GSD_ARGS%$'\\n'}",
+    "",
+    "",
+    "",
+    "",
     "# the commands below are specforge commands: there is no launcher to define",
-    "GSD_WS=$(echo \" $GSD_ARGS\" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \\1/p' | head -n 1)",
+    "",
     "INIT=$(specforge gsd progress-report --format json)",
     "",
     "```",
@@ -61,7 +61,7 @@
     "- `manager_flags.execute` — appended to execute agent init command",
     ""
   ],
-  "bytes": 38146,
+  "bytes": 37736,
   "end": [
     "",
     "Table rules use ASCII `-`, never box-drawing characters.",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5e656c445c88ae8132047587d61290f097b24b9cccde6c75f20d833d35903e40",
+    "digest": "sha256:1645c6aab071fc0e8a06d458cd5574f236f98090949f0ee6906d9c3e648d24d0",
     "prompt": "@gsd/core@VERSION:manager",
     "steps": [
       {
@@ -232,5 +232,5 @@
       }
     ]
   },
-  "sha256": "5e656c445c88ae8132047587d61290f097b24b9cccde6c75f20d833d35903e40"
+  "sha256": "1645c6aab071fc0e8a06d458cd5574f236f98090949f0ee6906d9c3e648d24d0"
 }

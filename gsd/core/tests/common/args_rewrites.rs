@@ -131,4 +131,19 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ),
     // milestone-summary takes its milestone typed, else the one the run is about.
     ("gsd-core/workflows/milestone-summary.md", 16, 16),
+    // The inlined workflows' dead captures: unread *_PARAM and PHASE_ARG values, the --ws parse; the prose names the
+    // `$PHASE_ID` the prompt's tail binds.
+    ("gsd-core/workflows/add-tests.md", 14, 14),
+    ("gsd-core/workflows/add-tests.md", 17, 17),
+    ("gsd-core/workflows/add-tests.md", 51, 51),
+    ("gsd-core/workflows/add-tests.md", 63, 63),
+    ("gsd-core/workflows/extract-learnings.md", 25, 25),
+    ("gsd-core/workflows/extract-learnings.md", 33, 33),
+    ("gsd-core/workflows/progress.md", 21, 21),
+    ("gsd-core/workflows/quick.md", 123, 126),
+    ("gsd-core/workflows/review.md", 153, 153),
+    ("gsd-core/workflows/ship.md", 32, 32),
+    ("gsd-core/workflows/validate-phase.md", 24, 24),
+    ("gsd-core/workflows/verify-work.md", 47, 48),
+    ("gsd-core/workflows/new-project.md", 37, 37),
 ];

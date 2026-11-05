@@ -148,12 +148,12 @@ Rules:
 Collect phase artifacts for the review prompt:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-PHASE_ARG=$(echo "$GSD_ARGS" | sed -nE 's/^([A-Za-z0-9._-]+).*/\1/p')
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
+
 INIT=$(specforge query "$PHASE_ID" --depth 2 --format json)
 
 

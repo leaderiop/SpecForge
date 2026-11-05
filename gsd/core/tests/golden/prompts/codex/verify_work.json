@@ -57,11 +57,11 @@
     "If 02 contains a phase number, load context:",
     "",
     "```bash",
-    "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true",
-    "02",
-    "GSD_ARGS_END"
+    "",
+    "",
+    ""
   ],
-  "bytes": 73708,
+  "bytes": 73189,
   "end": [
     "## Gaps",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f01d8880c7568169291de5c9f9e9d146ae19879cf4337e76a4ad80c83ae1013b",
+    "digest": "sha256:68bd2b42ec8723c8f6054c9395ad314ea03e0b2bdc3b7091c14886d7851af4ca",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "f01d8880c7568169291de5c9f9e9d146ae19879cf4337e76a4ad80c83ae1013b"
+  "sha256": "68bd2b42ec8723c8f6054c9395ad314ea03e0b2bdc3b7091c14886d7851af4ca"
 }

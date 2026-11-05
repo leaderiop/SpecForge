@@ -43,13 +43,13 @@
     "**Load progress context (paths only):**",
     "",
     "```bash",
-    "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true",
-    "--next --auto",
-    "GSD_ARGS_END",
-    "GSD_ARGS=${GSD_ARGS%$'\\n'}",
+    "",
+    "",
+    "",
+    "",
     "# the commands below are specforge commands: there is no launcher to define",
-    "FORENSIC_PARAM=\"\"; if [[ \"$GSD_ARGS\" =~ (^|[[:space:]])--forensic([[:space:]]|$) ]]; then FORENSIC_PARAM=\"--forensic\"; fi",
-    "GSD_WS=$(echo \" $GSD_ARGS\" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \\1/p' | head -n 1)",
+    "",
+    "",
     "INIT=$(specforge gsd progress-report --format json)",
     "",
     "```",
@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 76970,
+  "bytes": 76645,
   "end": [
     "| 3     | ○      | 0/2   | 0%       |",
     "```",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:1778c256fcd7b482046298f60f5fa3a7700b8beb59c55c1c7bfb946414e58834",
+    "digest": "sha256:353501c669aa7a0b40e743466892aa2baf1d4afbbda3915932207d9309fdd7ab",
     "prompt": "@gsd/core@VERSION:progress",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "1778c256fcd7b482046298f60f5fa3a7700b8beb59c55c1c7bfb946414e58834"
+  "sha256": "353501c669aa7a0b40e743466892aa2baf1d4afbbda3915932207d9309fdd7ab"
 }

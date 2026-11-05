@@ -30,10 +30,10 @@
     "",
     "<step name=\"parse_arguments\">",
     "Parse `02` for:",
-    "- Phase number (integer, decimal, or letter-suffix) → store as `$PHASE_ARG`",
+    "- Phase number (integer, decimal, or letter-suffix) → the shell blocks read it as `$PHASE_ID`",
     "- Remaining text after phase number → store as `$EXTRA_INSTRUCTIONS` (optional)",
     "",
-    "Example: `/gsd-add-tests 12 focus on edge cases` → `$PHASE_ARG=12`, `$EXTRA_INSTRUCTIONS=\"focus on edge cases\"`",
+    "Example: `/gsd-add-tests 12 focus on edge cases` → `$PHASE_ID` is phase 12, `$EXTRA_INSTRUCTIONS=\"focus on edge cases\"`",
     "",
     "If no phase argument provided:",
     "",
@@ -51,17 +51,17 @@
     "Load phase operation context:",
     "",
     "```bash",
-    "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true",
-    "02",
-    "GSD_ARGS_END",
-    "GSD_ARGS=${GSD_ARGS%$'\\n'}",
+    "",
+    "",
+    "",
+    "",
     "# the commands below are specforge commands: there is no launcher to define",
-    "GSD_WS=$(echo \" $GSD_ARGS\" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \\1/p' | head -n 1)",
+    "",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)",
     "",
     "```"
   ],
-  "bytes": 22939,
+  "bytes": 22770,
   "end": [
     "",
     "---",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:42c313cdd2214ddaf3d63605ee6c7921ab31897f529563cfe86856ab51ed0ff9",
+    "digest": "sha256:cabda4b2c617b16108f6b8353d8740f04277da76426108096aa4b293a496c6fa",
     "prompt": "@gsd/core@VERSION:add_tests",
     "subject": "v1.0/02"
   },
-  "sha256": "42c313cdd2214ddaf3d63605ee6c7921ab31897f529563cfe86856ab51ed0ff9"
+  "sha256": "cabda4b2c617b16108f6b8353d8740f04277da76426108096aa4b293a496c6fa"
 }

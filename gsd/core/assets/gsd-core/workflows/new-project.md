@@ -31,12 +31,12 @@ If `section_manifest` is `null` or `"auto-mode-detection"` is in its `included` 
 **MANDATORY FIRST STEP — Execute these checks before ANY user interaction:**
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
-AUTO_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--auto([[:space:]]|$) ]]; then AUTO_PARAM="--auto"; fi
+
 INIT=$(specforge check --format json)
 
 AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-project-researcher

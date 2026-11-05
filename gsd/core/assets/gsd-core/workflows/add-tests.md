@@ -13,10 +13,10 @@ Read all files referenced by the invoking prompt's execution_context before star
 
 <step name="parse_arguments">
 Parse `$ARGUMENTS` for:
-- Phase number (integer, decimal, or letter-suffix) → store as `$PHASE_ARG`
+- Phase number (integer, decimal, or letter-suffix) → the shell blocks read it as `$PHASE_ID`
 - Remaining text after phase number → store as `$EXTRA_INSTRUCTIONS` (optional)
 
-Example: `/gsd:add-tests 12 focus on edge cases` → `$PHASE_ARG=12`, `$EXTRA_INSTRUCTIONS="focus on edge cases"`
+Example: `/gsd:add-tests 12 focus on edge cases` → `$PHASE_ID` is phase 12, `$EXTRA_INSTRUCTIONS="focus on edge cases"`
 
 If no phase argument provided:
 
@@ -34,12 +34,12 @@ Exit.
 Load phase operation context:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 ```
@@ -50,7 +50,7 @@ Extract from init JSON: `phase_dir`, `phase_number`, `phase_name`, `response_lan
 
 Verify the phase directory exists. If not:
 ```
-ERROR: Phase directory not found for phase ${PHASE_ARG}
+ERROR: Phase directory not found for phase ${PHASE_ID}
 Ensure the phase exists in the `phase` entities
 ```
 Exit.
@@ -62,7 +62,7 @@ Read the phase artifacts (in order of priority):
 
 If no SUMMARY.md exists:
 ```
-ERROR: No SUMMARY.md found for phase ${PHASE_ARG}
+ERROR: No SUMMARY.md found for phase ${PHASE_ID}
 This command works on completed phases. Run /gsd:execute-phase first.
 ```
 Exit.

@@ -460,8 +460,6 @@ fn no_file_read_by_reference_holds_an_arg_token() {
 /// The files whose shell fences still read the argument text (`$ARGUMENTS`, `$GSD_ARGS`) the render splices: each is
 /// rewritten to read its typed values through `{{arg:}}` (ADR 0340 D6).
 const ARGS_PENDING: &[&str] = &[
-    "gsd-core/workflows/add-tests.md",
-    "gsd-core/workflows/audit-milestone.md",
     "gsd-core/workflows/complete-milestone.md",
     "gsd-core/workflows/complete-milestone/detail/elaboration.md",
     "gsd-core/workflows/diagnose-issues.md",
@@ -470,20 +468,8 @@ const ARGS_PENDING: &[&str] = &[
     "gsd-core/workflows/discuss-phase/modes/chain.md",
     "gsd-core/workflows/execute-phase/steps/codebase-drift-gate.md",
     "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
-    "gsd-core/workflows/execute-plan.md",
-    "gsd-core/workflows/extract-learnings.md",
-    "gsd-core/workflows/manager.md",
-    "gsd-core/workflows/new-project.md",
-    "gsd-core/workflows/progress.md",
-    "gsd-core/workflows/quick.md",
-    "gsd-core/workflows/resume-project.md",
-    "gsd-core/workflows/review.md",
     "gsd-core/workflows/secure-phase.md",
-    "gsd-core/workflows/ship.md",
     "gsd-core/workflows/transition.md",
-    "gsd-core/workflows/ultraplan-phase.md",
-    "gsd-core/workflows/validate-phase.md",
-    "gsd-core/workflows/verify-work.md",
     "gsd-core/workflows/verify-work/steps/mvp-uat-framing.md",
 ];
 
