@@ -545,3 +545,72 @@ fn no_shell_block_reads_the_raw_argument_text() {
         "ARGS_PENDING lists exactly the files that still read"
     );
 }
+
+/// The host refuses an option its prompt does not declare, so a dispatch (`Skill(skill="gsd-<x>", args="…")`, also
+/// escaped inside an `Agent(prompt=…)`) forwards only `<x>`'s options, and `CONVERGENCE_ARGS` only
+/// `plan_review_convergence`'s (ADR 0340 D7). `gsd-code-review` belongs to an extension that is not built.
+#[test]
+fn every_dispatch_forwards_only_options_its_prompt_declares() {
+    let declaration = gsd_core::build().declaration();
+    let options = |id: &str| -> Option<BTreeSet<String>> {
+        let prompt = declaration.surfaces.prompts.iter().find(|p| p.id == id)?;
+        Some(
+            prompt
+                .args
+                .iter()
+                .map(|a| a.name.replace('_', "-"))
+                .collect(),
+        )
+    };
+    let dispatch =
+        Regex::new(r#"Skill\(skill=\\?["']gsd-([a-z-]+)\\?["'],\s*args=\\?["'](.*?)\\?["']\)"#)
+            .expect("a regex");
+    let appended =
+        Regex::new(r#"CONVERGENCE_ARGS="\$\{CONVERGENCE_ARGS\} ([^"]*)""#).expect("a regex");
+    let option = Regex::new(r"--([a-z][a-z0-9-]*)|GSD_WS").expect("a regex");
+    let mut offenders = BTreeSet::new();
+    let mut seen = 0;
+    for (path, text) in asset_files() {
+        for (i, line) in text.split('\n').enumerate() {
+            let mut check = |target: &str, args: &str| {
+                let declared = options(target)
+                    .unwrap_or_else(|| panic!("{path}:{}: no prompt {target}", i + 1));
+                for word in option.find_iter(args) {
+                    let name = word.as_str().trim_start_matches("--");
+                    if name == "GSD_WS" || !declared.contains(name) {
+                        offenders.insert(format!("{path}:{} {name}", i + 1));
+                    }
+                }
+            };
+            for cap in dispatch.captures_iter(line) {
+                seen += 1;
+                if &cap[1] != "code-review" {
+                    check(&cap[1].replace('-', "_"), &cap[2]);
+                }
+            }
+            for cap in appended.captures_iter(line) {
+                check("plan_review_convergence", &cap[1]);
+            }
+        }
+    }
+    assert!(seen > 30, "{seen} dispatches");
+    // pinned: the dispatches the host refuses today; reading typed values and dropping undeclared options empties it
+    let known: BTreeSet<String> = [
+        "gsd-core/workflows/autonomous.md:119 override-gate",
+        "gsd-core/workflows/autonomous.md:404 no-transition",
+        "gsd-core/workflows/autonomous.md:413 no-transition",
+        "gsd-core/workflows/autonomous.md:419 no-transition",
+        "gsd-core/workflows/autonomous.md:507 no-transition",
+        "gsd-core/workflows/discuss-phase/modes/chain.md:66 GSD_WS",
+        "gsd-core/workflows/plan-phase/steps/auto-advance-check.md:48 GSD_WS",
+        "gsd-core/workflows/plan-phase/steps/auto-advance-check.md:48 auto",
+        "gsd-core/workflows/plan-phase/steps/auto-advance-check.md:48 no-transition",
+        "gsd-core/workflows/plan-review-convergence.md:181 GSD_WS",
+        "gsd-core/workflows/plan-review-convergence.md:218 GSD_WS",
+        "gsd-core/workflows/plan-review-convergence.md:598 GSD_WS",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
+    assert_eq!(offenders, known);
+}
