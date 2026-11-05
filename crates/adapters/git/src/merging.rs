@@ -309,17 +309,16 @@ pub(crate) fn pick(
         )
     } else {
         let who = picked.author();
-        let offset = who.when().offset_minutes();
+        let offset = who.when().offset_minutes().saturating_mul(60);
+        // `write_to`, not `Display`: an offset past ±99 hours (a hostile commit's) is an error, never a panic.
+        let mut time = Vec::new();
+        gix::date::Time::new(who.when().seconds(), offset)
+            .write_to(&mut time)
+            .map_err(|e| failed("write the picked commit's author time", &e))?;
         let author = Author {
             name: String::from_utf8_lossy(who.name_bytes()).into_owned(),
             email: String::from_utf8_lossy(who.email_bytes()).into_owned(),
-            time: format!(
-                "{} {}{:02}{:02}",
-                who.when().seconds(),
-                if offset < 0 { '-' } else { '+' },
-                offset.abs() / 60,
-                offset.abs() % 60
-            ),
+            time: String::from_utf8_lossy(&time).into_owned(),
         };
         (original, Some(author))
     };

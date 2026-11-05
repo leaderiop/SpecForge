@@ -385,6 +385,11 @@ pub trait Git: Send + Sync {
     fn config(&self, _place: &GitPlace, _key: &str) -> Result<Vec<String>, GitError> {
         Err(GitError("this git port cannot answer it".into()))
     }
+    /// The path `key` names, interpolated as git interpolates a path (`~/` and `~user/` from a home directory): none
+    /// when unset. A relative path is returned as written.
+    fn config_path(&self, _place: &GitPlace, _key: &str) -> Result<Option<PathBuf>, GitError> {
+        Err(GitError("this git port cannot answer it".into()))
+    }
     /// `key` read as git reads a boolean (`true`/`yes`/`on`, a non-zero integer, or the bare key): `None` when unset,
     /// an error when it holds no boolean.
     fn config_flag(&self, _place: &GitPlace, _key: &str) -> Result<Option<bool>, GitError> {

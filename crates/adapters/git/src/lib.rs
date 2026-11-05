@@ -361,6 +361,16 @@ impl Git for Gix {
             .collect())
     }
 
+    fn config_path(&self, place: &GitPlace, key: &str) -> Result<Option<PathBuf>, GitError> {
+        let repo = open(place)?;
+        let config = repo.config_snapshot();
+        config
+            .trusted_path(key)
+            .transpose()
+            .map(|path| path.map(std::borrow::Cow::into_owned))
+            .map_err(|e| failed(&format!("read the path {key}"), &e))
+    }
+
     fn config_flag(&self, place: &GitPlace, key: &str) -> Result<Option<bool>, GitError> {
         let repo = open(place)?;
         repo.config_snapshot()

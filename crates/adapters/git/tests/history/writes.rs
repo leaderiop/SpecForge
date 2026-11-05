@@ -300,3 +300,36 @@ fn staging_a_file_whose_attributes_name_a_filter_driver_is_refused() {
         "nothing was staged"
     );
 }
+
+/// A path the config names is interpolated as git interpolates one: `~user/` is that user's home, a relative path
+/// stays as written, and an unset key is none.
+#[cfg(unix)]
+#[test]
+fn a_config_path_is_interpolated_as_git_does() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    let place = place(&repo);
+    assert_eq!(
+        Gix::default()
+            .config_path(&place, "core.hooksPath")
+            .unwrap(),
+        None
+    );
+    repo.config("[core]\n\thooksPath = rel/hooks");
+    assert_eq!(
+        Gix::default()
+            .config_path(&place, "core.hooksPath")
+            .unwrap(),
+        Some(std::path::PathBuf::from("rel/hooks"))
+    );
+    let (Ok(user), Some(home)) = (std::env::var("USER"), std::env::home_dir()) else {
+        return; // no user to name here
+    };
+    repo.config(&format!("[core]\n\thooksPath = ~{user}/hooks"));
+    assert_eq!(
+        Gix::default()
+            .config_path(&place, "core.hooksPath")
+            .unwrap(),
+        Some(home.join("hooks"))
+    );
+}

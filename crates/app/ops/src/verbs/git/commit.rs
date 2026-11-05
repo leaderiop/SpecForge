@@ -226,20 +226,16 @@ pub(super) struct Hooks<'v> {
 }
 
 impl<'v> Hooks<'v> {
-    /// `core.hooksPath` (from the top when relative, `~/` from the home directory), else the common directory's
-    /// `hooks`.
+    /// `core.hooksPath` as git interpolates it (`~/`, `~user/`), from the top when relative, else the common
+    /// directory's `hooks`.
     pub(super) fn of(verbs: &'v Verbs, place: &'v GitPlace) -> Result<Self, OpError> {
         let configured = verbs
             .ports()
             .git
-            .config(place, "core.hooksPath")
-            .map_err(write_failed)?
-            .pop();
+            .config_path(place, "core.hooksPath")
+            .map_err(write_failed)?;
         let dir = match configured {
-            Some(path) => match (path.strip_prefix("~/"), std::env::home_dir()) {
-                (Some(rest), Some(home)) => home.join(rest),
-                _ => place.toplevel.join(path),
-            },
+            Some(path) => place.toplevel.join(path),
             None => place.common_dir.join("hooks"),
         };
         Ok(Hooks { verbs, place, dir })

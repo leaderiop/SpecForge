@@ -6,6 +6,7 @@ use specforge_git::testing::Repo;
 
 use crate::support::{Cli, TestProject};
 
+mod hooks;
 mod signing;
 mod writes;
 
