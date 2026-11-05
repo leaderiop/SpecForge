@@ -640,3 +640,35 @@ fn plan_phase_prompts_name_no_unsourced_path() {
         assert!(!text.contains(unsourced), "plan-phase.md names {unsourced}");
     }
 }
+
+/// execute-phase runs no worktree isolation, so neither it, its steps nor its wave references set or read the
+/// isolation values: each was a literal, and every guard on one was a branch no input reaches (ADR 0343 D4).
+#[test]
+fn execute_phase_holds_no_isolation_value() {
+    let base = root().join("assets/gsd-core");
+    let mut files = vec![base.join("workflows/execute-phase.md")];
+    walk(&base.join("workflows/execute-phase"), &mut files);
+    for entry in std::fs::read_dir(base.join("references"))
+        .expect("references")
+        .flatten()
+    {
+        if entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with("execute-phase-")
+        {
+            files.push(entry.path());
+        }
+    }
+    let mut found = Vec::new();
+    for file in &files {
+        let text = std::fs::read_to_string(file).expect("an asset");
+        for (n, line) in text.lines().enumerate() {
+            if line.contains("ISOLATION") || line.contains("USE_WORKTREES") {
+                found.push(format!("{}:{}: {line}", file.display(), n + 1));
+            }
+        }
+    }
+    assert!(files.len() > 10, "only {} files", files.len());
+    assert!(found.is_empty(), "isolation values:\n{}", found.join("\n"));
+}

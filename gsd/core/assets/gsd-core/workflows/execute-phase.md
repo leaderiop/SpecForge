@@ -122,11 +122,11 @@ Read runtime/worktree config and fail closed before any executor dispatch:
 
 ```bash
 RUNTIME="{{setting:runtime|@host}}"   # runtime (the settings)
-USE_WORKTREES="false"   # @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
+# @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
 EXECUTOR_STALL_INTERVAL_MINUTES="{{setting:executor.stall_detect_interval_minutes|5}}"   # executor.stall_detect_interval_minutes (the settings)
 EXECUTOR_STALL_THRESHOLD_MINUTES="{{setting:executor.stall_threshold_minutes|10}}"   # executor.stall_threshold_minutes (the settings)
 
-ISOLATION="none"   # @gsd/core runs no worktree isolation: every plan dispatches in sequential mode
+# every plan dispatches in sequential mode: there is no isolation to resolve
 
 
 

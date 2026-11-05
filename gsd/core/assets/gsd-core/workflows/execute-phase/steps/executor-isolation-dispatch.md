@@ -1,5 +1,5 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
-Not reached: `@gsd/core` runs no worktree isolation (`execute-phase.md` sets `ISOLATION=none`).
+Not reached: `@gsd/core` runs no worktree isolation (`execute-phase.md` dispatches every plan in sequential mode).
 
 
 
