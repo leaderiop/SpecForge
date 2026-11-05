@@ -122,7 +122,7 @@ fn quick_batch_renders_for_three_hosts() {
         &twin(),
         "quick_batch",
         &["--jobs", "2", "a; b"],
-        "--jobs \"2\" a; b",
+        "--jobs 2 a; b",
         "<purpose>",
     );
     assert!(text_of(&out[0].1).contains("The quick plan"));
@@ -713,4 +713,26 @@ fn quick_batch_binds_its_typed_arguments() {
     }
     assert!(!text.contains("QB_PARSE"), "{text}");
     assert!(!text.contains("QUICK_BATCH_PARSE"), "{text}");
+}
+
+/// `--jobs` is `auto` or a positive integer: anything else is refused before the text renders, worded as the host
+/// words a refused value, so no shell line checks it.
+#[test]
+fn quick_batch_refuses_a_jobs_that_is_not_auto_or_a_count() {
+    let p = twin();
+    for bad in ["0", "many", "2; touch X"] {
+        let run = prompt(&p, "quick_batch", &["--jobs", bad], "claude-code");
+        assert_ne!(run.code, 0, "{bad}: {}", run.all());
+        let why = format!("jobs must be auto or an integer of at least 1, got '{bad}'");
+        assert!(run.all().contains(&why), "{bad}: {}", run.all());
+    }
+    for good in ["auto", "12"] {
+        let text = text_of(&payload(&prompt(
+            &p,
+            "quick_batch",
+            &["--jobs", good],
+            "codex",
+        )));
+        assert!(text.contains(&format!("JOBS=\"{good}\"")), "{good}: {text}");
+    }
 }

@@ -47,10 +47,10 @@ RESEARCH_MODE="{{arg:research|false}}"
 RESUME_BATCH_ID="{{arg:resume|}}"
 TASK_FILE="{{arg:file|}}"
 TASKS="{{arg:tasks|}}"
-case "$JOBS" in
-  auto|[1-9]|[1-9][0-9]) ;;
-  *) echo "--jobs is auto or a number: $JOBS" >&2; exit 1 ;;
-esac
+# a --jobs that is not auto or a positive integer is refused before this text renders
+
+
+
 
 ```
 

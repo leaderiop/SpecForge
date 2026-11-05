@@ -25,6 +25,9 @@ pub enum Kind {
     Integer,
     /// `--name value`, one of these.
     OneOf(&'static [&'static str]),
+    /// `--name N`: a positive integer, or this word (`--jobs auto`). The host takes it as text; [`values`] refuses any
+    /// other value before the render.
+    Count(&'static str),
     /// The free-text tail: bare words after the options, as upstream's `[task description]` (ADR 0314).
     Rest,
 }
@@ -98,6 +101,14 @@ impl Arg {
             required: false,
         }
     }
+    /// A positive integer or `word`, written `--name <N|word>`.
+    pub const fn count_or(name: &'static str, word: &'static str) -> Arg {
+        Arg {
+            name,
+            kind: Kind::Count(word),
+            required: false,
+        }
+    }
     pub const fn one_of(name: &'static str, values: &'static [&'static str]) -> Arg {
         Arg {
             name,
@@ -121,7 +132,7 @@ pub fn declare(p: &mut PromptBuilder, args: &[Arg]) {
                     a.reference(kind)
                 }
                 Kind::Flag => a.bool(),
-                Kind::Text => a.string(),
+                Kind::Text | Kind::Count(_) => a.string(),
                 Kind::Integer => a.integer(),
                 Kind::OneOf(values) => a.one_of(values),
                 Kind::Rest => a.rest(),
@@ -166,7 +177,9 @@ pub fn render_text(args: &[Arg], values: impl Fn(&str) -> Option<Value>) -> Stri
                 words.push(format!("{option} {}", quoted(text)));
             }
             (Kind::Integer, Value::Number(n)) => words.push(format!("{option} {n}")),
-            (Kind::OneOf(_), Value::String(word)) => words.push(format!("{option} {word}")),
+            (Kind::OneOf(_) | Kind::Count(_), Value::String(word)) => {
+                words.push(format!("{option} {word}"));
+            }
             // Bare, where the argument stands in the table: quick's is first, so `resume abc` still opens the block.
             (Kind::Rest, Value::String(text)) if !text.is_empty() => words.push(text.clone()),
             _ => {}
@@ -216,16 +229,46 @@ impl<N: Into<String>> FromIterator<(N, Option<String>)> for Values {
     }
 }
 
+/// Why `value` is not one `arg` takes, beyond what the host checks: a count is a positive integer or its word. Worded
+/// as the host words a refused value.
+pub fn refusal(arg: &Arg, value: &Value) -> Option<String> {
+    let Kind::Count(word) = arg.kind else {
+        return None;
+    };
+    let positive =
+        |n: &str| !n.is_empty() && !n.starts_with('0') && n.bytes().all(|b| b.is_ascii_digit());
+    match value {
+        Value::String(v) if v == word || positive(v) => None,
+        Value::String(v) => Some(format!(
+            "{} must be {word} or an integer of at least 1, got '{v}'",
+            arg.name
+        )),
+        other => Some(format!(
+            "{} must be {word} or an integer of at least 1, got {other}",
+            arg.name
+        )),
+    }
+}
+
 /// Every declared name of `args` with the value its placeholder takes in `call`, or `None` when it was not given. The
-/// subject `(name, id)` the run is about, given or picked by the handler, takes its id.
-pub fn values(call: &PromptCall<'_>, args: &[Arg], subject: Option<(&str, &str)>) -> Values {
+/// subject `(name, id)` the run is about, given or picked by the handler, takes its id. A value [`refusal`] refuses
+/// fails the call before the render.
+pub fn values(
+    call: &PromptCall<'_>,
+    args: &[Arg],
+    subject: Option<(&str, &str)>,
+) -> Result<Values, String> {
     args.iter()
         .map(|arg| {
+            let given = call.arg(arg.name);
+            if let Some(why) = given.and_then(|v| refusal(arg, v)) {
+                return Err(why);
+            }
             let value = match subject {
                 Some((name, id)) if name == arg.name => Some(id.to_string()),
-                _ => call.arg(arg.name).and_then(|v| unescaped_value(arg, v)),
+                _ => given.and_then(|v| unescaped_value(arg, v)),
             };
-            (arg.name, value)
+            Ok((arg.name, value))
         })
         .collect()
 }
@@ -234,7 +277,7 @@ pub fn values(call: &PromptCall<'_>, args: &[Arg], subject: Option<(&str, &str)>
 mod tests {
     use serde_json::json;
 
-    use super::{Arg, unescaped_value};
+    use super::{Arg, refusal, unescaped_value};
 
     #[test]
     fn a_value_by_kind() {
@@ -273,5 +316,23 @@ mod tests {
             value(Arg::one_of("mode", &["a", "b"]), json!("b")).as_deref(),
             Some("b")
         );
+    }
+
+    #[test]
+    fn a_count_is_a_positive_integer_or_its_word() {
+        let jobs = Arg::count_or("jobs", "auto");
+        for ok in ["auto", "1", "12", "100"] {
+            assert_eq!(refusal(&jobs, &json!(ok)), None, "{ok}");
+        }
+        for bad in ["0", "07", "-1", "+3", "2x", "", "auto; touch X", "AUTO"] {
+            assert_eq!(
+                refusal(&jobs, &json!(bad)).as_deref(),
+                Some(
+                    format!("jobs must be auto or an integer of at least 1, got '{bad}'").as_str()
+                ),
+                "{bad}"
+            );
+        }
+        assert_eq!(refusal(&Arg::text("name"), &json!("0")), None);
     }
 }

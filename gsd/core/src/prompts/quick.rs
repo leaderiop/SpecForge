@@ -123,7 +123,7 @@ static QUICK_BATCH: Spec = Spec {
     command: "quick-batch",
     args: &[
         Arg::text("file"),
-        Arg::text("jobs"),
+        Arg::count_or("jobs", "auto"),
         Arg::flag("validate"),
         Arg::flag("research"),
         Arg::text("resume"),
