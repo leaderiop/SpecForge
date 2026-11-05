@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 449 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 433 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	cat	PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
@@ -240,12 +240,7 @@ gsd-core/workflows/discuss-phase.md	head	SPEC_ID=$(specforge query "$PHASE_ID" -
 gsd-core/workflows/discuss-phase.md	sort	specforge query "$MILESTONE" --depth 2 --kinds context --format brief | sort -r
 gsd-core/workflows/discuss-phase/modes/power.md	head	SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)
 gsd-core/workflows/execute-phase.md	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
-gsd-core/workflows/execute-phase.md	head	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
-gsd-core/workflows/execute-phase.md	sed	specforge git log "$_WT_BASE..HEAD" --max 20 --pick '.commits[].subject' 2>/dev/null | sed 's/^/    /' >&2 || true
-gsd-core/workflows/execute-phase.md	sed	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
-gsd-core/workflows/execute-phase.md	tr	[ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(printf '%s\n' "$_WT_DIRTY_ALL" | wc -l | tr -d ' ')
 gsd-core/workflows/execute-phase.md	tr	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
-gsd-core/workflows/execute-phase.md	wc	[ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(printf '%s\n' "$_WT_DIRTY_ALL" | wc -l | tr -d ' ')
 gsd-core/workflows/execute-phase.md	wc	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	grep	elif [ -f "Makefile" ] && grep -q "^build:" Makefile; then
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	grep	elif [ -f "package.json" ] && grep -q '"build"' package.json; then
@@ -298,7 +293,6 @@ gsd-core/workflows/pr-branch.md	grep	NON_PLANNING=$(echo "$FILES" | grep -Evc "$
 gsd-core/workflows/pr-branch.md	grep	PLANNING_COUNT=$(echo "$FILES" | grep -Ec "$FORBIDDEN_RE" || true)
 gsd-core/workflows/pr-branch.md	grep	FORBIDDEN=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
 gsd-core/workflows/pr-branch.md	grep	PLANNING_TOTAL=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
-gsd-core/workflows/pr-branch.md	grep	TOTAL_FILES=$(echo "$DIFF_PATHS" | grep -c . || true)
 gsd-core/workflows/pr-branch.md	grep	PLANNING_DELETIONS=$(for p in "[status=deleted].path" "[status=renamed].old_path"; do specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick ".files$p"; done | grep -Ec "$FORBIDDEN_RE" || true)
 gsd-core/workflows/pr-branch.md	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
 gsd-core/workflows/pr-branch.md	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
@@ -346,7 +340,6 @@ gsd-core/workflows/review.md	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',
 gsd-core/workflows/review.md	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
 gsd-core/workflows/review.md	wc	[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL" | tr -d ' ')
 gsd-core/workflows/ship.md	cat	REVIEW_STDERR=$(cat "${REVIEW_STDERR_FILE}" 2>/dev/null)
-gsd-core/workflows/ship.md	grep	WINDOWS_OPEN_COUNT=$([ "$WINDOWS_STATUSES" = '?' ] && echo '?' || printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
 gsd-core/workflows/ship.md	grep	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && for f in subject body; do specforge git log "$SHIP_NOTE_SHA" --max 1 --pick ".commits[0].$f"; done | grep -q '\[ci skip\]'; then
 gsd-core/workflows/ship.md	head	STATE_STATUS=$(specforge gsd progress-report 2>/dev/null | head -20)
 gsd-core/workflows/spec-phase.md	cat	cat > "$REQS_JSON" <<'JSON'
@@ -358,18 +351,12 @@ gsd-core/workflows/ultraplan-phase.md	head	CC_VERSION="$(claude --version 2>/dev
 gsd-core/workflows/ultraplan-phase.md	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 gsd-core/workflows/ultraplan-phase.md	sort	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 gsd-core/workflows/undo.md	grep	grep -E "\(0*${TARGET_PHASE}(-[0-9]+)?\):"
-gsd-core/workflows/verify-work.md	grep	UAT_BLOCKERS=$(printf '%s\n' "$UAT_BLOCKED" | grep -c .)
 gsd-core/workflows/verify-work.md	head	VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' | head -1)
 gsd-core/workflows/verify-work.md	head	[ "$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status' | head -1)" = passed ] && [ -z "$PHASE_COMPLETE_BLOCKERS" ] && PHASE_COMPLETE_PASSED=true || PHASE_COMPLETE_PASSED=false
 prompt:add_tests	grep	grep -r "{scenario keyword}" {e2e test directory} 2>/dev/null || true
 prompt:autonomous	head	AUDIT_STATUS=$(specforge query "${milestone_version}" --kinds milestone_audit --pick '.nodes[kind=milestone_audit].fields.status' | head -1)
 prompt:execute_phase	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
-prompt:execute_phase	head	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
-prompt:execute_phase	sed	specforge git log "$_WT_BASE..HEAD" --max 20 --pick '.commits[].subject' 2>/dev/null | sed 's/^/    /' >&2 || true
-prompt:execute_phase	sed	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
-prompt:execute_phase	tr	[ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(printf '%s\n' "$_WT_DIRTY_ALL" | wc -l | tr -d ' ')
 prompt:execute_phase	tr	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
-prompt:execute_phase	wc	[ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(printf '%s\n' "$_WT_DIRTY_ALL" | wc -l | tr -d ' ')
 prompt:execute_phase	wc	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
 prompt:execute_plan	cat	specforge gsd raise-blocker "$(cat "${BLOCKER_TEXT_FILE}")" --phase "${PHASE}"
 prompt:execute_plan	grep	PHASE=$(echo "$PLAN_PATH" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*-[0-9]+')
@@ -400,7 +387,6 @@ prompt:pr_branch	grep	NON_PLANNING=$(echo "$FILES" | grep -Evc "$FORBIDDEN_RE" |
 prompt:pr_branch	grep	PLANNING_COUNT=$(echo "$FILES" | grep -Ec "$FORBIDDEN_RE" || true)
 prompt:pr_branch	grep	FORBIDDEN=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
 prompt:pr_branch	grep	PLANNING_TOTAL=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
-prompt:pr_branch	grep	TOTAL_FILES=$(echo "$DIFF_PATHS" | grep -c . || true)
 prompt:pr_branch	grep	PLANNING_DELETIONS=$(for p in "[status=deleted].path" "[status=renamed].old_path"; do specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick ".files$p"; done | grep -Ec "$FORBIDDEN_RE" || true)
 prompt:pr_branch	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
 prompt:pr_branch	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
@@ -437,7 +423,6 @@ prompt:review	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
 prompt:review	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
 prompt:review	wc	[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL" | tr -d ' ')
 prompt:ship	cat	REVIEW_STDERR=$(cat "${REVIEW_STDERR_FILE}" 2>/dev/null)
-prompt:ship	grep	WINDOWS_OPEN_COUNT=$([ "$WINDOWS_STATUSES" = '?' ] && echo '?' || printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
 prompt:ship	grep	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && for f in subject body; do specforge git log "$SHIP_NOTE_SHA" --max 1 --pick ".commits[0].$f"; done | grep -q '\[ci skip\]'; then
 prompt:ship	head	STATE_STATUS=$(specforge gsd progress-report 2>/dev/null | head -20)
 prompt:spec_phase	cat	cat > "$REQS_JSON" <<'JSON'
@@ -447,7 +432,6 @@ prompt:ultraplan_phase	head	CC_VERSION="$(claude --version 2>/dev/null | grep -E
 prompt:ultraplan_phase	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 prompt:ultraplan_phase	sort	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 prompt:undo	grep	grep -E "\(0*${TARGET_PHASE}(-[0-9]+)?\):"
-prompt:verify_work	grep	UAT_BLOCKERS=$(printf '%s\n' "$UAT_BLOCKED" | grep -c .)
 prompt:verify_work	head	VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' | head -1)
 prompt:verify_work	head	[ "$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status' | head -1)" = passed ] && [ -z "$PHASE_COMPLETE_BLOCKERS" ] && PHASE_COMPLETE_PASSED=true || PHASE_COMPLETE_PASSED=false
 prompt:workspace	grep	CHILD_REPOS=$(for d in */; do [ -d "${d}.git" ] && echo "${d%/}"; done); CHILD_REPO_COUNT=$(echo "$CHILD_REPOS" | grep -c . || true)

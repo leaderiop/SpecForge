@@ -165,9 +165,9 @@ CONTEXT: [✓ if has_context | - if not]
 (Only show this section if count > 0; suppressed when ledger is empty or absent)
 
 ```bash
-WINDOWS_STATUSES=$(specforge query "$PHASE_ID" --kinds broken_window --pick '.nodes[kind=broken_window].fields.status' 2>/dev/null)
-WINDOWS_OPEN=$(printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
-WINDOWS_WAIVED=$(printf '%s\n' "$WINDOWS_STATUSES" | grep -cx waived)
+# the ledger's open and waived windows, counted by their typed status
+WINDOWS_OPEN=$(specforge query "$PHASE_ID" --kinds broken_window --pick '.nodes[fields.status=open]' --count 2>/dev/null)
+WINDOWS_WAIVED=$(specforge query "$PHASE_ID" --kinds broken_window --pick '.nodes[fields.status=waived]' --count 2>/dev/null)
 ```
 
 Render `Open Windows` only when `$WINDOWS_OPEN` is greater than `0` (or `$WINDOWS_WAIVED` is greater than `0`, so an auditable deferral history remains visible). Phrase: `{WINDOWS_OPEN} open, {WINDOWS_WAIVED} waived — resolves with /gsd:ship gate; inspect via `specforge query "$PHASE_ID" --kinds broken_window``. The ledger is cross-phase; the count is the project total, not the current phase's.

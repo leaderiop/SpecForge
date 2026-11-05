@@ -156,11 +156,19 @@ fn the_open_windows_are_counted_and_an_unreadable_ledger_is_unknown() {
     };
     let p = taskboard();
     let path = "gsd-core/workflows/ship.md";
-    let starts = ["WINDOWS_STATUSES=$(", "WINDOWS_OPEN_COUNT=$("];
+    let starts = ["WINDOWS_OPEN_COUNT=$("];
     let count = |setup| values(&sh, &p, path, setup, &starts, &["WINDOWS_OPEN_COUNT"]);
     assert_eq!(count("MILESTONE=v1.0"), "[0]");
     assert_eq!(count("MILESTONE=nope"), "[?]");
+    // a window with neither a waiver nor a fix is open
+    let mut verify = p.read("spec/verify.spec");
+    verify.push_str(OPEN_WINDOW);
+    p.write("spec/verify.spec", &verify);
+    assert_eq!(count("MILESTONE=v1.0"), "[1]");
 }
+
+/// A broken window of phase 01 that is open: no waiver, no fix.
+pub(super) const OPEN_WINDOW: &str = "\nbroken_window BW1 \"A stub\" {\n  kind stub\n  phase v1.0/01\n  description \"a stub left in\"\n}\n";
 
 #[test]
 fn a_verification_status_routes_in_the_shell() {
@@ -224,4 +232,44 @@ fn a_quick_tasks_changed_files_are_its_commits_files() {
         out, "Quick-task review scope is empty (no commit names this task).\n",
         "{err}"
     );
+}
+
+/// execute-phase's worktree handoff: the commits ahead of the base and the uncommitted paths, counted whole and
+/// listed indented, at most 20 of them.
+#[test]
+fn the_worktree_handoff_counts_and_lists_what_is_left_indented() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = committed(&[
+        ("feat: one", &[("a.txt", "1\n")]),
+        ("feat: two", &[("b.txt", "2\n")]),
+    ]);
+    let base = p.git(&["rev-list", "--max-parents=0", "HEAD"], T1);
+    for n in 1..=22 {
+        p.write(&format!("u{n:02}.txt"), "left\n");
+    }
+    let text = asset("gsd-core/workflows/execute-phase.md");
+    let code = [
+        "_WT_DIRTY_ALL=$(",
+        "[ -n \"$_WT_DIRTY_ALL\" ] && { _WT_DIRTY_N=",
+        "printf '    %s\\n' \"$(specforge git log",
+        "printf '    %s\\n' \"$(specforge git status",
+    ]
+    .map(|start| line(&text, start))
+    .join("\n");
+    let script = format!(
+        "_WT_BASE={}\n{code}\nprintf '[%s]' \"$_WT_DIRTY_N\"",
+        base.trim()
+    );
+    let (out, err, _) = run(&sh, &p, &script);
+    let err_lines: Vec<&str> = err.lines().collect();
+    assert_eq!(err_lines[..2], ["    feat: two", "    feat: one"], "{err}");
+    assert_eq!(err_lines.len(), 22, "{err}");
+    assert_eq!(err_lines[2], "    u01.txt", "{err}");
+    assert!(
+        err_lines[2..].iter().all(|l| l.starts_with("    u")),
+        "{err}"
+    );
+    assert_eq!(out, "[22]");
 }

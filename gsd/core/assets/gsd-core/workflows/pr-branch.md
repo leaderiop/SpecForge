@@ -507,7 +507,7 @@ DIFF_PATHS=$(specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick '.fi
 FORBIDDEN=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
 PLANNING_TOTAL=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
 ALLOWED=$((PLANNING_TOTAL - FORBIDDEN))
-TOTAL_FILES=$(echo "$DIFF_PATHS" | grep -c . || true)
+TOTAL_FILES=$(specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick .count)
 PR_COMMITS=$(specforge git log "$TARGET".."$PR_BRANCH" --pick .count)
 
 # #3679: a DELETED planning path is never legitimate — this workflow only ever

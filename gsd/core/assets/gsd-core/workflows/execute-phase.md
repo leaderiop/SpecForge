@@ -484,7 +484,7 @@ if printf '%s' "$ORCH_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)'; t
   # under-reporting what is stranded — which is the whole point of this report.
   _WT_DIRTY_ALL=$(specforge git status --pick '.entries[].path' 2>/dev/null || true)
   _WT_DIRTY_N=0
-  [ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(printf '%s\n' "$_WT_DIRTY_ALL" | wc -l | tr -d ' ')
+  [ -n "$_WT_DIRTY_ALL" ] && { _WT_DIRTY_N=$(specforge git status --pick '.entries[].path' --count 2>/dev/null) || _WT_DIRTY_N='?'; }
   _WT_HAS_COMMITS=0
   [ -n "$_WT_AHEAD" ] && [ "$_WT_AHEAD" -gt 0 ] 2>/dev/null && _WT_HAS_COMMITS=1
 
@@ -492,13 +492,13 @@ if printf '%s' "$ORCH_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)'; t
   echo "── Handoff: what is in this worktree (#1856) ──" >&2
   if [ "$_WT_HAS_COMMITS" -eq 1 ]; then
     echo "  $_WT_AHEAD commit(s) on '$ORCH_BRANCH' not on '$_WT_BASE':" >&2
-    specforge git log "$_WT_BASE..HEAD" --max 20 --pick '.commits[].subject' 2>/dev/null | sed 's/^/    /' >&2 || true
+    printf '    %s\n' "$(specforge git log "$_WT_BASE..HEAD" --max 20 --pick '.commits[].subject' --join $'\n    ' 2>/dev/null)" >&2
     [ "$_WT_AHEAD" -gt 20 ] 2>/dev/null && echo "    … and $((_WT_AHEAD - 20)) more" >&2
     echo "  These live ONLY on this branch. Switching away without integrating loses them." >&2
   fi
   if [ -n "$_WT_DIRTY_ALL" ]; then
     echo "  $_WT_DIRTY_N uncommitted change(s) still in this worktree:" >&2
-    printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
+    printf '    %s\n' "$(specforge git status --pick '.entries[].path' --first 20 --join $'\n    ' 2>/dev/null)" >&2
     [ "$_WT_DIRTY_N" -gt 20 ] 2>/dev/null && echo "    … and $((_WT_DIRTY_N - 20)) more" >&2
   fi
   if [ "$_WT_HAS_COMMITS" -eq 1 ] || [ -n "$_WT_DIRTY_ALL" ]; then

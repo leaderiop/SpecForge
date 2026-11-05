@@ -160,6 +160,16 @@ fn the_uat_debt_follows_the_uat_test_kinds_rule() {
         );
         assert_eq!(out, open, "{start}: {err}");
     }
+    // the blockers verify-work reports are counted by the same answer
+    let (out, err) = run(
+        &sh,
+        &p,
+        "gsd-core/workflows/verify-work.md",
+        "PHASE_ID=v1.0/01",
+        &["UAT_BLOCKERS=$("],
+        "printf '[%s]' \"$UAT_BLOCKERS\"",
+    );
+    assert_eq!(out, "[3]", "{err}");
 }
 
 /// A lane's plan coverage is `specforge gsd plan-coverage`, over the phase's own plans, not a shell
@@ -317,13 +327,24 @@ fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
         &[
             "CURRENT_DEBT=$(",
             "ARCHIVED_DEBT=",
-            "WINDOWS_STATUSES=$(",
             "WINDOWS_OPEN=$(",
             "WINDOWS_WAIVED=$(",
         ],
         "printf '[%s][%s][%s][%s]' \"$CURRENT_DEBT\" \"$ARCHIVED_DEBT\" \"$WINDOWS_OPEN\" \"$WINDOWS_WAIVED\"",
     );
     assert_eq!(out, "[1][0][0][0]");
+    let mut verify = p.read("spec/verify.spec");
+    verify.push_str(super::shapes::OPEN_WINDOW);
+    p.write("spec/verify.spec", &verify);
+    let (out, err) = run(
+        &sh,
+        &p,
+        "gsd-core/workflows/progress.md",
+        "PHASE_ID=v1.0/01",
+        &["WINDOWS_OPEN=$(", "WINDOWS_WAIVED=$("],
+        "printf '[%s][%s]' \"$WINDOWS_OPEN\" \"$WINDOWS_WAIVED\"",
+    );
+    assert_eq!(out, "[1][0]", "{err}");
     let (out, err) = run(
         &sh,
         &p,

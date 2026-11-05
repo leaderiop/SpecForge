@@ -665,7 +665,7 @@ if [ "$VERIFICATION_STATUS_VALUE" = "human_needed" ]; then
   if [ "$UAT_PRECHECK_PASSED" = "true" ]; then
     : # the verification status is computed: it is passed once every verdict is fresh and passing
   else
-    UAT_BLOCKERS=$(printf '%s\n' "$UAT_BLOCKED" | grep -c .)
+    UAT_BLOCKERS=$(specforge gsd verification-debt --phase "$PHASE_ID" --pick '.blockers[]' --count)
     [ -n "$UAT_BLOCKERS" ] || UAT_BLOCKERS="?"
     echo "NOT canonicalizing: ${UAT_BLOCKERS} UAT row(s) blocked or not passing; verification stays human_needed. Resolve or pass them, then re-run /gsd:verify-work {phase}." >&2
   fi
