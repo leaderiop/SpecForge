@@ -121,27 +121,76 @@ pub(crate) fn read_commit_message(place: &GitPlace) -> Result<String, GitError> 
 pub(crate) fn stage(place: &GitPlace, staging: &Staging) -> Result<(), GitError> {
     let repo = libgit2(place)?;
     let mut index = repo.index().map_err(|e| failed("read the index", &e))?;
-    let staged = |e: git2::Error| failed("stage the files", &e);
     for path in staging.add.iter().filter(|path| *path != "*") {
         added(place, &repo, &index, path, staging.force)?;
     }
+    // Each file staged from the worktree is asked its `filter` attribute first: the first that names a driver
+    // stops the staging (libgit2 runs none, so it would be staged raw), and the refusal names it.
+    let refused = std::cell::RefCell::new(None);
+    let mut unfiltered = |path: &Path, _: &[u8]| -> i32 {
+        // a deletion reads no file, so no filter runs on it
+        if !place.toplevel.join(path).exists() {
+            return 0;
+        }
+        match filter_driver(&repo, path) {
+            Ok(None) => 0,
+            Ok(Some(driver)) => {
+                *refused.borrow_mut() = Some(GitError(format!(
+                    "{} names the filter driver `{}` in its attributes, which specforge does not run: stage it with \
+                     git",
+                    path.display(),
+                    driver
+                )));
+                -1
+            }
+            Err(error) => {
+                *refused.borrow_mut() = Some(error);
+                -1
+            }
+        }
+    };
+    let staged = |e: git2::Error| {
+        refused
+            .borrow_mut()
+            .take()
+            .unwrap_or_else(|| failed("stage the files", &e))
+    };
     if !staging.add.is_empty() {
         let option = if staging.force {
             git2::IndexAddOption::FORCE
         } else {
             git2::IndexAddOption::DEFAULT
         };
-        index.add_all(&staging.add, option, None).map_err(staged)?;
+        index
+            .add_all(&staging.add, option, Some(&mut unfiltered))
+            .map_err(staged)?;
         // a deleted file leaves the index, as `git add <path>` does
-        index.update_all(&staging.add, None).map_err(staged)?;
+        index
+            .update_all(&staging.add, Some(&mut unfiltered))
+            .map_err(staged)?;
     }
     if !staging.remove.is_empty() {
         index.remove_all(&staging.remove, None).map_err(staged)?;
     }
     if staging.all {
-        index.update_all(["*"], None).map_err(staged)?;
+        index
+            .update_all(["*"], Some(&mut unfiltered))
+            .map_err(staged)?;
     }
     index.write().map_err(|e| failed("write the index", &e))
+}
+
+/// The filter driver `path`'s attributes name (`filter=lfs`), when they name one: git has no driver of its own, so
+/// any is a program the repository's config would run.
+fn filter_driver(repo: &git2::Repository, path: &Path) -> Result<Option<String>, GitError> {
+    let value = repo
+        .get_attr_bytes(path, "filter", git2::AttrCheckFlags::FILE_THEN_INDEX)
+        .map_err(|e| failed("read the attributes", &e))?;
+    Ok(match git2::AttrValue::from_bytes(value) {
+        git2::AttrValue::String(driver) => Some(driver.to_string()),
+        git2::AttrValue::Bytes(driver) => Some(String::from_utf8_lossy(driver).into_owned()),
+        git2::AttrValue::True | git2::AttrValue::False | git2::AttrValue::Unspecified => None,
+    })
 }
 
 /// `git add`'s refusals of a path it is given (from the repository's top): one that matches no file on disk or in

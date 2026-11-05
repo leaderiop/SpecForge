@@ -256,3 +256,47 @@ fn staging_refuses_a_path_matching_nothing_and_an_ignored_one_without_force_as_g
         .unwrap();
     assert_eq!(indexed(&repo), [".gitignore", "build/out.txt", "run.log"]);
 }
+
+/// libgit2 runs no filter driver, so a file whose attributes name one (`filter=lfs`) is refused, naming the driver,
+/// rather than staged raw, whether it is named, under a directory named, or a tracked change `--all` takes.
+#[test]
+fn staging_a_file_whose_attributes_name_a_filter_driver_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write(
+        ".gitattributes",
+        "*.bin filter=lfs diff=lfs merge=lfs -text\n",
+    )
+    .write("old.bin", "tracked");
+    repo.commit_all("first");
+    repo.write("new.bin", "raw").write("old.bin", "changed");
+    let place = place(&repo);
+    for staging in [
+        Staging {
+            add: vec!["new.bin".into()],
+            ..Staging::default()
+        },
+        Staging {
+            add: vec!["*".into()],
+            ..Staging::default()
+        },
+        Staging {
+            all: true,
+            ..Staging::default()
+        },
+    ] {
+        let refused = Gix::default().stage(&place, &staging).unwrap_err();
+        assert!(
+            refused.0.contains("filter driver `lfs`") && refused.0.contains("stage it with git"),
+            "{staging:?}: {refused}"
+        );
+    }
+    assert_eq!(
+        indexed_blob(&repo, "old.bin"),
+        repo.open()
+            .rev_parse_single("HEAD:old.bin")
+            .unwrap()
+            .to_string(),
+        "nothing was staged"
+    );
+}
