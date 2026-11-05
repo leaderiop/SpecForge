@@ -638,7 +638,7 @@ SKETCH_FINDINGS_PATH=$(specforge files list .claude/skills --depth 2 --kind file
 # on non-AI phases; gating it there silently starves the planner of the SPEC (#550 review).
 # init resolves the plain phase SPEC (never the -AI-SPEC.md / -UI-SPEC.md variants) through the one shared predicate.
 
-SPEC_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1)
+SPEC_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' --first 1)
 SPEC_FILE="${SPEC_PATH}"
 # Resolve the phase UI-SPEC separately (the glob above excludes -UI-SPEC.md); it carries the
 # ## UI Considerations section the planner lifts by the same rule as ## Edge Coverage (#1867).

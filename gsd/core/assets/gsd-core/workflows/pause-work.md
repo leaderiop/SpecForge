@@ -18,7 +18,7 @@ Determine what kind of work is being paused and set the handoff destination acco
 
 ```bash
 # Check for active phase
-phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
+phase=$(specforge gsd progress-report --pick '.phases[status=In Progress].number' --first 1)
 phase=${phase%/*}; phase=${phase##*/}
 
 # Check for active spike

@@ -675,7 +675,7 @@ After audit completes, detect the result:
 
 ```bash
 AUDIT_FILE="${milestone_version}-MILESTONE-AUDIT"   # the milestone_audit entity
-AUDIT_STATUS=$(specforge query "${milestone_version}" --kinds milestone_audit --pick '.nodes[kind=milestone_audit].fields.status' | head -1)
+AUDIT_STATUS=$(specforge query "${milestone_version}" --kinds milestone_audit --pick '.nodes[kind=milestone_audit].fields.status' --first 1)
 ```
 
 **If AUDIT_STATUS is empty** (no audit file or no status field):

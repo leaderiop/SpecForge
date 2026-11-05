@@ -80,9 +80,9 @@ fn a_field_of_a_gsd_answer_is_picked() {
     );
 }
 
-/// T3: pause-work's phase in progress is the number at the index of the first `In Progress` status.
+/// T3: pause-work's phase in progress is the number of the first phase whose status is `In Progress`.
 #[test]
-fn the_phase_in_progress_is_read_by_index() {
+fn the_phase_in_progress_is_read_by_its_status() {
     let Some(sh) = Shell::without_jq() else {
         return;
     };
@@ -91,7 +91,7 @@ fn the_phase_in_progress_is_read_by_index() {
     // no phase of the taskboard is in progress
     assert_eq!(value(&sh, &p, path, "", "phase=$(", "phase"), "[]");
     // the shell's part, on a stand-in for the command: the second phase is in progress
-    let stub = r#"specforge() { case "$*" in *status*) printf 'Complete\nIn Progress\nIn Progress\n' ;; *'[1].number'*) echo 02 ;; esac; }"#;
+    let stub = r#"specforge() { case "$*" in *"[status=In Progress].number --first 1"*) echo 02 ;; esac; }"#;
     assert_eq!(value(&sh, &p, path, stub, "phase=$(", "phase"), "[02]");
 }
 
@@ -395,6 +395,20 @@ fn a_graph_read_is_picked() {
             "PHASE_DIR=v1.0/01",
             "VERIFICATION_STATUS=$(",
             "VERIFICATION_STATUS",
+            "[passed]",
+        ),
+        (
+            "verify-work.md",
+            phase,
+            "VERIFICATION_FILE=$(",
+            "VERIFICATION_FILE",
+            "[v1.0/01/01-REVERIFICATION]",
+        ),
+        (
+            "verify-work.md",
+            phase,
+            "VERIFICATION_STATUS_VALUE=$(",
+            "VERIFICATION_STATUS_VALUE",
             "[passed]",
         ),
     ];

@@ -648,9 +648,9 @@ If execution verification is waiting only on human UAT and this session recorded
 
 ```bash
 PHASE_DIR="$PHASE_ID"   # a phase is addressed by its id, not a directory
-VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' | head -1)
+VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' --first 1)
 # #5118: stderr kept; an out-of-set report status is a hard error, never "no result".
-VERIFICATION_STATUS_VALUE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification.status refused this phase's report — see the error above; fix the report before re-running /gsd:verify-work {phase}." >&2; exit 1; }; VERIFICATION_STATUS_VALUE=${VERIFICATION_STATUS_VALUE%%$'\n'*}; VERIFICATION_STATUS_VALUE=${VERIFICATION_STATUS_VALUE:-pending}
+VERIFICATION_STATUS_VALUE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status' --first 1) || { echo "verification.status refused this phase's report — see the error above; fix the report before re-running /gsd:verify-work {phase}." >&2; exit 1; }; VERIFICATION_STATUS_VALUE=${VERIFICATION_STATUS_VALUE:-pending}
 case "$VERIFICATION_STATUS_VALUE" in passed) VERIFICATION_ROUTE=complete ;; gaps_found) VERIFICATION_ROUTE=gap-closure ;; human_needed) VERIFICATION_ROUTE=human ;; *) VERIFICATION_ROUTE=verify ;; esac
 NEXT_COMMAND=   # a verification has no next-command field: the route names the next step
 
@@ -716,7 +716,7 @@ Otherwise, check the shared UAT-plus-verification completion predicate before tr
 PHASE_COMPLETE_BLOCKERS=$(specforge gsd verification-debt --phase "$PHASE_ID" --pick '.blockers[]') && PHASE_COMPLETE_EXIT=0 || PHASE_COMPLETE_EXIT=$?   # the phase's open UAT tests
 if [ "$PHASE_COMPLETE_EXIT" -ne 0 ]; then echo "verification-debt could not run (exit $PHASE_COMPLETE_EXIT) — see the error above." >&2; exit 1; fi
 
-[ "$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status' | head -1)" = passed ] && [ -z "$PHASE_COMPLETE_BLOCKERS" ] && PHASE_COMPLETE_PASSED=true || PHASE_COMPLETE_PASSED=false
+[ "$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status' --first 1)" = passed ] && [ -z "$PHASE_COMPLETE_BLOCKERS" ] && PHASE_COMPLETE_PASSED=true || PHASE_COMPLETE_PASSED=false
 ```
 
 If `PHASE_COMPLETE_PASSED` is not `true`, stop before phase advancement and present:

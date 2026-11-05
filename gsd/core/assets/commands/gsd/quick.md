@@ -63,7 +63,7 @@ For each directory found:
 - Check if PLAN.md exists
 - Check if SUMMARY.md exists; if so, read `status` from its frontmatter via:
   ```bash
-specforge query "{dir}" --depth 1 --kinds summary --pick '.nodes[kind=summary].fields.status' | head -1
+specforge query "{dir}" --depth 1 --kinds summary --pick '.nodes[kind=summary].fields.status' --first 1
   ```
 - Determine directory creation date: `stat -f "%SB" -t "%Y-%m-%d"` (macOS) or `stat -c "%w"` (Linux); fall back to the date prefix in the directory name (format: `YYYYMMDD-` prefix)
 - Derive display status:

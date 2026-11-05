@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 433 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 411 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	cat	PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
@@ -77,7 +77,6 @@ commands/gsd/quick.md	grep	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"'
 commands/gsd/quick.md	grep	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 commands/gsd/quick.md	grep	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 commands/gsd/quick.md	grep	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
-commands/gsd/quick.md	head	specforge query "{dir}" --depth 1 --kinds summary --pick '.nodes[kind=summary].fields.status' | head -1
 commands/gsd/quick.md	head	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 commands/gsd/quick.md	head	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 gsd-core/references/agent-contracts.md	wc	wc -l
@@ -228,17 +227,12 @@ gsd-core/references/worktree-path-safety.md	sed	| sed -E 's/^[[:space:]]*(-C|--c
 gsd-core/templates/user-setup.compact.md	grep	grep -r "USER-SETUP" the spec finds all phases with user requirements.
 gsd-core/templates/user-setup.md	grep	grep -r "USER-SETUP" the spec finds all phases with user requirements.
 gsd-core/workflows/add-tests.md	grep	grep -r "{scenario keyword}" {e2e test directory} 2>/dev/null || true
-gsd-core/workflows/autonomous.md	head	AUDIT_STATUS=$(specforge query "${milestone_version}" --kinds milestone_audit --pick '.nodes[kind=milestone_audit].fields.status' | head -1)
 gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	BRANCH_PREFIX=$(echo "$PHASE_BRANCH_TEMPLATE" | sed 's/{.*//')
 gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	BRANCH_PREFIX=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed 's/{.*//')
 gsd-core/workflows/discuss-phase-assumptions.md	grep	grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" 2>/dev/null | head -10
 gsd-core/workflows/discuss-phase-assumptions.md	head	grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" 2>/dev/null | head -10
-gsd-core/workflows/discuss-phase-assumptions.md	head	SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)
 gsd-core/workflows/discuss-phase-assumptions.md	sort	specforge query "$MILESTONE" --depth 2 --kinds context --format brief | sort
-gsd-core/workflows/discuss-phase-power.md	head	SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)
-gsd-core/workflows/discuss-phase.md	head	SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)
 gsd-core/workflows/discuss-phase.md	sort	specforge query "$MILESTONE" --depth 2 --kinds context --format brief | sort -r
-gsd-core/workflows/discuss-phase/modes/power.md	head	SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)
 gsd-core/workflows/execute-phase.md	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
 gsd-core/workflows/execute-phase.md	tr	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
 gsd-core/workflows/execute-phase.md	wc	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
@@ -270,11 +264,7 @@ gsd-core/workflows/milestone-summary.md	tr	specforge query "v${VERSION}" --depth
 gsd-core/workflows/new-project.md	cat	DEFAULTS_RAW=$(cat "${GSD_HOME:-$HOME}/.gsd/defaults.json" 2>/dev/null)
 gsd-core/workflows/new-workspace.md	grep	CHILD_REPOS=$(for d in */; do [ -d "${d}.git" ] && echo "${d%/}"; done); CHILD_REPO_COUNT=$(echo "$CHILD_REPOS" | grep -c . || true)
 gsd-core/workflows/onboard.md	sed	ENTITIES=$(for k in project milestone phase requirement; do specforge export --kinds "$k" --pick '.nodes[].id' 2>/dev/null | sed "s|^|$k |"; done)   # one "<kind> <id>" line per entity: a project is not linked to its milestones, so the listing is by kind; empty when there is none
-gsd-core/workflows/pause-work.md	cut	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
-gsd-core/workflows/pause-work.md	grep	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
-gsd-core/workflows/pause-work.md	head	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 gsd-core/workflows/plan-phase.md	awk	PHASE_DESC="Goal: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')"$'\n'"Success criteria: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.success_criteria[]' | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')"
-gsd-core/workflows/plan-phase.md	head	SPEC_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1)
 gsd-core/workflows/plan-phase.md	paste	PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]' | paste -sd , -)
 gsd-core/workflows/plan-phase.md	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 gsd-core/workflows/plan-phase.md	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
@@ -343,7 +333,6 @@ gsd-core/workflows/ship.md	cat	REVIEW_STDERR=$(cat "${REVIEW_STDERR_FILE}" 2>/de
 gsd-core/workflows/ship.md	grep	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && for f in subject body; do specforge git log "$SHIP_NOTE_SHA" --max 1 --pick ".commits[0].$f"; done | grep -q '\[ci skip\]'; then
 gsd-core/workflows/ship.md	head	STATE_STATUS=$(specforge gsd progress-report 2>/dev/null | head -20)
 gsd-core/workflows/spec-phase.md	cat	cat > "$REQS_JSON" <<'JSON'
-gsd-core/workflows/spec-phase.md	head	SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)
 gsd-core/workflows/transition.md	sort	(specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true) | sort
 gsd-core/workflows/transition.md	sort	(specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true) | sort
 gsd-core/workflows/ultraplan-phase.md	grep	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
@@ -351,10 +340,7 @@ gsd-core/workflows/ultraplan-phase.md	head	CC_VERSION="$(claude --version 2>/dev
 gsd-core/workflows/ultraplan-phase.md	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 gsd-core/workflows/ultraplan-phase.md	sort	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 gsd-core/workflows/undo.md	grep	grep -E "\(0*${TARGET_PHASE}(-[0-9]+)?\):"
-gsd-core/workflows/verify-work.md	head	VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' | head -1)
-gsd-core/workflows/verify-work.md	head	[ "$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status' | head -1)" = passed ] && [ -z "$PHASE_COMPLETE_BLOCKERS" ] && PHASE_COMPLETE_PASSED=true || PHASE_COMPLETE_PASSED=false
 prompt:add_tests	grep	grep -r "{scenario keyword}" {e2e test directory} 2>/dev/null || true
-prompt:autonomous	head	AUDIT_STATUS=$(specforge query "${milestone_version}" --kinds milestone_audit --pick '.nodes[kind=milestone_audit].fields.status' | head -1)
 prompt:execute_phase	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
 prompt:execute_phase	tr	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
 prompt:execute_phase	wc	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
@@ -368,11 +354,7 @@ prompt:milestone_summary	sort	specforge query "v${VERSION}" --depth 4 --kinds co
 prompt:milestone_summary	tr	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 prompt:new_project	cat	DEFAULTS_RAW=$(cat "${GSD_HOME:-$HOME}/.gsd/defaults.json" 2>/dev/null)
 prompt:onboard	sed	ENTITIES=$(for k in project milestone phase requirement; do specforge export --kinds "$k" --pick '.nodes[].id' 2>/dev/null | sed "s|^|$k |"; done)   # one "<kind> <id>" line per entity: a project is not linked to its milestones, so the listing is by kind; empty when there is none
-prompt:pause_work	cut	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
-prompt:pause_work	grep	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
-prompt:pause_work	head	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 prompt:plan_phase	awk	PHASE_DESC="Goal: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')"$'\n'"Success criteria: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.success_criteria[]' | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')"
-prompt:plan_phase	head	SPEC_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1)
 prompt:plan_phase	paste	PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]' | paste -sd , -)
 prompt:plan_phase	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 prompt:plan_phase	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
@@ -404,7 +386,6 @@ prompt:quick	grep	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/
 prompt:quick	grep	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 prompt:quick	grep	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 prompt:quick	head	quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)"; date="$(date -u +%Y-%m-%d)"; timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; task_dir="$quick_id"; quick_dir="$quick_id"; slug=""; branch_name=$(printf '%s' "" | sed "s/{num}/$quick_id/g"); INIT=""   # the quick id is <yymmdd>-<3 base-36>; you write the slug from $DESCRIPTION (and put it where `{slug}` stands in $branch_name)
-prompt:quick	head	specforge query "{dir}" --depth 1 --kinds summary --pick '.nodes[kind=summary].fields.status' | head -1
 prompt:quick	head	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 prompt:quick	head	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 prompt:quick	paste	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
@@ -426,14 +407,11 @@ prompt:ship	cat	REVIEW_STDERR=$(cat "${REVIEW_STDERR_FILE}" 2>/dev/null)
 prompt:ship	grep	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && for f in subject body; do specforge git log "$SHIP_NOTE_SHA" --max 1 --pick ".commits[0].$f"; done | grep -q '\[ci skip\]'; then
 prompt:ship	head	STATE_STATUS=$(specforge gsd progress-report 2>/dev/null | head -20)
 prompt:spec_phase	cat	cat > "$REQS_JSON" <<'JSON'
-prompt:spec_phase	head	SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)
 prompt:ultraplan_phase	grep	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 prompt:ultraplan_phase	head	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 prompt:ultraplan_phase	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 prompt:ultraplan_phase	sort	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 prompt:undo	grep	grep -E "\(0*${TARGET_PHASE}(-[0-9]+)?\):"
-prompt:verify_work	head	VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' | head -1)
-prompt:verify_work	head	[ "$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status' | head -1)" = passed ] && [ -z "$PHASE_COMPLETE_BLOCKERS" ] && PHASE_COMPLETE_PASSED=true || PHASE_COMPLETE_PASSED=false
 prompt:workspace	grep	CHILD_REPOS=$(for d in */; do [ -d "${d}.git" ] && echo "${d%/}"; done); CHILD_REPO_COUNT=$(echo "$CHILD_REPOS" | grep -c . || true)
 prompt:workspace	grep	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 "$WORKSPACE_BASE" 2>/dev/null); WORKSPACE_COUNT=$(echo "$WORKSPACES" | grep -c . || true)
 prompt:workspace	sed	STRATEGY=$(sed -n 's/^Strategy: *//p' "$WORKSPACE_PATH/WORKSPACE.md" 2>/dev/null)   # from the manifest
