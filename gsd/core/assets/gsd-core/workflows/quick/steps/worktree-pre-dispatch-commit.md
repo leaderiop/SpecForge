@@ -31,7 +31,7 @@ if [ "${USE_WORKTREES}" != "false" ]; then
     # An array (not a space-joined string) keeps each path a single git argument
     # under `set -u` word-splitting rules (ShellCheck SC2086), as the git commit
     # lines below pass it.
-    git add "${QUICK_PREDISPATCH_PATHS[@]}"
+    specforge git add "${QUICK_PREDISPATCH_PATHS[@]}"
     # No-op skip if nothing actually staged (idempotent re-runs).
     if [ "$(specforge git diff --staged --pick .count -- "${QUICK_PREDISPATCH_PATHS[@]}")" = 0 ]; then
       echo "ℹ Pre-dispatch artifact commit skipped (no staged changes)"

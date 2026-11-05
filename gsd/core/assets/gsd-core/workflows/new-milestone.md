@@ -280,7 +280,7 @@ GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the
 ARCHIVE_DIR=$(specforge query "$MILESTONE" --depth 1 --pick .archive_dir)
 PHASES_DIR=$(specforge query "$MILESTONE" --depth 1 --pick .phases_dir)
 if [ "$COMMIT_DOCS" != "false" ]; then
-  git add "$ARCHIVE_DIR/" "$PHASES_DIR/" 2>/dev/null || true
+  specforge git add "$ARCHIVE_DIR/" "$PHASES_DIR/" 2>/dev/null || true
 fi
 ```
 

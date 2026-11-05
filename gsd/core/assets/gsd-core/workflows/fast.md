@@ -64,7 +64,7 @@ Commit the change atomically:
 # byte-identical to an unconditional `git add -A`, unchanged from before #3585.
 COMMIT_DOCS="true"   # commit_docs: every spec change is committed with the work
 if [ "$COMMIT_DOCS" = "false" ]; then
-  git add -A -- ':!spec'
+  specforge git add -A --except spec
 else
   ADDS=(--add "$(specforge git repo --pick .top)")
 fi

@@ -512,8 +512,8 @@ fi
 
 **2. Stage task-related files individually** (NEVER `git add .` or `git add -A`):
 ```bash
-git add src/api/auth.ts
-git add src/types/user.ts
+specforge git add src/api/auth.ts
+specforge git add src/types/user.ts
 ```
 
 **3. Commit type:**

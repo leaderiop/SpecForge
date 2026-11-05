@@ -61,6 +61,7 @@ pub fn commit(verbs: &Verbs, request: &CommitRequest) -> Result<CommitAnswer, Op
         remove: in_repository(verbs, &place, &request.remove)?,
         all: request.all,
         force: request.force,
+        except: Vec::new(),
     };
     let git = &verbs.ports().git;
     if staging != Staging::default() {
@@ -103,6 +104,41 @@ pub fn commit(verbs: &Verbs, request: &CommitRequest) -> Result<CommitAnswer, Op
             .collect(),
         files: committed.files,
     })
+}
+
+/// What `git add` is asked.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct AddRequest {
+    /// Read from the current directory: the files at or under each, as the worktree has them.
+    pub paths: Vec<PathBuf>,
+    /// Every file under the top, untracked ones too, when no path is named (`git add -A`).
+    pub all: bool,
+    /// Left out, whatever else names them (`git add -- ':!path'`).
+    pub except: Vec<PathBuf>,
+    /// Stage an ignored path too (`git add --force`).
+    pub force: bool,
+}
+
+/// `git add`: stage the files named as the worktree has them, a deleted one leaving the index, and answer the
+/// status after.
+pub fn add(verbs: &Verbs, request: &AddRequest) -> Result<super::StatusAnswer, OpError> {
+    let place = verbs.place_to_write("add")?;
+    let mut add = in_repository(verbs, &place, &request.paths)?;
+    if add.is_empty() && request.all {
+        add.push("*".to_string());
+    }
+    let staging = Staging {
+        add,
+        force: request.force,
+        except: in_repository(verbs, &place, &request.except)?,
+        ..Staging::default()
+    };
+    verbs
+        .ports()
+        .git
+        .stage(&place, &staging)
+        .map_err(write_failed)?;
+    super::status(verbs)
 }
 
 /// What git signs when the repository asks: every commit, or every annotated tag.

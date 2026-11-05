@@ -128,6 +128,14 @@ pub(crate) fn stage(place: &GitPlace, staging: &Staging) -> Result<(), GitError>
     // stops the staging (libgit2 runs none, so it would be staged raw), and the refusal names it.
     let refused = std::cell::RefCell::new(None);
     let mut unfiltered = |path: &Path, _: &[u8]| -> i32 {
+        // a positive answer skips the file, as libgit2 reads it
+        if staging
+            .except
+            .iter()
+            .any(|except| except == "*" || path.starts_with(except))
+        {
+            return 1;
+        }
         // a deletion reads no file, so no filter runs on it
         if !place.toplevel.join(path).exists() {
             return 0;

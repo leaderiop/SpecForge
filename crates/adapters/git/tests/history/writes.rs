@@ -45,6 +45,29 @@ fn staging_a_directory_keeps_its_ignore_rules_and_a_removal_keeps_the_file() {
 }
 
 #[test]
+fn staging_leaves_out_what_except_names_as_a_negative_pathspec_does() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("spec/old.spec", "o").write("keep.txt", "k");
+    repo.commit_all("first");
+    repo.delete("spec/old.spec")
+        .write("spec/new.spec", "n")
+        .write("specs/x.txt", "x")
+        .write("src/b.txt", "b");
+    let staging = Staging {
+        add: vec!["*".into()],
+        except: vec!["spec".into()],
+        ..Staging::default()
+    };
+    Gix::default().stage(&place(&repo), &staging).unwrap();
+    // spec/ is neither added to nor removed from; specs/ is another directory
+    assert_eq!(
+        indexed(&repo),
+        ["keep.txt", "spec/old.spec", "specs/x.txt", "src/b.txt"]
+    );
+}
+
+#[test]
 fn staging_all_takes_tracked_changes_and_deletions_and_no_untracked_file() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(dir.path());

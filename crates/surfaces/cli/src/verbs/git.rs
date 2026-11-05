@@ -63,6 +63,8 @@ pub(crate) enum Action {
     Remotes(Plain),
     /// The submodules `.gitmodules` declares: each name, path and URL
     Submodules(Plain),
+    /// Stage files as the worktree has them; ignore rules kept, a filter driver refused
+    Add(AddArgs),
     /// Record a commit: stage the paths named, run the repository's hooks, commit by git's configured identity
     Commit(CommitArgs),
     /// Create or delete a branch
@@ -273,6 +275,22 @@ impl Action {
                     outln!(t, "{} {}", shown(&remote.name), shown(&remote.url));
                 }
             }),
+            Action::Add(args) => {
+                let request = git::AddRequest {
+                    paths: args.paths,
+                    all: args.all,
+                    except: args.except,
+                    force: args.force,
+                };
+                // as git add: silent when it staged
+                answer(
+                    &args.verb,
+                    terminal,
+                    ports,
+                    |v| git::add(v, &request),
+                    |_, _| {},
+                )
+            }
             Action::Commit(args) => {
                 let request = git::CommitRequest {
                     message: args.message.join("\n\n"),

@@ -9,6 +9,7 @@ use crate::support::{Cli, TestProject};
 mod diff;
 mod hooks;
 mod signing;
+mod staging;
 mod writes;
 
 /// A project in a repository with one commit, `HEAD` on `main`.

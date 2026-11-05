@@ -20,6 +20,7 @@ Commands:
   worktrees    The main worktree and the linked ones, with the branch each is on
   remotes      The remotes, with each URL's host and `owner/repo` path
   submodules   The submodules `.gitmodules` declares: each name, path and URL
+  add          Stage files as the worktree has them; ignore rules kept, a filter driver refused
   commit       Record a commit: stage the paths named, run the repository's hooks, commit by git's configured identity
   branch       Create or delete a branch
   switch       Move HEAD to a branch, its files checked out; a file the worktree changed is never overwritten

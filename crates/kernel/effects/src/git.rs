@@ -303,7 +303,7 @@ pub struct GitSubmodule {
     pub url: Option<String>,
 }
 
-/// What a commit stages before it records the index: paths from the repository's top.
+/// What `git add` stages, or a commit before it records the index: paths from the repository's top.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Staging {
     /// The files at or under each path as the worktree has them, ignore rules kept; a deleted file leaves the index.
@@ -316,6 +316,8 @@ pub struct Staging {
     pub all: bool,
     /// Stage an ignored path `add` names too (`git add --force`).
     pub force: bool,
+    /// Left out of `add` and `all`: the files at or under each, whatever else names them (`:!path`).
+    pub except: Vec<String>,
 }
 
 /// A commit the port recorded.

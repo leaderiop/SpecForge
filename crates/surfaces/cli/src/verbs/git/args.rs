@@ -220,6 +220,29 @@ pub(crate) struct WorktreeRemoveArgs {
 }
 
 #[derive(clap::Args)]
+pub(crate) struct AddArgs {
+    /// The files, from the current directory: each at or under it, as the worktree has it (a deleted one leaves
+    /// the index)
+    #[arg(required_unless_present = "all", value_name = "PATH")]
+    pub(super) paths: Vec<std::path::PathBuf>,
+
+    /// Every file under the repository's top when no path is named, untracked ones too (`git add -A`)
+    #[arg(short = 'A', long)]
+    pub(super) all: bool,
+
+    /// Leave out the files at or under this path, whatever else names them (`':!PATH'`)
+    #[arg(long, value_name = "PATH")]
+    pub(super) except: Vec<std::path::PathBuf>,
+
+    /// Stage an ignored path too; without it one is refused, as `git add` refuses it
+    #[arg(short, long)]
+    pub(super) force: bool,
+
+    #[command(flatten)]
+    pub(super) verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
 pub(crate) struct CommitArgs {
     /// The message; given more than once, each is a paragraph of its own (as `git commit -m` takes them)
     #[arg(short, long = "message", value_name = "MESSAGE", required = true)]
