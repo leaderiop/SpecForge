@@ -179,7 +179,7 @@ Extract from these:
 
 **Step 2: Read all prior CONTEXT.md files**
 ```bash
-specforge query "$MILESTONE" --depth 2 --kinds context --format brief | sort
+specforge query "$MILESTONE" --depth 2 --kinds context --format brief
 ```
 
 For each CONTEXT.md where phase number < current phase:

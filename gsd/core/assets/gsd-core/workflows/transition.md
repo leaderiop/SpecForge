@@ -83,8 +83,8 @@ Note accumulated context that may need updating after transition.
 Check current phase has all plan summaries:
 
 ```bash
-(specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true) | sort
-(specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true) | sort
+specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true
+specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true
 ```
 
 **Verification logic:**

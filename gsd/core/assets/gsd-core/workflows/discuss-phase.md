@@ -245,7 +245,7 @@ specforge query "$MILESTONE" --kinds milestone,phase --format context 2>/dev/nul
 Read at most **3** prior CONTEXT.md files (most recent 3 phases before current). If the project keeps a decisions index, read that instead — it is a bounded rolling summary that supersedes per-phase reads.
 
 ```bash
-specforge query "$MILESTONE" --depth 2 --kinds context --format brief | sort -r
+specforge query "$MILESTONE" --depth 2 --kinds context --format brief
 ```
 
 For each CONTEXT.md read: extract `<decisions>` (locked preferences), `<specifics>` (particular references), and patterns (e.g., "user prefers minimal UI", "user rejected single-key shortcuts").

@@ -65,8 +65,8 @@ If the spec missing: error.
 <step name="identify_plan">
 ```bash
 # Use plans/summaries from INIT JSON, or list files
-(specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true) | sort
-(specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true) | sort
+specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true
+specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true
 ```
 
 Find first PLAN without matching SUMMARY. Decimal phases supported (`01.1-hotfix/`).

@@ -103,3 +103,36 @@ fn the_batch_and_sub_repo_prose_says_what_runs() {
         }
     }
 }
+
+/// graduation's window is the milestone's last N lessons in the graph's id order, which replaced `sort | tail -n`.
+#[test]
+fn the_learnings_window_is_the_last_lessons() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = taskboard();
+    p.write(
+        "spec/learning.spec",
+        concat!(
+            "retrospective v1.0-RETROSPECTIVE \"Taskboard 1.0 retrospective\" {\n  milestone v1.0\n}\n\n",
+            "lesson L2 \"Test the reload\" {\n  retrospective v1.0-RETROSPECTIVE\n  text \"Reload loses ids\"\n}\n\n",
+            "lesson L1 \"Plan the reload first\" {\n  retrospective v1.0-RETROSPECTIVE\n  text \"Persistence decides\"\n}\n",
+        ),
+    );
+    let text = asset("gsd-core/workflows/graduation.md");
+    let read = text
+        .lines()
+        .find(|l| l.starts_with("specforge query \"$MILESTONE\" --depth 2 --kinds lesson"))
+        .expect("graduation's lessons read");
+    let window = |n: &str| {
+        let (out, err, _) = sh.run_in(
+            p.root(),
+            &format!("MILESTONE=v1.0\nGRADUATION_WINDOW={n}\n{read}"),
+        );
+        assert!(err.is_empty(), "{err}");
+        out
+    };
+    let lesson = |n: u8| format!("v1.0/v1.0-RETROSPECTIVE/L{n}\n");
+    assert_eq!(window("1"), lesson(2));
+    assert_eq!(window("5"), lesson(1) + &lesson(2));
+}

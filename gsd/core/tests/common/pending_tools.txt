@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 411 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 400 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	cat	PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
@@ -82,7 +82,6 @@ commands/gsd/quick.md	head	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"'
 gsd-core/references/agent-contracts.md	wc	wc -l
 gsd-core/references/autonomous-smart-discuss.md	grep	grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" 2>/dev/null | head -10 || true
 gsd-core/references/autonomous-smart-discuss.md	head	grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" 2>/dev/null | head -10 || true
-gsd-core/references/autonomous-smart-discuss.md	sort	specforge query "$MILESTONE" --depth 3 --kinds context --pick '.nodes[kind=context].id' | sort
 gsd-core/references/checkpoints.md	seq	for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done
 gsd-core/references/few-shot-examples/verifier.md	grep	grep -n "scope" gsd-core/bin/validate-commit.js
 gsd-core/references/few-shot-examples/verifier.md	grep	grep -n "feedback-loop\|extractFeedback" gsd-core/bin/check-subagent-output.js
@@ -231,8 +230,6 @@ gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	BRANCH_PREFIX=$(
 gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	BRANCH_PREFIX=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed 's/{.*//')
 gsd-core/workflows/discuss-phase-assumptions.md	grep	grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" 2>/dev/null | head -10
 gsd-core/workflows/discuss-phase-assumptions.md	head	grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" 2>/dev/null | head -10
-gsd-core/workflows/discuss-phase-assumptions.md	sort	specforge query "$MILESTONE" --depth 2 --kinds context --format brief | sort
-gsd-core/workflows/discuss-phase.md	sort	specforge query "$MILESTONE" --depth 2 --kinds context --format brief | sort -r
 gsd-core/workflows/execute-phase.md	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
 gsd-core/workflows/execute-phase.md	tr	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
 gsd-core/workflows/execute-phase.md	wc	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
@@ -253,10 +250,6 @@ gsd-core/workflows/execute-phase/steps/regression-gate.md	cat	cat > "$_GSD_HANDO
 gsd-core/workflows/execute-plan.md	cat	specforge gsd raise-blocker "$(cat "${BLOCKER_TEXT_FILE}")" --phase "${PHASE}"
 gsd-core/workflows/execute-plan.md	grep	PHASE=$(echo "$PLAN_PATH" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*-[0-9]+')
 gsd-core/workflows/execute-plan.md	head	specforge query "$PLAN_ID" --kinds user_setup --format context | head -50
-gsd-core/workflows/execute-plan.md	sort	(specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true) | sort
-gsd-core/workflows/execute-plan.md	sort	(specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true) | sort
-gsd-core/workflows/graduation.md	sort	specforge query "$MILESTONE" --depth 2 --kinds lesson --pick '.nodes[kind=lesson].id' | sort | tail -n "$GRADUATION_WINDOW"
-gsd-core/workflows/graduation.md	tail	specforge query "$MILESTONE" --depth 2 --kinds lesson --pick '.nodes[kind=lesson].id' | sort | tail -n "$GRADUATION_WINDOW"
 gsd-core/workflows/list-workspaces.md	grep	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 "$WORKSPACE_BASE" 2>/dev/null); WORKSPACE_COUNT=$(echo "$WORKSPACES" | grep -c . || true)
 gsd-core/workflows/milestone-summary.md	head	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 gsd-core/workflows/milestone-summary.md	sort	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
@@ -333,8 +326,6 @@ gsd-core/workflows/ship.md	cat	REVIEW_STDERR=$(cat "${REVIEW_STDERR_FILE}" 2>/de
 gsd-core/workflows/ship.md	grep	if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && for f in subject body; do specforge git log "$SHIP_NOTE_SHA" --max 1 --pick ".commits[0].$f"; done | grep -q '\[ci skip\]'; then
 gsd-core/workflows/ship.md	head	STATE_STATUS=$(specforge gsd progress-report 2>/dev/null | head -20)
 gsd-core/workflows/spec-phase.md	cat	cat > "$REQS_JSON" <<'JSON'
-gsd-core/workflows/transition.md	sort	(specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true) | sort
-gsd-core/workflows/transition.md	sort	(specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true) | sort
 gsd-core/workflows/ultraplan-phase.md	grep	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 gsd-core/workflows/ultraplan-phase.md	head	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 gsd-core/workflows/ultraplan-phase.md	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
@@ -347,8 +338,6 @@ prompt:execute_phase	wc	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failure
 prompt:execute_plan	cat	specforge gsd raise-blocker "$(cat "${BLOCKER_TEXT_FILE}")" --phase "${PHASE}"
 prompt:execute_plan	grep	PHASE=$(echo "$PLAN_PATH" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*-[0-9]+')
 prompt:execute_plan	head	specforge query "$PLAN_ID" --kinds user_setup --format context | head -50
-prompt:execute_plan	sort	(specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true) | sort
-prompt:execute_plan	sort	(specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true) | sort
 prompt:milestone_summary	head	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 prompt:milestone_summary	sort	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 prompt:milestone_summary	tr	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
