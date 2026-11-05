@@ -352,3 +352,32 @@ fn three_and_03_name_the_same_phase_on_the_prompt_query_and_edit_surfaces() {
     assert_eq!(short.code, 0, "{}", short.all());
     assert_eq!(short.stdout, exact.stdout);
 }
+
+/// `--research-phase <n>` turns on research-only mode for phase `n`, and `--view` on top of it view-only mode.
+#[test]
+fn research_phase_turns_on_research_only_mode() {
+    let p = project("discuss");
+    let text = text_of(&payload(&prompt(
+        &p,
+        "plan_phase",
+        &[PHASE, "--research-phase", "3", "--view"],
+        "claude-code",
+    )));
+    let fence = super::rendered_lines::bash_fences(&text)
+        .into_iter()
+        .find(|f| f.contains("RESEARCH_ONLY="))
+        .expect("the research-only fence");
+    let out = std::process::Command::new("bash")
+        .args(["--noprofile", "--norc", "-c"])
+        .arg(format!(
+            "{fence}\necho \"[$RESEARCH_ONLY][$VIEW_ONLY][$PHASE]\""
+        ))
+        .output()
+        .expect("bash");
+    // pinned: the phase renders quoted (`--research-phase "3"`) and the regex needs a digit after the space
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout).trim(),
+        "[false][false][]",
+        "{fence}"
+    );
+}
