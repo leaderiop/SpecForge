@@ -399,32 +399,89 @@ fn no_render_keeps_an_arg_token() {
     }
 }
 
-/// A placeholder's value is escaped for double quotes, so it stands only inside them, in a shell fence (ADR 0340 D4).
+/// Why each `{{arg:` of a shell block (its lines joined by `\n`) does not stand inside double quotes, as `(line index,
+/// why)`. The shell reader of the scans (`command_word::mask`) masks a string, a heredoc body and a comment; a `$(`
+/// written where the token stands stays code only unquoted or inside double quotes, so a token the reader masks and
+/// whose `$(` probe it keeps is inside double quotes.
+fn unquoted_tokens(block: &str) -> Vec<(usize, &'static str)> {
+    const TOKEN: &str = "{{arg:";
+    let masked = command_word::mask(block);
+    let mut out = Vec::new();
+    for (at, _) in block.match_indices(TOKEN) {
+        let probe = command_word::mask(&format!("{}$(arg:{}", &block[..at], &block[at + 6..]));
+        let line = block[..at].matches('\n').count();
+        let col = block[..at]
+            .rsplit('\n')
+            .next()
+            .unwrap_or_default()
+            .chars()
+            .count();
+        let char_at = |text: &str| text.split('\n').nth(line).and_then(|l| l.chars().nth(col));
+        let why = match (char_at(&masked), char_at(&probe)) {
+            (None, _) => "in a comment",
+            (Some('_'), Some('$')) => continue,
+            (Some('_'), _) => "in single quotes or a heredoc body",
+            _ => "unquoted",
+        };
+        out.push((line, why));
+    }
+    out
+}
+
+#[test]
+fn the_quoting_guard_refuses_every_place_but_double_quotes() {
+    let why = |block: &str| unquoted_tokens(block).first().map(|(_, why)| *why);
+    assert_eq!(why("T=\"{{arg:target|}}\""), None);
+    assert_eq!(why("T=\"$(f \"{{arg:target|}}\")\""), None);
+    assert_eq!(why("T=\"a\"\nU=\"b {{arg:target|}} c\""), None);
+    assert_eq!(
+        why("jq -n '\"{{arg:x|}}\"'"),
+        Some("in single quotes or a heredoc body")
+    );
+    assert_eq!(
+        why("echo '\"{{arg:x|}}\"; touch X; '"),
+        Some("in single quotes or a heredoc body")
+    );
+    assert_eq!(
+        why("cat <<EOF\n\"{{arg:x|}}\"\nEOF"),
+        Some("in single quotes or a heredoc body")
+    );
+    assert_eq!(
+        why("cat <<'EOF'\nT=\"{{arg:x|}}\"\nEOF"),
+        Some("in single quotes or a heredoc body")
+    );
+    assert_eq!(why("T=x # \"{{arg:x|}}\""), Some("in a comment"));
+    assert_eq!(why("T={{arg:x|}}"), Some("unquoted"));
+    assert_eq!(why("T=\\\"{{arg:x|}}\\\""), Some("unquoted"));
+    assert_eq!(why("T=$(f {{arg:x|}})"), Some("unquoted"));
+}
+
+/// A placeholder's value is escaped for double quotes, so it stands only inside them, in a `bash`/`sh` fence (ADR 0340
+/// D4): never in single quotes, a comment, a heredoc body or unquoted.
 #[test]
 fn an_arg_token_sits_in_double_quotes_in_a_shell_fence() {
+    let mut seen = 0;
     for (path, text) in asset_files() {
         let lines = lines_of(&text);
         let mut fenced = 0;
         for (language, block) in specforge_only::shell_fences(&lines) {
-            for line in block {
-                for (at, _) in line.match_indices("{{arg:") {
-                    fenced += 1;
-                    assert!(
-                        matches!(language, "bash" | "sh"),
-                        "{path}: in a {language} fence: {line}"
-                    );
-                    let before = &line[..at];
-                    let quotes = before
-                        .char_indices()
-                        .filter(|&(j, c)| c == '"' && !before[..j].ends_with('\\'))
-                        .count();
-                    assert!(quotes % 2 == 1, "{path}: not in double quotes: {line}");
-                }
+            let block = block.join("\n");
+            let tokens = block.matches("{{arg:").count();
+            fenced += tokens;
+            assert!(
+                tokens == 0 || matches!(language, "bash" | "sh"),
+                "{path}: a token in a {language} fence"
+            );
+            if let Some((line, why)) = unquoted_tokens(&block).first() {
+                let line = block.split('\n').nth(*line).unwrap_or_default();
+                panic!("{path}: not in double quotes but {why}: {line}");
             }
         }
         let all = text.matches("{{arg:").count();
         assert_eq!(fenced, all, "{path}: a token outside a shell fence");
+        seen += all;
     }
+    assert!(seen > 30, "{seen} tokens");
 }
 
 /// `reference` fills no placeholder: only a file a prompt inlines may hold one (ADR 0340 D4, D5).
