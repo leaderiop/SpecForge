@@ -21,13 +21,13 @@ A configuration command (`/gsd-settings`, `/gsd-config`, `/gsd-surface`) writes 
 `specforge settings set|unset` (K16, protocol 1.11.0; MCP `specforge.settings_set`), which admits a value by the setting's own type and never writes a secret; `/gsd-surface`
 toggles skills, which are `when` settings.
 
-A workflow reads its typed text through a quoted heredoc (`<<'GSD_ARGS_END'`, `<<'GSD_QUICK_BATCH_ARGS_END'`), and
-the render splices that text in. Text holding a line equal to the terminator would close the heredoc and run what
-follows as shell (upstream #5637). Upstream stamps a random nonce per install, because its installed files hold the
-heredoc and the host substitutes later. SpecForge renders knowing the text, so it keeps the terminator unless a line of
-the text starts with it, and then uses the first `<terminator>_<n>` no line starts with (`gsd_kit::prompt::render`):
-deterministic, no stored nonce, and every golden is unchanged. `specforge gsd reference` serves a workflow with
-`$ARGUMENTS` literal: nothing is substituted, so nothing can be injected there.
+A workflow reads a typed argument through a `{{arg:<name>|<fallback>}}` placeholder, inside double quotes in a shell
+fence of a file its prompt inlines (ADR 0340). The render fills it last, after the host conversion, with the value the
+host parsed, escaped as a setting is (`"`, `\`, `$`, the backtick), and never rescans what it wrote: typed text is data,
+never shell. No shell fence reads `$ARGUMENTS`, so no argument heredoc is left, and upstream's per-install terminator
+nonce (#5637) has nothing to guard. `$ARGUMENTS` stays in prose, as data the agent reads. `specforge gsd reference`
+fills settings, not arguments: it serves a workflow with `$ARGUMENTS` literal, and a file it serves holds no
+placeholder.
 
 The workflows' steps call writing commands that are not slash commands; they are the [roster below](#writing-commands).
 A workflow that names an entity takes the full path when a short form is ambiguous project-wide (the host refuses an

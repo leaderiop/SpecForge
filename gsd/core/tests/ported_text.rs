@@ -474,56 +474,31 @@ fn no_asset_names_gsd_ws() {
     assert!(named.is_empty(), "{}", named.join("\n"));
 }
 
-/// The files whose shell fences still read the argument text (`$ARGUMENTS`, `$GSD_ARGS`) the render splices: each is
-/// rewritten to read its typed values through `{{arg:}}` (ADR 0340 D6).
-const ARGS_PENDING: &[&str] = &[];
-
-const TERMINATORS: [&str; 2] = ["GSD_ARGS_END", "GSD_QUICK_BATCH_ARGS_END"];
-
-/// The ratchet of ADR 0340 D6: a shell line that reads the argument text is in a file of `ARGS_PENDING`, every listed
-/// file still has one, and the capture heredocs left open and close only in the form the render stamps (#5637).
+/// No shell fence reads the argument text the render splices (`$ARGUMENTS`, `$GSD_ARGS`): a workflow reads its typed
+/// values through `{{arg:}}`, so no argument heredoc and none of its terminators is left (ADR 0340 D6).
 #[test]
 fn no_shell_block_reads_the_raw_argument_text() {
     let reads = Regex::new(r"\$\{?(ARGUMENTS|GSD_ARGS)\b").expect("a regex");
-    let opener =
-        Regex::new(r#"<<[-~]?\s*["']?(GSD_(?:QUICK_BATCH_)?ARGS_END)\b"#).expect("a regex");
-    let mut reading = BTreeSet::new();
+    let mut offenders = Vec::new();
     for (path, text) in asset_files() {
         for (n, line) in shell_lines(&text) {
             if reads.is_match(line) {
-                assert!(
-                    ARGS_PENDING.contains(&path.as_str()),
-                    "{path}:{n} reads the argument text: {line}"
-                );
-                reading.insert(path.clone());
+                offenders.push(format!("{path}:{n} reads the argument text: {line}"));
             }
         }
-        let (mut opened, mut closed) = (0, 0);
         for (i, line) in text.lines().enumerate() {
-            if let Some(token) = opener.captures(line).map(|c| c[1].to_string()) {
-                assert!(
-                    line.contains(&format!("<<'{token}'")),
-                    "{path}:{} opens {token} in a form the render does not stamp",
+            if ["GSD_ARGS_END", "GSD_QUICK_BATCH_ARGS_END"]
+                .iter()
+                .any(|t| line.contains(t))
+            {
+                offenders.push(format!(
+                    "{path}:{} names a heredoc terminator: {line}",
                     i + 1
-                );
-                opened += 1;
-            }
-            if TERMINATORS.contains(&line.trim()) {
-                assert!(
-                    TERMINATORS.contains(&line),
-                    "{path}:{} closes with an indented or padded line",
-                    i + 1
-                );
-                closed += 1;
+                ));
             }
         }
-        assert_eq!(opened, closed, "{path}: every opener has its closing line");
     }
-    let listed: BTreeSet<String> = ARGS_PENDING.iter().map(|p| p.to_string()).collect();
-    assert_eq!(
-        reading, listed,
-        "ARGS_PENDING lists exactly the files that still read"
-    );
+    assert!(offenders.is_empty(), "{}", offenders.join("\n"));
 }
 
 /// The host refuses an option its prompt does not declare, so a dispatch (`Skill(skill="gsd-<x>", args="…")`, also

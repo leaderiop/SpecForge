@@ -4,10 +4,8 @@
 //! In order: the preamble (ours), the command file with its `<execution_context>` includes inlined, the settings its
 //! lines read filled in (`setting`), the prompt's own tail, then the references re-pointed (D-r42-5) and the whole
 //! converted for the host (D-r42-12). Re-pointing comes first: Codex's `.claude` rewrite would otherwise hide the paths.
-//! Then the heredoc terminators are stamped, and `$ARGUMENTS` and the `{{arg:}}` placeholders filled, last: the typed
-//! text is data no rewrite runs on (#5637, ADR 0340). The host's adapter header goes in front, unconverted.
-//!
-//! Also ports gsd-core bin/lib modules: args-terminator.cjs (the collision-free terminator, stamped per render).
+//! Then `$ARGUMENTS` and the `{{arg:}}` placeholders are filled, last: the typed text is data no rewrite runs on
+//! (ADR 0340). The host's adapter header goes in front, unconverted.
 
 use super::{compose, host, preamble, setting};
 
@@ -132,46 +130,6 @@ fn fill_arguments(text: &str, arguments: &str, values: &[(&str, Option<String>)]
     out
 }
 
-/// The terminators of the heredocs the assets capture the typed text with: opened `<<'T'`, closed by a line `T`.
-pub(crate) const ARGS_TERMINATORS: [&str; 2] = ["GSD_ARGS_END", "GSD_QUICK_BATCH_ARGS_END"];
-
-/// `token` when no line of `arguments` starts with it, else `token_<n>` for the smallest `n` no line starts with.
-fn terminator_for(token: &str, arguments: &str) -> String {
-    // a prefix test also sees through a line's trailing `\r`
-    let taken = |t: &str| arguments.lines().any(|line| line.starts_with(t));
-    if !taken(token) {
-        return token.to_string();
-    }
-    (1..)
-        .map(|n| format!("{token}_{n}"))
-        .find(|t| !taken(t))
-        .expect("finitely many lines block finitely many suffixes")
-}
-
-/// `command` with each terminator an argument line could equal renamed: its quoted opener and its closing lines.
-fn stamp_terminators(command: &str, arguments: &str) -> String {
-    let mut text = command.to_string();
-    for token in ARGS_TERMINATORS {
-        let stamp = terminator_for(token, arguments);
-        if stamp == token {
-            continue;
-        }
-        text = text
-            .replace(&format!("<<'{token}'"), &format!("<<'{stamp}'"))
-            .split_inclusive('\n')
-            .map(|line| {
-                let body = line.strip_suffix('\n').unwrap_or(line);
-                if body.strip_suffix('\r').unwrap_or(body) == token {
-                    format!("{stamp}{}", &line[token.len()..])
-                } else {
-                    line.to_string()
-                }
-            })
-            .collect();
-    }
-    text
-}
-
 /// The text of the prompt, or why it cannot be built.
 pub fn render(input: &Input<'_>) -> Result<String, String> {
     let path = format!("commands/gsd/{}.md", input.command);
@@ -204,14 +162,8 @@ pub fn assemble(command: &str, input: &Input<'_>) -> String {
         text.push_str(input.tail);
     }
     let converted = host::convert(input.host, &(input.repoint)(&text, input.host));
-    // the render knows the arguments, so the terminator is chosen to be one they cannot contain (#5637; upstream stamps
-    // a per-install nonce because its installed files hold the heredoc); spliced after every rewrite, so the text
-    // the terminator was chosen against is the text the heredoc holds
-    let body = fill_arguments(
-        &stamp_terminators(&converted, input.arguments),
-        input.arguments,
-        input.values,
-    );
+    // filled after every rewrite, so no rewrite runs on typed text
+    let body = fill_arguments(&converted, input.arguments, input.values);
     format!("{}{body}", header(input.host))
 }
 
