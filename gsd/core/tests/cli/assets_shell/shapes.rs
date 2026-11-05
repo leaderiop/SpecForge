@@ -273,3 +273,32 @@ fn the_worktree_handoff_counts_and_lists_what_is_left_indented() {
     );
     assert_eq!(out, "[22]");
 }
+
+/// onboard's entities are one `--fields kind,id` row per project, milestone, phase and requirement: a kind and an
+/// id 0x1f-separated, from one export, where a loop over the kinds prefixed each id with `sed`.
+#[test]
+fn the_onboarding_entities_are_one_row_per_entity() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = taskboard();
+    let read = line(&asset("gsd-core/workflows/onboard.md"), "ENTITIES=$(").to_string();
+    let (out, err, _) = run(&sh, &p, &format!("{read}\nprintf '%s\\n' \"$ENTITIES\""));
+    let rows: Vec<&str> = out.lines().collect();
+    for want in [
+        "project\u{1f}taskboard",
+        "milestone\u{1f}v1.0",
+        "phase\u{1f}v1.0/01",
+        "phase\u{1f}v1.0/02.1",
+    ] {
+        assert!(rows.contains(&want), "{want:?} in {out}{err}");
+    }
+    assert!(
+        rows.iter().any(|row| row.starts_with("requirement\u{1f}")),
+        "{out}"
+    );
+    assert!(
+        rows.iter().all(|row| row.split('\u{1f}').count() == 2),
+        "{out}"
+    );
+}

@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 400 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 393 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	cat	PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
@@ -244,7 +244,6 @@ gsd-core/workflows/execute-phase/steps/post-merge-gate.md	sed	XCODE_SCHEME=$(pri
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	sed	XCODE_SIM=$(xcrun simctl list devices available 2>/dev/null | sed -n 's/.*(\([A-F0-9-]\{8,\}\)).*/\1/p' | head -1)
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	sed	XCODEPROJ=$(printf '%s' "$XCODEPROJ" | sed "s/'/'\\\\''/g")
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	sed	XCODE_SCHEME=$(printf '%s' "$XCODE_SCHEME" | sed "s/'/'\\\\''/g")
-gsd-core/workflows/execute-phase/steps/post-merge-gate.md	tr	BUILD_CMD="python -m py_compile $(specforge files list --kind file --glob '*.py' --max 20 --pick '.entries[].path' | tr '\n' ' ')"
 gsd-core/workflows/execute-phase/steps/regression-gate-run.md	grep	if [ -f "Makefile" ] && grep -q "^test:" Makefile; then
 gsd-core/workflows/execute-phase/steps/regression-gate.md	cat	cat > "$_GSD_HANDOFF/regression-files" <<'GSD_REGRESSION_FILES'
 gsd-core/workflows/execute-plan.md	cat	specforge gsd raise-blocker "$(cat "${BLOCKER_TEXT_FILE}")" --phase "${PHASE}"
@@ -256,9 +255,6 @@ gsd-core/workflows/milestone-summary.md	sort	specforge query "v${VERSION}" --dep
 gsd-core/workflows/milestone-summary.md	tr	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 gsd-core/workflows/new-project.md	cat	DEFAULTS_RAW=$(cat "${GSD_HOME:-$HOME}/.gsd/defaults.json" 2>/dev/null)
 gsd-core/workflows/new-workspace.md	grep	CHILD_REPOS=$(for d in */; do [ -d "${d}.git" ] && echo "${d%/}"; done); CHILD_REPO_COUNT=$(echo "$CHILD_REPOS" | grep -c . || true)
-gsd-core/workflows/onboard.md	sed	ENTITIES=$(for k in project milestone phase requirement; do specforge export --kinds "$k" --pick '.nodes[].id' 2>/dev/null | sed "s|^|$k |"; done)   # one "<kind> <id>" line per entity: a project is not linked to its milestones, so the listing is by kind; empty when there is none
-gsd-core/workflows/plan-phase.md	awk	PHASE_DESC="Goal: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')"$'\n'"Success criteria: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.success_criteria[]' | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')"
-gsd-core/workflows/plan-phase.md	paste	PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]' | paste -sd , -)
 gsd-core/workflows/plan-phase.md	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 gsd-core/workflows/plan-phase.md	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 gsd-core/workflows/plan-phase.md	tr	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
@@ -342,9 +338,6 @@ prompt:milestone_summary	head	specforge query "v${VERSION}" --depth 4 --kinds co
 prompt:milestone_summary	sort	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 prompt:milestone_summary	tr	specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
 prompt:new_project	cat	DEFAULTS_RAW=$(cat "${GSD_HOME:-$HOME}/.gsd/defaults.json" 2>/dev/null)
-prompt:onboard	sed	ENTITIES=$(for k in project milestone phase requirement; do specforge export --kinds "$k" --pick '.nodes[].id' 2>/dev/null | sed "s|^|$k |"; done)   # one "<kind> <id>" line per entity: a project is not linked to its milestones, so the listing is by kind; empty when there is none
-prompt:plan_phase	awk	PHASE_DESC="Goal: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')"$'\n'"Success criteria: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.success_criteria[]' | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')"
-prompt:plan_phase	paste	PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]' | paste -sd , -)
 prompt:plan_phase	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 prompt:plan_phase	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 prompt:plan_phase	tr	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }

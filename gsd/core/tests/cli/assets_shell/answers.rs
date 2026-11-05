@@ -290,16 +290,6 @@ fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
         "",
     );
     assert_eq!(out, "No backlog items found\n");
-    let (out, err) = run(
-        &sh,
-        &p,
-        "gsd-core/workflows/onboard.md",
-        "",
-        &["ENTITIES=$("],
-        "printf '%s\\n' \"$ENTITIES\"",
-    );
-    assert!(out.lines().any(|l| l == "project taskboard"), "{out}{err}");
-    assert!(out.lines().any(|l| l == "phase v1.0/02.1"), "{out}");
     let (out, _) = run(
         &sh,
         &p,

@@ -54,7 +54,7 @@ if [ -z "$BUILD_CMD" ]; then
   elif [ -f "go.mod" ]; then
     BUILD_CMD="go build ./..."
   elif [ -f "pyproject.toml" ] || [ -f "requirements.txt" ]; then
-    BUILD_CMD="python -m py_compile $(specforge files list --kind file --glob '*.py' --max 20 --pick '.entries[].path' | tr '\n' ' ')"
+    BUILD_CMD="python -m py_compile $(specforge files list --kind file --glob '*.py' --max 20 --pick '.entries[].path' --join ' ')"
   elif [ -f "package.json" ] && grep -q '"build"' package.json; then
     # #5346: the project's own package manager (packageManager field, then lockfile), npm if unresolved.
     BUILD_CMD=$(specforge gsd resolve-package-manager build 2>/dev/null || echo "npm run build")
