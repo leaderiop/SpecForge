@@ -435,10 +435,6 @@ fn a_refused_read_shows_its_cause() {
             "execute-phase/steps/tdd-applicability-resolution.md",
             "TDD_APPLICABLE_RAW=$(",
         ),
-        (
-            "execute-phase/steps/executor-isolation-dispatch.md",
-            "_TDD_APPLICABLE_RAW=$(",
-        ),
         ("plan-phase.md", "PHASE_REQ_IDS=$("),
         ("verify-work.md", "VERIFICATION_FILE=$("),
     ] {

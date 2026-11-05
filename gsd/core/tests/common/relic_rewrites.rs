@@ -213,9 +213,18 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/plan-review-convergence.md", 407, 407),
     ("gsd-core/workflows/plan-review-convergence.md", 409, 410),
     ("gsd-core/workflows/plan-review-convergence.md", 414, 416),
+    // @gsd/core runs no worktree isolation: one dispatch template, sequential mode
+    ("gsd-core/workflows/execute-phase.md", 634, 634),
+    ("gsd-core/workflows/execute-phase.md", 642, 642),
+    ("gsd-core/workflows/execute-phase.md", 724, 724),
+    ("gsd-core/workflows/execute-phase.md", 772, 772),
+    ("gsd-core/workflows/execute-phase.md", 822, 822),
+    ("gsd-core/workflows/execute-phase.md", 976, 976),
+    ("gsd-core/references/dispatch-isolation-gate.md", 127, 128),
+    ("gsd-core/references/dispatch-isolation-gate.md", 130, 131),
 ];
 
-/// `(path, first, last)`, inclusive: runs deleted by blanking, whose first line says what replaced them. Every other
+/// `(path, first, last)`, inclusive: runs deleted by blanking, whose first line (when not blank) says what replaced them. Every other
 /// line of the run is blank; upstream's blank lines stay blank, so they are not listed as rewritten.
 pub const BLANKED: &[(&str, usize, usize)] = &[
     // the disposition ledger is @gsd/ops's: @gsd/core keeps no REVIEW.md parser
@@ -224,6 +233,38 @@ pub const BLANKED: &[(&str, usize, usize)] = &[
         0,
         1018,
     ),
+    // @gsd/core runs no worktree isolation: its steps are not reached, its branches are gone
+    (
+        "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md",
+        0,
+        144,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md",
+        0,
+        373,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/worktree-base-check.md",
+        0,
+        24,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/worktree-recovery-policy.md",
+        0,
+        10,
+    ),
+    ("gsd-core/workflows/execute-phase.md", 127, 131),
+    ("gsd-core/workflows/execute-phase.md", 134, 152),
+    ("gsd-core/workflows/execute-phase.md", 607, 614),
+    ("gsd-core/workflows/execute-phase.md", 636, 637),
+    ("gsd-core/workflows/execute-phase.md", 647, 658),
+    ("gsd-core/workflows/execute-phase.md", 661, 672),
+    ("gsd-core/workflows/execute-phase.md", 681, 684),
+    ("gsd-core/workflows/execute-phase.md", 693, 697),
+    ("gsd-core/workflows/execute-phase.md", 764, 767),
+    ("gsd-core/workflows/execute-phase.md", 770, 771),
+    ("gsd-core/workflows/execute-phase.md", 847, 932),
 ];
 
 /// Whether body line `n` of `path`, upstream's `theirs`, is a line of a [`BLANKED`] run that upstream did not leave

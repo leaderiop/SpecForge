@@ -164,13 +164,15 @@ The assets are upstream's text; where the spec has no counterpart a line was def
 - Settings. `{{setting:<key>|<fallback>}}` reads the settings block. `commit_docs`, `features.graduation*`,
   `workflow._auto_chain_active`, `workflow.code_review_command` and `workflow.live_dom_uat` are not keys of the roster
   (`NOT_SETTINGS` in `tests/ported_text.rs`), so they always take their fallback, and a `settings set` on them would be
-  refused. `USE_WORKTREES` is `false` (the `sequential` tail of `execute_phase`); `RUNTIME` is the rendered host.
+  refused. `USE_WORKTREES` is `false` and `ISOLATION` is `none`: `@gsd/core` runs no worktree isolation, so every
+  plan of `execute_phase` dispatches in sequential mode and its four isolation steps are not reached (ADR 0343).
+  `RUNTIME` is the rendered host.
 - Defaulted gaps: worktrees, the loop hooks, `intel`, `resolve-model`, learnings and the dispatch-isolation steps.
 - `init` JSON fields (`phase_dir`, `plan_count`, ...) have no counterpart: the text reads the graph (`specforge query`)
   and the ids named at the end of the text (`$PHASE_ID`, `$MILESTONE`, `$PROJECT`).
 - Shell: upstream's blocks read JSON (and the wave's worktree manifest) with `node -e`, because upstream is a node
   program, and its review lanes and its own JSON need jq. Here the blocks need neither: a value comes from `--pick`, a
-  document is read by the agent, gh filters with `--jq`, and the manifest and the batch list are tab-separated lines
+  document is read by the agent, gh filters with `--jq`, and the batch list is tab-separated lines
   (plans 03 and 05, F9 and G4; `tests/port_tools.rs` forbids a `jq` command word, `tests/cli/assets_shell/` runs each
   rewritten line with no jq and no node). node stays where the user's own JavaScript project runs (`KEEP` in
   `tests/port_tools.rs`); `code-review-disposition.md`'s ledger builder is gone, the ledger being `@gsd/ops`'s. The

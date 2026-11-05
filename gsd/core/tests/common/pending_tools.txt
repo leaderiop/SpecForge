@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 673 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 669 rows.
 ../security/assets/gsd-core/workflows/secure-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -303,10 +303,6 @@ gsd-core/workflows/execute-phase.md	wc	[ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(
 gsd-core/workflows/execute-phase.md	wc	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
 gsd-core/workflows/execute-phase/steps/codebase-drift-gate.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/execute-phase/steps/codebase-drift-gate.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md	paste	PLAN_FILES=$(specforge query "$plan_id" --depth 0 --pick '.nodes[0].fields.files_modified[]' | paste -sd' ' -)
-gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md	paste	PLAN_DELETIONS=$(specforge query "$plan_id" --depth 0 --pick '.nodes[0].fields.files_deleted[]' | paste -sd' ' -)
-gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md	sed	PLAN_SCOPE_PATHS=$(printf '%s %s' "$PLAN_FILES" "$PLAN_DELETIONS" | tr -s ' ' | sed 's/^ //; s/ $//')
-gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md	tr	PLAN_SCOPE_PATHS=$(printf '%s %s' "$PLAN_FILES" "$PLAN_DELETIONS" | tr -s ' ' | sed 's/^ //; s/ $//')
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	grep	elif [ -f "Makefile" ] && grep -q "^build:" Makefile; then
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	grep	elif [ -f "package.json" ] && grep -q '"build"' package.json; then
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	grep	elif [ -f "Makefile" ] && grep -q "^test:" Makefile; then
@@ -679,7 +675,7 @@ prompt:workspace	grep	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 
 prompt:workspace	sed	STRATEGY=$(sed -n 's/^Strategy: *//p' "$WORKSPACE_PATH/WORKSPACE.md" 2>/dev/null)   # from the manifest
 prompt:workspace	sed	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
 
-# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 71 rows.
+# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 68 rows.
 gsd-core/references/checkpoints.md	lsof	lsof -ti:3000 | xargs kill
 gsd-core/references/checkpoints.md	sleep	for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done
 gsd-core/references/execute-phase-quota-recovery.md	sleep	sleep "$RETRY_AFTER"
@@ -690,10 +686,8 @@ gsd-core/references/worktree-path-safety.md	env	env -C scripts bash -c 'cd ..'
 gsd-core/references/worktree-path-safety.md	env	env -u FOO --debug -u BAR -C ../main
 gsd-core/references/worktree-path-safety.md	env	env -S 'cmd args'
 gsd-core/references/worktree-path-safety.md	timeout	timeout --signal TERM
-gsd-core/workflows/execute-phase.md	date	DISPATCH_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 gsd-core/workflows/execute-phase.md	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 gsd-core/workflows/execute-phase.md	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md	date	AGENT_ID="agent-p{plan_number}-$(date -u +%s)"
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 gsd-core/workflows/execute-phase/steps/regression-gate-run.md	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
@@ -729,7 +723,6 @@ gsd-core/workflows/review.md	date	_DIAG_STAMP="$(date -u +%Y%m%dT%H%M%SZ 2>/dev/
 gsd-core/workflows/review.md	mkdir	if mkdir -p "$_DIAG_RUN_DIR"; then
 gsd-core/workflows/review.md	mkdir	mkdir -p
 gsd-core/workflows/ship.md	sleep	sleep 3
-prompt:execute_phase	date	DISPATCH_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 prompt:execute_phase	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 prompt:execute_phase	mkdir	_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
 prompt:execute_plan	date	PLAN_START_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -752,7 +745,7 @@ prompt:workspace	date	TIMESTAMP=$(date +%Y%m%d%H%M%S)
 prompt:workspace	mkdir	mkdir -p "$TARGET_PATH"
 prompt:workspace	rm	rm -rf "$WORKSPACE_PATH"
 
-# C rule: a rule that lives in the shell moves into Rust (R1): a grep -q of a value against a pattern. 52 rows.
+# C rule: a rule that lives in the shell moves into Rust (R1): a grep -q of a value against a pattern. 47 rows.
 agents/gsd-executor.md	grep	if echo "$ACTUAL_BRANCH" | grep -Eq '^(main|master|develop|trunk|release/.*)$'; then
 agents/gsd-executor.md	grep	if ! echo "$ACTUAL_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)[A-Za-z0-9._/-]+$'; then
 gsd-core/references/worktree-branch-check.md	grep	if [ "$HEAD_REF" = "DETACHED" ] || echo "$ACTUAL_BRANCH" | grep -Eq '^(main|master|develop|trunk|release/.*)$'; then
@@ -767,11 +760,6 @@ gsd-core/workflows/autonomous.md	grep	if echo "$GSD_ARGS" | grep -qE '(^|[[:spac
 gsd-core/workflows/autonomous.md	grep	if echo "$GSD_ARGS" | grep -qE "(^|[[:space:]])${REVIEW_FLAG}([[:space:]]|$)"; then
 gsd-core/workflows/autonomous.md	grep	if echo "$GSD_ARGS" | grep -qE '\-\-max-cycles\s+[0-9]+'; then
 gsd-core/workflows/execute-phase.md	grep	if printf '%s' "$ORCH_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)'; then
-gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md	grep	printf '%s' "$EXECUTOR_PROMPT" | grep -q '<required_reading>' || {
-gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md	grep	printf '%s' "$EXECUTOR_PROMPT" | grep -q 'skipped_gitignored' || {
-gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md	grep	printf '%s' "$EXECUTOR_PROMPT" | grep -q 'Inline the actual contents' && {
-gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md	grep	printf '%s' "$EXECUTOR_PROMPT" | grep -q '\${AGENT_SKILLS}' && {
-gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md	grep	printf '%s' "$EXECUTOR_PROMPT" | grep -q '\${TDD_APPLICABLE' && {
 gsd-core/workflows/new-milestone.md	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 gsd-core/workflows/new-milestone.md	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 gsd-core/workflows/next.md	grep	if echo "$GSD_ARGS" | grep -qE '(^|[[:space:]])\-\-(converge|cross-ai)([[:space:]]|$)'; then
@@ -956,7 +944,7 @@ prompt:workspace	ls	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 "$
 
 # J solver: the z3 decision (R4). 0 rows.
 
-# K not a tool: prose, a placeholder or a bare command name in a shell fence or a run: reword it. 83 rows.
+# K not a tool: prose, a placeholder or a bare command name in a shell fence or a run: reword it. 81 rows.
 agents/gsd-plan-checker.md	estimate-check	estimate-check --calibrated
 commands/gsd/ns-review.md	gsd-code-review	gsd-code-review --fix
 gsd-core/references/autonomous-ui-design-contract.md	Phase	Phase ${PHASE_NUM}: UI-SPEC generation did not produce output — continuing without design contract.
@@ -982,8 +970,6 @@ gsd-core/workflows/autonomous.md	needs_human	| ${PHASE_NUM} | needs_human | reso
 gsd-core/workflows/complete-milestone.md	audit-open	audit-open --json
 gsd-core/workflows/discuss-phase-power.md	total	total - answered
 gsd-core/workflows/discuss-phase/modes/advisor.md	Researching	Researching {N} areas...
-gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md	dispatch-isolation	dispatch-isolation --json
-gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md	worktree.worker-status	worktree.worker-status --root "${ORCH_ROOT}/.claude/worktrees"
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	roadmap.get-phase	roadmap.get-phase --pick goal
 gsd-core/workflows/execute-phase/steps/wave-post-gate-hooks.md	wave	⚠ {hook.capId} advisory (wave {N}): {GATE_RESULT.message}
 gsd-core/workflows/mvp-phase.md	Phase	Phase ${PHASE}

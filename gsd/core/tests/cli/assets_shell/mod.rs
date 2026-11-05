@@ -1,12 +1,11 @@
-//! The assets' shell lines, run under bash with a `PATH` that holds no jq and no node: `--pick` reads, the worktree
-//! manifest and the batch list as tab-separated lines, and the checks once written with jq.
+//! The assets' shell lines, run under bash with a `PATH` that holds no jq and no node: `--pick` reads, the batch list
+//! as tab-separated lines, and the checks once written with jq.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 mod answers;
 mod batch;
-mod manifest;
 mod pick;
 mod relics;
 mod review;

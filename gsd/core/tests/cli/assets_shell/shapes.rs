@@ -225,21 +225,3 @@ fn a_quick_tasks_changed_files_are_its_commits_files() {
         "{err}"
     );
 }
-
-#[test]
-fn a_plans_files_are_read_from_its_entity() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
-    let p = taskboard();
-    let path = "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md";
-    let id = run(
-        &sh,
-        &p,
-        "specforge query v1.0/01 --kinds plan --pick '.nodes[kind=plan].id' | head -1",
-    )
-    .0;
-    let setup = format!("plan_id={}", id.trim());
-    let files = values(&sh, &p, path, &setup, &["PLAN_FILES=$("], &["PLAN_FILES"]);
-    assert!(files.len() > 2 && !files.contains('\n'), "{files}");
-}

@@ -101,14 +101,6 @@ pub const LINES: &[(&str, usize)] = &[
         "gsd-core/workflows/execute-phase/steps/completion-reconciliation.md",
         35,
     ),
-    (
-        "gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md",
-        117,
-    ),
-    (
-        "gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md",
-        329,
-    ),
     ("gsd-core/workflows/execute-plan.md", 562),
     ("gsd-core/workflows/pr-branch.md", 87),
     ("gsd-core/workflows/pr-branch.md", 88),
@@ -129,10 +121,6 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/spec-phase.md", 320),
     ("gsd-core/workflows/spec-phase.md", 321),
     // The wave's worktree manifest is written and read with jq.
-    ("gsd-core/workflows/execute-phase.md", 656),
-    ("gsd-core/workflows/execute-phase.md", 871),
-    ("gsd-core/workflows/execute-phase.md", 893),
-    ("gsd-core/workflows/execute-phase.md", 899),
     // A `*_HOOKS_JSON` holds one capability extension's answer per line, merged by no jq.
     ("gsd-core/references/loop-hook-dispatch.md", 21),
     ("gsd-core/workflows/autonomous.md", 552),
@@ -159,30 +147,6 @@ pub const LINES: &[(&str, usize)] = &[
     (
         "gsd-core/workflows/execute-phase/steps/per-plan-executor-routing.md",
         28,
-    ),
-    (
-        "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md",
-        9,
-    ),
-    (
-        "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md",
-        11,
-    ),
-    (
-        "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md",
-        15,
-    ),
-    (
-        "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md",
-        16,
-    ),
-    (
-        "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md",
-        117,
-    ),
-    (
-        "gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md",
-        121,
     ),
     (
         "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
@@ -226,7 +190,6 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/verify-work.md", 717),
     // The wave's worktree manifest is tab-separated lines, its file `.tsv`; the quick batch's list is
     // `quick_id<TAB>description` lines, its merge-eligible prefix a bash array, its route a `case`.
-    ("gsd-core/workflows/execute-phase.md", 650),
     ("gsd-core/workflows/quick-batch/steps/batch-init.md", 30),
     ("gsd-core/workflows/quick-batch/steps/batch-init.md", 37),
     ("gsd-core/workflows/quick-batch/steps/batch-init.md", 43),

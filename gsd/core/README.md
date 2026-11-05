@@ -60,7 +60,7 @@ specforge settings --extension @gsd/core
 **Requirements.** The prompts' shell blocks need `bash`, `git` and `specforge` on the `PATH`, and no jq anywhere: a value
 is read with `--pick` (`specforge query`, `export`, `check`, `settings` and the extension commands, ADR 0325), a document
 is read by the agent (`--format context` or `brief`, or a command's own JSON), gh filters its answers with `--jq`, and
-data a prompt owns (the wave's worktree manifest, the quick batch's list) is tab-separated lines. `gh` and the review
+data a prompt owns (the quick batch's list) is tab-separated lines. `gh` and the review
 lanes' own CLIs (codex, gemini, opencode, ollama, ...) are needed only for the steps that call those services. node is
 needed only where the user's own project is JavaScript: the dev-server probe of `references/checkpoints.md` and the
 verifier's module and CLI checks (`node -e "…require('$MODULE_PATH')…"`, `node $CLI_PATH`, at `agents/gsd-verifier.md`)

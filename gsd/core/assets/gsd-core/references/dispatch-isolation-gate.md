@@ -126,11 +126,11 @@ record immediately before dispatch so the sentinel is always fresh. Best-effort 
 write failure must never fail the dispatch, since the guards' sentinel-absent fallback is safe,
 just less precise.
 
-Wave sites re-record per plan rather than per phase — see
-`gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md`.
+Wave sites re-record per plan rather than per phase in upstream's per-plan gate, which `@gsd/core` does not reach
+(`gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md`: it runs no worktree isolation).
 
-Wave fan-out sites (`execute-phase`) implement both models — see
-`gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md`.
+Wave fan-out sites (`execute-phase`) dispatch in sequential mode only; the two models'
+step (`gsd-core/workflows/execute-phase/steps/executor-isolation-dispatch.md`) is not reached.
 
 ## Base divergence
 

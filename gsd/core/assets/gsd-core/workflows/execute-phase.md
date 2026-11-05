@@ -126,32 +126,32 @@ USE_WORKTREES="false"   # @gsd/core has no worktree isolation: workflow.use_work
 EXECUTOR_STALL_INTERVAL_MINUTES="{{setting:executor.stall_detect_interval_minutes|5}}"   # executor.stall_detect_interval_minutes (the settings)
 EXECUTOR_STALL_THRESHOLD_MINUTES="{{setting:executor.stall_threshold_minutes|10}}"   # executor.stall_threshold_minutes (the settings)
 
-# Resolve ISOLATION + apply its guards: read and execute the "Resolve ISOLATION"
-# section of execute-phase/steps/executor-isolation-dispatch.md. It sets
-# ISOLATION (harness-worktree|orchestrator-worktree|none), forces none when
-# USE_WORKTREES=false, fails closed when a host has no primitive, sweeps orphans,
-# and applies the #683 fork-base auto-degrade.
+ISOLATION="none"   # @gsd/core runs no worktree isolation: every plan dispatches in sequential mode
+
+
+
+
 ```
 
-`ISOLATION` — not `RUNTIME` — is the ONLY fan-out branch point; **never add a `RUNTIME = "codex"` test here.** Per-host dispatch detail lives in `execute-phase/steps/executor-isolation-dispatch.md` (read from step 3).
+Executors run in sequential mode on the working tree: `@gsd/core` has no worktree isolation (no submodule check, no base-check degrade).
 
-If the project uses git submodules, worktree isolation is unsafe **only when a plan touches a submodule path** — the executor commit protocol cannot correctly handle submodule commits inside isolated worktrees. Compute submodule paths once and intersect them per-plan with the plan's declared `files_modified` frontmatter.
 
-```bash
-# Parse submodule paths from .gitmodules once (empty if no .gitmodules).
-# SUBMODULE_PATHS is a newline-separated list of repo-relative paths.
-if [ -f .gitmodules ]; then
-  SUBMODULE_PATHS=$(specforge git submodules --pick '.submodules[].path' 2>/dev/null)
-else
-  SUBMODULE_PATHS=""
-fi
-```
 
-`SUBMODULE_PATHS` is exported to the `execute_waves` step, where the per-plan decision happens (see "Per-plan worktree decision" sub-step inside `execute_waves`). The decision is per-plan because different plans in the same wave can touch different files — only plans whose paths intersect a submodule must drop worktree isolation; plans nowhere near a submodule keep parallel isolation.
 
-When `USE_WORKTREES` is `false`, `ISOLATION` is forced to `none`: executors run sequentially on the main working tree. The per-plan decision below has no effect when worktrees are project-disabled.
 
-`USE_WORKTREES` and `ISOLATION` are also reset for the run when `worktree base-check` detects the orchestrator HEAD has diverged from the worktree fork base (#683) — read and follow `execute-phase/steps/worktree-base-check.md` for the degrade semantics and the `worktree.baseRef:"head"` escape hatch (#3659).
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Read context window size for adaptive prompt enrichment:
 
@@ -606,13 +606,13 @@ increases monotonically across waves. `{status}` is `complete` (success),
    - Bad: "Executing terrain generation plan"
    - Good: "Procedural terrain generator using Perlin noise — creates height maps and biome zones. Required before vehicle physics."
 
-2.5. **Per-plan worktree decision (run for each plan in this wave BEFORE any dispatch):**
 
-   Read and execute **Part 1** of `gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md` for each plan. It extracts `PLAN_FILES` from the plan's JSON, intersects against `SUBMODULE_PATHS` (with normalization, bidirectional matching, and glob-prefix handling), and sets `USE_WORKTREES_FOR_PLAN` to `false` when the plan touches a submodule path. Append `plan_id` to a `WAVE_WORKTREE_PLANS` accumulator when `USE_WORKTREES_FOR_PLAN != false`. **Store each plan's decision** (`plan_id → USE_WORKTREES_FOR_PLAN`): the shared `USE_WORKTREES_FOR_PLAN` value is overwritten by the next plan's decision.
 
-   The plan-scoped dispatch-isolation record is **not written here**. It is a single slot, so it is written in step 3, immediately before each plan's own dispatch (Part 2 of the gate, #5516).
 
-   The dispatch branches in step 3 gate on both `USE_WORKTREES` and the dispatched plan's own stored `USE_WORKTREES_FOR_PLAN` (#2474).
+
+
+
+
 
 2.75. **Execute:wave:pre capability dispatch:**
 
@@ -633,44 +633,44 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
    Pass paths only — executors read files themselves.
 
-   **Substitute `{plan_id}` in the prompt below with this plan's `id` field** from the `phase-plan-index` JSON loaded in step 1 (the same field referred to elsewhere in this workflow as `plan.id`) — unmodified and un-truncated, never a paraphrase. The guard hooks compare this value verbatim against the sentinel the per-plan gate wrote (`per-plan-worktree-gate.md`'s `plan_id`); a paraphrase or an omission costs the dispatch its recorded isolation decision.
+   **Substitute `{plan_id}` in the prompt below with this plan's `id` field** from the `phase-plan-index` JSON loaded in step 1 (the same field referred to elsewhere in this workflow as `plan.id`) — unmodified and un-truncated, never a paraphrase.
 
-   **Record this plan's isolation immediately before its dispatch (#5516).** Restore the dispatched plan's **stored decision** from step 2.5 (`plan_id` := this plan's `id`, `USE_WORKTREES_FOR_PLAN` := the value stored for that plan, and `PLAN_FILES` / `PLAN_DELETIONS` re-extracted from this plan's JSON, since the later plans' decisions overwrote them) and run **Part 2** of `gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md`, so the single-slot sentinel names the plan being dispatched. Do not run it for any other plan, and do not batch it ahead of the dispatches.
+
 
    **Executor routing (#1689/#3370).** Per plan, run `gsd-core/workflows/execute-phase/steps/per-plan-executor-routing.md` to set `EXECUTOR_TYPE` for `subagent_type="{EXECUTOR_TYPE}"` below.
 
    **TDD-applicability resolution (#4266/#4272).** Run `gsd-core/workflows/execute-phase/steps/tdd-applicability-resolution.md`.
 
-   **Worktree mode** (`USE_WORKTREES` and `USE_WORKTREES_FOR_PLAN` not `false`):
+   **Executor dispatch** (every plan: `@gsd/core` runs no worktree isolation, so **Sequential mode** below adapts this call):
 
    Before spawning, capture the current HEAD:
    ```bash
    EXPECTED_BASE=$(specforge git head --pick .sha)
-   DISPATCH_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-   EXPECTED_BRANCH=$(specforge git head --pick .branch)
-    if [ "${USE_WORKTREES:-true}" != "false" ] && [ "${USE_WORKTREES_FOR_PLAN:-true}" != "false" ] && [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then
-     WAVE_WORKTREE_MANIFEST=$(specforge files temp --prefix gsd-worktree-wave- --suffix .tsv --pick .path) || exit 1  # one private file, its suffix kept (#1520)
-     # Persist the dispatch-time orchestrator worktree root so wave-cleanup can pin back to the
-     # orchestrator's OWN worktree — NOT `git worktree list`'s first entry (always the main
-     # checkout), which pins a non-primary (per-phase lane) orchestrator off its branch (#630).
-     # Dispatch runs from the orchestrator's lane, so show-toplevel here is the correct root.
-     ORCH_ROOT=$(specforge git repo --pick .top)
-     printf 'orchestrator_root\t%s\n' "$ORCH_ROOT" > "$WAVE_WORKTREE_MANIFEST.tmp" && specforge files move "$WAVE_WORKTREE_MANIFEST.tmp" "$WAVE_WORKTREE_MANIFEST" >/dev/null   # one tab-separated record per line: orchestrator_root<TAB>root, then worktree<TAB>path<TAB>branch per worktree
-     export WAVE_WORKTREE_MANIFEST
-   fi
+
+
+
+
+
+
+
+
+
+
+
+
    ```
 
-   **Isolation model.** The block below is the **`harness-worktree`** path. For `orchestrator-worktree` use the dispatch below it; for `none` use sequential mode. Both are detailed in `execute-phase/steps/executor-isolation-dispatch.md`.
 
-   **Sequential dispatch for parallel execution (waves with 2+ agents):**
-   Dispatch each `Agent()` call **one at a time with `run_in_background: true`**. Do NOT
-   send all Agent calls in a single message: simultaneous `git worktree add` calls race
-   on `.git/config.lock`. Agents still run in parallel once their worktrees are created.
 
-   ```text
-   # CORRECT: one Agent() per message with run_in_background: true
-   # WRONG: multiple Agent() calls in one message -> .git/config.lock contention
-   ```
+
+
+
+
+
+
+
+
+
 
    ```text
    Agent(
@@ -680,10 +680,10 @@ increases monotonically across waves. `{status}` is `complete` (success),
      # When executor_model is "inherit", omit this parameter entirely so
      # Claude Code inherits the orchestrator model automatically.
      model="{executor_model}",  # omit this line when executor_model == "inherit"
-     # The host's OWN declared isolation flag (`harnessFlag` from
-     # `dispatch-isolation --json`; see the isolation-dispatch fragment).
-     # Emit the declared token — do NOT hardcode a runtime's flag.
-     {harnessFlag},
+
+
+
+
      prompt="
        <objective>
        Execute plan {plan_number} of phase {phase_number}-{phase_name}.
@@ -692,10 +692,10 @@ increases monotonically across waves. `{status}` is `complete` (success),
        Do NOT update STATE.md or ROADMAP.md — the orchestrator owns those writes after all worktree agents in the wave complete.
        </objective>
 
-       <worktree_branch_check>
-       ORCHESTRATOR build-time embed (NOT a sub-agent runtime step): before this dispatch, read `gsd-core/references/worktree-branch-check.md`, substitute `{EXPECTED_BASE}` with the base SHA captured above ({EXPECTED_BASE}), and replace this note with that fragment's `<worktree_branch_check>` block so the dispatched prompt carries the runnable guard verbatim — do not pass this instruction through in its place.
-       Per-commit HEAD/cwd-drift/path-guard: `agents/gsd-executor.md` steps 0/0a/0b + `gsd-core/references/worktree-path-safety.md` (in <execution_context>).
-       </worktree_branch_check>
+
+
+
+
 
        <parallel_execution>
        You are running as a PARALLEL executor agent in a git worktree. Worktree path safety (cwd-drift, absolute-path guards) is in `worktree-path-safety.md` (loaded below).
@@ -723,7 +723,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
        - `~/.claude/gsd-core/templates/summary.md`
        - `~/.claude/gsd-core/references/checkpoints.md`
        ${TDD_APPLICABLE ? '- `~/.claude/gsd-core/references/tdd.md`' : ''}  # #3990/#4265: type: tdd, tdd="true", or workflow.tdd_mode
-       - `~/.claude/gsd-core/references/worktree-path-safety.md`
+
        ${CONTEXT_WINDOW < 200000 ? '' : '- `~/.claude/gsd-core/references/executor-examples.md`'}
        </execution_context>
 
@@ -763,15 +763,15 @@ increases monotonically across waves. `{status}` is `complete` (success),
    )
    ```
 
-   After each `Agent()` returns, parse executor-returned worktree metadata (`<worktree_metadata>`) before harness metadata, then record the `{agent_id, worktree_path, branch, expected_base}` entry with the wave's worktree manifest (worktree isolation is not part of @gsd/core: nothing to record). The verb validates every field at write time using the `cleanup-wave` reader's own rules (write-strict `--agent-id`), failing loudly with a recovery hint rather than appending an under-populated entry the reader would later drop silently. On a non-zero exit or any missing field: stop and ask for recovery instead of scanning worktrees.
 
-   > **Worktree recovery policy (#48 + #1292):** See `execute-phase/steps/worktree-recovery-policy.md` — FAIL-CLOSED rule for base/HEAD-namespace mismatches AND isolated-run fail-safe recovery.
+
+
 
    > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above to spawn executor agent(s), stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available. While waiting, run the step-4 completion surveillance; if the child's session ends abnormally — including `turn_aborted` — reconcile artifacts per `execute-phase/steps/completion-reconciliation.md` before classifying the plan (#4217).
 
-   **Orchestrator-managed worktree dispatch** (`ISOLATION=orchestrator-worktree`): read and execute `execute-phase/steps/executor-isolation-dispatch.md`. GSD creates each worktree (`worktree create`) and spawns the executor into it; the orchestrator performs every git operation. Merge-back and cleanup are the existing manifest-scoped gauntlet, unchanged.
 
-   **Sequential mode** (`USE_WORKTREES_FOR_PLAN` is `false` — either project-level `USE_WORKTREES=false`, or per-plan submodule intersection forced it false in step 2.5):
+
+   **Sequential mode** (every plan):
 
    Omit `isolation="worktree"` from the Agent call. Before composing the prompt, read and execute
    `execute-phase/steps/sequential-root-pin.md` (#4254) — it owns the sequential root-pin build-time
@@ -821,7 +821,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
    If a spawned agent does not return a normal terminal completion response — or its session ends abnormally (interrupted, aborted, closed, killed, timed out, `turn_aborted`, including ends the orchestrator itself initiated) — do NOT block indefinitely and do NOT classify the plan as failed yet. Read and execute `gsd-core/workflows/execute-phase/steps/completion-reconciliation.md` — reconcile the plan artifacts FIRST, classify SECOND: SUMMARY present AND matching recent commits → complete (proceed to step 5, do NOT re-dispatch); no completion evidence → the failure handler. Verify, never wait.
 
    **Configurable stall surveillance (#3212):** Every `${EXECUTOR_STALL_INTERVAL_MINUTES}`
-   minutes while waiting, inspect `git log "${EXPECTED_BRANCH}" --since="${DISPATCH_TS}"`
+   minutes while waiting, inspect `specforge git log "${EXPECTED_BASE}..HEAD"`
    for activity. If no completion signal, no SUMMARY.md, and no expected-branch
    commits appear for `${EXECUTOR_STALL_THRESHOLD_MINUTES}` minutes, pause and
    ask for one recovery path: `continue waiting`, `kill and retry`, or
@@ -846,91 +846,91 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
 5.5. **Worktree cleanup (when `isolation="worktree"` was used):**
 
-   **Standard wave contract:** Each wave's worktrees merge to main via the templated path below before the next wave's worktrees fork. The cleanup loop runs once per wave at the end of the wave lifecycle. Worktrees created in wave N must be fully removed before wave N+1 forks new ones.
+   No worktree was created: there is nothing to merge back or clean up.
 
-   **Cross-wave dependency deviation (supported execution mode):** When the orchestrator legitimately deviates from the standard wave model — for example, a phase with cross-wave plan dependencies that requires custom inter-worktree base-update merges (e.g., `merge: bring 09-01 + 09-02 into 09-03 base`) — the cleanup loop below is NOT automatically re-entered for those custom merges. The deviation path produces correct final history but bypasses this loop, leaving `worktree-agent-*` directories in place. Use the **cleanup-tail snippet** below to remove any residual worktrees after such a deviation.
 
-   When executor agents ran in worktree isolation, their commits land on temporary branches in separate working trees. After the wave completes, merge these changes back and clean up:
 
-   **Manifest source of truth (#3384):** Cleanup consumes the `WAVE_WORKTREE_MANIFEST` created and populated during executor dispatch in step 3. Do not recreate or truncate it here.
 
-   Prefer the bounded helper, which validates branch identity, expected base, deletion
-   diffs, merge result, and worktree removal before deleting the temporary branch.
-   If the helper reports a blocked cleanup, resolve the reported manifest entry and
-   rerun the same command. Do not fall back to broad worktree discovery.
 
-   ```bash
-   [ -n "${WAVE_WORKTREE_MANIFEST:-}" ] && [ -f "$WAVE_WORKTREE_MANIFEST" ] || {
-     echo "BLOCKED: missing WAVE_WORKTREE_MANIFEST; refusing broad worktree cleanup (#3384)." >&2
-     exit 1
-   }
 
-   # Guard: pin cleanup back to the orchestrator's OWN worktree and fail on branch drift (#3174, #630).
-   # Resolve from the dispatch-time orchestrator root persisted in the manifest — NOT `git worktree
-   # list`'s first entry, which is always the main checkout and would pin a non-primary (per-phase
-   # lane) orchestrator off its own branch, tripping the #3174 assertion below (#630). Byte-identical
-   # for a primary orchestrator (its root IS the first entry); the fallback covers pre-#630 manifests.
-   PRIMARY_WT=$(while IFS=$'\t' read -r tag a || [ -n "$tag" ]; do [ "$tag" = orchestrator_root ] && { printf '%s' "$a"; break; }; done 2>/dev/null < "${WAVE_WORKTREE_MANIFEST:-}")
-   [ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(specforge git worktrees --pick '.worktrees[main=true].path')
-   if [ -z "$PRIMARY_WT" ]; then
-     echo "FATAL: could not resolve orchestrator worktree before cleanup" >&2
-     exit 1
-   fi
-   if [ -n "$PRIMARY_WT" ] && [ "$(pwd -P 2>/dev/null)" != "$(cd "$PRIMARY_WT" 2>/dev/null && pwd -P)" ]; then echo "⚠ Orchestrator CWD drifted to $(pwd) — pinning to $PRIMARY_WT before worktree cleanup (#3174)"; cd "$PRIMARY_WT" || { echo "FATAL: cannot cd to primary worktree $PRIMARY_WT" >&2; exit 1; }; fi
-   ORCH_BRANCH=$(specforge git head --pick .branch)
-   [ -z "${EXPECTED_BRANCH:-}" ] || [ "$ORCH_BRANCH" = "$EXPECTED_BRANCH" ] || { echo "FATAL: orchestrator on '$ORCH_BRANCH' but expected '$EXPECTED_BRANCH' before worktree cleanup — refusing to merge (#3174-class drift)" >&2; exit 1; }
 
-   # Fail closed: SDK refusal (safety guard #3174/#3384) must surface — do not swallow exit 1.
-   : # worktree.cleanup-wave: worktree isolation is not part of @gsd/core, so there is nothing to clean up
-   ```
 
-   **Cleanup-tail snippet (use after any wave whose merges did not flow through the templated path above):**
 
-   If the orchestrator deviated from the standard wave merge path (e.g., custom inter-worktree base-update merges with `merge: bring …` style messages), run this snippet after the custom merges are complete. It reads only `WAVE_WORKTREE_MANIFEST`; do not discover unrelated `worktree-agent-*` worktrees.
 
-   ```bash
-   # Cleanup-tail: pin orchestrator CWD to its OWN worktree before cleanup-tail (#3174, #630).
-   # Same fix as the templated path: resolve the dispatch-time orchestrator root from the manifest,
-   # not `git worktree list`'s first entry (always the main checkout — wrong for a lane orchestrator).
-   PRIMARY_WT=$(while IFS=$'\t' read -r tag a || [ -n "$tag" ]; do [ "$tag" = orchestrator_root ] && { printf '%s' "$a"; break; }; done 2>/dev/null < "${WAVE_WORKTREE_MANIFEST:-}")
-   [ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(specforge git worktrees --pick '.worktrees[main=true].path')
-   if [ -n "$PRIMARY_WT" ] && [ "$(pwd -P 2>/dev/null)" != "$(cd "$PRIMARY_WT" 2>/dev/null && pwd -P)" ]; then echo "⚠ Orchestrator CWD drifted to $(pwd) — pinning to $PRIMARY_WT before cleanup-tail (#3174)"; cd "$PRIMARY_WT" || { echo "FATAL: cannot cd to primary worktree $PRIMARY_WT" >&2; exit 1; }; fi
-   # Cleanup-tail: remove residual agent worktrees after a cross-wave-dependency deviation.
-   # Uses only the current wave manifest to avoid touching unrelated active agents (#3384).
-   WT_PATHS_FILE=$(specforge files temp --prefix gsd-worktree-paths- --pick .path)
-   { if [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then echo "ERROR: cannot read worktree manifest (unset): WAVE_WORKTREE_MANIFEST is unset" >&2; false; elif [ ! -e "$WAVE_WORKTREE_MANIFEST" ]; then echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest does not exist" >&2; false; else ( SEEN=0; ROOTS=0; while IFS= read -r l || [ -n "$l" ]; do tag=${l%%$'\t'*}; a=${l#"$tag"}; a=${a#$'\t'}; a=${a%%$'\t'*}; case "$tag" in '') continue ;; orchestrator_root) ROOTS=$((ROOTS + 1)); [ "$ROOTS" -eq 1 ] || { echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest holds more than one orchestrator_root line" >&2; exit 1; } ;; worktree) [ -z "$a" ] || printf '%s\n' "$a" ;; *) echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: unknown record '$tag'" >&2; exit 1 ;; esac; SEEN=1; done < "$WAVE_WORKTREE_MANIFEST"; [ "$SEEN" -eq 1 ] || { echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest is empty" >&2; exit 1; } ); fi; } > "$WT_PATHS_FILE" || { echo "BLOCKED: cannot read WAVE_WORKTREE_MANIFEST; refusing cleanup (#3384)." >&2; exit 1; }
-   while IFS= read -r WT; do
-     [ -z "$WT" ] && continue
-     WT_BRANCH=$(specforge git head --path "$WT" --pick .branch 2>/dev/null)
-     [ -z "$WT_BRANCH" ] || [ "$WT_BRANCH" = "HEAD" ] && continue
-     echo "Cleaning up residual worktree: $WT (branch: $WT_BRANCH)"
-     specforge git worktree unlock "$WT" >/dev/null 2>&1 || true
-     if ! specforge git worktree remove "$WT" --force; then
-       WT_NAME=${WT##*/}
-       if [ -f ".git/worktrees/${WT_NAME}/locked" ]; then
-         echo "⚠ Worktree $WT is locked — unlock failed; manual cleanup required:"
-         echo "    git worktree unlock \"$WT\" && git worktree remove \"$WT\" --force && git branch -D \"$WT_BRANCH\""
-       else
-         echo "⚠ Residual worktree at $WT — remove failed; manual cleanup required"
-       fi
-     else
-       specforge git branch delete "$WT_BRANCH" --force --pick .name 2>/dev/null || true
-     fi
-   done < "$WT_PATHS_FILE"
-   specforge git worktree prune
-   ```
 
-   **When to skip step 5.5:**
 
-   **If no plan in this wave used worktree isolation** (project-level `USE_WORKTREES=false` OR every plan in the wave had `USE_WORKTREES_FOR_PLAN=false` — i.e. `WAVE_WORKTREE_PLANS` from step 2.5 is empty): all agents ran on the main working tree — skip this step entirely.
 
-   **If the orchestrator merged via custom messages (cross-wave-dependency deviation):** the templated cleanup loop above was not triggered for those merges. Run the cleanup-tail snippet above instead. After the snippet completes, proceed to step 5.6.
 
-   **If at least one plan used worktrees but others did not:** still run this cleanup — it iterates over actual `git worktree list` output and only merges back the worktrees that were created, leaving sequential plans' commits on the main tree untouched.
 
-   **If no worktrees found at runtime:** Skip silently — agents may have been spawned without worktree isolation, or the orchestrator already cleaned them up.
 
-   If the user declines to merge a worktree or a worktree over-reached scope, apply the worktree recovery policy (`execute-phase/steps/worktree-recovery-policy.md`) — never default to editing `main`.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 5.6. **Post-merge build & test gate:**
 
@@ -975,7 +975,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
    Where `WAVE_PLAN_IDS` is the space-separated list of plan IDs that completed in this wave.
 
-   **If no plan in this wave used worktrees** (project-level `USE_WORKTREES=false` OR `WAVE_WORKTREE_PLANS` is empty): sequential agents already updated STATE.md and ROADMAP.md themselves — skip this step.
+   **Every plan ran in sequential mode** (`@gsd/core` runs no worktree isolation): sequential agents already updated STATE.md and ROADMAP.md themselves — skip this step.
 
 5.75. **Execute:wave:post capability dispatch:**
 
