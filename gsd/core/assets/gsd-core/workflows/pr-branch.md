@@ -28,7 +28,7 @@ default branch via the single resolver (#1146).
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 CURRENT_BRANCH=$(specforge git head --pick .branch)
-TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
+TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 ```
 
 Check preconditions:

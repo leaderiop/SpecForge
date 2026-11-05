@@ -202,7 +202,7 @@ already exists locally, reuse it as-is so resumed work is not rebased.
 
 ```bash
 DEFAULT_BRANCH=$(printf '%s' "{{setting:git.base_branch|}}" | grep . \
-  || git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . \
+  || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . \
   || echo main)
 
 if [ "$(specforge git rev "refs/heads/$branch_name" --pick '.revs[0].exists')" = true ]; then

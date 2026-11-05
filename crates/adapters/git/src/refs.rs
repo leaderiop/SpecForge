@@ -108,14 +108,30 @@ pub(crate) fn remotes(repo: &gix::Repository) -> Vec<GitRemote> {
         let push = remote.url(gix::remote::Direction::Push).unwrap_or(url);
         let (host, path) = split(url);
         remotes.push(GitRemote {
-            name: name.to_string(),
             url: shown(url),
             push_url: shown(push),
             host,
             path,
+            head: default_branch(repo, name.as_ref()),
+            name: name.to_string(),
         });
     }
     remotes
+}
+
+/// The branch `refs/remotes/<remote>/HEAD` points at, under the remote's own refs; none when it is absent, detached
+/// or points elsewhere.
+fn default_branch(repo: &gix::Repository, remote: &gix::bstr::BStr) -> Option<String> {
+    let at = format!("refs/remotes/{remote}/");
+    let head = repo.try_find_reference(&format!("{at}HEAD")).ok()??;
+    let target = head
+        .target()
+        .try_name()?
+        .as_bstr()
+        .to_str()
+        .ok()?
+        .to_owned();
+    target.strip_prefix(&at).map(str::to_string)
 }
 
 /// `url` without its credentials: never a password, and no user on http(s), where a token rides as the user; an ssh

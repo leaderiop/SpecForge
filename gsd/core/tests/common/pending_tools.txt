@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 890 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 884 rows.
 ../security/assets/gsd-core/workflows/secure-phase.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ../security/assets/gsd-core/workflows/secure-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
@@ -340,7 +340,6 @@ gsd-core/workflows/execute-phase.md	grep	RED_COMMIT=$(for c in $RED_IDS; do spec
 gsd-core/workflows/execute-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/execute-phase.md	head	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
 gsd-core/workflows/execute-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-gsd-core/workflows/execute-phase.md	sed	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' \
 gsd-core/workflows/execute-phase.md	sed	specforge git log "$_WT_BASE..HEAD" --max 20 --pick '.commits[].subject' 2>/dev/null | sed 's/^/    /' >&2 || true
 gsd-core/workflows/execute-phase.md	sed	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
 gsd-core/workflows/execute-phase.md	sed	printf '%s' "${1//\"/}" | sed 's/^0*\([0-9]\)/\1/'
@@ -487,8 +486,8 @@ gsd-core/workflows/plan-review-convergence.md	tr	DEFAULT_REVIEWERS=$(printf '%s'
 gsd-core/workflows/plan-review-convergence.md	tr	DEFAULT_REVIEWERS=$(printf '%s' "$DEFAULT_REVIEWERS_JSON" | tr -d '[]"' | tr ',' '\n' | grep .)   # one slug per line: the setting renders as a JSON list of slugs
 gsd-core/workflows/pr-branch.md	awk	| awk '/HEAD branch/ {print $NF}')
 gsd-core/workflows/pr-branch.md	cat	DIRTY_REPOS=$(cat "$DIRTY_FILE")
-gsd-core/workflows/pr-branch.md	grep	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
-gsd-core/workflows/pr-branch.md	grep	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
+gsd-core/workflows/pr-branch.md	grep	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
+gsd-core/workflows/pr-branch.md	grep	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 gsd-core/workflows/pr-branch.md	grep	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
 gsd-core/workflows/pr-branch.md	grep	if git -C "$resolved" status --porcelain 2>/dev/null | grep -qv '^??'; then
 gsd-core/workflows/pr-branch.md	grep	NON_PLANNING=$(echo "$FILES" | grep -Evc "$FORBIDDEN_RE" || true)
@@ -501,8 +500,7 @@ gsd-core/workflows/pr-branch.md	grep	PLANNING_DELETIONS=$(for p in "[status=dele
 gsd-core/workflows/pr-branch.md	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
 gsd-core/workflows/pr-branch.md	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
 gsd-core/workflows/pr-branch.md	grep	"$(printf '%s\n' "$P" | grep -E "$SPEC_RE|^specforge-harness$")") ;;   # the path itself when it is a spec file or the ledger
-gsd-core/workflows/pr-branch.md	sed	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
-gsd-core/workflows/pr-branch.md	sed	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
+gsd-core/workflows/pr-branch.md	sed	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 gsd-core/workflows/pr-branch.md	sed	else SPEC_PATHSPEC="$SPEC_ROOT/"; SPEC_RE="^$(printf '%s' "$SPEC_ROOT" | sed 's/[][\.*^$/]/\\&/g')/"; fi
 gsd-core/workflows/pr-branch.md	tr	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
 gsd-core/workflows/pr-branch.md	tr	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
@@ -543,7 +541,7 @@ gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	tr	SLUG=$(printf '%s' 
 gsd-core/workflows/quick.md	awk	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
 gsd-core/workflows/quick.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/quick.md	grep	DEFAULT_BRANCH=$(printf '%s' "{{setting:git.base_branch|}}" | grep . \
-gsd-core/workflows/quick.md	grep	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . \
+gsd-core/workflows/quick.md	grep	|| specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . \
 gsd-core/workflows/quick.md	grep	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
 gsd-core/workflows/quick.md	grep	file_list_filtered=$(echo "${file_list}" | tr ' ' '\n' | grep -v '^spec/' | tr '\n' ' ')
 gsd-core/workflows/quick.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -551,7 +549,6 @@ gsd-core/workflows/quick.md	head	quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc 
 gsd-core/workflows/quick.md	paste	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
 gsd-core/workflows/quick.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/quick.md	sed	quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)"; date="$(date -u +%Y-%m-%d)"; timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; task_dir="$quick_id"; quick_dir="$quick_id"; slug=""; branch_name=$(printf '%s' "{{setting:git.quick_branch_template|}}" | sed "s/{num}/$quick_id/g"); INIT=""   # the quick id is <yymmdd>-<3 base-36>; you write the slug from $DESCRIPTION (and put it where `{slug}` stands in $branch_name)
-gsd-core/workflows/quick.md	sed	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . \
 gsd-core/workflows/quick.md	sort	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
 gsd-core/workflows/quick.md	tr	file_list_filtered=$(echo "${file_list}" | tr ' ' '\n' | grep -v '^spec/' | tr '\n' ' ')
 gsd-core/workflows/quick.md	tr	file_list_filtered=$(echo "${file_list}" | tr ' ' '\n' | grep -v '^spec/' | tr '\n' ' ')
@@ -669,7 +666,6 @@ prompt:execute_phase	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c
 prompt:execute_phase	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:execute_phase	head	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
 prompt:execute_phase	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-prompt:execute_phase	sed	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' \
 prompt:execute_phase	sed	specforge git log "$_WT_BASE..HEAD" --max 20 --pick '.commits[].subject' 2>/dev/null | sed 's/^/    /' >&2 || true
 prompt:execute_phase	sed	printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
 prompt:execute_phase	sed	printf '%s' "${1//\"/}" | sed 's/^0*\([0-9]\)/\1/'
@@ -768,8 +764,8 @@ prompt:plan_review_convergence	tr	DEFAULT_REVIEWERS=$(printf '%s' "$DEFAULT_REVI
 prompt:plan_review_convergence	wc	wc -l
 prompt:pr_branch	awk	| awk '/HEAD branch/ {print $NF}')
 prompt:pr_branch	cat	DIRTY_REPOS=$(cat "$DIRTY_FILE")
-prompt:pr_branch	grep	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
-prompt:pr_branch	grep	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
+prompt:pr_branch	grep	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
+prompt:pr_branch	grep	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 prompt:pr_branch	grep	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
 prompt:pr_branch	grep	if git -C "$resolved" status --porcelain 2>/dev/null | grep -qv '^??'; then
 prompt:pr_branch	grep	NON_PLANNING=$(echo "$FILES" | grep -Evc "$FORBIDDEN_RE" || true)
@@ -782,8 +778,7 @@ prompt:pr_branch	grep	PLANNING_DELETIONS=$(for p in "[status=deleted].path" "[st
 prompt:pr_branch	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
 prompt:pr_branch	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
 prompt:pr_branch	grep	"$(printf '%s\n' "$P" | grep -E "$SPEC_RE|^specforge-harness$")") ;;   # the path itself when it is a spec file or the ledger
-prompt:pr_branch	sed	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
-prompt:pr_branch	sed	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
+prompt:pr_branch	sed	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 prompt:pr_branch	sed	else SPEC_PATHSPEC="$SPEC_ROOT/"; SPEC_RE="^$(printf '%s' "$SPEC_ROOT" | sed 's/[][\.*^$/]/\\&/g')/"; fi
 prompt:pr_branch	tr	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
 prompt:pr_branch	tr	printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
@@ -800,7 +795,7 @@ prompt:quick	awk	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/d
 prompt:quick	awk	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 prompt:quick	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:quick	grep	DEFAULT_BRANCH=$(printf '%s' "" | grep . \
-prompt:quick	grep	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . \
+prompt:quick	grep	|| specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . \
 prompt:quick	grep	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
 prompt:quick	grep	file_list_filtered=$(echo "${file_list}" | tr ' ' '\n' | grep -v '^spec/' | tr '\n' ' ')
 prompt:quick	grep	grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} ' spec 2>/dev/null | awk '{print $2}'   # the quick plans: the plans with no phase
@@ -816,7 +811,6 @@ prompt:quick	head	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/
 prompt:quick	paste	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
 prompt:quick	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:quick	sed	quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)"; date="$(date -u +%Y-%m-%d)"; timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; task_dir="$quick_id"; quick_dir="$quick_id"; slug=""; branch_name=$(printf '%s' "" | sed "s/{num}/$quick_id/g"); INIT=""   # the quick id is <yymmdd>-<3 base-36>; you write the slug from $DESCRIPTION (and put it where `{slug}` stands in $branch_name)
-prompt:quick	sed	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . \
 prompt:quick	sort	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
 prompt:quick	tr	file_list_filtered=$(echo "${file_list}" | tr ' ' '\n' | grep -v '^spec/' | tr '\n' ' ')
 prompt:quick	tr	file_list_filtered=$(echo "${file_list}" | tr ' ' '\n' | grep -v '^spec/' | tr '\n' ' ')
@@ -1033,7 +1027,7 @@ prompt:progress	grep	if echo "$GSD_ARGS" | grep -qE '\-\-max-cycles\s+[0-9]+'; t
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 
-# D git: git, embedded (R2). 138 rows.
+# D git: git, embedded (R2). 132 rows.
 agents/gsd-executor.md	git	git add src/api/auth.ts
 agents/gsd-executor.md	git	git add src/types/user.ts
 agents/gsd-executor.md	git	git -C "{sub_repo}" commit -m "{type}({phase}-{plan}): {concise task description}" -- file1 file2 ...
@@ -1059,7 +1053,6 @@ gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git merge --no-f
 gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git commit -m "Merge branch '$MILESTONE_BRANCH' for v[X.Y]"
 gsd-core/workflows/complete-milestone/steps/git-tag.md	git	git push origin v[X.Y]
 gsd-core/workflows/execute-phase.md	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
-gsd-core/workflows/execute-phase.md	git	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' \
 gsd-core/workflows/execute-phase.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then  # #2916
 gsd-core/workflows/execute-phase.md	git	git hook run pre-commit 2>&1 || echo "⚠ Pre-commit hooks failed — review before continuing"
 gsd-core/workflows/execute-phase.md	git	git worktree unlock "$WT" 2>/dev/null || true
@@ -1074,7 +1067,6 @@ gsd-core/workflows/new-workspace.md	git	git worktree add "$TARGET_PATH/$REPO_NAM
 gsd-core/workflows/new-workspace.md	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "${BRANCH_NAME}-${TIMESTAMP}" 2>&1
 gsd-core/workflows/new-workspace.md	git	git clone "$SOURCE_REPO_PATH" "$TARGET_PATH/$REPO_NAME" 2>&1
 gsd-core/workflows/pause-work.md	git	UNCOMMITTED=$(git status --porcelain)
-gsd-core/workflows/pr-branch.md	git	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 gsd-core/workflows/pr-branch.md	git	if git -C "$resolved" status --porcelain 2>/dev/null | grep -qv '^??'; then
 gsd-core/workflows/pr-branch.md	git	if git -C "$SUB_REPO_DIR" ls-remote --exit-code --heads origin "$TARGET" \
 gsd-core/workflows/pr-branch.md	git	SUB_TARGET=$(git -C "$SUB_REPO_DIR" remote show origin 2>/dev/null \
@@ -1091,7 +1083,6 @@ gsd-core/workflows/pr-branch.md	git	git commit -q -C "$HASH"
 gsd-core/workflows/progress/steps/forensic-audit.md	git	git status --porcelain 2>/dev/null | grep -v "^??" | grep -v "^spec/" | grep -v "^\.\." | head -10
 gsd-core/workflows/quick-batch.md	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
 gsd-core/workflows/quick.md	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
-gsd-core/workflows/quick.md	git	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . \
 gsd-core/workflows/quick.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then
 gsd-core/workflows/quick.md	git	QUICK_DIR_REL=$(git -C "$QUICK_DIR" rev-parse --show-prefix 2>/dev/null)
 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	git	git add "${QUICK_PREDISPATCH_PATHS[@]}"
@@ -1120,7 +1111,6 @@ gsd-core/workflows/undo.md	git	git commit -m "revert(${TARGET_PHASE}): undo phas
 gsd-core/workflows/undo.md	git	git commit -m "revert(${TARGET_PLAN}): undo plan ${TARGET_PLAN} — ${REVERT_REASON}"
 gsd-core/workflows/undo.md	git	git commit -m "revert: undo ${N} selected commits — ${REVERT_REASON}"
 prompt:execute_phase	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
-prompt:execute_phase	git	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' \
 prompt:execute_phase	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then  # #2916
 prompt:execute_phase	git	git hook run pre-commit 2>&1 || echo "⚠ Pre-commit hooks failed — review before continuing"
 prompt:execute_phase	git	git worktree unlock "$WT" 2>/dev/null || true
@@ -1141,12 +1131,10 @@ prompt:pr_branch	git	git checkout HEAD -- "$P" 2>/dev/null || true
 prompt:pr_branch	git	git checkout --theirs -- "$P" && git add -- "$P" # gsd-scan-ignore: #4606 -- see block comment above
 prompt:pr_branch	git	git checkout --theirs -- "$P" && git add -- "$P" # gsd-scan-ignore: #4606 -- see block comment above
 prompt:pr_branch	git	git rm -f -q -- "$P" 2>/dev/null || true
-prompt:pr_branch	git	TARGET=$(echo "--target "main"" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "" | grep . || git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
 prompt:pr_branch	git	git cherry-pick --quit 2>/dev/null || true
 prompt:pr_branch	git	git cherry-pick --quit 2>/dev/null || true
 prompt:pr_branch	git	git commit -q -C "$HASH"
 prompt:quick	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
-prompt:quick	git	|| git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' | grep . \
 prompt:quick	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then
 prompt:quick	git	QUICK_DIR_REL=$(git -C "$QUICK_DIR" rev-parse --show-prefix 2>/dev/null)
 prompt:quick_batch	git	SUBMODULE_PATHS=$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')

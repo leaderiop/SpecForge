@@ -274,6 +274,9 @@ pub struct GitRemote {
     pub host: Option<String>,
     /// The URL's path: `owner/repo` with `.git` stripped for a host, the path itself for a local one.
     pub path: String,
+    /// The remote's default branch, as its `refs/remotes/<name>/HEAD` names it (`main`, as `git symbolic-ref --short`
+    /// gives it less the remote's name); none when the clone recorded none.
+    pub head: Option<String>,
 }
 
 /// What a commit stages before it records the index: paths from the repository's top.

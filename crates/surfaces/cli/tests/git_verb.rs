@@ -503,8 +503,8 @@ fn remotes_never_print_the_credentials_in_a_url() {
     assert_eq!(
         out.answer()["remotes"],
         json!([
-            {"name": "origin", "url": "https://github.com/acme/widgets.git", "push_url": "https://github.com/acme/widgets.git", "host": "github.com", "path": "acme/widgets"},
-            {"name": "ssh", "url": "ssh://git@gitlab.com/group/tool.git", "push_url": "ssh://git@gitlab.com/group/tool.git", "host": "gitlab.com", "path": "group/tool"},
+            {"name": "origin", "url": "https://github.com/acme/widgets.git", "push_url": "https://github.com/acme/widgets.git", "host": "github.com", "path": "acme/widgets", "head": null},
+            {"name": "ssh", "url": "ssh://git@gitlab.com/group/tool.git", "push_url": "ssh://git@gitlab.com/group/tool.git", "host": "gitlab.com", "path": "group/tool", "head": null},
         ])
     );
 }
@@ -519,10 +519,31 @@ fn remotes_split_each_url_into_its_host_and_path() {
     assert_eq!(
         git(&project, &["remotes"]).exits(0).answer(),
         json!({"remotes": [
-            {"name": "local", "url": "/srv/git/mirror.git", "push_url": "/srv/git/mirror.git", "host": null, "path": "/srv/git/mirror.git"},
-            {"name": "origin", "url": "https://github.com/acme/widgets.git", "push_url": "git@github.com:acme/widgets.git", "host": "github.com", "path": "acme/widgets"},
-            {"name": "scp", "url": "git@gitlab.com:group/sub/tool.git", "push_url": "git@gitlab.com:group/sub/tool.git", "host": "gitlab.com", "path": "group/sub/tool"},
+            {"name": "local", "url": "/srv/git/mirror.git", "push_url": "/srv/git/mirror.git", "host": null, "path": "/srv/git/mirror.git", "head": null},
+            {"name": "origin", "url": "https://github.com/acme/widgets.git", "push_url": "git@github.com:acme/widgets.git", "host": "github.com", "path": "acme/widgets", "head": null},
+            {"name": "scp", "url": "git@gitlab.com:group/sub/tool.git", "push_url": "git@gitlab.com:group/sub/tool.git", "host": "gitlab.com", "path": "group/sub/tool", "head": null},
         ]})
+    );
+}
+
+/// `origin/HEAD`, which a clone writes, names the remote's default branch.
+#[test]
+fn remotes_name_the_default_branch_their_head_points_at() {
+    let (project, repo, sha) = committed();
+    repo.remote("origin", "https://github.com/acme/widgets.git")
+        .remote("fork", "https://github.com/me/widgets.git")
+        .set_ref("refs/remotes/origin/trunk", &sha);
+    std::fs::write(
+        repo.git_dir().join("refs/remotes/origin/HEAD"),
+        "ref: refs/remotes/origin/trunk\n",
+    )
+    .unwrap();
+    assert_eq!(
+        git(&project, &["remotes", "--pick", ".remotes[].head"])
+            .exits(0)
+            .stdout,
+        "trunk\n",
+        "a remote with no HEAD has none"
     );
 }
 

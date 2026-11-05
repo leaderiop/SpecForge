@@ -305,7 +305,7 @@ Fork the new phase branch off `origin/HEAD` (the project's default branch), not 
 
 ```bash
 DEFAULT_BRANCH=$(v=$(specforge git config init.defaultBranch --pick .value 2>/dev/null) && [ -n "$v" ] && echo "$v" \
-  || git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' \
+  || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null \
   || echo main)
 
 if [ "$(specforge git rev "refs/heads/$BRANCH_NAME" --pick '.revs[0].exists')" = true ]; then
