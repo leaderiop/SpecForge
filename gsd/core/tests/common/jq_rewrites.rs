@@ -7,33 +7,10 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/autonomous.md", 165),
     ("gsd-core/workflows/autonomous.md", 612),
     ("gsd-core/workflows/autonomous.md", 738),
-    ("gsd-core/workflows/complete-milestone.md", 341),
-    ("gsd-core/workflows/complete-milestone.md", 363),
-    ("gsd-core/workflows/complete-milestone.md", 406),
     ("gsd-core/workflows/complete-milestone.md", 432),
-    ("gsd-core/workflows/new-milestone.md", 277),
-    ("gsd-core/workflows/new-milestone.md", 293),
-    ("gsd-core/workflows/new-milestone.md", 535),
-    ("gsd-core/workflows/new-milestone.md", 624),
-    ("gsd-core/workflows/plan-phase.md", 619),
     // A caller of `_gsd_field` reads its field of the same block's answer with --pick; the
     // helper's line above is a comment where no caller is left.
     ("gsd-core/workflows/autonomous.md", 739),
-    ("gsd-core/workflows/complete-milestone.md", 342),
-    ("gsd-core/workflows/complete-milestone.md", 364),
-    ("gsd-core/workflows/complete-milestone.md", 407),
-    ("gsd-core/workflows/complete-milestone.md", 408),
-    ("gsd-core/workflows/complete-milestone.md", 409),
-    ("gsd-core/workflows/complete-milestone.md", 410),
-    ("gsd-core/workflows/complete-milestone.md", 411),
-    ("gsd-core/workflows/new-milestone.md", 278),
-    ("gsd-core/workflows/new-milestone.md", 279),
-    ("gsd-core/workflows/new-milestone.md", 294),
-    ("gsd-core/workflows/new-milestone.md", 295),
-    ("gsd-core/workflows/new-milestone.md", 536),
-    ("gsd-core/workflows/new-milestone.md", 625),
-    ("gsd-core/workflows/new-milestone.md", 626),
-    ("gsd-core/workflows/new-milestone.md", 627),
     // A field of a `specforge gsd` answer is read with --pick; progress-report's phases are read
     // by index, and their counts are `plans` / `summaries`, the fields it has.
     ("gsd-core/workflows/next.md", 108),
@@ -45,26 +22,6 @@ pub const LINES: &[(&str, usize)] = &[
     // A graph read takes its values with --pick; progress's verification status is the entity's
     // field (upstream's `.status` read a field the graph answer does not have).
     ("gsd-core/workflows/progress.md", 324),
-    // A field of a phase's query answer is re-asked with --pick; plan-phase's `_gsd_field` copy is
-    // gone.
-    ("gsd-core/workflows/plan-phase.md", 620),
-    ("gsd-core/workflows/plan-phase.md", 621),
-    ("gsd-core/workflows/plan-phase.md", 622),
-    ("gsd-core/workflows/plan-phase.md", 623),
-    ("gsd-core/workflows/plan-phase.md", 624),
-    ("gsd-core/workflows/plan-phase.md", 625),
-    ("gsd-core/workflows/plan-phase.md", 626),
-    ("gsd-core/workflows/plan-phase.md", 627),
-    ("gsd-core/workflows/plan-phase.md", 628),
-    ("gsd-core/workflows/plan-phase.md", 638),
-    ("gsd-core/workflows/progress.md", 325),
-    ("gsd-core/workflows/progress.md", 326),
-    ("gsd-core/workflows/verify-work.md", 76),
-    ("gsd-core/workflows/verify-work.md", 77),
-    ("gsd-core/workflows/verify-work.md", 648),
-    ("gsd-core/workflows/verify-work.md", 655),
-    ("gsd-core/workflows/verify-work.md", 693),
-    ("gsd-core/workflows/verify-work.md", 695),
     // A bundle no line reads any more is gone; its line and its `@file:` line are empty.
     ("gsd-core/workflows/autonomous.md", 164),
     ("gsd-core/workflows/autonomous.md", 611),
@@ -102,9 +59,6 @@ pub const LINES: &[(&str, usize)] = &[
         35,
     ),
     ("gsd-core/workflows/execute-plan.md", 562),
-    ("gsd-core/workflows/pr-branch.md", 87),
-    ("gsd-core/workflows/pr-branch.md", 88),
-    ("gsd-core/workflows/pr-branch.md", 176),
     ("gsd-core/workflows/quick-batch/steps/batch-init.md", 44),
     ("gsd-core/workflows/quick-batch/steps/batch-init.md", 45),
     ("gsd-core/workflows/quick-batch/steps/planner-wave.md", 38),
@@ -270,7 +224,6 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/plan-phase.md", 1372),
     ("gsd-core/workflows/plan-phase.md", 1377),
     ("gsd-core/workflows/plan-phase.md", 1378),
-    ("gsd-core/workflows/plan-review-convergence.md", 114),
     ("gsd-core/workflows/plan-review-convergence.md", 115),
     ("gsd-core/workflows/plan-review-convergence.md", 116),
     ("gsd-core/workflows/plan-review-convergence.md", 117),
@@ -280,7 +233,6 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/plan-review-convergence.md", 121),
     ("gsd-core/workflows/plan-review-convergence.md", 122),
     ("gsd-core/workflows/plan-review-convergence.md", 123),
-    ("gsd-core/workflows/plan-review-convergence.md", 124),
     ("gsd-core/workflows/plan-review-convergence.md", 127),
     ("gsd-core/workflows/plan-review-convergence.md", 132),
     ("gsd-core/workflows/progress.md", 152),
@@ -367,7 +319,6 @@ pub const LINES: &[(&str, usize)] = &[
     ("gsd-core/workflows/quick.md", 543),
     // No seam ran for a sub-repository, so its exit is a failure; quick's empty-scope reason
     // names what was read, with no resolver's exit 69.
-    ("gsd-core/workflows/pr-branch.md", 162),
     ("gsd-core/workflows/quick.md", 598),
     ("gsd-core/workflows/quick.md", 599),
     ("gsd-core/workflows/quick.md", 605),
@@ -377,7 +328,6 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     // Multi-line node scripts, here jq (a JSON read) or bash (a path or git check).
     ("gsd-core/workflows/pr-branch.md", 95, 126),
     ("gsd-core/workflows/pr-branch.md", 181, 183),
-    ("gsd-core/workflows/pr-branch.md", 191, 199),
     ("gsd-core/workflows/review.md", 678, 692),
     ("gsd-core/workflows/ship.md", 436, 441),
 ];

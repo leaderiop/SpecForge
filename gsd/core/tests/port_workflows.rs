@@ -60,9 +60,6 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/complete-milestone.md", 255),
     ("gsd-core/workflows/complete-milestone.md", 256),
     ("gsd-core/workflows/complete-milestone.md", 260),
-    ("gsd-core/workflows/complete-milestone.md", 412),
-    ("gsd-core/workflows/complete-milestone.md", 413),
-    ("gsd-core/workflows/complete-milestone.md", 414),
     // No release map: the git-tag section and `push_release_tags` name no per-repository step.
     ("gsd-core/workflows/complete-milestone.md", 536),
     ("gsd-core/workflows/complete-milestone.md", 541),
@@ -148,7 +145,6 @@ const REWRITTEN: &[(&str, usize)] = &[
 const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     // pull requests through GitHub's REST API (`specforge http --secret @gsd/core:github_token`): gh's
     // arguments become fields, its token check a GET of /user, and the states it answers are lower case
-    ("gsd-core/workflows/pr-branch.md", 218, 222),
     ("gsd-core/workflows/ship.md", 104, 104),
     ("gsd-core/workflows/ship.md", 375, 377),
     ("gsd-core/workflows/ship.md", 380, 380),

@@ -90,11 +90,6 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ),
     (
         "gsd-core/workflows/quick-batch/steps/research-phase.md",
-        24,
-        24,
-    ),
-    (
-        "gsd-core/workflows/quick-batch/steps/research-phase.md",
         55,
         55,
     ),
