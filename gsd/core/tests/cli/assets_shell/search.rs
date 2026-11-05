@@ -4,6 +4,7 @@
 use std::collections::BTreeMap;
 use std::process::{Command, Stdio};
 
+use super::Shell;
 use crate::specforge_only::{inline_runs, shell_assets, shell_blocks};
 
 /// The flags `specforge files <action> --help` names, long and short.
@@ -144,5 +145,116 @@ fn a_command_ends_at_its_first_separator_and_quoted_words_are_no_flags() {
     assert_eq!(
         files_commands("specforge files search P \\\n  --and-not=import f # -z"),
         [("search".to_string(), vec!["--and-not".to_string()])]
+    );
+}
+
+/// The catalogs' sample project: a protected page, a use of `process.env.API_KEY`, a 12-line file that exports
+/// nothing, and a hard-coded count.
+fn sample() -> tempfile::TempDir {
+    let dir = tempfile::tempdir().expect("a project dir");
+    let src = dir.path().join("src");
+    std::fs::create_dir(&src).expect("src");
+    std::fs::write(
+        src.join("dashboard.tsx"),
+        "export default function Dashboard() {}\n",
+    )
+    .expect("a page");
+    std::fs::write(src.join("a.ts"), "const key = process.env.API_KEY;\n").expect("a use");
+    let thin: String = (1..=12).map(|n| format!("const a{n} = {n};\n")).collect();
+    std::fs::write(dir.path().join("thin.ts"), thin).expect("a thin file");
+    std::fs::write(dir.path().join("c.ts"), "let count = 5;\n").expect("a count");
+    dir
+}
+
+/// The first line of `text` that contains `needle`.
+fn line_with(text: &str, needle: &str) -> String {
+    text.lines()
+        .find(|l| l.contains(needle))
+        .unwrap_or_else(|| panic!("no line contains {needle}"))
+        .to_string()
+}
+
+/// The lines of `text` from the first that starts (after its indent) with `start` through the next line that holds
+/// only `}`.
+fn function(text: &str, start: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let a = lines
+        .iter()
+        .position(|l| l.trim_start().starts_with(start))
+        .unwrap_or_else(|| panic!("no line starts with {start}"));
+    let b = a + lines[a..]
+        .iter()
+        .position(|l| l.trim() == "}")
+        .unwrap_or_else(|| panic!("no closing brace after {start}"));
+    lines[a..=b].join("\n")
+}
+
+const CHECKER: &str = "agents/gsd-integration-checker.md";
+const PATTERNS: &str = "gsd-core/references/verification-patterns.md";
+
+/// Step 4 of the integration checker lists the pages whose name says they need a login.
+#[test]
+fn the_protected_pages_are_found() {
+    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
+        return;
+    };
+    let p = sample();
+    let step = super::block(
+        &super::asset(CHECKER),
+        "protected_patterns=",
+        "\"$protected_patterns\"",
+    );
+    let (out, err, _) = sh.run_in(p.path(), &step);
+    // pinned: without `-E` the `|` of the pattern is a literal, so no page matches
+    assert_eq!(out, "", "{step}\n{err}");
+}
+
+/// The environment check finds a file that reads the variable through `process.env`.
+#[test]
+fn the_env_variable_use_is_found() {
+    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
+        return;
+    };
+    let p = sample();
+    let search = line_with(&super::asset(PATTERNS), r"process\.env\.$VAR_NAME");
+    let (out, err, _) = sh.run_in(p.path(), &format!("VAR_NAME=API_KEY\n{search}"));
+    // pinned: the `|` of a basic regex is a literal, so the use is not found
+    assert_eq!(out, "", "{search}\n{err}");
+}
+
+/// `check_substantive` on a file long enough but without the pattern reports one count of lines and one of matches.
+#[test]
+fn a_thin_file_names_its_count_once() {
+    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
+        return;
+    };
+    let p = sample();
+    let check = function(&super::asset(PATTERNS), "check_substantive() {");
+    let (out, err, _) = sh.run_in(
+        p.path(),
+        &format!("{check}\ncheck_substantive thin.ts 10 export"),
+    );
+    // pinned: `grep -c` prints 0 and fails, so `|| echo 0` adds a second 0
+    assert!(
+        out.starts_with("THIN: thin.ts (") && out.ends_with("lines, 0\n0 matches)\n"),
+        "{out}{err}"
+    );
+}
+
+/// The stub catalog's hard-coded count check finds `count = 5`.
+#[test]
+fn a_hardcoded_count_is_found() {
+    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
+        return;
+    };
+    let p = sample();
+    let check = line_with(&super::asset(PATTERNS), r"count.*=.*\d+");
+    let (out, err, _) = sh.run_in(p.path(), &format!("file=c.ts\n{check}"));
+    let (version, _, _) = sh.run_in(p.path(), "grep --version");
+    // pinned: `\d` is no digit class in GNU grep's extended regex; BSD grep and ugrep read it as one
+    assert_eq!(
+        out.contains("count = 5"),
+        !version.contains("GNU grep"),
+        "{check}\n{version}{err}"
     );
 }
