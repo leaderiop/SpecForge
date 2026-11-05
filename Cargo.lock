@@ -4148,6 +4148,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "insta",
+ "jiff",
  "libc",
  "predicates",
  "serde",
