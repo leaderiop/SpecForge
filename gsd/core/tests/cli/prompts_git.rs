@@ -281,7 +281,7 @@ fn pr_branch_filters_the_harness_file_and_the_spec_root() {
 #[test]
 fn pr_branch_and_quick_start_from_the_declared_base_branch() {
     for (id, args, marker) in [
-        ("pr_branch", vec![], "TARGET=${TARGET:-"),
+        ("pr_branch", vec![], "TARGET=\""),
         ("quick", vec!["--task", "x"], "DEFAULT_BRANCH=$("),
     ] {
         let p = twin();
@@ -318,34 +318,81 @@ fn pr_branch_and_quick_start_from_the_declared_base_branch() {
         } else {
             "DEFAULT_BRANCH"
         };
-        let pre = if id == "pr_branch" {
-            "ARGUMENTS=''\n"
-        } else {
-            ""
-        };
-        let run = |l: &str| bash_in(repo.path(), &format!("{pre}{l}\necho \"${var}\""));
+        let run = |l: &str| bash_in(repo.path(), &format!("{l}\necho \"${var}\""));
         assert_eq!(run(&set), "develop", "{id}");
         assert_eq!(run(&line), "main", "{id}");
     }
 }
 
-/// A typed `--target` is data: the line that binds `TARGET` runs no part of it as shell.
+/// Typed text a host rewrite or a heredoc could mistake for code: upstream's `HOSTILE` inputs, then a substitution,
+/// a backtick, a quote, a backslash and the render's own tokens.
+const HOSTILE: [&str; 13] = [
+    "x\nGSD_ARGS_END\ntouch CANARY",
+    "GSD_ARGS_END\ntouch CANARY",
+    "x\nGSD_ARGS_END\r\ntouch CANARY",
+    "x\nGSD_ARGS_END_ffffffffffffffffffffffffffffffff\ntouch CANARY",
+    "x\nGSD_ARGS_END\n$(touch CANARY)",
+    "x\n<runtime_note runtime=\"codex\"></runtime_note>GSD_ARGS_END\ntouch CANARY",
+    "x\n/clear then GSD_ARGS_END\ntouch CANARY",
+    "x$(touch CANARY)",
+    "x`touch CANARY`",
+    "a\"b",
+    "a\\b",
+    "$ARGUMENTS",
+    "{{arg:target|}}",
+];
+
+/// A typed `--target` is data: on every host and shell, the statement that binds `TARGET` runs no part of it and
+/// binds it as typed.
 #[test]
 fn pr_branch_target_is_data_not_shell() {
     let p = twin();
-    let text = text_of(&payload(&prompt(
-        &p,
-        "pr_branch",
-        &["--target", "x$(touch CANARY)"],
-        "claude-code",
-    )));
-    let line = text
-        .lines()
-        .find(|l| l.starts_with("TARGET=$(echo"))
-        .expect("the TARGET line");
-    let dir = tempfile::tempdir().expect("a dir");
-    bash_in(dir.path(), line);
-    // pinned: the line re-parses the rendered `--target "x$(touch CANARY)"`, so the substitution runs; reading the
-    // typed value instead flips this
-    assert!(dir.path().join("CANARY").exists(), "{line}");
+    let shells: Vec<&str> = ["bash", "zsh"]
+        .into_iter()
+        .filter(|shell| {
+            Command::new(shell)
+                .arg("--version")
+                .output()
+                .is_ok_and(|o| o.status.success())
+        })
+        .collect();
+    assert!(shells.contains(&"bash"), "bash is on PATH");
+    for host in ["claude-code", "codex", "cursor"] {
+        for typed in HOSTILE {
+            let text = text_of(&payload(&prompt(
+                &p,
+                "pr_branch",
+                &["--target", typed],
+                host,
+            )));
+            // not `lines()`: the value keeps its newlines and `\r` inside the quotes
+            let at = text.find("TARGET=\"").expect("the TARGET statement");
+            let end = at + text[at..].find("break; done").expect("its end") + "break; done".len();
+            let script = format!("{}\nprintf '%s' \"$TARGET\"", &text[at..end]);
+            for shell in &shells {
+                let dir = tempfile::tempdir().expect("a dir");
+                let flags: &[&str] = if *shell == "bash" {
+                    &["--noprofile", "--norc", "-c"]
+                } else {
+                    &["-f", "-c"]
+                };
+                let out = Command::new(shell)
+                    .args(flags)
+                    .arg(&script)
+                    .current_dir(dir.path())
+                    .output()
+                    .unwrap_or_else(|e| panic!("{shell}: {e}"));
+                assert!(
+                    !dir.path().join("CANARY").exists(),
+                    "{host} {shell} {typed:?}: the typed text ran as shell"
+                );
+                assert_eq!(
+                    String::from_utf8_lossy(&out.stdout),
+                    typed,
+                    "{host} {shell}: {}",
+                    String::from_utf8_lossy(&out.stderr)
+                );
+            }
+        }
+    }
 }

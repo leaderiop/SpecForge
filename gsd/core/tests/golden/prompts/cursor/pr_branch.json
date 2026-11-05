@@ -39,13 +39,13 @@
     "<process>",
     "",
     "<step name=\"detect_state\">",
-    "Parse `--target \"main\"` for target branch. If no argument is supplied, detect the",
+    "The target branch is the `--target` value. If none is supplied, detect the",
     "default branch via the single resolver (#1146).",
     "",
     "```bash",
     "# the commands below are specforge commands: there is no launcher to define",
     "CURRENT_BRANCH=$(specforge git head --pick .branch)",
-    "TARGET=$(echo \"--target \"main\"\" | sed -nE 's/.*--target[[:space:]]+\"?([A-Za-z0-9._\\/-]+).*/\\1/p'); TARGET=${TARGET:-$(printf '%s' \"\" | grep . || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . || for b in main master; do [ \"$(specforge git rev \"$b\" --pick '.revs[0].exists')\" = true ] && echo \"$b\" && break; done)}",
+    "TARGET=\"main\"; [ -n \"$TARGET\" ] || TARGET=\"\"; [ -n \"$TARGET\" ] || TARGET=$(specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null) || true; [ -n \"$TARGET\" ] || for b in main master; do [ \"$(specforge git rev \"$b\" --pick '.revs[0].exists')\" = true ] && TARGET=$b && break; done",
     "```",
     "",
     "Check preconditions:",
@@ -61,7 +61,7 @@
     "fi",
     ""
   ],
-  "bytes": 23916,
+  "bytes": 23855,
   "end": [
     "",
     "Or use /gsd-ship to create the PR automatically.",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:ebd7abe46bd2af2a5a5bd50de401595bffe3570b708817782cd96a26f951b242",
+    "digest": "sha256:4714d52f8491bd22e47c308aeff1f97d101d4e8292a160a5108cf7b50da1d97a",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "ebd7abe46bd2af2a5a5bd50de401595bffe3570b708817782cd96a26f951b242"
+  "sha256": "4714d52f8491bd22e47c308aeff1f97d101d4e8292a160a5108cf7b50da1d97a"
 }

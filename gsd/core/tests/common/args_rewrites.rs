@@ -4,4 +4,7 @@
 //! `{GSD_WS}` token without a row.
 
 /// `(path, first, last)`, inclusive.
-pub const SPANS: &[(&str, usize, usize)] = &[];
+pub const SPANS: &[(&str, usize, usize)] = &[
+    // The target is the typed `--target`, not a parse of the argument text.
+    ("gsd-core/workflows/pr-branch.md", 23, 23),
+];

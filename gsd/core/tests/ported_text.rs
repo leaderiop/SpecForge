@@ -460,7 +460,6 @@ fn no_file_read_by_reference_holds_an_arg_token() {
 /// The files whose shell fences still read the argument text (`$ARGUMENTS`, `$GSD_ARGS`) the render splices: each is
 /// rewritten to read its typed values through `{{arg:}}` (ADR 0340 D6).
 const ARGS_PENDING: &[&str] = &[
-    "gsd-core/references/autonomous-smart-discuss.md",
     "gsd-core/workflows/add-tests.md",
     "gsd-core/workflows/audit-milestone.md",
     "gsd-core/workflows/autonomous.md",
@@ -485,7 +484,6 @@ const ARGS_PENDING: &[&str] = &[
     "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
     "gsd-core/workflows/plan-phase/steps/closed-phase-gate.md",
     "gsd-core/workflows/plan-review-convergence.md",
-    "gsd-core/workflows/pr-branch.md",
     "gsd-core/workflows/progress.md",
     "gsd-core/workflows/quick-batch.md",
     "gsd-core/workflows/quick.md",

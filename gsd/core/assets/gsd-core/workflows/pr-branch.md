@@ -22,13 +22,13 @@ Uses git cherry-pick with path filtering to rebuild a clean history.
 <process>
 
 <step name="detect_state">
-Parse `$ARGUMENTS` for target branch. If no argument is supplied, detect the
+The target branch is the `--target` value. If none is supplied, detect the
 default branch via the single resolver (#1146).
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 CURRENT_BRANCH=$(specforge git head --pick .branch)
-TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
+TARGET="{{arg:target|}}"; [ -n "$TARGET" ] || TARGET="{{setting:git.base_branch|}}"; [ -n "$TARGET" ] || TARGET=$(specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null) || true; [ -n "$TARGET" ] || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && TARGET=$b && break; done
 ```
 
 Check preconditions:
