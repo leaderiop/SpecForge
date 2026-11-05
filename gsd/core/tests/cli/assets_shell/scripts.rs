@@ -167,8 +167,9 @@ fn the_sub_repo_scan_keeps_its_refusals() {
     );
     let theirs = block(&up, "node -e \"", "\"$DIRTY_FILE\"");
     let dirty = top.path().join("dirty");
+    // run from the project, as pr-branch is: `specforge git --in` is held to the roots of the project it is typed in
     let setup = format!(
-        "ROOT={}\nDIRTY_FILE={}\nSUB_REPOS_JSON={}",
+        "ROOT={}\ncd \"$ROOT\"\nDIRTY_FILE={}\nSUB_REPOS_JSON={}",
         q(&root.display().to_string()),
         q(&dirty.display().to_string()),
         q(r#"["a","b","c","l","../outside","a\nb",5,"d;rm","missing"]"#)
