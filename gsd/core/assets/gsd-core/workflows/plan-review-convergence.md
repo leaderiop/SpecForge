@@ -112,8 +112,8 @@ done
 # unconfigured users (#2315 AC3). REVIEWER_DISPLAY mirrors the resolved value
 # so the startup banner reflects what will actually run (#2315 AC4).
 if [ -z "$REVIEWER_FLAGS" ]; then
-  DEFAULT_REVIEWERS_JSON="{{setting:review.default_reviewers|}}"   # review.default_reviewers (the settings)
-  DEFAULT_REVIEWERS=$(printf '%s' "$DEFAULT_REVIEWERS_JSON" | tr -d '[]"' | tr ',' '\n' | grep .)   # one slug per line: the setting renders as a JSON list of slugs
+
+  DEFAULT_REVIEWERS=$(specforge settings --extension @gsd/core --pick '.extensions[0].settings[name=review.default_reviewers].value[]')   # one slug per line
 
 
 
@@ -123,8 +123,8 @@ if [ -z "$REVIEWER_FLAGS" ]; then
 
 
 
-    DEFAULT_REVIEWERS_COUNT=$(printf '%s\n' "$DEFAULT_REVIEWERS" | grep -c .)
-    if [ "${DEFAULT_REVIEWERS_COUNT:-0}" -gt 0 ] 2>/dev/null; then
+
+    if [ -n "$DEFAULT_REVIEWERS" ]; then
       : # leave REVIEWER_FLAGS empty — gsd-review applies review.default_reviewers itself
       REVIEWER_DISPLAY="review.default_reviewers ($(printf '%s\n' "$DEFAULT_REVIEWERS" | paste -sd, - | sed 's/,/, /g'))"
     else

@@ -522,6 +522,7 @@ fn the_decision_coverage_gate_fails_on_a_listed_finding() {
 #[test]
 fn the_default_reviewers_are_counted_from_the_setting() {
     let Some(sh) = shell() else { return };
+    let p = taskboard();
     let text = asset("gsd-core/workflows/plan-review-convergence.md");
     let pick = block(
         &text,
@@ -529,22 +530,14 @@ fn the_default_reviewers_are_counted_from_the_setting() {
         "REVIEWER_DISPLAY=\"${REVIEWER_FLAGS# }\"",
     );
     let script = format!("{pick}\nfi\nprintf '[%s][%s]' \"$REVIEWER_FLAGS\" \"$REVIEWER_DISPLAY\"");
-    let (out, err, _) = sh.run_in(
-        sh.bin.path(),
-        &script.replace(
-            "{{setting:review.default_reviewers|}}",
-            r#"[\"codex\",\"claude\"]"#,
-        ),
-    );
-    assert_eq!(out, "[][review.default_reviewers (codex, claude)]", "{err}");
-    let (out, _, _) = sh.run_in(
-        sh.bin.path(),
-        &script.replace("{{setting:review.default_reviewers|}}", ""),
-    );
+    let (out, err, _) = sh.run_in(p.root(), &script);
     assert_eq!(
-        out,
-        "[--codex][--codex (default; configure review.default_reviewers to change)]"
+        out, "[--codex][--codex (default; configure review.default_reviewers to change)]",
+        "{err}"
     );
+    p.settings(serde_json::json!({"review.default_reviewers": ["codex", "claude"]}));
+    let (out, err, _) = sh.run_in(p.root(), &script);
+    assert_eq!(out, "[][review.default_reviewers (codex, claude)]", "{err}");
 }
 
 /// The PR's head, state and checks come from GitHub's REST API, one GET a field; checks are runs plus statuses.

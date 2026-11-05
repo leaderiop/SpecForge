@@ -202,6 +202,9 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/discuss-phase/modes/advisor.md", 29, 29),
     ("gsd-core/workflows/discuss-phase/modes/advisor.md", 47, 47),
     ("gsd-core/workflows/discuss-phase/modes/advisor.md", 50, 50),
+    // the default reviewers are a settings pick
+    ("gsd-core/workflows/plan-review-convergence.md", 114, 114),
+    ("gsd-core/workflows/plan-review-convergence.md", 124, 125),
 ];
 
 /// `(path, first, last)`, inclusive: runs deleted by blanking, whose first line says what replaced them. Every other
