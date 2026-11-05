@@ -169,4 +169,16 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         15,
         15,
     ),
+    // No text forwards a workstream: the #4456 persistence comments, the routing contract and the unread
+    // GSD_WS_ARG lines say the ws argument is read where it is declared and forwarded nowhere.
+    ("gsd-core/references/phase-argument-parsing.md", 6, 6),
+    ("gsd-core/references/workstream-flag.md", 79, 83),
+    ("gsd-core/references/workstream-flag.md", 85, 91),
+    ("gsd-core/workflows/new-milestone.md", 40, 42),
+    ("gsd-core/workflows/new-milestone.md", 54, 57),
+    ("gsd-core/workflows/new-milestone.md", 62, 62),
+    ("gsd-core/workflows/new-milestone.md", 175, 175),
+    ("gsd-core/workflows/new-milestone.md", 178, 178),
+    ("gsd-core/workflows/new-milestone.md", 315, 317),
+    ("gsd-core/workflows/new-milestone.md", 629, 630),
 ];

@@ -234,7 +234,7 @@ fi
 
 `/clear` then:
 
-`/gsd:execute-phase ${INCOMPLETE_PHASE} ${GSD_WS}`
+`/gsd:execute-phase ${INCOMPLETE_PHASE}`
 
 (plans without summaries detected; use --no-resume to skip this check and route by current_phase instead; --force to skip all gates)
 
@@ -310,8 +310,8 @@ Archived debt stays VISIBLE — an item archived still-open is still open (the a
 | {phase} | {filename} | {unresolved_count} deferred items |
 | {phase} | {filename} | unparsed — test blocks with no readable `result:` line |
 
-Review: `/gsd:audit-uat ${GSD_WS}` — full cross-phase audit
-Resume testing: `/gsd:verify-work {phase} ${GSD_WS}` — retest specific phase
+Review: `/gsd:audit-uat` — full cross-phase audit
+Resume testing: `/gsd:verify-work {phase}` — retest specific phase
 ```
 
 The unparsed row comes from the UAT diagnostics of `specforge check` (`parse_gaps`, archived or not). This is a WARNING, not a blocker — routing proceeds normally. The debt is visible so the user can make an informed choice.
@@ -361,7 +361,7 @@ Read its `<objective>` section.
 
 `/clear` then:
 
-`/gsd:execute-phase {phase} ${GSD_WS}`
+`/gsd:execute-phase {phase}`
 
 ---
 ```
@@ -391,7 +391,7 @@ PHASE_HAS_UI=${PHASE_HAS_UI:-false}   # @gsd/ui computes frontend: false when it
 
 `/clear` then:
 
-`/gsd:plan-phase {phase-number} ${GSD_WS}`
+`/gsd:plan-phase {phase-number}`
 
 ---
 ```
@@ -430,13 +430,13 @@ PHASE_HAS_UI=${PHASE_HAS_UI:-false}   # @gsd/ui computes frontend: false when it
 
 `/clear` then:
 
-`/gsd:discuss-phase {phase} ${GSD_WS}` — gather context and clarify approach
+`/gsd:discuss-phase {phase}` — gather context and clarify approach
 
 ---
 
 **Also available:**
-- `/gsd:plan-phase {phase} ${GSD_WS}` — skip discussion, plan directly
-- `/gsd:discuss-phase {phase} ${GSD_WS}` — include assumptions check before planning
+- `/gsd:plan-phase {phase}` — skip discussion, plan directly
+- `/gsd:discuss-phase {phase}` — include assumptions check before planning
 
 ---
 ```
@@ -456,13 +456,13 @@ UAT.md exists with gaps (diagnosed issues). User needs to plan fixes.
 
 `/clear` then:
 
-`/gsd:plan-phase {phase} --gaps ${GSD_WS}`
+`/gsd:plan-phase {phase} --gaps`
 
 ---
 
 **Also available:**
-- `/gsd:execute-phase {phase} ${GSD_WS}` — execute phase plans
-- `/gsd:verify-work {phase} ${GSD_WS}` — run more UAT testing
+- `/gsd:execute-phase {phase}` — execute phase plans
+- `/gsd:verify-work {phase}` — run more UAT testing
 
 ---
 ```
@@ -482,13 +482,13 @@ UAT.md exists with `status: partial` — testing session ended before all items 
 
 `/clear` then:
 
-`/gsd:verify-work {phase} ${GSD_WS}` — resume testing from where you left off
+`/gsd:verify-work {phase}` — resume testing from where you left off
 
 ---
 
 **Also available:**
-- `/gsd:audit-uat ${GSD_WS}` — full cross-phase UAT audit
-- `/gsd:execute-phase {phase} ${GSD_WS}` — execute phase plans
+- `/gsd:audit-uat` — full cross-phase UAT audit
+- `/gsd:execute-phase {phase}` — execute phase plans
 
 ---
 ```
@@ -508,7 +508,7 @@ All plans have summaries, but canonical verification has not passed (`missing`, 
 
 `/clear` then:
 
-`/gsd:execute-phase {phase} ${GSD_WS}` — re-run the verification gates
+`/gsd:execute-phase {phase}` — re-run the verification gates
 
 ---
 ```
@@ -528,7 +528,7 @@ VERIFICATION.md exists with `status: gaps_found` — verification identified gap
 
 `/clear` then:
 
-`/gsd:plan-phase {phase} --gaps ${GSD_WS}` — plan the gap fixes
+`/gsd:plan-phase {phase} --gaps` — plan the gap fixes
 
 ---
 ```
@@ -548,7 +548,7 @@ VERIFICATION.md exists with `status: human_needed` — automated checks passed b
 
 `/clear` then:
 
-`/gsd:verify-work {phase} ${GSD_WS}` — resume human verification
+`/gsd:verify-work {phase}` — resume human verification
 
 ---
 ```
@@ -623,13 +623,13 @@ NEXT_HAS_UI=${NEXT_HAS_UI:-false}   # @gsd/ui computes frontend: false when it i
 
 `/clear` then:
 
-`/gsd:discuss-phase {Z+1} ${GSD_WS}` — gather context and clarify approach
+`/gsd:discuss-phase {Z+1}` — gather context and clarify approach
 
 ---
 
 **Also available:**
-- `/gsd:plan-phase {Z+1} ${GSD_WS}` — skip discussion, plan directly
-- `/gsd:verify-work {Z} ${GSD_WS}` — user acceptance test before continuing
+- `/gsd:plan-phase {Z+1}` — skip discussion, plan directly
+- `/gsd:verify-work {Z}` — user acceptance test before continuing
 
 ---
 ```
@@ -651,12 +651,12 @@ All {N} phases finished!
 
 `/clear` then:
 
-`/gsd:complete-milestone ${GSD_WS}`
+`/gsd:complete-milestone`
 
 ---
 
 **Also available:**
-- `/gsd:verify-work ${GSD_WS}` — user acceptance test before completing milestone
+- `/gsd:verify-work` — user acceptance test before completing milestone
 
 ---
 ```
@@ -682,7 +682,7 @@ Ready to plan the next milestone.
 
 `/clear` then:
 
-`/gsd:new-milestone ${GSD_WS}`
+`/gsd:new-milestone`
 
 ---
 ```
@@ -692,10 +692,10 @@ Ready to plan the next milestone.
 <step name="edge_cases">
 **Handle edge cases:**
 
-- Phase complete but next phase not planned → offer `/gsd:plan-phase [next] ${GSD_WS}`
+- Phase complete but next phase not planned → offer `/gsd:plan-phase [next]`
 - All work complete → offer milestone completion
 - Blockers present → highlight before offering to continue
-- Handoff file exists → mention it, offer `/gsd:resume-work ${GSD_WS}`
+- Handoff file exists → mention it, offer `/gsd:resume-work`
 </step>
 
 <!-- gsd:section id="forensic-audit" when="flag:--forensic" -->

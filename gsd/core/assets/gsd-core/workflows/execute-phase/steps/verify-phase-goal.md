@@ -55,7 +55,7 @@ If an active secure-phase step hook exists AND `SECURITY_GATE_JSON` is empty or 
 Include in the next-steps routing output:
 ```
 ⚠ Security enforcement enabled — run before advancing:
-  /gsd:secure-phase {PHASE} ${GSD_WS}
+  /gsd:secure-phase {PHASE}
 ```
 
 If an active secure-phase step hook exists AND the audit exists: check `details.threats_open`. If > 0:

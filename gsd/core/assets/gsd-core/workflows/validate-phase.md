@@ -54,7 +54,7 @@ SUMMARY_FILES=$(specforge query "$PHASE_ID" --depth 2 --kinds summary --pick '.n
 
 - **State A** (`VALIDATION_FILE` non-empty): Audit existing
 - **State B** (`VALIDATION_FILE` empty, `SUMMARY_FILES` non-empty): Reconstruct from artifacts
-- **State C** (`SUMMARY_FILES` empty): Exit — "Phase {N} not executed. Run /gsd:execute-phase {N} ${GSD_WS} first."
+- **State C** (`SUMMARY_FILES` empty): Exit — "Phase {N} not executed. Run /gsd:execute-phase {N} first."
 
 ## 2. Discovery
 
@@ -168,14 +168,14 @@ specforge git commit --add spec -m "docs(phase-${PHASE}): add/update validation 
 ```
 GSD > PHASE {N} IS NYQUIST-COMPLIANT
 All requirements have automated verification.
-▶ Next: /gsd:audit-milestone ${GSD_WS}
+▶ Next: /gsd:audit-milestone
 ```
 
 **Partial:**
 ```
 GSD > PHASE {N} VALIDATED (PARTIAL)
 {M} automated, {K} manual-only.
-▶ Retry: /gsd:validate-phase {N} ${GSD_WS}
+▶ Retry: /gsd:validate-phase {N}
 ```
 
 Display `/clear` reminder.

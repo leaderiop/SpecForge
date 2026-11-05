@@ -57,14 +57,14 @@ Execute-phase returns its status after verification instead of chaining further.
 
   Auto-advance pipeline finished.
 
-  Next: /gsd:discuss-phase ${NEXT_PHASE} --auto ${GSD_WS}
+  Next: /gsd:discuss-phase ${NEXT_PHASE} --auto
   ```
 - **GAPS FOUND / VERIFICATION FAILED** → Display result, stop chain:
   ```
   Auto-advance stopped: Execution needs review.
 
   Review the output above and continue manually:
-  /gsd:execute-phase ${PHASE} ${GSD_WS}
+  /gsd:execute-phase ${PHASE}
   ```
 
 **If neither `--auto` nor config enabled:**

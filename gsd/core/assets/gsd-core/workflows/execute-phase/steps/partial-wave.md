@@ -22,8 +22,8 @@ Apply the same "incomplete" filtering rules as earlier:
 
 Selected wave finished successfully. This phase still has incomplete plans, so phase-level verification and completion were intentionally skipped.
 
-/gsd:execute-phase {phase} ${GSD_WS}                # Continue remaining waves
-/gsd:execute-phase {phase} --wave {next} ${GSD_WS}  # Run the next wave explicitly
+/gsd:execute-phase {phase}                # Continue remaining waves
+/gsd:execute-phase {phase} --wave {next}  # Run the next wave explicitly
 ```
 
 **If no incomplete plans remain after the selected wave finishes:**

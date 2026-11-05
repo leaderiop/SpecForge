@@ -237,11 +237,11 @@ What would you like to do?
 [Primary action based on state - e.g.:]
 1. Resume interrupted agent [if interrupted agent found]
    OR
-1. Execute phase (/gsd:execute-phase {phase} ${GSD_WS})
+1. Execute phase (/gsd:execute-phase {phase})
    OR
-1. Discuss Phase 3 context (/gsd:discuss-phase 3 ${GSD_WS}) [if CONTEXT.md missing]
+1. Discuss Phase 3 context (/gsd:discuss-phase 3) [if CONTEXT.md missing]
    OR
-1. Plan Phase 3 (/gsd:plan-phase 3 ${GSD_WS}) [if CONTEXT.md exists or discuss option declined]
+1. Plan Phase 3 (/gsd:plan-phase 3) [if CONTEXT.md exists or discuss option declined]
 
 [Secondary options:]
 2. Review current phase status
@@ -274,7 +274,7 @@ Resume-specific exception: do **not** emit `/clear then:` here. Resume is alread
 
   **{phase}-{plan}: [Plan Name]** — [objective from PLAN.md]
 
-  `/gsd:execute-phase {phase} ${GSD_WS}`
+  `/gsd:execute-phase {phase}`
 
   ---
   ```
@@ -286,13 +286,13 @@ Resume-specific exception: do **not** emit `/clear then:` here. Resume is alread
 
   **Phase [N]: [Name]** — [Goal from ROADMAP.md]
 
-  `/gsd:plan-phase [phase-number] ${GSD_WS}`
+  `/gsd:plan-phase [phase-number]`
 
   ---
 
   **Also available:**
-  - `/gsd:discuss-phase [N] ${GSD_WS}` — gather context first
-  - `/gsd:plan-phase --research-phase [N] ${GSD_WS}` — investigate unknowns
+  - `/gsd:discuss-phase [N]` — gather context first
+  - `/gsd:plan-phase --research-phase [N]` — investigate unknowns
 
   ---
   ```

@@ -753,7 +753,7 @@ Commit: ${commit_hash}
 
 ---
 
-Ready for next task: /gsd:quick ${GSD_WS}
+Ready for next task: /gsd:quick
 ```
 
 **If NOT `$VALIDATE_MODE`:**
@@ -770,7 +770,7 @@ Commit: ${commit_hash}
 
 ---
 
-Ready for next task: /gsd:quick ${GSD_WS}
+Ready for next task: /gsd:quick
 ```
 
 </process>

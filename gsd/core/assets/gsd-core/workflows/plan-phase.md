@@ -288,9 +288,9 @@ If "Run discuss-phase first":
   does not work correctly in nested subcontexts (#1009). Instead, display the command
   and exit so the user runs it as a top-level command:
   ```
-  Run this command first, then re-run /gsd:plan-phase {X} ${GSD_WS}:
+  Run this command first, then re-run /gsd:plan-phase {X}:
 
-  /gsd:discuss-phase {X} ${GSD_WS}
+  /gsd:discuss-phase {X}
   ```
   **Exit the plan-phase workflow. Do not continue.**
 
@@ -521,12 +521,12 @@ Read the `activeHooks` of every line of `PLAN_PRE_HOOKS_JSON` / `HOOKS_JSON`, on
 **Branch 1 — all plan:pre hooks inactive (`activeHooks` is empty or absent):** Skip to step 6.
 
 **Generic step hook dispatch contract:** For each active entry where `kind == "step"`:
-- If `ref.skill` is set, dispatch with `Skill(skill="gsd-${ref.skill}", args="${PHASE} --auto ${GSD_WS}")` when pipeline mode allows auto-chaining. Prepend `gsd-` to `ref.skill` — `ui-phase` → `gsd-ui-phase`.
+- If `ref.skill` is set, dispatch with `Skill(skill="gsd-${ref.skill}", args="${PHASE} --auto")` when pipeline mode allows auto-chaining. Prepend `gsd-` to `ref.skill` — `ui-phase` → `gsd-ui-phase`.
 - If `ref.agent` is set, dispatch with `Agent(prompt=filled_hook_fragment, subagent_type=ref.agent, model="{researcher_model}")`. Use the hook's `fragment.inline` as the prompt body and fill phase fields before spawning.
 - The `research` hook is handled by §5.1's research decision. The `pattern-mapper` hook is handled by §7.8 after `RESEARCH_PATH` is known. Future plan:pre agent hooks use the same `ref.agent` fragment contract.
 
 **AI integration capability:** If the active `ai-integration` step hook is present, `AI_SPEC_PATH` is empty, and the phase goal contains AI keywords (`agent`, `llm`, `rag`, `chatbot`, `embedding`, `langchain`, `llamaindex`, `crewai`, `langgraph`, `openai`, `anthropic`, `vector`, `llm eval`), then:
-- In pipeline / `--auto` mode, invoke the hook's `ref.skill` via `Skill(skill="gsd-${ref.skill}", args="${PHASE} --auto ${GSD_WS}")`.
+- In pipeline / `--auto` mode, invoke the hook's `ref.skill` via `Skill(skill="gsd-${ref.skill}", args="${PHASE} --auto")`.
 - In manual mode, display the existing non-blocking `/gsd:ai-integration-phase {N}` recommendation and let the user continue planning without AI-SPEC or stop to run the capability workflow first.
 
 Run the UI deterministic gate whenever **any** `plan:pre` UI hook is active — including the step-only case (`workflow.ui_safety_gate` off). (`check.query` = `"ui.plan-gate"`, dot-normalized to `ui-plan-gate` per `loop-hook-dispatch.md` § `gate`.)
@@ -562,7 +562,7 @@ AUTO_CHAIN="${AUTO_CHAIN:-false}"
 **Branch 5 — `AUTO_CHAIN` is `true` (pipeline / `--auto`):** Fire each active UI **step** hook — runs independently of whether a gate is active (covers `{ui_phase:true,ui_safety_gate:false}`). For each entry in `activeHooks` (in array order) where `kind == "step"` and `ref.skill` is set:
 
 ```
-Skill(skill="gsd-${ref.skill}", args="${PHASE} --auto ${GSD_WS}")
+Skill(skill="gsd-${ref.skill}", args="${PHASE} --auto")
 ```
 
 After all UI step hooks return, re-read:
@@ -581,11 +581,11 @@ Output this markdown directly (not as a code block):
 ```
 ## ⚠ UI-SPEC.md missing for Phase {N}
 ▶ Recommended next step:
-`/gsd:ui-phase {N} ${GSD_WS}` — generate UI design contract before planning
+`/gsd:ui-phase {N}` — generate UI design contract before planning
 
 ---
 Also available:
-- `/gsd:plan-phase {N} --skip-ui ${GSD_WS}` — plan without UI-SPEC (not recommended for frontend phases)
+- `/gsd:plan-phase {N} --skip-ui` — plan without UI-SPEC (not recommended for frontend phases)
 ```
 
 **Exit the plan-phase workflow. Do not continue.**
@@ -667,7 +667,7 @@ VALIDATION_EXISTS=$(specforge query "$PHASE_ID" --depth 1 --kinds validation --p
 ```
 
 If missing and Nyquist is still enabled/applicable — ask user:
-1. Re-run: `/gsd:plan-phase {PHASE} --research ${GSD_WS}`
+1. Re-run: `/gsd:plan-phase {PHASE} --research`
 2. Disable Nyquist with the exact command:
    `specforge settings set @gsd/core workflow.nyquist_validation false`
 3. Continue anyway (plans fail Dimension 8)
@@ -1539,7 +1539,7 @@ Verification: {Passed | Passed with override | Skipped}
 
 /clear then:
 
-/gsd:execute-phase {X} ${GAPS_EXEC_FLAG} ${GSD_WS}
+/gsd:execute-phase {X} ${GAPS_EXEC_FLAG}
 
 ---
 

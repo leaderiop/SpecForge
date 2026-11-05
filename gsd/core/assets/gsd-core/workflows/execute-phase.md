@@ -1242,7 +1242,7 @@ Tests saved to `{phase_num}-UAT.md`.
 
 When ready to run the tests:
 
-`/gsd:verify-work {X} ${GSD_WS}`
+`/gsd:verify-work {X}`
 
 Verify-work will walk you through each item and mark the phase complete when all tests pass.
 ```
@@ -1269,13 +1269,13 @@ Verify-work will walk you through each item and mark the phase complete when all
 
 `/clear` then:
 
-`/gsd:plan-phase {X} --gaps ${GSD_WS}`
+`/gsd:plan-phase {X} --gaps`
 
 Also: `cat {phase_dir}/{phase_num}-VERIFICATION.md` — full report
-Also: `/gsd:verify-work {X} ${GSD_WS}` — manual testing first
+Also: `/gsd:verify-work {X}` — manual testing first
 ```
 
-Gap closure cycle: `/gsd:plan-phase {X} --gaps ${GSD_WS}` reads VERIFICATION.md → creates gap plans with `gap_closure: true` → user runs `/gsd:execute-phase {X} --gaps-only ${GSD_WS}` → verifier re-runs.
+Gap closure cycle: `/gsd:plan-phase {X} --gaps` reads VERIFICATION.md → creates gap plans with `gap_closure: true` → user runs `/gsd:execute-phase {X} --gaps-only` → verifier re-runs.
 </step>
 
 <!-- gsd:section id="gap-closure-artifacts" when="state:gap-closure-phase" -->

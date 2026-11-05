@@ -133,7 +133,7 @@ Parse JSON for: `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phas
 **If `phase_found` is false:**
 ```
 Phase [X] not found in roadmap.
-Use /gsd:progress ${GSD_WS} to see available phases.
+Use /gsd:progress to see available phases.
 ```
 Exit workflow.
 
@@ -442,11 +442,11 @@ Created: the `context` entity of phase ${PADDED_PHASE}-${SLUG}
 
 `/clear` then:
 
-`/gsd:plan-phase ${PHASE} ${GSD_WS}`
+`/gsd:plan-phase ${PHASE}`
 
 ---
 
-**Also available:** `--chain` for auto plan+execute after; `/gsd:plan-phase ${PHASE} --skip-research ${GSD_WS}` to plan without research; `/gsd:ui-phase ${PHASE} ${GSD_WS}` for UI design contracts; review/edit CONTEXT.md before continuing.
+**Also available:** `--chain` for auto plan+execute after; `/gsd:plan-phase ${PHASE} --skip-research` to plan without research; `/gsd:ui-phase ${PHASE}` for UI design contracts; review/edit CONTEXT.md before continuing.
 ```
 </step>
 

@@ -457,6 +457,23 @@ fn no_file_read_by_reference_holds_an_arg_token() {
     }
 }
 
+/// No route takes a workstream, so no text forwards one: `ws` is read as `{{arg:ws|}}` where a prompt declares it,
+/// and no asset names the `GSD_WS` parse of the argument text (ADR 0340 D8).
+#[test]
+fn no_asset_names_gsd_ws() {
+    let named: Vec<String> = asset_files()
+        .into_iter()
+        .flat_map(|(path, text)| {
+            text.lines()
+                .enumerate()
+                .filter(|(_, l)| l.contains("GSD_WS"))
+                .map(|(i, l)| format!("{path}:{}: {l}", i + 1))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert!(named.is_empty(), "{}", named.join("\n"));
+}
+
 /// The files whose shell fences still read the argument text (`$ARGUMENTS`, `$GSD_ARGS`) the render splices: each is
 /// rewritten to read its typed values through `{{arg:}}` (ADR 0340 D6).
 const ARGS_PENDING: &[&str] = &[];

@@ -78,19 +78,19 @@ and broader temp hygiene is left to OS temp cleanup or future maintenance work.
 
 ## Routing Propagation
 
-Every workstream-scoped workflow parses the `--ws <name>` it was started with out of
-`$ARGUMENTS` in each shell fence that needs it (fences are separate shells, so nothing is
-carried over between them) and sets `GSD_WS`:
-- `GSD_WS` is `--ws <name>` when the command was started with `--ws`, and empty otherwise
-  (flat mode, backward compatible). It is always re-assigned, so a stale value never leaks in.
-- Every `specforge query` call in those
-  workflows forwards it as the single token `${GSD_WS:+--ws=${GSD_WS##* }}`. The explicit
-  flag has the highest priority above, so the workstream a command was started for wins over
-  the session pointer and the shared marker. The single-token form is required because zsh
-  does not word-split an unquoted `$GSD_WS`.
-- Workflows recognize the documented spelling `--ws <name>`; `--ws=<name>` is accepted by the
-  CLI itself but is not parsed out of `$ARGUMENTS` by workflows.
-- Routing suggestions (`/gsd:plan-phase {X} ${GSD_WS}`) carry the same value to the next command.
+Every workstream-scoped workflow whose prompt declares a `ws` argument reads the
+`--ws <name>` it was started with as a typed value, which the render fills in the shell
+fences of the prompt (`WS="…"` holds the bare name, empty in flat mode). It is never parsed
+out of the argument text, so a stale or malformed value never leaks in:
+- `new-milestone`, `verify-work` and `plan-review-convergence` declare `ws`; only
+  `new-milestone` reads it (its shared-file guard). None forwards it: no `specforge`
+  command a workflow runs takes a workstream.
+- A step file read through `specforge gsd reference` is not rendered with the arguments:
+  it states a workstream condition in prose about the run's `<arguments>`.
+- Routing suggestions (`/gsd:plan-phase {X}`) carry no `--ws`: the next command is started
+  for the workstream the person names, or none.
+
+
 - Project and workspace lifecycle workflows (`new-project`, `new-workspace`,
   `list-workspaces`, `remove-workspace`, `update`) are root-scoped and do not forward it.
 

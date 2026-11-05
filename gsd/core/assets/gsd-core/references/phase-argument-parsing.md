@@ -5,7 +5,7 @@ Parse and normalize phase arguments for commands that operate on phases.
 
 ## Extraction
 
-From `$ARGUMENTS`:
+From `$ARGUMENTS` (the phase itself is the prompt's tail, bound as `$PHASE_ID`):
 - Extract phase number (first numeric argument)
 - Extract flags (prefixed with `--`)
 - Remaining text is description (for insert/add commands)
