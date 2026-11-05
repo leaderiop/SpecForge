@@ -106,3 +106,29 @@ fn a_shape_conflicts_with_no_arg_the_command_declares() {
     let (args, _) = sent_by(&c, &argv).unwrap();
     assert_eq!(args["join"], "x");
 }
+
+#[test]
+fn the_host_count_never_reaches_the_guests_arguments() {
+    let c = contribution();
+    let command = declared(c.clone());
+    assert!(!command.args().iter().any(|a| a.name == "count"));
+    let argv = ["milestone-completion", "m1", "--pick", ".a[]", "--count"];
+    // the host reads it
+    let matches = command_line("x", &[&command])
+        .try_get_matches_from(std::iter::once("specforge x").chain(argv))
+        .unwrap();
+    let (_, sub) = matches.subcommand().unwrap();
+    assert_eq!(
+        Picked::of_matches(sub, &kernel_shapes(&command)).printed(r#"{"a": [1, 2]}"#),
+        Some(Ok("2\n".into()))
+    );
+    // the guest is sent only what it declares
+    let (args, _) = sent_by(&c, &argv).unwrap();
+    for host in ["count", "pick"] {
+        assert!(!args.contains_key(host), "{host}: {args:?}");
+    }
+    assert!(
+        args.keys().all(|key| c.args.iter().any(|a| a.name == *key)),
+        "{args:?}"
+    );
+}
