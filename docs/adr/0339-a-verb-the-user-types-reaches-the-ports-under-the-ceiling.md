@@ -219,3 +219,48 @@ path held to the roots, a write refused unless gix trusts the git dir, hooks run
   into `$HOME/gsd-workspaces` write outside the project's roots (D2), and so do remove-workspace's `git -C` reads and
   `worktree remove` there, and worktree-path-safety's pin of the orchestrator's checkout, which also compares both
   toplevels in git's own spelling. The ledger's `D git` heading says so for its 35 rows.
+
+## Amendment (2026-11-05, S1: files search on ripgrep's crates)
+
+`specforge files search` grows grep's shapes on ripgrep's own library crates, so GSD's agents and gates search through
+specforge instead of the grep program. The rules of D1-D4 hold: every byte is read through the `Fs` port, each typed
+path is held to the roots, the host's own state stays withheld.
+
+- **The engine.** A file the port read is searched by `grep-searcher` (`Searcher::search_slice`, never `search_path`,
+  which would open files past the port) with a `grep-regex` matcher: Rust regex syntax, `-i`, `-F` (literal),
+  `-U` (multiline; without it the line terminator is `\n` and a pattern that needs one is refused by the library),
+  CRLF lines read without their `\r`. A binary file (git's rule) is skipped. Versions are exact
+  (`grep-searcher =0.1.17`, `grep-regex =0.1.14`, `grep-matcher =0.1.9`), named in `crates/app/ops/Cargo.toml`.
+- **Globs** are the `ignore` crate's overrides, the walker's own: gitignore semantics, so a glob with a `/` matches the
+  path below the listed directory and one without a name at any depth, and `!glob` leaves out a file or a whole
+  directory, on `files list` as on `files search`.
+- **Flags.** `-F`, `-v`, `-U`, `-A/-B/-C <N>`, `--and-not <re>` (repeatable: a reported line, or multiline match, it
+  matches is left out; context is kept), `-l` (the files that match), `--counts` (each file's count of matching lines,
+  every file typed by name listed even at 0), `-q` and `--none` (verdicts by exit), `--hidden`, `--no-ignore`, and `-`
+  for standard input. `-l`, `--counts`, `-q` and `--none` exclude each other and the context flags; `-q` and `--none`
+  take no `--pick` and no `--format human`.
+- **The answer.** `{matches: [{path, line, end_line?, column, text, before?, after?}], files?, counts?, count,
+  truncated, missing, effect}`: `count` is the length of the list the mode answers, `end_line` only under `-U`,
+  `before`/`after` only with context (a line between two close matches is the earlier match's `after`), `missing`
+  always. A typed path that does not exist is listed in `missing` and the search goes on; a path outside every root,
+  the host's state or a ceiling refusal still refuses the whole search (exit 1).
+- **Exits.** A JSON answer exits 0. `-q` exits 0 on a match, else 2 when a typed path is missing, else 1; `--none`
+  exits 1 on a match, else 2 when a typed path is missing, else 0; a refusal under either exits 2 with `error[CODE]`
+  on stderr and nothing on stdout. So a negative gate cannot pass on a file it could not read, as `! grep -q` does.
+- **Standard input** is read only when `-` is typed, once, at most 64 MiB (`truncated` past it); its path is
+  `<stdin>`. A search never waits on an open stdin it was not told to read.
+- **Three small answers.** `files read <file>` answers `{path, text, bytes, lines, truncated}` through one capped read
+  (1 MiB), the text as UTF-8 with invalid sequences replaced; a directory is `invalid_input`, a missing file
+  `file_not_found`. `files list --lines` adds each file's `lines` and their total. `files temp --name <n>` answers
+  `<temp root>/<n>`, the same path every call: made (a file, or with `--dir` a directory, owner-only) when missing,
+  kept when it exists with that kind, refused when it exists with the other kind or is a link. `lines` counts the
+  `\n` bytes, plus one for a last line with no newline (which `wc -l` does not count).
+- **Proximity.** "a Y line within N lines after an X line" (`grep -A N X | grep Y`) is one multiline regex,
+  `-U 'X(.*\n){0,N}?.*Y'`: lazy, so it ends at the nearest Y, and `.` never crosses a line. `[ \t]` keeps a part on
+  its line where `\s` would match `\n`.
+- **Where it differs from ripgrep.** Per-file counts are `--counts`, not `-c` (`--count` is `--pick`'s shape, ADR
+  0325 D8); `--and-not` and `--none` are not ripgrep's; there is no implicit standard input, no `-e`, no PCRE2; a
+  missing path is listed, not an error.
+- **Rejected.** A context-plus-second-pattern flag (hand-written, where the library's `-U` says the same) and PCRE2
+  lookaround (`grep-pcre2`, C code) for proximity; for line exclusion, leaving agents to filter the JSON by judgement
+  (exact counts lost) and PCRE2's `^(?!.*Q).*P`. `--and-not` is a second `grep-regex` matcher the sink asks.
