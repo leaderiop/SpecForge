@@ -189,4 +189,47 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         37,
         37,
     ),
+    // the disposition ledger, the AI spec's framework line and the user profile are their extensions'
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        83,
+        87,
+    ),
+    ("gsd-core/workflows/plan-phase.md", 302, 305),
+    ("gsd-core/workflows/plan-phase.md", 308, 308),
+    ("gsd-core/workflows/discuss-phase/modes/advisor.md", 6, 6),
+    ("gsd-core/workflows/discuss-phase/modes/advisor.md", 13, 13),
+    ("gsd-core/workflows/discuss-phase/modes/advisor.md", 29, 29),
+    ("gsd-core/workflows/discuss-phase/modes/advisor.md", 47, 47),
+    ("gsd-core/workflows/discuss-phase/modes/advisor.md", 50, 50),
 ];
+
+/// `(path, first, last)`, inclusive: runs deleted by blanking, whose first line says what replaced them. Every other
+/// line of the run is blank; upstream's blank lines stay blank, so they are not listed as rewritten.
+pub const BLANKED: &[(&str, usize, usize)] = &[
+    // the disposition ledger is @gsd/ops's: @gsd/core keeps no REVIEW.md parser
+    (
+        "gsd-core/workflows/execute-phase/steps/code-review-disposition.md",
+        0,
+        1018,
+    ),
+];
+
+/// Whether body line `n` of `path`, upstream's `theirs`, is a line of a [`BLANKED`] run that upstream did not leave
+/// blank.
+pub fn blanked(path: &str, n: usize, theirs: &str) -> bool {
+    !theirs.is_empty()
+        && BLANKED
+            .iter()
+            .any(|(p, a, b)| *p == path && (*a..=*b).contains(&n))
+}
+
+/// Asserts every line of `path`'s [`BLANKED`] runs after the first is blank.
+pub fn assert_blanked(path: &str, asset: &str) {
+    let lines: Vec<&str> = asset.split('\n').skip(1).collect();
+    for (_, a, b) in BLANKED.iter().filter(|(p, _, _)| *p == path) {
+        for (n, line) in lines.iter().enumerate().take(b + 1).skip(a + 1) {
+            assert!(line.is_empty(), "{path}:{n}: a blanked run holds {line}");
+        }
+    }
+}

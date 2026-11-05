@@ -164,12 +164,6 @@ const KEEP: &[(&str, &str)] = &[
 /// as a KEEP row must, so the list cannot go stale. None reads SpecForge's JSON. They run upstream code that @gsd/core
 /// does not install, and the step that holds them is optional; gsd/core/README.md names them.
 const PENDING_NODE: &[(&str, &str)] = &[
-    // the disposition-ledger builder: a ~200-line script that parses REVIEW.md and REVIEW-FIX.md Markdown and rewrites
-    // the ledger. It reads no SpecForge JSON, has no readable jq form, and no `specforge gsd` command answers it.
-    (
-        "gsd-core/workflows/execute-phase/steps/code-review-disposition.md",
-        r#"FIX_REPORT_FILE="${FIX_REPORT_FILE}" node -e ""#,
-    ),
     // upstream's runtime library spec-section.cjs (found under `$_GSD_RT`, built with npm): it parses a SPEC.md's
     // sections, which no `specforge` command answers
     (

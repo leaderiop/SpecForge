@@ -552,8 +552,10 @@ fn workflow_assets_diff_only_in_ported_passages() {
     let mut checked = 0;
     for path in assets().into_iter().filter(|p| p.ends_with(".md")) {
         let asset = std::fs::read_to_string(root().join("assets").join(&path)).expect("an asset");
+        let theirs = body(&path);
+        relic_rewrites::assert_blanked(&path, &asset);
         let check = || {
-            check_lines(&path, &path, &asset, &body(&path), &rx, &|n| {
+            check_lines(&path, &path, &asset, &theirs, &rx, &|n| {
                 REWRITTEN.contains(&(path.as_str(), n))
                     || jq_rewrites::LINES.contains(&(path.as_str(), n))
                     || review_rewrites::LINES.contains(&(path.as_str(), n))
@@ -565,6 +567,7 @@ fn workflow_assets_diff_only_in_ported_passages() {
                         .chain(git_rewrites::SPANS)
                         .chain(relic_rewrites::SPANS)
                         .any(|(p, a, b)| *p == path && (*a..=*b).contains(&n))
+                    || relic_rewrites::blanked(&path, n, &theirs[n])
             });
         };
         if pending::is_pending(&path) {

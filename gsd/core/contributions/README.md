@@ -173,8 +173,8 @@ The assets are upstream's text; where the spec has no counterpart a line was def
   document is read by the agent, gh filters with `--jq`, and the manifest and the batch list are tab-separated lines
   (plans 03 and 05, F9 and G4; `tests/port_tools.rs` forbids a `jq` command word, `tests/cli/assets_shell/` runs each
   rewritten line with no jq and no node). node stays where the user's own JavaScript project runs (`KEEP` in
-  `tests/port_tools.rs`) and in `code-review-disposition.md`'s ledger builder, a Markdown parser with no shell form
-  (`PENDING_NODE`). The edge-probe steps of `spec-phase` and `specless-probe-fallback` still run upstream's
+  `tests/port_tools.rs`); `code-review-disposition.md`'s ledger builder is gone, the ledger being `@gsd/ops`'s. The
+  edge-probe steps of `spec-phase` and `specless-probe-fallback` still run upstream's
   `edge-probe.cjs` / `spec-section.cjs` with `node <file>` (also `PENDING_NODE`, each line pinned): `@gsd/core` installs
   no runtime library (#5640), so the steps stop at "not found" unless an upstream GSD install provides one.
 - `gsd/W506` looks at less than upstream's check: no plans, no modified-file contents and no commit bodies.

@@ -66,9 +66,8 @@ needed only where the user's own project is JavaScript: the dev-server probe of 
 verifier's module and CLI checks (`node -e "…require('$MODULE_PATH')…"`, `node $CLI_PATH`, at `agents/gsd-verifier.md`)
 (`KEEP` in `tests/port_tools.rs`). Beyond those, node is optional, only for these steps, which run upstream code
 @gsd/core does not install (`PENDING_NODE`): the edge probe `node "$EDGE_PROBE_JS"` (`workflows/spec-phase.md`,
-`references/specless-probe-fallback.md`), the spec-section check `node "$SPEC_SECTION_JS"`
-(`references/specless-probe-fallback.md`) and the disposition-ledger builder
-(`workflows/execute-phase/steps/code-review-disposition.md`). There is no health check for them: `health` is a guest
+`references/specless-probe-fallback.md`) and the spec-section check `node "$SPEC_SECTION_JS"`
+(`references/specless-probe-fallback.md`). There is no health check for them: `health` is a guest
 command and cannot see the host's `PATH`. `tests/port_tools.rs` keeps jq out of every shell block and inline code run,
 and `tests/cli/assets_shell/` runs the rewritten lines with no jq and no node on the `PATH`.
 

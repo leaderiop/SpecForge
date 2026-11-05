@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 718 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 701 rows.
 ../security/assets/gsd-core/workflows/secure-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -290,7 +290,6 @@ gsd-core/workflows/discuss-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's
 gsd-core/workflows/discuss-phase.md	head	SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)
 gsd-core/workflows/discuss-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/discuss-phase.md	sort	specforge query "$MILESTONE" --depth 2 --kinds context --format brief | sort -r
-gsd-core/workflows/discuss-phase/modes/advisor.md	cat	PROFILE_CONTENT=$(cat "$HOME/.claude/gsd-core/USER-PROFILE.md" 2>/dev/null || true)
 gsd-core/workflows/discuss-phase/modes/power.md	head	SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)
 gsd-core/workflows/execute-phase.md	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
 gsd-core/workflows/execute-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -302,18 +301,6 @@ gsd-core/workflows/execute-phase.md	tr	[ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(
 gsd-core/workflows/execute-phase.md	tr	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
 gsd-core/workflows/execute-phase.md	wc	[ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(printf '%s\n' "$_WT_DIRTY_ALL" | wc -l | tr -d ' ')
 gsd-core/workflows/execute-phase.md	wc	WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	cut	REVIEW_STATUS=$(echo "$REVIEW_FM" | LC_ALL=C grep -m1 "^status:" | cut -d: -f2- | LC_ALL=C sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' || true)
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	cut	REVIEW_CRITICAL=$(echo "$REVIEW_FINDINGS_FM" | LC_ALL=C grep -E -m1 "^[[:space:]]*(critical|blocker):" | cut -d: -f2- | LC_ALL=C sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' || true)
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	cut	REVIEW_WARNING=$(echo "$REVIEW_FINDINGS_FM" | LC_ALL=C grep -E -m1 "^[[:space:]]*warning:" | cut -d: -f2- | LC_ALL=C sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' || true)
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	cut	REVIEW_INFO=$(echo "$REVIEW_FINDINGS_FM" | LC_ALL=C grep -E -m1 "^[[:space:]]*info:" | cut -d: -f2- | LC_ALL=C sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' || true)
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	cut	REVIEW_TOTAL=$(echo "$REVIEW_FINDINGS_FM" | LC_ALL=C grep -E -m1 "^[[:space:]]*total:" | cut -d: -f2- | LC_ALL=C sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' || true)
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	cut	REVIEW_STATUS=$(echo "$_FM" | LC_ALL=C grep -m1 "^status:" | cut -d: -f2- | LC_ALL=C sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' || true)
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	cut	REVIEW_TOTAL=$(echo "$_FINDINGS_FM" | LC_ALL=C grep -E -m1 "^[[:space:]]*total:" | cut -d: -f2- | LC_ALL=C sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' || true)
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	cut	_c_crit=$(echo "$_FINDINGS_FM" | LC_ALL=C grep -E -m1 "^[[:space:]]*(critical|blocker):" | cut -d: -f2- | LC_ALL=C sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' || true)
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	cut	_c_warn=$(echo "$_FINDINGS_FM" | LC_ALL=C grep -E -m1 "^[[:space:]]*warning:" | cut -d: -f2- | LC_ALL=C sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' || true)
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	cut	_c_info=$(echo "$_FINDINGS_FM" | LC_ALL=C grep -E -m1 "^[[:space:]]*info:" | cut -d: -f2- | LC_ALL=C sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' || true)
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	tr	REVIEW_FM=$(tr -d '\r' < "$REVIEW_FILE" 2>/dev/null | LC_ALL=C awk 'NR==1{if($0!="---") exit; next} /^---$/{closed=1; exit} {buf = buf $0 "\n"} END{if (closed) printf "%s", buf}' || true)
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	tr	_FM=$(tr -d '\r' < "$REVIEW_FILE" 2>/dev/null | LC_ALL=C awk 'NR==1{if($0!="---") exit; next} /^---$/{closed=1; exit} {buf = buf $0 "\n"} END{if (closed) printf "%s", buf}' || true)
 gsd-core/workflows/execute-phase/steps/codebase-drift-gate.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/execute-phase/steps/codebase-drift-gate.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md	paste	PLAN_FILES=$(specforge query "$plan_id" --depth 0 --pick '.nodes[0].fields.files_modified[]' | paste -sd' ' -)
@@ -373,9 +360,7 @@ gsd-core/workflows/pause-work.md	cut	phase=$(specforge gsd progress-report --pic
 gsd-core/workflows/pause-work.md	grep	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 gsd-core/workflows/pause-work.md	head	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 gsd-core/workflows/plan-phase.md	awk	PHASE_DESC="Goal: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')"$'\n'"Success criteria: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.success_criteria[]' | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')"
-gsd-core/workflows/plan-phase.md	grep	FRAMEWORK_LINE=$(grep "Selected Framework:" "${AI_SPEC_FILE}" | head -1)
 gsd-core/workflows/plan-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-gsd-core/workflows/plan-phase.md	head	FRAMEWORK_LINE=$(grep "Selected Framework:" "${AI_SPEC_FILE}" | head -1)
 gsd-core/workflows/plan-phase.md	head	SPEC_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1)
 gsd-core/workflows/plan-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/plan-phase.md	paste	PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]' | paste -sd , -)
@@ -589,9 +574,7 @@ prompt:pause_work	cut	phase=$(specforge gsd progress-report --pick '.phases[].st
 prompt:pause_work	grep	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 prompt:pause_work	head	phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
 prompt:plan_phase	awk	PHASE_DESC="Goal: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')"$'\n'"Success criteria: $(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.success_criteria[]' | awk 'NR > 1 { printf "; " } { printf "%s", $0 }')"
-prompt:plan_phase	grep	FRAMEWORK_LINE=$(grep "Selected Framework:" "${AI_SPEC_FILE}" | head -1)
 prompt:plan_phase	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-prompt:plan_phase	head	FRAMEWORK_LINE=$(grep "Selected Framework:" "${AI_SPEC_FILE}" | head -1)
 prompt:plan_phase	head	SPEC_PATH=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1)
 prompt:plan_phase	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:plan_phase	paste	PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]' | paste -sd , -)
@@ -890,7 +873,7 @@ prompt:workspace	git	if ! git worktree remove "$WORKSPACE_PATH/$REPO_NAME" 2>&1;
 
 # E network: the host HTTP service and a GitHub provider (R3). 0 rows.
 
-# F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 76 rows.
+# F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 73 rows.
 agents/gsd-executor.md	npx	npx --yes
 agents/gsd-nyquist-auditor.compact.md	pytest	pytest {file} -v
 agents/gsd-nyquist-auditor.md	pytest	pytest {file} -v
@@ -952,9 +935,6 @@ gsd-core/references/worktree-path-safety.md	node	node -e
 gsd-core/references/worktree-path-safety.md	perl	perl -e 'chdir "/main"'
 gsd-core/references/worktree-path-safety.md	python3	python3 -m pytest ../main/tests
 gsd-core/references/worktree-path-safety.md	python3	python3 -c
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	node	FIX_REPORT_FILE="${FIX_REPORT_FILE}" node -e "
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	node	node -e
-gsd-core/workflows/execute-phase/steps/code-review-disposition.md	node	node -e
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	python3	XCODE_SCHEME=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('project',{}).get('schemes',[None])[0] or '')" 2>/dev/null || true)
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	python3	XCODE_SCHEME=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('project',{}).get('schemes',[None])[0] or '')" 2>/dev/null || true)
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcodebuild	XCODE_SCHEME=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('project',{}).get('schemes',[None])[0] or '')" 2>/dev/null || true)

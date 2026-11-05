@@ -301,13 +301,13 @@ AI integration activation is owned by the `ai-integration` capability's `plan:pr
 ```bash
 AI_SPEC_FILE=$(specforge query "$PHASE_ID" --depth 1 --kinds ai_spec --pick '.nodes[kind=ai_spec].id' 2>/dev/null)   # @gsd/ai's: empty when it is not loaded
 AI_SPEC_PATH="${AI_SPEC_FILE}"
-FRAMEWORK_LINE=""
-if [ -n "$AI_SPEC_FILE" ]; then
-  FRAMEWORK_LINE=$(grep "Selected Framework:" "${AI_SPEC_FILE}" | head -1)
-fi
+
+
+
+
 ```
 
-If `AI_SPEC_FILE` is non-empty, pass `AI_SPEC_PATH` and `FRAMEWORK_LINE` to the planner in step 8 so it can reference the AI design contract. If it is empty, the active `ai-integration` capability hook in step 5.6 handles any AI-system nudge or `/gsd:ai-integration-phase` dispatch.
+If `AI_SPEC_FILE` (an `ai_spec` entity of `@gsd/ai`) is set, pass it to the planner in step 8, read with `--format context`. If it is empty, the active `ai-integration` capability hook in step 5.6 handles any AI-system nudge or `/gsd:ai-integration-phase` dispatch.
 
 ## 4.6. Context Drift Pre-Check (drift plan:pre gate)
 
