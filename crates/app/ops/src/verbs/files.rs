@@ -136,6 +136,8 @@ pub struct Search {
     pub before: usize,
     /// Lines answered after each match.
     pub after: usize,
+    /// A reported line (or multiline match) one of these matches is left out; context is kept.
+    pub and_not: Vec<String>,
     pub max: usize,
 }
 
@@ -242,6 +244,11 @@ pub fn list(verbs: &Verbs, list: &List) -> Result<ListAnswer, OpError> {
 /// `grep-searcher` searcher over the slice, never over a path, which would open a file past the port.
 pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
     checked_globs(&search.globs)?;
+    let and_not = search
+        .and_not
+        .iter()
+        .map(|pattern| matcher(search, pattern))
+        .collect::<Result<Vec<_>, _>>()?;
     let matcher = matcher(search, &search.pattern)?;
     let mut searcher = SearcherBuilder::new()
         .line_number(true)
@@ -328,6 +335,7 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
             let shown = verbs.shown_in(&root, &rel);
             let mut found = Found {
                 matcher: &matcher,
+                and_not: &and_not,
                 search,
                 path: &shown,
                 answer: &mut answer,
@@ -349,7 +357,7 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
     Ok(answer)
 }
 
-/// `pattern` as `search` asks it matched, as ripgrep builds its matcher: a line's `^` and `$` at each line, CRLF lines
+/// `pattern` (the search's own or an `--and-not`) as `search` asks it matched, as ripgrep builds its matcher: a line's `^` and `$` at each line, CRLF lines
 /// read without their `\r`, and unless `multiline` no match that crosses a line (a pattern that needs a `\n` is
 /// refused).
 fn matcher(search: &Search, pattern: &str) -> Result<RegexMatcher, OpError> {
@@ -375,6 +383,8 @@ fn matcher(search: &Search, pattern: &str) -> Result<RegexMatcher, OpError> {
 /// `max`.
 struct Found<'a> {
     matcher: &'a RegexMatcher,
+    /// A match one of these matches is left out.
+    and_not: &'a [RegexMatcher],
     search: &'a Search,
     path: &'a str,
     answer: &'a mut SearchAnswer,
@@ -393,6 +403,18 @@ impl Sink for Found<'_> {
             return Ok(false);
         }
         let bytes = found.bytes();
+        let text = bytes.strip_suffix(b"\n").unwrap_or(bytes);
+        let text = text.strip_suffix(b"\r").unwrap_or(text);
+        if self
+            .and_not
+            .iter()
+            .any(|matcher| matcher.is_match(text).unwrap_or(false))
+        {
+            // Its context goes with it: the lines before are no other match's, those after the next one's before.
+            self.before.clear();
+            self.last = None;
+            return Ok(true);
+        }
         let line = found.line_number().unwrap_or(0) as usize;
         let column = match self.matcher.find(bytes) {
             Ok(Some(at)) => {
@@ -433,6 +455,12 @@ impl Sink for Found<'_> {
             }
             _ => self.before.push(line),
         }
+        Ok(true)
+    }
+
+    fn context_break(&mut self, _: &Searcher) -> Result<bool, Self::Error> {
+        // Lines past a break are not next to the next match.
+        self.before.clear();
         Ok(true)
     }
 }

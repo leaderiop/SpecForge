@@ -298,6 +298,53 @@ fn fixed_strings_match_a_regex_character_literally() {
     assert_eq!(fixed.stdout, "1\n");
 }
 
+/// `--and-not` drops a reported line its pattern matches, under `-i` and `-F` as the search's own pattern, against a
+/// `-U` match whole; the context lines stay.
+#[test]
+fn and_not_leaves_out_the_lines_it_matches() {
+    let project = project().files(&[(
+        "notes/uses.ts",
+        "import { useAuth } from './auth'\nconst a = useAuth()\n// useAuth.x here\nIMPORT useAuth\n",
+    )]);
+    let lines = |args: &[&str]| {
+        let mut all = vec!["files", "search"];
+        all.extend_from_slice(args);
+        all.extend_from_slice(&["notes", "--pick", ".matches[].line"]);
+        Cli::on(&project).run(&all).exits(0).stdout
+    };
+    assert_eq!(lines(&["useAuth", "--and-not", "import"]), "2\n3\n4\n");
+    assert_eq!(lines(&["-i", "useAuth", "--and-not", "import"]), "2\n3\n");
+    assert_eq!(
+        lines(&["-F", "useAuth", "--and-not", "useAuth.x"]),
+        "1\n2\n4\n"
+    );
+    assert_eq!(
+        lines(&["useAuth", "--and-not", "import", "--and-not", "^//"]),
+        "2\n4\n"
+    );
+    // Against a multiline match whole: the match of lines 1-2 holds `import`.
+    assert_eq!(
+        lines(&["-U", "useAuth.*\\n.*useAuth\\(", "--and-not", "import"]),
+        ""
+    );
+    // A kept match keeps its context, a line the second pattern matches included.
+    let context = Cli::on(&project)
+        .run(&[
+            "files",
+            "search",
+            "const",
+            "notes",
+            "-B",
+            "1",
+            "--and-not",
+            "x",
+            "--pick",
+            ".matches[0].before[].line",
+        ])
+        .exits(0);
+    assert_eq!(context.stdout, "1\n");
+}
+
 #[test]
 fn a_path_from_a_subdirectory_is_read_from_there_and_printed_from_there() {
     let project = project();

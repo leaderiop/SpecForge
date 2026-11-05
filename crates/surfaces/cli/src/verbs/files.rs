@@ -199,6 +199,11 @@ pub(crate) struct SearchArgs {
     #[arg(long, short = 'C', value_name = "N")]
     context: Option<usize>,
 
+    /// Leave out a line (or -U match) this pattern also matches, as `| grep -v`; it takes -i and -F too, and context
+    /// lines are kept
+    #[arg(long = "and-not", value_name = "REGEX")]
+    and_not: Vec<String>,
+
     /// The most matches answered
     #[arg(long, value_name = "N", default_value_t = SEARCH_MAX)]
     max: usize,
@@ -329,6 +334,7 @@ impl SearchArgs {
             multiline: self.multiline,
             before: self.before_context.or(self.context).unwrap_or(0),
             after: self.after_context.or(self.context).unwrap_or(0),
+            and_not: self.and_not,
             max: self.max,
         };
         self.verb.answer(

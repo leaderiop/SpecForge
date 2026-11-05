@@ -38,6 +38,9 @@ Options:
   -C, --context <N>
           Answer N lines before and after each match (-A and -B win over it)
 
+      --and-not <REGEX>
+          Leave out a line (or -U match) this pattern also matches, as `| grep -v`; it takes -i and -F too, and context lines are kept
+
       --max <N>
           The most matches answered
           
