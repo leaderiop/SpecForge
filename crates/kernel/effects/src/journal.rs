@@ -121,6 +121,22 @@ impl Blob {
     }
 }
 
+/// A process's argv as a record shows it: in clear when a spec or an extension declared it, and as a [`Blob`] of its
+/// NUL-joined words when the user typed it, since a typed command may carry a token (ADR 0337 D3). Replay never reads
+/// it: a record is found by its request digest.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RecordedArgv {
+    Shown(Vec<String>),
+    Typed(Blob),
+}
+
+impl RecordedArgv {
+    fn typed(argv: &[String]) -> Self {
+        RecordedArgv::Typed(Blob::of(argv.join("\0").as_bytes()))
+    }
+}
+
 /// A request header as a record shows it: its name, and its value only when it is not sensitive.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordedHeader {
@@ -154,7 +170,7 @@ pub enum RecordedRequest {
         body: Option<Blob>,
     },
     Process {
-        argv: Vec<String>,
+        argv: RecordedArgv,
         /// The names of the environment changes, in order.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         env: Vec<String>,
@@ -188,7 +204,7 @@ impl RecordedRequest {
                 body: http.body.as_deref().map(Blob::of),
             },
             EffectRequest::Process(process) => RecordedRequest::Process {
-                argv: process.argv.clone(),
+                argv: RecordedArgv::Shown(process.argv.clone()),
                 env: process.env.iter().map(|var| var.name.clone()).collect(),
                 stdin: process.stdin.as_deref().map(Blob::of),
             },
@@ -202,14 +218,35 @@ impl RecordedRequest {
             EffectRequest::Fs(_) => return None,
         })
     }
+
+    /// [`Self::of`] for a request the user typed (`specforge run`): a process's argv shows as its digest.
+    pub fn typed(request: &EffectRequest) -> Option<Self> {
+        Some(match (Self::of(request)?, request) {
+            (RecordedRequest::Process { env, stdin, .. }, EffectRequest::Process(process)) => {
+                RecordedRequest::Process {
+                    argv: RecordedArgv::typed(&process.argv),
+                    env,
+                    stdin,
+                }
+            }
+            (shown, _) => shown,
+        })
+    }
 }
 
-/// `GET https://…` for an HTTP request, the argv for a process.
+/// `GET https://…` for an HTTP request, the argv for a process (its digest when the user typed it).
 impl fmt::Display for RecordedRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RecordedRequest::Http { method, url, .. } => write!(f, "{method} {url}"),
-            RecordedRequest::Process { argv, .. } => f.write_str(&argv.join(" ")),
+            RecordedRequest::Process {
+                argv: RecordedArgv::Shown(argv),
+                ..
+            } => f.write_str(&argv.join(" ")),
+            RecordedRequest::Process {
+                argv: RecordedArgv::Typed(argv),
+                ..
+            } => write!(f, "a typed command ({})", argv.sha256),
             RecordedRequest::Resolve { host } => write!(f, "resolve {host}"),
             RecordedRequest::Tls { host, tcp_port } => write!(f, "tls {host}:{tcp_port}"),
         }
@@ -469,6 +506,23 @@ impl EffectJournal {
         let record = record_of(request, answer, observed_at).map(|record| EffectRecord {
             request_digest: digest.clone(),
             ..record
+        });
+        self.write(record, answer, payload_cap(request))
+    }
+
+    /// [`Self::keep_as`] for a request the user typed: its record shows it as [`RecordedRequest::typed`] does.
+    pub fn keep_typed(
+        &self,
+        digest: &RecordDigest,
+        request: &EffectRequest,
+        answer: &Answer,
+        observed_at: UnixMillis,
+    ) -> std::io::Result<Option<(PathBuf, EffectRecord)>> {
+        let record = keyed_record(digest, request, answer, observed_at).and_then(|record| {
+            Some(EffectRecord {
+                request: RecordedRequest::typed(request)?,
+                ..record
+            })
         });
         self.write(record, answer, payload_cap(request))
     }

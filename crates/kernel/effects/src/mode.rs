@@ -374,7 +374,12 @@ impl Effects {
         now: UnixMillis,
         perform: impl FnOnce(&Ports) -> Answer,
     ) -> Served {
-        let Some(shown) = RecordedRequest::of(request) else {
+        let shown = if matches!(asking, Asking::User(_)) {
+            RecordedRequest::typed(request)
+        } else {
+            RecordedRequest::of(request)
+        };
+        let Some(shown) = shown else {
             return Served::Local;
         };
         let judged = !matches!(asking, Asking::Unjudged);
@@ -424,10 +429,12 @@ impl Effects {
         };
         drop(log);
         let answer = perform(ports);
-        let kept = if matches!(asking, Asking::Lent) {
-            self.journal.keep_lent(digest, request, &answer, now)
-        } else {
-            self.journal.keep_as(digest, request, &answer, now)
+        let kept = match asking {
+            Asking::Lent => self.journal.keep_lent(digest, request, &answer, now),
+            Asking::User(_) => self.journal.keep_typed(digest, request, &answer, now),
+            Asking::Unjudged | Asking::Judged => {
+                self.journal.keep_as(digest, request, &answer, now)
+            }
         };
         // A journal that cannot be written costs the cache, not the answer.
         if let Ok(Some((path, record))) = kept {

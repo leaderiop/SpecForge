@@ -134,7 +134,7 @@ fn in_runs_the_program_in_a_directory_of_the_project_and_nowhere_else() {
 
 /// A pass-through run is journaled for audit (ADR 0337 D3): its argv and how it ended, with no output kept.
 #[test]
-fn a_pass_through_run_is_journaled_as_its_argv_and_how_it_ended() {
+fn a_pass_through_run_is_journaled_as_its_argv_digest_and_how_it_ended() {
     let project = TestProject::new();
     let argv = child();
     run(&project, "exit:3")
@@ -148,7 +148,14 @@ fn a_pass_through_run_is_journaled_as_its_argv_and_how_it_ended() {
         .collect();
     assert_eq!(records.len(), 1, "{records:?}");
     let record = &records[0];
-    assert_eq!(record["request"]["argv"][0], argv[0].as_str(), "{record}");
+    let typed = &record["request"]["argv"];
+    assert!(
+        typed["sha256"]
+            .as_str()
+            .is_some_and(|d| d.starts_with("sha256:")),
+        "a typed argv is kept as its digest: {record}"
+    );
+    assert_eq!(typed["len"], argv.join("\0").len(), "{record}");
     assert_eq!(record["outcome"]["class"], "exit:3", "{record}");
     assert!(
         record.get("payload").is_none(),
@@ -161,6 +168,43 @@ fn a_pass_through_run_is_journaled_as_its_argv_and_how_it_ended() {
 }
 
 /// Every file under `dir`.
+/// A command the user typed may carry a token: neither a pass-through nor a captured run writes its argv to the
+/// journal, and a replay still answers with the argv it was asked.
+#[test]
+fn no_record_holds_a_typed_argv_in_clear() {
+    let project = TestProject::new();
+    let token = "sk_live_0123456789journaled";
+    let mut argv = child();
+    argv.push(token.to_string());
+    run(&project, "exit:0")
+        .bare(&args(&["run", "--"], &argv))
+        .exits(0);
+    let live = run(&project, "talk")
+        .bare(&args(&["run", "--format", "json"], &argv))
+        .exits(0)
+        .json();
+    let journal = project.root().join(".specforge/effects/journal");
+    let files = walkdir(&journal);
+    assert!(files.len() >= 3, "two records and a payload: {files:?}");
+    for path in files {
+        let text = String::from_utf8_lossy(&std::fs::read(&path).unwrap()).into_owned();
+        assert!(
+            !text.contains(token),
+            "{} holds the token: {text}",
+            path.display()
+        );
+    }
+    let replayed = Cli::on(&project)
+        .bare(&args(
+            &["run", "--format", "json", "--effects", "replay"],
+            &argv,
+        ))
+        .exits(0)
+        .json();
+    assert_eq!(replayed["argv"], live["argv"]);
+    assert_eq!(replayed["argv"][argv.len() - 1], token);
+}
+
 fn walkdir(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
     let mut found = Vec::new();
     for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {

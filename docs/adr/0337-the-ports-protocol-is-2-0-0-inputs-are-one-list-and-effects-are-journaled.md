@@ -93,7 +93,8 @@ pub enum Input {
   cache, so it costs no code. So is one not private to this user (a git checkout writes 0644, so a project cannot
   commit a pass; Windows sets no mode and cannot tell) or dated in the future (ADR 0336).
 - A record shows what identifies the request: the method, URL and argv, the header and env names, a non-sensitive
-  header's value, and a body or stdin as its sha256 and length. A sensitive header's value is never written: the
+  header's value, and a body or stdin as its sha256 and length. An argv the user typed (`specforge run`, ADR 0339
+  D3) shows as its sha256 and length too: it may carry a token. A sensitive header's value is never written: the
   request digest's canonical form writes it `<redacted>` (ADR 0335 D3), and replay matches by digest.
 - A response payload (an HTTP body, a process's output) is kept beside the record, `<hex>.payload`, bounded by the
   request's cap, and checked against the outcome's digest when read; a mismatch is a miss.

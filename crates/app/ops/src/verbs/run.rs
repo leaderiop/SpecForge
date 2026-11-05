@@ -145,8 +145,8 @@ fn request(
 }
 
 /// `run` passing the program's stdin, stdout and stderr through, in the current directory: how it ended. It is
-/// journaled for audit (ADR 0337 D3) as its request (the argv) and how it ended, with no output: what it printed is
-/// the terminal's, so no record answers it again.
+/// journaled for audit (ADR 0337 D3) as its argv's digest and how it ended, with no output: what it printed is the
+/// terminal's, so no record answers it again.
 pub fn pass_through(verbs: &Verbs, run: &Run) -> Result<ProcessClass, OpError> {
     let place = place(verbs, run)?;
     let request = request(verbs, run, &place, u64::MAX)?;
@@ -214,6 +214,9 @@ pub fn capture(
             started,
         );
         answer.deadline_ms = request.deadline_ms;
+        // The kept answer holds no argv, which a typed command may carry a token in; it is the request's, put back
+        // when the answer is read.
+        answer.argv.clear();
         let payload = serde_json::to_vec(&answer).unwrap_or_default();
         Answer {
             outcome: Outcome {
@@ -231,9 +234,12 @@ pub fn capture(
         } => answer
             .payload
             .as_deref()
-            .and_then(|payload| serde_json::from_slice(payload).ok())
+            .and_then(|payload| serde_json::from_slice::<RunAnswer>(payload).ok())
             .map(|answer| Answered {
-                answer,
+                answer: RunAnswer {
+                    argv: run.argv.clone(),
+                    ..answer
+                },
                 effect: Effect {
                     digest: Some(RecordDigest::asked_by(USER, &asked)),
                     observed_at,

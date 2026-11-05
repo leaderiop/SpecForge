@@ -64,8 +64,11 @@ whole port `off`). A request outside it is refused before any effect, with the c
 - `replay` answers only from the journal, expired records included, and a miss refuses (exit 1). A replayed answer
   equals the live one, except the secret-carrying headers, which no record holds.
 - `run` without `--format json` passes its program's output through. It is journaled for audit, as ADR 0337 D3 keeps
-  a process run: its request (the argv) and how it ended, with no output, so no record answers it again and it
-  refuses `cached` and `replay` as a usage error (exit 2).
+  a process run: its argv's digest and how it ended, with no output, so no record answers it again and it refuses
+  `cached` and `replay` as a usage error (exit 2).
+- A typed command may carry a token, so no record of `run` holds its argv in clear: the record shows it as the
+  SHA-256 and length of its NUL-joined words, and a captured run's kept answer holds no argv; a replay puts back the
+  argv it was asked, which is the record's by its digest.
 - `files` and `git` take `--effects` as every verb does, and perform in every mode: their effects are local reads and
   writes, which ADR 0337 D3 never journals and D4 performs in `replay` too. So a `files` write keeps no record, and
   `replay` with an empty journal performs a read rather than refuse it: ADR 0337 decides both. The answer's `effect`
