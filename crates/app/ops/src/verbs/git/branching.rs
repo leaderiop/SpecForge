@@ -31,6 +31,32 @@ fn refused(code: &'static str, message: String, suggestion: &str) -> OpError {
     OpError::new(OpErrorKind::PreconditionFailed, code, message).with_suggestion(suggestion)
 }
 
+/// `git init`'s answer: the repository's top and whether it was made (false: one was there).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct InitAnswer {
+    pub top: String,
+    pub created: bool,
+}
+
+/// `git init [<dir>]`: the directory (read from the current directory, made when missing, held to the project's
+/// roots) made a repository unless it holds one.
+pub fn init(verbs: &Verbs, dir: Option<&Path>) -> Result<InitAnswer, OpError> {
+    verbs.permit_git_write("init")?;
+    let at = held(verbs, dir.unwrap_or(Path::new(".")))?;
+    std::fs::create_dir_all(&at).map_err(|e| {
+        OpError::new(
+            OpErrorKind::Internal,
+            super::GIT_FAILED,
+            format!("make {}: {e}", printable(&at.to_string_lossy())),
+        )
+    })?;
+    let created = verbs.ports().git.init(&at).map_err(write_failed)?;
+    Ok(InitAnswer {
+        top: slashed(&at),
+        created,
+    })
+}
+
 /// `git worktree lock` and `unlock`'s answer: the worktree and whether it is locked now.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct LockAnswer {

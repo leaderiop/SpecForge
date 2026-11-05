@@ -579,6 +579,10 @@ impl Git for Gix {
         branching::worktree_remove(place, path)
     }
 
+    fn init(&self, dir: &Path) -> Result<bool, GitError> {
+        branching::init(dir)
+    }
+
     fn worktree_lock(
         &self,
         place: &GitPlace,

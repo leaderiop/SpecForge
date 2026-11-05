@@ -142,3 +142,26 @@ fn commit_of_paths_after_the_separator_leaves_the_rest_staged() {
         .json();
     assert_eq!(tracked, serde_json::json!(["b.txt"]));
 }
+
+#[test]
+fn init_makes_the_project_a_repository_unless_it_is_one() {
+    let project = crate::support::TestProject::new();
+    let made = git(&project, &["init", "--format", "human"]).exits(0);
+    assert!(
+        made.stdout
+            .starts_with("Initialized empty Git repository in "),
+        "{}",
+        made.stdout
+    );
+    assert!(project.root().join(".git").is_dir());
+    let again = git(&project, &["init"]).exits(0).answer();
+    assert_eq!(again["created"], false);
+    assert_eq!(
+        git(&project, &["head", "--pick", ".branch"])
+            .exits(0)
+            .stdout,
+        "main\n"
+    );
+    let outside = git(&project, &["init", "../elsewhere"]).exits(1);
+    assert!(outside.stdout.contains("root"), "{}", outside.stdout);
+}

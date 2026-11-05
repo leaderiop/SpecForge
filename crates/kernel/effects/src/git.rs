@@ -608,6 +608,11 @@ pub trait Git: Send + Sync {
     fn worktree_remove(&self, _place: &GitPlace, _path: &Path) -> Result<(), GitError> {
         Err(GitError::unwritable())
     }
+    /// Make `dir` a repository with its worktree, as `git init` does: true when one was made, false when `dir` holds
+    /// one already (left as it is).
+    fn init(&self, _dir: &Path) -> Result<bool, GitError> {
+        Err(GitError::unwritable())
+    }
     /// Lock the linked worktree whose top is `path`, so no prune or removal drops it (`reason` kept in its `locked`
     /// file), or with `lock` false unlock it. Refused when it is already in the state asked, as git refuses.
     fn worktree_lock(

@@ -169,6 +169,16 @@ pub(crate) fn worktree_remove(place: &GitPlace, path: &Path) -> Result<(), GitEr
         .map_err(|e| failed(&format!("remove the worktree at {}", path.display()), &e))
 }
 
+/// `git init`: `dir` made a repository by gix (its default branch `init.defaultBranch`, else `main`), unless it holds
+/// one already.
+pub(crate) fn init(dir: &Path) -> Result<bool, GitError> {
+    if std::fs::symlink_metadata(dir.join(".git")).is_ok() {
+        return Ok(false);
+    }
+    gix::init(dir).map_err(|e| failed(&format!("make {} a repository", dir.display()), &e))?;
+    Ok(true)
+}
+
 pub(crate) fn worktree_lock(
     place: &GitPlace,
     path: &Path,

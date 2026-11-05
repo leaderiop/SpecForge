@@ -16,8 +16,8 @@ mod commit;
 mod merging;
 
 pub use branching::{
-    LockAnswer, PrunedAnswer, RefAnswer, branch_create, branch_delete, switch, tag, worktree_add,
-    worktree_lock, worktree_prune, worktree_remove,
+    InitAnswer, LockAnswer, PrunedAnswer, RefAnswer, branch_create, branch_delete, init, switch,
+    tag, worktree_add, worktree_lock, worktree_prune, worktree_remove,
 };
 pub use commit::{
     AddRequest, CommitAnswer, CommitRequest, HookAnswer, RmAnswer, add, cleaned, commit, hook_run,
@@ -247,11 +247,16 @@ impl Verbs {
             .map_err(|denial| super::outside_ceiling(&denial.request, &denial))
     }
 
-    /// [`Self::place`] for a write: the ceiling lets git be changed (`git` `write`) as well as asked.
-    fn place_to_write(&self, question: &str) -> Result<GitPlace, OpError> {
+    /// The ceiling lets git be changed (`git` `write`) as well as asked `question`.
+    fn permit_git_write(&self, question: &str) -> Result<(), OpError> {
         self.grant
             .permits_git_write(USER, question)
-            .map_err(|denial| super::outside_ceiling(&denial.request, &denial))?;
+            .map_err(|denial| super::outside_ceiling(&denial.request, &denial))
+    }
+
+    /// [`Self::place`] for a write: the ceiling lets git be changed (`git` `write`) as well as asked.
+    fn place_to_write(&self, question: &str) -> Result<GitPlace, OpError> {
+        self.permit_git_write(question)?;
         let place = self.place(question)?;
         // Before anything runs, a hook included: a repository another user owns runs none of its hooks.
         self.ports()

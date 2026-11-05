@@ -67,6 +67,8 @@ pub(crate) enum Action {
     Add(AddArgs),
     /// Take files out of the index and off the disk (--cached: the index alone); a changed one needs -f
     Rm(RmArgs),
+    /// Make a directory a repository, unless it is one
+    Init(InitArgs),
     /// Run one of the repository's hooks
     #[command(subcommand)]
     Hook(HookAction),
@@ -315,6 +317,20 @@ impl Action {
                     },
                 )
             }
+            Action::Init(args) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::init(v, args.dir.as_deref()),
+                |t, a| {
+                    let made = if a.created {
+                        "Initialized empty"
+                    } else {
+                        "Reinitialized existing"
+                    };
+                    outln!(t, "{made} Git repository in {}/.git/", shown(&a.top));
+                },
+            ),
             Action::Hook(HookAction::Run(args)) => answer(
                 &args.verb,
                 terminal,

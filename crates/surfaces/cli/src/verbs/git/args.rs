@@ -303,6 +303,16 @@ pub(crate) struct AddArgs {
     pub(super) verb: VerbArgs,
 }
 
+#[derive(clap::Args)]
+pub(crate) struct InitArgs {
+    /// The directory, from the current directory; the current directory when absent
+    #[arg(value_name = "DIR")]
+    pub(super) dir: Option<std::path::PathBuf>,
+
+    #[command(flatten)]
+    pub(super) verb: VerbArgs,
+}
+
 #[derive(clap::Subcommand)]
 pub(crate) enum HookAction {
     /// Run the repository's hook as git would, its output on stderr; a hook that fails exits 1

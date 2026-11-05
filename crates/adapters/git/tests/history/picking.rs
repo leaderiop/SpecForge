@@ -224,3 +224,19 @@ fn a_worktree_is_locked_and_unlocked_once_each() {
             .contains("not locked")
     );
 }
+
+#[test]
+fn init_makes_a_repository_once() {
+    use specforge_effects::git::Located;
+    let dir = tempfile::tempdir().unwrap();
+    let git = Gix::default();
+    assert!(git.init(dir.path()).unwrap());
+    assert!(
+        !git.init(dir.path()).unwrap(),
+        "one is there: left as it is"
+    );
+    let Located::Repo(place) = git.locate(dir.path()) else {
+        panic!("a repository");
+    };
+    assert_eq!(git.head(&place).unwrap().head.as_deref(), Some("main"));
+}
