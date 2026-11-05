@@ -1,7 +1,9 @@
 //! The branches, worktrees and remotes `Gix` lists.
 
 use gix::bstr::ByteSlice as _;
-use specforge_effects::git::{GitBranch, GitBranchRef, GitError, GitRemote, GitWorktree, Sha};
+use specforge_effects::git::{
+    GitBranch, GitBranchRef, GitError, GitRemote, GitWorktree, Sha, Tracking,
+};
 
 use crate::failed;
 
@@ -33,8 +35,8 @@ pub(crate) fn branches(
             continue;
         }
         let tip = reference.peel_to_id().ok().map(|id| id.detach());
-        let (upstream, ahead, behind) = if remote {
-            (None, 0, 0)
+        let tracking = if remote {
+            Tracking::default()
         } else {
             upstream_of(repo, name.as_ref(), tip)?
         };
@@ -42,9 +44,7 @@ pub(crate) fn branches(
             name: name.shorten().to_string(),
             sha: tip.map(|id| Sha::new(id.to_string())),
             current: current.as_ref().is_some_and(|c| c == name.as_bstr()),
-            upstream,
-            ahead,
-            behind,
+            tracking,
         });
     }
     branches.sort_by(|a, b| a.name.cmp(&b.name));
@@ -163,7 +163,9 @@ pub(crate) fn branch_of(repo: &gix::Repository) -> Result<GitBranch, GitError> {
         ..GitBranch::default()
     };
     if let Some(name) = repo.head_name().map_err(|e| failed("read HEAD", &e))? {
-        (branch.upstream, branch.ahead, branch.behind) = upstream_of(repo, name.as_ref(), oid)?;
+        let tracking = upstream_of(repo, name.as_ref(), oid)?;
+        (branch.upstream, branch.ahead, branch.behind) =
+            (tracking.upstream, tracking.ahead, tracking.behind);
     }
     Ok(branch)
 }
@@ -173,11 +175,11 @@ pub(crate) fn upstream_of(
     repo: &gix::Repository,
     name: &gix::refs::FullNameRef,
     tip: Option<gix::ObjectId>,
-) -> Result<(Option<String>, u32, u32), GitError> {
+) -> Result<Tracking, GitError> {
     let Some(Ok(tracking)) =
         repo.branch_remote_tracking_ref_name(name, gix::remote::Direction::Fetch)
     else {
-        return Ok((None, 0, 0));
+        return Ok(Tracking::default());
     };
     let upstream = repo
         .try_find_reference(tracking.as_ref())
@@ -192,7 +194,11 @@ pub(crate) fn upstream_of(
         ),
         _ => (0, 0),
     };
-    Ok((Some(tracking.shorten().to_string()), ahead, behind))
+    Ok(Tracking {
+        upstream: Some(tracking.shorten().to_string()),
+        ahead,
+        behind,
+    })
 }
 
 /// How many commits `tip` reaches that `hidden` does not.

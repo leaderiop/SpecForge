@@ -4,7 +4,7 @@
 use serde::Serialize;
 use specforge_effects::git::{
     DiffQuery, DiffSide, GitBranchRef, GitCommit, GitError, GitFileDiff, GitPlace, GitRemote,
-    GitStatus, LOG_MAX, Located, LogQuery, ObjectKind, Sha, is_binary,
+    GitStatus, LOG_MAX, Located, LogQuery, ObjectKind, Sha, Tracking, is_binary,
 };
 
 use super::{USER, Verbs, slashed};
@@ -46,10 +46,8 @@ pub struct HeadAnswer {
     pub branch: Option<String>,
     pub detached: bool,
     pub unborn: bool,
-    /// The branch's upstream, `origin/main`.
-    pub upstream: Option<String>,
-    pub ahead: u32,
-    pub behind: u32,
+    #[serde(flatten)]
+    pub tracking: Tracking,
 }
 
 /// `git rev`'s answer: one entry per revision asked, in order.
@@ -268,9 +266,12 @@ pub fn head(verbs: &Verbs) -> Result<HeadAnswer, OpError> {
         unborn: branch.oid.is_none(),
         sha: branch.oid,
         branch: branch.head,
-        upstream: branch.upstream,
-        ahead: branch.ahead,
-        behind: branch.behind,
+        // The port's head is the status protocol's branch header, a wire type the guests share.
+        tracking: Tracking {
+            upstream: branch.upstream,
+            ahead: branch.ahead,
+            behind: branch.behind,
+        },
     })
 }
 

@@ -68,6 +68,18 @@ pub enum Located {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GitError(pub String);
 
+impl GitError {
+    /// What a port answers for a question it does not implement: a trait method's default.
+    pub fn unanswered() -> Self {
+        GitError("this git port cannot answer it".into())
+    }
+
+    /// What a port answers for a write it does not implement: a trait method's default.
+    pub fn unwritable() -> Self {
+        GitError("this git port cannot write".into())
+    }
+}
+
 impl std::fmt::Display for GitError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
@@ -225,7 +237,15 @@ pub struct GitBranchRef {
     pub sha: Option<Sha>,
     /// `HEAD` is on it in the worktree asked.
     pub current: bool,
-    /// The remote-tracking branch it follows, `origin/main`.
+    #[serde(flatten)]
+    pub tracking: Tracking,
+}
+
+/// The remote-tracking branch a local branch follows, and how many commits each is ahead of the other: what `git
+/// branch -vv` shows in its brackets. A remote-tracking branch, or a local one that follows none, has the default.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+pub struct Tracking {
+    /// `origin/main`.
     pub upstream: Option<String>,
     pub ahead: u32,
     pub behind: u32,
@@ -361,11 +381,11 @@ pub trait Git: Send + Sync {
     ) -> Result<Vec<Blob>, GitError>;
     /// The branch `HEAD` is on in `place` (`git branch --show-current`): empty when it is detached (ADR 0320).
     fn branch(&self, _place: &GitPlace) -> Result<String, GitError> {
-        Err(GitError("this git port cannot answer it".into()))
+        Err(GitError::unanswered())
     }
     /// The worktree's typed status in `place` (read by gix, ADR 0337).
     fn status(&self, _place: &GitPlace) -> Result<GitStatus, GitError> {
-        Err(GitError("this git port cannot answer it".into()))
+        Err(GitError::unanswered())
     }
     /// `HEAD`'s commit and branch, its upstream, and how far each is ahead of the other: [`Self::status`]'s branch,
     /// with no worktree read.
@@ -378,72 +398,72 @@ pub trait Git: Send + Sync {
         _place: &GitPlace,
         _revision: &str,
     ) -> Result<Option<(Sha, ObjectKind)>, GitError> {
-        Err(GitError("this git port cannot answer it".into()))
+        Err(GitError::unanswered())
     }
     /// Every value `key` (`section.name` or `section.sub.name`) has in the repository's configuration, the last the
     /// one git applies: empty when it has none.
     fn config(&self, _place: &GitPlace, _key: &str) -> Result<Vec<String>, GitError> {
-        Err(GitError("this git port cannot answer it".into()))
+        Err(GitError::unanswered())
     }
     /// The path `key` names, interpolated as git interpolates a path (`~/` and `~user/` from a home directory): none
     /// when unset. A relative path is returned as written.
     fn config_path(&self, _place: &GitPlace, _key: &str) -> Result<Option<PathBuf>, GitError> {
-        Err(GitError("this git port cannot answer it".into()))
+        Err(GitError::unanswered())
     }
     /// `key` read as git reads a boolean (`true`/`yes`/`on`, a non-zero integer, or the bare key): `None` when unset,
     /// an error when it holds no boolean.
     fn config_flag(&self, _place: &GitPlace, _key: &str) -> Result<Option<bool>, GitError> {
-        Err(GitError("this git port cannot answer it".into()))
+        Err(GitError::unanswered())
     }
     /// How many commits `query` walks, and the first `query.max` of them (every one when none), newest first.
     fn log(&self, _place: &GitPlace, _query: &LogQuery) -> Result<GitLog, GitError> {
-        Err(GitError("this git port cannot answer it".into()))
+        Err(GitError::unanswered())
     }
     /// The files that differ between `query`'s base and its side, by path.
     fn diff(&self, _place: &GitPlace, _query: &DiffQuery) -> Result<Vec<GitFileDiff>, GitError> {
-        Err(GitError("this git port cannot answer it".into()))
+        Err(GitError::unanswered())
     }
     /// The blob `revision` names (`HEAD:path`, `:path` for the index); `None` when it names no blob.
     fn blob(&self, _place: &GitPlace, _revision: &str) -> Result<Option<GitBlob>, GitError> {
-        Err(GitError("this git port cannot answer it".into()))
+        Err(GitError::unanswered())
     }
     /// The local branches, or the remote-tracking ones, by name.
     fn branches(&self, _place: &GitPlace, _remote: bool) -> Result<Vec<GitBranchRef>, GitError> {
-        Err(GitError("this git port cannot answer it".into()))
+        Err(GitError::unanswered())
     }
     /// The main worktree, then the linked ones by path.
     fn worktrees(&self, _place: &GitPlace) -> Result<Vec<GitWorktree>, GitError> {
-        Err(GitError("this git port cannot answer it".into()))
+        Err(GitError::unanswered())
     }
     /// The remotes, by name.
     fn remotes(&self, _place: &GitPlace) -> Result<Vec<GitRemote>, GitError> {
-        Err(GitError("this git port cannot answer it".into()))
+        Err(GitError::unanswered())
     }
     /// Whether a write may change the repository at `place`: `Err` names why not (another user owns it; an operation
     /// the port cannot continue, a rebase, is in progress). A verb asks it before it runs anything, a hook included.
     fn writable(&self, _place: &GitPlace) -> Result<(), GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// Write `message` where git hands a commit message to its `commit-msg` hook (`COMMIT_EDITMSG` in the git
     /// directory): that file's path.
     fn write_commit_message(&self, _place: &GitPlace, _message: &str) -> Result<PathBuf, GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// The message as the `commit-msg` hook left it in `COMMIT_EDITMSG`.
     fn read_commit_message(&self, _place: &GitPlace) -> Result<String, GitError> {
-        Err(GitError("this git port cannot answer it".into()))
+        Err(GitError::unanswered())
     }
     /// Write `staging` into the index.
     fn stage(&self, _place: &GitPlace, _staging: &Staging) -> Result<(), GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// Create the branch `name` at `at`; `Err` when it exists or is no valid branch name.
     fn branch_create(&self, _place: &GitPlace, _name: &str, _at: &Sha) -> Result<(), GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// Delete the branch `name`: the commit it named.
     fn branch_delete(&self, _place: &GitPlace, _name: &str) -> Result<Sha, GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// Create the tag `name` at `at`: annotated with `message` by the configured identity, else a plain ref. The object
     /// it names (the tag object for an annotated one).
@@ -454,24 +474,24 @@ pub trait Git: Send + Sync {
         _at: &Sha,
         _message: Option<&str>,
     ) -> Result<Sha, GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// Check out the branch `name` and move `HEAD` to it. A file the worktree changed that the checkout would
     /// overwrite refuses it, and nothing moves.
     fn switch(&self, _place: &GitPlace, _name: &str) -> Result<(), GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// Add a linked worktree at `path` (absent or empty) on the existing branch `branch`.
     fn worktree_add(&self, _place: &GitPlace, _path: &Path, _branch: &str) -> Result<(), GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// Remove the linked worktree at `path`, its directory and its record.
     fn worktree_remove(&self, _place: &GitPlace, _path: &Path) -> Result<(), GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// Drop the records of the linked worktrees whose directories are gone: where each was.
     fn worktree_prune(&self, _place: &GitPlace) -> Result<Vec<PathBuf>, GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// Merge `theirs` into `HEAD`: a fast-forward when `fast_forward` is not `Some(false)` and history allows,
     /// refused when it is `Some(true)` and history does not; else a merge commit with `message`, or the conflicts.
@@ -482,11 +502,11 @@ pub trait Git: Send + Sync {
         _fast_forward: Option<bool>,
         _message: &str,
     ) -> Result<Merged, GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// Move `HEAD` to `to`, and the index (`mixed`) and the files (`hard`) with it.
     fn reset(&self, _place: &GitPlace, _to: &Sha, _mode: ResetMode) -> Result<(), GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// The files at `paths` as the index has them, or as `source` does; with `staged`, the index's entries as `HEAD`
     /// (or `source`) has them, the files untouched.
@@ -497,7 +517,7 @@ pub trait Git: Send + Sync {
         _source: Option<&Sha>,
         _staged: bool,
     ) -> Result<(), GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// Stash the worktree's and the index's changes (and the untracked files with `untracked`): the stash's commit.
     fn stash_push(
@@ -506,19 +526,19 @@ pub trait Git: Send + Sync {
         _message: Option<&str>,
         _untracked: bool,
     ) -> Result<Sha, GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// Apply the stash at `index` and drop it; refused when it would overwrite a changed file.
     fn stash_pop(&self, _place: &GitPlace, _index: usize) -> Result<(), GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// The stashes, newest first.
     fn stashes(&self, _place: &GitPlace) -> Result<Vec<GitStash>, GitError> {
-        Err(GitError("this git port cannot answer it".into()))
+        Err(GitError::unanswered())
     }
     /// Apply `commit` onto `HEAD` and record it (`revert`: its inverse), or the conflicts.
     fn pick(&self, _place: &GitPlace, _commit: &Sha, _revert: bool) -> Result<Merged, GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
     /// Record the index as a commit on `HEAD` with `message` (kept byte for byte), by the identity the repository's
     /// configuration names, and move `HEAD`'s branch to it. `Err` when the index matches `HEAD` and `allow_empty` is
@@ -529,7 +549,7 @@ pub trait Git: Send + Sync {
         _message: &str,
         _allow_empty: bool,
     ) -> Result<Committed, GitError> {
-        Err(GitError("this git port cannot write".into()))
+        Err(GitError::unwritable())
     }
 }
 
