@@ -67,8 +67,11 @@ pub(crate) struct Args {
     #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = crate::pick::HELP, long_help = crate::pick::EXPORT_LONG_HELP)]
     pick: Option<Pick>,
 
-    #[arg(long, value_name = "KEYS", requires = "pick", value_parser = crate::pick::Fields::parse, help = crate::pick::FIELDS_HELP, long_help = crate::pick::FIELDS_LONG_HELP)]
+    #[arg(long, value_name = "KEYS", requires = "pick", conflicts_with_all = ["count", "join"], value_parser = crate::pick::Fields::parse, help = crate::pick::FIELDS_HELP, long_help = crate::pick::FIELDS_LONG_HELP)]
     fields: Option<crate::pick::Fields>,
+
+    #[command(flatten)]
+    shape: crate::pick::Shape,
 }
 
 impl Args {
@@ -127,7 +130,7 @@ impl Args {
             Err(error) => return Refusal::fixed().report(terminal, &error),
         };
         match &self.pick {
-            Some(pick) => match pick.printed(&output, self.fields.as_ref()) {
+            Some(pick) => match pick.printed(&output, self.fields.as_ref(), &self.shape) {
                 Ok(lines) => out!(terminal, "{lines}"),
                 Err(refused) => {
                     err!(terminal, "{refused}");

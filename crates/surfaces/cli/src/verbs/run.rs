@@ -48,6 +48,9 @@ pub(crate) struct RunArgs {
     #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = pick::HELP, long_help = pick::VERB_LONG_HELP)]
     pick: Option<Pick>,
 
+    #[command(flatten)]
+    shape: pick::Shape,
+
     /// With --format json: whether the run is performed (online, the default; auto is online) or answered from the
     /// effects journal (replay). A program asks for something to happen, so cached performs it too
     #[arg(long, value_enum)]
@@ -93,7 +96,7 @@ impl RunArgs {
             return match format {
                 // The answer says what was found: printed, it is the run's success.
                 OutputFormat::Json => {
-                    pick::print_json(terminal, self.pick.as_ref(), &answer);
+                    pick::print_json(terminal, self.pick.as_ref(), &self.shape, &answer);
                     Exit::Passed.code()
                 }
                 // As `command -v`: the paths found, and 1 when one is missing.
@@ -111,7 +114,7 @@ impl RunArgs {
         if json {
             return match ran::capture(&verbs, &run, mode) {
                 Ok(answer) => {
-                    pick::print_json(terminal, self.pick.as_ref(), &answer);
+                    pick::print_json(terminal, self.pick.as_ref(), &self.shape, &answer);
                     Exit::Passed.code()
                 }
                 Err(error) => super::refusal(format, self.pick.is_some())

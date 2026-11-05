@@ -94,6 +94,9 @@ pub(crate) struct PickedOutputArg {
 
     #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = HELP, long_help = ANSWER_LONG_HELP)]
     pick: Option<Pick>,
+
+    #[command(flatten)]
+    shape: Shape,
 }
 
 impl PickedOutputArg {
@@ -115,18 +118,82 @@ impl PickedOutputArg {
     pub(crate) fn pick(&self) -> Option<&Pick> {
         self.pick.as_ref()
     }
+
+    pub(crate) fn shape(&self) -> &Shape {
+        &self.shape
+    }
 }
 
-/// `document` as the JSON form prints it, or the values `pick` reaches in it.
+/// The short help of `--count`.
+pub(crate) const COUNT_HELP: &str = "With --pick: print the number of values it reaches";
+
+/// The long help of `--count`.
+pub(crate) const COUNT_LONG_HELP: &str = "With --pick: print the number of values the path reaches, the lines --pick \
+     would print (null or a missing value is none, a string holding a newline is one), 0 for none; nothing when the \
+     command answered nothing, so `$(… --count) || n='?'` tells an unread answer from 0. It takes no --first, \
+     --last, --join or --fields (ADR 0325 D8).";
+
+/// The short help of `--first`.
+pub(crate) const FIRST_HELP: &str = "With --pick: keep only the first N values it reaches";
+
+/// The short help of `--last`.
+pub(crate) const LAST_HELP: &str = "With --pick: keep only the last N values it reaches";
+
+/// The short help of `--join`.
+pub(crate) const JOIN_HELP: &str = "With --pick: print the values on one line, joined by SEP";
+
+/// The long help of `--join`.
+pub(crate) const JOIN_LONG_HELP: &str = "With --pick: print the values kept on one line joined by SEP exactly as \
+     given (no escape is read: $'\\n  ' is the shell's), then a newline; nothing when no value is reached. It \
+     combines with --first or --last, and takes no --count or --fields (ADR 0325 D8).";
+
+/// How the values `--pick` reaches print (ADR 0325 D8): one per line (no shape given), their number, the first or
+/// last n, or on one line joined by a separator.
+#[derive(clap::Args, Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Shape {
+    #[arg(long, requires = "pick", conflicts_with_all = ["first", "last", "join"], help = COUNT_HELP, long_help = COUNT_LONG_HELP)]
+    count: bool,
+
+    #[arg(long, value_name = "N", requires = "pick", conflicts_with = "last", help = FIRST_HELP)]
+    first: Option<usize>,
+
+    #[arg(long, value_name = "N", requires = "pick", help = LAST_HELP)]
+    last: Option<usize>,
+
+    #[arg(long, value_name = "SEP", requires = "pick", help = JOIN_HELP, long_help = JOIN_LONG_HELP)]
+    join: Option<String>,
+}
+
+impl Shape {
+    /// `texts` (one per value or row reached, in document order) as the shape prints them.
+    fn print(&self, texts: Vec<String>) -> String {
+        if self.count {
+            return format!("{}\n", texts.len());
+        }
+        let kept = match (self.first, self.last) {
+            (Some(n), _) => &texts[..n.min(texts.len())],
+            (_, Some(n)) => &texts[texts.len().saturating_sub(n)..],
+            (None, None) => &texts[..],
+        };
+        match &self.join {
+            Some(_) if kept.is_empty() => String::new(),
+            Some(separator) => kept.join(separator) + "\n",
+            None => kept.iter().map(|text| format!("{text}\n")).collect(),
+        }
+    }
+}
+
+/// `document` as the JSON form prints it, or the values `pick` reaches in it, in `shape`.
 pub(crate) fn print_json(
     terminal: &Terminal,
     pick: Option<&Pick>,
+    shape: &Shape,
     document: &impl serde::Serialize,
 ) {
     match pick {
         Some(pick) => {
             let value = serde_json::to_value(document).expect("serialize JSON output");
-            let lines = pick.lines(&value);
+            let lines = shape.print(pick.texts(&value, None));
             // A picked string is a file's text, a commit subject or a response: exact into a pipe, which a script
             // reads, but escaped before a terminal, where an escape sequence would act (ADR 0339 D4).
             if terminal.facts().out_terminal {
@@ -337,283 +404,38 @@ impl Pick {
         reached
     }
 
-    /// What `--pick` prints for `document`: one line per value reached.
-    pub(crate) fn lines(&self, document: &Value) -> String {
-        let mut text = String::new();
-        for value in self.values(document) {
-            match value {
-                Value::Null => continue,
-                Value::String(s) => text.push_str(s),
-                other => text.push_str(&other.to_string()),
-            }
-            text.push('\n');
+    /// The texts `--pick` prints for `document`, in document order: one per value reached, a null or missing value
+    /// none; with `fields`, one row per value reached, null included.
+    fn texts(&self, document: &Value, fields: Option<&Fields>) -> Vec<String> {
+        let values = self.values(document).into_iter();
+        match fields {
+            Some(fields) => values.map(|item| fields.row(item)).collect(),
+            None => values
+                .filter_map(|value| match value {
+                    Value::Null => None,
+                    Value::String(s) => Some(s.clone()),
+                    other => Some(other.to_string()),
+                })
+                .collect(),
         }
-        text
     }
 
-    /// What `--pick` with `--fields` prints for `document`: one row per value reached, null included.
-    fn rows(&self, document: &Value, fields: &Fields) -> String {
-        self.values(document)
-            .into_iter()
-            .map(|item| fields.row(item) + "\n")
-            .collect()
-    }
-
-    /// [`Self::lines`] (or [`Self::rows`] with `fields`) for an answer printed as text: nothing for an empty answer,
-    /// else `Err` with the answer when it is not JSON.
-    pub(crate) fn printed(&self, answer: &str, fields: Option<&Fields>) -> Result<String, String> {
+    /// What `--pick` prints in `shape` for an answer printed as text: nothing for an empty answer, else `Err` with
+    /// the answer when it is not JSON.
+    pub(crate) fn printed(
+        &self,
+        answer: &str,
+        fields: Option<&Fields>,
+        shape: &Shape,
+    ) -> Result<String, String> {
         if answer.trim().is_empty() {
             return Ok(String::new());
         }
         serde_json::from_str(answer)
-            .map(|document| match fields {
-                Some(fields) => self.rows(&document, fields),
-                None => self.lines(&document),
-            })
+            .map(|document| shape.print(self.texts(&document, fields)))
             .map_err(|e| format!("error: --pick: the answer is not JSON ({e})\n"))
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A picked string with an escape sequence reaches a pipe exactly and a terminal escaped, newlines kept.
-    #[test]
-    fn a_picked_string_is_escaped_before_a_terminal_only() {
-        use crate::terminal::{Facts, Terminal};
-        let document = serde_json::json!({"text": "red \u{1b}[31mX\nnext"});
-        let pick = Pick::parse(".text").unwrap();
-        let printed = |facts: Facts| {
-            let (terminal, capture) = Terminal::captured("", facts);
-            print_json(&terminal, Some(&pick), &document);
-            capture.stdout()
-        };
-        assert_eq!(printed(Facts::PIPED), "red \u{1b}[31mX\nnext\n");
-        let on_terminal = printed(Facts {
-            out_terminal: true,
-            ..Facts::PIPED
-        });
-        assert!(!on_terminal.contains('\u{1b}'), "{on_terminal:?}");
-        assert!(on_terminal.contains("\nnext"), "{on_terminal:?}");
-    }
-    use serde_json::json;
-
-    fn picked(path: &str, document: &Value) -> String {
-        Pick::parse(path).unwrap().lines(document)
-    }
-
-    #[test]
-    fn the_grammar_has_four_steps() {
-        assert_eq!(
-            Pick::parse(".nodes[kind=plan].fields.goal[0][]").unwrap().0,
-            [
-                Step::Key("nodes".into()),
-                Step::Field(vec!["kind".into()], "plan".into()),
-                Step::Key("fields".into()),
-                Step::Key("goal".into()),
-                Step::Index(0),
-                Step::Each,
-            ]
-        );
-    }
-
-    #[test]
-    fn a_malformed_path_names_its_byte() {
-        for (path, at) in [
-            ("", "byte 0"),
-            ("nodes", "byte 0"),
-            (".a..b", "byte 2"),
-            (".a[", "byte 2"),
-            (".a[x]", "byte 2"),
-            (".a[-1]", "byte 2"),
-            (".a[kind=]", "byte 2"),
-            (".a[=plan]", "byte 2"),
-            (".a[a b=x]", "byte 2"),
-            (".a.", "byte 2"),
-            (".a[0]b", "byte 5"),
-            (".a[+1]", "byte 2"),
-            (".a[01]", "byte 2"),
-            (".a[00]", "byte 2"),
-            (".a b", "byte 2"),
-            (".a\tb", "byte 2"),
-            (".a]", "byte 2"),
-            (".kind=plan", "byte 5"),
-        ] {
-            let error = Pick::parse(path).unwrap_err();
-            assert!(error.starts_with(&format!("at {at}:")), "{path}: {error}");
-        }
-    }
-
-    #[test]
-    fn a_dot_alone_is_the_whole_answer_on_one_line() {
-        let document = json!({"activeHooks": [{"capId": "security"}], "skippedHooks": []});
-        assert_eq!(
-            picked(".", &document),
-            "{\"activeHooks\":[{\"capId\":\"security\"}],\"skippedHooks\":[]}\n"
-        );
-        assert_eq!(picked(".", &json!("s")), "s\n");
-    }
-
-    #[test]
-    fn an_index_is_digits_without_a_leading_zero() {
-        assert_eq!(Pick::parse(".a[0]").unwrap().0[1], Step::Index(0));
-        assert_eq!(Pick::parse(".a[10]").unwrap().0[1], Step::Index(10));
-    }
-
-    #[test]
-    fn a_number_prints_as_serde_json_writes_an_f64() {
-        // not `arbitrary_precision`: a number is an i64, a u64 or an f64, and an f64 keeps its `.0`
-        let document: Value =
-            serde_json::from_str(r#"{"a": 1.0, "b": -0, "c": 1e3, "d": 7}"#).unwrap();
-        assert_eq!(picked(".a", &document), "1.0\n");
-        assert_eq!(picked(".b", &document), "-0.0\n");
-        assert_eq!(picked(".c", &document), "1000.0\n");
-        assert_eq!(picked(".d", &document), "7\n");
-    }
-
-    #[test]
-    fn each_value_prints_by_its_type() {
-        let document = json!({"s": "bare", "n": 1.5, "b": false, "o": {"a": [1, null]}, "z": null, "l": "a\nb"});
-        assert_eq!(picked(".s", &document), "bare\n");
-        assert_eq!(picked(".n", &document), "1.5\n");
-        assert_eq!(picked(".b", &document), "false\n");
-        assert_eq!(picked(".o", &document), "{\"a\":[1,null]}\n");
-        assert_eq!(picked(".o.a", &document), "[1,null]\n");
-        assert_eq!(picked(".z", &document), "");
-        assert_eq!(picked(".l", &document), "a\nb\n");
-    }
-
-    #[test]
-    fn a_missing_value_prints_nothing() {
-        let document = json!({"a": [], "s": "x"});
-        for path in [
-            ".b",
-            ".a[0]",
-            ".a[]",
-            ".s.k",
-            ".s[0]",
-            ".s[]",
-            "[0]",
-            ".a[kind=plan]",
-        ] {
-            assert_eq!(picked(path, &document), "", "{path}");
-        }
-    }
-
-    #[test]
-    fn every_item_and_the_items_of_a_kind() {
-        let document = json!({"nodes": [
-            {"id": "p", "kind": "phase"}, {"id": "a", "kind": "plan"}, {"id": "b", "kind": "plan"}, 7,
-        ]});
-        assert_eq!(picked(".nodes[].id", &document), "p\na\nb\n");
-        assert_eq!(picked(".nodes[kind=plan].id", &document), "a\nb\n");
-        assert_eq!(picked(".nodes[kind=task]", &document), "");
-        assert_eq!(picked(".nodes[3]", &document), "7\n");
-        assert_eq!(picked(".nodes[]", &document).lines().count(), 4);
-    }
-
-    #[test]
-    fn an_item_is_selected_by_any_string_field() {
-        let settings = json!({"extensions": [{"settings": [
-            {"name": "workflow.auto_advance", "value": true}, {"name": "workflow.other", "value": "x"},
-            {"name": "workflow.unset"},
-        ]}]});
-        let path = ".extensions[].settings[name=workflow.auto_advance].value";
-        assert_eq!(picked(path, &settings), "true\n");
-        assert_eq!(
-            picked(
-                ".extensions[].settings[name=workflow.unset].value",
-                &settings
-            ),
-            ""
-        );
-        let diagnostics = json!([{"code": "gsd/W205"}, {"code": "E003"}, {"code": 205}]);
-        assert_eq!(picked(".[code=gsd/W205].code", &diagnostics), "gsd/W205\n");
-        assert_eq!(picked("[code=E003].code", &diagnostics), "E003\n");
-        // a number is compared as JSON, and the value may hold '=' and '.'
-        assert_eq!(picked(".[code=205].code", &diagnostics), "205\n");
-        assert_eq!(
-            picked(".[a=b=c.d]", &json!([{"a": "b=c.d"}])),
-            "{\"a\":\"b=c.d\"}\n"
-        );
-    }
-
-    #[test]
-    fn a_dotted_key_selects_by_a_nested_field() {
-        let nodes = json!({"nodes": [
-            {"id": "t1", "fields": {"result": "issue"}}, {"id": "t2", "fields": {"result": "pass"}},
-            {"id": "t3", "fields": {}}, {"id": "t4"}, {"id": "t5", "fields": "issue"},
-        ]});
-        assert_eq!(picked(".nodes[fields.result=issue].id", &nodes), "t1\n");
-        assert_eq!(picked(".nodes[fields.result=pass].id", &nodes), "t2\n");
-        assert_eq!(picked(".nodes[fields.missing=x].id", &nodes), "");
-        assert_eq!(
-            Pick::parse(".nodes[fields.result=issue]").unwrap().0[1],
-            Step::Field(vec!["fields".into(), "result".into()], "issue".into())
-        );
-        for path in [".a[.x=1]", ".a[x.=1]", ".a[x..y=1]"] {
-            assert!(
-                Pick::parse(path).unwrap_err().starts_with("at byte 2:"),
-                "{path}"
-            );
-        }
-    }
-
-    #[test]
-    fn a_scalar_that_is_not_a_string_is_compared_as_json() {
-        let nodes = json!({"nodes": [
-            {"id": "a", "fields": {"backlog": true, "wave": 2}},
-            {"id": "b", "fields": {"backlog": false, "wave": 1}},
-            {"id": "c", "fields": {"backlog": "true", "wave": "2"}},
-            {"id": "d", "fields": {"backlog": [true], "wave": {"n": 2}}},
-            {"id": "e", "fields": {"backlog": null}},
-        ]});
-        assert_eq!(picked(".nodes[fields.backlog=true].id", &nodes), "a\nc\n");
-        assert_eq!(picked(".nodes[fields.backlog=false].id", &nodes), "b\n");
-        assert_eq!(picked(".nodes[fields.wave=2].id", &nodes), "a\nc\n");
-        assert_eq!(picked(".nodes[fields.backlog=null].id", &nodes), "e\n");
-        // an object or an array is never selected
-        assert_eq!(picked(".nodes[fields.wave={\"n\":2}].id", &nodes), "");
-    }
-
-    #[test]
-    fn fields_print_one_row_per_item_and_an_empty_cell_for_a_missing_value() {
-        let nodes = json!({"nodes": [
-            {"id": "c1", "fields": {"hash": "abc", "subject": "feat: a", "n": 2}},
-            {"id": "c2", "fields": {"subject": "tab\there\nnext \\ end"}},
-            {"id": "c3", "fields": {"hash": null, "files": ["a", "b"]}},
-        ]});
-        let fields = Fields::parse("fields.hash,fields.subject,id,fields.n,fields.files").unwrap();
-        let pick = Pick::parse(".nodes[]").unwrap();
-        assert_eq!(
-            pick.printed(&nodes.to_string(), Some(&fields)).unwrap(),
-            "abc\u{1f}feat: a\u{1f}c1\u{1f}2\u{1f}\n\u{1f}tab\there\\nnext \\\\ end\u{1f}c2\u{1f}\u{1f}\n\u{1f}\u{1f}c3\u{1f}\u{1f}[\"a\",\"b\"]\n"
-        );
-        // a unit separator in a cell is written out, so it cannot split the row
-        assert_eq!(escaped("a\u{1f}b"), "a\\x1fb");
-        // a value that is null still holds its row; an item missing from the path holds none
-        let one = Fields::parse("id").unwrap();
-        assert_eq!(
-            Pick::parse(".a[]")
-                .unwrap()
-                .rows(&json!({"a": [null, 1]}), &one),
-            "\n\n"
-        );
-        assert_eq!(
-            Pick::parse(".nodes[kind=x]").unwrap().rows(&nodes, &one),
-            ""
-        );
-        for bad in ["", "a,", ",a", "a..b", "a b", "a[0]", "a=b"] {
-            assert!(Fields::parse(bad).is_err(), "{bad:?}");
-        }
-    }
-
-    #[test]
-    fn an_answer_that_is_not_json_is_refused_and_an_empty_one_prints_nothing() {
-        let pick = Pick::parse(".a").unwrap();
-        assert_eq!(pick.printed("{\"a\": 1}\n", None), Ok("1\n".into()));
-        assert_eq!(pick.printed("", None), Ok(String::new()));
-        assert!(pick.printed("done", None).unwrap_err().contains("not JSON"));
-    }
-}
+mod tests;

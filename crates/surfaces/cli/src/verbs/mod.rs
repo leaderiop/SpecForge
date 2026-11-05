@@ -32,6 +32,9 @@ pub(crate) struct VerbArgs {
     #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = pick::HELP, long_help = pick::VERB_LONG_HELP)]
     pick: Option<Pick>,
 
+    #[command(flatten)]
+    shape: pick::Shape,
+
     /// The effects mode: online (the default; auto is online), cached or replay. http sends the request, answers a
     /// GET from a fresh record of the effects journal (cached), or answers from the journal alone (replay); files and
     /// git read and write this machine's disk in every mode, and the journal keeps none of it
@@ -106,7 +109,9 @@ impl VerbArgs {
         match answer {
             Ok(answer) => {
                 match format {
-                    OutputFormat::Json => pick::print_json(terminal, self.pick.as_ref(), &answer),
+                    OutputFormat::Json => {
+                        pick::print_json(terminal, self.pick.as_ref(), &self.shape, &answer)
+                    }
                     OutputFormat::Human => human(terminal, &answer),
                 }
                 Exit::Passed

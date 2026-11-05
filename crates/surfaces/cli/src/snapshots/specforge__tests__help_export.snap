@@ -54,5 +54,17 @@ Options:
       --fields <KEYS>
           With --pick: print one row per item the path reaches, one cell per comma-separated key, in order, the cells separated by the ASCII unit separator (0x1f), e.g. --pick '.nodes[kind=commit]' --fields fields.hash,fields.subject, read with IFS=$'\x1f' read -r hash subject. A key may be dotted. A cell prints as --pick prints a value, with a missing value or null as an empty cell; 0x1f is not IFS whitespace, so a read keeps an empty cell and the rows never misalign. A backslash, newline, carriage return or 0x1f in a cell prints as \\, \n, \r or \x1f.
 
+      --count
+          With --pick: print the number of values the path reaches, the lines --pick would print (null or a missing value is none, a string holding a newline is one), 0 for none; nothing when the command answered nothing, so `$(… --count) || n='?'` tells an unread answer from 0. It takes no --first, --last, --join or --fields (ADR 0325 D8).
+
+      --first <N>
+          With --pick: keep only the first N values it reaches
+
+      --last <N>
+          With --pick: keep only the last N values it reaches
+
+      --join <SEP>
+          With --pick: print the values kept on one line joined by SEP exactly as given (no escape is read: $'\n  ' is the shell's), then a newline; nothing when no value is reached. It combines with --first or --last, and takes no --count or --fields (ADR 0325 D8).
+
   -h, --help
           Print help (see a summary with '-h')

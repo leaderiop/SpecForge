@@ -30,6 +30,18 @@ Options:
       --pick <PATH>
           Print only the values at this path of the verb's JSON answer, one per line, e.g. '.entries[].path' on files list or '.branch' on git head. The path is steps: `.key`, `[n]` (digits, no leading zero), `[]` (every item) and `[<key>=<value>]` (the items whose field <key> is <value>, e.g. `[kind=plan]`: <key> may be dotted, `[fields.result=issue]`, and a number, boolean or null is compared as JSON, `[fields.backlog=true]`, `[fields.wave=2]`; an object or array is never selected); a `.` before `[` may be left out, and `.` alone is the whole answer. One line per value reached: a string bare (a newline in it is printed as is), an integer as is and any other number as an f64 (`1.0`, `-0.0`, `1e3` as `1000.0`), a boolean, object or array as compact JSON; null or a missing value prints nothing, and is not an error. It takes no --format human: errors print as they do under json, and the exit code is the verb's.
 
+      --count
+          With --pick: print the number of values the path reaches, the lines --pick would print (null or a missing value is none, a string holding a newline is one), 0 for none; nothing when the command answered nothing, so `$(… --count) || n='?'` tells an unread answer from 0. It takes no --first, --last, --join or --fields (ADR 0325 D8).
+
+      --first <N>
+          With --pick: keep only the first N values it reaches
+
+      --last <N>
+          With --pick: keep only the last N values it reaches
+
+      --join <SEP>
+          With --pick: print the values kept on one line joined by SEP exactly as given (no escape is read: $'\n  ' is the shell's), then a newline; nothing when no value is reached. It combines with --first or --last, and takes no --count or --fields (ADR 0325 D8).
+
       --effects <EFFECTS>
           The effects mode: online (the default; auto is online), cached or replay. http sends the request, answers a GET from a fresh record of the effects journal (cached), or answers from the journal alone (replay); files and git read and write this machine's disk in every mode, and the journal keeps none of it
 
