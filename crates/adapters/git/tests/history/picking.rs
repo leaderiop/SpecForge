@@ -237,6 +237,24 @@ fn abort_refuses_when_a_path_it_puts_back_has_unstaged_changes() {
 }
 
 #[test]
+fn abort_refuses_a_sequence_git_started_and_names_the_commands_that_end_it() {
+    let (_dir, repo, _, changed) = history();
+    let place = place(&repo);
+    let git = Gix::default();
+    git.pick(&place, &Sha::new(changed.as_str()), true, false)
+        .unwrap();
+    std::fs::create_dir_all(repo.git_dir().join("sequencer")).unwrap();
+    let refused = git.pick_end(&place, true).unwrap_err();
+    assert!(
+        refused.0.contains("specforge git reset --hard HEAD"),
+        "{refused:?}"
+    );
+    assert!(repo.git_dir().join("sequencer").is_dir(), "left as it was");
+    assert!(git.pick_end(&place, false).unwrap(), "--quit ends it");
+    assert!(!repo.git_dir().join("sequencer").exists());
+}
+
+#[test]
 fn abort_resolves_a_conflict_a_revert_left_back_to_head() {
     let (_dir, repo, _, changed) = history();
     let place = place(&repo);

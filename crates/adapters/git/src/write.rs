@@ -26,7 +26,7 @@ fn owned(place: &GitPlace) -> Result<(), GitError> {
 /// The operation in progress in this worktree that no write of the port continues or may end: a rebase, an `am`, a
 /// bisect, or a sequencer (a cherry-pick or revert of several commits), as git's own state files say. A write in the
 /// middle of one (a commit at a rebase's `edit` stop) would end it and lose its todo list.
-fn foreign_operation(place: &GitPlace) -> Option<&'static str> {
+pub(crate) fn foreign_operation(place: &GitPlace) -> Option<&'static str> {
     let at = |name: &str| place.git_dir.join(name).exists();
     if at("rebase-apply") {
         Some(if at("rebase-apply/applying") {
@@ -39,16 +39,23 @@ fn foreign_operation(place: &GitPlace) -> Option<&'static str> {
     } else if at("BISECT_LOG") {
         Some("a bisect")
     } else if at("sequencer") {
-        Some("a cherry-pick or revert of several commits")
+        Some(SEQUENCER)
     } else {
         None
     }
 }
 
+/// A sequencer's [`foreign_operation`], which `cherry-pick --quit` and `revert --quit` end.
+pub(crate) const SEQUENCER: &str = "a cherry-pick or revert of several commits";
+
 /// A write only where [`owned`] and with no [`foreign_operation`] in progress.
 pub(crate) fn writable(place: &GitPlace) -> Result<(), GitError> {
     owned(place)?;
     match foreign_operation(place) {
+        Some(SEQUENCER) => Err(GitError(format!(
+            "{SEQUENCER} is in progress: finish it with git, or end it with specforge git cherry-pick --quit \
+             (specforge git revert --quit) first"
+        ))),
         Some(operation) => Err(GitError(format!(
             "{operation} is in progress: finish or abort it with git first"
         ))),

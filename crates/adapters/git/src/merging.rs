@@ -584,7 +584,13 @@ fn changed_paths(before: &git2::Index, after: &git2::Index) -> std::collections:
 pub(crate) fn pick_end(place: &GitPlace, abort: bool) -> Result<bool, GitError> {
     let sequencer = place.git_dir.join("sequencer");
     let sequenced = std::fs::symlink_metadata(&sequencer).is_ok();
-    let repo = libgit2(place)?;
+    // a sequencer is what --quit ends, so it alone does not refuse the write; a rebase or a bisect still does
+    let repo =
+        if sequenced && crate::write::foreign_operation(place) == Some(crate::write::SEQUENCER) {
+            libgit2_read(place)?
+        } else {
+            libgit2(place)?
+        };
     let in_progress = sequenced
         || ["CHERRY_PICK_HEAD", "REVERT_HEAD"]
             .iter()
@@ -596,7 +602,8 @@ pub(crate) fn pick_end(place: &GitPlace, abort: bool) -> Result<bool, GitError> 
         if sequenced {
             return Err(GitError(
                 "a sequence of picks git started is in progress: specforge aborts a single cherry-pick or revert: \
-                 end it with specforge git cherry-pick --quit or specforge git revert --quit, then reset"
+                 end it with specforge git cherry-pick --quit (specforge git revert --quit), then put HEAD's files \
+                 back with specforge git reset --hard HEAD"
                     .into(),
             ));
         }
