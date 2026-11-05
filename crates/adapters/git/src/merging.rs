@@ -501,10 +501,46 @@ pub(crate) fn pick_staged(
     let mut merged = repo
         .merge_trees(base, &ours, theirs, None)
         .map_err(|e| failed(if revert { "revert" } else { "cherry-pick" }, &e))?;
-    let mut checkout = safe();
-    checkout.allow_conflicts(true).conflict_style_merge(true);
-    repo.checkout_index(Some(&mut merged), Some(&mut checkout))
-        .map_err(|e| failed("check out the applied files", &e))?;
+    // The index, not HEAD, is what the files must match (git's baseline): libgit2's checkout measures against HEAD,
+    // so a pick stacked on a staged one would see its own staged file as changed. The paths the merge changes are held
+    // to the index here and then written whatever HEAD has.
+    let changed = changed_paths(&index, &merged);
+    for path in &changed {
+        let status = match repo.status_file(std::path::Path::new(path)) {
+            Ok(status) => status,
+            Err(e) if e.code() == git2::ErrorCode::NotFound => git2::Status::CURRENT,
+            Err(e) => return Err(failed("compare the files with the index", &e)),
+        };
+        if status.intersects(
+            git2::Status::WT_NEW
+                | git2::Status::WT_MODIFIED
+                | git2::Status::WT_DELETED
+                | git2::Status::WT_TYPECHANGE
+                | git2::Status::WT_RENAMED,
+        ) {
+            return Err(GitError(format!(
+                "{path} has changes the index does not hold, which the {} would overwrite: \
+                 stage them (specforge git add -- {path}) or put them back (specforge git restore -- {path}), \
+                 then run it again",
+                if revert { "revert" } else { "cherry-pick" }
+            )));
+        }
+    }
+    let mut checkout = git2::build::CheckoutBuilder::new();
+    checkout
+        .force()
+        .remove_untracked(false)
+        .allow_conflicts(true)
+        .conflict_style_merge(true)
+        .disable_pathspec_match(true);
+    for path in &changed {
+        checkout.path(path.as_str());
+    }
+    // no path given would check out every path
+    if !changed.is_empty() {
+        repo.checkout_index(Some(&mut merged), Some(&mut checkout))
+            .map_err(|e| failed("check out the applied files", &e))?;
+    }
     let original = String::from_utf8_lossy(picked.message_bytes()).into_owned();
     let message = if revert {
         reverting(&original, commit)
@@ -524,6 +560,20 @@ pub(crate) fn pick_staged(
         fast_forward: false,
         conflicts: conflicts(&repo)?,
     })
+}
+
+/// The paths whose entries (blob, mode or stage) differ between the indexes `before` and `after`.
+fn changed_paths(before: &git2::Index, after: &git2::Index) -> std::collections::BTreeSet<String> {
+    let entries = |index: &git2::Index| {
+        index
+            .iter()
+            .map(|e| (e.path, e.id, e.mode, (e.flags >> 12) & 3))
+            .collect::<std::collections::BTreeSet<_>>()
+    };
+    entries(before)
+        .symmetric_difference(&entries(after))
+        .map(|(path, ..)| String::from_utf8_lossy(path).into_owned())
+        .collect()
 }
 
 /// End the cherry-pick or revert in progress (`--quit`), and with `abort` put back as `HEAD` has them the paths

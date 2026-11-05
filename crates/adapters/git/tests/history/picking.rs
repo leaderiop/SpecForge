@@ -53,6 +53,92 @@ fn two_reverts_without_commit_stack_in_the_index_and_keep_revert_head() {
     assert!(message.starts_with("Revert \"add b\""), "{message}");
 }
 
+/// `a.txt` "one", then "two" (`c2`), then "three" (`c3`): two picks of one file.
+fn one_file() -> (tempfile::TempDir, Repo, String, String, String) {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "one\n");
+    let first = repo.commit_all("first");
+    repo.write("a.txt", "two\n");
+    let c2 = repo.commit_all("two");
+    repo.write("a.txt", "three\n");
+    let c3 = repo.commit_all("three");
+    (dir, repo, first, c2, c3)
+}
+
+#[test]
+fn two_reverts_without_commit_of_one_file_stack_as_git_stacks_them() {
+    let (_dir, repo, _, c2, c3) = one_file();
+    let place = place(&repo);
+    for sha in [&c3, &c2] {
+        let merged = Gix::default()
+            .pick(&place, &Sha::new(sha.as_str()), true, false)
+            .unwrap();
+        assert_eq!((merged.sha, merged.conflicts.len()), (None, 0));
+    }
+    assert_eq!(read(&repo, "a.txt").as_deref(), Some("one\n"));
+    let status = Gix::default().status(&place).unwrap();
+    assert_eq!(status.entries.len(), 1, "{status:?}");
+    assert!(status.entries[0].index.is_some() && status.entries[0].worktree.is_none());
+}
+
+#[test]
+fn two_cherry_picks_without_commit_of_one_file_stack_as_git_stacks_them() {
+    let (_dir, repo, first, c2, c3) = one_file();
+    repo.branch("old", &first)
+        .head_on("old")
+        .write("a.txt", "one\n");
+    repo.stage_all();
+    let place = place(&repo);
+    for sha in [&c2, &c3] {
+        let merged = Gix::default()
+            .pick(&place, &Sha::new(sha.as_str()), false, false)
+            .unwrap();
+        assert_eq!((merged.sha, merged.conflicts.len()), (None, 0));
+    }
+    assert_eq!(read(&repo, "a.txt").as_deref(), Some("three\n"));
+    let status = Gix::default().status(&place).unwrap();
+    assert_eq!(status.entries.len(), 1, "{status:?}");
+    assert!(status.entries[0].index.is_some() && status.entries[0].worktree.is_none());
+}
+
+#[test]
+fn a_file_one_pick_added_and_the_next_removed_is_gone() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "one\n");
+    let first = repo.commit_all("first");
+    repo.write("x.txt", "x\n");
+    let added = repo.commit_all("add x");
+    repo.delete("x.txt");
+    let removed = repo.commit_all("drop x");
+    repo.branch("old", &first).head_on("old");
+    repo.stage_all();
+    let place = place(&repo);
+    for sha in [&added, &removed] {
+        Gix::default()
+            .pick(&place, &Sha::new(sha.as_str()), false, false)
+            .unwrap();
+    }
+    assert_eq!(read(&repo, "x.txt"), None);
+    assert!(Gix::default().status(&place).unwrap().entries.is_empty());
+}
+
+#[test]
+fn a_pick_without_commit_refuses_to_overwrite_an_unstaged_change() {
+    let (_dir, repo, _, c2, c3) = one_file();
+    let place = place(&repo);
+    let git = Gix::default();
+    git.pick(&place, &Sha::new(c3.as_str()), true, false)
+        .unwrap();
+    repo.write("a.txt", "mine\n");
+    let refused = git
+        .pick(&place, &Sha::new(c2.as_str()), true, false)
+        .unwrap_err();
+    assert!(refused.0.contains("a.txt"), "{refused:?}");
+    assert_eq!(read(&repo, "a.txt").as_deref(), Some("mine\n"));
+}
+
 #[test]
 fn a_cherry_pick_without_commit_leaves_no_cherry_pick_head() {
     let dir = tempfile::tempdir().unwrap();
@@ -64,6 +150,7 @@ fn a_cherry_pick_without_commit_leaves_no_cherry_pick_head() {
     let side = repo.commit_all("side");
     // back on main, its files with it
     repo.head_on("main").write("a.txt", "one\n");
+    repo.stage_all();
     let place = place(&repo);
     let merged = Gix::default()
         .pick(&place, &Sha::new(side.as_str()), false, false)
