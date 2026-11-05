@@ -25,6 +25,8 @@ pub struct CommitRequest {
     pub remove: Vec<PathBuf>,
     /// Every tracked file staged first as the worktree has it (`git commit -a`).
     pub all: bool,
+    /// Stage an ignored path `add` names too (`git add --force`).
+    pub force: bool,
     pub allow_empty: bool,
     /// Run no hook (`--no-verify`).
     pub no_verify: bool,
@@ -58,6 +60,7 @@ pub fn commit(verbs: &Verbs, request: &CommitRequest) -> Result<CommitAnswer, Op
         add: in_repository(verbs, &place, &request.add)?,
         remove: in_repository(verbs, &place, &request.remove)?,
         all: request.all,
+        force: request.force,
     };
     let git = &verbs.ports().git;
     if staging != Staging::default() {

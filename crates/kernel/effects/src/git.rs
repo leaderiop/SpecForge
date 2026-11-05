@@ -260,11 +260,15 @@ pub struct GitRemote {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Staging {
     /// The files at or under each path as the worktree has them, ignore rules kept; a deleted file leaves the index.
+    /// A path that matches no file, on disk or in the index, is refused, as `git add` refuses it; so is an ignored
+    /// one unless [`Staging::force`].
     pub add: Vec<String>,
     /// Out of the index at or under each path, the files left on disk (`git rm --cached`).
     pub remove: Vec<String>,
     /// Every tracked file as the worktree has it, a deleted one removed; untracked files stay out (`git commit -a`).
     pub all: bool,
+    /// Stage an ignored path `add` names too (`git add --force`).
+    pub force: bool,
 }
 
 /// A commit the port recorded.

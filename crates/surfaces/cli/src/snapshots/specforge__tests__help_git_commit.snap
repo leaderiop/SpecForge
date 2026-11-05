@@ -19,6 +19,9 @@ Options:
   -a, --all
           Stage every tracked file first as the worktree has it; untracked files stay out
 
+      --force
+          Stage an ignored path --add names too; without it one is refused, as `git add` refuses it
+
       --allow-empty
           Commit even when the index matches HEAD
 

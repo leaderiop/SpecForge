@@ -724,9 +724,9 @@ Build file list:
 COMMIT_DOCS="true"   # commit_docs: every spec change is committed with the work
 if [ "$COMMIT_DOCS" = "false" ]; then
   file_list_filtered=$(echo "${file_list}" | tr ' ' '\n' | grep -v '^spec/' | tr '\n' ' ')
-  ADDS=(); for f in ${file_list_filtered}; do ADDS+=(--add "$f"); done
+  ADDS=(); for f in ${file_list_filtered}; do [ -e "$f" ] || [ -n "$(specforge git show "HEAD:$f" --pick .sha 2>/dev/null)" ] && ADDS+=(--add "$f"); done
 else
-  ADDS=(); for f in ${file_list}; do ADDS+=(--add "$f"); done
+  ADDS=(); for f in ${file_list}; do [ -e "$f" ] || [ -n "$(specforge git show "HEAD:$f" --pick .sha 2>/dev/null)" ] && ADDS+=(--add "$f"); done
 fi
 specforge git commit "${ADDS[@]}" --add spec -m "docs(quick-${quick_id}): ${DESCRIPTION}" && specforge collect --runner gsd-git --yes
 ```

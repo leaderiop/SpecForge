@@ -28,7 +28,7 @@ fn staging_a_directory_keeps_its_ignore_rules_and_a_removal_keeps_the_file() {
     let staging = Staging {
         add: vec!["spec".into()],
         remove: vec!["keep.txt".into()],
-        all: false,
+        ..Staging::default()
     };
     Gix::default().stage(&place, &staging).unwrap();
     assert_eq!(indexed(&repo), [".gitignore", "spec/a.spec"]);
@@ -213,4 +213,46 @@ fn indexed_blob(repo: &Repo, path: &str) -> String {
     let index = git.index_or_empty().unwrap();
     let entry = index.entry_by_path(path.into()).unwrap();
     entry.id.to_string()
+}
+
+/// `git add` refuses a path that matches nothing, and an ignored one unless `--force`; a deleted tracked file is
+/// staged as its removal.
+#[test]
+fn staging_refuses_a_path_matching_nothing_and_an_ignored_one_without_force_as_git_add_does() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write(".gitignore", "*.log\nbuild/\n")
+        .write("gone.txt", "g");
+    repo.commit_all("first");
+    repo.delete("gone.txt")
+        .write("run.log", "l")
+        .write("build/out.txt", "o");
+    let place = place(&repo);
+    let add = |paths: &[&str], force| Staging {
+        add: paths.iter().map(|p| (*p).to_string()).collect(),
+        force,
+        ..Staging::default()
+    };
+    let refused = Gix::default()
+        .stage(&place, &add(&["gone.txt", "missing.txt"], false))
+        .unwrap_err();
+    assert!(
+        refused.0.contains("missing.txt did not match any files"),
+        "{refused}"
+    );
+    for ignored in ["run.log", "build"] {
+        let refused = Gix::default()
+            .stage(&place, &add(&[ignored], false))
+            .unwrap_err();
+        assert!(refused.0.contains("is ignored"), "{ignored}: {refused}");
+    }
+    assert_eq!(
+        indexed(&repo),
+        [".gitignore", "gone.txt"],
+        "a refusal stages nothing"
+    );
+    Gix::default()
+        .stage(&place, &add(&["gone.txt", "run.log", "build"], true))
+        .unwrap();
+    assert_eq!(indexed(&repo), [".gitignore", "build/out.txt", "run.log"]);
 }

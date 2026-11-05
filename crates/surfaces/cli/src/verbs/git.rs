@@ -297,6 +297,10 @@ pub(crate) struct CommitArgs {
     #[arg(short, long)]
     all: bool,
 
+    /// Stage an ignored path --add names too; without it one is refused, as `git add` refuses it
+    #[arg(long, requires = "add")]
+    force: bool,
+
     /// Commit even when the index matches HEAD
     #[arg(long)]
     allow_empty: bool,
@@ -582,6 +586,7 @@ impl Action {
                     add: args.add,
                     remove: args.remove,
                     all: args.all,
+                    force: args.force,
                     allow_empty: args.allow_empty,
                     no_verify: args.no_verify,
                 };

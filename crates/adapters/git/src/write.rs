@@ -122,10 +122,16 @@ pub(crate) fn stage(place: &GitPlace, staging: &Staging) -> Result<(), GitError>
     let repo = libgit2(place)?;
     let mut index = repo.index().map_err(|e| failed("read the index", &e))?;
     let staged = |e: git2::Error| failed("stage the files", &e);
+    for path in staging.add.iter().filter(|path| *path != "*") {
+        added(place, &repo, &index, path, staging.force)?;
+    }
     if !staging.add.is_empty() {
-        index
-            .add_all(&staging.add, git2::IndexAddOption::DEFAULT, None)
-            .map_err(staged)?;
+        let option = if staging.force {
+            git2::IndexAddOption::FORCE
+        } else {
+            git2::IndexAddOption::DEFAULT
+        };
+        index.add_all(&staging.add, option, None).map_err(staged)?;
         // a deleted file leaves the index, as `git add <path>` does
         index.update_all(&staging.add, None).map_err(staged)?;
     }
@@ -136,6 +142,37 @@ pub(crate) fn stage(place: &GitPlace, staging: &Staging) -> Result<(), GitError>
         index.update_all(["*"], None).map_err(staged)?;
     }
     index.write().map_err(|e| failed("write the index", &e))
+}
+
+/// `git add`'s refusals of a path it is given (from the repository's top): one that matches no file on disk or in
+/// the index, and an ignored one the index does not track, unless `force`.
+fn added(
+    place: &GitPlace,
+    repo: &git2::Repository,
+    index: &git2::Index,
+    path: &str,
+    force: bool,
+) -> Result<(), GitError> {
+    let under = format!("{path}/");
+    let tracked = index.iter().any(|entry| {
+        let at = entry.path.as_slice();
+        at == path.as_bytes() || at.starts_with(under.as_bytes())
+    });
+    if tracked {
+        return Ok(());
+    }
+    if std::fs::symlink_metadata(place.toplevel.join(path)).is_err() {
+        return Err(GitError(format!("{path} did not match any files")));
+    }
+    let ignored = repo
+        .is_path_ignored(path)
+        .map_err(|e| failed("read the ignore rules", &e))?;
+    if ignored && !force {
+        return Err(GitError(format!(
+            "{path} is ignored by the repository's ignore rules: add --force to stage it anyway"
+        )));
+    }
+    Ok(())
 }
 
 pub(crate) fn commit(
