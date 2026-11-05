@@ -2,7 +2,8 @@
 
 **Status:** accepted (2026-11-01, GSD follow-ups G4, plan 03; amended by plan 05: `check`, `settings` and
 `export` take it, D6; the selector takes any key and `.` is the whole answer, D1; a dotted key and a scalar that is
-not a string, D1a; `--fields` rows on `query` and `export`, D7). Extends [ADR
+not a string, D1a; `--fields` rows on `query` and `export`, D7; amended 2026-11-05 by the S1 round: the shapes `--count`, `--first`,
+`--last` and `--join`, D8). Extends [ADR
 0318](0318-a-command-is-told-its-host.md) (a host option added unless a command declares the name). No wire change.
 
 ## Context
@@ -19,7 +20,7 @@ a `| jq -r` pipe without it leaves the variable empty. Upstream GSD added `--pic
   `[code=gsd/W205]`). A `.` before `[` may be left out, so jq's
   `.[code=E003]` reads as `[code=E003]`, and `.` alone is the whole answer (one compact line, which a shell
   reads where the answer is pretty-printed JSON). The value runs to the first `]`, so it may hold `.`, `/` and `=`. Nothing
-  else: no other predicate, no arithmetic, no default. The shell does defaults (`${X:-0}`) and counts (`wc -l`). `n` is ASCII digits with no leading zero (`0` aside); a key holds no
+  else: no other predicate, no arithmetic, no default. The shell does defaults (`${X:-0}`); counts and cuts are D8's. `n` is ASCII digits with no leading zero (`0` aside); a key holds no
   whitespace, `]` or `=`. A malformed path is a usage error (exit 2) naming its byte.
 - **D1a. The selector's key and value.** The key may be dotted, a path through objects: `[fields.result=issue]`
   selects the nodes whose `fields.result` is `issue`, so a graph read filters by an entity field in one pick instead of
@@ -65,12 +66,32 @@ a `| jq -r` pipe without it leaves the variable empty. Upstream GSD added `--pic
   `tr '\037' '\t'`.
   `--fields` without `--pick` is a usage error (exit 2), and so is an empty key. Commands whose items are not
   entities (`check`, `settings`, an extension command) do not take it: no prompt reads two of their values at once.
+- **D8. The shapes.** Four flags beside `--pick` print the values it reaches in another shape, on every surface
+  that takes `--pick` (`query`, `export`, `check`, `settings`, the verbs `files`, `git`, `http` and `run`, an
+  extension command):
+  - `--count` prints `<n>` and a newline, n the number of values `--pick` would print: a `null` or missing value is
+    none, a string holding a newline is one, and none is `0`. It takes no `--fields` (rows are for a read loop).
+  - `--first <n>` and `--last <n>` keep the first or last n values, or `--fields` rows, in document order; `0` keeps
+    none and an n past the end keeps all. n is a non-negative integer (`-1` or `x` is a usage error).
+  - `--join <sep>` prints the kept values on one line joined by `sep` exactly as given (no escape is read: `$'\n  '`
+    is the shell's), then one newline; nothing at all for no value. It takes no `--fields`.
+  - `--count` stands alone; `--first` and `--last` exclude each other; either combines with `--join`
+    (`--first 20 --join $'\n    '` indents the first twenty lines).
+  - An empty answer (a refused or silent run) prints nothing under every shape, so `$(… --count) || X='?'` tells
+    "could not read" from `0`, and `${X:-0}` stays the caller's.
+  - The exit code stays the command's. A shape without `--pick`, two shapes that conflict, or `--count` or `--join`
+    beside `--fields` is a usage error (exit 2).
+  - On an extension command each is a host option added after `--pick`, unless the command declares an arg of that
+    name (D4's rule): a command declaring `count` keeps its own `--count` and still takes `--first`.
+  - The shapes are the CLI's (D5): MCP and a prompt take none.
 - **D5.** The parser, walker and printer are one CLI module (`crates/surfaces/cli/src/pick.rs`). MCP is unchanged:
   an agent there has the JSON.
 
 ## Rejected
 
-A jq subset (`select`, `//`, `length`); a `--field` taking only a top-level key, which leaves graph reads to jq;
+A jq subset (`select`, `//`); path functions (`|length`, `[:n]`): D8's flags do it without growing the path; a
+`--sort` flag (the graph's nodes are already in id order, and a one-line `brief` or `context` has nothing to sort); a
+`--field` taking only a top-level key, which leaves graph reads to jq;
 adding `pick` to `HOST_OPTIONS`, which every guest compiles.
 
 ## Consequences

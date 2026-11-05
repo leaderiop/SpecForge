@@ -25,6 +25,7 @@ specforge export --format markdown --scope <id> --depth 1   # a review document 
 specforge query <id> --depth 2       # multi-resolution neighborhood query
 specforge query <id> --format context --include-coverage   # an agent's slice with coverage
 specforge query <id> --kinds plan --pick '.nodes[kind=plan].id'   # one value per line, no jq: .key [n] [] [<key>=<value>] (ADR 0325)
+specforge query <id> --kinds plan --pick '.nodes[kind=plan].id' --count   # also --first N, --last N, --join SEP (ADR 0325 D8)
 specforge check --pick '.[code=E003].message'      # check, settings and export take --pick too
 specforge settings --pick '.extensions[].settings[name=<setting>].value'
 specforge query <id> --depth 1 --pick '.nodes[fields.result=issue].id'   # a dotted key; true, 2 and null match as JSON
