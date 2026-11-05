@@ -101,7 +101,7 @@ SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9'
 
    <required_reading>
    - `specforge query ${quick_id} --depth 1 --format context` (Plan)
-   - ${STATE_PATH} (Project state — READ ONLY, do not write it)
+
    - ./CLAUDE.md or ./.claude/CLAUDE.md (if exists)
    </required_reading>
 

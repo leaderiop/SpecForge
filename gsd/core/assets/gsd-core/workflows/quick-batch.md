@@ -82,8 +82,8 @@ Parse `$INIT` for: `planner_model`, `executor_model`, `checker_model`, `verifier
 > **Model omission (#2517).** Every `Agent()` dispatch below (planner, researcher, plan-checker, executor, verifier) MUST omit the `model` parameter entirely when the value it would carry (`planner_model`, `checker_model`, `executor_model`, `verifier_model`, `researcher_model`) is `"inherit"` or empty. An empty value 404s on runtimes without native tier aliases — the default on non-Claude runtimes, where the installer writes `resolve_model_ids:"omit"`. Omitting it inherits the orchestrator's model. See @gsd-core/references/model-profile-resolution.md.
 
 ```bash
-STATE_PATH=""   # the project state is computed: specforge gsd progress-report
-PROJECT_PATH=""   # the project is an entity: specforge query "$PROJECT" --depth 0
+
+
 # @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
 RUNTIME="{{setting:runtime|}}"   # runtime (the settings)
 ```

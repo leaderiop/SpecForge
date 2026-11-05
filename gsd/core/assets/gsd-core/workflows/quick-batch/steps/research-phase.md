@@ -57,8 +57,8 @@ DATA_END
 **Output:** the `research` entity `${quick_id}-RESEARCH`, with `plan ${quick_id}` (that plan exists: the orchestrator made it before this research, so never `specforge new plan`)
 
 <required_reading>
-- ${STATE_PATH} (Project state — what's already built)
-- ${PROJECT_PATH} (Project context)
+
+
 - ./CLAUDE.md or ./.claude/CLAUDE.md (if exists — project-specific guidelines)
 </required_reading>
 

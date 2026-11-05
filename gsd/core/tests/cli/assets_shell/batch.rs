@@ -84,7 +84,8 @@ fn a_verification_status_routes_the_batch_item() {
 }
 
 /// A quick-batch item is its quick plan, named by its id: nothing sets a `quick_dir`, so a path built from it is
-/// `/<id>-<slug>`, at the filesystem's root.
+/// `/<id>-<slug>`, at the filesystem's root. No prompt lists the project state or the project as a file: both are
+/// computed or entities, and the values that named them were always empty.
 #[test]
 fn a_quick_batch_item_is_its_quick_plan() {
     let Some(sh) = Shell::without_jq() else {
@@ -116,10 +117,12 @@ fn a_quick_batch_item_is_its_quick_plan() {
     }
     for file in files {
         let text = std::fs::read_to_string(&file).expect("an asset");
-        assert!(
-            !text.contains("quick_dir"),
-            "{} reads quick_dir",
-            file.display()
-        );
+        for unsourced in ["quick_dir", "STATE_PATH", "PROJECT_PATH"] {
+            assert!(
+                !text.contains(unsourced),
+                "{} reads {unsourced}",
+                file.display()
+            );
+        }
     }
 }

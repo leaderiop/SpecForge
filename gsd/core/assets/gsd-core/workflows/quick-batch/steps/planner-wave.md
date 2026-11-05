@@ -87,7 +87,7 @@ PLAN_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is no
    DATA_END
 
    <required_reading>
-   - ${STATE_PATH} (Project State)
+
    - ./CLAUDE.md or ./.claude/CLAUDE.md (if exists)
    ${RESEARCH_MODE ? '- `specforge query ' + quick_id + '-RESEARCH --depth 1 --format context` (Research findings, if present)' : ''}
    </required_reading>
