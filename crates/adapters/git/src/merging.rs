@@ -250,9 +250,21 @@ pub(crate) fn restore(
     restoring: &Restoring,
 ) -> Result<(), GitError> {
     let repo = libgit2(place)?;
+    // libgit2 knows no pathspec magic: gix matches it against the index and the source's files, named one by one
+    let magic = paths.iter().any(|path| path.starts_with(':'));
+    let expanded;
+    let paths = if magic {
+        expanded = matched(&repo, paths, restoring.source.as_ref())?;
+        expanded.as_slice()
+    } else {
+        paths
+    };
     let mut checkout = git2::build::CheckoutBuilder::new();
     // the user asked for these files back: their changes are what is discarded
-    checkout.force().remove_untracked(false);
+    checkout
+        .force()
+        .remove_untracked(false)
+        .disable_pathspec_match(magic);
     for path in paths {
         checkout.path(path);
     }
@@ -298,6 +310,49 @@ pub(crate) fn restore(
         None => repo.checkout_index(None, Some(&mut checkout)),
     }
     .map_err(|e| failed("restore the files", &e))
+}
+
+/// The files of the index and of `source` (else `HEAD`) that `specs` name, each spec matching one at least.
+fn matched(
+    repo: &git2::Repository,
+    specs: &[String],
+    source: Option<&Sha>,
+) -> Result<Vec<String>, GitError> {
+    let mut files = std::collections::BTreeSet::new();
+    let index = repo.index().map_err(|e| failed("read the index", &e))?;
+    files.extend(
+        index
+            .iter()
+            .map(|entry| String::from_utf8_lossy(&entry.path).into_owned()),
+    );
+    let commit = match source {
+        Some(sha) => repo.find_commit(oid(sha)?).ok(),
+        None => repo.head().and_then(|head| head.peel_to_commit()).ok(),
+    };
+    if let Some(tree) = commit.and_then(|commit| commit.tree().ok()) {
+        tree.walk(git2::TreeWalkMode::PreOrder, |dir, entry| {
+            if entry.kind() == Some(git2::ObjectType::Blob) {
+                files.insert(format!(
+                    "{dir}{}",
+                    String::from_utf8_lossy(entry.name_bytes())
+                ));
+            }
+            git2::TreeWalkResult::Ok
+        })
+        .map_err(|e| failed("read the files to restore from", &e))?;
+    }
+    let mut named = Vec::new();
+    for spec in specs {
+        let mut search = crate::write::pathspec(spec)?;
+        let found: Vec<&String> = files.iter().filter(|file| search.matches(file)).collect();
+        if found.is_empty() {
+            return Err(GitError(format!("{spec} did not match any files")));
+        }
+        named.extend(found.into_iter().cloned());
+    }
+    named.sort();
+    named.dedup();
+    Ok(named)
 }
 
 pub(crate) fn stash_push(

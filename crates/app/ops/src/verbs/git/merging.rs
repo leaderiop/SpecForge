@@ -12,7 +12,7 @@ use specforge_effects::git::{
     Restoring,
 };
 
-use super::commit::{Signed, in_repository, refuse_signing, write_failed};
+use super::commit::{Signed, pathspecs, refuse_signing, write_failed};
 use super::{commit_named, failed};
 use crate::verbs::Verbs;
 use crate::{OpError, OpErrorKind};
@@ -231,7 +231,7 @@ pub fn restore(
     request: &RestoreRequest,
 ) -> Result<RestoreAnswer, OpError> {
     let place = verbs.place_to_write("restore")?;
-    let restored = in_repository(verbs, &place, paths)?;
+    let restored = pathspecs(verbs, &place, paths)?;
     let source = request
         .source
         .as_deref()

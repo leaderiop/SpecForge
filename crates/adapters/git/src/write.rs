@@ -201,10 +201,11 @@ pub(crate) fn remove(
     let mut removed = std::collections::BTreeSet::new();
     for path in paths {
         let under = format!("{path}/");
+        let mut spec = pathspec(path)?;
         let matched: Vec<String> = index
             .iter()
             .map(|entry| String::from_utf8_lossy(&entry.path).into_owned())
-            .filter(|at| path == "*" || at == path || at.starts_with(&under))
+            .filter(|at| spec.matches(at))
             .collect();
         if matched.is_empty() {
             if removal.ignore_unmatch {
@@ -212,7 +213,7 @@ pub(crate) fn remove(
             }
             return Err(GitError(format!("{path} did not match any files")));
         }
-        if !removal.recursive && matched.iter().any(|at| at != path) {
+        if !removal.recursive && matched.iter().any(|at| at.starts_with(&under)) {
             return Err(GitError(format!(
                 "not removing {path} recursively without -r"
             )));
@@ -241,6 +242,28 @@ pub(crate) fn remove(
         remove_file(&place.toplevel, file)?;
     }
     Ok(removed.into_iter().collect())
+}
+
+/// One of git's pathspecs, parsed and matched by gix: a path (a file, or a directory and what is under it, `*` the
+/// whole tree), a glob, or magic such as `:(glob)**/*.spec`.
+pub(crate) struct Pathspec(gix::pathspec::Search);
+
+pub(crate) fn pathspec(text: &str) -> Result<Pathspec, GitError> {
+    let refused = |e: &dyn std::fmt::Display| GitError(format!("{text} is not a pathspec: {e}"));
+    let spec = gix::pathspec::parse(text.as_bytes(), gix::pathspec::Defaults::default())
+        .map_err(|e| refused(&e))?;
+    gix::pathspec::Search::from_specs([spec], None, Path::new(""))
+        .map(Pathspec)
+        .map_err(|e| refused(&e))
+}
+
+impl Pathspec {
+    /// Whether the file at `path` (relative to the top) is one the pathspec names.
+    pub(crate) fn matches(&mut self, path: &str) -> bool {
+        self.0
+            .pattern_matching_relative_path(path.into(), Some(false), &mut |_, _, _, _| false)
+            .is_some_and(|found| !found.is_excluded())
+    }
 }
 
 /// Refused as `git rm` refuses without `-f`: a file whose index differs from `HEAD` and from the disk, or (unless

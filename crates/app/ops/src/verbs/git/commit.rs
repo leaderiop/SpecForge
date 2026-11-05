@@ -181,7 +181,7 @@ pub struct RmAnswer {
 /// `removal.cached` their files off the disk.
 pub fn rm(verbs: &Verbs, paths: &[PathBuf], removal: Removal) -> Result<RmAnswer, OpError> {
     let place = verbs.place_to_write("rm")?;
-    let paths = in_repository(verbs, &place, paths)?;
+    let paths = pathspecs(verbs, &place, paths)?;
     let removed = verbs
         .ports()
         .git
@@ -324,6 +324,40 @@ pub(super) fn in_repository(
             let rel = rel.to_string_lossy().replace('\\', "/");
             // the top itself: every path under it
             Ok(if rel.is_empty() { "*".to_string() } else { rel })
+        })
+        .collect()
+}
+
+/// [`in_repository`], except that a pathspec with magic (`:(glob)**/*.spec`) is passed on for the adapter to match,
+/// as `git rm` and `git restore` take one. It is read from the repository's top, so it is refused unless the current
+/// directory is that top, held to the roots for a write.
+pub(super) fn pathspecs(
+    verbs: &Verbs,
+    place: &GitPlace,
+    typed: &[PathBuf],
+) -> Result<Vec<String>, OpError> {
+    let magic = |path: &PathBuf| path.to_string_lossy().starts_with(':');
+    if !typed.iter().any(magic) {
+        return in_repository(verbs, place, typed);
+    }
+    if held(verbs, Path::new("."))? != place.toplevel {
+        return Err(OpError::new(
+            OpErrorKind::InvalidInput,
+            OpErrorKind::InvalidInput.as_str(),
+            format!(
+                "a pathspec with magic is read from the repository's top, {}, not from this directory",
+                printable(&place.toplevel.to_string_lossy())
+            ),
+        )
+        .with_suggestion("run it from the repository's top, or name the top with specforge git <verb> --in"));
+    }
+    typed
+        .iter()
+        .map(|path| match magic(path) {
+            true => Ok(path.to_string_lossy().into_owned()),
+            false => {
+                in_repository(verbs, place, std::slice::from_ref(path)).map(|mut one| one.remove(0))
+            }
         })
         .collect()
 }

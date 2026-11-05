@@ -416,6 +416,56 @@ fn removing_takes_a_directory_with_r_and_its_files_off_the_disk() {
 }
 
 #[test]
+fn a_glob_pathspec_removes_and_restores_the_files_it_names_at_any_depth() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.spec", "base\n")
+        .write("sub/b.spec", "base\n")
+        .write("keep.txt", "k\n");
+    repo.commit_all("first");
+    repo.write("a.spec", "changed\n")
+        .write("sub/b.spec", "changed\n")
+        .write("new.spec", "n\n")
+        .write("src/x.js", "x\n");
+    let place = place(&repo);
+    let git = Gix::default();
+    let everything = Staging {
+        add: vec!["*".into()],
+        ..Staging::default()
+    };
+    git.stage(&place, &everything).unwrap();
+    let spec = vec![":(glob)**/*.spec".to_string()];
+    let forced = Removal {
+        recursive: true,
+        force: true,
+        ..Removal::default()
+    };
+    let removed = git.remove(&place, &spec, forced).unwrap();
+    assert_eq!(removed, ["a.spec", "new.spec", "sub/b.spec"]);
+    assert_eq!(indexed(&repo), ["keep.txt", "src/x.js"]);
+    let from_head = Restoring {
+        source: Some(specforge_effects::git::Sha::new(repo.sha("HEAD"))),
+        staged: true,
+        worktree: true,
+        ..Restoring::default()
+    };
+    git.restore(&place, &spec, &from_head).unwrap();
+    assert_eq!(
+        indexed(&repo),
+        ["a.spec", "keep.txt", "src/x.js", "sub/b.spec"]
+    );
+    let read = |rel: &str| std::fs::read_to_string(repo.dir().join(rel)).unwrap();
+    assert_eq!(
+        (read("a.spec"), read("sub/b.spec")),
+        ("base\n".into(), "base\n".into())
+    );
+    assert!(!repo.dir().join("new.spec").exists());
+    let none = vec![":(glob)**/*.md".to_string()];
+    let refused = git.restore(&place, &none, &from_head).unwrap_err();
+    assert!(refused.0.contains("did not match any files"), "{refused}");
+}
+
+#[test]
 fn removing_a_changed_file_needs_force_and_cached_keeps_it_on_disk() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(dir.path());

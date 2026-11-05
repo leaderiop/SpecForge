@@ -206,6 +206,8 @@ path held to the roots, a write refused unless gix trusts the git dir, hooks run
   - `add --except <path>` stands for the negative pathspec `:!<path>`.
   - `--abort` refuses a sequencer the git program started (a `sequencer/` directory); `--quit` forgets the pick.
   - `rm` has no `-q`: its human listing is the only output.
+  - `rm` and `restore` take a pathspec with magic (`:(glob)**/*.spec`), matched by gix, only from the
+    repository's top: git reads one from the current directory.
   - `commit -- <path>` records an untracked path too, and is refused during a merge.
   - `merge --squash` writes `SQUASH_MSG` without git's `Date:` line.
   - `init` names its branch `main` and never re-initialises: on an existing repository it answers `created: false`.
