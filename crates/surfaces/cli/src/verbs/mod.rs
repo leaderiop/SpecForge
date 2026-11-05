@@ -77,6 +77,21 @@ impl VerbArgs {
         )
     }
 
+    /// `ask`'s answer judged into an exit by `judge`, printing nothing (`files search -q`, `--none`): a refusal is
+    /// `error[CODE]` on stderr and exit 2, since nothing was judged.
+    pub(crate) fn verdict<T>(
+        &self,
+        terminal: &Terminal,
+        ports: &Ports,
+        ask: impl FnOnce(Verbs) -> Result<T, OpError>,
+        judge: impl FnOnce(&T) -> Exit,
+    ) -> Exit {
+        match open(&self.project, ports).and_then(ask) {
+            Ok(answer) => judge(&answer),
+            Err(error) => Refusal::measuring(OutputFormat::Human).report(terminal, &error),
+        }
+    }
+
     /// [`Self::answer`] for a verb whose answer says how it was had (`http`, through the effects journal).
     pub(crate) fn answered<T: serde::Serialize>(
         &self,

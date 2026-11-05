@@ -1,6 +1,6 @@
 ---
-source: crates/surfaces/cli/tests/files_verb.rs
-expression: steady(run.json())
+source: crates/surfaces/cli/tests/files_verb/mod.rs
+expression: steady(run.answer())
 ---
 {
   "entries": [

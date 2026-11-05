@@ -209,6 +209,16 @@ pub(crate) struct SearchArgs {
     #[arg(long, conflicts_with_all = ["after_context", "before_context", "context"])]
     counts: bool,
 
+    /// Print nothing: exit 0 when anything matched, 1 when nothing did, 2 when a typed path is missing or the search
+    /// is refused (its error on stderr), as `grep -q`; it takes no --pick and no --format
+    #[arg(long, short = 'q', conflicts_with = "none", conflicts_with_all = QUIET_CONFLICTS)]
+    quiet: bool,
+
+    /// Print nothing: exit 0 when nothing matched, 1 when anything did, 2 when a typed path is missing or the search
+    /// is refused (its error on stderr): a negative gate that never passes on a file it could not read
+    #[arg(long, conflicts_with_all = QUIET_CONFLICTS)]
+    none: bool,
+
     /// Leave out a line (or -U match) this pattern also matches, as `| grep -v`; it takes -i and -F too, and context
     /// lines are kept
     #[arg(long = "and-not", value_name = "REGEX")]
@@ -332,8 +342,21 @@ impl ListArgs {
     }
 }
 
+/// What `-q` and `--none` take no part of: an answer they do not print.
+const QUIET_CONFLICTS: [&str; 8] = [
+    "files_with_matches",
+    "counts",
+    "after_context",
+    "before_context",
+    "context",
+    crate::pick::PICK,
+    "format",
+    "max",
+];
+
 impl SearchArgs {
     fn run(self, terminal: &Terminal, ports: &Ports) -> Exit {
+        let verdict = self.quiet || self.none;
         let search = Search {
             pattern: self.pattern,
             paths: self.paths,
@@ -345,15 +368,29 @@ impl SearchArgs {
             before: self.before_context.or(self.context).unwrap_or(0),
             after: self.after_context.or(self.context).unwrap_or(0),
             and_not: self.and_not,
-            mode: if self.files_with_matches {
+            mode: if self.files_with_matches || verdict {
                 SearchMode::Files
             } else if self.counts {
                 SearchMode::Counts
             } else {
                 SearchMode::Lines
             },
-            max: self.max,
+            // A verdict is judged at the first match.
+            max: if verdict { 1 } else { self.max },
         };
+        if verdict {
+            let quiet = self.quiet;
+            return self.verb.verdict(
+                terminal,
+                ports,
+                |verbs| files::search(&verbs, &search),
+                |answer| match (answer.count > 0, answer.missing.is_empty()) {
+                    (true, _) => Exit::of_verdict(quiet),
+                    (false, false) => Exit::Unjudged,
+                    (false, true) => Exit::of_verdict(!quiet),
+                },
+            );
+        }
         self.verb.answer(
             terminal,
             ports,
@@ -393,6 +430,9 @@ impl SearchArgs {
                 }
                 for counted in answer.counts.iter().flatten() {
                     outln!(terminal, "{}:{}", shown(&counted.path), counted.count);
+                }
+                for path in &answer.missing {
+                    outln!(terminal, "(missing: {})", shown(path));
                 }
                 if answer.truncated {
                     outln!(terminal, "(stopped at {} answered)", answer.count);

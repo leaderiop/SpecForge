@@ -1,5 +1,5 @@
 ---
-source: crates/surfaces/cli/tests/files_verb.rs
+source: crates/surfaces/cli/tests/files_verb/search.rs
 expression: run.answer()
 ---
 {
@@ -62,5 +62,6 @@ expression: run.answer()
       "text": "hit three"
     }
   ],
+  "missing": [],
   "truncated": false
 }

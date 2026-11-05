@@ -144,6 +144,8 @@ pub struct SearchAnswer {
     pub count: usize,
     /// It stopped at its bound, or a file was larger than one read.
     pub truncated: bool,
+    /// Each typed path that does not exist; the others were searched.
+    pub missing: Vec<String>,
 }
 
 /// What `files search` asks.
@@ -295,6 +297,7 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
         counts: (search.mode == SearchMode::Counts).then(Vec::new),
         count: 0,
         truncated: false,
+        missing: Vec::new(),
     };
     let mut budget = SEARCH_BYTES;
     let typed: Vec<PathBuf> = if search.paths.is_empty() {
@@ -337,6 +340,10 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
                         .collect()
                 }
                 (OutcomeClass::Ok, _) => vec![(located.root.clone(), request.path.clone(), true)],
+                (OutcomeClass::Missing, _) => {
+                    answer.missing.push(verbs.shown(&located.at));
+                    continue;
+                }
                 (class, _) => return Err(refused(class, &verbs.shown(&located.at))),
             };
         for (root, rel, named) in files {
@@ -351,12 +358,19 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
                     max_bytes: READ_CEILING.min(budget),
                 },
             };
-            // A withheld file or one the ceiling leaves unread is not searched.
-            if verbs.permit_fs(&read).is_err() {
+            // A walked file that is withheld, or that the ceiling leaves unread, is not searched; one typed by name is
+            // refused, so no verdict is judged on a file it did not read.
+            if let Err(error) = verbs.permit_fs(&read) {
+                if named {
+                    return Err(error);
+                }
                 continue;
             }
             let outcome = verbs.ports().fs.run(verbs.roots(), &read);
             if outcome.class != OutcomeClass::Ok {
+                if named {
+                    return Err(refused(outcome.class, &verbs.shown_in(&root, &rel)));
+                }
                 continue;
             }
             budget = budget.saturating_sub(outcome.bytes.len() as u64);

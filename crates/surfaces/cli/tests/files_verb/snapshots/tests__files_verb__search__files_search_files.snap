@@ -1,5 +1,5 @@
 ---
-source: crates/surfaces/cli/tests/files_verb.rs
+source: crates/surfaces/cli/tests/files_verb/search.rs
 expression: run.answer()
 ---
 {
@@ -11,5 +11,6 @@ expression: run.answer()
     "build/out.txt"
   ],
   "matches": [],
+  "missing": [],
   "truncated": false
 }

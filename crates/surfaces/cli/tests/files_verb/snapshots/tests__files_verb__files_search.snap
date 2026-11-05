@@ -1,6 +1,6 @@
 ---
-source: crates/surfaces/cli/tests/files_verb.rs
-expression: run.json()
+source: crates/surfaces/cli/tests/files_verb/mod.rs
+expression: run.answer()
 ---
 {
   "count": 2,
@@ -18,5 +18,6 @@ expression: run.json()
       "text": "    println!(\"hello\");"
     }
   ],
+  "missing": [],
   "truncated": false
 }
