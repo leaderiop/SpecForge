@@ -67,6 +67,9 @@ pub(crate) enum Action {
     Add(AddArgs),
     /// Take files out of the index and off the disk (--cached: the index alone); a changed one needs -f
     Rm(RmArgs),
+    /// Run one of the repository's hooks
+    #[command(subcommand)]
+    Hook(HookAction),
     /// Record a commit: stage the paths named, run the repository's hooks, commit by git's configured identity
     Commit(CommitArgs),
     /// Create or delete a branch
@@ -312,6 +315,13 @@ impl Action {
                     },
                 )
             }
+            Action::Hook(HookAction::Run(args)) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::hook_run(v, &args.name, &args.args, args.ignore_missing),
+                |_, _| {},
+            ),
             Action::Commit(args) => {
                 let request = git::CommitRequest {
                     message: args.message.join("\n\n"),

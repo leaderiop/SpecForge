@@ -275,6 +275,29 @@ pub(crate) struct AddArgs {
     pub(super) verb: VerbArgs,
 }
 
+#[derive(clap::Subcommand)]
+pub(crate) enum HookAction {
+    /// Run the repository's hook as git would, its output on stderr; a hook that fails exits 1
+    Run(HookRunArgs),
+}
+
+#[derive(clap::Args)]
+pub(crate) struct HookRunArgs {
+    /// The hook, such as pre-commit
+    pub(super) name: String,
+
+    /// Answer ran: false when the repository has no such hook, rather than refuse
+    #[arg(long)]
+    pub(super) ignore_missing: bool,
+
+    /// The hook's arguments (after `--`)
+    #[arg(last = true, value_name = "ARG")]
+    pub(super) args: Vec<String>,
+
+    #[command(flatten)]
+    pub(super) verb: VerbArgs,
+}
+
 #[derive(clap::Args)]
 pub(crate) struct RmArgs {
     /// The files, from the current directory

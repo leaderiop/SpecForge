@@ -838,7 +838,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
      # Stash uncommitted changes under a named ref so we always pop (bare `git stash` strands them on hook/script failure). #3542: `refs/stash` is shared across worktrees, so this helper runs ONLY in the orchestrator's main checkout after all wave worktrees have been merged + removed; executors are forbidden from running any `git stash` subcommand (see `<destructive_git_prohibition>` in `agents/gsd-executor.md`).
      STASHED=false
      if [ "$(specforge git diff --pick .count 2>/dev/null)" != 0 ] && specforge git stash push -u -m "gsd-post-wave-hook-$$" >/dev/null 2>&1; then STASHED=true; fi
-     git hook run pre-commit 2>&1 || echo "⚠ Pre-commit hooks failed — review before continuing"
+     specforge git hook run pre-commit 2>&1 || echo "⚠ Pre-commit hooks failed — review before continuing"
      [ "$STASHED" = "true" ] && (specforge git stash pop >/dev/null 2>&1 || echo "⚠ Could not pop gsd-post-wave-hook stash — recover manually")
    fi
    ```

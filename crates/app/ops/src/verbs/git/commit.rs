@@ -190,6 +190,49 @@ pub fn rm(verbs: &Verbs, paths: &[PathBuf], removal: Removal) -> Result<RmAnswer
     Ok(RmAnswer { removed })
 }
 
+/// `git hook run`'s answer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct HookAnswer {
+    /// The hook was there and ran (and passed); false only under `ignore_missing`.
+    pub ran: bool,
+}
+
+/// `git hook run <name> -- <args>`: the repository's hook `name`, found and run as a commit runs its hooks. A hook
+/// that is not there is refused unless `ignore_missing`; a name is a hook's file name, never a path.
+pub fn hook_run(
+    verbs: &Verbs,
+    name: &str,
+    args: &[String],
+    ignore_missing: bool,
+) -> Result<HookAnswer, OpError> {
+    let named = !name.is_empty()
+        && !name.starts_with('.')
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'));
+    if !named {
+        return Err(OpError::new(
+            OpErrorKind::InvalidInput,
+            OpErrorKind::InvalidInput.as_str(),
+            format!(
+                "{} names no hook: a hook's name is its file's, such as pre-commit",
+                printable(name)
+            ),
+        ));
+    }
+    let place = verbs.place_to_write("hook run")?;
+    let ran = Hooks::of(verbs, &place)?.run_for(name, args, false)?;
+    if !ran && !ignore_missing {
+        return Err(OpError::new(
+            OpErrorKind::PreconditionFailed,
+            super::HOOK_CANNOT_RUN,
+            format!("the repository has no {name} hook git would run"),
+        )
+        .with_suggestion("pass --ignore-missing to answer ran: false instead"));
+    }
+    Ok(HookAnswer { ran })
+}
+
 /// What git signs when the repository asks: every commit, or every annotated tag.
 #[derive(Debug, Clone, Copy)]
 pub(super) enum Signed {
@@ -343,8 +386,18 @@ impl<'v> Hooks<'v> {
     /// stdout keeps the answer. A hook that fails refuses; one that cannot run refuses too (fail closed) and names
     /// `--no-verify`.
     pub(super) fn run(&self, name: &str, args: &[String]) -> Result<(), OpError> {
+        self.run_for(name, args, true).map(|_| ())
+    }
+
+    /// [`Hooks::run`], and whether the hook was there to run; a failure names the commit it stops only when
+    /// `committing`.
+    fn run_for(&self, name: &str, args: &[String], committing: bool) -> Result<bool, OpError> {
         let Some(hook) = self.find(name) else {
-            return Ok(());
+            return Ok(false);
+        };
+        let advice = |error: OpError| match committing {
+            true => error.with_suggestion(no_verify(name)),
+            false => error,
         };
         let program = hook.to_string_lossy().replace('\\', "/");
         // Windows runs a hook script through the `sh` the runner finds, as Git for Windows does.
@@ -374,7 +427,7 @@ impl<'v> Hooks<'v> {
         let shown = printable(&hook.to_string_lossy()).into_owned();
         self.verbs
             .permit(&EffectRequest::Process(request.clone()))
-            .map_err(|refused| refused.with_suggestion(no_verify(name)))?;
+            .map_err(advice)?;
         let outcome = self.verbs.ports().process.run_within(
             &request,
             &self.place.toplevel,
@@ -384,22 +437,25 @@ impl<'v> Hooks<'v> {
             },
             Ceiling::User,
         );
+        let stopped = if committing {
+            ": nothing was committed"
+        } else {
+            ""
+        };
         match outcome.class {
-            ProcessClass::Exited(0) => Ok(()),
+            ProcessClass::Exited(0) => Ok(true),
             ProcessClass::NotFound | ProcessClass::CannotStart(_) | ProcessClass::NoDirectory => {
-                Err(OpError::new(
+                Err(advice(OpError::new(
                     OpErrorKind::PreconditionFailed,
                     super::HOOK_CANNOT_RUN,
                     format!("the {name} hook {shown} {}", outcome.class),
-                )
-                .with_suggestion(no_verify(name)))
+                )))
             }
-            class => Err(OpError::new(
+            class => Err(advice(OpError::new(
                 OpErrorKind::PreconditionFailed,
                 super::HOOK_REFUSED,
-                format!("the {name} hook {shown} {class}: nothing was committed"),
-            )
-            .with_suggestion(no_verify(name))),
+                format!("the {name} hook {shown} {class}{stopped}"),
+            ))),
         }
     }
 }

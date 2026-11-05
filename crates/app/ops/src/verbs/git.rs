@@ -19,7 +19,10 @@ pub use branching::{
     PrunedAnswer, RefAnswer, branch_create, branch_delete, switch, tag, worktree_add,
     worktree_prune, worktree_remove,
 };
-pub use commit::{AddRequest, CommitAnswer, CommitRequest, RmAnswer, add, cleaned, commit, rm};
+pub use commit::{
+    AddRequest, CommitAnswer, CommitRequest, HookAnswer, RmAnswer, add, cleaned, commit, hook_run,
+    rm,
+};
 pub use merging::{
     FastForward, MergeAnswer, MergeRequest, PickEndAnswer, ResetAnswer, RestoreAnswer,
     RestoreRequest, StashAnswer, StashesAnswer, merge, pick, pick_end, reset, restore, stash_list,
