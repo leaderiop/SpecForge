@@ -105,12 +105,21 @@ impl Action {
                 );
             }),
             Action::Rev(args) => {
-                let revs = args.revs;
+                let mut revs = args.revs;
+                if args.stdin {
+                    use std::io::BufRead as _;
+                    let lines = std::io::stdin().lock().lines().map_while(Result::ok);
+                    revs.extend(lines.filter(|line| !line.trim().is_empty()));
+                }
+                let order = match (args.sorted, args.reverse) {
+                    (false, _) => None,
+                    (true, reverse) => Some(git::RevOrder { reverse }),
+                };
                 answer(
                     &args.verb,
                     terminal,
                     ports,
-                    |v| git::revs(v, &revs),
+                    |v| git::revs(v, &revs, order),
                     |t, a| {
                         for rev in &a.revs {
                             outln!(

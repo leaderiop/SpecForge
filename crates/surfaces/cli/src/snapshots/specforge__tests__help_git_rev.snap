@@ -4,15 +4,24 @@ expression: command.clone().render_long_help().to_string()
 ---
 What each revision names: its sha and kind, or that it names nothing
 
-Usage: specforge git rev [OPTIONS] <REVS>...
+Usage: specforge git rev [OPTIONS] [REVS]...
 
 Arguments:
-  <REVS>...
+  [REVS]...
           The revisions: a sha, a branch, a tag, `HEAD~1`, `main:path`
 
 Options:
       --in <DIR>
           Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
+
+      --sorted
+          Each must name a commit: the commits newest first by committer date, as `git rev-list --no-walk=sorted` orders them
+
+      --reverse
+          With --sorted: oldest first
+
+      --stdin
+          Read more revisions from stdin, one per line
 
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)

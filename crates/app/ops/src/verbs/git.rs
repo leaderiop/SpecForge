@@ -310,8 +310,40 @@ pub fn head(verbs: &Verbs) -> Result<HeadAnswer, OpError> {
     })
 }
 
-pub fn revs(verbs: &Verbs, asked: &[String]) -> Result<RevsAnswer, OpError> {
+/// How `git rev --sorted` orders the commits it is given: newest first by committer date, or oldest first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RevOrder {
+    pub reverse: bool,
+}
+
+pub fn revs(
+    verbs: &Verbs,
+    asked: &[String],
+    order: Option<RevOrder>,
+) -> Result<RevsAnswer, OpError> {
     let place = verbs.place("rev")?;
+    if let Some(order) = order {
+        // as `rev-list --no-walk=sorted`: every revision names a commit, or none is answered
+        let commits = asked
+            .iter()
+            .map(|rev| commit_named(verbs, &place, rev.trim()))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut sorted = verbs.ports().git.sorted(&place, &commits).map_err(failed)?;
+        if order.reverse {
+            sorted.reverse();
+        }
+        return Ok(RevsAnswer {
+            revs: sorted
+                .into_iter()
+                .map(|sha| Rev {
+                    rev: sha.as_str().to_string(),
+                    sha: Some(sha.as_str().to_string()),
+                    kind: Some(ObjectKind::Commit),
+                    exists: true,
+                })
+                .collect(),
+        });
+    }
     let mut revs = Vec::with_capacity(asked.len());
     for rev in asked {
         let found = verbs.ports().git.resolve(&place, rev).map_err(failed)?;

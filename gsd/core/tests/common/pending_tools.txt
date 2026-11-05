@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 877 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 873 rows.
 ../security/assets/gsd-core/workflows/secure-phase.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ../security/assets/gsd-core/workflows/secure-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
@@ -598,8 +598,6 @@ gsd-core/workflows/ultraplan-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 
 gsd-core/workflows/ultraplan-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/ultraplan-phase.md	sort	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 gsd-core/workflows/undo.md	grep	grep -E "\(0*${TARGET_PHASE}(-[0-9]+)?\):"
-gsd-core/workflows/undo.md	head	PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
-gsd-core/workflows/undo.md	head	PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
 gsd-core/workflows/validate-phase.md	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 gsd-core/workflows/validate-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 gsd-core/workflows/validate-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
@@ -856,8 +854,6 @@ prompt:ultraplan_phase	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A
 prompt:ultraplan_phase	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:ultraplan_phase	sort	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 prompt:undo	grep	grep -E "\(0*${TARGET_PHASE}(-[0-9]+)?\):"
-prompt:undo	head	PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
-prompt:undo	head	PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
 prompt:validate_phase	cat	if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 prompt:validate_phase	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 prompt:validate_phase	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
@@ -1020,7 +1016,7 @@ prompt:progress	grep	if echo "$GSD_ARGS" | grep -qE '\-\-max-cycles\s+[0-9]+'; t
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 
-# D git: git, embedded (R2). 108 rows.
+# D git: git, embedded (R2). 100 rows.
 agents/gsd-executor.md	git	git add src/api/auth.ts
 agents/gsd-executor.md	git	git add src/types/user.ts
 agents/gsd-executor.md	git	git -C "{sub_repo}" commit -m "{type}({phase}-{plan}): {concise task description}" -- file1 file2 ...
@@ -1078,10 +1074,6 @@ gsd-core/workflows/ship.md	git	DIFF_STATS=$(git diff --stat ${BASE_BRANCH}...HEA
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: recovery push failed — rerun: git push origin ${CURRENT_BRANCH}"
 gsd-core/workflows/undo.md	git	git log --oneline --no-merges -${COUNT}
-gsd-core/workflows/undo.md	git	PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
-gsd-core/workflows/undo.md	git	COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
-gsd-core/workflows/undo.md	git	PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
-gsd-core/workflows/undo.md	git	COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
 gsd-core/workflows/undo.md	git	git revert --no-commit ${HASH}
 gsd-core/workflows/undo.md	git	git revert --abort 2>/dev/null
 gsd-core/workflows/undo.md	git	git commit -m "revert(${TARGET_PHASE}): undo phase ${TARGET_PHASE} — ${REVERT_REASON}"
@@ -1117,10 +1109,6 @@ prompt:ship	git	DIFF_STATS=$(git diff --stat ${BASE_BRANCH}...HEAD)
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: recovery push failed — rerun: git push origin ${CURRENT_BRANCH}"
 prompt:undo	git	git log --oneline --no-merges -${COUNT}
-prompt:undo	git	PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
-prompt:undo	git	COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
-prompt:undo	git	COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
-prompt:undo	git	PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
 prompt:undo	git	git revert --no-commit ${HASH}
 prompt:undo	git	git revert --abort 2>/dev/null
 prompt:undo	git	git commit -m "revert(${TARGET_PHASE}): undo phase ${TARGET_PHASE} — ${REVERT_REASON}"

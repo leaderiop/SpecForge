@@ -225,6 +225,26 @@ impl Git for Gix {
             .map(|commit| Sha::new(commit.id.to_string())))
     }
 
+    fn sorted(&self, place: &GitPlace, commits: &[Sha]) -> Result<Vec<Sha>, GitError> {
+        let repo = open(place)?;
+        let mut dated = Vec::with_capacity(commits.len());
+        for sha in commits {
+            let read = |e: &dyn std::fmt::Display| failed(&format!("read {}", sha.short()), e);
+            let time = repo
+                .find_commit(id(sha)?)
+                .map_err(|e| read(&e))?
+                .committer()
+                .map_err(|e| read(&e))?
+                .time()
+                .map_err(|e| read(&e))?
+                .seconds;
+            dated.push((time, sha.clone()));
+        }
+        // stable: a tie keeps the order given
+        dated.sort_by_key(|(time, _)| std::cmp::Reverse(*time));
+        Ok(dated.into_iter().map(|(_, sha)| sha).collect())
+    }
+
     fn merge_base(&self, place: &GitPlace, a: &Sha, b: &Sha) -> Result<Option<Sha>, GitError> {
         let repo = open(place)?;
         match repo.merge_base(id(a)?, id(b)?) {

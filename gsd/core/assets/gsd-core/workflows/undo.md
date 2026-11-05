@@ -197,7 +197,7 @@ Derive the selection window from `PHASE_DIR` (the `#3995` anchor, shared with
 the phase's own directory, and the tip is `HEAD`.
 
 ```bash
-PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
+PHASE_START=$(specforge git rev --sorted --reverse $(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash') --pick '.revs[0].sha' 2>/dev/null)
 # Only a commit in HEAD's own history may anchor. A SHA from another repository has no resolvable
 # parent here, which the root-commit arm below would read as "root commit" and select all of HEAD;
 # one from another worktree's branch that HEAD does not contain bounds nothing on this branch.
@@ -241,7 +241,7 @@ the old grep's `0*` tolerance for a digit-first id — never for a letter-first 
 (`PROJ-42`), where zero-padding would strip the meaningful prefix instead of matching it.
 
 ```bash
-COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
+COMMITS=$(specforge query "$PHASE_DIR" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | specforge git rev --sorted --stdin --pick '.revs[].sha' 2>/dev/null || true)
 ```
 
 Use matching commits as COMMITS.
@@ -295,7 +295,7 @@ PHASE_DIR_REUSED=""; PHASE_DIR_LIVE=""
 
 
 
-PHASE_START=$(git rev-list --reverse --no-walk=sorted $(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash') 2>/dev/null | head -1)
+PHASE_START=$(specforge git rev --sorted --reverse $(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash') --pick '.revs[0].sha' 2>/dev/null)
 # As in MODE=phase: an anchor outside HEAD's own history never reaches the root-commit arm.
 if [ -n "$PHASE_START" ] && [ "$(specforge git log HEAD.."$PHASE_START" --pick .count 2>/dev/null)" != 0 ]; then PHASE_START=""; fi
 UNDO_RANGE=""
@@ -325,7 +325,7 @@ widening, not a preserved behavior; it makes an unpadded `--plan` argument match
 canonically-padded commit scope instead of silently matching nothing.
 
 ```bash
-COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | git rev-list --no-walk=sorted --stdin 2>/dev/null || true)
+COMMITS=$(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash' | while read -r c; do [ "$(specforge git log HEAD.."$c" --pick .count 2>/dev/null)" = 0 ] && echo "$c"; done | specforge git rev --sorted --stdin --pick '.revs[].sha' 2>/dev/null || true)
 ```
 
 Use matching commits as COMMITS.

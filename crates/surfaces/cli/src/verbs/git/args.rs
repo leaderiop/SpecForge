@@ -273,8 +273,21 @@ pub(crate) struct Plain {
 #[derive(clap::Args)]
 pub(crate) struct RevArgs {
     /// The revisions: a sha, a branch, a tag, `HEAD~1`, `main:path`
-    #[arg(required = true)]
+    #[arg(required_unless_present_any = ["sorted", "stdin"])]
     pub(super) revs: Vec<String>,
+
+    /// Each must name a commit: the commits newest first by committer date, as `git rev-list --no-walk=sorted`
+    /// orders them
+    #[arg(long)]
+    pub(super) sorted: bool,
+
+    /// With --sorted: oldest first
+    #[arg(long, requires = "sorted")]
+    pub(super) reverse: bool,
+
+    /// Read more revisions from stdin, one per line
+    #[arg(long)]
+    pub(super) stdin: bool,
 
     #[command(flatten)]
     pub(super) verb: VerbArgs,

@@ -572,6 +572,58 @@ fn remotes_split_each_url_into_its_host_and_path() {
     );
 }
 
+/// `rev --sorted` orders commits by committer date as `rev-list --no-walk=sorted`, newest first or `--reverse`, reading
+/// more revisions from `--stdin`; a revision that names no commit refuses them all.
+#[test]
+fn rev_sorted_orders_commits_by_their_date() {
+    let (project, repo, first) = committed();
+    repo.write("b.txt", "b");
+    let second = repo.commit_all("second");
+    repo.write("c.txt", "c");
+    let third = repo.commit_all("third");
+    let picked = |args: &[&str]| git(&project, args).exits(0).stdout;
+    assert_eq!(
+        picked(&[
+            "rev",
+            "--sorted",
+            &second,
+            &first,
+            &third,
+            "--pick",
+            ".revs[].sha"
+        ]),
+        format!("{third}\n{second}\n{first}\n")
+    );
+    assert_eq!(
+        picked(&[
+            "rev",
+            "--sorted",
+            "--reverse",
+            &third,
+            &first,
+            "--pick",
+            ".revs[0].sha"
+        ]),
+        format!("{first}\n")
+    );
+    let empty = tempfile::tempdir().unwrap();
+    let piped = Cli::on(&project)
+        .env("PATH", empty.path())
+        .stdin(format!("{first}\n{third}\n"))
+        .run(&["git", "rev", "--sorted", "--stdin", "--pick", ".revs[].sha"])
+        .exits(0)
+        .stdout;
+    assert_eq!(piped, format!("{third}\n{first}\n"));
+    assert_eq!(picked(&["rev", "--sorted", "--pick", ".revs[].sha"]), "");
+    let refused = git(&project, &["rev", "--sorted", &first, "nosuch"]).exits(1);
+    assert_eq!(
+        refused.json()["code"],
+        "unknown_revision",
+        "{}",
+        refused.stdout
+    );
+}
+
 /// `submodules` reads `.gitmodules` as git's config parser does, and lists no path that leaves the top.
 #[test]
 fn submodules_list_what_gitmodules_declares() {
