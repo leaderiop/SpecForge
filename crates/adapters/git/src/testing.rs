@@ -43,7 +43,11 @@ impl Repo {
             clock: Cell::new(1_700_000_000),
         };
         repo.head_on("main");
-        repo.config("[user]\n\tname = Test\n\temail = test@example.com");
+        // the files are written as the tests write them whatever the host's system config says (a Windows git sets
+        // core.autocrlf, which libgit2 and gix both follow, as git does)
+        repo.config(
+            "[user]\n\tname = Test\n\temail = test@example.com\n[core]\n\tautocrlf = false",
+        );
         repo
     }
 

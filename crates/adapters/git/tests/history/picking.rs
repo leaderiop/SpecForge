@@ -103,6 +103,27 @@ fn two_cherry_picks_without_commit_of_one_file_stack_as_git_stacks_them() {
 }
 
 #[test]
+fn a_pick_writes_the_files_as_the_repositorys_autocrlf_says_and_status_reads_them_back_clean() {
+    let (_dir, repo, _, _, c3) = one_file();
+    repo.config("[core]\n\tautocrlf = true");
+    let place = place(&repo);
+    Gix::default()
+        .pick(&place, &Sha::new(c3.as_str()), true, false)
+        .unwrap();
+    assert_eq!(
+        read(&repo, "a.txt").as_deref(),
+        Some("two\r\n"),
+        "as git checks it out"
+    );
+    let status = Gix::default().status(&place).unwrap();
+    assert_eq!(status.entries.len(), 1, "{status:?}");
+    assert!(
+        status.entries[0].index.is_some() && status.entries[0].worktree.is_none(),
+        "gix reads the file through the same autocrlf: {status:?}"
+    );
+}
+
+#[test]
 fn a_file_one_pick_added_and_the_next_removed_is_gone() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(dir.path());
