@@ -1004,13 +1004,7 @@ prompt:progress	grep	if echo "$GSD_ARGS" | grep -qE '\-\-max-cycles\s+[0-9]+'; t
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 prompt:verify_work	grep	echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
 
-# D git: git, embedded (R2). 35 rows.
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git merge --squash "$branch"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git merge --squash "$MILESTONE_BRANCH"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git merge --no-ff --no-commit "$branch"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git commit -m "Merge branch '$branch' for v[X.Y]"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git merge --no-ff --no-commit "$MILESTONE_BRANCH"
-gsd-core/workflows/complete-milestone/detail/elaboration.md	git	git commit -m "Merge branch '$MILESTONE_BRANCH' for v[X.Y]"
+# D git: git, embedded (R2). 29 rows.
 gsd-core/workflows/complete-milestone/steps/git-tag.md	git	git push origin v[X.Y]
 gsd-core/workflows/execute-phase.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then  # #2916
 gsd-core/workflows/execute-phase.md	git	git hook run pre-commit 2>&1 || echo "⚠ Pre-commit hooks failed — review before continuing"

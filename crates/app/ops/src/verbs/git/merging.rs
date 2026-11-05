@@ -8,7 +8,8 @@ use std::path::PathBuf;
 use serde::Serialize;
 use specforge_common::remedy::printable;
 use specforge_effects::git::{
-    ConflictSide, GitConflict, GitEntryKind, GitPlace, GitStash, Merged, ResetMode, Restoring,
+    ConflictSide, GitConflict, GitEntryKind, GitPlace, GitStash, Merged, Merging, ResetMode,
+    Restoring,
 };
 
 use super::commit::{Signed, in_repository, refuse_signing, write_failed};
@@ -108,12 +109,23 @@ fn clean_tree(
 
 const COMMIT_OR_STASH: &str = "commit or stash the changes first";
 
+/// What `git merge` is asked beyond the revision.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MergeRequest {
+    pub fast_forward: FastForward,
+    pub message: Option<String>,
+    /// Leave the merge staged for a commit to record (`--no-commit`).
+    pub no_commit: bool,
+    /// Leave the merged tree staged as one change, no second parent (`--squash`).
+    pub squash: bool,
+}
+
 pub fn merge(
     verbs: &Verbs,
     revision: &str,
-    fast_forward: FastForward,
-    message: Option<&str>,
+    request: &MergeRequest,
 ) -> Result<MergeAnswer, OpError> {
+    let fast_forward = request.fast_forward;
     let place = verbs.place_to_write("merge")?;
     let theirs = commit_named(verbs, &place, revision)?;
     let git = &verbs.ports().git;
@@ -126,6 +138,8 @@ pub fn merge(
     let up_to_date = base.as_ref() == Some(&theirs);
     let forwards = ours.is_none() || base == ours;
     let commits = !up_to_date
+        && !request.no_commit
+        && !request.squash
         && !matches!(
             (fast_forward, forwards),
             (FastForward::Only, _) | (FastForward::Allowed, true)
@@ -135,7 +149,7 @@ pub fn merge(
     }
     clean_tree(verbs, &place, "a merge", COMMIT_OR_STASH)?;
     let branch = git.head(&place).map_err(failed)?.head;
-    let message = match message {
+    let message = match request.message.as_deref() {
         Some(message) => super::cleaned(message).ok_or_else(|| {
             OpError::new(
                 OpErrorKind::InvalidInput,
@@ -155,10 +169,16 @@ pub fn merge(
         FastForward::Only => Some(true),
         FastForward::Never => Some(false),
     };
+    let merging = Merging {
+        fast_forward: mode,
+        message,
+        no_commit: request.no_commit,
+        squash: request.squash,
+    };
     verbs
         .ports()
         .git
-        .merge(&place, &theirs, mode, &message)
+        .merge(&place, &theirs, &merging)
         .map(MergeAnswer::from)
         .map_err(write_failed)
 }

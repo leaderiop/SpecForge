@@ -21,9 +21,9 @@ pub use branching::{
 };
 pub use commit::{AddRequest, CommitAnswer, CommitRequest, RmAnswer, add, cleaned, commit, rm};
 pub use merging::{
-    FastForward, MergeAnswer, PickEndAnswer, ResetAnswer, RestoreAnswer, RestoreRequest,
-    StashAnswer, StashesAnswer, merge, pick, pick_end, reset, restore, stash_list, stash_pop,
-    stash_push,
+    FastForward, MergeAnswer, MergeRequest, PickEndAnswer, ResetAnswer, RestoreAnswer,
+    RestoreRequest, StashAnswer, StashesAnswer, merge, pick, pick_end, reset, restore, stash_list,
+    stash_pop, stash_push,
 };
 pub use specforge_effects::git::ResetMode;
 pub use specforge_effects::git::{ConflictSide, Removal};

@@ -20,6 +20,12 @@ Options:
       --no-ff
           Record a merge commit even when HEAD could fast-forward
 
+      --no-commit
+          Leave the merge staged, MERGE_HEAD kept, for specforge git commit to record
+
+      --squash
+          Leave the merged files staged as one change, HEAD unmoved and no second parent, for a commit to record
+
   -m, --message <MESSAGE>
           The merge commit's message
 

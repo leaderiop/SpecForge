@@ -14,8 +14,8 @@ use gix::sec::trust::DefaultForLevel as _;
 use specforge_effects::git::{
     Blob, CommitFile, Committed, DiffQuery, DiffSide, Git, GitBlob, GitBranch, GitBranchRef,
     GitError, GitFileDiff, GitLog, GitPlace, GitRemote, GitStash, GitStatus, GitSubmodule,
-    GitWorktree, Located, LogQuery, Merged, ObjectKind, Recording, Removal, ResetMode, Restoring,
-    Sha, Sized, Staging, TreeEntry,
+    GitWorktree, Located, LogQuery, Merged, Merging, ObjectKind, Recording, Removal, ResetMode,
+    Restoring, Sha, Sized, Staging, TreeEntry,
 };
 
 mod branching;
@@ -583,14 +583,8 @@ impl Git for Gix {
         branching::worktree_prune(place)
     }
 
-    fn merge(
-        &self,
-        place: &GitPlace,
-        theirs: &Sha,
-        fast_forward: Option<bool>,
-        message: &str,
-    ) -> Result<Merged, GitError> {
-        merging::merge(self, place, theirs, fast_forward, message)
+    fn merge(&self, place: &GitPlace, theirs: &Sha, merging: &Merging) -> Result<Merged, GitError> {
+        merging::merge(self, place, theirs, merging)
     }
 
     fn reset(&self, place: &GitPlace, to: &Sha, mode: ResetMode) -> Result<(), GitError> {

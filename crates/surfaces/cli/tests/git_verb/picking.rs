@@ -50,3 +50,31 @@ fn quit_and_abort_end_what_is_in_progress() {
     let refused = git(&project, &["revert", "HEAD", "--quit"]).exits(2);
     assert!(refused.stderr.contains("--quit"), "{}", refused.stderr);
 }
+
+#[test]
+fn merge_squash_and_no_commit_leave_the_merge_for_a_commit() {
+    let (project, repo, _first, _side) = super::writes::side("s.txt", "side\n");
+    repo.write("m.txt", "main\n");
+    repo.commit_all("on main");
+    let squashed = git(&project, &["merge", "--squash", "side"])
+        .exits(0)
+        .answer();
+    assert_eq!(squashed["sha"], serde_json::Value::Null);
+    git(&project, &["commit", "-m", "feat: side"]).exits(0);
+    let parents = git(
+        &project,
+        &["log", "--max", "1", "--pick", ".commits[0].parents"],
+    )
+    .exits(0);
+    assert_eq!(parents.json().as_array().map(Vec::len), Some(1));
+    git(&project, &["reset", "HEAD~1", "--hard", "--yes"]).exits(0);
+    git(&project, &["merge", "--no-ff", "--no-commit", "side"]).exits(0);
+    git(&project, &["commit", "-m", "Merge branch 'side'"]).exits(0);
+    let parents = git(
+        &project,
+        &["log", "--max", "1", "--pick", ".commits[0].parents"],
+    )
+    .exits(0);
+    assert_eq!(parents.json().as_array().map(Vec::len), Some(2));
+    assert!(!repo.git_dir().join("MERGE_HEAD").exists());
+}

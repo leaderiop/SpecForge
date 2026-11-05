@@ -15,6 +15,14 @@ pub(crate) struct MergeArgs {
     #[arg(long)]
     pub(super) no_ff: bool,
 
+    /// Leave the merge staged, MERGE_HEAD kept, for specforge git commit to record
+    #[arg(long, conflicts_with = "squash")]
+    pub(super) no_commit: bool,
+
+    /// Leave the merged files staged as one change, HEAD unmoved and no second parent, for a commit to record
+    #[arg(long, conflicts_with_all = ["no_ff", "message"])]
+    pub(super) squash: bool,
+
     /// The merge commit's message
     #[arg(short, long, value_name = "MESSAGE")]
     pub(super) message: Option<String>,

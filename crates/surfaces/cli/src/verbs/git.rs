@@ -417,8 +417,14 @@ impl Action {
                 } else {
                     git::FastForward::Allowed
                 };
+                let request = git::MergeRequest {
+                    fast_forward: mode,
+                    message: args.message,
+                    no_commit: args.no_commit,
+                    squash: args.squash,
+                };
                 merged(&args.verb, terminal, ports, |v| {
-                    git::merge(v, &args.revision, mode, args.message.as_deref())
+                    git::merge(v, &args.revision, &request)
                 })
             }
             Action::Reset(args) => {

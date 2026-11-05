@@ -225,7 +225,11 @@ fn a_fast_forward_whose_branch_cannot_move_changes_no_file() {
     repo.stage_all();
     let lock = repo.git_dir().join("refs/heads/main.lock");
     std::fs::write(&lock, "").unwrap();
-    let merged = Gix::default().merge(&place(&repo), &Sha::new(side), None, "m\n");
+    let merging = specforge_effects::git::Merging {
+        message: "m\n".into(),
+        ..Default::default()
+    };
+    let merged = Gix::default().merge(&place(&repo), &Sha::new(side), &merging);
     assert!(merged.is_err(), "{merged:?}");
     assert_eq!(repo.sha("HEAD"), first);
     assert_eq!(

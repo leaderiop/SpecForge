@@ -207,7 +207,7 @@ if [ "$BRANCHING_STRATEGY" = "phase" ]; then
   # `$VAR` word-splits under bash but not zsh, collapsing every element onto
   # one iteration there.
   for branch in $(printf '%s' "$PHASE_BRANCHES"); do
-    git merge --squash "$branch"
+    specforge git merge --squash "$branch"
     # Strip spec/ from staging if commit_docs is false
     if [ "$COMMIT_DOCS" = "false" ]; then
       specforge git restore spec/ --staged --pick .restored 2>/dev/null || true
@@ -217,7 +217,7 @@ if [ "$BRANCHING_STRATEGY" = "phase" ]; then
 fi
 
 if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
-  git merge --squash "$MILESTONE_BRANCH"
+  specforge git merge --squash "$MILESTONE_BRANCH"
   # Strip spec/ from staging if commit_docs is false
   if [ "$COMMIT_DOCS" = "false" ]; then
     specforge git restore spec/ --staged --pick .restored 2>/dev/null || true
@@ -239,22 +239,22 @@ if [ "$BRANCHING_STRATEGY" = "phase" ]; then
   # `$VAR` word-splits under bash but not zsh, collapsing every element onto
   # one iteration there.
   for branch in $(printf '%s' "$PHASE_BRANCHES"); do
-    git merge --no-ff --no-commit "$branch"
+    specforge git merge --no-ff --no-commit "$branch"
     # Strip spec/ from staging if commit_docs is false
     if [ "$COMMIT_DOCS" = "false" ]; then
       specforge git restore spec/ --staged --pick .restored 2>/dev/null || true
     fi
-    git commit -m "Merge branch '$branch' for v[X.Y]"
+    specforge git commit -m "Merge branch '$branch' for v[X.Y]"
   done
 fi
 
 if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
-  git merge --no-ff --no-commit "$MILESTONE_BRANCH"
+  specforge git merge --no-ff --no-commit "$MILESTONE_BRANCH"
   # Strip spec/ from staging if commit_docs is false
   if [ "$COMMIT_DOCS" = "false" ]; then
     specforge git restore spec/ --staged --pick .restored 2>/dev/null || true
   fi
-  git commit -m "Merge branch '$MILESTONE_BRANCH' for v[X.Y]"
+  specforge git commit -m "Merge branch '$MILESTONE_BRANCH' for v[X.Y]"
 fi
 
 specforge git switch "$CURRENT_BRANCH"

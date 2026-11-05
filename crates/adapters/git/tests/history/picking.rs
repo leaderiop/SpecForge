@@ -127,3 +127,73 @@ fn abort_resolves_a_conflict_a_revert_left_back_to_head() {
     assert_eq!(read(&repo, "a.txt").as_deref(), Some("three\n"));
     assert!(git.status(&place).unwrap().entries.is_empty());
 }
+
+/// `main` and `side` each one commit past `first`, on different files; `HEAD` on `main`, its files with it.
+fn diverged() -> (tempfile::TempDir, Repo, String) {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "one\n");
+    let first = repo.commit_all("first");
+    repo.branch("side", &first).head_on("side");
+    repo.write("s.txt", "side\n");
+    let side = repo.commit_all("on side");
+    repo.head_on("main")
+        .delete("s.txt")
+        .write("m.txt", "main\n");
+    repo.commit_all("on main");
+    (dir, repo, side)
+}
+
+#[test]
+fn a_squash_stages_the_merge_with_no_second_parent_and_a_commit_ends_it() {
+    use specforge_effects::git::{Merging, Recording};
+    let (_dir, repo, side) = diverged();
+    let place = place(&repo);
+    let git = Gix::default();
+    let head = repo.sha("HEAD");
+    let squash = Merging {
+        squash: true,
+        ..Merging::default()
+    };
+    let merged = git
+        .merge(&place, &Sha::new(side.as_str()), &squash)
+        .unwrap();
+    assert_eq!((merged.sha, merged.conflicts.len()), (None, 0));
+    assert_eq!(repo.sha("HEAD"), head);
+    assert_eq!(read(&repo, "s.txt").as_deref(), Some("side\n"));
+    assert!(!repo.git_dir().join("MERGE_HEAD").exists());
+    let message = std::fs::read_to_string(repo.git_dir().join("SQUASH_MSG")).unwrap();
+    assert!(message.contains(&format!("commit {side}")), "{message}");
+    let committed = git
+        .commit_index(&place, "squashed\n", &Recording::default())
+        .unwrap();
+    assert_eq!(committed.parents.len(), 1);
+    assert!(
+        !repo.git_dir().join("SQUASH_MSG").exists(),
+        "the commit ends it"
+    );
+}
+
+#[test]
+fn a_merge_without_commit_keeps_merge_head_for_the_commit_that_records_it() {
+    use specforge_effects::git::{Merging, Recording};
+    let (_dir, repo, side) = diverged();
+    let place = place(&repo);
+    let git = Gix::default();
+    let no_commit = Merging {
+        fast_forward: Some(false),
+        no_commit: true,
+        ..Merging::default()
+    };
+    let merged = git
+        .merge(&place, &Sha::new(side.as_str()), &no_commit)
+        .unwrap();
+    assert_eq!(merged.sha, None);
+    assert!(repo.git_dir().join("MERGE_HEAD").exists());
+    let committed = git
+        .commit_index(&place, "Merge side\n", &Recording::default())
+        .unwrap();
+    assert_eq!(committed.parents.len(), 2);
+    assert_eq!(committed.parents[1].as_str(), side);
+    assert!(!repo.git_dir().join("MERGE_HEAD").exists());
+}

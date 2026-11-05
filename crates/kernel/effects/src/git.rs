@@ -340,6 +340,19 @@ pub struct Restoring {
     pub side: Option<ConflictSide>,
 }
 
+/// How `git merge` merges.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Merging {
+    /// `Some(true)`: a fast-forward or nothing (`--ff-only`); `Some(false)`: always a merge (`--no-ff`).
+    pub fast_forward: Option<bool>,
+    /// The merge commit's message.
+    pub message: String,
+    /// Leave the merge staged, unrecorded (`--no-commit`).
+    pub no_commit: bool,
+    /// Leave the merged tree staged as one change with no second parent (`--squash`).
+    pub squash: bool,
+}
+
 /// How `git rm` removes: what it may take and whether the files go too.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Removal {
@@ -599,14 +612,16 @@ pub trait Git: Send + Sync {
     fn worktree_prune(&self, _place: &GitPlace) -> Result<Vec<PathBuf>, GitError> {
         Err(GitError::unwritable())
     }
-    /// Merge `theirs` into `HEAD`: a fast-forward when `fast_forward` is not `Some(false)` and history allows,
-    /// refused when it is `Some(true)` and history does not; else a merge commit with `message`, or the conflicts.
+    /// Merge `theirs` into `HEAD` as `merging` says: a fast-forward when `fast_forward` is not `Some(false)` and
+    /// history allows (never with `squash`), refused when it is `Some(true)` and history does not; else a merge
+    /// commit with `message`, or the conflicts. With `no_commit` the merge is left in the index, `MERGE_HEAD` kept
+    /// for the commit that concludes it; with `squash` it is left in the index as one change, no `MERGE_HEAD`, its
+    /// message in `SQUASH_MSG`.
     fn merge(
         &self,
         _place: &GitPlace,
         _theirs: &Sha,
-        _fast_forward: Option<bool>,
-        _message: &str,
+        _merging: &Merging,
     ) -> Result<Merged, GitError> {
         Err(GitError::unwritable())
     }

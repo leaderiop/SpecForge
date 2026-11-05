@@ -74,12 +74,13 @@ pub(crate) fn gix_owned(place: &GitPlace) -> Result<gix::Repository, GitError> {
     open(place)
 }
 
-/// The files of a merge, cherry-pick or revert a commit concludes, which git removes once it is recorded. Never
+/// The files of a merge, squash, cherry-pick or revert a commit concludes, which git removes once it is recorded. Never
 /// libgit2's `cleanup_state`, which also deletes a rebase's, a bisect's and a sequencer's.
-const CONCLUDED: [&str; 6] = [
+const CONCLUDED: [&str; 7] = [
     "MERGE_HEAD",
     "MERGE_MSG",
     "MERGE_MODE",
+    "SQUASH_MSG",
     "CHERRY_PICK_HEAD",
     "REVERT_HEAD",
     "AUTO_MERGE",
@@ -416,9 +417,8 @@ pub(crate) fn commit(
         author.as_ref(),
         &recording.only,
     )?;
-    if merging {
-        conclude(place)?;
-    }
+    // as git: a commit ends what the files describe, a squash's SQUASH_MSG too
+    conclude(place)?;
     Ok(committed)
 }
 

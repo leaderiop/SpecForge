@@ -5,7 +5,8 @@
 
 use gix::refs::transaction::PreviousValue;
 use specforge_effects::git::{
-    ConflictSide, GitConflict, GitError, GitPlace, GitStash, Merged, ResetMode, Restoring, Sha,
+    ConflictSide, GitConflict, GitError, GitPlace, GitStash, Merged, Merging, ResetMode, Restoring,
+    Sha,
 };
 
 use crate::write::{author_of, conclude, gix_owned, head_of, libgit2, libgit2_read, record, safe};
@@ -102,9 +103,9 @@ pub(crate) fn merge(
     port: &Gix,
     place: &GitPlace,
     theirs: &Sha,
-    fast_forward: Option<bool>,
-    message: &str,
+    merging: &Merging,
 ) -> Result<Merged, GitError> {
+    let fast_forward = merging.fast_forward;
     let repo = libgit2(place)?;
     let annotated = repo
         .find_annotated_commit(oid(theirs)?)
@@ -120,7 +121,7 @@ pub(crate) fn merge(
             conflicts: Vec::new(),
         });
     }
-    if analysis.is_fast_forward() && fast_forward != Some(false) {
+    if analysis.is_fast_forward() && fast_forward != Some(false) && !merging.squash {
         let target = repo
             .find_object(oid(theirs)?, None)
             .map_err(|e| failed("read the commit to merge", &e))?;
@@ -134,7 +135,7 @@ pub(crate) fn merge(
             conflicts: Vec::new(),
         });
     }
-    if fast_forward == Some(true) {
+    if fast_forward == Some(true) && !analysis.is_fast_forward() {
         return Err(GitError(
             "the histories have diverged: no fast-forward is possible".into(),
         ));
@@ -145,6 +146,17 @@ pub(crate) fn merge(
     repo.merge(&[&annotated], None, Some(&mut safe()))
         .map_err(|e| failed("merge", &e))?;
     let conflicts = conflicts(&repo)?;
+    if merging.squash {
+        squashed(place, &repo, &ours, theirs)?;
+    }
+    if merging.squash || merging.no_commit {
+        // left staged, as git leaves it, for the commit that records it
+        return Ok(Merged {
+            sha: None,
+            fast_forward: false,
+            conflicts,
+        });
+    }
     if !conflicts.is_empty() {
         // left as git leaves it: the merge in progress, for the user to resolve and commit
         return Ok(Merged {
@@ -156,7 +168,7 @@ pub(crate) fn merge(
     let committed = record(
         port,
         place,
-        message,
+        &merging.message,
         Some(vec![ours, theirs.clone()]),
         true,
         None,
@@ -168,6 +180,44 @@ pub(crate) fn merge(
         fast_forward: false,
         conflicts: Vec::new(),
     })
+}
+
+/// A merge made a squash, as git leaves one: no `MERGE_HEAD` nor `MERGE_MODE`, and `SQUASH_MSG` naming each commit
+/// it brings, newest first, in place of `MERGE_MSG`.
+fn squashed(
+    place: &GitPlace,
+    repo: &git2::Repository,
+    ours: &Sha,
+    theirs: &Sha,
+) -> Result<(), GitError> {
+    let at = |e: git2::Error| failed("list the squashed commits", &e);
+    let mut walk = repo.revwalk().map_err(at)?;
+    walk.push(oid(theirs)?).map_err(at)?;
+    walk.hide(oid(ours)?).map_err(at)?;
+    let mut message = String::from("Squashed commit of the following:\n");
+    for commit in walk {
+        let commit = repo.find_commit(commit.map_err(at)?).map_err(at)?;
+        let who = commit.author();
+        message.push_str(&format!(
+            "\ncommit {}\nAuthor: {} <{}>\n\n",
+            commit.id(),
+            String::from_utf8_lossy(who.name_bytes()),
+            String::from_utf8_lossy(who.email_bytes())
+        ));
+        for line in String::from_utf8_lossy(commit.message_bytes()).lines() {
+            message.push_str(&format!("    {line}\n"));
+        }
+    }
+    for name in ["MERGE_HEAD", "MERGE_MODE", "MERGE_MSG"] {
+        match std::fs::remove_file(place.git_dir.join(name)) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                return Err(failed(&format!("remove {name}"), &e));
+            }
+            _ => {}
+        }
+    }
+    std::fs::write(place.git_dir.join("SQUASH_MSG"), message)
+        .map_err(|e| failed("write SQUASH_MSG", &e))
 }
 
 pub(crate) fn reset(place: &GitPlace, to: &Sha, mode: ResetMode) -> Result<(), GitError> {
