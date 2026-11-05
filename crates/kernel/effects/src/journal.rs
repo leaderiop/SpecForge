@@ -137,6 +137,28 @@ impl RecordedArgv {
     }
 }
 
+/// An HTTP request's URL as a record shows it: in clear when a spec or an extension declared it, and as its origin
+/// and a [`Blob`] of the whole URL when the user typed it, since a typed URL may carry a token in its query, path or
+/// userinfo (ADR 0337 D3). Replay never reads it: a record is found by its request digest.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RecordedUrl {
+    Shown(String),
+    Typed { origin: String, digest: Blob },
+}
+
+impl RecordedUrl {
+    fn typed(url: &str) -> Self {
+        let origin = url::Url::parse(url)
+            .map(|url| url.origin().ascii_serialization())
+            .unwrap_or_else(|_| "null".to_string());
+        RecordedUrl::Typed {
+            origin,
+            digest: Blob::of(url.as_bytes()),
+        }
+    }
+}
+
 /// A request header as a record shows it: its name, and its value only when it is not sensitive.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecordedHeader {
@@ -157,13 +179,13 @@ impl RecordedHeader {
 }
 
 /// What a record shows of its request: what identifies it and is safe to show. The method, URL and argv; header and
-/// environment names; a non-sensitive header's value; a body or stdin as a [`Blob`]. Built by [`Self::of`] only.
+/// environment names; a non-sensitive header's value; a body or stdin as a [`Blob`]. Built by [`Self::of`] and [`Self::typed`] only.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "port", rename_all = "snake_case")]
 pub enum RecordedRequest {
     Http {
         method: String,
-        url: String,
+        url: RecordedUrl,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         headers: Vec<RecordedHeader>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -192,7 +214,7 @@ impl RecordedRequest {
         Some(match request {
             EffectRequest::Http(http) => RecordedRequest::Http {
                 method: http.method.clone(),
-                url: http.url.clone(),
+                url: RecordedUrl::Shown(http.url.clone()),
                 headers: http
                     .headers
                     .iter()
@@ -219,7 +241,8 @@ impl RecordedRequest {
         })
     }
 
-    /// [`Self::of`] for a request the user typed (`specforge run`): a process's argv shows as its digest.
+    /// [`Self::of`] for a request the user typed (`specforge run`, `specforge http`): a process's argv shows as its
+    /// digest, an HTTP request's URL as its origin and digest and its headers by name alone.
     pub fn typed(request: &EffectRequest) -> Option<Self> {
         Some(match (Self::of(request)?, request) {
             (RecordedRequest::Process { env, stdin, .. }, EffectRequest::Process(process)) => {
@@ -227,6 +250,22 @@ impl RecordedRequest {
                     argv: RecordedArgv::typed(&process.argv),
                     env,
                     stdin,
+                }
+            }
+            // A typed header's value is the user's too: its name alone is shown, as a sensitive header's is.
+            (RecordedRequest::Http { method, body, .. }, EffectRequest::Http(http)) => {
+                RecordedRequest::Http {
+                    method,
+                    url: RecordedUrl::typed(&http.url),
+                    headers: http
+                        .headers
+                        .iter()
+                        .map(|header| RecordedHeader {
+                            name: header.name.clone(),
+                            value: None,
+                        })
+                        .collect(),
+                    body,
                 }
             }
             (shown, _) => shown,
@@ -238,7 +277,16 @@ impl RecordedRequest {
 impl fmt::Display for RecordedRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RecordedRequest::Http { method, url, .. } => write!(f, "{method} {url}"),
+            RecordedRequest::Http {
+                method,
+                url: RecordedUrl::Shown(url),
+                ..
+            } => write!(f, "{method} {url}"),
+            RecordedRequest::Http {
+                method,
+                url: RecordedUrl::Typed { origin, digest },
+                ..
+            } => write!(f, "{method} a typed URL on {origin} ({})", digest.sha256),
             RecordedRequest::Process {
                 argv: RecordedArgv::Shown(argv),
                 ..

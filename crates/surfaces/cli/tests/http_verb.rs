@@ -2,7 +2,7 @@
 
 use serde_json::json;
 
-use crate::support::{Cli, TestProject};
+use crate::support::{Cli, TestProject, files_under};
 use specforge_effects::testing::server::Server;
 
 const MODELS: &str = r#"{"models":["a","b"]}"#;
@@ -213,5 +213,51 @@ fn cached_answers_a_get_from_the_journal_and_replay_refuses_what_was_never_sent(
         ])
         .exits(0);
     assert_eq!(replayed.stdout, "b\n");
+    assert_eq!(server.requests().len(), 1, "the server answered once");
+}
+
+/// A URL or a header the user typed may carry a token: no record and no payload holds either in clear, and a replay
+/// still answers with the URL it was asked.
+#[test]
+fn no_record_holds_a_typed_url_or_header_value_in_clear() {
+    let project = TestProject::new();
+    let server = Server::answering(200, "application/json", MODELS);
+    let token = "sk_live_0123456789journaled";
+    let header = "hdr_0123456789journaled";
+    let url = format!("{}/v1/models?token={token}", server.base);
+    let ask = |mode: &str| {
+        Cli::on(&project)
+            .run(&[
+                "http",
+                "get",
+                &url,
+                "--header",
+                &format!("X-Api-Key: {header}"),
+                "--effects",
+                mode,
+            ])
+            .exits(0)
+            .answer()
+    };
+    let live = ask("cached");
+    let journal = project.root().join(".specforge/effects/journal");
+    let files = files_under(&journal);
+    assert!(files.len() >= 2, "a record and its payload: {files:?}");
+    for path in files {
+        let text = String::from_utf8_lossy(&std::fs::read(&path).unwrap()).into_owned();
+        for secret in [token, header] {
+            assert!(
+                !text.contains(secret),
+                "{} holds {secret}: {text}",
+                path.display()
+            );
+        }
+    }
+    let replayed = ask("replay");
+    assert_eq!(replayed, live);
+    assert_eq!(
+        (&live["url"], &live["final_url"]),
+        (&json!(url), &json!(url))
+    );
     assert_eq!(server.requests().len(), 1, "the server answered once");
 }

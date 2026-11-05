@@ -19,3 +19,17 @@ pub const SOFTWARE_GOVERNANCE_TESTING: &[&str] = &[
     "@specforge/governance",
     "@specforge/testing",
 ];
+
+/// Every file under `dir`, at any depth; none when it is missing.
+pub fn files_under(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut found = Vec::new();
+    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            found.extend(files_under(&path));
+        } else {
+            found.push(path);
+        }
+    }
+    found
+}
