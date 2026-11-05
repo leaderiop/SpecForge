@@ -512,3 +512,76 @@ fn files_takes_every_effects_mode_and_performs_the_read_in_each() {
         "a local effect writes no record: only the fixture's is there"
     );
 }
+
+/// `files read`: the text, its bytes and its lines (a last line with no newline counts); past 1 MiB, `truncated`.
+#[test]
+fn read_answers_text_bytes_and_lines() {
+    let project = project().files(&[("notes/no-newline.txt", "one\ntwo")]);
+    let run = Cli::on(&project)
+        .run(&["files", "read", "src/main.rs"])
+        .exits(0);
+    insta::assert_json_snapshot!("files_read", run.answer());
+    let lines = Cli::on(&project)
+        .run(&["files", "read", "notes/no-newline.txt", "--pick", ".lines"])
+        .exits(0);
+    assert_eq!(lines.stdout, "2\n");
+    let human = Cli::on(&project)
+        .run(&["files", "read", "notes/no-newline.txt", "--format", "human"])
+        .exits(0);
+    assert_eq!(human.stdout, "one\ntwo");
+    let big = "a\n".repeat(512 * 1024 + 1);
+    let project = project.files(&[("notes/big.txt", big.as_str())]);
+    let read = Cli::on(&project)
+        .run(&["files", "read", "notes/big.txt"])
+        .exits(0)
+        .json();
+    assert_eq!(
+        (&read["truncated"], &read["bytes"], &read["lines"]),
+        (
+            &Value::Bool(true),
+            &Value::from(1024 * 1024),
+            &Value::from(512 * 1024)
+        ),
+        "{}",
+        read["path"]
+    );
+}
+
+#[test]
+fn read_refuses_a_directory_and_a_missing_file() {
+    let project = project().files(&[(".env", "TOKEN=x\n")]);
+    let dir = Cli::on(&project).run(&["files", "read", "src"]).exits(1);
+    assert_eq!(dir.json()["code"], "invalid_input", "{}", dir.stdout);
+    let missing = Cli::on(&project)
+        .run(&["files", "read", "nosuch.txt", "--pick", ".text"])
+        .exits(1);
+    assert_eq!(missing.stdout, "");
+    assert!(
+        missing.stderr.contains("file_not_found"),
+        "{}",
+        missing.stderr
+    );
+    let secret = Cli::on(&project).run(&["files", "read", ".env"]).exits(1);
+    assert_eq!(
+        secret.json()["code"],
+        "permission_denied",
+        "{}",
+        secret.stdout
+    );
+}
+
+/// A path `files temp` answered reads back through the temp root.
+#[test]
+fn read_of_a_temp_file_works() {
+    let project = project();
+    let made = Cli::on(&project)
+        .run(&["files", "temp", "--pick", ".path"])
+        .exits(0);
+    let made = made.stdout.trim().to_string();
+    std::fs::write(&made, "kept\n").unwrap();
+    let read = Cli::on(&project)
+        .run(&["files", "read", &made, "--pick", ".text"])
+        .exits(0);
+    // The text, then the newline `--pick` ends each value with: `$(…)` drops both, as it would `cat`'s.
+    assert_eq!(read.stdout, "kept\n\n");
+}

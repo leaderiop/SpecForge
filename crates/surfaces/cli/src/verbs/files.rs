@@ -12,7 +12,7 @@ use specforge_ops::verbs::files::{
 
 use super::{VerbArgs, shown};
 use crate::outcome::Exit;
-use crate::terminal::{Terminal, outln};
+use crate::terminal::{Terminal, out, outln};
 
 #[derive(clap::Subcommand)]
 pub(crate) enum Action {
@@ -22,6 +22,8 @@ pub(crate) enum Action {
     List(ListArgs),
     /// The lines under the paths that match a regular expression
     Search(SearchArgs),
+    /// A file's text (at most 1 MiB), its size in bytes and its lines
+    Read(ReadArgs),
     /// A new empty file, or directory, with a name no other has, in the project's temp root (only you may read it)
     Temp(TempArgs),
     /// Make each directory, with its missing parents
@@ -49,6 +51,15 @@ pub(crate) struct TempArgs {
     /// The name's end, such as `.json`
     #[arg(long, default_value = "")]
     suffix: String,
+
+    #[command(flatten)]
+    verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct ReadArgs {
+    /// The file, from the current directory
+    file: PathBuf,
 
     #[command(flatten)]
     verb: VerbArgs,
@@ -261,6 +272,18 @@ impl Action {
             ),
             Action::List(args) => args.run(terminal, ports),
             Action::Search(args) => args.run(terminal, ports),
+            Action::Read(args) => args.verb.answer(
+                terminal,
+                ports,
+                |verbs| files::read(&verbs, &args.file),
+                |terminal, answer| {
+                    out!(
+                        terminal,
+                        "{}",
+                        specforge_common::remedy::printable_lines(&answer.text)
+                    );
+                },
+            ),
             Action::Temp(args) => {
                 let temp = Temp {
                     dir: args.dir,

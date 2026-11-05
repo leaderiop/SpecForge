@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use specforge_effects::contained::{TEMP, temp_root};
-use specforge_effects::fs::FileKind;
+use specforge_effects::fs::{FileKind, READ_CEILING};
 use specforge_effects::{FsChange, FsChanged, FsOp, ListRequest, OutcomeClass, Place};
 
 use super::{Access, Located, Verbs, refused};
@@ -171,6 +171,56 @@ pub fn list(verbs: &Verbs, list: &List) -> Result<ListAnswer, OpError> {
         entries,
         truncated: listing.truncated,
     })
+}
+
+/// `files read`'s answer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReadAnswer {
+    pub path: String,
+    /// The bytes read as UTF-8, an invalid sequence replaced.
+    pub text: String,
+    /// How many bytes were read.
+    pub bytes: u64,
+    /// See [`lines_of`].
+    pub lines: usize,
+    /// The file is larger than one read ([`READ_CEILING`]).
+    pub truncated: bool,
+}
+
+/// A file's text, through one capped read: a directory is `invalid_input`, a missing file `file_not_found`, and the
+/// host's state or a credential is refused.
+pub fn read(verbs: &Verbs, typed: &Path) -> Result<ReadAnswer, OpError> {
+    let (located, request) = verbs.held(
+        typed,
+        FsOp::Read {
+            max_bytes: READ_CEILING,
+        },
+    )?;
+    let shown = verbs.shown(&located.at);
+    let outcome = verbs.ports().fs.run(verbs.roots(), &request);
+    if outcome.class != OutcomeClass::Ok {
+        return Err(refused(outcome.class, &shown));
+    }
+    if outcome.stat.is_some_and(|stat| stat.kind != FileKind::File) {
+        return Err(OpError::new(
+            OpErrorKind::InvalidInput,
+            OpErrorKind::InvalidInput.as_str(),
+            format!("{shown} is not a file"),
+        ));
+    }
+    Ok(ReadAnswer {
+        path: shown,
+        text: String::from_utf8_lossy(&outcome.bytes).into_owned(),
+        bytes: outcome.bytes.len() as u64,
+        lines: lines_of(&outcome.bytes),
+        truncated: outcome.truncated,
+    })
+}
+
+/// The lines of `bytes`: its `\n`s, and one more for a last line with none, which `wc -l` does not count.
+pub fn lines_of(bytes: &[u8]) -> usize {
+    let newlines = bytes.iter().filter(|&&byte| byte == b'\n').count();
+    newlines + usize::from(bytes.last().is_some_and(|&last| last != b'\n'))
 }
 
 /// `files temp`'s answer.

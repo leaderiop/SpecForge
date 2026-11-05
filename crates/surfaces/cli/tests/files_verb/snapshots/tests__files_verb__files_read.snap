@@ -1,0 +1,11 @@
+---
+source: crates/surfaces/cli/tests/files_verb/mod.rs
+expression: run.answer()
+---
+{
+  "bytes": 37,
+  "lines": 3,
+  "path": "src/main.rs",
+  "text": "fn main() {\n    println!(\"hello\");\n}\n",
+  "truncated": false
+}
