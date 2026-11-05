@@ -388,34 +388,34 @@ fi
 
 **Do NOT grep REVIEWS.md for HIGH or actionable counts.** REVIEWS.md accumulates history across cycles — resolved findings from prior cycles remain in the file as audit trail, inflating a raw grep count and causing false stall detection.
 
-Parse HIGH_COUNT and ACTIONABLE_COUNT from the review agent's return message via the CYCLE_SUMMARY contract:
+Read `CYCLE_SUMMARY: current_high=N current_actionable=M` from the review agent's return and write its two numbers below; write the `## Current HIGH Concerns` and `## Current Actionable Non-HIGH Concerns` sections into `HIGH_LINES`/`ACTIONABLE_LINES` the same way. A return with no `CYCLE_SUMMARY` line did not honor the contract: stop and retry, or switch reviewer.
 
 ```bash
-# Extract integers from "CYCLE_SUMMARY: current_high=N current_actionable=M" in the agent's return message
-SUMMARY_LINE=$(echo "$REVIEW_AGENT_RETURN" | grep -oE 'CYCLE_SUMMARY:.*' | head -1)
-HIGH_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_high=[0-9]+' | head -1 | grep -oE '[0-9]+$')
-ACTIONABLE_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_actionable=[0-9]+' | head -1 | grep -oE '[0-9]+$')
+# written from the agent's return: <current_high> and <current_actionable>, each a whole number
+HIGH_COUNT=<current_high>
+ACTIONABLE_COUNT=<current_actionable>
+IFS= read -rd '' HIGH_LINES <<'END' || true   # the lines under "## Current HIGH Concerns"
+<those lines; no line when the section is absent>
+END
+IFS= read -rd '' ACTIONABLE_LINES <<'END' || true   # the lines under "## Current Actionable Non-HIGH Concerns"
+<those lines; no line when the section is absent>
+END
 
-if [ -z "$SUMMARY_LINE" ]; then
-  echo "Review agent did not honor the CYCLE_SUMMARY contract — cannot determine unresolved review counts. Retry or switch reviewer."
-  exit 1
-fi
-
-if [ -z "$HIGH_COUNT" ]; then
+case "$HIGH_COUNT" in ''|*[!0-9]*)
   echo "CYCLE_SUMMARY present but current_high is missing or malformed — expected integer, got non-numeric or absent value. Retry or switch reviewer."
-  exit 1
-fi
+  exit 1 ;;
+esac
 
-if [ -z "$ACTIONABLE_COUNT" ]; then
+case "$ACTIONABLE_COUNT" in ''|*[!0-9]*)
   echo "CYCLE_SUMMARY present but current_actionable is missing or malformed — expected integer, got non-numeric or absent value. Retry or switch reviewer."
-  exit 1
-fi
+  exit 1 ;;
+esac
 
 UNRESOLVED_COUNT=$((HIGH_COUNT + ACTIONABLE_COUNT))
 
-# Extract the ## Current HIGH Concerns section from the agent's return message
-HIGH_LINES=$(echo "$REVIEW_AGENT_RETURN" | awk '/^## Current HIGH Concerns/{found=1; next} found && /^##/{exit} found{print}')
-ACTIONABLE_LINES=$(echo "$REVIEW_AGENT_RETURN" | awk '/^## Current Actionable Non-HIGH Concerns/{found=1; next} found && /^##/{exit} found{print}')
+
+
+
 
 if [ "${HIGH_COUNT}" -gt 0 ] && [ -z "${HIGH_LINES}" ]; then
   echo "⚠ Review agent's CYCLE_SUMMARY reports ${HIGH_COUNT} HIGHs but did not provide ## Current HIGH Concerns section — continuing with incomplete escalation details."

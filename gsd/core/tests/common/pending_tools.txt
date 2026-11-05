@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 693 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 673 rows.
 ../security/assets/gsd-core/workflows/secure-phase.md	head	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
 ../security/assets/gsd-core/workflows/secure-phase.md	sed	GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
@@ -385,20 +385,10 @@ gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	cat	cat <<EOF >&2
 gsd-core/workflows/plan-phase/steps/prd-express-path.md	cat	PRD_CONTENT=$(cat "$PRD_FILE" 2>/dev/null)
 gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md	grep	if grep -qF "$m" "$output_file" 2>/dev/null; then marker_found="true"; break; fi
 gsd-core/workflows/plan-review-convergence.md	awk	MAX_CYCLES=$(echo "$GSD_ARGS" | grep -oE '\-\-max-cycles\s+[0-9]+' | awk '{print $2}')
-gsd-core/workflows/plan-review-convergence.md	awk	HIGH_LINES=$(echo "$REVIEW_AGENT_RETURN" | awk '/^## Current HIGH Concerns/{found=1; next} found && /^##/{exit} found{print}')
-gsd-core/workflows/plan-review-convergence.md	awk	ACTIONABLE_LINES=$(echo "$REVIEW_AGENT_RETURN" | awk '/^## Current Actionable Non-HIGH Concerns/{found=1; next} found && /^##/{exit} found{print}')
 gsd-core/workflows/plan-review-convergence.md	awk	if OPEN_CONFLICTS=$(awk '
 gsd-core/workflows/plan-review-convergence.md	grep	PHASE=$(echo "$GSD_ARGS" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*' | head -1)
 gsd-core/workflows/plan-review-convergence.md	grep	MAX_CYCLES=$(echo "$GSD_ARGS" | grep -oE '\-\-max-cycles\s+[0-9]+' | awk '{print $2}')
-gsd-core/workflows/plan-review-convergence.md	grep	SUMMARY_LINE=$(echo "$REVIEW_AGENT_RETURN" | grep -oE 'CYCLE_SUMMARY:.*' | head -1)
-gsd-core/workflows/plan-review-convergence.md	grep	HIGH_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_high=[0-9]+' | head -1 | grep -oE '[0-9]+$')
-gsd-core/workflows/plan-review-convergence.md	grep	HIGH_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_high=[0-9]+' | head -1 | grep -oE '[0-9]+$')
-gsd-core/workflows/plan-review-convergence.md	grep	ACTIONABLE_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_actionable=[0-9]+' | head -1 | grep -oE '[0-9]+$')
-gsd-core/workflows/plan-review-convergence.md	grep	ACTIONABLE_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_actionable=[0-9]+' | head -1 | grep -oE '[0-9]+$')
 gsd-core/workflows/plan-review-convergence.md	head	PHASE=$(echo "$GSD_ARGS" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*' | head -1)
-gsd-core/workflows/plan-review-convergence.md	head	SUMMARY_LINE=$(echo "$REVIEW_AGENT_RETURN" | grep -oE 'CYCLE_SUMMARY:.*' | head -1)
-gsd-core/workflows/plan-review-convergence.md	head	HIGH_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_high=[0-9]+' | head -1 | grep -oE '[0-9]+$')
-gsd-core/workflows/plan-review-convergence.md	head	ACTIONABLE_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_actionable=[0-9]+' | head -1 | grep -oE '[0-9]+$')
 gsd-core/workflows/plan-review-convergence.md	paste	REVIEWER_DISPLAY="review.default_reviewers ($(printf '%s\n' "$DEFAULT_REVIEWERS" | paste -sd, - | sed 's/,/, /g'))"
 gsd-core/workflows/plan-review-convergence.md	sed	REVIEWER_DISPLAY="review.default_reviewers ($(printf '%s\n' "$DEFAULT_REVIEWERS" | paste -sd, - | sed 's/,/, /g'))"
 gsd-core/workflows/pr-branch.md	grep	TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
@@ -588,20 +578,10 @@ prompt:plan_phase	wc	PRIOR_SUMMARIES=$(specforge query "$MILESTONE" --depth 3 --
 prompt:plan_phase	wc	DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
 prompt:plan_phase	wc	DISK_PLANS=$(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id' | wc -l | tr -d ' ')
 prompt:plan_review_convergence	awk	MAX_CYCLES=$(echo "$GSD_ARGS" | grep -oE '\-\-max-cycles\s+[0-9]+' | awk '{print $2}')
-prompt:plan_review_convergence	awk	HIGH_LINES=$(echo "$REVIEW_AGENT_RETURN" | awk '/^## Current HIGH Concerns/{found=1; next} found && /^##/{exit} found{print}')
-prompt:plan_review_convergence	awk	ACTIONABLE_LINES=$(echo "$REVIEW_AGENT_RETURN" | awk '/^## Current Actionable Non-HIGH Concerns/{found=1; next} found && /^##/{exit} found{print}')
 prompt:plan_review_convergence	awk	if OPEN_CONFLICTS=$(awk '
 prompt:plan_review_convergence	grep	PHASE=$(echo "$GSD_ARGS" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*' | head -1)
 prompt:plan_review_convergence	grep	MAX_CYCLES=$(echo "$GSD_ARGS" | grep -oE '\-\-max-cycles\s+[0-9]+' | awk '{print $2}')
-prompt:plan_review_convergence	grep	SUMMARY_LINE=$(echo "$REVIEW_AGENT_RETURN" | grep -oE 'CYCLE_SUMMARY:.*' | head -1)
-prompt:plan_review_convergence	grep	HIGH_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_high=[0-9]+' | head -1 | grep -oE '[0-9]+$')
-prompt:plan_review_convergence	grep	HIGH_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_high=[0-9]+' | head -1 | grep -oE '[0-9]+$')
-prompt:plan_review_convergence	grep	ACTIONABLE_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_actionable=[0-9]+' | head -1 | grep -oE '[0-9]+$')
-prompt:plan_review_convergence	grep	ACTIONABLE_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_actionable=[0-9]+' | head -1 | grep -oE '[0-9]+$')
 prompt:plan_review_convergence	head	PHASE=$(echo "$GSD_ARGS" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*' | head -1)
-prompt:plan_review_convergence	head	SUMMARY_LINE=$(echo "$REVIEW_AGENT_RETURN" | grep -oE 'CYCLE_SUMMARY:.*' | head -1)
-prompt:plan_review_convergence	head	HIGH_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_high=[0-9]+' | head -1 | grep -oE '[0-9]+$')
-prompt:plan_review_convergence	head	ACTIONABLE_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_actionable=[0-9]+' | head -1 | grep -oE '[0-9]+$')
 prompt:plan_review_convergence	paste	REVIEWER_DISPLAY="review.default_reviewers ($(printf '%s\n' "$DEFAULT_REVIEWERS" | paste -sd, - | sed 's/,/, /g'))"
 prompt:plan_review_convergence	sed	REVIEWER_DISPLAY="review.default_reviewers ($(printf '%s\n' "$DEFAULT_REVIEWERS" | paste -sd, - | sed 's/,/, /g'))"
 prompt:plan_review_convergence	wc	wc -l

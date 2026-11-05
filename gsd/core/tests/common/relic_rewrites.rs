@@ -205,6 +205,14 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     // the default reviewers are a settings pick
     ("gsd-core/workflows/plan-review-convergence.md", 114, 114),
     ("gsd-core/workflows/plan-review-convergence.md", 124, 125),
+    // the model writes the review agent's counts and sections; the shell checks them
+    ("gsd-core/workflows/plan-review-convergence.md", 389, 389),
+    ("gsd-core/workflows/plan-review-convergence.md", 392, 400),
+    ("gsd-core/workflows/plan-review-convergence.md", 402, 402),
+    ("gsd-core/workflows/plan-review-convergence.md", 404, 405),
+    ("gsd-core/workflows/plan-review-convergence.md", 407, 407),
+    ("gsd-core/workflows/plan-review-convergence.md", 409, 410),
+    ("gsd-core/workflows/plan-review-convergence.md", 414, 416),
 ];
 
 /// `(path, first, last)`, inclusive: runs deleted by blanking, whose first line says what replaced them. Every other
