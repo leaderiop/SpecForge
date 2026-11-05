@@ -3,21 +3,10 @@
 //! prompt route on the default whatever the project sets, so the line carries `{{setting:<key>|<fallback>}}` and the
 //! render replaces it with the value of the settings block (`settings::block()`), or the fallback for a key nothing sets.
 
+use super::shell::in_double_quotes;
+
 const OPEN: &str = "{{setting:";
 const CLOSE: &str = "}}";
-
-/// `raw` as shell text inside double quotes: `"`, `\`, `$` and a backtick are escaped so a value can never end the
-/// quote or run a command.
-pub(crate) fn shell_text(raw: &str) -> String {
-    let mut out = String::with_capacity(raw.len());
-    for c in raw.chars() {
-        if matches!(c, '"' | '\\' | '$' | '`') {
-            out.push('\\');
-        }
-        out.push(c);
-    }
-    out
-}
 
 /// `text` with each `{{setting:<key>|<fallback>}}` replaced by the setting's value in `block` (a JSON object), else
 /// the fallback; the fallback `@host` is `runtime`, the runtime the text is rendered for (`claude`, `codex`, `cursor`).
@@ -35,8 +24,8 @@ pub fn fill(text: &str, block: &str, runtime: &str) -> String {
         let (key, fallback) = after[..end].split_once('|').unwrap_or((&after[..end], ""));
         match values.get(key.trim()) {
             // a string as it is, a list or number as JSON
-            Some(serde_json::Value::String(s)) => out.push_str(&shell_text(s)),
-            Some(other) => out.push_str(&shell_text(&other.to_string())),
+            Some(serde_json::Value::String(s)) => out.push_str(&in_double_quotes(s)),
+            Some(other) => out.push_str(&in_double_quotes(&other.to_string())),
             None => out.push_str(if fallback == "@host" {
                 runtime
             } else {

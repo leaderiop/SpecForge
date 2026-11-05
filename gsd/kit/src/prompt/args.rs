@@ -138,7 +138,8 @@ fn written(path: &str) -> &str {
     path.rsplit('/').next().unwrap_or(path)
 }
 
-/// `value` in double quotes, for a free-text option.
+/// `value` in double quotes, for a free-text option. Not `shell::in_double_quotes`: the argument text is data the
+/// agent reads, never shell (ADR 0340 D6), so only the quote and the backslash that delimit the value are escaped.
 fn quoted(value: &str) -> String {
     format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
 }
@@ -181,7 +182,7 @@ pub fn text(call: &PromptCall<'_>, args: &[Arg]) -> String {
 
 /// The value an `{{arg:<name>|…}}` placeholder takes for `value` (ADR 0340 D2), unescaped: an entity's full path, a
 /// bound's last segment, `true`/`false`, a decimal, or the string; an empty string is absent.
-pub fn shell_value(arg: &Arg, value: &Value) -> Option<String> {
+pub fn unescaped_value(arg: &Arg, value: &Value) -> Option<String> {
     match (&arg.kind, value) {
         (Kind::Bound(_), Value::String(path)) => Some(written(path).to_string()),
         (_, Value::String(text)) if text.is_empty() => None,
@@ -196,7 +197,7 @@ pub fn shell_value(arg: &Arg, value: &Value) -> Option<String> {
 pub fn values(call: &PromptCall<'_>, args: &[Arg]) -> Vec<(&'static str, Option<String>)> {
     args.iter()
         .map(|arg| {
-            let value = call.arg(arg.name).and_then(|v| shell_value(arg, v));
+            let value = call.arg(arg.name).and_then(|v| unescaped_value(arg, v));
             (arg.name, value)
         })
         .collect()
@@ -206,11 +207,11 @@ pub fn values(call: &PromptCall<'_>, args: &[Arg]) -> Vec<(&'static str, Option<
 mod tests {
     use serde_json::json;
 
-    use super::{Arg, shell_value};
+    use super::{Arg, unescaped_value};
 
     #[test]
     fn a_value_by_kind() {
-        let value = |arg: Arg, v| shell_value(&arg, &v);
+        let value = |arg: Arg, v| unescaped_value(&arg, &v);
         assert_eq!(
             value(Arg::reference("phase", "phase"), json!("v1.0/02")).as_deref(),
             Some("v1.0/02")

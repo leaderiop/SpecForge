@@ -7,7 +7,7 @@
 //! Then `$ARGUMENTS` and the `{{arg:}}` placeholders are filled, last: the typed text is data no rewrite runs on
 //! (ADR 0340). The host's adapter header goes in front, unconverted.
 
-use super::{compose, host, preamble, setting};
+use super::{compose, host, preamble, setting, shell};
 
 pub struct Input<'a> {
     /// The upstream command file's stem: `plan-phase` for `commands/gsd/plan-phase.md`.
@@ -120,7 +120,7 @@ fn fill_arguments(text: &str, arguments: &str, values: &[(&str, Option<String>)]
         };
         let (name, fallback) = after[..end].split_once('|').unwrap_or((&after[..end], ""));
         match values.iter().find(|(n, _)| *n == name) {
-            Some((_, Some(value))) => out.push_str(&setting::shell_text(value)),
+            Some((_, Some(value))) => out.push_str(&shell::in_double_quotes(value)),
             Some((_, None)) => out.push_str(fallback),
             None => out.push_str(&rest[at..at + ARG_OPEN.len() + end + 2]),
         }
