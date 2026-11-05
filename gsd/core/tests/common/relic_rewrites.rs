@@ -222,6 +222,17 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/execute-phase.md", 976, 976),
     ("gsd-core/references/dispatch-isolation-gate.md", 127, 128),
     ("gsd-core/references/dispatch-isolation-gate.md", 130, 131),
+    // chunked planning resumes past a plan entity
+    (
+        "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
+        119,
+        119,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
+        128,
+        129,
+    ),
 ];
 
 /// `(path, first, last)`, inclusive: runs deleted by blanking, whose first line (when not blank) says what replaced them. Every other

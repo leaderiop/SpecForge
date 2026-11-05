@@ -2,6 +2,7 @@
 //! roadmap file (ADR 0343 D3); the review agent's return is written by the model and only checked here (D6).
 
 use super::{Shell, asset, block, q};
+use crate::harness::taskboard;
 
 /// The UI gate reads the phase's computed `frontend` field (`@gsd/ui` computes it): no field holds upstream's
 /// `**UI hint**: yes`, so a grep of the phase's text for it is always false.
@@ -91,4 +92,28 @@ fn the_review_counts_are_written_by_the_model_and_checked() {
         written("two")
             .starts_with("CYCLE_SUMMARY present but current_high is missing or malformed")
     );
+}
+
+/// Chunked planning resumes past a plan whose entity exists, not past a file with a frontmatter fence; `--reviews`
+/// replans it.
+#[test]
+fn a_chunked_plan_resumes_past_its_entity() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = taskboard();
+    let text = asset("gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md");
+    let check = block(&text, "PLAN_ENTITY=", "fi");
+    for (plan, args, want) in [
+        ("01-01", "", "skip"),
+        ("09-09", "", "plan"),
+        ("01-01", "--reviews", "plan"),
+    ] {
+        let script = format!(
+            "PHASE_ID=v1.0/01; plan_id={plan}; GSD_ARGS={args}; S=plan\n{}\nprintf %s \"$S\"",
+            check.replace(": # resume safety", "S=skip # resume safety")
+        );
+        let (out, err, _) = sh.run_in(p.root(), &script);
+        assert_eq!(out, want, "{plan} {args}: {err}");
+    }
 }
