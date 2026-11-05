@@ -99,7 +99,7 @@ If a decision from CONTEXT.md says "display cost calculated from billing table i
 
 > Enforced at plan-write time by `verify.plan-structure` (the `validate_plan` step). Issue #429.
 
-When an `<acceptance_criteria>` or `<verify>` block uses a **negative grep** — `grep -c 'LITERAL' file == 0`, meaning "this literal must NOT appear in the file" — that same `LITERAL` must not appear verbatim anywhere in an `<action>` body. Verbatim code blocks, JSDoc samples, head-comment references, and "what NOT to do" illustrations get echoed into the file the executor writes, so the executor's commit-time gate fails on the *comment text*, not on a real code regression. The work is correct; the gate output is semantically wrong; the executor wastes cycles and learns to distrust the gate.
+When an `<acceptance_criteria>` or `<verify>` block uses a **negative search** — `specforge files search --none 'LITERAL' file`, meaning "this literal must NOT appear in the file" — that same `LITERAL` must not appear verbatim anywhere in an `<action>` body. Verbatim code blocks, JSDoc samples, head-comment references, and "what NOT to do" illustrations get echoed into the file the executor writes, so the executor's commit-time gate fails on the *comment text*, not on a real code regression. The work is correct; the gate output is semantically wrong; the executor wastes cycles and learns to distrust the gate.
 
 **The gate:** plan creation FAILS (error, `valid: false`) when a confidently-extracted (quoted) negative-grep literal also appears in an `<action>` block. When the grep literal is unquoted and cannot be extracted unambiguously, the gate WARNS instead of failing (so you still get the plan, with the risk surfaced).
 
@@ -111,7 +111,7 @@ When an `<acceptance_criteria>` or `<verify>` block uses a **negative grep** —
     Add a `?from=` query param to the share link. Do NOT reintroduce the old
     `?from=` referrer hack the JSDoc warned about.   <!-- echoes ?from= -->
   </action>
-  <verify><automated>grep -c '?from=' src/animal-detail.tsx == 0</automated></verify>
+  <verify><automated>specforge files search --none -F '?from=' src/animal-detail.tsx</automated></verify>
 </task>
 ```
 
@@ -122,7 +122,7 @@ When an `<acceptance_criteria>` or `<verify>` block uses a **negative grep** —
   <action>
     Add the share-link query param. Do NOT reintroduce the legacy referrer hack.
   </action>
-  <verify><automated>grep -c '?from=' src/animal-detail.tsx == 0</automated></verify>
+  <verify><automated>specforge files search --none -F '?from=' src/animal-detail.tsx</automated></verify>
 </task>
 ```
 
@@ -140,12 +140,12 @@ One marker per literal. The marker exempts only the exact literal it names.
 
 > Surfaced at plan-write time by `verify.plan-structure` (the `validate_plan` step), WARN-level. Issue #968.
 
-A **negative grep** — `! grep -Eq 'PAT' file` or `grep -c 'PAT' file == 0` — asserts a construct is absent. `grep` is file-scoped by nature: it has no notion of function or region. This breaks down when a phase splits one file across parallel tasks with legitimately opposite needs for the same construct in different regions:
+A **negative search** — `specforge files search --none 'PAT' file` — asserts a construct is absent. A search is file-scoped by nature: it has no notion of function or region. This breaks down when a phase splits one file across parallel tasks with legitimately opposite needs for the same construct in different regions:
 
-- **Task A** bans the construct file-wide — a synchronous factory must not block on a refresh: `! grep -Eq 'await .*refresh' app/page.py`.
+- **Task A** bans the construct file-wide — a synchronous factory must not block on a refresh: `specforge files search --none 'await .*refresh' app/page.py`.
 - **Task B** legitimately requires it elsewhere in the same file — a post-reindex handler must `await bridge.refresh()` to repopulate state.
 
-Both occurrences are real, correct production code in different functions of one file. A file-wide negative grep cannot say "absent in function X, present in function Y", so the two gates are mutually unsatisfiable with a direct call — the executor is pushed into an indirection whose only purpose is to relocate the matched string out of the file (pure gate-appeasement, zero behaviour change). This is distinct from Comment-Text Discipline (#429): there is no comment echo and no allowlist helps — the construct must genuinely be present in one region and absent in another.
+Both occurrences are real, correct production code in different functions of one file. A file-wide negative search cannot say "absent in function X, present in function Y", so the two gates are mutually unsatisfiable with a direct call — the executor is pushed into an indirection whose only purpose is to relocate the matched string out of the file (pure gate-appeasement, zero behaviour change). This is distinct from Comment-Text Discipline (#429): there is no comment echo and no allowlist helps — the construct must genuinely be present in one region and absent in another.
 
 **The fix:** region-scope the negative gate so "absent in region X" stops implying "absent file-wide."
 
@@ -153,7 +153,7 @@ Both occurrences are real, correct production code in different functions of one
 
 ```xml
 <!-- Task A -->
-<verify><automated>! grep -Eq 'await .*refresh' app/page.py</automated></verify>
+<verify><automated>specforge files search --none 'await .*refresh' app/page.py</automated></verify>
 <!-- Task B (same file, different function) -->
 <action>Add a post-reindex handler in app/page.py that awaits bridge.refresh().</action>
 <files>app/page.py</files>
@@ -165,9 +165,9 @@ Task B writing `await bridge.refresh()` trips Task A's file-wide gate, though bo
 
 ```xml
 <!-- Task A: ban only inside the synchronous factory, not the whole file -->
-<verify><automated>! awk '/^def make_page/,/^def /' app/page.py | grep -Eq 'await .*refresh'</automated></verify>
+<verify><automated>awk '/^def make_page/,/^def /' app/page.py | specforge files search --none 'await .*refresh' -</automated></verify>
 <!-- or a fixed line range -->
-<verify><automated>! sed -n '12,40p' app/page.py | grep -Eq 'await .*refresh'</automated></verify>
+<verify><automated>sed -n '12,40p' app/page.py | specforge files search --none 'await .*refresh' -</automated></verify>
 ```
 
 The factory region is asserted clean; the reindex handler elsewhere in the same file keeps its required `await bridge.refresh()`. Both gates pass with no code restructuring. Prefer an AST/structural check or a focused unit test where region extraction is fragile.
@@ -184,29 +184,29 @@ One marker per pattern. The marker exempts only the exact pattern it names. Pref
 
 ## CLI Output Format Anchor Mismatch (#1478)
 
-`pnpm ls vite | grep -E '^vite@7\.'` looks correct but silently fails. `pnpm ls` uses tree characters as line prefixes:
+`pnpm ls vite | specforge files search -q '^vite@7\.' -` looks correct but silently fails. `pnpm ls` uses tree characters as line prefixes:
 ```
 my-project@1.0.0
 └── vite@7.3.5
 ```
-Lines begin with `└──`, not `vite`. The `^` anchor matches line start, which is a tree character — the grep finds nothing.
+Lines begin with `└──`, not `vite`. The `^` anchor matches line start, which is a tree character — the search finds nothing.
 
-**Bad:** `pnpm ls vite | grep -E '^vite@7\.'`
-**Good:** `pnpm ls vite | grep -E 'vite@7\.'`
-**Good (strict):** `pnpm ls vite | grep -E '(└|├)── vite@7\.'`
+**Bad:** `pnpm ls vite | specforge files search -q '^vite@7\.' -`
+**Good:** `pnpm ls vite | specforge files search -q 'vite@7\.' -`
+**Good (strict):** `pnpm ls vite | specforge files search -q '(└|├)── vite@7\.' -`
 
 Same trap: `npm ls`, `yarn list`, `docker ps` column output, `kubectl get` table output.
 
 ## Fabricated Numeric Baselines (#1478)
 
-Never emit `grep '714 tests'` or `grep '52 test files'` unless you ran the count command in this session. Model-recalled counts are stale from training.
+Never emit `specforge files search -q '714 tests' -` or `specforge files search -q '52 test files' -` unless you ran the count command in this session. Model-recalled counts are stale from training.
 
-**Bad:** `npm test 2>&1 | grep '714 passed'`
-**Good:** `npm test 2>&1 | grep -E '[0-9]+ passed'` or just `npm test`
+**Bad:** `npm test 2>&1 | specforge files search -q '714 passed' -`
+**Good:** `npm test 2>&1 | specforge files search -q '[0-9]+ passed' -` or just `npm test`
 
 ## Error-Suppressing Fallbacks in Verify Gates (#1479)
 
-`2>/dev/null || echo "0"` in an assignment that feeds a comparison converts any failure into a passing gate that measures nothing.
+`2>/dev/null || echo "0"` in an assignment that feeds a comparison converts any failure into a passing gate that measures nothing. A negated search has the same trap, it passes on a file it could not read: `specforge files search --none 'PAT' file` exits 2 there.
 
 **Bad — both sides default to "0" when files are missing:**
 ```bash

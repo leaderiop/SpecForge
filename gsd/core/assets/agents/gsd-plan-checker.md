@@ -679,18 +679,18 @@ issue:
 **Question:** Do `<verify>` commands use patterns that can actually match the tool's output? Are numeric counts measured? Are errors suppressed into comparison-feeding defaults?
 
 **Red flags — BLOCKER:**
-- `pnpm ls … | grep -E '^package'` — `^` anchor on tree-formatted package manager output (never matches tree-prefixed lines)
+- `pnpm ls … | specforge files search -q '^package' -` — `^` anchor on tree-formatted package manager output (never matches tree-prefixed lines)
 - Any verify block with `VAR=$(cmd 2>/dev/null || echo "0"); [ "$VAR" = ... ]` — swallowed error feeds passing comparison
 - `|| true` or `|| :` as right-hand side of assignments that feed comparisons
 
 **Red flags — WARNING:**
-- Hard-coded count assertion (`grep '52 test files'`, `grep '714 passed'`) with no measurement provenance in the plan
+- Hard-coded count assertion (`specforge files search -q '52 test files' -`, `specforge files search -q '714 passed' -`) with no measurement provenance in the plan
 
 **Process:**
-1. For each `<automated>` block piping a package-manager list command into grep with a `^` anchor: BLOCKER.
+1. For each `<automated>` block piping a package-manager list command into a search with a `^` anchor: BLOCKER.
 2. For each `<automated>` block containing `2>/dev/null || echo` where the result feeds a `[ "$VAR" = ... ]` comparison: BLOCKER.
 3. For each `<automated>` block asserting a specific numeric count not cited as measured in this plan: WARNING.
-4. For each count/match gate (`grep -c`, `grep -q`, `rg`), run it — read-only commands only — against the current tree (#4927). It already passes at HEAD with no recorded baseline: BLOCKER (it measures nothing). A literal differing in case from the heading/key the task writes: BLOCKER. Never run a gate that builds, installs, or writes. See `planner-verify-command-grounding.md`.
+4. For each count/match gate (`specforge files search -q`, `specforge files search --none`, `specforge files search --pick .count`), run it — read-only commands only — against the current tree (#4927). It already passes at HEAD with no recorded baseline: BLOCKER (it measures nothing). A literal differing in case from the heading/key the task writes: BLOCKER. Never run a gate that builds, installs, or writes. See `planner-verify-command-grounding.md`.
 
 ## Dimension: Verify Command Path Resolvability (#2401)
 

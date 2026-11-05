@@ -316,6 +316,7 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-integration-checker.md", 182),
     ("gsd-integration-checker.md", 187),
     ("gsd-verifier.md", 389),
+    ("gsd-plan-checker.md", 688),
 ];
 
 /// Checks one asset against its upstream file: the header, then every line.

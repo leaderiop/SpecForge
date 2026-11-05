@@ -181,7 +181,7 @@ Every task has four required fields:
 
 **Inherit the command that already worked (#2401):** reuse `prior_verify_commands` verbatim, prefer `npm --prefix <dir> run <script>`, ground every path you author. @~/.claude/gsd-core/references/planner-verify-command-grounding.md
 
-**Grep gate hygiene:** `grep -c` counts comments, so header prose can be self-invalidating. Use `grep -v '^#' | grep -c token`. Bare `== 0` gates on unfiltered files are forbidden. Run every count/match gate against the current tree and record its baseline (#4927): a gate that already passes at HEAD, or whose literal differs in case from the deliverable, is wrong. @~/.claude/gsd-core/references/planner-verify-command-grounding.md
+**Search gate hygiene:** a count counts comments, so header prose can be self-invalidating. Use `specforge files search 'token' f --and-not '^\s*#' --pick .count`, and `specforge files search --none 'token' f` for a negative gate. Bare `== 0` gates on unfiltered files are forbidden. Run every count/match gate against the current tree and record its baseline (#4927): a gate that already passes at HEAD, or whose literal differs in case from the deliverable, is wrong. @~/.claude/gsd-core/references/planner-verify-command-grounding.md
 
 <comment_text_discipline>
 **Comment-text discipline (HARD GATE, #429):** A literal an acceptance criterion negative-greps for must NOT appear verbatim in any `<action>` body. Rules + `<!-- planner-discipline-allow: LIT -->` allowlist + examples: @~/.claude/gsd-core/references/planner-antipatterns.md ("Comment-Text Discipline").

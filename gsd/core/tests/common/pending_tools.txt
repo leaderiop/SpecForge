@@ -4,21 +4,13 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 237 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 213 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	cat	PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
 agents/gsd-executor.md	grep	git status --short | grep '^??'
 agents/gsd-phase-researcher.md	head	specforge run --which $TOOL 2>/dev/null && $TOOL --version 2>/dev/null | head -1
 agents/gsd-phase-researcher.md	head	docker info 2>/dev/null | head -3
-agents/gsd-plan-checker.md	grep	pnpm ls … | grep -E '^package'
-agents/gsd-plan-checker.md	grep	grep '52 test files'
-agents/gsd-plan-checker.md	grep	grep '714 passed'
-agents/gsd-plan-checker.md	grep	grep -c
-agents/gsd-plan-checker.md	grep	grep -q
-agents/gsd-planner.md	grep	grep -c
-agents/gsd-planner.md	grep	grep -v '^#' | grep -c token
-agents/gsd-planner.md	grep	grep -v '^#' | grep -c token
 agents/gsd-planner.md	tail	tail -n 5
 agents/gsd-verifier.md	grep	node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND"
 agents/gsd-verifier.md	grep	node -e "const m = require('$MODULE_PATH'); console.log(typeof m.$FUNCTION_NAME)" 2>/dev/null | grep -q "function"
@@ -35,22 +27,6 @@ commands/gsd/quick.md	head	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"'
 commands/gsd/quick.md	head	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 gsd-core/references/agent-contracts.md	wc	wc -l
 gsd-core/references/checkpoints.md	seq	for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done
-gsd-core/references/planner-antipatterns.md	grep	grep -c 'LITERAL' file == 0
-gsd-core/references/planner-antipatterns.md	grep	! grep -Eq 'PAT' file
-gsd-core/references/planner-antipatterns.md	grep	grep -c 'PAT' file == 0
-gsd-core/references/planner-antipatterns.md	grep	! grep -Eq 'await .*refresh' app/page.py
-gsd-core/references/planner-antipatterns.md	grep	pnpm ls vite | grep -E '^vite@7\.'
-gsd-core/references/planner-antipatterns.md	grep	pnpm ls vite | grep -E '^vite@7\.'
-gsd-core/references/planner-antipatterns.md	grep	pnpm ls vite | grep -E 'vite@7\.'
-gsd-core/references/planner-antipatterns.md	grep	pnpm ls vite | grep -E '(└|├)── vite@7\.'
-gsd-core/references/planner-antipatterns.md	grep	grep '714 tests'
-gsd-core/references/planner-antipatterns.md	grep	grep '52 test files'
-gsd-core/references/planner-antipatterns.md	grep	npm test 2>&1 | grep '714 passed'
-gsd-core/references/planner-antipatterns.md	grep	npm test 2>&1 | grep -E '[0-9]+ passed'
-gsd-core/references/planner-verify-command-grounding.md	grep	grep -c
-gsd-core/references/planner-verify-command-grounding.md	grep	grep -q
-gsd-core/references/planner-verify-command-grounding.md	grep	grep -c "Agent" README.md
-gsd-core/references/planner-verify-command-grounding.md	grep	grep -c "quickstart"
 gsd-core/references/planning-config.md	sed	PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
 gsd-core/references/planning-config.md	sed	PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
 gsd-core/references/planning-config.md	sed	PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
