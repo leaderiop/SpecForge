@@ -280,14 +280,15 @@ fn text_mode_reads_crlf_as_lf() {
 #[test]
 fn a_cmd_shim_resolves_through_pathext() {
     let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("shim.cmd"), "@exit /b 3\r\n").unwrap();
+    // Spelled as `PATHEXT` spells it, so a disk whose names keep their case (Linux) finds it too.
+    std::fs::write(dir.path().join("shim.CMD"), "@exit /b 3\r\n").unwrap();
     let path = std::env::join_paths([Path::new("/nowhere"), dir.path()]).unwrap();
     // PATHEXT spells the extension (`.CMD`): Windows file names ignore case, so compare as it does.
     let found = |pathext: Option<&str>| {
         resolve("shim", Some(&path), pathext.map(AsRef::as_ref))
             .map(|p| p.to_string_lossy().to_lowercase())
     };
-    let shim = Some(dir.path().join("shim.cmd").to_string_lossy().to_lowercase());
+    let shim = Some(dir.path().join("shim.CMD").to_string_lossy().to_lowercase());
     assert_eq!(found(None), shim);
     assert_eq!(resolve("other", Some(&path), None), None);
     // The request's PATHEXT decides: one that names no `.cmd` finds no shim.
