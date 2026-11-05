@@ -305,7 +305,8 @@ pub(crate) struct CommitArgs {
     #[arg(long)]
     allow_empty: bool,
 
-    /// Run none of the repository's hooks (pre-commit, commit-msg, post-commit)
+    /// Run none of the repository's pre-commit, commit-msg and post-commit hooks; prepare-commit-msg still runs, as
+    /// git runs it
     #[arg(long)]
     no_verify: bool,
 

@@ -1,6 +1,6 @@
 //! `specforge git commit` (ADR 0339 D5): stage what the user names, run the repository's own `pre-commit`,
-//! `commit-msg` and `post-commit` hooks through the Process port, and record the index as a commit by the identity
-//! git's configuration names. The git program is never run.
+//! `prepare-commit-msg`, `commit-msg` and `post-commit` hooks through the Process port, and record the index as a
+//! commit by the identity git's configuration names. The git program is never run.
 
 use std::path::{Path, PathBuf};
 
@@ -66,17 +66,30 @@ pub fn commit(verbs: &Verbs, request: &CommitRequest) -> Result<CommitAnswer, Op
     if staging != Staging::default() {
         git.stage(&place, &staging).map_err(write_failed)?;
     }
-    let hooks = (!request.no_verify)
-        .then(|| Hooks::of(verbs, &place))
-        .transpose()?;
-    if let Some(hooks) = &hooks {
+    let hooks = Hooks::of(verbs, &place)?;
+    let verify = !request.no_verify;
+    if verify {
         hooks.run("pre-commit", &[])?;
-        message = hooks.edit_message("commit-msg", &message)?;
     }
+    // As git: the message is written to COMMIT_EDITMSG whatever hooks exist, `prepare-commit-msg` is handed it as
+    // a `message` (`-m`) even under --no-verify, and `commit-msg` then; what they leave is cleaned again.
+    let file = git
+        .write_commit_message(&place, &message)
+        .map_err(write_failed)?
+        .to_string_lossy()
+        .into_owned();
+    hooks.run("prepare-commit-msg", &[file.clone(), "message".to_string()])?;
+    if verify {
+        hooks.run("commit-msg", &[file])?;
+    }
+    message = git
+        .read_commit_message(&place)
+        .map_err(write_failed)
+        .and_then(|edited| cleaned(&edited).ok_or_else(empty_message))?;
     let committed = git
         .commit_index(&place, &message, request.allow_empty)
         .map_err(write_failed)?;
-    if let Some(hooks) = &hooks {
+    if verify {
         // as git: the commit is made, whatever post-commit answers
         let _ = hooks.run("post-commit", &[]);
     }
@@ -308,24 +321,14 @@ impl<'v> Hooks<'v> {
             .with_suggestion(no_verify(name))),
         }
     }
-
-    /// Run the message hook `name` on `message`, written where git writes it (`COMMIT_EDITMSG` in the git
-    /// directory): the message as the hook left it, cleaned again.
-    fn edit_message(&self, name: &str, message: &str) -> Result<String, OpError> {
-        if self.find(name).is_none() {
-            return Ok(message.to_string());
-        }
-        let git = &self.verbs.ports().git;
-        let file = git
-            .write_commit_message(self.place, message)
-            .map_err(write_failed)?;
-        self.run(name, &[file.to_string_lossy().into_owned()])?;
-        let edited = git.read_commit_message(self.place).map_err(write_failed)?;
-        cleaned(&edited).ok_or_else(empty_message)
-    }
 }
 
 fn no_verify(name: &str) -> String {
+    if name == "prepare-commit-msg" {
+        return format!(
+            "fix what the {name} hook reports: git runs it even under --no-verify, and so does specforge"
+        );
+    }
     format!(
         "fix what the {name} hook reports, or run specforge git commit --no-verify to commit without the repository's hooks"
     )

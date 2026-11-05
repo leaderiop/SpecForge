@@ -113,9 +113,10 @@ git installed. `GitCli` is deleted, with no shim.
 - The verbs' extra answers (log, diff, refs, worktrees, remotes, config) live beside the port, not in the protocol: no
   guest calls them.
 - Writes use gix where the spike below shows it covers them, and vendored libgit2 (`git2`) for the rest: C at build
-  time, nothing to install (S-D1, S-D2). `git commit` runs the repository's `pre-commit`, `commit-msg` and
-  `post-commit` hooks through the Process port, and refuses when a hook exists that cannot run, or when the
-  configuration asks to sign.
+  time, nothing to install (S-D1, S-D2). `git commit` runs the repository's `pre-commit`, `prepare-commit-msg`,
+  `commit-msg` and `post-commit` hooks through the Process port, as git runs them: the message is written to
+  `COMMIT_EDITMSG` whatever hooks exist, and `prepare-commit-msg` (handed `message`, as for `-m`) runs under
+  `--no-verify` too. It refuses when a hook exists that cannot run, or when the configuration asks to sign.
 
 ### The S2 spike
 

@@ -199,6 +199,35 @@ fn the_commit_msg_hook_edits_the_message_and_post_commit_runs_after() {
     );
 }
 
+/// As git: `prepare-commit-msg` is handed `COMMIT_EDITMSG` and `message` (a `-m` commit) even under `--no-verify`,
+/// and the trailer it appends is committed; `COMMIT_EDITMSG` is written with no `commit-msg` hook.
+#[cfg(unix)]
+#[test]
+fn prepare_commit_msg_runs_under_no_verify_and_its_trailer_is_committed_as_git_does() {
+    let (project, repo, _) = committed();
+    hook(&repo, "pre-commit", "exit 1");
+    hook(
+        &repo,
+        "prepare-commit-msg",
+        "[ \"$2\" = message ] && printf '\\nGsd-Task: 7\\n' >> \"$1\"",
+    );
+    let answer = git(
+        &project,
+        &["commit", "--allow-empty", "--no-verify", "-m", "subject"],
+    )
+    .exits(0)
+    .json();
+    let log = git(&project, &["log", "--max", "1", "--pick", ".commits[0]"])
+        .exits(0)
+        .json();
+    assert_eq!(log["sha"], answer["sha"]);
+    assert_eq!(log["trailers"], json!({"Gsd-Task": ["7"]}));
+    assert_eq!(
+        std::fs::read_to_string(repo.git_dir().join("COMMIT_EDITMSG")).unwrap(),
+        "subject\n\nGsd-Task: 7\n"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn a_hook_that_cannot_run_refuses_the_commit() {
