@@ -172,41 +172,26 @@ const LAST: &str = "last";
 const JOIN: &str = "join";
 
 impl Shape {
-    /// The host options of the shapes `added` names (of [`SHAPES`]), as an extension command takes them: each
-    /// requires `pick`, and conflicts only with the other shapes added, so a declared `count` keeps `--first`.
-    pub(crate) fn host_args(added: &[&'static str], pick: &'static str) -> Vec<clap::Arg> {
-        use clap::{Arg, ArgAction};
-        let among = |names: &[&'static str]| -> Vec<&'static str> {
-            names
-                .iter()
-                .copied()
-                .filter(|name| added.contains(name))
-                .collect()
-        };
-        added
-            .iter()
-            .map(|&name| {
-                let arg = Arg::new(name).long(name).requires(pick);
-                match name {
-                    COUNT => arg
-                        .action(ArgAction::SetTrue)
-                        .conflicts_with_all(among(&[FIRST, LAST, JOIN]))
-                        .help(COUNT_HELP)
-                        .long_help(COUNT_LONG_HELP),
-                    FIRST => arg
-                        .value_name("N")
-                        .value_parser(clap::value_parser!(usize))
-                        .conflicts_with_all(among(&[LAST]))
-                        .help(FIRST_HELP),
-                    LAST => arg
-                        .value_name("N")
-                        .value_parser(clap::value_parser!(usize))
-                        .help(LAST_HELP),
-                    _ => arg
-                        .value_name("SEP")
-                        .help(JOIN_HELP)
-                        .long_help(JOIN_LONG_HELP),
-                }
+    /// The host options of the shapes `added` names (of [`SHAPES`]), as an extension command takes them: the args
+    /// this type derives, each conflicting only with the other shapes added, so a declared `count` keeps `--first`.
+    pub(crate) fn host_args(added: &[&str]) -> Vec<clap::Arg> {
+        use clap::Args as _;
+        let derived = Self::augment_args(clap::Command::new(""));
+        derived
+            .get_arguments()
+            .filter(|arg| added.contains(&arg.get_id().as_str()))
+            .map(|arg| {
+                let kept: Vec<clap::Id> = derived
+                    .get_arg_conflicts_with(arg)
+                    .into_iter()
+                    .map(|other| other.get_id().clone())
+                    .filter(|id| added.contains(&id.as_str()))
+                    .collect();
+                // the order the empty command gave it is reset: the host's command orders it
+                arg.clone()
+                    .display_order(None)
+                    .conflicts_with(clap::builder::Resettable::Reset)
+                    .conflicts_with_all(kept)
             })
             .collect()
     }

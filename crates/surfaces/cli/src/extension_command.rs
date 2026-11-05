@@ -651,7 +651,7 @@ fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
                     .help(crate::pick::HELP)
                     .long_help(crate::pick::COMMAND_LONG_HELP),
             );
-            sub = sub.args(Shape::host_args(&kernel_shapes(command), PICK));
+            sub = sub.args(Shape::host_args(&kernel_shapes(command)));
         }
         if command.writes() {
             sub = sub.arg(

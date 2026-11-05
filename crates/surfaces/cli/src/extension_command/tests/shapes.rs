@@ -74,3 +74,24 @@ fn a_command_declaring_count_keeps_it_and_still_takes_first() {
         .push(arg("pick", CommandArgType::String, false, None));
     assert!(kernel_shapes(&declared(own)).is_empty());
 }
+
+#[test]
+fn a_shape_conflicts_with_no_arg_the_command_declares() {
+    let mut c = contribution();
+    c.args
+        .push(arg("join", CommandArgType::String, false, None));
+    let command = declared(c.clone());
+    assert_eq!(kernel_shapes(&command), ["count", "first", "last"]);
+    // the host's `--count` takes no other shape, but the declared `--join` is the command's
+    let argv = [
+        "milestone-completion",
+        "m1",
+        "--join",
+        "x",
+        "--pick",
+        ".a[]",
+        "--count",
+    ];
+    let (args, _) = sent_by(&c, &argv).unwrap();
+    assert_eq!(args["join"], "x");
+}
