@@ -699,6 +699,32 @@ fn restoring_takes_a_side_of_a_conflict_or_head_into_the_index_and_the_files() {
 }
 
 #[test]
+fn a_commit_of_some_paths_on_an_unborn_head_starts_from_nothing_and_a_broken_head_refuses() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a").write("b.txt", "b");
+    repo.stage_all();
+    let place = place(&repo);
+    let only = Recording {
+        only: vec!["a.txt".into()],
+        ..Recording::default()
+    };
+    let committed = Gix::default()
+        .commit_index(&place, "root\n", &only)
+        .unwrap();
+    assert_eq!(
+        committed.files,
+        ["a.txt"],
+        "an unborn HEAD is the empty tree"
+    );
+    repo.detach(&"1".repeat(40));
+    let refused = Gix::default()
+        .commit_index(&place, "lost\n", &only)
+        .unwrap_err();
+    assert!(refused.0.contains("HEAD"), "{refused}");
+}
+
+#[test]
 fn a_commit_of_some_paths_leaves_the_rest_staged_and_takes_an_author() {
     use specforge_effects::git::Sha;
     let dir = tempfile::tempdir().unwrap();

@@ -566,8 +566,16 @@ fn only_tree(
         })
     };
     let mut tree = git2::Index::new().map_err(at)?;
-    if let Ok(head) = repo.head().and_then(|head| head.peel_to_tree()) {
-        tree.read_tree(&head).map_err(at)?;
+    // only an unborn HEAD starts from nothing: a HEAD that cannot be read is an error, never an empty base
+    match repo.head() {
+        Ok(head) => {
+            let head = head
+                .peel_to_tree()
+                .map_err(|e| failed("read HEAD's tree", &e))?;
+            tree.read_tree(&head).map_err(at)?;
+        }
+        Err(e) if e.code() == git2::ErrorCode::UnbornBranch => {}
+        Err(e) => return Err(failed("read HEAD", &e)),
     }
     let dropped: Vec<std::path::PathBuf> = tree
         .iter()
