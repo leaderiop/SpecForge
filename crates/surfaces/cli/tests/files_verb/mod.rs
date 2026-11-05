@@ -585,3 +585,24 @@ fn read_of_a_temp_file_works() {
     // The text, then the newline `--pick` ends each value with: `$(…)` drops both, as it would `cat`'s.
     assert_eq!(read.stdout, "kept\n\n");
 }
+
+/// `list --lines`: each file's lines and their total; without it the answer is unchanged.
+#[test]
+fn list_lines_counts_each_file_and_the_total() {
+    let project = project().files(&[("src/tail.rs", "a\nb")]);
+    let run = Cli::on(&project)
+        .run(&["files", "list", "src", "--lines"])
+        .exits(0);
+    insta::assert_json_snapshot!("files_list_lines", run.answer());
+    let total = Cli::on(&project)
+        .run(&[
+            "files", "list", "src", "--kind", "file", "--glob", "*.rs", "--lines", "--pick",
+            ".lines",
+        ])
+        .exits(0);
+    assert_eq!(total.stdout, "6\n");
+    let human = Cli::on(&project)
+        .run(&["files", "list", "src/lib", "--lines", "--format", "human"])
+        .exits(0);
+    assert_eq!(human.stdout, "src/lib/util.rs  1\n1 lines\n");
+}

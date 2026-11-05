@@ -1,0 +1,34 @@
+---
+source: crates/surfaces/cli/tests/files_verb/mod.rs
+expression: run.answer()
+---
+{
+  "count": 4,
+  "entries": [
+    {
+      "kind": "dir",
+      "path": "src/lib",
+      "size": 0
+    },
+    {
+      "kind": "file",
+      "lines": 1,
+      "path": "src/lib/util.rs",
+      "size": 18
+    },
+    {
+      "kind": "file",
+      "lines": 3,
+      "path": "src/main.rs",
+      "size": 37
+    },
+    {
+      "kind": "file",
+      "lines": 2,
+      "path": "src/tail.rs",
+      "size": 3
+    }
+  ],
+  "lines": 6,
+  "truncated": false
+}

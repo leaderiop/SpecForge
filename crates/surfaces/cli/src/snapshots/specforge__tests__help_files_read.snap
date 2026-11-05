@@ -2,7 +2,7 @@
 source: crates/surfaces/cli/src/main.rs
 expression: command.clone().render_long_help().to_string()
 ---
-A file's text (at most 1 MiB), its size in bytes and its lines
+A file's text (at most 1 MiB), how many bytes were read and its lines
 
 Usage: specforge files read [OPTIONS] <FILE>
 

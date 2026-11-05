@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use specforge_effects::contained::{TEMP, temp_root};
 use specforge_effects::fs::{FileKind, READ_CEILING};
-use specforge_effects::{FsChange, FsChanged, FsOp, ListRequest, OutcomeClass, Place};
+use specforge_effects::{FsChange, FsChanged, FsOp, ListRequest, OutcomeClass, Place, Root};
 
 use super::{Access, Located, Verbs, refused};
 use crate::{OpError, OpErrorKind};
@@ -52,6 +52,9 @@ pub struct ListEntry {
     pub path: String,
     pub kind: FileKind,
     pub size: u64,
+    /// A file's lines (see [`lines_of`]), only under `lines`; null when it was not read whole.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lines: Option<Option<usize>>,
 }
 
 /// `files list`'s answer.
@@ -59,6 +62,9 @@ pub struct ListEntry {
 pub struct ListAnswer {
     pub entries: Vec<ListEntry>,
     pub count: usize,
+    /// The lines of every file read whole, only under `lines`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lines: Option<usize>,
     /// It stopped at its bound.
     pub truncated: bool,
 }
@@ -74,6 +80,8 @@ pub struct List {
     pub ignore: bool,
     pub hidden: bool,
     pub max: usize,
+    /// Count each file's lines, and their total.
+    pub lines: bool,
 }
 
 /// Each of `paths`: its kind, size and modification time, or that it does not exist.
@@ -157,6 +165,8 @@ pub fn list(verbs: &Verbs, list: &List) -> Result<ListAnswer, OpError> {
     if listing.class != OutcomeClass::Ok {
         return Err(refused(listing.class, &verbs.shown(&located.at)));
     }
+    let mut truncated = listing.truncated;
+    let mut budget = SEARCH_BYTES;
     let entries: Vec<ListEntry> = listing
         .entries
         .iter()
@@ -164,13 +174,46 @@ pub fn list(verbs: &Verbs, list: &List) -> Result<ListAnswer, OpError> {
             path: verbs.shown_in(&located.root, &entry.path),
             kind: entry.kind,
             size: entry.size,
+            lines: (list.lines && entry.kind == FileKind::File).then(|| {
+                let (lines, cut) = lines_read(verbs, &located.root, &entry.path, &mut budget);
+                truncated |= cut;
+                lines
+            }),
         })
         .collect();
     Ok(ListAnswer {
         count: entries.len(),
+        lines: list.lines.then(|| {
+            entries
+                .iter()
+                .filter_map(|entry| entry.lines.flatten())
+                .sum()
+        }),
         entries,
-        truncated: listing.truncated,
+        truncated,
     })
+}
+
+/// The lines of the file `rel` in `root`, read whole within `budget` (which the read spends), and whether a bound cut
+/// it: none, and cut, when the file is larger than one read or past the budget; none, not cut, when it is withheld.
+fn lines_read(verbs: &Verbs, root: &Root, rel: &str, budget: &mut u64) -> (Option<usize>, bool) {
+    let read = specforge_effects::FsRequest {
+        root: root.as_str().to_string(),
+        path: rel.to_string(),
+        op: FsOp::Read {
+            max_bytes: READ_CEILING.min(*budget),
+        },
+    };
+    if verbs.permit_fs(&read).is_err() {
+        return (None, false);
+    }
+    let outcome = verbs.ports().fs.run(verbs.roots(), &read);
+    *budget = budget.saturating_sub(outcome.bytes.len() as u64);
+    match outcome.class {
+        OutcomeClass::Ok if !outcome.truncated => (Some(lines_of(&outcome.bytes)), false),
+        OutcomeClass::Ok | OutcomeClass::Capped => (None, true),
+        _ => (None, false),
+    }
 }
 
 /// `files read`'s answer.

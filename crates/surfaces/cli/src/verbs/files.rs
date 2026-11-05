@@ -22,7 +22,7 @@ pub(crate) enum Action {
     List(ListArgs),
     /// The lines under the paths that match a regular expression
     Search(SearchArgs),
-    /// A file's text (at most 1 MiB), its size in bytes and its lines
+    /// A file's text (at most 1 MiB), how many bytes were read and its lines
     Read(ReadArgs),
     /// A new empty file, or directory, with a name no other has, in the project's temp root (only you may read it)
     Temp(TempArgs),
@@ -166,6 +166,10 @@ pub(crate) struct ListArgs {
     /// The most entries listed
     #[arg(long, value_name = "N", default_value_t = LIST_MAX)]
     max: usize,
+
+    /// Count each file's lines (a last line with no newline counts) and answer their total in `lines`
+    #[arg(long)]
+    lines: bool,
 
     #[command(flatten)]
     verb: VerbArgs,
@@ -356,6 +360,7 @@ impl ListArgs {
             ignore: !self.no_ignore,
             hidden: self.hidden,
             max: self.max,
+            lines: self.lines,
         };
         self.verb.answer(
             terminal,
@@ -364,7 +369,14 @@ impl ListArgs {
             |terminal, answer| {
                 for entry in &answer.entries {
                     let slash = if entry.kind == FileKind::Dir { "/" } else { "" };
-                    outln!(terminal, "{}{slash}", shown(&entry.path));
+                    match entry.lines {
+                        Some(Some(lines)) => outln!(terminal, "{}  {lines}", shown(&entry.path)),
+                        Some(None) => outln!(terminal, "{}  ?", shown(&entry.path)),
+                        None => outln!(terminal, "{}{slash}", shown(&entry.path)),
+                    }
+                }
+                if let Some(lines) = answer.lines {
+                    outln!(terminal, "{lines} lines");
                 }
                 if answer.truncated {
                     outln!(terminal, "(stopped at {} entries)", answer.count);

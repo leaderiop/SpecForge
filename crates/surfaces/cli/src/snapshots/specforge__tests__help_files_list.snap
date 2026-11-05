@@ -35,6 +35,9 @@ Options:
           
           [default: 10000]
 
+      --lines
+          Count each file's lines (a last line with no newline counts) and answer their total in `lines`
+
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)
           
