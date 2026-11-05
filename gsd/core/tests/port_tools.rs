@@ -522,3 +522,70 @@ fn every_gsd_invocation_in_an_asset_or_a_prompt_fits_its_command() {
     assert!(seen > 60, "only {seen} invocations");
     assert!(bad.is_empty(), "the CLI refuses:\n{}", bad.join("\n"));
 }
+
+/// A graph read picks the export's `nodes` or `edges`: `specforge query` prints a subgraph's export, and `--pick` of a
+/// key it lacks (an upstream init-bundle key: `phase_dir`, `roadmap_path`, …) prints nothing (ADR 0343 D3).
+#[test]
+#[ignore = "pin: graph reads still pick init-bundle keys"]
+fn every_graph_read_picks_nodes_or_edges() {
+    let mut found = Vec::new();
+    for (path, lines) in specforge_only::shell_assets() {
+        for block in specforge_only::shell_blocks(&lines) {
+            for line in block {
+                let Some(at) = line.find("specforge query") else {
+                    continue;
+                };
+                let Some(pick) = line[at..].find("--pick ") else {
+                    continue;
+                };
+                let rest = &line[at + pick + "--pick ".len()..];
+                let word = rest
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .trim_matches(|c| c == '\'' || c == '"');
+                if !word.starts_with(".nodes") && !word.starts_with(".edges") {
+                    found.push(format!("{path}: {}", line.trim()));
+                }
+            }
+        }
+    }
+    assert!(
+        found.is_empty(),
+        "{} graph reads pick a key the export lacks:\n{}",
+        found.len(),
+        found.join("\n")
+    );
+}
+
+/// No shell line globs or lists a phase directory: nothing answers one, and the files it held are entities (ADR 0343
+/// D3). The discuss checkpoint is a scratch file of its own.
+#[test]
+#[ignore = "pin: shell lines still read a phase directory"]
+fn no_shell_line_reads_a_phase_directory() {
+    let dir = r#"\$\{?(PHASE_DIR|phase_dir|PHASE_DIR_FOR_SPEC)\}?"?"#;
+    let rx = Regex::new(&format!(
+        r#"{dir}/\*-|specforge files (list|mkdir) [^|]*"?{dir}"#
+    ))
+    .expect("a regex");
+    let mut found = Vec::new();
+    for (path, lines) in specforge_only::shell_assets() {
+        for block in specforge_only::shell_blocks(&lines) {
+            for line in block {
+                let code = line.trim_start();
+                if !code.starts_with('#')
+                    && rx.is_match(code)
+                    && !code.contains("DISCUSS-CHECKPOINT")
+                {
+                    found.push(format!("{path}: {}", line.trim()));
+                }
+            }
+        }
+    }
+    assert!(
+        found.is_empty(),
+        "{} shell lines read a phase directory:\n{}",
+        found.len(),
+        found.join("\n")
+    );
+}

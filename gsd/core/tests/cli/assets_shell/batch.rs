@@ -107,3 +107,45 @@ fn a_verification_status_routes_the_batch_item() {
         assert_eq!(out, want, "{status}");
     }
 }
+
+/// A quick-batch item is its quick plan, named by its id: nothing sets a `quick_dir`, so a path built from it is
+/// `/<id>-<slug>`, at the filesystem's root.
+#[test]
+#[ignore = "pin: the item directory is still built from an unset quick_dir"]
+fn a_quick_batch_item_is_its_quick_plan() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    for path in [
+        "gsd-core/workflows/quick-batch/steps/research-phase.md",
+        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
+    ] {
+        let text = asset(path);
+        let item = line(&text, "ITEM_DIR=");
+        let out = sh.run(&format!(
+            "quick_id=260101-abc SLUG=x description=x\n{item}\nprintf '%s' \"$ITEM_DIR\""
+        ));
+        assert_eq!(out, "260101-abc", "{path}");
+    }
+    let base = format!("{}/assets/gsd-core/workflows", env!("CARGO_MANIFEST_DIR"));
+    let mut files = vec![std::path::PathBuf::from(format!("{base}/quick-batch.md"))];
+    let mut dirs = vec![std::path::PathBuf::from(format!("{base}/quick-batch"))];
+    while let Some(dir) = dirs.pop() {
+        for entry in std::fs::read_dir(&dir).expect("a directory").flatten() {
+            let p = entry.path();
+            if p.is_dir() {
+                dirs.push(p);
+            } else {
+                files.push(p);
+            }
+        }
+    }
+    for file in files {
+        let text = std::fs::read_to_string(&file).expect("an asset");
+        assert!(
+            !text.contains("quick_dir"),
+            "{} reads quick_dir",
+            file.display()
+        );
+    }
+}
