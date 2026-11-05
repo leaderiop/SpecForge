@@ -8,7 +8,7 @@
 //! (ADR 0340). The host's adapter header goes in front, unconverted.
 
 use super::args::Values;
-use super::{compose, host, preamble, setting, shell};
+use super::{compose, host, preamble, setting, shell, token};
 
 pub struct Input<'a> {
     /// The upstream command file's stem: `plan-phase` for `commands/gsd/plan-phase.md`.
@@ -81,54 +81,24 @@ fn inline_includes(command: &str, asset: fn(&str) -> Option<&'static str>) -> St
     out
 }
 
-const ARG_OPEN: &str = "{{arg:";
+/// What an `{{arg:<name>|<fallback>}}` token takes: the declared name's value in `values`, escaped for double quotes,
+/// else its fallback (ADR 0340); an undeclared name keeps its token.
+fn arg_value(values: &Values) -> impl Fn(&str, &str) -> Option<String> {
+    |name, fallback| match values.get(name)? {
+        Some(value) => Some(shell::in_double_quotes(value)),
+        None => Some(fallback.to_string()),
+    }
+}
 
-/// `text` with `$ARGUMENTS` (not `$ARGUMENTS_X`) replaced by `arguments` and each `{{arg:<name>|<fallback>}}` by the
-/// declared name's value in `values`, escaped for double quotes, else its fallback (ADR 0340). One left-to-right scan
-/// that never rescans what it wrote: typed text holding either form stays data. An undeclared name keeps its token.
+/// `text` with `$ARGUMENTS` (not `$ARGUMENTS_X`) replaced by `arguments` and each `{{arg:}}` as [`arg_value`] says, in
+/// one scan that never rescans what it wrote: typed text holding either form stays data.
 fn fill_arguments(text: &str, arguments: &str, values: &Values) -> String {
     let replacement = if arguments.is_empty() {
         "(no arguments)"
     } else {
         arguments
     };
-    let mut out = String::with_capacity(text.len());
-    let mut rest = text;
-    loop {
-        let dollar = rest.find("$ARGUMENTS");
-        let arg = rest.find(ARG_OPEN);
-        let at = match (dollar, arg) {
-            (None, None) => break,
-            (Some(d), Some(a)) => d.min(a),
-            (Some(d), None) => d,
-            (None, Some(a)) => a,
-        };
-        out.push_str(&rest[..at]);
-        if Some(at) == dollar {
-            let tail = &rest[at + "$ARGUMENTS".len()..];
-            let word = tail
-                .chars()
-                .next()
-                .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_');
-            out.push_str(if word { "$ARGUMENTS" } else { replacement });
-            rest = tail;
-            continue;
-        }
-        let after = &rest[at + ARG_OPEN.len()..];
-        let Some(end) = after.find("}}") else {
-            out.push_str(&rest[at..]);
-            return out;
-        };
-        let (name, fallback) = after[..end].split_once('|').unwrap_or((&after[..end], ""));
-        match values.get(name) {
-            Some(Some(value)) => out.push_str(&shell::in_double_quotes(value)),
-            Some(None) => out.push_str(fallback),
-            None => out.push_str(&rest[at..at + ARG_OPEN.len() + end + 2]),
-        }
-        rest = &after[end + 2..];
-    }
-    out.push_str(rest);
-    out
+    token::fill(text, &[("arg", &arg_value(values))], Some(replacement))
 }
 
 /// The text of the prompt, or why it cannot be built.
