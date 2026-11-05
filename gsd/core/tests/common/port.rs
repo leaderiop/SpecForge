@@ -31,20 +31,6 @@ pub fn served_by_specforge(theirs: &str, mine: &str) -> bool {
         && before.iter().any(|tool| !after.contains(tool))
 }
 
-/// Whether `mine` is upstream's `theirs` without its typed-argument capture (ADR 0340): a line of the capture (the
-/// heredoc's four lines or a `GSD_WS=` line) left empty, or the line without its ` ${GSD_WS}` / ` {GSD_WS}` tokens.
-pub fn drops_an_argument_capture(theirs: &str, mine: &str) -> bool {
-    const CAPTURE: [&str; 4] = [
-        "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true",
-        "$ARGUMENTS",
-        "GSD_ARGS_END",
-        "GSD_ARGS=${GSD_ARGS%$'\\n'}",
-    ];
-    let capture = CAPTURE.contains(&theirs) || theirs.trim_start().starts_with("GSD_WS=");
-    let unforwarded = theirs.replace(" ${GSD_WS}", "").replace(" {GSD_WS}", "");
-    (capture && mine.trim().is_empty()) || (theirs != mine && unforwarded == mine)
-}
-
 /// Checks one asset against the body lines of its upstream file: the header line, then every line. `header` is the
 /// upstream path the attribution names; `rewritten` says which body lines (0-based) differ although upstream's names
 /// no ported tool. Returns how many lines differ.
@@ -78,10 +64,7 @@ pub fn check_lines(
                 "{label}:{n}: still names upstream's tools: {mine}"
             );
             changed += 1;
-        } else if rewritten(n)
-            || served_by_specforge(theirs, mine)
-            || drops_an_argument_capture(theirs, mine)
-        {
+        } else if rewritten(n) || served_by_specforge(theirs, mine) {
             assert_ne!(
                 mine, theirs,
                 "{label}:{n}: listed as rewritten, but is upstream's"
