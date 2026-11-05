@@ -38,18 +38,11 @@ pub struct InitAnswer {
     pub created: bool,
 }
 
-/// `git init [<dir>]`: the directory (read from the current directory, made when missing, held to the project's
-/// roots) made a repository unless it holds one.
+/// `git init [<dir>]`: the directory (read from the current directory, held to the project's roots, made by gix
+/// when missing) made a repository unless it holds one.
 pub fn init(verbs: &Verbs, dir: Option<&Path>) -> Result<InitAnswer, OpError> {
     verbs.permit_git_write("init")?;
     let at = held(verbs, dir.unwrap_or(Path::new(".")))?;
-    std::fs::create_dir_all(&at).map_err(|e| {
-        OpError::new(
-            OpErrorKind::Internal,
-            super::GIT_FAILED,
-            format!("make {}: {e}", printable(&at.to_string_lossy())),
-        )
-    })?;
     let created = verbs.ports().git.init(&at).map_err(write_failed)?;
     Ok(InitAnswer {
         top: slashed(&at),

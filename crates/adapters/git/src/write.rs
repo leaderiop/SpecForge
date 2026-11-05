@@ -274,7 +274,7 @@ fn refuse_changed(repo: &git2::Repository, path: &str, cached: bool) -> Result<(
         _ => "local modifications",
     };
     Err(GitError(format!(
-        "{path} has {what}: remove it with -f, or keep the file with --cached"
+        "{path} has {what}: remove it with specforge git rm -f, or keep the file with specforge git rm --cached"
     )))
 }
 

@@ -228,7 +228,7 @@ pub fn hook_run(
             super::HOOK_CANNOT_RUN,
             format!("the repository has no {name} hook git would run"),
         )
-        .with_suggestion("pass --ignore-missing to answer ran: false instead"));
+        .with_suggestion("specforge git hook run --ignore-missing answers ran: false instead"));
     }
     Ok(HookAnswer { ran })
 }

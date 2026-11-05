@@ -299,7 +299,7 @@ pub fn pick(
         refuse_signing(verbs, &place, Signed::Commit)?;
         clean_tree(verbs, &place, &format!("a {what}"), COMMIT_OR_STASH)?;
     } else {
-        unstaged_clean(verbs, &place, &format!("a {what} --no-commit"))?;
+        unstaged_clean(verbs, &place, &format!("a {what} left staged"))?;
     }
     let commit = commit_named(verbs, &place, revision)?;
     verbs
@@ -313,12 +313,7 @@ pub fn pick(
 /// End the cherry-pick or revert in progress: `--quit` keeps the index and the files, `--abort` puts back what it
 /// staged or left conflicted.
 pub fn pick_end(verbs: &Verbs, revert: bool, abort: bool) -> Result<PickEndAnswer, OpError> {
-    let what = match (revert, abort) {
-        (false, false) => "cherry-pick --quit",
-        (false, true) => "cherry-pick --abort",
-        (true, false) => "revert --quit",
-        (true, true) => "revert --abort",
-    };
+    let what = if revert { "revert" } else { "cherry-pick" };
     let place = verbs.place_to_write(what)?;
     let ended = verbs
         .ports()

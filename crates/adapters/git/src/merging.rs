@@ -487,8 +487,8 @@ pub(crate) fn pick_end(place: &GitPlace, abort: bool) -> Result<bool, GitError> 
         }
         if sequenced {
             return Err(GitError(
-                "a sequence of picks git started is in progress: specforge aborts a single cherry-pick or revert, \
-                 so --quit it, then reset"
+                "a sequence of picks git started is in progress: specforge aborts a single cherry-pick or revert: \
+                 end it with specforge git cherry-pick --quit or specforge git revert --quit, then reset"
                     .into(),
             ));
         }

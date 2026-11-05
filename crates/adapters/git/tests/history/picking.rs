@@ -239,4 +239,7 @@ fn init_makes_a_repository_once() {
         panic!("a repository");
     };
     assert_eq!(git.head(&place).unwrap().head.as_deref(), Some("main"));
+    let missing = dir.path().join("a/b");
+    assert!(git.init(&missing).unwrap(), "a missing directory is made");
+    assert!(missing.join(".git").is_dir());
 }
