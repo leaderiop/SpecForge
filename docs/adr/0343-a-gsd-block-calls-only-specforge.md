@@ -43,7 +43,10 @@ hold it.
 ## D4. Dead code is deleted, not ported
 
 A branch whose input is a literal or always empty, or a guard for something SpecForge never prints (`@file:`), goes.
-The port stays line for line: the lines are blanked under a `REWRITTEN_SPANS` run that opens with what replaced them.
+The port stays line for line: the lines are blanked in place. A blanked region is a `BLANKED` run of
+`gsd/core/tests/common/relic_rewrites.rs`: its first line says what replaced the code and the port test asserts every
+other line is blank. A shorter rewrite that keeps text is a `SPANS` row there (read like `REWRITTEN_SPANS`), and a
+blanked line that ran a tool upstream's ran needs no row at all (the port rule's `served_by_specforge`).
 
 ## D5. A capability's step is the capability's
 
