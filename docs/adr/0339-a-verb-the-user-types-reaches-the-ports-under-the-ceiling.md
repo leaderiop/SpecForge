@@ -185,7 +185,7 @@ marked git2 goes to vendored libgit2.
 ## Amendment (2026-11-05, git verbs for GSD's blocks)
 
 `specforge git` grows the verbs and flags GSD's shell blocks used the git program for, so 119 of the 142 git rows of
-GSD's ledger now call only specforge. The same rules hold: gix first, vendored libgit2 where gix writes nothing, every
+GSD's ledger now call only specforge (107 once the review below put 12 back). The same rules hold: gix first, vendored libgit2 where gix writes nothing, every
 path held to the roots, a write refused unless gix trusts the git dir, hooks run only as git runs them.
 
 - **Every verb.** `--in <dir>` runs it as `git -C <dir>` does, held to the roots like a typed path.
@@ -204,13 +204,18 @@ path held to the roots, a write refused unless gix trusts the git dir, hooks run
   - `diff --stat` prints numstat lines and git's summary line, not histograms; gix writes an added file's hunk header
     as `@@ -1,0 +1,n @@` where git writes `-0,0`.
   - `add --except <path>` stands for the negative pathspec `:!<path>`.
-  - `--abort` refuses a sequencer the git program started (a `sequencer/` directory); `--quit` forgets the pick.
+  - `--abort` refuses a sequencer the git program started (a `sequencer/` directory); `--quit` forgets the pick
+    and removes the sequencer. `--abort` also refuses, as `reset --merge` does, a path with unstaged changes.
   - `rm` has no `-q`: its human listing is the only output.
   - `rm` and `restore` take a pathspec with magic (`:(glob)**/*.spec`), matched by gix, only from the
     repository's top: git reads one from the current directory.
   - `commit -- <path>` records an untracked path too, and is refused during a merge.
   - `merge --squash` writes `SQUASH_MSG` without git's `Date:` line.
-  - `init` names its branch `main` and never re-initialises: on an existing repository it answers `created: false`.
+  - `init` names its branch `main` whatever a system or global `init.defaultBranch` says, and never re-initialises:
+    on an existing repository it answers `created: false`.
+  - `log -S` past its `--max` stops at the first further commit it keeps: `count` is `null`, `truncated` true.
+  - `worktree remove`, like `worktree add`, is held to the roots.
 - **What stays.** Push, fetch, `ls-remote` and `remote show` reach a remote (D6). `worktree add` and a local `clone`
-  into `$HOME/gsd-workspaces` write outside the project's roots (D2). The ledger's `D git` heading says so for its
-  23 rows.
+  into `$HOME/gsd-workspaces` write outside the project's roots (D2), and so do remove-workspace's `git -C` reads and
+  `worktree remove` there, and worktree-path-safety's pin of the orchestrator's checkout, which also compares both
+  toplevels in git's own spelling. The ledger's `D git` heading says so for its 35 rows.
