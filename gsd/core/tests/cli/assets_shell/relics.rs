@@ -117,3 +117,37 @@ fn a_chunked_plan_resumes_past_its_entity() {
         assert_eq!(out, want, "{plan} {args}: {err}");
     }
 }
+
+/// The verification step reads its own inputs: the phase's number and requirement ids from the graph and the response
+/// language from the settings. Neither caller hands it a bundle, and nothing without a source (a model, a section
+/// manifest, a phase directory or a requirements file) is left for the model to fill.
+#[test]
+fn the_verify_step_reads_its_own_inputs() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = taskboard();
+    p.settings(serde_json::json!({ "response_language": "fr" }));
+    let text = asset("gsd-core/workflows/execute-phase/steps/verify-phase-goal.md");
+    let resolve = block(&text, "IFS= read -rd ''", "PHASE_GOAL=");
+    let (out, err, _) = sh.run_in(
+        p.root(),
+        &format!(
+            "PHASE_ID=v1.0/01\n{resolve}\nprintf '%s|%s|%s' \"$PHASE_NUMBER\" \"$(printf '%s' \"$PHASE_REQ_IDS\" | tr '\\n' ,)\" \"$RESPONSE_LANGUAGE\""
+        ),
+    );
+    assert_eq!(out, "01|TASK-01,TASK-02|fr", "{err}");
+    for unsourced in [
+        "section_manifest",
+        "{verifier_model}",
+        "{phase_dir}",
+        "{requirements_path}",
+        "{phase_req_ids}",
+        "{response_language}",
+    ] {
+        assert!(
+            !text.contains(unsourced),
+            "the step still reads {unsourced}"
+        );
+    }
+}

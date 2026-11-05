@@ -240,6 +240,53 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         128,
         129,
     ),
+    // The verification step reads its own inputs: the phase's number and requirement ids from the graph, the response
+    // language from the settings. No model is resolved and no section manifest gates a step.
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        14,
+        17,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        115,
+        117,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        121,
+        123,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        132,
+        134,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        136,
+        136,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        140,
+        140,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        144,
+        148,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        155,
+        155,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        159,
+        159,
+    ),
 ];
 
 /// `(path, first, last)`, inclusive: runs deleted by blanking, whose first line (when not blank) says what replaced them. Every other

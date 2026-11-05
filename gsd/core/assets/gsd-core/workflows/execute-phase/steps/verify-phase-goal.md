@@ -13,10 +13,10 @@ routed to `execute-phase`) — and both run every step below, in order, identica
 per-caller branch; what stays in `execute-phase.md` is only its own bookkeeping (the wave summary
 table in `aggregate_results`, the roadmap/state writes after a `passed` verdict).
 
-**Inputs — one bundle for both callers.** The `specforge query "$PHASE_ID" --depth 1 --format json`
-bundle (execute-phase loaded it in `initialize`; verify-work loads the same query before including
-this file). From it: `phase_dir` (`PHASE_DIR`), `phase_number` (`PHASE_NUMBER`),
-`verifier_model`, `phase_req_ids`, `requirements_path`, `section_manifest`, `response_language`.
+**Inputs — the step reads its own.** Both callers set `PHASE_ID`; the block below reads the rest from
+the graph and the settings: the phase number (`PHASE_NUMBER`), its requirement ids (`PHASE_REQ_IDS`,
+the requirement entities the verifier traces) and the response language (`RESPONSE_LANGUAGE`). The
+verifier's model is the host's (no `model=`), and no section manifest exists: every gated step below runs.
 The phase goal is the `**Goal**` of this phase in ROADMAP.md, loaded explicitly below as `PHASE_GOAL`
 (`roadmap.get-phase --pick goal`, the query `verify-work/steps/mvp-uat-framing.md` uses) — the same
 value for both callers, never left for the model to resolve. Resolve the rest the same way:
@@ -26,11 +26,11 @@ IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
 $ARGUMENTS
 GSD_ARGS_END
 GSD_ARGS=${GSD_ARGS%$'\n'}
-# the commands below are specforge commands: there is no launcher to define
+PHASE_NUMBER="${PHASE_ID##*/}"; PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]')   # the phase's inputs; the commands below are specforge commands: there is no launcher to define
 TDD_MODE=${TDD_MODE:-false}   # the loop capability is not part of @gsd/core: --tdd is read from the arguments
 # #4772: this file is Read, not textually substituted - write the parent command's original argument string in place of $ARGUMENTS so --ws reaches the query.
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-VERIFIER_SKILLS=""   # the host install carries the skills of gsd-verifier
+VERIFIER_SKILLS=""; RESPONSE_LANGUAGE=$(specforge settings --extension @gsd/core --pick '.extensions[0].settings[name=response_language].value' 2>/dev/null)   # the host install carries the skills of gsd-verifier; the language is a setting
 CONTEXT_WINDOW="{{setting:context_window|200000}}"   # context_window (the settings)
 PHASE_GOAL=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')
 ```
@@ -114,15 +114,15 @@ Resolve and re-run /gsd:execute-phase, or override with /gsd:execute-phase {phas
 
 <step name="close_parent_artifacts_dispatch">
 **Gap-closure parent artifacts (its original place: after the code-review gate, before the regression
-gate).** If `section_manifest` is `null` or `"gap-closure-artifacts"` is in its `included` list: read
-and execute `gsd-core/workflows/execute-phase/steps/gap-closure-artifacts.md`. Otherwise skip — do
-not read the file. It applies to decimal (gap-closure) phases only and is a no-op for any other phase.
+gate).** No section manifest gates it: read
+and execute `gsd-core/workflows/execute-phase/steps/gap-closure-artifacts.md` on every run.
+It applies to decimal (gap-closure) phases only and is a no-op for any other phase.
 </step>
 
 <step name="regression_gate_dispatch">
-**Regression gate, gated by the section manifest (#2932).** If `section_manifest` is `null` or
-`"regression-gate"` is in its `included` list: read and execute
-`gsd-core/workflows/execute-phase/steps/regression-gate.md`. Otherwise skip — do not read the file.
+**Regression gate (#2932).** No section manifest gates it: read and execute
+the step file below on every run:
+`gsd-core/workflows/execute-phase/steps/regression-gate.md`.
 On `REGRESSION GATE ABORTED`, HALT — do not dispatch the verifier.
 </step>
 
@@ -131,34 +131,34 @@ On `REGRESSION GATE ABORTED`, HALT — do not dispatch the verifier.
 
 ```
 Agent(
-  description="Verify phase {phase_number} goal achievement",
-  prompt="Verify phase {phase_number} goal achievement.
-Phase directory: {phase_dir}
+  description="Verify phase {PHASE_NUMBER} goal achievement",
+  prompt="Verify phase {PHASE_NUMBER} goal achievement.
+Phase: {PHASE_ID} (its plans, summaries and requirements are entities: read them with `specforge query`)
 Phase goal: {PHASE_GOAL}
-Phase requirement IDs: {phase_req_ids}
+Phase requirement IDs: {PHASE_REQ_IDS}
 Check must_haves against actual codebase.
 Cross-reference requirement IDs from PLAN frontmatter against REQUIREMENTS.md — every ID MUST be accounted for.
 Create VERIFICATION.md.
-Use response_language {response_language} for all user-facing prose — narration between tool calls, status updates, progress notes, and findings included; preserve code and paths.
+Use response_language {RESPONSE_LANGUAGE} for all user-facing prose — narration between tool calls, status updates, progress notes, and findings included; preserve code and paths.
 
 <required_reading>
 Read these files before verification:
-- {phase_dir}/*-PLAN.md (All plans — understand intent, check must_haves)
-- {phase_dir}/*-SUMMARY.md (All summaries — cross-reference claimed vs actual)
-- {requirements_path} (Requirement traceability)
-${CONTEXT_WINDOW >= 500000 ? `- {phase_dir}/*-CONTEXT.md (User decisions — verify they were honored)
-- {phase_dir}/*-RESEARCH.md (Known pitfalls — check for traps)
+- `specforge query {PHASE_ID} --kinds plan --format context` (All plans — understand intent, check must_haves)
+- `specforge query {PHASE_ID} --depth 2 --kinds summary --format context` (All summaries — cross-reference claimed vs actual)
+- `specforge query <id> --depth 0 --format context` for each id of {PHASE_REQ_IDS} (Requirement traceability)
+${CONTEXT_WINDOW >= 500000 ? `- specforge query {PHASE_ID} --depth 1 --kinds context --format context (User decisions — verify they were honored)
+- specforge query {PHASE_ID} --depth 1 --kinds research --format context (Known pitfalls — check for traps)
 - Prior VERIFICATION.md files from earlier phases (regression check)
 ` : ''}
 </required_reading>
 
 ${VERIFIER_SKILLS}",
   subagent_type="gsd-verifier",
-  model="{verifier_model}"
+
 )
 ```
 
-(When `response_language` is unset, omit the `Use response_language …` line.)
+(When `RESPONSE_LANGUAGE` is empty, omit the `Use response_language …` line.)
 
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available. If the session ends abnormally (`turn_aborted`), reconcile via the `verification.status` query below — the session's terminal state is not evidence of failure (#4217).
 

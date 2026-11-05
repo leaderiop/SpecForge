@@ -681,7 +681,7 @@ dispatch the step: the code review, regression gate and verifier have nothing co
 there, so fall through to the completion predicate below, which blocks with the owner's own
 `NEXT_COMMAND` (execute-phase) exactly as before #5118. This workflow never rewrites VERIFICATION.md
 itself (its only write is the canonicalization, #4663).
-Load the step's inputs from the graph (the models and the response language are settings the step reads), then include the step:
+The step reads its own inputs (the phase's number and requirement ids from the graph, the response language from the settings); include it with `PHASE_ID` set:
 
 ```bash
 IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
@@ -691,10 +691,10 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 
 
-PHASE_DIR="$PHASE_ID"
-PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]')
 
-PHASE_NUMBER="${PHASE_ID##*/}"
+
+
+
 ```
 
 Read and execute `gsd-core/workflows/execute-phase/steps/verify-phase-goal.md`. If it stopped,
