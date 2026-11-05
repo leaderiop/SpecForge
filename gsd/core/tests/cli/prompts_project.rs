@@ -174,3 +174,52 @@ fn a_disabled_cluster_hides_the_new_milestone_skill() {
         concat!("@gsd/core@", env!("CARGO_PKG_VERSION"), ":new_milestone")
     );
 }
+
+/// The lines of the first shell fence from the line holding `from` through the line holding `to`.
+fn fence_lines(text: &str, from: &str, to: &str) -> String {
+    let lines: Vec<&str> = text.split('\n').collect();
+    let start = lines
+        .iter()
+        .position(|l| l.contains(from))
+        .unwrap_or_else(|| panic!("no {from}"));
+    let end = start
+        + lines[start..]
+            .iter()
+            .position(|l| l.contains(to))
+            .unwrap_or_else(|| panic!("no {to}"));
+    lines[start..=end].join("\n")
+}
+
+/// Step 1 binds the workstream and the milestone name as the person typed them.
+#[test]
+fn new_milestone_binds_its_ws_and_name_as_typed() {
+    let p = project("empty");
+    let run = |args: &[&str]| {
+        let text = text_of(&payload(&prompt(&p, "new_milestone", args, "claude-code")));
+        let script = format!(
+            "{}\necho \"[$GSD_WS][$MILESTONE_ARG]\"",
+            fence_lines(&text, "IFS= read -rd '' GSD_ARGS", "MILESTONE_ARG=")
+        );
+        let out = std::process::Command::new("bash")
+            .args(["--noprofile", "--norc", "-c", &script])
+            .output()
+            .expect("bash");
+        (
+            String::from_utf8_lossy(&out.stdout).trim().to_string(),
+            String::from_utf8_lossy(&out.stderr).into_owned(),
+        )
+    };
+    // pinned: `--ws "alpha"` matches no regex, so the workstream is lost and stays in the name
+    assert_eq!(run(&["--ws", "alpha"]).0, "[][--ws alpha]");
+    // pinned: no arguments reads as a name
+    assert_eq!(run(&[]).0, "[][(no arguments)]");
+    // pinned: the flag stays in the name, and xargs refuses an apostrophe
+    assert_eq!(
+        run(&["Next", "--reset-phase-numbers"]).0,
+        "[][--reset-phase-numbers Next]"
+    );
+    assert!(
+        run(&["Bob's app"]).1.contains("unterminated quote"),
+        "xargs reads the apostrophe"
+    );
+}
