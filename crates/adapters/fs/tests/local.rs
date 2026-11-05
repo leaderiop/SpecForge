@@ -285,3 +285,34 @@ fn a_copy_never_writes_through_a_link_in_its_destination() {
     assert_ne!(LocalFs.change(&roots, &copy).class, OutcomeClass::Ok);
     assert!(!outside.path().join("y").exists());
 }
+
+/// A named pipe is judged before it is opened, so a digest of one is refused at once rather than waiting for a writer
+/// that never comes (ADR 0264).
+#[cfg(unix)]
+#[test]
+fn a_digest_of_a_named_pipe_is_refused_without_waiting() {
+    let (dir, roots) = project();
+    let pipe = dir.path().join("pipe");
+    let made = std::process::Command::new("mkfifo").arg(&pipe).status();
+    if !made.is_ok_and(|status| status.success()) {
+        return; // no mkfifo here: nothing to judge
+    }
+    let asked = roots.clone();
+    let (sent, got) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = sent.send(LocalFs.digest(&asked, &at("project", "pipe")).class);
+    });
+    let class = got
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .expect("the digest waited on the pipe");
+    assert_eq!(class, OutcomeClass::Denied);
+    let digest = LocalFs.digest(&roots, &at("project", "a.txt"));
+    assert_eq!(
+        (digest.class, digest.sha256.as_str(), digest.bytes),
+        (
+            OutcomeClass::Ok,
+            specforge_common::regular::sha256_hex(b"a\n").as_str(),
+            2
+        )
+    );
+}

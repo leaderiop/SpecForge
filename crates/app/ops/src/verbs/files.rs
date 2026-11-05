@@ -4,7 +4,6 @@
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
-use sha2::Digest as _;
 use specforge_effects::contained::TEMP;
 use specforge_effects::fs::{FileKind, READ_CEILING};
 use specforge_effects::{FsChange, FsChanged, FsOp, ListRequest, OutcomeClass, Place, Root};
@@ -502,10 +501,7 @@ pub fn digest(
     if let Some(text) = text {
         digests.push(Digested {
             path: None,
-            sha256: sha2::Sha256::digest(text.as_bytes())
-                .iter()
-                .map(|b| format!("{b:02x}"))
-                .collect(),
+            sha256: specforge_common::regular::sha256_hex(text.as_bytes()),
             bytes: text.len() as u64,
         });
     }

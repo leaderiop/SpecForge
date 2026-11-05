@@ -3,10 +3,8 @@
 //! withheld name, and a link is neither followed out of its root nor copied. A change never names a root itself, nor a
 //! directory that holds one.
 
-use std::io::Read as _;
 use std::path::{Path, PathBuf};
 
-use sha2::Digest as _;
 use specforge_effects::contained::in_host_state;
 use specforge_effects::fs::LIST_VISITS;
 use specforge_effects::{
@@ -265,8 +263,8 @@ fn remove(at: &Path, recursive: bool) -> std::io::Result<()> {
     }
 }
 
-/// [`specforge_effects::Fs::digest`] over the local file system: a file's SHA-256, streamed in 64 KiB reads, never a
-/// withheld one.
+/// [`specforge_effects::Fs::digest`] over the local file system: a regular file's SHA-256, streamed, never a withheld
+/// one.
 pub(crate) fn digest(roots: &Roots, at: &Place) -> FsDigest {
     let Some(name) = Root::parse(&at.root) else {
         return FsDigest::of(OutcomeClass::Outside);
@@ -277,32 +275,13 @@ pub(crate) fn digest(roots: &Roots, at: &Place) -> FsDigest {
         Ok(_) => return FsDigest::of(OutcomeClass::Missing),
         Err(_) => return FsDigest::of(OutcomeClass::Outside),
     };
-    let Ok(mut file) = std::fs::File::open(&held.at) else {
-        return FsDigest::of(OutcomeClass::Denied);
-    };
-    if !file.metadata().is_ok_and(|meta| meta.is_file()) {
-        return FsDigest::of(OutcomeClass::Denied);
-    }
-    let mut hasher = sha2::Sha256::new();
-    let mut buffer = vec![0u8; 64 * 1024];
-    let mut bytes = 0u64;
-    loop {
-        match file.read(&mut buffer) {
-            Ok(0) => break,
-            Ok(n) => {
-                hasher.update(&buffer[..n]);
-                bytes += n as u64;
-            }
-            Err(_) => return FsDigest::of(OutcomeClass::Denied),
-        }
-    }
-    FsDigest {
-        class: OutcomeClass::Ok,
-        sha256: hasher
-            .finalize()
-            .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect(),
-        bytes,
+    // the kind is judged before the open: a named pipe would wait for a writer (ADR 0264)
+    match specforge_common::regular::digest(&held.at, None) {
+        Ok((sha256, bytes)) => FsDigest {
+            class: OutcomeClass::Ok,
+            sha256,
+            bytes,
+        },
+        Err(_) => FsDigest::of(OutcomeClass::Denied),
     }
 }
