@@ -82,6 +82,7 @@ fn bound(subject: &str) -> Option<&'static str> {
         | "$MILESTONE/${NN}"
         | "$UNDO_MILESTONE/${NN}"
         | "{selected-phase}"
+        | "{PHASE_ID}"
         | "$MILESTONE/${N}"
         | "$UNDO_MILESTONE/${N}" => "v1.0/01",
         "$PLAN_ID" | "$PLAN_ENTITY" | "$PLAN_FULL_ID" | "${TARGET_PLAN_ID}" | "$plan_id"
@@ -116,6 +117,16 @@ const UNBOUND: &[&str] = &[
     "$SUMMARY_FILE",
     "$RESEARCH_ID",
     "$uat_path",
+    // entity ids a prompt hands its agent, each read with `--format context`
+    "{roadmap_path}",
+    "{context_path}",
+    "{research_path}",
+    "{verification_path}",
+    "{uat_path}",
+    "{PATTERNS_PATH}",
+    "{AI_SPEC_PATH}",
+    "{UI_SPEC_PATH}",
+    "{SPEC_PATH}",
     "$PLAN_REF",
     "$PHASE_NUM",
     "${PHASE_NUM}",
