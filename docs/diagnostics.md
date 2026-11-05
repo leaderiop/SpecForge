@@ -1567,6 +1567,8 @@ column. An SVG shown through an `<img>` runs no script, but one opened, inlined
 or embedded does: remove it.
 
 Owner: @specforge/checks
+Level: error
+```
 
 ## E114
 
