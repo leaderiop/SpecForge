@@ -41,8 +41,53 @@ fn repo_names_the_top_and_the_git_directory() {
             "common_dir": format!("{top}/.git"),
             "linked": false,
             "shallow": false,
+            "prefix": "",
+            "superproject": null,
         })
     );
+}
+
+/// `--in <dir>` runs a verb as if typed in `dir`, as `git -C` does: the repository `dir` is in (a nested one
+/// included), `dir`'s prefix, and the repository the nested one is a submodule of.
+#[test]
+fn in_runs_a_verb_as_if_typed_in_its_directory() {
+    let (project, repo, _) = committed();
+    let top = project.root().canonicalize().unwrap();
+    let top = top.to_string_lossy().replace('\\', "/");
+    std::fs::create_dir_all(project.root().join("docs/deep")).unwrap();
+    let deep = git(&project, &["repo", "--in", "docs/deep"])
+        .exits(0)
+        .answer();
+    assert_eq!(
+        (deep["top"].clone(), deep["prefix"].clone()),
+        (json!(top), json!("docs/deep/"))
+    );
+    let nested = Repo::init(&project.root().join("vendor/lib"));
+    nested.write("x.txt", "x\n");
+    let inner = nested.commit_all("inner");
+    let answer = git(&project, &["repo", "--in", "vendor/lib"])
+        .exits(0)
+        .answer();
+    assert_eq!(
+        (
+            answer["top"].clone(),
+            answer["prefix"].clone(),
+            answer["superproject"].clone()
+        ),
+        (json!(format!("{top}/vendor/lib")), json!(""), json!(null)),
+        "a nested repository is a submodule only once the outer index records it"
+    );
+    repo.gitlink("vendor/lib", &inner);
+    let picked = |args: &[&str]| git(&project, args).exits(0).stdout;
+    assert_eq!(
+        picked(&["repo", "--in", "vendor/lib", "--pick", ".superproject"]),
+        format!("{top}\n")
+    );
+    assert_eq!(
+        picked(&["log", "--in", "vendor/lib", "--pick", ".commits[].subject"]),
+        "inner\n"
+    );
+    git(&project, &["repo", "--in", "nosuch"]).exits(2);
 }
 
 #[test]

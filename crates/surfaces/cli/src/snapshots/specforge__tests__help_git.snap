@@ -4,7 +4,7 @@ expression: command.clone().render_long_help().to_string()
 ---
 Read and change the repository the project is in, with no git program: its place, history and status, and commits, branches, worktrees and merges under the effects ceiling, as JSON (ADR 0339)
 
-Usage: specforge git <COMMAND>
+Usage: specforge git [OPTIONS] <COMMAND>
 
 Commands:
   repo         Where the repository is: its top directory, git directory and common directory
@@ -33,5 +33,8 @@ Commands:
   help         Print this message or the help of the given subcommand(s)
 
 Options:
+      --in <DIR>
+          Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
+
   -h, --help
           Print help

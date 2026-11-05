@@ -156,6 +156,24 @@ impl Repo {
         self.write(rel, ours);
     }
 
+    /// The index records the repository at `rel` as a submodule at `sha` (a gitlink), as `git submodule add` stages
+    /// it.
+    pub fn gitlink(&self, rel: &str, sha: &str) -> &Self {
+        let repo = self.open();
+        let mut index = index_of(&repo);
+        index.remove_entries(|_, path, _| path == rel.as_bytes());
+        index.dangerously_push_entry(
+            Stat::default(),
+            gix::ObjectId::from_hex(sha.as_bytes()).unwrap(),
+            Flags::empty(),
+            Mode::COMMIT,
+            rel.as_bytes().as_bstr(),
+        );
+        index.sort_entries();
+        index.write(gix::index::write::Options::default()).unwrap();
+        self
+    }
+
     /// A commit of the index on `HEAD` (its branch, or `HEAD` itself when detached): its sha.
     pub fn commit(&self, message: &str) -> String {
         self.commit_onto(message, None)

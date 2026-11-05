@@ -480,6 +480,30 @@ impl Git for Gix {
         refs::worktrees(&open(place)?)
     }
 
+    fn superproject(&self, place: &GitPlace) -> Result<Option<PathBuf>, GitError> {
+        let Some(parent) = place.toplevel.parent() else {
+            return Ok(None);
+        };
+        let Located::Repo(outer) = self.locate(parent) else {
+            return Ok(None);
+        };
+        let Some(rel) = place
+            .toplevel
+            .strip_prefix(&outer.toplevel)
+            .ok()
+            .and_then(tree_path)
+        else {
+            return Ok(None);
+        };
+        let index = open(&outer)?
+            .index_or_empty()
+            .map_err(|e| failed("read the index", &e))?;
+        let submodule = index
+            .entry_by_path(rel.as_str().into())
+            .is_some_and(|entry| entry.mode == gix::index::entry::Mode::COMMIT);
+        Ok(submodule.then_some(outer.toplevel))
+    }
+
     fn remotes(&self, place: &GitPlace) -> Result<Vec<GitRemote>, GitError> {
         Ok(refs::remotes(&open(place)?))
     }

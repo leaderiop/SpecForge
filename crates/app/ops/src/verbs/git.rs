@@ -9,6 +9,7 @@ use specforge_effects::git::{
 
 use super::{USER, Verbs, slashed};
 use crate::{OpError, OpErrorKind, UNKNOWN_REVISION};
+use specforge_effects::RealFs;
 
 mod branching;
 mod commit;
@@ -35,6 +36,12 @@ pub struct RepoAnswer {
     /// A linked worktree: its git directory is not the common one.
     pub linked: bool,
     pub shallow: bool,
+    /// The current directory from the top, `/`-ended as `git rev-parse --show-prefix` prints it (`""` at the top);
+    /// none when the current directory is outside the working tree.
+    pub prefix: Option<String>,
+    /// The top of the repository this one is a submodule of (`--show-superproject-working-tree`), absolute; none when
+    /// it is no submodule.
+    pub superproject: Option<String>,
 }
 
 /// `git head`'s answer.
@@ -223,10 +230,18 @@ impl Verbs {
         Ok(place)
     }
 
-    /// The repository the project is in, once the ceiling lets git be asked `question`.
+    /// The repository the current directory is in, as git finds it, when the project holds the current directory (a
+    /// repository nested in the project, or `--in`); else the project's. Once the ceiling lets git be asked
+    /// `question`.
     fn place(&self, question: &str) -> Result<GitPlace, OpError> {
         self.permit_git(question)?;
-        match self.ports().git.locate(self.root().dir()) {
+        let project = RealFs::landing(self.root().dir());
+        let from = if self.cwd().starts_with(&project) {
+            self.cwd()
+        } else {
+            self.root().dir()
+        };
+        match self.ports().git.locate(from) {
             Located::Repo(place) => Ok(place),
             Located::NotARepository => Err(OpError::new(
                 OpErrorKind::PreconditionFailed,
@@ -249,12 +264,23 @@ fn failed(error: GitError) -> OpError {
 
 pub fn repo(verbs: &Verbs) -> Result<RepoAnswer, OpError> {
     let place = verbs.place("repo")?;
+    let superproject = verbs.ports().git.superproject(&place).map_err(failed)?;
+    let prefix = verbs.cwd().strip_prefix(&place.toplevel).ok().map(|rel| {
+        let rel = slashed(rel);
+        if rel.is_empty() {
+            rel
+        } else {
+            format!("{rel}/")
+        }
+    });
     Ok(RepoAnswer {
         top: slashed(&place.toplevel),
         git_dir: slashed(&place.git_dir),
         common_dir: slashed(&place.common_dir),
         linked: place.git_dir != place.common_dir,
         shallow: place.shallow,
+        prefix,
+        superproject: superproject.as_deref().map(slashed),
     })
 }
 

@@ -438,6 +438,11 @@ pub trait Git: Send + Sync {
     fn worktrees(&self, _place: &GitPlace) -> Result<Vec<GitWorktree>, GitError> {
         Err(GitError::unanswered())
     }
+    /// The top of the repository whose submodule `place` is, as `git rev-parse --show-superproject-working-tree`
+    /// finds it: the repository above `place`'s top whose index holds that top as a submodule. None when there is none.
+    fn superproject(&self, _place: &GitPlace) -> Result<Option<PathBuf>, GitError> {
+        Err(GitError::unanswered())
+    }
     /// The remotes, by name.
     fn remotes(&self, _place: &GitPlace) -> Result<Vec<GitRemote>, GitError> {
         Err(GitError::unanswered())

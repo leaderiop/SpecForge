@@ -14,6 +14,9 @@ Options:
       --branch <NAME>
           The branch it is on
 
+      --in <DIR>
+          Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
+
   -c, --create
           Create the branch first (at --at, or HEAD)
 

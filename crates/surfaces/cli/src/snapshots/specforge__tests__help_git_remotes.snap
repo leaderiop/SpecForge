@@ -7,6 +7,9 @@ The remotes, with each URL's host and `owner/repo` path
 Usage: specforge git remotes [OPTIONS]
 
 Options:
+      --in <DIR>
+          Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
+
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)
           

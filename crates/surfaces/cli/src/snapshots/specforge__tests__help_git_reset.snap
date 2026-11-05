@@ -11,6 +11,9 @@ Arguments:
           Where HEAD goes; HEAD when absent
 
 Options:
+      --in <DIR>
+          Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
+
       --soft
           Move HEAD alone
 

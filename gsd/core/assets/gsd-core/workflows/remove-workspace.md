@@ -76,7 +76,7 @@ REMOVE_FAILED=false
 For each repo in the workspace:
 
 ```bash
-SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
+SOURCE_REPO_PATH=$(specforge git repo --in "$WORKSPACE_PATH/$REPO_NAME" --pick .common_dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
 if ! specforge git worktree remove "$WORKSPACE_PATH/$REPO_NAME"; then
   echo "Warning: Could not remove worktree for $REPO_NAME — source repo may have been moved, deleted, locked, or dirty." >&2
   REMOVE_FAILED=true

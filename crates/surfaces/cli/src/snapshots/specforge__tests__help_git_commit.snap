@@ -7,6 +7,9 @@ Record a commit: stage the paths named, run the repository's hooks, commit by gi
 Usage: specforge git commit [OPTIONS] --message <MESSAGE>
 
 Options:
+      --in <DIR>
+          Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
+
   -m, --message <MESSAGE>
           The message; given more than once, each is a paragraph of its own (as `git commit -m` takes them)
 

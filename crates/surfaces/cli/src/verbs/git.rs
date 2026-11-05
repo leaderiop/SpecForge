@@ -5,13 +5,38 @@ use specforge_effects::Ports;
 use specforge_ops::OpError;
 use specforge_ops::verbs::{Verbs, git};
 
+mod args;
+
 use super::{VerbArgs, shown};
 use crate::outcome::Exit;
-use crate::terminal::{Terminal, outln};
+use crate::terminal::{Terminal, errln, outln};
+use args::*;
+
+/// `specforge git [--in <dir>] <action>`: with `--in`, the action runs as if typed in `dir`, as `git -C` runs one
+/// (its current directory is `dir`).
+pub(crate) fn run(
+    dir: Option<&std::path::Path>,
+    action: Action,
+    terminal: &Terminal,
+    ports: &Ports,
+) -> Exit {
+    if let Some(dir) = dir
+        && let Err(error) = std::env::set_current_dir(dir)
+    {
+        errln!(
+            terminal,
+            "error: --in {}: {error}",
+            shown(&dir.to_string_lossy())
+        );
+        return Exit::Unjudged;
+    }
+    action.run(terminal, ports)
+}
 
 #[derive(clap::Subcommand)]
 pub(crate) enum Action {
-    /// Where the repository is: its top directory, git directory and common directory
+    /// Where the repository is: its top directory, git directory and common directory, the current directory's prefix
+    /// and the repository it is a submodule of
     Repo(Plain),
     /// HEAD's commit and branch, whether it is detached or unborn, and its upstream
     Head(Plain),
@@ -60,363 +85,6 @@ pub(crate) enum Action {
     CherryPick(PickArgs),
     /// Record a commit that undoes another; conflicts exit 1
     Revert(PickArgs),
-}
-
-#[derive(clap::Args)]
-pub(crate) struct MergeArgs {
-    /// The branch or commit merged in
-    revision: String,
-
-    /// Refuse unless HEAD can fast-forward
-    #[arg(long, conflicts_with = "no_ff")]
-    ff_only: bool,
-
-    /// Record a merge commit even when HEAD could fast-forward
-    #[arg(long)]
-    no_ff: bool,
-
-    /// The merge commit's message
-    #[arg(short, long, value_name = "MESSAGE")]
-    message: Option<String>,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct ResetArgs {
-    /// Where HEAD goes; HEAD when absent
-    revision: Option<String>,
-
-    /// Move HEAD alone
-    #[arg(long, conflicts_with_all = ["mixed", "hard"])]
-    soft: bool,
-
-    /// Move HEAD and the index (the default)
-    #[arg(long, conflicts_with = "hard")]
-    mixed: bool,
-
-    /// Move HEAD, the index and the files: changes are lost
-    #[arg(long)]
-    hard: bool,
-
-    /// Discard the tree's changes with --hard
-    #[arg(long)]
-    yes: bool,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct RestoreArgs {
-    /// The files, from the current directory
-    #[arg(required = true)]
-    paths: Vec<std::path::PathBuf>,
-
-    /// Take them from this commit instead
-    #[arg(long, value_name = "REV")]
-    source: Option<String>,
-
-    /// Restore their index entries (from HEAD, or --source), not the files
-    #[arg(long)]
-    staged: bool,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Subcommand)]
-pub(crate) enum StashAction {
-    /// Stash the changes of the index and the worktree, and clean the tree
-    Push(StashPushArgs),
-    /// Apply a stash (the newest when absent) and drop it
-    Pop(StashPopArgs),
-    /// The stashes, newest first
-    List(Plain),
-}
-
-#[derive(clap::Args)]
-pub(crate) struct StashPushArgs {
-    #[arg(short, long, value_name = "MESSAGE")]
-    message: Option<String>,
-
-    /// Stash the untracked files too
-    #[arg(short = 'u', long)]
-    include_untracked: bool,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct StashPopArgs {
-    /// The stash's index (`0` the newest)
-    #[arg(default_value_t = 0)]
-    index: usize,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct PickArgs {
-    /// The commit
-    revision: String,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Subcommand)]
-pub(crate) enum BranchAction {
-    /// Create a branch at a revision (HEAD when absent)
-    Create(BranchCreateArgs),
-    /// Delete a branch: never HEAD's, and one with commits HEAD does not hold only with --force
-    Delete(BranchDeleteArgs),
-}
-
-#[derive(clap::Args)]
-pub(crate) struct BranchCreateArgs {
-    name: String,
-
-    /// Where the branch starts; HEAD when absent
-    #[arg(long, value_name = "REV")]
-    at: Option<String>,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct BranchDeleteArgs {
-    name: String,
-
-    /// Delete it even when HEAD does not hold its commits
-    #[arg(long)]
-    force: bool,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct SwitchArgs {
-    /// The branch
-    name: String,
-
-    /// Create the branch first (at --at, or HEAD)
-    #[arg(short, long)]
-    create: bool,
-
-    /// Where a created branch starts; HEAD when absent
-    #[arg(long, value_name = "REV", requires = "create")]
-    at: Option<String>,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct TagArgs {
-    name: String,
-
-    /// The commit tagged; HEAD when absent
-    #[arg(long, value_name = "REV")]
-    at: Option<String>,
-
-    /// An annotated tag's message, by git's configured identity
-    #[arg(short, long, value_name = "MESSAGE")]
-    message: Option<String>,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Subcommand)]
-pub(crate) enum WorktreeAction {
-    /// Add a linked worktree at a directory (absent or empty) on a branch: its name when no --branch, made when missing
-    Add(WorktreeAddArgs),
-    /// Remove a linked worktree and its directory: one with changes or untracked files only with --force
-    Remove(WorktreeRemoveArgs),
-    /// Drop the records of linked worktrees whose directories are gone
-    Prune(Plain),
-}
-
-#[derive(clap::Args)]
-pub(crate) struct WorktreeAddArgs {
-    /// The worktree's directory, from the current directory
-    #[arg(value_name = "DIR")]
-    dir: std::path::PathBuf,
-
-    /// The branch it is on
-    #[arg(long, value_name = "NAME")]
-    branch: Option<String>,
-
-    /// Create the branch first (at --at, or HEAD)
-    #[arg(short, long)]
-    create: bool,
-
-    /// Where a created branch starts; HEAD when absent
-    #[arg(long, value_name = "REV")]
-    at: Option<String>,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct WorktreeRemoveArgs {
-    /// The worktree's directory, from the current directory
-    #[arg(value_name = "DIR")]
-    dir: std::path::PathBuf,
-
-    /// Remove it with its changes and untracked files
-    #[arg(long)]
-    force: bool,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct CommitArgs {
-    /// The message; given more than once, each is a paragraph of its own (as `git commit -m` takes them)
-    #[arg(short, long = "message", value_name = "MESSAGE", required = true)]
-    message: Vec<String>,
-
-    /// Stage the files at or under this path first, as the worktree has them (a deleted one leaves the index)
-    #[arg(long, value_name = "PATH")]
-    add: Vec<std::path::PathBuf>,
-
-    /// Take the files at or under this path out of the index first, leaving them on disk (`git rm --cached`)
-    #[arg(long, value_name = "PATH")]
-    remove: Vec<std::path::PathBuf>,
-
-    /// Stage every tracked file first as the worktree has it; untracked files stay out
-    #[arg(short, long)]
-    all: bool,
-
-    /// Stage an ignored path --add names too; without it one is refused, as `git add` refuses it
-    #[arg(long, requires = "add")]
-    force: bool,
-
-    /// Commit even when the index matches HEAD
-    #[arg(long)]
-    allow_empty: bool,
-
-    /// Run none of the repository's pre-commit, commit-msg and post-commit hooks; prepare-commit-msg still runs, as
-    /// git runs it
-    #[arg(long)]
-    no_verify: bool,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct BranchesArgs {
-    /// The remote-tracking branches instead (`origin/main`)
-    #[arg(long)]
-    remote: bool,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct Plain {
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct RevArgs {
-    /// The revisions: a sha, a branch, a tag, `HEAD~1`, `main:path`
-    #[arg(required = true)]
-    revs: Vec<String>,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct ConfigArgs {
-    /// The key, `section.name` or `section.subsection.name`
-    key: String,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct LogArgs {
-    /// `A..B` (what B reaches and A does not), `A...B` (what either reaches and not both) or one revision;
-    /// `HEAD` when absent
-    range: Option<String>,
-
-    /// At most this many commits listed (1000 when absent; `count` still counts them all, and `truncated` says so)
-    #[arg(long, value_name = "N")]
-    max: Option<usize>,
-
-    /// Only the commits that change these paths, from the repository's top (after `--`, as git takes them)
-    #[arg(last = true, value_name = "PATH")]
-    paths: Vec<String>,
-
-    /// Follow only each commit's first parent
-    #[arg(long)]
-    first_parent: bool,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct DiffArgs {
-    /// The commit to compare from; `HEAD` when absent
-    #[arg(long, value_name = "REV")]
-    base: Option<String>,
-
-    /// The commit to compare with; `HEAD` when `--base` is given, else the worktree
-    #[arg(long, value_name = "REV", conflicts_with_all = ["staged", "worktree"])]
-    head: Option<String>,
-
-    /// Compare with the index
-    #[arg(long, conflicts_with = "worktree")]
-    staged: bool,
-
-    /// Compare with the tracked files as they are on disk
-    #[arg(long)]
-    worktree: bool,
-
-    /// Only the files at or under these paths, from the repository's top (after `--`, as git takes them)
-    #[arg(last = true, value_name = "PATH")]
-    paths: Vec<String>,
-
-    /// Give each text file's unified hunks
-    #[arg(long)]
-    patch: bool,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct MergeBaseArgs {
-    a: String,
-    b: String,
-
-    #[command(flatten)]
-    verb: VerbArgs,
-}
-
-#[derive(clap::Args)]
-pub(crate) struct ShowArgs {
-    /// `<rev>:<path>`, the path from the repository's top
-    object: String,
-
-    #[command(flatten)]
-    verb: VerbArgs,
 }
 
 impl Action {

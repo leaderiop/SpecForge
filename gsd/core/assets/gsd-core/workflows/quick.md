@@ -268,7 +268,7 @@ QUICK_DIR="${task_dir}"
 # Worktree-relative form for an isolated executor (#5085): the guard blocks absolute paths outside its worktree.
 _QTOP=$(specforge git repo --pick .top 2>/dev/null)
 _QTOP_DIR=$(specforge git repo --path "$QUICK_DIR" --pick .top 2>/dev/null)
-QUICK_DIR_REL=$(git -C "$QUICK_DIR" rev-parse --show-prefix 2>/dev/null)
+QUICK_DIR_REL=$(specforge git repo --in "$QUICK_DIR" --pick .prefix 2>/dev/null)
 QUICK_DIR_REL="${QUICK_DIR_REL%/}"
 if [ -z "$QUICK_DIR_REL" ] || [ "$_QTOP" != "$_QTOP_DIR" ]; then QUICK_DIR_REL="$QUICK_DIR"; fi
 ```

@@ -219,6 +219,10 @@ enum Commands {
     /// Read and change the repository the project is in, with no git program: its place, history and status, and
     /// commits, branches, worktrees and merges under the effects ceiling, as JSON (ADR 0339)
     Git {
+        /// Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every
+        /// typed path read from it
+        #[arg(long = "in", value_name = "DIR", global = true)]
+        in_dir: Option<std::path::PathBuf>,
         #[command(subcommand)]
         action: verbs::git::Action,
     },
@@ -351,7 +355,9 @@ fn run(command: Commands, terminal: &Terminal, ports: &Ports) -> Exit {
         Commands::InferStatus(args) => args.run(terminal, ports),
         Commands::Files { action } => action.run(terminal, ports),
         Commands::Http { action } => action.run(terminal, ports),
-        Commands::Git { action } => action.run(terminal, ports),
+        Commands::Git { in_dir, action } => {
+            verbs::git::run(in_dir.as_deref(), action, terminal, ports)
+        }
         Commands::External(_) => unreachable!("main runs an extension command itself"),
         Commands::Run(_) => unreachable!("main runs a program itself"),
         Commands::Extension { action } => action.run(terminal, ports),

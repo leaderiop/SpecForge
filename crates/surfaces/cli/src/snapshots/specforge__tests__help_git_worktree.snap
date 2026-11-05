@@ -4,7 +4,7 @@ expression: command.clone().render_long_help().to_string()
 ---
 Add, remove or prune linked worktrees
 
-Usage: specforge git worktree <COMMAND>
+Usage: specforge git worktree [OPTIONS] <COMMAND>
 
 Commands:
   add     Add a linked worktree at a directory (absent or empty) on a branch: its name when no --branch, made when missing
@@ -13,5 +13,8 @@ Commands:
   help    Print this message or the help of the given subcommand(s)
 
 Options:
+      --in <DIR>
+          Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
+
   -h, --help
           Print help

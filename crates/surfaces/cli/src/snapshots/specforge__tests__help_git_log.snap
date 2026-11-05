@@ -14,6 +14,9 @@ Arguments:
           Only the commits that change these paths, from the repository's top (after `--`, as git takes them)
 
 Options:
+      --in <DIR>
+          Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
+
       --max <N>
           At most this many commits listed (1000 when absent; `count` still counts them all, and `truncated` says so)
 
