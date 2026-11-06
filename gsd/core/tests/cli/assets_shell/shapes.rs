@@ -310,3 +310,38 @@ fn the_onboarding_entities_are_one_row_per_entity() {
         "{out}"
     );
 }
+
+/// `/gsd-quick status <slug>` reads the slug's plan: a quick plan's title is prose, and the slug is dashed.
+#[test]
+fn a_quick_plan_is_found_by_its_slug() {
+    let Some(sh) = Shell::only(&["grep", "awk", "head"]) else {
+        return;
+    };
+    let p = project("execute");
+    let made = p.run(&[
+        "new",
+        "plan",
+        "251031-abc",
+        "Sort rows",
+        "--in",
+        "spec/quick.spec",
+        "--type",
+        "execute",
+        "--files_modified",
+        "src/a.js",
+        "--objective",
+        "Rows are sorted",
+        "--slug",
+        "sort-rows",
+    ]);
+    assert_eq!(made.code, 0, "{}", made.all());
+    let text = asset("commands/gsd/quick.md");
+    let found = |slug: &str| {
+        let code = line(&text, "dir=$(").replace("{SLUG}", slug);
+        let (out, err, _) = run(&sh, &p, &format!("{code}\nprintf '[%s]' \"$dir\""));
+        (out, err)
+    };
+    // Pinned: the grep reads the title, so the dashed slug the workflow writes finds nothing.
+    assert_eq!(found("sort-rows").0, "[]", "{}", found("sort-rows").1);
+    assert_eq!(found("sort").0, "[251031-abc]", "{}", found("sort").1);
+}
