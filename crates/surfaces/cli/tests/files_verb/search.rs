@@ -678,3 +678,40 @@ fn a_multiline_pattern_crosses_crlf_lines() {
         .answer();
     assert_eq!(line["matches"][0]["text"], ".then(ok)", "{line}");
 }
+/// `--and-not` drops a match, not the context bookkeeping: `-A` alone answers no `before`, and `-B N` at most N.
+#[test]
+fn and_not_keeps_each_matchs_context_to_what_was_asked() {
+    let text = "x1 drop\na\nb\nx2\nc\nx3 drop\nd\ne\nx4\nf\n";
+    let project = TestProject::new().file("t.txt", text);
+    let matches = |flags: &[&str]| {
+        let mut args = vec!["files", "search", "x", "t.txt", "--and-not", "drop"];
+        args.extend_from_slice(flags);
+        Cli::on(&project).run(&args).exits(0).answer()["matches"].clone()
+    };
+    let lines = |context: &serde_json::Value| -> Vec<u64> {
+        context
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|line| line["line"].as_u64().unwrap())
+            .collect()
+    };
+
+    let after = matches(&["-A", "3"]);
+    assert_eq!(after.as_array().unwrap().len(), 2, "{after}");
+    assert_eq!(lines(&after[0]["before"]), [] as [u64; 0], "{after}");
+    assert_eq!(lines(&after[1]["before"]), [] as [u64; 0], "{after}");
+    // x2 at 4: 5 is its, 6 is the dropped match, 7 still within 3.
+    assert_eq!(lines(&after[0]["after"]), [5, 7], "{after}");
+    assert_eq!(lines(&after[1]["after"]), [10], "{after}");
+
+    let before = matches(&["-B", "1"]);
+    assert_eq!(lines(&before[0]["before"]), [3], "{before}");
+    assert_eq!(lines(&before[1]["before"]), [8], "{before}");
+
+    let both = matches(&["-C", "1"]);
+    assert_eq!(lines(&both[0]["before"]), [3], "{both}");
+    assert_eq!(lines(&both[0]["after"]), [5], "{both}");
+    assert_eq!(lines(&both[1]["before"]), [8], "{both}");
+    assert_eq!(lines(&both[1]["after"]), [10], "{both}");
+}

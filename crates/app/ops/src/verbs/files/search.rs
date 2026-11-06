@@ -459,8 +459,9 @@ struct Found<'a> {
     answer: &'a mut SearchAnswer,
     /// The context lines reported since the last match: the next match's `before`.
     before: Vec<Context>,
-    /// The index of this file's last match in the answer: an `after` line is its.
-    last: Option<usize>,
+    /// The index of this file's last match in the answer and the line it ends on: an `after` line within reach of it
+    /// is its.
+    last: Option<(usize, usize)>,
     /// The matches kept in this file.
     kept: usize,
 }
@@ -477,9 +478,8 @@ impl Sink for Found<'_> {
             .iter()
             .any(|matcher| matcher.is_match(text).unwrap_or(false))
         {
-            // Its context goes with it: the lines before are no other match's, those after the next one's before.
+            // The lines before it were its own; a kept match's `after` may go on past it.
             self.before.clear();
-            self.last = None;
             return Ok(true);
         }
         match self.search.mode {
@@ -509,19 +509,17 @@ impl Sink for Found<'_> {
             _ => 1,
         };
         let context = self.search.before > 0 || self.search.after > 0;
+        let end_line = line + found.lines().count().saturating_sub(1);
         self.answer.matches.push(Match {
             path: self.path.to_string(),
             line,
-            end_line: self
-                .search
-                .multiline
-                .then(|| line + found.lines().count().saturating_sub(1)),
+            end_line: self.search.multiline.then_some(end_line),
             column,
             text: lines_text(bytes),
             before: context.then(|| std::mem::take(&mut self.before)),
             after: context.then(Vec::new),
         });
-        self.last = Some(self.answer.matches.len() - 1);
+        self.last = Some((self.answer.matches.len() - 1, end_line));
         Ok(true)
     }
 
@@ -531,12 +529,19 @@ impl Sink for Found<'_> {
             text: lines_text(context.bytes()),
         };
         match (context.kind(), self.last) {
-            (SinkContextKind::After, Some(last)) => {
+            (SinkContextKind::After, Some((last, end))) if line.line <= end + self.search.after => {
                 if let Some(after) = self.answer.matches[last].after.as_mut() {
                     after.push(line);
                 }
             }
-            _ => self.before.push(line),
+            // An `after` line of a match `--and-not` dropped is only ever the next match's `before`, within what it
+            // asks.
+            _ => {
+                self.before.push(line);
+                if self.before.len() > self.search.before {
+                    self.before.remove(0);
+                }
+            }
         }
         Ok(true)
     }
