@@ -163,3 +163,20 @@ fn plan_phase_steps_into_execute_phase() {
         .clone();
     assert_eq!(last["prompt"], "specforge.gsd.execute_phase");
 }
+
+/// The inline plan's times: pinned as they run today, kept in shell variables, with neither command run and the
+/// model told to write what `complete-plan` and the graph own.
+#[test]
+fn the_inline_plan_opens_and_closes_through_the_commands() {
+    let text = text_of(&payload(&prompt(
+        &twin(),
+        "execute_plan",
+        &[TWIN_PLAN],
+        "claude-code",
+    )));
+    assert!(text.contains("PLAN_START_TIME=$(date"));
+    assert!(text.contains("PLAN_END_EPOCH=$(date +%s)"));
+    assert!(!text.contains("specforge gsd start-plan \"$PLAN_ID\""));
+    assert!(!text.contains("specforge gsd complete-plan \"$("));
+    assert!(text.contains("duration ($DURATION)"));
+}
