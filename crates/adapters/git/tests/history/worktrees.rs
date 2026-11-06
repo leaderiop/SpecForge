@@ -5,6 +5,8 @@ use specforge_effects::git::{Git, Located};
 use specforge_git::Gix;
 use specforge_git::testing::Repo;
 
+use super::place;
+
 /// A `.git` no repository answers for, inside a clean repository: `git status` refuses it, where a search going on
 /// upwards reads the outer one, clean.
 #[test]
@@ -55,4 +57,39 @@ fn a_dangling_git_link_stops_the_search_for_a_repository() {
         Gix::default().locate(&inner),
         Located::Unavailable(_)
     ));
+}
+
+#[test]
+fn a_worktree_makes_its_parents_and_two_of_one_name_take_two_records() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "a");
+    let first = repo.commit_all("first");
+    repo.branch("one", &first).branch("two", &first);
+    let linked = tempfile::tempdir().unwrap();
+    let linked = linked.path().canonicalize().unwrap();
+    let git = Gix::default();
+    let place = place(&repo);
+    git.worktree_add(&place, &linked.join("ws1/deep/repo"), "one")
+        .unwrap();
+    git.worktree_add(&place, &linked.join("ws2/deep/repo"), "two")
+        .unwrap();
+    let listed: Vec<_> = git.worktrees(&place).unwrap();
+    assert!(
+        listed
+            .iter()
+            .any(|w| w.path == linked.join("ws1/deep/repo"))
+    );
+    assert!(
+        listed
+            .iter()
+            .any(|w| w.path == linked.join("ws2/deep/repo"))
+    );
+    assert!(linked.join("ws2/deep/repo/a.txt").is_file());
+    git.worktree_remove(&place, &linked.join("ws1/deep/repo"))
+        .unwrap();
+    git.worktree_remove(&place, &linked.join("ws2/deep/repo"))
+        .unwrap();
+    assert!(!linked.join("ws1/deep/repo").exists());
+    assert!(!linked.join("ws2/deep/repo").exists());
 }
