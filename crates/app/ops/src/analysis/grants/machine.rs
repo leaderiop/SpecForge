@@ -1,4 +1,4 @@
-//! Machine roots (ADR 0335's S1 amendment): a root the user names on this machine, by typing it, for every project's
+//! Machine roots (ADR 0335's amendment): a root the user names on this machine, by typing it, for every project's
 //! verbs. No project is read, so `approve` and `revoke` work from any directory.
 
 use std::path::{Component, Path};
@@ -37,7 +37,7 @@ pub fn approve_machine_root(
         |target: &Path| match not_a_machine_root(target, home.as_deref(), Path::new(&store)) {
             Some(why) => Err(invalid(
                 format!("{} {why}", shown(&target.to_string_lossy())),
-                "name a directory of its own, as ~/gsd-workspaces",
+                "name a directory of its own, under your home and not hidden",
             )),
             None => Ok(()),
         };

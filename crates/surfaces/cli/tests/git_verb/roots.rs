@@ -1,7 +1,7 @@
 //! `specforge git` where several repositories meet: a repository with no identity, and a machine root.
 
 use super::{committed, git};
-use crate::support::Cli;
+use crate::support::{Cli, at, workspaces_root as workspaces};
 
 /// A new machine has no `user.name`: git makes a name up for a branch's reflog, and so must the verb.
 #[test]
@@ -34,29 +34,6 @@ fn typed(project: &crate::support::TestProject, args: &[&str]) -> crate::support
     crate::support::Cli::on(project)
         .env("PATH", empty.path())
         .bare(&all)
-}
-
-/// A root named at `~/gsd-workspaces` on `project`'s machine.
-fn workspaces(project: &crate::support::TestProject) -> std::path::PathBuf {
-    crate::support::Cli::on(project)
-        .run(&[
-            "grants",
-            "approve",
-            "--root",
-            "workspaces",
-            "--at",
-            "~/gsd-workspaces",
-        ])
-        .exits(0);
-    project
-        .home()
-        .canonicalize()
-        .unwrap()
-        .join("gsd-workspaces")
-}
-
-fn at(path: &std::path::Path) -> String {
-    path.to_str().unwrap().to_string()
 }
 
 #[test]

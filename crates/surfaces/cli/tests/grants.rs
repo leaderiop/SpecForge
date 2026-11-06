@@ -2,7 +2,7 @@
 //! here), and `collect` without a terminal running once approved. The approvals themselves are tested in process
 //! (`specforge-ops`, `grants::tests`, `consent::tests`); these tests are the CLI's wiring.
 
-use crate::support::{Cli, TestProject};
+use crate::support::{APPROVE_WORKSPACES as APPROVE, Cli, TestProject};
 use assert_cmd::Command;
 use predicates::prelude::*;
 use tempfile::TempDir;
@@ -317,8 +317,6 @@ fn doctor_and_extensions_list_a_collectors_capability() {
 fn typed_in(project: &TestProject, dir: &std::path::Path, args: &[&str]) -> crate::support::Run {
     Cli::on(project).in_dir(dir).bare(args)
 }
-
-const APPROVE: [&str; 5] = ["grants", "approve", "--root", "workspaces", "--at"];
 
 #[test]
 fn a_machine_root_is_approved_once_and_listed_from_any_project() {

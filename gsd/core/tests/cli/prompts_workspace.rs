@@ -2,7 +2,7 @@
 //! upstream's installs upstream GSD over this one.
 
 use super::commands_support::twin;
-use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
+use super::prompts_support::{payload, prompt, render_three_hosts, text_of, with_specforge_first};
 
 #[test]
 fn workspace_renders() {
@@ -175,16 +175,6 @@ fn approved_home() -> tempfile::TempDir {
         String::from_utf8_lossy(&out.stderr)
     );
     home
-}
-
-/// The test's `PATH` with the built `specforge` first: the blocks call it by name.
-fn with_specforge_first() -> String {
-    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
-    format!(
-        "{}:{}",
-        bin.parent().expect("its directory").display(),
-        std::env::var("PATH").unwrap_or_default()
-    )
 }
 
 /// A repository whose status cannot be read must not count as clean: `rm -rf` follows in step 5. Its `.git` names a

@@ -445,10 +445,9 @@ fn a_run_needs_only_the_approvals_of_what_it_uses_and_w170_lists_them() {
     ]));
     let scopes: Vec<String> = needs
         .iter()
-        .map(|n| match n.approval() {
-            Approval::Capability(a) => a.scope,
-            Approval::Root(r) => r.root,
-            Approval::MachineRoot(r) => r.root,
+        .map(|need| match need {
+            Need::Capability { approval, .. } => approval.scope.clone(),
+            Need::Root(root) => root.root.clone(),
         })
         .collect();
     assert_eq!(

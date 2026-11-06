@@ -272,7 +272,7 @@ import is legitimate.
 - A measured need for async (concurrent effects inside one call).
 - A consent store that is not a file (a keychain), or approvals a team shares.
 
-## Amendment (2026-11-06, S1: machine roots)
+## Amendment (2026-11-06, machine roots)
 
 D2.3's named roots belong to one project's file, and D2.4 approves each per project, so a directory shared by every
 project cannot be "approved once": a repository with no `specforge.json` has no file to name it in, and a committed

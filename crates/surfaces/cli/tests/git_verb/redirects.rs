@@ -3,12 +3,8 @@
 //! repository around a project is no redirect.
 
 use super::{committed, git};
-use crate::support::{Cli, TestProject};
+use crate::support::{Cli, TestProject, at};
 use specforge_git::testing::Repo;
-
-fn at(path: &std::path::Path) -> String {
-    path.to_str().unwrap().to_string()
-}
 
 /// A repository out of every root, with a commit holding `s.txt`.
 fn outside() -> (tempfile::TempDir, Repo) {

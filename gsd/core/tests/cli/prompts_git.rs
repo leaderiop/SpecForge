@@ -4,7 +4,7 @@ use std::process::Command;
 
 use super::commands_support::twin;
 use super::harness::Project;
-use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
+use super::prompts_support::{payload, prompt, render_three_hosts, text_of, with_specforge_first};
 
 #[test]
 fn undo_renders() {
@@ -107,15 +107,9 @@ fn undo_shell(p: &Project, text: &str, setup: &str, starts: &[&str], echo: &str)
         }
     }
     script.push_str(echo);
-    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
-    let path = format!(
-        "{}:{}",
-        bin.parent().expect("a directory").display(),
-        std::env::var("PATH").unwrap_or_default()
-    );
     let out = Command::new("bash")
         .args(["-c", &script])
-        .env("PATH", path)
+        .env("PATH", with_specforge_first())
         .current_dir(p.root())
         .output()
         .expect("bash");

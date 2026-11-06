@@ -20,6 +20,23 @@ pub const SOFTWARE_GOVERNANCE_TESTING: &[&str] = &[
     "@specforge/testing",
 ];
 
+/// `path` as a command line takes it.
+pub fn at(path: &std::path::Path) -> String {
+    path.to_str().unwrap().to_string()
+}
+
+/// The command naming the machine root `workspaces`; the directory follows.
+pub const APPROVE_WORKSPACES: [&str; 5] = ["grants", "approve", "--root", "workspaces", "--at"];
+
+/// `~/gsd-workspaces` approved as the root `workspaces` on `project`'s machine, and where it lies.
+pub fn workspaces_root(project: &TestProject) -> std::path::PathBuf {
+    Cli::on(project)
+        .run(&[&APPROVE_WORKSPACES[..], &["~/gsd-workspaces"]].concat())
+        .exits(0);
+    let home = project.home().canonicalize().unwrap();
+    home.join("gsd-workspaces")
+}
+
 /// Every file under `dir`, at any depth; none when it is missing.
 pub fn files_under(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
     let mut found = Vec::new();

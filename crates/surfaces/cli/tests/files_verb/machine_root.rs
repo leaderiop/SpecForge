@@ -1,31 +1,16 @@
-//! A machine root (ADR 0335's S1 amendment): named once on this machine, reached by every project's verbs under its
+//! A machine root (ADR 0335's amendment): named once on this machine, reached by every project's verbs under its
 //! ceiling, and it holds a verb exactly as a root of the project does: no link, `..` or second name leads out of it.
 
-use crate::support::{Cli, TestProject};
+use crate::support::{Cli, TestProject, at, workspaces_root};
 
 /// A project, and a `workspaces` root at `~/gsd-workspaces` on its machine.
 fn approved() -> (TestProject, std::path::PathBuf) {
-    let project = TestProject::new().files(&[("a.txt", "a\n")]);
-    Cli::on(&project)
-        .run(&[
-            "grants",
-            "approve",
-            "--root",
-            "workspaces",
-            "--at",
-            "~/gsd-workspaces",
-        ])
-        .exits(0);
-    let target = project
-        .home()
-        .canonicalize()
-        .unwrap()
-        .join("gsd-workspaces");
+    let project = TestProject::new().files(&[(
+        "a.txt", "a
+",
+    )]);
+    let target = workspaces_root(&project);
     (project, target)
-}
-
-fn at(path: &std::path::Path) -> String {
-    path.to_str().unwrap().to_string()
 }
 
 #[test]

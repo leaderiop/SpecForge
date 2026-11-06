@@ -218,9 +218,9 @@ path held to the roots, a write refused unless gix trusts the git dir, hooks run
   - `log -S` past its `--max` stops at the first further commit it keeps: `count` is `null`, `truncated` true.
   - `worktree remove`, like `worktree add`, is held to the roots.
 - **What stays.** Push, fetch, `ls-remote` and `remote show` reach a remote (D6). The ledger's `D git` heading says so
-  for its rows. (Reworded by the S1 amendment below: the workspace workflows and the worktree pin moved to the verbs.)
+  for its rows. (Reworded by an amendment below: the workspace workflows and the worktree pin moved to the verbs.)
 
-## Amendment (2026-11-05, S1: files search on ripgrep's crates)
+## Amendment (2026-11-05, files search on ripgrep's crates)
 
 `specforge files search` grows grep's shapes on ripgrep's own library crates, so GSD's agents and gates search through
 specforge instead of the grep program. The rules of D1-D4 hold: every byte is read through the `Fs` port, each typed
@@ -281,7 +281,7 @@ path is held to the roots, the host's own state stays withheld.
   lookaround (`grep-pcre2`, C code) for proximity; for line exclusion, leaving agents to filter the JSON by judgement
   (exact counts lost) and PCRE2's `^(?!.*Q).*P`. `--and-not` is a second `grep-regex` matcher the sink asks.
 
-## Amendment (2026-11-06, S1: roots and git)
+## Amendment (2026-11-06, roots and git)
 
 - **D2's roots** gain the machine roots ([ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md)'s S1
   amendment): `project`, `spec`, the named roots of `specforge.json`, `temp`, and each root this machine named with
