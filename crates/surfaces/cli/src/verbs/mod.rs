@@ -136,7 +136,7 @@ impl VerbArgs {
 pub(crate) fn open(project: &crate::project::ProjectArg, ports: &Ports) -> Result<Verbs, OpError> {
     let root = project.root()?;
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let consent = UserConsent::user(root.dir());
+    let consent = UserConsent::at_root(&root);
     Ok(Verbs::open(&root, &cwd, ports, &consent))
 }
 

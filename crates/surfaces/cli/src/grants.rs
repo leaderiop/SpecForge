@@ -2,10 +2,13 @@
 //! approvals of it, kept in the user's consent store. `approve` and `revoke` change them; typing `approve` is the
 //! consent, so nothing is asked.
 
+use std::path::PathBuf;
+
 use crate::outcome::{Exit, OutputArg, OutputFormat, Refusal};
 use crate::terminal::{Terminal, errln, outln};
+use specforge_ops::OpError;
 use specforge_ops::analysis::grants::{
-    self, CapabilityRow, Change, GrantState, GrantsListing, RootRow, StoreListing,
+    self, CapabilityRow, Change, GrantState, GrantsChange, GrantsListing, RootRow, StoreListing,
 };
 use specforge_ops::consent::UserConsent;
 use specforge_ops::view::ProjectView;
@@ -25,7 +28,8 @@ pub(crate) struct Args {
 enum Action {
     /// List each capability, its grant here and the project's named roots (the default)
     List(ListArgs),
-    /// Approve an extension's scopes on this machine (every scope that needs it when none is named), or a root
+    /// Approve an extension's scopes on this machine (every scope that needs it when none is named), a root, or name a
+    /// root for every project (--root <name> --at <dir>)
     Approve(ApproveArgs),
     /// Revoke an extension's approvals (every scope when none is named), a root's, or the whole project's
     Revoke(RevokeArgs),
@@ -57,6 +61,11 @@ struct ApproveArgs {
     #[arg(long, value_name = "NAME", conflicts_with_all = ["extension", "scopes"])]
     root: Option<String>,
 
+    /// Name --root on this machine at this directory, for every project's verbs: `~/` is the home, and it is made when
+    /// missing. Never the home, what holds it or a filesystem root
+    #[arg(long, value_name = "DIR", requires = "root")]
+    at: Option<PathBuf>,
+
     #[command(flatten)]
     project: crate::project::ProjectArg,
 
@@ -81,6 +90,10 @@ struct RevokeArgs {
     #[arg(long = "project", id = "whole", conflicts_with_all = ["extension", "scopes"])]
     whole: bool,
 
+    /// --root names a root of this machine (`approve --root <name> --at <dir>`), for every project
+    #[arg(long, requires = "root")]
+    machine: bool,
+
     #[command(flatten)]
     project: crate::project::ProjectArg,
 
@@ -94,6 +107,12 @@ impl Args {
             None => self.list.run(terminal, ports),
             Some(Action::List(list)) => list.run(terminal, ports),
             Some(Action::Approve(a)) => {
+                if let (Some(root), Some(at)) = (&a.root, &a.at) {
+                    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+                    return machine(terminal, &a.project, a.output.format, true, |consent| {
+                        grants::approve_machine_root(consent, root, at, &cwd)
+                    });
+                }
                 let which = match (&a.root, &a.extension) {
                     (Some(root), _) => Change::Root(root),
                     (None, Some(extension)) => Change::Scopes {
@@ -105,6 +124,11 @@ impl Args {
                 change(terminal, ports, &a.project, a.output.format, which, true)
             }
             Some(Action::Revoke(a)) => {
+                if let (true, Some(root)) = (a.machine, &a.root) {
+                    return machine(terminal, &a.project, a.output.format, false, |consent| {
+                        grants::revoke_machine_root(consent, root)
+                    });
+                }
                 let which = match (&a.root, &a.extension, a.whole) {
                     (_, _, true) => Change::Project,
                     (Some(root), _, false) => Change::Root(root),
@@ -129,7 +153,7 @@ impl ListArgs {
             Ok(root) => root,
             Err(error) => return Refusal::of(format).report(terminal, &error),
         };
-        let consent = UserConsent::user(root.dir());
+        let consent = UserConsent::at_root(&root);
         let store = consent.path().display().to_string();
         if self.store {
             return match grants::list_store(&consent) {
@@ -157,6 +181,25 @@ impl ListArgs {
     }
 }
 
+/// `approve` or `revoke` a machine root: no project is compiled, so it runs from any directory.
+fn machine(
+    terminal: &Terminal,
+    project: &crate::project::ProjectArg,
+    format: OutputFormat,
+    approve: bool,
+    change: impl FnOnce(&UserConsent) -> Result<GrantsChange, OpError>,
+) -> Exit {
+    let root = match project.root() {
+        Ok(root) => root,
+        Err(error) => return Refusal::of(format).report(terminal, &error),
+    };
+    let consent = UserConsent::at_root(&root);
+    match change(&consent) {
+        Ok(done) => report_change(terminal, &consent, format, &done, approve),
+        Err(error) => Refusal::of(format).report(terminal, &error),
+    }
+}
+
 /// `approve` or `revoke` `which` in the project at `project`.
 fn change(
     terminal: &Terminal,
@@ -170,7 +213,7 @@ fn change(
         Ok(root) => root,
         Err(error) => return Refusal::of(format).report(terminal, &error),
     };
-    let consent = UserConsent::user(root.dir());
+    let consent = UserConsent::at_root(&root);
     let compiled = crate::project::compile_at(&root, ports);
     let view = ProjectView::of(&compiled);
     let done = if approve {
@@ -182,8 +225,18 @@ fn change(
         Ok(done) => done,
         Err(error) => return Refusal::of(format).at(root.dir()).report(terminal, &error),
     };
+    report_change(terminal, &consent, format, &done, approve)
+}
+
+fn report_change(
+    terminal: &Terminal,
+    consent: &UserConsent,
+    format: OutputFormat,
+    done: &GrantsChange,
+    approve: bool,
+) -> Exit {
     match format {
-        OutputFormat::Json => terminal.json(&done),
+        OutputFormat::Json => terminal.json(done),
         OutputFormat::Human if done.changed.is_empty() => outln!(
             terminal,
             "Nothing to {}.",
@@ -216,10 +269,12 @@ pub(crate) fn capability_line(row: &CapabilityRow) -> String {
 
 /// One named root's line.
 pub(crate) fn root_line(root: &RootRow) -> String {
-    let state = match (root.inside, root.approved) {
-        (true, _) => "inside the project",
-        (false, true) => "outside the project, approved",
-        (false, false) => "outside the project, not approved",
+    let state = match (root.machine, root.inside, root.approved) {
+        (true, _, true) => "(machine), every project's verbs reach it",
+        (true, _, false) => "(machine), not reached: it no longer lands where it was approved",
+        (false, true, _) => "inside the project",
+        (false, false, true) => "outside the project, approved",
+        (false, false, false) => "outside the project, not approved",
     };
     format!("{} {}: {state}", root.name, root.target)
 }
@@ -264,7 +319,10 @@ fn print_listing(terminal: &Terminal, store: &str, listing: &GrantsListing) {
 }
 
 fn print_store(terminal: &Terminal, store: &str, listing: &StoreListing) {
-    if listing.capabilities.is_empty() && listing.roots.is_empty() {
+    if listing.capabilities.is_empty()
+        && listing.roots.is_empty()
+        && listing.machine_roots.is_empty()
+    {
         outln!(terminal, "{store} holds no approval.");
         return;
     }
@@ -286,6 +344,15 @@ fn print_store(terminal: &Terminal, store: &str, listing: &StoreListing) {
             terminal,
             "  {} root {} {}, approved {}",
             a.project,
+            a.root,
+            a.target,
+            a.approved_at
+        );
+    }
+    for a in &listing.machine_roots {
+        outln!(
+            terminal,
+            "  machine root {} {}, approved {}",
             a.root,
             a.target,
             a.approved_at

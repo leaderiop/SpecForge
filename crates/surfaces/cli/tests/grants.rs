@@ -312,3 +312,215 @@ fn doctor_and_extensions_list_a_collectors_capability() {
         .clone();
     assert_eq!(row["state"], "not-approved");
 }
+
+/// `specforge <args>`, typed in `dir` (no `--path`), with `project`'s home.
+fn typed_in(project: &TestProject, dir: &std::path::Path, args: &[&str]) -> crate::support::Run {
+    Cli::on(project).in_dir(dir).bare(args)
+}
+
+const APPROVE: [&str; 5] = ["grants", "approve", "--root", "workspaces", "--at"];
+
+#[test]
+fn a_machine_root_is_approved_once_and_listed_from_any_project() {
+    let fx = Fixture::new();
+    let home = fx.project.home().canonicalize().unwrap();
+    let target = home.join("gsd-workspaces");
+    assert!(!target.exists());
+    let approved = fx
+        .cmd(&[&APPROVE[..], &["~/gsd-workspaces"]].concat())
+        .assert()
+        .success();
+    let text = String::from_utf8_lossy(&approved.get_output().stdout).into_owned();
+    assert!(text.contains("Approved root workspaces"), "{text}");
+    assert!(target.is_dir(), "the directory is made");
+
+    // Another project shares the home by its store; a directory with no specforge.json lists it too, and so does the
+    // home itself, which no project owns.
+    let loose = TempDir::new().unwrap();
+    let elsewhere = fx.json(&["grants", "--format", "json"]);
+    for listing in [
+        elsewhere,
+        typed_in(&fx.project, loose.path(), &["grants", "--format", "json"])
+            .exits(0)
+            .json(),
+        typed_in(&fx.project, &home, &["grants", "--format", "json"])
+            .exits(0)
+            .json(),
+    ] {
+        let row = &listing["roots"][0];
+        assert_eq!(row["name"], "workspaces", "{listing}");
+        assert_eq!(row["target"], target.display().to_string());
+        assert_eq!(row["inside"], false);
+        assert_eq!(row["approved"], true);
+        assert_eq!(row["machine"], true);
+    }
+    let store = fx.json(&["grants", "--store", "--format", "json"]);
+    assert_eq!(store["machine_roots"][0]["root"], "workspaces", "{store}");
+    assert_eq!(
+        store["machine_roots"][0]["target"],
+        target.display().to_string()
+    );
+    assert!(
+        !store["machine_roots"][0]["approved_at"]
+            .as_str()
+            .unwrap()
+            .is_empty()
+    );
+
+    // The home directory is a natural place to type it: the store in it is still the user's own.
+    typed_in(
+        &fx.project,
+        &home,
+        &[
+            "grants",
+            "approve",
+            "--root",
+            "second",
+            "--at",
+            "gsd-second",
+        ],
+    )
+    .exits(0);
+    assert!(home.join("gsd-second").is_dir());
+
+    fx.cmd(&["grants"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "(machine), every project's verbs reach it",
+        ));
+}
+
+#[test]
+fn a_machine_root_that_is_or_holds_the_home_is_refused() {
+    let fx = Fixture::new();
+    let home = fx.project.home().canonicalize().unwrap();
+    let outside = TempDir::new().unwrap();
+    let file = outside.path().join("a-file");
+    std::fs::write(&file, "").unwrap();
+    let at_home = outside.path().join("at-home");
+    let dangling = outside.path().join("dangling");
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(&home, &at_home).unwrap();
+        std::os::unix::fs::symlink(outside.path().join("gone"), &dangling).unwrap();
+    }
+    let parent = home.parent().unwrap().display().to_string();
+    for at in [
+        "~",
+        "~/",
+        "~/.",
+        "~/x/..",
+        "~/x/../..",
+        "/",
+        parent.as_str(),
+        "~other/x",
+        "~other",
+        "~/.specforge",
+        "~/.specforge/roots",
+        "~/.ssh",
+        file.to_str().unwrap(),
+        at_home.to_str().unwrap(),
+        dangling.to_str().unwrap(),
+    ] {
+        let run = fx.cmd(&[&APPROVE[..], &[at]].concat()).assert().failure();
+        let out = run.get_output();
+        assert!(!out.stderr.is_empty(), "{at}: no refusal");
+        let store = fx.json(&["grants", "--store", "--format", "json"]);
+        assert_eq!(
+            store["machine_roots"],
+            serde_json::json!([]),
+            "{at} was stored"
+        );
+    }
+    assert!(!home.join("x").exists(), "a refusal makes nothing");
+    assert!(!home.join(".ssh").exists(), "a refusal makes nothing");
+    assert!(!outside.path().join("gone").exists());
+
+    let target = outside.path().join("fine");
+    for name in ["spec", "project", "temp", "Bad_Name", "../up", "a/b", ""] {
+        fx.cmd(&[
+            "grants",
+            "approve",
+            "--root",
+            name,
+            "--at",
+            target.to_str().unwrap(),
+        ])
+        .assert()
+        .failure();
+    }
+    assert!(!target.exists(), "a refused name makes nothing");
+
+    // A flag out of place is a usage error, not a project root.
+    fx.cmd(&["grants", "approve", "--at", target.to_str().unwrap()])
+        .assert()
+        .failure();
+    fx.cmd(&["grants", "revoke", "--machine"])
+        .assert()
+        .failure();
+    assert!(!target.exists());
+}
+
+/// A root can't be made over the store that holds it: a block could then write its own approvals through a verb.
+#[test]
+fn a_machine_root_never_reaches_the_consent_store() {
+    let fx = Fixture::new();
+    let dir = TempDir::new().unwrap();
+    let dir_path = dir.path().canonicalize().unwrap();
+    let store = dir_path.join("store/consent.json");
+    let approve = |at: std::path::PathBuf| {
+        Cli::on(&fx.project)
+            .env("SPECFORGE_CONSENT_FILE", &store)
+            .run(&[&APPROVE[..], &[at.to_str().unwrap()]].concat())
+    };
+    for at in [
+        dir_path.join("store"),
+        dir_path.clone(),
+        dir_path.join("store/inside"),
+    ] {
+        let run = approve(at.clone());
+        assert_ne!(run.code, 0, "{}", at.display());
+        assert!(run.stderr.contains("consent store"), "{}", run.stderr);
+    }
+    approve(dir_path.join("beside")).exits(0);
+}
+
+#[test]
+fn a_machine_root_is_revoked_by_name() {
+    let fx = Fixture::new();
+    fx.cmd(&["grants", "revoke", "--root", "workspaces", "--machine"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "this machine names no root `workspaces`",
+        ));
+    fx.cmd(&[&APPROVE[..], &["~/gsd-workspaces"]].concat())
+        .assert()
+        .success();
+    // Revoking the project's approvals keeps it: no project holds it.
+    fx.cmd(&["grants", "revoke", "--project"])
+        .assert()
+        .success();
+    assert_eq!(
+        fx.json(&["grants", "--format", "json"])["roots"][0]["machine"],
+        true
+    );
+    // `--root` alone is the project's root, whose name this is not.
+    fx.cmd(&["grants", "revoke", "--root", "workspaces"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("specforge.json names no root"));
+    fx.cmd(&["grants", "revoke", "--root", "workspaces", "--machine"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Revoked root workspaces"));
+    assert_eq!(
+        fx.json(&["grants", "--format", "json"])["roots"],
+        serde_json::json!([])
+    );
+    assert!(
+        fx.project.home().join("gsd-workspaces").is_dir(),
+        "revoking leaves the directory"
+    );
+}

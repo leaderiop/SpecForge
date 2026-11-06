@@ -42,7 +42,7 @@ pub struct ResolvedEffects {
 }
 
 /// The roots every project has, and the verbs' `temp` (ADR 0339): never named in `roots`.
-const RESERVED: [&str; 3] = ["spec", "project", "temp"];
+pub const RESERVED_ROOTS: [&str; 3] = ["spec", "project", "temp"];
 
 /// The config text, indexed once, and the E109s found.
 struct Reader<'a> {
@@ -187,7 +187,7 @@ impl Reader<'_> {
         let mut roots = Vec::new();
         for (name, path) in named {
             let at = ["roots", name.as_str()];
-            if RESERVED.contains(&name.as_str()) {
+            if RESERVED_ROOTS.contains(&name.as_str()) {
                 self.e109(&at, format!("'{name}' is built in"));
             } else if !is_scope_name(name) {
                 self.e109(&at, format!("'{name}' is not a word ([a-z][a-z0-9-]*)"));

@@ -20,6 +20,9 @@ Options:
       --project
           Every approval of this project
 
+      --machine
+          --root names a root of this machine (`approve --root <name> --at <dir>`), for every project
+
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)
           

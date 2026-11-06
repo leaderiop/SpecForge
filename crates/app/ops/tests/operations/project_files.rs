@@ -31,6 +31,12 @@ const ALLOWED: &[(&str, &str, usize, &str)] = &[
         "the verbs' temp root under .specforge, which the host owns (ADR 0339)",
     ),
     (
+        "analysis/grants/machine.rs",
+        "fs::create_dir_all(",
+        1,
+        "a machine root's directory, outside every project: the user typed it (ADR 0335)",
+    ),
+    (
         "consent.rs",
         "File::open(",
         1,

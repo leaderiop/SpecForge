@@ -11,7 +11,7 @@ use std::path::{Component, Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use specforge_common::fresh::{not_private, open_private_lock, private_parent, replace_private};
 use specforge_common::remedy::printable;
-use specforge_common::{Diagnostic, codes};
+use specforge_common::{Diagnostic, ProjectRoot, codes};
 use specforge_effects::{Approvals, Consent, ConsentError};
 
 /// Overrides the user-level consent store (tests, custom homes). Refused when it lies inside the project.
@@ -41,17 +41,31 @@ impl UserConsent {
     /// store inside the project (the home is the project, or lies in it), or one named by a relative
     /// path, is refused: a repository could approve its own effects.
     pub fn user(project: &Path) -> Self {
-        let store = match std::env::var_os(CONSENT_FILE_ENV) {
+        Self::named().within(project)
+    }
+
+    /// The user's store for a verb or a grant typed at `root`. A directory with no `specforge.json` is no repository's
+    /// project: typed from the home directory, the store in it is still the user's own, where [`Self::user`] would read
+    /// it as a committed one.
+    pub fn at_root(root: &ProjectRoot) -> Self {
+        if root.is_configured() {
+            Self::user(root.dir())
+        } else {
+            Self::named().absolute()
+        }
+    }
+
+    fn named() -> Self {
+        match std::env::var_os(CONSENT_FILE_ENV) {
             Some(path) => Self::at(PathBuf::from(path)),
             None => Self::of_home(),
-        };
-        store.within(project)
+        }
     }
 
     /// `$HOME/.specforge/consent.json` (`USERPROFILE`). With no home there is no store: nothing is approved and W186
     /// says why. Never a shared directory, where another user could create the store first and fill it.
     pub fn of_home() -> Self {
-        Self::under(std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")))
+        Self::under(user_home().map(PathBuf::into_os_string))
     }
 
     fn under(home: Option<OsString>) -> Self {
@@ -74,23 +88,27 @@ impl UserConsent {
         }
     }
 
-    /// This store, refused when it is named by a relative path or resolves under the canonical `project`. A store
-    /// already refused keeps its reason.
-    pub fn within(mut self, project: &Path) -> Self {
-        if self.refused.is_some() {
-            return self;
-        }
-        if self.store.is_relative() {
+    /// This store, refused when it is named by a relative path. A store already refused keeps its reason.
+    fn absolute(mut self) -> Self {
+        if self.refused.is_none() && self.store.is_relative() {
             self.refused = Some(format!(
                 "a relative path could lie inside any project; point {CONSENT_FILE_ENV} at an absolute path"
             ));
-        } else if resolved(&self.store).starts_with(resolved(project)) {
-            self.refused = Some(format!(
+        }
+        self
+    }
+
+    /// This store, refused when it is named by a relative path or resolves under the canonical `project`. A store
+    /// already refused keeps its reason.
+    pub fn within(self, project: &Path) -> Self {
+        let mut this = self.absolute();
+        if this.refused.is_none() && resolved(&this.store).starts_with(resolved(project)) {
+            this.refused = Some(format!(
                 "it is inside the project, where a repository could approve its own effects; point \
                  {CONSENT_FILE_ENV} outside the project"
             ));
         }
-        self
+        this
     }
 
     /// The store's file.
@@ -167,9 +185,17 @@ impl UserConsent {
     }
 }
 
+/// The user's home directory (`HOME`, else `USERPROFILE`); none when it is unset or relative.
+pub(crate) fn user_home() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+        .filter(|home| home.is_absolute())
+}
+
 /// `path` as the disk resolves it: its nearest existing ancestor canonical (every link and spelling followed), then
 /// the rest lexically, since a name that does not exist yet is no link.
-fn resolved(path: &Path) -> PathBuf {
+pub(crate) fn resolved(path: &Path) -> PathBuf {
     let Some((real, ancestor)) = path
         .ancestors()
         .find_map(|ancestor| Some((ancestor.canonicalize().ok()?, ancestor)))
