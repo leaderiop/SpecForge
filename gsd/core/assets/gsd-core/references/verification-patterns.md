@@ -209,7 +209,7 @@ specforge files search -U "model $model_name\b(.*\n){1,20}?[ \t]+\w+[ \t]+\w+" "
 specforge files search '@relation|REFERENCES|FOREIGN KEY' "$schema_path" --format human
 
 # Has appropriate field types (not all String), within 20 lines of the model
-specforge files search -U "model $model_name\b(.*\n){0,20}?.*(Int|DateTime|Boolean|Float|Decimal|Json)" "$schema_path" --format human
+specforge files search -U "(Int|DateTime|Boolean|Float|Decimal|Json).*model $model_name\b|model $model_name\b(.*\n){0,20}?.*(Int|DateTime|Boolean|Float|Decimal|Json)" "$schema_path" --format human
 ```
 
 **Stub patterns specific to schemas:**
@@ -426,7 +426,7 @@ return Response.json(messages)  // Returns Promise, not data
 specforge files search 'onSubmit=\{|handleSubmit' "$component_path" --format human
 
 # Check handler has content: a call within 10 lines of the handler
-specforge files search -U 'onSubmit.*=(.*\n){0,10}?.*(fetch|axios|mutate|dispatch)' "$component_path" --format human
+specforge files search -U '(fetch|axios|mutate|dispatch).*onSubmit.*=|onSubmit.*=(.*\n){0,10}?.*(fetch|axios|mutate|dispatch)' "$component_path" --format human
 
 # Verify not just preventDefault: a handler whose body is only `e.preventDefault()` is a stub
 specforge files search -A 5 'onSubmit' "$component_path" --format human

@@ -22,7 +22,7 @@ specforge files search 'useState|useQuery|useSWR|useStore|props\.' "$artifact" -
 
 ```bash
 # Find the fetch/query that populates the state
-specforge files search -U "(set${STATE_VAR}|${STATE_VAR}[ \t]*=)(.*\n){0,5}?.*(fetch|axios|query|store|dispatch|props\.)" "$artifact" --format human
+specforge files search -U "(fetch|axios|query|store|dispatch|props\.).*(set${STATE_VAR}|${STATE_VAR}[ \t]*=)|(set${STATE_VAR}|${STATE_VAR}[ \t]*=)(.*\n){0,5}?.*(fetch|axios|query|store|dispatch|props\.)" "$artifact" --format human
 ```
 
 3. **Verify the source produces real data** — does the API/store return actual data or static/empty values?
@@ -38,7 +38,7 @@ specforge files search 'return.*json\(\s*\[\]|return.*json\(\s*\{\}' "$source_fi
 
 ```bash
 # Find where the component is used and check prop values
-specforge files search -U "<${COMPONENT_NAME}(.*\n){0,3}?.*=\{(\[\]|\{\}|null|''|\"\")\}" "${search_path:-src/}" --glob '*.tsx' --format human
+specforge files search -U "=\{(\[\]|\{\}|null|''|\"\")\}.*<${COMPONENT_NAME}|<${COMPONENT_NAME}(.*\n){0,3}?.*=\{(\[\]|\{\}|null|''|\"\")\}" "${search_path:-src/}" --glob '*.tsx' --format human
 ```
 
 > These two status tables are intentionally mirrored in `agents/gsd-verifier.md`.
@@ -68,7 +68,7 @@ specforge files search -U "<${COMPONENT_NAME}(.*\n){0,3}?.*=\{(\[\]|\{\}|null|''
 
 ```bash
 specforge files search "fetch\(['\"].*$api_path|axios\.(get|post).*$api_path" "$component" --format human
-specforge files search -U '(fetch|axios)(.*\n){0,5}?.*(await|\.then|setData|setState)' "$component" --format human
+specforge files search -U '(await|\.then|setData|setState).*(fetch|axios)|(fetch|axios)(.*\n){0,5}?.*(await|\.then|setData|setState)' "$component" --format human
 ```
 
 Status: WIRED (call + response handling) | PARTIAL (call, no response use) | NOT_WIRED (no call)
@@ -86,7 +86,7 @@ Status: WIRED (query + result returned) | PARTIAL (query, static return) | NOT_W
 
 ```bash
 specforge files search 'onSubmit=\{|handleSubmit' "$component" --format human
-specforge files search -U 'onSubmit.*=(.*\n){0,10}?.*(fetch|axios|mutate|dispatch)' "$component" --format human
+specforge files search -U '(fetch|axios|mutate|dispatch).*onSubmit.*=|onSubmit.*=(.*\n){0,10}?.*(fetch|axios|mutate|dispatch)' "$component" --format human
 ```
 
 Status: WIRED (handler + API call) | STUB (only logs/preventDefault) | NOT_WIRED (no handler)

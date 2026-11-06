@@ -308,6 +308,98 @@ fn the_failure_tally_reads_zero_only_when_it_is_absent() {
     assert_ne!(code, 0, "an unread tally passed: {out}");
 }
 
+const WIRING: &str = "gsd-core/references/verifier-wiring-patterns.md";
+
+/// Each proximity line against what `grep -A N X | grep Y` found: Y on X's own line in either order, Y N lines after
+/// X, and nothing at N + 1.
+#[test]
+fn a_proximity_line_finds_y_before_x_and_within_n_lines() {
+    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
+        return;
+    };
+    // (asset, the line's own text, its variables, X, Y, N)
+    let table = [
+        (
+            PATTERNS,
+            r"(.*\n){0,20}?.*(Int|",
+            "model_name=User schema_path=f.tsx",
+            "model User {",
+            "  n Int",
+            20,
+        ),
+        (
+            PATTERNS,
+            r"$component_path",
+            "component_path=f.tsx",
+            "<form onSubmit={h}>",
+            "fetch(u)",
+            10,
+        ),
+        (
+            WIRING,
+            r"(.*\n){0,5}?.*(fetch|axios|query",
+            "STATE_VAR=Data artifact=f.tsx",
+            "setData(x)",
+            "store.get()",
+            5,
+        ),
+        (
+            WIRING,
+            r"(.*\n){0,3}?.*=\{",
+            "COMPONENT_NAME=Card search_path=.",
+            "<Card",
+            "a={[]}",
+            3,
+        ),
+        (
+            WIRING,
+            r"(.*\n){0,5}?.*(await",
+            "component=f.tsx",
+            "fetch('/x')",
+            "await y",
+            5,
+        ),
+        (
+            WIRING,
+            r#"dispatch)' "$component""#,
+            "component=f.tsx",
+            "<form onSubmit={h}>",
+            "fetch(u)",
+            10,
+        ),
+    ];
+    let p = tempfile::tempdir().expect("a project");
+    for (asset, needle, vars, x, y, n) in table {
+        let search = line_with(
+            &super::asset(asset)
+                .lines()
+                .filter(|line| line.starts_with("specforge files search -U"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            needle,
+        );
+        let found = |text: String| {
+            std::fs::write(p.path().join("f.tsx"), text).expect("a file");
+            let (out, err, _) = sh.run_in(p.path(), &format!("{vars}\n{search}"));
+            assert!(err.is_empty(), "{search}\n{err}");
+            !out.is_empty()
+        };
+        let lines = |gap: usize| format!("{x}\n{}{y}\n", "-\n".repeat(gap));
+        assert!(found(format!("{y} {x}\n")), "Y before X: {search}");
+        assert!(found(format!("{x} {y}\n")), "Y after X: {search}");
+        assert!(found(lines(n - 1)), "Y {n} lines after X: {search}");
+        assert!(!found(lines(n)), "Y {} lines after X: {search}", n + 1);
+    }
+    // A line that is not X nor Y's own: the schema's field lines keep their first line after the model's.
+    let check = line_with(&super::asset(PATTERNS), r"{1,20}?[ \t]+\w+");
+    std::fs::write(p.path().join("f.tsx"), "model User {\n  id Int\n}\n").expect("a schema");
+    let (out, err, _) = sh.run_in(
+        p.path(),
+        &format!("model_name=User schema_path=f.tsx\n{check}"),
+    );
+    assert!(!out.is_empty(), "{check}\n{err}");
+}
+
 /// The lines of the `# gsd-handoff:begin <name>` block of `path`.
 fn handoff_block(path: &str, name: &str) -> String {
     let text = super::asset(path);
