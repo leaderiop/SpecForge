@@ -2,6 +2,11 @@
 //! upstream's names no tool the port rule sees: a comment or sentence that said what the old pipeline did.
 
 pub const SPANS: &[(&str, usize, usize)] = &[
+    (
+        "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
+        40,
+        41,
+    ),
     ("gsd-core/references/verification-patterns.md", 203, 203),
     ("gsd-core/references/verification-patterns.md", 209, 209),
     ("gsd-core/references/verification-patterns.md", 293, 293),

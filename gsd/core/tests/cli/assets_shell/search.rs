@@ -445,6 +445,90 @@ fn the_hook_check_leaves_out_only_the_hooks_own_file() {
     }
 }
 
+/// The taskboard with a second milestone that also has a phase 01.
+fn two_milestones() -> crate::harness::Project {
+    let p = crate::harness::taskboard();
+    std::fs::write(
+        p.root().join("spec/v2.spec"),
+        "milestone v2.0 \"Next\" {\n  name \"Next\"\n}\n\nphase 01 \"Later\" {\n  milestone v2.0\n  name \"Later\"\n  slug \"later\"\n  goal \"A later goal\"\n  success_criteria [\"It works\"]\n}\n",
+    )
+    .expect("a second milestone");
+    p
+}
+
+/// What `name=value` lines of `out` hold for `name`.
+fn printed<'a>(out: &'a str, name: &str) -> Option<&'a str> {
+    out.lines()
+        .find_map(|line| line.strip_prefix(name)?.strip_prefix('='))
+}
+
+/// A later milestone's phase 01 has its own outline: the earlier one's marker does not pass for it, and the block
+/// prints the name the planner is told to write. With no phase it stops.
+#[test]
+fn an_outline_is_reused_only_for_its_own_milestones_phase() {
+    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
+        return;
+    };
+    let p = two_milestones();
+    let text = super::asset("gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md");
+    let check = super::block(&text, "MILESTONE=$(specforge query", "# OUTLINE_REUSE=true");
+    let run = |phase: &str| {
+        let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID={phase}\n{check}"));
+        assert_eq!(code, 0, "{phase}: {out}\n{err}");
+        out
+    };
+    let first = run("v1.0/01");
+    assert_eq!(printed(&first, "OUTLINE_REUSE"), Some("false"), "{first}");
+    let outline = printed(&first, "OUTLINE_FILE").expect("the path is printed");
+    assert!(outline.ends_with("gsd-outline-v1.0-01.md"), "{first}");
+    std::fs::write(outline, "| plan |\n## OUTLINE COMPLETE\n").expect("the outline");
+    assert_eq!(printed(&run("v1.0/01"), "OUTLINE_REUSE"), Some("true"));
+    let later = run("v2.0/01");
+    assert_eq!(printed(&later, "OUTLINE_REUSE"), Some("false"), "{later}");
+    assert!(
+        printed(&later, "OUTLINE_FILE")
+            .expect("a path")
+            .ends_with("gsd-outline-v2.0-01.md")
+    );
+    let (out, _, code) = sh.run_in(p.root(), &format!("PHASE_ID=\n{check}"));
+    assert_ne!(code, 0, "no phase, no name: {out}");
+    assert_eq!(printed(&out, "OUTLINE_FILE"), None, "{out}");
+}
+
+/// The same for an interrupted discussion's checkpoint: one per milestone's phase, removed by the block that closes it.
+#[test]
+fn a_discussion_checkpoint_is_read_only_for_its_own_milestones_phase() {
+    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
+        return;
+    };
+    let p = two_milestones();
+    let text = super::asset("gsd-core/workflows/discuss-phase.md");
+    let read = line_with(&text, "CHECKPOINT=$(specforge files temp");
+    let (out, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{read}"));
+    assert_eq!(code, 0, "{err}");
+    let checkpoint = printed(&out, "CHECKPOINT")
+        .expect("the path is printed")
+        .to_string();
+    assert!(checkpoint.ends_with("gsd-discuss-v1.0-01.json"), "{out}");
+    std::fs::write(&checkpoint, "{\"area\":1}\n").expect("a checkpoint");
+    let (out, _, _) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{read}"));
+    assert!(out.contains("{\"area\":1}"), "{out}");
+    let (out, _, _) = sh.run_in(p.root(), &format!("PHASE_ID=v2.0/01\n{read}"));
+    assert!(!out.contains("area"), "{out}");
+    let (out, _, code) = sh.run_in(p.root(), &format!("PHASE_ID=\n{read}"));
+    assert_ne!(code, 0, "no phase, no name: {out}");
+    let clean = line_with(
+        &text,
+        "specforge files remove --force \"$(specforge files temp --name \"gsd-discuss",
+    );
+    let (_, err, code) = sh.run_in(p.root(), &format!("PHASE_ID=v1.0/01\n{clean}"));
+    assert_eq!(code, 0, "{err}");
+    assert!(
+        !std::path::Path::new(&checkpoint).exists()
+            || std::fs::read(&checkpoint).expect("the path").is_empty()
+    );
+}
+
 /// The lines of the `# gsd-handoff:begin <name>` block of `path`.
 fn handoff_block(path: &str, name: &str) -> String {
     let text = super::asset(path);

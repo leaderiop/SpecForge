@@ -37,10 +37,10 @@ fi
 the `## OUTLINE COMPLETE` marker (written by the outline agent — #2762), skip to 8.5.2.
 
 ```bash
-OUTLINE_FILE=$(specforge files temp --name "gsd-outline-${MILESTONE}-${PADDED_PHASE}.md" --pick .path) || exit 1
-if specforge files search -q '^## OUTLINE COMPLETE' "$OUTLINE_FILE"; then
-  : # reuse existing outline — skip to 8.5.2
-fi
+MILESTONE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.milestone') && [ -n "$MILESTONE" ] || exit 1; OUTLINE_FILE=$(specforge files temp --name "gsd-outline-${MILESTONE}-${PHASE_ID##*/}.md" --pick .path) || exit 1; echo "OUTLINE_FILE=$OUTLINE_FILE"
+rc=0; specforge files search -q '^## OUTLINE COMPLETE' "$OUTLINE_FILE" || rc=$?
+case "$rc" in 0) echo "OUTLINE_REUSE=true" ;; 1) echo "OUTLINE_REUSE=false" ;; *) echo "the outline could not be read" >&2; exit 1 ;; esac
+# OUTLINE_REUSE=true: reuse the existing outline, skip to 8.5.2; another milestone's outline of this phase number has another name
 ```
 
 Display:

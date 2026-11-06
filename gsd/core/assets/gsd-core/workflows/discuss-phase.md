@@ -215,7 +215,7 @@ specforge query "$PHASE_ID" --depth 1 --kinds context --format brief
 
 Check for an interrupted discussion checkpoint:
 ```bash
-CHECKPOINT=$(specforge files temp --name "gsd-discuss-${MILESTONE}-${padded_phase}.json" --pick .path) || exit 1; specforge files read "$CHECKPOINT" --pick .text
+MILESTONE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.milestone') && [ -n "$MILESTONE" ] || exit 1; CHECKPOINT=$(specforge files temp --name "gsd-discuss-${MILESTONE}-${PHASE_ID##*/}.json" --pick .path) || exit 1; echo "CHECKPOINT=$CHECKPOINT"; specforge files read "$CHECKPOINT" --pick .text
 ```
 
 If the checkpoint file holds anything (an interrupted discussion wrote it):
@@ -377,7 +377,7 @@ All modes preserve the universal rules below.
 
 - **Canonical ref accumulation** — when the user references a doc/spec/ADR during any answer, immediately Read it (or confirm it exists) and add it to the canonical refs accumulator with full relative path. Use what you learned to inform subsequent questions. These docs are often MORE important than ROADMAP.md refs because the user specifically wants downstream agents to follow them.
 - **Scope creep** — if user mentions something outside the phase domain, capture as deferred idea and redirect.
-- **Incremental checkpoint** — after each area completes, write the path `specforge files temp --name "gsd-discuss-${MILESTONE}-${padded_phase}.json" --pick .path` answers. Read `workflows/discuss-phase/templates/checkpoint.json` for the schema. The checkpoint is structured state, not the canonical CONTEXT.md (`write_context` produces the canonical output). On session resume, the parent's `check_existing` step detects the checkpoint and offers to resume.
+- **Incremental checkpoint** — after each area completes, write the `CHECKPOINT` path the check for an interrupted discussion printed. Read `workflows/discuss-phase/templates/checkpoint.json` for the schema. The checkpoint is structured state, not the canonical CONTEXT.md (`write_context` produces the canonical output). On session resume, the parent's `check_existing` step detects the checkpoint and offers to resume.
 - **Discussion log accumulation** — for each question asked, accumulate area name, options presented, user's selection, follow-up notes. Used by `git_commit` to write DISCUSSION-LOG.md.
 </step>
 
@@ -464,7 +464,7 @@ Substitute live values from the discussion log accumulator (area names, options 
 
 **Clean up checkpoint file** — CONTEXT.md is now the canonical record:
 ```bash
-specforge files remove --force "$(specforge files temp --name "gsd-discuss-${MILESTONE}-${padded_phase}.json" --pick .path)" >/dev/null
+MILESTONE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.milestone') && [ -n "$MILESTONE" ] || exit 1; specforge files remove --force "$(specforge files temp --name "gsd-discuss-${MILESTONE}-${PHASE_ID##*/}.json" --pick .path)" >/dev/null
 ```
 
 Commit phase context and discussion log:
