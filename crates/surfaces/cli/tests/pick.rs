@@ -94,6 +94,33 @@ fn check_pick_refuses_an_explicit_human_format() {
     assert!(ran.stderr.contains("--pick"), "{}", ran.stderr);
 }
 
+/// A cell comes back through `read -r` as it was written, and a value a row cannot carry on one line is refused, with no
+/// row printed: on `query` and on `export`.
+#[test]
+fn a_fields_cell_round_trips_and_a_newline_is_refused() {
+    let dir = project();
+    let cli = Cli::on(&dir);
+    dir.write("main.spec", "feature paths \"C:\\\\new\\\\table\" {\n}\n");
+    for command in [&["export"][..], &["query", "paths", "--depth", "0"]] {
+        let mut args = command.to_vec();
+        args.extend(["--pick", ".nodes[id=paths]", "--fields", "id,title"]);
+        let ran = cli.run(&args);
+        assert_eq!(ran.code, 0, "{command:?}: {}", ran.stderr);
+        assert_eq!(ran.stdout, "paths\u{1f}C:\\new\\table\n", "{command:?}");
+    }
+    dir.write("main.spec", "feature paths \"two\\nlines\" {\n}\n");
+    for command in [&["export"][..], &["query", "paths", "--depth", "0"]] {
+        let mut args = command.to_vec();
+        args.extend(["--pick", ".nodes[]", "--fields", "id,title"]);
+        let ran = cli.run(&args);
+        assert_eq!(ran.code, 1, "{command:?}: {}{}", ran.stdout, ran.stderr);
+        assert_eq!(ran.stdout, "", "{command:?}: no partial row");
+        for word in ["'title'", "'paths'", "newline"] {
+            assert!(ran.stderr.contains(word), "{word}: {}", ran.stderr);
+        }
+    }
+}
+
 /// The cells are joined by the ASCII unit separator (0x1f), which is not IFS whitespace, so
 /// `IFS=$'\x1f' read -r` keeps an empty cell where a tab would collapse it, under macOS's bash 3.2 as under bash 5.
 #[test]

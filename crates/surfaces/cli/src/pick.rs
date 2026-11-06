@@ -32,9 +32,10 @@ pub(crate) const FIELDS_LONG_HELP: &str = "With --pick: print one row per item t
      comma-separated key, in order, the cells separated by the ASCII unit separator (0x1f), e.g. --pick \
      '.nodes[kind=commit]' --fields fields.hash,fields.subject, read with IFS=$'\\x1f' read -r hash subject. A key may \
      be dotted. A cell prints as --pick prints a value, with a missing value or null as an empty cell; 0x1f is not IFS \
-     whitespace, so a read keeps an empty cell and the rows never misalign. A backslash, newline, carriage return or \
-     0x1f in a cell prints as \\\\, \\n, \\r or \\x1f. On an extension command the keys read the command's own answer: \
-     --pick '.items[]' --fields id,slug, or --pick . --fields date,count for one row of its root (ADR 0341 D5).";
+     whitespace, so a read keeps an empty cell and the rows never misalign. A cell prints raw, a backslash included, so \
+     a read gets back what was written; a string holding a newline, carriage return or 0x1f cannot be carried on one \
+     line, so the command refuses, naming the key and the item, and prints no row. On an extension command the keys \
+     read the command's own answer: --pick '.items[]' --fields id,slug (ADR 0341 D5).";
 
 /// `--pick`'s id: the shapes and `--fields` require it.
 pub(crate) const PICK: &str = "pick";
@@ -178,13 +179,22 @@ impl<R: Rows> Picked<R> {
         self.pick.is_some()
     }
 
+    /// What `--pick` prints for an answer printed as text (`None` without `--pick`): nothing for an empty answer,
+    /// else `Err` with the refusal when it is not JSON.
+    pub(crate) fn printed(&self, answer: &str) -> Option<Result<String, String>> {
+        let pick = self.pick.as_ref()?;
+        Some(pick.printed(answer, self.rows.fields(), &self.shape))
+    }
+}
+
+impl Picked {
     /// `document` as the JSON form prints it, or the values `--pick` reaches in it, in the shape.
     pub(crate) fn print_json(&self, terminal: &Terminal, document: &impl serde::Serialize) {
         let Some(pick) = &self.pick else {
             return terminal.json(document);
         };
         let value = serde_json::to_value(document).expect("serialize JSON output");
-        let lines = self.shape.shaped(pick.texts(&value, self.rows.fields()));
+        let lines = self.shape.shaped(pick.texts(&value));
         // A picked string is a file's text, a commit subject or a response: exact into a pipe, which a script
         // reads, but escaped before a terminal, where an escape sequence would act (ADR 0339 D4).
         if terminal.facts().out_terminal {
@@ -196,13 +206,6 @@ impl<R: Rows> Picked<R> {
         } else {
             out!(terminal, "{lines}");
         }
-    }
-
-    /// What `--pick` prints for an answer printed as text (`None` without `--pick`): nothing for an empty answer,
-    /// else `Err` with the refusal when it is not JSON.
-    pub(crate) fn printed(&self, answer: &str) -> Option<Result<String, String>> {
-        let pick = self.pick.as_ref()?;
-        Some(pick.printed(answer, self.rows.fields(), &self.shape))
     }
 }
 
@@ -384,39 +387,48 @@ impl Fields {
             .map(Self)
     }
 
-    /// The row of `item`: a cell per key, separated by the unit separator (0x1f).
-    fn row(&self, item: &Value) -> String {
-        self.0
-            .iter()
-            .map(|key| {
-                match key
-                    .iter()
-                    .try_fold(item, |value, segment| value.get(segment))
-                {
-                    None | Some(Value::Null) => String::new(),
-                    Some(Value::String(text)) => escaped(text),
-                    Some(other) => escaped(&other.to_string()),
-                }
-            })
-            .collect::<Vec<_>>()
-            .join("\u{1f}")
+    /// The row of `item`, the `at`th reached: a cell per key, separated by the unit separator (0x1f). A cell is raw, so
+    /// a read gets back what was written; a string a line cannot carry is refused, naming the key and the item.
+    fn row(&self, item: &Value, at: usize) -> Result<String, String> {
+        let cells = self.0.iter().map(|key| {
+            match key
+                .iter()
+                .try_fold(item, |value, segment| value.get(segment))
+            {
+                None | Some(Value::Null) => Ok(String::new()),
+                Some(Value::String(text)) => match text.chars().find_map(uncarried) {
+                    None => Ok(text.clone()),
+                    Some(what) => Err(uncarried_refusal(&key.join("."), item, at, what)),
+                },
+                // compact JSON writes a control character in a string as its escape: one line
+                Some(other) => Ok(other.to_string()),
+            }
+        });
+        Ok(cells.collect::<Result<Vec<_>, _>>()?.join("\u{1f}"))
     }
 }
 
-/// `text` with a backslash, newline, carriage return and unit separator written as `\\`, `\n`, `\r` and `\x1f`: one
-/// cell.
-fn escaped(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for c in text.chars() {
-        match c {
-            '\\' => out.push_str("\\\\"),
-            '\u{1f}' => out.push_str("\\x1f"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            c => out.push(c),
-        }
+/// What `c` is, when a row cannot carry it on one line.
+fn uncarried(c: char) -> Option<&'static str> {
+    match c {
+        '\n' => Some("a newline"),
+        '\r' => Some("a carriage return"),
+        '\u{1f}' => Some("the unit separator 0x1f"),
+        _ => None,
     }
-    out
+}
+
+/// The refusal of a cell holding `what`: the item is named by its `id`, or by where it was reached.
+fn uncarried_refusal(key: &str, item: &Value, at: usize, what: &str) -> String {
+    use specforge_common::remedy::printable;
+    let item = match item.get("id").and_then(Value::as_str) {
+        Some(id) => format!("item '{}'", printable(id)),
+        None => format!("item {at}"),
+    };
+    let key = printable(key);
+    format!(
+        "error: --fields: key '{key}' of {item} holds {what}, which a row cannot carry on one line; read it with --pick alone\n"
+    )
 }
 
 /// A parsed `--pick` path.
@@ -528,23 +540,30 @@ impl Pick {
     }
 
     /// The texts `--pick` prints for `document`, in document order: one per value reached, a null or missing value
-    /// none; with `fields`, one row per value reached, null included.
-    fn texts(&self, document: &Value, fields: Option<&Fields>) -> Vec<String> {
-        let values = self.values(document).into_iter();
-        match fields {
-            Some(fields) => values.map(|item| fields.row(item)).collect(),
-            None => values
-                .filter_map(|value| match value {
-                    Value::Null => None,
-                    Value::String(s) => Some(s.clone()),
-                    other => Some(other.to_string()),
-                })
-                .collect(),
-        }
+    /// none.
+    fn texts(&self, document: &Value) -> Vec<String> {
+        self.values(document)
+            .into_iter()
+            .filter_map(|value| match value {
+                Value::Null => None,
+                Value::String(s) => Some(s.clone()),
+                other => Some(other.to_string()),
+            })
+            .collect()
+    }
+
+    /// The `--fields` rows of `document`: one per value reached, null included; a cell no row can carry refuses them
+    /// all.
+    fn rows(&self, document: &Value, fields: &Fields) -> Result<Vec<String>, String> {
+        self.values(document)
+            .into_iter()
+            .enumerate()
+            .map(|(at, item)| fields.row(item, at))
+            .collect()
     }
 
     /// What `--pick` prints in `shape` for an answer printed as text: nothing for an empty answer, else `Err` with
-    /// the answer when it is not JSON.
+    /// the refusal when it is not JSON or a row cannot be carried.
     fn printed(
         &self,
         answer: &str,
@@ -554,9 +573,13 @@ impl Pick {
         if answer.trim().is_empty() {
             return Ok(String::new());
         }
-        serde_json::from_str(answer)
-            .map(|document| shape.shaped(self.texts(&document, fields)))
-            .map_err(|e| format!("error: --pick: the answer is not JSON ({e})\n"))
+        let document = serde_json::from_str(answer)
+            .map_err(|e| format!("error: --pick: the answer is not JSON ({e})\n"))?;
+        let lines = match fields {
+            Some(fields) => self.rows(&document, fields)?,
+            None => self.texts(&document),
+        };
+        Ok(shape.shaped(lines))
     }
 }
 

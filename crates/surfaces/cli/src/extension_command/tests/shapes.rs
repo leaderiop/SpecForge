@@ -148,6 +148,21 @@ fn fields_prints_one_row_per_item_of_a_commands_answer() {
 }
 
 #[test]
+fn a_commands_cell_prints_raw_and_a_newline_in_one_is_refused() {
+    let args = ["--pick", ".items[]", "--fields", "id,d"];
+    let raw = r#"{"items": [{"id": "a", "d": "C:\\new\\table"}]}"#;
+    let (code, out, err) = quiet(raw, "", 0, &args);
+    assert_eq!((code, out.as_str()), (0, "a\x1fC:\\new\\table\n"), "{err}");
+    let two = r#"{"items": [{"id": "a", "d": "ok"}, {"id": "b", "d": "x\ny"}]}"#;
+    let (code, out, err) = quiet(two, "", 0, &args);
+    assert_eq!((code, out.as_str()), (1, ""), "{err}");
+    assert!(
+        err.contains("'d'") && err.contains("'b'") && err.contains("newline"),
+        "{err}"
+    );
+}
+
+#[test]
 fn fields_without_pick_or_beside_count_is_a_usage_error() {
     for args in [
         &["--fields", "id"][..],

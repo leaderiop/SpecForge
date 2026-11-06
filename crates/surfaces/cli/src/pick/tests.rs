@@ -27,7 +27,7 @@ fn a_picked_string_is_escaped_before_a_terminal_only() {
 use serde_json::json;
 
 fn picked(path: &str, document: &Value) -> String {
-    Shape::default().shaped(Pick::parse(path).unwrap().texts(document, None))
+    Shape::default().shaped(Pick::parse(path).unwrap().texts(document))
 }
 
 #[test]
@@ -208,7 +208,7 @@ fn a_scalar_that_is_not_a_string_is_compared_as_json() {
 fn fields_print_one_row_per_item_and_an_empty_cell_for_a_missing_value() {
     let nodes = json!({"nodes": [
         {"id": "c1", "fields": {"hash": "abc", "subject": "feat: a", "n": 2}},
-        {"id": "c2", "fields": {"subject": "tab\there\nnext \\ end"}},
+        {"id": "c2", "fields": {"subject": "tab\there \\ end"}},
         {"id": "c3", "fields": {"hash": null, "files": ["a", "b"]}},
     ]});
     let fields = Fields::parse("fields.hash,fields.subject,id,fields.n,fields.files").unwrap();
@@ -216,27 +216,73 @@ fn fields_print_one_row_per_item_and_an_empty_cell_for_a_missing_value() {
     assert_eq!(
         pick.printed(&nodes.to_string(), Some(&fields), &Shape::default())
             .unwrap(),
-        "abc\u{1f}feat: a\u{1f}c1\u{1f}2\u{1f}\n\u{1f}tab\there\\nnext \\\\ end\u{1f}c2\u{1f}\u{1f}\n\u{1f}\u{1f}c3\u{1f}\u{1f}[\"a\",\"b\"]\n"
+        "abc\u{1f}feat: a\u{1f}c1\u{1f}2\u{1f}\n\u{1f}tab\there \\ end\u{1f}c2\u{1f}\u{1f}\n\u{1f}\u{1f}c3\u{1f}\u{1f}[\"a\",\"b\"]\n"
     );
-    // a unit separator in a cell is written out, so it cannot split the row
-    assert_eq!(escaped("a\u{1f}b"), "a\\x1fb");
     // a value that is null still holds its row; an item missing from the path holds none
     let one = Fields::parse("id").unwrap();
     assert_eq!(
         Pick::parse(".a[]")
             .unwrap()
-            .texts(&json!({"a": [null, 1]}), Some(&one)),
+            .rows(&json!({"a": [null, 1]}), &one)
+            .unwrap(),
         ["", ""]
     );
     assert!(
         Pick::parse(".nodes[kind=x]")
             .unwrap()
-            .texts(&nodes, Some(&one))
+            .rows(&nodes, &one)
+            .unwrap()
             .is_empty()
     );
     for bad in ["", "a,", ",a", "a..b", "a b", "a[0]", "a=b"] {
         assert!(Fields::parse(bad).is_err(), "{bad:?}");
     }
+}
+
+/// A cell prints raw, so a read gets the value back; what a line cannot carry is refused, whole.
+#[test]
+fn a_cell_prints_raw_and_one_a_row_cannot_carry_is_refused_naming_it() {
+    let pick = Pick::parse(".nodes[]").unwrap();
+    let fields = Fields::parse("id,fields.path").unwrap();
+    let raw = json!({"nodes": [{"id": "a", "fields": {"path": "C:\\new\\table"}}]});
+    assert_eq!(
+        pick.printed(&raw.to_string(), Some(&fields), &Shape::default()),
+        Ok("a\u{1f}C:\\new\\table\n".to_string())
+    );
+    for (bad, name) in [
+        ("x\ny", "newline"),
+        ("x\ry", "carriage return"),
+        ("x\u{1f}y", "0x1f"),
+    ] {
+        let two = json!({"nodes": [
+            {"id": "good", "fields": {"path": "p"}},
+            {"id": "bad", "fields": {"path": bad}},
+        ]});
+        let refused = pick
+            .printed(&two.to_string(), Some(&fields), &Shape::default())
+            .unwrap_err();
+        for word in ["fields.path", "'bad'", name, "--pick"] {
+            assert!(refused.contains(word), "{word}: {refused}");
+        }
+        assert!(!refused.contains("good"), "no partial row: {refused}");
+    }
+    // An item with no id is named by its place, and an id that is not printable never reaches a terminal raw.
+    let at = json!({"nodes": [{"fields": {}}, {"fields": {"path": "x\ny"}}]});
+    let refused = pick
+        .printed(&at.to_string(), Some(&fields), &Shape::default())
+        .unwrap_err();
+    assert!(refused.contains("item 1"), "{refused}");
+    let hostile = json!({"nodes": [{"id": "\u{1b}[31m", "fields": {"path": "x\ny"}}]});
+    let refused = pick
+        .printed(&hostile.to_string(), Some(&fields), &Shape::default())
+        .unwrap_err();
+    assert!(!refused.contains('\u{1b}'), "{refused:?}");
+    // Compact JSON of a list holds no raw newline: its cell prints.
+    let list = json!({"nodes": [{"id": "l", "fields": {"path": ["x\ny"]}}]});
+    assert!(
+        pick.printed(&list.to_string(), Some(&fields), &Shape::default())
+            .is_ok()
+    );
 }
 
 #[test]

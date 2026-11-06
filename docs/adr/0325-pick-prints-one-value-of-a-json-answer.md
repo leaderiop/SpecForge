@@ -60,8 +60,10 @@ a `| jq -r` pipe without it leaves the variable empty. Upstream GSD added `--pic
   cells the values at the comma-separated keys (each may be dotted), joined by the ASCII unit separator (0x1f): two
   values of one entity on one line, where two picks printed side by side would misalign once a value is missing. A
   cell prints as `--pick` prints a value, a missing value or `null` is an empty cell, and an item that is `null` still
-  holds a row. A backslash, newline, carriage return or 0x1f in a cell prints as `\\`, `\n`, `\r` or `\x1f`, so a
-  row is one line. The separator is 0x1f, not a tab, because a tab is IFS whitespace: `IFS=$'\t' read -r a b`
+  holds a row. A cell prints raw, a backslash included, because `read -r` does not unescape and a shell has no way to:
+  an escaped `C:\new\table` would be written back as `C:\\new\\table`. A string holding a newline, carriage return or
+  0x1f cannot be carried on one line, so the command refuses (exit 1), naming the key and the item, and prints no
+  row, even under `--first` or `--last`; such a value is read with `--pick` alone (amended 2026-11-06). The separator is 0x1f, not a tab, because a tab is IFS whitespace: `IFS=$'\t' read -r a b`
   collapses an empty first cell and shifts the rest left, while `IFS=$'\x1f' read -r a b` keeps it, under bash 3.2
   as under bash 5 (plan 05 re-review). A shell reads a row with `IFS=$'\x1f' read -r`; a person sees it with
   `tr '\037' '\t'`.
