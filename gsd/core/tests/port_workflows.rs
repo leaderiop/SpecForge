@@ -149,6 +149,11 @@ const REWRITTEN: &[(&str, usize)] = &[
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not
 /// exist here: a state table, a directory, a batch router. Each run opens with a line that says what replaced it.
 const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
+    // the handoff's time is the `at` its `pause` records
+    ("gsd-core/workflows/pause-work.md", 75, 75),
+    ("gsd-core/workflows/pause-work.md", 139, 139),
+    ("gsd-core/workflows/pause-work.md", 223, 223),
+    ("gsd-core/workflows/pause-work.md", 225, 225),
     // the inline plan's times: `start-plan` opens it, `complete-plan` stamps its summary, `duration` is computed
     ("gsd-core/workflows/execute-plan.md", 90, 91),
     ("gsd-core/workflows/execute-plan.md", 387, 391),

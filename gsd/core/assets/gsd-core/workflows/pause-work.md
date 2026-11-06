@@ -74,7 +74,7 @@ Report any summaries with placeholder content as incomplete items.
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
 ```
 
 ```bash
@@ -138,7 +138,7 @@ phase: XX-name
 task: 3
 total_tasks: 7
 status: in_progress
-last_updated: [timestamp from date -u]
+last_updated: [the pause's at]
 ---
 
 # BLOCKING CONSTRAINTS — Read Before Anything Else
@@ -222,9 +222,9 @@ Start with: [specific first action when resuming]
 
 Be specific enough for a fresh Claude to understand immediately.
 
-Use `date -u` for the `last_updated` field:
+The `pause` the commit step records stamps `at` (the host's clock): that is the handoff's `last_updated`.
 ```bash
-timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
 ```
 </step>
 
