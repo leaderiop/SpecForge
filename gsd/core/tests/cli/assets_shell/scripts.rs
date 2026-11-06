@@ -182,3 +182,111 @@ fn the_pr_filter_keeps_the_code_whatever_the_spec_root() {
         );
     }
 }
+
+/// The worktree pin, run as written: both roots are read by `specforge git repo`, an alias of the checkout compares
+/// equal, a sibling checkout halts as a mismatch and not as a failed read, and a submodule with its own project may
+/// still commit under the pin of the checkout that holds it.
+#[test]
+fn the_pin_compares_both_roots_with_one_reader() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let text = asset("gsd-core/references/worktree-path-safety.md");
+    let at = text
+        .find("# gsd:guard=supplied-root-pin")
+        .expect("the guard");
+    let end = at + text[at..].find("\n```").expect("its fence");
+    let guard = &text[at..end];
+    let run = |cwd: &Path, pin: &str| {
+        let script = guard.replacen("{PINNED_ROOT}", pin, 1);
+        sh.run_in(cwd, &format!("{script}\necho passed"))
+    };
+    let base = tempfile::tempdir().expect("a dir");
+    let base = base.path().canonicalize().expect("its path");
+    let (main, sibling, sub) = (base.join("main"), base.join("sibling"), base.join("sub"));
+    let config = "{\"name\":\"demo\",\"version\":\"0.1.0\"}\n";
+    for repo in [&main, &sub] {
+        std::fs::create_dir_all(repo).expect("a repository");
+        std::fs::write(repo.join("specforge.json"), config).expect("its project");
+        git(repo, &["init", "-q", "-b", "main"]);
+        git(repo, &["add", "-A"]);
+        git(repo, &["commit", "-qm", "first"]);
+    }
+    let held = main.join("sub");
+    git(
+        &main,
+        &[
+            "-c",
+            "protocol.file.allow=always",
+            "submodule",
+            "--quiet",
+            "add",
+            sub.to_str().expect("a path"),
+            "sub",
+        ],
+    );
+    git(&main, &["add", "-A"]);
+    git(&main, &["commit", "-qm", "with a submodule"]);
+    git(
+        &main,
+        &[
+            "worktree",
+            "add",
+            "-q",
+            sibling.to_str().expect("a path"),
+            "-b",
+            "other",
+        ],
+    );
+    let top = main.to_str().expect("a path");
+
+    for (cwd, pin) in [
+        (main.clone(), top.to_string()),
+        (main.clone(), format!("{top}/")),
+        (held.clone(), top.to_string()),
+        (sibling.clone(), sibling.to_str().expect("a path").into()),
+    ] {
+        let (out, err, code) = run(&cwd, &pin);
+        assert_eq!(
+            (out.trim(), code),
+            ("passed", 0),
+            "{cwd:?} under {pin}: {err}"
+        );
+    }
+    #[cfg(unix)]
+    {
+        let alias = base.join("alias");
+        std::os::unix::fs::symlink(&main, &alias).expect("an alias");
+        let (out, err, _) = run(&main, alias.to_str().expect("a path"));
+        assert_eq!(out.trim(), "passed", "the alias compares equal: {err}");
+    }
+
+    let halts = |cwd: &Path, pin: &str, stage: &str| {
+        let (out, err, code) = run(cwd, pin);
+        assert_eq!((out.trim(), code), ("", 1), "{cwd:?} under {pin}: {err}");
+        assert!(err.contains(&format!("Guard stage: {stage}")), "{err}");
+        err
+    };
+    let err = halts(&sibling, top, "root-mismatch");
+    assert!(err.contains(&format!("pinned={top}")), "{err}");
+    halts(&main, sibling.to_str().expect("a path"), "root-mismatch");
+    let elsewhere = tempfile::tempdir().expect("no repository");
+    let err = halts(
+        &main,
+        elsewhere.path().to_str().expect("a path"),
+        "pinned-capture",
+    );
+    assert!(
+        err.contains("Diagnostic: specforge git repo from the pinned root failed: error["),
+        "{err}"
+    );
+    let err = halts(elsewhere.path(), top, "actual-capture");
+    assert!(
+        err.contains("Diagnostic: specforge git repo from the cwd failed: error["),
+        "{err}"
+    );
+    let err = halts(&main, "/nonexistent/pin", "pinned-capture");
+    assert!(err.contains("Pinned root: /nonexistent/pin"), "{err}");
+    halts(&main, "{PINNED_ROOT}", "pin-unbound");
+    halts(&main, "relative/pin", "form-gate");
+}

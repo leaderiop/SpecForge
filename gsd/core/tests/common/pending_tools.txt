@@ -180,15 +180,8 @@ gsd-core/references/worktree-branch-check.md	grep	if ! echo "$ACTUAL_BRANCH" | g
 gsd-core/workflows/execute-phase.md	grep	if printf '%s' "$ORCH_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)'; then
 prompt:execute_phase	grep	if printf '%s' "$ORCH_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)'; then
 
-# D git: git, embedded (R2). 19 rows.
+# D git: git, embedded (R2). 13 rows.
 # Stays: push, fetch, ls-remote, remote show (13 rows) reach a remote: no network git transport yet (ADR 0339 D6).
-# Stays: worktree-path-safety's pin (6 rows): it compares toplevels in git's spelling.
-gsd-core/references/worktree-path-safety.md	git	ACTUAL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-gsd-core/references/worktree-path-safety.md	git	PIN_DIAG="git rev-parse --show-toplevel from the cwd failed: $(git rev-parse --show-toplevel 2>&1 1>/dev/null)"
-gsd-core/references/worktree-path-safety.md	git	PINNED_TL=$(git -C "$PINNED_ROOT" rev-parse --show-toplevel 2>/dev/null)
-gsd-core/references/worktree-path-safety.md	git	PIN_DIAG="git -C <pinned root> rev-parse --show-toplevel failed: $(git -C "$PINNED_ROOT" rev-parse --show-toplevel 2>&1 1>/dev/null)"
-gsd-core/references/worktree-path-safety.md	git	SUPER_TL=$(git rev-parse --show-superproject-working-tree 2>/dev/null)
-gsd-core/references/worktree-path-safety.md	git	git -C
 gsd-core/workflows/complete-milestone/steps/git-tag.md	git	git push origin v[X.Y]
 gsd-core/workflows/execute-phase.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then  # #2916
 gsd-core/workflows/quick.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then

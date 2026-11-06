@@ -35,12 +35,12 @@ step):** copy the guard below into the dispatched prompt inside a
 of `$ORCHESTRATOR_WT` captured at execute_waves entry, shell-single-quoted:
 wrap the path in `'…'` and escape any embedded `'` as `'\''`. A path that
 cannot be quoted this way must halt the phase (surface a blocker) rather than
-ship a pin that could mis-parse. The comparison is git-vs-git on BOTH sides —
-`git -C` resolves the pinned path to its repo's canonical toplevel in git's
-own path representation, so symlink aliases, trailing slashes, `/var` vs
-`/private/var` spellings, and Windows drive-letter forms — forward- or
+ship a pin that could mis-parse. The comparison is one reader on BOTH sides —
+`specforge git repo`, run from the pinned path, resolves it to its repo's top with
+every link resolved, as it does the cwd's, so symlink aliases, trailing slashes,
+`/var` vs `/private/var` spellings, and Windows drive-letter forms — forward- or
 backslash-separated, `RUNNER~1`-style short names included — compare equal by
-construction (shell `pwd -P` normalization does NOT match git's emission on
+construction (shell `pwd -P` normalization does NOT match that spelling on
 Windows — do not re-introduce it).
 
 Two portability rules baked into the guard below, learned from the #4254 CI
@@ -88,24 +88,24 @@ case "$PINNED_ROOT" in
   [A-Za-z]:/*|[A-Za-z]:"$BS"*) ;;                            # Windows drive form, forward- or backslash-separated
   *) PIN_STAGE=form-gate; gsd_pin_fail ;;                    # relative pin — never trustworthy across cwds
 esac
-ACTUAL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+ACTUAL_ROOT=$(specforge git repo --pick .top 2>/dev/null)
 if [ -z "$ACTUAL_ROOT" ]; then
   PIN_STAGE=actual-capture
-  PIN_DIAG="git rev-parse --show-toplevel from the cwd failed: $(git rev-parse --show-toplevel 2>&1 1>/dev/null)"
+  PIN_DIAG="specforge git repo from the cwd failed: $(specforge git repo --pick .top 2>&1 1>/dev/null)"
   gsd_pin_fail
 fi
-PINNED_TL=$(git -C "$PINNED_ROOT" rev-parse --show-toplevel 2>/dev/null)
+PINNED_TL=$(cd "$PINNED_ROOT" 2>/dev/null && specforge git repo --pick .top 2>/dev/null)   # cd, not --in: the pin may lie outside the cwd's project
 if [ -z "$PINNED_TL" ]; then
   PIN_STAGE=pinned-capture
-  PIN_DIAG="git -C <pinned root> rev-parse --show-toplevel failed: $(git -C "$PINNED_ROOT" rev-parse --show-toplevel 2>&1 1>/dev/null)"
+  PIN_DIAG="specforge git repo from the pinned root failed: $(cd "$PINNED_ROOT" 2>&1 && specforge git repo --pick .top 2>&1 1>/dev/null)"
   gsd_pin_fail
 fi
 if [ "$ACTUAL_ROOT" != "$PINNED_TL" ]; then
   # Registered-submodule allowance: sub_repos plans legitimately commit inside an
   # immediate submodule of the pinned checkout. The superproject working tree is
-  # git-emitted in the same representation as PINNED_TL, so the equality is
+  # answered by the same reader as PINNED_TL, so the equality is
   # representation-safe on every platform.
-  SUPER_TL=$(git rev-parse --show-superproject-working-tree 2>/dev/null)
+  SUPER_TL=$(specforge git repo --pick .superproject 2>/dev/null)
   if [ "$SUPER_TL" != "$PINNED_TL" ]; then
     PIN_STAGE=root-mismatch
     PIN_DIAG="actual=${ACTUAL_ROOT} pinned=${PINNED_TL} superproject=${SUPER_TL:-<none>}"

@@ -9,4 +9,7 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/ship.md", 337, 337),
     ("gsd-core/workflows/remove-workspace.md", 66, 66),
     ("gsd-core/workflows/remove-workspace.md", 74, 74),
+    ("gsd-core/references/worktree-path-safety.md", 36, 39),
+    ("gsd-core/references/worktree-path-safety.md", 41, 41),
+    ("gsd-core/references/worktree-path-safety.md", 104, 104),
 ];
