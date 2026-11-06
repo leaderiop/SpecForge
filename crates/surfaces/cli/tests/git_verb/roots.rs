@@ -1,6 +1,7 @@
 //! `specforge git` where several repositories meet: a repository with no identity, and a machine root.
 
 use super::{committed, git};
+use crate::support::Cli;
 
 /// A new machine has no `user.name`: git makes a name up for a branch's reflog, and so must the verb.
 #[test]
@@ -373,4 +374,57 @@ fn status_except_leaves_out_the_entries_under_a_path() {
             refused.stdout
         );
     }
+}
+
+/// The Fs port refuses a file with more than one name, and `files read` says so. The git verbs read the working tree
+/// through the Git port, which holds no such check: a second name of a withheld file, or of a file outside the project,
+/// is staged, committed and shown. This pins today's line, not a wanted one: a fix flips the three assertions below.
+#[test]
+fn a_git_verb_reads_a_second_name_the_fs_port_refuses() {
+    let (project, repo, _) = committed();
+    let outside = tempfile::tempdir().unwrap();
+    let secret = outside.path().join("secret.txt");
+    std::fs::write(&secret, "OUTSIDE=hunter3\n").unwrap();
+    repo.write(".env", "TOKEN=hunter2\n")
+        .write("tracked.txt", "plain\n")
+        .write("sec/keep.txt", "kept\n");
+    repo.commit_all("tracked");
+    let root = project.root();
+    std::fs::hard_link(root.join(".env"), root.join("sec/hl.txt")).unwrap();
+    std::fs::hard_link(&secret, root.join("sec/out.txt")).unwrap();
+    for path in ["sec/hl.txt", "sec/out.txt"] {
+        let refused = Cli::on(&project)
+            .run(&["files", "read", path, "--pick", ".text"])
+            .exits(1);
+        assert!(!refused.stdout.contains("hunter"), "{}", refused.stdout);
+    }
+
+    // Staged and shown.
+    git(&project, &["add", "sec/hl.txt", "sec/out.txt"]).exits(0);
+    let staged = git(&project, &["diff", "--staged", "--patch"]).exits(0);
+    assert!(staged.stdout.contains("TOKEN=hunter2"), "{}", staged.stdout);
+    assert!(
+        staged.stdout.contains("OUTSIDE=hunter3"),
+        "{}",
+        staged.stdout
+    );
+
+    // Committed and read back.
+    git(&project, &["commit", "-m", "second names"]).exits(0);
+    let shown = git(&project, &["show", "HEAD:sec/out.txt", "--pick", ".text"]).exits(0);
+    assert!(shown.stdout.contains("OUTSIDE=hunter3"), "{}", shown.stdout);
+
+    // A tracked file swapped for a second name of the outside file.
+    std::fs::remove_file(root.join("tracked.txt")).unwrap();
+    std::fs::hard_link(&secret, root.join("tracked.txt")).unwrap();
+    let worktree = git(&project, &["diff", "--worktree", "--patch"]).exits(0);
+    assert!(
+        worktree.stdout.contains("OUTSIDE=hunter3"),
+        "{}",
+        worktree.stdout
+    );
+
+    // The withheld name itself stays refused: the check is on the name.
+    let named = git(&project, &["add", ".env"]).exits(1);
+    assert!(named.stdout.contains("withheld"), "{}", named.stdout);
 }
