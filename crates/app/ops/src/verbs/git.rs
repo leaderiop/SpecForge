@@ -14,6 +14,9 @@ use specforge_effects::RealFs;
 mod branching;
 mod commit;
 mod merging;
+mod spec_paths;
+
+use spec_paths::SpecPaths;
 
 pub use branching::{
     CloneAnswer, InitAnswer, LockAnswer, PrunedAnswer, RefAnswer, branch_create, branch_delete,
@@ -173,6 +176,20 @@ pub struct DiffRequest {
     pub merge_base: bool,
 }
 
+/// One file of `git diff`'s answer, and what it is to the project: a spec file is the one predicate of
+/// [`spec_paths::SpecPaths`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DiffFile {
+    #[serde(flatten)]
+    pub file: GitFileDiff,
+    /// Its path is a spec file, a deletion's own path included.
+    pub spec: bool,
+    /// Its path, and the path it had at the base when it has one, are spec files: nothing else is touched.
+    pub spec_only: bool,
+    /// A spec file the base has is gone from the head: a deleted one, or a rename whose old path is one.
+    pub spec_removed: bool,
+}
+
 /// `git diff`'s answer: the base commit, the head (a commit, `index` or `worktree`) and the changed files by path.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DiffAnswer {
@@ -182,7 +199,7 @@ pub struct DiffAnswer {
     /// The lines the text files gain and lose, as `--shortstat` totals them.
     pub added: u64,
     pub removed: u64,
-    pub files: Vec<GitFileDiff>,
+    pub files: Vec<DiffFile>,
 }
 
 /// `git merge-base`'s answer: none when the two commits share no history.
@@ -569,13 +586,22 @@ pub fn diff(verbs: &Verbs, request: &DiffRequest) -> Result<DiffAnswer, OpError>
     };
     let files = verbs.ports().git.diff(&place, &query).map_err(failed)?;
     let text = || files.iter().filter(|file| !file.binary);
+    let (added, removed) = (
+        text().map(|file| u64::from(file.added)).sum(),
+        text().map(|file| u64::from(file.removed)).sum(),
+    );
+    let specs = SpecPaths::of(
+        &place.toplevel,
+        &RealFs::landing(verbs.root().dir()),
+        verbs.spec_root(),
+    );
     Ok(DiffAnswer {
         base: base.as_str().to_string(),
         head: named,
         count: files.len(),
-        added: text().map(|file| u64::from(file.added)).sum(),
-        removed: text().map(|file| u64::from(file.removed)).sum(),
-        files,
+        added,
+        removed,
+        files: files.into_iter().map(|file| specs.flagged(file)).collect(),
     })
 }
 

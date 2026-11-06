@@ -37,6 +37,8 @@ pub struct Verbs {
     ports: Ports,
     grant: Arc<Grant>,
     roots: Roots,
+    /// Where the project's spec root lands, reachable or not: what `git diff` calls a spec file is the project's word.
+    spec_root: PathBuf,
     /// Each reachable root and where it lands, the deepest first: the root a typed path is read in is the first that
     /// holds it.
     landed: Vec<(Root, PathBuf)>,
@@ -140,6 +142,7 @@ impl Verbs {
             ports: ports.clone(),
             grant,
             roots,
+            spec_root: RealFs::landing(env.spec_root()),
             landed,
             temp,
         }
@@ -199,6 +202,11 @@ impl Verbs {
 
     pub fn roots(&self) -> &Roots {
         &self.roots
+    }
+
+    /// Where the project's spec root lands, links resolved.
+    pub fn spec_root(&self) -> &Path {
+        &self.spec_root
     }
 
     /// The root that holds `typed` (read from the current directory) and the request for `op` there: the deepest

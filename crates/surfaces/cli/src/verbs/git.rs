@@ -594,7 +594,7 @@ fn picked(args: PickArgs, revert: bool, terminal: &Terminal, ports: &Ports) -> E
 fn diff_human(t: &Terminal, a: &git::DiffAnswer, (patch, stat, shortstat): (bool, bool, bool)) {
     let plural = |n: u64, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
     if !shortstat && (stat || !patch) {
-        for file in &a.files {
+        for git::DiffFile { file, .. } in &a.files {
             let counts = if file.binary {
                 "-\t-".to_string()
             } else {
@@ -617,7 +617,7 @@ fn diff_human(t: &Terminal, a: &git::DiffAnswer, (patch, stat, shortstat): (bool
     if !patch {
         return;
     }
-    for file in &a.files {
+    for git::DiffFile { file, .. } in &a.files {
         let old = file.old_path.as_deref().unwrap_or(&file.path);
         let side = |prefix: &str, path: &str, absent: bool| match absent {
             true => "/dev/null".to_string(),

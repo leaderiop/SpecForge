@@ -35,9 +35,9 @@ fn diff_lists_the_files_a_branch_changed_since_its_base() {
     assert_eq!(
         diff["files"],
         json!([
-            {"path": "a.txt", "old_path": null, "status": "modified", "added": 1, "removed": 0, "binary": false},
-            {"path": "bin.dat", "old_path": null, "status": "added", "added": 0, "removed": 0, "binary": true},
-            {"path": "c.txt", "old_path": null, "status": "added", "added": 1, "removed": 0, "binary": false},
+            {"path": "a.txt", "old_path": null, "status": "modified", "added": 1, "removed": 0, "binary": false, "spec": false, "spec_only": false, "spec_removed": false},
+            {"path": "bin.dat", "old_path": null, "status": "added", "added": 0, "removed": 0, "binary": true, "spec": false, "spec_only": false, "spec_removed": false},
+            {"path": "c.txt", "old_path": null, "status": "added", "added": 1, "removed": 0, "binary": false, "spec": false, "spec_only": false, "spec_removed": false},
         ])
     );
 }
@@ -144,6 +144,73 @@ fn diff_names_a_rename_and_its_old_path() {
         git(&project, &["diff", "--base", "HEAD~1", "--pick", ".files"])
             .exits(0)
             .json(),
-        json!([{"path": "moved.txt", "old_path": "a.txt", "status": "renamed", "added": 0, "removed": 0, "binary": false}])
+        json!([{"path": "moved.txt", "old_path": "a.txt", "status": "renamed", "spec": false, "spec_only": false, "spec_removed": false, "added": 0, "removed": 0, "binary": false}])
+    );
+}
+
+/// Added, modified, deleted and renamed on each side of the spec root, read end to end through `--pick`'s selectors.
+#[test]
+fn diff_flags_spec_files_on_each_side() {
+    let (project, repo, first) = committed();
+    let config = serde_json::json!({"name": "demo", "version": "0.1.0", "spec_root": "spec"});
+    repo.write("specforge.json", config.to_string())
+        .write("spec/kept.spec", "spec kept \"K\" {}\n")
+        .write("spec/gone.spec", "spec gone \"G\" {}\n")
+        .write("spec/moved.spec", "moved within\nline\nline\nline\n")
+        .write("spec/out.spec", "moved out\nline\nline\nline\n")
+        .write("src/in.txt", "moved in\nline\nline\nline\n")
+        .write("src/code.txt", "code\n");
+    let base = repo.commit_all("base");
+    assert_ne!(base, first);
+    std::fs::rename(
+        project.root().join("spec/moved.spec"),
+        project.root().join("spec/there.spec"),
+    )
+    .unwrap();
+    std::fs::rename(
+        project.root().join("spec/out.spec"),
+        project.root().join("src/out.spec"),
+    )
+    .unwrap();
+    std::fs::rename(
+        project.root().join("src/in.txt"),
+        project.root().join("spec/in.txt"),
+    )
+    .unwrap();
+    std::fs::remove_file(project.root().join("spec/gone.spec")).unwrap();
+    repo.write("spec/kept.spec", "spec kept \"Kept\" {}\n")
+        .write("spec/new.spec", "spec new \"N\" {}\n")
+        .write("src/code.txt", "changed\n")
+        .write("specforge-harness", "ledger\n");
+    repo.commit_all("change");
+    let pick = |selector: &str| {
+        let wanted = format!(".files[{selector}].path");
+        let run = git(
+            &project,
+            &["diff", "--base", &base, "--head", "HEAD", "--pick", &wanted],
+        )
+        .exits(0);
+        let mut lines: Vec<String> = run.stdout.lines().map(str::to_string).collect();
+        lines.sort();
+        lines
+    };
+    assert_eq!(
+        pick("spec=true"),
+        [
+            "spec/gone.spec",
+            "spec/in.txt",
+            "spec/kept.spec",
+            "spec/new.spec",
+            "spec/there.spec",
+            "specforge-harness",
+        ]
+    );
+    assert_eq!(
+        pick("spec_removed=true"),
+        ["spec/gone.spec", "spec/there.spec", "src/out.spec"]
+    );
+    assert_eq!(
+        pick("spec_only=false"),
+        ["spec/in.txt", "src/code.txt", "src/out.spec"]
     );
 }

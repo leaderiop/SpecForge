@@ -92,6 +92,7 @@ specforge git status --pick '.untracked[]'         # the typed status, plus clea
 specforge git config user.name --pick .value       # {key,value,values}
 specforge git log main..HEAD --pick .count         # {count,commits:[{sha,parents,author,subject,body,trailers}]}
 specforge git diff --base main --pick '.files[].path'  # -- <path>… filters; --staged, --worktree, --patch
+specforge git diff --base main --pick '.files[spec_only=false].path'  # each file: spec, spec_only, spec_removed
 specforge git merge-base main HEAD --pick .sha     # {sha}
 specforge git show HEAD:spec/a.spec --pick .text   # {sha,bytes,binary,text}
 specforge git branches [--remote]                  # {branches:[{name,sha,current,upstream,ahead,behind}]}
