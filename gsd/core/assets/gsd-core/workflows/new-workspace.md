@@ -15,11 +15,11 @@ Read all files referenced by the invoking prompt's execution_context before star
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-PROJECT_ROOT=$(specforge git repo --pick .top 2>/dev/null || pwd); DEFAULT_WORKSPACE_BASE="$HOME/gsd-workspaces"; IS_GIT_REPO=$(specforge git repo --pick .top >/dev/null 2>&1 && echo true || echo false); CWD_REPO_NAME=${PROJECT_ROOT##*/}; WORKTREE_AVAILABLE=$(specforge git worktrees >/dev/null 2>&1 && echo true || echo false)
-CHILD_REPOS=$(for d in */; do [ -d "${d}.git" ] && echo "${d%/}"; done); CHILD_REPO_COUNT=$(echo "$CHILD_REPOS" | grep -c . || true)
+PROJECT_ROOT=$(specforge git repo --pick .top 2>/dev/null || pwd); DEFAULT_WORKSPACE_BASE="$HOME/gsd-workspaces"; IS_GIT_REPO=$(specforge git repo --pick .top >/dev/null 2>&1 && echo true || echo false); CWD_REPO_NAME=${PROJECT_ROOT##*/}; WORKTREE_AVAILABLE=$(specforge git worktrees >/dev/null 2>&1 && echo true || echo false); WORKSPACES_REACHABLE=$(specforge files stat "$HOME/gsd-workspaces" --pick '.entries[0].exists' 2>/dev/null)
+CHILD_REPOS=$(for d in */; do [ -e "${d}.git" ] && echo "${d%/}"; done); CHILD_REPO_COUNT=0; for d in */; do [ -e "${d}.git" ] && CHILD_REPO_COUNT=$((CHILD_REPO_COUNT+1)); done
 ```
 
-The fields above are shell variables. Where this text says `default_workspace_base`, `child_repos`, `child_repo_count`, `worktree_available`, `is_git_repo`, `cwd_repo_name` or `project_root`, read the variable of that name in capitals; `response_language` is the setting.
+The fields above are shell variables. Where this text says `default_workspace_base`, `child_repos`, `child_repo_count`, `worktree_available`, `is_git_repo`, `cwd_repo_name` or `project_root`, read the variable of that name in capitals; `response_language` is the setting. `child_repos` names each child directory with a `.git` entry. An empty `WORKSPACES_REACHABLE` means this machine has not approved the root, or its directory is gone: tell the user to run `specforge grants approve --root workspaces --at ~/gsd-workspaces` once, and stop (unless `--path` names a directory in another approved root).
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
@@ -113,7 +113,7 @@ Before creating anything, validate:
 
 1. **Target path** — must not exist or must be empty:
 ```bash
-if [ -d "$TARGET_PATH" ] && [ "$(ls -A "$TARGET_PATH" 2>/dev/null)" ]; then
+if [ -n "$(specforge files list "$TARGET_PATH" --depth 1 --hidden --no-ignore --max 1 --pick '.entries[0].path' 2>/dev/null)" ]; then
   echo "Error: Target path already exists and is not empty: $TARGET_PATH"
   echo "Choose a different --name or --path."
   exit 1
@@ -138,7 +138,7 @@ Report all validation errors at once, not one at a time.
 ## 6. Create Workspace
 
 ```bash
-mkdir -p "$TARGET_PATH"
+specforge files mkdir "$TARGET_PATH" --pick '.changed[]'
 ```
 
 ### For each repo:
@@ -146,20 +146,20 @@ mkdir -p "$TARGET_PATH"
 **Worktree strategy:**
 ```bash
 cd "$SOURCE_REPO_PATH"
-git worktree add "$TARGET_PATH/$REPO_NAME" -b "$BRANCH_NAME" 2>&1
+specforge git worktree add "$TARGET_PATH/$REPO_NAME" --branch "$BRANCH_NAME" --create 2>&1
 ```
 
 If `git worktree add` fails because the branch already exists, try with a timestamped branch:
 ```bash
-TIMESTAMP=$(date +%Y%m%d%H%M%S)
-git worktree add "$TARGET_PATH/$REPO_NAME" -b "${BRANCH_NAME}-${TIMESTAMP}" 2>&1
+TIMESTAMP=$(specforge files stat "$TARGET_PATH" --pick .effect.observed_at)   # now, in ms
+specforge git worktree add "$TARGET_PATH/$REPO_NAME" --branch "${BRANCH_NAME}-${TIMESTAMP}" --create 2>&1
 ```
 
 If that also fails, report the error and continue with remaining repos.
 
 **Clone strategy:**
 ```bash
-git clone "$SOURCE_REPO_PATH" "$TARGET_PATH/$REPO_NAME" 2>&1
+specforge git clone "$SOURCE_REPO_PATH" "$TARGET_PATH/$REPO_NAME" 2>&1
 cd "$TARGET_PATH/$REPO_NAME"
 specforge git switch "$BRANCH_NAME" --create --pick .branch
 ```

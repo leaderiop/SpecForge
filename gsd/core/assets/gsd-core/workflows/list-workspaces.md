@@ -15,11 +15,11 @@ Read all files referenced by the invoking prompt's execution_context before star
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 "$WORKSPACE_BASE" 2>/dev/null); WORKSPACE_COUNT=$(echo "$WORKSPACES" | grep -c . || true)
-# a workspace has a WORKSPACE.md; its repos are the directories with a .git entry (ls -d "$WORKSPACE_BASE"/<name>/*/.git), and git worktree list shows the worktrees
+WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(specforge files list "$WORKSPACE_BASE" --depth 1 --kind dir --pick '.entries[].path' 2>/dev/null); WORKSPACE_COUNT=$(specforge files list "$WORKSPACE_BASE" --depth 1 --kind dir --pick .count 2>/dev/null)
+# a workspace has a WORKSPACE.md; its repos are the directories with a .git entry (for g in "$WORKSPACE_BASE"/<name>/*/.git; do [ -e "$g" ] && ...), and specforge git --in "<repo>" worktrees shows the worktrees
 ```
 
-The fields above are shell variables: `workspace_base`, `workspaces` and `workspace_count` are `WORKSPACE_BASE`, `WORKSPACES` and `WORKSPACE_COUNT`.
+The fields above are shell variables: `workspace_base`, `workspaces` and `workspace_count` are `WORKSPACE_BASE`, `WORKSPACES` and `WORKSPACE_COUNT`. An empty `workspace_count` means this machine has not approved the root, or the directory is gone: say so, with the command that names and makes it: `specforge grants approve --root workspaces --at ~/gsd-workspaces`.
 
 ## 2. Display
 

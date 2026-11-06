@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 153 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 145 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	cat	PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
@@ -64,9 +64,7 @@ gsd-core/workflows/execute-phase/steps/post-merge-gate.md	sed	XCODE_SCHEME=$(pri
 gsd-core/workflows/execute-phase/steps/regression-gate-run.md	grep	if [ -f "Makefile" ] && grep -q "^test:" Makefile; then
 gsd-core/workflows/execute-phase/steps/regression-gate.md	cat	cat > "$_GSD_HANDOFF/regression-files" <<'GSD_REGRESSION_FILES'
 gsd-core/workflows/execute-plan.md	grep	PHASE=$(echo "$PLAN_PATH" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*-[0-9]+')
-gsd-core/workflows/list-workspaces.md	grep	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 "$WORKSPACE_BASE" 2>/dev/null); WORKSPACE_COUNT=$(echo "$WORKSPACES" | grep -c . || true)
 gsd-core/workflows/new-project.md	cat	DEFAULTS_RAW=$(cat "${GSD_HOME:-$HOME}/.gsd/defaults.json" 2>/dev/null)
-gsd-core/workflows/new-workspace.md	grep	CHILD_REPOS=$(for d in */; do [ -d "${d}.git" ] && echo "${d%/}"; done); CHILD_REPO_COUNT=$(echo "$CHILD_REPOS" | grep -c . || true)
 gsd-core/workflows/plan-phase.md	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 gsd-core/workflows/plan-phase.md	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 gsd-core/workflows/plan-phase.md	tr	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
@@ -91,8 +89,6 @@ gsd-core/workflows/progress/steps/forensic-audit.md	grep	specforge git status --
 gsd-core/workflows/progress/steps/forensic-audit.md	head	specforge git status --pick '.tracked[]' 2>/dev/null | grep -v "^spec/" | grep -v "^\.\." | head -10
 gsd-core/workflows/quick.md	grep	DEFAULT_BRANCH=$(printf '%s' "{{setting:git.base_branch|}}" | grep . \
 gsd-core/workflows/quick.md	grep	|| specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . \
-gsd-core/workflows/remove-workspace.md	sed	STRATEGY=$(sed -n 's/^Strategy: *//p' "$WORKSPACE_PATH/WORKSPACE.md" 2>/dev/null)   # from the manifest
-gsd-core/workflows/remove-workspace.md	sed	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
 gsd-core/workflows/resume-project.md	grep	for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -vxF -f <(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=summary].fields.plan')); do   # each plan no summary names
 gsd-core/workflows/review.md	cat	cat "${RUN_DIR}/.plans-manifest.md" >> "${RUN_DIR}/gsd-review-instructions.md"
 gsd-core/workflows/review.md	cat	cat "${RUN_DIR}/.plans-manifest.md" >> "${RUN_DIR}/gsd-review-prompt.md"
@@ -154,12 +150,8 @@ prompt:ultraplan_phase	head	CC_VERSION="$(claude --version 2>/dev/null | grep -E
 prompt:ultraplan_phase	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 prompt:ultraplan_phase	sort	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 prompt:undo	grep	grep -E "\(0*${TARGET_PHASE}(-[0-9]+)?\):"
-prompt:workspace	grep	CHILD_REPOS=$(for d in */; do [ -d "${d}.git" ] && echo "${d%/}"; done); CHILD_REPO_COUNT=$(echo "$CHILD_REPOS" | grep -c . || true)
-prompt:workspace	grep	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 "$WORKSPACE_BASE" 2>/dev/null); WORKSPACE_COUNT=$(echo "$WORKSPACES" | grep -c . || true)
-prompt:workspace	sed	STRATEGY=$(sed -n 's/^Strategy: *//p' "$WORKSPACE_PATH/WORKSPACE.md" 2>/dev/null)   # from the manifest
-prompt:workspace	sed	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
 
-# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 25 rows.
+# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 19 rows.
 gsd-core/references/checkpoints.md	lsof	lsof -ti:3000 | xargs kill
 gsd-core/references/checkpoints.md	sleep	for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done
 gsd-core/references/execute-phase-quota-recovery.md	sleep	sleep "$RETRY_AFTER"
@@ -170,8 +162,6 @@ gsd-core/references/worktree-path-safety.md	env	env -C scripts bash -c 'cd ..'
 gsd-core/references/worktree-path-safety.md	env	env -u FOO --debug -u BAR -C ../main
 gsd-core/references/worktree-path-safety.md	env	env -S 'cmd args'
 gsd-core/references/worktree-path-safety.md	timeout	timeout --signal TERM
-gsd-core/workflows/new-workspace.md	date	TIMESTAMP=$(date +%Y%m%d%H%M%S)
-gsd-core/workflows/new-workspace.md	mkdir	mkdir -p "$TARGET_PATH"
 gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md	date	[[ "$dispatch_ts" =~ ^[0-9]+$ ]] || dispatch_ts=$(date +%s)
 gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md	date	now=$(date +%s)
 gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md	sleep	sleep "$(( PLANNER_STALL_INTERVAL_MINUTES * 60 ))"
@@ -179,12 +169,8 @@ gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Get-Date	Get-Proc
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Get-Process	Get-Process node -ErrorAction SilentlyContinue | Where-Object {$_.StartTime -lt (Get-Date).AddHours(-1)} | Stop-Process -Force
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Stop-Process	Get-Process node -ErrorAction SilentlyContinue | Where-Object {$_.StartTime -lt (Get-Date).AddHours(-1)} | Stop-Process -Force
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Where-Object	Get-Process node -ErrorAction SilentlyContinue | Where-Object {$_.StartTime -lt (Get-Date).AddHours(-1)} | Stop-Process -Force
-gsd-core/workflows/remove-workspace.md	rm	rm -rf "$WORKSPACE_PATH"
 gsd-core/workflows/ship.md	sleep	sleep 3
 prompt:ship	sleep	sleep 3
-prompt:workspace	date	TIMESTAMP=$(date +%Y%m%d%H%M%S)
-prompt:workspace	mkdir	mkdir -p "$TARGET_PATH"
-prompt:workspace	rm	rm -rf "$WORKSPACE_PATH"
 
 # C rule: a rule that lives in the shell moves into Rust (R1): a grep -q of a value against a pattern. 6 rows.
 agents/gsd-executor.md	grep	if echo "$ACTUAL_BRANCH" | grep -Eq '^(main|master|develop|trunk|release/.*)$'; then
@@ -194,11 +180,9 @@ gsd-core/references/worktree-branch-check.md	grep	if ! echo "$ACTUAL_BRANCH" | g
 gsd-core/workflows/execute-phase.md	grep	if printf '%s' "$ORCH_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)'; then
 prompt:execute_phase	grep	if printf '%s' "$ORCH_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)'; then
 
-# D git: git, embedded (R2). 29 rows.
+# D git: git, embedded (R2). 19 rows.
 # Stays: push, fetch, ls-remote, remote show (13 rows) reach a remote: no network git transport yet (ADR 0339 D6).
-# Stays: new-workspace's worktree add, clone (6 rows) write in $HOME/gsd-workspaces, outside the roots (ADR 0339 D2).
-# Stays: remove-workspace's git -C rev-parse and worktree remove under $HOME/gsd-workspaces, worktree-path-safety's pin (10 rows):
-# --in and worktree remove reach only the project's roots (ADR 0339 D2); the pin compares toplevels in git's spelling.
+# Stays: worktree-path-safety's pin (6 rows): it compares toplevels in git's spelling.
 gsd-core/references/worktree-path-safety.md	git	ACTUAL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 gsd-core/references/worktree-path-safety.md	git	PIN_DIAG="git rev-parse --show-toplevel from the cwd failed: $(git rev-parse --show-toplevel 2>&1 1>/dev/null)"
 gsd-core/references/worktree-path-safety.md	git	PINNED_TL=$(git -C "$PINNED_ROOT" rev-parse --show-toplevel 2>/dev/null)
@@ -207,12 +191,7 @@ gsd-core/references/worktree-path-safety.md	git	SUPER_TL=$(git rev-parse --show-
 gsd-core/references/worktree-path-safety.md	git	git -C
 gsd-core/workflows/complete-milestone/steps/git-tag.md	git	git push origin v[X.Y]
 gsd-core/workflows/execute-phase.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then  # #2916
-gsd-core/workflows/new-workspace.md	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "$BRANCH_NAME" 2>&1
-gsd-core/workflows/new-workspace.md	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "${BRANCH_NAME}-${TIMESTAMP}" 2>&1
-gsd-core/workflows/new-workspace.md	git	git clone "$SOURCE_REPO_PATH" "$TARGET_PATH/$REPO_NAME" 2>&1
 gsd-core/workflows/quick.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then
-gsd-core/workflows/remove-workspace.md	git	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
-gsd-core/workflows/remove-workspace.md	git	if ! git worktree remove "$WORKSPACE_PATH/$REPO_NAME" 2>&1; then
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1
 gsd-core/workflows/ship.md	git	git push --set-upstream origin ${CURRENT_BRANCH} 2>&1
 gsd-core/workflows/ship.md	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
@@ -223,11 +202,6 @@ prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1
 prompt:ship	git	git push --set-upstream origin ${CURRENT_BRANCH} 2>&1
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: recovery push failed — rerun: git push origin ${CURRENT_BRANCH}"
-prompt:workspace	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "$BRANCH_NAME" 2>&1
-prompt:workspace	git	git worktree add "$TARGET_PATH/$REPO_NAME" -b "${BRANCH_NAME}-${TIMESTAMP}" 2>&1
-prompt:workspace	git	git clone "$SOURCE_REPO_PATH" "$TARGET_PATH/$REPO_NAME" 2>&1
-prompt:workspace	git	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
-prompt:workspace	git	if ! git worktree remove "$WORKSPACE_PATH/$REPO_NAME" 2>&1; then
 
 # E network: the host HTTP service and a GitHub provider (R3). 0 rows.
 
@@ -322,17 +296,13 @@ gsd-core/references/research-documentation-lookup.md	ctx7	ctx7 docs <libraryId> 
 gsd-core/references/worktree-path-safety.md	command	command -v bash
 gsd-core/references/worktree-path-safety.md	command	command -v bash
 
-# I files: specforge files: walk, glob, match (R4). 10 rows.
+# I files: specforge files: walk, glob, match (R4). 6 rows.
 gsd-core/references/worktree-path-safety.md	basename	|| ( cd -- "$(dirname -- "$p")" 2>/dev/null && printf '%s/%s' "$(pwd -P)" "$(basename -- "$p")" ) \
 gsd-core/references/worktree-path-safety.md	dirname	if [ -L "$p" ] && ! [ -d "$p" ]; then t=$(readlink "$p"); case "$t" in /*) p=$t ;; *) p="$(dirname -- "$p")/$t" ;; esac; fi
 gsd-core/references/worktree-path-safety.md	dirname	|| ( cd -- "$(dirname -- "$p")" 2>/dev/null && printf '%s/%s' "$(pwd -P)" "$(basename -- "$p")" ) \
 gsd-core/references/worktree-path-safety.md	readlink	if [ -L "$p" ] && ! [ -d "$p" ]; then t=$(readlink "$p"); case "$t" in /*) p=$t ;; *) p="$(dirname -- "$p")/$t" ;; esac; fi
-gsd-core/workflows/list-workspaces.md	ls	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 "$WORKSPACE_BASE" 2>/dev/null); WORKSPACE_COUNT=$(echo "$WORKSPACES" | grep -c . || true)
-gsd-core/workflows/new-workspace.md	ls	if [ -d "$TARGET_PATH" ] && [ "$(ls -A "$TARGET_PATH" 2>/dev/null)" ]; then
 gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md	find	if [ -n "$(find $artifact_glob -mmin "-${PLANNER_STALL_INTERVAL_MINUTES}" 2>/dev/null)" ]; then
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Remove-Item	Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\tasks\*" -ErrorAction SilentlyContinue
-prompt:workspace	ls	if [ -d "$TARGET_PATH" ] && [ "$(ls -A "$TARGET_PATH" 2>/dev/null)" ]; then
-prompt:workspace	ls	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 "$WORKSPACE_BASE" 2>/dev/null); WORKSPACE_COUNT=$(echo "$WORKSPACES" | grep -c . || true)
 
 # J solver: the z3 decision (R4). 0 rows.
 
