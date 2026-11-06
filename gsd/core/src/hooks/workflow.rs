@@ -151,7 +151,7 @@ fn force_adds(commands: &[Vec<String>]) -> bool {
 fn on_agent_branch(f: &Facts) -> bool {
     f.git
         .as_ref()
-        .is_some_and(|g| g.branch.starts_with("agent-") || g.branch.starts_with("worktree-agent-"))
+        .is_some_and(|g| crate::branch::agent_branch(&g.branch))
 }
 
 /// Warns of an edit made in a session that has started no GSD command.

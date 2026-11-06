@@ -337,11 +337,8 @@ fn only_a_git_add_with_a_force_flag_before_the_double_dash_is_a_force_add() {
     assert!(!denied(&f), "no repository");
 }
 
-/// The Workflow backend's branches are an agent's to isolation, and today not to this guard.
+/// The Workflow backend's branches are an agent's here as they are to isolation (`[agent-namespace-one-rule]`).
 #[test]
 fn a_force_add_on_a_workflow_backend_branch_is_refused() {
-    assert!(
-        !blocks("git add -f x", "worktree-wf_run1-2"),
-        "today its namespace is two prefixes"
-    );
+    assert!(blocks("git add -f x", "worktree-wf_run1-2"));
 }

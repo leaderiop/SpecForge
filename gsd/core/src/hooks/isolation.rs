@@ -21,19 +21,7 @@ use std::path::Path;
 use specforge_extension_sdk::prelude::*;
 
 use super::facts::Facts;
-
-/// Whether `branch` is a GSD executor's: upstream's `^((worktree-)?agent-|worktree-wf_)[A-Za-z0-9._/-]+$`.
-fn agent_branch(branch: &str) -> bool {
-    let rest = branch
-        .strip_prefix("worktree-agent-")
-        .or_else(|| branch.strip_prefix("agent-"))
-        .or_else(|| branch.strip_prefix("worktree-wf_"));
-    rest.is_some_and(|r| {
-        !r.is_empty()
-            && r.chars()
-                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '/' | '-'))
-    })
-}
+use crate::branch::agent_branch;
 
 /// Whether `git_dir` is a linked worktree's: it holds `/.git/worktrees/` as components, whichever the separator.
 fn linked_worktree(git_dir: &str) -> bool {
