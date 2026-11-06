@@ -1,5 +1,5 @@
-//! The `--pick` shapes on an extension command (ADR 0325 D8): host options beside `--pick`, each unless the command
-//! declares an arg of the name.
+//! The `--pick` shapes (ADR 0325 D8) and `--fields` (D7) on an extension command: host options beside `--pick`, each
+//! unless the command declares an arg of the name.
 
 use super::*;
 use crate::pick::Picked;
@@ -55,8 +55,8 @@ fn a_command_declaring_count_keeps_it_and_still_takes_first() {
     c.args
         .push(arg("count", CommandArgType::Integer, false, None));
     let command = declared(c.clone());
-    let added = kernel_shapes(&command);
-    assert_eq!(added, ["first", "last", "join"]);
+    let added = beside_pick(&command);
+    assert_eq!(added, ["fields", "first", "last", "join"]);
     let argv = [
         "specforge x",
         "milestone-completion",
@@ -83,7 +83,7 @@ fn a_command_declaring_count_keeps_it_and_still_takes_first() {
     let mut own = contribution();
     own.args
         .push(arg("pick", CommandArgType::String, false, None));
-    assert!(kernel_shapes(&declared(own)).is_empty());
+    assert!(beside_pick(&declared(own)).is_empty());
 }
 
 #[test]
@@ -92,7 +92,7 @@ fn a_shape_conflicts_with_no_arg_the_command_declares() {
     c.args
         .push(arg("join", CommandArgType::String, false, None));
     let command = declared(c.clone());
-    assert_eq!(kernel_shapes(&command), ["count", "first", "last"]);
+    assert_eq!(beside_pick(&command), ["fields", "count", "first", "last"]);
     // the host's `--count` takes no other shape, but the declared `--join` is the command's
     let argv = [
         "milestone-completion",
@@ -119,7 +119,7 @@ fn the_host_count_never_reaches_the_guests_arguments() {
         .unwrap();
     let (_, sub) = matches.subcommand().unwrap();
     assert_eq!(
-        Picked::of_matches(sub, &kernel_shapes(&command)).printed(r#"{"a": [1, 2]}"#),
+        Picked::of_matches(sub, &beside_pick(&command)).printed(r#"{"a": [1, 2]}"#),
         Some(Ok("2\n".into()))
     );
     // the guest is sent only what it declares
@@ -131,4 +131,52 @@ fn the_host_count_never_reaches_the_guests_arguments() {
         args.keys().all(|key| c.args.iter().any(|a| a.name == *key)),
         "{args:?}"
     );
+}
+
+#[test]
+fn fields_prints_one_row_per_item_of_a_commands_answer() {
+    let answer = r#"{"n": 2, "items": [{"id": "a", "d": "x\ty"}, {"id": "b"}]}"#;
+    let (code, out, err) = quiet(answer, "", 0, &["--pick", ".items[]", "--fields", "id,d"]);
+    assert_eq!((code, out.as_str()), (0, "a\x1fx\ty\nb\x1f\n"), "{err}");
+    // the answer's root is one row
+    let (code, out, err) = quiet(answer, "", 0, &["--pick", ".", "--fields", "n"]);
+    assert_eq!((code, out.as_str()), (0, "2\n"), "{err}");
+    // a shape keeps its rows; the exit code is the command's
+    let args = ["--pick", ".items[]", "--fields", "id", "--last", "1"];
+    let (code, out, _) = quiet(answer, "", 3, &args);
+    assert_eq!((code, out.as_str()), (3, "b\n"));
+}
+
+#[test]
+fn fields_without_pick_or_beside_count_is_a_usage_error() {
+    for args in [
+        &["--fields", "id"][..],
+        &["--pick", ".a[]", "--fields", "id", "--count"],
+        &["--pick", ".a[]", "--fields", "id", "--join", ","],
+        &["--pick", ".a[]", "--fields", "a,,b"],
+    ] {
+        let (code, out, err) = quiet(r#"{"a": [1]}"#, "", 0, args);
+        assert_eq!((code, out.as_str()), (2, ""), "{args:?}: {err}");
+    }
+}
+
+#[test]
+fn a_command_declaring_fields_keeps_it() {
+    let mut c = contribution();
+    c.args
+        .push(arg("fields", CommandArgType::String, false, None));
+    assert_eq!(
+        beside_pick(&declared(c.clone())),
+        ["count", "first", "last", "join"]
+    );
+    let argv = [
+        "milestone-completion",
+        "m1",
+        "--fields",
+        "x",
+        "--pick",
+        ".a[]",
+    ];
+    let (args, _) = sent_by(&c, &argv).unwrap();
+    assert_eq!(args["fields"], "x");
 }

@@ -56,7 +56,7 @@ a `| jq -r` pipe without it leaves the variable empty. Upstream GSD added `--pic
   usage error, as on `query`). On `check` and `settings`, `--pick` makes `json` the default format and an explicit
   `--format human` is a usage error (exit 2); errors print as under `json`, and the exit code is the command's
   (`check` still exits 1 on an error it reports). `settings set` and `unset` take no `--pick`.
-- **D7. `--fields <keys>`** beside `--pick` on `query` and `export` prints one row per item the path reaches, its
+- **D7. `--fields <keys>`** beside `--pick` on `query`, `export` and an extension command prints one row per item the path reaches, its
   cells the values at the comma-separated keys (each may be dotted), joined by the ASCII unit separator (0x1f): two
   values of one entity on one line, where two picks printed side by side would misalign once a value is missing. A
   cell prints as `--pick` prints a value, a missing value or `null` is an empty cell, and an item that is `null` still
@@ -66,7 +66,8 @@ a `| jq -r` pipe without it leaves the variable empty. Upstream GSD added `--pic
   as under bash 5 (plan 05 re-review). A shell reads a row with `IFS=$'\x1f' read -r`; a person sees it with
   `tr '\037' '\t'`.
   `--fields` without `--pick` is a usage error (exit 2), and so is an empty key. Commands whose items are not
-  entities (`check`, `settings`, an extension command) do not take it: no prompt reads two of their values at once.
+  entities (`check`, `settings`) do not take it. An extension command does, unless it declares an arg of the name
+  (amended 2026-11-06, ADR 0341 D5: `gsd quick-init` is read field by field, and a second call would mint another id).
 - **D8. The shapes.** Four flags beside `--pick` print the values it reaches in another shape, on every surface
   that takes `--pick` (`query`, `export`, `check`, `settings`, the verbs `files`, `git`, `http` and `run`, an
   extension command):

@@ -23,7 +23,7 @@ macro_rules! rules {
     };
 }
 
-/// The short help of `--fields`, beside `--pick` on `query` and `export`.
+/// The short help of `--fields`, beside `--pick` on `query`, `export` and an extension command.
 pub(crate) const FIELDS_HELP: &str =
     "With --pick: one row per item reached, a cell per key, the cells separated by 0x1f";
 
@@ -33,10 +33,14 @@ pub(crate) const FIELDS_LONG_HELP: &str = "With --pick: print one row per item t
      '.nodes[kind=commit]' --fields fields.hash,fields.subject, read with IFS=$'\\x1f' read -r hash subject. A key may \
      be dotted. A cell prints as --pick prints a value, with a missing value or null as an empty cell; 0x1f is not IFS \
      whitespace, so a read keeps an empty cell and the rows never misalign. A backslash, newline, carriage return or \
-     0x1f in a cell prints as \\\\, \\n, \\r or \\x1f.";
+     0x1f in a cell prints as \\\\, \\n, \\r or \\x1f. On an extension command the keys read the command's own answer: \
+     --pick '.items[]' --fields id,slug, or --pick . --fields date,count for one row of its root (ADR 0341 D5).";
 
 /// `--pick`'s id: the shapes and `--fields` require it.
 pub(crate) const PICK: &str = "pick";
+
+/// `--fields`'s id: an extension command takes it as a host option unless it declares an arg of the name.
+pub(crate) const FIELDS: &str = "fields";
 
 /// The short help of `--pick`, on every command that takes it.
 pub(crate) const HELP: &str = "Print only the values at this path of the JSON answer, one per line";
@@ -55,7 +59,7 @@ pub(crate) const COMMAND_LONG_HELP: &str = concat!(
     rules!(),
     " It implies --format json (another --format is refused): errors print as they do under json, and the exit code \
      is the command's, or 1 when it passed but its answer is not JSON. A writing command is picked from its own \
-     answer, never from the plan report --format json wraps it in."
+     answer, never from the plan report --format json wraps it in. --fields reads several values of each item."
 );
 
 /// `export --pick`'s long help.
@@ -121,8 +125,8 @@ impl PickedOutputArg {
     }
 }
 
-/// What a command reads beside `--pick`'s path: the `--fields` rows of `query` and `export` ([`FieldRows`], ADR 0325
-/// D7), or none ([`NoRows`]).
+/// What a command reads beside `--pick`'s path: the `--fields` rows of `query`, `export` and an extension command
+/// ([`FieldRows`], ADR 0325 D7), or none ([`NoRows`]).
 pub(crate) trait Rows: clap::Args + clap::FromArgMatches {
     /// The `--fields` keys given.
     fn fields(&self) -> Option<&Fields>;
@@ -140,11 +144,11 @@ impl Rows for NoRows {
     }
 }
 
-// `--fields`, on `query` and `export`.
+// `--fields`, on `query`, `export` and an extension command.
 #[derive(clap::Args, Clone, Debug, Default)]
 #[group(skip)]
 pub(crate) struct FieldRows {
-    #[arg(long, value_name = "KEYS", requires = PICK, conflicts_with_all = [COUNT, JOIN], value_parser = Fields::parse, help = FIELDS_HELP, long_help = FIELDS_LONG_HELP)]
+    #[arg(id = FIELDS, long, value_name = "KEYS", requires = PICK, conflicts_with_all = [COUNT, JOIN], value_parser = Fields::parse, help = FIELDS_HELP, long_help = FIELDS_LONG_HELP)]
     fields: Option<Fields>,
 }
 
@@ -202,10 +206,10 @@ impl<R: Rows> Picked<R> {
     }
 }
 
-impl Picked {
-    /// The host options of an extension command (ADR 0325 D4, D8): `--pick` and the shapes `added` names (of
-    /// [`SHAPES`]), the args this type derives, each shape conflicting only with the other shapes added, so a
-    /// declared `count` keeps `--first`.
+impl Picked<FieldRows> {
+    /// The host options of an extension command (ADR 0325 D4, D7, D8): `--pick` and what `added` names of `--fields`
+    /// and [`SHAPES`], the args this type derives, each conflicting only with the others added, so a declared `count`
+    /// keeps `--first`.
     pub(crate) fn host_args(added: &[&str]) -> Vec<clap::Arg> {
         use clap::Args as _;
         let derived = Self::augment_args(clap::Command::new(""));
@@ -233,7 +237,12 @@ impl Picked {
     pub(crate) fn of_matches(matches: &clap::ArgMatches, added: &[&str]) -> Self {
         Self {
             pick: matches.try_get_one::<Pick>(PICK).ok().flatten().cloned(),
-            rows: NoRows {},
+            rows: FieldRows {
+                fields: added
+                    .contains(&FIELDS)
+                    .then(|| matches.get_one::<Fields>(FIELDS).cloned())
+                    .flatten(),
+            },
             shape: Shape::of_matches(matches, added),
         }
     }

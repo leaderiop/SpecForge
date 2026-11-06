@@ -19,7 +19,7 @@
 //! it answers is applied by the host (`plan.rs`, ADR 0289).
 
 use crate::outcome::Exit;
-use crate::pick::{PICK, Picked};
+use crate::pick::{FIELDS, PICK, Picked};
 use crate::project::ProjectArg;
 use crate::terminal::{Stream, Terminal, err, errln, out};
 use clap::builder::PossibleValuesParser;
@@ -216,7 +216,7 @@ pub(crate) fn run_in(
         return INVALID_INPUT_EXIT;
     };
 
-    let picked = Picked::of_matches(matches, &kernel_shapes(command));
+    let picked = Picked::of_matches(matches, &beside_pick(command));
     let format = format_value(matches);
     if picked.picks()
         && matches.value_source(FORMAT) == Some(ValueSource::CommandLine)
@@ -460,13 +460,14 @@ fn kernel_picks(command: &ExtensionCommand) -> bool {
     !command.args().iter().any(|a| a.name == PICK)
 }
 
-/// The `--pick` shapes the host gives `command` (ADR 0325 D8): with its `--pick`, each it declares no arg of the name.
-fn kernel_shapes(command: &ExtensionCommand) -> Vec<&'static str> {
+/// What the host gives `command` beside its `--pick`: `--fields` (ADR 0325 D7) and the shapes (D8), each it declares
+/// no arg of the name.
+fn beside_pick(command: &ExtensionCommand) -> Vec<&'static str> {
     if !kernel_picks(command) {
         return Vec::new();
     }
-    crate::pick::SHAPES
-        .into_iter()
+    std::iter::once(FIELDS)
+        .chain(crate::pick::SHAPES)
         .filter(|shape| !command.args().iter().any(|a| a.name == *shape))
         .collect()
 }
@@ -633,7 +634,7 @@ fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
         }
         if kernel_picks(command) {
             sub = sub
-                .args(Picked::host_args(&kernel_shapes(command)))
+                .args(Picked::host_args(&beside_pick(command)))
                 .mut_arg(PICK, |arg| arg.long_help(crate::pick::COMMAND_LONG_HELP));
         }
         if command.writes() {

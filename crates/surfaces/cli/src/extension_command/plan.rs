@@ -1,7 +1,7 @@
 //! What a writing command's plan became, as the command line prints it (ADR 0289): the command's own output first,
 //! then the plan's diff (`--dry-run`) or the files written; a refused plan fails the command with the refusal.
 
-use crate::pick::Picked;
+use crate::pick::{FieldRows, Picked};
 use crate::terminal::{Terminal, err, out, outln};
 use serde_json::{Value, json};
 use specforge_ops::authoring::apply::{CommandRun, PlanOutcome};
@@ -17,7 +17,7 @@ use std::path::Path;
 pub(super) fn ended(
     run: CommandRun,
     format: CommandFormat,
-    picked: &Picked,
+    picked: &Picked<FieldRows>,
     root: &Path,
     terminal: &Terminal,
 ) -> i32 {
@@ -36,7 +36,7 @@ pub(super) fn ended(
 fn printed(
     run: CommandRun,
     format: CommandFormat,
-    picked: &Picked,
+    picked: &Picked<FieldRows>,
     root: &Path,
     terminal: &Terminal,
 ) -> i32 {
