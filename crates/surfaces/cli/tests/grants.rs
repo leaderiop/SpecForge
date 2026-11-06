@@ -601,3 +601,61 @@ fn a_machine_root_is_revoked_by_name() {
         "revoking leaves the directory"
     );
 }
+
+/// A store that would be refused is refused before anything is made: the hint says nothing changed.
+#[cfg(unix)]
+#[test]
+fn a_refused_store_leaves_nothing_behind() {
+    let fx = Fixture::new();
+    let home = fx.project.home().canonicalize().unwrap();
+    let elsewhere = TempDir::new().unwrap();
+    let dir = home.join(".specforge");
+    std::fs::remove_dir_all(&dir).ok();
+    std::os::unix::fs::symlink(elsewhere.path(), &dir).unwrap();
+    let run = fx
+        .cmd(&["grants", "approve", "--root", "books", "--at", "~/books"])
+        .assert()
+        .failure();
+    let text = String::from_utf8_lossy(&run.get_output().stdout).into_owned();
+    let err = String::from_utf8_lossy(&run.get_output().stderr).into_owned();
+    assert!(
+        text.contains("nothing was changed") || err.contains("nothing was changed"),
+        "{text} {err}"
+    );
+    let left: Vec<_> = std::fs::read_dir(elsewhere.path()).unwrap().collect();
+    assert!(left.is_empty(), "{left:?}");
+    assert!(
+        !home.join("books").exists(),
+        "the root's directory is not made either"
+    );
+}
+
+#[test]
+fn a_root_name_has_a_limit() {
+    let fx = Fixture::new();
+    let long = "a".repeat(5000);
+    let run = fx
+        .cmd(&["grants", "approve", "--root", &long, "--at", "~/books"])
+        .assert()
+        .failure();
+    let text = String::from_utf8_lossy(&run.get_output().stdout).into_owned();
+    let err = String::from_utf8_lossy(&run.get_output().stderr).into_owned();
+    assert!(
+        text.contains("longer than") || err.contains("longer than"),
+        "{text} {err}"
+    );
+    assert!(
+        !err.contains(&long) && !text.contains(&long),
+        "the name is cut short"
+    );
+    fx.cmd(&[
+        "grants",
+        "approve",
+        "--root",
+        &"a".repeat(64),
+        "--at",
+        "~/books",
+    ])
+    .assert()
+    .success();
+}

@@ -6,8 +6,7 @@ use std::path::{Component, Path, PathBuf};
 use specforge_common::remedy::printable;
 use specforge_common::{Diagnostic, codes};
 use specforge_effects::{Consent, MachineRoot};
-use specforge_project::RESERVED_ROOTS;
-use specforge_protocol_types::is_scope_name;
+use specforge_project::not_a_root_name;
 
 use super::{resolved, user_home};
 
@@ -80,11 +79,8 @@ pub(crate) fn not_a_machine_root(
 
 /// Why a store's entry names no machine root, whoever wrote it: approving judged it, and the store is a file.
 fn refused_entry(root: &MachineRoot, home: Option<&Path>, store: &Path) -> Option<String> {
-    if RESERVED_ROOTS.contains(&root.root.as_str()) {
-        return Some("takes a name every project has".to_string());
-    }
-    if !is_scope_name(&root.root) {
-        return Some("is named with no word".to_string());
+    if let Some(why) = not_a_root_name(&root.root) {
+        return Some(why.to_string());
     }
     not_a_machine_root(Path::new(&root.target), home, store)
         .map(|why| format!("at its target {why}"))

@@ -272,6 +272,8 @@ impl Consent for UserConsent {
         if let Some(why) = &self.refused {
             return Err(self.error(why.clone()));
         }
+        // Judged before anything is made; read again under the lock.
+        self.read()?;
         private_parent(&self.store)
             .map_err(|e| self.error(format!("its directory cannot be made ({e})")))?;
         self.private_directory()?;

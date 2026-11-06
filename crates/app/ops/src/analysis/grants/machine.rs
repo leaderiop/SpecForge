@@ -4,8 +4,7 @@
 use std::path::{Component, Path};
 
 use specforge_effects::{Approval, ApprovedAt, Consent, MachineRoot, Revoke};
-use specforge_project::RESERVED_ROOTS;
-use specforge_protocol_types::is_scope_name;
+use specforge_project::{ROOT_NAME_MAX, not_a_root_name};
 
 use super::{GrantsChange, invalid, shown, store_refused};
 use crate::OpError;
@@ -21,18 +20,15 @@ pub fn approve_machine_root(
     at: &Path,
     cwd: &Path,
 ) -> Result<GrantsChange, OpError> {
-    if RESERVED_ROOTS.contains(&name) {
+    if let Some(why) = not_a_root_name(name) {
+        let start: String = name.chars().take(ROOT_NAME_MAX).collect();
         return Err(invalid(
-            format!("`{}` is a root every project has", shown(name)),
-            "name it something else",
+            format!("`{}` {why}", shown(&start)),
+            "name the root with a word of its own, as `workspaces`",
         ));
     }
-    if !is_scope_name(name) {
-        return Err(invalid(
-            format!("`{}` is not a word ([a-z][a-z0-9-]*)", shown(name)),
-            "name the root with a word, as `workspaces`",
-        ));
-    }
+    // A store that would be refused is refused before the directory is made.
+    consent.list().map_err(|e| store_refused(&e))?;
     let home = user_home();
     let typed = from_home(at, home.as_deref())?;
     let wanted = resolved(&cwd.join(typed));
