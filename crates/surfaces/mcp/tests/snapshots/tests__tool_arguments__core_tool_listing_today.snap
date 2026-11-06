@@ -8793,6 +8793,9 @@ expression: listing
               "inside": {
                 "type": "boolean"
               },
+              "machine": {
+                "type": "boolean"
+              },
               "name": {
                 "type": "string"
               },
@@ -8804,7 +8807,8 @@ expression: listing
               "name",
               "target",
               "inside",
-              "approved"
+              "approved",
+              "machine"
             ],
             "type": "object"
           },
