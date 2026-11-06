@@ -187,3 +187,129 @@ fn a_projects_own_root_keeps_the_name() {
         .collect();
     assert_eq!(machine[0]["approved"], false, "{listed}");
 }
+
+/// The store, as a hand or another program left it: its entries are not trusted for having been written.
+#[cfg(unix)]
+fn forge_store(home: &std::path::Path, machine_roots: serde_json::Value) {
+    use std::os::unix::fs::PermissionsExt as _;
+    let dir = home.join(".specforge");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let store = dir.join("consent.json");
+    std::fs::write(
+        &store,
+        serde_json::json!({"version": 2, "machine_roots": machine_roots}).to_string(),
+    )
+    .unwrap();
+    std::fs::set_permissions(&store, std::fs::Permissions::from_mode(0o600)).unwrap();
+}
+
+/// Every machine root is judged again when it is read, by the check `approve` uses: a forged entry reaches nothing, the
+/// listing says W186 and `approved` agrees with what the verbs do.
+#[cfg(unix)]
+#[test]
+fn a_forged_machine_root_is_ignored_when_the_store_is_read() {
+    let project = TestProject::new().files(&[("a.txt", "a\n")]);
+    let home = project.home().canonicalize().unwrap();
+    let gh = home.join(".config/gh");
+    std::fs::create_dir_all(&gh).unwrap();
+    std::fs::write(gh.join("hosts.yml"), "oauth_token: hunter2\n").unwrap();
+    std::fs::write(home.join("note"), "hunter2\n").unwrap();
+    let fine = home.join("fine");
+    std::fs::create_dir_all(&fine).unwrap();
+    let good = home.join("good");
+    std::fs::create_dir_all(&good).unwrap();
+    forge_store(
+        &home,
+        serde_json::json!([
+            {"root": "everything", "target": "/"},
+            {"root": "home", "target": at(&home)},
+            {"root": "state", "target": at(&home.join(".specforge"))},
+            {"root": "gh", "target": at(&gh)},
+            {"root": "system", "target": "/etc"},
+            {"root": "spec", "target": at(&good)},
+            {"root": "Bad_Name", "target": at(&good)},
+            {"root": "fine", "target": at(&fine)},
+        ]),
+    );
+    for path in [
+        gh.join("hosts.yml"),
+        home.join("note"),
+        home.join(".specforge/consent.json"),
+        good.clone(),
+    ] {
+        let run = Cli::on(&project).run(&["files", "read", &at(&path)]);
+        assert_ne!(run.code, 0, "{} was reached", path.display());
+        assert!(!run.stdout.contains("hunter2"), "{}", run.stdout);
+    }
+    Cli::on(&project)
+        .run(&["files", "stat", &at(&fine)])
+        .exits(0);
+
+    let listed = Cli::on(&project)
+        .run(&["grants", "--format", "json"])
+        .exits(0)
+        .json();
+    let rows = listed["roots"].as_array().unwrap();
+    assert_eq!(rows.len(), 8, "{listed}");
+    for row in rows {
+        let reached = row["name"] == "fine";
+        assert_eq!(row["approved"], reached, "{row}");
+    }
+    let warned = listed["diagnostics"].to_string();
+    for name in [
+        "everything",
+        "home",
+        "state",
+        "gh",
+        "system",
+        "spec",
+        "Bad_Name",
+    ] {
+        assert!(warned.contains(&format!("`{name}`")), "{name}: {warned}");
+    }
+    assert!(warned.contains("W186"), "{warned}");
+    assert!(!warned.contains("`fine`"), "{warned}");
+}
+
+/// A store that is a link could be a repository's file: in every mode it approves nothing, a loose directory included,
+/// and neither does one reached through a `.specforge` that is a link.
+#[cfg(unix)]
+#[test]
+fn a_consent_store_that_is_a_link_approves_nothing() {
+    let (project, target) = approved();
+    let home = project.home().canonicalize().unwrap();
+    let dir = home.join(".specforge");
+    let store = dir.join("consent.json");
+    let loose = tempfile::tempdir().unwrap();
+    let real = loose.path().join("committed.json");
+    std::fs::rename(&store, &real).unwrap();
+    std::os::unix::fs::symlink(&real, &store).unwrap();
+    let path = at(&target);
+    let refused = |run: crate::support::Run| {
+        assert_eq!(run.exits(1).json()["code"], "outside_root");
+    };
+    refused(Cli::on(&project).run(&["files", "stat", &path]));
+    refused(
+        Cli::on(&project)
+            .in_dir(loose.path())
+            .bare(&["files", "stat", &path]),
+    );
+    let listed = Cli::on(&project)
+        .run(&["grants", "--format", "json"])
+        .exits(0)
+        .json();
+    assert!(
+        listed["diagnostics"].to_string().contains("symbolic link"),
+        "{listed}"
+    );
+    let approve = Cli::on(&project).run(&["grants", "revoke", "--root", "workspaces", "--machine"]);
+    assert_ne!(approve.code, 0, "{}", approve.stdout);
+    assert!(store.is_symlink(), "a refusal writes nothing over the link");
+
+    std::fs::remove_file(&store).unwrap();
+    std::fs::rename(&dir, loose.path().join("state")).unwrap();
+    std::fs::rename(&real, loose.path().join("state/consent.json")).unwrap();
+    std::os::unix::fs::symlink(loose.path().join("state"), &dir).unwrap();
+    refused(Cli::on(&project).run(&["files", "stat", &path]));
+}

@@ -13,7 +13,7 @@ use specforge_effects::{
 };
 
 use crate::analysis::collect::uses_here;
-use crate::consent::unusable_store;
+use crate::consent::{machine_roots_here, unusable_store};
 use crate::settle::stamped;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
@@ -74,8 +74,8 @@ pub struct RootRow {
     pub target: String,
     /// Under the project root: it needs no approval.
     pub inside: bool,
-    /// An outside root this machine approved; for a machine root, that verbs here reach it: it still lands where it was
-    /// approved, and no root of this project takes its name.
+    /// An outside root the verbs here reach: this machine approved it. For a machine root, what the verbs ask too
+    /// (`consent::machine_roots_here`): a name and a target `approve` would take, landing where it was approved, its name free.
     pub approved: bool,
     /// Named on this machine (`grants approve --root <name> --at <dir>`), not by `specforge.json`.
     pub machine: bool,
@@ -215,18 +215,16 @@ pub fn list(view: &ProjectView, consent: &dyn Consent) -> Result<GrantsListing, 
             })
         });
     let mut roots: Vec<RootRow> = named.collect();
-    let taken: Vec<String> = roots
-        .iter()
-        .filter(|row| row.inside || row.approved)
-        .map(|row| row.name.clone())
-        .collect();
+    let reachable = specforge_project::effects::reachable_roots(view.env(), root, consent);
+    let here = machine_roots_here(consent, &held.machine_roots, &reachable);
     roots.extend(held.machine_roots.iter().map(|root| RootRow {
         name: shown(&root.root),
         target: shown(&root.target),
         inside: false,
-        approved: root.lands() && !taken.contains(&shown(&root.root)),
+        approved: here.reached.contains(root),
         machine: true,
     }));
+    diagnostics.extend(here.refused);
     Ok(GrantsListing {
         extensions,
         roots,

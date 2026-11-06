@@ -4,7 +4,9 @@
 //! and written privately and atomically (`replace_private`: 0600, a new parent 0700, a rename). A store that cannot
 //! be read or parsed, or that a newer specforge wrote, is never written over: nothing in it counts (W186).
 
-use std::ffi::OsString;
+mod machine_roots;
+
+use std::ffi::{OsStr, OsString};
 use std::io::Read as _;
 use std::path::{Component, Path, PathBuf};
 
@@ -12,7 +14,10 @@ use serde::{Deserialize, Serialize};
 use specforge_common::fresh::{not_private, open_private_lock, private_parent, replace_private};
 use specforge_common::remedy::printable;
 use specforge_common::{Diagnostic, ProjectRoot, codes};
+use specforge_effects::contained::HOST_STATE;
 use specforge_effects::{Approvals, Consent, ConsentError};
+
+pub(crate) use machine_roots::{machine_roots_here, not_a_machine_root};
 
 /// Overrides the user-level consent store (tests, custom homes). Refused when it lies inside the project.
 pub const CONSENT_FILE_ENV: &str = "SPECFORGE_CONSENT_FILE";
@@ -146,10 +151,33 @@ impl UserConsent {
         }
     }
 
+    /// Refused when the store, or the host's directory that holds it, is a link: the file it reaches could be a
+    /// repository's, whichever directory the command was typed in. A home that is itself reached by a link is left to it.
+    fn no_link(&self) -> Result<(), ConsentError> {
+        let own_directory = self
+            .store
+            .parent()
+            .filter(|dir| dir.file_name() == Some(OsStr::new(HOST_STATE)));
+        for at in [Some(self.store.as_path()), own_directory]
+            .into_iter()
+            .flatten()
+        {
+            if std::fs::symlink_metadata(at).is_ok_and(|meta| meta.file_type().is_symlink()) {
+                return Err(self.error(format!(
+                    "{} is a symbolic link, so a file anywhere could approve effects for you; replace it with the \
+                     file itself, or point {CONSENT_FILE_ENV} at a file of your own",
+                    at.display()
+                )));
+            }
+        }
+        Ok(())
+    }
+
     fn read(&self) -> Result<Approvals, ConsentError> {
         if let Some(why) = &self.refused {
             return Err(self.error(why.clone()));
         }
+        self.no_link()?;
         self.private_directory()?;
         let mut file = match std::fs::File::open(&self.store) {
             Ok(file) => file,

@@ -44,14 +44,21 @@ fn the_consent_store_is_replaced_privately_never_through_a_link() {
     std::fs::set_permissions(&victim, std::fs::Permissions::from_mode(0o644)).unwrap();
     let store = dir.path().join("consent.json");
     std::os::unix::fs::symlink(&victim, &store).unwrap();
-    UserConsent::at(store.clone())
+    let refused = UserConsent::at(store.clone())
         .approve(approval("tests"))
-        .unwrap();
+        .unwrap_err();
+    assert!(refused.why.contains("symbolic link"), "{}", refused.why);
     assert_eq!(
         std::fs::read(&victim).unwrap(),
         held,
         "the link's target is untouched"
     );
+    assert!(store.is_symlink(), "the link is left as it was");
+
+    std::fs::remove_file(&store).unwrap();
+    UserConsent::at(store.clone())
+        .approve(approval("tests"))
+        .unwrap();
     let meta = std::fs::symlink_metadata(&store).unwrap();
     assert!(meta.file_type().is_file(), "the store is a regular file");
     assert_eq!(meta.permissions().mode() & 0o777, 0o600);
@@ -291,25 +298,16 @@ fn a_store_directory_others_can_write_approves_nothing_even_with_no_store_yet() 
 
 #[test]
 #[cfg(unix)]
-fn a_store_behind_a_link_is_judged_by_the_file_it_reaches() {
+fn a_store_that_is_a_link_is_refused_whatever_it_reaches() {
     use std::os::unix::fs::PermissionsExt as _;
     let dir = tempfile::tempdir().unwrap();
     let real = dir.path().join("dotfiles.json");
     std::fs::write(&real, br#"{"version": 1}"#).unwrap();
+    std::fs::set_permissions(&real, std::fs::Permissions::from_mode(0o600)).unwrap();
     let store = dir.path().join("consent.json");
     std::os::unix::fs::symlink(&real, &store).unwrap();
-    let consent = UserConsent::at(store);
-
-    std::fs::set_permissions(&real, std::fs::Permissions::from_mode(0o600)).unwrap();
-    assert!(consent.list().is_ok());
-    std::fs::set_permissions(&real, std::fs::Permissions::from_mode(0o666)).unwrap();
-    assert!(
-        consent
-            .list()
-            .unwrap_err()
-            .why
-            .contains("writable by its group or others")
-    );
+    let refused = UserConsent::at(store).list().unwrap_err();
+    assert!(refused.why.contains("symbolic link"), "{}", refused.why);
 }
 
 #[test]

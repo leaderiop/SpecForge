@@ -301,6 +301,16 @@ home path names one machine. So D2.3 gains a **machine root**, a root the user n
   0339](0339-a-verb-the-user-types-reaches-the-ports-under-the-ceiling.md) D2).
 - **A project's own wins.** A root the project names with the same name, reachable there, keeps the name. A stored target
   that no longer lands where it was approved (it became a link) is not reached; a store that cannot be used adds none.
+- **Judged again when read.** The store is a file, and being written does not make an entry good: every machine root is
+  judged at load by the check `approve` uses, one function for the verbs and the listing, so `approved` is what a verb
+  does. A forged entry (a target of `/`, the home, `.specforge`; a name of `spec`) reaches nothing, and `grants` and
+  `doctor` say W186 for it; a verb stays silent, as it does for a store it cannot use, and refuses the path.
+- **A store that is a link approves nothing,** in every mode, W186: nor does one reached through a `.specforge` that is a
+  link. A symlinked dotfile store costs that convenience; its file could be a repository's. A home reached by a link is
+  not judged, that is how many machines spell one.
+- **The loose home stays.** `HOME` set to a repository with a committed `.specforge/consent.json` and no `specforge.json`
+  is the user's store: no project surrounds it to judge it by, and whoever sets `HOME` already chooses what runs. A home
+  that holds `specforge.json` is refused (D2.5).
 - **Rejected.** `~/` in `specforge.json`'s `roots` with approvals keyed by target: every source repository a block runs
   in must name it, a loose root never can, the directory must exist before load (E109), and the home path is committed.
   A root an extension declares: a protocol bump and a re-vendor, and a non-GSD source repository still reaches nothing.

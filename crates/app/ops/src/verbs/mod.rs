@@ -20,9 +20,10 @@ use specforge_effects::{
     Consent, Denial, EffectRequest, FsOp, FsRequest, Grant, Ports, RealFs, RecordDigest, Root,
     Roots, UnixMillis,
 };
-use specforge_project::{Environment, RESERVED_ROOTS};
-use specforge_protocol_types::{Operation, is_scope_name};
+use specforge_project::Environment;
+use specforge_protocol_types::Operation;
 
+use crate::consent::machine_roots_here;
 use crate::{OUTSIDE_ROOT, OpError, OpErrorKind};
 
 /// The call kind a user grant is asked with: it applies no gate, so any kind would do.
@@ -110,16 +111,11 @@ impl Verbs {
             roots = roots.with_named(name.clone(), path.clone());
         }
         // A store that cannot be used names none. A project's own root keeps its name.
-        for machine in consent
+        let held = consent
             .list()
-            .map_or_else(|_| Vec::new(), |held| held.machine_roots)
-        {
-            let free = is_scope_name(&machine.root)
-                && !RESERVED_ROOTS.contains(&machine.root.as_str())
-                && !roots.named().any(|(name, _)| name == machine.root);
-            if free && machine.lands() {
-                roots = roots.with_named(machine.root, machine.target);
-            }
+            .map_or_else(|_| Vec::new(), |held| held.machine_roots);
+        for machine in machine_roots_here(consent, &held, &reachable).reached {
+            roots = roots.with_named(machine.root, machine.target);
         }
         let mut landed: Vec<(Root, PathBuf)> = vec![(Root::Project, RealFs::landing(root.dir()))];
         if roots.get(&Root::Spec).is_some() {

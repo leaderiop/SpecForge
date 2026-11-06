@@ -9,7 +9,7 @@ use specforge_protocol_types::is_scope_name;
 
 use super::{GrantsChange, invalid, shown, store_refused};
 use crate::OpError;
-use crate::consent::{resolved, user_home};
+use crate::consent::{not_a_machine_root, resolved, user_home};
 use crate::settle::stamped;
 
 /// `specforge grants approve --root <name> --at <dir>`: name a root on this machine, for every project's verbs. No
@@ -36,7 +36,15 @@ pub fn approve_machine_root(
     let home = user_home();
     let typed = from_home(at, home.as_deref())?;
     let wanted = resolved(&cwd.join(typed));
-    let refuse_target = |target: &Path| not_a_machine_root(target, home.as_deref(), consent);
+    let store = consent.store();
+    let refuse_target =
+        |target: &Path| match not_a_machine_root(target, home.as_deref(), Path::new(&store)) {
+            Some(why) => Err(invalid(
+                format!("{} {why}", shown(&target.to_string_lossy())),
+                "name a directory of its own, as ~/gsd-workspaces",
+            )),
+            None => Ok(()),
+        };
     refuse_target(&wanted)?;
     // A name that came to hold a link since `resolved` looked is judged again once it lands.
     std::fs::create_dir_all(&wanted).map_err(|e| {
@@ -89,80 +97,6 @@ fn from_home<'a>(at: &'a Path, home: Option<&Path>) -> Result<std::borrow::Cow<'
         )
     })?;
     Ok(home.join(parts.as_path()).into())
-}
-
-/// The directories under the top of a filesystem that are the system's. `/etc` and `/var` land in `/private` on macOS.
-#[cfg(not(windows))]
-const SYSTEM_DIRS: [&str; 16] = [
-    "etc", "usr", "bin", "sbin", "var", "private", "System", "Library", "opt", "lib", "lib64",
-    "boot", "dev", "proc", "sys", "run",
-];
-#[cfg(windows)]
-const SYSTEM_DIRS: [&str; 4] = [
-    "Windows",
-    "Program Files",
-    "Program Files (x86)",
-    "ProgramData",
-];
-
-/// A home's directories that hold what its hidden ones hold elsewhere: keychains and tokens on macOS and Windows.
-const PRIVATE_IN_HOME: [&str; 2] = ["Library", "AppData"];
-
-/// `Err` when a root at `target` would reach what a root must not: the home directory or what holds it, a filesystem
-/// root, a hidden directory of the home (where credentials live, under any name), a directory of the system, the host's
-/// own state, or the store itself, which could then approve anything. A home can lie anywhere (`/var/lib/ci`, `/root`),
-/// so what is under it is judged as the home's and never as the system's.
-fn not_a_machine_root(
-    target: &Path,
-    home: Option<&Path>,
-    consent: &dyn Consent,
-) -> Result<(), OpError> {
-    let refuse = |why: &str| {
-        Err(invalid(
-            format!("{} {why}", shown(&target.to_string_lossy())),
-            "name a directory of its own, as ~/gsd-workspaces",
-        ))
-    };
-    if target.parent().is_none() {
-        return refuse("is a filesystem root");
-    }
-    let home = home.map(resolved);
-    if home.as_deref().is_some_and(|home| home.starts_with(target)) {
-        return refuse("is or holds the home directory");
-    }
-    let first = |path: &Path| {
-        path.components().find_map(|part| match part {
-            Component::Normal(name) => Some(name.to_string_lossy().into_owned()),
-            _ => None,
-        })
-    };
-    let named = |list: &[&str], name: &str| list.iter().any(|dir| name.eq_ignore_ascii_case(dir));
-    match home
-        .as_deref()
-        .and_then(|home| target.strip_prefix(home).ok())
-    {
-        Some(rel) => {
-            if first(rel).is_some_and(|dir| dir.starts_with('.') || named(&PRIVATE_IN_HOME, &dir)) {
-                return refuse("is or lies in a hidden directory of the home");
-            }
-        }
-        None => {
-            if first(target).is_some_and(|dir| named(&SYSTEM_DIRS, &dir)) {
-                return refuse("is or lies in a directory of the system");
-            }
-        }
-    }
-    if specforge_effects::contained::withheld(&target.to_string_lossy().replace('\\', "/")) {
-        return refuse(
-            "is named as the host's own state or a credential is, so it is no directory of its own",
-        );
-    }
-    let store = resolved(Path::new(&consent.store()));
-    let holds_store = store.starts_with(target);
-    if holds_store || store.parent().is_some_and(|dir| target.starts_with(dir)) {
-        return refuse("is, holds or lies beside the consent store");
-    }
-    Ok(())
 }
 
 /// `specforge grants revoke --root <name> --machine`: forget the machine root `name`.
