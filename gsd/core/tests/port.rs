@@ -48,6 +48,14 @@ fn upstream(file: &str) -> (Vec<String>, Vec<String>) {
 const REWRITTEN: &[(&str, usize)] = &[
     // the verify example probes an endpoint through `specforge http`
     ("gsd-planner.md", 176),
+    // the commit guard asks `branch-check`: the protected set and the override are its answer, no answer refuses
+    ("gsd-executor.md", 479),
+    ("gsd-executor.md", 482),
+    ("gsd-executor.md", 483),
+    ("gsd-executor.md", 484),
+    ("gsd-executor.md", 485),
+    ("gsd-executor.md", 486),
+    ("gsd-executor.md", 501),
     ("gsd-executor.md", 70),
     ("gsd-executor.md", 73),
     ("gsd-executor.md", 75),

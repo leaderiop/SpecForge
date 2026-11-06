@@ -211,6 +211,7 @@ Not verified:
 - The "silent" evidence of 38 of the 63 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
   raised there, not that the rule judged a clean case.
 - `[agent-namespace-one-rule]` `workflow_guard` reads the agent namespace as `worktree_path_guard` does, with `worktree-wf_` and the charset; upstream's workflow guard has the two prefixes `agent-` and `worktree-agent-`.
+- `[protected-set]` `branch_check` protects `main`, `master`, `develop`, `trunk`, `release/…`, `git.protected_branches` and `git.base_branch`, and `git.allow_default_branch_commits` changes `blocks_commit`, not `protected`, so ship's and the `none` strategy's warnings still show on `main`. Upstream also reads the real default branch; the git port answers no remotes, so `origin/HEAD` is not read here.
 - `[gate-argv]` The build and test gates run `gate_command`'s argv through `specforge run`, never a string under `bash -c`, so a file name
   is never read as shell (upstream's python arm runs one that is). Only the `workflow.<target>_command` setting is a shell string, by its contract.
 - `[gate-simulator]` The Xcode gates take the newest iOS runtime's first available device from `xcrun simctl list devices available -j`;

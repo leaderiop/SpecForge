@@ -464,7 +464,7 @@ when the orchestrator legitimately runs from a feature worktree.
 ORCHESTRATOR_WT=$(specforge git repo --pick .top 2>/dev/null) || {
   echo "FATAL: execute_waves entry is not inside a git worktree (#48)." >&2; exit 1; }
 ORCH_BRANCH=$(specforge git head --pick .branch 2>/dev/null)
-if printf '%s' "$ORCH_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)'; then
+if [ "$(specforge gsd branch-check --pick .agent)" = true ]; then
   echo "FATAL: orchestrator cwd is inside an agent worktree (branch '$ORCH_BRANCH', root '$ORCHESTRATOR_WT') — refusing to execute waves (#48). A prior isolation=\"worktree\" dispatch drifted the cwd; re-run from the orchestrator's own worktree." >&2
   # #1856 handoff: the refusal above is correct, but on its own it is a dead end —
   # this worktree may hold committed fixes AND uncommitted work, and "re-run from

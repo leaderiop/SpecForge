@@ -478,14 +478,14 @@ if [ "$HEAD_REF" = "DETACHED" ]; then
   echo "FATAL: refusing to commit — HEAD is detached." >&2
   exit 1
 fi
-# #3819: real default branch; override git.allow_default_branch_commits; else five-name fallback.
-IS_PROTECTED="__GSD_RUN_UNAVAILABLE__"  # the real default branch is not queried here; the five-name fallback below decides
+# #3819: the protected set and the override git.allow_default_branch_commits are the answer's; no answer refuses.
+IS_PROTECTED=$(specforge gsd branch-check --pick .blocks_commit) || IS_PROTECTED="__GSD_RUN_UNAVAILABLE__"
 if [ "$IS_PROTECTED" = "__GSD_RUN_UNAVAILABLE__" ] || [ -z "$IS_PROTECTED" ]; then
-  if echo "$ACTUAL_BRANCH" | grep -Eq '^(main|master|develop|trunk|release/.*)$'; then
-    IS_PROTECTED="true"
-  else
-    IS_PROTECTED="false"
-  fi
+  IS_PROTECTED="true"
+
+
+
+
 fi
 if [ "$IS_PROTECTED" != "false" ]; then
   echo "FATAL: refusing to commit — HEAD is on '$ACTUAL_BRANCH' (protected/default branch)." >&2
@@ -500,7 +500,7 @@ if [ -f .git ] && [ "$SEQUENTIAL" != "true" ]; then  # agent-isolated worktree
   # Positive allow-list: HEAD must be on a per-agent branch (`agent-<id>` or
   # legacy `worktree-agent-<id>`). This catches feature/* and any other
   # arbitrary branch that the deny-list would silently allow (#2924, #1995).
-  if ! echo "$ACTUAL_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)[A-Za-z0-9._/-]+$'; then
+  if [ "$(specforge gsd branch-check --agent --pick .agent)" != true ]; then
     echo "FATAL: refusing to commit — worktree HEAD '$ACTUAL_BRANCH' is not in the agent-* / worktree-agent-* / worktree-wf_* namespace." >&2
     echo "Agent commits must live on per-agent branches; surface as blocker (#2924)." >&2
     exit 1

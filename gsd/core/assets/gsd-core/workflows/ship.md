@@ -83,7 +83,7 @@ Verify the work is ready to ship:
 3. **On correct branch?**
    ```bash
    CURRENT_BRANCH=$(specforge git head --pick .branch 2>/dev/null || true)
-   IS_PROTECTED=$(case "$CURRENT_BRANCH" in (main|master|develop|release/*) echo true;; (*) echo false;; esac) || IS_PROTECTED=""
+   IS_PROTECTED=$(specforge gsd branch-check --pick .protected 2>/dev/null) || IS_PROTECTED=""
    if [ "$IS_PROTECTED" = true ]; then
      echo "⚠ Current branch '$CURRENT_BRANCH' is a protected branch; shipping should happen from a feature branch." >&2
    elif [ -z "$IS_PROTECTED" ]; then

@@ -27,11 +27,11 @@ commit.
 ```bash
 HEAD_REF=$(b=$(specforge git head --pick .branch) && [ -n "$b" ] && echo "refs/heads/$b" || echo "DETACHED")
 ACTUAL_BRANCH=$(specforge git head --pick .branch)
-if [ "$HEAD_REF" = "DETACHED" ] || echo "$ACTUAL_BRANCH" | grep -Eq '^(main|master|develop|trunk|release/.*)$'; then
+if [ "$HEAD_REF" = "DETACHED" ] || [ "$(specforge gsd branch-check --pick .protected)" = true ]; then
   echo "FATAL: worktree HEAD on '$ACTUAL_BRANCH' (expected agent-* or worktree-agent-*); refusing to commit or self-recover via 'git update-ref' (#2924)." >&2
   exit 42
 fi
-if ! echo "$ACTUAL_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)[A-Za-z0-9._/-]+$'; then
+if [ "$(specforge gsd branch-check --agent --pick .agent)" != true ]; then
   echo "FATAL: worktree HEAD '$ACTUAL_BRANCH' is not in the agent-* / worktree-agent-* / worktree-wf_* namespace; refusing to commit (#2924)." >&2
   exit 42
 fi

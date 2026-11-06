@@ -48,9 +48,9 @@ fn a_python_file_name_never_runs_as_a_command() {
 
 const PROTECTED_BRANCH: &str = "gsd-core/workflows/execute-phase/steps/protected-branch.md";
 
-/// `Shell` for the blocks that read the branch: specforge, git and what the blocks filter with.
+/// `Shell` for the blocks that read the branch: specforge and git, and no `grep` to hold a rule.
 fn branch_shell() -> Option<Shell> {
-    Shell::only(&["git", "printf", "grep"])
+    Shell::only(&["git", "printf"])
 }
 
 /// A repository on `main`, with a commit, then switched to `branch` when it is another.
@@ -63,7 +63,7 @@ fn on_branch(branch: &str) -> Project {
     p
 }
 
-/// The executor's commit guard names a setting that lets it commit on the default branch.
+/// The executor's commit guard reads the setting that lets it commit on the default branch.
 #[test]
 fn the_commit_guard_reads_the_default_branch_override() {
     let Some(sh) = branch_shell() else {
@@ -76,7 +76,10 @@ fn the_commit_guard_reads_the_default_branch_override() {
         "**0. Pre-commit HEAD safety",
     );
     let (_, err, code) = sh.run_in(p.root(), &guard);
-    assert_eq!(code, 1, "today the setting is not read: {err}");
+    assert_eq!(code, 0, "the setting is read: {err}");
+    p.settings(serde_json::json!({}));
+    let (_, err, code) = sh.run_in(p.root(), &guard);
+    assert_eq!(code, 1, "no override, no commit: {err}");
     assert!(err.contains("protected/default branch"), "{err}");
 }
 
@@ -93,8 +96,8 @@ fn protected_branch_warns_on_trunk_and_on_a_listed_branch() {
             .contains("is a protected branch")
     };
     let p = on_branch("trunk");
-    assert!(!warns(&p), "today trunk is not in the set");
+    assert!(warns(&p), "trunk is in the set");
     let p = on_branch("shared/x");
     p.settings(serde_json::json!({"git.protected_branches": ["shared/x"]}));
-    assert!(!warns(&p), "today the setting is not read");
+    assert!(warns(&p), "the setting is read");
 }
