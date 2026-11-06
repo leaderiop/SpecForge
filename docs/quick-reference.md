@@ -90,6 +90,7 @@ specforge git head --pick .branch                  # {sha,branch,detached,unborn
 specforge git rev HEAD~1 main:a.txt                # {revs:[{rev,sha,kind,exists}]}
 specforge git status --pick '.untracked[]'         # the typed status, plus clean and untracked
 specforge git status --except-spec --pick .clean   # --except <path> is read from here; --except-spec is the project's
+specforge git repos wk --pick '.repos[clean=false].name'   # the repositories directly in a directory
 specforge git config user.name --pick .value       # {key,value,values}
 specforge git log main..HEAD --pick .count         # {count,commits:[{sha,parents,author,subject,body,trailers}]}
 specforge git diff --base main --pick '.files[].path'  # -- <path>… filters; --staged, --worktree, --patch

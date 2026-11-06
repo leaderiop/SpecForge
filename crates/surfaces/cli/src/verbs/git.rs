@@ -68,6 +68,8 @@ pub(crate) enum Action {
     /// Where the repository is: its top directory, git directory and common directory, the current directory's prefix
     /// and the repository it is a submodule of
     Repo(Plain),
+    /// The repositories directly in a directory: each one's name, path, and whether it is clean, linked or unreadable
+    Repos(ReposArgs),
     /// HEAD's commit and branch, whether it is detached or unborn, and its upstream
     Head(Plain),
     /// What each revision names: its sha and kind, or that it names nothing
@@ -136,6 +138,22 @@ impl Action {
             Action::Repo(args) => answer(&args.verb, terminal, ports, git::repo, |t, a| {
                 outln!(t, "{}", shown(&a.top));
             }),
+            Action::Repos(args) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::repos(v, &args.dir),
+                |t, a| {
+                    for repo in &a.repos {
+                        let state = match (repo.unreadable, repo.clean) {
+                            (true, _) => "unreadable",
+                            (false, true) => "clean",
+                            (false, false) => "dirty",
+                        };
+                        outln!(t, "{} {state}", shown(&repo.name));
+                    }
+                },
+            ),
             Action::Head(args) => answer(&args.verb, terminal, ports, git::head, |t, a| {
                 let at = a.sha.as_deref().unwrap_or("(unborn)");
                 outln!(

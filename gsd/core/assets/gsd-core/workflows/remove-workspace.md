@@ -16,8 +16,8 @@ Set `WORKSPACE_NAME` to the `--name` value in $ARGUMENTS.
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-[ -n "$WORKSPACE_NAME" ] || { echo "Workspace name required" >&2; exit 1; }; case "$WORKSPACE_NAME" in */*|*..*) echo "Invalid workspace name: $WORKSPACE_NAME" >&2; exit 1;; esac; WORKSPACE_PATH="$HOME/gsd-workspaces/$WORKSPACE_NAME"; if [ ! -d "$WORKSPACE_PATH" ]; then echo "Workspace not found: $WORKSPACE_PATH" >&2; exit 1; fi; DIRTY_REPOS=$(for g in "$WORKSPACE_PATH"/*/.git; do [ -e "$g" ] || [ -L "$g" ] || continue; r=${g%/.git}; [ "$(specforge git --in "$r" status --pick .clean 2>/dev/null)" = true ] || printf '%s\n' "${r##*/}"; done)
-LINKED_REPOS=$(for g in "$WORKSPACE_PATH"/*/.git; do [ -e "$g" ] || continue; r=${g%/.git}; [ "$(specforge git --in "$r" repo --pick .linked 2>/dev/null)" = true ] && printf '%s\n' "${r##*/}"; done)   # the repos that are worktrees
+[ -n "$WORKSPACE_NAME" ] || { echo "Workspace name required" >&2; exit 1; }; WORKSPACE_PATH="$HOME/gsd-workspaces/$WORKSPACE_NAME"; if [ ! -d "$WORKSPACE_PATH" ]; then echo "Workspace not found: $WORKSPACE_PATH" >&2; exit 1; fi; DIRTY_REPOS=$(specforge git repos "$WORKSPACE_PATH" --pick '.repos[clean=false].name') || exit 1
+LINKED_REPOS=$(specforge git repos "$WORKSPACE_PATH" --pick '.repos[linked=true].name')   # the repos that are worktrees
 ```
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
@@ -35,7 +35,7 @@ Use AskUserQuestion:
 - question: "Which workspace do you want to remove?"
 - requireAnswer: true
 
-Run the shell lines above again with the provided name.
+Run this workflow again with the provided name as `--name`: one path segment, or it is refused.
 
 ## 2. Safety Checks
 

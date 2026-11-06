@@ -16,7 +16,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 PROJECT_ROOT=$(specforge git repo --pick .top 2>/dev/null || pwd); DEFAULT_WORKSPACE_BASE="$HOME/gsd-workspaces"; IS_GIT_REPO=$(specforge git repo --pick .top >/dev/null 2>&1 && echo true || echo false); CWD_REPO_NAME=${PROJECT_ROOT##*/}; WORKTREE_AVAILABLE=$(specforge git worktrees >/dev/null 2>&1 && echo true || echo false); WORKSPACES_REACHABLE=$(specforge files stat "$HOME/gsd-workspaces" --pick '.entries[0].exists' 2>/dev/null)
-CHILD_REPOS=$(for d in */; do [ -e "${d}.git" ] && echo "${d%/}"; done); CHILD_REPO_COUNT=0; for d in */; do [ -e "${d}.git" ] && CHILD_REPO_COUNT=$((CHILD_REPO_COUNT+1)); done
+CHILD_REPOS=$(specforge git repos . --pick '.repos[].name'); CHILD_REPO_COUNT=$(specforge git repos . --pick '.repos[].name' --count)
 ```
 
 The fields above are shell variables. Where this text says `default_workspace_base`, `child_repos`, `child_repo_count`, `worktree_available`, `is_git_repo`, `cwd_repo_name` or `project_root`, read the variable of that name in capitals; `response_language` is the setting. `child_repos` names each child directory with a `.git` entry. An empty `WORKSPACES_REACHABLE` means this machine has not approved the root, or its directory is gone: tell the user to run `specforge grants approve --root workspaces --at ~/gsd-workspaces` once, and stop (unless `--path` names a directory in another approved root).

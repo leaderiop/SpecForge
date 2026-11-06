@@ -304,6 +304,10 @@ path is held to the roots, the host's own state stays withheld.
   It agrees with git on what it judges: files, so an untracked directory is listed by file once a filter is given, and
   a rename's two sides, so the side left stands alone (`D src/b` after a rename into an excepted `spec`). Like git's, the
   path is read from the current directory, though the answer's paths are from the repository's top.
+- **`repos <dir>`** answers the directory's direct children that have a `.git` entry, sorted, each `{name, path, clean,
+  linked, unreadable}`: `files list` never lists a `.git`, so a prompt would otherwise loop a glob and call a verb per
+  child. The directory is held like any path, and a child is read as a verb there would be: a broken `.git`, a redirect
+  or a link out of every root reads `unreadable=true` and `clean=false`, so nothing is taken for clean that was not read.
 - **`--except-spec`** on `status` and `add` leaves out what `SpecPaths` calls a spec file, whichever directory the verb
   is typed in and however the spec root is configured: `spec` written in a prompt would read `sub/spec` in a
   subdirectory, the wrong directory in a nested project, and everything with the spec root at the project root.

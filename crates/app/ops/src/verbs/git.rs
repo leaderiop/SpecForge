@@ -18,6 +18,7 @@ use specforge_effects::RealFs;
 mod branching;
 mod commit;
 mod merging;
+mod repos;
 mod spec_paths;
 
 use spec_paths::SpecPaths;
@@ -35,6 +36,7 @@ pub use merging::{
     RestoreRequest, StashAnswer, StashesAnswer, merge, pick, pick_end, reset, restore, stash_list,
     stash_pop, stash_push,
 };
+pub use repos::{RepoEntry, ReposAnswer, repos};
 pub use specforge_effects::git::ResetMode;
 pub use specforge_effects::git::{ConflictSide, Removal};
 

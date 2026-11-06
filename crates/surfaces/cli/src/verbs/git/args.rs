@@ -469,6 +469,15 @@ pub(crate) struct RevArgs {
 }
 
 #[derive(clap::Args)]
+pub(crate) struct ReposArgs {
+    /// The directory whose children are read; held to the roots as any path is
+    pub(super) dir: std::path::PathBuf,
+
+    #[command(flatten)]
+    pub(super) verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
 pub(crate) struct ConfigArgs {
     /// The key, `section.name` or `section.subsection.name`
     pub(super) key: String,

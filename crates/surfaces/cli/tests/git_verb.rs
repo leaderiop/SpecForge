@@ -11,6 +11,7 @@ mod except;
 mod hooks;
 mod picking;
 mod redirects;
+mod repos;
 mod roots;
 mod signing;
 mod staging;

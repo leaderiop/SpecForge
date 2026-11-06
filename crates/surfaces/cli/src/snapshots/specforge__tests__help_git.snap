@@ -8,6 +8,7 @@ Usage: specforge git [OPTIONS] <COMMAND>
 
 Commands:
   repo         Where the repository is: its top directory, git directory and common directory, the current directory's prefix and the repository it is a submodule of
+  repos        The repositories directly in a directory: each one's name, path, and whether it is clean, linked or unreadable
   head         HEAD's commit and branch, whether it is detached or unborn, and its upstream
   rev          What each revision names: its sha and kind, or that it names nothing
   status       The working tree's status: each changed, conflicted and untracked path, and whether it is clean

@@ -124,7 +124,7 @@ fn remove_workspace_guards_the_name_and_the_path() {
         .find(|l| l.starts_with("[ -n \"$WORKSPACE_NAME\" ] ||"))
         .expect("the guard line")
         .to_string();
-    let home = tempfile::tempdir().expect("a home");
+    let home = approved_home();
     std::fs::create_dir_all(home.path().join("gsd-workspaces/real")).expect("a workspace");
     let run = |name: &str| {
         std::process::Command::new("bash")
@@ -132,15 +132,49 @@ fn remove_workspace_guards_the_name_and_the_path() {
                 "-c",
                 &format!("WORKSPACE_NAME='{name}'\nRESPONSE_LANGUAGE=\n{line}\necho passed"),
             ])
+            .current_dir(p.root())
             .env("HOME", home.path())
+            .env("PATH", with_specforge_first())
             .output()
             .expect("bash")
     };
     let passed = |name: &str| String::from_utf8_lossy(&run(name).stdout).contains("passed");
     assert!(passed("real"));
-    for bad in ["../../etc", "a/b", "nope", ""] {
+    // The verbs hold a name that gets past the argument's kind, and what does not exist is not found.
+    for bad in ["../../etc", "..", "nope", ""] {
         assert!(!passed(bad), "{bad} was accepted");
     }
+    // A name the prompt is given is one path segment before anything renders.
+    for bad in ["../../etc", "a/b", "..", "."] {
+        let run = prompt(&p, "workspace", &["--remove", "--name", bad], "claude-code");
+        assert_ne!(run.code, 0, "{bad}: {}", run.all());
+        assert!(
+            run.all().contains("one path segment"),
+            "{bad}: {}",
+            run.all()
+        );
+    }
+}
+
+/// A home whose machine root `~/gsd-workspaces` is approved, as the workspace's first block asks.
+fn approved_home() -> tempfile::TempDir {
+    let home = tempfile::tempdir().expect("a home");
+    let out = std::process::Command::new("bash")
+        .args([
+            "-c",
+            "specforge grants approve --root workspaces --at '~/gsd-workspaces'",
+        ])
+        .current_dir(home.path())
+        .env("HOME", home.path())
+        .env("PATH", with_specforge_first())
+        .output()
+        .expect("bash");
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    home
 }
 
 /// The test's `PATH` with the built `specforge` first: the blocks call it by name.
@@ -169,7 +203,7 @@ fn remove_workspace_counts_a_repo_it_cannot_read_as_dirty() {
         .find(|l| l.starts_with("[ -n \"$WORKSPACE_NAME\" ] ||"))
         .expect("the guard line")
         .to_string();
-    let home = tempfile::tempdir().expect("a home");
+    let home = approved_home();
     let repo = home.path().join("gsd-workspaces/ws/repo");
     std::fs::create_dir_all(&repo).expect("a repository");
     std::fs::write(repo.join(".git"), "gitdir: /nonexistent\n").expect("its .git");
@@ -178,6 +212,7 @@ fn remove_workspace_counts_a_repo_it_cannot_read_as_dirty() {
             "-c",
             &format!("WORKSPACE_NAME=ws\nRESPONSE_LANGUAGE=\n{line}\necho \"[$DIRTY_REPOS]\""),
         ])
+        .current_dir(home.path())
         .env("HOME", home.path())
         .env("PATH", with_specforge_first())
         .output()
@@ -295,6 +330,8 @@ fn new_workspace_counts_a_child_repo_by_its_git_entry() {
                 &format!("{line}\necho \"$CHILD_REPO_COUNT:\" $CHILD_REPOS"),
             ])
             .current_dir(dir.path())
+            .env("HOME", dir.path())
+            .env("PATH", with_specforge_first())
             .output()
             .expect("bash");
         String::from_utf8_lossy(&out.stdout).trim().to_string()

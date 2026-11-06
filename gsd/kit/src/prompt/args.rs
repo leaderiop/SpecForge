@@ -30,6 +30,8 @@ pub enum Kind {
     Count(&'static str),
     /// The free-text tail: bare words after the options, as upstream's `[task description]` (ADR 0314).
     Rest,
+    /// The free-text tail, which must be one path segment: no `/`, no `\\`, no `..`, not `.`.
+    Segment,
 }
 
 pub struct Arg {
@@ -101,6 +103,14 @@ impl Arg {
             required: false,
         }
     }
+    /// The free-text tail of the command line, which must be one path segment: a name that will become a directory.
+    pub const fn segment(name: &'static str) -> Arg {
+        Arg {
+            name,
+            kind: Kind::Segment,
+            required: false,
+        }
+    }
     /// A positive integer or `word`, written `--name <N|word>`.
     pub const fn count_or(name: &'static str, word: &'static str) -> Arg {
         Arg {
@@ -135,7 +145,7 @@ pub fn declare(p: &mut PromptBuilder, args: &[Arg]) {
                 Kind::Text | Kind::Count(_) => a.string(),
                 Kind::Integer => a.integer(),
                 Kind::OneOf(values) => a.one_of(values),
-                Kind::Rest => a.rest(),
+                Kind::Rest | Kind::Segment => a.rest(),
             };
             if arg.required {
                 a.required();
@@ -181,7 +191,9 @@ pub fn render_text(args: &[Arg], values: impl Fn(&str) -> Option<Value>) -> Stri
                 words.push(format!("{option} {word}"));
             }
             // Bare, where the argument stands in the table: quick's is first, so `resume abc` still opens the block.
-            (Kind::Rest, Value::String(text)) if !text.is_empty() => words.push(text.clone()),
+            (Kind::Rest | Kind::Segment, Value::String(text)) if !text.is_empty() => {
+                words.push(text.clone());
+            }
             _ => {}
         }
     }
@@ -232,6 +244,10 @@ impl<N: Into<String>> FromIterator<(N, Option<String>)> for Values {
 /// Why `value` is not one `arg` takes, beyond what the host checks: a count is a positive integer or its word. Worded
 /// as the host words a refused value.
 pub fn refusal(arg: &Arg, value: &Value) -> Option<String> {
+    if let (Kind::Segment, Value::String(v)) = (&arg.kind, value) {
+        let one = v.is_empty() || (!v.contains(['/', '\\']) && !v.contains("..") && v != ".");
+        return (!one).then(|| format!("{} must be one path segment, got '{v}'", arg.name));
+    }
     let Kind::Count(word) = arg.kind else {
         return None;
     };
@@ -316,6 +332,17 @@ mod tests {
             value(Arg::one_of("mode", &["a", "b"]), json!("b")).as_deref(),
             Some("b")
         );
+    }
+
+    #[test]
+    fn a_segment_is_one_path_segment() {
+        let name = Arg::segment("name");
+        for ok in ["ws", "my-ws", "a.b", "a b", ""] {
+            assert_eq!(refusal(&name, &json!(ok)), None, "{ok}");
+        }
+        for bad in ["a/b", "../x", "..", ".", "a\\b", "x..y"] {
+            assert!(refusal(&name, &json!(bad)).is_some(), "{bad}");
+        }
     }
 
     #[test]
