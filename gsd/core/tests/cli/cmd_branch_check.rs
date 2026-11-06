@@ -1,0 +1,74 @@
+//! `specforge gsd branch-check [--agent]`: the branch `HEAD` is on, read through the git port, and the settings.
+
+use serde_json::json;
+
+use super::commands_support::{gsd, json};
+use crate::harness::{Project, project};
+
+const AT: &str = "2026-01-01T00:00:00Z";
+
+fn answer(p: &Project, args: &[&str]) -> serde_json::Value {
+    let mut all = args.to_vec();
+    all.extend(["--format", "json"]);
+    json(&gsd(p, "branch-check", &all))
+}
+
+#[test]
+fn branch_check_reads_head_and_the_settings() {
+    let p = project("execute");
+    p.commit();
+    let main = answer(&p, &[]);
+    assert_eq!(main["branch"], "main", "{main}");
+    assert_eq!(main["protected"], true, "{main}");
+    assert_eq!(main["blocks_commit"], true, "{main}");
+    assert!(
+        main["why"].as_str().is_some_and(|w| w.contains("'main'")),
+        "{main}"
+    );
+    let human = gsd(&p, "branch-check", &[]);
+    assert!(
+        human.stdout.contains("protected/default branch"),
+        "{}",
+        human.all()
+    );
+    assert_eq!(
+        gsd(&p, "branch-check", &["--pick", ".blocks_commit"])
+            .stdout
+            .trim(),
+        "true"
+    );
+
+    p.settings(json!({"git.allow_default_branch_commits": true}));
+    let allowed = answer(&p, &[]);
+    assert_eq!(
+        allowed["protected"], true,
+        "the warnings still show: {allowed}"
+    );
+    assert_eq!(allowed["overridden"], true, "{allowed}");
+    assert_eq!(allowed["blocks_commit"], false, "{allowed}");
+    p.settings(json!({}));
+
+    p.git(&["checkout", "-q", "-b", "trunk"], AT);
+    assert_eq!(answer(&p, &[])["protected"], true);
+
+    p.git(&["checkout", "-q", "-b", "agent-1"], AT);
+    let agent = answer(&p, &["--agent"]);
+    assert_eq!(agent["agent"], true, "{agent}");
+    assert_eq!(agent["blocks_commit"], false, "{agent}");
+    assert_eq!(gsd(&p, "branch-check", &[]).stdout.trim(), "ok: agent-1");
+
+    p.git(&["checkout", "-q", "-b", "feature/x"], AT);
+    assert_eq!(answer(&p, &["--agent"])["blocks_commit"], true);
+    assert_eq!(answer(&p, &[])["blocks_commit"], false);
+
+    p.git(&["checkout", "-q", "--detach"], AT);
+    let detached = answer(&p, &[]);
+    assert_eq!(detached["detached"], true, "{detached}");
+    assert_eq!(detached["blocks_commit"], true, "{detached}");
+    assert!(
+        detached["why"]
+            .as_str()
+            .is_some_and(|w| w.contains("detached")),
+        "{detached}"
+    );
+}

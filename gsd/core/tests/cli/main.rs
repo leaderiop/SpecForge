@@ -13,6 +13,7 @@ mod baseline;
 #[cfg(unix)]
 mod capability_points;
 mod cmd_attest;
+mod cmd_branch_check;
 mod cmd_digest;
 mod cmd_execute;
 mod cmd_gate;
