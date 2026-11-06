@@ -11,6 +11,7 @@ use specforge_effects::git::{
 
 use super::{USER, Verbs, slashed};
 use crate::{OpError, OpErrorKind, UNKNOWN_REVISION};
+use specforge_common::remedy::printable;
 use specforge_effects::RealFs;
 
 mod branching;
@@ -298,7 +299,7 @@ impl Verbs {
             self.root().dir()
         };
         match self.ports().git.locate(from) {
-            Located::Repo(place) => Ok(place),
+            Located::Repo(place) => self.within_reach(place),
             Located::NotARepository => Err(OpError::new(
                 OpErrorKind::PreconditionFailed,
                 NOT_A_REPOSITORY,
@@ -308,6 +309,37 @@ impl Verbs {
                 OpErrorKind::PreconditionFailed,
                 GIT_UNAVAILABLE,
                 format!("git cannot read the repository: {why}"),
+            )),
+        }
+    }
+}
+
+impl Verbs {
+    /// `place`, when nothing it reads beyond its own `.git` leads out of every root: a planted `.git` is a redirect, and
+    /// holding the path typed says nothing of where it leads. A repository around the project is found by a walk, and a
+    /// real linked worktree or submodule names its `.git` back: neither is judged.
+    fn within_reach(&self, place: GitPlace) -> Result<GitPlace, OpError> {
+        let out = self
+            .ports()
+            .git
+            .leads_to(&place)
+            .into_iter()
+            .find(|at| !self.landed.iter().any(|(_, base)| at.starts_with(base)));
+        match out {
+            None => Ok(place),
+            Some(at) => Err(OpError::new(
+                OpErrorKind::PermissionDenied,
+                crate::OUTSIDE_ROOT,
+                format!(
+                    "the repository at {} reads {}, through its .git, a commondir, core.worktree or an alternate, and \
+                     that is in no root",
+                    printable(&place.toplevel.to_string_lossy()),
+                    printable(&at.to_string_lossy())
+                ),
+            )
+            .with_suggestion(
+                "remove the redirect if you did not make it; to keep it, name that directory a root: `specforge grants \
+                 approve --root <name> --at <dir>`",
             )),
         }
     }

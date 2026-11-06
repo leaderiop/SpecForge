@@ -304,6 +304,17 @@ path is held to the roots, the host's own state stays withheld.
 - **Finding a repository.** A `.git` entry on the way up that is no repository stops the search (`Unavailable`), where
   gix goes on upwards: a broken repository must never answer as the one around it. git also stops at a `.git` file it
   cannot use, and goes past an empty `.git/` directory; here both stop it.
+- **A `.git` is judged, not followed.** `fake/.git` = `gitdir: <outside repo>` let `git --in fake show` read that
+  repository and `tag` write it: holding the typed path says nothing of where its `.git` leads. So every verb asks
+  `Git::leads_to`: a `.git` file or link, a `commondir`, a `core.worktree` and each object alternate (followed to git's
+  depth of 5) are honoured only when they lie in a root. A real linked worktree is honoured wherever its repository lies,
+  since its git directory is an admin directory of the common one whose `gitdir` file names this `.git` back; a real
+  submodule likewise, its `core.worktree` naming this top back. A plant can write neither outside what it reaches. A project
+  nested in a repository still finds it upward: a walk redirects nothing, so that repository need not be in a root. An
+  alternate outside every root refuses, whichever way the repository was found. `clone` opens its source exactly, with
+  no upward search, so a nested project cannot copy the repository around it. **The cost:** `git init --separate-git-dir`
+  and `git clone --reference` outside every root are refused until a machine root holds them. **Not judged:** a guest's git
+  port and the host's own reads (the hook's facts, a registry checkout), which read only the project's repository.
 - **`worktree add`** makes the path's parents, and a second worktree of one directory name takes its own record
   (`name1`), as git does; libgit2 does neither. A new branch needs no identity on the machine: its reflog line takes a
   fallback name, as git's does, where a commit still refuses.

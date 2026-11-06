@@ -21,6 +21,7 @@ use specforge_effects::git::{
 mod branching;
 mod history;
 mod merging;
+mod redirects;
 mod refs;
 use refs::{branch_of, local_branch};
 mod status;
@@ -227,6 +228,10 @@ impl Git for Gix {
             common_dir: real(repo.common_dir()),
             shallow: repo.is_shallow(),
         })
+    }
+
+    fn leads_to(&self, place: &GitPlace) -> Vec<PathBuf> {
+        redirects::leads_to(place)
     }
 
     fn commit(&self, place: &GitPlace, revision: &str) -> Result<Option<Sha>, GitError> {

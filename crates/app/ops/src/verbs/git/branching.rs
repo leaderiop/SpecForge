@@ -121,12 +121,16 @@ pub fn clone(verbs: &Verbs, source: &str, dir: &Path) -> Result<CloneAnswer, OpE
         ));
     }
     let git = &verbs.ports().git;
-    let Located::Repo(place) = git.locate(&from.at) else {
-        return Err(OpError::new(
-            OpErrorKind::PreconditionFailed,
-            super::NOT_A_REPOSITORY,
-            format!("{} is in no git repository", printable(source)),
-        ));
+    // Exactly what it is named, as git clones: a walk upward would let a project nested in a repository copy that one.
+    let place = match git.locate(&from.at) {
+        Located::Repo(place) if place.toplevel == from.at => verbs.within_reach(place)?,
+        _ => {
+            return Err(OpError::new(
+                OpErrorKind::PreconditionFailed,
+                super::NOT_A_REPOSITORY,
+                format!("{} is no repository's top", printable(source)),
+            ));
+        }
     };
     let at = fresh(verbs, dir)?;
     git.clone_local(&place, &at).map_err(write_failed)?;

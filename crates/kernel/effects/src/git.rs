@@ -615,6 +615,13 @@ pub trait Git: Send + Sync {
     fn init(&self, _dir: &Path) -> Result<bool, GitError> {
         Err(GitError::unwritable())
     }
+    /// The directories the repository at `place` reads beyond its own `.git`: where a planted `.git` file or link, a
+    /// `commondir` or a `core.worktree` leads (a real linked worktree or submodule names its `.git` back and leads nowhere
+    /// of note), and its object alternates. A walk upward to the repository around a directory is no redirect. A caller
+    /// that holds its reads to some roots judges these.
+    fn leads_to(&self, _place: &GitPlace) -> Vec<PathBuf> {
+        Vec::new()
+    }
     /// Copy the repository at `source` to `into` (absent or empty) with its worktree on `HEAD`, as a local `git clone`
     /// does: `origin` names `source`'s top. No hook or filter driver runs, and no object is shared with `source`.
     fn clone_local(&self, _source: &GitPlace, _into: &Path) -> Result<(), GitError> {
