@@ -361,3 +361,32 @@ fn a_quick_plan_is_found_by_its_slug() {
     assert_eq!(rows[0][1], "sort-rows");
     assert_eq!(rows[0][3], "Sort rows");
 }
+
+/// The inline plan's lines, as the asset holds them, under `specforge` alone: the summary is found from the plan,
+/// stamped with the opening time and its `duration` read back.
+#[test]
+fn an_inline_plan_is_closed_on_its_summary() {
+    use crate::cmd_execute::{PLAN, PLANTED, SUMMARY};
+    use crate::commands_support::{plant, twin};
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = twin();
+    plant(&p, "spec/plans.spec", PLANTED);
+    let got = values(
+        &sh,
+        &p,
+        "gsd-core/workflows/execute-plan.md",
+        &format!("PLAN_ID={PLAN}"),
+        &[
+            "STARTED=$(",
+            "SUMMARY_ID=$(",
+            "specforge gsd complete-plan",
+            "DURATION=$(",
+        ],
+        &["SUMMARY_ID", "DURATION"],
+    );
+    assert!(got.ends_with(&format!("[{SUMMARY}][0 min]")), "{got}");
+    let fields = p.fields_of(SUMMARY);
+    assert!(fields["started"].is_string() && fields["completed"].is_string());
+}

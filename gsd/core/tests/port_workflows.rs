@@ -149,6 +149,13 @@ const REWRITTEN: &[(&str, usize)] = &[
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not
 /// exist here: a state table, a directory, a batch router. Each run opens with a line that says what replaced it.
 const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
+    // the inline plan's times: `start-plan` opens it, `complete-plan` stamps its summary, `duration` is computed
+    ("gsd-core/workflows/execute-plan.md", 90, 91),
+    ("gsd-core/workflows/execute-plan.md", 387, 391),
+    ("gsd-core/workflows/execute-plan.md", 393, 399),
+    ("gsd-core/workflows/execute-plan.md", 419, 419),
+    ("gsd-core/workflows/execute-plan.md", 430, 430),
+    ("gsd-core/workflows/execute-plan.md", 456, 456),
     // pull requests through GitHub's REST API (`specforge http --secret @gsd/core:github_token`): gh's
     // arguments become fields, its token check a GET of /user, and the states it answers are lower case
     ("gsd-core/workflows/ship.md", 104, 104),

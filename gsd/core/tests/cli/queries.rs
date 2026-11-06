@@ -103,6 +103,7 @@ const UNBOUND: &[&str] = &[
     "$TASK_ID",
     "$SPEC_ID",
     "$SUMMARY_FILE",
+    "$SUMMARY_ID",
     "$RESEARCH_ID",
     "$uat_path",
     // entity ids a prompt hands its agent, each read with `--format context`

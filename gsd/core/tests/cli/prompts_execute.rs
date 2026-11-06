@@ -164,8 +164,8 @@ fn plan_phase_steps_into_execute_phase() {
     assert_eq!(last["prompt"], "specforge.gsd.execute_phase");
 }
 
-/// The inline plan's times: pinned as they run today, kept in shell variables, with neither command run and the
-/// model told to write what `complete-plan` and the graph own.
+/// The inline plan's times are the commands': opened before its first task, closed on its summary, and nothing the
+/// model writes or the shell keeps.
 #[test]
 fn the_inline_plan_opens_and_closes_through_the_commands() {
     let text = text_of(&payload(&prompt(
@@ -174,9 +174,16 @@ fn the_inline_plan_opens_and_closes_through_the_commands() {
         &[TWIN_PLAN],
         "claude-code",
     )));
-    assert!(text.contains("PLAN_START_TIME=$(date"));
-    assert!(text.contains("PLAN_END_EPOCH=$(date +%s)"));
-    assert!(!text.contains("specforge gsd start-plan \"$PLAN_ID\""));
-    assert!(!text.contains("specforge gsd complete-plan \"$("));
-    assert!(text.contains("duration ($DURATION)"));
+    let opened = text
+        .find("STARTED=$(specforge gsd start-plan \"$PLAN_ID\" --pick .started)")
+        .expect("the plan opens through start-plan");
+    let first_task = text
+        .find("<step name=\"execute\"")
+        .expect("the execute step");
+    assert!(opened < first_task);
+    assert!(text.contains("specforge gsd complete-plan \"$SUMMARY_ID\" --started \"$STARTED\""));
+    assert!(!text.contains("$(date"));
+    assert!(!text.contains("PLAN_END_"));
+    assert!(!text.contains("duration ($DURATION)"));
+    assert!(!text.contains("--duration"));
 }

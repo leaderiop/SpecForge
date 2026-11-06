@@ -165,7 +165,7 @@ prompt:workspace	grep	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 
 prompt:workspace	sed	STRATEGY=$(sed -n 's/^Strategy: *//p' "$WORKSPACE_PATH/WORKSPACE.md" 2>/dev/null)   # from the manifest
 prompt:workspace	sed	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
 
-# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 39 rows.
+# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 31 rows.
 gsd-core/references/checkpoints.md	lsof	lsof -ti:3000 | xargs kill
 gsd-core/references/checkpoints.md	sleep	for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done
 gsd-core/references/execute-phase-quota-recovery.md	sleep	sleep "$RETRY_AFTER"
@@ -176,10 +176,6 @@ gsd-core/references/worktree-path-safety.md	env	env -C scripts bash -c 'cd ..'
 gsd-core/references/worktree-path-safety.md	env	env -u FOO --debug -u BAR -C ../main
 gsd-core/references/worktree-path-safety.md	env	env -S 'cmd args'
 gsd-core/references/worktree-path-safety.md	timeout	timeout --signal TERM
-gsd-core/workflows/execute-plan.md	date	PLAN_START_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-gsd-core/workflows/execute-plan.md	date	PLAN_START_EPOCH=$(date +%s)
-gsd-core/workflows/execute-plan.md	date	PLAN_END_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-gsd-core/workflows/execute-plan.md	date	PLAN_END_EPOCH=$(date +%s)
 gsd-core/workflows/new-workspace.md	date	TIMESTAMP=$(date +%Y%m%d%H%M%S)
 gsd-core/workflows/new-workspace.md	mkdir	mkdir -p "$TARGET_PATH"
 gsd-core/workflows/pause-work.md	date	timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -194,10 +190,6 @@ gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Stop-Process	Get-
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Where-Object	Get-Process node -ErrorAction SilentlyContinue | Where-Object {$_.StartTime -lt (Get-Date).AddHours(-1)} | Stop-Process -Force
 gsd-core/workflows/remove-workspace.md	rm	rm -rf "$WORKSPACE_PATH"
 gsd-core/workflows/ship.md	sleep	sleep 3
-prompt:execute_plan	date	PLAN_START_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-prompt:execute_plan	date	PLAN_START_EPOCH=$(date +%s)
-prompt:execute_plan	date	PLAN_END_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-prompt:execute_plan	date	PLAN_END_EPOCH=$(date +%s)
 prompt:pause_work	date	timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 prompt:pause_work	date	timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 prompt:pause_work	date	date -u
