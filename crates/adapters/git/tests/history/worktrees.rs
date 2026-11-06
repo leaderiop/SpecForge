@@ -1,5 +1,5 @@
 //! Where git and libgit2 or gix differ on finding a repository and adding a worktree: these hold git's behaviour, which a
-//! workspace of several worktrees relies on.
+//! workspace of several worktrees relies on, and say so where they hold a stricter one.
 
 use specforge_effects::git::{Git, Located};
 use specforge_git::Gix;
@@ -7,8 +7,9 @@ use specforge_git::testing::Repo;
 
 use super::place;
 
-/// A `.git` no repository answers for, inside a clean repository: `git status` refuses it, where a search going on
-/// upwards reads the outer one, clean.
+/// A `.git` no repository answers for, inside a clean repository, stops the search: a search going on upwards would read
+/// the outer one, clean. For a `.git` file this is git's own refusal. For an empty `.git` directory it is not: git goes
+/// on upwards, and this refuses on purpose (ADR 0339).
 #[test]
 fn a_broken_git_entry_stops_the_search_for_a_repository() {
     let dir = tempfile::tempdir().unwrap();

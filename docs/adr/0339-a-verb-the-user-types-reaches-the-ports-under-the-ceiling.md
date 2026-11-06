@@ -309,7 +309,9 @@ path is held to the roots, the host's own state stays withheld.
   subdirectory, the wrong directory in a nested project, and everything with the spec root at the project root.
 - **Finding a repository.** A `.git` entry on the way up that is no repository stops the search (`Unavailable`), where
   gix goes on upwards: a broken repository must never answer as the one around it. git also stops at a `.git` file it
-  cannot use, and goes past an empty `.git/` directory; here both stop it.
+  cannot use, and goes past an empty `.git/` directory. Here both stop it, and the second is a difference from git held
+  on purpose: an empty `.git/` is a repository gone wrong, and a verb answering `clean` for the one around it would hide
+  that.
 - **A `.git` is judged, not followed.** `fake/.git` = `gitdir: <outside repo>` let `git --in fake show` read that
   repository and `tag` write it: holding the typed path says nothing of where its `.git` leads. So every verb asks
   `Git::leads_to`: a `.git` file or link, a `commondir`, a `core.worktree` and each object alternate (followed to git's
