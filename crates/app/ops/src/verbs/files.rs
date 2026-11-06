@@ -362,15 +362,13 @@ pub fn temp(verbs: Verbs, temp: &Temp) -> Result<TempAnswer, OpError> {
         }
         return stable_temp(verbs, name, temp.dir);
     }
-    let mut random = [0u8; 8];
-    getrandom::fill(&mut random).map_err(|error| {
+    let hex = crate::random::random_hex::<8>().map_err(|error| {
         OpError::new(
             OpErrorKind::Internal,
             OpErrorKind::Internal.as_str(),
             format!("no random name: {error}"),
         )
     })?;
-    let hex: String = random.iter().map(|b| format!("{b:02x}")).collect();
     let name = format!("{}{hex}{}", temp.prefix, temp.suffix);
     let at = Place {
         root: TEMP.to_string(),

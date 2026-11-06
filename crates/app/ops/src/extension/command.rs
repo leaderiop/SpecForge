@@ -561,11 +561,9 @@ struct Told {
 impl Told {
     /// The clock's instant, and a nonce: 16 bytes of the OS's entropy as 32 lowercase hex digits.
     fn fresh() -> Self {
-        let mut bytes = [0u8; 16];
-        getrandom::fill(&mut bytes).expect("OS entropy unavailable");
         Self {
             at: instant(),
-            nonce: bytes.iter().map(|b| format!("{b:02x}")).collect(),
+            nonce: crate::random::random_hex::<16>().expect("OS entropy unavailable"),
         }
     }
 }
