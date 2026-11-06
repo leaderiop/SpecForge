@@ -6,7 +6,9 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use specforge_effects::contained::{TEMP, temp_root};
 use specforge_effects::fs::{FileKind, READ_CEILING};
-use specforge_effects::{FsChange, FsChanged, FsOp, ListRequest, OutcomeClass, Place, Root};
+use specforge_effects::{
+    FsChange, FsChanged, FsListing, FsOp, FsRequest, ListRequest, OutcomeClass, Place, Root,
+};
 
 use super::{Access, Located, Verbs, refused};
 use crate::{OpError, OpErrorKind};
@@ -124,26 +126,41 @@ pub fn stat(verbs: &Verbs, paths: &[PathBuf]) -> Result<StatAnswer, OpError> {
     Ok(StatAnswer { entries })
 }
 
-/// The globs, as the port would read them: `invalid_input` names one it refuses.
-fn checked_globs(verbs: &Verbs, globs: &[String]) -> Result<(), OpError> {
-    match verbs.ports().fs.glob_fault(globs) {
-        Some(why) => Err(OpError::new(
-            OpErrorKind::InvalidInput,
-            OpErrorKind::InvalidInput.as_str(),
-            why,
-        )),
-        None => Ok(()),
-    }
+/// An `invalid_input` refusal.
+fn invalid(why: impl Into<String>) -> OpError {
+    OpError::new(
+        OpErrorKind::InvalidInput,
+        OpErrorKind::InvalidInput.as_str(),
+        why,
+    )
 }
 
-/// The entries under `list.dir`.
-pub fn list(verbs: &Verbs, list: &List) -> Result<ListAnswer, OpError> {
-    checked_globs(verbs, &list.globs)?;
+/// The globs, as the port would read them: `invalid_input` names one it refuses.
+fn checked_globs(verbs: &Verbs, globs: &[String]) -> Result<(), OpError> {
+    verbs
+        .ports()
+        .fs
+        .glob_fault(globs)
+        .map_or(Ok(()), |why| Err(invalid(why)))
+}
+
+/// What a walk reaches: a [`ListRequest`] without the place, which [`walk`] holds to the roots.
+struct Reach<'a> {
+    globs: &'a [String],
+    kind: Option<FileKind>,
+    depth: Option<usize>,
+    ignore: bool,
+    hidden: bool,
+    max: usize,
+}
+
+/// The walk of `dir`: where it landed, and what it listed; a refused walk is refused whole.
+fn walk(verbs: &Verbs, dir: &Path, reach: Reach<'_>) -> Result<(Located, FsListing), OpError> {
     let (located, request) = verbs.held(
-        &list.dir,
+        dir,
         FsOp::Walk {
             glob: None,
-            max_entries: list.max.min(u32::MAX as usize) as u32,
+            max_entries: reach.max.min(u32::MAX as usize) as u32,
         },
     )?;
     let listing = verbs.ports().fs.list(
@@ -151,17 +168,44 @@ pub fn list(verbs: &Verbs, list: &List) -> Result<ListAnswer, OpError> {
         &ListRequest {
             root: request.root,
             path: request.path,
-            globs: list.globs.clone(),
-            kind: list.kind,
-            depth: list.depth,
-            ignore: list.ignore,
-            hidden: list.hidden,
-            max_entries: list.max,
+            globs: reach.globs.to_vec(),
+            kind: reach.kind,
+            depth: reach.depth,
+            ignore: reach.ignore,
+            hidden: reach.hidden,
+            max_entries: reach.max,
         },
     );
     if listing.class != OutcomeClass::Ok {
         return Err(refused(listing.class, &verbs.shown(&located.at)));
     }
+    Ok((located, listing))
+}
+
+/// A read of `rel` in `root`, to `max_bytes`.
+fn read_request(root: &Root, rel: &str, max_bytes: u64) -> FsRequest {
+    FsRequest {
+        root: root.as_str().to_string(),
+        path: rel.to_string(),
+        op: FsOp::Read { max_bytes },
+    }
+}
+
+/// The entries under `list.dir`.
+pub fn list(verbs: &Verbs, list: &List) -> Result<ListAnswer, OpError> {
+    checked_globs(verbs, &list.globs)?;
+    let (located, listing) = walk(
+        verbs,
+        &list.dir,
+        Reach {
+            globs: &list.globs,
+            kind: list.kind,
+            depth: list.depth,
+            ignore: list.ignore,
+            hidden: list.hidden,
+            max: list.max,
+        },
+    )?;
     let mut truncated = listing.truncated;
     let mut budget = SEARCH_BYTES;
     let entries: Vec<ListEntry> = listing
@@ -194,13 +238,7 @@ pub fn list(verbs: &Verbs, list: &List) -> Result<ListAnswer, OpError> {
 /// The lines of the file `rel` in `root`, read whole within `budget` (which the read spends), and whether a bound cut
 /// it: none, and cut, when the file is larger than one read or past the budget; none, not cut, when it is withheld.
 fn lines_read(verbs: &Verbs, root: &Root, rel: &str, budget: &mut u64) -> (Option<usize>, bool) {
-    let read = specforge_effects::FsRequest {
-        root: root.as_str().to_string(),
-        path: rel.to_string(),
-        op: FsOp::Read {
-            max_bytes: READ_CEILING.min(*budget),
-        },
-    };
+    let read = read_request(root, rel, READ_CEILING.min(*budget));
     if verbs.permit_fs(&read).is_err() {
         return (None, false);
     }
@@ -242,11 +280,7 @@ pub fn read(verbs: &Verbs, typed: &Path) -> Result<ReadAnswer, OpError> {
         return Err(refused(outcome.class, &shown));
     }
     if outcome.stat.is_some_and(|stat| stat.kind != FileKind::File) {
-        return Err(OpError::new(
-            OpErrorKind::InvalidInput,
-            OpErrorKind::InvalidInput.as_str(),
-            format!("{shown} is not a file"),
-        ));
+        return Err(invalid(format!("{shown} is not a file")));
     }
     Ok(ReadAnswer {
         path: shown,
@@ -307,13 +341,6 @@ pub struct DigestAnswer {
 /// A new empty file (`0600`), or directory (`0700`), with a name no other has, in the `temp` root, made on first use;
 /// with `name`, that one path, made when missing and kept when it is there.
 pub fn temp(verbs: Verbs, temp: &Temp) -> Result<TempAnswer, OpError> {
-    let invalid = |why: String| {
-        OpError::new(
-            OpErrorKind::InvalidInput,
-            OpErrorKind::InvalidInput.as_str(),
-            why,
-        )
-    };
     let named = temp.name.iter().map(|name| ("name", name));
     for (what, part) in [
         ("name's prefix", &temp.prefix),
@@ -377,16 +404,12 @@ fn stable_temp(verbs: Verbs, name: &str, dir: bool) -> Result<TempAnswer, OpErro
     if verbs.located(&typed, &Access::Write)?.at
         != verbs.located(&typed, &Access::Fs(FsOp::Stat))?.at
     {
-        return Err(OpError::new(
-            OpErrorKind::InvalidInput,
-            OpErrorKind::InvalidInput.as_str(),
-            format!("{} is a link", answer.path),
-        ));
+        return Err(invalid(format!("{} is a link", answer.path)));
     }
     let kept = |verbs: &Verbs| -> Result<Option<TempAnswer>, OpError> {
         let stat = verbs.ports().fs.run(
             verbs.roots(),
-            &specforge_effects::FsRequest {
+            &FsRequest {
                 root: TEMP.to_string(),
                 path: name.to_string(),
                 op: FsOp::Stat,
@@ -397,15 +420,11 @@ fn stable_temp(verbs: Verbs, name: &str, dir: bool) -> Result<TempAnswer, OpErro
             (OutcomeClass::Ok, Some(kind)) if (kind == FileKind::Dir) == dir => {
                 Ok(Some(answer.clone()))
             }
-            (OutcomeClass::Ok, _) => Err(OpError::new(
-                OpErrorKind::InvalidInput,
-                OpErrorKind::InvalidInput.as_str(),
-                format!(
-                    "{} is there, and not a {}",
-                    answer.path,
-                    if dir { "directory" } else { "file" }
-                ),
-            )),
+            (OutcomeClass::Ok, _) => Err(invalid(format!(
+                "{} is there, and not a {}",
+                answer.path,
+                if dir { "directory" } else { "file" }
+            ))),
             (class, _) => Err(refused(class, &answer.path)),
         }
     };
@@ -512,11 +531,7 @@ pub fn digest(
         let shown = verbs.shown(&located.at);
         let stat = verbs.ports().fs.run(verbs.roots(), &request);
         if stat.stat.is_some_and(|stat| stat.kind != FileKind::File) {
-            return Err(OpError::new(
-                OpErrorKind::InvalidInput,
-                OpErrorKind::InvalidInput.as_str(),
-                format!("{shown} is not a file"),
-            ));
+            return Err(invalid(format!("{shown} is not a file")));
         }
         let located = verbs.located(typed, &Access::Fs(FsOp::Read { max_bytes: 0 }))?;
         let digest = verbs.ports().fs.digest(verbs.roots(), &place(&located));

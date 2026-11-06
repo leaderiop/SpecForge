@@ -485,33 +485,23 @@ impl SearchArgs {
             ports,
             |verbs| files::search(&verbs, &search),
             |terminal, answer| {
-                let path = |found: &files::Match| shown(&found.path).into_owned();
                 for found in &answer.matches {
+                    let path = shown(&found.path);
+                    let around = |line: &files::Context| {
+                        format!("{path}-{}- {}", line.line, shown(&line.text))
+                    };
                     for line in found.before.iter().flatten() {
-                        outln!(
-                            terminal,
-                            "{}-{}- {}",
-                            path(found),
-                            line.line,
-                            shown(&line.text)
-                        );
+                        outln!(terminal, "{}", around(line));
                     }
                     outln!(
                         terminal,
-                        "{}:{}:{}: {}",
-                        path(found),
+                        "{path}:{}:{}: {}",
                         found.line,
                         found.column,
                         shown(&found.text)
                     );
                     for line in found.after.iter().flatten() {
-                        outln!(
-                            terminal,
-                            "{}-{}- {}",
-                            path(found),
-                            line.line,
-                            shown(&line.text)
-                        );
+                        outln!(terminal, "{}", around(line));
                     }
                 }
                 for file in answer.files.iter().flatten() {

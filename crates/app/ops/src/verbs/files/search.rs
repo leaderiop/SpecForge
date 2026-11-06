@@ -10,9 +10,9 @@ use grep_searcher::{
 };
 use serde::Serialize;
 use specforge_effects::fs::{FILE_CEILING, FileKind};
-use specforge_effects::{FsOp, ListRequest, OutcomeClass, Root};
+use specforge_effects::{FsOp, OutcomeClass, Root};
 
-use super::{LIST_MAX, checked_globs};
+use super::{LIST_MAX, Reach, checked_globs, invalid, read_request, walk};
 use crate::verbs::{Verbs, refused};
 use crate::{OpError, OpErrorKind};
 
@@ -237,55 +237,50 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
         }
         let (located, request) = verbs.held(path, FsOp::Stat)?;
         let outcome = verbs.ports().fs.run(verbs.roots(), &request);
-        // Each file to search, and whether it was typed by name.
-        let files: Vec<(Root, String, bool)> =
-            match (outcome.class, outcome.stat.map(|stat| stat.kind)) {
-                (OutcomeClass::Ok, Some(FileKind::Dir)) => {
-                    let (walked, walk) = verbs.held(
-                        path,
-                        FsOp::Walk {
-                            glob: None,
-                            max_entries: LIST_MAX as u32,
-                        },
-                    )?;
-                    let listing = verbs.ports().fs.list(
-                        verbs.roots(),
-                        &ListRequest {
-                            root: walk.root,
-                            path: walk.path,
-                            globs: search.globs.clone(),
-                            kind: Some(FileKind::File),
-                            depth: None,
-                            ignore: search.ignore,
-                            hidden: search.hidden,
-                            max_entries: LIST_MAX,
-                        },
-                    );
-                    if listing.class != OutcomeClass::Ok {
-                        return Err(refused(listing.class, &verbs.shown(&located.at)));
-                    }
-                    if listing.truncated {
-                        answer.truncated = true;
-                        answer.unread(verbs.shown(&located.at), UnreadWhy::WalkBound);
-                    }
-                    for rel in &listing.unread {
-                        let shown = verbs.shown_in(&walked.root, rel);
-                        answer.unread(shown, UnreadWhy::Unreadable);
-                    }
-                    listing
-                        .entries
-                        .into_iter()
-                        .map(|entry| (walked.root.clone(), entry.path, false))
-                        .collect()
+        let files: Vec<Target> = match (outcome.class, outcome.stat.map(|stat| stat.kind)) {
+            (OutcomeClass::Ok, Some(FileKind::Dir)) => {
+                let (walked, listing) = walk(
+                    verbs,
+                    path,
+                    Reach {
+                        globs: &search.globs,
+                        kind: Some(FileKind::File),
+                        depth: None,
+                        ignore: search.ignore,
+                        hidden: search.hidden,
+                        max: LIST_MAX,
+                    },
+                )?;
+                if listing.truncated {
+                    answer.truncated = true;
+                    answer.unread(verbs.shown(&located.at), UnreadWhy::WalkBound);
                 }
-                (OutcomeClass::Ok, _) => vec![(located.root.clone(), request.path.clone(), true)],
-                (OutcomeClass::Missing, _) => {
-                    answer.missing.push(verbs.shown(&located.at));
-                    continue;
+                for rel in &listing.unread {
+                    let shown = verbs.shown_in(&walked.root, rel);
+                    answer.unread(shown, UnreadWhy::Unreadable);
                 }
-                (class, _) => return Err(refused(class, &verbs.shown(&located.at))),
-            };
-        for (root, rel, named) in files {
+                listing
+                    .entries
+                    .into_iter()
+                    .map(|entry| Target {
+                        root: walked.root.clone(),
+                        rel: entry.path,
+                        named: false,
+                    })
+                    .collect()
+            }
+            (OutcomeClass::Ok, _) => vec![Target {
+                root: located.root.clone(),
+                rel: request.path.clone(),
+                named: true,
+            }],
+            (OutcomeClass::Missing, _) => {
+                answer.missing.push(verbs.shown(&located.at));
+                continue;
+            }
+            (class, _) => return Err(refused(class, &verbs.shown(&located.at))),
+        };
+        for Target { root, rel, named } in files {
             if answer.listed() >= search.max {
                 answer.truncated = true;
                 break;
@@ -296,13 +291,7 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
                 answer.unread(shown, UnreadWhy::PastBudget);
                 continue;
             }
-            let read = specforge_effects::FsRequest {
-                root: root.as_str().to_string(),
-                path: rel.clone(),
-                op: FsOp::Read {
-                    max_bytes: FILE_CEILING.min(budget),
-                },
-            };
+            let read = read_request(&root, &rel, FILE_CEILING.min(budget));
             // What a walk cannot read is listed as unread; a file typed by name is refused, so no verdict is judged on
             // a file it did not read.
             if let Err(error) = verbs.permit_fs(&read) {
@@ -342,6 +331,13 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
     }
     answer.count = answer.listed();
     Ok(answer)
+}
+
+/// A file to search, and whether it was typed by name.
+struct Target {
+    root: Root,
+    rel: String,
+    named: bool,
 }
 
 /// What searches each file: the library's searcher and matchers, and the search they were built for.
@@ -439,13 +435,9 @@ fn matcher(search: &Search, pattern: &str) -> Result<RegexMatcher, OpError> {
         .fixed_strings(search.fixed)
         .multi_line(true)
         .crlf(!search.multiline);
-    builder.build(pattern).map_err(|error| {
-        OpError::new(
-            OpErrorKind::InvalidInput,
-            OpErrorKind::InvalidInput.as_str(),
-            format!("the pattern does not parse: {error}"),
-        )
-    })
+    builder
+        .build(pattern)
+        .map_err(|error| invalid(format!("the pattern does not parse: {error}")))
 }
 
 /// The answer one file's search adds to: each match the searcher reports, with its context, until the answer holds
@@ -471,8 +463,7 @@ impl Sink for Found<'_> {
 
     fn matched(&mut self, _: &Searcher, found: &SinkMatch<'_>) -> Result<bool, Self::Error> {
         let bytes = found.bytes();
-        let text = bytes.strip_suffix(b"\n").unwrap_or(bytes);
-        let text = text.strip_suffix(b"\r").unwrap_or(text);
+        let text = unterminated(bytes);
         if self
             .and_not
             .iter()
@@ -556,11 +547,15 @@ impl Sink for Found<'_> {
 /// The line or lines the searcher reported, each without its terminator, joined by `\n`, at most [`LINE_CHARS`]
 /// characters.
 fn lines_text(bytes: &[u8]) -> String {
-    let bytes = bytes.strip_suffix(b"\n").unwrap_or(bytes);
-    let bytes = bytes.strip_suffix(b"\r").unwrap_or(bytes);
-    String::from_utf8_lossy(bytes)
+    String::from_utf8_lossy(unterminated(bytes))
         .replace("\r\n", "\n")
         .chars()
         .take(LINE_CHARS)
         .collect()
+}
+
+/// `bytes` without their last line's `\n` or `\r\n`.
+fn unterminated(bytes: &[u8]) -> &[u8] {
+    let bytes = bytes.strip_suffix(b"\n").unwrap_or(bytes);
+    bytes.strip_suffix(b"\r").unwrap_or(bytes)
 }
