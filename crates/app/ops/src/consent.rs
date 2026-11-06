@@ -17,8 +17,9 @@ use specforge_effects::{Approvals, Consent, ConsentError};
 /// Overrides the user-level consent store (tests, custom homes). Refused when it lies inside the project.
 pub const CONSENT_FILE_ENV: &str = "SPECFORGE_CONSENT_FILE";
 
-/// The store format this specforge reads and writes.
-const VERSION: u64 = 1;
+/// The store format this specforge reads and writes. A version 1 store has no machine roots; it reads and is written
+/// back as 2, so an older specforge refuses to write over it (W186) and never drops one.
+const VERSION: u64 = 2;
 
 #[derive(Serialize, Deserialize)]
 struct Stored {

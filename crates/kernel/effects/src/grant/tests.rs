@@ -448,6 +448,7 @@ fn a_run_needs_only_the_approvals_of_what_it_uses_and_w170_lists_them() {
         .map(|n| match n.approval() {
             Approval::Capability(a) => a.scope,
             Approval::Root(r) => r.root,
+            Approval::MachineRoot(r) => r.root,
         })
         .collect();
     assert_eq!(

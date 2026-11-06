@@ -116,6 +116,10 @@ pub(crate) fn stamped(approval: Approval) -> Approval {
             a.approved_at = now;
             Approval::Root(a)
         }
+        Approval::MachineRoot(mut a) => {
+            a.approved_at = now;
+            Approval::MachineRoot(a)
+        }
     }
 }
 

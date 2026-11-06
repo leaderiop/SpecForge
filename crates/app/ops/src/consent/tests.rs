@@ -1,5 +1,5 @@
 use super::*;
-use specforge_effects::{Approval, CapabilityApproval, KeyedBy, ProjectKey};
+use specforge_effects::{Approval, CapabilityApproval, KeyedBy, MachineRoot, ProjectKey, Revoke};
 use specforge_protocol_types::{PortScope, ProcessScope};
 use specforge_test_macros::test as specforge_test;
 
@@ -316,7 +316,7 @@ fn a_store_behind_a_link_is_judged_by_the_file_it_reaches() {
 fn a_newer_store_version_is_never_overwritten() {
     let dir = tempfile::tempdir().unwrap();
     let store = dir.path().join("consent.json");
-    let newer = br#"{"version": 2, "capabilities": [], "roots": [], "grants": []}"#;
+    let newer = br#"{"version": 3, "capabilities": [], "roots": [], "grants": []}"#;
     std::fs::write(&store, newer).unwrap();
     // A group-writing umask must not change which refusal this test sees.
     #[cfg(unix)]
@@ -404,4 +404,65 @@ fn an_approval_is_keyed_by_provenance_and_covers_narrower_grants() {
             .unwrap(),
         "a wider grant asks again"
     );
+}
+
+fn machine_root(name: &str, target: &str) -> Approval {
+    Approval::MachineRoot(MachineRoot {
+        root: name.to_string(),
+        target: target.to_string(),
+        approved_at: Default::default(),
+    })
+}
+
+#[test]
+fn a_machine_root_is_kept_by_name_and_replaced_by_a_new_target() {
+    let dir = tempfile::tempdir().unwrap();
+    let consent = UserConsent::at(dir.path().join("consent.json"));
+    consent.approve(machine_root("workspaces", "/a")).unwrap();
+    assert!(consent.approved(&machine_root("workspaces", "/a")).unwrap());
+    assert!(!consent.approved(&machine_root("workspaces", "/b")).unwrap());
+    assert!(!consent.approved(&machine_root("other", "/a")).unwrap());
+    consent.approve(machine_root("workspaces", "/b")).unwrap();
+    let held = consent.list().unwrap().machine_roots;
+    assert_eq!(held.len(), 1, "{held:?}");
+    assert_eq!(held[0].target, "/b");
+}
+
+#[test]
+fn a_version_1_store_reads_and_is_written_as_version_2() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = dir.path().join("consent.json");
+    std::fs::write(
+        &store,
+        br#"{"version": 1, "capabilities": [], "roots": []}"#,
+    )
+    .unwrap();
+    #[cfg(unix)]
+    std::fs::set_permissions(&store, std::os::unix::fs::PermissionsExt::from_mode(0o600)).unwrap();
+    let consent = UserConsent::at(store.clone());
+    assert_eq!(consent.list().unwrap(), Approvals::default());
+    consent.approve(machine_root("workspaces", "/a")).unwrap();
+    let written: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&store).unwrap()).unwrap();
+    assert_eq!(written["version"], 2);
+    assert_eq!(written["machine_roots"][0]["target"], "/a");
+}
+
+#[test]
+fn revoking_a_project_keeps_the_machine_roots() {
+    let dir = tempfile::tempdir().unwrap();
+    let consent = UserConsent::at(dir.path().join("consent.json"));
+    consent.approve(approval("tests")).unwrap();
+    consent.approve(machine_root("workspaces", "/a")).unwrap();
+    let project = Revoke::Project {
+        project: ProjectKey("/p".to_string()),
+    };
+    assert_eq!(consent.revoke(&project).unwrap(), 1);
+    assert_eq!(consent.list().unwrap().machine_roots.len(), 1);
+    let root = Revoke::MachineRoot {
+        root: "workspaces".to_string(),
+    };
+    assert_eq!(consent.revoke(&root).unwrap(), 1);
+    assert_eq!(consent.revoke(&root).unwrap(), 0);
+    assert!(consent.list().unwrap().machine_roots.is_empty());
 }
