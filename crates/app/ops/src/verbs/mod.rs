@@ -40,6 +40,9 @@ pub struct Verbs {
     roots: Roots,
     /// Where the project's spec root lands, reachable or not: what `git diff` calls a spec file is the project's word.
     spec_root: PathBuf,
+    /// The names of the roots this machine named (`grants approve --root <name> --at <dir>`): `files` and `git` reach them,
+    /// no other verb does.
+    machine_roots: Vec<String>,
     /// Each reachable root and where it lands, the deepest first: the root a typed path is read in is the first that
     /// holds it.
     landed: Vec<(Root, PathBuf)>,
@@ -114,7 +117,9 @@ impl Verbs {
         let held = consent
             .list()
             .map_or_else(|_| Vec::new(), |held| held.machine_roots);
+        let mut machine_roots = Vec::new();
         for machine in machine_roots_here(consent, &held, &reachable).reached {
+            machine_roots.push(machine.root.clone());
             roots = roots.with_named(machine.root, machine.target);
         }
         let mut landed: Vec<(Root, PathBuf)> = vec![(Root::Project, RealFs::landing(root.dir()))];
@@ -139,6 +144,7 @@ impl Verbs {
             grant,
             roots,
             spec_root: RealFs::landing(env.spec_root()),
+            machine_roots,
             landed,
             temp,
         }
@@ -274,6 +280,33 @@ impl Verbs {
                  grants approve --root <name> --at <dir>` names a root for every project on this machine",
             )
         }))
+    }
+
+    /// Refused when only a machine root holds `located`: `verb` is no `files` or `git`, the two a machine root is for.
+    pub(crate) fn beyond_machine_roots(
+        &self,
+        located: &Located,
+        verb: &str,
+    ) -> Result<(), OpError> {
+        let held = self.landed.iter().any(|(root, base)| {
+            !self.machine_roots.iter().any(|name| name == root.as_str())
+                && located.at.starts_with(base)
+        });
+        if held {
+            return Ok(());
+        }
+        Err(OpError::new(
+            OpErrorKind::PermissionDenied,
+            OUTSIDE_ROOT,
+            format!(
+                "{} is in the machine root `{}`, which `specforge files` and `specforge git` reach, and `{verb}` does not",
+                self.shown(&located.at),
+                located.root.as_str()
+            ),
+        )
+        .with_suggestion(format!(
+            "`{verb}` from the directory itself, or name it in specforge.json `roots` for this project"
+        )))
     }
 
     /// Whether the user grant permits `request`: `Err` is E090 with the ceiling's words.

@@ -401,6 +401,7 @@ fn read_body(verbs: &Verbs, typed: &std::path::Path) -> Result<Vec<u8>, OpError>
             max_bytes: BODY_FILE_BYTES,
         },
     )?;
+    verbs.beyond_machine_roots(&located, "http")?;
     let outcome = verbs.ports().fs.run(verbs.roots(), &request);
     if outcome.class != OutcomeClass::Ok || outcome.truncated {
         let why = if outcome.truncated {

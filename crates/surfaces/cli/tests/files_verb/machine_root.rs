@@ -313,3 +313,50 @@ fn a_consent_store_that_is_a_link_approves_nothing() {
     std::os::unix::fs::symlink(loose.path().join("state"), &dir).unwrap();
     refused(Cli::on(&project).run(&["files", "stat", &path]));
 }
+
+/// A machine root is for `files` and `git`: no program runs in it through `--in`, and `http` sends no file out of it.
+#[test]
+fn only_files_and_git_reach_a_machine_root() {
+    let (project, target) = approved();
+    let dir = target.join("ws");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("body"), "TOKEN=hunter2\n").unwrap();
+    let ran = dir.join("ran");
+    let run = Cli::on(&project).run(&[
+        "run",
+        "--in",
+        &at(&dir),
+        "--",
+        "/bin/sh",
+        "-c",
+        &format!("echo x > {}", at(&ran)),
+    ]);
+    assert_ne!(run.code, 0, "{}", run.stdout);
+    assert!(run.stderr.contains("outside_root"), "{}", run.stderr);
+    assert!(run.stderr.contains("specforge files"), "{}", run.stderr);
+    assert!(!ran.exists(), "a program ran in the machine root");
+    let sent = Cli::on(&project).run(&[
+        "http",
+        "POST",
+        "http://127.0.0.1:9/",
+        "--body-file",
+        &at(&dir.join("body")),
+    ]);
+    assert_ne!(sent.code, 0, "{}", sent.stdout);
+    let said = format!("{}{}", sent.stdout, sent.stderr);
+    assert!(said.contains("outside_root"), "{said}");
+    assert!(!said.contains("hunter2"), "{said}");
+
+    // The project's own directory is as it was, and so is a machine root the project also holds.
+    Cli::on(&project)
+        .run(&["run", "--in", ".", "--", "/bin/sh", "-c", "true"])
+        .exits(0);
+    let inside = TestProject::new().files(&[("mine/a.txt", "a\n")]);
+    let mine = inside.root().canonicalize().unwrap().join("mine");
+    Cli::on(&inside)
+        .run(&["grants", "approve", "--root", "mine", "--at", &at(&mine)])
+        .exits(0);
+    Cli::on(&inside)
+        .run(&["run", "--in", "mine", "--", "/bin/sh", "-c", "true"])
+        .exits(0);
+}

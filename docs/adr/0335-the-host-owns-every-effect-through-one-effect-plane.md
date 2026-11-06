@@ -295,8 +295,12 @@ home path names one machine. So D2.3 gains a **machine root**, a root the user n
   name. A version 1 store reads with no machine roots and is written back as 2, so an older specforge refuses to write
   over it (W186) and never drops one. `specforge grants revoke --root <name> --machine` drops it; revoking a project
   keeps it.
-- **Reached by verbs only.** Every project's verbs reach it, under that project's ceiling: an `fs.roots` list that omits
-  its name refuses it (E090), and one that names it keeps it. No extension's grant reaches it: a capability's root is a project's root, D2.3 and D2.4
+- **Reached by `files` and `git` only.** Every project's `specforge files` and `specforge git` reach it, `--in`, `worktree
+  add` and `remove` and a local `clone` among them, under that project's ceiling: an `fs.roots` list that omits
+  its name refuses it (E090), and one that names it keeps it. `run --in` and `http`'s body file are refused there, unless
+  a root of the project also holds the path: the approval was for a place to keep repositories, not to run programs or
+  send files from. `specforge run` typed from a directory in one is that directory's own affair. `specforge grants` and
+  MCP's `specforge.doctor` show its name and target: a name is no content, and no verb reads through them. No extension's grant reaches it: a capability's root is a project's root, D2.3 and D2.4
   unchanged, and `reachable_roots` does not list it. It is a verb root, as `temp` is ([ADR
   0339](0339-a-verb-the-user-types-reaches-the-ports-under-the-ceiling.md) D2).
 - **A project's own wins.** A root the project names with the same name, reachable there, keeps the name. A stored target
