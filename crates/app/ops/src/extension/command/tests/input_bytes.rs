@@ -16,8 +16,7 @@ fn command_input_differs_from_1_10_only_by_now_and_nonce() {
         CommandFormat::Json,
         None,
         None,
-        at("2026-10-03"),
-        PINNED_NONCE.to_string(),
+        told(at("2026-10-03")),
     )
     .unwrap();
 

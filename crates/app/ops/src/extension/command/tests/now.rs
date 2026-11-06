@@ -39,8 +39,7 @@ fn a_command_input_carries_now() {
         CommandFormat::Json,
         None,
         None,
-        instant("2026-10-03T23:59:59.900Z"),
-        PINNED_NONCE.to_string(),
+        told(instant("2026-10-03T23:59:59.900Z")),
     )
     .unwrap();
     let input = last_input(&runtime);
@@ -55,7 +54,7 @@ fn a_command_input_carries_now() {
 fn a_command_input_carries_a_fresh_nonce() {
     let runtime = std::sync::Arc::new(fake());
     let fixture = fixture(&runtime);
-    let told = || {
+    let fresh = || {
         run(
             &fixture.view(),
             &routed("ok"),
@@ -67,7 +66,7 @@ fn a_command_input_carries_a_fresh_nonce() {
         .unwrap();
         last_input(&runtime)["nonce"].as_str().unwrap().to_string()
     };
-    let (first, second) = (told(), told());
+    let (first, second) = (fresh(), fresh());
     assert_ne!(first, second);
     for nonce in [&first, &second] {
         assert_eq!(nonce.len(), 32, "{nonce}");
@@ -85,8 +84,7 @@ fn a_command_input_carries_a_fresh_nonce() {
         CommandFormat::Json,
         None,
         None,
-        instant("2026-10-03T23:59:59.900Z"),
-        PINNED_NONCE.to_string(),
+        told(instant("2026-10-03T23:59:59.900Z")),
     )
     .unwrap();
     assert_eq!(last_input(&runtime)["nonce"], PINNED_NONCE);

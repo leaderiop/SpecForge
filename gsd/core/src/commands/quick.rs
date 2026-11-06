@@ -11,7 +11,7 @@ use std::collections::BTreeSet;
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, given, nonce, now, plain, run, slug, text, title};
+use super::support::{Seed, answer, given, nonce, now, plain, run, slug, text, title};
 use crate::passes::plan_shape::is_quick_id;
 
 /// How many quick ids a day has: three base-36 digits.
@@ -34,17 +34,10 @@ fn base36(n: u64) -> String {
         .collect()
 }
 
-/// A checked nonce as the stream's seed: its two halves folded.
-fn seed(nonce: &str) -> u64 {
-    let half = |text: &str| u64::from_str_radix(text, 16).expect("a nonce is hex");
-    let (high, low) = nonce.split_at(16);
-    half(high) ^ half(low)
-}
-
 /// `n` ids of `day` (`yymmdd`): each starts at a draw and probes forward to the first id neither `taken` nor already
 /// minted here, so it ends, and finds a free id whenever one exists.
 fn ids<'a>(
-    seed: u64,
+    seed: Seed,
     day: &str,
     taken: impl Iterator<Item = &'a str>,
     n: usize,
@@ -60,7 +53,7 @@ fn ids<'a>(
             "{n} quick ids asked, and {free} of {day}'s {IDS} are free"
         ));
     }
-    let mut state = seed;
+    let mut state = seed.0;
     let mut minted = Vec::with_capacity(n);
     for _ in 0..n {
         let start = draw(&mut state) % IDS;
@@ -142,7 +135,7 @@ fn asked<'a>(call: &'a CommandCall<'_>) -> Result<Vec<&'a str>, String> {
 /// `quick_init [--description|--tasks] [--batch] [--template]`: read-only, no gate, no subject.
 fn init(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     now(call)?;
-    let seed = seed(nonce(call)?);
+    let seed = nonce(call)?;
     let tasks = asked(call)?;
     let template = text(call, "template")?.unwrap_or_default();
     let date = call.today();

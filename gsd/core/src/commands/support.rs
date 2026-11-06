@@ -63,18 +63,21 @@ pub fn now<'a>(call: &'a CommandCall<'_>) -> Result<&'a str, String> {
     }
 }
 
-/// A checked nonce: the host's 32 lowercase hex digits (ADR 0341); a call the host gave none or another shape is refused,
-/// never drawn from something made up.
-pub fn nonce<'a>(call: &'a CommandCall<'_>) -> Result<&'a str, String> {
+/// What a guest's stream of values starts from: the host's nonce, its two halves folded.
+#[derive(Clone, Copy)]
+pub struct Seed(pub u64);
+
+/// The call's [`Seed`], from the host's 32 lowercase hex digits (ADR 0341); a call the host gave none or another shape
+/// is refused, never drawn from something made up.
+pub fn nonce(call: &CommandCall<'_>) -> Result<Seed, String> {
     let nonce = call.nonce();
-    if nonce.len() == 32
+    let hex = nonce.len() == 32
         && nonce
             .bytes()
-            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
-    {
-        Ok(nonce)
-    } else {
-        Err("the host sent no nonce; run the command through `specforge`".to_string())
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
+    match u128::from_str_radix(nonce, 16) {
+        Ok(digits) if hex => Ok(Seed((digits >> 64) as u64 ^ digits as u64)),
+        _ => Err("the host sent no nonce; run the command through `specforge`".to_string()),
     }
 }
 

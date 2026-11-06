@@ -4,6 +4,7 @@ use specforge_extension_sdk::CommandGraph;
 use super::*;
 
 const NONCE: &str = "0123456789abcdef0123456789abcdef";
+const SEED: Seed = Seed(0xFEDC_BA98_7654_3210);
 
 /// The command's answer over a graph holding `taken`, at a pinned clock and nonce.
 fn called(args: Value, nonce: &str, taken: &[&str]) -> CommandOutput {
@@ -43,7 +44,7 @@ fn refusal_of(args: Value) -> String {
 
 #[test]
 fn a_quick_id_is_the_day_and_three_base_36_digits() {
-    let minted = ids(seed(NONCE), "261105", std::iter::empty(), 200).unwrap();
+    let minted = ids(SEED, "261105", std::iter::empty(), 200).unwrap();
     assert_eq!(minted.len(), 200);
     for id in &minted {
         assert!(id.starts_with("261105-") && is_quick_id(id), "{id}");
@@ -55,22 +56,26 @@ fn a_quick_id_is_the_day_and_three_base_36_digits() {
 
 #[test]
 fn ids_in_the_graph_and_in_the_call_are_skipped() {
-    let first = ids(seed(NONCE), "261105", std::iter::empty(), 1)
+    let first = ids(SEED, "261105", std::iter::empty(), 1)
         .unwrap()
         .remove(0);
-    let next = ids(seed(NONCE), "261105", [first.as_str()].into_iter(), 1)
+    let next = ids(SEED, "261105", [first.as_str()].into_iter(), 1)
         .unwrap()
         .remove(0);
     assert_ne!(next, first);
     // A call never mints one id twice, even where every draw lands in one taken run.
-    let many = ids(seed(NONCE), "261105", std::iter::empty(), 5000).unwrap();
+    let many = ids(SEED, "261105", std::iter::empty(), 5000).unwrap();
     let distinct: BTreeSet<&String> = many.iter().collect();
     assert_eq!(distinct.len(), many.len());
 }
 
 #[test]
 fn the_same_nonce_mints_the_same_ids() {
-    let of = |nonce: &str| ids(seed(nonce), "261105", std::iter::empty(), 3).unwrap();
+    let of = |nonce: &str| {
+        let out = called(json!({"description": "a"}), nonce, &[]);
+        let answer: Value = serde_json::from_str(&out.stdout).expect("the answer is JSON");
+        answer["items"][0]["id"].clone()
+    };
     assert_eq!(of(NONCE), of(NONCE));
     assert_ne!(of(NONCE), of("00000000000000000000000000000001"));
 }
@@ -79,12 +84,12 @@ fn the_same_nonce_mints_the_same_ids() {
 fn a_full_day_is_refused() {
     let all: Vec<String> = (0..IDS).map(|n| format!("261105-{}", base36(n))).collect();
     let taken = || all.iter().map(String::as_str);
-    let why = ids(seed(NONCE), "261105", taken(), 1).unwrap_err();
+    let why = ids(SEED, "261105", taken(), 1).unwrap_err();
     assert!(why.contains("0 of 261105's 46656 are free"), "{why}");
     // The last free id is found wherever the draw lands; another day's ids take none of this day's.
-    let last = ids(seed(NONCE), "261105", taken().skip(1), 1).unwrap();
+    let last = ids(SEED, "261105", taken().skip(1), 1).unwrap();
     assert_eq!(last, ["261105-000"]);
-    assert_eq!(ids(seed(NONCE), "261106", taken(), 1).unwrap().len(), 1);
+    assert_eq!(ids(SEED, "261106", taken(), 1).unwrap().len(), 1);
 }
 
 #[test]

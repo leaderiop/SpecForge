@@ -499,7 +499,7 @@ pub(crate) fn called(
     caller: Caller<'_>,
 ) -> Result<CommandOutput, RunError> {
     let lent = lend::port_call(view, caller, command.extension(), Operation::Command);
-    run_on(view, command, given, format, host, lent, instant(), nonce())
+    run_on(view, command, given, format, host, lent, Told::fresh())
 }
 
 /// Keep the state `output` patched (and take it out of `output`), unless the command failed.
@@ -552,12 +552,26 @@ pub(crate) fn authored_export(view: &ProjectView<'_>) -> String {
     .expect("a graph export cannot fail")
 }
 
-/// [`run`], at the instant `at` with the `nonce` (unit tests pin both here; `run` passes the clock's and a fresh
-/// one): `today` and `now` are the instant's two renderings.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "the command, its inputs, the calling host, the lent ports, the instant and the nonce are each one thing"
-)]
+/// What a command call is told of the world: one instant and one nonce, taken once per call (ADR 0294, ADR 0341).
+struct Told {
+    at: chrono::DateTime<chrono::Utc>,
+    nonce: String,
+}
+
+impl Told {
+    /// The clock's instant, and a nonce: 16 bytes of the OS's entropy as 32 lowercase hex digits.
+    fn fresh() -> Self {
+        let mut bytes = [0u8; 16];
+        getrandom::fill(&mut bytes).expect("OS entropy unavailable");
+        Self {
+            at: instant(),
+            nonce: bytes.iter().map(|b| format!("{b:02x}")).collect(),
+        }
+    }
+}
+
+/// [`run`], `told` the instant and the nonce (unit tests pin both here; `run` tells it [`Told::fresh`]): `today` and
+/// `now` are the instant's two renderings.
 fn run_on(
     view: &ProjectView<'_>,
     command: &ExtensionCommand,
@@ -565,8 +579,7 @@ fn run_on(
     format: CommandFormat,
     host: Option<Host>,
     lent: Option<PortCall>,
-    at: chrono::DateTime<chrono::Utc>,
-    nonce: String,
+    told: Told,
 ) -> Result<CommandOutput, RunError> {
     let mut args = command.normalize(given).map_err(RunError::Args)?;
     let root = view.project_root().map_err(RunError::NoProject)?;
@@ -577,9 +590,9 @@ fn run_on(
         args,
         cwd: canonical(root).display().to_string(),
         format,
-        today: today_of(at),
-        now: now_of(at),
-        nonce,
+        today: today_of(told.at),
+        now: now_of(told.at),
+        nonce: told.nonce,
         graph: RawGraph::new(graph_export(view)).expect("the graph export is one JSON value"),
         evidence: evidence(view),
         host: host.map(|h| h.as_str().to_string()),
@@ -615,13 +628,6 @@ fn run_on(
 /// [`today_of`] and [`now_of`], so they never straddle midnight (ADR 0294).
 pub(crate) fn instant() -> chrono::DateTime<chrono::Utc> {
     chrono::Utc::now()
-}
-
-/// A command call's nonce (ADR 0341): 16 bytes of the OS's entropy as 32 lowercase hex digits.
-fn nonce() -> String {
-    let mut bytes = [0u8; 16];
-    getrandom::fill(&mut bytes).expect("OS entropy unavailable");
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// `at`'s date in UTC, `YYYY-MM-DD`.
