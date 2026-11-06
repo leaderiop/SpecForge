@@ -51,10 +51,10 @@ Options:
           Answer each file's count of matching lines: every file with a match, and every file typed by name, even at 0
 
   -q, --quiet
-          Print nothing: exit 0 when anything matched, 1 when nothing did, 2 when a typed path is missing or the search is refused (its error on stderr), as `grep -q`; it takes no --pick and no --format
+          Print nothing: exit 0 when anything matched, else 2 when a typed path is missing, a file went unread or the search is refused (its error on stderr), else 1, as `grep -q`; it takes no --pick and no --format
 
       --none
-          Print nothing: exit 0 when nothing matched, 1 when anything did, 2 when a typed path is missing or the search is refused (its error on stderr): a negative gate that never passes on a file it could not read
+          Print nothing: exit 1 when anything matched, else 2 when a typed path is missing, a file went unread or the search is refused (its error on stderr), else 0: a negative gate that never passes on a file it could not read
 
       --and-not <REGEX>
           Leave out a line (or -U match) this pattern also matches, as `| grep -v`; it takes -i and -F too, and context lines are kept
