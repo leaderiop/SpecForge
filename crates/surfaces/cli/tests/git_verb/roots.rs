@@ -307,3 +307,70 @@ fn clone_holds_both_ends_to_the_roots() {
         .exits(1);
     assert_eq!(run.json()["code"], "E090", "{}", run.stdout);
 }
+
+/// `--except` is a filter, as git's `:!<path>`: only an entry at or under the path goes, `clean` is what is left, and a
+/// withheld name may be named, since nothing at it is read.
+#[test]
+fn status_except_leaves_out_the_entries_under_a_path() {
+    let (project, repo, _) = committed();
+    repo.write("spec/kept.spec", "one\n")
+        .write("spectre.txt", "one\n")
+        .write("src/a.txt", "one\n");
+    repo.commit_all("tracked");
+    repo.write("spec/kept.spec", "two\n")
+        .write("spec/new.spec", "two\n")
+        .write(".env", "SECRET=1\n");
+    let picked = |args: &[&str], field: &str| {
+        let mut all = vec!["status"];
+        all.extend_from_slice(args);
+        git(&project, &all).exits(0).json()[field].clone()
+    };
+    let none = serde_json::json!([]);
+    let both = ["--except", "spec", "--except", ".env"];
+    assert_eq!(picked(&[], "clean"), false);
+    assert_eq!(picked(&both, "clean"), true);
+    assert!(
+        picked(&both, "entries").is_null(),
+        "an empty list is left out"
+    );
+    assert_eq!(picked(&["--except", "spec"], "tracked"), none);
+    assert_eq!(
+        picked(&["--except", "spec"], "untracked"),
+        serde_json::json!([".env"])
+    );
+    assert_eq!(picked(&["--except", "spec/kept.spec"], "tracked"), none);
+    assert_eq!(
+        picked(&["--except", "spec/kept.spec"], "untracked"),
+        serde_json::json!([".env", "spec/new.spec"])
+    );
+
+    // A name that only starts like the path stays, and a change to it counts.
+    repo.write("spectre.txt", "two\n");
+    assert_eq!(picked(&both, "tracked"), serde_json::json!(["spectre.txt"]));
+    assert_eq!(picked(&both, "clean"), false);
+
+    // A path gone from the disk still filters; the top leaves nothing.
+    std::fs::remove_dir_all(project.root().join("spec")).unwrap();
+    let all = [
+        "--except",
+        "spec",
+        "--except",
+        "spectre.txt",
+        "--except",
+        ".env",
+    ];
+    assert_eq!(picked(&all, "clean"), true);
+    assert_eq!(picked(&["--except", "."], "clean"), true);
+    assert_eq!(picked(&["--except", "src/.."], "clean"), true);
+
+    // Outside the repository nothing can be meant.
+    let outside = tempfile::tempdir().unwrap();
+    for wrong in [outside.path().to_str().unwrap(), "..", "../.."] {
+        let refused = git(&project, &["status", "--except", wrong]).exits(1);
+        assert!(
+            refused.stdout.contains("outside the repository"),
+            "{wrong}: {}",
+            refused.stdout
+        );
+    }
+}

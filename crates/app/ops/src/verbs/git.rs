@@ -1,6 +1,8 @@
 //! `specforge git` (ADR 0339): the `Git` port for people and agents, on the repository the project is in, under the
 //! project's effects ceiling (`git` read, and `write` for a change). Everything runs in process: no git program runs.
 
+use std::path::PathBuf;
+
 use serde::Serialize;
 use specforge_effects::git::{
     DiffQuery, DiffSide, GitBranchRef, GitCommit, GitError, GitFileDiff, GitPlace, GitRemote,
@@ -402,9 +404,24 @@ pub fn revs(
     Ok(RevsAnswer { revs })
 }
 
-pub fn status(verbs: &Verbs) -> Result<StatusAnswer, OpError> {
+/// `git status`, the entries at or under each `except` left out of the answer, `clean` included, as git's `:!<path>`
+/// does. A path is only a filter, read from the current directory, and nothing at it is read: it needs no root.
+pub fn status(verbs: &Verbs, except: &[PathBuf]) -> Result<StatusAnswer, OpError> {
     let place = verbs.place("status")?;
-    let status = verbs.ports().git.status(&place).map_err(failed)?;
+    let mut status = verbs.ports().git.status(&place).map_err(failed)?;
+    let except = except
+        .iter()
+        .map(|path| commit::repository_relative(verbs, &place, path))
+        .collect::<Result<Vec<_>, _>>()?;
+    status.entries.retain(|entry| {
+        !except.iter().any(|path| {
+            path.is_empty()
+                || entry
+                    .path
+                    .strip_prefix(path.as_str())
+                    .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+        })
+    });
     use specforge_effects::git::GitEntryKind as Kind;
     let paths = |kept: &dyn Fn(Kind) -> bool| {
         status

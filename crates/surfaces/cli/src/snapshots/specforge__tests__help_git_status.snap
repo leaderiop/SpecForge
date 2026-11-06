@@ -7,6 +7,9 @@ The working tree's status: each changed, conflicted and untracked path, and whet
 Usage: specforge git status [OPTIONS]
 
 Options:
+      --except <PATH>
+          Leave out what is at or under this path, as git's `:!<path>` does; `clean` is what is left, repeatable
+
       --in <DIR>
           Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
 

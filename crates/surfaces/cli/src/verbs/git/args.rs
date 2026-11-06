@@ -583,3 +583,13 @@ pub(crate) struct ShowArgs {
     #[command(flatten)]
     pub(super) verb: VerbArgs,
 }
+
+#[derive(clap::Args)]
+pub(crate) struct StatusArgs {
+    /// Leave out what is at or under this path, as git's `:!<path>` does; `clean` is what is left, repeatable
+    #[arg(long, value_name = "PATH")]
+    pub(super) except: Vec<std::path::PathBuf>,
+
+    #[command(flatten)]
+    pub(super) verb: VerbArgs,
+}

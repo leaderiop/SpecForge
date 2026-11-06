@@ -73,7 +73,7 @@ pub(crate) enum Action {
     /// What each revision names: its sha and kind, or that it names nothing
     Rev(RevArgs),
     /// The working tree's status: each changed, conflicted and untracked path, and whether it is clean
-    Status(Plain),
+    Status(StatusArgs),
     /// Every value a configuration key has, and the one git applies
     Config(ConfigArgs),
     /// The commits of a range, newest first, with their parents, people, message and trailers, and how many
@@ -173,16 +173,23 @@ impl Action {
                     },
                 )
             }
-            Action::Status(args) => answer(&args.verb, terminal, ports, git::status, |t, a| {
-                for entry in &a.status.entries {
-                    // The word the JSON answer says (`untracked`), not the Rust variant's name.
-                    let kind = serde_json::to_value(entry.kind).expect("a unit variant serializes");
-                    let kind = kind
-                        .as_str()
-                        .expect("a unit variant serializes as a string");
-                    outln!(t, "{kind} {}", shown(&entry.path));
-                }
-            }),
+            Action::Status(args) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::status(v, &args.except),
+                |t, a| {
+                    for entry in &a.status.entries {
+                        // The word the JSON answer says (`untracked`), not the Rust variant's name.
+                        let kind =
+                            serde_json::to_value(entry.kind).expect("a unit variant serializes");
+                        let kind = kind
+                            .as_str()
+                            .expect("a unit variant serializes as a string");
+                        outln!(t, "{kind} {}", shown(&entry.path));
+                    }
+                },
+            ),
             Action::Config(args) => {
                 let key = args.key;
                 answer(

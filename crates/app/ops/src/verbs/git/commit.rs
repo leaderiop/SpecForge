@@ -9,7 +9,7 @@ use specforge_common::remedy::printable;
 use specforge_effects::git::{GitError, GitPlace, Recording, Removal, Staging};
 use specforge_effects::process::{OUTPUT_CAP, USER_CEILING};
 use specforge_effects::{
-    Ceiling, EffectRequest, EnvVar, Output, ProcessClass, ProcessRequest, Shown,
+    Ceiling, EffectRequest, EnvVar, Output, ProcessClass, ProcessRequest, RealFs, Shown,
 };
 
 use super::super::{Access, Verbs};
@@ -168,7 +168,7 @@ pub fn add(verbs: &Verbs, request: &AddRequest) -> Result<super::StatusAnswer, O
         .git
         .stage(&place, &staging)
         .map_err(write_failed)?;
-    super::status(verbs)
+    super::status(verbs, &[])
 }
 
 /// `git rm`'s answer: the paths taken out of the index, from the repository's top.
@@ -367,6 +367,32 @@ pub(super) fn pathspecs(
             }
         })
         .collect()
+}
+
+/// `path` (read from the current directory, a link at its name not followed) from the repository's top: empty for the
+/// top itself. Nothing is read, so it needs no root.
+pub(super) fn repository_relative(
+    verbs: &Verbs,
+    place: &GitPlace,
+    path: &Path,
+) -> Result<String, OpError> {
+    let written = verbs.cwd().join(path);
+    let at = match (written.file_name(), written.parent()) {
+        (Some(name), Some(parent)) => RealFs::landing(parent).join(name),
+        _ => RealFs::landing(&written),
+    };
+    let rel = at.strip_prefix(&place.toplevel).map_err(|_| {
+        OpError::new(
+            OpErrorKind::InvalidInput,
+            super::OUTSIDE_REPOSITORY,
+            format!(
+                "{} is outside the repository at {}",
+                printable(&path.to_string_lossy()),
+                printable(&place.toplevel.to_string_lossy())
+            ),
+        )
+    })?;
+    Ok(rel.to_string_lossy().replace('\\', "/"))
 }
 
 /// Where `path` (read from the current directory) lands, once the project's roots hold it for a write and it is not
