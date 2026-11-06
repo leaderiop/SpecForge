@@ -462,12 +462,89 @@ fn a_machine_root_that_is_or_holds_the_home_is_refused() {
     assert!(!target.exists());
 }
 
+/// A machine root reaches every project's verbs, so one at a credential directory would print its tokens: `files read
+/// ~/.config/gh/hosts.yml`. Judged after links, before anything is made.
+#[test]
+fn a_machine_root_is_no_hidden_directory_of_the_home_and_no_system_directory() {
+    let fx = Fixture::new();
+    let home = fx.project.home().canonicalize().unwrap();
+    std::fs::create_dir_all(home.join(".config/gh")).unwrap();
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(home.join(".config/gh"), home.join("shortcut")).unwrap();
+    let mut refused = vec![
+        "~/.config",
+        "~/.config/gh",
+        "~/.claude",
+        "~/.gnupg",
+        "~/.aws",
+        "~/.aws/deep/er",
+        "~/Library",
+        "~/Library/Keychains",
+        "~/AppData/Roaming",
+    ];
+    #[cfg(unix)]
+    refused.extend([
+        "~/shortcut",
+        "~/shortcut/sub",
+        "/etc",
+        "/etc/specforge-refused",
+        "/usr",
+        "/usr/local/specforge-refused",
+        "/bin",
+        "/sbin",
+        "/var",
+        "/var/specforge-refused",
+        "/private",
+        "/private/specforge-refused",
+        "/System",
+        "/Library",
+        "/Library/specforge-refused",
+        "/opt",
+        "/opt/specforge-refused",
+        "/proc",
+        "/sys",
+        "/dev",
+    ]);
+    #[cfg(windows)]
+    refused.extend([
+        "C:\\Windows",
+        "C:\\Windows\\System32",
+        "C:\\Program Files",
+        "C:\\Program Files (x86)\\x",
+        "C:\\ProgramData",
+    ]);
+    for at in refused {
+        let run = fx.cmd(&[&APPROVE[..], &[at]].concat()).assert().failure();
+        let stderr = String::from_utf8_lossy(&run.get_output().stderr).into_owned();
+        assert!(stderr.contains("directory"), "{at}: {stderr}");
+        let store = fx.json(&["grants", "--store", "--format", "json"]);
+        assert_eq!(store["machine_roots"], serde_json::json!([]), "{at} stored");
+    }
+    assert!(!home.join(".claude").exists(), "a refusal makes nothing");
+    assert!(!home.join(".config/gh/sub").exists());
+
+    // What only looks like one, and a home that itself lies where the system's directories are.
+    for (at, made) in [
+        ("~/work.d/.cache", "work.d/.cache"),
+        ("~/etc", "etc"),
+        ("~/gsd-workspaces", "gsd-workspaces"),
+    ] {
+        fx.cmd(&[&APPROVE[..], &[at]].concat()).assert().success();
+        assert!(home.join(made).is_dir(), "{at}");
+    }
+}
+
 /// A root can't be made over the store that holds it: a block could then write its own approvals through a verb.
 #[test]
 fn a_machine_root_never_reaches_the_consent_store() {
     let fx = Fixture::new();
-    let dir = TempDir::new().unwrap();
-    let dir_path = dir.path().canonicalize().unwrap();
+    let dir_path = fx
+        .project
+        .home()
+        .canonicalize()
+        .unwrap()
+        .join("beside-store");
+    std::fs::create_dir(&dir_path).unwrap();
     let store = dir_path.join("store/consent.json");
     let approve = |at: std::path::PathBuf| {
         Cli::on(&fx.project)

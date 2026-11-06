@@ -284,6 +284,13 @@ home path names one machine. So D2.3 gains a **machine root**, a root the user n
   with its parents, then canonicalized.
 - **What it may not be.** The home directory, a directory that holds it, a filesystem root, or a directory that is, holds
   or lies in the host's own state or the consent store's directory: a root there could write the store that approves it.
+  Nor, judged after links and before anything is made, one that is or lies in a hidden directory of the home (`~/.x…`, and
+  `~/Library` and `~/AppData`, which hold the same things on macOS and Windows): `--at ~/.config/gh` would have `files read`
+  print a token, and no list of credential names keeps up with the tools a machine has. Nor a directory of the system:
+  `/etc`, `/usr`, `/bin`, `/sbin`, `/var`, `/private`, `/System`, `/Library`, `/opt`, `/lib`, `/lib64`, `/boot`, `/dev`,
+  `/proc`, `/sys`, `/run`; on Windows `Windows`, `Program Files`, `Program Files (x86)`, `ProgramData`. A home can lie in one
+  (`/var/lib/ci`, a macOS temporary home under `/private`), so what is under the home is judged only as the home's. So `/tmp`
+  is refused on macOS, where it lands in `/private`, and not on Linux.
 - **Kept in the store.** D2.5's store holds it (store version 2) with its canonical target, replacing one of the same
   name. A version 1 store reads with no machine roots and is written back as 2, so an older specforge refuses to write
   over it (W186) and never drops one. `specforge grants revoke --root <name> --machine` drops it; revoking a project

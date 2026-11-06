@@ -91,8 +91,27 @@ fn from_home<'a>(at: &'a Path, home: Option<&Path>) -> Result<std::borrow::Cow<'
     Ok(home.join(parts.as_path()).into())
 }
 
+/// The directories under the top of a filesystem that are the system's. `/etc` and `/var` land in `/private` on macOS.
+#[cfg(not(windows))]
+const SYSTEM_DIRS: [&str; 16] = [
+    "etc", "usr", "bin", "sbin", "var", "private", "System", "Library", "opt", "lib", "lib64",
+    "boot", "dev", "proc", "sys", "run",
+];
+#[cfg(windows)]
+const SYSTEM_DIRS: [&str; 4] = [
+    "Windows",
+    "Program Files",
+    "Program Files (x86)",
+    "ProgramData",
+];
+
+/// A home's directories that hold what its hidden ones hold elsewhere: keychains and tokens on macOS and Windows.
+const PRIVATE_IN_HOME: [&str; 2] = ["Library", "AppData"];
+
 /// `Err` when a root at `target` would reach what a root must not: the home directory or what holds it, a filesystem
-/// root, the host's own state, a credential directory or the store itself, which could then approve anything.
+/// root, a hidden directory of the home (where credentials live, under any name), a directory of the system, the host's
+/// own state, or the store itself, which could then approve anything. A home can lie anywhere (`/var/lib/ci`, `/root`),
+/// so what is under it is judged as the home's and never as the system's.
 fn not_a_machine_root(
     target: &Path,
     home: Option<&Path>,
@@ -107,20 +126,36 @@ fn not_a_machine_root(
     if target.parent().is_none() {
         return refuse("is a filesystem root");
     }
-    if home.is_some_and(|home| resolved(home).starts_with(target)) {
+    let home = home.map(resolved);
+    if home.as_deref().is_some_and(|home| home.starts_with(target)) {
         return refuse("is or holds the home directory");
     }
-    let host_state = specforge_effects::contained::HOST_STATE;
-    let inside_credentials = specforge_effects::contained::credential(&format!(
-        "{}/x",
-        target.to_string_lossy().replace('\\', "/")
-    ));
-    if inside_credentials
-        || target
-            .components()
-            .any(|part| part.as_os_str().eq_ignore_ascii_case(host_state))
+    let first = |path: &Path| {
+        path.components().find_map(|part| match part {
+            Component::Normal(name) => Some(name.to_string_lossy().into_owned()),
+            _ => None,
+        })
+    };
+    let named = |list: &[&str], name: &str| list.iter().any(|dir| name.eq_ignore_ascii_case(dir));
+    match home
+        .as_deref()
+        .and_then(|home| target.strip_prefix(home).ok())
     {
-        return refuse("lies in the host's own state or a credential directory");
+        Some(rel) => {
+            if first(rel).is_some_and(|dir| dir.starts_with('.') || named(&PRIVATE_IN_HOME, &dir)) {
+                return refuse("is or lies in a hidden directory of the home");
+            }
+        }
+        None => {
+            if first(target).is_some_and(|dir| named(&SYSTEM_DIRS, &dir)) {
+                return refuse("is or lies in a directory of the system");
+            }
+        }
+    }
+    if specforge_effects::contained::withheld(&target.to_string_lossy().replace('\\', "/")) {
+        return refuse(
+            "is named as the host's own state or a credential is, so it is no directory of its own",
+        );
     }
     let store = resolved(Path::new(&consent.store()));
     let holds_store = store.starts_with(target);
