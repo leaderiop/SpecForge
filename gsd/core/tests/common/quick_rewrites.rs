@@ -15,6 +15,8 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/quick.md", 480, 482),
     ("gsd-core/workflows/quick.md", 564, 564),
     ("gsd-core/workflows/quick.md", 570, 570),
+    // The review scope is one path per line.
+    ("gsd-core/workflows/quick.md", 617, 617),
     ("gsd-core/workflows/quick/steps/discussion-phase.md", 40, 40),
     ("gsd-core/workflows/quick/steps/discussion-phase.md", 69, 69),
     ("gsd-core/workflows/quick/steps/discussion-phase.md", 71, 71),

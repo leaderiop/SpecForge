@@ -210,7 +210,12 @@ fn a_quick_tasks_changed_files_are_its_commits_files() {
     let p = committed(&[
         (
             "feat(01-01): Store module",
-            &[("src/b.js", "x\n"), ("src/a.js", "y\n")],
+            &[
+                ("src/b.js", "x\n"),
+                ("src/a.js", "y\n"),
+                ("src/my file.js", "s\n"),
+                ("src/two\nlines.js", "n\n"),
+            ],
         ),
         ("fix(01-01): Store fix", &[("src/a.js", "z\n")]),
     ]);
@@ -221,7 +226,12 @@ fn a_quick_tasks_changed_files_are_its_commits_files() {
         &p,
         &format!("quick_id=v1.0/01/01-01\n{code}\nprintf '[%s]' \"$CHANGED_FILES\""),
     );
-    assert_eq!(out, "[src/a.js src/b.js]", "{err}");
+    // one path per line: a space stays in its name, and a newline in a name never reads as two paths
+    assert_eq!(
+        out, "[src/a.js\nsrc/b.js\nsrc/my file.js\nsrc/two\\nlines.js]",
+        "{err}"
+    );
+    assert!(text.contains("Files (one path per line; a path may hold spaces): ${CHANGED_FILES}"));
     // an empty scope says why, in the words of what was read (there is no resolver's status)
     let why = block(
         &text,

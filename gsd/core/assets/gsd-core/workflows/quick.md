@@ -600,7 +600,7 @@ If no active code-review step hook exists, skip with message "Code review skippe
 # A failed read leaves the scope empty, and the reason below names it (the `|| QUICK_SCOPE_RC=$?`
 # keeps the capture alive: a bare assignment aborts under `set -e`).
 QUICK_SCOPE_RC=0
-CHANGED_FILES=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${quick_id}" --depth 0 --pick '.nodes[0].fields.files_touched[]' --join ' ') || QUICK_SCOPE_RC=$?
+CHANGED_FILES=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${quick_id}" --depth 0 --pick '.nodes[0].fields.files_touched[]') || QUICK_SCOPE_RC=$?
 
 
 if [ -z "$CHANGED_FILES" ]; then
@@ -616,7 +616,7 @@ If `CHANGED_FILES` is empty, skip with "No source files changed — skipping cod
 ```
 Agent(
   prompt="Review these files for bugs, security issues, and code quality.
-  Files: ${CHANGED_FILES}
+  Files (one path per line; a path may hold spaces): ${CHANGED_FILES}
   Output: ${QUICK_DIR}/${quick_id}-REVIEW.md
   Depth: quick",
   subagent_type="gsd-code-reviewer",
