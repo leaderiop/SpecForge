@@ -203,7 +203,8 @@ fn a_verification_status_routes_in_the_shell() {
 
 #[test]
 fn a_quick_tasks_changed_files_are_its_commits_files() {
-    let Some(sh) = Shell::without_jq() else {
+    // the collector's capability runs git: nothing else
+    let Some(sh) = Shell::only(&["git"]) else {
         return;
     };
     let p = committed(&[
