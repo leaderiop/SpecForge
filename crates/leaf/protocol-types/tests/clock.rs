@@ -1,5 +1,5 @@
 //! Which inputs carry the clock (ADR 0294): a command, a hook and a writing collector carry `now`; a prompt, a render
-//! and a pass do not. `today` is kept beside it.
+//! and a pass do not. `today` is kept beside it. Only a command carries a nonce (ADR 0341).
 #![allow(
     clippy::unwrap_used,
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
@@ -42,6 +42,27 @@ fn a_command_and_a_hook_say_now_beside_today() {
         serde_json::to_value(&hook).unwrap()["now"],
         "2026-10-28T09:30:00Z"
     );
+}
+
+#[test]
+fn a_command_input_carries_its_nonce_and_no_other_input_does() {
+    assert!(!keys(CommandInput::<RawGraph>::default()).contains(&"nonce".to_string()));
+    let command = CommandInput::<RawGraph> {
+        nonce: "0123456789abcdef0123456789abcdef".into(),
+        ..Default::default()
+    };
+    assert_eq!(
+        serde_json::to_value(&command).unwrap()["nonce"],
+        "0123456789abcdef0123456789abcdef"
+    );
+    for others in [
+        keys(HookInput::<RawGraph>::default()),
+        keys(CollectInput::<RawGraph>::default()),
+        keys(PromptInput::<RawGraph>::default()),
+        keys(PassInput::default()),
+    ] {
+        assert!(!others.contains(&"nonce".to_string()), "{others:?}");
+    }
 }
 
 #[test]

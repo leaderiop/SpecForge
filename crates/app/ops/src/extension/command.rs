@@ -574,6 +574,7 @@ fn run_on(
         format,
         today: today_of(at),
         now: now_of(at),
+        nonce: String::new(),
         graph: RawGraph::new(graph_export(view)).expect("the graph export is one JSON value"),
         evidence: evidence(view),
         host: host.map(|h| h.as_str().to_string()),

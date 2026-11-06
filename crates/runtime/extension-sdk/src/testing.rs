@@ -205,6 +205,7 @@ pub fn call_every_command_with(
                     (None, true) => String::new(),
                     (None, false) => format!("{today}T00:00:00Z"),
                 },
+                nonce: String::new(),
                 evidence: Default::default(),
                 // A writing command receives the revision of every source its graph names.
                 revisions: if command.writes {

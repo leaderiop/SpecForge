@@ -1840,6 +1840,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Now**: the host's clock at a call, `YYYY-MM-DDTHH:MM:SSZ` (RFC 3339, UTC, seconds): `CommandInput.now`,
   `HookInput.now` and a writing collector's `CollectInput.now`, the same instant as `today`, its date (ADR 0294). A pass
   and a prompt are not told it.
+- **Nonce**: 16 bytes of the host's entropy as 32 lowercase hex digits, fresh per command call: `CommandInput.nonce`, the
+  source of a guest's random values, so a test pins them as it pins **Now**. Randomness, not a secret; a pass, prompt,
+  hook and collector are not told one (ADR 0341).
 - **Prompt judge**: a judged rule's judge `prompt:<id>`, a prompt of the rule's own extension instead of an agent; the
   registry checks the prompt (W112) and the verdict names it (ADR 0295).
 - **Settings set**: `specforge settings set` and `unset`, MCP `specforge.settings_set`: one setting of `specforge.json`
