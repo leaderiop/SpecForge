@@ -142,3 +142,34 @@ fn remove_workspace_guards_the_name_and_the_path() {
         assert!(!passed(bad), "{bad} was accepted");
     }
 }
+
+/// A repository whose status cannot be read must not count as clean: `rm -rf` follows in step 5. Its `.git` names a
+/// git directory that does not exist, so no status can read it, with git installed or not.
+#[test]
+fn remove_workspace_counts_a_repo_it_cannot_read_as_dirty() {
+    let p = twin();
+    let text = text_of(&payload(&prompt(
+        &p,
+        "workspace",
+        &["--remove", "--name", "ws"],
+        "claude-code",
+    )));
+    let line = text
+        .lines()
+        .find(|l| l.starts_with("[ -n \"$WORKSPACE_NAME\" ] ||"))
+        .expect("the guard line")
+        .to_string();
+    let home = tempfile::tempdir().expect("a home");
+    let repo = home.path().join("gsd-workspaces/ws/repo");
+    std::fs::create_dir_all(&repo).expect("a repository");
+    std::fs::write(repo.join(".git"), "gitdir: /nonexistent\n").expect("its .git");
+    let out = std::process::Command::new("bash")
+        .args([
+            "-c",
+            &format!("WORKSPACE_NAME=ws\nRESPONSE_LANGUAGE=\n{line}\necho \"[$DIRTY_REPOS]\""),
+        ])
+        .env("HOME", home.path())
+        .output()
+        .expect("bash");
+    assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "[]");
+}
