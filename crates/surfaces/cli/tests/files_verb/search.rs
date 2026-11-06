@@ -653,3 +653,28 @@ fn a_refusal_prints_a_hostile_path_as_text() {
     assert!(!run.stderr.contains('\u{1b}'), "{:?}", run.stderr);
     assert!(run.stderr.contains(r"\u{1b}[31m"), "{:?}", run.stderr);
 }
+
+/// `.*\n` crosses a CRLF line under `-U`, as `grep -A N X | grep Y` did.
+#[test]
+fn a_multiline_pattern_crosses_crlf_lines() {
+    let project = TestProject::new().file("w.js", "fetch('/x')\r\n\r\n.then(ok)\r\n");
+    let found = |pattern: &str| {
+        Cli::on(&project)
+            .run(&["files", "search", "-U", pattern, "w.js"])
+            .exits(0)
+            .answer()
+    };
+    let answer = found(r"fetch(.*\n){0,3}?.*then");
+    assert_eq!(answer["count"], 1, "{answer}");
+    assert_eq!(answer["matches"][0]["line"], 1, "{answer}");
+    assert_eq!(answer["matches"][0]["end_line"], 3, "{answer}");
+    assert_eq!(found(r"fetch(.*\n){0,1}?.*then")["count"], 0);
+    // The text carries no `\r`.
+    assert_eq!(answer["matches"][0]["text"], "fetch('/x')\n\n.then(ok)");
+    // Without `-U` a CRLF line still reads without its `\r`.
+    let line = Cli::on(&project)
+        .run(&["files", "search", r"ok\)$", "w.js"])
+        .exits(0)
+        .answer();
+    assert_eq!(line["matches"][0]["text"], ".then(ok)", "{line}");
+}

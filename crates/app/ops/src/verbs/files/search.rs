@@ -429,18 +429,16 @@ impl SearchAnswer {
 }
 
 /// `pattern` (the search's own or an `--and-not`) as `search` asks it matched, as ripgrep builds its matcher: a line's
-/// `^` and `$` at each line, CRLF lines read without their `\r`, and unless `multiline` no match that crosses a line (a
-/// pattern that needs a `\n` is refused).
+/// `^` and `$` at each line, and without `multiline` a CRLF line read without its `\r` and no match that crosses a line
+/// (a pattern that needs a `\n` is refused). Under `multiline` `.` matches a `\r`, so `(.*\n)` crosses a CRLF line, and
+/// `$` holds only directly before a `\n`.
 fn matcher(search: &Search, pattern: &str) -> Result<RegexMatcher, OpError> {
     let mut builder = RegexMatcherBuilder::new();
     builder
         .case_insensitive(search.ignore_case)
         .fixed_strings(search.fixed)
         .multi_line(true)
-        .crlf(true);
-    if search.multiline {
-        builder.line_terminator(None);
-    }
+        .crlf(!search.multiline);
     builder.build(pattern).map_err(|error| {
         OpError::new(
             OpErrorKind::InvalidInput,
