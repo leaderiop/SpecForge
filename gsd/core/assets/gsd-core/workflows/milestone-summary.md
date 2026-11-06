@@ -95,17 +95,17 @@ specforge git diff --base "$(specforge git log "v${VERSION}" --reverse --pick '.
 ```
 
 **Method 2 — The milestone's start** (if no tag):
-Read the milestone's `started` and use it as the `--since` boundary:
+Read the milestone's `first_commit` and count from it, a range, so a rebase can't widen it:
 ```bash
-STARTED=$(specforge query "v${VERSION}" --depth 0 --pick '.nodes[0].fields.started'); [ -n "$STARTED" ] && specforge git log --since="$STARTED" --pick .count
+FIRST=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "v${VERSION}" --depth 0 --pick '.nodes[0].fields.first_commit'); [ -n "$FIRST" ] && specforge git log "$FIRST^..HEAD" --pick .count
 ```
 
 **Method 3 — Earliest recorded commit** (if no date was recorded):
-`started` is the time of the milestone's first recorded commit, so Method 2 has already read it.
+`first_commit` is the milestone's first recorded commit, so Method 2 has already read it.
 
 
 
-An empty `started` means no commit is recorded.
+An empty `first_commit` means no commit is recorded.
 
 **Method 4 — Skip stats** (if none of the above work):
 Report "Git statistics unavailable — no tag or date range could be determined." This is not an error — the summary continues without the Stats section.

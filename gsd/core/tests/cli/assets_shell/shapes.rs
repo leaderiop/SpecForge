@@ -468,40 +468,75 @@ fn an_inline_plan_is_closed_on_its_summary() {
     assert!(fields["completed"].is_string() && fields["duration"].is_string());
 }
 
-/// The summary's start is the milestone's first recorded commit: its `started`, read and counted from, under
-/// `specforge` alone. With no commit recorded, the line prints nothing.
+/// Method 2's line, as the workflow gives it.
+fn milestone_count_line() -> String {
+    let text = asset("gsd-core/workflows/milestone-summary.md");
+    let found = text
+        .lines()
+        .find(|l| l.contains("specforge query \"v${VERSION}\" --depth 0"))
+        .expect("Method 2's line");
+    format!("VERSION=1.0\n{found}")
+}
+
+/// `git commit` with no identity of the machine's, its message `subject`.
+fn committing(subject: &str) -> String {
+    format!(
+        "git add -A && git -c user.name=gsd -c user.email=gsd@example.com -c commit.gpgsign=false \
+         -c core.hooksPath=/dev/null commit -q --allow-empty -m '{subject}'"
+    )
+}
+
+/// The count starts at the milestone's first recorded commit, and the line collects first, so commits made since the
+/// last collect count. With no commit recorded, the line prints nothing.
 #[test]
-fn a_milestone_summary_reads_the_milestones_start() {
-    let Some(sh) = Shell::only(&[]) else {
-        return;
-    };
-    let Some(with_git) = Shell::only(&["git"]) else {
+fn a_milestone_summary_counts_from_the_milestones_first_commit() {
+    let Some(sh) = Shell::only(&["git"]) else {
         return;
     };
     let p = project("execute");
     p.init_repository();
-    // `--since` reads the committer's time, which `Project::git` pins past every date here: this one is older
-    let (_, err, code) = run(
-        &with_git,
-        &p,
-        "git add -A && GIT_COMMITTER_DATE=2026-10-28T08:00:00Z git -c user.name=gsd -c user.email=gsd@example.com \
-         -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m baseline",
-    );
+    let (_, err, code) = run(&sh, &p, &committing("baseline"));
     assert_eq!(code, 0, "{err}");
-    let text = asset("gsd-core/workflows/milestone-summary.md");
-    let code = format!(
-        "VERSION=1.0\n{}",
-        line(&text, "STARTED=$(specforge query \"v${VERSION}\"")
-    );
+    let code = milestone_count_line();
     let (out, err, _) = run(&sh, &p, &code);
     assert_eq!(out, "", "{err}");
-    p.git_commit("feat(01-01): Store module", &[("src/a.js", "y\n")], T0);
+    let first = p.git_commit("feat(01-01): Store module", &[("src/a.js", "y\n")], T0);
     p.git_commit("fix(01-01): Store fix", &[("src/a.js", "z\n")], T1);
-    let collected = p.run(&["collect", "--runner", "gsd-git", "--yes"]);
-    assert_eq!(collected.code, 0, "{}", collected.all());
-    assert_eq!(p.fields_of("v1.0")["started"], T0);
     let (out, err, _) = run(&sh, &p, &code);
     assert_eq!(out.trim(), "2", "{err}");
+    assert_eq!(p.fields_of("v1.0")["first_commit"], first[..12]);
+}
+
+/// Three milestone commits rebased over two others keep their author times and take new committer times: they count
+/// three, however the two clocks read.
+#[test]
+fn a_rebased_milestone_counts_its_own_commits() {
+    let Some(sh) = Shell::only(&["git"]) else {
+        return;
+    };
+    let p = project("execute");
+    p.init_repository();
+    let script = format!(
+        "{} && git branch -M main && git checkout -q -b work",
+        committing("baseline")
+    );
+    let (_, err, code) = run(&sh, &p, &script);
+    assert_eq!(code, 0, "{err}");
+    p.git_commit("feat(01-01): one", &[("src/a.js", "1\n")], T0);
+    p.git_commit("fix(01-01): two", &[("src/a.js", "2\n")], T1);
+    p.git_commit("fix(01-01): three", &[("src/a.js", "3\n")], T1);
+    let script = format!(
+        "git checkout -q main && {} && {} && git -c user.name=gsd -c user.email=gsd@example.com \
+         -c commit.gpgsign=false -c core.hooksPath=/dev/null rebase -q main work",
+        committing("chore: main moved"),
+        committing("chore: main moved again")
+    );
+    let (out, err, code) = run(&sh, &p, &script);
+    assert_eq!(code, 0, "{out}{err}");
+    let collected = p.run(&["collect", "--runner", "gsd-git", "--yes"]);
+    assert_eq!(collected.code, 0, "{}", collected.all());
+    let (out, err, _) = run(&sh, &p, &milestone_count_line());
+    assert_eq!(out.trim(), "3", "{err}");
 }
 
 /// The handoff is written before the `pause` that holds the time, so it asks for no time of its own.

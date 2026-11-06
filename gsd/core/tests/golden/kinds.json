@@ -1468,11 +1468,11 @@
           },
           {
             "default_value": null,
-            "description": "its first recorded commit's time; absent without one",
+            "description": "its first recorded commit, oldest by author time; absent without one",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
-            "name": "started",
+            "name": "first_commit",
             "required": false,
             "target_kind": null,
             "writer": "computed"

@@ -135,22 +135,23 @@ fn a_milestone_starts_at_its_first_recorded_commit() {
         ],
         ..Default::default()
     };
-    let started = |input: &PassInput, commits: &[Commit]| {
+    let first_commit = |input: &PassInput, commits: &[Commit]| {
         values(input, commits, &Statuses::new(), &BTreeMap::new())
             .into_iter()
-            .find(|v| v.entity == "v1.0" && v.field == "started")
+            .find(|v| v.entity == "v1.0" && v.field == "first_commit")
             .map(|v| v.value)
     };
-    assert_eq!(started(&input, &[]), None);
+    assert_eq!(first_commit(&input, &[]), None);
+    let dated = |id: &str, plan: &str, at: &str| Commit {
+        id: id.into(),
+        ..commit(plan, "feat", at, &[], 0, 0)
+    };
     let commits = [
-        commit("v1.0/01/01-01", "feat", "2026-10-28T08:00:00Z", &[], 0, 0),
-        commit("v1.0/01/01-01", "feat", "2026-10-29T08:00:00Z", &[], 0, 0),
-        commit("other", "feat", "2026-10-01T08:00:00Z", &[], 0, 0),
+        dated("first", "v1.0/01/01-01", "2026-10-28T08:00:00Z"),
+        dated("later", "v1.0/01/01-01", "2026-10-29T08:00:00Z"),
+        dated("elsewhere", "other", "2026-10-01T08:00:00Z"),
     ];
-    assert_eq!(
-        started(&input, &commits),
-        Some(json!("2026-10-28T08:00:00Z"))
-    );
+    assert_eq!(first_commit(&input, &commits), Some(json!("first")));
     input.edges.clear();
-    assert_eq!(started(&input, &commits), None);
+    assert_eq!(first_commit(&input, &commits), None);
 }

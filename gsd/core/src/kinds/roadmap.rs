@@ -40,9 +40,9 @@ pub const MILESTONE: Kind = Kind::new(
         en("state", MILESTONE_STATE)
             .c()
             .doc("planned, in progress or shipped, from its phases and its completion"),
-        ts("started")
+        str("first_commit")
             .c()
-            .doc("its first recorded commit's time; absent without one"),
+            .doc("its first recorded commit, oldest by author time; absent without one"),
         date("shipped").c().doc("Shipped: the completion's date"),
         block("stats", STATS)
             .c()

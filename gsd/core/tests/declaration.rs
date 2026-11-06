@@ -258,7 +258,7 @@ fn milestone_and_phase_declare_the_fields_of_the_model() {
             "workstream",
             "completion",
             "state",
-            "started",
+            "first_commit",
             "shipped",
             "stats",
             "git_range",
