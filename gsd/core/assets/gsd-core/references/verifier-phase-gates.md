@@ -92,7 +92,7 @@ specforge files search 'it\.skip|describe\.skip|test\.skip|xit\(|xdescribe\(|xte
 Search for scripts/utilities that generate expected values by running the system under test:
 
 ```bash
-specforge files search 'writeFileSync|writeFile|fs\.write|open\(.*w\)' "$TEST_DIRS" --format human
+specforge files search 'writeFileSync|writeFile|fs\.write|open\(.*w\)' "$TEST_DIRS" --hidden --format human
 ```
 
 For each match, check if it also imports the system/service/module being tested. If a script both imports the system-under-test AND writes expected output values → CIRCULAR.

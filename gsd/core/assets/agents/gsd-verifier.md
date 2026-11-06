@@ -479,7 +479,7 @@ SUMMARY.md probe pass claims are not evidence. If a phase declares or implies pr
 specforge files list scripts --kind file --glob 'tests/probe-*.sh' --glob '*/tests/probe-*.sh' --pick '.entries[].path' 2>/dev/null
 
 # Phase-declared probes
-specforge files search 'probe-[^[:space:]]+\.sh|scripts/.*/tests/probe-.*\.sh' spec/ --pick '.matches[].text'
+specforge files search 'probe-[^[:space:]]+\.sh|scripts/.*/tests/probe-.*\.sh' spec/ --no-ignore --pick '.matches[].text'
 ```
 
 **Execution contract:**

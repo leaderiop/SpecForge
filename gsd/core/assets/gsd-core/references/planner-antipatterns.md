@@ -140,7 +140,7 @@ One marker per literal. The marker exempts only the exact literal it names.
 
 > Surfaced at plan-write time by `verify.plan-structure` (the `validate_plan` step), WARN-level. Issue #968.
 
-A **negative search** — `specforge files search --none 'PAT' file` — asserts a construct is absent. A search is file-scoped by nature: it has no notion of function or region. This breaks down when a phase splits one file across parallel tasks with legitimately opposite needs for the same construct in different regions:
+A **negative search** — `specforge files search --none 'PAT' file` — asserts a construct is absent. A search is file-scoped by nature: it has no notion of function or region. Over a directory it walks neither hidden nor gitignored names, so a ban that must hold there too takes `--hidden --no-ignore`. This breaks down when a phase splits one file across parallel tasks with legitimately opposite needs for the same construct in different regions:
 
 - **Task A** bans the construct file-wide — a synchronous factory must not block on a refresh: `specforge files search --none 'await .*refresh' app/page.py`.
 - **Task B** legitimately requires it elsewhere in the same file — a post-reindex handler must `await bridge.refresh()` to repopulate state.

@@ -56,8 +56,8 @@
     "sha256": "711a7f7c055efe769e248e299e51b8d4a8d878541361be1b0df616825f2e06ee"
   },
   ".codex/agents/gsd-verifier.toml": {
-    "bytes": 51280,
-    "sha256": "21cda5803d55579b423a0b6e319fcb1802b1fb2d74cc50a34aa30ddb9c7cc3a5"
+    "bytes": 51292,
+    "sha256": "043df302203471849186425b7c4b9698c53ed1e0890284f03a00314b00d026f5"
   },
   ".codex/config.toml": {
     "bytes": 124,

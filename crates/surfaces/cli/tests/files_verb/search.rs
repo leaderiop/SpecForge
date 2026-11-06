@@ -31,6 +31,35 @@ fn search_reports_every_line_once_and_the_first_column() {
     assert_eq!(anchored.stdout, "2\n");
 }
 
+/// A walk leaves out hidden and gitignored names, as ripgrep's does and `grep -r` does not: a verdict
+/// over a directory says nothing of them until `--hidden` and `--no-ignore` ask for them. A typed
+/// directory is walked even when `.gitignore` names it.
+#[test]
+fn a_verdict_over_a_directory_reaches_what_its_flags_name() {
+    let project = project().files(&[
+        (".gitignore", "plans/\nsrc/made.ts\n"),
+        ("plans/a.md", "clean\n"),
+        ("plans/b.md", "needle\n"),
+        ("src/made.ts", "needle\n"),
+        ("src/.dot.ts", "needle\n"),
+        ("src/seen.ts", "clean\n"),
+    ]);
+    let cli = Cli::on(&project);
+    cli.run(&["files", "search", "--none", "needle", "src"])
+        .exits(0);
+    for flags in [
+        &["--no-ignore"][..],
+        &["--hidden"],
+        &["--hidden", "--no-ignore"],
+    ] {
+        let mut words = vec!["files", "search", "--none", "needle", "src"];
+        words.extend(flags);
+        cli.run(&words).exits(1);
+    }
+    cli.run(&["files", "search", "--none", "needle", "plans"])
+        .exits(1);
+}
+
 /// A project with `notes/ctx.txt`: `hit` on lines 2, 5 and 10.
 fn context_project() -> TestProject {
     project().files(&[(

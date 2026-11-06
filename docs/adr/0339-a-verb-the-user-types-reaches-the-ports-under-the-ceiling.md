@@ -263,6 +263,12 @@ path is held to the roots, the host's own state stays withheld.
 - **Where it differs from ripgrep.** Per-file counts are `--counts`, not `-c` (`--count` is `--pick`'s shape, ADR
   0325 D8); `--and-not` and `--none` are not ripgrep's; there is no implicit standard input, no `-e`, no PCRE2; a
   missing path is listed, not an error.
+- **A walk's reach.** A typed directory is walked as `files list` walks it: hidden names and what `.gitignore` names
+  are left out unless `--hidden` and `--no-ignore` ask for them, as in ripgrep and unlike `grep -r`, which read them.
+  A typed directory `.gitignore` names is still walked. So a `--none` over a directory judges only what it reached,
+  and a gate that means every file says so. Under `--hidden`, a withheld name it meets (`.env`) is `unread`, so that
+  `--none` exits 2 until a `--glob '!.env'` leaves it out. GSD's two gates that need more ask for it: the verifier's
+  phase-declared probes (`--no-ignore`, a phase's files can be gitignored) and the circular-test scan (`--hidden`).
 - **Rejected.** A context-plus-second-pattern flag (hand-written, where the library's `-U` says the same) and PCRE2
   lookaround (`grep-pcre2`, C code) for proximity; for line exclusion, leaving agents to filter the JSON by judgement
   (exact counts lost) and PCRE2's `^(?!.*Q).*P`. `--and-not` is a second `grep-regex` matcher the sink asks.

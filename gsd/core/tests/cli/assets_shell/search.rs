@@ -445,6 +445,33 @@ fn the_hook_check_leaves_out_only_the_hooks_own_file() {
     }
 }
 
+/// A walk skips what `.gitignore` names and every hidden name. A phase's planning files can be
+/// gitignored (`commit_docs: false`) and a test directory's helpers hidden: the two gates that
+/// walk them ask for them, or they would pass on a file they never saw.
+#[test]
+fn a_gate_over_a_directory_reads_what_its_meaning_needs() {
+    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
+        return;
+    };
+    let p = tempfile::tempdir().expect("a project");
+    let write = |path: &str, text: &str| {
+        let at = p.path().join(path);
+        std::fs::create_dir_all(at.parent().expect("a parent")).expect("a directory");
+        std::fs::write(at, text).expect("a file");
+    };
+    std::fs::create_dir(p.path().join(".git")).expect("a repository");
+    write(".gitignore", "spec/phases/\n");
+    write("spec/phases/01/PLAN.md", "scripts/x/tests/probe-a.sh\n");
+    write("tests/.helpers/gen.js", "fs.writeFileSync(out, run());\n");
+    let probes = line_with(&super::asset("agents/gsd-verifier.md"), "'probe-[");
+    let (out, err, _) = sh.run_in(p.path(), &probes);
+    assert!(out.contains("probe-a.sh"), "{probes}\n{out}\n{err}");
+    let gates = "gsd-core/references/verifier-phase-gates.md";
+    let circular = line_with(&super::asset(gates), "'writeFileSync|");
+    let (out, err, _) = sh.run_in(p.path(), &format!("TEST_DIRS=tests\n{circular}"));
+    assert!(out.contains("gen.js:1:"), "{circular}\n{out}\n{err}");
+}
+
 /// The taskboard with a second milestone that also has a phase 01.
 fn two_milestones() -> crate::harness::Project {
     let p = crate::harness::taskboard();
