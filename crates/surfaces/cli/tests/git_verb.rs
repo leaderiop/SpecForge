@@ -50,6 +50,7 @@ fn repo_names_the_top_and_the_git_directory() {
             "shallow": false,
             "prefix": "",
             "superproject": null,
+            "spec_pathspec": ":(glob)**/*.spec",
         })
     );
 }

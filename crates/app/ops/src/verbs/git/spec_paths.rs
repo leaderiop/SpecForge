@@ -50,6 +50,18 @@ impl SpecPaths {
         }
     }
 
+    /// The spec root as a pathspec from the repository's top, what [`Self::holds`] reads beside the ledger, none when
+    /// it lies outside.
+    pub(super) fn pathspec(&self) -> Option<String> {
+        let root = self.root.as_deref()?;
+        Some(match (self.named_only, root.is_empty()) {
+            (true, true) => ":(glob)**/*.spec".to_string(),
+            (true, false) => format!(":(glob){root}/**/*.spec"),
+            (false, true) => ":(glob)**".to_string(),
+            (false, false) => format!("{root}/"),
+        })
+    }
+
     /// Whether the repository-relative `path` is a spec file.
     pub(super) fn holds(&self, path: &str) -> bool {
         self.ledger.as_deref() == Some(path)
@@ -82,6 +94,21 @@ mod tests {
 
     fn paths(top: &str, project: &str, spec: &str) -> SpecPaths {
         SpecPaths::of(Path::new(top), Path::new(project), Path::new(spec))
+    }
+
+    #[test]
+    fn the_pathspec_says_what_holds_says() {
+        for (top, project, spec, written) in [
+            ("/r", "/r", "/r/spec", Some("spec/")),
+            ("/r", "/r/sub", "/r/sub/spec", Some("sub/spec/")),
+            ("/r", "/r", "/r", Some(":(glob)**/*.spec")),
+            ("/r", "/r/sub", "/r/sub", Some(":(glob)sub/**/*.spec")),
+            ("/r/in", "/r", "/r", Some(":(glob)**/*.spec")),
+            ("/r/in", "/r", "/r/spec", None),
+        ] {
+            let got = paths(top, project, spec).pathspec();
+            assert_eq!(got.as_deref(), written, "{top} {project} {spec}");
+        }
     }
 
     #[test]

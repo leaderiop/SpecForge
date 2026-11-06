@@ -56,6 +56,8 @@ pub struct RepoAnswer {
     /// The top of the repository this one is a submodule of (`--show-superproject-working-tree`), absolute; none when
     /// it is no submodule.
     pub superproject: Option<String>,
+    /// The project's spec files as a pathspec from the top; none when its spec root lies outside the repository.
+    pub spec_pathspec: Option<String>,
 }
 
 /// `git head`'s answer.
@@ -372,6 +374,7 @@ pub fn repo(verbs: &Verbs) -> Result<RepoAnswer, OpError> {
         shallow: place.shallow,
         prefix,
         superproject: superproject.as_deref().map(slashed),
+        spec_pathspec: spec_paths(verbs, &place).pathspec(),
     })
 }
 

@@ -54,7 +54,7 @@ fn pr_branch_renders_for_three_hosts() {
     {
         let text = text_of(&rendered);
         for word in [
-            "SPEC_ROOT",
+            "SPEC_PATHSPEC=$(specforge git repo --pick .spec_pathspec)",
             "specforge-harness",
             "git cherry-pick --no-commit",
         ] {

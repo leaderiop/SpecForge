@@ -136,7 +136,7 @@ fn the_pr_filter_keeps_the_code_whatever_the_spec_root() {
         return;
     };
     let text = asset("gsd-core/workflows/pr-branch.md");
-    let declare = block(&text, "TRANSIENT_DIRS=", "else SPEC_PATHSPEC=");
+    let declare = block(&text, "TRANSIENT_DIRS=", "SPEC_PATHSPEC=$(");
     let derive = block(
         &text,
         "Derive the mode's projection",
@@ -179,7 +179,7 @@ fn the_pr_filter_keeps_the_code_whatever_the_spec_root() {
              git cherry-pick --no-commit feature >/dev/null 2>&1 || true\n{filter}\n$FILTER_PATHS\nFILTER_PATHS_EOF\n\
              git diff --cached --name-only | tr '\\n' ' '; echo\n\
              git commit -qm built; {}",
-            declare.replace("{{project:spec_root}}", root),
+            declare,
             flagged("HEAD", "feature"),
             flagged("HEAD~1", "HEAD"),
         );

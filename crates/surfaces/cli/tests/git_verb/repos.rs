@@ -144,3 +144,19 @@ fn repos_answers_empty_and_refuses_what_no_root_holds() {
     let missing = git(&project, &["repos", "nope"]).exits(1);
     assert!(missing.stdout.contains("nope"), "{}", missing.stdout);
 }
+
+/// What the project calls its spec files, as a pathspec from the repository's top, so a prompt spells no rule beside it.
+#[test]
+fn repo_answers_the_spec_files_as_a_pathspec() {
+    let pathspec = |root: &str| {
+        let project = TestProject::new().config(|c| c["spec_root"] = json!(root));
+        Repo::init(project.root());
+        git(&project, &["repo", "--pick", ".spec_pathspec"])
+            .exits(0)
+            .stdout
+            .trim()
+            .to_string()
+    };
+    assert_eq!(pathspec("spec"), "spec/");
+    assert_eq!(pathspec("."), ":(glob)**/*.spec");
+}

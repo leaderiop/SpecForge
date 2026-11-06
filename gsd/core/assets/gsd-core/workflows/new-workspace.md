@@ -149,10 +149,10 @@ cd "$SOURCE_REPO_PATH"
 specforge git worktree add "$TARGET_PATH/$REPO_NAME" --branch "$BRANCH_NAME" --create 2>&1
 ```
 
-If `git worktree add` fails because the branch already exists, try with a timestamped branch:
+If `git worktree add` fails because the branch already exists, try with a branch named for the source's head:
 ```bash
-TIMESTAMP=$(specforge files stat "$TARGET_PATH" --pick .effect.observed_at)   # now, in ms
-specforge git worktree add "$TARGET_PATH/$REPO_NAME" --branch "${BRANCH_NAME}-${TIMESTAMP}" --create 2>&1
+HEAD_SHA=$(specforge git head --pick .sha)   # what the source repository is at
+specforge git worktree add "$TARGET_PATH/$REPO_NAME" --branch "${BRANCH_NAME}-${HEAD_SHA}" --create 2>&1
 ```
 
 If that also fails, report the error and continue with remaining repos.

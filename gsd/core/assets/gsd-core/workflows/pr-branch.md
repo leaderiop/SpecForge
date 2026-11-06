@@ -250,15 +250,15 @@ disagree about what the filter promised.
 ```bash
 # The spec root and the harness ledger (a file at the project root) are reviewer noise (U47); `app.spec` of a build is code.
 TRANSIENT_DIRS=""   # none: specforge-harness is a file
-SPEC_ROOT="{{project:spec_root}}"   # the project's spec root, spelled by SpecForge at render (`.`: the project root)
+# the project's spec root is the repository's to say, below
 TRANSIENT_FILES="specforge-harness"
 
 # Structural planning files: none here. Every spec file is reviewer noise, so the filter has one mode.
 
 
 # The spec files, as a pathspec: the spec root's tree, or with the spec root at the project root (`.`) the .spec files at any depth (`./` would name every path)
-if [ "$SPEC_ROOT" = "." ]; then SPEC_PATHSPEC=':(glob)**/*.spec'
-else SPEC_PATHSPEC="$SPEC_ROOT/"; fi
+SPEC_PATHSPEC=$(specforge git repo --pick .spec_pathspec)
+
 
 
 
@@ -276,7 +276,7 @@ cherry-picked commit; `verify` asserts on the diff's `spec` flags:
 ```bash
 
 FILTER_PATHS=$(printf '%s\n' "$SPEC_PATHSPEC"; for f in $TRANSIENT_FILES; do printf '%s\n' "$f"; done)
-: # verify reads the diff's spec flags
+# verify reads the diff's spec flags
 
 
 
@@ -505,8 +505,8 @@ what `create_pr_branch` filtered on: no spec file and no harness ledger may rema
 ```bash
 
 FORBIDDEN=$(specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick '.files[spec=true].path' --count)
-PLANNING_TOTAL=$FORBIDDEN   # strict: every spec path is forbidden
-ALLOWED=$((PLANNING_TOTAL - FORBIDDEN))
+# strict: every spec path is forbidden
+
 TOTAL_FILES=$(specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick .count)
 PR_COMMITS=$(specforge git log "$TARGET".."$PR_BRANCH" --pick .count)
 
@@ -539,7 +539,7 @@ Display results:
 Original: {AHEAD} commits, {ORIGINAL_FILES} files
 PR branch: {PR_COMMITS} commits, {TOTAL_FILES} files
 Mode: {PR_MODE}
-Planning paths in diff: {PLANNING_TOTAL} (allowed {ALLOWED}, forbidden {FORBIDDEN} — must be 0)
+Planning paths in diff: {FORBIDDEN} — must be 0
 Planning deletions: {PLANNING_DELETIONS} (must be 0 — #3679)
 
 Next steps:

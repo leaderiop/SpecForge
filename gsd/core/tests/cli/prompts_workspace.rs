@@ -248,6 +248,11 @@ fn a_workspace_round_trips_through_the_machine_root() {
         "specforge git worktree add \"$TARGET_PATH/$REPO_NAME\" --branch \"$BRANCH_NAME\"",
     );
     let clone = starting(&new, "specforge git clone");
+    let suffix = starting(&new, "HEAD_SHA=");
+    let retry = starting(
+        &new,
+        "specforge git worktree add \"$TARGET_PATH/$REPO_NAME\" --branch \"${BRANCH_NAME}-${HEAD_SHA}\"",
+    );
 
     let home = tempfile::tempdir().expect("a home");
     let bash = |script: &str| {
@@ -285,6 +290,13 @@ fn a_workspace_round_trips_through_the_machine_root() {
     let (_, why) = bash(&format!("{vars}\n{mkdir}\n{add}\nREPO_NAME=cl\n{clone}"));
     assert!(target.join("wt/.git").is_file(), "{why}");
     assert!(target.join("cl/.git").is_dir(), "{why}");
+    // The branch taken already, the retry names one for the source's head.
+    let (_, why) = bash(&format!("{vars}\nREPO_NAME=rt\n{suffix}\n{retry}"));
+    assert!(target.join("rt/.git").is_file(), "{why}");
+    let (_, why) = bash(&format!(
+        "{vars}\nREPO_NAME=rt\nspecforge git worktree remove \"$TARGET_PATH/$REPO_NAME\" --force"
+    ));
+    assert!(!target.join("rt").exists(), "{why}");
 
     let (count, _) = bash(&format!("{listed}\necho \"[$WORKSPACE_COUNT]\""));
     assert_eq!(count, "[1]");
