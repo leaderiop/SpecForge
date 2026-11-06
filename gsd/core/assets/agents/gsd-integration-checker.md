@@ -222,16 +222,16 @@ check_auth_protection() {
   local file="$1"
 
   # Check for auth hooks/context usage
-  local has_auth=$(specforge files search -q 'useAuth|useSession|getCurrentUser|isAuthenticated' "$file" && echo yes)
+  local has_auth=0; specforge files search -q 'useAuth|useSession|getCurrentUser|isAuthenticated' "$file" || has_auth=$?
 
   # Check for redirect on no auth
-  local has_redirect=$(specforge files search -q 'redirect.*login|router.push.*login|navigate.*login' "$file" && echo yes)
+  local has_redirect=0; specforge files search -q 'redirect.*login|router.push.*login|navigate.*login' "$file" || has_redirect=$?
 
-  if [ -n "$has_auth" ] || [ -n "$has_redirect" ]; then
-    echo "PROTECTED"
-  else
-    echo "UNPROTECTED"
-  fi
+  case "$has_auth$has_redirect" in
+    0?|?0) echo "PROTECTED" ;;
+    11) echo "UNPROTECTED" ;;
+    *) echo "COULD NOT READ: $file" ;;
+  esac
 }
 ```
 
@@ -253,8 +253,8 @@ verify_auth_flow() {
 
   # Step 2: Form submits to API
   if [ -n "$login_form" ]; then
-    local submits=$(specforge files search -q 'fetch.*auth|axios.*auth|/api/auth' "$login_form" && echo yes)
-    [ -n "$submits" ] && echo "✓ Submits to API" || echo "✗ Form doesn't submit to API"
+    local submits=0; specforge files search -q 'fetch.*auth|axios.*auth|/api/auth' "$login_form" || submits=$?
+    case "$submits" in 0) echo "✓ Submits to API" ;; 1) echo "✗ Form doesn't submit to API" ;; *) echo "? Could not read $login_form" ;; esac
   fi
 
   # Step 3: API route exists
@@ -263,8 +263,8 @@ verify_auth_flow() {
 
   # Step 4: Redirect after success
   if [ -n "$login_form" ]; then
-    local redirect=$(specforge files search -q 'redirect|router.push|navigate' "$login_form" && echo yes)
-    [ -n "$redirect" ] && echo "✓ Redirects after login" || echo "✗ No redirect after login"
+    local redirect=0; specforge files search -q 'redirect|router.push|navigate' "$login_form" || redirect=$?
+    case "$redirect" in 0) echo "✓ Redirects after login" ;; 1) echo "✗ No redirect after login" ;; *) echo "? Could not read $login_form" ;; esac
   fi
 }
 ```
@@ -285,16 +285,16 @@ verify_data_flow() {
 
   if [ -n "$comp_file" ]; then
     # Step 2: Fetches data
-    local fetches=$(specforge files search -q 'fetch|axios|useSWR|useQuery' "$comp_file" && echo yes)
-    [ -n "$fetches" ] && echo "✓ Has fetch call" || echo "✗ No fetch call"
+    local fetches=0; specforge files search -q 'fetch|axios|useSWR|useQuery' "$comp_file" || fetches=$?
+    case "$fetches" in 0) echo "✓ Has fetch call" ;; 1) echo "✗ No fetch call" ;; *) echo "? Could not read $comp_file" ;; esac
 
     # Step 3: Has state for data
-    local has_state=$(specforge files search -q 'useState|useQuery|useSWR' "$comp_file" && echo yes)
-    [ -n "$has_state" ] && echo "✓ Has state" || echo "✗ No state for data"
+    local has_state=0; specforge files search -q 'useState|useQuery|useSWR' "$comp_file" || has_state=$?
+    case "$has_state" in 0) echo "✓ Has state" ;; 1) echo "✗ No state for data" ;; *) echo "? Could not read $comp_file" ;; esac
 
     # Step 4: Renders data
-    local renders=$(specforge files search -q "\{.*$data_var.*\}|\{$data_var\." "$comp_file" && echo yes)
-    [ -n "$renders" ] && echo "✓ Renders data" || echo "✗ Doesn't render data"
+    local renders=0; specforge files search -q "\{.*$data_var.*\}|\{$data_var\." "$comp_file" || renders=$?
+    case "$renders" in 0) echo "✓ Renders data" ;; 1) echo "✗ Doesn't render data" ;; *) echo "? Could not read $comp_file" ;; esac
   fi
 
   # Step 5: API route exists and returns data
@@ -302,8 +302,8 @@ verify_data_flow() {
   [ -n "$route_file" ] && echo "✓ API route: $route_file" || echo "✗ API route: MISSING"
 
   if [ -n "$route_file" ]; then
-    local returns_data=$(specforge files search -q 'return.*json|res.json' "$route_file" && echo yes)
-    [ -n "$returns_data" ] && echo "✓ API returns data" || echo "✗ API doesn't return data"
+    local returns_data=0; specforge files search -q 'return.*json|res.json' "$route_file" || returns_data=$?
+    case "$returns_data" in 0) echo "✓ API returns data" ;; 1) echo "✗ API doesn't return data" ;; *) echo "? Could not read $route_file" ;; esac
   fi
 }
 ```
@@ -321,20 +321,20 @@ verify_form_flow() {
 
   if [ -n "$form_file" ]; then
     # Step 1: Has form element
-    local has_form=$(specforge files search -q '<form|onSubmit' "$form_file" && echo yes)
-    [ -n "$has_form" ] && echo "✓ Has form" || echo "✗ No form element"
+    local has_form=0; specforge files search -q '<form|onSubmit' "$form_file" || has_form=$?
+    case "$has_form" in 0) echo "✓ Has form" ;; 1) echo "✗ No form element" ;; *) echo "? Could not read $form_file" ;; esac
 
     # Step 2: Handler calls API
-    local calls_api=$(specforge files search -q "fetch.*$api_route|axios.*$api_route" "$form_file" && echo yes)
-    [ -n "$calls_api" ] && echo "✓ Calls API" || echo "✗ Doesn't call API"
+    local calls_api=0; specforge files search -q "fetch.*$api_route|axios.*$api_route" "$form_file" || calls_api=$?
+    case "$calls_api" in 0) echo "✓ Calls API" ;; 1) echo "✗ Doesn't call API" ;; *) echo "? Could not read $form_file" ;; esac
 
     # Step 3: Handles response
-    local handles_response=$(specforge files search -q '\.then|await.*fetch|setError|setSuccess' "$form_file" && echo yes)
-    [ -n "$handles_response" ] && echo "✓ Handles response" || echo "✗ Doesn't handle response"
+    local handles_response=0; specforge files search -q '\.then|await.*fetch|setError|setSuccess' "$form_file" || handles_response=$?
+    case "$handles_response" in 0) echo "✓ Handles response" ;; 1) echo "✗ Doesn't handle response" ;; *) echo "? Could not read $form_file" ;; esac
 
     # Step 4: Shows feedback
-    local shows_feedback=$(specforge files search -q 'error|success|loading|isLoading' "$form_file" && echo yes)
-    [ -n "$shows_feedback" ] && echo "✓ Shows feedback" || echo "✗ No user feedback"
+    local shows_feedback=0; specforge files search -q 'error|success|loading|isLoading' "$form_file" || shows_feedback=$?
+    case "$shows_feedback" in 0) echo "✓ Shows feedback" ;; 1) echo "✗ No user feedback" ;; *) echo "? Could not read $form_file" ;; esac
   fi
 }
 ```

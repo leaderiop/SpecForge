@@ -544,7 +544,7 @@ check_exists() {
 # 2. Check for stub patterns
 check_stubs() {
   local file="$1"
-  local stubs=$(specforge files search 'TODO|FIXME|placeholder|not implemented' "$file" --pick .count)
+  local stubs; stubs=$(specforge files search 'TODO|FIXME|placeholder|not implemented' "$file" --pick .count) || { echo "COULD NOT READ: $file"; return; }
   [ "$stubs" -gt 0 ] && echo "STUB_PATTERNS: $stubs in $file"
 }
 
@@ -552,7 +552,7 @@ check_stubs() {
 check_wiring() {
   local component="$1"
   local api_path="$2"
-  specforge files search -q -F "$api_path" "$component" && echo "WIRED: $component → $api_path" || echo "NOT_WIRED: $component → $api_path"
+  local rc=0; specforge files search -q -F "$api_path" "$component" || rc=$?; case "$rc" in 0) echo "WIRED: $component → $api_path" ;; 1) echo "NOT_WIRED: $component → $api_path" ;; *) echo "COULD NOT READ: $component" ;; esac
 }
 
 # 4. Check substantive (more than N lines, has expected patterns)
@@ -560,8 +560,8 @@ check_substantive() {
   local file="$1"
   local min_lines="$2"
   local pattern="$3"
-  local lines; lines=$(specforge files read "$file" --pick .lines 2>/dev/null) || lines=0
-  local has_pattern; has_pattern=$(specforge files search "$pattern" "$file" --pick .count 2>/dev/null) || has_pattern=0
+  local lines; lines=$(specforge files read "$file" --pick .lines 2>/dev/null) || { echo "COULD NOT READ: $file"; return; }
+  local has_pattern; has_pattern=$(specforge files search "$pattern" "$file" --pick .count 2>/dev/null) || { echo "COULD NOT READ: $file"; return; }
   [ "$lines" -ge "$min_lines" ] && [ "$has_pattern" -gt 0 ] && echo "SUBSTANTIVE: $file" || echo "THIN: $file ($lines lines, $has_pattern matches)"
 }
 ```

@@ -1002,7 +1002,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
    ```bash
    # gsd-handoff:begin wave-failure-read
    _GSD_HANDOFF=$(specforge files temp --dir --name gsd-handoff --pick .path) || exit 1
-   WAVE_FAILURE_COUNT=$(specforge files read "$_GSD_HANDOFF/wave-failures" --pick .lines 2>/dev/null) || WAVE_FAILURE_COUNT=0
+   WAVE_FAILURE_COUNT=$(specforge files search '^' "$_GSD_HANDOFF/wave-failures" --pick .count) || exit 1 # no tally counts 0; one that cannot be read stops
    echo "WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT}"
    # gsd-handoff:end wave-failure-read
    ```

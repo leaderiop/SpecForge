@@ -250,6 +250,64 @@ fn a_hardcoded_count_is_found() {
     assert_eq!(out, "c.ts:1:5: let count = 5;\n", "{check}\n{err}");
 }
 
+/// A search that could not read its file is neither of the two answers its caller reads: a missing page is not an
+/// unprotected one, as `$(… -q … && echo yes)` made it.
+#[test]
+fn a_verdict_keeps_could_not_read_apart_from_no() {
+    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
+        return;
+    };
+    let p = sample();
+    std::fs::write(p.path().join("src/guarded.tsx"), "useAuth();\n").expect("a page");
+    std::fs::write(p.path().join("src/open.tsx"), "<a/>\n").expect("a page");
+    let check = function(&super::asset(CHECKER), "check_auth_protection() {");
+    for (page, printed) in [
+        ("src/guarded.tsx", "PROTECTED\n"),
+        ("src/open.tsx", "UNPROTECTED\n"),
+        ("src/nosuch.tsx", "COULD NOT READ: src/nosuch.tsx\n"),
+    ] {
+        let (out, err, _) = sh.run_in(p.path(), &format!("{check}\ncheck_auth_protection {page}"));
+        assert_eq!(out, printed, "{page}\n{err}");
+    }
+    let wiring = function(&super::asset(PATTERNS), "check_wiring() {");
+    for (file, printed) in [
+        ("src/a.ts", "WIRED: src/a.ts → API_KEY\n"),
+        ("src/open.tsx", "NOT_WIRED: src/open.tsx → API_KEY\n"),
+        ("src/nosuch.tsx", "COULD NOT READ: src/nosuch.tsx\n"),
+    ] {
+        let (out, err, _) = sh.run_in(p.path(), &format!("{wiring}\ncheck_wiring {file} API_KEY"));
+        assert_eq!(out, printed, "{file}\n{err}");
+    }
+    let substantive = function(&super::asset(PATTERNS), "check_substantive() {");
+    let (out, err, _) = sh.run_in(
+        p.path(),
+        &format!("{substantive}\ncheck_substantive src/nosuch.tsx 1 x"),
+    );
+    assert_eq!(out, "COULD NOT READ: src/nosuch.tsx\n", "{err}");
+}
+
+/// A tally that exists and cannot be read stops the step: it is not the same as no failures.
+#[test]
+fn the_failure_tally_reads_zero_only_when_it_is_absent() {
+    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
+        return;
+    };
+    let p = crate::harness::taskboard();
+    let read = handoff_block("gsd-core/workflows/execute-phase.md", "wave-failure-read");
+    let (out, err, code) = sh.run_in(p.root(), &read);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("WAVE_FAILURE_COUNT=0"), "{out}");
+    let (made, _, _) = sh.run_in(
+        p.root(),
+        "specforge files temp --dir --name gsd-handoff --pick .path",
+    );
+    let tally = std::path::Path::new(made.trim()).join("wave-failures");
+    std::fs::write(&tally, "1\n").expect("a tally");
+    std::fs::hard_link(&tally, p.root().join("second-name")).expect("a second name");
+    let (out, _, code) = sh.run_in(p.root(), &read);
+    assert_ne!(code, 0, "an unread tally passed: {out}");
+}
+
 /// The lines of the `# gsd-handoff:begin <name>` block of `path`.
 fn handoff_block(path: &str, name: &str) -> String {
     let text = super::asset(path);

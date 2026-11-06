@@ -317,6 +317,22 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-integration-checker.md", 187),
     ("gsd-verifier.md", 389),
     ("gsd-plan-checker.md", 688),
+    // A verdict's three exits, `case` on the code: "could not read" is neither of the two answers.
+    ("gsd-integration-checker.md", 228),
+    ("gsd-integration-checker.md", 229),
+    ("gsd-integration-checker.md", 230),
+    ("gsd-integration-checker.md", 231),
+    ("gsd-integration-checker.md", 232),
+    ("gsd-integration-checker.md", 255),
+    ("gsd-integration-checker.md", 265),
+    ("gsd-integration-checker.md", 287),
+    ("gsd-integration-checker.md", 291),
+    ("gsd-integration-checker.md", 295),
+    ("gsd-integration-checker.md", 304),
+    ("gsd-integration-checker.md", 323),
+    ("gsd-integration-checker.md", 327),
+    ("gsd-integration-checker.md", 331),
+    ("gsd-integration-checker.md", 335),
 ];
 
 /// Checks one asset against its upstream file: the header, then every line.
