@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use super::commands_support::{gsd, json};
+use super::commands_support::{gsd, json, rows};
 use crate::harness::project;
 
 #[test]
@@ -44,8 +44,7 @@ fn quick_init_mints_a_fresh_free_id_per_call() {
             "id,slug,branch_name",
         ],
     );
-    let row = run.stdout.trim_end().to_string();
-    let cells: Vec<&str> = row.split('\u{1f}').collect();
+    let cells = &rows(&run.stdout)[0];
     assert_eq!(
         cells[1..],
         ["fix-login", &format!("quick/{}-fix-login", cells[0])],

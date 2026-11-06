@@ -2,7 +2,7 @@
 //! the typed tools the prompt names.
 
 use super::assets_shell::Shell;
-use super::commands_support::{gsd, twin};
+use super::commands_support::{gsd, is_quick_id, rows, twin};
 use super::prompts_support::{command, payload, prompt, render_three_hosts, text_of};
 
 /// Today's quick id, `<yymmdd>-<3 base-36>`.
@@ -236,48 +236,35 @@ fn the_batch_makes_one_quick_id_per_item() {
         .lines()
         .find(|l| l.starts_with("QB_CREATE_LIST="))
         .expect("the batch-init line");
-    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
     let p = twin();
     let run = |items: &str| {
         p.write("tasks.txt", items);
-        // `/bin/bash`: the child's PATH holds specforge alone
-        std::process::Command::new("/bin/bash")
-            .args([
-                "-c",
-                &format!(
-                    "TASK_FILE=tasks.txt\n{read}\n{line}\nprintf '%s\\n' \"$QB_CREATE_LIST\"; exit \"$QB_CREATE_RC\""
-                ),
-            ])
-            .env("PATH", bin.parent().expect("a directory"))
-            .current_dir(p.root())
-            .stdin(std::process::Stdio::null())
-            .output()
-            .expect("bash")
+        sh.run_in(
+            p.root(),
+            &format!(
+                "TASK_FILE=tasks.txt\n{read}\n{line}\nprintf '%s\\n' \"$QB_CREATE_LIST\"; exit \"$QB_CREATE_RC\""
+            ),
+        )
     };
-    let out = run("- Fix login\n* Add search\n\n1. Trim titles\n");
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    let items: Vec<Vec<&str>> = stdout
-        .lines()
-        .map(|l| l.split('\u{1f}').collect())
-        .collect();
+    let (stdout, _, _) = run("- Fix login\n* Add search\n\n1. Trim titles\n");
+    let items = rows(&stdout);
     let slugs: Vec<&str> = items.iter().map(|row| row[1]).collect();
-    assert_eq!(slugs, ["fix-login", "add-search", "trim-titles"], "{out:?}");
+    assert_eq!(
+        slugs,
+        ["fix-login", "add-search", "trim-titles"],
+        "{stdout}"
+    );
     let tasks: Vec<&str> = items.iter().map(|row| row[2]).collect();
     assert_eq!(tasks, ["Fix login", "Add search", "Trim titles"]);
-    let id = regex::Regex::new(r"^[0-9]{6}-[a-z0-9]{3}$").expect("a regex");
     for row in &items {
-        assert!(id.is_match(row[0]), "{}", row[0]);
+        assert!(is_quick_id(row[0]), "{}", row[0]);
     }
-    let one = run("- Only one\n");
-    assert_eq!(one.status.code(), Some(1), "{one:?}");
-    assert!(
-        String::from_utf8_lossy(&one.stdout).trim().is_empty(),
-        "{one:?}"
-    );
-    assert!(
-        String::from_utf8_lossy(&one.stderr).contains("a batch needs at least 2 tasks"),
-        "{one:?}"
-    );
+    let (out, err, code) = run("- Only one\n");
+    assert_eq!((out.trim(), code), ("", 1), "{err}");
+    assert!(err.contains("a batch needs at least 2 tasks"), "{err}");
 }
 
 /// The subcommands are words, as upstream's hint says: the tail carries `list`, `status <slug>` and `resume <slug>`, and
@@ -359,27 +346,20 @@ fn the_quick_id_is_made_once_and_the_branch_template_is_expanded() {
         .lines()
         .find(|l| l.contains(init))
         .expect("the init line");
-    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
-    // `/bin/bash`: the child's PATH holds specforge alone
-    let out = std::process::Command::new("/bin/bash")
-        .args([
-            "-c",
-            &format!(
-                "DESCRIPTION='Trim titles'\n{line}\nprintf '%s|%s|%s|%s|%s\\n' \"$quick_id\" \"$slug\" \"$branch_name\" \"$date\" \"$task_dir\""
-            ),
-        ])
-        .env("PATH", bin.parent().expect("a directory"))
-        .current_dir(p.root())
-        .stdin(std::process::Stdio::null())
-        .output()
-        .expect("bash");
-    let said = String::from_utf8_lossy(&out.stdout);
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let (said, err, _) = sh.run_in(
+        p.root(),
+        &format!(
+            "DESCRIPTION='Trim titles'\n{line}\nprintf '%s|%s|%s|%s|%s\\n' \"$quick_id\" \"$slug\" \"$branch_name\" \"$date\" \"$task_dir\""
+        ),
+    );
     let cells: Vec<&str> = said.lines().last().unwrap_or_default().split('|').collect();
     let [id, slug, branch, date, task_dir] = cells[..] else {
-        panic!("{said}: {}", String::from_utf8_lossy(&out.stderr));
+        panic!("{said}: {err}");
     };
-    let shape = regex::Regex::new(r"^[0-9]{6}-[a-z0-9]{3}$").expect("a regex");
-    assert!(shape.is_match(id), "{said}");
+    assert!(is_quick_id(id), "{said}");
     assert_eq!(
         id,
         quick_id()[..7].to_string() + &id[7..],
@@ -395,20 +375,11 @@ fn the_quick_id_is_made_once_and_the_branch_template_is_expanded() {
         .lines()
         .find(|l| l.contains(init))
         .expect("the init line");
-    let out = std::process::Command::new("/bin/bash")
-        .args([
-            "-c",
-            &format!("DESCRIPTION='--fix it'\n{line}\nprintf '%s|%s' \"$slug\" \"$branch_name\""),
-        ])
-        .env("PATH", bin.parent().expect("a directory"))
-        .current_dir(p.root())
-        .stdin(std::process::Stdio::null())
-        .output()
-        .expect("bash");
-    assert!(
-        String::from_utf8_lossy(&out.stdout).ends_with("fix-it|"),
-        "{out:?}"
+    let (out, err, _) = sh.run_in(
+        p.root(),
+        &format!("DESCRIPTION='--fix it'\n{line}\nprintf '%s|%s' \"$slug\" \"$branch_name\""),
     );
+    assert!(out.ends_with("fix-it|"), "{out}{err}");
 }
 
 /// The steps read each item's `description`, and quick-batch has no init block to make the

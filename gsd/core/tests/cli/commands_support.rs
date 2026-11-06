@@ -8,6 +8,18 @@ use sha2::{Digest, Sha256};
 
 use crate::harness::{Project, Run, taskboard};
 
+/// The rows of a `--fields` answer: a line each, its cells split at the unit separator (0x1f).
+pub fn rows(out: &str) -> Vec<Vec<&str>> {
+    out.lines().map(|l| l.split('\u{1f}').collect()).collect()
+}
+
+/// Whether `text` is a quick id: `<yymmdd>-<3 base-36>`.
+pub fn is_quick_id(text: &str) -> bool {
+    regex::Regex::new(r"^[0-9]{6}-[a-z0-9]{3}$")
+        .expect("a regex")
+        .is_match(text)
+}
+
 /// `specforge gsd <command> <args>`.
 pub fn gsd(p: &Project, command: &str, args: &[&str]) -> Run {
     let mut all = vec!["gsd", command];

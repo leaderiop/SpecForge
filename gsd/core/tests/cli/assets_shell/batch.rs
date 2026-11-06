@@ -2,7 +2,7 @@
 //! prefix a bash array and its verification route a `case`: no jq on the `PATH`.
 
 use super::{Shell, asset, block, line, q};
-use crate::commands_support::twin;
+use crate::commands_support::{is_quick_id, rows, twin};
 
 #[test]
 fn a_task_list_becomes_one_line_per_quick_task() {
@@ -37,28 +37,13 @@ fn a_task_list_becomes_one_line_per_quick_task() {
         "{}",
         head[2]
     );
-    let items: Vec<Vec<&str>> = lines[1..]
-        .iter()
-        .map(|l| l.split('\u{1f}').collect())
-        .collect();
+    let items = rows(out.split_once('\n').expect("a head line").1);
     let descriptions: Vec<&str> = items.iter().map(|row| row[2]).collect();
     assert_eq!(descriptions, ["Add a task", "Remove a task", "List tasks"]);
     let slugs: Vec<&str> = items.iter().map(|row| row[1]).collect();
     assert_eq!(slugs, ["add-a-task", "remove-a-task", "list-tasks"]);
     for row in &items {
-        let id = row[0];
-        let (day, tail) = id.split_once('-').expect("<yymmdd>-<3 base-36>");
-        assert!(
-            day.len() == 6 && day.bytes().all(|b| b.is_ascii_digit()),
-            "{id}"
-        );
-        assert!(
-            tail.len() == 3
-                && tail
-                    .bytes()
-                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()),
-            "{id}"
-        );
+        assert!(is_quick_id(row[0]), "{}", row[0]);
     }
     // one item is no batch: the create step refuses, saying why, and the read after it stops
     let (out, err, code) = run("- Only this\n");
@@ -224,11 +209,10 @@ fn a_task_starting_with_a_hyphen_is_a_task() {
         ),
     );
     assert_eq!(code, 0, "{out}{err}");
-    let rows: Vec<&str> = out.lines().collect();
-    assert_eq!(rows.len(), 2, "{out}");
-    for (row, task) in rows.iter().zip(["--upload-pack=x", "-no space marker"]) {
-        let id = row.split('\u{1f}').next().unwrap();
-        assert_eq!(p.fields_of(id)["objective"], task);
+    let items = rows(&out);
+    assert_eq!(items.len(), 2, "{out}");
+    for (row, task) in items.iter().zip(["--upload-pack=x", "-no space marker"]) {
+        assert_eq!(p.fields_of(row[0])["objective"], task);
     }
 }
 

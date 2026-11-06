@@ -4,6 +4,7 @@
 //! quick task's files. A plan's commits are read in `scripts.rs`.
 
 use super::{Shell, asset, block, line};
+use crate::commands_support::rows;
 use crate::harness::{Project, project, taskboard};
 
 const T0: &str = "2026-10-29T09:00:00Z";
@@ -303,23 +304,20 @@ fn the_onboarding_entities_are_one_row_per_entity() {
     let p = taskboard();
     let read = line(&asset("gsd-core/workflows/onboard.md"), "ENTITIES=$(").to_string();
     let (out, err, _) = run(&sh, &p, &format!("{read}\nprintf '%s\\n' \"$ENTITIES\""));
-    let rows: Vec<&str> = out.lines().collect();
+    let lines: Vec<&str> = out.lines().collect();
     for want in [
         "project\u{1f}taskboard",
         "milestone\u{1f}v1.0",
         "phase\u{1f}v1.0/01",
         "phase\u{1f}v1.0/02.1",
     ] {
-        assert!(rows.contains(&want), "{want:?} in {out}{err}");
+        assert!(lines.contains(&want), "{want:?} in {out}{err}");
     }
     assert!(
-        rows.iter().any(|row| row.starts_with("requirement\u{1f}")),
+        lines.iter().any(|row| row.starts_with("requirement\u{1f}")),
         "{out}"
     );
-    assert!(
-        rows.iter().all(|row| row.split('\u{1f}').count() == 2),
-        "{out}"
-    );
+    assert!(rows(&out).iter().all(|row| row.len() == 2), "{out}");
 }
 
 /// `/gsd-quick status <slug>` reads the slug's plan: a quick plan's title is prose, and the slug is dashed.
@@ -362,14 +360,14 @@ fn a_quick_plan_is_found_by_its_slug() {
     assert_eq!(found("sort").0, "[]", "{}", found("sort").1);
     // The list reads the quick plans alone, one row each, whatever `spec_root` says.
     let (out, err, _) = run(&sh, &p, line(&text, "specforge export --kinds plan"));
-    let rows: Vec<Vec<&str>> = out.lines().map(|l| l.split('\u{1f}').collect()).collect();
+    let listed = rows(&out);
     assert_eq!(
-        rows.iter().map(|r| r[0]).collect::<Vec<_>>(),
+        listed.iter().map(|r| r[0]).collect::<Vec<_>>(),
         ["251031-abc", "261028-a1b"],
         "{out}{err}"
     );
-    assert_eq!(rows[0][1], "sort-rows");
-    assert_eq!(rows[0][3], "Sort rows");
+    assert_eq!(listed[0][1], "sort-rows");
+    assert_eq!(listed[0][3], "Sort rows");
 
     // A slug run twice: ids hold no order of the runs, so no line picks one. Every run is listed, for the prompt to ask.
     for id in ["251031-zzz", "251031-aaa"] {
