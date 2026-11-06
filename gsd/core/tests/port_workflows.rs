@@ -324,6 +324,8 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/milestone-summary.md", 72, 75),
     ("gsd-core/workflows/milestone-summary.md", 79, 79),
     ("gsd-core/workflows/milestone-summary.md", 95, 96),
+    ("gsd-core/workflows/milestone-summary.md", 98, 98),
+    ("gsd-core/workflows/milestone-summary.md", 102, 106),
     ("gsd-core/workflows/new-workspace.md", 17, 17),
     ("gsd-core/workflows/new-workspace.md", 20, 20),
     ("gsd-core/workflows/onboard.md", 16, 16),

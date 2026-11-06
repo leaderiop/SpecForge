@@ -94,18 +94,18 @@ specforge git log v${VERSION} --pick .count
 specforge git diff --base "$(specforge git log "v${VERSION}" --reverse --pick '.commits[0].sha')" --head "v${VERSION}" --stat --format human
 ```
 
-**Method 2 — Project start date** (if no tag):
-Read the progress report and extract the `started_at` or earliest session date. Use it as the `--since` boundary:
+**Method 2 — The milestone's start** (if no tag):
+Read the milestone's `started` and use it as the `--since` boundary:
 ```bash
-specforge git log --since="<started_at_date>" --pick .count
+STARTED=$(specforge query "v${VERSION}" --depth 0 --pick '.nodes[0].fields.started'); [ -n "$STARTED" ] && specforge git log --since="$STARTED" --pick .count
 ```
 
 **Method 3 — Earliest recorded commit** (if no date was recorded):
-Find the earliest `commit` entity of the milestone:
-```bash
-specforge query "v${VERSION}" --depth 4 --kinds commit --pick '.nodes[kind=commit]' --fields fields.at,fields.hash | sort | head -1 | tr '\037' ' '   # <at> <hash>: the cells are 0x1f-separated
-```
-Use that commit's date as the start boundary.
+`started` is the time of the milestone's first recorded commit, so Method 2 has already read it.
+
+
+
+An empty `started` means no commit is recorded.
 
 **Method 4 — Skip stats** (if none of the above work):
 Report "Git statistics unavailable — no tag or date range could be determined." This is not an error — the summary continues without the Stats section.
