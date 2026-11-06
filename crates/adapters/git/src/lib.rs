@@ -674,6 +674,13 @@ impl Git for Gix {
         merging::pick_end(place, abort)
     }
 
+    fn names_a_remote(&self, source: &str) -> bool {
+        // A plain path parses as a `file` URL too: it serializes in its alternative form, `file://` does not.
+        gix::url::parse(source.into()).is_ok_and(|url| {
+            url.scheme != gix::url::Scheme::File || !url.serialize_alternative_form
+        })
+    }
+
     fn status(&self, place: &GitPlace) -> Result<GitStatus, GitError> {
         status::read(place, self.deadline, gix::status::UntrackedFiles::Collapsed)
     }

@@ -482,6 +482,11 @@ pub trait Git: Send + Sync {
     fn branch(&self, _place: &GitPlace) -> Result<String, GitError> {
         Err(GitError::unanswered())
     }
+    /// Whether git reads `source` as a remote: a URL or `host:path`, where a local directory with a colon in its name is
+    /// typed `./a:b`.
+    fn names_a_remote(&self, _source: &str) -> bool {
+        false
+    }
     /// The worktree's typed status in `place` (read by gix, ADR 0337).
     fn status(&self, _place: &GitPlace) -> Result<GitStatus, GitError> {
         Err(GitError::unanswered())

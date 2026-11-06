@@ -58,19 +58,6 @@ pub struct CloneAnswer {
     pub sha: Option<String>,
 }
 
-/// Whether `source` names a remote as git reads it: a URL, or `host:path` (a colon before any slash, unless it is a
-/// drive letter). A local directory with a colon in its name is typed `./a:b`, as for git.
-fn names_a_remote(source: &str) -> bool {
-    if source.contains("://") {
-        return true;
-    }
-    let Some(colon) = source.find(':') else {
-        return false;
-    };
-    let drive = colon == 1 && source.as_bytes()[0].is_ascii_alphabetic();
-    !drive && source.find(['/', '\\']).is_none_or(|slash| colon < slash)
-}
-
 /// `path` (read from the current directory) held for a write, absent or empty, and no root itself.
 fn fresh(verbs: &Verbs, path: &Path) -> Result<PathBuf, OpError> {
     let at = held(verbs, path)?;
@@ -96,7 +83,7 @@ fn fresh(verbs: &Verbs, path: &Path) -> Result<PathBuf, OpError> {
 /// `git clone <source> <dir>`: a local repository copied, each path held to the roots. A remote is network git, which no
 /// verb does (ADR 0339 D6). `HEAD`'s commit and branch come from the new repository.
 pub fn clone(verbs: &Verbs, source: &str, dir: &Path) -> Result<CloneAnswer, OpError> {
-    if names_a_remote(source) {
+    if verbs.ports().git.names_a_remote(source) {
         return Err(OpError::new(
             OpErrorKind::InvalidInput,
             OpErrorKind::InvalidInput.as_str(),

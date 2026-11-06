@@ -243,6 +243,8 @@ fn clone_refuses_a_url_and_a_taken_directory() {
         "file:///tmp/r",
         "git@example.com:r.git",
         "example.com:r",
+        #[cfg(not(windows))]
+        "h:x",
     ] {
         let run = typed(&project, &["clone", remote, &into]).exits(1);
         assert!(
