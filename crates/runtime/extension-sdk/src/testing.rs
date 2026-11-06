@@ -134,12 +134,15 @@ impl MockHost {
     }
 }
 
-/// What the harness feeds every command besides its args: the host's instant and the facts of the reads it declared
-/// (`files`, by read name). The default is what [`call_every_command`] sends: midnight of `today` and no file.
+/// What the harness feeds every command besides its args: the host's instant, its nonce and the facts of the reads it
+/// declared (`files`, by read name). The default is what [`call_every_command`] sends: midnight of `today`, 32 zeros
+/// and no file.
 #[derive(Debug, Clone, Default)]
 pub struct CommandFeed {
     /// `now`, `YYYY-MM-DDTHH:MM:SSZ`; none sends midnight of `today`.
     pub now: Option<String>,
+    /// `nonce`, 32 hex digits; none sends 32 zeros, so a run is reproducible.
+    pub nonce: Option<String>,
     /// What the host would have read for the command's `reads`.
     pub files: BTreeMap<String, FileFacts>,
 }
@@ -163,8 +166,8 @@ pub fn call_every_command(
     call_every_command_with(b, graph, today, &CommandFeed::default(), text)
 }
 
-/// [`call_every_command`] with the `now` and `files` of `feed`, so a command that declares `reads` or reads the clock
-/// is testable.
+/// [`call_every_command`] with the `now`, `nonce` and `files` of `feed`, so a command that declares `reads` or reads the
+/// clock or the nonce is testable.
 pub fn call_every_command_with(
     b: &ContributionsBuilder,
     graph: &CommandGraph,
@@ -205,7 +208,7 @@ pub fn call_every_command_with(
                     (None, true) => String::new(),
                     (None, false) => format!("{today}T00:00:00Z"),
                 },
-                nonce: String::new(),
+                nonce: feed.nonce.clone().unwrap_or_else(|| "0".repeat(32)),
                 evidence: Default::default(),
                 // A writing command receives the revision of every source its graph names.
                 revisions: if command.writes {

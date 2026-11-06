@@ -68,6 +68,28 @@ fn a_command_reads_the_hosts_clock_as_now() {
 }
 
 #[test]
+fn a_command_reads_the_nonce_its_feed_sends() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/nonce", "1.0.0"));
+    c.command("draw", |cmd| {
+        cmd.title("Draw")
+            .description("Draw")
+            .handler(|call: &CommandCall| CommandOutput::ok(call.nonce()));
+    });
+    let pinned = "0123456789abcdef0123456789abcdef";
+    let feed = CommandFeed {
+        nonce: Some(pinned.into()),
+        ..Default::default()
+    };
+    let out = call_every_command_with(&c, &CommandGraph::default(), "", &feed, |_, _| {
+        String::new()
+    });
+    assert_eq!(out[0].1.stdout, pinned);
+    // No feed: 32 zeros, so a run is reproducible.
+    let bare = call_every_command(&c, &CommandGraph::default(), "", |_, _| String::new());
+    assert_eq!(bare[0].1.stdout, "0".repeat(32));
+}
+
+#[test]
 fn the_harness_feeds_a_command_its_files_and_an_explicit_now() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/feed", "1.0.0"));
     c.command("count", |cmd| {
@@ -88,6 +110,7 @@ fn the_harness_feeds_a_command_its_files_and_an_explicit_now() {
     });
     let feed = CommandFeed {
         now: Some("2026-10-28T23:59:59Z".into()),
+        nonce: None,
         files: [(
             "src".to_string(),
             FileFacts {

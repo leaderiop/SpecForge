@@ -404,7 +404,7 @@ descriptor, and routes the export to the handler. The CLI runs it as `specforge 
 | `cmd.handler(\|call\| ..)` | The function answering it: `CommandCall` in, `CommandOutput` out |
 | `cmd.input(Input::files(name, FileReadSpec::field("kind.field").text()))` | Project files the host reads for the call (ADR 0293, ADR 0337): `call.files(name)` holds their facts and, with `.text()`, their capped text; `FileReadSpec::glob("src/**/*.rs")` names files by pattern. `cmd.input(Input::State)` asks for the extension's state |
 
-A command's `call.now()` is the host's clock when it was called, `YYYY-MM-DDTHH:MM:SSZ` (RFC 3339, UTC, seconds; protocol 1.11.0, ADR 0294), the same instant as `call.today()`; a hook's `call.now()` and a writing collector's input carry it too. A prompt and a pass are not told the time.
+A command's `call.now()` is the host's clock when it was called, `YYYY-MM-DDTHH:MM:SSZ` (RFC 3339, UTC, seconds; protocol 1.11.0, ADR 0294), the same instant as `call.today()`; a hook's `call.now()` and a writing collector's input carry it too. A prompt and a pass are not told the time. A command's `call.nonce()` is 32 lowercase hex digits of the host's entropy, fresh per call (ADR 0341): draw a command's random values from it, deterministically, so a test pins them as it pins the clock. It is randomness, not a secret; only a command is told one.
 
 A command's `call.host()` is the host that called it (`claude-code`, `codex` or `cursor`, when known; protocol 1.13.0, ADR 0318): on the command line it is `--host <host>`, which the host adds to every extension command, so a command declares no arg of that name. After `cmd.input(Input::State)` (a command or a prompt), `call.state()` holds the extension's `StateView` (ADR 0310). `Trigger` and `TriggerKind` are in the prelude, and `Settings::number(key)` reads a number setting.
 
@@ -869,7 +869,7 @@ An extension is tested natively (`cargo test`, no wasm build) at three depths:
   wire JSON (`assert_handshake`, `assert_describe`), and `testing::call_every_command` runs every
   declared command with every arg set, which catches a handler reading an arg its command does not
   declare (a panic here, E028 in the host); `testing::call_every_command_with` also feeds every command
-  an explicit `now` and the `files` of the reads it declares (`CommandFeed`).
+  an explicit `now`, a `nonce` (32 zeros when none is given) and the `files` of the reads it declares (`CommandFeed`).
 - **Its commands, as the host calls them**: `specforge_wasm::testing::InProcessRuntime` (feature
   `testing`) serves the extension's `ContributionsBuilder` through the guest's own routing
   (`Served`, what `component_guest!` calls), and `ExtensionCalls::run_command` calls a command
