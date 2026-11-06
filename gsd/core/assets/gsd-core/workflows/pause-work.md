@@ -138,7 +138,7 @@ phase: XX-name
 task: 3
 total_tasks: 7
 status: in_progress
-last_updated: [the pause's at]
+# no time here: the pause the commit step records stamps it
 ---
 
 # BLOCKING CONSTRAINTS — Read Before Anything Else
@@ -222,7 +222,7 @@ Start with: [specific first action when resuming]
 
 Be specific enough for a fresh Claude to understand immediately.
 
-The `pause` the commit step records stamps `at` (the host's clock): that is the handoff's `last_updated`.
+The `pause` the commit step records stamps `at` (the host's clock): the handoff holds no time of its own.
 ```bash
 
 ```

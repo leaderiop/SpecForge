@@ -503,3 +503,9 @@ fn a_milestone_summary_reads_the_milestones_start() {
     let (out, err, _) = run(&sh, &p, &code);
     assert_eq!(out.trim(), "2", "{err}");
 }
+
+/// The handoff is written before the `pause` that holds the time, so it asks for no time of its own.
+#[test]
+fn a_handoff_asks_for_no_time_the_pause_has_not_stamped() {
+    assert!(!asset("gsd-core/workflows/pause-work.md").contains("last_updated"));
+}
