@@ -292,11 +292,11 @@ export function useUser() {
 
 **Wiring check:**
 ```bash
-# Hook is actually imported somewhere ($hook_file is the hook's file name: its own file is left out)
-specforge files search "import.*$hook_name" src --glob '*.tsx' --glob '*.ts' --glob "!$hook_file" --format human
+# Hook is actually imported somewhere ($hook_name and $hook_file, its path below src: its own file is left out)
+: "${hook_file:?the path of the hook below src, as hooks/useUser.ts}"; specforge files search "import.*$hook_name" src --glob '*.tsx' --glob '*.ts' --glob "!**/$hook_file" --format human
 
 # Hook is actually called
-specforge files search "$hook_name\(\)" src --glob '*.tsx' --glob '*.ts' --glob "!$hook_file" --format human
+: "${hook_file:?the path of the hook below src, as hooks/useUser.ts}"; specforge files search "$hook_name\(\)" src --glob '*.tsx' --glob '*.ts' --glob "!**/$hook_file" --format human
 ```
 
 </hooks_utilities>

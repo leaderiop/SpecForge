@@ -128,6 +128,20 @@ fn a_bang_glob_excludes_from_list_and_search() {
     assert_eq!(searched.stdout, "src/lib/util.rs\n");
 }
 
+/// A bare `!` and an empty glob leave nothing to judge by: an unset shell variable, not a wish to exclude everything.
+#[test]
+fn an_empty_glob_is_refused() {
+    let project = project();
+    for glob in ["!", ""] {
+        for verb in [&["files", "list"][..], &["files", "search", "hello"]] {
+            let mut args = verb.to_vec();
+            args.extend(["--glob", glob]);
+            let run = Cli::on(&project).run(&args).exits(1);
+            assert!(run.stdout.contains("glob"), "{args:?}: {}", run.stdout);
+        }
+    }
+}
+
 #[test]
 fn search_answers_each_matching_line() {
     let project = project();

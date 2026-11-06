@@ -125,9 +125,16 @@ pub fn stat(verbs: &Verbs, paths: &[PathBuf]) -> Result<StatAnswer, OpError> {
 }
 
 /// The globs, checked: `invalid_input` names the one that does not parse (a leading `!` excludes, and is not part of
-/// the glob).
+/// the glob), and one with nothing to match, which a shell's unset variable writes.
 fn checked_globs(globs: &[String]) -> Result<(), OpError> {
     for glob in globs {
+        if glob.is_empty() || glob == "!" {
+            return Err(OpError::new(
+                OpErrorKind::InvalidInput,
+                OpErrorKind::InvalidInput.as_str(),
+                format!("the glob {glob:?} names nothing: is a shell variable unset?"),
+            ));
+        }
         globset::Glob::new(glob.strip_prefix('!').unwrap_or(glob)).map_err(|error| {
             OpError::new(
                 OpErrorKind::InvalidInput,

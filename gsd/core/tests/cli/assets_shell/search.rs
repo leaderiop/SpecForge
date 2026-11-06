@@ -400,6 +400,51 @@ fn a_proximity_line_finds_y_before_x_and_within_n_lines() {
     assert!(!out.is_empty(), "{check}\n{err}");
 }
 
+/// The hook wiring check names the hook's file by its path below `src`: its own file is left out, a barrel of the same
+/// name is not, and with no path the check stops rather than exclude everything.
+#[test]
+fn the_hook_check_leaves_out_only_the_hooks_own_file() {
+    let Some(sh) = Shell::only(super::PICK_TOOLS) else {
+        return;
+    };
+    let p = tempfile::tempdir().expect("a project");
+    let write = |path: &str, text: &str| {
+        let at = p.path().join(path);
+        std::fs::create_dir_all(at.parent().expect("a parent")).expect("a directory");
+        std::fs::write(at, text).expect("a file");
+    };
+    write("src/hooks/index.ts", "import { useX } from './useX';\n");
+    write(
+        "src/hooks/useX.ts",
+        "import { useX } from 'self';\nuseX();\n",
+    );
+    write("src/index.ts", "import { useX } from './hooks';\nuseX();\n");
+    let text = super::asset(PATTERNS);
+    let imported = line_with(&text, "\"import.*$hook_name\"");
+    let called = line_with(&text, "\"$hook_name\\(\\)\"");
+    let (out, err, _) = sh.run_in(
+        p.path(),
+        &format!("hook_name=useX hook_file=hooks/useX.ts\n{imported}"),
+    );
+    assert!(
+        out.contains("src/hooks/index.ts:1:"),
+        "{imported}\n{out}\n{err}"
+    );
+    assert!(out.contains("src/index.ts:1:"), "{imported}\n{out}\n{err}");
+    assert!(!out.contains("useX.ts"), "{imported}\n{out}");
+    let (out, err, _) = sh.run_in(
+        p.path(),
+        &format!("hook_name=useX hook_file=hooks/useX.ts\n{called}"),
+    );
+    assert!(out.contains("src/index.ts:2:"), "{called}\n{out}\n{err}");
+    assert!(!out.contains("useX.ts"), "{called}\n{out}");
+    for line in [&imported, &called] {
+        let (out, _, code) = sh.run_in(p.path(), &format!("hook_name=useX\n{line}"));
+        assert_ne!(code, 0, "no path, no check: {line}\n{out}");
+        assert_eq!(out, "", "no path, no check: {line}");
+    }
+}
+
 /// The lines of the `# gsd-handoff:begin <name>` block of `path`.
 fn handoff_block(path: &str, name: &str) -> String {
     let text = super::asset(path);
