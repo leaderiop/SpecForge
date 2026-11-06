@@ -61,7 +61,7 @@
     "CONFIG=$(specforge settings)",
     "```"
   ],
-  "bytes": 54056,
+  "bytes": 54062,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f5ff62dae496058668d174a0b06f93ee34ef5fb860b08051af2def696effb001",
+    "digest": "sha256:c06e5858a6b9e40b5f750c2243c3e9c21ff74924fc24acb5b2caa1dc42b1350e",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "f5ff62dae496058668d174a0b06f93ee34ef5fb860b08051af2def696effb001"
+  "sha256": "c06e5858a6b9e40b5f750c2243c3e9c21ff74924fc24acb5b2caa1dc42b1350e"
 }

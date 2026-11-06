@@ -517,7 +517,7 @@ for i in {1..5}; do
   sleep 3
 done
 
-if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && for f in subject body; do specforge git log "$SHIP_NOTE_SHA" --max 1 --pick ".commits[0].$f"; done | grep -q '\[ci skip\]'; then
+if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && [ "$(specforge git log "$SHIP_NOTE_SHA" --max 1 --grep '\[ci skip\]' --pick '.commits[0].sha' 2>/dev/null)" = "$SHIP_NOTE_SHA" ]; then
   echo "⚠ PR is BLOCKED with zero checks. The [ci skip] trailer wedged the PR due to required checks."
   echo "Pushing an empty commit to trigger the required pipelines..."
   # a commit with no files is made with git directly (an intentionally empty commit).

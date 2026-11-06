@@ -304,3 +304,70 @@ fn the_pin_compares_both_roots_with_one_reader() {
     halts(&main, "{PINNED_ROOT}", "pin-unbound");
     halts(&main, "relative/pin", "form-gate");
 }
+
+/// Forensic-audit lists the tracked changes outside the spec root, ten at most, whatever else the tree holds.
+#[test]
+fn forensic_audit_leaves_the_spec_root_out() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let text = asset("gsd-core/workflows/progress/steps/forensic-audit.md");
+    let read = line(&text, "specforge git status --except spec");
+    let dir = tempfile::tempdir().expect("a dir");
+    let paths: Vec<String> = (0..12)
+        .map(|n| format!("src/{n:02}.txt"))
+        .chain(["spec/a.spec".to_string(), "spectre.txt".to_string()])
+        .collect();
+    std::fs::create_dir_all(dir.path().join("src")).expect("a dir");
+    std::fs::create_dir_all(dir.path().join("spec")).expect("a dir");
+    for path in &paths {
+        std::fs::write(dir.path().join(path), "one\n").expect("a file");
+    }
+    git(dir.path(), &["init", "-q", "-b", "main"]);
+    git(dir.path(), &["add", "-A"]);
+    git(dir.path(), &["commit", "-qm", "first"]);
+    std::fs::write(dir.path().join("spec/a.spec"), "two\n").expect("a spec file");
+    std::fs::write(dir.path().join("spectre.txt"), "two\n").expect("a file");
+    let (out, err, _) = sh.run_in(dir.path(), read);
+    assert_eq!(out.trim(), "spectre.txt", "{err}");
+    for path in paths.iter().filter(|p| p.starts_with("src/")) {
+        std::fs::write(dir.path().join(path), "two\n").expect("a file");
+    }
+    let (out, err, _) = sh.run_in(dir.path(), read);
+    assert_eq!(out.lines().count(), 10, "ten at most: {out} {err}");
+    assert!(!out.contains("spec/"), "{out}");
+}
+
+/// Ship's `[ci skip]` check asks of the note itself: a marker in its subject or body counts, and one on an older commit
+/// does not, though the newest commit that matches is then that one.
+#[test]
+fn ship_reads_the_ci_skip_marker_on_the_note_itself() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let text = asset("gsd-core/workflows/ship.md");
+    let line = line(
+        &text,
+        "if [ \"$STATUS\" = \"blocked\" ] && [ \"$CHECKS\" = \"0\" ]",
+    );
+    let dir = tempfile::tempdir().expect("a dir");
+    git(dir.path(), &["init", "-q", "-b", "main"]);
+    let commit = |args: &[&str]| {
+        let mut all = vec!["commit", "-q", "--allow-empty"];
+        all.extend_from_slice(args);
+        git(dir.path(), &all);
+    };
+    let skips = |wanted: &str| {
+        let script = format!(
+            "STATUS=blocked; CHECKS=0; SHIP_NOTE_SHA=$(specforge git head --pick .sha)\n{line}\n  echo skips\nelse\n  echo runs\nfi"
+        );
+        let (out, err, _) = sh.run_in(dir.path(), &script);
+        assert_eq!(out.trim(), wanted, "{err}");
+    };
+    commit(&["-m", "docs: the note [ci skip]"]);
+    skips("skips");
+    commit(&["-m", "docs: the note", "-m", "Why.\n\n[ci skip]"]);
+    skips("skips");
+    commit(&["-m", "docs: no marker here"]);
+    skips("runs");
+}
