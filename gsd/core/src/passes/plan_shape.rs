@@ -32,7 +32,7 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
 }
 
 /// GSD's quick id: `YYMMDD-xxx`, six digits, a dash, three base-36 digits (`src/init.cts`, lowercase).
-fn is_quick_id(name: &str) -> bool {
+pub(crate) fn is_quick_id(name: &str) -> bool {
     let bytes = name.as_bytes();
     bytes.len() == 10
         && bytes[..6].iter().all(u8::is_ascii_digit)

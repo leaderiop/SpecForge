@@ -8,6 +8,7 @@ mod help;
 mod milestone;
 mod package_manager;
 mod phase;
+mod quick;
 mod refactor;
 mod reference;
 pub(crate) mod reports;
@@ -89,5 +90,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
     verification_debt::declare(c);
     package_manager::declare(c);
     smart_entry::declare(c);
+    quick::declare(c);
     surface::declare(c);
 }

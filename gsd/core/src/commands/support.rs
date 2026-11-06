@@ -63,9 +63,37 @@ pub fn now<'a>(call: &'a CommandCall<'_>) -> Result<&'a str, String> {
     }
 }
 
+/// A checked nonce: the host's 32 lowercase hex digits (ADR 0341); a call the host gave none or another shape is refused,
+/// never drawn from something made up.
+pub fn nonce<'a>(call: &'a CommandCall<'_>) -> Result<&'a str, String> {
+    let nonce = call.nonce();
+    if nonce.len() == 32
+        && nonce
+            .bytes()
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    {
+        Ok(nonce)
+    } else {
+        Err("the host sent no nonce; run the command through `specforge`".to_string())
+    }
+}
+
+/// `text` as a directory slug: lower case, runs of other characters as one dash.
+pub fn slug(text: &str) -> String {
+    let mut slug = String::new();
+    for c in text.chars().flat_map(char::to_lowercase) {
+        if c.is_ascii_alphanumeric() {
+            slug.push(c);
+        } else if !slug.ends_with('-') && !slug.is_empty() {
+            slug.push('-');
+        }
+    }
+    slug.trim_end_matches('-').to_string()
+}
+
 /// A control character of `text` (C0 but tab and line feed, DEL, C1, the line and paragraph separators and the bidi
 /// overrides, which reorder what a reader sees) as `U+00XX`.
-fn control(text: &str) -> Option<String> {
+pub(super) fn control(text: &str) -> Option<String> {
     text.chars()
         .find(|c| {
             (c.is_control() && *c != '\t' && *c != '\n')
