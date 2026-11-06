@@ -182,6 +182,10 @@ pub(crate) struct ListArgs {
 }
 
 #[derive(clap::Args)]
+#[command(
+    group(clap::ArgGroup::new("verdict").args(["quiet", "none"]).conflicts_with_all(VERDICT_CONFLICTS)),
+    group(clap::ArgGroup::new("around").args(["after_context", "before_context", "context"]).multiple(true)),
+)]
 pub(crate) struct SearchArgs {
     /// The regular expression (Rust's `regex` syntax)
     pattern: String,
@@ -232,21 +236,21 @@ pub(crate) struct SearchArgs {
     context: Option<usize>,
 
     /// Answer the files that match, not their lines (each file's search stops at its first match)
-    #[arg(long, short = 'l', conflicts_with_all = ["counts", "after_context", "before_context", "context"])]
+    #[arg(long, short = 'l', conflicts_with_all = ["counts", "around"])]
     files_with_matches: bool,
 
     /// Answer each file's count of matching lines: every file with a match, and every file typed by name, even at 0
-    #[arg(long, conflicts_with_all = ["after_context", "before_context", "context"])]
+    #[arg(long, conflicts_with = "around")]
     counts: bool,
 
     /// Print nothing: exit 0 when anything matched, else 2 when a typed path is missing, a file went unread or the
     /// search is refused (its error on stderr), else 1, as `grep -q`; it takes no --pick and no --format
-    #[arg(long, short = 'q', conflicts_with = "none", conflicts_with_all = QUIET_CONFLICTS)]
+    #[arg(long, short = 'q')]
     quiet: bool,
 
     /// Print nothing: exit 1 when anything matched, else 2 when a typed path is missing, a file went unread or the
     /// search is refused (its error on stderr), else 0: a negative gate that never passes on a file it could not read
-    #[arg(long, conflicts_with_all = QUIET_CONFLICTS)]
+    #[arg(long)]
     none: bool,
 
     /// Leave out a line (or -U match) this pattern also matches, as `| grep -v`; it takes -i and -F too, and context
@@ -413,13 +417,15 @@ fn stdin_bytes() -> Stdin {
 }
 
 /// What `-q` and `--none` take no part of: an answer they do not print.
-const QUIET_CONFLICTS: [&str; 8] = [
+const VERDICT_CONFLICTS: [&str; 10] = [
     "files_with_matches",
     "counts",
-    "after_context",
-    "before_context",
-    "context",
+    "around",
     crate::pick::PICK,
+    crate::pick::COUNT,
+    crate::pick::FIRST,
+    crate::pick::LAST,
+    crate::pick::JOIN,
     "format",
     "max",
 ];

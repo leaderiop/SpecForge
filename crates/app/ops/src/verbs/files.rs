@@ -339,8 +339,9 @@ pub fn temp(verbs: Verbs, temp: &Temp) -> Result<TempAnswer, OpError> {
         }
     }
     if let Some(name) = &temp.name {
-        if name.is_empty() {
-            return Err(invalid("the name is empty".to_string()));
+        // `.` is the temp root itself.
+        if name.is_empty() || name == "." {
+            return Err(invalid(format!("{name:?} names no file in the temp root")));
         }
         return stable_temp(verbs, name, temp.dir);
     }

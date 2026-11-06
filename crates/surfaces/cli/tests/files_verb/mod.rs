@@ -320,6 +320,19 @@ fn temp_answers_a_new_private_path_under_the_temp_root() {
 /// A committed `.specforge/tmp` link out of the project is refused before anything is made or chmod-ed there: the
 /// directory it points at keeps its mode.
 #[cfg(unix)]
+/// `.` is the temp root itself, and `..` leaves it: neither is a name in it.
+#[test]
+fn temp_name_refuses_a_dot() {
+    let project = project();
+    for dir in [&["--dir"][..], &[]] {
+        for name in [".", ".."] {
+            let mut args = vec!["files", "temp", "--name", name];
+            args.extend_from_slice(dir);
+            Cli::on(&project).run(&args).exits(1);
+        }
+    }
+}
+
 #[test]
 fn temp_never_makes_or_chmods_through_a_link() {
     use std::os::unix::fs::PermissionsExt as _;

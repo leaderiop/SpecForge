@@ -324,6 +324,39 @@ fn none_exits_0_on_none_1_on_a_match_2_when_unjudged() {
     assert_eq!(verdict(&project, "--none", &["zzz", &typed]), 2);
 }
 
+/// A verdict prints nothing, so a shape of what it would print is a mistake to say so, not to ignore.
+#[test]
+fn a_verdict_takes_no_shape_of_an_answer() {
+    let project = project();
+    for verdict in ["-q", "--none"] {
+        for shape in [
+            &["--pick", ".count"][..],
+            &["--pick", ".matches[]", "--count"],
+            &["--pick", ".matches[]", "--first", "1"],
+            &["--pick", ".matches[]", "--last", "1"],
+            &["--pick", ".matches[]", "--join", ","],
+            &["--count"],
+            &["--first", "1"],
+            &["--last", "1"],
+            &["--join", ","],
+            &["--counts"],
+            &["-l"],
+            &["-A", "1"],
+            &["-B", "1"],
+            &["-C", "1"],
+            &["--max", "1"],
+            &["--format", "json"],
+        ] {
+            let mut args = vec!["files", "search", verdict, "hello", "src"];
+            args.extend_from_slice(shape);
+            Cli::on(&project).run(&args).exits(2);
+        }
+    }
+    Cli::on(&project)
+        .run(&["files", "search", "-q", "--none", "hello", "src"])
+        .exits(2);
+}
+
 #[test]
 fn quiet_takes_no_pick() {
     let project = project();

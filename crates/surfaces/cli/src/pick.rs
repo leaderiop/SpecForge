@@ -283,8 +283,8 @@ pub(crate) struct Shape {
 /// unless it declares an arg of the name.
 pub(crate) const SHAPES: [&str; 4] = [COUNT, FIRST, LAST, JOIN];
 pub(crate) const COUNT: &str = "count";
-const FIRST: &str = "first";
-const LAST: &str = "last";
+pub(crate) const FIRST: &str = "first";
+pub(crate) const LAST: &str = "last";
 pub(crate) const JOIN: &str = "join";
 
 impl Shape {
