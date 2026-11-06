@@ -19,6 +19,8 @@ use specforge_test::prelude::*;
 mod picking;
 #[path = "history/spike.rs"]
 mod spike;
+#[path = "history/worktrees.rs"]
+mod worktrees;
 #[path = "history/writes.rs"]
 mod writes;
 

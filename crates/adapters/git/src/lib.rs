@@ -207,8 +207,22 @@ impl Git for Gix {
                 dir.display()
             ));
         }
+        // git stops at a `.git` it cannot use; gix looks on upwards, and a broken repository would answer as the one
+        // around it, read clean when that one is
+        let toplevel = real(top);
+        if here.starts_with(&toplevel)
+            && let Some(broken) = here
+                .ancestors()
+                .take_while(|at| *at != toplevel)
+                .find(|at| at.join(".git").symlink_metadata().is_ok())
+        {
+            return Located::Unavailable(format!(
+                "{} has a .git that is no repository",
+                broken.display()
+            ));
+        }
         Located::Repo(GitPlace {
-            toplevel: real(top),
+            toplevel,
             git_dir: real(repo.git_dir()),
             common_dir: real(repo.common_dir()),
             shallow: repo.is_shallow(),

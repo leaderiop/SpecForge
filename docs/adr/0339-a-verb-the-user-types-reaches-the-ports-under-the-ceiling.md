@@ -300,6 +300,12 @@ path is held to the roots, the host's own state stays withheld.
   and says what it means to any reader of the JSON.
 - **`status --except <path>`** leaves out an entry at or under the path, as git's `:!<path>` does, from `entries`,
   `tracked` and `untracked`, and `clean` is computed on what is left. Repeatable; the name `add --except` already has.
+- **Finding a repository.** A `.git` entry on the way up that is no repository stops the search (`Unavailable`), where
+  gix goes on upwards: a broken repository must never answer as the one around it. git also stops at a `.git` file it
+  cannot use, and goes past an empty `.git/` directory; here both stop it.
+- **`worktree add`** makes the path's parents, and a second worktree of one directory name takes its own record
+  (`name1`), as git does; libgit2 does neither. A new branch needs no identity on the machine: its reflog line takes a
+  fallback name, as git's does, where a commit still refuses.
 - **What stays.** Only push, fetch, `ls-remote` and `remote show` (D6): new-workspace, remove-workspace and
   worktree-path-safety's pin now call only specforge. Each side of the pin is one reader's spelling (links resolved), so
   aliases such as `/var` and `/private/var` compare equal.
