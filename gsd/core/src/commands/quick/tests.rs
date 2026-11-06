@@ -47,11 +47,11 @@ fn a_quick_id_is_the_day_and_three_base_36_digits() {
     let minted = ids(SEED, "261105", std::iter::empty(), 200).unwrap();
     assert_eq!(minted.len(), 200);
     for id in &minted {
-        assert!(id.starts_with("261105-") && is_quick_id(id), "{id}");
+        assert!(
+            QuickId::parse(id).is_some_and(|id| id.is_of("261105")),
+            "{id}"
+        );
     }
-    assert_eq!(base36(0), "000");
-    assert_eq!(base36(IDS - 1), "zzz");
-    assert_eq!(base36(36 + 11), "01b");
 }
 
 #[test]
@@ -82,7 +82,9 @@ fn the_same_nonce_mints_the_same_ids() {
 
 #[test]
 fn a_full_day_is_refused() {
-    let all: Vec<String> = (0..IDS).map(|n| format!("261105-{}", base36(n))).collect();
+    let all: Vec<String> = (0..QuickId::PER_DAY)
+        .map(|n| QuickId::nth("261105", n).into_string())
+        .collect();
     let taken = || all.iter().map(String::as_str);
     let why = ids(SEED, "261105", taken(), 1).unwrap_err();
     assert!(why.contains("0 of 261105's 46656 are free"), "{why}");
@@ -155,9 +157,9 @@ fn the_template_takes_num_and_slug() {
 
 #[test]
 fn a_slug_is_cut_to_40_and_never_empty() {
-    assert_eq!(slug40(&"a".repeat(50)).len(), 40);
+    assert_eq!(quick_slug(&"a".repeat(50)).len(), 40);
     // the cut lands on a dash: it goes
-    assert_eq!(slug40(&format!("{} b", "a".repeat(39))), "a".repeat(39));
+    assert_eq!(quick_slug(&format!("{} b", "a".repeat(39))), "a".repeat(39));
     let answer = answer_of(json!({"description": "!!!"}));
     assert_eq!(answer["items"][0]["slug"], answer["items"][0]["id"]);
 }

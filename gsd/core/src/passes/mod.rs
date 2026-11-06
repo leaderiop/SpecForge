@@ -10,7 +10,7 @@ mod fails_when;
 mod file_scope;
 mod gates;
 mod nyquist;
-pub(crate) mod plan_shape;
+mod plan_shape;
 mod plans;
 mod research;
 mod roadmap;

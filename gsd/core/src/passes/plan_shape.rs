@@ -11,6 +11,7 @@ mod checkpoint;
 use specforge_extension_sdk::prelude::*;
 
 use crate::digest::scope_of;
+use crate::quick_id::QuickId;
 
 use super::plans::{block, children, name_of, of_kind, phase_of, strings, text};
 
@@ -29,17 +30,6 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     found.extend(one_way_doors(input));
     found.extend(must_haves(input));
     found
-}
-
-/// GSD's quick id: `YYMMDD-xxx`, six digits, a dash, three base-36 digits (`src/init.cts`, lowercase).
-pub(crate) fn is_quick_id(name: &str) -> bool {
-    let bytes = name.as_bytes();
-    bytes.len() == 10
-        && bytes[..6].iter().all(u8::is_ascii_digit)
-        && bytes[6] == b'-'
-        && bytes[7..]
-            .iter()
-            .all(|b| b.is_ascii_digit() || b.is_ascii_lowercase())
 }
 
 /// A phase plan is `<phase>-<NN>`: the phase's name, a dash, and two or more digits (`02.1-01` in phase `02.1`).
@@ -72,7 +62,7 @@ fn names(input: &PassInput) -> Vec<PassDiagnostic> {
                     )),
                 ),
                 Some(_) => None,
-                None if plan.fields.contains_key("phase") || is_quick_id(name) => None,
+                None if plan.fields.contains_key("phase") || QuickId::parse(name).is_some() => None,
                 None => Some(
                     PassDiagnostic::new(
                         "W323",

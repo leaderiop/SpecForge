@@ -12,6 +12,7 @@ pub mod judged;
 mod kinds;
 mod passes;
 pub mod prompts;
+mod quick_id;
 mod route;
 mod rules;
 pub mod settings;

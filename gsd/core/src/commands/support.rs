@@ -81,7 +81,7 @@ pub fn nonce(call: &CommandCall<'_>) -> Result<Seed, String> {
     }
 }
 
-/// `text` as a directory slug: lower case, runs of other characters as one dash.
+/// `text` as a slug: lower case, runs of other characters as one dash.
 pub fn slug(text: &str) -> String {
     let mut slug = String::new();
     for c in text.chars().flat_map(char::to_lowercase) {

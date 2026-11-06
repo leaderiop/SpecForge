@@ -60,22 +60,6 @@ fn phase_02_1_plan_02_1_01_is_clean() {
     assert_eq!(found("v1.0/02.1/02.1-1", Some("v1.0/02.1")).len(), 1);
 }
 
-#[test]
-fn a_quick_id_is_six_digits_a_dash_and_three_base_36_digits() {
-    for good in ["261028-a1b", "000000-000", "991231-zzz"] {
-        assert!(is_quick_id(good), "{good}");
-    }
-    for bad in [
-        "261028-A1B",
-        "26102-a1bc",
-        "261028-a1",
-        "261028_a1b",
-        "03-01",
-    ] {
-        assert!(!is_quick_id(bad), "{bad}");
-    }
-}
-
 fn entity(id: &str, kind: &str, fields: &[(&str, &str)]) -> PassEntity {
     PassEntity {
         id: id.into(),

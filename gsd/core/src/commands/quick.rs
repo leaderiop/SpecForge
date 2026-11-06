@@ -12,10 +12,7 @@ use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
 use super::support::{Seed, answer, given, nonce, now, plain, run, slug, text, title};
-use crate::passes::plan_shape::is_quick_id;
-
-/// How many quick ids a day has: three base-36 digits.
-const IDS: u64 = 36 * 36 * 36;
+use crate::quick_id::QuickId;
 
 /// The next value of a splitmix64 stream: enough to spread a nonce over ids, with no dependency.
 fn draw(state: &mut u64) -> u64 {
@@ -26,14 +23,6 @@ fn draw(state: &mut u64) -> u64 {
     z ^ (z >> 31)
 }
 
-/// The three base-36 digits of `n`.
-fn base36(n: u64) -> String {
-    [n / (36 * 36), n / 36 % 36, n % 36]
-        .iter()
-        .map(|digit| char::from_digit(*digit as u32, 36).expect("a digit under 36"))
-        .collect()
-}
-
 /// `n` ids of `day` (`yymmdd`): each starts at a draw and probes forward to the first id neither `taken` nor already
 /// minted here, so it ends, and finds a free id whenever one exists.
 fn ids<'a>(
@@ -42,23 +31,23 @@ fn ids<'a>(
     taken: impl Iterator<Item = &'a str>,
     n: usize,
 ) -> Result<Vec<String>, String> {
-    let prefix = format!("{day}-");
     let mut taken: BTreeSet<String> = taken
-        .filter(|id| id.starts_with(&prefix) && is_quick_id(id))
+        .filter(|id| QuickId::parse(id).is_some_and(|id| id.is_of(day)))
         .map(str::to_string)
         .collect();
-    let free = IDS as usize - taken.len();
+    let free = QuickId::PER_DAY as usize - taken.len();
     if n > free {
         return Err(format!(
-            "{n} quick ids asked, and {free} of {day}'s {IDS} are free"
+            "{n} quick ids asked, and {free} of {day}'s {} are free",
+            QuickId::PER_DAY
         ));
     }
     let mut state = seed.0;
     let mut minted = Vec::with_capacity(n);
     for _ in 0..n {
-        let start = draw(&mut state) % IDS;
-        let id = (0..IDS)
-            .map(|probe| format!("{prefix}{}", base36((start + probe) % IDS)))
+        let start = draw(&mut state) % QuickId::PER_DAY;
+        let id = (0..QuickId::PER_DAY)
+            .map(|probe| QuickId::nth(day, start + probe).into_string())
             .find(|id| !taken.contains(id))
             .expect("fewer ids asked than are free");
         taken.insert(id.clone());
@@ -91,8 +80,8 @@ fn tasks(list: &str) -> Vec<&str> {
         .collect()
 }
 
-/// A branch and directory slug: [`slug`] cut to 40 characters, no trailing dash.
-fn slug40(text: &str) -> String {
+/// A quick task's slug, which finds it and names its branch: [`slug`] cut to 40 characters, no trailing dash.
+fn quick_slug(text: &str) -> String {
     let whole = slug(text);
     whole[..whole.len().min(40)]
         .trim_end_matches('-')
@@ -153,7 +142,7 @@ fn init(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         .zip(&tasks)
         .map(|(id, task)| {
             // A task with no ASCII letter or digit has no slug of its own: its id finds it as well.
-            let slug = Some(slug40(task))
+            let slug = Some(quick_slug(task))
                 .filter(|slug| !slug.is_empty())
                 .unwrap_or_else(|| id.clone());
             let mut item = json!({
