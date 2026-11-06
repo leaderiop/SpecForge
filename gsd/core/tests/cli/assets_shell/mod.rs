@@ -20,7 +20,7 @@ const PICK_TOOLS: &[&str] = &[
 ];
 
 /// `bash` with a `PATH` of the named tools and `specforge` alone.
-struct Shell {
+pub(super) struct Shell {
     bash: PathBuf,
     bin: tempfile::TempDir,
 }
@@ -44,7 +44,7 @@ impl Shell {
 
     /// `bash` with a `PATH` of `tools` and `specforge` (`SPECFORGE_BIN`) alone. `None` (and a skip note) when bash is
     /// absent.
-    fn only(tools: &[&str]) -> Option<Shell> {
+    pub(super) fn only(tools: &[&str]) -> Option<Shell> {
         let Some(bash) = which("bash") else {
             eprintln!("skipped: bash is absent");
             return None;
@@ -61,7 +61,7 @@ impl Shell {
     }
 
     /// `script` under `bash -c` in `dir`: `(stdout, stderr, exit code)`.
-    fn run_in(&self, dir: &Path, script: &str) -> (String, String, i32) {
+    pub(super) fn run_in(&self, dir: &Path, script: &str) -> (String, String, i32) {
         let out = Command::new(&self.bash)
             .current_dir(dir)
             .env("PATH", self.bin.path())

@@ -226,41 +226,26 @@ fn commands(text: &str, needle: &str) -> Vec<String> {
     found
 }
 
-/// A research step makes the quick plan before the research that names it (the orchestrator does, before it
-/// spawns the researcher; a second run, as a resumed batch makes, keeps it), every research it writes is written to
-/// spec/quick.spec, and the planner is told the plan exists, so it fills it instead of making it again.
+/// The plan exists before any step that names it (the fence that mints its id wrote it), so a research step writes no
+/// plan, every research it writes goes to spec/quick.spec, and the planner is told to fill the plan, not make it.
 #[test]
-fn a_research_step_makes_the_quick_plan_before_its_research() {
+fn a_research_step_finds_the_plan_the_init_step_wrote() {
     let p = project("quick-context");
     for file in [
         "quick/steps/research-phase.md",
         "quick-batch/steps/research-phase.md",
     ] {
         let text = served(&p, file);
-        let make = commands(&text, "specforge new plan \"${quick_id}\"");
-        assert_eq!(make.len(), 1, "{file} makes the quick plan once: {make:#?}");
-        let (Some(at), Some(research)) = (
-            text.find(make[0].as_str()),
-            text.find("specforge new research"),
-        ) else {
-            panic!("{file}: no research write");
-        };
-        assert!(at < research, "{file} makes the plan after its research");
+        assert!(
+            commands(&text, "specforge new plan \"").is_empty(),
+            "{file} writes a plan"
+        );
         for line in text
             .lines()
             .filter(|l| l.contains("specforge new research"))
         {
             assert!(line.contains("--in spec/quick.spec"), "{file}: {line}");
         }
-        let id = if file.starts_with("quick-batch") {
-            "251101-bat"
-        } else {
-            "251101-one"
-        };
-        for run in 1..=2 {
-            assert!(holds(&p, &make[0], id), "{file}, run {run}: {}", make[0]);
-        }
-        assert_eq!(p.fields_of(id)["type"], "execute", "{file}");
     }
     for file in ["quick.md", "quick-batch/steps/planner-wave.md"] {
         let text = served(&p, file);

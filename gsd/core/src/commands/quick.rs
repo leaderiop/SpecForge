@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, control, given, nonce, now, run, slug, text};
+use super::support::{answer, control, given, nonce, now, run, slug, text, title};
 use crate::passes::plan_shape::is_quick_id;
 
 /// How many quick ids a day has: three base-36 digits.
@@ -180,6 +180,7 @@ fn init(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
                     item["branch_name"] = json!(name);
                 }
                 item["description"] = json!(task);
+                item["title"] = json!(title(task));
                 item["slug"] = json!(slug);
                 human.push('\t');
                 human.push_str(task);

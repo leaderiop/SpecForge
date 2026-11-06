@@ -1,6 +1,7 @@
 //! `quick`, `quick_batch` and `fast` (T2): a quick task is a plan with no phase, made, started and completed through
 //! the typed tools the prompt names.
 
+use super::assets_shell::Shell;
 use super::commands_support::{gsd, twin};
 use super::prompts_support::{command, payload, prompt, render_three_hosts, text_of};
 
@@ -27,10 +28,21 @@ fn quick_creates_a_quick_plan() {
         &["--task", "trim titles"],
         "claude-code",
     )));
-    let id = quick_id();
+    let init = text
+        .lines()
+        .find(|l| l.contains("specforge gsd quick-init --description="))
+        .expect("the init line");
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let (id, err, code) = sh.run_in(
+        p.root(),
+        &format!("DESCRIPTION='Trim titles'\n{init}\nprintf '%s' \"$quick_id\" >&2"),
+    );
+    assert_eq!(code, 0, "{id}{err}");
+    let id = err[err.len() - 10..].to_string();
     p.write("src/tasks.js", "export const add = (t) => t.trim();\n");
     let fill = [
-        ("<title>", "Trim titles"),
         ("<paths>", "src/tasks.js"),
         ("<objective>", "Titles are trimmed"),
         ("<what must be true>", "A padded title is trimmed"),
@@ -39,9 +51,12 @@ fn quick_creates_a_quick_plan() {
         ("<what it provides>", "add() that trims"),
         ("<one line>", "Trimmed"),
         ("<area>", "tasks"),
-        ("$slug", "trim-titles"),
     ];
-    for prefix in ["specforge new plan", "specforge new truth"] {
+    for prefix in [
+        "specforge set \"$quick_id\" objective",
+        "specforge set \"$quick_id\" files_modified",
+        "specforge new truth",
+    ] {
         let args = command(&text, prefix, &id, &fill);
         let made = run(&p, &args);
         assert_eq!(made.code, 0, "{args:?}: {}", made.all());
@@ -65,20 +80,8 @@ fn quick_creates_a_quick_plan() {
         .lines()
         .find(|l| l.trim_start().starts_with("specforge gsd start-plan"))
         .expect("the start line");
-    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
-    // `/bin/bash`: the child's PATH holds specforge alone
-    let out = std::process::Command::new("/bin/bash")
-        .args(["-c", &format!("quick_id={id}\n{line}")])
-        .env("PATH", bin.parent().expect("a directory"))
-        .current_dir(p.root())
-        .stdin(std::process::Stdio::null())
-        .output()
-        .expect("bash");
-    assert!(
-        out.status.success(),
-        "{}",
-        String::from_utf8_lossy(&out.stderr)
-    );
+    let (_, err, code) = sh.run_in(p.root(), &format!("quick_id={id}\n{line}"));
+    assert_eq!(code, 0, "{err}");
     let ts = p.fields_of(&format!("{id}/START"))["at"].clone();
     assert!(ts.is_string(), "{ts}");
     let summary = command(&text, "specforge new summary", &id, &fill);
@@ -371,7 +374,7 @@ fn the_quick_id_is_made_once_and_the_branch_template_is_expanded() {
         .output()
         .expect("bash");
     let said = String::from_utf8_lossy(&out.stdout);
-    let cells: Vec<&str> = said.trim_end().split('|').collect();
+    let cells: Vec<&str> = said.lines().last().unwrap_or_default().split('|').collect();
     let [id, slug, branch, date, task_dir] = cells[..] else {
         panic!("{said}: {}", String::from_utf8_lossy(&out.stderr));
     };
@@ -402,11 +405,9 @@ fn the_quick_id_is_made_once_and_the_branch_template_is_expanded() {
         .stdin(std::process::Stdio::null())
         .output()
         .expect("bash");
-    assert_eq!(
-        String::from_utf8_lossy(&out.stdout),
-        "fix-it|",
-        "{}",
-        String::from_utf8_lossy(&out.stderr)
+    assert!(
+        String::from_utf8_lossy(&out.stdout).ends_with("fix-it|"),
+        "{out:?}"
     );
 }
 
@@ -416,10 +417,12 @@ fn the_quick_id_is_made_once_and_the_branch_template_is_expanded() {
 fn quick_batch_names_where_its_quick_id_comes_from() {
     let p = twin();
     let text = text_of(&payload(&prompt(&p, "quick_batch", &[], "claude-code")));
-    assert!(text.contains("$quick_id is each manifest row's first cell, and $slug its second"));
+    assert!(text.contains("$quick_id is each manifest row's first cell"));
+    assert!(text.contains("batch-init wrote the plan"));
     assert!(!text.contains("init block above"));
     let quick = text_of(&payload(&prompt(&p, "quick", &[], "claude-code")));
-    assert!(quick.contains("init block above"));
+    assert!(quick.contains("$quick_id is the one that block printed"));
+    assert!(quick.contains("the init block above wrote the plan"));
 }
 
 /// Quick's worktree steps run under bash in the project's git repository, where the quick plan is the entity

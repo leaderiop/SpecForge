@@ -1,7 +1,7 @@
 //! The quick batch's list is rows of one `quick-init` answer (`quick_id`, `slug`, `description`), its merge-eligible
 //! prefix a bash array and its verification route a `case`: no jq on the `PATH`.
 
-use super::{Shell, asset, line, q};
+use super::{Shell, asset, block, line, q};
 use crate::commands_support::twin;
 
 #[test]
@@ -67,28 +67,53 @@ fn a_task_list_becomes_one_line_per_quick_task() {
     assert_eq!(out.lines().nth(1).unwrap_or_default(), "", "{out}");
 }
 
-/// The research step makes the item's plan with its slug, and no directory: a quick task is entities.
+/// Fences are separate shells on some hosts, so a plan is written in the fence whose answer minted its id: its slug
+/// has no fence to get lost in. Another shell then finds it by that slug, and a slug read empty writes nothing.
 #[test]
-fn a_research_item_makes_its_plan_and_no_directory() {
+fn a_quick_plan_is_written_in_the_fence_that_mints_its_id() {
     let Some(sh) = Shell::only(&[]) else {
         return;
     };
     let p = twin();
-    let text = asset("gsd-core/workflows/quick-batch/steps/research-phase.md");
-    let code = [
-        line(&text, "ITEM_DIR="),
-        line(&text, "specforge query \"${quick_id}\" --depth 0"),
-    ]
-    .join("\n");
-    let (_, err, status) = sh.run_in(
+    let text = asset("gsd-core/workflows/quick.md");
+    let init = line(&text, "IFS=$'\\x1f' read -r quick_id slug")
+        .replace("{{setting:git.quick_branch_template|}}", "");
+    let (out, err, code) = sh.run_in(p.root(), &format!("DESCRIPTION='Trim titles'\n{init}"));
+    assert_eq!(code, 0, "{out}{err}");
+    let commands = asset("commands/gsd/quick.md");
+    let find = line(&commands, "dir=$(").replace("{SLUG}", "trim-titles");
+    let (found, err, _) = sh.run_in(p.root(), &format!("{find}\nprintf '%s' \"$dir\""));
+    assert_eq!(found.len(), 10, "{found}{err}");
+    // the model reads the id off the fence, for the fences that follow
+    assert!(out.contains(&format!("quick_id={found}")), "{out}");
+    assert_eq!(p.fields_of(&found)["slug"], "trim-titles");
+
+    let stub = "specforge() { case \"$2\" in quick-init) printf 'x\\037\\037\\037t\\n' ;; *) echo WROTE ;; esac; }";
+    let (out, _, code) = sh.run_in(
         p.root(),
-        &format!("quick_id=251031-abc slug=trim-titles description='Trim titles'\n{code}"),
+        &format!("{stub}\nDESCRIPTION=d\n{init}\necho after"),
     );
-    assert_eq!(status, 0, "{err}");
-    assert!(!err.contains("outside_root"), "{err}");
-    let fields = p.fields_of("251031-abc");
-    assert_eq!(fields["slug"], "trim-titles", "{fields}");
-    assert_eq!(fields["quick"], true, "{fields}");
+    assert_eq!(
+        (out.as_str(), code),
+        ("", 1),
+        "an empty slug writes nothing"
+    );
+
+    // the batch's: one fence mints every id and writes every plan
+    let text = asset("gsd-core/workflows/quick-batch/steps/batch-init.md");
+    let fence = block(&text, "QB_CREATE_LIST=", "specforge new --in");
+    let (out, err, code) = sh.run_in(
+        p.root(),
+        &format!(
+            "QB_TASKS='- Add a task\n- List tasks'\nQB_TASKS=$(printf '%b' \"$QB_TASKS\")\n{fence}"
+        ),
+    );
+    assert_eq!(code, 0, "{out}{err}");
+    for slug in ["add-a-task", "list-tasks"] {
+        let find = line(&commands, "dir=$(").replace("{SLUG}", slug);
+        let (found, err, _) = sh.run_in(p.root(), &format!("{find}\nprintf '%s' \"$dir\""));
+        assert_eq!(found.len(), 10, "{slug}: {found}{err}");
+    }
 }
 
 #[test]

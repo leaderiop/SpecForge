@@ -52,30 +52,28 @@ const QUICK_STEPS: &[Step] = &[
     },
 ];
 
-/// How a quick plan is made, started and completed through the typed tools: the id is `<yymmdd>-<3 base-36>`, which
+/// How a quick plan is filled, started and completed through the typed tools: the id is `<yymmdd>-<3 base-36>`, which
 /// `gsd/W323` checks, and the plan has no phase.
 fn quick_plan(_call: &PromptCall<'_>) -> String {
-    quick_plan_text(
-        "the one the init block above made, and $slug its slug: a second id would name another plan",
-    )
+    quick_plan_text("the init block above", "the one that block printed")
 }
 
-/// The batch has no init block: each row of its manifest already carries the id and the slug.
+/// The batch has no init block: batch-init wrote every plan, and each manifest row carries its id.
 fn quick_batch_plan(_call: &PromptCall<'_>) -> String {
-    quick_plan_text(
-        "each manifest row's first cell, and $slug its second: a second id would name another plan",
-    )
+    quick_plan_text("batch-init", "each manifest row's first cell")
 }
 
-fn quick_plan_text(quick_id_is: &str) -> String {
+fn quick_plan_text(written_by: &str, quick_id_is: &str) -> String {
     format!(
         "\n\n## The quick plan\n\n\
      A quick task is a plan with no phase, named by its quick id: the day as `yymmdd`, a dash and three base-36 \
      characters (`261029-a1b`). `gsd/W323` checks the name; `gsd/E302` and `gsd/E401` do not apply to a plan with no \
-     phase. Write the plan, its truths and its artifacts through the host, not by hand:\n\n\
+     phase. {written_by} wrote the plan, in the fence that minted its id, so it holds its slug and `specforge new plan` \
+     refuses its id. Fill it, and write its truths and artifacts, through the host, not by hand:\n\n\
      ```bash\n\
-     # $quick_id is {quick_id_is}\n\
-     specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\" --slug \"$slug\"\n\
+     # $quick_id is {quick_id_is}: a second id would name another plan\n\
+     specforge set \"$quick_id\" objective \"<objective>\"\n\
+     specforge set \"$quick_id\" files_modified <paths>\n\
      specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"\n\
      # an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`\n\
      specforge gsd start-plan \"$quick_id\"\n\
@@ -84,10 +82,7 @@ fn quick_plan_text(quick_id_is: &str) -> String {
      ```\n\n\
      `start-plan` records the plan's start once, in the graph; the summary is written first and `complete-plan` stamps \
      both of its times. The project state is computed, so no task row is written. \
-     With `--discuss` or `--research`, the context and the research name the plan in `plan`, so the plan must exist \
-     before them: the step that runs first makes it with what is known (`--files_modified \"\"`, the description as \
-     its objective, `--slug \"$slug\"`), and the planner then sets its fields with `specforge set \"$quick_id\" <field> <value>`, since \
-     `specforge new` refuses an id that exists. \
+     With `--discuss` or `--research`, the context and the research name the plan in `plan`: it exists before them. \
      `gsd-code-reviewer` is not part of `@gsd/core`: skip the code review of `--full` and say so.\n"
     )
 }

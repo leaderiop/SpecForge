@@ -61,9 +61,8 @@
     "",
     "<available_agent_types>"
   ],
-  "bytes": 24159,
+  "bytes": 23936,
   "end": [
-    "**Otherwise:** proceed to the workflow's normal path — parse the task list",
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
     "capacity/isolation, and dispatch wave-by-wave.",
     "",
@@ -90,11 +89,12 @@
     "",
     "## The quick plan",
     "",
-    "A quick task is a plan with no phase, named by its quick id: the day as `yymmdd`, a dash and three base-36 characters (`261029-a1b`). `gsd/W323` checks the name; `gsd/E302` and `gsd/E401` do not apply to a plan with no phase. Write the plan, its truths and its artifacts through the host, not by hand:",
+    "A quick task is a plan with no phase, named by its quick id: the day as `yymmdd`, a dash and three base-36 characters (`261029-a1b`). `gsd/W323` checks the name; `gsd/E302` and `gsd/E401` do not apply to a plan with no phase. batch-init wrote the plan, in the fence that minted its id, so it holds its slug and `specforge new plan` refuses its id. Fill it, and write its truths and artifacts, through the host, not by hand:",
     "",
     "```bash",
-    "# $quick_id is each manifest row's first cell, and $slug its second: a second id would name another plan",
-    "specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\" --slug \"$slug\"",
+    "# $quick_id is each manifest row's first cell: a second id would name another plan",
+    "specforge set \"$quick_id\" objective \"<objective>\"",
+    "specforge set \"$quick_id\" files_modified <paths>",
     "specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"",
     "# an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`",
     "specforge gsd start-plan \"$quick_id\"",
@@ -102,7 +102,7 @@
     "specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\"",
     "```",
     "",
-    "`start-plan` records the plan's start once, in the graph; the summary is written first and `complete-plan` stamps both of its times. The project state is computed, so no task row is written. With `--discuss` or `--research`, the context and the research name the plan in `plan`, so the plan must exist before them: the step that runs first makes it with what is known (`--files_modified \"\"`, the description as its objective, `--slug \"$slug\"`), and the planner then sets its fields with `specforge set \"$quick_id\" <field> <value>`, since `specforge new` refuses an id that exists. `gsd-code-reviewer` is not part of `@gsd/core`: skip the code review of `--full` and say so."
+    "`start-plan` records the plan's start once, in the graph; the summary is written first and `complete-plan` stamps both of its times. The project state is computed, so no task row is written. With `--discuss` or `--research`, the context and the research name the plan in `plan`: it exists before them. `gsd-code-reviewer` is not part of `@gsd/core`: skip the code review of `--full` and say so."
   ],
   "head": [
     "<cursor_skill_adapter>",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 531,
+  "lines": 532,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:4de330ae529db55acebee03b2d15ce1b2eb92bbc2b39a916a0fed61b0a72c0de",
+    "digest": "sha256:dad04841bf3573316981a838f5ca50b017dcbc9708f929e7360b2addb35741b7",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "4de330ae529db55acebee03b2d15ce1b2eb92bbc2b39a916a0fed61b0a72c0de"
+  "sha256": "dad04841bf3573316981a838f5ca50b017dcbc9708f929e7360b2addb35741b7"
 }

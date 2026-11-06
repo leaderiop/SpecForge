@@ -29,7 +29,7 @@ QB_TASKS=$INLINE_TASK_LIST
 
 ```bash
 QB_CREATE_LIST=$(specforge gsd quick-init --batch --tasks="$QB_TASKS" --pick '.items[]' --fields id,slug,description) && QB_CREATE_RC=0 || QB_CREATE_RC=$?   # one row per item: quick_id, slug and description, separated by 0x1f; the list is attached with = because it starts with a hyphen
-
+[ "$QB_CREATE_RC" -ne 0 ] || while IFS=$'\x1f' read -r quick_id slug description; do [ -n "$quick_id" ] && [ -n "$slug" ] || exit 1; specforge new --in spec/quick.spec --field type=execute --field files_modified= --field "objective=$description" --field "slug=$slug" -- plan "$quick_id" "$description" >/dev/null </dev/null || exit 1; done <<< "$QB_CREATE_LIST"   # each plan is written here, from the answer that minted its id: a later fence may be another shell
 ```
 
 **If `$QB_CREATE_RC` is non-zero:** `quick-init` refused the list and said why: it held fewer than 2 items once

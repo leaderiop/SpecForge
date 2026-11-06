@@ -127,7 +127,7 @@ If `$VALIDATE_MODE` only:
 
 
 
-IFS=$'\x1f' read -r quick_id slug branch_name < <(specforge gsd quick-init --description="$DESCRIPTION" --template="{{setting:git.quick_branch_template|}}" --pick '.items[0]' --fields id,slug,branch_name) && [ -n "$quick_id" ] || exit 1; date=$(specforge gsd quick-init --pick .date); task_dir="$quick_id"; quick_dir="$quick_id"; INIT=""   # one call answers the id (<yymmdd>-<3 base-36>, free in the graph), its slug and its branch; the second call is read for its date, its id discarded
+IFS=$'\x1f' read -r quick_id slug branch_name title < <(specforge gsd quick-init --description="$DESCRIPTION" --template="{{setting:git.quick_branch_template|}}" --pick '.items[0]' --fields id,slug,branch_name,title) && [ -n "$quick_id" ] && [ -n "$slug" ] || exit 1; specforge new --in spec/quick.spec --field type=execute --field files_modified= --field "objective=$DESCRIPTION" --field "slug=$slug" -- plan "$quick_id" "$title" >/dev/null || exit 1; date=$(specforge gsd quick-init --pick .date); task_dir="$quick_id"; quick_dir="$quick_id"; INIT=""; echo "quick_id=$quick_id slug=$slug branch_name=$branch_name"   # one call answers the id (<yymmdd>-<3 base-36>, free in the graph), its slug, branch and title, and this fence writes the plan from them: a later fence may be another shell, so the slug never crosses one, and a later fence with no $quick_id takes the printed one; the second call is read for its date, its id discarded
 
 AGENT_SKILLS_PLANNER=""   # the host install carries the skills of gsd-planner
 AGENT_SKILLS_EXECUTOR=""   # the host install carries the skills of gsd-executor
@@ -337,7 +337,7 @@ ${AGENT_SKILLS_PLANNER}
 </planning_context>
 
 <constraints>
-- Create a SINGLE plan with 1-3 focused tasks${(DISCUSS_MODE || RESEARCH_MODE) ? ' — plan ' + quick_id + ' already exists (made before discussion/research): fill it with `specforge set ' + quick_id + ' <field> <value>`, add its tasks with `specforge new task <id> "<title>" --in spec/quick.spec --plan ' + quick_id + '`, never `specforge new plan`' : ''}
+- Create a SINGLE plan with 1-3 focused tasks — plan ${quick_id} already exists (the init step wrote it): fill it with `specforge set ${quick_id} <field> <value>`, add its tasks with `specforge new task <id> "<title>" --in spec/quick.spec --plan ${quick_id}`, never `specforge new plan`
 - Quick tasks should be atomic and self-contained
 - PATH FORM (#4767): every path in the plan BODY — `files`, `verify`, `<automated>`, task actions — is repo-root-relative, and every `<automated>` command assumes cwd at the checkout root. Only the `<required_reading>` inputs above are absolute (#2376). An absolute path copied from this context into `<automated>` pins the command to THIS checkout; a worktree-isolated executor then runs it against the main tree and it passes on unchanged code.
 - MUTABLE-SCOPE AUTHORITY (#3786): when concrete edit or verification scope depends on mutable external state (a merge index, PR/base diffs, the working tree), authorize scope ONLY from a live observation made at planning time — for conflict resolution that is the fresh merge index via `git diff --name-only --diff-filter=U` — or keep `files`/`verify` CONDITIONAL on that observation. Historical STATE.md entries, recovery notes, and cached PR/base diff paths may guide investigation only; they are never edit or verification authority, and a plan must not enumerate them as authorized files "pending replacement".
@@ -361,7 +361,7 @@ Return: ## PLANNING COMPLETE with plan path
 > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
 
 After planner returns:
-1. Verify the plan is planned (it holds a task; the plan a discussion or research step made first holds none): `[ -n "$(specforge query "${quick_id}" --kinds task --depth 1 --pick '.nodes[kind=task].id')" ]`
+1. Verify the plan is planned (it holds a task; the plan the init step wrote holds none): `[ -n "$(specforge query "${quick_id}" --kinds task --depth 1 --pick '.nodes[kind=task].id')" ]`
 2. Extract plan count (typically 1 for quick tasks)
 3. Report: "Plan created: plan ${quick_id}"
 
