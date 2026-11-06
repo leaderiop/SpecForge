@@ -12,39 +12,39 @@ grammar `parseTaskList` enforces).
 If `$TASK_FILE` is set:
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-QB_ITEMS=$(sed -E 's/^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]+//' "$TASK_FILE" | grep -v '^[[:space:]]*$'); QB_CREATE_LIST=$([ "$(printf '%s\n' "$QB_ITEMS" | grep -c .)" -ge 2 ] && printf '%s\n' "$QB_ITEMS" | while IFS= read -r t; do printf '%s\t%s\n' "$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)" "$t"; done)   # one quick_id<TAB>description line per item, list markers stripped, at least 2 items, one quick id (<yymmdd>-<3 base-36>) per item; the batch router is not part of @gsd/core
+QB_TASKS=$(specforge files read "$TASK_FILE" --pick .text) || exit 1   # the list's text: quick-init parses it
 ```
 
-Otherwise, the inline list must land on disk first — `quick-batch create`
-only accepts `--file` (path-confined, same as `/gsd:quick-batch`'s own
-security posture): write it to a scratch file under a temp area before
-calling the verb.
-```bash
-TASK_FILE="$(specforge files temp --pick .path)"
-specforge files mkdir "${TASK_FILE%/*}" >/dev/null
-printf '%s\n' "$INLINE_TASK_LIST" > "$TASK_FILE"
-QB_ITEMS=$(sed -E 's/^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]+//' "$TASK_FILE" | grep -v '^[[:space:]]*$'); QB_CREATE_LIST=$([ "$(printf '%s\n' "$QB_ITEMS" | grep -c .)" -ge 2 ] && printf '%s\n' "$QB_ITEMS" | while IFS= read -r t; do printf '%s\t%s\n' "$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)" "$t"; done)   # one quick_id<TAB>description line per item, list markers stripped, at least 2 items, one quick id (<yymmdd>-<3 base-36>) per item; the batch router is not part of @gsd/core
-specforge files remove --force "$TASK_FILE" >/dev/null
-```
+Otherwise, the inline list is the text `quick-init` takes, so no scratch file
+is written (a `--file` list stays path-confined, same as `/gsd:quick-batch`'s own
+security posture, through `specforge files read`).
 
 ```bash
-[ -n "${QB_CREATE_LIST:-}" ] && QB_CREATE_RC=0 || QB_CREATE_RC=1   # the list is empty when the task list held fewer than 2 items
+QB_TASKS=$INLINE_TASK_LIST
+
+
+
 
 ```
 
-**If `$QB_CREATE_RC` is non-zero:** the task list held fewer than 2 items once
+```bash
+QB_CREATE_LIST=$(specforge gsd quick-init --batch --tasks="$QB_TASKS" --pick '.items[]' --fields id,slug,description) && QB_CREATE_RC=0 || QB_CREATE_RC=$?   # one row per item: quick_id, slug and description, separated by 0x1f; the list is attached with = because it starts with a hyphen
+
+```
+
+**If `$QB_CREATE_RC` is non-zero:** `quick-init` refused the list and said why: it held fewer than 2 items once
 its list markers and blank lines were stripped (row 2/12). Say so, show the task
 list as given, and STOP. Do not dispatch anything.
 
-**Otherwise:** `$QB_CREATE_LIST` holds the batch's items, one per line (every
+**Otherwise:** `$QB_CREATE_LIST` holds the batch's items, one row per line (every
 item starts `pending`, wave `0` — no dependency/file-overlap signal exists
 yet before planning; this is expected, not a bug, per the design's negative-
 space note).
 
 ```bash
-BATCH_ID="$(date -u +%y%m%d)-batch"
-BATCH_MANIFEST_JSON=$QB_CREATE_LIST   # the manifest's items, one quick_id<TAB>description line each: keep each item's status (pending) and wave (0) in your notes beside it
-ITEM_COUNT=$(printf '%s\n' "$BATCH_MANIFEST_JSON" | grep -c .)
+IFS=$'\x1f' read -r BATCH_ID ITEM_COUNT < <(specforge gsd quick-init --batch --tasks="$QB_TASKS" --pick . --fields batch,count)   # a function of the day and the list; this call's ids are discarded
+BATCH_MANIFEST_JSON=$QB_CREATE_LIST   # the manifest's items, one quick_id, slug, description row each (read: IFS=$'\x1f' read -r quick_id slug description): keep each item's status (pending) and wave (0) in your notes beside it
+
 ```
 
 Report to user:

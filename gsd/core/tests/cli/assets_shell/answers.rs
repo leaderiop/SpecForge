@@ -246,22 +246,19 @@ fn the_quick_batch_list_and_the_quick_manifest_are_lines() {
     let Some(sh) = shell() else { return };
     let dir = tempfile::tempdir().expect("a dir");
     let text = asset("gsd-core/workflows/quick-batch/steps/batch-init.md");
-    let create = line(&text, "QB_ITEMS=$(");
-    let rc = text
-        .lines()
-        .find(|l| l.contains("QB_CREATE_RC="))
-        .expect("the create check");
+    let create = line(&text, "QB_CREATE_LIST=");
+    let p = taskboard();
     for (items, want) in [
         ("- add a task\n", "[1]"),
         ("- add a task\n- list them\n", "[0]"),
     ] {
-        let file = dir.path().join("tasks.md");
-        std::fs::write(&file, items).expect("a task list");
-        let out = sh.run(&format!(
-            // `true`: the RC line is a block of its own, so the list's exit status is gone by then
-            "TASK_FILE={}\n{create}\ntrue\n{rc}\nprintf '[%s]' \"$QB_CREATE_RC\"",
-            q(&file.display().to_string())
-        ));
+        let (out, _, _) = sh.run_in(
+            p.root(),
+            &format!(
+                "QB_TASKS={}\n{create}\nprintf '[%s]' \"$QB_CREATE_RC\"",
+                q(items)
+            ),
+        );
         assert_eq!(out, want, "{items}");
     }
     let text = asset("gsd-core/workflows/quick.md");

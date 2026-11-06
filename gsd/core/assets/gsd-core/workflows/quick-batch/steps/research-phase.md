@@ -15,15 +15,15 @@ RESEARCH_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router i
 
 ```
 
-For each `quick_id<TAB>description` line of `$BATCH_MANIFEST_JSON` whose
+For each `quick_id`, `slug`, `description` row of `$BATCH_MANIFEST_JSON` whose
 research `${quick_id}-RESEARCH` does not already exist (`specforge query "${quick_id}-RESEARCH" --depth 0` fails; idempotent
 — a resumed batch skips items already researched): derive `$item_dir` the same
 way every step does —
 
 ```bash
-SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | cut -c1-40 | sed 's/^-//; s/-$//')
+
 ITEM_DIR="${quick_id}"   # the quick plan's id: a quick task is entities, not a directory
-specforge query "${quick_id}" --depth 0 >/dev/null 2>&1 || specforge new plan "${quick_id}" "$description" --in spec/quick.spec --type execute --files_modified "" --objective "$description"  # the research names its plan, so the plan comes first
+specforge query "${quick_id}" --depth 0 >/dev/null 2>&1 || specforge new plan "${quick_id}" "$description" --in spec/quick.spec --type execute --files_modified "" --objective "$description" --slug "$slug"  # the research names its plan, so the plan comes first
 ```
 
 Display banner:

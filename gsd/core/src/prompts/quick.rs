@@ -60,9 +60,11 @@ fn quick_plan(_call: &PromptCall<'_>) -> String {
     )
 }
 
-/// The batch has no init block: each item of its manifest already carries the id.
+/// The batch has no init block: each row of its manifest already carries the id and the slug.
 fn quick_batch_plan(_call: &PromptCall<'_>) -> String {
-    quick_plan_text("each manifest item's `quickId`: a second one would name another plan")
+    quick_plan_text(
+        "each manifest row's first cell, and $slug its second: a second id would name another plan",
+    )
 }
 
 fn quick_plan_text(quick_id_is: &str) -> String {

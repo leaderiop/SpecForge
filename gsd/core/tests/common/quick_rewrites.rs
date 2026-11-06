@@ -103,4 +103,9 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         89,
         89,
     ),
+    // The batch's task list is text `quick-init` parses, its refusal says why, and its items are rows.
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 16, 19),
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 21, 25),
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 33, 33),
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 37, 37),
 ];

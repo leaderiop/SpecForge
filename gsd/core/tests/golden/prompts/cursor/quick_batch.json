@@ -61,7 +61,7 @@
     "",
     "<available_agent_types>"
   ],
-  "bytes": 24186,
+  "bytes": 24207,
   "end": [
     "**Otherwise:** proceed to the workflow's normal path — parse the task list",
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
@@ -93,7 +93,7 @@
     "A quick task is a plan with no phase, named by its quick id: the day as `yymmdd`, a dash and three base-36 characters (`261029-a1b`). `gsd/W323` checks the name; `gsd/E302` and `gsd/E401` do not apply to a plan with no phase. Write the plan, its truths and its artifacts through the host, not by hand:",
     "",
     "```bash",
-    "# $quick_id is each manifest item's `quickId`: a second one would name another plan",
+    "# $quick_id is each manifest row's first cell, and $slug its second: a second id would name another plan",
     "specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\" --slug \"$slug\"",
     "specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"",
     "# an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:022a8cb982f2622416e0ab187c048e74693f17d77ba66e5719681ddafba701c1",
+    "digest": "sha256:34a5806d394b15261c0ee3ea2802ab568f82d87cad68d7473d900be1692ee493",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "022a8cb982f2622416e0ab187c048e74693f17d77ba66e5719681ddafba701c1"
+  "sha256": "34a5806d394b15261c0ee3ea2802ab568f82d87cad68d7473d900be1692ee493"
 }

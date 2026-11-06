@@ -36,7 +36,7 @@ EXEC_CONCURRENCY=1   # quick-batch effective-concurrency: the batch router is no
 QB_ELIG_JSON='{"eligible":[]}'   # quick-batch resume: the batch router is not part of @gsd/core; the eligible items are those of your notes whose dependencies are complete
    ```
    Parse `eligible` (quick ids ready to execute — every dependency already
-   `complete`); `$BATCH_MANIFEST_JSON` keeps its `quick_id<TAB>description` lines.
+   `complete`); `$BATCH_MANIFEST_JSON` keeps its `quick_id`, `slug`, `description` rows.
 
    **Crash-window guard (mirrors `planner-wave.md`'s PLAN.md-existence
    check one layer earlier — #3677):** `quick-batch resume`'s `eligible` is
@@ -85,7 +85,7 @@ QB_SPAWN_JSON='{"spawn":[],"pending":[]}'   # quick-batch spawn-plan: the batch 
    For each item in `spawn`, in order:
 
    ```bash
-SLUG=$(printf '%s' "$description" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | cut -c1-40 | sed 's/^-//; s/-$//')
+
    ITEM_DIR="${quick_id}"   # the quick plan's id: a quick task is entities, not a directory
    ```
 

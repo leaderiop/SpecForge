@@ -234,38 +234,54 @@ fn the_batch_makes_one_quick_id_per_item() {
         "/assets/gsd-core/workflows/quick-batch/steps/batch-init.md"
     ))
     .expect("the batch-init step");
+    let read = step
+        .lines()
+        .find(|l| l.starts_with("QB_TASKS=$(specforge files read"))
+        .expect("the task file's line");
     let line = step
         .lines()
-        .find(|l| l.starts_with("QB_ITEMS="))
-        .expect("the batch-init line")
-        .to_string();
+        .find(|l| l.starts_with("QB_CREATE_LIST="))
+        .expect("the batch-init line");
+    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
+    let p = twin();
     let run = |items: &str| {
-        let dir = tempfile::tempdir().expect("a dir");
-        std::fs::write(dir.path().join("tasks.txt"), items).expect("write");
-        std::process::Command::new("bash")
+        p.write("tasks.txt", items);
+        // `/bin/bash`: the child's PATH holds specforge alone
+        std::process::Command::new("/bin/bash")
             .args([
                 "-c",
-                &format!("TASK_FILE=tasks.txt\n{line}\necho \"$QB_CREATE_LIST\""),
+                &format!(
+                    "TASK_FILE=tasks.txt\n{read}\n{line}\nprintf '%s\\n' \"$QB_CREATE_LIST\"; exit \"$QB_CREATE_RC\""
+                ),
             ])
-            .current_dir(dir.path())
+            .env("PATH", bin.parent().expect("a directory"))
+            .current_dir(p.root())
+            .stdin(std::process::Stdio::null())
             .output()
             .expect("bash")
     };
     let out = run("- Fix login\n* Add search\n\n1. Trim titles\n");
     let stdout = String::from_utf8_lossy(&out.stdout);
-    let items: Vec<(&str, &str)> = stdout
+    let items: Vec<Vec<&str>> = stdout
         .lines()
-        .map(|l| l.split_once('\t').expect("quick_id<TAB>description"))
+        .map(|l| l.split('\u{1f}').collect())
         .collect();
-    let tasks: Vec<&str> = items.iter().map(|(_, task)| *task).collect();
+    let slugs: Vec<&str> = items.iter().map(|row| row[1]).collect();
+    assert_eq!(slugs, ["fix-login", "add-search", "trim-titles"], "{out:?}");
+    let tasks: Vec<&str> = items.iter().map(|row| row[2]).collect();
     assert_eq!(tasks, ["Fix login", "Add search", "Trim titles"]);
     let id = regex::Regex::new(r"^[0-9]{6}-[a-z0-9]{3}$").expect("a regex");
-    for (quick_id, _) in &items {
-        assert!(id.is_match(quick_id), "{quick_id}");
+    for row in &items {
+        assert!(id.is_match(row[0]), "{}", row[0]);
     }
     let one = run("- Only one\n");
+    assert_eq!(one.status.code(), Some(1), "{one:?}");
     assert!(
         String::from_utf8_lossy(&one.stdout).trim().is_empty(),
+        "{one:?}"
+    );
+    assert!(
+        String::from_utf8_lossy(&one.stderr).contains("a batch needs at least 2 tasks"),
         "{one:?}"
     );
 }
@@ -404,12 +420,12 @@ fn the_quick_id_is_made_once_and_the_branch_template_is_expanded() {
 }
 
 /// The steps read each item's `description`, and quick-batch has no init block to make the
-/// quick id: its tail says `$quick_id` is the item's `quickId`.
+/// quick id: its tail says `$quick_id` is the manifest row's.
 #[test]
 fn quick_batch_names_where_its_quick_id_comes_from() {
     let p = twin();
     let text = text_of(&payload(&prompt(&p, "quick_batch", &[], "claude-code")));
-    assert!(text.contains("$quick_id is each manifest item's `quickId`"));
+    assert!(text.contains("$quick_id is each manifest row's first cell, and $slug its second"));
     assert!(!text.contains("init block above"));
     let quick = text_of(&payload(&prompt(&p, "quick", &[], "claude-code")));
     assert!(quick.contains("init block above"));
