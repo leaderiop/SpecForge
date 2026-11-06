@@ -121,8 +121,8 @@ fn a_batch_needs_two_tasks() {
     let why = refusal_of(json!({"batch": true}));
     assert!(why.contains("--batch needs --tasks"), "{why}");
     let answer = answer_of(json!({"batch": true, "tasks": "- a\n- b\n"}));
-    assert_eq!(answer["batch"], "261105-batch");
-    assert_eq!(answer["count"], 2);
+    assert_eq!(answer["items"][1]["batch"], "261105-batch");
+    assert_eq!(answer["items"][1]["count"], 2);
     assert_eq!(answer["items"][1]["description"], "b");
     assert_eq!(answer["items"][1]["slug"], "b");
 }
@@ -140,9 +140,12 @@ fn the_template_takes_num_and_slug() {
     assert_eq!(item["slug"], "trim-titles");
     assert_eq!(item["description"], "Trim titles!");
     assert_eq!(item["branch_name"], format!("q/{id}/trim-titles"));
-    assert_eq!(answer["date"], "2026-11-05");
-    assert_eq!(answer["timestamp"], "2026-11-05T10:00:00Z");
-    assert!(answer.get("batch").is_none());
+    assert_eq!(item["date"], "2026-11-05");
+    assert_eq!(item["count"], 1);
+    assert!(item.get("batch").is_none());
+    // one row of one call reads everything: the item holds it, and nothing but the items is answered
+    assert_eq!(answer.as_object().unwrap().len(), 1, "{answer}");
+    assert!(item.get("timestamp").is_none());
 }
 
 #[test]
@@ -155,24 +158,16 @@ fn a_slug_is_cut_to_40_and_never_empty() {
 }
 
 #[test]
-fn bare_ids_have_no_task() {
-    let answer = answer_of(json!({"count": 3, "template": "q/{num}"}));
-    assert_eq!(answer["count"], 3);
-    assert_eq!(answer["items"].as_array().unwrap().len(), 3);
-    assert_eq!(answer["items"][0].as_object().unwrap().len(), 1, "{answer}");
-    assert_eq!(answer_of(json!({}))["count"], 1);
-    assert!(refusal_of(json!({"count": 0})).contains("at least 1"));
+fn an_id_is_for_a_task() {
+    let why = refusal_of(json!({}));
+    assert!(why.contains("--description or --tasks"), "{why}");
+    let why = refusal_of(json!({"template": "q/{num}"}));
+    assert!(why.contains("--description or --tasks"), "{why}");
 }
 
 #[test]
 fn the_sources_of_tasks_exclude_each_other_and_a_control_character_is_refused() {
-    for args in [
-        json!({"count": 2, "description": "a"}),
-        json!({"count": 2, "tasks": "a"}),
-        json!({"description": "a", "tasks": "b"}),
-    ] {
-        assert!(refusal_of(args).contains("invalid_input"));
-    }
+    assert!(refusal_of(json!({"description": "a", "tasks": "b"})).contains("invalid_input"));
     assert!(refusal_of(json!({"tasks": "a\u{7}\nb"})).contains("U+0007"));
     assert!(refusal_of(json!({"description": "a\u{7}"})).contains("U+0007"));
     assert!(refusal_of(json!({"tasks": "\n\n"})).contains("--tasks holds no task"));
@@ -186,7 +181,7 @@ fn no_nonce_is_refused() {
         "0123456789ABCDEF0123456789ABCDEF",
         &"g".repeat(32),
     ] {
-        let out = called(json!({}), bad, &[]);
+        let out = called(json!({"description": "a"}), bad, &[]);
         assert_eq!(out.exit_code, 1, "{bad}: {}", out.stdout);
         assert!(
             out.stderr.contains("the host sent no nonce"),
@@ -198,11 +193,11 @@ fn no_nonce_is_refused() {
 
 #[test]
 fn an_id_of_the_graph_is_not_minted() {
-    let first = answer_of(json!({}))["items"][0]["id"]
+    let first = answer_of(json!({"description": "a"}))["items"][0]["id"]
         .as_str()
         .unwrap()
         .to_string();
-    let out = called(json!({}), NONCE, &[first.as_str()]);
+    let out = called(json!({"description": "a"}), NONCE, &[first.as_str()]);
     assert_eq!(out.exit_code, 0, "{}", out.stderr);
     let answer: Value = serde_json::from_str(&out.stdout).unwrap();
     assert_ne!(answer["items"][0]["id"], first.as_str());

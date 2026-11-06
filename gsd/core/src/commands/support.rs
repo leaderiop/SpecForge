@@ -109,12 +109,18 @@ pub fn natural(id: &str) -> (String, u64) {
     (head.to_string(), number.parse().unwrap_or(0))
 }
 
-/// The arg `arg` as a person wrote it (D-r41-4): refused when it holds a control character, never stripped.
+/// `value`, given as `arg`, is as a person wrote it: refused when it holds a control character, never stripped.
+pub(super) fn plain(arg: &str, value: &str) -> Result<(), String> {
+    match control(value) {
+        Some(code) => Err(format!("'{arg}' holds a control character ({code})")),
+        None => Ok(()),
+    }
+}
+
+/// The arg `arg` as a person wrote it (D-r41-4): [`plain`].
 pub fn text<'a>(call: &'a CommandCall<'_>, arg: &str) -> Result<Option<&'a str>, String> {
     let value = call.str(arg);
-    if let Some(code) = value.and_then(control) {
-        return Err(format!("'{arg}' holds a control character ({code})"));
-    }
+    value.map_or(Ok(()), |value| plain(arg, value))?;
     Ok(value)
 }
 
@@ -134,9 +140,7 @@ pub fn texts(call: &CommandCall<'_>, name: &str) -> Result<Option<Vec<String>>, 
     let items: Vec<String> =
         serde_json::from_str(raw).map_err(|e| format!("{name}: not the JSON it takes: {e}"))?;
     for item in &items {
-        if let Some(code) = control(item) {
-            return Err(format!("'{name}' holds a control character ({code})"));
-        }
+        plain(name, item)?;
     }
     Ok(Some(items))
 }

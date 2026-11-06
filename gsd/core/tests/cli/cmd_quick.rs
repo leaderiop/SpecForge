@@ -15,7 +15,11 @@ fn quick_init_mints_a_fresh_free_id_per_call() {
         .map(str::to_string)
         .collect();
     let id = || {
-        let run = gsd(&p, "quick-init", &["--pick", ".items[0].id"]);
+        let run = gsd(
+            &p,
+            "quick-init",
+            &["--description=a task", "--pick", ".items[0].id"],
+        );
         assert_eq!(run.code, 0, "{}", run.all());
         run.stdout.trim_end().to_string()
     };
@@ -64,5 +68,23 @@ fn quick_init_mints_a_fresh_free_id_per_call() {
         "quick-init",
         &["--batch", "--tasks=- a\n- b", "--format", "json"],
     ));
-    assert_eq!(answer["count"], 2);
+    assert_eq!(answer["items"][1]["count"], 2);
+    // The command declares no `--count` of its own, so the host's shape counts what `--pick` reaches.
+    let counted = gsd(
+        &p,
+        "quick-init",
+        &[
+            "--batch",
+            "--tasks=- a\n- b",
+            "--pick",
+            ".items[]",
+            "--count",
+        ],
+    );
+    assert_eq!(
+        (counted.code, counted.stdout.trim()),
+        (0, "2"),
+        "{}",
+        counted.all()
+    );
 }

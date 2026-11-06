@@ -45,7 +45,8 @@ guest ignores the key. Protocol-types is an input of every blob, so the change r
 
 ADR 0325 D7 kept `--fields` from an extension command because "no prompt reads two of their values at once". A
 `quick-init` answer is read that way: an id, its slug and its branch name come from one call, and a second call would
-mint another id. An extension command takes `--fields` beside `--pick` unless it declares an arg of the name, as it
+mint another id. So each item holds all a run reads (its date, its batch and the count), and one call reads everything:
+two calls could also straddle midnight, and a batch's day would differ from its ids'. An extension command takes `--fields` beside `--pick` unless it declares an arg of the name, as it
 takes `--pick` and the shapes.
 
 ## Rejected

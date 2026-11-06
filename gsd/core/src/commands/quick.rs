@@ -1,5 +1,6 @@
-//! `quick_init`: what one `/gsd-quick` or `/gsd-quick-batch` run starts from (upstream's `init quick`): the host's date
-//! and time, and one quick id per task, each free in the graph, with its slug and branch name.
+//! `quick_init`: what one `/gsd-quick` or `/gsd-quick-batch` run starts from (upstream's `init quick`): one quick id per
+//! task, each free in the graph, with its slug and branch name, and the host's date on every item, so one row of one
+//! call reads everything.
 //!
 //! The ids are a function of the host's nonce (ADR 0341), the day and the graph, so a test pins them. An id minted here
 //! is taken only once a plan of that name is written: a second call may mint it again, and the plan's write refuses a
@@ -10,7 +11,7 @@ use std::collections::BTreeSet;
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, control, given, nonce, now, run, slug, text, title};
+use super::support::{answer, given, nonce, now, plain, run, slug, text, title};
 use crate::passes::plan_shape::is_quick_id;
 
 /// How many quick ids a day has: three base-36 digits.
@@ -110,106 +111,90 @@ fn branch(template: &str, id: &str, slug: &str) -> Option<String> {
     (!template.is_empty()).then(|| template.replace("{num}", id).replace("{slug}", slug))
 }
 
-/// `quick_init [--description|--tasks|--count] [--batch] [--template]`: read-only, no gate, no subject.
-fn init(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
-    let now = now(call)?;
-    let seed = seed(nonce(call)?);
-    let description = given(call, "description")?;
-    let list = call.str("tasks");
-    let count = call.count("count");
+/// The tasks a call asks ids for: its one `--description`, or the entries of its `--tasks`.
+fn asked<'a>(call: &'a CommandCall<'_>) -> Result<Vec<&'a str>, String> {
     let batch = call.flag("batch");
+    let refused = |why: &str| Err(why.to_string());
+    match (given(call, "description")?, call.str("tasks")) {
+        (Some(_), Some(_)) => refused("--description is one task and --tasks a list: give one"),
+        (_, None) if batch => refused("--batch needs --tasks"),
+        (Some(one), None) => Ok(vec![one]),
+        (None, None) => refused("a quick id is for a task: give --description or --tasks"),
+        (None, Some(list)) => {
+            let entries = tasks(list);
+            for entry in &entries {
+                plain("tasks", entry)?;
+            }
+            if batch && entries.len() < 2 {
+                return Err(format!(
+                    "a batch needs at least 2 tasks; the list holds {}",
+                    entries.len()
+                ));
+            }
+            if entries.is_empty() {
+                return refused("--tasks holds no task");
+            }
+            Ok(entries)
+        }
+    }
+}
+
+/// `quick_init [--description|--tasks] [--batch] [--template]`: read-only, no gate, no subject.
+fn init(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
+    now(call)?;
+    let seed = seed(nonce(call)?);
+    let tasks = asked(call)?;
     let template = text(call, "template")?.unwrap_or_default();
-    if count.is_some() && (description.is_some() || list.is_some()) {
-        return Err("--count asks for bare ids: it takes no --description or --tasks".to_string());
-    }
-    if count == Some(0) {
-        return Err("--count asks for at least 1 id".to_string());
-    }
-    if description.is_some() && list.is_some() {
-        return Err("--description is one task and --tasks a list: give one".to_string());
-    }
-    let (Some(date), Some(day)) = (now.get(..10), now.get(2..10)) else {
-        return Err(format!("the host's clock '{now}' is no date"));
-    };
-    let day = day.replace('-', "");
-    let texts: Vec<&str> = match (description, list) {
-        (Some(one), _) => vec![one],
-        (_, Some(list)) => tasks(list),
-        _ => Vec::new(),
-    };
-    if let Some(code) = texts.iter().find_map(|entry| control(entry)) {
-        return Err(format!("'tasks' holds a control character ({code})"));
-    }
-    match (batch, list) {
-        (true, None) => return Err("--batch needs --tasks".to_string()),
-        (true, Some(_)) if texts.len() < 2 => {
-            return Err(format!(
-                "a batch needs at least 2 tasks; the list holds {}",
-                texts.len()
-            ));
-        }
-        (false, Some(_)) if texts.is_empty() => {
-            return Err("--tasks holds no task".to_string());
-        }
-        _ => {}
-    }
-    let n = if texts.is_empty() {
-        count.unwrap_or(1)
-    } else {
-        texts.len()
-    };
+    let date = call.today();
+    let day = date[2..].replace('-', "");
+    let batch = call.flag("batch").then(|| format!("{day}-batch"));
     let minted = ids(
         seed,
         &day,
         call.graph().nodes().iter().map(|node| node.id.as_str()),
-        n,
+        tasks.len(),
     )?;
     let mut human = String::new();
     let items: Vec<_> = minted
         .iter()
-        .enumerate()
-        .map(|(i, id)| {
-            let mut item = json!({ "id": id });
-            human.push_str(id);
-            if let Some(task) = texts.get(i) {
-                // A task with no ASCII letter or digit has no slug of its own: its id finds it as well.
-                let slug = Some(slug40(task))
-                    .filter(|slug| !slug.is_empty())
-                    .unwrap_or_else(|| id.clone());
-                if let Some(name) = branch(template, id, &slug) {
-                    item["branch_name"] = json!(name);
-                }
-                item["description"] = json!(task);
-                item["title"] = json!(title(task));
-                item["slug"] = json!(slug);
-                human.push('\t');
-                human.push_str(task);
+        .zip(&tasks)
+        .map(|(id, task)| {
+            // A task with no ASCII letter or digit has no slug of its own: its id finds it as well.
+            let slug = Some(slug40(task))
+                .filter(|slug| !slug.is_empty())
+                .unwrap_or_else(|| id.clone());
+            let mut item = json!({
+                "id": id,
+                "date": date,
+                "count": tasks.len(),
+                "description": task,
+                "title": title(task),
+            });
+            if let Some(name) = branch(template, id, &slug) {
+                item["branch_name"] = json!(name);
             }
-            human.push('\n');
+            if let Some(batch) = &batch {
+                item["batch"] = json!(batch);
+            }
+            item["slug"] = json!(slug);
+            human.push_str(&format!("{id}\t{task}\n"));
             item
         })
         .collect();
-    let mut payload = json!({ "date": date, "timestamp": now, "count": n, "items": items });
-    if batch {
-        payload["batch"] = json!(format!("{day}-batch"));
-    }
-    Ok(answer(call, payload, human, None))
+    Ok(answer(call, json!({ "items": items }), human, None))
 }
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.command("quick_init", |cmd| {
-        cmd.description("What a quick task or a batch starts from: the host's date and time and one quick id per task, each free in the graph, with its slug and branch name")
+        cmd.description("What a quick task or a batch starts from: one quick id per task, each free in the graph, with its slug, branch name and the host's date")
             .arg("description", |a| {
                 a.description("one task: its one item gets a slug and a branch name");
             })
             .arg("tasks", |a| {
                 a.description("a task list: one item per entry, its list marker and blank lines dropped; attach it with `=`, as a list starts with a hyphen");
             })
-            .arg("count", |a| {
-                a.count().description("this many bare ids, at least 1 (default 1); takes no --description or --tasks");
-            })
             .arg("batch", |a| {
-                a.flag().description("the items are a batch: needs --tasks with at least 2 entries, and the answer gains `batch`");
+                a.flag().description("the items are a batch: needs --tasks with at least 2 entries, and each item gains `batch`");
             })
             .arg("template", |a| {
                 a.description("the branch template (`git.quick_branch_template`): `{num}` is the id, `{slug}` the slug; empty names no branch");

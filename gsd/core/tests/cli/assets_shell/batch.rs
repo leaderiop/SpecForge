@@ -14,7 +14,7 @@ fn a_task_list_becomes_one_line_per_quick_task() {
     let lines = [
         line(&text, "QB_TASKS=$INLINE_TASK_LIST"),
         line(&text, "QB_CREATE_LIST="),
-        line(&text, "IFS=$'\\x1f' read -r BATCH_ID"),
+        line(&text, "IFS=$'\\x1f' read -r _ _ _ BATCH_ID"),
         line(&text, "BATCH_MANIFEST_JSON="),
     ]
     .join("\n");
@@ -60,11 +60,10 @@ fn a_task_list_becomes_one_line_per_quick_task() {
             "{id}"
         );
     }
-    // one item is no batch: the create step refuses, saying why, and no row is kept
-    let (out, err, _) = run("- Only this\n");
-    assert!(out.starts_with('1'), "{out}{err}");
+    // one item is no batch: the create step refuses, saying why, and the read after it stops
+    let (out, err, code) = run("- Only this\n");
+    assert_eq!((out.as_str(), code), ("", 1), "{err}");
     assert!(err.contains("a batch needs at least 2 tasks"), "{err}");
-    assert_eq!(out.lines().nth(1).unwrap_or_default(), "", "{out}");
 }
 
 /// Fences are separate shells on some hosts, so a plan is written in the fence whose answer minted its id: its slug
@@ -297,4 +296,35 @@ fn a_colliding_quick_id_writes_nothing() {
     ] {
         assert!(!asset(path).contains("|| specforge new"), "{path}");
     }
+}
+
+/// One call mints the ids and tells the day, the batch and the count, so a second can't differ from it across midnight.
+#[test]
+fn one_call_of_quick_init_reads_everything() {
+    for path in [
+        "gsd-core/workflows/quick.md",
+        "gsd-core/workflows/quick-batch/steps/batch-init.md",
+    ] {
+        let calls = asset(path).matches("specforge gsd quick-init").count();
+        assert_eq!(calls, 1, "{path}");
+    }
+    let Some(sh) = Shell::only(&[]) else { return };
+    let p = twin();
+    let quick = asset("gsd-core/workflows/quick.md");
+    let init = line(&quick, "IFS=$'\\x1f' read -r quick_id slug")
+        .replace("{{setting:git.quick_branch_template|}}", "");
+    let (out, err, code) = sh.run_in(
+        p.root(),
+        &format!("DESCRIPTION='Trim titles'\n{init}\nprintf '[%s]' \"$date\""),
+    );
+    assert_eq!(code, 0, "{out}{err}");
+    let date = out.rsplit('[').next().unwrap().trim_end_matches(']');
+    assert_eq!(date.len(), 10, "{out}");
+    // the fences that follow read it off this one
+    assert!(out.contains(&format!("date={date}")), "{out}");
+    // The batch's second read stops when the list holds no row.
+    let text = asset("gsd-core/workflows/quick-batch/steps/batch-init.md");
+    let read = line(&text, "IFS=$'\\x1f' read -r _ _ _ BATCH_ID");
+    let (out, err, code) = sh.run_in(p.root(), &format!("QB_CREATE_LIST=\n{read}\necho after"));
+    assert_eq!((out.as_str(), code), ("", 1), "{err}");
 }

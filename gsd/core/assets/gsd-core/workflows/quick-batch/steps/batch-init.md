@@ -28,8 +28,8 @@ QB_TASKS=$INLINE_TASK_LIST
 ```
 
 ```bash
-QB_CREATE_LIST=$(specforge gsd quick-init --batch --tasks="$QB_TASKS" --pick '.items[]' --fields id,slug,description) && QB_CREATE_RC=0 || QB_CREATE_RC=$?   # one row per item: quick_id, slug and description, separated by 0x1f; the list is attached with = because it starts with a hyphen
-[ "$QB_CREATE_RC" -ne 0 ] || while IFS=$'\x1f' read -r quick_id slug description; do [ -n "$quick_id" ] && [ -n "$slug" ] || exit 1; specforge new --in spec/quick.spec --field type=execute --field files_modified= --field "objective=$description" --field "slug=$slug" -- plan "$quick_id" "$description" >/dev/null </dev/null || exit 1; done <<< "$QB_CREATE_LIST"   # each plan is written here, from the answer that minted its id: a later fence may be another shell
+QB_CREATE_LIST=$(specforge gsd quick-init --batch --tasks="$QB_TASKS" --pick '.items[]' --fields id,slug,description,batch,count) && QB_CREATE_RC=0 || QB_CREATE_RC=$?   # one row per item: quick_id, slug, description, batch and count, separated by 0x1f; the list is attached with = because it starts with a hyphen
+[ "$QB_CREATE_RC" -ne 0 ] || while IFS=$'\x1f' read -r quick_id slug description _; do [ -n "$quick_id" ] && [ -n "$slug" ] || exit 1; specforge new --in spec/quick.spec --field type=execute --field files_modified= --field "objective=$description" --field "slug=$slug" -- plan "$quick_id" "$description" >/dev/null </dev/null || exit 1; done <<< "$QB_CREATE_LIST"   # each plan is written here, from the answer that minted its id: a later fence may be another shell
 ```
 
 **If `$QB_CREATE_RC` is non-zero:** `quick-init` refused the list and said why: it held fewer than 2 items once
@@ -42,8 +42,8 @@ yet before planning; this is expected, not a bug, per the design's negative-
 space note).
 
 ```bash
-IFS=$'\x1f' read -r BATCH_ID ITEM_COUNT < <(specforge gsd quick-init --batch --tasks="$QB_TASKS" --pick . --fields batch,count)   # a function of the day and the list; this call's ids are discarded
-BATCH_MANIFEST_JSON=$QB_CREATE_LIST   # the manifest's items, one quick_id, slug, description row each (read: IFS=$'\x1f' read -r quick_id slug description): keep each item's status (pending) and wave (0) in your notes beside it
+IFS=$'\x1f' read -r _ _ _ BATCH_ID ITEM_COUNT <<< "$QB_CREATE_LIST" && [ -n "$BATCH_ID" ] || exit 1   # every row names the batch and its count: the first is read
+BATCH_MANIFEST_JSON=$QB_CREATE_LIST   # the manifest's items, one quick_id, slug, description, batch, count row each (read: IFS=$'\x1f' read -r quick_id slug description _): keep each item's status (pending) and wave (0) in your notes beside it
 
 ```
 
