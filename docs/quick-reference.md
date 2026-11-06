@@ -71,11 +71,11 @@ specforge prompt <ext>.<prompt> [arguments] [--host claude-code|codex|cursor] [-
 specforge files stat <path>...                      # kind, size, modified_ms, or exists:false
 specforge files list src --glob '*.tsx' --pick '.entries[0].path'   # honours .gitignore (--no-ignore, --hidden, --kind, --depth)
 specforge files list . --glob '*.ts' --glob '!dist' --lines --pick .lines   # `!glob` leaves out; --lines: each file's lines, total
-specforge files search 'TODO|FIXME' src -i          # {matches:[{path,line,column,text}],missing}: ripgrep's engine
+specforge files search 'TODO|FIXME' src -i          # {matches:[{path,line,column,text}],missing,unread}: ripgrep's engine
 specforge files search -F "$path" f -C 2 --and-not '^\s*//'   # literal; before/after context; leave out a second pattern
-specforge files search -U 'X(.*\n){0,5}?.*Y' f     # a Y line within 5 lines after an X line (-v inverts, end_line)
+specforge files search -U 'Y.*X|X(.*\n){0,5}?.*Y' f   # a Y line within 5 lines after an X line (-v inverts, end_line)
 specforge files search -l 'login' src --pick '.files[0]'   # the files that match; --counts: each file's count
-specforge files search -q 'P' f; specforge files search --none 'P' f   # verdict by exit 0/1, 2 when unjudged
+specforge files search -q 'P' f; specforge files search --none 'P' f   # verdict by exit 0/1, 2 when missing or unread
 cmd | specforge files search -q '[0-9]+ passed' -   # `-` is stdin, read only when typed (--hidden, --no-ignore too)
 specforge files read f --pick .text                # {path,text,bytes,lines,truncated}, 1 MiB at most
 specforge files temp --suffix .json --pick .path   # a new 0600 file under .specforge/tmp (--dir for a directory)

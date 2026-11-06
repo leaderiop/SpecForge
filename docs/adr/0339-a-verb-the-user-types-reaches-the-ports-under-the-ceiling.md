@@ -231,26 +231,34 @@ path is held to the roots, the host's own state stays withheld.
 - **The engine.** A file the port read is searched by `grep-searcher` (`Searcher::search_slice`, never `search_path`,
   which would open files past the port) with a `grep-regex` matcher: Rust regex syntax, `-i`, `-F` (literal),
   `-U` (multiline; without it the line terminator is `\n` and a pattern that needs one is refused by the library),
-  CRLF lines read without their `\r`. A binary file (git's rule) is skipped. Versions are exact
+  CRLF lines read without their `\r`, and under `-U` a CRLF line is searched as it is, so `.*\n` crosses its `\r`. A
+  file is binary by git's rule: a walked one is skipped and is not `unread`, as `grep -I` skips it or every repository
+  with a PNG would fail a gate; a typed one is `unread`, because it was named and not judged. Versions are exact
   (`grep-searcher =0.1.17`, `grep-regex =0.1.14`, `grep-matcher =0.1.9`), named in `crates/app/ops/Cargo.toml`.
-- **Globs** are the `ignore` crate's overrides, the walker's own: gitignore semantics, so a glob with a `/` matches the
-  path below the listed directory and one without a name at any depth, and `!glob` leaves out a file or a whole
-  directory, on `files list` as on `files search`.
+- **Globs** are the `ignore` crate's overrides, judged in the walk's `filter_entry`: gitignore semantics, so a glob
+  with a `/` matches the path below the listed directory and one without a name at any depth, and `!glob` leaves out a
+  file or a whole directory, on `files list` as on `files search`. An empty glob and a bare `!`, which a shell's unset
+  variable writes, are refused.
 - **Flags.** `-F`, `-v`, `-U`, `-A/-B/-C <N>`, `--and-not <re>` (repeatable: a reported line, or multiline match, it
   matches is left out; context is kept), `-l` (the files that match), `--counts` (each file's count of matching lines,
   every file typed by name listed even at 0), `-q` and `--none` (verdicts by exit), `--hidden`, `--no-ignore`, and `-`
   for standard input. `-l`, `--counts`, `-q` and `--none` exclude each other and the context flags; `-q` and `--none`
-  take no `--pick` and no `--format human`.
+  print nothing, so they take no shape of an answer: no `--pick` and its shapes, no `--format`, no `--max`.
 - **The answer.** `{matches: [{path, line, end_line?, column, text, before?, after?}], files?, counts?, count,
-  truncated, missing, effect}`: `count` is the length of the list the mode answers, `end_line` only under `-U`,
+  truncated, missing, unread, effect}`: `count` is the length of the list the mode answers, `end_line` only under `-U`,
   `before`/`after` only with context (a line between two close matches is the earlier match's `after`), `missing`
-  always. A typed path that does not exist is listed in `missing` and the search goes on; a path outside every root,
+  and `unread` always. `unread` is `[{path, why}]`, `why` one of `denied`, `ceiling`, `too_large`, `past_budget`,
+  `binary`, `not_a_file`, `walk_bound`, `unreadable`, and `truncated` is true on any partial read. A file is judged
+  whole up to 64 MiB, typed or walked, or it is `unread`; a hard link or a withheld name a walk meets is `denied` and
+  the walk goes on. A typed path that does not exist is listed in `missing` and the search goes on; a path outside every root,
   the host's state or a ceiling refusal still refuses the whole search (exit 1).
-- **Exits.** A JSON answer exits 0. `-q` exits 0 on a match, else 2 when a typed path is missing, else 1; `--none`
-  exits 1 on a match, else 2 when a typed path is missing, else 0; a refusal under either exits 2 with `error[CODE]`
-  on stderr and nothing on stdout. So a negative gate cannot pass on a file it could not read, as `! grep -q` does.
-- **Standard input** is read only when `-` is typed, once, at most 64 MiB (`truncated` past it); its path is
-  `<stdin>`. A search never waits on an open stdin it was not told to read.
+- **Exits.** A JSON answer exits 0. `-q` exits 0 on a match, else 2 when a typed path is missing or anything is
+  `unread`, else 1; `--none` exits 1 on a match, else 2 on the same, else 0; a refusal under either exits 2 with
+  `error[CODE]` on stderr and nothing on stdout. So a negative gate cannot pass on a file it could not read, as
+  `! grep -q` does, and a shell keeps the third answer only if it reads the code: `-q … && echo yes` flattens 2 into
+  no, so GSD's blocks `case` on `$?` with a "could not read" arm.
+- **Standard input** is read only when `-` is typed, once, at most 64 MiB; past that, a read error or binary bytes make
+  `<stdin>` `unread` and `truncated` true, as a file's would; its path is `<stdin>`. A search never waits on an open stdin it was not told to read.
 - **Three small answers.** `files read <file>` answers `{path, text, bytes, lines, truncated}` through one capped read
   (1 MiB), the text as UTF-8 with invalid sequences replaced; a directory is `invalid_input`, a missing file
   `file_not_found`. `files list --lines` adds each file's `lines` and their total. `files temp --name <n>` answers
@@ -258,11 +266,13 @@ path is held to the roots, the host's own state stays withheld.
   kept when it exists with that kind, refused when it exists with the other kind or is a link. `lines` counts the
   `\n` bytes, plus one for a last line with no newline (which `wc -l` does not count).
 - **Proximity.** "a Y line within N lines after an X line" (`grep -A N X | grep Y`) is one multiline regex,
-  `-U 'X(.*\n){0,N}?.*Y'`: lazy, so it ends at the nearest Y, and `.` never crosses a line. `[ \t]` keeps a part on
-  its line where `\s` would match `\n`.
+  `-U 'Y.*X|X(.*\n){0,N}?.*Y'`: the first branch is Y before X on X's own line, which the `grep` pair also found; the
+  second is lazy, so it ends at the nearest Y, and `.` never crosses a line. `[ \t]` keeps a part on its line where `\s`
+  would match `\n`.
 - **Where it differs from ripgrep.** Per-file counts are `--counts`, not `-c` (`--count` is `--pick`'s shape, ADR
   0325 D8); `--and-not` and `--none` are not ripgrep's; there is no implicit standard input, no `-e`, no PCRE2; a
-  missing path is listed, not an error.
+  missing path is listed, not an error; a glob never whitelists: it judges what the walk reached, so `--glob '.env'`
+  does not bring back a hidden or ignored name, where ripgrep's overrides would.
 - **A walk's reach.** A typed directory is walked as `files list` walks it: hidden names and what `.gitignore` names
   are left out unless `--hidden` and `--no-ignore` ask for them, as in ripgrep and unlike `grep -r`, which read them.
   A typed directory `.gitignore` names is still walked. So a `--none` over a directory judges only what it reached,
