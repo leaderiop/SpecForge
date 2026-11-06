@@ -7,13 +7,13 @@ use std::path::Path;
 use specforge_effects::git::{DiffStatus, GitFileDiff};
 use specforge_project::harness::LEDGER_FILE;
 
-use super::DiffFile;
+use super::{DiffFile, slashed};
 
 /// `dir` from `top`, `/` separated, the empty path when `dir` is `top` or holds it (the repository is nested in the
 /// project); none when `dir` lies apart from it.
 fn from_top(top: &Path, dir: &Path) -> Option<String> {
     match dir.strip_prefix(top) {
-        Ok(rel) => Some(rel.to_string_lossy().replace('\\', "/")),
+        Ok(rel) => Some(slashed(rel)),
         Err(_) => top.starts_with(dir).then(String::new),
     }
 }
@@ -24,6 +24,11 @@ fn under(dir: &str, path: &str) -> bool {
         || path
             .strip_prefix(dir)
             .is_some_and(|rest| rest.starts_with('/'))
+}
+
+/// `path` is `dir` or lies under it: what a filter over paths leaves out.
+pub(super) fn at_or_under(dir: &str, path: &str) -> bool {
+    dir == path || under(dir, path)
 }
 
 /// The spec files of one repository, for one project.
@@ -46,7 +51,7 @@ impl SpecPaths {
             ledger: project
                 .strip_prefix(top)
                 .ok()
-                .map(|rel| rel.join(LEDGER_FILE).to_string_lossy().replace('\\', "/")),
+                .map(|rel| slashed(&rel.join(LEDGER_FILE))),
         }
     }
 

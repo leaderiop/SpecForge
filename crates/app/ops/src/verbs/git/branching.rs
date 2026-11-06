@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use specforge_common::remedy::printable;
-use specforge_effects::contained::withheld;
 use specforge_effects::git::{GitPlace, Located, Sha};
 use specforge_effects::{FsOp, RealFs};
 
@@ -110,16 +109,7 @@ pub fn clone(verbs: &Verbs, source: &str, dir: &Path) -> Result<CloneAnswer, OpE
     }
     verbs.permit_git_write("clone")?;
     let (from, _) = verbs.held(Path::new(source), FsOp::Stat)?;
-    if withheld(&from.rel) {
-        return Err(OpError::new(
-            OpErrorKind::PermissionDenied,
-            OpErrorKind::PermissionDenied.as_str(),
-            format!(
-                "{} is withheld: the host's own state and credential files are never read through git",
-                printable(source)
-            ),
-        ));
-    }
+    super::commit::refuse_withheld(&from.rel, source, "read")?;
     let git = &verbs.ports().git;
     // Exactly what it is named, as git clones: a walk upward would let a project nested in a repository copy that one.
     let place = match git.locate(&from.at) {

@@ -460,17 +460,12 @@ pub fn status(
     .map_err(failed)?;
     let except = except
         .iter()
-        .map(|path| commit::repository_relative(verbs, &place, path))
+        .map(|path| commit::named_from_top(verbs, &place, path))
         .collect::<Result<Vec<_>, _>>()?;
     let specs = except_spec.then(|| spec_paths(verbs, &place));
     let excepted = |path: &str| {
         specs.as_ref().is_some_and(|specs| specs.holds(path))
-            || except.iter().any(|at| {
-                at.is_empty()
-                    || path
-                        .strip_prefix(at.as_str())
-                        .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
-            })
+            || except.iter().any(|at| spec_paths::at_or_under(at, path))
     };
     status.entries = std::mem::take(&mut status.entries)
         .into_iter()

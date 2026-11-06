@@ -6,6 +6,7 @@
 
 mod machine_roots;
 
+pub(crate) use specforge_effects::journal::user_home;
 use std::ffi::{OsStr, OsString};
 use std::io::Read as _;
 use std::path::{Component, Path, PathBuf};
@@ -53,10 +54,9 @@ impl UserConsent {
     /// project: typed from the home directory, the store in it is still the user's own, where [`Self::user`] would read
     /// it as a committed one.
     pub fn at_root(root: &ProjectRoot) -> Self {
-        if root.is_configured() {
-            Self::user(root.dir())
-        } else {
-            Self::named().absolute()
+        match root.configured_dir() {
+            Some(project) => Self::user(project),
+            None => Self::named().absolute(),
         }
     }
 
@@ -211,14 +211,6 @@ impl UserConsent {
                 ))
             })
     }
-}
-
-/// The user's home directory (`HOME`, else `USERPROFILE`); none when it is unset or relative.
-pub(crate) fn user_home() -> Option<PathBuf> {
-    std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(PathBuf::from)
-        .filter(|home| home.is_absolute())
 }
 
 /// `path` as the disk resolves it: its nearest existing ancestor canonical (every link and spelling followed), then

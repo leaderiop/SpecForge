@@ -12,7 +12,7 @@ use specforge_effects::{
     Ceiling, EffectRequest, EnvVar, Output, ProcessClass, ProcessRequest, RealFs, Shown,
 };
 
-use super::super::{Access, Verbs};
+use super::super::{Access, Verbs, slashed};
 use crate::{OpError, OpErrorKind};
 
 /// What `git commit` is asked.
@@ -71,12 +71,12 @@ pub fn commit(verbs: &Verbs, request: &CommitRequest) -> Result<CommitAnswer, Op
         None => request.message.clone(),
     };
     let mut message = cleaned(&typed).ok_or_else(empty_message)?;
-    let only = in_repository(verbs, &place, &request.only)?;
-    let mut add = in_repository(verbs, &place, &request.add)?;
+    let only = held_from_top(verbs, &place, &request.only)?;
+    let mut add = held_from_top(verbs, &place, &request.add)?;
     add.extend(only.iter().cloned());
     let staging = Staging {
         add,
-        remove: in_repository(verbs, &place, &request.remove)?,
+        remove: held_from_top(verbs, &place, &request.remove)?,
         all: request.all,
         force: request.force,
         except: Vec::new(),
@@ -155,11 +155,11 @@ pub struct AddRequest {
 /// status after.
 pub fn add(verbs: &Verbs, request: &AddRequest) -> Result<super::StatusAnswer, OpError> {
     let place = verbs.place_to_write("add")?;
-    let mut add = in_repository(verbs, &place, &request.paths)?;
+    let mut add = held_from_top(verbs, &place, &request.paths)?;
     if add.is_empty() && request.all {
         add.push("*".to_string());
     }
-    let mut except = in_repository(verbs, &place, &request.except)?;
+    let mut except = held_from_top(verbs, &place, &request.except)?;
     if request.except_spec {
         let specs = super::spec_paths(verbs, &place);
         let changed = verbs
@@ -327,7 +327,7 @@ pub fn cleaned(message: &str) -> Option<String> {
 
 /// Each typed path (read from the current directory) as a path from the repository's top: one the project's roots do
 /// not hold for a write (outside them, or the host's own state), or one outside the working tree, is refused.
-pub(super) fn in_repository(
+pub(super) fn held_from_top(
     verbs: &Verbs,
     place: &GitPlace,
     typed: &[PathBuf],
@@ -336,25 +336,14 @@ pub(super) fn in_repository(
         .iter()
         .map(|path| {
             let at = held(verbs, path)?;
-            let rel = at.strip_prefix(&place.toplevel).map_err(|_| {
-                OpError::new(
-                    OpErrorKind::InvalidInput,
-                    super::OUTSIDE_REPOSITORY,
-                    format!(
-                        "{} is outside the repository at {}",
-                        printable(&path.to_string_lossy()),
-                        printable(&place.toplevel.to_string_lossy())
-                    ),
-                )
-            })?;
-            let rel = rel.to_string_lossy().replace('\\', "/");
+            let rel = from_top(place, &at, path)?;
             // the top itself: every path under it
             Ok(if rel.is_empty() { "*".to_string() } else { rel })
         })
         .collect()
 }
 
-/// [`in_repository`], except that a pathspec with magic (`:(glob)**/*.spec`) is passed on for the adapter to match,
+/// [`held_from_top`], except that a pathspec with magic (`:(glob)**/*.spec`) is passed on for the adapter to match,
 /// as `git rm` and `git restore` take one. It is read from the repository's top, so it is refused unless the current
 /// directory is that top, held to the roots for a write.
 pub(super) fn pathspecs(
@@ -364,7 +353,7 @@ pub(super) fn pathspecs(
 ) -> Result<Vec<String>, OpError> {
     let magic = |path: &PathBuf| path.to_string_lossy().starts_with(':');
     if !typed.iter().any(magic) {
-        return in_repository(verbs, place, typed);
+        return held_from_top(verbs, place, typed);
     }
     if held(verbs, Path::new("."))? != place.toplevel {
         return Err(OpError::new(
@@ -382,15 +371,15 @@ pub(super) fn pathspecs(
         .map(|path| match magic(path) {
             true => Ok(path.to_string_lossy().into_owned()),
             false => {
-                in_repository(verbs, place, std::slice::from_ref(path)).map(|mut one| one.remove(0))
+                held_from_top(verbs, place, std::slice::from_ref(path)).map(|mut one| one.remove(0))
             }
         })
         .collect()
 }
 
-/// `path` (read from the current directory, a link at its name not followed) from the repository's top: empty for the
-/// top itself. Nothing is read, so it needs no root.
-pub(super) fn repository_relative(
+/// `path` (read from the current directory, a link at its name not followed) from the repository's top, with no root
+/// asked to hold it: what only filters reads nothing there. Empty for the top itself.
+pub(super) fn named_from_top(
     verbs: &Verbs,
     place: &GitPlace,
     path: &Path,
@@ -400,18 +389,23 @@ pub(super) fn repository_relative(
         (Some(name), Some(parent)) => RealFs::landing(parent).join(name),
         _ => RealFs::landing(&written),
     };
+    from_top(place, &at, path)
+}
+
+/// `at`, where the path `typed` landed, from the repository's top.
+fn from_top(place: &GitPlace, at: &Path, typed: &Path) -> Result<String, OpError> {
     let rel = at.strip_prefix(&place.toplevel).map_err(|_| {
         OpError::new(
             OpErrorKind::InvalidInput,
             super::OUTSIDE_REPOSITORY,
             format!(
                 "{} is outside the repository at {}",
-                printable(&path.to_string_lossy()),
+                printable(&typed.to_string_lossy()),
                 printable(&place.toplevel.to_string_lossy())
             ),
         )
     })?;
-    Ok(rel.to_string_lossy().replace('\\', "/"))
+    Ok(slashed(rel))
 }
 
 /// Where `path` (read from the current directory) lands, once the project's roots hold it for a write and it is not
@@ -419,17 +413,23 @@ pub(super) fn repository_relative(
 /// (`.specforge/` is git-ignored by `specforge init`); upgrade if a directory-wide write must skip them.
 pub(super) fn held(verbs: &Verbs, path: &Path) -> Result<PathBuf, OpError> {
     let located = verbs.located(path, &Access::Write)?;
-    if specforge_effects::contained::withheld(&located.rel) {
-        return Err(OpError::new(
-            OpErrorKind::PermissionDenied,
-            OpErrorKind::PermissionDenied.as_str(),
-            format!(
-                "{} is withheld: the host's own state and credential files are never written through git",
-                printable(&path.to_string_lossy())
-            ),
-        ));
-    }
+    refuse_withheld(&located.rel, &path.to_string_lossy(), "written")?;
     Ok(located.at)
+}
+
+/// Refuses a repository path that is the host's own state or a credential file: it is never `done` through git.
+pub(super) fn refuse_withheld(rel: &str, typed: &str, done: &str) -> Result<(), OpError> {
+    if !specforge_effects::contained::withheld(rel) {
+        return Ok(());
+    }
+    Err(OpError::new(
+        OpErrorKind::PermissionDenied,
+        OpErrorKind::PermissionDenied.as_str(),
+        format!(
+            "{} is withheld: the host's own state and credential files are never {done} through git",
+            printable(typed)
+        ),
+    ))
 }
 
 /// The repository's hooks, where git finds them.
@@ -485,7 +485,7 @@ impl<'v> Hooks<'v> {
             true => error.with_suggestion(no_verify(name)),
             false => error,
         };
-        let program = hook.to_string_lossy().replace('\\', "/");
+        let program = slashed(&hook);
         // Windows runs a hook script through the `sh` the runner finds, as Git for Windows does.
         let mut argv = if cfg!(windows) {
             vec!["sh".to_string(), program]

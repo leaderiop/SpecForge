@@ -10,7 +10,7 @@ use specforge_effects::{
     FsChange, FsChanged, FsListing, FsOp, FsRequest, ListRequest, OutcomeClass, Place, Root,
 };
 
-use super::{Access, Located, Verbs, refused};
+use super::{Access, Located, Verbs, refused, slashed};
 use crate::{OpError, OpErrorKind};
 
 mod search;
@@ -111,7 +111,7 @@ pub fn stat(verbs: &Verbs, paths: &[PathBuf]) -> Result<StatAnswer, OpError> {
         entries.push(StatEntry {
             path: shown,
             root: located.root.as_str().to_string(),
-            real: located.at.to_string_lossy().replace('\\', "/"),
+            real: slashed(&located.at),
             name,
             parent,
             exists: stat.is_some(),

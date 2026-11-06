@@ -122,9 +122,10 @@ impl Verbs {
             machine_roots.push(machine.root.clone());
             roots = roots.with_named(machine.root, machine.target);
         }
+        let spec_root = RealFs::landing(env.spec_root());
         let mut landed: Vec<(Root, PathBuf)> = vec![(Root::Project, RealFs::landing(root.dir()))];
         if roots.get(&Root::Spec).is_some() {
-            landed.push((Root::Spec, RealFs::landing(env.spec_root())));
+            landed.push((Root::Spec, spec_root.clone()));
         }
         for (name, path) in roots.named() {
             if let Some(named) = Root::parse(name) {
@@ -143,7 +144,7 @@ impl Verbs {
             ports: ports.clone(),
             grant,
             roots,
-            spec_root: RealFs::landing(env.spec_root()),
+            spec_root,
             machine_roots,
             landed,
             temp,

@@ -478,12 +478,17 @@ pub struct EffectJournal {
 /// The directory whose `.specforge` holds `root`'s host state (its journal, the verbs' `temp` root): `root` when it
 /// holds `specforge.json`, the user's home (`HOME`, `USERPROFILE` on Windows) for a loose root, none with no home.
 pub fn state_base(root: &ProjectRoot) -> Option<PathBuf> {
-    if root.is_configured() {
-        return Some(root.dir().to_path_buf());
-    }
+    root.configured_dir()
+        .map(Path::to_path_buf)
+        .or_else(user_home)
+}
+
+/// The user's home directory (`HOME`, else `USERPROFILE`); none when it is unset or relative.
+pub fn user_home() -> Option<PathBuf> {
     std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
+        .filter(|home| home.is_absolute())
 }
 
 impl EffectJournal {

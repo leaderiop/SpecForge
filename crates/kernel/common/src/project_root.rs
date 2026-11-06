@@ -90,6 +90,11 @@ impl ProjectRoot {
         &self.canonical
     }
 
+    /// The root's directory when `specforge.json` is there; none for a loose root.
+    pub fn configured_dir(&self) -> Option<&Path> {
+        self.is_configured().then(|| self.dir())
+    }
+
     /// Whether `specforge.json` is there; false for a loose root.
     pub fn is_configured(&self) -> bool {
         self.configured
