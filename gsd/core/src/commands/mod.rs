@@ -4,9 +4,9 @@
 mod complexity;
 mod digest;
 mod execute;
+mod gate;
 mod help;
 mod milestone;
-mod package_manager;
 mod phase;
 mod quick;
 mod refactor;
@@ -90,7 +90,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     edge_probe::declare(c);
     plan_coverage::declare(c);
     verification_debt::declare(c);
-    package_manager::declare(c);
+    gate::declare(c);
     smart_entry::declare(c);
     quick::declare(c);
     surface::declare(c);

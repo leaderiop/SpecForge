@@ -15,6 +15,7 @@ mod capability_points;
 mod cmd_attest;
 mod cmd_digest;
 mod cmd_execute;
+mod cmd_gate;
 mod cmd_milestone;
 mod cmd_package_manager;
 mod cmd_phase;
