@@ -386,10 +386,10 @@ If `NODE_REPAIR` is `false` OR repair returns ESCALATE: STOP. Present: "Verifica
 
 <step name="record_completion_time">
 ```bash
-# Patterns B and C, once create_summary wrote the summary (Pattern A's executor closes its own plan)
-SUMMARY_ID=$(specforge query "$PLAN_ID" --depth 1 --kinds summary --pick '.nodes[kind=summary].id')
-specforge gsd complete-plan "$SUMMARY_ID" || exit 1
-DURATION=$(specforge query "$SUMMARY_ID" --depth 0 --pick '.nodes[0].fields.duration')
+# the plan closes at the end of create_summary: its summary must exist first
+
+
+
 
 
 
@@ -425,13 +425,13 @@ Create `{phase}-{plan}-SUMMARY.md` at the phase `XX-name`. Use the template at `
 - A judgment-dependent deliverable (UX adequacy, external/multi-session behavior, anything no test asserts) → `human_judgment: true` with a `rationale`.
 - **Every deliverable MUST be classified.** If you cannot determine coverage, default to `human_judgment: true` with `rationale: "Coverage not determined at authoring time — verifier must classify"`. Never set `human_judgment: false` without a non-empty all-`pass` `verification` — `verify-work` auto-passes (skips the human) ONLY on that proof, so an unproven `false` still routes to the human but loses the audit trail. Omit the whole block only for a genuinely prose-only SUMMARY (verify-work then uses the legacy `## Accomplishments` path). The block is validated downstream by `specforge check` (it reads the summary's deliverables).
 
-Title: `# Phase [X] Plan [Y]: [Name] Summary`
-
-One-liner SUBSTANTIVE: "JWT auth with refresh rotation using jose library" not "Authentication implemented"
-
-Include: task count, file count. The start/end times and duration are the summary's own fields.
-
-Next: more plans → "Ready for {next-plan}" | last → "Phase complete, ready for next step".
+Title: `# Phase [X] Plan [Y]: [Name] Summary` One-liner SUBSTANTIVE: "JWT auth with refresh rotation using jose library" not "Authentication implemented"
+Include: task count, file count. The start/end times and duration are the summary's own fields. Next: more plans → "Ready for {next-plan}" | last → "Phase complete, ready for next step". Once the summary is written, Patterns B and C close the plan here (Pattern A's executor closes its own):
+```bash
+SUMMARY_ID=$(specforge query "$PLAN_ID" --depth 1 --kinds summary --pick '.nodes[kind=summary].id') || exit 1
+case "$SUMMARY_ID" in ''|*$'\n'*) echo "plan $PLAN_ID needs exactly one summary to close; it has: ${SUMMARY_ID:-none}" >&2; exit 1 ;; esac
+specforge gsd complete-plan "$SUMMARY_ID" || exit 1; DURATION=$(specforge query "$SUMMARY_ID" --depth 0 --pick '.nodes[0].fields.duration') || exit 1
+```
 </step>
 
 <step name="update_current_position">

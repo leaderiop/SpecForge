@@ -394,10 +394,43 @@ fn an_inline_plan_is_closed_on_its_summary() {
     std::thread::sleep(std::time::Duration::from_millis(1100));
     fence("specforge gsd start-plan");
     assert_eq!(p.fields_of(&start)["at"], first);
-    plant(&p, "spec/plans.spec", PLANTED);
+    // The steps in file order: the close comes after the step that writes the summary, and the old step has none of it.
+    let at = |needle: &str| text.find(needle).unwrap_or_else(|| panic!("no {needle}"));
+    let summary_step = at("<step name=\"create_summary\">");
+    let summary_ends = summary_step + text[summary_step..].find("</step>").expect("its end");
+    let close_at = at("SUMMARY_ID=$(");
+    assert!(summary_step < close_at && close_at < summary_ends);
+    let old = at("<step name=\"record_completion_time\">");
+    let old_ends = old + text[old..].find("</step>").expect("its end");
+    assert!(!text[old..old_ends].contains("complete-plan"));
     let close = block(&text, "SUMMARY_ID=$(", "specforge gsd complete-plan");
-    let (_, err, code) = run(&sh, &p, &format!("PLAN_ID={PLAN}\n{close}"));
+    let script = format!("PLAN_ID={PLAN}\n{close}\nprintf '[%s]' \"$SUMMARY_ID\"");
+    // No summary yet: said so, and nothing reaches complete-plan.
+    let (out, err, code) = run(&sh, &p, &script);
+    assert_eq!((out.as_str(), code), ("", 1), "{err}");
+    assert!(
+        err.contains("exactly one summary") && !err.contains("E003"),
+        "{err}"
+    );
+    plant(&p, "spec/plans.spec", PLANTED);
+    let planted = p.read("spec/plans.spec");
+    // Two summaries: both named, and no two-line id reaches complete-plan.
+    let other = PLANTED.replace("02-01-SUMMARY", "02-01-AGAIN");
+    plant(&p, "spec/plans.spec", &other);
+    let two = p.read("spec/plans.spec");
+    let (out, err, code) = run(&sh, &p, &script);
+    assert_eq!((out.as_str(), code), ("", 1), "{err}");
+    assert!(
+        err.contains("exactly one summary")
+            && err.contains("02-01-SUMMARY")
+            && err.contains("02-01-AGAIN"),
+        "{err}"
+    );
+    assert_eq!(p.read("spec/plans.spec"), two);
+    p.write("spec/plans.spec", &planted);
+    let (out, err, code) = run(&sh, &p, &script);
     assert_eq!(code, 0, "{err}");
+    assert!(out.ends_with(&format!("[{SUMMARY}]")), "{out}");
     let fields = p.fields_of(SUMMARY);
     assert_eq!(fields["started"], first);
     assert!(fields["completed"].is_string() && fields["duration"].is_string());

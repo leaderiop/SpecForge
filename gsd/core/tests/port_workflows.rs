@@ -156,10 +156,11 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/pause-work.md", 225, 225),
     // the inline plan's times: `start-plan` opens it, `complete-plan` stamps its summary, `duration` is computed
     ("gsd-core/workflows/execute-plan.md", 90, 91),
-    ("gsd-core/workflows/execute-plan.md", 387, 391),
+    ("gsd-core/workflows/execute-plan.md", 387, 388),
+    ("gsd-core/workflows/execute-plan.md", 390, 391),
     ("gsd-core/workflows/execute-plan.md", 393, 399),
     ("gsd-core/workflows/execute-plan.md", 419, 419),
-    ("gsd-core/workflows/execute-plan.md", 430, 430),
+    ("gsd-core/workflows/execute-plan.md", 426, 432),
     ("gsd-core/workflows/execute-plan.md", 456, 456),
     // pull requests through GitHub's REST API (`specforge http --secret @gsd/core:github_token`): gh's
     // arguments become fields, its token check a GET of /user, and the states it answers are lower case
