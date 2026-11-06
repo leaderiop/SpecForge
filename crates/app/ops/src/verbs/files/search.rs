@@ -9,7 +9,7 @@ use grep_searcher::{
     BinaryDetection, Searcher, SearcherBuilder, Sink, SinkContext, SinkContextKind, SinkMatch,
 };
 use serde::Serialize;
-use specforge_effects::fs::{FileKind, READ_CEILING};
+use specforge_effects::fs::{FILE_CEILING, FileKind};
 use specforge_effects::{FsOp, ListRequest, OutcomeClass, Root};
 
 use super::{LIST_MAX, checked_globs};
@@ -62,6 +62,64 @@ pub struct Counted {
     pub count: usize,
 }
 
+/// Why a file was left out of a search.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnreadWhy {
+    /// The host or the system refused it: the host's own state, a credential, a file with more than one name, a mode.
+    Denied,
+    /// The project's effects ceiling leaves it out.
+    Ceiling,
+    /// Larger than one file's or standard input's bound (64 MiB).
+    TooLarge,
+    /// The search's budget (64 MiB over every file) ran out at or before it: what was read of it was searched.
+    PastBudget,
+    /// A binary file typed by name, as git decides one. A walked one is skipped, as `grep -I`, and not unread.
+    Binary,
+    /// A pipe, a device or a socket typed by name.
+    NotAFile,
+    /// The walk stopped at its bound in this directory.
+    WalkBound,
+    /// The system would not let it be listed or read to its end: a directory, or standard input.
+    Unreadable,
+}
+
+impl UnreadWhy {
+    /// What an answer says, and what a person reads.
+    pub const fn name(self) -> &'static str {
+        match self {
+            UnreadWhy::Denied => "denied",
+            UnreadWhy::Ceiling => "ceiling",
+            UnreadWhy::TooLarge => "too_large",
+            UnreadWhy::PastBudget => "past_budget",
+            UnreadWhy::Binary => "binary",
+            UnreadWhy::NotAFile => "not_a_file",
+            UnreadWhy::WalkBound => "walk_bound",
+            UnreadWhy::Unreadable => "unreadable",
+        }
+    }
+}
+
+impl Serialize for UnreadWhy {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.name())
+    }
+}
+
+/// What a search did not read, or did not read whole. A verdict never passes on one (ADR 0339 D4).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Unread {
+    pub path: String,
+    pub why: UnreadWhy,
+}
+
+/// Standard input as the caller read it: only when `-` is a path.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Stdin {
+    pub bytes: Vec<u8>,
+    /// Why `bytes` are not all of it.
+    pub cut: Option<UnreadWhy>,
+}
+
 /// What `files search` answers.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum SearchMode {
@@ -87,10 +145,12 @@ pub struct SearchAnswer {
     pub counts: Option<Vec<Counted>>,
     /// The length of the list the mode answers.
     pub count: usize,
-    /// It stopped at its bound, or a file was larger than one read.
+    /// It stopped at its bound, or some bytes were past one: a file or standard input read in part or not at all.
     pub truncated: bool,
     /// Each typed path that does not exist; the others were searched.
     pub missing: Vec<String>,
+    /// What it did not read, or not whole.
+    pub unread: Vec<Unread>,
 }
 
 /// What `files search` asks.
@@ -119,10 +179,8 @@ pub struct Search {
     pub mode: SearchMode,
     /// The most matches, files or counts answered.
     pub max: usize,
-    /// Standard input, searched for the path `-` as [`STDIN`] (the caller read it, only when `-` is a path).
-    pub stdin: Vec<u8>,
-    /// Standard input held more than the caller read.
-    pub stdin_truncated: bool,
+    /// Standard input, searched for the path `-` as [`STDIN`].
+    pub stdin: Stdin,
 }
 
 /// The lines under `search.paths` that match `search.pattern`: each line once, at its first match.
@@ -154,6 +212,7 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
         count: 0,
         truncated: false,
         missing: Vec::new(),
+        unread: Vec::new(),
     };
     let mut budget = SEARCH_BYTES;
     let typed: Vec<PathBuf> = if search.paths.is_empty() {
@@ -169,8 +228,11 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
     };
     for path in &typed {
         if path.as_os_str() == "-" {
-            answer.truncated |= search.stdin_truncated;
-            engine.run(&mut answer, STDIN.to_string(), &search.stdin, true)?;
+            if let Some(why) = search.stdin.cut {
+                answer.truncated = true;
+                answer.unread(STDIN.to_string(), why);
+            }
+            engine.judged(&mut answer, STDIN.to_string(), &search.stdin.bytes, true)?;
             continue;
         }
         let (located, request) = verbs.held(path, FsOp::Stat)?;
@@ -199,7 +261,17 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
                             max_entries: LIST_MAX,
                         },
                     );
-                    answer.truncated |= listing.truncated;
+                    if listing.class != OutcomeClass::Ok {
+                        return Err(refused(listing.class, &verbs.shown(&located.at)));
+                    }
+                    if listing.truncated {
+                        answer.truncated = true;
+                        answer.unread(verbs.shown(&located.at), UnreadWhy::WalkBound);
+                    }
+                    for rel in &listing.unread {
+                        let shown = verbs.shown_in(&walked.root, rel);
+                        answer.unread(shown, UnreadWhy::Unreadable);
+                    }
                     listing
                         .entries
                         .into_iter()
@@ -214,44 +286,58 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
                 (class, _) => return Err(refused(class, &verbs.shown(&located.at))),
             };
         for (root, rel, named) in files {
-            if answer.listed() >= search.max || budget == 0 {
+            if answer.listed() >= search.max {
                 answer.truncated = true;
                 break;
+            }
+            let shown = verbs.shown_in(&root, &rel);
+            if budget == 0 {
+                answer.truncated = true;
+                answer.unread(shown, UnreadWhy::PastBudget);
+                continue;
             }
             let read = specforge_effects::FsRequest {
                 root: root.as_str().to_string(),
                 path: rel.clone(),
                 op: FsOp::Read {
-                    max_bytes: READ_CEILING.min(budget),
+                    max_bytes: FILE_CEILING.min(budget),
                 },
             };
-            // A walked file that is withheld, or that the ceiling leaves unread, is not searched; one typed by name is
-            // refused, so no verdict is judged on a file it did not read.
+            // What a walk cannot read is listed as unread; a file typed by name is refused, so no verdict is judged on
+            // a file it did not read.
             if let Err(error) = verbs.permit_fs(&read) {
                 if named {
                     return Err(error);
                 }
+                answer.unread(shown, UnreadWhy::Ceiling);
                 continue;
             }
-            let outcome = verbs.ports().fs.run(verbs.roots(), &read);
-            if outcome.class != OutcomeClass::Ok {
-                if named {
-                    return Err(refused(outcome.class, &verbs.shown_in(&root, &rel)));
+            let outcome = verbs.ports().fs.read_whole(verbs.roots(), &read);
+            match outcome.class {
+                OutcomeClass::Ok => {}
+                class if named => return Err(refused(class, &shown)),
+                // Gone since the walk: nothing is left to read.
+                OutcomeClass::Missing => continue,
+                OutcomeClass::Capped => {
+                    answer.truncated = true;
+                    answer.unread(shown, UnreadWhy::TooLarge);
+                    continue;
                 }
+                _ => {
+                    answer.unread(shown, UnreadWhy::Denied);
+                    continue;
+                }
+            }
+            if outcome.stat.is_some_and(|stat| stat.kind != FileKind::File) {
+                answer.unread(shown, UnreadWhy::NotAFile);
                 continue;
             }
             budget = budget.saturating_sub(outcome.bytes.len() as u64);
-            answer.truncated |= outcome.truncated;
-            // A binary file, as git decides one (a NUL in its first 8000 bytes), is not searched.
-            if specforge_effects::git::is_binary(&outcome.bytes) {
-                continue;
+            if outcome.truncated {
+                answer.truncated = true;
+                answer.unread(shown.clone(), UnreadWhy::PastBudget);
             }
-            engine.run(
-                &mut answer,
-                verbs.shown_in(&root, &rel),
-                &outcome.bytes,
-                named,
-            )?;
+            engine.judged(&mut answer, shown, &outcome.bytes, named)?;
         }
     }
     answer.count = answer.listed();
@@ -267,6 +353,25 @@ struct Engine<'a> {
 }
 
 impl Engine<'_> {
+    /// [`Self::run`] unless `bytes` are binary, as git decides (a NUL in the first 8000): a walked one is skipped, as
+    /// `grep -I`, and one typed by name is unread, and counted at 0.
+    fn judged(
+        &mut self,
+        answer: &mut SearchAnswer,
+        shown: String,
+        bytes: &[u8],
+        named: bool,
+    ) -> Result<(), OpError> {
+        if !specforge_effects::git::is_binary(bytes) {
+            return self.run(answer, shown, bytes, named);
+        }
+        if named {
+            answer.unread(shown.clone(), UnreadWhy::Binary);
+            return self.run(answer, shown, b"", named);
+        }
+        Ok(())
+    }
+
     /// `bytes`, shown as `shown`, searched into `answer`: its matches, or under `-l` and `--counts` its name and count
     /// (a file typed by name is counted even at 0).
     fn run(
@@ -309,6 +414,10 @@ impl Engine<'_> {
 }
 
 impl SearchAnswer {
+    fn unread(&mut self, path: String, why: UnreadWhy) {
+        self.unread.push(Unread { path, why });
+    }
+
     /// The length of the list the mode answers.
     fn listed(&self) -> usize {
         match (&self.files, &self.counts) {

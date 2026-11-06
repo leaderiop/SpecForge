@@ -34,6 +34,12 @@ pub const SKIPPED: &[&str] = &[
 pub trait Fs: Send + Sync {
     fn run(&self, roots: &Roots, request: &FsRequest) -> FsOutcome;
 
+    /// A person's read of a whole file (`specforge files search`), [`FsOp::Read`] held to [`FILE_CEILING`] rather than
+    /// [`READ_CEILING`]: host-only like [`Fs::list`], since a gate judges a whole file and no guest asks that much.
+    fn read_whole(&self, _roots: &Roots, _request: &FsRequest) -> FsOutcome {
+        FsOutcome::of(OutcomeClass::Denied)
+    }
+
     /// A person's listing (`specforge files list`, ADR 0339): no guest names one, so only the local adapter answers it
     /// and every other port, a granted one included, answers `denied`.
     fn list(&self, _roots: &Roots, _request: &ListRequest) -> FsListing {
@@ -154,6 +160,8 @@ pub struct FsListing {
     pub entries: Vec<Listed>,
     /// It stopped at `max_entries` or at [`LIST_VISITS`].
     pub truncated: bool,
+    /// What the walk could not enter or read, root-relative: nothing under it is listed.
+    pub unread: Vec<String>,
 }
 
 impl FsListing {
@@ -163,6 +171,7 @@ impl FsListing {
             class,
             entries: Vec::new(),
             truncated: false,
+            unread: Vec::new(),
         }
     }
 }
@@ -176,7 +185,7 @@ pub struct FsOutcome {
     pub class: OutcomeClass,
     /// For a stat (and a read) of a path that exists.
     pub stat: Option<FsStat>,
-    /// A read's bytes, at most its `max_bytes` (held to [`READ_CEILING`]).
+    /// A read's bytes, at most its `max_bytes` (held to [`READ_CEILING`], or [`FILE_CEILING`] by [`Fs::read_whole`]).
     pub bytes: Vec<u8>,
     /// The read stopped at `max_bytes`, or the walk at its budget.
     pub truncated: bool,

@@ -7,7 +7,8 @@ use specforge_effects::fs::FileKind;
 use specforge_ops::OpError;
 use specforge_ops::verbs::Verbs;
 use specforge_ops::verbs::files::{
-    self, ChangeAnswer, LIST_MAX, List, SEARCH_BYTES, SEARCH_MAX, Search, SearchMode, Temp,
+    self, ChangeAnswer, LIST_MAX, List, SEARCH_BYTES, SEARCH_MAX, Search, SearchMode, Stdin, Temp,
+    UnreadWhy,
 };
 
 use super::{VerbArgs, shown};
@@ -238,13 +239,13 @@ pub(crate) struct SearchArgs {
     #[arg(long, conflicts_with_all = ["after_context", "before_context", "context"])]
     counts: bool,
 
-    /// Print nothing: exit 0 when anything matched, 1 when nothing did, 2 when a typed path is missing or the search
-    /// is refused (its error on stderr), as `grep -q`; it takes no --pick and no --format
+    /// Print nothing: exit 0 when anything matched, else 2 when a typed path is missing, a file went unread or the
+    /// search is refused (its error on stderr), else 1, as `grep -q`; it takes no --pick and no --format
     #[arg(long, short = 'q', conflicts_with = "none", conflicts_with_all = QUIET_CONFLICTS)]
     quiet: bool,
 
-    /// Print nothing: exit 0 when nothing matched, 1 when anything did, 2 when a typed path is missing or the search
-    /// is refused (its error on stderr): a negative gate that never passes on a file it could not read
+    /// Print nothing: exit 1 when anything matched, else 2 when a typed path is missing, a file went unread or the
+    /// search is refused (its error on stderr), else 0: a negative gate that never passes on a file it could not read
     #[arg(long, conflicts_with_all = QUIET_CONFLICTS)]
     none: bool,
 
@@ -392,17 +393,23 @@ impl ListArgs {
     }
 }
 
-/// Standard input, at most [`SEARCH_BYTES`], and whether it held more; what could not be read is not searched.
-fn stdin_bytes() -> (Vec<u8>, bool) {
+/// Standard input, at most [`SEARCH_BYTES`], and why that is not all of it.
+fn stdin_bytes() -> Stdin {
     use std::io::Read as _;
     let mut bytes = Vec::new();
-    let _ = std::io::stdin()
+    let read = std::io::stdin()
         .lock()
         .take(SEARCH_BYTES + 1)
         .read_to_end(&mut bytes);
-    let truncated = bytes.len() as u64 > SEARCH_BYTES;
+    let cut = if read.is_err() {
+        Some(UnreadWhy::Unreadable)
+    } else if bytes.len() as u64 > SEARCH_BYTES {
+        Some(UnreadWhy::TooLarge)
+    } else {
+        None
+    };
     bytes.truncate(SEARCH_BYTES as usize);
-    (bytes, truncated)
+    Stdin { bytes, cut }
 }
 
 /// What `-q` and `--none` take no part of: an answer they do not print.
@@ -421,10 +428,10 @@ impl SearchArgs {
     fn run(self, terminal: &Terminal, ports: &Ports) -> Exit {
         let verdict = self.quiet || self.none;
         // Read once, and only when `-` is typed: no search waits on a terminal or an agent's open stdin.
-        let (stdin, stdin_truncated) = if self.paths.iter().any(|path| path.as_os_str() == "-") {
+        let stdin = if self.paths.iter().any(|path| path.as_os_str() == "-") {
             stdin_bytes()
         } else {
-            (Vec::new(), false)
+            Stdin::default()
         };
         let search = Search {
             pattern: self.pattern,
@@ -449,7 +456,6 @@ impl SearchArgs {
             // A verdict is judged at the first match.
             max: if verdict { 1 } else { self.max },
             stdin,
-            stdin_truncated,
         };
         if verdict {
             let quiet = self.quiet;
@@ -457,10 +463,14 @@ impl SearchArgs {
                 terminal,
                 ports,
                 |verbs| files::search(&verbs, &search),
-                |answer| match (answer.count > 0, answer.missing.is_empty()) {
-                    (true, _) => Exit::of_verdict(quiet),
-                    (false, false) => Exit::Unjudged,
-                    (false, true) => Exit::of_verdict(!quiet),
+                |answer| {
+                    if answer.count > 0 {
+                        Exit::of_verdict(quiet)
+                    } else if answer.missing.is_empty() && answer.unread.is_empty() {
+                        Exit::of_verdict(!quiet)
+                    } else {
+                        Exit::Unjudged
+                    }
                 },
             );
         }
@@ -506,6 +516,14 @@ impl SearchArgs {
                 }
                 for path in &answer.missing {
                     outln!(terminal, "(missing: {})", shown(path));
+                }
+                for unread in &answer.unread {
+                    outln!(
+                        terminal,
+                        "(unread: {}: {})",
+                        shown(&unread.path),
+                        unread.why.name()
+                    );
                 }
                 if answer.truncated {
                     outln!(terminal, "(stopped at {} answered)", answer.count);

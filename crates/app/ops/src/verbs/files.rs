@@ -15,7 +15,7 @@ mod search;
 
 pub use search::{
     Context, Counted, LINE_CHARS, Match, SEARCH_BYTES, SEARCH_MAX, Search, SearchAnswer,
-    SearchMode, search,
+    SearchMode, Stdin, Unread, UnreadWhy, search,
 };
 
 /// The most entries `list` answers unless asked for another bound.

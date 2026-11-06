@@ -447,3 +447,199 @@ fn hidden_and_no_ignore_reach_dot_files_and_ignored_files() {
         "{both}"
     );
 }
+
+/// A verdict's exit for each of `-q` and `--none`, on `args` after the pattern `needle`.
+fn verdicts(project: &TestProject, args: &[&str]) -> (i32, i32) {
+    let run = |verdict: &str| {
+        let mut all = vec!["files", "search", verdict, "needle"];
+        all.extend_from_slice(args);
+        Cli::on(project).run(&all).code
+    };
+    (run("-q"), run("--none"))
+}
+
+const ONE_MIB: usize = 1024 * 1024;
+
+#[test]
+fn a_typed_file_past_one_read_is_judged_whole() {
+    let mut big = "x\n".repeat(ONE_MIB);
+    big.push_str("needle\n");
+    let project = TestProject::new().file("big.txt", &big);
+    assert_eq!(verdicts(&project, &["big.txt"]), (0, 1));
+    let answer = Cli::on(&project)
+        .run(&["files", "search", "needle", "big.txt"])
+        .exits(0)
+        .answer();
+    assert_eq!(answer["count"], 1, "{answer}");
+    assert_eq!(answer["truncated"], false, "{answer}");
+    assert_eq!(answer["unread"], serde_json::json!([]), "{answer}");
+}
+
+#[test]
+fn standard_input_past_its_bound_is_unread() {
+    let mut big = "x\n".repeat(33 * ONE_MIB);
+    big.push_str("needle\n");
+    let project = TestProject::new();
+    for (verdict, code) in [("-q", 2), ("--none", 2)] {
+        Cli::on(&project)
+            .stdin(big.as_str())
+            .run(&["files", "search", verdict, "needle", "-"])
+            .exits(code);
+    }
+    let answer = Cli::on(&project)
+        .stdin(big.as_str())
+        .run(&["files", "search", "needle", "-"])
+        .exits(0)
+        .answer();
+    assert_eq!(answer["truncated"], true, "{}", answer["truncated"]);
+    assert_eq!(
+        answer["unread"],
+        serde_json::json!([{"path": "<stdin>", "why": "too_large"}])
+    );
+}
+
+#[test]
+fn a_walked_file_past_the_ceiling_is_unread() {
+    let project = TestProject::new().file("d/small.txt", "nothing\n");
+    let huge = std::fs::File::create(project.root().join("d/huge.txt")).unwrap();
+    huge.set_len(65 * ONE_MIB as u64).unwrap();
+    assert_eq!(verdicts(&project, &["d"]), (2, 2));
+    let answer = Cli::on(&project)
+        .run(&["files", "search", "needle", "d"])
+        .exits(0)
+        .answer();
+    assert_eq!(
+        answer["unread"],
+        serde_json::json!([{"path": "d/huge.txt", "why": "too_large"}])
+    );
+}
+
+#[test]
+fn a_directory_past_the_budget_is_unread() {
+    let filler = "x\n".repeat(32 * ONE_MIB);
+    let project = TestProject::new()
+        .file("d/a.txt", &filler)
+        .file("d/b.txt", "nothing\n");
+    assert_eq!(verdicts(&project, &["d"]), (2, 2));
+    let answer = Cli::on(&project)
+        .run(&["files", "search", "needle", "d"])
+        .exits(0)
+        .answer();
+    assert_eq!(answer["truncated"], true);
+    assert_eq!(
+        answer["unread"],
+        serde_json::json!([{"path": "d/b.txt", "why": "past_budget"}])
+    );
+}
+
+#[test]
+fn a_match_found_still_answers_whatever_is_unread() {
+    let project = TestProject::new()
+        .file("d/hit.txt", "needle\n")
+        .file("d/bad.key", "secret\n");
+    assert_eq!(verdicts(&project, &["d"]), (0, 1));
+}
+
+#[cfg(unix)]
+mod permissions {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    use super::*;
+
+    /// Whether `path` really is unreadable: a test run as root reads everything, and then proves nothing here.
+    fn unreadable(path: &std::path::Path, mode: u32) -> bool {
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode)).unwrap();
+        std::fs::File::open(path)
+            .and_then(|file| file.metadata().map(|_| file))
+            .is_err()
+            || (path.is_dir() && std::fs::read_dir(path).is_err())
+    }
+
+    #[test]
+    fn a_file_the_system_denies_is_unread_and_no_gate_passes() {
+        let project = TestProject::new().files(&[("d/a.txt", "needle\n"), ("d/ok.txt", "x\n")]);
+        let path = project.root().join("d/a.txt");
+        if !unreadable(&path, 0o000) {
+            return;
+        }
+        assert_eq!(verdicts(&project, &["d"]), (2, 2));
+        assert_eq!(verdicts(&project, &["d/a.txt"]), (2, 2));
+        let answer = Cli::on(&project)
+            .run(&["files", "search", "needle", "d"])
+            .exits(0)
+            .answer();
+        assert_eq!(
+            answer["unread"],
+            serde_json::json!([{"path": "d/a.txt", "why": "denied"}])
+        );
+    }
+
+    #[test]
+    fn a_directory_the_system_denies_is_unread_and_no_gate_passes() {
+        let project = TestProject::new().files(&[("d/s/a.txt", "needle\n"), ("d/ok.txt", "x\n")]);
+        let path = project.root().join("d/s");
+        if !unreadable(&path, 0o000) {
+            return;
+        }
+        let verdict = verdicts(&project, &["d"]);
+        let answer = Cli::on(&project)
+            .run(&["files", "search", "needle", "d"])
+            .exits(0)
+            .answer();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(verdict, (2, 2));
+        assert_eq!(
+            answer["unread"],
+            serde_json::json!([{"path": "d/s", "why": "unreadable"}])
+        );
+    }
+}
+
+#[test]
+fn a_binary_is_unread_typed_and_skipped_walked() {
+    let project = TestProject::new()
+        .file("d/blob.bin", b"needle\0needle\n".as_slice())
+        .file("d/ok.txt", "x\n");
+    assert_eq!(verdicts(&project, &["d/blob.bin"]), (2, 2));
+    // As `grep -I`: a repository with a picture still has a gate.
+    assert_eq!(verdicts(&project, &["d"]), (1, 0));
+    let typed = Cli::on(&project)
+        .run(&["files", "search", "needle", "d/blob.bin"])
+        .exits(0)
+        .answer();
+    assert_eq!(
+        typed["unread"],
+        serde_json::json!([{"path": "d/blob.bin", "why": "binary"}])
+    );
+    let counted = Cli::on(&project)
+        .run(&["files", "search", "--counts", "needle", "d/blob.bin"])
+        .exits(0)
+        .answer();
+    assert_eq!(
+        counted["counts"],
+        serde_json::json!([{"path": "d/blob.bin", "count": 0}])
+    );
+    Cli::on(&project)
+        .stdin("needle\0\n")
+        .run(&["files", "search", "--none", "needle", "-"])
+        .exits(2);
+}
+
+#[test]
+fn a_second_name_is_unread_in_a_walk() {
+    let project = TestProject::new().files(&[("d/one.txt", "x\n"), ("d/ok.txt", "y\n")]);
+    let root = project.root();
+    std::fs::hard_link(root.join("d/one.txt"), root.join("d/two.txt")).unwrap();
+    assert_eq!(verdicts(&project, &["d"]), (2, 2));
+    let answer = Cli::on(&project)
+        .run(&["files", "search", "needle", "d"])
+        .exits(0)
+        .answer();
+    assert_eq!(
+        answer["unread"],
+        serde_json::json!([
+            {"path": "d/one.txt", "why": "denied"},
+            {"path": "d/two.txt", "why": "denied"},
+        ])
+    );
+}

@@ -30,6 +30,29 @@ pub struct LocalFs;
 
 impl Fs for LocalFs {
     fn run(&self, roots: &Roots, request: &FsRequest) -> FsOutcome {
+        Self::answer(roots, request, READ_CEILING)
+    }
+
+    fn read_whole(&self, roots: &Roots, request: &FsRequest) -> FsOutcome {
+        Self::answer(roots, request, FILE_CEILING)
+    }
+
+    fn list(&self, roots: &Roots, request: &ListRequest) -> FsListing {
+        Self::listing(roots, request)
+    }
+
+    fn change(&self, roots: &Roots, change: &FsChange) -> FsChanged {
+        change::change(roots, change)
+    }
+
+    fn digest(&self, roots: &Roots, at: &Place) -> FsDigest {
+        change::digest(roots, at)
+    }
+}
+
+impl LocalFs {
+    /// [`Fs::run`], a read held to `ceiling`.
+    fn answer(roots: &Roots, request: &FsRequest, ceiling: u64) -> FsOutcome {
         let held = match held(roots, &RealFs, request) {
             Ok(held) => held,
             Err(class) => return FsOutcome::of(class),
@@ -62,7 +85,7 @@ impl Fs for LocalFs {
                 }
             }
             FsOp::Read { max_bytes } => {
-                let max = (*max_bytes).min(READ_CEILING);
+                let max = (*max_bytes).min(ceiling);
                 // The handle checked is the handle read (ADR 0146 D2).
                 let read = std::fs::File::open(&at).and_then(|file| {
                     specforge_common::regular::refuse_if_linked(&file)?;
@@ -92,20 +115,6 @@ impl Fs for LocalFs {
         outcome
     }
 
-    fn list(&self, roots: &Roots, request: &ListRequest) -> FsListing {
-        Self::listing(roots, request)
-    }
-
-    fn change(&self, roots: &Roots, change: &FsChange) -> FsChanged {
-        change::change(roots, change)
-    }
-
-    fn digest(&self, roots: &Roots, at: &Place) -> FsDigest {
-        change::digest(roots, at)
-    }
-}
-
-impl LocalFs {
     /// [`Fs::list`]: the directory resolved like a stat, then walked with the `ignore` crate's rules, never through a
     /// link, never into the host's own state or `.git`, at most [`LIST_VISITS`] entries visited.
     fn listing(roots: &Roots, request: &ListRequest) -> FsListing {
@@ -149,11 +158,25 @@ impl LocalFs {
                         || globs.matched(entry.path(), dir).is_ignore())
             });
         let mut listing = FsListing::of(OutcomeClass::Ok);
-        for (visits, entry) in walk.build().flatten().enumerate() {
+        for (visits, entry) in walk.build().enumerate() {
             if visits >= LIST_VISITS {
                 listing.truncated = true;
                 break;
             }
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(error) => {
+                    let at = failed_path(&error).unwrap_or(&start);
+                    let below = at.strip_prefix(&start).unwrap_or(Path::new(""));
+                    let below = below.to_string_lossy().replace('\\', "/");
+                    listing.unread.push(if below.is_empty() {
+                        held.rel.clone()
+                    } else {
+                        format!("{prefix}{below}")
+                    });
+                    continue;
+                }
+            };
             let Some(kind) = entry.file_type() else {
                 continue;
             };
@@ -197,6 +220,19 @@ impl LocalFs {
             listing.entries.truncate(request.max_entries);
         }
         listing
+    }
+}
+
+/// The path a walk's error names, under the depth and line the walker wraps it in.
+fn failed_path(error: &ignore::Error) -> Option<&Path> {
+    match error {
+        ignore::Error::WithPath { path, .. } => Some(path),
+        ignore::Error::Loop { child, .. } => Some(child),
+        ignore::Error::WithDepth { err, .. } | ignore::Error::WithLineNumber { err, .. } => {
+            failed_path(err)
+        }
+        ignore::Error::Partial(errors) => errors.iter().find_map(failed_path),
+        _ => None,
     }
 }
 
