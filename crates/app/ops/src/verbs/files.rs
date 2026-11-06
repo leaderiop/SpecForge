@@ -124,31 +124,21 @@ pub fn stat(verbs: &Verbs, paths: &[PathBuf]) -> Result<StatAnswer, OpError> {
     Ok(StatAnswer { entries })
 }
 
-/// The globs, checked: `invalid_input` names the one that does not parse (a leading `!` excludes, and is not part of
-/// the glob), and one with nothing to match, which a shell's unset variable writes.
-fn checked_globs(globs: &[String]) -> Result<(), OpError> {
-    for glob in globs {
-        if glob.is_empty() || glob == "!" {
-            return Err(OpError::new(
-                OpErrorKind::InvalidInput,
-                OpErrorKind::InvalidInput.as_str(),
-                format!("the glob {glob:?} names nothing: is a shell variable unset?"),
-            ));
-        }
-        globset::Glob::new(glob.strip_prefix('!').unwrap_or(glob)).map_err(|error| {
-            OpError::new(
-                OpErrorKind::InvalidInput,
-                OpErrorKind::InvalidInput.as_str(),
-                format!("the glob {glob:?} does not parse: {error}"),
-            )
-        })?;
+/// The globs, as the port would read them: `invalid_input` names one it refuses.
+fn checked_globs(verbs: &Verbs, globs: &[String]) -> Result<(), OpError> {
+    match verbs.ports().fs.glob_fault(globs) {
+        Some(why) => Err(OpError::new(
+            OpErrorKind::InvalidInput,
+            OpErrorKind::InvalidInput.as_str(),
+            why,
+        )),
+        None => Ok(()),
     }
-    Ok(())
 }
 
 /// The entries under `list.dir`.
 pub fn list(verbs: &Verbs, list: &List) -> Result<ListAnswer, OpError> {
-    checked_globs(&list.globs)?;
+    checked_globs(verbs, &list.globs)?;
     let (located, request) = verbs.held(
         &list.dir,
         FsOp::Walk {

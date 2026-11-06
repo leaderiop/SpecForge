@@ -188,7 +188,7 @@ pub struct Search {
 /// ripgrep's own engine runs on the bytes the `Fs` port read (ADR 0339's amendment): a `grep-regex` matcher and a
 /// `grep-searcher` searcher over the slice, never over a path, which would open a file past the port.
 pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
-    checked_globs(&search.globs)?;
+    checked_globs(verbs, &search.globs)?;
     let and_not = search
         .and_not
         .iter()

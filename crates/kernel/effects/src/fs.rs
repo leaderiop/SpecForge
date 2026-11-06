@@ -46,6 +46,11 @@ pub trait Fs: Send + Sync {
         FsListing::of(OutcomeClass::Denied)
     }
 
+    /// Why [`Fs::list`] would refuse these globs, named for a person; a port that lists nothing has none to read.
+    fn glob_fault(&self, _globs: &[String]) -> Option<String> {
+        None
+    }
+
     /// A person's change (`specforge files mkdir`, `copy`, `move`, `remove`, `temp`): host-only like [`Fs::list`].
     fn change(&self, _roots: &Roots, _change: &FsChange) -> FsChanged {
         FsChanged::of(OutcomeClass::Denied, "this port changes no file")

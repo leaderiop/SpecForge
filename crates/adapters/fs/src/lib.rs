@@ -37,6 +37,10 @@ impl Fs for LocalFs {
         Self::answer(roots, request, FILE_CEILING)
     }
 
+    fn glob_fault(&self, globs: &[String]) -> Option<String> {
+        overrides(Path::new("."), globs).err()
+    }
+
     fn list(&self, roots: &Roots, request: &ListRequest) -> FsListing {
         Self::listing(roots, request)
     }
@@ -195,12 +199,10 @@ impl LocalFs {
                 continue;
             }
             // A directory no glob names is walked but, beside a whitelist glob, not listed.
-            let globbed = match wanted.matched(entry.path(), kind == FileKind::Dir) {
-                ignore::Match::Whitelist(_) => true,
-                ignore::Match::Ignore(_) => false,
-                ignore::Match::None => wanted.num_whitelists() == 0,
-            };
-            if !globbed {
+            let named = wanted
+                .matched(entry.path(), kind == FileKind::Dir)
+                .is_whitelist();
+            if !named && wanted.num_whitelists() > 0 {
                 continue;
             }
             let below = below.to_string_lossy().replace('\\', "/");
@@ -237,14 +239,23 @@ fn failed_path(error: &ignore::Error) -> Option<&Path> {
 }
 
 /// The globs as the `ignore` crate's overrides at `start`: gitignore semantics, so one with a `/` matches the path
-/// below `start` and one without a name at any depth, and `!glob` leaves a file or a directory out; `Err` when one
-/// does not parse.
-fn overrides(start: &Path, globs: &[String]) -> Result<ignore::overrides::Override, ignore::Error> {
+/// below `start` and one without a name at any depth, and `!glob` leaves a file or a directory out; `Err` names the one
+/// that does not parse, or that gitignore reads as no pattern (spaces, a comment, a lone `/`), as an unset shell variable
+/// writes one.
+fn overrides(start: &Path, globs: &[String]) -> Result<ignore::overrides::Override, String> {
     let mut built = ignore::overrides::OverrideBuilder::new(start);
     for glob in globs {
-        built.add(glob)?;
+        let pattern = glob.strip_prefix('!').unwrap_or(glob);
+        if pattern.trim().trim_matches('/').is_empty() || glob.starts_with('#') {
+            return Err(format!(
+                "the glob {glob:?} names nothing: is a shell variable unset?"
+            ));
+        }
+        built
+            .add(glob)
+            .map_err(|error| format!("the glob {glob:?} does not parse: {error}"))?;
     }
-    built.build()
+    built.build().map_err(|error| error.to_string())
 }
 
 fn stat_of(meta: &std::fs::Metadata) -> FsStat {

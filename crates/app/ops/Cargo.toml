@@ -40,7 +40,6 @@ strsim = { workspace = true }
 # `specforge git log --grep` and `-S` (ADR 0339): the pattern a person types.
 regex = { workspace = true }
 # `specforge files search` and `list` (ADR 0339): the globs a person types, checked before a walk.
-globset = "0.4"
 # `specforge files search` runs on ripgrep's own engine (ADR 0339's amendment): exact versions, named here, not in the
 # root's workspace table, which every builtin blob compiles from.
 grep-matcher = "=0.1.9"

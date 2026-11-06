@@ -4694,7 +4694,6 @@ version = "0.3.0"
 dependencies = [
  "chrono",
  "getrandom 0.3.4",
- "globset",
  "grep-matcher",
  "grep-regex",
  "grep-searcher",
