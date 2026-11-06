@@ -615,6 +615,11 @@ pub trait Git: Send + Sync {
     fn init(&self, _dir: &Path) -> Result<bool, GitError> {
         Err(GitError::unwritable())
     }
+    /// Copy the repository at `source` to `into` (absent or empty) with its worktree on `HEAD`, as a local `git clone`
+    /// does: `origin` names `source`'s top. No hook or filter driver runs, and no object is shared with `source`.
+    fn clone_local(&self, _source: &GitPlace, _into: &Path) -> Result<(), GitError> {
+        Err(GitError::unwritable())
+    }
     /// Lock the linked worktree whose top is `path`, so no prune or removal drops it (`reason` kept in its `locked`
     /// file), or with `lock` false unlock it. Refused when it is already in the state asked, as git refuses.
     fn worktree_lock(

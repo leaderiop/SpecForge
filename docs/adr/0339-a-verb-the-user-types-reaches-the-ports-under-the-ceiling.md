@@ -290,7 +290,8 @@ path is held to the roots, the host's own state stays withheld.
   libgit2 clones a path in process. One more row in the S2 table: `clone (local) | git2`. A source with `://` or git's
   `host:path` form is network (D6), refused before anything is held. The source is held for a read and `<dir>` for a
   write, absent or empty, as `worktree add` holds it. It answers `{top, branch, sha}`. `origin` names the source, as git's
-  local clone does. It runs no hook and no filter driver.
+  local clone does. It runs no hook and no filter driver, and it goes through libgit2's transport (`--no-local`), so a link planted under
+  the source's `objects/` is not followed and no object gets a second name.
 - **`diff`'s files** carry `spec`, `spec_only` and `spec_removed`. One predicate over a repository-relative path: a
   **spec file** is a file under the project's spec root (with the spec root at the project root, a `.spec` file under
   it), or the harness ledger at the project root. A spec root outside the repository makes nothing a spec file. `spec`

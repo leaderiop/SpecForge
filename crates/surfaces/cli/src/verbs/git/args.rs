@@ -304,6 +304,20 @@ pub(crate) struct AddArgs {
 }
 
 #[derive(clap::Args)]
+pub(crate) struct CloneArgs {
+    /// The repository to copy, from the current directory; a URL or host:path is refused
+    #[arg(value_name = "SOURCE")]
+    pub(super) source: String,
+
+    /// The new directory, from the current directory: absent or empty
+    #[arg(value_name = "DIR")]
+    pub(super) dir: std::path::PathBuf,
+
+    #[command(flatten)]
+    pub(super) verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
 pub(crate) struct InitArgs {
     /// The directory, from the current directory; the current directory when absent
     #[arg(value_name = "DIR")]

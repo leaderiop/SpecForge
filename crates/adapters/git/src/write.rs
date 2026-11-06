@@ -13,7 +13,7 @@ use crate::{Gix, failed, id, open};
 
 /// A write only in a repository this user owns: one another user owns is read with reduced trust, and git refuses to
 /// change it.
-fn owned(place: &GitPlace) -> Result<(), GitError> {
+pub(crate) fn owned(place: &GitPlace) -> Result<(), GitError> {
     match gix::sec::Trust::from_path_ownership(&place.git_dir) {
         Ok(gix::sec::Trust::Full) => Ok(()),
         _ => Err(GitError(format!(

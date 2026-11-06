@@ -193,3 +193,117 @@ fn a_broken_repository_in_a_machine_root_is_not_read_as_the_one_around_it() {
     assert_ne!(run.code, 0, "{}", run.stdout);
     assert_eq!(run.stdout, "");
 }
+
+#[test]
+fn clone_copies_a_local_repository_into_a_machine_root() {
+    let (project, _repo, sha) = committed();
+    let base = workspaces(&project);
+    let into = base.join("ws/clone");
+    let answer = typed(&project, &["clone", ".", &at(&into)])
+        .exits(0)
+        .answer();
+    assert_eq!(answer["top"], at(&into));
+    assert_eq!(answer["branch"], "main");
+    assert_eq!(answer["sha"], sha);
+    assert!(into.join("a.txt").is_file());
+    assert_eq!(
+        typed(
+            &project,
+            &["--in", &at(&into), "remotes", "--pick", ".remotes[0].name"]
+        )
+        .exits(0)
+        .stdout,
+        "origin\n"
+    );
+    assert_eq!(
+        typed(
+            &project,
+            &["--in", &at(&into), "status", "--pick", ".clean"]
+        )
+        .exits(0)
+        .stdout,
+        "true\n"
+    );
+    // The new repository's own directory is the root's to remove, not a worktree of the source.
+    crate::support::Cli::on(&project)
+        .run(&["files", "remove", "-r", &at(&base.join("ws"))])
+        .exits(0);
+    assert!(!into.exists());
+}
+
+#[test]
+fn clone_refuses_a_url_and_a_taken_directory() {
+    let (project, _repo, _) = committed();
+    let base = workspaces(&project);
+    let into = at(&base.join("clone"));
+    for remote in [
+        "https://example.com/r.git",
+        "ssh://git@example.com/r.git",
+        "file:///tmp/r",
+        "git@example.com:r.git",
+        "example.com:r",
+    ] {
+        let run = typed(&project, &["clone", remote, &into]).exits(1);
+        assert!(
+            run.stdout.contains("is a remote"),
+            "{remote}: {}",
+            run.stdout
+        );
+    }
+    std::fs::create_dir_all(base.join("taken")).unwrap();
+    std::fs::write(base.join("taken/file"), "").unwrap();
+    let run = typed(&project, &["clone", ".", &at(&base.join("taken"))]).exits(1);
+    assert_eq!(run.json()["code"], "path_taken", "{}", run.stdout);
+    let run = typed(&project, &["clone", ".", &at(&base.join("taken/file"))]).exits(1);
+    assert_eq!(run.json()["code"], "path_taken", "{}", run.stdout);
+    // An empty root is still a root.
+    let empty = project.home().canonicalize().unwrap().join("gsd-empty");
+    crate::support::Cli::on(&project)
+        .run(&["grants", "approve", "--root", "empty", "--at", &at(&empty)])
+        .exits(0);
+    let run = typed(&project, &["clone", ".", &at(&empty)]).exits(1);
+    assert_eq!(run.json()["code"], "path_taken", "{}", run.stdout);
+    let run = typed(
+        &project,
+        &["worktree", "add", &at(&empty), "--branch", "b", "--create"],
+    )
+    .exits(1);
+    assert_eq!(run.json()["code"], "path_taken", "{}", run.stdout);
+    assert!(!base.join("clone").exists());
+}
+
+/// Each side of a clone is a typed path: neither end leaves the roots, and the source is held for a read.
+#[test]
+fn clone_holds_both_ends_to_the_roots() {
+    let (project, _repo, _) = committed();
+    let base = workspaces(&project);
+    let home = project.home().canonicalize().unwrap();
+    let elsewhere = tempfile::tempdir().unwrap();
+    specforge_git::testing::Repo::init(elsewhere.path());
+    let run = typed(
+        &project,
+        &["clone", &at(elsewhere.path()), &at(&base.join("c1"))],
+    )
+    .exits(1);
+    assert_eq!(run.json()["code"], "outside_root", "{}", run.stdout);
+    assert!(run.stdout.contains("--at <dir>"), "{}", run.stdout);
+    let run = typed(&project, &["clone", ".", &at(&home.join("c2"))]).exits(1);
+    assert_eq!(run.json()["code"], "outside_root", "{}", run.stdout);
+    assert!(!home.join("c2").exists());
+    let run = typed(&project, &["clone", ".", &at(&base.join("../c3"))]).exits(1);
+    assert_eq!(run.json()["code"], "outside_root", "{}", run.stdout);
+    assert!(!home.join("c3").exists());
+    let run = typed(&project, &["clone", ".", &at(&base.join("x/.specforge/y"))]).exits(1);
+    assert_eq!(run.json()["code"], "permission_denied", "{}", run.stdout);
+    let run = typed(&project, &["clone", &at(&base), &at(&base.join("c4"))]).exits(1);
+    assert_eq!(run.json()["code"], "not_a_repository", "{}", run.stdout);
+    // A ceiling that leaves git no write refuses it first.
+    let read_only = crate::support::TestProject::new()
+        .config(|config| config["effects"] = serde_json::json!({"git": {"ops": ["read"]}}));
+    specforge_git::testing::Repo::init(read_only.root());
+    let run = crate::support::Cli::on(&read_only)
+        .at_home(project.home())
+        .bare(&["git", "clone", ".", &at(&base.join("c5"))])
+        .exits(1);
+    assert_eq!(run.json()["code"], "E090", "{}", run.stdout);
+}

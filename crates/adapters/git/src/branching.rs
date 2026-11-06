@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use gix::refs::transaction::PreviousValue;
 use specforge_effects::git::{GitError, GitPlace, Sha};
 
-use crate::write::{gix_owned, libgit2, safe};
+use crate::write::{gix_owned, libgit2, owned, safe};
 use crate::{failed, id};
 
 /// `refs/heads/<name>`, refused when it is no valid branch name.
@@ -202,6 +202,26 @@ pub(crate) fn init(dir: &Path) -> Result<bool, GitError> {
     )
     .map_err(|e| failed(&format!("make {} a repository", dir.display()), &e))?;
     Ok(true)
+}
+
+/// libgit2 clones a path in process, where gix's file transport spawns `git`. Its local transport packs what `HEAD` and
+/// the refs reach, so a planted link under the source's `objects/` is not followed and no file gets a second name, as
+/// `git clone --no-local`.
+pub(crate) fn clone_local(source: &GitPlace, into: &Path) -> Result<(), GitError> {
+    owned(source)?;
+    let from = source
+        .toplevel
+        .to_str()
+        .ok_or_else(|| GitError(format!("{} is not UTF-8", source.toplevel.display())))?;
+    if let Some(parent) = into.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| failed(&format!("make {}", parent.display()), &e))?;
+    }
+    git2::build::RepoBuilder::new()
+        .clone_local(git2::build::CloneLocal::None)
+        .clone(from, into)
+        .map_err(|e| failed(&format!("clone {from} to {}", into.display()), &e))?;
+    Ok(())
 }
 
 pub(crate) fn worktree_lock(

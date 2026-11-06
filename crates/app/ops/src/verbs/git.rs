@@ -16,8 +16,8 @@ mod commit;
 mod merging;
 
 pub use branching::{
-    InitAnswer, LockAnswer, PrunedAnswer, RefAnswer, branch_create, branch_delete, init, switch,
-    tag, worktree_add, worktree_lock, worktree_prune, worktree_remove,
+    CloneAnswer, InitAnswer, LockAnswer, PrunedAnswer, RefAnswer, branch_create, branch_delete,
+    clone, init, switch, tag, worktree_add, worktree_lock, worktree_prune, worktree_remove,
 };
 pub use commit::{
     AddRequest, CommitAnswer, CommitRequest, HookAnswer, RmAnswer, add, cleaned, commit, hook_run,

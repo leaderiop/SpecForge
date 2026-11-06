@@ -599,6 +599,10 @@ impl Git for Gix {
         branching::init(dir)
     }
 
+    fn clone_local(&self, source: &GitPlace, into: &Path) -> Result<(), GitError> {
+        branching::clone_local(source, into)
+    }
+
     fn worktree_lock(
         &self,
         place: &GitPlace,

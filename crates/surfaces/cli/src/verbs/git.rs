@@ -98,6 +98,8 @@ pub(crate) enum Action {
     Rm(RmArgs),
     /// Make a directory a repository, unless it is one
     Init(InitArgs),
+    /// Copy a local repository into a new directory, its worktree on HEAD: no hook runs, and no remote is reached
+    Clone(CloneArgs),
     /// Run one of the repository's hooks
     #[command(subcommand)]
     Hook(HookAction),
@@ -346,6 +348,13 @@ impl Action {
                     },
                 )
             }
+            Action::Clone(args) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::clone(v, &args.source, &args.dir),
+                |t, a| outln!(t, "Cloned into {}", shown(&a.top)),
+            ),
             Action::Init(args) => answer(
                 &args.verb,
                 terminal,
