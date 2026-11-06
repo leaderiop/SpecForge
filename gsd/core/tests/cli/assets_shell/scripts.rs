@@ -371,3 +371,64 @@ fn ship_reads_the_ci_skip_marker_on_the_note_itself() {
     commit(&["-m", "docs: no marker here"]);
     skips("runs");
 }
+
+/// The executor's commit count holds across the fresh shells of one plan, and a second attempt at the plan in another
+/// worktree counts from its own start, as each worktree's own git directory did.
+#[test]
+fn the_plan_ledger_counts_from_each_worktrees_start() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let text = asset("agents/gsd-executor.md");
+    let plan = |s: &str| s.replace("{phase}", "01").replace("{plan}", "02");
+    let record = plan(&block(
+        &text,
+        "_GSD_DIR=$(specforge git repo --pick .git_dir); _GSD_LEDGER=",
+        "specforge git tag \"$_GSD_LEDGER\"",
+    ));
+    let read = plan(line(
+        &text,
+        "_GSD_DIR=$(specforge git repo --pick .git_dir); PLAN_HEAD_BEFORE=",
+    ));
+    let count = line(&text, "COMMITS_ACTUAL=$(");
+    let base = tempfile::tempdir().expect("a dir");
+    let (main, other) = (base.path().join("main"), base.path().join("other"));
+    std::fs::create_dir_all(&main).expect("a repository");
+    git(&main, &["init", "-q", "-b", "main"]);
+    git(&main, &["commit", "-q", "--allow-empty", "-m", "first"]);
+    let commit = |dir: &Path| git(dir, &["commit", "-q", "--allow-empty", "-m", "more"]);
+    let run = |dir: &Path, script: &str| {
+        let (out, err, code) = sh.run_in(dir, script);
+        assert_eq!(code, 0, "{err}");
+        out.trim().to_string()
+    };
+    let counted = |dir: &Path| run(dir, &format!("{read}\n{count}\necho \"$COMMITS_ACTUAL\""));
+
+    assert_eq!(run(&main, &record), "", "the record says nothing");
+    commit(&main);
+    commit(&main);
+    assert_eq!(counted(&main), "2");
+    // A second record of the same plan keeps the first base.
+    run(&main, &record);
+    assert_eq!(counted(&main), "2");
+
+    git(
+        &main,
+        &[
+            "worktree",
+            "add",
+            "-q",
+            other.to_str().expect("a path"),
+            "-b",
+            "retry",
+        ],
+    );
+    run(&other, &record);
+    commit(&other);
+    assert_eq!(
+        counted(&other),
+        "1",
+        "a second worktree counts from its own start"
+    );
+    assert_eq!(counted(&main), "2");
+}

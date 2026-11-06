@@ -540,8 +540,8 @@ Each Bash call is a FRESH shell, so the ledger persists on disk like the #3097 s
 (a variable would be unset at SUMMARY time and `specforge git log ..HEAD` would count zero).
 Per-plan filename, so sequential plans cannot contaminate each other:
 ```bash
-_GSD_LEDGER="$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}"
-[ -f "$_GSD_LEDGER" ] || specforge git head --pick .sha > "$_GSD_LEDGER"
+_GSD_DIR=$(specforge git repo --pick .git_dir); _GSD_LEDGER="gsd-plan-head-before-{phase}-{plan}-${_GSD_DIR##*/}"   # a tag per worktree
+[ "$(specforge git rev "refs/tags/$_GSD_LEDGER" --pick '.revs[0].exists')" = true ] || specforge git tag "$_GSD_LEDGER" >/dev/null
 ```
 The SUMMARY's `commits:` is MEASURED from this ledger, the base recorded as
 `plan_head_before:` for `/gsd:verify-work`'s same-instrument check. Multi-repo keeps commit-to-subrepo
@@ -665,7 +665,7 @@ These pair with the plan's `estimate` to calibrate future estimates (ADR-2629). 
 **`commits:` is measured, never narrated (#3968).** At SUMMARY write, read the persisted
 ledger (protocol 0c — a fresh shell per Bash call; the base comes from disk):
 ```bash
-PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
+_GSD_DIR=$(specforge git repo --pick .git_dir); PLAN_HEAD_BEFORE=$(specforge git rev "refs/tags/gsd-plan-head-before-{phase}-{plan}-${_GSD_DIR##*/}" --pick '.revs[0].sha')
 COMMITS_ACTUAL=$(specforge git log ${PLAN_HEAD_BEFORE}..HEAD --pick .count)
 PLAN_HEAD_AFTER=$(specforge git head --pick .sha)
 ```
