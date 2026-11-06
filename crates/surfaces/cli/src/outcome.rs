@@ -212,9 +212,11 @@ pub(crate) fn error_document<'a>(error: &'a OpError, root: Option<&Path>) -> Err
 /// `error[CODE]: message`, `  hint: suggestion` when there is one,
 /// `  wrote: file` per file left written; each line newline-terminated.
 pub(crate) fn error_lines(error: &OpError, root: Option<&Path>) -> String {
-    let mut lines = format!("error[{}]: {}\n", error.code, error.message);
+    // A message quotes what a person or a repository typed; a line it lays out itself stays a line.
+    let held = specforge_common::remedy::printable_lines;
+    let mut lines = format!("error[{}]: {}\n", error.code, held(&error.message));
     if let Some(suggestion) = &error.suggestion {
-        lines.push_str(&format!("  hint: {suggestion}\n"));
+        lines.push_str(&format!("  hint: {}\n", held(suggestion)));
     }
     for file in error.writes.named(root) {
         lines.push_str(&format!("  wrote: {file}\n"));
@@ -305,6 +307,21 @@ mod tests {
                 None
             ),
             "error[E003]: gone\n"
+        );
+    }
+
+    /// A refusal quotes what a person or a repository typed: a file name's escape sequence does not reach the terminal.
+    #[test]
+    fn error_lines_hold_a_hostile_name_printable() {
+        let mut error = OpError::new(
+            specforge_ops::OpErrorKind::PermissionDenied,
+            "outside_root",
+            "host/lk\u{1b}[31m leads out\u{9b}\u{202e}",
+        );
+        error.suggestion = Some("try \u{1b}]0;pwned\u{7}".to_string());
+        assert_eq!(
+            error_lines(&error, None),
+            "error[outside_root]: host/lk\\u{1b}[31m leads out\\u{9b}\\u{202e}\n  hint: try \\u{1b}]0;pwned\\u{7}\n"
         );
     }
 

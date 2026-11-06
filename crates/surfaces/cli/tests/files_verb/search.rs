@@ -643,3 +643,13 @@ fn a_second_name_is_unread_in_a_walk() {
         ])
     );
 }
+
+/// A refusal under a verdict quotes the typed path: its escape sequence stays text.
+#[test]
+fn a_refusal_prints_a_hostile_path_as_text() {
+    let project = TestProject::new();
+    let run = Cli::on(&project).run(&["files", "search", "-q", "x", "/nosuch/lk\u{1b}[31m"]);
+    assert_eq!(run.code, 2, "{}", run.stderr);
+    assert!(!run.stderr.contains('\u{1b}'), "{:?}", run.stderr);
+    assert!(run.stderr.contains(r"\u{1b}[31m"), "{:?}", run.stderr);
+}

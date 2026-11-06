@@ -235,6 +235,12 @@ impl Terminal {
     /// document a core command answers with.
     pub(crate) fn json(&self, document: &impl Serialize) {
         let text = serde_json::to_string_pretty(document).expect("serialize JSON output");
+        // JSON escapes C0 only: before a terminal, C1 and the bidirectional controls in a file name or a line act too.
+        let text = if self.facts().out_terminal {
+            specforge_common::remedy::printable_json(&text)
+        } else {
+            text.into()
+        };
         self.write_line(Stream::Out, format_args!("{text}"));
     }
 
@@ -465,6 +471,30 @@ mod tests {
         interactive: true,
         ci: false,
     };
+
+    #[test]
+    fn json_before_a_terminal_escapes_what_would_act_and_stays_json() {
+        let hostile = serde_json::json!({"text": "a\u{9b}31m\u{202e}"});
+        let (terminal, capture) = Terminal::captured("", INTERACTIVE);
+        terminal.json(&hostile);
+        let shown = capture.stdout();
+        assert!(
+            !shown.contains('\u{9b}') && !shown.contains('\u{202e}'),
+            "{shown}"
+        );
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&shown).unwrap(),
+            hostile
+        );
+        // Into a pipe the document is serde's own.
+        let facts = Facts {
+            out_terminal: false,
+            ..INTERACTIVE
+        };
+        let (terminal, capture) = Terminal::captured("", facts);
+        terminal.json(&hostile);
+        assert!(capture.stdout().contains('\u{9b}'));
+    }
 
     #[test]
     fn ask_takes_y_or_yes_in_any_case_and_nothing_else() {

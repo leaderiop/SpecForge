@@ -67,6 +67,25 @@ fn escapes(text: &str, at: usize, c: char, keep_lines: bool) -> bool {
                 || (c == '\r' && text[at + c.len_utf8()..].starts_with('\n'))))
 }
 
+/// `json`, the text of a JSON document, with each character [`printable`] escapes written as a JSON escape (`\u009b`,
+/// which a terminal does not act on), so the document parses to the same value. Its line breaks are the document's
+/// layout: a line break in a string is already an escape.
+pub fn printable_json(json: &str) -> Cow<'_, str> {
+    if !json.chars().any(|c| is_unprintable(c) && c != '\n') {
+        return Cow::Borrowed(json);
+    }
+    let mut held = String::with_capacity(json.len());
+    for c in json.chars() {
+        if is_unprintable(c) && c != '\n' {
+            // Every such character is below U+10000: one `\u` escape.
+            held.push_str(&format!("\\u{:04x}", c as u32));
+        } else {
+            held.push(c);
+        }
+    }
+    Cow::Owned(held)
+}
+
 /// The first character of a file's `text` that [`printable_lines`] escapes, with its byte offset: a control
 /// character or bidirectional control other than a tab, a line feed, and a carriage return directly before a
 /// line feed (part of the line break). `None` when it holds none.
@@ -208,6 +227,26 @@ mod tests {
         let shown = printable("a\u{202e}b\u{2066}c");
         assert_eq!(shown, "a\\u{202e}b\\u{2066}c");
         assert!(!shown.contains(is_unprintable));
+    }
+
+    #[test]
+    fn json_text_is_escaped_and_stays_the_same_json() {
+        let value = serde_json::json!({"a\u{9b}": "x\u{1b}\u{7f}\u{202e}\u{2028}y\n", "é": "é"});
+        let text = serde_json::to_string_pretty(&value).unwrap();
+        let held = printable_json(&text);
+        assert!(
+            !held.chars().any(|c| is_unprintable(c) && c != '\n'),
+            "{held}"
+        );
+        assert!(
+            held.contains(r"\u009b") && held.contains(r"\u202e"),
+            "{held}"
+        );
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&held).unwrap(),
+            value
+        );
+        assert_eq!(printable_json("{\n  \"a\": 1\n}"), "{\n  \"a\": 1\n}");
     }
 
     #[test]
