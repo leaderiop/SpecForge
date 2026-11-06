@@ -12,7 +12,7 @@ grammar `parseTaskList` enforces).
 If `$TASK_FILE` is set:
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-QB_TASKS=$(specforge files read "$TASK_FILE" --pick .text) || exit 1   # the list's text: quick-init parses it
+QB_TASKS=$(specforge files read --pick .text -- "$TASK_FILE") || exit 1   # the list's text: quick-init parses it
 ```
 
 Otherwise, the inline list is the text `quick-init` takes, so no scratch file

@@ -180,3 +180,121 @@ fn a_quick_batch_item_is_its_quick_plan() {
         }
     }
 }
+
+/// A task may start with a hyphen, and no parser reads it as a flag: the plan is written and holds it, as one task and
+/// as an entry of a batch's list.
+#[test]
+fn a_task_starting_with_a_hyphen_is_a_task() {
+    let Some(sh) = Shell::only(&[]) else { return };
+    let p = twin();
+    let quick = asset("gsd-core/workflows/quick.md");
+    let init = line(&quick, "IFS=$'\\x1f' read -r quick_id slug")
+        .replace("{{setting:git.quick_branch_template|}}", "");
+    for task in ["--upload-pack=x", "-no space marker", "--help"] {
+        let (out, err, code) = sh.run_in(
+            p.root(),
+            &format!(
+                "DESCRIPTION={}\n{init}\nprintf '[%s]' \"$quick_id\"",
+                q(task)
+            ),
+        );
+        assert_eq!(code, 0, "{task}: {out}{err}");
+        let id = out.rsplit('[').next().unwrap().trim_end_matches(']');
+        assert_eq!(p.fields_of(id)["objective"], task, "{task}");
+        let discussion = asset("gsd-core/workflows/quick/steps/discussion-phase.md");
+        let new = discussion
+            .split("(`")
+            .nth(1)
+            .and_then(|rest| rest.split("`, adding").next())
+            .expect("the context line");
+        let script = format!(
+            "quick_id={id}; date=2026-01-01; DESCRIPTION={}
+{new}",
+            q(task)
+        );
+        let (out, err, code) = sh.run_in(p.root(), &script);
+        assert_eq!(code, 0, "{task}: {out}{err}");
+    }
+    let text = asset("gsd-core/workflows/quick-batch/steps/batch-init.md");
+    let fence = block(&text, "QB_CREATE_LIST=", "specforge new --in");
+    let (out, err, code) = sh.run_in(
+        p.root(),
+        &format!(
+            "QB_TASKS={}\n{fence}\nprintf '%s' \"$QB_CREATE_LIST\"",
+            q("--upload-pack=x\n-no space marker")
+        ),
+    );
+    assert_eq!(code, 0, "{out}{err}");
+    let rows: Vec<&str> = out.lines().collect();
+    assert_eq!(rows.len(), 2, "{out}");
+    for (row, task) in rows.iter().zip(["--upload-pack=x", "-no space marker"]) {
+        let id = row.split('\u{1f}').next().unwrap();
+        assert_eq!(p.fields_of(id)["objective"], task);
+    }
+}
+
+/// A `--file` that reads as a flag names a file: it is refused as one that isn't there, and no batch is minted from
+/// a help text.
+#[test]
+fn a_task_file_starting_with_a_hyphen_names_a_file() {
+    let Some(sh) = Shell::only(&[]) else { return };
+    let p = twin();
+    let text = asset("gsd-core/workflows/quick-batch/steps/batch-init.md");
+    let read = line(&text, "QB_TASKS=$(specforge files read");
+    let (out, err, code) = sh.run_in(
+        p.root(),
+        &format!("TASK_FILE=--help\n{read}\necho read: \"$QB_TASKS\""),
+    );
+    assert_eq!(code, 1, "{out}{err}");
+    assert_eq!(out, "", "{err}");
+    p.write("-tasks.txt", "- a\n- b\n");
+    let (out, err, code) = sh.run_in(
+        p.root(),
+        &format!("TASK_FILE=-tasks.txt\n{read}\nprintf '%s' \"$QB_TASKS\""),
+    );
+    assert_eq!((code, out.as_str()), (0, "- a\n- b"), "{err}");
+}
+
+/// An id the graph already holds is refused, so two tasks never share a plan, and no init line skips the write.
+#[test]
+fn a_colliding_quick_id_writes_nothing() {
+    let Some(sh) = Shell::only(&[]) else { return };
+    let p = twin();
+    let quick = asset("gsd-core/workflows/quick.md");
+    let init = line(&quick, "IFS=$'\\x1f' read -r quick_id slug")
+        .replace("{{setting:git.quick_branch_template|}}", "");
+    let (out, err, code) = sh.run_in(
+        p.root(),
+        &format!("DESCRIPTION='the first'\n{init}\nprintf '[%s]' \"$quick_id\""),
+    );
+    assert_eq!(code, 0, "{out}{err}");
+    let id = out
+        .rsplit('[')
+        .next()
+        .unwrap()
+        .trim_end_matches(']')
+        .to_string();
+    let written = p.read("spec/quick.spec");
+    // the host's mint is what would never answer a held id: a stub stands in for it
+    let stub = format!(
+        "specforge() {{ if [ \"$2\" = quick-init ]; then printf '{id}\\037second\\037\\037second\\n'; \
+         else command specforge \"$@\"; fi; }}"
+    );
+    let (out, err, code) = sh.run_in(
+        p.root(),
+        &format!("{stub}\nDESCRIPTION=second\n{init}\necho after"),
+    );
+    assert_eq!(code, 1, "{out}{err}");
+    assert!(!out.contains("after"), "{out}");
+    assert!(err.contains("entity_exists"), "{err}");
+    assert_eq!(p.read("spec/quick.spec"), written);
+    assert_eq!(p.fields_of(&id)["objective"], "the first");
+    for path in [
+        "gsd-core/workflows/quick/steps/research-phase.md",
+        "gsd-core/workflows/quick-batch/steps/research-phase.md",
+        "gsd-core/workflows/quick.md",
+        "gsd-core/workflows/quick-batch/steps/planner-wave.md",
+    ] {
+        assert!(!asset(path).contains("|| specforge new"), "{path}");
+    }
+}

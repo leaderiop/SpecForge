@@ -70,7 +70,7 @@ Collect all decisions into `$DECISIONS`.
 
 **4.5d. Create the context**
 
-Create `context ${quick_id}-CONTEXT` with `plan ${quick_id}` (`specforge new context "${quick_id}-CONTEXT" "${DESCRIPTION}" --in spec/quick.spec --plan "${quick_id}" --gathered ${date} --boundary "${DESCRIPTION}" --canonical_refs '[{"topic":"No external specs — requirements fully captured in decisions above","paths":[]}]'`, adding `--discretion` and `--specifics` when the discussion gave them), then its decisions, one per choice (`specforge new decision "${quick_id}-D-01" "<decision>" --in spec/quick.spec --plan "${quick_id}" --area "<area>" --text "<decision>" --origin context --settled true`); the quick plan must exist first (the prompt's "The quick plan" says how). They hold the standard context template structure:
+Create `context ${quick_id}-CONTEXT` with `plan ${quick_id}` (`specforge new context "${quick_id}-CONTEXT" "Context: ${DESCRIPTION}" --in spec/quick.spec --plan "${quick_id}" --gathered ${date} --boundary="${DESCRIPTION}" --canonical_refs '[{"topic":"No external specs — requirements fully captured in decisions above","paths":[]}]'`, adding `--discretion` and `--specifics` when the discussion gave them), then its decisions, one per choice (`specforge new decision "${quick_id}-D-01" "<decision>" --in spec/quick.spec --plan "${quick_id}" --area "<area>" --text "<decision>" --origin context --settled true`); the quick plan must exist first (the prompt's "The quick plan" says how). They hold the standard context template structure:
 
 ```markdown
 # Quick Task ${quick_id}: ${DESCRIPTION} - Context
