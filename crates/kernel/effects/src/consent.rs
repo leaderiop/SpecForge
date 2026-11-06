@@ -144,6 +144,15 @@ pub struct MachineRoot {
     pub approved_at: ApprovedAt,
 }
 
+impl MachineRoot {
+    /// Whether its stored target is still a directory that lands where it was approved: one swapped for a link is not
+    /// followed.
+    pub fn lands(&self) -> bool {
+        let target = std::path::Path::new(&self.target);
+        target.is_dir() && crate::RealFs::landing(target) == target
+    }
+}
+
 /// Every approval a store holds.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Approvals {

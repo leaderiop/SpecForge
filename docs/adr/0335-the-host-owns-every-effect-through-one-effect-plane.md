@@ -289,7 +289,7 @@ home path names one machine. So D2.3 gains a **machine root**, a root the user n
   over it (W186) and never drops one. `specforge grants revoke --root <name> --machine` drops it; revoking a project
   keeps it.
 - **Reached by verbs only.** Every project's verbs reach it, under that project's ceiling: an `fs.roots` list that omits
-  its name refuses it (E090). No extension's grant reaches it: a capability's root is a project's root, D2.3 and D2.4
+  its name refuses it (E090), and one that names it keeps it. No extension's grant reaches it: a capability's root is a project's root, D2.3 and D2.4
   unchanged, and `reachable_roots` does not list it. It is a verb root, as `temp` is ([ADR
   0339](0339-a-verb-the-user-types-reaches-the-ports-under-the-ceiling.md) D2).
 - **A project's own wins.** A root the project names with the same name, reachable there, keeps the name. A stored target

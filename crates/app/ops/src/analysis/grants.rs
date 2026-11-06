@@ -19,7 +19,7 @@ use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 
 mod machine;
-pub use machine::{approve_machine_root, lands, revoke_machine_root};
+pub use machine::{approve_machine_root, revoke_machine_root};
 
 /// What one capability's grant is on this machine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Shape)]
@@ -74,7 +74,8 @@ pub struct RootRow {
     pub target: String,
     /// Under the project root: it needs no approval.
     pub inside: bool,
-    /// An outside root this machine approved; for a machine root, that it still lands where it was approved.
+    /// An outside root this machine approved; for a machine root, that verbs here reach it: it still lands where it was
+    /// approved, and no root of this project takes its name.
     pub approved: bool,
     /// Named on this machine (`grants approve --root <name> --at <dir>`), not by `specforge.json`.
     pub machine: bool,
@@ -213,14 +214,19 @@ pub fn list(view: &ProjectView, consent: &dyn Consent) -> Result<GrantsListing, 
                 machine: false,
             })
         });
-    let machine = held.machine_roots.iter().map(|root| RootRow {
+    let mut roots: Vec<RootRow> = named.collect();
+    let taken: Vec<String> = roots
+        .iter()
+        .filter(|row| row.inside || row.approved)
+        .map(|row| row.name.clone())
+        .collect();
+    roots.extend(held.machine_roots.iter().map(|root| RootRow {
         name: shown(&root.root),
         target: shown(&root.target),
         inside: false,
-        approved: lands(root),
+        approved: root.lands() && !taken.contains(&shown(&root.root)),
         machine: true,
-    });
-    let roots = named.chain(machine).collect();
+    }));
     Ok(GrantsListing {
         extensions,
         roots,

@@ -271,7 +271,9 @@ pub(crate) fn capability_line(row: &CapabilityRow) -> String {
 pub(crate) fn root_line(root: &RootRow) -> String {
     let state = match (root.machine, root.inside, root.approved) {
         (true, _, true) => "(machine), every project's verbs reach it",
-        (true, _, false) => "(machine), not reached: it no longer lands where it was approved",
+        (true, _, false) => {
+            "(machine), not reached here: it no longer lands where it was approved, or a root here takes its name"
+        }
         (false, true, _) => "inside the project",
         (false, false, true) => "outside the project, approved",
         (false, false, false) => "outside the project, not approved",

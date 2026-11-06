@@ -3,7 +3,7 @@
 
 use std::path::{Component, Path};
 
-use specforge_effects::{Approval, ApprovedAt, Consent, MachineRoot, RealFs, Revoke};
+use specforge_effects::{Approval, ApprovedAt, Consent, MachineRoot, Revoke};
 use specforge_project::RESERVED_ROOTS;
 use specforge_protocol_types::is_scope_name;
 
@@ -11,13 +11,6 @@ use super::{GrantsChange, invalid, shown, store_refused};
 use crate::OpError;
 use crate::consent::{resolved, user_home};
 use crate::settle::stamped;
-
-/// Whether `root`'s stored target is still a directory that lands where it was approved: one swapped for a link is
-/// not followed.
-pub fn lands(root: &MachineRoot) -> bool {
-    let target = Path::new(&root.target);
-    target.is_dir() && RealFs::landing(target) == target
-}
 
 /// `specforge grants approve --root <name> --at <dir>`: name a root on this machine, for every project's verbs. No
 /// project is read, so it works from any directory. `at` is read from `cwd`, a leading `~/` as the home directory, and

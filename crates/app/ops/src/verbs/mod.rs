@@ -1,8 +1,8 @@
 //! The verbs a person or an agent types (ADR 0339): `specforge files`, `run`, `http` and `git`. Each is the user's own
 //! act, under the user grant: every port and request, with only the project's effects ceiling narrowing it. A typed
 //! path is read from the current directory, then held to the one root of the project this machine may reach that holds
-//! it: `project`, `spec`, a named root of `specforge.json` (one outside the project once approved), or the verb-only
-//! `temp`.
+//! it: `project`, `spec`, a named root of `specforge.json` (one outside the project once approved), a root named on this
+//! machine (`grants approve --root <name> --at <dir>`), or the verb-only `temp`. The last two no extension's grant holds.
 
 pub mod files;
 pub mod git;
@@ -20,8 +20,8 @@ use specforge_effects::{
     Consent, Denial, EffectRequest, FsOp, FsRequest, Grant, Ports, RealFs, RecordDigest, Root,
     Roots, UnixMillis,
 };
-use specforge_project::Environment;
-use specforge_protocol_types::Operation;
+use specforge_project::{Environment, RESERVED_ROOTS};
+use specforge_protocol_types::{Operation, is_scope_name};
 
 use crate::{OUTSIDE_ROOT, OpError, OpErrorKind};
 
@@ -95,7 +95,7 @@ pub enum Access {
 
 impl Verbs {
     /// The verbs of the project at `root`, typed in `cwd`, performed through `ports`. A root outside the project is
-    /// reachable once `consent` approved it.
+    /// reachable once `consent` approved it, and so is each machine root `consent` holds.
     pub fn open(root: &ProjectRoot, cwd: &Path, ports: &Ports, consent: &dyn Consent) -> Self {
         let env = Environment::load(root, None);
         let grant = Arc::new(Grant::user(&env.effects_allowed().ceiling));
@@ -106,6 +106,18 @@ impl Verbs {
         }
         for (name, path) in reachable.iter().filter(|(name, _)| name != "spec") {
             roots = roots.with_named(name.clone(), path.clone());
+        }
+        // A store that cannot be used names none. A project's own root keeps its name.
+        for machine in consent
+            .list()
+            .map_or_else(|_| Vec::new(), |held| held.machine_roots)
+        {
+            let free = is_scope_name(&machine.root)
+                && !RESERVED_ROOTS.contains(&machine.root.as_str())
+                && !roots.named().any(|(name, _)| name == machine.root);
+            if free && machine.lands() {
+                roots = roots.with_named(machine.root, machine.target);
+            }
         }
         let mut landed: Vec<(Root, PathBuf)> = vec![(Root::Project, RealFs::landing(root.dir()))];
         if roots.get(&Root::Spec).is_some() {
@@ -251,7 +263,8 @@ impl Verbs {
             )
             .with_suggestion(
                 "name a path inside the project, or in a named root of specforge.json `roots`; one outside the \
-                 project is reachable once `specforge grants approve --root <name>` approved it",
+                 project is reachable once `specforge grants approve --root <name>` approved it, and `specforge \
+                 grants approve --root <name> --at <dir>` names a root for every project on this machine",
             )
         }))
     }
