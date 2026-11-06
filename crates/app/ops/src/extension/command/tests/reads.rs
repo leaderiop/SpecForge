@@ -32,6 +32,7 @@ fn a_command_with_reads_gets_files_and_one_without_gets_none() {
         None,
         None,
         at("2026-10-03"),
+        PINNED_NONCE.to_string(),
     )
     .unwrap();
     let input = last_input(&runtime);
@@ -50,6 +51,7 @@ fn a_command_with_reads_gets_files_and_one_without_gets_none() {
         None,
         None,
         at("2026-10-03"),
+        PINNED_NONCE.to_string(),
     )
     .unwrap();
     assert!(last_input(&runtime).get("files").is_none());

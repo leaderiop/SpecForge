@@ -204,7 +204,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     When a CLI command from an extension is invoked, the host MUST
     serialize the command's input as JSON (CommandInput: its args, the
     project root, absolute and canonical (symlinks resolved), the compiled graph, the format asked for, the
-    host's date, UTC, and the evidence of the project's recorded test
+    host's date, UTC, a fresh nonce (ADR 0341) and the evidence of the project's recorded test
     report) and call the cmd__{id} export,
     in the runtime that loaded the project's extensions to read their
     declarations: only the extensions the project enables are loaded,
@@ -271,6 +271,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "exit code, stdout, stderr returned to CLI"
   verify unit "a declared export the guest does not route is an ExtensionError when dispatched"
   verify unit "the CommandInput carries the format the caller asked for and the host's date"
+  verify unit "every command call carries a fresh nonce from the host: 32 hex digits of the OS's entropy, never the same twice"
   verify unit "one operation runs a command over the project view: it normalizes the args, attaches the evidence, the date and the project root, absolute and canonical, and calls the export"
   verify unit "the CommandInput carries what the recorded tests prove, per entity that counts toward coverage"
   verify unit "a command's input says when the recorded test report cannot be read, and carries no evidence without one"

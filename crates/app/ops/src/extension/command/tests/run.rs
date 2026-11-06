@@ -16,6 +16,7 @@ fn args_reach_the_export_as_json_with_the_graph() {
         None,
         None,
         at("2026-10-03"),
+        PINNED_NONCE.to_string(),
     )
     .unwrap();
     // What the guest decodes: the SDK's CommandInput.
@@ -68,6 +69,7 @@ fn the_input_carries_the_format_and_the_date() {
             None,
             None,
             at("2026-10-03"),
+            PINNED_NONCE.to_string(),
         )
         .unwrap();
         let input = last_input(&runtime);
@@ -100,6 +102,7 @@ fn one_operation_runs_a_command_over_the_view() {
         None,
         None,
         at("2026-10-03"),
+        PINNED_NONCE.to_string(),
     )
     .unwrap();
 
@@ -435,6 +438,7 @@ fn the_command_input_is_the_wire_golden() {
         None,
         None,
         at("2026-10-03"),
+        PINNED_NONCE.to_string(),
     )
     .unwrap();
 

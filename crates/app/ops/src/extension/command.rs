@@ -499,7 +499,7 @@ pub(crate) fn called(
     caller: Caller<'_>,
 ) -> Result<CommandOutput, RunError> {
     let lent = lend::port_call(view, caller, command.extension(), Operation::Command);
-    run_on(view, command, given, format, host, lent, instant())
+    run_on(view, command, given, format, host, lent, instant(), nonce())
 }
 
 /// Keep the state `output` patched (and take it out of `output`), unless the command failed.
@@ -552,8 +552,12 @@ pub(crate) fn authored_export(view: &ProjectView<'_>) -> String {
     .expect("a graph export cannot fail")
 }
 
-/// [`run`], at the instant `at` (unit tests pin it here; `run` passes the
-/// clock's): `today` and `now` are its two renderings.
+/// [`run`], at the instant `at` with the `nonce` (unit tests pin both here; `run` passes the clock's and a fresh
+/// one): `today` and `now` are the instant's two renderings.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the command, its inputs, the calling host, the lent ports, the instant and the nonce are each one thing"
+)]
 fn run_on(
     view: &ProjectView<'_>,
     command: &ExtensionCommand,
@@ -562,6 +566,7 @@ fn run_on(
     host: Option<Host>,
     lent: Option<PortCall>,
     at: chrono::DateTime<chrono::Utc>,
+    nonce: String,
 ) -> Result<CommandOutput, RunError> {
     let mut args = command.normalize(given).map_err(RunError::Args)?;
     let root = view.project_root().map_err(RunError::NoProject)?;
@@ -574,7 +579,7 @@ fn run_on(
         format,
         today: today_of(at),
         now: now_of(at),
-        nonce: String::new(),
+        nonce,
         graph: RawGraph::new(graph_export(view)).expect("the graph export is one JSON value"),
         evidence: evidence(view),
         host: host.map(|h| h.as_str().to_string()),
@@ -610,6 +615,13 @@ fn run_on(
 /// [`today_of`] and [`now_of`], so they never straddle midnight (ADR 0294).
 pub(crate) fn instant() -> chrono::DateTime<chrono::Utc> {
     chrono::Utc::now()
+}
+
+/// A command call's nonce (ADR 0341): 16 bytes of the OS's entropy as 32 lowercase hex digits.
+fn nonce() -> String {
+    let mut bytes = [0u8; 16];
+    getrandom::fill(&mut bytes).expect("OS entropy unavailable");
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// `at`'s date in UTC, `YYYY-MM-DD`.
