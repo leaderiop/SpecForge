@@ -337,7 +337,7 @@ fn only_files_and_git_reach_a_machine_root() {
     assert!(!ran.exists(), "a program ran in the machine root");
     let sent = Cli::on(&project).run(&[
         "http",
-        "POST",
+        "post",
         "http://127.0.0.1:9/",
         "--body-file",
         &at(&dir.join("body")),
@@ -352,11 +352,9 @@ fn only_files_and_git_reach_a_machine_root() {
         .run(&["run", "--in", ".", "--", "/bin/sh", "-c", "true"])
         .exits(0);
     let inside = TestProject::new().files(&[("mine/a.txt", "a\n")]);
-    let mine = inside.root().canonicalize().unwrap().join("mine");
-    Cli::on(&inside)
-        .run(&["grants", "approve", "--root", "mine", "--at", &at(&mine)])
-        .exits(0);
-    Cli::on(&inside)
-        .run(&["run", "--in", "mine", "--", "/bin/sh", "-c", "true"])
-        .exits(0);
+    let moved = inside.home().canonicalize().unwrap().join("proj");
+    std::fs::rename(inside.root(), &moved).unwrap();
+    let typed = |args: &[&str]| Cli::on(&inside).in_dir(&moved).bare(args);
+    typed(&["grants", "approve", "--root", "mine", "--at", "mine"]).exits(0);
+    typed(&["run", "--in", "mine", "--", "/bin/sh", "-c", "true"]).exits(0);
 }
