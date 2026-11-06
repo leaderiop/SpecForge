@@ -143,6 +143,16 @@ fn remove_workspace_guards_the_name_and_the_path() {
     }
 }
 
+/// The test's `PATH` with the built `specforge` first: the blocks call it by name.
+fn with_specforge_first() -> String {
+    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
+    format!(
+        "{}:{}",
+        bin.parent().expect("its directory").display(),
+        std::env::var("PATH").unwrap_or_default()
+    )
+}
+
 /// A repository whose status cannot be read must not count as clean: `rm -rf` follows in step 5. Its `.git` names a
 /// git directory that does not exist, so no status can read it, with git installed or not.
 #[test]
@@ -169,7 +179,8 @@ fn remove_workspace_counts_a_repo_it_cannot_read_as_dirty() {
             &format!("WORKSPACE_NAME=ws\nRESPONSE_LANGUAGE=\n{line}\necho \"[$DIRTY_REPOS]\""),
         ])
         .env("HOME", home.path())
+        .env("PATH", with_specforge_first())
         .output()
         .expect("bash");
-    assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "[]");
+    assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "[repo]");
 }
