@@ -76,7 +76,7 @@ fn quick_plan_text(written_by: &str, quick_id_is: &str) -> String {
      specforge set \"$quick_id\" files_modified <paths>\n\
      specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"\n\
      # an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`\n\
-     specforge gsd start-plan \"$quick_id\"\n\
+     specforge gsd start-plan \"$quick_id\" --head \"$(specforge git head --pick .sha)\"\n\
      specforge new summary \"$quick_id-SUMMARY\" \"<title>\" --in spec/quick.spec --plan \"$quick_id\" --status complete --one_liner \"<one line>\" --subsystem <area> --requirements_completed \"\"\n\
      specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\"\n\
      ```\n\n\

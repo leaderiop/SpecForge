@@ -89,7 +89,7 @@ Present plan identification, wait for confirmation.
 
 <step name="record_start_time">
 ```bash
-specforge gsd start-plan "$PLAN_ID" || exit 1   # records the plan's start once, in the graph: a re-run keeps it
+specforge gsd start-plan "$PLAN_ID" --head "$(specforge git head --pick .sha)" || exit 1   # records the plan's start and head once, in the graph: a re-run keeps them
 
 ```
 </step>

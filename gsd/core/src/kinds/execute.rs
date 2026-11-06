@@ -17,6 +17,9 @@ pub const PLAN_START: Kind = Kind::new(
         ts("at")
             .h()
             .doc("written once by the command that opens the plan, with the host's clock"),
+        str("head")
+            .h()
+            .doc("the commit the plan opened at, written once by the same command; none on an unborn branch"),
     ],
 )
 .scoped_by("plan");

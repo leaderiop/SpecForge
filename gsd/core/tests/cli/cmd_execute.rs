@@ -71,6 +71,40 @@ fn start_plan_records_the_hosts_now_once() {
     assert_eq!(bytes(&p), before);
 }
 
+/// `--head` is a commit id, recorded once beside the time; empty is an unborn branch, which has none.
+#[test]
+fn start_plan_records_the_head_once_and_refuses_what_is_no_sha() {
+    let p = twin();
+    let sha = "a".repeat(40);
+    let start = format!("{PLAN}/START");
+    for bad in [
+        "HEAD",
+        "abc",
+        "$(touch x)",
+        &"A".repeat(40),
+        &"a".repeat(41),
+    ] {
+        let before = bytes(&p);
+        let run = gsd(&p, "start-plan", &[PLAN, "--head", bad]);
+        refused(&run, "invalid_input", &["head"]);
+        assert_eq!(bytes(&p), before, "{bad}");
+    }
+    let run = gsd(&p, "start-plan", &[PLAN, "--head", ""]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(p.fields_of(&start).get("head").is_none());
+    let run = gsd(&p, "start-plan", &[PLAN, "--head", &sha, "--pick", ".head"]);
+    assert_eq!(run.stdout.trim_end(), sha, "{}", run.all());
+    assert_eq!(p.fields_of(&start)["head"], sha.as_str());
+    let other = "b".repeat(64);
+    let run = gsd(
+        &p,
+        "start-plan",
+        &[PLAN, "--head", &other, "--pick", ".head"],
+    );
+    assert_eq!(run.stdout.trim_end(), sha, "{}", run.all());
+    assert_eq!(p.fields_of(&start)["head"], sha.as_str());
+}
+
 #[test]
 fn complete_plan_refuses_a_plan_never_started_and_names_the_remedy() {
     let p = twin();

@@ -61,7 +61,7 @@
     "",
     "<available_agent_types>"
   ],
-  "bytes": 23191,
+  "bytes": 23234,
   "end": [
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
     "capacity/isolation, and dispatch wave-by-wave.",
@@ -97,7 +97,7 @@
     "specforge set \"$quick_id\" files_modified <paths>",
     "specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"",
     "# an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`",
-    "specforge gsd start-plan \"$quick_id\"",
+    "specforge gsd start-plan \"$quick_id\" --head \"$(specforge git head --pick .sha)\"",
     "specforge new summary \"$quick_id-SUMMARY\" \"<title>\" --in spec/quick.spec --plan \"$quick_id\" --status complete --one_liner \"<one line>\" --subsystem <area> --requirements_completed \"\"",
     "specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\"",
     "```",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2f99ce9f7119ca90d0f0860e1ee0a6bd9871c9c670ae95232b8c8be65e6882c8",
+    "digest": "sha256:acbb6819dd52883647f056288bcb323d31fa3a7f108607e0c60aa49d0c1830e6",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "2f99ce9f7119ca90d0f0860e1ee0a6bd9871c9c670ae95232b8c8be65e6882c8"
+  "sha256": "acbb6819dd52883647f056288bcb323d31fa3a7f108607e0c60aa49d0c1830e6"
 }

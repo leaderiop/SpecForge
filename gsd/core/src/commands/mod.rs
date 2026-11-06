@@ -37,6 +37,7 @@ pub const WRITERS: &[(&str, &str, &str)] = &[
     ("checkpoint", "answer", "answer_checkpoint"),
     ("user_setup", "done", "confirm_setup"),
     ("plan_start", "at", "start_plan"),
+    ("plan_start", "head", "start_plan"),
     ("summary", "started", "complete_plan"),
     ("summary", "completed", "complete_plan"),
     ("pause", "at", "pause"),

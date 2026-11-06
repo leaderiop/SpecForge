@@ -5206,6 +5206,17 @@
             "required": false,
             "target_kind": null,
             "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "the commit the plan opened at, written once by the same command; none on an unborn branch",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "head",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
           }
         ],
         "has_body_parser": false,

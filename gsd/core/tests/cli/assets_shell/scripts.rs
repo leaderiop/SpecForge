@@ -372,63 +372,93 @@ fn ship_reads_the_ci_skip_marker_on_the_note_itself() {
     skips("runs");
 }
 
-/// The executor's commit count holds across the fresh shells of one plan, and a second attempt at the plan in another
-/// worktree counts from its own start, as each worktree's own git directory did.
+/// The executor's commit count, end to end: `start-plan` records the plan's head once, in the graph, so it holds across
+/// the fresh shells of one plan and in a worktree of any name; an unborn branch records none, and every commit counts. No
+/// tag is written, so `git push --tags` publishes nothing and `git describe` reads nothing.
 #[test]
-fn the_plan_ledger_counts_from_each_worktrees_start() {
+fn the_plan_ledger_counts_from_the_head_the_plan_started_at() {
     let Some(sh) = Shell::without_jq() else {
         return;
     };
     let text = asset("agents/gsd-executor.md");
-    let plan = |s: &str| s.replace("{phase}", "01").replace("{plan}", "02");
-    let record = plan(&block(
+    let start = line(
         &text,
-        "_GSD_DIR=$(specforge git repo --pick .git_dir); _GSD_LEDGER=",
-        "specforge git tag \"$_GSD_LEDGER\"",
-    ));
-    let read = plan(line(
-        &text,
-        "_GSD_DIR=$(specforge git repo --pick .git_dir); PLAN_HEAD_BEFORE=",
-    ));
+        "specforge gsd start-plan \"${PHASE}-${PLAN}\" --head",
+    );
+    let read = line(&text, "PLAN_HEAD_BEFORE=$(specforge query").replace("{phase}-{plan}", "01-01");
     let count = line(&text, "COMMITS_ACTUAL=$(");
-    let base = tempfile::tempdir().expect("a dir");
-    let (main, other) = (base.path().join("main"), base.path().join("other"));
-    std::fs::create_dir_all(&main).expect("a repository");
-    git(&main, &["init", "-q", "-b", "main"]);
-    git(&main, &["commit", "-q", "--allow-empty", "-m", "first"]);
-    let commit = |dir: &Path| git(dir, &["commit", "-q", "--allow-empty", "-m", "more"]);
     let run = |dir: &Path, script: &str| {
-        let (out, err, code) = sh.run_in(dir, script);
+        let (out, err, code) = sh.run_in(dir, &format!("PHASE=01\nPLAN=01\n{script}"));
         assert_eq!(code, 0, "{err}");
         out.trim().to_string()
     };
     let counted = |dir: &Path| run(dir, &format!("{read}\n{count}\necho \"$COMMITS_ACTUAL\""));
 
-    assert_eq!(run(&main, &record), "", "the record says nothing");
-    commit(&main);
-    commit(&main);
-    assert_eq!(counted(&main), "2");
-    // A second record of the same plan keeps the first base.
-    run(&main, &record);
-    assert_eq!(counted(&main), "2");
-
-    git(
-        &main,
-        &[
-            "worktree",
-            "add",
-            "-q",
-            other.to_str().expect("a path"),
-            "-b",
-            "retry",
-        ],
+    let p = crate::harness::project("execute");
+    let at = |p: &crate::harness::Project, field: &str| {
+        p.fields_of("v1.0/01/01-01/START")[field].clone()
+    };
+    p.commit();
+    let before = run(p.root(), "specforge git head --pick .sha");
+    run(p.root(), start);
+    assert_eq!(at(&p, "head"), before.as_str());
+    p.git_commit(
+        "feat(01-01): a",
+        &[("src/a.js", "a\n")],
+        "2026-10-29T09:00:00Z",
     );
-    run(&other, &record);
-    commit(&other);
+    p.git_commit(
+        "feat(01-01): b",
+        &[("src/b.js", "b\n")],
+        "2026-10-29T09:01:00Z",
+    );
+    assert_eq!(counted(p.root()), "2");
+    // A second start keeps the first head.
+    run(p.root(), start);
+    assert_eq!(at(&p, "head"), before.as_str());
+    assert_eq!(counted(p.root()), "2");
     assert_eq!(
-        counted(&other),
-        "1",
-        "a second worktree counts from its own start"
+        std::fs::read_dir(p.root().join(".git/refs/tags")).map_or(0, Iterator::count),
+        0,
+        "no tag holds a plan's start"
     );
-    assert_eq!(counted(&main), "2");
+
+    // A worktree whose name no tag could hold.
+    let base = tempfile::tempdir().expect("a dir");
+    for (i, name) in ["my wt", "x.lock", "a..b", "wt~1"].iter().enumerate() {
+        let other = base.path().join(name);
+        let path = other.to_str().expect("a path");
+        let branch = format!("retry-{i}");
+        git(p.root(), &["worktree", "add", "-q", path, "-b", &branch]);
+        // The start was not committed, so the worktree opens the plan at its own head.
+        run(&other, start);
+        git(
+            &other,
+            &["commit", "--allow-empty", "-qm", "feat(01-01): c"],
+        );
+        assert_eq!(counted(&other), "1", "{name}: the base is in the graph");
+        // Removed and added again, it reads nothing of the worktree it was.
+        git(p.root(), &["worktree", "remove", "--force", path]);
+        git(p.root(), &["worktree", "add", "-q", path, &branch]);
+        run(&other, start);
+        assert_eq!(counted(&other), "0", "{name}: nothing since this start");
+    }
+
+    // An unborn branch has no head to record, and a start with one given later keeps it.
+    let unborn = crate::harness::project("execute");
+    run(unborn.root(), start);
+    assert_eq!(at(&unborn, "head"), serde_json::Value::Null);
+    unborn.git_commit(
+        "feat(01-01): a",
+        &[("src/a.js", "a\n")],
+        "2026-10-29T09:00:00Z",
+    );
+    assert_eq!(
+        counted(unborn.root()),
+        "1",
+        "an absent head counts every commit"
+    );
+    let first = run(unborn.root(), "specforge git head --pick .sha");
+    run(unborn.root(), start);
+    assert_eq!(at(&unborn, "head"), first.as_str());
 }

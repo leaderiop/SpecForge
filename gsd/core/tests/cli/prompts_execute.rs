@@ -175,7 +175,7 @@ fn the_inline_plan_opens_and_closes_through_the_commands() {
         "claude-code",
     )));
     let opened = text
-        .find("specforge gsd start-plan \"$PLAN_ID\" || exit 1")
+        .find("specforge gsd start-plan \"$PLAN_ID\" --head \"$(specforge git head --pick .sha)\" || exit 1")
         .expect("the plan opens through start-plan");
     let first_task = text
         .find("<step name=\"execute\"")

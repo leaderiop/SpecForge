@@ -92,7 +92,7 @@ Parse: frontmatter (phase, plan, type, autonomous, wave, depends_on), objective,
 
 <step name="record_start_time">
 ```bash
-specforge gsd start-plan "${PHASE}-${PLAN}" || exit 1
+specforge gsd start-plan "${PHASE}-${PLAN}" --head "$(specforge git head --pick .sha)" || exit 1
 # a gate_failed refusal (W318, E516) stops here: the plan is not executed; the plan keeps its start, once
 ```
 </step>
@@ -535,13 +535,13 @@ specforge git add src/types/user.ts
 ```bash
 specforge git --in "{sub_repo}" commit -m "{type}({phase}-{plan}): {concise task description}" -- file1 file2 ...
 ```
-**0c. Plan commit ledger (#3968, single-repo — before the first commit):**
-Each Bash call is a FRESH shell, so the ledger persists on disk like the #3097 sentinel above
-(a variable would be unset at SUMMARY time and `specforge git log ..HEAD` would count zero).
-Per-plan filename, so sequential plans cannot contaminate each other:
+**0c. Plan commit ledger (#3968, single-repo):** nothing to run here.
+Each Bash call is a FRESH shell, so the ledger is in the graph: `record_start_time` above gave
+`start-plan` the plan's head, which its `plan_start` keeps once, across shells and worktrees.
+A rebase after the start can overcount: a commit collected before it keeps its entity and its old id.
 ```bash
-_GSD_DIR=$(specforge git repo --pick .git_dir); _GSD_LEDGER="gsd-plan-head-before-{phase}-{plan}-${_GSD_DIR##*/}"   # a tag per worktree
-[ "$(specforge git rev "refs/tags/$_GSD_LEDGER" --pick '.revs[0].exists')" = true ] || specforge git tag "$_GSD_LEDGER" >/dev/null
+# no step: the head is recorded. An unborn branch has none, and then every commit counts.
+
 ```
 The SUMMARY's `commits:` is MEASURED from this ledger, the base recorded as
 `plan_head_before:` for `/gsd:verify-work`'s same-instrument check. Multi-repo keeps commit-to-subrepo
@@ -665,8 +665,8 @@ These pair with the plan's `estimate` to calibrate future estimates (ADR-2629). 
 **`commits:` is measured, never narrated (#3968).** At SUMMARY write, read the persisted
 ledger (protocol 0c — a fresh shell per Bash call; the base comes from disk):
 ```bash
-_GSD_DIR=$(specforge git repo --pick .git_dir); PLAN_HEAD_BEFORE=$(specforge git rev "refs/tags/gsd-plan-head-before-{phase}-{plan}-${_GSD_DIR##*/}" --pick '.revs[0].sha')
-COMMITS_ACTUAL=$(specforge git log ${PLAN_HEAD_BEFORE}..HEAD --pick .count)
+PLAN_HEAD_BEFORE=$(specforge query "{phase}-{plan}" --depth 1 --kinds plan_start --pick '.nodes[kind=plan_start].fields.head')
+COMMITS_ACTUAL=$(specforge git log "${PLAN_HEAD_BEFORE:+$PLAN_HEAD_BEFORE..}HEAD" --pick .count)
 PLAN_HEAD_AFTER=$(specforge git head --pick .sha)
 ```
 Write ALL THREE into the frontmatter — `commits: ${COMMITS_ACTUAL}`,

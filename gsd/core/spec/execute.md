@@ -22,6 +22,7 @@ stale.
 |---|---|---|---|
 | plan | → plan | R, I | the plan it opened |
 | at | ts | H | written once by `start_plan`, with the host's clock; a second call answers it, and `complete_plan` copies it to the summary's `started` |
+| head | string | H | the commit the plan opened at: written once by `start_plan --head`, whichever call first brings it; none on an unborn branch. The executor's `commits:` counts from it. Upstream's `PLAN_HEAD_BEFORE` file |
 
 ## summary
 
