@@ -1,5 +1,6 @@
 //! Lines (`(path, first, last)`, inclusive, 0-based body lines) the `specforge files` rewrites changed although
 //! upstream's names no tool the port rule sees: a comment or sentence that said what the old pipeline did.
+//! `port_workflows` reads them as more `REWRITTEN_SPANS` rows.
 
 pub const SPANS: &[(&str, usize, usize)] = &[
     (
@@ -47,6 +48,7 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         61,
         61,
     ),
+    // Review's run directory is a `specforge files temp` path, not a `mktemp` one.
     ("gsd-core/workflows/review.md", 617, 617),
     ("gsd-core/workflows/review.md", 845, 845),
     ("gsd-core/workflows/review.md", 847, 849),

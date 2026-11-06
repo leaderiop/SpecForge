@@ -31,8 +31,8 @@ mod relic_rewrites;
 #[path = "common/args_rewrites.rs"]
 mod args_rewrites;
 
-#[path = "common/search_rewrites.rs"]
-mod search_rewrites;
+#[path = "common/files_rewrites.rs"]
+mod files_rewrites;
 
 /// Body lines (0-based) that differ although upstream's names no ported tool: a relative link that leaves the tree
 /// became the absolute URL of the file at the tag, or where a rewrite fixed a line that names no ported tool but still
@@ -570,7 +570,7 @@ fn workflow_assets_diff_only_in_ported_passages() {
                             .chain(git_rewrites::SPANS)
                             .chain(relic_rewrites::SPANS)
                             .chain(args_rewrites::SPANS)
-                            .chain(search_rewrites::SPANS),
+                            .chain(files_rewrites::SPANS),
                         &path,
                         n,
                     )
