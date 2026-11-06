@@ -227,6 +227,9 @@ impl Verbs {
             (Access::Write, Some(name), Some(parent)) => RealFs::landing(parent).join(name),
             _ => RealFs::landing(&written),
         };
+        if *access == Access::Write {
+            refuse_git_directory(&at)?;
+        }
         let mut refused = None;
         for (root, base) in &self.landed {
             let Ok(rel) = at.strip_prefix(base) else {
@@ -318,6 +321,28 @@ impl Verbs {
         let at = if rel.is_empty() { base } else { base.join(rel) };
         self.shown(&at)
     }
+}
+
+/// Refused when `at`, a place a verb is to write, has a `.git` component: a hook put there runs on the next commit, which
+/// would be code execution for a caller limited to the verbs. The git verbs' own writes are the port's, not through here.
+pub(crate) fn refuse_git_directory(at: &Path) -> Result<(), OpError> {
+    let in_git = at
+        .components()
+        .any(|part| part.as_os_str().eq_ignore_ascii_case(".git"));
+    if !in_git {
+        return Ok(());
+    }
+    Err(OpError::new(
+        OpErrorKind::PermissionDenied,
+        OpErrorKind::PermissionDenied.as_str(),
+        format!(
+            "{} is in a .git directory, which no verb writes: a hook put there would run on the next commit",
+            at.display()
+        ),
+    )
+    .with_suggestion(
+        "change a repository through specforge git; install a hook or edit its config with the git program",
+    ))
 }
 
 /// E090: `what` is outside what the project's effects ceiling allows.

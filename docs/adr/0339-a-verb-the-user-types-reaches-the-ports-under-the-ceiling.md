@@ -315,6 +315,11 @@ path is held to the roots, the host's own state stays withheld.
   no upward search, so a nested project cannot copy the repository around it. **The cost:** `git init --separate-git-dir`
   and `git clone --reference` outside every root are refused until a machine root holds them. **Not judged:** a guest's git
   port and the host's own reads (the hook's facts, a registry checkout), which read only the project's repository.
+- **No verb writes into a `.git`.** `files copy hk .git/hooks/pre-commit`, then any commit, was code execution for a caller
+  limited to the verbs, as was `git clone hk .git/hooks`. Every write a verb holds refuses a path with a `.git` component
+  in any case, links resolved (`Verbs::located`), and a copy or move of a source named `.git` is refused too, since it
+  keeps its name in a directory. A directory that holds a repository is still removed or copied whole: that writes no
+  repository a verb could not already run. The git verbs' own writes are the port's and do not pass here.
 - **`worktree add`** makes the path's parents, and a second worktree of one directory name takes its own record
   (`name1`), as git does; libgit2 does neither. A new branch needs no identity on the machine: its reflog line takes a
   fallback name, as git's does, where a commit still refuses.

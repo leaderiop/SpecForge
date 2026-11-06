@@ -467,6 +467,7 @@ pub fn mkdir(verbs: &Verbs, paths: &[PathBuf]) -> Result<ChangeAnswer, OpError> 
 /// `from` copied onto `to`, or into it when it is a directory; a directory with what it holds.
 pub fn copy(verbs: &Verbs, from: &Path, to: &Path) -> Result<ChangeAnswer, OpError> {
     let source = verbs.located(from, &Access::Fs(FsOp::Read { max_bytes: 0 }))?;
+    keeps_no_git_name(&source, to)?;
     let change = FsChange::Copy {
         from: place(&source),
         to: written(verbs, to)?,
@@ -478,6 +479,7 @@ pub fn copy(verbs: &Verbs, from: &Path, to: &Path) -> Result<ChangeAnswer, OpErr
 
 /// `from` moved onto `to`, or into it when it is a directory: renamed in one device, copied then removed across two.
 pub fn move_to(verbs: &Verbs, from: &Path, to: &Path) -> Result<ChangeAnswer, OpError> {
+    keeps_no_git_name(&verbs.located(from, &Access::Write)?, to)?;
     let change = FsChange::Move {
         from: written(verbs, from)?,
         to: written(verbs, to)?,
@@ -485,6 +487,16 @@ pub fn move_to(verbs: &Verbs, from: &Path, to: &Path) -> Result<ChangeAnswer, Op
     Ok(ChangeAnswer {
         changed: changed(verbs, verbs.ports().fs.change(verbs.roots(), &change))?,
     })
+}
+
+/// A source goes into `to` under its own name when `to` is a directory, so one named `.git` would write a `.git` there.
+fn keeps_no_git_name(source: &Located, to: &Path) -> Result<(), OpError> {
+    match source.at.file_name() {
+        Some(name) if name.eq_ignore_ascii_case(".git") => {
+            super::refuse_git_directory(&to.join(name))
+        }
+        _ => Ok(()),
+    }
 }
 
 /// Each of `paths` removed: a file, an empty directory, or with `recursive` a directory and what it holds. A root, or
