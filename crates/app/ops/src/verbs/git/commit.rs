@@ -145,6 +145,8 @@ pub struct AddRequest {
     pub all: bool,
     /// Left out, whatever else names them (`git add -- ':!path'`).
     pub except: Vec<PathBuf>,
+    /// Leave out the project's spec files, wherever this is typed.
+    pub except_spec: bool,
     /// Stage an ignored path too (`git add --force`).
     pub force: bool,
 }
@@ -157,10 +159,27 @@ pub fn add(verbs: &Verbs, request: &AddRequest) -> Result<super::StatusAnswer, O
     if add.is_empty() && request.all {
         add.push("*".to_string());
     }
+    let mut except = in_repository(verbs, &place, &request.except)?;
+    if request.except_spec {
+        let specs = super::spec_paths(verbs, &place);
+        let changed = verbs
+            .ports()
+            .git
+            .status_by_file(&place)
+            .map_err(super::failed)?;
+        except.extend(
+            changed
+                .entries
+                .into_iter()
+                .flat_map(|entry| [Some(entry.path), entry.orig_path])
+                .flatten()
+                .filter(|path| specs.holds(path)),
+        );
+    }
     let staging = Staging {
         add,
         force: request.force,
-        except: in_repository(verbs, &place, &request.except)?,
+        except,
         ..Staging::default()
     };
     verbs
@@ -168,7 +187,7 @@ pub fn add(verbs: &Verbs, request: &AddRequest) -> Result<super::StatusAnswer, O
         .git
         .stage(&place, &staging)
         .map_err(write_failed)?;
-    super::status(verbs, &[])
+    super::status(verbs, &[], false)
 }
 
 /// `git rm`'s answer: the paths taken out of the index, from the repository's top.

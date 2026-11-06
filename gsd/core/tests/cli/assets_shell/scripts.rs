@@ -312,7 +312,7 @@ fn forensic_audit_leaves_the_spec_root_out() {
         return;
     };
     let text = asset("gsd-core/workflows/progress/steps/forensic-audit.md");
-    let read = line(&text, "specforge git status --except spec");
+    let read = line(&text, "specforge git status --except-spec");
     let dir = tempfile::tempdir().expect("a dir");
     let paths: Vec<String> = (0..12)
         .map(|n| format!("src/{n:02}.txt"))
@@ -461,4 +461,34 @@ fn the_plan_ledger_counts_from_the_head_the_plan_started_at() {
     let first = run(unborn.root(), "specforge git head --pick .sha");
     run(unborn.root(), start);
     assert_eq!(at(&unborn, "head"), first.as_str());
+}
+
+/// `forensic-audit` and `fast` leave the spec files out from any directory of the project, and with any spec root.
+#[test]
+fn the_spec_files_are_left_out_from_a_subdirectory() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let audit = asset("gsd-core/workflows/progress/steps/forensic-audit.md");
+    let check = line(&audit, "specforge git status --except-spec");
+    let fast = asset("gsd-core/workflows/fast.md");
+    let add = line(&fast, "specforge git add -A --except-spec");
+
+    let p = crate::harness::project("execute");
+    p.git_commit(
+        "feat: code",
+        &[("src/sub/a.js", "a\n")],
+        "2026-10-29T09:00:00Z",
+    );
+    std::fs::write(p.root().join("src/sub/a.js"), "b\n").expect("a change");
+    std::fs::write(p.root().join("spec/noise.spec"), "\n").expect("a spec file");
+    let sub = p.root().join("src/sub");
+    let (out, err, code) = sh.run_in(&sub, check);
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(out.trim(), "src/sub/a.js", "only the code is left");
+    let (_, err, code) = sh.run_in(&sub, add);
+    assert_eq!(code, 0, "{err}");
+    let (out, err, code) = sh.run_in(&sub, "specforge git status --pick '.untracked[]'");
+    assert_eq!(code, 0, "{err}");
+    assert!(out.lines().any(|l| l == "spec/"), "not staged: {out}");
 }

@@ -74,7 +74,7 @@ Emit:
 **Check 6 — Uncommitted code**
 
 ```bash
-specforge git status --except spec --pick '.tracked[]' --first 10 2>/dev/null
+specforge git status --except-spec --pick '.tracked[]' --first 10 2>/dev/null
 ```
 
 If output is non-empty (modified/staged files outside the spec), flag as uncommitted code.

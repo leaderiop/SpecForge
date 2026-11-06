@@ -8,10 +8,13 @@ Usage: specforge git status [OPTIONS]
 
 Options:
       --except <PATH>
-          Leave out what is at or under this path, as git's `:!<path>` does; `clean` is what is left, repeatable
+          Leave out what is at or under this path, as git's `:!<path>` does, read from here; `clean` is what is left, repeatable
 
       --in <DIR>
           Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
+
+      --except-spec
+          Leave out the project's spec files, whichever directory this is typed in; `clean` is what is left
 
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)

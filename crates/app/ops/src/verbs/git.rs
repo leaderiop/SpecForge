@@ -5,8 +5,9 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 use specforge_effects::git::{
-    DiffQuery, DiffSide, GitBranchRef, GitCommit, GitError, GitFileDiff, GitPlace, GitRemote,
-    GitStatus, GitSubmodule, LOG_MAX, Located, LogQuery, ObjectKind, Sha, Tracking, is_binary,
+    DiffQuery, DiffSide, GitBranchRef, GitChange, GitCommit, GitEntry, GitEntryKind, GitError,
+    GitFileDiff, GitPlace, GitRemote, GitStatus, GitSubmodule, LOG_MAX, Located, LogQuery,
+    ObjectKind, Sha, Tracking, is_binary,
 };
 
 use super::{USER, Verbs, slashed};
@@ -437,24 +438,40 @@ pub fn revs(
 }
 
 /// `git status`, the entries at or under each `except` left out of the answer, `clean` included, as git's `:!<path>`
-/// does. A path is only a filter, read from the current directory, and nothing at it is read: it needs no root.
-pub fn status(verbs: &Verbs, except: &[PathBuf]) -> Result<StatusAnswer, OpError> {
+/// does, and the project's spec files when `except_spec`. A path is only a filter, read from the current directory, and
+/// nothing at it is read: it needs no root. With a filter, an untracked directory is its files: git judges those too.
+pub fn status(
+    verbs: &Verbs,
+    except: &[PathBuf],
+    except_spec: bool,
+) -> Result<StatusAnswer, OpError> {
     let place = verbs.place("status")?;
-    let mut status = verbs.ports().git.status(&place).map_err(failed)?;
+    let git = &verbs.ports().git;
+    let mut status = if except.is_empty() && !except_spec {
+        git.status(&place)
+    } else {
+        git.status_by_file(&place)
+    }
+    .map_err(failed)?;
     let except = except
         .iter()
         .map(|path| commit::repository_relative(verbs, &place, path))
         .collect::<Result<Vec<_>, _>>()?;
-    status.entries.retain(|entry| {
-        !except.iter().any(|path| {
-            path.is_empty()
-                || entry
-                    .path
-                    .strip_prefix(path.as_str())
-                    .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
-        })
-    });
-    use specforge_effects::git::GitEntryKind as Kind;
+    let specs = except_spec.then(|| spec_paths(verbs, &place));
+    let excepted = |path: &str| {
+        specs.as_ref().is_some_and(|specs| specs.holds(path))
+            || except.iter().any(|at| {
+                at.is_empty()
+                    || path
+                        .strip_prefix(at.as_str())
+                        .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+            })
+    };
+    status.entries = std::mem::take(&mut status.entries)
+        .into_iter()
+        .filter_map(|entry| beside_except(entry, &excepted))
+        .collect();
+    use GitEntryKind as Kind;
     let paths = |kept: &dyn Fn(Kind) -> bool| {
         status
             .entries
@@ -471,6 +488,39 @@ pub fn status(verbs: &Verbs, except: &[PathBuf]) -> Result<StatusAnswer, OpError
         untracked,
         status,
     })
+}
+
+/// `entry` with what a filter leaves of it. A rename is two sides, and git finds no rename when a pathspec cuts one off:
+/// the side left stands alone, a deletion or an addition.
+fn beside_except(mut entry: GitEntry, excepted: &dyn Fn(&str) -> bool) -> Option<GitEntry> {
+    let dropped = excepted(&entry.path);
+    let Some(source) = entry.orig_path.take() else {
+        return (!dropped).then_some(entry);
+    };
+    match (excepted(&source), dropped) {
+        (true, true) => return None,
+        (false, false) => entry.orig_path = Some(source),
+        (false, true) => {
+            entry.kind = GitEntryKind::Changed;
+            entry.path = source;
+            entry.index = Some(GitChange::Deleted);
+            entry.worktree = None;
+        }
+        (true, false) => {
+            entry.kind = GitEntryKind::Changed;
+            entry.index = Some(GitChange::Added);
+        }
+    }
+    Some(entry)
+}
+
+/// What the project calls a spec file, in the repository at `place`.
+fn spec_paths(verbs: &Verbs, place: &GitPlace) -> SpecPaths {
+    SpecPaths::of(
+        &place.toplevel,
+        &RealFs::landing(verbs.root().dir()),
+        verbs.spec_root(),
+    )
 }
 
 pub fn config(verbs: &Verbs, key: &str) -> Result<ConfigAnswer, OpError> {
@@ -639,11 +689,7 @@ pub fn diff(verbs: &Verbs, request: &DiffRequest) -> Result<DiffAnswer, OpError>
         text().map(|file| u64::from(file.added)).sum(),
         text().map(|file| u64::from(file.removed)).sum(),
     );
-    let specs = SpecPaths::of(
-        &place.toplevel,
-        &RealFs::landing(verbs.root().dir()),
-        verbs.spec_root(),
-    );
+    let specs = spec_paths(verbs, &place);
     Ok(DiffAnswer {
         base: base.as_str().to_string(),
         head: named,

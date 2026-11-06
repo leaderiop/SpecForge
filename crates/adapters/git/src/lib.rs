@@ -675,6 +675,10 @@ impl Git for Gix {
     }
 
     fn status(&self, place: &GitPlace) -> Result<GitStatus, GitError> {
-        status::read(place, self.deadline)
+        status::read(place, self.deadline, gix::status::UntrackedFiles::Collapsed)
+    }
+
+    fn status_by_file(&self, place: &GitPlace) -> Result<GitStatus, GitError> {
+        status::read(place, self.deadline, gix::status::UntrackedFiles::Files)
     }
 }

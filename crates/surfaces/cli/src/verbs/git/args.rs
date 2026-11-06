@@ -291,9 +291,13 @@ pub(crate) struct AddArgs {
     #[arg(short = 'A', long)]
     pub(super) all: bool,
 
-    /// Leave out the files at or under this path, whatever else names them (`':!PATH'`)
+    /// Leave out the files at or under this path, whatever else names them (`':!PATH'`); read from here
     #[arg(long, value_name = "PATH")]
     pub(super) except: Vec<std::path::PathBuf>,
+
+    /// Leave out the project's spec files, whichever directory this is typed in
+    #[arg(long)]
+    pub(super) except_spec: bool,
 
     /// Stage an ignored path too; without it one is refused, as `git add` refuses it
     #[arg(short, long)]
@@ -586,9 +590,14 @@ pub(crate) struct ShowArgs {
 
 #[derive(clap::Args)]
 pub(crate) struct StatusArgs {
-    /// Leave out what is at or under this path, as git's `:!<path>` does; `clean` is what is left, repeatable
+    /// Leave out what is at or under this path, as git's `:!<path>` does, read from here; `clean` is what is left,
+    /// repeatable
     #[arg(long, value_name = "PATH")]
     pub(super) except: Vec<std::path::PathBuf>,
+
+    /// Leave out the project's spec files, whichever directory this is typed in; `clean` is what is left
+    #[arg(long)]
+    pub(super) except_spec: bool,
 
     #[command(flatten)]
     pub(super) verb: VerbArgs,

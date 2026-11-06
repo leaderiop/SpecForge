@@ -301,6 +301,12 @@ path is held to the roots, the host's own state stays withheld.
   and says what it means to any reader of the JSON.
 - **`status --except <path>`** leaves out an entry at or under the path, as git's `:!<path>` does, from `entries`,
   `tracked` and `untracked`, and `clean` is computed on what is left. Repeatable; the name `add --except` already has.
+  It agrees with git on what it judges: files, so an untracked directory is listed by file once a filter is given, and
+  a rename's two sides, so the side left stands alone (`D src/b` after a rename into an excepted `spec`). Like git's, the
+  path is read from the current directory, though the answer's paths are from the repository's top.
+- **`--except-spec`** on `status` and `add` leaves out what `SpecPaths` calls a spec file, whichever directory the verb
+  is typed in and however the spec root is configured: `spec` written in a prompt would read `sub/spec` in a
+  subdirectory, the wrong directory in a nested project, and everything with the spec root at the project root.
 - **Finding a repository.** A `.git` entry on the way up that is no repository stops the search (`Unavailable`), where
   gix goes on upwards: a broken repository must never answer as the one around it. git also stops at a `.git` file it
   cannot use, and goes past an empty `.git/` directory; here both stop it.

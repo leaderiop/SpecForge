@@ -7,6 +7,7 @@ use specforge_git::testing::Repo;
 use crate::support::{Cli, TestProject};
 
 mod diff;
+mod except;
 mod hooks;
 mod picking;
 mod redirects;

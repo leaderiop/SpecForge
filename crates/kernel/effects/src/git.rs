@@ -486,6 +486,11 @@ pub trait Git: Send + Sync {
     fn status(&self, _place: &GitPlace) -> Result<GitStatus, GitError> {
         Err(GitError::unanswered())
     }
+    /// [`Git::status`] with each untracked file its own entry, where `status` shows a directory holding only
+    /// untracked files as one: what a filter over paths has to judge.
+    fn status_by_file(&self, _place: &GitPlace) -> Result<GitStatus, GitError> {
+        Err(GitError::unanswered())
+    }
     /// `HEAD`'s commit and branch, its upstream, and how far each is ahead of the other: [`Self::status`]'s branch,
     /// with no worktree read.
     fn head(&self, place: &GitPlace) -> Result<GitBranch, GitError> {

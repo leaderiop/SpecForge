@@ -177,7 +177,7 @@ impl Action {
                 &args.verb,
                 terminal,
                 ports,
-                |v| git::status(v, &args.except),
+                |v| git::status(v, &args.except, args.except_spec),
                 |t, a| {
                     for entry in &a.status.entries {
                         // The word the JSON answer says (`untracked`), not the Rust variant's name.
@@ -325,6 +325,7 @@ impl Action {
                     paths: args.paths,
                     all: args.all,
                     except: args.except,
+                    except_spec: args.except_spec,
                     force: args.force,
                 };
                 // as git add: silent when it staged

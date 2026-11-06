@@ -18,7 +18,10 @@ Options:
           Run as if typed in this directory, as `git -C` runs: its project, the repository it is in, and every typed path read from it
 
       --except <PATH>
-          Leave out the files at or under this path, whatever else names them (`':!PATH'`)
+          Leave out the files at or under this path, whatever else names them (`':!PATH'`); read from here
+
+      --except-spec
+          Leave out the project's spec files, whichever directory this is typed in
 
   -f, --force
           Stage an ignored path too; without it one is refused, as `git add` refuses it

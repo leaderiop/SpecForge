@@ -51,7 +51,7 @@ impl SpecPaths {
     }
 
     /// Whether the repository-relative `path` is a spec file.
-    fn holds(&self, path: &str) -> bool {
+    pub(super) fn holds(&self, path: &str) -> bool {
         self.ledger.as_deref() == Some(path)
             || self.root.as_deref().is_some_and(|root| {
                 under(root, path) && (!self.named_only || path.ends_with(".spec"))
