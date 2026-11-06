@@ -41,9 +41,12 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | context_refs | strs | | `<context>` @-refs (paths, not existence-checked) |
 | verification | strs | | `<verification>` |
 | success_criteria | strs | | `<success_criteria>` |
+| slug | str | | a quick plan's slug: the one `quick-init` answered, written once by the quick tail (`specforge new plan … --slug`); `/gsd-quick status` and `resume` find the plan by it. A plan is no place to compute it: a pass does not see its title |
 | wave | int | C | `wave:`: longest `depends_on` path + base (0 if the phase has a `wave0` plan, else 1); file overlap never moves it (see gsd/W305). Exactly GSD's executed wave (phase-plan-index); GSD's authored `wave:` is only a hint. |
 | autonomous | bool | C | `autonomous:`: false exactly when the plan has a checkpoint |
 | status | enum{draft, checked, ready, executing, complete, halted, blocked} | C | checked: all four plan-check verdicts (gsd/W311, W313, W315, W316) are fresh and passing; draft: any of them is missing, stale, unrecorded or failing (with `workflow.plan_check` off the four rules are gated, a plan has no judgement and is `ready`, never `draft` or `checked`); complete / halted: from its summary (case-folded); blocked: a `depends_on` chain inside its phase reaches a halted plan, or a cycle contains it (GSD fails closed; Kahn's algorithm, `plan-dependency-graph.cts`); executing: a recorded commit names it and it has no summary. A summary and blocking win over a commit, and execution wins over the check; before that the plan-check verdicts decide between draft, checked and (check off) ready. The plan is complete (`complete_when`, ADR 0329 D4) while `complete`, else pending: a red proof of its truths is TDD, not a `@code/core` finding |
+| quick | bool | C | no phase: a quick task |
+| files_touched | strs | C | the sorted, distinct files of its recorded commits; absent without one, as a summary's `files_created` |
 
 ## task
 

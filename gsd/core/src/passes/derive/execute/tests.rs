@@ -363,3 +363,29 @@ fn a_checks_file_must_match_the_facts_file() {
     };
     assert_eq!(statuses(&input, &d), [json!("unknown")]);
 }
+
+#[test]
+fn a_plan_is_quick_without_a_phase_and_touches_its_commits_files() {
+    let mut input = input(&["a", "b"], &[], vec![]);
+    input.entities.push(entity("251031-abc", "plan", &[]));
+    input.entities[0]
+        .fields
+        .insert("phase".to_string(), PHASE.to_string());
+    let commits = [
+        commit("a", None, &["src/b.js", "src/a.js"], &["src/new.js"]),
+        commit("a", None, &["src/a.js"], &[]),
+    ];
+    let of = |plan: &str, field: &str| {
+        values(&input, &commits, &plan_statuses(&input, &commits))
+            .into_iter()
+            .find(|v| v.entity == plan && v.field == field)
+            .map(|v| v.value)
+    };
+    assert_eq!(of(&plan("a"), "quick"), Some(json!(false)));
+    assert_eq!(of("251031-abc", "quick"), Some(json!(true)));
+    assert_eq!(
+        of(&plan("a"), "files_touched"),
+        Some(json!(["src/a.js", "src/b.js", "src/new.js"]))
+    );
+    assert_eq!(of(&plan("b"), "files_touched"), None);
+}

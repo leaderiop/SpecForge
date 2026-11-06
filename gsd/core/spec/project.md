@@ -61,6 +61,7 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | workstream | → workstream | I | the workstream it belongs to (K2: it scopes the milestone, `auth-rework/v1.0`); absent outside one, and the milestone keeps its short id |
 | completion | {at date, audit → milestone_audit} | H | written by `close_milestone` (`/gsd-complete-milestone`) once its audit passes: `audit` is the latest audit it closed on |
 | state | enum{planned, in_progress, shipped, abandoned} | C | ✅ 🚧 📋: `abandoned` when `abandoned` is written, `shipped` when `completion` is, `in_progress` when a phase is past `not_started`, else `planned` |
+| started | ts | C | its first recorded commit's `at`; absent without one |
 | shipped | date | C | `(Shipped: …)`: the completion record's date |
 | stats | {files int, loc int, phases int, plans int, tasks int, days int} | C | `**Stats:**`: from the graph and the recorded commits (`loc` sums their `insertions` and `deletions`; `files` counts distinct paths; `days` runs from the first commit to `completion.at`, or to the last commit); the commit-based members are absent with no commit |
 | git_range | str | C | `**Git range:**`: the first and last recorded `feat` commit as `` `feat(01-01)` → `feat(01-02)` `` (the scope is the name of the plan the commit names); absent with none |

@@ -1459,6 +1459,17 @@
           },
           {
             "default_value": null,
+            "description": "its first recorded commit's time; absent without one",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "started",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
             "description": "Shipped: the completion's date",
             "edge": null,
             "field_type": "date",
@@ -3982,6 +3993,16 @@
           },
           {
             "default_value": null,
+            "description": "a quick plan's slug: the one `quick-init` answered",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "slug",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
             "description": "longest `depends_on` path plus the phase's base (phase-plan-index)",
             "edge": null,
             "field_type": "integer",
@@ -4018,6 +4039,28 @@
             "field_type": "enum",
             "inverse_of": null,
             "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "no phase: a quick task",
+            "edge": null,
+            "field_type": "bool",
+            "inverse_of": null,
+            "name": "quick",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the sorted, distinct files of its recorded commits; absent without one",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "files_touched",
             "required": false,
             "target_kind": null,
             "writer": "computed"
