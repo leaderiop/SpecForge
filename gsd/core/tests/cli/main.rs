@@ -17,7 +17,6 @@ mod cmd_digest;
 mod cmd_execute;
 mod cmd_gate;
 mod cmd_milestone;
-mod cmd_package_manager;
 mod cmd_phase;
 mod cmd_quick;
 mod cmd_refactor;

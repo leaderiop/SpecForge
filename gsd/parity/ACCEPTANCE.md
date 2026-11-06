@@ -210,6 +210,12 @@ Not verified:
 - The 11 other unreached verdicts are named in `cutover.rs`.
 - The "silent" evidence of 38 of the 63 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
   raised there, not that the rule judged a clean case.
+- `[gate-argv]` The build and test gates run `gate_command`'s argv through `specforge run`, never a string under `bash -c`, so a file name
+  is never read as shell (upstream's python arm runs one that is). Only the `workflow.<target>_command` setting is a shell string, by its contract.
+- `[gate-simulator]` The Xcode gates take the newest iOS runtime's first available device from `xcrun simctl list devices available -j`;
+  upstream takes the first UDID of the text listing.
+- `[gate-uv-lock]` pytest runs through `uv run` when `uv.lock` exists; upstream re-runs a failed suite under uv, so a failing one runs twice.
+- `[gate-build-script]` The build gate's package arm reads `scripts.build`; upstream takes any `"build"` in `package.json`.
 
 ## Needs a change outside `gsd/`
 

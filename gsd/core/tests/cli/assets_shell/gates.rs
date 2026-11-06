@@ -29,7 +29,7 @@ fn fence_after(text: &str, mark: &str) -> String {
         .to_string()
 }
 
-/// A file a project holds can name a command: the python build gate spliced the name into the string `bash -c` reads.
+/// A file a project holds can name a command: the python build gate spliced the name into the string `bash -c` read.
 #[test]
 fn a_python_file_name_never_runs_as_a_command() {
     let Some(sh) = Shell::only(&["git", "touch", "mkdir", "printf", "bash"]) else {
@@ -41,7 +41,7 @@ fn a_python_file_name_never_runs_as_a_command() {
     let step_a = fence_after(&served(&p, POST_MERGE), "**Step A");
     sh.run_in(p.root(), &step_a);
     assert!(
-        p.root().join("pwned").exists(),
-        "today the file's name runs as a command"
+        !p.root().join("pwned").exists(),
+        "a file's name never runs as a command"
     );
 }

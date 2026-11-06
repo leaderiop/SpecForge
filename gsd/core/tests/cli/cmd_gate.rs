@@ -55,11 +55,30 @@ fn gate_command_answers_the_setting_the_sources_and_an_empty_gate() {
         none.all()
     );
     assert!(argv(&p, &["build"]).is_empty());
+    // A value with a leading hyphen is attached with `=`, as the gates write every value.
+    assert_eq!(
+        argv(
+            &p,
+            &[
+                "build",
+                "--xcode-project=-x.xcodeproj",
+                r#"--simulators={"devices": {"com.apple.CoreSimulator.SimRuntime.iOS-18-2": [{"udid": "U"}]}}"#,
+            ]
+        ),
+        [
+            "xcodebuild",
+            "build",
+            "-project",
+            "-x.xcodeproj",
+            "-destination",
+            "id=U"
+        ]
+    );
     // A python source's name stays one word, and an empty arg is absent.
     p.write("pyproject.toml", "[project]\nname = \"x\"\n");
     p.write("x;touch pwned;y.py", "print(1)\n");
     assert_eq!(
-        argv(&p, &["build", "--xcode-project", "", "--simulators", ""]),
+        argv(&p, &["build", "--xcode-project=", "--simulators="]),
         ["python", "-m", "py_compile", "x;touch pwned;y.py"]
     );
     assert_eq!(
@@ -99,4 +118,54 @@ fn gate_command_answers_the_setting_the_sources_and_an_empty_gate() {
         "invalid_input",
         &["regression"],
     );
+}
+
+/// The post-merge and regression gates' argv lines, as `specforge gsd reference` serves them, run in bash in a pnpm
+/// project: the arrays hold pnpm's words, not npm's.
+#[test]
+fn the_build_and_test_gates_run_the_projects_package_manager() {
+    let p = project("execute");
+    p.write(
+        "package.json",
+        r#"{"scripts": {"build": "tsc", "test": "vitest"}}"#,
+    );
+    p.write("pnpm-lock.yaml", "lockfileVersion: 9\n");
+    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
+    let path = format!(
+        "{}:{}",
+        bin.parent().expect("a directory").display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    for (step, var, want) in [
+        ("post-merge-gate.md", "BUILD_ARGV", "pnpm|run|build"),
+        ("post-merge-gate.md", "TEST_ARGV", "pnpm|test"),
+        ("regression-gate-run.md", "REG_TEST_ARGV", "pnpm|test"),
+    ] {
+        let served = p.run(&[
+            "gsd",
+            "reference",
+            &format!("gsd-core/workflows/execute-phase/steps/{step}"),
+        ]);
+        assert_eq!(served.code, 0, "{}", served.all());
+        let line = served
+            .stdout
+            .lines()
+            .find(|l| l.starts_with(&format!("{var}=()")))
+            .unwrap_or_else(|| panic!("{step} {var}"));
+        let out = std::process::Command::new("bash")
+            .args([
+                "-c",
+                &format!("{line}\n(IFS='|'; printf '%s' \"${{{var}[*]}}\")"),
+            ])
+            .env("PATH", &path)
+            .current_dir(p.root())
+            .output()
+            .expect("bash");
+        assert_eq!(
+            String::from_utf8_lossy(&out.stdout),
+            want,
+            "{step} {var}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
 }

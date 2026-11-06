@@ -602,7 +602,7 @@ fn the_handoff_blocks_share_one_directory() {
     run(handoff_block(LIST, "regression-files-write"));
     assert_eq!(
         listed(),
-        "tests/test_example_one.py tests/test_example_two.py "
+        "tests/test_example_one.py\ntests/test_example_two.py\n"
     );
     run(handoff_block(LIST, "regression-files-reset"));
     assert_eq!(listed(), "", "a reset list is gone");

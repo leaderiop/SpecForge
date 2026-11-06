@@ -426,42 +426,7 @@ fn gate_command(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     ))
 }
 
-fn resolve_package_manager(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
-    let script = required(call, "script")?;
-    let package_json = call
-        .files("package_json")
-        .and_then(|f| f.facts.first())
-        .and_then(|f| f.text.as_deref());
-    let has = |file: &str| {
-        LOCKFILES.iter().any(|(name, lockfile, _)| {
-            *lockfile == file
-                && call
-                    .files(name)
-                    .is_some_and(|f| f.facts.iter().any(|fact| fact.exists))
-        })
-    };
-    let command = resolve(script, package_json, has)?.join(" ");
-    Ok(answer(
-        call,
-        json!({ "command": command }),
-        command.clone(),
-        None,
-    ))
-}
-
 pub fn declare(c: &mut ContributionsBuilder) {
-    c.command("resolve_package_manager", |cmd| {
-        cmd.description("Print the command that runs a package script (build, test ...) with the project's package manager: package.json's packageManager, else its lockfile, else npm")
-            .arg("script", |a| {
-                a.required()
-                    .description("the package script: build, test, lint ...");
-            })
-            .input(Input::files("package_json", FileReadSpec::glob("package.json").text()));
-        for (name, file, _) in LOCKFILES {
-            cmd.input(Input::files(name, FileReadSpec::glob(file)));
-        }
-        cmd.handler(|call| run(call, resolve_package_manager));
-    });
     c.command("gate_command", |cmd| {
         cmd.description("Answer the argv of the build or test gate: the workflow.<target>_command setting, else the project's runner in upstream's order. Read-only; it runs nothing")
             .arg("target", |a| {

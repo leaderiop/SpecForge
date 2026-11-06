@@ -18,43 +18,43 @@ _GSD_HANDOFF=$(specforge files temp --dir --name gsd-handoff --pick .path) || ex
 REGRESSION_FILES=""
 if [ -s "$_GSD_HANDOFF/regression-files" ]; then
   while IFS= read -r _f; do
-    if [ -n "$_f" ]; then REGRESSION_FILES="${REGRESSION_FILES}$(printf '%q ' "$_f")"; fi
+    if [ -n "$_f" ]; then REGRESSION_FILES="${REGRESSION_FILES}${_f}"$'\n'; fi
   done < "$_GSD_HANDOFF/regression-files"
 fi
 # gsd-handoff:end regression-files-read
-# Resolve test command: project config > Makefile > language sniff
-REG_TEST_CMD="{{setting:workflow.test_command|}}"   # workflow.test_command (the settings)
-if [ -z "$REG_TEST_CMD" ]; then
-  if [ -f "Makefile" ] && grep -q "^test:" Makefile; then
-    REG_TEST_CMD="make test"
-  elif [ -f "Justfile" ] || [ -f "justfile" ]; then
-    REG_TEST_CMD="just test"
-  elif [ -f "package.json" ]; then
-    REG_TEST_CMD=$(specforge gsd resolve-package-manager test 2>/dev/null || echo "npm test")
-    [ -n "$REG_TEST_CMD" ] || REG_TEST_CMD="npm test"
-  elif [ -f "Cargo.toml" ]; then
-    REG_TEST_CMD="cargo test"
-  elif [ -f "go.mod" ]; then
-    REG_TEST_CMD="go test ./..."
-  elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ]; then
-    # gsd-handoff:begin regression-pytest-arm
-    if [ -n "$REGRESSION_FILES" ]; then
-      REG_TEST_CMD="python -m pytest -q --tb=short -- ${REGRESSION_FILES}"
-    else
-      echo "⚠ Regression gate: no prior-phase test files were collected — skipping the scoped pytest run instead of falling back to the full suite."
-      REG_TEST_CMD="true"
-    fi
-    # gsd-handoff:end regression-pytest-arm
-  else
-    REG_TEST_CMD="true"
-  fi
-fi
+# Resolve test command: project config > Makefile > language sniff: the answer is an argv, never re-parsed
+specforge gsd gate-command test --scope regression --files="$REGRESSION_FILES" || exit 1
+REG_TEST_ARGV=(); while IFS= read -r _w; do REG_TEST_ARGV+=("$_w"); done < <(specforge gsd gate-command test --scope regression --files="$REGRESSION_FILES" --pick '.argv[]')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # #1857: normalize to a one-shot form (defeat vitest/jest watch mode) and bound
 # with a timeout so a watch-mode runner cannot hang the gate indefinitely.
-REG_TEST_CMD="$REG_TEST_CMD"   # normalize-test-command is not part of @gsd/core: the command runs as configured
+# normalize-test-command is not part of @gsd/core: the command runs as configured
 TEST_GATE_TIMEOUT="{{setting:workflow.test_gate_timeout|600}}"   # workflow.test_gate_timeout (the settings)
-specforge run --deadline "$TEST_GATE_TIMEOUT" -- bash -c "$REG_TEST_CMD" 2>&1
-REG_TEST_EXIT=$?
+REG_TEST_EXIT=0
+if [ ${#REG_TEST_ARGV[@]} -gt 0 ]; then
+  specforge run --deadline "$TEST_GATE_TIMEOUT" -- "${REG_TEST_ARGV[@]}" 2>&1
+  REG_TEST_EXIT=$?
+fi
 if [ "$REG_TEST_EXIT" -eq 124 ]; then
   echo "✗ REGRESSION GATE ABORTED — test runner did not exit within ${TEST_GATE_TIMEOUT}s, likely stuck in watch/dev mode (e.g. vitest without 'run'). Run tests one-shot (e.g. 'vitest run'), set workflow.test_command, or raise workflow.test_gate_timeout."
 fi
