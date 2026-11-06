@@ -314,7 +314,7 @@ fn the_onboarding_entities_are_one_row_per_entity() {
 /// `/gsd-quick status <slug>` reads the slug's plan: a quick plan's title is prose, and the slug is dashed.
 #[test]
 fn a_quick_plan_is_found_by_its_slug() {
-    let Some(sh) = Shell::only(&["grep", "awk", "head"]) else {
+    let Some(sh) = Shell::only(&[]) else {
         return;
     };
     let p = project("execute");
@@ -341,7 +341,22 @@ fn a_quick_plan_is_found_by_its_slug() {
         let (out, err, _) = run(&sh, &p, &format!("{code}\nprintf '[%s]' \"$dir\""));
         (out, err)
     };
-    // Pinned: the grep reads the title, so the dashed slug the workflow writes finds nothing.
-    assert_eq!(found("sort-rows").0, "[]", "{}", found("sort-rows").1);
-    assert_eq!(found("sort").0, "[251031-abc]", "{}", found("sort").1);
+    assert_eq!(
+        found("sort-rows").0,
+        "[251031-abc]",
+        "{}",
+        found("sort-rows").1
+    );
+    // The whole slug is matched, not a word of the title.
+    assert_eq!(found("sort").0, "[]", "{}", found("sort").1);
+    // The list reads the quick plans alone, one row each, whatever `spec_root` says.
+    let (out, err, _) = run(&sh, &p, line(&text, "specforge export --kinds plan"));
+    let rows: Vec<Vec<&str>> = out.lines().map(|l| l.split('\u{1f}').collect()).collect();
+    assert_eq!(
+        rows.iter().map(|r| r[0]).collect::<Vec<_>>(),
+        ["251031-abc", "261028-a1b"],
+        "{out}{err}"
+    );
+    assert_eq!(rows[0][1], "sort-rows");
+    assert_eq!(rows[0][3], "Sort rows");
 }

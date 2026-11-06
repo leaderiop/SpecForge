@@ -56,21 +56,21 @@ Context files are resolved inside the workflow (`init quick`) and delegated via 
 When SUBCMD=list:
 
 ```bash
-grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} ' spec 2>/dev/null | awk '{print $2}'   # the quick plans: the plans with no phase
+specforge export --kinds plan --pick '.nodes[fields.quick=true]' --fields id,fields.slug,fields.status,title   # the quick plans, one row each: id, slug, computed status, title
 ```
 
-For each directory found:
-- Check if PLAN.md exists
-- Check if SUMMARY.md exists; if so, read `status` from its frontmatter via:
+For each row found (a quick plan is an entity, so it exists):
+- Its computed status says how it stands: `complete` and `halted` come from its summary
+- If it has a summary, read that summary's `status` via:
   ```bash
 specforge query "{dir}" --depth 1 --kinds summary --pick '.nodes[kind=summary].fields.status' --first 1
   ```
 - Determine the creation date: the id's `YYMMDD` prefix (a quick id is `YYMMDD-xxx`)
 - Derive display status:
-  - SUMMARY.md exists, frontmatter status=complete → `complete ✓`
-  - SUMMARY.md exists, frontmatter status=incomplete OR status missing → `incomplete`
-  - SUMMARY.md missing, dir created <7 days ago → `in-progress`
-  - SUMMARY.md missing, dir created ≥7 days ago → `abandoned? (>7 days, no summary)`
+  - computed status `complete` → `complete ✓`
+  - computed status `halted`, OR a summary with another status → `incomplete`
+  - no summary, created <7 days ago → `in-progress`
+  - no summary, created ≥7 days ago → `abandoned? (>7 days, no summary)`
 
 **SECURITY:** Directory names are read from the filesystem. Before displaying any slug, sanitize: strip non-printable characters, ANSI escape sequences, and path separators using: `name.replace(/[^\x20-\x7E]/g, '').replace(/[/\\]/g, '')`. Never pass raw directory names to shell commands via string interpolation.
 
@@ -98,7 +98,7 @@ When SUBCMD=status and SLUG is set (already sanitized):
 
 Find directory matching `*-{SLUG}` pattern:
 ```bash
-dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
+dir=$(specforge export --kinds plan --pick '.nodes[fields.slug={SLUG}].id' --last 1)   # a quick plan is named by its id and writes its slug; the newest of a slug run twice
 ```
 
 If no directory found, print `No quick task found with slug: {SLUG}` and stop.
@@ -125,7 +125,7 @@ When SUBCMD=resume and SLUG is set (already sanitized):
 
 1. Find the directory matching `*-{SLUG}` pattern:
    ```bash
-dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
+dir=$(specforge export --kinds plan --pick '.nodes[fields.slug={SLUG}].id' --last 1)   # a quick plan is named by its id and writes its slug; the newest of a slug run twice
    ```
 2. If no directory found, print `No quick task found with slug: {SLUG}` and stop.
 
