@@ -39,12 +39,14 @@ fn quick_creates_a_quick_plan() {
         ("<what it provides>", "add() that trims"),
         ("<one line>", "Trimmed"),
         ("<area>", "tasks"),
+        ("$slug", "trim-titles"),
     ];
     for prefix in ["specforge new plan", "specforge new truth"] {
         let args = command(&text, prefix, &id, &fill);
         let made = run(&p, &args);
         assert_eq!(made.code, 0, "{args:?}: {}", made.all());
     }
+    assert_eq!(p.fields_of(&id)["slug"], "trim-titles");
     // The artifact goes through `specforge.edit`; the file is what that tool writes.
     let quick = p.read("spec/quick.spec");
     p.write(
@@ -341,22 +343,64 @@ fn the_quick_id_is_made_once_and_the_branch_template_is_expanded() {
     let p = twin();
     p.settings(serde_json::json!({ "git.quick_branch_template": "quick/{num}-{slug}" }));
     let text = text_of(&payload(&prompt(&p, "quick", &[], "claude-code")));
-    assert_eq!(
-        text.matches("quick_id=\"$(date").count(),
-        1,
-        "the quick id is generated twice"
-    );
+    let init = "specforge gsd quick-init --description=";
+    assert_eq!(text.matches(init).count(), 1, "the quick id is made twice");
     let line = text
         .lines()
-        .find(|l| l.starts_with("quick_id=\"$(date"))
+        .find(|l| l.contains(init))
         .expect("the init line");
-    let out = std::process::Command::new("bash")
-        .args(["-c", &format!("{line}\necho \"$quick_id $branch_name\"")])
+    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
+    // `/bin/bash`: the child's PATH holds specforge alone
+    let out = std::process::Command::new("/bin/bash")
+        .args([
+            "-c",
+            &format!(
+                "DESCRIPTION='Trim titles'\n{line}\nprintf '%s|%s|%s|%s|%s\\n' \"$quick_id\" \"$slug\" \"$branch_name\" \"$date\" \"$task_dir\""
+            ),
+        ])
+        .env("PATH", bin.parent().expect("a directory"))
+        .current_dir(p.root())
+        .stdin(std::process::Stdio::null())
         .output()
         .expect("bash");
     let said = String::from_utf8_lossy(&out.stdout);
-    let (id, branch) = said.trim().split_once(' ').expect("two words");
-    assert_eq!(branch, format!("quick/{id}-{{slug}}"), "{said}");
+    let cells: Vec<&str> = said.trim_end().split('|').collect();
+    let [id, slug, branch, date, task_dir] = cells[..] else {
+        panic!("{said}: {}", String::from_utf8_lossy(&out.stderr));
+    };
+    let shape = regex::Regex::new(r"^[0-9]{6}-[a-z0-9]{3}$").expect("a regex");
+    assert!(shape.is_match(id), "{said}");
+    assert_eq!(
+        id,
+        quick_id()[..7].to_string() + &id[7..],
+        "the id's day is today"
+    );
+    assert_eq!((slug, task_dir), ("trim-titles", id));
+    assert_eq!(branch, format!("quick/{id}-trim-titles"));
+    assert_eq!(date.len(), 10, "{said}");
+    // A description that starts with a hyphen is a value, and no template names no branch.
+    p.settings(serde_json::json!({ "git.quick_branch_template": "" }));
+    let text = text_of(&payload(&prompt(&p, "quick", &[], "claude-code")));
+    let line = text
+        .lines()
+        .find(|l| l.contains(init))
+        .expect("the init line");
+    let out = std::process::Command::new("/bin/bash")
+        .args([
+            "-c",
+            &format!("DESCRIPTION='--fix it'\n{line}\nprintf '%s|%s' \"$slug\" \"$branch_name\""),
+        ])
+        .env("PATH", bin.parent().expect("a directory"))
+        .current_dir(p.root())
+        .stdin(std::process::Stdio::null())
+        .output()
+        .expect("bash");
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout),
+        "fix-it|",
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 }
 
 /// The steps read each item's `description`, and quick-batch has no init block to make the

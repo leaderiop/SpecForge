@@ -55,7 +55,9 @@ const QUICK_STEPS: &[Step] = &[
 /// How a quick plan is made, started and completed through the typed tools: the id is `<yymmdd>-<3 base-36>`, which
 /// `gsd/W323` checks, and the plan has no phase.
 fn quick_plan(_call: &PromptCall<'_>) -> String {
-    quick_plan_text("the one the init block above made: a second one would name another plan")
+    quick_plan_text(
+        "the one the init block above made, and $slug its slug: a second id would name another plan",
+    )
 }
 
 /// The batch has no init block: each item of its manifest already carries the id.
@@ -71,7 +73,7 @@ fn quick_plan_text(quick_id_is: &str) -> String {
      phase. Write the plan, its truths and its artifacts through the host, not by hand:\n\n\
      ```bash\n\
      # $quick_id is {quick_id_is}\n\
-     specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\"\n\
+     specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\" --slug \"$slug\"\n\
      specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"\n\
      # an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`\n\
      STARTED=$(specforge gsd start-plan \"$quick_id\" --pick .started)\n\
@@ -82,7 +84,7 @@ fn quick_plan_text(quick_id_is: &str) -> String {
      both of its times. The project state is computed, so no task row is written. \
      With `--discuss` or `--research`, the context and the research name the plan in `plan`, so the plan must exist \
      before them: the step that runs first makes it with what is known (`--files_modified \"\"`, the description as \
-     its objective), and the planner then sets its fields with `specforge set \"$quick_id\" <field> <value>`, since \
+     its objective, `--slug \"$slug\"`), and the planner then sets its fields with `specforge set \"$quick_id\" <field> <value>`, since \
      `specforge new` refuses an id that exists. \
      `gsd-code-reviewer` is not part of `@gsd/core`: skip the code review of `--full` and say so.\n"
     )

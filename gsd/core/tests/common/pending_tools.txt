@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 206 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 202 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	cat	PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
@@ -122,9 +122,7 @@ gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	tr	SLUG=$(printf '%s' 
 gsd-core/workflows/quick.md	grep	DEFAULT_BRANCH=$(printf '%s' "{{setting:git.base_branch|}}" | grep . \
 gsd-core/workflows/quick.md	grep	|| specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . \
 gsd-core/workflows/quick.md	grep	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
-gsd-core/workflows/quick.md	head	quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)"; date="$(date -u +%Y-%m-%d)"; timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; task_dir="$quick_id"; quick_dir="$quick_id"; slug=""; branch_name=$(printf '%s' "{{setting:git.quick_branch_template|}}" | sed "s/{num}/$quick_id/g"); INIT=""   # the quick id is <yymmdd>-<3 base-36>; you write the slug from $DESCRIPTION (and put it where `{slug}` stands in $branch_name)
 gsd-core/workflows/quick.md	paste	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
-gsd-core/workflows/quick.md	sed	quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)"; date="$(date -u +%Y-%m-%d)"; timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; task_dir="$quick_id"; quick_dir="$quick_id"; slug=""; branch_name=$(printf '%s' "{{setting:git.quick_branch_template|}}" | sed "s/{num}/$quick_id/g"); INIT=""   # the quick id is <yymmdd>-<3 base-36>; you write the slug from $DESCRIPTION (and put it where `{slug}` stands in $branch_name)
 gsd-core/workflows/quick.md	sort	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
 gsd-core/workflows/remove-workspace.md	sed	STRATEGY=$(sed -n 's/^Strategy: *//p' "$WORKSPACE_PATH/WORKSPACE.md" 2>/dev/null)   # from the manifest
 gsd-core/workflows/remove-workspace.md	sed	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
@@ -181,11 +179,9 @@ prompt:quick	grep	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/
 prompt:quick	grep	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 prompt:quick	grep	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 prompt:quick	grep	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
-prompt:quick	head	quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)"; date="$(date -u +%Y-%m-%d)"; timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; task_dir="$quick_id"; quick_dir="$quick_id"; slug=""; branch_name=$(printf '%s' "" | sed "s/{num}/$quick_id/g"); INIT=""   # the quick id is <yymmdd>-<3 base-36>; you write the slug from $DESCRIPTION (and put it where `{slug}` stands in $branch_name)
 prompt:quick	head	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 prompt:quick	head	dir=$(grep -rhoE '^plan [0-9]{6}-[a-z0-9]{3} "[^"]*"' spec 2>/dev/null | grep -i -- "{SLUG}" | awk '{print $2}' | head -1)   # a quick plan is named by its id: the slug is in its title
 prompt:quick	paste	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
-prompt:quick	sed	quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)"; date="$(date -u +%Y-%m-%d)"; timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; task_dir="$quick_id"; quick_dir="$quick_id"; slug=""; branch_name=$(printf '%s' "" | sed "s/{num}/$quick_id/g"); INIT=""   # the quick id is <yymmdd>-<3 base-36>; you write the slug from $DESCRIPTION (and put it where `{slug}` stands in $branch_name)
 prompt:quick	sort	CHANGED_FILES=$(printf '%s\n' "$QUICK_SCOPE_FILES" | sort -u | grep . | paste -sd' ' -)
 prompt:resume_work	grep	for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -vxF -f <(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=summary].fields.plan')); do   # each plan no summary names
 prompt:review	cat	cat "${RUN_DIR}/.plans-manifest.md" >> "${RUN_DIR}/gsd-review-instructions.md"
@@ -212,7 +208,7 @@ prompt:workspace	grep	WORKSPACE_BASE="$HOME/gsd-workspaces"; WORKSPACES=$(ls -1 
 prompt:workspace	sed	STRATEGY=$(sed -n 's/^Strategy: *//p' "$WORKSPACE_PATH/WORKSPACE.md" 2>/dev/null)   # from the manifest
 prompt:workspace	sed	SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
 
-# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 48 rows.
+# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 42 rows.
 gsd-core/references/checkpoints.md	lsof	lsof -ti:3000 | xargs kill
 gsd-core/references/checkpoints.md	sleep	for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done
 gsd-core/references/execute-phase-quota-recovery.md	sleep	sleep "$RETRY_AFTER"
@@ -242,9 +238,6 @@ gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Where-Object	Get-
 gsd-core/workflows/quick-batch/steps/batch-init.md	date	QB_ITEMS=$(sed -E 's/^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]+//' "$TASK_FILE" | grep -v '^[[:space:]]*$'); QB_CREATE_LIST=$([ "$(printf '%s\n' "$QB_ITEMS" | grep -c .)" -ge 2 ] && printf '%s\n' "$QB_ITEMS" | while IFS= read -r t; do printf '%s\t%s\n' "$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)" "$t"; done)   # one quick_id<TAB>description line per item, list markers stripped, at least 2 items, one quick id (<yymmdd>-<3 base-36>) per item; the batch router is not part of @gsd/core
 gsd-core/workflows/quick-batch/steps/batch-init.md	date	QB_ITEMS=$(sed -E 's/^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]+//' "$TASK_FILE" | grep -v '^[[:space:]]*$'); QB_CREATE_LIST=$([ "$(printf '%s\n' "$QB_ITEMS" | grep -c .)" -ge 2 ] && printf '%s\n' "$QB_ITEMS" | while IFS= read -r t; do printf '%s\t%s\n' "$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)" "$t"; done)   # one quick_id<TAB>description line per item, list markers stripped, at least 2 items, one quick id (<yymmdd>-<3 base-36>) per item; the batch router is not part of @gsd/core
 gsd-core/workflows/quick-batch/steps/batch-init.md	date	BATCH_ID="$(date -u +%y%m%d)-batch"
-gsd-core/workflows/quick.md	date	quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)"; date="$(date -u +%Y-%m-%d)"; timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; task_dir="$quick_id"; quick_dir="$quick_id"; slug=""; branch_name=$(printf '%s' "{{setting:git.quick_branch_template|}}" | sed "s/{num}/$quick_id/g"); INIT=""   # the quick id is <yymmdd>-<3 base-36>; you write the slug from $DESCRIPTION (and put it where `{slug}` stands in $branch_name)
-gsd-core/workflows/quick.md	date	quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)"; date="$(date -u +%Y-%m-%d)"; timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; task_dir="$quick_id"; quick_dir="$quick_id"; slug=""; branch_name=$(printf '%s' "{{setting:git.quick_branch_template|}}" | sed "s/{num}/$quick_id/g"); INIT=""   # the quick id is <yymmdd>-<3 base-36>; you write the slug from $DESCRIPTION (and put it where `{slug}` stands in $branch_name)
-gsd-core/workflows/quick.md	date	quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)"; date="$(date -u +%Y-%m-%d)"; timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; task_dir="$quick_id"; quick_dir="$quick_id"; slug=""; branch_name=$(printf '%s' "{{setting:git.quick_branch_template|}}" | sed "s/{num}/$quick_id/g"); INIT=""   # the quick id is <yymmdd>-<3 base-36>; you write the slug from $DESCRIPTION (and put it where `{slug}` stands in $branch_name)
 gsd-core/workflows/remove-workspace.md	rm	rm -rf "$WORKSPACE_PATH"
 gsd-core/workflows/ship.md	sleep	sleep 3
 prompt:execute_plan	date	PLAN_START_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -254,9 +247,6 @@ prompt:execute_plan	date	PLAN_END_EPOCH=$(date +%s)
 prompt:pause_work	date	timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 prompt:pause_work	date	timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 prompt:pause_work	date	date -u
-prompt:quick	date	quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)"; date="$(date -u +%Y-%m-%d)"; timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; task_dir="$quick_id"; quick_dir="$quick_id"; slug=""; branch_name=$(printf '%s' "" | sed "s/{num}/$quick_id/g"); INIT=""   # the quick id is <yymmdd>-<3 base-36>; you write the slug from $DESCRIPTION (and put it where `{slug}` stands in $branch_name)
-prompt:quick	date	quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)"; date="$(date -u +%Y-%m-%d)"; timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; task_dir="$quick_id"; quick_dir="$quick_id"; slug=""; branch_name=$(printf '%s' "" | sed "s/{num}/$quick_id/g"); INIT=""   # the quick id is <yymmdd>-<3 base-36>; you write the slug from $DESCRIPTION (and put it where `{slug}` stands in $branch_name)
-prompt:quick	date	quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)"; date="$(date -u +%Y-%m-%d)"; timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; task_dir="$quick_id"; quick_dir="$quick_id"; slug=""; branch_name=$(printf '%s' "" | sed "s/{num}/$quick_id/g"); INIT=""   # the quick id is <yymmdd>-<3 base-36>; you write the slug from $DESCRIPTION (and put it where `{slug}` stands in $branch_name)
 prompt:ship	sleep	sleep 3
 prompt:workspace	date	TIMESTAMP=$(date +%Y%m%d%H%M%S)
 prompt:workspace	mkdir	mkdir -p "$TARGET_PATH"

@@ -61,7 +61,7 @@
     "",
     "<available_agent_types>"
   ],
-  "bytes": 24153,
+  "bytes": 24186,
   "end": [
     "**Otherwise:** proceed to the workflow's normal path — parse the task list",
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
@@ -94,7 +94,7 @@
     "",
     "```bash",
     "# $quick_id is each manifest item's `quickId`: a second one would name another plan",
-    "specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\"",
+    "specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\" --slug \"$slug\"",
     "specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"",
     "# an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`",
     "STARTED=$(specforge gsd start-plan \"$quick_id\" --pick .started)",
@@ -102,7 +102,7 @@
     "specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\" --started \"$STARTED\"",
     "```",
     "",
-    "`start-plan` writes nothing and answers the time to keep; the summary is written first and `complete-plan` stamps both of its times. The project state is computed, so no task row is written. With `--discuss` or `--research`, the context and the research name the plan in `plan`, so the plan must exist before them: the step that runs first makes it with what is known (`--files_modified \"\"`, the description as its objective), and the planner then sets its fields with `specforge set \"$quick_id\" <field> <value>`, since `specforge new` refuses an id that exists. `gsd-code-reviewer` is not part of `@gsd/core`: skip the code review of `--full` and say so."
+    "`start-plan` writes nothing and answers the time to keep; the summary is written first and `complete-plan` stamps both of its times. The project state is computed, so no task row is written. With `--discuss` or `--research`, the context and the research name the plan in `plan`, so the plan must exist before them: the step that runs first makes it with what is known (`--files_modified \"\"`, the description as its objective, `--slug \"$slug\"`), and the planner then sets its fields with `specforge set \"$quick_id\" <field> <value>`, since `specforge new` refuses an id that exists. `gsd-code-reviewer` is not part of `@gsd/core`: skip the code review of `--full` and say so."
   ],
   "head": [
     "<cursor_skill_adapter>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:99a4eaa4c5c4bfb7b4db71b3df22f5c9f1bc61d79d4d69b2d30e6a8dda9c2cf5",
+    "digest": "sha256:022a8cb982f2622416e0ab187c048e74693f17d77ba66e5719681ddafba701c1",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "99a4eaa4c5c4bfb7b4db71b3df22f5c9f1bc61d79d4d69b2d30e6a8dda9c2cf5"
+  "sha256": "022a8cb982f2622416e0ab187c048e74693f17d77ba66e5719681ddafba701c1"
 }

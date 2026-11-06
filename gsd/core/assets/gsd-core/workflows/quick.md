@@ -127,7 +127,7 @@ If `$VALIDATE_MODE` only:
 
 
 
-quick_id="$(date -u +%y%m%d)-$(LC_ALL=C tr -dc a-z0-9 </dev/urandom | head -c 3)"; date="$(date -u +%Y-%m-%d)"; timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; task_dir="$quick_id"; quick_dir="$quick_id"; slug=""; branch_name=$(printf '%s' "{{setting:git.quick_branch_template|}}" | sed "s/{num}/$quick_id/g"); INIT=""   # the quick id is <yymmdd>-<3 base-36>; you write the slug from $DESCRIPTION (and put it where `{slug}` stands in $branch_name)
+IFS=$'\x1f' read -r quick_id slug branch_name < <(specforge gsd quick-init --description="$DESCRIPTION" --template="{{setting:git.quick_branch_template|}}" --pick '.items[0]' --fields id,slug,branch_name) && [ -n "$quick_id" ] || exit 1; date=$(specforge gsd quick-init --pick .date); task_dir="$quick_id"; quick_dir="$quick_id"; INIT=""   # one call answers the id (<yymmdd>-<3 base-36>, free in the graph), its slug and its branch; the second call is read for its date, its id discarded
 
 AGENT_SKILLS_PLANNER=""   # the host install carries the skills of gsd-planner
 AGENT_SKILLS_EXECUTOR=""   # the host install carries the skills of gsd-executor

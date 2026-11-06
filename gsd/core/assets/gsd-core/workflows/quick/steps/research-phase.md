@@ -10,7 +10,7 @@ Display banner:
 ◆ Investigating approaches for: ${DESCRIPTION} (runs in a subagent — no output until it returns, ~1–5 min; expected, not a freeze)
 ```
 
-First make plan `${quick_id}`, which the research names, unless the discussion made it (the prompt's "The quick plan"): `specforge query "${quick_id}" --depth 0 >/dev/null 2>&1 || specforge new plan "${quick_id}" "${DESCRIPTION}" --in spec/quick.spec --type execute --files_modified "" --objective "${DESCRIPTION}"`. Then spawn a single focused researcher (not 4 parallel researchers like full phases — quick tasks need targeted research, not broad domain surveys):
+First make plan `${quick_id}`, which the research names, unless the discussion made it (the prompt's "The quick plan"): `specforge query "${quick_id}" --depth 0 >/dev/null 2>&1 || specforge new plan "${quick_id}" "${DESCRIPTION}" --in spec/quick.spec --type execute --files_modified "" --objective "${DESCRIPTION}" --slug "${slug}"`. Then spawn a single focused researcher (not 4 parallel researchers like full phases — quick tasks need targeted research, not broad domain surveys):
 
 <!-- #2517 model-omit-on-inherit -->
 

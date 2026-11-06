@@ -61,7 +61,7 @@
     "- gsd-verifier — Verifies phase completion, checks quality gates",
     "- gsd-code-reviewer — Reviews source files for bugs, security issues, and code quality"
   ],
-  "bytes": 65868,
+  "bytes": 65964,
   "end": [
     "",
     "Execute end-to-end.",
@@ -93,8 +93,8 @@
     "A quick task is a plan with no phase, named by its quick id: the day as `yymmdd`, a dash and three base-36 characters (`261029-a1b`). `gsd/W323` checks the name; `gsd/E302` and `gsd/E401` do not apply to a plan with no phase. Write the plan, its truths and its artifacts through the host, not by hand:",
     "",
     "```bash",
-    "# $quick_id is the one the init block above made: a second one would name another plan",
-    "specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\"",
+    "# $quick_id is the one the init block above made, and $slug its slug: a second id would name another plan",
+    "specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\" --slug \"$slug\"",
     "specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"",
     "# an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`",
     "STARTED=$(specforge gsd start-plan \"$quick_id\" --pick .started)",
@@ -102,7 +102,7 @@
     "specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\" --started \"$STARTED\"",
     "```",
     "",
-    "`start-plan` writes nothing and answers the time to keep; the summary is written first and `complete-plan` stamps both of its times. The project state is computed, so no task row is written. With `--discuss` or `--research`, the context and the research name the plan in `plan`, so the plan must exist before them: the step that runs first makes it with what is known (`--files_modified \"\"`, the description as its objective), and the planner then sets its fields with `specforge set \"$quick_id\" <field> <value>`, since `specforge new` refuses an id that exists. `gsd-code-reviewer` is not part of `@gsd/core`: skip the code review of `--full` and say so."
+    "`start-plan` writes nothing and answers the time to keep; the summary is written first and `complete-plan` stamps both of its times. The project state is computed, so no task row is written. With `--discuss` or `--research`, the context and the research name the plan in `plan`, so the plan must exist before them: the step that runs first makes it with what is known (`--files_modified \"\"`, the description as its objective, `--slug \"$slug\"`), and the planner then sets its fields with `specforge set \"$quick_id\" <field> <value>`, since `specforge new` refuses an id that exists. `gsd-code-reviewer` is not part of `@gsd/core`: skip the code review of `--full` and say so."
   ],
   "head": [
     "<codex_skill_adapter>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:cfc27d34b98523400b7987b7d7d0a05a3d25e4b9d811b34ac75e8074f4aa1423",
+    "digest": "sha256:cbfcbfb81cce27fb329e1f9bf7f398f34baae89351feafaa5362eb4cc9e6df3f",
     "prompt": "@gsd/core@VERSION:quick",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "cfc27d34b98523400b7987b7d7d0a05a3d25e4b9d811b34ac75e8074f4aa1423"
+  "sha256": "cbfcbfb81cce27fb329e1f9bf7f398f34baae89351feafaa5362eb4cc9e6df3f"
 }
