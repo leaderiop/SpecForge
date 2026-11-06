@@ -255,6 +255,8 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     // A quick plan is an entity: the list's rows and its computed status replace a directory's two files.
     ("commands/gsd/quick.md", 60, 62),
     ("commands/gsd/quick.md", 68, 71),
+    ("commands/gsd/quick.md", 102, 102),
+    ("commands/gsd/quick.md", 128, 128),
     ("commands/gsd/resume-work.md", 6, 7),
     ("commands/gsd/review-backlog.md", 11, 11),
     ("commands/gsd/review-backlog.md", 14, 14),

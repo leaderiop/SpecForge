@@ -98,10 +98,10 @@ When SUBCMD=status and SLUG is set (already sanitized):
 
 Find directory matching `*-{SLUG}` pattern:
 ```bash
-dir=$(specforge export --kinds plan --pick '.nodes[fields.slug={SLUG}].id' --last 1)   # a quick plan is named by its id and writes its slug; the newest of a slug run twice
+dir=$(specforge export --kinds plan --pick '.nodes[fields.slug={SLUG}].id')   # a quick plan is named by its id and writes its slug; a slug run twice gives one line per run
 ```
 
-If no directory found, print `No quick task found with slug: {SLUG}` and stop.
+If no directory found, print `No quick task found with slug: {SLUG}` and stop. If it holds more than one id, the slug was run more than once: list them all and ask which.
 
 Read PLAN.md and SUMMARY.md (if exists) for the given slug. Display:
 ```
@@ -125,9 +125,9 @@ When SUBCMD=resume and SLUG is set (already sanitized):
 
 1. Find the directory matching `*-{SLUG}` pattern:
    ```bash
-dir=$(specforge export --kinds plan --pick '.nodes[fields.slug={SLUG}].id' --last 1)   # a quick plan is named by its id and writes its slug; the newest of a slug run twice
+dir=$(specforge export --kinds plan --pick '.nodes[fields.slug={SLUG}].id')   # a quick plan is named by its id and writes its slug; a slug run twice gives one line per run
    ```
-2. If no directory found, print `No quick task found with slug: {SLUG}` and stop.
+2. If no directory found, print `No quick task found with slug: {SLUG}` and stop. If it holds more than one id, the slug was run more than once: list them all and ask which.
 
 3. Read PLAN.md to extract description and SUMMARY.md (if exists) to extract status.
 

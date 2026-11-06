@@ -370,6 +370,38 @@ fn a_quick_plan_is_found_by_its_slug() {
     );
     assert_eq!(rows[0][1], "sort-rows");
     assert_eq!(rows[0][3], "Sort rows");
+
+    // A slug run twice: ids hold no order of the runs, so no line picks one. Every run is listed, for the prompt to ask.
+    for id in ["251031-zzz", "251031-aaa"] {
+        let made = p.run(&[
+            "new",
+            "plan",
+            id,
+            "Trim",
+            "--in",
+            "spec/quick.spec",
+            "--type",
+            "execute",
+            "--files_modified",
+            "src/a.js",
+            "--objective",
+            "Trim",
+            "--slug",
+            "trim-it",
+        ]);
+        assert_eq!(made.code, 0, "{}", made.all());
+    }
+    let (out, err) = found("trim-it");
+    assert_eq!(out, "[251031-aaa\n251031-zzz]", "{err}");
+    for at in text.match_indices("dir=$(") {
+        let rest = &text[at.0..];
+        let after = &rest[rest.find("```").expect("the fence ends")..];
+        let prose = after.lines().take(4).collect::<Vec<_>>().join("\n");
+        assert!(
+            prose.contains("more than one") && prose.contains("ask which"),
+            "{prose}"
+        );
+    }
 }
 
 /// The inline plan's lines, as the asset holds them, under `specforge` alone: the summary is found from the plan,
