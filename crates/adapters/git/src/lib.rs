@@ -430,10 +430,11 @@ impl Git for Gix {
         // lands in the object store
         let repo = open(place)?.with_object_memory();
         let base = tree_of(&repo, &query.base)?;
+        let paths = wanted_paths(&query.paths);
         let (head, unread) = match &query.head {
             DiffSide::Commit(sha) => (tree_of(&repo, sha)?, Default::default()),
-            DiffSide::Index => index_tree(&repo, false)?,
-            DiffSide::Worktree => index_tree(&repo, true)?,
+            DiffSide::Index => index_tree(&repo, false, &paths)?,
+            DiffSide::Worktree => index_tree(&repo, true, &paths)?,
         };
         let old = repo
             .find_tree(base)
@@ -444,7 +445,6 @@ impl Git for Gix {
         let changes = repo
             .diff_tree_to_tree(&old, &new, None)
             .map_err(|e| failed("diff two trees", &e))?;
-        let paths = wanted_paths(&query.paths);
         let mut files = Vec::new();
         for change in changes {
             if let Some(file) = file_diff(&repo, change, &paths, query.patch, &unread)? {

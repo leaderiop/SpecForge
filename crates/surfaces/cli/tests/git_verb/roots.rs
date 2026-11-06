@@ -376,11 +376,10 @@ fn status_except_leaves_out_the_entries_under_a_path() {
     }
 }
 
-/// The Fs port refuses a file with more than one name, and `files read` says so. The git verbs read the working tree
-/// through the Git port, which holds no such check: a second name of a withheld file, or of a file outside the project,
-/// is staged, committed and shown. This pins today's line, not a wanted one: a fix flips the three assertions below.
+/// A file with more than one name is not read through a bound (ADR 0146), and the Git port is one: every form of `add`
+/// refuses before anything is staged, naming the path, and a worktree diff refuses naming it.
 #[test]
-fn a_git_verb_reads_a_second_name_the_fs_port_refuses() {
+fn a_git_verb_refuses_a_second_name_the_fs_port_refuses() {
     let (project, repo, _) = committed();
     let outside = tempfile::tempdir().unwrap();
     let secret = outside.path().join("secret.txt");
@@ -392,39 +391,80 @@ fn a_git_verb_reads_a_second_name_the_fs_port_refuses() {
     let root = project.root();
     std::fs::hard_link(root.join(".env"), root.join("sec/hl.txt")).unwrap();
     std::fs::hard_link(&secret, root.join("sec/out.txt")).unwrap();
+    std::fs::write(root.join("sec/plain.txt"), "plain\n").unwrap();
+    let refused = |run: crate::support::Run, name: &str| {
+        let out = run.exits(1);
+        assert!(!out.stdout.contains("hunter"), "{}", out.stdout);
+        assert!(!out.stderr.contains("hunter"), "{}", out.stderr);
+        assert!(out.stdout.contains(name), "{}", out.stdout);
+        assert!(out.stdout.contains("plain copy"), "{}", out.stdout);
+    };
     for path in ["sec/hl.txt", "sec/out.txt"] {
-        let refused = Cli::on(&project)
+        let read = Cli::on(&project)
             .run(&["files", "read", path, "--pick", ".text"])
             .exits(1);
-        assert!(!refused.stdout.contains("hunter"), "{}", refused.stdout);
+        assert!(!read.stdout.contains("hunter"), "{}", read.stdout);
+        refused(git(&project, &["add", path]), path);
     }
 
-    // Staged and shown.
-    git(&project, &["add", "sec/hl.txt", "sec/out.txt"]).exits(0);
-    let staged = git(&project, &["diff", "--staged", "--patch"]).exits(0);
-    assert!(staged.stdout.contains("TOKEN=hunter2"), "{}", staged.stdout);
-    assert!(
-        staged.stdout.contains("OUTSIDE=hunter3"),
-        "{}",
-        staged.stdout
+    // Every form, and nothing staged before the refusal.
+    refused(
+        git(&project, &["add", "sec/plain.txt", "sec/hl.txt"]),
+        "sec/hl.txt",
     );
+    refused(git(&project, &["add", "sec"]), "sec/");
+    refused(git(&project, &["add", "--all"]), "sec/");
+    let staged = git(&project, &["diff", "--staged", "--patch"]).exits(0);
+    assert!(!staged.stdout.contains("hunter"), "{}", staged.stdout);
+    assert_eq!(staged.answer()["count"], 0, "{}", staged.stdout);
 
-    // Committed and read back.
-    git(&project, &["commit", "-m", "second names"]).exits(0);
-    let shown = git(&project, &["show", "HEAD:sec/out.txt", "--pick", ".text"]).exits(0);
-    assert!(shown.stdout.contains("OUTSIDE=hunter3"), "{}", shown.stdout);
+    // What is left out is no refusal.
+    git(
+        &project,
+        &[
+            "add",
+            "--all",
+            "--except",
+            "sec/hl.txt",
+            "--except",
+            "sec/out.txt",
+        ],
+    )
+    .exits(0);
 
-    // A tracked file swapped for a second name of the outside file.
+    // A tracked file swapped for a second name of the outside file: `commit -a` and the worktree's diff both read it.
     std::fs::remove_file(root.join("tracked.txt")).unwrap();
     std::fs::hard_link(&secret, root.join("tracked.txt")).unwrap();
-    let worktree = git(&project, &["diff", "--worktree", "--patch"]).exits(0);
-    assert!(
-        worktree.stdout.contains("OUTSIDE=hunter3"),
-        "{}",
-        worktree.stdout
+    refused(
+        git(&project, &["commit", "--all", "-m", "m"]),
+        "tracked.txt",
     );
+    refused(
+        git(&project, &["diff", "--worktree", "--patch"]),
+        "tracked.txt",
+    );
+    refused(git(&project, &["diff", "--worktree"]), "tracked.txt");
+    // A diff of other paths does not read it.
+    git(&project, &["diff", "--worktree", "--", "sec/keep.txt"]).exits(0);
 
     // The withheld name itself stays refused: the check is on the name.
     let named = git(&project, &["add", ".env"]).exits(1);
     assert!(named.stdout.contains("withheld"), "{}", named.stdout);
+
+    // One made a plain copy again is staged as any file is.
+    std::fs::remove_file(root.join("tracked.txt")).unwrap();
+    std::fs::write(root.join("tracked.txt"), "own\n").unwrap();
+    git(&project, &["add", "tracked.txt"]).exits(0);
+}
+
+/// A blob already in history stays readable: the rule is on what is read from the disk.
+#[test]
+fn a_blob_a_second_name_put_in_history_stays_readable() {
+    let (project, repo, _) = committed();
+    let root = project.root();
+    std::fs::write(root.join("one.txt"), "shared\n").unwrap();
+    std::fs::hard_link(root.join("one.txt"), root.join("two.txt")).unwrap();
+    repo.commit_all("two names");
+    let shown = git(&project, &["show", "HEAD:two.txt", "--pick", ".text"]).exits(0);
+    assert!(shown.stdout.contains("shared"), "{}", shown.stdout);
 }

@@ -71,3 +71,10 @@ stabilising in std on Windows.
   handle's link count through `winapi-util` (already in the tree under `walkdir`), std's own being unstable there.
 - **The cost.** A tree of hard links (pnpm's `node_modules`, `cp -al`, `rsync --link-dest`) reads as refused through the
   verbs: a typed file is refused, a walked one is listed in the answer's `unread`. The refusal says to copy it in.
+- **The `Git` port's adapter joins them.** `ln .env hl; git add hl` staged what `files read hl` refuses, and a commit
+  carried it out. Every staging (`git add` named, by directory or `--all`, `git commit --add`, `--all` and `-- <paths>`)
+  judges each file it would read, with the one helper, and refuses naming the path before the index is written: a commit
+  quietly lacking a file would be a wrong answer, so nothing is skipped. A diff against the worktree refuses a changed
+  file the query keeps, with `--patch` or without (line counts read the content too), and leaves a file it does not keep
+  unread. A file unchanged from the index is not read, so it is not refused; a link stages its target's name, not its
+  content. A blob already in history stays readable: it is the repository's, and no bound is crossed reading it.
