@@ -242,7 +242,8 @@ are the ids with `-`: `specforge gsd complete-plan`.
 
 | Command | Writes (`H` fields) |
 |---|---|
-| `start_plan`, `complete_plan` | summary `started`, `completed` (`start_plan` writes nothing: it runs the entry gates and answers the clock) |
+| `start_plan` | `plan_start` `at`, once (it also runs the entry gates) |
+| `complete_plan` | summary `started`, `completed` |
 | `answer_checkpoint` | checkpoint `answer` |
 | `confirm_setup` | user_setup `done` |
 | `set_uat_result` | uat_test `result`, `source` (a person's answer) |

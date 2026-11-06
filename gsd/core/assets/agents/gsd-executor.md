@@ -92,8 +92,8 @@ Parse: frontmatter (phase, plan, type, autonomous, wave, depends_on), objective,
 
 <step name="record_start_time">
 ```bash
-STARTED=$(specforge gsd start-plan "${PHASE}-${PLAN}" --pick .started) && [ -n "$STARTED" ] || exit 1
-# a gate_failed refusal (W318, E516) stops here: the plan is not executed; STARTED is the host's clock
+specforge gsd start-plan "${PHASE}-${PLAN}" || exit 1
+# a gate_failed refusal (W318, E516) stops here: the plan is not executed; the plan keeps its start, once
 ```
 </step>
 
@@ -759,8 +759,8 @@ After the summary entity exists, record the plan's close and what the project mu
 
 ```bash
 # Close the plan: writes the summary's started and completed times (the host's clock).
-# STARTED is the time `specforge gsd start-plan` answered when you began.
-specforge gsd complete-plan "${PHASE}-${PLAN}-SUMMARY" --started "${STARTED}"
+# The start is the one `specforge gsd start-plan` recorded on the plan when you began.
+specforge gsd complete-plan "${PHASE}-${PLAN}-SUMMARY"
 
 # Decisions (from the summary's key-decisions): one `decision` entity each
 for decision in "${DECISIONS[@]}"; do

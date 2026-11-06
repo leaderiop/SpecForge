@@ -7,39 +7,32 @@ use super::commands_support::*;
 pub(super) const PLAN: &str = "v1.0/02/02-01";
 pub(super) const SUMMARY: &str = "v1.0/02/02-01/02-01-SUMMARY";
 pub(super) const PLANTED: &str = "summary 02-01-SUMMARY \"Save and load: summary\" {\n  plan                   v1.0/02/02-01\n  status                 complete\n  one_liner              \"Tasks are saved after every change.\"\n  subsystem              \"store\"\n  requirements_completed [STORE-01, STORE-02]\n}\n";
-/// An hour before now, as `start-plan` would have answered it: complete-plan refuses a start over a week old, so a
-/// fixed date would fail once it aged.
-pub(super) fn started() -> &'static str {
-    static AT: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |since| since.as_secs());
-        crate::clock::utc(i64::try_from(now).unwrap_or(i64::MAX) - 3600)
-    });
-    &AT
+
+/// Opens `plan`, as a run does before its summary exists; the time it recorded.
+pub(super) fn opened(p: &crate::harness::Project, plan: &str) -> String {
+    let run = gsd(p, "start-plan", &[plan, "--pick", ".started"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    run.stdout.trim_end().to_string()
 }
 
 #[test]
 fn complete_plan_writes_both_times_and_their_ledger_lines() {
     let p = twin();
+    let started = opened(&p, PLAN);
+    let started = started.as_str();
     plant(&p, "spec/plans.spec", PLANTED);
     let status = p.fields_of("v1.0/02")["status"].clone();
     let before = p.codes();
-    let run = gsd(&p, "complete-plan", &[SUMMARY, "--started", started()]);
+    let run = gsd(&p, "complete-plan", &[SUMMARY]);
     assert_eq!(run.code, 0, "{}", run.all());
     let fields = p.fields_of(SUMMARY);
-    assert_eq!(fields["started"], started());
+    assert_eq!(fields["started"], started);
     let completed = fields["completed"].as_str().expect("completed").to_string();
     assert!(
-        completed.len() == 20 && completed.ends_with('Z') && completed.as_str() > started(),
+        completed.len() == 20 && completed.ends_with('Z') && completed.as_str() >= started,
         "{completed}"
     );
-    assert!(ledgered(
-        &p,
-        SUMMARY,
-        "started",
-        &format!("\"{}\"", started())
-    ));
+    assert!(ledgered(&p, SUMMARY, "started", &format!("\"{started}\"")));
     assert!(ledgered(
         &p,
         SUMMARY,
@@ -60,18 +53,45 @@ fn complete_plan_writes_both_times_and_their_ledger_lines() {
 }
 
 #[test]
-fn start_plan_answers_the_hosts_now() {
+fn start_plan_records_the_hosts_now_once() {
     let p = twin();
-    let run = gsd(&p, "start-plan", &[PLAN, "--format", "json"]);
+    let started = opened(&p, PLAN);
+    assert!(started.len() == 20 && started.ends_with('Z'), "{started}");
+    let start = format!("{PLAN}/START");
+    assert_eq!(p.fields_of(&start)["at"], started.as_str());
+    assert!(ledgered(&p, &start, "at", &format!("\"{started}\"")));
+    // A second call, a second later and by a short form, answers the first value and writes nothing.
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    let before = bytes(&p);
+    let run = gsd(&p, "start-plan", &["02-01", "--format", "json"]);
     assert_eq!(run.code, 0, "{}", run.all());
     let answer = json(&run);
-    let started = answer["started"].as_str().expect("started");
     assert_eq!(answer["plan"], PLAN);
-    assert!(started.len() == 20 && started.ends_with('Z'), "{started}");
-    // A short form is resolved; nothing is written.
-    let before = bytes(&p);
-    assert_eq!(gsd(&p, "start-plan", &["02-01"]).code, 0);
+    assert_eq!(answer["started"], started.as_str());
     assert_eq!(bytes(&p), before);
+}
+
+#[test]
+fn complete_plan_refuses_a_plan_never_started_and_names_the_remedy() {
+    let p = twin();
+    plant(&p, "spec/plans.spec", PLANTED);
+    let before = bytes(&p);
+    let run = gsd(&p, "complete-plan", &[SUMMARY]);
+    refused(
+        &run,
+        "invalid_input",
+        &[PLAN, "no start", "specforge gsd start-plan"],
+    );
+    assert_eq!(bytes(&p), before);
+    assert!(
+        gsd(
+            &p,
+            "complete-plan",
+            &[SUMMARY, "--started", "2026-10-29T09:00:00Z"]
+        )
+        .code
+            != 0
+    );
 }
 
 /// A stale plan-check verdict on plan 02-01 of the twin: recorded, then its input (the instructions) edited.
@@ -126,62 +146,33 @@ fn start_plan_is_refused_by_a_stale_verdict_under_plus() {
 #[test]
 fn complete_plan_is_refused_without_a_tdd_review_under_strict() {
     let p = twin();
+    opened(&p, PLAN);
     plant(&p, "spec/plans.spec", PLANTED);
     p.edit("spec/plans.spec", "plan 02-01 \"Save and load tasks.json\" {\n  phase            v1.0/02\n  type             execute", "plan 02-01 \"Save and load tasks.json\" {\n  phase            v1.0/02\n  type             tdd");
     p.settings(json!({ "profile": "gsd-strict", "workflow.tdd_mode": true }));
     let before = bytes(&p);
-    let run = gsd(&p, "complete-plan", &[SUMMARY, "--started", started()]);
+    let run = gsd(&p, "complete-plan", &[SUMMARY]);
     refused(&run, "gate_failed", &["W404", PLAN]);
     assert_eq!(bytes(&p), before);
     // Allowed by default (W404 is a warning there) and with tdd_mode off.
     p.settings(json!({ "profile": "gsd-strict", "workflow.tdd_mode": false }));
-    assert_eq!(
-        gsd(
-            &p,
-            "complete-plan",
-            &[SUMMARY, "--started", started(), "--dry-run"]
-        )
-        .code,
-        0
-    );
+    assert_eq!(gsd(&p, "complete-plan", &[SUMMARY, "--dry-run"]).code, 0);
 }
 
 #[test]
 fn complete_plan_refuses() {
     let p = twin();
     let before = bytes(&p);
-    let run = gsd(
-        &p,
-        "complete-plan",
-        &["v1.0/02/02-01/02-01-SUMMARY", "--started", started()],
-    );
+    let run = gsd(&p, "complete-plan", &["v1.0/02/02-01/02-01-SUMMARY"]);
     assert_eq!(run.code, 1, "{}", run.all());
     assert!(run.all().contains("not found"), "{}", run.all());
     plant(&p, "spec/plans.spec", PLANTED);
     let planted = bytes(&p);
     assert_ne!(planted, before);
-    for (args, words) in [
-        (vec![SUMMARY], vec!["--started is required"]),
-        (vec![SUMMARY, "--started", "yesterday"], vec!["RFC 3339"]),
-        (
-            vec![SUMMARY, "--started", "2026-10-29T09:00:00+01:00"],
-            vec!["RFC 3339"],
-        ),
-        (
-            vec![SUMMARY, "--started", "2999-01-01T00:00:00Z"],
-            vec!["after now"],
-        ),
-    ] {
-        let run = gsd(&p, "complete-plan", &args);
-        refused(&run, "invalid_input", &words);
-        assert_eq!(bytes(&p), planted, "{args:?}");
-    }
-    assert_eq!(
-        gsd(&p, "complete-plan", &[SUMMARY, "--started", started()]).code,
-        0
-    );
+    opened(&p, PLAN);
+    assert_eq!(gsd(&p, "complete-plan", &[SUMMARY]).code, 0);
     let done = bytes(&p);
-    let again = gsd(&p, "complete-plan", &[SUMMARY, "--started", started()]);
+    let again = gsd(&p, "complete-plan", &[SUMMARY]);
     refused(&again, "invalid_input", &["already completed"]);
     assert_eq!(bytes(&p), done);
 }
@@ -311,6 +302,9 @@ const SECOND_SUMMARY: &str = "summary 01-02-SUMMARY \"Completion: summary\" {\n 
 fn an_executed_plans_stale_plan_check_does_not_refuse_a_gate() {
     let p = super::harness::project("execute");
     checked(&p);
+    // The start is recorded beside the plan, so its checked verdicts stay fresh, and a re-run passes the gate.
+    opened(&p, SECOND_PLAN);
+    assert_ne!(p.inputs(SECOND_PLAN, "W311")["verdict"]["state"], "stale");
     assert_eq!(
         gsd_as_person(
             &p,
@@ -325,7 +319,7 @@ fn an_executed_plans_stale_plan_check_does_not_refuse_a_gate() {
     refused(&run, "gate_failed", &["E516", SECOND_PLAN]);
     plant(&p, "spec/plans.spec", SECOND_SUMMARY);
     let summary = format!("{SECOND_PLAN}/01-02-SUMMARY");
-    let run = gsd(&p, "complete-plan", &[&summary, "--started", started()]);
+    let run = gsd(&p, "complete-plan", &[&summary]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(
         p.inputs(SECOND_PLAN, "W311")["verdict"]["state"],
@@ -422,20 +416,6 @@ fn the_executors_new_examples_run() {
         "--dry-run",
     ]);
     assert_eq!(decision.code, 0, "{}", decision.all());
-}
-
-#[test]
-fn a_started_time_older_than_a_week_is_refused() {
-    let p = twin();
-    plant(&p, "spec/plans.spec", PLANTED);
-    let before = bytes(&p);
-    let run = gsd(
-        &p,
-        "complete-plan",
-        &[SUMMARY, "--started", "1970-01-01T00:00:00Z"],
-    );
-    refused(&run, "invalid_input", &["over a week before now"]);
-    unchanged(&p, &before);
 }
 
 /// E516 names the gate's subject, so a stale verdict anywhere refuses the step.

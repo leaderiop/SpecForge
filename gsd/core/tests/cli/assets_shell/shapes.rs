@@ -382,23 +382,25 @@ fn an_inline_plan_is_closed_on_its_summary() {
         return;
     };
     let p = twin();
+    let text = asset("gsd-core/workflows/execute-plan.md");
+    let fence = |start: &str| {
+        let (out, err, code) = run(&sh, &p, &format!("PLAN_ID={PLAN}\n{}", line(&text, start)));
+        assert_eq!(code, 0, "{start}: {out}{err}");
+    };
+    // Each fence is its own shell here, and a re-run of the first never restarts the clock.
+    fence("specforge gsd start-plan");
+    let start = format!("{PLAN}/START");
+    let first = p.fields_of(&start)["at"].clone();
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    fence("specforge gsd start-plan");
+    assert_eq!(p.fields_of(&start)["at"], first);
     plant(&p, "spec/plans.spec", PLANTED);
-    let got = values(
-        &sh,
-        &p,
-        "gsd-core/workflows/execute-plan.md",
-        &format!("PLAN_ID={PLAN}"),
-        &[
-            "STARTED=$(",
-            "SUMMARY_ID=$(",
-            "specforge gsd complete-plan",
-            "DURATION=$(",
-        ],
-        &["SUMMARY_ID", "DURATION"],
-    );
-    assert!(got.ends_with(&format!("[{SUMMARY}][0 min]")), "{got}");
+    let close = block(&text, "SUMMARY_ID=$(", "specforge gsd complete-plan");
+    let (_, err, code) = run(&sh, &p, &format!("PLAN_ID={PLAN}\n{close}"));
+    assert_eq!(code, 0, "{err}");
     let fields = p.fields_of(SUMMARY);
-    assert!(fields["started"].is_string() && fields["completed"].is_string());
+    assert_eq!(fields["started"], first);
+    assert!(fields["completed"].is_string() && fields["duration"].is_string());
 }
 
 /// The summary's start is the milestone's first recorded commit: its `started`, read and counted from, under

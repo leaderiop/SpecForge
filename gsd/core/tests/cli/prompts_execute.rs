@@ -175,13 +175,14 @@ fn the_inline_plan_opens_and_closes_through_the_commands() {
         "claude-code",
     )));
     let opened = text
-        .find("STARTED=$(specforge gsd start-plan \"$PLAN_ID\" --pick .started)")
+        .find("specforge gsd start-plan \"$PLAN_ID\" || exit 1")
         .expect("the plan opens through start-plan");
     let first_task = text
         .find("<step name=\"execute\"")
         .expect("the execute step");
     assert!(opened < first_task);
-    assert!(text.contains("specforge gsd complete-plan \"$SUMMARY_ID\" --started \"$STARTED\""));
+    assert!(text.contains("specforge gsd complete-plan \"$SUMMARY_ID\" || exit 1"));
+    assert!(!text.contains("--started"));
     assert!(!text.contains("$(date"));
     assert!(!text.contains("PLAN_END_"));
     assert!(!text.contains("duration ($DURATION)"));

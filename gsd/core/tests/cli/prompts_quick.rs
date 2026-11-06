@@ -59,44 +59,35 @@ fn quick_creates_a_quick_plan() {
     for code in ["W323", "E302", "E401"] {
         assert!(!codes.contains(&code.to_string()), "{code}: {codes:?}");
     }
-    // P4: a plan with no phase starts and completes through the typed tools. The prompt's STARTED line runs in bash
-    // with only specforge on the PATH (it picks the answer, no jq).
+    // P4: a plan with no phase starts and completes through the typed tools. The prompt's start line runs in bash
+    // with only specforge on the PATH.
     let line = text
         .lines()
-        .find(|l| {
-            l.trim_start()
-                .starts_with("STARTED=$(specforge gsd start-plan")
-        })
-        .expect("the STARTED line");
+        .find(|l| l.trim_start().starts_with("specforge gsd start-plan"))
+        .expect("the start line");
     let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
     // `/bin/bash`: the child's PATH holds specforge alone
     let out = std::process::Command::new("/bin/bash")
-        .args([
-            "-c",
-            &format!("quick_id={id}\n{line}\nprintf '%s' \"$STARTED\""),
-        ])
+        .args(["-c", &format!("quick_id={id}\n{line}")])
         .env("PATH", bin.parent().expect("a directory"))
         .current_dir(p.root())
         .stdin(std::process::Stdio::null())
         .output()
         .expect("bash");
-    let ts = String::from_utf8_lossy(&out.stdout).into_owned();
     assert!(
-        ts.len() == 20 && ts.ends_with('Z'),
-        "{ts:?}: {}",
+        out.status.success(),
+        "{}",
         String::from_utf8_lossy(&out.stderr)
     );
+    let ts = p.fields_of(&format!("{id}/START"))["at"].clone();
+    assert!(ts.is_string(), "{ts}");
     let summary = command(&text, "specforge new summary", &id, &fill);
     let made = run(&p, &summary);
     assert_eq!(made.code, 0, "{summary:?}: {}", made.all());
-    let done = gsd(
-        &p,
-        "complete-plan",
-        &[&format!("{id}/{id}-SUMMARY"), "--started", &ts],
-    );
+    let done = gsd(&p, "complete-plan", &[&format!("{id}/{id}-SUMMARY")]);
     assert_eq!(done.code, 0, "{}", done.all());
     let fields = p.fields_of(&format!("{id}/{id}-SUMMARY"));
-    assert_eq!(fields["started"], ts.as_str());
+    assert_eq!(fields["started"], ts);
     assert!(fields["completed"].as_str().is_some(), "{fields}");
 }
 

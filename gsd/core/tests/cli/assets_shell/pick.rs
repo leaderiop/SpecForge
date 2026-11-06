@@ -24,20 +24,11 @@ fn a_field_of_a_gsd_answer_is_picked() {
         return;
     };
     let p = taskboard();
-    let started = value(
-        &sh,
-        &p,
-        "agents/gsd-executor.md",
-        "PHASE=v1.0/01/01; PLAN=01",
-        "STARTED=$(",
-        "STARTED",
-    );
-    assert!(
-        started.starts_with("[20") && started.ends_with("Z]"),
-        "{started}"
-    );
+    let code = line(&asset("agents/gsd-executor.md"), "specforge gsd start-plan").to_string();
+    let (_, status) = run(&sh, &p, &format!("PHASE=v1.0/01/01; PLAN=01\n{code}"));
+    assert_eq!(status, 0);
+    assert!(p.fields_of("v1.0/01/01-01/START")["at"].is_string());
     // a refused start stops the block, as `jq -e` did
-    let code = line(&asset("agents/gsd-executor.md"), "STARTED=$(").to_string();
     let (out, status) = run(&sh, &p, &format!("PHASE=nope; PLAN=01\n{code}\necho after"));
     assert_eq!((out.as_str(), status), ("", 1));
     let cm = "gsd-core/workflows/complete-milestone.md";

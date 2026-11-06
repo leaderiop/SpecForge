@@ -484,6 +484,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "PlanStartPlan",
+        "source_kind": "plan_start",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "SummaryPlan",
         "source_kind": "summary",
         "target_kind": "plan"
@@ -5171,6 +5180,49 @@
         "verify_kinds": []
       },
       {
+        "description": "When a plan was opened: `start_plan` records it once",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "PlanStartPlan",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "written once by the command that opens the plan, with the host's clock",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "at",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "plan_start",
+        "open_fields": false,
+        "scoped_by": "plan",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
         "description": "What a plan did when it ended (GSD NN-MM-SUMMARY.md)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -5365,7 +5417,7 @@
           },
           {
             "default_value": null,
-            "description": "written by the command that opens the plan, with the host's clock",
+            "description": "the plan's `started`, written by the command that closes the plan",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,

@@ -61,7 +61,7 @@
     "- gsd-verifier — Verifies phase completion, checks quality gates",
     "- gsd-code-reviewer — Reviews source files for bugs, security issues, and code quality"
   ],
-  "bytes": 65906,
+  "bytes": 65858,
   "end": [
     "",
     "Execute end-to-end.",
@@ -97,12 +97,12 @@
     "specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\" --slug \"$slug\"",
     "specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"",
     "# an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`",
-    "STARTED=$(specforge gsd start-plan \"$quick_id\" --pick .started)",
+    "specforge gsd start-plan \"$quick_id\"",
     "specforge new summary \"$quick_id-SUMMARY\" \"<title>\" --in spec/quick.spec --plan \"$quick_id\" --status complete --one_liner \"<one line>\" --subsystem <area> --requirements_completed \"\"",
-    "specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\" --started \"$STARTED\"",
+    "specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\"",
     "```",
     "",
-    "`start-plan` writes nothing and answers the time to keep; the summary is written first and `complete-plan` stamps both of its times. The project state is computed, so no task row is written. With `--discuss` or `--research`, the context and the research name the plan in `plan`, so the plan must exist before them: the step that runs first makes it with what is known (`--files_modified \"\"`, the description as its objective, `--slug \"$slug\"`), and the planner then sets its fields with `specforge set \"$quick_id\" <field> <value>`, since `specforge new` refuses an id that exists. `gsd-code-reviewer` is not part of `@gsd/core`: skip the code review of `--full` and say so."
+    "`start-plan` records the plan's start once, in the graph; the summary is written first and `complete-plan` stamps both of its times. The project state is computed, so no task row is written. With `--discuss` or `--research`, the context and the research name the plan in `plan`, so the plan must exist before them: the step that runs first makes it with what is known (`--files_modified \"\"`, the description as its objective, `--slug \"$slug\"`), and the planner then sets its fields with `specforge set \"$quick_id\" <field> <value>`, since `specforge new` refuses an id that exists. `gsd-code-reviewer` is not part of `@gsd/core`: skip the code review of `--full` and say so."
   ],
   "head": [
     "<codex_skill_adapter>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:ff1313fd8f1214decf5364952d113b5f6a36cf8b432be5d4ea482c39d04e5b2d",
+    "digest": "sha256:4059b42d09e3d75cf4e4797a9336b6335ba38e262e46fe9443b9a3db9049f283",
     "prompt": "@gsd/core@VERSION:quick",
     "steps": [
       {
@@ -235,7 +235,7 @@
           }
         ],
         "id": "start",
-        "title": "Open the plan at the host's clock (specforge gsd start-plan <plan>)",
+        "title": "Open the plan: its start is recorded once (specforge gsd start-plan <plan>)",
         "tool": "specforge.gsd.start_plan"
       },
       {
@@ -253,7 +253,7 @@
           }
         ],
         "id": "complete",
-        "title": "Complete the plan: both times of its summary (specforge gsd complete-plan <summary> --started <ts>)",
+        "title": "Complete the plan: both times of its summary (specforge gsd complete-plan <summary>)",
         "tool": "specforge.gsd.complete_plan"
       },
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "ff1313fd8f1214decf5364952d113b5f6a36cf8b432be5d4ea482c39d04e5b2d"
+  "sha256": "4059b42d09e3d75cf4e4797a9336b6335ba38e262e46fe9443b9a3db9049f283"
 }

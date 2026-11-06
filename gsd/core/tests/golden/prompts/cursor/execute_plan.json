@@ -61,7 +61,7 @@
     "",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)"
   ],
-  "bytes": 48515,
+  "bytes": 48513,
   "end": [
     "",
     "| Condition | Route | Action |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2eff6f78a94cf226102f8c8b2b0e1e76fabe89d8d6230d8f8b625e330b36ada2",
+    "digest": "sha256:3a5fcf6f73d6a41477ed87788287d4b702f81513e64c6a9e416706561b08355d",
     "prompt": "@gsd/core@VERSION:execute_plan",
     "steps": [
       {
@@ -213,7 +213,7 @@
           }
         ],
         "id": "start",
-        "title": "Open the plan and note the clock (specforge gsd start-plan <plan>)",
+        "title": "Open the plan: its start is recorded once (specforge gsd start-plan <plan>)",
         "tool": "specforge.gsd.start_plan"
       },
       {
@@ -252,11 +252,11 @@
           }
         ],
         "id": "complete",
-        "title": "Close the plan (specforge gsd complete-plan <summary> --started <time>)",
+        "title": "Close the plan (specforge gsd complete-plan <summary>)",
         "tool": "specforge.gsd.complete_plan"
       }
     ],
     "subject": "v1.0/02/02-01"
   },
-  "sha256": "2eff6f78a94cf226102f8c8b2b0e1e76fabe89d8d6230d8f8b625e330b36ada2"
+  "sha256": "3a5fcf6f73d6a41477ed87788287d4b702f81513e64c6a9e416706561b08355d"
 }

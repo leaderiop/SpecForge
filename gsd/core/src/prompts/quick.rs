@@ -32,7 +32,7 @@ const QUICK_STEPS: &[Step] = &[
     },
     Step {
         id: "start",
-        title: "Open the plan at the host's clock (specforge gsd start-plan <plan>)",
+        title: "Open the plan: its start is recorded once (specforge gsd start-plan <plan>)",
         does: Do::Command("start_plan"),
     },
     Step {
@@ -42,7 +42,7 @@ const QUICK_STEPS: &[Step] = &[
     },
     Step {
         id: "complete",
-        title: "Complete the plan: both times of its summary (specforge gsd complete-plan <summary> --started <ts>)",
+        title: "Complete the plan: both times of its summary (specforge gsd complete-plan <summary>)",
         does: Do::Command("complete_plan"),
     },
     Step {
@@ -78,11 +78,11 @@ fn quick_plan_text(quick_id_is: &str) -> String {
      specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\" --slug \"$slug\"\n\
      specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"\n\
      # an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`\n\
-     STARTED=$(specforge gsd start-plan \"$quick_id\" --pick .started)\n\
+     specforge gsd start-plan \"$quick_id\"\n\
      specforge new summary \"$quick_id-SUMMARY\" \"<title>\" --in spec/quick.spec --plan \"$quick_id\" --status complete --one_liner \"<one line>\" --subsystem <area> --requirements_completed \"\"\n\
-     specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\" --started \"$STARTED\"\n\
+     specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\"\n\
      ```\n\n\
-     `start-plan` writes nothing and answers the time to keep; the summary is written first and `complete-plan` stamps \
+     `start-plan` records the plan's start once, in the graph; the summary is written first and `complete-plan` stamps \
      both of its times. The project state is computed, so no task row is written. \
      With `--discuss` or `--research`, the context and the research name the plan in `plan`, so the plan must exist \
      before them: the step that runs first makes it with what is known (`--files_modified \"\"`, the description as \

@@ -89,7 +89,7 @@ Present plan identification, wait for confirmation.
 
 <step name="record_start_time">
 ```bash
-STARTED=$(specforge gsd start-plan "$PLAN_ID" --pick .started) && [ -n "$STARTED" ] || exit 1
+specforge gsd start-plan "$PLAN_ID" || exit 1   # records the plan's start once, in the graph: a re-run keeps it
 
 ```
 </step>
@@ -388,7 +388,7 @@ If `NODE_REPAIR` is `false` OR repair returns ESCALATE: STOP. Present: "Verifica
 ```bash
 # Patterns B and C, once create_summary wrote the summary (Pattern A's executor closes its own plan)
 SUMMARY_ID=$(specforge query "$PLAN_ID" --depth 1 --kinds summary --pick '.nodes[kind=summary].id')
-specforge gsd complete-plan "$SUMMARY_ID" --started "$STARTED" || exit 1
+specforge gsd complete-plan "$SUMMARY_ID" || exit 1
 DURATION=$(specforge query "$SUMMARY_ID" --depth 0 --pick '.nodes[0].fields.duration')
 
 
