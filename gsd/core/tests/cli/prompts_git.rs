@@ -252,13 +252,13 @@ fn pr_branch_filters_the_harness_file_and_the_spec_root() {
     let (declare, derive, classify) = (
         pick("TRANSIENT_FILES="),
         pick("FILTER_PATHS=$(printf"),
-        pick("NON_PLANNING=$(echo"),
+        pick("NON_PLANNING=$(specforge"),
     );
     let repo = tempfile::tempdir().expect("a repo");
     bash_in(
         repo.path(),
         "git init -q -b main . && git config user.email t@t && git config user.name t \
-         && echo '{\"spec_root\":\"spec\"}' > specforge.json && mkdir spec src && echo a > src/a.rs \
+         && echo '{\"name\":\"d\",\"version\":\"0.1.0\",\"spec_root\":\"spec\"}' > specforge.json && mkdir spec src && echo a > src/a.rs \
          && echo s > spec/x.spec && echo h > specforge-harness && echo b > app.spec && git add -A && git commit -qm base \
          && git checkout -qb feat \
          && echo s2 >> spec/x.spec && echo h2 >> specforge-harness && git commit -qam spec-only \

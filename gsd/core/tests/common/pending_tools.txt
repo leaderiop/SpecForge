@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 145 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 127 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	cat	PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
@@ -75,15 +75,6 @@ gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	cat	cat <<EOF >&2
 gsd-core/workflows/plan-phase/steps/prd-express-path.md	cat	PRD_CONTENT=$(cat "$PRD_FILE" 2>/dev/null)
 gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md	grep	if grep -qF "$m" "$output_file" 2>/dev/null; then marker_found="true"; break; fi
 gsd-core/workflows/plan-review-convergence.md	awk	if OPEN_CONFLICTS=$(awk '
-gsd-core/workflows/pr-branch.md	grep	NON_PLANNING=$(echo "$FILES" | grep -Evc "$FORBIDDEN_RE" || true)
-gsd-core/workflows/pr-branch.md	grep	PLANNING_COUNT=$(echo "$FILES" | grep -Ec "$FORBIDDEN_RE" || true)
-gsd-core/workflows/pr-branch.md	grep	FORBIDDEN=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
-gsd-core/workflows/pr-branch.md	grep	PLANNING_TOTAL=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
-gsd-core/workflows/pr-branch.md	grep	PLANNING_DELETIONS=$(for p in "[status=deleted].path" "[status=renamed].old_path"; do specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick ".files$p"; done | grep -Ec "$FORBIDDEN_RE" || true)
-gsd-core/workflows/pr-branch.md	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
-gsd-core/workflows/pr-branch.md	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
-gsd-core/workflows/pr-branch.md	sed	else SPEC_PATHSPEC="$SPEC_ROOT/"; SPEC_RE="^$(printf '%s' "$SPEC_ROOT" | sed 's/[][\.*^$/]/\\&/g')/"; fi
-gsd-core/workflows/pr-branch.md	tr	FORBIDDEN_RE="$SPEC_RE|^($(echo "$TRANSIENT_FILES" | tr ' ' '|'))$"
 gsd-core/workflows/progress/steps/forensic-audit.md	grep	specforge git status --pick '.tracked[]' 2>/dev/null | grep -v "^spec/" | grep -v "^\.\." | head -10
 gsd-core/workflows/progress/steps/forensic-audit.md	grep	specforge git status --pick '.tracked[]' 2>/dev/null | grep -v "^spec/" | grep -v "^\.\." | head -10
 gsd-core/workflows/progress/steps/forensic-audit.md	head	specforge git status --pick '.tracked[]' 2>/dev/null | grep -v "^spec/" | grep -v "^\.\." | head -10
@@ -119,15 +110,6 @@ prompt:plan_phase	tr	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[
 prompt:plan_phase	tr	RES=$(printf '%s' "${CONFLICT_RESOLUTION}" | tr '\r\n\t' '   ')
 prompt:plan_review_convergence	awk	if OPEN_CONFLICTS=$(awk '
 prompt:plan_review_convergence	wc	wc -l
-prompt:pr_branch	grep	NON_PLANNING=$(echo "$FILES" | grep -Evc "$FORBIDDEN_RE" || true)
-prompt:pr_branch	grep	PLANNING_COUNT=$(echo "$FILES" | grep -Ec "$FORBIDDEN_RE" || true)
-prompt:pr_branch	grep	FORBIDDEN=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
-prompt:pr_branch	grep	PLANNING_TOTAL=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
-prompt:pr_branch	grep	PLANNING_DELETIONS=$(for p in "[status=deleted].path" "[status=renamed].old_path"; do specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick ".files$p"; done | grep -Ec "$FORBIDDEN_RE" || true)
-prompt:pr_branch	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
-prompt:pr_branch	grep	git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"
-prompt:pr_branch	sed	else SPEC_PATHSPEC="$SPEC_ROOT/"; SPEC_RE="^$(printf '%s' "$SPEC_ROOT" | sed 's/[][\.*^$/]/\\&/g')/"; fi
-prompt:pr_branch	tr	FORBIDDEN_RE="$SPEC_RE|^($(echo "$TRANSIENT_FILES" | tr ' ' '|'))$"
 prompt:quick	grep	DEFAULT_BRANCH=$(printf '%s' "" | grep . \
 prompt:quick	grep	|| specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . \
 prompt:resume_work	grep	for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -vxF -f <(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=summary].fields.plan')); do   # each plan no summary names

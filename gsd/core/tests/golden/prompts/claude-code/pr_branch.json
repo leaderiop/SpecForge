@@ -61,7 +61,7 @@
     "fi",
     ""
   ],
-  "bytes": 23141,
+  "bytes": 22827,
   "end": [
     "",
     "Or use /gsd-ship to create the PR automatically.",
@@ -81,7 +81,7 @@
     "- [ ] Working tree was clean before the PR branch was created",
     "- [ ] PR branch created from target",
     "- [ ] Planning-only commits excluded",
-    "- [ ] Zero paths matching `$FORBIDDEN_RE` in the PR branch diff: no spec path at all",
+    "- [ ] Zero files flagged `spec` in the PR branch diff: no spec path at all",
     "",
     "- [ ] No spec path the target branch already tracked was deleted",
     "- [ ] Every included commit landed — none dropped by a failed cherry-pick",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:aad63cf44c45283237c81e6097a77f943375b47984ba242f9bbf062ae56b98cb",
+    "digest": "sha256:e4b3085d68729d9d774784d49aefc3f21432089fe366ca37d39481e86503f66d",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "aad63cf44c45283237c81e6097a77f943375b47984ba242f9bbf062ae56b98cb"
+  "sha256": "e4b3085d68729d9d774784d49aefc3f21432089fe366ca37d39481e86503f66d"
 }

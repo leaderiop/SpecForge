@@ -239,13 +239,13 @@ Classify commits:
 specforge git log "$TARGET".."$CURRENT_BRANCH" --no-merges --format human
 ```
 
-**Canonical path declarations.** These three lines are the single source of truth for the
-whole command. `create_pr_branch` derives *which paths it removes* from them, and `verify`
-derives *which paths must not appear* from the same three lines — so the two steps cannot
-disagree about what the filter promised. Declare them exactly once; do not restate either
-list anywhere else in this file. Their literal values are drift-guarded (`npm run lint:ci`,
-`scripts/lint-pr-branch-pattern-drift.cjs`) against the canonical `src/pr-branch-patterns.cts`
-constants — change one side and update the other, or the guard fails.
+**Canonical path declarations.** What is a spec file is the project's word, and
+`specforge git diff` says it on each file: `spec`, `spec_only` and `spec_removed`. These lines
+give `create_pr_branch` the same files as a pathspec, spelled from the same spec root and the
+same harness ledger, and `verify` reads the flags on the branch it built, so a pathspec that
+removed too little shows there. Declare the lines exactly once; do not restate either list
+anywhere else in this file. A commit is classified by the same flags, so the two steps cannot
+disagree about what the filter promised.
 
 ```bash
 # The spec root and the harness ledger (a file at the project root) are reviewer noise (U47); `app.spec` of a build is code.
@@ -256,9 +256,9 @@ TRANSIENT_FILES="specforge-harness"
 # Structural planning files: none here. Every spec file is reviewer noise, so the filter has one mode.
 
 
-# The spec files, as a pathspec and an ERE: the spec root's tree, or with the spec root at the project root (`.`) the .spec files at any depth (`./` would name every path)
-if [ "$SPEC_ROOT" = "." ]; then SPEC_PATHSPEC=':(glob)**/*.spec'; SPEC_RE='\.spec$'
-else SPEC_PATHSPEC="$SPEC_ROOT/"; SPEC_RE="^$(printf '%s' "$SPEC_ROOT" | sed 's/[][\.*^$/]/\\&/g')/"; fi
+# The spec files, as a pathspec: the spec root's tree, or with the spec root at the project root (`.`) the .spec files at any depth (`./` would name every path)
+if [ "$SPEC_ROOT" = "." ]; then SPEC_PATHSPEC=':(glob)**/*.spec'
+else SPEC_PATHSPEC="$SPEC_ROOT/"; fi
 
 
 
@@ -270,13 +270,13 @@ else SPEC_PATHSPEC="$SPEC_ROOT/"; SPEC_RE="^$(printf '%s' "$SPEC_ROOT" | sed 's/
 
 ```
 
-Derive the mode's two projections — `FILTER_PATHS` (what `create_pr_branch` removes from
-each cherry-picked commit) and `FORBIDDEN_RE` (what `verify` asserts is absent):
+Derive the mode's projection — `FILTER_PATHS`, what `create_pr_branch` removes from each
+cherry-picked commit; `verify` asserts on the diff's `spec` flags:
 
 ```bash
 
 FILTER_PATHS=$(printf '%s\n' "$SPEC_PATHSPEC"; for f in $TRANSIENT_FILES; do printf '%s\n' "$f"; done)
-FORBIDDEN_RE="$SPEC_RE|^($(echo "$TRANSIENT_FILES" | tr ' ' '|'))$"
+: # verify reads the diff's spec flags
 
 
 
@@ -315,10 +315,10 @@ For each commit, check what it touches:
 
 ```bash
 # For each commit hash
-FILES=$(for k in path old_path; do specforge git diff --base "$HASH~1" --head "$HASH" --pick ".files[].$k"; done)
-NON_PLANNING=$(echo "$FILES" | grep -Evc "$FORBIDDEN_RE" || true)
 
-PLANNING_COUNT=$(echo "$FILES" | grep -Ec "$FORBIDDEN_RE" || true)
+NON_PLANNING=$(specforge git diff --base "$HASH~1" --head "$HASH" --pick '.files[spec_only=false].path' --count)
+
+PLANNING_COUNT=$(specforge git diff --base "$HASH~1" --head "$HASH" --pick '.files[spec=true].path' --count)
 ```
 
 Classify: a commit with `NON_PLANNING > 0` is INCLUDED (its spec paths are filtered by `create_pr_branch`); any other is EXCLUDED.
@@ -497,15 +497,15 @@ specforge git switch "$CURRENT_BRANCH"
 </step>
 
 <step name="verify">
-Assert against the filter's contract — `$FORBIDDEN_RE`, the same declaration
-`create_pr_branch` filtered on: no spec file and no harness ledger may remain.
+Assert against the filter's contract — the diff's `spec` flag, the project's own word for
+what `create_pr_branch` filtered on: no spec file and no harness ledger may remain.
 
 
 
 ```bash
-DIFF_PATHS=$(specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick '.files[].path')
-FORBIDDEN=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
-PLANNING_TOTAL=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
+
+FORBIDDEN=$(specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick '.files[spec=true].path' --count)
+PLANNING_TOTAL=$FORBIDDEN   # strict: every spec path is forbidden
 ALLOWED=$((PLANNING_TOTAL - FORBIDDEN))
 TOTAL_FILES=$(specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick .count)
 PR_COMMITS=$(specforge git log "$TARGET".."$PR_BRANCH" --pick .count)
@@ -515,7 +515,7 @@ PR_COMMITS=$(specforge git log "$TARGET".."$PR_BRANCH" --pick .count)
 # planning files must survive byte-identical. Name-only counting cannot see
 # status (a deleted structural/allowed path verifies clean there), so gate on
 # deletions explicitly, across every planning category.
-PLANNING_DELETIONS=$(for p in "[status=deleted].path" "[status=renamed].old_path"; do specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick ".files$p"; done | grep -Ec "$FORBIDDEN_RE" || true)
+PLANNING_DELETIONS=$(specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick '.files[spec_removed=true].path' --count)
 
 
 
@@ -528,7 +528,7 @@ did not do what this mode promised; report it and do not tell the user to push.
 
 `$PLANNING_DELETIONS` is a second hard gate (#3679) — it must also be `0`. A non-zero
 value means the PR branch would DELETE planning files the target branch tracks
-(`git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"` lists
+(`specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick '.files[spec_removed=true].path'` lists
 them). That is data loss, not filtering — report it, do not tell the user to push, and
 rebuild the branch.
 
@@ -563,7 +563,7 @@ Or use /gsd:ship to create the PR automatically.
 - [ ] Working tree was clean before the PR branch was created
 - [ ] PR branch created from target
 - [ ] Planning-only commits excluded
-- [ ] Zero paths matching `$FORBIDDEN_RE` in the PR branch diff: no spec path at all
+- [ ] Zero files flagged `spec` in the PR branch diff: no spec path at all
 
 - [ ] No spec path the target branch already tracked was deleted
 - [ ] Every included commit landed — none dropped by a failed cherry-pick
