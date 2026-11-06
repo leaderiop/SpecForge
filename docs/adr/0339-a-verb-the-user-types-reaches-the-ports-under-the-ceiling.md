@@ -217,10 +217,8 @@ path held to the roots, a write refused unless gix trusts the git dir, hooks run
     on an existing repository it answers `created: false`.
   - `log -S` past its `--max` stops at the first further commit it keeps: `count` is `null`, `truncated` true.
   - `worktree remove`, like `worktree add`, is held to the roots.
-- **What stays.** Push, fetch, `ls-remote` and `remote show` reach a remote (D6). `worktree add` and a local `clone`
-  into `$HOME/gsd-workspaces` write outside the project's roots (D2), and so do remove-workspace's `git -C` reads and
-  `worktree remove` there, and worktree-path-safety's pin of the orchestrator's checkout, which also compares both
-  toplevels in git's own spelling. The ledger's `D git` heading says so for its 35 rows.
+- **What stays.** Push, fetch, `ls-remote` and `remote show` reach a remote (D6). The ledger's `D git` heading says so
+  for its rows. (Reworded by the S1 amendment below: the workspace workflows and the worktree pin moved to the verbs.)
 
 ## Amendment (2026-11-05, S1: files search on ripgrep's crates)
 
@@ -282,3 +280,26 @@ path is held to the roots, the host's own state stays withheld.
 - **Rejected.** A context-plus-second-pattern flag (hand-written, where the library's `-U` says the same) and PCRE2
   lookaround (`grep-pcre2`, C code) for proximity; for line exclusion, leaving agents to filter the JSON by judgement
   (exact counts lost) and PCRE2's `^(?!.*Q).*P`. `--and-not` is a second `grep-regex` matcher the sink asks.
+
+## Amendment (2026-11-06, S1: roots and git)
+
+- **D2's roots** gain the machine roots ([ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md)'s S1
+  amendment): `project`, `spec`, the named roots of `specforge.json`, `temp`, and each root this machine named with
+  `specforge grants approve --root <name> --at <dir>`. A path in none of them is still refused.
+- **`clone <source> <dir>`.** A local clone through vendored libgit2: gix's file transport spawns the `git` program, and
+  libgit2 clones a path in process. One more row in the S2 table: `clone (local) | git2`. A source with `://` or git's
+  `host:path` form is network (D6), refused before anything is held. The source is held for a read and `<dir>` for a
+  write, absent or empty, as `worktree add` holds it. It answers `{top, branch, sha}`. `origin` names the source, as git's
+  local clone does. It runs no hook and no filter driver.
+- **`diff`'s files** carry `spec`, `spec_only` and `spec_removed`. One predicate over a repository-relative path: a
+  **spec file** is a file under the project's spec root (with the spec root at the project root, a `.spec` file under
+  it), or the harness ledger at the project root. A spec root outside the repository makes nothing a spec file. `spec`
+  is whether a file's `path` is one, a deletion's own path included; `spec_only` whether its `path` and its `old_path`,
+  when it has one, both are; `spec_removed` whether a spec file the base has is gone from the head (a deleted one, or a
+  rename whose `old_path` is one). Three flags rather than a chained selector: each answers one question in one `--pick`,
+  and says what it means to any reader of the JSON.
+- **`status --except <path>`** leaves out an entry at or under the path, as git's `:!<path>` does, from `entries`,
+  `tracked` and `untracked`, and `clean` is computed on what is left. Repeatable; the name `add --except` already has.
+- **What stays.** Only push, fetch, `ls-remote` and `remote show` (D6): new-workspace, remove-workspace and
+  worktree-path-safety's pin now call only specforge. Each side of the pin is one reader's spelling (links resolved), so
+  aliases such as `/var` and `/private/var` compare equal.

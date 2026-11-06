@@ -331,6 +331,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_effects::EffectsCeiling`, ADR 0335 D2.3).
 - **Named root**: a root `roots` in `specforge.json` names beside `spec` and `project`, resolved once per load to its
   canonical target, inside or outside the project; one outside needs a root approval (ADR 0335 D2.3).
+- **Machine root**: a root the user names on this machine (`specforge grants approve --root <name> --at <dir>`), kept in
+  the **Consent store**: every project's **Verb**s reach it under that project's **Effects ceiling**, and no extension's
+  **Grant** does. Not a **Named root**, which one project's file names (ADR 0335's S1 amendment).
 - **Grant**: what one extension may make the host do here: what it declares, under the call kind's gate, under the
   effects ceiling, and approved on this machine, decided once per extension and environment. It permits each request
   (or denies it: E090 for the gate, the declaration or the ceiling) and names the approvals a run needs
@@ -355,7 +358,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   covers any narrower grant) or to a named root outside the project (per project and canonical target). File and git
   reads inside the project need none; http, process and writes do. Settled before a run's first effect, asked only
   for what the run uses (`specforge_ops::settle::settle`, ADR 0335 D2.4).
-- **Consent store**: where approvals are kept: the user's `~/.specforge/consent.json`, outside every project, behind
+- **Consent store**: where approvals and **Machine root**s are kept: the user's `~/.specforge/consent.json`, outside every project, behind
   the `Consent` port (`specforge_ops::consent::UserConsent`; `testing::MemoryConsent`). Written privately and
   atomically under a sidecar lock; one it cannot use approves nothing and is never written over (W186). `specforge
   grants` lists, approves and revokes (ADR 0335 D2.5).

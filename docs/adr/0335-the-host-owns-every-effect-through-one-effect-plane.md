@@ -271,3 +271,29 @@ import is legitimate.
 - A guest that needs a socket or a protocol the four ports cannot express.
 - A measured need for async (concurrent effects inside one call).
 - A consent store that is not a file (a keychain), or approvals a team shares.
+
+## Amendment (2026-11-06, S1: machine roots)
+
+D2.3's named roots belong to one project's file, and D2.4 approves each per project, so a directory shared by every
+project cannot be "approved once": a repository with no `specforge.json` has no file to name it in, and a committed
+home path names one machine. So D2.3 gains a **machine root**, a root the user names on this machine.
+
+- **Named by being typed.** `specforge grants approve --root <name> --at <dir>`. Typing it is the approval; no project
+  is compiled, so it runs from any directory. `<name>` is a word, not `spec`, `project` or `temp`. `<dir>` is read from
+  the current directory, a leading `~/` (or `~` alone) as the home directory, `~user/` refused; it is made when missing,
+  with its parents, then canonicalized.
+- **What it may not be.** The home directory, a directory that holds it, a filesystem root, or a directory that is, holds
+  or lies in the host's own state or the consent store's directory: a root there could write the store that approves it.
+- **Kept in the store.** D2.5's store holds it (store version 2) with its canonical target, replacing one of the same
+  name. A version 1 store reads with no machine roots and is written back as 2, so an older specforge refuses to write
+  over it (W186) and never drops one. `specforge grants revoke --root <name> --machine` drops it; revoking a project
+  keeps it.
+- **Reached by verbs only.** Every project's verbs reach it, under that project's ceiling: an `fs.roots` list that omits
+  its name refuses it (E090). No extension's grant reaches it: a capability's root is a project's root, D2.3 and D2.4
+  unchanged, and `reachable_roots` does not list it. It is a verb root, as `temp` is ([ADR
+  0339](0339-a-verb-the-user-types-reaches-the-ports-under-the-ceiling.md) D2).
+- **A project's own wins.** A root the project names with the same name, reachable there, keeps the name. A stored target
+  that no longer lands where it was approved (it became a link) is not reached; a store that cannot be used adds none.
+- **Rejected.** `~/` in `specforge.json`'s `roots` with approvals keyed by target: every source repository a block runs
+  in must name it, a loose root never can, the directory must exist before load (E109), and the home path is committed.
+  A root an extension declares: a protocol bump and a re-vendor, and a non-GSD source repository still reaches nothing.
