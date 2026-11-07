@@ -319,6 +319,30 @@ impl Verbs {
             .map_err(|denial| outside_ceiling(&one_line(request), &denial))
     }
 
+    /// Whether the user grant permits a request to `url` through the proxy on `host` (the environment's or the
+    /// system's): the proxy sees what the request carries, so its host is one the grant must reach, as the URL's is.
+    /// `Err` is E090 with the remedy.
+    pub fn permit_proxy(&self, host: &str, url: &str) -> Result<(), OpError> {
+        let proxy = EffectRequest::Resolve(specforge_protocol_types::ResolveRequest {
+            host: host.to_string(),
+            allow_private: false,
+            timeout_ms: 0,
+        });
+        self.grant.permits(USER, &proxy).map_err(|denial| {
+            OpError::coded(
+                OpErrorKind::PermissionDenied,
+                codes::E090,
+                format!(
+                    "{} goes through the proxy on {host} (HTTP_PROXY, HTTPS_PROXY, ALL_PROXY or the system's \
+                     settings), which is outside what the project allows: {}. Add {host} to `effects.http.hosts` \
+                     in specforge.json, or name the URL's host in NO_PROXY",
+                    specforge_common::remedy::printable(url),
+                    denial.detail
+                ),
+            )
+        })
+    }
+
     /// Whether the user grant permits writing `rel` in `root`: `Err` is E090 with the ceiling's words.
     pub fn permit_write(&self, root: &Root, rel: &str) -> Result<(), OpError> {
         self.grant

@@ -513,6 +513,18 @@ impl Redirects for Hops<'_> {
             }
         }
     }
+
+    fn through_proxy(&self, host: &str, url: &str) -> bool {
+        match self.verbs.permit_proxy(host, url) {
+            Ok(()) => true,
+            Err(error) => {
+                if let Ok(mut denied) = self.denied.lock() {
+                    denied.get_or_insert(error);
+                }
+                false
+            }
+        }
+    }
 }
 
 #[cfg(test)]

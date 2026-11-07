@@ -104,6 +104,25 @@ impl Redirects for Regranted<'_> {
             }
         }
     }
+
+    /// The proxy's host, permitted by the grant as a host the request reaches.
+    fn through_proxy(&self, host: &str, url: &str) -> bool {
+        let proxy = EffectRequest::Resolve(ResolveRequest {
+            host: host.to_string(),
+            allow_private: false,
+            timeout_ms: 0,
+        });
+        match self.grant.permits(self.op, &proxy) {
+            Ok(()) => self.then.through_proxy(host, url),
+            Err(denial) => {
+                *self.denied.lock().unwrap_or_else(|e| e.into_inner()) = Some(format!(
+                    "{url} goes through the proxy on {host}: {}",
+                    denial.detail
+                ));
+                false
+            }
+        }
+    }
 }
 
 impl Fs for GrantedPort<dyn Fs> {

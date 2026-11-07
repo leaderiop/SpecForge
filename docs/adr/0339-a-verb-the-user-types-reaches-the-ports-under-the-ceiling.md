@@ -48,6 +48,12 @@ whole port `off`). A request outside it is refused before any effect, with the c
   the server's choice: a hop to another origin is held to the public rule, so a typed public URL that redirects to
   `169.254.169.254` or `127.0.0.1` is refused, while a typed loopback URL may redirect within its own origin. Each
   redirect is asked of the grant again, and a redirect from `https` to `http` is never followed.
+- **Proxies.** The adapter honours the environment's and the system's proxies (ADR 0335), and a caller limited to the
+  verbs can set `HTTP_PROXY`; the proxy sees what an `http` request carries, and answers for its server. So its host
+  passes the same grant and ceiling as the URL's (`Verbs::permit_proxy`, asked by the adapter before each hop through
+  `Redirects::through_proxy`): a project whose ceiling lists hosts must list the proxy's, or the request is refused
+  (E090) with that remedy and nothing is sent. Taking no proxy from the environment was the other choice; it would
+  cut off every machine whose only way out is a proxy, which ADR 0335 supports.
 - **Secrets.** `http --secret <extension>:<name>` names a secret an extension declares (ADR 0288). The host reads its
   variable and attaches it as `Authorization: Bearer …`, on `https` and to the typed URL's host only, never on a
   redirect elsewhere. The value is never printed, never journaled, and outside the request's digest.

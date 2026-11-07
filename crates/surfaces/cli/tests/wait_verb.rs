@@ -700,3 +700,40 @@ fn a_silent_server_never_holds_the_wait_past_its_deadline() {
     let waited = answer["waited_ms"].as_u64().unwrap();
     assert!(waited < 300 + 250, "{answer}");
 }
+
+/// A proxy from the environment sees what a probe carries, so the project's ceiling must reach its host as it reaches
+/// the URL's: a proxy it lists carries the probe, and one it does not is refused with the remedy before anything is
+/// sent.
+#[test]
+fn a_proxy_is_judged_by_the_ceiling_as_the_url_is() {
+    let proxy = Server::answering(200, "text/plain", "through the proxy");
+    let url = "http://specforge-proxied.invalid/";
+    let wait = |hosts: serde_json::Value| {
+        let project = TestProject::new().config(|config| {
+            config["effects"] = json!({"http": {"hosts": hosts}});
+        });
+        let mut cli = Cli::on(&project);
+        for var in ["HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"] {
+            cli = cli.env(var, &proxy.base);
+        }
+        for var in ["NO_PROXY", "no_proxy"] {
+            cli = cli.env(var, "");
+        }
+        cli.run(&["wait", "--for", "10s", "--url", url])
+    };
+    let refused = wait(json!(["specforge-proxied.invalid"])).exits(1);
+    assert_eq!(refused.json()["code"], "E090", "{}", refused.stdout);
+    assert!(
+        refused
+            .stdout
+            .contains("goes through the proxy on 127.0.0.1"),
+        "{}",
+        refused.stdout
+    );
+    assert!(proxy.requests().is_empty(), "the proxy saw a request");
+    let answer = wait(json!(["specforge-proxied.invalid", "127.0.0.1"]))
+        .exits(0)
+        .answer();
+    assert_eq!(answer["reason"], "answered", "{answer}");
+    assert_eq!(proxy.requests().len(), 1);
+}
