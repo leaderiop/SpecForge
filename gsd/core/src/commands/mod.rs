@@ -9,6 +9,7 @@ mod execute;
 mod gate;
 mod help;
 mod milestone;
+mod milestone_branches;
 mod phase;
 mod quick;
 mod refactor;
@@ -95,6 +96,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     gate::declare(c);
     automated_guard::declare(c);
     branch_check::declare(c);
+    milestone_branches::declare(c);
     smart_entry::declare(c);
     quick::declare(c);
     surface::declare(c);

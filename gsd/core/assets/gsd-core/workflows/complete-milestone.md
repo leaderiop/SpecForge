@@ -83,7 +83,7 @@ Exact per-category bash (including the `todos` 5-per-scan cap, and the phase-sco
 
 
 
-INIT_MANAGER=$(specforge query "$MILESTONE" --depth 1 --format json)
+: "${MILESTONE:?MILESTONE is not set: the milestone being completed}"; INIT_MANAGER=$(specforge query "$MILESTONE" --depth 1 --format json) || exit 1
 
 ```
 
@@ -95,7 +95,7 @@ This returns all phases with implementation and verification projection. Use thi
 Compute readiness from `INIT_MANAGER`, not from roadmap counts:
 
 ```bash
-ALL_PHASES_VERIFIED=false; PHASES=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.progress.phases') && PHASES_COMPLETE=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.progress.phases_complete') && [ -n "$PHASES" ] && [ "$PHASES" = "$PHASES_COMPLETE" ] && ALL_PHASES_VERIFIED=true   # progress leaves the 999 backlog out (#3167); a phase is complete only once its verification passed; a failed query or an empty count verifies nothing
+ALL_PHASES_VERIFIED=false; : "${MILESTONE:?MILESTONE is not set: the milestone being completed}"; PHASES=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.progress.phases') && PHASES_COMPLETE=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.progress.phases_complete') && [ -n "$PHASES" ] && [ "$PHASES" = "$PHASES_COMPLETE" ] && ALL_PHASES_VERIFIED=true   # progress leaves the 999 backlog out (#3167); a phase is complete only once its verification passed; a failed query or an empty count verifies nothing
 
 
 
@@ -187,7 +187,7 @@ Wait for confirmation.
 Calculate milestone statistics:
 
 ```bash
-specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.stats'   # {files, loc, phases, plans, tasks, days}: loc counts inserted + deleted lines
+: "${MILESTONE:?MILESTONE is not set: the milestone being completed}"; specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.stats'   # {files, loc, phases, plans, tasks, days}: loc counts inserted + deleted lines
 
 
 
@@ -215,7 +215,7 @@ Extract one-liners from SUMMARY.md files using summary-extract:
 
 ```bash
 # #2962: zsh aborts the block on an unmatched for-list glob (nomatch); bash passes it through. nullglob both.
-shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
+: "${MILESTONE:?MILESTONE is not set: the milestone being completed}"; shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
 # For each phase in milestone, extract one-liner
 for summary in $(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id'); do
@@ -444,7 +444,7 @@ MILESTONES.md is workstream-scoped the same way STATE.md/ROADMAP.md are (the mil
 
 Check for existing retrospective:
 ```bash
-specforge query "$MILESTONE" --kinds retrospective --format brief 2>/dev/null || true
+: "${MILESTONE:?MILESTONE is not set: the milestone being completed}"; specforge query "$MILESTONE" --kinds retrospective --format brief 2>/dev/null || true
 ```
 
 **If exists:** Read the file, append new milestone section before the "## Cross-Milestone Trends" section.

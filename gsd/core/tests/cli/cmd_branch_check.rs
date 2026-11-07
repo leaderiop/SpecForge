@@ -54,6 +54,31 @@ fn a_broken_protection_setting_refuses_naming_it() {
     assert_eq!(answer(&p, &[])["blocks_commit"], true);
 }
 
+/// The branches a milestone's work sits on: the ones its strategy names and git has, and no other.
+#[test]
+fn milestone_branches_answers_what_exists_and_refuses_a_phase_with_no_name() {
+    let p = crate::harness::taskboard();
+    p.commit();
+    let branches = |p: &Project| json(&gsd(p, "milestone-branches", &["v1.0", "--format", "json"]));
+    assert_eq!(branches(&p)["strategy"], "none");
+    assert_eq!(branches(&p)["branches"], json!([]));
+    p.settings(json!({"git.branching_strategy": "phase"}));
+    assert_eq!(branches(&p)["branches"], json!([]), "none exists yet");
+    p.git(&["branch", "feature/x"], AT);
+    p.git(&["branch", "gsd/phase-01-core"], AT);
+    assert_eq!(branches(&p)["branches"], json!(["gsd/phase-01-core"]));
+    p.settings(json!({"git.branching_strategy": "milestone"}));
+    assert_eq!(branches(&p)["branches"], json!([]));
+    p.git(&["branch", "gsd/v1.0-taskboard-1-0"], AT);
+    assert_eq!(branches(&p)["branches"], json!(["gsd/v1.0-taskboard-1-0"]));
+    p.settings(json!({"git.branching_strategy": "phase", "git.phase_branch_template": "--help"}));
+    let refused = gsd(&p, "milestone-branches", &["v1.0"]);
+    assert_eq!(refused.code, 1, "{}", refused.all());
+    assert!(refused.all().contains("gsd/W409"), "{}", refused.all());
+    assert_ne!(gsd(&p, "milestone-branches", &["v9.9"]).code, 0);
+    assert_ne!(gsd(&p, "milestone-branches", &[""]).code, 0);
+}
+
 #[test]
 fn branch_check_reads_head_and_the_settings() {
     let p = project("execute");

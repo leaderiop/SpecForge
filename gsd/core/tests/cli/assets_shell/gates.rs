@@ -272,6 +272,88 @@ fn complete_milestone_lists_only_the_phase_branches() {
     assert_eq!(out, "phase|gsd/phase-01-core", "{err}");
 }
 
+/// A taskboard with the phase strategy and work on phase 01's branch, back on `main`.
+fn with_a_phase_branch() -> (Project, String) {
+    let p = crate::harness::taskboard();
+    p.settings(serde_json::json!({"git.branching_strategy": "phase"}));
+    p.commit();
+    p.git(&["checkout", "-q", "-b", "gsd/phase-01-core"], AT);
+    p.write("work.txt", "done\n");
+    p.git(&["add", "work.txt"], AT);
+    p.git(&["commit", "-q", "-m", "work"], AT);
+    p.git(&["checkout", "-q", "main"], AT);
+    let main = p.git(&["rev-parse", "main"], AT);
+    (p, main)
+}
+
+const AT: &str = "2026-01-01T00:00:00Z";
+const ELABORATION: &str = "gsd-core/workflows/complete-milestone/detail/elaboration.md";
+
+/// Each option's fence runs alone: a host keeps no shell between fences, so nothing it reads comes from another.
+#[test]
+fn each_complete_milestone_option_runs_from_its_own_fence() {
+    let Some(sh) = branch_shell() else {
+        return;
+    };
+    for (option, moves) in [
+        ("**Squash merge:**", true),
+        ("**Merge with history:**", true),
+    ] {
+        let (p, before) = with_a_phase_branch();
+        let fence = fence_after(&served(&p, ELABORATION), option);
+        let (out, err, code) = sh.run_in(p.root(), &format!("MILESTONE=v1.0\n{fence}"));
+        assert_eq!(code, 0, "{option}: {out} {err}");
+        assert_eq!(
+            p.git(&["rev-parse", "main"], AT) != before,
+            moves,
+            "{option}: {out} {err}"
+        );
+        assert!(p.root().join("work.txt").exists(), "{option}: {out} {err}");
+    }
+    let (p, _) = with_a_phase_branch();
+    let fence = fence_after(&served(&p, ELABORATION), "**Delete without merging:**");
+    let (out, err, code) = sh.run_in(p.root(), &format!("MILESTONE=v1.0\n{fence}"));
+    assert_eq!(code, 0, "{out} {err}");
+    let branches = p.git(&["branch", "--list", "gsd/phase-01-core"], AT);
+    assert!(
+        branches.is_empty(),
+        "the branch is gone: {branches} {out} {err}"
+    );
+}
+
+/// A value no fence bound stops the fence loudly, not as "no branches found".
+#[test]
+fn an_unset_milestone_or_phase_fails_loudly() {
+    let Some(sh) = branch_shell() else {
+        return;
+    };
+    let (p, before) = with_a_phase_branch();
+    let served_body = served(&p, ELABORATION);
+    for option in [
+        "**For \"phase\" strategy:**",
+        "**For \"milestone\" strategy:**",
+        "**Squash merge:**",
+        "**Merge with history:**",
+        "**Delete without merging:**",
+    ] {
+        let fence = fence_after(&served_body, option);
+        let (out, err, code) = sh.run_in(p.root(), &format!("{fence}\necho went-on"));
+        assert_ne!(code, 0, "{option}: {out} {err}");
+        assert!(err.contains("MILESTONE"), "{option}: {out} {err}");
+        assert!(!out.contains("went-on"), "{option}: {out} {err}");
+    }
+    assert_eq!(
+        p.git(&["rev-parse", "main"], AT),
+        before,
+        "main did not move"
+    );
+    let config = served(&p, "gsd-core/references/planning-config.md");
+    let creation = fence_after(&config, "**Branch creation:**");
+    let (out, err, code) = sh.run_in(p.root(), &format!("BRANCHING_STRATEGY=phase\n{creation}"));
+    assert_ne!(code, 0, "{out} {err}");
+    assert!(err.contains("PHASE_ID"), "{out} {err}");
+}
+
 /// The milestone strategy's one branch, once it exists.
 #[test]
 fn complete_milestone_finds_the_milestone_branch_when_it_exists() {

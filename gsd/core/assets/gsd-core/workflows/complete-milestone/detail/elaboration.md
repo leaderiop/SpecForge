@@ -152,9 +152,9 @@ Use `init milestone-op` for context, or load config directly:
 
 
 
-INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
+: "${PHASE_ID:?PHASE_ID is not set: the phase being completed}"; INIT=$(specforge query "$PHASE_ID" --depth 1 --format json) || exit 1
 
-INIT_CM=$(specforge query "$MILESTONE" --depth 1 --format json)
+: "${MILESTONE:?MILESTONE is not set: the milestone being completed}"; INIT_CM=$(specforge query "$MILESTONE" --depth 1 --format json) || exit 1
 
 ```
 
@@ -168,14 +168,14 @@ The strategy is `git.branching_strategy` and each branch the computed `branch` o
 
 ```bash
 BRANCHING_STRATEGY="{{setting:git.branching_strategy|none}}"   # git.branching_strategy (the settings)
-PHASE_BRANCHES=$(specforge query "$MILESTONE" --depth 1 --kinds phase --pick '.nodes[kind=phase].fields.branch' | while IFS= read -r b; do [ "$(specforge git rev "refs/heads/$b" --pick '.revs[0].exists')" = true ] && echo "$b"; done)
+PHASE_BRANCHES=$(specforge gsd milestone-branches "${MILESTONE:?MILESTONE is not set: the milestone being completed}" --pick '.branches[]') || exit 1
 ```
 
 **For "milestone" strategy:**
 
 ```bash
 BRANCHING_STRATEGY="{{setting:git.branching_strategy|none}}"   # git.branching_strategy (the settings)
-MILESTONE_BRANCH=$(b=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.branch'); [ "$(specforge git rev "refs/heads/$b" --pick '.revs[0].exists')" = true ] && echo "$b")
+MILESTONE_BRANCH=$(specforge gsd milestone-branches "${MILESTONE:?MILESTONE is not set: the milestone being completed}" --pick '.branches[]') || exit 1
 ```
 
 **If no branches found:** Skip to git_tag.
@@ -199,31 +199,31 @@ AskUserQuestion with options: Squash merge (Recommended), Merge with history, De
 **Squash merge:**
 
 ```bash
-CURRENT_BRANCH=$(specforge git head --pick .branch)
-specforge git switch ${BASE_BRANCH}
+: "${MILESTONE:?MILESTONE is not set: the milestone being completed}"
+BRANCHES=$(specforge gsd milestone-branches "$MILESTONE" --pick '.branches[]') || exit 1
+BASE_BRANCH=$(specforge git config init.defaultBranch --pick .value 2>/dev/null); BASE_BRANCH=${BASE_BRANCH:-main}
+COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
+CURRENT_BRANCH=$(specforge git head --pick .branch) || exit 1
+specforge git switch "$BASE_BRANCH" || exit 1
 
-if [ "$BRANCHING_STRATEGY" = "phase" ]; then
-  # Rewrapped through unquoted command substitution (gsd-core#4109): a bare
-  # `$VAR` word-splits under bash but not zsh, collapsing every element onto
-  # one iteration there.
-  for branch in $(printf '%s' "$PHASE_BRANCHES"); do
-    specforge git merge --squash "$branch"
-    # Strip spec/ from staging if commit_docs is false
-    if [ "$COMMIT_DOCS" = "false" ]; then
-      specforge git restore spec/ --staged --pick .restored 2>/dev/null || true
-    fi
-    specforge git commit -m "feat: $branch for v[X.Y]"
-  done
-fi
-
-if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
-  specforge git merge --squash "$MILESTONE_BRANCH"
+while IFS= read -r branch; do
+  [ -n "$branch" ] || continue
+  specforge git merge --squash "$branch" || exit 1
   # Strip spec/ from staging if commit_docs is false
   if [ "$COMMIT_DOCS" = "false" ]; then
     specforge git restore spec/ --staged --pick .restored 2>/dev/null || true
   fi
-  specforge git commit -m "feat: $MILESTONE_BRANCH for v[X.Y]"
-fi
+  specforge git commit -m "feat: $branch for v[X.Y]" || exit 1
+done <<<"$BRANCHES"
+
+
+
+
+
+
+
+
+
 
 specforge git switch "$CURRENT_BRANCH"
 ```
@@ -231,31 +231,31 @@ specforge git switch "$CURRENT_BRANCH"
 **Merge with history:**
 
 ```bash
-CURRENT_BRANCH=$(specforge git head --pick .branch)
-specforge git switch ${BASE_BRANCH}
+: "${MILESTONE:?MILESTONE is not set: the milestone being completed}"
+BRANCHES=$(specforge gsd milestone-branches "$MILESTONE" --pick '.branches[]') || exit 1
+BASE_BRANCH=$(specforge git config init.defaultBranch --pick .value 2>/dev/null); BASE_BRANCH=${BASE_BRANCH:-main}
+COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
+CURRENT_BRANCH=$(specforge git head --pick .branch) || exit 1
+specforge git switch "$BASE_BRANCH" || exit 1
 
-if [ "$BRANCHING_STRATEGY" = "phase" ]; then
-  # Rewrapped through unquoted command substitution (gsd-core#4109): a bare
-  # `$VAR` word-splits under bash but not zsh, collapsing every element onto
-  # one iteration there.
-  for branch in $(printf '%s' "$PHASE_BRANCHES"); do
-    specforge git merge --no-ff --no-commit "$branch"
-    # Strip spec/ from staging if commit_docs is false
-    if [ "$COMMIT_DOCS" = "false" ]; then
-      specforge git restore spec/ --staged --pick .restored 2>/dev/null || true
-    fi
-    specforge git commit -m "Merge branch '$branch' for v[X.Y]"
-  done
-fi
-
-if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
-  specforge git merge --no-ff --no-commit "$MILESTONE_BRANCH"
+while IFS= read -r branch; do
+  [ -n "$branch" ] || continue
+  specforge git merge --no-ff --no-commit "$branch" || exit 1
   # Strip spec/ from staging if commit_docs is false
   if [ "$COMMIT_DOCS" = "false" ]; then
     specforge git restore spec/ --staged --pick .restored 2>/dev/null || true
   fi
-  specforge git commit -m "Merge branch '$MILESTONE_BRANCH' for v[X.Y]"
-fi
+  specforge git commit -m "Merge branch '$branch' for v[X.Y]" || exit 1
+done <<<"$BRANCHES"
+
+
+
+
+
+
+
+
+
 
 specforge git switch "$CURRENT_BRANCH"
 ```
@@ -263,18 +263,18 @@ specforge git switch "$CURRENT_BRANCH"
 **Delete without merging:**
 
 ```bash
-if [ "$BRANCHING_STRATEGY" = "phase" ]; then
-  # Rewrapped through unquoted command substitution (gsd-core#4109): a bare
-  # `$VAR` word-splits under bash but not zsh, collapsing every element onto
-  # one iteration there.
-  for branch in $(printf '%s' "$PHASE_BRANCHES"); do
-    specforge git branch delete "$branch" --pick .name 2>/dev/null || specforge git branch delete "$branch" --force
-  done
-fi
+: "${MILESTONE:?MILESTONE is not set: the milestone being completed}"
+BRANCHES=$(specforge gsd milestone-branches "$MILESTONE" --pick '.branches[]') || exit 1
+while IFS= read -r branch; do
+  [ -n "$branch" ] || continue
+  specforge git branch delete "$branch" --pick .name 2>/dev/null || specforge git branch delete "$branch" --force || exit 1
+done <<<"$BRANCHES"
 
-if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
-  specforge git branch delete "$MILESTONE_BRANCH" --pick .name 2>/dev/null || specforge git branch delete "$MILESTONE_BRANCH" --force
-fi
+
+
+
+
+
 ```
 
 **Keep branches:** Report "Branches preserved for manual handling"

@@ -307,7 +307,7 @@ Fork the new phase branch off `origin/HEAD` (the project's default branch), not 
 DEFAULT_BRANCH=$(v=$(specforge git config init.defaultBranch --pick .value 2>/dev/null) && [ -n "$v" ] && echo "$v" \
   || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null \
   || echo main)
-BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.branch') && [ -n "$BRANCH_NAME" ] || { echo "ERROR: no branch name: see gsd/W409 (specforge check)." >&2; exit 1; }
+: "${PHASE_ID:?PHASE_ID is not set: the phase being worked}"; BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.branch') && [ -n "$BRANCH_NAME" ] || { echo "ERROR: no branch name: see gsd/W409 (specforge check)." >&2; exit 1; }
 if [ "$(specforge git rev "refs/heads/$BRANCH_NAME" --pick '.revs[0].exists')" = true ]; then
   specforge git switch "$BRANCH_NAME" || { echo "ERROR: Could not switch to existing branch '$BRANCH_NAME'." >&2; exit 1; }
 else

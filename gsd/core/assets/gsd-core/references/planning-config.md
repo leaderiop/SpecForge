@@ -204,7 +204,7 @@ BRANCHING_STRATEGY="{{setting:git.branching_strategy|none}}"   # git.branching_s
 
 A phase and a milestone compute the name from them, as their `branch` field:
 ```bash
-BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.branch')
+: "${PHASE_ID:?PHASE_ID is not set: the phase being worked}"; BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.branch')
 
 # Absent under the "none" strategy, on a backlog phase, and for a name git refuses (gsd/W409)
 ```
@@ -212,16 +212,16 @@ BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.bra
 **Branch creation:**
 
 ```bash
-# For phase strategy
+BRANCHING_STRATEGY="{{setting:git.branching_strategy|none}}"   # For phase strategy
 if [ "$BRANCHING_STRATEGY" = "phase" ]; then
-  BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.branch') && [ -n "$BRANCH_NAME" ] || { echo "ERROR: no branch name: see gsd/W409 (specforge check)." >&2; exit 1; }
+  : "${PHASE_ID:?PHASE_ID is not set: the phase being worked}"; BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.branch') && [ -n "$BRANCH_NAME" ] || { echo "ERROR: no branch name: see gsd/W409 (specforge check)." >&2; exit 1; }
 
   specforge git switch "$BRANCH_NAME" --create --pick .branch 2>/dev/null || specforge git switch "$BRANCH_NAME"
 fi
 
 # For milestone strategy
 if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
-  BRANCH_NAME=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.branch') && [ -n "$BRANCH_NAME" ] || { echo "ERROR: no branch name: see gsd/W409 (specforge check)." >&2; exit 1; }
+  : "${MILESTONE:?MILESTONE is not set: the milestone being worked}"; BRANCH_NAME=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.branch') && [ -n "$BRANCH_NAME" ] || { echo "ERROR: no branch name: see gsd/W409 (specforge check)." >&2; exit 1; }
 
   specforge git switch "$BRANCH_NAME" --create --pick .branch 2>/dev/null || specforge git switch "$BRANCH_NAME"
 fi
