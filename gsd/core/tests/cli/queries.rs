@@ -253,8 +253,7 @@ fn a_query_reaches_the_kinds_it_asks_for() {
     );
 }
 
-/// The branch a phase and its milestone execute on, under each `git.branching_strategy`: today no field answers it, so
-/// `execute-phase` uses a `$BRANCH_NAME` nothing assigns.
+/// The branch a phase and its milestone execute on, under each `git.branching_strategy`.
 #[test]
 fn a_phase_and_its_milestone_answer_their_branch() {
     let p = twin();
@@ -262,9 +261,19 @@ fn a_phase_and_its_milestone_answer_their_branch() {
         let answer = json(&p.run(&["query", id, "--depth", "0", "--format", "json"]));
         answer["nodes"][0]["fields"]["branch"].clone()
     };
-    for strategy in ["phase", "milestone", "none"] {
-        p.settings(serde_json::json!({"git.branching_strategy": strategy}));
-        assert!(branch("v1.0/01").is_null(), "{strategy}: today no field");
-        assert!(branch("v1.0").is_null(), "{strategy}: today no field");
-    }
+    assert!(branch("v1.0/01").is_null(), "the default strategy is none");
+    p.settings(serde_json::json!({"git.branching_strategy": "phase"}));
+    assert_eq!(branch("v1.0/01"), "gsd/phase-01-core");
+    assert!(branch("v1.0").is_null(), "a milestone has none under phase");
+    p.settings(serde_json::json!({
+        "git.branching_strategy": "phase",
+        "git.phase_branch_template": "work/{phase}/{slug}",
+    }));
+    assert_eq!(branch("v1.0/01"), "work/01/core");
+    p.settings(serde_json::json!({"git.branching_strategy": "milestone"}));
+    assert_eq!(branch("v1.0"), "gsd/v1.0-taskboard-1-0");
+    assert_eq!(branch("v1.0/01"), "gsd/v1.0-taskboard-1-0");
+    p.settings(serde_json::json!({"git.branching_strategy": "none"}));
+    assert!(branch("v1.0/01").is_null());
+    assert!(branch("v1.0").is_null());
 }

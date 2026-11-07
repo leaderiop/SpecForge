@@ -262,7 +262,8 @@ fn milestone_and_phase_declare_the_fields_of_the_model() {
             "shipped",
             "stats",
             "git_range",
-            "progress"
+            "progress",
+            "branch"
         ]
     );
     assert_eq!(
@@ -279,6 +280,7 @@ fn milestone_and_phase_declare_the_fields_of_the_model() {
             "tag",
             "inserted",
             "backlog",
+            "branch",
             "frontend",
             "status",
             "plans_complete",
@@ -347,7 +349,7 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
         "methodology",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 72 + 3 - 2 + 1, "the kinds' fields");
+    assert_eq!(total, 72 + 3 - 2 + 1 + 2, "the kinds' fields");
 }
 
 #[test]

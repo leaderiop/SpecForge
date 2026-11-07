@@ -12,6 +12,7 @@
 //! Not answered, by design: `phase.frontend` (`@gsd/ui`'s detection) and `retrospective.sessions` (no harness).
 
 mod audit;
+mod branch;
 mod execute;
 mod halt;
 pub mod ladder;
@@ -70,6 +71,7 @@ fn derive(input: &PassInput) -> PassOutput {
         .collect();
     let requirements = progress::requirement_states(input, &statuses, &failing);
     values.extend(audit::values(input, &requirements, &verified));
+    values.extend(branch::values(input));
     PassOutput {
         values,
         ..Default::default()

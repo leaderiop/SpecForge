@@ -1634,6 +1634,17 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the branch it is executed on: git.branching_strategy and its template",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "branch",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,
@@ -1769,6 +1780,17 @@
             "field_type": "bool",
             "inverse_of": null,
             "name": "backlog",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the branch it is executed on: git.branching_strategy and its template",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "branch",
             "required": false,
             "target_kind": null,
             "writer": "computed"

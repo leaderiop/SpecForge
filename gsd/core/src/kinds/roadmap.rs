@@ -53,6 +53,9 @@ pub const MILESTONE: Kind = Kind::new(
         block("progress", PROGRESS)
             .c()
             .doc("state json's `progress`: its phases and plans, and the smaller of the two fractions as a percent"),
+        str("branch")
+            .c()
+            .doc("the branch it is executed on: git.branching_strategy and its template"),
     ],
 )
 .scoped_by("workstream");
@@ -91,6 +94,9 @@ pub const PHASE: Kind = Kind::new(
         str("tag").doc("the parenthetical, (Cluster B)"),
         bool("inserted").c().doc("(INSERTED): a decimal name"),
         bool("backlog").c().doc("a 999.x name"),
+        str("branch")
+            .c()
+            .doc("the branch it is executed on: git.branching_strategy and its template"),
         bool("frontend").c().doc("the ui gate's frontend detection"),
         en("status", PHASE_STATUS)
             .c()
