@@ -267,6 +267,7 @@ fn a_shell_block_calls_only_specforge() {
 /// keep their headings, at 0 rows, and hold no row.
 #[test]
 fn the_prose_and_routing_groups_are_empty() {
+    let plan_id = Regex::new(r"\(R\d+\)").expect("a regex");
     let mut group = "";
     let mut seen = Vec::new();
     for line in specforge_only::PENDING_TOOLS.lines() {
@@ -280,10 +281,7 @@ fn the_prose_and_routing_groups_are_empty() {
                 assert!(line.ends_with(" 0 rows."), "{line}");
             }
             // a heading names its building block, never the plan that builds it
-            assert!(
-                !Regex::new(r"\(R\d+\)").expect("a regex").is_match(line),
-                "{line}"
-            );
+            assert!(!plan_id.is_match(line), "{line}");
             // H says what ADR 0343 D8 says: nothing is probed, and no setting turns an integration on
             if group == "H" {
                 assert!(
