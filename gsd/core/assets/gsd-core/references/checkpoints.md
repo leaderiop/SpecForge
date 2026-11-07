@@ -498,7 +498,7 @@ DEV_SERVER_PID=$!
 specforge wait --for 30s --url http://localhost:3000
 ```
 
-**Port conflicts:** Kill stale process (`lsof -ti:3000 | xargs kill`) or use alternate port (`--port 3001`).
+**Port conflicts:** stop the stale process that holds the port with your system's own tools, or use an alternate port (`--port 3001`).
 
 **Server stays running** through checkpoints. Only kill when plan complete, switching to production, or port needed for different service.
 

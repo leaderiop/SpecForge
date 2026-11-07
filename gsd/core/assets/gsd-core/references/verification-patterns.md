@@ -310,17 +310,17 @@ export function useUser() {
 # .env file exists
 [ -f ".env" ] || [ -f ".env.local" ]
 
-# Required variable is defined (in the environment: dotenv/direnv/the framework has loaded it)
-printenv "$VAR_NAME" >/dev/null
+# Required variable is defined: the rule below, applied by you, not a shell probe
+# (in the environment the checks run in: dotenv/direnv/the framework has loaded it)
 ```
 
-**Substantive check:**
-```bash
-# Variable has an actual value (not a placeholder) -- tests the shape, never prints the value;
-# exit 0 = real value, exit 1 = missing or placeholder (case-insensitive)
-v=$(printenv "$VAR_NAME"); case "$(printf %s "$v" | tr '[:upper:]' '[:lower:]')" in
-  ""|*your-*-here*|*xxx*|*placeholder*|*todo*) exit 1;;
-esac
+**Substantive check** (a rule you apply: test the shape, never print the value):
+```text
+The variable is defined in the environment the checks run in, and its value is neither empty
+nor a placeholder: `your-…-here`, `xxx`, `placeholder` or `todo`, in any case.
+
+
+
 
 # Value looks valid for type:
 # - URLs should start with http

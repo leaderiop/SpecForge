@@ -114,4 +114,18 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         28,
         30,
     ),
+    // a host chore is the user's: PowerShell recovery in a text fence, the port and env checks in prose
+    ("gsd-core/references/checkpoints.md", 499, 499),
+    ("gsd-core/references/verification-patterns.md", 311, 312),
+    ("gsd-core/references/verification-patterns.md", 315, 321),
+    (
+        "gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md",
+        6,
+        7,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md",
+        11,
+        12,
+    ),
 ];
