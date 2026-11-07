@@ -46,6 +46,8 @@ grep-regex = "=0.1.14"
 grep-searcher = "=0.1.17"
 # `specforge http --header`: a typed header's name and value as the wire takes them.
 http = "1"
+# `specforge wait --retry-after`: an HTTP-date in each of its three forms (RFC 9110 §5.6.7).
+httpdate = "1.0.3"
 
 [dev-dependencies]
 specforge-repo-root = { path = "../../leaf/repo-root" }

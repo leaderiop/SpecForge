@@ -18,6 +18,31 @@ use crate::{OpError, OpErrorKind};
 
 /// The longest wait, as long as `run`'s longest deadline.
 pub const LONGEST: Duration = specforge_effects::process::USER_CEILING;
+/// The time a `Retry-After` value asks to wait (RFC 9110 §10.2.3), counted from `now` and held to [`LONGEST`]:
+/// delay-seconds (a fraction taken to the millisecond above), or an HTTP-date in any of its three forms, one already
+/// past asking for none. `Err` names a value that is neither.
+pub fn retry_after(value: &str, now: std::time::SystemTime) -> Result<Duration, String> {
+    let value = value.trim();
+    let seconds = !value.is_empty()
+        && value.chars().all(|c| c.is_ascii_digit() || c == '.')
+        && value.matches('.').count() <= 1;
+    let asked = match (seconds, value.parse::<f64>()) {
+        (true, Ok(seconds)) => {
+            let millis = (seconds.min(LONGEST.as_secs_f64()) * 1000.0).ceil();
+            Duration::from_millis(millis as u64)
+        }
+        _ => httpdate::parse_http_date(value)
+            .map(|at| at.duration_since(now).unwrap_or_default())
+            .map_err(|_| {
+                format!(
+                    "{value:?} is no Retry-After value: write seconds (120) or an HTTP date (Sun, 06 Nov 1994 \
+                     08:49:37 GMT)"
+                )
+            })?,
+    };
+    Ok(asked.min(LONGEST))
+}
+
 /// The shortest and longest time a URL probe may take, the wait's own time held between them: at least a connection's
 /// time, at most a short request's.
 const PROBE_TIME: (Duration, Duration) = (Duration::from_secs(1), Duration::from_secs(10));
@@ -547,6 +572,29 @@ mod tests {
         let ended = polled(Duration::ZERO, true, Poll::BACK_OFF, &clock, || Ok(None));
         assert_eq!(ended.unwrap(), (Reason::Deadline, 1));
         assert!(clock.pauses.borrow().is_empty());
+    }
+
+    #[test]
+    fn a_retry_after_is_read_in_every_form_and_held_to_a_day() {
+        let now = std::time::UNIX_EPOCH + Duration::from_secs(784_111_777); // Sun, 06 Nov 1994 08:49:37 GMT
+        for (value, waits) in [
+            ("120", MS(120_000)),
+            ("0", Duration::ZERO),
+            ("1.5", MS(1500)),
+            ("0.0001", MS(1)),
+            ("86401", LONGEST),
+            ("99999999999999999999", LONGEST),
+            ("Sun, 06 Nov 1994 08:50:37 GMT", MS(60_000)),
+            ("Sunday, 06-Nov-94 08:50:37 GMT", MS(60_000)),
+            ("Sun Nov  6 08:50:37 1994", MS(60_000)),
+            ("Sun, 06 Nov 1994 08:48:37 GMT", Duration::ZERO),
+            ("Mon, 07 Nov 1994 08:49:38 GMT", LONGEST),
+        ] {
+            assert_eq!(retry_after(value, now), Ok(waits), "{value}");
+        }
+        for value in ["", "-5", "1e3", "inf", "1.2.3", "soon", "5m"] {
+            assert!(retry_after(value, now).is_err(), "{value}");
+        }
     }
 
     #[test]

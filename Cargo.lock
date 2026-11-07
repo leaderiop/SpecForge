@@ -4698,6 +4698,7 @@ dependencies = [
  "grep-regex",
  "grep-searcher",
  "http",
+ "httpdate",
  "proc-macro2",
  "proptest",
  "regex",

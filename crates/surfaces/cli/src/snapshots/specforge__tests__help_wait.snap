@@ -4,11 +4,14 @@ expression: command.clone().render_long_help().to_string()
 ---
 Wait until a URL answers, a file changes or a line matches, or for a time: exit 0 when it holds, 124 when the time runs out first (ADR 0342)
 
-Usage: specforge wait [OPTIONS] --for <DURATION>
+Usage: specforge wait [OPTIONS]
 
 Options:
       --for <DURATION>
           How long, at most: `0` (check once), `30` (seconds), `500ms`, `3s`, `5m`, `1h` (24h the most). With no condition, a delay of this long
+
+      --retry-after <SECONDS|HTTP-DATE>
+          In place of --for, how long as a `Retry-After` header says it: seconds (`120`, a fraction taken to the millisecond) or an HTTP date (a past one is no wait), held to 24h
 
       --url <URL>
           Holds once this URL answers, any HTTP status (a GET under the project's effects ceiling)

@@ -25,8 +25,19 @@ const EFFECTS_HELP: &str = "The effects mode: online (the default), auto and cac
 pub(crate) struct WaitArgs {
     /// How long, at most: `0` (check once), `30` (seconds), `500ms`, `3s`, `5m`, `1h` (24h the most). With no
     /// condition, a delay of this long
-    #[arg(long = "for", value_name = "DURATION", value_parser = parse_for)]
-    for_: Duration,
+    #[arg(
+        long = "for",
+        value_name = "DURATION",
+        value_parser = parse_for,
+        required_unless_present = "retry_after",
+        conflicts_with = "retry_after"
+    )]
+    for_: Option<Duration>,
+
+    /// In place of --for, how long as a `Retry-After` header says it: seconds (`120`, a fraction taken to the
+    /// millisecond) or an HTTP date (a past one is no wait), held to 24h
+    #[arg(long, value_name = "SECONDS|HTTP-DATE", value_parser = parse_retry_after)]
+    retry_after: Option<Duration>,
 
     /// Holds once this URL answers, any HTTP status (a GET under the project's effects ceiling)
     #[arg(long, value_name = "URL")]
@@ -63,7 +74,10 @@ impl WaitArgs {
             ports,
             |verbs| {
                 let wait = Wait {
-                    for_: self.for_,
+                    for_: self
+                        .for_
+                        .or(self.retry_after)
+                        .expect("clap asks for --for or --retry-after"),
                     url: self.url.clone(),
                     changed: self.changed.clone().map(|glob| Changed {
                         glob,
@@ -106,4 +120,9 @@ fn parse_for(text: &str) -> Result<Duration, String> {
         ));
     }
     Ok(span)
+}
+
+/// A `Retry-After` value as `--retry-after` reads one, counted from now.
+fn parse_retry_after(text: &str) -> Result<Duration, String> {
+    waited::retry_after(text, std::time::SystemTime::now())
 }

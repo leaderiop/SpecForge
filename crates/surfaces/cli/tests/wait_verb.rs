@@ -449,3 +449,30 @@ fn a_glob_is_read_from_the_project_root_from_any_directory() {
         "{nested}"
     );
 }
+
+/// `--retry-after` reads a `Retry-After` header's value in every form it takes: seconds, a fraction, an HTTP date (a
+/// past one is no wait), each held to a day; it stands in place of `--for`.
+#[test]
+fn a_retry_after_value_is_read_in_every_form() {
+    let project = TestProject::new();
+    for (value, for_ms) in [
+        ("0.2", 200),
+        ("0", 0),
+        ("Sun, 06 Nov 1994 08:49:37 GMT", 0),
+        ("Sunday, 06-Nov-94 08:49:37 GMT", 0),
+        ("Sun Nov  6 08:49:37 1994", 0),
+    ] {
+        let answer = Cli::on(&project)
+            .run(&["wait", "--retry-after", value])
+            .exits(0)
+            .answer();
+        assert_eq!(answer["reason"], "elapsed", "{value}: {answer}");
+        assert_eq!(answer["for_ms"], for_ms, "{value}: {answer}");
+    }
+    for args in [
+        &["wait", "--retry-after", "soon"][..],
+        &["wait", "--retry-after", "5", "--for", "5"],
+    ] {
+        Cli::on(&project).run(args).exits(2);
+    }
+}

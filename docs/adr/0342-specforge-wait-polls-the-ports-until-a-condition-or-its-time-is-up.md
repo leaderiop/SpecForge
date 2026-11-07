@@ -18,12 +18,15 @@ records, D4 local effects are performed in every mode). It amends neither.
 ## D1. The verb
 
 ```
-specforge wait --for <DURATION> [--url <URL>] [--changed <GLOB> [--since <MS>]] [--match <REGEX> --in <FILE>]
+specforge wait (--for <DURATION> | --retry-after <SECONDS|HTTP-DATE>) [--url <URL>] [--changed <GLOB> [--since <MS>]] [--match <REGEX> --in <FILE>]
                [--path P] [--format json|human] [--pick PATH] [--effects MODE]
 ```
 
-`--for` is required and read as `timeout` reads a duration: `0`, `30` (seconds), `500ms`, `3s`, `5m`, `1h`. It is at
-most 24 h, as `run --deadline`; a longer one is a usage error. Each condition is given at most once; `--since` needs
+`--for` is read as `timeout` reads a duration: `0`, `30` (seconds), `500ms`, `3s`, `5m`, `1h`. It is at most 24 h, as
+`run --deadline`; a longer one is a usage error. `--retry-after` gives the time in its place as a `Retry-After` header
+gives it (RFC 9110 §10.2.3): delay-seconds, a fraction taken to the millisecond above, or an HTTP-date in any of its
+three forms counted from now, a past one no wait; a value past 24 h is held to 24 h, since a server's backoff is not
+the user's typo. One of the two is required. Each condition is given at most once; `--since` needs
 `--changed`, and `--match` and `--in` need each other. It is a fifth verb: the user's act under the user grant, with no
 MCP tool (ADR 0339 D1). The kernel knows nothing of servers, planners or quotas.
 
