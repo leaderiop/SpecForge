@@ -52,7 +52,7 @@ module specforge_package "specforge-package" {
 
 module specforge_protocol_types "specforge-protocol-types" {
   family      core
-  description "The guest wire of the SpecForge extension protocol: the handshake, the describe payloads, the operation payloads and the command-arg rule, which the host and every guest compile (ADR 0012, 0013, 0050)"
+  description "The guest wire of the SpecForge extension protocol: the handshake, the describe payloads, the operation payloads, the command-arg rule and the shell-word reader, which the host and every guest compile (ADR 0012, 0013, 0050, 0292)"
   tags        ["leaf"]
 }
 
