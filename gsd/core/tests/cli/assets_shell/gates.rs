@@ -456,3 +456,36 @@ fn complete_milestone_finds_the_milestone_branch_when_it_exists() {
     let (out, err, _) = sh.run_in(p.root(), &line);
     assert_eq!(out, "milestone|gsd/v1.0-taskboard-1-0", "{err}");
 }
+
+/// Ship's wait for the PR's state prints nothing, as the `sleep` it replaced, so the loop shows only its own lines,
+/// and keeps the wait's exit: a wait that cannot wait still fails the step.
+#[test]
+fn ships_wait_for_the_pr_prints_nothing_and_keeps_its_exit() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let text = asset("gsd-core/workflows/ship.md");
+    let line = text
+        .lines()
+        .find(|line| line.trim_start().starts_with("specforge wait --for 3s"))
+        .expect("ship's wait")
+        .trim();
+    let p = project("execute");
+    let home = p.root().join("home");
+    std::fs::create_dir_all(&home).expect("home/");
+    for (length, exit) in [("0", "0"), ("soon", "2")] {
+        let (out, err, code) = sh.run_in(
+            p.root(),
+            &format!(
+                "export HOME={}; {}; echo \"exit $?\"",
+                super::q(&home.to_string_lossy()),
+                line.replace("3s", length)
+            ),
+        );
+        assert_eq!(
+            (out.as_str(), code),
+            (format!("exit {exit}\n").as_str(), 0),
+            "{err}"
+        );
+    }
+}
