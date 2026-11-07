@@ -63,6 +63,11 @@ fn the_script_comes_from_the_words_right_after_run() {
         at("cd web && npm --prefix=x run lint").need,
         Need::Package(Some("lint".into()))
     );
+    // Each package directory flag is skipped, as the walk reads them.
+    assert_eq!(
+        at("cd web && npm --cwd x run lint").need,
+        Need::Package(Some("lint".into()))
+    );
     assert_eq!(at("cd web && pnpm run lint").need, Need::Package(None));
     assert_eq!(resolve("cd 'web"), Verdict::Dynamic, "an unclosed quote");
     assert_eq!(

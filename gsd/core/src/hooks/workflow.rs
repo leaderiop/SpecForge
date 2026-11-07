@@ -9,8 +9,9 @@
 //! (ADR 0322).
 //!
 //! The one block (#3504): a shell command that force-adds (`git add -f`, `--force`, `-Af`) on an agent branch
-//! (`agent-*`, `worktree-agent-*`) is refused. The kernel splits the command at its control operators and tells the
-//! hook the branch (ADR 0320); the walk past git's global options is `git-cmd.js`'s `skipToSubcommand`. Not ported:
+//! (`agent-*`, `worktree-agent-*`, `worktree-wf_*`) is refused. The kernel splits the command at its control
+//! operators and tells the hook the branch (ADR 0320); the walk past git's global options is `git-cmd.js`'s
+//! `skipToSubcommand`. Not ported:
 //! the node hook's fail-closed posture on an internal error (a hook here does not crash into a policy), and the
 //! branch of a `git -C <dir>` target (the branch is the hook's cwd's). Two of upstream's three exemptions are other
 //! facts here: the spec root is `.planning/`, and a subagent is `tool.input.is_subagent` (the kernel carries no

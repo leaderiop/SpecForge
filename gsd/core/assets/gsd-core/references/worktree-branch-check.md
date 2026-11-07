@@ -31,7 +31,7 @@ if [ "$DETACHED" = true ] || [ "$PROTECTED" = true ]; then
   echo "FATAL: worktree HEAD on '$ACTUAL_BRANCH' (expected agent-* or worktree-agent-*); refusing to commit or self-recover via 'git update-ref' (#2924)." >&2
   exit 42
 fi
-if [ "$(specforge gsd branch-check --agent --pick .agent)" != true ]; then
+if [ "$(specforge gsd branch-check --pick .agent)" != true ]; then
   echo "FATAL: worktree HEAD '$ACTUAL_BRANCH' is not in the agent-* / worktree-agent-* / worktree-wf_* namespace; refusing to commit (#2924)." >&2
   exit 42
 fi

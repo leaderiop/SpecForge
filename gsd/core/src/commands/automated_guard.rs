@@ -15,7 +15,7 @@ use specforge_extension_sdk::host::{fs, git};
 use specforge_extension_sdk::prelude::*;
 
 use super::support::{answer, given, node, required, run};
-use crate::relocation::{Event, dynamic, events, literal_prefix, missing_sentinel};
+use crate::relocation::{Event, dynamic, events, literal_prefix, missing_sentinel, normal_parts};
 
 /// Where a command must stay: the worktree's top, and the main checkout it must not reach.
 struct Roots<'a> {
@@ -51,16 +51,8 @@ fn resolved(from: &str, target: &str) -> String {
         format!("{from}/{target}")
     };
     let root = drive(&joined).unwrap_or("/");
-    let mut parts: Vec<&str> = Vec::new();
-    for part in joined[if root == "/" { 0 } else { root.len() }..].split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                parts.pop();
-            }
-            part => parts.push(part),
-        }
-    }
+    // Above the root is the root, as the file system has it.
+    let (parts, _) = normal_parts(&joined[if root == "/" { 0 } else { root.len() }..]);
     format!("{root}{}", parts.join("/"))
 }
 

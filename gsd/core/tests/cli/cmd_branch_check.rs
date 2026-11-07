@@ -1,4 +1,4 @@
-//! `specforge gsd branch-check [--agent]`: the branch `HEAD` is on, read through the git port, and the settings.
+//! `specforge gsd branch-check`: the branch `HEAD` is on, read through the git port, and the settings.
 
 use serde_json::json;
 
@@ -87,13 +87,15 @@ fn branch_check_reads_head_and_the_settings() {
     assert_eq!(main["branch"], "main", "{main}");
     assert_eq!(main["protected"], true, "{main}");
     assert_eq!(main["blocks_commit"], true, "{main}");
-    assert!(
-        main["why"].as_str().is_some_and(|w| w.contains("'main'")),
-        "{main}"
+    assert_eq!(
+        main["why"],
+        serde_json::Value::Null,
+        "the assets say why: {main}"
     );
     let human = gsd(&p, "branch-check", &[]);
-    assert!(
-        human.stdout.contains("protected/default branch"),
+    assert_eq!(
+        human.stdout.trim(),
+        "blocks a commit: main is protected",
         "{}",
         human.all()
     );
@@ -110,7 +112,6 @@ fn branch_check_reads_head_and_the_settings() {
         allowed["protected"], true,
         "the warnings still show: {allowed}"
     );
-    assert_eq!(allowed["overridden"], true, "{allowed}");
     assert_eq!(allowed["blocks_commit"], false, "{allowed}");
     p.settings(json!({}));
 
@@ -118,23 +119,24 @@ fn branch_check_reads_head_and_the_settings() {
     assert_eq!(answer(&p, &[])["protected"], true);
 
     p.git(&["checkout", "-q", "-b", "agent-1"], AT);
-    let agent = answer(&p, &["--agent"]);
+    let agent = answer(&p, &[]);
     assert_eq!(agent["agent"], true, "{agent}");
     assert_eq!(agent["blocks_commit"], false, "{agent}");
     assert_eq!(gsd(&p, "branch-check", &[]).stdout.trim(), "ok: agent-1");
 
     p.git(&["checkout", "-q", "-b", "feature/x"], AT);
-    assert_eq!(answer(&p, &["--agent"])["blocks_commit"], true);
-    assert_eq!(answer(&p, &[])["blocks_commit"], false);
+    let free = answer(&p, &[]);
+    assert_eq!(
+        (free["agent"].clone(), free["blocks_commit"].clone()),
+        (json!(false), json!(false))
+    );
 
     p.git(&["checkout", "-q", "--detach"], AT);
     let detached = answer(&p, &[]);
     assert_eq!(detached["detached"], true, "{detached}");
     assert_eq!(detached["blocks_commit"], true, "{detached}");
-    assert!(
-        detached["why"]
-            .as_str()
-            .is_some_and(|w| w.contains("detached")),
-        "{detached}"
+    assert_eq!(
+        gsd(&p, "branch-check", &[]).stdout.trim(),
+        "blocks a commit: HEAD is detached"
     );
 }

@@ -8,7 +8,10 @@
 //!
 //! gsd-core modules this file ports: verify-command-grounding.cjs.
 
-use crate::relocation::{Event, dynamic, events, missing_sentinel};
+use crate::relocation::{
+    Event, PACKAGE_DIR_FLAGS, PACKAGE_TOOLS, dynamic, events, long_value, missing_sentinel,
+    normal_parts,
+};
 
 /// What a command's text says about where it runs.
 #[derive(Debug, PartialEq, Eq)]
@@ -143,7 +146,7 @@ fn need(words: &[String]) -> Need {
     let tool = words
         .first()
         .map_or("", |word| word.rsplit('/').next().unwrap_or(word));
-    if ["npm", "npx", "pnpm", "yarn", "bun"].contains(&tool) {
+    if PACKAGE_TOOLS.contains(&tool) {
         Need::Package(npm_script(tool, &words[1..]))
     } else if tool == "make" {
         Need::Makefile
@@ -172,17 +175,8 @@ fn lexical(path: &str) -> Option<String> {
     if path.starts_with('/') {
         return None;
     }
-    let mut parts: Vec<&str> = Vec::new();
-    for part in path.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                parts.pop()?;
-            }
-            other => parts.push(other),
-        }
-    }
-    Some(parts.join("/"))
+    let (parts, above) = normal_parts(path);
+    (!above).then(|| parts.join("/"))
 }
 
 /// The script of `npm run <script>`, with `--prefix` flags before the `run` read past.
@@ -192,9 +186,13 @@ fn npm_script(tool: &str, args: &[String]) -> Option<String> {
     }
     let mut args = args.iter().map(String::as_str);
     let mut word = args.next()?;
-    while word == "--prefix" || word.starts_with("--prefix=") {
-        if word == "--prefix" {
-            args.next()?;
+    loop {
+        match long_value(word, PACKAGE_DIR_FLAGS.iter()) {
+            (_, false) => break,
+            (None, true) => {
+                args.next()?;
+            }
+            (Some(_), true) => {}
         }
         word = args.next()?;
     }

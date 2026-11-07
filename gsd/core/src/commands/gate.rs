@@ -30,17 +30,19 @@ const LOCKFILES: &[(&str, &str, &str)] = &[
     ("bun_lockb", "bun.lockb", "bun"),
 ];
 
-/// `(read name, file)`: the markers a gate only asks the existence of.
-const MARKERS: &[(&str, &str)] = &[
-    ("justfile_upper", "Justfile"),
-    ("justfile_lower", "justfile"),
-    ("cargo_toml", "Cargo.toml"),
-    ("go_mod", "go.mod"),
-    ("pyproject", "pyproject.toml"),
-    ("requirements", "requirements.txt"),
-    ("package_json_file", "package.json"),
-    ("uv_lock", "uv.lock"),
+/// `(read name, file, runner)`: the markers a gate only asks the existence of, by the runner each decides.
+const MARKERS: &[(&str, &str, Runner)] = &[
+    ("justfile_upper", "Justfile", Runner::Just),
+    ("justfile_lower", "justfile", Runner::Just),
+    ("cargo_toml", "Cargo.toml", Runner::Cargo),
+    ("go_mod", "go.mod", Runner::Go),
+    ("pyproject", "pyproject.toml", Runner::Python),
+    ("requirements", "requirements.txt", Runner::Python),
+    ("package_json_file", "package.json", Runner::Package),
 ];
+
+/// `(read name, file)`: picks how pytest runs, and decides no runner.
+const UV_LOCK: (&str, &str) = ("uv_lock", "uv.lock");
 
 /// The answer's `source` when a manifest stands unread: the one answer that fails.
 const UNREAD: &str = "unread";
@@ -48,7 +50,33 @@ const UNREAD: &str = "unread";
 /// The most sources the python build gate compiles.
 const PY_COMPILE_MAX: usize = 20;
 
-#[derive(Clone, Copy)]
+/// The gate asked for.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+enum Target {
+    #[default]
+    Build,
+    Test,
+}
+
+impl Target {
+    /// The arg's word; the declaration admits only these two.
+    fn of(word: &str) -> Self {
+        if word == "build" {
+            Target::Build
+        } else {
+            Target::Test
+        }
+    }
+
+    fn word(self) -> &'static str {
+        match self {
+            Target::Build => "build",
+            Target::Test => "test",
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
 enum Runner {
     Make,
     Just,
@@ -61,15 +89,17 @@ enum Runner {
 impl Runner {
     /// The files that decide this runner: one that is there and cannot be read leaves its decision open.
     fn manifests(self) -> Vec<&'static str> {
+        let markers = MARKERS
+            .iter()
+            .filter(|(_, _, runner)| *runner == self)
+            .map(|(_, file, _)| *file);
         match self {
             Runner::Make => vec!["Makefile"],
-            Runner::Just => vec!["Justfile", "justfile"],
-            Runner::Cargo => vec!["Cargo.toml"],
-            Runner::Go => vec!["go.mod"],
-            Runner::Python => vec!["pyproject.toml", "requirements.txt", "uv.lock"],
-            Runner::Package => std::iter::once("package.json")
+            Runner::Python => markers.chain([UV_LOCK.1]).collect(),
+            Runner::Package => markers
                 .chain(LOCKFILES.iter().map(|(_, file, _)| *file))
                 .collect(),
+            _ => markers.collect(),
         }
     }
 }
@@ -92,16 +122,6 @@ const TEST: &[Runner] = &[
     Runner::Python,
 ];
 
-/// `^[A-Za-z0-9_][A-Za-z0-9:_-]{0,63}$`: the manager reads the word as a script's name, never as an option.
-fn plain_script(script: &str) -> bool {
-    let mut bytes = script.bytes();
-    bytes
-        .next()
-        .is_some_and(|b| b.is_ascii_alphanumeric() || b == b'_')
-        && script.len() <= 64
-        && bytes.all(|b| b.is_ascii_alphanumeric() || matches!(b, b':' | b'_' | b'-'))
-}
-
 /// The manager `package.json`'s text declares, when it is an object whose `packageManager` names a known one.
 fn declared(package_json: &str) -> Option<&'static str> {
     let value: serde_json::Value = serde_json::from_str(package_json).ok()?;
@@ -119,27 +139,22 @@ pub fn resolve(
     script: &str,
     package_json: Option<&str>,
     has: impl Fn(&str) -> bool,
-) -> Result<Vec<String>, String> {
-    if !plain_script(script) {
-        return Err(format!(
-            "'{script}' is not a script name: a letter, digit or `_`, then up to 63 of those, `:` or `-`"
-        ));
-    }
+) -> Vec<String> {
     let manager = package_json
         .and_then(declared)
         .or_else(|| LOCKFILES.iter().find(|(_, file, _)| has(file)).map(|l| l.2))
         .unwrap_or("npm");
-    Ok(if script == "test" && manager != "bun" {
+    if script == "test" && manager != "bun" {
         words(&[manager, "test"])
     } else {
         words(&[manager, "run", script])
-    })
+    }
 }
 
 /// What the caller asks: the target, the scope, the setting and what the block read for it.
 #[derive(Default)]
 struct Ask<'a> {
-    target: &'a str,
+    target: Target,
     regression: bool,
     setting: Option<&'a str>,
     xcode_project: Option<&'a str>,
@@ -224,7 +239,7 @@ fn newest_simulator(simulators: &str) -> Option<String> {
 
 fn xcode(ask: &Ask<'_>, project: &str) -> Gate {
     let Some(udid) = ask.simulators.and_then(newest_simulator) else {
-        let target = ask.target;
+        let target = ask.target.word();
         return Gate::skips(
             "xcode",
             format!(
@@ -232,7 +247,7 @@ fn xcode(ask: &Ask<'_>, project: &str) -> Gate {
             ),
         );
     };
-    let mut argv = words(&["xcodebuild", ask.target, "-project", project]);
+    let mut argv = words(&["xcodebuild", ask.target.word(), "-project", project]);
     if let Some(scheme) = ask.xcode_list.and_then(first_scheme) {
         argv.extend(["-scheme".to_string(), scheme]);
     }
@@ -250,7 +265,7 @@ fn as_operand(path: &str) -> String {
 }
 
 fn python<F: Fn(&str) -> bool>(ask: &Ask<'_>, tree: &Tree<'_, F>) -> Gate {
-    if ask.target == "build" {
+    if ask.target == Target::Build {
         if tree.python.is_empty() {
             return nothing(ask);
         }
@@ -263,7 +278,7 @@ fn python<F: Fn(&str) -> bool>(ask: &Ask<'_>, tree: &Tree<'_, F>) -> Gate {
         );
         return Gate::runs("python", argv);
     }
-    let mut argv = if (tree.has)("uv.lock") {
+    let mut argv = if (tree.has)(UV_LOCK.1) {
         words(&["uv", "run", "python"])
     } else {
         words(&["python"])
@@ -287,8 +302,12 @@ fn python<F: Fn(&str) -> bool>(ask: &Ask<'_>, tree: &Tree<'_, F>) -> Gate {
 fn nothing(ask: &Ask<'_>) -> Gate {
     let note = match (ask.regression, ask.target) {
         (true, _) => None,
-        (false, "build") => Some("⚠ No build command detected — skipping build gate".to_string()),
-        (false, _) => Some("⚠ No test runner detected — skipping post-merge test gate".to_string()),
+        (false, Target::Build) => {
+            Some("⚠ No build command detected — skipping build gate".to_string())
+        }
+        (false, Target::Test) => {
+            Some("⚠ No test runner detected — skipping post-merge test gate".to_string())
+        }
     };
     Gate {
         source: "none",
@@ -297,16 +316,16 @@ fn nothing(ask: &Ask<'_>) -> Gate {
     }
 }
 
-fn package<F: Fn(&str) -> bool>(ask: &Ask<'_>, tree: &Tree<'_, F>) -> Result<Gate, String> {
-    let argv = resolve(ask.target, tree.package_json, &tree.has)?;
+fn package<F: Fn(&str) -> bool>(ask: &Ask<'_>, tree: &Tree<'_, F>) -> Gate {
+    let argv = resolve(ask.target.word(), tree.package_json, &tree.has);
     let mut gate = Gate::runs("package", argv);
-    if ask.target == "build" {
+    if ask.target == Target::Build {
         gate.note = Some(format!(
             "⚠ Build command not configured — running this project's build script ({}). Set workflow.build_command to pin it.",
             gate.argv.join(" ")
         ));
     }
-    Ok(gate)
+    gate
 }
 
 /// Whether `Makefile`'s text has a rule for `target`, as upstream's `grep -q "^<target>:"`.
@@ -331,50 +350,60 @@ fn has_build_script(package_json: Option<&str>) -> bool {
         })
 }
 
-fn choose<F: Fn(&str) -> bool>(ask: &Ask<'_>, tree: &Tree<'_, F>) -> Result<Gate, String> {
+/// The gate `runner` answers for this project, when it decides.
+fn decided<F: Fn(&str) -> bool>(runner: Runner, ask: &Ask<'_>, tree: &Tree<'_, F>) -> Option<Gate> {
+    let target = ask.target.word();
+    let marked = || {
+        MARKERS
+            .iter()
+            .any(|(_, file, of)| *of == runner && (tree.has)(file))
+    };
+    match runner {
+        Runner::Make => {
+            make_has(tree.makefile, target).then(|| Gate::runs("make", words(&["make", target])))
+        }
+        Runner::Just => marked().then(|| Gate::runs("just", words(&["just", target]))),
+        Runner::Cargo => marked().then(|| Gate::runs("cargo", words(&["cargo", target]))),
+        Runner::Go => marked().then(|| Gate::runs("go", words(&["go", target, "./..."]))),
+        Runner::Python => marked().then(|| python(ask, tree)),
+        Runner::Package if ask.target == Target::Build => {
+            has_build_script(tree.package_json).then(|| package(ask, tree))
+        }
+        Runner::Package => marked().then(|| package(ask, tree)),
+    }
+}
+
+fn choose<F: Fn(&str) -> bool>(ask: &Ask<'_>, tree: &Tree<'_, F>) -> Gate {
     if let Some(setting) = ask.setting.filter(|s| !s.trim().is_empty()) {
-        return Ok(Gate::runs("setting", words(&["bash", "-c", setting])));
+        return Gate::runs("setting", words(&["bash", "-c", setting]));
     }
     if let Some(project) = ask.xcode_project.filter(|_| !ask.regression) {
-        return Ok(xcode(ask, project));
+        return xcode(ask, project);
     }
-    let order = if ask.target == "build" { BUILD } else { TEST };
+    let order = if ask.target == Target::Build {
+        BUILD
+    } else {
+        TEST
+    };
     for runner in order {
         if let Some(file) = runner
             .manifests()
             .iter()
             .find(|file| tree.unread.contains(file))
         {
-            return Ok(Gate::skips(
+            return Gate::skips(
                 UNREAD,
                 format!(
                     "⚠ '{file}' is there and could not be read (a link out of the project or to nothing, a directory, a file too large): the {target} gate is not skipped for it. Repair it or set workflow.{target}_command.",
-                    target = ask.target,
+                    target = ask.target.word(),
                 ),
-            ));
+            );
         }
-        let found = match runner {
-            Runner::Make => make_has(tree.makefile, ask.target),
-            Runner::Just => (tree.has)("Justfile") || (tree.has)("justfile"),
-            Runner::Cargo => (tree.has)("Cargo.toml"),
-            Runner::Go => (tree.has)("go.mod"),
-            Runner::Python => (tree.has)("pyproject.toml") || (tree.has)("requirements.txt"),
-            Runner::Package if ask.target == "build" => has_build_script(tree.package_json),
-            Runner::Package => (tree.has)("package.json"),
-        };
-        if !found {
-            continue;
+        if let Some(gate) = decided(*runner, ask, tree) {
+            return gate;
         }
-        return match runner {
-            Runner::Make => Ok(Gate::runs("make", words(&["make", ask.target]))),
-            Runner::Just => Ok(Gate::runs("just", words(&["just", ask.target]))),
-            Runner::Cargo => Ok(Gate::runs("cargo", words(&["cargo", ask.target]))),
-            Runner::Go => Ok(Gate::runs("go", words(&["go", ask.target, "./..."]))),
-            Runner::Python => Ok(python(ask, tree)),
-            Runner::Package => package(ask, tree),
-        };
     }
-    Ok(nothing(ask))
+    nothing(ask)
 }
 
 /// The argv is read one word a line (`--pick '.argv[]'`): a word no line can carry is refused, never split.
@@ -405,24 +434,25 @@ fn read(call: &CommandCall<'_>, name: &str, file: &str) -> bool {
 }
 
 fn gate_command(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
-    let target = required(call, "target")?;
+    let target = Target::of(required(call, "target")?);
     let scope = call.str("scope").unwrap_or("post_merge");
     let regression = scope == "regression";
-    if regression && target == "build" {
+    if regression && target == Target::Build {
         return Err(
             "the regression gate runs tests: 'build' takes no regression scope".to_string(),
         );
     }
     let settings = Settings::current();
-    let given = |arg: &str| Ok::<_, String>(text(call, arg)?.filter(|value| !value.is_empty()));
+    let blank_is_none =
+        |arg: &str| Ok::<_, String>(text(call, arg)?.filter(|value| !value.is_empty()));
     let ask = Ask {
         target,
         regression,
-        setting: settings.string(&format!("workflow.{target}_command")),
-        xcode_project: given("xcode_project")?,
-        xcode_list: given("xcode_list")?,
-        simulators: given("simulators")?,
-        files: given("files")?
+        setting: settings.string(&format!("workflow.{}_command", target.word())),
+        xcode_project: blank_is_none("xcode_project")?,
+        xcode_list: blank_is_none("xcode_list")?,
+        simulators: blank_is_none("simulators")?,
+        files: blank_is_none("files")?
             .map(|files| files.lines().filter(|line| !line.is_empty()).collect())
             .unwrap_or_default(),
     };
@@ -435,7 +465,8 @@ fn gate_command(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         LOCKFILES
             .iter()
             .map(|(name, lockfile, _)| (name, lockfile))
-            .chain(MARKERS.iter().map(|(name, marker)| (name, marker)))
+            .chain(MARKERS.iter().map(|(name, marker, _)| (name, marker)))
+            .chain([(&UV_LOCK.0, &UV_LOCK.1)])
             .any(|(name, marker)| {
                 *marker == file
                     && call
@@ -446,7 +477,8 @@ fn gate_command(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let read_names = std::iter::once(("makefile", "Makefile"))
         .chain(std::iter::once(("package_json", "package.json")))
         .chain(LOCKFILES.iter().map(|(name, file, _)| (*name, *file)))
-        .chain(MARKERS.iter().copied());
+        .chain(MARKERS.iter().map(|(name, file, _)| (*name, *file)))
+        .chain([UV_LOCK]);
     let tree = Tree {
         unread: read_names
             .filter(|(name, file)| !read(call, name, file))
@@ -460,7 +492,7 @@ fn gate_command(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
             .map(|f| f.facts.iter().map(|fact| fact.path.as_str()).collect())
             .unwrap_or_default(),
     };
-    let gate = choose(&ask, &tree)?;
+    let gate = choose(&ask, &tree);
     refuse_unreadable(&gate.argv)?;
     // The note goes to stderr, so a block that picks the words on stdout still shows it.
     let human = if gate.argv.is_empty() {
@@ -472,7 +504,7 @@ fn gate_command(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let mut out = answer(
         call,
         json!({
-            "target": target,
+            "target": target.word(),
             "scope": scope,
             "source": gate.source,
             "argv": gate.argv,
@@ -519,9 +551,10 @@ pub fn declare(c: &mut ContributionsBuilder) {
         for (name, file, _) in LOCKFILES {
             cmd.input(Input::files(name, FileReadSpec::glob(file)));
         }
-        for (name, file) in MARKERS {
+        for (name, file, _) in MARKERS {
             cmd.input(Input::files(name, FileReadSpec::glob(file)));
         }
+        cmd.input(Input::files(UV_LOCK.0, FileReadSpec::glob(UV_LOCK.1)));
         cmd.handler(|call| run(call, gate_command));
     });
 }

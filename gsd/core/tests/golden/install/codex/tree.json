@@ -16,8 +16,8 @@
     "sha256": "7c45839fc0a09639adfddc43e826156270bfc674b22cbef3a69e486031541c0a"
   },
   ".codex/agents/gsd-executor.toml": {
-    "bytes": 46638,
-    "sha256": "3a5e02e4f02f6b94449849320fd56ef6c11e0d6e9829858741f62945ce8cbd10"
+    "bytes": 46630,
+    "sha256": "ff17cef49d8a83696dc1a46daac712255493fd05b692811b94fde0e4eeafb6db"
   },
   ".codex/agents/gsd-integration-checker.toml": {
     "bytes": 18459,
