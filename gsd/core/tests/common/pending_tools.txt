@@ -64,7 +64,7 @@ prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shippi
 
 # E network: the host HTTP service and a GitHub provider (R3). 0 rows.
 
-# F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 55 rows.
+# F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 54 rows.
 agents/gsd-nyquist-auditor.compact.md	pytest	pytest {file} -v
 agents/gsd-nyquist-auditor.md	pytest	pytest {file} -v
 agents/gsd-phase-researcher.md	cargo	cargo search <pkg>
@@ -81,7 +81,6 @@ agents/gsd-phase-researcher.md	python3	python3 --version 2>/dev/null
 agents/gsd-phase-researcher.md	redis-cli	redis-cli ping 2>/dev/null
 agents/gsd-phase-researcher.md	ruby	ruby --version 2>/dev/null
 agents/gsd-planner.md	npm	npm --prefix <dir> run <script>
-agents/gsd-planner.md	npx	npx --yes ctx7@latest
 agents/gsd-verifier.md	bash	bash "$probe"
 agents/gsd-verifier.md	bash	bash "$probe"
 agents/gsd-verifier.md	cargo	cargo test -- --list 2>/dev/null | grep -q "$PHASE_TEST_PATTERN"   # pytest --collect-only -q · npx vitest list · go test -list '.*'

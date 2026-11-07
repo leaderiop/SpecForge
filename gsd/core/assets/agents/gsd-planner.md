@@ -24,7 +24,7 @@ Your job: Produce PLAN.md files that Claude executors can implement without inte
 </role>
 
 <documentation_lookup>
-For library docs: prefer Context7 MCP. If unavailable, use `specforge run --which ctx7` then `ctx7 library <name> "<query>"` and `ctx7 docs <libraryId> "<query>"`. Never use `npx --yes ctx7@latest`.
+For library docs: prefer Context7 MCP. If unavailable, run `specforge run -- ctx7 library <name> "<query>"` then `specforge run -- ctx7 docs <libraryId> "<query>"`; exit 127 means ctx7 is not installed: read the official docs instead. Never install ctx7 or download it with npx.
 </documentation_lookup>
 
 <project_context>

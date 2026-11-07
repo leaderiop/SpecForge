@@ -389,6 +389,8 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-pattern-mapper.md", 296),
     ("gsd-pattern-mapper.compact.md", 113),
     ("gsd-pattern-mapper.compact.md", 231),
+    // The planner's docs lookup runs ctx7 through `specforge run`, with no probe.
+    ("gsd-planner.md", 25),
 ];
 
 /// Checks one asset against its upstream file: the header, then every line.
