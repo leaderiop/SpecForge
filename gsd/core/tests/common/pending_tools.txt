@@ -3,6 +3,7 @@
 # or the shell's own: <file>\t<tool>\t<line>. Tests: port_tools::a_shell_block_calls_only_specforge and
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
+# Prose and routing probes are reworded per ADR 0343 (D7, D8), never listed: H and K stay at 0 rows.
 
 # A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 35 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)

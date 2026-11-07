@@ -263,6 +263,32 @@ fn a_shell_block_calls_only_specforge() {
     );
 }
 
+/// A prose line or a routing probe is reworded (ADR 0343 D7, D8), never listed: the `H` and `K` groups of the ledger
+/// keep their headings, at 0 rows, and hold no row.
+#[test]
+fn the_prose_and_routing_groups_are_empty() {
+    let mut group = "";
+    let mut seen = Vec::new();
+    for line in specforge_only::PENDING_TOOLS.lines() {
+        if let Some(rest) = line.strip_prefix("# ")
+            && rest.as_bytes().get(1) == Some(&b' ')
+            && rest.as_bytes()[0].is_ascii_uppercase()
+        {
+            group = &rest[..1];
+            seen.push(group);
+            if matches!(group, "H" | "K") {
+                assert!(line.ends_with(" 0 rows."), "{line}");
+            }
+        } else if !line.is_empty() && !line.starts_with('#') {
+            assert!(
+                !matches!(group, "H" | "K"),
+                "a row under group {group}: {line}"
+            );
+        }
+    }
+    assert!(seen.contains(&"H") && seen.contains(&"K"), "{seen:?}");
+}
+
 /// One declared command as `(name, positionals in order, options and flags with their kind)`.
 struct Shape {
     positionals: Vec<String>,
