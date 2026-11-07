@@ -514,7 +514,7 @@ for i in {1..5}; do
   if [ "$HEAD_OID" = "$SHIP_NOTE_SHA" ] && [ "$STATUS" != "unknown" ]; then
     break
   fi
-  sleep 3
+  specforge wait --for 3s
 done
 
 if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && [ "$(specforge git log "$SHIP_NOTE_SHA" --max 1 --grep '\[ci skip\]' --pick '.commits[0].sha' 2>/dev/null)" = "$SHIP_NOTE_SHA" ]; then

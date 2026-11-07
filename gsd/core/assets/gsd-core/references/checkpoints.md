@@ -494,8 +494,8 @@ I'll verify: vercel whoami returns your account
 npm run dev &
 DEV_SERVER_PID=$!
 
-# Wait for ready (max 30s) — uses fetch() for cross-platform compatibility
-for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done
+# Wait for ready (max 30s): any HTTP answer, a 404 included, means the server is up; 124 means it never answered
+specforge wait --for 30s --url http://localhost:3000
 ```
 
 **Port conflicts:** Kill stale process (`lsof -ti:3000 | xargs kill`) or use alternate port (`--port 3001`).
@@ -530,7 +530,7 @@ for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{proc
 
 **Never present a checkpoint with broken verification environment.** If the local server isn't responding, don't ask user to "visit localhost:3000".
 
-> **Cross-platform note:** Use `node -e "fetch('http://localhost:3000').then(r=>console.log(r.status))"` instead of `curl` for health checks. `curl` is broken on Windows MSYS/Git Bash due to SSL/path mangling issues.
+> **Cross-platform note:** Use `specforge wait --for 30s --url http://localhost:3000` to wait for a server, and `specforge http get http://localhost:3000 --pick .status` for a health check, instead of `curl`, which is broken on Windows MSYS/Git Bash (SSL and path mangling), and with nothing to install.
 
 ```xml
 <!-- WRONG: Checkpoint with broken environment -->

@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 84 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 83 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
 agents/gsd-executor.md	grep	git status --short | grep '^??'
@@ -15,7 +15,6 @@ agents/gsd-verifier.md	grep	node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBC
 agents/gsd-verifier.md	grep	node -e "const m = require('$MODULE_PATH'); console.log(typeof m.$FUNCTION_NAME)" 2>/dev/null | grep -q "function"
 agents/gsd-verifier.md	grep	cargo test -- --list 2>/dev/null | grep -q "$PHASE_TEST_PATTERN"   # pytest --collect-only -q · npx vitest list · go test -list '.*'
 gsd-core/references/agent-contracts.md	wc	wc -l
-gsd-core/references/checkpoints.md	seq	for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done
 gsd-core/references/specless-probe-fallback.md	cat	cat > "$REQS_JSON" <<'JSON'
 gsd-core/references/specless-probe-fallback.md	grep	EDGE_ABSENT=1;   node "$SPEC_SECTION_JS" "$SPEC_FILE" edges       2>/dev/null | grep -q '"supplied":true' && EDGE_ABSENT=0
 gsd-core/references/specless-probe-fallback.md	grep	PROHIB_ABSENT=1; node "$SPEC_SECTION_JS" "$SPEC_FILE" prohibitions 2>/dev/null | grep -q '"supplied":true' && PROHIB_ABSENT=0
@@ -90,18 +89,14 @@ prompt:ultraplan_phase	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.9
 prompt:ultraplan_phase	sort	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 prompt:undo	grep	grep -E "\(0*${TARGET_PHASE}(-[0-9]+)?\):"
 
-# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 11 rows.
+# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 8 rows.
 gsd-core/references/checkpoints.md	lsof	lsof -ti:3000 | xargs kill
-gsd-core/references/checkpoints.md	sleep	for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done
-gsd-core/references/execute-phase-quota-recovery.md	sleep	sleep "$RETRY_AFTER"
 gsd-core/references/verification-patterns.md	printenv	printenv "$VAR_NAME" >/dev/null
 gsd-core/references/verification-patterns.md	printenv	v=$(printenv "$VAR_NAME"); case "$(printf %s "$v" | tr '[:upper:]' '[:lower:]')" in
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Get-Date	Get-Process node -ErrorAction SilentlyContinue | Where-Object {$_.StartTime -lt (Get-Date).AddHours(-1)} | Stop-Process -Force
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Get-Process	Get-Process node -ErrorAction SilentlyContinue | Where-Object {$_.StartTime -lt (Get-Date).AddHours(-1)} | Stop-Process -Force
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Stop-Process	Get-Process node -ErrorAction SilentlyContinue | Where-Object {$_.StartTime -lt (Get-Date).AddHours(-1)} | Stop-Process -Force
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Where-Object	Get-Process node -ErrorAction SilentlyContinue | Where-Object {$_.StartTime -lt (Get-Date).AddHours(-1)} | Stop-Process -Force
-gsd-core/workflows/ship.md	sleep	sleep 3
-prompt:ship	sleep	sleep 3
 
 # C rule: a rule that lives in the shell moves into Rust (R1): a grep -q of a value against a pattern. 0 rows.
 
@@ -123,7 +118,7 @@ prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shippi
 
 # E network: the host HTTP service and a GitHub provider (R3). 0 rows.
 
-# F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 59 rows.
+# F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 57 rows.
 agents/gsd-executor.md	npx	npx --yes
 agents/gsd-nyquist-auditor.compact.md	pytest	pytest {file} -v
 agents/gsd-nyquist-auditor.md	pytest	pytest {file} -v
@@ -148,8 +143,6 @@ agents/gsd-verifier.md	cargo	cargo test -- --list 2>/dev/null | grep -q "$PHASE_
 agents/gsd-verifier.md	cargo	cargo test "$TEST_NAME" -- --exact   # pytest -k "$TEST_NAME" · npx vitest run -t "$TEST_NAME"
 agents/gsd-verifier.md	node	node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND"
 agents/gsd-verifier.md	node	node -e "const m = require('$MODULE_PATH'); console.log(typeof m.$FUNCTION_NAME)" 2>/dev/null | grep -q "function"
-gsd-core/references/checkpoints.md	node	for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done
-gsd-core/references/checkpoints.md	node	node -e "fetch('http://localhost:3000').then(r=>console.log(r.status))"
 gsd-core/references/checkpoints.md	npm	npm run dev &
 gsd-core/references/ios-scaffold.md	brew	brew install xcodegen
 gsd-core/references/ios-scaffold.md	xcodebuild	xcodebuild -project MyApp.xcodeproj -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 16' build

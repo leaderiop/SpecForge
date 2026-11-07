@@ -138,11 +138,6 @@ fn the_recording_section_matches_k17() {
 /// The `node` lines a shell block keeps, as `(asset, trimmed line)`. Each runs the user's own
 /// JavaScript project, where node is that project's runtime and the prompt's reader is not SpecForge.
 const KEEP: &[(&str, &str)] = &[
-    // the user's dev server (`npm run dev` above it): its readiness probe, as upstream wrote it
-    (
-        "gsd-core/references/checkpoints.md",
-        r#"for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done"#,
-    ),
     // runs the user's own CLI to check it lists a subcommand
     (
         "agents/gsd-verifier.md",

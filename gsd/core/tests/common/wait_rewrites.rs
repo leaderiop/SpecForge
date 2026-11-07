@@ -1,5 +1,6 @@
 //! Lines (`(path, first, last)`, inclusive, 0-based body lines) that a `specforge wait` call or its watch cycle
-//! rewrote although upstream's names no tool the port rule sees: the stall watch's prose and call sites.
+//! rewrote although upstream's names no tool the port rule sees: the stall watch's prose and call sites, and the
+//! dev-server, quota and ship waits.
 //! `port_workflows` reads them as more `REWRITTEN_SPANS` rows.
 
 pub const SPANS: &[(&str, usize, usize)] = &[
@@ -74,4 +75,12 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         183,
     ),
     ("gsd-core/references/planning-config.md", 323, 323),
+    ("gsd-core/references/checkpoints.md", 495, 496),
+    ("gsd-core/references/checkpoints.md", 531, 531),
+    (
+        "gsd-core/references/execute-phase-quota-recovery.md",
+        21,
+        21,
+    ),
+    ("gsd-core/workflows/ship.md", 515, 515),
 ];
