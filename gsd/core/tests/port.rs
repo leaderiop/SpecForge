@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use gsd_core::agents::roster::AGENTS;
 use regex::Regex;
 
+#[path = "common/agent_rewrites.rs"]
+mod agent_rewrites;
 #[path = "common/port.rs"]
 mod rule;
 use rule::check_lines;
@@ -391,10 +393,6 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-pattern-mapper.compact.md", 231),
     // The planner's docs lookup runs ctx7 through `specforge run`, with no probe.
     ("gsd-planner.md", 25),
-    // A list of keys to read names what its answer prints: no init bundle prints a model or a phase directory.
-    ("gsd-planner.md", 565),
-    // The environment audit runs each tool through `specforge run --`: exit 127 is a missing tool, nothing probes.
-    ("gsd-phase-researcher.md", 667),
 ];
 
 /// Checks one asset against its upstream file: the header, then every line.
@@ -406,7 +404,7 @@ fn check_body(file: &str) -> usize {
         &read(&assets_dir().join(file)),
         &body,
         &ported(),
-        &|n| REWRITTEN.contains(&(file, n)),
+        &|n| REWRITTEN.contains(&(file, n)) || agent_rewrites::ROWS.contains(&(file, n)),
     )
 }
 

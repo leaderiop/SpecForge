@@ -743,3 +743,34 @@ fn a_host_file_outside_the_roots_is_read_with_the_read_tool() {
         assert!(!text.contains(stand_in), "{path}: a fence sets {stand_in}");
     }
 }
+
+/// One story per agent: the researcher records its research as entities with `specforge new` and writes no file, and
+/// the pattern mapper's report is its reply. Neither tells the agent to use the Write tool beside that.
+#[test]
+fn an_agent_that_writes_no_file_names_no_write_tool() {
+    let agent = |name: &str| {
+        std::fs::read_to_string(root().join("assets/agents").join(name)).expect("an agent")
+    };
+    let researcher = agent("gsd-phase-researcher.md");
+    assert!(researcher.contains("specforge new research"));
+    for (name, text) in [
+        ("gsd-phase-researcher.md", researcher.clone()),
+        ("gsd-pattern-mapper.md", agent("gsd-pattern-mapper.md")),
+        (
+            "gsd-pattern-mapper.compact.md",
+            agent("gsd-pattern-mapper.compact.md"),
+        ),
+    ] {
+        for said in [
+            "use the Write tool",
+            "the Write tool —",
+            "Use the `Write` tool",
+            "single `Write` call",
+            "only file you write",
+            "written to correct phase directory",
+            "content lives on disk",
+        ] {
+            assert!(!text.contains(said), "{name} says {said:?}");
+        }
+    }
+}

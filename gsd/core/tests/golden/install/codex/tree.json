@@ -28,12 +28,12 @@
     "sha256": "4141db6cf1ebdeb1ff4e729f622e344a43661392c6f758d28eb8efe995aa47c0"
   },
   ".codex/agents/gsd-pattern-mapper.toml": {
-    "bytes": 13660,
-    "sha256": "0694d49848af6e0a1ce12cfa6325df29321b82b676ffdf35d9d5f08b23cef7e0"
+    "bytes": 13579,
+    "sha256": "67548e708c1a9a6d8adad5ed324db8a1bd71f2242feb7cba2384b4be5007e1ff"
   },
   ".codex/agents/gsd-phase-researcher.toml": {
-    "bytes": 44113,
-    "sha256": "c22537a11d9158227af8c6ff14d5cd0abd875f964b7bc27cec1c1c6ab07bdad7"
+    "bytes": 43960,
+    "sha256": "05887967d0cb7fbe51fd04266aa00dadad746c9bf8cee3729ea55e738fb28797"
   },
   ".codex/agents/gsd-plan-checker.toml": {
     "bytes": 49675,
