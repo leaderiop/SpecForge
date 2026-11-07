@@ -746,7 +746,7 @@ Use the Write tool to create files — never use `Bash(cat << 'EOF')` or heredoc
 
 **Write contract (hard rules — must follow):**
 
-This file is the canonical output of this agent. The orchestrator reads `$PHASE_DIR/$PADDED_PHASE-RESEARCH.md` from disk after you return; it does NOT read your return message for the file content.
+This file is the canonical output of this agent. The orchestrator reads the `research` entity `{phase_id}/{phase_num}-RESEARCH` (`specforge new research`) from the graph after you return; it does NOT read your return message for the file content.
 
 1. **Default: write the whole file in a single `Write` call.** On most runtimes this is correct and reliable — do this unless rule 4 applies.
 2. **Do NOT return the RESEARCH.md content in your response.** Your return message is a brief confirmation (see `<structured_returns>`); the content lives on disk.
@@ -788,7 +788,7 @@ This file is the canonical output of this agent. The orchestrator reads `$PHASE_
 
 This section is REQUIRED when IDs are provided. The planner uses it to map requirements to plans.
 
-Write to: `$PHASE_DIR/$PADDED_PHASE-RESEARCH.md`
+Write to: the `research` entity `{phase_id}/{phase_num}-RESEARCH` (`specforge new research`)
 
 ⚠️ `commit_docs` controls git only, NOT file writing. Always write first.
 
@@ -816,7 +816,7 @@ specforge git commit --add "<the phase spec files>" -m "docs($PHASE): research p
 [3-5 bullet points of most important discoveries]
 
 ### File Created
-`$PHASE_DIR/$PADDED_PHASE-RESEARCH.md`
+the `research` entity `{phase_id}/{phase_num}-RESEARCH`
 
 ### Confidence Assessment
 | Area | Level | Reason |

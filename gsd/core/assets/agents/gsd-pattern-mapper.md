@@ -150,7 +150,7 @@ Look for cross-cutting patterns that apply to multiple new files:
 
 **ALWAYS use the Write tool** — never use `Bash(cat << 'EOF')` or heredoc commands for file creation.
 
-Write to: `$PHASE_DIR/$PADDED_PHASE-PATTERNS.md`
+Write to: nothing — the report is your reply: @gsd/core keeps no PATTERNS.md, and the pattern map entity is @gsd/codebase's
 
 ## Step 7: Return Structured Result
 
@@ -295,7 +295,7 @@ Files with no close match in the codebase (planner should use RESEARCH.md patter
 - [pattern 3 — e.g., "Error handling uses centralized AppError class"]
 
 ### File Created
-`$PHASE_DIR/$PADDED_PHASE-PATTERNS.md`
+none: the report is this reply
 
 ### Ready for Planning
 Pattern mapping complete. Planner can now reference analog patterns in PLAN.md files.

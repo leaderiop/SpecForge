@@ -37,8 +37,8 @@ calls — reasoning, reading a file, waiting on a runtime round-trip — shows n
 all. Judge progress ONLY by the signals this workflow names: commits on the expected
 branch, the SUMMARY, and the child's own activity. A process listing is not one of them.
 
-## If a stalled executor ran in an isolated worktree
+## A stalled executor and the primary checkout
 
-`kill and switch to inline execution` edits the primary checkout — see worktree recovery
-policy (`execute-phase/steps/worktree-recovery-policy.md`). Prefer `kill and retry` in a
-fresh worktree; inline execution requires explicit confirmation, never the default.
+`kill and switch to inline execution` edits the primary checkout. @gsd/core runs no executor in an
+isolated worktree, so `kill and retry` re-runs it in that same checkout; prefer it. Inline
+execution requires explicit confirmation, never the default.

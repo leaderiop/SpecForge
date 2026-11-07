@@ -151,7 +151,7 @@ RUNTIME="{{setting:runtime|}}"   # runtime (the settings)
 
 **Resolve isolation now (#2584/#2652).** Read @gsd-core/references/dispatch-isolation-gate.md
 and run its `Resolve ISOLATION`, `Single-agent dispatch sites`, and `Resolve the harness flag`
-blocks in order; they set `ISOLATION`/`HARNESS_FLAG` via `query dispatch-isolation`.
+blocks in order; they set `ISOLATION=none` and an empty `HARNESS_FLAG` (@gsd/core has no worktree isolation).
 `ISOLATION` — not `RUNTIME` — gates every worktree decision below. Substitute `{harnessFlag}`
 in Step 6's `Agent()` with `$HARNESS_FLAG`+comma when `ISOLATION = "harness-worktree"`, else
 empty. `{harnessFlag}`

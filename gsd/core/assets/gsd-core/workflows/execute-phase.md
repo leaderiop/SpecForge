@@ -417,8 +417,8 @@ later conditions once one matches:
      `update_roadmap`; the tail steps then run in their normal order. This is the ONLY arm that
      reaches `update_roadmap`.
    - **Anything else** (`gaps_found`, `human_needed`, `unparseable`, `phase_dir_not_found`):
-     present the owner's `next_action` and `next_command` (the verification query above, with the pick
-     "${PHASE_DIR}" --pick next_action` / `--pick next_command`) → exit. Never `update_roadmap`.
+     present the route the status names (a verification has no `next_action` field): `gaps_found`
+     → `/gsd:plan-phase {X} --gaps`; any other → `/gsd:verify-work {X}` → exit. Never `update_roadmap`.
 
 Report:
 ```

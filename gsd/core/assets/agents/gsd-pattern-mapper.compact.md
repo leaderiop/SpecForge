@@ -112,7 +112,7 @@ Cross-cutting patterns applying to multiple new files: auth middleware/guards, e
 
 ## Step 6: Write PATTERNS.md
 
-**ALWAYS use the Write tool** — never heredoc. Write to `$PHASE_DIR/$PADDED_PHASE-PATTERNS.md`.
+**ALWAYS use the Write tool** — never heredoc. Write to nothing — the report is your reply: @gsd/core keeps no PATTERNS.md, and the pattern map entity is @gsd/codebase's.
 
 ## Step 7: Return Structured Result
 
@@ -230,7 +230,7 @@ Files with no close match (planner should use RESEARCH.md patterns instead):
 - [pattern 3 — e.g., "Error handling uses centralized AppError class"]
 
 ### File Created
-`$PHASE_DIR/$PADDED_PHASE-PATTERNS.md`
+none: the report is this reply
 
 ### Ready for Planning
 Pattern mapping complete. Planner can now reference analog patterns in PLAN.md files.

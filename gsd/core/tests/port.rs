@@ -381,6 +381,14 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-executor.md", 42),
     ("gsd-executor.md", 43),
     ("gsd-executor.md", 44),
+    // The research is an entity, and the pattern map a reply: nothing assigns `$PHASE_DIR`.
+    ("gsd-phase-researcher.md", 747),
+    ("gsd-phase-researcher.md", 789),
+    ("gsd-phase-researcher.md", 817),
+    ("gsd-pattern-mapper.md", 151),
+    ("gsd-pattern-mapper.md", 296),
+    ("gsd-pattern-mapper.compact.md", 113),
+    ("gsd-pattern-mapper.compact.md", 231),
 ];
 
 /// Checks one asset against its upstream file: the header, then every line.

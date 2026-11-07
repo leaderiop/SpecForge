@@ -190,4 +190,29 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/next.md", 334, 334),
     ("gsd-core/workflows/next.md", 363, 363),
     ("gsd-core/workflows/next.md", 365, 365),
+    // routed prose names what the port runs: no next_action field, no isolation, the plan entity, no worktree
+    ("gsd-core/workflows/diagnose-issues.md", 69, 69),
+    ("gsd-core/workflows/execute-phase.md", 418, 419),
+    (
+        "gsd-core/workflows/execute-phase/steps/executor-progress-policy.md",
+        38,
+        38,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/executor-progress-policy.md",
+        40,
+        42,
+    ),
+    ("gsd-core/workflows/execute-plan.md", 128, 128),
+    (
+        "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
+        155,
+        155,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
+        189,
+        189,
+    ),
+    ("gsd-core/workflows/quick.md", 152, 152),
 ];

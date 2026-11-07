@@ -154,7 +154,7 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
      prompt="{same planning_context as step 8, plus:}
 
      **Chunked mode: single-plan.**
-     Write exactly ONE plan file: {PHASE_DIR}/{plan_id}-PLAN.md
+     Write exactly ONE plan: the plan entity {PHASE_ID}/{plan_id} (`specforge new plan`)
      Plan to write: {plan_id} — {objective}
      Wave: {wave} | Depends on: {depends_on}
      Phase requirement IDs to cover in this plan: {plan_requirements}
@@ -188,7 +188,7 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
      `## PLAN COMPLETE` return exactly like `marker_received`; empty or unrecognized returns keep
      step 8's existing Retry/Stop path. This is never fire-and-forget.
 
-6. **Verify disk, per entry:** check `${PHASE_DIR}/{plan_id}-PLAN.md` exists for each entry that
+6. **Verify disk, per entry:** check the plan entity `{PHASE_ID}/{plan_id}` exists (`specforge query`) for each entry that
    reached `marker_received`. Unchanged per-plan check.
 
 7. **Commit, per entry, in outline row order (not completion order):** for each verified entry —
