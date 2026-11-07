@@ -117,6 +117,10 @@ fn read(line: &str, depth: usize, out: &mut Vec<Event>) -> Result<(), String> {
             }
             _ => {}
         }
+        segment
+            .redirects
+            .iter()
+            .for_each(|word| absolute(word, out));
         if segment.words.is_empty() {
             continue;
         }
@@ -145,21 +149,15 @@ fn assignment(word: &str) -> Option<&str> {
     (starts && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')).then_some(value)
 }
 
-/// The absolute path a word names: bare, after `NAME=` or `--flag=`, or after a redirect.
+/// The absolute path a word names: bare, or after `NAME=` or `--flag=`.
 fn absolute(word: &str, out: &mut Vec<Event>) {
-    let bare = word.trim_start_matches(|c: char| c.is_ascii_digit());
-    let bare = if bare.starts_with(['<', '>', '&']) {
-        bare.trim_start_matches(['<', '>', '&'])
-    } else {
-        word
-    };
-    let value = assignment(bare)
+    let value = assignment(word)
         .or_else(|| {
-            bare.strip_prefix("--")?
+            word.strip_prefix("--")?
                 .split_once('=')
                 .map(|(_, value)| value)
         })
-        .unwrap_or(bare);
+        .unwrap_or(word);
     if value.starts_with('/') {
         out.push(Event::Absolute(value.to_string()));
     }

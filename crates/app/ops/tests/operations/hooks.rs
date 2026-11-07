@@ -256,6 +256,24 @@ fn the_human_guard_denies_a_shell_call_running_a_human_command() {
             "bash -lc \"specforge t:approve\"",
             "eval \"specforge t approve\"",
             "echo specforge t approve",
+            // A redirect glued to a word hides neither the word nor what follows it.
+            "specforge t approve&>/dev/null",
+            "specforge t approve&>>log",
+            "specforge t approve>/dev/null",
+            "specforge t approve>>log",
+            "specforge t approve<in",
+            "specforge t approve 2>&1",
+            "specforge t approve>&2",
+            "specforge&>/dev/null t approve",
+            "specforge>x t approve",
+            "specforge 2>x t approve",
+            "specforge t&>x approve",
+            "&>x specforge t approve",
+            ">x specforge t approve",
+            "specforge t:approve&>x",
+            "bash -c 'specforge t approve&>x'",
+            "bash -c 'specforge&>x t approve'",
+            "eval 'specforge t approve>x'",
         ] {
             let run = run_hook(&hosted, "core.human_guard", &shell(line));
             assert_eq!(run.answer["decision"], "deny", "{host} {line}: {run:?}");
@@ -271,6 +289,9 @@ fn the_human_guard_denies_a_shell_call_running_a_human_command() {
             "git status && ls",
             "git commit -m \"run specforge t approve later\"",
             "specforge t approve-not-a-command",
+            "specforge t stats&>/dev/null",
+            "specforge t>approve",
+            "cat >specforge t approve",
         ] {
             let run = run_hook(&hosted, "core.human_guard", &shell(line));
             assert!(run.answer["decision"].is_null(), "{host} {line}: {run:?}");

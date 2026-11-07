@@ -430,6 +430,35 @@ mod tests {
     }
 
     #[test]
+    fn a_redirect_glued_to_a_word_is_no_part_of_a_command_or_a_message() {
+        for line in [
+            "git add -f x",
+            "git add -f&>/dev/null x",
+            "git add -f x>y",
+            "git add -f 2>&1 x",
+            "git add>y -f x",
+            ">y git add -f x",
+        ] {
+            assert_eq!(
+                shell_commands(&json!({"command": line})),
+                vec![vec!["git", "add", "-f", "x"]],
+                "{line}"
+            );
+        }
+        for line in [
+            "git commit -m wip",
+            "git commit -m wip&>log",
+            "git commit -m wip>log",
+            "git commit -m wip 2>&1",
+            "git commit&>log -m wip",
+            ">log git commit -m wip",
+        ] {
+            let fact = commit_of(line).unwrap_or_else(|| panic!("{line}"));
+            assert_eq!(fact.message.as_deref(), Some("wip"), "{line}");
+        }
+    }
+
+    #[test]
     fn what_is_no_commit_is_none() {
         for line in [
             "git status",
