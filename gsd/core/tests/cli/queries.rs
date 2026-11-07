@@ -252,3 +252,19 @@ fn a_query_reaches_the_kinds_it_asks_for() {
         empty.join("\n")
     );
 }
+
+/// The branch a phase and its milestone execute on, under each `git.branching_strategy`: today no field answers it, so
+/// `execute-phase` uses a `$BRANCH_NAME` nothing assigns.
+#[test]
+fn a_phase_and_its_milestone_answer_their_branch() {
+    let p = twin();
+    let branch = |id: &str| {
+        let answer = json(&p.run(&["query", id, "--depth", "0", "--format", "json"]));
+        answer["nodes"][0]["fields"]["branch"].clone()
+    };
+    for strategy in ["phase", "milestone", "none"] {
+        p.settings(serde_json::json!({"git.branching_strategy": strategy}));
+        assert!(branch("v1.0/01").is_null(), "{strategy}: today no field");
+        assert!(branch("v1.0").is_null(), "{strategy}: today no field");
+    }
+}

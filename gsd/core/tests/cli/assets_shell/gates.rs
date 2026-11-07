@@ -101,3 +101,31 @@ fn protected_branch_warns_on_trunk_and_on_a_listed_branch() {
     p.settings(serde_json::json!({"git.protected_branches": ["shared/x"]}));
     assert!(warns(&p), "the setting is read");
 }
+
+/// The phase strategy's listing is what complete-milestone squash-merges: today a template prefix no block sets is
+/// empty, so every local branch is listed.
+#[test]
+fn complete_milestone_lists_only_the_phase_branches() {
+    let Some(sh) = Shell::only(&["git", "printf", "sed", "echo"]) else {
+        return;
+    };
+    let p = crate::harness::taskboard();
+    p.settings(serde_json::json!({"git.branching_strategy": "phase"}));
+    p.commit();
+    let at = "2026-01-01T00:00:00Z";
+    p.git(&["branch", "feature/x"], at);
+    p.git(&["branch", "gsd/phase-01-core"], at);
+    let served = served(
+        &p,
+        "gsd-core/workflows/complete-milestone/detail/elaboration.md",
+    );
+    let listing = fence_after(&served, "**For \"phase\" strategy:**");
+    let (out, err, _) = sh.run_in(
+        p.root(),
+        &format!("MILESTONE=v1.0\n{listing}\nprintf '%s' \"$PHASE_BRANCHES\""),
+    );
+    assert!(
+        out.lines().any(|branch| branch == "feature/x"),
+        "today every local branch is listed: {out} {err}"
+    );
+}
