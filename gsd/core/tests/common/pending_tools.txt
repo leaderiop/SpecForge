@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 71 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 61 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
 agents/gsd-executor.md	grep	git status --short | grep '^??'
@@ -36,14 +36,9 @@ gsd-core/workflows/plan-review-convergence.md	awk	if OPEN_CONFLICTS=$(awk '
 gsd-core/workflows/quick.md	grep	DEFAULT_BRANCH=$(printf '%s' "{{setting:git.base_branch|}}" | grep . \
 gsd-core/workflows/quick.md	grep	|| specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . \
 gsd-core/workflows/resume-project.md	grep	for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -vxF -f <(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=summary].fields.plan')); do   # each plan no summary names
-gsd-core/workflows/review.md	grep	if [ -f "$STUB" ] && grep -q "review skipped: prompt budget" "$STUB" 2>/dev/null; then
-gsd-core/workflows/review.md	grep	grep -q "review skipped: prompt budget" "$REVIEW_FILE" 2>/dev/null && continue
-gsd-core/workflows/review.md	grep	grep -q "failed or returned empty output" "$REVIEW_FILE" 2>/dev/null && continue
-gsd-core/workflows/review.md	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
-gsd-core/workflows/review.md	tr	[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL" | tr -d ' ')
 gsd-core/workflows/review.md	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
 gsd-core/workflows/review.md	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
-gsd-core/workflows/review.md	wc	[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL" | tr -d ' ')
+gsd-core/workflows/review.md	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
 gsd-core/workflows/spec-phase.md	cat	cat > "$REQS_JSON" <<'JSON'
 gsd-core/workflows/ultraplan-phase.md	grep	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 gsd-core/workflows/ultraplan-phase.md	head	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
@@ -62,14 +57,9 @@ prompt:plan_review_convergence	wc	wc -l
 prompt:quick	grep	DEFAULT_BRANCH=$(printf '%s' "" | grep . \
 prompt:quick	grep	|| specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . \
 prompt:resume_work	grep	for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -vxF -f <(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=summary].fields.plan')); do   # each plan no summary names
-prompt:review	grep	if [ -f "$STUB" ] && grep -q "review skipped: prompt budget" "$STUB" 2>/dev/null; then
-prompt:review	grep	grep -q "review skipped: prompt budget" "$REVIEW_FILE" 2>/dev/null && continue
-prompt:review	grep	grep -q "failed or returned empty output" "$REVIEW_FILE" 2>/dev/null && continue
-prompt:review	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
-prompt:review	tr	[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL" | tr -d ' ')
 prompt:review	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
 prompt:review	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
-prompt:review	wc	[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL" | tr -d ' ')
+prompt:review	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
 prompt:spec_phase	cat	cat > "$REQS_JSON" <<'JSON'
 prompt:ultraplan_phase	grep	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 prompt:ultraplan_phase	head	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"

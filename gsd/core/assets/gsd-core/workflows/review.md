@@ -569,12 +569,12 @@ byproduct; a lane that never started or was budget-skipped contributes no line e
 ```bash
 RUN_DIR="{run_dir}"
 JSONL="$RUN_DIR/gsd-review-lane-results.jsonl"
-LANE_LINES=0
-[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL" | tr -d ' ')
+
+
 
 TOTAL_LANE_FAILURE="false"
 ALL_LANES_SKIPPED="false"
-if [ "${LANE_LINES:-0}" -eq 0 ]; then
+if [ ! -s "$JSONL" ]; then
   # Zero lines means every dispatched lane left no result JSON — either every one
   # was budget-skipped (N5: a skip is not a failure) or every one actually failed
   # to run. Re-derive the dispatched-slug set the same way invoke_reviewers did
@@ -599,7 +599,7 @@ if [ "${LANE_LINES:-0}" -eq 0 ]; then
   for SLUG in $(printf '%s' "$DISPATCH_SLUGS"); do
     DISPATCHED_COUNT=$((DISPATCHED_COUNT + 1))
     STUB="$RUN_DIR/gsd-review-$SLUG.md"
-    if [ -f "$STUB" ] && grep -q "review skipped: prompt budget" "$STUB" 2>/dev/null; then
+    if [ -f "$STUB" ] && specforge files search -q -F "review skipped: prompt budget" "$STUB" 2>/dev/null; then
       SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     fi
   done
@@ -674,8 +674,8 @@ for SLUG in $(printf '%s' "$DISPATCH_SLUGS"); do
   REVIEW_FILE="$RUN_DIR/gsd-review-$SLUG.md"
   [ -f "$REVIEW_FILE" ] || continue
   [ -s "$REVIEW_FILE" ] || continue
-  grep -q "review skipped: prompt budget" "$REVIEW_FILE" 2>/dev/null && continue
-  grep -q "failed or returned empty output" "$REVIEW_FILE" 2>/dev/null && continue
+  specforge files search -q -F "review skipped: prompt budget" "$REVIEW_FILE" 2>/dev/null && continue
+  specforge files search -q -F "failed or returned empty output" "$REVIEW_FILE" 2>/dev/null && continue
 
   specforge gsd plan-coverage "$PHASE_ID" --review "$(< "$REVIEW_FILE")" --format json > "$RUN_DIR/.plan-coverage-$SLUG.json" || { echo "⚠ plan-coverage failed for $SLUG (see the error above; the review is passed as an argument, and a command line over the platform's limit, 32,767 characters on Windows, cannot be run): its coverage is unknown" >&2; printf '%s\n' '{"complete":false,"missing_ids":null,"total":null,"error":"plan-coverage failed"}' > "$RUN_DIR/.plan-coverage-$SLUG.json"; }   # the phase's plans, each id standing alone in the review; a failed check is an incomplete report, never an empty one
 

@@ -140,4 +140,9 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     // a host file outside the roots is read with the host's Read tool
     ("gsd-core/workflows/new-project.md", 305, 305),
     ("gsd-core/workflows/new-project.md", 307, 309),
+    // a hand-off file's text match is an answer, and an empty lane file a test
+    ("gsd-core/workflows/review.md", 570, 571),
+    ("gsd-core/workflows/review.md", 575, 575),
+    ("gsd-core/workflows/review.md", 600, 600),
+    ("gsd-core/workflows/review.md", 675, 676),
 ];
