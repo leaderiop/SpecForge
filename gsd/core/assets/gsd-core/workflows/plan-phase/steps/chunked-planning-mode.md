@@ -52,7 +52,7 @@ Spawn the planner in **outline-only** mode — it must write only the outline ma
 PLAN.md files:
 
 **Dispatch/wait gate — `PLANNER_STALL_DETECTION_ENABLED` (config key `planner.stall_detection_enabled`, resolved in `plan-phase/steps/stall-detection-helpers.md`):**
-- **`true` (default):** use `run_in_background=true` in the Agent() call below, then use `gsd_stall_watch` after it.
+- **`true` (default):** use `run_in_background=true` in the Agent() call below, then run the watch cycle after it.
 
 ```javascript
 Agent(
@@ -75,9 +75,9 @@ Agent(
 )
 ```
 
-**ORCHESTRATOR RULE — ALL RUNTIMES (when `PLANNER_STALL_DETECTION_ENABLED` is `true`):** `TS=$(date +%s)`; repeat `PLANNER_STALL_RESULT=$(gsd_stall_watch "$TS" "{outputFile}" "$OUTLINE_FILE" "## OUTLINE COMPLETE")` while waiting/active.
+**ORCHESTRATOR RULE — ALL RUNTIMES (when `PLANNER_STALL_DETECTION_ENABLED` is `true`):** repeat the watch cycle; after each, read `{outputFile}` with the Read tool: a line holding `## OUTLINE COMPLETE` -> `marker_received`; a quiet cycle once the cycles add up to `planner.stall_threshold_minutes` -> `stalled`.
 
-- **`false`:** issue the same Agent() call but omit `run_in_background`; await its ordinary runtime-native completion and consume the real returned result. Skip `gsd_stall_watch` entirely and treat a recognized `## OUTLINE COMPLETE` return exactly like `marker_received`; empty or unrecognized returns keep the existing Retry/Stop path.
+- **`false`:** issue the same Agent() call but omit `run_in_background`; await its ordinary runtime-native completion and consume the real returned result. Skip the watch cycle entirely and treat a recognized `## OUTLINE COMPLETE` return exactly like `marker_received`; empty or unrecognized returns keep the existing Retry/Stop path.
 
 Handle return:
 - **`marker_received`:** Read `$OUTLINE_FILE`, extract plan list. Continue to 8.5.2.
@@ -173,8 +173,8 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
    message, before waiting on any of them.
 
 5. **ORCHESTRATOR RULE — ALL RUNTIMES, per batch (when `PLANNER_STALL_DETECTION_ENABLED` is `true`):** for every entry dispatched in this round,
-   `TS=$(date +%s)`; repeat `PLANNER_STALL_RESULT=$(gsd_stall_watch "$TS" "{outputFile}" "$PLAN_FILE" "## PLAN COMPLETE")`
-   while waiting/active for THAT entry. Serial dispatch waits on one entry at a time (unchanged).
+   repeat the watch cycle, one for the whole batch; after each, read each waiting entry's `{outputFile}` with the Read tool:
+   a line holding `## PLAN COMPLETE` -> `marker_received`; a quiet cycle once the cycles add up to `planner.stall_threshold_minutes` -> `stalled`, for THAT entry. Serial dispatch waits on one entry at a time (unchanged).
    Concurrent dispatch waits on every entry issued in step 4 before proceeding — this is the
    "per-batch" join the config makes possible: nothing in step 6 runs until every plan dispatched
    this round has reached `marker_received` or `stalled`. A `stalled` entry falls into step 7's
@@ -182,7 +182,7 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
    in the same batch that already reached `marker_received`.
 
    - **`false`:** when `PLANNER_STALL_DETECTION_ENABLED` is `false`, omit `run_in_background`
-     from every call, skip `gsd_stall_watch`, and await each real returned result through the
+     from every call, skip the watch cycle, and await each real returned result through the
      ordinary runtime-native completion mechanism. A concurrent batch still issues the runnable
      calls together and awaits all of their ordinary results before step 6. Treat each recognized
      `## PLAN COMPLETE` return exactly like `marker_received`; empty or unrecognized returns keep

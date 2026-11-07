@@ -322,7 +322,7 @@ Set via the `planner.*` namespace. These settings affect only planner/plan-check
 
 | Key | Type | Default | Allowed Values | Description |
 |-----|------|---------|----------------|-------------|
-| `planner.stall_detection_enabled` | boolean | `true` | `true`, `false` | Default-on bounded stall detection for the standard planner, chunked outline/per-plan planners, plan-checker, and revision planner. `false` skips `gsd_stall_watch` polling but still awaits and consumes the real runtime-native agent result. It gives up bounded automatic recovery if the runtime loses the completion handoff. _Loader projection:_ `planner_stall_detection_enabled`. |
+| `planner.stall_detection_enabled` | boolean | `true` | `true`, `false` | Default-on bounded stall detection for the standard planner, chunked outline/per-plan planners, plan-checker, and revision planner. `false` skips the watch cycles (`specforge wait`) but still awaits and consumes the real runtime-native agent result. It gives up bounded automatic recovery if the runtime loses the completion handoff. _Loader projection:_ `planner_stall_detection_enabled`. |
 
 ### Ship Fields
 

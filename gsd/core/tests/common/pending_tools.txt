@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 85 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 84 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
 agents/gsd-executor.md	grep	git status --short | grep '^??'
@@ -36,7 +36,6 @@ gsd-core/workflows/plan-phase.md	tr	RES=$(printf '%s' "${CONFLICT_RESOLUTION}" |
 gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	cat	cat <<EOF >&2
 gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	cat	cat <<EOF >&2
 gsd-core/workflows/plan-phase/steps/prd-express-path.md	cat	PRD_CONTENT=$(cat "$PRD_FILE" 2>/dev/null)
-gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md	grep	if grep -qF "$m" "$output_file" 2>/dev/null; then marker_found="true"; break; fi
 gsd-core/workflows/plan-review-convergence.md	awk	if OPEN_CONFLICTS=$(awk '
 gsd-core/workflows/quick.md	grep	DEFAULT_BRANCH=$(printf '%s' "{{setting:git.base_branch|}}" | grep . \
 gsd-core/workflows/quick.md	grep	|| specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . \
@@ -91,15 +90,12 @@ prompt:ultraplan_phase	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.9
 prompt:ultraplan_phase	sort	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 prompt:undo	grep	grep -E "\(0*${TARGET_PHASE}(-[0-9]+)?\):"
 
-# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 14 rows.
+# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 11 rows.
 gsd-core/references/checkpoints.md	lsof	lsof -ti:3000 | xargs kill
 gsd-core/references/checkpoints.md	sleep	for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done
 gsd-core/references/execute-phase-quota-recovery.md	sleep	sleep "$RETRY_AFTER"
 gsd-core/references/verification-patterns.md	printenv	printenv "$VAR_NAME" >/dev/null
 gsd-core/references/verification-patterns.md	printenv	v=$(printenv "$VAR_NAME"); case "$(printf %s "$v" | tr '[:upper:]' '[:lower:]')" in
-gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md	date	[[ "$dispatch_ts" =~ ^[0-9]+$ ]] || dispatch_ts=$(date +%s)
-gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md	date	now=$(date +%s)
-gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md	sleep	sleep "$(( PLANNER_STALL_INTERVAL_MINUTES * 60 ))"
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Get-Date	Get-Process node -ErrorAction SilentlyContinue | Where-Object {$_.StartTime -lt (Get-Date).AddHours(-1)} | Stop-Process -Force
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Get-Process	Get-Process node -ErrorAction SilentlyContinue | Where-Object {$_.StartTime -lt (Get-Date).AddHours(-1)} | Stop-Process -Force
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Stop-Process	Get-Process node -ErrorAction SilentlyContinue | Where-Object {$_.StartTime -lt (Get-Date).AddHours(-1)} | Stop-Process -Force
@@ -202,8 +198,7 @@ gsd-core/references/planner-load-graph-context.md	graphify	graphify query "<phas
 gsd-core/references/research-documentation-lookup.md	ctx7	ctx7 library <name> "<query>"
 gsd-core/references/research-documentation-lookup.md	ctx7	ctx7 docs <libraryId> "<query>"
 
-# I files: specforge files: walk, glob, match (R4). 2 rows.
-gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md	find	if [ -n "$(find $artifact_glob -mmin "-${PLANNER_STALL_INTERVAL_MINUTES}" 2>/dev/null)" ]; then
+# I files: specforge files: walk, glob, match (R4). 1 row.
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Remove-Item	Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\tasks\*" -ErrorAction SilentlyContinue
 
 # J solver: the z3 decision (R4). 0 rows.

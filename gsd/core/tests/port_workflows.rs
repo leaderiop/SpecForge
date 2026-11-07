@@ -37,6 +37,9 @@ mod files_rewrites;
 #[path = "common/answer_rewrites.rs"]
 mod answer_rewrites;
 
+#[path = "common/wait_rewrites.rs"]
+mod wait_rewrites;
+
 /// Body lines (0-based) that differ although upstream's names no ported tool: a relative link that leaves the tree
 /// became the absolute URL of the file at the tag, or where a rewrite fixed a line that names no ported tool but still
 /// told the agent something false.
@@ -597,7 +600,8 @@ fn workflow_assets_diff_only_in_ported_passages() {
                             .chain(relic_rewrites::SPANS)
                             .chain(args_rewrites::SPANS)
                             .chain(files_rewrites::SPANS)
-                            .chain(answer_rewrites::SPANS),
+                            .chain(answer_rewrites::SPANS)
+                            .chain(wait_rewrites::SPANS),
                         &path,
                         n,
                     )

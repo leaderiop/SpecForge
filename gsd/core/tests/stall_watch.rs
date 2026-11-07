@@ -61,27 +61,12 @@ fn functions_called_across_assets() -> Vec<(String, String)> {
 
 /// A shell function is called only in the asset that defines it: each host Bash call is a new shell, so a function
 /// defined in another file's block is `command not found` (exit 127) where it is called.
-///
-/// Pinned as it is: the stall watch's two functions, defined in stall-detection-helpers.md, are called from three
-/// other assets, where the watch never answers. The fix makes this list empty.
 #[test]
 fn a_shell_function_is_called_only_in_the_asset_that_defines_it() {
     let found = functions_called_across_assets();
-    let at = |path: &str, name: &str| (path.to_string(), name.to_string());
-    assert_eq!(
-        found,
-        [
-            at("gsd-core/references/planning-config.md", "gsd_stall_watch"),
-            at(
-                "gsd-core/workflows/plan-phase.md",
-                "gsd_stall_should_recover"
-            ),
-            at("gsd-core/workflows/plan-phase.md", "gsd_stall_watch"),
-            at(
-                "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
-                "gsd_stall_watch"
-            ),
-        ]
+    assert!(
+        found.is_empty(),
+        "called where another asset defines it: {found:?}"
     );
 }
 
@@ -120,20 +105,12 @@ fn stall_watch_lines() -> (Vec<String>, Vec<String>) {
     (waits, globbed)
 }
 
-/// The stall watch watches the files a planner writes: GSD on SpecForge writes plans as entities in `.spec` files.
-///
-/// Pinned as it is: no `specforge wait` line, and the watch's activity glob is `"${PHASE_DIR}"'/*-PLAN.md'`, a
-/// variable nothing assigns and files nothing writes, so a working planner reads quiet. The fix flips both.
+/// The stall watch watches the files a planner writes: GSD on SpecForge writes plans as entities in `.spec` files, so
+/// the watch cycle is one `specforge wait --changed '**/*.spec'`, and no line of the watch names a phase-directory glob.
 #[test]
 fn the_stall_watch_watches_the_spec_files() {
     let (waits, globbed) = stall_watch_lines();
-    assert!(waits.is_empty(), "{waits:?}");
-    assert_eq!(
-        globbed,
-        [
-            "gsd-core/workflows/plan-phase.md:977",
-            "gsd-core/workflows/plan-phase.md:1116",
-            "gsd-core/workflows/plan-phase.md:1213",
-        ]
-    );
+    assert_eq!(waits.len(), 1, "{waits:?}");
+    assert!(waits[0].contains("--changed '**/*.spec'"), "{waits:?}");
+    assert!(globbed.is_empty(), "{globbed:?}");
 }
