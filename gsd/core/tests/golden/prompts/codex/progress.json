@@ -54,14 +54,14 @@
     "",
     "```",
     "",
-    "Extract from init JSON: `project_exists`, `roadmap_exists`, `state_exists`, `requirements_exists`, `planning_exists`, `milestones_exists`, `init_incomplete`, `phases`, `current_phase`, `next_phase`, `milestone_version`, `completed_count`, `phase_count`, `paused_at`, `state_path`, `roadmap_path`, `project_path`, `config_path`, `phase_mvp_mode`.",
+    "Read from the answer (what `progress-report` prints): `milestone_version`, `milestone_name`, `phases` (each `number`, `name`, `plans`, `summaries`, `status`), `total_plans`, `total_summaries`, `percent` and `phase_scope`. `phase_count` is the length of `phases` and `completed_count` counts those with status `Complete`; the current phase is the first that is not, and the next phase the one after it; `roadmap_exists` is `phases` non-empty and `state_exists` is `milestone_version` non-null (the project state is computed, so no path is read); a pause is a `pause` entity, and a phase's mode its `mode` field.",
     "",
     "```bash",
     "DISCUSS_MODE=\"discuss\"   # workflow.discuss_mode (the settings)",
     "```",
     ""
   ],
-  "bytes": 76483,
+  "bytes": 76748,
   "end": [
     "| 3     | ○      | 0/2   | 0%       |",
     "```",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:bd42a9438064c48054eb448119fa7a96b8f98c6d821e4cca85749d95f6be6399",
+    "digest": "sha256:0a5d0b417d8f46770098f21a7a7ad5caabafebbcf68929cc990735df3198a6ad",
     "prompt": "@gsd/core@VERSION:progress",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "bd42a9438064c48054eb448119fa7a96b8f98c6d821e4cca85749d95f6be6399"
+  "sha256": "0a5d0b417d8f46770098f21a7a7ad5caabafebbcf68929cc990735df3198a6ad"
 }

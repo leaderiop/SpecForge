@@ -54,14 +54,14 @@
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.",
     "",
-    "Parse from init JSON: `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `padded_phase`, `commit_docs`.",
+    "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error). `commit_docs` is a setting: `specforge settings --format json --extension @gsd/core`.",
     "",
     "Also load config for branching strategy:",
     "```bash",
     "CONFIG=$(specforge settings)",
     "```"
   ],
-  "bytes": 54223,
+  "bytes": 54390,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:6f87066196c00e0fd8aa97f751f14ac69577dc087fc36242db6d8c57db612f76",
+    "digest": "sha256:1d9c7b4079e503b2c4c704fa742f8e82a5e7d0464246e45f516dd1d0eaccc5f3",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "6f87066196c00e0fd8aa97f751f14ac69577dc087fc36242db6d8c57db612f76"
+  "sha256": "1d9c7b4079e503b2c4c704fa742f8e82a5e7d0464246e45f516dd1d0eaccc5f3"
 }

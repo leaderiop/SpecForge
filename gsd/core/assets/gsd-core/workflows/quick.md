@@ -136,9 +136,9 @@ AGENT_SKILLS_VERIFIER=""   # the host install carries the skills of gsd-verifier
 AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-phase-researcher
 ```
 
-Parse JSON for: `planner_model`, `executor_model`, `checker_model`, `verifier_model`, `reviewer_model`, `researcher_model`, `commit_docs`, `branch_name`, `quick_id`, `slug`, `date`, `timestamp`, `quick_dir`, `task_dir`, `roadmap_exists`, `planning_exists`, `response_language`.
+The fence above printed `quick_id`, `slug`, `branch_name`, `title` and `date`; `quick_dir` and `task_dir` are `$quick_id`. Nothing here answers a model: an installed agent carries its own model, so every `Agent()` below omits `model`. `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`.
 
-`init.quick` does not emit dedicated `state_path`/`project_path` fields, so derive them from the already-absolute `quick_dir` (#2376 — files handed to a spawned subagent must resolve regardless of that subagent's own cwd):
+The project state and the project are no files, so there is no path to hand a subagent: it reads them with `specforge` (#2376):
 ```bash
 STATE_PATH=""   # the project state is computed: specforge gsd progress-report
 PROJECT_PATH=""   # the project is an entity: specforge query "$PROJECT" --depth 0

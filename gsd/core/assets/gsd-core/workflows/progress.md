@@ -26,7 +26,7 @@ INIT=$(specforge gsd progress-report --format json)
 
 ```
 
-Extract from init JSON: `project_exists`, `roadmap_exists`, `state_exists`, `requirements_exists`, `planning_exists`, `milestones_exists`, `init_incomplete`, `phases`, `current_phase`, `next_phase`, `milestone_version`, `completed_count`, `phase_count`, `paused_at`, `state_path`, `roadmap_path`, `project_path`, `config_path`, `phase_mvp_mode`.
+Read from the answer (what `progress-report` prints): `milestone_version`, `milestone_name`, `phases` (each `number`, `name`, `plans`, `summaries`, `status`), `total_plans`, `total_summaries`, `percent` and `phase_scope`. `phase_count` is the length of `phases` and `completed_count` counts those with status `Complete`; the current phase is the first that is not, and the next phase the one after it; `roadmap_exists` is `phases` non-empty and `state_exists` is `milestone_version` non-null (the project state is computed, so no path is read); a pause is a `pause` entity, and a phase's mode its `mode` field.
 
 ```bash
 DISCUSS_MODE="{{setting:workflow.discuss_mode|}}"   # workflow.discuss_mode (the settings)

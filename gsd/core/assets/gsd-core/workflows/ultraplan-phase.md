@@ -75,8 +75,8 @@ INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 ```
 
-Parse JSON for: `phase_found`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`,
-`phase_dir`, `roadmap_path`, `requirements_path`, `research_path`, `planning_exists`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields; a phase not in the graph is an E003 error),
+and its milestone, its requirements and its `research` are among the other nodes; the project is an entity, so no path is read.
 
 **If `planning_exists` is false:** Error and exit:
 

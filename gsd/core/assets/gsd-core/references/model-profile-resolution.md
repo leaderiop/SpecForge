@@ -6,13 +6,13 @@ omit the parameter entirely when nothing resolved.
 
 ## Resolution Pattern
 
-Prefer the field your workflow's own `init.*` payload already emits (every orchestrator
-init that spawns subagents carries one — `mapper_model`, `planner_model`,
-`executor_model`, `doc_writer_model`, …). Declare it in the workflow's parse line so the
-binding is stated, not implied:
+No init answer carries a model: an installed agent carries its own, so a spawn names the
+agent and omits the `model` parameter. A workflow's parse line names no model key, since
+no answer prints one; the spawn itself states the binding:
+
 
 ```
-Parse JSON for: `mapper_model`, …
+Agent(subagent_type="gsd-codebase-mapper", …)   # no model parameter: the installed agent's own
 ```
 
 When the agent type is only known at runtime — a capability hook naming its own agent, for

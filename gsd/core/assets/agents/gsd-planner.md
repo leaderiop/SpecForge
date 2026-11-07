@@ -564,7 +564,7 @@ INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 ```
 
-Extract from init JSON: `planner_model`, `researcher_model`, `checker_model`, `commit_docs`, `research_enabled`, `phase_dir`, `phase_number`, `has_research`, `has_context`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id), and its `research` and `context` entities, when it has them, are among the other nodes. `commit_docs` and `workflow.research` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
 
 Also load planning state (position, decisions, blockers) via the SDK — **use `node` to invoke the CLI** (not `npx`):
 ```bash

@@ -391,6 +391,8 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-pattern-mapper.compact.md", 231),
     // The planner's docs lookup runs ctx7 through `specforge run`, with no probe.
     ("gsd-planner.md", 25),
+    // A list of keys to read names what its answer prints: no init bundle prints a model or a phase directory.
+    ("gsd-planner.md", 565),
 ];
 
 /// Checks one asset against its upstream file: the header, then every line.

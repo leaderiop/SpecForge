@@ -61,7 +61,7 @@
     "```bash",
     ""
   ],
-  "bytes": 89380,
+  "bytes": 89083,
   "end": [
     "| AUTH-03 | Phase 1 | Pending |",
     "| AUTH-04 | Phase 1 | Pending |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:72e2edfdac29180e95e6a142bd46682e52ef48e7836a78319d953e80f102b152",
+    "digest": "sha256:f97f586d8c72fa70d0e6bebd13ddc25855db787d449ab2a10b5e34d7107aacdf",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "72e2edfdac29180e95e6a142bd46682e52ef48e7836a78319d953e80f102b152"
+  "sha256": "f97f586d8c72fa70d0e6bebd13ddc25855db787d449ab2a10b5e34d7107aacdf"
 }

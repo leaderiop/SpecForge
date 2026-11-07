@@ -456,7 +456,7 @@ INIT_TRANSITION=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 ```
 
-Extract from `INIT_TRANSITION`: `other_active_workstreams`, `section_manifest`.
+No init bundle prints a section manifest, so `section_manifest` is null and every section below is read; another active workstream is a `workstream` entity whose `status` is `active`.
 
 ---
 

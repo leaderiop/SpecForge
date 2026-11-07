@@ -30,7 +30,7 @@ INIT=$(specforge query "$MILESTONE" --depth 1 --format json)
 AGENT_SKILLS_CHECKER=""   # the host install carries the skills of gsd-integration-checker
 ```
 
-Extract from init JSON: `milestone_version`, `milestone_name`, `phase_count`, `completed_phases`, `commit_docs`.
+Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (its version is that id; `name` and `progress` are its fields, and `phase_count` and `completed_phases` are its `progress`'s `phases` and `phases_complete`), and its phases are among the other nodes. `commit_docs` is a setting: `specforge settings --format json --extension @gsd/core`.
 
 Resolve integration checker model:
 ```bash

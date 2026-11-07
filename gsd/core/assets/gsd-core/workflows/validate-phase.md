@@ -32,7 +32,7 @@ AGENT_SKILLS_AUDITOR=""   # the host install carries the skills of gsd-nyquist-a
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
-Parse: `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields).
 
 ```bash
 AUDITOR_MODEL=""   # resolve-model is not part of @gsd/core: the host picks the model

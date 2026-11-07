@@ -44,7 +44,7 @@ AGENT_SKILLS_SYNTHESIZER=""   # the host install carries the skills of gsd-resea
 AGENT_SKILLS_ROADMAPPER=""   # the host install carries the skills of gsd-roadmapper
 ```
 
-Parse JSON for: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `project_exists`, `has_codebase_map`, `planning_exists`, `has_existing_code`, `has_package_file`, `is_brownfield`, `needs_codebase_map`, `has_git`, `git_worktree_root`, `in_nested_subdir`, `project_path`, `agents_installed`, `missing_agents`, `agent_runtime`, `agents_dir`, `required_agents`, `required_agents_installed`, `missing_required_agents`, `agent_skill_payloads_available`, `agent_skill_payload_agents`, `requirements_exists`, `init_incomplete`, `requirements_path`, `roadmap_path`, `config_path`, `research_dir`, `response_language`.
+`INIT` is `specforge check`'s answer: the project's diagnostics as it stands. The project, its requirements and its roadmap are entities, read with `specforge query`, so no path is read; `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 

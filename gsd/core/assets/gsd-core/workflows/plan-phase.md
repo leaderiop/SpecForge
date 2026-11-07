@@ -106,7 +106,7 @@ When `CONTEXT_WINDOW >= 500000`, the planner prompt includes the 3 most recent p
 
 **#2401 — `prior_verify_commands` is NOT part of that enrichment and is never gated on `CONTEXT_WINDOW`.** It is a handful of one-line `<automated>` commands harvested from the nearest prior phase that had any; the payload is tiny and its absence at 200k is exactly what made the planner re-invent a verify command and author an unrunnable path. Surface it at every context window.
 
-Parse JSON for: `researcher_model`, `planner_model`, `checker_model`, `research_enabled`, `plan_checker_enabled`, `nyquist_validation_enabled`, `commit_docs`, `text_mode`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`, `has_research`, `has_context`, `has_reviews`, `has_plans`, `plan_count`, `phase_status` (#3569), `planning_exists`, `roadmap_exists`, `phase_req_ids`, `response_language`, `granularity`, `prior_verify_commands` (#2401 — array of `{phase, plan, task, command}`, possibly empty; emitted at every context window).
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name`, `slug`, `goal`, `status` and `requirements` are its fields; a phase not in the graph is an E003 error), and the other nodes are what links to it or from it: its milestone, its requirements, its `plan` entities and its `context`, `research`, `verification` and `uat_session` when it has them. `phase_status` (#3569) is the phase's `status`, `phase_req_ids` its `requirements`, `plan_count` the number of its plans, and `has_research`, `has_context` and `has_plans` whether one is there. `commit_docs`, `workflow.research`, `workflow.plan_check`, `workflow.nyquist_validation`, `workflow.text_mode`, `response_language` and `granularity` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model. `prior_verify_commands` (#2401) are the `verification` of each plan of the nearest earlier phase that has plans, read with a depth-1 query of that phase.
 
 **#2517:** omit the `model=` param from an `Agent()` call when its `researcher`/`planner`/`checker`_model is `"inherit"` or empty — passing `model=""` 404s on non-Claude runtimes; omitting inherits the orchestrator model (mirrors execute-phase).
 
@@ -248,11 +248,11 @@ If `section_manifest` is `null` or `"adr-ingest-express-path"` is in its `includ
 
 **Skip if:** PRD express path or ADR ingest express path was used (CONTEXT.md already created in step 3.5/3.6).
 
-Check `context_path` from init JSON.
+Check whether the phase has a `context` entity among `INIT`'s nodes.
 
-If `context_path` is not null, display: `Using phase context from: ${context_path}`
+If it has one, display: `Using phase context from: <its id>`
 
-**If `context_path` is null (no CONTEXT.md exists):**
+**If it has none (no CONTEXT.md exists):**
 
 Read discuss mode for context gate label:
 ```bash

@@ -99,7 +99,7 @@ INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 AGENT_SKILLS=""   # the host install carries the skills of gsd-executor
 ```
 
-Parse JSON for: `executor_model`, `verifier_model`, `commit_docs`, `parallelization`, `phase_found`, `phase_dir`, `phase_number`, `padded_phase`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `phase_req_ids`, `response_language`, `requirements_path`, `section_manifest`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name`, `slug` and `requirements` (`phase_req_ids`) are its fields; a phase not in the graph is an E003 error), and its `plan` entities are among the other nodes (`plan_count` is their number; `incomplete_plans` are those whose `status` is not `complete` and `incomplete_count` their number). `commit_docs`, `parallelization` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model. No init bundle prints a section manifest, so it is null and every step below is read.
 
 **Threat-ID gate (#4683):** run `THREAT_IDS_JSON=$(specforge gsd threat-ids "$PHASE_ID" --format json 2>/dev/null || if [ $? -eq 2 ]; then echo '{"threat_id_duplicates":[],"threat_id_duplicate_count":0}'; else echo '{"threat_id_duplicates":[],"threat_id_duplicate_count":null,"error":"threat-ids failed"}'; fi)`; if `threat_id_duplicate_count` from `THREAT_IDS_JSON` is non-zero, read and execute `execute-phase/steps/threat-id-gate.md` BEFORE any dispatch — if `error` is set (a loaded `@gsd/security` could not answer; exit 2 is "not loaded" and means no duplicates) stop and report it, never read it as no duplicates; it is a hard stop (the full duplicate list is `threat_id_duplicates` of `THREAT_IDS_JSON`).
 
@@ -333,9 +333,9 @@ All subsequent commits go to this branch. User handles merging.
 </step>
 
 <step name="validate_phase">
-From init JSON: `phase_dir`, `plan_count`, `incomplete_count`.
+From `INIT`: the phase's `plan` entities (`plan_count` is their number) and those whose `status` is not `complete` (`incomplete_count`).
 
-Report: "Found {plan_count} plans in {phase_dir} ({incomplete_count} incomplete)"
+Report: "Found {plan_count} plans in phase $PHASE_ID ({incomplete_count} incomplete)"
 
 **Update STATE.md for phase start:**
 ```bash

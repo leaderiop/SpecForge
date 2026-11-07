@@ -55,7 +55,7 @@ AGENT_SKILLS_PLANNER=""   # the host install carries the skills of gsd-planner
 AGENT_SKILLS_CHECKER=""   # the host install carries the skills of gsd-plan-checker
 ```
 
-Parse JSON for: `planner_model`, `checker_model`, `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `has_verification`, `uat_path`, `state_path`, `roadmap_path`, `response_language`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error), and its `verification` and `uat_session` entities, when it has them, are among the other nodes. `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 

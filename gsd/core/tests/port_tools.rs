@@ -662,3 +662,44 @@ fn execute_phase_holds_no_isolation_value() {
     assert!(files.len() > 10, "only {} files", files.len());
     assert!(found.is_empty(), "isolation values:\n{}", found.join("\n"));
 }
+
+/// A list of keys to read from an answer ("Parse JSON for: …", "Extract from init JSON: …") names only keys something
+/// prints: no init bundle prints a model, a phase directory, a padded phase, a section manifest or a path, so a list
+/// naming one sends the model after a value that is never there. A key a JSON literal of the same file sets is printed.
+#[test]
+fn no_parse_list_names_a_key_nothing_prints() {
+    let list = Regex::new(r"^Parse:|(?:Parse|Extract|From|Check)\b[^.]*?\b(?:JSON|init|INIT\w*)\b")
+        .expect("a regex");
+    let key = Regex::new(r"`([a-z][a-z0-9_]*)`").expect("a regex");
+    let relic =
+        Regex::new(r"^(?:[a-z_]+_model|phase_dir|padded_phase|section_manifest|[a-z_]+_path)$")
+            .expect("a regex");
+    let mut found = Vec::new();
+    let mut lists = 0;
+    for (path, lines) in asset_code::assets_under("assets") {
+        let text = lines.join("\n");
+        let mut in_list = false;
+        for (n, line) in lines.iter().enumerate() {
+            in_list = list.is_match(line) || (in_list && line.starts_with('`'));
+            if !in_list {
+                continue;
+            }
+            lists += 1;
+            let unprinted: Vec<&str> = key
+                .captures_iter(line)
+                .filter_map(|c| c.get(1))
+                .map(|m| m.as_str())
+                .filter(|k| relic.is_match(k) && !text.contains(&format!("\"{k}\":")))
+                .collect();
+            if !unprinted.is_empty() {
+                found.push(format!("{path}:{}: {unprinted:?}", n + 2));
+            }
+        }
+    }
+    assert!(lists > 20, "only {lists} list lines");
+    assert!(
+        found.is_empty(),
+        "lists naming keys nothing prints:\n{}",
+        found.join("\n")
+    );
+}

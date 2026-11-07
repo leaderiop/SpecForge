@@ -62,7 +62,7 @@ INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 ```
 
-Parse JSON for: `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`, `state_path`, `requirements_path`, `roadmap_path`, `planning_path`, `response_language`, `commit_docs` (the phase's spec is read below, from the graph).
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name`, `slug` and `requirements` are its fields; a phase not in the graph is an E003 error); the project state is computed and the roadmap and the requirements are entities, so no path is read. `response_language` and `commit_docs` are settings: `specforge settings --format json --extension @gsd/core` (the phase's spec is read below, from the graph).
 
 **If `response_language` is set:** All user-facing text in this workflow — narration between tool calls, status updates, progress notes, findings, questions, and report prose — MUST be in `{response_language}`. Technical terms, code, and file paths stay in English.
 

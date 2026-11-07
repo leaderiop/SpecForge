@@ -10,7 +10,7 @@ Smart discuss is the autonomous-optimized variant of `gsd-discuss-phase`. It pro
 PHASE_STATE=$(specforge query "$MILESTONE/${PHASE_NUM}" --depth 1 --format json)
 ```
 
-Parse from JSON: `phase_dir`, `phase_slug`, `padded_phase`, `phase_name`.
+Read from `PHASE_STATE`: the node whose `id` is `$MILESTONE/${PHASE_NUM}` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields).
 
 ---
 

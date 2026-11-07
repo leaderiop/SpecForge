@@ -158,7 +158,7 @@ Use `init milestone-op` for context, or load config directly:
 
 ```
 
-The strategy is `git.branching_strategy` and each branch the computed `branch` of its phase or milestone. Extract `commit_docs` from init JSON. Extract `git_create_tag` and `section_manifest` from `INIT_CM` (used by the `git_tag` step below).
+The strategy is `git.branching_strategy` and each branch the computed `branch` of its phase or milestone. `commit_docs` and `git.create_tag` are settings: `specforge settings --format json --extension @gsd/core`; no init bundle prints a section manifest, so it is null and the `git_tag` step below is read.
 
 `BASE_BRANCH` is already resolved by the spine at this point (via the shared `git.base-branch` resolver) — the branch options below use it as-is.
 

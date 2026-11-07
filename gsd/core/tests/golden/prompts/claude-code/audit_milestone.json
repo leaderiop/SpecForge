@@ -45,7 +45,7 @@
     "AGENT_SKILLS_CHECKER=\"\"   # the host install carries the skills of gsd-integration-checker",
     "```",
     "",
-    "Extract from init JSON: `milestone_version`, `milestone_name`, `phase_count`, `completed_phases`, `commit_docs`.",
+    "Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (its version is that id; `name` and `progress` are its fields, and `phase_count` and `completed_phases` are its `progress`'s `phases` and `phases_complete`), and its phases are among the other nodes. `commit_docs` is a setting: `specforge settings --format json --extension @gsd/core`.",
     "",
     "Resolve integration checker model:",
     "```bash",
@@ -61,7 +61,7 @@
     "",
     "- Parse version from arguments or detect current from ROADMAP.md"
   ],
-  "bytes": 24538,
+  "bytes": 24786,
   "end": [
     "",
     "<success_criteria>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:acd3e70910bf1e6412b1ed195af75add3606aa58c4702654a4165d13d1160d4a",
+    "digest": "sha256:28f0f52a0a30071beef1aaf07979b1b9be7ce00e5deddba84deed644c2dc0b12",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "acd3e70910bf1e6412b1ed195af75add3606aa58c4702654a4165d13d1160d4a"
+  "sha256": "28f0f52a0a30071beef1aaf07979b1b9be7ce00e5deddba84deed644c2dc0b12"
 }

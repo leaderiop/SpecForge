@@ -146,7 +146,7 @@ INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 ```
 
-Parse JSON for: `phase_dir`, `phase_number`, `padded_phase`, `phase_name`, `has_plans`, `plan_count`, `commit_docs`, `text_mode`, `response_language`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error), and its `plan` entities are among the other nodes (`plan_count` is their number; `has_plans` is whether there is one). `commit_docs`, `workflow.text_mode` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`.
 
 **If `response_language` is set:** All user-facing output — narration between tool calls, status updates, progress notes, findings, questions, and report prose — should be in `{response_language}`.
 

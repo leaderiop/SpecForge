@@ -318,7 +318,7 @@ needs it sets WS from the ws argument itself, so no file holds it and
 none is removed in Step 10. -->
 
 
-Extract from init JSON: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `research_enabled`, `current_milestone`, `project_exists`, `roadmap_exists`, `latest_completed_milestone`, `phase_dir_count`, `phase_archive_path`, `agents_installed`, `missing_agents`, `project_path`, `roadmap_path`, `requirements_path`, `config_path`, `research_dir`, `milestones_path`, `phases_dir`, `archive_dir`.
+Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (`name` and `state` are its fields), and its phases are among the other nodes. `commit_docs` and `workflow.research` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model; the project, its roadmap and its requirements are entities, read with `specforge query`, so no path is read.
 
 **If `agents_installed` is false:** Display a warning before proceeding:
 ```
