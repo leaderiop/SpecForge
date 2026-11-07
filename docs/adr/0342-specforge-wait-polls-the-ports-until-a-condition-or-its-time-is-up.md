@@ -35,8 +35,11 @@ MCP tool (ADR 0339 D1). The kernel knows nothing of servers, planners or quotas.
 - **The poll.** The conditions are checked at once, then after 100 ms, the pause doubling to at most 1 s, and once
   more at the deadline. `--for 0` checks once. The wait ends at the first condition that holds; when several hold in
   one check, the order is `--url`, `--changed`, `--match`.
-- **`--url`** sends a `GET` through `specforge http`'s request (`verbs::http::request`), keeping no body. A probe's
-  timeout is the time left, at least 1 s and at most 10 s. Any HTTP answer holds (D4). A request no server answered is
+- **`--url`** sends a `GET` through `specforge http`'s request (`verbs::http::request`), its body read as `http`
+  reads one (1 MiB at most) and not shown: the record keeps the answer only when it fits. A probe's
+  timeout is the wait's `--for`, at least 1 s and at most 10 s: the same for every probe, since the request (so its
+  record's digest) holds it, and a replay of the same wait finds its record. A probe that starts just before the
+  deadline may end up to that long after it. Any HTTP answer holds (D4). A request no server answered is
   "not yet"; a refused redirect or a denial ends the wait as a refusal.
 - **`--changed <glob>`** splits the glob at its first component that holds a glob character (`*?[{`): the components
   before it name the directory, read from the current directory and held to the roots, and the rest is matched as

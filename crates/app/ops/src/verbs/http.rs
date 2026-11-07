@@ -418,7 +418,7 @@ fn read_body(verbs: &Verbs, typed: &std::path::Path) -> Result<Vec<u8>, OpError>
     Ok(outcome.bytes)
 }
 
-/// Why no answer came from `url`.
+/// Why no answer came from `url`: its `data.outcome` is the class, `unreachable:connect`.
 fn unanswered(url: &str, class: &OutcomeClass) -> OpError {
     let kind = match class {
         OutcomeClass::Unreachable(Unreachable::Timeout) => OpErrorKind::Timeout,
@@ -432,6 +432,7 @@ fn unanswered(url: &str, class: &OutcomeClass) -> OpError {
         UNREACHABLE,
         format!("{} did not answer: {class}", printable(url)),
     )
+    .with_data(serde_json::json!({ "outcome": class.to_string() }))
 }
 
 /// Every redirect judged by the user grant as the hop it sends: the first one refused keeps its refusal.

@@ -1,11 +1,12 @@
-//! The verbs a person or an agent types (ADR 0339): `specforge files`, `run`, `http` and `git`. Each turns its
-//! arguments into one `specforge_ops::verbs` operation and prints its answer: JSON by default, the values `--pick`
-//! reaches, or a short listing under `--format human`; a refusal is the JSON error document (ADR 0029).
+//! The verbs a person or an agent types (ADR 0339): `specforge files`, `run`, `http`, `git` and `wait` (ADR 0342). Each
+//! turns its arguments into one `specforge_ops::verbs` operation and prints its answer: JSON by default, the values
+//! `--pick` reaches, or a short listing under `--format human`; a refusal is the JSON error document (ADR 0029).
 
 pub(crate) mod files;
 pub(crate) mod git;
 pub(crate) mod http;
 pub(crate) mod run;
+pub(crate) mod wait;
 
 use std::path::PathBuf;
 use std::time::Duration;

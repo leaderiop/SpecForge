@@ -1,13 +1,15 @@
-//! The verbs a person or an agent types (ADR 0339): `specforge files`, `run`, `http` and `git`. Each is the user's own
-//! act, under the user grant: every port and request, with only the project's effects ceiling narrowing it. A typed
-//! path is read from the current directory, then held to the one root of the project this machine may reach that holds
-//! it: `project`, `spec`, a named root of `specforge.json` (one outside the project once approved), a root named on this
-//! machine (`grants approve --root <name> --at <dir>`), or the verb-only `temp`. The last two no extension's grant holds.
+//! The verbs a person or an agent types (ADR 0339): `specforge files`, `run`, `http`, `git` and `wait` (ADR 0342). Each
+//! is the user's own act, under the user grant: every port and request, with only the project's effects ceiling
+//! narrowing it. A typed path is read from the current directory, then held to the one root of the project this machine
+//! may reach that holds it: `project`, `spec`, a named root of `specforge.json` (one outside the project once approved),
+//! a root named on this machine (`grants approve --root <name> --at <dir>`), or the verb-only `temp`. The last two no
+//! extension's grant holds.
 
 pub mod files;
 pub mod git;
 pub mod http;
 pub mod run;
+pub mod wait;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
