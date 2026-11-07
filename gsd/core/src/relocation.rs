@@ -10,7 +10,7 @@ use specforge_extension_sdk::shell::{self, Op};
 const MAX_DEPTH: usize = 4;
 
 const KEYWORDS: &[&str] = &[
-    "if", "then", "else", "elif", "do", "while", "until", "!", "{", "time",
+    "if", "then", "else", "elif", "do", "while", "until", "!", "{", "time", "coproc",
 ];
 const SHELLS: &[&str] = &["sh", "bash", "zsh", "dash", "ksh"];
 const PACKAGE_TOOLS: &[&str] = &["npm", "npx", "pnpm", "yarn", "bun"];
@@ -83,15 +83,31 @@ pub enum Event {
     Leave,
 }
 
-/// `^MISSING(\s|$)`: the Wave-0 sentinel is not a command.
+/// `^MISSING(\s|$)`: the Wave-0 sentinel is not a command. Only a line that is nothing else is exempt, whatever its prose
+/// says (`MISSING - can't yet`): anything after an operator is a command, and the walk reads it.
 pub fn missing_sentinel(text: &str) -> bool {
-    text.strip_prefix("MISSING")
-        .is_some_and(|after| after.is_empty() || after.starts_with(char::is_whitespace))
+    text.strip_prefix("MISSING").is_some_and(|after| {
+        (after.is_empty() || after.starts_with(char::is_whitespace))
+            && !after.contains([';', '&', '|', '(', ')', '`', '\n'])
+    })
 }
 
-/// Whether the shell builds `target` at run time: it cannot be read here, and passes.
+/// Whether the shell builds `target` at run time: what it names cannot be read here.
 pub fn dynamic(target: &str) -> bool {
-    target.contains(['$', '`', '*', '?']) || target.starts_with('~')
+    target.contains(EXPANDS) || target.starts_with('~')
+}
+
+const EXPANDS: [char; 4] = ['$', '`', '*', '?'];
+
+/// The directory `target` names before the first thing the shell expands: `/main/` of `/main/$X` and of `/main/a*`,
+/// empty of `a*`. All of a literal target.
+pub fn literal_prefix(target: &str) -> &str {
+    match target.find(EXPANDS) {
+        Some(at) => target[..at]
+            .rfind('/')
+            .map_or("", |slash| &target[..=slash]),
+        None => target,
+    }
 }
 
 /// The events of `line`, with `&amp;` read as `&` (a plan's text is XML). An unclosed quote is an `Err`.
@@ -116,6 +132,11 @@ fn read(line: &str, depth: usize, out: &mut Vec<Event>) -> Result<(), String> {
                 open -= 1;
             }
             _ => {}
+        }
+        for text in segment.substitutions.iter().filter(|_| depth < MAX_DEPTH) {
+            out.push(Event::Enter);
+            read(text, depth + 1, out)?;
+            out.push(Event::Leave);
         }
         segment
             .redirects
@@ -151,13 +172,17 @@ fn assignment(word: &str) -> Option<&str> {
 
 /// The absolute path a word names: bare, or after `NAME=` or `--flag=`.
 fn absolute(word: &str, out: &mut Vec<Event>) {
-    let value = assignment(word)
-        .or_else(|| {
-            word.strip_prefix("--")?
-                .split_once('=')
-                .map(|(_, value)| value)
-        })
-        .unwrap_or(word);
+    // An assignment's value is a list as often as a path: `PATH=/a/bin:$PATH`.
+    if let Some(value) = assignment(word) {
+        for value in value.split(':').filter(|value| value.starts_with('/')) {
+            out.push(Event::Absolute(value.to_string()));
+        }
+        return;
+    }
+    let value = word
+        .strip_prefix("--")
+        .and_then(|flag| flag.split_once('='))
+        .map_or(word, |(_, value)| value);
     if value.starts_with('/') {
         out.push(Event::Absolute(value.to_string()));
     }
@@ -166,6 +191,11 @@ fn absolute(word: &str, out: &mut Vec<Event>) {
 fn command(words: &[String], depth: usize, out: &mut Vec<Event>) -> Result<(), String> {
     let mut rest = words;
     while let Some((first, tail)) = rest.split_first() {
+        // `function f { …`: the body is the commands that follow, read where they stand.
+        if first == "function" {
+            rest = tail.get(1..).unwrap_or_default();
+            continue;
+        }
         if !(KEYWORDS.contains(&first.as_str()) || assignment(first).is_some()) {
             break;
         }
@@ -175,6 +205,10 @@ fn command(words: &[String], depth: usize, out: &mut Vec<Event>) -> Result<(), S
     let Some((head, tail)) = rest.split_first() else {
         return Ok(());
     };
+    // The sentinel's own command; what follows an operator is a command again.
+    if head == "MISSING" {
+        return Ok(());
+    }
     absolute(head, out);
     let name = head.rsplit('/').next().unwrap_or(head);
     if let Some(launcher) = LAUNCHERS.iter().find(|l| l.name == name) {
@@ -399,7 +433,7 @@ fn directory_flags(name: &str, tail: &[String], out: &mut Vec<Event>) {
     let flags: &[&str] = match name {
         _ if PACKAGE_TOOLS.contains(&name) => PACKAGE_DIR_FLAGS,
         "make" => MAKE_DIR_FLAGS,
-        "git" => &["-C"],
+        "git" => &["-C", "--directory"],
         _ => return,
     };
     let mut at = 0;
@@ -599,6 +633,44 @@ mod tests {
     }
 
     #[test]
+    fn the_sentinel_is_exempt_for_its_own_command_only() {
+        assert!(missing_sentinel("MISSING"));
+        assert!(missing_sentinel("MISSING - Wave 0, can't yet"));
+        assert!(!missing_sentinel("MISSINGNO"));
+        assert!(!missing_sentinel("MISSING ; cd x"));
+        assert!(!missing_sentinel("MISSING x\ncd y"));
+        assert!(events("MISSING - Wave 0").expect("readable").is_empty());
+        assert_eq!(cds("MISSING ; cd x"), ["x"]);
+        assert_eq!(cds("MISSING x && cd y"), ["y"]);
+    }
+
+    #[test]
+    fn a_substitution_and_a_function_body_are_read_where_they_stand() {
+        assert_eq!(cds(r#"echo "$(cd x && make)""#), ["x"]);
+        assert_eq!(cds("echo `cd x`"), ["x"]);
+        assert_eq!(cds("`cd x && make`"), ["x"]);
+        assert_eq!(cds("function f { cd x; }; f"), ["x"]);
+        assert_eq!(cds("function f() { cd x; }; f"), ["x"]);
+        assert_eq!(cds("f() { cd x; }; f"), ["x"]);
+        assert_eq!(reached(r#"echo "$(cd x)""#), Vec::<String>::new());
+        assert_eq!(reached("echo `cd x`"), Vec::<String>::new());
+        assert!(
+            cds("echo '$(cd x)'").is_empty(),
+            "the shell leaves it as text"
+        );
+    }
+
+    #[test]
+    fn a_literal_prefix_ends_before_the_first_expansion() {
+        assert_eq!(literal_prefix("/main/$X"), "/main/");
+        assert_eq!(literal_prefix("/main/*"), "/main/");
+        assert_eq!(literal_prefix("../main/a*"), "../main/");
+        assert_eq!(literal_prefix("a*"), "");
+        assert_eq!(literal_prefix("$X/y"), "");
+        assert_eq!(literal_prefix("/main/x"), "/main/x");
+    }
+
+    #[test]
     fn dynamic_targets_pass() {
         for target in ["$VAR/x", "`pwd`", "a*", "a?", "~/x"] {
             assert!(dynamic(target), "{target}");
@@ -625,6 +697,13 @@ mod tests {
         assert_eq!(paths("FOO=/a make"), ["/a"]);
         assert_eq!(paths("tool --out=/a x"), ["/a"]);
         assert_eq!(paths("make >/a 2>/b"), ["/a", "/b"]);
+        assert_eq!(paths("make&>/a"), ["/a"]);
+        assert_eq!(paths(">/a"), ["/a"]);
+        assert_eq!(paths("PATH=/a/bin:$PATH make"), ["/a/bin"]);
+        assert_eq!(paths("PATH=$PATH:/a/bin make"), ["/a/bin"]);
+        assert_eq!(paths("x=y:/a"), ["/a"]);
+        assert_eq!(paths(r#"echo "$(cat /a)""#), ["/a"]);
+        assert_eq!(paths("echo `cat /a`"), ["/a"]);
         assert_eq!(
             paths("python3 -c 'import os; os.chdir(\"/a/b\"); p = a/b'"),
             ["/a/b"]

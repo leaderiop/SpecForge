@@ -15,7 +15,7 @@ use specforge_extension_sdk::host::{fs, git};
 use specforge_extension_sdk::prelude::*;
 
 use super::support::{answer, run};
-use crate::relocation::{Event, dynamic, events, missing_sentinel};
+use crate::relocation::{Event, dynamic, events, literal_prefix, missing_sentinel};
 
 /// Where a command must stay: the worktree's top, and the main checkout it must not reach.
 struct Roots<'a> {
@@ -96,61 +96,88 @@ fn judge(
     if missing_sentinel(command.trim()) {
         return Ok(judged);
     }
-    // `None`: a dynamic `cd` was passed, and a relative target from there cannot be read.
-    let mut cwd = Some(roots.top.to_string());
-    let mut saved: Vec<Option<String>> = Vec::new();
+    let mut cwd = Cwd {
+        path: roots.top.to_string(),
+        read: true,
+    };
+    let mut saved = Vec::new();
     for event in events(command)? {
         match event {
             Event::Enter => saved.push(cwd.clone()),
-            Event::Leave => cwd = saved.pop().flatten(),
+            Event::Leave => {
+                if let Some(before) = saved.pop() {
+                    cwd = before;
+                }
+            }
             Event::Cd(target) => {
-                let reached = relocated(&target, cwd.as_deref(), roots, leaves, &mut judged);
+                let reached = relocated(&target, &cwd, roots, leaves, &mut judged);
                 cwd = reached;
             }
             Event::Flag { target, .. } => {
-                relocated(&target, cwd.as_deref(), roots, leaves, &mut judged);
+                relocated(&target, &cwd, roots, leaves, &mut judged);
             }
-            Event::Absolute(word) if dynamic(&word) => judged.dynamic.push(word),
-            Event::Absolute(word) => {
-                let path = resolved("/", &word);
-                if inside(&path, roots.main) && !inside(&path, roots.top) {
-                    judged.outside.push(Finding {
-                        word,
-                        path,
-                        why: "an absolute path inside the main checkout",
-                    });
-                }
-            }
+            Event::Absolute(word) => absolute_word(word, roots, leaves, &mut judged),
             Event::Run(_) => {}
         }
     }
     Ok(judged)
 }
 
-/// Judges a relocation to `target`, and answers the directory it reaches, `None` when that cannot be read.
-fn relocated(
-    target: &str,
-    cwd: Option<&str>,
+/// Where the walk stands. Past a `cd` the shell expands, `read` is false: a relative target from there is named under
+/// `dynamic`, and is still folded with the expansion as one directory, as far as that shows it climbing out.
+#[derive(Clone)]
+struct Cwd {
+    path: String,
+    read: bool,
+}
+
+/// An absolute word is judged by all it spells and by what it spells before an expansion: `/main/*` names the main checkout.
+fn absolute_word(
+    word: String,
     roots: &Roots<'_>,
     leaves: &dyn Fn(&str) -> bool,
     judged: &mut Judged,
-) -> Option<String> {
-    if dynamic(target) {
-        judged.dynamic.push(target.to_string());
-        return None;
+) {
+    if dynamic(&word) {
+        judged.dynamic.push(word.clone());
     }
-    let from = match cwd {
-        Some(from) => from,
-        None if target.starts_with('/') || drive(target).is_some() => "/",
-        None => {
-            judged.dynamic.push(target.to_string());
-            return None;
-        }
-    };
-    let path = resolved(from, target);
-    let why = if !inside(&path, roots.top) {
+    let reaches = |path: &str| inside(path, roots.main) && !inside(path, roots.top);
+    let whole = resolved("/", &word);
+    let prefix = resolved("/", literal_prefix(&word));
+    if reaches(&whole) || reaches(&prefix) {
+        judged.outside.push(Finding {
+            word,
+            path: whole,
+            why: "an absolute path inside the main checkout",
+        });
+    } else if inside(&prefix, roots.top) && leaves(&prefix) {
+        judged.outside.push(Finding {
+            word,
+            path: whole,
+            why: "a link out of the worktree",
+        });
+    }
+}
+
+/// Judges a relocation to `target`, and answers where it stands after it. What the shell expands is folded as one more
+/// directory, and judged by that and by what it spells before the expansion, so only the part no reading can fix passes.
+fn relocated(
+    target: &str,
+    cwd: &Cwd,
+    roots: &Roots<'_>,
+    leaves: &dyn Fn(&str) -> bool,
+    judged: &mut Judged,
+) -> Cwd {
+    let rooted = target.starts_with('/') || drive(target).is_some();
+    let read = !dynamic(target) && (rooted || cwd.read);
+    if !read {
+        judged.dynamic.push(target.to_string());
+    }
+    let path = resolved(&cwd.path, target);
+    let prefix = resolved(&cwd.path, literal_prefix(target));
+    let why = if !inside(&path, roots.top) || !inside(&prefix, roots.top) {
         Some("a relocation outside the worktree")
-    } else if leaves(&path) {
+    } else if (rooted || cwd.read) && leaves(&prefix) {
         Some("a link out of the worktree")
     } else {
         None
@@ -162,7 +189,7 @@ fn relocated(
             why,
         });
     }
-    Some(path)
+    Cwd { path, read }
 }
 
 fn fatal(command: &str, why: &str) -> String {
@@ -297,11 +324,104 @@ mod tests {
         // `(cd src)` leaves the cwd at the top, so `../main` from there is outside; from src it would be inside `/wt`.
         assert!(halts("(cd src) && cd ../main"));
         assert!(!halts("cd src && cd .."));
+        // `$VAR` counts as one directory: this stays in `/wt`, read as dynamic.
         let judged = verdict("cd $VAR && cd ../main");
         assert!(judged.outside.is_empty(), "{judged:?}");
         assert_eq!(judged.dynamic, ["$VAR", "../main"]);
         assert!(halts("cd $VAR && cd /main"), "an absolute target is read");
         assert!(!halts("(cd $VAR); cd src"), "the subshell's cwd is gone");
+    }
+
+    /// The guard before the words halted on every row. Two kinds of row it halted pass, as the words tell them apart:
+    /// quoted text (`echo '; cd ../main'` runs nothing) and another tool's flag (`git status -C ../main`).
+    #[test]
+    fn nothing_the_old_guard_halted_passes() {
+        for command in [
+            "cd ../main",
+            "cd /main",
+            "cat /main/x",
+            "cd /main/$X",
+            "cd /main/*",
+            "cd /main/a?",
+            "cat /main/$X",
+            "cat /main/*",
+            "cd ../main/*",
+            "cd ../main/$X",
+            "cd ../ma*",
+            "cd $X/../..",
+            "cd a*/../..",
+            "cd $X && cd ../../main",
+            "cd /tmp/$X",
+            "PATH=/main/bin:$PATH make",
+            "FOO=/main/x make",
+            "--x=/main/y",
+            "tool --x=/main/$Y",
+            "MISSING ; cd ../main && make",
+            "MISSING && cd ../main",
+            "MISSING x; cd /main",
+            "MISSING x\ncd /main",
+            r#"echo "$(cd ../main && make)""#,
+            "echo `cat /main/x`",
+            "echo $(cat /main/x)",
+            "cd `pwd`/../..",
+            "cd $(pwd)/../..",
+            "x=`cd ../main`",
+            "function f { cd ../main; }; f",
+            "f() { cd ../main; }; f",
+            "{ cd ../main; }",
+            "(cd ../main)",
+            "cat x 2>&1; cd ../main",
+            "cat x &>y; cd ../main",
+            "cat x 2>&1 && cd ../main",
+            "pushd ../main",
+            "npm --prefix ../main test",
+            "yarn --cwd=../main test",
+            "pnpm -C ../main test",
+            "make -C ../main",
+            "git -C ../main status",
+            "git --directory=../main status",
+            "env -C ../main make",
+            "env --chdir=../main make",
+            "eval 'cd ../main'",
+            "bash -c 'cd ../main'",
+            "/bin/sh -c 'cd /main'",
+            "timeout 5 bash -c 'cd ../main'",
+        ] {
+            assert!(halts(command), "{command}: {:?}", verdict(command));
+        }
+        // What only the shell can name passes, named.
+        for command in ["cd $X", "cd $X/y", "cd ~/x", "cat /etc/*", "cat /$X"] {
+            let judged = verdict(command);
+            assert!(judged.outside.is_empty(), "{command}: {judged:?}");
+            assert!(!judged.dynamic.is_empty(), "{command}: {judged:?}");
+        }
+        assert!(!halts("cat $X/y"), "a relative word is not read");
+        assert!(!halts("MISSING - Wave 0, can't yet"));
+        assert!(!halts("echo '; cd ../main'"), "quoted text runs nothing");
+        assert!(!halts("git log -C ../main"), "log's own -C moves nothing");
+    }
+
+    #[test]
+    fn a_link_is_seen_under_an_expansion_and_in_an_absolute_word() {
+        let leaves = |path: &str| path.starts_with("/wt/link");
+        for command in [
+            "cd link/$X",
+            "cd link/*",
+            "cat /wt/link/x",
+            "cat /wt/link/*",
+        ] {
+            let judged = judge(command, &ROOTS, &leaves).unwrap();
+            assert_eq!(
+                judged.outside[0].why, "a link out of the worktree",
+                "{command}"
+            );
+        }
+        assert!(
+            judge("cat /wt/src/*", &ROOTS, &leaves)
+                .unwrap()
+                .outside
+                .is_empty()
+        );
     }
 
     #[test]

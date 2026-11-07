@@ -423,10 +423,10 @@ from it.
 
 The rest, in descending order of how likely a planner is to reach them:
 
-- **Anything the shell builds at run time.** A variable, a command substitution, a glob or a tilde as a
-  target, and equally a shell handed a variable as its script: there are no words to read. They pass,
-  named under `dynamic`, and a relative target after a dynamic move is dynamic too, since the cwd it
-  starts from is unknown. An absolute target is still read.
+- **What the shell builds at run time.** A variable, a substitution's result, a glob or a tilde: only the
+  part written out is read, and the expansion counts as one directory, so a literal prefix in the main
+  checkout or a climb out of the worktree halts. The rest passes, named under `dynamic`. The commands
+  inside a substitution and a function's body are read, and an absolute target is always read.
 - **A launcher, interpreter or directory flag outside the tables.** A command behind an unknown launcher
   is one more word, and a directory flag on an unknown tool is an ordinary argument. Its absolute form is
   still caught; what is uncovered is the relative form. The scoping is per tool because the same spelling

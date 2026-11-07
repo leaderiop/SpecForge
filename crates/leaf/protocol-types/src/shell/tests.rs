@@ -133,8 +133,106 @@ fn a_redirect_is_no_boundary_and_two_operators_keep_their_order() {
 }
 
 #[test]
+fn a_substitution_inside_double_quotes_stays_in_its_word_and_is_read() {
+    let read = segments(r#"echo "x$(cd a && b)y" z"#).unwrap();
+    assert_eq!(read[0].words, ["echo", "x$(cd a && b)y", "z"]);
+    assert_eq!(read[0].substitutions, ["cd a && b"]);
+    assert_eq!(
+        commands(r#"echo "$(cd a && b)""#).unwrap(),
+        [vec!["cd", "a"], vec!["b"], vec!["echo", "$(cd a && b)"]]
+    );
+    assert_eq!(
+        commands(r#"echo "`cd a`""#).unwrap(),
+        [vec!["cd", "a"], vec!["echo", "`cd a`"]]
+    );
+    // Its quotes are its own, and one inside another is read too.
+    assert_eq!(
+        commands(r#"echo "$(cat "a b")" c"#).unwrap(),
+        [vec!["cat", "a b"], vec!["echo", r#"$(cat "a b")"#, "c"]]
+    );
+    assert_eq!(
+        commands(r#"echo "$(echo "$(cd a)")""#).unwrap(),
+        [
+            vec!["cd", "a"],
+            vec!["echo", "$(cd a)"],
+            vec!["echo", r#"$(echo "$(cd a)")"#]
+        ]
+    );
+    // What the shell leaves as text is text.
+    for line in [
+        r#"echo '$(cd a)'"#,
+        r#"echo "\$(cd a)""#,
+        r#"echo "\`cd a\`""#,
+        "echo '`cd a`'",
+    ] {
+        assert_eq!(commands(line).unwrap().len(), 1, "{line}");
+    }
+}
+
+#[test]
+fn a_bare_substitution_stays_in_its_word_and_is_read() {
+    for (line, word) in [
+        ("a `b c`/d e", "`b c`/d"),
+        ("a $(b c)/d e", "$(b c)/d"),
+        ("a x$(b c) e", "x$(b c)"),
+    ] {
+        assert_eq!(
+            commands(line).unwrap(),
+            [vec!["b", "c"], vec!["a", word, "e"]],
+            "{line}"
+        );
+    }
+    assert_eq!(
+        commands("x=$(cd a; b)").unwrap(),
+        [vec!["cd", "a"], vec!["b"], vec!["x=$(cd a; b)"]]
+    );
+    // Only a `(` after a `$` is one; a `$(` no `)` closes reads as the group it starts.
+    assert_eq!(
+        commands("a (b c) d").unwrap(),
+        [vec!["a"], vec!["b", "c"], vec!["d"]]
+    );
+    assert_eq!(commands("a $(b").unwrap(), [vec!["a", "$"], vec!["b"]]);
+    assert!(commands("a `b").is_err());
+    assert!(commands(r#"echo "`b""#).is_err());
+}
+
+#[test]
+fn a_text_handed_over_in_a_substitution_runs_nothing() {
+    // Claude Code's commit idiom: its lines are a message, whatever they say, with or without a lone quote.
+    for line in [
+        "git commit -m \"$(cat <<'EOF'\nrun git add -f x and specforge t approve\nEOF\n)\"",
+        "git commit -m \"$(cat <<'EOF'\nit's git add -f x\nEOF\n)\"",
+        "git commit -m \"$(cat <<'EOF'\na (b\nEOF\n)\"",
+        "git commit -m \"$(cat <<-EOF\nit's and it's\nEOF\n)\"",
+    ] {
+        let read = commands(line).unwrap();
+        assert_eq!(read.len(), 1, "{line}: {read:?}");
+        assert_eq!(read[0][..3], ["git", "commit", "-m"], "{line}");
+    }
+    // Any other command given the lines may run them.
+    let read = commands("echo \"$(bash <<EOF\ncd a\nEOF\n)\"").unwrap();
+    assert!(read.iter().any(|c| c == &["cd", "a"]), "{read:?}");
+    let read = commands("echo \"$(cat <<EOF | sh\ncd a\nEOF\n)\"").unwrap();
+    assert!(read.iter().any(|c| c == &["cd", "a"]), "{read:?}");
+}
+
+#[test]
 fn shell_refuses_an_unclosed_quote() {
     assert!(commands("echo 'a").is_err());
     assert!(commands("echo \"a").is_err());
     assert!(commands("echo a\\").is_err());
+}
+
+#[test]
+fn a_hostile_nest_or_a_long_line_stays_bounded() {
+    // Past the bound a nest is refused, in double quotes or bare, and never takes the stack.
+    let quoted = format!("echo \"{}x{}\"", "$(echo \"".repeat(100), "\")".repeat(100));
+    assert!(commands(&quoted).is_ok(), "past the bound it reads as text");
+    let bare = format!("{}x{}", "$(".repeat(5000), ")".repeat(5000));
+    assert!(commands(&bare).is_err());
+    // A `$(` that nothing closes takes one scan of the line, however many there are.
+    let open = format!("\"{}\"", "$( ".repeat(200_000));
+    let started = std::time::Instant::now();
+    assert!(commands(&open).is_ok());
+    assert!(started.elapsed().as_secs() < 30, "{:?}", started.elapsed());
 }

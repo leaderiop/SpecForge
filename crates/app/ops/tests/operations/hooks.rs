@@ -274,6 +274,13 @@ fn the_human_guard_denies_a_shell_call_running_a_human_command() {
             "bash -c 'specforge t approve&>x'",
             "bash -c 'specforge&>x t approve'",
             "eval 'specforge t approve>x'",
+            // A command substitution runs, in double quotes or a backtick.
+            "echo \"$(specforge t approve)\"",
+            "echo \"`specforge t approve`\"",
+            "`specforge t approve`",
+            "echo `specforge t approve`",
+            "\"$(command -v specforge)\" t approve",
+            "`command -v specforge` t approve",
         ] {
             let run = run_hook(&hosted, "core.human_guard", &shell(line));
             assert_eq!(run.answer["decision"], "deny", "{host} {line}: {run:?}");
@@ -292,6 +299,8 @@ fn the_human_guard_denies_a_shell_call_running_a_human_command() {
             "specforge t stats&>/dev/null",
             "specforge t>approve",
             "cat >specforge t approve",
+            "echo '$(specforge t approve)'",
+            "git commit -m \"$(cat <<'EOF'\nrun specforge t approve later\nEOF\n)\"",
         ] {
             let run = run_hook(&hosted, "core.human_guard", &shell(line));
             assert!(run.answer["decision"].is_null(), "{host} {line}: {run:?}");

@@ -130,7 +130,7 @@ pub fn shell_commands(input: &Value) -> Vec<Vec<String>> {
 /// as `-am`) and whether it amends; none when no command of the line is a commit. A message the commit takes from
 /// elsewhere (`-F`, `-C`, `-c`, `--fixup`, `--squash`, the editor) is none, not empty.
 // shortcut: `git commit` is found by its words (global options and the wrappers `env`, `command`, `sudo`, `exec`,
-// `nohup`, `time` skipped, `sh -c '…'` read); an alias, a script, `xargs` or `$(…)` is not seen. The cleanup mode a
+// `nohup`, `time` skipped, `sh -c '…'` read); an alias, a script or `xargs` is not seen. The cleanup mode a
 // git config sets is not read.
 pub fn commit(input: &Value) -> Option<CommitFact> {
     commit_of_line(input.get("command")?.as_str()?, 0)
@@ -456,6 +456,21 @@ mod tests {
             let fact = commit_of(line).unwrap_or_else(|| panic!("{line}"));
             assert_eq!(fact.message.as_deref(), Some("wip"), "{line}");
         }
+    }
+
+    #[test]
+    fn a_command_in_a_quoted_substitution_is_a_command() {
+        assert_eq!(
+            shell_commands(&json!({"command": "echo \"$(git add -f x)\""})),
+            vec![
+                vec!["git", "add", "-f", "x"],
+                vec!["echo", "$(git add -f x)"]
+            ]
+        );
+        let fact = commit_of("echo \"$(git commit -m wip)\"").unwrap();
+        assert_eq!(fact.message.as_deref(), Some("wip"));
+        let heredoc = "git commit -m \"$(cat <<'EOF'\ngit add -f x, it's\nEOF\n)\"";
+        assert_eq!(shell_commands(&json!({"command": heredoc})).len(), 1);
     }
 
     #[test]

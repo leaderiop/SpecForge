@@ -69,14 +69,7 @@ pub fn resolve(command: &str) -> Verdict {
     let Ok(events) = events(trimmed) else {
         return Verdict::Dynamic;
     };
-    let cds: Vec<&str> = events
-        .iter()
-        .map_while(|event| match event {
-            Event::Cd(target) => Some(target.as_str()),
-            _ => None,
-        })
-        .collect();
-    let rest = &events[cds.len()..];
+    let (cds, rest) = leading_cds(&events);
     let raw = if cds.is_empty() {
         let prefix = events.iter().find_map(|event| match event {
             Event::Flag { flag, target } if flag == "--prefix" => Some(target.clone()),
@@ -103,6 +96,47 @@ pub fn resolve(command: &str) -> Verdict {
         dir,
         need: first.map_or(Need::Nothing, need),
     })
+}
+
+/// The `cd`s a command starts with, and the events after them. A group before a `cd` moves nothing here (`echo
+/// "$(pwd)"; cd x` does not, and neither does `cd "$(pwd)/x"`'s substitution).
+fn leading_cds(events: &[Event]) -> (Vec<&str>, &[Event]) {
+    let mut cds = Vec::new();
+    let mut rest = events;
+    loop {
+        match rest.first() {
+            Some(Event::Cd(target)) => {
+                cds.push(target.as_str());
+                rest = &rest[1..];
+            }
+            Some(Event::Enter) => {
+                let after = past_group(rest);
+                if !matches!(after.first(), Some(Event::Cd(_))) {
+                    return (cds, rest);
+                }
+                rest = after;
+            }
+            _ => return (cds, rest),
+        }
+    }
+}
+
+/// `events` past the group its first event opens.
+fn past_group(events: &[Event]) -> &[Event] {
+    let mut open = 0usize;
+    for (at, event) in events.iter().enumerate() {
+        match event {
+            Event::Enter => open += 1,
+            Event::Leave => {
+                open -= 1;
+                if open == 0 {
+                    return &events[at + 1..];
+                }
+            }
+            _ => {}
+        }
+    }
+    &[]
 }
 
 fn need(words: &[String]) -> Need {

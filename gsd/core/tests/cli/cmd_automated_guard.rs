@@ -49,6 +49,39 @@ fn the_guard_halts_on_the_main_checkout_from_a_linked_worktree() {
         );
     }
 
+    // What the shell expands: the part written out is judged.
+    let main_text = main.display().to_string();
+    let top_text = top.display().to_string();
+    for command in [
+        format!("cd {main_text}/$X"),
+        format!("cd {main_text}/*"),
+        format!("cat {main_text}/*"),
+        format!("cat {main_text}/$X"),
+        format!("PATH={main_text}/bin:$PATH make"),
+        format!("MISSING ; cd {main_text} && make"),
+        format!("MISSING x; cat {main_text}/x"),
+        format!("echo \"$(cat {main_text}/x)\""),
+        format!("echo `cat {main_text}/x`"),
+        format!("function f {{ cd {main_text}; }}; f"),
+        format!("make&>{main_text}/log"),
+    ] {
+        let (code, answer) = guard(&wt, &command, common);
+        assert_eq!(code, 1, "{command}: {answer}");
+    }
+    #[cfg(unix)]
+    for command in [
+        "cd back/$X".to_string(),
+        format!("cat {top_text}/back/x"),
+        format!("cat {top_text}/back/*"),
+    ] {
+        let (code, answer) = guard(&wt, &command, common);
+        assert_eq!(code, 1, "{command}: {answer}");
+    }
+    let (code, answer) = guard(&wt, &format!("cat {top_text}/src/*"), common);
+    assert_eq!(code, 0, "{answer}");
+    let (code, answer) = guard(&wt, "MISSING - Wave 0, can't yet", common);
+    assert_eq!(code, 0, "{answer}");
+
     let (code, answer) = guard(&wt, "cd src && ls", common);
     assert_eq!(code, 0, "{answer}");
     assert_eq!(answer["ok"], true, "{answer}");
