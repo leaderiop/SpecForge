@@ -366,6 +366,21 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-planner.md", 611),
     ("gsd-planner.md", 612),
     ("gsd-planner.md", 613),
+    // ctx7 runs through `specforge run`, with no probe: exit 127 says it is not installed.
+    ("gsd-executor.md", 25),
+    ("gsd-executor.md", 26),
+    ("gsd-executor.md", 27),
+    ("gsd-executor.md", 28),
+    ("gsd-executor.md", 29),
+    ("gsd-executor.md", 34),
+    ("gsd-executor.md", 35),
+    ("gsd-executor.md", 36),
+    ("gsd-executor.md", 37),
+    ("gsd-executor.md", 38),
+    ("gsd-executor.md", 41),
+    ("gsd-executor.md", 42),
+    ("gsd-executor.md", 43),
+    ("gsd-executor.md", 44),
 ];
 
 /// Checks one asset against its upstream file: the header, then every line.

@@ -12,21 +12,21 @@ When you need library or framework documentation, check in this order:
 
    Step 1 — Resolve library ID:
    ```bash
-   if specforge run --which ctx7 >/dev/null 2>&1; then
-     ctx7 library <name> "<query>"
-   else
-     echo "ctx7 not found — install with: npm install -g ctx7 (verify at npmjs.com/package/ctx7 first)"
-   fi
+   # ctx7 is the user's own program, not part of SpecForge or @gsd/core: exit 127 means it is not installed
+   specforge run -- ctx7 library <name> "<query>"
+
+
+
    ```
    Step 2 — Fetch documentation:
    ```bash
-   if specforge run --which ctx7 >/dev/null 2>&1; then
-     ctx7 docs <libraryId> "<query>"
-   else
-     echo "ctx7 not found — install with: npm install -g ctx7 (verify at npmjs.com/package/ctx7 first)"
-   fi
+   # ctx7 is the user's own program, not part of SpecForge or @gsd/core: exit 127 means it is not installed
+   specforge run -- ctx7 docs <libraryId> "<query>"
+
+
+
    ```
 
-Do not skip documentation lookups because MCP tools are unavailable — the CLI fallback
-works via Bash and produces equivalent output. Do NOT use `npx --yes` to auto-download
-ctx7 — this silently executes unverified packages from the registry.
+Exit 127 means ctx7 is not installed: say so once, then read the library's official docs with the
+host's web fetch. Never install ctx7 or download it with npx: that silently runs an unverified
+package from the registry; the user may install it after checking the package.

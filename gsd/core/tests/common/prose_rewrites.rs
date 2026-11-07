@@ -98,4 +98,20 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/references/planner-load-graph-context.md", 32, 32),
     ("gsd-core/references/planner-load-graph-context.md", 35, 35),
     ("gsd-core/workflows/plan-phase.md", 765, 765),
+    // an optional program runs through specforge run, with no probe: ctx7
+    (
+        "gsd-core/references/research-documentation-lookup.md",
+        13,
+        17,
+    ),
+    (
+        "gsd-core/references/research-documentation-lookup.md",
+        21,
+        25,
+    ),
+    (
+        "gsd-core/references/research-documentation-lookup.md",
+        28,
+        30,
+    ),
 ];

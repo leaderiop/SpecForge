@@ -118,8 +118,7 @@ prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shippi
 
 # E network: the host HTTP service and a GitHub provider (R3). 0 rows.
 
-# F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 57 rows.
-agents/gsd-executor.md	npx	npx --yes
+# F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 55 rows.
 agents/gsd-nyquist-auditor.compact.md	pytest	pytest {file} -v
 agents/gsd-nyquist-auditor.md	pytest	pytest {file} -v
 agents/gsd-phase-researcher.md	cargo	cargo search <pkg>
@@ -153,7 +152,6 @@ gsd-core/references/planner-verify-command-grounding.md	npm	npm --prefix <dir> r
 gsd-core/references/prohibition-probe.md	eslint	eslint --format json
 gsd-core/references/prohibition-probe.md	node	node --test
 gsd-core/references/prohibition-probe.md	node	node --test
-gsd-core/references/research-documentation-lookup.md	npx	npx --yes
 gsd-core/references/specless-probe-fallback.md	node	EDGE_ABSENT=1;   node "$SPEC_SECTION_JS" "$SPEC_FILE" edges       2>/dev/null | grep -q '"supplied":true' && EDGE_ABSENT=0
 gsd-core/references/specless-probe-fallback.md	node	PROHIB_ABSENT=1; node "$SPEC_SECTION_JS" "$SPEC_FILE" prohibitions 2>/dev/null | grep -q '"supplied":true' && PROHIB_ABSENT=0
 gsd-core/references/specless-probe-fallback.md	node	if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
@@ -181,11 +179,7 @@ gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcrun	XCODE_SIMS=$(xcr
 gsd-core/workflows/ultraplan-phase.md	claude	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 prompt:ultraplan_phase	claude	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 
-# H routing: no probes: an optional integration is a setting or an extension SpecForge knows is loaded (R1). 4 rows.
-agents/gsd-executor.md	ctx7	ctx7 library <name> "<query>"
-agents/gsd-executor.md	ctx7	ctx7 docs <libraryId> "<query>"
-gsd-core/references/research-documentation-lookup.md	ctx7	ctx7 library <name> "<query>"
-gsd-core/references/research-documentation-lookup.md	ctx7	ctx7 docs <libraryId> "<query>"
+# H routing: no probes: an optional integration is a setting or an extension SpecForge knows is loaded (R1). 0 rows.
 
 # I files: specforge files: walk, glob, match (R4). 1 row.
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Remove-Item	Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\tasks\*" -ErrorAction SilentlyContinue
