@@ -63,14 +63,14 @@ These items are open. Choose an action:
 [C] Cancel — exit without closing
 ```
 
-**If user chooses [A] (Acknowledge):** re-fetch `audit-open --json`, then acknowledge EVERY open item (across all categories — debug_sessions, threads, seeds, todos, quick_tasks, uat_gaps, verification_gaps, context_questions, deferred_items) through the `audit-open acknowledge` CLI writer, which is what actually suppresses each item starting at the next scan (the STATE.md `## Deferred Items` table is a disclosure record only). Any failed acknowledge call HALTS the close before proceeding — a refusal must never be silently discarded. After a clean pass, append one row per acknowledged item to STATE.md's `## Deferred Items` table (sanitized via `sanitizeForDisplay()`, never raw content), set `closeout_type=override_closeout`, and record a `Known verification overrides: {N} newly acknowledged, {M} carried forward` line in MILESTONES.md. Acknowledging is verdict-preserving and self-invalidating — it never rewrites the artifact's own status (except `deferred_items`), and the suppression lapses automatically the moment the artifact's state changes again (a reopened session, an edited gap, a re-triggered seed), resurfacing at the next audit.
+**If user chooses [A] (Acknowledge):** the open items are `specforge check` findings, and an agent cannot suppress them. A person accepts the latest milestone audit's tech debt instead: they write its `debt_accepted` (`by`, `at`) by hand or from an interactive `specforge set`, and gsd/E106 then lets `specforge gsd close-milestone` pass. Ask the person to do it, wait for their answer, re-run `specforge check --format json`, and proceed only when the gate passes. The audit's `tech_debt` entries are the disclosure record; nothing else is written.
 
-If output shows all clear (no open items): set `closeout_type=verified_closeout` — but if any items are `acknowledged.total` from a PRIOR close, note that carried-forward suppression explicitly rather than implying everything was fixed this time.
+If output shows all clear (no open items): proceed with the close. A close that passes because a person accepted the audit's tech debt says so: name the audit and its `debt_accepted.by`.
 
 <!-- gsd:protected -->
-SECURITY: Audit JSON output is structured data from the `audit-open` query handler (same JSON contract as legacy `specforge check`) — validated and sanitized at source. The `audit-open acknowledge` writer is the only path that sets the `audit_acknowledged` suppression marker — it snapshots each artifact's current state itself from the identifiers passed on the command line, so this workflow never hand-authors the marker. When writing the STATE.md disclosure table, item identifiers, statuses, and deferred-item text are sanitized via `sanitizeForDisplay()` before inclusion. Never inject raw user-supplied content into STATE.md without sanitization.
+SECURITY: the check's JSON output is structured data the host validated. Only a person writes `debt_accepted`: the host refuses it in every plan and MCP write, so this workflow never authors it. Never paste raw user-supplied content into a field.
 
-Exact per-category bash (including the `todos` 5-per-scan cap, and the phase-scoped `--archived-milestone` handling) and the exact STATE.md table shape: `gsd-core/workflows/complete-milestone/detail/elaboration.md` § 1.
+The [A] branch in full: `gsd-core/workflows/complete-milestone/detail/elaboration.md` § 1.
 </step>
 
 <step name="verify_readiness">

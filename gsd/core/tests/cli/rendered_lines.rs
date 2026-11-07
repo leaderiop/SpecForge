@@ -410,16 +410,17 @@ fn the_post_fix_text_leftovers_stay_fixed() {
     assert!(!integrations.contains("written plaintext only to `config.json`"));
 }
 
-/// Today's defect: the milestone close tells the agent to acknowledge open items through an `audit-open acknowledge`
-/// writer no command of the port declares, and the ported loop (`if ! true` … `done < /dev/null`) acknowledges
-/// nothing.
+/// The milestone close defers open items the one way the port has: a person accepts the latest audit's tech debt
+/// (`debt_accepted`, which gsd/E106 reads); no `audit-open` writer is named and no loop pretends to acknowledge.
 #[test]
-fn the_milestone_close_acknowledges_through_audit_open() {
+fn the_milestone_close_defers_through_debt_accepted() {
     let close = workflow("complete-milestone.md");
     let elaboration = workflow("complete-milestone/detail/elaboration.md");
-    assert!(close.contains("audit-open acknowledge"));
-    assert!(elaboration.contains("audit-open acknowledge"));
-    assert!(elaboration.contains("if ! true; then"));
+    for text in [&close, &elaboration] {
+        assert!(!text.contains("audit-open"));
+        assert!(text.contains("debt_accepted"));
+    }
+    assert!(!elaboration.contains("if ! true"));
 }
 
 /// No rendered line runs jq, neither an asset's (`port_tools` scans those) nor one the Rust side writes

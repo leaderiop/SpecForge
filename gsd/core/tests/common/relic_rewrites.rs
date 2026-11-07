@@ -20,6 +20,30 @@ pub const LINES: &[(&str, usize)] = &[
 
 /// `(path, first, last)`, inclusive.
 pub const SPANS: &[(&str, usize, usize)] = &[
+    // No `audit-open` writer exists: a person accepts the latest audit's tech debt (`debt_accepted`), gsd/E106 reads it.
+    ("gsd-core/workflows/complete-milestone.md", 64, 64),
+    ("gsd-core/workflows/complete-milestone.md", 66, 66),
+    ("gsd-core/workflows/complete-milestone.md", 69, 69),
+    (
+        "gsd-core/workflows/complete-milestone/detail/elaboration.md",
+        9,
+        13,
+    ),
+    (
+        "gsd-core/workflows/complete-milestone/detail/elaboration.md",
+        135,
+        135,
+    ),
+    (
+        "gsd-core/workflows/complete-milestone/detail/elaboration.md",
+        137,
+        137,
+    ),
+    (
+        "gsd-core/workflows/complete-milestone/detail/elaboration.md",
+        139,
+        139,
+    ),
     // Branches no input reaches (ADR 0343 D4): todos are `@gsd/ops` entities, a requirement is complete when a summary
     // lists it, and quick commits every spec change with the work.
     ("gsd-core/workflows/execute-phase.md", 1352, 1352),
@@ -390,6 +414,12 @@ pub const SPANS: &[(&str, usize, usize)] = &[
 /// `(path, first, last)`, inclusive: runs deleted by blanking, whose first line (when not blank) says what replaced
 /// them. Every other line of the run is blank; upstream's blank lines stay blank, so they are not listed as rewritten.
 pub const BLANKED: &[(&str, usize, usize)] = &[
+    // The acknowledge loops and the STATE.md disclosure table: the four steps above them replace both.
+    (
+        "gsd-core/workflows/complete-milestone/detail/elaboration.md",
+        14,
+        133,
+    ),
     // The disposition ledger is `@gsd/ops`'s: `@gsd/core` keeps no REVIEW.md parser.
     (
         "gsd-core/workflows/execute-phase/steps/code-review-disposition.md",

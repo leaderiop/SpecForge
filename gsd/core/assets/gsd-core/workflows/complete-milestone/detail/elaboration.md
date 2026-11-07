@@ -8,137 +8,137 @@ names.
 
 ## § 1 — pre_close_artifact_audit: the [A] Acknowledge branch
 
-If user chooses [A] (Acknowledge):
-1. Re-run `specforge check --format json` to get structured data.
-2. Acknowledge every open item through the `audit-open acknowledge` CLI writer — this is what actually suppresses each item starting at the NEXT `audit-open` scan; the STATE.md table in step 3 is a disclosure record only, it is no longer the suppression mechanism. Every acknowledge call's exit status is accumulated (`ACK_FAILURES`); the step HALTS before closing if any failed — a refusal (`unsupported_heading_shape`, `ambiguous`, `not_found`, missing file, etc.) must never be silently discarded and let the close proceed as if everything were suppressed.
-   ```bash
-# the commands below are specforge commands: there is no launcher to define
-   AUDIT_JSON=$(specforge check --format json)
+If user chooses [A] (Acknowledge): the open items are `specforge check` findings, and an agent cannot suppress them.
+1. Ask the person to accept the latest milestone audit's tech debt: they write its `debt_accepted` (`by`, `at`) by hand or from an interactive `specforge set`. The host refuses that field in every plan and MCP write, so the agent never writes it.
+2. Wait for their answer.
+3. Re-run `specforge check --format json`: gsd/E106 passes once the milestone's latest audit is `passed`, or `tech_debt` with a `debt_accepted`.
+4. Proceed with the close (`specforge gsd close-milestone`) only when the gate passes; otherwise stop and report the open findings. The audit's `tech_debt` entries are the disclosure record: no other file is written.
 
-   MILESTONE_VERSION="v[X.Y]"   # already known from ROADMAP.md's active milestone header — the same identifier `milestone.complete` uses in the archive_milestone step
 
-   ACK_FAILURES=0
-   ACK_FAILURE_LOG=""
-   record_ack_failure() {
-     ACK_FAILURES=$((ACK_FAILURES + 1))
-     ACK_FAILURE_LOG="${ACK_FAILURE_LOG}
-   - $1"
-   }
 
-   # debug_sessions / threads (--slug)
-   # NOTE: `< <(...)` process substitution, not `... | while`, so the loop
-   # runs in THIS shell — a `| while` pipeline puts the loop in a subshell
-   # and any ACK_FAILURES/ACK_FAILURE_LOG update inside it is lost the
-   # moment the pipeline exits.
-   for cat in debug_sessions threads; do
-     while IFS= read -r slug; do
-       [ -z "$slug" ] && continue
-       if ! true; then   # audit-open acknowledge: not part of @gsd/core (an open item is a finding a person resolves)
-         record_ack_failure "$cat slug=$slug"
-       fi
-     done < /dev/null   # audit-open is not part of @gsd/core: specforge check lists no open item to acknowledge
-   done
 
-   # seeds (--seed-id)
-   while IFS= read -r seed_id; do
-     [ -z "$seed_id" ] && continue
-     if ! true; then   # audit-open acknowledge: not part of @gsd/core (an open item is a finding a person resolves)
-       record_ack_failure "seeds seed_id=$seed_id"
-     fi
-   done < /dev/null   # audit-open is not part of @gsd/core: specforge check lists no open item to acknowledge
 
-   # todos (--filename) — the scanner caps its list to 5 entries per scan
-   # (remainder items carry `_remainder_count`, no `filename`, and are skipped)
-   while IFS= read -r filename; do
-     [ -z "$filename" ] && continue
-     if ! true; then   # audit-open acknowledge: not part of @gsd/core (an open item is a finding a person resolves)
-       record_ack_failure "todos filename=$filename"
-     fi
-   done < /dev/null   # audit-open is not part of @gsd/core: specforge check lists no open item to acknowledge
 
-   # quick_tasks (--dir) — the scanner's `slug` strips a leading
-   # YYYYMMDD-/YYYY-MM-DD- date prefix for display; `--dir` needs the
-   # ORIGINAL the quick plans name, so reconstruct it from `date`+`slug`.
-   while IFS= read -r dir; do
-     [ -z "$dir" ] && continue
-     if ! true; then   # audit-open acknowledge: not part of @gsd/core (an open item is a finding a person resolves)
-       record_ack_failure "quick_tasks dir=$dir"
-     fi
-   done < /dev/null   # audit-open is not part of @gsd/core: specforge check lists no open item to acknowledge
 
-   # uat_gaps / verification_gaps / context_questions — phase-scoped
-   # (--phase --file [--archived-milestone] when the item was found in an archived phase)
-   for cat in uat_gaps verification_gaps context_questions; do
-     while IFS= read -r item; do
-       [ -z "$item" ] && continue
-       phase=
-       file=
-       archived=
-       if [ -n "$archived" ]; then
-         if ! true; then   # audit-open acknowledge: not part of @gsd/core (an open item is a finding a person resolves)
-           record_ack_failure "$cat phase=$phase file=$file archived-milestone=$archived"
-         fi
-       else
-         if ! true; then   # audit-open acknowledge: not part of @gsd/core (an open item is a finding a person resolves)
-           record_ack_failure "$cat phase=$phase file=$file"
-         fi
-       fi
-     done < /dev/null   # audit-open is not part of @gsd/core: specforge check lists no open item to acknowledge
-   done
 
-   # deferred_items — same phase-scoped identification, plus --text (the
-   # exact bullet the audit read, which uniquely identifies the entry)
-   while IFS= read -r item; do
-     [ -z "$item" ] && continue
-     phase=
-     file=
-     text=
-     archived=
-     if [ -n "$archived" ]; then
-       if ! true; then   # audit-open acknowledge: not part of @gsd/core (an open item is a finding a person resolves)
-         record_ack_failure "deferred_items phase=$phase file=$file archived-milestone=$archived"
-       fi
-     else
-       if ! true; then   # audit-open acknowledge: not part of @gsd/core (an open item is a finding a person resolves)
-         record_ack_failure "deferred_items phase=$phase file=$file"
-       fi
-     fi
-   done < /dev/null   # audit-open is not part of @gsd/core: specforge check lists no open item to acknowledge
 
-   if [ "$ACK_FAILURES" -gt 0 ]; then
-     echo "ERROR: $ACK_FAILURES acknowledge call(s) failed — HALTING before milestone close. Resolve each listed item manually (e.g. edit the file directly for unsupported_heading_shape/ambiguous, or re-run the audit if a --text/--file target has since changed) and re-run /gsd:complete-milestone:" >&2
-     printf '%s\n' "$ACK_FAILURE_LOG" >&2
-     exit 1
-   fi
-   ```
-   `todos` is the only category the scanner caps (5 entries per scan, with a remainder count for the rest). Re-run `specforge check --format json` and repeat the `todos` block until it reports no `todos` items — every other category always returns its full open set in one pass.
-3. Re-run `specforge check --format json` once more and write the items just acknowledged as new rows to STATE.md under `## Deferred Items` — append to the existing table (creating the section if absent) rather than overwriting it, preserving rows recorded at earlier milestone closes:
-   ```markdown
-   ## Deferred Items
 
-   Items acknowledged and deferred at milestone close, most recent first:
 
-   | Category | Item | Status | Deferred At | Milestone |
-   |----------|------|--------|-------------|-----------|
-   | debug_sessions | {slug} | {status} | {date} | {milestone} |
-   | quick_tasks | {slug} | {status} | {date} | {milestone} |
-   | threads | {slug} | {status} | {date} | {milestone} |
-   | seeds | {seed_id} | {status} | {date} | {milestone} |
-   | todos | {filename} | (presence-only) | {date} | {milestone} |
-   | uat_gaps | {phase}/{file} | {status} | {date} | {milestone} |
-   | verification_gaps | {phase}/{file} | {status} | {date} | {milestone} |
-   | context_questions | {phase}/{file} | {question_count} questions | {date} | {milestone} |
-   | deferred_items | {phase}/{file}: {text} | acknowledged | {date} | {milestone} |
-   ```
-   One row per item actually acknowledged in step 2 (omit categories with nothing to disclose this close). `{date}` is today's date; `{milestone}` is `MILESTONE_VERSION`. Sanitize all slug/status/text values via `sanitizeForDisplay()` before writing. Never inject raw file content into STATE.md.
-4. Set `closeout_type=override_closeout` and record in the MILESTONES.md entry: `Known verification overrides: {N} newly acknowledged, {M} carried forward from a prior close (see STATE.md Deferred Items)` — `{N}` is the count of items acknowledged in step 2 (the pre-acknowledgment audit JSON's `counts.total`) and `{M}` is that same audit JSON's `acknowledged.total` (items a PRIOR close already suppressed and still are).
-5. Proceed with milestone close.
 
-Acknowledging is verdict-preserving and self-invalidating: it never rewrites the artifact's own `status:` field (except `deferred_items`, whose entry has no other meaning for that field), and the suppression it grants lapses automatically the moment the artifact's observed state changes again — a reopened debug session, an edited UAT gap, a re-triggered seed, etc. resurfaces on its own at the next audit and must be acknowledged again.
 
-If output shows all clear (no open items): set `closeout_type=verified_closeout`. If the audit JSON's `acknowledged.total` is `0`, print `All artifact types clear.` and proceed. Otherwise the close is clean only because `{acknowledged.total}` item(s) acknowledged at an earlier milestone close are still being suppressed, not because everything was fixed this time — print `All artifact types clear ({acknowledged.total} previously acknowledged item(s) still suppressed — see STATE.md Deferred Items).` and record `Known verification overrides: 0 newly acknowledged, {acknowledged.total} carried forward from a prior close (see STATE.md Deferred Items)` in the MILESTONES.md entry before proceeding.
 
-(The SECURITY note on audit JSON provenance and STATE.md sanitization is stated in the spine, not repeated here.)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Accepting is a person's act on one audit: a later audit of the milestone carries no `debt_accepted` until a person writes one again.
+
+If output shows all clear (no open items): proceed with the close.
+
+(The SECURITY note on the check's output and on `debt_accepted` is stated in the spine, not repeated here.)
 
 ## § 2 — handle_branches
 
