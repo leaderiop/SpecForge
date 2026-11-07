@@ -43,9 +43,12 @@ MCP tool (ADR 0339 D1). The kernel knows nothing of servers, planners or quotas.
   deadline may end up to that long after it. Any HTTP answer holds (D4). A request no server answered is
   "not yet"; a refused redirect or a denial ends the wait as a refusal.
 - **`--changed <glob>`** splits the glob at its first component that holds a glob character (`*?[{`): the components
-  before it name the directory, read from the current directory and held to the roots, and the rest is matched as
+  before it name the directory, read from the project's root and held to the roots, and the rest is matched as
   `files list --glob` matches it. A glob with no glob character names one file. It holds when a listed file was
   modified at or after `--since` (milliseconds since the Unix epoch), which defaults to the wait's `started_at`.
+  The glob is the project's wherever the wait is typed, as `.gitignore` reads one: a block's `--changed '**/*.spec'`
+  names the same files from a subdirectory, and a nested project (the nearest `specforge.json`) names its own.
+  `--in` is read from the current directory, as every verb reads a path; an absolute glob is itself.
 - **`--match <re> --in <file>`** searches the file as `files search` does, and holds at its first matching line.
 
 ## D3. The answer and its exits

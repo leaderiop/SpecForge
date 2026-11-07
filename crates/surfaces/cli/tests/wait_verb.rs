@@ -399,3 +399,53 @@ fn a_bad_glob_or_pattern_is_invalid_input() {
         );
     }
 }
+
+/// `--changed` reads its glob from the project's root wherever the wait is typed, and a nested project is its own: a
+/// watch cycle names the project's files from any subdirectory. Typed with no `--path`, as a block types it.
+#[test]
+fn a_glob_is_read_from_the_project_root_from_any_directory() {
+    let project = TestProject::new()
+        .file("watched/a.txt", "x")
+        .file("src/main.rs", "")
+        .file(
+            "inner/specforge.json",
+            r#"{"name": "inner", "version": "0.1.0", "extensions": []}"#,
+        )
+        .file("inner/watched/b.txt", "x")
+        .file("inner/src/lib.rs", "");
+    let since = [
+        "wait",
+        "--for",
+        "0",
+        "--changed",
+        "watched/*.txt",
+        "--since",
+        "0",
+    ];
+    let answer = Cli::on(&project)
+        .in_dir(project.root().join("src"))
+        .bare(&since)
+        .exits(0)
+        .answer();
+    let changed = answer["changed"].as_array().expect("changed").clone();
+    assert_eq!(changed.len(), 1, "{answer}");
+    assert!(
+        changed[0].as_str().unwrap().ends_with("/watched/a.txt")
+            && !changed[0].as_str().unwrap().contains("inner"),
+        "{answer}"
+    );
+    let nested = Cli::on(&project)
+        .in_dir(project.root().join("inner/src"))
+        .bare(&since)
+        .exits(0)
+        .answer();
+    let changed = nested["changed"].as_array().expect("changed").clone();
+    assert_eq!(changed.len(), 1, "{nested}");
+    assert!(
+        changed[0]
+            .as_str()
+            .unwrap()
+            .ends_with("/inner/watched/b.txt"),
+        "{nested}"
+    );
+}

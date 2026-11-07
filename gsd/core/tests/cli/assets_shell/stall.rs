@@ -88,3 +88,20 @@ fn an_outline_planner_writing_slowly_is_never_stalled_and_a_silent_one_is() {
     let (out, err, code) = sh.run_in(dir.path(), &cycle(OUTLINE, "1s", &home));
     assert_eq!((out.trim(), code), ("deadline", 124), "{err}");
 }
+
+/// A cycle reads its glob from the project's root, so a planner's `.spec` write is activity whichever directory the
+/// orchestrator's shell stands in.
+#[test]
+fn a_cycle_sees_a_spec_write_from_a_subdirectory() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let dir = project();
+    let home = dir.path().join("home");
+    let src = dir.path().join("src");
+    std::fs::create_dir_all(&src).expect("src/");
+    let writer = writing(dir.path().join("spec/plan.spec"), 5);
+    let (out, err, code) = sh.run_in(&src, &cycle("**/*.spec", "2s", &home));
+    writer.join().expect("the planner");
+    assert_eq!((out.trim(), code), ("changed", 0), "{err}");
+}

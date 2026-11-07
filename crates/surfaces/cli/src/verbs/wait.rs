@@ -32,8 +32,8 @@ pub(crate) struct WaitArgs {
     #[arg(long, value_name = "URL")]
     url: Option<String>,
 
-    /// Holds once a file this glob names (from the current directory, in the project's roots, as `files list` reads
-    /// it) was written at or after --since
+    /// Holds once a file this glob names (from the project's root wherever the wait is typed, in the project's roots,
+    /// as `files list` reads it) was written at or after --since
     #[arg(long, value_name = "GLOB")]
     changed: Option<String>,
 

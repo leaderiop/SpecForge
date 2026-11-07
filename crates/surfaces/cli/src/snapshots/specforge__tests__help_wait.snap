@@ -14,7 +14,7 @@ Options:
           Holds once this URL answers, any HTTP status (a GET under the project's effects ceiling)
 
       --changed <GLOB>
-          Holds once a file this glob names (from the current directory, in the project's roots, as `files list` reads it) was written at or after --since
+          Holds once a file this glob names (from the project's root wherever the wait is typed, in the project's roots, as `files list` reads it) was written at or after --since
 
       --since <MS>
           With --changed: the instant a write counts from, in milliseconds since the Unix epoch (a wait's `started_at`); the wait's own start when absent

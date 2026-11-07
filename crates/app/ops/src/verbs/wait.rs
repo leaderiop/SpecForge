@@ -37,7 +37,7 @@ pub struct Wait {
     pub mode: EffectsMode,
 }
 
-/// `--changed`: a glob, from the current directory, and the instant a write counts from.
+/// `--changed`: a glob, from the project's root, and the instant a write counts from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Changed {
     pub glob: String,
@@ -302,7 +302,7 @@ impl<'a> Probing<'a> {
 
 /// `--changed`'s glob, judged: the directory it walks and the pattern below it, or the one file it names.
 struct Watched {
-    /// From the current directory.
+    /// Absolute: the project's root joined to the glob's directory.
     at: PathBuf,
     /// Anchored at `at`; none when the glob names one file.
     pattern: Option<String>,
@@ -310,22 +310,24 @@ struct Watched {
 }
 
 impl Watched {
-    /// `changed` split at its first component that holds a glob character, its pattern read as `files list` reads a
-    /// glob and its place held to the roots; a write counts from `--since`, else from `started_at`.
+    /// `changed` split at its first component that holds a glob character, read from the project's root wherever the
+    /// wait is typed, its pattern read as `files list` reads a glob and its place held to the roots; a write counts
+    /// from `--since`, else from `started_at`.
     fn judged(verbs: &Verbs, changed: &Changed, started_at: UnixMillis) -> Result<Self, OpError> {
+        let root = verbs.root().dir();
         let parts: Vec<&str> = changed.glob.split('/').collect();
         let globbed = parts
             .iter()
             .position(|part| part.contains(['*', '?', '[', '{']));
         let (at, pattern) = match globbed {
-            None => (PathBuf::from(&changed.glob), None),
+            None => (root.join(&changed.glob), None),
             Some(index) => {
                 let dir = parts[..index].join("/");
                 let at = match (index, dir.as_str()) {
-                    (0, _) => PathBuf::from("."),
+                    (0, _) => root.to_path_buf(),
                     // `/x`: the root directory.
                     (_, "") => PathBuf::from("/"),
-                    _ => PathBuf::from(dir),
+                    _ => root.join(dir),
                 };
                 // A leading `/` anchors it at the directory, as a `/`-holding pattern already is.
                 (at, Some(format!("/{}", parts[index..].join("/"))))
