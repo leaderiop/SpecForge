@@ -71,6 +71,20 @@ fn plan_phase_renders_on_the_twin() {
     assert!(text.contains("<objective>"));
 }
 
+/// The planner's graph-context gate is how the project serves `/gsd-graphify`, said in the prompt: nothing probes PATH.
+#[test]
+fn plan_phase_says_whether_graph_context_is_served() {
+    let p = project("discuss");
+    let text = text_of(&payload(&prompt(&p, "plan_phase", &[PHASE], "claude-code")));
+    assert!(text.contains("## Graph context on this install"), "{text}");
+    assert!(
+        text.contains("- `/gsd-graphify`: not served on this project"),
+        "{text}"
+    );
+    assert!(text.contains("**Graph context:**"), "{text}");
+    assert!(!text.contains("graphify status"), "{text}");
+}
+
 fn fixture(file: &str) -> String {
     let path = format!(
         "{}/tests/projects/discuss/spec/{file}",

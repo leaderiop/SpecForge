@@ -764,7 +764,7 @@ Planner prompt:
 <planning_context>
 **Phase:** {phase_number}
 **Mode:** {standard | gap_closure | reviews}
-
+**Graph context:** {the `/gsd-graphify` line of "Graph context on this install" at the end of the plan-phase prompt}
 <required_reading>
 - `specforge gsd progress-report` (Project State, computed)
 - `specforge query {roadmap_path} --format context` (Roadmap: the milestone)

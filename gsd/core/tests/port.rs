@@ -360,6 +360,12 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-plan-checker.md", 301),
     ("gsd-plan-checker.md", 302),
     ("gsd-plan-checker.md", 303),
+    // The planner's graph context follows the prompt's `**Graph context:**` line: nothing probes PATH.
+    ("gsd-planner.md", 609),
+    ("gsd-planner.md", 610),
+    ("gsd-planner.md", 611),
+    ("gsd-planner.md", 612),
+    ("gsd-planner.md", 613),
 ];
 
 /// Checks one asset against its upstream file: the header, then every line.

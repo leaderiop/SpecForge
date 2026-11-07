@@ -181,13 +181,9 @@ gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcrun	XCODE_SIMS=$(xcr
 gsd-core/workflows/ultraplan-phase.md	claude	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 prompt:ultraplan_phase	claude	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 
-# H routing: no probes: an optional integration is a setting or an extension SpecForge knows is loaded (R1). 8 rows.
+# H routing: no probes: an optional integration is a setting or an extension SpecForge knows is loaded (R1). 4 rows.
 agents/gsd-executor.md	ctx7	ctx7 library <name> "<query>"
 agents/gsd-executor.md	ctx7	ctx7 docs <libraryId> "<query>"
-gsd-core/references/planner-load-graph-context.md	graphify	graphify status   # not part of @gsd/core; when it is not on PATH, skip graph context
-gsd-core/references/planner-load-graph-context.md	graphify	graphify query "<phase-goal-keyword>" --graph "<graph>" --budget 2000
-gsd-core/references/planner-load-graph-context.md	graphify	graphify affected "<phase-goal-keyword>" --graph "<graph>" --depth 2
-gsd-core/references/planner-load-graph-context.md	graphify	graphify query "<phase-goal-keyword>" --budget 2000
 gsd-core/references/research-documentation-lookup.md	ctx7	ctx7 library <name> "<query>"
 gsd-core/references/research-documentation-lookup.md	ctx7	ctx7 docs <libraryId> "<query>"
 

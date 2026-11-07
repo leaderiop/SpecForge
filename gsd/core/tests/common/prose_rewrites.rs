@@ -86,4 +86,16 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         55,
     ),
     ("gsd-core/workflows/smart-entry.md", 55, 55),
+    // an optional integration routes by what the project serves: the planner's graph context
+    ("gsd-core/references/planner-load-graph-context.md", 4, 6),
+    ("gsd-core/references/planner-load-graph-context.md", 8, 11),
+    ("gsd-core/references/planner-load-graph-context.md", 13, 13),
+    ("gsd-core/references/planner-load-graph-context.md", 15, 15),
+    ("gsd-core/references/planner-load-graph-context.md", 17, 17),
+    ("gsd-core/references/planner-load-graph-context.md", 19, 19),
+    ("gsd-core/references/planner-load-graph-context.md", 21, 28),
+    ("gsd-core/references/planner-load-graph-context.md", 30, 30),
+    ("gsd-core/references/planner-load-graph-context.md", 32, 32),
+    ("gsd-core/references/planner-load-graph-context.md", 35, 35),
+    ("gsd-core/workflows/plan-phase.md", 765, 765),
 ];

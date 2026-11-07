@@ -4,6 +4,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::args::Arg;
+use super::ns::served;
 use super::workflow::{self, Do, Slash, Spec, Step};
 
 const ARGS: &[Arg] = &[
@@ -95,9 +96,19 @@ static PLAN_PHASE: Spec = Spec {
         ],
         effort: Some("max"),
     }),
-    inputs: &[],
-    tail: None,
+    inputs: &[specforge_extension_sdk::Input::SlashCommands],
+    tail: Some(graph_context),
 };
+
+/// How this install serves `/gsd-graphify`: the planner's graph-context gate, read from the served slash commands
+/// rather than a PATH probe or a graph-path setting.
+fn graph_context(call: &PromptCall<'_>) -> String {
+    format!(
+        "\n\n## Graph context on this install\n\n- `/gsd-graphify`: {}\n\n\
+         Pass this line to the planner as its `**Graph context:**`.\n",
+        served(call, "graphify")
+    )
+}
 
 /// Upstream's order: the reviewer lanes, then `--text`, `--ws`, `--all`, `--max-cycles`.
 const CONVERGENCE_ARGS: &[Arg] = &[

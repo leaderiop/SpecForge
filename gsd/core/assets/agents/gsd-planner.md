@@ -608,11 +608,11 @@ If exists, load relevant documents by phase type:
 </step>
 
 <step name="load_graph_context">
-Read `gsd-core/references/planner-load-graph-context.md` and execute it. It checks for a
-knowledge graph and, if one exists, reads freshness and phase-relevant dependency context
-— through the `graphify` CLI when it is on PATH, otherwise through the `specforge gsd` launcher
-— and incorporates the results into planning. If the graph is absent, skip and continue
-without graph context.
+Follow the planner prompt's `**Graph context:**` line. When it is absent or says
+`not served on this project`, skip this step and continue without graph context. When it
+names how `/gsd-graphify` is served, read `gsd-core/references/planner-load-graph-context.md`
+and execute it with what the line names, incorporating the results into planning. Nothing
+probes PATH for a graph tool.
 </step>
 
 <step name="identify_phase">
