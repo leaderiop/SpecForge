@@ -3,7 +3,7 @@
 **Status:** accepted (2026-11-05, S1 round). Builds on
 [ADR 0325](0325-pick-prints-one-value-of-a-json-answer.md) (`--pick` and its shapes) and
 [ADR 0339](0339-a-verb-the-user-types-reaches-the-ports-under-the-ceiling.md) (the verbs `files`, `run`, `http`, `git`).
-A later plan of the same round extends it (prose in a fence, routing).
+D7–D9 say how prose names a tool, how an optional integration routes and where a person's own chores go.
 
 ## Context
 
@@ -24,8 +24,10 @@ row with no hit and on a hit with no row. A row leaves in the commit that rewrit
 
 ## D2. Logic lives in an answer; bash is glue
 
-Glue is: assignment, `if`/`case` on an answer's value, `[ -n ]`, `[ = ]` and numeric tests, quoting, `|| exit`, a
-default (`${X:-0}`), and naming the last segment of an id the graph printed (`${ID##*/}`: addressing, not a rule).
+Glue is: assignment (a heredoc read into a variable among them), `if`/`case` on an answer's value, `[ -n ]`, `[ -s ]`,
+`[ = ]` and numeric tests, quoting, a redirect of an answer's output, `|| exit`, a default (`${X:-0}`), and naming the
+last segment of an id the graph printed (`${ID##*/}`: addressing, not a rule). A list the model wrote itself is split by
+the shell's own word splitting (`$(printf '%s' "$LIST")`), never by a parser.
 
 A pattern, a count, a join, a sort, a date, an id, a parse of text: each is an answer of `specforge` (`--pick` and its
 shapes, ADR 0325) or of a `specforge gsd` command, never a pipeline or a parameter-expansion parser.
@@ -59,11 +61,46 @@ no parser of that extension's files.
 The model writes the values it read (`HIGH_COUNT="{current_high}"`); the shell checks them (`-z`, a number), and never parses a
 variable no line assigned.
 
+## D7. Prose names a tool only as prose
+
+A line a person or the model reads, rather than a shell runs, names no tool in a form the scan reads as a run
+(`command_word::commands_in_prose` is the contract: a word followed by an option, a quote, a `.` filter, `$`, `[`, `{`
+or `@`, or a word that ends a pipe):
+
+- display text is in prose quotation marks (`display "Phase ${PHASE_NUM} ✅ … passed"`); a banner or a list of banner
+  names is a `text` fence, a table to append a `markdown` fence;
+- a value list names each value in its own backticks: `` `pass`, `fail` or `unknown` ``;
+- an upstream tool becomes the declared command that replaced it (`specforge gsd smart-entry --format json`,
+  `/gsd-code-review --fix`), its bare name with "is not part of @gsd/core", or nothing when the sentence describes a
+  mechanism the port does not have;
+- an expression is words.
+
+## D8. An optional integration is never probed
+
+No block asks `command -v` or `specforge run --which` whether an integration exists.
+
+- When an extension serves it, the prompt reads `PromptCall::slash_commands`
+  ([ADR 0316](0316-a-prompt-reads-the-slash-commands-the-project-serves.md)) and says whether `/gsd-<name>` is served; the step follows that line and skips when it says not served or is absent.
+  `plan_phase` does so for `/gsd-graphify`.
+- When it is the user's own program, it runs through `specforge run -- <program> …`; exit 127 says it is not
+  installed, and nothing installs it.
+
+## D9. A person's chores and files are theirs
+
+- A step only the person performs on their machine (recovery after the host froze, a stale port) is a `text` fence
+  introduced by "run these yourself", or prose.
+- A file of the user's outside the project's roots (`~/.claude/…`, `~/.gsd/…`) is read with the host's Read tool,
+  never by a block: no `specforge files` verb reaches it and a block would pass the ceiling.
+- A heuristic about the user's environment (a variable set, a value that is a placeholder) is prose the agent applies.
+
 ## Rejected
 
 - Keeping parsers "until the extension lands": dead code the ledger counts as debt.
 - Bash builtins as parsers (`${x//…}`, read loops) in place of an answer.
 - A CLI that parses a subagent's return.
+- Probing PATH for an optional integration, or a setting that turns one on: agents render no settings, and a probe is
+  a rule in the shell.
+- `${!VAR+x}` for an environment check: zsh has no `${!…}`, and the placeholder test is a judgement, not glue.
 
 ## Consequences
 
