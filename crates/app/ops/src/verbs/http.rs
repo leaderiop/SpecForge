@@ -207,9 +207,9 @@ pub fn request(
     ask: &Ask,
     mode: EffectsMode,
 ) -> Result<Answered<HttpAnswer>, OpError> {
-    match send(verbs, ask, mode)? {
+    match send(verbs, ask, mode, ask.timeout)? {
         Sent::Answered(answered) => Ok(*answered),
-        Sent::NoAnswer { class } => Err(unanswered(&ask.url, class)),
+        Sent::NoAnswer { class, .. } => Err(unanswered(&ask.url, class)),
     }
 }
 
@@ -217,8 +217,8 @@ pub fn request(
 pub enum Sent {
     /// A server answered, any status.
     Answered(Box<Answered<HttpAnswer>>),
-    /// No server answered, by `class` ([`no_answer`]).
-    NoAnswer { class: OutcomeClass },
+    /// No server answered, by `class` ([`no_answer`]), recorded as `effect` says.
+    NoAnswer { class: OutcomeClass, effect: Effect },
 }
 
 /// What a request no server answered means, by its class: the one table `http` and `wait` read.
@@ -247,10 +247,21 @@ pub const fn no_answer(class: OutcomeClass) -> NoAnswer {
 }
 
 /// [`request`], its answer or the class of none: `Err` is a refusal before or on the way (the grant, a redirect it
-/// denies, a body, a replay with no record).
-pub fn send(verbs: &Verbs, ask: &Ask, mode: EffectsMode) -> Result<Sent, OpError> {
-    let request = built(verbs, ask)?;
-    let asked = EffectRequest::Http(request.clone());
+/// denies, a body, a replay with no record). `ask` is what the record is found by, its timeout included; the request
+/// is sent with `timeout`, at most [`TIMEOUT_CEILING`], so a caller whose every request is one ask (a wait's probes)
+/// finds one record however long each may take.
+pub fn send(
+    verbs: &Verbs,
+    ask: &Ask,
+    mode: EffectsMode,
+    timeout: Duration,
+) -> Result<Sent, OpError> {
+    let asked_request = built(verbs, ask)?;
+    let asked = EffectRequest::Http(asked_request.clone());
+    let request = HttpRequest {
+        timeout_ms: millis(timeout.min(TIMEOUT_CEILING)),
+        ..asked_request
+    };
     verbs.permit(&asked)?;
     let hops = Hops {
         verbs,
@@ -346,6 +357,11 @@ pub fn send(verbs: &Verbs, ask: &Ask, mode: EffectsMode) -> Result<Sent, OpError
                 Some(denied) => Err(denied),
                 None => Ok(Sent::NoAnswer {
                     class: answer.outcome.class,
+                    effect: Effect {
+                        digest: Some(RecordDigest::asked_by(USER, &asked)),
+                        observed_at,
+                        from_journal,
+                    },
                 }),
             },
         },
@@ -426,7 +442,7 @@ fn built(verbs: &Verbs, ask: &Ask) -> Result<HttpRequest, OpError> {
         headers,
         body,
         body_cap: ask.max_bytes.saturating_add(1),
-        timeout_ms: u64::try_from(ask.timeout.min(TIMEOUT_CEILING).as_millis()).unwrap_or(u64::MAX),
+        timeout_ms: millis(ask.timeout.min(TIMEOUT_CEILING)),
         max_redirects: if ask.no_redirects { 0 } else { MAX_REDIRECTS },
         // The user typed the address: a server on this machine or the local network is theirs to reach, but not one a
         // redirect to another origin names.
@@ -468,6 +484,10 @@ pub fn unanswered(url: &str, class: OutcomeClass) -> OpError {
         UNREACHABLE,
         format!("{} did not answer: {class}", printable(url)),
     )
+}
+
+fn millis(span: Duration) -> u64 {
+    u64::try_from(span.as_millis()).unwrap_or(u64::MAX)
 }
 
 /// Every redirect judged by the user grant as the hop it sends: the first one refused keeps its refusal.

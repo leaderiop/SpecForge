@@ -40,10 +40,11 @@ MCP tool (ADR 0339 D1). The kernel knows nothing of servers, planners or quotas.
   holds, so a condition that holds ends the wait before a probe starts. The files are asked first, since a probe may
   take its whole timeout: `changed`, then `matched`, then `answered`.
 - **`--url`** sends a `GET` through `specforge http`'s request (`verbs::http::request`), its body read as `http`
-  reads one (1 MiB at most) and not shown: the record keeps the answer only when it fits. A probe's
-  timeout is the wait's `--for`, at least 1 s and at most 10 s: the same for every probe, since the request (so its
-  record's digest) holds it, and a replay of the same wait finds its record. A probe that starts just before the
-  deadline may end up to that long after it. Any HTTP answer holds (D4). A request that found no server yet
+  reads one (1 MiB at most) and not shown: the record keeps the answer only when it fits. A probe
+  takes the time the wait has left, at least the poll's first pause (100 ms) and at most 10 s, so a server that never
+  answers holds the wait past its deadline by less than a poll. What a probe's record is found by holds the 10 s, not
+  the time that probe took: every probe of a URL is one record, which a replay finds whatever `--for` either wait
+  was given. Any HTTP answer holds (D4). A request that found no server yet
   (`unreachable:connect`, `:dns`, `:timeout`, `:reset`) is "not yet"; any other class `http` refuses (a TLS, proxy or
   address refusal, a redirect loop, a downgrade, a denied redirect) ends the wait with that refusal and its exit. One
   table, `verbs::http::no_answer`, reads every class for both verbs.
@@ -87,8 +88,10 @@ answers 503 while the server behind it boots ends the wait early, with `ok: fals
 Each probe is a user `GET` served as ADR 0339 D3 serves one, through the effects journal; the last record of a digest
 wins (ADR 0337 D3), so the journal ends holding the probe that decided the wait. `online`, `auto` and `cached` all probe
 live: a wait asks about now, and a fresh record of an earlier wait would end this one at once. `replay` answers each
-probe from the journal: a recorded answer holds, a recorded failure waits to the deadline, and no record refuses
-(`not_in_journal`).
+probe from the journal: a recorded answer holds; a recorded no-answer cannot change, so the URL's watch ends there
+and, with no other condition, the wait answers `deadline` at once, its `effect` from the journal; a recorded refusal
+refuses; no record refuses (`not_in_journal`). The record is keyed by the probe's longest time (D2), not the time a
+probe took: the journal's key (ADR 0337 D3) is unchanged, since a request `http` sends records its own timeout.
 
 ## D6. Files
 

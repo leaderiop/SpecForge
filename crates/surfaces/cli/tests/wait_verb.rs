@@ -551,3 +551,66 @@ fn a_refusal_http_gives_ends_the_wait_with_its_exit() {
         assert_eq!(waited.json()["code"], "unreachable", "{}", waited.stdout);
     }
 }
+
+/// A replay finds a probe's record whatever `--for` either wait was given, an answer or a no-answer: a recorded
+/// no-answer ends the replay at once at its deadline, from the journal.
+#[test]
+fn replay_finds_a_probe_at_any_for_and_replays_a_no_answer() {
+    let project = TestProject::new();
+    let server = Server::answering(200, "text/plain", "up");
+    Cli::on(&project)
+        .run(&["wait", "--for", "3s", "--url", &server.base])
+        .exits(0);
+    let replayed = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "30s",
+            "--url",
+            &server.base,
+            "--effects",
+            "replay",
+        ])
+        .exits(0)
+        .answer();
+    assert_eq!(replayed["reason"], "answered", "{replayed}");
+    let closed = format!("http://127.0.0.1:{}/", Server::closed_port());
+    Cli::on(&project)
+        .run(&["wait", "--for", "300ms", "--url", &closed])
+        .exits(124);
+    let began = Instant::now();
+    let replayed = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "30s",
+            "--url",
+            &closed,
+            "--effects",
+            "replay",
+        ])
+        .exits(124)
+        .json();
+    assert!(began.elapsed() < Duration::from_secs(10), "{replayed}");
+    assert_eq!(replayed["reason"], "deadline", "{replayed}");
+    assert_eq!(
+        replayed["url"]["outcome"], "unreachable:connect",
+        "{replayed}"
+    );
+    assert_eq!(replayed["effect"]["from_journal"], true, "{replayed}");
+}
+
+/// A probe takes the time the wait has left: a server that never answers holds the wait past its deadline by less
+/// than a poll.
+#[test]
+fn a_silent_server_never_holds_the_wait_past_its_deadline() {
+    let project = TestProject::new();
+    let silent = Server::serve(|_, _, _| std::thread::sleep(Duration::from_secs(30)));
+    let answer = Cli::on(&project)
+        .run(&["wait", "--for", "300ms", "--url", &silent.base])
+        .exits(124)
+        .answer();
+    assert_eq!(answer["url"]["outcome"], "unreachable:timeout", "{answer}");
+    let waited = answer["waited_ms"].as_u64().unwrap();
+    assert!(waited < 300 + 250, "{answer}");
+}

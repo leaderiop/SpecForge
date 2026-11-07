@@ -43,9 +43,9 @@ pub fn retry_after(value: &str, now: std::time::SystemTime) -> Result<Duration, 
     Ok(asked.min(LONGEST))
 }
 
-/// The shortest and longest time a URL probe may take, the wait's own time held between them: at least a connection's
-/// time, at most a short request's.
-const PROBE_TIME: (Duration, Duration) = (Duration::from_secs(1), Duration::from_secs(10));
+/// The longest a URL probe may take: a short request's time. A probe takes the time the wait has left, held between
+/// the poll's first pause and this.
+const PROBE_LONGEST: Duration = Duration::from_secs(10);
 
 /// What `specforge wait` asks.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -232,7 +232,18 @@ pub fn wait(
                 return Ok(Some(Reason::Matched));
             }
         }
-        Ok((wait.url.is_some() && url.answered()?).then_some(Reason::Answered))
+        if wait.url.is_none() {
+            return Ok(None);
+        }
+        let left = wait
+            .for_
+            .saturating_sub(clock.elapsed().saturating_sub(begun));
+        Ok(match url.probed(left.clamp(poll.first, PROBE_LONGEST))? {
+            Probed::Answered => Some(Reason::Answered),
+            // A replay's recorded no-answer cannot change: with nothing else to watch, the deadline is its answer.
+            Probed::Settled if watched.is_none() && searching.is_none() => Some(Reason::Deadline),
+            Probed::NotYet | Probed::Settled => None,
+        })
     })?;
     Ok(Answered {
         answer: WaitAnswer {
@@ -256,6 +267,15 @@ struct Probing<'a> {
     mode: EffectsMode,
     last: Option<Probe>,
     effect: Option<Effect>,
+    /// A replay answered a no-answer from the journal: every later probe would answer the same.
+    settled: bool,
+}
+
+/// What one probe came to.
+enum Probed {
+    Answered,
+    NotYet,
+    Settled,
 }
 
 impl<'a> Probing<'a> {
@@ -266,9 +286,9 @@ impl<'a> Probing<'a> {
             headers: Vec::new(),
             body: None,
             secret: None,
-            // The same for every probe: the request, so its record's digest, holds it, and a replay of this wait
-            // finds it.
-            timeout: wait.for_.clamp(PROBE_TIME.0, PROBE_TIME.1),
+            // What every probe's record is found by, whatever time each takes: a replay finds the record of this
+            // URL's probe at any `--for`.
+            timeout: PROBE_LONGEST,
             // As `http`'s: a record keeps the answer only when it fits, and a replay answers from that record.
             max_bytes: http::ANSWER_BYTES,
             no_redirects: false,
@@ -283,15 +303,20 @@ impl<'a> Probing<'a> {
             },
             last: None,
             effect: None,
+            settled: false,
         }
     }
 
-    /// One probe: whether a server answered, any status.
-    fn answered(&mut self) -> Result<bool, OpError> {
+    /// One probe, sent with `timeout`: a server answered (any status), or not yet, or (on replay) a recorded
+    /// no-answer that stays one.
+    fn probed(&mut self, timeout: Duration) -> Result<Probed, OpError> {
         let Some(ask) = &self.ask else {
-            return Ok(false);
+            return Ok(Probed::NotYet);
         };
-        match http::send(self.verbs, ask, self.mode)? {
+        if self.settled {
+            return Ok(Probed::Settled);
+        }
+        match http::send(self.verbs, ask, self.mode, timeout)? {
             Sent::Answered(answered) => {
                 self.last = Some(Probe {
                     status: Some(answered.answer.status),
@@ -299,18 +324,24 @@ impl<'a> Probing<'a> {
                     outcome: answered.answer.outcome,
                 });
                 self.effect = Some(answered.effect);
-                Ok(true)
+                Ok(Probed::Answered)
             }
             // No server listens there yet; any other class is the refusal `http` gives it.
-            Sent::NoAnswer { class } if http::no_answer(class).not_yet => {
+            Sent::NoAnswer { class, effect } if http::no_answer(class).not_yet => {
                 self.last = Some(Probe {
                     status: None,
                     ok: false,
                     outcome: class.to_string(),
                 });
-                Ok(false)
+                self.settled = effect.from_journal;
+                self.effect = Some(effect);
+                Ok(if self.settled {
+                    Probed::Settled
+                } else {
+                    Probed::NotYet
+                })
             }
-            Sent::NoAnswer { class } => Err(http::unanswered(&ask.url, class)),
+            Sent::NoAnswer { class, .. } => Err(http::unanswered(&ask.url, class)),
         }
     }
 }
@@ -591,6 +622,47 @@ mod tests {
         for value in ["", "-5", "1e3", "inf", "1.2.3", "soon", "5m"] {
             assert!(retry_after(value, now).is_err(), "{value}");
         }
+    }
+
+    /// Each probe takes the time the wait has left, held to the poll's first pause at the deadline, and every probe
+    /// of a URL is found by one record whatever `--for` the wait was given.
+    #[test]
+    fn each_probe_takes_the_time_left_and_one_record_serves_any_for() {
+        use std::sync::Arc;
+
+        use specforge_effects::Ports;
+        use specforge_effects::testing::{FakeHttp, MemoryConsent, ports};
+        use specforge_project::testing::TestProject;
+
+        let project = TestProject::new();
+        // Every URL is unreachable (`unreachable:dns`): no server yet.
+        let http = Arc::new(FakeHttp::new());
+        let verbs = Verbs::open(
+            &project.project_root(),
+            project.root(),
+            &Ports {
+                http: Arc::clone(&http) as _,
+                ..ports()
+            },
+            &MemoryConsent::approving_everything(),
+        );
+        let waited = |for_ms| {
+            let asked = Wait {
+                for_: MS(for_ms),
+                url: Some("http://server.test/".to_string()),
+                changed: None,
+                matching: None,
+                mode: EffectsMode::Online,
+            };
+            wait(&verbs, &asked, Poll::BACK_OFF, &Fake::default()).unwrap()
+        };
+        let short = waited(3000);
+        assert_eq!(short.answer.reason, Reason::Deadline);
+        let timeouts: Vec<u64> = http.requests().iter().map(|r| r.timeout_ms).collect();
+        assert_eq!(timeouts, [3000, 2900, 2700, 2300, 1500, 500, 100]);
+        let long = waited(30_000);
+        assert!(short.effect.digest.is_some());
+        assert_eq!(short.effect.digest, long.effect.digest);
     }
 
     #[test]
