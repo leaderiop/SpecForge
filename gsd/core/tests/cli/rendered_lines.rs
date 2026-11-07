@@ -410,6 +410,18 @@ fn the_post_fix_text_leftovers_stay_fixed() {
     assert!(!integrations.contains("written plaintext only to `config.json`"));
 }
 
+/// Today's defect: the milestone close tells the agent to acknowledge open items through an `audit-open acknowledge`
+/// writer no command of the port declares, and the ported loop (`if ! true` … `done < /dev/null`) acknowledges
+/// nothing.
+#[test]
+fn the_milestone_close_acknowledges_through_audit_open() {
+    let close = workflow("complete-milestone.md");
+    let elaboration = workflow("complete-milestone/detail/elaboration.md");
+    assert!(close.contains("audit-open acknowledge"));
+    assert!(elaboration.contains("audit-open acknowledge"));
+    assert!(elaboration.contains("if ! true; then"));
+}
+
 /// No rendered line runs jq, neither an asset's (`port_tools` scans those) nor one the Rust side writes
 /// (`src/prompts/`). gh's own `--jq` filter is not jq.
 #[test]
