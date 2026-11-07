@@ -52,7 +52,7 @@ Spawn the planner in **outline-only** mode — it must write only the outline ma
 PLAN.md files:
 
 **Dispatch/wait gate — `PLANNER_STALL_DETECTION_ENABLED` (config key `planner.stall_detection_enabled`, resolved in `plan-phase/steps/stall-detection-helpers.md`):**
-- **`true` (default):** use `run_in_background=true` in the Agent() call below, then run the watch cycle after it.
+- **`true` (default):** use `run_in_background=true` in the Agent() call below, then run the outline watch cycle after it (it watches the outline, the one file this planner writes).
 
 ```javascript
 Agent(
@@ -75,7 +75,7 @@ Agent(
 )
 ```
 
-**ORCHESTRATOR RULE — ALL RUNTIMES (when `PLANNER_STALL_DETECTION_ENABLED` is `true`):** repeat the watch cycle; after each, read `{outputFile}` with the Read tool: a line holding `## OUTLINE COMPLETE` -> `marker_received`; a quiet cycle once the cycles add up to `planner.stall_threshold_minutes` -> `stalled`.
+**ORCHESTRATOR RULE — ALL RUNTIMES (when `PLANNER_STALL_DETECTION_ENABLED` is `true`):** repeat the outline watch cycle; after each, read `{outputFile}` with the Read tool: a line holding `## OUTLINE COMPLETE` -> `marker_received`; a quiet cycle once the cycles add up to `planner.stall_threshold_minutes` -> `stalled`.
 
 - **`false`:** issue the same Agent() call but omit `run_in_background`; await its ordinary runtime-native completion and consume the real returned result. Skip the watch cycle entirely and treat a recognized `## OUTLINE COMPLETE` return exactly like `marker_received`; empty or unrecognized returns keep the existing Retry/Stop path.
 

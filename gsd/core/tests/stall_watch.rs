@@ -1,5 +1,5 @@
 //! The planner's stall watch: each watch cycle is one `specforge wait` call, since each host Bash call is a new shell,
-//! and its activity is the `.spec` files a planner writes.
+//! and its activity is the files a planner writes: `.spec` files, or the outline planner's outline.
 
 use std::path::{Path, PathBuf};
 
@@ -105,12 +105,17 @@ fn stall_watch_lines() -> (Vec<String>, Vec<String>) {
     (waits, globbed)
 }
 
-/// The stall watch watches the files a planner writes: GSD on SpecForge writes plans as entities in `.spec` files, so
-/// the watch cycle is one `specforge wait --changed '**/*.spec'`, and no line of the watch names a phase-directory glob.
+/// The stall watch watches the files a planner writes: GSD on SpecForge writes plans as entities in `.spec` files, and
+/// the chunked outline planner only its outline, a temp file. So there are two watch cycles, one `specforge wait
+/// --changed` each, and no line of the watch names a phase-directory glob.
 #[test]
 fn the_stall_watch_watches_the_spec_files() {
     let (waits, globbed) = stall_watch_lines();
-    assert_eq!(waits.len(), 1, "{waits:?}");
+    assert_eq!(waits.len(), 2, "{waits:?}");
     assert!(waits[0].contains("--changed '**/*.spec'"), "{waits:?}");
+    assert!(
+        waits[1].contains("--changed '.specforge/tmp/gsd-outline-*.md'"),
+        "{waits:?}"
+    );
     assert!(globbed.is_empty(), "{globbed:?}");
 }

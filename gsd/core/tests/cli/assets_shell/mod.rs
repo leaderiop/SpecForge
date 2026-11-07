@@ -13,6 +13,7 @@ mod review;
 mod scripts;
 mod search;
 mod shapes;
+mod stall;
 
 /// The tools the `--pick` lines call besides `specforge`: no jq.
 const PICK_TOOLS: &[&str] = &[

@@ -27,11 +27,6 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     (
         "gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md",
         97,
-        108,
-    ),
-    (
-        "gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md",
-        110,
         133,
     ),
     (

@@ -87,8 +87,10 @@ probe from the journal: a recorded answer holds, a recorded failure waits to the
 Files are read live in every mode (ADR 0337 D4), through the `Fs` port, so the ceiling, the roots and the withheld
 names hold as for `files`. A listed entry carries its modification time (`Listed.modified_ms`), so a poll is one walk.
 The walk honours `.gitignore` and skips hidden names, as `files list` does by default, and never lists `.git` or the
-host's state. A directory or file that does not exist yet is "not yet". `--changed` sees writes, not deletions; a write
-in the same millisecond as `--since` counts.
+host's state. A glob under `.specforge/tmp/` is read in the `temp` root, as `files` reads one, so it watches the
+temp files `files temp` hands out (a planner's outline) and nothing else of the host's state; until the temp root is
+made it is refused like the rest of `.specforge`. A directory or file that does not exist yet is "not yet".
+`--changed` sees writes, not deletions; a write in the same millisecond as `--since` counts.
 
 ## Rejected
 
