@@ -186,9 +186,9 @@ None - no external service configuration required.
 | `id` | Stable identifier (`D1`, `D2`…) for cross-referencing from UAT.md and audit reports. Must be unique within the SUMMARY. |
 | `description` | The deliverable in human-readable form — what would have been a prose bullet. |
 | `requirement` | Links back to a REQUIREMENTS.md REQ-ID (joins `requirements-completed`). Optional. |
-| `verification[].kind` | Enum: `unit \| integration \| e2e \| automated_ui \| manual_procedural \| other`. |
+| `verification[].kind` | Enum: `unit`, `integration`, `e2e`, `automated_ui`, `manual_procedural` or `other`. |
 | `verification[].ref` | Test path + descriptor (`file#test name`), Playwright screenshot ref, or command invocation. Required per entry. |
-| `verification[].status` | `pass \| fail \| unknown` — populated from the latest test run. |
+| `verification[].status` | `pass`, `fail` or `unknown` — populated from the latest test run. |
 | `human_judgment` | Explicit boolean; REQUIRED. `true` always routes to a human. |
 | `rationale` | REQUIRED when `human_judgment: true`. The audit trail for why automation is insufficient. |
 

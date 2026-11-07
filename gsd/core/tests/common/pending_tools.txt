@@ -196,25 +196,15 @@ gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Remove-Item	Remov
 
 # J solver: the z3 decision (R4). 0 rows.
 
-# K not a tool: prose, a placeholder or a bare command name in a shell fence or a run: reword it. 29 rows.
+# K not a tool: prose, a placeholder or a bare command name in a shell fence or a run: reword it. 16 rows.
 agents/gsd-plan-checker.md	estimate-check	estimate-check --calibrated
 commands/gsd/ns-review.md	gsd-code-review	gsd-code-review --fix
-gsd-core/references/planning-config.md	Status	Source \| Item \| Status
 gsd-core/references/planning-config.md	help	help --full
 gsd-core/references/planning-config.md	my-review-tool	my-review-tool --review
-gsd-core/templates/summary.md	other	unit \| integration \| e2e \| automated_ui \| manual_procedural \| other
-gsd-core/templates/summary.md	unknown	pass \| fail \| unknown
 gsd-core/workflows/autonomous.md	init.phase-op	init.phase-op ${PHASE_NUM}
-gsd-core/workflows/discuss-phase-power.md	total	total - answered
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	roadmap.get-phase	roadmap.get-phase --pick goal
 gsd-core/workflows/new-milestone.md	phases.clear	phases.clear --confirm
-gsd-core/workflows/onboard.md	requirements_exists	(project_exists || requirements_exists || roadmap_exists || state_exists) && (!project_exists || !requirements_exists || !roadmap_exists || !state_exists)
-gsd-core/workflows/onboard.md	roadmap_exists	(project_exists || requirements_exists || roadmap_exists || state_exists) && (!project_exists || !requirements_exists || !roadmap_exists || !state_exists)
-gsd-core/workflows/onboard.md	state_exists	(project_exists || requirements_exists || roadmap_exists || state_exists) && (!project_exists || !requirements_exists || !roadmap_exists || !state_exists)
 gsd-core/workflows/plan-phase.md	commit	commit "docs(phase-${PHASE}): add validation strategy"
-gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	Complete	Pending | Planned | In Progress | Executed | Complete | Needs Review
-gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	Executed	Pending | Planned | In Progress | Executed | Complete | Needs Review
-gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	Planned	Pending | Planned | In Progress | Executed | Complete | Needs Review
 gsd-core/workflows/quick/steps/quick-verification.md	plan-phase	plan-phase --gaps
 gsd-core/workflows/smart-entry.md	smart-entry	smart-entry --json
 prompt:autonomous	init.phase-op	init.phase-op ${PHASE_NUM}
@@ -222,7 +212,4 @@ prompt:ingest_docs	docs	docs --mode merge --resolve auto
 prompt:new_milestone	phases.clear	phases.clear --confirm
 prompt:next	smart-entry	smart-entry --json
 prompt:ns_review	gsd-code-review	gsd-code-review --fix
-prompt:onboard	requirements_exists	(project_exists || requirements_exists || roadmap_exists || state_exists) && (!project_exists || !requirements_exists || !roadmap_exists || !state_exists)
-prompt:onboard	roadmap_exists	(project_exists || requirements_exists || roadmap_exists || state_exists) && (!project_exists || !requirements_exists || !roadmap_exists || !state_exists)
-prompt:onboard	state_exists	(project_exists || requirements_exists || roadmap_exists || state_exists) && (!project_exists || !requirements_exists || !roadmap_exists || !state_exists)
 prompt:plan_phase	commit	commit "docs(phase-${PHASE}): add validation strategy"

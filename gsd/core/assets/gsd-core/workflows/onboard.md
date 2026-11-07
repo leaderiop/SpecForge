@@ -79,7 +79,7 @@ If `next_action.kind == "map-codebase"`:
 
 On the "Skip mapping" path:
 
-- If `(project_exists || requirements_exists || roadmap_exists || state_exists) && (!project_exists || !requirements_exists || !roadmap_exists || !state_exists)`, route the skip to the partial planning guard instead:
+- If some but not all of the four exist (project, requirements, roadmap, state), route the skip to the partial planning guard instead:
 
 ```text
 Skipping codebase mapping may give downstream steps weaker context, but project planning exists and is incomplete.

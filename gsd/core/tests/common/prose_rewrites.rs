@@ -56,4 +56,15 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ),
     ("gsd-core/workflows/ship.md", 216, 216),
     ("gsd-core/workflows/verify-work.md", 813, 813),
+    // a value list names each value, and an expression is words
+    ("gsd-core/references/planning-config.md", 315, 315),
+    ("gsd-core/templates/summary.md", 187, 187),
+    ("gsd-core/templates/summary.md", 189, 189),
+    ("gsd-core/workflows/discuss-phase-power.md", 106, 106),
+    ("gsd-core/workflows/onboard.md", 80, 80),
+    (
+        "gsd-core/workflows/plan-phase/steps/closed-phase-gate.md",
+        2,
+        2,
+    ),
 ];

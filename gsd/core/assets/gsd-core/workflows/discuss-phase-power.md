@@ -105,7 +105,7 @@ Write all questions to:
 - `stats.total`: count of all questions across all sections
 - `stats.answered`: count where `answer` is not null and not empty string
 - `stats.chat_more`: count where `chat_more` has content
-- `stats.remaining`: `total - answered`
+- `stats.remaining`: `stats.total` minus `stats.answered`
 - `question.id`: sequential across all sections — Q-01, Q-02, Q-03, ...
 - `question.context`: concrete codebase or prior-decision annotation (not generic)
 - `question.answer`: null until user sets it; once answered, the selected option id or free-text
