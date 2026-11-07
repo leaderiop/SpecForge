@@ -198,3 +198,204 @@ fn a_bad_duration_or_a_lone_since_is_a_usage_error() {
         Cli::on(&project).run(args).exits(2);
     }
 }
+
+/// `project`'s `rel` written after `after`, on a thread the test joins.
+fn written_later(
+    project: &TestProject,
+    rel: &str,
+    text: &str,
+    after: Duration,
+) -> std::thread::JoinHandle<()> {
+    let at = project.root().join(rel);
+    let text = text.to_string();
+    std::thread::spawn(move || {
+        std::thread::sleep(after);
+        std::fs::create_dir_all(at.parent().unwrap()).unwrap();
+        std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&at)
+            .and_then(|mut file| file.write_all(text.as_bytes()))
+            .unwrap();
+    })
+}
+
+#[test]
+fn a_file_written_during_the_wait_ends_it() {
+    let project = TestProject::new().file("watched/a.txt", "before");
+    let later = written_later(
+        &project,
+        "watched/b.txt",
+        "after",
+        Duration::from_millis(300),
+    );
+    let answer = Cli::on(&project)
+        .run(&["wait", "--for", "10s", "--changed", "watched/*.txt"])
+        .exits(0)
+        .answer();
+    later.join().unwrap();
+    assert_eq!(answer["reason"], "changed", "{answer}");
+    assert_eq!(answer["changed"], json!(["watched/b.txt"]));
+}
+
+#[test]
+fn since_counts_writes_before_the_wait() {
+    let project = TestProject::new().file("watched/a.txt", "before");
+    let answer = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "0",
+            "--changed",
+            "watched/*.txt",
+            "--since",
+            "0",
+        ])
+        .exits(0)
+        .answer();
+    assert_eq!(answer["changed"], json!(["watched/a.txt"]));
+    let quiet = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "0",
+            "--changed",
+            "**/*.txt",
+            "--since",
+            "99999999999999",
+            "--pick",
+            ".reason",
+        ])
+        .exits(124);
+    assert_eq!(quiet.stdout, "deadline\n");
+}
+
+/// A glob with no glob character names one file; a file or directory that does not exist yet is "not yet".
+#[test]
+fn a_glob_with_no_glob_character_watches_one_file_and_a_missing_one_is_not_yet() {
+    let project = TestProject::new();
+    for glob in ["new/x.txt", "gone/*.txt"] {
+        let answer = Cli::on(&project)
+            .run(&["wait", "--for", "300ms", "--changed", glob])
+            .exits(124)
+            .answer();
+        assert_eq!(answer["reason"], "deadline", "{answer}");
+    }
+    let later = written_later(&project, "new/x.txt", "x", Duration::from_millis(300));
+    let answer = Cli::on(&project)
+        .run(&["wait", "--for", "10s", "--changed", "new/x.txt"])
+        .exits(0)
+        .answer();
+    later.join().unwrap();
+    assert_eq!(answer["changed"], json!(["new/x.txt"]));
+}
+
+#[test]
+fn an_ignored_file_does_not_count() {
+    let project = TestProject::new()
+        .file(".gitignore", "build/\n")
+        .file("build/out.txt", "x");
+    let since = [
+        "wait",
+        "--for",
+        "0",
+        "--changed",
+        "**/*.txt",
+        "--since",
+        "0",
+    ];
+    Cli::on(&project).run(&since).exits(124);
+    project.write("deep/er/kept.txt", "x");
+    let answer = Cli::on(&project).run(&since).exits(0).answer();
+    assert_eq!(answer["changed"], json!(["deep/er/kept.txt"]));
+}
+
+#[test]
+fn a_line_that_matches_ends_the_wait() {
+    let project = TestProject::new().file("log.txt", "starting\n");
+    let later = written_later(
+        &project,
+        "log.txt",
+        "ready in 30ms\n",
+        Duration::from_millis(300),
+    );
+    let answer = Cli::on(&project)
+        .run(&[
+            "wait", "--for", "10s", "--match", "ready in", "--in", "log.txt",
+        ])
+        .exits(0)
+        .answer();
+    later.join().unwrap();
+    assert_eq!(answer["reason"], "matched", "{answer}");
+    assert_eq!(
+        answer["matched"],
+        json!({"path": "log.txt", "line": 2, "text": "ready in 30ms"})
+    );
+    assert!(answer["polls"].as_u64().unwrap() > 1, "{answer}");
+    // A file that does not exist yet is "not yet".
+    Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "200ms",
+            "--match",
+            "x",
+            "--in",
+            "later.log",
+        ])
+        .exits(124);
+}
+
+#[test]
+fn a_path_outside_the_roots_is_refused_before_waiting() {
+    let project = TestProject::new().file("log.txt", "ready\n");
+    let outside = tempfile::tempdir().unwrap();
+    let log = outside.path().join("server.log");
+    std::fs::write(&log, "ready\n").unwrap();
+    let began = Instant::now();
+    for args in [
+        &[
+            "wait",
+            "--for",
+            "30s",
+            "--match",
+            "ready",
+            "--in",
+            log.to_str().unwrap(),
+        ][..],
+        &["wait", "--for", "30s", "--changed", "../x/*"],
+        // Every condition is judged, the ones that would hold included.
+        &[
+            "wait",
+            "--for",
+            "30s",
+            "--match",
+            "ready",
+            "--in",
+            "log.txt",
+            "--changed",
+            "../x/*",
+        ],
+    ] {
+        let refused = Cli::on(&project).run(args).exits(1);
+        assert_eq!(refused.json()["code"], "outside_root", "{}", refused.stdout);
+    }
+    assert!(began.elapsed() < Duration::from_secs(15));
+}
+
+#[test]
+fn a_bad_glob_or_pattern_is_invalid_input() {
+    let project = TestProject::new().file("log.txt", "ready\n");
+    for args in [
+        &["wait", "--for", "30s", "--changed", "src/[a"][..],
+        &["wait", "--for", "30s", "--match", "(", "--in", "log.txt"],
+    ] {
+        let refused = Cli::on(&project).run(args).exits(1);
+        assert_eq!(
+            refused.json()["code"],
+            "invalid_input",
+            "{}",
+            refused.stdout
+        );
+    }
+}

@@ -86,6 +86,7 @@ specforge run --deadline 10s -- cargo test         # output and exit pass throug
 specforge run --format json -- git status         # {argv,exit,outcome,stdout,stderr,duration_ms,truncated}
 specforge run --which node npx                     # where the runner finds each program
 specforge wait --for 30s --url http://localhost:3000   # 0 when it answers (any status), 124 at the deadline (ADR 0342)
+specforge wait --for 0 --changed 'src/**/*.rs' --since "$T" --pick .reason   # changed | deadline; --match RE --in FILE
 specforge git repo --pick .top                     # the repository, read in process: no git program runs
 specforge git head --pick .branch                  # {sha,branch,detached,unborn,upstream,ahead,behind}
 specforge git rev HEAD~1 main:a.txt                # {revs:[{rev,sha,kind,exists}]}

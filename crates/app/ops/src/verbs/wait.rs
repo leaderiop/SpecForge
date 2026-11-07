@@ -1,16 +1,19 @@
-//! `specforge wait` (ADR 0342): a wait for a URL to answer, under the user grant, polled through the ports until a
-//! condition holds or its time is up. Every condition is judged before any time passes; then it is checked at once,
+//! `specforge wait` (ADR 0342): a wait for a URL to answer, a file to be written or a line to match, under the user
+//! grant, polled through the Http and Fs ports until a condition holds or its time is up. Every condition is judged before any time passes; then it is checked at once,
 //! after a pause that doubles to a bound, and once more at the deadline. With no condition it is a delay.
 
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
+use specforge_effects::fs::FileKind;
 use specforge_effects::http::{host_of, scheme};
-use specforge_effects::{EffectRequest, EffectsMode, UnixMillis};
+use specforge_effects::{EffectRequest, EffectsMode, FsOp, OutcomeClass, UnixMillis};
 use specforge_protocol_types::HttpRequest;
 
+use super::files::{self, Reach, Search, SearchMode, Stdin};
 use super::http::{self, Ask, UNREACHABLE};
-use super::{Answered, Effect, Verbs};
+use super::{Answered, Effect, Verbs, refused};
 use crate::{OpError, OpErrorKind};
 
 /// The longest wait, as long as `run`'s longest deadline.
@@ -26,8 +29,29 @@ pub struct Wait {
     pub for_: Duration,
     /// Holds once the URL answers, any status.
     pub url: Option<String>,
+    /// Holds once a file the glob names is written.
+    pub changed: Option<Changed>,
+    /// Holds once a line of the file matches.
+    pub matching: Option<Matching>,
     /// `online`, `auto` and `cached` probe live; `replay` answers each probe from the journal.
     pub mode: EffectsMode,
+}
+
+/// `--changed`: a glob, from the current directory, and the instant a write counts from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Changed {
+    pub glob: String,
+    /// None: the wait's own start.
+    pub since: Option<UnixMillis>,
+}
+
+/// `--match <pattern> --in <file>`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Matching {
+    /// As `files search` reads one.
+    pub pattern: String,
+    /// From the current directory.
+    pub file: PathBuf,
 }
 
 /// Why a wait ended.
@@ -36,6 +60,10 @@ pub struct Wait {
 pub enum Reason {
     /// The URL answered.
     Answered,
+    /// A file the glob names was written.
+    Changed,
+    /// A line matched.
+    Matched,
     /// Its time ran out, and it had no condition: a delay.
     Elapsed,
     /// Its time ran out before a condition held (exit 124).
@@ -47,6 +75,8 @@ impl Reason {
     pub const fn name(self) -> &'static str {
         match self {
             Reason::Answered => "answered",
+            Reason::Changed => "changed",
+            Reason::Matched => "matched",
             Reason::Elapsed => "elapsed",
             Reason::Deadline => "deadline",
         }
@@ -78,6 +108,21 @@ pub struct WaitAnswer {
     /// With a URL: its last probe.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub url: Option<Probe>,
+    /// When a file was written: the files written since `--since`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub changed: Option<Vec<String>>,
+    /// When a line matched: the first.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub matched: Option<Matched>,
+}
+
+/// The line that ended a wait.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Matched {
+    pub path: String,
+    pub line: usize,
+    /// At most [`files::LINE_CHARS`] characters.
+    pub text: String,
 }
 
 /// How a wait's pauses grow: the first, doubling to `max`.
@@ -133,46 +178,112 @@ pub fn wait(
     if let Some(url) = &wait.url {
         judge_url(verbs, url)?;
     }
-    // A wait asks about now: a fresh record of an earlier one would end it at once.
-    let mode = match wait.mode {
-        EffectsMode::Replay => EffectsMode::Replay,
-        _ => EffectsMode::Online,
-    };
-    let mut probe = None;
-    let mut effect = None;
-    let conditions = wait.url.is_some();
-    // The same for every probe: the request, so its record's digest, holds it, and a replay of this wait finds it.
-    let probe_time = wait.for_.clamp(PROBE_TIME.0, PROBE_TIME.1);
+    let watched = wait
+        .changed
+        .as_ref()
+        .map(|changed| Watched::judged(verbs, changed, started_at))
+        .transpose()?;
+    if let Some(matching) = &wait.matching {
+        let (located, _) = verbs.held(&matching.file, FsOp::Stat)?;
+        verbs.beyond_machine_roots(&located, "wait")?;
+    }
+    let mut url = Probing::new(verbs, wait);
+    let mut changed = None;
+    let mut matched = None;
+    let conditions = wait.url.is_some() || wait.changed.is_some() || wait.matching.is_some();
+    let mut first = true;
     let (reason, polls) = polled(wait.for_, conditions, poll, clock, || {
-        let Some(url) = &wait.url else {
-            return Ok(None);
-        };
-        let ask = Ask {
+        // The first check runs every condition, so each one's refusal comes before any time passes; the files first,
+        // since a probe may take its whole timeout.
+        let every = std::mem::take(&mut first);
+        let mut held = None;
+        if let Some(watched) = &watched {
+            changed = watched.changed(verbs)?;
+            held = held.or(changed.as_ref().map(|_| Reason::Changed));
+        }
+        if let Some(matching) = &wait.matching
+            && (every || held.is_none())
+        {
+            matched = matched_line(verbs, matching)?;
+            held = held.or(matched.as_ref().map(|_| Reason::Matched));
+        }
+        if wait.url.is_some() && (every || held.is_none()) && url.answered()? {
+            held = held.or(Some(Reason::Answered));
+        }
+        Ok(held)
+    })?;
+    Ok(Answered {
+        answer: WaitAnswer {
+            reason,
+            started_at,
+            waited_ms: millis(clock.elapsed().saturating_sub(begun)),
+            for_ms: millis(wait.for_),
+            polls,
+            url: url.last,
+            changed: changed.filter(|_| reason == Reason::Changed),
+            matched: matched.filter(|_| reason == Reason::Matched),
+        },
+        effect: url.effect.unwrap_or_else(Effect::performed),
+    })
+}
+
+/// A wait's URL and its last probe.
+struct Probing<'a> {
+    verbs: &'a Verbs,
+    ask: Option<Ask>,
+    mode: EffectsMode,
+    last: Option<Probe>,
+    effect: Option<Effect>,
+}
+
+impl<'a> Probing<'a> {
+    fn new(verbs: &'a Verbs, wait: &Wait) -> Self {
+        let ask = wait.url.as_ref().map(|url| Ask {
             method: "GET".to_string(),
             url: url.clone(),
             headers: Vec::new(),
             body: None,
             secret: None,
-            timeout: probe_time,
+            // The same for every probe: the request, so its record's digest, holds it, and a replay of this wait
+            // finds it.
+            timeout: wait.for_.clamp(PROBE_TIME.0, PROBE_TIME.1),
             // As `http`'s: a record keeps the answer only when it fits, and a replay answers from that record.
             max_bytes: http::ANSWER_BYTES,
             no_redirects: false,
+        });
+        Probing {
+            verbs,
+            ask,
+            // A wait asks about now: a fresh record of an earlier one would end it at once.
+            mode: match wait.mode {
+                EffectsMode::Replay => EffectsMode::Replay,
+                _ => EffectsMode::Online,
+            },
+            last: None,
+            effect: None,
+        }
+    }
+
+    /// One probe: whether a server answered, any status.
+    fn answered(&mut self) -> Result<bool, OpError> {
+        let Some(ask) = &self.ask else {
+            return Ok(false);
         };
-        match http::request(verbs, &ask, mode) {
+        match http::request(self.verbs, ask, self.mode) {
             Ok(answered) => {
-                probe = Some(Probe {
+                self.last = Some(Probe {
                     status: Some(answered.answer.status),
                     ok: answered.answer.ok,
                     outcome: answered.answer.outcome,
                 });
-                effect = Some(answered.effect);
-                Ok(Some(Reason::Answered))
+                self.effect = Some(answered.effect);
+                Ok(true)
             }
             // No server answered yet; a denied redirect is a refusal.
             Err(error)
                 if error.code == UNREACHABLE && error.kind != OpErrorKind::PermissionDenied =>
             {
-                probe = Some(Probe {
+                self.last = Some(Probe {
                     status: None,
                     ok: false,
                     outcome: error
@@ -182,22 +293,133 @@ pub fn wait(
                         .unwrap_or(UNREACHABLE)
                         .to_string(),
                 });
-                Ok(None)
+                Ok(false)
             }
             Err(error) => Err(error),
         }
-    })?;
-    Ok(Answered {
-        answer: WaitAnswer {
-            reason,
-            started_at,
-            waited_ms: millis(clock.elapsed().saturating_sub(begun)),
-            for_ms: millis(wait.for_),
-            polls,
-            url: probe,
+    }
+}
+
+/// `--changed`'s glob, judged: the directory it walks and the pattern below it, or the one file it names.
+struct Watched {
+    /// From the current directory.
+    at: PathBuf,
+    /// Anchored at `at`; none when the glob names one file.
+    pattern: Option<String>,
+    since: UnixMillis,
+}
+
+impl Watched {
+    /// `changed` split at its first component that holds a glob character, its pattern read as `files list` reads a
+    /// glob and its place held to the roots; a write counts from `--since`, else from `started_at`.
+    fn judged(verbs: &Verbs, changed: &Changed, started_at: UnixMillis) -> Result<Self, OpError> {
+        let parts: Vec<&str> = changed.glob.split('/').collect();
+        let globbed = parts
+            .iter()
+            .position(|part| part.contains(['*', '?', '[', '{']));
+        let (at, pattern) = match globbed {
+            None => (PathBuf::from(&changed.glob), None),
+            Some(index) => {
+                let dir = parts[..index].join("/");
+                let at = match (index, dir.as_str()) {
+                    (0, _) => PathBuf::from("."),
+                    // `/x`: the root directory.
+                    (_, "") => PathBuf::from("/"),
+                    _ => PathBuf::from(dir),
+                };
+                // A leading `/` anchors it at the directory, as a `/`-holding pattern already is.
+                (at, Some(format!("/{}", parts[index..].join("/"))))
+            }
+        };
+        if let Some(pattern) = &pattern
+            && let Some(why) = verbs.ports().fs.glob_fault(std::slice::from_ref(pattern))
+        {
+            return Err(OpError::new(
+                OpErrorKind::InvalidInput,
+                OpErrorKind::InvalidInput.as_str(),
+                why,
+            ));
+        }
+        let (located, _) = verbs.held(&at, FsOp::Stat)?;
+        verbs.beyond_machine_roots(&located, "wait")?;
+        Ok(Watched {
+            at,
+            pattern,
+            since: changed.since.unwrap_or(started_at),
+        })
+    }
+
+    /// The files written at or after `since`, as an answer shows them; none when there is none, or the place does not
+    /// exist yet.
+    fn changed(&self, verbs: &Verbs) -> Result<Option<Vec<String>>, OpError> {
+        let fresh = |modified: Option<u64>| modified.is_some_and(|at| at >= self.since.0);
+        let Some(pattern) = &self.pattern else {
+            let (located, request) = verbs.held(&self.at, FsOp::Stat)?;
+            let outcome = verbs.ports().fs.run(verbs.roots(), &request);
+            return match outcome.class {
+                OutcomeClass::Ok => Ok(outcome
+                    .stat
+                    .filter(|stat| fresh(stat.modified_ms))
+                    .map(|_| vec![verbs.shown(&located.at)])),
+                OutcomeClass::Missing => Ok(None),
+                class => Err(refused(class, &verbs.shown(&located.at))),
+            };
+        };
+        let walked = files::walk(
+            verbs,
+            &self.at,
+            Reach {
+                globs: std::slice::from_ref(pattern),
+                kind: Some(FileKind::File),
+                depth: None,
+                ignore: true,
+                hidden: false,
+                max: files::LIST_MAX,
+            },
+        );
+        let (located, listing) = match walked {
+            Ok(walked) => walked,
+            Err(error) if error.kind == OpErrorKind::FileNotFound => return Ok(None),
+            Err(error) => return Err(error),
+        };
+        let written: Vec<String> = listing
+            .entries
+            .iter()
+            .filter(|entry| fresh(entry.modified_ms))
+            .map(|entry| verbs.shown_in(&located.root, &entry.path))
+            .collect();
+        Ok((!written.is_empty()).then_some(written))
+    }
+}
+
+/// The first line of `--in` that `--match` matches, searched as `files search` searches; none when none does, or the
+/// file does not exist yet.
+fn matched_line(verbs: &Verbs, matching: &Matching) -> Result<Option<Matched>, OpError> {
+    let answer = files::search(
+        verbs,
+        &Search {
+            pattern: matching.pattern.clone(),
+            paths: vec![matching.file.clone()],
+            globs: Vec::new(),
+            ignore: true,
+            hidden: false,
+            ignore_case: false,
+            fixed: false,
+            invert: false,
+            multiline: false,
+            before: 0,
+            after: 0,
+            and_not: Vec::new(),
+            mode: SearchMode::Lines,
+            max: 1,
+            stdin: Stdin::default(),
         },
-        effect: effect.unwrap_or_else(Effect::performed),
-    })
+    )?;
+    Ok(answer.matches.into_iter().next().map(|found| Matched {
+        path: found.path,
+        line: found.line,
+        text: found.text,
+    }))
 }
 
 /// Refused unless `url` is an `http(s)` URL with a host that the user grant permits a `GET` of.

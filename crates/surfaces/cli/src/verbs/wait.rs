@@ -6,8 +6,10 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use specforge_effects::Ports;
-use specforge_ops::verbs::wait::{self as waited, Poll, RealTime, Reason, Wait, WaitAnswer};
-use specforge_ops::{OpError, OpErrorKind};
+use specforge_effects::UnixMillis;
+use specforge_ops::verbs::wait::{
+    self as waited, Changed, Matching, Poll, RealTime, Reason, Wait, WaitAnswer,
+};
 
 use super::VerbArgs;
 use crate::outcome::Exit;
@@ -60,16 +62,18 @@ impl WaitArgs {
             terminal,
             ports,
             |verbs| {
-                if self.changed.is_some() || self.pattern.is_some() {
-                    return Err(OpError::new(
-                        OpErrorKind::InvalidInput,
-                        OpErrorKind::InvalidInput.as_str(),
-                        "--changed and --match are not served yet",
-                    ));
-                }
                 let wait = Wait {
                     for_: self.for_,
                     url: self.url.clone(),
+                    changed: self.changed.clone().map(|glob| Changed {
+                        glob,
+                        since: self.since.map(UnixMillis),
+                    }),
+                    matching: self
+                        .pattern
+                        .clone()
+                        .zip(self.in_file.clone())
+                        .map(|(pattern, file)| Matching { pattern, file }),
                     mode: self.verb.mode(),
                 };
                 let answered = waited::wait(&verbs, &wait, Poll::BACK_OFF, &RealTime::start())?;

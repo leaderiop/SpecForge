@@ -145,17 +145,21 @@ fn checked_globs(verbs: &Verbs, globs: &[String]) -> Result<(), OpError> {
 }
 
 /// What a walk reaches: a [`ListRequest`] without the place, which [`walk`] holds to the roots.
-struct Reach<'a> {
-    globs: &'a [String],
-    kind: Option<FileKind>,
-    depth: Option<usize>,
-    ignore: bool,
-    hidden: bool,
-    max: usize,
+pub(super) struct Reach<'a> {
+    pub(super) globs: &'a [String],
+    pub(super) kind: Option<FileKind>,
+    pub(super) depth: Option<usize>,
+    pub(super) ignore: bool,
+    pub(super) hidden: bool,
+    pub(super) max: usize,
 }
 
 /// The walk of `dir`: where it landed, and what it listed; a refused walk is refused whole.
-fn walk(verbs: &Verbs, dir: &Path, reach: Reach<'_>) -> Result<(Located, FsListing), OpError> {
+pub(super) fn walk(
+    verbs: &Verbs,
+    dir: &Path,
+    reach: Reach<'_>,
+) -> Result<(Located, FsListing), OpError> {
     let (located, request) = verbs.held(
         dir,
         FsOp::Walk {
