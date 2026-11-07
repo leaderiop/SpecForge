@@ -103,7 +103,9 @@ names hold as for `files`. A listed entry carries its modification time (`Listed
 The walk honours `.gitignore` and skips hidden names, as `files list` does by default, and never lists `.git` or the
 host's state. A glob under `.specforge/tmp/` is read in the `temp` root, as `files` reads one, so it watches the
 temp files `files temp` hands out (a planner's outline) and nothing else of the host's state; until the temp root is
-made it is refused like the rest of `.specforge`. A directory or file that does not exist yet is "not yet".
+made it is refused like the rest of `.specforge`. A directory or file that does not exist yet is "not yet". A walk
+that could not read every entry (it stopped at its bound, 10,000 files, or could not enter a directory) is refused
+with the remedy to narrow the glob, never answered: a write in what it did not read would be a false quiet.
 `--changed` sees writes, not deletions; a write in the same millisecond as `--since` counts.
 
 ## Rejected

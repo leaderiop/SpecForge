@@ -353,6 +353,8 @@ struct Watched {
     /// Anchored at `at`; none when the glob names one file.
     pattern: Option<String>,
     since: UnixMillis,
+    /// The most entries a poll's walk lists.
+    max: usize,
 }
 
 impl Watched {
@@ -405,6 +407,7 @@ impl Watched {
             at,
             pattern,
             since: changed.since.unwrap_or(started_at),
+            max: files::LIST_MAX,
         })
     }
 
@@ -427,7 +430,7 @@ impl Watched {
                 depth: None,
                 ignore: true,
                 hidden: false,
-                max: files::LIST_MAX,
+                max: self.max,
             },
         );
         let (located, listing) = match walked {
@@ -435,6 +438,29 @@ impl Watched {
             Err(error) if error.kind == OpErrorKind::FileNotFound => return Ok(None),
             Err(error) => return Err(error),
         };
+        // A write in what the walk did not read would go unseen, a false quiet.
+        let unseen = if listing.truncated {
+            Some(format!(
+                "the walk of {} stopped at its bound ({} files listed, {} entries visited)",
+                verbs.shown(&located.at),
+                self.max,
+                specforge_effects::fs::LIST_VISITS
+            ))
+        } else {
+            listing
+                .unread
+                .first()
+                .map(|rel| format!("{} could not be read", verbs.shown_in(&located.root, rel)))
+        };
+        if let Some(why) = unseen {
+            return Err(OpError::new(
+                OpErrorKind::PreconditionFailed,
+                OpErrorKind::PreconditionFailed.as_str(),
+                format!(
+                    "{why}, so a write in what it did not read would go unseen: narrow the glob"
+                ),
+            ));
+        }
         let written: Vec<String> = listing
             .entries
             .iter()
@@ -699,6 +725,61 @@ mod tests {
         let long = waited(30_000);
         assert!(short.effect.digest.is_some());
         assert_eq!(short.effect.digest, long.effect.digest);
+    }
+
+    /// The verbs over `project` and the real disk.
+    fn on_disk(project: &specforge_project::testing::TestProject) -> Verbs {
+        Verbs::open(
+            &project.project_root(),
+            project.root(),
+            &specforge_effects::Ports {
+                fs: std::sync::Arc::new(specforge_fs::LocalFs),
+                ..specforge_effects::testing::ports()
+            },
+            &specforge_effects::testing::MemoryConsent::approving_everything(),
+        )
+    }
+
+    /// A walk stopped at its bound would answer a quiet it never read: it is refused, with the remedy.
+    #[test]
+    fn a_walk_that_stops_at_its_bound_is_refused() {
+        let project = specforge_project::testing::TestProject::new().files(&[
+            ("w/a.txt", "a"),
+            ("w/b.txt", "b"),
+            ("w/c.txt", "c"),
+        ]);
+        let verbs = on_disk(&project);
+        let changed = Changed {
+            glob: "w/*.txt".to_string(),
+            since: Some(UnixMillis(0)),
+        };
+        let mut watched = Watched::judged(&verbs, &changed, UnixMillis(0)).unwrap();
+        assert_eq!(watched.changed(&verbs).unwrap().map(|c| c.len()), Some(3));
+        watched.max = 2;
+        let refused = watched.changed(&verbs).unwrap_err();
+        assert_eq!(refused.kind, OpErrorKind::PreconditionFailed);
+        assert!(
+            refused.message.contains("narrow the glob"),
+            "{}",
+            refused.message
+        );
+        // So is a walk that could not enter a directory.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            let locked = project.root().join("w/locked");
+            std::fs::create_dir_all(&locked).unwrap();
+            std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+            watched.max = files::LIST_MAX;
+            let refused = watched.changed(&verbs);
+            std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o700)).unwrap();
+            let refused = refused.unwrap_err();
+            assert!(
+                refused.message.contains("w/locked could not be read"),
+                "{}",
+                refused.message
+            );
+        }
     }
 
     #[test]
