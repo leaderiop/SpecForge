@@ -31,7 +31,7 @@
     "crates/leaf/protocol-types/src/rooted.rs": "86750cd009adf6daed8a9309fc0c95384b5661e28abadf37b1a00bbc5a10e9a4",
     "crates/leaf/protocol-types/src/route.rs": "18163bb5eda662886c28521fb36ec253ee0150f95a891c2123a85bb2477e9953",
     "crates/leaf/protocol-types/src/settings.rs": "d6508a651005cb5af13f9d3b1768de6af27c84e6f3798b8e2e28d71108cab5ea",
-    "crates/leaf/protocol-types/src/shell.rs": "d4908f0dbfd406c723e3add115e039fb72da0337d36f82df4ef5775f9dc31115",
+    "crates/leaf/protocol-types/src/shell.rs": "9dc8d8163724a729c8f9f51b715815d1ab0ab3157fb185423d7acb6942d5ef69",
     "crates/leaf/protocol-types/src/surface.rs": "ed764ed33dc2ba43385fead589902aac8b7cafda04b4514ae5458e5943df9824",
     "crates/leaf/protocol-types/src/tool_input.rs": "0e7e9603b820339efea2266baafcd42ba39323b287b0f682a2bb509227590b17",
     "crates/leaf/protocol-types/src/trigger.rs": "4e76e4d280ed72934f33b823c9c2bb2a80648b1fb227c594ba9385ee2c60d422",
