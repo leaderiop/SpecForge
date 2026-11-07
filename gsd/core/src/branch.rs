@@ -66,15 +66,19 @@ impl<'a> Protection<'a> {
     }
 
     /// Whether `branch` is protected: one of [`PROTECTED`], under `release/`, listed, or the base. A detached `HEAD`
-    /// (empty) is none of them.
+    /// (empty) is none of them. Case does not count: on a case-insensitive file system `MAIN` is `main`'s ref, and a
+    /// commit on it moves `main`.
     pub fn covers(&self, branch: &str) -> bool {
+        let same = |name: &&str| name.eq_ignore_ascii_case(branch);
+        let release = "release/";
         !branch.is_empty()
-            && (PROTECTED.contains(&branch)
-                || branch
-                    .strip_prefix("release/")
-                    .is_some_and(|rest| !rest.is_empty())
-                || self.listed.contains(&branch)
-                || self.base == Some(branch))
+            && (PROTECTED.iter().any(same)
+                || branch.len() > release.len()
+                    && branch
+                        .get(..release.len())
+                        .is_some_and(|start| start.eq_ignore_ascii_case(release))
+                || self.listed.iter().any(same)
+                || self.base.iter().any(same))
     }
 }
 
@@ -98,6 +102,30 @@ mod tests {
         );
         assert_eq!(fill("gsd/{other}-{slug}", &pairs), "gsd/{other}-auth");
         assert_eq!(fill("", &pairs), "");
+    }
+
+    #[test]
+    fn the_protected_set_compares_without_case() {
+        let protection = Protection {
+            listed: vec!["Shared/X"],
+            base: Some("Stable"),
+        };
+        for branch in [
+            "main",
+            "MAIN",
+            "Master",
+            "TRUNK",
+            "release/1.0",
+            "RELEASE/1.0",
+            "shared/x",
+            "SHARED/X",
+            "stable",
+        ] {
+            assert!(protection.covers(branch), "{branch}");
+        }
+        for branch in ["", "release/", "RELEASE/", "mainline", "feature/MAIN", "é"] {
+            assert!(!protection.covers(branch), "{branch}");
+        }
     }
 
     #[test]

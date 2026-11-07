@@ -13,6 +13,21 @@ fn answer(p: &Project, args: &[&str]) -> serde_json::Value {
     json(&gsd(p, "branch-check", &all))
 }
 
+/// On a case-insensitive file system `git checkout MAIN` leaves `HEAD` on `refs/heads/MAIN`, which is `main`'s ref.
+#[test]
+fn a_branch_named_as_main_in_another_case_is_protected() {
+    let p = project("execute");
+    p.commit();
+    p.git(
+        &["symbolic-ref", "HEAD", "refs/heads/MAIN"],
+        "2026-01-01T00:00:00Z",
+    );
+    let answer = answer(&p, &[]);
+    assert_eq!(answer["branch"], "MAIN", "{answer}");
+    assert_eq!(answer["protected"], true, "{answer}");
+    assert_eq!(answer["blocks_commit"], true, "{answer}");
+}
+
 #[test]
 fn branch_check_reads_head_and_the_settings() {
     let p = project("execute");
