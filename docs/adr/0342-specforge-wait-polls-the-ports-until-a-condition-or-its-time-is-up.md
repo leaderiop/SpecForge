@@ -50,12 +50,15 @@ MCP tool (ADR 0339 D1). The kernel knows nothing of servers, planners or quotas.
   table, `verbs::http::no_answer`, reads every class for both verbs.
 - **`--changed <glob>`** splits the glob at its first component that holds a glob character (`*?[{`): the components
   before it name the directory, read from the project's root and held to the roots, and the rest is matched as
-  `files list --glob` matches it. A glob with no glob character names one file. It holds when a listed file was
+  `files list --glob` matches it. A glob with no glob character names one file, or a directory whose files it
+  watches at any depth (never the directory's own time, which a file made or removed in it moves); an empty glob is
+  refused. It holds when a listed file was
   modified at or after `--since` (milliseconds since the Unix epoch), which defaults to the wait's `started_at`.
   The glob is the project's wherever the wait is typed, as `.gitignore` reads one: a block's `--changed '**/*.spec'`
   names the same files from a subdirectory, and a nested project (the nearest `specforge.json`) names its own.
   `--in` is read from the current directory, as every verb reads a path; an absolute glob is itself.
-- **`--match <re> --in <file>`** searches the file as `files search` does, and holds at its first matching line.
+- **`--match <re> --in <file>`** searches the file as `files search` does, and holds at its first matching line. A
+  directory is refused, before any time passes and at each poll: `files search` would search it whole.
 
 ## D3. The answer and its exits
 

@@ -17,7 +17,7 @@ Options:
           Holds once this URL answers, any HTTP status (a GET under the project's effects ceiling)
 
       --changed <GLOB>
-          Holds once a file this glob names (from the project's root wherever the wait is typed, in the project's roots, as `files list` reads it) was written at or after --since
+          Holds once a file this glob names (from the project's root wherever the wait is typed, in the project's roots, as `files list` reads it; a directory: the files in it) was written at or after --since
 
       --since <MS>
           With --changed: the instant a write counts from, in milliseconds since the Unix epoch (a wait's `started_at`); the wait's own start when absent
@@ -26,7 +26,7 @@ Options:
           Holds once a line of the file --in names matches this pattern (as `files search` reads one)
 
       --in <FILE>
-          With --match: the file whose lines are matched (from the current directory, in the project's roots)
+          With --match: the one file whose lines are matched, never a directory (from the current directory, in the project's roots)
 
       --path <PATH>
           A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)

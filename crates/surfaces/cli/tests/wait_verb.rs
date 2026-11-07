@@ -290,6 +290,37 @@ fn a_glob_with_no_glob_character_watches_one_file_and_a_missing_one_is_not_yet()
     assert_eq!(answer["changed"], json!(["new/x.txt"]));
 }
 
+/// A glob that names a directory watches the files in it, never the directory's own time (which a file made or
+/// removed in it moves); an empty glob, and a `--in` that names a directory, are refused before any time passes.
+#[test]
+fn a_named_directory_watches_its_files_and_an_empty_glob_or_a_directory_to_search_is_refused() {
+    let project = TestProject::new().file("watched/a.txt", "x");
+    std::fs::create_dir_all(project.root().join("empty")).unwrap();
+    let since = |glob| ["wait", "--for", "0", "--changed", glob, "--since", "0"];
+    let quiet = Cli::on(&project).run(&since("empty")).exits(124).answer();
+    assert!(quiet.get("changed").is_none(), "{quiet}");
+    let answer = Cli::on(&project).run(&since("watched")).exits(0).answer();
+    assert_eq!(answer["changed"], json!(["watched/a.txt"]));
+    let answer = Cli::on(&project).run(&since(".")).exits(0).answer();
+    let changed = answer["changed"].as_array().unwrap();
+    assert!(changed.contains(&json!("watched/a.txt")), "{answer}");
+    assert!(!changed.contains(&json!(".")), "{answer}");
+    let began = Instant::now();
+    for args in [
+        &["wait", "--for", "30s", "--changed", ""][..],
+        &["wait", "--for", "30s", "--match", "x", "--in", "watched"],
+    ] {
+        let refused = Cli::on(&project).run(args).exits(1);
+        assert_eq!(
+            refused.json()["code"],
+            "invalid_input",
+            "{}",
+            refused.stdout
+        );
+    }
+    assert!(began.elapsed() < Duration::from_secs(15));
+}
+
 #[test]
 fn an_ignored_file_does_not_count() {
     let project = TestProject::new()

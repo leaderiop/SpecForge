@@ -44,7 +44,7 @@ pub(crate) struct WaitArgs {
     url: Option<String>,
 
     /// Holds once a file this glob names (from the project's root wherever the wait is typed, in the project's roots,
-    /// as `files list` reads it) was written at or after --since
+    /// as `files list` reads it; a directory: the files in it) was written at or after --since
     #[arg(long, value_name = "GLOB")]
     changed: Option<String>,
 
@@ -57,7 +57,8 @@ pub(crate) struct WaitArgs {
     #[arg(long = "match", value_name = "REGEX", requires = "in_file")]
     pattern: Option<String>,
 
-    /// With --match: the file whose lines are matched (from the current directory, in the project's roots)
+    /// With --match: the one file whose lines are matched, never a directory (from the current directory, in the
+    /// project's roots)
     #[arg(long = "in", value_name = "FILE", requires = "pattern")]
     in_file: Option<PathBuf>,
 

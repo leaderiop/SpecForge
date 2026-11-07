@@ -2,18 +2,18 @@
 //! grant, polled through the Http and Fs ports until a condition holds or its time is up. Every condition is judged before any time passes; then it is checked at once,
 //! after a pause that doubles to a bound, and once more at the deadline. With no condition it is a delay.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
-use specforge_effects::fs::FileKind;
+use specforge_effects::fs::{FileKind, FsStat};
 use specforge_effects::http::{host_of, scheme};
 use specforge_effects::{EffectRequest, EffectsMode, FsOp, OutcomeClass, UnixMillis};
 use specforge_protocol_types::HttpRequest;
 
 use super::files::{self, Reach, Search, SearchMode, Stdin};
 use super::http::{self, Ask, Sent};
-use super::{Answered, Effect, Verbs, refused};
+use super::{Answered, Effect, Located, Verbs, refused};
 use crate::{OpError, OpErrorKind};
 
 /// The longest wait, as long as `run`'s longest deadline.
@@ -360,6 +360,11 @@ impl Watched {
     /// wait is typed, its pattern read as `files list` reads a glob and its place held to the roots; a write counts
     /// from `--since`, else from `started_at`.
     fn judged(verbs: &Verbs, changed: &Changed, started_at: UnixMillis) -> Result<Self, OpError> {
+        if changed.glob.is_empty() {
+            return Err(invalid(
+                "the glob to watch is empty: write one, such as **/*.spec",
+            ));
+        }
         let root = verbs.root().dir();
         let parts: Vec<&str> = changed.glob.split('/').collect();
         let globbed = parts
@@ -382,14 +387,20 @@ impl Watched {
         if let Some(pattern) = &pattern
             && let Some(why) = verbs.ports().fs.glob_fault(std::slice::from_ref(pattern))
         {
-            return Err(OpError::new(
-                OpErrorKind::InvalidInput,
-                OpErrorKind::InvalidInput.as_str(),
-                why,
-            ));
+            return Err(invalid(why));
         }
         let (located, _) = verbs.held(&at, FsOp::Stat)?;
         verbs.beyond_machine_roots(&located, "wait")?;
+        // A directory it names is watched by the files in it: its own time moves when a file is made or removed.
+        let pattern = match pattern {
+            None if stat(verbs, &at)?
+                .1
+                .is_some_and(|stat| stat.kind == FileKind::Dir) =>
+            {
+                Some("/**".to_string())
+            }
+            pattern => pattern,
+        };
         Ok(Watched {
             at,
             pattern,
@@ -402,16 +413,10 @@ impl Watched {
     fn changed(&self, verbs: &Verbs) -> Result<Option<Vec<String>>, OpError> {
         let fresh = |modified: Option<u64>| modified.is_some_and(|at| at >= self.since.0);
         let Some(pattern) = &self.pattern else {
-            let (located, request) = verbs.held(&self.at, FsOp::Stat)?;
-            let outcome = verbs.ports().fs.run(verbs.roots(), &request);
-            return match outcome.class {
-                OutcomeClass::Ok => Ok(outcome
-                    .stat
-                    .filter(|stat| fresh(stat.modified_ms))
-                    .map(|_| vec![verbs.shown(&located.at)])),
-                OutcomeClass::Missing => Ok(None),
-                class => Err(refused(class, &verbs.shown(&located.at))),
-            };
+            let (located, stat) = stat(verbs, &self.at)?;
+            return Ok(stat
+                .filter(|stat| stat.kind == FileKind::File && fresh(stat.modified_ms))
+                .map(|_| vec![verbs.shown(&located.at)]));
         };
         let walked = files::walk(
             verbs,
@@ -445,6 +450,7 @@ impl Watched {
 fn searched(verbs: &Verbs, matching: &Matching) -> Result<Search, OpError> {
     let (located, _) = verbs.held(&matching.file, FsOp::Stat)?;
     verbs.beyond_machine_roots(&located, "wait")?;
+    one_file(verbs, &matching.file)?;
     let search = Search {
         pattern: matching.pattern.clone(),
         paths: vec![matching.file.clone()],
@@ -468,6 +474,9 @@ fn searched(verbs: &Verbs, matching: &Matching) -> Result<Search, OpError> {
 
 /// The first line `search` finds; none when none matches, or the file does not exist yet.
 fn matched_line(verbs: &Verbs, search: &Search) -> Result<Option<Matched>, OpError> {
+    for path in &search.paths {
+        one_file(verbs, path)?;
+    }
     let answer = files::search(verbs, search)?;
     Ok(answer.matches.into_iter().next().map(|found| Matched {
         path: found.path,
@@ -476,20 +485,47 @@ fn matched_line(verbs: &Verbs, search: &Search) -> Result<Option<Matched>, OpErr
     }))
 }
 
+/// `path`'s stat through the Fs port, held to the roots; none when it does not exist yet.
+fn stat(verbs: &Verbs, path: &Path) -> Result<(Located, Option<FsStat>), OpError> {
+    let (located, request) = verbs.held(path, FsOp::Stat)?;
+    let outcome = verbs.ports().fs.run(verbs.roots(), &request);
+    match outcome.class {
+        OutcomeClass::Ok => Ok((located, outcome.stat)),
+        OutcomeClass::Missing => Ok((located, None)),
+        class => Err(refused(class, &verbs.shown(&located.at))),
+    }
+}
+
+/// Refused when `--in` names a directory, which `files search` would search whole: a wait reads one file.
+fn one_file(verbs: &Verbs, path: &Path) -> Result<(), OpError> {
+    match stat(verbs, path)? {
+        (located, Some(stat)) if stat.kind == FileKind::Dir => Err(invalid(format!(
+            "{} is a directory: a wait searches the lines of one file",
+            verbs.shown(&located.at)
+        ))),
+        _ => Ok(()),
+    }
+}
+
+/// An `invalid_input` refusal.
+fn invalid(why: impl Into<String>) -> OpError {
+    OpError::new(
+        OpErrorKind::InvalidInput,
+        OpErrorKind::InvalidInput.as_str(),
+        why,
+    )
+}
+
 /// Refused unless `url` is an `http(s)` URL with a host that the user grant permits a `GET` of.
 fn judge_url(verbs: &Verbs, url: &str) -> Result<(), OpError> {
     let scheme = scheme(url);
     if !matches!(scheme.as_str(), "http" | "https")
         || host_of(url).is_none_or(|host| host.is_empty())
     {
-        return Err(OpError::new(
-            OpErrorKind::InvalidInput,
-            OpErrorKind::InvalidInput.as_str(),
-            format!(
-                "{} is no URL to wait for: write http:// or https:// and a host",
-                specforge_common::remedy::printable(url)
-            ),
-        ));
+        return Err(invalid(format!(
+            "{} is no URL to wait for: write http:// or https:// and a host",
+            specforge_common::remedy::printable(url)
+        )));
     }
     verbs.permit(&EffectRequest::Http(HttpRequest {
         method: "GET".to_string(),
