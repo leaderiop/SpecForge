@@ -111,6 +111,28 @@ impl VerbArgs {
         })
     }
 
+    /// [`Self::answered`] for a verb whose answer decides its exit (`wait`'s 124): `exit` reads it from the answer,
+    /// printed all the same; a refusal exits as every verb's does.
+    pub(crate) fn answered_exit<T: serde::Serialize>(
+        &self,
+        terminal: &Terminal,
+        ports: &Ports,
+        ask: impl FnOnce(Verbs) -> Result<Answered<T>, OpError>,
+        human: impl FnOnce(&Terminal, &T),
+        exit: impl FnOnce(&T) -> i32,
+    ) -> i32 {
+        let format = match self.format(terminal) {
+            Ok(format) => format,
+            Err(exit) => return exit.code(),
+        };
+        let answer = open(&self.project, ports).and_then(ask);
+        let code = answer.as_ref().ok().map(|answered| exit(&answered.answer));
+        let printed = self.print(terminal, format, answer, |terminal, answered| {
+            human(terminal, &answered.answer);
+        });
+        code.unwrap_or_else(|| printed.code())
+    }
+
     /// Print `answer` as the format asks (`human` prints it with `human`), or report its refusal; `failed` decides
     /// whether a printed answer still exits 1.
     fn print<T: serde::Serialize>(

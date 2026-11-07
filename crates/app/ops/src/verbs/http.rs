@@ -79,7 +79,7 @@ pub struct HttpAnswer {
     pub status: u16,
     /// The answer's class as the effects journal writes it: `ok`, `status:404`, `capped`, `redirect:limit` (a 3xx
     /// under `--no-redirects`).
-    pub outcome: String,
+    pub outcome: OutcomeClass,
     /// The URL that answered, after the redirects followed.
     pub final_url: String,
     /// The kept response headers ([`KEPT_HEADERS`]), lowercased.
@@ -292,7 +292,7 @@ pub fn send(
                 url: request.url.clone(),
                 ok: (200..300).contains(&status),
                 status,
-                outcome: outcome.class.to_string(),
+                outcome: outcome.class,
                 final_url: outcome.final_url.clone(),
                 content_type: outcome.header("content-type").map(str::to_string),
                 bytes: outcome.body.len() as u64,
@@ -454,13 +454,13 @@ fn built(verbs: &Verbs, ask: &Ask) -> Result<HttpRequest, OpError> {
 
 /// The bytes of the body file `typed`, held to the project's roots.
 fn read_body(verbs: &Verbs, typed: &std::path::Path) -> Result<Vec<u8>, OpError> {
-    let (located, request) = verbs.held(
+    let (located, request) = verbs.held_for(
+        "http",
         typed,
         FsOp::Read {
             max_bytes: BODY_FILE_BYTES,
         },
     )?;
-    verbs.beyond_machine_roots(&located, "http")?;
     let outcome = verbs.ports().fs.run(verbs.roots(), &request);
     if outcome.class != OutcomeClass::Ok || outcome.truncated {
         let why = if outcome.truncated {

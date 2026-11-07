@@ -12,7 +12,7 @@ use specforge_effects::http::{host_of, scheme};
 use specforge_effects::{EffectRequest, EffectsMode, FsOp, OutcomeClass, UnixMillis};
 use specforge_protocol_types::HttpRequest;
 
-use super::files::{self, Reach, Search, SearchMode, Stdin};
+use super::files::{self, Reach, Search};
 use super::http::{self, Ask, Sent};
 use super::{Answered, Effect, Located, Verbs, refused};
 use crate::{OpError, OpErrorKind};
@@ -80,9 +80,8 @@ pub struct Matching {
     pub file: PathBuf,
 }
 
-/// Why a wait ended.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
+/// Why a wait ended, written as its [`Reason::name`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Reason {
     /// The URL answered.
     Answered,
@@ -107,6 +106,20 @@ impl Reason {
             Reason::Deadline => "deadline",
         }
     }
+
+    /// The exit a wait that ended for this reason passes through: 124 when its time ran out first, as `timeout`'s.
+    pub const fn exit(self) -> i32 {
+        match self {
+            Reason::Deadline => 124,
+            Reason::Answered | Reason::Changed | Reason::Matched | Reason::Elapsed => 0,
+        }
+    }
+}
+
+impl Serialize for Reason {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.name())
+    }
 }
 
 /// The last URL probe.
@@ -118,7 +131,7 @@ pub struct Probe {
     pub ok: bool,
     /// The class the effects journal writes: `ok`, `status:<code>`, `capped` (a body past 1 MiB), or why no server
     /// answered (`unreachable:connect`).
-    pub outcome: String,
+    pub outcome: OutcomeClass,
 }
 
 /// `specforge wait`'s answer.
@@ -333,7 +346,7 @@ impl<'a> Probing<'a> {
                 self.last = Some(Probe {
                     status: None,
                     ok: false,
-                    outcome: class.to_string(),
+                    outcome: class,
                 });
                 self.settled = effect.from_journal;
                 self.effect = Some(effect);
@@ -395,8 +408,7 @@ impl Watched {
         {
             return Err(invalid(why));
         }
-        let (located, _) = verbs.held(&at, FsOp::Stat)?;
-        verbs.beyond_machine_roots(&located, "wait")?;
+        verbs.held_for("wait", &at, FsOp::Stat)?;
         // A directory it names is watched by the files in it: its own time moves when a file is made or removed.
         let pattern = match pattern {
             None if stat(verbs, &at)?
@@ -464,12 +476,8 @@ impl Watched {
             verbs,
             &self.at,
             Reach {
-                globs: std::slice::from_ref(pattern),
-                kind: Some(FileKind::File),
-                depth: None,
-                ignore: true,
-                hidden: false,
                 max: self.max,
+                ..Reach::files(std::slice::from_ref(pattern))
             },
         );
         let (located, listing) = match walked {
@@ -519,25 +527,11 @@ type Reading = BTreeMap<String, Option<u64>>;
 /// `--match --in` as `files search` reads it, judged before any time passes: the file held to the roots and the
 /// pattern parsed.
 fn searched(verbs: &Verbs, matching: &Matching) -> Result<Search, OpError> {
-    let (located, _) = verbs.held(&matching.file, FsOp::Stat)?;
-    verbs.beyond_machine_roots(&located, "wait")?;
+    verbs.held_for("wait", &matching.file, FsOp::Stat)?;
     one_file(verbs, &matching.file)?;
     let search = Search {
-        pattern: matching.pattern.clone(),
-        paths: vec![matching.file.clone()],
-        globs: Vec::new(),
-        ignore: true,
-        hidden: false,
-        ignore_case: false,
-        fixed: false,
-        invert: false,
-        multiline: false,
-        before: 0,
-        after: 0,
-        and_not: Vec::new(),
-        mode: SearchMode::Lines,
         max: 1,
-        stdin: Stdin::default(),
+        ..Search::new(matching.pattern.clone(), vec![matching.file.clone()])
     };
     files::checked_patterns(&search)?;
     Ok(search)

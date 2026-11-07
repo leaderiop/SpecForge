@@ -192,3 +192,26 @@ fn a_refusal_ends_the_wait_at_once() {
     assert_eq!(ended.unwrap_err().code, "x");
     assert_eq!(timer.elapsed(), Duration::ZERO);
 }
+
+#[test]
+fn a_reason_is_written_as_its_name_and_decides_the_exit() {
+    for (reason, name, exit) in [
+        (Reason::Answered, "answered", 0),
+        (Reason::Changed, "changed", 0),
+        (Reason::Matched, "matched", 0),
+        (Reason::Elapsed, "elapsed", 0),
+        (Reason::Deadline, "deadline", 124),
+    ] {
+        assert_eq!(serde_json::to_value(reason).unwrap(), name);
+        assert_eq!((reason.name(), reason.exit()), (name, exit));
+    }
+    let probe = Probe {
+        status: None,
+        ok: false,
+        outcome: OutcomeClass::Unreachable(specforge_protocol_types::Unreachable::Connect),
+    };
+    assert_eq!(
+        serde_json::to_value(probe).unwrap()["outcome"],
+        "unreachable:connect"
+    );
+}

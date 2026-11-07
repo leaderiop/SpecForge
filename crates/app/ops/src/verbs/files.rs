@@ -155,6 +155,21 @@ pub(super) struct Reach<'a> {
     pub(super) max: usize,
 }
 
+impl<'a> Reach<'a> {
+    /// What `files list --kind file` reaches with `globs` and no other flag: files at any depth, `.gitignore`
+    /// honoured, hidden names skipped, at most [`LIST_MAX`].
+    pub(super) fn files(globs: &'a [String]) -> Self {
+        Reach {
+            globs,
+            kind: Some(FileKind::File),
+            depth: None,
+            ignore: true,
+            hidden: false,
+            max: LIST_MAX,
+        }
+    }
+}
+
 /// The walk of `dir`: where it landed, and what it listed; a refused walk is refused whole.
 pub(super) fn walk(
     verbs: &Verbs,

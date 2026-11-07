@@ -8,11 +8,10 @@ use std::time::Duration;
 use specforge_effects::Ports;
 use specforge_effects::UnixMillis;
 use specforge_ops::verbs::wait::{
-    self as waited, Changed, Matching, MonotonicTimer, Poll, Reason, Wait, WaitAnswer,
+    self as waited, Changed, Matching, MonotonicTimer, Poll, Wait, WaitAnswer,
 };
 
 use super::VerbArgs;
-use crate::outcome::Exit;
 use crate::terminal::{Terminal, outln};
 
 /// What `--effects` does to a wait: a probe asks about now.
@@ -69,8 +68,7 @@ pub(crate) struct WaitArgs {
 impl WaitArgs {
     /// The exit code: 124 when the time ran out before a condition held.
     pub(crate) fn run(self, terminal: &Terminal, ports: &Ports) -> i32 {
-        let mut deadline = false;
-        let exit = self.verb.answered(
+        self.verb.answered_exit(
             terminal,
             ports,
             |verbs| {
@@ -91,10 +89,7 @@ impl WaitArgs {
                         .map(|(pattern, file)| Matching { pattern, file }),
                     mode: self.verb.mode(),
                 };
-                let answered =
-                    waited::wait(&verbs, &wait, Poll::BACK_OFF, &MonotonicTimer::start())?;
-                deadline = answered.answer.reason == Reason::Deadline;
-                Ok(answered)
+                waited::wait(&verbs, &wait, Poll::BACK_OFF, &MonotonicTimer::start())
             },
             |terminal, answer: &WaitAnswer| {
                 outln!(
@@ -105,11 +100,8 @@ impl WaitArgs {
                     answer.polls
                 );
             },
-        );
-        match exit {
-            Exit::Passed if deadline => 124,
-            exit => exit.code(),
-        }
+            |answer| answer.reason.exit(),
+        )
     }
 }
 
@@ -118,7 +110,8 @@ fn parse_for(text: &str) -> Result<Duration, String> {
     let span = super::parse_duration(text)?;
     if span > waited::LONGEST {
         return Err(format!(
-            "{text:?} is longer than a wait may be: 24h the most"
+            "{text:?} is longer than a wait may be: {}h the most",
+            waited::LONGEST.as_secs() / 3600
         ));
     }
     Ok(span)

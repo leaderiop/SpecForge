@@ -285,12 +285,21 @@ impl Verbs {
         }))
     }
 
-    /// Refused when only a machine root holds `located`: `verb` is no `files` or `git`, the two a machine root is for.
-    pub(crate) fn beyond_machine_roots(
+    /// [`Self::held`] for `verb`, a verb no machine root serves (`run`, `http`, `wait`): refused when only a machine
+    /// root holds the place.
+    pub(crate) fn held_for(
         &self,
-        located: &Located,
         verb: &str,
-    ) -> Result<(), OpError> {
+        typed: &Path,
+        op: FsOp,
+    ) -> Result<(Located, FsRequest), OpError> {
+        let held = self.held(typed, op)?;
+        self.beyond_machine_roots(&held.0, verb)?;
+        Ok(held)
+    }
+
+    /// Refused when only a machine root holds `located`: `verb` is no `files` or `git`, the two a machine root is for.
+    fn beyond_machine_roots(&self, located: &Located, verb: &str) -> Result<(), OpError> {
         let held = self.landed.iter().any(|(root, base)| {
             !self.machine_roots.iter().any(|name| name == root.as_str())
                 && located.at.starts_with(base)

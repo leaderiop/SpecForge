@@ -99,8 +99,7 @@ fn place(verbs: &Verbs, run: &Run) -> Result<PathBuf, OpError> {
     let Some(dir) = &run.dir else {
         return Ok(verbs.cwd().to_path_buf());
     };
-    let (located, _) = verbs.held(dir, FsOp::Stat)?;
-    verbs.beyond_machine_roots(&located, "run")?;
+    let (located, _) = verbs.held_for("run", dir, FsOp::Stat)?;
     if !located.at.is_dir() {
         return Err(OpError::new(
             OpErrorKind::InvalidInput,

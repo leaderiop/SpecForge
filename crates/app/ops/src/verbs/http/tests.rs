@@ -315,7 +315,7 @@ fn an_answer_says_its_outcome_content_type_and_bytes() {
         .answer;
     assert_eq!(
         (
-            answer.outcome.as_str(),
+            answer.outcome.to_string().as_str(),
             answer.content_type.as_deref(),
             answer.bytes
         ),
@@ -340,7 +340,11 @@ fn no_redirects_answers_the_redirect_itself() {
     };
     let answer = request(&verbs, &ask, EffectsMode::Online).unwrap().answer;
     assert_eq!(
-        (answer.status, answer.ok, answer.outcome.as_str()),
+        (
+            answer.status,
+            answer.ok,
+            answer.outcome.to_string().as_str()
+        ),
         (302, false, "redirect:limit")
     );
     assert_eq!(answer.headers["location"], "https://api.acme.dev/new");

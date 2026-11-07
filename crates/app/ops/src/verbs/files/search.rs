@@ -12,7 +12,7 @@ use serde::Serialize;
 use specforge_effects::fs::{FILE_CEILING, FileKind};
 use specforge_effects::{FsOp, OutcomeClass, Root};
 
-use super::{LIST_MAX, Reach, checked_globs, invalid, read_request, walk};
+use super::{Reach, checked_globs, invalid, read_request, walk};
 use crate::verbs::{Verbs, refused};
 use crate::{OpError, OpErrorKind};
 
@@ -183,6 +183,30 @@ pub struct Search {
     pub stdin: Stdin,
 }
 
+impl Search {
+    /// What `files search <pattern> <paths…>` asks with no other flag: the matching lines, `.gitignore` honoured,
+    /// hidden names skipped, at most [`SEARCH_MAX`].
+    pub fn new(pattern: String, paths: Vec<PathBuf>) -> Self {
+        Search {
+            pattern,
+            paths,
+            globs: Vec::new(),
+            ignore: true,
+            hidden: false,
+            ignore_case: false,
+            fixed: false,
+            invert: false,
+            multiline: false,
+            before: 0,
+            after: 0,
+            and_not: Vec::new(),
+            mode: SearchMode::Lines,
+            max: SEARCH_MAX,
+            stdin: Stdin::default(),
+        }
+    }
+}
+
 /// The lines under `search.paths` that match `search.pattern`: each line once, at its first match.
 ///
 /// ripgrep's own engine runs on the bytes the `Fs` port read (ADR 0339's amendment): a `grep-regex` matcher and a
@@ -243,12 +267,9 @@ pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
                     verbs,
                     path,
                     Reach {
-                        globs: &search.globs,
-                        kind: Some(FileKind::File),
-                        depth: None,
                         ignore: search.ignore,
                         hidden: search.hidden,
-                        max: LIST_MAX,
+                        ..Reach::files(&search.globs)
                     },
                 )?;
                 if listing.truncated {
