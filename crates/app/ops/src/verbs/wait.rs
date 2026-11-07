@@ -2,6 +2,7 @@
 //! grant, polled through the Http and Fs ports until a condition holds or its time is up. Every condition is judged before any time passes; then it is checked at once,
 //! after a pause that doubles to a bound, and once more at the deadline. With no condition it is a delay.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -203,7 +204,7 @@ pub fn wait(
     if let Some(url) = &wait.url {
         judge_url(verbs, url)?;
     }
-    let watched = wait
+    let mut watched = wait
         .changed
         .as_ref()
         .map(|changed| Watched::judged(verbs, changed, started_at))
@@ -213,6 +214,7 @@ pub fn wait(
         .as_ref()
         .map(|matching| searched(verbs, matching))
         .transpose()?;
+    let watches_files = watched.is_some() || searching.is_some();
     let mut url = Probing::new(verbs, wait);
     let mut changed = None;
     let mut matched = None;
@@ -220,7 +222,7 @@ pub fn wait(
     let (reason, polls) = polled(wait.for_, conditions, poll, clock, || {
         // Each condition in turn, the first that holds ending the check before the next is asked: the files first,
         // since a probe may take its whole timeout.
-        if let Some(watched) = &watched {
+        if let Some(watched) = &mut watched {
             changed = watched.changed(verbs)?;
             if changed.is_some() {
                 return Ok(Some(Reason::Changed));
@@ -241,7 +243,7 @@ pub fn wait(
         Ok(match url.probed(left.clamp(poll.first, PROBE_LONGEST))? {
             Probed::Answered => Some(Reason::Answered),
             // A replay's recorded no-answer cannot change: with nothing else to watch, the deadline is its answer.
-            Probed::Settled if watched.is_none() && searching.is_none() => Some(Reason::Deadline),
+            Probed::Settled if !watches_files => Some(Reason::Deadline),
             Probed::NotYet | Probed::Settled => None,
         })
     })?;
@@ -355,6 +357,8 @@ struct Watched {
     since: UnixMillis,
     /// The most entries a poll's walk lists.
     max: usize,
+    /// What the first check read.
+    first: Option<Reading>,
 }
 
 impl Watched {
@@ -408,18 +412,53 @@ impl Watched {
             pattern,
             since: changed.since.unwrap_or(started_at),
             max: files::LIST_MAX,
+            first: None,
         })
     }
 
-    /// The files written at or after `since`, as an answer shows them; none when there is none, or the place does not
+    /// The files written, as an answer shows them; none when there is none. The first check counts a file modified at
+    /// or after `since` and not after the check (a time in the future is no write: a watch cycle's one check would
+    /// see it on every cycle); each later one, a file whose time differs from the first check's, or that appeared or
+    /// went since.
+    fn changed(&mut self, verbs: &Verbs) -> Result<Option<Vec<String>>, OpError> {
+        let reading = self.read(verbs)?;
+        let written: Vec<String> = match &self.first {
+            None => {
+                let now = UnixMillis::now_or_end().0;
+                let fresh = |at: &u64| (self.since.0..=now).contains(at);
+                reading
+                    .iter()
+                    .filter(|(_, modified)| modified.as_ref().is_some_and(fresh))
+                    .map(|(path, _)| path.clone())
+                    .collect()
+            }
+            Some(first) => {
+                let moved = reading
+                    .iter()
+                    .filter(|(path, modified)| first.get(*path) != Some(*modified));
+                let gone = first
+                    .iter()
+                    .filter(|(path, _)| !reading.contains_key(*path));
+                let mut written: Vec<String> =
+                    moved.chain(gone).map(|(path, _)| path.clone()).collect();
+                written.sort();
+                written
+            }
+        };
+        self.first.get_or_insert(reading);
+        Ok((!written.is_empty()).then_some(written))
+    }
+
+    /// Each file the glob names now, as an answer shows it, and its modification time; none when the place does not
     /// exist yet.
-    fn changed(&self, verbs: &Verbs) -> Result<Option<Vec<String>>, OpError> {
-        let fresh = |modified: Option<u64>| modified.is_some_and(|at| at >= self.since.0);
+    fn read(&self, verbs: &Verbs) -> Result<Reading, OpError> {
         let Some(pattern) = &self.pattern else {
             let (located, stat) = stat(verbs, &self.at)?;
             return Ok(stat
-                .filter(|stat| stat.kind == FileKind::File && fresh(stat.modified_ms))
-                .map(|_| vec![verbs.shown(&located.at)]));
+                .filter(|stat| stat.kind == FileKind::File)
+                .map(|stat| (verbs.shown(&located.at), stat.modified_ms))
+                .into_iter()
+                .collect());
         };
         let walked = files::walk(
             verbs,
@@ -435,7 +474,7 @@ impl Watched {
         );
         let (located, listing) = match walked {
             Ok(walked) => walked,
-            Err(error) if error.kind == OpErrorKind::FileNotFound => return Ok(None),
+            Err(error) if error.kind == OpErrorKind::FileNotFound => return Ok(Reading::new()),
             Err(error) => return Err(error),
         };
         // A write in what the walk did not read would go unseen, a false quiet.
@@ -461,15 +500,21 @@ impl Watched {
                 ),
             ));
         }
-        let written: Vec<String> = listing
+        Ok(listing
             .entries
             .iter()
-            .filter(|entry| fresh(entry.modified_ms))
-            .map(|entry| verbs.shown_in(&located.root, &entry.path))
-            .collect();
-        Ok((!written.is_empty()).then_some(written))
+            .map(|entry| {
+                (
+                    verbs.shown_in(&located.root, &entry.path),
+                    entry.modified_ms,
+                )
+            })
+            .collect())
     }
 }
+
+/// The files a glob names, as an answer shows them, and their modification times.
+type Reading = BTreeMap<String, Option<u64>>;
 
 /// `--match --in` as `files search` reads it, judged before any time passes: the file held to the roots and the
 /// pattern parsed.
@@ -596,199 +641,4 @@ fn millis(span: Duration) -> u64 {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::cell::{Cell, RefCell};
-
-    use super::*;
-
-    /// A clock that moves only when paused.
-    #[derive(Default)]
-    struct Fake {
-        now: Cell<Duration>,
-        pauses: RefCell<Vec<Duration>>,
-    }
-
-    impl Clock for Fake {
-        fn elapsed(&self) -> Duration {
-            self.now.get()
-        }
-
-        fn pause(&self, span: Duration) {
-            self.now.set(self.now.get() + span);
-            self.pauses.borrow_mut().push(span);
-        }
-    }
-
-    const MS: fn(u64) -> Duration = Duration::from_millis;
-
-    #[test]
-    fn with_no_condition_it_pauses_its_whole_time_and_checks_nothing() {
-        let clock = Fake::default();
-        let ended = polled(MS(3000), false, Poll::BACK_OFF, &clock, || {
-            panic!("no condition is checked")
-        });
-        assert_eq!(ended.unwrap(), (Reason::Elapsed, 0));
-        assert_eq!(*clock.pauses.borrow(), [MS(3000)]);
-    }
-
-    #[test]
-    fn it_checks_at_once_then_backs_off_to_the_bound_and_once_at_the_deadline() {
-        let clock = Fake::default();
-        let mut at = Vec::new();
-        let ended = polled(MS(3000), true, Poll::BACK_OFF, &clock, || {
-            at.push(millis(clock.elapsed()));
-            Ok(None)
-        });
-        assert_eq!(ended.unwrap(), (Reason::Deadline, 7));
-        assert_eq!(at, [0, 100, 300, 700, 1500, 2500, 3000]);
-    }
-
-    #[test]
-    fn it_ends_at_the_first_check_that_holds() {
-        let clock = Fake::default();
-        let mut checks = 0;
-        let ended = polled(MS(30_000), true, Poll::BACK_OFF, &clock, || {
-            checks += 1;
-            Ok((checks == 3).then_some(Reason::Answered))
-        });
-        assert_eq!(ended.unwrap(), (Reason::Answered, 3));
-        assert_eq!(clock.elapsed(), MS(300));
-    }
-
-    #[test]
-    fn a_wait_of_zero_checks_once() {
-        let clock = Fake::default();
-        let ended = polled(Duration::ZERO, true, Poll::BACK_OFF, &clock, || Ok(None));
-        assert_eq!(ended.unwrap(), (Reason::Deadline, 1));
-        assert!(clock.pauses.borrow().is_empty());
-    }
-
-    #[test]
-    fn a_retry_after_is_read_in_every_form_and_held_to_a_day() {
-        let now = std::time::UNIX_EPOCH + Duration::from_secs(784_111_777); // Sun, 06 Nov 1994 08:49:37 GMT
-        for (value, waits) in [
-            ("120", MS(120_000)),
-            ("0", Duration::ZERO),
-            ("1.5", MS(1500)),
-            ("0.0001", MS(1)),
-            ("86401", LONGEST),
-            ("99999999999999999999", LONGEST),
-            ("Sun, 06 Nov 1994 08:50:37 GMT", MS(60_000)),
-            ("Sunday, 06-Nov-94 08:50:37 GMT", MS(60_000)),
-            ("Sun Nov  6 08:50:37 1994", MS(60_000)),
-            ("Sun, 06 Nov 1994 08:48:37 GMT", Duration::ZERO),
-            ("Mon, 07 Nov 1994 08:49:38 GMT", LONGEST),
-        ] {
-            assert_eq!(retry_after(value, now), Ok(waits), "{value}");
-        }
-        for value in ["", "-5", "1e3", "inf", "1.2.3", "soon", "5m"] {
-            assert!(retry_after(value, now).is_err(), "{value}");
-        }
-    }
-
-    /// Each probe takes the time the wait has left, held to the poll's first pause at the deadline, and every probe
-    /// of a URL is found by one record whatever `--for` the wait was given.
-    #[test]
-    fn each_probe_takes_the_time_left_and_one_record_serves_any_for() {
-        use std::sync::Arc;
-
-        use specforge_effects::Ports;
-        use specforge_effects::testing::{FakeHttp, MemoryConsent, ports};
-        use specforge_project::testing::TestProject;
-
-        let project = TestProject::new();
-        // Every URL is unreachable (`unreachable:dns`): no server yet.
-        let http = Arc::new(FakeHttp::new());
-        let verbs = Verbs::open(
-            &project.project_root(),
-            project.root(),
-            &Ports {
-                http: Arc::clone(&http) as _,
-                ..ports()
-            },
-            &MemoryConsent::approving_everything(),
-        );
-        let waited = |for_ms| {
-            let asked = Wait {
-                for_: MS(for_ms),
-                url: Some("http://server.test/".to_string()),
-                changed: None,
-                matching: None,
-                mode: EffectsMode::Online,
-            };
-            wait(&verbs, &asked, Poll::BACK_OFF, &Fake::default()).unwrap()
-        };
-        let short = waited(3000);
-        assert_eq!(short.answer.reason, Reason::Deadline);
-        let timeouts: Vec<u64> = http.requests().iter().map(|r| r.timeout_ms).collect();
-        assert_eq!(timeouts, [3000, 2900, 2700, 2300, 1500, 500, 100]);
-        let long = waited(30_000);
-        assert!(short.effect.digest.is_some());
-        assert_eq!(short.effect.digest, long.effect.digest);
-    }
-
-    /// The verbs over `project` and the real disk.
-    fn on_disk(project: &specforge_project::testing::TestProject) -> Verbs {
-        Verbs::open(
-            &project.project_root(),
-            project.root(),
-            &specforge_effects::Ports {
-                fs: std::sync::Arc::new(specforge_fs::LocalFs),
-                ..specforge_effects::testing::ports()
-            },
-            &specforge_effects::testing::MemoryConsent::approving_everything(),
-        )
-    }
-
-    /// A walk stopped at its bound would answer a quiet it never read: it is refused, with the remedy.
-    #[test]
-    fn a_walk_that_stops_at_its_bound_is_refused() {
-        let project = specforge_project::testing::TestProject::new().files(&[
-            ("w/a.txt", "a"),
-            ("w/b.txt", "b"),
-            ("w/c.txt", "c"),
-        ]);
-        let verbs = on_disk(&project);
-        let changed = Changed {
-            glob: "w/*.txt".to_string(),
-            since: Some(UnixMillis(0)),
-        };
-        let mut watched = Watched::judged(&verbs, &changed, UnixMillis(0)).unwrap();
-        assert_eq!(watched.changed(&verbs).unwrap().map(|c| c.len()), Some(3));
-        watched.max = 2;
-        let refused = watched.changed(&verbs).unwrap_err();
-        assert_eq!(refused.kind, OpErrorKind::PreconditionFailed);
-        assert!(
-            refused.message.contains("narrow the glob"),
-            "{}",
-            refused.message
-        );
-        // So is a walk that could not enter a directory.
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt as _;
-            let locked = project.root().join("w/locked");
-            std::fs::create_dir_all(&locked).unwrap();
-            std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
-            watched.max = files::LIST_MAX;
-            let refused = watched.changed(&verbs);
-            std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o700)).unwrap();
-            let refused = refused.unwrap_err();
-            assert!(
-                refused.message.contains("w/locked could not be read"),
-                "{}",
-                refused.message
-            );
-        }
-    }
-
-    #[test]
-    fn a_refusal_ends_the_wait_at_once() {
-        let clock = Fake::default();
-        let ended = polled(MS(30_000), true, Poll::BACK_OFF, &clock, || {
-            Err(OpError::new(OpErrorKind::PermissionDenied, "x", "refused"))
-        });
-        assert_eq!(ended.unwrap_err().code, "x");
-        assert_eq!(clock.elapsed(), Duration::ZERO);
-    }
-}
+mod tests;

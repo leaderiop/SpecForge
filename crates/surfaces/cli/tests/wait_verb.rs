@@ -321,6 +321,61 @@ fn a_named_directory_watches_its_files_and_an_empty_glob_or_a_directory_to_searc
     assert!(began.elapsed() < Duration::from_secs(15));
 }
 
+/// A wait compares each check with what its first saw: a file counts when its time moves, or it appears or goes. A
+/// time in the future counts at no first check (a watch cycle's one check would see it on every cycle), and so only
+/// once it is written again.
+#[test]
+fn a_future_time_is_no_write_and_a_file_that_goes_is_one() {
+    let project = TestProject::new()
+        .file("w/future.txt", "x")
+        .file("w/kept.txt", "x");
+    let future = std::fs::File::options()
+        .write(true)
+        .open(project.root().join("w/future.txt"))
+        .unwrap();
+    future
+        .set_modified(std::time::SystemTime::now() + Duration::from_secs(86_400))
+        .unwrap();
+    drop(future);
+    let cycle = [
+        "wait",
+        "--for",
+        "0",
+        "--changed",
+        "w/*.txt",
+        "--since",
+        "0",
+        "--pick",
+        ".changed",
+    ];
+    let answer = Cli::on(&project).run(&cycle).exits(0);
+    assert_eq!(answer.stdout.trim(), r#"["w/kept.txt"]"#);
+    let quiet = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "0",
+            "--changed",
+            "w/future.txt",
+            "--since",
+            "0",
+        ])
+        .exits(124)
+        .answer();
+    assert_eq!(quiet["reason"], "deadline", "{quiet}");
+    let gone = project.root().join("w/kept.txt");
+    let later = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(300));
+        std::fs::remove_file(gone).unwrap();
+    });
+    let answer = Cli::on(&project)
+        .run(&["wait", "--for", "10s", "--changed", "w/*.txt"])
+        .exits(0)
+        .answer();
+    later.join().unwrap();
+    assert_eq!(answer["changed"], json!(["w/kept.txt"]), "{answer}");
+}
+
 #[test]
 fn an_ignored_file_does_not_count() {
     let project = TestProject::new()

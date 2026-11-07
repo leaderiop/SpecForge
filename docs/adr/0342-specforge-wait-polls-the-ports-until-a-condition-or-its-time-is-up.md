@@ -52,8 +52,11 @@ MCP tool (ADR 0339 D1). The kernel knows nothing of servers, planners or quotas.
   before it name the directory, read from the project's root and held to the roots, and the rest is matched as
   `files list --glob` matches it. A glob with no glob character names one file, or a directory whose files it
   watches at any depth (never the directory's own time, which a file made or removed in it moves); an empty glob is
-  refused. It holds when a listed file was
-  modified at or after `--since` (milliseconds since the Unix epoch), which defaults to the wait's `started_at`.
+  refused. At the first check it holds when a listed file was modified at or after `--since` (milliseconds since the
+  Unix epoch, the wait's `started_at` by default) and not after the check; at each later check, when a file's time
+  differs from what the first check read, or a file appeared or went. A time in the future is no write: upstream's
+  `find -mmin` counted it, and a watch cycle's one check would then see it on every cycle. It counts once the file
+  is written again within one wait.
   The glob is the project's wherever the wait is typed, as `.gitignore` reads one: a block's `--changed '**/*.spec'`
   names the same files from a subdirectory, and a nested project (the nearest `specforge.json`) names its own.
   `--in` is read from the current directory, as every verb reads a path; an absolute glob is itself.
@@ -106,7 +109,7 @@ temp files `files temp` hands out (a planner's outline) and nothing else of the 
 made it is refused like the rest of `.specforge`. A directory or file that does not exist yet is "not yet". A walk
 that could not read every entry (it stopped at its bound, 10,000 files, or could not enter a directory) is refused
 with the remedy to narrow the glob, never answered: a write in what it did not read would be a false quiet.
-`--changed` sees writes, not deletions; a write in the same millisecond as `--since` counts.
+A write in the same millisecond as `--since` counts. A deletion counts after the first check, as a file that went.
 
 ## Rejected
 
