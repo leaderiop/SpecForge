@@ -198,3 +198,46 @@ fn no_text_joins_the_spec_to_a_path() {
     }
     assert!(found.is_empty(), "joined words:\n{}", found.join("\n"));
 }
+
+/// Text the model wrote into a quoted heredoc is redirected only into a file a `specforge files temp` answer named in
+/// the same block (the file, or a path under its directory): the one write ADR 0343 D2 counts as glue.
+#[test]
+fn a_heredoc_is_redirected_only_into_a_temp_file() {
+    let heredoc = Regex::new(r#"read -rd '' (\w+) <<'"#).expect("a regex");
+    let redirect = Regex::new(r#"^\s*printf '%s(?:\\n)?' "\$\{?(\w+)\}?" >>? "\$\{?(\w+)\}?"#)
+        .expect("a regex");
+    let mut checked = 0;
+    let mut wrong = Vec::new();
+    for path in with_extension(&root().join("assets"), "md") {
+        let text = std::fs::read_to_string(&path).expect("an asset");
+        let lines: Vec<String> = text.split('\n').map(String::from).collect();
+        for (s, e) in fences(&lines) {
+            let block = &lines[s..e];
+            let read: Vec<&str> = block
+                .iter()
+                .filter_map(|l| Some(heredoc.captures(l)?.get(1)?.as_str()))
+                .collect();
+            for (n, line) in block.iter().enumerate() {
+                let Some(c) = redirect.captures(line) else {
+                    continue;
+                };
+                if !read.contains(&&c[1]) {
+                    continue;
+                }
+                checked += 1;
+                let temp = format!("{}=$(specforge files temp ", &c[2]);
+                if !block.iter().any(|l| l.trim_start().starts_with(&temp)) {
+                    wrong.push(format!("{}:{}: {line}", path.display(), s + n + 1));
+                }
+            }
+        }
+    }
+    assert!(
+        checked >= 3,
+        "spec-phase, specless-probe-fallback and regression-gate redirect a heredoc"
+    );
+    assert!(
+        wrong.is_empty(),
+        "a heredoc redirected outside a temp file: {wrong:#?}"
+    );
+}

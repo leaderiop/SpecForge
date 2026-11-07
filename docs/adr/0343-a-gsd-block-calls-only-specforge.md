@@ -29,6 +29,13 @@ Glue is: assignment (a heredoc read into a variable among them), `if`/`case` on 
 last segment of an id the graph printed (`${ID##*/}`: addressing, not a rule). A list the model wrote itself is split by
 the shell's own word splitting (`$(printf '%s' "$LIST")`), never by a parser.
 
+One write is glue too: text the model wrote, held in a variable (a quoted heredoc read among them), moved as is with
+`printf '%s'` (or `'%s\n'`) and a redirect into a file a `specforge files temp` answer named, the file or a path under
+its directory (`printf '%s' "$REQS" > "$REQS_JSON"`). The shell parses none of it; the answer that reads it
+(`gsd edge-probe-requirements`, the regression gate's run step) is the one that checks it. There is no `files write`
+verb: it would carry the same bytes through an argument or standard input and check nothing the redirect does not. A
+redirect of such text into any other path is not glue.
+
 A pattern, a count, a join, a sort, a date, an id, a parse of text: each is an answer of `specforge` (`--pick` and its
 shapes, ADR 0325) or of a `specforge gsd` command, never a pipeline or a parameter-expansion parser.
 
