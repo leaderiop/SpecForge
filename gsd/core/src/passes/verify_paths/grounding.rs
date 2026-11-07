@@ -8,6 +8,8 @@
 //!
 //! gsd-core modules this file ports: verify-command-grounding.cjs.
 
+use crate::relocation::missing_sentinel;
+
 /// What a command's text says about where it runs.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Verdict {
@@ -107,12 +109,6 @@ fn is_word(c: char) -> bool {
 fn starts_word(text: &str, word: &str) -> bool {
     text.strip_prefix(word)
         .is_some_and(|after| !after.starts_with(is_word))
-}
-
-/// `^MISSING(\s|$)`: the Wave-0 sentinel is not a command.
-pub fn missing_sentinel(text: &str) -> bool {
-    text.strip_prefix("MISSING")
-        .is_some_and(|after| after.is_empty() || after.starts_with(char::is_whitespace))
 }
 
 /// Split on `&&`, `||`, `;` and newlines; trim; drop empties. No quote-awareness.

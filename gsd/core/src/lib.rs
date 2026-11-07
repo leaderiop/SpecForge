@@ -14,6 +14,7 @@ mod kinds;
 mod passes;
 pub mod prompts;
 mod quick_id;
+mod relocation;
 mod route;
 mod rules;
 pub mod settings;

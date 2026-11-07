@@ -1,6 +1,7 @@
 //! The commands of `@gsd/core` (K5): the writing commands the workflows call. r40 builds `record_verdict`; r41
 //! builds the others, each file the commands of one family (D-r41-2).
 
+mod automated_guard;
 mod branch_check;
 mod complexity;
 mod digest;
@@ -92,6 +93,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     plan_coverage::declare(c);
     verification_debt::declare(c);
     gate::declare(c);
+    automated_guard::declare(c);
     branch_check::declare(c);
     smart_entry::declare(c);
     quick::declare(c);
