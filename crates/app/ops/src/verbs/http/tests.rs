@@ -367,3 +367,61 @@ fn an_unset_secret_is_refused_by_its_variables_name() {
     }
     assert!(secret_is_set(&attached, |_| Some("t".into())).is_ok());
 }
+
+/// One table reads every class of a request no server answered: no server yet (`wait` waits on), or a refusal that
+/// waiting does not change, each with the kind `http` refuses it with.
+#[test]
+fn every_class_of_no_answer_is_not_yet_or_a_refusal() {
+    use specforge_protocol_types::{OutcomeClass as C, Redirected as R, Unreachable as U};
+    let not_yet = |kind| NoAnswer {
+        kind,
+        not_yet: true,
+    };
+    let refused = |kind| NoAnswer {
+        kind,
+        not_yet: false,
+    };
+    for (class, read) in [
+        (
+            C::Unreachable(U::Connect),
+            not_yet(OpErrorKind::PreconditionFailed),
+        ),
+        (
+            C::Unreachable(U::Dns),
+            not_yet(OpErrorKind::PreconditionFailed),
+        ),
+        (
+            C::Unreachable(U::Reset),
+            not_yet(OpErrorKind::PreconditionFailed),
+        ),
+        (C::Unreachable(U::Timeout), not_yet(OpErrorKind::Timeout)),
+        (
+            C::Unreachable(U::Tls),
+            refused(OpErrorKind::PreconditionFailed),
+        ),
+        (
+            C::Unreachable(U::Proxy),
+            refused(OpErrorKind::PreconditionFailed),
+        ),
+        (
+            C::Unreachable(U::RefusedAddress),
+            refused(OpErrorKind::PreconditionFailed),
+        ),
+        (
+            C::Redirect(R::Limit),
+            refused(OpErrorKind::PreconditionFailed),
+        ),
+        (
+            C::Redirect(R::Downgrade),
+            refused(OpErrorKind::PreconditionFailed),
+        ),
+        (
+            C::Redirect(R::Refused),
+            refused(OpErrorKind::PermissionDenied),
+        ),
+        (C::Denied, refused(OpErrorKind::PermissionDenied)),
+    ] {
+        assert_eq!(no_answer(class), read, "{class}");
+        assert_eq!(unanswered("http://x", class).kind, read.kind, "{class}");
+    }
+}

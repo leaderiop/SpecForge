@@ -525,3 +525,29 @@ fn a_condition_that_holds_ends_the_wait_before_any_probe() {
         refused.stdout
     );
 }
+
+/// Only a request that found no server yet waits on: a redirect loop or a refused TLS handshake ends the wait at once
+/// with the refusal `http` gives it, and its exit.
+#[test]
+fn a_refusal_http_gives_ends_the_wait_with_its_exit() {
+    let project = TestProject::new();
+    let looping = Server::reply(|_, _| response(302, &[("Location", "/again")], b""));
+    // A server that answers plain text the moment a client connects: a TLS handshake reads it and is refused.
+    let plain = TcpListener::bind("127.0.0.1:0").unwrap();
+    let tls = format!("https://127.0.0.1:{}/", plain.local_addr().unwrap().port());
+    std::thread::spawn(move || {
+        for mut stream in plain.incoming().flatten() {
+            let _ = stream.write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
+        }
+    });
+    for url in [looping.base.clone(), tls] {
+        let began = Instant::now();
+        let waited = Cli::on(&project)
+            .run(&["wait", "--for", "30s", "--url", &url])
+            .exits(1);
+        assert!(began.elapsed() < Duration::from_secs(10), "{url}");
+        let got = Cli::on(&project).run(&["http", "get", &url]).exits(1);
+        assert_eq!(waited.json()["code"], got.json()["code"], "{url}");
+        assert_eq!(waited.json()["code"], "unreachable", "{}", waited.stdout);
+    }
+}

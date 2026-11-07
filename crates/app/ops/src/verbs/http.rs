@@ -200,12 +200,55 @@ pub fn secret_is_set(
     )))
 }
 
-/// `ask` sent through the `Http` port in `mode`, judged by the user grant first and on every redirect.
+/// `ask` sent through the `Http` port in `mode`, judged by the user grant first and on every redirect: a request no
+/// server answered is refused by its class ([`no_answer`]).
 pub fn request(
     verbs: &Verbs,
     ask: &Ask,
     mode: EffectsMode,
 ) -> Result<Answered<HttpAnswer>, OpError> {
+    match send(verbs, ask, mode)? {
+        Sent::Answered(answered) => Ok(*answered),
+        Sent::NoAnswer { class } => Err(unanswered(&ask.url, class)),
+    }
+}
+
+/// What a request sent through the `Http` port came to.
+pub enum Sent {
+    /// A server answered, any status.
+    Answered(Box<Answered<HttpAnswer>>),
+    /// No server answered, by `class` ([`no_answer`]).
+    NoAnswer { class: OutcomeClass },
+}
+
+/// What a request no server answered means, by its class: the one table `http` and `wait` read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NoAnswer {
+    /// The kind `http` refuses it with.
+    pub kind: OpErrorKind,
+    /// No server listens there yet (no connection, no name, a timeout, a reset): `wait` waits on.
+    pub not_yet: bool,
+}
+
+/// The table of [`NoAnswer`]: a request that found no server yet is "not yet"; a refused TLS handshake, proxy,
+/// address or redirect, a redirect loop or a denial is a refusal that waiting does not change.
+pub const fn no_answer(class: OutcomeClass) -> NoAnswer {
+    let (kind, not_yet) = match class {
+        OutcomeClass::Unreachable(Unreachable::Timeout) => (OpErrorKind::Timeout, true),
+        OutcomeClass::Unreachable(Unreachable::Connect | Unreachable::Dns | Unreachable::Reset) => {
+            (OpErrorKind::PreconditionFailed, true)
+        }
+        OutcomeClass::Denied | OutcomeClass::Redirect(Redirected::Refused) => {
+            (OpErrorKind::PermissionDenied, false)
+        }
+        _ => (OpErrorKind::PreconditionFailed, false),
+    };
+    NoAnswer { kind, not_yet }
+}
+
+/// [`request`], its answer or the class of none: `Err` is a refusal before or on the way (the grant, a redirect it
+/// denies, a body, a replay with no record).
+pub fn send(verbs: &Verbs, ask: &Ask, mode: EffectsMode) -> Result<Sent, OpError> {
     let request = built(verbs, ask)?;
     let asked = EffectRequest::Http(request.clone());
     verbs.permit(&asked)?;
@@ -278,7 +321,7 @@ pub fn request(
             .as_deref()
             .map(serde_json::from_slice::<HttpAnswer>)
         {
-            Some(Ok(kept)) => Ok(Answered {
+            Some(Ok(kept)) => Ok(Sent::Answered(Box::new(Answered {
                 answer: HttpAnswer {
                     final_url: if kept.final_url.is_empty() {
                         request.url.clone()
@@ -293,18 +336,18 @@ pub fn request(
                     observed_at,
                     from_journal,
                 },
-            }),
+            }))),
             Some(Err(_)) => Err(OpError::new(
                 OpErrorKind::Internal,
                 OpErrorKind::Internal.as_str(),
                 "the journal's record of this request holds no answer",
             )),
-            None => Err(hops
-                .denied
-                .into_inner()
-                .ok()
-                .flatten()
-                .unwrap_or_else(|| unanswered(&request.url, &answer.outcome.class))),
+            None => match hops.denied.into_inner().ok().flatten() {
+                Some(denied) => Err(denied),
+                None => Ok(Sent::NoAnswer {
+                    class: answer.outcome.class,
+                }),
+            },
         },
         Served::Miss => Err(OpError::new(
             OpErrorKind::PreconditionFailed,
@@ -418,21 +461,13 @@ fn read_body(verbs: &Verbs, typed: &std::path::Path) -> Result<Vec<u8>, OpError>
     Ok(outcome.bytes)
 }
 
-/// Why no answer came from `url`: its `data.outcome` is the class, `unreachable:connect`.
-fn unanswered(url: &str, class: &OutcomeClass) -> OpError {
-    let kind = match class {
-        OutcomeClass::Unreachable(Unreachable::Timeout) => OpErrorKind::Timeout,
-        OutcomeClass::Denied | OutcomeClass::Redirect(Redirected::Refused) => {
-            OpErrorKind::PermissionDenied
-        }
-        _ => OpErrorKind::PreconditionFailed,
-    };
+/// Why no answer came from `url`, refused with its class's kind ([`no_answer`]).
+pub fn unanswered(url: &str, class: OutcomeClass) -> OpError {
     OpError::new(
-        kind,
+        no_answer(class).kind,
         UNREACHABLE,
         format!("{} did not answer: {class}", printable(url)),
     )
-    .with_data(serde_json::json!({ "outcome": class.to_string() }))
 }
 
 /// Every redirect judged by the user grant as the hop it sends: the first one refused keeps its refusal.

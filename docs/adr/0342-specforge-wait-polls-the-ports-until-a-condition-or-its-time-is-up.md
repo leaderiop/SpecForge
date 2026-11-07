@@ -43,8 +43,10 @@ MCP tool (ADR 0339 D1). The kernel knows nothing of servers, planners or quotas.
   reads one (1 MiB at most) and not shown: the record keeps the answer only when it fits. A probe's
   timeout is the wait's `--for`, at least 1 s and at most 10 s: the same for every probe, since the request (so its
   record's digest) holds it, and a replay of the same wait finds its record. A probe that starts just before the
-  deadline may end up to that long after it. Any HTTP answer holds (D4). A request no server answered is
-  "not yet"; a refused redirect or a denial ends the wait as a refusal.
+  deadline may end up to that long after it. Any HTTP answer holds (D4). A request that found no server yet
+  (`unreachable:connect`, `:dns`, `:timeout`, `:reset`) is "not yet"; any other class `http` refuses (a TLS, proxy or
+  address refusal, a redirect loop, a downgrade, a denied redirect) ends the wait with that refusal and its exit. One
+  table, `verbs::http::no_answer`, reads every class for both verbs.
 - **`--changed <glob>`** splits the glob at its first component that holds a glob character (`*?[{`): the components
   before it name the directory, read from the project's root and held to the roots, and the rest is matched as
   `files list --glob` matches it. A glob with no glob character names one file. It holds when a listed file was

@@ -12,7 +12,7 @@ use specforge_effects::{EffectRequest, EffectsMode, FsOp, OutcomeClass, UnixMill
 use specforge_protocol_types::HttpRequest;
 
 use super::files::{self, Reach, Search, SearchMode, Stdin};
-use super::http::{self, Ask, UNREACHABLE};
+use super::http::{self, Ask, Sent};
 use super::{Answered, Effect, Verbs, refused};
 use crate::{OpError, OpErrorKind};
 
@@ -291,8 +291,8 @@ impl<'a> Probing<'a> {
         let Some(ask) = &self.ask else {
             return Ok(false);
         };
-        match http::request(self.verbs, ask, self.mode) {
-            Ok(answered) => {
+        match http::send(self.verbs, ask, self.mode)? {
+            Sent::Answered(answered) => {
                 self.last = Some(Probe {
                     status: Some(answered.answer.status),
                     ok: answered.answer.ok,
@@ -301,23 +301,16 @@ impl<'a> Probing<'a> {
                 self.effect = Some(answered.effect);
                 Ok(true)
             }
-            // No server answered yet; a denied redirect is a refusal.
-            Err(error)
-                if error.code == UNREACHABLE && error.kind != OpErrorKind::PermissionDenied =>
-            {
+            // No server listens there yet; any other class is the refusal `http` gives it.
+            Sent::NoAnswer { class } if http::no_answer(class).not_yet => {
                 self.last = Some(Probe {
                     status: None,
                     ok: false,
-                    outcome: error
-                        .data
-                        .as_ref()
-                        .and_then(|data| data["outcome"].as_str())
-                        .unwrap_or(UNREACHABLE)
-                        .to_string(),
+                    outcome: class.to_string(),
                 });
                 Ok(false)
             }
-            Err(error) => Err(error),
+            Sent::NoAnswer { class } => Err(http::unanswered(&ask.url, class)),
         }
     }
 }
