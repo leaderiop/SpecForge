@@ -218,6 +218,7 @@ Not verified:
   upstream takes the first UDID of the text listing.
 - `[gate-uv-lock]` pytest runs through `uv run` when `uv.lock` exists; upstream re-runs a failed suite under uv, so a failing one runs twice.
 - `[gate-build-script]` The build gate's package arm reads `scripts.build`; upstream takes any `"build"` in `package.json`.
+- `[guard-reads-words]` Step 0c asks `gsd automated-guard`, which reads the command as the shell's words and halts on one it cannot read; upstream scans its text with regexes. The words close upstream's stated limits: quoted boundaries, control keywords, `command` and `exec`, a `--` before a directory flag, a relocating launcher's payload and an operand-taking shell option.
 
 ## Needs a change outside `gsd/`
 

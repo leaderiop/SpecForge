@@ -57,4 +57,9 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         176,
     ),
     ("gsd-core/workflows/complete-milestone.md", 524, 524),
+    // Step 0c asks `automated-guard`, and its stated boundary is the limits left
+    ("gsd-core/references/worktree-path-safety.md", 192, 399),
+    ("gsd-core/references/worktree-path-safety.md", 409, 412),
+    ("gsd-core/references/worktree-path-safety.md", 416, 492),
+    ("gsd-core/references/worktree-path-safety.md", 494, 497),
 ];

@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 95 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 85 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
 agents/gsd-executor.md	grep	git status --short | grep '^??'
@@ -22,16 +22,6 @@ gsd-core/references/specless-probe-fallback.md	grep	PROHIB_ABSENT=1; node "$SPEC
 gsd-core/references/verification-patterns.md	grep	npx prisma migrate status 2>/dev/null | grep -v "pending"
 gsd-core/references/verification-patterns.md	tr	v=$(printenv "$VAR_NAME"); case "$(printf %s "$v" | tr '[:upper:]' '[:lower:]')" in
 gsd-core/references/worktree-path-safety.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
-gsd-core/references/worktree-path-safety.md	grep	_T=$( printf '%s' "$CMD" | grep -oE "${_OPEN}(${_ENV}${_EXEC}|${_ENV}${_VERB}[[:space:]]+|${_DIR})${_TOK}" \
-gsd-core/references/worktree-path-safety.md	grep	if _P=$(printf '%s' "$BODY" | grep -oE "^${_ENV}${_EVAL}"); then K=E
-gsd-core/references/worktree-path-safety.md	grep	elif _P=$(printf '%s' "$BODY" | grep -oE "^${_ENV}${_EXEC}"); then K=W
-gsd-core/references/worktree-path-safety.md	grep	elif _P=$(printf '%s' "$BODY" | grep -oE "^${_DIR}"); then K=N
-gsd-core/references/worktree-path-safety.md	grep	else _P=$(printf '%s' "$BODY" | grep -oE "^${_ENV}${_VERB}[[:space:]]+"); K=C
-gsd-core/references/worktree-path-safety.md	grep	LDS=$(printf '%s' "$PREFIX" | grep -oE "(^|[[:space:]])(-C|--chdir)([[:space:]]+|=)${_TOK}" \
-gsd-core/references/worktree-path-safety.md	grep	grep -F 'if cd ../main; then' README.md
-gsd-core/references/worktree-path-safety.md	sed	| sed '/^$/d' )
-gsd-core/references/worktree-path-safety.md	sed	BODY=$(printf '%s' "$RAW" | sed -E "s/^(&&|&|;|[|][|]|[|]|[(]|[{])?[[:space:]]*//")
-gsd-core/references/worktree-path-safety.md	sed	| sed -E 's/^[[:space:]]*(-C|--chdir)([[:space:]]+|=)//' || true)
 gsd-core/templates/user-setup.compact.md	grep	grep -r "USER-SETUP" the spec finds all phases with user requirements.
 gsd-core/templates/user-setup.md	grep	grep -r "USER-SETUP" the spec finds all phases with user requirements.
 gsd-core/workflows/execute-phase.md	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
@@ -101,17 +91,12 @@ prompt:ultraplan_phase	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.9
 prompt:ultraplan_phase	sort	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 prompt:undo	grep	grep -E "\(0*${TARGET_PHASE}(-[0-9]+)?\):"
 
-# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 19 rows.
+# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 14 rows.
 gsd-core/references/checkpoints.md	lsof	lsof -ti:3000 | xargs kill
 gsd-core/references/checkpoints.md	sleep	for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done
 gsd-core/references/execute-phase-quota-recovery.md	sleep	sleep "$RETRY_AFTER"
 gsd-core/references/verification-patterns.md	printenv	printenv "$VAR_NAME" >/dev/null
 gsd-core/references/verification-patterns.md	printenv	v=$(printenv "$VAR_NAME"); case "$(printf %s "$v" | tr '[:upper:]' '[:lower:]')" in
-gsd-core/references/worktree-path-safety.md	env	env -u FOO
-gsd-core/references/worktree-path-safety.md	env	env -C scripts bash -c 'cd ..'
-gsd-core/references/worktree-path-safety.md	env	env -u FOO --debug -u BAR -C ../main
-gsd-core/references/worktree-path-safety.md	env	env -S 'cmd args'
-gsd-core/references/worktree-path-safety.md	timeout	timeout --signal TERM
 gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md	date	[[ "$dispatch_ts" =~ ^[0-9]+$ ]] || dispatch_ts=$(date +%s)
 gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md	date	now=$(date +%s)
 gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md	sleep	sleep "$(( PLANNER_STALL_INTERVAL_MINUTES * 60 ))"
@@ -142,7 +127,7 @@ prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shippi
 
 # E network: the host HTTP service and a GitHub provider (R3). 0 rows.
 
-# F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 71 rows.
+# F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 59 rows.
 agents/gsd-executor.md	npx	npx --yes
 agents/gsd-nyquist-auditor.compact.md	pytest	pytest {file} -v
 agents/gsd-nyquist-auditor.md	pytest	pytest {file} -v
@@ -192,18 +177,6 @@ gsd-core/references/tdd.md	pytest	pytest    # Python
 gsd-core/references/verification-patterns.md	npx	npx prisma migrate status 2>/dev/null | grep -v "pending"
 gsd-core/references/verification-patterns.md	npx	npx prisma db execute --stdin <<< "SELECT COUNT(*) FROM $table_name"
 gsd-core/references/verify-command-path-resolvability.md	npm	npm --prefix <literal>
-gsd-core/references/worktree-path-safety.md	bash	bash -c "$CMD"
-gsd-core/references/worktree-path-safety.md	bash	echo 'note; bash -c "cd ../main"'
-gsd-core/references/worktree-path-safety.md	bash	bash --noprofile -c
-gsd-core/references/worktree-path-safety.md	bash	bash -O extglob -c
-gsd-core/references/worktree-path-safety.md	bash	command bash -c …
-gsd-core/references/worktree-path-safety.md	bash	exec bash -c …
-gsd-core/references/worktree-path-safety.md	make	make -f ../main/Makefile
-gsd-core/references/worktree-path-safety.md	node	node ../main/test.js
-gsd-core/references/worktree-path-safety.md	node	node -e
-gsd-core/references/worktree-path-safety.md	perl	perl -e 'chdir "/main"'
-gsd-core/references/worktree-path-safety.md	python3	python3 -m pytest ../main/tests
-gsd-core/references/worktree-path-safety.md	python3	python3 -c
 gsd-core/workflows/execute-plan.md	vercel	vercel --yes
 gsd-core/workflows/spec-phase.md	node	if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
 gsd-core/workflows/spec-phase.md	npm	npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true
@@ -219,7 +192,7 @@ gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcrun	XCODE_SIMS=$(xcr
 gsd-core/workflows/ultraplan-phase.md	claude	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 prompt:ultraplan_phase	claude	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 
-# H routing: no probes: an optional integration is a setting or an extension SpecForge knows is loaded (R1). 10 rows.
+# H routing: no probes: an optional integration is a setting or an extension SpecForge knows is loaded (R1). 8 rows.
 agents/gsd-executor.md	ctx7	ctx7 library <name> "<query>"
 agents/gsd-executor.md	ctx7	ctx7 docs <libraryId> "<query>"
 gsd-core/references/planner-load-graph-context.md	graphify	graphify status   # not part of @gsd/core; when it is not on PATH, skip graph context
@@ -228,20 +201,14 @@ gsd-core/references/planner-load-graph-context.md	graphify	graphify affected "<p
 gsd-core/references/planner-load-graph-context.md	graphify	graphify query "<phase-goal-keyword>" --budget 2000
 gsd-core/references/research-documentation-lookup.md	ctx7	ctx7 library <name> "<query>"
 gsd-core/references/research-documentation-lookup.md	ctx7	ctx7 docs <libraryId> "<query>"
-gsd-core/references/worktree-path-safety.md	command	command -v bash
-gsd-core/references/worktree-path-safety.md	command	command -v bash
 
-# I files: specforge files: walk, glob, match (R4). 6 rows.
-gsd-core/references/worktree-path-safety.md	basename	|| ( cd -- "$(dirname -- "$p")" 2>/dev/null && printf '%s/%s' "$(pwd -P)" "$(basename -- "$p")" ) \
-gsd-core/references/worktree-path-safety.md	dirname	if [ -L "$p" ] && ! [ -d "$p" ]; then t=$(readlink "$p"); case "$t" in /*) p=$t ;; *) p="$(dirname -- "$p")/$t" ;; esac; fi
-gsd-core/references/worktree-path-safety.md	dirname	|| ( cd -- "$(dirname -- "$p")" 2>/dev/null && printf '%s/%s' "$(pwd -P)" "$(basename -- "$p")" ) \
-gsd-core/references/worktree-path-safety.md	readlink	if [ -L "$p" ] && ! [ -d "$p" ]; then t=$(readlink "$p"); case "$t" in /*) p=$t ;; *) p="$(dirname -- "$p")/$t" ;; esac; fi
+# I files: specforge files: walk, glob, match (R4). 2 rows.
 gsd-core/workflows/plan-phase/steps/stall-detection-helpers.md	find	if [ -n "$(find $artifact_glob -mmin "-${PLANNER_STALL_INTERVAL_MINUTES}" 2>/dev/null)" ]; then
 gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Remove-Item	Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\tasks\*" -ErrorAction SilentlyContinue
 
 # J solver: the z3 decision (R4). 0 rows.
 
-# K not a tool: prose, a placeholder or a bare command name in a shell fence or a run: reword it. 79 rows.
+# K not a tool: prose, a placeholder or a bare command name in a shell fence or a run: reword it. 78 rows.
 agents/gsd-plan-checker.md	estimate-check	estimate-check --calibrated
 commands/gsd/ns-review.md	gsd-code-review	gsd-code-review --fix
 gsd-core/references/autonomous-ui-design-contract.md	Phase	Phase ${PHASE_NUM}: UI-SPEC generation did not produce output — continuing without design contract.
@@ -251,7 +218,6 @@ gsd-core/references/planning-config.md	my-review-tool	my-review-tool --review
 gsd-core/references/tdd.md	Plan	Plan {id} GREEN precedes RED: no feat(...) commit descends from a test(...) commit.
 gsd-core/references/tdd.md	Plan	Plan {id} GREEN is supplied by dependent plan {id}.
 gsd-core/references/ui-brand.md	PHASE	PHASE {N} COMPLETE ✓
-gsd-core/references/worktree-path-safety.md	FOO	env -u FOO --debug -u BAR -C ../main
 gsd-core/templates/summary.md	other	unit \| integration \| e2e \| automated_ui \| manual_procedural \| other
 gsd-core/templates/summary.md	unknown	pass \| fail \| unknown
 gsd-core/workflows/autonomous.md	Phase	Phase {N} ({position}/{T})

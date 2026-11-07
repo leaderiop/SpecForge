@@ -155,3 +155,24 @@ fn complete_milestone_finds_the_milestone_branch_when_it_exists() {
     let (out, err, _) = sh.run_in(p.root(), &line);
     assert_eq!(out, "milestone|gsd/v1.0-taskboard-1-0", "{err}");
 }
+
+/// Step 0c as written: the guard's answer decides, from the repository the block reads.
+#[test]
+fn step_0c_halts_on_a_command_that_leaves_the_checkout() {
+    let Some(sh) = branch_shell() else {
+        return;
+    };
+    let p = crate::harness::taskboard();
+    p.commit();
+    let served = served(&p, "gsd-core/references/worktree-path-safety.md");
+    let fence = fence_after(&served, "next executor meets it again.");
+    let run = |command: &str| {
+        let line = format!("AUTOMATED_CMD='{command}'\n{fence}\necho passed");
+        sh.run_in(p.root(), &line)
+    };
+    let (out, err, _) = run("cd .. && make");
+    assert!(!out.contains("passed"), "{out} {err}");
+    assert!(format!("{out}{err}").contains("FATAL"), "{out} {err}");
+    let (out, err, _) = run("cd spec && ls");
+    assert!(out.contains("passed"), "{out} {err}");
+}
