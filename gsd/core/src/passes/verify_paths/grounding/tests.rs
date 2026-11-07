@@ -45,3 +45,29 @@ fn what_cannot_be_checked_is_named() {
     assert_eq!(resolve("MISSING=1 npm test"), Verdict::Skip);
     assert_eq!(resolve("npm test"), Verdict::Skip);
 }
+
+#[test]
+fn a_backslash_escaped_space_names_one_directory() {
+    assert_eq!(at(r"cd web\ app && npm test").dir, "web app");
+}
+
+#[test]
+fn a_quoted_operator_is_not_a_boundary() {
+    assert_eq!(at("cd web && echo 'x; cd /abs'").dir, "web");
+}
+
+#[test]
+fn the_script_comes_from_the_words_right_after_run() {
+    assert_eq!(at("cd web && npm test -- run x").need, Need::Package(None));
+    assert_eq!(
+        at("cd web && npm --prefix=x run lint").need,
+        Need::Package(Some("lint".into()))
+    );
+    assert_eq!(at("cd web && pnpm run lint").need, Need::Package(None));
+    assert_eq!(resolve("cd 'web"), Verdict::Dynamic, "an unclosed quote");
+    assert_eq!(
+        resolve("(cd web) && make"),
+        Verdict::Skip,
+        "a subshell's cd"
+    );
+}

@@ -8,7 +8,7 @@
 //!
 //! gsd-core modules this file ports: verify-command-grounding.cjs.
 
-use crate::relocation::missing_sentinel;
+use crate::relocation::{Event, dynamic, events, missing_sentinel};
 
 /// What a command's text says about where it runs.
 #[derive(Debug, PartialEq, Eq)]
@@ -61,98 +61,61 @@ impl Target {
 }
 
 pub fn resolve(command: &str) -> Verdict {
-    let trimmed = command.trim().replace("&amp;", "&");
-    if trimmed.is_empty() || missing_sentinel(&trimmed) {
+    let trimmed = command.trim();
+    if trimmed.is_empty() || missing_sentinel(trimmed) {
         return Verdict::Skip;
     }
-    let segments = split_segments(&trimmed);
-    let cds: Vec<&str> = segments.iter().map_while(|s| cd_argument(s)).collect();
-    let (raw, rest) = if cds.is_empty() {
-        match find_prefix(&trimmed, 0) {
-            Some(found) => (found.value.to_string(), trimmed.clone()),
+    // Words the shell could not read name no directory that can be checked.
+    let Ok(events) = events(trimmed) else {
+        return Verdict::Dynamic;
+    };
+    let cds: Vec<&str> = events
+        .iter()
+        .map_while(|event| match event {
+            Event::Cd(target) => Some(target.as_str()),
+            _ => None,
+        })
+        .collect();
+    let rest = &events[cds.len()..];
+    let raw = if cds.is_empty() {
+        let prefix = events.iter().find_map(|event| match event {
+            Event::Flag { flag, target } if flag == "--prefix" => Some(target.clone()),
+            _ => None,
+        });
+        match prefix {
+            Some(prefix) => prefix,
             None => return Verdict::Skip,
         }
     } else {
-        (fold_cd(&cds), segments[cds.len()..].join(" && "))
+        fold_cd(&cds)
     };
-    let leading = raw.strip_prefix(['"', '\'']).unwrap_or(&raw);
-    if raw.contains(['$', '`', '*', '?', '\n']) || leading.starts_with('~') {
+    if dynamic(&raw) || raw.contains('\n') {
         return Verdict::Dynamic;
     }
-    let Some(dir) = lexical(&to_slash(strip_quotes(&raw))) else {
+    let Some(dir) = lexical(&to_slash(&raw)) else {
         return Verdict::Outside;
     };
+    let first = rest.iter().find_map(|event| match event {
+        Event::Run(words) => Some(words.as_slice()),
+        _ => None,
+    });
     Verdict::At(Target {
         dir,
-        need: need(rest.trim()),
+        need: first.map_or(Need::Nothing, need),
     })
 }
 
-fn need(rest: &str) -> Need {
-    if ["npm", "npx", "pnpm", "yarn", "bun"]
-        .iter()
-        .any(|tool| starts_word(rest, tool))
-    {
-        Need::Package(npm_script(&strip_prefix_flag(rest)))
-    } else if starts_word(rest, "make") {
+fn need(words: &[String]) -> Need {
+    let tool = words
+        .first()
+        .map_or("", |word| word.rsplit('/').next().unwrap_or(word));
+    if ["npm", "npx", "pnpm", "yarn", "bun"].contains(&tool) {
+        Need::Package(npm_script(tool, &words[1..]))
+    } else if tool == "make" {
         Need::Makefile
     } else {
         Need::Nothing
     }
-}
-
-fn is_word(c: char) -> bool {
-    c.is_ascii_alphanumeric() || c == '_'
-}
-
-/// `^word\b`.
-fn starts_word(text: &str, word: &str) -> bool {
-    text.strip_prefix(word)
-        .is_some_and(|after| !after.starts_with(is_word))
-}
-
-/// Split on `&&`, `||`, `;` and newlines; trim; drop empties. No quote-awareness.
-fn split_segments(text: &str) -> Vec<&str> {
-    let mut found = Vec::new();
-    let (mut start, mut at) = (0, 0);
-    let bytes = text.as_bytes();
-    while at < bytes.len() {
-        let width = match bytes[at] {
-            b';' | b'\n' => 1,
-            b'&' | b'|' if bytes.get(at + 1) == Some(&bytes[at]) => 2,
-            _ => 0,
-        };
-        if width == 0 {
-            at += 1;
-            continue;
-        }
-        found.push(&text[start..at]);
-        at += width;
-        start = at;
-    }
-    found.push(&text[start..]);
-    found
-        .into_iter()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .collect()
-}
-
-/// `^cd\s+(.+)$`.
-fn cd_argument(segment: &str) -> Option<&str> {
-    let rest = segment.strip_prefix("cd")?;
-    rest.starts_with(char::is_whitespace)
-        .then(|| rest.trim())
-        .filter(|a| !a.is_empty())
-}
-
-fn strip_quotes(text: &str) -> &str {
-    for quote in ['"', '\''] {
-        if let Some(inner) = text.strip_prefix(quote).and_then(|t| t.strip_suffix(quote)) {
-            return inner;
-        }
-    }
-    text
 }
 
 fn to_slash(text: &str) -> String {
@@ -162,7 +125,7 @@ fn to_slash(text: &str) -> String {
 /// Chained `cd`s left to right: a relative segment appends, an absolute one starts over.
 fn fold_cd(args: &[&str]) -> String {
     args.iter().fold(String::new(), |acc, raw| {
-        if acc.is_empty() || to_slash(strip_quotes(raw)).starts_with('/') {
+        if acc.is_empty() || to_slash(raw).starts_with('/') {
             (*raw).to_string()
         } else {
             format!("{acc}/{raw}")
@@ -188,85 +151,28 @@ fn lexical(path: &str) -> Option<String> {
     Some(parts.join("/"))
 }
 
-struct Prefix<'a> {
-    start: usize,
-    end: usize,
-    value: &'a str,
-}
-
-/// `(?:^|\s)--prefix(?:=|\s+)("[^"]*"|'[^']*'|\S+)`, the first match from `from`.
-fn find_prefix(text: &str, from: usize) -> Option<Prefix<'_>> {
-    for (at, _) in text[from..].match_indices("--prefix") {
-        let at = from + at;
-        let before = text[..at].chars().next_back();
-        if before.is_some_and(|c| !c.is_whitespace()) {
-            continue;
-        }
-        let after = &text[at + "--prefix".len()..];
-        let rest = match after.strip_prefix('=') {
-            Some(rest) => rest,
-            None => {
-                let rest = after.trim_start();
-                if rest.len() == after.len() {
-                    continue;
-                }
-                rest
-            }
-        };
-        let quoted = ['"', '\''].into_iter().find_map(|q| {
-            let inner = rest.strip_prefix(q)?;
-            Some(&rest[..inner.find(q)? + 2])
-        });
-        let value = quoted.unwrap_or_else(|| rest.split(char::is_whitespace).next().unwrap_or(""));
-        if value.is_empty() {
-            continue;
-        }
-        let start = at - before.map_or(0, char::len_utf8);
-        let end = text.len() - rest.len() + value.len();
-        return Some(Prefix { start, end, value });
+/// The script of `npm run <script>`, with `--prefix` flags before the `run` read past.
+fn npm_script(tool: &str, args: &[String]) -> Option<String> {
+    if tool != "npm" {
+        return None;
     }
-    None
-}
-
-/// The command without its `--prefix` flags, so `npm --prefix ./web run lint` reads as `npm run lint`.
-fn strip_prefix_flag(text: &str) -> String {
-    let (mut out, mut at) = (String::new(), 0);
-    while let Some(found) = find_prefix(text, at) {
-        out.push_str(&text[at..found.start]);
-        out.push(' ');
-        at = found.end;
+    let mut args = args.iter().map(String::as_str);
+    let mut word = args.next()?;
+    while word == "--prefix" || word.starts_with("--prefix=") {
+        if word == "--prefix" {
+            args.next()?;
+        }
+        word = args.next()?;
     }
-    out.push_str(&text[at..]);
-    out
-}
-
-/// `\bnpm\s+run\s+([\w:@./-]+)`, the first.
-fn npm_script(text: &str) -> Option<String> {
-    for (at, _) in text.match_indices("npm") {
-        if text[..at].chars().next_back().is_some_and(is_word) {
-            continue;
-        }
-        let after = &text[at + 3..];
-        let Some(after) = after
-            .trim_start()
-            .strip_prefix("run")
-            .filter(|_| after.starts_with(char::is_whitespace))
-        else {
-            continue;
-        };
-        let name = after.trim_start();
-        if name.len() == after.len() {
-            continue;
-        }
-        let script: String = name
-            .chars()
-            .take_while(|c| is_word(*c) || ":@./-".contains(*c))
-            .collect();
-        if !script.is_empty() {
-            return Some(script);
-        }
+    if word != "run" {
+        return None;
     }
-    None
+    let script: String = args
+        .next()?
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || "_:@./-".contains(*c))
+        .collect();
+    (!script.is_empty()).then_some(script)
 }
 
 #[cfg(test)]
