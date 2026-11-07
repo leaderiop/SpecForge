@@ -17,6 +17,59 @@ pub fn slug(text: &str) -> String {
     slug.trim_end_matches('-').to_string()
 }
 
+/// The most bytes of one path component of a branch name: a file name's 255, less the `.lock` git writes it beside.
+const COMPONENT_MAX: usize = 250;
+
+/// The most characters of a slug in a branch name: a title is prose, and a name has [`COMPONENT_MAX`].
+const SLUG_MAX: usize = 64;
+
+/// `slug` cut to what a branch name takes, without a dash or a dot at its end.
+pub fn shortened(slug: &str) -> &str {
+    let end = slug
+        .char_indices()
+        .nth(SLUG_MAX)
+        .map_or(slug.len(), |(at, _)| at);
+    match slug[..end].trim_end_matches(['-', '.']) {
+        trimmed if end < slug.len() => trimmed,
+        _ => slug,
+    }
+}
+
+/// Why git refuses `name` as a new branch, `None` when it takes it: the rule of `git check-ref-format --branch`, and a
+/// file name's limit, which that rule leaves to the switch that fails on it.
+///
+/// shortcut: restates git's rule, as no ref validator is reachable from this workspace (gix stays behind the host's
+/// git port); upgrade when that port answers it.
+pub fn refused(name: &str) -> Option<&'static str> {
+    if name.is_empty() {
+        return Some("it is empty");
+    }
+    if name.starts_with('-') {
+        return Some("it starts with a dash, which a command reads as an option");
+    }
+    if name == "HEAD" || name == "@" {
+        return Some("git keeps that name");
+    }
+    if name.contains("..") || name.contains("@{") || name.ends_with('.') {
+        return Some("it holds `..` or `@{`, or ends with a dot");
+    }
+    let forbidden = |c: char| c.is_ascii_control() || " ~^:?*[\\".contains(c);
+    if name.contains(forbidden) {
+        return Some("it holds a space, a control character or one of ~^:?*[\\");
+    }
+    name.split('/').find_map(|component| {
+        if component.is_empty() {
+            Some("it has an empty path component")
+        } else if component.starts_with('.') || component.ends_with(".lock") {
+            Some("a path component starts with a dot or ends with `.lock`")
+        } else if component.len() > COMPONENT_MAX {
+            Some("a path component is too long for a file name")
+        } else {
+            None
+        }
+    })
+}
+
 /// `template` with each `{key}` of `pairs` replaced; any other brace is kept as written.
 pub fn fill(template: &str, pairs: &[(&str, &str)]) -> String {
     pairs
@@ -188,6 +241,83 @@ mod tests {
         for branch in ["", "release/", "RELEASE/", "mainline", "feature/MAIN", "é"] {
             assert!(!protection.covers(branch), "{branch}");
         }
+    }
+
+    /// Git's own answer when it is on the machine, so the rule cannot drift from it unseen.
+    fn git_takes(name: &str) -> Option<bool> {
+        std::process::Command::new("git")
+            .args(["check-ref-format", "--branch", name])
+            .output()
+            .ok()
+            .map(|out| out.status.success())
+    }
+
+    #[test]
+    fn the_name_rule_is_gits() {
+        for name in [
+            "gsd/phase-01-core",
+            "feature/x",
+            "v1.0",
+            "a.b",
+            "x;touch",
+            "a-",
+            "a@b",
+            "déjà",
+            "{slug}",
+        ] {
+            assert_eq!(refused(name), None, "{name}");
+            assert_ne!(git_takes(name), Some(false), "git refuses {name}");
+        }
+        for name in [
+            "x;touch pwned",
+            "a..b",
+            "y.lock",
+            "y.lock/z",
+            "-evil01",
+            "--help",
+            "a b",
+            "a\tb",
+            "a\u{7f}b",
+            "a~b",
+            "a^b",
+            "a:b",
+            "a?b",
+            "a*b",
+            "a[b",
+            "a\\b",
+            "/a",
+            "a/",
+            "a//b",
+            ".a",
+            "a/.b",
+            "a.",
+            "a/b.",
+            "a@{b",
+            "HEAD",
+            "",
+        ] {
+            assert!(refused(name).is_some(), "{name:?}");
+            assert_ne!(git_takes(name), Some(true), "git takes {name:?}");
+        }
+        // `@` is `HEAD`'s other name: git's answer reads the checkout it runs in.
+        assert!(refused("@").is_some());
+        // Git's rule has no length: a file name has, and a ref is one, with `.lock` beside it while it is written.
+        assert_eq!(refused(&"a".repeat(250)), None);
+        assert!(refused(&"a".repeat(251)).is_some());
+        assert_eq!(refused(&format!("{0}/{0}", "a".repeat(250))), None);
+    }
+
+    #[test]
+    fn a_long_slug_shortens() {
+        assert_eq!(shortened("core"), "core");
+        assert_eq!(shortened(""), "");
+        let long = "a".repeat(400);
+        assert_eq!(shortened(&long).len(), 64);
+        let dash = format!("{}-b", "a".repeat(63));
+        assert_eq!(shortened(&dash), "a".repeat(63), "no trailing dash");
+        let dot = format!("{}.b", "a".repeat(63));
+        assert_eq!(shortened(&dot), "a".repeat(63), "no trailing dot");
+        assert_eq!(shortened(&"é".repeat(100)).chars().count(), 64);
     }
 
     #[test]

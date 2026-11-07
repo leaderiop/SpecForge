@@ -168,7 +168,7 @@ The strategy is `git.branching_strategy` and each branch the computed `branch` o
 
 ```bash
 BRANCHING_STRATEGY="{{setting:git.branching_strategy|none}}"   # git.branching_strategy (the settings)
-PHASE_BRANCHES=$(for b in $(specforge query "$MILESTONE" --depth 1 --kinds phase --pick '.nodes[kind=phase].fields.branch'); do [ "$(specforge git rev "refs/heads/$b" --pick '.revs[0].exists')" = true ] && echo "$b"; done)
+PHASE_BRANCHES=$(specforge query "$MILESTONE" --depth 1 --kinds phase --pick '.nodes[kind=phase].fields.branch' | while IFS= read -r b; do [ "$(specforge git rev "refs/heads/$b" --pick '.revs[0].exists')" = true ] && echo "$b"; done)
 ```
 
 **For "milestone" strategy:**

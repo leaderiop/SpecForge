@@ -82,7 +82,7 @@ const fn code(
     }
 }
 
-/// The 63 codes of `spec/rules.md`, in the order of its tables.
+/// The 64 codes of `spec/rules.md`, in the order of its tables.
 pub static CODES: &[Code] = &[
     code(
         "E101",
@@ -456,6 +456,14 @@ pub static CODES: &[Code] = &[
         "W408",
         "Deliverable checks neither pass nor are human-judged",
         "A deliverable's checks pass, or a person judged it and gave a rationale (a check no report speaks of is not judged)",
+        "execute",
+        Severity::Warning,
+        Severity::Error,
+    ),
+    code(
+        "W409",
+        "Computed branch name refused",
+        "The branch a phase or a milestone computes is a name git takes, with a slug when its template asks one",
         "execute",
         Severity::Warning,
         Severity::Error,

@@ -161,6 +161,38 @@ fn protected_branch_warns_on_trunk_and_on_a_listed_branch() {
     assert!(warns(&p), "the setting is read");
 }
 
+/// A name git refuses stops the fence that would hand it to `git switch`, on the branch it started on.
+#[test]
+fn a_phase_with_no_branch_name_stops_the_branch_creation_fence() {
+    let Some(sh) = branch_shell() else {
+        return;
+    };
+    let p = crate::harness::taskboard();
+    p.settings(serde_json::json!({
+        "git.branching_strategy": "phase",
+        "git.phase_branch_template": "--help",
+    }));
+    p.commit();
+    let fence = fence_after(
+        &served(&p, "gsd-core/references/planning-config.md"),
+        "**Branch creation:**",
+    );
+    let (out, err, code) = sh.run_in(
+        p.root(),
+        &format!(
+            "BRANCHING_STRATEGY=phase
+PHASE_ID=v1.0/01
+{fence}
+echo went-on"
+        ),
+    );
+    assert_ne!(code, 0, "{out} {err}");
+    assert!(err.contains("gsd/W409"), "{out} {err}");
+    assert!(!out.contains("went-on"), "{out} {err}");
+    let head = p.run(&["git", "head", "--pick", ".branch"]);
+    assert_eq!(head.stdout.trim(), "main", "{}", head.all());
+}
+
 /// What complete-milestone squash-merges: the branches its phases compute and that exist, never another local branch.
 #[test]
 fn complete_milestone_lists_only_the_phase_branches() {

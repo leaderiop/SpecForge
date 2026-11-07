@@ -12,7 +12,7 @@ use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
 use super::support::{Seed, answer, given, nonce, now, plain, run, text, title};
-use crate::branch::{fill, slug};
+use crate::branch::{fill, refused, slug};
 use crate::quick_id::QuickId;
 
 /// The next value of a splitmix64 stream: enough to spread a nonce over ids, with no dependency.
@@ -89,9 +89,19 @@ fn quick_slug(text: &str) -> String {
         .to_string()
 }
 
-/// A branch template with `{num}` and `{slug}` filled; an empty template names no branch.
-fn branch(template: &str, id: &str, slug: &str) -> Option<String> {
-    (!template.is_empty()).then(|| fill(template, &[("num", id), ("slug", slug)]))
+/// A branch template with `{num}` and `{slug}` filled; an empty template names no branch, and git's refusal is the
+/// command's.
+fn branch(template: &str, id: &str, slug: &str) -> Result<Option<String>, String> {
+    if template.is_empty() {
+        return Ok(None);
+    }
+    let name = fill(template, &[("num", id), ("slug", slug)]);
+    match refused(&name) {
+        Some(why) => Err(format!(
+            "git.quick_branch_template makes `{name}`, which git refuses: {why}"
+        )),
+        None => Ok(Some(name)),
+    }
 }
 
 /// The tasks a call asks ids for: its one `--description`, or the entries of its `--tasks`.
@@ -138,7 +148,7 @@ fn init(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         tasks.len(),
     )?;
     let mut human = String::new();
-    let items: Vec<_> = minted
+    let items = minted
         .iter()
         .zip(&tasks)
         .map(|(id, task)| {
@@ -153,7 +163,7 @@ fn init(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
                 "description": task,
                 "title": title(task),
             });
-            if let Some(name) = branch(template, id, &slug) {
+            if let Some(name) = branch(template, id, &slug)? {
                 item["branch_name"] = json!(name);
             }
             if let Some(batch) = &batch {
@@ -161,9 +171,9 @@ fn init(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
             }
             item["slug"] = json!(slug);
             human.push_str(&format!("{id}\t{task}\n"));
-            item
+            Ok(item)
         })
-        .collect();
+        .collect::<Result<Vec<_>, String>>()?;
     Ok(answer(call, json!({ "items": items }), human, None))
 }
 

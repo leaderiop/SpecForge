@@ -253,6 +253,47 @@ fn a_query_reaches_the_kinds_it_asks_for() {
     );
 }
 
+/// A name git refuses is no branch: the field is absent, and the check says why.
+#[test]
+fn a_branch_name_git_refuses_is_w409_and_no_field() {
+    let p = twin();
+    let branch = |id: &str| {
+        let answer = json(&p.run(&["query", id, "--depth", "0", "--format", "json"]));
+        answer["nodes"][0]["fields"]["branch"].clone()
+    };
+    for template in [
+        "--help",
+        "-evil{phase}",
+        "a..{slug}",
+        "{slug}.lock",
+        "x;touch pwned",
+    ] {
+        p.settings(serde_json::json!({
+            "git.branching_strategy": "phase",
+            "git.phase_branch_template": template,
+        }));
+        assert!(branch("v1.0/01").is_null(), "{template}");
+        assert!(
+            p.codes().contains(&"gsd/W409".to_string()),
+            "{template}: {:?}",
+            p.report()
+        );
+    }
+    p.settings(serde_json::json!({
+        "git.branching_strategy": "milestone",
+        "git.milestone_branch_template": "--help",
+    }));
+    assert!(branch("v1.0").is_null());
+    assert!(branch("v1.0/01").is_null());
+    let w409 = p.codes().iter().filter(|c| *c == "gsd/W409").count();
+    assert_eq!(
+        w409,
+        1,
+        "the milestone's, not one per phase: {:?}",
+        p.report()
+    );
+}
+
 /// The branch a phase and its milestone execute on, under each `git.branching_strategy`.
 #[test]
 fn a_phase_and_its_milestone_answer_their_branch() {

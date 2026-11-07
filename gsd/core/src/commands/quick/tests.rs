@@ -137,10 +137,16 @@ fn a_batch_needs_two_tasks() {
 #[test]
 fn the_template_takes_num_and_slug() {
     assert_eq!(
-        branch("quick/{num}-{slug}", "261105-a1b", "trim").as_deref(),
+        branch("quick/{num}-{slug}", "261105-a1b", "trim")
+            .expect("git takes it")
+            .as_deref(),
         Some("quick/261105-a1b-trim")
     );
-    assert_eq!(branch("", "261105-a1b", "trim"), None);
+    assert_eq!(branch("", "261105-a1b", "trim"), Ok(None));
+    for template in ["--help", "-{num}", "a..{slug}", "{slug}.lock"] {
+        let why = branch(template, "261105-a1b", "trim").unwrap_err();
+        assert!(why.contains("git refuses"), "{template}: {why}");
+    }
     let answer = answer_of(json!({"description": "Trim titles!", "template": "q/{num}/{slug}"}));
     let item = &answer["items"][0];
     let id = item["id"].as_str().unwrap();

@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 63] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 64] = [
     (
         "E101",
         Evidence::Tests {
@@ -336,6 +336,13 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 63] = [
         "W408",
         Evidence::Tests {
             fires: "a_failing_check_is_w408",
+            silent: "the_clean_twin_is_silent_for_the_unjudged_codes",
+        },
+    ),
+    (
+        "W409",
+        Evidence::Tests {
+            fires: "a_branch_name_git_refuses_is_w409_and_no_field",
             silent: "the_clean_twin_is_silent_for_the_unjudged_codes",
         },
     ),

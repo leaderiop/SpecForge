@@ -206,7 +206,7 @@ A phase and a milestone compute the name from them, as their `branch` field:
 ```bash
 BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.branch')
 
-# Absent under the "none" strategy and on a backlog phase
+# Absent under the "none" strategy, on a backlog phase, and for a name git refuses (gsd/W409)
 ```
 
 **Branch creation:**
@@ -214,14 +214,14 @@ BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.bra
 ```bash
 # For phase strategy
 if [ "$BRANCHING_STRATEGY" = "phase" ]; then
-  BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.branch')
+  BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.branch') && [ -n "$BRANCH_NAME" ] || { echo "ERROR: no branch name: see gsd/W409 (specforge check)." >&2; exit 1; }
 
   specforge git switch "$BRANCH_NAME" --create --pick .branch 2>/dev/null || specforge git switch "$BRANCH_NAME"
 fi
 
 # For milestone strategy
 if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
-  BRANCH_NAME=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.branch')
+  BRANCH_NAME=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.branch') && [ -n "$BRANCH_NAME" ] || { echo "ERROR: no branch name: see gsd/W409 (specforge check)." >&2; exit 1; }
 
   specforge git switch "$BRANCH_NAME" --create --pick .branch 2>/dev/null || specforge git switch "$BRANCH_NAME"
 fi

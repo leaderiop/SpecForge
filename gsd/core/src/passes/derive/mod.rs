@@ -74,6 +74,7 @@ fn derive(input: &PassInput) -> PassOutput {
     values.extend(branch::values(input));
     PassOutput {
         values,
+        diagnostics: branch::diagnostics(input),
         ..Default::default()
     }
 }
