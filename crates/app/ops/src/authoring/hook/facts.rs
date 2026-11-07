@@ -5,9 +5,7 @@ use std::path::Path;
 
 use serde_json::Value;
 use specforge_effects::git::{Git, Located};
-use specforge_protocol_types::{CommitFact, GitFacts, PathFact};
-
-use crate::host::shell;
+use specforge_protocol_types::{CommitFact, GitFacts, PathFact, shell};
 
 /// The paths a tool's input names: `file_path`, `path`, `notebook_path`, each of `paths` and each file a patch text
 /// names.

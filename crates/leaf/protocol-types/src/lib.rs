@@ -49,6 +49,7 @@ mod reads;
 mod rooted;
 mod route;
 mod settings;
+pub mod shell;
 mod surface;
 pub mod tool_input;
 mod trigger;

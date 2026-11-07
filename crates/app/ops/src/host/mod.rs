@@ -11,7 +11,6 @@ pub mod owned;
 pub mod port;
 pub mod record;
 pub mod render;
-pub mod shell;
 pub mod state;
 
 pub use owned::{config_path, layout_dir, link_in, owned_path};
