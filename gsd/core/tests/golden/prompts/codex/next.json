@@ -61,7 +61,7 @@
     "  \"summary\": \"Phase 2 of 5 · 60% · executing\",",
     "  \"signals\": { \"...\": \"...\" },"
   ],
-  "bytes": 31097,
+  "bytes": 31071,
   "end": [
     "## Anti-Patterns",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:61e8311f55100bf04c4fef6f3a806d39a68487695c2f070f8777cdbac6420896",
+    "digest": "sha256:a747dd30e38f668b93adf306e063900416fb7fcf5fddae0447ed95c1df76a868",
     "prompt": "@gsd/core@VERSION:next",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "61e8311f55100bf04c4fef6f3a806d39a68487695c2f070f8777cdbac6420896"
+  "sha256": "a747dd30e38f668b93adf306e063900416fb7fcf5fddae0447ed95c1df76a868"
 }

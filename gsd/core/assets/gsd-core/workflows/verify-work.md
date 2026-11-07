@@ -812,7 +812,7 @@ Exact Agent() prompt fields: `gsd-core/workflows/verify-work/detail/elaboration.
 
 **If iteration_count < 3:**
 
-Display: `Sending back to planner for revision... (iteration {N}/3)`
+Display: "Sending back to planner for revision... (iteration {N}/3)"
 
 Spawn gsd-planner with revision context:
 

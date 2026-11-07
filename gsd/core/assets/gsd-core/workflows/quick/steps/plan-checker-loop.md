@@ -92,7 +92,7 @@ Track `iteration_count` (starts at 1 after initial plan + check).
 
 **If iteration_count < 2:**
 
-Display: `Sending back to planner for revision... (iteration ${N}/2)`
+Display: "Sending back to planner for revision... (iteration ${N}/2)"
 
 Revision prompt:
 

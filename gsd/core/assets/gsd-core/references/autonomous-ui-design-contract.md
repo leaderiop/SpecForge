@@ -40,4 +40,4 @@ After all step hooks return, re-read:
 UI_SPEC_FILE=$(specforge query "$MILESTONE/${PHASE_NUM}" --depth 1 --kinds ui_spec --pick '.nodes[kind=ui_spec].id' 2>/dev/null)   # @gsd/ui's: empty when it is not loaded
 ```
 
-**If `UI_SPEC_FILE` is still empty:** Display warning `Phase ${PHASE_NUM}: UI-SPEC generation did not produce output — continuing without design contract.` and proceed to 3b. NON-BLOCKING.
+**If `UI_SPEC_FILE` is still empty:** Display warning "Phase ${PHASE_NUM}: UI-SPEC generation did not produce output — continuing without design contract." and proceed to 3b. NON-BLOCKING.

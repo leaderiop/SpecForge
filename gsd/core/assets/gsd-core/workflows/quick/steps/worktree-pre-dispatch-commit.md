@@ -1,7 +1,7 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 **Step 5.6: Pre-dispatch artifact commit (worktree mode only)**
 
-When `USE_WORKTREES !== "false"`, commit the quick plan — the entity `plan ${quick_id}`
+When `USE_WORKTREES !== "false"`, commit the quick plan — the entity of the quick plan `${quick_id}`
 in `spec/quick.spec`, plus the context and research entities the discussion/research
 phases wrote under `spec/` — to the current branch **before** spawning the executor.
 This ensures the worktree inherits them at its branch HEAD so the executor reads them

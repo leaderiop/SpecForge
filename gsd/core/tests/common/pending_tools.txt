@@ -196,33 +196,17 @@ gsd-core/workflows/plan-phase/steps/windows-troubleshooting.md	Remove-Item	Remov
 
 # J solver: the z3 decision (R4). 0 rows.
 
-# K not a tool: prose, a placeholder or a bare command name in a shell fence or a run: reword it. 77 rows.
+# K not a tool: prose, a placeholder or a bare command name in a shell fence or a run: reword it. 29 rows.
 agents/gsd-plan-checker.md	estimate-check	estimate-check --calibrated
 commands/gsd/ns-review.md	gsd-code-review	gsd-code-review --fix
-gsd-core/references/autonomous-ui-design-contract.md	Phase	Phase ${PHASE_NUM}: UI-SPEC generation did not produce output — continuing without design contract.
 gsd-core/references/planning-config.md	Status	Source \| Item \| Status
 gsd-core/references/planning-config.md	help	help --full
 gsd-core/references/planning-config.md	my-review-tool	my-review-tool --review
-gsd-core/references/tdd.md	Plan	Plan {id} GREEN precedes RED: no feat(...) commit descends from a test(...) commit.
-gsd-core/references/tdd.md	Plan	Plan {id} GREEN is supplied by dependent plan {id}.
-gsd-core/references/ui-brand.md	PHASE	PHASE {N} COMPLETE ✓
 gsd-core/templates/summary.md	other	unit \| integration \| e2e \| automated_ui \| manual_procedural \| other
 gsd-core/templates/summary.md	unknown	pass \| fail \| unknown
-gsd-core/workflows/autonomous.md	Phase	Phase {N} ({position}/{T})
-gsd-core/workflows/autonomous.md	Phase	Phase ${PHASE_NUM} ✅ ${PHASE_NAME} — Verification passed
-gsd-core/workflows/autonomous.md	Phase	Phase ${PHASE_NUM} ✅ Human validation passed
-gsd-core/workflows/autonomous.md	Phase	Phase ${PHASE_NUM} ⏭ verification_deferred_human — resume with /gsd:verify-work ${PHASE_NUM}
-gsd-core/workflows/autonomous.md	Phase	Phase ${PHASE_NUM} ⏭ verification_deferred_gaps — resume with /gsd:plan-phase ${PHASE_NUM} --gaps
-gsd-core/workflows/autonomous.md	Phase	Phase ${PHASE_NUM} ⏭ verification_deferred_gaps — resume with /gsd:plan-phase ${PHASE_NUM} --gaps
-gsd-core/workflows/autonomous.md	Phase	Phase {N} ⛔ {Name} — needs_human
-gsd-core/workflows/autonomous.md	Phase	Phase {N} ⏭ {Name} — Skipped by user
 gsd-core/workflows/autonomous.md	init.phase-op	init.phase-op ${PHASE_NUM}
-gsd-core/workflows/autonomous.md	needs_human	| ${PHASE_NUM} | needs_human | resolve blocker, then /gsd:autonomous --from ${PHASE_NUM} |
 gsd-core/workflows/discuss-phase-power.md	total	total - answered
-gsd-core/workflows/discuss-phase/modes/advisor.md	Researching	Researching {N} areas...
 gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	roadmap.get-phase	roadmap.get-phase --pick goal
-gsd-core/workflows/execute-phase/steps/wave-post-gate-hooks.md	wave	⚠ {hook.capId} advisory (wave {N}): {GATE_RESULT.message}
-gsd-core/workflows/mvp-phase.md	Phase	Phase ${PHASE}
 gsd-core/workflows/new-milestone.md	phases.clear	phases.clear --confirm
 gsd-core/workflows/onboard.md	requirements_exists	(project_exists || requirements_exists || roadmap_exists || state_exists) && (!project_exists || !requirements_exists || !roadmap_exists || !state_exists)
 gsd-core/workflows/onboard.md	roadmap_exists	(project_exists || requirements_exists || roadmap_exists || state_exists) && (!project_exists || !requirements_exists || !roadmap_exists || !state_exists)
@@ -231,46 +215,14 @@ gsd-core/workflows/plan-phase.md	commit	commit "docs(phase-${PHASE}): add valida
 gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	Complete	Pending | Planned | In Progress | Executed | Complete | Needs Review
 gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	Executed	Pending | Planned | In Progress | Executed | Complete | Needs Review
 gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	Planned	Pending | Planned | In Progress | Executed | Complete | Needs Review
-gsd-core/workflows/plan-phase/steps/research-only-modifiers.md	drop	--view requires an existing RESEARCH.md; drop --view to spawn the researcher.
-gsd-core/workflows/quick/steps/discussion-phase.md	context	context ${quick_id}-CONTEXT
-gsd-core/workflows/quick/steps/discussion-phase.md	plan	plan ${quick_id}
-gsd-core/workflows/quick/steps/plan-checker-loop.md	iteration	Sending back to planner for revision... (iteration ${N}/2)
 gsd-core/workflows/quick/steps/quick-verification.md	plan-phase	plan-phase --gaps
-gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md	plan	plan ${quick_id}
-gsd-core/workflows/ship.md	Milestone	Milestone {version}: {name}
 gsd-core/workflows/smart-entry.md	smart-entry	smart-entry --json
-gsd-core/workflows/verify-work.md	iteration	Sending back to planner for revision... (iteration {N}/3)
-prompt:autonomous	PHASE	PHASE {N} COMPLETE ✓
-prompt:autonomous	Phase	Phase {N} ({position}/{T})
-prompt:autonomous	Phase	Phase ${PHASE_NUM} ✅ ${PHASE_NAME} — Verification passed
-prompt:autonomous	Phase	Phase ${PHASE_NUM} ✅ Human validation passed
-prompt:autonomous	Phase	Phase ${PHASE_NUM} ⏭ verification_deferred_human — resume with /gsd-verify-work ${PHASE_NUM}
-prompt:autonomous	Phase	Phase ${PHASE_NUM} ⏭ verification_deferred_gaps — resume with /gsd-plan-phase ${PHASE_NUM} --gaps
-prompt:autonomous	Phase	Phase ${PHASE_NUM} ⏭ verification_deferred_gaps — resume with /gsd-plan-phase ${PHASE_NUM} --gaps
-prompt:autonomous	Phase	Phase {N} ⛔ {Name} — needs_human
-prompt:autonomous	Phase	Phase {N} ⏭ {Name} — Skipped by user
 prompt:autonomous	init.phase-op	init.phase-op ${PHASE_NUM}
-prompt:autonomous	needs_human	| ${PHASE_NUM} | needs_human | resolve blocker, then /gsd-autonomous --from ${PHASE_NUM} |
-prompt:execute_phase	PHASE	PHASE {N} COMPLETE ✓
-prompt:ingest_docs	PHASE	PHASE {N} COMPLETE ✓
 prompt:ingest_docs	docs	docs --mode merge --resolve auto
-prompt:manager	PHASE	PHASE {N} COMPLETE ✓
-prompt:mvp_phase	Phase	Phase ${PHASE}
-prompt:new_milestone	PHASE	PHASE {N} COMPLETE ✓
 prompt:new_milestone	phases.clear	phases.clear --confirm
-prompt:new_project	PHASE	PHASE {N} COMPLETE ✓
-prompt:next	PHASE	PHASE {N} COMPLETE ✓
 prompt:next	smart-entry	smart-entry --json
 prompt:ns_review	gsd-code-review	gsd-code-review --fix
-prompt:onboard	PHASE	PHASE {N} COMPLETE ✓
 prompt:onboard	requirements_exists	(project_exists || requirements_exists || roadmap_exists || state_exists) && (!project_exists || !requirements_exists || !roadmap_exists || !state_exists)
 prompt:onboard	roadmap_exists	(project_exists || requirements_exists || roadmap_exists || state_exists) && (!project_exists || !requirements_exists || !roadmap_exists || !state_exists)
 prompt:onboard	state_exists	(project_exists || requirements_exists || roadmap_exists || state_exists) && (!project_exists || !requirements_exists || !roadmap_exists || !state_exists)
-prompt:plan_phase	PHASE	PHASE {N} COMPLETE ✓
 prompt:plan_phase	commit	commit "docs(phase-${PHASE}): add validation strategy"
-prompt:progress	PHASE	PHASE {N} COMPLETE ✓
-prompt:ship	Milestone	Milestone {version}: {name}
-prompt:ultraplan_phase	PHASE	PHASE {N} COMPLETE ✓
-prompt:undo	PHASE	PHASE {N} COMPLETE ✓
-prompt:verify_work	iteration	Sending back to planner for revision... (iteration {N}/3)
-prompt:workspace	PHASE	PHASE {N} COMPLETE ✓

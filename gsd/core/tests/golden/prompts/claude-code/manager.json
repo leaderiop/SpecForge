@@ -61,7 +61,7 @@
     "- `manager_flags.execute` — appended to execute agent init command",
     ""
   ],
-  "bytes": 37736,
+  "bytes": 37710,
   "end": [
     "",
     "Table rules use ASCII `-`, never box-drawing characters.",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:1645c6aab071fc0e8a06d458cd5574f236f98090949f0ee6906d9c3e648d24d0",
+    "digest": "sha256:18b318ad4b4796e9ef5e03b4906ca82113077a2ccca7b28f527c179ffed52490",
     "prompt": "@gsd/core@VERSION:manager",
     "steps": [
       {
@@ -232,5 +232,5 @@
       }
     ]
   },
-  "sha256": "1645c6aab071fc0e8a06d458cd5574f236f98090949f0ee6906d9c3e648d24d0"
+  "sha256": "18b318ad4b4796e9ef5e03b4906ca82113077a2ccca7b28f527c179ffed52490"
 }

@@ -215,7 +215,7 @@ Auto-generate a rich PR body from planning artifacts:
 ```
 Phase {phase_number}: {phase_name}
 ```
-Or for milestone: `Milestone {version}: {name}`
+Or for milestone: "Milestone {version}: {name}"
 
 **2. Summary section:**
 Read ROADMAP.md for phase goal. Read VERIFICATION.md for verification status.
