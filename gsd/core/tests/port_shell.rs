@@ -277,3 +277,36 @@ fn a_situation_has_one_wording() {
         "{review}"
     );
 }
+
+/// The graph-context gate (the prompt's `**Graph context:**` line, and when to skip) is written once, in the
+/// reference the planner's step reads.
+#[test]
+fn the_graph_context_gate_lives_in_its_reference() {
+    let read = |rel: &str| std::fs::read_to_string(root().join("assets").join(rel)).expect(rel);
+    let planner = read("agents/gsd-planner.md");
+    let step = planner
+        .split_once("<step name=\"load_graph_context\">")
+        .and_then(|(_, rest)| rest.split_once("</step>"))
+        .expect("the step")
+        .0;
+    assert!(step.contains("planner-load-graph-context.md"), "{step}");
+    assert!(!step.contains("not served on this project"), "{step}");
+    let reference = read("gsd-core/references/planner-load-graph-context.md");
+    assert!(reference.contains("not served on this project"));
+}
+
+/// The decision step's block holds no prose behind `:`: what the model records is a comment.
+#[test]
+fn the_decision_step_runs_no_prose() {
+    let plan = std::fs::read_to_string(root().join("assets/gsd-core/workflows/execute-plan.md"))
+        .expect("execute-plan");
+    let step = plan
+        .split_once("<step name=\"extract_decisions_and_issues\">")
+        .and_then(|(_, rest)| rest.split_once("</step>"))
+        .expect("the step")
+        .0;
+    assert!(
+        !step.lines().any(|l| l.trim_start().starts_with(": \"")),
+        "{step}"
+    );
+}

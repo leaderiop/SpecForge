@@ -608,11 +608,11 @@ If exists, load relevant documents by phase type:
 </step>
 
 <step name="load_graph_context">
-Follow the planner prompt's `**Graph context:**` line. When it is absent or says
-`not served on this project`, skip this step and continue without graph context. When it
-names how `/gsd-graphify` is served, read `gsd-core/references/planner-load-graph-context.md`
-and execute it with what the line names, incorporating the results into planning. Nothing
-probes PATH for a graph tool.
+Read `gsd-core/references/planner-load-graph-context.md` and execute it, incorporating the
+results into planning. The reference reads the planner prompt's `**Graph context:**` line,
+which says how this project serves `/gsd-graphify`, and says when to skip this step and
+continue without graph context.
+
 </step>
 
 <step name="identify_phase">

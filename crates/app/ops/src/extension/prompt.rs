@@ -289,11 +289,11 @@ pub fn render(
             ))));
         }
     }
-    let output = match answered {
+    let messages = match answered {
         Some(output) => output,
         None => call()?,
-    };
-    let messages = output.messages;
+    }
+    .messages;
     let texts: String = messages.iter().map(|m| m.text.as_str()).collect();
     let payload = ExtensionPromptPayload {
         prompt: prompt.qualified(),

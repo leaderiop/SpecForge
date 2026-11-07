@@ -1,6 +1,6 @@
 //! new-project's sub-repo step, run as the asset holds it under bash with only `specforge` and the shell's tools.
 
-use super::{Shell, asset, block};
+use super::{Shell, asset, fence_after};
 
 /// The fence of new-project's "5.1. Sub-Repo Detection" step, then `show`, run in a project holding a directory repo (`backend`), a
 /// linked worktree (`linked-wt`, whose `.git` is a file) and a plain directory (`docs`), then what `setup` adds:
@@ -10,19 +10,10 @@ fn sub_repo_step(
     show: &str,
     setup: impl Fn(&std::path::Path),
 ) -> (String, String, i32) {
-    let text = asset("gsd-core/workflows/new-project.md");
-    let step = block(
-        &text,
+    let code = fence_after(
+        &asset("gsd-core/workflows/new-project.md"),
         "## 5.1. Sub-Repo Detection",
-        "**If sub-repos found:**",
     );
-    let code: Vec<&str> = step
-        .lines()
-        .skip_while(|l| *l != "```bash")
-        .skip(1)
-        .take_while(|l| *l != "```")
-        .collect();
-    assert!(!code.is_empty(), "no bash fence in the step");
     let p = crate::harness::project("empty");
     p.commit();
     p.git(&["init", "-q", "backend"], "2026-01-01T00:00:00Z");
@@ -32,7 +23,7 @@ fn sub_repo_step(
     );
     p.write("docs/README.md", "docs\n");
     setup(p.root());
-    let run = sh.run_in(p.root(), &format!("{}\n{show}", code.join("\n")));
+    let run = sh.run_in(p.root(), &format!("{code}\n{show}"));
     #[cfg(unix)]
     {
         // a setup that made the root unreadable leaves it removable

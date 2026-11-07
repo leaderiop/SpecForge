@@ -99,6 +99,22 @@ fn line<'a>(text: &'a str, start: &str) -> &'a str {
         .unwrap_or_else(|| panic!("no line starts with {start}"))
 }
 
+/// The first shell fence of `text` after the first line holding `mark`.
+fn fence_after(text: &str, mark: &str) -> String {
+    let after = text
+        .split_once(mark)
+        .unwrap_or_else(|| panic!("no {mark}"))
+        .1;
+    let body = after
+        .split_once("```bash\n")
+        .unwrap_or_else(|| panic!("no fence after {mark}"))
+        .1;
+    body.split_once("\n```")
+        .unwrap_or_else(|| panic!("the fence after {mark} ends"))
+        .0
+        .to_string()
+}
+
 /// Single-quotes `s` for bash.
 fn q(s: &str) -> String {
     format!("'{}'", s.replace('\'', r"'\''"))

@@ -467,7 +467,7 @@ From SUMMARY: Extract decisions and add to STATE.md:
 ```bash
 # Add each decision from SUMMARY key-decisions
 # Prefer file inputs for shell-safe text (preserves `$`, `*`, etc. exactly)
-: "state.add-decision: record each as a decision entity (--phase, its summary and its rationale)"
+# Record each one as a decision entity of the phase, with its summary and its rationale
 # Add a blocker if one was found (skip this when none): the heredoc keeps its text exactly
 IFS= read -rd '' BLOCKER_TEXT <<'GSD_BLOCKER_END' || true; specforge gsd raise-blocker "$BLOCKER_TEXT" --phase "${PHASE}"
 <the blocker, verbatim>

@@ -1,7 +1,8 @@
-//! Lines (`(path, first, last)`, inclusive, 0-based body lines) rewritten by ADR 0343 D7–D9 although upstream's names
-//! no tool the port rule sees: display text and value lists that read as runs, upstream verbs the port has no command
-//! for, routing that probed PATH, a person's chores, and steps that read a key or a file nothing here writes.
-//! `port_workflows` reads them as more `REWRITTEN_SPANS` rows.
+//! Lines (`(path, first, last)`, inclusive, 0-based body lines) rewritten under ADR 0343 D2 and D7–D9 where upstream's
+//! line names none of the tools the port rule's pattern sees (`.planning/`, `gsd-tools`, `gsd_run`, `gsd-sdk`): display
+//! text and value lists that read as runs, upstream verbs the port has no command for, routing that probed PATH, a
+//! person's chores, steps that read a key or a file nothing here writes, and lines whose `cat`, `grep` or `tr` an
+//! answer, a host tool or glue replaced. `port_workflows` reads them as more `REWRITTEN_SPANS` rows.
 
 pub const SPANS: &[(&str, usize, usize)] = &[
     // the sub-repos are `specforge git repos`' children; a sub-repository is a SpecForge project of its own
