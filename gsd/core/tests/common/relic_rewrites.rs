@@ -132,6 +132,10 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/new-milestone.md", 535, 536),
     ("gsd-core/workflows/new-milestone.md", 624, 627),
     ("gsd-core/workflows/plan-phase.md", 113, 113),
+    // no record channel: plan-phase writes and closes no conflict line
+    ("gsd-core/workflows/plan-phase.md", 1231, 1232),
+    ("gsd-core/workflows/plan-phase.md", 1236, 1238),
+    ("gsd-core/workflows/plan-phase.md", 1261, 1264),
     ("gsd-core/workflows/plan-phase.md", 619, 628),
     ("gsd-core/workflows/plan-phase.md", 638, 638),
     ("gsd-core/workflows/plan-phase.md", 643, 643),
@@ -414,6 +418,9 @@ pub const SPANS: &[(&str, usize, usize)] = &[
 /// `(path, first, last)`, inclusive: runs deleted by blanking, whose first line (when not blank) says what replaced
 /// them. Every other line of the run is blank; upstream's blank lines stay blank, so they are not listed as rewritten.
 pub const BLANKED: &[(&str, usize, usize)] = &[
+    // The plan-revision conflict insert and close: their REVIEWS.md input is always empty here.
+    ("gsd-core/workflows/plan-phase.md", 1240, 1259),
+    ("gsd-core/workflows/plan-phase.md", 1266, 1284),
     // The acknowledge loops and the STATE.md disclosure table: the four steps above them replace both.
     (
         "gsd-core/workflows/complete-milestone/detail/elaboration.md",

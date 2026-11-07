@@ -1230,60 +1230,60 @@ fi
 ```
 
 - Counter not spent: `iteration_count`.
-- Record channel: `$REVIEWS_FILE`'s `## Plan-Revision Conflicts` section. plan-phase wrote the
-  line, so plan-phase closes it.
+- Record channel: none here. The port keeps no REVIEWS.md (`REVIEWS_PATH` is empty), so plan-phase
+  writes and closes no conflict line: name the conflict and its resolution in your reply.
 - After re-spawning, return to this step, not the checker.
 - Escalates via the iteration cap on repeated `required_property`, and on the THIRD conflict
   return of this loop whatever property it names.
-- Sanitize-then-insert is real shell; fields reach `awk` via `ENVIRON`, never `-v` (decodes
-  literal `\n` as a real newline). Export the row's
-  `CONFLICT_DIMENSION/_PLAN/_PROPERTY/_CONSTRAINT/_ALTERNATIVES`, then run:
+- No conflict line is written (see the record channel above), so nothing is sanitized or inserted.
 
-```bash
-if [ "${CONVERGENCE_ENABLED}" = "true" ] && [ -n "${REVIEWS_FILE}" ]; then
-  san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
-  LINE="- [ ] REVISION_CONFLICT $(san "${CONFLICT_DIMENSION}")/$(san "${CONFLICT_PLAN}") — required_property: $(san "${CONFLICT_PROPERTY}") | conflicts with: $(san "${CONFLICT_CONSTRAINT}") | alternatives: $(san "${CONFLICT_ALTERNATIVES}")"
-  END='<!-- gsd:plan-revision-conflicts:end -->'
-  TMP=$(specforge files temp --pick .path)
-  if ! LINE="$LINE" END="$END" awk '
-    { cur = $0; sub(/\r$/, "", cur) }
-    cur == ENVIRON["LINE"] { seen = 1 }
-    cur == ENVIRON["END"] && !ins { if (!seen) print ENVIRON["LINE"]; ins = 1 }
-    { print }
-    END { if (!ins) exit 2 }
-  ' "${REVIEWS_FILE}" > "${TMP}"; then
-    specforge files remove --force "${TMP}" >/dev/null
-    echo "BLOCKED: no end delimiter in '${REVIEWS_FILE}'." >&2
-    exit 1
-  fi
-  specforge files move "${TMP}" "${REVIEWS_FILE}" >/dev/null
-fi
-```
 
-**Otherwise (revised plans, not `## REVISION_CONFLICT`):** if this re-spawn followed a
-resolved conflict, close its record — nothing persists across fences, so export `REVIEWS_FILE`,
-the same `CONFLICT_DIMENSION`/`CONFLICT_PLAN` used to open it, and `CONFLICT_RESOLUTION` (a
-one-line summary). Then run:
 
-```bash
-if [ "${CONVERGENCE_ENABLED}" = "true" ] && [ -n "${REVIEWS_FILE}" ]; then
-  san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
-  PREFIX="- [ ] REVISION_CONFLICT $(san "${CONFLICT_DIMENSION}")/$(san "${CONFLICT_PLAN}") — "
-  RES=$(printf '%s' "${CONFLICT_RESOLUTION}" | tr '\r\n\t' '   ')
-  TMP=$(specforge files temp --pick .path)
-  if ! PREFIX="$PREFIX" RES="$RES" awk '
-    { cur = $0; sub(/\r$/, "", cur) }
-    !d && index(cur, ENVIRON["PREFIX"]) == 1 { print "- [x]" substr(cur, 6) " | resolved: " ENVIRON["RES"]; d = 1; next }
-    { print }
-    END { if (!d) exit 2 }
-  ' "${REVIEWS_FILE}" > "${TMP}"; then
-    specforge files remove --force "${TMP}" >/dev/null
-    echo "BLOCKED: no open conflict '${CONFLICT_DIMENSION}/${CONFLICT_PLAN}' in '${REVIEWS_FILE}'." >&2
-    exit 1
-  fi
-  specforge files move "${TMP}" "${REVIEWS_FILE}" >/dev/null
-fi
-```
+<!-- the conflict insert ran only on a REVIEWS.md, which this port never has (REVIEWS_PATH is empty) -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+**Otherwise (revised plans, not `## REVISION_CONFLICT`):** there is no conflict record to close.
+
+
+
+
+<!-- the conflict close ran only on a REVIEWS.md, which this port never has (REVIEWS_PATH is empty) -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Spawn checker again (step 10), then increment `iteration_count`.
 
