@@ -26,7 +26,7 @@ pub fn fill(template: &str, pairs: &[(&str, &str)]) -> String {
         })
 }
 
-/// Whether `branch` is a GSD executor's: upstream's `^((worktree-)?agent-|worktree-wf_)[A-Za-z0-9._/-]+$`.
+/// Whether `branch` is a GSD executor's: `agent-`, `worktree-agent-` or `worktree-wf_`, then `[A-Za-z0-9._/-]+`.
 pub fn agent_branch(branch: &str) -> bool {
     let rest = branch
         .strip_prefix("worktree-agent-")

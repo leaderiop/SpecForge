@@ -10,8 +10,8 @@
 //! process, so none is installed (r44 post-fix N7) until the `specforge` harness runs executors in worktrees.
 //!
 //! The path guard reads git's answer as upstream does: the cwd's linked worktree (its git directory holds
-//! `/.git/worktrees/`) on an agent branch (`^((worktree-)?agent-|worktree-wf_)[A-Za-z0-9._/-]+$`), each target's real
-//! path and the repository it is in. A target inside a `.git` directory that is no work tree is refused, and so is one
+//! `/.git/worktrees/`) on an agent branch (`agent-`, `worktree-agent-` or `worktree-wf_`:
+//! [`crate::branch::agent_branch`]), each target's real path and the repository it is in. A target inside a `.git` directory that is no work tree is refused, and so is one
 //! in a repository other than the worktree's (the main checkout is the bug it exists for, #260); a target in no
 //! repository is let through. A relative path that leaves the project is judged by where it lands, which upstream
 //! does not (it allows every relative path: ACCEPTANCE's `[stricter-relative-path]`).
