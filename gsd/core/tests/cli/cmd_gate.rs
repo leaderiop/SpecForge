@@ -43,6 +43,72 @@ fn gate_command_reads_the_project_root() {
     assert_eq!(human.stdout.trim_end(), "running: bun run test");
 }
 
+/// A manifest that is there and cannot be read is no "no gate": the answer says which, and fails.
+#[cfg(unix)]
+#[test]
+fn a_manifest_present_but_unread_is_not_a_skipped_gate() {
+    use std::os::unix::fs::symlink;
+    let outside = tempfile::tempdir().expect("a directory");
+    let makefile = outside.path().join("Makefile");
+    std::fs::write(&makefile, "build:\n\ttouch pwned\ntest:\n\ttouch pwned\n").expect("written");
+    let package = outside.path().join("package.json");
+    std::fs::write(&package, r#"{"scripts": {"build": "x", "test": "x"}}"#).expect("written");
+    let check = |file: &str, make: &dyn Fn(&std::path::Path)| {
+        let p = project("execute");
+        make(&p.root().join(file));
+        for target in ["build", "test"] {
+            let run = gsd(&p, "gate-command", &[target, "--format", "json"]);
+            assert_eq!(run.code, 1, "{file} {target}: {}", run.all());
+            let answer = json(&run);
+            assert_eq!(answer["source"], "unread", "{file} {target}: {answer}");
+            assert_eq!(answer["argv"], serde_json::json!([]), "{file} {target}");
+            let note = answer["note"].as_str().expect("a note");
+            assert!(note.contains(file), "{file} {target}: {note}");
+            assert!(
+                note.contains(&format!("workflow.{target}_command")),
+                "{note}"
+            );
+        }
+    };
+    let link_to = |target: std::path::PathBuf| {
+        move |at: &std::path::Path| symlink(&target, at).expect("a link")
+    };
+    check("Makefile", &link_to(makefile.clone()));
+    check("package.json", &link_to(package.clone()));
+    check("Cargo.toml", &link_to(outside.path().to_path_buf()));
+    check("Cargo.toml", &link_to("/nonexistent/Cargo.toml".into()));
+    check("Cargo.toml", &link_to("nowhere".into()));
+    check("go.mod", &|at| {
+        std::fs::create_dir(at).expect("a directory")
+    });
+    check("pyproject.toml", &link_to("/nonexistent/x".into()));
+    // A name in another case is another name, not an unread one.
+    let p = project("execute");
+    p.write("Justfile", "test:\n\tx\n");
+    assert_eq!(argv(&p, &["test"]), ["just", "test"]);
+    // Over the host's text cap: there, and not read.
+    let p = project("execute");
+    p.write(
+        "Makefile",
+        &format!("build:\n\tx\n{}", "# y\n".repeat(30_000)),
+    );
+    let run = gsd(&p, "gate-command", &["build", "--format", "json"]);
+    assert_eq!(run.code, 1, "{}", run.all());
+    assert_eq!(json(&run)["source"], "unread");
+    // A setting decides before any manifest is read.
+    let p = project("execute");
+    symlink(&makefile, p.root().join("Makefile")).expect("a link");
+    p.settings(serde_json::json!({"workflow.build_command": "make all"}));
+    assert_eq!(argv(&p, &["build"]), ["bash", "-c", "make all"]);
+    // A link inside the project is read, and one to a file a runner earlier in the order decides first.
+    let p = project("execute");
+    p.write("mk.real", "test:\n\tx\n");
+    symlink("mk.real", p.root().join("Makefile")).expect("a link");
+    assert_eq!(argv(&p, &["test"]), ["make", "test"]);
+    symlink("/nonexistent/x", p.root().join("go.mod")).expect("a link");
+    assert_eq!(argv(&p, &["test"]), ["make", "test"]);
+}
+
 #[test]
 fn gate_command_answers_the_setting_the_sources_and_an_empty_gate() {
     let p = project("execute");

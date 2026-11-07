@@ -282,7 +282,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     c.capability(
         Capability::fs("project")
             .ops(&[FsAccess::Stat])
-            .why("see whether an <automated> command's directory leads out through a link"),
+            .why("see whether an <automated> command's directory leads out through a link, and what a gate's manifest is"),
     );
     c.command("automated_guard", |cmd| {
         cmd.description(

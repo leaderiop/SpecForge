@@ -15,6 +15,7 @@
 //! [`LOCKFILES`]' order, else npm. Only the project root is looked in, as upstream looks only in the gate's directory.
 
 use serde_json::json;
+use specforge_extension_sdk::host::{FsEntryKind, fs};
 use specforge_extension_sdk::prelude::*;
 
 use super::support::{answer, required, run, text};
@@ -41,6 +42,9 @@ const MARKERS: &[(&str, &str)] = &[
     ("uv_lock", "uv.lock"),
 ];
 
+/// The answer's `source` when a manifest stands unread: the one answer that fails.
+const UNREAD: &str = "unread";
+
 /// The most sources the python build gate compiles.
 const PY_COMPILE_MAX: usize = 20;
 
@@ -52,6 +56,22 @@ enum Runner {
     Go,
     Python,
     Package,
+}
+
+impl Runner {
+    /// The files that decide this runner: one that is there and cannot be read leaves its decision open.
+    fn manifests(self) -> Vec<&'static str> {
+        match self {
+            Runner::Make => vec!["Makefile"],
+            Runner::Just => vec!["Justfile", "justfile"],
+            Runner::Cargo => vec!["Cargo.toml"],
+            Runner::Go => vec!["go.mod"],
+            Runner::Python => vec!["pyproject.toml", "requirements.txt", "uv.lock"],
+            Runner::Package => std::iter::once("package.json")
+                .chain(LOCKFILES.iter().map(|(_, file, _)| *file))
+                .collect(),
+        }
+    }
 }
 
 /// Upstream's order per target: the two differ at `package.json`.
@@ -134,6 +154,9 @@ struct Tree<'a, F: Fn(&str) -> bool> {
     makefile: Option<&'a str>,
     package_json: Option<&'a str>,
     python: Vec<&'a str>,
+    /// The manifests that are there and did not read: a link out of the project or to nothing, a directory, a file
+    /// over the host's text cap.
+    unread: Vec<&'a str>,
 }
 
 /// The gate's answer.
@@ -288,8 +311,6 @@ fn package<F: Fn(&str) -> bool>(ask: &Ask<'_>, tree: &Tree<'_, F>) -> Result<Gat
 
 /// Whether `Makefile`'s text has a rule for `target`, as upstream's `grep -q "^<target>:"`.
 ///
-/// shortcut: a Makefile over the host's 64 KiB text cap reads as one without the rule; upgrade if a real one is that
-/// large.
 fn make_has(makefile: Option<&str>, target: &str) -> bool {
     makefile.is_some_and(|text| {
         text.lines().any(|line| {
@@ -319,6 +340,19 @@ fn choose<F: Fn(&str) -> bool>(ask: &Ask<'_>, tree: &Tree<'_, F>) -> Result<Gate
     }
     let order = if ask.target == "build" { BUILD } else { TEST };
     for runner in order {
+        if let Some(file) = runner
+            .manifests()
+            .iter()
+            .find(|file| tree.unread.contains(file))
+        {
+            return Ok(Gate::skips(
+                UNREAD,
+                format!(
+                    "⚠ '{file}' is there and could not be read (a link out of the project or to nothing, a directory, a file too large): the {target} gate is not skipped for it. Repair it or set workflow.{target}_command.",
+                    target = ask.target,
+                ),
+            ));
+        }
         let found = match runner {
             Runner::Make => make_has(tree.makefile, ask.target),
             Runner::Just => (tree.has)("Justfile") || (tree.has)("justfile"),
@@ -356,6 +390,20 @@ fn refuse_unreadable(argv: &[String]) -> Result<(), String> {
     }
 }
 
+/// Whether the host read `file`, or it is not there. A glob's walk answers a link it cannot follow, with no fact of
+/// a file (`outside_project`, or not `exists`), and passes a directory over: only a stat sees that.
+fn read(call: &CommandCall<'_>, name: &str, file: &str) -> bool {
+    match call.files(name).and_then(|read| read.facts.first()) {
+        Some(fact) => fact.exists && fact.error.is_none(),
+        // A file the glob did not name differs in case from `file` (`justfile`, `Justfile`), which is another name.
+        None => match fs::stat("project", file) {
+            Ok(None) => true,
+            Ok(Some(entry)) => entry.kind == FsEntryKind::File,
+            Err(_) => false,
+        },
+    }
+}
+
 fn gate_command(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let target = required(call, "target")?;
     let scope = call.str("scope").unwrap_or("post_merge");
@@ -378,8 +426,6 @@ fn gate_command(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
             .map(|files| files.lines().filter(|line| !line.is_empty()).collect())
             .unwrap_or_default(),
     };
-    // shortcut: the host sends text up to 64 KiB (upstream parses up to 1 MiB); a larger package.json reads as one
-    // without the field. Upgrade if a real manifest is ever that large.
     let read_text = |name: &str| {
         call.files(name)
             .and_then(|f| f.facts.first())
@@ -397,7 +443,15 @@ fn gate_command(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
                         .is_some_and(|f| f.facts.iter().any(|fact| fact.exists))
             })
     };
+    let read_names = std::iter::once(("makefile", "Makefile"))
+        .chain(std::iter::once(("package_json", "package.json")))
+        .chain(LOCKFILES.iter().map(|(name, file, _)| (*name, *file)))
+        .chain(MARKERS.iter().copied());
     let tree = Tree {
+        unread: read_names
+            .filter(|(name, file)| !read(call, name, file))
+            .map(|(_, file)| file)
+            .collect(),
         has,
         makefile: read_text("makefile"),
         package_json: read_text("package_json"),
@@ -412,7 +466,7 @@ fn gate_command(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         .note
         .clone()
         .unwrap_or_else(|| format!("running: {}", gate.argv.join(" ")));
-    Ok(answer(
+    let mut out = answer(
         call,
         json!({
             "target": target,
@@ -423,7 +477,11 @@ fn gate_command(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         }),
         human,
         None,
-    ))
+    );
+    if gate.source == UNREAD {
+        out.exit_code = 1;
+    }
+    Ok(out)
 }
 
 pub fn declare(c: &mut ContributionsBuilder) {

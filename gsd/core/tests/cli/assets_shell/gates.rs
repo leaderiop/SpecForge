@@ -46,6 +46,21 @@ fn a_python_file_name_never_runs_as_a_command() {
     );
 }
 
+/// The gate's fence stops on a manifest it could not read: the gate does not pass by not running.
+#[cfg(unix)]
+#[test]
+fn the_gate_fences_stop_on_a_manifest_present_but_unread() {
+    let Some(sh) = Shell::only(&["git", "touch", "mkdir", "printf", "bash"]) else {
+        return;
+    };
+    let p = project("execute");
+    std::os::unix::fs::symlink("/nonexistent/Makefile", p.root().join("Makefile")).expect("a link");
+    let step_a = fence_after(&served(&p, POST_MERGE), "**Step A");
+    let (out, err, code) = sh.run_in(p.root(), &step_a);
+    assert_ne!(code, 0, "{out} {err}");
+    assert!(out.contains("Makefile"), "{out} {err}");
+}
+
 const PATH_SAFETY: &str = "gsd-core/references/worktree-path-safety.md";
 
 /// Step 0c reads the task's commands from the graph, and any read that fails stops the block.

@@ -18,6 +18,7 @@ fn tree<'a>(files: &'a [&'a str]) -> Tree<'a, impl Fn(&str) -> bool + 'a> {
         makefile: None,
         package_json: None,
         python: Vec::new(),
+        unread: Vec::new(),
     }
 }
 
@@ -144,6 +145,7 @@ fn each_marker_picks_its_runner_in_upstreams_order() {
                 makefile: None,
                 package_json: Some(scripts),
                 python: vec!["a.py"],
+                unread: Vec::new(),
             };
             let gate = choose(&ask(target), &t).expect("an answer");
             assert_eq!(gate.argv, line(want), "{target} from {start}");
@@ -155,6 +157,7 @@ fn each_marker_picks_its_runner_in_upstreams_order() {
             makefile: Some(&rule),
             package_json: Some(scripts),
             python: vec!["a.py"],
+            unread: Vec::new(),
         };
         assert_eq!(choose(&ask(target), &t).expect("an answer").source, "make");
         let t = Tree {
@@ -162,6 +165,35 @@ fn each_marker_picks_its_runner_in_upstreams_order() {
             ..tree(&[])
         };
         assert_eq!(choose(&ask(target), &t).expect("an answer").source, "none");
+    }
+}
+
+#[test]
+fn an_unread_manifest_answers_unread_where_its_runner_decides() {
+    let mut files = tree(&["Cargo.toml"]);
+    files.unread = vec!["go.mod"];
+    // The runner before it decides: the unread one is never reached.
+    let gate = choose(&ask("build"), &files).expect("an answer");
+    assert_eq!(gate.source, "cargo");
+    // Nothing before it decides.
+    let mut files = tree(&[]);
+    files.unread = vec!["go.mod"];
+    let gate = choose(&ask("build"), &files).expect("an answer");
+    assert_eq!(gate.source, UNREAD);
+    assert!(gate.argv.is_empty());
+    assert!(gate.note.expect("a note").contains("go.mod"));
+    // Each runner's manifests, and the lockfile that picks a manager.
+    for file in [
+        "Makefile",
+        "justfile",
+        "uv.lock",
+        "package.json",
+        "yarn.lock",
+    ] {
+        let mut files = tree(&[]);
+        files.unread = vec![file];
+        let gate = choose(&ask("test"), &files).expect("an answer");
+        assert_eq!(gate.source, UNREAD, "{file}");
     }
 }
 
@@ -176,6 +208,7 @@ fn the_build_takes_the_package_arm_only_for_a_build_script() {
             makefile: None,
             package_json: Some(json),
             python: Vec::new(),
+            unread: Vec::new(),
         };
         let gate = choose(&ask("build"), &t).expect("an answer");
         assert_eq!(gate.source, "none", "{json}");
@@ -186,6 +219,7 @@ fn the_build_takes_the_package_arm_only_for_a_build_script() {
         makefile: None,
         package_json: Some(r#"{"scripts": {"build": "tsc"}}"#),
         python: Vec::new(),
+        unread: Vec::new(),
     };
     let gate = choose(&ask("build"), &t).expect("an answer");
     assert_eq!(gate.argv, ["npm", "run", "build"]);
