@@ -46,6 +46,44 @@ fn a_python_file_name_never_runs_as_a_command() {
     );
 }
 
+const PATH_SAFETY: &str = "gsd-core/references/worktree-path-safety.md";
+
+/// Step 0c reads the task's commands from the graph, and any read that fails stops the block.
+#[test]
+fn the_step_0c_fence_reads_the_tasks_commands_and_stops_on_a_failed_answer() {
+    let Some(sh) = branch_shell() else {
+        return;
+    };
+    let run = |p: &Project, task: &str| {
+        let fence = fence_after(&served(p, PATH_SAFETY), "command guard — step 0c");
+        let fence = fence.replacen("TASK_ID='{TASK_ID}'", &format!("TASK_ID='{task}'"), 1);
+        sh.run_in(p.root(), &fence)
+    };
+    let p = project("execute");
+    p.commit();
+    assert_eq!(run(&p, "v1.0/01/01-01/T1").2, 0, "a clean command passes");
+    assert_ne!(run(&p, "{TASK_ID}").2, 0, "an unbound template");
+    assert_ne!(run(&p, "").2, 0, "an empty task");
+    assert_ne!(run(&p, "v1.0/01/01-01/T9").2, 0, "no such task");
+
+    let spec = p.read("spec/plans.spec");
+    p.write(
+        "spec/plans.spec",
+        &spec.replacen(
+            "automated \"node --test test/tasks.test.js\"",
+            "automated \"cd ../elsewhere && make\"",
+            1,
+        ),
+    );
+    let (out, err, code) = run(&p, "v1.0/01/01-01/T1");
+    assert_ne!(code, 0, "it leaves the worktree");
+    assert!(format!("{out}{err}").contains("FATAL"), "{out} {err}");
+
+    // Outside a repository `git repo` fails: the block stops, it does not pass with an empty common dir.
+    let outside = project("execute");
+    assert_ne!(run(&outside, "v1.0/01/01-01/T1").2, 0, "no repository");
+}
+
 const PROTECTED_BRANCH: &str = "gsd-core/workflows/execute-phase/steps/protected-branch.md";
 
 /// `Shell` for the blocks that read the branch: specforge and git, and no `grep` to hold a rule.
@@ -154,25 +192,4 @@ fn complete_milestone_finds_the_milestone_branch_when_it_exists() {
     );
     let (out, err, _) = sh.run_in(p.root(), &line);
     assert_eq!(out, "milestone|gsd/v1.0-taskboard-1-0", "{err}");
-}
-
-/// Step 0c as written: the guard's answer decides, from the repository the block reads.
-#[test]
-fn step_0c_halts_on_a_command_that_leaves_the_checkout() {
-    let Some(sh) = branch_shell() else {
-        return;
-    };
-    let p = crate::harness::taskboard();
-    p.commit();
-    let served = served(&p, "gsd-core/references/worktree-path-safety.md");
-    let fence = fence_after(&served, "next executor meets it again.");
-    let run = |command: &str| {
-        let line = format!("AUTOMATED_CMD='{command}'\n{fence}\necho passed");
-        sh.run_in(p.root(), &line)
-    };
-    let (out, err, _) = run("cd .. && make");
-    assert!(!out.contains("passed"), "{out} {err}");
-    assert!(format!("{out}{err}").contains("FATAL"), "{out} {err}");
-    let (out, err, _) = run("cd spec && ls");
-    assert!(out.contains("passed"), "{out} {err}");
 }

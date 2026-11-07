@@ -10,11 +10,11 @@
 //! shortcut: a target is resolved lexically and a link is seen only inside the project, through the file port; a link
 //! outside it, or a non-canonical spelling of the main checkout, is not. Upgrade when the file port reads outside roots.
 
-use serde_json::json;
+use serde_json::{Value, json};
 use specforge_extension_sdk::host::{fs, git};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, run};
+use super::support::{answer, given, node, required, run};
 use crate::relocation::{Event, dynamic, events, literal_prefix, missing_sentinel};
 
 /// Where a command must stay: the worktree's top, and the main checkout it must not reach.
@@ -73,7 +73,7 @@ fn inside(path: &str, root: &str) -> bool {
 
 /// The main checkout: `D` without its last `.git`, the top when none is given. A relative `D` is from the top.
 fn main_checkout(common_dir: Option<&str>, top: &str) -> String {
-    match common_dir.filter(|dir| !dir.is_empty()) {
+    match common_dir {
         Some(dir) => {
             let dir = resolved(top, dir);
             match dir.strip_suffix("/.git") {
@@ -199,11 +199,29 @@ fn fatal(command: &str, why: &str) -> String {
     )
 }
 
+/// The `<automated>` commands of a task, as the plan wrote them.
+fn commands_of(task: &GraphNode) -> Vec<String> {
+    task.fields
+        .get("verify")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|row| row.get("automated")?.as_str().map(str::to_string))
+        .collect()
+}
+
 fn automated_guard(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
-    let command = call.str("command").unwrap_or_default();
-    let located = git::locate().map_err(|error| fatal(command, &format!("{error:?}")))?;
+    let given_text = required(call, "command")?;
+    let commands = if call.flag("task") {
+        commands_of(node(call, "task", given_text)?)
+    } else {
+        vec![given_text.to_string()]
+    };
+    let common_dir = given(call, "common_dir")?;
+    let refused = |error: String| fatal(given_text, &error);
+    let located = git::locate().map_err(|error| refused(format!("{error:?}")))?;
     let top = located.map_or_else(|| call.cwd().to_string(), |repo| repo.toplevel);
-    let main = main_checkout(call.str("common_dir"), &top);
+    let main = main_checkout(common_dir, &top);
     let roots = Roots {
         top: &top,
         main: &main,
@@ -216,31 +234,40 @@ fn automated_guard(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         }
         _ => false,
     };
-    let judged = judge(command, &roots, &leaves).map_err(|why| fatal(command, &why))?;
-    let ok = judged.outside.is_empty();
+    let mut human = Vec::new();
+    let mut outside = Vec::new();
+    let mut dynamics = Vec::new();
+    for command in &commands {
+        let judged = judge(command, &roots, &leaves).map_err(|why| fatal(command, &why))?;
+        for finding in &judged.outside {
+            human.push(fatal(
+                command,
+                &format!("{} ({} -> {})", finding.why, finding.word, finding.path),
+            ));
+            outside.push(json!({
+                "command": command,
+                "word": finding.word,
+                "path": finding.path,
+                "why": finding.why,
+            }));
+        }
+        dynamics.extend(judged.dynamic);
+    }
+    let ok = outside.is_empty();
     let human = if ok {
-        format!("ok: {command}")
+        format!("ok: {}", commands.join("; "))
     } else {
-        judged
-            .outside
-            .iter()
-            .map(|f| fatal(command, &format!("{} ({} -> {})", f.why, f.word, f.path)))
-            .collect::<Vec<_>>()
-            .join("\n")
+        human.join("\n")
     };
-    let outside: Vec<_> = judged
-        .outside
-        .iter()
-        .map(|f| json!({"word": f.word, "path": f.path, "why": f.why}))
-        .collect();
     let mut out = answer(
         call,
         json!({
             "ok": ok,
             "top": top,
             "main": main,
+            "commands": commands,
             "outside": outside,
-            "dynamic": judged.dynamic,
+            "dynamic": dynamics,
         }),
         human,
         None,
@@ -262,12 +289,17 @@ pub fn declare(c: &mut ContributionsBuilder) {
             "Halt when a plan's <automated> command would leave the worktree: its words are read, never run",
         )
         .arg("command", |a| {
-            a.required()
-                .description("the <automated> command, as the plan wrote it");
+            a.required().description(
+                "the <automated> command, as the plan wrote it; with --task, the task whose commands are read",
+            );
+        })
+        .arg("task", |a| {
+            a.flag()
+                .description("the argument names a task: read each of its `<automated>` commands");
         })
         .arg("common_dir", |a| {
             a.description(
-                "the repository's common directory (`specforge git repo --pick .common_dir`): the main checkout is it without its `.git`",
+                "the repository's common directory (`specforge git repo --pick .common_dir`): the main checkout is it without its `.git`. Empty is refused: it means that read failed",
             );
         })
         .handler(|call| run(call, automated_guard));
@@ -457,7 +489,6 @@ mod tests {
         assert_eq!(main_checkout(Some("/main/.git"), "/wt"), "/main");
         assert_eq!(main_checkout(Some("/bare.git"), "/wt"), "/bare.git");
         assert_eq!(main_checkout(Some(".git"), "/wt"), "/wt");
-        assert_eq!(main_checkout(Some(""), "/wt"), "/wt");
         assert_eq!(main_checkout(None, "/wt"), "/wt");
     }
 

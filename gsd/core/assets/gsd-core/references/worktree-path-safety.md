@@ -191,13 +191,13 @@ rewrite the prefix silently (#3050) — a rewritten command hides the defective 
 next executor meets it again.
 
 ```bash
-# Reads AUTOMATED_CMD as the shell's words and never runs it. A directory it relocates to outside this
-# worktree, an absolute path inside the main checkout, or a command it cannot read is a FATAL line and
-# exit 1; what the shell would build at run time passes, named under `dynamic` in the answer.
-specforge gsd automated-guard "$AUTOMATED_CMD" --common-dir "$(specforge git repo --pick .common_dir)" || exit 1
-
-
-
+# Reads the task's <automated> commands as the shell's words and never runs them. A directory one relocates
+# to outside this worktree, an absolute path inside the main checkout, or a command it cannot read is a FATAL
+# line and exit 1; what the shell would build at run time passes, named under `dynamic` in the answer.
+TASK_ID='{TASK_ID}'  # bound when this is run: the graph's id of the task being verified, its plan's `<id>/T<n>`
+case "$TASK_ID" in ''|'{TASK_ID}') echo "FATAL: step 0c has no task to read" >&2; exit 1 ;; esac
+COMMON_DIR=$(specforge git repo --pick .common_dir) || exit 1
+specforge gsd automated-guard "$TASK_ID" --task --common-dir "$COMMON_DIR" || exit 1
 
 
 
