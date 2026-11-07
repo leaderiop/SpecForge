@@ -304,11 +304,11 @@ specforge git commit --add spec -m "docs: initialize project" && specforge colle
 
 **If auto mode:** Skip — config was collected in Step 2a. Proceed to Step 5.5.
 
-**Check for global defaults** at `${GSD_HOME:-$HOME}/.gsd/defaults.json` (`~/.gsd/defaults.json` unless `GSD_HOME` is set). If the file exists, read and display its contents before asking:
+**Check for global defaults** at `${GSD_HOME:-$HOME}/.gsd/defaults.json` (`~/.gsd/defaults.json` unless `GSD_HOME` is set). If the file exists, read it with your Read tool (it is the user's, outside the project's roots, which no block reaches) and display its contents before asking.
 
-```bash
-DEFAULTS_RAW=$(cat "${GSD_HOME:-$HOME}/.gsd/defaults.json" 2>/dev/null)
-```
+
+
+
 
 Format the JSON into human-readable bullets using these label mappings:
 - `mode` → "Mode"

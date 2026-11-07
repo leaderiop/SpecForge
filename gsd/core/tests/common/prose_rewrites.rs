@@ -137,4 +137,7 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/review.md", 333, 334),
     ("gsd-core/workflows/review.md", 536, 536),
     ("gsd-core/workflows/ship.md", 424, 424),
+    // a host file outside the roots is read with the host's Read tool
+    ("gsd-core/workflows/new-project.md", 305, 305),
+    ("gsd-core/workflows/new-project.md", 307, 309),
 ];
