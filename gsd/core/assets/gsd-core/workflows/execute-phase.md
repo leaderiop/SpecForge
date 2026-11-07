@@ -322,7 +322,7 @@ else
     specforge git switch "$DEFAULT_BRANCH" >/dev/null 2>&1 && specforge git merge "origin/$DEFAULT_BRANCH" --ff-only >/dev/null 2>&1 || true
   fi
   # Pinned base (#2916); --no-track (#2498). #2639: warn if local ahead of origin.
-  AHEAD=$(specforge git log "origin/$DEFAULT_BRANCH..$DEFAULT_BRANCH" --pick .count 2>/dev/null || echo 0)
+  AHEAD_LOCAL=$(specforge git rev "refs/heads/$DEFAULT_BRANCH" --pick '.revs[0].exists') || exit 1; AHEAD=0; if [ "$AHEAD_LOCAL" = true ]; then AHEAD=$(specforge git log "origin/$DEFAULT_BRANCH..$DEFAULT_BRANCH" --pick .count) || exit 1; fi   # no local branch: nothing is ahead; a failed answer stops
   [ "$AHEAD" != "0" ] && [ -n "$AHEAD" ] && echo "WARNING: $DEFAULT_BRANCH is $AHEAD ahead of origin — '$BRANCH_NAME' won't include those commits (#2639)." >&2
   specforge git switch "$BRANCH_NAME" --create --at "origin/$DEFAULT_BRANCH" \
     || { echo "ERROR: Could not create '$BRANCH_NAME' from origin/$DEFAULT_BRANCH (#2916)." >&2; exit 1; }
