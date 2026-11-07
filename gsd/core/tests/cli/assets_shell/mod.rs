@@ -6,6 +6,7 @@ use std::process::{Command, Stdio};
 
 mod answers;
 mod batch;
+mod counts;
 mod gates;
 mod new_project;
 mod pick;
