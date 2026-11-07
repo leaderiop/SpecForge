@@ -154,20 +154,13 @@ fn a_graph_read_is_picked() {
     );
     let cases: &[(&str, &str, &str, &str, &str)] = &[
         ("plan-phase.md", phase, "DISK_PLANS=$(", "DISK_PLANS", "[2]"),
-        // the milestone's summaries, counted; a milestone the graph has not is a failed read, counted 0
+        // the milestone's summaries, counted (a milestone the graph has not stops the block: `counts.rs`)
         (
             "plan-phase.md",
             "MILESTONE=v1.0",
             "PRIOR_SUMMARIES=$(",
             "PRIOR_SUMMARIES",
             "[2]",
-        ),
-        (
-            "plan-phase.md",
-            "MILESTONE=nope",
-            "PRIOR_SUMMARIES=$(",
-            "PRIOR_SUMMARIES",
-            "[0]",
         ),
         (
             "plan-phase.md",

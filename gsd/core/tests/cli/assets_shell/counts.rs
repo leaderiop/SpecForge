@@ -38,7 +38,8 @@ fn a_failed_count_query_is_not_zero() {
         ),
     ] {
         let (out, err, code) = run_count(&sh, path, start, setup, var);
-        assert_eq!(code, 0, "{path}: {err}");
-        assert_eq!(out, format!("{var}=0\n"), "{path}: {err}");
+        assert_ne!(code, 0, "{path}: {out}");
+        assert!(out.is_empty(), "{path}: {out}");
+        assert!(err.contains("E003"), "{path}: {err}");
     }
 }

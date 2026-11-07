@@ -97,7 +97,7 @@ specforge gsd start-plan "$PLAN_ID" --head "$(specforge git head --pick .sha)" |
 <step name="parse_segments">
 ```bash
 # Count tasks — match <task tag at any indentation level
-TASK_COUNT=$(specforge query "$PLAN_ID" --kinds task --pick '.nodes[kind=task].id' --count 2>/dev/null) || TASK_COUNT=0
+TASK_COUNT=$(specforge query "$PLAN_ID" --kinds task --pick '.nodes[kind=task].id' --count) || exit 1   # a failed query is not "no tasks"
 INLINE_THRESHOLD="{{setting:workflow.inline_plan_threshold|2}}"   # workflow.inline_plan_threshold (the settings)
 USE_WORKTREES="false"   # @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
 RUNTIME="{{setting:runtime|@host}}"   # runtime (the settings)
