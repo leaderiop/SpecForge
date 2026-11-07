@@ -208,6 +208,44 @@ echo went-on"
     assert_eq!(head.stdout.trim(), "main", "{}", head.all());
 }
 
+/// A HEAD no one can read is not "not protected": both warnings say they could not tell, and a free branch says nothing.
+#[test]
+fn a_broken_head_warns_that_it_could_not_determine() {
+    let Some(sh) = branch_shell() else {
+        return;
+    };
+    let fences = |p: &Project| {
+        let ship = served(p, "gsd-core/workflows/ship.md");
+        let ship = ship
+            .split_once("**On correct branch?**")
+            .and_then(|(_, after)| after.split_once("```bash\n"))
+            .and_then(|(_, body)| body.split_once("\n   ```"))
+            .expect("ship's fence")
+            .0
+            .to_string();
+        [
+            fence_after(&served(p, PROTECTED_BRANCH), "# Protected-branch warning"),
+            ship,
+        ]
+    };
+    let p = on_branch("feat");
+    for fence in fences(&p) {
+        let (out, err, code) = sh.run_in(p.root(), &fence);
+        assert_eq!(code, 0, "{fence}: {err}");
+        assert!(
+            !format!("{out}{err}").contains('⚠'),
+            "a free branch warns: {out} {err}"
+        );
+    }
+    let body = fences(&p);
+    std::fs::write(p.root().join(".git/HEAD"), "not a ref\n").expect("written");
+    for fence in body {
+        let (out, err, code) = sh.run_in(p.root(), &fence);
+        assert_eq!(code, 0, "it warns and goes on: {fence}: {err}");
+        assert!(err.contains("Could not determine"), "{fence}: {out} {err}");
+    }
+}
+
 /// What complete-milestone squash-merges: the branches its phases compute and that exist, never another local branch.
 #[test]
 fn complete_milestone_lists_only_the_phase_branches() {

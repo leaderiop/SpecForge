@@ -2,6 +2,17 @@
 //! upstream's names no tool the port rule sees. `port_workflows` reads them as more `REWRITTEN_SPANS` rows.
 
 pub const SPANS: &[(&str, usize, usize)] = &[
+    ("gsd-core/workflows/ship.md", 87, 87),
+    (
+        "gsd-core/workflows/execute-phase/steps/protected-branch.md",
+        20,
+        20,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/protected-branch.md",
+        12,
+        12,
+    ),
     // The gates read `gate-command`'s argv: the choice of a command is the answer's, and nothing is re-parsed.
     (
         "gsd-core/workflows/execute-phase/steps/post-merge-gate.md",

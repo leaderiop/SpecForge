@@ -86,7 +86,7 @@ Verify the work is ready to ship:
    IS_PROTECTED=$(specforge gsd branch-check --pick .protected 2>/dev/null) || IS_PROTECTED=""
    if [ "$IS_PROTECTED" = true ]; then
      echo "⚠ Current branch '$CURRENT_BRANCH' is a protected branch; shipping should happen from a feature branch." >&2
-   elif [ -z "$IS_PROTECTED" ]; then
+   elif [ -z "$IS_PROTECTED" ] || [ "$(specforge gsd branch-check --pick .blocks_commit 2>/dev/null)" = true ]; then
      echo "⚠ Could not determine whether '$CURRENT_BRANCH' is protected — the query failed. Continuing." >&2
    fi
    ```
