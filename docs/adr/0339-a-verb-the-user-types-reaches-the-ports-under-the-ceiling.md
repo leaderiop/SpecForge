@@ -86,7 +86,7 @@ whole port `off`). A request outside it is refused before any effect, with the c
 ## D4. The answer
 
 - **JSON first.** `files`, `http` and `git` print one JSON document by default; `--pick` prints the values at a path
-  (ADR 0325 D6); `--format human` is a short listing for people and refuses `--pick` (exit 2). A refusal is the CLI's
+  (ADR 0325 D6), and with `--fields` one row per item (D7; not on `http`); `--format human` is a short listing for people and refuses `--pick` (exit 2). A refusal is the CLI's
   JSON error document (ADR 0029). Insta snapshots pin each answer's shape.
 - **Every answer says its effect.** A JSON answer ends with `effect: {digest, observed_at, from_journal}`: the
   request's record digest in the effects journal, when the answer was observed (its record's time when the journal

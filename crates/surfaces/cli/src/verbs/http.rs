@@ -73,7 +73,7 @@ pub(crate) struct AskArgs {
     no_redirects: bool,
 
     #[command(flatten)]
-    verb: VerbArgs,
+    verb: VerbArgs<crate::pick::NoRows>,
 }
 
 impl Action {

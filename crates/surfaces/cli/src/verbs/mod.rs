@@ -18,12 +18,13 @@ use specforge_ops::verbs::{Answered, Verbs};
 
 use crate::outcome::{Exit, OutputFormat, Refusal};
 use crate::pick;
-use crate::terminal::{Terminal, errln};
+use crate::terminal::{Terminal, err, errln};
 
-/// What every verb's leaf takes: the project, the output format (json by default) and `--pick`.
+/// What every verb's leaf takes: the project, the output format (json by default), `--pick` and its `--fields` rows
+/// (`http`, whose `--field` builds a body, takes no rows: [`pick::NoRows`]).
 #[derive(clap::Args, Clone, Debug)]
 #[command(mut_arg(pick::PICK, |arg| arg.long_help(pick::VERB_LONG_HELP)))]
-pub(crate) struct VerbArgs {
+pub(crate) struct VerbArgs<R: pick::Rows = pick::FieldRows> {
     #[command(flatten)]
     project: crate::project::ProjectArg,
 
@@ -32,7 +33,7 @@ pub(crate) struct VerbArgs {
     format: OutputFormat,
 
     #[command(flatten)]
-    picked: pick::Picked,
+    picked: pick::Picked<R>,
 
     /// The effects mode: online (the default; auto is online), cached or replay. http sends the request, answers a
     /// GET from a fresh record of the effects journal (cached), or answers from the journal alone (replay); files and
@@ -41,7 +42,7 @@ pub(crate) struct VerbArgs {
     effects: Option<EffectsMode>,
 }
 
-impl VerbArgs {
+impl<R: pick::Rows> VerbArgs<R> {
     /// The effects mode `--effects` names, `online` when none.
     pub(crate) fn mode(&self) -> EffectsMode {
         self.effects.unwrap_or(EffectsMode::Online)
@@ -150,7 +151,12 @@ impl VerbArgs {
         match answer {
             Ok(answer) => {
                 match format {
-                    OutputFormat::Json => self.picked.print_json(terminal, &answer),
+                    OutputFormat::Json => {
+                        if let Err(refused) = self.picked.print_rows(terminal, &answer) {
+                            err!(terminal, "{refused}");
+                            return Exit::Failed;
+                        }
+                    }
                     OutputFormat::Human => human(terminal, &answer),
                 }
                 Exit::Passed

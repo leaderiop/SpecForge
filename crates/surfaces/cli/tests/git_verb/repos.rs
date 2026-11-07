@@ -160,3 +160,33 @@ fn repo_answers_the_spec_files_as_a_pathspec() {
     assert_eq!(pathspec("spec"), "spec/");
     assert_eq!(pathspec("."), ":(glob)**/*.spec");
 }
+
+/// `--fields` on a verb, as on `query`: one row per repository, its cells split by 0x1f, so a name holding a newline
+/// cannot split into two rows: the verb refuses, prints no row and exits 1.
+#[cfg(unix)]
+#[test]
+fn repos_rows_carry_each_name_whole_or_refuse() {
+    let (project, _, _) = committed();
+    repo_in(&project.root().join("wk/clean"), false);
+    let rows = git(
+        &project,
+        &[
+            "repos",
+            "wk",
+            "--pick",
+            ".repos[]",
+            "--fields",
+            "name,clean",
+        ],
+    )
+    .exits(0);
+    assert_eq!(rows.stdout, "clean\u{1f}true\n");
+    repo_in(&project.root().join("wk/we\nird"), false);
+    let refused = git(
+        &project,
+        &["repos", "wk", "--pick", ".repos[]", "--fields", "name"],
+    )
+    .exits(1);
+    assert_eq!(refused.stdout, "", "no row");
+    assert!(refused.stderr.contains("a newline"), "{}", refused.stderr);
+}

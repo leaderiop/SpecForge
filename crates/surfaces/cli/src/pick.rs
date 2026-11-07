@@ -23,7 +23,7 @@ macro_rules! rules {
     };
 }
 
-/// The short help of `--fields`, beside `--pick` on `query`, `export` and an extension command.
+/// The short help of `--fields`, beside `--pick` on `query`, `export`, a verb and an extension command.
 pub(crate) const FIELDS_HELP: &str =
     "With --pick: one row per item reached, a cell per key, the cells separated by 0x1f";
 
@@ -126,7 +126,7 @@ impl PickedOutputArg {
     }
 }
 
-/// What a command reads beside `--pick`'s path: the `--fields` rows of `query`, `export` and an extension command
+/// What a command reads beside `--pick`'s path: the `--fields` rows of `query`, `export`, a verb and an extension command
 /// ([`FieldRows`], ADR 0325 D7), or none ([`NoRows`]).
 pub(crate) trait Rows: clap::Args + clap::FromArgMatches {
     /// The `--fields` keys given.
@@ -145,7 +145,7 @@ impl Rows for NoRows {
     }
 }
 
-// `--fields`, on `query`, `export` and an extension command.
+// `--fields`, on `query`, `export`, a verb and an extension command.
 #[derive(clap::Args, Clone, Debug, Default)]
 #[group(skip)]
 pub(crate) struct FieldRows {
@@ -190,11 +190,29 @@ impl<R: Rows> Picked<R> {
 impl Picked {
     /// `document` as the JSON form prints it, or the values `--pick` reaches in it, in the shape.
     pub(crate) fn print_json(&self, terminal: &Terminal, document: &impl serde::Serialize) {
+        self.print_rows(terminal, document)
+            .expect("without --fields every value prints");
+    }
+}
+
+impl<R: Rows> Picked<R> {
+    /// [`Picked::print_json`] with the `--fields` rows: `Err` with the refusal, and nothing printed, when a cell
+    /// cannot be carried on one line.
+    pub(crate) fn print_rows(
+        &self,
+        terminal: &Terminal,
+        document: &impl serde::Serialize,
+    ) -> Result<(), String> {
         let Some(pick) = &self.pick else {
-            return terminal.json(document);
+            terminal.json(document);
+            return Ok(());
         };
         let value = serde_json::to_value(document).expect("serialize JSON output");
-        let lines = self.shape.shaped(pick.texts(&value));
+        let texts = match self.rows.fields() {
+            Some(fields) => pick.rows(&value, fields)?,
+            None => pick.texts(&value),
+        };
+        let lines = self.shape.shaped(texts);
         // A picked string is a file's text, a commit subject or a response: exact into a pipe, which a script
         // reads, but escaped before a terminal, where an escape sequence would act (ADR 0339 D4).
         if terminal.facts().out_terminal {
@@ -206,6 +224,7 @@ impl Picked {
         } else {
             out!(terminal, "{lines}");
         }
+        Ok(())
     }
 }
 

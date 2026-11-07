@@ -70,6 +70,9 @@ a `| jq -r` pipe without it leaves the variable empty. Upstream GSD added `--pic
   `--fields` without `--pick` is a usage error (exit 2), and so is an empty key. Commands whose items are not
   entities (`check`, `settings`) do not take it. An extension command does, unless it declares an arg of the name
   (amended 2026-11-06, ADR 0341 D5: `gsd quick-init` is read field by field, and a second call would mint another id).
+  The verbs `files`, `git` and `wait` take it too (amended 2026-11-07): `git repos --pick '.repos[]' --fields name`
+  reads each name whole, where a name holding a newline would split into two lines under `--pick`; `http` does not,
+  since its `--field` builds the request body.
 - **D8. The shapes.** Four flags beside `--pick` print the values it reaches in another shape, on every surface
   that takes `--pick` (`query`, `export`, `check`, `settings`, the verbs `files`, `git`, `http` and `run`, an
   extension command):

@@ -652,7 +652,7 @@ this also finds linked git worktree children, whose `.git` is a file rather than
 directory, unlike a plain directory walk would):
 
 ```bash
-SUB_REPOS=$(specforge git repos . --pick '.repos[].name')   # each child directory that is a repository or a linked worktree
+SUB_REPOS=$(specforge git repos . --pick '.repos[]' --fields name) || exit 1   # each child directory that is a repository or a linked worktree, one per line: a failed listing stops here, and a name holding a newline is refused, never split
 ```
 
 Each line of `SUB_REPOS` is a bare directory name relative to the workspace root
