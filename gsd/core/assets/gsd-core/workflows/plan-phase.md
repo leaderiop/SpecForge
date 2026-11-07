@@ -177,8 +177,8 @@ Defer the `phase.mvp-mode` query until `PHASE` is finalized (after explicit argu
 **Walking Skeleton gate.** When `MVP_MODE=true` AND `phase_number == "01"` AND there are zero prior phase summaries (new project), the planner runs in **Walking Skeleton mode** (per PRD decision Q2 — new projects only). Detect with:
 
 ```bash
-WALKING_SKELETON=false
-if [ "$MVP_MODE" = "true" ] && [ "$padded_phase" = "01" ]; then
+WALKING_SKELETON=false; [ -n "$PHASE_ID" ] || exit 1; IFS=$'\x1f' read -r MODE MILESTONE <<<"$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0]' --fields fields.mode,fields.milestone)" && [ -n "$MILESTONE" ] || exit 1; [ "{{arg:mvp|false}}" = true ] && MODE=mvp   # --mvp, else the phase's mode
+if [ "$MODE" = mvp ] && [ "${PHASE_ID##*/}" = "01" ]; then
   PRIOR_SUMMARIES=$(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id' --count) || exit 1   # a failed query is not "no summaries"
   if [ "$PRIOR_SUMMARIES" = "0" ]; then WALKING_SKELETON=true; fi
 fi

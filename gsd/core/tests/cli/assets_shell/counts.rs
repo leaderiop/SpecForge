@@ -91,3 +91,58 @@ fn the_ahead_count_reads_the_local_branch_when_there_is_one() {
         assert_eq!((code, out.as_str()), (0, want), "{branch}: {err}");
     }
 }
+
+/// plan-phase's walking-skeleton gate, end to end: its fence reads its own answers (the `--mvp` flag, the phase's
+/// `mode`, the phase's milestone, its summaries) and fails closed on an empty one, never a variable no line of the
+/// fence sets. Only phase 01 of an mvp milestone with no summary yet starts a walking skeleton.
+#[test]
+fn the_walking_skeleton_gate_reads_its_own_answers() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let text = asset("gsd-core/workflows/plan-phase.md");
+    let fence = {
+        let lines: Vec<&str> = text.lines().collect();
+        let at = lines
+            .iter()
+            .position(|l| l.starts_with("WALKING_SKELETON=false;"))
+            .expect("the gate");
+        let end = at
+            + lines[at..]
+                .iter()
+                .position(|l| *l == "```")
+                .expect("its fence's end");
+        lines[at..end].join("\n")
+    };
+    let p = crate::harness::taskboard();
+    p.write(
+        "spec/v2.spec",
+        "milestone v2.0 \"Next\" {\n  name \"Next\"\n}\n\nphase 01 \"Start\" {\n  milestone v2.0\n  name \"Start\"\n  slug \"start\"\n  goal \"Start again\"\n  mode mvp\n}\n\nphase 02 \"More\" {\n  milestone v2.0\n  name \"More\"\n  slug \"more\"\n  goal \"More\"\n  mode mvp\n}\n",
+    );
+    let gate = |phase: &str, mvp: &str| {
+        let filled = fence.replace("{{arg:mvp|false}}", mvp);
+        sh.run_in(
+            p.root(),
+            &format!("PHASE_ID={phase}\n{filled}\nprintf '%s' \"$WALKING_SKELETON\""),
+        )
+    };
+    for (phase, mvp, want) in [
+        ("v2.0/01", "false", "true"), // mvp by its mode, phase 01, no summary in v2.0
+        ("v2.0/02", "false", "false"), // not phase 01
+        ("v1.0/01", "false", "false"), // standard mode
+        ("v1.0/01", "true", "false"), // --mvp, but v1.0 has summaries
+    ] {
+        let (out, err, code) = gate(phase, mvp);
+        assert_eq!(
+            (code, out.as_str()),
+            (0, want),
+            "{phase} --mvp={mvp}: {err}"
+        );
+    }
+    // An unknown phase, or none, stops the block.
+    for phase in ["v9.9/01", ""] {
+        let (out, err, code) = gate(phase, "true");
+        assert_ne!(code, 0, "{phase:?}: {out}{err}");
+        assert!(out.is_empty(), "{phase:?}: {out}");
+    }
+}

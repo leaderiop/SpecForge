@@ -220,4 +220,6 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/review.md", 400, 402),
     ("gsd-core/workflows/review.md", 570, 572),
     ("gsd-core/workflows/review.md", 642, 646),
+    // the walking-skeleton gate reads its own answers, not variables no line of its fence sets
+    ("gsd-core/workflows/plan-phase.md", 178, 179),
 ];
