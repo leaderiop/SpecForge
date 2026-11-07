@@ -802,7 +802,7 @@ Spawn gsd-plan-checker against the fix plans (iteration_count starts at 1), mode
 
 On return:
 - **VERIFICATION PASSED:** If the return lists an entry whose severity is BLOCKER or WARNING, in the YAML issues block or listed in prose (a mention such as "no warnings" or a zero count is not an entry), handle it as ISSUES FOUND below, counting the prose entries as BLOCKER/WARNING entries; the sentinel never decides alone, and an entry with a missing or unrecognized severity counts as a BLOCKER (#5578). Otherwise proceed to `present_ready`
-- **ISSUES FOUND:** Count BLOCKER + WARNING entries in the YAML issues block; an entry whose severity is missing or unrecognized counts as a BLOCKER (fail closed). If zero — every entry is explicitly INFO — display `ℹ advisory — {dimension}: {description}` per entry and proceed to `present_ready`; INFO is advisory and never enters the loop (#3724). Otherwise proceed to `revision_loop`
+- **ISSUES FOUND:** Count BLOCKER + WARNING entries in the YAML issues block; an entry whose severity is missing or unrecognized counts as a BLOCKER (fail closed). If zero — every entry is explicitly INFO — display "ℹ advisory — {dimension}: {description}" per entry and proceed to `present_ready`; INFO is advisory and never enters the loop (#3724). Otherwise proceed to `revision_loop`
 
 Exact Agent() prompt fields: `gsd-core/workflows/verify-work/detail/elaboration.md` § 2.
 </step>
@@ -852,7 +852,7 @@ Increment iteration_count
 
 **If iteration_count >= 3:**
 
-Display: `Max iterations reached. {N} issues remain.`
+Display: "Max iterations reached. {N} issues remain."
 
 Offer options:
 1. Force proceed (execute despite issues)

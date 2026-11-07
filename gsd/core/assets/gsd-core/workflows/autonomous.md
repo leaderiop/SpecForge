@@ -138,10 +138,10 @@ Display startup banner:
  Phases: {phase_count} total, {completed_phases} complete
 ```
 
-If `ONLY_PHASE` is set, display: `Single phase mode: Phase ${ONLY_PHASE}`
-Else if `FROM_PHASE` is set, display: `Starting from phase ${FROM_PHASE}`
-If `TO_PHASE` is set, display: `Stopping after phase ${TO_PHASE}`
-If `INTERACTIVE` is set, display: `Mode: Interactive (discuss inline, plan+execute inline — background on Codex only)`
+If `ONLY_PHASE` is set, display: "Single phase mode: Phase ${ONLY_PHASE}"
+Else if `FROM_PHASE` is set, display: "Starting from phase ${FROM_PHASE}"
+If `TO_PHASE` is set, display: "Stopping after phase ${TO_PHASE}"
+If `INTERACTIVE` is set, display: "Mode: Interactive (discuss inline, plan+execute inline — background on Codex only)"
 <!-- gsd:section id="converge-banner" when="state:plan-strategy-converge" -->
 If `section_manifest` is `null` or `"converge-banner"` is in its `included` list: read and execute `gsd-core/workflows/autonomous/steps/converge-banner.md`. Otherwise skip — do not read the file.
 <!-- /gsd:section -->
@@ -226,7 +226,7 @@ Exit cleanly.
 | 8 | Lifecycle Orchestration | Not Started |
 ```
 
-**If any deferred phases were skipped:** display `## Deferred Verification (Skipped on Re-entry)` with the skipped rows and resume commands, then omit them from this run's queue.
+**If any deferred phases were skipped:** display "## Deferred Verification (Skipped on Re-entry)" with the skipped rows and resume commands, then omit them from this run's queue.
 
 **Fetch details for each phase:**
 
@@ -349,7 +349,7 @@ FLATTEN="true"   # inline everywhere: no host reports a backgrounded orchestrato
   If `section_manifest` is `null` or `"converge-dispatch-bg"` is in its `included` list: read and execute `gsd-core/workflows/autonomous/steps/converge-dispatch-bg.md`. Otherwise skip — do not read the file.
   <!-- /gsd:section -->
 
-  - Otherwise, print: `◆ Spawning background planner for phase ${PHASE_NUM}... (runs in a subagent — no output until it returns, ~1–5 min; expected, not a freeze)`
+  - Otherwise, print: "◆ Spawning background planner for phase ${PHASE_NUM}... (runs in a subagent — no output until it returns, ~1–5 min; expected, not a freeze)"
 
   ```
   Agent(
@@ -519,7 +519,7 @@ If `passed` or `human_needed`: route normally.
 
 Any status other than `passed`/`human_needed`/`gaps_found`: handle_blocker with the owner's `next_action` (`--pick next_action`).
 
-If still `gaps_found` after this retry, display `Gaps persist after closure attempt.` and ask `Continue anyway` / `Stop autonomous mode`.
+If still `gaps_found` after this retry, display "Gaps persist after closure attempt." and ask "Continue anyway" / "Stop autonomous mode".
 
 On "Continue anyway": record `verification_deferred_gaps` using the table below, display "Phase ${PHASE_NUM} ⏭ verification_deferred_gaps — resume with /gsd:plan-phase ${PHASE_NUM} --gaps", then handle_blocker: "Verification gaps deferred for phase ${PHASE_NUM}."
 On "Stop autonomous mode": Go to handle_blocker.
@@ -623,7 +623,7 @@ Check for blockers in the Blockers/Concerns section. If blockers are found, go t
 
 If incomplete phases remain: proceed to next phase, loop back to execute_phase.
 
-If no runnable phases remain but deferred phases were skipped, display `Autonomous run stopped with deferred verification phases still pending. Resume them with the commands listed in Deferred Verification.` Proceed to lifecycle only if every non-deferred phase is complete; otherwise go to handle_blocker.
+If no runnable phases remain but deferred phases were skipped, display "Autonomous run stopped with deferred verification phases still pending. Resume them with the commands listed in Deferred Verification." Proceed to lifecycle only if every non-deferred phase is complete; otherwise go to handle_blocker.
 
 **Interactive mode overlap:** When `INTERACTIVE` is set, Codex can overlap discuss for Phase N+1 with background plan+execute for Phase N. Other runtimes keep plan/execute inline, so phases stay sequential:
 1. After discuss completes for Phase N, dispatch plan+execute as background agents
@@ -702,7 +702,7 @@ Ask user via AskUserQuestion:
 - **question:** "Milestone audit found gaps. How to proceed?"
 - **options:** "Continue anyway — accept gaps" / "Stop — fix gaps manually"
 
-On **"Continue anyway"**: Display `Audit ⏭ Gaps accepted — proceeding to complete milestone` and proceed to 5b.
+On **"Continue anyway"**: Display "Audit ⏭ Gaps accepted — proceeding to complete milestone" and proceed to 5b.
 
 On **"Stop"**: Go to handle_blocker with "User stopped — audit gaps remain. Run /gsd:audit-milestone to review, then /gsd:complete-milestone when ready."
 
@@ -717,7 +717,7 @@ Show the summary, then ask user via AskUserQuestion:
 - **question:** "Milestone audit found tech debt. How to proceed?"
 - **options:** "Continue with tech debt" / "Stop — address debt first"
 
-On **"Continue with tech debt"**: Display `Audit ⏭ Tech debt acknowledged — proceeding to complete milestone` and proceed to 5b.
+On **"Continue with tech debt"**: Display "Audit ⏭ Tech debt acknowledged — proceeding to complete milestone" and proceed to 5b.
 
 On **"Stop"**: Go to handle_blocker with "User stopped — tech debt to address. Run /gsd:audit-milestone to review details."
 

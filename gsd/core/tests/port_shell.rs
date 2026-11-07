@@ -241,3 +241,39 @@ fn a_heredoc_is_redirected_only_into_a_temp_file() {
         "a heredoc redirected outside a temp file: {wrong:#?}"
     );
 }
+
+/// One wording per situation: an asset quotes its display text one way (ADR 0343 D7's prose quotation marks), a
+/// phase placeholder is `{phase_id}` in the researcher and chunked planning, and the review router's note names the
+/// declared command D7 gives as its example.
+#[test]
+fn a_situation_has_one_wording() {
+    let backticked = Regex::new(r"[Dd]isplay:? `[^`]").expect("a regex");
+    let quoted = Regex::new(r#"[Dd]isplay:? ""#).expect("a regex");
+    let mut mixed = Vec::new();
+    for path in with_extension(&root().join("assets"), "md") {
+        let text = std::fs::read_to_string(&path).expect("an asset");
+        if backticked.is_match(&text) && quoted.is_match(&text) {
+            mixed.push(path.display().to_string());
+        }
+    }
+    assert!(mixed.is_empty(), "display text quoted two ways: {mixed:#?}");
+    let read = |rel: &str| std::fs::read_to_string(root().join("assets").join(rel)).expect(rel);
+    // `${PHASE_ID}` in a block is the shell's variable, not a placeholder
+    let upper = Regex::new(r"(^|[^$])\{PHASE_ID\}").expect("a regex");
+    for rel in [
+        "agents/gsd-phase-researcher.md",
+        "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
+    ] {
+        let text = read(rel);
+        assert!(
+            text.contains("{phase_id}") && !upper.is_match(&text),
+            "{rel}"
+        );
+    }
+    let review = read("commands/gsd/ns-review.md");
+    // the route table keeps upstream's skill names, which the router reads verbatim
+    assert!(
+        review.contains("absorbed by `/gsd-code-review --fix`") && !review.contains("flag of"),
+        "{review}"
+    );
+}
