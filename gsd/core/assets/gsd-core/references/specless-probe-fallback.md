@@ -45,12 +45,12 @@ if [[ "$SPECLESS_FALLBACK" != "true" ]]; then
   SPECLESS_FALLBACK_DISABLED="probe fallback disabled (workflow.specless_probe_fallback=false): no probe-derived predicates generated for SPEC-absent sections this run."
 fi
 
-# Nothing-to-probe guard: the fallback derives predicates from requirement TEXT, so zero requirement
-# IDs => nothing to probe => skip VISIBLY (like the disabled path), NOT a hard-fail. Prevents a
-# no-SPEC + no-requirements phase from aborting under the default-ON fallback. The orchestrator
-# substitutes {phase_req_ids}; empty/whitespace/TBD => no requirements. (A still-literal token is
-# non-empty, so an unsubstituted run correctly hits the reference's fail-loud guard instead.)
-SPECLESS_REQ_IDS="{phase_req_ids}"
+# Nothing-to-probe guard: the fallback derives predicates from requirement TEXT, so zero requirement IDs => nothing to
+# probe => skip VISIBLY (like the disabled path), NOT a hard-fail: a no-SPEC + no-requirements phase does not abort
+# under the default-ON fallback. The orchestrator substitutes the ids as text; empty/whitespace/TBD => no requirements.
+read -r SPECLESS_REQ_IDS <<'GSD_REQ_IDS' || true   # a still-literal token is non-empty: an unsubstituted run hits the fail-loud guard
+{phase_req_ids}
+GSD_REQ_IDS
 if [[ "$SPECLESS_FALLBACK" == "true" ]] && { [ -z "${SPECLESS_REQ_IDS// /}" ] || [ "${SPECLESS_REQ_IDS}" = "TBD" ]; }; then
   echo "info: spec-less probe fallback: phase has no requirement IDs - nothing to probe; skipping (visible skip)." >&2
   SPECLESS_FALLBACK=false

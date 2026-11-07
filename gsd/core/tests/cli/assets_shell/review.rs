@@ -191,3 +191,69 @@ fn the_review_block_keeps_only_lane_evidence() {
     assert!(!out.contains("kept at"), "{out}{err}");
     assert!(!run_dir.exists(), "{out}{err}");
 }
+
+/// The lines of `text` that carry the model-filled `placeholder`: the assignment that holds it, and, when it is a
+/// quoted heredoc, every line through its terminator.
+fn filled_assignment(text: &str, placeholder: &str) -> Vec<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut found = Vec::new();
+    for (at, line) in lines.iter().enumerate() {
+        if !line.contains(placeholder) {
+            continue;
+        }
+        let head = if at > 0 && lines[at - 1].contains("<<'") {
+            at - 1
+        } else {
+            at
+        };
+        let end = if head < at { at + 1 } else { at };
+        found.push(lines[head..=end].join("\n"));
+    }
+    found
+}
+
+/// A list the model fills is text, never code: a `$(…)` in it runs nothing, under bash and zsh, and its words still
+/// reach the loop that reads it.
+#[test]
+fn a_model_filled_list_runs_nothing() {
+    let p = crate::harness::project("empty");
+    for (path, placeholder, var) in [
+        (
+            "gsd-core/workflows/review.md",
+            "{selected_reviewers}",
+            "SELECTED_REVIEWERS",
+        ),
+        (
+            "gsd-core/references/specless-probe-fallback.md",
+            "{phase_req_ids}",
+            "SPECLESS_REQ_IDS",
+        ),
+    ] {
+        let text = asset(path);
+        let holders = filled_assignment(&text, placeholder);
+        assert!(!holders.is_empty(), "{path}: no {placeholder}");
+        for holder in holders.iter().filter(|h| h.contains(var)) {
+            let filled = holder.replace(placeholder, "claude $(touch ran) `touch ran2` codex");
+            for shell in ["bash", "zsh"] {
+                let script = format!(
+                    "{filled}\nfor W in $(printf '%s' \"${var}\"); do printf '<%s>' \"$W\"; done"
+                );
+                let out = std::process::Command::new(shell)
+                    .current_dir(p.root())
+                    .args(["-f", "-c", &script])
+                    .stdin(std::process::Stdio::null())
+                    .output();
+                let Ok(out) = out else { continue };
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                assert!(
+                    !p.root().join("ran").exists() && !p.root().join("ran2").exists(),
+                    "{path} ({shell}): the list ran a command:\n{holder}"
+                );
+                assert!(
+                    stdout.starts_with("<claude>") && stdout.ends_with("<codex>"),
+                    "{path} ({shell}): {stdout}"
+                );
+            }
+        }
+    }
+}

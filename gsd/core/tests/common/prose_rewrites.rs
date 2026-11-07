@@ -215,4 +215,9 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         189,
     ),
     ("gsd-core/workflows/quick.md", 152, 152),
+    // a list the model fills is text in a quoted heredoc, never code inside double quotes
+    ("gsd-core/references/specless-probe-fallback.md", 46, 51),
+    ("gsd-core/workflows/review.md", 400, 402),
+    ("gsd-core/workflows/review.md", 570, 572),
+    ("gsd-core/workflows/review.md", 642, 646),
 ];

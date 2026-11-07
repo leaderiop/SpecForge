@@ -399,9 +399,9 @@ shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
 RUN_DIR="{run_dir}"
 REPO_ROOT="$(specforge git repo --pick .top 2>/dev/null || pwd)"
-SELECTED_REVIEWERS="{selected_reviewers}"   # the selected slugs, space-separated (ADR-0011 precedence:
-# explicit flags > --all > review.default_reviewers > all detected). Unchanged by this phase.
-
+read -r SELECTED_REVIEWERS <<'GSD_REVIEWERS' || true   # the selected slugs, space-separated, as text (ADR-0011 precedence: explicit flags > --all > review.default_reviewers > all detected). Unchanged by this phase.
+{selected_reviewers}
+GSD_REVIEWERS
 # #3034: opt-in concurrent lane dispatch. STRICT equality on "true" is deliberate — "1", "yes" and
 # "TRUE" must NOT opt in, so a mistyped config gets the conservative behaviour rather than firing
 # concurrent requests at a rate-limited provider. Note the `|| echo "false"` fallback is the
@@ -569,9 +569,9 @@ byproduct; a lane that never started or was budget-skipped contributes no line e
 ```bash
 RUN_DIR="{run_dir}"
 JSONL="$RUN_DIR/gsd-review-lane-results.jsonl"
-SELECTED_REVIEWERS="{selected_reviewers}"   # the slugs invoke_reviewers dispatched, space-separated
-
-
+read -r SELECTED_REVIEWERS <<'GSD_REVIEWERS' || true   # the slugs invoke_reviewers dispatched, space-separated, as text
+{selected_reviewers}
+GSD_REVIEWERS
 TOTAL_LANE_FAILURE="false"
 ALL_LANES_SKIPPED="false"
 if [ ! -s "$JSONL" ]; then
@@ -641,11 +641,11 @@ a threat id like `T-04-07` elsewhere in the review must not register as covering
 ```bash
 RUN_DIR="{run_dir}"
 # the plan ids are the phase's: `specforge gsd plan-coverage` reads them from the graph
-
-SELECTED_REVIEWERS="{selected_reviewers}"   # space-separated; a shell variable does not survive across fenced blocks
-# (each is its own process), so DISPATCH_SLUGS from the gate-check block above
-# cannot be assumed to still be set here. Same recomputation as that block and
-# as invoke_reviewers.
+# space-separated, as text; a shell variable does not survive across fenced blocks (each is its own process),
+# so DISPATCH_SLUGS from the gate-check block above cannot be assumed to still be set here. Same recomputation
+read -r SELECTED_REVIEWERS <<'GSD_REVIEWERS' || true   # as that block and as invoke_reviewers
+{selected_reviewers}
+GSD_REVIEWERS
 DISPATCH_SLUGS=""
 for SLUG in $(printf '%s' "$SELECTED_REVIEWERS"); do
   case " $DISPATCH_SLUGS " in
