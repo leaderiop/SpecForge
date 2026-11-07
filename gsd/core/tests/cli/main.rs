@@ -10,6 +10,8 @@ mod clock;
 mod assets_shell;
 mod baseline;
 // shells out through `bash` and links with `std::os::unix`
+#[path = "../common/asset_code.rs"]
+mod asset_code;
 #[cfg(unix)]
 mod capability_points;
 mod cmd_attest;

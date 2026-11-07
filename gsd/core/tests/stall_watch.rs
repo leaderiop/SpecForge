@@ -1,47 +1,31 @@
 //! The planner's stall watch: each watch cycle is one `specforge wait` call, since each host Bash call is a new shell,
 //! and its activity is the files a planner writes: `.spec` files, or the outline planner's outline.
 
-use std::path::{Path, PathBuf};
-
 use regex::Regex;
 
 #[path = "common/asset_code.rs"]
 mod asset_code;
+#[path = "common/command_word.rs"]
+mod command_word;
 #[path = "common/files.rs"]
 mod files;
+#[path = "common/specforge_only.rs"]
+mod specforge_only;
 
-use asset_code::{code_of, fenced_code};
+use asset_code::{assets_under, code_of, fenced_code};
 
 /// Every asset as `(path under assets/, its lines after the header)`.
 fn every_asset() -> Vec<(String, Vec<String>)> {
-    let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
-    files::under(&assets)
-        .into_iter()
-        .filter(|p| p.extension().is_some_and(|e| e == "md"))
-        .map(|p: PathBuf| {
-            let relative = p
-                .strip_prefix(&assets)
-                .expect("under assets")
-                .to_string_lossy()
-                .into_owned();
-            let text = std::fs::read_to_string(&p).expect("an asset");
-            (
-                relative,
-                text.split('\n').skip(1).map(String::from).collect(),
-            )
-        })
-        .collect()
+    assets_under("assets")
 }
+
 /// Each `(asset, function)` where an asset's code names a shell function another asset defines.
 fn functions_called_across_assets() -> Vec<(String, String)> {
-    let definition = Regex::new(r"^\s*([a-z_][a-z0-9_]*)\(\)\s*\{").expect("a regex");
     let assets = every_asset();
     let mut defined = Vec::new();
     for (path, lines) in &assets {
-        for (_, code) in fenced_code(lines) {
-            if let Some(name) = definition.captures(code) {
-                defined.push((path.clone(), name[1].to_string()));
-            }
+        for name in specforge_only::functions([&lines[..]]) {
+            defined.push((path.clone(), name));
         }
     }
     let mut found = Vec::new();

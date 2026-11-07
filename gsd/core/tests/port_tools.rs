@@ -47,18 +47,9 @@ fn upstream_body(relative: &str) -> Vec<String> {
 
 /// Every asset as `(path under assets/, its lines after the header, upstream's body)`.
 fn every_asset() -> Vec<(String, Vec<String>, Vec<String>)> {
-    let assets = root().join("assets");
-    files::under(&assets)
+    asset_code::assets_under("assets")
         .into_iter()
-        .filter(|p| p.extension().is_some_and(|e| e == "md"))
-        .map(|p| {
-            let relative = p
-                .strip_prefix(&assets)
-                .expect("under assets")
-                .to_string_lossy()
-                .into_owned();
-            let text = std::fs::read_to_string(&p).expect("an asset");
-            let lines: Vec<String> = text.split('\n').skip(1).map(String::from).collect();
+        .map(|(relative, lines)| {
             let body = upstream_body(&relative);
             (relative, lines, body)
         })

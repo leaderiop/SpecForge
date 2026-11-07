@@ -8,6 +8,8 @@
 
 use regex::Regex;
 
+#[path = "asset_code.rs"]
+mod asset_code;
 #[path = "command_word.rs"]
 mod command_word;
 #[path = "files.rs"]

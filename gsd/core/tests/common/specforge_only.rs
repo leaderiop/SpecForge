@@ -10,7 +10,8 @@
 
 use regex::Regex;
 
-use super::{command_word, files};
+use super::asset_code::{At, assets_under, walk};
+use super::command_word;
 
 /// What a block may run besides `specforge`: the shell's own keywords and builtins.
 pub const SHELL_WORDS: &[&str] = &[
@@ -70,22 +71,12 @@ pub fn assert_pending(hits: &[Row], listed: Vec<Row>) {
 /// Every asset of `@gsd/core`, and of `@gsd/security` under `../security/assets/`, as `(path, its lines after the
 /// header)`.
 pub fn shell_assets() -> Vec<(String, Vec<String>)> {
-    let mut out = Vec::new();
-    for (dir, label) in [
-        ("assets", ""),
-        ("../security/assets", "../security/assets/"),
-    ] {
-        let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(dir);
-        for p in files::under(&base)
-            .iter()
-            .filter(|p| p.extension().is_some_and(|e| e == "md"))
-        {
-            let relative = p.strip_prefix(&base).expect("under its base");
-            let text = std::fs::read_to_string(p).expect("an asset");
-            let lines = text.split('\n').skip(1).map(String::from).collect();
-            out.push((format!("{label}{}", relative.to_string_lossy()), lines));
-        }
-    }
+    let mut out = assets_under("assets");
+    out.extend(
+        assets_under("../security/assets")
+            .into_iter()
+            .map(|(path, lines)| (format!("../security/assets/{path}"), lines)),
+    );
     out
 }
 
@@ -99,48 +90,37 @@ pub fn shell_blocks(lines: &[String]) -> Vec<Vec<&str>> {
 
 /// [`shell_blocks`] with each fence's language (`bash`).
 pub fn shell_fences(lines: &[String]) -> Vec<(&str, Vec<&str>)> {
-    let mut out = Vec::new();
-    let mut fence: Option<(char, bool)> = None;
-    for line in lines {
-        let code = line.trim();
-        if code.starts_with("```") || code.starts_with("~~~") {
-            let mark = code.chars().next().unwrap_or('`');
-            fence = match fence {
-                None => {
-                    let language = code[3..].trim();
-                    let shell = matches!(language, "bash" | "sh" | "shell" | "zsh" | "powershell");
-                    if shell {
-                        out.push((language, Vec::new()));
-                    }
-                    Some((mark, shell))
-                }
-                Some((open, _)) if open == mark => None,
-                open => open,
-            };
+    let mut out: Vec<(usize, &str, Vec<&str>)> = Vec::new();
+    for (_, line, at) in walk(lines) {
+        let At::Fence { n, language } = at else {
+            continue;
+        };
+        if !matches!(language, "bash" | "sh" | "shell" | "zsh" | "powershell") {
             continue;
         }
-        if fence.is_some_and(|(_, shell)| shell) {
-            out.last_mut().expect("an open block").1.push(line.as_str());
+        match out.last_mut() {
+            Some((open, _, block)) if *open == n => block.push(line),
+            _ => out.push((n, language, vec![line])),
         }
     }
-    out
+    out.into_iter()
+        .map(|(_, language, block)| (language, block))
+        .collect()
 }
 
 /// The inline-code runs (`` `…` ``) of the lines outside a fence, with their line index.
 pub fn inline_runs(lines: &[String]) -> Vec<(usize, &str)> {
-    let mut out = Vec::new();
-    let mut fenced = false;
-    for (n, line) in lines.iter().enumerate() {
-        let text = line.trim();
-        if text.starts_with("```") || text.starts_with("~~~") {
-            fenced = !fenced;
-            continue;
-        }
-        if !fenced {
-            out.extend(text.split('`').skip(1).step_by(2).map(|run| (n, run)));
-        }
-    }
-    out
+    walk(lines)
+        .into_iter()
+        .filter(|(_, _, at)| *at == At::Prose)
+        .flat_map(|(n, line, _)| {
+            line.trim()
+                .split('`')
+                .skip(1)
+                .step_by(2)
+                .map(move |run| (n, run))
+        })
+        .collect()
 }
 
 /// The functions the shell fences of `texts` define (`name() {`, `function name() {`): the shell's own words too.

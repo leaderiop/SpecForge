@@ -9,6 +9,8 @@ use gsd_kit::prompt::args::Values;
 use regex::Regex;
 use roster::ROSTER;
 
+#[path = "common/asset_code.rs"]
+mod asset_code;
 #[path = "common/command_word.rs"]
 mod command_word;
 #[path = "common/files.rs"]
