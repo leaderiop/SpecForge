@@ -105,3 +105,22 @@ fn a_cycle_sees_a_spec_write_from_a_subdirectory() {
     writer.join().expect("the planner");
     assert_eq!((out.trim(), code), ("changed", 0), "{err}");
 }
+
+/// A cycle that cannot watch says so, and exits with its own code: a refusal (no temp root yet), or an interval
+/// `specforge wait` does not take. The orchestrator stops and reports it, never `active` or `stalled`.
+#[test]
+fn a_cycle_that_cannot_watch_says_so() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let dir = project();
+    let home = dir.path().join("home");
+    for (glob, interval, exit) in [(OUTLINE, "0", 1), ("**/*.spec", "1441m", 2)] {
+        let (out, err, code) = sh.run_in(dir.path(), &cycle(glob, interval, &home));
+        assert_eq!(
+            (out.trim().to_string(), code),
+            (format!("unwatched: exit {exit}"), exit),
+            "{glob} {interval}: {err}"
+        );
+    }
+}

@@ -272,3 +272,17 @@ fn a_decimal_threshold_is_still_bounded() {
     assert_eq!(set.code, 1, "{}", set.all());
     assert!(set.all().contains("E086"), "{}", set.all());
 }
+
+/// The planner's stall interval is at most a day, the longest `specforge wait` takes: a longer one refuses when it is
+/// set, not at every watch cycle.
+#[test]
+fn the_stall_interval_is_at_most_a_day() {
+    let p = project("empty");
+    p.settings(serde_json::json!({}));
+    let key = "planner.stall_detect_interval_minutes";
+    let set = p.run(&["settings", "set", "@gsd/core", key, "1441"]);
+    assert_eq!(set.code, 1, "{}", set.all());
+    assert!(set.all().contains("E086"), "{}", set.all());
+    let set = p.run(&["settings", "set", "@gsd/core", key, "1440"]);
+    assert_eq!(set.code, 0, "{}", set.all());
+}

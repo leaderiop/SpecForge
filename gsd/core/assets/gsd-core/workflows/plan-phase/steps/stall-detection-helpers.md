@@ -28,7 +28,7 @@ one for the spawn's mode, its settings filled in: it waits one `planner.stall_de
 interval, then looks once for a file written during it where that planner writes: `**/*.spec`
 from the project root (GSD on SpecForge writes plans and their tasks as entities in `.spec` files),
 or the outline planner's outline, a temp file. It prints `changed` (exit 0: the spawn is
-**active**) or `deadline` (exit 124: the interval was **quiet**).
+**active**) or `deadline` (exit 124: the interval was **quiet**). Any other exit means the cycle could not watch (a refusal, a bad setting, no `specforge`): it prints `unwatched: exit <n>`, the refusal on stderr; stop and report it, never classify it `active` or `stalled`.
 
 **After each cycle, read `{outputFile}` with the Read tool (load-bearing, not
 optional):** `{outputFile}` is the REAL path the immediately preceding
@@ -101,13 +101,13 @@ PLANNER_STALL_THRESHOLD_MINUTES="{{setting:planner.stall_threshold_minutes|10}}"
 The watch cycle, one Bash call each time (the settings are filled in, since no shell variable outlives a call), for a planner that writes entities (step 8, a chunked single-plan planner, a revision) and for a plan-checker:
 
 ```bash
-CYCLE_START=$(specforge wait --for "{{setting:planner.stall_detect_interval_minutes|5}}m" --pick .started_at) && specforge wait --for 0 --changed '**/*.spec' --since "$CYCLE_START" --pick .reason
+CYCLE_START=$(specforge wait --for "{{setting:planner.stall_detect_interval_minutes|5}}m" --pick .started_at) && specforge wait --for 0 --changed '**/*.spec' --since "$CYCLE_START" --pick .reason || { rc=$?; [ "$rc" = 124 ] || echo "unwatched: exit $rc"; exit "$rc"; }
 ```
 
 The outline watch cycle, for the chunked outline planner (§8.5.1), which writes only its outline, a temp file `specforge files temp --name` made:
 
 ```bash
-CYCLE_START=$(specforge wait --for "{{setting:planner.stall_detect_interval_minutes|5}}m" --pick .started_at) && specforge wait --for 0 --changed '.specforge/tmp/gsd-outline-*.md' --since "$CYCLE_START" --pick .reason
+CYCLE_START=$(specforge wait --for "{{setting:planner.stall_detect_interval_minutes|5}}m" --pick .started_at) && specforge wait --for 0 --changed '.specforge/tmp/gsd-outline-*.md' --since "$CYCLE_START" --pick .reason || { rc=$?; [ "$rc" = 124 ] || echo "unwatched: exit $rc"; exit "$rc"; }
 ```
 
 

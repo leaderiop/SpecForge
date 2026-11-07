@@ -242,7 +242,7 @@ pub const KEYS: &[Key] = &[
     s("phase_naming", Some("sequential"), "How phase directories are named."),
     b("plan_review.source_grounding", Some(true), "Enable the plan drift guard."),
     e("plan_review.source_grounding_authority", &["grep", "intel", "treesitter", "lsp", "scip"], Some("grep"), "Selects the resolver adapter used to verify symbol existence."),
-    i("planner.stall_detect_interval_minutes", 1, None, Some(5), "Minutes between planner stall checks."),
+    i("planner.stall_detect_interval_minutes", 1, Some(1440), Some(5), "Minutes between planner stall checks."),
     b("planner.stall_detection_enabled", Some(true), "Detect stalled planner and plan-checker agents."),
     i("planner.stall_threshold_minutes", 1, None, Some(10), "Minutes without planner progress before plan-phase offers recovery."),
     b("planning.chunked_parallel", Some(false), "Opt-in concurrent per-plan planners in chunked mode."),
