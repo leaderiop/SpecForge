@@ -1,6 +1,6 @@
 //! The branch a phase or a milestone executes on, from `git.branching_strategy`, its template and one slug.
 //!
-//! D-s1-07-6: a computed field, not a command answer (`gsd branch-name <id>`): every reader already queries the phase,
+//! A computed field, not a command answer (`gsd branch-name <id>`): every reader already queries the phase,
 //! and the value follows the settings with no call to keep in step. This is the first pass to read the settings.
 
 use std::collections::BTreeMap;

@@ -1,9 +1,9 @@
 //! `branch_check [--agent]`: whether the branch `HEAD` is on may take a commit, from the git port and the settings, over
 //! the one rule in [`crate::branch`]. Read-only; git reads inside the project need no approval (ADR 0335 D2.4).
 //!
-//! - D-s1-07-4 (`[agent-namespace-one-rule]`): isolation's agent namespace, with `worktree-wf_`, for both hooks and
+//! - `[agent-namespace-one-rule]`: isolation's agent namespace, with `worktree-wf_`, for both hooks and
 //!   this answer (upstream's workflow guard has two prefixes).
-//! - D-s1-07-5 (`[protected-set]`): four names plus `release/…`, `git.protected_branches` and `git.base_branch`. The
+//! - `[protected-set]`: four names plus `release/…`, `git.protected_branches` and `git.base_branch`. The
 //!   override changes `blocks_commit`, not `protected`, so ship's and the `none` strategy's warnings still show on
 //!   `main`.
 //!

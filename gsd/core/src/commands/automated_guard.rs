@@ -1,10 +1,10 @@
 //! `automated_guard <command> [--common-dir D]`: whether a plan's `<automated>` command leaves the worktree it is meant
 //! to verify, read as the shell's words and never run. Read-only.
 //!
-//! - D-s1-07-7 (where the words come from): the reader lives in `specforge-protocol-types`, which host and guest both
+//! - Where the words come from: the reader lives in `specforge-protocol-types`, which host and guest both
 //!   link, so there is one reader and no wire change, and a nested `bash -c '…'` is read too, which a host input of one
 //!   arg would not reach. ADR 0292 D4 still holds: hooks get the words from the host.
-//! - D-s1-07-8 (fail closed, `[guard-reads-words]`): an unreadable command halts; upstream's regexes read it anyway. The
+//! - Fail closed, `[guard-reads-words]`: an unreadable command halts; upstream's regexes read it anyway. The
 //!   words also close upstream's stated limits: quoted boundaries, keywords, `command`/`exec`, `--` before a flag.
 //!
 //! shortcut: a target is resolved lexically and a link is seen only inside the project, through the file port; a link

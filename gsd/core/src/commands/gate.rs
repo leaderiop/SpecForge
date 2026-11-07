@@ -2,12 +2,12 @@
 //! (`post-merge-gate.md`, `regression-gate-run.md`, gsd-core v1.19.0, MIT, `LICENSE-GSD`). Read-only: it reads the
 //! project's markers through declared file reads (ADR 0293) and answers the words, so nothing re-parses a file name.
 //!
-//! - D-s1-07-1 (`[gate-argv]`): an argv, run as `specforge run -- "${ARGV[@]}"`, instead of a string under `bash -c`.
+//! - `[gate-argv]`: an argv, run as `specforge run -- "${ARGV[@]}"`, instead of a string under `bash -c`.
 //!   The user's own `workflow.<target>_command` is the one shell string, by its contract ("any shell command").
-//! - D-s1-07-2 (`[gate-simulator]`): a command runs no process (ADR 0335 D2.2), so the block hands in the text of
+//! - `[gate-simulator]`: a command runs no process (ADR 0335 D2.2), so the block hands in the text of
 //!   `xcodebuild -list -json` and `xcrun simctl list devices available -j`; the simulator is the newest iOS runtime's
 //!   first available device.
-//! - D-s1-07-3 (`[gate-uv-lock]`, `[gate-build-script]`): pytest goes through `uv run` when `uv.lock` exists, instead
+//! - `[gate-uv-lock]`, `[gate-build-script]`: pytest goes through `uv run` when `uv.lock` exists, instead
 //!   of re-running a failed suite under uv; the build's package arm reads `scripts.build`, not a `"build"` anywhere.
 //!
 //! The package manager is a port of `resolvePackageManagerCommand` (`src/normalize-test-command.cts`, #5346):

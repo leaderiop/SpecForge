@@ -1,6 +1,6 @@
 //! Where a shell command moves, read from its words and never run: the walk `automated_guard` judges and verify-path
 //! grounding reads. It reads the shell's words (ADR 0292, [`shell`]), so quoted text is no boundary: a guest links the
-//! reader from `specforge-protocol-types` (D-s1-07-7), which also reaches a nested `bash -c '…'` that a host input of
+//! reader from `specforge-protocol-types`, which also reaches a nested `bash -c '…'` that a host input of
 //! one arg would not. The tables below are fixed sets, and what they leave out passes: `worktree-path-safety.md` step 0c
 //! states that boundary.
 
