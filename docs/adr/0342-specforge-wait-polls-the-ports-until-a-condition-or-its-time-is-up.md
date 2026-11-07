@@ -36,9 +36,9 @@ MCP tool (ADR 0339 D1). The kernel knows nothing of servers, planners or quotas.
   grant (E090) and as an `http(s)` URL with a host, each path by the roots (`outside_root`), the glob as `files list`
   reads one and the pattern as `files search` reads one (`invalid_input`). A refusal exits 1 at once.
 - **The poll.** The conditions are checked at once, then after 100 ms, the pause doubling to at most 1 s, and once
-  more at the deadline. `--for 0` checks once. The first check runs every condition, so each one's refusal comes
-  before any time passes; later checks stop at the first that holds. The files are checked first, since a probe may
-  take its whole timeout, so when several hold in one check the reason is `changed`, then `matched`, then `answered`.
+  more at the deadline. `--for 0` checks once. Each check asks the conditions in turn and stops at the first that
+  holds, so a condition that holds ends the wait before a probe starts. The files are asked first, since a probe may
+  take its whole timeout: `changed`, then `matched`, then `answered`.
 - **`--url`** sends a `GET` through `specforge http`'s request (`verbs::http::request`), its body read as `http`
   reads one (1 MiB at most) and not shown: the record keeps the answer only when it fits. A probe's
   timeout is the wait's `--for`, at least 1 s and at most 10 s: the same for every probe, since the request (so its

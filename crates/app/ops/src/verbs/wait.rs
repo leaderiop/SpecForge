@@ -208,34 +208,31 @@ pub fn wait(
         .as_ref()
         .map(|changed| Watched::judged(verbs, changed, started_at))
         .transpose()?;
-    if let Some(matching) = &wait.matching {
-        let (located, _) = verbs.held(&matching.file, FsOp::Stat)?;
-        verbs.beyond_machine_roots(&located, "wait")?;
-    }
+    let searching = wait
+        .matching
+        .as_ref()
+        .map(|matching| searched(verbs, matching))
+        .transpose()?;
     let mut url = Probing::new(verbs, wait);
     let mut changed = None;
     let mut matched = None;
     let conditions = wait.url.is_some() || wait.changed.is_some() || wait.matching.is_some();
-    let mut first = true;
     let (reason, polls) = polled(wait.for_, conditions, poll, clock, || {
-        // The first check runs every condition, so each one's refusal comes before any time passes; the files first,
+        // Each condition in turn, the first that holds ending the check before the next is asked: the files first,
         // since a probe may take its whole timeout.
-        let every = std::mem::take(&mut first);
-        let mut held = None;
         if let Some(watched) = &watched {
             changed = watched.changed(verbs)?;
-            held = held.or(changed.as_ref().map(|_| Reason::Changed));
+            if changed.is_some() {
+                return Ok(Some(Reason::Changed));
+            }
         }
-        if let Some(matching) = &wait.matching
-            && (every || held.is_none())
-        {
-            matched = matched_line(verbs, matching)?;
-            held = held.or(matched.as_ref().map(|_| Reason::Matched));
+        if let Some(search) = &searching {
+            matched = matched_line(verbs, search)?;
+            if matched.is_some() {
+                return Ok(Some(Reason::Matched));
+            }
         }
-        if wait.url.is_some() && (every || held.is_none()) && url.answered()? {
-            held = held.or(Some(Reason::Answered));
-        }
-        Ok(held)
+        Ok((wait.url.is_some() && url.answered()?).then_some(Reason::Answered))
     })?;
     Ok(Answered {
         answer: WaitAnswer {
@@ -245,8 +242,8 @@ pub fn wait(
             for_ms: millis(wait.for_),
             polls,
             url: url.last,
-            changed: changed.filter(|_| reason == Reason::Changed),
-            matched: matched.filter(|_| reason == Reason::Matched),
+            changed,
+            matched,
         },
         effect: url.effect.unwrap_or_else(Effect::performed),
     })
@@ -419,29 +416,35 @@ impl Watched {
     }
 }
 
-/// The first line of `--in` that `--match` matches, searched as `files search` searches; none when none does, or the
-/// file does not exist yet.
-fn matched_line(verbs: &Verbs, matching: &Matching) -> Result<Option<Matched>, OpError> {
-    let answer = files::search(
-        verbs,
-        &Search {
-            pattern: matching.pattern.clone(),
-            paths: vec![matching.file.clone()],
-            globs: Vec::new(),
-            ignore: true,
-            hidden: false,
-            ignore_case: false,
-            fixed: false,
-            invert: false,
-            multiline: false,
-            before: 0,
-            after: 0,
-            and_not: Vec::new(),
-            mode: SearchMode::Lines,
-            max: 1,
-            stdin: Stdin::default(),
-        },
-    )?;
+/// `--match --in` as `files search` reads it, judged before any time passes: the file held to the roots and the
+/// pattern parsed.
+fn searched(verbs: &Verbs, matching: &Matching) -> Result<Search, OpError> {
+    let (located, _) = verbs.held(&matching.file, FsOp::Stat)?;
+    verbs.beyond_machine_roots(&located, "wait")?;
+    let search = Search {
+        pattern: matching.pattern.clone(),
+        paths: vec![matching.file.clone()],
+        globs: Vec::new(),
+        ignore: true,
+        hidden: false,
+        ignore_case: false,
+        fixed: false,
+        invert: false,
+        multiline: false,
+        before: 0,
+        after: 0,
+        and_not: Vec::new(),
+        mode: SearchMode::Lines,
+        max: 1,
+        stdin: Stdin::default(),
+    };
+    files::checked_patterns(&search)?;
+    Ok(search)
+}
+
+/// The first line `search` finds; none when none matches, or the file does not exist yet.
+fn matched_line(verbs: &Verbs, search: &Search) -> Result<Option<Matched>, OpError> {
+    let answer = files::search(verbs, search)?;
     Ok(answer.matches.into_iter().next().map(|found| Matched {
         path: found.path,
         line: found.line,

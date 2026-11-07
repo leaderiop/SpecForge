@@ -440,6 +440,15 @@ fn matcher(search: &Search, pattern: &str) -> Result<RegexMatcher, OpError> {
         .map_err(|error| invalid(format!("the pattern does not parse: {error}")))
 }
 
+/// `search`'s patterns judged as [`search`] reads them, before anything is searched: `invalid_input` names one that
+/// does not parse.
+pub(in crate::verbs) fn checked_patterns(search: &Search) -> Result<(), OpError> {
+    for pattern in std::iter::once(&search.pattern).chain(&search.and_not) {
+        matcher(search, pattern)?;
+    }
+    Ok(())
+}
+
 /// The answer one file's search adds to: each match the searcher reports, with its context, until the answer holds
 /// `max`.
 struct Found<'a> {

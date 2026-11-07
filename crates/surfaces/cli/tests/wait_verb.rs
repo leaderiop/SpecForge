@@ -476,3 +476,52 @@ fn a_retry_after_value_is_read_in_every_form() {
         Cli::on(&project).run(args).exits(2);
     }
 }
+
+/// A condition that holds ends the wait before a probe starts: a file already written ends it with no request sent to
+/// a server that would never answer.
+#[test]
+fn a_condition_that_holds_ends_the_wait_before_any_probe() {
+    let project = TestProject::new().file("watched/a.txt", "x");
+    let silent = Server::serve(|_, _, _| std::thread::sleep(Duration::from_secs(30)));
+    let began = Instant::now();
+    let answer = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "30s",
+            "--url",
+            &silent.base,
+            "--changed",
+            "watched/*.txt",
+            "--since",
+            "0",
+        ])
+        .exits(0)
+        .answer();
+    assert_eq!(answer["reason"], "changed", "{answer}");
+    assert!(answer.get("url").is_none(), "{answer}");
+    assert!(began.elapsed() < Duration::from_secs(5));
+    assert!(silent.requests().is_empty(), "a probe was sent");
+    // A bad pattern is judged before any check, a condition that holds or not.
+    let refused = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "30s",
+            "--changed",
+            "watched/*.txt",
+            "--since",
+            "0",
+            "--match",
+            "(",
+            "--in",
+            "log.txt",
+        ])
+        .exits(1);
+    assert_eq!(
+        refused.json()["code"],
+        "invalid_input",
+        "{}",
+        refused.stdout
+    );
+}

@@ -15,6 +15,7 @@ use crate::{OpError, OpErrorKind};
 
 mod search;
 
+pub(in crate::verbs) use search::checked_patterns;
 pub use search::{
     Context, Counted, LINE_CHARS, Match, SEARCH_BYTES, SEARCH_MAX, Search, SearchAnswer,
     SearchMode, Stdin, Unread, UnreadWhy, search,
