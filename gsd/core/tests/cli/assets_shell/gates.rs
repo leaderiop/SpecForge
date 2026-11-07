@@ -489,3 +489,29 @@ fn ships_wait_for_the_pr_prints_nothing_and_keeps_its_exit() {
         );
     }
 }
+
+/// execute-plan's blocker fence reads the person's words through a quoted heredoc, whose `read -rd ''` keeps the
+/// heredoc's last newline: the blocker records the words alone, with no newline after them.
+#[test]
+fn a_blocker_raised_from_execute_plan_holds_the_words_alone() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = crate::commands_support::twin();
+    let text = asset("gsd-core/workflows/execute-plan.md");
+    let start = text
+        .lines()
+        .position(|l| l.starts_with("IFS= read -rd '' BLOCKER_TEXT"))
+        .expect("the blocker fence");
+    let fence = text
+        .lines()
+        .skip(start)
+        .take(3)
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(fence.ends_with("\nGSD_BLOCKER_END"), "{fence}");
+    let fence = fence.replace("<the blocker, verbatim>", "The file format is undecided");
+    let (out, err, code) = sh.run_in(p.root(), &format!("PHASE=02\n{fence}"));
+    assert_eq!(code, 0, "{out}{err}");
+    assert_eq!(p.fields_of("BL1")["text"], "The file format is undecided");
+}
