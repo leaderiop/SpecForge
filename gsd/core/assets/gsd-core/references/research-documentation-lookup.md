@@ -29,4 +29,4 @@ When you need library or framework documentation, check in this order:
 
 Exit 127 means ctx7 is not installed: say so once, then read the library's official docs with the
 host's web fetch. Never install ctx7 or download it with npx: that silently runs an unverified
-package from the registry; the user may install it after checking the package.
+package from the registry; the user may install it after checking the package. `specforge run` runs only a ctx7 it finds through an absolute PATH entry, and passes it your whole environment, secrets included: it cannot narrow it to ctx7's own `CONTEXT7_API_KEY`.

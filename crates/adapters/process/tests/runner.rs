@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use specforge_effects::process::request;
 use specforge_effects::{Output, Process, ProcessClass, ProcessRequest};
-use specforge_process::{Runner, inherited, resolve, secret};
+use specforge_process::{Located, Runner, inherited, locate, secret};
 
 fn run(request: &ProcessRequest) -> specforge_effects::ProcessOutcome {
     Runner.run(request, &std::env::temp_dir(), Output::Buffer)
@@ -283,17 +283,88 @@ fn a_cmd_shim_resolves_through_pathext() {
     // Spelled as `PATHEXT` spells it, so a disk whose names keep their case (Linux) finds it too.
     std::fs::write(dir.path().join("shim.CMD"), "@exit /b 3\r\n").unwrap();
     let path = std::env::join_paths([Path::new("/nowhere"), dir.path()]).unwrap();
+    let base = std::env::temp_dir();
     // PATHEXT spells the extension (`.CMD`): Windows file names ignore case, so compare as it does.
-    let found = |pathext: Option<&str>| {
-        resolve("shim", Some(&path), pathext.map(AsRef::as_ref))
-            .map(|p| p.to_string_lossy().to_lowercase())
+    let found = |pathext: &str| match locate("shim", Some(&path), Some(pathext.as_ref()), &base) {
+        Located::At(p) => Some(p.to_string_lossy().to_lowercase()),
+        _ => None,
     };
     let shim = Some(dir.path().join("shim.CMD").to_string_lossy().to_lowercase());
-    assert_eq!(found(None), shim);
-    assert_eq!(resolve("other", Some(&path), None), None);
+    assert_eq!(found(".COM;.EXE;.BAT;.CMD"), shim);
+    assert_eq!(
+        locate("other", Some(&path), Some(".CMD".as_ref()), &base),
+        Located::Missing
+    );
     // The request's PATHEXT decides: one that names no `.cmd` finds no shim.
-    assert_eq!(found(Some(".EXE")), None);
-    assert_eq!(found(Some(".BAT;.CMD")), shim);
+    assert_eq!(found(".EXE"), None);
+    assert_eq!(found(".BAT;.CMD"), shim);
+}
+
+/// A bare name resolves only through absolute `PATH` entries: one planted where a relative or an empty entry points
+/// (from the directory the program runs in) is never chosen, and is named so the refusal can say which entry.
+#[test]
+fn a_bare_name_skips_relative_and_empty_path_entries() {
+    let base = tempfile::tempdir().unwrap();
+    let planted = base.path().join("bin");
+    std::fs::create_dir_all(&planted).unwrap();
+    for name in ["tool", "tool.cmd"] {
+        let file = planted.join(name);
+        std::fs::write(&file, "#!/bin/sh\nexit 0\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+    }
+    let empty = tempfile::tempdir().unwrap();
+    let pathext = specforge_process::pathext(None);
+    let located =
+        |path: &std::ffi::OsStr, base: &Path| locate("tool", Some(path), pathext.as_deref(), base);
+    let relative = std::env::join_paths([Path::new("bin"), empty.path()]).unwrap();
+    assert_eq!(
+        located(&relative, base.path()),
+        Located::Relative("bin".into())
+    );
+    // An empty entry is the directory the program runs in.
+    let blank = std::env::join_paths([Path::new(""), empty.path()]).unwrap();
+    assert_eq!(located(&blank, &planted), Located::Relative("".into()));
+    // An absolute entry after a relative one answers the name.
+    let installed = std::env::join_paths([Path::new("bin"), &planted]).unwrap();
+    assert!(
+        matches!(located(&installed, empty.path()), Located::At(at) if at.starts_with(&planted))
+    );
+    // A name with a directory is the caller's own choice, taken as written.
+    let named = planted.join("tool");
+    assert!(matches!(
+        locate(
+            &named.to_string_lossy(),
+            None,
+            pathext.as_deref(),
+            empty.path()
+        ),
+        Located::At(_)
+    ));
+    let refusal = Located::refusal("tool", Path::new("bin"));
+    assert!(
+        refusal.contains("`bin`") && refusal.contains("absolute directory on PATH"),
+        "{refusal}"
+    );
+    // The runner refuses it rather than run it.
+    let outcome = Runner.run(
+        &ProcessRequest {
+            env: vec![specforge_effects::EnvVar {
+                name: "PATH".into(),
+                value: Some(relative.to_string_lossy().into_owned()),
+            }],
+            ..request(["tool"], Duration::from_secs(5))
+        },
+        base.path(),
+        Output::Buffer,
+    );
+    assert!(
+        matches!(&outcome.class, ProcessClass::CannotStart(why) if why.contains("relative PATH entry")),
+        "{outcome:?}"
+    );
 }
 
 #[cfg(windows)]
