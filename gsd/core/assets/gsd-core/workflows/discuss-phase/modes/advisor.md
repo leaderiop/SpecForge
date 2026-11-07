@@ -46,11 +46,11 @@ Resolve advisor model:
 
 ## Non-technical owner detection
 
-With `@gsd/ops` loaded, check its USER-PROFILE.md for product-owner signals (none with `@gsd/core` alone):
+Read `~/.claude/gsd-core/USER-PROFILE.md` with your Read tool when it exists (it is the user's, written by `@gsd/ops`, outside the project's roots, which no block reaches) and check it for product-owner signals; with no such file there are none:
 
-```bash
-PROFILE_CONTENT=""   # USER-PROFILE.md is @gsd/ops's: not loaded with @gsd/core alone
-```
+
+
+
 
 Set `NON_TECHNICAL_OWNER = true` if ANY of the following are present:
 - `learning_style: guided`

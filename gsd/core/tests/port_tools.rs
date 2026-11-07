@@ -718,3 +718,28 @@ fn no_line_probes_for_a_program() {
     }
     assert!(found.is_empty(), "probes:\n{}", found.join("\n"));
 }
+
+/// A host file outside the roots (the user's profile, upstream's global defaults) is read with the host's Read tool
+/// when it exists (ADR 0343 D9): no block reaches it, and no fence stands in for it with an empty value.
+#[test]
+fn a_host_file_outside_the_roots_is_read_with_the_read_tool() {
+    for (path, file, stand_in) in [
+        (
+            "gsd-core/workflows/discuss-phase/modes/advisor.md",
+            "~/.claude/gsd-core/USER-PROFILE.md",
+            "PROFILE_CONTENT=",
+        ),
+        (
+            "gsd-core/workflows/new-project.md",
+            "${GSD_HOME:-$HOME}/.gsd/defaults.json",
+            "DEFAULTS_JSON=",
+        ),
+    ] {
+        let text = std::fs::read_to_string(root().join("assets").join(path)).expect("an asset");
+        let says = text
+            .lines()
+            .any(|l| l.contains(&format!("`{file}`")) && l.contains("with your Read tool"));
+        assert!(says, "{path}: no line reads {file} with the Read tool");
+        assert!(!text.contains(stand_in), "{path}: a fence sets {stand_in}");
+    }
+}
