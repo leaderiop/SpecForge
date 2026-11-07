@@ -158,7 +158,7 @@ INIT_CM=$(specforge query "$MILESTONE" --depth 1 --format json)
 
 ```
 
-Extract `branching_strategy`, `phase_branch_template`, `milestone_branch_template`, and `commit_docs` from init JSON. Extract `git_create_tag` and `section_manifest` from `INIT_CM` (used by the `git_tag` step below).
+The strategy is `git.branching_strategy` and each branch the computed `branch` of its phase or milestone. Extract `commit_docs` from init JSON. Extract `git_create_tag` and `section_manifest` from `INIT_CM` (used by the `git_tag` step below).
 
 `BASE_BRANCH` is already resolved by the spine at this point (via the shared `git.base-branch` resolver) — the branch options below use it as-is.
 
@@ -167,15 +167,15 @@ Extract `branching_strategy`, `phase_branch_template`, `milestone_branch_templat
 **For "phase" strategy:**
 
 ```bash
-BRANCH_PREFIX=$(echo "$PHASE_BRANCH_TEMPLATE" | sed 's/{.*//')
-PHASE_BRANCHES=$(for b in $(specforge git branches --pick '.branches[].name' 2>/dev/null); do case $b in ("${BRANCH_PREFIX}"*) echo "$b";; esac; done)
+BRANCHING_STRATEGY="{{setting:git.branching_strategy|none}}"   # git.branching_strategy (the settings)
+PHASE_BRANCHES=$(for b in $(specforge query "$MILESTONE" --depth 1 --kinds phase --pick '.nodes[kind=phase].fields.branch'); do [ "$(specforge git rev "refs/heads/$b" --pick '.revs[0].exists')" = true ] && echo "$b"; done)
 ```
 
 **For "milestone" strategy:**
 
 ```bash
-BRANCH_PREFIX=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed 's/{.*//')
-MILESTONE_BRANCH=$(for b in $(specforge git branches --pick '.branches[].name' 2>/dev/null); do case $b in ("${BRANCH_PREFIX}"*) echo "$b"; break;; esac; done)
+BRANCHING_STRATEGY="{{setting:git.branching_strategy|none}}"   # git.branching_strategy (the settings)
+MILESTONE_BRANCH=$(b=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.branch'); [ "$(specforge git rev "refs/heads/$b" --pick '.revs[0].exists')" = true ] && echo "$b")
 ```
 
 **If no branches found:** Skip to git_tag.

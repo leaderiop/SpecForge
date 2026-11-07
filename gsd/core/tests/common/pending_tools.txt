@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 109 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 95 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
 agents/gsd-executor.md	grep	git status --short | grep '^??'
@@ -16,18 +16,6 @@ agents/gsd-verifier.md	grep	node -e "const m = require('$MODULE_PATH'); console.
 agents/gsd-verifier.md	grep	cargo test -- --list 2>/dev/null | grep -q "$PHASE_TEST_PATTERN"   # pytest --collect-only -q · npx vitest list · go test -list '.*'
 gsd-core/references/agent-contracts.md	wc	wc -l
 gsd-core/references/checkpoints.md	seq	for i in $(seq 1 30); do node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null && break; sleep 1; done
-gsd-core/references/planning-config.md	sed	PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-gsd-core/references/planning-config.md	sed	PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-gsd-core/references/planning-config.md	sed	PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-gsd-core/references/planning-config.md	sed	BRANCH_NAME=$(echo "$PHASE_BRANCH_TEMPLATE" | sed "s/{phase}/$PADDED_PHASE/g" | sed "s/{slug}/$PHASE_SLUG/g")
-gsd-core/references/planning-config.md	sed	BRANCH_NAME=$(echo "$PHASE_BRANCH_TEMPLATE" | sed "s/{phase}/$PADDED_PHASE/g" | sed "s/{slug}/$PHASE_SLUG/g")
-gsd-core/references/planning-config.md	sed	MILESTONE_SLUG=$(echo "$MILESTONE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-gsd-core/references/planning-config.md	sed	MILESTONE_SLUG=$(echo "$MILESTONE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-gsd-core/references/planning-config.md	sed	MILESTONE_SLUG=$(echo "$MILESTONE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-gsd-core/references/planning-config.md	sed	BRANCH_NAME=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed "s/{milestone}/$MILESTONE_VERSION/g" | sed "s/{slug}/$MILESTONE_SLUG/g")
-gsd-core/references/planning-config.md	sed	BRANCH_NAME=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed "s/{milestone}/$MILESTONE_VERSION/g" | sed "s/{slug}/$MILESTONE_SLUG/g")
-gsd-core/references/planning-config.md	tr	PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-gsd-core/references/planning-config.md	tr	MILESTONE_SLUG=$(echo "$MILESTONE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
 gsd-core/references/specless-probe-fallback.md	cat	cat > "$REQS_JSON" <<'JSON'
 gsd-core/references/specless-probe-fallback.md	grep	EDGE_ABSENT=1;   node "$SPEC_SECTION_JS" "$SPEC_FILE" edges       2>/dev/null | grep -q '"supplied":true' && EDGE_ABSENT=0
 gsd-core/references/specless-probe-fallback.md	grep	PROHIB_ABSENT=1; node "$SPEC_SECTION_JS" "$SPEC_FILE" prohibitions 2>/dev/null | grep -q '"supplied":true' && PROHIB_ABSENT=0
@@ -46,8 +34,6 @@ gsd-core/references/worktree-path-safety.md	sed	BODY=$(printf '%s' "$RAW" | sed 
 gsd-core/references/worktree-path-safety.md	sed	| sed -E 's/^[[:space:]]*(-C|--chdir)([[:space:]]+|=)//' || true)
 gsd-core/templates/user-setup.compact.md	grep	grep -r "USER-SETUP" the spec finds all phases with user requirements.
 gsd-core/templates/user-setup.md	grep	grep -r "USER-SETUP" the spec finds all phases with user requirements.
-gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	BRANCH_PREFIX=$(echo "$PHASE_BRANCH_TEMPLATE" | sed 's/{.*//')
-gsd-core/workflows/complete-milestone/detail/elaboration.md	sed	BRANCH_PREFIX=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed 's/{.*//')
 gsd-core/workflows/execute-phase.md	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
 gsd-core/workflows/execute-phase/steps/regression-gate.md	cat	cat > "$_GSD_HANDOFF/regression-files" <<'GSD_REGRESSION_FILES'
 gsd-core/workflows/execute-plan.md	grep	PHASE=$(echo "$PLAN_PATH" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*-[0-9]+')

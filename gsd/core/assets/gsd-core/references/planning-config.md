@@ -195,18 +195,18 @@ To use uncommitted mode:
 
 **Checking the config:**
 
-Use `init execute-phase` which returns all config as JSON:
+The settings hold the strategy and the templates:
 ```bash
-INIT=$(specforge query "$MILESTONE/01" --depth 1 --format json)
+BRANCHING_STRATEGY="{{setting:git.branching_strategy|none}}"   # git.branching_strategy (the settings)
 
-# JSON output includes: branching_strategy, phase_branch_template, milestone_branch_template
+# The templates are git.phase_branch_template and git.milestone_branch_template
 ```
 
-Or use `state load` for the config values:
+A phase and a milestone compute the name from them, as their `branch` field:
 ```bash
-INIT=$(specforge gsd progress-report --format json)
+BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.branch')
 
-# Parse branching_strategy, phase_branch_template, milestone_branch_template from JSON
+# Absent under the "none" strategy and on a backlog phase
 ```
 
 **Branch creation:**
@@ -214,15 +214,15 @@ INIT=$(specforge gsd progress-report --format json)
 ```bash
 # For phase strategy
 if [ "$BRANCHING_STRATEGY" = "phase" ]; then
-  PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-  BRANCH_NAME=$(echo "$PHASE_BRANCH_TEMPLATE" | sed "s/{phase}/$PADDED_PHASE/g" | sed "s/{slug}/$PHASE_SLUG/g")
+  BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.branch')
+
   specforge git switch "$BRANCH_NAME" --create --pick .branch 2>/dev/null || specforge git switch "$BRANCH_NAME"
 fi
 
 # For milestone strategy
 if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
-  MILESTONE_SLUG=$(echo "$MILESTONE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-  BRANCH_NAME=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed "s/{milestone}/$MILESTONE_VERSION/g" | sed "s/{slug}/$MILESTONE_SLUG/g")
+  BRANCH_NAME=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.branch')
+
   specforge git switch "$BRANCH_NAME" --create --pick .branch 2>/dev/null || specforge git switch "$BRANCH_NAME"
 fi
 ```

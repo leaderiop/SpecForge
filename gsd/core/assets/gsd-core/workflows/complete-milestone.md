@@ -523,7 +523,7 @@ See: the `project` entity (updated [today])
 
 <step name="handle_branches">
 
-Check the project's `branching_strategy` (from `init.execute-phase`/`init.complete-milestone`). `"none"` skips straight to `git_tag`. For `"phase"` or `"milestone"`, list the matching branches (by the configured prefix template); no branches found also skips to `git_tag`. Resolve the base branch through the single shared resolver, never a bare `main`/`master` fallback (Issue #1146):
+Check the project's `branching_strategy` (`git.branching_strategy` in the settings). `"none"` skips straight to `git_tag`. For `"phase"` or `"milestone"`, list the branches their computed `branch` names; no branches found also skips to `git_tag`. Resolve the base branch through the single shared resolver, never a bare `main`/`master` fallback (Issue #1146):
 ```bash
 BASE_BRANCH=$(specforge git config init.defaultBranch --pick .value 2>/dev/null); BASE_BRANCH=${BASE_BRANCH:-main}
 ```

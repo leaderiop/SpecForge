@@ -99,7 +99,7 @@ INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 AGENT_SKILLS=""   # the host install carries the skills of gsd-executor
 ```
 
-Parse JSON for: `executor_model`, `verifier_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `phase_found`, `phase_dir`, `phase_number`, `padded_phase`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `phase_req_ids`, `response_language`, `requirements_path`, `section_manifest`.
+Parse JSON for: `executor_model`, `verifier_model`, `commit_docs`, `parallelization`, `phase_found`, `phase_dir`, `phase_number`, `padded_phase`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `phase_req_ids`, `response_language`, `requirements_path`, `section_manifest`.
 
 **Threat-ID gate (#4683):** run `THREAT_IDS_JSON=$(specforge gsd threat-ids "$PHASE_ID" --format json 2>/dev/null || if [ $? -eq 2 ]; then echo '{"threat_id_duplicates":[],"threat_id_duplicate_count":0}'; else echo '{"threat_id_duplicates":[],"threat_id_duplicate_count":null,"error":"threat-ids failed"}'; fi)`; if `threat_id_duplicate_count` from `THREAT_IDS_JSON` is non-zero, read and execute `execute-phase/steps/threat-id-gate.md` BEFORE any dispatch — if `error` is set (a loaded `@gsd/security` could not answer; exit 2 is "not loaded" and means no duplicates) stop and report it, never read it as no duplicates; it is a hard stop (the full duplicate list is `threat_id_duplicates` of `THREAT_IDS_JSON`).
 
@@ -295,11 +295,11 @@ Write these answers inline before continuing. If a blocking anti-pattern cannot 
 </step>
 
 <step name="handle_branching">
-Check `branching_strategy` from init:
+Check `git.branching_strategy` (`{{setting:git.branching_strategy|none}}`):
 
 **"none":** Read and execute `execute-phase/steps/protected-branch.md`.
 
-**"phase" or "milestone":** Use pre-computed `branch_name` from init.
+**"phase" or "milestone":** The branch is the phase's computed `branch`, from the strategy and its template.
 
 Fork the new phase branch off `origin/HEAD` (the project's default branch), not the current HEAD — otherwise consecutive phases compound and stay unpushed (#2916). If `$BRANCH_NAME` already exists locally, reuse it as-is.
 
@@ -307,7 +307,7 @@ Fork the new phase branch off `origin/HEAD` (the project's default branch), not 
 DEFAULT_BRANCH=$(v=$(specforge git config init.defaultBranch --pick .value 2>/dev/null) && [ -n "$v" ] && echo "$v" \
   || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null \
   || echo main)
-
+BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.branch')
 if [ "$(specforge git rev "refs/heads/$BRANCH_NAME" --pick '.revs[0].exists')" = true ]; then
   specforge git switch "$BRANCH_NAME" || { echo "ERROR: Could not switch to existing branch '$BRANCH_NAME'." >&2; exit 1; }
 else

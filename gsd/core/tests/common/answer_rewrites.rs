@@ -28,4 +28,33 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         23,
         55,
     ),
+    // The branching steps read the computed `branch` and the strategy from the settings
+    ("gsd-core/workflows/execute-phase.md", 296, 296),
+    ("gsd-core/workflows/execute-phase.md", 300, 300),
+    ("gsd-core/workflows/execute-phase.md", 308, 308),
+    ("gsd-core/workflows/ship.md", 47, 47),
+    ("gsd-core/references/planning-config.md", 196, 196),
+    ("gsd-core/references/planning-config.md", 198, 198),
+    ("gsd-core/references/planning-config.md", 200, 200),
+    ("gsd-core/references/planning-config.md", 203, 203),
+    ("gsd-core/references/planning-config.md", 205, 205),
+    ("gsd-core/references/planning-config.md", 207, 207),
+    ("gsd-core/references/planning-config.md", 215, 216),
+    ("gsd-core/references/planning-config.md", 222, 223),
+    (
+        "gsd-core/workflows/complete-milestone/detail/elaboration.md",
+        159,
+        159,
+    ),
+    (
+        "gsd-core/workflows/complete-milestone/detail/elaboration.md",
+        168,
+        169,
+    ),
+    (
+        "gsd-core/workflows/complete-milestone/detail/elaboration.md",
+        175,
+        176,
+    ),
+    ("gsd-core/workflows/complete-milestone.md", 524, 524),
 ];

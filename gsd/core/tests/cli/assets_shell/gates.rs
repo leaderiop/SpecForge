@@ -102,11 +102,10 @@ fn protected_branch_warns_on_trunk_and_on_a_listed_branch() {
     assert!(warns(&p), "the setting is read");
 }
 
-/// The phase strategy's listing is what complete-milestone squash-merges: today a template prefix no block sets is
-/// empty, so every local branch is listed.
+/// What complete-milestone squash-merges: the branches its phases compute and that exist, never another local branch.
 #[test]
 fn complete_milestone_lists_only_the_phase_branches() {
-    let Some(sh) = Shell::only(&["git", "printf", "sed", "echo"]) else {
+    let Some(sh) = branch_shell() else {
         return;
     };
     let p = crate::harness::taskboard();
@@ -122,10 +121,37 @@ fn complete_milestone_lists_only_the_phase_branches() {
     let listing = fence_after(&served, "**For \"phase\" strategy:**");
     let (out, err, _) = sh.run_in(
         p.root(),
-        &format!("MILESTONE=v1.0\n{listing}\nprintf '%s' \"$PHASE_BRANCHES\""),
+        &format!(
+            "MILESTONE=v1.0\n{listing}\nprintf '%s|%s' \"$BRANCHING_STRATEGY\" \"$PHASE_BRANCHES\""
+        ),
     );
-    assert!(
-        out.lines().any(|branch| branch == "feature/x"),
-        "today every local branch is listed: {out} {err}"
+    assert_eq!(out, "phase|gsd/phase-01-core", "{err}");
+}
+
+/// The milestone strategy's one branch, once it exists.
+#[test]
+fn complete_milestone_finds_the_milestone_branch_when_it_exists() {
+    let Some(sh) = branch_shell() else {
+        return;
+    };
+    let p = crate::harness::taskboard();
+    p.settings(serde_json::json!({"git.branching_strategy": "milestone"}));
+    p.commit();
+    let served = served(
+        &p,
+        "gsd-core/workflows/complete-milestone/detail/elaboration.md",
     );
+    let listing = fence_after(&served, "**For \"milestone\" strategy:**");
+    let line = format!(
+        "MILESTONE=v1.0\n{listing}\nprintf '%s|%s' \"$BRANCHING_STRATEGY\" \"$MILESTONE_BRANCH\""
+    );
+    let (out, err, _) = sh.run_in(p.root(), &line);
+    assert_eq!(out, "milestone|", "{err}");
+    p.git(&["branch", "feature/x"], "2026-01-01T00:00:00Z");
+    p.git(
+        &["branch", "gsd/v1.0-taskboard-1-0"],
+        "2026-01-01T00:00:00Z",
+    );
+    let (out, err, _) = sh.run_in(p.root(), &line);
+    assert_eq!(out, "milestone|gsd/v1.0-taskboard-1-0", "{err}");
 }

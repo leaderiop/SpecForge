@@ -46,7 +46,7 @@ Also load config for branching strategy:
 CONFIG=$(specforge settings)
 ```
 
-Extract: `branching_strategy`, `branch_name`.
+The strategy is `git.branching_strategy` in these settings; the branch is the phase's computed `branch`.
 
 Detect base branch for PRs and merges:
 ```bash
