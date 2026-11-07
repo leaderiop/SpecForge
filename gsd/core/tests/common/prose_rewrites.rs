@@ -178,4 +178,16 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/review.md", 648, 648),
     ("gsd-core/workflows/spec-phase.md", 270, 270),
     ("gsd-core/workflows/spec-phase.md", 275, 275),
+    // a flag the command does not declare is not offered: the host refuses it
+    ("gsd-core/workflows/execute-phase.md", 77, 78),
+    ("gsd-core/workflows/execute-phase.md", 437, 437),
+    (
+        "gsd-core/workflows/execute-phase/detail/elaboration.md",
+        64,
+        66,
+    ),
+    ("gsd-core/workflows/next.md", 309, 309),
+    ("gsd-core/workflows/next.md", 334, 334),
+    ("gsd-core/workflows/next.md", 363, 363),
+    ("gsd-core/workflows/next.md", 365, 365),
 ];

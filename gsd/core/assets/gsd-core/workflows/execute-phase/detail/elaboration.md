@@ -63,9 +63,9 @@ executor skips them.
 
 **Activation logic:**
 
-1. If `CROSS_AI_DISABLED` is true (`--no-cross-ai` flag): skip this step entirely.
-2. If `CROSS_AI_FORCE` is true (`--cross-ai` flag): mark ALL incomplete plans that are `ready` (#4628 — every dependency has completion evidence) for cross-AI execution. A not-ready plan is never delegated: it would dispatch over an incomplete predecessor, the exact failure #4628 reports.
-3. Otherwise: check each plan's frontmatter for `cross_ai: true` AND verify config
+1. No flag forces or disables this step: the command declares no `--cross-ai` or `--no-cross-ai`.
+2. Only `ready` plans are eligible (#4628 — every dependency has completion evidence). A not-ready plan is never delegated: it would dispatch over an incomplete predecessor, the exact failure #4628 reports.
+3. Check each plan's frontmatter for `cross_ai: true` AND verify config
    `workflow.cross_ai_execution` is `true`. Plans matching both conditions are marked for cross-AI.
 
 ```bash
