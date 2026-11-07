@@ -286,3 +286,22 @@ fn an_appended_read_stops_the_block_when_refused() {
         assert!(err.contains("not UTF-8"), "{line}: {err}");
     }
 }
+
+/// The researcher's environment audit runs each tool through `specforge run --` and probes nothing: exit 127 prints
+/// the tool as missing, and an installed tool prints its version's first line.
+#[test]
+fn the_environment_audit_runs_the_tool_or_says_it_is_missing() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let text = asset("agents/gsd-phase-researcher.md");
+    let audit = super::line(&text, "V=$(specforge run -- \"$TOOL\"");
+    let dir = tempfile::tempdir().expect("a dir");
+    let (out, err, _) = sh.run_in(dir.path(), &format!("TOOL=gsd-no-such-tool\n{audit}"));
+    assert_eq!(out, "gsd-no-such-tool: missing\n", "{err}");
+    let (out, err, _) = sh.run_in(dir.path(), &format!("TOOL=specforge\n{audit}"));
+    assert!(
+        out.starts_with("specforge: specforge ") && out.lines().count() == 1,
+        "{out}{err}"
+    );
+}

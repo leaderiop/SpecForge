@@ -5,11 +5,10 @@
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 # Prose and routing probes are reworded per ADR 0343 (D7, D8), never listed: H and K stay at 0 rows.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 35 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 34 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
 agents/gsd-executor.md	grep	git status --short | grep '^??'
-agents/gsd-phase-researcher.md	head	specforge run --which $TOOL 2>/dev/null && $TOOL --version 2>/dev/null | head -1
 agents/gsd-phase-researcher.md	head	docker info 2>/dev/null | head -3
 agents/gsd-planner.md	tail	tail -n 5
 agents/gsd-verifier.md	grep	node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND"

@@ -32,8 +32,8 @@
     "sha256": "202b3bbc36f41cfd92b7326bbda6602f0ce0fbfbac20e329a211d704d7931c2d"
   },
   ".claude/agents/gsd-phase-researcher.md": {
-    "bytes": 44261,
-    "sha256": "e6dfcbe47ea7d89382bc7bdbf03d1a43150591d6e4eb1de0bc0ee1302214237b"
+    "bytes": 44338,
+    "sha256": "82b513929df005ec029defe32d35cd1ef058d83b618738f75689191bbfebbeda"
   },
   ".claude/agents/gsd-plan-checker.md": {
     "bytes": 49709,

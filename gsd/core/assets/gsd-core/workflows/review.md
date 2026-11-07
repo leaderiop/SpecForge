@@ -14,19 +14,19 @@ A plan that survives review from 2-3 independent AI systems is more robust.
 <process>
 
 <step name="detect_clis">
-Check which AI CLIs are available on the system:
+No AI CLI is probed: a selected lane runs its CLI through `specforge run --`, whose exit 127 says the CLI is not installed (`missing_binary`); only the local servers are asked here:
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-# Check each CLI
-specforge run --which claude >/dev/null 2>&1 && echo "claude:available" || echo "claude:missing"
-specforge run --which codex >/dev/null 2>&1 && echo "codex:available" || echo "codex:missing"
-specforge run --which coderabbit >/dev/null 2>&1 && echo "coderabbit:available" || echo "coderabbit:missing"
-specforge run --which opencode >/dev/null 2>&1 && echo "opencode:available" || echo "opencode:missing"
-specforge run --which qwen >/dev/null 2>&1 && echo "qwen:available" || echo "qwen:missing"
-specforge run --which cursor-agent >/dev/null 2>&1 && echo "cursor:available" || echo "cursor:missing"
-specforge run --which agy >/dev/null 2>&1 && echo "antigravity:available" || echo "antigravity:missing"
-specforge run --which kimi >/dev/null 2>&1 && echo "kimi-code:available" || echo "kimi-code:missing"
+# no CLI is probed: each lane runs its own (claude, codex, coderabbit, opencode, qwen, cursor-agent, agy, kimi)
+
+
+
+
+
+
+
+
 
 # Check local model servers (OpenAI-compatible HTTP API — no CLI binary required);
 # hosts come from the review.*_host settings (there is no lane descriptor: no lane runner here)
@@ -482,7 +482,7 @@ run_review_lane() {
   # One invocation, whatever the lane's transport, prompt channel, output channel or handler.
   # `--explicit` marks a lane the user NAMED: ADR-2782 D4 — not finding a lane nobody asked for is
   # normal, failing to run one somebody asked for is an error.
-  # review-lane invoke: run the CLI of "$SLUG" non-interactively on "$RUN_DIR/gsd-review-prompt.md" (its --help names the flag that takes a prompt);
+  # review-lane invoke: run the CLI of "$SLUG" through `specforge run --` non-interactively on "$RUN_DIR/gsd-review-prompt.md" (its --help names the flag that takes a prompt); exit 127 is `missing_binary`;
   # its review goes to "$RUN_DIR/gsd-review-$SLUG.md" and its stderr to "$RUN_DIR/gsd-review-$SLUG.err"; a failed or empty run leaves a stub that says so
   [ -s "$RUN_DIR/gsd-review-$SLUG.md" ] && echo "{\"slug\":\"$SLUG\"}" > "$RUN_DIR/gsd-review-lane-result-$SLUG.json"   # a lane that left no review has no result line
 }

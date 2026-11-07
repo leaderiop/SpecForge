@@ -666,8 +666,8 @@ Plans that assume a tool is available without checking lead to silent failures a
 2. **Probe availability** for each dependency:
 
 ```bash
-# CLI tools — check if command exists and get version
-specforge run --which $TOOL 2>/dev/null && $TOOL --version 2>/dev/null | head -1
+# CLI tools — run each through specforge (exit 127: not installed) and keep its first line
+V=$(specforge run -- "$TOOL" --version 2>/dev/null); [ $? = 127 ] && echo "$TOOL: missing" || echo "$TOOL: ${V%%$'\n'*}"
 
 # Runtimes — check version meets minimum
 node --version 2>/dev/null

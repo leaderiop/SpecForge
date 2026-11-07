@@ -32,8 +32,8 @@
     "sha256": "0694d49848af6e0a1ce12cfa6325df29321b82b676ffdf35d9d5f08b23cef7e0"
   },
   ".codex/agents/gsd-phase-researcher.toml": {
-    "bytes": 44036,
-    "sha256": "762f1c98db6e7f4d44eec5666a618d0ea7c4fd32d3e87207db359cdff268f0a7"
+    "bytes": 44113,
+    "sha256": "c22537a11d9158227af8c6ff14d5cd0abd875f964b7bc27cec1c1c6ab07bdad7"
   },
   ".codex/agents/gsd-plan-checker.toml": {
     "bytes": 49675,

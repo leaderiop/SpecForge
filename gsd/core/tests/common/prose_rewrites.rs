@@ -257,4 +257,8 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/ultraplan-phase.md", 76, 77),
     ("gsd-core/workflows/validate-phase.md", 33, 33),
     ("gsd-core/workflows/verify-work.md", 56, 56),
+    // no CLI is probed: a lane runs its CLI through `specforge run --`, and exit 127 is a missing one
+    ("gsd-core/workflows/review.md", 15, 15),
+    ("gsd-core/workflows/review.md", 19, 27),
+    ("gsd-core/workflows/review.md", 483, 483),
 ];

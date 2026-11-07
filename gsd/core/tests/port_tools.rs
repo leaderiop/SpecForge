@@ -703,3 +703,18 @@ fn no_parse_list_names_a_key_nothing_prints() {
         found.join("\n")
     );
 }
+
+/// No line probes whether a program is installed (ADR 0343 D8): a user's program runs through `specforge run --`,
+/// whose exit 127 says it is not installed.
+#[test]
+fn no_line_probes_for_a_program() {
+    let mut found = Vec::new();
+    for (path, lines) in asset_code::assets_under("assets") {
+        for (n, line) in lines.iter().enumerate() {
+            if line.contains("run --which") || line.contains("command -v") {
+                found.push(format!("{path}:{}: {line}", n + 2));
+            }
+        }
+    }
+    assert!(found.is_empty(), "probes:\n{}", found.join("\n"));
+}

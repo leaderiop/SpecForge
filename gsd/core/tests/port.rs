@@ -393,6 +393,8 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-planner.md", 25),
     // A list of keys to read names what its answer prints: no init bundle prints a model or a phase directory.
     ("gsd-planner.md", 565),
+    // The environment audit runs each tool through `specforge run --`: exit 127 is a missing tool, nothing probes.
+    ("gsd-phase-researcher.md", 667),
 ];
 
 /// Checks one asset against its upstream file: the header, then every line.
