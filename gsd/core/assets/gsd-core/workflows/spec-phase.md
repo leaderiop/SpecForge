@@ -269,12 +269,12 @@ fi
 # BSD/macOS mktemp only randomizes XXXXXX when it is the final path component, so make a
 # suffixless temp then append the extension — portable across BSD + GNU (#1520).
 REQS_JSON=$(specforge files temp --prefix edge-probe-reqs- --suffix .json --pick .path) || exit 1
-cat > "$REQS_JSON" <<'JSON'
+IFS= read -rd '' REQS <<'JSON' || true
 [
   { "id": "R1", "text": "<replace: requirement text from the SPEC>" }
 ]
 JSON
-# Guard — never invoke on an empty/invalid array, OR one still holding the heredoc
+printf '%s' "$REQS" > "$REQS_JSON"   # Guard — never invoke on an empty/invalid array, OR one still holding the heredoc
 # `<replace: …>` placeholder (a forgotten substitution would otherwise yield a
 # meaningful-looking but bogus coverage report). Fail loud, not silent no-op.
 if [ "$(specforge gsd edge-probe-requirements --requirements "$(< "$REQS_JSON")" --pick .valid)" != true ]; then

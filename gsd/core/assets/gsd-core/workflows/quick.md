@@ -201,9 +201,9 @@ compound on top of each other and stay unpushed (#2916). If `$branch_name`
 already exists locally, reuse it as-is so resumed work is not rebased.
 
 ```bash
-DEFAULT_BRANCH=$(printf '%s' "{{setting:git.base_branch|}}" | grep . \
-  || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . \
-  || echo main)
+DEFAULT_BRANCH="{{setting:git.base_branch|}}"   # git.base_branch (the settings), else the remote's head, else main
+[ -n "$DEFAULT_BRANCH" ] || DEFAULT_BRANCH=$(specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null)
+DEFAULT_BRANCH=${DEFAULT_BRANCH:-main}
 
 if [ "$(specforge git rev "refs/heads/$branch_name" --pick '.revs[0].exists')" = true ]; then
   specforge git switch "$branch_name" \

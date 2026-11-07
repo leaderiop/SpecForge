@@ -19,23 +19,23 @@ if [ "${phase_status}" = "Complete" ]; then
   if [ "${REVIEWS:-false}" = true ]; then
     # --reviews on a closed phase is never legitimate — concerns belong in a
     # new phase or issue against the closed phase's commits.
-    cat <<EOF >&2
-Phase ${phase_number} (${phase_name}) is already CLOSED (VERIFICATION status: passed).
-/gsd:plan-phase --reviews cannot replan a closed phase. If the review surfaced
-real concerns, open a follow-up phase or file an issue against the closed
-phase's commits. There is no --force override for --reviews on a closed phase.
-EOF
+    printf '%s\n' >&2 \
+      "Phase ${phase_number} (${phase_name}) is already CLOSED (VERIFICATION status: passed)." \
+      "/gsd:plan-phase --reviews cannot replan a closed phase. If the review surfaced" \
+      "real concerns, open a follow-up phase or file an issue against the closed" \
+      "phase's commits. There is no --force override for --reviews on a closed phase."
+
     exit 1
   fi
   if [ "$FORCE_REPLAN" != "true" ]; then
-    cat <<EOF >&2
-Phase ${phase_number} (${phase_name}) is already CLOSED (VERIFICATION status: passed).
-Replanning a closed phase will overwrite plan docs that no longer match the
-shipped code. For new work on what this phase shipped, open a follow-up phase.
+    printf '%s\n' >&2 \
+      "Phase ${phase_number} (${phase_name}) is already CLOSED (VERIFICATION status: passed)." \
+      "Replanning a closed phase will overwrite plan docs that no longer match the" \
+      "shipped code. For new work on what this phase shipped, open a follow-up phase." \
+      "" \
+      "" \
+      "Otherwise, to view what shipped, see: ${verification_path}"
 
-
-Otherwise, to view what shipped, see: ${verification_path}
-EOF
     exit 1
   fi
   # FORCE_REPLAN=true: continue, but emit a banner so the operator sees the

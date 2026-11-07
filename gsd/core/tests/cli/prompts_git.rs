@@ -276,7 +276,7 @@ fn pr_branch_filters_the_harness_file_and_the_spec_root() {
 fn pr_branch_and_quick_start_from_the_declared_base_branch() {
     for (id, args, marker) in [
         ("pr_branch", vec![], "TARGET=\""),
-        ("quick", vec!["--task", "x"], "DEFAULT_BRANCH=$("),
+        ("quick", vec!["--task", "x"], "DEFAULT_BRANCH=\""),
     ] {
         let p = twin();
         let line_of = |p: &Project| {
@@ -284,16 +284,9 @@ fn pr_branch_and_quick_start_from_the_declared_base_branch() {
             let at = text
                 .find(marker)
                 .unwrap_or_else(|| panic!("{id}: no {marker}"));
-            let mut end = text[at..].find("\n\n").map_or(text.len(), |n| at + n);
-            if id == "pr_branch" {
-                end = text[at..].find('\n').map_or(text.len(), |n| at + n);
-            } else {
-                end = end.min(
-                    text[at..]
-                        .find("echo main)")
-                        .map_or(end, |n| at + n + "echo main)".len()),
-                );
-            }
+            // pr-branch's answer is one line; quick's is three, ending at the blank line after them
+            let stop = if id == "pr_branch" { "\n" } else { "\n\n" };
+            let end = text[at..].find(stop).map_or(text.len(), |n| at + n);
             text[at..end].to_string()
         };
         let line = line_of(&p);

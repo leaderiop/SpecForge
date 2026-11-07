@@ -89,12 +89,12 @@ fi
 # {phase_req_ids}, pulling each requirement's text from REQUIREMENTS.md: {"id","text","shapes"?}.
 # mktemp suffix trick is BSD/GNU portable (#1520).
 REQS_JSON=$(specforge files temp --prefix edge-probe-reqs- --suffix .json --pick .path) || exit 1
-cat > "$REQS_JSON" <<'JSON'
+IFS= read -rd '' REQS <<'JSON' || true
 [
   { "id": "R1", "text": "<replace: requirement text from REQUIREMENTS.md for each {phase_req_ids} id>" }
 ]
 JSON
-# Guard — fail loud on empty/invalid array OR a still-present `<replace:>` placeholder (forgotten
+printf '%s' "$REQS" > "$REQS_JSON"   # Guard — fail loud on empty/invalid array OR a still-present `<replace:>` placeholder (forgotten
 # substitution would yield a bogus report). Never a silent no-op.
 if [ "$(specforge gsd edge-probe-requirements --requirements "$(< "$REQS_JSON")" --pick .valid)" != true ]; then
   echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from {phase_req_ids} before running." >&2   # also when the JSON is over the command line's limit (32,767 characters on Windows): it is passed as an argument

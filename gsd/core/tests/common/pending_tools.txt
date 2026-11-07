@@ -4,7 +4,7 @@
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 61 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 45 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-executor.md	grep	grep -n "type=\"checkpoint" [plan-path]
 agents/gsd-executor.md	grep	git status --short | grep '^??'
@@ -15,7 +15,6 @@ agents/gsd-verifier.md	grep	node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBC
 agents/gsd-verifier.md	grep	node -e "const m = require('$MODULE_PATH'); console.log(typeof m.$FUNCTION_NAME)" 2>/dev/null | grep -q "function"
 agents/gsd-verifier.md	grep	cargo test -- --list 2>/dev/null | grep -q "$PHASE_TEST_PATTERN"   # pytest --collect-only -q · npx vitest list · go test -list '.*'
 gsd-core/references/agent-contracts.md	wc	wc -l
-gsd-core/references/specless-probe-fallback.md	cat	cat > "$REQS_JSON" <<'JSON'
 gsd-core/references/specless-probe-fallback.md	grep	EDGE_ABSENT=1;   node "$SPEC_SECTION_JS" "$SPEC_FILE" edges       2>/dev/null | grep -q '"supplied":true' && EDGE_ABSENT=0
 gsd-core/references/specless-probe-fallback.md	grep	PROHIB_ABSENT=1; node "$SPEC_SECTION_JS" "$SPEC_FILE" prohibitions 2>/dev/null | grep -q '"supplied":true' && PROHIB_ABSENT=0
 gsd-core/references/verification-patterns.md	grep	npx prisma migrate status 2>/dev/null | grep -v "pending"
@@ -23,23 +22,14 @@ gsd-core/references/worktree-path-safety.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>
 gsd-core/templates/user-setup.compact.md	grep	grep -r "USER-SETUP" the spec finds all phases with user requirements.
 gsd-core/templates/user-setup.md	grep	grep -r "USER-SETUP" the spec finds all phases with user requirements.
 gsd-core/workflows/execute-phase.md	grep	RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
-gsd-core/workflows/execute-phase/steps/regression-gate.md	cat	cat > "$_GSD_HANDOFF/regression-files" <<'GSD_REGRESSION_FILES'
 gsd-core/workflows/execute-plan.md	grep	PHASE=$(echo "$PLAN_PATH" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*-[0-9]+')
 gsd-core/workflows/plan-phase.md	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 gsd-core/workflows/plan-phase.md	sed	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 gsd-core/workflows/plan-phase.md	tr	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 gsd-core/workflows/plan-phase.md	tr	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[[:space:]]*[#|`-]+[[:space:]]*//'; }
 gsd-core/workflows/plan-phase.md	tr	RES=$(printf '%s' "${CONFLICT_RESOLUTION}" | tr '\r\n\t' '   ')
-gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	cat	cat <<EOF >&2
-gsd-core/workflows/plan-phase/steps/closed-phase-gate.md	cat	cat <<EOF >&2
 gsd-core/workflows/plan-review-convergence.md	awk	if OPEN_CONFLICTS=$(awk '
-gsd-core/workflows/quick.md	grep	DEFAULT_BRANCH=$(printf '%s' "{{setting:git.base_branch|}}" | grep . \
-gsd-core/workflows/quick.md	grep	|| specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . \
 gsd-core/workflows/resume-project.md	grep	for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -vxF -f <(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=summary].fields.plan')); do   # each plan no summary names
-gsd-core/workflows/review.md	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
-gsd-core/workflows/review.md	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
-gsd-core/workflows/review.md	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
-gsd-core/workflows/spec-phase.md	cat	cat > "$REQS_JSON" <<'JSON'
 gsd-core/workflows/ultraplan-phase.md	grep	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 gsd-core/workflows/ultraplan-phase.md	head	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 gsd-core/workflows/ultraplan-phase.md	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
@@ -54,13 +44,7 @@ prompt:plan_phase	tr	san() { printf '%s' "$1" | tr '\r\n\t' '   ' | sed -E 's/^[
 prompt:plan_phase	tr	RES=$(printf '%s' "${CONFLICT_RESOLUTION}" | tr '\r\n\t' '   ')
 prompt:plan_review_convergence	awk	if OPEN_CONFLICTS=$(awk '
 prompt:plan_review_convergence	wc	wc -l
-prompt:quick	grep	DEFAULT_BRANCH=$(printf '%s' "" | grep . \
-prompt:quick	grep	|| specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . \
 prompt:resume_work	grep	for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -vxF -f <(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=summary].fields.plan')); do   # each plan no summary names
-prompt:review	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
-prompt:review	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
-prompt:review	tr	for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
-prompt:spec_phase	cat	cat > "$REQS_JSON" <<'JSON'
 prompt:ultraplan_phase	grep	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 prompt:ultraplan_phase	head	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 prompt:ultraplan_phase	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then

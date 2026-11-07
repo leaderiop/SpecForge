@@ -145,4 +145,37 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/review.md", 575, 575),
     ("gsd-core/workflows/review.md", 600, 600),
     ("gsd-core/workflows/review.md", 675, 676),
+    // a model-held list or literal text is glue: a placeholder, a heredoc read, printf
+    ("gsd-core/references/specless-probe-fallback.md", 90, 90),
+    ("gsd-core/references/specless-probe-fallback.md", 95, 95),
+    (
+        "gsd-core/workflows/execute-phase/steps/regression-gate.md",
+        32,
+        32,
+    ),
+    (
+        "gsd-core/workflows/execute-phase/steps/regression-gate.md",
+        36,
+        36,
+    ),
+    ("gsd-core/workflows/execute-plan.md", 468, 472),
+    (
+        "gsd-core/workflows/plan-phase/steps/closed-phase-gate.md",
+        20,
+        25,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/closed-phase-gate.md",
+        29,
+        36,
+    ),
+    ("gsd-core/workflows/quick.md", 202, 204),
+    ("gsd-core/workflows/review.md", 400, 400),
+    ("gsd-core/workflows/review.md", 499, 499),
+    ("gsd-core/workflows/review.md", 570, 570),
+    ("gsd-core/workflows/review.md", 582, 582),
+    ("gsd-core/workflows/review.md", 643, 643),
+    ("gsd-core/workflows/review.md", 648, 648),
+    ("gsd-core/workflows/spec-phase.md", 270, 270),
+    ("gsd-core/workflows/spec-phase.md", 275, 275),
 ];

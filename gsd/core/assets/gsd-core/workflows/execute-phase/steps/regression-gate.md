@@ -31,11 +31,11 @@ write none when no test file was found:
 ```bash
 # gsd-handoff:begin regression-files-write
 _GSD_HANDOFF=$(specforge files temp --dir --name gsd-handoff --pick .path) || exit 1
-cat > "$_GSD_HANDOFF/regression-files" <<'GSD_REGRESSION_FILES'
+IFS= read -rd '' REGRESSION_LIST <<'GSD_REGRESSION_FILES' || true
 tests/test_example_one.py
 tests/test_example_two.py
 GSD_REGRESSION_FILES
-# gsd-handoff:end regression-files-write
+printf '%s' "$REGRESSION_LIST" > "$_GSD_HANDOFF/regression-files"   # gsd-handoff:end regression-files-write
 ```
 
 **Step 3: Run regression tests (if any found)** — Read and execute `gsd-core/workflows/execute-phase/steps/regression-gate-run.md`. It resolves the project test command, normalizes it to a one-shot form (defeating vitest/jest watch mode via the shared `normalize-test-command` helper), runs it under `workflow.test_gate_timeout`, and aborts on timeout with a watch-mode hint (#1857). On `REGRESSION GATE ABORTED` (exit 124), HALT — do not proceed to verification.

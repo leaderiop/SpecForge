@@ -399,7 +399,7 @@ shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
 RUN_DIR="{run_dir}"
 REPO_ROOT="$(specforge git repo --pick .top 2>/dev/null || pwd)"
-# SELECTED_REVIEWERS is the comma-separated result of reviewer selection (ADR-0011 precedence:
+SELECTED_REVIEWERS="{selected_reviewers}"   # the selected slugs, space-separated (ADR-0011 precedence:
 # explicit flags > --all > review.default_reviewers > all detected). Unchanged by this phase.
 
 # #3034: opt-in concurrent lane dispatch. STRICT equality on "true" is deliberate — "1", "yes" and
@@ -498,7 +498,7 @@ run_review_lane() {
 # A plain string accumulator, not an array: zsh and bash disagree on array indexing and this block
 # runs under both (see the nullglob/NULL_GLOB pairing above).
 DISPATCH_SLUGS=""
-for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
+for SLUG in $(printf '%s' "$SELECTED_REVIEWERS"); do
   case " $DISPATCH_SLUGS " in
     *" $SLUG "*) continue ;;
   esac
@@ -569,7 +569,7 @@ byproduct; a lane that never started or was budget-skipped contributes no line e
 ```bash
 RUN_DIR="{run_dir}"
 JSONL="$RUN_DIR/gsd-review-lane-results.jsonl"
-
+SELECTED_REVIEWERS="{selected_reviewers}"   # the slugs invoke_reviewers dispatched, space-separated
 
 
 TOTAL_LANE_FAILURE="false"
@@ -581,7 +581,7 @@ if [ ! -s "$JSONL" ]; then
   # (SELECTED_REVIEWERS is a shell block boundary — recompute, do not assume the
   # earlier step's local DISPATCH_SLUGS variable survived into this block).
   DISPATCH_SLUGS=""
-  for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
+  for SLUG in $(printf '%s' "$SELECTED_REVIEWERS"); do
     case " $DISPATCH_SLUGS " in
       *" $SLUG "*) continue ;;
     esac
@@ -642,12 +642,12 @@ a threat id like `T-04-07` elsewhere in the review must not register as covering
 RUN_DIR="{run_dir}"
 # the plan ids are the phase's: `specforge gsd plan-coverage` reads them from the graph
 
-# Recompute — a shell variable does not survive across separate fenced blocks
+SELECTED_REVIEWERS="{selected_reviewers}"   # space-separated; a shell variable does not survive across fenced blocks
 # (each is its own process), so DISPATCH_SLUGS from the gate-check block above
 # cannot be assumed to still be set here. Same recomputation as that block and
 # as invoke_reviewers.
 DISPATCH_SLUGS=""
-for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
+for SLUG in $(printf '%s' "$SELECTED_REVIEWERS"); do
   case " $DISPATCH_SLUGS " in
     *" $SLUG "*) continue ;;
   esac
