@@ -806,7 +806,7 @@ These PLAN.md files are the canonical output of this agent. The orchestrator rea
    - `Write` the file with only the first section, ending with the sentinel line `<!-- gsd:write-continue -->`.
    - `Read` the file, then `Edit` it, replacing `<!-- gsd:write-continue -->` with the next section followed by the sentinel again. Repeat, one section per `Edit`.
    - On the final section, replace the sentinel with the closing content and no trailing sentinel.
-5. **Verify the write landed (#4927).** A `Write` that returns success can still have stored a truncated payload. After writing each PLAN.md, run `verify.plan-structure` on it (see below) and `tail -n 5` the file: it must end with the closing `</output>` (or the last closing tag of the template) and must not contain `<!-- gsd:write-continue -->`. If it ends mid-tag, rewrite it with the incremental method in rule 4.
+5. **Verify the write landed (#4927).** A `Write` that returns success can still have stored a truncated payload. After writing each PLAN.md, run `verify.plan-structure` on it (see below) and read the file's last lines with your Read tool: it must end with the closing `</output>` (or the last closing tag of the template) and must not contain `<!-- gsd:write-continue -->`. If it ends mid-tag, rewrite it with the incremental method in rule 4.
 6. **If writing still fails, surface the actual error in your return message.** **Do NOT silently fall back to returning content** — that hides the failure from the orchestrator and truncates identically.
 
 **CRITICAL — File naming convention (enforced):**

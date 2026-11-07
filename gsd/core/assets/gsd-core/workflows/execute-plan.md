@@ -74,7 +74,7 @@ Find first PLAN without matching SUMMARY. Decimal phases supported (`01.1-hotfix
 **Exclude `external_job_waiting` plans from selection.** When choosing the first PLAN that lacks a matching SUMMARY, skip any plan whose `plan_id` matches an async-job manifest in the spec (any status) — that plan is `external_job_waiting` or awaiting reconciliation, never work to (re-)dispatch (re-dispatching would duplicate the external job). Reconcile via the manifest / safe_resume_gate instead.
 
 ```bash
-PHASE=$(echo "$PLAN_PATH" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*-[0-9]+')
+PHASE=${PLAN_ID%/*}   # the plan's phase is its id's parent
 # config settings can be read from the settings block if needed
 ```
 

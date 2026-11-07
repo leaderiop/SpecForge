@@ -117,7 +117,7 @@ fi
 
 <step name="determine_execution_pattern">
 ```bash
-grep -n "type=\"checkpoint" [plan-path]
+specforge query "$PLAN_ID" --kinds checkpoint --format context   # none: no checkpoints
 ```
 
 **Pattern A: Fully autonomous (no checkpoints)** — Execute all tasks, create SUMMARY, commit.
@@ -571,7 +571,7 @@ fi
 ```
 Intentional deletions (e.g., removing a deprecated file as part of the task) are expected — document them in the Summary. Unexpected deletions are a Rule 1 bug: revert and fix before proceeding.
 
-**7. Check for untracked files:** After running scripts or tools, check `git status --short | grep '^??'`. For any new untracked files: commit if intentional, add to `.gitignore` if generated/runtime output. Never leave generated files untracked.
+**7. Check for untracked files:** After running scripts or tools, check `specforge git status --pick '.entries[kind=untracked].path'`. For any new untracked files: commit if intentional, add to `.gitignore` if generated/runtime output. Never leave generated files untracked.
 </task_commit_protocol>
 
 <destructive_git_prohibition>

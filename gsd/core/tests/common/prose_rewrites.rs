@@ -272,4 +272,6 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         12,
         13,
     ),
+    // a prose row says its answer, or no tool: the undo selection's old match names its regex, not grep
+    ("gsd-core/workflows/undo.md", 228, 228),
 ];

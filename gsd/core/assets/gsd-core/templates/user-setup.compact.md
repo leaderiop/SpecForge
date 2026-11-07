@@ -197,4 +197,4 @@ Expected: Build passes, webhook returns 400 (signature validation working).
 
 **Naming:** `{phase}-USER-SETUP.md` matches the phase number pattern.
 **Status tracking:** User marks checkboxes and updates status line when complete.
-**Searchability:** `grep -r "USER-SETUP" the spec finds all phases with user requirements.
+**Searchability:** `specforge export --kinds user_setup` finds every phase's user requirements.
