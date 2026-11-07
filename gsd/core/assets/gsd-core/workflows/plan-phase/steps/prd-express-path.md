@@ -7,7 +7,7 @@ Runs when `--prd <filepath>` is provided (§3.5 of `plan-phase.md`).
 
 1. Read the PRD file:
 ```bash
-PRD_CONTENT=$(cat "$PRD_FILE" 2>/dev/null)
+PRD_CONTENT=$(specforge files read "$PRD_FILE" --pick .text 2>/dev/null)
 if [ -z "$PRD_CONTENT" ]; then
   echo "Error: PRD file not found: $PRD_FILE"
   exit 1

@@ -423,7 +423,7 @@ If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:
    If `REVIEW_EXIT` is non-zero or the command times out:
    ```bash
    if [ $REVIEW_EXIT -ne 0 ]; then
-     REVIEW_STDERR=$(cat "${REVIEW_STDERR_FILE}" 2>/dev/null)
+     REVIEW_STDERR=$(specforge files read "${REVIEW_STDERR_FILE}" --pick .text 2>/dev/null)
      echo "WARNING: External review command failed (exit ${REVIEW_EXIT}). stderr: ${REVIEW_STDERR}"
      echo "Continuing with manual review flow..."
    fi

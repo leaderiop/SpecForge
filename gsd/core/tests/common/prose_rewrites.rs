@@ -128,4 +128,13 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         11,
         12,
     ),
+    // a file in the roots is read with specforge files read
+    (
+        "gsd-core/workflows/plan-phase/steps/prd-express-path.md",
+        8,
+        8,
+    ),
+    ("gsd-core/workflows/review.md", 333, 334),
+    ("gsd-core/workflows/review.md", 536, 536),
+    ("gsd-core/workflows/ship.md", 424, 424),
 ];
