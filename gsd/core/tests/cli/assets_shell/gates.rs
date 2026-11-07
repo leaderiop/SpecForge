@@ -121,6 +121,27 @@ fn the_commit_guard_reads_the_default_branch_override() {
     assert!(err.contains("protected/default branch"), "{err}");
 }
 
+/// A protected list the answer cannot read refuses the commit, on the branch it meant to protect.
+#[test]
+fn the_commit_guard_refuses_on_a_broken_protected_list() {
+    let Some(sh) = branch_shell() else {
+        return;
+    };
+    let p = on_branch("feat");
+    let guard = fence_after(
+        &asset("agents/gsd-executor.md"),
+        "**0. Pre-commit HEAD safety",
+    );
+    let (_, err, code) = sh.run_in(p.root(), &guard);
+    assert_eq!(code, 0, "a free branch commits: {err}");
+    for broken in [serde_json::json!("feat"), serde_json::json!(["feat", 1])] {
+        p.settings(serde_json::json!({"git.protected_branches": broken}));
+        let (_, err, code) = sh.run_in(p.root(), &guard);
+        assert_eq!(code, 1, "{broken}: {err}");
+        assert!(err.contains("git.protected_branches"), "{broken}: {err}");
+    }
+}
+
 /// The `none` strategy warns on every protected branch: `trunk` and a listed one too.
 #[test]
 fn protected_branch_warns_on_trunk_and_on_a_listed_branch() {

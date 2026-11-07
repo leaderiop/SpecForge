@@ -28,6 +28,32 @@ fn a_branch_named_as_main_in_another_case_is_protected() {
     assert_eq!(answer["blocks_commit"], true, "{answer}");
 }
 
+/// A broken override must not read as no override: `feat` stays unprotected only because the setting cannot say so.
+#[test]
+fn a_broken_protection_setting_refuses_naming_it() {
+    let p = project("execute");
+    p.commit();
+    p.git(&["checkout", "-q", "-b", "feat"], AT);
+    for (settings, name) in [
+        (
+            json!({"git.protected_branches": "feat"}),
+            "git.protected_branches",
+        ),
+        (
+            json!({"git.protected_branches": ["feat", 1]}),
+            "git.protected_branches",
+        ),
+        (json!({"git.base_branch": 1}), "git.base_branch"),
+    ] {
+        p.settings(settings.clone());
+        let run = gsd(&p, "branch-check", &[]);
+        assert_eq!(run.code, 1, "{settings}: {}", run.all());
+        assert!(run.all().contains(name), "{settings}: {}", run.all());
+    }
+    p.settings(json!({"git.protected_branches": ["feat"]}));
+    assert_eq!(answer(&p, &[])["blocks_commit"], true);
+}
+
 #[test]
 fn branch_check_reads_head_and_the_settings() {
     let p = project("execute");

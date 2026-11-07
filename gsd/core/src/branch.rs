@@ -53,6 +53,35 @@ pub struct Protection<'a> {
     pub base: Option<&'a str>,
 }
 
+/// That the settings the manifest's text writes for this extension state what [`Protection`] reads, by its key. The
+/// host sends a setting of another type as unset (E086, which only `validate` and doctor report), so the manifest is
+/// the one place a broken override shows; read as no override, it would leave what it names unprotected.
+pub fn check_written_protection(manifest: &str) -> Result<(), String> {
+    let manifest: Value =
+        serde_json::from_str(manifest).map_err(|e| format!("specforge.json: {e}"))?;
+    let written = |key: &str| {
+        manifest
+            .pointer(&format!("/settings/@gsd~1core/{key}"))
+            .filter(|value| !value.is_null())
+    };
+    if let Some(value) = written("git.protected_branches") {
+        let names = value
+            .as_array()
+            .filter(|names| names.iter().all(Value::is_string));
+        if names.is_none() {
+            return Err(format!(
+                "the setting git.protected_branches is {value}, not a list of branch names"
+            ));
+        }
+    }
+    if let Some(value) = written("git.base_branch").filter(|value| !value.is_string()) {
+        return Err(format!(
+            "the setting git.base_branch is {value}, not a branch name"
+        ));
+    }
+    Ok(())
+}
+
 impl<'a> Protection<'a> {
     pub fn of(settings: &'a Settings) -> Self {
         Protection {
@@ -102,6 +131,39 @@ mod tests {
         );
         assert_eq!(fill("gsd/{other}-{slug}", &pairs), "gsd/{other}-auth");
         assert_eq!(fill("", &pairs), "");
+    }
+
+    #[test]
+    fn a_written_protection_is_a_list_of_names_and_a_name() {
+        let manifest = |settings: &str| format!(r#"{{"settings": {{"@gsd/core": {settings}}}}}"#);
+        for fine in [
+            r#"{}"#,
+            r#"{"git.protected_branches": ["a", "b"]}"#,
+            r#"{"git.protected_branches": []}"#,
+            r#"{"git.protected_branches": null, "git.base_branch": null}"#,
+            r#"{"git.base_branch": "stable"}"#,
+        ] {
+            assert_eq!(check_written_protection(&manifest(fine)), Ok(()), "{fine}");
+        }
+        for (broken, key) in [
+            (
+                r#"{"git.protected_branches": "feat"}"#,
+                "git.protected_branches",
+            ),
+            (
+                r#"{"git.protected_branches": ["feat", 1]}"#,
+                "git.protected_branches",
+            ),
+            (
+                r#"{"git.protected_branches": {"feat": true}}"#,
+                "git.protected_branches",
+            ),
+            (r#"{"git.base_branch": 1}"#, "git.base_branch"),
+        ] {
+            let why = check_written_protection(&manifest(broken)).unwrap_err();
+            assert!(why.contains(key), "{broken}: {why}");
+        }
+        assert_eq!(check_written_protection("{}"), Ok(()));
     }
 
     #[test]

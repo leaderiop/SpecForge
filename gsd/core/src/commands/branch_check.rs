@@ -13,7 +13,7 @@ use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
 use super::support::{answer, run};
-use crate::branch::{Protection, agent_branch};
+use crate::branch::{Protection, agent_branch, check_written_protection};
 
 /// The answer for the branch `HEAD` is on (empty: detached).
 #[derive(Debug, Default, PartialEq)]
@@ -61,6 +61,13 @@ fn judge(branch: &str, protection: &Protection<'_>, allow: bool, agent_mode: boo
 }
 
 fn branch_check(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
+    let manifest = call.files("manifest").and_then(|read| read.facts.first());
+    if let Some(fact) = manifest {
+        match &fact.text {
+            Some(text) => check_written_protection(text)?,
+            None => return Err("specforge.json cannot be read for the protected set".to_string()),
+        }
+    }
     let judged = match specforge_extension_sdk::host::git::branch() {
         Ok(branch) => {
             let settings = Settings::current();
@@ -110,6 +117,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 a.flag()
                     .description("this is an agent's worktree: only the agent namespace may commit");
             })
+            .input(Input::files("manifest", FileReadSpec::glob("specforge.json").text()))
             .handler(|call| run(call, branch_check));
     });
 }
