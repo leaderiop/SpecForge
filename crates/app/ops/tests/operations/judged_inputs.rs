@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 use specforge_ops::authoring::apply::{
-    HostJudgedRules, JudgedRules, Origin, SystemClock, apply_plan_with,
+    HostJudgedRules, JudgedRules, Origin, SystemCalendar, apply_plan_with,
 };
 use specforge_ops::read::judged::{InputsRequest, judged_inputs};
 use specforge_ops::view::ProjectView;
@@ -53,7 +53,7 @@ fn record(project: &specforge_project::testing::TestProject, basis: &Value) -> S
         false,
         specforge_ops::testing::caller(),
         &rules,
-        &SystemClock,
+        &SystemCalendar,
     ) {
         Ok(_) => "applied".to_string(),
         Err(refusal) => {

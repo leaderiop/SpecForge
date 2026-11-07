@@ -117,17 +117,17 @@ impl JudgedRules for NoJudgedRules {
     }
 }
 
-/// The host's clock: one seam for the date a verdict and a command carry.
-pub trait Clock {
+/// The host's calendar: one seam for the date a verdict and a command carry.
+pub trait Calendar {
     /// Today, UTC, `YYYY-MM-DD`.
     fn today(&self) -> String;
 }
 
-/// The system clock.
+/// The system's calendar.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct SystemClock;
+pub struct SystemCalendar;
 
-impl Clock for SystemClock {
+impl Calendar for SystemCalendar {
     fn today(&self) -> String {
         crate::extension::command::today()
     }
@@ -211,7 +211,7 @@ fn unwritable_key(value: &Value) -> Option<&str> {
 pub(crate) fn check(
     view: &ProjectView<'_>,
     rules: &Arc<dyn JudgedRules>,
-    clock: &dyn Clock,
+    calendar: &dyn Calendar,
     origin: &Origin,
     op: &VerdictOp,
 ) -> Result<VerdictStep, OpError> {
@@ -319,7 +319,7 @@ pub(crate) fn check(
             cited: op.cited.clone(),
             values: op.values.clone(),
             inputs: current,
-            at: clock.today(),
+            at: calendar.today(),
         },
         rules: Rules(Arc::clone(rules)),
     })

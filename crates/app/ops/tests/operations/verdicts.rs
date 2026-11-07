@@ -6,7 +6,7 @@ use std::sync::Arc;
 use serde_json::{Map, Value, json};
 use specforge_ops::authoring::apply::testing::FakeJudgedRules;
 use specforge_ops::authoring::apply::{
-    HostJudgedRules, JudgedRules, Origin, PlanOutcome, Surface, SystemClock, apply_plan_with,
+    HostJudgedRules, JudgedRules, Origin, PlanOutcome, Surface, SystemCalendar, apply_plan_with,
     execute_with,
 };
 use specforge_ops::extension::command::{CommandFormat, ExtensionCommands};
@@ -141,7 +141,7 @@ fn run_with_rules(
         specforge_ops::testing::caller(),
         Surface::Cli { interactive: true },
         &rules,
-        &SystemClock,
+        &SystemCalendar,
     )
     .unwrap();
     match run.plan {
@@ -228,7 +228,7 @@ pub(crate) fn gsd_in(
         dry_run,
         specforge_ops::testing::caller(),
         &rules,
-        &SystemClock,
+        &SystemCalendar,
     ) {
         Ok(edited) if edited.wrote.previewed() => "previewed".to_string(),
         Ok(_) => "applied".to_string(),

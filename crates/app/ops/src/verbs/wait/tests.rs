@@ -2,14 +2,14 @@ use std::cell::{Cell, RefCell};
 
 use super::*;
 
-/// A clock that moves only when paused.
+/// A timer that moves only when paused.
 #[derive(Default)]
 struct Fake {
     now: Cell<Duration>,
     pauses: RefCell<Vec<Duration>>,
 }
 
-impl Clock for Fake {
+impl Timer for Fake {
     fn elapsed(&self) -> Duration {
         self.now.get()
     }
@@ -24,20 +24,20 @@ const MS: fn(u64) -> Duration = Duration::from_millis;
 
 #[test]
 fn with_no_condition_it_pauses_its_whole_time_and_checks_nothing() {
-    let clock = Fake::default();
-    let ended = polled(MS(3000), false, Poll::BACK_OFF, &clock, || {
+    let timer = Fake::default();
+    let ended = polled(MS(3000), false, Poll::BACK_OFF, &timer, || {
         panic!("no condition is checked")
     });
     assert_eq!(ended.unwrap(), (Reason::Elapsed, 0));
-    assert_eq!(*clock.pauses.borrow(), [MS(3000)]);
+    assert_eq!(*timer.pauses.borrow(), [MS(3000)]);
 }
 
 #[test]
 fn it_checks_at_once_then_backs_off_to_the_bound_and_once_at_the_deadline() {
-    let clock = Fake::default();
+    let timer = Fake::default();
     let mut at = Vec::new();
-    let ended = polled(MS(3000), true, Poll::BACK_OFF, &clock, || {
-        at.push(millis(clock.elapsed()));
+    let ended = polled(MS(3000), true, Poll::BACK_OFF, &timer, || {
+        at.push(millis(timer.elapsed()));
         Ok(None)
     });
     assert_eq!(ended.unwrap(), (Reason::Deadline, 7));
@@ -46,22 +46,22 @@ fn it_checks_at_once_then_backs_off_to_the_bound_and_once_at_the_deadline() {
 
 #[test]
 fn it_ends_at_the_first_check_that_holds() {
-    let clock = Fake::default();
+    let timer = Fake::default();
     let mut checks = 0;
-    let ended = polled(MS(30_000), true, Poll::BACK_OFF, &clock, || {
+    let ended = polled(MS(30_000), true, Poll::BACK_OFF, &timer, || {
         checks += 1;
         Ok((checks == 3).then_some(Reason::Answered))
     });
     assert_eq!(ended.unwrap(), (Reason::Answered, 3));
-    assert_eq!(clock.elapsed(), MS(300));
+    assert_eq!(timer.elapsed(), MS(300));
 }
 
 #[test]
 fn a_wait_of_zero_checks_once() {
-    let clock = Fake::default();
-    let ended = polled(Duration::ZERO, true, Poll::BACK_OFF, &clock, || Ok(None));
+    let timer = Fake::default();
+    let ended = polled(Duration::ZERO, true, Poll::BACK_OFF, &timer, || Ok(None));
     assert_eq!(ended.unwrap(), (Reason::Deadline, 1));
-    assert!(clock.pauses.borrow().is_empty());
+    assert!(timer.pauses.borrow().is_empty());
 }
 
 #[test]
@@ -185,10 +185,10 @@ fn a_walk_that_stops_at_its_bound_is_refused() {
 
 #[test]
 fn a_refusal_ends_the_wait_at_once() {
-    let clock = Fake::default();
-    let ended = polled(MS(30_000), true, Poll::BACK_OFF, &clock, || {
+    let timer = Fake::default();
+    let ended = polled(MS(30_000), true, Poll::BACK_OFF, &timer, || {
         Err(OpError::new(OpErrorKind::PermissionDenied, "x", "refused"))
     });
     assert_eq!(ended.unwrap_err().code, "x");
-    assert_eq!(clock.elapsed(), Duration::ZERO);
+    assert_eq!(timer.elapsed(), Duration::ZERO);
 }

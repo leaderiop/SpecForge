@@ -8,7 +8,7 @@ use std::time::Duration;
 use specforge_effects::Ports;
 use specforge_effects::UnixMillis;
 use specforge_ops::verbs::wait::{
-    self as waited, Changed, Matching, Poll, RealTime, Reason, Wait, WaitAnswer,
+    self as waited, Changed, Matching, MonotonicTimer, Poll, Reason, Wait, WaitAnswer,
 };
 
 use super::VerbArgs;
@@ -91,7 +91,8 @@ impl WaitArgs {
                         .map(|(pattern, file)| Matching { pattern, file }),
                     mode: self.verb.mode(),
                 };
-                let answered = waited::wait(&verbs, &wait, Poll::BACK_OFF, &RealTime::start())?;
+                let answered =
+                    waited::wait(&verbs, &wait, Poll::BACK_OFF, &MonotonicTimer::start())?;
                 deadline = answered.answer.reason == Reason::Deadline;
                 Ok(answered)
             },

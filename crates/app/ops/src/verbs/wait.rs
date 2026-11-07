@@ -166,23 +166,23 @@ impl Poll {
     };
 }
 
-/// A wait's clock: how long since it began, and a pause. A test passes its own, and waits no real time.
-pub trait Clock {
+/// A wait's timer: how long since it began, and a pause. A test passes its own, and waits no real time.
+pub trait Timer {
     fn elapsed(&self) -> Duration;
     fn pause(&self, span: Duration);
 }
 
-/// The machine's monotonic clock, from when it was made.
+/// The machine's monotonic clock, timing from when it was made.
 #[derive(Debug, Clone, Copy)]
-pub struct RealTime(Instant);
+pub struct MonotonicTimer(Instant);
 
-impl RealTime {
+impl MonotonicTimer {
     pub fn start() -> Self {
-        RealTime(Instant::now())
+        MonotonicTimer(Instant::now())
     }
 }
 
-impl Clock for RealTime {
+impl Timer for MonotonicTimer {
     fn elapsed(&self) -> Duration {
         self.0.elapsed()
     }
@@ -192,14 +192,14 @@ impl Clock for RealTime {
     }
 }
 
-/// `wait`, judged first, then polled by `poll` on `clock`.
+/// `wait`, judged first, then polled by `poll` on `timer`.
 pub fn wait(
     verbs: &Verbs,
     wait: &Wait,
     poll: Poll,
-    clock: &dyn Clock,
+    timer: &dyn Timer,
 ) -> Result<Answered<WaitAnswer>, OpError> {
-    let begun = clock.elapsed();
+    let begun = timer.elapsed();
     let started_at = UnixMillis::now_or_end();
     if let Some(url) = &wait.url {
         judge_url(verbs, url)?;
@@ -219,7 +219,7 @@ pub fn wait(
     let mut changed = None;
     let mut matched = None;
     let conditions = wait.url.is_some() || wait.changed.is_some() || wait.matching.is_some();
-    let (reason, polls) = polled(wait.for_, conditions, poll, clock, || {
+    let (reason, polls) = polled(wait.for_, conditions, poll, timer, || {
         // Each condition in turn, the first that holds ending the check before the next is asked: the files first,
         // since a probe may take its whole timeout.
         if let Some(watched) = &mut watched {
@@ -239,7 +239,7 @@ pub fn wait(
         }
         let left = wait
             .for_
-            .saturating_sub(clock.elapsed().saturating_sub(begun));
+            .saturating_sub(timer.elapsed().saturating_sub(begun));
         Ok(match url.probed(left.clamp(poll.first, PROBE_LONGEST))? {
             Probed::Answered => Some(Reason::Answered),
             // A replay's recorded no-answer cannot change: with nothing else to watch, the deadline is its answer.
@@ -251,7 +251,7 @@ pub fn wait(
         answer: WaitAnswer {
             reason,
             started_at,
-            waited_ms: millis(clock.elapsed().saturating_sub(begun)),
+            waited_ms: millis(timer.elapsed().saturating_sub(begun)),
             for_ms: millis(wait.for_),
             polls,
             url: url.last,
@@ -611,13 +611,13 @@ fn polled(
     for_: Duration,
     conditions: bool,
     poll: Poll,
-    clock: &dyn Clock,
+    timer: &dyn Timer,
     mut check: impl FnMut() -> Result<Option<Reason>, OpError>,
 ) -> Result<(Reason, u64), OpError> {
-    let begun = clock.elapsed();
-    let spent = || clock.elapsed().saturating_sub(begun);
+    let begun = timer.elapsed();
+    let spent = || timer.elapsed().saturating_sub(begun);
     if !conditions {
-        clock.pause(for_);
+        timer.pause(for_);
         return Ok((Reason::Elapsed, 0));
     }
     let mut polls = 0;
@@ -631,7 +631,7 @@ fn polled(
         if left.is_zero() {
             return Ok((Reason::Deadline, polls));
         }
-        clock.pause(pause.min(left));
+        timer.pause(pause.min(left));
         pause = (pause * 2).min(poll.max);
     }
 }
