@@ -288,6 +288,13 @@ fn the_regression_scope_runs_pytest_on_the_named_files_or_skips() {
 fn uv_lock_runs_pytest_through_uv() {
     let gate = choose(&ask("test"), &tree(&["pyproject.toml", "uv.lock"])).expect("an answer");
     assert_eq!(gate.argv, line("uv run python -m pytest -x -q --tb=short"));
+    // A compile needs no project environment: the build gate runs python itself, as upstream's does.
+    let sources = Tree {
+        python: vec!["a.py"],
+        ..tree(&["uv.lock", "pyproject.toml"])
+    };
+    let build = choose(&ask("build"), &sources).expect("an answer");
+    assert_eq!(build.argv, line("python -m py_compile a.py"));
 }
 
 #[test]

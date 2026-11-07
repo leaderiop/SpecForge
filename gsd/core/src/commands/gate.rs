@@ -250,16 +250,11 @@ fn as_operand(path: &str) -> String {
 }
 
 fn python<F: Fn(&str) -> bool>(ask: &Ask<'_>, tree: &Tree<'_, F>) -> Gate {
-    let mut argv = if (tree.has)("uv.lock") {
-        words(&["uv", "run", "python"])
-    } else {
-        words(&["python"])
-    };
     if ask.target == "build" {
         if tree.python.is_empty() {
             return nothing(ask);
         }
-        argv.extend(words(&["-m", "py_compile"]));
+        let mut argv = words(&["python", "-m", "py_compile"]);
         argv.extend(
             tree.python
                 .iter()
@@ -268,6 +263,11 @@ fn python<F: Fn(&str) -> bool>(ask: &Ask<'_>, tree: &Tree<'_, F>) -> Gate {
         );
         return Gate::runs("python", argv);
     }
+    let mut argv = if (tree.has)("uv.lock") {
+        words(&["uv", "run", "python"])
+    } else {
+        words(&["python"])
+    };
     if !ask.regression {
         argv.extend(words(&["-m", "pytest", "-x", "-q", "--tb=short"]));
         return Gate::runs("python", argv);
