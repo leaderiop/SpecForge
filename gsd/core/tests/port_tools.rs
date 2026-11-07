@@ -5,8 +5,11 @@ use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
+use asset_code::fenced_code;
 use host_options::HOST_OPTIONS;
 
+#[path = "common/asset_code.rs"]
+mod asset_code;
 #[path = "common/command_word.rs"]
 mod command_word;
 #[path = "common/files.rs"]
@@ -177,30 +180,6 @@ const PENDING_NODE: &[(&str, &str)] = &[
         r#"if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then"#,
     ),
 ];
-
-/// The code lines of `lines` (an asset's lines after its header) as `(index, trimmed line)`: the lines inside a fence
-/// that are not a `#` comment. Prose about a command is not code.
-fn fenced_code(lines: &[String]) -> Vec<(usize, &str)> {
-    let mut out = Vec::new();
-    // the open fence's character: a ``` fence is closed by ```, a ~~~ fence by ~~~
-    let mut fence: Option<char> = None;
-    for (n, line) in lines.iter().enumerate() {
-        let code = line.trim();
-        if code.starts_with("```") || code.starts_with("~~~") {
-            let mark = code.chars().next();
-            fence = match fence {
-                None => mark,
-                Some(open) if Some(open) == mark => None,
-                open => open,
-            };
-            continue;
-        }
-        if fence.is_some() && !code.starts_with('#') {
-            out.push((n, code));
-        }
-    }
-    out
-}
 
 /// A shell block runs no node: a project that uses SpecForge may have no node at all. Only code counts:
 /// a line inside a fence that is not a `#` comment. Prose about a node script is not code.
