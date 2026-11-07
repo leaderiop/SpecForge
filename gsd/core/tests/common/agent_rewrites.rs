@@ -1,6 +1,6 @@
 //! Agent body lines (`(agent, index into the body)`) rewritten although upstream's line names no ported tool: a list of
-//! keys no answer prints, a probe for a program, and a write a recording agent never makes. `port` reads them beside
-//! its `REWRITTEN` rows.
+//! keys no answer prints, a probe for a program, a write a recording agent never makes, and a ratio an answer computes.
+//! `port` reads them beside its `REWRITTEN` rows.
 
 pub const ROWS: &[(&str, usize)] = &[
     // A list of keys to read names what its answer prints: no init bundle prints a model or a phase directory.
@@ -38,4 +38,9 @@ pub const ROWS: &[(&str, usize)] = &[
     ("gsd-pattern-mapper.compact.md", 242),
     ("gsd-pattern-mapper.compact.md", 243),
     ("gsd-pattern-mapper.compact.md", 256),
+    // The plan answers its slices under the budget: the checker reads the figure and names no field the plan lacks.
+    ("gsd-plan-checker.md", 305),
+    ("gsd-plan-checker.md", 306),
+    ("gsd-plan-checker.md", 307),
+    ("gsd-plan-checker.md", 308),
 ];

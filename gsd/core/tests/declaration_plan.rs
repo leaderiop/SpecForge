@@ -43,13 +43,21 @@ fn the_plan_kind_declares_the_fields_of_the_model() {
             "autonomous",
             "status",
             "quick",
-            "files_touched"
+            "files_touched",
+            "estimate_slices"
         ]
     );
     for required in ["type", "files_modified", "objective"] {
         assert_eq!(field_of("plan", required)["required"], true, "{required}");
     }
-    for computed in ["wave", "autonomous", "status", "quick", "files_touched"] {
+    for computed in [
+        "wave",
+        "autonomous",
+        "status",
+        "quick",
+        "files_touched",
+        "estimate_slices",
+    ] {
         assert_eq!(
             field_of("plan", computed)["writer"],
             "computed",
@@ -367,7 +375,7 @@ fn a_setup_done_is_a_harness_block_and_the_dashboard_a_block_list() {
 /// `plan.md` lists 79 fields over its nine kinds. The model fixes: `task.commits` waits for `commit` (r38), which is 1
 /// fewer, and `task.verify_text`, `task.verify_paths` (gsd/E320), `checkpoint.action` and `checkpoint.verification`
 /// are 4 more: 79 - 1 + 4 = 82. `plan.gap_closure` is declared with the UAT kinds (r39), and `artifact.state` and
-/// `key_link.state` (computed by the scan) are 2 more: 84.
+/// `key_link.state` (computed by the scan) are 2 more: 84. `plan.estimate_slices` (the smart-zone budget's answer) is 1 more.
 #[test]
 fn the_plan_kinds_declare_every_field_of_plan_md() {
     let kinds = [
@@ -382,7 +390,7 @@ fn the_plan_kinds_declare_every_field_of_plan_md() {
         "user_setup",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 79 - 1 + 4 + 2 + 3, "the kinds' fields");
+    assert_eq!(total, 79 - 1 + 4 + 2 + 3 + 1, "the kinds' fields");
 }
 
 /// The host refuses a computed field that two compute passes claim, and one that none does (W021): every `C` field of
@@ -426,4 +434,24 @@ fn each_computed_field_is_listed_by_one_compute_pass() {
     }
     computed.sort();
     assert_eq!(listed, computed);
+}
+
+#[test]
+fn the_plan_checker_reads_the_slices_the_plan_answers() {
+    let checker = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/agents/gsd-plan-checker.md"),
+    )
+    .expect("the plan checker");
+    assert!(checker.contains("estimate_slices"));
+    // The plan answers the ratio; the checker neither divides, rounds, calibrates nor names a field the plan lacks.
+    for said in [
+        "divided by the budget",
+        "rounded up",
+        "calibration factor",
+        "estimate.confidence",
+        "about 100k tokens",
+        "yourself:",
+    ] {
+        assert!(!checker.contains(said), "the checker says {said:?}");
+    }
 }

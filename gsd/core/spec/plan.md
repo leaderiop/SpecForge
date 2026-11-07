@@ -47,6 +47,7 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | status | enum{draft, checked, ready, executing, complete, halted, blocked} | C | checked: all four plan-check verdicts (gsd/W311, W313, W315, W316) are fresh and passing; draft: any of them is missing, stale, unrecorded or failing (with `workflow.plan_check` off the four rules are gated, a plan has no judgement and is `ready`, never `draft` or `checked`); complete / halted: from its summary (case-folded); blocked: a `depends_on` chain inside its phase reaches a halted plan, or a cycle contains it (GSD fails closed; Kahn's algorithm, `plan-dependency-graph.cts`); executing: a recorded commit names it and it has no summary. A summary and blocking win over a commit, and execution wins over the check; before that the plan-check verdicts decide between draft, checked and (check off) ready. The plan is complete (`complete_when`, ADR 0329 D4) while `complete`, else pending: a red proof of its truths is TDD, not a `@code/core` finding |
 | quick | bool | C | no phase: a quick task |
 | files_touched | strs | C | the sorted, distinct files of its recorded commits; absent without one, as a summary's `files_created` |
+| estimate_slices | int | C | `estimate.tokens` over `workflow.smart_zone_tokens`, rounded up (at least 1): over 1 is a re-slice the plan checker recommends, never a block; absent without an estimate or a budget |
 
 ## task
 

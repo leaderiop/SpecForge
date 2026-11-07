@@ -62,6 +62,10 @@ pub const PLAN: Kind = Kind::new(
         strs("files_touched")
             .c()
             .doc("the sorted, distinct files of its recorded commits; absent without one"),
+        int("estimate_slices").c().doc(
+            "how many plans `estimate.tokens` makes under `workflow.smart_zone_tokens`, rounded up: over 1 is a \
+             re-slice to recommend, never a block; absent without an estimate",
+        ),
     ],
 )
 .scoped_by("phase")

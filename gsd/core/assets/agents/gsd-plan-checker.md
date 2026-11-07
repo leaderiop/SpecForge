@@ -297,17 +297,17 @@ issue:
 1. Count tasks per plan
 2. Estimate files modified per plan
 3. Check against thresholds
-4. **Smart-zone estimate check (#2631, ADR-2629).** For each plan carrying an `estimate` block, compare
-   its `estimate.tokens` with the `workflow.smart_zone_tokens` setting (`specforge settings`) yourself:
-   upstream's estimate-check verb is not part of @gsd/core, and the plan's figure already has the
-   calibration factor applied, so apply none. Report
-   one line per plan: plan id, estimated tokens, the budget, and — when the estimate is over it — how
-   many slices the phase should become (the estimate divided by the budget, rounded up).
+4. **Smart-zone estimate check (#2631, ADR-2629).** For each plan carrying an `estimate` block, read
+   its `estimate_slices` from the plan query: the plan answers how many plans its `estimate.tokens`
+   makes under the `workflow.smart_zone_tokens` setting, so take the figure as it is. Report
+   one line per plan: plan id, `estimate.tokens`, and `estimate_slices`. A plan carrying an estimate
+   but no `estimate_slices` has no budget to read: say `workflow.smart_zone_tokens` is missing
+   rather than working the figure out.
 
-   **Over budget is a WARNING, never a blocker** (ADR-2629 Decision 5). Recommend re-slicing into a tracer
-   plus expansion slices; never fail the check on it. Report `estimate.confidence` alongside: `low` means
-   fewer than 3 completed phases carry actuals, so the figure is not yet calibrated for this project — say
-   so rather than presenting it as precise, and weigh the task/file thresholds above more heavily.
+   **Over 1 is a WARNING, never a blocker** (ADR-2629 Decision 5). Recommend re-slicing into a tracer
+   plus expansion slices, `estimate_slices` plans in all; never fail the check on it. The estimate
+   is a projection, not a measurement, and the plan carries no confidence for it: weigh the task/file
+   thresholds above beside it.
 
    A plan with no `estimate` block is not a defect; the field is optional and additive.
 
@@ -743,8 +743,8 @@ specforge query "$PHASE_ID" --format json   # the phase: goal and success criter
 specforge query "$PHASE_ID" --depth 2 --kinds summary --format json
 
 # Smart-zone estimate check (#2631) — advisory, never fails the check.
-# A plan's `estimate` is a field of the plan entity; read it from the plan query above.
-# Over the smart zone (about 100k tokens): note it as a warning; never fail the check on it.
+# A plan's `estimate_slices` is a field of the plan entity; read it from the plan query above.
+# Over 1: note it as a warning; never fail the check on it.
 
 
 

@@ -4095,6 +4095,17 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "how many plans `estimate.tokens` makes under `workflow.smart_zone_tokens`, rounded up: over 1 is a re-slice to recommend, never a block; absent without an estimate",
+            "edge": null,
+            "field_type": "integer",
+            "inverse_of": null,
+            "name": "estimate_slices",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,
