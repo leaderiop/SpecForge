@@ -274,4 +274,7 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ),
     // a prose row says its answer, or no tool: the undo selection's old match names its regex, not grep
     ("gsd-core/workflows/undo.md", 228, 228),
+    // the review's cleanup asks `files list` which run files are inputs, which are empty and how many are left
+    ("gsd-core/workflows/review.md", 880, 892),
+    ("gsd-core/workflows/review.md", 894, 896),
 ];

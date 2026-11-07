@@ -876,26 +876,26 @@ the run — a leftover temp directory is far cheaper than destroyed evidence:
 shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
 RUN_DIR="{run_dir}"
-_EVIDENCE=0
+_PRESERVE_OK=true
 
 # #4097: `gsd-review-*.md` matches BOTH lane outputs (reports, diagnostic stubs) and the
-# run's own assembled input copies (see the #4097 note above). Filter by basename against
-# the closed input set this workflow itself writes — direct glob iteration with a `case`
-# filter, no string accumulator, identical under bash and zsh (#4099/#4109), and the
-# `nullglob` set at the top of this fence keeps an empty RUN_DIR an empty array (#2962).
+# run's own assembled input copies (see the #4097 note above). `files list` answers which is
+# which: the closed input set this workflow itself writes is its glob, and an empty `.err` is
+# its `size=0`; the loop only hands each path, one per row, to `files remove` (#4099/#4109).
 # `gsd-review-prompt*` deliberately covers BOTH the combined prompt (`gsd-review-prompt.md`)
 # and the per-lane trimmed prompts (`gsd-review-prompt-<slug>.md`).
-_PRESERVE_OK=true
-for f in "$RUN_DIR"/gsd-review-*.md; do
-  case "${f##*/}" in
-    gsd-review-prompt*|gsd-review-instructions*|gsd-review-plan-*|gsd-review-project*|gsd-review-roadmap*|gsd-review-context*|gsd-review-research*|gsd-review-requirements*) specforge files remove "$f" >/dev/null || _PRESERVE_OK=false ;;
-    *) _EVIDENCE=$((_EVIDENCE + 1)) ;;
-  esac
-done
+while IFS= read -r f; do
+  specforge files remove "$f" >/dev/null || _PRESERVE_OK=false
+done < <(specforge files list "$RUN_DIR" --glob 'gsd-review-{prompt,instructions,plan-,project,roadmap,context,research,requirements}*.md' --pick '.entries[]' --fields path; specforge files list "$RUN_DIR" --glob 'gsd-review-*.err' --pick '.entries[size=0]' --fields path)
 
-for f in "$RUN_DIR"/gsd-review-*.err; do
-  if [ -s "$f" ]; then _EVIDENCE=$((_EVIDENCE + 1)); else specforge files remove "$f" >/dev/null || _PRESERVE_OK=false; fi
-done
+# what is left is evidence: a lane's report or stub, and a stderr file with text; a failed listing
+# leaves its files, and an unread count keeps the directory
+_EVIDENCE=$(specforge files list "$RUN_DIR" --glob 'gsd-review-*.{md,err}' --pick '.entries[].path' --count) || _PRESERVE_OK=false
+
+
+
+
+
 
 
 

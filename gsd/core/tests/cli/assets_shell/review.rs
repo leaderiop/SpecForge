@@ -192,6 +192,18 @@ fn the_review_block_keeps_only_lane_evidence() {
     assert!(!run_dir.exists(), "{out}{err}");
 }
 
+/// The review's last block holds no rule (S1-D4): which run files are inputs, which are evidence and how many are left
+/// are `files list` answers (its glob, its sizes, `--count`); the shell only hands each path to `files remove`.
+#[test]
+fn the_review_cleanup_holds_no_rule() {
+    let text = asset("gsd-core/workflows/review.md");
+    let tail = &text[text.rfind("shopt -s nullglob").expect("the last block")..];
+    let script = &tail[..tail.find("\n```").expect("the end of the fence")];
+    for rule in ["case ", "$((", "[ -s "] {
+        assert!(!script.contains(rule), "the cleanup decides with {rule:?}");
+    }
+}
+
 /// The lines of `text` that carry the model-filled `placeholder`: the assignment that holds it, and, when it is a
 /// quoted heredoc, every line through its terminator.
 fn filled_assignment(text: &str, placeholder: &str) -> Vec<String> {
