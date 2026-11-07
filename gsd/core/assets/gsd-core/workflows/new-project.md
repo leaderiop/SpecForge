@@ -652,11 +652,11 @@ this also finds linked git worktree children, whose `.git` is a file rather than
 directory, unlike a plain directory walk would):
 
 ```bash
-specforge check --format json
+SUB_REPOS=$(specforge git repos . --pick '.repos[].name')   # each child directory that is a repository or a linked worktree
 ```
 
-Read the `sub_repos_detected` array from the JSON output — each entry is a bare
-directory name already relative to the workspace root (e.g. `"backend"`).
+Each line of `SUB_REPOS` is a bare directory name relative to the workspace root
+(e.g. `backend`); none means no sub-repos.
 
 **If sub-repos found:**
 
@@ -668,13 +668,13 @@ Use AskUserQuestion:
 - options: one option per detected directory
   - "[directory name]" — Separate git repo
 
-**If user selects one or more directories:**
+**If user selects one or more directories:** each is a repository of its own, so it is a SpecForge project of its own:
 
-- Set `planning.sub_repos` in config.json to the selected directory names array (e.g., `["backend", "frontend"]`)
-- Auto-set `planning.commit_docs` to `false` (planning docs stay local in multi-repo workspaces)
-- Add the spec to `.gitignore` if not already present
+- Write nothing here: `planning.sub_repos` is not a setting of the port, and this project's commits never reach a sub-repository
+- Suggest running `/gsd:new-project` inside each selected directory, so its own spec tracks its work
 
-Config changes are saved locally — no commit needed since `commit_docs` is `false` in multi-repo mode.
+
+The spec stays committed like code: `commit_docs` is not a setting here.
 
 **If no sub-repos found or user selects none:** Continue with no changes to config.
 

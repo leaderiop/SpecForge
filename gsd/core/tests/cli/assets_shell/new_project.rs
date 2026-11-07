@@ -2,9 +2,9 @@
 
 use super::{Shell, asset, block};
 
-/// The fence of new-project's "5.1. Sub-Repo Detection" step, run in a project holding a directory repo (`backend`), a
+/// The fence of new-project's "5.1. Sub-Repo Detection" step, then `show`, run in a project holding a directory repo (`backend`), a
 /// linked worktree (`linked-wt`, whose `.git` is a file) and a plain directory (`docs`): `(stdout, stderr)`.
-fn sub_repo_step(sh: &Shell) -> (String, String) {
+fn sub_repo_step(sh: &Shell, show: &str) -> (String, String) {
     let text = asset("gsd-core/workflows/new-project.md");
     let step = block(
         &text,
@@ -26,21 +26,17 @@ fn sub_repo_step(sh: &Shell) -> (String, String) {
         "2026-01-01T00:00:00Z",
     );
     p.write("docs/README.md", "docs\n");
-    let (out, err, _) = sh.run_in(p.root(), &code.join("\n"));
+    let (out, err, _) = sh.run_in(p.root(), &format!("{}\n{show}", code.join("\n")));
     (out, err)
 }
 
-/// Today's defect: the step runs `specforge check --format json` and reads `sub_repos_detected`, which nothing prints,
-/// so a workspace's sub-repos are never found.
+/// The step lists each child directory that is a repository, a directory repo and a linked worktree alike, by its
+/// bare name, and not a plain directory.
 #[test]
-fn new_project_detects_no_sub_repo_today() {
+fn new_project_lists_the_sub_repos() {
     let Some(sh) = Shell::without_jq() else {
         return;
     };
-    let (out, err) = sub_repo_step(&sh);
-    assert!(!out.contains("sub_repos_detected"), "{out}{err}");
-    assert!(
-        !out.contains("backend") && !out.contains("linked-wt"),
-        "{out}{err}"
-    );
+    let (out, err) = sub_repo_step(&sh, "printf '%s\\n' \"$SUB_REPOS\"");
+    assert_eq!(out, "backend\nlinked-wt\n", "{err}");
 }
