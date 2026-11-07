@@ -433,11 +433,11 @@ The rest, in descending order of how likely a planner is to reach them:
   is not the same flag everywhere: a prefix flag on an archive names its members and moves nothing.
 - **A path computed in program text.** An interpreter's program is not shell, so only literal absolute
   paths are read from it, never one the program assembles.
-- **Nesting past four.** A payload inside a payload is read to a bounded depth, which keeps a pathological
-  nest finite; past it nothing is read.
+- **Nesting past four.** Levels of eval and payloads in payloads are read to a bounded depth, then not at all.
+- **What runs later or elsewhere.** A cd through CDPATH, a command xargs or find -exec runs, text piped or
+  handed to a shell on its standard input, and a heredoc given to a shell inside a substitution.
 - **A link outside the project, or another spelling of the main checkout.** Targets resolve lexically, and
-  a link is seen only inside the project. An absolute path that reaches the main checkout through a link
-  elsewhere is not recognized as inside it.
+  a link is seen only inside the project: an absolute path through a link elsewhere is not recognized.
 
 The tables are the parts that rot: they mirror a toolchain this file does not own. The guard is the
 executor's last containment check, not its only one — a halt it misses still has to get past the plan

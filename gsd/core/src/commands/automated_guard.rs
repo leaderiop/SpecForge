@@ -418,6 +418,14 @@ mod tests {
             "bash -c 'cd ../main'",
             "/bin/sh -c 'cd /main'",
             "timeout 5 bash -c 'cd ../main'",
+            // Its readable flags, which the guard before the words did not read either.
+            "cd -LP ../main",
+            "env -iC ../main make",
+            "time -p cd ../main",
+            "make -wC ../main",
+            "bash --rcfile x -c 'cd ../main'",
+            "bash -eo pipefail -c 'cd ../main'",
+            "`cd ../main`",
         ] {
             assert!(halts(command), "{command}: {:?}", verdict(command));
         }

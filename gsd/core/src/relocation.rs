@@ -10,12 +10,16 @@ use specforge_extension_sdk::shell::{self, Op};
 const MAX_DEPTH: usize = 4;
 
 const KEYWORDS: &[&str] = &[
-    "if", "then", "else", "elif", "do", "while", "until", "!", "{", "time", "coproc",
+    "if", "then", "else", "elif", "do", "while", "until", "!", "{", "coproc",
 ];
 const SHELLS: &[&str] = &["sh", "bash", "zsh", "dash", "ksh"];
 const PACKAGE_TOOLS: &[&str] = &["npm", "npx", "pnpm", "yarn", "bun"];
 const PACKAGE_DIR_FLAGS: &[&str] = &["--prefix", "--cwd", "--dir", "-C"];
 const MAKE_DIR_FLAGS: &[&str] = &["-C", "--directory"];
+/// `make`'s other short options that take a word of their own.
+const MAKE_OPERANDS: &str = "fIoW";
+/// `env`'s option whose text is a command line of its own.
+const SPLIT_STRING: &[&str] = &["-S", "--split-string"];
 
 /// A command that runs the command in its words: its options that take an operand, those that move the command it runs,
 /// and the operands before that command.
@@ -41,7 +45,13 @@ const fn launcher(
 }
 
 const LAUNCHERS: &[Launcher] = &[
-    launcher("env", &["-u", "--unset"], &["-C", "--chdir"], 0),
+    launcher(
+        "env",
+        &["-u", "--unset", "-S", "--split-string"],
+        &["-C", "--chdir"],
+        0,
+    ),
+    launcher("time", &["-o", "--output", "-f", "--format"], &[], 0),
     launcher("timeout", &["-s", "--signal", "-k", "--kill-after"], &[], 1),
     launcher("nohup", &[], &[], 0),
     launcher("setsid", &[], &[], 0),
@@ -251,9 +261,11 @@ fn command(words: &[String], depth: usize, out: &mut Vec<Event>) -> Result<(), S
 
 fn cd_target(args: &[String]) -> String {
     let mut args = args.iter().map(String::as_str).peekable();
-    while let Some(arg) = args.next_if(|a| matches!(*a, "-L" | "-P" | "-e" | "-@" | "-n")) {
-        let _ = arg;
-    }
+    let option = |arg: &&str| {
+        arg.strip_prefix('-')
+            .is_some_and(|l| !l.is_empty() && l.chars().all(|c| "LPe@nqs".contains(c)))
+    };
+    while args.next_if(option).is_some() {}
     args.next_if(|a| *a == "--");
     match args.next() {
         None => "~".to_string(),
@@ -287,36 +299,24 @@ fn launched(
             continue;
         }
         // `command -v bash` asks whether it exists: nothing runs.
-        if launcher.name == "command" && matches!(word.as_str(), "-v" | "-V") {
+        if launcher.name == "command" && word.contains(['v', 'V']) && !word.starts_with("--") {
             return Ok(());
         }
-        if launcher.name == "env" && (word == "-S" || word == "--split-string") {
-            if let Some(text) = tail.get(at) {
-                split = shell::words(text)?;
-                at += 1;
-            }
-            break;
-        }
-        if let Some(text) = word
-            .strip_prefix("--split-string=")
-            .filter(|_| launcher.name == "env")
-        {
-            split = shell::words(text)?;
-            break;
-        }
-        let (value, takes) = option_value(word, launcher.operands.iter().chain(launcher.chdir));
-        let moved = launcher.chdir.iter().any(|flag| {
-            word == flag || word.strip_prefix(flag).is_some_and(|rest| !rest.is_empty())
+        let Some((flag, glued)) = launcher_option(launcher, word) else {
+            continue;
+        };
+        let value = glued.map(str::to_string).or_else(|| {
+            at += 1;
+            tail.get(at - 1).cloned()
         });
-        match (value, takes) {
-            (Some(value), _) if moved => chdir = Some(value.to_string()),
-            (None, true) => {
-                if moved {
-                    chdir = tail.get(at).cloned();
-                }
-                at += 1;
+        if SPLIT_STRING.contains(&flag.as_str()) {
+            if let Some(text) = value {
+                split = shell::words(&text)?;
             }
-            _ => {}
+            break;
+        }
+        if launcher.chdir.contains(&flag.as_str()) {
+            chdir = value;
         }
     }
     let payload: Vec<String> = split
@@ -340,24 +340,40 @@ fn launched(
     }
 }
 
-/// The value `word` carries itself (`--flag=x`, `-Cx`) when it is one of `flags`, and whether it is one.
-fn option_value<'a, 'b>(
+/// In a cluster of short options (`-iC`, `-wCd`), the first letter that takes an operand, and what is glued after it.
+fn cluster(word: &str, takes: impl Fn(char) -> bool) -> Option<(char, Option<&str>)> {
+    let letters = word
+        .strip_prefix('-')
+        .filter(|letters| !letters.is_empty() && !letters.starts_with('-'))?;
+    let (at, letter) = letters.char_indices().find(|(_, c)| takes(*c))?;
+    let rest = &letters[at + letter.len_utf8()..];
+    Some((letter, (!rest.is_empty()).then_some(rest)))
+}
+
+/// The option of `launcher` that `word` is and takes an operand: its name, and the operand when `word` carries it.
+fn launcher_option<'a>(launcher: &Launcher, word: &'a str) -> Option<(String, Option<&'a str>)> {
+    let known = |flag: &str| launcher.operands.contains(&flag) || launcher.chdir.contains(&flag);
+    if word.starts_with("--") {
+        let (name, value) = word
+            .split_once('=')
+            .map_or((word, None), |(name, value)| (name, Some(value)));
+        return known(name).then(|| (name.to_string(), value));
+    }
+    let (letter, glued) = cluster(word, |c| known(&format!("-{c}")))?;
+    Some((format!("-{letter}"), glued))
+}
+
+/// The value `word` carries itself (`--flag=x`), when it is one of the long `flags`, and whether it is one.
+fn long_value<'a, 'b>(
     word: &'a str,
     flags: impl Iterator<Item = &'b &'b str>,
 ) -> (Option<&'a str>, bool) {
-    for flag in flags {
+    for flag in flags.filter(|flag| flag.starts_with("--")) {
         if word == *flag {
             return (None, true);
         }
-        let attached = if flag.starts_with("--") {
-            word.strip_prefix(*flag)
-                .and_then(|rest| rest.strip_prefix('='))
-        } else {
-            word.strip_prefix(*flag)
-                .filter(|rest| !word.starts_with("--") && !rest.is_empty())
-        };
-        if attached.is_some() {
-            return (attached, true);
+        if let Some(value) = word.strip_prefix(*flag).and_then(|r| r.strip_prefix('=')) {
+            return (Some(value), true);
         }
     }
     (None, false)
@@ -372,15 +388,18 @@ fn shell_script(tail: &[String]) -> (Option<&str>, &[String]) {
             at += 1;
             break;
         }
-        if matches!(word.as_str(), "-o" | "-O" | "+o" | "+O") {
-            at += 2;
-            continue;
-        }
         if !word.starts_with(['-', '+']) {
             break;
         }
-        has_c |= !word.starts_with("--") && word.starts_with('-') && word.contains('c');
-        at += 1;
+        let long = word.starts_with("--");
+        has_c |= !long && word.starts_with('-') && word.contains('c');
+        // `-eo pipefail`, `--rcfile x`: its operand is no script.
+        let operand = if long {
+            matches!(word.as_str(), "--rcfile" | "--init-file")
+        } else {
+            word.ends_with(['o', 'O'])
+        };
+        at += if operand { 2 } else { 1 };
     }
     match tail.get(at).filter(|_| has_c) {
         Some(script) => (Some(script), &tail[at + 1..]),
@@ -455,7 +474,30 @@ fn directory_flags(name: &str, tail: &[String], out: &mut Vec<Event>) {
             at += 1;
             continue;
         }
-        let (value, is_flag) = option_value(word, flags.iter());
+        // A cluster's first operand-taking letter: `make -wC d`, `make -f x`. git's `-C` stands alone.
+        let short = if name == "git" {
+            word.strip_prefix("-C")
+                .filter(|_| !word.starts_with("--"))
+                .map(|rest| ('C', (!rest.is_empty()).then_some(rest)))
+        } else {
+            cluster(word, |c| {
+                c == 'C' || (name == "make" && MAKE_OPERANDS.contains(c))
+            })
+        };
+        if let Some((letter, glued)) = short {
+            let target = glued.map(str::to_string).or_else(|| {
+                at += 1;
+                tail.get(at - 1).cloned()
+            });
+            if let Some(target) = target.filter(|_| letter == 'C') {
+                out.push(Event::Flag {
+                    flag: "-C".to_string(),
+                    target,
+                });
+            }
+            continue;
+        }
+        let (value, is_flag) = long_value(word, flags.iter());
         if !is_flag {
             continue;
         }
@@ -534,8 +576,19 @@ mod tests {
         ] {
             assert_eq!(cds(line), ["x"], "{line}");
         }
+        for line in [
+            "time -p cd x",
+            "time -o log cd x",
+            "env -iS 'cd x'",
+            "env -vS'cd x'",
+        ] {
+            assert_eq!(cds(line), ["x"], "{line}");
+        }
         // A launcher's directory moves its payload.
         for line in [
+            "env -iC d make",
+            "env -iCd make",
+            "env -i -C d make",
             "env -C d make",
             "env --chdir d make",
             "env --chdir=d make",
@@ -573,6 +626,11 @@ mod tests {
         assert_eq!(cds("bash -c 'cd x'"), ["x"]);
         assert_eq!(cds("sh -lc 'cd x'"), ["x"]);
         assert_eq!(cds("bash -o pipefail -c 'cd x'"), ["x"]);
+        assert_eq!(cds("bash -eo pipefail -c 'cd x'"), ["x"]);
+        assert_eq!(cds("bash -ceo pipefail 'cd x'"), ["x"]);
+        assert_eq!(cds("bash --rcfile x -c 'cd y'"), ["y"]);
+        assert_eq!(cds("bash --init-file x -c 'cd y'"), ["y"]);
+        assert_eq!(cds("bash --noprofile -c 'cd y'"), ["y"]);
         assert_eq!(cds("eval 'cd x'"), ["x"]);
         assert_eq!(reached("eval 'cd x'"), ["x"], "eval's cwd persists");
         assert_eq!(reached("bash -c 'cd x'"), Vec::<String>::new());
@@ -621,6 +679,11 @@ mod tests {
         assert_eq!(flags("yarn --cwd ../main test"), one("--cwd", "../main"));
         assert_eq!(flags("make -C ../main"), one("-C", "../main"));
         assert_eq!(flags("make -C../main"), one("-C", "../main"));
+        assert_eq!(flags("make -wC ../main"), one("-C", "../main"));
+        assert_eq!(flags("make -wC../main"), one("-C", "../main"));
+        assert_eq!(flags("make -f x -C ../main"), one("-C", "../main"));
+        assert!(flags("make -fC x").is_empty(), "-f takes the C");
+        assert_eq!(flags("pnpm -rC ../main test"), one("-C", "../main"));
         assert_eq!(
             flags("make --directory=../main"),
             one("--directory", "../main")
@@ -679,6 +742,9 @@ mod tests {
         assert_eq!(cds("cd"), ["~"]);
         assert_eq!(cds("cd -"), ["$OLDPWD"]);
         assert_eq!(cds("cd -P -- x"), ["x"]);
+        assert_eq!(cds("cd -LP x"), ["x"]);
+        assert_eq!(cds("cd -LP -- x"), ["x"]);
+        assert_eq!(cds("pushd -n x"), ["x"]);
     }
 
     #[test]
