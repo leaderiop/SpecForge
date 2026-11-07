@@ -47,6 +47,11 @@ impl VerbArgs {
         self.effects.unwrap_or(EffectsMode::Online)
     }
 
+    /// Whether the answer prints in the human form: `--format human` with no `--pick`.
+    pub(crate) fn human(&self) -> bool {
+        self.format == OutputFormat::Human && !self.picked.picks()
+    }
+
     /// The output format, or the usage error (exit 2) of `--pick` beside `--format human`.
     pub(crate) fn format(&self, terminal: &Terminal) -> Result<OutputFormat, Exit> {
         match (self.picked.picks(), self.format) {

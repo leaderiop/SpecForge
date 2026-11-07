@@ -581,6 +581,39 @@ fn read_answers_text_bytes_and_lines() {
     );
 }
 
+/// `files read --format human` is the file's bytes exactly, as `cat` gives them (a CRLF line break and a tab kept),
+/// or a refusal with its reason and no output: never a cut copy past 1 MiB, never U+FFFD for bytes that are not
+/// UTF-8, never an escape for a character a terminal acts on, with exit 0.
+#[test]
+fn a_human_read_is_the_files_bytes_or_a_refusal() {
+    let project = project().files(&[("notes/crlf.txt", "a\r\n\tb\r\n")]);
+    let exact = Cli::on(&project)
+        .run(&["files", "read", "notes/crlf.txt", "--format", "human"])
+        .exits(0);
+    assert_eq!(exact.stdout, "a\r\n\tb\r\n");
+    let big = "a\n".repeat(512 * 1024 + 1);
+    let project = project.files(&[("notes/big.txt", big.as_str())]);
+    std::fs::write(project.root().join("notes/latin1.txt"), b"caf\xe9\n").unwrap();
+    std::fs::write(project.root().join("notes/escape.txt"), b"a\x1b[2Jb\n").unwrap();
+    for (file, why) in [
+        ("notes/big.txt", "larger than one read"),
+        ("notes/latin1.txt", "not UTF-8"),
+        ("notes/escape.txt", "the human form escapes"),
+    ] {
+        let refused = Cli::on(&project)
+            .run(&["files", "read", file, "--format", "human"])
+            .exits(1);
+        assert_eq!(refused.stdout, "", "{file}");
+        assert!(
+            refused.stderr.contains(why) && refused.stderr.contains("JSON answer"),
+            "{file}: {}",
+            refused.stderr
+        );
+        // The JSON answer still reads it, and says what it is.
+        Cli::on(&project).run(&["files", "read", file]).exits(0);
+    }
+}
+
 #[test]
 fn read_refuses_a_directory_and_a_missing_file() {
     let project = project().files(&[(".env", "TOKEN=x\n")]);

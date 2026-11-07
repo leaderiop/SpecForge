@@ -265,7 +265,9 @@ path is held to the roots, the host's own state stays withheld.
   `<stdin>` `unread` and `truncated` true, as a file's would; its path is `<stdin>`. A search never waits on an open stdin it was not told to read.
 - **Three small answers.** `files read <file>` answers `{path, text, bytes, lines, truncated}` through one capped read
   (1 MiB), the text as UTF-8 with invalid sequences replaced; a directory is `invalid_input`, a missing file
-  `file_not_found`. `files list --lines` adds each file's `lines` and their total. `files temp --name <n>` answers
+  `file_not_found`. `--format human` prints the file's bytes exactly, as `cat` would, or refuses
+  (`precondition_failed`, exit 1, nothing printed) a file larger than one read, one that is not UTF-8, and one holding
+  a character a terminal acts on: never a cut or altered copy with exit 0. `files list --lines` adds each file's `lines` and their total. `files temp --name <n>` answers
   `<temp root>/<n>`, the same path every call: made (a file, or with `--dir` a directory, owner-only) when missing,
   kept when it exists with that kind, refused when it exists with the other kind or is a link. `lines` counts the
   `\n` bytes, plus one for a last line with no newline (which `wc -l` does not count).

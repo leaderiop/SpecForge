@@ -286,18 +286,23 @@ impl Action {
             ),
             Action::List(args) => args.run(terminal, ports),
             Action::Search(args) => args.run(terminal, ports),
-            Action::Read(args) => args.verb.answer(
-                terminal,
-                ports,
-                |verbs| files::read(&verbs, &args.file),
-                |terminal, answer| {
-                    out!(
-                        terminal,
-                        "{}",
-                        specforge_common::remedy::printable_lines(&answer.text)
-                    );
-                },
-            ),
+            Action::Read(args) => {
+                // The human form is the file's bytes exactly, as `cat` gives them, or a refusal: never a cut or
+                // altered copy with exit 0.
+                let human = args.verb.human();
+                args.verb.answer(
+                    terminal,
+                    ports,
+                    |verbs| {
+                        if human {
+                            files::read_exact(&verbs, &args.file)
+                        } else {
+                            files::read(&verbs, &args.file)
+                        }
+                    },
+                    |terminal, answer| out!(terminal, "{}", answer.text),
+                )
+            }
             Action::Temp(args) => {
                 let temp = Temp {
                     dir: args.dir,

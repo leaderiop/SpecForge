@@ -288,6 +288,44 @@ pub struct ReadAnswer {
 /// A file's text, through one capped read: a directory is `invalid_input`, a missing file `file_not_found`, and the
 /// host's state or a credential is refused.
 pub fn read(verbs: &Verbs, typed: &Path) -> Result<ReadAnswer, OpError> {
+    read_bytes(verbs, typed).map(|(answer, _)| answer)
+}
+
+/// [`read`], where the answer's text must be the file's bytes exactly, as `cat` gives them (`files read --format
+/// human`): a file larger than one read, one that is not UTF-8, and one holding a character a terminal acts on (which
+/// the human form would escape) are refused, each with its reason, never answered in part or altered.
+pub fn read_exact(verbs: &Verbs, typed: &Path) -> Result<ReadAnswer, OpError> {
+    let (answer, utf8) = read_bytes(verbs, typed)?;
+    let whole = |why: String| {
+        Err(OpError::new(
+            OpErrorKind::PreconditionFailed,
+            OpErrorKind::PreconditionFailed.as_str(),
+            format!(
+                "{} {why}: its JSON answer reads it and says so",
+                answer.path
+            ),
+        ))
+    };
+    if answer.truncated {
+        return whole(format!(
+            "is larger than one read ({} bytes), so its text would be cut",
+            READ_CEILING
+        ));
+    }
+    if !utf8 {
+        return whole("is not UTF-8, so its text would be altered".to_string());
+    }
+    if let Some((at, c)) = specforge_common::remedy::unprintable_in_lines(&answer.text) {
+        return whole(format!(
+            "holds {} at byte {at}, which the human form escapes",
+            c.escape_default()
+        ));
+    }
+    Ok(answer)
+}
+
+/// [`read`]'s answer, and whether the bytes were UTF-8.
+fn read_bytes(verbs: &Verbs, typed: &Path) -> Result<(ReadAnswer, bool), OpError> {
     let (located, request) = verbs.held(
         typed,
         FsOp::Read {
@@ -302,13 +340,14 @@ pub fn read(verbs: &Verbs, typed: &Path) -> Result<ReadAnswer, OpError> {
     if outcome.stat.is_some_and(|stat| stat.kind != FileKind::File) {
         return Err(invalid(format!("{shown} is not a file")));
     }
-    Ok(ReadAnswer {
+    let answer = ReadAnswer {
         path: shown,
         text: String::from_utf8_lossy(&outcome.bytes).into_owned(),
         bytes: outcome.bytes.len() as u64,
         lines: lines_of(&outcome.bytes),
         truncated: outcome.truncated,
-    })
+    };
+    Ok((answer, std::str::from_utf8(&outcome.bytes).is_ok()))
 }
 
 /// The lines of `bytes`: its `\n`s, and one more for a last line with none, which `wc -l` does not count.

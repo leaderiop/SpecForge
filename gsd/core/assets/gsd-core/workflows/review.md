@@ -332,8 +332,8 @@ fi
 # read the whole file). The `instructions` fragment is in prompt-budget's
 # `minimumFor` floor set and is never trimmed, so this survives per-lane
 # budget trimming intact.
-specforge files read "${RUN_DIR}/.plans-manifest.md" --format human >> "${RUN_DIR}/gsd-review-instructions.md"
-specforge files read "${RUN_DIR}/.plans-manifest.md" --format human >> "${RUN_DIR}/gsd-review-prompt.md"
+specforge files read "${RUN_DIR}/.plans-manifest.md" --format human >> "${RUN_DIR}/gsd-review-instructions.md" || exit 1
+specforge files read "${RUN_DIR}/.plans-manifest.md" --format human >> "${RUN_DIR}/gsd-review-prompt.md" || exit 1
 ```
 
 Note: `INSTRUCTIONS_BLOCK_FILE` and `ROADMAP_SECTION_FILE` come from prompt assembly; `RUN_DIR` is the run-scoped dir from `gather_context` (#2358) re-assigned from `{run_dir}` above. Copy the temp files written during prompt assembly to these section paths (or write each section here if the prompt was built inline).
@@ -535,7 +535,7 @@ wait
 for SLUG in $(printf '%s' "$DISPATCH_SLUGS"); do
   LANE_RESULT="$RUN_DIR/gsd-review-lane-result-$SLUG.json"
   if [ -f "$LANE_RESULT" ]; then
-    specforge files read "$LANE_RESULT" --format human >> "$RUN_DIR/gsd-review-lane-results.jsonl"   # the text as is, its last newline kept
+    specforge files read "$LANE_RESULT" --format human >> "$RUN_DIR/gsd-review-lane-results.jsonl" || exit 1   # the bytes as they are, or a stop: a lane result never vanishes
   fi
 done
 ```

@@ -257,3 +257,32 @@ fn a_model_filled_list_runs_nothing() {
         }
     }
 }
+
+/// A file appended with `files read --format human` is its bytes exactly or the block stops: the read refuses a file
+/// it would cut or alter (`files_verb::a_human_read_is_the_files_bytes_or_a_refusal`), and every such line exits on
+/// that refusal, so no lane result or manifest vanishes from what the review reads.
+#[test]
+fn an_appended_read_stops_the_block_when_refused() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let text = asset("gsd-core/workflows/review.md");
+    let appends: Vec<&str> = text
+        .lines()
+        .map(str::trim)
+        .filter(|l| l.starts_with("specforge files read") && l.contains(">>"))
+        .collect();
+    assert_eq!(appends.len(), 3, "{appends:?}");
+    let p = crate::harness::project("empty");
+    std::fs::write(p.root().join("lane.json"), b"caf\xe9\n").expect("a lane result");
+    for line in appends {
+        let (_, err, code) = sh.run_in(
+            p.root(),
+            &format!(
+                "RUN_DIR=.\nLANE_RESULT=lane.json\nprintf 'x' > .plans-manifest.md\nprintf 'caf\\351' >> .plans-manifest.md\n{line}\necho after"
+            ),
+        );
+        assert_ne!(code, 0, "{line}: {err}");
+        assert!(err.contains("not UTF-8"), "{line}: {err}");
+    }
+}
