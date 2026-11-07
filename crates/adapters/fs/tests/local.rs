@@ -408,3 +408,54 @@ fn a_file_with_more_than_one_name_is_denied_a_read_and_a_digest() {
     assert_eq!(copied.class, OutcomeClass::Denied, "{copied:?}");
     assert!(!root.join("plain.txt").exists());
 }
+
+/// A listed entry carries its modification time from the metadata the walk already read: a wait polls one walk, not a
+/// stat per file.
+#[test]
+fn a_listed_entry_carries_its_modification_time() {
+    let (_dir, roots) = project();
+    let root = roots.project();
+    std::fs::write(root.join("new.txt"), "x").unwrap();
+    std::fs::write(root.join("old.txt"), "x").unwrap();
+    // 2001-09-09T01:46:40Z.
+    let old = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000_000);
+    std::fs::File::options()
+        .write(true)
+        .open(root.join("old.txt"))
+        .unwrap()
+        .set_modified(old)
+        .unwrap();
+    let listing = LocalFs.list(
+        &roots,
+        &specforge_effects::ListRequest {
+            root: "project".into(),
+            path: String::new(),
+            globs: vec!["*.txt".to_string()],
+            kind: None,
+            depth: None,
+            ignore: true,
+            hidden: false,
+            max_entries: 100,
+        },
+    );
+    let times: Vec<(&str, Option<u64>)> = listing
+        .entries
+        .iter()
+        .map(|entry| (entry.path.as_str(), entry.modified_ms))
+        .collect();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+    let time = |name: &str| {
+        times
+            .iter()
+            .find(|(path, _)| *path == name)
+            .map(|(_, at)| *at)
+    };
+    let new = time("new.txt")
+        .flatten()
+        .expect("a local file keeps its modification time");
+    assert!(now.abs_diff(new) < 5_000, "{times:?}, now {now}");
+    assert_eq!(time("old.txt"), Some(Some(1_000_000_000_000)), "{times:?}");
+}

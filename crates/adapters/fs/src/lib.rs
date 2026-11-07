@@ -206,14 +206,16 @@ impl LocalFs {
                 continue;
             }
             let below = below.to_string_lossy().replace('\\', "/");
+            let meta = entry.metadata().ok();
             let size = match kind {
-                FileKind::File => entry.metadata().map(|meta| meta.len()).unwrap_or(0),
+                FileKind::File => meta.as_ref().map_or(0, std::fs::Metadata::len),
                 _ => 0,
             };
             listing.entries.push(Listed {
                 path: format!("{prefix}{below}"),
                 kind,
                 size,
+                modified_ms: meta.as_ref().and_then(|meta| stat_of(meta).modified_ms),
             });
         }
         listing.entries.sort_by(|a, b| a.path.cmp(&b.path));

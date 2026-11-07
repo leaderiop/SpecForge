@@ -155,6 +155,8 @@ pub struct Listed {
     pub path: String,
     pub kind: FileKind,
     pub size: u64,
+    /// Milliseconds since the Unix epoch, when the file system keeps it.
+    pub modified_ms: Option<u64>,
 }
 
 /// What a listing answered.
