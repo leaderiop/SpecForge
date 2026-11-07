@@ -1,8 +1,30 @@
 //! The one place for branch names and rules: which branches are an agent's and which are protected, for the hooks and
-//! `branch_check`.
+//! `branch_check`; the slug and the template a branch is named from.
 
 use serde_json::Value;
 use specforge_extension_sdk::prelude::*;
+
+/// `text` as a slug: lower case, runs of other characters as one dash. A phase's directory and a branch share it.
+pub fn slug(text: &str) -> String {
+    let mut slug = String::new();
+    for c in text.chars().flat_map(char::to_lowercase) {
+        if c.is_ascii_alphanumeric() {
+            slug.push(c);
+        } else if !slug.ends_with('-') && !slug.is_empty() {
+            slug.push('-');
+        }
+    }
+    slug.trim_end_matches('-').to_string()
+}
+
+/// `template` with each `{key}` of `pairs` replaced; any other brace is kept as written.
+pub fn fill(template: &str, pairs: &[(&str, &str)]) -> String {
+    pairs
+        .iter()
+        .fold(template.to_string(), |filled, (key, value)| {
+            filled.replace(&format!("{{{key}}}"), value)
+        })
+}
 
 /// Whether `branch` is a GSD executor's: upstream's `^((worktree-)?agent-|worktree-wf_)[A-Za-z0-9._/-]+$`.
 pub fn agent_branch(branch: &str) -> bool {
@@ -59,6 +81,24 @@ impl<'a> Protection<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_slug_is_planning_configs() {
+        assert_eq!(slug("User Auth & Login!"), "user-auth-login");
+        assert_eq!(slug("--Déjà vu 2.0--"), "d-j-vu-2-0");
+        assert_eq!(slug(""), "");
+    }
+
+    #[test]
+    fn fill_replaces_each_key_and_keeps_the_rest() {
+        let pairs = [("phase", "03"), ("slug", "auth")];
+        assert_eq!(
+            fill("gsd/phase-{phase}-{slug}/{phase}", &pairs),
+            "gsd/phase-03-auth/03"
+        );
+        assert_eq!(fill("gsd/{other}-{slug}", &pairs), "gsd/{other}-auth");
+        assert_eq!(fill("", &pairs), "");
+    }
 
     #[test]
     fn the_agent_namespace_is_one_rule() {

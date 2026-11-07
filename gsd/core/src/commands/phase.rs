@@ -16,7 +16,8 @@ use std::cmp::Ordering;
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, fields, given, required, run, slug, text, texts, title};
+use super::support::{answer, fields, given, required, run, text, texts, title};
+use crate::branch::slug;
 
 const TO_BE_PLANNED: &str = "[To be planned]";
 const URGENT: &str = "[Urgent work - to be planned]";

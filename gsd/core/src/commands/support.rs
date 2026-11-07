@@ -81,19 +81,6 @@ pub fn nonce(call: &CommandCall<'_>) -> Result<Seed, String> {
     }
 }
 
-/// `text` as a slug: lower case, runs of other characters as one dash.
-pub fn slug(text: &str) -> String {
-    let mut slug = String::new();
-    for c in text.chars().flat_map(char::to_lowercase) {
-        if c.is_ascii_alphanumeric() {
-            slug.push(c);
-        } else if !slug.ends_with('-') && !slug.is_empty() {
-            slug.push('-');
-        }
-    }
-    slug.trim_end_matches('-').to_string()
-}
-
 /// A control character of `text` (C0 but tab and line feed, DEL, C1, the line and paragraph separators and the bidi
 /// overrides, which reorder what a reader sees) as `U+00XX`.
 pub(super) fn control(text: &str) -> Option<String> {

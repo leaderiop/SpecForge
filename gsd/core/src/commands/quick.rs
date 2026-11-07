@@ -11,7 +11,8 @@ use std::collections::BTreeSet;
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{Seed, answer, given, nonce, now, plain, run, slug, text, title};
+use super::support::{Seed, answer, given, nonce, now, plain, run, text, title};
+use crate::branch::{fill, slug};
 use crate::quick_id::QuickId;
 
 /// The next value of a splitmix64 stream: enough to spread a nonce over ids, with no dependency.
@@ -90,7 +91,7 @@ fn quick_slug(text: &str) -> String {
 
 /// A branch template with `{num}` and `{slug}` filled; an empty template names no branch.
 fn branch(template: &str, id: &str, slug: &str) -> Option<String> {
-    (!template.is_empty()).then(|| template.replace("{num}", id).replace("{slug}", slug))
+    (!template.is_empty()).then(|| fill(template, &[("num", id), ("slug", slug)]))
 }
 
 /// The tasks a call asks ids for: its one `--description`, or the entries of its `--tasks`.
