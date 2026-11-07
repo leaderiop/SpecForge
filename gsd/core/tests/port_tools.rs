@@ -279,6 +279,18 @@ fn the_prose_and_routing_groups_are_empty() {
             if matches!(group, "H" | "K") {
                 assert!(line.ends_with(" 0 rows."), "{line}");
             }
+            // a heading names its building block, never the plan that builds it
+            assert!(
+                !Regex::new(r"\(R\d+\)").expect("a regex").is_match(line),
+                "{line}"
+            );
+            // H says what ADR 0343 D8 says: nothing is probed, and no setting turns an integration on
+            if group == "H" {
+                assert!(
+                    line.contains("never probed") && !line.contains("a setting"),
+                    "{line}"
+                );
+            }
         } else if !line.is_empty() && !line.starts_with('#') {
             assert!(
                 !matches!(group, "H" | "K"),

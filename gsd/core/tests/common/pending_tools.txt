@@ -1,11 +1,11 @@
-# The specforge-only worklist (programme "SpecForge serves itself", .planning/serves-itself-2026-11-01).
+# The specforge-only worklist: each command a block still runs besides specforge and the shell's own (ADR 0343).
 # One row per command a shell fence, an inline run or a rendered prompt (`prompt:<id>`) runs that is not specforge
 # or the shell's own: <file>\t<tool>\t<line>. Tests: port_tools::a_shell_block_calls_only_specforge and
 # rendered_lines::a_rendered_prompt_calls_only_specforge. A row with no hit fails, and so does a hit with no row:
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 # Prose and routing probes are reworded per ADR 0343 (D7, D8), never listed: H and K stay at 0 rows.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines (R1). 21 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines. 21 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-phase-researcher.md	head	docker info 2>/dev/null | head -3
 agents/gsd-verifier.md	grep	node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND"
@@ -28,11 +28,11 @@ prompt:ultraplan_phase	head	CC_VERSION="$(claude --version 2>/dev/null | grep -E
 prompt:ultraplan_phase	head	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 prompt:ultraplan_phase	sort	if [ -n "$CC_VERSION" ] && [ "$(printf '%s\n' "2.1.91" "$CC_VERSION" | sort -V | head -n1)" = "2.1.91" ]; then
 
-# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts (R1). 0 rows.
+# B state and time: commands own their state and time: stamps, run dirs, manifests, sentinels, timeouts. 0 rows.
 
-# C rule: a rule that lives in the shell moves into Rust (R1): a grep -q of a value against a pattern. 0 rows.
+# C rule: a rule that lives in the shell moves into Rust: a grep -q of a value against a pattern. 0 rows.
 
-# D git: git, embedded (R2). 13 rows.
+# D git: git, embedded. 13 rows.
 # Stays: push, fetch, ls-remote, remote show (13 rows) reach a remote: no network git transport yet (ADR 0339 D6).
 gsd-core/workflows/complete-milestone/steps/git-tag.md	git	git push origin v[X.Y]
 gsd-core/workflows/execute-phase.md	git	if ! git fetch --quiet origin "$DEFAULT_BRANCH"; then  # #2916
@@ -48,9 +48,9 @@ prompt:ship	git	git push --set-upstream origin ${CURRENT_BRANCH} 2>&1
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: ship-note push failed — it is local-only; rerun: git push origin ${CURRENT_BRANCH}"
 prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shipping: recovery push failed — rerun: git push origin ${CURRENT_BRANCH}"
 
-# E network: the host HTTP service and a GitHub provider (R3). 0 rows.
+# E network: the host HTTP service and a GitHub provider. 0 rows.
 
-# F toolchain: @javascript/* and @rust/* run the project's own toolchain (R5). 54 rows.
+# F toolchain: @javascript/* and @rust/* run the project's own toolchain. 54 rows.
 agents/gsd-nyquist-auditor.compact.md	pytest	pytest {file} -v
 agents/gsd-nyquist-auditor.md	pytest	pytest {file} -v
 agents/gsd-phase-researcher.md	cargo	cargo search <pkg>
@@ -106,14 +106,14 @@ gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcodebuild	XCODE_LIST=
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcrun	XCODE_SIMS=$(xcrun simctl list devices available -j 2>/dev/null)
 gsd-core/workflows/execute-phase/steps/post-merge-gate.md	xcrun	XCODE_SIMS=$(xcrun simctl list devices available -j 2>/dev/null)
 
-# G reviewer: model providers over HTTP (R3). 2 rows.
+# G reviewer: model providers over HTTP. 2 rows.
 gsd-core/workflows/ultraplan-phase.md	claude	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 prompt:ultraplan_phase	claude	CC_VERSION="$(claude --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 
-# H routing: no probes: an optional integration is a setting or an extension SpecForge knows is loaded (R1). 0 rows.
+# H routing: an optional integration is never probed: an extension's command says whether it is served, and the user's own program runs through `specforge run --`, whose exit 127 says it is not installed. 0 rows.
 
-# I files: specforge files: walk, glob, match (R4). 0 rows.
+# I files: specforge files: walk, glob, match. 0 rows.
 
-# J solver: the z3 decision (R4). 0 rows.
+# J solver: the z3 decision. 0 rows.
 
 # K not a tool: prose, a placeholder or a bare command name in a shell fence or a run: reword it. 0 rows.
