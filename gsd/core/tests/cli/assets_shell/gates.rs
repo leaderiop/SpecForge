@@ -58,7 +58,82 @@ fn the_gate_fences_stop_on_a_manifest_present_but_unread() {
     let step_a = fence_after(&served(&p, POST_MERGE), "**Step A");
     let (out, err, code) = sh.run_in(p.root(), &step_a);
     assert_ne!(code, 0, "{out} {err}");
-    assert!(out.contains("Makefile"), "{out} {err}");
+    assert!(err.contains("Makefile"), "{out} {err}");
+}
+
+/// A commit guard with no answer says it could not read, and never that the branch is protected.
+#[test]
+fn the_commit_guard_says_could_not_read_when_it_has_no_answer() {
+    let Some(sh) = branch_shell() else {
+        return;
+    };
+    let p = on_branch("feat");
+    let guard = fence_after(
+        &asset("agents/gsd-executor.md"),
+        "**0. Pre-commit HEAD safety",
+    );
+    let (_, err, code) = sh.run_in(p.root(), &format!("specforge() {{ return 1; }}\n{guard}"));
+    assert_eq!(code, 1, "{err}");
+    assert!(err.contains("could not read"), "{err}");
+    assert!(!err.contains("protected"), "{err}");
+    std::fs::write(p.root().join(".git/HEAD"), "not a ref\n").expect("written");
+    let (_, err, code) = sh.run_in(p.root(), &guard);
+    assert_eq!(code, 1, "{err}");
+    assert!(err.contains("could not read"), "{err}");
+    assert!(!err.contains("protected"), "{err}");
+}
+
+/// Step 0b's path check is the guard's, with a boundary: `<top>-evil` is not inside `<top>`, and `..` leaves it.
+#[test]
+fn the_absolute_path_guard_reads_the_answer() {
+    let Some(sh) = branch_shell() else {
+        return;
+    };
+    let p = on_branch("main");
+    let top = p.root().canonicalize().expect("a real path");
+    let top = top.display();
+    let fence = fence_after(&served(&p, PATH_SAFETY), "## Absolute-path guard");
+    for (path, warns) in [
+        (format!("{top}/src/a.rs"), false),
+        (format!("{top}"), false),
+        (format!("{top}-evil/a.rs"), true),
+        (format!("{top}/../a.rs"), true),
+        ("/etc/hosts".to_string(), true),
+    ] {
+        let (_, err, code) = sh.run_in(p.root(), &format!("ABS_PATH='{path}'\n{fence}"));
+        assert_eq!(code, 0, "{path}: {err}");
+        assert_eq!(err.contains("outside the worktree"), warns, "{path}: {err}");
+    }
+}
+
+/// Step 0a keeps its sentinel in a linked worktree: `.linked` says it is one, whatever the directory is called.
+#[test]
+fn the_sentinel_fence_reads_linked_from_the_answer() {
+    let Some(sh) = branch_shell() else {
+        return;
+    };
+    let p = on_branch("main");
+    let linked = tempfile::tempdir().expect("a directory");
+    let at = linked.path().join("wt");
+    p.git(
+        &[
+            "worktree",
+            "add",
+            "-q",
+            "-b",
+            "agent-1",
+            &at.display().to_string(),
+        ],
+        "2026-01-01T00:00:00Z",
+    );
+    let fence = fence_after(
+        &served(&p, PATH_SAFETY),
+        "detects drift before every commit",
+    );
+    let (_, err, code) = sh.run_in(&at, &fence);
+    assert_eq!(code, 0, "{err}");
+    let dir = p.root().join(".git/worktrees/wt/gsd-spawn-toplevel");
+    assert!(dir.exists(), "the sentinel: {err}");
 }
 
 const PATH_SAFETY: &str = "gsd-core/references/worktree-path-safety.md";

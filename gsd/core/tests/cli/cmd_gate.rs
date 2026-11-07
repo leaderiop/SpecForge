@@ -109,6 +109,20 @@ fn a_manifest_present_but_unread_is_not_a_skipped_gate() {
     assert_eq!(argv(&p, &["test"]), ["make", "test"]);
 }
 
+/// The gate's note reaches whoever reads the words: `--pick` keeps stdout for them.
+#[test]
+fn the_note_reaches_stderr_under_a_pick() {
+    let p = project("execute");
+    let run = gsd(&p, "gate-command", &["build", "--pick", ".argv[]"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(run.stdout, "", "{}", run.all());
+    assert!(
+        run.stderr.contains("No build command detected"),
+        "{}",
+        run.all()
+    );
+}
+
 #[test]
 fn gate_command_answers_the_setting_the_sources_and_an_empty_gate() {
     let p = project("execute");
@@ -116,7 +130,7 @@ fn gate_command_answers_the_setting_the_sources_and_an_empty_gate() {
     let none = gsd(&p, "gate-command", &["build"]);
     assert_eq!(none.code, 0, "{}", none.all());
     assert!(
-        none.stdout.contains("No build command detected"),
+        none.stderr.contains("No build command detected"),
         "{}",
         none.all()
     );
@@ -213,11 +227,20 @@ fn the_build_and_test_gates_run_the_projects_package_manager() {
             &format!("gsd-core/workflows/execute-phase/steps/{step}"),
         ]);
         assert_eq!(served.code, 0, "{}", served.all());
-        let line = served
-            .stdout
-            .lines()
-            .find(|l| l.starts_with(&format!("{var}=()")))
+        let lines: Vec<&str> = served.stdout.lines().collect();
+        let at = lines
+            .iter()
+            .position(|l| l.starts_with(&format!("{var}=()")))
             .unwrap_or_else(|| panic!("{step} {var}"));
+        // The one call that answers the gate, then the words it answered.
+        let line = format!("{}\n{}", lines[at - 1], lines[at]);
+        assert_eq!(
+            lines[at - 1].matches("gate-command").count(),
+            1,
+            "{}",
+            lines[at - 1]
+        );
+        assert!(!lines[at].contains("gate-command"), "{}", lines[at]);
         let out = std::process::Command::new("bash")
             .args([
                 "-c",

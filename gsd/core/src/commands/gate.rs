@@ -462,10 +462,13 @@ fn gate_command(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     };
     let gate = choose(&ask, &tree)?;
     refuse_unreadable(&gate.argv)?;
-    let human = gate
-        .note
-        .clone()
-        .unwrap_or_else(|| format!("running: {}", gate.argv.join(" ")));
+    // The note goes to stderr, so a block that picks the words on stdout still shows it.
+    let human = if gate.argv.is_empty() {
+        String::new()
+    } else {
+        format!("running: {}", gate.argv.join(" "))
+    };
+    let note = gate.note.clone().unwrap_or_default();
     let mut out = answer(
         call,
         json!({
@@ -478,6 +481,7 @@ fn gate_command(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
         human,
         None,
     );
+    out.stderr = note;
     if gate.source == UNREAD {
         out.exit_code = 1;
     }

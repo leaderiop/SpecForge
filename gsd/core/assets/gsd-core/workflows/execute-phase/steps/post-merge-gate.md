@@ -17,8 +17,8 @@ if [ -n "$XCODEPROJ" ]; then   # machine facts a command cannot read (ADR 0335 D
   XCODE_LIST=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null)
   XCODE_SIMS=$(xcrun simctl list devices available -j 2>/dev/null)
 fi
-specforge gsd gate-command build --xcode-project="$XCODEPROJ" --xcode-list="$XCODE_LIST" --simulators="$XCODE_SIMS" || exit 1
-BUILD_ARGV=(); while IFS= read -r _w; do BUILD_ARGV+=("$_w"); done < <(specforge gsd gate-command build --xcode-project="$XCODEPROJ" --xcode-list="$XCODE_LIST" --simulators="$XCODE_SIMS" --pick '.argv[]')
+BUILD_WORDS=$(specforge gsd gate-command build --xcode-project="$XCODEPROJ" --xcode-list="$XCODE_LIST" --simulators="$XCODE_SIMS" --pick '.argv[]') || exit 1
+BUILD_ARGV=(); while IFS= read -r _w; do [ -z "$_w" ] || BUILD_ARGV+=("$_w"); done <<<"$BUILD_WORDS"
 
 
 
@@ -100,8 +100,8 @@ if [ -n "$XCODEPROJ" ]; then   # machine facts a command cannot read (ADR 0335 D
   XCODE_LIST=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null)
   XCODE_SIMS=$(xcrun simctl list devices available -j 2>/dev/null)
 fi
-specforge gsd gate-command test --xcode-project="$XCODEPROJ" --xcode-list="$XCODE_LIST" --simulators="$XCODE_SIMS" || exit 1
-TEST_ARGV=(); while IFS= read -r _w; do TEST_ARGV+=("$_w"); done < <(specforge gsd gate-command test --xcode-project="$XCODEPROJ" --xcode-list="$XCODE_LIST" --simulators="$XCODE_SIMS" --pick '.argv[]')
+TEST_WORDS=$(specforge gsd gate-command test --xcode-project="$XCODEPROJ" --xcode-list="$XCODE_LIST" --simulators="$XCODE_SIMS" --pick '.argv[]') || exit 1
+TEST_ARGV=(); while IFS= read -r _w; do [ -z "$_w" ] || TEST_ARGV+=("$_w"); done <<<"$TEST_WORDS"
 
 
 

@@ -23,8 +23,8 @@ if [ -s "$_GSD_HANDOFF/regression-files" ]; then
 fi
 # gsd-handoff:end regression-files-read
 # Resolve test command: project config > Makefile > language sniff: the answer is an argv, never re-parsed
-specforge gsd gate-command test --scope regression --files="$REGRESSION_FILES" || exit 1
-REG_TEST_ARGV=(); while IFS= read -r _w; do REG_TEST_ARGV+=("$_w"); done < <(specforge gsd gate-command test --scope regression --files="$REGRESSION_FILES" --pick '.argv[]')
+REG_TEST_WORDS=$(specforge gsd gate-command test --scope regression --files="$REGRESSION_FILES" --pick '.argv[]') || exit 1
+REG_TEST_ARGV=(); while IFS= read -r _w; do [ -z "$_w" ] || REG_TEST_ARGV+=("$_w"); done <<<"$REG_TEST_WORDS"
 
 
 

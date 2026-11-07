@@ -472,22 +472,22 @@ Prefer **relative paths** for Edit/Write in a worktree; an unavoidable absolute 
 **0. Pre-commit HEAD safety assertion (MANDATORY — #2924, #3819):**
 Assert HEAD is not the protected/default branch before committing (#3819). If drifted onto it, HALT — never self-recover via `git update-ref refs/heads/<protected>`:
 ```bash
-HEAD_REF=$(b=$(specforge git head --pick .branch) && [ -n "$b" ] && echo "refs/heads/$b" || echo "DETACHED")
-ACTUAL_BRANCH=$(specforge git head --pick .branch)
-if [ "$HEAD_REF" = "DETACHED" ]; then
+IFS=$'\x1f' read -r ACTUAL_BRANCH DETACHED UNREADABLE BLOCKS < <(specforge gsd branch-check --pick . --fields branch,detached,unreadable,blocks_commit)
+if [ -z "$BLOCKS" ] || [ "$UNREADABLE" = true ]; then
+  echo "FATAL: refusing to commit — the branch check could not read HEAD or gave no answer." >&2
+  exit 1
+fi
+if [ "$DETACHED" = true ]; then
   echo "FATAL: refusing to commit — HEAD is detached." >&2
   exit 1
 fi
-# #3819: the protected set and the override git.allow_default_branch_commits are the answer's; no answer refuses.
-IS_PROTECTED=$(specforge gsd branch-check --pick .blocks_commit) || IS_PROTECTED="__GSD_RUN_UNAVAILABLE__"
-if [ "$IS_PROTECTED" = "__GSD_RUN_UNAVAILABLE__" ] || [ -z "$IS_PROTECTED" ]; then
-  IS_PROTECTED="true"
+# #3819: the protected set and the override git.allow_default_branch_commits are the answer's.
 
 
 
 
-fi
-if [ "$IS_PROTECTED" != "false" ]; then
+
+if [ "$BLOCKS" != "false" ]; then
   echo "FATAL: refusing to commit — HEAD is on '$ACTUAL_BRANCH' (protected/default branch)." >&2
   echo "Re-home onto a phase/agent branch (#2924, #3819); override: the setting git.allow_default_branch_commits (specforge settings set @gsd/core git.allow_default_branch_commits true)." >&2
   exit 1

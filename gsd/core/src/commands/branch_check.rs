@@ -23,6 +23,8 @@ struct Judged {
     protected: bool,
     agent: bool,
     overridden: bool,
+    /// The host could not say which branch `HEAD` is on: what the executor's guard tells from a protected one.
+    unreadable: bool,
     blocks_commit: bool,
     why: Option<String>,
 }
@@ -55,6 +57,7 @@ fn judge(branch: &str, protection: &Protection<'_>, allow: bool, agent_mode: boo
         protected,
         agent,
         overridden,
+        unreadable: false,
         blocks_commit,
         why,
     }
@@ -82,6 +85,7 @@ fn branch_check(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
             )
         }
         Err(error) => Judged {
+            unreadable: true,
             blocks_commit: true,
             why: Some(format!(
                 "refusing to commit — the branch cannot be read: {error:?}"
@@ -101,6 +105,7 @@ fn branch_check(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
             "protected": judged.protected,
             "agent": judged.agent,
             "overridden": judged.overridden,
+            "unreadable": judged.unreadable,
             "blocks_commit": judged.blocks_commit,
             "why": judged.why,
         }),

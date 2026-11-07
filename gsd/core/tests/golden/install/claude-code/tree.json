@@ -16,8 +16,8 @@
     "sha256": "715f5ce0371cd25bf3ebd6c385b4881fb3da6cb9ecfa09593cd799ded9703e3a"
   },
   ".claude/agents/gsd-executor.md": {
-    "bytes": 46837,
-    "sha256": "15676610a68ac76dcb15772125d2efa2510452ac648fedb2f9e023fcee211ff4"
+    "bytes": 46749,
+    "sha256": "280e3cd63f68b2e226b1c2f2768c0c7cf9ac2cbf1f2d47f31b296663faabf1ee"
   },
   ".claude/agents/gsd-integration-checker.md": {
     "bytes": 18492,

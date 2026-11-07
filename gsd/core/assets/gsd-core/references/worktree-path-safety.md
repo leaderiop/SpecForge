@@ -135,8 +135,8 @@ detects drift before every commit.
 ```bash
 if [ -f .git ]; then  # we are in a worktree
   WT_GIT_DIR=$(specforge git repo --pick .git_dir 2>/dev/null)
-  case "$WT_GIT_DIR" in
-    *.git/worktrees/*)
+  case "$(specforge git repo --pick .linked 2>/dev/null)" in
+    true)
       SENTINEL="$WT_GIT_DIR/gsd-spawn-toplevel"
       [ ! -f "$SENTINEL" ] && specforge git repo --pick .top > "$SENTINEL" 2>/dev/null
       EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
@@ -167,7 +167,7 @@ Before any Edit or Write using an absolute path:
 ```bash
 WT_ROOT=$(specforge git repo --pick .top 2>/dev/null)
 # Fail fast if ABS_PATH resolves outside the worktree
-if [[ "$ABS_PATH" != "$WT_ROOT"* ]]; then
+if [ "$(specforge gsd worktree-contains "$ABS_PATH" --pick .inside)" != true ]; then
   echo "WARNING: $ABS_PATH is outside the worktree ($WT_ROOT)" >&2
   echo "Use a relative path or recompute the absolute path from WT_ROOT." >&2
 fi

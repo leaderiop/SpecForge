@@ -49,6 +49,14 @@ const REWRITTEN: &[(&str, usize)] = &[
     // the verify example probes an endpoint through `specforge http`
     ("gsd-planner.md", 176),
     // the commit guard asks `branch-check`: the protected set and the override are its answer, no answer refuses
+    ("gsd-executor.md", 475),
+    ("gsd-executor.md", 476),
+    ("gsd-executor.md", 477),
+    ("gsd-executor.md", 478),
+    ("gsd-executor.md", 480),
+    ("gsd-executor.md", 481),
+    ("gsd-executor.md", 487),
+    ("gsd-executor.md", 488),
     ("gsd-executor.md", 479),
     ("gsd-executor.md", 482),
     ("gsd-executor.md", 483),
@@ -579,7 +587,7 @@ fn flags(words: &[String]) -> Vec<String> {
 }
 
 /// What every `specforge` command takes besides its own arguments.
-const GLOBAL_FLAGS: [&str; 6] = ["format", "path", "dry-run", "help", "yes", "pick"];
+const GLOBAL_FLAGS: [&str; 7] = ["format", "path", "dry-run", "help", "yes", "pick", "fields"];
 
 #[test]
 fn every_gsd_invocation_a_body_gives_uses_flags_the_command_declares() {

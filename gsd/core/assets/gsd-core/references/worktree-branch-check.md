@@ -25,9 +25,9 @@ assertion below fails, HALT immediately — print the FATAL line, `exit 42`, and
 the orchestrator (the lifecycle owner) decide recovery. Do NOT self-recover, do NOT
 commit.
 ```bash
-HEAD_REF=$(b=$(specforge git head --pick .branch) && [ -n "$b" ] && echo "refs/heads/$b" || echo "DETACHED")
-ACTUAL_BRANCH=$(specforge git head --pick .branch)
-if [ "$HEAD_REF" = "DETACHED" ] || [ "$(specforge gsd branch-check --pick .protected)" = true ]; then
+IFS=$'\x1f' read -r ACTUAL_BRANCH DETACHED PROTECTED < <(specforge gsd branch-check --pick . --fields branch,detached,protected)
+[ -n "$PROTECTED" ] || { echo "FATAL: the branch check gave no answer; refusing to commit or self-recover (#2924)." >&2; exit 42; }
+if [ "$DETACHED" = true ] || [ "$PROTECTED" = true ]; then
   echo "FATAL: worktree HEAD on '$ACTUAL_BRANCH' (expected agent-* or worktree-agent-*); refusing to commit or self-recover via 'git update-ref' (#2924)." >&2
   exit 42
 fi

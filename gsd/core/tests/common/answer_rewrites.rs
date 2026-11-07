@@ -2,6 +2,9 @@
 //! upstream's names no tool the port rule sees. `port_workflows` reads them as more `REWRITTEN_SPANS` rows.
 
 pub const SPANS: &[(&str, usize, usize)] = &[
+    ("gsd-core/references/worktree-path-safety.md", 168, 168),
+    ("gsd-core/references/worktree-path-safety.md", 137, 137),
+    ("gsd-core/references/worktree-path-safety.md", 136, 136),
     (
         "gsd-core/workflows/complete-milestone/detail/elaboration.md",
         275,

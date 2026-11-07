@@ -278,7 +278,31 @@ fn automated_guard(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     Ok(out)
 }
 
+/// `worktree_contains <target>`: whether `target` is the worktree or under it, read as the guard reads a target, so a
+/// name that only starts like the worktree's and a `..` out of it are outside.
+fn worktree_contains(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
+    let path = required(call, "target")?;
+    let located = git::locate()
+        .map_err(|error| format!("the worktree cannot be read: {error:?}"))?
+        .ok_or("this is no git repository")?;
+    let top = resolved(&located.toplevel, ".");
+    let is_inside = inside(&resolved(&top, path), &top);
+    Ok(answer(
+        call,
+        json!({"path": path, "top": top, "inside": is_inside}),
+        format!("{}: {path}", if is_inside { "inside" } else { "outside" }),
+        None,
+    ))
+}
+
 pub fn declare(c: &mut ContributionsBuilder) {
+    c.command("worktree_contains", |cmd| {
+        cmd.description("Answer whether a path is inside this worktree, read lexically as the guard reads a target")
+            .arg("target", |a| {
+                a.required().description("the path; a relative one is from the worktree's top");
+            })
+            .handler(|call| run(call, worktree_contains));
+    });
     c.capability(
         Capability::fs("project")
             .ops(&[FsAccess::Stat])
