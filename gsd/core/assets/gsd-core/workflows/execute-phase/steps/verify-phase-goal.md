@@ -18,7 +18,7 @@ the graph and the settings: the phase number (`PHASE_NUMBER`), its requirement i
 the requirement entities the verifier traces) and the response language (`RESPONSE_LANGUAGE`). The
 verifier's model is the host's (no `model=`), and no section manifest exists: every gated step below runs.
 The phase goal is the `**Goal**` of this phase in ROADMAP.md, loaded explicitly below as `PHASE_GOAL`
-(`roadmap.get-phase --pick goal`, the query `verify-work/steps/mvp-uat-framing.md` uses) — the same
+(`specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal'`, the query `verify-work/steps/mvp-uat-framing.md` uses) — the same
 value for both callers, never left for the model to resolve. Resolve the rest the same way:
 
 ```bash

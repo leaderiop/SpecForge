@@ -263,11 +263,11 @@ fi
 # nothing to clean up: no scratch file was written
 ```
 
-If the captured file is empty or absent (a fresh project with no prior milestone), the
-fallback branch runs `phases.clear --confirm` with no override — it then uses current-milestone
-state, and a dated archive label only if no version label is resolvable at all. `phases.clear`
-rejects any `--archive-version` value that is not a plain version token (no path separators or
-`..`), so a malformed capture fails loudly rather than writing outside the archive directory.
+Nothing is cleared or archived, with or without an outgoing milestone: the phases stay with their
+milestone (upstream's phases.clear is not part of @gsd/core).
+
+
+
 
 The archived phases are entities: Step 6's commit carries them (`--add spec`), so there is nothing to stage here.
 

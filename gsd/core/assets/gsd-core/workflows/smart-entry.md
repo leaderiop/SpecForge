@@ -54,7 +54,7 @@ Parse `SNAPSHOT` as JSON. It has the shape:
 
 `situation` is one of: `no-project`, `paused`, `blocked`, `verify-failed`, `needs-first-phase`, `planning`, `executing`, `verify-pending`, `idle-stranded`, `complete`, `unknown`.
 
-**Fallback (never strand the user):** `smart-entry --json` can fail for two reasons, and each has a different recovery. Parse `SNAPSHOT`; if it is empty, not valid JSON, or missing `actions`, apply the first matching recovery below — do NOT error.
+**Fallback (never strand the user):** `specforge gsd smart-entry --format json` can fail for two reasons, and each has a different recovery. Parse `SNAPSHOT`; if it is empty, not valid JSON, or missing `actions`, apply the first matching recovery below — do NOT error.
 
 1. **`specforge` itself fails** (the failure is a `command not found` / crash, not just an empty result). Probe by running `specforge gsd progress-report` — if THAT also errors, the whole tool layer is down and routing to `/gsd:progress` would dead-end too (it also needs specforge). **Recover by reading state directly:**
    - Read the spec files directly with the Read tool (`spec/*.spec`; `specforge query` is down too). Extract: the open `milestone`, its `phase` entities (not the `999.x` backlog), which of their `plan` entities have a `summary`, and any `blocker` or `pause`. The computed `status` is not in the files, so judge it from those plans and summaries.

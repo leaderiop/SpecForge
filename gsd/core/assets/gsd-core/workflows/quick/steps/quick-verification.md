@@ -54,7 +54,7 @@ The query is **total** over the closed VerificationStatus set (#5118): beyond th
 | anything else — `missing`, `stale`, `unparseable`, `phase_dir_not_found` | Do **not** improvise a result. Report that verification produced no usable status, naming `$STATUS`, then offer: 1) Re-run the verifier, 2) Accept as-is without verification. Store `$VERIFICATION_STATUS = "Unverified (${STATUS})"` |
 
 > **Why the status only, and not `next_action` / `next_command`.** The query projects those two for
-> the phase pipeline — they name `execute-phase`, `plan-phase --gaps` and `verify-work`, and they
+> the phase pipeline — they name `execute-phase`, `/gsd:plan-phase --gaps` and `verify-work`, and they
 > append a phase-number argument taken from the directory basename. A quick task directory is named
 > `${quick_id}-${slug}` with a date-derived `quick_id`, so that argument resolves to the date: for
 > `260808-abc-some-slug` the projected recovery command carries `260808` as its phase argument — a

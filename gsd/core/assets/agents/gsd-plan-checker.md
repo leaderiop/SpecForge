@@ -297,12 +297,12 @@ issue:
 1. Count tasks per plan
 2. Estimate files modified per plan
 3. Check against thresholds
-4. **Smart-zone estimate check (#2631, ADR-2629).** For each plan carrying an `estimate` block, run the
-   `estimate-check --calibrated` verb against its `estimate.tokens` (the `--calibrated` flag is required —
-   the plan's figure already has the factor applied, and omitting it would square the correction) (invoked in Step 1 below, after the launcher
-   preamble). The verb reads `workflow.smart_zone_tokens` and applies the project's calibration. Report
-   one line per plan: plan id, estimated tokens, the budget, and — when `over_budget` is true — the
-   returned `recommendation`, which names how many slices the phase should become.
+4. **Smart-zone estimate check (#2631, ADR-2629).** For each plan carrying an `estimate` block, compare
+   its `estimate.tokens` with the `workflow.smart_zone_tokens` setting (`specforge settings`) yourself:
+   upstream's estimate-check verb is not part of @gsd/core, and the plan's figure already has the
+   calibration factor applied, so apply none. Report
+   one line per plan: plan id, estimated tokens, the budget, and — when the estimate is over it — how
+   many slices the phase should become (the estimate divided by the budget, rounded up).
 
    **Over budget is a WARNING, never a blocker** (ADR-2629 Decision 5). Recommend re-slicing into a tracer
    plus expansion slices; never fail the check on it. Report `estimate.confidence` alongside: `low` means

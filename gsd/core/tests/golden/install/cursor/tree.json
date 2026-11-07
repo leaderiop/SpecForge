@@ -36,8 +36,8 @@
     "sha256": "87f6f5973f256cb640edced0f403106290186af81e780ff9e32ca1b9c292357f"
   },
   ".cursor/agents/gsd-plan-checker.md": {
-    "bytes": 49714,
-    "sha256": "e5576b0c52c25e15d19048635c5d380f9c2b55b92b6cfb7cb89fde622bf229b4"
+    "bytes": 49621,
+    "sha256": "f0e322da9b9564a1267e5fb7081496ab42669514c8c5fe93c902eda604d07dd4"
   },
   ".cursor/agents/gsd-planner.md": {
     "bytes": 49397,

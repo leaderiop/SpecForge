@@ -353,6 +353,13 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-integration-checker.md", 327),
     ("gsd-integration-checker.md", 331),
     ("gsd-integration-checker.md", 335),
+    // The smart-zone estimate is compared with the setting by the checker: upstream's verb is not part of @gsd/core.
+    ("gsd-plan-checker.md", 298),
+    ("gsd-plan-checker.md", 299),
+    ("gsd-plan-checker.md", 300),
+    ("gsd-plan-checker.md", 301),
+    ("gsd-plan-checker.md", 302),
+    ("gsd-plan-checker.md", 303),
 ];
 
 /// Checks one asset against its upstream file: the header, then every line.

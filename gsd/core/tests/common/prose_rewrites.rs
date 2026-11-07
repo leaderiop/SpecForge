@@ -67,4 +67,23 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         2,
         2,
     ),
+    // an upstream verb is the declared command, or named as not part of @gsd/core
+    ("commands/gsd/ns-review.md", 6, 6),
+    ("gsd-core/references/planning-config.md", 293, 293),
+    ("gsd-core/references/planning-config.md", 306, 306),
+    ("gsd-core/workflows/autonomous.md", 455, 455),
+    (
+        "gsd-core/workflows/execute-phase/steps/verify-phase-goal.md",
+        19,
+        19,
+    ),
+    ("gsd-core/workflows/ingest-docs.md", 23, 23),
+    ("gsd-core/workflows/new-milestone.md", 264, 268),
+    ("gsd-core/workflows/plan-phase.md", 472, 472),
+    (
+        "gsd-core/workflows/quick/steps/quick-verification.md",
+        55,
+        55,
+    ),
+    ("gsd-core/workflows/smart-entry.md", 55, 55),
 ];

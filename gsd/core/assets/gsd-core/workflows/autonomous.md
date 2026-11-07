@@ -454,7 +454,7 @@ VERIFY_ERROR=""  # reset every loop iteration — a prior phase's refusal must n
 VERIFY_STATUS=$(specforge query "${PHASE_NUM}" --kinds verification --pick '.nodes[kind=verification].fields.status') || VERIFY_ERROR=1; VERIFY_STATUS=${VERIFY_STATUS%%$'\n'*}; VERIFY_STATUS=${VERIFY_STATUS:-pending}
 ```
 
-If `PHASE_DIR` is absent, re-fetch `init.phase-op ${PHASE_NUM}` and parse `phase_dir`.
+
 
 If `VERIFY_ERROR` is set, handle_blocker with the error printed above — the report's `status` is outside the closed set (#5118); never read it as "no results".
 
