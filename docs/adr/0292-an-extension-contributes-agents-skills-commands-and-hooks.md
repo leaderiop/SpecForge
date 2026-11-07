@@ -85,3 +85,19 @@ declares and runs as it did. Codex and Cursor output is a draft until it has run
 with goldens the adapters wrote, not with a run of the host. A host that cannot find `specforge` on its PATH (a GUI
 launch) runs no hook at all, the spec guard among them, and says so in its own way only; install writes the bare command
 name, and `doctor` does not check the host's PATH.
+
+## Amendment (2026-11-07): the shell-word reader lives in the guest wire
+
+D4's facts stay the host's: a hook gets a shell command's words from the host and reads no command text itself. The
+reader they come from is `specforge_protocol_types::shell`, in the crate host and guest both compile, because a guest
+now reads command text that no hook event carries: `automated_guard` and the verify-path grounding read a plan's
+`<automated>` commands, and follow a nested `bash -c '…'`, which a host input of one argument would not reach. One
+reader on both sides keeps a hook's facts and a command's judgement from disagreeing about what a line runs, and adds
+nothing to the wire.
+
+It holds what a word is and what ends one: a redirect ends the word before it and is no part of a command's words
+(`Segment::redirects` holds its target), and a command substitution stays in its word and is read beside it
+(`Segment::substitutions`), to a bound. It has no dependency, and its tests sit out of line.
+
+An edit to it stales every builtin blob (ADR 0050): the reader is an input of each one, so the change re-vendors
+([docs/agents/revendor.md](../agents/revendor.md)).

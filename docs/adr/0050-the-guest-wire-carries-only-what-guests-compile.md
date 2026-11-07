@@ -19,8 +19,8 @@ so an analyzer extension contributed nothing and passes and commands were never 
 
 ## D1. The guest wire holds only what both sides compile
 
-`specforge-protocol-types` is the declaration, the operation payloads (`calls`), the extension vocabulary and the
-command-arg rule. An item that only the host reads lives host-side. A test holds every builtin's recorded inputs to
+`specforge-protocol-types` is the declaration, the operation payloads (`calls`), the extension vocabulary, the
+command-arg rule and the shell-word reader ([ADR 0292's amendment](0292-an-extension-contributes-agents-skills-commands-and-hooks.md#amendment-2026-11-07-the-shell-word-reader-lives-in-the-guest-wire)). An item that only the host reads lives host-side. A test holds every builtin's recorded inputs to
 its own sources and the guest crates (protocol-types, the SDK, its macros, coverage).
 
 ## D2. Package names and the peer rule are `specforge-package`

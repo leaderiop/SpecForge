@@ -6,7 +6,7 @@
 //! wire format cannot drift between them. Serde-only, so it compiles for the
 //! host and for wasm32-wasip2 guests.
 //!
-//! Two families:
+//! Three families:
 //! - the declaration: the `__handshake` and `__describe` payloads and the
 //!   descriptors an extension declares ([`ExtensionDeclaration`], ADR 0012);
 //! - the operations ([`calls`], ADR 0013): what the host sends each export
@@ -16,7 +16,10 @@
 //!   [`PassAnswer`]), a collector ([`CollectInput`], [`CollectOutput`]), a
 //!   custom validator ([`ValidatorContext`], [`ValidatorVerdict`]), a
 //!   scanner ([`ScanRequest`], [`ScanResponse`]) and the migration hook
-//!   ([`MigrationInput`]).
+//!   ([`MigrationInput`]);
+//! - the shell-word reader ([`shell`], ADR 0292's amendment): what a line of
+//!   shell runs, read and never run, by the host for a hook's facts and by a
+//!   guest for the command text no hook carries. Editing it stales every blob.
 //!
 //! And two rules both sides run: [`command_args`], what a command's declared
 //! args admit and what its export receives (ADR 0017), and [`tool_input`],
