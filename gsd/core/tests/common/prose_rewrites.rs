@@ -263,4 +263,13 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/review.md", 15, 15),
     ("gsd-core/workflows/review.md", 19, 27),
     ("gsd-core/workflows/review.md", 483, 483),
+    // [A] accepts the audit's tech debt, which clears gsd/E106 alone: the other gate codes still block
+    ("gsd-core/workflows/complete-milestone.md", 60, 60),
+    ("gsd-core/workflows/complete-milestone.md", 64, 64),
+    ("gsd-core/workflows/complete-milestone.md", 618, 618),
+    (
+        "gsd-core/workflows/complete-milestone/detail/elaboration.md",
+        12,
+        13,
+    ),
 ];

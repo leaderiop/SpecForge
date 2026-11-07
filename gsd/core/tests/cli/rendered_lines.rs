@@ -423,6 +423,51 @@ fn the_milestone_close_defers_through_debt_accepted() {
     assert!(!elaboration.contains("if ! true"));
 }
 
+/// [A] says what it does in all three places: the choice the person sees, the step that follows it and the
+/// elaboration. Accepting the audit's tech debt clears gsd/E106 alone, so each names the close's other gate codes as
+/// still blocking, and none says "Acknowledge all" or "document as deferred".
+#[test]
+fn the_milestone_acknowledge_clears_e106_alone() {
+    let declared = std::fs::read_to_string(format!(
+        "{}/src/commands/milestone.rs",
+        env!("CARGO_MANIFEST_DIR")
+    ))
+    .expect("milestone.rs");
+    let gates: Vec<String> = Regex::new(r#"\.gate\("(E\d+)"\)"#)
+        .expect("a regex")
+        .captures_iter(&declared)
+        .map(|c| format!("gsd/{}", &c[1]))
+        .collect();
+    assert!(
+        gates.contains(&"gsd/E106".to_string()) && gates.len() > 1,
+        "{gates:?}"
+    );
+    let close = workflow("complete-milestone.md");
+    let elaboration = workflow("complete-milestone/detail/elaboration.md");
+    let choice = close
+        .lines()
+        .find(|l| l.starts_with("[A] "))
+        .expect("the [A] choice");
+    let step = close
+        .lines()
+        .find(|l| l.starts_with("**If user chooses [A]"))
+        .expect("the [A] step");
+    let section = elaboration
+        .split("## § 1")
+        .nth(1)
+        .and_then(|s| s.split("\n## ").next())
+        .expect("§ 1");
+    assert!(choice.contains("gsd/E106"), "{choice}");
+    for text in [step, section] {
+        for gate in &gates {
+            assert!(text.contains(gate.as_str()), "names no {gate}: {text}");
+        }
+    }
+    for text in [&close, &elaboration] {
+        assert!(!text.contains("Acknowledge all") && !text.contains("document as deferred"));
+    }
+}
+
 /// No rendered line runs jq, neither an asset's (`port_tools` scans those) nor one the Rust side writes
 /// (`src/prompts/`). gh's own `--jq` filter is not jq.
 #[test]

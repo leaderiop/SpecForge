@@ -59,11 +59,11 @@ Then ask:
 ```
 These items are open. Choose an action:
 [R] Resolve — stop and fix items, then re-run /gsd:complete-milestone
-[A] Acknowledge all — document as deferred and proceed with close
+[A] Accept the audit's tech debt — a person records it, which clears gsd/E106 alone; an open UAT or verification item still blocks the close
 [C] Cancel — exit without closing
 ```
 
-**If user chooses [A] (Acknowledge):** the open items are `specforge check` findings, and an agent cannot suppress them. A person accepts the latest milestone audit's tech debt instead: they write its `debt_accepted` (`by`, `at`) by hand or from an interactive `specforge set`, and gsd/E106 then lets `specforge gsd close-milestone` pass. Ask the person to do it, wait for their answer, re-run `specforge check --format json`, and proceed only when the gate passes. The audit's `tech_debt` entries are the disclosure record; nothing else is written.
+**If user chooses [A] (Accept the tech debt):** the open items are `specforge check` findings, and an agent cannot suppress them. A person accepts the latest milestone audit's tech debt: they write its `debt_accepted` (`by`, `at`) by hand or from an interactive `specforge set`, which clears gsd/E106 alone. Ask the person to do it, wait for their answer, and re-run `specforge check --format json`. The close's gate is gsd/E106, gsd/E511, gsd/E515 and gsd/E516: proceed with `specforge gsd close-milestone` only when none of them is reported; an open UAT or verification item (gsd/E511, gsd/E515, gsd/E516) still blocks, and is resolved through [R]. The audit's `tech_debt` entries are the disclosure record; nothing else is written.
 
 If output shows all clear (no open items): proceed with the close. A close that passes because a person accepted the audit's tech debt says so: name the audit and its `debt_accepted.by`.
 
@@ -617,7 +617,7 @@ Heuristic: "Is this deployed/usable/shipped?" If yes → milestone. If no → ke
 Milestone completion is successful when:
 
 - [ ] Pre-close artifact audit run and output shown to user
-- [ ] Deferred items recorded in STATE.md if user acknowledged
+- [ ] The audit's tech debt accepted by a person (`debt_accepted`) if they chose [A]
 - [ ] Known deferred items count noted in MILESTONES.md entry
 
 - [ ] MILESTONES.md entry created with stats and accomplishments
