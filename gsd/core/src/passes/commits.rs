@@ -1,5 +1,5 @@
-//! What the passes read from the recorded commits: each commit's plan, task, type, subject, time and files, from the
-//! entity and its resolved `plan` and `task` edges.
+//! What the passes read from the recorded commits: each commit's plan, task, how the task was found, type, subject,
+//! time and files, from the entity and its resolved `plan` and `task` edges.
 
 use specforge_extension_sdk::prelude::*;
 
@@ -18,6 +18,8 @@ pub struct Commit {
     pub kind: String,
     pub plan: Option<String>,
     pub task: Option<String>,
+    /// How `task` was found: `Gsd-Task` (its trailer) or `title` (its subject); `None` with no task.
+    pub linked_by: Option<String>,
     /// `YYYY-MM-DDTHH:MM:SSZ`: sorts as time does.
     pub at: String,
     pub files: Vec<String>,
@@ -59,6 +61,7 @@ pub fn commits(input: &PassInput) -> Vec<Commit> {
                     kind: text(e, "type").unwrap_or_default().to_string(),
                     plan: target(input, &e.id, "plan").map(String::from),
                     task: target(input, &e.id, "task").map(String::from),
+                    linked_by: text(e, "linked_by").map(String::from),
                     at: text(e, "at").unwrap_or_default().to_string(),
                     files: strings(e, "files"),
                     created: strings(e, "created"),

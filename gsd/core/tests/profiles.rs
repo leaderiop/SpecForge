@@ -127,7 +127,7 @@ fn md_presets() -> Vec<(String, [bool; 3])> {
 fn the_profile_presets_are_the_settings_md_table() {
     let items = items();
     let table = md_presets();
-    assert_eq!(table.len(), 6);
+    assert_eq!(table.len(), 7);
     for (setting, values) in table {
         for (index, profile) in PROFILES.iter().enumerate() {
             let entry = preset(&items, profile);

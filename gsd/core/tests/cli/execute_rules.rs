@@ -370,6 +370,37 @@ fn w407_is_on_under_gsd_strict() {
     assert_eq!(codes(&p), Vec::<String>::new());
 }
 
+#[test]
+fn a_title_linked_commit_is_e521_only_when_task_trailers_is_on() {
+    let p = repository();
+    let titled = p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
+    // A plan's metadata commit names no task by design.
+    p.git_commit("docs(01-01): complete the task store plan", &[], T1);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    junit(&p, &[("adds a task", true)]);
+    assert_eq!(codes(&p), Vec::<String>::new(), "off by default");
+    p.settings(json!({ "specforge.task_trailers": true }));
+    let found = report(&p);
+    assert_eq!(codes(&p), ["gsd/E521"], "{found:?}");
+    assert!(
+        found[0].1.contains(&titled[..12]) && found[0].1.contains("by its subject's title"),
+        "{found:?}"
+    );
+    // The trailer links it.
+    let p = repository();
+    p.git_commit(
+        "feat(01-01): Store module\n\nGsd-Task: 01-01/T1\n",
+        &[("src/tasks.js", "a\n")],
+        T0,
+    );
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    junit(&p, &[("adds a task", true)]);
+    p.settings(json!({ "specforge.task_trailers": true }));
+    assert_eq!(codes(&p), Vec::<String>::new(), "{:?}", report(&p));
+}
+
 const CHECKS: &str = "{ kind unit ref \"test/tasks.test.js#adds a task\" }";
 
 /// A JUnit report whose tests are named by `names`, each linked to the deliverable by the file it ran in.

@@ -476,7 +476,7 @@ fn the_acceptance_counts_match() {
     assert_eq!(accept::hooks(), [29, 16, 0, 11, 2]);
     assert_eq!(accept::capabilities(), [45, 17, 10, 0, 18]);
     assert_eq!(accept::gate_cutover(), [171, 92, 51, 14, 14]);
-    assert_eq!(accept::codes(), [65, 65, 0, 0, 0]);
+    assert_eq!(accept::codes(), [66, 66, 0, 0, 0]);
     assert_eq!(accept::config_keys()[0], 212);
 }
 

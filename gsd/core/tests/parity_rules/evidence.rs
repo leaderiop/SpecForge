@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 65] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 66] = [
     (
         "E101",
         Evidence::Tests {
@@ -463,6 +463,13 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 65] = [
         Evidence::Tests {
             fires: "a_truth_without_a_requirement_is_e519",
             silent: "truth_without_requirement_is_e519_only_when_truth_requirements_is_on",
+        },
+    ),
+    (
+        "E521",
+        Evidence::Tests {
+            fires: "a_title_linked_commit_is_e521",
+            silent: "a_title_linked_commit_is_e521_only_when_task_trailers_is_on",
         },
     ),
 ];

@@ -50,6 +50,11 @@ pub const SPECFORGE: &[(&str, &str, &str)] = &[
         "E519",
         "A truth of a phase's plan names one of its plan's requirements.",
     ),
+    (
+        "specforge.task_trailers",
+        "E521",
+        "A task commit names its task by its Gsd-Task trailer.",
+    ),
 ];
 
 /// The codes `setting` gates, if it is a GSD key that gates any.

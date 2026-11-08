@@ -109,6 +109,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E517 | active plans of different workstreams share no path in `files_modified ∪ files_deleted` (trimmed): a plan is active until its summary says when it `completed`; one error per pair, on the later plan; a plan outside a workstream is not judged. The setting `specforge.cross_workstream_conflicts` (on in gsd-plus) gates it | pass | — | E (plus) | (new: gsd-plus) |
 | gsd/E518 | the integration checker's verdict on a milestone audit is fresh | judged (integration checker) | E | E | audit-milestone integration check |
 | gsd/E519 | a truth of a phase's plan proves one of its plan's requirements: one error per truth, on the truth, when it names no `requirement` or one its plan's `requirements` does not hold (ADR 0351, amending ADR 0331 D1). A quick plan's truths are not judged. The setting `specforge.truth_requirements` (on in gsd-plus) gates it; under gsd-plus a write that adds such a truth is refused (E080) | pass | — | E (plus) | (new: gsd-plus) |
+| gsd/E521 | a task commit names its task by its `Gsd-Task:` trailer (ADR 0351, amending ADR 0331 D3): one error per recorded commit, on the commit, when the gsd-git collector found its task by the subject's title (`linked_by title`), or when it names no task and its type is one of the executor's task types other than `docs` (`feat`, `fix`, `test`, `refactor`, `perf`, `style`, `chore`). A `docs` commit (a plan's metadata commit) and a commit with no type are not judged. The setting `specforge.task_trailers` (on in gsd-plus) gates it; a collector's plan is never refused for it (ADR 0303) | pass | — | E (plus) | (new: gsd-plus) |
 
 ## Retired and kernel-provided
 
@@ -153,6 +154,7 @@ is off while the setting is false, whatever the profile; a profile only presets 
 | `specforge.stale_verdict_gate` | false | false (gsd-plus: true) | gsd/E516 |
 | `specforge.cross_workstream_conflicts` | false | false (gsd-plus: true) | gsd/E517 |
 | `specforge.truth_requirements` | false | false (gsd-plus: true) | gsd/E519 |
+| `specforge.task_trailers` | false | false (gsd-plus: true) | gsd/E521 |
 
 `gsd/W514` is gated the other way (`gates_when_on`, ADR 0305): `workflow.windows_enforce` silences it while it is on, and it is reported while the setting is off.
 

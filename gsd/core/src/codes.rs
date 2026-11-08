@@ -82,7 +82,7 @@ const fn code(
     }
 }
 
-/// The 65 codes of `spec/rules.md`, in the order of its tables.
+/// The 66 codes of `spec/rules.md`, in the order of its tables.
 pub static CODES: &[Code] = &[
     code(
         "E101",
@@ -600,6 +600,14 @@ pub static CODES: &[Code] = &[
         "E519",
         "Truth proves no requirement of its plan",
         "A truth of a phase's plan names one of its plan's requirements",
+        "verify",
+        Severity::Error,
+        Severity::Error,
+    ),
+    code(
+        "E521",
+        "Task commit not linked by its trailer",
+        "A task commit names its task by its Gsd-Task trailer",
         "verify",
         Severity::Error,
         Severity::Error,

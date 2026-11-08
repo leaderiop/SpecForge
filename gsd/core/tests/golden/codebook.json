@@ -390,6 +390,12 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
       "explanation": "A truth of a phase's plan names one of its plan's requirements. It is an error.",
       "title": "Truth proves no requirement of its plan"
+    },
+    {
+      "code": "E521",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "A task commit names its task by its Gsd-Task trailer. It is an error.",
+      "title": "Task commit not linked by its trailer"
     }
   ]
 }

@@ -99,6 +99,7 @@ A profile presets these settings:
 | `specforge.stale_verdict_gate` | false | false | true |
 | `specforge.cross_workstream_conflicts` | false | false | true |
 | `specforge.truth_requirements` | false | false | true |
+| `specforge.task_trailers` | false | false | true |
 
 ## Other presets
 
@@ -126,6 +127,7 @@ because the host takes a variant setting only as a string or enum; `workflow.com
 | `specforge.stale_verdict_gate` | a stale verdict blocks every workflow step, not only execution (gsd/E516) |
 | `specforge.cross_workstream_conflicts` | active plans of different workstreams share no file (gsd/E517) |
 | `specforge.truth_requirements` | a truth of a phase's plan names one of its plan's requirements (gsd/E519) |
+| `specforge.task_trailers` | a task commit names its task by its `Gsd-Task:` trailer (gsd/E521) |
 
 Ten more are bool, default **true**, and show or hide skills: `specforge.surface.<cluster>` for each of GSD's skill
 clusters (`core_loop`, `audit_review`, `milestone`, `research_ideate`, `workspace_state`, `docs`, `ui`, `ai_eval`,

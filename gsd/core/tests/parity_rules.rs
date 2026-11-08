@@ -1,6 +1,6 @@
 //! The parity rules check (D-r44-3, D-r44-22): the code book and the gate-cutover verdicts are accounted in one place.
 //!
-//! `evidence.rs` names, for each of the code book's 65 codes, a test that makes it fire and a test that keeps it
+//! `evidence.rs` names, for each of the code book's 66 codes, a test that makes it fire and a test that keeps it
 //! silent; `cutover.rs` classifies each of the 171 recorded verdicts of gsd-core's `gate-cutover` fixtures. The
 //! black-box half, which runs the twin projects, is `tests/cli/parity_gate_cutover.rs`.
 
@@ -100,7 +100,7 @@ fn names_code(fns: &[(String, String)], name: &str, code: &str) -> bool {
 fn every_code_fires_and_stays_silent() {
     let fns = test_fns();
     let book = codes();
-    assert_eq!(book.len(), 65, "the code book has 65 codes");
+    assert_eq!(book.len(), 66, "the code book has 66 codes");
     let listed: Vec<&str> = RULE_EVIDENCE.iter().map(|(c, _)| *c).collect();
     assert_eq!(listed, book, "RULE_EVIDENCE lists the code book, in order");
     let mut bad = Vec::new();
