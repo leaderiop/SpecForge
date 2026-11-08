@@ -106,9 +106,12 @@ fn a_local_clone_has_the_history_and_checks_out_head() {
     let into = into.path().canonicalize().unwrap().join("new/clone");
     let git = Gix::default();
     git.clone_local(&place(&repo), &into).unwrap();
+    // A host's `core.autocrlf` may turn the line ending into CRLF on checkout; the content is what is checked.
     assert_eq!(
-        std::fs::read_to_string(into.join("a.txt")).unwrap(),
-        "one\n"
+        std::fs::read_to_string(into.join("a.txt"))
+            .unwrap()
+            .trim_end(),
+        "one"
     );
     assert!(into.join("deep/b.txt").is_file());
     let Located::Repo(made) = git.locate(&into) else {
