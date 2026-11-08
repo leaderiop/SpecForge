@@ -7,8 +7,8 @@ use specforge_effects::OutcomeClass;
 use specforge_protocol_types::{CheckOutcome, CheckStatus};
 use specforge_registry::{CheckCall, QualifiedChecker};
 
-use super::Observed;
 use super::collect::Value;
+use super::{Observed, Stage};
 use crate::compiled::{CheckedValue, CheckedValues, ValueOutcome};
 
 /// One checker's reading of one value.
@@ -29,6 +29,8 @@ pub struct ValueRow {
     pub digest: Option<String>,
     /// The codes it found, as written by the checker.
     pub codes: Vec<String>,
+    /// The stage that read it (ADR 0350): only an ungated row is a judged input.
+    pub stage: Stage,
 }
 
 /// Every entity's checked values, by entity id, each in collection order.
@@ -73,13 +75,11 @@ impl ValueChecks {
     }
 
     /// What a judged verdict digests of them (ADR 0337 §6): a value not run is `unknown` (I207), and the verdict stays
-    /// fresh. A planned or closed row is no input (ADR 0350); the ungated stage's rows are the ones a verdict reads.
+    /// fresh. Only the ungated stage's rows are read: a gated value is no judged input (ADR 0350 D4).
     pub fn outcome_classes(&self) -> CheckedValues {
         let mut values = CheckedValues::default();
         for (id, rows) in &self.0 {
-            let held =
-                |row: &&ValueRow| matches!(row.status, CheckStatus::Planned | CheckStatus::Closed);
-            for row in rows.iter().filter(|row| !held(row)) {
+            for row in rows.iter().filter(|row| row.stage == Stage::Ungated) {
                 values.insert(
                     id,
                     CheckedValue {
@@ -121,6 +121,7 @@ impl ValueChecks {
                 from_cache: observed.from_cache,
                 digest: observed.digest.filter(|_| status != CheckStatus::NotRun),
                 codes,
+                stage: value.stage,
             });
     }
 

@@ -25,6 +25,8 @@ pub(super) struct Value<'a> {
     /// byte range inside the text maps to a span.
     pub inner: Option<(usize, usize)>,
     pub checks: &'a [ResolvedCheck],
+    /// The stage that collected it.
+    pub stage: Stage,
 }
 
 impl Value<'_> {
@@ -95,11 +97,18 @@ pub(super) fn values<'a>(
                     _ => continue,
                 };
                 let Some(status) = held else {
-                    values_of(&record.id, written, owed, text_of, &mut collected.values);
+                    values_of(
+                        &record.id,
+                        written,
+                        owed,
+                        stage,
+                        text_of,
+                        &mut collected.values,
+                    );
                     continue;
                 };
                 let mut values = Vec::new();
-                values_of(&record.id, written, owed, text_of, &mut values);
+                values_of(&record.id, written, owed, stage, text_of, &mut values);
                 let mut root = None;
                 if status == CheckStatus::Planned {
                     *collected
@@ -123,6 +132,7 @@ fn values_of<'a>(
     entity: &'a str,
     written: &'a FieldRecord,
     checks: &'a [ResolvedCheck],
+    stage: Stage,
     text_of: &dyn Fn(&str) -> Option<Arc<str>>,
     values: &mut Vec<Value<'a>>,
 ) {
@@ -135,6 +145,7 @@ fn values_of<'a>(
             span: span.cloned(),
             inner: span.and_then(|span| inner(span, text, text_of)),
             checks,
+            stage,
         });
     };
     match &written.items {

@@ -264,6 +264,11 @@ fn a_planned_value_is_no_judged_input() {
     complete.write("new.js", "// new\n");
     let checked = complete.compile_in(runtime());
     assert_eq!(statuses(&checked, "p1", "files"), [CheckStatus::Passed]);
+    // The rows hold both stages; what they give a verdict is the ungated stage's, whatever order they were added in.
+    assert_eq!(
+        &checked.value_checks().outcome_classes(),
+        checked.checked_values()
+    );
     // What a verdict over p1 digests is the same before and after: the ungated `refs` alone.
     for project in [&waiting, &checked] {
         let digested = project.checked_values().of("p1");
