@@ -4727,6 +4727,7 @@ dependencies = [
  "specforge-registry",
  "specforge-registry-client",
  "specforge-repo-root",
+ "specforge-source",
  "specforge-test",
  "specforge-test-macros",
  "specforge-wasm",

@@ -2,9 +2,13 @@
 //! grant, settled before the call so nothing prompts during it. A guest that imports no port (every builtin) is lent
 //! nothing and costs nothing.
 
+use std::sync::Arc;
+
 use specforge_common::{Diagnostic, codes};
+use specforge_effects::journal::state_base;
 use specforge_effects::{Roots, Uses};
 use specforge_protocol_types::{Operation, SettingsItem};
+use specforge_source::{SourceReader, SyntaxCache};
 use specforge_wasm::PortCall;
 
 use crate::Caller;
@@ -68,6 +72,17 @@ pub fn port_call(
         call.deny(unusable);
     }
     Some(call)
+}
+
+/// The source reader the calls over `view` share (ADR 0344 D2): its cache under the project's state base, none with
+/// no base. One per operation, so its compiled queries serve every call of it.
+pub fn source_reader(view: &ProjectView<'_>) -> Arc<SourceReader> {
+    let cache = view
+        .env()
+        .project_root()
+        .and_then(state_base)
+        .map_or_else(SyntaxCache::detached, |base| SyntaxCache::at(&base));
+    Arc::new(SourceReader::new(cache))
 }
 
 /// `denials` as a person reads them, one a line: what a command adds to its stderr.

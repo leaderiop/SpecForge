@@ -165,6 +165,7 @@ behavior read_source_syntax "Read Source Syntax" {
   verify unit "a query without exactly one role capture or with a general predicate is a fault"
   verify unit "a capture's text is cut at 4096 bytes on a character boundary"
   verify unit "the grammar versions are the locked ones"
+  verify integration "a second collect answers every file from the project's syntax cache"
 }
 
 behavior parse_source_through_the_syntax_import "Parse Source through the Syntax Import" {

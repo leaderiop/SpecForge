@@ -275,6 +275,7 @@ module specforge_ops "specforge-ops" {
     specforge_project,
     specforge_protocol_types,
     specforge_registry,
+    specforge_source,
     specforge_wasm,
   ]
   tags        ["app"]

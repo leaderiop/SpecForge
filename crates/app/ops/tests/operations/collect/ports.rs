@@ -179,7 +179,14 @@ fn a_ports_collector_is_lent_its_fs_reads_without_an_approval() {
     assert_eq!(content.bytes, b"fn a() {}\n");
 }
 
+/// What the twice-collecting collector was answered, one per call.
+static TWICE: Mutex<Vec<Result<SyntaxAnswer, HostError>>> = Mutex::new(Vec::new());
+
 fn parse_sources() {
+    parse_into(&PARSES);
+}
+
+fn parse_into(answers: &Mutex<Vec<Result<SyntaxAnswer, HostError>>>) {
     let request = SyntaxRequest {
         source: SyntaxSource::Worktree {
             root: "project".into(),
@@ -188,7 +195,7 @@ fn parse_sources() {
         language: "rust".into(),
         query: QUERY.into(),
     };
-    PARSES.lock().unwrap().push(host::syntax::parse(&request));
+    answers.lock().unwrap().push(host::syntax::parse(&request));
 }
 
 /// The names the matches of `file` capture.
@@ -232,4 +239,37 @@ fn a_ports_collector_parses_through_syntax_and_its_work_is_on_the_call() {
         .collect();
     assert_eq!(noted, ["I211"], "{:?}", outcome.diagnostics);
     assert!(outcome.diagnostics[0].message.contains("`src/broken.rs`"));
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_source_syntax",
+    verify = "a second collect answers every file from the project's syntax cache"
+)]
+fn a_second_collect_answers_every_file_from_the_projects_syntax_cache() {
+    let reading = Reading::new(
+        || reader(|| parse_into(&TWICE)),
+        "specforge:host/syntax@0.1.0",
+        &[
+            ("src/a.rs", "fn alpha() {}\nfn beta() {}\n"),
+            ("src/broken.rs", "fn gamma( {\n"),
+        ],
+    );
+
+    reading.collect(Mode::NoRun);
+    reading.collect(Mode::Run(RunnerOutput::Discard));
+
+    let answers = TWICE.lock().unwrap();
+    let [Ok(first), Ok(second)] = answers.as_slice() else {
+        panic!("two parses, answered: {answers:?}");
+    };
+    assert_eq!((first.parsed, first.cached), (2, 0));
+    assert_eq!((second.parsed, second.cached), (0, 2));
+    assert_eq!(second.files, first.files);
+    assert!(
+        reading
+            .project
+            .root()
+            .join(specforge_source::CACHE_DIR)
+            .is_dir()
+    );
 }

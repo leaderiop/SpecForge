@@ -30,6 +30,8 @@ specforge-project = { workspace = true }
 specforge-package = { path = "../../leaf/package" }
 specforge-protocol-types = { path = "../../leaf/protocol-types" }
 specforge-registry = { workspace = true }
+# The host's source reader: one per collect over the project's syntax cache (ADR 0344 D2).
+specforge-source = { path = "../../kernel/source" }
 specforge-wasm = { workspace = true }
 specforge-installed = { path = "../../runtime/installed" }
 specforge-extension-sdk = { path = "../../runtime/extension-sdk", optional = true }
