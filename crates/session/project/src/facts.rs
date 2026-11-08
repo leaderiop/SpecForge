@@ -1,7 +1,7 @@
 //! A collector's facts (ADR 0327): the store a collect writes, the key it files it under, and what the host admits;
 //! then the stores a session serves (D5): each one `specforge-harness` records, read as one file of read-only
 //! entities, W191 for one it does not record and W192 for one that does not read; one a rename marked stale is
-//! served through the ledger's moves, W197 ([`stale`]).
+//! served with the names the rename wrote, W197 ([`stale`]). [`store`] is the one reader of a store's text.
 
 mod stale;
 
@@ -39,10 +39,6 @@ pub struct Store {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub sources: BTreeMap<String, String>,
     pub facts: Vec<Fact>,
-    /// Each path a rename moved after the collect and the path it is now, when the ledger marks the store stale (ADR
-    /// 0346 D7): the host's reading of the ledger, set on the text a session serves; a collect never writes it.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub moved: BTreeMap<String, String>,
 }
 
 impl Store {
@@ -64,7 +60,6 @@ impl Store {
             key: key.to_string(),
             sources,
             facts,
-            moved: BTreeMap::new(),
         }
     }
 
@@ -227,10 +222,8 @@ pub(crate) fn recorded(disk: &dyn Disk, root: &Path) -> Ledger {
 }
 
 /// Read the fact store `key` of `sources` through `disk` (ADR 0327 D5) against the harness ledger `recorded` (read
-/// through `disk` when `None`): its text when a `facts:` line records exactly its collector, key and digest; W191
-/// when no line does; W192 when it is not text; `Gone` when it is not there. When a `stale:` line marks exactly
-/// those bytes, the text carries the ledger's moves, so a ledger change re-serves it. Its facts are parsed once, by
-/// [`served`].
+/// through `disk` when `None`): its served text ([`served_text`]); `Gone` when it is not there. Its facts are parsed
+/// once, by [`store`].
 pub(crate) fn read(
     disk: &dyn Disk,
     sources: &SourceRoot,
@@ -242,12 +235,6 @@ pub(crate) fn read(
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Read::Gone,
         Err(e) => return Read::Unreadable(unreadable(key, e)),
     };
-    let Some((collector, filed_under)) = filed(key) else {
-        return Read::Unreadable(unreadable(
-            key,
-            "it is not named .specforge/facts/<key>/<collector>.json",
-        ));
-    };
     let read_here;
     let recorded = match recorded {
         Some(recorded) => recorded,
@@ -256,24 +243,36 @@ pub(crate) fn read(
             &read_here
         }
     };
-    if !recorded.contains(&Line::facts(collector, filed_under, &bytes)) {
-        return Read::Unreadable(
-            Diagnostic::new(
-                codes::W191,
-                format!(
-                    "fact store '{key}' is not the one specforge-harness records for collector '{collector}' \
-                     (collected on another commit or branch, or changed since); its facts are not served"
-                ),
-            )
-            .with_suggestion("run `specforge collect`"),
-        );
-    }
-    let stale = recorded.contains(&Line::stale(collector, filed_under, &bytes));
-    match String::from_utf8(bytes) {
-        Ok(text) if stale => Read::Text(stale::marked(text, recorded)),
+    match served_text(key, bytes, recorded) {
         Ok(text) => Read::Text(text),
-        Err(e) => Read::Unreadable(unreadable(key, e)),
+        Err(diagnostic) => Read::Unreadable(diagnostic),
     }
+}
+
+/// The text a session serves of the fact store `key` whose file holds `bytes`, against the harness ledger
+/// `recorded`: the bytes, when a `facts:` line records exactly its collector, key and digest, and the renames its
+/// `stale:` lines mark exactly those bytes with after them (so a ledger change re-serves it); W191 when no line
+/// records them; W192 when they are not text or the key is no store's.
+fn served_text(key: &str, bytes: Vec<u8>, recorded: &Ledger) -> Result<String, Diagnostic> {
+    let Some((collector, filed_under)) = filed(key) else {
+        return Err(unreadable(
+            key,
+            "it is not named .specforge/facts/<key>/<collector>.json",
+        ));
+    };
+    if !recorded.contains(&Line::facts(collector, filed_under, &bytes)) {
+        return Err(Diagnostic::new(
+            codes::W191,
+            format!(
+                "fact store '{key}' is not the one specforge-harness records for collector '{collector}' \
+                 (collected on another commit or branch, or changed since); its facts are not served"
+            ),
+        )
+        .with_suggestion("run `specforge collect`"));
+    }
+    let renames = stale::renames(recorded, collector, filed_under, &bytes);
+    let text = String::from_utf8(bytes).map_err(|e| unreadable(key, e))?;
+    Ok(stale::carried(text, &renames))
 }
 
 /// The facts of `kinds` in the stores the harness ledger at the project root `root` records, read through `disk`,
@@ -289,13 +288,10 @@ pub fn recorded_facts(disk: &dyn Disk, root: &Path, kinds: &[&str]) -> Vec<Fact>
         .lines()
         .filter_map(Line::facts_of)
         .filter_map(|(collector, key)| {
-            let bytes = disk.read(&root.join(Store::path(collector, key))).ok()?;
-            if !ledger.contains(&Line::facts(collector, key, &bytes)) {
-                return None;
-            }
-            serde_json::from_slice::<Store>(&bytes)
-                .ok()
-                .filter(|store| store.store == Store::VERSION)
+            let path = Store::path(collector, key);
+            let bytes = disk.read(&root.join(&path)).ok()?;
+            let text = served_text(&path, bytes, &ledger).ok()?;
+            store(&path, &text).ok().map(|served| served.store)
         })
         .flat_map(|store| store.facts)
         .filter(|fact| kinds.contains(&fact.kind.as_str()))
@@ -304,16 +300,22 @@ pub fn recorded_facts(disk: &dyn Disk, root: &Path, kinds: &[&str]) -> Vec<Fact>
     facts
 }
 
-/// The store `text` of the fact store `key` as one file of read-only entities (D5): each fact an entity of its kind,
-/// id, title and fields, spanned at the file's first character (what identifies a fact) and `located` where its
-/// collector says it is written (ADR 0346 D3). A field's value is read from its JSON by the field's form in `forms`,
-/// as a `.spec` file writes it (ADR 0234): a string a word field holds bare is the bare word (an enum's `passed`, a
-/// reference's id), any other string text; an integer, a bool; an array of strings a list whose items are written as
-/// the field writes each. Each value is spanned where its name is written (`named_at`), else where the fact is, else
-/// at the store. W192 when the text is no store this specforge reads. A store [`read`] marked stale has its
-/// references read through the moves it carries, and is W197.
-pub(crate) fn served(key: &str, text: &str, forms: &FieldForms) -> Result<SpecFile, Diagnostic> {
-    let mut store = serde_json::from_str::<Store>(text).map_err(|e| unreadable(key, e))?;
+/// A store as a session serves it ([`store`]).
+#[derive(Debug)]
+pub struct Served<'t> {
+    /// The store, each name a rename marked it stale with read as the rename wrote it.
+    pub store: Store,
+    /// The collector's bytes the store was read from: what a `stale:` line digests.
+    pub bytes: &'t str,
+    /// W197 when a rename marked it stale.
+    pub stale: Option<Diagnostic>,
+}
+
+/// The served text `text` of the fact store `key` ([`read`]) read: the one reader of a store. Its facts' names a rename
+/// marked it stale with are read as the rename wrote them, with W197 (ADR 0346 D7). W192 when the text is no store
+/// this specforge reads.
+pub fn store<'t>(key: &str, text: &'t str) -> Result<Served<'t>, Diagnostic> {
+    let (mut store, bytes, renames) = stale::split(text).map_err(|e| unreadable(key, e))?;
     if store.store != Store::VERSION {
         return Err(unreadable(
             key,
@@ -324,7 +326,24 @@ pub(crate) fn served(key: &str, text: &str, forms: &FieldForms) -> Result<SpecFi
             ),
         ));
     }
-    let stale = stale::followed(key, &mut store, forms);
+    let stale = stale::follow(key, &mut store, &renames);
+    Ok(Served {
+        store,
+        bytes,
+        stale,
+    })
+}
+
+/// The served text `text` of the fact store `key` as one file of read-only entities (D5): each fact an entity of its
+/// kind, id, title and fields, spanned at the file's first character (what identifies a fact) and `located` where its
+/// collector says it is written (ADR 0346 D3). A field's value is read from its JSON by the field's form in `forms`,
+/// as a `.spec` file writes it (ADR 0234): a string a word field holds bare is the bare word (an enum's `passed`, a
+/// reference's id), any other string text; an integer, a bool; an array of strings a list whose items are written as
+/// the field writes each. Each value is spanned where its name is written (`named_at`), else where the fact is, else
+/// at the store. W192 when the text is no store this specforge reads; W197, in the file's format diagnostics, when a
+/// rename marked it stale.
+pub(crate) fn served(key: &str, text: &str, forms: &FieldForms) -> Result<SpecFile, Diagnostic> {
+    let Served { store, stale, .. } = store(key, text)?;
     let file = Sym::new(key);
     let span = SourceSpan {
         file,

@@ -45,11 +45,11 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
     entities; a store no line records is W191 and one that does not read
     W192, and neither is served. With no such kind loaded, no fact store and
     no ledger is read for facts (ADR 0327 D5). A store whose bytes a
-    `stale:` line of the ledger marks (a rename moved what its facts name
-    after the collect) MUST be served with each reference value that spells
-    a moved path, or a suffix of one, read as the path it moved to, and is
-    W197 until its collector collects again; a store collected after the
-    rename follows no move (ADR 0346 D7).
+    `stale:` line of the ledger marks (a rename rewrote a name its facts
+    hold after the collect) MUST be served with exactly the names its stale
+    lines record read as the rename wrote them, and is W197 until its
+    collector collects again; a store collected after the rename follows no
+    move, and no older move is followed (ADR 0346 D7).
   """
   verify unit "graph contains one node per entity"
   verify unit "graph contains one edge per resolved reference"

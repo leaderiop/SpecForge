@@ -510,10 +510,13 @@ fn recording(p: &TestProject, line: Line) {
     fs::write(&path, ledger.canonical()).unwrap();
 }
 
-/// `node`'s store, marked stale in the ledger of `p` as a rename marks it.
+/// `node`'s store, marked stale in the ledger of `p` as a rename of `adds_numbers` to `add_numbers` marks it.
 fn mark_stale(p: &TestProject) {
     let bytes = fs::read(p.root().join(STORE)).unwrap();
-    recording(p, Line::stale("node", KEY, &bytes));
+    recording(
+        p,
+        Line::stale("node", KEY, &bytes, "covers", "adds_numbers", "add_numbers"),
+    );
 }
 
 #[specforge_test(
@@ -555,6 +558,41 @@ fn a_stale_store_follows_the_moves_and_is_w197() {
     assert_eq!(
         (items[0].text.as_str(), items[0].span.start_line),
         ("add_numbers", 2)
+    );
+}
+
+#[test]
+fn a_stale_store_follows_no_move_its_rename_did_not_write() {
+    // `TR1` names the truth `TR1`; an older rename moved `a/TR1`, which `TR1` is a suffix of. Only the rename that
+    // marked the store stale is followed, and it wrote `adds_numbers` alone.
+    let p = renamed();
+    std::fs::write(
+        p.root().join("truths.spec"),
+        "truth add_numbers \"One\" {\n}\n\ntruth TR1 \"Two\" {\n}\n",
+    )
+    .unwrap();
+    let facts = json!([
+        {"kind": "test", "id": "js:a.test.js#adds", "fields": {"covers": ["adds_numbers", "TR1"]},
+         "named_at": {"covers": {"adds_numbers": [place("a.test.js", 2, 12, 24)],
+                                 "TR1": [place("a.test.js", 3, 12, 15)]}}},
+    ]);
+    stored(p.root(), "node", KEY, facts);
+    recording(&p, Line::moved("a/TR2", "a/TR1"));
+    mark_stale(&p);
+
+    let project = compiled(&p);
+
+    let covered: Vec<&str> = project
+        .graph()
+        .edges_from("js:a.test.js#adds")
+        .iter()
+        .map(|e| e.target.as_str())
+        .collect();
+    assert_eq!(
+        covered,
+        ["add_numbers", "TR1"],
+        "{:?}",
+        project.diagnostics()
     );
 }
 

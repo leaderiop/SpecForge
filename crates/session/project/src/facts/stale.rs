@@ -1,121 +1,115 @@
-//! A fact store a rename marked stale (ADR 0346 D7): the ledger holds `<collector> stale:<key> <digest>` for its
-//! bytes, so the store was collected before a rename moved what its facts name. Until the collector collects again,
-//! its references are read through the ledger's moves, and the store is W197.
+//! A fact store a rename marked stale (ADR 0346 D7): for each name a rename rewrote where the store's facts hold it,
+//! the ledger holds `<collector> stale:<key>:<field>:<written>:<now> <digest>` for the store's bytes. Until the
+//! collector collects again, exactly those names are read as the rename wrote them, and the store is W197.
+//!
+//! The renames reach the serve on the store's served text: the collector's bytes, then the renames as one more JSON
+//! value. The session compares served texts, so a ledger change re-serves the store; the store file keeps the
+//! collector's bytes.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_common::{Diagnostic, codes};
-use specforge_graph::{FieldForms, Reading};
-use specforge_protocol_types::FieldType;
 
 use super::Store;
-use crate::harness::Ledger;
+use crate::harness::{Ledger, Line};
 
-/// The store `text` as a session serves it when the ledger marks it stale: its `moved` set to the ledger's moves.
-/// The text unchanged when it is no store (the serve says W192) or the ledger records no move.
-pub(super) fn marked(text: String, ledger: &Ledger) -> String {
-    let moved = moves(ledger);
-    match serde_json::from_str::<Store>(&text) {
-        Ok(mut store) if !moved.is_empty() => {
-            store.moved = moved;
-            serde_json::to_string(&store).expect("a store serializes")
+/// The renames a stale store is read through: field → the name its facts hold → the name a rename wrote.
+pub(super) type Renames = BTreeMap<String, BTreeMap<String, String>>;
+
+/// The renames the ledger `recorded` marks the store of `collector` filed under `key` stale with, for its `bytes`:
+/// each stale line of that store whose digest is of exactly those bytes.
+pub(super) fn renames(recorded: &Ledger, collector: &str, key: &str, bytes: &[u8]) -> Renames {
+    let mut renames = Renames::new();
+    for line in recorded.lines() {
+        let Some(stale) = line.stale_of() else {
+            continue;
+        };
+        if stale.collector == collector
+            && stale.key == key
+            && *line == Line::stale(collector, key, bytes, stale.field, stale.written, stale.now)
+        {
+            renames
+                .entry(stale.field.to_string())
+                .or_default()
+                .insert(stale.written.to_string(), stale.now.to_string());
         }
-        _ => text,
     }
+    renames
 }
 
-/// Each moved path and the path it is now, from the ledger's `new moved:old` records, a chain followed to its end.
-fn moves(ledger: &Ledger) -> BTreeMap<String, String> {
-    let direct: BTreeMap<&str, &str> = ledger
-        .lines()
-        .filter_map(|line| Some((line.moved_from()?, line.subject.as_str())))
-        .collect();
-    direct
-        .iter()
-        .map(|(old, new)| {
-            let mut now = *new;
-            // A chain is no longer than the records; a cycle (a rename and back) stops there.
-            for _ in 0..direct.len() {
-                match direct.get(now) {
-                    Some(next) if next != old => now = next,
-                    _ => break,
-                }
-            }
-            (old.to_string(), now.to_string())
-        })
-        .collect()
+/// The served text of a store whose bytes are `text`: those bytes, then `renames` when there are any.
+pub(super) fn carried(mut text: String, renames: &Renames) -> String {
+    if !renames.is_empty() {
+        text.push_str(&serde_json::to_string(renames).expect("renames serialize"));
+        text.push('\n');
+    }
+    text
 }
 
-/// Every reference value of `store`'s facts that spells a moved path, or a suffix of one, read as the same suffix of
-/// the path it moved to, with its name places moved along; and the W197 of the store `key` when it holds `moved`.
-pub(super) fn followed(key: &str, store: &mut Store, forms: &FieldForms) -> Option<Diagnostic> {
-    if store.moved.is_empty() {
+/// The served text `text` read: the store, the collector's bytes it was read from, and the renames it carries.
+pub(super) fn split(text: &str) -> Result<(Store, &str, Renames), serde_json::Error> {
+    let mut values = serde_json::Deserializer::from_str(text).into_iter::<Store>();
+    let store = match values.next() {
+        Some(store) => store?,
+        None => serde_json::from_str::<Store>(text)?,
+    };
+    let carried = text[values.byte_offset()..].trim_start();
+    let bytes = &text[..text.len() - carried.len()];
+    let renames = if carried.is_empty() {
+        Renames::new()
+    } else {
+        serde_json::from_str(carried)?
+    };
+    Ok((store, bytes, renames))
+}
+
+/// Every name `store`'s facts hold in a field `renames` lists, read as the rename wrote it, its places moved along;
+/// and the W197 of the store `key` when there are renames.
+pub(super) fn follow(key: &str, store: &mut Store, renames: &Renames) -> Option<Diagnostic> {
+    if renames.is_empty() {
         return None;
     }
-    let mut renamed: Vec<(String, String)> = Vec::new();
+    let mut renamed: BTreeSet<(&str, &str)> = BTreeSet::new();
     let mut files: BTreeSet<String> = BTreeSet::new();
     for fact in &mut store.facts {
-        for (name, value) in &mut fact.fields {
-            let referenced = matches!(
-                forms.reading(&fact.kind, name),
-                Reading::Declared(form)
-                    if matches!(form.field_type(), FieldType::Reference | FieldType::ReferenceList)
-            );
-            if !referenced {
+        for (field, names) in renames {
+            let Some(places) = fact.named_at.get_mut(field) else {
                 continue;
-            }
-            let texts: Vec<&mut serde_json::Value> = match value {
-                serde_json::Value::Array(items) => items.iter_mut().collect(),
-                single => vec![single],
             };
-            for text in texts {
-                let Some(old) = text.as_str().map(str::to_string) else {
+            for (written, now) in names {
+                // A rename rewrites only a name written at a place: the name the fact holds there.
+                let Some(at) = places.remove(written) else {
                     continue;
                 };
-                let Some(new) = follow(&old, &store.moved) else {
-                    continue;
-                };
-                if let Some(places) = fact.named_at.get_mut(name.as_str())
-                    && let Some(at) = places.remove(&old)
-                {
-                    files.extend(at.iter().map(|place| place.file.clone()));
-                    places.entry(new.clone()).or_default().extend(at);
+                files.extend(at.iter().map(|place| place.file.clone()));
+                places.entry(now.clone()).or_default().extend(at);
+                if let Some(value) = fact.fields.get_mut(field) {
+                    respell(value, written, now);
                 }
-                *text = serde_json::Value::String(new.clone());
-                renamed.push((old, new));
+                renamed.insert((written, now));
             }
         }
     }
     Some(w197(key, &renamed, &files))
 }
 
-/// `value` read through `moved`: the moved path it spells, or ends a suffix of at a `/` (a short name a fact holds,
-/// or one under it), as the same number of trailing segments of the path it moved to, what follows kept.
-fn follow(value: &str, moved: &BTreeMap<String, String>) -> Option<String> {
-    let segments: Vec<&str> = value.split('/').collect();
-    // The longest written head first: `02/TR1` is matched as `02/TR1`, not as `02`.
-    for written in (1..=segments.len()).rev() {
-        let head = segments[..written].join("/");
-        let Some((_, new)) = moved
-            .iter()
-            .find(|(old, _)| **old == head || old.ends_with(&format!("/{head}")))
-        else {
-            continue;
-        };
-        let new: Vec<&str> = new.split('/').collect();
-        let mut read = new[new.len().saturating_sub(written)..].to_vec();
-        read.extend(&segments[written..]);
-        return Some(read.join("/"));
+/// `value`, or each item of it, that is the string `written`, as `now`.
+fn respell(value: &mut serde_json::Value, written: &str, now: &str) {
+    match value {
+        serde_json::Value::Array(items) => items
+            .iter_mut()
+            .for_each(|item| respell(item, written, now)),
+        serde_json::Value::String(text) if text == written => *text = now.to_string(),
+        _ => {}
     }
-    None
 }
 
 /// W197: the store `key` is stale, and what a rename moved in it.
-fn w197(key: &str, renamed: &[(String, String)], files: &BTreeSet<String>) -> Diagnostic {
-    let moved = match renamed {
-        [] => String::new(),
-        [(old, new)] => format!(" ('{old}' → '{new}')"),
-        [(old, new), rest @ ..] => format!(" ('{old}' → '{new}', and {} more)", rest.len()),
+fn w197(key: &str, renamed: &BTreeSet<(&str, &str)>, files: &BTreeSet<String>) -> Diagnostic {
+    let moved = match renamed.iter().next() {
+        None => String::new(),
+        Some((old, new)) if renamed.len() == 1 => format!(" ('{old}' → '{new}')"),
+        Some((old, new)) => format!(" ('{old}' → '{new}', and {} more)", renamed.len() - 1),
     };
     let places = if files.is_empty() {
         "the files its collector read".to_string()
@@ -137,20 +131,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_value_is_followed_by_its_written_suffix() {
-        let moved: BTreeMap<String, String> = [
-            ("v1/02/TR1".to_string(), "v1/02/TR2".to_string()),
-            ("a/old".to_string(), "b/c/new".to_string()),
-        ]
+    fn a_served_text_gives_back_the_collectors_bytes_and_its_renames() {
+        let bytes = Store::new("node", "@t/node", "k", Vec::new(), BTreeMap::new()).bytes();
+        let bytes = String::from_utf8(bytes).unwrap();
+        let renames: Renames = [(
+            "covers".to_string(),
+            [("T1".to_string(), "T2".to_string())].into(),
+        )]
         .into();
-        let read = |value: &str| follow(value, &moved);
-        assert_eq!(read("v1/02/TR1").as_deref(), Some("v1/02/TR2"));
-        assert_eq!(read("TR1").as_deref(), Some("TR2"));
-        assert_eq!(read("02/TR1").as_deref(), Some("02/TR2"));
-        assert_eq!(read("TR1/step").as_deref(), Some("TR2/step"));
-        assert_eq!(read("old").as_deref(), Some("new"));
-        assert_eq!(read("a/old").as_deref(), Some("c/new"));
-        assert_eq!(read("XTR1"), None);
-        assert_eq!(read("TR3"), None);
+
+        let served = carried(bytes.clone(), &renames);
+        let (store, read, carried_back) = split(&served).unwrap();
+
+        assert_eq!((store.key.as_str(), read), ("k", bytes.as_str()));
+        assert_eq!(carried_back, renames);
+        let (_, plain, none) = split(&bytes).unwrap();
+        assert_eq!((plain, none), (bytes.as_str(), Renames::new()));
     }
 }

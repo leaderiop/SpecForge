@@ -284,7 +284,7 @@ fn a_rename_of_an_entity_a_fact_names_rewrites_the_source_and_marks_the_store_st
         ledger.canonical()
     );
     assert!(
-        ledger.contains(&Line::stale("node", KEY, &store)),
+        ledger.contains(&Line::stale("node", KEY, &store, "covers", "T1", "T2")),
         "{}",
         ledger.canonical()
     );

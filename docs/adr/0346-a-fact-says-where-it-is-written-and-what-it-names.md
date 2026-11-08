@@ -115,18 +115,26 @@ rename T1 → T2
   │    file F changed since the collect (digest ≠ sources[F]) or the text at a place ≠ the old spelling
   │                                   ──▶ refused `source_moved`
   │    else F edited at every place: the written suffix of the old path → the same suffix of the new path
-  └─ one planned change: spec files + source files + ledger (moves, and
-       `<collector> stale:<key> <digest of the store bytes>`, written even with no harness field)
-serve a store whose stale line the ledger holds ──▶ its references followed through the ledger's moves + W197
-next collect of that collector ─────────────────▶ replaces its facts: and stale: lines; no W197
+  └─ one planned change: spec files + source files + ledger (moves, and for each name rewritten
+       `<collector> stale:<key>:<field>:<old spelling>:<new spelling> <digest of the store bytes>`,
+       written even with no harness field)
+serve a store whose stale lines the ledger holds ──▶ exactly those names read as the rename wrote them + W197
+next collect of that collector ──────────────────▶ replaces its facts: and stale: lines; no W197
 ```
 
-- **Stale is a ledger line, not a store rewrite.** The store stays the collector's bytes; the ledger already records
-  moves; the line makes "stale" exact in time: only a store collected before the rename follows moves, and a fresh
-  store that still names the old id is dangling, with `did you mean` the new one. It is union-merge safe
-  (`stale:<key>` holds a namespace). *Rejected:* rewriting the store's values (a second writer of facts; the LSP
-  would have to land a store write); following the moves for every store (a reverted source edit would link silently
-  forever).
+- **Stale is a ledger line per rewritten name, not a store rewrite.** The store stays the collector's bytes; a stale
+  line records one name the rename rewrote in the source (the field, the spelling the store holds, the spelling
+  written) and digests the store's bytes, so "stale" is exact in time and in what it follows: only a store collected
+  before the rename, and only the names that rename wrote. A fresh store that still names the old id is dangling,
+  with `did you mean` the new one. It is union-merge safe (`stale:<key>` holds a namespace). *Rejected:* rewriting
+  the store's values (a second writer of facts; the LSP would have to land a store write); following the moves for
+  every store (a reverted source edit would link silently forever); following the ledger's moves by suffix for a
+  stale store (an older move of `a/T1` would re-point a `T1` that names the root `T1`).
+- **The renames reach the serve on the served text.** A session reads a store once (`facts::store` is its one
+  reader); the text it serves is the collector's bytes, then the renames its stale lines record as one more JSON
+  value. The session compares served texts, so a ledger change re-serves the store, and the on-disk `Store` has no
+  host-only field. *Rejected:* a `moved` field on the store struct set by the host (a field no collector writes, and
+  the store parsed, re-serialized and parsed again).
 - **W197** "fact store '<key>' is stale: a rename moved what its facts name ('T1' → 'T2'[, and N more]) after the
   collect; its places in <files> may be off until `specforge collect`".
 - A second rename needing a place in a file the first rewrote is refused `source_moved` (its digest moved): one

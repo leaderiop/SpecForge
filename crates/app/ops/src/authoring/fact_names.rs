@@ -18,7 +18,8 @@ use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 
 /// The source edits and stale lines of a rename: each rewritten file (its key from the project root, the text it was
-/// planned on, the text it will hold), each edit, and the `stale:` line of each store whose facts name a moved entity.
+/// planned on, the text it will hold), each edit, and a `stale:` line for each name rewritten where a store's facts
+/// hold it.
 #[derive(Debug, Default)]
 pub(crate) struct Rewrite {
     pub files: Vec<(String, Arc<str>, String)>,
@@ -96,6 +97,14 @@ pub(crate) fn rewrite(
                         .ok_or_else(|| no_place(old_id, field, &fact.id))?;
                     let new_text = same_suffix(new, spelling);
                     captured(view, old, &new_text)?;
+                    rewrite.stale.push(Line::stale(
+                        &store.collector,
+                        &store.key,
+                        &bytes,
+                        field,
+                        spelling,
+                        &new_text,
+                    ));
                     for place in written {
                         digests.insert(
                             place.file.clone(),
@@ -120,9 +129,6 @@ pub(crate) fn rewrite(
                 }
             }
         }
-        rewrite
-            .stale
-            .push(Line::stale(&store.collector, &store.key, &bytes));
     }
     for (file, edits) in places {
         let moved = || {

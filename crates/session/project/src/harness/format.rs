@@ -3,7 +3,8 @@
 //! ```text
 //! ledger  = "# specforge-harness 1" LF *line
 //! line    = path SP key SP digest LF        ; sorted bytewise, unique
-//! key     = field-name / "moved:" path / "facts:" store-key / "stale:" store-key / namespace ":" rest
+//! key     = field-name / "moved:" path / "facts:" store-key / "stale:" store-key ":" field ":" name ":" name
+//!         / namespace ":" rest
 //! digest  = 64 lowercase hex = sha256(path NUL key NUL value)
 //! ```
 
@@ -26,8 +27,8 @@ pub const VERDICT_KEY: &str = "verdict:";
 /// The prefix of the key of a fact store's line: `<collector> facts:<key> <digest>` (ADR 0327).
 pub const FACTS_KEY: &str = "facts:";
 
-/// The prefix of the key of a stale fact store's line: `<collector> stale:<key> <digest>`, which a rename writes when
-/// it rewrites a name the store's facts hold (ADR 0346 D7).
+/// The prefix of the key of a stale fact store's line: `<collector> stale:<key>:<field>:<written>:<now> <digest>`, one
+/// per name a rename rewrote where the store's facts hold it in `field` (ADR 0346 D7).
 pub const STALE_KEY: &str = "stale:";
 
 /// `sha256(path NUL key NUL value)`: the line that records `value` as `key` of `path`.
@@ -77,10 +78,18 @@ impl Line {
     }
 
     /// The line marking stale the store of `collector`'s facts filed under `key`, whose file holds `bytes`: a rename
-    /// moved what its facts name after the collect (ADR 0346 D7). Its digest is `digest(collector, "stale:<key>",
-    /// bytes)`, so it marks exactly those bytes; the next collect of the collector drops it.
-    pub fn stale(collector: &str, key: &str, bytes: &[u8]) -> Line {
-        let key = format!("{STALE_KEY}{key}");
+    /// rewrote the name its facts hold in `field` as `written` to `now` where the collector read it, after the collect
+    /// (ADR 0346 D7). Its digest is `digest(collector, "stale:<key>:<field>:<written>:<now>", bytes)`, so it marks
+    /// exactly those bytes; the next collect of the collector drops it. No part holds `:` (an entity's name does not).
+    pub fn stale(
+        collector: &str,
+        key: &str,
+        bytes: &[u8],
+        field: &str,
+        written: &str,
+        now: &str,
+    ) -> Line {
+        let key = format!("{STALE_KEY}{key}:{field}:{written}:{now}");
         Line {
             subject: collector.to_string(),
             digest: digest(collector, &key, bytes),
@@ -88,16 +97,25 @@ impl Line {
         }
     }
 
-    /// The collector and the store key this line marks stale, when it is a stale line.
-    pub fn stale_of(&self) -> Option<(&str, &str)> {
-        Some((self.subject.as_str(), self.key.strip_prefix(STALE_KEY)?))
+    /// What this line marks stale, when it is a stale line: its collector, the store key, and the field, the name
+    /// its facts hold and the name a rename wrote.
+    pub fn stale_of(&self) -> Option<Stale<'_>> {
+        let mut parts = self.key.strip_prefix(STALE_KEY)?.splitn(4, ':');
+        Some(Stale {
+            collector: &self.subject,
+            key: parts.next()?,
+            field: parts.next()?,
+            written: parts.next()?,
+            now: parts.next()?,
+        })
     }
 
     /// The collector of a fact store's line or of a stale line: the lines a collect of it replaces.
     pub fn collector_of(&self) -> Option<&str> {
-        self.facts_of()
-            .or_else(|| self.stale_of())
-            .map(|(collector, _)| collector)
+        match self.stale_of() {
+            Some(stale) => Some(stale.collector),
+            None => self.facts_of().map(|(collector, _)| collector),
+        }
     }
 
     /// The path this line records a move from, when it is a move record.
@@ -118,6 +136,16 @@ impl Line {
     fn text(&self) -> String {
         format!("{} {} {}\n", self.subject, self.key, self.digest)
     }
+}
+
+/// The parts of a stale line ([`Line::stale`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Stale<'l> {
+    pub collector: &'l str,
+    pub key: &'l str,
+    pub field: &'l str,
+    pub written: &'l str,
+    pub now: &'l str,
 }
 
 /// The lines of a ledger, sorted bytewise and unique.

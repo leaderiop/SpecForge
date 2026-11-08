@@ -4605,14 +4605,14 @@ W197: Fact store stale after a rename
 A rename (`specforge rename`, the MCP tool or the editor's rename) moved an
 entity that a collected fact names, and rewrote the source file where the
 collector read the name (ADR 0346 D7). The fact store itself is the collector's
-bytes and was not rewritten; the rename wrote `<collector> stale:<key>` to
-`specforge-harness` for it. Until that collector collects again, the store's
-references are read through the ledger's moves, so they still link, and this
-warning names what moved. The places the store records in the rewritten files
-may be off by the rename's change of length. Run `specforge collect` to collect
-the facts again: it replaces the store and drops the stale line. A store
-collected after the rename is not stale: if it still names the old id, its
-collector's facts disagree.
+bytes and was not rewritten; the rename wrote `<collector>
+stale:<key>:<field>:<name>:<new name>` to `specforge-harness` for each name it
+rewrote. Until that collector collects again, exactly those names are read as
+the rename wrote them, so they still link, and this warning names what moved.
+The places the store records in the rewritten files may be off by the rename's
+change of length. Run `specforge collect` to collect the facts again: it
+replaces the store and drops the stale line. A store collected after the rename
+is not stale: if it still names the old id, its collector's facts disagree.
 
 Owner: core
 Level: warning

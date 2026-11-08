@@ -33,7 +33,8 @@ pub struct LedgerChange {
     pub moves: Vec<(String, String)>,
     /// The fact stores a collect records (ADR 0327): each replaces every `facts:` and `stale:` line of its collector.
     pub facts: Vec<Line>,
-    /// The fact stores a rename marks stale (ADR 0346 D7): `Line::stale` of each store whose facts name what it moved.
+    /// The fact stores a rename marks stale (ADR 0346 D7): a `Line::stale` for each name it rewrote where a store's
+    /// facts hold it.
     pub stale: Vec<Line>,
 }
 
@@ -415,14 +416,14 @@ mod tests {
             &view,
             &LedgerChange {
                 stale: vec![
-                    Line::stale("node", "a1", b"1"),
-                    Line::stale("cargo", "a1", b"3"),
+                    Line::stale("node", "a1", b"1", "covers", "T1", "T2"),
+                    Line::stale("cargo", "a1", b"3", "covers", "T1", "T2"),
                 ],
                 ..Default::default()
             },
         );
         assert!(
-            marked.contains(&Line::stale("node", "a1", b"1")),
+            marked.contains(&Line::stale("node", "a1", b"1", "covers", "T1", "T2")),
             "{}",
             marked.canonical()
         );
@@ -436,8 +437,17 @@ mod tests {
             },
         );
 
-        let stale: Vec<_> = collected.lines().filter_map(Line::stale_of).collect();
-        assert_eq!(stale, [("cargo", "a1")], "{}", collected.canonical());
+        let stale: Vec<_> = collected
+            .lines()
+            .filter_map(Line::stale_of)
+            .map(|stale| (stale.collector, stale.key, stale.written, stale.now))
+            .collect();
+        assert_eq!(
+            stale,
+            [("cargo", "a1", "T1", "T2")],
+            "{}",
+            collected.canonical()
+        );
         assert!(collected.records("node", "facts:c3", &Line::facts("node", "c3", b"4").digest));
         // A stale line of a collector no extension declares goes with it.
         let gone = collected.rewritten(
