@@ -1,7 +1,7 @@
 //! The check pass `refs` (ADR 0329 D5, ADR 0347 D9): the references a spec writes to `@code/core`'s facts that no fact
 //! holds, and the references its own facts hold that nothing answers (ADR 0346 D4).
 
-use specforge_code_facts::{PackageId, TestId};
+use specforge_code_facts::{ItemId, PackageId, TestId};
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::UnheldReference;
 
@@ -28,8 +28,8 @@ const PACKS: [(&str, &str, &str); 6] = [
     (PACKAGE_KIND, "npm", "@javascript/source"),
 ];
 
-/// Each unheld reference whose collected kinds (`UnheldReference.kinds`) meet `@code/core`'s, once, at the span it is
-/// written at: nothing while its entity is pending (a test not written yet is TDD), E101 when a served fact store holds
+/// Each unheld reference whose collected kinds (`UnheldReference.kinds`, narrowed to those its id is shaped as) meet
+/// `@code/core`'s, once, at the span it is written at: nothing while its entity is pending (a test not written yet is TDD), E101 when a served fact store holds
 /// a fact of one of those kinds in its scheme (a test reference told the closest held test of its container), W102
 /// when none does (nothing to check it against), naming the kind and its pack. A held reference is an edge, never a
 /// finding, and neither is a fact nothing cites. A reference one of its own facts holds that no fact or entity answers
@@ -42,12 +42,14 @@ pub(crate) fn refs(input: &PassInput) -> Vec<PassDiagnostic> {
             continue;
         }
         for item in &entity.unheld {
-            let kinds: Vec<&str> = item
-                .kinds
-                .iter()
-                .map(String::as_str)
-                .filter(|kind| KINDS.contains(kind))
-                .collect();
+            let kinds = shaped(
+                &item.id,
+                item.kinds
+                    .iter()
+                    .map(String::as_str)
+                    .filter(|kind| KINDS.contains(kind))
+                    .collect(),
+            );
             let Some(scheme) = scheme(&item.id).filter(|_| !kinds.is_empty()) else {
                 continue;
             };
@@ -61,6 +63,26 @@ pub(crate) fn refs(input: &PassInput) -> Vec<PassDiagnostic> {
         }
     }
     found
+}
+
+/// Of `kinds`, those `id` is shaped as an id of, read through `specforge-code-facts` (a test's and a run's hold `#`,
+/// an item's never does); all of them when it is shaped as none, so a malformed reference is still judged.
+fn shaped<'k>(id: &str, kinds: Vec<&'k str>) -> Vec<&'k str> {
+    let fits: Vec<&str> = kinds
+        .iter()
+        .copied()
+        .filter(|kind| match *kind {
+            TEST_KIND => id.parse::<TestId>().is_ok(),
+            RUN_KIND => TestId::of_run(id).is_ok(),
+            ITEM_KIND => id.parse::<ItemId>().is_ok(),
+            PACKAGE_KIND => id.parse::<PackageId>().is_ok(),
+            _ => true,
+        })
+        .collect();
+    match fits.is_empty() {
+        true => kinds,
+        false => fits,
+    }
 }
 
 /// The kinds of `kinds` a served store holds facts of in `scheme`, in `kinds`' order.

@@ -101,8 +101,10 @@ behavior cc_check_fact_refs "Check Cited Fact References" {
   types    [PassInput, PassEntity]
   contract """
     The check pass refs MUST judge each unheld reference an entity writes
-    whose collected kinds (the kinds of its scheme its field admits) meet
-    @code/core's kinds, once, at the span it is written at: nothing while
+    whose collected kinds (the kinds of its scheme its field admits,
+    narrowed to those its id is shaped as: a test id holds a hash sign, an
+    item id never does) meet @code/core's kinds, once, at the span it is
+    written at: nothing while
     the entity is pending; code/E101 when a served fact store holds a fact
     of one of those kinds in the reference's scheme, a test reference
     suggesting the closest held test of the same container; code/W102 when
@@ -129,6 +131,7 @@ behavior cc_check_fact_refs "Check Cited Fact References" {
   verify unit "a reference whose kinds no served store holds in its scheme is code/W102 naming the kind and its pack"
   verify unit "a reference naming no fact of a kind a served store holds in its scheme is code/E101"
   verify unit "a package reference's W102 names the pack of its purl type"
+  verify unit "a test id in a field of no target kind beside only item facts is code/W102"
   verify unit "a rust test ref beside rust items only is w102"
   verify unit "a facts own unheld reference is not judged"
   verify unit "a reference admitting none of its kinds is not judged"

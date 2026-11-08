@@ -364,6 +364,32 @@ fn a_package_references_w102_names_the_pack_of_its_purl_type() {
 
 #[specforge_test(
     behavior = "cc_check_fact_refs",
+    verify = "a test id in a field of no target kind beside only item facts is code/W102"
+)]
+fn a_test_id_in_a_field_of_no_target_beside_only_items_is_w102() {
+    // A field with no target admits every collected kind of the scheme; the `#` makes the id a test's alone.
+    let note = PassEntity {
+        unheld: vec![UnheldReference {
+            field: "see".to_string(),
+            id: "rust:toy#tests::adds".to_string(),
+            span: read_at(2),
+            kinds: strings(&["item", "test"]),
+        }],
+        ..entity("t1", "truth")
+    };
+    let diagnostics = refs::refs(&holding(vec![note], &[("rust", "item")]));
+    assert_eq!(found(&diagnostics), [("W102", "t1", 2, None)]);
+    assert!(
+        diagnostics[0].message.ends_with(
+            "no `rust` `test` facts were collected: run `specforge collect` with `@rust/test`"
+        ),
+        "{}",
+        diagnostics[0].message
+    );
+}
+
+#[specforge_test(
+    behavior = "cc_check_fact_refs",
     verify = "a reference naming no fact of a kind a served store holds in its scheme is code/E101"
 )]
 fn a_missing_item_of_a_held_kind_is_e101_with_no_suggestion() {
