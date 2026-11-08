@@ -336,6 +336,9 @@ fn with_a_phase_branch() -> (Project, String) {
     let p = crate::harness::taskboard();
     p.settings(serde_json::json!({"git.branching_strategy": "phase"}));
     p.commit();
+    // The fences commit through specforge, which reads the repository's identity, not the harness's `-c` flags.
+    p.git(&["config", "user.name", "gsd"], AT);
+    p.git(&["config", "user.email", "gsd@example.com"], AT);
     p.git(&["checkout", "-q", "-b", "gsd/phase-01-core"], AT);
     p.write("work.txt", "done\n");
     p.git(&["add", "work.txt"], AT);
