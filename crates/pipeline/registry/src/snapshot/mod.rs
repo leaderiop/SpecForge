@@ -11,7 +11,7 @@ mod standing;
 mod text;
 mod wire;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use specforge_graph::{GraphBuild, written_fields};
 
@@ -19,7 +19,7 @@ use crate::compilation::RegistryBuild;
 use crate::entity::{EdgeRecord, EntityRecord, RuleInput};
 use specforge_common::Sym;
 use specforge_graph::Found;
-use specforge_protocol_types::CompleteWhen;
+use specforge_protocol_types::{CompleteWhen, DanglingReason};
 
 pub use standing::Standing;
 pub use text::{field_items, field_text};
@@ -123,6 +123,27 @@ impl EntitySnapshot {
             edges,
             declared_types,
             complete_when,
+        }
+    }
+
+    /// Each dangling reference a fact holds that names a path a rename moved (`moved`: old path → the path it is now)
+    /// suggests the path it is now, written as it writes the old one (ADR 0346 D7): a store collected after the rename
+    /// that still names the old id is told the new one. It names the old path as a fact's reference names one (the
+    /// path, or its end after a `/`, `specforge_common::facts::names`), and one moved path only; the kernel's close
+    /// match stays the suggestion of the rest, and of a mistyped reference, which names an entity.
+    pub fn suggest_moved(&mut self, moved: &BTreeMap<String, String>) {
+        if moved.is_empty() {
+            return;
+        }
+        let dangling = self.records.iter_mut().flat_map(|r| r.dangling.iter_mut());
+        for reference in dangling.filter(|d| d.reason != DanglingReason::Mistyped) {
+            let mut named = moved
+                .iter()
+                .filter(|(old, _)| specforge_common::facts::names(old, &reference.id));
+            if let (Some((_, now)), None) = (named.next(), named.next()) {
+                reference.did_you_mean =
+                    Some(specforge_common::facts::respelled(now, &reference.id));
+            }
         }
     }
 

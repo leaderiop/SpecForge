@@ -221,6 +221,15 @@ pub(crate) fn recorded(disk: &dyn Disk, root: &Path) -> Ledger {
     Ledger::parse(&String::from_utf8_lossy(&bytes)).ledger
 }
 
+/// Each path a rename moved and the path it is now, from the ledger's `new moved:old` records (a move carries an
+/// earlier record of what it moves, so each is the path now).
+pub(crate) fn moves(ledger: &Ledger) -> BTreeMap<String, String> {
+    ledger
+        .lines()
+        .filter_map(|line| Some((line.moved_from()?.to_string(), line.subject.clone())))
+        .collect()
+}
+
 /// Read the fact store `key` of `sources` through `disk` (ADR 0327 D5) against the harness ledger `recorded` (read
 /// through `disk` when `None`): its served text ([`served_text`]); `Gone` when it is not there. Its facts are parsed
 /// once, by [`store`].

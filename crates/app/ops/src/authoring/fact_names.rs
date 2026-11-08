@@ -107,7 +107,7 @@ pub(crate) fn rewrite(
                         .and_then(|ids| ids.get(spelling))
                         .filter(|at| !at.is_empty())
                         .ok_or_else(|| no_place(old_id, field, &fact.id))?;
-                    let new_text = same_suffix(new, spelling);
+                    let new_text = specforge_common::facts::respelled(new, spelling);
                     captured(view, old, &new_text)?;
                     rewrite.stale.push(Line::stale(
                         &store.collector,
@@ -175,18 +175,6 @@ fn read(view: &ProjectView<'_>, key: &str) -> Option<Vec<u8>> {
         .map(|(_, bytes)| bytes)
 }
 
-/// Whether `written` names `path`: it is `path`, or the end of it after a `/`.
-fn suffix(path: &str, written: &str) -> bool {
-    path == written || path.ends_with(&format!("/{written}"))
-}
-
-/// As many trailing segments of `new` as `written` has: the spelling a rename writes for it.
-fn same_suffix(new: &str, written: &str) -> String {
-    let segments: Vec<&str> = new.split('/').collect();
-    let count = written.split('/').count().min(segments.len());
-    segments[segments.len() - count..].join("/")
-}
-
 /// `name_captured` when `written`, the spelling the rename writes, would also name an entity other than the one moved
 /// from `old`: a fact's name resolves by unique suffix.
 fn captured(view: &ProjectView<'_>, old: &str, written: &str) -> Result<(), OpError> {
@@ -195,7 +183,7 @@ fn captured(view: &ProjectView<'_>, old: &str, written: &str) -> Result<(), OpEr
         .nodes()
         .into_iter()
         .map(|node| node.id.raw.as_str())
-        .find(|path| *path != old && suffix(path, written));
+        .find(|path| *path != old && specforge_common::facts::names(path, written));
     match other {
         Some(other) => Err(OpError::new(
             OpErrorKind::Conflict,

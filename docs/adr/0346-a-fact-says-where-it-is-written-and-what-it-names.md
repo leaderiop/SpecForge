@@ -127,7 +127,8 @@ next collect of that collector ────────────────�
   line records one name the rename rewrote in the source (the field, the spelling the store holds, the spelling
   written) and digests the store's bytes, so "stale" is exact in time and in what it follows: only a store collected
   before the rename, and only the names that rename wrote. A fresh store that still names the old id is dangling,
-  with `did you mean` the new one. It is union-merge safe (`stale:<key>` holds a namespace). *Rejected:* rewriting
+  with `did you mean` the new one: a session's check takes it from the ledger's moves (the old path written as a
+  fact writes a name), the kernel's close match otherwise. It is union-merge safe (`stale:<key>` holds a namespace). *Rejected:* rewriting
   the store's values (a second writer of facts; the LSP would have to land a store write); following the moves for
   every store (a reverted source edit would link silently forever); following the ledger's moves by suffix for a
   stale store (an older move of `a/T1` would re-point a `T1` that names the root `T1`).

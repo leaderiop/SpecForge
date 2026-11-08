@@ -618,3 +618,26 @@ fn a_fresh_store_naming_a_moved_id_is_dangling_with_did_you_mean() {
         Some("add_numbers")
     );
 }
+
+#[specforge_test(
+    behavior = "build_in_memory_graph",
+    verify = "a fact store a rename marked stale is served through the ledger's moves with W197 until the next collect"
+)]
+fn a_fresh_store_naming_a_renamed_id_is_told_the_new_one_from_the_ledger() {
+    // A rename to a dissimilar name: no close match, so the suggestion is the ledger's move.
+    let p = renamed();
+    fs::write(p.root().join("truths.spec"), "truth sum \"One\" {\n}\n").unwrap();
+    let path = p.root().join("specforge-harness");
+    let mut ledger = Ledger::parse(&fs::read_to_string(&path).unwrap()).ledger;
+    ledger.remove(&Line::moved("add_numbers", "adds_numbers"));
+    ledger.insert(Line::moved("sum", "adds_numbers"));
+    fs::write(&path, ledger.canonical()).unwrap();
+
+    let project = compiled(&p);
+
+    let fact = project.graph().node("js:a.test.js#adds").unwrap();
+    assert_eq!(fact.dangling[0].did_you_mean, None, "{:?}", fact.dangling);
+    let (record, _) = project.entities().get("js:a.test.js#adds").unwrap();
+    assert_eq!(record.dangling.len(), 1, "{:?}", record.dangling);
+    assert_eq!(record.dangling[0].did_you_mean.as_deref(), Some("sum"));
+}

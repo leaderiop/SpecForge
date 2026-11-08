@@ -616,7 +616,6 @@ impl CompiledProject {
                     pinned: false,
                 }),
             };
-            let authored = env.entity_snapshot(graph);
             let mut ledger = Vec::new();
             let overlaid;
             let disk: &dyn specforge_registry::Disk = if this.ledger_overlay.is_empty() {
@@ -626,6 +625,11 @@ impl CompiledProject {
                     crate::harness::overlay::through(disk, this, &this.ledger_overlay, &mut ledger);
                 &overlaid
             };
+            let mut authored = env.entity_snapshot(graph);
+            // A fact still naming what a rename moved is told where it went, from the ledger (ADR 0346 D7).
+            if let Some(root) = this.root().filter(|_| env.reads_facts()) {
+                authored.suggest_moved(&crate::facts::moves(&crate::facts::recorded(disk, root)));
+            }
             // Before the rules: a verdict digests what the checks found (ADR 0337 §6).
             let values = crate::values::run(
                 &env,
