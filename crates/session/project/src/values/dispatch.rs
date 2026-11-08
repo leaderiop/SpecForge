@@ -167,8 +167,9 @@ pub(super) fn dispatch(
     readings
 }
 
-/// W170 for what this machine has not approved of the scopes the run's values used, one per extension.
-pub(super) fn approvals(effects: &Effects, spent: &Spent) -> Vec<Diagnostic> {
+/// W170 for what this machine has not approved of the scopes the compile's values used, one per extension: once, after
+/// its last stage.
+pub(crate) fn approvals(effects: &Effects, spent: &Spent) -> Vec<Diagnostic> {
     spent
         .uses
         .iter()

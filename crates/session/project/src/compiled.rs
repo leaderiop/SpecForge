@@ -627,18 +627,16 @@ impl CompiledProject {
             };
             let text_of = |file: &str| this.sources.text(file).cloned();
             // One budget over both stages of the values phase (ADR 0350).
-            let mut spent = crate::values::Spent::starting(env.value_budget());
-            // Before the rules: a verdict digests what the checks found (ADR 0337 §6).
-            let mut values = crate::values::run(
-                &env,
-                &authored,
-                crate::values::Stage::Ungated,
-                this.effects(),
+            let mut stages = crate::values::StageContext {
+                effects: this.effects(),
                 disk,
-                &this.check_cache,
-                &text_of,
-                &mut spent,
-            );
+                cache: &this.check_cache,
+                text_of: &text_of,
+                spent: crate::values::Spent::starting(env.value_budget()),
+            };
+            // Before the rules: a verdict digests what the checks found (ADR 0337 §6).
+            let mut values =
+                crate::values::run(&env, &authored, crate::values::Stage::Ungated, &mut stages);
             // No checker at all leaves the values a test gave (`with_checked_values`).
             let checked_values = if env.registries().checks().is_empty() {
                 Arc::clone(&this.checked_values)
@@ -656,21 +654,13 @@ impl CompiledProject {
             baseline = Some(read);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
             // A field whose checks wait for its owner: owner state is read on the merged snapshot (ADR 0350).
-            let gated = crate::values::run(
-                &env,
-                &entities,
-                crate::values::Stage::Gated,
-                this.effects(),
-                disk,
-                &this.check_cache,
-                &text_of,
-                &mut spent,
-            );
+            let gated =
+                crate::values::run(&env, &entities, crate::values::Stage::Gated, &mut stages);
             values.checks.extend(gated.checks);
             let mut diagnostics = values.diagnostics;
             diagnostics.extend(checked.diagnostics);
             diagnostics.extend(gated.diagnostics);
-            diagnostics.extend(crate::values::approvals(this.effects(), &spent));
+            diagnostics.extend(crate::values::approvals(this.effects(), &stages.spent));
             // What this machine did not perform of them: an effect's, once for the run.
             diagnostics.extend(crate::effects::not_run(&this.effects().log()));
             // A write that was interrupted (ADR 0289): the next writer rolls it back, a check only says so.

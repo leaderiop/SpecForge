@@ -30,6 +30,7 @@ pub(crate) use budget::Spent;
 pub use budget::ValueBudget;
 pub(crate) use cache::CheckCache;
 use collect::Value;
+pub(crate) use dispatch::approvals;
 pub use rows::{ValueChecks, ValueRow};
 
 /// Which values one run of the phase reads (ADR 0350).
@@ -249,23 +250,32 @@ impl Settled {
     }
 }
 
-/// Run one stage of the phase over `entities` in `env`: plan, perform the probes through `effects` and `disk`, judge
-/// what was performed, place the findings. `text_of` gives a source's text, to place a finding inside a value. What
-/// the compile's stages spend adds up in `spent`; [`approvals`] reports what it used once, after the last.
-#[allow(
-    clippy::too_many_arguments,
-    reason = "one stage of the phase, with the compile's shared spending"
-)]
+/// What the stages of one compile's phase run through: the effects their probes are served by, the disk a local probe
+/// reads, the checker cache, a source's text (to place a finding inside a value), and what they spent so far.
+pub(crate) struct StageContext<'a> {
+    pub effects: &'a Effects,
+    pub disk: &'a dyn Disk,
+    pub cache: &'a CheckCache,
+    pub text_of: &'a dyn Fn(&str) -> Option<std::sync::Arc<str>>,
+    /// What the compile's stages spend adds up here; [`approvals`] reports what they used once, after the last.
+    pub spent: Spent,
+}
+
+/// Run one stage of the phase over `entities` in `env`, through `context`: plan, perform the probes, judge what was
+/// performed, place the findings.
 pub(crate) fn run(
     env: &Environment,
     entities: &EntitySnapshot,
     stage: Stage,
-    effects: &Effects,
-    disk: &dyn Disk,
-    cache: &CheckCache,
-    text_of: &dyn Fn(&str) -> Option<std::sync::Arc<str>>,
-    spent: &mut Spent,
+    context: &mut StageContext<'_>,
 ) -> Phase {
+    let StageContext {
+        effects,
+        disk,
+        cache,
+        text_of,
+        ref mut spent,
+    } = *context;
     let registries = env.registries();
     let checks = registries.checks();
     let mut phase = Phase::default();
@@ -355,12 +365,6 @@ pub(crate) fn run(
         }
     }
     phase
-}
-
-/// W170 for what this machine has not approved of the scopes the compile's values used, one per extension: once, after
-/// its last stage.
-pub(crate) fn approvals(effects: &Effects, spent: &Spent) -> Vec<Diagnostic> {
-    dispatch::approvals(effects, spent)
 }
 
 /// Whether `call`'s checker is on: a `when` setting that is false leaves it uncalled, so it sends no probe and asks no
