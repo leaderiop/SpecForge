@@ -155,13 +155,17 @@ fn plan_paths(input: &PassInput) -> Vec<PassDiagnostic> {
 }
 
 /// E521, on the commit: a recorded commit whose task its subject's title found, or one of a task type that names no
-/// task, carries no `Gsd-Task:` trailer that links it. A commit with no type, or a `docs` one, is not judged.
+/// task, carries no `Gsd-Task:` trailer that links it. A commit with no type, or a `docs` one (even one whose subject
+/// matches a task's title), is not judged.
 fn task_trailers(input: &PassInput) -> Vec<PassDiagnostic> {
     commits(input)
         .into_iter()
         .filter_map(|commit| {
-            // The collector records only a commit that names a plan.
+            // The collector records only a commit that names a plan; a plan's metadata commit is `docs`.
             let plan = commit.plan.as_deref()?;
+            if commit.kind == "docs" {
+                return None;
+            }
             let message = match (&commit.task, commit.linked_by.as_deref()) {
                 (Some(task), Some("title")) => format!(
                     "commit '{}' names task '{task}' by its subject's title, not by a Gsd-Task trailer",

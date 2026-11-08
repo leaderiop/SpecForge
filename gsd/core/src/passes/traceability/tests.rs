@@ -120,9 +120,8 @@ fn a_trailer_linked_or_docs_commit_is_not_e521() {
     assert!(check(&commit("feat", Some("v/1/1-01/T1"), Some("Gsd-Task"))).is_empty());
     assert!(check(&commit("docs", None, None)).is_empty());
     assert!(check(&commit("", None, None)).is_empty());
-    // Pinned: a docs commit whose subject matches a task's title is judged; it flips once docs commits are exempt.
-    let found = check(&commit("docs", Some("v/1/1-01/T1"), Some("title")));
-    assert_eq!(codes_of(&found), [("E521", Some("0123456789ab"))]);
+    // A docs commit whose subject matches a task's title is a plan's metadata commit too.
+    assert!(check(&commit("docs", Some("v/1/1-01/T1"), Some("title"))).is_empty());
 }
 
 /// Complete plan `v/1/1-01` planning `src/a.js` and `src/lib` (its artifact's path), deleting `src/old.js`, whose
