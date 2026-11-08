@@ -107,6 +107,18 @@ unchanged tree judges alike at both ends:
 - stage 2 does not run at the commit: a gated value is no judged input (D4);
 - the baseline cache's environment digest covers the checks `specforge.json` attaches, and its format is 4.
 
+## D10. Gaining an owner gate is a minor schema change
+
+The schema diff that bumps the schema version treats `checks_while` as an attribute of the field: a field that gains
+one checks fewer values, so a document valid before stays valid, and the change is minor; a field that loses its gate,
+or changes `complete` to `pending` or back, checks values that went unchecked, and the change is major.
+
+## D11. A compile's checker cache may change under a hook
+
+The values phase keeps its checkers' answers in the host's checker cache under `.specforge/effects/checks/`
+(ADR 0336). A hook that compiles the project may therefore leave that cache changed; it is the host's state, never an
+extension's, and no hook writes anything else in the project but its own extension state.
+
 ## Rejected
 
 - **A gate on the entity** (a per-entity flag): the meaning belongs to the field, which the registry can validate and
