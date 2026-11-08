@@ -323,6 +323,7 @@ fn the_probe_imports_the_ports_it_calls_and_builtins_none() {
             "specforge:host/git@0.1.0",
             "specforge:host/http@0.1.0",
             "specforge:host/process@0.1.0",
+            "specforge:host/syntax@0.1.0",
             "specforge:host/types@0.1.0",
         ]
     );

@@ -228,7 +228,11 @@ fn the_probe_reaches_each_port_through_its_grant() {
     let ports = Ports {
         http: http.clone(),
         process: process.clone(),
-        fs: Arc::new(FakeFs::new().with_file("/project/a.md", "a")),
+        fs: Arc::new(
+            FakeFs::new()
+                .with_file("/project/a.md", "a")
+                .with_file("/project/a.rs", "fn alpha() {}\n"),
+        ),
         git: Arc::new(FakeGit::repo(dir.path(), "abc123", Vec::new())),
     };
     let lent = lent(&ports);
@@ -243,6 +247,10 @@ fn the_probe_reaches_each_port_through_its_grant() {
     assert_eq!(answer["ok"], true, "{answer}");
     let answer = call("git", "HEAD", Operation::Command);
     assert_eq!(answer["ok"], "abc123", "{answer}");
+    // The syntax import reads through the fs grant: one definition, parsed now.
+    let answer = call("syntax", "a.rs", Operation::Command);
+    assert_eq!(answer["ok"], json!(["alpha"]), "{answer}");
+    assert_eq!(answer["parsed"], 1, "{answer}");
     let answer = call("process", "probe-tool", Operation::Collect);
     assert_eq!(answer["ok"], 4, "{answer}");
 

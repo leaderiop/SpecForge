@@ -2,6 +2,10 @@
   "category": "collectors",
   "items": [
     {
+      "answers": [
+        "test",
+        "test_run"
+      ],
       "auto_detect": {
         "env_vars": [],
         "file_patterns": [
