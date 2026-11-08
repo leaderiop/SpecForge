@@ -3,11 +3,18 @@
 //! `agents/<file>`. `port` and `port_workflows` read them as more rewritten rows.
 
 pub const SPANS: &[(&str, usize, usize)] = &[
-    // the planner lists the decisions a plan implements in its `decisions`; the frontmatter's computed `autonomous`
-    // gives way to it
+    // the planner lists the decisions a plan implements in its `decisions` (not required: E310 says when one is
+    // missing); `wave` and `autonomous` are computed, so the template and the fields table name them as such
     ("agents/gsd-planner.md", 47, 47),
     ("agents/gsd-planner.md", 55, 56),
+    ("agents/gsd-planner.md", 301, 301),
     ("agents/gsd-planner.md", 304, 304),
+    ("agents/gsd-planner.md", 391, 391),
+    ("agents/gsd-planner.md", 394, 394),
+    ("agents/gsd-planner.md", 400, 400),
+    ("agents/gsd-planner.md", 759, 759),
+    ("agents/gsd-planner.md", 856, 856),
+    ("agents/gsd-planner.md", 969, 969),
     // the plan checker reads coverage from the plans' `decisions`
     ("agents/gsd-plan-checker.md", 378, 379),
     ("gsd-core/workflows/plan-phase.md", 1401, 1401),
