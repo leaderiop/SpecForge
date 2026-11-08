@@ -1,29 +1,19 @@
 //! The check pass `refs` (ADR 0329 D5, ADR 0347 D9): the references a spec writes to `@code/core`'s facts that no fact
 //! holds, and the references its own facts hold that nothing answers (ADR 0346 D4).
 
-use specforge_code_facts::{ItemId, PackageId, TestId};
+use specforge_code_facts::{ItemId, PackageId, Scheme, TestId};
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::UnheldReference;
 
-use crate::{ITEM_KIND, KINDS, NAMES, PACKAGE_KIND, RUN_KIND, TEST_KIND};
-
-/// Each reference field `@code/core` declares with a target kind: its kind, its name, the kind it takes, and whether
-/// one collector answers the holder and its target together. What a mistyped reference one of its facts holds is told
-/// it should have named; an unheld one is its collector's disagreement only when that collector answers both.
-pub(crate) const TAKES: [(&str, &str, &str, bool); 4] = [
-    (ITEM_KIND, "package", PACKAGE_KIND, false),
-    (ITEM_KIND, "test_id", TEST_KIND, false),
-    (PACKAGE_KIND, "depends_on", PACKAGE_KIND, true),
-    (RUN_KIND, "test", TEST_KIND, true),
-];
+use crate::{reference, ITEM_KIND, KINDS, NAMES, PACKAGE_KIND, RUN_KIND, TEST_KIND};
 
 /// The pack that collects each kind of `@code/core`, by the scheme of a test's or an item's id and the purl type of a
 /// package's: what W102 tells to run.
 pub(crate) const PACKS: [(&str, &str, &str); 6] = [
-    (TEST_KIND, "js", "@javascript/node-test"),
-    (TEST_KIND, "rust", "@rust/test"),
-    (ITEM_KIND, "rust", "@rust/source"),
-    (ITEM_KIND, "js", "@javascript/source"),
+    (TEST_KIND, Scheme::Js.as_str(), "@javascript/node-test"),
+    (TEST_KIND, Scheme::Rust.as_str(), "@rust/test"),
+    (ITEM_KIND, Scheme::Rust.as_str(), "@rust/source"),
+    (ITEM_KIND, Scheme::Js.as_str(), "@javascript/source"),
     (PACKAGE_KIND, "cargo", "@rust/cargo"),
     (PACKAGE_KIND, "npm", "@javascript/source"),
 ];
@@ -103,15 +93,13 @@ fn held<'k>(input: &PassInput, scheme: &str, kinds: &[&'k str]) -> Vec<&'k str> 
 
 /// The W102 of `item`, whose `kinds` no served store holds in `scheme`.
 fn uncollected(item: &UnheldReference, scheme: &str, kinds: &[&str]) -> PassDiagnostic {
-    let named: Vec<String> = kinds.iter().map(|kind| format!("`{kind}`")).collect();
-    let packs: Vec<String> = kinds
+    let packs: Vec<&str> = kinds
         .iter()
         .filter_map(|kind| pack(scheme, &item.id, kind))
-        .map(|pack| format!("`{pack}`"))
         .collect();
     let remedy = match packs.is_empty() {
         true => "run `specforge collect`".to_string(),
-        false => format!("run `specforge collect` with {}", packs.join(" or ")),
+        false => format!("run `specforge collect` with {}", quoted(&packs)),
     };
     PassDiagnostic::warning(
         "W102",
@@ -119,9 +107,15 @@ fn uncollected(item: &UnheldReference, scheme: &str, kinds: &[&str]) -> PassDiag
             "`{}` names `{}`, but no `{scheme}` {} facts were collected: {remedy}",
             item.field,
             item.id,
-            named.join(" or ")
+            quoted(kinds)
         ),
     )
+}
+
+/// `words`, each in backticks, joined by `or`.
+fn quoted(words: &[&str]) -> String {
+    let quoted: Vec<String> = words.iter().map(|word| format!("`{word}`")).collect();
+    quoted.join(" or ")
 }
 
 /// The pack that writes `kind` facts like `id`, in `scheme`: a run's is its test's, a package's its purl type's.
@@ -187,19 +181,14 @@ fn disagreeing(entity: &PassEntity) -> Vec<PassDiagnostic> {
         .collect()
 }
 
-/// The kind the reference field `field` of `kind` takes, when `@code/core` declares it ([`TAKES`]).
+/// The kind the reference field `field` of `kind` takes, when `@code/core` declares it.
 fn takes(kind: &str, field: &str) -> Option<&'static str> {
-    TAKES
-        .iter()
-        .find(|(of, name, _, _)| *of == kind && *name == field)
-        .map(|(_, _, target, _)| *target)
+    reference(kind, field).map(|row| row.target)
 }
 
-/// Whether one collector answers the fact of `kind` and what its `field` names ([`TAKES`]).
+/// Whether one collector answers the fact of `kind` and what its `field` names.
 fn answered_together(kind: &str, field: &str) -> bool {
-    TAKES
-        .iter()
-        .any(|(of, name, _, together)| *of == kind && *name == field && *together)
+    reference(kind, field).is_some_and(|row| row.together)
 }
 
 /// `diagnostic` at `span`, when there is one.
@@ -217,7 +206,6 @@ fn missing(
     scheme: &str,
     kinds: &[&str],
 ) -> PassDiagnostic {
-    let named: Vec<String> = kinds.iter().map(|kind| format!("`{kind}`")).collect();
     let diagnostic = PassDiagnostic::new(
         "E101",
         PassSeverity::Error,
@@ -225,7 +213,7 @@ fn missing(
             "`{}` names `{}`, which no collected `{scheme}` {} fact holds",
             item.field,
             item.id,
-            named.join(" or ")
+            quoted(kinds)
         ),
     );
     match closest(input, &item.id, kinds) {

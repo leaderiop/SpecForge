@@ -572,11 +572,21 @@ fn every_reference_field_with_a_target_is_one_refs_names() {
         })
         .collect();
     targeted.sort();
-    let takes: Vec<(&str, &str, &str)> = refs::TAKES
+    let mut table: Vec<(&str, &str, &str)> = REFERENCES
         .iter()
-        .map(|(kind, field, target, _)| (*kind, *field, *target))
+        .map(|r| (r.kind, r.field, r.target))
         .collect();
-    assert_eq!(targeted, takes);
+    table.sort();
+    assert_eq!(targeted, table);
+    for row in &REFERENCES {
+        let edge = declared.edges.iter().find(|e| e.label == row.edge).unwrap();
+        assert_eq!(
+            (edge.source_kind.as_deref(), edge.target_kind.as_deref()),
+            (Some(row.kind), Some(row.target)),
+            "{}",
+            row.edge
+        );
+    }
 }
 
 #[test]

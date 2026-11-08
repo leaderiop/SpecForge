@@ -23,7 +23,7 @@
 //! check pass `proof` reports a complete entity linking a failed test (W401) and a test or item naming no entity
 //! (I402) (ADR 0329 D6, ADR 0347 D11).
 
-use specforge_code_facts::{ItemKind, Visibility};
+use specforge_code_facts::{ItemKind, Scheme, Visibility};
 use specforge_extension_sdk::prelude::*;
 
 mod proof;
@@ -40,11 +40,11 @@ const PACKAGE_KIND: &str = "package";
 /// Every kind `@code/core` declares.
 const KINDS: [&str; 4] = [TEST_KIND, RUN_KIND, ITEM_KIND, PACKAGE_KIND];
 /// The schemes of a `test`'s id.
-const TEST_SCHEMES: [&str; 2] = ["js", "rust"];
+const TEST_SCHEMES: [&str; 2] = [Scheme::Js.as_str(), Scheme::Rust.as_str()];
 /// The scheme of a `test_run`'s id.
 const RUN_SCHEME: &str = "run";
 /// The schemes of an `item`'s id.
-const ITEM_SCHEMES: [&str; 2] = ["rust", "js"];
+const ITEM_SCHEMES: [&str; 2] = [Scheme::Rust.as_str(), Scheme::Js.as_str()];
 /// The scheme of a `package`'s id.
 const PACKAGE_SCHEME: &str = "pkg";
 
@@ -52,6 +52,62 @@ const PACKAGE_SCHEME: &str = "pkg";
 const RESULT: &str = "status";
 /// The field holding the ids of the entities a `test` or an `item` says it proves.
 const NAMES: &str = "names";
+
+/// A reference field `@code/core` declares with a target kind: a row of [`REFERENCES`].
+pub(crate) struct Reference {
+    pub kind: &'static str,
+    pub field: &'static str,
+    pub target: &'static str,
+    pub edge: &'static str,
+    /// Whether one collector answers the holder and its target together: an unheld one is then its disagreement.
+    pub together: bool,
+}
+
+/// Every reference field `@code/core` declares with a target kind: the one table its declarations read for the
+/// target and the edge, and `refs` for what a mistyped reference should have named and whose an unheld one is.
+pub(crate) const REFERENCES: [Reference; 4] = [
+    Reference {
+        kind: ITEM_KIND,
+        field: "package",
+        target: PACKAGE_KIND,
+        edge: "in_package",
+        together: false,
+    },
+    Reference {
+        kind: ITEM_KIND,
+        field: "test_id",
+        target: TEST_KIND,
+        edge: "runs_as",
+        together: false,
+    },
+    Reference {
+        kind: PACKAGE_KIND,
+        field: "depends_on",
+        target: PACKAGE_KIND,
+        edge: "uses_package",
+        together: true,
+    },
+    Reference {
+        kind: RUN_KIND,
+        field: "test",
+        target: TEST_KIND,
+        edge: "run_of",
+        together: true,
+    },
+];
+
+/// The row of [`REFERENCES`] for the field `field` of `kind`.
+pub(crate) fn reference(kind: &str, field: &str) -> Option<&'static Reference> {
+    REFERENCES
+        .iter()
+        .find(|r| r.kind == kind && r.field == field)
+}
+
+/// `f` targeting and labelled as [`REFERENCES`] declares the field `field` of `kind`.
+fn referencing<'f>(f: &'f mut FieldBuilder, kind: &str, field: &str) -> &'f mut FieldBuilder {
+    let row = reference(kind, field).expect("a row of REFERENCES");
+    f.target_kind(row.target).edge(row.edge)
+}
 
 /// A test's status: the `TestStatus` names, the one vocabulary of the collect wire.
 const STATUS: Vocabulary = Vocabulary::new(&["passed", "failed", "skipped"]);
@@ -112,9 +168,8 @@ impl Contributions for CodeCore {
             )
             .collected(&[RUN_SCHEME])
             .field("test", |f| {
-                f.field_type(FieldType::Reference)
-                    .target_kind(TEST_KIND)
-                    .edge("run_of")
+                referencing(f, RUN_KIND, "test")
+                    .field_type(FieldType::Reference)
                     .description("The test this is the run of");
             })
             .field(RESULT, |f| {
@@ -133,9 +188,8 @@ impl Contributions for CodeCore {
             )
             .collected(&ITEM_SCHEMES)
             .field("package", |f| {
-                f.field_type(FieldType::Reference)
-                    .target_kind(PACKAGE_KIND)
-                    .edge("in_package")
+                referencing(f, ITEM_KIND, "package")
+                    .field_type(FieldType::Reference)
                     .description("The package the item is defined in");
             })
             .field("file", |f| {
@@ -170,9 +224,8 @@ impl Contributions for CodeCore {
                 );
             })
             .field("test_id", |f| {
-                f.field_type(FieldType::Reference)
-                    .target_kind(TEST_KIND)
-                    .edge("runs_as")
+                referencing(f, ITEM_KIND, "test_id")
+                    .field_type(FieldType::Reference)
                     .description("The test this function runs as, when it is one");
             });
         });
@@ -215,9 +268,8 @@ impl Contributions for CodeCore {
                     .description("Its directory, project-relative, empty at the root");
             })
             .field("depends_on", |f| {
-                f.field_type(FieldType::ReferenceList)
-                    .target_kind(PACKAGE_KIND)
-                    .edge("uses_package")
+                referencing(f, PACKAGE_KIND, "depends_on")
+                    .field_type(FieldType::ReferenceList)
                     .description("The project's own packages it depends on");
             });
         });

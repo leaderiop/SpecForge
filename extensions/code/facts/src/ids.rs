@@ -34,7 +34,7 @@ pub enum Scheme {
 }
 
 impl Scheme {
-    pub fn as_str(self) -> &'static str {
+    pub const fn as_str(self) -> &'static str {
         match self {
             Scheme::Js => "js",
             Scheme::Rust => "rust",
