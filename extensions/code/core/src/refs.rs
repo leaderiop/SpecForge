@@ -1,40 +1,38 @@
-//! The check pass `refs` (ADR 0329 D5): the references a spec writes in a test fact's scheme that no fact holds, and
-//! the references its own facts hold that nothing answers (ADR 0346 D4).
+//! The check pass `refs` (ADR 0329 D5, ADR 0347 D9): the references a spec writes to `@code/core`'s facts that no fact
+//! holds, and the references its own facts hold that nothing answers (ADR 0346 D4).
 
-use std::collections::BTreeSet;
-
+use specforge_code_facts::TestId;
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::UnheldReference;
 
-use crate::{
-    ITEM_KIND, KINDS, NAMES, PACKAGE_KIND, PACKAGE_SCHEME, RUN_KIND, RUN_SCHEME, TEST_KIND,
-    TEST_SCHEMES,
-};
+use crate::{ITEM_KIND, KINDS, NAMES, PACKAGE_KIND, RUN_KIND, TEST_KIND};
 
-/// The schemes whose references `@code/core` judges: its kinds'.
-/// An item's schemes are a test's (`ITEM_SCHEMES`).
-const SCHEMES: [&str; 4] = [TEST_SCHEMES[0], TEST_SCHEMES[1], RUN_SCHEME, PACKAGE_SCHEME];
-
-/// Each reference field `@code/core` declares with a target kind: its kind, its name and the kind it takes. What a
-/// mistyped reference one of its facts holds is told it should have named.
-pub(crate) const TAKES: [(&str, &str, &str); 4] = [
-    (ITEM_KIND, "package", PACKAGE_KIND),
-    (ITEM_KIND, "test_id", TEST_KIND),
-    (PACKAGE_KIND, "depends_on", PACKAGE_KIND),
-    (RUN_KIND, "test", TEST_KIND),
+/// Each reference field `@code/core` declares with a target kind: its kind, its name, the kind it takes, and whether
+/// one collector answers the holder and its target together. What a mistyped reference one of its facts holds is told
+/// it should have named; an unheld one is its collector's disagreement only when that collector answers both.
+pub(crate) const TAKES: [(&str, &str, &str, bool); 4] = [
+    (ITEM_KIND, "package", PACKAGE_KIND, false),
+    (ITEM_KIND, "test_id", TEST_KIND, false),
+    (PACKAGE_KIND, "depends_on", PACKAGE_KIND, true),
+    (RUN_KIND, "test", TEST_KIND, true),
 ];
 
-/// Each unheld reference in [`SCHEMES`], once, at the span it is written at: nothing while its entity is pending
-/// (a test not written yet is TDD), E101 when a served fact store holds facts of its scheme (with the closest held
-/// id of the same file), W102 when none does (nothing to check it against). A held reference is an edge, never a
-/// finding, and neither is a fact nothing cites. A reference one of its own facts holds that no fact or entity
-/// answers is E101 addressed to the collector that wrote it: see [`disagreeing`].
+/// The pack that collects each `(scheme, kind)` of `@code/core`: what W102 tells to run.
+const PACKS: [(&str, &str, &str); 5] = [
+    ("js", TEST_KIND, "@javascript/node-test"),
+    ("rust", TEST_KIND, "@rust/test"),
+    ("rust", ITEM_KIND, "@rust/source"),
+    ("js", ITEM_KIND, "@javascript/source"),
+    ("pkg", PACKAGE_KIND, "@rust/cargo"),
+];
+
+/// Each unheld reference whose collected kinds (`UnheldReference.kinds`) meet `@code/core`'s, once, at the span it is
+/// written at: nothing while its entity is pending (a test not written yet is TDD), E101 when a served fact store holds
+/// a fact of one of those kinds in its scheme (a test reference told the closest held test of its container), W102
+/// when none does (nothing to check it against), naming the kind and its pack. A held reference is an edge, never a
+/// finding, and neither is a fact nothing cites. A reference one of its own facts holds that no fact or entity answers
+/// is E101 addressed to the collector that wrote it: see [`disagreeing`].
 pub(crate) fn refs(input: &PassInput) -> Vec<PassDiagnostic> {
-    let served: BTreeSet<&str> = input
-        .fact_stores
-        .iter()
-        .flat_map(|store| store.held.keys().map(String::as_str))
-        .collect();
     let mut found = Vec::new();
     for entity in input.entities.iter().filter(|e| !e.pending) {
         if KINDS.contains(&entity.kind.as_str()) {
@@ -42,20 +40,20 @@ pub(crate) fn refs(input: &PassInput) -> Vec<PassDiagnostic> {
             continue;
         }
         for item in &entity.unheld {
-            let Some(scheme) = scheme(&item.id).filter(|s| SCHEMES.contains(s)) else {
+            let kinds: Vec<&str> = item
+                .kinds
+                .iter()
+                .map(String::as_str)
+                .filter(|kind| KINDS.contains(kind))
+                .collect();
+            let Some(scheme) = scheme(&item.id).filter(|_| !kinds.is_empty()) else {
                 continue;
             };
-            let diagnostic = if served.contains(scheme) {
-                missing(input, item, scheme)
+            let held = held(input, scheme, &kinds);
+            let diagnostic = if held.is_empty() {
+                uncollected(item, scheme, &kinds)
             } else {
-                PassDiagnostic::warning(
-                    "W102",
-                    format!(
-                        "`{}` names `{}`, but no `{scheme}` facts were collected at this commit: run `specforge \
-                         collect`",
-                        item.field, item.id
-                    ),
-                )
+                missing(input, item, scheme, &held)
             };
             found.push(at(diagnostic.with_entity(&entity.id), &item.span));
         }
@@ -63,14 +61,67 @@ pub(crate) fn refs(input: &PassInput) -> Vec<PassDiagnostic> {
     found
 }
 
-/// The E101 of each reference the fact `entity` holds that answers nothing: an unheld one (no store holds its
-/// scheme's id) or a dangling one (no entity, several, or one of another kind). The runner pack's collector wrote
-/// both the fact and the reference, so its facts disagree: no spec author can fix it. A dangling name is I402's
-/// (the `proof` pass).
+/// The kinds of `kinds` a served store holds facts of in `scheme`, in `kinds`' order.
+fn held<'k>(input: &PassInput, scheme: &str, kinds: &[&'k str]) -> Vec<&'k str> {
+    kinds
+        .iter()
+        .copied()
+        .filter(|kind| {
+            input.fact_stores.iter().any(|store| {
+                store
+                    .held
+                    .get(scheme)
+                    .is_some_and(|held| held.iter().any(|h| h == kind))
+            })
+        })
+        .collect()
+}
+
+/// The W102 of `item`, whose `kinds` no served store holds in `scheme`.
+fn uncollected(item: &UnheldReference, scheme: &str, kinds: &[&str]) -> PassDiagnostic {
+    let named: Vec<String> = kinds.iter().map(|kind| format!("`{kind}`")).collect();
+    let packs: Vec<String> = kinds
+        .iter()
+        .filter_map(|kind| pack(scheme, &item.id, kind))
+        .map(|pack| format!("`{pack}`"))
+        .collect();
+    let remedy = match packs.is_empty() {
+        true => "run `specforge collect`".to_string(),
+        false => format!("run `specforge collect` with {}", packs.join(" or ")),
+    };
+    PassDiagnostic::warning(
+        "W102",
+        format!(
+            "`{}` names `{}`, but no `{scheme}` {} facts were collected: {remedy}",
+            item.field,
+            item.id,
+            named.join(" or ")
+        ),
+    )
+}
+
+/// The pack that writes `kind` facts in `scheme`; a run's is its test's.
+fn pack(scheme: &str, id: &str, kind: &str) -> Option<&'static str> {
+    if kind == RUN_KIND {
+        let test = id.strip_prefix("run:")?;
+        return pack(self::scheme(test)?, test, TEST_KIND);
+    }
+    PACKS
+        .iter()
+        .find(|(s, k, _)| *s == scheme && *k == kind)
+        .map(|(_, _, pack)| *pack)
+}
+
+/// The E101 of each reference the fact `entity` holds that answers nothing: a dangling one (no entity, several, or
+/// one of another kind), and an unheld one in a field whose target one collector answers with it (a run's test). An
+/// unheld reference to another collector's kind (an item's test that no runner collected) is no finding, and a
+/// dangling name is I402's (the `proof` pass). The pack's collector wrote both the fact and the reference, so its
+/// facts disagree: no spec author can fix it.
 fn disagreeing(entity: &PassEntity) -> Vec<PassDiagnostic> {
     let unheld = entity
         .unheld
         .iter()
+        .filter(|item| answered_together(&entity.kind, &item.field))
         .map(|item| (&item.id, None, &item.span));
     let dangling = entity
         .dangling
@@ -115,8 +166,15 @@ fn disagreeing(entity: &PassEntity) -> Vec<PassDiagnostic> {
 fn takes(kind: &str, field: &str) -> Option<&'static str> {
     TAKES
         .iter()
-        .find(|(of, name, _)| *of == kind && *name == field)
-        .map(|(_, _, target)| *target)
+        .find(|(of, name, _, _)| *of == kind && *name == field)
+        .map(|(_, _, target, _)| *target)
+}
+
+/// Whether one collector answers the fact of `kind` and what its `field` names ([`TAKES`]).
+fn answered_together(kind: &str, field: &str) -> bool {
+    TAKES
+        .iter()
+        .any(|(of, name, _, together)| *of == kind && *name == field && *together)
 }
 
 /// `diagnostic` at `span`, when there is one.
@@ -127,31 +185,48 @@ fn at(diagnostic: PassDiagnostic, span: &Option<PassSpan>) -> PassDiagnostic {
     }
 }
 
-/// The E101 of `item`, which names no fact of the served `scheme`.
-fn missing(input: &PassInput, item: &UnheldReference, scheme: &str) -> PassDiagnostic {
+/// The E101 of `item`, which names no fact of the `kinds` a served store holds in `scheme`.
+fn missing(
+    input: &PassInput,
+    item: &UnheldReference,
+    scheme: &str,
+    kinds: &[&str],
+) -> PassDiagnostic {
+    let named: Vec<String> = kinds.iter().map(|kind| format!("`{kind}`")).collect();
     let diagnostic = PassDiagnostic::new(
         "E101",
         PassSeverity::Error,
         format!(
-            "`{}` names `{}`, which no collected `{scheme}` fact holds",
-            item.field, item.id
+            "`{}` names `{}`, which no collected `{scheme}` {} fact holds",
+            item.field,
+            item.id,
+            named.join(" or ")
         ),
     );
-    match closest(input, &item.id) {
+    match closest(input, &item.id, kinds) {
         Some(near) => diagnostic.with_suggestion(format!("did you mean `{near}`?")),
         None => diagnostic,
     }
 }
 
-/// The held id nearest `id` by edit distance (the first by id among equally near ones) that shares its
-/// `<scheme>:<package>/<file>#` prefix: a test of the same file. `None` when `id` has no `#` or the file holds none.
-fn closest<'a>(input: &'a PassInput, id: &str) -> Option<&'a str> {
-    let file = &id[..=id.find('#')?];
+/// The held test or run nearest `id` by edit distance (the first by id among equally near ones) in its container
+/// ([`TestId::container`]): a test of the same file or binary. `None` for an item or package reference (the pass reads
+/// test facts only), an id that is no test's, or a container that holds none.
+fn closest<'a>(input: &'a PassInput, id: &str, kinds: &[&str]) -> Option<&'a str> {
+    let (run, test) = match id.strip_prefix("run:") {
+        Some(test) => ("run:", test),
+        None => ("", id),
+    };
+    let wanted = if run.is_empty() { TEST_KIND } else { RUN_KIND };
+    if !kinds.contains(&wanted) {
+        return None;
+    }
+    let container = format!("{run}{}", test.parse::<TestId>().ok()?.container());
     input
         .entities
         .iter()
+        .filter(|e| e.kind == wanted && e.id.starts_with(&container))
         .map(|e| e.id.as_str())
-        .filter(|held| held.starts_with(file))
         .min_by_key(|held| (levenshtein(id, held), *held))
 }
 

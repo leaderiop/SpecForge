@@ -1,4 +1,4 @@
-// @code/core behaviors (ADR 0329)
+// @code/core behaviors (ADR 0329, ADR 0347)
 
 use "types/wasm"
 use "types/zero-entity-core"
@@ -100,16 +100,19 @@ behavior cc_check_fact_refs "Check Cited Fact References" {
   category validation
   types    [PassInput, PassEntity]
   contract """
-    The check pass refs MUST judge each unheld reference an entity writes in
-    a scheme of @code/core (js, run), once, at the span it is written at:
-    nothing while the entity is pending; code/E101 when a served fact store
-    holds facts of the reference's scheme, suggesting the closest held test
-    id of the same file; code/W102 when none does. A held reference links
-    and is never a finding, and neither is a fact nothing cites. A
-    reference a test or test_run fact holds that no fact or entity answers
-    (unheld, or dangling: no entity, several, or one of another kind) is
-    code/E101 addressed to its collector, at the span it was read at,
-    whether or not a store serves its scheme.
+    The check pass refs MUST judge each unheld reference an entity writes
+    whose collected kinds (the kinds of its scheme its field admits) meet
+    @code/core's kinds, once, at the span it is written at: nothing while
+    the entity is pending; code/E101 when a served fact store holds a fact
+    of one of those kinds in the reference's scheme, a test reference
+    suggesting the closest held test of the same container; code/W102 when
+    none does, naming the scheme, the kind and the pack that writes it
+    (ADR 0347 D9). A held reference links and is never a finding, and
+    neither is a fact nothing cites. A reference one of @code/core's facts
+    holds that no fact or entity answers (unheld, or dangling: no entity,
+    several, or one of another kind) is code/E101 addressed to its
+    collector, at the span it was read at, whether or not a store serves
+    its scheme.
   """
   ensures {
     e101_when_served   "a reference of a scheme a served store holds, naming no fact, is code/E101"
@@ -123,6 +126,11 @@ behavior cc_check_fact_refs "Check Cited Fact References" {
   verify integration "a held fact ref links and reports nothing"
   verify unit "a fact's reference no fact or entity answers is code/E101 addressed to its collector, at its span"
   verify integration "a test run's dangling test reference is code/E101 at the fact, addressed to its collector"
+  verify unit "a reference whose kinds no served store holds in its scheme is code/W102 naming the kind and its pack"
+  verify unit "a reference naming no fact of a kind a served store holds in its scheme is code/E101"
+  verify unit "a rust test ref beside rust items only is w102"
+  verify unit "a facts own unheld reference is not judged"
+  verify unit "a reference admitting none of its kinds is not judged"
 }
 
 behavior cc_check_proof "Report a Failing Proof and a Test Naming No Entity" {
@@ -132,8 +140,8 @@ behavior cc_check_proof "Report a Failing Proof and a Test Naming No Entity" {
   contract """
     The check pass proof MUST report code/W401 on each entity outside
     @code/core's kinds that is not pending and links a test whose status is
-    failed, and code/I402 on each test whose names holds an item that is no
-    entity of the project.
+    failed, and code/I402 on each test or item whose names holds a dangling
+    name: no entity of the project, or the short name of several.
   """
   ensures {
     w401_failing_proof "a complete owner linking a failed test is code/W401"

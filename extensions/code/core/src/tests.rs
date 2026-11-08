@@ -163,25 +163,44 @@ fn it_catalogues_the_codes_it_reports() {
 }
 
 /// A pass input holding `entities`, with a store of `served` schemes when there is one: `js` holding tests, `run` runs.
+/// `entities` beside one store serving test facts in each of `served` (test runs in `run`).
 fn input(entities: Vec<PassEntity>, served: &[&str]) -> PassInput {
+    let held: Vec<(&str, &str)> = served
+        .iter()
+        .map(|scheme| (*scheme, if *scheme == "run" { "test_run" } else { "test" }))
+        .collect();
+    holding(entities, &held)
+}
+
+/// `entities` beside one store holding facts of each `(scheme, kind)` of `held`; none when it is empty.
+fn holding(entities: Vec<PassEntity>, held: &[(&str, &str)]) -> PassInput {
+    let mut store = FactStore {
+        collector: "node".to_string(),
+        key: "app".to_string(),
+        facts: 2,
+        ..FactStore::default()
+    };
+    for (scheme, kind) in held {
+        store
+            .held
+            .entry(scheme.to_string())
+            .or_default()
+            .push(kind.to_string());
+    }
     PassInput {
         entities,
-        fact_stores: (!served.is_empty())
-            .then(|| FactStore {
-                collector: "node".to_string(),
-                key: "app".to_string(),
-                held: served
-                    .iter()
-                    .map(|scheme| {
-                        let kind = if *scheme == "run" { "test_run" } else { "test" };
-                        (scheme.to_string(), vec![kind.to_string()])
-                    })
-                    .collect(),
-                facts: 2,
-            })
-            .into_iter()
-            .collect(),
+        fact_stores: (!held.is_empty()).then_some(store).into_iter().collect(),
         ..PassInput::default()
+    }
+}
+
+/// The collected kind a `proof` field admits for `id`: a run's, a test's (`#`), a package's or an item's.
+fn admitted(id: &str) -> &'static str {
+    match id {
+        _ if id.starts_with("run:") => "test_run",
+        _ if id.starts_with("pkg:") => "package",
+        _ if id.contains('#') => "test",
+        _ => "item",
     }
 }
 
@@ -193,7 +212,8 @@ fn entity(id: &str, kind: &str) -> PassEntity {
     }
 }
 
-/// A `truth` citing `ids` in `proof`, none held, each at its own line of `truths.spec`.
+/// A `truth` citing `ids` in `proof`, none held, each at its own line of `truths.spec`, its field admitting the
+/// collected kind of each ([`admitted`]).
 fn citing(id: &str, ids: &[&str]) -> PassEntity {
     PassEntity {
         unheld: ids
@@ -209,7 +229,7 @@ fn citing(id: &str, ids: &[&str]) -> PassEntity {
                     end_line: line + 2,
                     end_col: 11 + cited.len(),
                 }),
-                ..UnheldReference::default()
+                kinds: vec![admitted(cited).to_string()],
             })
             .collect(),
         ..entity(id, "truth")
@@ -283,19 +303,99 @@ fn a_scheme_no_store_serves_is_w102() {
     assert!(
         diagnostics[0]
             .message
-            .contains("no `js` facts were collected at this commit: run `specforge collect`"),
+            .contains("no `js` `test` facts were collected: run `specforge collect` with `@javascript/node-test`"),
         "{}",
         diagnostics[0].message
     );
 }
 
-#[test]
-fn a_store_of_another_kind_in_the_scheme_does_not_prove_a_test_missing() {
-    // The store stands for one of `js` items: no test runner ran. Today the scheme alone decides, so this is E101;
-    // judging by the kinds the reference's field admits makes it W102.
+#[specforge_test(
+    behavior = "cc_check_fact_refs",
+    verify = "a reference whose kinds no served store holds in its scheme is code/W102 naming the kind and its pack"
+)]
+fn a_store_of_another_kind_in_the_scheme_is_w102() {
+    // The store holds `js` items: no test runner ran, so a missing test cannot be told from an uncollected one.
     let entities = vec![citing("t1", &["js:app/test/a.test.js#adds"])];
-    let diagnostics = refs::refs(&input(entities, &["js"]));
+    let diagnostics = refs::refs(&holding(entities, &[("js", "item")]));
+    assert_eq!(found(&diagnostics), [("W102", "t1", 2, None)]);
+    assert_eq!(
+        diagnostics[0].message,
+        "`proof` names `js:app/test/a.test.js#adds`, but no `js` `test` facts were collected: run `specforge \
+         collect` with `@javascript/node-test`"
+    );
+}
+
+#[test]
+fn a_rust_test_ref_beside_rust_items_only_is_w102() {
+    let entities = vec![
+        entity("rust:toy::tests::adds", "item"),
+        citing("t1", &["rust:toy#tests::adds"]),
+    ];
+    let diagnostics = refs::refs(&holding(entities, &[("rust", "item")]));
+    assert_eq!(found(&diagnostics), [("W102", "t1", 2, None)]);
+    assert!(
+        diagnostics[0].message.ends_with(
+            "no `rust` `test` facts were collected: run `specforge collect` with `@rust/test`"
+        ),
+        "{}",
+        diagnostics[0].message
+    );
+}
+
+#[specforge_test(
+    behavior = "cc_check_fact_refs",
+    verify = "a reference naming no fact of a kind a served store holds in its scheme is code/E101"
+)]
+fn a_missing_item_of_a_held_kind_is_e101_with_no_suggestion() {
+    let entities = vec![
+        entity("rust:toy::Board::add", "item"),
+        citing("t1", &["rust:toy::Board::ad"]),
+    ];
+    let diagnostics = refs::refs(&holding(entities, &[("rust", "item")]));
+    // `refs` is sent test facts only, so an item reference is told no near item.
     assert_eq!(found(&diagnostics), [("E101", "t1", 2, None)]);
+    assert_eq!(
+        diagnostics[0].message,
+        "`proof` names `rust:toy::Board::ad`, which no collected `rust` `item` fact holds"
+    );
+}
+
+#[test]
+fn a_facts_own_unheld_reference_is_not_judged() {
+    // Another collector writes what the item names: a runner that did not run is no disagreement.
+    let item = PassEntity {
+        unheld: vec![
+            UnheldReference {
+                field: "test_id".to_string(),
+                id: "rust:toy#tests::adds".to_string(),
+                span: read_at(3),
+                kinds: vec!["test".to_string()],
+            },
+            UnheldReference {
+                field: "package".to_string(),
+                id: "pkg:cargo/toy".to_string(),
+                span: read_at(4),
+                kinds: vec!["package".to_string()],
+            },
+        ],
+        ..entity("rust:toy::tests::adds", "item")
+    };
+    let served = [("rust", "item"), ("rust", "test"), ("pkg", "package")];
+    assert!(refs::refs(&holding(vec![item], &served)).is_empty());
+}
+
+#[test]
+fn a_reference_admitting_none_of_its_kinds_is_not_judged() {
+    let api = PassEntity {
+        unheld: vec![UnheldReference {
+            field: "surface".to_string(),
+            id: "rust:toy::api".to_string(),
+            span: read_at(2),
+            kinds: vec!["api".to_string()],
+        }],
+        ..entity("t1", "truth")
+    };
+    assert!(refs::refs(&holding(vec![api], &[("rust", "item")])).is_empty());
 }
 
 #[test]
@@ -412,7 +512,11 @@ fn every_reference_field_with_a_target_is_one_refs_names() {
         })
         .collect();
     targeted.sort();
-    assert_eq!(targeted, refs::TAKES);
+    let takes: Vec<(&str, &str, &str)> = refs::TAKES
+        .iter()
+        .map(|(kind, field, target, _)| (*kind, *field, *target))
+        .collect();
+    assert_eq!(targeted, takes);
 }
 
 #[test]
