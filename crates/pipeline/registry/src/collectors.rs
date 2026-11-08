@@ -5,20 +5,36 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_common::{Diagnostic, codes};
-use specforge_protocol_types::{CollectorDescriptor, ExtensionDeclaration, Inputs};
+use specforge_protocol_types::{CollectorDescriptor, ExtensionDeclaration, Input, Inputs};
 
-/// A stable topological order of `collectors` (each with its extension's name), as indices into it: on the edges
-/// producer to consumer, where the producer `answers` a kind the consumer's `facts` input names, and declaration order
-/// between collectors no edge orders. A collector that reads a kind it answers itself is not ordered by it. Err: the
-/// names of the collectors on a cycle, in declaration order.
-pub fn order(collectors: &[(&str, &CollectorDescriptor)]) -> Result<Vec<usize>, Vec<String>> {
+/// What the order reads of one collector: the kinds it answers, and its inputs, whose `facts` input names the kinds it
+/// reads.
+#[derive(Debug, Clone, Copy)]
+pub struct Edges<'a> {
+    pub answers: &'a [String],
+    pub inputs: &'a [Input],
+}
+
+impl<'a> From<&'a CollectorDescriptor> for Edges<'a> {
+    fn from(collector: &'a CollectorDescriptor) -> Self {
+        Edges {
+            answers: &collector.answers,
+            inputs: &collector.inputs,
+        }
+    }
+}
+
+/// A stable topological order of `collectors`, as indices into it: on the edges producer to consumer, where the
+/// producer `answers` a kind the consumer's `facts` input names, and declaration order between collectors no edge
+/// orders. A collector that reads a kind it answers itself is not ordered by it: it is served that kind from the
+/// recorded stores. Err: the indices of the collectors on a cycle, ascending.
+pub fn order(collectors: &[Edges<'_>]) -> Result<Vec<usize>, Vec<usize>> {
     let producers = |consumer: usize| -> BTreeSet<usize> {
-        let reads = Inputs(&collectors[consumer].1.inputs).facts();
+        let reads = Inputs(collectors[consumer].inputs).facts();
         (0..collectors.len())
             .filter(|&producer| producer != consumer)
             .filter(|&producer| {
                 collectors[producer]
-                    .1
                     .answers
                     .iter()
                     .any(|kind| reads.contains(&kind.as_str()))
@@ -45,10 +61,7 @@ pub fn order(collectors: &[(&str, &CollectorDescriptor)]) -> Result<Vec<usize>, 
         .flat_map(|cycle| cycle.members)
         .collect();
     on_cycle.sort_unstable();
-    Err(on_cycle
-        .into_iter()
-        .map(|at| collectors[at].1.name.clone())
-        .collect())
+    Err(on_cycle)
 }
 
 /// E119 for `names`, the collectors of a cycle.
@@ -70,17 +83,20 @@ pub fn cycle(names: &[String]) -> Diagnostic {
 
 /// E119 for a cycle among the collectors `declarations` declare, in load order.
 pub(crate) fn check(declarations: &[ExtensionDeclaration]) -> Option<Diagnostic> {
-    let collectors: Vec<(&str, &CollectorDescriptor)> = declarations
-        .iter()
-        .flat_map(|d| d.collectors.iter().map(move |c| (d.name(), c)))
-        .collect();
-    order(&collectors).err().map(|names| cycle(&names))
+    let collectors: Vec<&CollectorDescriptor> =
+        declarations.iter().flat_map(|d| &d.collectors).collect();
+    let edges: Vec<Edges<'_>> = collectors.iter().map(|&c| Edges::from(c)).collect();
+    order(&edges).err().map(|on_cycle| {
+        let names: Vec<String> = on_cycle
+            .into_iter()
+            .map(|at| collectors[at].name.clone())
+            .collect();
+        cycle(&names)
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use specforge_protocol_types::Input;
-
     use super::*;
 
     fn collector(name: &str, reads: &[&str], answers: &[&str]) -> CollectorDescriptor {
@@ -103,9 +119,13 @@ mod tests {
     }
 
     fn of(collectors: &[CollectorDescriptor]) -> Result<Vec<usize>, Vec<String>> {
-        let named: Vec<(&str, &CollectorDescriptor)> =
-            collectors.iter().map(|c| ("@acme/x", c)).collect();
-        order(&named)
+        let edges: Vec<Edges<'_>> = collectors.iter().map(Edges::from).collect();
+        order(&edges).map_err(|on_cycle| {
+            on_cycle
+                .into_iter()
+                .map(|at| collectors[at].name.clone())
+                .collect()
+        })
     }
 
     #[specforge_test_macros::test(

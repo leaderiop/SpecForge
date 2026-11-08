@@ -245,7 +245,7 @@ pub fn collect(
     }
 
     // Ordered, and a cycle refused, before anything runs (ADR 0345 D3).
-    let selected = order::ordered(view, selected)?;
+    let selected = order::ordered(selected)?;
 
     // Held before anything runs: what is read and what is written is the file checked here.
     let report_file = containment

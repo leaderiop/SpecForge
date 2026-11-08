@@ -6,36 +6,29 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use specforge_common::codes;
-use specforge_protocol_types::{CollectorDescriptor, Fact, Inputs};
+use specforge_protocol_types::{Fact, Inputs};
+use specforge_registry::collectors::Edges;
 
 use super::{Collector, fail};
-use crate::view::ProjectView;
 use crate::{Containment, OpError, OpErrorKind};
 
 /// `selected` in the order their facts inputs give (declaration order otherwise); E119 naming the collectors of a
 /// cycle.
-pub(super) fn ordered<'a>(
-    view: &ProjectView,
-    selected: Vec<&'a Collector>,
-) -> Result<Vec<&'a Collector>, OpError> {
-    let declarations = view.registries().declarations();
-    let descriptors: Vec<(&str, &CollectorDescriptor)> = selected
+pub(super) fn ordered(selected: Vec<&Collector>) -> Result<Vec<&Collector>, OpError> {
+    let edges: Vec<Edges<'_>> = selected
         .iter()
-        .filter_map(|collector| {
-            declarations
-                .iter()
-                .find(|d| d.name() == collector.extension)
-                .and_then(|d| d.collectors.iter().find(|c| c.name == collector.name))
-                .map(|descriptor| (collector.extension.as_str(), descriptor))
+        .map(|collector| Edges {
+            answers: &collector.answers,
+            inputs: &collector.inputs,
         })
         .collect();
-    // Every selected collector comes from a loaded declaration; one that does not is left where it is.
-    if descriptors.len() != selected.len() {
-        return Ok(selected);
-    }
-    match specforge_registry::collectors::order(&descriptors) {
+    match specforge_registry::collectors::order(&edges) {
         Ok(order) => Ok(order.into_iter().map(|at| selected[at]).collect()),
-        Err(names) => {
+        Err(on_cycle) => {
+            let names: Vec<String> = on_cycle
+                .into_iter()
+                .map(|at| selected[at].name.clone())
+                .collect();
             let cycle = specforge_registry::collectors::cycle(&names);
             Err(fail(
                 OpErrorKind::PreconditionFailed,
