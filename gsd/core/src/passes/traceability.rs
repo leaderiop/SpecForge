@@ -81,8 +81,8 @@ fn plain(path: &str) -> &str {
 
 /// W520, on the plan: a complete plan with a recorded commit (`files_touched` written) whose commits touched none of
 /// a planned path (`files_modified`, and each of its artifacts' `path`; a directory is touched by a file under it),
-/// or whose `files_deleted` the host serves as still present. A path the host did not serve is not judged; a missing
-/// planned file is E016's, never this rule's.
+/// or whose `files_deleted` the host serves as still present (its fact found by the plan, named as the host
+/// normalised it). A path the host did not serve is not judged; a missing planned file is E016's, never this rule's.
 fn plan_paths(input: &PassInput) -> Vec<PassDiagnostic> {
     let deleted = input.files.get("deleted");
     of_kind(input, "plan")
@@ -111,12 +111,12 @@ fn plan_paths(input: &PassInput) -> Vec<PassDiagnostic> {
                 .map(String::as_str)
                 .filter(|p| !covered(p))
                 .collect();
-            let present: BTreeSet<String> = strings(plan, "files_deleted")
-                .iter()
-                .map(|p| plain(p).to_string())
-                .filter(|p| {
-                    deleted.is_some_and(|d| d.facts.iter().any(|f| f.path == *p && f.exists))
-                })
+            // The fact of each `files_deleted` path, found by its plan and named as the host wrote it.
+            let present: BTreeSet<&str> = deleted
+                .into_iter()
+                .flat_map(|d| &d.facts)
+                .filter(|f| f.exists && f.entity.as_deref() == Some(plan.id.as_str()))
+                .map(|f| f.path.as_str())
                 .collect();
             let mut found = Vec::new();
             if !untouched.is_empty() {

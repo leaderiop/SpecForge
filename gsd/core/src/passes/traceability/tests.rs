@@ -197,15 +197,22 @@ fn an_unserved_deleted_path_is_not_judged() {
     assert!(check(&input).is_empty());
 }
 
-/// Pinned: the host serves a deleted path lexically normalised (`src/x/../old.js` as `src/old.js`), and the rule
-/// looks the fact up by the path as the plan wrote it, so it finds none and judges nothing. It flips once the fact is
-/// matched by its plan.
+/// The host serves a deleted path lexically normalised (`src/x/../old.js` as `src/old.js`): the rule finds the fact
+/// by its plan and names the path as the host wrote it. Another plan's fact of the same path is not this plan's.
 #[test]
-fn a_deleted_path_the_host_normalised_is_not_judged() {
+fn a_deleted_path_the_host_normalised_is_w520() {
     let mut input = paths(Some(&["src/a.js", "src/lib/b.js"]), &["src/old.js"]);
     input.entities[0].values.insert(
         "files_deleted".into(),
         serde_json::json!(["src/x/../old.js"]),
     );
-    assert!(check(&input).is_empty());
+    let found = check(&input);
+    assert_eq!(codes_of(&found), [("W520", Some("v/1/1-01"))]);
+    assert_eq!(
+        found[0].message,
+        "plan 'v/1/1-01' is complete, but files it deletes are still present: src/old.js"
+    );
+    let deleted = input.files.get_mut("deleted").expect("the deleted input");
+    deleted.facts[0].entity = Some("v/1/1-02".into());
+    assert!(check(&input).is_empty(), "another plan's fact");
 }
