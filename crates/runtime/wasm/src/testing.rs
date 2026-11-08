@@ -28,6 +28,8 @@ use specforge_protocol_types::{
     SyntaxRequest,
 };
 
+use specforge_source::{COUNTED_DEADLINE, SourceReader, SyntaxCache};
+
 use crate::ports::{PortCall, PortSession};
 use crate::runtime::{ExtensionSettings, LoadError, WasmCallResult, WasmRuntime, WasmTrapInfo};
 use crate::sandbox::Limits;
@@ -783,4 +785,10 @@ pub fn assert_module_contract(runtime: &dyn WasmRuntime, bytes: &[u8], declared:
     assert!(!answers("renamed"), "an unloaded module is not loaded");
     assert!(!runtime.unload("renamed"), "nothing is left to unload");
     assert_eq!(runtime.provenance("renamed"), None, "an unload drops it");
+}
+
+/// A source reader with no cache, each file held to [`COUNTED_DEADLINE`]: what a test lends a call
+/// ([`PortCall::with_syntax`]) so no parse reads a clock.
+pub fn counted_reader() -> Arc<SourceReader> {
+    Arc::new(SourceReader::new(SyntaxCache::detached()).with_deadline(COUNTED_DEADLINE))
 }

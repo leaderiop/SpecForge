@@ -1,7 +1,7 @@
 //! A file past its parse deadline: counted in tree-sitter's progress callbacks, never a clock.
 
 use specforge_protocol_types::{NotParsed, SyntaxOutcome};
-use specforge_source::{Deadline, Language, Loaded, SourceReader, SyntaxCache};
+use specforge_source::{COUNTED_DEADLINE, Deadline, Language, Loaded, SourceReader, SyntaxCache};
 
 const QUERY: &str = "(function_item name: (identifier) @name) @definition.function";
 
@@ -37,8 +37,11 @@ fn a_file_past_its_deadline_is_not_parsed_and_not_cached() {
         }
     );
     assert_eq!((stopped.work.parsed, stopped.work.cached), (0, 0));
-    // Nothing was kept: a reader without the deadline parses it now.
-    let open = read(&SourceReader::new(SyntaxCache::at(base.path())), &files);
+    // Nothing was kept: a reader with room for it parses it now.
+    let open = read(
+        &SourceReader::new(SyntaxCache::at(base.path())).with_deadline(COUNTED_DEADLINE),
+        &files,
+    );
     assert_eq!((open.work.parsed, open.work.cached), (1, 0));
     let SyntaxOutcome::Parsed { matches, .. } = &open.files[0].outcome else {
         panic!("{:?}", open.files[0]);

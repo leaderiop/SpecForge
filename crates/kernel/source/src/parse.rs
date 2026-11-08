@@ -29,6 +29,10 @@ pub enum Deadline {
 /// Each file's deadline in production (ADR 0344 D3).
 pub const PARSE_DEADLINE: Deadline = Deadline::Wall(Duration::from_secs(5));
 
+/// A counted deadline no file a test writes reaches: what every test parses within, so none reads a clock (ADR 0344
+/// D3).
+pub const COUNTED_DEADLINE: Deadline = Deadline::Progress(1 << 20);
+
 /// One file's deadline as it is spent across its parse and its query run.
 struct Budget {
     deadline: Deadline,
@@ -268,9 +272,10 @@ fn clamp(value: usize) -> u32 {
 }
 
 impl SourceQuery {
-    /// `source` parsed and this query run over it within [`PARSE_DEADLINE`], outside any reader: no cache, no count.
-    pub fn parse(&self, source: &[u8]) -> SyntaxOutcome {
-        parse(&mut parser_for(self), self, source, PARSE_DEADLINE)
+    /// `source` parsed and this query run over it within `deadline` ([`PARSE_DEADLINE`] in production, a counted
+    /// one in a test), outside any reader: no cache, no count.
+    pub fn parse(&self, source: &[u8], deadline: Deadline) -> SyntaxOutcome {
+        parse(&mut parser_for(self), self, source, deadline)
             .unwrap_or_else(|reason| SyntaxOutcome::NotParsed { reason })
     }
 }

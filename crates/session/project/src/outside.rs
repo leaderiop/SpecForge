@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use specforge_effects::git::{Git, Located};
 use specforge_effects::{Effects, SharedGit};
-use specforge_source::SourceReader;
+use specforge_source::{Deadline, SourceReader};
 
 use crate::Environment;
 
@@ -49,6 +49,14 @@ impl Environment {
     /// Its effects: the mode, the ports a live mode performs through, the journal and what the run consulted.
     pub fn effects(&self) -> &Effects {
         &self.effects
+    }
+
+    /// This environment, each source file its reader parses held to `deadline` (a test's counted one) rather than
+    /// the production deadline; the same cache.
+    pub fn with_parse_deadline(mut self, deadline: Deadline) -> Self {
+        self.syntax =
+            Arc::new(SourceReader::new(self.syntax.cache().clone()).with_deadline(deadline));
+        self
     }
 
     /// The project's one source reader: what every extension call over this environment parses with.

@@ -10,6 +10,7 @@ use specforge_protocol_types::{
     NotParsed, Operation, SyntaxAnswer, SyntaxFiles, SyntaxOutcome, SyntaxRequest, SyntaxSource,
 };
 use specforge_source::{Deadline, SourceReader, SyntaxCache};
+use specforge_wasm::testing::counted_reader;
 use specforge_wasm::{Limits, PortCall, PortSession};
 
 use super::{EXT, SHA, lent_over};
@@ -36,7 +37,9 @@ fn project(paths: &[&str]) -> SyntaxRequest {
 
 /// A call of the extension `ports.rs` serves, over `fs` and `git`.
 fn call_over(fs: FakeFs, git: FakeGit) -> PortCall {
-    lent_over(FakeHttp::new(), FakeProcess::new(), fs, git).call
+    lent_over(FakeHttp::new(), FakeProcess::new(), fs, git)
+        .call
+        .with_syntax(counted_reader())
 }
 
 fn session(call: &PortCall, limits: Limits) -> PortSession {
@@ -154,7 +157,8 @@ fn a_syntax_request_outside_the_grant_is_denied_scope_and_e090() {
         &roots,
         &MemoryConsent::approving_everything(),
     );
-    let call = PortCall::online(&ports, EffectJournal::detached(), roots, grant, Vec::new());
+    let call = PortCall::online(&ports, EffectJournal::detached(), roots, grant, Vec::new())
+        .with_syntax(counted_reader());
     let refused = session(&call, Limits::CEILING).syntax_parse(project(&["src/a.rs"]));
     assert!(
         matches!(&refused, Err(HostError::Denied(host::Denial::Scope(_)))),

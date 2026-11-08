@@ -1,7 +1,7 @@
 //! One file parsed with a pack's query: matches, captures, spans, parents, errors and the convention's faults.
 
 use specforge_protocol_types::{SyntaxMatch, SyntaxOutcome, SyntaxRole};
-use specforge_source::{CAPTURE_TEXT_CAP, Language, SourceQuery};
+use specforge_source::{CAPTURE_TEXT_CAP, COUNTED_DEADLINE, Language, SourceQuery};
 use specforge_test_macros::test as specforge_test;
 
 /// A small tags query for Rust: modules, impls, functions (a method inside an impl), structs and calls.
@@ -18,7 +18,7 @@ pub const RUST_TAGS: &str = r#"
 
 pub fn parsed(language: Language, query: &str, source: &str) -> (Vec<SyntaxMatch>, u32) {
     let query = SourceQuery::compile(language, query).unwrap();
-    match query.parse(source.as_bytes()) {
+    match query.parse(source.as_bytes(), COUNTED_DEADLINE) {
         SyntaxOutcome::Parsed { matches, errors } => (matches, errors),
         other => panic!("{other:?}"),
     }
@@ -269,7 +269,10 @@ fn the_grammar_versions_are_the_locked_ones() {
         assert_eq!(Language::named(language.name()), Some(language));
         // Each grammar loads into this runtime and parses.
         let query = SourceQuery::compile(language, "(_) @definition.any").unwrap();
-        assert!(matches!(query.parse(b"x"), SyntaxOutcome::Parsed { .. }));
+        assert!(matches!(
+            query.parse(b"x", COUNTED_DEADLINE),
+            SyntaxOutcome::Parsed { .. }
+        ));
     }
     assert_eq!(Language::named("javascript"), None);
 }

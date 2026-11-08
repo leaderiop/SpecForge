@@ -379,9 +379,10 @@ impl TestProject {
         self.open(RuntimeSource::Fixed(None))
     }
 
-    /// The project's environment in `runtime`, asking `git`.
+    /// The project's environment in `runtime`, asking `git`, parsing source within a counted deadline.
     fn load(&self, runtime: Option<SharedRuntime>, git: Option<SharedGit>) -> crate::Environment {
-        let env = crate::Environment::load(&self.project_root(), runtime);
+        let env = crate::Environment::load(&self.project_root(), runtime)
+            .with_parse_deadline(specforge_source::COUNTED_DEADLINE);
         match git {
             Some(git) => env.with_git(git),
             None => env,
