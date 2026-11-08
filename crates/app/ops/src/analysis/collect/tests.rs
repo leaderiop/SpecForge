@@ -13,7 +13,7 @@ fn collector(report: &str) -> Collector {
         export: "collect__acme".into(),
         detect: vec!["acme.config.*".into()],
         run: vec!["acme".into(), "--out={report}".into()],
-        report: report.into(),
+        report: Some(report.into()),
         capture: None,
         writes: false,
         inputs: Vec::new(),

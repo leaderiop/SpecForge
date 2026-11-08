@@ -510,6 +510,23 @@ fn capabilities_a_collector_names_must_be_a_process_one() {
 
 #[specforge_test_macros::test(
     behavior = "build_registries_from_declarations",
+    verify = "a collector that keeps a capture with no command is W021"
+)]
+fn a_collector_capture_without_a_command_is_w021() {
+    let found = capability_problems_of(|c| {
+        c.collector("reader", |k| {
+            k.capture_stdout().collect(|_| Ok(CollectOutput::default()));
+        });
+    });
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert!(
+        found[0].contains("collector 'reader' keeps a capture but declares no command"),
+        "{found:#?}"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "build_registries_from_declarations",
     verify = "a capability that may POST to the hosts values name is W021"
 )]
 fn capabilities_a_post_from_a_from_values_capability_is_w021() {

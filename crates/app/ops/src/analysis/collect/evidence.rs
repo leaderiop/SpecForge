@@ -3,7 +3,9 @@
 //! declared report and captured output, so only they resolve and check them; `--report` reads the files it
 //! names and nothing the collector declares.
 
-use super::collector::{capture_path, captures_stdout, command_line, read_capture, report_path};
+use super::collector::{
+    capture_path, captures_stdout, command_line, read_capture, reads_no_report, report_path,
+};
 use super::dispatch::read_report;
 use super::{Collector, Mode, fail};
 use crate::machine::{CollectorCommand, CollectorMachine, Ran, RunFailure, RunnerOutput};
@@ -53,6 +55,8 @@ pub(super) enum Source<'m> {
     Given(&'m [PathBuf]),
     /// Read nothing: the collector declares `check_outcomes`, and the served rows are its evidence.
     Outcomes,
+    /// Read nothing: the collector reads through its ports when it is called (ADR 0345 D2).
+    Ports,
 }
 
 /// What one collector's source gave.
@@ -75,8 +79,10 @@ impl<'m> Source<'m> {
         containment: &Containment,
     ) -> Result<Self, OpError> {
         match mode {
+            Mode::Reports(_) if collector.reads_ports() => Err(reads_no_report(collector)),
             Mode::Reports(paths) => Ok(Source::Given(paths)),
             _ if collector.reads_outcomes() => Ok(Source::Outcomes),
+            _ if collector.reads_ports() => Ok(Source::Ports),
             Mode::NoRun => Declared::of(collector, root, containment).map(Source::Written),
             Mode::Run(output) => {
                 let declared = Declared::of(collector, root, containment)?;
@@ -144,10 +150,10 @@ impl<'m> Source<'m> {
                     .collect();
                 (files, None, None, false)
             }
-            Source::Outcomes => (Vec::new(), None, None, false),
+            Source::Outcomes | Source::Ports => (Vec::new(), None, None, false),
         };
-        // The served rows are all a reader of the checks' outcomes needs, however few.
-        if !matches!(self, Source::Outcomes)
+        // The served rows are all a reader of the checks' outcomes needs, however few; a ports reader reads its own.
+        if !matches!(self, Source::Outcomes | Source::Ports)
             && files.is_empty()
             && stdout.as_deref().is_none_or(str::is_empty)
         {
@@ -180,6 +186,7 @@ impl<'m> Source<'m> {
             ),
             Source::Given(_) => "the report files given don't exist".to_string(),
             Source::Outcomes => format!("{} read no outcome", collector.name),
+            Source::Ports => format!("{} read nothing through its ports", collector.name),
         }
     }
 }

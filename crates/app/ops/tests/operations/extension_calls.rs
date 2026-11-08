@@ -72,7 +72,7 @@ fn collector() -> Collector {
         export: "collect__x".to_string(),
         detect: Vec::new(),
         run: Vec::new(),
-        report: "report.json".to_string(),
+        report: Some("report.json".to_string()),
         capture: None,
         writes: false,
         inputs: Vec::new(),

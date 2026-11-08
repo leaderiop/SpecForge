@@ -3,9 +3,21 @@
 
 use specforge_protocol_types::{ExtensionDeclaration, Owner, capability_problems};
 
-/// The messages (W021) about the capabilities `declaration` makes, and about its collectors' `capability`.
+/// The messages (W021) about the capabilities `declaration` makes, and about its collectors' `capability`: a
+/// collector that keeps a `capture` with no command has no output to keep (ADR 0345 D2).
 pub(crate) fn problems(declaration: &ExtensionDeclaration) -> Vec<String> {
     let name = declaration.name();
+    let uncaptured = declaration
+        .collectors
+        .iter()
+        .filter(|collector| collector.capture.is_some() && collector.capability.is_none())
+        .map(move |collector| {
+            format!(
+                "extension '{name}': collector '{}' keeps a capture but declares no command, so there is no \
+                 output to keep",
+                collector.name
+            )
+        });
     capability_problems(declaration)
         .into_iter()
         .map(|problem| match problem.owner {
@@ -18,5 +30,6 @@ pub(crate) fn problems(declaration: &ExtensionDeclaration) -> Vec<String> {
                 declaration.collectors[index].name, problem.why
             ),
         })
+        .chain(uncaptured)
         .collect()
 }

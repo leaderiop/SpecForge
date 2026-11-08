@@ -15,8 +15,9 @@ pub struct Collector {
     pub export: String,
     pub detect: Vec<String>,
     pub run: Vec<String>,
-    /// Report file or directory, relative to the project root.
-    pub report: String,
+    /// Report file or directory, relative to the project root: none for a collector with no command that names
+    /// none, which reads through its ports (ADR 0345 D2).
+    pub report: Option<String>,
     /// What else the host keeps from the run: `"stdout"` or nothing.
     pub capture: Option<String>,
     /// It answers an edit plan, so it receives the graph and the revisions (ADR 0289).
@@ -33,6 +34,12 @@ impl Collector {
     /// project's one runner, and it runs when named or under `checks.publish`.
     pub(super) fn reads_outcomes(&self) -> bool {
         Inputs(&self.inputs).check_outcomes()
+    }
+
+    /// Whether it reads through its ports (ADR 0345 D2): no command, no report and not the checks' outcomes. It is
+    /// called under a run and a no-run alike with no report, and needs no approval.
+    pub(super) fn reads_ports(&self) -> bool {
+        self.report.is_none() && !self.reads_outcomes()
     }
 }
 
@@ -63,10 +70,12 @@ pub fn collectors(declarations: &[ExtensionDeclaration]) -> Vec<Collector> {
                         _ => None,
                     })
                     .unwrap_or_default(),
-                report: c
-                    .report
-                    .clone()
-                    .unwrap_or_else(|| format!(".specforge/reports/{}.json", c.name)),
+                // The default report is a command's: a collector with none that names none reads through its ports.
+                report: c.report.clone().or_else(|| {
+                    c.capability
+                        .as_ref()
+                        .map(|_| format!(".specforge/reports/{}.json", c.name))
+                }),
                 capture: c.capture.clone(),
                 writes: c.writes,
                 inputs: c.inputs.clone(),
@@ -146,17 +155,32 @@ pub(super) fn report_path(
     root: &Path,
     containment: &Containment,
 ) -> Result<Held, OpError> {
-    let Some(relative) = crate::containment::declared(Path::new(&collector.report)) else {
+    let Some(report) = &collector.report else {
+        return Err(reads_no_report(collector));
+    };
+    let Some(relative) = crate::containment::declared(Path::new(report)) else {
         return Err(OpError::coded(
             OpErrorKind::PreconditionFailed,
             codes::E058,
             format!(
-                "collector '{}' of {} declares report path '{}' outside the project",
-                collector.name, collector.extension, collector.report
+                "collector '{}' of {} declares report path '{report}' outside the project",
+                collector.name, collector.extension
             ),
         ));
     };
     Ok(containment.resolve(&root.join(relative))?)
+}
+
+/// E058 for a report asked of a collector that reads through its ports.
+pub(super) fn reads_no_report(collector: &Collector) -> OpError {
+    OpError::coded(
+        OpErrorKind::PreconditionFailed,
+        codes::E058,
+        format!(
+            "collector '{}' of {} reads no report: it reads through its ports; collect without report files",
+            collector.name, collector.extension
+        ),
+    )
 }
 
 /// Whether the collector keeps its command's standard output. Any value

@@ -8,6 +8,7 @@ mod modes;
 mod order;
 mod outcomes;
 mod plans;
+mod ports;
 mod reads;
 mod refusals;
 mod report_first;
@@ -109,7 +110,7 @@ pub struct Runner {
     name: String,
     detect: Vec<String>,
     run: Vec<String>,
-    report: String,
+    report: Option<String>,
     capture: Option<String>,
     reads: Vec<specforge_protocol_types::Input>,
     answer: Answer,
@@ -124,7 +125,7 @@ impl Runner {
             name: name.to_string(),
             detect: vec![format!("{name}.cfg")],
             run: vec![name.to_string(), "--out={report}".to_string()],
-            report: format!("out/{name}.json"),
+            report: Some(format!("out/{name}.json")),
             capture: None,
             reads: Vec::new(),
             answer: Answer::Output(CollectOutput::default()),
@@ -137,7 +138,14 @@ impl Runner {
     }
 
     pub fn report(mut self, report: &str) -> Self {
-        self.report = report.to_string();
+        self.report = Some(report.to_string());
+        self
+    }
+
+    /// It declares no command and no report: it reads through its ports.
+    pub fn reading_ports(mut self) -> Self {
+        self.run.clear();
+        self.report = None;
         self
     }
 
@@ -201,14 +209,17 @@ impl Runner {
         let detect: Vec<&str> = self.detect.iter().map(String::as_str).collect();
         let run: Vec<&str> = self.run.iter().map(String::as_str).collect();
         let mut builder = ContributionsBuilder::new(ExtensionMeta::new(&self.ext, "1.0.0"));
+        let ports = self.report.is_none();
         builder.collector(&self.name, |c| {
             c.detect_files(&detect)
-                .run(&run)
                 .collect(|_| Ok(CollectOutput::default()));
+            if !ports {
+                c.run(&run);
+            }
         });
         let mut declaration = builder.declaration();
         // The report and the capture as declared, whatever they are.
-        declaration.collectors[0].report = Some(self.report.clone());
+        declaration.collectors[0].report = self.report.clone();
         declaration.collectors[0].capture = self.capture.clone();
         declaration.collectors[0].inputs = self.reads.clone();
         declaration
@@ -335,7 +346,12 @@ impl Fixture {
     /// Where runner `name`'s report is, as the project spells it.
     pub fn report_of(&self, name: &str) -> PathBuf {
         let collector = self.collectors.iter().find(|c| c.name == name).unwrap();
-        self.root().join(&collector.report)
+        self.root().join(
+            collector
+                .report
+                .as_deref()
+                .expect("a collector with a report"),
+        )
     }
 
     /// Collect in `mode` with `runner` named (or detected), reaching `containment`, asking `asking`.

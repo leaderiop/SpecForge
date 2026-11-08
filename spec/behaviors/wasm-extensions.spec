@@ -308,7 +308,8 @@ behavior register_collector_contributions "Register Collector Contributions" {
   }
   ensures {
     collectors_listed       "every declared collector is listed with its extension, export, detection files, command and report location"
-    default_report_location "a collector that names no report location reads .specforge/reports/<name>.json"
+    default_report_location "a collector with a command that names no report reads .specforge/reports/<name>.json"
+    ports_reader            "a collector with no command and no report is called with no report under run and no-run"
   }
   contract   """
     Collectors come from the `collectors` describe payload of each enabled
@@ -317,15 +318,22 @@ behavior register_collector_contributions "Register Collector Contributions" {
     that runs its test runner (elements may contain the `{report}`
     placeholder) and the report file or directory the runner writes,
     relative to the project root, with no `..`; where it lands is the
-    request's containment. A collector without a report location
-    reads `.specforge/reports/<name>.json`.
+    request's containment. A collector with a command and no report
+    location reads `.specforge/reports/<name>.json`. A collector with no
+    command and no report reads through its ports: it is called under a
+    run and a no-run alike, reads no report, needs no approval, and a
+    `--report` run naming it is E058.
   """
   produces   [collector_registered]
   verify unit "collector contribution parsed from manifest"
   verify unit "a collector's declared reads are checked as a pass's (W021) and listed with their owner"
   verify unit "a kind may declare writer collector and its schemes, and a field that declares writer collector is W021"
   verify unit "a kind's writer is human or collector, and only a collector-written kind declares schemes"
-  verify contract "Register Collector Contributions: collector contribution registration holds — manifest_declares_collectors, collectors_listed, default_report_location"
+  verify integration "a collector with no command and no report is called under run and no-run, and ran is false"
+  verify integration "a report run naming a collector that reads through its ports is E058"
+  verify integration "a collector that reads through its ports is lent its fs reads without an approval"
+  verify integration "a collector parses source through the syntax import, and what it found broken is noted once"
+  verify contract "Register Collector Contributions: collector contribution registration holds — manifest_declares_collectors, collectors_listed, default_report_location, ports_reader"
 }
 
 // NOTE: auto_detect_collector does not produce an event because dispatch is

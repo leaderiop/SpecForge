@@ -96,7 +96,7 @@ fn vitest_declares_its_collector() {
     assert_eq!(c.detect, ["vitest.config.*", "vitest.workspace.*"]);
     assert_eq!(&c.run[..3], ["npx", "--no", "vitest"]);
     assert!(c.run.iter().any(|a| a == "--outputFile.json={report}"));
-    assert_eq!(c.report, ".specforge/reports/vitest.json");
+    assert_eq!(c.report.as_deref(), Some(".specforge/reports/vitest.json"));
 }
 
 #[specforge_test_macros::test(
@@ -132,7 +132,10 @@ fn node_test_declares_its_collector() {
             "--test-reporter-destination={report}",
         ]
     );
-    assert_eq!(c.report, ".specforge/reports/node-test.xml");
+    assert_eq!(
+        c.report.as_deref(),
+        Some(".specforge/reports/node-test.xml")
+    );
     assert_eq!(
         c.inputs,
         [specforge_protocol_types::Input::Files(
@@ -166,7 +169,7 @@ fn cargo_test_declares_its_collector() {
     assert_eq!(c.export, "collect__cargo_test");
     assert_eq!(c.detect, ["Cargo.toml"]);
     assert_eq!(c.run, ["cargo", "test", "--workspace", "--no-fail-fast"]);
-    assert_eq!(c.report, "target/specforge");
+    assert_eq!(c.report.as_deref(), Some("target/specforge"));
     assert_eq!(
         c.capture.as_deref(),
         Some("stdout"),
