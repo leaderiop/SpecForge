@@ -1794,9 +1794,20 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `<collector> stale:<key> <digest>` ledger line: served with its references followed through the ledger's moves, and
   W197, until the next collect (ADR 0346 D7).
 - **Test fact**: a `test` or `test_run` fact of `@code/core` (ADR 0329): a test a runner ran, its status its result
-  (`result("status")`), and the run of it. A runner pack mints both with `specforge_code_junit::facts`.
+  (`result("status")`), and the run of it. A runner pack mints both with `specforge_code_facts::test_facts`.
 - **Test id**: a test fact's id, `js:<package>/<file>#<s1 > … > name>`: the package the pack assigns it to, its file
-  under that package and its suite path; a top-level test is `#<name>`. Its run is `run:<test id>` (ADR 0329 D2).
+  under that package and its suite path; a top-level test is `#<name>`. A Rust test is
+  `rust:<nextest binary id>#<test path>`. Its run is `run:<test id>` (ADR 0329 D2, ADR 0347 D4).
+- **Item fact**: an `item` fact of `@code/core` (ADR 0347): one definition path of a source pack, every definition it
+  reaches listed in `at` and `kind`, with its package, visibility, signature digest and the entities it names.
+- **Item id**: an item fact's id, `rust:<crate segment>::<mod>::…::<name>` (a member `…::<Type>::m` or
+  `…::<Type as Trait>::m`) or `js:<package>/<file>::<name>[.<member>]`; it never holds `#` (ADR 0347 D4).
+- **Crate segment**: the part of a Rust item id before its module path: the cargo package name for the lib,
+  `<package>/<kind>/<target>` for another target, `@<dir>` appended for a second package of one name (ADR 0347 D2).
+- **Package fact**: a `package` fact of `@code/core`: a cargo or npm package, its version, targets, directory and the
+  project packages it depends on (ADR 0347).
+- **Package id**: a package fact's id, a purl without version: `pkg:cargo/<name>`, `pkg:cargo/<name>#<dir>`,
+  `pkg:npm/<name>` (ADR 0347 D5).
 - **Owner state**: whether an entity is **pending**: its kind's `complete_when` (a field and the values that make it
   complete) does not hold, or, when its kind declares none, its nearest scope ancestor's that declares one does not.
   With no declaration in the chain it is not pending. A pass reads it as `PassEntity.pending`; `@code/core` leaves a

@@ -5,6 +5,8 @@
 (D10): it says which extension judges a cited test fact, and how. Ships in extension protocol 1.15.0 (D4, D3's
 `result`).
 Amended by [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md) (D3: `names` is a fact-held reference).
+Amended by [ADR 0347](0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md) (D2: the `<file>` escape, Rust tests; D3: `rust` ids, `binary`, `file` project-relative as
+given, `names` a reference list; D5: judged by the kinds a field admits, `held`; D7: the minting moves to `code/facts`).
 
 ## Context
 
@@ -38,6 +40,8 @@ Four facts shape it:
 
   A `test_run`'s id is `run:<test id>`. A store is per key (ADR 0327 D3), so the run of another commit is in another
   store: R1 needs no `commit` field.
+  Amended by [ADR 0347](0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md): a `%`, `#` or `:` in `<file>` is percent-encoded, and a Rust test is
+  `rust:<nextest binary id>#<test path>` (D4).
 - **D3. The kinds.** Both are collector-written (`KindBuilder::collected`) and neither is scoped: a scheme ref names
   the fact whole.
 
@@ -59,6 +63,8 @@ Four facts shape it:
     `meta.specforge`, `@rust/test`'s attribute); no R1 collector writes it. It is a string list, not a reference
     list: a fact's reference to an authored entity would need its own kernel rule, which comes with the first writer.
   Amended by [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md): `names` is a fact-held reference (ADR 0346).
+  Amended by [ADR 0347](0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md): `test` takes `rust` ids and a `binary` field, `file` is the project-relative path the pack gives,
+  and `names` is a reference list with no target kind, edge `names` (D8, D11).
 - **D4. Owner state (protocol 1.15.0).** A kind may declare `complete_when { field, values }`: its entities are
   complete while `field` holds one of `values`, and pending otherwise (unwritten included). The registry keeps it
   when `field` is an `enum` field the kind declares and every value is one of its values; anything else is W021 and
@@ -81,6 +87,8 @@ Four facts shape it:
   collected" is the true and actionable answer for a `ts:` reference beside a store of `js` facts, where E101 would
   claim a test is missing that no collector looked for. A fact nothing cites is never a finding, and there is no
   project-level "no facts yet" note: a project that cites nothing hears nothing.
+  Amended by [ADR 0347](0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md): E101 when a served store holds a fact of a kind the reference's field admits, in its scheme
+  (`UnheldReference.kinds`, `FactStore.held`); W102 names the kind and the pack that writes it (D9).
 - **D6. A failing proof and a dangling name.** The pass `proof` reports:
   - **`code/W401`** on each entity outside `@code/core`'s kinds that is not pending and has an edge to a `test` whose
     `status` is `failed`;
@@ -91,6 +99,7 @@ Four facts shape it:
   case-insensitively and tries the other spelling of macOS's `/private` alias), `TestId`, and `facts()`, the one
   function that mints `test` and `test_run` facts. A runner pack links it. gsd-junit stays a copy, since gsd may not
   depend outside `gsd/` (R-9).
+  Amended by [ADR 0347](0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md): `TestId` and the minting move to `extensions/code/facts`; `code/junit` keeps the reader (D1).
 
 ## Rejected
 
