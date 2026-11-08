@@ -11,7 +11,7 @@ use specforge_common::shape::Shape;
 use specforge_protocol_types::{NotParsed, SyntaxFile, SyntaxOutcome};
 
 use crate::cache::{Entry, SyntaxCache};
-use crate::parse::{parse, parser_for};
+use crate::parse::{Deadline, PARSE_DEADLINE, parse, parser_for};
 use crate::{Language, QueryFault, SourceQuery};
 
 /// A file as its loader gives it: its bytes, or why there are none.
@@ -60,6 +60,7 @@ pub struct Read {
 #[derive(Debug)]
 pub struct SourceReader {
     cache: SyntaxCache,
+    deadline: Deadline,
     queries: Mutex<HashMap<(Language, String), Arc<SourceQuery>>>,
 }
 
@@ -67,8 +68,15 @@ impl SourceReader {
     pub fn new(cache: SyntaxCache) -> Self {
         SourceReader {
             cache,
+            deadline: PARSE_DEADLINE,
             queries: Mutex::default(),
         }
+    }
+
+    /// The same reader, each file held to `deadline` rather than [`PARSE_DEADLINE`].
+    pub fn with_deadline(mut self, deadline: Deadline) -> Self {
+        self.deadline = deadline;
+        self
     }
 
     /// Its cache.
@@ -144,7 +152,7 @@ impl SourceReader {
         Read { files, work }
     }
 
-    /// One file: loaded, digested, looked up, parsed on a miss and kept.
+    /// One file: loaded, digested, looked up, parsed on a miss and kept (an outcome past the deadline is not).
     fn one(
         &self,
         parser: &mut tree_sitter::Parser,
@@ -172,7 +180,7 @@ impl SourceReader {
                 SyntaxOutcome::Parsed { matches, errors }
             }
             None => {
-                let outcome = parse(parser, query, &bytes)
+                let outcome = parse(parser, query, &bytes, self.deadline)
                     .unwrap_or_else(|reason| SyntaxOutcome::NotParsed { reason });
                 if let SyntaxOutcome::Parsed { matches, errors } = &outcome {
                     work.parsed = 1;

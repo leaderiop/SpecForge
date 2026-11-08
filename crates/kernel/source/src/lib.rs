@@ -14,6 +14,6 @@ mod reader;
 
 pub use cache::{CACHE_DIR, CACHE_MAX_AGE, SyntaxCache};
 pub use language::Language;
-pub use parse::CAPTURE_TEXT_CAP;
+pub use parse::{CAPTURE_TEXT_CAP, Deadline, PARSE_DEADLINE};
 pub use query::{QueryFault, SourceQuery};
 pub use reader::{Loaded, Read, SourceReader, SyntaxWork};

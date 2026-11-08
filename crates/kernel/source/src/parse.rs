@@ -3,12 +3,66 @@
 use specforge_protocol_types::{
     NotParsed, SyntaxCapture, SyntaxMatch, SyntaxOutcome, SyntaxPoint, SyntaxRole, SyntaxSpan,
 };
-use tree_sitter::{Node, Parser, Point, QueryCursor, StreamingIterator as _, Tree};
+use std::cell::Cell;
+use std::ops::ControlFlow;
+use std::time::{Duration, Instant};
+
+use tree_sitter::{
+    Node, ParseOptions, Parser, Point, QueryCursor, QueryCursorOptions, StreamingIterator as _,
+    Tree,
+};
 
 use crate::SourceQuery;
 
 /// The most bytes of a capture's text answered; past it the text is cut on a character boundary.
 pub const CAPTURE_TEXT_CAP: usize = 4096;
+
+/// What bounds one file's parse and query run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Deadline {
+    /// Wall-clock time, from the parse's start: production's.
+    Wall(Duration),
+    /// A count of tree-sitter's progress callbacks: counted work, what tests use so none reads a clock.
+    Progress(u32),
+}
+
+/// Each file's deadline in production (ADR 0344 D3).
+pub const PARSE_DEADLINE: Deadline = Deadline::Wall(Duration::from_secs(5));
+
+/// One file's deadline as it is spent across its parse and its query run.
+struct Budget {
+    deadline: Deadline,
+    started: Instant,
+    ticks: Cell<u32>,
+    spent: Cell<bool>,
+}
+
+impl Budget {
+    fn new(deadline: Deadline) -> Self {
+        Budget {
+            deadline,
+            started: Instant::now(),
+            ticks: Cell::new(0),
+            spent: Cell::new(false),
+        }
+    }
+
+    /// One progress callback: break once the deadline is passed.
+    fn tick(&self) -> ControlFlow<()> {
+        let ticks = self.ticks.get().saturating_add(1);
+        self.ticks.set(ticks);
+        let past = match self.deadline {
+            Deadline::Wall(most) => self.started.elapsed() > most,
+            Deadline::Progress(most) => ticks > most,
+        };
+        if past {
+            self.spent.set(true);
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(())
+        }
+    }
+}
 
 /// A parser set to `query`'s language.
 pub(crate) fn parser_for(query: &SourceQuery) -> Parser {
@@ -19,17 +73,31 @@ pub(crate) fn parser_for(query: &SourceQuery) -> Parser {
     parser
 }
 
-/// `source` parsed by `parser` (set to `query`'s language) and `query` run over its tree.
+/// `source` parsed by `parser` (set to `query`'s language) and `query` run over its tree, both within `deadline`:
+/// past it, the file is `not_parsed(deadline)`.
 pub(crate) fn parse(
     parser: &mut Parser,
     query: &SourceQuery,
     source: &[u8],
+    deadline: Deadline,
 ) -> Result<SyntaxOutcome, NotParsed> {
-    let Some(tree) = parser.parse(source, None) else {
+    let budget = Budget::new(deadline);
+    let mut progress = |_: &tree_sitter::ParseState| budget.tick();
+    let options = ParseOptions::new().progress_callback(&mut progress);
+    let mut text = |at: usize, _: Point| source.get(at..).unwrap_or_default();
+    let Some(tree) = parser.parse_with_options(&mut text, None, Some(options)) else {
+        // A stopped parse resumes on the next call unless the parser is reset.
         parser.reset();
-        return Err(NotParsed::Unreadable);
+        return Err(if budget.spent.get() {
+            NotParsed::Deadline
+        } else {
+            NotParsed::Unreadable
+        });
     };
-    let matches = matches(&tree, query, source);
+    let matches = matches(&tree, query, source, &budget);
+    if budget.spent.get() {
+        return Err(NotParsed::Deadline);
+    }
     Ok(SyntaxOutcome::Parsed {
         matches,
         errors: errors(&tree),
@@ -69,11 +137,13 @@ struct Found {
     matched: SyntaxMatch,
 }
 
-fn matches(tree: &Tree, query: &SourceQuery, source: &[u8]) -> Vec<SyntaxMatch> {
+fn matches(tree: &Tree, query: &SourceQuery, source: &[u8], budget: &Budget) -> Vec<SyntaxMatch> {
     let names = query.query.capture_names();
     let mut cursor = QueryCursor::new();
     let mut found = Vec::new();
-    let mut each = cursor.matches(&query.query, tree.root_node(), source);
+    let mut progress = |_: &tree_sitter::QueryCursorState| budget.tick();
+    let options = QueryCursorOptions::new().progress_callback(&mut progress);
+    let mut each = cursor.matches_with_options(&query.query, tree.root_node(), source, options);
     while let Some(matched) = each.next() {
         let role = &query.roles[matched.pattern_index];
         let Some(node) = matched
@@ -198,9 +268,9 @@ fn clamp(value: usize) -> u32 {
 }
 
 impl SourceQuery {
-    /// `source` parsed and this query run over it, outside any reader: no cache, no count.
+    /// `source` parsed and this query run over it within [`PARSE_DEADLINE`], outside any reader: no cache, no count.
     pub fn parse(&self, source: &[u8]) -> SyntaxOutcome {
-        parse(&mut parser_for(self), self, source)
+        parse(&mut parser_for(self), self, source, PARSE_DEADLINE)
             .unwrap_or_else(|reason| SyntaxOutcome::NotParsed { reason })
     }
 }
