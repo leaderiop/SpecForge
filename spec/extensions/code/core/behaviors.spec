@@ -141,4 +141,5 @@ behavior cc_mint_code_ids "Mint Every Code Id in One Library" {
   verify unit "an item id never holds a hash sign, a test id always does"
   verify unit "every id parses back to itself"
   verify unit "a SCIP symbol of rust-analyzer or scip-typescript maps into exactly one id"
+  verify unit "definitions of one id merge into one fact listing every location and kind"
 }

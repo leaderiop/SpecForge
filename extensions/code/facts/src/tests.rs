@@ -3,6 +3,8 @@ use std::collections::BTreeSet;
 use super::*;
 use specforge_test::prelude::*;
 
+mod mint;
+
 fn strings(items: &[&str]) -> Vec<String> {
     items.iter().map(|s| s.to_string()).collect()
 }

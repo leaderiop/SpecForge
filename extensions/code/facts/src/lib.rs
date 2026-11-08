@@ -9,12 +9,19 @@
 //! - [`PackageId`]: `pkg:cargo/<name>`, `pkg:cargo/<name>#<dir>`, `pkg:npm/<name>`.
 //! - [`crate_segment`]: the crate part of a Rust item id, the package name qualified by its target as rust-analyzer
 //!   qualifies it.
+//! - [`test_facts`] mints a `test` and, when it ran, a `test_run` per test id from a runner's [`TestCase`]s.
+//! - [`item_facts`] mints one `item` per item id from a source pack's [`Definition`]s, every place and kind listed.
+//! - [`Package::fact`] mints a `package`; [`location`] turns the reader's points into a fact's place.
 //!
 //! Every id parses back to itself (`FromStr`), and a SCIP symbol of rust-analyzer or scip-typescript maps into exactly
 //! one (ADR 0347 D4).
 
 mod ids;
+mod mint;
 #[cfg(test)]
 mod tests;
 
 pub use ids::{crate_segment, IdError, ItemId, Owner, PackageId, Scheme, TestId};
+pub use mint::{
+    item_facts, location, test_facts, Definition, ItemKind, Names, Package, TestCase, Visibility,
+};
