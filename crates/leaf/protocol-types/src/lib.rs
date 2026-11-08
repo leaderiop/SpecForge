@@ -539,6 +539,10 @@ pub struct CollectorDescriptor {
     /// What the host serves the collector before the call: `files` (ADR 0293, ADR 0337 D2).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inputs: Vec<Input>,
+    /// The collected kinds whose facts it answers (ADR 0345 D3): what orders it before a collector whose `facts`
+    /// input names one, and the only kinds whose facts the host admits from it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub answers: Vec<String>,
 }
 
 // ── Analyzer Protocol Types ──

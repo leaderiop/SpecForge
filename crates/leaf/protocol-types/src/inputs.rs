@@ -9,7 +9,8 @@ use crate::FileRead;
 /// One thing a call declares the host serves it before the call.
 ///
 /// On the wire: `{"input": "files", "name": "sources", "glob": "src/**/*.rs"}`, `{"input": "tests"}`,
-/// `{"input": "git", "status": true}`, `{"input": "setting", "extension": "@gsd/security", "name": "x.y"}`.
+/// `{"input": "git", "status": true}`, `{"input": "setting", "extension": "@gsd/security", "name": "x.y"}`,
+/// `{"input": "facts", "kinds": ["package"]}`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "input", rename_all = "snake_case")]
 pub enum Input {
@@ -36,6 +37,9 @@ pub enum Input {
     /// Each checked value's outcome, as `check_outcomes` (ADR 0336): a collector only, and one that declares it runs
     /// only when named or under `checks.publish`.
     CheckOutcomes,
+    /// The admitted facts of these collected kinds, as `facts` (ADR 0345 D3): a collector only. Earlier collectors of
+    /// the same collect answer them, else the recorded stores serve them.
+    Facts { kinds: Vec<String> },
 }
 
 impl Input {
@@ -81,6 +85,13 @@ impl Input {
         }
     }
 
+    /// The facts of `kinds`.
+    pub fn facts(kinds: &[&str]) -> Self {
+        Input::Facts {
+            kinds: kinds.iter().map(ToString::to_string).collect(),
+        }
+    }
+
     /// The input's kind, the one table its tag, its keys and what each call kind is served are read from.
     pub fn kind(&self) -> InputKind {
         match self {
@@ -92,6 +103,7 @@ impl Input {
             Input::Git { .. } => InputKind::Git,
             Input::Setting { .. } => InputKind::Setting,
             Input::CheckOutcomes => InputKind::CheckOutcomes,
+            Input::Facts { .. } => InputKind::Facts,
         }
     }
 
@@ -112,10 +124,11 @@ pub enum InputKind {
     Git,
     Setting,
     CheckOutcomes,
+    Facts,
 }
 
 impl InputKind {
-    pub const ALL: [InputKind; 8] = [
+    pub const ALL: [InputKind; 9] = [
         InputKind::Files,
         InputKind::Tests,
         InputKind::State,
@@ -124,6 +137,7 @@ impl InputKind {
         InputKind::Git,
         InputKind::Setting,
         InputKind::CheckOutcomes,
+        InputKind::Facts,
     ];
 
     /// The one table: the kind's tag on the wire and the keys it writes beside the tag (a test holds `files`' to
@@ -138,6 +152,7 @@ impl InputKind {
             InputKind::Git => ("git", &["status", "when"]),
             InputKind::Setting => ("setting", &["extension", "name"]),
             InputKind::CheckOutcomes => ("check_outcomes", &[]),
+            InputKind::Facts => ("facts", &["kinds"]),
         }
     }
 
@@ -201,6 +216,21 @@ impl<'a> Inputs<'a> {
             }),
             _ => None,
         })
+    }
+
+    /// The kinds of the `facts` inputs, in order, each once.
+    pub fn facts(self) -> Vec<&'a str> {
+        let mut kinds: Vec<&'a str> = Vec::new();
+        for input in self.0 {
+            if let Input::Facts { kinds: of } = input {
+                for kind in of {
+                    if !kinds.contains(&kind.as_str()) {
+                        kinds.push(kind);
+                    }
+                }
+            }
+        }
+        kinds
     }
 
     /// Each `setting` input, `(extension, name)`, in order.

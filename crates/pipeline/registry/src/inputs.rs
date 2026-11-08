@@ -4,7 +4,9 @@
 
 use std::collections::HashSet;
 
-use specforge_protocol_types::{ExtensionDeclaration, FileRead, Input, InputKind, Root};
+use specforge_protocol_types::{
+    ExtensionDeclaration, FieldWriter, FileRead, Input, InputKind, Root,
+};
 
 use crate::compilation::populate::keyword;
 
@@ -30,7 +32,7 @@ pub fn served(kind: CallKind, input: &Input) -> bool {
         InputKind::Graph => matches!(kind, Prompt | Hook),
         InputKind::SlashCommands => kind == Prompt,
         InputKind::Git | InputKind::Setting => kind == Hook,
-        InputKind::CheckOutcomes => kind == Collector,
+        InputKind::CheckOutcomes | InputKind::Facts => kind == Collector,
     }
 }
 
@@ -150,6 +152,23 @@ pub(crate) fn problems(
                     }
                     continue;
                 }
+                Input::Facts { kinds } => {
+                    if !tags.insert(tag) {
+                        messages.push(said(format!("the input '{tag}'"), "it is declared twice"));
+                    } else if kinds.is_empty() {
+                        messages.push(said(format!("the input '{tag}'"), "it names no kind"));
+                    }
+                    for kind in kinds
+                        .iter()
+                        .filter(|kind| !declares_collected(loaded, kind))
+                    {
+                        messages.push(said(
+                            format!("the facts of kind '{kind}'"),
+                            "no loaded extension declares it collector-written",
+                        ));
+                    }
+                    continue;
+                }
                 _ => {
                     if !tags.insert(tag) {
                         messages.push(said(format!("the input '{tag}'"), "it is declared twice"));
@@ -197,7 +216,30 @@ pub(crate) fn problems(
         let owner = format!("collector '{}'", collector.name);
         check(owner, CallKind::Collector, &collector.inputs);
     }
+    // ADR 0345 D3: what a collector answers orders the collect and admits its facts, so it names collected kinds.
+    for collector in &declaration.collectors {
+        for kind in collector
+            .answers
+            .iter()
+            .filter(|kind| !declares_collected(loaded, kind))
+        {
+            messages.push(format!(
+                "extension '{name}': collector '{}' answers the kind '{kind}', which no loaded extension declares \
+                 collector-written",
+                collector.name
+            ));
+        }
+    }
     messages
+}
+
+/// Whether a loaded extension declares `kind` collector-written (ADR 0327).
+fn declares_collected(loaded: &[ExtensionDeclaration], kind: &str) -> bool {
+    loaded.iter().any(|d| {
+        d.entities.iter().any(|k| {
+            keyword(k) == kind && k.writer.as_deref() == Some(FieldWriter::Collector.as_str())
+        })
+    })
 }
 
 /// Whether a loaded extension declares `kind.field` or `kind.field.member` (a kind's own fields, the fields every kind
@@ -221,4 +263,85 @@ fn declares_field(loaded: &[ExtensionDeclaration], path: &str) -> bool {
                 .iter()
                 .any(|e| e.target_kind == kind && found(&e.fields))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use specforge_extension_sdk::prelude::*;
+
+    use super::*;
+
+    /// `@acme/facts` declaring the collected kind `package`, then what `declare` adds.
+    fn problems_of(declare: impl FnOnce(&mut ContributionsBuilder)) -> Vec<String> {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/facts", "1.0.0"));
+        c.kind("package", |k| {
+            k.collected(&["pkg"]);
+        });
+        declare(&mut c);
+        let declaration = c.declaration();
+        problems(&declaration, std::slice::from_ref(&declaration))
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "register_collector_contributions",
+        verify = "a facts input is served to a collector only, and an empty or unknown kind or a second one is W021"
+    )]
+    fn a_facts_input_on_a_pass_is_w021() {
+        let found = problems_of(|c| {
+            c.pass("audit", |p| {
+                p.phase("check")
+                    .input(Input::facts(&["package"]))
+                    .run(|_| Vec::new());
+            });
+            c.collector("reader", |k| {
+                k.input(Input::facts(&["package"]))
+                    .collect(|_| Ok(CollectOutput::default()));
+            });
+        });
+        assert_eq!(
+            found,
+            [
+                "extension '@acme/facts': pass 'audit' declares the input 'facts', which is not served: its kind of \
+              call is not served it"
+            ]
+        );
+        let found = problems_of(|c| {
+            c.collector("reader", |k| {
+                k.input(Input::facts(&[]))
+                    .input(Input::facts(&["package", "nothing"]))
+                    .collect(|_| Ok(CollectOutput::default()));
+            });
+        });
+        assert_eq!(
+            found,
+            [
+                "extension '@acme/facts': collector 'reader' declares the input 'facts', which is not served: it \
+                 names no kind",
+                "extension '@acme/facts': collector 'reader' declares the input 'facts', which is not served: it \
+                 is declared twice",
+                "extension '@acme/facts': collector 'reader' declares the facts of kind 'nothing', which is not \
+                 served: no loaded extension declares it collector-written",
+            ]
+        );
+    }
+
+    #[test]
+    fn an_answers_kind_that_no_extension_declares_collected_is_w021() {
+        let found = problems_of(|c| {
+            c.kind("note", |_| {});
+            c.collector("reader", |k| {
+                k.answers(&["package", "note", "nothing"])
+                    .collect(|_| Ok(CollectOutput::default()));
+            });
+        });
+        assert_eq!(
+            found,
+            [
+                "extension '@acme/facts': collector 'reader' answers the kind 'note', which no loaded extension \
+                 declares collector-written",
+                "extension '@acme/facts': collector 'reader' answers the kind 'nothing', which no loaded extension \
+                 declares collector-written",
+            ]
+        );
+    }
 }

@@ -123,6 +123,8 @@ pub(super) fn dispatch_over(
             .as_ref()
             .map(|serve| serve.check_outcomes())
             .unwrap_or_default(),
+        // Served by the collect, which knows what the earlier collectors answered.
+        facts: Vec::new(),
     };
     let Some(runtime) = runtime else {
         return Err(CallError::new(

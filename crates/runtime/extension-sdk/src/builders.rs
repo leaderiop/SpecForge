@@ -720,6 +720,7 @@ impl CollectorBuilder {
                 capture: None,
                 writes: false,
                 inputs: Vec::new(),
+                answers: Vec::new(),
             },
             collect: None,
             run: None,
@@ -780,6 +781,14 @@ impl CollectorBuilder {
     /// root. A directory is read as every `*.json` file directly inside it.
     pub fn report(&mut self, path: &str) -> &mut Self {
         self.descriptor.report = Some(path.to_string());
+        self
+    }
+    /// The collected kinds whose facts it answers (ADR 0345 D3): a collector whose `facts` input names one of them runs
+    /// after it, and a fact of a kind it does not list is refused.
+    pub fn answers(&mut self, kinds: &[&str]) -> &mut Self {
+        self.descriptor
+            .answers
+            .extend(kinds.iter().map(ToString::to_string));
         self
     }
     /// Keep the command's standard output and pass it to the export as

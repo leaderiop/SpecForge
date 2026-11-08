@@ -687,9 +687,8 @@ impl TestResults {
 
 // ── Collector (`collect__<name>`) ──────────────────────────────────────────
 
-/// What the host passes to a `collect__<name>` export: the runner's report
-/// files, read from the declared report location, and the command's
-/// standard output when the collector captures it.
+/// What the host passes to a `collect__<name>` export: the runner's report files, read from the declared report
+/// location, and the command's standard output when the collector captures it.
 ///
 /// Every collector receives the project root as `cwd`, canonical (protocol 1.15.0, ADR 0327). A collector that
 /// declares `writes` also receives the host's date, the graph and the revisions of the sources (protocol 1.9.0).
@@ -717,6 +716,9 @@ pub struct CollectInput<G = GraphWire> {
     /// Each checked value's outcome, for a collector that declares `check_outcomes` (ADR 0336).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub check_outcomes: Vec<crate::CheckOutcome>,
+    /// The admitted facts of the kinds its `facts` input names, sorted by kind and id (ADR 0345 D3).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub facts: Vec<crate::Fact>,
 }
 
 impl<G> Default for CollectInput<G> {
@@ -731,6 +733,7 @@ impl<G> Default for CollectInput<G> {
             revisions: BTreeMap::new(),
             files: crate::FileMap::new(),
             check_outcomes: Vec::new(),
+            facts: Vec::new(),
         }
     }
 }
