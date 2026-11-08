@@ -9,7 +9,9 @@ use serde_json::{Value, json};
 use specforge_effects::SharedGit;
 use specforge_effects::testing::FakeGit;
 use specforge_ops::analysis::collect::{self, Mode, Outcome, Request};
-use specforge_ops::authoring::apply::apply_collected;
+use specforge_ops::authoring::apply::{Origin, apply_collected};
+use specforge_ops::authoring::rename;
+use specforge_ops::read::navigate::Navigator;
 use specforge_ops::testing::{ScriptedMachine, caller};
 use specforge_ops::view::ProjectView;
 use specforge_project::facts::Store;
@@ -711,4 +713,67 @@ fn a_fact_placed_outside_the_root_is_e116_and_nothing_is_stored() {
     );
     assert!(!p.root().join(Store::path("node", SHA)).exists());
     assert_eq!(outcome.runners[0].facts, 0);
+}
+
+/// `node`'s fact `js:a.test.js#adds`, naming `name` in `covers` where `a.test.js` writes it: line 1, columns 11..13.
+fn naming(name: &str) -> Value {
+    json!([{"kind": "test", "id": "js:a.test.js#adds", "fields": {"file": "a.test.js", "covers": [name]},
+            "named_at": {"covers": {name: [
+                {"file": "a.test.js", "start_line": 1, "start_col": 11, "end_line": 1, "end_col": 13}]}}}])
+}
+
+#[specforge_test(
+    behavior = "build_in_memory_graph",
+    verify = "a fact store a rename marked stale is served through the ledger's moves with W197 until the next collect"
+)]
+fn the_next_collect_after_a_rename_replaces_the_stale_store_and_its_w197() {
+    let p = project();
+    std::fs::write(p.root().join("a.test.js"), "// covers T1\n").unwrap();
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
+    collect(&p, &git, serving(naming("T1"), nothing()), Some("node"));
+    let compile = |answer: &str| {
+        p.compile_with(
+            Arc::new(serving(naming(answer), nothing())),
+            Some(Arc::clone(&git)),
+        )
+    };
+    let collected = compile("T1");
+    rename::run(
+        &Navigator::new(ProjectView::of(&collected)),
+        "T1",
+        "T2",
+        false,
+        &Origin::cli(true),
+        caller(),
+    )
+    .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        "// covers T2\n"
+    );
+    assert!(ledger(&p).contains("node stale:"), "{}", ledger(&p));
+    let stale = compile("T1");
+    assert!(
+        stale.diagnostics().iter().any(|d| d.code == "W197"),
+        "{:?}",
+        stale.diagnostics()
+    );
+
+    // The collector reads the source the rename rewrote.
+    collect(&p, &git, serving(naming("T2"), nothing()), Some("node"));
+
+    assert!(!ledger(&p).contains(" stale:"), "{}", ledger(&p));
+    let fresh = compile("T2");
+    assert!(
+        !fresh.diagnostics().iter().any(|d| d.code == "W197"),
+        "{:?}",
+        fresh.diagnostics()
+    );
+    let covered: Vec<&str> = fresh
+        .graph()
+        .edges_from("js:a.test.js#adds")
+        .iter()
+        .map(|e| e.target.as_str())
+        .collect();
+    assert_eq!(covered, ["T2"], "{:?}", fresh.diagnostics());
 }
