@@ -76,19 +76,19 @@ fn two_kinds_linked_both_ways_are_w162() {
     verify = "two kinds linked both ways where one field names its reverse are two relations, not W162"
 )]
 fn a_field_that_names_its_reverse_is_its_own_relation() {
-    let declared = declare("@t/work", |c| {
-        c.kind("Plan", |k| {
-            k.keyword("plan");
-            k.field("decisions", |f| {
+    let declared = declare("@t/tree", |c| {
+        c.kind("Parent", |k| {
+            k.keyword("parent");
+            k.field("adopted", |f| {
                 f.field_type(FieldType::ReferenceList)
-                    .target_kind("decision")
-                    .inverse_of("implemented_by");
+                    .target_kind("child")
+                    .inverse_of("adopted_by");
             });
         });
-        c.kind("Decision", |k| {
-            k.keyword("decision");
-            k.field("plan", |f| {
-                f.field_type(FieldType::Reference).target_kind("plan");
+        c.kind("Child", |k| {
+            k.keyword("child");
+            k.field("parent", |f| {
+                f.field_type(FieldType::Reference).target_kind("parent");
             });
         });
     });
