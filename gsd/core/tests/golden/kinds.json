@@ -3845,8 +3845,17 @@
             "target_kind": "plan"
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "`files_modified:` (paths from the project root, not existence-checked)",
+            "description": "`files_modified:` (paths from the project root, checked once the plan is complete: E016)",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -3855,8 +3864,17 @@
             "target_kind": null
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "pending",
             "default_value": null,
-            "description": "`files_deleted:`",
+            "description": "`files_deleted:` (checked while the plan is pending: E016; closed once it is complete)",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -3993,8 +4011,16 @@
             "target_kind": null
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
             "default_value": null,
-            "description": "`<context>` @-refs (paths, not existence-checked)",
+            "description": "`<context>` @-refs (paths that exist now: E016)",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -4162,8 +4188,17 @@
             "target_kind": null
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "`<files>` (paths, not existence-checked; required for `auto`, gsd/E303)",
+            "description": "`<files>` (paths, checked once the task is done: E016; required for `auto`, gsd/E303)",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -4172,8 +4207,17 @@
             "target_kind": null
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "`<read_first>`",
+            "description": "`<read_first>` (paths, checked once the task is done: E016)",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -4714,8 +4758,17 @@
             "target_kind": "plan"
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "`path:` (from the project root; not existence-checked)",
+            "description": "`path:` (from the project root; checked once the plan is complete: E016)",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -4815,8 +4868,17 @@
             "target_kind": "plan"
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "`from:` (a path, not existence-checked)",
+            "description": "`from:` (a path, checked once the plan is complete: E016)",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -4825,8 +4887,17 @@
             "target_kind": null
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "`to:` (a path, not existence-checked)",
+            "description": "`to:` (a path, checked once the plan is complete: E016)",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,

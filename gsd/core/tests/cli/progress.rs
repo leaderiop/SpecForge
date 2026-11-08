@@ -131,7 +131,8 @@ fn milestone_stats_and_git_range_come_from_commits() {
     );
     assert_eq!(
         milestone["stats"],
-        json!({"phases": 2, "plans": 3, "tasks": 4, "files": 2, "loc": 3, "days": 2}),
+        // `loc`: the first commit replaces the fixture's 14-line store by 2 lines (16), the second adds 1.
+        json!({"phases": 2, "plans": 3, "tasks": 4, "files": 2, "loc": 17, "days": 2}),
         "{milestone}"
     );
     assert_eq!(milestone["state"], "in_progress");

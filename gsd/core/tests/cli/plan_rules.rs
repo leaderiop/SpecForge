@@ -315,6 +315,8 @@ fn same_wave_overlap_is_w305() {
 #[test]
 fn a_deleted_file_counts_as_overlap() {
     let p = with(&third_plan("", "\"src/third.js\"", "\"src/tasks.js\""));
+    // A pending plan deletes a file that is there (E016 otherwise, ADR 0350).
+    p.write("src/tasks.js", "// to delete\n");
     assert_eq!(p.codes(), ["gsd/W305"]);
 }
 

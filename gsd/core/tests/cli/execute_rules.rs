@@ -107,9 +107,18 @@ fn a_green_without_red_does_not_stop_the_other_commits() {
     let p = repository();
     tdd(&p);
     p.settings(json!({ "workflow.tdd_mode": true }));
-    let first = p.git_commit("feat(01-02): Complete a task", &[("src/c.js", "c\n")], T0);
+    // Each commit writes its plan's file: a task a commit names is done, and its files are checked (ADR 0350).
+    let first = p.git_commit(
+        "feat(01-02): Complete a task",
+        &[("src/complete.js", "c\n")],
+        T0,
+    );
     let green = p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T1);
-    let last = p.git_commit("feat(02-01): Write the file", &[("src/w.js", "w\n")], T1);
+    let last = p.git_commit(
+        "feat(02-01): Write the file",
+        &[("src/store.js", "w\n")],
+        T1,
+    );
     let run = p.collect(&["--runner", "gsd-git"]);
     assert_eq!(run.code, 0, "{}", run.all());
     let mut all = [&first[..12], &green[..12], &last[..12]];
@@ -221,6 +230,8 @@ fn w403_follows_commit_ancestry_through_a_merge() {
 }
 
 pub(super) fn touch_schema(p: &Project) {
+    // The complete plan's planned file is there (E016 otherwise, ADR 0350).
+    p.write("prisma/schema.prisma", "// the schema\n");
     p.edit(
         "spec/plans.spec",
         FILES,
@@ -278,9 +289,13 @@ fn e405_is_clean_with_push_evidence_with_the_gate_off_and_before_execution() {
         "files_modified [\"src/store.js\"]",
         "files_modified [\"src/store.js\", \"prisma/schema.prisma\"]",
     );
+    // The commit writes the task's file too: the task it names is done, and its files are checked (ADR 0350).
     p.git_commit(
         "feat(02-01): Write the file",
-        &[("prisma/schema.prisma", "model A {}\n")],
+        &[
+            ("prisma/schema.prisma", "model A {}\n"),
+            ("src/store.js", "w\n"),
+        ],
         T0,
     );
     let run = p.collect(&["--runner", "gsd-git"]);

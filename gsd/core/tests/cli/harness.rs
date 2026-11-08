@@ -400,7 +400,9 @@ impl Project {
 
     /// `(code, message)` of every diagnostic of `specforge check --format json` (kernel and `gsd/`), in report order,
     /// the `I204` note and the `I205` note ("no test report") left out: the compute pass reads the report, so every
-    /// project that has none says I205 once, and the tests of the rules are not about that. The judged rules'
+    /// project that has none says I205 once, and the tests of the rules are not about that. The `I213` note (values
+    /// that wait for their owner) is left out for the same reason: every project with a pending plan says it once.
+    /// The judged rules'
     /// diagnostics (`no verdict`, `stale`, the outcome) are left out too: every plan, truth and so on of every
     /// fixture has one, and the tests of the other rules are not about them. [`Project::report_all`] has them, and
     /// the clean-report invariants and the judged tests use it.
@@ -478,12 +480,13 @@ impl Project {
     pub fn report_all(&self) -> Vec<(String, String)> {
         self.checked()
             .into_iter()
-            .filter(|(code, _)| code != "I204" && code != "I205")
+            .filter(|(code, _)| !matches!(code.as_str(), "I204" | "I205" | "I213"))
             .filter(|(code, _)| !self.quiet.contains(&code.as_str()))
             .collect()
     }
 
-    /// Every code of `specforge check --format json` (kernel and `gsd/`, `I204` and `I205` left out), in report order.
+    /// Every code of `specforge check --format json` (kernel and `gsd/`, `I204`, `I205` and `I213` left out), in
+    /// report order.
     pub fn codes(&self) -> Vec<String> {
         self.report().into_iter().map(|(code, _)| code).collect()
     }

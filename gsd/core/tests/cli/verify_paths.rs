@@ -39,8 +39,8 @@ fn a_complete_plans_task_files_still_excuse_a_missing_directory() {
         "task T3 \"Fresh part\" {\n  plan v1.0/01/01-01\n  type auto\n  files [\"fresh/a.js\"]\n  action \"Build it\"\n  verify [\n    { automated \"cd fresh && npm test\" fails_when \"the command exits non-zero\" }\n  ]\n  done \"It builds\"\n}\n",
     );
     assert!(!p.exists("fresh"));
-    // W306: the task's file is not among the plan's `files_modified`.
-    assert_eq!(p.codes(), ["gsd/W306"]);
+    // W306: the task's file is not among the plan's `files_modified`; E016: the done task's file is absent.
+    assert_eq!(p.codes(), ["gsd/W306", "E016"]);
 }
 
 #[test]
