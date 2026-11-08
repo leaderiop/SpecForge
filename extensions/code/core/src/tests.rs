@@ -252,9 +252,49 @@ fn a_dangling_reference_of_a_test_run_is_e101_for_its_collector() {
     );
     assert_eq!(
         diagnostics[1].message,
-        "the fact 'run:js:app/a.test.js#adds' names 't1', a truth, not a test"
+        "the fact 'run:js:app/a.test.js#adds' names 't1' in 'test', a truth, not a test"
     );
     assert_eq!(diagnostics[0].span.as_ref().unwrap().file, "a.test.js");
+}
+
+#[test]
+fn a_mistyped_reference_in_a_field_code_core_does_not_declare_names_no_kind() {
+    // Another extension's field on a test: what it takes is not `@code/core`'s to tell.
+    let test = PassEntity {
+        dangling: vec![DanglingReference {
+            field: "covers".to_string(),
+            id: "t1".to_string(),
+            span: read_at(4),
+            reason: DanglingReason::Mistyped,
+            actual: Some("truth".to_string()),
+            did_you_mean: None,
+            candidates: Vec::new(),
+        }],
+        ..entity("js:app/a.test.js#adds", "test")
+    };
+
+    let diagnostics = refs::refs(&input(vec![test, entity("t1", "truth")], &["js"]));
+
+    assert_eq!(
+        diagnostics[0].message,
+        "the fact 'js:app/a.test.js#adds' names 't1' in 'covers', a truth, which 'covers' does not take"
+    );
+}
+
+#[test]
+fn every_reference_field_with_a_target_is_one_refs_names() {
+    let declared = declaration();
+    let mut targeted: Vec<(&str, &str, &str)> = declared
+        .entities
+        .iter()
+        .flat_map(|k| {
+            k.fields.iter().filter_map(move |f| {
+                Some((k.name.as_str(), f.name.as_str(), f.target_kind.as_deref()?))
+            })
+        })
+        .collect();
+    targeted.sort();
+    assert_eq!(targeted, refs::TAKES);
 }
 
 #[test]

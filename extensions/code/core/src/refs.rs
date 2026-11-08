@@ -11,6 +11,10 @@ use crate::{RUN_KIND, RUN_SCHEME, TEST_KIND, TEST_SCHEME};
 /// The schemes whose references `@code/core` judges: its kinds'.
 const SCHEMES: [&str; 2] = [TEST_SCHEME, RUN_SCHEME];
 
+/// Each reference field `@code/core` declares with a target kind: its kind, its name and the kind it takes. What a
+/// mistyped reference one of its facts holds is told it should have named.
+pub(crate) const TAKES: [(&str, &str, &str); 1] = [(RUN_KIND, "test", TEST_KIND)];
+
 /// Each unheld reference in [`SCHEMES`], once, at the span it is written at: nothing while its entity is pending
 /// (a test not written yet is TDD), E101 when a served fact store holds facts of its scheme (with the closest held
 /// id of the same file), W102 when none does (nothing to check it against). A held reference is an edge, never a
@@ -61,7 +65,8 @@ fn disagreeing(entity: &PassEntity) -> Vec<PassDiagnostic> {
     let dangling = entity.dangling.iter().map(|item| {
         let mistyped = (item.reason == DanglingReason::Mistyped)
             .then_some(item.actual.as_deref())
-            .flatten();
+            .flatten()
+            .map(|actual| (item.field.as_str(), actual));
         (&item.id, mistyped, &item.span)
     });
     unheld
@@ -69,7 +74,14 @@ fn disagreeing(entity: &PassEntity) -> Vec<PassDiagnostic> {
         .map(|(id, mistyped, span)| {
             let fact = &entity.id;
             let message = match mistyped {
-                Some(actual) => format!("the fact '{fact}' names '{id}', a {actual}, not a test"),
+                Some((field, actual)) => match takes(&entity.kind, field) {
+                    Some(target) => format!(
+                        "the fact '{fact}' names '{id}' in '{field}', a {actual}, not a {target}"
+                    ),
+                    None => format!(
+                        "the fact '{fact}' names '{id}' in '{field}', a {actual}, which '{field}' does not take"
+                    ),
+                },
                 None => format!(
                     "the fact '{fact}' names '{id}', which no collected fact holds (its collector's facts \
                      disagree)"
@@ -83,6 +95,14 @@ fn disagreeing(entity: &PassEntity) -> Vec<PassDiagnostic> {
             at(diagnostic, span)
         })
         .collect()
+}
+
+/// The kind the reference field `field` of `kind` takes, when `@code/core` declares it ([`TAKES`]).
+fn takes(kind: &str, field: &str) -> Option<&'static str> {
+    TAKES
+        .iter()
+        .find(|(of, name, _)| *of == kind && *name == field)
+        .map(|(_, _, target)| *target)
 }
 
 /// `diagnostic` at `span`, when there is one.
