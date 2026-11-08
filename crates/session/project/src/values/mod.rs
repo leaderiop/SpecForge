@@ -285,13 +285,17 @@ pub(crate) fn run(
             .iter()
             .any(|check| check.calls().iter().any(running))
     };
-    for (value, status) in held.iter().filter(|(value, _)| runs(value)) {
-        for check in value.checks {
+    for one in held.iter().filter(|one| runs(&one.value)) {
+        for check in one.value.checks {
             for call in check.calls().iter().filter(|call| running(call)) {
-                phase.checks.add_held(value, call, *status);
+                phase.checks.add_held(&one.value, call, one.status);
             }
         }
     }
+    let read = held.iter().filter(|one| runs(&one.value));
+    phase
+        .diagnostics
+        .extend(owner::written_forms(env, disk, read));
     phase.diagnostics.extend(owner::waiting(&waiting));
     values.retain(runs);
     // One cap over the compile's stages.

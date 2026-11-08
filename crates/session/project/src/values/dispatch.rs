@@ -303,63 +303,31 @@ impl<'a> Probing<'a> {
     ) -> Held {
         let value = one.value;
         let shown = printable(written);
-        let at = |code, message: String, suggestion: String, span| {
-            let mut diagnostic = Diagnostic::new(code, message).with_suggestion(suggestion);
-            value.places(&mut diagnostic, span);
-            diagnostic
-        };
         let id = value.entity;
-        let leaves = |why: &str| {
-            at(
-                codes::E094,
-                format!("path '{shown}' in entity '{id}' leaves its root: {why}"),
-                "name a file inside the root".to_string(),
-                value.span.clone(),
-            )
-        };
         let refused = match self.contained.resolve(written, default.clone()) {
-            Err(Refused::Empty) => return Held::Nothing,
-            Err(Refused::UnknownRoot(name)) => {
+            Err(refused) => {
+                let Some(diagnostic) = refusal(value, written, &refused) else {
+                    return Held::Nothing;
+                };
                 reading.refused_class = Some(OutcomeClass::Outside);
-                at(
-                    codes::E095,
-                    format!(
-                        "path '{shown}' in entity '{id}' names the root '<{name}>', which is not declared"
-                    ),
-                    "write `<spec>/…` or `<project>/…`, or declare the root in `roots`".to_string(),
-                    root_span(value),
-                )
+                diagnostic
             }
-            Err(Refused::Absolute) => {
-                reading.refused_class = Some(OutcomeClass::Outside);
-                leaves("it is absolute")
-            }
-            Err(Refused::Climbs) => {
-                reading.refused_class = Some(OutcomeClass::Outside);
-                leaves("its `..` climbs above its root")
-            }
-            Err(Refused::LinksOut { .. }) => {
-                reading.refused_class = Some(OutcomeClass::Outside);
-                leaves("a link leads out of its root")
-            }
-            Ok(resolved) if resolved.backslashes => at(
-                codes::W175,
-                format!("path '{shown}' in entity '{id}' uses backslashes"),
-                format!("write '{}'", shown.replace('\\', "/")),
-                value.span.clone(),
-            ),
+            Ok(resolved) if resolved.backslashes => backslashed(value, written),
             Ok(Resolved {
                 case: Some(disk),
                 exists: true,
                 ..
             }) => {
                 let disk = printable(&disk);
-                at(
-                    codes::W174,
-                    format!(
-                        "path '{shown}' in entity '{id}' differs in case from the file on disk, '{disk}'"
-                    ),
-                    format!("write '{disk}'"),
+                placed(
+                    value,
+                    Diagnostic::new(
+                        codes::W174,
+                        format!(
+                            "path '{shown}' in entity '{id}' differs in case from the file on disk, '{disk}'"
+                        ),
+                    )
+                    .with_suggestion(format!("write '{disk}'")),
                     value.span.clone(),
                 )
             }
@@ -693,6 +661,53 @@ fn refuse(reading: &mut Reading, value: &Value<'_>, mut diagnostic: Diagnostic) 
 }
 
 /// Where `value` writes its root's name, when its text holds it as written; else the value.
+/// What the host reports on `value` when its path `written` is refused (E094, E095), placed as every refusal of a
+/// probe's path is; `None` for a bare path that names nothing.
+pub(super) fn refusal(value: &Value<'_>, written: &str, refused: &Refused) -> Option<Diagnostic> {
+    let (shown, id) = (printable(written), value.entity);
+    let leaves = |why: &str| {
+        let message = format!("path '{shown}' in entity '{id}' leaves its root: {why}");
+        let diagnostic =
+            Diagnostic::new(codes::E094, message).with_suggestion("name a file inside the root");
+        placed(value, diagnostic, value.span.clone())
+    };
+    Some(match refused {
+        Refused::Empty => return None,
+        Refused::UnknownRoot(name) => {
+            let message = format!(
+                "path '{shown}' in entity '{id}' names the root '<{name}>', which is not declared"
+            );
+            let diagnostic = Diagnostic::new(codes::E095, message).with_suggestion(
+                "write `<spec>/…` or `<project>/…`, or declare the root in `roots`",
+            );
+            placed(value, diagnostic, root_span(value))
+        }
+        Refused::Absolute => leaves("it is absolute"),
+        Refused::Climbs => leaves("its `..` climbs above its root"),
+        Refused::LinksOut { .. } => leaves("a link leads out of its root"),
+    })
+}
+
+/// W175 on `value`: its path `written` uses backslashes.
+pub(super) fn backslashed(value: &Value<'_>, written: &str) -> Diagnostic {
+    let shown = printable(written);
+    let diagnostic = Diagnostic::new(
+        codes::W175,
+        format!(
+            "path '{shown}' in entity '{}' uses backslashes",
+            value.entity
+        ),
+    )
+    .with_suggestion(format!("write '{}'", shown.replace('\\', "/")));
+    placed(value, diagnostic, value.span.clone())
+}
+
+/// `diagnostic`, placed at `span` on `value`'s entity.
+fn placed(value: &Value<'_>, mut diagnostic: Diagnostic, span: Option<SourceSpan>) -> Diagnostic {
+    value.places(&mut diagnostic, span);
+    diagnostic
+}
+
 fn root_span(value: &Value<'_>) -> Option<SourceSpan> {
     let span = value.span.clone()?;
     let at = match RootedPath::parse(value.text, Root::Project) {

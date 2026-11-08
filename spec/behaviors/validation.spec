@@ -470,7 +470,9 @@ behavior check_values_by_owner_state "Check a Value When Its Owner Allows" {
     computed status decides it. A value its owner holds back MUST call no checker: its
     row says planned or closed, it counts toward neither I206 nor I207, and it is no
     judged input. The planned values are counted once per compile in I213. Both stages
-    of the values phase share one budget.
+    of the values phase share one budget. While its owner is pending, a planned path's
+    written form MUST still be read without the disk: an undeclared root is E095, an
+    absolute path or a climb out of its root E094, a backslash W175.
   """
   verify unit "an owner gate needs a check and a complete_when on its kind or a scope ancestor, else W199"
   verify unit "a planned value's checks wait while its owner is pending, and its row says planned"
@@ -481,4 +483,6 @@ behavior check_values_by_owner_state "Check a Value When Its Owner Allows" {
   verify unit "a gated value is no judged input, waiting or checked"
   verify unit "the values waiting for their owner are counted once in I213, by field, and never in I206 or I207"
   verify unit "a gated value spends the compile's one value budget"
+  verify unit "a planned path that climbs out of its root is E094 while its owner is pending"
+  verify unit "a planned path naming an undeclared root is E095 while its owner is pending"
 }

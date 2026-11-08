@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, DiagnosticData, SourceSpan};
-use specforge_protocol_types::{CheckStatus, OwnerState};
+use specforge_protocol_types::{CheckStatus, OwnerState, Root};
 use specforge_registry::entity::FieldRecord;
 use specforge_registry::{CheckRegistry, EntitySnapshot, ResolvedCheck};
 
@@ -44,9 +44,19 @@ pub(super) struct Collected<'a> {
     pub values: Vec<Value<'a>>,
     /// The gated values their owner state holds back, each with its rows' status: `Planned` while a planned value's
     /// owner is pending, `Closed` once a while-open value's owner is complete. No checker reads them.
-    pub held: Vec<(Value<'a>, CheckStatus)>,
+    pub held: Vec<Held<'a>>,
     /// How many planned values wait for their owner, by `kind.path` (I213).
     pub waiting: BTreeMap<String, usize>,
+}
+
+/// A gated value its owner state holds back.
+pub(super) struct Held<'a> {
+    pub value: Value<'a>,
+    /// Its rows' status: `Planned` or `Closed`.
+    pub status: CheckStatus,
+    /// Where a planned value's path starts when a check reads it as a path: its written form is still read
+    /// (ADR 0350 D5).
+    pub root: Option<Root>,
 }
 
 /// Every value of `entities` that has a check and that `stage` takes, in source order: the ungated values, or the gated
@@ -90,15 +100,19 @@ pub(super) fn values<'a>(
                 };
                 let mut values = Vec::new();
                 values_of(&record.id, written, owed, text_of, &mut values);
+                let mut root = None;
                 if status == CheckStatus::Planned {
                     *collected
                         .waiting
                         .entry(format!("{}.{}", record.kind, written.declared))
                         .or_default() += values.len();
+                    root = checks.path_root(&record.kind, &written.declared);
                 }
-                collected
-                    .held
-                    .extend(values.into_iter().map(|value| (value, status)));
+                collected.held.extend(values.into_iter().map(|value| Held {
+                    value,
+                    status,
+                    root: root.clone(),
+                }));
             }
         }
     }

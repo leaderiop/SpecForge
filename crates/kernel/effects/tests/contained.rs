@@ -327,3 +327,37 @@ fn a_near_name_is_never_a_withheld_one() {
     assert_eq!(near("server.pemm"), None);
     assert_eq!(near("notes.mdd").as_deref(), Some("notes.md"));
 }
+
+#[test]
+fn lexical_refuses_what_resolve_refuses_without_the_disk() {
+    let (roots, disk) = (roots(), disk());
+    let contained = Contained::new(&roots, &disk);
+    for (written, refused) in [
+        ("<nowhere>/a.md", Refused::UnknownRoot("nowhere".into())),
+        ("/etc/passwd", Refused::Absolute),
+        ("../out.md", Refused::Climbs),
+        ("a/..", Refused::Empty),
+    ] {
+        assert_eq!(
+            contained.lexical(written, Root::Spec),
+            Err(refused.clone()),
+            "{written}"
+        );
+        assert_eq!(
+            contained.resolve(written, Root::Spec).err(),
+            Some(refused),
+            "{written}"
+        );
+    }
+    // A path that does not exist yet reads as it is written, its backslash told; the disk is never listed.
+    let planned = contained
+        .lexical("new\\dir/../file.md", Root::Project)
+        .unwrap();
+    assert_eq!(
+        (planned.root, planned.rel.as_str(), planned.backslashes),
+        (Root::Project, "new/file.md", true)
+    );
+    let named = contained.lexical("<vendor>/later.md", Root::Spec).unwrap();
+    assert_eq!(named.root, Root::Named("vendor".into()));
+    assert!(disk.asked.borrow().is_empty(), "{:?}", disk.asked.borrow());
+}

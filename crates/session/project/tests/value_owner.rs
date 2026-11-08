@@ -327,3 +327,61 @@ fn a_gated_value_spends_the_runs_one_budget() {
         summary[0].message
     );
 }
+
+#[specforge_test(
+    behavior = "check_values_by_owner_state",
+    verify = "a planned path that climbs out of its root is E094 while its owner is pending"
+)]
+fn a_planned_path_that_climbs_out_is_e094_while_pending() {
+    let project = compile(&plan(
+        false,
+        "files",
+        &["../out.js", "new\\\\a.js", "fine.js"],
+    ));
+    let found = coded(&project, "E094");
+    assert_eq!(found.len(), 1, "{:?}", project.diagnostics());
+    assert!(
+        found[0].message.contains("'../out.js'"),
+        "{}",
+        found[0].message
+    );
+    assert_eq!(found[0].subject(), Some("p1"));
+    let span = found[0].span.as_ref().expect("on the value");
+    assert_eq!((span.start_line, span.start_col), (3, 10));
+    // Its backslash is told; the disk is not asked, so no file is missing yet.
+    assert_eq!(
+        coded(&project, "W175").len(),
+        1,
+        "{:?}",
+        project.diagnostics()
+    );
+    assert!(
+        coded(&project, "E016").is_empty(),
+        "{:?}",
+        project.diagnostics()
+    );
+    assert_eq!(
+        statuses(&project, "p1", "files"),
+        [
+            CheckStatus::Planned,
+            CheckStatus::Planned,
+            CheckStatus::Planned
+        ]
+    );
+}
+
+#[specforge_test(
+    behavior = "check_values_by_owner_state",
+    verify = "a planned path naming an undeclared root is E095 while its owner is pending"
+)]
+fn an_unknown_root_is_e095_while_pending() {
+    let project = compile(&plan(false, "files", &["<nowhere>/a.js"]));
+    let found = coded(&project, "E095");
+    assert_eq!(found.len(), 1, "{:?}", project.diagnostics());
+    assert!(
+        found[0].message.contains("'<nowhere>'"),
+        "{}",
+        found[0].message
+    );
+    assert_eq!(statuses(&project, "p1", "files"), [CheckStatus::Planned]);
+}
