@@ -1648,6 +1648,23 @@ Owner: core
 Level: error
 ```
 
+## E119
+
+```
+E119: Collectors whose facts inputs form a cycle
+
+Collectors read one another's facts in a cycle (ADR 0345 D3): each collector
+whose `facts` input names a kind another collector `answers` runs after it, and
+here every collector of the cycle waits on another, so none can run first. The
+message names the collectors of the cycle. The registry build reports it over
+the loaded collectors, and `specforge collect` refuses a selection holding one
+before any collector runs or any command starts. Drop a kind from one
+collector's `facts` input, or from what another answers.
+
+Owner: core
+Level: error
+```
+
 ## I002
 
 ```

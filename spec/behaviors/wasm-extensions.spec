@@ -354,6 +354,7 @@ behavior auto_detect_collector "Auto-Detect Collector" {
     runner_flag_selects_one "--runner selects exactly the collector with that name or extension"
     single_collector_used   "a single enabled collector is used without detection"
     no_match_diagnosed      "no collector, no match among several or an unknown --runner is E058, listing the available collectors"
+    ordered_by_facts        "a collector whose facts input names a kind another selected collector answers runs after it; a cycle is E119 before any runs"
   }
   contract   """
     Without `--runner`, `specforge collect` selects every collector whose
@@ -364,7 +365,10 @@ behavior auto_detect_collector "Auto-Detect Collector" {
     collector is enabled, it is selected without detection: detection
     only decides between several. When nothing can be
     selected, the command fails with E058 and lists the collectors that are
-    available.
+    available. The selected collectors run in declaration order, except that
+    a collector whose `facts` input names a kind another answers runs after
+    it; collectors whose inputs and answers form a cycle are E119, reported by
+    the registry build and refused by collect before anything runs.
   """
   produces   []
   verify unit "a collector reading check outcomes is not run by a plain collect"
@@ -375,7 +379,11 @@ behavior auto_detect_collector "Auto-Detect Collector" {
   verify unit "wildcards match within the last path segment"
   verify unit "no match emits E058 with available collectors"
   verify integration "a single enabled collector is used without detection"
-  verify contract "Auto-Detect Collector: collector auto-detection holds — collector_registered_fired, all_matches_selected, runner_flag_selects_one, single_collector_used, no_match_diagnosed"
+  verify unit "collectors run in declaration order unless a facts input orders a producer first, and a cycle is E119"
+  verify unit "collectors whose facts inputs and answers form a cycle are E119 in the registry build"
+  verify integration "a collector whose facts input names a kind another answers runs after it"
+  verify integration "collectors whose facts inputs form a cycle are E119 before any of them runs"
+  verify contract "Auto-Detect Collector: collector auto-detection holds — collector_registered_fired, all_matches_selected, runner_flag_selects_one, single_collector_used, no_match_diagnosed, ordered_by_facts"
 }
 
 behavior approve_capability "Approve Capability" {
@@ -497,6 +505,7 @@ behavior dispatch_collector "Dispatch Collector" {
     named_reports_only           "with --report only the named files are read: nothing the collector declares about its report, capture or command is resolved or refused"
     declared_files_passed        "a collector that declares reads receives their files' facts, held to the project as a pass's are"
     facts_stored                 "a collector's admitted facts are stored under the collect's key and recorded by digest in specforge-harness, in one change under the write lock"
+    facts_served                 "a facts input is served the admitted facts of its kinds that earlier collectors answered, else the recorded stores'"
   }
   contract   """
     The host reads the report (the file itself, or every `*.json` file
@@ -534,7 +543,11 @@ behavior dispatch_collector "Dispatch Collector" {
     (I209 for either), and `specforge-harness` records one line per
     collector, `<collector> facts:<key> <digest>`, replacing its last; the
     store, the removal of its stores under other keys and the line are one
-    change under the write lock.
+    change under the write lock. A collector that declares a `facts` input
+    receives `facts`, sorted by kind and id: for each kind, the admitted facts
+    the collectors that ran before it in this collect answered, or, for a
+    kind none of them answers, the facts of the stores specforge-harness
+    records (ADR 0345 D3).
   """
   produces   [collector_dispatched]
   verify unit "a collector named by the runner receives each checked value's outcome"
@@ -551,7 +564,10 @@ behavior dispatch_collector "Dispatch Collector" {
   verify unit "a collector's facts are stored under the key of the commit they were collected at and their digest is recorded in specforge-harness"
   verify unit "facts that name a kind no collector writes, or an id outside its kind's schemes, are E116 and none of them is stored"
   verify unit "a dirty tree or a project in no repository files its facts under a key that says so, with I209"
-  verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only, declared_files_passed, facts_stored"
+  verify integration "a facts input is served the admitted facts of its kinds that earlier collectors answered, sorted"
+  verify integration "a facts input no collector of the collect answers is served the recorded stores"
+  verify unit "the recorded facts of a kind are those of the stores the ledger records, sorted"
+  verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only, declared_files_passed, facts_stored, facts_served"
 }
 
 behavior ingest_collector_report "Ingest Collector Report" {

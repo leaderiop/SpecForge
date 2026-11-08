@@ -27,6 +27,9 @@ pub struct Collector {
     pub inputs: Vec<Input>,
     /// The process capability its command is (ADR 0335 D2.1): the scope a run is granted and approved under.
     pub capability: Option<String>,
+    /// The collected kinds whose facts it answers (ADR 0345 D3): it runs before a collector whose `facts` input names
+    /// one, and serves it this collect's facts of that kind.
+    pub answers: Vec<String>,
 }
 
 impl Collector {
@@ -80,6 +83,7 @@ pub fn collectors(declarations: &[ExtensionDeclaration]) -> Vec<Collector> {
                 writes: c.writes,
                 inputs: c.inputs.clone(),
                 capability: c.capability.clone(),
+                answers: c.answers.clone(),
             })
         })
         .collect()

@@ -245,6 +245,34 @@ pub(crate) fn read(
     }
 }
 
+/// The facts of `kinds` in the stores the harness ledger at the project root `root` records, read through `disk`,
+/// sorted by kind and id (ADR 0345 D3): what a collector's `facts` input is served of a kind no collector of its
+/// collect answers. A store the ledger does not record as it is, or that is no store this specforge reads, serves
+/// nothing.
+pub fn recorded_facts(disk: &dyn Disk, root: &Path, kinds: &[&str]) -> Vec<Fact> {
+    if kinds.is_empty() {
+        return Vec::new();
+    }
+    let ledger = recorded(disk, root);
+    let mut facts: Vec<Fact> = ledger
+        .lines()
+        .filter_map(Line::facts_of)
+        .filter_map(|(collector, key)| {
+            let bytes = disk.read(&root.join(Store::path(collector, key))).ok()?;
+            if !ledger.contains(&Line::facts(collector, key, &bytes)) {
+                return None;
+            }
+            serde_json::from_slice::<Store>(&bytes)
+                .ok()
+                .filter(|store| store.store == Store::VERSION)
+        })
+        .flat_map(|store| store.facts)
+        .filter(|fact| kinds.contains(&fact.kind.as_str()))
+        .collect();
+    facts.sort_by(|a, b| (&a.kind, &a.id).cmp(&(&b.kind, &b.id)));
+    facts
+}
+
 /// The store `text` of the fact store `key` as one file of read-only entities (D5): each fact an entity of its kind,
 /// id, title and fields, spanned at the file's first character. A field's value is read from its JSON by the field's
 /// form in `forms`, as a `.spec` file writes it (ADR 0234): a string a word field holds bare is the bare word (an

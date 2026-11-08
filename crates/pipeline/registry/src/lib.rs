@@ -63,5 +63,6 @@ pub use inputs::{CallKind, read_problem, served};
 pub use rules::paths_named;
 
 // Module paths external code names directly (`specforge_registry::surface::`).
+pub mod collectors;
 pub mod inputs;
 pub mod surface;

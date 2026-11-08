@@ -21,6 +21,7 @@ mod dispatch;
 mod evidence;
 mod facts;
 mod merge;
+mod order;
 mod process;
 
 pub use crate::machine::{
@@ -244,6 +245,9 @@ pub fn collect(
         .into());
     }
 
+    // Ordered, and a cycle refused, before anything runs (ADR 0345 D3).
+    let selected = order::ordered(view, selected)?;
+
     // Held before anything runs: what is read and what is written is the file checked here.
     let report_file = containment
         .resolve(&root.join(REPORT_FILE))
@@ -273,6 +277,7 @@ pub fn collect(
     approval::settle_runs(view, &planned, asking, consent, &mut unsaved_approvals)?;
     // One reader for the whole collect: every collector's parses share its cache and compiled queries.
     let reader = crate::extension::lend::source_reader(view);
+    let mut served = order::Served::new(root, containment);
     for (collector, source) in planned {
         let Evidence {
             files,
@@ -303,6 +308,7 @@ pub fn collect(
             stdout.as_deref(),
             Some(view),
             lent.clone(),
+            served.facts(collector),
         )
         .map_err(|error| {
             let mut failed = OpError::of(OpErrorKind::Internal, error.diagnostic());
@@ -344,6 +350,7 @@ pub fn collect(
             std::mem::take(&mut collected.facts),
             &mut diagnostics,
         );
+        served.answered(collector, &facts);
         let stored = facts.len();
         if !facts.is_empty() {
             stores.push((collector.name.clone(), collector.extension.clone(), facts));

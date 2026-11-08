@@ -599,3 +599,41 @@ fn capabilities_max_bytes_over_a_sixteenth_of_memory_is_w021() {
     }
     assert_eq!(found.len(), expect.len(), "{found:#?}");
 }
+
+#[specforge_test_macros::test(
+    behavior = "auto_detect_collector",
+    verify = "collectors whose facts inputs and answers form a cycle are E119 in the registry build"
+)]
+fn a_cycle_among_loaded_collectors_is_e119() {
+    let mut first = declaration("@acme/first", "1.0.0");
+    first.kind("package", |k| {
+        k.collected(&["pkg"]);
+    });
+    first.collector("packages", |k| {
+        k.input(Input::facts(&["item"]))
+            .answers(&["package"])
+            .collect(|_| Ok(CollectOutput::default()));
+    });
+    let mut second = declaration("@acme/second", "1.0.0");
+    second.kind("item", |k| {
+        k.collected(&["itm"]);
+    });
+    second.collector("items", |k| {
+        k.input(Input::facts(&["package"]))
+            .answers(&["item"])
+            .collect(|_| Ok(CollectOutput::default()));
+    });
+
+    let build = build_registries(vec![first.declaration(), second.declaration()]);
+
+    let cycles: Vec<String> = diagnostics(&build)
+        .into_iter()
+        .filter(|d| d.code == "E119")
+        .map(|d| d.message.clone())
+        .collect();
+    assert_eq!(cycles.len(), 1, "{cycles:?}");
+    assert!(
+        cycles[0].starts_with("collectors 'packages', 'items' read one another's facts"),
+        "{cycles:?}"
+    );
+}

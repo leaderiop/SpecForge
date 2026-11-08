@@ -260,3 +260,30 @@ fn a_changed_harness_ledger_reserves_the_fact_keys() {
     assert!(codes(session.project()).contains(&"W191".to_string()));
     assert!(session.stale().is_empty(), "{:?}", session.stale());
 }
+
+#[specforge_test_macros::test(
+    behavior = "dispatch_collector",
+    verify = "the recorded facts of a kind are those of the stores the ledger records, sorted"
+)]
+fn recorded_facts_are_the_ledgers_stores_of_the_kinds_asked() {
+    let p = collected();
+    stored(p.root(), "node", KEY, two_tests());
+    // A store the ledger records with other bytes serves nothing.
+    stored(p.root(), "other", KEY, two_tests());
+    fs::write(
+        p.root()
+            .join(".specforge/facts")
+            .join(KEY)
+            .join("other.json"),
+        "{}",
+    )
+    .unwrap();
+    let disk = specforge_registry::PlainDisk;
+
+    let facts = specforge_project::facts::recorded_facts(&disk, p.root(), &["test", "item"]);
+
+    let ids: Vec<&str> = facts.iter().map(|f| f.id.as_str()).collect();
+    assert_eq!(ids, ["js:a.test.js#adds", "js:a.test.js#subtracts"]);
+    assert!(specforge_project::facts::recorded_facts(&disk, p.root(), &["item"]).is_empty());
+    assert!(specforge_project::facts::recorded_facts(&disk, p.root(), &[]).is_empty());
+}
