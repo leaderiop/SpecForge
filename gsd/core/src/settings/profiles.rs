@@ -18,6 +18,7 @@ const PRESETS: &[(&str, [bool; 3])] = &[
     ("specforge.stale_verdict_gate", [false, false, true]),
     ("specforge.cross_workstream_conflicts", [false, false, true]),
     ("specforge.truth_requirements", [false, false, true]),
+    ("specforge.plan_paths_touched", [false, true, true]),
     ("specforge.task_trailers", [false, false, true]),
 ];
 

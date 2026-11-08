@@ -121,3 +121,75 @@ fn a_trailer_linked_or_docs_commit_is_not_e521() {
     assert!(check(&commit("docs", None, None)).is_empty());
     assert!(check(&commit("", None, None)).is_empty());
 }
+
+/// Complete plan `v/1/1-01` planning `src/a.js` and `src/lib` (its artifact's path), deleting `src/old.js`, whose
+/// commits touched `touched` (unwritten when `None`); the host served `present` as existing.
+fn paths(touched: Option<&[&str]>, present: &[&str]) -> PassInput {
+    let mut plan = entity("v/1/1-01", "plan");
+    plan.fields.insert("status".into(), "complete".into());
+    plan.values
+        .insert("files_modified".into(), serde_json::json!(["./src/a.js"]));
+    plan.values
+        .insert("files_deleted".into(), serde_json::json!(["src/old.js"]));
+    if let Some(touched) = touched {
+        plan.values
+            .insert("files_touched".into(), serde_json::json!(touched));
+    }
+    let mut artifact = entity("v/1/1-01/A1", "artifact");
+    artifact.fields.insert("path".into(), "src/lib/".into());
+    let facts: Vec<serde_json::Value> = present
+        .iter()
+        .map(|p| serde_json::json!({ "path": p, "entity": "v/1/1-01", "exists": true }))
+        .collect();
+    let mut input: PassInput = serde_json::from_value(serde_json::json!({
+        "entities": [],
+        "files": { "deleted": { "facts": facts, "truncated": false } },
+    }))
+    .expect("a pass input");
+    input.entities = vec![plan, artifact];
+    input
+}
+
+#[test]
+fn an_untouched_planned_path_is_w520() {
+    let found = check(&paths(Some(&["src/a.js"]), &[]));
+    assert_eq!(codes_of(&found), [("W520", Some("v/1/1-01"))]);
+    assert_eq!(
+        found[0].message,
+        "plan 'v/1/1-01' is complete, but none of its commits touched: src/lib/"
+    );
+    let mut quick = paths(Some(&["src/a.js"]), &[]);
+    quick.entities[0]
+        .fields
+        .insert("status".into(), "executing".into());
+    assert!(check(&quick).is_empty(), "an incomplete plan is not judged");
+}
+
+#[test]
+fn a_directory_path_is_touched_by_a_file_under_it() {
+    assert!(check(&paths(Some(&["src/a.js", "src/lib/b.js"]), &[])).is_empty());
+    let found = check(&paths(Some(&["src/a.js", "src/library.js"]), &[]));
+    assert_eq!(codes_of(&found), [("W520", Some("v/1/1-01"))]);
+}
+
+#[test]
+fn a_deleted_file_still_present_is_w520() {
+    let found = check(&paths(Some(&["src/a.js", "src/lib/b.js"]), &["src/old.js"]));
+    assert_eq!(codes_of(&found), [("W520", Some("v/1/1-01"))]);
+    assert_eq!(
+        found[0].message,
+        "plan 'v/1/1-01' is complete, but files it deletes are still present: src/old.js"
+    );
+}
+
+#[test]
+fn a_plan_with_no_recorded_commit_is_not_judged_for_w520() {
+    assert!(check(&paths(None, &["src/old.js"])).is_empty());
+}
+
+#[test]
+fn an_unserved_deleted_path_is_not_judged() {
+    let mut input = paths(Some(&["src/a.js", "src/lib/b.js"]), &[]);
+    input.files.clear();
+    assert!(check(&input).is_empty());
+}

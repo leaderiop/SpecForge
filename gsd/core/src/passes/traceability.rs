@@ -1,13 +1,14 @@
 //! The requirement thread's gap rules (ADR 0351), each off in gsd-compat and switched by its `specforge.*` setting:
-//! `gsd/E519`, a truth of a phase's plan proves one of its plan's requirements; `gsd/E521`, a task commit names its
-//! task by its `Gsd-Task:` trailer.
+//! `gsd/E519`, a truth of a phase's plan proves one of its plan's requirements; `gsd/W520`, a complete plan's commits
+//! touched every path it planned and the files it deletes are gone; `gsd/E521`, a task commit names its task by its
+//! `Gsd-Task:` trailer.
 
 use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
 use super::commits::commits;
-use super::plans::{link, links, of_kind};
+use super::plans::{children, link, links, of_kind, strings, text};
 
 /// The executor's task commit types (`gsd-executor.md`'s commit step), `docs` left out: a plan's metadata commit is
 /// `docs` and names no task by design.
@@ -15,12 +16,18 @@ const TASK_TYPES: &[&str] = &["feat", "fix", "test", "refactor", "perf", "style"
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("traceability", |p| {
-        p.phase("check").run(check);
+        p.phase("check")
+            .input(Input::files(
+                "deleted",
+                FileReadSpec::field("plan.files_deleted"),
+            ))
+            .run(check);
     });
 }
 
 fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut found = truth_requirements(input);
+    found.extend(plan_paths(input));
     found.extend(task_trailers(input));
     found
 }
@@ -62,6 +69,87 @@ fn truth_requirements(input: &PassInput) -> Vec<PassDiagnostic> {
                     .with_suggestion(suggestion)
                     .with_entity(&truth.id),
             )
+        })
+        .collect()
+}
+
+/// A path as a plan writes it, compared as the commits' are: trimmed, a leading `./` dropped.
+fn plain(path: &str) -> &str {
+    let path = path.trim();
+    path.strip_prefix("./").unwrap_or(path)
+}
+
+/// W520, on the plan: a complete plan with a recorded commit (`files_touched` written) whose commits touched none of
+/// a planned path (`files_modified`, and each of its artifacts' `path`; a directory is touched by a file under it),
+/// or whose `files_deleted` the host serves as still present. A path the host did not serve is not judged; a missing
+/// planned file is E016's, never this rule's.
+fn plan_paths(input: &PassInput) -> Vec<PassDiagnostic> {
+    let deleted = input.files.get("deleted");
+    of_kind(input, "plan")
+        .filter(|plan| text(plan, "status") == Some("complete"))
+        .filter(|plan| plan.values.contains_key("files_touched"))
+        .flat_map(|plan| {
+            let touched = strings(plan, "files_touched");
+            let covered = |planned: &str| {
+                let dir = format!("{}/", planned.trim_end_matches('/'));
+                touched
+                    .iter()
+                    .any(|t| plain(t) == planned || plain(t).starts_with(&dir))
+            };
+            let planned: BTreeSet<String> = strings(plan, "files_modified")
+                .iter()
+                .map(|p| plain(p).to_string())
+                .chain(
+                    children(input, &plan.id, "artifact")
+                        .into_iter()
+                        .filter_map(|a| text(a, "path").map(|p| plain(p).to_string())),
+                )
+                .filter(|p| !p.is_empty())
+                .collect();
+            let untouched: Vec<&str> = planned
+                .iter()
+                .map(String::as_str)
+                .filter(|p| !covered(p))
+                .collect();
+            let present: BTreeSet<String> = strings(plan, "files_deleted")
+                .iter()
+                .map(|p| plain(p).to_string())
+                .filter(|p| {
+                    deleted.is_some_and(|d| d.facts.iter().any(|f| f.path == *p && f.exists))
+                })
+                .collect();
+            let mut found = Vec::new();
+            if !untouched.is_empty() {
+                found.push(
+                    PassDiagnostic::new(
+                        "W520",
+                        PassSeverity::Warning,
+                        format!(
+                            "plan '{}' is complete, but none of its commits touched: {}",
+                            plan.id,
+                            untouched.join(", ")
+                        ),
+                    )
+                    .with_suggestion("commit the planned work, or take the paths it did not need out of the plan")
+                    .with_entity(&plan.id),
+                );
+            }
+            if !present.is_empty() {
+                found.push(
+                    PassDiagnostic::new(
+                        "W520",
+                        PassSeverity::Warning,
+                        format!(
+                            "plan '{}' is complete, but files it deletes are still present: {}",
+                            plan.id,
+                            present.into_iter().collect::<Vec<_>>().join(", ")
+                        ),
+                    )
+                    .with_suggestion("delete them and commit, or take them out of files_deleted")
+                    .with_entity(&plan.id),
+                );
+            }
+            found
         })
         .collect()
 }

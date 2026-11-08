@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 66] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 67] = [
     (
         "E101",
         Evidence::Tests {
@@ -463,6 +463,13 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 66] = [
         Evidence::Tests {
             fires: "a_truth_without_a_requirement_is_e519",
             silent: "truth_without_requirement_is_e519_only_when_truth_requirements_is_on",
+        },
+    ),
+    (
+        "W520",
+        Evidence::Tests {
+            fires: "an_untouched_planned_path_is_w520",
+            silent: "an_untouched_path_is_w520_only_when_plan_paths_touched_is_on",
         },
     ),
     (

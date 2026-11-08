@@ -392,6 +392,12 @@
       "title": "Truth proves no requirement of its plan"
     },
     {
+      "code": "W520",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "A complete plan's commits touched every path it planned, and the files it deletes are gone. It is a warning.",
+      "title": "Complete plan's paths not touched or not deleted"
+    },
+    {
       "code": "E521",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
       "explanation": "A task commit names its task by its Gsd-Task trailer. It is an error.",

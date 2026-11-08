@@ -401,6 +401,51 @@ fn a_title_linked_commit_is_e521_only_when_task_trailers_is_on() {
     assert_eq!(codes(&p), Vec::<String>::new(), "{:?}", report(&p));
 }
 
+#[test]
+fn an_untouched_path_is_w520_only_when_plan_paths_touched_is_on() {
+    let p = repository();
+    p.edit(
+        "spec/plans.spec",
+        "  requirements   [TASK-01]\n  decisions      [D-01]",
+        "  files_deleted  [\"src/old.js\"]\n  requirements   [TASK-01]\n  decisions      [D-01]",
+    );
+    p.write("src/old.js", "old\n");
+    p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    junit(&p, &[("adds a task", true)]);
+    assert_eq!(codes(&p), Vec::<String>::new(), "off by default");
+    p.settings(json!({ "specforge.plan_paths_touched": true }));
+    let found = report(&p);
+    assert_eq!(codes(&p), ["gsd/W520", "gsd/W520"], "{found:?}");
+    assert!(
+        found
+            .iter()
+            .any(|(_, m)| m.ends_with("none of its commits touched: test/tasks.test.js")),
+        "{found:?}"
+    );
+    assert!(
+        found
+            .iter()
+            .any(|(_, m)| m.ends_with("files it deletes are still present: src/old.js")),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn w520_is_on_under_gsd_strict() {
+    let p = repository();
+    p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    junit(&p, &[("adds a task", true)]);
+    p.settings(json!({ "profile": "gsd-strict" }));
+    let found = report(&p);
+    assert!(found.iter().any(|(c, _)| c == "gsd/W520"), "{found:?}");
+    p.settings(json!({ "profile": "gsd-compat" }));
+    assert!(!codes(&p).contains(&"gsd/W520".to_string()));
+}
+
 const CHECKS: &str = "{ kind unit ref \"test/tasks.test.js#adds a task\" }";
 
 /// A JUnit report whose tests are named by `names`, each linked to the deliverable by the file it ran in.

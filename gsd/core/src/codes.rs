@@ -82,7 +82,7 @@ const fn code(
     }
 }
 
-/// The 66 codes of `spec/rules.md`, in the order of its tables.
+/// The 67 codes of `spec/rules.md`, in the order of its tables.
 pub static CODES: &[Code] = &[
     code(
         "E101",
@@ -603,6 +603,14 @@ pub static CODES: &[Code] = &[
         "verify",
         Severity::Error,
         Severity::Error,
+    ),
+    code(
+        "W520",
+        "Complete plan's paths not touched or not deleted",
+        "A complete plan's commits touched every path it planned, and the files it deletes are gone",
+        "verify",
+        Severity::Warning,
+        Severity::Warning,
     ),
     code(
         "E521",

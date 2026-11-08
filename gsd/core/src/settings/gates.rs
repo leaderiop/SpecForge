@@ -51,6 +51,11 @@ pub const SPECFORGE: &[(&str, &str, &str)] = &[
         "A truth of a phase's plan names one of its plan's requirements.",
     ),
     (
+        "specforge.plan_paths_touched",
+        "W520",
+        "A complete plan's commits touched every path it planned, and the files it deletes are gone.",
+    ),
+    (
         "specforge.task_trailers",
         "E521",
         "A task commit names its task by its Gsd-Task trailer.",
