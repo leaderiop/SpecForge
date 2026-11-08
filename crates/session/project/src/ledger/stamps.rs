@@ -40,7 +40,7 @@ use super::chain::followed;
 use super::inputs::SessionInputs;
 use super::reach::Reach;
 use super::recorded::{Class, Recording};
-use crate::facts::FACTS_DIR;
+use specforge_common::facts::FACTS_DIR;
 
 /// Coarse filesystems record modification times to the second (some to
 /// two); an entry modified this close to when it was stamped is racy.
@@ -237,7 +237,7 @@ impl Stamps {
                 inputs.discover_at(FACTS_DIR).into_iter().chain(
                     self.sources
                         .keys()
-                        .filter(|key| crate::facts::is_fact_store(key))
+                        .filter(|key| specforge_common::facts::is_fact_store(key))
                         .cloned(),
                 ),
             );

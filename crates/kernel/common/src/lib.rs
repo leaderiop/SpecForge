@@ -9,6 +9,7 @@ extern crate self as specforge_common;
 mod diagnostic;
 pub mod discovery;
 mod exclude;
+pub mod facts;
 pub mod fresh;
 mod interner;
 pub mod json_span;

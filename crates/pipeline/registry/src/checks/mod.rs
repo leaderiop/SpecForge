@@ -12,7 +12,6 @@ mod refs;
 mod value_forms;
 mod values;
 mod writers;
-pub use writers::{FACTS_DIR, filed, is_fact_store};
 
 use specforge_common::Diagnostic;
 

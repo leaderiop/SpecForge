@@ -663,7 +663,7 @@ fn collected(
                     .map(|n| n.source_span.file.to_string()),
                 _ => None,
             };
-            let by = match file.as_deref().and_then(specforge_project::facts::filed) {
+            let by = match file.as_deref().and_then(specforge_common::facts::filed) {
                 Some((collector, _)) => {
                     format!("'{collector}' ({})", file.as_deref().unwrap_or_default())
                 }

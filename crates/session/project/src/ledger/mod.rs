@@ -314,7 +314,11 @@ impl Ledger {
             return keys.iter().map(|key| (key.clone(), Read::Gone)).collect();
         };
         // A store read again is checked against the ledger as it is now, read once for them all.
-        if self.inputs.reads_facts() && keys.iter().any(|key| crate::facts::is_fact_store(key)) {
+        if self.inputs.reads_facts()
+            && keys
+                .iter()
+                .any(|key| specforge_common::facts::is_fact_store(key))
+        {
             self.record_facts(&sources);
         }
         let recorded = self.recorded.clone();

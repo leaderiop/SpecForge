@@ -39,7 +39,7 @@ pub(crate) fn read(
     relative: &str,
     recorded: Option<&crate::harness::Ledger>,
 ) -> Read {
-    if facts::is_fact_store(relative) {
+    if specforge_common::facts::is_fact_store(relative) {
         return facts::read(disk, sources, relative, recorded);
     }
     match disk.read(&sources.path(relative)) {
@@ -145,7 +145,7 @@ impl SourceCache {
     /// One cold-read source: parsed whole, or recorded unreadable.
     fn add(&mut self, key: String, read: Read, files: &mut Vec<SpecFile>, forms: &FieldForms) {
         match read {
-            Read::Text(text) if facts::is_fact_store(&key) => {
+            Read::Text(text) if specforge_common::facts::is_fact_store(&key) => {
                 match facts::served(&key, &text, forms) {
                     Ok(file) => {
                         files.push(file);
@@ -174,7 +174,7 @@ impl SourceCache {
     pub fn change(&mut self, path: &str, read: Read, forms: &FieldForms) -> FileChange {
         match read {
             // A fact store is served, with no tree, or W192 when its text is no store.
-            Read::Text(text) if facts::is_fact_store(path) => {
+            Read::Text(text) if specforge_common::facts::is_fact_store(path) => {
                 match facts::served(path, &text, forms) {
                     Ok(served) => {
                         self.unreadable.remove(path);

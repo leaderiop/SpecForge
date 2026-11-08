@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+use specforge_common::facts::{FACTS_DIR, filed, is_fact_store};
 use specforge_common::{Diagnostic, SourceRoot, SourceSpan, Sym, codes};
 use specforge_graph::field_form::spell;
 use specforge_graph::{FieldForm, FieldForms, Reading};
@@ -15,7 +16,6 @@ use specforge_parser::{
 };
 use specforge_protocol_types::{Fact, FactStore};
 use specforge_registry::{Disk, EntitySnapshot, KindRegistry};
-pub use specforge_registry::{FACTS_DIR, filed, is_fact_store};
 
 use crate::Environment;
 use crate::harness::{LEDGER_FILE, Ledger, Line};
