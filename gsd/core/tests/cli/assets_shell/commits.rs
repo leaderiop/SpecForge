@@ -48,6 +48,5 @@ fn the_executors_task_commit_links_its_task_by_trailer() {
     let head = p.git(&["rev-parse", "HEAD"], AT);
     let fields = p.fields_of(&head.trim()[..12]);
     assert_eq!(fields["task"], "v1.0/01/01-01/T1", "{fields}");
-    // Pinned: no trailer is written, so the commit is found by its subject's title.
-    assert_eq!(fields["linked_by"], "title", "{fields}");
+    assert_eq!(fields["linked_by"], "Gsd-Task", "{fields}");
 }

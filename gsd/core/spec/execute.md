@@ -120,7 +120,8 @@ and `-`) is resolved as a task over the graph, as written or with the `project_c
 Two different values, or one of another form, is unreadable (as upstream's `ship.md:335` counts a doubled
 `gate-status:` as missing). An unreadable trailer, or one that names no task, falls back to the subject, and the plan's
 title notes `(trailer of <12 hex> names no task: <value or "unreadable">)`. A revert names no task, even with a trailer.
-GSD's executor writes no trailer yet: S1 adds it to `gsd-executor.md`'s commit step (`gsd/core/assets/**`).
+GSD's executor writes the trailer: `gsd-executor.md`'s commit step ends the message with it as a second `-m`, its last
+paragraph (ADR 0351).
 
 A plan op refused `stale_revision` (the plan's file changed since the compile) writes
 nothing, and the next run records the same commits. Merges are read for their parents and never recorded.

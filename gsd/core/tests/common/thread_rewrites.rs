@@ -11,4 +11,16 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     // the plan checker reads coverage from the plans' `decisions`
     ("agents/gsd-plan-checker.md", 378, 379),
     ("gsd-core/workflows/plan-phase.md", 1401, 1401),
+    // a task commit's message ends with its `Gsd-Task:` trailer, a second `-m` (the last paragraph)
+    ("agents/gsd-executor.md", 534, 534),
+    ("agents/gsd-executor.md", 556, 556),
+    ("gsd-core/references/git-integration.md", 61, 61),
+    ("gsd-core/references/git-integration.md", 74, 75),
+    ("gsd-core/references/git-integration.md", 96, 96),
+    ("gsd-core/references/git-integration.md", 105, 105),
+    ("gsd-core/references/git-integration.md", 114, 114),
+    ("gsd-core/references/tdd.md", 106, 106),
+    ("gsd-core/references/tdd.md", 112, 112),
+    ("gsd-core/references/tdd.md", 117, 117),
+    ("gsd-core/references/tdd.md", 270, 270),
 ];

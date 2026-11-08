@@ -175,7 +175,7 @@ fn task_commits(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic> {
                 ),
             )
             .with_suggestion(
-                "commit it as `type(plan-id): task title`, then run the gsd-git collector",
+                "commit it with the trailer `Gsd-Task: <plan>/<task>` (or as `type(plan-id): task title`), then run the gsd-git collector",
             )
             .with_entity(&task.id)
         })
