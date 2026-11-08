@@ -72,7 +72,9 @@ command. A `capture` on a collector with no command is W021.
   the recorded stores (the stores the ledger records). `--runner rust-source` reads the stored packages. No closure
   pulls producers into a named collect: `--runner` runs what it names.
 - **Order.** The selected collectors run in a stable topological order over the edges producer → consumer (a kind in
-  one's `answers` and the other's `facts`), declaration order between independent ones. A cycle is **E119**, naming the
+  one's `answers` and the other's `facts`), declaration order between independent ones. A collector never waits on
+  itself: a kind it both reads and answers adds no edge, and unless a collector that ran before it answered that kind,
+  it is served the kind from the recorded stores, its own last answer among them. A cycle is **E119**, naming the
   collectors of the cycle: reported by the registry build over the loaded collectors, and refused by `collect` over
   its selection before anything runs.
 

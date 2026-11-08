@@ -63,7 +63,8 @@ deadline counted in tree-sitter's progress callbacks, so no test reads a clock. 
 
 ## D4. The C-only-where-needed rule holds
 
-The build plan's rule (S-D1) admits C only where no pure-Rust crate does the job. It holds here: the C runtime is
+SpecForge admits C only where no pure-Rust crate does the job, so the host stays one build with nothing to install
+and nothing linked it does not need. It holds here: the C runtime is
 already compiled into every binary for `.spec`; each grammar is generated C tables plus one scanner; and no pure-Rust
 crate is one error-tolerant reader with one query language across Rust and TypeScript.
 

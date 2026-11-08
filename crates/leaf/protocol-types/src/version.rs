@@ -14,7 +14,13 @@
 /// - an extension declares `capabilities` (a describe category): what it may make the host do, each on one port under
 ///   a scope name, and a collector names the process `capability` it runs instead of carrying `run` (ADR 0335 D2);
 /// - a command's input carries `nonce`, 32 hex digits of the host's entropy, fresh per call (ADR 0341);
-/// - a guest may import `specforge:host/syntax`: the host parses source files with a pack's query (ADR 0344, 0345).
+/// - a guest may import `specforge:host/syntax`: the host parses source files with a pack's query (ADR 0344, 0345);
+/// - a collector may declare a `facts` input (`kinds`), and `CollectInput.facts` carries the facts of those kinds that
+///   earlier collectors answered or the recorded stores hold (ADR 0345 D3);
+/// - a collector declares `answers`, the collected kinds whose facts it answers: they order the collect (E119 for a
+///   cycle) and admit its facts (E116 otherwise);
+/// - a collector with no `capability` and no `report` reads no report: it is called with no reports and reads through
+///   its ports (ADR 0345 D2).
 ///
 /// A change that adds to 2.0.0 (grants, host imports, value checks) adds its item here and to the 2.0.0 row of
 /// `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0 included; it does

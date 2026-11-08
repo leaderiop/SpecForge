@@ -716,7 +716,9 @@ of; a fact of a kind it does not list is E116 like any other refused fact, and a
 declares `writer: "collector"` is W021. A collector whose `facts` input names a kind another selected collector answers
 runs after it, and its `CollectInput.facts` holds the admitted facts that collector answered; a kind no collector that
 ran answers is served from the stores `specforge-harness` records. Between collectors no such edge orders, declaration
-order holds. Collectors whose inputs and answers form a cycle are E119: the registry build reports it, and `collect`
+order holds. A collector never waits on itself: a kind it both reads and answers orders nothing, and unless a
+collector that ran before it answered that kind, it is served the kind from the recorded stores, its own last answer
+among them. Collectors whose inputs and answers form a cycle are E119: the registry build reports it, and `collect`
 refuses a selection holding one before anything runs.
 
 **Collectors that read through their ports (ADR 0345 D2).** A collector with no `capability`, no `report` and no

@@ -140,8 +140,8 @@ pub fn superseded(disk: &dyn Disk, root: &Path, collector: &str, key: &str) -> V
         .collect()
 }
 
-/// Why the host refuses `facts` a collector that `answers` those kinds answered (E116, ADR 0327 Decision 6, ADR 0345
-/// D3), each a reason: a kind that is no loaded collected kind, or one the collector does not list in `answers`, an id
+/// Why the host refuses `facts` a collector that `answers` those kinds answered (E116, ADR 0327 D5, ADR 0345
+/// D4), each a reason: a kind that is no loaded collected kind, or one the collector does not list in `answers`, an id
 /// that is empty or names none of its kind's schemes, an id the answer repeats. None: every fact is admitted.
 pub fn admit(facts: &[Fact], kinds: &KindRegistry, answers: &[String]) -> Result<(), Vec<String>> {
     let mut reasons = Vec::new();
