@@ -19,6 +19,10 @@ line for the probe kinds they add (D9), and the latter amends D4 (extra rounds).
 whose only call kind is `check_values` may POST a bounded JSON query; and D4's judge may answer with more probes, at
 most three rounds a value, reading every round's outcomes in order.
 
+**Amended by [ADR 0350](0350-a-fields-checks-may-wait-for-its-owner.md)** (D4: the values phase comes first for
+ungated values; a field that declares `checks_while` is checked after the compute passes, on the merged snapshot. D5: a
+gated value is no judged input).
+
 **Since the `file` checker (ADR 0338)** `file_reference`, `file_base` and `file_exists` are deleted, in the commit that adds the `file`
 checker, so that E016 has exactly one emitter at every commit: a declared `file_exists` rule is W112 naming
 `@specforge/checks:file`, and E016 is a `checks` code. No registry rule reads the file system any more (`RuleInput`

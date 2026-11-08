@@ -5,6 +5,9 @@
 (D10): it says which extension judges a cited test fact, and how. Ships in extension protocol 1.15.0 (D4, D3's
 `result`).
 
+**Amended by [ADR 0350](0350-a-fields-checks-may-wait-for-its-owner.md)** (D4: the values phase reads owner state
+too, on the merged snapshot, to decide whether a field's checks wait).
+
 ## Context
 
 ADR 0327 lets a collector answer facts and a spec file cite one by a scheme reference (`"js:…#name"`). The kernel

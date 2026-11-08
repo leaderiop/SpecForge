@@ -1772,7 +1772,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Owner state**: whether an entity is **pending**: its kind's `complete_when` (a field and the values that make it
   complete) does not hold, or, when its kind declares none, its nearest scope ancestor's that declares one does not.
   With no declaration in the chain it is not pending. A pass reads it as `PassEntity.pending`; `@code/core` leaves a
-  pending entity's fact references unchecked (ADR 0329 D4).
+  pending entity's fact references unchecked (ADR 0329 D4). The values phase reads it too, after the compute passes
+  (ADR 0350).
+- **Planned value**: a value of a field whose checks run once its owner is complete (`checks_while: complete`); until
+  then its row says `planned`, no checker is called and only its written form is read (ADR 0350).
+- **Closed value**: a value of a field whose checks run only while its owner is pending (`checks_while: pending`);
+  once the owner is complete its row says `closed` and no checker is called (ADR 0350).
 - **Route**: what an extension declares (the `routes` category) for `specforge trace` to follow from a start kind:
   ordered steps, each going on from the start or an earlier step through selector steps (`<plan.requirements`), and
   annotations that print a field, a value reached through a selector, or a judgement. One the registry can't follow is
