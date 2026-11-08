@@ -140,9 +140,10 @@ pub fn superseded(disk: &dyn Disk, root: &Path, collector: &str, key: &str) -> V
         .collect()
 }
 
-/// Why the host refuses `facts` (E116, ADR 0327 Decision 6), each a reason: a kind that is no loaded collected kind,
-/// an id that is empty or names none of its kind's schemes, an id the answer repeats. None: every fact is admitted.
-pub fn admit(facts: &[Fact], kinds: &KindRegistry) -> Result<(), Vec<String>> {
+/// Why the host refuses `facts` a collector that `answers` those kinds answered (E116, ADR 0327 Decision 6, ADR 0345
+/// D3), each a reason: a kind that is no loaded collected kind, or one the collector does not list in `answers`, an id
+/// that is empty or names none of its kind's schemes, an id the answer repeats. None: every fact is admitted.
+pub fn admit(facts: &[Fact], kinds: &KindRegistry, answers: &[String]) -> Result<(), Vec<String>> {
     let mut reasons = Vec::new();
     let mut seen = BTreeSet::new();
     for fact in facts {
@@ -153,6 +154,13 @@ pub fn admit(facts: &[Fact], kinds: &KindRegistry) -> Result<(), Vec<String>> {
             ));
             continue;
         };
+        if !answers.contains(&fact.kind) {
+            reasons.push(format!(
+                "fact '{}' is of the kind '{}', which the collector does not list in its answers",
+                fact.id, fact.kind
+            ));
+            continue;
+        }
         if fact.id.is_empty() {
             reasons.push(format!(
                 "a fact of the kind '{}' has an empty id",

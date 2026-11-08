@@ -1612,12 +1612,14 @@ Level: error
 E116: Facts a collector answered that the host refuses
 
 A collector answered `facts` (ADR 0327) the host does not store: a fact of a
-kind no loaded extension declares `writer: "collector"`, an empty id, an id that
-names none of its kind's `schemes` (`js:` for `js:pkg/a.test.js#adds`), or an id
-the answer repeats. The message names the collector and the first reason. None
-of that collector's facts is stored, so its earlier store stays; the other
-collectors and the report merge go on (ADR 0303: an extension's error refuses no
-other fact). Fix the collector, or load the extension that declares the kind.
+kind no loaded extension declares `writer: "collector"`, of a kind the collector
+does not list in its `answers` (ADR 0345 D3), an empty id, an id that names none
+of its kind's `schemes` (`js:` for `js:pkg/a.test.js#adds`), or an id the answer
+repeats. The message names the collector and the first reason. None of that
+collector's facts is stored, so its earlier store stays; the other collectors
+and the report merge go on (ADR 0303: an extension's error refuses no other
+fact). Fix the collector (list every kind it answers in `answers`), or load the
+extension that declares the kind.
 
 Owner: core
 Level: error

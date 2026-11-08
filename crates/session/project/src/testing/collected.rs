@@ -134,7 +134,8 @@ fn node(peer: &str) -> ContributionsBuilder {
         DeclaredCategory::Collectors,
         json!([
             {"name": "node", "input_formats": ["junit"], "export": "collect__node",
-             "auto_detect": {"file_patterns": ["package.json"], "env_vars": []}, "report": NODE_REPORT},
+             "auto_detect": {"file_patterns": ["package.json"], "env_vars": []}, "report": NODE_REPORT,
+             "answers": ["test"]},
             {"name": "unit", "input_formats": ["json"], "export": "collect__unit",
              "auto_detect": {"file_patterns": ["package.json"], "env_vars": []}, "report": UNIT_REPORT},
         ]),

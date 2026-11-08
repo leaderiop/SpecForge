@@ -255,6 +255,42 @@ fn a_fact_of_a_kind_no_collector_writes_is_e116_and_nothing_is_stored() {
 
 #[specforge_test(
     behavior = "dispatch_collector",
+    verify = "a fact of a kind its collector does not declare it answers is E116 and none of its facts is stored"
+)]
+fn a_fact_of_a_kind_its_collector_does_not_answer_is_e116() {
+    let p = project();
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
+
+    // `unit` answers no kind, so even a well-formed test fact of it is refused.
+    let outcome = collect(
+        &p,
+        &git,
+        serving(json!([]), collected_answer(two_tests())),
+        Some("unit"),
+    );
+
+    assert_eq!(codes(&outcome), ["E116"]);
+    assert!(
+        outcome.diagnostics[0]
+            .message
+            .contains("collector 'unit' (@t/node)"),
+        "{:?}",
+        outcome.diagnostics
+    );
+    assert!(
+        outcome.diagnostics[0]
+            .message
+            .contains("which the collector does not list in its answers"),
+        "{:?}",
+        outcome.diagnostics
+    );
+    assert!(!p.root().join(".specforge/facts").exists());
+    assert_eq!(ledger(&p), "");
+    assert_eq!(outcome.runners[0].facts, 0);
+}
+
+#[specforge_test(
+    behavior = "dispatch_collector",
     verify = "facts that name a kind no collector writes, or an id outside its kind's schemes, are E116 and none of them is stored"
 )]
 fn a_fact_whose_id_names_none_of_its_kinds_schemes_is_e116() {

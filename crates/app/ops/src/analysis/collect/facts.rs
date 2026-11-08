@@ -18,7 +18,7 @@ pub(super) fn admitted(
     if facts.is_empty() {
         return facts;
     }
-    match admit(&facts, view.registries().kinds()) {
+    match admit(&facts, view.registries().kinds(), &collector.answers) {
         Ok(()) => facts,
         Err(reasons) => {
             let more = match reasons.len() {
@@ -33,7 +33,7 @@ pub(super) fn admitted(
                         collector.name, collector.extension, reasons[0]
                     ),
                 )
-                .with_suggestion("fix the collector: each fact is of a kind a collector writes, its id in one of the kind's schemes"),
+                .with_suggestion("fix the collector: each fact is of a kind a collector writes and it lists in `answers`, its id in one of the kind's schemes"),
             );
             Vec::new()
         }

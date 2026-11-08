@@ -537,7 +537,8 @@ behavior dispatch_collector "Dispatch Collector" {
     may carry `facts`, the entities it observed (ADR 0327): facts of a kind
     no loaded extension declares a collector writes, an empty id, an id in
     none of its kind's schemes or a repeated id are E116, and none of that
-    collector's facts is stored. The others are stored after every collector
+    collector's facts is stored; so is a fact of a kind the collector does
+    not list in its `answers` (ADR 0345 D3). The others are stored after every collector
     ran, in `.specforge/facts/<key>/<collector>.json` (canonical JSON), under
     HEAD's sha, `<sha>-dirty` for a dirty tree, or `worktree` with no commit
     (I209 for either), and `specforge-harness` records one line per
@@ -563,6 +564,7 @@ behavior dispatch_collector "Dispatch Collector" {
   verify unit "every collector is sent the project root as cwd; only a writing collector the date, the graph and the revisions"
   verify unit "a collector's facts are stored under the key of the commit they were collected at and their digest is recorded in specforge-harness"
   verify unit "facts that name a kind no collector writes, or an id outside its kind's schemes, are E116 and none of them is stored"
+  verify unit "a fact of a kind its collector does not declare it answers is E116 and none of its facts is stored"
   verify unit "a dirty tree or a project in no repository files its facts under a key that says so, with I209"
   verify integration "a facts input is served the admitted facts of its kinds that earlier collectors answered, sorted"
   verify integration "a facts input no collector of the collect answers is served the recorded stores"
