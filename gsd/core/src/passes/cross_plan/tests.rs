@@ -154,6 +154,43 @@ fn only_the_scanned_surfaces_cite() {
     assert!(check(&input).is_empty());
 }
 
+/// A plan of phase 2 that lists phase 1's `D-01` covers nothing of phase 2: its own `D-01` is still uncited.
+#[test]
+fn a_citation_of_another_phases_decision_covers_nothing_here() {
+    let input = PassInput {
+        entities: vec![
+            entity("v/1", "phase", &[]),
+            entity("v/1/1-01", "plan", &[("objective", "Honour D-01")]),
+            entity(
+                "v/1/D-01",
+                "decision",
+                &[("origin", "context"), ("text", "ES modules")],
+            ),
+            entity("v/2", "phase", &[]),
+            entity(
+                "v/2/2-01",
+                "plan",
+                &[("objective", "Keep phase 1's D-01 (ES modules)")],
+            ),
+            entity(
+                "v/2/D-01",
+                "decision",
+                &[
+                    ("origin", "context"),
+                    ("text", "Tasks are kept in one JSON file"),
+                ],
+            ),
+        ],
+        edges: vec![
+            edge("v/1/1-01", "v/1/D-01", "decisions"),
+            edge("v/2/2-01", "v/1/D-01", "decisions"),
+        ],
+        ..Default::default()
+    };
+    // Pinned: the bare name `D-01` in phase 2's plan text covers phase 2's own `D-01`.
+    assert_eq!(codes_of(&check(&input)), Vec::<(&str, Option<&str>)>::new());
+}
+
 fn coupled(wave_a: &str, wave_b: &str, peer_scope: &str) -> Vec<PassDiagnostic> {
     let mut a = entity("v/1/1-01", "plan", &[("wave", wave_a)]);
     a.values.insert(
