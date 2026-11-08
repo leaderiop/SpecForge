@@ -28,6 +28,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
         scope: None,
         unheld: Vec::new(),
         located: Vec::new(),
+        dangling: Vec::new(),
     }
 }
 

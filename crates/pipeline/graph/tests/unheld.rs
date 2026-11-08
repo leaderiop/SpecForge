@@ -8,7 +8,7 @@ use specforge_graph::{
     FieldForm, FieldForms, Graph, GraphConfig, GraphInputs, build_graph_with_config,
 };
 use specforge_parser::{SpecFile, parse};
-use specforge_protocol_types::FieldType;
+use specforge_protocol_types::{DanglingReason, FieldType};
 use specforge_test_macros::test as specforge_test;
 
 const FACT: &str = "js:a.test.js#adds";
@@ -149,4 +149,125 @@ fn a_fact_scheme_reference_in_a_field_targeting_another_kind_is_an_unresolved_re
 
     assert_eq!(codes(&diagnostics), ["E003"], "{diagnostics:?}");
     assert!(graph.node("t1").unwrap().unheld.is_empty());
+}
+
+/// A fact's own references (ADR 0346 D4): `test.covers` names anything, `test.proves` names `truth`s; `truth` is
+/// scoped by its `plan`. The facts are served from a fact store, the path that makes their holder a fact.
+fn build_facts(files: &[SpecFile]) -> (Graph, Vec<specforge_graph::Diagnostic>) {
+    let list = || FieldForm::new(FieldType::ReferenceList, Vec::new());
+    let reference = |kind: &str| FieldForm::new(FieldType::Reference, Vec::new()).targeting(kind);
+    let config = GraphConfig {
+        inputs: GraphInputs {
+            field_forms: FieldForms::new(
+                [
+                    (("test", "covers"), list()),
+                    (("test", "proves"), list().targeting("truth")),
+                    (("truth", "plan"), reference("plan")),
+                    (("truth", "covers"), list()),
+                ]
+                .into_iter()
+                .map(|((kind, field), form)| ((kind.to_string(), field.to_string()), form))
+                .collect(),
+                Default::default(),
+                ["test", "truth", "plan"].map(String::from).into(),
+            ),
+            scopes: BTreeMap::from([("truth".to_string(), "plan".to_string())]),
+            fact_schemes: BTreeMap::from([(
+                "js".to_string(),
+                BTreeSet::from(["test".to_string()]),
+            )]),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    build_graph_with_config(files, &config)
+}
+
+const STORE: &str = ".specforge/facts/k/node.json";
+
+/// A served test fact writing `fields`, as its store gives it.
+fn served(fields: &str) -> SpecFile {
+    let mut file = parse(
+        &format!("test placeholder \"P\" {{\n  {fields}\n}}\n"),
+        STORE,
+    );
+    file.entities[0].id.raw = Sym::new(FACT);
+    file
+}
+
+const PLANS: &str = "plan v1 \"One\" {}\nplan v2 \"Two\" {}\ntruth TR1 \"T\" {\n  plan v1\n}\n";
+
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "a fact's reference that names no entity, or one of another kind, is dangling: no E003 or E022, and the passes are sent it at its name span"
+)]
+fn a_facts_reference_naming_no_entity_is_dangling_with_no_diagnostic() {
+    let (graph, diagnostics) = build_facts(&[parse(PLANS, "a.spec"), served("covers [nobody]")]);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    let fact = graph.node(FACT).unwrap();
+    let dangling: Vec<(&str, &str, DanglingReason)> = fact
+        .dangling
+        .iter()
+        .map(|d| (d.field.as_str(), d.id.as_str(), d.reason))
+        .collect();
+    assert_eq!(dangling, [("covers", "nobody", DanglingReason::Unresolved)]);
+    let span = fact.dangling[0].span.as_ref().expect("its name span");
+    assert_eq!((span.file.as_str(), span.start_line), (STORE, 2));
+    assert!(fact.unheld.is_empty());
+}
+
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "a fact's reference that names no entity, or one of another kind, is dangling: no E003 or E022, and the passes are sent it at its name span"
+)]
+fn a_facts_mistyped_reference_is_dangling_and_keeps_its_edge() {
+    let (graph, diagnostics) = build_facts(&[parse(PLANS, "a.spec"), served("proves [v1]")]);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    let fact = graph.node(FACT).unwrap();
+    assert_eq!(fact.dangling[0].reason, DanglingReason::Mistyped);
+    assert_eq!(fact.dangling[0].actual.as_deref(), Some("plan"));
+    let targets: Vec<&str> = graph
+        .edges_from(FACT)
+        .iter()
+        .map(|e| e.target.as_str())
+        .collect();
+    assert_eq!(targets, ["v1"], "a mistyped reference keeps its edge");
+}
+
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "a fact's short name links by its unique suffix"
+)]
+fn a_facts_short_name_links_by_its_unique_suffix() {
+    let two =
+        format!("{PLANS}truth TR2 \"T\" {{\n  plan v1\n}}\ntruth TR2 \"T\" {{\n  plan v2\n}}\n");
+
+    let (graph, diagnostics) = build_facts(&[parse(&two, "a.spec"), served("covers [TR1, TR2]")]);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    let fact = graph.node(FACT).unwrap();
+    let targets: Vec<&str> = graph
+        .edges_from(FACT)
+        .iter()
+        .map(|e| e.target.as_str())
+        .collect();
+    assert_eq!(targets, ["v1/TR1"]);
+    assert_eq!(fact.dangling[0].reason, DanglingReason::Ambiguous);
+    assert_eq!(fact.dangling[0].candidates, ["v1/TR2", "v2/TR2"]);
+}
+
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "a fact's reference that names no entity, or one of another kind, is dangling: no E003 or E022, and the passes are sent it at its name span"
+)]
+fn an_authored_reference_naming_no_entity_is_still_e003() {
+    let (graph, diagnostics) = build_facts(&[parse(
+        &format!("{PLANS}truth TR3 \"T\" {{\n  plan v1\n  covers [nobody]\n}}\n"),
+        "a.spec",
+    )]);
+
+    assert_eq!(codes(&diagnostics), ["E003"], "{diagnostics:?}");
+    assert!(graph.node("v1/TR3").unwrap().dangling.is_empty());
 }

@@ -126,6 +126,19 @@ pub(super) fn record(
             })
             .collect(),
         located: node.located.clone(),
+        dangling: node
+            .dangling
+            .iter()
+            .map(|d| specforge_protocol_types::DanglingReference {
+                field: d.field.to_string(),
+                id: d.id.clone(),
+                span: d.span.as_ref().map(super::wire::pass_span),
+                reason: d.reason,
+                actual: d.actual.clone(),
+                did_you_mean: d.did_you_mean.clone(),
+                candidates: d.candidates.clone(),
+            })
+            .collect(),
         scope: node.scope.map(|scope| scope.as_str().to_string()),
     };
     (record, referenced)

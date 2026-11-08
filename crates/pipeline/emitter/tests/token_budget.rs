@@ -33,6 +33,7 @@ fn node_with_contract(id: &str, kind: &str, contract: &str) -> Node {
         scope: None,
         unheld: Vec::new(),
         located: Vec::new(),
+        dangling: Vec::new(),
     }
 }
 

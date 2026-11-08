@@ -45,6 +45,8 @@ pub struct EntityRecord {
     /// Where a collected fact is written in source, once per place (ADR 0346 D3); empty for an authored entity, whose
     /// `span` is where it is written.
     pub located: Vec<SourceSpan>,
+    /// A fact's references that name no entity, one of another kind, or several (ADR 0346 D4), in written order.
+    pub dangling: Vec<specforge_protocol_types::DanglingReference>,
     /// The path of the entity it is scoped by, as its scope field names it (ADR 0284); `None`: the project. What its
     /// owner state is read up (ADR 0329 D4). Host-internal: never on the wire.
     pub scope: Option<String>,
@@ -227,6 +229,7 @@ impl EntityRecord {
             methods: Vec::new(),
             unheld: Vec::new(),
             located: Vec::new(),
+            dangling: Vec::new(),
             scope: None,
         }
     }

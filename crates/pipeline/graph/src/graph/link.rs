@@ -6,7 +6,7 @@
 use specforge_common::{Diagnostic, DiagnosticData, Sym, codes};
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{Edge, Graph, GraphInputs, Node, Unheld};
+use crate::{Dangling, Edge, Graph, GraphInputs, Node, Unheld};
 
 mod reference;
 
@@ -22,8 +22,10 @@ impl Graph {
     /// fuzzy-match suggestion when there is one), or I004 for a field whose
     /// target kind no loaded extension declares, naming the extension in
     /// `inputs.target_owners` that does. A reference in a fact scheme that names no fact is kept on its node as
-    /// unheld, with no diagnostic (ADR 0327 D6). Then W061 over the edges but the declared single
-    /// references': a single reference is never part of a reference cycle.
+    /// unheld, with no diagnostic (ADR 0327 D6). A fact's own reference resolves from the project, a unique suffix
+    /// taken; one that names no entity, one of another kind or several is kept on its node as dangling, with no
+    /// diagnostic: the extension declaring the fact's kind judges it (ADR 0346 D4). Then W061 over the edges but the
+    /// declared single references': a single reference is never part of a reference cycle.
     ///
     /// Clears all existing edges first, then adds each once, in written order.
     /// Diagnostics come in node order (the graph's nodes are sorted), then
@@ -33,6 +35,7 @@ impl Graph {
         self.clear_edges();
         let mut diagnostics = Vec::new();
         let mut unheld: Vec<(Sym, Unheld)> = Vec::new();
+        let mut dangling: Vec<(Sym, Dangling)> = Vec::new();
         // Every edge in written order, and whether it is a single reference's.
         let mut edges: Vec<WrittenEdge> = Vec::new();
 
@@ -69,6 +72,12 @@ impl Graph {
                                 single,
                             });
                         }
+                        if is_fact(node)
+                            && let Some(entry) = resolution.dangling(label, &reference)
+                        {
+                            dangling.push((node.id.raw, entry));
+                            continue;
+                        }
                         diagnostics.extend(resolution.diagnostic(
                             node,
                             Sym::new(path.as_str()),
@@ -88,10 +97,16 @@ impl Graph {
         }
         for node in self.nodes.values_mut() {
             node.unheld.clear();
+            node.dangling.clear();
         }
         for (holder, reference) in unheld {
             if let Some(node) = self.nodes.get_mut(&holder) {
                 node.unheld.push(reference);
+            }
+        }
+        for (holder, reference) in dangling {
+            if let Some(node) = self.nodes.get_mut(&holder) {
+                node.dangling.push(reference);
             }
         }
         diagnostics.extend(cycle_warnings(&references));
@@ -190,12 +205,19 @@ impl Graph {
 }
 
 /// Where a reference `node` writes in `field` is read from: the node itself, whose scope chain answers; `None` for
-/// its scope field, which decides the chain and so reads from the project (ADR 0284).
+/// its scope field, which decides the chain and so reads from the project (ADR 0284), and for any reference a fact
+/// holds: a fact has no scope chain, and its tool writes the short name its author sees, so it reads as a surface
+/// input does, a unique suffix taken (ADR 0346 D4).
 fn held_from(node: &Node, scoped: &BTreeMap<String, String>, field: &str) -> Option<Sym> {
     let is_scope = scoped
         .get(node.kind.raw.as_str())
         .is_some_and(|f| f == field);
-    (!is_scope).then_some(node.id.raw)
+    (!is_scope && !is_fact(node)).then_some(node.id.raw)
+}
+
+/// Whether `node` is a collected fact: its declaration is a fact store (ADR 0327 D5).
+fn is_fact(node: &Node) -> bool {
+    specforge_common::facts::is_fact_store(node.source_span.file.as_str())
 }
 
 /// W061 for every cycle among `references`: one per strongly connected set,

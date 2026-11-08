@@ -27,6 +27,7 @@ fn node(id: &str) -> Node {
         scope: None,
         unheld: Vec::new(),
         located: Vec::new(),
+        dangling: Vec::new(),
     }
 }
 

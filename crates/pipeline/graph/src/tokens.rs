@@ -109,7 +109,11 @@ impl WrittenToken {
 pub fn written_tokens(file: &SpecFile, inputs: &GraphInputs, scopes: &Scopes) -> Vec<WrittenToken> {
     let forms = &inputs.field_forms;
     let (defaults, _) = FileDefaults::of(file, forms);
-    let read = Reader { inputs, scopes };
+    let read = Reader {
+        inputs,
+        scopes,
+        facts: specforge_common::facts::is_fact_store(file.path.as_str()),
+    };
     let mut tokens = Vec::new();
     for (kind, entry) in defaults.applied() {
         let holder = Holder::Defaults(kind);
@@ -266,6 +270,8 @@ fn stored<'e>(forms: &FieldForms, kind: &str, entries: &'e [FieldEntry]) -> Cow<
 struct Reader<'a> {
     inputs: &'a GraphInputs,
     scopes: &'a Scopes,
+    /// The file is a fact store: its facts' references read from the project, as the linker reads them (ADR 0346 D4).
+    facts: bool,
 }
 
 impl Reader<'_> {
@@ -331,8 +337,8 @@ impl Reader<'_> {
     }
 
     /// The tokens of the references `entry` writes in a block of `kind`; `entry` is already as the graph build
-    /// stores it (see [`stored`]). `from` is the block reading it, whose scope chain answers; a scope field reads
-    /// from the project, with the unique suffix, as the linker does (ADR 0284).
+    /// stores it (see [`stored`]). `from` is the block reading it, whose scope chain answers; a scope field, and any
+    /// reference a fact holds, reads from the project, with the unique suffix, as the linker does (ADR 0284, ADR 0346).
     fn entry(
         &self,
         kind: &str,
@@ -359,7 +365,7 @@ impl Reader<'_> {
                 .is_some_and(|scope| *scope == field);
             for reference in reading.references(entry) {
                 let Some(span) = reference.span else { continue };
-                let found = if scope_field {
+                let found = if scope_field || self.facts {
                     self.scopes.resolve(None, reference.id, &admits)
                 } else {
                     self.scopes.chain(from, reference.id, &admits)

@@ -6,7 +6,7 @@ use specforge_common::{Diagnostic, DiagnosticData, Sym, codes, find_close_match}
 
 use crate::field_form::Reference;
 use crate::scope::Found;
-use crate::{Graph, GraphInputs, Node, Targets};
+use crate::{Dangling, Graph, GraphInputs, Node, Targets};
 
 /// What one written reference is.
 pub(super) enum Resolution<'g> {
@@ -152,6 +152,49 @@ impl Resolution<'_> {
     /// Whether it is a fact no store served (ADR 0327 D6).
     pub(super) fn is_unheld(&self) -> bool {
         matches!(self, Self::Unheld)
+    }
+
+    /// What a fact holding it keeps instead of a kernel diagnostic (ADR 0346 D4), labelled by its `field`: an
+    /// unresolved, ambiguous or mistyped reference. `None` for one that links, is unheld or is unavailable (I004
+    /// stays the kernel's: the project lacks the target kind's extension).
+    pub(super) fn dangling(&self, field: Sym, reference: &Reference<'_>) -> Option<Dangling> {
+        use specforge_protocol_types::DanglingReason;
+        let (reason, actual, did_you_mean, candidates) = match self {
+            Self::Linked { .. } | Self::Unheld | Self::Unavailable { .. } => return None,
+            Self::Mistyped {
+                actual,
+                did_you_mean,
+                ..
+            } => (
+                DanglingReason::Mistyped,
+                Some(actual.to_string()),
+                did_you_mean.clone(),
+                Vec::new(),
+            ),
+            Self::Unresolved {
+                did_you_mean,
+                candidates,
+                ambiguous,
+            } => (
+                if *ambiguous {
+                    DanglingReason::Ambiguous
+                } else {
+                    DanglingReason::Unresolved
+                },
+                None,
+                did_you_mean.clone(),
+                candidates.clone(),
+            ),
+        };
+        Some(Dangling {
+            field,
+            id: reference.id.to_string(),
+            span: reference.span.clone(),
+            reason,
+            actual,
+            did_you_mean,
+            candidates,
+        })
     }
 
     /// The entity it names, when it links: the edge's target.

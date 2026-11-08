@@ -200,6 +200,7 @@ fn add_entity_with(
             scope: None,
             unheld: Vec::new(),
             located: Vec::new(),
+            dangling: Vec::new(),
         });
 }
 

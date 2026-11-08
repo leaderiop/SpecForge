@@ -177,6 +177,13 @@ behavior link_entity_references "Link Entity References" {
     collector-written kind its field takes, MUST be unheld: no edge and no
     diagnostic, kept on its node and sent to a pass; E022 and I004 are
     decided before it (ADR 0327 D6).
+    A reference a collected fact holds resolves from the project, a unique
+    suffix taken, as a surface input does. One that names no entity, one of
+    another kind or several MUST NOT be E003 or E022: it is kept on the node
+    as dangling, with its reason and the suggestion the kernel would have
+    made, and sent to every pass at its name span, for the extension that
+    declares the fact's kind to judge; a mistyped one still links. I004
+    stays the kernel's (ADR 0346 D4).
   """
   verify unit "reference list IDs create graph edges"
   verify unit "unresolvable reference produces E003"
@@ -213,6 +220,8 @@ behavior link_entity_references "Link Entity References" {
   verify unit "a rooted spelling is never a suffix, numeric or not"
   verify unit "a reference in a fact scheme that names no fact is unheld: no edge and no core diagnostic"
   verify unit "a fact scheme reference whose target kind is absent stays I004, and one of the wrong kind E022"
+  verify unit "a fact's reference that names no entity, or one of another kind, is dangling: no E003 or E022, and the passes are sent it at its name span"
+  verify unit "a fact's short name links by its unique suffix"
   verify integration "a fresh clone with no fact store reports no unresolved reference for its fact references"
 }
 

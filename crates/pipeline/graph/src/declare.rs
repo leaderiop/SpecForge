@@ -327,6 +327,7 @@ fn node_from_entity(path: Sym, winner: &Winner<'_>, defaults: Option<&FileDefaul
         scope: winner.scope,
         unheld: Vec::new(),
         located: entity.located.clone(),
+        dangling: Vec::new(),
     }
 }
 

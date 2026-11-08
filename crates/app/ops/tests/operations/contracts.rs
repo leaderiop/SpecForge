@@ -39,6 +39,7 @@ fn node_with_fields(id: &str, kind: &str, contract: &str, status: &str) -> Node 
         scope: None,
         unheld: Vec::new(),
         located: Vec::new(),
+        dangling: Vec::new(),
     }
 }
 
@@ -64,6 +65,7 @@ fn testable_node(id: &str) -> Node {
         scope: None,
         unheld: Vec::new(),
         located: Vec::new(),
+        dangling: Vec::new(),
         verdicts: Vec::new(),
     }
 }

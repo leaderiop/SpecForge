@@ -34,6 +34,7 @@ fn node(id: &str, kind: &str, fields: FieldMap) -> Node {
         scope: None,
         unheld: Vec::new(),
         located: Vec::new(),
+        dangling: Vec::new(),
     }
 }
 

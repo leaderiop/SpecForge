@@ -41,6 +41,7 @@ fn build_graph() -> Graph {
             scope: None,
             unheld: Vec::new(),
             located: Vec::new(),
+            dangling: Vec::new(),
         });
     }
 
@@ -332,6 +333,7 @@ fn file_emission_order_independent_of_filesystem() {
             scope: None,
             unheld: Vec::new(),
             located: Vec::new(),
+            dangling: Vec::new(),
         });
     }
 
@@ -364,6 +366,7 @@ fn file_emission_order_independent_of_filesystem() {
             scope: None,
             unheld: Vec::new(),
             located: Vec::new(),
+            dangling: Vec::new(),
         });
     }
 

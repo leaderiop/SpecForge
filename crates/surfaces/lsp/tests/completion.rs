@@ -322,6 +322,7 @@ impl Fixture {
                 scope: None,
                 unheld: Vec::new(),
                 located: Vec::new(),
+                dangling: Vec::new(),
             });
         }
         Fixture {

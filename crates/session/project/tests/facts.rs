@@ -293,9 +293,46 @@ fn place(file: &str, line: usize, from: usize, to: usize) -> Value {
     json!({"file": file, "start_line": line, "start_col": from, "end_line": line, "end_col": to})
 }
 
-#[test]
-fn a_facts_dangling_reference_is_e003_at_its_name_span() {
-    let p = collected();
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "a fact's reference that names no entity, or one of another kind, is dangling: no E003 or E022, and the passes are sent it at its name span"
+)]
+fn a_facts_dangling_reference_is_no_kernel_diagnostic_and_reaches_the_passes() {
+    use specforge_extension_sdk::prelude::*;
+    use specforge_project::testing::CODE;
+    use specforge_wasm::testing::InProcessRuntime;
+
+    // `@t/judge` reports each dangling reference a pass is sent, at the span it is sent.
+    fn judge(input: &PassInput) -> Vec<PassDiagnostic> {
+        input
+            .entities
+            .iter()
+            .flat_map(|e| &e.dangling)
+            .map(|d| {
+                let reason = serde_json::to_value(d.reason).unwrap();
+                let message = format!("{} {} {}", d.field, d.id, reason.as_str().unwrap());
+                let span = d.span.clone().expect("its name span");
+                PassDiagnostic::warning("W001", message).with_span(span)
+            })
+            .collect()
+    }
+    let judging = || {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/judge", "1.0.0"));
+        c.peer(CODE, "^1.0");
+        c.code("W001", |d| {
+            d.title("Dangling").explanation("Dangling.");
+        });
+        c.pass("judge", |p| {
+            p.phase("check").run(judge);
+        });
+        c
+    };
+    let mut enabled = COLLECTED_EXTENSIONS.to_vec();
+    enabled.push("@t/judge");
+    let p = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&enabled)
+        .installing_enabled();
     let facts = json!([
         {"kind": "test", "id": "js:a.test.js#adds", "fields": {"covers": ["nobody"]},
          "at": [place("a.test.js", 3, 1, 30)],
@@ -303,23 +340,30 @@ fn a_facts_dangling_reference_is_e003_at_its_name_span() {
     ]);
     stored(p.root(), "node", KEY, facts);
 
-    let project = compiled(&p);
+    let project = p.compile_in(Arc::new(
+        Collected::new().over(InProcessRuntime::new().with(judging)),
+    ));
 
     let diagnostics = project.diagnostics();
-    let e003 = diagnostics
-        .iter()
-        .find(|d| d.code == "E003")
-        .expect("the kernel reports the fact's reference");
-    let span = e003.span.as_ref().expect("placed");
-    assert_eq!(
-        (
-            span.file.as_str(),
-            span.start_line,
-            span.start_col,
-            span.end_col
-        ),
-        ("a.test.js", 2, 12, 18)
+    assert!(
+        !diagnostics.iter().any(|d| d.code == "E003"),
+        "{diagnostics:?}"
     );
+    let judged: Vec<(&str, &str, usize, usize)> = diagnostics
+        .iter()
+        .filter_map(|d| {
+            let span = d.span.as_ref()?;
+            (d.code.ends_with("W001")).then(|| {
+                (
+                    d.message.as_str(),
+                    span.file.as_str(),
+                    span.start_line,
+                    span.start_col,
+                )
+            })
+        })
+        .collect();
+    assert_eq!(judged, [("covers nobody unresolved", "a.test.js", 2, 12)]);
 }
 
 #[specforge_test(

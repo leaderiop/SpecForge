@@ -61,6 +61,7 @@ fn format_only_migration_zero_differences() {
             scope: None,
             unheld: Vec::new(),
             located: Vec::new(),
+            dangling: Vec::new(),
         });
         for (id, kind) in [("inv_a", "invariant"), ("inv_b", "invariant")] {
             graph.add_node(Node {
@@ -77,6 +78,7 @@ fn format_only_migration_zero_differences() {
                 scope: None,
                 unheld: Vec::new(),
                 located: Vec::new(),
+                dangling: Vec::new(),
             });
         }
         graph.add_edge(Edge {
@@ -158,6 +160,7 @@ fn structural_differences_produce_warnings() {
         scope: None,
         unheld: Vec::new(),
         located: Vec::new(),
+        dangling: Vec::new(),
     });
 
     let post = Graph::new(); // Empty graph — entity "foo" is missing
@@ -202,6 +205,7 @@ fn new_entities_after_migration_reported() {
         scope: None,
         unheld: Vec::new(),
         located: Vec::new(),
+        dangling: Vec::new(),
     });
 
     let diags = drift(&pre, &post);
@@ -240,6 +244,7 @@ fn post_migration_integrity_contract() {
         scope: None,
         unheld: Vec::new(),
         located: Vec::new(),
+        dangling: Vec::new(),
     };
 
     // Ensures: structural_equivalence_checked — identical graphs yield empty
@@ -304,6 +309,7 @@ fn cross_extension_broken_reference_produces_diagnostic() {
         scope: None,
         unheld: Vec::new(),
         located: Vec::new(),
+        dangling: Vec::new(),
     };
 
     // Pre: behavior→feature cross-extension edge exists
@@ -387,6 +393,7 @@ fn graph_after(change: Option<Change>) -> Graph {
             scope: None,
             unheld: Vec::new(),
             located: Vec::new(),
+            dangling: Vec::new(),
         }
     };
     let mut graph = Graph::new();
