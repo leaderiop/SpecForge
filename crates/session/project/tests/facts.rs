@@ -327,3 +327,28 @@ fn a_fact_id_two_stores_hold_is_e002_with_rename_advice() {
         Some("rename one of the entities to avoid the collision")
     );
 }
+
+#[test]
+fn a_bare_fact_scheme_reference_is_e001_and_a_spurious_e003() {
+    let p = collected().file(
+        "truths.spec",
+        "truth T1 \"One\" {\n  proof [js:p1, run:x]\n}\n",
+    );
+
+    let project = compiled(&p);
+
+    let found = codes(&project);
+    assert!(
+        found.contains(&"E001".to_string()),
+        "{:?}",
+        project.diagnostics()
+    );
+    assert!(
+        project
+            .diagnostics()
+            .iter()
+            .any(|d| d.code == "E003" && d.message.starts_with("unresolved reference 'js'")),
+        "{:?}",
+        project.diagnostics()
+    );
+}
