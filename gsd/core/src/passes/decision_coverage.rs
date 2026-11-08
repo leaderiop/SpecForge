@@ -1,17 +1,18 @@
 //! `gsd/W506`: every settled decision of a verified phase maps to something shipped. GSD's verify gate
-//! (`gate-decision-coverage-verify`) reads the shipped files; here a decision of the phase's context (`origin
-//! context`, as E310 counts them) must be mentioned by one of the phase's summaries (their text fields) or by the
-//! subject of one of its commits. It matches the way E310 does (`cross_plan::mentions`). `workflow.context_coverage_gate`
-//! off turns it off (the setting gates the code). Reading the shipped files is not done (U39).
+//! (`gate-decision-coverage-verify`) reads the shipped files and the plans' text; here a decision of the phase's
+//! context (`origin context`, as E310 counts them) is shipped when a complete plan of the phase lists it in its
+//! `decisions`, the typed form of "this plan delivered it". `workflow.context_coverage_gate` off turns it off (the
+//! setting gates the code). Reading the shipped files is not done (U39).
 //!
 //! Also ports gsd-core bin/lib modules: decision-coverage-support.cjs, decisions.cjs.
 //!
 //! gsd-core modules this file ports: coverage.cjs.
 
+use std::collections::BTreeSet;
+
 use specforge_extension_sdk::prelude::*;
 
-use super::cross_plan::mentions;
-use super::plans::{children, link, of_kind, text, texts};
+use super::plans::{children, link, links, of_kind, text};
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("decision_coverage", |p| {
@@ -27,32 +28,26 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
         let Some(phase) = link(input, verification, "phase") else {
             continue;
         };
-        let mut shipped: Vec<String> = Vec::new();
-        for plan in children(input, phase, "plan") {
-            for summary in children(input, &plan.id, "summary") {
-                shipped.push(texts(summary).join("\n"));
-            }
-            shipped.extend(
-                children(input, &plan.id, "commit")
-                    .into_iter()
-                    .filter_map(|c| text(c, "subject").map(String::from)),
-            );
-        }
+        let shipped: BTreeSet<&str> = children(input, phase, "plan")
+            .into_iter()
+            .filter(|plan| text(plan, "status") == Some("complete"))
+            .flat_map(|plan| links(input, plan, "decisions"))
+            .collect();
         for decision in children(input, phase, "decision")
             .into_iter()
             .filter(|d| text(d, "origin") == Some("context"))
-            .filter(|d| !mentions(d, &shipped))
+            .filter(|d| !shipped.contains(d.id.as_str()))
         {
             found.push(
                 PassDiagnostic::new(
                     "W506",
                     PassSeverity::Warning,
                     format!(
-                        "decision '{}' of verified phase '{phase}' is mentioned by no summary or commit of the phase",
+                        "decision '{}' of verified phase '{phase}' is listed by no complete plan of the phase",
                         decision.id
                     ),
                 )
-                .with_suggestion("name the decision (its id, or its first words) in the summary of the plan that shipped it")
+                .with_suggestion("list it in the decisions of the plan that shipped it")
                 .with_entity(&decision.id),
             );
         }

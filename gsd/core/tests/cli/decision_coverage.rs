@@ -1,4 +1,4 @@
-//! `gsd/W506` end to end (D-r42-17): a verified phase whose context decision no summary or commit mentions.
+//! `gsd/W506` end to end (D-r42-17): a verified phase whose context decision no complete plan lists.
 
 use serde_json::json;
 
@@ -38,8 +38,15 @@ fn w506_fires_on_a_verified_phase_whose_decision_nothing_shipped() {
 }
 
 #[test]
-fn w506_is_silent_when_a_summary_names_the_decision() {
+fn w506_is_silent_when_a_complete_plan_lists_the_decision() {
+    // A summary that names the decision is no claim.
     let p = verified("An in-memory store (D-09)");
+    assert_eq!(w506(&p).len(), 1, "{:?}", p.report_all());
+    p.edit(
+        "spec/m.spec",
+        "  type execute\n  objective \"Do it\"\n",
+        "  type execute\n  decisions [D-09]\n  objective \"Do it\"\n",
+    );
     assert!(w506(&p).is_empty(), "{:?}", w506(&p));
 }
 

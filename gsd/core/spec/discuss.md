@@ -49,7 +49,7 @@ in `plan`, and is named `<quick_id>-D-01` so it cannot collide with a project de
 | rationale | str | | Key Decisions `Rationale` |
 | outcome | enum{good, revisit, pending} | | `✓ Good` / `⚠️ Revisit` / `— Pending` |
 | reversibility | enum{reversible, costly, one_way} | | planner reversibility rating |
-| settled | bool | | locked: a plan contradicting it is refused (judged, [rules](rules.md)); read by gsd/W311, not by gsd/E310, which counts every trackable decision as GSD does |
+| settled | bool | | locked: a plan contradicting it is refused (judged, [rules](rules.md)); read by gsd/W311, not by gsd/E310, which counts every trackable decision as GSD does and reads the plans' `decisions` lists |
 | origin | enum{context, project, summary, checkpoint} | R I | where it was recorded |
 | superseded_by | → decision | | a later decision that reverses it |
 

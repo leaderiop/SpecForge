@@ -189,7 +189,7 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 64] = [
         "E312",
         Evidence::Tests {
             fires: "an_action_for_now_static_is_e312",
-            silent: "the_clean_twin_is_silent_for_the_unjudged_codes",
+            silent: "a_version_and_a_hit_its_decision_states_are_not_e312",
         },
     ),
     (
@@ -385,7 +385,7 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 64] = [
         "W506",
         Evidence::Tests {
             fires: "a_decision_nothing_shipped_is_w506_on_the_decision",
-            silent: "w506_a_summary_or_a_commit_that_names_the_decision_covers_it",
+            silent: "w506_a_complete_plan_listing_the_decision_covers_it",
         },
     ),
     (

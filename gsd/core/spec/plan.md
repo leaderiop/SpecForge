@@ -121,7 +121,7 @@ GSD: `user_setup:` and `NN-USER-SETUP.md`. Name `US1`. `plan → plan R I`, `ser
 GSD's plan checker is a prompt with twelve dimensions. Here each dimension is a rule: the ones code can decide are
 declarative rules or passes; the rest are **judged** (K7): the checker agent records a `verdict` member in the plan's file, and
 the verdict goes stale when any of the plan-check inputs changes ([rules.md](rules.md#judged-rules-inputs)): the plan
-and its tasks and must-haves, its phase, its requirements, the phase's and the project's decisions, the context,
+and its tasks and must-haves, its phase, its requirements, the decisions it lists, the phase's and the project's decisions, the context,
 the research, its sibling plans, the agent instruction files, and what the checker cited. A plan is `checked` only
 with a fresh passing verdict, and `/gsd-execute-phase` refuses a phase whose plans are not. The mapping is in
 [rules.md](rules.md#plan).
@@ -134,9 +134,9 @@ with a fresh passing verdict, and `/gsd-execute-phase` refuses a phase whose pla
     cited       [AUTH-07, "src/http/middleware.ts"]
     cited_tests []
     inputs      { plan "sha256:9f1c…" body "sha256:41d7…" phase "sha256:04ab…" requirements "sha256:5e21…"
-                  decisions "sha256:c3d0…" all_decisions "sha256:e0b9…" context "sha256:7a4f…"
-                  research "sha256:19cd…" research_items "sha256:b6a2…" siblings "sha256:2f80…"
-                  instructions "sha256:77e0…" cited "sha256:a8f3…" }
+                  decisions "sha256:c3d0…" phase_decisions "sha256:5b17…" all_decisions "sha256:e0b9…"
+                  context "sha256:7a4f…" research "sha256:19cd…" research_items "sha256:b6a2…"
+                  siblings "sha256:2f80…" instructions "sha256:77e0…" cited "sha256:a8f3…" }
     findings    []
   }
 ```

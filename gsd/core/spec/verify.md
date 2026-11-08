@@ -42,9 +42,9 @@ The timestamps a command writes (`approval.at`, `recorded_at`, a refactor `dispo
 | requirement `satisfied`, `blocked`, `needs_human`, `orphaned` | computed from the truths and deliverables that trace to it |
 
 **Decisions to shipped (gsd/W506, r42).** GSD's verify gate asks that every settled decision map to something shipped. A
-phase whose verification is `passed` has each decision of its context (`origin context`) mentioned by one of its summaries
-or by the subject of one of its commits, with E310's matcher ([rules.md](rules.md)). The shipped files themselves are not
-read.
+phase whose verification is `passed` has each decision of its context (`origin context`) listed in the `decisions` of one
+of its complete plans ([rules.md](rules.md), ADR 0351): a summary or a commit subject that names it is no claim. The shipped
+files themselves are not read.
 
 ## verification
 

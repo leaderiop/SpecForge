@@ -271,7 +271,7 @@ pub static CODES: &[Code] = &[
     code(
         "E310",
         "Context decision cited by no plan",
-        "Every trackable decision of a planned phase's context (origin context) is cited by one of its plans",
+        "Every trackable decision of a planned phase's context (origin context) is listed in the decisions of one of its plans",
         "plan",
         Severity::Error,
         Severity::Error,
