@@ -37,6 +37,16 @@ pub fn prompt(p: &Project, id: &str, args: &[&str], host: &str) -> Run {
     p.run(&all)
 }
 
+/// The test's `PATH` with the built `specforge` first: the blocks call it by name.
+pub fn with_specforge_first() -> String {
+    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
+    format!(
+        "{}:{}",
+        bin.parent().expect("its directory").display(),
+        std::env::var("PATH").unwrap_or_default()
+    )
+}
+
 /// The JSON a successful render printed.
 pub fn payload(run: &Run) -> Value {
     assert_eq!(run.code, 0, "{}", run.all());

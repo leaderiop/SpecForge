@@ -25,10 +25,11 @@ specforge export --format markdown --scope <id> --depth 1   # a review document 
 specforge query <id> --depth 2       # multi-resolution neighborhood query
 specforge query <id> --format context --include-coverage   # an agent's slice with coverage
 specforge query <id> --kinds plan --pick '.nodes[kind=plan].id'   # one value per line, no jq: .key [n] [] [<key>=<value>] (ADR 0325)
+specforge query <id> --kinds plan --pick '.nodes[kind=plan].id' --count   # also --first N, --last N, --join SEP (ADR 0325 D8)
 specforge check --pick '.[code=E003].message'      # check, settings and export take --pick too
 specforge settings --pick '.extensions[].settings[name=<setting>].value'
 specforge query <id> --depth 1 --pick '.nodes[fields.result=issue].id'   # a dotted key; true, 2 and null match as JSON
-specforge query <id> --kinds commit --pick '.nodes[kind=commit]' --fields fields.hash,fields.subject   # one row per item, its cells separated by 0x1f (read: IFS=$'\x1f' read -r hash subject)
+specforge query <id> --kinds commit --pick '.nodes[kind=commit]' --fields fields.hash,fields.subject   # one row per item, its cells raw and separated by 0x1f (read: IFS=$'\x1f' read -r hash subject; a cell holding a newline refuses); an extension command's answer too: --pick '.items[]' --fields id,slug
 specforge trace <id>                 # its thread along its kind's route (human text), else its chain (json)
 specforge trace <id> --partial       # a route's thread even when incomplete, `no <step>` where it falls short
 specforge trace <id> --route <name>  # along the named route (`<extension>/<route>`); no <id>: its start kind's
@@ -69,24 +70,38 @@ specforge prompt <ext>.<prompt> [arguments] [--host claude-code|codex|cursor] [-
 # Ports for people and agents (ADR 0339): JSON by default, --pick for one value, the project's effects ceiling applies
 specforge files stat <path>...                      # kind, size, modified_ms, or exists:false
 specforge files list src --glob '*.tsx' --pick '.entries[0].path'   # honours .gitignore (--no-ignore, --hidden, --kind, --depth)
-specforge files search 'TODO|FIXME' src -i          # {matches:[{path,line,column,text}]}
+specforge files list . --glob '*.ts' --glob '!dist' --lines --pick .lines   # `!glob` leaves out; --lines: each file's lines, total
+specforge files search 'TODO|FIXME' src -i          # {matches:[{path,line,column,text}],missing,unread}: ripgrep's engine
+specforge files search -F "$path" f -C 2 --and-not '^\s*//'   # literal; before/after context; leave out a second pattern
+specforge files search -U 'Y.*X|X(.*\n){0,5}?.*Y' f   # a Y line within 5 lines after an X line (-v inverts, end_line)
+specforge files search -l 'login' src --pick '.files[0]'   # the files that match; --counts: each file's count
+specforge files search -q 'P' f; specforge files search --none 'P' f   # verdict by exit 0/1, 2 when missing or unread
+cmd | specforge files search -q '[0-9]+ passed' -   # `-` is stdin, read only when typed (--hidden, --no-ignore too)
+specforge files read f --pick .text                # {path,text,bytes,lines,truncated}, 1 MiB at most
 specforge files temp --suffix .json --pick .path   # a new 0600 file under .specforge/tmp (--dir for a directory)
+specforge files temp --dir --name gsd-handoff --pick .path   # one stable path, made when missing, kept when there
 specforge files mkdir|copy|move|remove ...         # {changed:[...]}; never a root, the host's state or a credential file
 specforge files digest <file>... --text "$PWD"     # {digests:[{path,sha256,bytes}]}
 specforge run --deadline 10s -- cargo test         # output and exit pass through; 124 deadline, 127 not found, 126 cannot start
 specforge run --format json -- git status         # {argv,exit,outcome,stdout,stderr,duration_ms,truncated}
 specforge run --which node npx                     # where the runner finds each program
+specforge wait --for 30s --url http://localhost:3000   # 0 when it answers (any status), 124 at the deadline (ADR 0342)
+specforge wait --for 0 --changed 'src/**/*.rs' --since "$T" --pick .reason   # changed | deadline; --match RE --in FILE
 specforge git repo --pick .top                     # the repository, read in process: no git program runs
 specforge git head --pick .branch                  # {sha,branch,detached,unborn,upstream,ahead,behind}
 specforge git rev HEAD~1 main:a.txt                # {revs:[{rev,sha,kind,exists}]}
 specforge git status --pick '.untracked[]'         # the typed status, plus clean and untracked
+specforge git status --except-spec --pick .clean   # --except <path> is read from here; --except-spec is the project's
+specforge git repos wk --pick '.repos[clean=false].name'   # the repositories directly in a directory
 specforge git config user.name --pick .value       # {key,value,values}
 specforge git log main..HEAD --pick .count         # {count,commits:[{sha,parents,author,subject,body,trailers}]}
 specforge git diff --base main --pick '.files[].path'  # -- <path>… filters; --staged, --worktree, --patch
+specforge git diff --base main --pick '.files[spec_only=false].path'  # each file: spec, spec_only, spec_removed
 specforge git merge-base main HEAD --pick .sha     # {sha}
 specforge git show HEAD:spec/a.spec --pick .text   # {sha,bytes,binary,text}
 specforge git branches [--remote]                  # {branches:[{name,sha,current,upstream,ahead,behind}]}
 specforge git worktrees                            # {worktrees:[{path,branch,sha,main,locked,current}]}
+specforge git clone <dir> <new-dir>                # {top,branch,sha}: a local repository, no hook, no remote
 specforge git remotes --pick '.remotes[0].path'    # {remotes:[{name,url,push_url,host,path}]}: owner/repo
 specforge git commit --add spec -m 'feat: x'       # {sha,branch,parents,files}: hooks run; --all, --remove, --no-verify
 specforge git branch create|delete NAME            # {name,sha}: --at REV; delete --force for unmerged commits
@@ -120,6 +135,7 @@ specforge format                     # format .spec files
 specforge migrate                    # bring .spec files to the current format: titles, and repeated reference lists moved into `defaults`
 specforge collect                    # run the test runners (with your approval) and record what they prove
 specforge grants                     # what the extensions may make the host do here, and this machine's approvals; approve, revoke, --store
+specforge grants approve --root workspaces --at ~/gsd-workspaces   # name a root on this machine, for every project's verbs (no extension's); revoke --root <name> --machine
 specforge doctor                     # health-check installed extensions and the files install wrote into a host
 specforge install claude-code        # write the extensions' agents, skills, slash commands and hooks into a host (codex, cursor too); --check, --dry-run, --force
 specforge uninstall claude-code      # remove exactly what install wrote

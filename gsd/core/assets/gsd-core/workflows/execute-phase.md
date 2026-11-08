@@ -76,8 +76,8 @@ Parse `$ARGUMENTS` before loading any context:
 - First positional token → `PHASE_ARG`
 - Optional `--wave N` → `WAVE_FILTER`
 - Optional `--gaps-only` keeps its current meaning
-- Optional `--cross-ai` → `CROSS_AI_FORCE=true` (force all plans through cross-AI execution)
-- Optional `--no-cross-ai` → `CROSS_AI_DISABLED=true` (disable cross-AI for this run, overrides config and frontmatter)
+- No `--cross-ai` or `--no-cross-ai`: this command declares neither and the host refuses both;
+  cross-AI execution follows the plans' `cross_ai: true` and `workflow.cross_ai_execution` alone
 
 If `--wave` is absent, preserve the current behavior of executing all incomplete waves in the phase.
 </step>
@@ -88,18 +88,18 @@ Load all context in one call:
 @~/.claude/gsd-core/references/gsd-run-resolver.md
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-WAVE_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--wave[[:space:]]+([^[:space:]-][^[:space:]]*) ]]; then WAVE_PARAM="--wave ${BASH_REMATCH[2]}"; fi
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
+
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 AGENT_SKILLS=""   # the host install carries the skills of gsd-executor
 ```
 
-Parse JSON for: `executor_model`, `verifier_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `phase_found`, `phase_dir`, `phase_number`, `padded_phase`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `phase_req_ids`, `response_language`, `requirements_path`, `section_manifest`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name`, `slug` and `requirements` (`phase_req_ids`) are its fields; a phase not in the graph is an E003 error), and its `plan` entities are among the other nodes (`plan_count` is their number; `incomplete_plans` are those whose `status` is not `complete` and `incomplete_count` their number). `commit_docs`, `parallelization` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model. No init bundle prints a section manifest, so it is null and every step below is read.
 
 **Threat-ID gate (#4683):** run `THREAT_IDS_JSON=$(specforge gsd threat-ids "$PHASE_ID" --format json 2>/dev/null || if [ $? -eq 2 ]; then echo '{"threat_id_duplicates":[],"threat_id_duplicate_count":0}'; else echo '{"threat_id_duplicates":[],"threat_id_duplicate_count":null,"error":"threat-ids failed"}'; fi)`; if `threat_id_duplicate_count` from `THREAT_IDS_JSON` is non-zero, read and execute `execute-phase/steps/threat-id-gate.md` BEFORE any dispatch — if `error` is set (a loaded `@gsd/security` could not answer; exit 2 is "not loaded" and means no duplicates) stop and report it, never read it as no duplicates; it is a hard stop (the full duplicate list is `threat_id_duplicates` of `THREAT_IDS_JSON`).
 
@@ -113,7 +113,7 @@ Reset the wave-failure tally (#4915). Fenced `bash` blocks are separate shells, 
 
 ```bash
 # gsd-handoff:begin wave-failure-reset
-_GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+_GSD_HANDOFF=$(specforge files temp --dir --name gsd-handoff --pick .path) || exit 1
 : > "$_GSD_HANDOFF/wave-failures"
 # gsd-handoff:end wave-failure-reset
 ```
@@ -122,36 +122,36 @@ Read runtime/worktree config and fail closed before any executor dispatch:
 
 ```bash
 RUNTIME="{{setting:runtime|@host}}"   # runtime (the settings)
-USE_WORKTREES="false"   # @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
+# @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
 EXECUTOR_STALL_INTERVAL_MINUTES="{{setting:executor.stall_detect_interval_minutes|5}}"   # executor.stall_detect_interval_minutes (the settings)
 EXECUTOR_STALL_THRESHOLD_MINUTES="{{setting:executor.stall_threshold_minutes|10}}"   # executor.stall_threshold_minutes (the settings)
 
-# Resolve ISOLATION + apply its guards: read and execute the "Resolve ISOLATION"
-# section of execute-phase/steps/executor-isolation-dispatch.md. It sets
-# ISOLATION (harness-worktree|orchestrator-worktree|none), forces none when
-# USE_WORKTREES=false, fails closed when a host has no primitive, sweeps orphans,
-# and applies the #683 fork-base auto-degrade.
+# every plan dispatches in sequential mode: there is no isolation to resolve
+
+
+
+
 ```
 
-`ISOLATION` — not `RUNTIME` — is the ONLY fan-out branch point; **never add a `RUNTIME = "codex"` test here.** Per-host dispatch detail lives in `execute-phase/steps/executor-isolation-dispatch.md` (read from step 3).
+Executors run in sequential mode on the working tree: `@gsd/core` has no worktree isolation (no submodule check, no base-check degrade).
 
-If the project uses git submodules, worktree isolation is unsafe **only when a plan touches a submodule path** — the executor commit protocol cannot correctly handle submodule commits inside isolated worktrees. Compute submodule paths once and intersect them per-plan with the plan's declared `files_modified` frontmatter.
 
-```bash
-# Parse submodule paths from .gitmodules once (empty if no .gitmodules).
-# SUBMODULE_PATHS is a newline-separated list of repo-relative paths.
-if [ -f .gitmodules ]; then
-  SUBMODULE_PATHS=$(specforge git submodules --pick '.submodules[].path' 2>/dev/null)
-else
-  SUBMODULE_PATHS=""
-fi
-```
 
-`SUBMODULE_PATHS` is exported to the `execute_waves` step, where the per-plan decision happens (see "Per-plan worktree decision" sub-step inside `execute_waves`). The decision is per-plan because different plans in the same wave can touch different files — only plans whose paths intersect a submodule must drop worktree isolation; plans nowhere near a submodule keep parallel isolation.
 
-When `USE_WORKTREES` is `false`, `ISOLATION` is forced to `none`: executors run sequentially on the main working tree. The per-plan decision below has no effect when worktrees are project-disabled.
 
-`USE_WORKTREES` and `ISOLATION` are also reset for the run when `worktree base-check` detects the orchestrator HEAD has diverged from the worktree fork base (#683) — read and follow `execute-phase/steps/worktree-base-check.md` for the degrade semantics and the `worktree.baseRef:"head"` escape hatch (#3659).
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Read context window size for adaptive prompt enrichment:
 
@@ -186,25 +186,25 @@ inline path for each plan.
 
 **REQUIRED — Sync chain flag with intent.** If user invoked manually (no `--auto`), clear the ephemeral chain flag from any previous interrupted `--auto` chain. This prevents stale `_auto_chain_active: true` from causing unwanted auto-advance. This does NOT touch `workflow.auto_advance` (the user's persistent settings preference). You MUST execute this bash block before any config reads:
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-# REQUIRED: prevents stale auto-chain from previous --auto runs
-if [[ ! "$GSD_ARGS" =~ --auto ]]; then
-  : # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
-fi
+
+
+
+
+
+
+
+
 ```
 
 Resolve `MVP_MODE` once via the centralized `phase.mvp-mode` query verb (precedence chain: CLI flag → ROADMAP `**Mode:** mvp` → `workflow.mvp_mode` config → false):
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-MVP_FLAG_ARG=""
-if [[ "$GSD_ARGS" =~ (^|[[:space:]])--mvp([[:space:]]|$) ]]; then MVP_FLAG_ARG="--cli-flag"; fi
-MVP_MODE=$([ -n "$MVP_FLAG_ARG" ] && echo true || { [ "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode')" = mvp ] && echo true || echo false; })
+
+
+
+
+
+
+MVP_MODE=$([ "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode')" = mvp ] && echo true || echo false)
 EXECUTE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 TDD_MODE="false"   # the loop capability is not part of @gsd/core: --tdd is read from the arguments
 ```
@@ -252,7 +252,7 @@ if [ "$TDD_MODE" = "true" ]; then
     RED_IDS=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; PLAN_FULL_ID=$(specforge query "$PLAN_ID" --depth 0 --pick '.nodes[0].id') && specforge query "$PLAN_FULL_ID" --kinds commit --pick ".nodes[fields.plan=$PLAN_FULL_ID].id") && RED_SCOPE_RC=0 || RED_SCOPE_RC=$?   # a commit's plan field holds the full id: SpecForge resolves a short one (01-01) once
     # Exit 69 (UNAVAILABLE) = the scope could not be resolved: that is not "missing RED commit" (#5170).
     if [ "$RED_SCOPE_RC" -ne 0 ]; then echo "TDD GATE UNAVAILABLE: could not resolve the plan's commits for ${PLAN_ID}/${TASK_ID} (evaluation-scope exit ${RED_SCOPE_RC})"; exit 1; fi
-    RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | grep -Eq '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
+    RED_COMMIT=$(for c in $RED_IDS; do specforge query "$c" --depth 0 --pick '.nodes[0].fields.files[]' | specforge files search -q '\.(test|spec)\.|^(tests|__tests__)/|^test_.*\.py$|_test\.(go|py|exs|rb)$|_spec\.rb$' - && { IFS=$'\x1f' read -r h s <<<"$(specforge query "$c" --depth 0 --pick '.nodes[0]' --fields fields.hash,fields.subject)"; printf '%s %s\n' "${h:0:10}" "$s"; break; }; done)
     if [ -z "$RED_COMMIT" ]; then
       : # the last gate trip is not recorded: STATE is computed
       echo "TDD GATE TRIPPED: missing RED commit for ${PLAN_ID}/${TASK_ID}"
@@ -267,10 +267,10 @@ Pure doc-only / config-only / test-only tasks return `is_behavior_adding=false` 
 <step name="check_blocking_antipatterns" priority="first">
 **MANDATORY — Check for blocking anti-patterns before any other work.**
 
-Look for a `.continue-here.md` in the current phase directory:
+Read the phase's handoff (the entity that holds `.continue-here.md`):
 
 ```bash
-specforge files stat ${phase_dir}/.continue-here.md --format human 2>/dev/null || true
+specforge query "$PHASE_ID" --kinds handoff --format context 2>/dev/null || true
 ```
 
 If `.continue-here.md` exists, parse its "Critical Anti-Patterns" table for rows with `severity` = `blocking`.
@@ -295,11 +295,11 @@ Write these answers inline before continuing. If a blocking anti-pattern cannot 
 </step>
 
 <step name="handle_branching">
-Check `branching_strategy` from init:
+Check `git.branching_strategy` (`{{setting:git.branching_strategy|none}}`):
 
 **"none":** Read and execute `execute-phase/steps/protected-branch.md`.
 
-**"phase" or "milestone":** Use pre-computed `branch_name` from init.
+**"phase" or "milestone":** The branch is the phase's computed `branch`, from the strategy and its template.
 
 Fork the new phase branch off `origin/HEAD` (the project's default branch), not the current HEAD — otherwise consecutive phases compound and stay unpushed (#2916). If `$BRANCH_NAME` already exists locally, reuse it as-is.
 
@@ -307,7 +307,7 @@ Fork the new phase branch off `origin/HEAD` (the project's default branch), not 
 DEFAULT_BRANCH=$(v=$(specforge git config init.defaultBranch --pick .value 2>/dev/null) && [ -n "$v" ] && echo "$v" \
   || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null \
   || echo main)
-
+: "${PHASE_ID:?PHASE_ID is not set: the phase being worked}"; BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.branch') && [ -n "$BRANCH_NAME" ] || { echo "ERROR: no branch name: see gsd/W409 (specforge check)." >&2; exit 1; }
 if [ "$(specforge git rev "refs/heads/$BRANCH_NAME" --pick '.revs[0].exists')" = true ]; then
   specforge git switch "$BRANCH_NAME" || { echo "ERROR: Could not switch to existing branch '$BRANCH_NAME'." >&2; exit 1; }
 else
@@ -322,7 +322,7 @@ else
     specforge git switch "$DEFAULT_BRANCH" >/dev/null 2>&1 && specforge git merge "origin/$DEFAULT_BRANCH" --ff-only >/dev/null 2>&1 || true
   fi
   # Pinned base (#2916); --no-track (#2498). #2639: warn if local ahead of origin.
-  AHEAD=$(specforge git log "origin/$DEFAULT_BRANCH..$DEFAULT_BRANCH" --pick .count 2>/dev/null || echo 0)
+  AHEAD_LOCAL=$(specforge git rev "refs/heads/$DEFAULT_BRANCH" --pick '.revs[0].exists') || exit 1; AHEAD=0; if [ "$AHEAD_LOCAL" = true ]; then AHEAD=$(specforge git log "origin/$DEFAULT_BRANCH..$DEFAULT_BRANCH" --pick .count) || exit 1; fi   # no local branch: nothing is ahead; a failed answer stops
   [ "$AHEAD" != "0" ] && [ -n "$AHEAD" ] && echo "WARNING: $DEFAULT_BRANCH is $AHEAD ahead of origin — '$BRANCH_NAME' won't include those commits (#2639)." >&2
   specforge git switch "$BRANCH_NAME" --create --at "origin/$DEFAULT_BRANCH" \
     || { echo "ERROR: Could not create '$BRANCH_NAME' from origin/$DEFAULT_BRANCH (#2916)." >&2; exit 1; }
@@ -333,9 +333,9 @@ All subsequent commits go to this branch. User handles merging.
 </step>
 
 <step name="validate_phase">
-From init JSON: `phase_dir`, `plan_count`, `incomplete_count`.
+From `INIT`: the phase's `plan` entities (`plan_count` is their number) and those whose `status` is not `complete` (`incomplete_count`).
 
-Report: "Found {plan_count} plans in {phase_dir} ({incomplete_count} incomplete)"
+Report: "Found {plan_count} plans in phase $PHASE_ID ({incomplete_count} incomplete)"
 
 **Update STATE.md for phase start:**
 ```bash
@@ -417,8 +417,8 @@ later conditions once one matches:
      `update_roadmap`; the tail steps then run in their normal order. This is the ONLY arm that
      reaches `update_roadmap`.
    - **Anything else** (`gaps_found`, `human_needed`, `unparseable`, `phase_dir_not_found`):
-     present the owner's `next_action` and `next_command` (the verification query above, with the pick
-     "${PHASE_DIR}" --pick next_action` / `--pick next_command`) → exit. Never `update_roadmap`.
+     present the route the status names (a verification has no `next_action` field): `gaps_found`
+     → `/gsd:plan-phase {X} --gaps`; any other → `/gsd:verify-work {X}` → exit. Never `update_roadmap`.
 
 Report:
 ```
@@ -436,7 +436,7 @@ Report:
 </step>
 
 <step name="cross_ai_delegation">
-**Optional step 2.5 — Delegate plans to an external AI runtime.** Runs after plan discovery, before wave execution. Activates when `--cross-ai` forces all incomplete plans, `--no-cross-ai` disables it entirely, or (default) a plan's `cross_ai: true` frontmatter agrees with the `workflow.cross_ai_execution` config. **Only `ready` plans are eligible (#4628) — a not-ready plan is never delegated over incomplete predecessors.** If no plan is marked, skip to execute_waves; if marked but `workflow.cross_ai_command` is unset, error and tell the user to set it.
+**Optional step 2.5 — Delegate plans to an external AI runtime.** Runs after plan discovery, before wave execution. Activates when a plan's `cross_ai: true` frontmatter agrees with the `workflow.cross_ai_execution` config. **Only `ready` plans are eligible (#4628) — a not-ready plan is never delegated over incomplete predecessors.** If no plan is marked, skip to execute_waves; if marked but `workflow.cross_ai_command` is unset, error and tell the user to set it.
 
 For each marked plan: build a self-contained prompt from the plan's `<objective>`/`<tasks>` plus PROJECT.md context, warn on a dirty working tree, then run the configured command **wrapped in `specforge run --deadline "${CROSS_AI_TIMEOUT}"` (config `workflow.cross_ai_timeout`, default 300s) — never run it unbounded** — with the prompt piped to **stdin, never shell-interpolated, to prevent injection**. On success (exit 0): validate the captured SUMMARY output is non-empty and structurally valid before writing it as the plan's SUMMARY.md, update STATE/ROADMAP, mark handled. On failure (non-zero exit, or the summary fails that validation): show the error, warn about possible partial edits, and offer **retry** / **skip** (falls back to the normal executor) / **abort**. Successfully handled plans are removed from execute_waves' list; skipped-to-fallback plans remain in it.
 
@@ -464,7 +464,7 @@ when the orchestrator legitimately runs from a feature worktree.
 ORCHESTRATOR_WT=$(specforge git repo --pick .top 2>/dev/null) || {
   echo "FATAL: execute_waves entry is not inside a git worktree (#48)." >&2; exit 1; }
 ORCH_BRANCH=$(specforge git head --pick .branch 2>/dev/null)
-if printf '%s' "$ORCH_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)'; then
+if [ "$(specforge gsd branch-check --pick .agent)" = true ]; then
   echo "FATAL: orchestrator cwd is inside an agent worktree (branch '$ORCH_BRANCH', root '$ORCHESTRATOR_WT') — refusing to execute waves (#48). A prior isolation=\"worktree\" dispatch drifted the cwd; re-run from the orchestrator's own worktree." >&2
   # #1856 handoff: the refusal above is correct, but on its own it is a dead end —
   # this worktree may hold committed fixes AND uncommitted work, and "re-run from
@@ -482,9 +482,9 @@ if printf '%s' "$ORCH_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)'; t
   [ -n "$_WT_BASE" ] && _WT_AHEAD=$(specforge git log "$_WT_BASE..HEAD" --pick .count 2>/dev/null || true)
   # Count BEFORE truncating, so a long list reports its true size rather than
   # under-reporting what is stranded — which is the whole point of this report.
-  _WT_DIRTY_ALL=$(specforge git status --pick '.entries[].path' 2>/dev/null || true)
+  _WT_DIRTY_ALL=$(specforge git status --pick '.entries[].path' --first 20 --join $'\n    ' 2>/dev/null || true)
   _WT_DIRTY_N=0
-  [ -n "$_WT_DIRTY_ALL" ] && _WT_DIRTY_N=$(printf '%s\n' "$_WT_DIRTY_ALL" | wc -l | tr -d ' ')
+  [ -n "$_WT_DIRTY_ALL" ] && { _WT_DIRTY_N=$(specforge git status --pick '.entries[].path' --count 2>/dev/null) || _WT_DIRTY_N='?'; }
   _WT_HAS_COMMITS=0
   [ -n "$_WT_AHEAD" ] && [ "$_WT_AHEAD" -gt 0 ] 2>/dev/null && _WT_HAS_COMMITS=1
 
@@ -492,13 +492,13 @@ if printf '%s' "$ORCH_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)'; t
   echo "── Handoff: what is in this worktree (#1856) ──" >&2
   if [ "$_WT_HAS_COMMITS" -eq 1 ]; then
     echo "  $_WT_AHEAD commit(s) on '$ORCH_BRANCH' not on '$_WT_BASE':" >&2
-    specforge git log "$_WT_BASE..HEAD" --max 20 --pick '.commits[].subject' 2>/dev/null | sed 's/^/    /' >&2 || true
+    _WT_LOG=$(specforge git log "$_WT_BASE..HEAD" --max 20 --pick '.commits[].subject' --join $'\n    ' 2>/dev/null || true); [ -n "$_WT_LOG" ] && printf '    %s\n' "$_WT_LOG" >&2
     [ "$_WT_AHEAD" -gt 20 ] 2>/dev/null && echo "    … and $((_WT_AHEAD - 20)) more" >&2
     echo "  These live ONLY on this branch. Switching away without integrating loses them." >&2
   fi
   if [ -n "$_WT_DIRTY_ALL" ]; then
     echo "  $_WT_DIRTY_N uncommitted change(s) still in this worktree:" >&2
-    printf '%s\n' "$_WT_DIRTY_ALL" | head -20 | sed 's/^/    /' >&2
+    printf '    %s\n' "$_WT_DIRTY_ALL" >&2
     [ "$_WT_DIRTY_N" -gt 20 ] 2>/dev/null && echo "    … and $((_WT_DIRTY_N - 20)) more" >&2
   fi
   if [ "$_WT_HAS_COMMITS" -eq 1 ] || [ -n "$_WT_DIRTY_ALL" ]; then
@@ -606,13 +606,13 @@ increases monotonically across waves. `{status}` is `complete` (success),
    - Bad: "Executing terrain generation plan"
    - Good: "Procedural terrain generator using Perlin noise — creates height maps and biome zones. Required before vehicle physics."
 
-2.5. **Per-plan worktree decision (run for each plan in this wave BEFORE any dispatch):**
 
-   Read and execute **Part 1** of `gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md` for each plan. It extracts `PLAN_FILES` from the plan's JSON, intersects against `SUBMODULE_PATHS` (with normalization, bidirectional matching, and glob-prefix handling), and sets `USE_WORKTREES_FOR_PLAN` to `false` when the plan touches a submodule path. Append `plan_id` to a `WAVE_WORKTREE_PLANS` accumulator when `USE_WORKTREES_FOR_PLAN != false`. **Store each plan's decision** (`plan_id → USE_WORKTREES_FOR_PLAN`): the shared `USE_WORKTREES_FOR_PLAN` value is overwritten by the next plan's decision.
 
-   The plan-scoped dispatch-isolation record is **not written here**. It is a single slot, so it is written in step 3, immediately before each plan's own dispatch (Part 2 of the gate, #5516).
 
-   The dispatch branches in step 3 gate on both `USE_WORKTREES` and the dispatched plan's own stored `USE_WORKTREES_FOR_PLAN` (#2474).
+
+
+
+
 
 2.75. **Execute:wave:pre capability dispatch:**
 
@@ -633,44 +633,44 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
    Pass paths only — executors read files themselves.
 
-   **Substitute `{plan_id}` in the prompt below with this plan's `id` field** from the `phase-plan-index` JSON loaded in step 1 (the same field referred to elsewhere in this workflow as `plan.id`) — unmodified and un-truncated, never a paraphrase. The guard hooks compare this value verbatim against the sentinel the per-plan gate wrote (`per-plan-worktree-gate.md`'s `plan_id`); a paraphrase or an omission costs the dispatch its recorded isolation decision.
+   **Substitute `{plan_id}` in the prompt below with this plan's `id` field** from the `phase-plan-index` JSON loaded in step 1 (the same field referred to elsewhere in this workflow as `plan.id`) — unmodified and un-truncated, never a paraphrase.
 
-   **Record this plan's isolation immediately before its dispatch (#5516).** Restore the dispatched plan's **stored decision** from step 2.5 (`plan_id` := this plan's `id`, `USE_WORKTREES_FOR_PLAN` := the value stored for that plan, and `PLAN_FILES` / `PLAN_DELETIONS` re-extracted from this plan's JSON, since the later plans' decisions overwrote them) and run **Part 2** of `gsd-core/workflows/execute-phase/steps/per-plan-worktree-gate.md`, so the single-slot sentinel names the plan being dispatched. Do not run it for any other plan, and do not batch it ahead of the dispatches.
+
 
    **Executor routing (#1689/#3370).** Per plan, run `gsd-core/workflows/execute-phase/steps/per-plan-executor-routing.md` to set `EXECUTOR_TYPE` for `subagent_type="{EXECUTOR_TYPE}"` below.
 
    **TDD-applicability resolution (#4266/#4272).** Run `gsd-core/workflows/execute-phase/steps/tdd-applicability-resolution.md`.
 
-   **Worktree mode** (`USE_WORKTREES` and `USE_WORKTREES_FOR_PLAN` not `false`):
+   **Executor dispatch** (every plan: `@gsd/core` runs no worktree isolation, so **Sequential mode** below adapts this call):
 
    Before spawning, capture the current HEAD:
    ```bash
    EXPECTED_BASE=$(specforge git head --pick .sha)
-   DISPATCH_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-   EXPECTED_BRANCH=$(specforge git head --pick .branch)
-    if [ "${USE_WORKTREES:-true}" != "false" ] && [ "${USE_WORKTREES_FOR_PLAN:-true}" != "false" ] && [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then
-     WAVE_WORKTREE_MANIFEST=$(specforge files temp --prefix gsd-worktree-wave- --suffix .tsv --pick .path) || exit 1  # one private file, its suffix kept (#1520)
-     # Persist the dispatch-time orchestrator worktree root so wave-cleanup can pin back to the
-     # orchestrator's OWN worktree — NOT `git worktree list`'s first entry (always the main
-     # checkout), which pins a non-primary (per-phase lane) orchestrator off its branch (#630).
-     # Dispatch runs from the orchestrator's lane, so show-toplevel here is the correct root.
-     ORCH_ROOT=$(specforge git repo --pick .top)
-     printf 'orchestrator_root\t%s\n' "$ORCH_ROOT" > "$WAVE_WORKTREE_MANIFEST.tmp" && specforge files move "$WAVE_WORKTREE_MANIFEST.tmp" "$WAVE_WORKTREE_MANIFEST" >/dev/null   # one tab-separated record per line: orchestrator_root<TAB>root, then worktree<TAB>path<TAB>branch per worktree
-     export WAVE_WORKTREE_MANIFEST
-   fi
+
+
+
+
+
+
+
+
+
+
+
+
    ```
 
-   **Isolation model.** The block below is the **`harness-worktree`** path. For `orchestrator-worktree` use the dispatch below it; for `none` use sequential mode. Both are detailed in `execute-phase/steps/executor-isolation-dispatch.md`.
 
-   **Sequential dispatch for parallel execution (waves with 2+ agents):**
-   Dispatch each `Agent()` call **one at a time with `run_in_background: true`**. Do NOT
-   send all Agent calls in a single message: simultaneous `git worktree add` calls race
-   on `.git/config.lock`. Agents still run in parallel once their worktrees are created.
 
-   ```text
-   # CORRECT: one Agent() per message with run_in_background: true
-   # WRONG: multiple Agent() calls in one message -> .git/config.lock contention
-   ```
+
+
+
+
+
+
+
+
+
 
    ```text
    Agent(
@@ -680,22 +680,22 @@ increases monotonically across waves. `{status}` is `complete` (success),
      # When executor_model is "inherit", omit this parameter entirely so
      # Claude Code inherits the orchestrator model automatically.
      model="{executor_model}",  # omit this line when executor_model == "inherit"
-     # The host's OWN declared isolation flag (`harnessFlag` from
-     # `dispatch-isolation --json`; see the isolation-dispatch fragment).
-     # Emit the declared token — do NOT hardcode a runtime's flag.
-     {harnessFlag},
+
+
+
+
      prompt="
        <objective>
        Execute plan {plan_number} of phase {phase_number}-{phase_name}.
        [gsd:dispatch phase="{phase_number}" plan="{plan_id}"]
        Commit each task atomically. Create SUMMARY.md.
-       Do NOT update STATE.md or ROADMAP.md — the orchestrator owns those writes after all worktree agents in the wave complete.
+       Do NOT update STATE.md or ROADMAP.md — the orchestrator owns those writes after every plan in the wave completes (sequential mode).
        </objective>
 
-       <worktree_branch_check>
-       ORCHESTRATOR build-time embed (NOT a sub-agent runtime step): before this dispatch, read `gsd-core/references/worktree-branch-check.md`, substitute `{EXPECTED_BASE}` with the base SHA captured above ({EXPECTED_BASE}), and replace this note with that fragment's `<worktree_branch_check>` block so the dispatched prompt carries the runnable guard verbatim — do not pass this instruction through in its place.
-       Per-commit HEAD/cwd-drift/path-guard: `agents/gsd-executor.md` steps 0/0a/0b + `gsd-core/references/worktree-path-safety.md` (in <execution_context>).
-       </worktree_branch_check>
+
+
+
+
 
        <parallel_execution>
        You are running as a PARALLEL executor agent in a git worktree. Worktree path safety (cwd-drift, absolute-path guards) is in `worktree-path-safety.md` (loaded below).
@@ -723,7 +723,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
        - `~/.claude/gsd-core/templates/summary.md`
        - `~/.claude/gsd-core/references/checkpoints.md`
        ${TDD_APPLICABLE ? '- `~/.claude/gsd-core/references/tdd.md`' : ''}  # #3990/#4265: type: tdd, tdd="true", or workflow.tdd_mode
-       - `~/.claude/gsd-core/references/worktree-path-safety.md`
+
        ${CONTEXT_WINDOW < 200000 ? '' : '- `~/.claude/gsd-core/references/executor-examples.md`'}
        </execution_context>
 
@@ -763,15 +763,15 @@ increases monotonically across waves. `{status}` is `complete` (success),
    )
    ```
 
-   After each `Agent()` returns, parse executor-returned worktree metadata (`<worktree_metadata>`) before harness metadata, then record the `{agent_id, worktree_path, branch, expected_base}` entry with the wave's worktree manifest (worktree isolation is not part of @gsd/core: nothing to record). The verb validates every field at write time using the `cleanup-wave` reader's own rules (write-strict `--agent-id`), failing loudly with a recovery hint rather than appending an under-populated entry the reader would later drop silently. On a non-zero exit or any missing field: stop and ask for recovery instead of scanning worktrees.
 
-   > **Worktree recovery policy (#48 + #1292):** See `execute-phase/steps/worktree-recovery-policy.md` — FAIL-CLOSED rule for base/HEAD-namespace mismatches AND isolated-run fail-safe recovery.
+
+
 
    > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above to spawn executor agent(s), stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available. While waiting, run the step-4 completion surveillance; if the child's session ends abnormally — including `turn_aborted` — reconcile artifacts per `execute-phase/steps/completion-reconciliation.md` before classifying the plan (#4217).
 
-   **Orchestrator-managed worktree dispatch** (`ISOLATION=orchestrator-worktree`): read and execute `execute-phase/steps/executor-isolation-dispatch.md`. GSD creates each worktree (`worktree create`) and spawns the executor into it; the orchestrator performs every git operation. Merge-back and cleanup are the existing manifest-scoped gauntlet, unchanged.
 
-   **Sequential mode** (`USE_WORKTREES_FOR_PLAN` is `false` — either project-level `USE_WORKTREES=false`, or per-plan submodule intersection forced it false in step 2.5):
+
+   **Sequential mode** (every plan):
 
    Omit `isolation="worktree"` from the Agent call. Before composing the prompt, read and execute
    `execute-phase/steps/sequential-root-pin.md` (#4254) — it owns the sequential root-pin build-time
@@ -821,7 +821,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
    If a spawned agent does not return a normal terminal completion response — or its session ends abnormally (interrupted, aborted, closed, killed, timed out, `turn_aborted`, including ends the orchestrator itself initiated) — do NOT block indefinitely and do NOT classify the plan as failed yet. Read and execute `gsd-core/workflows/execute-phase/steps/completion-reconciliation.md` — reconcile the plan artifacts FIRST, classify SECOND: SUMMARY present AND matching recent commits → complete (proceed to step 5, do NOT re-dispatch); no completion evidence → the failure handler. Verify, never wait.
 
    **Configurable stall surveillance (#3212):** Every `${EXECUTOR_STALL_INTERVAL_MINUTES}`
-   minutes while waiting, inspect `git log "${EXPECTED_BRANCH}" --since="${DISPATCH_TS}"`
+   minutes while waiting, inspect `specforge git log "${EXPECTED_BASE}..HEAD"`
    for activity. If no completion signal, no SUMMARY.md, and no expected-branch
    commits appear for `${EXECUTOR_STALL_THRESHOLD_MINUTES}` minutes, pause and
    ask for one recovery path: `continue waiting`, `kill and retry`, or
@@ -846,91 +846,91 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
 5.5. **Worktree cleanup (when `isolation="worktree"` was used):**
 
-   **Standard wave contract:** Each wave's worktrees merge to main via the templated path below before the next wave's worktrees fork. The cleanup loop runs once per wave at the end of the wave lifecycle. Worktrees created in wave N must be fully removed before wave N+1 forks new ones.
+   No worktree was created: there is nothing to merge back or clean up.
 
-   **Cross-wave dependency deviation (supported execution mode):** When the orchestrator legitimately deviates from the standard wave model — for example, a phase with cross-wave plan dependencies that requires custom inter-worktree base-update merges (e.g., `merge: bring 09-01 + 09-02 into 09-03 base`) — the cleanup loop below is NOT automatically re-entered for those custom merges. The deviation path produces correct final history but bypasses this loop, leaving `worktree-agent-*` directories in place. Use the **cleanup-tail snippet** below to remove any residual worktrees after such a deviation.
 
-   When executor agents ran in worktree isolation, their commits land on temporary branches in separate working trees. After the wave completes, merge these changes back and clean up:
 
-   **Manifest source of truth (#3384):** Cleanup consumes the `WAVE_WORKTREE_MANIFEST` created and populated during executor dispatch in step 3. Do not recreate or truncate it here.
 
-   Prefer the bounded helper, which validates branch identity, expected base, deletion
-   diffs, merge result, and worktree removal before deleting the temporary branch.
-   If the helper reports a blocked cleanup, resolve the reported manifest entry and
-   rerun the same command. Do not fall back to broad worktree discovery.
 
-   ```bash
-   [ -n "${WAVE_WORKTREE_MANIFEST:-}" ] && [ -f "$WAVE_WORKTREE_MANIFEST" ] || {
-     echo "BLOCKED: missing WAVE_WORKTREE_MANIFEST; refusing broad worktree cleanup (#3384)." >&2
-     exit 1
-   }
 
-   # Guard: pin cleanup back to the orchestrator's OWN worktree and fail on branch drift (#3174, #630).
-   # Resolve from the dispatch-time orchestrator root persisted in the manifest — NOT `git worktree
-   # list`'s first entry, which is always the main checkout and would pin a non-primary (per-phase
-   # lane) orchestrator off its own branch, tripping the #3174 assertion below (#630). Byte-identical
-   # for a primary orchestrator (its root IS the first entry); the fallback covers pre-#630 manifests.
-   PRIMARY_WT=$(while IFS=$'\t' read -r tag a || [ -n "$tag" ]; do [ "$tag" = orchestrator_root ] && { printf '%s' "$a"; break; }; done 2>/dev/null < "${WAVE_WORKTREE_MANIFEST:-}")
-   [ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(specforge git worktrees --pick '.worktrees[main=true].path')
-   if [ -z "$PRIMARY_WT" ]; then
-     echo "FATAL: could not resolve orchestrator worktree before cleanup" >&2
-     exit 1
-   fi
-   if [ -n "$PRIMARY_WT" ] && [ "$(pwd -P 2>/dev/null)" != "$(cd "$PRIMARY_WT" 2>/dev/null && pwd -P)" ]; then echo "⚠ Orchestrator CWD drifted to $(pwd) — pinning to $PRIMARY_WT before worktree cleanup (#3174)"; cd "$PRIMARY_WT" || { echo "FATAL: cannot cd to primary worktree $PRIMARY_WT" >&2; exit 1; }; fi
-   ORCH_BRANCH=$(specforge git head --pick .branch)
-   [ -z "${EXPECTED_BRANCH:-}" ] || [ "$ORCH_BRANCH" = "$EXPECTED_BRANCH" ] || { echo "FATAL: orchestrator on '$ORCH_BRANCH' but expected '$EXPECTED_BRANCH' before worktree cleanup — refusing to merge (#3174-class drift)" >&2; exit 1; }
 
-   # Fail closed: SDK refusal (safety guard #3174/#3384) must surface — do not swallow exit 1.
-   : # worktree.cleanup-wave: worktree isolation is not part of @gsd/core, so there is nothing to clean up
-   ```
 
-   **Cleanup-tail snippet (use after any wave whose merges did not flow through the templated path above):**
 
-   If the orchestrator deviated from the standard wave merge path (e.g., custom inter-worktree base-update merges with `merge: bring …` style messages), run this snippet after the custom merges are complete. It reads only `WAVE_WORKTREE_MANIFEST`; do not discover unrelated `worktree-agent-*` worktrees.
 
-   ```bash
-   # Cleanup-tail: pin orchestrator CWD to its OWN worktree before cleanup-tail (#3174, #630).
-   # Same fix as the templated path: resolve the dispatch-time orchestrator root from the manifest,
-   # not `git worktree list`'s first entry (always the main checkout — wrong for a lane orchestrator).
-   PRIMARY_WT=$(while IFS=$'\t' read -r tag a || [ -n "$tag" ]; do [ "$tag" = orchestrator_root ] && { printf '%s' "$a"; break; }; done 2>/dev/null < "${WAVE_WORKTREE_MANIFEST:-}")
-   [ -n "$PRIMARY_WT" ] || PRIMARY_WT=$(specforge git worktrees --pick '.worktrees[main=true].path')
-   if [ -n "$PRIMARY_WT" ] && [ "$(pwd -P 2>/dev/null)" != "$(cd "$PRIMARY_WT" 2>/dev/null && pwd -P)" ]; then echo "⚠ Orchestrator CWD drifted to $(pwd) — pinning to $PRIMARY_WT before cleanup-tail (#3174)"; cd "$PRIMARY_WT" || { echo "FATAL: cannot cd to primary worktree $PRIMARY_WT" >&2; exit 1; }; fi
-   # Cleanup-tail: remove residual agent worktrees after a cross-wave-dependency deviation.
-   # Uses only the current wave manifest to avoid touching unrelated active agents (#3384).
-   WT_PATHS_FILE=$(specforge files temp --prefix gsd-worktree-paths- --pick .path)
-   { if [ -z "${WAVE_WORKTREE_MANIFEST:-}" ]; then echo "ERROR: cannot read worktree manifest (unset): WAVE_WORKTREE_MANIFEST is unset" >&2; false; elif [ ! -e "$WAVE_WORKTREE_MANIFEST" ]; then echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest does not exist" >&2; false; else ( SEEN=0; ROOTS=0; while IFS= read -r l || [ -n "$l" ]; do tag=${l%%$'\t'*}; a=${l#"$tag"}; a=${a#$'\t'}; a=${a%%$'\t'*}; case "$tag" in '') continue ;; orchestrator_root) ROOTS=$((ROOTS + 1)); [ "$ROOTS" -eq 1 ] || { echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest holds more than one orchestrator_root line" >&2; exit 1; } ;; worktree) [ -z "$a" ] || printf '%s\n' "$a" ;; *) echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: unknown record '$tag'" >&2; exit 1 ;; esac; SEEN=1; done < "$WAVE_WORKTREE_MANIFEST"; [ "$SEEN" -eq 1 ] || { echo "ERROR: cannot read worktree manifest $WAVE_WORKTREE_MANIFEST: manifest is empty" >&2; exit 1; } ); fi; } > "$WT_PATHS_FILE" || { echo "BLOCKED: cannot read WAVE_WORKTREE_MANIFEST; refusing cleanup (#3384)." >&2; exit 1; }
-   while IFS= read -r WT; do
-     [ -z "$WT" ] && continue
-     WT_BRANCH=$(specforge git head --path "$WT" --pick .branch 2>/dev/null)
-     [ -z "$WT_BRANCH" ] || [ "$WT_BRANCH" = "HEAD" ] && continue
-     echo "Cleaning up residual worktree: $WT (branch: $WT_BRANCH)"
-     specforge git worktree unlock "$WT" >/dev/null 2>&1 || true
-     if ! specforge git worktree remove "$WT" --force; then
-       WT_NAME=${WT##*/}
-       if [ -f ".git/worktrees/${WT_NAME}/locked" ]; then
-         echo "⚠ Worktree $WT is locked — unlock failed; manual cleanup required:"
-         echo "    git worktree unlock \"$WT\" && git worktree remove \"$WT\" --force && git branch -D \"$WT_BRANCH\""
-       else
-         echo "⚠ Residual worktree at $WT — remove failed; manual cleanup required"
-       fi
-     else
-       specforge git branch delete "$WT_BRANCH" --force --pick .name 2>/dev/null || true
-     fi
-   done < "$WT_PATHS_FILE"
-   specforge git worktree prune
-   ```
 
-   **When to skip step 5.5:**
 
-   **If no plan in this wave used worktree isolation** (project-level `USE_WORKTREES=false` OR every plan in the wave had `USE_WORKTREES_FOR_PLAN=false` — i.e. `WAVE_WORKTREE_PLANS` from step 2.5 is empty): all agents ran on the main working tree — skip this step entirely.
 
-   **If the orchestrator merged via custom messages (cross-wave-dependency deviation):** the templated cleanup loop above was not triggered for those merges. Run the cleanup-tail snippet above instead. After the snippet completes, proceed to step 5.6.
 
-   **If at least one plan used worktrees but others did not:** still run this cleanup — it iterates over actual `git worktree list` output and only merges back the worktrees that were created, leaving sequential plans' commits on the main tree untouched.
 
-   **If no worktrees found at runtime:** Skip silently — agents may have been spawned without worktree isolation, or the orchestrator already cleaned them up.
 
-   If the user declines to merge a worktree or a worktree over-reached scope, apply the worktree recovery policy (`execute-phase/steps/worktree-recovery-policy.md`) — never default to editing `main`.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 5.6. **Post-merge build & test gate:**
 
@@ -975,7 +975,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
    Where `WAVE_PLAN_IDS` is the space-separated list of plan IDs that completed in this wave.
 
-   **If no plan in this wave used worktrees** (project-level `USE_WORKTREES=false` OR `WAVE_WORKTREE_PLANS` is empty): sequential agents already updated STATE.md and ROADMAP.md themselves — skip this step.
+   **Every plan ran in sequential mode** (`@gsd/core` runs no worktree isolation): sequential agents already updated STATE.md and ROADMAP.md themselves — skip this step.
 
 5.75. **Execute:wave:post capability dispatch:**
 
@@ -1001,8 +1001,8 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
    ```bash
    # gsd-handoff:begin wave-failure-read
-   _GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
-   WAVE_FAILURE_COUNT=$(wc -l < "$_GSD_HANDOFF/wave-failures" 2>/dev/null | tr -d ' ' || true); WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT:-0}
+   _GSD_HANDOFF=$(specforge files temp --dir --name gsd-handoff --pick .path) || exit 1
+   WAVE_FAILURE_COUNT=$(specforge files search '^' "$_GSD_HANDOFF/wave-failures" --pick .count) || exit 1 # no tally counts 0; one that cannot be read stops
    echo "WAVE_FAILURE_COUNT=${WAVE_FAILURE_COUNT}"
    # gsd-handoff:end wave-failure-read
    ```
@@ -1242,7 +1242,7 @@ Tests saved to `{phase_num}-UAT.md`.
 
 When ready to run the tests:
 
-`/gsd:verify-work {X} ${GSD_WS}`
+`/gsd:verify-work {X}`
 
 Verify-work will walk you through each item and mark the phase complete when all tests pass.
 ```
@@ -1269,13 +1269,13 @@ Verify-work will walk you through each item and mark the phase complete when all
 
 `/clear` then:
 
-`/gsd:plan-phase {X} --gaps ${GSD_WS}`
+`/gsd:plan-phase {X} --gaps`
 
 Also: `cat {phase_dir}/{phase_num}-VERIFICATION.md` — full report
-Also: `/gsd:verify-work {X} ${GSD_WS}` — manual testing first
+Also: `/gsd:verify-work {X}` — manual testing first
 ```
 
-Gap closure cycle: `/gsd:plan-phase {X} --gaps ${GSD_WS}` reads VERIFICATION.md → creates gap plans with `gap_closure: true` → user runs `/gsd:execute-phase {X} --gaps-only ${GSD_WS}` → verifier re-runs.
+Gap closure cycle: `/gsd:plan-phase {X} --gaps` reads VERIFICATION.md → creates gap plans with `gap_closure: true` → user runs `/gsd:execute-phase {X} --gaps-only` → verifier re-runs.
 </step>
 
 <!-- gsd:section id="gap-closure-artifacts" when="state:gap-closure-phase" -->
@@ -1351,31 +1351,31 @@ Copy failure must NOT block phase completion.
 **Auto-close todos whose `resolves_phase` matches this phase (#2433)**, after `update_roadmap`.
 
 ```bash
-shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
-PENDING_DIR=$(specforge files temp --dir --pick .path)   # no todo folder: todos are not entities of @gsd/core, so nothing is closed
-COMPLETED_DIR=$(specforge files temp --dir --pick .path)
-specforge files mkdir "$COMPLETED_DIR" >/dev/null
-PHASE_NUM="${PHASE_NUMBER}"
-#2576
-normalize_phase_num() {
-  printf '%s' "${1//\"/}" | sed 's/^0*\([0-9]\)/\1/'
-}
-PHASE_NUM_NORM=$(normalize_phase_num "$PHASE_NUM")
-CLOSED=()
-for TODO_FILE in "$PENDING_DIR"/*.md; do
-  [ -f "$TODO_FILE" ] || continue
-  RP=$(awk '/^---/{c++;next} c==1 && /^resolves_phase:/{print $2;exit} c==2{exit}' "$TODO_FILE" 2>/dev/null || true)
-  RP_NORM=$(normalize_phase_num "$RP")
-  [ -n "$RP_NORM" ] && [ "$RP_NORM" = "$PHASE_NUM_NORM" ] || continue
-  specforge files move "$TODO_FILE" "$COMPLETED_DIR" >/dev/null
-  CLOSED+=("${TODO_FILE##*/}")
-done
-if [ ${#CLOSED[@]} -gt 0 ]; then
-  ADDED=(); REMOVED=()
-  for f in "${CLOSED[@]}"; do ADDED+=("$COMPLETED_DIR/$f"); REMOVED+=("$PENDING_DIR/$f"); done
-  specforge git commit --add spec -m "docs(phase-${PHASE_NUMBER}): close ${#CLOSED[@]} resolved todo(s)" && specforge collect --runner gsd-git --yes
-  echo "◆ Closed ${#CLOSED[@]} todo(s) for Phase ${PHASE_NUMBER}:"; printf '  ✓ %s\n' "${CLOSED[@]}"
-fi
+: # todos are @gsd/ops entities: with @gsd/core alone there is none to close
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ```
 
 No matches: skip silently, never blocks.

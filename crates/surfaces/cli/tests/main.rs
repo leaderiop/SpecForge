@@ -101,6 +101,7 @@ mod trace;
 mod value_forms;
 mod version;
 mod vscode_manifest;
+mod wait_verb;
 mod watch;
 mod watch_ready;
 mod watch_reload;

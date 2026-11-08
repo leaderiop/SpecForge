@@ -1,5 +1,5 @@
-//! `--pick <path>` on `export` and `check` (ADR 0325): the values at a path of the command's JSON answer, one per
-//! line, so a shell reads them without jq.
+//! `--pick <path>` on `export`, `query`, `check` and a verb (ADR 0325): the values at a path of the command's
+//! JSON answer, one per line or in a shape (D8), so a shell reads them without jq.
 
 use crate::support::{Cli, TestProject};
 
@@ -94,6 +94,33 @@ fn check_pick_refuses_an_explicit_human_format() {
     assert!(ran.stderr.contains("--pick"), "{}", ran.stderr);
 }
 
+/// A cell comes back through `read -r` as it was written, and a value a row cannot carry on one line is refused, with no
+/// row printed: on `query` and on `export`.
+#[test]
+fn a_fields_cell_round_trips_and_a_newline_is_refused() {
+    let dir = project();
+    let cli = Cli::on(&dir);
+    dir.write("main.spec", "feature paths \"C:\\\\new\\\\table\" {\n}\n");
+    for command in [&["export"][..], &["query", "paths", "--depth", "0"]] {
+        let mut args = command.to_vec();
+        args.extend(["--pick", ".nodes[id=paths]", "--fields", "id,title"]);
+        let ran = cli.run(&args);
+        assert_eq!(ran.code, 0, "{command:?}: {}", ran.stderr);
+        assert_eq!(ran.stdout, "paths\u{1f}C:\\new\\table\n", "{command:?}");
+    }
+    dir.write("main.spec", "feature paths \"two\\nlines\" {\n}\n");
+    for command in [&["export"][..], &["query", "paths", "--depth", "0"]] {
+        let mut args = command.to_vec();
+        args.extend(["--pick", ".nodes[]", "--fields", "id,title"]);
+        let ran = cli.run(&args);
+        assert_eq!(ran.code, 1, "{command:?}: {}{}", ran.stdout, ran.stderr);
+        assert_eq!(ran.stdout, "", "{command:?}: no partial row");
+        for word in ["'title'", "'paths'", "newline"] {
+            assert!(ran.stderr.contains(word), "{word}: {}", ran.stderr);
+        }
+    }
+}
+
 /// The cells are joined by the ASCII unit separator (0x1f), which is not IFS whitespace, so
 /// `IFS=$'\x1f' read -r` keeps an empty cell where a tab would collapse it, under macOS's bash 3.2 as under bash 5.
 #[test]
@@ -145,4 +172,141 @@ fn fields_rows_keep_an_empty_cell_under_a_plain_read() {
     assert_eq!(ran.code, 2, "--fields needs --pick: {}", ran.stderr);
     let ran = cli.run(&["export", "--pick", ".nodes[]", "--fields", "a,,b"]);
     assert_eq!(ran.code, 2, "an empty key: {}", ran.stderr);
+}
+
+/// `--count`, `--first`, `--last` and `--join` shape what `--pick` prints (ADR 0325 D8).
+#[test]
+fn export_and_query_shape_what_they_pick() {
+    let dir = project();
+    let cli = Cli::on(&dir);
+    for (shape, want) in [
+        (&["--count"][..], "2\n"),
+        (&["--first", "1"], "alpha\n"),
+        (&["--last", "1"], "gamma\n"),
+        (&["--join", ","], "alpha,gamma\n"),
+        (&["--last", "5", "--join", ", "], "alpha, gamma\n"),
+    ] {
+        let mut args = vec!["export", "--pick", ".nodes[].id"];
+        args.extend(shape);
+        let ran = cli.run(&args);
+        assert_eq!(
+            (ran.code, ran.stdout.as_str()),
+            (0, want),
+            "{shape:?}: {}",
+            ran.stderr
+        );
+    }
+    let ran = cli.run(&["export", "--pick", ".nodes[id=nope]", "--count"]);
+    assert_eq!(
+        (ran.code, ran.stdout.as_str()),
+        (0, "0\n"),
+        "{}",
+        ran.stderr
+    );
+    let ran = cli.run(&[
+        "query",
+        "alpha",
+        "--depth",
+        "0",
+        "--pick",
+        ".nodes[].id",
+        "--count",
+    ]);
+    assert_eq!(
+        (ran.code, ran.stdout.as_str()),
+        (0, "1\n"),
+        "{}",
+        ran.stderr
+    );
+    let ran = cli.run(&[
+        "export", "--pick", ".nodes[]", "--fields", "kind,id", "--first", "1",
+    ]);
+    assert_eq!(
+        (ran.code, ran.stdout.as_str()),
+        (0, "behavior\u{1f}alpha\n"),
+        "{}",
+        ran.stderr
+    );
+}
+
+/// A refused read answers nothing, so `$(… --count) || n='?'` tells it from 0.
+#[test]
+fn a_refused_read_prints_no_count() {
+    let dir = project();
+    let ran = Cli::on(&dir).run(&["query", "nope", "--pick", ".nodes", "--count"]);
+    assert_eq!((ran.code, ran.stdout.as_str()), (1, ""), "{}", ran.stderr);
+}
+
+#[test]
+fn check_counts_its_diagnostics_and_keeps_its_exit_code() {
+    let dir = project();
+    let ran = Cli::on(&dir).run(&["check", "--pick", ".[code=E003]", "--count"]);
+    assert_eq!(
+        (ran.code, ran.stdout.as_str()),
+        (1, "1\n"),
+        "{}",
+        ran.stderr
+    );
+}
+
+#[test]
+fn a_shape_is_a_usage_error_without_pick_or_beside_its_conflict() {
+    let dir = project();
+    let cli = Cli::on(&dir);
+    for args in [
+        &["export", "--count"][..],
+        &["export", "--pick", ".nodes[].id", "--count", "--first", "1"],
+        &["export", "--pick", ".nodes[].id", "--count", "--join", ","],
+        &[
+            "export",
+            "--pick",
+            ".nodes[].id",
+            "--first",
+            "1",
+            "--last",
+            "1",
+        ],
+        &["export", "--pick", ".nodes[].id", "--first", "-1"],
+        &["export", "--pick", ".nodes[]", "--fields", "id", "--count"],
+        &[
+            "export", "--pick", ".nodes[]", "--fields", "id", "--join", ",",
+        ],
+        &["query", "alpha", "--join", ","],
+        &["check", "--count"],
+        &["settings", "--first", "1"],
+        &["files", "list", "--last", "1"],
+    ] {
+        let ran = cli.run(args);
+        assert_eq!(
+            (ran.code, ran.stdout.as_str()),
+            (2, ""),
+            "{args:?}: {}",
+            ran.stderr
+        );
+    }
+}
+
+#[test]
+fn a_verb_shapes_its_answer() {
+    let dir = project();
+    let cli = Cli::on(&dir);
+    let paths = cli.run(&["files", "list", "--pick", ".entries[].path"]);
+    assert_eq!(paths.code, 0, "{}", paths.stderr);
+    let count = cli.run(&["files", "list", "--pick", ".entries[].path", "--count"]);
+    assert_eq!(
+        (count.code, count.stdout.as_str()),
+        (0, format!("{}\n", paths.stdout.lines().count()).as_str()),
+        "{}",
+        count.stderr
+    );
+    assert!(
+        paths.stdout.lines().any(|path| path == "main.spec"),
+        "{}",
+        paths.stdout
+    );
+    let joined = cli.run(&["files", "list", "--pick", ".entries[].path", "--join", " "]);
+    assert_eq!(
+        joined.stdout,
+        paths.stdout.lines().collect::<Vec<_>>().join(" ") + "\n"
+    );
 }

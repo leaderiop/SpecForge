@@ -174,3 +174,40 @@ fn a_disabled_cluster_hides_the_new_milestone_skill() {
         concat!("@gsd/core@", env!("CARGO_PKG_VERSION"), ":new_milestone")
     );
 }
+
+/// The lines of the first shell fence from the line holding `from` through the line holding `to`.
+fn fence_lines(text: &str, from: &str, to: &str) -> String {
+    let lines: Vec<&str> = text.split('\n').collect();
+    let start = lines
+        .iter()
+        .position(|l| l.contains(from))
+        .unwrap_or_else(|| panic!("no {from}"));
+    let end = start
+        + lines[start..]
+            .iter()
+            .position(|l| l.contains(to))
+            .unwrap_or_else(|| panic!("no {to}"));
+    lines[start..=end].join("\n")
+}
+
+/// Step 1 binds the workstream and the milestone name as the person typed them.
+#[test]
+fn new_milestone_binds_its_ws_and_name_as_typed() {
+    let p = project("empty");
+    let run = |args: &[&str]| {
+        let text = text_of(&payload(&prompt(&p, "new_milestone", args, "claude-code")));
+        let script = format!(
+            "{}\necho \"[$WS][$MILESTONE_NAME]\"",
+            fence_lines(&text, "WS=\"", "MILESTONE_NAME=")
+        );
+        let out = std::process::Command::new("bash")
+            .args(["--noprofile", "--norc", "-c", &script])
+            .output()
+            .expect("bash");
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
+    };
+    assert_eq!(run(&["--ws", "alpha"]), "[alpha][]");
+    assert_eq!(run(&[]), "[][]");
+    assert_eq!(run(&["Next", "--reset-phase-numbers"]), "[][Next]");
+    assert_eq!(run(&["Bob's app"]), "[][Bob's app]");
+}

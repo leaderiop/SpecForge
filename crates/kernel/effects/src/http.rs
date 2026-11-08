@@ -58,26 +58,38 @@ pub fn hop_method(status: u16, method: &str) -> &str {
     }
 }
 
-/// Which redirects a request may follow, asked of each hop with the method it will be sent with ([`hop_method`]).
+/// Which hops a request may make, asked of each before it is sent: the redirect it follows, with the method it will be
+/// sent with ([`hop_method`]), and the proxy it goes through (the environment's or the system's, ADR 0335), judged as
+/// its destination is, for the proxy sees what an `http` request carries.
 pub trait Redirects: Send + Sync {
     fn allow(&self, from: &str, to: &str, method: &str) -> bool;
+    /// Whether the hop to `url` may go through the proxy on `host`.
+    fn through_proxy(&self, host: &str, url: &str) -> bool;
 }
 
-/// Any target.
+/// Any target, through any proxy.
 pub struct Any;
 
 impl Redirects for Any {
     fn allow(&self, _from: &str, _to: &str, _method: &str) -> bool {
         true
     }
+
+    fn through_proxy(&self, _host: &str, _url: &str) -> bool {
+        true
+    }
 }
 
-/// A target of the same scheme.
+/// A target of the same scheme, through any proxy.
 pub struct SameScheme;
 
 impl Redirects for SameScheme {
     fn allow(&self, from: &str, to: &str, _method: &str) -> bool {
         scheme(from) == scheme(to)
+    }
+
+    fn through_proxy(&self, _host: &str, _url: &str) -> bool {
+        true
     }
 }
 

@@ -659,8 +659,11 @@ type McpGrantRoot "Mcp Grant Root" {
   target   string
   /// Under the project root: it needs no approval.
   inside   boolean
-  /// An outside root this machine approved.
+  /// An outside root this machine approved; for a machine root, that verbs here reach it: it still lands
+  /// approved, and no root of this project takes its name.
   approved boolean
+  /// Named on this machine (`grants approve --root <name> --at <dir>`), not by `specforge.json`.
+  machine  boolean
   verify unit "McpGrantRoot schema is valid"
 }
 

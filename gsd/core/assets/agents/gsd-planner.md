@@ -24,7 +24,7 @@ Your job: Produce PLAN.md files that Claude executors can implement without inte
 </role>
 
 <documentation_lookup>
-For library docs: prefer Context7 MCP. If unavailable, use `specforge run --which ctx7` then `ctx7 library <name> "<query>"` and `ctx7 docs <libraryId> "<query>"`. Never use `npx --yes ctx7@latest`.
+For library docs: prefer Context7 MCP. If unavailable, run `specforge run -- ctx7 library <name> "<query>"` then `specforge run -- ctx7 docs <libraryId> "<query>"`; exit 127 means ctx7 is not installed: read the official docs instead. Never install ctx7 or download it with npx. `specforge run` runs only a ctx7 it finds through an absolute PATH entry, and passes it your whole environment, secrets included: it cannot narrow it to ctx7's own `CONTEXT7_API_KEY`.
 </documentation_lookup>
 
 <project_context>
@@ -181,7 +181,7 @@ Every task has four required fields:
 
 **Inherit the command that already worked (#2401):** reuse `prior_verify_commands` verbatim, prefer `npm --prefix <dir> run <script>`, ground every path you author. @~/.claude/gsd-core/references/planner-verify-command-grounding.md
 
-**Grep gate hygiene:** `grep -c` counts comments, so header prose can be self-invalidating. Use `grep -v '^#' | grep -c token`. Bare `== 0` gates on unfiltered files are forbidden. Run every count/match gate against the current tree and record its baseline (#4927): a gate that already passes at HEAD, or whose literal differs in case from the deliverable, is wrong. @~/.claude/gsd-core/references/planner-verify-command-grounding.md
+**Search gate hygiene:** a count counts comments, so header prose can be self-invalidating. Use `specforge files search 'token' f --and-not '^\s*#' --pick .count`, and `specforge files search --none 'token' f` for a negative gate. Bare `== 0` gates on unfiltered files are forbidden. Run every count/match gate against the current tree and record its baseline (#4927): a gate that already passes at HEAD, or whose literal differs in case from the deliverable, is wrong. @~/.claude/gsd-core/references/planner-verify-command-grounding.md
 
 <comment_text_discipline>
 **Comment-text discipline (HARD GATE, #429):** A literal an acceptance criterion negative-greps for must NOT appear verbatim in any `<action>` body. Rules + `<!-- planner-discipline-allow: LIT -->` allowlist + examples: @~/.claude/gsd-core/references/planner-antipatterns.md ("Comment-Text Discipline").
@@ -561,10 +561,10 @@ Load planning context:
 
 ```bash
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 ```
 
-Extract from init JSON: `planner_model`, `researcher_model`, `checker_model`, `commit_docs`, `research_enabled`, `phase_dir`, `phase_number`, `has_research`, `has_context`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id), and its `research` and `context` entities, when it has them, are among the other nodes. `commit_docs` and `workflow.research` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
 
 Also load planning state (position, decisions, blockers) via the SDK — **use `node` to invoke the CLI** (not `npx`):
 ```bash
@@ -608,11 +608,11 @@ If exists, load relevant documents by phase type:
 </step>
 
 <step name="load_graph_context">
-Read `gsd-core/references/planner-load-graph-context.md` and execute it. It checks for a
-knowledge graph and, if one exists, reads freshness and phase-relevant dependency context
-— through the `graphify` CLI when it is on PATH, otherwise through the `specforge gsd` launcher
-— and incorporates the results into planning. If the graph is absent, skip and continue
-without graph context.
+Read `gsd-core/references/planner-load-graph-context.md` and execute it, incorporating the
+results into planning. The reference reads the planner prompt's `**Graph context:**` line,
+which says how this project serves `/gsd-graphify`, and says when to skip this step and
+continue without graph context.
+
 </step>
 
 <step name="identify_phase">
@@ -652,8 +652,8 @@ Select top 2-4 phases. Skip phases with no relevance signal.
 
 **Step 3 — Read full SUMMARYs for selected phases:**
 ```bash
-specforge query "{selected-phase}" --depth 2 --kinds summary --format context > /tmp/summaries.txt; _SUMMARIES=( /tmp/summaries.txt )
-if [ -e "${_SUMMARIES[0]}" ]; then cat "${_SUMMARIES[@]}"; fi
+specforge query "{selected-phase}" --depth 2 --kinds summary --format context
+
 ```
 
 From full SUMMARYs extract:
@@ -673,7 +673,7 @@ For phases not selected, retain from digest:
 
 **From RETROSPECTIVE.md (if exists):**
 ```bash
-specforge export --kinds retrospective --format context 2>/dev/null | tail -100
+specforge export --kinds retrospective --format context 2>/dev/null
 ```
 
 Read the most recent milestone retrospective and cross-milestone trends. Extract:
@@ -687,15 +687,15 @@ If `features.global_learnings` is `true`: global learnings are not part of @gsd/
 </step>
 
 <step name="gather_phase_context">
-Use `phase_dir` from init context (already loaded in load_project_state).
+The phase is `$PHASE_ID` (already loaded in load_project_state).
 
 ```bash
-_CTX=( "$phase_dir"/*-CONTEXT.md )
-if [ -e "${_CTX[0]}" ]; then cat "${_CTX[@]}"; fi   # From /gsd:discuss-phase
-_RESEARCH=( "$phase_dir"/*-RESEARCH.md )
-if [ -e "${_RESEARCH[0]}" ]; then cat "${_RESEARCH[@]}"; fi   # Research output
-_DISCOVERY=( "$phase_dir"/*-DISCOVERY.md )
-if [ -e "${_DISCOVERY[0]}" ]; then cat "${_DISCOVERY[@]}"; fi  # From mandatory discovery
+specforge query "$PHASE_ID" --depth 1 --kinds context --format context   # From /gsd:discuss-phase
+
+specforge query "$PHASE_ID" --depth 1 --kinds research --format context   # Research output
+
+# discovery is recorded as research (above)
+
 ```
 
 **If CONTEXT.md exists (has_context=true from init):** Honor user's vision, prioritize essential features, respect boundaries. Locked decisions — do not revisit.
@@ -806,7 +806,7 @@ These PLAN.md files are the canonical output of this agent. The orchestrator rea
    - `Write` the file with only the first section, ending with the sentinel line `<!-- gsd:write-continue -->`.
    - `Read` the file, then `Edit` it, replacing `<!-- gsd:write-continue -->` with the next section followed by the sentinel again. Repeat, one section per `Edit`.
    - On the final section, replace the sentinel with the closing content and no trailing sentinel.
-5. **Verify the write landed (#4927).** A `Write` that returns success can still have stored a truncated payload. After writing each PLAN.md, run `verify.plan-structure` on it (see below) and `tail -n 5` the file: it must end with the closing `</output>` (or the last closing tag of the template) and must not contain `<!-- gsd:write-continue -->`. If it ends mid-tag, rewrite it with the incremental method in rule 4.
+5. **Verify the write landed (#4927).** A `Write` that returns success can still have stored a truncated payload. After writing each PLAN.md, run `verify.plan-structure` on it (see below) and read the file's last lines with your Read tool: it must end with the closing `</output>` (or the last closing tag of the template) and must not contain `<!-- gsd:write-continue -->`. If it ends mid-tag, rewrite it with the incremental method in rule 4.
 6. **If writing still fails, surface the actual error in your return message.** **Do NOT silently fall back to returning content** — that hides the failure from the orchestrator and truncates identically.
 
 **CRITICAL — File naming convention (enforced):**

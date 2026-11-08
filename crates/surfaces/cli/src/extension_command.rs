@@ -19,7 +19,7 @@
 //! it answers is applied by the host (`plan.rs`, ADR 0289).
 
 use crate::outcome::Exit;
-use crate::pick::Pick;
+use crate::pick::{FIELDS, PICK, Picked};
 use crate::project::ProjectArg;
 use crate::terminal::{Stream, Terminal, err, errln, out};
 use clap::builder::PossibleValuesParser;
@@ -45,10 +45,6 @@ const HOST: &str = "host";
 
 /// The host's option on a writing command: show its plan, write nothing.
 const DRY_RUN: &str = "dry-run";
-
-/// The host's option on every extension command that declares no arg of the name: print only the values at a path
-/// of the JSON answer (ADR 0325). It asks for `json`.
-const PICK: &str = "pick";
 
 /// The host's option on every extension command that declares no arg of the name: the effects mode of what the command
 /// is lent (ADR 0337 D4).
@@ -220,9 +216,9 @@ pub(crate) fn run_in(
         return INVALID_INPUT_EXIT;
     };
 
-    let pick = matches.try_get_one::<Pick>(PICK).ok().flatten();
+    let picked = Picked::of_matches(matches, &beside_pick(command));
     let format = format_value(matches);
-    if pick.is_some()
+    if picked.picks()
         && matches.value_source(FORMAT) == Some(ValueSource::CommandLine)
         && format != CommandFormat::Json
     {
@@ -240,7 +236,7 @@ pub(crate) fn run_in(
         );
         return INVALID_INPUT_EXIT;
     }
-    let format = if pick.is_some() {
+    let format = if picked.picks() {
         CommandFormat::Json
     } else {
         format
@@ -281,7 +277,7 @@ pub(crate) fn run_in(
         },
     );
     match outcome {
-        Ok(run) => plan::ended(run, format, pick, root.dir(), terminal),
+        Ok(run) => plan::ended(run, format, &picked, root.dir(), terminal),
         Err(error) => ended(Err(error), format, terminal),
     }
 }
@@ -464,6 +460,18 @@ fn kernel_picks(command: &ExtensionCommand) -> bool {
     !command.args().iter().any(|a| a.name == PICK)
 }
 
+/// What the host gives `command` beside its `--pick`: `--fields` (ADR 0325 D7) and the shapes (D8), each it declares
+/// no arg of the name.
+fn beside_pick(command: &ExtensionCommand) -> Vec<&'static str> {
+    if !kernel_picks(command) {
+        return Vec::new();
+    }
+    std::iter::once(FIELDS)
+        .chain(crate::pick::SHAPES)
+        .filter(|shape| !command.args().iter().any(|a| a.name == *shape))
+        .collect()
+}
+
 /// Whether `e` is clap's help or version rather than a usage error.
 fn is_display(e: &clap::Error) -> bool {
     use clap::error::ErrorKind;
@@ -625,14 +633,9 @@ fn command_line(ext: &str, commands: &[&ExtensionCommand]) -> Command {
             );
         }
         if kernel_picks(command) {
-            sub = sub.arg(
-                Arg::new(PICK)
-                    .long(PICK)
-                    .value_name("PATH")
-                    .value_parser(Pick::parse)
-                    .help(crate::pick::HELP)
-                    .long_help(crate::pick::COMMAND_LONG_HELP),
-            );
+            sub = sub
+                .args(Picked::host_args(&beside_pick(command)))
+                .mut_arg(PICK, |arg| arg.long_help(crate::pick::COMMAND_LONG_HELP));
         }
         if command.writes() {
             sub = sub.arg(

@@ -35,22 +35,22 @@
     "## 0. Initialize",
     "",
     "```bash",
-    "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true",
-    "02",
-    "GSD_ARGS_END",
-    "GSD_ARGS=${GSD_ARGS%$'\\n'}",
+    "",
+    "",
+    "",
+    "",
     "# the commands below are specforge commands: there is no launcher to define",
     "RESPONSE_LANGUAGE=\"\"   # response_language (the settings)",
-    "PHASE_ARG=$(echo \"$GSD_ARGS\" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)",
-    "GSD_WS=$(echo \" $GSD_ARGS\" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \\1/p' | head -n 1)",
+    "",
+    "",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)",
-    "if [[ \"$INIT\" == @file:* ]]; then INIT=$(cat \"${INIT#@file:}\"); fi",
+    "",
     "AGENT_SKILLS_AUDITOR=\"\"   # the host install carries the skills of gsd-nyquist-auditor",
     "```",
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.",
     "",
-    "Parse: `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`.",
+    "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields).",
     "",
     "```bash",
     "AUDITOR_MODEL=\"\"   # resolve-model is not part of @gsd/core: the host picks the model",
@@ -61,12 +61,12 @@
     "",
     "If no active validate-phase step hook exists: exit with \"Nyquist validation is disabled. Enable via /gsd-settings.\""
   ],
-  "bytes": 19393,
+  "bytes": 19076,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
     "{M} automated, {K} manual-only.",
-    "▶ Retry: /gsd-validate-phase {N} ${GSD_WS}",
+    "▶ Retry: /gsd-validate-phase {N}",
     "```",
     "",
     "Display `/clear` reminder.",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:8bb67cbfbfbc2064944c31c3bfdb0fdc7cb9e57104e388c46fce0901bf6959e0",
+    "digest": "sha256:e32e8f98f9ceeec921404742761ceec47321fc1365131c0572bf2c3a61628b62",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "8bb67cbfbfbc2064944c31c3bfdb0fdc7cb9e57104e388c46fce0901bf6959e0"
+  "sha256": "e32e8f98f9ceeec921404742761ceec47321fc1365131c0572bf2c3a61628b62"
 }

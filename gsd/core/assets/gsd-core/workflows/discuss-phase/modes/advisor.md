@@ -5,14 +5,14 @@ Apply response_language to all user-facing prose — narration between tool call
 
 > **Lazy-loaded and gated.** The parent `workflows/discuss-phase.md` Reads
 > this file ONLY when `ADVISOR_MODE` is true (i.e., when
-> `$HOME/.claude/gsd-core/USER-PROFILE.md` exists). Skip the Read
+> `@gsd/ops` is loaded and its USER-PROFILE.md exists). Skip the Read
 > entirely when no profile is present — that's the inverse of the
 > `--advisor` flag from #2174 (don't pay the cost when unused).
 
 ## Activation
 
 ```bash
-PROFILE_PATH="$HOME/.claude/gsd-core/USER-PROFILE.md"
+PROFILE_PATH="$HOME/.claude/gsd-core/USER-PROFILE.md"   # @gsd/ops's: absent with @gsd/core alone
 if [ -f "$PROFILE_PATH" ]; then
   ADVISOR_MODE=true
 else
@@ -28,7 +28,7 @@ standard `default.md` discussion flow.
 Resolve `vendor_philosophy` calibration tier:
 1. **Priority 1:** Read `config.json` > `preferences.vendor_philosophy`
    (project-level override)
-2. **Priority 2:** Read USER-PROFILE.md `Vendor Choices/Philosophy` rating
+2. **Priority 2:** (`@gsd/ops` loaded) USER-PROFILE.md's `Vendor Choices/Philosophy` rating
    (global)
 3. **Priority 3:** Default to `"standard"` if neither has a value or value
    is `UNSCORED`
@@ -46,11 +46,11 @@ Resolve advisor model:
 
 ## Non-technical owner detection
 
-Read USER-PROFILE.md and check for product-owner signals:
+Read `~/.claude/gsd-core/USER-PROFILE.md` with your Read tool when it exists (it is the user's, written by `@gsd/ops`, outside the project's roots, which no block reaches) and check it for product-owner signals; with no such file there are none:
 
-```bash
-PROFILE_CONTENT=$(cat "$HOME/.claude/gsd-core/USER-PROFILE.md" 2>/dev/null || true)
-```
+
+
+
 
 Set `NON_TECHNICAL_OWNER = true` if ANY of the following are present:
 - `learning_style: guided`
@@ -89,7 +89,7 @@ This reframing applies to:
 After the user selects gray areas in `present_gray_areas`, spawn parallel
 research agents.
 
-1. Display brief status: `Researching {N} areas...` (each runs in a subagent — no output until they return, ~1–5 min; expected, not a freeze)
+1. Display brief status: "Researching {N} areas..." (each runs in a subagent — no output until they return, ~1–5 min; expected, not a freeze)
 
 2. For EACH user-selected gray area, spawn a `Agent()` in parallel:
 

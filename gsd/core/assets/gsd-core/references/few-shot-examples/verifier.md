@@ -29,7 +29,7 @@ calibration_source: "Adapted from thinking-partner verification corpus"
 
 **Output:**
 
-> **Method:** Ran `grep -n "scope" gsd-core/bin/validate-commit.js` to locate scope validation logic.
+> **Method:** Ran `specforge files search 'scope' gsd-core/bin/validate-commit.js` to locate scope validation logic.
 > **Evidence:** Lines 34-41 show regex `/^(feat|fix|refactor|test|docs|chore|wip)\(/` which requires opening paren after type. However, no test for MISSING closing paren exists -- the regex accepts `feat(: description` (missing scope content and closing paren).
 > **Ran:** `echo "feat(: test" | node gsd-core/bin/validate-commit.js` -- exit code 0 (accepted).
 > **Status: FAILED** -- Commit messages with empty scope `feat(: desc)` are accepted. The truth "rejects commits missing scope parentheses" does not hold for empty-scope edge case.
@@ -42,9 +42,9 @@ calibration_source: "Adapted from thinking-partner verification corpus"
 
 **Output:**
 
-> **Method:** Ran `grep -n "feedback-loop\|extractFeedback" gsd-core/bin/check-subagent-output.js`.
+> **Method:** Ran `specforge files search 'feedback-loop|extractFeedback' gsd-core/bin/check-subagent-output.js`.
 > **Evidence:** Zero matches. The file `feedback-loop.js` exists (172 lines, substantive), and `tests/feedback-loop.test.js` passes (229 lines). But `check-subagent-output.js` never imports or calls it.
-> **Cross-check:** `grep -rn "require.*feedback-loop" gsd-core/bin/` returns zero results across all scripts.
+> **Cross-check:** `specforge files search 'require.*feedback-loop' gsd-core/bin/` returns zero results across all scripts.
 > **Status: FAILED** -- The artifact exists and is tested, but is completely orphaned. The key_link "imports and calls" does not hold. This is a **missing wiring** gap.
 
 **Why this is good:** The verifier caught a common calibration pattern: code that exists, is tested, but is never actually wired into the system. L1 and L2 pass, but L3 (wiring) fails. This pattern accounts for 37% of all gaps found in calibration corpus.
@@ -55,8 +55,8 @@ calibration_source: "Adapted from thinking-partner verification corpus"
 
 **Output:**
 
-> **Method:** Ran `grep "architecture_graph\|architecture_guard" gsd-core/bin/lib/config-schema.json`.
-> **Evidence:** Zero matches in schema. However, `grep "architecture" gsd-core/bin/lib/config.cjs` shows both flags in CONFIG_DEFAULTS (lines 426, 428).
+> **Method:** Ran `specforge files search 'architecture_graph|architecture_guard' gsd-core/bin/lib/config-schema.json`.
+> **Evidence:** Zero matches in schema. However, `specforge files search 'architecture' gsd-core/bin/lib/config.cjs` shows both flags in CONFIG_DEFAULTS (lines 426, 428).
 > **Gap:** Defaults exist in code but schema validation doesn't know about them. `configValidate()` would strip these fields on load, making the defaults unreachable.
 > **Status: FAILED** -- Config flags work in code but are invisible to schema validation. This is a **missing wiring** gap between config layers.
 
@@ -68,7 +68,7 @@ calibration_source: "Adapted from thinking-partner verification corpus"
 
 **Output:**
 
-> **Method:** Ran `grep -rn "\/\[a-zA-Z\]\/" gsd-core/bin/` to find inline MSYS regex.
+> **Method:** Ran `specforge files search '/\[a-zA-Z\]/' gsd-core/bin/` to find inline MSYS regex.
 > **Evidence:** 2 matches in `commands/gsd/misc.md` (lines 26, 487). These were NOT in the original plan scope -- Phase 148 extracted code into misc.md AFTER Phase 149's plan was written.
 > **Assessment:** The executor correctly completed all planned tasks. The gap is a **planning ordering issue**, not an execution failure.
 > **Status: PASS_WITH_NOTES** -- Executor did what was planned. Unconsolidated regex noted as follow-up, not as a failure of this phase.

@@ -62,17 +62,22 @@ impl Client {
         }
     }
 
-    /// Whether a request to `url` goes through a proxy: this client's own, else the system's or the environment's,
-    /// read as reqwest reads them.
-    fn proxied(&self, url: &Url) -> bool {
+    /// The host of the proxy a request to `url` goes through: this client's own, else the system's or the
+    /// environment's, read as reqwest reads them; none when it goes direct.
+    fn proxy_host(&self, url: &Url) -> Option<String> {
         static SYSTEM: OnceLock<Matcher> = OnceLock::new();
-        self.proxy.is_some()
-            || url.as_str().parse::<http::Uri>().is_ok_and(|uri| {
-                SYSTEM
-                    .get_or_init(Matcher::from_system)
-                    .intercept(&uri)
-                    .is_some()
-            })
+        if let Some(proxy) = &self.proxy {
+            return Some(
+                Url::parse(proxy)
+                    .ok()
+                    .and_then(|proxy| proxy.host_str().map(str::to_string))
+                    .unwrap_or_else(|| proxy.clone()),
+            );
+        }
+        let uri = url.as_str().parse::<http::Uri>().ok()?;
+        let intercept = SYSTEM.get_or_init(Matcher::from_system).intercept(&uri)?;
+        // A proxy URI with no host is still a proxy: judged by an empty name, which no grant reaches.
+        Some(intercept.uri().host().unwrap_or_default().to_string())
     }
 
     fn client(&self, allow_private: bool) -> Result<&Reqwest, &str> {
@@ -188,6 +193,16 @@ impl Http for Client {
                     refused.to_string(),
                 );
             }
+            // The proxy sees what the hop carries, so it is the caller's to permit as the destination is.
+            if let Some(proxy) = self.proxy_host(&parsed)
+                && !redirects.through_proxy(&proxy, parsed.as_str())
+            {
+                return HttpOutcome::failed(
+                    &url,
+                    OutcomeClass::Denied,
+                    format!("{url} goes through the proxy on {proxy}, which is not permitted"),
+                );
+            }
             let left = deadline.saturating_duration_since(Instant::now());
             let Ok(verb) = Method::from_bytes(method.as_bytes()) else {
                 return HttpOutcome::unreachable(
@@ -218,7 +233,9 @@ impl Http for Client {
                 Err(e) => {
                     // Through a proxy, no connection made is the proxy's: it was the one connected to.
                     let class = match class_of(&e) {
-                        Unreachable::Connect if self.proxied(&parsed) => Unreachable::Proxy,
+                        Unreachable::Connect if self.proxy_host(&parsed).is_some() => {
+                            Unreachable::Proxy
+                        }
                         class => class,
                     };
                     return HttpOutcome::unreachable(&url, class, chain(&e));

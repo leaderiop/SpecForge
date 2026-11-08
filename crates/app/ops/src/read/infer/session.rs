@@ -393,11 +393,10 @@ fn apply(
 /// A new session's ID: a random (version 4) UUID, as `InferenceSession`'s
 /// `session_id` is (`start_inference_session`: "a generated UUID").
 fn new_session_id() -> String {
-    let mut bytes = [0u8; 16];
-    getrandom::fill(&mut bytes).expect("OS entropy unavailable");
+    let mut bytes = crate::random::random_bytes::<16>().expect("OS entropy unavailable");
     bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
     bytes[8] = (bytes[8] & 0x3f) | 0x80; // the RFC 9562 variant
-    let hex: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+    let hex = crate::random::hex(&bytes);
     format!(
         "{}-{}-{}-{}-{}",
         &hex[0..8],

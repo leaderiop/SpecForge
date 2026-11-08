@@ -331,13 +331,17 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_effects::EffectsCeiling`, ADR 0335 D2.3).
 - **Named root**: a root `roots` in `specforge.json` names beside `spec` and `project`, resolved once per load to its
   canonical target, inside or outside the project; one outside needs a root approval (ADR 0335 D2.3).
+- **Machine root**: a root the user names on this machine (`specforge grants approve --root <name> --at <dir>`), kept in
+  the **Consent store**: every project's **Verb**s reach it under that project's **Effects ceiling**, and no extension's
+  **Grant** does. Not a **Named root**, which one project's file names (ADR 0335's S1 amendment).
 - **Grant**: what one extension may make the host do here: what it declares, under the call kind's gate, under the
   effects ceiling, and approved on this machine, decided once per extension and environment. It permits each request
   (or denies it: E090 for the gate, the declaration or the ceiling) and names the approvals a run needs
   (`specforge_effects::Grant`, ADR 0335 D2).
-- **Verb**: a core command that performs one port's effects for whoever types it: `specforge files`, `run`, `http`
-  and `git` (`specforge_ops::verbs`, ADR 0339). It is the user's own act, under the **User grant**; it has no MCP
-  tool. Not an extension's command.
+- **Verb**: a core command that performs the ports' effects for whoever types it: `specforge files`, `run`, `http`,
+  `git` and `wait` (`specforge_ops::verbs`, ADR 0339). It is the user's own act, under the **User grant**; it has no
+  MCP tool. Not an extension's command. `wait` polls the Http and Fs ports until a condition holds, or its time is up
+  (124) (ADR 0342).
 - **User grant**: the grant of a **Verb**: every port and request, approved, with no call kind's gate, only the
   **Effects ceiling** narrowing it, and only the roots this machine may reach (a root outside the project once
   approved) (`specforge_effects::Grant::user`, ADR 0339 D2).
@@ -355,7 +359,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   covers any narrower grant) or to a named root outside the project (per project and canonical target). File and git
   reads inside the project need none; http, process and writes do. Settled before a run's first effect, asked only
   for what the run uses (`specforge_ops::settle::settle`, ADR 0335 D2.4).
-- **Consent store**: where approvals are kept: the user's `~/.specforge/consent.json`, outside every project, behind
+- **Consent store**: where approvals and **Machine root**s are kept: the user's `~/.specforge/consent.json`, outside every project, behind
   the `Consent` port (`specforge_ops::consent::UserConsent`; `testing::MemoryConsent`). Written privately and
   atomically under a sidecar lock; one it cannot use approves nothing and is never written over (W186). `specforge
   grants` lists, approves and revokes (ADR 0335 D2.5).
@@ -1801,6 +1805,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   and an `attribution`, rendered by a `prompt__<id>` export. Served as `specforge.<short>.<id>` (MCP), `specforge prompt`
   and `specforge <short> <id>`; the host appends a message with the version, a digest, the attribution and each step's
   gate. It is not a contract: only a gate refuses (ADR 0291).
+- **Argument placeholder**: `{{arg:<name>|<fallback>}}` in a shell fence of a file a gsd prompt inlines; the render
+  writes the typed value of the declared argument there, escaped for double quotes, or the fallback when it is absent.
+  No fence re-parses `$ARGUMENTS` (ADR 0340).
 - **Command gate**: `gates` (local codes) and a `subject` argument on a command or prompt; the call is refused
   `gate_failed` before its export runs while a gated code is an error in the subject's scope, a guard pass that
   `reports` it asked once with a `trigger` (ADR 0291).
@@ -1837,6 +1844,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Now**: the host's clock at a call, `YYYY-MM-DDTHH:MM:SSZ` (RFC 3339, UTC, seconds): `CommandInput.now`,
   `HookInput.now` and a writing collector's `CollectInput.now`, the same instant as `today`, its date (ADR 0294). A pass
   and a prompt are not told it.
+- **Nonce**: 16 bytes of the host's entropy as 32 lowercase hex digits, fresh per command call: `CommandInput.nonce`, the
+  source of a guest's random values, so a test pins them as it pins **Now**. Randomness, not a secret; a pass, prompt,
+  hook and collector are not told one (ADR 0341).
 - **Prompt judge**: a judged rule's judge `prompt:<id>`, a prompt of the rule's own extension instead of an agent; the
   registry checks the prompt (W112) and the verdict names it (ADR 0295).
 - **Settings set**: `specforge settings set` and `unset`, MCP `specforge.settings_set`: one setting of `specforge.json`

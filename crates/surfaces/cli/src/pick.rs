@@ -23,7 +23,7 @@ macro_rules! rules {
     };
 }
 
-/// The short help of `--fields`, beside `--pick` on `query` and `export`.
+/// The short help of `--fields`, beside `--pick` on `query`, `export`, a verb and an extension command.
 pub(crate) const FIELDS_HELP: &str =
     "With --pick: one row per item reached, a cell per key, the cells separated by 0x1f";
 
@@ -32,8 +32,16 @@ pub(crate) const FIELDS_LONG_HELP: &str = "With --pick: print one row per item t
      comma-separated key, in order, the cells separated by the ASCII unit separator (0x1f), e.g. --pick \
      '.nodes[kind=commit]' --fields fields.hash,fields.subject, read with IFS=$'\\x1f' read -r hash subject. A key may \
      be dotted. A cell prints as --pick prints a value, with a missing value or null as an empty cell; 0x1f is not IFS \
-     whitespace, so a read keeps an empty cell and the rows never misalign. A backslash, newline, carriage return or \
-     0x1f in a cell prints as \\\\, \\n, \\r or \\x1f.";
+     whitespace, so a read keeps an empty cell and the rows never misalign. A cell prints raw, a backslash included, so \
+     a read gets back what was written; a string holding a newline, carriage return or 0x1f cannot be carried on one \
+     line, so the command refuses, naming the key and the item, and prints no row. On an extension command the keys \
+     read the command's own answer: --pick '.items[]' --fields id,slug (ADR 0341 D5).";
+
+/// `--pick`'s id: the shapes and `--fields` require it.
+pub(crate) const PICK: &str = "pick";
+
+/// `--fields`'s id: an extension command takes it as a host option unless it declares an arg of the name.
+pub(crate) const FIELDS: &str = "fields";
 
 /// The short help of `--pick`, on every command that takes it.
 pub(crate) const HELP: &str = "Print only the values at this path of the JSON answer, one per line";
@@ -52,7 +60,7 @@ pub(crate) const COMMAND_LONG_HELP: &str = concat!(
     rules!(),
     " It implies --format json (another --format is refused): errors print as they do under json, and the exit code \
      is the command's, or 1 when it passed but its answer is not JSON. A writing command is picked from its own \
-     answer, never from the plan report --format json wraps it in."
+     answer, never from the plan report --format json wraps it in. --fields reads several values of each item."
 );
 
 /// `export --pick`'s long help.
@@ -83,25 +91,26 @@ pub(crate) const VERB_LONG_HELP: &str = concat!(
 /// `--format human|json` beside `--pick`, for a core command whose JSON form is its answer (`check`, `settings`):
 /// with `--pick` the format is `json` unless one is given, so an explicit `--format human` can be refused.
 #[derive(clap::Args, Clone, Debug)]
+#[command(mut_arg(PICK, |arg| arg.long_help(ANSWER_LONG_HELP)))]
 pub(crate) struct PickedOutputArg {
     /// Output format: human or json (json with --pick)
     #[arg(
         long,
         default_value = "human",
-        default_value_if("pick", clap::builder::ArgPredicate::IsPresent, "json")
+        default_value_if(PICK, clap::builder::ArgPredicate::IsPresent, "json")
     )]
     format: OutputFormat,
 
-    #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = HELP, long_help = ANSWER_LONG_HELP)]
-    pick: Option<Pick>,
+    #[command(flatten)]
+    picked: Picked,
 }
 
 impl PickedOutputArg {
     /// The format, or the usage error (exit 2) of `--pick` beside `--format human`.
     pub(crate) fn format(&self, terminal: &Terminal) -> Result<OutputFormat, Exit> {
         // a usage error, not a note: written under either format
-        match (&self.pick, self.format) {
-            (Some(_), OutputFormat::Human) => {
+        match (self.picked.picks(), self.format) {
+            (true, OutputFormat::Human) => {
                 errln!(
                     terminal,
                     "error: --pick implies --format json: it takes no --format human"
@@ -112,34 +121,237 @@ impl PickedOutputArg {
         }
     }
 
-    pub(crate) fn pick(&self) -> Option<&Pick> {
-        self.pick.as_ref()
+    pub(crate) fn picked(&self) -> &Picked {
+        &self.picked
     }
 }
 
-/// `document` as the JSON form prints it, or the values `pick` reaches in it.
-pub(crate) fn print_json(
-    terminal: &Terminal,
-    pick: Option<&Pick>,
-    document: &impl serde::Serialize,
-) {
-    match pick {
-        Some(pick) => {
-            let value = serde_json::to_value(document).expect("serialize JSON output");
-            let lines = pick.lines(&value);
-            // A picked string is a file's text, a commit subject or a response: exact into a pipe, which a script
-            // reads, but escaped before a terminal, where an escape sequence would act (ADR 0339 D4).
-            if terminal.facts().out_terminal {
-                out!(
-                    terminal,
-                    "{}",
-                    specforge_common::remedy::printable_lines(&lines)
-                );
-            } else {
-                out!(terminal, "{lines}");
-            }
+/// What a command reads beside `--pick`'s path: the `--fields` rows of `query`, `export`, a verb and an extension command
+/// ([`FieldRows`], ADR 0325 D7), or none ([`NoRows`]).
+pub(crate) trait Rows: clap::Args + clap::FromArgMatches {
+    /// The `--fields` keys given.
+    fn fields(&self) -> Option<&Fields>;
+}
+
+// No `--fields`: a command whose items are not entities. (A `///` here would be the about of the command it is
+// flattened in.)
+#[derive(clap::Args, Clone, Debug, Default)]
+#[group(skip)]
+pub(crate) struct NoRows {}
+
+impl Rows for NoRows {
+    fn fields(&self) -> Option<&Fields> {
+        None
+    }
+}
+
+// `--fields`, on `query`, `export`, a verb and an extension command.
+#[derive(clap::Args, Clone, Debug, Default)]
+#[group(skip)]
+pub(crate) struct FieldRows {
+    #[arg(id = FIELDS, long, value_name = "KEYS", requires = PICK, conflicts_with_all = [COUNT, JOIN], value_parser = Fields::parse, help = FIELDS_HELP, long_help = FIELDS_LONG_HELP)]
+    fields: Option<Fields>,
+}
+
+impl Rows for FieldRows {
+    fn fields(&self) -> Option<&Fields> {
+        self.fields.as_ref()
+    }
+}
+
+// `--pick`, the rows beside it and the shape its values print in: one value, passed whole. `--pick`'s long help is
+// the command's, set by `mut_arg(PICK, …)` where it is flattened.
+#[derive(clap::Args, Clone, Debug, Default)]
+pub(crate) struct Picked<R: Rows = NoRows> {
+    #[arg(id = PICK, long, value_name = "PATH", value_parser = Pick::parse, help = HELP)]
+    pick: Option<Pick>,
+
+    #[command(flatten)]
+    rows: R,
+
+    #[command(flatten)]
+    shape: Shape,
+}
+
+impl<R: Rows> Picked<R> {
+    /// Whether `--pick` was given.
+    pub(crate) fn picks(&self) -> bool {
+        self.pick.is_some()
+    }
+
+    /// What `--pick` prints for an answer printed as text (`None` without `--pick`): nothing for an empty answer,
+    /// else `Err` with the refusal when it is not JSON.
+    pub(crate) fn printed(&self, answer: &str) -> Option<Result<String, String>> {
+        let pick = self.pick.as_ref()?;
+        Some(pick.printed(answer, self.rows.fields(), &self.shape))
+    }
+}
+
+impl Picked {
+    /// `document` as the JSON form prints it, or the values `--pick` reaches in it, in the shape.
+    pub(crate) fn print_json(&self, terminal: &Terminal, document: &impl serde::Serialize) {
+        self.print_rows(terminal, document)
+            .expect("without --fields every value prints");
+    }
+}
+
+impl<R: Rows> Picked<R> {
+    /// [`Picked::print_json`] with the `--fields` rows: `Err` with the refusal, and nothing printed, when a cell
+    /// cannot be carried on one line.
+    pub(crate) fn print_rows(
+        &self,
+        terminal: &Terminal,
+        document: &impl serde::Serialize,
+    ) -> Result<(), String> {
+        let Some(pick) = &self.pick else {
+            terminal.json(document);
+            return Ok(());
+        };
+        let value = serde_json::to_value(document).expect("serialize JSON output");
+        let texts = match self.rows.fields() {
+            Some(fields) => pick.rows(&value, fields)?,
+            None => pick.texts(&value),
+        };
+        let lines = self.shape.shaped(texts);
+        // A picked string is a file's text, a commit subject or a response: exact into a pipe, which a script
+        // reads, but escaped before a terminal, where an escape sequence would act (ADR 0339 D4).
+        if terminal.facts().out_terminal {
+            out!(
+                terminal,
+                "{}",
+                specforge_common::remedy::printable_lines(&lines)
+            );
+        } else {
+            out!(terminal, "{lines}");
         }
-        None => terminal.json(document),
+        Ok(())
+    }
+}
+
+impl Picked<FieldRows> {
+    /// The host options of an extension command (ADR 0325 D4, D7, D8): `--pick` and what `added` names of `--fields`
+    /// and [`SHAPES`], the args this type derives, each conflicting only with the others added, so a declared `count`
+    /// keeps `--first`.
+    pub(crate) fn host_args(added: &[&str]) -> Vec<clap::Arg> {
+        use clap::Args as _;
+        let derived = Self::augment_args(clap::Command::new(""));
+        derived
+            .get_arguments()
+            .filter(|arg| arg.get_id() == PICK || added.contains(&arg.get_id().as_str()))
+            .map(|arg| {
+                let kept: Vec<clap::Id> = derived
+                    .get_arg_conflicts_with(arg)
+                    .into_iter()
+                    .map(|other| other.get_id().clone())
+                    .filter(|id| added.contains(&id.as_str()))
+                    .collect();
+                // the order the empty command gave it is reset: the host's command orders it
+                arg.clone()
+                    .display_order(None)
+                    .conflicts_with(clap::builder::Resettable::Reset)
+                    .conflicts_with_all(kept)
+            })
+            .collect()
+    }
+
+    /// What an extension command's `matches` hold for the host options `added` names: a name the command declares
+    /// is its own arg, never read here.
+    pub(crate) fn of_matches(matches: &clap::ArgMatches, added: &[&str]) -> Self {
+        Self {
+            pick: matches.try_get_one::<Pick>(PICK).ok().flatten().cloned(),
+            rows: FieldRows {
+                fields: added
+                    .contains(&FIELDS)
+                    .then(|| matches.get_one::<Fields>(FIELDS).cloned())
+                    .flatten(),
+            },
+            shape: Shape::of_matches(matches, added),
+        }
+    }
+}
+
+/// The short help of `--count`.
+pub(crate) const COUNT_HELP: &str = "With --pick: print the number of values it reaches";
+
+/// The long help of `--count`.
+pub(crate) const COUNT_LONG_HELP: &str = "With --pick: print the number of values the path reaches, the lines --pick \
+     would print (null or a missing value is none, a string holding a newline is one), 0 for none; nothing when the \
+     command answered nothing, so `$(… --count) || n='?'` tells an unread answer from 0. It takes no --first, \
+     --last, --join or --fields (ADR 0325 D8).";
+
+/// The short help of `--first`.
+pub(crate) const FIRST_HELP: &str = "With --pick: keep only the first N values it reaches";
+
+/// The short help of `--last`.
+pub(crate) const LAST_HELP: &str = "With --pick: keep only the last N values it reaches";
+
+/// The short help of `--join`.
+pub(crate) const JOIN_HELP: &str = "With --pick: print the values on one line, joined by SEP";
+
+/// The long help of `--join`.
+pub(crate) const JOIN_LONG_HELP: &str = "With --pick: print the values kept on one line joined by SEP exactly as \
+     given (no escape is read: $'\\n  ' is the shell's), then a newline; nothing when no value is reached. It \
+     combines with --first or --last, and takes no --count or --fields (ADR 0325 D8).";
+
+/// How the values `--pick` reaches print (ADR 0325 D8): one per line (no shape given), their number, the first or
+/// last n, or on one line joined by a separator.
+#[derive(clap::Args, Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Shape {
+    #[arg(id = COUNT, long, requires = PICK, conflicts_with_all = [FIRST, LAST, JOIN], help = COUNT_HELP, long_help = COUNT_LONG_HELP)]
+    count: bool,
+
+    #[arg(id = FIRST, long, value_name = "N", requires = PICK, conflicts_with = LAST, help = FIRST_HELP)]
+    first: Option<usize>,
+
+    #[arg(id = LAST, long, value_name = "N", requires = PICK, help = LAST_HELP)]
+    last: Option<usize>,
+
+    #[arg(id = JOIN, long, value_name = "SEP", requires = PICK, allow_hyphen_values = true, help = JOIN_HELP, long_help = JOIN_LONG_HELP)]
+    join: Option<String>,
+}
+
+/// The shapes' names, the ids [`Shape`] derives its args under: an extension command takes each as a host option
+/// unless it declares an arg of the name.
+pub(crate) const SHAPES: [&str; 4] = [COUNT, FIRST, LAST, JOIN];
+pub(crate) const COUNT: &str = "count";
+pub(crate) const FIRST: &str = "first";
+pub(crate) const LAST: &str = "last";
+pub(crate) const JOIN: &str = "join";
+
+impl Shape {
+    /// The shape `matches` holds for the host options `added` names: a name the command declares is its own arg,
+    /// never read here.
+    fn of_matches(matches: &clap::ArgMatches, added: &[&str]) -> Self {
+        let has = |name: &str| added.contains(&name);
+        Self {
+            count: has(COUNT) && matches.get_flag(COUNT),
+            first: has(FIRST)
+                .then(|| matches.get_one::<usize>(FIRST).copied())
+                .flatten(),
+            last: has(LAST)
+                .then(|| matches.get_one::<usize>(LAST).copied())
+                .flatten(),
+            join: has(JOIN)
+                .then(|| matches.get_one::<String>(JOIN).cloned())
+                .flatten(),
+        }
+    }
+
+    /// The text the shape makes of `texts` (one per value or row reached, in document order); it prints nothing.
+    fn shaped(&self, texts: Vec<String>) -> String {
+        if self.count {
+            return format!("{}\n", texts.len());
+        }
+        let kept = match (self.first, self.last) {
+            (Some(n), _) => &texts[..n.min(texts.len())],
+            (_, Some(n)) => &texts[texts.len().saturating_sub(n)..],
+            (None, None) => &texts[..],
+        };
+        match &self.join {
+            Some(_) if kept.is_empty() => String::new(),
+            Some(separator) => kept.join(separator) + "\n",
+            None => kept.iter().map(|text| format!("{text}\n")).collect(),
+        }
     }
 }
 
@@ -194,39 +406,48 @@ impl Fields {
             .map(Self)
     }
 
-    /// The row of `item`: a cell per key, separated by the unit separator (0x1f).
-    fn row(&self, item: &Value) -> String {
-        self.0
-            .iter()
-            .map(|key| {
-                match key
-                    .iter()
-                    .try_fold(item, |value, segment| value.get(segment))
-                {
-                    None | Some(Value::Null) => String::new(),
-                    Some(Value::String(text)) => escaped(text),
-                    Some(other) => escaped(&other.to_string()),
-                }
-            })
-            .collect::<Vec<_>>()
-            .join("\u{1f}")
+    /// The row of `item`, the `at`th reached: a cell per key, separated by the unit separator (0x1f). A cell is raw, so
+    /// a read gets back what was written; a string a line cannot carry is refused, naming the key and the item.
+    fn row(&self, item: &Value, at: usize) -> Result<String, String> {
+        let cells = self.0.iter().map(|key| {
+            match key
+                .iter()
+                .try_fold(item, |value, segment| value.get(segment))
+            {
+                None | Some(Value::Null) => Ok(String::new()),
+                Some(Value::String(text)) => match text.chars().find_map(uncarried) {
+                    None => Ok(text.clone()),
+                    Some(what) => Err(uncarried_refusal(&key.join("."), item, at, what)),
+                },
+                // compact JSON writes a control character in a string as its escape: one line
+                Some(other) => Ok(other.to_string()),
+            }
+        });
+        Ok(cells.collect::<Result<Vec<_>, _>>()?.join("\u{1f}"))
     }
 }
 
-/// `text` with a backslash, newline, carriage return and unit separator written as `\\`, `\n`, `\r` and `\x1f`: one
-/// cell.
-fn escaped(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for c in text.chars() {
-        match c {
-            '\\' => out.push_str("\\\\"),
-            '\u{1f}' => out.push_str("\\x1f"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            c => out.push(c),
-        }
+/// What `c` is, when a row cannot carry it on one line.
+fn uncarried(c: char) -> Option<&'static str> {
+    match c {
+        '\n' => Some("a newline"),
+        '\r' => Some("a carriage return"),
+        '\u{1f}' => Some("the unit separator 0x1f"),
+        _ => None,
     }
-    out
+}
+
+/// The refusal of a cell holding `what`: the item is named by its `id`, or by where it was reached.
+fn uncarried_refusal(key: &str, item: &Value, at: usize, what: &str) -> String {
+    use specforge_common::remedy::printable;
+    let item = match item.get("id").and_then(Value::as_str) {
+        Some(id) => format!("item '{}'", printable(id)),
+        None => format!("item {at}"),
+    };
+    let key = printable(key);
+    format!(
+        "error: --fields: key '{key}' of {item} holds {what}, which a row cannot carry on one line; read it with --pick alone\n"
+    )
 }
 
 /// A parsed `--pick` path.
@@ -337,283 +558,49 @@ impl Pick {
         reached
     }
 
-    /// What `--pick` prints for `document`: one line per value reached.
-    pub(crate) fn lines(&self, document: &Value) -> String {
-        let mut text = String::new();
-        for value in self.values(document) {
-            match value {
-                Value::Null => continue,
-                Value::String(s) => text.push_str(s),
-                other => text.push_str(&other.to_string()),
-            }
-            text.push('\n');
-        }
-        text
-    }
-
-    /// What `--pick` with `--fields` prints for `document`: one row per value reached, null included.
-    fn rows(&self, document: &Value, fields: &Fields) -> String {
+    /// The texts `--pick` prints for `document`, in document order: one per value reached, a null or missing value
+    /// none.
+    fn texts(&self, document: &Value) -> Vec<String> {
         self.values(document)
             .into_iter()
-            .map(|item| fields.row(item) + "\n")
+            .filter_map(|value| match value {
+                Value::Null => None,
+                Value::String(s) => Some(s.clone()),
+                other => Some(other.to_string()),
+            })
             .collect()
     }
 
-    /// [`Self::lines`] (or [`Self::rows`] with `fields`) for an answer printed as text: nothing for an empty answer,
-    /// else `Err` with the answer when it is not JSON.
-    pub(crate) fn printed(&self, answer: &str, fields: Option<&Fields>) -> Result<String, String> {
+    /// The `--fields` rows of `document`: one per value reached, null included; a cell no row can carry refuses them
+    /// all.
+    fn rows(&self, document: &Value, fields: &Fields) -> Result<Vec<String>, String> {
+        self.values(document)
+            .into_iter()
+            .enumerate()
+            .map(|(at, item)| fields.row(item, at))
+            .collect()
+    }
+
+    /// What `--pick` prints in `shape` for an answer printed as text: nothing for an empty answer, else `Err` with
+    /// the refusal when it is not JSON or a row cannot be carried.
+    fn printed(
+        &self,
+        answer: &str,
+        fields: Option<&Fields>,
+        shape: &Shape,
+    ) -> Result<String, String> {
         if answer.trim().is_empty() {
             return Ok(String::new());
         }
-        serde_json::from_str(answer)
-            .map(|document| match fields {
-                Some(fields) => self.rows(&document, fields),
-                None => self.lines(&document),
-            })
-            .map_err(|e| format!("error: --pick: the answer is not JSON ({e})\n"))
+        let document = serde_json::from_str(answer)
+            .map_err(|e| format!("error: --pick: the answer is not JSON ({e})\n"))?;
+        let lines = match fields {
+            Some(fields) => self.rows(&document, fields)?,
+            None => self.texts(&document),
+        };
+        Ok(shape.shaped(lines))
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A picked string with an escape sequence reaches a pipe exactly and a terminal escaped, newlines kept.
-    #[test]
-    fn a_picked_string_is_escaped_before_a_terminal_only() {
-        use crate::terminal::{Facts, Terminal};
-        let document = serde_json::json!({"text": "red \u{1b}[31mX\nnext"});
-        let pick = Pick::parse(".text").unwrap();
-        let printed = |facts: Facts| {
-            let (terminal, capture) = Terminal::captured("", facts);
-            print_json(&terminal, Some(&pick), &document);
-            capture.stdout()
-        };
-        assert_eq!(printed(Facts::PIPED), "red \u{1b}[31mX\nnext\n");
-        let on_terminal = printed(Facts {
-            out_terminal: true,
-            ..Facts::PIPED
-        });
-        assert!(!on_terminal.contains('\u{1b}'), "{on_terminal:?}");
-        assert!(on_terminal.contains("\nnext"), "{on_terminal:?}");
-    }
-    use serde_json::json;
-
-    fn picked(path: &str, document: &Value) -> String {
-        Pick::parse(path).unwrap().lines(document)
-    }
-
-    #[test]
-    fn the_grammar_has_four_steps() {
-        assert_eq!(
-            Pick::parse(".nodes[kind=plan].fields.goal[0][]").unwrap().0,
-            [
-                Step::Key("nodes".into()),
-                Step::Field(vec!["kind".into()], "plan".into()),
-                Step::Key("fields".into()),
-                Step::Key("goal".into()),
-                Step::Index(0),
-                Step::Each,
-            ]
-        );
-    }
-
-    #[test]
-    fn a_malformed_path_names_its_byte() {
-        for (path, at) in [
-            ("", "byte 0"),
-            ("nodes", "byte 0"),
-            (".a..b", "byte 2"),
-            (".a[", "byte 2"),
-            (".a[x]", "byte 2"),
-            (".a[-1]", "byte 2"),
-            (".a[kind=]", "byte 2"),
-            (".a[=plan]", "byte 2"),
-            (".a[a b=x]", "byte 2"),
-            (".a.", "byte 2"),
-            (".a[0]b", "byte 5"),
-            (".a[+1]", "byte 2"),
-            (".a[01]", "byte 2"),
-            (".a[00]", "byte 2"),
-            (".a b", "byte 2"),
-            (".a\tb", "byte 2"),
-            (".a]", "byte 2"),
-            (".kind=plan", "byte 5"),
-        ] {
-            let error = Pick::parse(path).unwrap_err();
-            assert!(error.starts_with(&format!("at {at}:")), "{path}: {error}");
-        }
-    }
-
-    #[test]
-    fn a_dot_alone_is_the_whole_answer_on_one_line() {
-        let document = json!({"activeHooks": [{"capId": "security"}], "skippedHooks": []});
-        assert_eq!(
-            picked(".", &document),
-            "{\"activeHooks\":[{\"capId\":\"security\"}],\"skippedHooks\":[]}\n"
-        );
-        assert_eq!(picked(".", &json!("s")), "s\n");
-    }
-
-    #[test]
-    fn an_index_is_digits_without_a_leading_zero() {
-        assert_eq!(Pick::parse(".a[0]").unwrap().0[1], Step::Index(0));
-        assert_eq!(Pick::parse(".a[10]").unwrap().0[1], Step::Index(10));
-    }
-
-    #[test]
-    fn a_number_prints_as_serde_json_writes_an_f64() {
-        // not `arbitrary_precision`: a number is an i64, a u64 or an f64, and an f64 keeps its `.0`
-        let document: Value =
-            serde_json::from_str(r#"{"a": 1.0, "b": -0, "c": 1e3, "d": 7}"#).unwrap();
-        assert_eq!(picked(".a", &document), "1.0\n");
-        assert_eq!(picked(".b", &document), "-0.0\n");
-        assert_eq!(picked(".c", &document), "1000.0\n");
-        assert_eq!(picked(".d", &document), "7\n");
-    }
-
-    #[test]
-    fn each_value_prints_by_its_type() {
-        let document = json!({"s": "bare", "n": 1.5, "b": false, "o": {"a": [1, null]}, "z": null, "l": "a\nb"});
-        assert_eq!(picked(".s", &document), "bare\n");
-        assert_eq!(picked(".n", &document), "1.5\n");
-        assert_eq!(picked(".b", &document), "false\n");
-        assert_eq!(picked(".o", &document), "{\"a\":[1,null]}\n");
-        assert_eq!(picked(".o.a", &document), "[1,null]\n");
-        assert_eq!(picked(".z", &document), "");
-        assert_eq!(picked(".l", &document), "a\nb\n");
-    }
-
-    #[test]
-    fn a_missing_value_prints_nothing() {
-        let document = json!({"a": [], "s": "x"});
-        for path in [
-            ".b",
-            ".a[0]",
-            ".a[]",
-            ".s.k",
-            ".s[0]",
-            ".s[]",
-            "[0]",
-            ".a[kind=plan]",
-        ] {
-            assert_eq!(picked(path, &document), "", "{path}");
-        }
-    }
-
-    #[test]
-    fn every_item_and_the_items_of_a_kind() {
-        let document = json!({"nodes": [
-            {"id": "p", "kind": "phase"}, {"id": "a", "kind": "plan"}, {"id": "b", "kind": "plan"}, 7,
-        ]});
-        assert_eq!(picked(".nodes[].id", &document), "p\na\nb\n");
-        assert_eq!(picked(".nodes[kind=plan].id", &document), "a\nb\n");
-        assert_eq!(picked(".nodes[kind=task]", &document), "");
-        assert_eq!(picked(".nodes[3]", &document), "7\n");
-        assert_eq!(picked(".nodes[]", &document).lines().count(), 4);
-    }
-
-    #[test]
-    fn an_item_is_selected_by_any_string_field() {
-        let settings = json!({"extensions": [{"settings": [
-            {"name": "workflow.auto_advance", "value": true}, {"name": "workflow.other", "value": "x"},
-            {"name": "workflow.unset"},
-        ]}]});
-        let path = ".extensions[].settings[name=workflow.auto_advance].value";
-        assert_eq!(picked(path, &settings), "true\n");
-        assert_eq!(
-            picked(
-                ".extensions[].settings[name=workflow.unset].value",
-                &settings
-            ),
-            ""
-        );
-        let diagnostics = json!([{"code": "gsd/W205"}, {"code": "E003"}, {"code": 205}]);
-        assert_eq!(picked(".[code=gsd/W205].code", &diagnostics), "gsd/W205\n");
-        assert_eq!(picked("[code=E003].code", &diagnostics), "E003\n");
-        // a number is compared as JSON, and the value may hold '=' and '.'
-        assert_eq!(picked(".[code=205].code", &diagnostics), "205\n");
-        assert_eq!(
-            picked(".[a=b=c.d]", &json!([{"a": "b=c.d"}])),
-            "{\"a\":\"b=c.d\"}\n"
-        );
-    }
-
-    #[test]
-    fn a_dotted_key_selects_by_a_nested_field() {
-        let nodes = json!({"nodes": [
-            {"id": "t1", "fields": {"result": "issue"}}, {"id": "t2", "fields": {"result": "pass"}},
-            {"id": "t3", "fields": {}}, {"id": "t4"}, {"id": "t5", "fields": "issue"},
-        ]});
-        assert_eq!(picked(".nodes[fields.result=issue].id", &nodes), "t1\n");
-        assert_eq!(picked(".nodes[fields.result=pass].id", &nodes), "t2\n");
-        assert_eq!(picked(".nodes[fields.missing=x].id", &nodes), "");
-        assert_eq!(
-            Pick::parse(".nodes[fields.result=issue]").unwrap().0[1],
-            Step::Field(vec!["fields".into(), "result".into()], "issue".into())
-        );
-        for path in [".a[.x=1]", ".a[x.=1]", ".a[x..y=1]"] {
-            assert!(
-                Pick::parse(path).unwrap_err().starts_with("at byte 2:"),
-                "{path}"
-            );
-        }
-    }
-
-    #[test]
-    fn a_scalar_that_is_not_a_string_is_compared_as_json() {
-        let nodes = json!({"nodes": [
-            {"id": "a", "fields": {"backlog": true, "wave": 2}},
-            {"id": "b", "fields": {"backlog": false, "wave": 1}},
-            {"id": "c", "fields": {"backlog": "true", "wave": "2"}},
-            {"id": "d", "fields": {"backlog": [true], "wave": {"n": 2}}},
-            {"id": "e", "fields": {"backlog": null}},
-        ]});
-        assert_eq!(picked(".nodes[fields.backlog=true].id", &nodes), "a\nc\n");
-        assert_eq!(picked(".nodes[fields.backlog=false].id", &nodes), "b\n");
-        assert_eq!(picked(".nodes[fields.wave=2].id", &nodes), "a\nc\n");
-        assert_eq!(picked(".nodes[fields.backlog=null].id", &nodes), "e\n");
-        // an object or an array is never selected
-        assert_eq!(picked(".nodes[fields.wave={\"n\":2}].id", &nodes), "");
-    }
-
-    #[test]
-    fn fields_print_one_row_per_item_and_an_empty_cell_for_a_missing_value() {
-        let nodes = json!({"nodes": [
-            {"id": "c1", "fields": {"hash": "abc", "subject": "feat: a", "n": 2}},
-            {"id": "c2", "fields": {"subject": "tab\there\nnext \\ end"}},
-            {"id": "c3", "fields": {"hash": null, "files": ["a", "b"]}},
-        ]});
-        let fields = Fields::parse("fields.hash,fields.subject,id,fields.n,fields.files").unwrap();
-        let pick = Pick::parse(".nodes[]").unwrap();
-        assert_eq!(
-            pick.printed(&nodes.to_string(), Some(&fields)).unwrap(),
-            "abc\u{1f}feat: a\u{1f}c1\u{1f}2\u{1f}\n\u{1f}tab\there\\nnext \\\\ end\u{1f}c2\u{1f}\u{1f}\n\u{1f}\u{1f}c3\u{1f}\u{1f}[\"a\",\"b\"]\n"
-        );
-        // a unit separator in a cell is written out, so it cannot split the row
-        assert_eq!(escaped("a\u{1f}b"), "a\\x1fb");
-        // a value that is null still holds its row; an item missing from the path holds none
-        let one = Fields::parse("id").unwrap();
-        assert_eq!(
-            Pick::parse(".a[]")
-                .unwrap()
-                .rows(&json!({"a": [null, 1]}), &one),
-            "\n\n"
-        );
-        assert_eq!(
-            Pick::parse(".nodes[kind=x]").unwrap().rows(&nodes, &one),
-            ""
-        );
-        for bad in ["", "a,", ",a", "a..b", "a b", "a[0]", "a=b"] {
-            assert!(Fields::parse(bad).is_err(), "{bad:?}");
-        }
-    }
-
-    #[test]
-    fn an_answer_that_is_not_json_is_refused_and_an_empty_one_prints_nothing() {
-        let pick = Pick::parse(".a").unwrap();
-        assert_eq!(pick.printed("{\"a\": 1}\n", None), Ok("1\n".into()));
-        assert_eq!(pick.printed("", None), Ok(String::new()));
-        assert!(pick.printed("done", None).unwrap_err().contains("not JSON"));
-    }
-}
+mod tests;

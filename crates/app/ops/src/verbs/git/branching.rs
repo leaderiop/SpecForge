@@ -1,17 +1,17 @@
 //! `specforge git branch`, `switch`, `tag` and `worktree` (ADR 0339 D5): refs written by gix, a checkout and a
 //! worktree by libgit2, each under the ceiling's `git` `write`. A switch overwrites no file the worktree changed, and a
-//! worktree with changes is not removed unless forced.
+//! worktree with changes is not removed unless forced. A local `clone` is libgit2's too.
 
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use specforge_common::remedy::printable;
-use specforge_effects::RealFs;
 use specforge_effects::git::{GitPlace, Located, Sha};
+use specforge_effects::{FsOp, RealFs};
 
 use super::commit::{Signed, held, refuse_signing, write_failed};
 use super::{HeadAnswer, Worktree, commit_named, failed, head, slashed};
-use crate::verbs::Verbs;
+use crate::verbs::{Access, Verbs};
 use crate::{OpError, OpErrorKind};
 
 /// A branch or tag the verb wrote or deleted, and the commit it names.
@@ -47,6 +47,81 @@ pub fn init(verbs: &Verbs, dir: Option<&Path>) -> Result<InitAnswer, OpError> {
     Ok(InitAnswer {
         top: slashed(&at),
         created,
+    })
+}
+
+/// `git clone`'s answer: the new repository's top, and the branch and commit its `HEAD` is on (none for an empty source).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CloneAnswer {
+    pub top: String,
+    pub branch: Option<String>,
+    pub sha: Option<String>,
+}
+
+/// `path` (read from the current directory) held for a write, absent or empty, and no root itself.
+fn fresh(verbs: &Verbs, path: &Path) -> Result<PathBuf, OpError> {
+    let at = held(verbs, path)?;
+    if verbs.located(path, &Access::Write)?.rel.is_empty() {
+        return Err(refused(
+            "path_taken",
+            format!("{} is a root", printable(&at.to_string_lossy())),
+            "name a directory inside it",
+        ));
+    }
+    if std::fs::symlink_metadata(&at).is_ok_and(|meta| !meta.is_dir())
+        || std::fs::read_dir(&at).is_ok_and(|mut entries| entries.next().is_some())
+    {
+        return Err(refused(
+            "path_taken",
+            format!("{} already holds files", printable(&at.to_string_lossy())),
+            "name a directory that does not exist yet, or an empty one",
+        ));
+    }
+    Ok(at)
+}
+
+/// `git clone <source> <dir>`: a local repository copied, each path held to the roots. A remote is network git, which no
+/// verb does (ADR 0339 D6). `HEAD`'s commit and branch come from the new repository.
+pub fn clone(verbs: &Verbs, source: &str, dir: &Path) -> Result<CloneAnswer, OpError> {
+    if verbs.ports().git.names_a_remote(source) {
+        return Err(OpError::new(
+            OpErrorKind::InvalidInput,
+            OpErrorKind::InvalidInput.as_str(),
+            format!("{} is a remote, and no verb reaches one", printable(source)),
+        )
+        .with_suggestion(
+            "name a local directory (a local one with a colon in its name is ./a:b); network git stays with \
+             the git program",
+        ));
+    }
+    verbs.permit_git_write("clone")?;
+    let (from, _) = verbs.held(Path::new(source), FsOp::Stat)?;
+    super::commit::refuse_withheld(&from.rel, source, "read")?;
+    let git = &verbs.ports().git;
+    // Exactly what it is named, as git clones: a walk upward would let a project nested in a repository copy that one.
+    let place = match git.locate(&from.at) {
+        Located::Repo(place) if place.toplevel == from.at => verbs.within_reach(place)?,
+        _ => {
+            return Err(OpError::new(
+                OpErrorKind::PreconditionFailed,
+                super::NOT_A_REPOSITORY,
+                format!("{} is no repository's top", printable(source)),
+            ));
+        }
+    };
+    let at = fresh(verbs, dir)?;
+    git.clone_local(&place, &at).map_err(write_failed)?;
+    let top = std::fs::canonicalize(&at).unwrap_or(at);
+    let Located::Repo(made) = git.locate(&top) else {
+        return Err(write_failed(specforge_effects::git::GitError(
+            "the new repository cannot be read".into(),
+        )));
+    };
+    let head = git.head(&made).map_err(failed)?;
+    Ok(CloneAnswer {
+        top: slashed(&made.toplevel),
+        branch: head.head,
+        sha: head.oid,
     })
 }
 
@@ -197,14 +272,7 @@ pub fn worktree_add(
     start: Option<&str>,
 ) -> Result<Worktree, OpError> {
     let place = verbs.place_to_write("worktree add")?;
-    let at = held(verbs, path)?;
-    if std::fs::read_dir(&at).is_ok_and(|mut entries| entries.next().is_some()) {
-        return Err(refused(
-            "path_taken",
-            format!("{} already holds files", printable(&at.to_string_lossy())),
-            "name a directory that does not exist yet, or an empty one",
-        ));
-    }
+    let at = fresh(verbs, path)?;
     let git = &verbs.ports().git;
     let named = path.file_name().map(|n| n.to_string_lossy().into_owned());
     let branch = branch.map(str::to_string).or(named).ok_or_else(|| {

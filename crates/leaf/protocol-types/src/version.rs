@@ -12,7 +12,8 @@
 /// - a `codes` entry may declare `machine` (`CodeDescriptor.machine`): this machine decides its finding (its
 ///   approvals, its network or its effects journal), so it never fails `--strict` or the gate's warning baseline;
 /// - an extension declares `capabilities` (a describe category): what it may make the host do, each on one port under
-///   a scope name, and a collector names the process `capability` it runs instead of carrying `run` (ADR 0335 D2).
+///   a scope name, and a collector names the process `capability` it runs instead of carrying `run` (ADR 0335 D2);
+/// - a command's input carries `nonce`, 32 hex digits of the host's entropy, fresh per call (ADR 0341).
 ///
 /// A change that adds to 2.0.0 (grants, host imports, value checks) adds its item here and to the 2.0.0 row of
 /// `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0 included; it does

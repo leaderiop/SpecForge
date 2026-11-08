@@ -77,7 +77,8 @@ fn resume(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
 
 /// `raise_blocker <text> [--phase] [--plan]`: a blocker, `BLn` in the project.
 fn raise_blocker(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
-    let words = required(call, "text")?;
+    // a heredoc read with `read -rd ''` keeps its last newline: the blocker is the words alone
+    let words = required(call, "text")?.trim_end();
     let phase = call
         .str("phase")
         .map(|p| node(call, "phase", p))

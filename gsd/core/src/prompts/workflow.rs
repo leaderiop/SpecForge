@@ -154,10 +154,13 @@ fn handle(spec: &'static Spec, call: &PromptCall<'_>) -> Result<PromptOutput, St
     if !spec.id.starts_with("ns_") && spec.id != "update" {
         tail = format!("\n\nIn the shell blocks above, {ids}{tail}");
     }
+    // the subject's value is the one the run is about, picked or given
+    let values = args::values(call, spec.args, subject)?;
     let text = render::render(&Input {
         command: spec.command,
         host: call.host().unwrap_or("claude-code"),
         arguments: &arguments,
+        values: &values,
         settings: &settings::block(),
         tail: &tail,
     })?;

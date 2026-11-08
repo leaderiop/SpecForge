@@ -396,11 +396,13 @@ pub(crate) fn tree_of(repo: &gix::Repository, sha: &Sha) -> Result<gix::ObjectId
 pub(crate) type Unread = std::collections::HashSet<gix::ObjectId>;
 
 /// The index as a tree, kept in memory; with `worktree`, each tracked file as it is on disk instead, and the files over
-/// the cap it hashed without keeping.
+/// the cap it hashed without keeping. A changed file `paths` keeps with more than one name is refused (ADR 0146); one
+/// it does not keep stays as the index has it, unread.
 // shortcut: no clean filters (autocrlf, LFS) are applied to a worktree file; upgrade when a block diffs one
 pub(crate) fn index_tree(
     repo: &gix::Repository,
     worktree: bool,
+    paths: &[String],
 ) -> Result<(gix::ObjectId, Unread), GitError> {
     let mut unread = Unread::new();
     let index = repo
@@ -453,6 +455,13 @@ pub(crate) fn index_tree(
                         continue;
                     };
                     let blob = match content {
+                        OnDisk::SecondName(_) if !kept(&rela_path.to_string(), paths) => continue,
+                        OnDisk::SecondName(why) => {
+                            return Err(GitError(format!(
+                                "{rela_path}: {why}, so it is not diffed: replace it with a plain copy (copy it to a \
+                                 new name, then move the copy over it), or diff other paths with -- <path>"
+                            )));
+                        }
                         OnDisk::Bytes(bytes) => repo
                             .write_blob(bytes)
                             .map_err(|e| failed("hash a file", &e))?
@@ -478,6 +487,8 @@ pub(crate) fn index_tree(
 enum OnDisk {
     Bytes(Vec<u8>),
     Over(gix::ObjectId),
+    /// More than one name: unread, and why.
+    SecondName(std::io::Error),
 }
 
 /// A file on disk as a tree holds it: its kind and its content (a link's target); `None` when it is gone or is no
@@ -498,6 +509,9 @@ fn on_disk(file: &Path, hash: gix::hash::Kind) -> Option<(gix::objs::tree::Entry
         EntryKind::Blob
     };
     let mut opened = specforge_common::regular::open_any(file).ok()?;
+    if let Err(why) = specforge_common::regular::refuse_if_linked(&opened) {
+        return Some((kind, OnDisk::SecondName(why)));
+    }
     let length = opened.metadata().ok()?.len();
     if length > BLOB_CAP {
         let id = gix::objs::compute_stream_hash(

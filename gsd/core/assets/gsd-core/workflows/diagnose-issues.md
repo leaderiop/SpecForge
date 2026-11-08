@@ -68,7 +68,7 @@ RUNTIME="{{setting:runtime|@host}}"   # runtime (the settings)
 
 **Resolve isolation now (#2584/#2652).** Read @gsd-core/references/dispatch-isolation-gate.md
 and run its `Resolve ISOLATION`, `Single-agent dispatch sites`, and `Resolve the harness flag`
-blocks in order; they set `ISOLATION`/`HARNESS_FLAG` via `query dispatch-isolation`.
+blocks in order; they set `ISOLATION=none` and an empty `HARNESS_FLAG` (@gsd/core has no worktree isolation).
 `ISOLATION` — not `RUNTIME` — gates the worktree decision at spawn; the `spawn_agents` step
 below consumes both variables.
 
@@ -98,11 +98,11 @@ This runs in parallel - all gaps investigated simultaneously.
 **Load agent skills:**
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
 AGENT_SKILLS_DEBUGGER=""   # the host install carries the skills of gsd-debugger
 EXPECTED_BASE=$(specforge git head --pick .sha)
 ```

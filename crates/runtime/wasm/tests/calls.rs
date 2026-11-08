@@ -220,6 +220,7 @@ pub fn command_input() -> WireCommandInput<RawGraph> {
         format: typed(&golden["format"]),
         today: golden["today"].as_str().unwrap().to_string(),
         now: golden["now"].as_str().unwrap().to_string(),
+        nonce: golden["nonce"].as_str().unwrap().to_string(),
         graph: RawGraph::new(golden["graph"].to_string()).unwrap(),
         ..Default::default()
     }

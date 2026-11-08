@@ -18,7 +18,7 @@ Determine what kind of work is being paused and set the handoff destination acco
 
 ```bash
 # Check for active phase
-phase=$(specforge gsd progress-report --pick '.phases[].status' | grep -nx 'In Progress' | head -1 | cut -d: -f1); phase=${phase:+$(specforge gsd progress-report --pick ".phases[$((phase - 1))].number")}
+phase=$(specforge gsd progress-report --pick '.phases[status=In Progress].number' --first 1)
 phase=${phase%/*}; phase=${phase##*/}
 
 # Check for active spike
@@ -64,7 +64,7 @@ Ask user for clarifications if needed via conversational questions.
 **Also inspect SUMMARY.md files for false completions:**
 ```bash
 # Check for placeholder content in existing summaries
-while IFS=$'\x1f' read -r s line; do case "$line" in (*"To be filled"*|*placeholder*|*TBD*) echo "$s" ;; esac; done < <(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary]' --fields id,fields.one_liner) || true
+while IFS= read -r s; do line=$(specforge query "$s" --depth 0 --pick '.nodes[0].fields.one_liner'); case "$line" in (*"To be filled"*|*placeholder*|*TBD*) echo "$s" ;; esac; done < <(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id') || true
 ```
 Report any summaries with placeholder content as incomplete items.
 </step>
@@ -74,7 +74,7 @@ Report any summaries with placeholder content as incomplete items.
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
 ```
 
 ```bash
@@ -138,7 +138,7 @@ phase: XX-name
 task: 3
 total_tasks: 7
 status: in_progress
-last_updated: [timestamp from date -u]
+# no time here: the pause the commit step records stamps it
 ---
 
 # BLOCKING CONSTRAINTS — Read Before Anything Else
@@ -222,9 +222,9 @@ Start with: [specific first action when resuming]
 
 Be specific enough for a fresh Claude to understand immediately.
 
-Use `date -u` for the `last_updated` field:
+The `pause` the commit step records stamps `at` (the host's clock): the handoff holds no time of its own.
 ```bash
-timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
 ```
 </step>
 

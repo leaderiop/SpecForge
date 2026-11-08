@@ -6,11 +6,11 @@ Smart discuss is the autonomous-optimized variant of `gsd-discuss-phase`. It pro
 **Inputs:** `PHASE_NUM` from execute_phase. Run init to get phase paths:
 
 ```bash
-GSD_WS=$(echo " $ARGUMENTS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
 PHASE_STATE=$(specforge query "$MILESTONE/${PHASE_NUM}" --depth 1 --format json)
 ```
 
-Parse from JSON: `phase_dir`, `phase_slug`, `padded_phase`, `phase_name`.
+Read from `PHASE_STATE`: the node whose `id` is `$MILESTONE/${PHASE_NUM}` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields).
 
 ---
 
@@ -34,7 +34,7 @@ Extract from these:
 **Read all prior CONTEXT.md files:**
 
 ```bash
-specforge query "$MILESTONE" --depth 3 --kinds context --pick '.nodes[kind=context].id' | sort
+specforge query "$MILESTONE" --depth 3 --kinds context --pick '.nodes[kind=context].id'
 ```
 
 For each CONTEXT.md where phase number < current phase:
@@ -78,7 +78,7 @@ true   # codebase maps are not part of @gsd/core
 Extract key terms from the phase goal. Search for related files:
 
 ```bash
-grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" 2>/dev/null | head -10 || true
+specforge files search -l '{term1}|{term2}' src app --glob '*.ts' --glob '*.tsx' --glob '*.js' --glob '*.jsx' --max 10 --pick '.files[]'
 for d in src/components src/hooks src/lib src/utils; do specforge files list "$d" --depth 1 --format human 2>/dev/null; done || true
 ```
 

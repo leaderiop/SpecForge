@@ -61,10 +61,12 @@ GSD: a milestone section of `ROADMAP.md`, `MILESTONES.md`, `milestones/<v>-*`. N
 | workstream | → workstream | I | the workstream it belongs to (K2: it scopes the milestone, `auth-rework/v1.0`); absent outside one, and the milestone keeps its short id |
 | completion | {at date, audit → milestone_audit} | H | written by `close_milestone` (`/gsd-complete-milestone`) once its audit passes: `audit` is the latest audit it closed on |
 | state | enum{planned, in_progress, shipped, abandoned} | C | ✅ 🚧 📋: `abandoned` when `abandoned` is written, `shipped` when `completion` is, `in_progress` when a phase is past `not_started`, else `planned` |
+| first_commit | str | C | its first recorded commit, oldest by `at`; absent without one |
 | shipped | date | C | `(Shipped: …)`: the completion record's date |
 | stats | {files int, loc int, phases int, plans int, tasks int, days int} | C | `**Stats:**`: from the graph and the recorded commits (`loc` sums their `insertions` and `deletions`; `files` counts distinct paths; `days` runs from the first commit to `completion.at`, or to the last commit); the commit-based members are absent with no commit |
 | git_range | str | C | `**Git range:**`: the first and last recorded `feat` commit as `` `feat(01-01)` → `feat(01-02)` `` (the scope is the name of the plan the commit names); absent with none |
 | progress | {phases int, phases_complete int, plans int, plans_complete int, percent int} | C | `STATE.md`'s `progress`, per milestone: `percent` is the smaller of plans_complete/plans and phases_complete/phases (a side with nothing counts 1, `state-document.cts:861-878`); `phases_complete` counts the phases whose verification passed, which needs r40's verdicts. `plans_complete` counts every plan with a summary, a halted one too (#2830), and the sentinel `999.x` backlog phases are left out (#3167) |
+| branch | str | C | the branch it is executed on, from `git.branching_strategy` and its template (`{milestone}`, `{slug}`); under the `milestone` strategy, else absent |
 
 GSD's archive copies (`milestones/<v>-ROADMAP.md` …) have no counterpart: a shipped milestone's entities stay where
 they are, and `specforge query` answers what an archive answered.
@@ -87,6 +89,7 @@ Scoped by milestone.
 | tag | str | | the parenthetical, `(Cluster B)` |
 | inserted | bool | C | `(INSERTED)`: a name that holds a `.`, but not a `999.x` one |
 | backlog | bool | C | a `999.x` name; only `--promote` and `--remove` of `phase` act on it |
+| branch | str | C | the branch it is executed on, from `git.branching_strategy` and its template (`{phase}`, `{slug}`); `phase`: each non-backlog phase; `milestone`: its milestone's; `none`: absent |
 | frontend | bool | C | the ui gate's `frontend` detection (`@gsd/ui`'s; core never answers it) |
 | status | enum{not_started, planned, in_progress, executed, needs_review, complete, deferred} | C | the GSD phase-status ladder (`phase-status.cts:160-196`): no plan is `not_started`, no summary `planned`, fewer summaries than plans `in_progress`, `needs_review` when the verification is `human_needed`, `complete` when it passed (`phase-status.cts:174-197`; UAT does not feed it), else `executed`. `passed` needs r40's verdicts; `deferred` is never derived |
 | plans_complete | str `N/M` | C | Progress `Plans Complete`: plans with a summary over plans |

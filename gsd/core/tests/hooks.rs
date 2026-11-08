@@ -9,6 +9,8 @@ use gsd_core::build;
 use gsd_core::hooks::roster::{Disposition, HOOK_ROSTER};
 use roster::ROSTER;
 
+#[path = "common/files.rs"]
+mod files;
 #[path = "common/roster.rs"]
 mod roster;
 use specforge_extension_sdk::SettingsItem;
@@ -176,29 +178,22 @@ fn every_declared_hook_is_valid() {
 
 /// The code of the hooks' source: each `src/hooks/**/*.rs` but the tests, comments left out.
 fn hook_sources() -> Vec<(String, String)> {
-    fn walk(dir: &Path, out: &mut Vec<(String, String)>) {
-        for entry in std::fs::read_dir(dir).expect("read dir").flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                walk(&path, out);
-            } else if path.extension().is_some_and(|e| e == "rs")
-                && !matches!(
-                    path.file_name().and_then(|n| n.to_str()),
-                    Some("tests.rs" | "accounting.rs" | "corpus.rs")
-                )
-            {
-                let text = std::fs::read_to_string(&path).expect("a source");
-                // comments cite upstream's files (`hooks/gsd-read-guard.js`); only the code can name a command
-                let code: Vec<&str> = text
-                    .lines()
-                    .filter(|l| !l.trim_start().starts_with("//"))
-                    .collect();
-                out.push((path.display().to_string(), code.join("\n")));
-            }
+    let mut out = Vec::new();
+    for path in files::under(&root().join("src/hooks")) {
+        let tests = matches!(
+            path.file_name().and_then(|n| n.to_str()),
+            Some("tests.rs" | "accounting.rs" | "corpus.rs")
+        );
+        if path.extension().is_some_and(|e| e == "rs") && !tests {
+            let text = std::fs::read_to_string(&path).expect("a source");
+            // comments cite upstream's files (`hooks/gsd-read-guard.js`); only the code can name a command
+            let code: Vec<&str> = text
+                .lines()
+                .filter(|l| !l.trim_start().starts_with("//"))
+                .collect();
+            out.push((path.display().to_string(), code.join("\n")));
         }
     }
-    let mut out = Vec::new();
-    walk(&root().join("src/hooks"), &mut out);
     assert!(!out.is_empty());
     out
 }

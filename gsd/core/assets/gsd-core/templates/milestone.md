@@ -52,8 +52,8 @@ If MILESTONES.md doesn't exist, create it with header:
 - Minor bug fixes that don't constitute a release
 
 **Stats to include:**
-- Count modified files: `git diff --stat feat(XX-XX)..feat(YY-YY) | tail -1`
-- Count LOC: `find . -name "*.swift" -o -name "*.ts" | xargs wc -l` (or relevant extension)
+- Count files and lines changed: the milestone's `stats` (`specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.stats'`)
+
 - Phase/plan/task counts from ROADMAP
 - Timeline from first phase commit to last phase commit
 

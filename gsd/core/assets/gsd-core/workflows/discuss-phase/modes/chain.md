@@ -28,14 +28,14 @@ Apply response_language to all user-facing prose — narration between tool call
    interrupted `--auto` chain. This does NOT touch `workflow.auto_advance`
    (the user's persistent settings preference):
    ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
-   if [[ ! "$GSD_ARGS" =~ --auto ]] && [[ ! "$GSD_ARGS" =~ --chain ]]; then
-     : # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
-   fi
+
+
+
    ```
 
 3. Read consolidated auto-mode (`active` = chain flag OR user preference):
@@ -63,7 +63,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
    Launch plan-phase using the Skill tool to avoid nested Task sessions
    (which cause runtime freezes due to deep agent nesting — see #686):
    ```
-   Skill(skill="gsd-plan-phase", args="${PHASE} --auto ${GSD_WS}")
+   Skill(skill="gsd-plan-phase", args="${PHASE} --auto")
    ```
 
    This keeps the auto-advance chain flat — discuss, plan, and execute all
@@ -80,22 +80,22 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 
      /clear then:
 
-     Next: /gsd:discuss-phase ${NEXT_PHASE} ${WAS_CHAIN ? "--chain" : "--auto"} ${GSD_WS}
+     Next: /gsd:discuss-phase ${NEXT_PHASE} ${WAS_CHAIN ? "--chain" : "--auto"}
      ```
    - **PLANNING COMPLETE** → Planning done, execution didn't complete:
      ```
      Auto-advance partial: Planning complete, execution did not finish.
-     Continue: /gsd:execute-phase ${PHASE} ${GSD_WS}
+     Continue: /gsd:execute-phase ${PHASE}
      ```
    - **PLANNING INCONCLUSIVE / CHECKPOINT** → Stop chain:
      ```
      Auto-advance stopped: Planning needs input.
-     Continue: /gsd:plan-phase ${PHASE} ${GSD_WS}
+     Continue: /gsd:plan-phase ${PHASE}
      ```
    - **GAPS FOUND** → Stop chain:
      ```
      Auto-advance stopped: Gaps found during execution.
-     Continue: /gsd:plan-phase ${PHASE} --gaps ${GSD_WS}
+     Continue: /gsd:plan-phase ${PHASE} --gaps
      ```
 
 7. **If none of `--auto`, `--chain`, nor config enabled:** route to

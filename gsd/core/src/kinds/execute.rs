@@ -6,6 +6,24 @@ const SUMMARY_STATUS: &[&str] = &["complete", "halted"];
 const REQUIRES: &[Field] = &[rf("phase", "phase").r(), str("provides").r()];
 const ACTUALS: &[Field] = &[int("tasks"), int("commits")];
 
+/// When a plan was opened (upstream's `PLAN_START_TIME`, there a shell variable), named `START` and scoped by its plan,
+/// in the plan's own file. It is its own entity because a plan's plan-check verdicts read the plan and its siblings: a
+/// field on the plan would make them stale.
+pub const PLAN_START: Kind = Kind::new(
+    "plan_start",
+    "When a plan was opened: `start_plan` records it once",
+    &[
+        rf("plan", "plan").r().i().doc("parent"),
+        ts("at")
+            .h()
+            .doc("written once by the command that opens the plan, with the host's clock"),
+        str("head")
+            .h()
+            .doc("the commit the plan opened at, written once by the same command; none on an unborn branch"),
+    ],
+)
+.scoped_by("plan");
+
 /// `NN-MM-SUMMARY.md`, named `03-02-SUMMARY` and scoped by its plan. It lives in the plan's own file, so the executors
 /// of one wave never write the same file. GSD's `actuals.tokens` is absent until a harness exists (decision U4).
 // Paths are `strs`, not `files`: a commit may delete or rename a path, so the file check's E016 would fire on it.
@@ -35,7 +53,7 @@ pub const SUMMARY: Kind = Kind::new(
         str("halted_because").doc("required when `status halted` (gsd/E402)"),
         ts("started")
             .h()
-            .doc("written by the command that opens the plan, with the host's clock"),
+            .doc("the plan's `started`, written by the command that closes the plan"),
         ts("completed")
             .h()
             .doc("`completed:`; written by the command that closes the plan"),

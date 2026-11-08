@@ -1,6 +1,6 @@
 //! The adapter behind the effect plane's `Fs` port (ADR 0335): `std::fs` behind [`Contained`] over the real file
 //! system. A path is resolved in its root first (`outside`, `missing`); a read answers at most its `max_bytes` (held
-//! to 1 MiB) of a file no larger than 64 MiB, never a withheld one; a walk visits at most 20 000 entries, skips
+//! to 1 MiB) of a file no larger than 64 MiB, never a withheld one or one with more than one name; a walk visits at most 20 000 entries, skips
 //! tool and dependency directories the glob does not name, never enters the host's own state, and does not descend
 //! through links.
 //!
@@ -30,6 +30,33 @@ pub struct LocalFs;
 
 impl Fs for LocalFs {
     fn run(&self, roots: &Roots, request: &FsRequest) -> FsOutcome {
+        Self::answer(roots, request, READ_CEILING)
+    }
+
+    fn read_whole(&self, roots: &Roots, request: &FsRequest) -> FsOutcome {
+        Self::answer(roots, request, FILE_CEILING)
+    }
+
+    fn glob_fault(&self, globs: &[String]) -> Option<String> {
+        overrides(Path::new("."), globs).err()
+    }
+
+    fn list(&self, roots: &Roots, request: &ListRequest) -> FsListing {
+        Self::listing(roots, request)
+    }
+
+    fn change(&self, roots: &Roots, change: &FsChange) -> FsChanged {
+        change::change(roots, change)
+    }
+
+    fn digest(&self, roots: &Roots, at: &Place) -> FsDigest {
+        change::digest(roots, at)
+    }
+}
+
+impl LocalFs {
+    /// [`Fs::run`], a read held to `ceiling`.
+    fn answer(roots: &Roots, request: &FsRequest, ceiling: u64) -> FsOutcome {
         let held = match held(roots, &RealFs, request) {
             Ok(held) => held,
             Err(class) => return FsOutcome::of(class),
@@ -56,15 +83,18 @@ impl Fs for LocalFs {
                 outcome.class = OutcomeClass::Capped;
             }
             FsOp::Digest => {
-                match specforge_common::regular::digest(&at, Some(Instant::now() + DIGEST_TIME)) {
+                match change::digest_of_one_name(&at, Some(Instant::now() + DIGEST_TIME)) {
                     Ok((sha256, _)) => outcome.digest = Some(sha256),
                     Err(_) => return FsOutcome::of(OutcomeClass::Denied),
                 }
             }
             FsOp::Read { max_bytes } => {
-                let max = (*max_bytes).min(READ_CEILING);
-                let read = std::fs::File::open(&at)
-                    .and_then(|file| file.take(max + 1).read_to_end(&mut outcome.bytes));
+                let max = (*max_bytes).min(ceiling);
+                // The handle checked is the handle read (ADR 0146 D2).
+                let read = std::fs::File::open(&at).and_then(|file| {
+                    specforge_common::regular::refuse_if_linked(&file)?;
+                    file.take(max + 1).read_to_end(&mut outcome.bytes)
+                });
                 if read.is_err() {
                     return FsOutcome::of(OutcomeClass::Denied);
                 }
@@ -89,20 +119,6 @@ impl Fs for LocalFs {
         outcome
     }
 
-    fn list(&self, roots: &Roots, request: &ListRequest) -> FsListing {
-        Self::listing(roots, request)
-    }
-
-    fn change(&self, roots: &Roots, change: &FsChange) -> FsChanged {
-        change::change(roots, change)
-    }
-
-    fn digest(&self, roots: &Roots, at: &Place) -> FsDigest {
-        change::digest(roots, at)
-    }
-}
-
-impl LocalFs {
     /// [`Fs::list`]: the directory resolved like a stat, then walked with the `ignore` crate's rules, never through a
     /// link, never into the host's own state or `.git`, at most [`LIST_VISITS`] entries visited.
     fn listing(roots: &Roots, request: &ListRequest) -> FsListing {
@@ -115,10 +131,11 @@ impl LocalFs {
             Ok(held) => held,
             Err(class) => return FsListing::of(class),
         };
-        let Ok((paths, names)) = matchers(&request.globs) else {
+        let start = held.at.clone();
+        let Ok(wanted) = overrides(&start, &request.globs) else {
             return FsListing::of(OutcomeClass::Denied);
         };
-        let start = held.at.clone();
+        let globs = wanted.clone();
         let prefix = if held.rel.is_empty() {
             String::new()
         } else {
@@ -134,16 +151,36 @@ impl LocalFs {
             .require_git(false)
             .follow_links(false)
             .max_depth(request.depth)
-            .filter_entry(|entry| {
+            // The globs judge what the walk reaches, never widen it past `hidden` and `ignore`: ripgrep's overrides
+            // would whitelist a hidden or ignored name.
+            .filter_entry(move |entry| {
                 let name = entry.file_name().to_string_lossy();
-                entry.depth() == 0 || !(in_host_state(&name) || name == ".git")
+                let dir = entry.file_type().is_some_and(|kind| kind.is_dir());
+                entry.depth() == 0
+                    || !(in_host_state(&name)
+                        || name == ".git"
+                        || globs.matched(entry.path(), dir).is_ignore())
             });
         let mut listing = FsListing::of(OutcomeClass::Ok);
-        for (visits, entry) in walk.build().flatten().enumerate() {
+        for (visits, entry) in walk.build().enumerate() {
             if visits >= LIST_VISITS {
                 listing.truncated = true;
                 break;
             }
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(error) => {
+                    let at = failed_path(&error).unwrap_or(&start);
+                    let below = at.strip_prefix(&start).unwrap_or(Path::new(""));
+                    let below = below.to_string_lossy().replace('\\', "/");
+                    listing.unread.push(if below.is_empty() {
+                        held.rel.clone()
+                    } else {
+                        format!("{prefix}{below}")
+                    });
+                    continue;
+                }
+            };
             let Some(kind) = entry.file_type() else {
                 continue;
             };
@@ -158,24 +195,27 @@ impl LocalFs {
             let Ok(below) = entry.path().strip_prefix(&start) else {
                 continue;
             };
-            if entry.depth() == 0 || request.kind.is_some_and(|wanted| wanted != kind) {
+            if entry.depth() == 0 || request.kind.is_some_and(|only| only != kind) {
+                continue;
+            }
+            // A directory no glob names is walked but, beside a whitelist glob, not listed.
+            let named = wanted
+                .matched(entry.path(), kind == FileKind::Dir)
+                .is_whitelist();
+            if !named && wanted.num_whitelists() > 0 {
                 continue;
             }
             let below = below.to_string_lossy().replace('\\', "/");
-            let name = entry.file_name().to_string_lossy();
-            let globbed =
-                request.globs.is_empty() || paths.is_match(&below) || names.is_match(name.as_ref());
-            if !globbed {
-                continue;
-            }
+            let meta = entry.metadata().ok();
             let size = match kind {
-                FileKind::File => entry.metadata().map(|meta| meta.len()).unwrap_or(0),
+                FileKind::File => meta.as_ref().map_or(0, std::fs::Metadata::len),
                 _ => 0,
             };
             listing.entries.push(Listed {
                 path: format!("{prefix}{below}"),
                 kind,
                 size,
+                modified_ms: meta.as_ref().and_then(|meta| stat_of(meta).modified_ms),
             });
         }
         listing.entries.sort_by(|a, b| a.path.cmp(&b.path));
@@ -187,22 +227,37 @@ impl LocalFs {
     }
 }
 
-/// The globs with a `/`, matched against an entry's path below the listed directory, and those without one, matched
-/// against its name; `Err` when one does not parse.
-pub fn matchers(globs: &[String]) -> Result<(globset::GlobSet, globset::GlobSet), globset::Error> {
-    let mut paths = globset::GlobSetBuilder::new();
-    let mut names = globset::GlobSetBuilder::new();
-    for glob in globs {
-        let built = globset::GlobBuilder::new(glob)
-            .literal_separator(true)
-            .build()?;
-        if glob.contains('/') {
-            paths.add(built);
-        } else {
-            names.add(built);
+/// The path a walk's error names, under the depth and line the walker wraps it in.
+fn failed_path(error: &ignore::Error) -> Option<&Path> {
+    match error {
+        ignore::Error::WithPath { path, .. } => Some(path),
+        ignore::Error::Loop { child, .. } => Some(child),
+        ignore::Error::WithDepth { err, .. } | ignore::Error::WithLineNumber { err, .. } => {
+            failed_path(err)
         }
+        ignore::Error::Partial(errors) => errors.iter().find_map(failed_path),
+        _ => None,
     }
-    Ok((paths.build()?, names.build()?))
+}
+
+/// The globs as the `ignore` crate's overrides at `start`: gitignore semantics, so one with a `/` matches the path
+/// below `start` and one without a name at any depth, and `!glob` leaves a file or a directory out; `Err` names the one
+/// that does not parse, or that gitignore reads as no pattern (spaces, a comment, a lone `/`), as an unset shell variable
+/// writes one.
+fn overrides(start: &Path, globs: &[String]) -> Result<ignore::overrides::Override, String> {
+    let mut built = ignore::overrides::OverrideBuilder::new(start);
+    for glob in globs {
+        let pattern = glob.strip_prefix('!').unwrap_or(glob);
+        if pattern.trim().trim_matches('/').is_empty() || glob.starts_with('#') {
+            return Err(format!(
+                "the glob {glob:?} names nothing: is a shell variable unset?"
+            ));
+        }
+        built
+            .add(glob)
+            .map_err(|error| format!("the glob {glob:?} does not parse: {error}"))?;
+    }
+    built.build().map_err(|error| error.to_string())
 }
 
 fn stat_of(meta: &std::fs::Metadata) -> FsStat {

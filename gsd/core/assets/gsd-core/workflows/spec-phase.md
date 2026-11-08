@@ -59,10 +59,10 @@ Rotate through these perspectives — each naturally surfaces different blindspo
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 ```
 
-Parse JSON for: `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`, `state_path`, `requirements_path`, `roadmap_path`, `planning_path`, `response_language`, `commit_docs` (the phase's spec is read below, from the graph).
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name`, `slug` and `requirements` are its fields; a phase not in the graph is an E003 error); the project state is computed and the roadmap and the requirements are entities, so no path is read. `response_language` and `commit_docs` are settings: `specforge settings --format json --extension @gsd/core` (the phase's spec is read below, from the graph).
 
 **If `response_language` is set:** All user-facing text in this workflow — narration between tool calls, status updates, progress notes, findings, questions, and report prose — MUST be in `{response_language}`. Technical terms, code, and file paths stay in English.
 
@@ -73,7 +73,7 @@ Use /gsd:progress to see available phases.
 ```
 Exit.
 
-**Check for existing SPEC.md:** the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the existing SPEC.md is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
+**Check for existing SPEC.md:** the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' --first 1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the existing SPEC.md is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
 
 If `has_spec` is true:
 
@@ -269,12 +269,12 @@ fi
 # BSD/macOS mktemp only randomizes XXXXXX when it is the final path component, so make a
 # suffixless temp then append the extension — portable across BSD + GNU (#1520).
 REQS_JSON=$(specforge files temp --prefix edge-probe-reqs- --suffix .json --pick .path) || exit 1
-cat > "$REQS_JSON" <<'JSON'
+IFS= read -rd '' REQS <<'JSON' || true
 [
   { "id": "R1", "text": "<replace: requirement text from the SPEC>" }
 ]
 JSON
-# Guard — never invoke on an empty/invalid array, OR one still holding the heredoc
+printf '%s' "$REQS" > "$REQS_JSON"   # Guard — never invoke on an empty/invalid array, OR one still holding the heredoc
 # `<replace: …>` placeholder (a forgotten substitution would otherwise yield a
 # meaningful-looking but bogus coverage report). Fail loud, not silent no-op.
 if [ "$(specforge gsd edge-probe-requirements --requirements "$(< "$REQS_JSON")" --pick .valid)" != true ]; then

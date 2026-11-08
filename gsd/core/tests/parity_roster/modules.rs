@@ -45,7 +45,12 @@ pub const MODULES: &[(&str, Module)] = &[
     ("agent-command-router.cjs", NotApplicable(ROUTER)),
     ("agent-install-check.cjs", Host("specforge install")),
     ("api-coverage.cjs", Owned("@gsd/ai")),
-    ("args-terminator.cjs", Ported("../kit/src/prompt/render.rs")),
+    (
+        "args-terminator.cjs",
+        NotApplicable(
+            "no argument heredoc is left to terminate: typed values fill {{arg:}} at render, ADR 0340",
+        ),
+    ),
     ("artifacts.cjs", Ported("src/kinds/mod.rs")),
     ("assumption-delta.cjs", Ported("src/settings/gates.rs")),
     ("audit-command-router.cjs", NotApplicable(ROUTER)),

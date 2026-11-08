@@ -5,13 +5,13 @@
 stdio deadlocks with MCP servers — see Claude Code issue anthropics/claude-code#28126):
 
 1. **Force-kill:** Close the terminal (Ctrl+C may not work)
-2. **Clean up orphaned processes:**
-   ```powershell
+2. **Clean up orphaned processes** (run these yourself in PowerShell; GSD runs neither):
+   ```text
    # Kill orphaned node processes from stale MCP servers
    Get-Process node -ErrorAction SilentlyContinue | Where-Object {$_.StartTime -lt (Get-Date).AddHours(-1)} | Stop-Process -Force
    ```
-3. **Clean up stale task directories:**
-   ```powershell
+3. **Clean up stale task directories** (yourself, in PowerShell):
+   ```text
    # Remove stale subagent task dirs (Claude Code never cleans these on crash)
    Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\tasks\*" -ErrorAction SilentlyContinue
    ```

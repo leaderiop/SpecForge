@@ -48,6 +48,7 @@ pub const PLAN: Kind = Kind::new(
         strs("context_refs").doc("`<context>` @-refs (paths, not existence-checked)"),
         strs("verification").doc("`<verification>`"),
         strs("success_criteria").doc("`<success_criteria>`"),
+        str("slug").doc("a quick plan's slug: the one `quick-init` answered"),
         int("wave")
             .c()
             .doc("longest `depends_on` path plus the phase's base (phase-plan-index)"),
@@ -57,6 +58,14 @@ pub const PLAN: Kind = Kind::new(
         en("status", PLAN_STATUS)
             .c()
             .doc("derived from the plan-check verdict and the summary"),
+        bool("quick").c().doc("no phase: a quick task"),
+        strs("files_touched")
+            .c()
+            .doc("the sorted, distinct files of its recorded commits; absent without one"),
+        int("estimate_slices").c().doc(
+            "how many plans `estimate.tokens` makes under `workflow.smart_zone_tokens`, rounded up: over 1 is a \
+             re-slice to recommend, never a block; absent without an estimate",
+        ),
     ],
 )
 .scoped_by("phase")

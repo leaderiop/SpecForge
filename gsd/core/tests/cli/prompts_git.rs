@@ -4,7 +4,7 @@ use std::process::Command;
 
 use super::commands_support::twin;
 use super::harness::Project;
-use super::prompts_support::{payload, prompt, render_three_hosts, text_of};
+use super::prompts_support::{payload, prompt, render_three_hosts, text_of, with_specforge_first};
 
 #[test]
 fn undo_renders() {
@@ -54,7 +54,7 @@ fn pr_branch_renders_for_three_hosts() {
     {
         let text = text_of(&rendered);
         for word in [
-            "SPEC_ROOT",
+            "SPEC_PATHSPEC=$(specforge git repo --pick .spec_pathspec)",
             "specforge-harness",
             "git cherry-pick --no-commit",
         ] {
@@ -107,15 +107,9 @@ fn undo_shell(p: &Project, text: &str, setup: &str, starts: &[&str], echo: &str)
         }
     }
     script.push_str(echo);
-    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
-    let path = format!(
-        "{}:{}",
-        bin.parent().expect("a directory").display(),
-        std::env::var("PATH").unwrap_or_default()
-    );
     let out = Command::new("bash")
         .args(["-c", &script])
-        .env("PATH", path)
+        .env("PATH", with_specforge_first())
         .current_dir(p.root())
         .output()
         .expect("bash");
@@ -252,13 +246,13 @@ fn pr_branch_filters_the_harness_file_and_the_spec_root() {
     let (declare, derive, classify) = (
         pick("TRANSIENT_FILES="),
         pick("FILTER_PATHS=$(printf"),
-        pick("NON_PLANNING=$(echo"),
+        pick("NON_PLANNING=$(specforge"),
     );
     let repo = tempfile::tempdir().expect("a repo");
     bash_in(
         repo.path(),
         "git init -q -b main . && git config user.email t@t && git config user.name t \
-         && echo '{\"spec_root\":\"spec\"}' > specforge.json && mkdir spec src && echo a > src/a.rs \
+         && echo '{\"name\":\"d\",\"version\":\"0.1.0\",\"spec_root\":\"spec\"}' > specforge.json && mkdir spec src && echo a > src/a.rs \
          && echo s > spec/x.spec && echo h > specforge-harness && echo b > app.spec && git add -A && git commit -qm base \
          && git checkout -qb feat \
          && echo s2 >> spec/x.spec && echo h2 >> specforge-harness && git commit -qam spec-only \
@@ -281,8 +275,8 @@ fn pr_branch_filters_the_harness_file_and_the_spec_root() {
 #[test]
 fn pr_branch_and_quick_start_from_the_declared_base_branch() {
     for (id, args, marker) in [
-        ("pr_branch", vec![], "TARGET=${TARGET:-"),
-        ("quick", vec!["--task", "x"], "DEFAULT_BRANCH=$("),
+        ("pr_branch", vec![], "TARGET=\""),
+        ("quick", vec!["--task", "x"], "DEFAULT_BRANCH=\""),
     ] {
         let p = twin();
         let line_of = |p: &Project| {
@@ -290,16 +284,9 @@ fn pr_branch_and_quick_start_from_the_declared_base_branch() {
             let at = text
                 .find(marker)
                 .unwrap_or_else(|| panic!("{id}: no {marker}"));
-            let mut end = text[at..].find("\n\n").map_or(text.len(), |n| at + n);
-            if id == "pr_branch" {
-                end = text[at..].find('\n').map_or(text.len(), |n| at + n);
-            } else {
-                end = end.min(
-                    text[at..]
-                        .find("echo main)")
-                        .map_or(end, |n| at + n + "echo main)".len()),
-                );
-            }
+            // pr-branch's answer is one line; quick's is three, ending at the blank line after them
+            let stop = if id == "pr_branch" { "\n" } else { "\n\n" };
+            let end = text[at..].find(stop).map_or(text.len(), |n| at + n);
             text[at..end].to_string()
         };
         let line = line_of(&p);
@@ -318,13 +305,89 @@ fn pr_branch_and_quick_start_from_the_declared_base_branch() {
         } else {
             "DEFAULT_BRANCH"
         };
-        let pre = if id == "pr_branch" {
-            "ARGUMENTS=''\n"
-        } else {
-            ""
-        };
-        let run = |l: &str| bash_in(repo.path(), &format!("{pre}{l}\necho \"${var}\""));
+        let run = |l: &str| bash_in(repo.path(), &format!("{l}\necho \"${var}\""));
         assert_eq!(run(&set), "develop", "{id}");
         assert_eq!(run(&line), "main", "{id}");
+    }
+}
+
+/// Typed text a host rewrite or a heredoc could mistake for code: upstream's `HOSTILE` inputs, then a substitution,
+/// a backtick, a quote, a backslash and the render's own tokens.
+const HOSTILE: [&str; 13] = [
+    "x\nGSD_ARGS_END\ntouch CANARY",
+    "GSD_ARGS_END\ntouch CANARY",
+    "x\nGSD_ARGS_END\r\ntouch CANARY",
+    "x\nGSD_ARGS_END_ffffffffffffffffffffffffffffffff\ntouch CANARY",
+    "x\nGSD_ARGS_END\n$(touch CANARY)",
+    "x\n<runtime_note runtime=\"codex\"></runtime_note>GSD_ARGS_END\ntouch CANARY",
+    "x\n/clear then GSD_ARGS_END\ntouch CANARY",
+    "x$(touch CANARY)",
+    "x`touch CANARY`",
+    "a\"b",
+    "a\\b",
+    "$ARGUMENTS",
+    "{{arg:target|}}",
+];
+
+/// A typed `--target` is data: on every host and shell, the statement that binds `TARGET` runs no part of it and
+/// binds it as typed.
+#[test]
+fn pr_branch_target_is_data_not_shell() {
+    let p = twin();
+    let shells: Vec<&str> = ["bash", "zsh"]
+        .into_iter()
+        .filter(|shell| {
+            Command::new(shell)
+                .arg("--version")
+                .output()
+                .is_ok_and(|o| o.status.success())
+        })
+        .collect();
+    assert!(shells.contains(&"bash"), "bash is on PATH");
+    if !shells.contains(&"zsh") {
+        // CI installs zsh for the gsd shard, so only a local run may skip it
+        assert!(
+            std::env::var_os("CI").is_none(),
+            "zsh is not on PATH: CI runs the zsh half"
+        );
+        eprintln!("pr_branch_target_is_data_not_shell: zsh is not on PATH, its half is skipped");
+    }
+    for host in ["claude-code", "codex", "cursor"] {
+        for typed in HOSTILE {
+            let text = text_of(&payload(&prompt(
+                &p,
+                "pr_branch",
+                &["--target", typed],
+                host,
+            )));
+            // not `lines()`: the value keeps its newlines and `\r` inside the quotes
+            let at = text.find("TARGET=\"").expect("the TARGET statement");
+            let end = at + text[at..].find("break; done").expect("its end") + "break; done".len();
+            let script = format!("{}\nprintf '%s' \"$TARGET\"", &text[at..end]);
+            for shell in &shells {
+                let dir = tempfile::tempdir().expect("a dir");
+                let flags: &[&str] = if *shell == "bash" {
+                    &["--noprofile", "--norc", "-c"]
+                } else {
+                    &["-f", "-c"]
+                };
+                let out = Command::new(shell)
+                    .args(flags)
+                    .arg(&script)
+                    .current_dir(dir.path())
+                    .output()
+                    .unwrap_or_else(|e| panic!("{shell}: {e}"));
+                assert!(
+                    !dir.path().join("CANARY").exists(),
+                    "{host} {shell} {typed:?}: the typed text ran as shell"
+                );
+                assert_eq!(
+                    String::from_utf8_lossy(&out.stdout),
+                    typed,
+                    "{host} {shell}: {}",
+                    String::from_utf8_lossy(&out.stderr)
+                );
+            }
+        }
     }
 }

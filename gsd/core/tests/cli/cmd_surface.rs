@@ -206,3 +206,39 @@ fn help_lists_fifty_slash_commands() {
     let slashes = found["slash_commands"].as_array().expect("a list");
     assert_eq!(slashes.len(), 50, "{slashes:?}");
 }
+
+/// `HOST_OPTIONS`, which the ledger's invocation check skips, are the options the built binary's `--help` lists for a
+/// command beside the ones it declares: `help` reads, `phase` writes and also takes `--dry-run`.
+#[test]
+fn the_host_options_are_the_binarys() {
+    let p = project("empty");
+    let header = regex::Regex::new(r"^  (?:-\w, |    )--([a-z][a-z-]*)( <)?").expect("a regex");
+    let declaration = gsd_core::build().declaration();
+    for (command, writing) in [("help", &[][..]), ("phase", &[("dry-run", false)][..])] {
+        let declared: Vec<String> = declaration
+            .surfaces
+            .commands
+            .iter()
+            .find(|c| c.id == command)
+            .expect("a declared command")
+            .args
+            .iter()
+            .map(|a| a.name.replace('_', "-"))
+            .collect();
+        let run = gsd(&p, command, &["--help"]);
+        assert_eq!(run.code, 0, "{}", run.all());
+        let listed: Vec<(String, bool)> = run
+            .stdout
+            .lines()
+            .filter_map(|line| header.captures(line))
+            .map(|c| (c[1].to_string(), c.get(2).is_some()))
+            .filter(|(long, _)| long != "help" && !declared.contains(long))
+            .collect();
+        let want: Vec<(String, bool)> = super::host_options::HOST_OPTIONS
+            .iter()
+            .chain(writing)
+            .map(|(long, value)| (long.to_string(), *value))
+            .collect();
+        assert_eq!(listed, want, "{command} --help:\n{}", run.stdout);
+    }
+}

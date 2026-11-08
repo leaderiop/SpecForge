@@ -5,6 +5,10 @@ use serde_json::Value;
 
 use crate::support::{Cli, TestProject};
 
+mod links;
+mod machine_root;
+mod search;
+
 /// A project with a spec file, a source tree, an ignored build directory and the host's own state.
 fn project() -> TestProject {
     TestProject::new()
@@ -87,6 +91,61 @@ fn list_filters_by_glob_kind_and_depth() {
         .run(&["files", "list", "--glob", "src/**/*.rs", "--pick", ".count"])
         .exits(0);
     assert_eq!(nested.stdout, "2\n");
+}
+
+/// `!GLOB` leaves out a file, or a directory and what it holds, on `list` and `search` alike.
+#[test]
+fn a_bang_glob_excludes_from_list_and_search() {
+    let project = project();
+    let listed = Cli::on(&project)
+        .run(&[
+            "files",
+            "list",
+            "--kind",
+            "file",
+            "--glob",
+            "!lib",
+            "--glob",
+            "!*.spec",
+            "--glob",
+            "!*.json",
+            "--pick",
+            ".entries[].path",
+        ])
+        .exits(0);
+    assert_eq!(listed.stdout, "src/main.rs\n");
+    let searched = Cli::on(&project)
+        .run(&[
+            "files",
+            "search",
+            "hello",
+            "src",
+            "--glob",
+            "!main.rs",
+            "--pick",
+            ".matches[].path",
+        ])
+        .exits(0);
+    assert_eq!(searched.stdout, "src/lib/util.rs\n");
+}
+
+/// A bare `!` and an empty glob leave nothing to judge by: an unset shell variable, not a wish to exclude everything.
+/// What gitignore's reader takes as no pattern (spaces, a comment, a lone `/`) is refused the same way.
+#[test]
+fn an_empty_glob_is_refused() {
+    let project = project();
+    for glob in ["!", "", " ", "! ", "#x", "/", "!/"] {
+        for verb in [&["files", "list"][..], &["files", "search", "hello"]] {
+            let mut args = verb.to_vec();
+            args.extend(["--glob", glob]);
+            let run = Cli::on(&project).run(&args).exits(1);
+            assert!(
+                run.stdout.contains("names nothing"),
+                "{args:?}: {}",
+                run.stdout
+            );
+        }
+    }
 }
 
 #[test]
@@ -267,6 +326,19 @@ fn temp_answers_a_new_private_path_under_the_temp_root() {
 /// A committed `.specforge/tmp` link out of the project is refused before anything is made or chmod-ed there: the
 /// directory it points at keeps its mode.
 #[cfg(unix)]
+/// `.` is the temp root itself, and `..` leaves it: neither is a name in it.
+#[test]
+fn temp_name_refuses_a_dot() {
+    let project = project();
+    for dir in [&["--dir"][..], &[]] {
+        for name in [".", ".."] {
+            let mut args = vec!["files", "temp", "--name", name];
+            args.extend_from_slice(dir);
+            Cli::on(&project).run(&args).exits(1);
+        }
+    }
+}
+
 #[test]
 fn temp_never_makes_or_chmods_through_a_link() {
     use std::os::unix::fs::PermissionsExt as _;
@@ -473,4 +545,196 @@ fn files_takes_every_effects_mode_and_performs_the_read_in_each() {
         1,
         "a local effect writes no record: only the fixture's is there"
     );
+}
+
+/// `files read`: the text, its bytes and its lines (a last line with no newline counts); past 1 MiB, `truncated`.
+#[test]
+fn read_answers_text_bytes_and_lines() {
+    let project = project().files(&[("notes/no-newline.txt", "one\ntwo")]);
+    let run = Cli::on(&project)
+        .run(&["files", "read", "src/main.rs"])
+        .exits(0);
+    insta::assert_json_snapshot!("files_read", run.answer());
+    let lines = Cli::on(&project)
+        .run(&["files", "read", "notes/no-newline.txt", "--pick", ".lines"])
+        .exits(0);
+    assert_eq!(lines.stdout, "2\n");
+    let human = Cli::on(&project)
+        .run(&["files", "read", "notes/no-newline.txt", "--format", "human"])
+        .exits(0);
+    assert_eq!(human.stdout, "one\ntwo");
+    let big = "a\n".repeat(512 * 1024 + 1);
+    let project = project.files(&[("notes/big.txt", big.as_str())]);
+    let read = Cli::on(&project)
+        .run(&["files", "read", "notes/big.txt"])
+        .exits(0)
+        .json();
+    assert_eq!(
+        (&read["truncated"], &read["bytes"], &read["lines"]),
+        (
+            &Value::Bool(true),
+            &Value::from(1024 * 1024),
+            &Value::from(512 * 1024)
+        ),
+        "{}",
+        read["path"]
+    );
+}
+
+/// `files read --format human` is the file's bytes exactly, as `cat` gives them (a CRLF line break and a tab kept),
+/// or a refusal with its reason and no output: never a cut copy past 1 MiB, never U+FFFD for bytes that are not
+/// UTF-8, never an escape for a character a terminal acts on, with exit 0.
+#[test]
+fn a_human_read_is_the_files_bytes_or_a_refusal() {
+    let project = project().files(&[("notes/crlf.txt", "a\r\n\tb\r\n")]);
+    let exact = Cli::on(&project)
+        .run(&["files", "read", "notes/crlf.txt", "--format", "human"])
+        .exits(0);
+    assert_eq!(exact.stdout, "a\r\n\tb\r\n");
+    let big = "a\n".repeat(512 * 1024 + 1);
+    let project = project.files(&[("notes/big.txt", big.as_str())]);
+    std::fs::write(project.root().join("notes/latin1.txt"), b"caf\xe9\n").unwrap();
+    std::fs::write(project.root().join("notes/escape.txt"), b"a\x1b[2Jb\n").unwrap();
+    for (file, why) in [
+        ("notes/big.txt", "larger than one read"),
+        ("notes/latin1.txt", "not UTF-8"),
+        ("notes/escape.txt", "the human form escapes"),
+    ] {
+        let refused = Cli::on(&project)
+            .run(&["files", "read", file, "--format", "human"])
+            .exits(1);
+        assert_eq!(refused.stdout, "", "{file}");
+        assert!(
+            refused.stderr.contains(why) && refused.stderr.contains("JSON answer"),
+            "{file}: {}",
+            refused.stderr
+        );
+        // The JSON answer still reads it, and says what it is.
+        Cli::on(&project).run(&["files", "read", file]).exits(0);
+    }
+}
+
+#[test]
+fn read_refuses_a_directory_and_a_missing_file() {
+    let project = project().files(&[(".env", "TOKEN=x\n")]);
+    let dir = Cli::on(&project).run(&["files", "read", "src"]).exits(1);
+    assert_eq!(dir.json()["code"], "invalid_input", "{}", dir.stdout);
+    let missing = Cli::on(&project)
+        .run(&["files", "read", "nosuch.txt", "--pick", ".text"])
+        .exits(1);
+    assert_eq!(missing.stdout, "");
+    assert!(
+        missing.stderr.contains("file_not_found"),
+        "{}",
+        missing.stderr
+    );
+    let secret = Cli::on(&project).run(&["files", "read", ".env"]).exits(1);
+    assert_eq!(
+        secret.json()["code"],
+        "permission_denied",
+        "{}",
+        secret.stdout
+    );
+}
+
+/// A path `files temp` answered reads back through the temp root.
+#[test]
+fn read_of_a_temp_file_works() {
+    let project = project();
+    let made = Cli::on(&project)
+        .run(&["files", "temp", "--pick", ".path"])
+        .exits(0);
+    let made = made.stdout.trim().to_string();
+    std::fs::write(&made, "kept\n").unwrap();
+    let read = Cli::on(&project)
+        .run(&["files", "read", &made, "--pick", ".text"])
+        .exits(0);
+    // The text, then the newline `--pick` ends each value with: `$(…)` drops both, as it would `cat`'s.
+    assert_eq!(read.stdout, "kept\n\n");
+}
+
+/// `list --lines`: each file's lines and their total; without it the answer is unchanged.
+#[test]
+fn list_lines_counts_each_file_and_the_total() {
+    let project = project().files(&[("src/tail.rs", "a\nb")]);
+    let run = Cli::on(&project)
+        .run(&["files", "list", "src", "--lines"])
+        .exits(0);
+    insta::assert_json_snapshot!("files_list_lines", run.answer());
+    let total = Cli::on(&project)
+        .run(&[
+            "files", "list", "src", "--kind", "file", "--glob", "*.rs", "--lines", "--pick",
+            ".lines",
+        ])
+        .exits(0);
+    assert_eq!(total.stdout, "6\n");
+    let human = Cli::on(&project)
+        .run(&["files", "list", "src/lib", "--lines", "--format", "human"])
+        .exits(0);
+    assert_eq!(human.stdout, "src/lib/util.rs  1\n1 lines\n");
+}
+
+/// `temp --name`: one path in the temp root, the same every call, its contents kept; a file or with `--dir` a
+/// directory.
+#[test]
+fn temp_name_is_the_same_path_every_call() {
+    let project = project();
+    let path = |args: &[&str]| {
+        let mut all = vec!["files", "temp"];
+        all.extend_from_slice(args);
+        all.extend_from_slice(&["--pick", ".path"]);
+        Cli::on(&project)
+            .run(&all)
+            .exits(0)
+            .stdout
+            .trim()
+            .to_string()
+    };
+    let first = path(&["--name", "ledger"]);
+    assert!(first.ends_with("/.specforge/tmp/ledger"), "{first}");
+    std::fs::write(&first, "kept\n").unwrap();
+    assert_eq!(path(&["--name", "ledger"]), first);
+    assert_eq!(std::fs::read_to_string(&first).unwrap(), "kept\n");
+    let dir = path(&["--dir", "--name", "gsd-handoff"]);
+    std::fs::write(std::path::Path::new(&dir).join("wave-failures"), ".\n").unwrap();
+    assert_eq!(path(&["--dir", "--name", "gsd-handoff"]), dir);
+    assert!(std::path::Path::new(&dir).join("wave-failures").is_file());
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(&dir).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o700);
+    }
+}
+
+#[test]
+fn temp_name_refuses_the_other_kind_a_link_and_a_separator() {
+    let project = project();
+    Cli::on(&project)
+        .run(&["files", "temp", "--name", "plain"])
+        .exits(0);
+    let other = Cli::on(&project)
+        .run(&["files", "temp", "--dir", "--name", "plain"])
+        .exits(1);
+    assert_eq!(other.json()["code"], "invalid_input", "{}", other.stdout);
+    for name in ["a/b", "..", ""] {
+        Cli::on(&project)
+            .run(&["files", "temp", "--name", name])
+            .exits(1);
+    }
+    Cli::on(&project)
+        .run(&["files", "temp", "--name", "x", "--prefix", "p"])
+        .exits(2);
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(
+            project.root().join("src/main.rs"),
+            project.root().join(".specforge/tmp/linked"),
+        )
+        .unwrap();
+        let link = Cli::on(&project)
+            .run(&["files", "temp", "--name", "linked"])
+            .exits(1);
+        assert_eq!(link.json()["code"], "invalid_input", "{}", link.stdout);
+    }
 }

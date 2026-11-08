@@ -83,8 +83,8 @@ Note accumulated context that may need updating after transition.
 Check current phase has all plan summaries:
 
 ```bash
-(specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true) | sort
-(specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true) | sort
+specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true
+specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true
 ```
 
 **Verification logic:**
@@ -447,16 +447,16 @@ This returns all phases with goals, disk status, and completion info.
 **Section-manifest gate (#2994):** `specforge` needs no setup — fetch the dedicated `init.transition` bundle for the workstream-collision-check gate below:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
 INIT_TRANSITION=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$INIT_TRANSITION" == @file:* ]]; then INIT_TRANSITION=$(cat "${INIT_TRANSITION#@file:}"); fi
+
 ```
 
-Extract from `INIT_TRANSITION`: `other_active_workstreams`, `section_manifest`.
+No init bundle prints a section manifest, so `section_manifest` is null and every section below is read; another active workstream is a `workstream` entity whose `status` is `active`.
 
 ---
 
@@ -490,7 +490,7 @@ Next: Phase [X+1] — [Name]
 ⚡ Auto-continuing: Plan Phase [X+1] in detail
 ```
 
-Exit skill and invoke SlashCommand("/gsd:plan-phase [X+1] --auto ${GSD_WS}")
+Exit skill and invoke SlashCommand("/gsd:plan-phase [X+1] --auto")
 
 **If CONTEXT.md does NOT exist:**
 
@@ -502,7 +502,7 @@ Next: Phase [X+1] — [Name]
 ⚡ Auto-continuing: Discuss Phase [X+1] first
 ```
 
-Exit skill and invoke SlashCommand("/gsd:discuss-phase [X+1] --auto ${GSD_WS}")
+Exit skill and invoke SlashCommand("/gsd:discuss-phase [X+1] --auto")
 
 </if>
 
@@ -521,13 +521,13 @@ Exit skill and invoke SlashCommand("/gsd:discuss-phase [X+1] --auto ${GSD_WS}")
 
 `/clear` then:
 
-`/gsd:discuss-phase [X+1] ${GSD_WS}` — gather context and clarify approach
+`/gsd:discuss-phase [X+1]` — gather context and clarify approach
 
 ---
 
 **Also available:**
-- `/gsd:plan-phase [X+1] ${GSD_WS}` — skip discussion, plan directly
-- `/gsd:plan-phase --research-phase [X+1] ${GSD_WS}` — investigate unknowns
+- `/gsd:plan-phase [X+1]` — skip discussion, plan directly
+- `/gsd:plan-phase --research-phase [X+1]` — investigate unknowns
 
 ---
 ```
@@ -546,13 +546,13 @@ Exit skill and invoke SlashCommand("/gsd:discuss-phase [X+1] --auto ${GSD_WS}")
 
 `/clear` then:
 
-`/gsd:plan-phase [X+1] ${GSD_WS}`
+`/gsd:plan-phase [X+1]`
 
 ---
 
 **Also available:**
-- `/gsd:discuss-phase [X+1] ${GSD_WS}` — revisit context
-- `/gsd:plan-phase --research-phase [X+1] ${GSD_WS}` — investigate unknowns
+- `/gsd:discuss-phase [X+1]` — revisit context
+- `/gsd:plan-phase --research-phase [X+1]` — investigate unknowns
 
 ---
 ```
@@ -598,11 +598,11 @@ This workstream's phases are complete. Other workstreams are still active:
 
 Archive this workstream:
 
-`/gsd:workstreams complete {current_ws_name} ${GSD_WS}`
+`/gsd:workstreams complete {current_ws_name}`
 
 See overall milestone progress:
 
-`/gsd:workstreams progress ${GSD_WS}`
+`/gsd:workstreams progress`
 
 <sub>Milestone completion will be available once all workstreams finish.</sub>
 
@@ -637,7 +637,7 @@ Phase {X} marked complete.
 ⚡ Auto-continuing: Complete milestone and archive
 ```
 
-Exit skill and invoke SlashCommand("/gsd:complete-milestone {version} ${GSD_WS}")
+Exit skill and invoke SlashCommand("/gsd:complete-milestone {version}")
 
 </if>
 
@@ -656,7 +656,7 @@ Exit skill and invoke SlashCommand("/gsd:complete-milestone {version} ${GSD_WS}"
 
 `/clear` then:
 
-`/gsd:complete-milestone {version} ${GSD_WS}`
+`/gsd:complete-milestone {version}`
 
 ---
 

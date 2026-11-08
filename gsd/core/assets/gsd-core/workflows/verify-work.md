@@ -40,22 +40,22 @@ No Pass/Fail buttons. No severity questions. Just: "Here's what should happen. D
 If $ARGUMENTS contains a phase number, load context:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
-GSD_WS=""
-echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
-PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
+
+
+
 
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 AGENT_SKILLS_PLANNER=""   # the host install carries the skills of gsd-planner
 AGENT_SKILLS_CHECKER=""   # the host install carries the skills of gsd-plan-checker
 ```
 
-Parse JSON for: `planner_model`, `checker_model`, `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `has_verification`, `uat_path`, `state_path`, `roadmap_path`, `response_language`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error), and its `verification` and `uat_session` entities, when it has them, are among the other nodes. `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
@@ -75,8 +75,8 @@ registry, not hardcoded here.
 
 ```bash
 VERIFY_PRE_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" verify:pre --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
-PHASE_DIR=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_dir)
-PHASE_NUMBER=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_number)
+PHASE_DIR="$PHASE_ID"   # a phase is addressed by its id, not a directory
+PHASE_NUMBER="${PHASE_ID##*/}"
 ```
 
 Read the `activeHooks` of every line of `VERIFY_PRE_HOOKS_JSON`, one per capability extension, in-context (do NOT pipe through a shell parser).
@@ -173,47 +173,47 @@ If `section_manifest` is `null` or `"automated-ui-verification"` is in its `incl
 <step name="find_summaries">
 **Find what to test:**
 
-Use `phase_dir` from init (or run init if not already done).
+The phase is `$PHASE_ID`: its summaries are entities.
 
 ```bash
-specforge files list "$phase_dir" --depth 1 --kind file --no-ignore --glob '*-SUMMARY.md' --format human 2>/dev/null || true
+specforge query "$PHASE_ID" --depth 2 --kinds summary --format context
 ```
 
-Read each SUMMARY.md to extract testable deliverables.
+Read each summary to extract testable deliverables.
 
-**Commit-claim reconciliation (#3968).** A SUMMARY's `commits:` frontmatter is a MEASURED
-number (the executor derives it from its on-disk plan commit ledger and records the base as
-`plan_head_before:`), and this is where that claim is checked against reality with the SAME
-instrument — the executor's own narration is never the last word. For each `*-SUMMARY.md`:
-```bash
-BASE=$(grep -oE '^plan_head_before: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
-CLAIMED=$(grep -oE '^commits: [0-9]+' "$SUMMARY_FILE" | grep -oE '[0-9]+' || echo absent)
-ACTUAL=$(specforge git log "${BASE}"..HEAD --pick .count)
-AFTER=$(grep -oE '^plan_head_after: [0-9a-f]{7,40}' "$SUMMARY_FILE" | awk '{print $2}')
-```
-- A `commits: absent` or `plan_head_before: absent` SUMMARY (pre-#3968 legacy) is reported as
-  a WARNING with the measured git state, not a mismatch.
-- **Bounded reconciliation (#4670).** A SUMMARY carrying `plan_head_after:` (the executor's
-  HEAD at its measurement moment — after the last task commit, before the SUMMARY commit) is
-  reconciled against the plan's OWN window:
-```bash
-if [ "$(specforge git log HEAD.."$AFTER" --pick .count 2>/dev/null)" = 0 ] \
-   && [ "$(specforge git log "${BASE}..${AFTER}" --pick .count)" = "$CLAIMED" ]; then
-  : # consistent
-fi
-```
-  Consistent → done. Anything else is a **BLOCKER** — `commit_claim_mismatch` with both
-  numbers and the SUMMARY path: commits claimed but never made (#3968), task commits lost
-  after the fact, or the plan's recorded window rewritten afterwards (a rebase/amend/cherry-pick
-  of those commits makes `$AFTER` a non-ancestor — recount that plan's commits manually
-  before treating it as a genuine mismatch). The unbounded `${BASE}..HEAD` count is NOT
-  evidence either way: it grows with every later plan's commits and execute-phase's own
-  phase-completion commit, so an honest plan would read as a mismatch (#4670).
-- **Legacy fallback (#4670).** A SUMMARY with a base but no `plan_head_after:` (pre-#4670)
-  cannot be bounded to its own window — report the measured `${BASE}..HEAD` count as a
-  **WARNING** with the SUMMARY's task-commit list for manual counting. The old
-  `ACTUAL == CLAIMED` / `ACTUAL == CLAIMED + 1` tolerance was a guess that later plans'
-  commits defeat; it must never produce a BLOCKER on the unsound window.
+**Commit counts are the graph's.** A summary's `actuals.commits` is computed from the plan's recorded commits, so it cannot claim a count: there is nothing to reconcile.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </step>
 
 <step name="extract_tests">
@@ -308,7 +308,7 @@ This catches bugs that only manifest on fresh start — race conditions in start
 **Create UAT file with all tests:**
 
 ```bash
-specforge files mkdir "$PHASE_DIR" >/dev/null
+: # the UAT is uat_session entities: no directory to create
 ```
 
 Build test list from extracted deliverables.
@@ -382,7 +382,7 @@ Render the checkpoint from the structured UAT file instead of composing it freeh
 
 ```bash
 CHECKPOINT=$(specforge query "$uat_path" --depth 1 --format context)
-if [[ "$CHECKPOINT" == @file:* ]]; then CHECKPOINT=$(cat "${CHECKPOINT#@file:}"); fi
+
 ```
 
 Display the returned checkpoint EXACTLY as-is:
@@ -647,14 +647,14 @@ If the secure-phase step hook is not enabled (absent from both `activeHooks` and
 If execution verification is waiting only on human UAT and this session recorded zero issues, canonicalize the report before the shared completion predicate. (#4663) Zero issues is NOT pass evidence on its own — blocked rows are not issues by this workflow's own rule, so a session that observed nothing (0 passed / 0 issues / N blocked) must NOT flip the report. The flip runs the SAME UAT-row predicate the phase-close uses, in its `--uat-only` form: it skips the verification-status blockers (the report still reads `human_needed` at this point — the full predicate could never pass here), and `passed` means at least one UAT check passed with no row pending/blocked/failed or skipped without a reason. The flagged transition-gate call below stays the final say on canonical verification:
 
 ```bash
-PHASE_DIR=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_dir)
-VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' | head -1)
+PHASE_DIR="$PHASE_ID"   # a phase is addressed by its id, not a directory
+VERIFICATION_FILE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].id' --first 1)
 # #5118: stderr kept; an out-of-set report status is a hard error, never "no result".
-VERIFICATION_STATUS_VALUE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status') || { echo "verification.status refused this phase's report — see the error above; fix the report before re-running /gsd:verify-work {phase}." >&2; exit 1; }; VERIFICATION_STATUS_VALUE=${VERIFICATION_STATUS_VALUE%%$'\n'*}; VERIFICATION_STATUS_VALUE=${VERIFICATION_STATUS_VALUE:-pending}
+VERIFICATION_STATUS_VALUE=$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status' --first 1) || { echo "verification.status refused this phase's report — see the error above; fix the report before re-running /gsd:verify-work {phase}." >&2; exit 1; }; VERIFICATION_STATUS_VALUE=${VERIFICATION_STATUS_VALUE:-pending}
 case "$VERIFICATION_STATUS_VALUE" in passed) VERIFICATION_ROUTE=complete ;; gaps_found) VERIFICATION_ROUTE=gap-closure ;; human_needed) VERIFICATION_ROUTE=human ;; *) VERIFICATION_ROUTE=verify ;; esac
 NEXT_COMMAND=   # a verification has no next-command field: the route names the next step
 
-IMPLEMENTATION_COMPLETE=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_completion.implementation_complete); IMPLEMENTATION_COMPLETE=${IMPLEMENTATION_COMPLETE:-false}
+case "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.status')" in executed|needs_review|complete) IMPLEMENTATION_COMPLETE=true ;; *) IMPLEMENTATION_COMPLETE=false ;; esac
 PHASE_VERIFICATION_STATUS="$VERIFICATION_STATUS_VALUE"
 if [ "$VERIFICATION_STATUS_VALUE" = "human_needed" ]; then
   # #5170: exit 0 and exit 1 are VERDICTS (1 = the predicate says not passed) — the JSON on stdout is
@@ -665,7 +665,7 @@ if [ "$VERIFICATION_STATUS_VALUE" = "human_needed" ]; then
   if [ "$UAT_PRECHECK_PASSED" = "true" ]; then
     : # the verification status is computed: it is passed once every verdict is fresh and passing
   else
-    UAT_BLOCKERS=$(printf '%s\n' "$UAT_BLOCKED" | grep -c .)
+    UAT_BLOCKERS=$(specforge gsd verification-debt --phase "$PHASE_ID" --pick '.blockers[]' --count)
     [ -n "$UAT_BLOCKERS" ] || UAT_BLOCKERS="?"
     echo "NOT canonicalizing: ${UAT_BLOCKERS} UAT row(s) blocked or not passing; verification stays human_needed. Resolve or pass them, then re-run /gsd:verify-work {phase}." >&2
   fi
@@ -681,20 +681,20 @@ dispatch the step: the code review, regression gate and verifier have nothing co
 there, so fall through to the completion predicate below, which blocks with the owner's own
 `NEXT_COMMAND` (execute-phase) exactly as before #5118. This workflow never rewrites VERIFICATION.md
 itself (its only write is the canonicalization, #4663).
-Load the step's inputs through the SAME bundle execute-phase loads, then include the step:
+The step reads its own inputs (the phase's number and requirement ids from the graph, the response language from the settings); include it with `PHASE_ID` set:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 
 
-for _k in phase_dir phase_number verifier_model phase_req_ids requirements_path section_manifest response_language; do
-  printf '%s=%s\n' "$_k" "$(specforge query "$PHASE_ID" --depth 1 --pick ".${_k}")"
-done
-PHASE_NUMBER=$(specforge query "$PHASE_ID" --depth 1 --pick .phase_number)
+
+
+
+
+
+
+
+
+
 ```
 
 Read and execute `gsd-core/workflows/execute-phase/steps/verify-phase-goal.md`. If it stopped,
@@ -716,7 +716,7 @@ Otherwise, check the shared UAT-plus-verification completion predicate before tr
 PHASE_COMPLETE_BLOCKERS=$(specforge gsd verification-debt --phase "$PHASE_ID" --pick '.blockers[]') && PHASE_COMPLETE_EXIT=0 || PHASE_COMPLETE_EXIT=$?   # the phase's open UAT tests
 if [ "$PHASE_COMPLETE_EXIT" -ne 0 ]; then echo "verification-debt could not run (exit $PHASE_COMPLETE_EXIT) — see the error above." >&2; exit 1; fi
 
-[ "$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status' | head -1)" = passed ] && [ -z "$PHASE_COMPLETE_BLOCKERS" ] && PHASE_COMPLETE_PASSED=true || PHASE_COMPLETE_PASSED=false
+[ "$(specforge query "$PHASE_ID" --kinds verification --pick '.nodes[kind=verification].fields.status' --first 1)" = passed ] && [ -z "$PHASE_COMPLETE_BLOCKERS" ] && PHASE_COMPLETE_PASSED=true || PHASE_COMPLETE_PASSED=false
 ```
 
 If `PHASE_COMPLETE_PASSED` is not `true`, stop before phase advancement and present:
@@ -802,7 +802,7 @@ Spawn gsd-plan-checker against the fix plans (iteration_count starts at 1), mode
 
 On return:
 - **VERIFICATION PASSED:** If the return lists an entry whose severity is BLOCKER or WARNING, in the YAML issues block or listed in prose (a mention such as "no warnings" or a zero count is not an entry), handle it as ISSUES FOUND below, counting the prose entries as BLOCKER/WARNING entries; the sentinel never decides alone, and an entry with a missing or unrecognized severity counts as a BLOCKER (#5578). Otherwise proceed to `present_ready`
-- **ISSUES FOUND:** Count BLOCKER + WARNING entries in the YAML issues block; an entry whose severity is missing or unrecognized counts as a BLOCKER (fail closed). If zero — every entry is explicitly INFO — display `ℹ advisory — {dimension}: {description}` per entry and proceed to `present_ready`; INFO is advisory and never enters the loop (#3724). Otherwise proceed to `revision_loop`
+- **ISSUES FOUND:** Count BLOCKER + WARNING entries in the YAML issues block; an entry whose severity is missing or unrecognized counts as a BLOCKER (fail closed). If zero — every entry is explicitly INFO — display "ℹ advisory — {dimension}: {description}" per entry and proceed to `present_ready`; INFO is advisory and never enters the loop (#3724). Otherwise proceed to `revision_loop`
 
 Exact Agent() prompt fields: `gsd-core/workflows/verify-work/detail/elaboration.md` § 2.
 </step>
@@ -812,7 +812,7 @@ Exact Agent() prompt fields: `gsd-core/workflows/verify-work/detail/elaboration.
 
 **If iteration_count < 3:**
 
-Display: `Sending back to planner for revision... (iteration {N}/3)`
+Display: "Sending back to planner for revision... (iteration {N}/3)"
 
 Spawn gsd-planner with revision context:
 
@@ -852,7 +852,7 @@ Increment iteration_count
 
 **If iteration_count >= 3:**
 
-Display: `Max iterations reached. {N} issues remain.`
+Display: "Max iterations reached. {N} issues remain."
 
 Offer options:
 1. Force proceed (execute despite issues)

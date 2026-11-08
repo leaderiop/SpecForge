@@ -1,23 +1,31 @@
 //! `specforge git` (ADR 0339): the `Git` port for people and agents, on the repository the project is in, under the
 //! project's effects ceiling (`git` read, and `write` for a change). Everything runs in process: no git program runs.
 
+use std::path::PathBuf;
+
 use serde::Serialize;
 use specforge_effects::git::{
-    DiffQuery, DiffSide, GitBranchRef, GitCommit, GitError, GitFileDiff, GitPlace, GitRemote,
-    GitStatus, GitSubmodule, LOG_MAX, Located, LogQuery, ObjectKind, Sha, Tracking, is_binary,
+    DiffQuery, DiffSide, GitBranchRef, GitChange, GitCommit, GitEntry, GitEntryKind, GitError,
+    GitFileDiff, GitPlace, GitRemote, GitStatus, GitSubmodule, LOG_MAX, Located, LogQuery,
+    ObjectKind, Sha, Tracking, is_binary,
 };
 
 use super::{USER, Verbs, slashed};
 use crate::{OpError, OpErrorKind, UNKNOWN_REVISION};
+use specforge_common::remedy::printable;
 use specforge_effects::RealFs;
 
 mod branching;
 mod commit;
 mod merging;
+mod repos;
+mod spec_paths;
+
+use spec_paths::SpecPaths;
 
 pub use branching::{
-    InitAnswer, LockAnswer, PrunedAnswer, RefAnswer, branch_create, branch_delete, init, switch,
-    tag, worktree_add, worktree_lock, worktree_prune, worktree_remove,
+    CloneAnswer, InitAnswer, LockAnswer, PrunedAnswer, RefAnswer, branch_create, branch_delete,
+    clone, init, switch, tag, worktree_add, worktree_lock, worktree_prune, worktree_remove,
 };
 pub use commit::{
     AddRequest, CommitAnswer, CommitRequest, HookAnswer, RmAnswer, add, cleaned, commit, hook_run,
@@ -28,6 +36,7 @@ pub use merging::{
     RestoreRequest, StashAnswer, StashesAnswer, merge, pick, pick_end, reset, restore, stash_list,
     stash_pop, stash_push,
 };
+pub use repos::{RepoEntry, ReposAnswer, repos};
 pub use specforge_effects::git::ResetMode;
 pub use specforge_effects::git::{ConflictSide, Removal};
 
@@ -47,6 +56,8 @@ pub struct RepoAnswer {
     /// The top of the repository this one is a submodule of (`--show-superproject-working-tree`), absolute; none when
     /// it is no submodule.
     pub superproject: Option<String>,
+    /// The project's spec files as a pathspec from the top; none when its spec root lies outside the repository.
+    pub spec_pathspec: Option<String>,
 }
 
 /// `git head`'s answer.
@@ -173,6 +184,20 @@ pub struct DiffRequest {
     pub merge_base: bool,
 }
 
+/// One file of `git diff`'s answer, and what it is to the project: a spec file is the one predicate of
+/// [`spec_paths::SpecPaths`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DiffFile {
+    #[serde(flatten)]
+    pub file: GitFileDiff,
+    /// Its path is a spec file, a deletion's own path included.
+    pub spec: bool,
+    /// Its path, and the path it had at the base when it has one, are spec files: nothing else is touched.
+    pub spec_only: bool,
+    /// A spec file the base has is gone from the head: a deleted one, or a rename whose old path is one.
+    pub spec_removed: bool,
+}
+
 /// `git diff`'s answer: the base commit, the head (a commit, `index` or `worktree`) and the changed files by path.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DiffAnswer {
@@ -182,7 +207,7 @@ pub struct DiffAnswer {
     /// The lines the text files gain and lose, as `--shortstat` totals them.
     pub added: u64,
     pub removed: u64,
-    pub files: Vec<GitFileDiff>,
+    pub files: Vec<DiffFile>,
 }
 
 /// `git merge-base`'s answer: none when the two commits share no history.
@@ -279,7 +304,7 @@ impl Verbs {
             self.root().dir()
         };
         match self.ports().git.locate(from) {
-            Located::Repo(place) => Ok(place),
+            Located::Repo(place) => self.within_reach(place),
             Located::NotARepository => Err(OpError::new(
                 OpErrorKind::PreconditionFailed,
                 NOT_A_REPOSITORY,
@@ -289,6 +314,37 @@ impl Verbs {
                 OpErrorKind::PreconditionFailed,
                 GIT_UNAVAILABLE,
                 format!("git cannot read the repository: {why}"),
+            )),
+        }
+    }
+}
+
+impl Verbs {
+    /// `place`, when nothing it reads beyond its own `.git` leads out of every root: a planted `.git` is a redirect, and
+    /// holding the path typed says nothing of where it leads. A repository around the project is found by a walk, and a
+    /// real linked worktree or submodule names its `.git` back: neither is judged.
+    fn within_reach(&self, place: GitPlace) -> Result<GitPlace, OpError> {
+        let out = self
+            .ports()
+            .git
+            .leads_to(&place)
+            .into_iter()
+            .find(|at| !self.landed.iter().any(|(_, base)| at.starts_with(base)));
+        match out {
+            None => Ok(place),
+            Some(at) => Err(OpError::new(
+                OpErrorKind::PermissionDenied,
+                crate::OUTSIDE_ROOT,
+                format!(
+                    "the repository at {} reads {}, through its .git, a commondir, core.worktree or an alternate, and \
+                     that is in no root",
+                    printable(&place.toplevel.to_string_lossy()),
+                    printable(&at.to_string_lossy())
+                ),
+            )
+            .with_suggestion(
+                "remove the redirect if you did not make it; to keep it, name that directory a root: `specforge grants \
+                 approve --root <name> --at <dir>`",
             )),
         }
     }
@@ -318,6 +374,7 @@ pub fn repo(verbs: &Verbs) -> Result<RepoAnswer, OpError> {
         shallow: place.shallow,
         prefix,
         superproject: superproject.as_deref().map(slashed),
+        spec_pathspec: spec_paths(verbs, &place).pathspec(),
     })
 }
 
@@ -385,10 +442,36 @@ pub fn revs(
     Ok(RevsAnswer { revs })
 }
 
-pub fn status(verbs: &Verbs) -> Result<StatusAnswer, OpError> {
+/// `git status`, the entries at or under each `except` left out of the answer, `clean` included, as git's `:!<path>`
+/// does, and the project's spec files when `except_spec`. A path is only a filter, read from the current directory, and
+/// nothing at it is read: it needs no root. With a filter, an untracked directory is its files: git judges those too.
+pub fn status(
+    verbs: &Verbs,
+    except: &[PathBuf],
+    except_spec: bool,
+) -> Result<StatusAnswer, OpError> {
     let place = verbs.place("status")?;
-    let status = verbs.ports().git.status(&place).map_err(failed)?;
-    use specforge_effects::git::GitEntryKind as Kind;
+    let git = &verbs.ports().git;
+    let mut status = if except.is_empty() && !except_spec {
+        git.status(&place)
+    } else {
+        git.status_by_file(&place)
+    }
+    .map_err(failed)?;
+    let except = except
+        .iter()
+        .map(|path| commit::named_from_top(verbs, &place, path))
+        .collect::<Result<Vec<_>, _>>()?;
+    let specs = except_spec.then(|| spec_paths(verbs, &place));
+    let excepted = |path: &str| {
+        specs.as_ref().is_some_and(|specs| specs.holds(path))
+            || except.iter().any(|at| spec_paths::at_or_under(at, path))
+    };
+    status.entries = std::mem::take(&mut status.entries)
+        .into_iter()
+        .filter_map(|entry| beside_except(entry, &excepted))
+        .collect();
+    use GitEntryKind as Kind;
     let paths = |kept: &dyn Fn(Kind) -> bool| {
         status
             .entries
@@ -405,6 +488,39 @@ pub fn status(verbs: &Verbs) -> Result<StatusAnswer, OpError> {
         untracked,
         status,
     })
+}
+
+/// `entry` with what a filter leaves of it. A rename is two sides, and git finds no rename when a pathspec cuts one off:
+/// the side left stands alone, a deletion or an addition.
+fn beside_except(mut entry: GitEntry, excepted: &dyn Fn(&str) -> bool) -> Option<GitEntry> {
+    let dropped = excepted(&entry.path);
+    let Some(source) = entry.orig_path.take() else {
+        return (!dropped).then_some(entry);
+    };
+    match (excepted(&source), dropped) {
+        (true, true) => return None,
+        (false, false) => entry.orig_path = Some(source),
+        (false, true) => {
+            entry.kind = GitEntryKind::Changed;
+            entry.path = source;
+            entry.index = Some(GitChange::Deleted);
+            entry.worktree = None;
+        }
+        (true, false) => {
+            entry.kind = GitEntryKind::Changed;
+            entry.index = Some(GitChange::Added);
+        }
+    }
+    Some(entry)
+}
+
+/// What the project calls a spec file, in the repository at `place`.
+fn spec_paths(verbs: &Verbs, place: &GitPlace) -> SpecPaths {
+    SpecPaths::of(
+        &place.toplevel,
+        &RealFs::landing(verbs.root().dir()),
+        verbs.spec_root(),
+    )
 }
 
 pub fn config(verbs: &Verbs, key: &str) -> Result<ConfigAnswer, OpError> {
@@ -569,13 +685,18 @@ pub fn diff(verbs: &Verbs, request: &DiffRequest) -> Result<DiffAnswer, OpError>
     };
     let files = verbs.ports().git.diff(&place, &query).map_err(failed)?;
     let text = || files.iter().filter(|file| !file.binary);
+    let (added, removed) = (
+        text().map(|file| u64::from(file.added)).sum(),
+        text().map(|file| u64::from(file.removed)).sum(),
+    );
+    let specs = spec_paths(verbs, &place);
     Ok(DiffAnswer {
         base: base.as_str().to_string(),
         head: named,
         count: files.len(),
-        added: text().map(|file| u64::from(file.added)).sum(),
-        removed: text().map(|file| u64::from(file.removed)).sum(),
-        files,
+        added,
+        removed,
+        files: files.into_iter().map(|file| specs.flagged(file)).collect(),
     })
 }
 

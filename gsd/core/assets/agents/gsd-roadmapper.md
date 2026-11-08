@@ -399,7 +399,7 @@ Do not include `project_code` in detail header phase IDs.
 
 ### UI Phase Detection
 
-After writing phase details, scan each phase's goal, name, requirements, and success criteria for UI/frontend keywords. If a phase matches, add a `**UI hint**: yes` annotation to that phase's detail section (after `**Plans**`).
+A phase's `frontend` is computed by `@gsd/ui` from its goal, name, requirements and success criteria, by the keywords below: write no `**UI hint**` annotation.
 
 **Detection keywords** (case-insensitive):
 
@@ -421,7 +421,7 @@ Svelte, Next.js, Nuxt
   1. User can view a dashboard with key metrics
   2. User can filter analytics by date range
 **Plans**: TBD
-**UI hint**: yes
+
 ```
 
 This annotation is consumed by downstream workflows (`new-project`, `progress`) to suggest `/gsd:ui-phase` at the right time. Phases without UI indicators omit the annotation entirely.

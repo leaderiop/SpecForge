@@ -33,14 +33,14 @@ fi
 
 ### 8.5.1 Outline Phase (outline-only mode, ~2 min)
 
-**Resume detection:** If `${PHASE_DIR}/${PADDED_PHASE}-PLAN-OUTLINE.md` exists and contains
+**Resume detection:** If the outline file (below, a stable temp file of this milestone's phase) contains
 the `## OUTLINE COMPLETE` marker (written by the outline agent — #2762), skip to 8.5.2.
 
 ```bash
-OUTLINE_FILE="${PHASE_DIR}/${PADDED_PHASE}-PLAN-OUTLINE.md"
-if [[ -f "$OUTLINE_FILE" ]] && grep -q "^## OUTLINE COMPLETE" "$OUTLINE_FILE"; then
-  : # reuse existing outline — skip to 8.5.2
-fi
+MILESTONE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.milestone') && [ -n "$MILESTONE" ] || exit 1; OUTLINE_FILE=$(specforge files temp --name "gsd-outline-${MILESTONE}-${PHASE_ID##*/}.md" --pick .path) || exit 1; echo "OUTLINE_FILE=$OUTLINE_FILE"
+rc=0; specforge files search -q '^## OUTLINE COMPLETE' "$OUTLINE_FILE" || rc=$?
+case "$rc" in 0) echo "OUTLINE_REUSE=true" ;; 1) echo "OUTLINE_REUSE=false" ;; *) echo "the outline could not be read" >&2; exit 1 ;; esac
+# OUTLINE_REUSE=true: reuse the existing outline, skip to 8.5.2; another milestone's outline of this phase number has another name
 ```
 
 Display:
@@ -52,7 +52,7 @@ Spawn the planner in **outline-only** mode — it must write only the outline ma
 PLAN.md files:
 
 **Dispatch/wait gate — `PLANNER_STALL_DETECTION_ENABLED` (config key `planner.stall_detection_enabled`, resolved in `plan-phase/steps/stall-detection-helpers.md`):**
-- **`true` (default):** use `run_in_background=true` in the Agent() call below, then use `gsd_stall_watch` after it.
+- **`true` (default):** use `run_in_background=true` in the Agent() call below, then run the outline watch cycle after it (it watches the outline, the one file this planner writes).
 
 ```javascript
 Agent(
@@ -60,7 +60,7 @@ Agent(
 
   **Chunked mode: outline-only.**
   Do NOT write any PLAN.md files in this Task.
-  Write only: {PHASE_DIR}/{PADDED_PHASE}-PLAN-OUTLINE.md
+  Write only: {OUTLINE_FILE}
 
   The outline must be a markdown table with columns:
   Plan ID | Objective | Wave | Depends On | Requirements
@@ -75,12 +75,12 @@ Agent(
 )
 ```
 
-**ORCHESTRATOR RULE — ALL RUNTIMES (when `PLANNER_STALL_DETECTION_ENABLED` is `true`):** `TS=$(date +%s)`; repeat `PLANNER_STALL_RESULT=$(gsd_stall_watch "$TS" "{outputFile}" "$OUTLINE_FILE" "## OUTLINE COMPLETE")` while waiting/active.
+**ORCHESTRATOR RULE — ALL RUNTIMES (when `PLANNER_STALL_DETECTION_ENABLED` is `true`):** repeat the outline watch cycle; after each, read `{outputFile}` with the Read tool: a line holding `## OUTLINE COMPLETE` -> `marker_received`; a quiet cycle once the cycles add up to `planner.stall_threshold_minutes` -> `stalled`.
 
-- **`false`:** issue the same Agent() call but omit `run_in_background`; await its ordinary runtime-native completion and consume the real returned result. Skip `gsd_stall_watch` entirely and treat a recognized `## OUTLINE COMPLETE` return exactly like `marker_received`; empty or unrecognized returns keep the existing Retry/Stop path.
+- **`false`:** issue the same Agent() call but omit `run_in_background`; await its ordinary runtime-native completion and consume the real returned result. Skip the watch cycle entirely and treat a recognized `## OUTLINE COMPLETE` return exactly like `marker_received`; empty or unrecognized returns keep the existing Retry/Stop path.
 
 Handle return:
-- **`marker_received`:** Read `PLAN-OUTLINE.md`, extract plan list. Continue to 8.5.2.
+- **`marker_received`:** Read `$OUTLINE_FILE`, extract plan list. Continue to 8.5.2.
 - **`stalled` / any other return or empty:** Display error. Offer: 1) Retry outline, 2) Stop.
 
 ### 8.5.2 Per-Plan Tasks (single-plan mode, ~3-5 min each)
@@ -118,17 +118,17 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
    it directly from the table before this block runs.
 
 2. **Resume check, per entry:** for each `plan_id` in `BATCH_PLAN_IDS`, skip it (remove it from
-   this batch's runnable set) if `${PHASE_DIR}/{plan_id}-PLAN.md` exists with valid frontmatter —
+   this batch's runnable set) if its plan entity `$PHASE_ID/{plan_id}` exists (recorded once valid) —
    UNLESS `--reviews` is set, whose purpose is to REPLAN with review feedback (§6), so existing
    plans are overwritten, not skipped (#2762). Unchanged from before this change, applied per entry
    before dispatch rather than immediately before each individual spawn:
    ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-   PLAN_FILE="${PHASE_DIR}/${plan_id}-PLAN.md"
-   if [[ -f "$PLAN_FILE" ]] && head -1 "$PLAN_FILE" | grep -q '^---' && [[ "$GSD_ARGS" != *"--reviews"* ]]; then
+
+
+
+
+   PLAN_ENTITY="${PHASE_ID}/${plan_id}"   # the plan entity: an unknown id is refused (exit 1)
+   if specforge query "$PLAN_ENTITY" --depth 0 --pick '.nodes[0].id' >/dev/null 2>&1 && [ "${REVIEWS:-false}" != true ]; then
      : # resume safety — skip this plan, remove from the batch's runnable set — NOT under --reviews (replan)
    fi
    ```
@@ -154,7 +154,7 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
      prompt="{same planning_context as step 8, plus:}
 
      **Chunked mode: single-plan.**
-     Write exactly ONE plan file: {PHASE_DIR}/{plan_id}-PLAN.md
+     Write exactly ONE plan: the plan entity `{phase_id}/{plan_id}` (`specforge new plan`)
      Plan to write: {plan_id} — {objective}
      Wave: {wave} | Depends on: {depends_on}
      Phase requirement IDs to cover in this plan: {plan_requirements}
@@ -173,8 +173,8 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
    message, before waiting on any of them.
 
 5. **ORCHESTRATOR RULE — ALL RUNTIMES, per batch (when `PLANNER_STALL_DETECTION_ENABLED` is `true`):** for every entry dispatched in this round,
-   `TS=$(date +%s)`; repeat `PLANNER_STALL_RESULT=$(gsd_stall_watch "$TS" "{outputFile}" "$PLAN_FILE" "## PLAN COMPLETE")`
-   while waiting/active for THAT entry. Serial dispatch waits on one entry at a time (unchanged).
+   repeat the watch cycle, one for the whole batch; after each, read each waiting entry's `{outputFile}` with the Read tool:
+   a line holding `## PLAN COMPLETE` -> `marker_received`; a quiet cycle once the cycles add up to `planner.stall_threshold_minutes` -> `stalled`, for THAT entry. Serial dispatch waits on one entry at a time (unchanged).
    Concurrent dispatch waits on every entry issued in step 4 before proceeding — this is the
    "per-batch" join the config makes possible: nothing in step 6 runs until every plan dispatched
    this round has reached `marker_received` or `stalled`. A `stalled` entry falls into step 7's
@@ -182,13 +182,13 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
    in the same batch that already reached `marker_received`.
 
    - **`false`:** when `PLANNER_STALL_DETECTION_ENABLED` is `false`, omit `run_in_background`
-     from every call, skip `gsd_stall_watch`, and await each real returned result through the
+     from every call, skip the watch cycle, and await each real returned result through the
      ordinary runtime-native completion mechanism. A concurrent batch still issues the runnable
      calls together and awaits all of their ordinary results before step 6. Treat each recognized
      `## PLAN COMPLETE` return exactly like `marker_received`; empty or unrecognized returns keep
      step 8's existing Retry/Stop path. This is never fire-and-forget.
 
-6. **Verify disk, per entry:** check `${PHASE_DIR}/{plan_id}-PLAN.md` exists for each entry that
+6. **Verify disk, per entry:** check the plan entity `{phase_id}/{plan_id}` exists (`specforge query`) for each entry that
    reached `marker_received`. Unchanged per-plan check.
 
 7. **Commit, per entry, in outline row order (not completion order):** for each verified entry —

@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use super::{Shell, asset, block, both, line, q, upstream};
+use super::{Shell, asset, block, line};
 
 /// T3, end to end: the commit lines' producer (`specforge query … --kinds commit`) and reader, in a project whose plan
 /// 01-01 has a commit, with `specforge` on a `PATH` that holds no node and no jq. It confirms the field paths the lines
@@ -126,108 +126,22 @@ fn git(dir: &Path, args: &[&str]) {
     );
 }
 
-/// A repository at `dir` with one committed file, then changed (`dirty`) or not, or holding an untracked file only.
-fn repository(dir: &Path, state: &str) {
-    std::fs::create_dir_all(dir).expect("a dir");
-    git(dir, &["init", "-q"]);
-    if state == "untracked" {
-        std::fs::write(dir.join("new"), "x").expect("a file");
-        return;
-    }
-    std::fs::write(dir.join("f"), "x").expect("a file");
-    git(dir, &["add", "f"]);
-    git(dir, &["commit", "-qm", "f"]);
-    if state == "dirty" {
-        std::fs::write(dir.join("f"), "y").expect("a change");
-    }
-}
-
-/// Pr-branch's sub-repository scan and its path check, bash where upstream's were node scripts (no jq either). With
-/// `planning.sub_repos` empty here they are not reached; they still keep upstream's refusals.
-#[test]
-fn the_sub_repo_scan_keeps_its_refusals() {
-    let Some(sh) = Shell::without_jq() else {
-        return;
-    };
-    let top = tempfile::tempdir().expect("a dir");
-    let root = top.path().join("root");
-    repository(&root.join("a"), "dirty");
-    repository(&root.join("b"), "clean");
-    repository(&root.join("c"), "untracked");
-    repository(&top.path().join("outside"), "dirty");
-    std::os::unix::fs::symlink(top.path().join("outside"), root.join("l")).expect("a link");
-    let (text, up) = (
-        asset("gsd-core/workflows/pr-branch.md"),
-        upstream("gsd-core/workflows/pr-branch.md"),
-    );
-    let ours = block(
-        &text,
-        "printf '%s' \"$SUB_REPOS_JSON\" | tr",
-        "> \"$DIRTY_FILE\"",
-    );
-    let theirs = block(&up, "node -e \"", "\"$DIRTY_FILE\"");
-    let dirty = top.path().join("dirty");
-    // run from the project, as pr-branch is: `specforge git --in` is held to the roots of the project it is typed in
-    let setup = format!(
-        "ROOT={}\ncd \"$ROOT\"\nDIRTY_FILE={}\nSUB_REPOS_JSON={}",
-        q(&root.display().to_string()),
-        q(&dirty.display().to_string()),
-        q(r#"["a","b","c","l","../outside","a\nb",5,"d;rm","missing"]"#)
-    );
-    both(
-        &sh,
-        &setup,
-        &ours,
-        Some(&theirs),
-        "cat \"$DIRTY_FILE\"",
-        "a",
-    );
-    both(
-        &sh,
-        &format!("{setup}\nSUB_REPOS_JSON=x"),
-        &ours,
-        Some(&theirs),
-        "cat \"$DIRTY_FILE\"",
-        "",
-    );
-
-    let ours = block(&text, "SUB_REPO_DIR=$( (", ") 2>/dev/null)");
-    let theirs = block(&up, "SUB_REPO_DIR=$(node", "2>/dev/null)");
-    let real = std::fs::canonicalize(root.join("a")).expect("a real path");
-    for (rel, want) in [
-        ("a", real.display().to_string()),
-        ("../outside", String::new()),
-        ("l", String::new()),
-        ("missing", String::new()),
-    ] {
-        let setup = format!(
-            "ROOT={}\nREPO_REL={}",
-            q(&root.display().to_string()),
-            q(rel)
-        );
-        both(
-            &sh,
-            &setup,
-            &ours,
-            Some(&theirs),
-            "printf '%s' \"$SUB_REPO_DIR\"",
-            &want,
-        );
-    }
-}
-
-/// Pr-branch's filter (`FILTER_PATHS`, what each cherry-picked commit loses, and
-/// `FORBIDDEN_RE`, what `verify` asserts is gone) is the spec files for both layouts: under `spec/`, and, with the spec
-/// root at the project root (`.`), the `.spec` files at any depth, never the whole tree. Run in a scratch repository: a
-/// commit that touches code, spec files and the harness ledger keeps only its code.
+/// Pr-branch's filter (`FILTER_PATHS`, what each cherry-picked commit loses, and the diff's `spec` flag, what `verify`
+/// asserts is gone) is the spec files for both layouts: under `spec/`, and, with the spec root at the project root (`.`),
+/// the `.spec` files at any depth, never the whole tree. Run in a scratch repository: a commit that touches code, spec
+/// files and the harness ledger keeps only its code, and `verify` sees no spec file on the branch it builds.
 #[test]
 fn the_pr_filter_keeps_the_code_whatever_the_spec_root() {
     let Some(sh) = Shell::without_jq() else {
         return;
     };
     let text = asset("gsd-core/workflows/pr-branch.md");
-    let declare = block(&text, "TRANSIENT_DIRS=", "MILESTONE_PHASES_RE=");
-    let derive = block(&text, "Derive the mode's two projections", "FORBIDDEN_RE=");
+    let declare = block(&text, "TRANSIENT_DIRS=", "SPEC_PATHSPEC=$(");
+    let derive = block(
+        &text,
+        "Derive the mode's projection",
+        "FILTER_PATHS=$(printf",
+    );
     let (_, derive) = derive.split_once("```bash\n").expect("the derive block");
     let filter = block(&text, "while IFS= read -r P; do", "done <<FILTER_PATHS_EOF");
     for (root, spec_files) in [
@@ -236,6 +150,8 @@ fn the_pr_filter_keeps_the_code_whatever_the_spec_root() {
     ] {
         let dir = tempfile::tempdir().expect("a dir");
         git(dir.path(), &["init", "-q"]);
+        let config = serde_json::json!({"name": "d", "version": "0.1.0", "spec_root": root});
+        std::fs::write(dir.path().join("specforge.json"), config.to_string()).expect("a project");
         for f in spec_files.iter().chain(&["specforge-harness", "README.md"]) {
             let path = dir.path().join(f);
             std::fs::create_dir_all(path.parent().expect("a parent")).expect("a dir");
@@ -252,23 +168,327 @@ fn the_pr_filter_keeps_the_code_whatever_the_spec_root() {
         git(dir.path(), &["add", "-A"]);
         git(dir.path(), &["commit", "-qm", "feat: x"]);
         git(dir.path(), &["checkout", "-q", "-"]);
+        let flagged = |base: &str, head: &str| {
+            format!(
+                "specforge git diff --base {base} --head {head} --pick '.files[spec=true].path' | tr '\\n' ' '; echo"
+            )
+        };
         let script = format!(
-            "PR_STRICT=true\n{}\n{derive}\nfi\n\
-             printf 'a.spec\\nsub/b.spec\\nspec/a.spec\\nsrc/x.js\\nspecforge-harness\\nREADME.md\\n' | grep -E \"$FORBIDDEN_RE\" | tr '\\n' ' '; echo\n\
+            "{}\n{derive}\n\
+             {}\n\
              git cherry-pick --no-commit feature >/dev/null 2>&1 || true\n{filter}\n$FILTER_PATHS\nFILTER_PATHS_EOF\n\
-             git diff --cached --name-only | tr '\\n' ' '",
-            declare.replace("{{project:spec_root}}", root)
+             git diff --cached --name-only | tr '\\n' ' '; echo\n\
+             git commit -qm built; {}",
+            declare,
+            flagged("HEAD", "feature"),
+            flagged("HEAD~1", "HEAD"),
         );
         let (out, err, code) = sh.run_in(dir.path(), &script);
-        let forbidden = if root == "." {
-            "a.spec sub/b.spec spec/a.spec specforge-harness "
+        let flags = if root == "." {
+            "a.spec specforge-harness sub/b.spec "
         } else {
-            "spec/a.spec specforge-harness "
+            "spec/a.spec spec/notes.md specforge-harness "
         };
         assert_eq!(
             out,
-            format!("{forbidden}\nsrc/x.js "),
+            format!("{flags}\nsrc/x.js \n\n"),
             "spec root {root} ({code}): {err}"
         );
     }
+}
+
+/// The worktree pin, run as written: both roots are read by `specforge git repo`, an alias of the checkout compares
+/// equal, a sibling checkout halts as a mismatch and not as a failed read, and a submodule with its own project may
+/// still commit under the pin of the checkout that holds it.
+#[test]
+fn the_pin_compares_both_roots_with_one_reader() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let text = asset("gsd-core/references/worktree-path-safety.md");
+    let at = text
+        .find("# gsd:guard=supplied-root-pin")
+        .expect("the guard");
+    let end = at + text[at..].find("\n```").expect("its fence");
+    let guard = &text[at..end];
+    let run = |cwd: &Path, pin: &str| {
+        let script = guard.replacen("{PINNED_ROOT}", pin, 1);
+        sh.run_in(cwd, &format!("{script}\necho passed"))
+    };
+    let base = tempfile::tempdir().expect("a dir");
+    let base = base.path().canonicalize().expect("its path");
+    let (main, sibling, sub) = (base.join("main"), base.join("sibling"), base.join("sub"));
+    let config = "{\"name\":\"demo\",\"version\":\"0.1.0\"}\n";
+    for repo in [&main, &sub] {
+        std::fs::create_dir_all(repo).expect("a repository");
+        std::fs::write(repo.join("specforge.json"), config).expect("its project");
+        git(repo, &["init", "-q", "-b", "main"]);
+        git(repo, &["add", "-A"]);
+        git(repo, &["commit", "-qm", "first"]);
+    }
+    let held = main.join("sub");
+    git(
+        &main,
+        &[
+            "-c",
+            "protocol.file.allow=always",
+            "submodule",
+            "--quiet",
+            "add",
+            sub.to_str().expect("a path"),
+            "sub",
+        ],
+    );
+    git(&main, &["add", "-A"]);
+    git(&main, &["commit", "-qm", "with a submodule"]);
+    git(
+        &main,
+        &[
+            "worktree",
+            "add",
+            "-q",
+            sibling.to_str().expect("a path"),
+            "-b",
+            "other",
+        ],
+    );
+    let top = main.to_str().expect("a path");
+
+    for (cwd, pin) in [
+        (main.clone(), top.to_string()),
+        (main.clone(), format!("{top}/")),
+        (held.clone(), top.to_string()),
+        (sibling.clone(), sibling.to_str().expect("a path").into()),
+    ] {
+        let (out, err, code) = run(&cwd, &pin);
+        assert_eq!(
+            (out.trim(), code),
+            ("passed", 0),
+            "{cwd:?} under {pin}: {err}"
+        );
+    }
+    #[cfg(unix)]
+    {
+        let alias = base.join("alias");
+        std::os::unix::fs::symlink(&main, &alias).expect("an alias");
+        let (out, err, _) = run(&main, alias.to_str().expect("a path"));
+        assert_eq!(out.trim(), "passed", "the alias compares equal: {err}");
+    }
+
+    let halts = |cwd: &Path, pin: &str, stage: &str| {
+        let (out, err, code) = run(cwd, pin);
+        assert_eq!((out.trim(), code), ("", 1), "{cwd:?} under {pin}: {err}");
+        assert!(err.contains(&format!("Guard stage: {stage}")), "{err}");
+        err
+    };
+    let err = halts(&sibling, top, "root-mismatch");
+    assert!(err.contains(&format!("pinned={top}")), "{err}");
+    halts(&main, sibling.to_str().expect("a path"), "root-mismatch");
+    let elsewhere = tempfile::tempdir().expect("no repository");
+    let err = halts(
+        &main,
+        elsewhere.path().to_str().expect("a path"),
+        "pinned-capture",
+    );
+    assert!(
+        err.contains("Diagnostic: specforge git repo from the pinned root failed: error["),
+        "{err}"
+    );
+    let err = halts(elsewhere.path(), top, "actual-capture");
+    assert!(
+        err.contains("Diagnostic: specforge git repo from the cwd failed: error["),
+        "{err}"
+    );
+    let err = halts(&main, "/nonexistent/pin", "pinned-capture");
+    assert!(err.contains("Pinned root: /nonexistent/pin"), "{err}");
+    halts(&main, "{PINNED_ROOT}", "pin-unbound");
+    halts(&main, "relative/pin", "form-gate");
+}
+
+/// Forensic-audit lists the tracked changes outside the spec root, ten at most, whatever else the tree holds.
+#[test]
+fn forensic_audit_leaves_the_spec_root_out() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let text = asset("gsd-core/workflows/progress/steps/forensic-audit.md");
+    let read = line(&text, "specforge git status --except-spec");
+    let dir = tempfile::tempdir().expect("a dir");
+    let paths: Vec<String> = (0..12)
+        .map(|n| format!("src/{n:02}.txt"))
+        .chain(["spec/a.spec".to_string(), "spectre.txt".to_string()])
+        .collect();
+    std::fs::create_dir_all(dir.path().join("src")).expect("a dir");
+    std::fs::create_dir_all(dir.path().join("spec")).expect("a dir");
+    for path in &paths {
+        std::fs::write(dir.path().join(path), "one\n").expect("a file");
+    }
+    git(dir.path(), &["init", "-q", "-b", "main"]);
+    git(dir.path(), &["add", "-A"]);
+    git(dir.path(), &["commit", "-qm", "first"]);
+    std::fs::write(dir.path().join("spec/a.spec"), "two\n").expect("a spec file");
+    std::fs::write(dir.path().join("spectre.txt"), "two\n").expect("a file");
+    let (out, err, _) = sh.run_in(dir.path(), read);
+    assert_eq!(out.trim(), "spectre.txt", "{err}");
+    for path in paths.iter().filter(|p| p.starts_with("src/")) {
+        std::fs::write(dir.path().join(path), "two\n").expect("a file");
+    }
+    let (out, err, _) = sh.run_in(dir.path(), read);
+    assert_eq!(out.lines().count(), 10, "ten at most: {out} {err}");
+    assert!(!out.contains("spec/"), "{out}");
+}
+
+/// Ship's `[ci skip]` check asks of the note itself: a marker in its subject or body counts, and one on an older commit
+/// does not, though the newest commit that matches is then that one.
+#[test]
+fn ship_reads_the_ci_skip_marker_on_the_note_itself() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let text = asset("gsd-core/workflows/ship.md");
+    let line = line(
+        &text,
+        "if [ \"$STATUS\" = \"blocked\" ] && [ \"$CHECKS\" = \"0\" ]",
+    );
+    let dir = tempfile::tempdir().expect("a dir");
+    git(dir.path(), &["init", "-q", "-b", "main"]);
+    let commit = |args: &[&str]| {
+        let mut all = vec!["commit", "-q", "--allow-empty"];
+        all.extend_from_slice(args);
+        git(dir.path(), &all);
+    };
+    let skips = |wanted: &str| {
+        let script = format!(
+            "STATUS=blocked; CHECKS=0; SHIP_NOTE_SHA=$(specforge git head --pick .sha)\n{line}\n  echo skips\nelse\n  echo runs\nfi"
+        );
+        let (out, err, _) = sh.run_in(dir.path(), &script);
+        assert_eq!(out.trim(), wanted, "{err}");
+    };
+    commit(&["-m", "docs: the note [ci skip]"]);
+    skips("skips");
+    commit(&["-m", "docs: the note", "-m", "Why.\n\n[ci skip]"]);
+    skips("skips");
+    commit(&["-m", "docs: no marker here"]);
+    skips("runs");
+}
+
+/// The executor's commit count, end to end: `start-plan` records the plan's head once, in the graph, so it holds across
+/// the fresh shells of one plan and in a worktree of any name; an unborn branch records none, and every commit counts. No
+/// tag is written, so `git push --tags` publishes nothing and `git describe` reads nothing.
+#[test]
+fn the_plan_ledger_counts_from_the_head_the_plan_started_at() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let text = asset("agents/gsd-executor.md");
+    let start = line(
+        &text,
+        "specforge gsd start-plan \"${PHASE}-${PLAN}\" --head",
+    );
+    let read = line(&text, "PLAN_HEAD_BEFORE=$(specforge query").replace("{phase}-{plan}", "01-01");
+    let count = line(&text, "COMMITS_ACTUAL=$(");
+    let run = |dir: &Path, script: &str| {
+        let (out, err, code) = sh.run_in(dir, &format!("PHASE=01\nPLAN=01\n{script}"));
+        assert_eq!(code, 0, "{err}");
+        out.trim().to_string()
+    };
+    let counted = |dir: &Path| run(dir, &format!("{read}\n{count}\necho \"$COMMITS_ACTUAL\""));
+
+    let p = crate::harness::project("execute");
+    let at = |p: &crate::harness::Project, field: &str| {
+        p.fields_of("v1.0/01/01-01/START")[field].clone()
+    };
+    p.commit();
+    let before = run(p.root(), "specforge git head --pick .sha");
+    run(p.root(), start);
+    assert_eq!(at(&p, "head"), before.as_str());
+    p.git_commit(
+        "feat(01-01): a",
+        &[("src/a.js", "a\n")],
+        "2026-10-29T09:00:00Z",
+    );
+    p.git_commit(
+        "feat(01-01): b",
+        &[("src/b.js", "b\n")],
+        "2026-10-29T09:01:00Z",
+    );
+    assert_eq!(counted(p.root()), "2");
+    // A second start keeps the first head.
+    run(p.root(), start);
+    assert_eq!(at(&p, "head"), before.as_str());
+    assert_eq!(counted(p.root()), "2");
+    assert_eq!(
+        std::fs::read_dir(p.root().join(".git/refs/tags")).map_or(0, Iterator::count),
+        0,
+        "no tag holds a plan's start"
+    );
+
+    // A worktree whose name no tag could hold.
+    let base = tempfile::tempdir().expect("a dir");
+    for (i, name) in ["my wt", "x.lock", "a..b", "wt~1"].iter().enumerate() {
+        let other = base.path().join(name);
+        let path = other.to_str().expect("a path");
+        let branch = format!("retry-{i}");
+        git(p.root(), &["worktree", "add", "-q", path, "-b", &branch]);
+        // The start was not committed, so the worktree opens the plan at its own head.
+        run(&other, start);
+        git(
+            &other,
+            &["commit", "--allow-empty", "-qm", "feat(01-01): c"],
+        );
+        assert_eq!(counted(&other), "1", "{name}: the base is in the graph");
+        // Removed and added again, it reads nothing of the worktree it was.
+        git(p.root(), &["worktree", "remove", "--force", path]);
+        git(p.root(), &["worktree", "add", "-q", path, &branch]);
+        run(&other, start);
+        assert_eq!(counted(&other), "0", "{name}: nothing since this start");
+    }
+
+    // An unborn branch has no head to record, and a start with one given later keeps it.
+    let unborn = crate::harness::project("execute");
+    run(unborn.root(), start);
+    assert_eq!(at(&unborn, "head"), serde_json::Value::Null);
+    unborn.git_commit(
+        "feat(01-01): a",
+        &[("src/a.js", "a\n")],
+        "2026-10-29T09:00:00Z",
+    );
+    assert_eq!(
+        counted(unborn.root()),
+        "1",
+        "an absent head counts every commit"
+    );
+    let first = run(unborn.root(), "specforge git head --pick .sha");
+    run(unborn.root(), start);
+    assert_eq!(at(&unborn, "head"), first.as_str());
+}
+
+/// `forensic-audit` and `fast` leave the spec files out from any directory of the project, and with any spec root.
+#[test]
+fn the_spec_files_are_left_out_from_a_subdirectory() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let audit = asset("gsd-core/workflows/progress/steps/forensic-audit.md");
+    let check = line(&audit, "specforge git status --except-spec");
+    let fast = asset("gsd-core/workflows/fast.md");
+    let add = line(&fast, "specforge git add -A --except-spec");
+
+    let p = crate::harness::project("execute");
+    p.git_commit(
+        "feat: code",
+        &[("src/sub/a.js", "a\n")],
+        "2026-10-29T09:00:00Z",
+    );
+    std::fs::write(p.root().join("src/sub/a.js"), "b\n").expect("a change");
+    std::fs::write(p.root().join("spec/noise.spec"), "\n").expect("a spec file");
+    let sub = p.root().join("src/sub");
+    let (out, err, code) = sh.run_in(&sub, check);
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(out.trim(), "src/sub/a.js", "only the code is left");
+    let (_, err, code) = sh.run_in(&sub, add);
+    assert_eq!(code, 0, "{err}");
+    let (out, err, code) = sh.run_in(&sub, "specforge git status --pick '.untracked[]'");
+    assert_eq!(code, 0, "{err}");
+    assert!(out.lines().any(|l| l == "spec/"), "not staged: {out}");
 }

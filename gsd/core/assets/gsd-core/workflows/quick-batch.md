@@ -3,7 +3,7 @@
 <purpose>
 Batch several `/gsd:quick`-shaped tasks together (#3676, epic #3344, ADR-1239
 "Quick-batch binding"). ONE coordinator (this workflow) owns every shared
-write — `BATCH.json`, STATE.md, worktree create/merge/cleanup — and never
+write — `BATCH.json`, STATE.md, each executor's dispatch — and never
 delegates them to a leaf. Leaves (planner/researcher/checker/executor/
 verifier) return structured results only; they never invoke `/gsd:quick`,
 never touch `BATCH.json`, and never write STATE.md/ROADMAP.md themselves
@@ -38,36 +38,36 @@ RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the se
 
 **If `response_language` is set:** all user-facing questions/prompts/explanations MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English.
 
-Validate the command's `<arguments>` block through the CLI's own grammar — never re-derive it inline (single source of truth: `parseQuickBatchArgs`, `src/quick-batch-dispatch.cts`). The block is raw, attacker-influenced task text — feed it on STDIN through a QUOTED heredoc (`--stdin`), never as a shell argument, so the shell never parses, expands or word-splits it; `quick-batch parse-args` does the whitespace split itself, in Node, after the shell is done. Paste the block's exact contents between the markers:
+The host has parsed and checked the arguments (an undeclared option such as `--discuss` or `--full` is refused before this text renders): read them from these lines.
 
 ```bash
-QB_PARSE_FILE=$(specforge files temp --pick .path)
-cat > "$QB_PARSE_FILE" 2>&1 <<'GSD_QUICK_BATCH_ARGS_END'   # the argument block is read as typed: take jobs, validate, research and resume from it
-<the exact contents of the `<arguments>` block, verbatim>
-GSD_QUICK_BATCH_ARGS_END
-QB_PARSE_RC=$?
-QB_PARSE_JSON=$(cat "$QB_PARSE_FILE"); specforge files remove --force "$QB_PARSE_FILE" >/dev/null
-if [ $QB_PARSE_RC -ne 0 ]; then
-  echo "$QB_PARSE_JSON" >&2
-  exit 1
-fi
-if [[ "$QB_PARSE_JSON" == @file:* ]]; then QB_PARSE_JSON=$(cat "${QB_PARSE_JSON#@file:}"); fi
+JOBS="{{arg:jobs|auto}}"
+VALIDATE_MODE="{{arg:validate|false}}"
+RESEARCH_MODE="{{arg:research|false}}"
+RESUME_BATCH_ID="{{arg:resume|}}"
+TASK_FILE="{{arg:file|}}"
+TASKS="{{arg:tasks|}}"
+# a --jobs that is not auto or a positive integer is refused before this text renders
+
+
+
+
 ```
 
-Parse `$QB_PARSE_JSON` for `jobs` (`"auto"` or an integer), `validate` (bool), `research` (bool), `resume` (batch id or null). Store as `$JOBS`, `$VALIDATE_MODE`, `$RESEARCH_MODE`, `$RESUME_BATCH_ID`.
+`$JOBS` is `auto` or a number, `$VALIDATE_MODE` and `$RESEARCH_MODE` are `true` or `false`, and `$RESUME_BATCH_ID` is the batch to resume (empty unless `--resume <id>`).
 
-Extract the raw task-list text / `--file <path>` from the `<arguments>` block (everything that is not `--jobs <v>`, `--validate`, `--research`, `--resume <id>`, or `--file <path>`'s own flag pair).
+The task list is `$TASK_FILE` (`--file <path>`), else `$TASKS` (the words after the options).
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 VALIDATE_PARAM=""; if [ "$VALIDATE_MODE" = true ]; then VALIDATE_PARAM="--validate"; fi
 RESEARCH_PARAM=""; if [ "$RESEARCH_MODE" = true ]; then RESEARCH_PARAM="--research"; fi
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
 INIT=""   # no init bundle: the settings block and the argument block are all this run needs
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 AGENT_SKILLS_PLANNER=""   # the host install carries the skills of gsd-planner
 AGENT_SKILLS_EXECUTOR=""   # the host install carries the skills of gsd-executor
 AGENT_SKILLS_CHECKER=""   # the host install carries the skills of gsd-plan-checker
@@ -75,16 +75,16 @@ AGENT_SKILLS_VERIFIER=""   # the host install carries the skills of gsd-verifier
 AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-phase-researcher
 ```
 
-Parse `$INIT` for: `planner_model`, `executor_model`, `checker_model`, `verifier_model`, `researcher_model`, `commit_docs`, `quick_dir`, `quick_batches_dir`, `roadmap_exists`, `planning_exists`.
+Nothing here answers a model: an installed agent carries its own model, so every `Agent()` below omits `model`. `commit_docs` is a setting (`specforge settings --format json --extension @gsd/core`); the project and its roadmap are entities, read with `specforge query`.
 
 <!-- #2517 model-omit-on-inherit -->
 
 > **Model omission (#2517).** Every `Agent()` dispatch below (planner, researcher, plan-checker, executor, verifier) MUST omit the `model` parameter entirely when the value it would carry (`planner_model`, `checker_model`, `executor_model`, `verifier_model`, `researcher_model`) is `"inherit"` or empty. An empty value 404s on runtimes without native tier aliases — the default on non-Claude runtimes, where the installer writes `resolve_model_ids:"omit"`. Omitting it inherits the orchestrator's model. See @gsd-core/references/model-profile-resolution.md.
 
 ```bash
-STATE_PATH="${quick_dir%/quick}/STATE.md"
-PROJECT_PATH="${quick_dir%/quick}/PROJECT.md"
-USE_WORKTREES="{{setting:workflow.use_worktrees|}}"   # workflow.use_worktrees (the settings)
+
+
+# @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
 RUNTIME="{{setting:runtime|}}"   # runtime (the settings)
 ```
 
@@ -108,20 +108,20 @@ arithmetic; this is only the raw resolve):
 CAPACITY=1   # dispatch-capacity: one at a time, no background dispatch is part of @gsd/core
 ```
 
-**Resolve isolation now (row 6, 20-22).** Read
-@gsd-core/references/dispatch-isolation-gate.md and run its `Resolve
-ISOLATION`, `Single-agent dispatch sites`, and `Resolve the harness flag`
-blocks in order; they set `ISOLATION`/`HARNESS_FLAG` via `query
-dispatch-isolation`. `ISOLATION` gates every worktree decision below —
-substitute `{harnessFlag}` in Step 6's `Agent()` with `$HARNESS_FLAG`+comma
-when `ISOLATION = "harness-worktree"`, else empty.
+**No isolation to resolve.** `@gsd/core` runs no worktree isolation: every executor runs in sequential mode on the working tree (no isolation gate, no harness flag, no orphan sweep).
 
-If `USE_WORKTREES` is not `"false"`, sweep orphaned worktrees before dispatching anything (mirrors `/gsd:quick`'s own startup sweep):
-```bash
-if [ "$USE_WORKTREES" != "false" ]; then
-: # worktree.reap-orphans: worktree isolation is not part of @gsd/core
-fi
-```
+
+
+
+
+
+
+
+
+
+
+
+
 
 Display banner:
 ```
@@ -165,20 +165,20 @@ before advancing to the next layer.
 
 ---
 
-**Step 6: Worktree create + executor dispatch**
+**Step 6: Executor dispatch (sequential mode)**
 
 Read and execute `gsd-core/workflows/quick-batch/steps/worktree-dispatch.md`.
-Worktree create/executor dispatch is serialized per item (one `git worktree
-add` in flight at a time); already-created worktrees run concurrently up to
-the effective MUTATING-wave concurrency.
+Executors run one item at a time on the working tree (sequential mode).
+
+
 
 ---
 
 **Step 7: Deterministic merge**
 
-Read and execute `gsd-core/workflows/quick-batch/steps/merge-wave.md`. Merges
-apply strictly in the wave's original dispatch order (`quick-batch
-merge-eligible`), never completion order.
+Nothing to merge: every executor committed on the working tree in Step 6, so
+`gsd-core/workflows/quick-batch/steps/merge-wave.md` is not reached.
+
 
 ---
 
@@ -204,10 +204,10 @@ complete item, updates STATE.md, and prints the final batch report.
 - [ ] Planner dispatched per eligible item per DAG layer, full task catalog in prompt, `depends_on`/`files_modified` requested ALWAYS
 - [ ] (--research) Researcher dispatched per item before planning
 - [ ] (--validate) Plan-checker loop runs per item after planning (≤2 iterations)
-- [ ] Worktree create/merge/cleanup serialized; concurrent leaves inside already-created worktrees
-- [ ] `isolation == none` forces a mutating wave's concurrency to 1; a research-only wave is unaffected
-- [ ] Merges apply in deterministic wave order, never completion order
+- [ ] Executors dispatched one item at a time on the working tree (sequential mode)
+- [ ] A mutating wave runs at concurrency 1; a research-only wave is unaffected
+
 - [ ] (--validate) Verifier dispatched per item post-merge; `human_needed` never completes the item, `gaps_found` fails it without rollback or retry
-- [ ] A merge_failed/scope_violation item is marked failed with the worktree PRESERVED
+
 - [ ] `completeQuickItem` called only for genuinely complete items; STATE.md updated; artifacts committed
 </success_criteria>

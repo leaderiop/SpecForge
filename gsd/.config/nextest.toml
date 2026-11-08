@@ -1,0 +1,8 @@
+# The gsd workspace's nextest settings; the main workspace keeps its own at the repository root.
+
+# The hook latency test holds a wall-clock budget (one second at p50). Beside the suite's other tests, each
+# spawning the host, the contention for cores moves it past that budget while its ratio to the kernel's own
+# guard holds. It takes every test thread, so nextest runs it with no other test.
+[[profile.default.overrides]]
+filter = "package(gsd-core) & test(=hooks_guards::a_gsd_hook_is_within_the_latency_budget)"
+threads-required = "num-test-threads"

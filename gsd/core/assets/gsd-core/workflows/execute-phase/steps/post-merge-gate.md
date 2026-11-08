@@ -10,65 +10,65 @@ detect.
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-# Resolve build command: project config > Xcode > Makefile > language sniff
-BUILD_CMD="{{setting:workflow.build_command|}}"   # workflow.build_command (the settings)
-if [ -z "$BUILD_CMD" ]; then
-  XCODEPROJ=$(specforge files list --depth 2 --kind dir --glob '*.xcodeproj' --pick '.entries[0].path' 2>/dev/null)
-  if [ -n "$XCODEPROJ" ]; then
-    # Xcode project: get first scheme from xcodebuild -list -json
-    XCODE_SCHEME=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('project',{}).get('schemes',[None])[0] or '')" 2>/dev/null || true)
-    # #4784: a concrete simulator NAME is machine state, not project state — the
-    # hardcoded 'iPhone 16' can never match on machines whose simulators were
-    # never created. Resolve the first available iOS simulator (id= works for
-    # both build and test); with none available, skip the Xcode gates loudly
-    # instead of running commands that are guaranteed to fail. The sed takes the
-    # LAST ≥8-char hex/dash parenthetical WITHOUT a $ anchor: real simctl lines
-    # end in a (Shutdown)/(Booted) state suffix (often with trailing space), and
-    # the state word is never in the hex class, so the UDID is always the last
-    # in-class group even when the device name carries its own parentheses.
-    XCODE_SIM=$(xcrun simctl list devices available 2>/dev/null | sed -n 's/.*(\([A-F0-9-]\{8,\}\)).*/\1/p' | head -1)
-    if [ -z "$XCODE_SIM" ]; then
-      echo "⚠ No available iOS Simulator found — skipping the Xcode build gate. Set workflow.build_command to run it anyway."
-      BUILD_CMD=""
-      XCODEPROJ=""
-    else
-      XCODE_DEST="id=$XCODE_SIM"
-      # #4784 review F2: the command string is re-parsed by `bash -c`, so an
-      # apostrophe in a repo/scheme name would terminate the quote (unbalanced-
-      # quote failure; a crafted path shape reaches command injection). Escape
-      # for the single-quoted span at the only boundary GSD owns.
-      XCODEPROJ=$(printf '%s' "$XCODEPROJ" | sed "s/'/'\\\\''/g")
-      XCODE_SCHEME=$(printf '%s' "$XCODE_SCHEME" | sed "s/'/'\\\\''/g")
-    fi
-    if [ -n "$XCODEPROJ" ] && [ -n "$XCODE_SCHEME" ]; then
-      BUILD_CMD="xcodebuild build -project '$XCODEPROJ' -scheme '$XCODE_SCHEME' -destination '${XCODE_DEST}'"
-    elif [ -n "$XCODEPROJ" ]; then
-      BUILD_CMD="xcodebuild build -project '$XCODEPROJ' -destination '${XCODE_DEST}'"
-    fi
-  elif [ -f "Makefile" ] && grep -q "^build:" Makefile; then
-    BUILD_CMD="make build"
-  elif [ -f "Justfile" ] || [ -f "justfile" ]; then
-    BUILD_CMD="just build"
-  elif [ -f "Cargo.toml" ]; then
-    BUILD_CMD="cargo build"
-  elif [ -f "go.mod" ]; then
-    BUILD_CMD="go build ./..."
-  elif [ -f "pyproject.toml" ] || [ -f "requirements.txt" ]; then
-    BUILD_CMD="python -m py_compile $(specforge files list --kind file --glob '*.py' --max 20 --pick '.entries[].path' | tr '\n' ' ')"
-  elif [ -f "package.json" ] && grep -q '"build"' package.json; then
-    # #5346: the project's own package manager (packageManager field, then lockfile), npm if unresolved.
-    BUILD_CMD=$(specforge gsd resolve-package-manager build 2>/dev/null || echo "npm run build")
-    [ -n "$BUILD_CMD" ] || BUILD_CMD="npm run build"
-    echo "⚠ Build command not configured — running this project's build script (${BUILD_CMD}). Set workflow.build_command to pin it."
-  else
-    BUILD_CMD=""
-    echo "⚠ No build command detected — skipping build gate"
-  fi
+# Resolve build command: project config > Xcode > Makefile > language sniff: the answer is an argv, never re-parsed
+XCODEPROJ=$(specforge files list --depth 2 --kind dir --glob '*.xcodeproj' --pick '.entries[0].path' 2>/dev/null)
+XCODE_LIST=""; XCODE_SIMS=""
+if [ -n "$XCODEPROJ" ]; then   # machine facts a command cannot read (ADR 0335 D2.2)
+  XCODE_LIST=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null)
+  XCODE_SIMS=$(xcrun simctl list devices available -j 2>/dev/null)
 fi
+BUILD_WORDS=$(specforge gsd gate-command build --xcode-project="$XCODEPROJ" --xcode-list="$XCODE_LIST" --simulators="$XCODE_SIMS" --pick '.argv[]') || exit 1
+BUILD_ARGV=(); while IFS= read -r _w; do [ -z "$_w" ] || BUILD_ARGV+=("$_w"); done <<<"$BUILD_WORDS"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Run build with 5-minute timeout
 BUILD_EXIT=0
-if [ -n "$BUILD_CMD" ]; then
-  specforge run --deadline 300s -- bash -c "$BUILD_CMD" 2>&1
+if [ ${#BUILD_ARGV[@]} -gt 0 ]; then
+  specforge run --deadline 300s -- "${BUILD_ARGV[@]}" 2>&1
   BUILD_EXIT=$?
   if [ "${BUILD_EXIT}" -eq 0 ]; then
     echo "✓ Post-merge build gate passed"
@@ -77,7 +77,7 @@ if [ -n "$BUILD_CMD" ]; then
   else
     echo "✗ Post-merge build gate failed (exit code ${BUILD_EXIT})"
     # gsd-handoff:begin wave-failure-record
-    _GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+    _GSD_HANDOFF=$(specforge files temp --dir --name gsd-handoff --pick .path) || exit 1
     printf '.\n' >> "$_GSD_HANDOFF/wave-failures"  # one line per failed gate; a variable would not survive the next block (#4915)
     # gsd-handoff:end wave-failure-record
   fi
@@ -93,61 +93,61 @@ fi
 **Step B — Test gate:**
 
 ```bash
-# Resolve test command: project config > Xcode > Makefile > language sniff
-TEST_CMD="{{setting:workflow.test_command|}}"   # workflow.test_command (the settings)
-if [ -z "$TEST_CMD" ]; then
-  XCODEPROJ=$(specforge files list --depth 2 --kind dir --glob '*.xcodeproj' --pick '.entries[0].path' 2>/dev/null)
-  if [ -n "$XCODEPROJ" ]; then
-    # Xcode project: reuse scheme + simulator resolved above (or re-detect)
-    if [ -z "${XCODE_SCHEME:-}" ]; then
-      XCODE_SCHEME=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('project',{}).get('schemes',[None])[0] or '')" 2>/dev/null || true)
-    fi
-    # #4784: reuse the simulator resolved by the build gate; re-detect if this
-    # block runs in a fresh shell. No simulator → skip loudly, same as Step A.
-    if [ -z "${XCODE_SIM:-}" ]; then
-      XCODE_SIM=$(xcrun simctl list devices available 2>/dev/null | sed -n 's/.*(\([A-F0-9-]\{8,\}\)).*/\1/p' | head -1)
-    fi
-    if [ -z "$XCODE_SIM" ]; then
-      echo "⚠ No available iOS Simulator found — skipping the Xcode test gate. Set workflow.test_command to run it anyway."
-      TEST_CMD=""
-      XCODEPROJ=""
-    else
-      XCODE_DEST="id=$XCODE_SIM"
-      XCODEPROJ=$(printf '%s' "$XCODEPROJ" | sed "s/'/'\\\\''/g")
-      XCODE_SCHEME=$(printf '%s' "$XCODE_SCHEME" | sed "s/'/'\\\\''/g")
-    fi
-    if [ -n "$XCODEPROJ" ] && [ -n "$XCODE_SCHEME" ]; then
-      TEST_CMD="xcodebuild test -project '$XCODEPROJ' -scheme '$XCODE_SCHEME' -destination '${XCODE_DEST}'"
-    elif [ -n "$XCODEPROJ" ]; then
-      TEST_CMD="xcodebuild test -project '$XCODEPROJ' -destination '${XCODE_DEST}'"
-    fi
-  elif [ -f "Makefile" ] && grep -q "^test:" Makefile; then
-    TEST_CMD="make test"
-  elif [ -f "Justfile" ] || [ -f "justfile" ]; then
-    TEST_CMD="just test"
-  elif [ -f "package.json" ]; then
-    # #5346: same resolver as the build gate.
-    TEST_CMD=$(specforge gsd resolve-package-manager test 2>/dev/null || echo "npm test")
-    [ -n "$TEST_CMD" ] || TEST_CMD="npm test"
-  elif [ -f "Cargo.toml" ]; then
-    TEST_CMD="cargo test"
-  elif [ -f "go.mod" ]; then
-    TEST_CMD="go test ./..."
-  elif [ -f "pyproject.toml" ] || [ -f "requirements.txt" ]; then
-    TEST_CMD="python -m pytest -x -q --tb=short 2>&1 || uv run python -m pytest -x -q --tb=short"
-  else
-    TEST_CMD="true"
-    echo "⚠ No test runner detected — skipping post-merge test gate"
-  fi
+# Resolve test command: project config > Xcode > Makefile > language sniff: the answer is an argv, never re-parsed
+XCODEPROJ=$(specforge files list --depth 2 --kind dir --glob '*.xcodeproj' --pick '.entries[0].path' 2>/dev/null)
+XCODE_LIST=""; XCODE_SIMS=""
+if [ -n "$XCODEPROJ" ]; then   # machine facts a command cannot read (ADR 0335 D2.2)
+  XCODE_LIST=$(xcodebuild -list -json -project "$XCODEPROJ" 2>/dev/null)
+  XCODE_SIMS=$(xcrun simctl list devices available -j 2>/dev/null)
 fi
+TEST_WORDS=$(specforge gsd gate-command test --xcode-project="$XCODEPROJ" --xcode-list="$XCODE_LIST" --simulators="$XCODE_SIMS" --pick '.argv[]') || exit 1
+TEST_ARGV=(); while IFS= read -r _w; do [ -z "$_w" ] || TEST_ARGV+=("$_w"); done <<<"$TEST_WORDS"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # #1857: normalize to a one-shot form (defeat vitest/jest watch mode) via the
 # same shared normalize-test-command helper the regression gate uses, then bound
 # with the configured timeout so a watch-mode runner cannot hang the gate.
-TEST_CMD="$TEST_CMD"   # normalize-test-command is not part of @gsd/core: the command runs as configured
+# normalize-test-command is not part of @gsd/core: the command runs as configured
 TEST_GATE_TIMEOUT="{{setting:workflow.test_gate_timeout|600}}"   # workflow.test_gate_timeout (the settings)
 TEST_EXIT=0
-specforge run --deadline "$TEST_GATE_TIMEOUT" -- bash -c "$TEST_CMD" 2>&1
-TEST_EXIT=$?
+if [ ${#TEST_ARGV[@]} -gt 0 ]; then
+  specforge run --deadline "$TEST_GATE_TIMEOUT" -- "${TEST_ARGV[@]}" 2>&1
+  TEST_EXIT=$?
+fi
 if [ "${TEST_EXIT}" -eq 0 ]; then
   echo "✓ Post-merge test gate passed — no cross-plan conflicts"
 elif [ "${TEST_EXIT}" -eq 124 ]; then
@@ -155,7 +155,7 @@ elif [ "${TEST_EXIT}" -eq 124 ]; then
 else
   echo "✗ Post-merge test gate failed (exit code ${TEST_EXIT})"
   # gsd-handoff:begin wave-failure-record
-  _GSD_HANDOFF="$( { specforge git repo --pick .git_dir 2>/dev/null || echo "${TMPDIR:-/tmp}/gsd-$(specforge files digest --text "$PWD" --pick '.digests[0].sha256')"; } )/gsd-handoff"; mkdir -p "$_GSD_HANDOFF"
+  _GSD_HANDOFF=$(specforge files temp --dir --name gsd-handoff --pick .path) || exit 1
   printf '.\n' >> "$_GSD_HANDOFF/wave-failures"  # one line per failed gate; a variable would not survive the next block (#4915)
   # gsd-handoff:end wave-failure-record
 fi

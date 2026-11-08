@@ -1,0 +1,739 @@
+//! `specforge wait` (ADR 0342): a wait for a URL on this machine, or for a time. The poll's schedule is tested on a
+//! clock that waits no real time (`specforge_ops::verbs::wait`); these runs keep their windows short, with a deadline
+//! at least ten times what the thing waited for takes.
+
+use std::io::{Read as _, Write as _};
+use std::net::TcpListener;
+use std::time::{Duration, Instant};
+
+use serde_json::json;
+use specforge_effects::testing::server::{Server, response};
+
+use crate::support::{Cli, TestProject};
+
+#[test]
+fn with_no_condition_it_waits_its_time_and_exits_0() {
+    let project = TestProject::new();
+    let answer = Cli::on(&project)
+        .run(&["wait", "--for", "200ms"])
+        .exits(0)
+        .answer();
+    assert_eq!(answer["reason"], "elapsed", "{answer}");
+    assert_eq!(
+        (answer["for_ms"].clone(), answer["polls"].clone()),
+        (json!(200), json!(0))
+    );
+    assert!(answer["waited_ms"].as_u64().unwrap() >= 200, "{answer}");
+    assert!(answer["started_at"].as_u64().unwrap() > 0, "{answer}");
+    assert!(answer.get("url").is_none(), "{answer}");
+}
+
+#[test]
+fn a_url_that_answers_ends_the_wait() {
+    let project = TestProject::new();
+    let server = Server::answering(200, "text/plain", "up");
+    let answer = Cli::on(&project)
+        .run(&["wait", "--for", "30s", "--url", &server.base])
+        .exits(0)
+        .answer();
+    assert_eq!(answer["reason"], "answered", "{answer}");
+    assert_eq!(
+        answer["url"],
+        json!({"status": 200, "ok": true, "outcome": "ok"})
+    );
+    assert_eq!(answer["polls"], 1, "{answer}");
+}
+
+/// Any HTTP answer is the server answering: an API server with no `/` route is up.
+#[test]
+fn a_404_is_an_answer() {
+    let project = TestProject::new();
+    let server = Server::answering(404, "text/plain", "no route");
+    let answer = Cli::on(&project)
+        .run(&["wait", "--for", "30s", "--url", &server.base])
+        .exits(0)
+        .answer();
+    assert_eq!(answer["reason"], "answered", "{answer}");
+    assert_eq!(
+        answer["url"],
+        json!({"status": 404, "ok": false, "outcome": "status:404"})
+    );
+}
+
+#[test]
+fn a_server_that_comes_up_ends_the_wait() {
+    let project = TestProject::new();
+    let port = Server::closed_port();
+    let late = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(300));
+        let listener = TcpListener::bind(("127.0.0.1", port)).expect("the port is still free");
+        let (mut stream, _) = listener.accept().expect("the wait connects");
+        let mut head = Vec::new();
+        let mut byte = [0u8; 1];
+        while !head.ends_with(b"\r\n\r\n") && stream.read(&mut byte).is_ok_and(|n| n == 1) {
+            head.push(byte[0]);
+        }
+        let _ = stream.write_all(&response(200, &[], b"up"));
+    });
+    let answer = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "10s",
+            "--url",
+            &format!("http://127.0.0.1:{port}/"),
+        ])
+        .exits(0)
+        .answer();
+    late.join().unwrap();
+    assert_eq!(answer["reason"], "answered", "{answer}");
+    assert!(answer["polls"].as_u64().unwrap() > 1, "{answer}");
+}
+
+#[test]
+fn no_answer_by_the_deadline_is_124() {
+    let project = TestProject::new();
+    let url = format!("http://127.0.0.1:{}/", Server::closed_port());
+    let answer = Cli::on(&project)
+        .run(&["wait", "--for", "300ms", "--url", &url])
+        .exits(124)
+        .answer();
+    assert_eq!(answer["reason"], "deadline", "{answer}");
+    assert_eq!(
+        answer["url"],
+        json!({"status": null, "ok": false, "outcome": "unreachable:connect"})
+    );
+    assert!(answer["polls"].as_u64().unwrap() > 1, "{answer}");
+    let picked = Cli::on(&project)
+        .run(&["wait", "--for", "0", "--url", &url, "--pick", ".reason"])
+        .exits(124);
+    assert_eq!(picked.stdout, "deadline\n");
+}
+
+#[test]
+fn a_url_the_ceiling_refuses_is_refused_before_waiting() {
+    let project = TestProject::new().config(|config| {
+        config["effects"] = json!({"http": "off"});
+    });
+    let server = Server::answering(200, "text/plain", "up");
+    let began = Instant::now();
+    let refused = Cli::on(&project)
+        .run(&["wait", "--for", "30s", "--url", &server.base])
+        .exits(1);
+    assert_eq!(refused.json()["code"], "E090", "{}", refused.stdout);
+    assert!(began.elapsed() < Duration::from_secs(15));
+    assert!(server.requests().is_empty(), "the server saw a request");
+    let not_a_url = Cli::on(&project)
+        .run(&["wait", "--for", "30s", "--url", "localhost:3000"])
+        .exits(1);
+    assert_eq!(
+        not_a_url.json()["code"],
+        "invalid_input",
+        "{}",
+        not_a_url.stdout
+    );
+}
+
+#[test]
+fn replay_answers_from_the_journal() {
+    let project = TestProject::new();
+    let server = Server::answering(200, "text/plain", "up");
+    let never = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "30s",
+            "--url",
+            &server.base,
+            "--effects",
+            "replay",
+        ])
+        .exits(1);
+    assert_eq!(never.json()["code"], "not_in_journal", "{}", never.stdout);
+    Cli::on(&project)
+        .run(&["wait", "--for", "30s", "--url", &server.base])
+        .exits(0);
+    let replayed = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "30s",
+            "--url",
+            &server.base,
+            "--effects",
+            "replay",
+        ])
+        .exits(0)
+        .json();
+    assert_eq!(replayed["reason"], "answered", "{replayed}");
+    assert_eq!(replayed["effect"]["from_journal"], true, "{replayed}");
+    // A wait asks about now: cached probes live.
+    let cached = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "30s",
+            "--url",
+            &server.base,
+            "--effects",
+            "cached",
+        ])
+        .exits(0)
+        .json();
+    assert_eq!(cached["effect"]["from_journal"], false, "{cached}");
+    assert_eq!(server.requests().len(), 2, "the replay sent nothing");
+}
+
+#[test]
+fn a_bad_duration_or_a_lone_since_is_a_usage_error() {
+    let project = TestProject::new();
+    for args in [
+        &["wait", "--for", "1d"][..],
+        &["wait", "--for", "25h"],
+        &["wait"],
+        &["wait", "--for", "1", "--since", "5"],
+        &["wait", "--for", "1", "--match", "x"],
+        &["wait", "--for", "1", "--in", "log.txt"],
+    ] {
+        Cli::on(&project).run(args).exits(2);
+    }
+}
+
+/// `project`'s `rel` written after `after`, on a thread the test joins.
+fn written_later(
+    project: &TestProject,
+    rel: &str,
+    text: &str,
+    after: Duration,
+) -> std::thread::JoinHandle<()> {
+    let at = project.root().join(rel);
+    let text = text.to_string();
+    std::thread::spawn(move || {
+        std::thread::sleep(after);
+        std::fs::create_dir_all(at.parent().unwrap()).unwrap();
+        std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&at)
+            .and_then(|mut file| file.write_all(text.as_bytes()))
+            .unwrap();
+    })
+}
+
+#[test]
+fn a_file_written_during_the_wait_ends_it() {
+    let project = TestProject::new().file("watched/a.txt", "before");
+    let later = written_later(
+        &project,
+        "watched/b.txt",
+        "after",
+        Duration::from_millis(300),
+    );
+    let answer = Cli::on(&project)
+        .run(&["wait", "--for", "10s", "--changed", "watched/*.txt"])
+        .exits(0)
+        .answer();
+    later.join().unwrap();
+    assert_eq!(answer["reason"], "changed", "{answer}");
+    assert_eq!(answer["changed"], json!(["watched/b.txt"]));
+}
+
+#[test]
+fn since_counts_writes_before_the_wait() {
+    let project = TestProject::new().file("watched/a.txt", "before");
+    let answer = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "0",
+            "--changed",
+            "watched/*.txt",
+            "--since",
+            "0",
+        ])
+        .exits(0)
+        .answer();
+    assert_eq!(answer["changed"], json!(["watched/a.txt"]));
+    let quiet = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "0",
+            "--changed",
+            "**/*.txt",
+            "--since",
+            "99999999999999",
+            "--pick",
+            ".reason",
+        ])
+        .exits(124);
+    assert_eq!(quiet.stdout, "deadline\n");
+}
+
+/// A glob with no glob character names one file; a file or directory that does not exist yet is "not yet".
+#[test]
+fn a_glob_with_no_glob_character_watches_one_file_and_a_missing_one_is_not_yet() {
+    let project = TestProject::new();
+    for glob in ["new/x.txt", "gone/*.txt"] {
+        let answer = Cli::on(&project)
+            .run(&["wait", "--for", "300ms", "--changed", glob])
+            .exits(124)
+            .answer();
+        assert_eq!(answer["reason"], "deadline", "{answer}");
+    }
+    let later = written_later(&project, "new/x.txt", "x", Duration::from_millis(300));
+    let answer = Cli::on(&project)
+        .run(&["wait", "--for", "10s", "--changed", "new/x.txt"])
+        .exits(0)
+        .answer();
+    later.join().unwrap();
+    assert_eq!(answer["changed"], json!(["new/x.txt"]));
+}
+
+/// A glob that names a directory watches the files in it, never the directory's own time (which a file made or
+/// removed in it moves); an empty glob, and a `--in` that names a directory, are refused before any time passes.
+#[test]
+fn a_named_directory_watches_its_files_and_an_empty_glob_or_a_directory_to_search_is_refused() {
+    let project = TestProject::new().file("watched/a.txt", "x");
+    std::fs::create_dir_all(project.root().join("empty")).unwrap();
+    let since = |glob| ["wait", "--for", "0", "--changed", glob, "--since", "0"];
+    let quiet = Cli::on(&project).run(&since("empty")).exits(124).answer();
+    assert!(quiet.get("changed").is_none(), "{quiet}");
+    let answer = Cli::on(&project).run(&since("watched")).exits(0).answer();
+    assert_eq!(answer["changed"], json!(["watched/a.txt"]));
+    let answer = Cli::on(&project).run(&since(".")).exits(0).answer();
+    let changed = answer["changed"].as_array().unwrap();
+    assert!(changed.contains(&json!("watched/a.txt")), "{answer}");
+    assert!(!changed.contains(&json!(".")), "{answer}");
+    let began = Instant::now();
+    for args in [
+        &["wait", "--for", "30s", "--changed", ""][..],
+        &["wait", "--for", "30s", "--match", "x", "--in", "watched"],
+    ] {
+        let refused = Cli::on(&project).run(args).exits(1);
+        assert_eq!(
+            refused.json()["code"],
+            "invalid_input",
+            "{}",
+            refused.stdout
+        );
+    }
+    assert!(began.elapsed() < Duration::from_secs(15));
+}
+
+/// A wait compares each check with what its first saw: a file counts when its time moves, or it appears or goes. A
+/// time in the future counts at no first check (a watch cycle's one check would see it on every cycle), and so only
+/// once it is written again.
+#[test]
+fn a_future_time_is_no_write_and_a_file_that_goes_is_one() {
+    let project = TestProject::new()
+        .file("w/future.txt", "x")
+        .file("w/kept.txt", "x");
+    let future = std::fs::File::options()
+        .write(true)
+        .open(project.root().join("w/future.txt"))
+        .unwrap();
+    future
+        .set_modified(std::time::SystemTime::now() + Duration::from_secs(86_400))
+        .unwrap();
+    drop(future);
+    let cycle = [
+        "wait",
+        "--for",
+        "0",
+        "--changed",
+        "w/*.txt",
+        "--since",
+        "0",
+        "--pick",
+        ".changed",
+    ];
+    let answer = Cli::on(&project).run(&cycle).exits(0);
+    assert_eq!(answer.stdout.trim(), r#"["w/kept.txt"]"#);
+    let quiet = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "0",
+            "--changed",
+            "w/future.txt",
+            "--since",
+            "0",
+        ])
+        .exits(124)
+        .answer();
+    assert_eq!(quiet["reason"], "deadline", "{quiet}");
+    let gone = project.root().join("w/kept.txt");
+    let later = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(300));
+        std::fs::remove_file(gone).unwrap();
+    });
+    let answer = Cli::on(&project)
+        .run(&["wait", "--for", "10s", "--changed", "w/*.txt"])
+        .exits(0)
+        .answer();
+    later.join().unwrap();
+    assert_eq!(answer["changed"], json!(["w/kept.txt"]), "{answer}");
+}
+
+#[test]
+fn an_ignored_file_does_not_count() {
+    let project = TestProject::new()
+        .file(".gitignore", "build/\n")
+        .file("build/out.txt", "x");
+    let since = [
+        "wait",
+        "--for",
+        "0",
+        "--changed",
+        "**/*.txt",
+        "--since",
+        "0",
+    ];
+    Cli::on(&project).run(&since).exits(124);
+    project.write("deep/er/kept.txt", "x");
+    let answer = Cli::on(&project).run(&since).exits(0).answer();
+    assert_eq!(answer["changed"], json!(["deep/er/kept.txt"]));
+}
+
+#[test]
+fn a_line_that_matches_ends_the_wait() {
+    let project = TestProject::new().file("log.txt", "starting\n");
+    let later = written_later(
+        &project,
+        "log.txt",
+        "ready in 30ms\n",
+        Duration::from_millis(300),
+    );
+    let answer = Cli::on(&project)
+        .run(&[
+            "wait", "--for", "10s", "--match", "ready in", "--in", "log.txt",
+        ])
+        .exits(0)
+        .answer();
+    later.join().unwrap();
+    assert_eq!(answer["reason"], "matched", "{answer}");
+    assert_eq!(
+        answer["matched"],
+        json!({"path": "log.txt", "line": 2, "text": "ready in 30ms"})
+    );
+    assert!(answer["polls"].as_u64().unwrap() > 1, "{answer}");
+    // A file that does not exist yet is "not yet".
+    Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "200ms",
+            "--match",
+            "x",
+            "--in",
+            "later.log",
+        ])
+        .exits(124);
+}
+
+#[test]
+fn a_path_outside_the_roots_is_refused_before_waiting() {
+    let project = TestProject::new().file("log.txt", "ready\n");
+    let outside = tempfile::tempdir().unwrap();
+    let log = outside.path().join("server.log");
+    std::fs::write(&log, "ready\n").unwrap();
+    let began = Instant::now();
+    for args in [
+        &[
+            "wait",
+            "--for",
+            "30s",
+            "--match",
+            "ready",
+            "--in",
+            log.to_str().unwrap(),
+        ][..],
+        &["wait", "--for", "30s", "--changed", "../x/*"],
+        // Every condition is judged, the ones that would hold included.
+        &[
+            "wait",
+            "--for",
+            "30s",
+            "--match",
+            "ready",
+            "--in",
+            "log.txt",
+            "--changed",
+            "../x/*",
+        ],
+    ] {
+        let refused = Cli::on(&project).run(args).exits(1);
+        assert_eq!(refused.json()["code"], "outside_root", "{}", refused.stdout);
+    }
+    assert!(began.elapsed() < Duration::from_secs(15));
+}
+
+#[test]
+fn a_bad_glob_or_pattern_is_invalid_input() {
+    let project = TestProject::new().file("log.txt", "ready\n");
+    for args in [
+        &["wait", "--for", "30s", "--changed", "src/[a"][..],
+        &["wait", "--for", "30s", "--match", "(", "--in", "log.txt"],
+    ] {
+        let refused = Cli::on(&project).run(args).exits(1);
+        assert_eq!(
+            refused.json()["code"],
+            "invalid_input",
+            "{}",
+            refused.stdout
+        );
+    }
+}
+
+/// `--changed` reads its glob from the project's root wherever the wait is typed, and a nested project is its own: a
+/// watch cycle names the project's files from any subdirectory. Typed with no `--path`, as a block types it.
+#[test]
+fn a_glob_is_read_from_the_project_root_from_any_directory() {
+    let project = TestProject::new()
+        .file("watched/a.txt", "x")
+        .file("src/main.rs", "")
+        .file(
+            "inner/specforge.json",
+            r#"{"name": "inner", "version": "0.1.0", "extensions": []}"#,
+        )
+        .file("inner/watched/b.txt", "x")
+        .file("inner/src/lib.rs", "");
+    let since = [
+        "wait",
+        "--for",
+        "0",
+        "--changed",
+        "watched/*.txt",
+        "--since",
+        "0",
+    ];
+    let answer = Cli::on(&project)
+        .in_dir(project.root().join("src"))
+        .bare(&since)
+        .exits(0)
+        .answer();
+    let changed = answer["changed"].as_array().expect("changed").clone();
+    assert_eq!(changed.len(), 1, "{answer}");
+    assert!(
+        changed[0].as_str().unwrap().ends_with("/watched/a.txt")
+            && !changed[0].as_str().unwrap().contains("inner"),
+        "{answer}"
+    );
+    let nested = Cli::on(&project)
+        .in_dir(project.root().join("inner/src"))
+        .bare(&since)
+        .exits(0)
+        .answer();
+    let changed = nested["changed"].as_array().expect("changed").clone();
+    assert_eq!(changed.len(), 1, "{nested}");
+    assert!(
+        changed[0]
+            .as_str()
+            .unwrap()
+            .ends_with("/inner/watched/b.txt"),
+        "{nested}"
+    );
+}
+
+/// `--retry-after` reads a `Retry-After` header's value in every form it takes: seconds, a fraction, an HTTP date (a
+/// past one is no wait), each held to a day; it stands in place of `--for`.
+#[test]
+fn a_retry_after_value_is_read_in_every_form() {
+    let project = TestProject::new();
+    for (value, for_ms) in [
+        ("0.2", 200),
+        ("0", 0),
+        ("Sun, 06 Nov 1994 08:49:37 GMT", 0),
+        ("Sunday, 06-Nov-94 08:49:37 GMT", 0),
+        ("Sun Nov  6 08:49:37 1994", 0),
+    ] {
+        let answer = Cli::on(&project)
+            .run(&["wait", "--retry-after", value])
+            .exits(0)
+            .answer();
+        assert_eq!(answer["reason"], "elapsed", "{value}: {answer}");
+        assert_eq!(answer["for_ms"], for_ms, "{value}: {answer}");
+    }
+    for args in [
+        &["wait", "--retry-after", "soon"][..],
+        &["wait", "--retry-after", "5", "--for", "5"],
+    ] {
+        Cli::on(&project).run(args).exits(2);
+    }
+}
+
+/// A condition that holds ends the wait before a probe starts: a file already written ends it with no request sent to
+/// a server that would never answer.
+#[test]
+fn a_condition_that_holds_ends_the_wait_before_any_probe() {
+    let project = TestProject::new().file("watched/a.txt", "x");
+    let silent = Server::serve(|_, _, _| std::thread::sleep(Duration::from_secs(30)));
+    let began = Instant::now();
+    let answer = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "30s",
+            "--url",
+            &silent.base,
+            "--changed",
+            "watched/*.txt",
+            "--since",
+            "0",
+        ])
+        .exits(0)
+        .answer();
+    assert_eq!(answer["reason"], "changed", "{answer}");
+    assert!(answer.get("url").is_none(), "{answer}");
+    assert!(began.elapsed() < Duration::from_secs(5));
+    assert!(silent.requests().is_empty(), "a probe was sent");
+    // A bad pattern is judged before any check, a condition that holds or not.
+    let refused = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "30s",
+            "--changed",
+            "watched/*.txt",
+            "--since",
+            "0",
+            "--match",
+            "(",
+            "--in",
+            "log.txt",
+        ])
+        .exits(1);
+    assert_eq!(
+        refused.json()["code"],
+        "invalid_input",
+        "{}",
+        refused.stdout
+    );
+}
+
+/// Only a request that found no server yet waits on: a redirect loop or a refused TLS handshake ends the wait at once
+/// with the refusal `http` gives it, and its exit.
+#[test]
+fn a_refusal_http_gives_ends_the_wait_with_its_exit() {
+    let project = TestProject::new();
+    let looping = Server::reply(|_, _| response(302, &[("Location", "/again")], b""));
+    // A server that answers plain text the moment a client connects: a TLS handshake reads it and is refused.
+    let plain = TcpListener::bind("127.0.0.1:0").unwrap();
+    let tls = format!("https://127.0.0.1:{}/", plain.local_addr().unwrap().port());
+    std::thread::spawn(move || {
+        for mut stream in plain.incoming().flatten() {
+            let _ = stream.write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n");
+        }
+    });
+    for url in [looping.base.clone(), tls] {
+        let began = Instant::now();
+        let waited = Cli::on(&project)
+            .run(&["wait", "--for", "30s", "--url", &url])
+            .exits(1);
+        assert!(began.elapsed() < Duration::from_secs(10), "{url}");
+        let got = Cli::on(&project).run(&["http", "get", &url]).exits(1);
+        assert_eq!(waited.json()["code"], got.json()["code"], "{url}");
+        assert_eq!(waited.json()["code"], "unreachable", "{}", waited.stdout);
+    }
+}
+
+/// A replay finds a probe's record whatever `--for` either wait was given, an answer or a no-answer: a recorded
+/// no-answer ends the replay at once at its deadline, from the journal.
+#[test]
+fn replay_finds_a_probe_at_any_for_and_replays_a_no_answer() {
+    let project = TestProject::new();
+    let server = Server::answering(200, "text/plain", "up");
+    Cli::on(&project)
+        .run(&["wait", "--for", "3s", "--url", &server.base])
+        .exits(0);
+    let replayed = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "30s",
+            "--url",
+            &server.base,
+            "--effects",
+            "replay",
+        ])
+        .exits(0)
+        .answer();
+    assert_eq!(replayed["reason"], "answered", "{replayed}");
+    let closed = format!("http://127.0.0.1:{}/", Server::closed_port());
+    Cli::on(&project)
+        .run(&["wait", "--for", "300ms", "--url", &closed])
+        .exits(124);
+    let began = Instant::now();
+    let replayed = Cli::on(&project)
+        .run(&[
+            "wait",
+            "--for",
+            "30s",
+            "--url",
+            &closed,
+            "--effects",
+            "replay",
+        ])
+        .exits(124)
+        .json();
+    assert!(began.elapsed() < Duration::from_secs(10), "{replayed}");
+    assert_eq!(replayed["reason"], "deadline", "{replayed}");
+    assert_eq!(
+        replayed["url"]["outcome"], "unreachable:connect",
+        "{replayed}"
+    );
+    assert_eq!(replayed["effect"]["from_journal"], true, "{replayed}");
+}
+
+/// A probe takes the time the wait has left: a server that never answers holds the wait past its deadline by less
+/// than a poll.
+#[test]
+fn a_silent_server_never_holds_the_wait_past_its_deadline() {
+    let project = TestProject::new();
+    let silent = Server::serve(|_, _, _| std::thread::sleep(Duration::from_secs(30)));
+    let answer = Cli::on(&project)
+        .run(&["wait", "--for", "300ms", "--url", &silent.base])
+        .exits(124)
+        .answer();
+    assert_eq!(answer["url"]["outcome"], "unreachable:timeout", "{answer}");
+    let waited = answer["waited_ms"].as_u64().unwrap();
+    assert!(waited < 300 + 250, "{answer}");
+}
+
+/// A proxy from the environment sees what a probe carries, so the project's ceiling must reach its host as it reaches
+/// the URL's: a proxy it lists carries the probe, and one it does not is refused with the remedy before anything is
+/// sent.
+#[test]
+fn a_proxy_is_judged_by_the_ceiling_as_the_url_is() {
+    let proxy = Server::answering(200, "text/plain", "through the proxy");
+    let url = "http://specforge-proxied.invalid/";
+    let wait = |hosts: serde_json::Value| {
+        let project = TestProject::new().config(|config| {
+            config["effects"] = json!({"http": {"hosts": hosts}});
+        });
+        let mut cli = Cli::on(&project);
+        for var in ["HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"] {
+            cli = cli.env(var, &proxy.base);
+        }
+        for var in ["NO_PROXY", "no_proxy"] {
+            cli = cli.env(var, "");
+        }
+        cli.run(&["wait", "--for", "10s", "--url", url])
+    };
+    let refused = wait(json!(["specforge-proxied.invalid"])).exits(1);
+    assert_eq!(refused.json()["code"], "E090", "{}", refused.stdout);
+    assert!(
+        refused
+            .stdout
+            .contains("goes through the proxy on 127.0.0.1"),
+        "{}",
+        refused.stdout
+    );
+    assert!(proxy.requests().is_empty(), "the proxy saw a request");
+    let answer = wait(json!(["specforge-proxied.invalid", "127.0.0.1"]))
+        .exits(0)
+        .answer();
+    assert_eq!(answer["reason"], "answered", "{answer}");
+    assert_eq!(proxy.requests().len(), 1);
+}

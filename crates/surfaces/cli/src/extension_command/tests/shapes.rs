@@ -1,0 +1,197 @@
+//! The `--pick` shapes (ADR 0325 D8) and `--fields` (D7) on an extension command: host options beside `--pick`, each
+//! unless the command declares an arg of the name.
+
+use super::*;
+use crate::pick::Picked;
+
+#[test]
+fn the_shapes_print_a_commands_answer() {
+    let answer = r#"{"a": [1, 2, 3]}"#;
+    for (shape, printed) in [
+        (&["--count"][..], "3\n"),
+        (&["--first", "2"], "1\n2\n"),
+        (&["--last", "1", "--join", ","], "3\n"),
+        (&["--join", ", "], "1, 2, 3\n"),
+        (&["--join", "-x"], "1-x2-x3\n"),
+    ] {
+        let mut args = vec!["--pick", ".a[]"];
+        args.extend(shape);
+        let (code, out, err) = quiet(answer, "", 0, &args);
+        assert_eq!((code, out.as_str()), (0, printed), "{shape:?}: {err}");
+    }
+    // the exit code is the command's
+    let (code, out, _) = quiet(answer, "", 3, &["--pick", ".a[]", "--count"]);
+    assert_eq!((code, out.as_str()), (3, "3\n"));
+}
+
+#[test]
+fn a_shape_without_pick_is_a_usage_error() {
+    for args in [
+        &["--count"][..],
+        &["--first", "1"],
+        &["--last", "1"],
+        &["--join", ","],
+    ] {
+        let (code, out, err) = quiet(r#"{"a": [1]}"#, "", 0, args);
+        assert_eq!((code, out.as_str()), (2, ""), "{args:?}: {err}");
+    }
+}
+
+#[test]
+fn shapes_that_conflict_are_a_usage_error() {
+    for args in [
+        &["--pick", ".a[]", "--count", "--last", "1"][..],
+        &["--pick", ".a[]", "--count", "--join", ","],
+        &["--pick", ".a[]", "--first", "1", "--last", "1"],
+    ] {
+        let (code, out, err) = quiet(r#"{"a": [1]}"#, "", 0, args);
+        assert_eq!((code, out.as_str()), (2, ""), "{args:?}: {err}");
+    }
+}
+
+#[test]
+fn a_command_declaring_count_keeps_it_and_still_takes_first() {
+    let mut c = contribution();
+    c.args
+        .push(arg("count", CommandArgType::Integer, false, None));
+    let command = declared(c.clone());
+    let added = beside_pick(&command);
+    assert_eq!(added, ["fields", "first", "last", "join"]);
+    let argv = [
+        "specforge x",
+        "milestone-completion",
+        "m1",
+        "--count",
+        "7",
+        "--pick",
+        ".a[]",
+        "--first",
+        "1",
+    ];
+    let matches = command_line("x", &[&command])
+        .try_get_matches_from(argv)
+        .unwrap();
+    let (_, sub) = matches.subcommand().unwrap();
+    // the declared `count` is the command's arg, not a shape
+    let (args, _) = sent_by(&c, &argv[1..]).unwrap();
+    assert_eq!(args["count"], 7);
+    assert_eq!(
+        Picked::of_matches(sub, &added).printed(r#"{"a": [1, 2, 3]}"#),
+        Some(Ok("1\n".into()))
+    );
+    // a command that declares `pick` has none of the host's: no shape either
+    let mut own = contribution();
+    own.args
+        .push(arg("pick", CommandArgType::String, false, None));
+    assert!(beside_pick(&declared(own)).is_empty());
+}
+
+#[test]
+fn a_shape_conflicts_with_no_arg_the_command_declares() {
+    let mut c = contribution();
+    c.args
+        .push(arg("join", CommandArgType::String, false, None));
+    let command = declared(c.clone());
+    assert_eq!(beside_pick(&command), ["fields", "count", "first", "last"]);
+    // the host's `--count` takes no other shape, but the declared `--join` is the command's
+    let argv = [
+        "milestone-completion",
+        "m1",
+        "--join",
+        "x",
+        "--pick",
+        ".a[]",
+        "--count",
+    ];
+    let (args, _) = sent_by(&c, &argv).unwrap();
+    assert_eq!(args["join"], "x");
+}
+
+#[test]
+fn the_host_count_never_reaches_the_guests_arguments() {
+    let c = contribution();
+    let command = declared(c.clone());
+    assert!(!command.args().iter().any(|a| a.name == "count"));
+    let argv = ["milestone-completion", "m1", "--pick", ".a[]", "--count"];
+    // the host reads it
+    let matches = command_line("x", &[&command])
+        .try_get_matches_from(std::iter::once("specforge x").chain(argv))
+        .unwrap();
+    let (_, sub) = matches.subcommand().unwrap();
+    assert_eq!(
+        Picked::of_matches(sub, &beside_pick(&command)).printed(r#"{"a": [1, 2]}"#),
+        Some(Ok("2\n".into()))
+    );
+    // the guest is sent only what it declares
+    let (args, _) = sent_by(&c, &argv).unwrap();
+    for host in ["count", "pick"] {
+        assert!(!args.contains_key(host), "{host}: {args:?}");
+    }
+    assert!(
+        args.keys().all(|key| c.args.iter().any(|a| a.name == *key)),
+        "{args:?}"
+    );
+}
+
+#[test]
+fn fields_prints_one_row_per_item_of_a_commands_answer() {
+    let answer = r#"{"n": 2, "items": [{"id": "a", "d": "x\ty"}, {"id": "b"}]}"#;
+    let (code, out, err) = quiet(answer, "", 0, &["--pick", ".items[]", "--fields", "id,d"]);
+    assert_eq!((code, out.as_str()), (0, "a\x1fx\ty\nb\x1f\n"), "{err}");
+    // the answer's root is one row
+    let (code, out, err) = quiet(answer, "", 0, &["--pick", ".", "--fields", "n"]);
+    assert_eq!((code, out.as_str()), (0, "2\n"), "{err}");
+    // a shape keeps its rows; the exit code is the command's
+    let args = ["--pick", ".items[]", "--fields", "id", "--last", "1"];
+    let (code, out, _) = quiet(answer, "", 3, &args);
+    assert_eq!((code, out.as_str()), (3, "b\n"));
+}
+
+#[test]
+fn a_commands_cell_prints_raw_and_a_newline_in_one_is_refused() {
+    let args = ["--pick", ".items[]", "--fields", "id,d"];
+    let raw = r#"{"items": [{"id": "a", "d": "C:\\new\\table"}]}"#;
+    let (code, out, err) = quiet(raw, "", 0, &args);
+    assert_eq!((code, out.as_str()), (0, "a\x1fC:\\new\\table\n"), "{err}");
+    let two = r#"{"items": [{"id": "a", "d": "ok"}, {"id": "b", "d": "x\ny"}]}"#;
+    let (code, out, err) = quiet(two, "", 0, &args);
+    assert_eq!((code, out.as_str()), (1, ""), "{err}");
+    assert!(
+        err.contains("'d'") && err.contains("'b'") && err.contains("newline"),
+        "{err}"
+    );
+}
+
+#[test]
+fn fields_without_pick_or_beside_count_is_a_usage_error() {
+    for args in [
+        &["--fields", "id"][..],
+        &["--pick", ".a[]", "--fields", "id", "--count"],
+        &["--pick", ".a[]", "--fields", "id", "--join", ","],
+        &["--pick", ".a[]", "--fields", "a,,b"],
+    ] {
+        let (code, out, err) = quiet(r#"{"a": [1]}"#, "", 0, args);
+        assert_eq!((code, out.as_str()), (2, ""), "{args:?}: {err}");
+    }
+}
+
+#[test]
+fn a_command_declaring_fields_keeps_it() {
+    let mut c = contribution();
+    c.args
+        .push(arg("fields", CommandArgType::String, false, None));
+    assert_eq!(
+        beside_pick(&declared(c.clone())),
+        ["count", "first", "last", "join"]
+    );
+    let argv = [
+        "milestone-completion",
+        "m1",
+        "--fields",
+        "x",
+        "--pick",
+        ".a[]",
+    ];
+    let (args, _) = sent_by(&c, &argv).unwrap();
+    assert_eq!(args["fields"], "x");
+}

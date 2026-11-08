@@ -140,10 +140,12 @@ fn handle(call: &PromptCall<'_>) -> Result<PromptOutput, String> {
             id
         }
     };
+    let values = args::values(call, ARGS, Some(("phase", &phase)))?;
     let text = render::render(&render::Input {
         command: "secure-phase",
         host: call.host().unwrap_or("claude-code"),
         arguments: &arguments,
+        values: &values,
         settings: &block(),
         extension: "@gsd/security",
         files: FILES,

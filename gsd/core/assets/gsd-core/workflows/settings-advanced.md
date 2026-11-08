@@ -43,7 +43,7 @@ All subsequent reads and writes go through `$GSD_CONFIG_PATH`. Never hardcode
 
 <step name="read_current">
 ```bash
-cat "$GSD_CONFIG_PATH"
+specforge settings --extension @gsd/core
 ```
 
 Parse the following current values. If a key is absent, fall back to the documented default
@@ -607,7 +607,7 @@ of the `runtime` and `model_profile` selections above. Two paths are offered:
 **Step A — Read and display the current model policy:**
 
 ```bash
-cat "$GSD_CONFIG_PATH" | python3 -c "import sys,json; c=json.load(sys.stdin); mp=c.get('model_policy',{}); print(json.dumps(mp,indent=2))" 2>/dev/null || echo "{}"
+specforge settings --extension @gsd/core   # the model_policy.* rows
 ```
 
 Display the current values (or "(unset)" for any absent field) before asking:

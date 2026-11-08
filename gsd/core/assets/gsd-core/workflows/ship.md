@@ -25,28 +25,28 @@ Valid GSD subagent types (use exact names — do not fall back to 'general-purpo
 Parse arguments and load project state:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 ```
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
-Parse from init JSON: `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `padded_phase`, `commit_docs`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error). `commit_docs` is a setting: `specforge settings --format json --extension @gsd/core`.
 
 Also load config for branching strategy:
 ```bash
 CONFIG=$(specforge settings)
 ```
 
-Extract: `branching_strategy`, `branch_name`.
+The strategy is `git.branching_strategy` in these settings; the branch is the phase's computed `branch`.
 
 Detect base branch for PRs and merges:
 ```bash
@@ -83,10 +83,10 @@ Verify the work is ready to ship:
 3. **On correct branch?**
    ```bash
    CURRENT_BRANCH=$(specforge git head --pick .branch 2>/dev/null || true)
-   IS_PROTECTED=$(case "$CURRENT_BRANCH" in (main|master|develop|release/*) echo true;; (*) echo false;; esac) || IS_PROTECTED=""
+   IS_PROTECTED=$(specforge gsd branch-check --pick .protected 2>/dev/null) || IS_PROTECTED=""
    if [ "$IS_PROTECTED" = true ]; then
      echo "⚠ Current branch '$CURRENT_BRANCH' is a protected branch; shipping should happen from a feature branch." >&2
-   elif [ -z "$IS_PROTECTED" ]; then
+   elif [ -z "$IS_PROTECTED" ] || [ "$(specforge gsd branch-check --pick .blocks_commit 2>/dev/null)" = true ]; then
      echo "⚠ Could not determine whether '$CURRENT_BRANCH' is protected — the query failed. Continuing." >&2
    fi
    ```
@@ -137,8 +137,8 @@ Verify the work is ready to ship:
    - **`capId == "broken-windows"`** (issue #1950) — enforce against the ledger's typed status. The ledger is the milestone's (cross-phase: the windows of every phase of the milestone, not this phase's alone):
 
      ```bash
-     WINDOWS_STATUSES=$(specforge query "$MILESTONE" --depth 2 --kinds broken_window --pick '.nodes[kind=broken_window].fields.status' 2>/dev/null) || WINDOWS_STATUSES='?'
-     WINDOWS_OPEN_COUNT=$([ "$WINDOWS_STATUSES" = '?' ] && echo '?' || printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
+     WINDOWS_OPEN_COUNT=$(specforge query "$MILESTONE" --depth 2 --kinds broken_window --pick '.nodes[fields.status=open]' --count 2>/dev/null) || WINDOWS_OPEN_COUNT='?'
+     # '?' when the ledger could not be read: the gate below fails closed on it
      ```
 
      - **`WINDOWS_OPEN_COUNT == "0"`** → `block: false`; the gate passes.
@@ -215,7 +215,7 @@ Auto-generate a rich PR body from planning artifacts:
 ```
 Phase {phase_number}: {phase_name}
 ```
-Or for milestone: `Milestone {version}: {name}`
+Or for milestone: "Milestone {version}: {name}"
 
 **2. Summary section:**
 Read ROADMAP.md for phase goal. Read VERIFICATION.md for verification status.
@@ -404,7 +404,7 @@ If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:
 
 2. **Load phase context from STATE.md:**
    ```bash
-   STATE_STATUS=$(specforge gsd progress-report 2>/dev/null | head -20)
+   STATE_STATUS=$(specforge gsd progress-report 2>/dev/null)
    ```
 
 3. **Build review prompt and pipe to command via stdin:**
@@ -423,7 +423,7 @@ If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:
    If `REVIEW_EXIT` is non-zero or the command times out:
    ```bash
    if [ $REVIEW_EXIT -ne 0 ]; then
-     REVIEW_STDERR=$(cat "${REVIEW_STDERR_FILE}" 2>/dev/null)
+     REVIEW_STDERR=$(specforge files read "${REVIEW_STDERR_FILE}" --pick .text 2>/dev/null)
      echo "WARNING: External review command failed (exit ${REVIEW_EXIT}). stderr: ${REVIEW_STDERR}"
      echo "Continuing with manual review flow..."
    fi
@@ -514,10 +514,10 @@ for i in {1..5}; do
   if [ "$HEAD_OID" = "$SHIP_NOTE_SHA" ] && [ "$STATUS" != "unknown" ]; then
     break
   fi
-  sleep 3
+  specforge wait --for 3s >/dev/null
 done
 
-if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && for f in subject body; do specforge git log "$SHIP_NOTE_SHA" --max 1 --pick ".commits[0].$f"; done | grep -q '\[ci skip\]'; then
+if [ "$STATUS" = "blocked" ] && [ "$CHECKS" = "0" ] && [ "$(specforge git log "$SHIP_NOTE_SHA" --max 1 --grep '\[ci skip\]' --pick '.commits[0].sha' 2>/dev/null)" = "$SHIP_NOTE_SHA" ]; then
   echo "⚠ PR is BLOCKED with zero checks. The [ci skip] trailer wedged the PR due to required checks."
   echo "Pushing an empty commit to trigger the required pipelines..."
   # a commit with no files is made with git directly (an intentionally empty commit).
@@ -574,7 +574,7 @@ Read the `activeHooks` of every line of `SHIP_POST_HOOKS_JSON`, one per capabili
   When it resolved to `inherit` or empty, drop the parameter:
 
   `Agent(subagent_type=ref.agent, prompt="Ship-time capability hook for phase ${PHASE_NUMBER}. Phase dir: ${PHASE_DIR}. Consume: ${consumed_files}. Follow your agent instructions.")`
-- If `ref.skill` is set, dispatch with `Skill(skill="gsd-${ref.skill}", args="${PHASE_NUMBER} --auto ${GSD_WS}")` (prepend `gsd-` to `ref.skill`).
+- If `ref.skill` is set, dispatch with `Skill(skill="gsd-${ref.skill}", args="${PHASE_NUMBER} --auto")` (prepend `gsd-` to `ref.skill`).
 
 Each dispatch is best-effort: if it errors, record a warning and continue — never re-raise (`onError: skip`).
 </step>

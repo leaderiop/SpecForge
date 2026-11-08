@@ -167,6 +167,12 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/secure-phase.md", 164),
     // the commit stages the spec
     ("gsd-core/workflows/secure-phase.md", 173),
+    // the phase is the prompt's typed subject: no PHASE_ARG is parsed from the argument text
+    ("gsd-core/workflows/secure-phase.md", 24),
+    // the argument capture (ADR 0340 D6) left as empty lines: the heredoc's read, `$ARGUMENTS`, the trim line
+    ("gsd-core/workflows/secure-phase.md", 18),
+    ("gsd-core/workflows/secure-phase.md", 19),
+    ("gsd-core/workflows/secure-phase.md", 21),
 ];
 
 fn vendored_body(path: &str) -> Vec<String> {
@@ -191,8 +197,9 @@ fn the_secure_phase_assets_are_upstreams_but_for_the_ported_lines() {
             REWRITTEN.contains(&(*path, n))
         });
     }
-    // the ported lines: 11 name a tool, 18 are listed above (the command and the template are upstream's)
-    assert_eq!(changed, 29, "the number of changed lines");
+    // the ported lines: those that name a tool, the 22 listed above, and those that call `specforge` in place of a
+    // tool (the command and the template are upstream's)
+    assert_eq!(changed, 36, "the number of changed lines");
 }
 
 /// The ported workflows' hook line, asked here too: the hooks of every capability extension at `verify:post`, one

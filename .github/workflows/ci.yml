@@ -74,6 +74,11 @@ jobs:
         if: matrix.shard != 'gsd'
         run: sudo apt-get update && sudo apt-get install -y z3
 
+      # The injection tests run each rendered statement in bash and zsh; without zsh they fail under CI.
+      - name: Install zsh (the gsd shell tests)
+        if: matrix.shard == 'gsd'
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
       - name: Every check of the list is in a shard
         if: matrix.shard == 'lint'
         run: |

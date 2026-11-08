@@ -13,7 +13,7 @@ mod lower;
 mod revision;
 mod verdict;
 pub use verdict::{
-    Clock, JudgedRule, JudgedRules, NoJudgedRules, Rules, SystemClock, UnknownCite,
+    Calendar, JudgedRule, JudgedRules, NoJudgedRules, Rules, SystemCalendar, UnknownCite,
     VERDICT_REFUSED, VerdictMember, VerdictStep,
 };
 
@@ -130,10 +130,10 @@ pub fn apply_plan(
     caller: Caller<'_>,
 ) -> Result<Edited, Refusal<EditField>> {
     let rules: Arc<dyn JudgedRules> = Arc::new(HostJudgedRules::of(view));
-    apply_plan_with(view, plan, origin, dry_run, caller, &rules, &SystemClock)
+    apply_plan_with(view, plan, origin, dry_run, caller, &rules, &SystemCalendar)
 }
 
-/// [`apply_plan`] for a host that judges rules: a `set_verdict` is checked through `rules` (D6) and dated by `clock`.
+/// [`apply_plan`] for a host that judges rules: a `set_verdict` is checked through `rules` (D6) and dated by `calendar`.
 pub fn apply_plan_with(
     view: &ProjectView<'_>,
     plan: &EditPlan,
@@ -141,14 +141,14 @@ pub fn apply_plan_with(
     dry_run: bool,
     caller: Caller<'_>,
     rules: &Arc<dyn JudgedRules>,
-    clock: &dyn Clock,
+    calendar: &dyn Calendar,
 ) -> Result<Edited, Refusal<EditField>> {
     let lowered = lower::lower(view, plan)?;
     flags::check(view, origin, &lowered.ops, true)?;
     let mut steps: Vec<Step> = lowered.ops.iter().map(|op| op.step.clone()).collect();
     // The verdicts go back where the plan wrote them, once checked.
     for (inserted, (at, op)) in lowered.verdicts.iter().enumerate() {
-        let step = verdict::check(view, rules, clock, origin, op)?;
+        let step = verdict::check(view, rules, calendar, origin, op)?;
         flags::verdict(view, origin, &step)?;
         steps.insert(at + inserted, Step::Verdict(Box::new(step)));
     }

@@ -14,10 +14,10 @@ disagrees. Every row but Capabilities is computed from tables of code; Capabilit
 | Hooks | 29 | 16 | 0 | 11 | 2 | `core/src/hooks/roster.rs` |
 | Capabilities | 45 | 17 | 10 | 0 | 18 | `core/README.md` capability table |
 | Workflows and references | 297 | 234 | 53 | 10 | 0 | `core/tests/parity_roster/assets.rs` |
-| CLI modules | 288 | 170 | 21 | 97 | 0 | `core/tests/parity_roster/modules.rs` |
+| CLI modules | 288 | 169 | 21 | 98 | 0 | `core/tests/parity_roster/modules.rs` |
 | Config keys | 212 | 161 | 35 | 16 | 0 | `core/spec/settings.md` |
 | Gate-cutover verdicts | 171 | 92 | 51 | 14 | 14 | `core/tests/parity_rules/cutover.rs` |
-| Codes | 63 | 63 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
+| Codes | 64 | 64 | 0 | 0 | 0 | `core/tests/parity_rules/evidence.rs` |
 
 Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, verification) are the kinds of
 `core/spec/*.md`; they have no inventory family, so no count. They are exercised by every row above.
@@ -39,16 +39,16 @@ Concepts (the model: phases, plans, milestones, requirements, decisions, UAT, ve
   `specforged` harness (only their settings keys exist).
 - Workflows and references: 234 are embedded or replaced by a typed command, 53 are owned, 10 do not apply; each of the
   78 not embedded names why in `assets.rs`.
-- CLI modules: 170 are ported or are the host half of a `specforge` command, 21 are owned, 97 do not apply (the argv
+- CLI modules: 169 are ported or are the host half of a `specforge` command, 21 are owned, 98 do not apply (the argv
   router, the capability loader, the runtimes SpecForge does not install for, `security.cjs`, the per-repository release
-  tags).
+  tags, the argument-heredoc terminator).
 - Config keys: of 212, 161 are declared in `@gsd/core`, 35 are owned by an extension and 16 do not apply, in
   `core/spec/settings.md`.
 - Gate-cutover verdicts: 92 of the 171 are reproduced by a test or by construction (the typed commands refuse the
   argument shape); 51 belong to an extension, 14 are the gate engine, and 14 are core codes whose verdict is not reproduced: 11
   that no twin reaches, and 3 that a twin reaches and answers differently (`Diverges`, below). Each is named, with its
   reason, in `core/tests/parity_rules/cutover.rs`.
-- Codes: 63 of the 63 codes fire and stay silent in a named test.
+- Codes: 64 of the 64 codes fire and stay silent in a named test.
 
 ## `@gsd/security` 1.0.0 against gsd-core 1.19.0
 
@@ -208,8 +208,17 @@ Not verified:
   RED before it and is silent otherwise) and `prohibition-enforcement-request-file-judgment-mode` (upstream flags a
   judgment-tier prohibition without evidence; E319 judges the test tier only).
 - The 11 other unreached verdicts are named in `cutover.rs`.
-- The "silent" evidence of 38 of the 63 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
+- The "silent" evidence of 39 of the 64 built codes is the unedited twin (`rules_silent.rs`): it proves the code is not
   raised there, not that the rule judged a clean case.
+- `[agent-namespace-one-rule]` `workflow_guard` reads the agent namespace as `worktree_path_guard` does, with `worktree-wf_` and the charset; upstream's workflow guard has the two prefixes `agent-` and `worktree-agent-`.
+- `[protected-set]` `branch_check` protects `main`, `master`, `develop`, `trunk`, `release/…`, `git.protected_branches` and `git.base_branch`, and `git.allow_default_branch_commits` changes `blocks_commit`, not `protected`, so ship's and the `none` strategy's warnings still show on `main`. Upstream also reads the real default branch; the git port answers no remotes, so `origin/HEAD` is not read here.
+- `[gate-argv]` The build and test gates run `gate_command`'s argv through `specforge run`, never a string under `bash -c`, so a file name
+  is never read as shell (upstream's python arm runs one that is). Only the `workflow.<target>_command` setting is a shell string, by its contract.
+- `[gate-simulator]` The Xcode gates take the newest iOS runtime's first available device from `xcrun simctl list devices available -j`;
+  upstream takes the first UDID of the text listing.
+- `[gate-uv-lock]` pytest runs through `uv run` when `uv.lock` exists; upstream re-runs a failed suite under uv, so a failing one runs twice.
+- `[gate-build-script]` The build gate's package arm reads `scripts.build`; upstream takes any `"build"` in `package.json`.
+- `[guard-reads-words]` Step 0c asks `gsd automated-guard`, which reads the command as the shell's words and halts on one it cannot read; upstream scans its text with regexes. The words close upstream's stated limits: quoted boundaries, control keywords, `command` and `exec`, a `--` before a directory flag, a relocating launcher's payload and an operand-taking shell option.
 
 ## Needs a change outside `gsd/`
 

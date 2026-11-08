@@ -61,14 +61,8 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 124462,
+  "bytes": 122544,
   "end": [
-    "- Random emoji (`🚀`, `✨`, `💫`)",
-    "- Missing Next Up block after completions",
-    "",
-    "Enforced by `tests/responsive-separators.test.cjs`.",
-    "",
-    "</ui_patterns>",
     "</file>",
     "</execution_context>",
     "",
@@ -102,7 +96,13 @@
     "",
     "",
     "",
-    "In the shell blocks above, `$PHASE_ID` is `v1.0/02`; `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
+    "In the shell blocks above, `$PHASE_ID` is `v1.0/02`; `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`.",
+    "",
+    "## Graph context on this install",
+    "",
+    "- `$gsd-graphify`: not served on this project",
+    "",
+    "Pass this line to the planner as its `**Graph context:**`."
   ],
   "head": [
     "<codex_skill_adapter>",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 2119,
+  "lines": 2125,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:2a89278f3f897eba0122748d7f49c3382abc15bdf1761b3b0ee85e83e1351e05",
+    "digest": "sha256:cb1c782a32e1c9ea50da7a6952d1ea9c45c91428a86d5ce58d6bb8c9f7f58e55",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -240,5 +240,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "2a89278f3f897eba0122748d7f49c3382abc15bdf1761b3b0ee85e83e1351e05"
+  "sha256": "cb1c782a32e1c9ea50da7a6952d1ea9c45c91428a86d5ce58d6bb8c9f7f58e55"
 }

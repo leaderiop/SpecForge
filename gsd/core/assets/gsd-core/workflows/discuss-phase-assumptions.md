@@ -63,16 +63,16 @@ Capture the idea in "Deferred Ideas". Don't lose it, don't act on it.
 Phase number from argument (required).
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-AUTO_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--auto([[:space:]]|$) ]]; then AUTO_PARAM="--auto"; fi
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 AGENT_SKILLS_ANALYZER=""   # the host install carries the skills of gsd-assumptions-analyzer
 # #2072: resolve the routed model so model_overrides / models.discuss are honored
 # (the resolver maps gsd-assumptions-analyzer → phaseType "discuss"); thread it below.
@@ -81,9 +81,9 @@ AGENT_SKILLS_ANALYZER=""   # the host install carries the skills of gsd-assumpti
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
-Parse JSON for: `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`,
-`phase_slug`, `padded_phase`, `has_research`, `has_context`, `has_plans`, `has_verification`,
-`plan_count`, `roadmap_exists`, `planning_exists` (the phase's spec is read in `check_spec`, from the graph).
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields; a phase not in the graph is an E003 error),
+and its `plan`, `research`, `context` and `verification` entities, when it has them, are among the other nodes (`plan_count` counts the plans). `commit_docs` is a setting:
+`specforge settings --format json --extension @gsd/core` (the phase's spec is read in `check_spec`, from the graph).
 
 **If `phase_found` is false:**
 ```
@@ -104,7 +104,7 @@ Exit workflow.
 </step>
 
 <step name="check_spec">
-Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md locks requirements before implementation decisions. Here the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the SPEC.md file at `spec_path` is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
+Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md locks requirements before implementation decisions. Here the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' --first 1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the SPEC.md file at `spec_path` is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
 
 **If `has_spec` is true:**
 1. Read the SPEC.md file at `spec_path`.
@@ -122,7 +122,7 @@ Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md lo
 Check if CONTEXT.md already exists using `has_context` from init.
 
 ```bash
-specforge files list ${phase_dir} --depth 1 --kind file --no-ignore --glob '*-CONTEXT.md' --format human 2>/dev/null || true
+specforge query "$PHASE_ID" --depth 1 --kinds context --format brief
 ```
 
 **If exists:**
@@ -179,7 +179,7 @@ Extract from these:
 
 **Step 2: Read all prior CONTEXT.md files**
 ```bash
-specforge query "$MILESTONE" --depth 2 --kinds context --format brief | sort
+specforge query "$MILESTONE" --depth 2 --kinds context --format brief
 ```
 
 For each CONTEXT.md where phase number < current phase:
@@ -246,7 +246,7 @@ Lightweight scan of existing code to inform assumption generation.
 Extract key terms from phase goal, search for related files.
 
 ```bash
-grep -rl "{term1}\|{term2}" src/ app/ --include="*.ts" --include="*.tsx" 2>/dev/null | head -10
+specforge files search -l '{term1}|{term2}' src app --glob '*.ts' --glob '*.tsx' --max 10 --pick '.files[]'
 ```
 
 Read the 3-5 most relevant files.
@@ -615,7 +615,7 @@ Update STATE.md with session info:
 ```bash
 printf '%s\n' "STATE is computed; record a stop with specforge gsd pause <reason> --by <who>. The session ended with" \
   --stopped-at "Phase ${PHASE} context gathered (assumptions mode)" \
-  --resume-file "${phase_dir}/${padded_phase}-CONTEXT.md"
+  --resume-file "$(specforge query "$PHASE_ID" --depth 1 --kinds context --pick '.nodes[kind=context].id')"
 ```
 
 Commit STATE.md:
@@ -673,13 +673,13 @@ Check for auto-advance trigger:
 1. Parse `--auto` flag from $ARGUMENTS
 2. Sync chain flag:
    ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-   if [[ ! "$GSD_ARGS" =~ --auto ]]; then
-     : # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
-   fi
+
+
+
+
+
+
+
    ```
 3. Read consolidated auto-mode (`active` = chain flag OR user preference):
    ```bash

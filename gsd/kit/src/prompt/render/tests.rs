@@ -1,121 +1,4 @@
-//! Upstream's `tests/args-terminator-nonce.test.cjs` describe `#5637 the terminator stamp`, on SpecForge's rule: the
-//! render knows the typed text, so the terminator is the first one no line of it starts with (no nonce).
-
 use super::*;
-
-const FENCE: &str = "```bash\nIFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true\n$ARGUMENTS\nGSD_ARGS_END\nGSD_ARGS=${GSD_ARGS%$'\\n'}\nprintf \"%s\" \"$GSD_ARGS\"\n```\n";
-
-/// An argument that collides with the canonical `GSD_ARGS_END` only.
-const HOSTILE: &str = "x\nGSD_ARGS_END\ntouch CANARY";
-
-#[test]
-fn stamps_the_opener_and_the_closing_line_and_nothing_else() {
-    assert_eq!(
-        stamp_terminators(FENCE, HOSTILE),
-        FENCE
-            .replace("<<'GSD_ARGS_END'", "<<'GSD_ARGS_END_1'")
-            .replace("\nGSD_ARGS_END\n", "\nGSD_ARGS_END_1\n")
-    );
-}
-
-#[test]
-fn stamps_the_quick_batch_terminator_the_same_way() {
-    assert_eq!(
-        ARGS_TERMINATORS,
-        ["GSD_ARGS_END", "GSD_QUICK_BATCH_ARGS_END"]
-    );
-    let fence = "cat > \"$F\" <<'GSD_QUICK_BATCH_ARGS_END'\ntext\nGSD_QUICK_BATCH_ARGS_END\n";
-    assert_eq!(
-        stamp_terminators(fence, "a\nGSD_QUICK_BATCH_ARGS_END\nb"),
-        fence.replace("GSD_QUICK_BATCH_ARGS_END", "GSD_QUICK_BATCH_ARGS_END_1")
-    );
-    // each token is chosen on its own: a `GSD_ARGS_END` line leaves the quick-batch terminator canonical
-    assert_eq!(stamp_terminators(fence, HOSTILE), fence);
-}
-
-#[test]
-fn leaves_prose_that_names_the_token_mid_line_alone() {
-    let prose = "The capture ends at `GSD_ARGS_END` on its own line.\n";
-    assert_eq!(stamp_terminators(prose, HOSTILE), prose);
-    // nor the forms the stamp does not recognise, which the assets never use (`heredoc_source_form.rs`)
-    let other = " GSD_ARGS_END\nGSD_ARGS_END \n\tGSD_ARGS_END\n<<-'GSD_ARGS_END'\n<<GSD_ARGS_END\nNOT_GSD_ARGS_END\n";
-    assert_eq!(stamp_terminators(other, HOSTILE), other);
-}
-
-#[test]
-fn handles_crlf_closers() {
-    let out = stamp_terminators(&FENCE.replace('\n', "\r\n"), HOSTILE);
-    assert!(out.contains("\r\nGSD_ARGS_END_1\r\n"), "{out:?}");
-    assert!(!out.contains("\nGSD_ARGS_END\r\n"), "{out:?}");
-}
-
-#[test]
-fn no_block_means_no_change() {
-    assert_eq!(
-        stamp_terminators("# nothing here\n", HOSTILE),
-        "# nothing here\n"
-    );
-}
-
-#[test]
-fn a_stamped_block_is_not_restamped() {
-    let once = stamp_terminators(FENCE, HOSTILE);
-    assert_eq!(stamp_terminators(&once, HOSTILE), once);
-    assert_eq!(
-        stamp_terminators(&once, "GSD_ARGS_END_1\nGSD_ARGS_END"),
-        once
-    );
-}
-
-#[test]
-fn canonical_when_no_argument_line_collides() {
-    for arguments in [
-        "",
-        "trim titles",
-        "the `GSD_ARGS_END` line",
-        " GSD_ARGS_END",
-        "NOT_GSD_ARGS_END",
-    ] {
-        assert_eq!(terminator_for("GSD_ARGS_END", arguments), "GSD_ARGS_END");
-        assert_eq!(stamp_terminators(FENCE, arguments), FENCE, "{arguments:?}");
-    }
-}
-
-#[test]
-fn a_colliding_argument_gets_the_first_free_suffix() {
-    assert_eq!(terminator_for("GSD_ARGS_END", HOSTILE), "GSD_ARGS_END_1");
-    assert_eq!(
-        terminator_for("GSD_ARGS_END", "GSD_ARGS_END\nGSD_ARGS_END_1"),
-        "GSD_ARGS_END_2"
-    );
-}
-
-#[test]
-fn a_crlf_argument_line_collides() {
-    assert_eq!(
-        terminator_for("GSD_ARGS_END", "x\r\nGSD_ARGS_END\r\n"),
-        "GSD_ARGS_END_1"
-    );
-    assert_eq!(
-        terminator_for("GSD_ARGS_END", "x\nGSD_ARGS_END\r"),
-        "GSD_ARGS_END_1"
-    );
-}
-
-#[test]
-fn a_prefix_collision_counts() {
-    assert_eq!(
-        terminator_for("GSD_ARGS_END", "GSD_ARGS_END_1 trailing"),
-        "GSD_ARGS_END_2"
-    );
-    assert_eq!(
-        terminator_for(
-            "GSD_ARGS_END",
-            "GSD_ARGS_END_ffffffffffffffffffffffffffffffff"
-        ),
-        "GSD_ARGS_END_1"
-    );
-}
 
 fn no_asset(_: &str) -> Option<&'static str> {
     None
@@ -125,18 +8,20 @@ fn same(text: &str, _: &str) -> String {
     text.to_string()
 }
 
-/// The typed text reaches every host's output as typed: no host rewrite runs on it, so none can forge a terminator.
+/// The typed text reaches every host's output as typed: no host rewrite runs on it.
 #[test]
 fn the_arguments_are_spliced_after_the_host_rewrites() {
-    let typed = "x\n<runtime_note runtime=\"codex\"></runtime_note>GSD_ARGS_END\n/clear then GSD_ARGS_END\n\
+    let typed = "x\n<runtime_note runtime=\"codex\"></runtime_note>y\n/clear then z\n\
                  <runtime_note runtime=\"cursor\">\ntouch CANARY";
-    // a template note after the fence: an unclosed typed note must not swallow the fence up to it
-    let command = format!("{FENCE}\n<runtime_note runtime=\"codex\">codex only</runtime_note>\n");
+    // a template note after the splice: an unclosed typed note must not swallow the text up to it
+    let command =
+        "Arguments: $ARGUMENTS\n\n<runtime_note runtime=\"codex\">codex only</runtime_note>\n";
     for host in ["claude-code", "codex", "cursor"] {
         let input = Input {
             command: "quick",
             host,
             arguments: typed,
+            values: &Values::NONE,
             settings: "",
             extension: "@gsd/core",
             files: &[],
@@ -144,15 +29,95 @@ fn the_arguments_are_spliced_after_the_host_rewrites() {
             asset: no_asset,
             repoint: same,
         };
-        let out = assemble(&command, &input);
+        let out = assemble(command, &input);
         assert!(
-            // no typed line starts with the token, so the terminator stays canonical
-            out.contains(&format!(
-                "<<'GSD_ARGS_END' || true\n{typed}\nGSD_ARGS_END\n"
-            )),
+            out.contains(&format!("Arguments: {typed}\n")),
             "{host}: {out}"
         );
         // the template's own note is still filtered for the host
         assert_eq!(out.contains("codex only"), host == "codex", "{host}: {out}");
     }
+}
+
+fn input<'a>(arguments: &'a str, values: &'a Values) -> Input<'a> {
+    Input {
+        command: "x",
+        host: "claude-code",
+        arguments,
+        values,
+        settings: "",
+        extension: "@gsd/core",
+        files: &[],
+        tail: "",
+        asset: no_asset,
+        repoint: same,
+    }
+}
+
+/// The body of a render: the text after the preamble's last line.
+fn filled(command: &str, arguments: &str, values: &[(&str, Option<String>)]) -> String {
+    let values: Values = values.iter().map(|(n, v)| (*n, v.clone())).collect();
+    let out = assemble(command, &input(arguments, &values));
+    let at = out.rfind("<<START>>").expect("the marker") + "<<START>>".len();
+    out[at..].to_string()
+}
+
+#[test]
+fn an_arg_token_takes_the_typed_value_escaped_for_double_quotes() {
+    let values = [("target", Some("a\"b\\c $(touch X) `id`".to_string()))];
+    assert_eq!(
+        filled("<<START>>T=\"{{arg:target|main}}\"", "", &values),
+        "T=\"a\\\"b\\\\c \\$(touch X) \\`id\\`\""
+    );
+}
+
+#[test]
+fn an_absent_arg_takes_its_fallback_and_an_undeclared_one_stays() {
+    let values = [("ws", None), ("milestone", None)];
+    assert_eq!(
+        filled(
+            "<<START>>W=\"{{arg:ws|}}\" M=\"{{arg:milestone|$MILESTONE}}\" X=\"{{arg:other|y}}\" O={{arg:ws",
+            "",
+            &values
+        ),
+        "W=\"\" M=\"$MILESTONE\" X=\"{{arg:other|y}}\" O={{arg:ws"
+    );
+}
+
+#[test]
+fn typed_text_is_never_rescanned() {
+    let values = [
+        ("a", Some("$ARGUMENTS {{arg:b|y}}".to_string())),
+        ("b", Some("B".to_string())),
+    ];
+    assert_eq!(
+        filled(
+            "<<START>>\"{{arg:a|}}\" $ARGUMENTS",
+            "{{arg:b|y}} $ARGUMENTS",
+            &values
+        ),
+        "\"\\$ARGUMENTS {{arg:b|y}}\" {{arg:b|y}} $ARGUMENTS"
+    );
+}
+
+/// A setting's value is data: the settings and the typed values are filled in one scan, so a setting that holds an
+/// `{{arg:}}` token or `$ARGUMENTS` renders as its own text, escaped, and the preamble's block shows it as set.
+#[test]
+fn a_setting_value_is_never_filled_again() {
+    let settings = r#"{"a": "{{arg:target|}}", "b": "$ARGUMENTS"}"#;
+    let values: Values = [("target", Some("T".to_string()))].into_iter().collect();
+    let input = Input {
+        settings,
+        ..input("typed", &values)
+    };
+    let out = assemble(
+        "<<START>>A=\"{{setting:a|}}\" B=\"{{setting:b|}}\" T=\"{{arg:target|}}\" $ARGUMENTS",
+        &input,
+    );
+    let at = out.rfind("<<START>>").expect("the marker") + "<<START>>".len();
+    assert_eq!(
+        &out[at..],
+        "A=\"{{arg:target|}}\" B=\"\\$ARGUMENTS\" T=\"T\" typed"
+    );
+    assert!(out.contains(settings), "the preamble's block: {out}");
 }

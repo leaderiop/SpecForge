@@ -25,6 +25,24 @@ mod git_rewrites;
 #[path = "common/review_rewrites.rs"]
 mod review_rewrites;
 
+#[path = "common/relic_rewrites.rs"]
+mod relic_rewrites;
+
+#[path = "common/args_rewrites.rs"]
+mod args_rewrites;
+
+#[path = "common/files_rewrites.rs"]
+mod files_rewrites;
+
+#[path = "common/answer_rewrites.rs"]
+mod answer_rewrites;
+
+#[path = "common/wait_rewrites.rs"]
+mod wait_rewrites;
+
+#[path = "common/prose_rewrites.rs"]
+mod prose_rewrites;
+
 /// Body lines (0-based) that differ although upstream's names no ported tool: a relative link that leaves the tree
 /// became the absolute URL of the file at the tag, or where a rewrite fixed a line that names no ported tool but still
 /// told the agent something false.
@@ -57,9 +75,6 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-core/workflows/complete-milestone.md", 255),
     ("gsd-core/workflows/complete-milestone.md", 256),
     ("gsd-core/workflows/complete-milestone.md", 260),
-    ("gsd-core/workflows/complete-milestone.md", 412),
-    ("gsd-core/workflows/complete-milestone.md", 413),
-    ("gsd-core/workflows/complete-milestone.md", 414),
     // No release map: the git-tag section and `push_release_tags` name no per-repository step.
     ("gsd-core/workflows/complete-milestone.md", 536),
     ("gsd-core/workflows/complete-milestone.md", 541),
@@ -143,9 +158,21 @@ const REWRITTEN: &[(&str, usize)] = &[
 /// `(path, first, last)`: runs of body lines (0-based, inclusive) rewritten because the thing they describe does not
 /// exist here: a state table, a directory, a batch router. Each run opens with a line that says what replaced it.
 const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
+    // the handoff's time is the `at` its `pause` records
+    ("gsd-core/workflows/pause-work.md", 75, 75),
+    ("gsd-core/workflows/pause-work.md", 139, 139),
+    ("gsd-core/workflows/pause-work.md", 223, 223),
+    ("gsd-core/workflows/pause-work.md", 225, 225),
+    // the inline plan's times: `start-plan` opens it, `complete-plan` stamps its summary, `duration` is computed
+    ("gsd-core/workflows/execute-plan.md", 90, 91),
+    ("gsd-core/workflows/execute-plan.md", 387, 388),
+    ("gsd-core/workflows/execute-plan.md", 390, 391),
+    ("gsd-core/workflows/execute-plan.md", 393, 399),
+    ("gsd-core/workflows/execute-plan.md", 419, 419),
+    ("gsd-core/workflows/execute-plan.md", 426, 432),
+    ("gsd-core/workflows/execute-plan.md", 456, 456),
     // pull requests through GitHub's REST API (`specforge http --secret @gsd/core:github_token`): gh's
     // arguments become fields, its token check a GET of /user, and the states it answers are lower case
-    ("gsd-core/workflows/pr-branch.md", 218, 222),
     ("gsd-core/workflows/ship.md", 104, 104),
     ("gsd-core/workflows/ship.md", 375, 377),
     ("gsd-core/workflows/ship.md", 380, 380),
@@ -184,7 +211,6 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/settings-integrations.md", 82, 82),
     ("gsd-core/workflows/settings-advanced.md", 496, 496),
     ("gsd-core/workflows/quick.md", 203, 203),
-    ("gsd-core/workflows/pr-branch.md", 261, 261),
     ("gsd-core/workflows/pr-branch.md", 252, 252),
     // The empty-name refusal, the next phase query, the integrations table.
     ("gsd-core/workflows/settings-integrations.md", 18, 18),
@@ -235,6 +261,11 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("commands/gsd/pause-work.md", 31, 31),
     ("commands/gsd/pause-work.md", 33, 33),
     ("commands/gsd/pause-work.md", 6, 6),
+    // A quick plan is an entity: the list's rows and its computed status replace a directory's two files.
+    ("commands/gsd/quick.md", 60, 62),
+    ("commands/gsd/quick.md", 68, 71),
+    ("commands/gsd/quick.md", 102, 102),
+    ("commands/gsd/quick.md", 128, 128),
     ("commands/gsd/resume-work.md", 6, 7),
     ("commands/gsd/review-backlog.md", 11, 11),
     ("commands/gsd/review-backlog.md", 14, 14),
@@ -305,8 +336,11 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/milestone-summary.md", 72, 75),
     ("gsd-core/workflows/milestone-summary.md", 79, 79),
     ("gsd-core/workflows/milestone-summary.md", 95, 96),
+    ("gsd-core/workflows/milestone-summary.md", 98, 98),
+    ("gsd-core/workflows/milestone-summary.md", 102, 106),
     ("gsd-core/workflows/new-workspace.md", 17, 17),
     ("gsd-core/workflows/new-workspace.md", 20, 20),
+    ("gsd-core/workflows/new-workspace.md", 150, 150),
     ("gsd-core/workflows/onboard.md", 16, 16),
     ("gsd-core/workflows/onboard.md", 18, 18),
     ("gsd-core/workflows/onboard.md", 20, 20),
@@ -351,6 +385,8 @@ const REWRITTEN_SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/pr-branch.md", 297, 300),
     ("gsd-core/workflows/pr-branch.md", 302, 308),
     ("gsd-core/workflows/pr-branch.md", 57, 58),
+    ("gsd-core/workflows/pr-branch.md", 506, 507),
+    ("gsd-core/workflows/pr-branch.md", 540, 540),
     ("gsd-core/workflows/pr-branch.md", 72, 72),
     ("gsd-core/workflows/quick-batch/steps/batch-init.md", 21, 21),
     ("gsd-core/workflows/quick.md", 141, 142),
@@ -550,17 +586,30 @@ fn workflow_assets_diff_only_in_ported_passages() {
     let mut checked = 0;
     for path in assets().into_iter().filter(|p| p.ends_with(".md")) {
         let asset = std::fs::read_to_string(root().join("assets").join(&path)).expect("an asset");
+        let theirs = body(&path);
+        relic_rewrites::assert_blanked(&path, &asset);
         let check = || {
-            check_lines(&path, &path, &asset, &body(&path), &rx, &|n| {
+            check_lines(&path, &path, &asset, &theirs, &rx, &|n| {
                 REWRITTEN.contains(&(path.as_str(), n))
                     || jq_rewrites::LINES.contains(&(path.as_str(), n))
                     || review_rewrites::LINES.contains(&(path.as_str(), n))
-                    || REWRITTEN_SPANS
-                        .iter()
-                        .chain(jq_rewrites::SPANS)
-                        .chain(quick_rewrites::SPANS)
-                        .chain(git_rewrites::SPANS)
-                        .any(|(p, a, b)| *p == path && (*a..=*b).contains(&n))
+                    || relic_rewrites::LINES.contains(&(path.as_str(), n))
+                    || rule::in_spans(
+                        REWRITTEN_SPANS
+                            .iter()
+                            .chain(jq_rewrites::SPANS)
+                            .chain(quick_rewrites::SPANS)
+                            .chain(git_rewrites::SPANS)
+                            .chain(relic_rewrites::SPANS)
+                            .chain(args_rewrites::SPANS)
+                            .chain(files_rewrites::SPANS)
+                            .chain(answer_rewrites::SPANS)
+                            .chain(wait_rewrites::SPANS)
+                            .chain(prose_rewrites::SPANS),
+                        &path,
+                        n,
+                    )
+                    || relic_rewrites::blanked(&path, n, &theirs[n])
             });
         };
         if pending::is_pending(&path) {

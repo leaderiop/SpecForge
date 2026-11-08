@@ -24,26 +24,26 @@ When you need library or framework documentation, check in this order:
 
    Step 1 — Resolve library ID:
    ```bash
-   if specforge run --which ctx7 >/dev/null 2>&1; then
-     ctx7 library <name> "<query>"
-   else
-     echo "ctx7 not found — install with: npm install -g ctx7 (verify at npmjs.com/package/ctx7 first)"
-   fi
+   # ctx7 is the user's own program, not part of SpecForge or @gsd/core: exit 127 means it is not installed
+   specforge run -- ctx7 library <name> "<query>"
+
+
+
    ```
 
    Step 2 — Fetch documentation:
    ```bash
-   if specforge run --which ctx7 >/dev/null 2>&1; then
-     ctx7 docs <libraryId> "<query>"
-   else
-     echo "ctx7 not found — install with: npm install -g ctx7 (verify at npmjs.com/package/ctx7 first)"
-   fi
+   # ctx7 is the user's own program, not part of SpecForge or @gsd/core: exit 127 means it is not installed
+   specforge run -- ctx7 docs <libraryId> "<query>"
+
+
+
    ```
 
-Do not skip documentation lookups because MCP tools are unavailable — the CLI fallback
-works via Bash and produces equivalent output. Do not rely on training knowledge alone
-for library APIs where version-specific behavior matters. Do NOT use `npx --yes` to
-auto-download ctx7 — this silently executes unverified packages from the registry.
+Exit 127 means ctx7 is not installed: say so once, then read the library's official docs with
+the host's web fetch. Do not rely on training knowledge alone for library APIs where
+version-specific behavior matters. Never install ctx7 or download it with npx: that silently
+runs an unverified package from the registry; the user may install it after checking the package. `specforge run` runs only a ctx7 it finds through an absolute PATH entry, and passes it your whole environment, secrets included: it cannot narrow it to ctx7's own `CONTEXT7_API_KEY`.
 </documentation_lookup>
 
 <project_context>
@@ -92,8 +92,8 @@ Parse: frontmatter (phase, plan, type, autonomous, wave, depends_on), objective,
 
 <step name="record_start_time">
 ```bash
-STARTED=$(specforge gsd start-plan "${PHASE}-${PLAN}" --pick .started) && [ -n "$STARTED" ] || exit 1
-# a gate_failed refusal (W318, E516) stops here: the plan is not executed; STARTED is the host's clock
+specforge gsd start-plan "${PHASE}-${PLAN}" --head "$(specforge git head --pick .sha)" || exit 1
+# a gate_failed refusal (W318, E516) stops here: the plan is not executed; the plan keeps its start, once
 ```
 </step>
 
@@ -117,7 +117,7 @@ fi
 
 <step name="determine_execution_pattern">
 ```bash
-grep -n "type=\"checkpoint" [plan-path]
+specforge query "$PLAN_ID" --kinds checkpoint --format context   # none: no checkpoints
 ```
 
 **Pattern A: Fully autonomous (no checkpoints)** — Execute all tasks, create SUMMARY, commit.
@@ -472,22 +472,22 @@ Prefer **relative paths** for Edit/Write in a worktree; an unavoidable absolute 
 **0. Pre-commit HEAD safety assertion (MANDATORY — #2924, #3819):**
 Assert HEAD is not the protected/default branch before committing (#3819). If drifted onto it, HALT — never self-recover via `git update-ref refs/heads/<protected>`:
 ```bash
-HEAD_REF=$(b=$(specforge git head --pick .branch) && [ -n "$b" ] && echo "refs/heads/$b" || echo "DETACHED")
-ACTUAL_BRANCH=$(specforge git head --pick .branch)
-if [ "$HEAD_REF" = "DETACHED" ]; then
+IFS=$'\x1f' read -r ACTUAL_BRANCH DETACHED UNREADABLE BLOCKS < <(specforge gsd branch-check --pick . --fields branch,detached,unreadable,blocks_commit)
+if [ -z "$BLOCKS" ] || [ "$UNREADABLE" = true ]; then
+  echo "FATAL: refusing to commit — the branch check could not read HEAD or gave no answer." >&2
+  exit 1
+fi
+if [ "$DETACHED" = true ]; then
   echo "FATAL: refusing to commit — HEAD is detached." >&2
   exit 1
 fi
-# #3819: real default branch; override git.allow_default_branch_commits; else five-name fallback.
-IS_PROTECTED="__GSD_RUN_UNAVAILABLE__"  # the real default branch is not queried here; the five-name fallback below decides
-if [ "$IS_PROTECTED" = "__GSD_RUN_UNAVAILABLE__" ] || [ -z "$IS_PROTECTED" ]; then
-  if echo "$ACTUAL_BRANCH" | grep -Eq '^(main|master|develop|trunk|release/.*)$'; then
-    IS_PROTECTED="true"
-  else
-    IS_PROTECTED="false"
-  fi
-fi
-if [ "$IS_PROTECTED" != "false" ]; then
+# #3819: the protected set and the override git.allow_default_branch_commits are the answer's.
+
+
+
+
+
+if [ "$BLOCKS" != "false" ]; then
   echo "FATAL: refusing to commit — HEAD is on '$ACTUAL_BRANCH' (protected/default branch)." >&2
   echo "Re-home onto a phase/agent branch (#2924, #3819); override: the setting git.allow_default_branch_commits (specforge settings set @gsd/core git.allow_default_branch_commits true)." >&2
   exit 1
@@ -500,7 +500,7 @@ if [ -f .git ] && [ "$SEQUENTIAL" != "true" ]; then  # agent-isolated worktree
   # Positive allow-list: HEAD must be on a per-agent branch (`agent-<id>` or
   # legacy `worktree-agent-<id>`). This catches feature/* and any other
   # arbitrary branch that the deny-list would silently allow (#2924, #1995).
-  if ! echo "$ACTUAL_BRANCH" | grep -Eq '^((worktree-)?agent-|worktree-wf_)[A-Za-z0-9._/-]+$'; then
+  if [ "$(specforge gsd branch-check --pick .agent)" != true ]; then
     echo "FATAL: refusing to commit — worktree HEAD '$ACTUAL_BRANCH' is not in the agent-* / worktree-agent-* / worktree-wf_* namespace." >&2
     echo "Agent commits must live on per-agent branches; surface as blocker (#2924)." >&2
     exit 1
@@ -535,13 +535,13 @@ specforge git add src/types/user.ts
 ```bash
 specforge git --in "{sub_repo}" commit -m "{type}({phase}-{plan}): {concise task description}" -- file1 file2 ...
 ```
-**0c. Plan commit ledger (#3968, single-repo — before the first commit):**
-Each Bash call is a FRESH shell, so the ledger persists on disk like the #3097 sentinel above
-(a variable would be unset at SUMMARY time and `specforge git log ..HEAD` would count zero).
-Per-plan filename, so sequential plans cannot contaminate each other:
+**0c. Plan commit ledger (#3968, single-repo):** nothing to run here.
+Each Bash call is a FRESH shell, so the ledger is in the graph: `record_start_time` above gave
+`start-plan` the plan's head, which its `plan_start` keeps once, across shells and worktrees.
+A rebase after the start can overcount: a commit collected before it keeps its entity and its old id.
 ```bash
-_GSD_LEDGER="$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}"
-[ -f "$_GSD_LEDGER" ] || specforge git head --pick .sha > "$_GSD_LEDGER"
+# no step: the head is recorded. An unborn branch has none, and then every commit counts.
+
 ```
 The SUMMARY's `commits:` is MEASURED from this ledger, the base recorded as
 `plan_head_before:` for `/gsd:verify-work`'s same-instrument check. Multi-repo keeps commit-to-subrepo
@@ -571,7 +571,7 @@ fi
 ```
 Intentional deletions (e.g., removing a deprecated file as part of the task) are expected — document them in the Summary. Unexpected deletions are a Rule 1 bug: revert and fix before proceeding.
 
-**7. Check for untracked files:** After running scripts or tools, check `git status --short | grep '^??'`. For any new untracked files: commit if intentional, add to `.gitignore` if generated/runtime output. Never leave generated files untracked.
+**7. Check for untracked files:** After running scripts or tools, check `specforge git status --pick '.entries[kind=untracked].path'`. For any new untracked files: commit if intentional, add to `.gitignore` if generated/runtime output. Never leave generated files untracked.
 </task_commit_protocol>
 
 <destructive_git_prohibition>
@@ -665,8 +665,8 @@ These pair with the plan's `estimate` to calibrate future estimates (ADR-2629). 
 **`commits:` is measured, never narrated (#3968).** At SUMMARY write, read the persisted
 ledger (protocol 0c — a fresh shell per Bash call; the base comes from disk):
 ```bash
-PLAN_HEAD_BEFORE=$(cat "$(specforge git repo --pick .git_dir)/gsd-plan-head-before-{phase}-{plan}")
-COMMITS_ACTUAL=$(specforge git log ${PLAN_HEAD_BEFORE}..HEAD --pick .count)
+PLAN_HEAD_BEFORE=$(specforge query "{phase}-{plan}" --depth 1 --kinds plan_start --pick '.nodes[kind=plan_start].fields.head')
+COMMITS_ACTUAL=$(specforge git log "${PLAN_HEAD_BEFORE:+$PLAN_HEAD_BEFORE..}HEAD" --pick .count)
 PLAN_HEAD_AFTER=$(specforge git head --pick .sha)
 ```
 Write ALL THREE into the frontmatter — `commits: ${COMMITS_ACTUAL}`,
@@ -759,8 +759,8 @@ After the summary entity exists, record the plan's close and what the project mu
 
 ```bash
 # Close the plan: writes the summary's started and completed times (the host's clock).
-# STARTED is the time `specforge gsd start-plan` answered when you began.
-specforge gsd complete-plan "${PHASE}-${PLAN}-SUMMARY" --started "${STARTED}"
+# The start is the one `specforge gsd start-plan` recorded on the plan when you began.
+specforge gsd complete-plan "${PHASE}-${PLAN}-SUMMARY"
 
 # Decisions (from the summary's key-decisions): one `decision` entity each
 for decision in "${DECISIONS[@]}"; do

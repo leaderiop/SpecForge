@@ -227,7 +227,7 @@ reverted, because reverting a commit that is not in the current branch's history
 change the branch never received.
 
 **Selection is a structural parse, not a substring grep (#4661).** The old
-`grep -E "\(0*${TARGET_PHASE}(-[0-9]+)?\):"` interpolated the id straight into a live ERE
+match, the extended regex `\(0*${TARGET_PHASE}(-[0-9]+)?\):`, interpolated the id straight into a live ERE
 (`.`/`+` in the id became wildcard/quantifier metacharacters), was unanchored (a commit that
 only MENTIONED a scope was wrongly selected as a DECLARATION of it), and disagreed with
 plan mode's own grep on a breaking-change subject (`feat(03-01)!: ...`). `select-revert-commits`

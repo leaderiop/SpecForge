@@ -168,6 +168,32 @@ fn contained_withholds_a_credential_name() {
             .withheld
     );
     assert!(withheld(".git/config") && withheld("a/.git/config") && !withheld("git/config"));
+    for path in [
+        ".ssh/id_ecdsa",
+        "a/.ssh/id_dsa",
+        "a/.SSH/deploy_key",
+        ".git-credentials",
+        ".pgpass",
+        ".pypirc",
+        ".dockercfg",
+        ".docker/config.json",
+        "a/.kube/config",
+        ".envrc",
+        ".aws/credentials",
+    ] {
+        assert!(withheld(path), "{path}");
+    }
+    for path in [
+        ".ssh/deploy.pub",
+        ".ssh/known_hosts",
+        ".ssh/config",
+        "config",
+        "config.json",
+        "ssh/deploy_key",
+        "kube/config",
+    ] {
+        assert!(!withheld(path), "{path}");
+    }
 }
 
 #[test]

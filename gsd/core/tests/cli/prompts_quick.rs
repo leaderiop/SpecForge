@@ -1,7 +1,8 @@
 //! `quick`, `quick_batch` and `fast` (T2): a quick task is a plan with no phase, made, started and completed through
 //! the typed tools the prompt names.
 
-use super::commands_support::{gsd, twin};
+use super::assets_shell::Shell;
+use super::commands_support::{gsd, is_quick_id, rows, twin};
 use super::prompts_support::{command, payload, prompt, render_three_hosts, text_of};
 
 /// Today's quick id, `<yymmdd>-<3 base-36>`.
@@ -27,10 +28,21 @@ fn quick_creates_a_quick_plan() {
         &["--task", "trim titles"],
         "claude-code",
     )));
-    let id = quick_id();
+    let init = text
+        .lines()
+        .find(|l| l.contains("specforge gsd quick-init --description="))
+        .expect("the init line");
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let (id, err, code) = sh.run_in(
+        p.root(),
+        &format!("DESCRIPTION='Trim titles'\n{init}\nprintf '%s' \"$quick_id\" >&2"),
+    );
+    assert_eq!(code, 0, "{id}{err}");
+    let id = err[err.len() - 10..].to_string();
     p.write("src/tasks.js", "export const add = (t) => t.trim();\n");
     let fill = [
-        ("<title>", "Trim titles"),
         ("<paths>", "src/tasks.js"),
         ("<objective>", "Titles are trimmed"),
         ("<what must be true>", "A padded title is trimmed"),
@@ -40,11 +52,16 @@ fn quick_creates_a_quick_plan() {
         ("<one line>", "Trimmed"),
         ("<area>", "tasks"),
     ];
-    for prefix in ["specforge new plan", "specforge new truth"] {
+    for prefix in [
+        "specforge set \"$quick_id\" objective",
+        "specforge set \"$quick_id\" files_modified",
+        "specforge new truth",
+    ] {
         let args = command(&text, prefix, &id, &fill);
         let made = run(&p, &args);
         assert_eq!(made.code, 0, "{args:?}: {}", made.all());
     }
+    assert_eq!(p.fields_of(&id)["slug"], "trim-titles");
     // The artifact goes through `specforge.edit`; the file is what that tool writes.
     let quick = p.read("spec/quick.spec");
     p.write(
@@ -57,44 +74,23 @@ fn quick_creates_a_quick_plan() {
     for code in ["W323", "E302", "E401"] {
         assert!(!codes.contains(&code.to_string()), "{code}: {codes:?}");
     }
-    // P4: a plan with no phase starts and completes through the typed tools. The prompt's STARTED line runs in bash
-    // with only specforge on the PATH (it picks the answer, no jq).
+    // P4: a plan with no phase starts and completes through the typed tools. The prompt's start line runs in bash
+    // with only specforge on the PATH.
     let line = text
         .lines()
-        .find(|l| {
-            l.trim_start()
-                .starts_with("STARTED=$(specforge gsd start-plan")
-        })
-        .expect("the STARTED line");
-    let bin = std::path::PathBuf::from(std::env::var_os("SPECFORGE_BIN").expect("SPECFORGE_BIN"));
-    // `/bin/bash`: the child's PATH holds specforge alone
-    let out = std::process::Command::new("/bin/bash")
-        .args([
-            "-c",
-            &format!("quick_id={id}\n{line}\nprintf '%s' \"$STARTED\""),
-        ])
-        .env("PATH", bin.parent().expect("a directory"))
-        .current_dir(p.root())
-        .stdin(std::process::Stdio::null())
-        .output()
-        .expect("bash");
-    let ts = String::from_utf8_lossy(&out.stdout).into_owned();
-    assert!(
-        ts.len() == 20 && ts.ends_with('Z'),
-        "{ts:?}: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
+        .find(|l| l.trim_start().starts_with("specforge gsd start-plan"))
+        .expect("the start line");
+    let (_, err, code) = sh.run_in(p.root(), &format!("quick_id={id}\n{line}"));
+    assert_eq!(code, 0, "{err}");
+    let ts = p.fields_of(&format!("{id}/START"))["at"].clone();
+    assert!(ts.is_string(), "{ts}");
     let summary = command(&text, "specforge new summary", &id, &fill);
     let made = run(&p, &summary);
     assert_eq!(made.code, 0, "{summary:?}: {}", made.all());
-    let done = gsd(
-        &p,
-        "complete-plan",
-        &[&format!("{id}/{id}-SUMMARY"), "--started", &ts],
-    );
+    let done = gsd(&p, "complete-plan", &[&format!("{id}/{id}-SUMMARY")]);
     assert_eq!(done.code, 0, "{}", done.all());
     let fields = p.fields_of(&format!("{id}/{id}-SUMMARY"));
-    assert_eq!(fields["started"], ts.as_str());
+    assert_eq!(fields["started"], ts);
     assert!(fields["completed"].as_str().is_some(), "{fields}");
 }
 
@@ -122,7 +118,7 @@ fn quick_batch_renders_for_three_hosts() {
         &twin(),
         "quick_batch",
         &["--jobs", "2", "a; b"],
-        "--jobs \"2\" a; b",
+        "--jobs 2 a; b",
         "<purpose>",
     );
     assert!(text_of(&out[0].1).contains("The quick plan"));
@@ -232,40 +228,43 @@ fn the_batch_makes_one_quick_id_per_item() {
         "/assets/gsd-core/workflows/quick-batch/steps/batch-init.md"
     ))
     .expect("the batch-init step");
+    let read = step
+        .lines()
+        .find(|l| l.starts_with("QB_TASKS=$(specforge files read"))
+        .expect("the task file's line");
     let line = step
         .lines()
-        .find(|l| l.starts_with("QB_ITEMS="))
-        .expect("the batch-init line")
-        .to_string();
-    let run = |items: &str| {
-        let dir = tempfile::tempdir().expect("a dir");
-        std::fs::write(dir.path().join("tasks.txt"), items).expect("write");
-        std::process::Command::new("bash")
-            .args([
-                "-c",
-                &format!("TASK_FILE=tasks.txt\n{line}\necho \"$QB_CREATE_LIST\""),
-            ])
-            .current_dir(dir.path())
-            .output()
-            .expect("bash")
+        .find(|l| l.starts_with("QB_CREATE_LIST="))
+        .expect("the batch-init line");
+    let Some(sh) = Shell::only(&[]) else {
+        return;
     };
-    let out = run("- Fix login\n* Add search\n\n1. Trim titles\n");
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    let items: Vec<(&str, &str)> = stdout
-        .lines()
-        .map(|l| l.split_once('\t').expect("quick_id<TAB>description"))
-        .collect();
-    let tasks: Vec<&str> = items.iter().map(|(_, task)| *task).collect();
-    assert_eq!(tasks, ["Fix login", "Add search", "Trim titles"]);
-    let id = regex::Regex::new(r"^[0-9]{6}-[a-z0-9]{3}$").expect("a regex");
-    for (quick_id, _) in &items {
-        assert!(id.is_match(quick_id), "{quick_id}");
-    }
-    let one = run("- Only one\n");
-    assert!(
-        String::from_utf8_lossy(&one.stdout).trim().is_empty(),
-        "{one:?}"
+    let p = twin();
+    let run = |items: &str| {
+        p.write("tasks.txt", items);
+        sh.run_in(
+            p.root(),
+            &format!(
+                "TASK_FILE=tasks.txt\n{read}\n{line}\nprintf '%s\\n' \"$QB_CREATE_LIST\"; exit \"$QB_CREATE_RC\""
+            ),
+        )
+    };
+    let (stdout, _, _) = run("- Fix login\n* Add search\n\n1. Trim titles\n");
+    let items = rows(&stdout);
+    let slugs: Vec<&str> = items.iter().map(|row| row[1]).collect();
+    assert_eq!(
+        slugs,
+        ["fix-login", "add-search", "trim-titles"],
+        "{stdout}"
     );
+    let tasks: Vec<&str> = items.iter().map(|row| row[2]).collect();
+    assert_eq!(tasks, ["Fix login", "Add search", "Trim titles"]);
+    for row in &items {
+        assert!(is_quick_id(row[0]), "{}", row[0]);
+    }
+    let (out, err, code) = run("- Only one\n");
+    assert_eq!((out.trim(), code), ("", 1), "{err}");
+    assert!(err.contains("a batch needs at least 2 tasks"), "{err}");
 }
 
 /// The subcommands are words, as upstream's hint says: the tail carries `list`, `status <slug>` and `resume <slug>`, and
@@ -341,34 +340,60 @@ fn the_quick_id_is_made_once_and_the_branch_template_is_expanded() {
     let p = twin();
     p.settings(serde_json::json!({ "git.quick_branch_template": "quick/{num}-{slug}" }));
     let text = text_of(&payload(&prompt(&p, "quick", &[], "claude-code")));
-    assert_eq!(
-        text.matches("quick_id=\"$(date").count(),
-        1,
-        "the quick id is generated twice"
-    );
+    let init = "specforge gsd quick-init --description=";
+    assert_eq!(text.matches(init).count(), 1, "the quick id is made twice");
     let line = text
         .lines()
-        .find(|l| l.starts_with("quick_id=\"$(date"))
+        .find(|l| l.contains(init))
         .expect("the init line");
-    let out = std::process::Command::new("bash")
-        .args(["-c", &format!("{line}\necho \"$quick_id $branch_name\"")])
-        .output()
-        .expect("bash");
-    let said = String::from_utf8_lossy(&out.stdout);
-    let (id, branch) = said.trim().split_once(' ').expect("two words");
-    assert_eq!(branch, format!("quick/{id}-{{slug}}"), "{said}");
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let (said, err, _) = sh.run_in(
+        p.root(),
+        &format!(
+            "DESCRIPTION='Trim titles'\n{line}\nprintf '%s|%s|%s|%s|%s\\n' \"$quick_id\" \"$slug\" \"$branch_name\" \"$date\" \"$task_dir\""
+        ),
+    );
+    let cells: Vec<&str> = said.lines().last().unwrap_or_default().split('|').collect();
+    let [id, slug, branch, date, task_dir] = cells[..] else {
+        panic!("{said}: {err}");
+    };
+    assert!(is_quick_id(id), "{said}");
+    assert_eq!(
+        id,
+        quick_id()[..7].to_string() + &id[7..],
+        "the id's day is today"
+    );
+    assert_eq!((slug, task_dir), ("trim-titles", id));
+    assert_eq!(branch, format!("quick/{id}-trim-titles"));
+    assert_eq!(date.len(), 10, "{said}");
+    // A description that starts with a hyphen is a value, and no template names no branch.
+    p.settings(serde_json::json!({ "git.quick_branch_template": "" }));
+    let text = text_of(&payload(&prompt(&p, "quick", &[], "claude-code")));
+    let line = text
+        .lines()
+        .find(|l| l.contains(init))
+        .expect("the init line");
+    let (out, err, _) = sh.run_in(
+        p.root(),
+        &format!("DESCRIPTION='--fix it'\n{line}\nprintf '%s|%s' \"$slug\" \"$branch_name\""),
+    );
+    assert!(out.ends_with("fix-it|"), "{out}{err}");
 }
 
 /// The steps read each item's `description`, and quick-batch has no init block to make the
-/// quick id: its tail says `$quick_id` is the item's `quickId`.
+/// quick id: its tail says `$quick_id` is the manifest row's.
 #[test]
 fn quick_batch_names_where_its_quick_id_comes_from() {
     let p = twin();
     let text = text_of(&payload(&prompt(&p, "quick_batch", &[], "claude-code")));
-    assert!(text.contains("$quick_id is each manifest item's `quickId`"));
+    assert!(text.contains("$quick_id is each manifest row's first cell"));
+    assert!(text.contains("batch-init wrote the plan"));
     assert!(!text.contains("init block above"));
     let quick = text_of(&payload(&prompt(&p, "quick", &[], "claude-code")));
-    assert!(quick.contains("init block above"));
+    assert!(quick.contains("$quick_id is the one that block printed"));
+    assert!(quick.contains("the init block above wrote the plan"));
 }
 
 /// Quick's worktree steps run under bash in the project's git repository, where the quick plan is the entity
@@ -690,4 +715,49 @@ fn no_quick_reading_list_names_an_artifact_file() {
         found.extend(reading_list_paths(&file.display().to_string(), &text));
     }
     assert_eq!(found, Vec::<String>::new());
+}
+
+/// Step 1 binds jobs, validate, research, resume and the task list from the typed values.
+#[test]
+fn quick_batch_binds_its_typed_arguments() {
+    let p = twin();
+    let text = text_of(&payload(&prompt(
+        &p,
+        "quick_batch",
+        &["--jobs", "2", "--validate", "--tasks", "a; b"],
+        "claude-code",
+    )));
+    for line in [
+        "JOBS=\"2\"",
+        "VALIDATE_MODE=\"true\"",
+        "RESEARCH_MODE=\"false\"",
+        "RESUME_BATCH_ID=\"\"",
+        "TASKS=\"a; b\"",
+    ] {
+        assert!(text.lines().any(|l| l == line), "no {line}: {text}");
+    }
+    assert!(!text.contains("QB_PARSE"), "{text}");
+    assert!(!text.contains("QUICK_BATCH_PARSE"), "{text}");
+}
+
+/// `--jobs` is `auto` or a positive integer: anything else is refused before the text renders, worded as the host
+/// words a refused value, so no shell line checks it.
+#[test]
+fn quick_batch_refuses_a_jobs_that_is_not_auto_or_a_count() {
+    let p = twin();
+    for bad in ["0", "many", "2; touch X"] {
+        let run = prompt(&p, "quick_batch", &["--jobs", bad], "claude-code");
+        assert_ne!(run.code, 0, "{bad}: {}", run.all());
+        let why = format!("jobs must be auto or an integer of at least 1, got '{bad}'");
+        assert!(run.all().contains(&why), "{bad}: {}", run.all());
+    }
+    for good in ["auto", "12"] {
+        let text = text_of(&payload(&prompt(
+            &p,
+            "quick_batch",
+            &["--jobs", good],
+            "codex",
+        )));
+        assert!(text.contains(&format!("JOBS=\"{good}\"")), "{good}: {text}");
+    }
 }

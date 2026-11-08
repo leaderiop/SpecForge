@@ -56,6 +56,7 @@ const KINDS: &[&Kind] = &[
     &must_haves::PROHIBITION,
     &plan::DISPOSITION,
     &plan::USER_SETUP,
+    &execute::PLAN_START,
     &execute::SUMMARY,
     &execute::DELIVERABLE,
     &execute::DEVIATION,

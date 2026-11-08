@@ -33,12 +33,12 @@ if [ "${AGENT_HINT_ROUTING:-true}" != "false" ]; then
   fi
 fi
 
-# #1689 v1 routes only the Agent()-based dispatch. On the orchestrator-worktree
-# backend (process-spawn; no subagent_type) a resolved hint cannot be honored
-# yet — surface it so a set hint is never silently ignored.
-if [ "${ISOLATION:-}" = "orchestrator-worktree" ] && [ -n "${PLAN_HINT:-}" ]; then
-  echo "note: plan ${plan_id} agent_hint='${PLAN_HINT}' resolved, but orchestrator-worktree dispatch does not route subagent types in this release — using the default executor." >&2
-fi
+# every plan dispatches through Agent() (sequential mode): a resolved hint is always routed
+
+
+
+
+
 ```
 
 Resolving a plan's `agent_hint` (not part of @gsd/core) would consult the **active runtime's agent directory**

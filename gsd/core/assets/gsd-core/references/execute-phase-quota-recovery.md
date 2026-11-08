@@ -20,7 +20,7 @@ ESC_TRIED=
 ```
 
 - **`ESCALATED == "true"`** — log the switch, honor the provider's own backoff
-  (`sleep "$RETRY_AFTER"` when `RETRY_AFTER` is set), then re-dispatch the failed plan with
+  (`specforge wait --retry-after "$RETRY_AFTER"` when `RETRY_AFTER` is set: seconds or an HTTP date), then re-dispatch the failed plan with
   `executor_model` overridden to `$ESC_TO` and `QUOTA_ATTEMPT` incremented. Do not prompt —
   this is the configured, opt-in path.
 

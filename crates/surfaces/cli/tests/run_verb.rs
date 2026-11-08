@@ -239,6 +239,65 @@ fn a_missing_program_is_127() {
     );
 }
 
+/// A program planted in the project and reached through a relative or an empty `PATH` entry never runs: a bare name
+/// resolves only through absolute entries, and the refusal names the remedy. An absolute entry later on `PATH` still
+/// answers the name.
+#[cfg(unix)]
+#[test]
+fn a_program_reached_through_a_relative_path_entry_is_refused() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let script = |dir: &std::path::Path, marker: &std::path::Path| {
+        std::fs::create_dir_all(dir).unwrap();
+        let program = dir.join("ctx7");
+        let body = format!("#!/bin/sh\n/usr/bin/env > '{}'\n", marker.display());
+        std::fs::write(&program, body).unwrap();
+        std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    };
+    let project = TestProject::new();
+    let elsewhere = tempfile::tempdir().unwrap();
+    let planted = elsewhere.path().join("planted-ran");
+    script(&project.root().join("bin"), &planted);
+    let empty = tempfile::tempdir().unwrap();
+    // A relative entry, and an empty one (the directory the program runs in).
+    for (path, dir) in [
+        (format!("bin:{}", empty.path().display()), None),
+        (format!(":{}", empty.path().display()), Some("bin")),
+    ] {
+        let mut argv = vec!["run"];
+        if let Some(dir) = dir {
+            argv.extend(["--in", dir]);
+        }
+        argv.push("ctx7");
+        let refused = Cli::on(&project)
+            .env("PATH", &path)
+            .env("CONTEXT7_API_KEY", "k3y")
+            .bare(&argv)
+            .exits(126);
+        assert!(
+            refused.stderr.contains("relative PATH entry")
+                && refused.stderr.contains("absolute path")
+                && refused.stderr.contains("absolute directory on PATH"),
+            "{path}: {}",
+            refused.stderr
+        );
+        assert!(!planted.exists(), "{path}: the planted program ran");
+    }
+    // The same name in an absolute entry after the relative one is the program that runs.
+    let installed = tempfile::tempdir().unwrap();
+    let ran = elsewhere.path().join("installed-ran");
+    script(installed.path(), &ran);
+    Cli::on(&project)
+        .env("PATH", format!("bin:{}", installed.path().display()))
+        .bare(&["run", "ctx7"])
+        .exits(0);
+    assert!(ran.exists() && !planted.exists());
+    // `--which` answers as a run would.
+    Cli::on(&project)
+        .env("PATH", "bin")
+        .bare(&["run", "--which", "ctx7"])
+        .exits(1);
+}
+
 #[test]
 fn which_finds_a_program_and_runs_none() {
     let project = TestProject::new();

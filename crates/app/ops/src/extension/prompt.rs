@@ -289,14 +289,11 @@ pub fn render(
             ))));
         }
     }
-    let output = match answered {
+    let messages = match answered {
         Some(output) => output,
         None => call()?,
-    };
-    let mut messages = output.messages;
-    for message in &mut messages {
-        message.text = crate::host::render::project_tokens(view, &message.text);
     }
+    .messages;
     let texts: String = messages.iter().map(|m| m.text.as_str()).collect();
     let payload = ExtensionPromptPayload {
         prompt: prompt.qualified(),

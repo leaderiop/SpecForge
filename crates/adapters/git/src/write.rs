@@ -13,7 +13,7 @@ use crate::{Gix, failed, id, open};
 
 /// A write only in a repository this user owns: one another user owns is read with reduced trust, and git refuses to
 /// change it.
-fn owned(place: &GitPlace) -> Result<(), GitError> {
+pub(crate) fn owned(place: &GitPlace) -> Result<(), GitError> {
     match gix::sec::Trust::from_path_ownership(&place.git_dir) {
         Ok(gix::sec::Trust::Full) => Ok(()),
         _ => Err(GitError(format!(
@@ -148,6 +148,10 @@ pub(crate) fn stage(place: &GitPlace, staging: &Staging) -> Result<(), GitError>
         if !place.toplevel.join(path).exists() {
             return 0;
         }
+        if let Err(error) = staged_once(&place.toplevel, path) {
+            *refused.borrow_mut() = Some(error);
+            return -1;
+        }
         match filter_driver(&repo, path) {
             Ok(None) => 0,
             Ok(Some(driver)) => {
@@ -194,6 +198,24 @@ pub(crate) fn stage(place: &GitPlace, staging: &Staging) -> Result<(), GitError>
             .map_err(staged)?;
     }
     index.write().map_err(|e| failed("write the index", &e))
+}
+
+/// `Err` when the file at `path` under `top` has more than one name (ADR 0146): its content would leave in a commit.
+/// A link stages its target's name and a directory (a submodule) nothing of its own, so neither is opened.
+fn staged_once(top: &Path, path: &Path) -> Result<(), GitError> {
+    let file = top.join(path);
+    if !std::fs::symlink_metadata(&file).is_ok_and(|meta| meta.is_file()) {
+        return Ok(());
+    }
+    let opened = specforge_common::regular::open_any(&file)
+        .map_err(|e| failed(&format!("read {}", path.display()), &e))?;
+    specforge_common::regular::refuse_if_linked(&opened).map_err(|why| {
+        let path = path.display();
+        GitError(format!(
+            "{path}: {why}, so nothing was staged: replace it with a plain copy (copy it to a new name, then move the \
+             copy over it), or leave it out with specforge git add --all --except {path}, then run this again"
+        ))
+    })
 }
 
 /// `git rm`: the entries at `paths` out of the index and, unless cached, their files off the disk; nothing changes

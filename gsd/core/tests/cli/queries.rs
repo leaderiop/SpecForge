@@ -4,30 +4,18 @@
 
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use regex::Regex;
 
 use super::commands_support::{json, twin};
-
-fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
-    for entry in std::fs::read_dir(dir).expect("a directory").flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            walk(&path, out);
-        } else if path.extension().is_some_and(|e| e == "md") {
-            out.push(path);
-        }
-    }
-}
+use super::files;
 
 fn assets() -> Vec<(String, String)> {
     let base = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
-    let mut paths = Vec::new();
-    walk(&base, &mut paths);
-    paths.sort();
-    paths
+    files::under(&base)
         .into_iter()
+        .filter(|p| p.extension().is_some_and(|e| e == "md"))
         .map(|p| {
             let name = p
                 .strip_prefix(&base)
@@ -82,9 +70,11 @@ fn bound(subject: &str) -> Option<&'static str> {
         | "$MILESTONE/${NN}"
         | "$UNDO_MILESTONE/${NN}"
         | "{selected-phase}"
+        | "{PHASE_ID}"
         | "$MILESTONE/${N}"
         | "$UNDO_MILESTONE/${N}" => "v1.0/01",
-        "$PLAN_ID" | "$PLAN_FULL_ID" | "${TARGET_PLAN_ID}" | "$plan_id" => "v1.0/01/01-01",
+        "$PLAN_ID" | "$PLAN_ENTITY" | "$PLAN_FULL_ID" | "${TARGET_PLAN_ID}" | "$plan_id"
+        | "$plan" => "v1.0/01/01-01",
         _ => return None,
     })
 }
@@ -113,7 +103,19 @@ const UNBOUND: &[&str] = &[
     "$TASK_ID",
     "$SPEC_ID",
     "$SUMMARY_FILE",
+    "$SUMMARY_ID",
+    "$RESEARCH_ID",
     "$uat_path",
+    // entity ids a prompt hands its agent, each read with `--format context`
+    "{roadmap_path}",
+    "{context_path}",
+    "{research_path}",
+    "{verification_path}",
+    "{uat_path}",
+    "{PATTERNS_PATH}",
+    "{AI_SPEC_PATH}",
+    "{UI_SPEC_PATH}",
+    "{SPEC_PATH}",
     "$PLAN_REF",
     "$PHASE_NUM",
     "${PHASE_NUM}",
@@ -249,4 +251,70 @@ fn a_query_reaches_the_kinds_it_asks_for() {
         "queries that return nothing:\n{}",
         empty.join("\n")
     );
+}
+
+/// A name git refuses is no branch: the field is absent, and the check says why.
+#[test]
+fn a_branch_name_git_refuses_is_w409_and_no_field() {
+    let p = twin();
+    let branch = |id: &str| {
+        let answer = json(&p.run(&["query", id, "--depth", "0", "--format", "json"]));
+        answer["nodes"][0]["fields"]["branch"].clone()
+    };
+    for template in [
+        "--help",
+        "-evil{phase}",
+        "a..{slug}",
+        "{slug}.lock",
+        "x;touch pwned",
+    ] {
+        p.settings(serde_json::json!({
+            "git.branching_strategy": "phase",
+            "git.phase_branch_template": template,
+        }));
+        assert!(branch("v1.0/01").is_null(), "{template}");
+        assert!(
+            p.codes().contains(&"gsd/W409".to_string()),
+            "{template}: {:?}",
+            p.report()
+        );
+    }
+    p.settings(serde_json::json!({
+        "git.branching_strategy": "milestone",
+        "git.milestone_branch_template": "--help",
+    }));
+    assert!(branch("v1.0").is_null());
+    assert!(branch("v1.0/01").is_null());
+    let w409 = p.codes().iter().filter(|c| *c == "gsd/W409").count();
+    assert_eq!(
+        w409,
+        1,
+        "the milestone's, not one per phase: {:?}",
+        p.report()
+    );
+}
+
+/// The branch a phase and its milestone execute on, under each `git.branching_strategy`.
+#[test]
+fn a_phase_and_its_milestone_answer_their_branch() {
+    let p = twin();
+    let branch = |id: &str| {
+        let answer = json(&p.run(&["query", id, "--depth", "0", "--format", "json"]));
+        answer["nodes"][0]["fields"]["branch"].clone()
+    };
+    assert!(branch("v1.0/01").is_null(), "the default strategy is none");
+    p.settings(serde_json::json!({"git.branching_strategy": "phase"}));
+    assert_eq!(branch("v1.0/01"), "gsd/phase-01-core");
+    assert!(branch("v1.0").is_null(), "a milestone has none under phase");
+    p.settings(serde_json::json!({
+        "git.branching_strategy": "phase",
+        "git.phase_branch_template": "work/{phase}/{slug}",
+    }));
+    assert_eq!(branch("v1.0/01"), "work/01/core");
+    p.settings(serde_json::json!({"git.branching_strategy": "milestone"}));
+    assert_eq!(branch("v1.0"), "gsd/v1.0-taskboard-1-0");
+    assert_eq!(branch("v1.0/01"), "gsd/v1.0-taskboard-1-0");
+    p.settings(serde_json::json!({"git.branching_strategy": "none"}));
+    assert!(branch("v1.0/01").is_null());
+    assert!(branch("v1.0").is_null());
 }

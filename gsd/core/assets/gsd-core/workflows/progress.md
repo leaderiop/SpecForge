@@ -15,18 +15,18 @@ Read all files referenced by the invoking prompt's execution_context before star
 **Load progress context (paths only):**
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
-FORENSIC_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--forensic([[:space:]]|$) ]]; then FORENSIC_PARAM="--forensic"; fi
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
 INIT=$(specforge gsd progress-report --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 ```
 
-Extract from init JSON: `project_exists`, `roadmap_exists`, `state_exists`, `requirements_exists`, `planning_exists`, `milestones_exists`, `init_incomplete`, `phases`, `current_phase`, `next_phase`, `milestone_version`, `completed_count`, `phase_count`, `paused_at`, `state_path`, `roadmap_path`, `project_path`, `config_path`, `phase_mvp_mode`.
+Read from the answer (what `progress-report` prints): `milestone_version`, `milestone_name`, `phases` (each `number`, `name`, `plans`, `summaries`, `status`), `total_plans`, `total_summaries`, `percent` and `phase_scope`. `phase_count` is the length of `phases` and `completed_count` counts those with status `Complete`; the current phase is the first that is not, and the next phase the one after it; `roadmap_exists` is `phases` non-empty and `state_exists` is `milestone_version` non-null (the project state is computed, so no path is read); a pause is a `pause` entity, and a phase's mode its `mode` field.
 
 ```bash
 DISCUSS_MODE="{{setting:workflow.discuss_mode|}}"   # workflow.discuss_mode (the settings)
@@ -165,9 +165,9 @@ CONTEXT: [✓ if has_context | - if not]
 (Only show this section if count > 0; suppressed when ledger is empty or absent)
 
 ```bash
-WINDOWS_STATUSES=$(specforge query "$PHASE_ID" --kinds broken_window --pick '.nodes[kind=broken_window].fields.status' 2>/dev/null)
-WINDOWS_OPEN=$(printf '%s\n' "$WINDOWS_STATUSES" | grep -cx open)
-WINDOWS_WAIVED=$(printf '%s\n' "$WINDOWS_STATUSES" | grep -cx waived)
+# the ledger's open and waived windows, counted by their typed status
+WINDOWS_OPEN=$(specforge query "$PHASE_ID" --kinds broken_window --pick '.nodes[fields.status=open]' --count 2>/dev/null)
+WINDOWS_WAIVED=$(specforge query "$PHASE_ID" --kinds broken_window --pick '.nodes[fields.status=waived]' --count 2>/dev/null)
 ```
 
 Render `Open Windows` only when `$WINDOWS_OPEN` is greater than `0` (or `$WINDOWS_WAIVED` is greater than `0`, so an auditable deferral history remains visible). Phrase: `{WINDOWS_OPEN} open, {WINDOWS_WAIVED} waived — resolves with /gsd:ship gate; inspect via `specforge query "$PHASE_ID" --kinds broken_window``. The ledger is cross-phase; the count is the project total, not the current phase's.
@@ -234,7 +234,7 @@ fi
 
 `/clear` then:
 
-`/gsd:execute-phase ${INCOMPLETE_PHASE} ${GSD_WS}`
+`/gsd:execute-phase ${INCOMPLETE_PHASE}`
 
 (plans without summaries detected; use --no-resume to skip this check and route by current_phase instead; --force to skip all gates)
 
@@ -254,7 +254,7 @@ report of this phase alone, by its id (a plan has no superseded status):
 
 X=$(specforge gsd progress-report --phase "$CURRENT_PHASE" --pick '.phases[0].plans')   # the phase's own plans, by its id
 Y=$(specforge gsd progress-report --phase "$CURRENT_PHASE" --pick '.phases[0].summaries')
-specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id' | wc -l
+specforge query "${CURRENT_PHASE}" --depth 2 --kinds uat_test --pick '.nodes[kind=uat_test].id' --count
 ```
 
 State: "This phase has {X} plans, {Y} summaries."
@@ -310,8 +310,8 @@ Archived debt stays VISIBLE — an item archived still-open is still open (the a
 | {phase} | {filename} | {unresolved_count} deferred items |
 | {phase} | {filename} | unparsed — test blocks with no readable `result:` line |
 
-Review: `/gsd:audit-uat ${GSD_WS}` — full cross-phase audit
-Resume testing: `/gsd:verify-work {phase} ${GSD_WS}` — retest specific phase
+Review: `/gsd:audit-uat` — full cross-phase audit
+Resume testing: `/gsd:verify-work {phase}` — retest specific phase
 ```
 
 The unparsed row comes from the UAT diagnostics of `specforge check` (`parse_gaps`, archived or not). This is a WARNING, not a blocker — routing proceeds normally. The debt is visible so the user can make an informed choice.
@@ -324,11 +324,11 @@ A phase whose verification is anything but `passed` is NOT complete, even when e
 PHASE_DIR="${CURRENT_PHASE}"   # a phase is addressed by its id, not a directory
 VERIFICATION=$(specforge query "${PHASE_DIR}" --kinds verification --format json) || { echo "the verification of phase ${CURRENT_PHASE} was refused — see the error above." >&2; exit 1; }
 VERIFICATION_STATUS=$(specforge query "${PHASE_DIR}" --kinds verification --pick '.nodes[kind=verification].fields.status'); VERIFICATION_STATUS=${VERIFICATION_STATUS%%$'\n'*}
-VERIFICATION_NEXT_ACTION=$(specforge query "${PHASE_DIR}" --kinds verification --pick .next_action)
-VERIFICATION_NEXT_COMMAND=$(specforge query "${PHASE_DIR}" --kinds verification --pick .next_command)
+
+
 ```
 
-Track: `verification_status` — the `.status` field of the closed set (#5118); the query projects stale verification (`stale`, covered source changed after the verifier ran) and a missing report (`missing`) itself. A non-zero exit is a hard error (a report `status` outside `passed | gaps_found | human_needed`): surface it, never read it as "no status". Only `passed` routes as phase complete (Step 3); every other status routes back to close verification debt (Step 2) with the owner's `next_action` / `next_command`.
+Track: `verification_status` — the `.status` field of the closed set (#5118); the query projects stale verification (`stale`, covered source changed after the verifier ran) and a missing report (`missing`) itself. A non-zero exit is a hard error (a report `status` outside `passed | gaps_found | human_needed`): surface it, never read it as "no status". Only `passed` routes as phase complete (Step 3); every other status routes back to close verification debt (Step 2) (the route table names the command).
 
 **Step 2: Route based on counts**
 
@@ -361,7 +361,7 @@ Read its `<objective>` section.
 
 `/clear` then:
 
-`/gsd:execute-phase {phase} ${GSD_WS}`
+`/gsd:execute-phase {phase}`
 
 ---
 ```
@@ -375,8 +375,8 @@ Check if `{phase_num}-CONTEXT.md` exists in phase directory.
 Check if current phase has UI indicators:
 
 ```bash
-PHASE_SECTION=$(specforge query "${CURRENT_PHASE}" --depth 0 --format context 2>/dev/null)
-PHASE_HAS_UI=$(echo "$PHASE_SECTION" | grep -qi "UI hint.*yes" && echo "true" || echo "false")
+PHASE_HAS_UI=$(specforge query "${CURRENT_PHASE}" --depth 0 --pick '.nodes[0].fields.frontend' 2>/dev/null)
+PHASE_HAS_UI=${PHASE_HAS_UI:-false}   # @gsd/ui computes frontend: false when it is not loaded
 ```
 
 **If CONTEXT.md exists:**
@@ -391,7 +391,7 @@ PHASE_HAS_UI=$(echo "$PHASE_SECTION" | grep -qi "UI hint.*yes" && echo "true" ||
 
 `/clear` then:
 
-`/gsd:plan-phase {phase-number} ${GSD_WS}`
+`/gsd:plan-phase {phase-number}`
 
 ---
 ```
@@ -430,13 +430,13 @@ PHASE_HAS_UI=$(echo "$PHASE_SECTION" | grep -qi "UI hint.*yes" && echo "true" ||
 
 `/clear` then:
 
-`/gsd:discuss-phase {phase} ${GSD_WS}` — gather context and clarify approach
+`/gsd:discuss-phase {phase}` — gather context and clarify approach
 
 ---
 
 **Also available:**
-- `/gsd:plan-phase {phase} ${GSD_WS}` — skip discussion, plan directly
-- `/gsd:discuss-phase {phase} ${GSD_WS}` — include assumptions check before planning
+- `/gsd:plan-phase {phase}` — skip discussion, plan directly
+- `/gsd:discuss-phase {phase}` — include assumptions check before planning
 
 ---
 ```
@@ -456,13 +456,13 @@ UAT.md exists with gaps (diagnosed issues). User needs to plan fixes.
 
 `/clear` then:
 
-`/gsd:plan-phase {phase} --gaps ${GSD_WS}`
+`/gsd:plan-phase {phase} --gaps`
 
 ---
 
 **Also available:**
-- `/gsd:execute-phase {phase} ${GSD_WS}` — execute phase plans
-- `/gsd:verify-work {phase} ${GSD_WS}` — run more UAT testing
+- `/gsd:execute-phase {phase}` — execute phase plans
+- `/gsd:verify-work {phase}` — run more UAT testing
 
 ---
 ```
@@ -482,13 +482,13 @@ UAT.md exists with `status: partial` — testing session ended before all items 
 
 `/clear` then:
 
-`/gsd:verify-work {phase} ${GSD_WS}` — resume testing from where you left off
+`/gsd:verify-work {phase}` — resume testing from where you left off
 
 ---
 
 **Also available:**
-- `/gsd:audit-uat ${GSD_WS}` — full cross-phase UAT audit
-- `/gsd:execute-phase {phase} ${GSD_WS}` — execute phase plans
+- `/gsd:audit-uat` — full cross-phase UAT audit
+- `/gsd:execute-phase {phase}` — execute phase plans
 
 ---
 ```
@@ -504,11 +504,11 @@ All plans have summaries, but canonical verification has not passed (`missing`, 
 
 ## Verification Not Passed
 
-**Phase {phase}** has all plans summarized, but verification reads `${VERIFICATION_STATUS}`. ${VERIFICATION_NEXT_ACTION}
+**Phase {phase}** has all plans summarized, but verification reads `${VERIFICATION_STATUS}`. Re-run the phase's verification: execute-phase resumes at its verification gates.
 
 `/clear` then:
 
-`${VERIFICATION_NEXT_COMMAND}` (omit this line when it is empty)
+`/gsd:execute-phase {phase}` — re-run the verification gates
 
 ---
 ```
@@ -524,11 +524,11 @@ VERIFICATION.md exists with `status: gaps_found` — verification identified gap
 
 ## ⚠ Verification Gaps Found
 
-**{phase_num}-VERIFICATION.md** reports `gaps_found`. ${VERIFICATION_NEXT_ACTION}
+**{phase_num}-VERIFICATION.md** reports `gaps_found`. Plan the gap fixes, then execute them.
 
 `/clear` then:
 
-`${VERIFICATION_NEXT_COMMAND} ${GSD_WS}` — plan the gap fixes (the owner's route: plan-phase --gaps)
+`/gsd:plan-phase {phase} --gaps` — plan the gap fixes
 
 ---
 ```
@@ -544,11 +544,11 @@ VERIFICATION.md exists with `status: human_needed` — automated checks passed b
 
 ## Human Verification Required
 
-**{phase_num}-VERIFICATION.md** reports `human_needed`. ${VERIFICATION_NEXT_ACTION}
+**{phase_num}-VERIFICATION.md** reports `human_needed`. Resolve the remaining manual checks.
 
 `/clear` then:
 
-`${VERIFICATION_NEXT_COMMAND} ${GSD_WS}` — resume human verification (the owner's route: verify-work)
+`/gsd:verify-work {phase}` — resume human verification
 
 ---
 ```
@@ -581,8 +581,8 @@ Read ROADMAP.md to get the next phase's name and goal.
 Check if next phase has UI indicators:
 
 ```bash
-NEXT_PHASE=$(printf %02d $((Z+1))); NEXT_PHASE_SECTION=$(specforge query "$MILESTONE/$NEXT_PHASE" --depth 0 --format context 2>/dev/null)
-NEXT_HAS_UI=$(echo "$NEXT_PHASE_SECTION" | grep -qi "UI hint.*yes" && echo "true" || echo "false")
+NEXT_PHASE=$(printf %02d $((Z+1))); NEXT_HAS_UI=$(specforge query "$MILESTONE/$NEXT_PHASE" --depth 0 --pick '.nodes[0].fields.frontend' 2>/dev/null)
+NEXT_HAS_UI=${NEXT_HAS_UI:-false}   # @gsd/ui computes frontend: false when it is not loaded
 ```
 
 **If next phase has UI (`NEXT_HAS_UI` is `true`):**
@@ -623,13 +623,13 @@ NEXT_HAS_UI=$(echo "$NEXT_PHASE_SECTION" | grep -qi "UI hint.*yes" && echo "true
 
 `/clear` then:
 
-`/gsd:discuss-phase {Z+1} ${GSD_WS}` — gather context and clarify approach
+`/gsd:discuss-phase {Z+1}` — gather context and clarify approach
 
 ---
 
 **Also available:**
-- `/gsd:plan-phase {Z+1} ${GSD_WS}` — skip discussion, plan directly
-- `/gsd:verify-work {Z} ${GSD_WS}` — user acceptance test before continuing
+- `/gsd:plan-phase {Z+1}` — skip discussion, plan directly
+- `/gsd:verify-work {Z}` — user acceptance test before continuing
 
 ---
 ```
@@ -651,12 +651,12 @@ All {N} phases finished!
 
 `/clear` then:
 
-`/gsd:complete-milestone ${GSD_WS}`
+`/gsd:complete-milestone`
 
 ---
 
 **Also available:**
-- `/gsd:verify-work ${GSD_WS}` — user acceptance test before completing milestone
+- `/gsd:verify-work` — user acceptance test before completing milestone
 
 ---
 ```
@@ -682,7 +682,7 @@ Ready to plan the next milestone.
 
 `/clear` then:
 
-`/gsd:new-milestone ${GSD_WS}`
+`/gsd:new-milestone`
 
 ---
 ```
@@ -692,10 +692,10 @@ Ready to plan the next milestone.
 <step name="edge_cases">
 **Handle edge cases:**
 
-- Phase complete but next phase not planned → offer `/gsd:plan-phase [next] ${GSD_WS}`
+- Phase complete but next phase not planned → offer `/gsd:plan-phase [next]`
 - All work complete → offer milestone completion
 - Blockers present → highlight before offering to continue
-- Handoff file exists → mention it, offer `/gsd:resume-work ${GSD_WS}`
+- Handoff file exists → mention it, offer `/gsd:resume-work`
 </step>
 
 <!-- gsd:section id="forensic-audit" when="flag:--forensic" -->

@@ -24,36 +24,17 @@ fn a_field_of_a_gsd_answer_is_picked() {
         return;
     };
     let p = taskboard();
-    let started = value(
-        &sh,
-        &p,
-        "agents/gsd-executor.md",
-        "PHASE=v1.0/01/01; PLAN=01",
-        "STARTED=$(",
-        "STARTED",
-    );
-    assert!(
-        started.starts_with("[20") && started.ends_with("Z]"),
-        "{started}"
-    );
+    let code = line(&asset("agents/gsd-executor.md"), "specforge gsd start-plan").to_string();
+    let (_, status) = run(&sh, &p, &format!("PHASE=v1.0/01/01; PLAN=01\n{code}"));
+    assert_eq!(status, 0);
+    assert!(p.fields_of("v1.0/01/01-01/START")["at"].is_string());
     // a refused start stops the block, as `jq -e` did
-    let code = line(&asset("agents/gsd-executor.md"), "STARTED=$(").to_string();
     let (out, status) = run(&sh, &p, &format!("PHASE=nope; PLAN=01\n{code}\necho after"));
     assert_eq!((out.as_str(), status), ("", 1));
     let cm = "gsd-core/workflows/complete-milestone.md";
     assert_eq!(
         value(&sh, &p, cm, "", "GSD_ACTIVE_WS=$(", "GSD_ACTIVE_WS"),
         "[]"
-    );
-    let flat = line(&asset(cm), "_gsd_flat_mode() {").to_string();
-    assert_eq!(
-        run(
-            &sh,
-            &p,
-            &format!("GSD_WS=\n{flat}\n_gsd_flat_mode && echo flat")
-        )
-        .0,
-        "flat\n"
     );
     let next = asset("gsd-core/workflows/next.md");
     assert_eq!(
@@ -90,9 +71,9 @@ fn a_field_of_a_gsd_answer_is_picked() {
     );
 }
 
-/// T3: pause-work's phase in progress is the number at the index of the first `In Progress` status.
+/// T3: pause-work's phase in progress is the number of the first phase whose status is `In Progress`.
 #[test]
-fn the_phase_in_progress_is_read_by_index() {
+fn the_phase_in_progress_is_read_by_its_status() {
     let Some(sh) = Shell::without_jq() else {
         return;
     };
@@ -101,7 +82,7 @@ fn the_phase_in_progress_is_read_by_index() {
     // no phase of the taskboard is in progress
     assert_eq!(value(&sh, &p, path, "", "phase=$(", "phase"), "[]");
     // the shell's part, on a stand-in for the command: the second phase is in progress
-    let stub = r#"specforge() { case "$*" in *status*) printf 'Complete\nIn Progress\nIn Progress\n' ;; *'[1].number'*) echo 02 ;; esac; }"#;
+    let stub = r#"specforge() { case "$*" in *"[status=In Progress].number --first 1"*) echo 02 ;; esac; }"#;
     assert_eq!(value(&sh, &p, path, stub, "phase=$(", "phase"), "[02]");
 }
 
@@ -173,6 +154,14 @@ fn a_graph_read_is_picked() {
     );
     let cases: &[(&str, &str, &str, &str, &str)] = &[
         ("plan-phase.md", phase, "DISK_PLANS=$(", "DISK_PLANS", "[2]"),
+        // the milestone's summaries, counted (a milestone the graph has not stops the block: `counts.rs`)
+        (
+            "plan-phase.md",
+            "MILESTONE=v1.0",
+            "PRIOR_SUMMARIES=$(",
+            "PRIOR_SUMMARIES",
+            "[2]",
+        ),
         (
             "plan-phase.md",
             "PHASE_ID=v1.0/03",
@@ -267,29 +256,64 @@ fn a_graph_read_is_picked() {
             "PHASE_DIR",
             "[]",
         ),
-        // a field the answer does not have: nothing, or the line's own default (jq printed `null` without one)
+        // the phase's status ladder: executed, needs_review and complete have every plan summarised
         (
             "verify-work.md",
             phase,
-            "IMPLEMENTATION_COMPLETE=$(",
+            "case \"$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.status')\"",
+            "IMPLEMENTATION_COMPLETE",
+            "[true]",
+        ),
+        (
+            "verify-work.md",
+            "PHASE_ID=v1.0/02",
+            "case \"$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.status')\"",
             "IMPLEMENTATION_COMPLETE",
             "[false]",
         ),
+        // the phase's state as entity ids; a kind of an extension that is not loaded is empty
         (
-            "verify-work.md",
+            "plan-phase.md",
             phase,
-            "PHASE_NUMBER=$(",
-            "PHASE_NUMBER",
+            "ROADMAP_PATH=$(",
+            "ROADMAP_PATH",
+            "[v1.0]",
+        ),
+        (
+            "plan-phase.md",
+            phase,
+            "REQUIREMENTS_PATH=$(",
+            "REQUIREMENTS_PATH",
+            "[TASK-01\nTASK-02]",
+        ),
+        (
+            "plan-phase.md",
+            phase,
+            "VERIFICATION_PATH=$(",
+            "VERIFICATION_PATH",
+            "[v1.0/01/01-VERIFICATION]",
+        ),
+        (
+            "plan-phase.md",
+            phase,
+            "UAT_PATH=$(",
+            "UAT_PATH",
+            "[v1.0/01/01-UAT]",
+        ),
+        (
+            "plan-phase.md",
+            phase,
+            "CONTEXT_PATH=$(",
+            "CONTEXT_PATH",
             "[]",
         ),
         (
-            "progress.md",
-            "PHASE_DIR=v1.0/01",
-            "VERIFICATION_NEXT_COMMAND=$(",
-            "VERIFICATION_NEXT_COMMAND",
+            "plan-phase.md",
+            phase,
+            "PATTERNS_PATH=$(",
+            "PATTERNS_PATH",
             "[]",
         ),
-        ("plan-phase.md", phase, "STATE_PATH=$(", "STATE_PATH", "[]"),
     ];
     for (file, setup, start, var, want) in cases {
         let path = format!("{w}{file}");
@@ -357,6 +381,20 @@ fn a_graph_read_is_picked() {
             "VERIFICATION_STATUS",
             "[passed]",
         ),
+        (
+            "verify-work.md",
+            phase,
+            "VERIFICATION_FILE=$(",
+            "VERIFICATION_FILE",
+            "[v1.0/01/01-REVERIFICATION]",
+        ),
+        (
+            "verify-work.md",
+            phase,
+            "VERIFICATION_STATUS_VALUE=$(",
+            "VERIFICATION_STATUS_VALUE",
+            "[passed]",
+        ),
     ];
     for (file, setup, start, var, want) in first {
         let text = asset(&format!("{w}{file}"));
@@ -409,10 +447,6 @@ fn a_refused_read_shows_its_cause() {
         (
             "execute-phase/steps/tdd-applicability-resolution.md",
             "TDD_APPLICABLE_RAW=$(",
-        ),
-        (
-            "execute-phase/steps/executor-isolation-dispatch.md",
-            "_TDD_APPLICABLE_RAW=$(",
         ),
         ("plan-phase.md", "PHASE_REQ_IDS=$("),
         ("verify-work.md", "VERIFICATION_FILE=$("),

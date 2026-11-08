@@ -31,7 +31,7 @@ fn a_command_with_reads_gets_files_and_one_without_gets_none() {
         CommandFormat::Json,
         None,
         None,
-        at("2026-10-03"),
+        told(at("2026-10-03")),
     )
     .unwrap();
     let input = last_input(&runtime);
@@ -49,7 +49,7 @@ fn a_command_with_reads_gets_files_and_one_without_gets_none() {
         CommandFormat::Json,
         None,
         None,
-        at("2026-10-03"),
+        told(at("2026-10-03")),
     )
     .unwrap();
     assert!(last_input(&runtime).get("files").is_none());

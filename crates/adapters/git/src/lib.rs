@@ -21,6 +21,7 @@ use specforge_effects::git::{
 mod branching;
 mod history;
 mod merging;
+mod redirects;
 mod refs;
 use refs::{branch_of, local_branch};
 mod status;
@@ -207,12 +208,30 @@ impl Git for Gix {
                 dir.display()
             ));
         }
+        // git stops at a `.git` it cannot use; gix looks on upwards, and a broken repository would answer as the one
+        // around it, read clean when that one is
+        let toplevel = real(top);
+        if here.starts_with(&toplevel)
+            && let Some(broken) = here
+                .ancestors()
+                .take_while(|at| *at != toplevel)
+                .find(|at| at.join(".git").symlink_metadata().is_ok())
+        {
+            return Located::Unavailable(format!(
+                "{} has a .git that is no repository",
+                broken.display()
+            ));
+        }
         Located::Repo(GitPlace {
-            toplevel: real(top),
+            toplevel,
             git_dir: real(repo.git_dir()),
             common_dir: real(repo.common_dir()),
             shallow: repo.is_shallow(),
         })
+    }
+
+    fn leads_to(&self, place: &GitPlace) -> Vec<PathBuf> {
+        redirects::leads_to(place)
     }
 
     fn commit(&self, place: &GitPlace, revision: &str) -> Result<Option<Sha>, GitError> {
@@ -416,10 +435,11 @@ impl Git for Gix {
         // lands in the object store
         let repo = open(place)?.with_object_memory();
         let base = tree_of(&repo, &query.base)?;
+        let paths = wanted_paths(&query.paths);
         let (head, unread) = match &query.head {
             DiffSide::Commit(sha) => (tree_of(&repo, sha)?, Default::default()),
-            DiffSide::Index => index_tree(&repo, false)?,
-            DiffSide::Worktree => index_tree(&repo, true)?,
+            DiffSide::Index => index_tree(&repo, false, &paths)?,
+            DiffSide::Worktree => index_tree(&repo, true, &paths)?,
         };
         let old = repo
             .find_tree(base)
@@ -430,7 +450,6 @@ impl Git for Gix {
         let changes = repo
             .diff_tree_to_tree(&old, &new, None)
             .map_err(|e| failed("diff two trees", &e))?;
-        let paths = wanted_paths(&query.paths);
         let mut files = Vec::new();
         for change in changes {
             if let Some(file) = file_diff(&repo, change, &paths, query.patch, &unread)? {
@@ -585,6 +604,10 @@ impl Git for Gix {
         branching::init(dir)
     }
 
+    fn clone_local(&self, source: &GitPlace, into: &Path) -> Result<(), GitError> {
+        branching::clone_local(source, into)
+    }
+
     fn worktree_lock(
         &self,
         place: &GitPlace,
@@ -651,7 +674,18 @@ impl Git for Gix {
         merging::pick_end(place, abort)
     }
 
+    fn names_a_remote(&self, source: &str) -> bool {
+        // A plain path parses as a `file` URL too: it serializes in its alternative form, `file://` does not.
+        gix::url::parse(source.into()).is_ok_and(|url| {
+            url.scheme != gix::url::Scheme::File || !url.serialize_alternative_form
+        })
+    }
+
     fn status(&self, place: &GitPlace) -> Result<GitStatus, GitError> {
-        status::read(place, self.deadline)
+        status::read(place, self.deadline, gix::status::UntrackedFiles::Collapsed)
+    }
+
+    fn status_by_file(&self, place: &GitPlace) -> Result<GitStatus, GitError> {
+        status::read(place, self.deadline, gix::status::UntrackedFiles::Files)
     }
 }

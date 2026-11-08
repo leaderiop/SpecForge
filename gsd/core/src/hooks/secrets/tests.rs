@@ -127,3 +127,24 @@ fn secret_read_guard_accounts_for_every_upstream_case() {
     }
     accounting::account(SUITE, &ported(), SKIPPED);
 }
+
+/// The guard reads `specforge files` as it reads any command: an operand that names a secret is a read, whatever the
+/// verb and its walk flags, and a search pattern is an operand.
+#[test]
+fn a_search_pattern_naming_a_secret_reads_as_an_operand() {
+    let denied = |command: &str| v1_19::bash(command).decision == Some(Decision::Deny);
+    for command in [
+        r"specforge files search '\.env' file.md",
+        "specforge files search --hidden --no-ignore KEY .env",
+        "specforge files read .env",
+        "specforge files read .env --pick .text",
+    ] {
+        assert!(denied(command), "{command}");
+    }
+    for command in [
+        r"specforge files search '\.env\b' file.md",
+        "specforge files read .env.example",
+    ] {
+        assert!(!denied(command), "{command}");
+    }
+}

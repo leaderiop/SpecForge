@@ -5,9 +5,7 @@ use std::path::Path;
 
 use serde_json::Value;
 use specforge_effects::git::{Git, Located};
-use specforge_protocol_types::{CommitFact, GitFacts, PathFact};
-
-use crate::host::shell;
+use specforge_protocol_types::{CommitFact, GitFacts, PathFact, shell};
 
 /// The paths a tool's input names: `file_path`, `path`, `notebook_path`, each of `paths` and each file a patch text
 /// names.
@@ -132,7 +130,7 @@ pub fn shell_commands(input: &Value) -> Vec<Vec<String>> {
 /// as `-am`) and whether it amends; none when no command of the line is a commit. A message the commit takes from
 /// elsewhere (`-F`, `-C`, `-c`, `--fixup`, `--squash`, the editor) is none, not empty.
 // shortcut: `git commit` is found by its words (global options and the wrappers `env`, `command`, `sudo`, `exec`,
-// `nohup`, `time` skipped, `sh -c '…'` read); an alias, a script, `xargs` or `$(…)` is not seen. The cleanup mode a
+// `nohup`, `time` skipped, `sh -c '…'` read); an alias, a script or `xargs` is not seen. The cleanup mode a
 // git config sets is not read.
 pub fn commit(input: &Value) -> Option<CommitFact> {
     commit_of_line(input.get("command")?.as_str()?, 0)
@@ -429,6 +427,50 @@ mod tests {
             ]
         );
         assert!(shell_commands(&json!({})).is_empty());
+    }
+
+    #[test]
+    fn a_redirect_glued_to_a_word_is_no_part_of_a_command_or_a_message() {
+        for line in [
+            "git add -f x",
+            "git add -f&>/dev/null x",
+            "git add -f x>y",
+            "git add -f 2>&1 x",
+            "git add>y -f x",
+            ">y git add -f x",
+        ] {
+            assert_eq!(
+                shell_commands(&json!({"command": line})),
+                vec![vec!["git", "add", "-f", "x"]],
+                "{line}"
+            );
+        }
+        for line in [
+            "git commit -m wip",
+            "git commit -m wip&>log",
+            "git commit -m wip>log",
+            "git commit -m wip 2>&1",
+            "git commit&>log -m wip",
+            ">log git commit -m wip",
+        ] {
+            let fact = commit_of(line).unwrap_or_else(|| panic!("{line}"));
+            assert_eq!(fact.message.as_deref(), Some("wip"), "{line}");
+        }
+    }
+
+    #[test]
+    fn a_command_in_a_quoted_substitution_is_a_command() {
+        assert_eq!(
+            shell_commands(&json!({"command": "echo \"$(git add -f x)\""})),
+            vec![
+                vec!["git", "add", "-f", "x"],
+                vec!["echo", "$(git add -f x)"]
+            ]
+        );
+        let fact = commit_of("echo \"$(git commit -m wip)\"").unwrap();
+        assert_eq!(fact.message.as_deref(), Some("wip"));
+        let heredoc = "git commit -m \"$(cat <<'EOF'\ngit add -f x, it's\nEOF\n)\"";
+        assert_eq!(shell_commands(&json!({"command": heredoc})).len(), 1);
     }
 
     #[test]

@@ -4,21 +4,28 @@
 //! and written privately and atomically (`replace_private`: 0600, a new parent 0700, a rename). A store that cannot
 //! be read or parsed, or that a newer specforge wrote, is never written over: nothing in it counts (W186).
 
-use std::ffi::OsString;
+mod machine_roots;
+
+pub(crate) use specforge_effects::journal::user_home;
+use std::ffi::{OsStr, OsString};
 use std::io::Read as _;
 use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use specforge_common::fresh::{not_private, open_private_lock, private_parent, replace_private};
 use specforge_common::remedy::printable;
-use specforge_common::{Diagnostic, codes};
+use specforge_common::{Diagnostic, ProjectRoot, codes};
+use specforge_effects::contained::HOST_STATE;
 use specforge_effects::{Approvals, Consent, ConsentError};
+
+pub(crate) use machine_roots::{machine_roots_here, not_a_machine_root};
 
 /// Overrides the user-level consent store (tests, custom homes). Refused when it lies inside the project.
 pub const CONSENT_FILE_ENV: &str = "SPECFORGE_CONSENT_FILE";
 
-/// The store format this specforge reads and writes.
-const VERSION: u64 = 1;
+/// The store format this specforge reads and writes. A version 1 store has no machine roots; it reads and is written
+/// back as 2, so an older specforge refuses to write over it (W186) and never drops one.
+const VERSION: u64 = 2;
 
 #[derive(Serialize, Deserialize)]
 struct Stored {
@@ -40,17 +47,30 @@ impl UserConsent {
     /// store inside the project (the home is the project, or lies in it), or one named by a relative
     /// path, is refused: a repository could approve its own effects.
     pub fn user(project: &Path) -> Self {
-        let store = match std::env::var_os(CONSENT_FILE_ENV) {
+        Self::named().within(project)
+    }
+
+    /// The user's store for a verb or a grant typed at `root`. A directory with no `specforge.json` is no repository's
+    /// project: typed from the home directory, the store in it is still the user's own, where [`Self::user`] would read
+    /// it as a committed one.
+    pub fn at_root(root: &ProjectRoot) -> Self {
+        match root.configured_dir() {
+            Some(project) => Self::user(project),
+            None => Self::named().absolute(),
+        }
+    }
+
+    fn named() -> Self {
+        match std::env::var_os(CONSENT_FILE_ENV) {
             Some(path) => Self::at(PathBuf::from(path)),
             None => Self::of_home(),
-        };
-        store.within(project)
+        }
     }
 
     /// `$HOME/.specforge/consent.json` (`USERPROFILE`). With no home there is no store: nothing is approved and W186
     /// says why. Never a shared directory, where another user could create the store first and fill it.
     pub fn of_home() -> Self {
-        Self::under(std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")))
+        Self::under(user_home().map(PathBuf::into_os_string))
     }
 
     fn under(home: Option<OsString>) -> Self {
@@ -73,23 +93,27 @@ impl UserConsent {
         }
     }
 
-    /// This store, refused when it is named by a relative path or resolves under the canonical `project`. A store
-    /// already refused keeps its reason.
-    pub fn within(mut self, project: &Path) -> Self {
-        if self.refused.is_some() {
-            return self;
-        }
-        if self.store.is_relative() {
+    /// This store, refused when it is named by a relative path. A store already refused keeps its reason.
+    fn absolute(mut self) -> Self {
+        if self.refused.is_none() && self.store.is_relative() {
             self.refused = Some(format!(
                 "a relative path could lie inside any project; point {CONSENT_FILE_ENV} at an absolute path"
             ));
-        } else if resolved(&self.store).starts_with(resolved(project)) {
-            self.refused = Some(format!(
+        }
+        self
+    }
+
+    /// This store, refused when it is named by a relative path or resolves under the canonical `project`. A store
+    /// already refused keeps its reason.
+    pub fn within(self, project: &Path) -> Self {
+        let mut this = self.absolute();
+        if this.refused.is_none() && resolved(&this.store).starts_with(resolved(project)) {
+            this.refused = Some(format!(
                 "it is inside the project, where a repository could approve its own effects; point \
                  {CONSENT_FILE_ENV} outside the project"
             ));
         }
-        self
+        this
     }
 
     /// The store's file.
@@ -127,10 +151,33 @@ impl UserConsent {
         }
     }
 
+    /// Refused when the store, or the host's directory that holds it, is a link: the file it reaches could be a
+    /// repository's, whichever directory the command was typed in. A home that is itself reached by a link is left to it.
+    fn no_link(&self) -> Result<(), ConsentError> {
+        let own_directory = self
+            .store
+            .parent()
+            .filter(|dir| dir.file_name() == Some(OsStr::new(HOST_STATE)));
+        for at in [Some(self.store.as_path()), own_directory]
+            .into_iter()
+            .flatten()
+        {
+            if std::fs::symlink_metadata(at).is_ok_and(|meta| meta.file_type().is_symlink()) {
+                return Err(self.error(format!(
+                    "{} is a symbolic link, so a file anywhere could approve effects for you; replace it with the \
+                     file itself, or point {CONSENT_FILE_ENV} at a file of your own",
+                    at.display()
+                )));
+            }
+        }
+        Ok(())
+    }
+
     fn read(&self) -> Result<Approvals, ConsentError> {
         if let Some(why) = &self.refused {
             return Err(self.error(why.clone()));
         }
+        self.no_link()?;
         self.private_directory()?;
         let mut file = match std::fs::File::open(&self.store) {
             Ok(file) => file,
@@ -168,7 +215,7 @@ impl UserConsent {
 
 /// `path` as the disk resolves it: its nearest existing ancestor canonical (every link and spelling followed), then
 /// the rest lexically, since a name that does not exist yet is no link.
-fn resolved(path: &Path) -> PathBuf {
+pub(crate) fn resolved(path: &Path) -> PathBuf {
     let Some((real, ancestor)) = path
         .ancestors()
         .find_map(|ancestor| Some((ancestor.canonicalize().ok()?, ancestor)))
@@ -217,6 +264,8 @@ impl Consent for UserConsent {
         if let Some(why) = &self.refused {
             return Err(self.error(why.clone()));
         }
+        // Judged before anything is made; read again under the lock.
+        self.read()?;
         private_parent(&self.store)
             .map_err(|e| self.error(format!("its directory cannot be made ({e})")))?;
         self.private_directory()?;

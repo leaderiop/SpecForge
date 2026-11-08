@@ -1,8 +1,9 @@
 //! The machine's approvals (ADR 0335 D2.4): the `Consent` port and what it keeps. An approval is keyed by the
 //! project, the extension and its provenance (a builtin by name, a third-party extension by its blob's digest)
 //! and the scope's name, and stores the granted scope whole: it covers a narrower grant, a wider one asks again. A
-//! named root outside the project is approved per project by its canonical target. The adapter, the user's
-//! private store, is `specforge_ops::UserConsent`; the fake is `testing::MemoryConsent`.
+//! named root outside the project is approved per project by its canonical target; a machine root is kept by its name
+//! for every project's verbs. The adapter, the user's private store, is `specforge_ops::UserConsent`; the fake is
+//! `testing::MemoryConsent`.
 
 use std::sync::Arc;
 
@@ -132,6 +133,26 @@ pub struct RootApproval {
     pub approved_at: ApprovedAt,
 }
 
+/// A root the user named on this machine (`grants approve --root <name> --at <dir>`): every project's verbs reach it,
+/// under that project's ceiling, and no extension's grant does.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MachineRoot {
+    pub root: String,
+    /// Its canonical target, as approved.
+    pub target: String,
+    #[serde(default)]
+    pub approved_at: ApprovedAt,
+}
+
+impl MachineRoot {
+    /// Whether its stored target is still a directory that lands where it was approved: one swapped for a link is not
+    /// followed.
+    pub fn lands(&self) -> bool {
+        let target = std::path::Path::new(&self.target);
+        target.is_dir() && crate::RealFs::landing(target) == target
+    }
+}
+
 /// Every approval a store holds.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Approvals {
@@ -139,6 +160,8 @@ pub struct Approvals {
     pub capabilities: Vec<CapabilityApproval>,
     #[serde(default)]
     pub roots: Vec<RootApproval>,
+    #[serde(default)]
+    pub machine_roots: Vec<MachineRoot>,
 }
 
 /// One approval, to store or to look for.
@@ -147,6 +170,7 @@ pub struct Approvals {
 pub enum Approval {
     Capability(CapabilityApproval),
     Root(RootApproval),
+    MachineRoot(MachineRoot),
 }
 
 impl Approvals {
@@ -157,6 +181,10 @@ impl Approvals {
             Approval::Root(wanted) => self.roots.iter().any(|a| {
                 a.project == wanted.project && a.root == wanted.root && a.target == wanted.target
             }),
+            Approval::MachineRoot(wanted) => self
+                .machine_roots
+                .iter()
+                .any(|a| a.root == wanted.root && a.target == wanted.target),
         }
     }
 
@@ -172,12 +200,19 @@ impl Approvals {
                     .retain(|a| !(a.project == approval.project && a.root == approval.root));
                 self.roots.push(approval);
             }
+            Approval::MachineRoot(approval) => {
+                self.machine_roots.retain(|a| a.root != approval.root);
+                self.machine_roots.push(approval);
+            }
         }
     }
 
     /// Drop what `which` names; how many went.
     pub fn remove(&mut self, which: &Revoke) -> usize {
-        let before = self.capabilities.len() + self.roots.len();
+        let held = |approvals: &Self| {
+            approvals.capabilities.len() + approvals.roots.len() + approvals.machine_roots.len()
+        };
+        let before = held(self);
         match which {
             Revoke::Scopes {
                 project,
@@ -195,8 +230,9 @@ impl Approvals {
                 self.capabilities.retain(|a| &a.project != project);
                 self.roots.retain(|a| &a.project != project);
             }
+            Revoke::MachineRoot { root } => self.machine_roots.retain(|a| &a.root != root),
         }
-        before - self.capabilities.len() - self.roots.len()
+        before - held(self)
     }
 }
 
@@ -211,8 +247,10 @@ pub enum Revoke {
     },
     /// The approval of `project`'s named root `root`.
     Root { project: ProjectKey, root: String },
-    /// Every approval of `project`.
+    /// Every approval of `project`; the machine roots stay, no project holds them.
     Project { project: ProjectKey },
+    /// The machine root `root`.
+    MachineRoot { root: String },
 }
 
 /// Why a store cannot be used (W186): nothing in it is approved, and nothing is written over it.

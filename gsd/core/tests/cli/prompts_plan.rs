@@ -71,6 +71,20 @@ fn plan_phase_renders_on_the_twin() {
     assert!(text.contains("<objective>"));
 }
 
+/// The planner's graph-context gate is how the project serves `/gsd-graphify`, said in the prompt: nothing probes PATH.
+#[test]
+fn plan_phase_says_whether_graph_context_is_served() {
+    let p = project("discuss");
+    let text = text_of(&payload(&prompt(&p, "plan_phase", &[PHASE], "claude-code")));
+    assert!(text.contains("## Graph context on this install"), "{text}");
+    assert!(
+        text.contains("- `/gsd-graphify`: not served on this project"),
+        "{text}"
+    );
+    assert!(text.contains("**Graph context:**"), "{text}");
+    assert!(!text.contains("graphify status"), "{text}");
+}
+
 fn fixture(file: &str) -> String {
     let path = format!(
         "{}/tests/projects/discuss/spec/{file}",
@@ -351,4 +365,32 @@ fn three_and_03_name_the_same_phase_on_the_prompt_query_and_edit_surfaces() {
     let short = p.run(&["set", "3", "goal", "x", "--dry-run"]);
     assert_eq!(short.code, 0, "{}", short.all());
     assert_eq!(short.stdout, exact.stdout);
+}
+
+/// `--research-phase <n>` turns on research-only mode for phase `n`, and `--view` on top of it view-only mode.
+#[test]
+fn research_phase_turns_on_research_only_mode() {
+    let p = project("discuss");
+    let text = text_of(&payload(&prompt(
+        &p,
+        "plan_phase",
+        &[PHASE, "--research-phase", "3", "--view"],
+        "claude-code",
+    )));
+    let fence = super::rendered_lines::bash_fences(&text)
+        .into_iter()
+        .find(|f| f.contains("RESEARCH_ONLY="))
+        .expect("the research-only fence");
+    let out = std::process::Command::new("bash")
+        .args(["--noprofile", "--norc", "-c"])
+        .arg(format!(
+            "{fence}\necho \"[$RESEARCH_ONLY][$VIEW_ONLY][$PHASE]\""
+        ))
+        .output()
+        .expect("bash");
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout).trim(),
+        "[true][true][3]",
+        "{fence}"
+    );
 }

@@ -59,18 +59,18 @@ Then ask:
 ```
 These items are open. Choose an action:
 [R] Resolve — stop and fix items, then re-run /gsd:complete-milestone
-[A] Acknowledge all — document as deferred and proceed with close
+[A] Accept the audit's tech debt — a person records it, which clears gsd/E106 alone; an open UAT or verification item still blocks the close
 [C] Cancel — exit without closing
 ```
 
-**If user chooses [A] (Acknowledge):** re-fetch `audit-open --json`, then acknowledge EVERY open item (across all categories — debug_sessions, threads, seeds, todos, quick_tasks, uat_gaps, verification_gaps, context_questions, deferred_items) through the `audit-open acknowledge` CLI writer, which is what actually suppresses each item starting at the next scan (the STATE.md `## Deferred Items` table is a disclosure record only). Any failed acknowledge call HALTS the close before proceeding — a refusal must never be silently discarded. After a clean pass, append one row per acknowledged item to STATE.md's `## Deferred Items` table (sanitized via `sanitizeForDisplay()`, never raw content), set `closeout_type=override_closeout`, and record a `Known verification overrides: {N} newly acknowledged, {M} carried forward` line in MILESTONES.md. Acknowledging is verdict-preserving and self-invalidating — it never rewrites the artifact's own status (except `deferred_items`), and the suppression lapses automatically the moment the artifact's state changes again (a reopened session, an edited gap, a re-triggered seed), resurfacing at the next audit.
+**If user chooses [A] (Accept the tech debt):** the open items are `specforge check` findings, and an agent cannot suppress them. A person accepts the latest milestone audit's tech debt: they write its `debt_accepted` (`by`, `at`) by hand or from an interactive `specforge set`, which clears gsd/E106 alone. Ask the person to do it, wait for their answer, and re-run `specforge check --format json`. The close's gate is gsd/E106, gsd/E511, gsd/E515 and gsd/E516: proceed with `specforge gsd close-milestone` only when none of them is reported; an open UAT or verification item (gsd/E511, gsd/E515, gsd/E516) still blocks, and is resolved through [R]. The audit's `tech_debt` entries are the disclosure record; nothing else is written.
 
-If output shows all clear (no open items): set `closeout_type=verified_closeout` — but if any items are `acknowledged.total` from a PRIOR close, note that carried-forward suppression explicitly rather than implying everything was fixed this time.
+If output shows all clear (no open items): proceed with the close. A close that passes because a person accepted the audit's tech debt says so: name the audit and its `debt_accepted.by`.
 
 <!-- gsd:protected -->
-SECURITY: Audit JSON output is structured data from the `audit-open` query handler (same JSON contract as legacy `specforge check`) — validated and sanitized at source. The `audit-open acknowledge` writer is the only path that sets the `audit_acknowledged` suppression marker — it snapshots each artifact's current state itself from the identifiers passed on the command line, so this workflow never hand-authors the marker. When writing the STATE.md disclosure table, item identifiers, statuses, and deferred-item text are sanitized via `sanitizeForDisplay()` before inclusion. Never inject raw user-supplied content into STATE.md without sanitization.
+SECURITY: the check's JSON output is structured data the host validated. Only a person writes `debt_accepted`: the host refuses it in every plan and MCP write, so this workflow never authors it. Never paste raw user-supplied content into a field.
 
-Exact per-category bash (including the `@file:` large-payload handling, the `todos` 5-per-scan cap, and the phase-scoped `--archived-milestone` handling) and the exact STATE.md table shape: `gsd-core/workflows/complete-milestone/detail/elaboration.md` § 1.
+The [A] branch in full: `gsd-core/workflows/complete-milestone/detail/elaboration.md` § 1.
 </step>
 
 <step name="verify_readiness">
@@ -78,13 +78,13 @@ Exact per-category bash (including the `@file:` large-payload handling, the `tod
 **Use `init.manager` for canonical readiness check:**
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
-INIT_MANAGER=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT_MANAGER" == @file:* ]]; then INIT_MANAGER=$(cat "${INIT_MANAGER#@file:}"); fi
+
+
+
+
+
+: "${MILESTONE:?MILESTONE is not set: the milestone being completed}"; INIT_MANAGER=$(specforge query "$MILESTONE" --depth 1 --format json) || exit 1
+
 ```
 
 This returns all phases with implementation and verification projection. Use this to verify:
@@ -95,7 +95,7 @@ This returns all phases with implementation and verification projection. Use thi
 Compute readiness from `INIT_MANAGER`, not from roadmap counts:
 
 ```bash
-ALL_PHASES_VERIFIED=false; PHASES=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.progress.phases') && PHASES_COMPLETE=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.progress.phases_complete') && [ -n "$PHASES" ] && [ "$PHASES" = "$PHASES_COMPLETE" ] && ALL_PHASES_VERIFIED=true   # progress leaves the 999 backlog out (#3167); a phase is complete only once its verification passed; a failed query or an empty count verifies nothing
+ALL_PHASES_VERIFIED=false; : "${MILESTONE:?MILESTONE is not set: the milestone being completed}"; PHASES=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.progress.phases') && PHASES_COMPLETE=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.progress.phases_complete') && [ -n "$PHASES" ] && [ "$PHASES" = "$PHASES_COMPLETE" ] && ALL_PHASES_VERIFIED=true   # progress leaves the 999 backlog out (#3167); a phase is complete only once its verification passed; a failed query or an empty count verifies nothing
 
 
 
@@ -187,11 +187,11 @@ Wait for confirmation.
 Calculate milestone statistics:
 
 ```bash
-specforge git log --grep="feat\(" --max 20 --format human
-specforge git diff --base FIRST_COMMIT --head LAST_COMMIT --shortstat --format human
-find . -name "*.swift" -o -name "*.ts" -o -name "*.py" | xargs wc -l 2>/dev/null || true
-specforge git log FIRST_COMMIT --reverse --pick '.commits[0].author.time'
-specforge git log LAST_COMMIT --max 1 --pick '.commits[0].author.time'
+: "${MILESTONE:?MILESTONE is not set: the milestone being completed}"; specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.stats'   # {files, loc, phases, plans, tasks, days}: loc counts inserted + deleted lines
+
+
+
+
 ```
 
 Present:
@@ -202,7 +202,7 @@ Milestone Stats:
 - Plans: [Z] total
 - Tasks: [N] total (from phase summaries)
 - Files modified: [M]
-- Lines of code: [LOC] [language]
+- Lines changed: [stats.loc]
 - Timeline: [Days] days ([Start] → [End])
 - Git range: feat(XX-XX) → feat(YY-YY)
 ```
@@ -215,7 +215,7 @@ Extract one-liners from SUMMARY.md files using summary-extract:
 
 ```bash
 # #2962: zsh aborts the block on an unmatched for-list glob (nomatch); bash passes it through. nullglob both.
-shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
+: "${MILESTONE:?MILESTONE is not set: the milestone being completed}"; shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
 # For each phase in milestone, extract one-liner
 for summary in $(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id'); do
@@ -248,14 +248,14 @@ If additional details are needed (e.g., user-provided "Delivered" summary, git r
 **Resolve the PROJECT.md review gate first.** PROJECT.md is shared across workstreams, so the review runs in flat mode only: no `--ws` in the arguments and no active workstream (`specforge gsd workstreams progress` answers the one `specforge gsd workstreams switch` made active as `active`). SpecForge's INIT carries no `section_manifest`, so the gate reads the workstream itself; when it cannot be read, the review is skipped rather than rewrite the shared PROJECT.md under a workstream (#5195).
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
 GSD_ACTIVE_WS=$(specforge gsd workstreams progress --pick .active) || GSD_ACTIVE_WS='(unreadable)'
 # GSD_ACTIVE_WS is the active workstream: empty when none is, "(unreadable)" when the command failed
-[ -z "$GSD_WS" ] && [ -z "$GSD_ACTIVE_WS" ] && echo "PROJECT_MD_REVIEW=run" || echo "PROJECT_MD_REVIEW=skip"
+[ -z "$GSD_ACTIVE_WS" ] && echo "PROJECT_MD_REVIEW=run" || echo "PROJECT_MD_REVIEW=skip"
 ```
 
 <!-- gsd:section id="project-md-evolution-review" when="state:flat-mode" -->
@@ -328,92 +328,92 @@ After archival, the AI still handles:
 
 After `milestone complete` has archived, reorganize ROADMAP.md with milestone groupings, then commit archives as a safety checkpoint before removing originals.
 
-**Backlog preservation — do this FIRST before rewriting ROADMAP.md:**
-
-Extract the Backlog section from the current ROADMAP.md before making any changes:
-
-```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+**Backlog preservation:** backlog phases (`phase.backlog`) are entities of the milestone, so nothing is extracted or re-appended.
 
 
-# a field of the answer is read with --pick, never jq
-ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
-# Extract lines under ## Backlog through end of file (or next ## section)
-BACKLOG_SECTION=$(awk '/^## Backlog/{found=1} found{print}' "$ROADMAP_PATH")
-```
-
-If `$BACKLOG_SECTION` is empty, there is no Backlog section — skip silently.
-
-**Reorganize ROADMAP.md** — overwrite in place (do NOT delete first) with milestone groupings.
-
-This rewrite is an *intentional* catastrophic shrink: phase detail was just archived to `milestones/v[X.Y]-ROADMAP.md`, and a multi-hundred-line ROADMAP.md collapses to a compact grouped summary. The `gsd-write-guard` PreToolUse hook (#2255) hard-blocks exactly that shape on curated the spec files — this step is the legitimate milestone reset its escape hatch exists for. A hook inherits the *runtime's* environment, so no per-step env var can reach it; the hatch is a **single-use sentinel file the guard itself consumes**. Arm it, then write:
-
-1. Arm the sentinel (single-use; the guard checks it is fresh — within 15 minutes — and names exactly this file, then consumes it):
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 
 
-# a field of the answer is read with --pick, never jq
-ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
-printf '%s\n' "$ROADMAP_PATH" > a scratch value
-echo "Write target: $ROADMAP_PATH"
+
+
+
+
+
+# the roadmap is the milestone's phase entities: backlog phases stay entities, nothing to extract
+
+
+
 ```
 
-2. Compose the full new ROADMAP.md content (template below) and overwrite the file at **`$ROADMAP_PATH`** (the "Write target" path printed above — under an active workstream this is the workstream-scoped roadmap, NOT the literal the `milestone` and `phase` entities) with the **Write tool** — the normal path. The guard allows this one shrink and deletes the sentinel. If the Write is blocked anyway, the sentinel was stale or consumed — re-run the `printf` and retry the Write.
+**Reorganize ROADMAP.md**: the roadmap is the `milestone` and `phase` entities: there is no ROADMAP.md to reorganize, no sentinel to arm and no Backlog section to re-append (backlog phases stay entities of the milestone).
 
-Template for the composed content:
 
-```markdown
-# Roadmap: [Project Name]
 
-## Milestones
 
-- ✅ **v1.0 MVP** — Phases 1-4 (shipped YYYY-MM-DD)
-- 🚧 **v1.1 Security** — Phases 5-6 (in progress)
 
-## Phases
 
-<details>
-<summary>✅ v1.0 MVP (Phases 1-4) — SHIPPED YYYY-MM-DD</summary>
 
-- [x] Phase 1: Foundation (2/2 plans) — completed YYYY-MM-DD
-- [x] Phase 2: Authentication (2/2 plans) — completed YYYY-MM-DD
+```bash
 
-</details>
+
+
+
+
+
+
+
+
+
+
 ```
 
-**Re-append Backlog section after the rewrite** (only if `$BACKLOG_SECTION` was non-empty):
 
-Append the extracted Backlog content verbatim to the end of the newly written ROADMAP.md. This ensures 999.x backlog items are never silently dropped during milestone reorganization.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 **Safety commit — commit archive files BEFORE deleting any originals:**
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
 
 
-# a field of the answer is read with --pick, never jq
-STATE_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .state_path)
-ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
-ARCHIVE_DIR=$(specforge query "$MILESTONE" --depth 1 --pick .archive_dir)
-MILESTONES_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .milestones_path)
-PROJECT_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .project_path)
-# #5195: PROJECT.md is shared across workstreams. Stage it only in flat mode (no --ws, no active workstream) — the same test the review step is gated on, so the two cannot disagree.
-_gsd_flat_mode() { local j; j=$(specforge gsd workstreams progress --pick .active) || return 1; [ -z "$GSD_WS" ] && [ -z "$j" ]; }
-_gsd_flat_mode || PROJECT_PATH=""
+
+
+
+
+
+# the commit stages spec: the archive is entities, with no state, roadmap or project file to name
+
+
+
+
+
+
+
+
 specforge git commit --add spec -m "chore: archive v[X.Y] milestone files" && specforge collect --runner gsd-git --yes
 ```
 
@@ -424,11 +424,11 @@ MILESTONES.md is workstream-scoped the same way STATE.md/ROADMAP.md are (the mil
 **The `requirement` entities stay** (they are the milestone's history; no file is archived or cleared):
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
 
 
 # a field of the answer is read with --pick, never jq
@@ -444,7 +444,7 @@ GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/
 
 Check for existing retrospective:
 ```bash
-specforge query "$MILESTONE" --kinds retrospective --format brief 2>/dev/null || true
+: "${MILESTONE:?MILESTONE is not set: the milestone being completed}"; specforge query "$MILESTONE" --kinds retrospective --format brief 2>/dev/null || true
 ```
 
 **If exists:** Read the file, append new milestone section before the "## Cross-Milestone Trends" section.
@@ -523,7 +523,7 @@ See: the `project` entity (updated [today])
 
 <step name="handle_branches">
 
-Check the project's `branching_strategy` (from `init.execute-phase`/`init.complete-milestone`). `"none"` skips straight to `git_tag`. For `"phase"` or `"milestone"`, list the matching branches (by the configured prefix template); no branches found also skips to `git_tag`. Resolve the base branch through the single shared resolver, never a bare `main`/`master` fallback (Issue #1146):
+Check the project's `branching_strategy` (`git.branching_strategy` in the settings). `"none"` skips straight to `git_tag`. For `"phase"` or `"milestone"`, list the branches their computed `branch` names; no branches found also skips to `git_tag`. Resolve the base branch through the single shared resolver, never a bare `main`/`master` fallback (Issue #1146):
 ```bash
 BASE_BRANCH=$(specforge git config init.defaultBranch --pick .value 2>/dev/null); BASE_BRANCH=${BASE_BRANCH:-main}
 ```
@@ -617,7 +617,7 @@ Heuristic: "Is this deployed/usable/shipped?" If yes → milestone. If no → ke
 Milestone completion is successful when:
 
 - [ ] Pre-close artifact audit run and output shown to user
-- [ ] Deferred items recorded in STATE.md if user acknowledged
+- [ ] The audit's tech debt accepted by a person (`debt_accepted`) if they chose [A]
 - [ ] Known deferred items count noted in MILESTONES.md entry
 
 - [ ] MILESTONES.md entry created with stats and accomplishments

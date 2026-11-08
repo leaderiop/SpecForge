@@ -44,7 +44,7 @@
     "",
     "<step name=\"parse_arguments\">",
     "",
-    "Parse `docs --mode merge --resolve auto`:",
+    "Parse the arguments (the command's `<arguments>` block):",
     "",
     "- First positional token (if not a flag) → `SCAN_PATH` (default: `.`)",
     "- `--mode new|merge` → `MODE` (default: auto-detect)",
@@ -61,7 +61,7 @@
     "  test -f \"{MANIFEST_PATH}\" || echo \"MANIFEST_NOT_FOUND\"",
     "fi"
   ],
-  "bytes": 43553,
+  "bytes": 43542,
   "end": [
     "1. **Its own check list per bucket** — which conditions are BLOCKER vs WARNING vs INFO. These are domain-specific (plan ingestion checks are not doc ingestion checks).",
     "2. **The loaded context** — what it reads (ROADMAP.md, PROJECT.md, REQUIREMENTS.md, CONTEXT.md, intel files) before running checks.",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:7ffe793f5a38c6467bb223291cf1b97b4f89abdfc55037da5b5e19ac64d37f13",
+    "digest": "sha256:3386c7e30540daaf96958cc0a18dcb6bc001c1a019bbb5280ef042c1e4de398b",
     "prompt": "@gsd/core@VERSION:ingest_docs",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "7ffe793f5a38c6467bb223291cf1b97b4f89abdfc55037da5b5e19ac64d37f13"
+  "sha256": "3386c7e30540daaf96958cc0a18dcb6bc001c1a019bbb5280ef042c1e4de398b"
 }

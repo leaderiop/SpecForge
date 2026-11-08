@@ -7,8 +7,12 @@ use specforge_git::testing::Repo;
 use crate::support::{Cli, TestProject};
 
 mod diff;
+mod except;
 mod hooks;
 mod picking;
+mod redirects;
+mod repos;
+mod roots;
 mod signing;
 mod staging;
 mod writes;
@@ -46,6 +50,7 @@ fn repo_names_the_top_and_the_git_directory() {
             "shallow": false,
             "prefix": "",
             "superproject": null,
+            "spec_pathspec": ":(glob)**/*.spec",
         })
     );
 }

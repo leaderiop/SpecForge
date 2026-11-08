@@ -1,15 +1,14 @@
 //! The render pipeline (D-r42-6): one pure function from a prompt's command file, the host and the argument text to
 //! the text a model reads. The export and the native tests call the same function.
 //!
-//! In order: the preamble (ours), the command file with its `<execution_context>` includes inlined, the settings its
-//! lines read filled in (`setting`), the prompt's own tail, then the references re-pointed (D-r42-5) and the whole
-//! converted for the host (D-r42-12). Re-pointing comes first: Codex's `.claude` rewrite would otherwise hide the paths.
-//! Then the heredoc terminators are stamped and `$ARGUMENTS` replaced, last: the typed text is data no rewrite runs on
-//! (#5637). The host's adapter header goes in front, unconverted.
-//!
-//! Also ports gsd-core bin/lib modules: args-terminator.cjs (the collision-free terminator, stamped per render).
+//! In order: the preamble (ours), the command file with its `<execution_context>` includes inlined, and the prompt's
+//! own tail, each with its references re-pointed (D-r42-5) and converted for the host (D-r42-12). Re-pointing comes
+//! first: Codex's `.claude` rewrite would otherwise hide the paths. Then the command file's tokens are filled in one
+//! scan, last: `{{setting:}}` (`setting`), `{{arg:}}` and `$ARGUMENTS`. A setting and the typed text are data no
+//! rewrite and no later fill runs on (ADR 0340 D3). The host's adapter header goes in front, unconverted.
 
-use super::{compose, host, preamble, setting};
+use super::args::Values;
+use super::{compose, host, preamble, setting, shell, token};
 
 pub struct Input<'a> {
     /// The upstream command file's stem: `plan-phase` for `commands/gsd/plan-phase.md`.
@@ -18,6 +17,8 @@ pub struct Input<'a> {
     pub host: &'a str,
     /// What `$ARGUMENTS` stands for (`args::text`).
     pub arguments: &'a str,
+    /// Every declared argument with the value its `{{arg:<name>|…}}` placeholder takes (`args::values`).
+    pub values: &'a Values,
     /// The settings block of the preamble (`settings::block()`).
     pub settings: &'a str,
     /// The extension the prompt belongs to (`@gsd/core`): the preamble names it as the owner of the settings and of the
@@ -80,67 +81,31 @@ fn inline_includes(command: &str, asset: fn(&str) -> Option<&'static str>) -> St
     out
 }
 
-/// `$ARGUMENTS` (not `$ARGUMENTS_X`) replaced by `text`.
-fn substitute_arguments(text: &str, arguments: &str) -> String {
-    let replacement = if arguments.is_empty() {
+/// What an `{{arg:<name>|<fallback>}}` token takes: the declared name's value in `values`, escaped for double quotes,
+/// else its fallback (ADR 0340); an undeclared name keeps its token.
+fn arg_value(values: &Values) -> impl Fn(&str, &str) -> Option<String> {
+    |name, fallback| match values.get(name)? {
+        Some(value) => Some(shell::in_double_quotes(value)),
+        None => Some(fallback.to_string()),
+    }
+}
+
+/// The template (`text`, converted for the host) with its tokens filled in one scan: each `{{setting:}}` as
+/// [`setting::value_of`] says, each `{{arg:}}` as [`arg_value`] says, and `$ARGUMENTS` (not `$ARGUMENTS_X`) by the
+/// argument text. The scan never rescans what it wrote, so a setting or typed text holding a token stays data.
+fn fill(text: &str, input: &Input<'_>) -> String {
+    let arguments = if input.arguments.is_empty() {
         "(no arguments)"
     } else {
-        arguments
+        input.arguments
     };
-    let mut out = String::with_capacity(text.len());
-    let mut rest = text;
-    while let Some(at) = rest.find("$ARGUMENTS") {
-        let tail = &rest[at + "$ARGUMENTS".len()..];
-        out.push_str(&rest[..at]);
-        let word = tail
-            .chars()
-            .next()
-            .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_');
-        out.push_str(if word { "$ARGUMENTS" } else { replacement });
-        rest = tail;
-    }
-    out.push_str(rest);
-    out
-}
-
-/// The terminators of the heredocs the assets capture the typed text with: opened `<<'T'`, closed by a line `T`.
-pub(crate) const ARGS_TERMINATORS: [&str; 2] = ["GSD_ARGS_END", "GSD_QUICK_BATCH_ARGS_END"];
-
-/// `token` when no line of `arguments` starts with it, else `token_<n>` for the smallest `n` no line starts with.
-fn terminator_for(token: &str, arguments: &str) -> String {
-    // a prefix test also sees through a line's trailing `\r`
-    let taken = |t: &str| arguments.lines().any(|line| line.starts_with(t));
-    if !taken(token) {
-        return token.to_string();
-    }
-    (1..)
-        .map(|n| format!("{token}_{n}"))
-        .find(|t| !taken(t))
-        .expect("finitely many lines block finitely many suffixes")
-}
-
-/// `command` with each terminator an argument line could equal renamed: its quoted opener and its closing lines.
-fn stamp_terminators(command: &str, arguments: &str) -> String {
-    let mut text = command.to_string();
-    for token in ARGS_TERMINATORS {
-        let stamp = terminator_for(token, arguments);
-        if stamp == token {
-            continue;
-        }
-        text = text
-            .replace(&format!("<<'{token}'"), &format!("<<'{stamp}'"))
-            .split_inclusive('\n')
-            .map(|line| {
-                let body = line.strip_suffix('\n').unwrap_or(line);
-                if body.strip_suffix('\r').unwrap_or(body) == token {
-                    format!("{stamp}{}", &line[token.len()..])
-                } else {
-                    line.to_string()
-                }
-            })
-            .collect();
-    }
-    text
+    let setting = setting::value_of(input.settings, runtime(input.host));
+    let arg = arg_value(input.values);
+    token::fill(
+        text,
+        &[("setting", &setting), ("arg", &arg)],
+        Some(arguments),
+    )
 }
 
 /// The text of the prompt, or why it cannot be built.
@@ -164,25 +129,23 @@ fn wrapper(workflow: &str) -> String {
 
 /// [`render`] over the text of the command file.
 pub fn assemble(command: &str, input: &Input<'_>) -> String {
-    let mut text = preamble::text(input.host, input.settings, input.extension, input.files);
-    text.push_str(&setting::fill(
-        &inline_includes(command, input.asset),
+    let convert = |text: &str| host::convert(input.host, &(input.repoint)(text, input.host));
+    let mut text = convert(&preamble::text(
+        input.host,
         input.settings,
-        runtime(input.host),
+        input.extension,
+        input.files,
+    ));
+    // filled after every rewrite, so no rewrite runs on a value; the preamble and the tail are ours, never scanned
+    text.push_str(&fill(
+        &convert(&inline_includes(command, input.asset)),
+        input,
     ));
     if !input.tail.is_empty() {
         text.push_str("\n\n");
-        text.push_str(input.tail);
+        text.push_str(&convert(input.tail));
     }
-    let converted = host::convert(input.host, &(input.repoint)(&text, input.host));
-    // the render knows the arguments, so the terminator is chosen to be one they cannot contain (#5637; upstream stamps
-    // a per-install nonce because its installed files hold the heredoc); spliced after every rewrite, so the text
-    // the terminator was chosen against is the text the heredoc holds
-    let body = substitute_arguments(
-        &stamp_terminators(&converted, input.arguments),
-        input.arguments,
-    );
-    format!("{}{body}", header(input.host))
+    format!("{}{text}", header(input.host))
 }
 
 /// The runtime a host is called in the settings: `claude-code` is `claude`.

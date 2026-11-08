@@ -1,11 +1,12 @@
-//! The verbs a person or an agent types (ADR 0339): `specforge files`, `run`, `http` and `git`. Each turns its
-//! arguments into one `specforge_ops::verbs` operation and prints its answer: JSON by default, the values `--pick`
-//! reaches, or a short listing under `--format human`; a refusal is the JSON error document (ADR 0029).
+//! The verbs a person or an agent types (ADR 0339): `specforge files`, `run`, `http`, `git` and `wait` (ADR 0342). Each
+//! turns its arguments into one `specforge_ops::verbs` operation and prints its answer: JSON by default, the values
+//! `--pick` reaches, or a short listing under `--format human`; a refusal is the JSON error document (ADR 0029).
 
 pub(crate) mod files;
 pub(crate) mod git;
 pub(crate) mod http;
 pub(crate) mod run;
+pub(crate) mod wait;
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -16,12 +17,14 @@ use specforge_ops::consent::UserConsent;
 use specforge_ops::verbs::{Answered, Verbs};
 
 use crate::outcome::{Exit, OutputFormat, Refusal};
-use crate::pick::{self, Pick};
-use crate::terminal::{Terminal, errln};
+use crate::pick;
+use crate::terminal::{Terminal, err, errln};
 
-/// What every verb's leaf takes: the project, the output format (json by default) and `--pick`.
+/// What every verb's leaf takes: the project, the output format (json by default), `--pick` and its `--fields` rows
+/// (`http`, whose `--field` builds a body, takes no rows: [`pick::NoRows`]).
 #[derive(clap::Args, Clone, Debug)]
-pub(crate) struct VerbArgs {
+#[command(mut_arg(pick::PICK, |arg| arg.long_help(pick::VERB_LONG_HELP)))]
+pub(crate) struct VerbArgs<R: pick::Rows = pick::FieldRows> {
     #[command(flatten)]
     project: crate::project::ProjectArg,
 
@@ -29,8 +32,8 @@ pub(crate) struct VerbArgs {
     #[arg(long, default_value = "json")]
     format: OutputFormat,
 
-    #[arg(long, value_name = "PATH", value_parser = Pick::parse, help = pick::HELP, long_help = pick::VERB_LONG_HELP)]
-    pick: Option<Pick>,
+    #[command(flatten)]
+    picked: pick::Picked<R>,
 
     /// The effects mode: online (the default; auto is online), cached or replay. http sends the request, answers a
     /// GET from a fresh record of the effects journal (cached), or answers from the journal alone (replay); files and
@@ -39,16 +42,21 @@ pub(crate) struct VerbArgs {
     effects: Option<EffectsMode>,
 }
 
-impl VerbArgs {
+impl<R: pick::Rows> VerbArgs<R> {
     /// The effects mode `--effects` names, `online` when none.
     pub(crate) fn mode(&self) -> EffectsMode {
         self.effects.unwrap_or(EffectsMode::Online)
     }
 
+    /// Whether the answer prints in the human form: `--format human` with no `--pick`.
+    pub(crate) fn human(&self) -> bool {
+        self.format == OutputFormat::Human && !self.picked.picks()
+    }
+
     /// The output format, or the usage error (exit 2) of `--pick` beside `--format human`.
     pub(crate) fn format(&self, terminal: &Terminal) -> Result<OutputFormat, Exit> {
-        match (&self.pick, self.format) {
-            (Some(_), OutputFormat::Human) => {
+        match (self.picked.picks(), self.format) {
+            (true, OutputFormat::Human) => {
                 errln!(
                     terminal,
                     "error: --pick reads the JSON answer: it takes no --format human"
@@ -76,6 +84,21 @@ impl VerbArgs {
         )
     }
 
+    /// `ask`'s answer judged into an exit by `judge`, printing nothing (`files search -q`, `--none`): a refusal is
+    /// `error[CODE]` on stderr and exit 2, since nothing was judged.
+    pub(crate) fn verdict<T>(
+        &self,
+        terminal: &Terminal,
+        ports: &Ports,
+        ask: impl FnOnce(Verbs) -> Result<T, OpError>,
+        judge: impl FnOnce(&T) -> Exit,
+    ) -> Exit {
+        match open(&self.project, ports).and_then(ask) {
+            Ok(answer) => judge(&answer),
+            Err(error) => Refusal::measuring(OutputFormat::Human).report(terminal, &error),
+        }
+    }
+
     /// [`Self::answer`] for a verb whose answer says how it was had (`http`, through the effects journal).
     pub(crate) fn answered<T: serde::Serialize>(
         &self,
@@ -94,6 +117,28 @@ impl VerbArgs {
         })
     }
 
+    /// [`Self::answered`] for a verb whose answer decides its exit (`wait`'s 124): `exit` reads it from the answer,
+    /// printed all the same; a refusal exits as every verb's does.
+    pub(crate) fn answered_exit<T: serde::Serialize>(
+        &self,
+        terminal: &Terminal,
+        ports: &Ports,
+        ask: impl FnOnce(Verbs) -> Result<Answered<T>, OpError>,
+        human: impl FnOnce(&Terminal, &T),
+        exit: impl FnOnce(&T) -> i32,
+    ) -> i32 {
+        let format = match self.format(terminal) {
+            Ok(format) => format,
+            Err(exit) => return exit.code(),
+        };
+        let answer = open(&self.project, ports).and_then(ask);
+        let code = answer.as_ref().ok().map(|answered| exit(&answered.answer));
+        let printed = self.print(terminal, format, answer, |terminal, answered| {
+            human(terminal, &answered.answer);
+        });
+        code.unwrap_or_else(|| printed.code())
+    }
+
     /// Print `answer` as the format asks (`human` prints it with `human`), or report its refusal; `failed` decides
     /// whether a printed answer still exits 1.
     fn print<T: serde::Serialize>(
@@ -106,12 +151,17 @@ impl VerbArgs {
         match answer {
             Ok(answer) => {
                 match format {
-                    OutputFormat::Json => pick::print_json(terminal, self.pick.as_ref(), &answer),
+                    OutputFormat::Json => {
+                        if let Err(refused) = self.picked.print_rows(terminal, &answer) {
+                            err!(terminal, "{refused}");
+                            return Exit::Failed;
+                        }
+                    }
                     OutputFormat::Human => human(terminal, &answer),
                 }
                 Exit::Passed
             }
-            Err(error) => refusal(format, self.pick.is_some()).report(terminal, &error),
+            Err(error) => refusal(format, self.picked.picks()).report(terminal, &error),
         }
     }
 }
@@ -120,7 +170,7 @@ impl VerbArgs {
 pub(crate) fn open(project: &crate::project::ProjectArg, ports: &Ports) -> Result<Verbs, OpError> {
     let root = project.root()?;
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let consent = UserConsent::user(root.dir());
+    let consent = UserConsent::at_root(&root);
     Ok(Verbs::open(&root, &cwd, ports, &consent))
 }
 

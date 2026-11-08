@@ -3,6 +3,7 @@
 //! Also ports gsd-core bin/lib modules: package-identity.cjs.
 
 pub mod agents;
+mod branch;
 pub mod codes;
 mod collectors;
 pub mod commands;
@@ -12,6 +13,8 @@ pub mod judged;
 mod kinds;
 mod passes;
 pub mod prompts;
+mod quick_id;
+mod relocation;
 mod route;
 mod rules;
 pub mod settings;

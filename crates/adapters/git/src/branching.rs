@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use gix::refs::transaction::PreviousValue;
 use specforge_effects::git::{GitError, GitPlace, Sha};
 
-use crate::write::{gix_owned, libgit2, safe};
+use crate::write::{gix_owned, libgit2, owned, safe};
 use crate::{failed, id};
 
 /// `refs/heads/<name>`, refused when it is no valid branch name.
@@ -16,7 +16,10 @@ fn branch_ref(name: &str) -> Result<gix::refs::FullName, GitError> {
 }
 
 pub(crate) fn branch_create(place: &GitPlace, name: &str, at: &Sha) -> Result<(), GitError> {
-    let repo = gix_owned(place)?;
+    let mut repo = gix_owned(place)?;
+    // the reflog line needs a name, and a branch needs no identity: git makes one up too
+    repo.committer_or_set_generic_fallback()
+        .map_err(|e| failed("read the committer", &e))?;
     let full = branch_ref(name)?;
     // as for a tag: an existing branch is refused even when it names `at` already
     if repo
@@ -132,9 +135,23 @@ pub(crate) fn worktree_add(place: &GitPlace, path: &Path, branch: &str) -> Resul
         .map_err(|e| failed(&format!("find the branch {branch}"), &e))?;
     let mut options = git2::WorktreeAddOptions::new();
     options.reference(Some(&reference));
-    repo.worktree(name, path, Some(&options))
+    // as git: the parents are made, and two worktrees of one directory name take two records
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| failed(&format!("make {}", parent.display()), &e))?;
+    }
+    repo.worktree(&free_record(place, name), path, Some(&options))
         .map_err(|e| failed(&format!("add a worktree at {}", path.display()), &e))?;
     Ok(())
+}
+
+/// The first of `name`, `name1`, `name2`… no record under `worktrees/` holds, as git numbers them.
+fn free_record(place: &GitPlace, name: &str) -> String {
+    let records = place.common_dir.join("worktrees");
+    std::iter::once(name.to_string())
+        .chain((1u32..).map(|n| format!("{name}{n}")))
+        .find(|record| records.join(record).symlink_metadata().is_err())
+        .expect("the numbers do not run out")
 }
 
 /// The linked worktree whose top is `path`.
@@ -185,6 +202,26 @@ pub(crate) fn init(dir: &Path) -> Result<bool, GitError> {
     )
     .map_err(|e| failed(&format!("make {} a repository", dir.display()), &e))?;
     Ok(true)
+}
+
+/// libgit2 clones a path in process, where gix's file transport spawns `git`. Its local transport packs what `HEAD` and
+/// the refs reach, so a planted link under the source's `objects/` is not followed and no file gets a second name, as
+/// `git clone --no-local`.
+pub(crate) fn clone_local(source: &GitPlace, into: &Path) -> Result<(), GitError> {
+    owned(source)?;
+    let from = source
+        .toplevel
+        .to_str()
+        .ok_or_else(|| GitError(format!("{} is not UTF-8", source.toplevel.display())))?;
+    if let Some(parent) = into.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| failed(&format!("make {}", parent.display()), &e))?;
+    }
+    git2::build::RepoBuilder::new()
+        .clone_local(git2::build::CloneLocal::None)
+        .clone(from, into)
+        .map_err(|e| failed(&format!("clone {from} to {}", into.display()), &e))?;
+    Ok(())
 }
 
 pub(crate) fn worktree_lock(

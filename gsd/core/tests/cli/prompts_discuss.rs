@@ -205,7 +205,7 @@ const SPEC_READERS: [&str; 6] = [
 
 /// The graph read that stands for upstream's `has_spec` / `spec_path` init facts, in plan-phase's shell block and in
 /// the prose runs.
-const PHASE_SPEC_PICK: &str = "--pick '.nodes[kind=phase_spec].id' | head -1";
+const PHASE_SPEC_PICK: &str = "--pick '.nodes[kind=phase_spec].id' --first 1";
 
 fn served(p: &super::harness::Project, file: &str) -> String {
     let run = p.run(&["gsd", "reference", &format!("gsd-core/workflows/{file}")]);

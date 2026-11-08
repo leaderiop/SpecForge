@@ -14,7 +14,7 @@ use specforge_protocol_types::{
     GitOp, GitScope, Hosts, HttpScope, Operation, PortScope, ProcessScope, SettingsItem,
 };
 
-use crate::ceiling::{DEFAULT_ROOTS, EffectsCeiling};
+use crate::ceiling::{DEFAULT_ROOTS, EffectsCeiling, FsCeiling, Narrow};
 use crate::consent::{
     Approval, ApprovedAt, CapabilityApproval, Consent, ConsentError, KeyedBy, ProjectKey,
     RootApproval, approval_line,
@@ -231,13 +231,21 @@ impl Grant {
     /// The user's own act (`specforge http`, `files`, `git`, `run`): every port, every request, approved, with
     /// only `ceiling` narrowing it. No gate applies: no call kind is asking.
     pub fn user(ceiling: &EffectsCeiling) -> Grant {
+        // No list reaches any root, where a list keeps what it names: to the ceiling's own list, a user's reach is that
+        // list, not the two roots a capability with no list has.
+        let roots = match &ceiling.fs {
+            Narrow::Only(FsCeiling {
+                roots: Some(roots), ..
+            }) => roots.clone(),
+            _ => Vec::new(),
+        };
         let open = [
             PortScope::Http(HttpScope {
                 hosts: Hosts::FromValues,
                 ..HttpScope::default()
             }),
             PortScope::Fs(specforge_protocol_types::FsScope {
-                roots: Vec::new(),
+                roots,
                 ops: vec![
                     FsAccess::Stat,
                     FsAccess::Read,

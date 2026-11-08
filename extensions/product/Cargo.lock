@@ -539,6 +539,7 @@ dependencies = [
  "specforge-shape-macros",
  "strsim",
  "walkdir",
+ "winapi-util",
 ]
 
 [[package]]

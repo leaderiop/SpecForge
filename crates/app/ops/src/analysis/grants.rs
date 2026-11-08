@@ -13,10 +13,13 @@ use specforge_effects::{
 };
 
 use crate::analysis::collect::uses_here;
-use crate::consent::unusable_store;
+use crate::consent::{machine_roots_here, unusable_store};
 use crate::settle::stamped;
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
+
+mod machine;
+pub use machine::{approve_machine_root, revoke_machine_root};
 
 /// What one capability's grant is on this machine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Shape)]
@@ -63,7 +66,7 @@ pub struct ExtensionGrants {
     pub capabilities: Vec<CapabilityRow>,
 }
 
-/// One named root of `specforge.json` that resolved.
+/// One named root of `specforge.json` that resolved, or a root named on this machine.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 pub struct RootRow {
     pub name: String,
@@ -71,8 +74,11 @@ pub struct RootRow {
     pub target: String,
     /// Under the project root: it needs no approval.
     pub inside: bool,
-    /// An outside root this machine approved.
+    /// An outside root the verbs here reach: this machine approved it. For a machine root, what the verbs ask too
+    /// (`consent::machine_roots_here`): a name and a target `approve` would take, landing where it was approved, its name free.
     pub approved: bool,
+    /// Named on this machine (`grants approve --root <name> --at <dir>`), not by `specforge.json`.
+    pub machine: bool,
 }
 
 /// `specforge grants`'s listing of one project.
@@ -105,11 +111,20 @@ pub struct StoredRoot {
     pub approved_at: String,
 }
 
+/// One stored machine root.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
+pub struct StoredMachineRoot {
+    pub root: String,
+    pub target: String,
+    pub approved_at: String,
+}
+
 /// Every approval the store holds, for every project.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Shape)]
 pub struct StoreListing {
     pub capabilities: Vec<StoredCapability>,
     pub roots: Vec<StoredRoot>,
+    pub machine_roots: Vec<StoredMachineRoot>,
 }
 
 /// What `approve` or `revoke` changed: `<extension> <scope>` or `root <name>`, one per approval.
@@ -177,7 +192,7 @@ pub fn list(view: &ProjectView, consent: &dyn Consent) -> Result<GrantsListing, 
         })
         .collect();
     let project = project_key(root);
-    let roots = view
+    let named = view
         .env()
         .effects_allowed()
         .roots
@@ -196,9 +211,20 @@ pub fn list(view: &ProjectView, consent: &dyn Consent) -> Result<GrantsListing, 
                 target: shown(&target),
                 inside: named.inside,
                 approved,
+                machine: false,
             })
-        })
-        .collect();
+        });
+    let mut roots: Vec<RootRow> = named.collect();
+    let reachable = specforge_project::effects::reachable_roots(view.env(), root, consent);
+    let here = machine_roots_here(consent, &held.machine_roots, &reachable);
+    roots.extend(held.machine_roots.iter().map(|root| RootRow {
+        name: shown(&root.root),
+        target: shown(&root.target),
+        inside: false,
+        approved: here.reached.contains(root),
+        machine: true,
+    }));
+    diagnostics.extend(here.refused);
     Ok(GrantsListing {
         extensions,
         roots,
@@ -269,6 +295,15 @@ pub fn list_store(consent: &dyn Consent) -> Result<StoreListing, OpError> {
             .into_iter()
             .map(|a| StoredRoot {
                 project: shown(&a.project.0),
+                root: shown(&a.root),
+                target: shown(&a.target),
+                approved_at: shown(&a.approved_at.0),
+            })
+            .collect(),
+        machine_roots: held
+            .machine_roots
+            .into_iter()
+            .map(|a| StoredMachineRoot {
                 root: shown(&a.root),
                 target: shown(&a.target),
                 approved_at: shown(&a.approved_at.0),

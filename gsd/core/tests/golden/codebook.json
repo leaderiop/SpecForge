@@ -284,6 +284,12 @@
       "title": "Deliverable checks neither pass nor are human-judged"
     },
     {
+      "code": "W409",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#execute",
+      "explanation": "The branch a phase or a milestone computes is a name git takes, with a slug when its template asks one. It is a warning, and an error under gsd-strict.",
+      "title": "Computed branch name refused"
+    },
+    {
       "code": "E501",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
       "explanation": "The verifier's verdict on each truth, artifact and key link is fresh. It is an error.",

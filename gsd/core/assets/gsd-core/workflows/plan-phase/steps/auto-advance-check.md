@@ -10,13 +10,13 @@ Check for auto-advance trigger using values already loaded in step 1:
 3. **Sync chain flag with intent** — if user invoked manually (no `--auto` and no `--chain`), clear the ephemeral chain flag from any previous interrupted `--auto` chain. This does NOT touch `workflow.auto_advance` (the user's persistent settings preference):
    ```bash
 # the commands below are specforge commands: there is no launcher to define
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-   if [[ ! "$GSD_ARGS" =~ --auto ]] && [[ ! "$GSD_ARGS" =~ --chain ]]; then
-     : # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
-   fi
+
+
+
+
+
+
+
    ```
 
 Set local variables from INIT (parsed once in step 1):
@@ -25,13 +25,13 @@ Set local variables from INIT (parsed once in step 1):
 
 **If `--auto` or `--chain` flag present AND `AUTO_CHAIN` is not true:** Persist chain flag to config (handles direct invocation without prior discuss-phase):
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-if ([[ "$GSD_ARGS" =~ --auto ]] || [[ "$GSD_ARGS" =~ --chain ]]) && [[ "$AUTO_CHAIN" != "true" ]]; then
-  : # workflow._auto_chain_active is not a setting here: the chain lasts as long as the conversation, so there is nothing to set or clear
-fi
+
+
+
+
+
+
+
 ```
 
 **If `--auto` or `--chain` flag present OR `AUTO_CHAIN` is true OR `AUTO_CFG` is true:**
@@ -45,10 +45,10 @@ Plans ready. Launching execute-phase...
 
 Launch execute-phase using the Skill tool to avoid nested Task sessions (which cause runtime freezes due to deep agent nesting):
 ```
-Skill(skill="gsd-execute-phase", args="${PHASE} --auto --no-transition ${GSD_WS}")
+Skill(skill="gsd-execute-phase", args="${PHASE}")
 ```
 
-The `--no-transition` flag tells execute-phase to return status after verification instead of chaining further. This keeps the auto-advance chain flat — each phase runs at the same nesting level rather than spawning deeper Task agents.
+Execute-phase returns its status after verification instead of chaining further. This keeps the auto-advance chain flat — each phase runs at the same nesting level rather than spawning deeper Task agents.
 
 **Handle execute-phase return:**
 - **PHASE COMPLETE** → Display final summary:
@@ -57,14 +57,14 @@ The `--no-transition` flag tells execute-phase to return status after verificati
 
   Auto-advance pipeline finished.
 
-  Next: /gsd:discuss-phase ${NEXT_PHASE} --auto ${GSD_WS}
+  Next: /gsd:discuss-phase ${NEXT_PHASE} --auto
   ```
 - **GAPS FOUND / VERIFICATION FAILED** → Display result, stop chain:
   ```
   Auto-advance stopped: Execution needs review.
 
   Review the output above and continue manually:
-  /gsd:execute-phase ${PHASE} ${GSD_WS}
+  /gsd:execute-phase ${PHASE}
   ```
 
 **If neither `--auto` nor config enabled:**

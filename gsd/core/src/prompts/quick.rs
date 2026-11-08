@@ -32,7 +32,7 @@ const QUICK_STEPS: &[Step] = &[
     },
     Step {
         id: "start",
-        title: "Open the plan at the host's clock (specforge gsd start-plan <plan>)",
+        title: "Open the plan: its start is recorded once (specforge gsd start-plan <plan>)",
         does: Do::Command("start_plan"),
     },
     Step {
@@ -42,7 +42,7 @@ const QUICK_STEPS: &[Step] = &[
     },
     Step {
         id: "complete",
-        title: "Complete the plan: both times of its summary (specforge gsd complete-plan <summary> --started <ts>)",
+        title: "Complete the plan: both times of its summary (specforge gsd complete-plan <summary>)",
         does: Do::Command("complete_plan"),
     },
     Step {
@@ -52,38 +52,37 @@ const QUICK_STEPS: &[Step] = &[
     },
 ];
 
-/// How a quick plan is made, started and completed through the typed tools: the id is `<yymmdd>-<3 base-36>`, which
+/// How a quick plan is filled, started and completed through the typed tools: the id is `<yymmdd>-<3 base-36>`, which
 /// `gsd/W323` checks, and the plan has no phase.
 fn quick_plan(_call: &PromptCall<'_>) -> String {
-    quick_plan_text("the one the init block above made: a second one would name another plan")
+    quick_plan_text("the init block above", "the one that block printed")
 }
 
-/// The batch has no init block: each item of its manifest already carries the id.
+/// The batch has no init block: batch-init wrote every plan, and each manifest row carries its id.
 fn quick_batch_plan(_call: &PromptCall<'_>) -> String {
-    quick_plan_text("each manifest item's `quickId`: a second one would name another plan")
+    quick_plan_text("batch-init", "each manifest row's first cell")
 }
 
-fn quick_plan_text(quick_id_is: &str) -> String {
+fn quick_plan_text(written_by: &str, quick_id_is: &str) -> String {
     format!(
         "\n\n## The quick plan\n\n\
      A quick task is a plan with no phase, named by its quick id: the day as `yymmdd`, a dash and three base-36 \
      characters (`261029-a1b`). `gsd/W323` checks the name; `gsd/E302` and `gsd/E401` do not apply to a plan with no \
-     phase. Write the plan, its truths and its artifacts through the host, not by hand:\n\n\
+     phase. {written_by} wrote the plan, in the fence that minted its id, so it holds its slug and `specforge new plan` \
+     refuses its id. Fill it, and write its truths and artifacts, through the host, not by hand:\n\n\
      ```bash\n\
-     # $quick_id is {quick_id_is}\n\
-     specforge new plan \"$quick_id\" \"<title>\" --in spec/quick.spec --type execute --files_modified <paths> --objective \"<objective>\"\n\
+     # $quick_id is {quick_id_is}: a second id would name another plan\n\
+     specforge set \"$quick_id\" objective \"<objective>\"\n\
+     specforge set \"$quick_id\" files_modified <paths>\n\
      specforge new truth TR1 \"<what must be true>\" --in spec/quick.spec --plan \"$quick_id\" --text \"<what must be true>\"\n\
      # an artifact carries a `path` field, which the CLI reads as its own --path: write it through the MCP tool `specforge.edit`\n\
-     STARTED=$(specforge gsd start-plan \"$quick_id\" --pick .started)\n\
+     specforge gsd start-plan \"$quick_id\" --head \"$(specforge git head --pick .sha)\"\n\
      specforge new summary \"$quick_id-SUMMARY\" \"<title>\" --in spec/quick.spec --plan \"$quick_id\" --status complete --one_liner \"<one line>\" --subsystem <area> --requirements_completed \"\"\n\
-     specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\" --started \"$STARTED\"\n\
+     specforge gsd complete-plan \"$quick_id/$quick_id-SUMMARY\"\n\
      ```\n\n\
-     `start-plan` writes nothing and answers the time to keep; the summary is written first and `complete-plan` stamps \
+     `start-plan` records the plan's start once, in the graph; the summary is written first and `complete-plan` stamps \
      both of its times. The project state is computed, so no task row is written. \
-     With `--discuss` or `--research`, the context and the research name the plan in `plan`, so the plan must exist \
-     before them: the step that runs first makes it with what is known (`--files_modified \"\"`, the description as \
-     its objective), and the planner then sets its fields with `specforge set \"$quick_id\" <field> <value>`, since \
-     `specforge new` refuses an id that exists. \
+     With `--discuss` or `--research`, the context and the research name the plan in `plan`: it exists before them. \
      `gsd-code-reviewer` is not part of `@gsd/core`: skip the code review of `--full` and say so.\n"
     )
 }
@@ -123,7 +122,7 @@ static QUICK_BATCH: Spec = Spec {
     command: "quick-batch",
     args: &[
         Arg::text("file"),
-        Arg::text("jobs"),
+        Arg::count_or("jobs", "auto"),
         Arg::flag("validate"),
         Arg::flag("research"),
         Arg::text("resume"),

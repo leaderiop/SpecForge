@@ -21,13 +21,13 @@ A configuration command (`/gsd-settings`, `/gsd-config`, `/gsd-surface`) writes 
 `specforge settings set|unset` (K16, protocol 1.11.0; MCP `specforge.settings_set`), which admits a value by the setting's own type and never writes a secret; `/gsd-surface`
 toggles skills, which are `when` settings.
 
-A workflow reads its typed text through a quoted heredoc (`<<'GSD_ARGS_END'`, `<<'GSD_QUICK_BATCH_ARGS_END'`), and
-the render splices that text in. Text holding a line equal to the terminator would close the heredoc and run what
-follows as shell (upstream #5637). Upstream stamps a random nonce per install, because its installed files hold the
-heredoc and the host substitutes later. SpecForge renders knowing the text, so it keeps the terminator unless a line of
-the text starts with it, and then uses the first `<terminator>_<n>` no line starts with (`gsd_kit::prompt::render`):
-deterministic, no stored nonce, and every golden is unchanged. `specforge gsd reference` serves a workflow with
-`$ARGUMENTS` literal: nothing is substituted, so nothing can be injected there.
+A workflow reads a typed argument through a `{{arg:<name>|<fallback>}}` placeholder, inside double quotes in a shell
+fence of a file its prompt inlines (ADR 0340). The render fills it last, after the host conversion, with the value the
+host parsed, escaped as a setting is (`"`, `\`, `$`, the backtick), and never rescans what it wrote: typed text is data,
+never shell. No shell fence reads `$ARGUMENTS`, so no argument heredoc is left, and upstream's per-install terminator
+nonce (#5637) has nothing to guard. `$ARGUMENTS` stays in prose, as data the agent reads. `specforge gsd reference`
+fills settings, not arguments: it serves a workflow with `$ARGUMENTS` literal, and a file it serves holds no
+placeholder.
 
 The workflows' steps call writing commands that are not slash commands; they are the [roster below](#writing-commands).
 A workflow that names an entity takes the full path when a short form is ambiguous project-wide (the host refuses an
@@ -164,17 +164,19 @@ The assets are upstream's text; where the spec has no counterpart a line was def
 - Settings. `{{setting:<key>|<fallback>}}` reads the settings block. `commit_docs`, `features.graduation*`,
   `workflow._auto_chain_active`, `workflow.code_review_command` and `workflow.live_dom_uat` are not keys of the roster
   (`NOT_SETTINGS` in `tests/ported_text.rs`), so they always take their fallback, and a `settings set` on them would be
-  refused. `USE_WORKTREES` is `false` (the `sequential` tail of `execute_phase`); `RUNTIME` is the rendered host.
+  refused. `USE_WORKTREES` is `false` and `ISOLATION` is `none`: `@gsd/core` runs no worktree isolation, so every
+  plan of `execute_phase` dispatches in sequential mode and its four isolation steps are not reached (ADR 0343).
+  `RUNTIME` is the rendered host.
 - Defaulted gaps: worktrees, the loop hooks, `intel`, `resolve-model`, learnings and the dispatch-isolation steps.
 - `init` JSON fields (`phase_dir`, `plan_count`, ...) have no counterpart: the text reads the graph (`specforge query`)
   and the ids named at the end of the text (`$PHASE_ID`, `$MILESTONE`, `$PROJECT`).
 - Shell: upstream's blocks read JSON (and the wave's worktree manifest) with `node -e`, because upstream is a node
   program, and its review lanes and its own JSON need jq. Here the blocks need neither: a value comes from `--pick`, a
-  document is read by the agent, gh filters with `--jq`, and the manifest and the batch list are tab-separated lines
+  document is read by the agent, gh filters with `--jq`, and the batch list is tab-separated lines
   (plans 03 and 05, F9 and G4; `tests/port_tools.rs` forbids a `jq` command word, `tests/cli/assets_shell/` runs each
   rewritten line with no jq and no node). node stays where the user's own JavaScript project runs (`KEEP` in
-  `tests/port_tools.rs`) and in `code-review-disposition.md`'s ledger builder, a Markdown parser with no shell form
-  (`PENDING_NODE`). The edge-probe steps of `spec-phase` and `specless-probe-fallback` still run upstream's
+  `tests/port_tools.rs`); `code-review-disposition.md`'s ledger builder is gone, the ledger being `@gsd/ops`'s. The
+  edge-probe steps of `spec-phase` and `specless-probe-fallback` still run upstream's
   `edge-probe.cjs` / `spec-section.cjs` with `node <file>` (also `PENDING_NODE`, each line pinned): `@gsd/core` installs
   no runtime library (#5640), so the steps stop at "not found" unless an upstream GSD install provides one.
 - `gsd/W506` looks at less than upstream's check: no plans, no modified-file contents and no commit bodies.
@@ -240,7 +242,8 @@ are the ids with `-`: `specforge gsd complete-plan`.
 
 | Command | Writes (`H` fields) |
 |---|---|
-| `start_plan`, `complete_plan` | summary `started`, `completed` (`start_plan` writes nothing: it runs the entry gates and answers the clock) |
+| `start_plan` | `plan_start` `at` and `head`, each once (it also runs the entry gates) |
+| `complete_plan` | summary `started`, `completed` |
 | `answer_checkpoint` | checkpoint `answer` |
 | `confirm_setup` | user_setup `done` |
 | `set_uat_result` | uat_test `result`, `source` (a person's answer) |
@@ -254,7 +257,12 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `record_research`, `record_spec`, `record_validation` | research, phase_spec, validation `context_digest` (the computed `digest` of the phase's context) |
 | `health`, `stats`, `progress_report` (`/gsd-health`, `/gsd-stats`) | nothing: they report from the computed values of the graph |
 | `smart_entry` (`/gsd-next`) | nothing: it is read-only, and classifies the project from its computed `status`, `backlog` and `verification.status` fields |
-| `resolve_package_manager <script>` (`specforge gsd resolve-package-manager build`; gsd-tools' `resolve-package-manager`, #5346) | nothing: it is read-only, and prints the command that runs a package script with the project's manager (`package.json`'s `packageManager`, else `pnpm-lock.yaml`, `yarn.lock`, `bun.lock`, `bun.lockb`, else npm; `test` is `<pm> test`, bun's `bun run test`), for the build and test gates. It reads the files through declared reads (ADR 0293), at the project root only; a `package.json` over the host's 64 KiB text cap reads as one without the field (upstream: 1 MiB); a script name outside `^[A-Za-z0-9_][A-Za-z0-9:_-]{0,63}$` is refused `invalid_input` with a non-zero exit (upstream prints nothing and exits 0) |
+| `quick_init [--description <text>\|--tasks <text>] [--batch] [--template <text>]` (`specforge gsd quick-init`; upstream's `init quick`) | nothing: it is read-only, no gate, no subject, and answers `{items[{id, date, count, batch?, description, title, slug, branch_name?}]}`: one quick id per task, with the host's date on each, so one row of one call reads everything, drawn from the host's nonce (ADR 0341) and free in the graph. `--tasks` strips list markers and blank lines, and `--batch` needs 2 entries of it. A task whose text gives no slug takes its id as one |
+| `automated_guard <command> [--common-dir D]` (`specforge gsd automated-guard`; the shell guard of `worktree-path-safety.md` step 0c) | nothing: it is read-only, and answers `{ok, top, main, outside: [{word, path, why}], dynamic: [word]}` from the command's words, never running them; not `ok` is exit 1 with a FATAL line per finding, and an unreadable command is refused |
+| `branch_check` (`specforge gsd branch-check`; gsd-tools' `git.base-branch --is-protected`) | nothing: it is read-only, and answers `{branch, detached, protected, agent, unreadable, blocks_commit}` from the git port and the settings. `protected`: `main`, `master`, `develop`, `trunk`, `release/…`, `git.protected_branches` or `git.base_branch`, without case; a `git.protected_branches` or `git.base_branch` of another type in `specforge.json` is refused `invalid_input`, naming it. `agent` is the agent namespace (`agent-`, `worktree-agent-`, `worktree-wf_`); `unreadable` is that the host could not read `HEAD`; `blocks_commit` is detached, unreadable, or protected and not `git.allow_default_branch_commits`. What to say about a blocked commit is each asset's |
+| `milestone_branches <milestone>` (`specforge gsd milestone-branches`; the listing of `complete-milestone`) | nothing: it is read-only, and answers `{milestone, strategy, branches}`: the local branches the milestone's work sits on, from `git.branching_strategy`, each computed `branch` and the git port. A phase the strategy names no branch for (`gsd/W409`) is refused `invalid_input`; a backlog phase has none |
+| `worktree_contains <target>` (`specforge gsd worktree-contains`; the prefix test of `worktree-path-safety.md` step 0b) | nothing: it is read-only, and answers `{path, top, inside}`, the path read lexically as `automated_guard` reads a target: `<top>-evil` and `<top>/..` are outside |
+| `gate_command <build\|test> [--scope post_merge\|regression] [--xcode-project <dir>] [--xcode-list <json>] [--simulators <json>] [--files <lines>]` (`specforge gsd gate-command build`; grows gsd-tools' `resolve-package-manager`, #5346) | nothing: it is read-only and runs nothing. It answers `{target, scope, source, argv, note}`, and the `note` on stderr too, so a block that picks the words still shows it: the argv the build or test gate runs with `specforge run -- "${ARGV[@]}"`, never re-parsed: the `workflow.<target>_command` setting as `bash -c <setting>`, else Xcode (the block hands in the text of `xcodebuild -list -json` and `xcrun simctl list devices available -j`: a command runs no process), a Makefile rule, a Justfile, `Cargo.toml`, `go.mod`, python and `package.json` in upstream's order per target. The package arm is the project's manager (`package.json`'s `packageManager`, else `pnpm-lock.yaml`, `yarn.lock`, `bun.lock`, `bun.lockb`, else npm; `test` is `<pm> test`, bun's `bun run test`). It reads the files through declared reads (ADR 0293), at the project root only; a manifest that is there and did not read (a link out of the project or to nothing, a directory, a file over the host's 64 KiB text cap; upstream reads 1 MiB) answers `source: unread`, the `note` and exit 1 where its runner decides. Nothing to run is an empty `argv` and the `note`; a word that is empty or holds a line break is refused `invalid_input` |
 | `user_story_validate --story <text>` (`specforge gsd user-story-validate`; gsd-tools' `user-story validate`) | nothing: it is read-only, and answers whether the text is the canonical `As a <role>, I want to <capability>, so that <outcome>.` on one line, with upstream's per-clause errors, for `/gsd-mvp-phase`, the verifier and the MVP UAT framing. Divergence: the slots are flat fields `role`, `capability`, `outcome` (upstream nests them in `slots`), so a prompt picks `.role` |
 | `verification_debt [--milestone M] [--phase P]` (`specforge gsd verification-debt`; gsd-tools' `audit-uat` and `phase uat-passed`) | nothing: it is read-only, and counts the UAT tests still open by the uat_test kind's rule (pending or no result, blocked, an issue with an unresolved or no gap, a skip without a `Deferred follow-up` reason), for `/gsd-progress`'s debt lines and `/gsd-verify-work`'s gates: `{milestone, current, archived: [{milestone, open}], archived_total, blockers}`. Divergence: one answer of counts and ids, not upstream's audit report (`summary.total_items`, `parse_gap_files`) or its exit-code verdict; an archived milestone is a shipped one |
 | `plan_coverage <phase> --review <text>` (`specforge gsd plan-coverage`; review.md's inline node script, no gsd-tools verb) | nothing: it is read-only, and answers `{complete, missing_ids, total}`: whether a reviewer's text names each of the phase's plans (`phase` names it), an id standing alone with no word character or `-` beside it. The text is an argument (a command reads no runtime path), so a report over the platform's argument size cannot be checked |

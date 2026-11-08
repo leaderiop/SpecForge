@@ -445,9 +445,9 @@ fn a_run_needs_only_the_approvals_of_what_it_uses_and_w170_lists_them() {
     ]));
     let scopes: Vec<String> = needs
         .iter()
-        .map(|n| match n.approval() {
-            Approval::Capability(a) => a.scope,
-            Approval::Root(r) => r.root,
+        .map(|need| match need {
+            Need::Capability { approval, .. } => approval.scope.clone(),
+            Need::Root(root) => root.root.clone(),
         })
         .collect();
     assert_eq!(
@@ -531,6 +531,44 @@ fn a_redirect_is_judged_with_the_method_it_will_be_sent_with() {
         let outcome = post_redirected(status, &Any);
         assert_eq!(outcome.class, OutcomeClass::Denied, "{status}: {outcome:?}");
     }
+}
+
+/// The proxy a granted request goes through sees what it carries, so the grant must reach its host as it reaches the
+/// URL's: a proxy on a host no capability lists is `denied`, naming it.
+#[test]
+fn a_granted_request_goes_only_through_a_proxy_the_grant_reaches() {
+    use crate::http::Any;
+    let grant = Arc::new(Grant::decide(
+        &declaration(json!([
+            {"name": "read", "why": "r", "port": "http", "methods": ["GET"],
+             "hosts": {"list": ["a.example", "proxy.corp"]}},
+        ])),
+        &third_party(),
+        &EffectsCeiling::default(),
+        &roots(),
+        &MemoryConsent::approving_everything(),
+    ));
+    let fake = |proxy: &str| {
+        crate::testing::FakeHttp::new()
+            .route("https://a.example/", 200, "here")
+            .through_proxy(proxy)
+    };
+    let get = crate::http::get("https://a.example/");
+    let through = |proxy| {
+        grant
+            .http(Operation::Collect, Arc::new(fake(proxy)))
+            .request(&get, &Any)
+    };
+    assert_eq!(through("proxy.corp").class, OutcomeClass::Ok);
+    let refused = through("evil.example");
+    assert_eq!(refused.class, OutcomeClass::Denied, "{refused:?}");
+    assert!(
+        refused
+            .detail
+            .as_deref()
+            .is_some_and(|d| d.contains("goes through the proxy on evil.example")),
+        "{refused:?}"
+    );
 }
 
 #[test]

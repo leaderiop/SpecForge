@@ -46,16 +46,16 @@ Load execution context (paths only to minimize orchestrator context):
 @~/.claude/gsd-core/references/gsd-run-resolver.md
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 ```
 
-Extract from init JSON: `executor_model`, `commit_docs`, `sub_repos`, `phase_dir`, `phase_number`, `plans`, `summaries`, `incomplete_plans`, `state_path`, `config_path`, `response_language`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id), and its `plan` entities are among the other nodes (a plan whose `status` is not `complete` has no summary yet). `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`; the sub-repositories are `specforge git repos`' answer; an installed agent carries its own model.
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
@@ -65,8 +65,8 @@ If the spec missing: error.
 <step name="identify_plan">
 ```bash
 # Use plans/summaries from INIT JSON, or list files
-(specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true) | sort
-(specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true) | sort
+specforge query "$PHASE_ID" --kinds plan --format brief 2>/dev/null || true
+specforge query "$PHASE_ID" --depth 2 --kinds summary --format brief 2>/dev/null || true
 ```
 
 Find first PLAN without matching SUMMARY. Decimal phases supported (`01.1-hotfix/`).
@@ -74,7 +74,7 @@ Find first PLAN without matching SUMMARY. Decimal phases supported (`01.1-hotfix
 **Exclude `external_job_waiting` plans from selection.** When choosing the first PLAN that lacks a matching SUMMARY, skip any plan whose `plan_id` matches an async-job manifest in the spec (any status) — that plan is `external_job_waiting` or awaiting reconciliation, never work to (re-)dispatch (re-dispatching would duplicate the external job). Reconcile via the manifest / safe_resume_gate instead.
 
 ```bash
-PHASE=$(echo "$PLAN_PATH" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*-[0-9]+')
+PHASE=${PLAN_ID%/*}   # the plan's phase is its id's parent
 # config settings can be read from the settings block if needed
 ```
 
@@ -89,15 +89,15 @@ Present plan identification, wait for confirmation.
 
 <step name="record_start_time">
 ```bash
-PLAN_START_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-PLAN_START_EPOCH=$(date +%s)
+specforge gsd start-plan "$PLAN_ID" --head "$(specforge git head --pick .sha)" || exit 1   # records the plan's start and head once, in the graph: a re-run keeps them
+
 ```
 </step>
 
 <step name="parse_segments">
 ```bash
 # Count tasks — match <task tag at any indentation level
-TASK_COUNT=$(specforge query "$PLAN_ID" --kinds task --pick '.nodes[kind=task].id' 2>/dev/null | wc -l | tr -d ' ')
+TASK_COUNT=$(specforge query "$PLAN_ID" --kinds task --pick '.nodes[kind=task].id' --count) || exit 1   # a failed query is not "no tasks"
 INLINE_THRESHOLD="{{setting:workflow.inline_plan_threshold|2}}"   # workflow.inline_plan_threshold (the settings)
 USE_WORKTREES="false"   # @gsd/core has no worktree isolation: workflow.use_worktrees is ignored
 RUNTIME="{{setting:runtime|@host}}"   # runtime (the settings)
@@ -127,7 +127,7 @@ Otherwise: Apply checkpoint-based routing below.
   `isolation`-`none` host with a FATAL for a run that was never going to dispatch anything.
 - **Pattern A:** read @gsd-core/references/dispatch-isolation-gate.md and run its
   `Resolve ISOLATION`, `Single-agent dispatch sites`, and `Resolve the harness flag` blocks in
-  order; they set `ISOLATION`/`HARNESS_FLAG` via `query dispatch-isolation`. `ISOLATION` — not
+  order; they set `ISOLATION=none` and an empty `HARNESS_FLAG` (@gsd/core has no worktree isolation). `ISOLATION` — not
   `RUNTIME` — gates the worktree decision. Substitute `{harnessFlag}` in Pattern A's `Agent()`
   with `$HARNESS_FLAG`+comma when `ISOLATION = "harness-worktree"`, else empty.
   `{harnessFlag}` is a template placeholder, not a shell variable.
@@ -386,25 +386,25 @@ If `NODE_REPAIR` is `false` OR repair returns ESCALATE: STOP. Present: "Verifica
 
 <step name="record_completion_time">
 ```bash
-PLAN_END_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-PLAN_END_EPOCH=$(date +%s)
+# the plan closes at the end of create_summary: its summary must exist first
 
-DURATION_SEC=$(( PLAN_END_EPOCH - PLAN_START_EPOCH ))
-DURATION_MIN=$(( DURATION_SEC / 60 ))
 
-if [[ $DURATION_MIN -ge 60 ]]; then
-  HRS=$(( DURATION_MIN / 60 ))
-  MIN=$(( DURATION_MIN % 60 ))
-  DURATION="${HRS}h ${MIN}m"
-else
-  DURATION="${DURATION_MIN} min"
-fi
+
+
+
+
+
+
+
+
+
+
 ```
 </step>
 
 <step name="generate_user_setup">
 ```bash
-specforge query "$PLAN_ID" --kinds user_setup --format context | head -50
+specforge query "$PLAN_ID" --kinds user_setup --format context
 ```
 
 If user_setup exists: create `{phase}-USER-SETUP.md` using the template at `~/.claude/gsd-core/templates/user-setup.md` (or its `~/.claude/gsd-core/templates/user-setup.compact.md` variant — resolve per `~/.claude/gsd-core/references/compact-content-gate.md` §"Streams 1b and 4"). Per service: env vars table, account setup checklist, dashboard config, local dev notes, verification commands. Status "Incomplete". Set `USER_SETUP_CREATED=true`. If empty/missing: skip.
@@ -418,20 +418,20 @@ execute-phase.md step 5.5).
 
 Create `{phase}-{plan}-SUMMARY.md` at the phase `XX-name`. Use the template at `~/.claude/gsd-core/templates/summary.md` (or `summary.compact.md` — same `compact-content-gate.md` resolution as the USER-SETUP template above).
 
-**Frontmatter:** phase, plan, subsystem, tags | requires/provides/affects | tech-stack.added/patterns | key-files.created/modified | key-decisions | requirements-completed (**MUST** copy `requirements` array from PLAN.md frontmatter verbatim) | duration ($DURATION), completed ($PLAN_END_TIME date).
+**Frontmatter:** phase, plan, subsystem, tags | requires/provides/affects | tech-stack.added/patterns | key-files.created/modified | key-decisions | requirements-completed (**MUST** copy `requirements` array from PLAN.md frontmatter verbatim) | never `started`, `completed` or `duration`: `complete-plan` writes the times and `duration` is computed from them.
 
 **Coverage block (#1602):** Populate the `coverage:` frontmatter block — one entry per shipped deliverable (the structured form of each `## Accomplishments` bullet). For each deliverable, aggregate the task-level `<verify>` results and tests:
 - A task whose `<verify>` command passed or whose matching test passed → a `verification` entry with `kind` + `ref` (`tests/path#name`, Playwright screenshot ref, or command) + `status: pass`, and `human_judgment: false`.
 - A judgment-dependent deliverable (UX adequacy, external/multi-session behavior, anything no test asserts) → `human_judgment: true` with a `rationale`.
 - **Every deliverable MUST be classified.** If you cannot determine coverage, default to `human_judgment: true` with `rationale: "Coverage not determined at authoring time — verifier must classify"`. Never set `human_judgment: false` without a non-empty all-`pass` `verification` — `verify-work` auto-passes (skips the human) ONLY on that proof, so an unproven `false` still routes to the human but loses the audit trail. Omit the whole block only for a genuinely prose-only SUMMARY (verify-work then uses the legacy `## Accomplishments` path). The block is validated downstream by `specforge check` (it reads the summary's deliverables).
 
-Title: `# Phase [X] Plan [Y]: [Name] Summary`
-
-One-liner SUBSTANTIVE: "JWT auth with refresh rotation using jose library" not "Authentication implemented"
-
-Include: duration, start/end times, task count, file count.
-
-Next: more plans → "Ready for {next-plan}" | last → "Phase complete, ready for next step".
+Title: `# Phase [X] Plan [Y]: [Name] Summary` One-liner SUBSTANTIVE: "JWT auth with refresh rotation using jose library" not "Authentication implemented"
+Include: task count, file count. The start/end times and duration are the summary's own fields. Next: more plans → "Ready for {next-plan}" | last → "Phase complete, ready for next step". Once the summary is written, Patterns B and C close the plan here (Pattern A's executor closes its own):
+```bash
+SUMMARY_ID=$(specforge query "$PLAN_ID" --depth 1 --kinds summary --pick '.nodes[kind=summary].id') || exit 1
+case "$SUMMARY_ID" in ''|*$'\n'*) echo "plan $PLAN_ID needs exactly one summary to close; it has: ${SUMMARY_ID:-none}" >&2; exit 1 ;; esac
+specforge gsd complete-plan "$SUMMARY_ID" || exit 1; DURATION=$(specforge query "$SUMMARY_ID" --depth 0 --pick '.nodes[0].fields.duration') || exit 1
+```
 </step>
 
 <step name="update_current_position">
@@ -455,7 +455,7 @@ if [ "$IS_WORKTREE" != "true" ]; then
 
   # Record execution metrics
   : "state.record-metric: duration and actuals are computed from the summary" \
-    --phase "${PHASE}" --plan "${PLAN}" --duration "${DURATION}" \
+    --phase "${PHASE}" --plan "${PLAN}" \
     --tasks "${TASK_COUNT}" --files "${FILE_COUNT}"
 fi
 ```
@@ -467,11 +467,11 @@ From SUMMARY: Extract decisions and add to STATE.md:
 ```bash
 # Add each decision from SUMMARY key-decisions
 # Prefer file inputs for shell-safe text (preserves `$`, `*`, etc. exactly)
-: "state.add-decision: record it as a decision entity" \
-  --phase "${PHASE}" --summary-file "${DECISION_TEXT_FILE}" --rationale-file "${RATIONALE_FILE}"
-
-# Add blockers if any found
-specforge gsd raise-blocker "$(cat "${BLOCKER_TEXT_FILE}")" --phase "${PHASE}"
+# Record each one as a decision entity of the phase, with its summary and its rationale
+# Add a blocker if one was found (skip this when none): the heredoc keeps its text exactly
+IFS= read -rd '' BLOCKER_TEXT <<'GSD_BLOCKER_END' || true; specforge gsd raise-blocker "$BLOCKER_TEXT" --phase "${PHASE}"
+<the blocker, verbatim>
+GSD_BLOCKER_END
 ```
 </step>
 
@@ -519,14 +519,14 @@ Extract requirement IDs from the plan's frontmatter (e.g., `requirements: [AUTH-
 **Shared-ID gate (#2388):** a requirement ID declared by more than one plan in this phase must not read `Complete` until every plan declaring it has finished (produced a `*-SUMMARY.md`) — otherwise the first plan to finish flips it `Complete` while its sibling plans are still running, before phase verification ever gets a chance to catch a real gap. Compute the ready subset first, then mark only those:
 
 ```bash
-READY_IDS=   # requirements.ready-ids: the summary lists requirements_completed; nothing else to mark
+: # a requirement is complete when a summary lists it in requirements_completed: nothing to mark here
 
-if [ -n "$(printf '%s' "$READY_IDS" | tr -d '[:space:]')" ]; then
-  : # requirements.mark-complete: a requirement is complete when a summary lists it
-fi
+
+
+
 ```
 
-`requirements.ready-ids` is read-only and prints JSON by default (`--raw` prints a prose summary `jq` cannot read, so the ready list would always be empty, #4956): it scans sibling `*-PLAN.md` files in this plan's phase directory and blocks an ID only when a sibling ALSO declares it and that sibling has no `*-SUMMARY.md` yet. An ID no sibling declares is always ready (single-plan requirements mark immediately, no added latency). A blocked ID is re-evaluated the next time any plan in this phase finishes its own `update_requirements` step, and becomes ready once the LAST declaring plan's SUMMARY exists.
+A requirement is complete when a summary lists it in `requirements_completed` (the graph computes it): there is no ready subset to compute and nothing to mark here.
 </step>
 
 <step name="git_commit_metadata">

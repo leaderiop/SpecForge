@@ -4,6 +4,9 @@
 
 use std::path::{Path, PathBuf};
 
+#[path = "common/files.rs"]
+mod files;
+
 const TABLE: &str = include_str!("../src/prompts/assets.rs");
 
 fn root() -> PathBuf {
@@ -20,23 +23,16 @@ fn table() -> Vec<String> {
         .collect()
 }
 
-fn walk(base: &Path, dir: &Path, out: &mut Vec<String>) {
-    for entry in std::fs::read_dir(dir).expect("a folder").flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            walk(base, &path, out);
-        } else {
-            let relative = path.strip_prefix(base).expect("under base");
-            out.push(relative.to_string_lossy().into_owned());
-        }
-    }
-}
-
 #[test]
 fn assets_embed_and_attribute() {
     let base = root().join("assets");
-    let mut on_disk = Vec::new();
-    walk(&base, &base, &mut on_disk);
+    let mut on_disk: Vec<String> = files::under(&base)
+        .iter()
+        .map(|p| {
+            let relative = p.strip_prefix(&base).expect("under base");
+            relative.to_string_lossy().into_owned()
+        })
+        .collect();
     on_disk.retain(|p| !p.starts_with("agents/"));
     on_disk.sort();
     let table = table();

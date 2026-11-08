@@ -5,7 +5,7 @@
     reason = "a test fails on the first unexpected value"
 )]
 
-use specforge_effects::{Fs, FsOp, FsOutcome, FsRequest, OutcomeClass, Roots};
+use specforge_effects::{Fs, FsChange, FsOp, FsOutcome, FsRequest, OutcomeClass, Place, Roots};
 use specforge_fs::LocalFs;
 
 /// A project with `a.txt` (`a\n`) and a `.env`, and its roots.
@@ -186,6 +186,69 @@ fn a_walk_does_not_descend_through_a_directory_link() {
     assert_eq!(walk(&roots, Some("**/*.md")), ["real/x.md"]);
 }
 
+/// The listed paths of `dir` under `globs`, files and directories.
+fn listed(roots: &Roots, globs: &[&str]) -> Vec<String> {
+    let listing = LocalFs.list(
+        roots,
+        &specforge_effects::ListRequest {
+            root: "project".into(),
+            path: String::new(),
+            globs: globs.iter().map(|glob| (*glob).to_string()).collect(),
+            kind: None,
+            depth: None,
+            ignore: true,
+            hidden: false,
+            max_entries: 100,
+        },
+    );
+    assert_eq!(listing.class, OutcomeClass::Ok, "{listing:?}");
+    listing
+        .entries
+        .into_iter()
+        .map(|entry| entry.path)
+        .collect()
+}
+
+/// A listing's globs are the `ignore` crate's overrides: gitignore semantics, a `!` glob leaves out a file or prunes
+/// a directory, and no glob reaches a hidden name the listing leaves out.
+#[test]
+fn a_listing_takes_the_walkers_overrides() {
+    let (_dir, roots) = project();
+    let root = roots.project();
+    for dir in ["src/deep", "build/src"] {
+        std::fs::create_dir_all(root.join(dir)).unwrap();
+    }
+    for file in [
+        "src/a.rs",
+        "src/deep/b.rs",
+        "build/c.rs",
+        "build/src/d.rs",
+        "README.md",
+        ".hidden.rs",
+    ] {
+        std::fs::write(root.join(file), "").unwrap();
+    }
+    // A name glob matches at any depth; a hidden name stays out.
+    assert_eq!(
+        listed(&roots, &["*.rs"]),
+        ["build/c.rs", "build/src/d.rs", "src/a.rs", "src/deep/b.rs"]
+    );
+    // A glob with a `/` is anchored at the listed directory.
+    assert_eq!(listed(&roots, &["src/*.rs"]), ["src/a.rs"]);
+    // `!build` prunes the directory and what it holds.
+    assert_eq!(
+        listed(&roots, &["*.rs", "!build"]),
+        ["src/a.rs", "src/deep/b.rs"]
+    );
+    // An exclusion alone keeps the rest, directories included.
+    let rest = listed(&roots, &["!*.md", "!*.txt"]);
+    assert!(!rest.iter().any(|path| path.ends_with(".md")), "{rest:?}");
+    assert!(rest.contains(&"build/src".to_string()), "{rest:?}");
+    assert!(rest.contains(&"src/deep/b.rs".to_string()), "{rest:?}");
+    // A trailing `/` names a directory, not a file of that name.
+    assert_eq!(listed(&roots, &["!build/"]), listed(&roots, &["!build"]));
+}
+
 fn at(root: &str, path: &str) -> specforge_effects::Place {
     specforge_effects::Place {
         root: root.into(),
@@ -315,4 +378,84 @@ fn a_digest_of_a_named_pipe_is_refused_without_waiting() {
             2
         )
     );
+}
+
+#[test]
+fn a_file_with_more_than_one_name_is_denied_a_read_and_a_digest() {
+    let (dir, roots) = project();
+    let root = dir.path().canonicalize().unwrap();
+    std::fs::create_dir(root.join("sec")).unwrap();
+    std::fs::hard_link(root.join(".env"), root.join("sec/hl.txt")).unwrap();
+
+    let read = run(&roots, "sec/hl.txt", FsOp::Read { max_bytes: 1024 });
+    assert_eq!(read.class, OutcomeClass::Denied, "{read:?}");
+    assert!(read.bytes.is_empty());
+    let digest = run(&roots, "sec/hl.txt", FsOp::Digest);
+    assert_eq!(digest.class, OutcomeClass::Denied, "{digest:?}");
+    let at = Place {
+        root: "project".into(),
+        path: "sec/hl.txt".into(),
+    };
+    assert_eq!(LocalFs.digest(&roots, &at).class, OutcomeClass::Denied);
+    // Its name stays listed: what a name says is no content.
+    let stat = run(&roots, "sec/hl.txt", FsOp::Stat);
+    assert_eq!(stat.class, OutcomeClass::Ok, "{stat:?}");
+    let to = Place {
+        root: "project".into(),
+        path: "plain.txt".into(),
+    };
+    let copied = LocalFs.change(&roots, &FsChange::Copy { from: at, to });
+    assert_eq!(copied.class, OutcomeClass::Denied, "{copied:?}");
+    assert!(!root.join("plain.txt").exists());
+}
+
+/// A listed entry carries its modification time from the metadata the walk already read: a wait polls one walk, not a
+/// stat per file.
+#[test]
+fn a_listed_entry_carries_its_modification_time() {
+    let (_dir, roots) = project();
+    let root = roots.project();
+    std::fs::write(root.join("new.txt"), "x").unwrap();
+    std::fs::write(root.join("old.txt"), "x").unwrap();
+    // 2001-09-09T01:46:40Z.
+    let old = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000_000);
+    std::fs::File::options()
+        .write(true)
+        .open(root.join("old.txt"))
+        .unwrap()
+        .set_modified(old)
+        .unwrap();
+    let listing = LocalFs.list(
+        &roots,
+        &specforge_effects::ListRequest {
+            root: "project".into(),
+            path: String::new(),
+            globs: vec!["*.txt".to_string()],
+            kind: None,
+            depth: None,
+            ignore: true,
+            hidden: false,
+            max_entries: 100,
+        },
+    );
+    let times: Vec<(&str, Option<u64>)> = listing
+        .entries
+        .iter()
+        .map(|entry| (entry.path.as_str(), entry.modified_ms))
+        .collect();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+    let time = |name: &str| {
+        times
+            .iter()
+            .find(|(path, _)| *path == name)
+            .map(|(_, at)| *at)
+    };
+    let new = time("new.txt")
+        .flatten()
+        .expect("a local file keeps its modification time");
+    assert!(now.abs_diff(new) < 5_000, "{times:?}, now {now}");
+    assert_eq!(time("old.txt"), Some(Some(1_000_000_000_000)), "{times:?}");
 }

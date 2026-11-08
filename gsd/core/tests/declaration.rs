@@ -162,7 +162,7 @@ fn the_code_book_matches_rules_md() {
         from_book, from_md,
         "the code book and rules.md list different codes"
     );
-    assert_eq!(book.len(), 63);
+    assert_eq!(book.len(), 64);
     for row in &rows {
         let code = book
             .iter()
@@ -258,10 +258,12 @@ fn milestone_and_phase_declare_the_fields_of_the_model() {
             "workstream",
             "completion",
             "state",
+            "first_commit",
             "shipped",
             "stats",
             "git_range",
-            "progress"
+            "progress",
+            "branch"
         ]
     );
     assert_eq!(
@@ -278,6 +280,7 @@ fn milestone_and_phase_declare_the_fields_of_the_model() {
             "tag",
             "inserted",
             "backlog",
+            "branch",
             "frontend",
             "status",
             "plans_complete",
@@ -346,7 +349,7 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
         "methodology",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 72 + 3 - 2, "the kinds' fields");
+    assert_eq!(total, 72 + 3 - 2 + 1 + 2, "the kinds' fields");
 }
 
 #[test]

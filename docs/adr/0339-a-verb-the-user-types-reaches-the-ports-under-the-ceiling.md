@@ -41,11 +41,19 @@ whole port `off`). A request outside it is refused before any effect, with the c
   `<project>/.specforge/tmp/` (a loose root's under the home directory, as its journal is), made owner-only on first
   use, so `files temp` and `files remove` work there and nowhere else in it. No guest's roots hold `temp`, and no
   project may name a root `temp` (E109).
+- **A file with more than one name** is not read through the port ([ADR 0146](0146-a-file-with-more-than-one-name-is-not-read-through-a-bound.md)'s amendment): its other name may be
+  withheld or outside every root.
 - **Addresses.** The private-address rule binds what a repository names, not the URL the user types: a typed
   `http://localhost:11434/…` is the user's target, so only the ceiling applies (`Private::TypedOrigin`). A redirect is
   the server's choice: a hop to another origin is held to the public rule, so a typed public URL that redirects to
   `169.254.169.254` or `127.0.0.1` is refused, while a typed loopback URL may redirect within its own origin. Each
   redirect is asked of the grant again, and a redirect from `https` to `http` is never followed.
+- **Proxies.** The adapter honours the environment's and the system's proxies (ADR 0335), and a caller limited to the
+  verbs can set `HTTP_PROXY`; the proxy sees what an `http` request carries, and answers for its server. So its host
+  passes the same grant and ceiling as the URL's (`Verbs::permit_proxy`, asked by the adapter before each hop through
+  `Redirects::through_proxy`): a project whose ceiling lists hosts must list the proxy's, or the request is refused
+  (E090) with that remedy and nothing is sent. Taking no proxy from the environment was the other choice; it would
+  cut off every machine whose only way out is a proxy, which ADR 0335 supports.
 - **Secrets.** `http --secret <extension>:<name>` names a secret an extension declares (ADR 0288). The host reads its
   variable and attaches it as `Authorization: Bearer …`, on `https` and to the typed URL's host only, never on a
   redirect elsewhere. The value is never printed, never journaled, and outside the request's digest.
@@ -78,7 +86,7 @@ whole port `off`). A request outside it is refused before any effect, with the c
 ## D4. The answer
 
 - **JSON first.** `files`, `http` and `git` print one JSON document by default; `--pick` prints the values at a path
-  (ADR 0325 D6); `--format human` is a short listing for people and refuses `--pick` (exit 2). A refusal is the CLI's
+  (ADR 0325 D6), and with `--fields` one row per item (D7; not on `http`); `--format human` is a short listing for people and refuses `--pick` (exit 2). A refusal is the CLI's
   JSON error document (ADR 0029). Insta snapshots pin each answer's shape.
 - **Every answer says its effect.** A JSON answer ends with `effect: {digest, observed_at, from_journal}`: the
   request's record digest in the effects journal, when the answer was observed (its record's time when the journal
@@ -100,7 +108,7 @@ whole port `off`). A request outside it is refused before any effect, with the c
   stopped, `output_capped`) and the answer keeps 1 MiB of each (`truncated`). `--pick` implies `--format json`, so a
   picked run is a captured one, and `--help` says so. `run --in <dir>` runs it in a
   directory held to the roots as a typed path is, with `PWD` naming it, so its record names the directory too. `run --which` answers
-  where the runner's resolver (PATH, and PATHEXT on Windows) finds each program, and runs nothing.
+  where the runner's resolver (PATH's absolute entries, and PATHEXT on Windows) finds each program, and runs nothing.
 - `http` answers `{method, url, ok, status, outcome, final_url, headers, content_type, bytes, body, json, truncated}`:
   `outcome` is the class the journal writes (`ok`, `status:404`, `capped`), `bytes` how many body bytes came. It exits
   0 when any HTTP answer arrived (a 404 is `ok: false`), 1 when unreachable or refused. `--no-redirects` follows none:
@@ -215,7 +223,126 @@ path held to the roots, a write refused unless gix trusts the git dir, hooks run
     on an existing repository it answers `created: false`.
   - `log -S` past its `--max` stops at the first further commit it keeps: `count` is `null`, `truncated` true.
   - `worktree remove`, like `worktree add`, is held to the roots.
-- **What stays.** Push, fetch, `ls-remote` and `remote show` reach a remote (D6). `worktree add` and a local `clone`
-  into `$HOME/gsd-workspaces` write outside the project's roots (D2), and so do remove-workspace's `git -C` reads and
-  `worktree remove` there, and worktree-path-safety's pin of the orchestrator's checkout, which also compares both
-  toplevels in git's own spelling. The ledger's `D git` heading says so for its 35 rows.
+- **What stays.** Push, fetch, `ls-remote` and `remote show` reach a remote (D6). The ledger's `D git` heading says so
+  for its rows. (Reworded by an amendment below: the workspace workflows and the worktree pin moved to the verbs.)
+
+## Amendment (2026-11-05, files search on ripgrep's crates)
+
+`specforge files search` grows grep's shapes on ripgrep's own library crates, so GSD's agents and gates search through
+specforge instead of the grep program. The rules of D1-D4 hold: every byte is read through the `Fs` port, each typed
+path is held to the roots, the host's own state stays withheld.
+
+- **The engine.** A file the port read is searched by `grep-searcher` (`Searcher::search_slice`, never `search_path`,
+  which would open files past the port) with a `grep-regex` matcher: Rust regex syntax, `-i`, `-F` (literal),
+  `-U` (multiline; without it the line terminator is `\n` and a pattern that needs one is refused by the library),
+  CRLF lines read without their `\r`, and under `-U` a CRLF line is searched as it is, so `.*\n` crosses its `\r`. A
+  file is binary by git's rule: a walked one is skipped and is not `unread`, as `grep -I` skips it or every repository
+  with a PNG would fail a gate; a typed one is `unread`, because it was named and not judged. Versions are exact
+  (`grep-searcher =0.1.17`, `grep-regex =0.1.14`, `grep-matcher =0.1.9`), named in `crates/app/ops/Cargo.toml`.
+- **Globs** are the `ignore` crate's overrides, judged in the walk's `filter_entry`: gitignore semantics, so a glob
+  with a `/` matches the path below the listed directory and one without a name at any depth, and `!glob` leaves out a
+  file or a whole directory, on `files list` as on `files search`. An empty glob and a bare `!`, which a shell's unset
+  variable writes, are refused.
+- **Flags.** `-F`, `-v`, `-U`, `-A/-B/-C <N>`, `--and-not <re>` (repeatable: a reported line, or multiline match, it
+  matches is left out; context is kept), `-l` (the files that match), `--counts` (each file's count of matching lines,
+  every file typed by name listed even at 0), `-q` and `--none` (verdicts by exit), `--hidden`, `--no-ignore`, and `-`
+  for standard input. `-l`, `--counts`, `-q` and `--none` exclude each other and the context flags; `-q` and `--none`
+  print nothing, so they take no shape of an answer: no `--pick` and its shapes, no `--format`, no `--max`.
+- **The answer.** `{matches: [{path, line, end_line?, column, text, before?, after?}], files?, counts?, count,
+  truncated, missing, unread, effect}`: `count` is the length of the list the mode answers, `end_line` only under `-U`,
+  `before`/`after` only with context (a line between two close matches is the earlier match's `after`), `missing`
+  and `unread` always. `unread` is `[{path, why}]`, `why` one of `denied`, `ceiling`, `too_large`, `past_budget`,
+  `binary`, `not_a_file`, `walk_bound`, `unreadable`, and `truncated` is true on any partial read. A file is judged
+  whole up to 64 MiB, typed or walked, or it is `unread`; a hard link or a withheld name a walk meets is `denied` and
+  the walk goes on. A typed path that does not exist is listed in `missing` and the search goes on; a path outside every root,
+  the host's state or a ceiling refusal still refuses the whole search (exit 1).
+- **Exits.** A JSON answer exits 0. `-q` exits 0 on a match, else 2 when a typed path is missing or anything is
+  `unread`, else 1; `--none` exits 1 on a match, else 2 on the same, else 0; a refusal under either exits 2 with
+  `error[CODE]` on stderr and nothing on stdout. So a negative gate cannot pass on a file it could not read, as
+  `! grep -q` does, and a shell keeps the third answer only if it reads the code: `-q … && echo yes` flattens 2 into
+  no, so GSD's blocks `case` on `$?` with a "could not read" arm.
+- **Standard input** is read only when `-` is typed, once, at most 64 MiB; past that, a read error or binary bytes make
+  `<stdin>` `unread` and `truncated` true, as a file's would; its path is `<stdin>`. A search never waits on an open stdin it was not told to read.
+- **Three small answers.** `files read <file>` answers `{path, text, bytes, lines, truncated}` through one capped read
+  (1 MiB), the text as UTF-8 with invalid sequences replaced; a directory is `invalid_input`, a missing file
+  `file_not_found`. `--format human` prints the file's bytes exactly, as `cat` would, or refuses
+  (`precondition_failed`, exit 1, nothing printed) a file larger than one read, one that is not UTF-8, and one holding
+  a character a terminal acts on: never a cut or altered copy with exit 0. `files list --lines` adds each file's `lines` and their total. `files temp --name <n>` answers
+  `<temp root>/<n>`, the same path every call: made (a file, or with `--dir` a directory, owner-only) when missing,
+  kept when it exists with that kind, refused when it exists with the other kind or is a link. `lines` counts the
+  `\n` bytes, plus one for a last line with no newline (which `wc -l` does not count).
+- **Proximity.** "a Y line within N lines after an X line" (`grep -A N X | grep Y`) is one multiline regex,
+  `-U 'Y.*X|X(.*\n){0,N}?.*Y'`: the first branch is Y before X on X's own line, which the `grep` pair also found; the
+  second is lazy, so it ends at the nearest Y, and `.` never crosses a line. `[ \t]` keeps a part on its line where `\s`
+  would match `\n`.
+- **Where it differs from ripgrep.** Per-file counts are `--counts`, not `-c` (`--count` is `--pick`'s shape, ADR
+  0325 D8); `--and-not` and `--none` are not ripgrep's; there is no implicit standard input, no `-e`, no PCRE2; a
+  missing path is listed, not an error; a glob never whitelists: it judges what the walk reached, so `--glob '.env'`
+  does not bring back a hidden or ignored name, where ripgrep's overrides would.
+- **A walk's reach.** A typed directory is walked as `files list` walks it: hidden names and what `.gitignore` names
+  are left out unless `--hidden` and `--no-ignore` ask for them, as in ripgrep and unlike `grep -r`, which read them.
+  A typed directory `.gitignore` names is still walked. So a `--none` over a directory judges only what it reached,
+  and a gate that means every file says so. Under `--hidden`, a withheld name it meets (`.env`) is `unread`, so that
+  `--none` exits 2 until a `--glob '!.env'` leaves it out. GSD's two gates that need more ask for it: the verifier's
+  phase-declared probes (`--no-ignore`, a phase's files can be gitignored) and the circular-test scan (`--hidden`).
+- **Rejected.** A context-plus-second-pattern flag (hand-written, where the library's `-U` says the same) and PCRE2
+  lookaround (`grep-pcre2`, C code) for proximity; for line exclusion, leaving agents to filter the JSON by judgement
+  (exact counts lost) and PCRE2's `^(?!.*Q).*P`. `--and-not` is a second `grep-regex` matcher the sink asks.
+
+## Amendment (2026-11-06, roots and git)
+
+- **D2's roots** gain the machine roots ([ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md)'s S1
+  amendment): `project`, `spec`, the named roots of `specforge.json`, `temp`, and each root this machine named with
+  `specforge grants approve --root <name> --at <dir>`. A path in none of them is still refused.
+- **`clone <source> <dir>`.** A local clone through vendored libgit2: gix's file transport spawns the `git` program, and
+  libgit2 clones a path in process. One more row in the S2 table: `clone (local) | git2`. A source with `://` or git's
+  `host:path` form is network (D6), refused before anything is held. The source is held for a read and `<dir>` for a
+  write, absent or empty, as `worktree add` holds it. It answers `{top, branch, sha}`. `origin` names the source, as git's
+  local clone does. It runs no hook and no filter driver, and it goes through libgit2's transport (`--no-local`), so a link planted under
+  the source's `objects/` is not followed and no object gets a second name.
+- **`diff`'s files** carry `spec`, `spec_only` and `spec_removed`. One predicate over a repository-relative path: a
+  **spec file** is a file under the project's spec root (with the spec root at the project root, a `.spec` file under
+  it), or the harness ledger at the project root. A spec root outside the repository makes nothing a spec file. `spec`
+  is whether a file's `path` is one, a deletion's own path included; `spec_only` whether its `path` and its `old_path`,
+  when it has one, both are; `spec_removed` whether a spec file the base has is gone from the head (a deleted one, or a
+  rename whose `old_path` is one). Three flags rather than a chained selector: each answers one question in one `--pick`,
+  and says what it means to any reader of the JSON.
+- **`status --except <path>`** leaves out an entry at or under the path, as git's `:!<path>` does, from `entries`,
+  `tracked` and `untracked`, and `clean` is computed on what is left. Repeatable; the name `add --except` already has.
+  It agrees with git on what it judges: files, so an untracked directory is listed by file once a filter is given, and
+  a rename's two sides, so the side left stands alone (`D src/b` after a rename into an excepted `spec`). Like git's, the
+  path is read from the current directory, though the answer's paths are from the repository's top.
+- **`repos <dir>`** answers the directory's direct children that have a `.git` entry, sorted, each `{name, path, clean,
+  linked, unreadable}`: `files list` never lists a `.git`, so a prompt would otherwise loop a glob and call a verb per
+  child. The directory is held like any path, and a child is read as a verb there would be: a broken `.git`, a redirect
+  or a link out of every root reads `unreadable=true` and `clean=false`, so nothing is taken for clean that was not read.
+- **`--except-spec`** on `status` and `add` leaves out what `SpecPaths` calls a spec file, whichever directory the verb
+  is typed in and however the spec root is configured: `spec` written in a prompt would read `sub/spec` in a
+  subdirectory, the wrong directory in a nested project, and everything with the spec root at the project root.
+- **Finding a repository.** A `.git` entry on the way up that is no repository stops the search (`Unavailable`), where
+  gix goes on upwards: a broken repository must never answer as the one around it. git also stops at a `.git` file it
+  cannot use, and goes past an empty `.git/` directory. Here both stop it, and the second is a difference from git held
+  on purpose: an empty `.git/` is a repository gone wrong, and a verb answering `clean` for the one around it would hide
+  that.
+- **A `.git` is judged, not followed.** `fake/.git` = `gitdir: <outside repo>` let `git --in fake show` read that
+  repository and `tag` write it: holding the typed path says nothing of where its `.git` leads. So every verb asks
+  `Git::leads_to`: a `.git` file or link, a `commondir`, a `core.worktree` and each object alternate (followed to git's
+  depth of 5) are honoured only when they lie in a root. A real linked worktree is honoured wherever its repository lies,
+  since its git directory is an admin directory of the common one whose `gitdir` file names this `.git` back; a real
+  submodule likewise, its `core.worktree` naming this top back. A plant can write neither outside what it reaches. A project
+  nested in a repository still finds it upward: a walk redirects nothing, so that repository need not be in a root. An
+  alternate outside every root refuses, whichever way the repository was found. `clone` opens its source exactly, with
+  no upward search, so a nested project cannot copy the repository around it. **The cost:** `git init --separate-git-dir`
+  and `git clone --reference` outside every root are refused until a machine root holds them. **Not judged:** a guest's git
+  port and the host's own reads (the hook's facts, a registry checkout), which read only the project's repository.
+- **No verb writes into a `.git`.** `files copy hk .git/hooks/pre-commit`, then any commit, was code execution for a caller
+  limited to the verbs, as was `git clone hk .git/hooks`. Every write a verb holds refuses a path with a `.git` component
+  in any case, links resolved (`Verbs::located`), and a copy or move of a source named `.git` is refused too, since it
+  keeps its name in a directory. A directory that holds a repository is still removed or copied whole: that writes no
+  repository a verb could not already run. The git verbs' own writes are the port's and do not pass here.
+- **`worktree add`** makes the path's parents, and a second worktree of one directory name takes its own record
+  (`name1`), as git does; libgit2 does neither. A new branch needs no identity on the machine: its reflog line takes a
+  fallback name, as git's does, where a commit still refuses.
+- **What stays.** Only push, fetch, `ls-remote` and `remote show` (D6): new-workspace, remove-workspace and
+  worktree-path-safety's pin now call only specforge. Each side of the pin is one reader's spelling (links resolved), so
+  aliases such as `/var` and `/private/var` compare equal.

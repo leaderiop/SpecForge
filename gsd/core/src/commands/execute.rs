@@ -1,57 +1,101 @@
-//! The commands of a plan's execution (D-r41-3): `start_plan` opens a plan at the host's clock, and `complete_plan`
-//! writes its summary's two times. Upstream keeps `PLAN_START_TIME` in the executor's shell; here the executor keeps
-//! the time `start_plan` answered and hands it to `complete_plan --started`.
+//! The commands of a plan's execution (D-r41-3): `start_plan` opens a plan at the host's clock and records that time, and
+//! the commit it opened at, in its `plan_start`, and `complete_plan` writes its summary's two times. Upstream keeps `PLAN_START_TIME` in the
+//! executor's shell; a shell does not outlive a fence on every host, so here the graph keeps it.
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
-use super::support::{answer, node, now, required, run, text};
-use crate::time;
+use super::support::{answer, fields, node, now, required, run, text};
 
-/// The longest a plan may have run, in seconds: a `--started` older than this is not the time `start-plan` answered.
-const WEEK: i64 = 7 * 24 * 3600;
+/// `field` of `plan`'s `plan_start`: `at` is when it was opened, `head` the commit it opened at.
+fn of_start<'a>(call: &CommandCall<'a>, plan: &str, field: &str) -> Option<&'a str> {
+    call.graph()
+        .node(&format!("{plan}/START"))?
+        .fields
+        .get(field)?
+        .as_str()
+}
 
-/// `start_plan <plan>`: gated, writes nothing, answers the host's `now`. No summary exists yet, and one made without
-/// its required fields would be refused, so the start time is written by `complete_plan`.
+/// `--head`: a commit id in full, or empty for an unborn branch, which has none: what git's own `HEAD` line names, never a
+/// revision to resolve later.
+fn head_given<'a>(call: &'a CommandCall<'_>) -> Result<Option<&'a str>, String> {
+    let head = text(call, "head")?.filter(|head| !head.is_empty());
+    let sha = |head: &str| {
+        matches!(head.len(), 40 | 64)
+            && head
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    };
+    match head {
+        Some(head) if !sha(head) => Err(format!(
+            "head must be a full lowercase commit id, got '{head}': pass `specforge git head --pick .sha`"
+        )),
+        _ => Ok(head),
+    }
+}
+
+/// `start_plan <plan> [--head <sha>]`: gated. Records the host's `now` and the commit in the plan's `plan_start`, each
+/// once: a second call answers the first values and writes nothing, so re-running the step never makes a false duration
+/// or a false commit count. A prompt's step opens a plan with no head and the executor names it next, so a head comes
+/// once whichever call brings it.
 fn start(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let plan = node(call, "plan", required(call, "plan")?)?;
+    let head = head_given(call)?;
+    if let Some(first) = of_start(call, &plan.id, "at") {
+        let kept = of_start(call, &plan.id, "head");
+        let mut edit = call.plan();
+        let fills = kept.is_none() && head.is_some();
+        if let (true, Some(head)) = (fills, head) {
+            edit.set(&format!("{}/START", plan.id), "head", head);
+        }
+        return Ok(answer(
+            call,
+            json!({ "plan": plan.id, "started": first, "head": kept.or(head) }),
+            format!("plan {} may go on; started {first}\n", plan.id),
+            fills.then_some(&edit),
+        ));
+    }
     let started = now(call)?;
+    let file = plan.file.as_deref().unwrap_or("spec/quick.spec");
+    let mut edit = call.plan();
+    edit.create(
+        "plan_start",
+        "START",
+        "Plan opened",
+        file,
+        fields([
+            ("plan", json!(plan.id)),
+            ("at", json!(started)),
+            ("head", json!(head)),
+        ]),
+        Vec::new(),
+    );
     Ok(answer(
         call,
-        json!({ "plan": plan.id, "started": started }),
-        format!(
-            "plan {} may start; started {started}\nkeep the time and pass it to `complete-plan --started`\n",
-            plan.id
-        ),
-        None,
+        json!({ "plan": plan.id, "started": started, "head": head }),
+        format!("plan {} may start; started {started}\n", plan.id),
+        Some(&edit),
     ))
 }
 
-/// `complete_plan <summary> --started <ts>`: both times of the summary, in one plan.
+/// `complete_plan <summary>`: both times of the summary, in one plan: `started` from its `plan_start`, `completed` the
+/// host's.
 fn complete(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
     let summary = node(call, "summary", required(call, "summary")?)?;
     let completed = now(call)?;
-    let Some(started) = call.str("started") else {
-        return Err("--started is required: the time `start-plan` answered".to_string());
-    };
     if summary.has_field("completed") {
         return Err(format!("summary '{}' is already completed", summary.id));
     }
-    let Some(began) =
-        time::seconds(started).filter(|_| started.ends_with('Z') && !started.contains('.'))
-    else {
-        return Err(format!(
-            "--started '{started}' is not an RFC 3339 UTC time (YYYY-MM-DDTHH:MM:SSZ)"
-        ));
-    };
-    if time::seconds(completed).is_some_and(|end| began > end) {
-        return Err(format!("--started '{started}' is after now ({completed})"));
-    }
-    if time::seconds(completed).is_some_and(|end| end - began > WEEK) {
-        return Err(format!(
-            "--started '{started}' is over a week before now ({completed}): pass the time `start-plan` answered"
-        ));
-    }
+    let plan = call
+        .graph()
+        .edges_from(&summary.id)
+        .into_iter()
+        .find(|edge| edge.label == "plan")
+        .map(|edge| edge.target.as_str())
+        .ok_or_else(|| format!("summary '{}' names no plan", summary.id))?;
+    let started = of_start(call, plan, "at").ok_or_else(|| {
+        format!("plan '{plan}' has no start recorded: run `specforge gsd start-plan {plan}` first")
+    })?;
     let mut plan = call.plan();
     plan.set(&summary.id, "started", started)
         .set(&summary.id, "completed", completed);
@@ -171,25 +215,26 @@ pub fn declare(c: &mut ContributionsBuilder) {
             .handler(|call| run(call, confirm_setup));
     });
     c.command("start_plan", |cmd| {
-        cmd.description("Open a plan: runs the plan's entry gates (W318, E516), writes nothing and answers the host's clock, which the executor passes to `complete-plan --started`")
+        cmd.description("Open a plan: runs the plan's entry gates (W318, E516) and records the host's clock and the commit it opens at in its `plan_start`, each once; a second call answers the first values")
+            .writes()
             .gate("W318")
             .gate("E516")
             .subject("plan")
             .arg("plan", |a| {
                 a.required().description("the plan about to run (its path, or a short form that is not ambiguous)");
             })
+            .arg("head", |a| {
+                a.description("the commit it opens at, in full (`specforge git head --pick .sha`); empty on an unborn branch, which has none");
+            })
             .handler(|call| run(call, start));
     });
     c.command("complete_plan", |cmd| {
-        cmd.description("Close a plan: write its summary's `started` and `completed` (the host's clock); the summary must exist with its required fields")
+        cmd.description("Close a plan: write its summary's `started` (what `start-plan` recorded) and `completed` (the host's clock); the summary must exist with its required fields")
             .writes()
             .gate("W404")
             .subject("summary")
             .arg("summary", |a| {
                 a.required().description("the plan's summary (its path, or a short form that is not ambiguous)");
-            })
-            .arg("started", |a| {
-                a.description("the time `start-plan` answered, YYYY-MM-DDTHH:MM:SSZ (required)");
             })
             .handler(|call| run(call, complete));
     });

@@ -93,12 +93,12 @@ specforge git commit --add spec -m "docs: update state" && specforge collect --r
 
 # Load config via state load (returns JSON):
 INIT=$(specforge gsd progress-report --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 # commit_docs is available in the JSON output
 
 # Or use init commands which include commit_docs:
 INIT=$(specforge query "$MILESTONE/01" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 # commit_docs is included in all init command outputs
 ```
 
@@ -195,34 +195,34 @@ To use uncommitted mode:
 
 **Checking the config:**
 
-Use `init execute-phase` which returns all config as JSON:
+The settings hold the strategy and the templates:
 ```bash
-INIT=$(specforge query "$MILESTONE/01" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
-# JSON output includes: branching_strategy, phase_branch_template, milestone_branch_template
+BRANCHING_STRATEGY="{{setting:git.branching_strategy|none}}"   # git.branching_strategy (the settings)
+
+# The templates are git.phase_branch_template and git.milestone_branch_template
 ```
 
-Or use `state load` for the config values:
+A phase and a milestone compute the name from them, as their `branch` field:
 ```bash
-INIT=$(specforge gsd progress-report --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
-# Parse branching_strategy, phase_branch_template, milestone_branch_template from JSON
+: "${PHASE_ID:?PHASE_ID is not set: the phase being worked}"; BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.branch')
+
+# Absent under the "none" strategy, on a backlog phase, and for a name git refuses (gsd/W409)
 ```
 
 **Branch creation:**
 
 ```bash
-# For phase strategy
+BRANCHING_STRATEGY="{{setting:git.branching_strategy|none}}"   # For phase strategy
 if [ "$BRANCHING_STRATEGY" = "phase" ]; then
-  PHASE_SLUG=$(echo "$PHASE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-  BRANCH_NAME=$(echo "$PHASE_BRANCH_TEMPLATE" | sed "s/{phase}/$PADDED_PHASE/g" | sed "s/{slug}/$PHASE_SLUG/g")
+  : "${PHASE_ID:?PHASE_ID is not set: the phase being worked}"; BRANCH_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.branch') && [ -n "$BRANCH_NAME" ] || { echo "ERROR: no branch name: see gsd/W409 (specforge check)." >&2; exit 1; }
+
   specforge git switch "$BRANCH_NAME" --create --pick .branch 2>/dev/null || specforge git switch "$BRANCH_NAME"
 fi
 
 # For milestone strategy
 if [ "$BRANCHING_STRATEGY" = "milestone" ]; then
-  MILESTONE_SLUG=$(echo "$MILESTONE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-  BRANCH_NAME=$(echo "$MILESTONE_BRANCH_TEMPLATE" | sed "s/{milestone}/$MILESTONE_VERSION/g" | sed "s/{slug}/$MILESTONE_SLUG/g")
+  : "${MILESTONE:?MILESTONE is not set: the milestone being worked}"; BRANCH_NAME=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.branch') && [ -n "$BRANCH_NAME" ] || { echo "ERROR: no branch name: see gsd/W409 (specforge check)." >&2; exit 1; }
+
   specforge git switch "$BRANCH_NAME" --create --pick .branch 2>/dev/null || specforge git switch "$BRANCH_NAME"
 fi
 ```
@@ -292,7 +292,7 @@ Set via `workflow.*` namespace in config.json (e.g., `"workflow": { "research": 
 | `workflow.ui_phase` | boolean | `true` | `true`, `false` | Generate UI-SPEC.md for frontend phases |
 | `workflow.ui_safety_gate` | boolean | `true` | `true`, `false` | Require safety gate approval for UI changes |
 | `workflow.text_mode` | boolean | `false` | `true`, `false` | Use plain-text numbered lists instead of AskUserQuestion menus |
-| `workflow.compact_content` | boolean | `false` | `true`, `false` | Compact content mode (#4139, ADR-4139) — per-project boolean selecting terser payloads. Six workflows branch on it via spine+detail: `plan-phase` (#4402, pilot), `execute-phase`, `docs-update`, `new-project`, `verify-work`, `complete-milestone` (#4405). The rest of the eager-window corpus was reviewed and recorded as not worth splitting (`docs/PARTITION-RULES.md`). Lazily-`Read` workflow fragments and `gsd-core/templates/**` templates use a `.compact.md` sibling instead (#4406, `gsd-core/references/compact-content-gate.md` § "Streams 1b and 4") — wired today for `help --full` and the sequential-execution `SUMMARY.md`/`USER-SETUP.md` reads. Agent-skill payloads (#4407, § "Stream 2") use the same `.compact.md` sibling shape, resolved in code by the host install rather than prose, for the non-Claude persona fallback only |
+| `workflow.compact_content` | boolean | `false` | `true`, `false` | Compact content mode (#4139, ADR-4139) — per-project boolean selecting terser payloads. Six workflows branch on it via spine+detail: `plan-phase` (#4402, pilot), `execute-phase`, `docs-update`, `new-project`, `verify-work`, `complete-milestone` (#4405). The rest of the eager-window corpus was reviewed and recorded as not worth splitting (`docs/PARTITION-RULES.md`). Lazily-`Read` workflow fragments and `gsd-core/templates/**` templates use a `.compact.md` sibling instead (#4406, `gsd-core/references/compact-content-gate.md` § "Streams 1b and 4") — wired today for the full help listing and the sequential-execution `SUMMARY.md`/`USER-SETUP.md` reads. Agent-skill payloads (#4407, § "Stream 2") use the same `.compact.md` sibling shape, resolved in code by the host install rather than prose, for the non-Claude persona fallback only |
 | `workflow.research_before_questions` | boolean | `false` | `true`, `false` | Run research before interactive questions in discuss phase (also honored on the `/gsd:quick` path, #3894). _Alias:_ `research_before_questions` is the flat-key form used in `CONFIG_DEFAULTS`; `workflow.research_before_questions` is the canonical namespaced form. |
 | `workflow.discuss_mode` | string | `"discuss"` | `"discuss"`, `"assumptions"` | Default mode for discuss-phase: `"discuss"` runs interactive questioning; `"assumptions"` analyzes codebase and surfaces assumptions instead |
 | `workflow.skip_discuss` | boolean | `false` | `true`, `false` | Skip discuss phase entirely |
@@ -305,7 +305,7 @@ Set via `workflow.*` namespace in config.json (e.g., `"workflow": { "research": 
 | `workflow.context_guard_mode` | string | `"warn"` | `"auto"`, `"warn"`, `"off"` | Context exhaustion guard mode for `execute-phase`. Before each wave, the orchestrator self-assesses context pressure using degradation signals from `context-budget.md`. `"warn"` (default): emit a warning and recommend `/gsd:pause-work` when POOR tier is detected. `"auto"`: automatically invoke `/gsd:pause-work` before the next wave when POOR tier is detected. `"off"`: disable the guard. The guard is heuristic — no programmatic context-% API exists. |
 | `workflow.plan_chunked` | boolean | `false` | `true`, `false` | Enable chunked planning mode. When `true`, the plan-phase orchestrator splits the single long-lived planner Task into a short outline Task followed by N short per-plan Tasks (~3–5 min each). Each plan is committed individually for crash resilience. Particularly useful on Windows where long-lived Tasks may hang on stdio. Also activated by the `--chunked` flag. See `planning.chunked_parallel` below for concurrent per-plan dispatch. |
 | `workflow.specless_probe_fallback` | boolean | `true` | `true`, `false` | Gate the SPEC-less probe fallback in `plan-phase`. When `true` (default), a phase that did not supply a `## Edge Coverage` / `## Prohibitions` SPEC section (header absent or present-but-empty) runs the existing probe protocol — the deterministic `edge-probe.cjs` for edges and an in-planner LLM recall pass for prohibitions — and authors the resulting predicates into PLAN.md `must_haves` (section-level precedence: a SPEC-supplied section is never re-run or overwritten). When `false`, the fallback is skipped but the skip is recorded: plan-phase emits a visible "probe fallback disabled" marker, never a silent skip. |
-| `workflow.code_review_command` | string\|null | `null` | Any shell command | External code-review command integrated into `/gsd:ship`. The diff is piped to the command via stdin; the command must output JSON with a `verdict` field (`"APPROVED"` or `"REVISE"`). Non-zero exit or `"REVISE"` verdict blocks the ship workflow. When unset, the built-in review flow runs. Example: `my-review-tool --review`. |
+| `workflow.code_review_command` | string\|null | `null` | Any shell command | External code-review command integrated into `/gsd:ship`. The diff is piped to the command via stdin; the command must output JSON with a `verdict` field (`"APPROVED"` or `"REVISE"`). Non-zero exit or `"REVISE"` verdict blocks the ship workflow. When unset, the built-in review flow runs. Example: `"my-review-tool --review"`. |
 | `workflow.inline_plan_threshold` | number | `2` | `0`–`10` | Plans with ≤N tasks execute inline instead of spawning a subagent |
 | `workflow.code_review` | boolean | `true` | `true`, `false` | Enable built-in code review step in the ship workflow |
 | `workflow.code_review_depth` | string | `"standard"` | `"quick"`, `"standard"`, `"deep"` | Depth level for code review analysis in the ship workflow |
@@ -314,7 +314,7 @@ Set via `workflow.*` namespace in config.json (e.g., `"workflow": { "research": 
 | `workflow.security_enforcement` | boolean | `true` | `true`, `false` | Enable threat-model-anchored security verification via `/gsd:secure-phase`. When `false`, security checks are skipped entirely |
 | `workflow.security_asvs_level` | number | `1` | `1`, `2`, `3` | OWASP ASVS verification level. Level 1 = opportunistic, Level 2 = standard, Level 3 = comprehensive. Scales both planner threat-disposition rigor (which threats must be mitigated vs. accepted) and auditor verification depth (grep-level → boundary-placement check → full data-flow trace). See `gsd-core/references/security-asvs-levels.md`. |
 | `workflow.security_block_on` | string | `"high"` | `"critical"`, `"high"`, `"medium"`, `"low"`, `"none"` | Minimum threat severity that blocks phase advancement. The auditor counts only open threats at or above this severity toward the blocking gate (SECURITY.md `threats_open`); `none` disables severity blocking. |
-| `workflow.post_planning_gaps` | boolean | `true` | `true`, `false` | Post-planning gap report (#2493). After plans are generated, scans REQUIREMENTS.md and CONTEXT.md `<decisions>` against all PLAN.md files and emits a unified `Source \| Item \| Status` table. Non-blocking. Set to `false` to skip Step 13e of plan-phase. _Alias:_ `post_planning_gaps` is the flat-key form used in `CONFIG_DEFAULTS`; `workflow.post_planning_gaps` is the canonical namespaced form. |
+| `workflow.post_planning_gaps` | boolean | `true` | `true`, `false` | Post-planning gap report (#2493). After plans are generated, scans REQUIREMENTS.md and CONTEXT.md `<decisions>` against all PLAN.md files and emits a unified table of `Source`, `Item` and `Status` columns. Non-blocking. Set to `false` to skip Step 13e of plan-phase. _Alias:_ `post_planning_gaps` is the flat-key form used in `CONFIG_DEFAULTS`; `workflow.post_planning_gaps` is the canonical namespaced form. |
 
 ### Planner Fields
 
@@ -322,7 +322,7 @@ Set via the `planner.*` namespace. These settings affect only planner/plan-check
 
 | Key | Type | Default | Allowed Values | Description |
 |-----|------|---------|----------------|-------------|
-| `planner.stall_detection_enabled` | boolean | `true` | `true`, `false` | Default-on bounded stall detection for the standard planner, chunked outline/per-plan planners, plan-checker, and revision planner. `false` skips `gsd_stall_watch` polling but still awaits and consumes the real runtime-native agent result. It gives up bounded automatic recovery if the runtime loses the completion handoff. _Loader projection:_ `planner_stall_detection_enabled`. |
+| `planner.stall_detection_enabled` | boolean | `true` | `true`, `false` | Default-on bounded stall detection for the standard planner, chunked outline/per-plan planners, plan-checker, and revision planner. `false` skips the watch cycles (`specforge wait`) but still awaits and consumes the real runtime-native agent result. It gives up bounded automatic recovery if the runtime loses the completion handoff. _Loader projection:_ `planner_stall_detection_enabled`. |
 
 ### Ship Fields
 

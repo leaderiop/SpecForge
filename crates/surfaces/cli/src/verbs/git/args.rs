@@ -291,13 +291,31 @@ pub(crate) struct AddArgs {
     #[arg(short = 'A', long)]
     pub(super) all: bool,
 
-    /// Leave out the files at or under this path, whatever else names them (`':!PATH'`)
+    /// Leave out the files at or under this path, whatever else names them (`':!PATH'`); read from here
     #[arg(long, value_name = "PATH")]
     pub(super) except: Vec<std::path::PathBuf>,
+
+    /// Leave out the project's spec files, whichever directory this is typed in
+    #[arg(long)]
+    pub(super) except_spec: bool,
 
     /// Stage an ignored path too; without it one is refused, as `git add` refuses it
     #[arg(short, long)]
     pub(super) force: bool,
+
+    #[command(flatten)]
+    pub(super) verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct CloneArgs {
+    /// The repository to copy, from the current directory; a URL or host:path is refused
+    #[arg(value_name = "SOURCE")]
+    pub(super) source: String,
+
+    /// The new directory, from the current directory: absent or empty
+    #[arg(value_name = "DIR")]
+    pub(super) dir: std::path::PathBuf,
 
     #[command(flatten)]
     pub(super) verb: VerbArgs,
@@ -451,6 +469,15 @@ pub(crate) struct RevArgs {
 }
 
 #[derive(clap::Args)]
+pub(crate) struct ReposArgs {
+    /// The directory whose children are read; held to the roots as any path is
+    pub(super) dir: std::path::PathBuf,
+
+    #[command(flatten)]
+    pub(super) verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
 pub(crate) struct ConfigArgs {
     /// The key, `section.name` or `section.subsection.name`
     pub(super) key: String,
@@ -565,6 +592,21 @@ pub(crate) struct MergeBaseArgs {
 pub(crate) struct ShowArgs {
     /// `<rev>:<path>`, the path from the repository's top
     pub(super) object: String,
+
+    #[command(flatten)]
+    pub(super) verb: VerbArgs,
+}
+
+#[derive(clap::Args)]
+pub(crate) struct StatusArgs {
+    /// Leave out what is at or under this path, as git's `:!<path>` does, read from here; `clean` is what is left,
+    /// repeatable
+    #[arg(long, value_name = "PATH")]
+    pub(super) except: Vec<std::path::PathBuf>,
+
+    /// Leave out the project's spec files, whichever directory this is typed in; `clean` is what is left
+    #[arg(long)]
+    pub(super) except_spec: bool,
 
     #[command(flatten)]
     pub(super) verb: VerbArgs,

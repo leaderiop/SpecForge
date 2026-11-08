@@ -744,3 +744,5 @@ fn pick_fails_a_command_whose_answer_is_not_json() {
     let (code, _, _) = quiet("done", "", 3, &["--pick", ".s"]);
     assert_eq!(code, 3);
 }
+
+mod shapes;

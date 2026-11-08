@@ -385,28 +385,19 @@ fn help_lists_the_prompt_slash_commands() {
     }
 }
 
-/// `/gsd-pr-branch` reads the spec root from the host, `{{project:spec_root}}` filled at render,
-/// not a `sed` over `specforge.json`; an unset spec root is the project root (`.`), not `spec`.
+/// `/gsd-pr-branch` reads the spec files from the repository's answer, not a `sed` over `specforge.json` and no rule of
+/// its own; an unset spec root is the project root (`.`), not `spec`.
 #[test]
-fn the_spec_root_is_spelled_by_the_host() {
+fn the_spec_files_are_the_repositorys_answer() {
     let p = twin();
+    p.git_commit("first", &[("README.md", "first\n")], "2026-01-01T00:00:00");
     for (spec_root, want) in [
-        ("spec", "SPEC_ROOT=\"spec\""),
-        (".", "SPEC_ROOT=\".\""),
-        ("./spec/", "SPEC_ROOT=\"spec\""),
+        ("spec", "spec/"),
+        (".", ":(glob)**/*.spec"),
+        ("./spec/", "spec/"),
     ] {
         p.settings_in(spec_root, json!({}));
-        let text = text_of(&payload(&prompt(
-            &p,
-            "pr_branch",
-            &["--target", "main"],
-            "claude-code",
-        )));
-        let line = text
-            .lines()
-            .find(|l| l.starts_with("SPEC_ROOT="))
-            .expect("the spec root's line");
-        assert_eq!(line.split("   #").next(), Some(want), "{spec_root}: {line}");
-        assert!(!text.contains("{{project:"), "{spec_root}: a token is left");
+        let answer = p.run(&["git", "repo", "--pick", ".spec_pathspec"]);
+        assert_eq!(answer.stdout.trim(), want, "{spec_root}: {}", answer.all());
     }
 }

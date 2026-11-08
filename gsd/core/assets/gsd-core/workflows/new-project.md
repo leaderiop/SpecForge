@@ -31,20 +31,20 @@ If `section_manifest` is `null` or `"auto-mode-detection"` is in its `included` 
 **MANDATORY FIRST STEP — Execute these checks before ANY user interaction:**
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
-AUTO_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--auto([[:space:]]|$) ]]; then AUTO_PARAM="--auto"; fi
+
 INIT=$(specforge check --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-project-researcher
 AGENT_SKILLS_SYNTHESIZER=""   # the host install carries the skills of gsd-research-synthesizer
 AGENT_SKILLS_ROADMAPPER=""   # the host install carries the skills of gsd-roadmapper
 ```
 
-Parse JSON for: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `project_exists`, `has_codebase_map`, `planning_exists`, `has_existing_code`, `has_package_file`, `is_brownfield`, `needs_codebase_map`, `has_git`, `git_worktree_root`, `in_nested_subdir`, `project_path`, `agents_installed`, `missing_agents`, `agent_runtime`, `agents_dir`, `required_agents`, `required_agents_installed`, `missing_required_agents`, `agent_skill_payloads_available`, `agent_skill_payload_agents`, `requirements_exists`, `init_incomplete`, `requirements_path`, `roadmap_path`, `config_path`, `research_dir`, `response_language`.
+`INIT` is `specforge check`'s answer: the project's diagnostics as it stands. The project, its requirements and its roadmap are entities, read with `specforge query`, so no path is read; `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
@@ -304,11 +304,11 @@ specforge git commit --add spec -m "docs: initialize project" && specforge colle
 
 **If auto mode:** Skip — config was collected in Step 2a. Proceed to Step 5.5.
 
-**Check for global defaults** at `${GSD_HOME:-$HOME}/.gsd/defaults.json` (`~/.gsd/defaults.json` unless `GSD_HOME` is set). If the file exists, read and display its contents before asking:
+**Check for global defaults** at `${GSD_HOME:-$HOME}/.gsd/defaults.json` (`~/.gsd/defaults.json` unless `GSD_HOME` is set). If the file exists, read it with your Read tool (it is the user's, outside the project's roots, which no block reaches) and display its contents before asking.
 
-```bash
-DEFAULTS_RAW=$(cat "${GSD_HOME:-$HOME}/.gsd/defaults.json" 2>/dev/null)
-```
+
+
+
 
 Format the JSON into human-readable bullets using these label mappings:
 - `mode` → "Mode"
@@ -649,14 +649,14 @@ specforge git commit --add spec -m "chore: add project config" && specforge coll
 
 Check for directories with their own `.git` (separate repos within the workspace —
 this also finds linked git worktree children, whose `.git` is a file rather than a
-directory, unlike a plain `find -type d` predicate would):
+directory, unlike a plain directory walk would):
 
 ```bash
-specforge check --format json
+SUB_REPOS=$(specforge git repos . --pick '.repos[]' --fields name) || exit 1   # each child directory that is a repository or a linked worktree, one per line: a failed listing stops here, and a name holding a newline is refused, never split
 ```
 
-Read the `sub_repos_detected` array from the JSON output — each entry is a bare
-directory name already relative to the workspace root (e.g. `"backend"`).
+Each line of `SUB_REPOS` is a bare directory name relative to the workspace root
+(e.g. `backend`); none means no sub-repos.
 
 **If sub-repos found:**
 
@@ -668,13 +668,13 @@ Use AskUserQuestion:
 - options: one option per detected directory
   - "[directory name]" — Separate git repo
 
-**If user selects one or more directories:**
+**If user selects one or more directories:** each is a repository of its own, so it is a SpecForge project of its own:
 
-- Set `planning.sub_repos` in config.json to the selected directory names array (e.g., `["backend", "frontend"]`)
-- Auto-set `planning.commit_docs` to `false` (planning docs stay local in multi-repo workspaces)
-- Add the spec to `.gitignore` if not already present
+- Write nothing here: `planning.sub_repos` is not a setting of the port, and this project's commits never reach a sub-repository
+- Suggest running `/gsd:new-project` inside each selected directory, so its own spec tracks its work
 
-Config changes are saved locally — no commit needed since `commit_docs` is `false` in multi-repo mode.
+
+The spec stays committed like code: `commit_docs` is not a setting here.
 
 **If no sub-repos found or user selects none:** Continue with no changes to config.
 
@@ -1153,11 +1153,11 @@ Exit skill and invoke SlashCommand("/gsd:discuss-phase 1 --auto")
 
 **If interactive mode:**
 
-Check if Phase 1 has UI indicators (look for `**UI hint**: yes` in Phase 1 detail section of ROADMAP.md):
+Check whether Phase 1 has a frontend (its computed `frontend` field):
 
 ```bash
-PHASE1_SECTION=$(specforge query "$PHASE1" --depth 1 --format json 2>/dev/null)
-PHASE1_HAS_UI=$(echo "$PHASE1_SECTION" | grep -qi "UI hint.*yes" && echo "true" || echo "false")
+PHASE1_HAS_UI=$(specforge query "$PHASE1" --depth 0 --pick '.nodes[0].fields.frontend' 2>/dev/null)
+PHASE1_HAS_UI=${PHASE1_HAS_UI:-false}   # @gsd/ui computes frontend: false when it is not loaded
 ```
 
 **If Phase 1 has UI (`PHASE1_HAS_UI` is `true`):**

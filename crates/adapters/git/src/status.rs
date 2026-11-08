@@ -13,6 +13,7 @@ use crate::{failed, open};
 pub(crate) fn read(
     place: &GitPlace,
     deadline: Option<std::time::Duration>,
+    untracked_files: gix::status::UntrackedFiles,
 ) -> Result<GitStatus, GitError> {
     let repo = open(place)?;
     let branch = branch_of(&repo)?;
@@ -32,7 +33,7 @@ pub(crate) fn read(
         .status(gix::progress::Discard)
         .map_err(|e| failed("read the status", &e))?
         .should_interrupt_owned(std::sync::Arc::clone(&interrupt))
-        .untracked_files(gix::status::UntrackedFiles::Collapsed)
+        .untracked_files(untracked_files)
         .index_worktree_rewrites(None)
         .into_iter(None)
         .map_err(|e| failed("read the status", &e))?;

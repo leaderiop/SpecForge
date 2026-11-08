@@ -195,3 +195,69 @@ fn hook_run_runs_a_hook_as_a_commit_would() {
     let path = git(&project, &["hook", "run", "../../outside"]).exits(1);
     assert_eq!(path.json()["code"], "invalid_input", "{}", path.stdout);
 }
+
+/// A hook put in `.git` runs on the next commit: code execution for a caller limited to specforge verbs. Every verb's write
+/// refuses a path with a `.git` component, in any spelling, and the git verbs' own writes are no such path.
+#[cfg(unix)]
+#[test]
+fn no_verb_writes_into_a_git_directory() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let (project, _repo, _) = committed();
+    let root = project.root();
+    let marker = root.join("ran");
+    let hook = root.join("hk");
+    std::fs::write(&hook, format!("#!/bin/sh\ntouch {}\n", marker.display())).unwrap();
+    std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::create_dir_all(root.join("evil/.git/hooks")).unwrap();
+    std::fs::copy(&hook, root.join("evil/.git/hooks/pre-commit")).unwrap();
+    std::fs::create_dir_all(root.join("nested/.git")).unwrap();
+    std::os::unix::fs::symlink(root.join(".git"), root.join("lnk")).unwrap();
+    let hooks = root.join(".git/hooks");
+    std::fs::create_dir_all(&hooks).unwrap();
+    let files: &[&[&str]] = &[
+        &["files", "copy", "hk", ".git/hooks/pre-commit"],
+        &["files", "copy", "hk", ".git/hooks"],
+        &["files", "copy", "hk", ".GIT/hooks/pre-commit"],
+        &["files", "copy", "hk", "lnk/hooks/pre-commit"],
+        &["files", "copy", "hk", "nested/.git/config"],
+        &["files", "copy", "evil/.git", "."],
+        &["files", "move", "hk", ".git/hooks/pre-commit"],
+        &["files", "move", "evil/.git", "."],
+        &["files", "mkdir", ".git/hooks/made"],
+        &["files", "remove", ".git/HEAD"],
+        &["files", "remove", "-r", ".git"],
+        &["git", "clone", ".", ".git/hooks"],
+        &[
+            "git", "worktree", "add", ".git/wt", "--branch", "w", "--create",
+        ],
+        &["git", "add", ".git/config"],
+    ];
+    for args in files {
+        let run = Cli::on(&project).run(args);
+        assert_ne!(run.code, 0, "{args:?}: {}", run.stdout);
+        let said = format!("{}{}", run.stdout, run.stderr);
+        assert!(said.contains(".git"), "{args:?}: {said}");
+        assert!(said.contains("hook"), "{args:?}: {said}");
+    }
+    assert!(!hooks.join("pre-commit").exists());
+    assert!(!hooks.join("made").exists());
+    assert!(root.join(".git/HEAD").exists());
+    assert!(hook.exists());
+    std::fs::write(root.join("a.txt"), "two\n").unwrap();
+    git(&project, &["commit", "--all", "-m", "second"]).exits(0);
+    assert!(!marker.exists(), "a planted hook ran");
+
+    // What only looks like one, a repository whose whole directory goes, and the verbs' own writes.
+    for args in [
+        &["files", "mkdir", ".github/workflows"][..],
+        &["files", "copy", "hk", ".gitkeep"],
+        &["files", "copy", "hk", ".git-blame-ignore"],
+        &["files", "remove", "-r", "nested"],
+        &["git", "clone", ".", "cloned"],
+        &["git", "worktree", "add", "wt", "--branch", "w", "--create"],
+        &["git", "branch", "create", "other"],
+    ] {
+        Cli::on(&project).run(args).exits(0);
+    }
+    assert!(root.join("cloned/.git").is_dir());
+}

@@ -116,24 +116,24 @@ Phase: "API documentation"       → Structure/navigation, Code examples depth, 
 Phase number from argument (required).
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 AGENT_SKILLS_ADVISOR=""   # the host install carries the skills of gsd-advisor-researcher
 ```
 
-Parse JSON for: `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`, `has_research`, `has_context`, `has_plans`, `has_verification`, `plan_count`, `roadmap_exists`, `planning_exists`, `response_language` (the phase's spec is read in `check_spec`, from the graph).
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields; a phase not in the graph is an E003 error), and its `plan`, `research`, `context` and `verification` entities, when it has them, are among the other nodes (`plan_count` counts the plans). `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core` (the phase's spec is read in `check_spec`, from the graph).
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
 **If `phase_found` is false:**
 ```
 Phase [X] not found in roadmap.
-Use /gsd:progress ${GSD_WS} to see available phases.
+Use /gsd:progress to see available phases.
 ```
 Exit workflow.
 
@@ -165,10 +165,10 @@ fi
 <step name="check_blocking_antipatterns" priority="first">
 **MANDATORY — Check for blocking anti-patterns before any other work.**
 
-Look for a `.continue-here.md` in the current phase directory:
+Read the phase's handoff (the entity that holds `.continue-here.md`):
 
 ```bash
-specforge files stat ${phase_dir}/.continue-here.md --format human 2>/dev/null || true
+specforge query "$PHASE_ID" --kinds handoff --format context 2>/dev/null || true
 ```
 
 If `.continue-here.md` exists, parse its "Critical Anti-Patterns" table for rows with `severity` = `blocking`.
@@ -184,7 +184,7 @@ Write these answers inline before continuing. If a blocking anti-pattern cannot 
 </step>
 
 <step name="check_spec">
-Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md locks requirements before implementation decisions. Here the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the SPEC.md file at `spec_path` is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
+Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md locks requirements before implementation decisions. Here the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' --first 1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the SPEC.md file at `spec_path` is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
 
 **If `has_spec` is true:**
 1. Read the SPEC.md file at `spec_path`.
@@ -202,7 +202,7 @@ Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md lo
 Check if CONTEXT.md already exists using `has_context` from init.
 
 ```bash
-specforge files list ${phase_dir} --depth 1 --kind file --no-ignore --glob '*-CONTEXT.md' --format human 2>/dev/null || true
+specforge query "$PHASE_ID" --depth 1 --kinds context --format brief
 ```
 
 **If exists:**
@@ -215,10 +215,10 @@ specforge files list ${phase_dir} --depth 1 --kind file --no-ignore --glob '*-CO
 
 Check for an interrupted discussion checkpoint:
 ```bash
-specforge files list ${phase_dir} --depth 1 --kind file --no-ignore --glob '*-DISCUSS-CHECKPOINT.json' --format human 2>/dev/null || true
+MILESTONE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.milestone') && [ -n "$MILESTONE" ] || exit 1; CHECKPOINT=$(specforge files temp --name "gsd-discuss-${MILESTONE}-${PHASE_ID##*/}.json" --pick .path) || exit 1; echo "CHECKPOINT=$CHECKPOINT"; specforge files read "$CHECKPOINT" --pick .text
 ```
 
-If a checkpoint file exists:
+If the checkpoint file holds anything (an interrupted discussion wrote it):
 
 **If `--auto`:** Auto-select "Resume" — load checkpoint and continue from last completed area.
 
@@ -245,7 +245,7 @@ specforge query "$MILESTONE" --kinds milestone,phase --format context 2>/dev/nul
 Read at most **3** prior CONTEXT.md files (most recent 3 phases before current). If the project keeps a decisions index, read that instead — it is a bounded rolling summary that supersedes per-phase reads.
 
 ```bash
-specforge query "$MILESTONE" --depth 2 --kinds context --format brief | sort -r
+specforge query "$MILESTONE" --depth 2 --kinds context --format brief
 ```
 
 For each CONTEXT.md read: extract `<decisions>` (locked preferences), `<specifics>` (particular references), and patterns (e.g., "user prefers minimal UI", "user rejected single-key shortcuts").
@@ -377,7 +377,7 @@ All modes preserve the universal rules below.
 
 - **Canonical ref accumulation** — when the user references a doc/spec/ADR during any answer, immediately Read it (or confirm it exists) and add it to the canonical refs accumulator with full relative path. Use what you learned to inform subsequent questions. These docs are often MORE important than ROADMAP.md refs because the user specifically wants downstream agents to follow them.
 - **Scope creep** — if user mentions something outside the phase domain, capture as deferred idea and redirect.
-- **Incremental checkpoint** — after each area completes, write `${phase_dir}/${padded_phase}-DISCUSS-CHECKPOINT.json`. Read `workflows/discuss-phase/templates/checkpoint.json` for the schema. The checkpoint is structured state, not the canonical CONTEXT.md (`write_context` produces the canonical output). On session resume, the parent's `check_existing` step detects the checkpoint and offers to resume.
+- **Incremental checkpoint** — after each area completes, write the `CHECKPOINT` path the check for an interrupted discussion printed. Read `workflows/discuss-phase/templates/checkpoint.json` for the schema. The checkpoint is structured state, not the canonical CONTEXT.md (`write_context` produces the canonical output). On session resume, the parent's `check_existing` step detects the checkpoint and offers to resume.
 - **Discussion log accumulation** — for each question asked, accumulate area name, options presented, user's selection, follow-up notes. Used by `git_commit` to write DISCUSSION-LOG.md.
 </step>
 
@@ -442,11 +442,11 @@ Created: the `context` entity of phase ${PADDED_PHASE}-${SLUG}
 
 `/clear` then:
 
-`/gsd:plan-phase ${PHASE} ${GSD_WS}`
+`/gsd:plan-phase ${PHASE}`
 
 ---
 
-**Also available:** `--chain` for auto plan+execute after; `/gsd:plan-phase ${PHASE} --skip-research ${GSD_WS}` to plan without research; `/gsd:ui-phase ${PHASE} ${GSD_WS}` for UI design contracts; review/edit CONTEXT.md before continuing.
+**Also available:** `--chain` for auto plan+execute after; `/gsd:plan-phase ${PHASE} --skip-research` to plan without research; `/gsd:ui-phase ${PHASE}` for UI design contracts; review/edit CONTEXT.md before continuing.
 ```
 </step>
 
@@ -464,7 +464,7 @@ Substitute live values from the discussion log accumulator (area names, options 
 
 **Clean up checkpoint file** — CONTEXT.md is now the canonical record:
 ```bash
-specforge files remove --force "${phase_dir}/${padded_phase}-DISCUSS-CHECKPOINT.json" >/dev/null
+MILESTONE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.milestone') && [ -n "$MILESTONE" ] || exit 1; specforge files remove --force "$(specforge files temp --name "gsd-discuss-${MILESTONE}-${PHASE_ID##*/}.json" --pick .path)" >/dev/null
 ```
 
 Commit phase context and discussion log:
@@ -481,7 +481,7 @@ Update STATE.md with session info:
 ```bash
 printf '%s\n' "STATE is computed; record a stop with specforge gsd pause <reason> --by <who>. The session ended with" \
   --stopped-at "Phase ${PHASE} context gathered" \
-  --resume-file "${phase_dir}/${padded_phase}-CONTEXT.md"
+  --resume-file "$(specforge query "$PHASE_ID" --depth 1 --kinds context --pick '.nodes[kind=context].id')"
 
 # STATE is computed: no state commit is needed
 ```

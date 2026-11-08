@@ -125,7 +125,7 @@ Track deferred ideas internally.
 
 After each area is resolved (user says "Next area"), immediately write a checkpoint file with all decisions captured so far. This prevents data loss if the session is interrupted mid-discussion.
 
-**Checkpoint file:** `${phase_dir}/${padded_phase}-DISCUSS-CHECKPOINT.json`
+**Checkpoint file:** the `CHECKPOINT` path the check for an interrupted discussion printed
 
 Schema: read `workflows/discuss-phase/templates/checkpoint.json` for the
 canonical structure — copy it and substitute the live values.

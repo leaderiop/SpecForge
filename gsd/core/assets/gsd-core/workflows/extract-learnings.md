@@ -19,20 +19,20 @@ Analyze completed phase artifacts (PLAN.md, SUMMARY.md, VERIFICATION.md, UAT.md,
 Parse arguments and load project state:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
-PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
 INIT=$(specforge query "$PHASE_ID" --depth 2 --format json)
 PHASE_NUMBER="${PHASE_ID##*/}"   # the phase number is the last segment of its id
 ```
 
 Parse from the query JSON: the phase's `name` (its number is the last segment of `$PHASE_ID`, kept in `PHASE_NUMBER`).
 
-If phase not found, exit with error: "Phase {PHASE_ARG} not found."
+If phase not found, exit with error: "Phase {PHASE_ID} not found."
 </step>
 
 <step name="collect_artifacts">

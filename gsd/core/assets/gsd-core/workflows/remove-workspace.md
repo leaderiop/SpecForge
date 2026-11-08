@@ -16,13 +16,13 @@ Set `WORKSPACE_NAME` to the `--name` value in $ARGUMENTS.
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-[ -n "$WORKSPACE_NAME" ] || { echo "Workspace name required" >&2; exit 1; }; case "$WORKSPACE_NAME" in */*|*..*) echo "Invalid workspace name: $WORKSPACE_NAME" >&2; exit 1;; esac; WORKSPACE_PATH="$HOME/gsd-workspaces/$WORKSPACE_NAME"; if [ ! -d "$WORKSPACE_PATH" ]; then echo "Workspace not found: $WORKSPACE_PATH" >&2; exit 1; fi; DIRTY_REPOS=$(for r in "$WORKSPACE_PATH"/*/; do [ -n "$(git -C "$r" status --porcelain 2>/dev/null)" ] && { r=${r%/}; printf '%s\n' "${r##*/}"; }; done)
-STRATEGY=$(sed -n 's/^Strategy: *//p' "$WORKSPACE_PATH/WORKSPACE.md" 2>/dev/null)   # from the manifest
+[ -n "$WORKSPACE_NAME" ] || { echo "Workspace name required" >&2; exit 1; }; WORKSPACE_PATH="$HOME/gsd-workspaces/$WORKSPACE_NAME"; if [ ! -d "$WORKSPACE_PATH" ]; then echo "Workspace not found: $WORKSPACE_PATH" >&2; exit 1; fi; DIRTY_REPOS=$(specforge git repos "$WORKSPACE_PATH" --pick '.repos[clean=false].name') || exit 1
+LINKED_REPOS=$(specforge git repos "$WORKSPACE_PATH" --pick '.repos[linked=true].name')   # the repos that are worktrees
 ```
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
-The fields above are shell variables: `workspace_name`, `workspace_path`, `strategy` and `dirty_repos` are `WORKSPACE_NAME`, `WORKSPACE_PATH`, `STRATEGY` and `DIRTY_REPOS`; `has_manifest` is whether `WORKSPACE.md` exists, `repos` are the directories of the workspace with a `.git` entry (`repo_count` their number), and `has_dirty_repos` is whether `DIRTY_REPOS` is not empty.
+The fields above are shell variables: `workspace_name`, `workspace_path`, `linked_repos` and `dirty_repos` are `WORKSPACE_NAME`, `WORKSPACE_PATH`, `LINKED_REPOS` and `DIRTY_REPOS`; `has_manifest` is whether `WORKSPACE.md` exists, `repos` are the directories of the workspace with a `.git` entry (`repo_count` their number), and `has_dirty_repos` is whether `DIRTY_REPOS` is not empty.
 
 **If no workspace name provided:**
 
@@ -35,7 +35,7 @@ Use AskUserQuestion:
 - question: "Which workspace do you want to remove?"
 - requireAnswer: true
 
-Run the shell lines above again with the provided name.
+Run this workflow again with the provided name as `--name`: one path segment, or it is refused.
 
 ## 2. Safety Checks
 
@@ -65,7 +65,7 @@ Use AskUserQuestion:
 
 ## 4. Clean Up Worktrees
 
-**If strategy is `worktree`:**
+**For each repo in `linked_repos`:**
 
 Initialize the failure flag once before iterating repos:
 
@@ -73,11 +73,11 @@ Initialize the failure flag once before iterating repos:
 REMOVE_FAILED=false
 ```
 
-For each repo in the workspace:
+For each of them:
 
 ```bash
-SOURCE_REPO_PATH=$(git -C "$WORKSPACE_PATH/$REPO_NAME" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||'); cd "$SOURCE_REPO_PATH"
-if ! git worktree remove "$WORKSPACE_PATH/$REPO_NAME" 2>&1; then
+SOURCE_REPO_PATH=$(specforge git --in "$WORKSPACE_PATH/$REPO_NAME" worktrees --pick '.worktrees[main=true].path'); cd "$SOURCE_REPO_PATH"
+if ! specforge git worktree remove "$WORKSPACE_PATH/$REPO_NAME" 2>&1; then
   echo "Warning: Could not remove worktree for $REPO_NAME — source repo may have been moved, deleted, locked, or dirty." >&2
   REMOVE_FAILED=true
 fi
@@ -97,7 +97,7 @@ if [ "${REMOVE_FAILED:-false}" = "true" ]; then
   exit 1
 fi
 
-rm -rf "$WORKSPACE_PATH"
+specforge files remove -r "$WORKSPACE_PATH"
 ```
 
 ## 6. Report

@@ -36,7 +36,7 @@ Emit:
 
 Search phase artifacts (CONTEXT.md, DISCUSSION-LOG.md, BUG-BRIEF.md, VERIFICATION.md, SUMMARY.md, HANDOFF.md files under the `phase` entities) for patterns:
 ```bash
-while IFS=$'\x1f' read -r ph goal; do case "$goal" in (*"defer to Phase"*|*"future phase"*|*"out of scope Phase"*|*"deferred to Phase"*) echo "$ph" ;; esac; done < <(specforge query "$MILESTONE" --depth 3 --kinds phase --pick '.nodes[kind=phase]' --fields id,fields.goal) || true
+while IFS= read -r ph; do goal=$(specforge query "$ph" --depth 0 --pick '.nodes[0].fields.goal'); case "$goal" in (*"defer to Phase"*|*"future phase"*|*"out of scope Phase"*|*"deferred to Phase"*) echo "$ph" ;; esac; done < <(specforge query "$MILESTONE" --depth 3 --kinds phase --pick '.nodes[kind=phase].id') || true
 ```
 
 For each match, extract the referenced phase number. Cross-reference against ROADMAP.md phase list. If the referenced phase number is NOT in ROADMAP.md, flag as deferred scope not captured.
@@ -74,7 +74,7 @@ Emit:
 **Check 6 — Uncommitted code**
 
 ```bash
-specforge git status --pick '.tracked[]' 2>/dev/null | grep -v "^spec/" | grep -v "^\.\." | head -10
+specforge git status --except-spec --pick '.tracked[]' --first 10 2>/dev/null
 ```
 
 If output is non-empty (modified/staged files outside the spec), flag as uncommitted code.
@@ -116,11 +116,11 @@ Review the flagged items above before acting on the routing suggestion.
 ```
 
 Then for each failed check, add a concrete next action:
-- Check 2 (orphaned handoff): `Read the handoff file(s) and resume from where work was paused: /gsd:resume-work ${GSD_WS}`
+- Check 2 (orphaned handoff): `Read the handoff file(s) and resume from where work was paused: /gsd:resume-work`
 - Check 3 (deferred scope): `Add the missing phases to ROADMAP.md or update the deferred references`
 - Check 4 (memory pending): `Review the flagged memory entries and resolve or clear them`
 - Check 5 (blocking todos): `Complete the operational steps in the pending todos before continuing`
 - Check 6 (uncommitted code): `Commit or stash the uncommitted changes before advancing`
 - Check 7 (unresolved deferred items): `Address each deferred item and mark it status: resolved in its deferred-items.md, or fold it into the roadmap`
-- Check 1 (STATE inconsistency): `Run /gsd:verify-work ${PHASE} ${GSD_WS} to reconcile state`
+- Check 1 (STATE inconsistency): `Run /gsd:verify-work ${PHASE} to reconcile state`
 </step>

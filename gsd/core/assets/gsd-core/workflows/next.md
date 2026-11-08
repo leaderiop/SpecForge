@@ -272,29 +272,29 @@ If STATE.md shows paused_at:
 Parse the arguments passed to this workflow to detect the plan strategy and build convergence pass-through args:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-PLAN_STRATEGY="local"
-if echo "$GSD_ARGS" | grep -qE '(^|[[:space:]])\-\-(converge|cross-ai)([[:space:]]|$)'; then
-  PLAN_STRATEGY="converge"
-fi
+
+
+
+
+PLAN_STRATEGY=local; [ "{{arg:converge|false}}" = true ] && PLAN_STRATEGY=converge
+
+
+
 
 CONVERGENCE_ARGS=""
-# Lane flags derived from the declared roster (#2800/#2272); --all and --text are convergence
-# controls, not reviewer lanes, so they stay literal.
-for REVIEW_FLAG in --claude --codex --coderabbit --opencode --qwen --cursor --antigravity --agy --ollama --lm-studio --llama-cpp --kimi-code --all --text; do   # the reviewer lanes
-  if echo "$GSD_ARGS" | grep -qE "(^|[[:space:]])${REVIEW_FLAG}([[:space:]]|$)"; then
-    CONVERGENCE_ARGS="${CONVERGENCE_ARGS} ${REVIEW_FLAG}"
-  fi
-done
 
-MAX_CYCLES_ARG=""
-if echo "$GSD_ARGS" | grep -qE '\-\-max-cycles\s+[0-9]+'; then
-  MAX_CYCLES_ARG=$(echo "$GSD_ARGS" | grep -oE '\-\-max-cycles\s+[0-9]+' | awk '{print $2}')
-  CONVERGENCE_ARGS="${CONVERGENCE_ARGS} --max-cycles ${MAX_CYCLES_ARG}"
-fi
+
+
+
+
+
+
+
+
+
+
+
+
 ```
 
 If `PLAN_STRATEGY` is `converge`, fail fast unless the convergence feature gate is enabled:
@@ -308,7 +308,7 @@ if [ "$PLAN_STRATEGY" = "converge" ]; then
       '' \
       'Enable plan convergence with:' \
       '' \
-      '  gsd config-set workflow.plan_review_convergence true' \
+      '  workflow.plan_review_convergence = true (/gsd:settings, or the specforge settings command)' \
       '' \
       'Then re-run with --converge.'
     exit 1
@@ -333,7 +333,7 @@ Do not ask for confirmation — the whole point of `/gsd:progress --next` is zer
 
 **Route 3 convergence override:** When the routing decision is Route 3 (plan) and `PLAN_STRATEGY=converge`, invoke `/gsd:plan-review-convergence <current-phase> ${CONVERGENCE_ARGS}` instead of `/gsd:plan-phase <current-phase>`.
 
-**If `--auto` was passed:** after the determined command completes, automatically re-invoke `/gsd:progress --next --auto` (forwarding `--converge`/`--cross-ai` and any reviewer flags if they were originally passed) to continue chaining to the next step. Repeat until one of:
+**If `--auto` was passed:** after the determined command completes, automatically re-invoke `/gsd:progress --next --auto` (forwarding `--converge` if it was originally passed) to continue chaining to the next step. Repeat until one of:
 - A milestone completes (`/gsd:complete-milestone` is reached)
 - A blocking decision is required (safety gate triggers, prior-phase completeness prompt, user input needed)
 - An error or paused state is detected
@@ -362,8 +362,8 @@ Resume with: `/gsd:progress --next --auto` once resolved.
 - [ ] Command invoked immediately without user confirmation
 - [ ] Clear status shown before invoking
 - [ ] `--converge` routes Route 3 planning through `gsd-plan-review-convergence`
-- [ ] `--cross-ai` is accepted as an alias for `--converge`
+- [ ] `--cross-ai` is not declared, so the host refuses it: `--converge` is the one flag
 - [ ] `--converge` fails fast with enable instructions when `workflow.plan_review_convergence=false`
-- [ ] `--converge` forwards reviewer selector flags and `--max-cycles N`
+- [ ] `--converge` forwards no reviewer or `--max-cycles` flag: `/gsd:plan-review-convergence` takes its own
 - [ ] Default planning remains `gsd-plan-phase` when convergence is not requested
 </success_criteria>

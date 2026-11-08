@@ -482,8 +482,18 @@ pub trait Git: Send + Sync {
     fn branch(&self, _place: &GitPlace) -> Result<String, GitError> {
         Err(GitError::unanswered())
     }
+    /// Whether git reads `source` as a remote: a URL or `host:path`, where a local directory with a colon in its name is
+    /// typed `./a:b`.
+    fn names_a_remote(&self, _source: &str) -> bool {
+        false
+    }
     /// The worktree's typed status in `place` (read by gix, ADR 0337).
     fn status(&self, _place: &GitPlace) -> Result<GitStatus, GitError> {
+        Err(GitError::unanswered())
+    }
+    /// [`Git::status`] with each untracked file its own entry, where `status` shows a directory holding only
+    /// untracked files as one: what a filter over paths has to judge.
+    fn status_by_file(&self, _place: &GitPlace) -> Result<GitStatus, GitError> {
         Err(GitError::unanswered())
     }
     /// `HEAD`'s commit and branch, its upstream, and how far each is ahead of the other: [`Self::status`]'s branch,
@@ -613,6 +623,18 @@ pub trait Git: Send + Sync {
     /// Make `dir` a repository with its worktree, as `git init` does: true when one was made, false when `dir` holds
     /// one already (left as it is).
     fn init(&self, _dir: &Path) -> Result<bool, GitError> {
+        Err(GitError::unwritable())
+    }
+    /// The directories the repository at `place` reads beyond its own `.git`: where a planted `.git` file or link, a
+    /// `commondir` or a `core.worktree` leads (a real linked worktree or submodule names its `.git` back and leads nowhere
+    /// of note), and its object alternates. A walk upward to the repository around a directory is no redirect. A caller
+    /// that holds its reads to some roots judges these.
+    fn leads_to(&self, _place: &GitPlace) -> Vec<PathBuf> {
+        Vec::new()
+    }
+    /// Copy the repository at `source` to `into` (absent or empty) with its worktree on `HEAD`, as a local `git clone`
+    /// does: `origin` names `source`'s top. No hook or filter driver runs, and no object is shared with `source`.
+    fn clone_local(&self, _source: &GitPlace, _into: &Path) -> Result<(), GitError> {
         Err(GitError::unwritable())
     }
     /// Lock the linked worktree whose top is `path`, so no prune or removal drops it (`reason` kept in its `locked`

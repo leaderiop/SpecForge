@@ -10,14 +10,19 @@ mod clock;
 mod assets_shell;
 mod baseline;
 // shells out through `bash` and links with `std::os::unix`
+#[path = "../common/asset_code.rs"]
+mod asset_code;
 #[cfg(unix)]
 mod capability_points;
 mod cmd_attest;
+mod cmd_automated_guard;
+mod cmd_branch_check;
 mod cmd_digest;
 mod cmd_execute;
+mod cmd_gate;
 mod cmd_milestone;
-mod cmd_package_manager;
 mod cmd_phase;
+mod cmd_quick;
 mod cmd_refactor;
 mod cmd_reports;
 mod cmd_smart_entry;
@@ -37,6 +42,8 @@ mod e502_probe;
 mod execute;
 mod execute_rules;
 mod execute_status;
+#[path = "../common/files.rs"]
+mod files;
 mod gates;
 mod harness;
 mod hooks_community;
@@ -50,6 +57,8 @@ mod hooks_spec_root;
 mod hooks_statusline;
 mod hooks_support;
 mod hooks_workflow;
+#[path = "../common/host_options.rs"]
+mod host_options;
 mod install_agents;
 mod install_hosts;
 mod install_skills;
@@ -78,7 +87,6 @@ mod prompts_discuss;
 mod prompts_execute;
 mod prompts_gates;
 mod prompts_git;
-mod prompts_heredoc;
 mod prompts_learning;
 mod prompts_navigate;
 mod prompts_ns;

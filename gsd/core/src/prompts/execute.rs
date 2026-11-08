@@ -48,7 +48,7 @@ const PHASE_STEPS: &[Step] = &[
 const PLAN_STEPS: &[Step] = &[
     Step {
         id: "start",
-        title: "Open the plan and note the clock (specforge gsd start-plan <plan>)",
+        title: "Open the plan: its start is recorded once (specforge gsd start-plan <plan>)",
         does: Do::Command("start_plan"),
     },
     Step {
@@ -73,7 +73,7 @@ const PLAN_STEPS: &[Step] = &[
     },
     Step {
         id: "complete",
-        title: "Close the plan (specforge gsd complete-plan <summary> --started <time>)",
+        title: "Close the plan (specforge gsd complete-plan <summary>)",
         does: Do::Command("complete_plan"),
     },
 ];

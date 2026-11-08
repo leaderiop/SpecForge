@@ -45,12 +45,12 @@ if [[ "$SPECLESS_FALLBACK" != "true" ]]; then
   SPECLESS_FALLBACK_DISABLED="probe fallback disabled (workflow.specless_probe_fallback=false): no probe-derived predicates generated for SPEC-absent sections this run."
 fi
 
-# Nothing-to-probe guard: the fallback derives predicates from requirement TEXT, so zero requirement
-# IDs => nothing to probe => skip VISIBLY (like the disabled path), NOT a hard-fail. Prevents a
-# no-SPEC + no-requirements phase from aborting under the default-ON fallback. The orchestrator
-# substitutes {phase_req_ids}; empty/whitespace/TBD => no requirements. (A still-literal token is
-# non-empty, so an unsubstituted run correctly hits the reference's fail-loud guard instead.)
-SPECLESS_REQ_IDS="{phase_req_ids}"
+# Nothing-to-probe guard: the fallback derives predicates from requirement TEXT, so zero requirement IDs => nothing to
+# probe => skip VISIBLY (like the disabled path), NOT a hard-fail: a no-SPEC + no-requirements phase does not abort
+# under the default-ON fallback. The orchestrator substitutes the ids as text; empty/whitespace/TBD => no requirements.
+read -r SPECLESS_REQ_IDS <<'GSD_REQ_IDS' || true   # a still-literal token is non-empty: an unsubstituted run hits the fail-loud guard
+{phase_req_ids}
+GSD_REQ_IDS
 if [[ "$SPECLESS_FALLBACK" == "true" ]] && { [ -z "${SPECLESS_REQ_IDS// /}" ] || [ "${SPECLESS_REQ_IDS}" = "TBD" ]; }; then
   echo "info: spec-less probe fallback: phase has no requirement IDs - nothing to probe; skipping (visible skip)." >&2
   SPECLESS_FALLBACK=false
@@ -89,12 +89,12 @@ fi
 # {phase_req_ids}, pulling each requirement's text from REQUIREMENTS.md: {"id","text","shapes"?}.
 # mktemp suffix trick is BSD/GNU portable (#1520).
 REQS_JSON=$(specforge files temp --prefix edge-probe-reqs- --suffix .json --pick .path) || exit 1
-cat > "$REQS_JSON" <<'JSON'
+IFS= read -rd '' REQS <<'JSON' || true
 [
   { "id": "R1", "text": "<replace: requirement text from REQUIREMENTS.md for each {phase_req_ids} id>" }
 ]
 JSON
-# Guard — fail loud on empty/invalid array OR a still-present `<replace:>` placeholder (forgotten
+printf '%s' "$REQS" > "$REQS_JSON"   # Guard — fail loud on empty/invalid array OR a still-present `<replace:>` placeholder (forgotten
 # substitution would yield a bogus report). Never a silent no-op.
 if [ "$(specforge gsd edge-probe-requirements --requirements "$(< "$REQS_JSON")" --pick .valid)" != true ]; then
   echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from {phase_req_ids} before running." >&2   # also when the JSON is over the command line's limit (32,767 characters on Windows): it is passed as an argument

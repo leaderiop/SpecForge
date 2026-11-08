@@ -536,8 +536,8 @@ Also read the setting `workflow.nyquist_validation` (`specforge settings`) — i
 
 Then read CONTEXT.md if exists:
 ```bash
-_CTX=( "$phase_dir"/*-CONTEXT.md )
-if [ -e "${_CTX[0]}" ]; then cat "${_CTX[@]}"; fi
+specforge query "$PHASE_ID" --depth 1 --kinds context --format context
+
 ```
 
 **If CONTEXT.md exists**, it constrains research:
@@ -666,8 +666,8 @@ Plans that assume a tool is available without checking lead to silent failures a
 2. **Probe availability** for each dependency:
 
 ```bash
-# CLI tools — check if command exists and get version
-specforge run --which $TOOL 2>/dev/null && $TOOL --version 2>/dev/null | head -1
+# CLI tools — run each through specforge (exit 127: not installed) and keep its first line
+V=$(specforge run -- "$TOOL" --version 2>/dev/null); [ $? = 127 ] && echo "$TOOL: missing" || echo "$TOOL: ${V%%$'\n'*}"
 
 # Runtimes — check version meets minimum
 node --version 2>/dev/null
@@ -740,22 +740,22 @@ List missing test files, framework config, or shared fixtures needed before impl
 - [ ] Confidence levels assigned honestly
 - [ ] "What might I have missed?" review
 
-## Step 6: Write RESEARCH.md
+## Step 6: Record the research
 
-Use the Write tool to create files — never use `Bash(cat << 'EOF')` or heredoc commands for file creation. This rule applies regardless of `commit_docs` setting.
+Record the research with `specforge new`, never with a file tool or a heredoc: the research is an entity in the graph, not a file. This rule applies regardless of `commit_docs` setting.
 
-**Write contract (hard rules — must follow):**
+**Record contract (hard rules — must follow):**
 
-This file is the canonical output of this agent. The orchestrator reads `$PHASE_DIR/$PADDED_PHASE-RESEARCH.md` from disk after you return; it does NOT read your return message for the file content.
+The `research` entity `{phase_id}/{phase_num}-RESEARCH` (`$RESEARCH_ID`) is the canonical output of this agent. The orchestrator reads it from the graph after you return; it does NOT read your return message for its content.
 
-1. **Default: write the whole file in a single `Write` call.** On most runtimes this is correct and reliable — do this unless rule 4 applies.
-2. **Do NOT return the RESEARCH.md content in your response.** Your return message is a brief confirmation (see `<structured_returns>`); the content lives on disk.
-3. **Do NOT use `Bash(cat << 'EOF')` or heredoc** for file creation. Use the `Write` tool.
-4. **Large-file / truncation fallback.** Some runtimes (e.g. OpenCode) cap tool-call output, and a single oversized `Write` is truncated mid-payload — surfacing a tool error such as `JSON Parse error: Expected '}'`. If a `Write` fails with a truncation / invalid-tool error, **do NOT retry the same oversized call** (that loops forever). Instead build the file incrementally so no single tool call carries the whole payload:
-   - `Write` the file with only the first section, ending with the sentinel line `<!-- gsd:write-continue -->`.
-   - `Read` the file, then `Edit` it, replacing `<!-- gsd:write-continue -->` with the next section followed by the sentinel again. Repeat, one section per `Edit`.
-   - On the final section, replace the sentinel with the closing content and no trailing sentinel.
-5. **If writing still fails, surface the actual error in your return message.** **Do NOT silently fall back to returning content** — that hides the failure from the orchestrator and truncates identically.
+1. **Create the entity first:** `specforge new research "$RESEARCH_ID" "<title>" --in <the phase spec file> --phase "$PHASE_ID" --confidence <high, medium or low> --summary "<the summary>"`.
+2. **Do NOT return the research's content in your response.** Your return message is a brief confirmation (see `<structured_returns>`); the content lives in the graph.
+3. **Do NOT write a file** (no Write, no `Bash(cat << 'EOF')`, no heredoc): each `specforge new` call records one entity.
+4. **One item per call.** Each item of the structure below is its own `specforge new` call, of its kind, with `--research "$RESEARCH_ID"` (`finding`, `stack_choice`, `pattern`, `pitfall`, `dont_hand_roll`, `open_question`, `source`, `package_audit`), as Step D records a finding:
+   - no single call carries the whole research, so no tool call is cut mid-payload;
+   - a refused call names the field it refused: fix that value and run the call again;
+   - an item already recorded is not recorded twice: `specforge query "$RESEARCH_ID" --depth 1` lists them.
+5. **If a call is still refused, surface its error in your return message.** **Do NOT silently fall back to returning content** — that hides the failure from the orchestrator.
 
 **If CONTEXT.md exists, FIRST content section MUST be `<user_constraints>`:**
 
@@ -788,9 +788,9 @@ This file is the canonical output of this agent. The orchestrator reads `$PHASE_
 
 This section is REQUIRED when IDs are provided. The planner uses it to map requirements to plans.
 
-Write to: `$PHASE_DIR/$PADDED_PHASE-RESEARCH.md`
+Record in: the `research` entity `{phase_id}/{phase_num}-RESEARCH` and its items (`specforge new`)
 
-⚠️ `commit_docs` controls git only, NOT file writing. Always write first.
+⚠️ `commit_docs` controls git only, NOT recording. Always record first.
 
 ## Step 7: Commit Research (optional)
 
@@ -816,7 +816,7 @@ specforge git commit --add "<the phase spec files>" -m "docs($PHASE): research p
 [3-5 bullet points of most important discoveries]
 
 ### File Created
-`$PHASE_DIR/$PADDED_PHASE-RESEARCH.md`
+the `research` entity `{phase_id}/{phase_num}-RESEARCH`
 
 ### Confidence Assessment
 | Area | Level | Reason |
@@ -876,8 +876,8 @@ Research is complete when:
 - [ ] Code examples provided
 - [ ] Source hierarchy followed (provider by question kind; tiers from the hierarchy)
 - [ ] All findings have confidence levels
-- [ ] RESEARCH.md created in correct format
-- [ ] RESEARCH.md committed to git
+- [ ] Research entity and its items recorded (`specforge new`)
+- [ ] The phase's spec files committed to git
 - [ ] Structured return provided to orchestrator
 
 Quality indicators:

@@ -1,10 +1,10 @@
 //! The adapter behind the effect plane's `Process` port (ADR 0335): the one runner every spawn goes through. It
-//! resolves the program (PATH × PATHEXT on Windows, the request's own when it sets them), passes the parent's
-//! environment (for a program a guest runs, only what [`inherited`] keeps) with the request's variables, less a secret
-//! deny-list applied last, holds the run and its output to the
-//! request's deadline (at most 600 s) and output cap, and ends the program's whole process group (a Job object on
-//! Windows) when either passes, or when the host itself is interrupted ([`stop_on_interrupt`]). A program that exits
-//! cleanly is never killed: a child it left holding its output is read for a short grace, then left alone.
+//! resolves the program ([`locate`]: through absolute PATH entries only, × PATHEXT on Windows, the request's own when
+//! it sets them), passes the parent's environment (for a program a guest runs, only what [`inherited`] keeps) with the
+//! request's variables, less a secret deny-list applied last, holds the run and its output to the request's deadline
+//! (at most 600 s) and output cap, and ends the program's whole process group (a Job object on Windows) when either
+//! passes, or when the host itself is interrupted ([`stop_on_interrupt`]). A program that exits cleanly is never
+//! killed: a child it left holding its output is read for a short grace, then left alone.
 
 use std::ffi::{OsStr, OsString};
 use std::io::{Read, Write};
@@ -81,59 +81,103 @@ pub fn inherited(name: &OsStr, declared: &[String]) -> bool {
 /// The extensions Windows tries when `PATHEXT` is not set.
 const PATHEXT: &str = ".COM;.EXE;.BAT;.CMD";
 
-/// `program` as Windows finds it in `path` (a `PATH` value) with `pathext` (a `PATHEXT` value, `.COM;.EXE;.BAT;.CMD`
-/// when unset): a name with no extension tries each extension in turn (std quotes a `.cmd` or `.bat` batch-safely),
-/// in each directory in turn; a name with a directory is tried there only. `None`: nothing matches, and the caller
-/// spawns the name as written.
-pub fn resolve(program: &str, path: Option<&OsStr>, pathext: Option<&OsStr>) -> Option<PathBuf> {
-    let extensions: Vec<String> = pathext
-        .map_or_else(|| PATHEXT.into(), |p| p.to_string_lossy().into_owned())
-        .split(';')
-        .filter(|ext| ext.starts_with('.') && ext.len() > 1)
-        .map(str::to_string)
-        .collect();
-    let named = Path::new(program);
-    let candidates = |dir: &Path| -> Vec<PathBuf> {
-        if named.extension().is_some() {
-            vec![dir.join(program)]
-        } else {
-            extensions
-                .iter()
-                .map(|ext| dir.join(format!("{program}{ext}")))
-                .collect()
-        }
-    };
-    dirs(program, path)?
-        .iter()
-        .flat_map(|dir| candidates(dir))
-        .find(|candidate| candidate.is_file())
+/// Where the runner finds a program, before it runs it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Located {
+    /// Run this: a name with a directory as written (or with the extension Windows finds for it), or a bare name in an
+    /// absolute `PATH` entry.
+    At(PathBuf),
+    /// A bare name found only through this relative or empty `PATH` entry, which names a directory relative to where
+    /// the program runs, so a file planted there would run in the user's name: refused.
+    Relative(PathBuf),
+    /// Found nowhere.
+    Missing,
 }
 
-/// Where `program` is looked for: as named, when it names a directory, else each directory of `path` (none: no
-/// `PATH`).
-fn dirs(program: &str, path: Option<&OsStr>) -> Option<Vec<PathBuf>> {
+impl Located {
+    /// Why a program found only through a relative `PATH` entry is not run, and the remedy.
+    pub fn refusal(program: &str, entry: &Path) -> String {
+        let entry = if entry.as_os_str().is_empty() {
+            "an empty PATH entry (the directory it runs in)".to_string()
+        } else {
+            format!("the relative PATH entry `{}`", entry.display())
+        };
+        format!(
+            "`{program}` is found only through {entry}, and a relative PATH entry is never searched: name the program \
+             by an absolute path, or put an absolute directory on PATH"
+        )
+    }
+}
+
+/// `program` as the runner finds it, with `path` (a `PATH` value) and `pathext`: on Windows the extensions it tries
+/// ([`pathext`]; a name with no extension tries each in turn, and std quotes a `.cmd` or `.bat` batch-safely), None
+/// elsewhere, where a file runs when it is executable. A name with a directory is taken as written. A bare name is
+/// looked for in each absolute entry of `path` in turn; a relative or empty entry is skipped, as Go's `exec.LookPath`
+/// and Rust's guidance do, and judged against `base` (where the program runs) only to say so.
+pub fn locate(
+    program: &str,
+    path: Option<&OsStr>,
+    pathext: Option<&OsStr>,
+    base: &Path,
+) -> Located {
     let named = Path::new(program);
     if named.components().count() > 1 || named.is_absolute() {
-        Some(vec![PathBuf::new()])
-    } else {
-        Some(std::env::split_paths(path?).collect())
+        return Located::At(runnable(named, pathext).unwrap_or_else(|| named.to_path_buf()));
     }
+    let Some(path) = path else {
+        return Located::Missing;
+    };
+    let mut relative = None;
+    for entry in std::env::split_paths(path) {
+        if entry.is_absolute() {
+            if let Some(found) = runnable(&entry.join(program), pathext) {
+                return Located::At(found);
+            }
+        } else if relative.is_none()
+            && runnable(&base.join(&entry).join(program), pathext).is_some()
+        {
+            relative = Some(entry);
+        }
+    }
+    relative.map_or(Located::Missing, Located::Relative)
+}
+
+/// The extensions Windows tries for a name with none: `PATHEXT`'s value (`value`), or [`PATHEXT`] when unset. None
+/// on any other system.
+pub fn pathext(value: Option<OsString>) -> Option<OsString> {
+    cfg!(windows).then(|| value.unwrap_or_else(|| PATHEXT.into()))
+}
+
+/// `candidate` as a program this user may run: with `pathext` (Windows), the file itself when it has an extension,
+/// else the first of `pathext`'s that exists; without, the file when it is executable.
+fn runnable(candidate: &Path, pathext: Option<&OsStr>) -> Option<PathBuf> {
+    let Some(pathext) = pathext else {
+        return executable(candidate).then(|| candidate.to_path_buf());
+    };
+    if candidate.extension().is_some() {
+        return candidate.is_file().then(|| candidate.to_path_buf());
+    }
+    pathext
+        .to_string_lossy()
+        .split(';')
+        .filter(|ext| ext.starts_with('.') && ext.len() > 1)
+        .find_map(|ext| {
+            let mut name = candidate.as_os_str().to_os_string();
+            name.push(ext);
+            let tried = PathBuf::from(name);
+            tried.is_file().then_some(tried)
+        })
 }
 
 impl Process for Runner {
     fn which(&self, program: &str) -> Option<PathBuf> {
+        let base = std::env::current_dir().unwrap_or_default();
         let path = std::env::var_os("PATH");
-        if cfg!(windows) {
-            return resolve(
-                program,
-                path.as_deref(),
-                std::env::var_os("PATHEXT").as_deref(),
-            );
+        let pathext = pathext(std::env::var_os("PATHEXT"));
+        match locate(program, path.as_deref(), pathext.as_deref(), &base) {
+            Located::At(found) if executable(&found) => Some(found),
+            _ => None,
         }
-        dirs(program, path.as_deref())?
-            .iter()
-            .map(|dir| dir.join(program))
-            .find(|candidate| executable(candidate))
     }
 
     fn run_within(
@@ -151,15 +195,19 @@ impl Process for Runner {
         let Some((program, args)) = request.argv.split_first() else {
             return at(ProcessClass::CannotStart("no command".into()));
         };
-        let program: OsString = if cfg!(windows) {
-            let path = variable(request, "PATH");
-            let pathext = variable(request, "PATHEXT");
-            resolve(program, path.as_deref(), pathext.as_deref())
-                .map_or_else(|| program.into(), PathBuf::into_os_string)
-        } else {
-            program.into()
+        let path = variable(request, "PATH");
+        let pathext = pathext(variable(request, "PATHEXT"));
+        let found = match locate(program, path.as_deref(), pathext.as_deref(), dir) {
+            Located::At(found) => found,
+            Located::Relative(entry) => {
+                return at(ProcessClass::CannotStart(Located::refusal(program, &entry)));
+            }
+            Located::Missing => return at(ProcessClass::NotFound),
         };
-        let mut command = Command::new(program);
+        let mut command = Command::new(found);
+        // The program sees its name as it was asked for, as a shell's run gives it.
+        #[cfg(unix)]
+        std::os::unix::process::CommandExt::arg0(&mut command, program);
         command.args(args).current_dir(dir);
         if let Some(declared) = &request.inherit {
             command.env_clear();
@@ -260,7 +308,7 @@ fn variable(request: &ProcessRequest, name: &str) -> Option<OsString> {
         .env
         .iter()
         .rev()
-        .find(|var| var.name.eq_ignore_ascii_case(name))
+        .find(|var| same_variable(&var.name, name))
     {
         Some(var) => var.value.as_ref().map(OsString::from),
         None => std::env::var_os(name),

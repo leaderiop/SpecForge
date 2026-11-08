@@ -2,13 +2,23 @@
 //! upstream path or tool name survives (D-r42 black-box invariants), and every name the text points at is known.
 
 use std::collections::BTreeSet;
+use std::path::Path;
 
 use gsd_core::prompts::{asset, asset_paths, render_text, repoint, without_notice};
+use gsd_kit::prompt::args::Values;
 use regex::Regex;
 use roster::ROSTER;
 
+#[path = "common/asset_code.rs"]
+mod asset_code;
+#[path = "common/command_word.rs"]
+mod command_word;
+#[path = "common/files.rs"]
+mod files;
 #[path = "common/roster.rs"]
 mod roster;
+#[path = "common/specforge_only.rs"]
+mod specforge_only;
 
 const FORBIDDEN: [&str; 9] = [
     ".planning",
@@ -41,37 +51,56 @@ const NOT_PORTED: &[&str] = &[
     "gsd-core/workflows/node-repair.md",
 ];
 
-/// Every prompt as `(command stem, argument texts)`: none, every flag, every enum value, text and integer options.
-fn prompts() -> Vec<(String, Vec<String>)> {
+/// One render's input: the argument text and every declared name with its placeholder value (`args::values`).
+type Combo = (String, Values);
+
+/// Every prompt as `(command stem, combinations)`: none, every flag, every enum value, text and integer options.
+fn prompts() -> Vec<(String, Vec<Combo>)> {
     let declaration = gsd_core::build().declaration();
     declaration
         .surfaces
         .prompts
         .iter()
         .map(|p| {
+            // `(name, words, value)` of each given argument
+            let combo = |given: &[(String, String, String)]| -> Combo {
+                let words: Vec<&str> = given.iter().map(|(_, w, _)| w.as_str()).collect();
+                let values = p
+                    .args
+                    .iter()
+                    .map(|a| {
+                        let value = given.iter().find(|(n, _, _)| *n == a.name);
+                        (a.name.clone(), value.map(|(_, _, v)| v.clone()))
+                    })
+                    .collect();
+                (words.join(" "), values)
+            };
             let mut base = Vec::new();
-            for _ in p.args.iter().filter(|a| a.required) {
-                base.push("03".to_string());
+            for a in p.args.iter().filter(|a| a.required) {
+                base.push((a.name.clone(), "03".to_string(), "03".to_string()));
             }
-            let mut texts = vec![base.join(" ")];
+            let mut texts = vec![combo(&base)];
             let mut flags = base.clone();
             for a in &p.args {
                 let option = format!("--{}", a.name.replace('_', "-"));
+                let name = a.name.clone();
                 match a.field_type.as_str() {
-                    "bool" => flags.push(option),
-                    "integer" => flags.push(format!("{option} 2")),
-                    "string" => flags.push(format!("{option} \"text\"")),
+                    "bool" => flags.push((name, option, "true".to_string())),
+                    "integer" => flags.push((name, format!("{option} 2"), "2".to_string())),
+                    "string" => {
+                        flags.push((name, format!("{option} \"text\""), "text".to_string()))
+                    }
                     "enum" => {
                         for value in &a.enum_values {
                             let mut one = base.clone();
-                            one.push(format!("{option} {value}"));
-                            texts.push(one.join(" "));
+                            one.push((name.clone(), format!("{option} {value}"), value.clone()));
+                            texts.push(combo(&one));
                         }
                     }
                     _ => {}
                 }
             }
-            texts.push(flags.join(" "));
+            texts.push(combo(&flags));
             (p.id.replace('_', "-"), texts)
         })
         .collect()
@@ -80,10 +109,10 @@ fn prompts() -> Vec<(String, Vec<String>)> {
 /// `(command, host, arguments, text)` for the whole sweep.
 fn sweep() -> Vec<(String, &'static str, String, String)> {
     let mut all = Vec::new();
-    for (command, texts) in prompts() {
+    for (command, combos) in prompts() {
         for host in HOSTS {
-            for arguments in &texts {
-                let text = render_text(&command, host, arguments)
+            for (arguments, values) in &combos {
+                let text = render_text(&command, host, arguments, values)
                     .unwrap_or_else(|e| panic!("{command} on {host} with '{arguments}': {e}"));
                 all.push((command.clone(), host, arguments.clone(), text));
             }
@@ -334,4 +363,239 @@ fn the_threat_id_gate_reads_threat_ids() {
             "{workflow}: does not parse the count from THREAT_IDS_JSON"
         );
     }
+}
+
+/// Every embedded asset of @gsd/core and @gsd/security as `(path under assets/, text)`.
+fn asset_files() -> Vec<(String, String)> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut out = Vec::new();
+    for dir in ["assets", "../security/assets"] {
+        let base = root.join(dir);
+        for path in files::under(&base) {
+            if path.extension().is_some_and(|e| e == "md") {
+                let rel = path.strip_prefix(&base).expect("under the base");
+                let text = std::fs::read_to_string(&path).expect("an asset");
+                out.push((rel.to_string_lossy().replace('\\', "/"), text));
+            }
+        }
+    }
+    out
+}
+
+/// The lines of `text`, for [`specforge_only::shell_fences`].
+fn lines_of(text: &str) -> Vec<String> {
+    text.split('\n').map(String::from).collect()
+}
+
+/// No placeholder survives a render: on every host and flag combination, each `{{arg:}}` names a declared argument.
+#[test]
+fn no_render_keeps_an_arg_token() {
+    for (command, host, arguments, text) in sweep() {
+        assert!(
+            !text.contains("{{arg:"),
+            "{command} on {host} with '{arguments}': a token"
+        );
+    }
+}
+
+/// Why each `{{arg:` of a shell block (its lines joined by `\n`) does not stand inside double quotes, as `(line index,
+/// why)`. The shell reader of the scans (`command_word::mask`) masks a string, a heredoc body and a comment; a `$(`
+/// written where the token stands stays code only unquoted or inside double quotes, so a token the reader masks and
+/// whose `$(` probe it keeps is inside double quotes.
+fn unquoted_tokens(block: &str) -> Vec<(usize, &'static str)> {
+    const TOKEN: &str = "{{arg:";
+    let masked = command_word::mask(block);
+    let mut out = Vec::new();
+    for (at, _) in block.match_indices(TOKEN) {
+        let probe = command_word::mask(&format!("{}$(arg:{}", &block[..at], &block[at + 6..]));
+        let line = block[..at].matches('\n').count();
+        let col = block[..at]
+            .rsplit('\n')
+            .next()
+            .unwrap_or_default()
+            .chars()
+            .count();
+        let char_at = |text: &str| text.split('\n').nth(line).and_then(|l| l.chars().nth(col));
+        let why = match (char_at(&masked), char_at(&probe)) {
+            (None, _) => "in a comment",
+            (Some('_'), Some('$')) => continue,
+            (Some('_'), _) => "in single quotes or a heredoc body",
+            _ => "unquoted",
+        };
+        out.push((line, why));
+    }
+    out
+}
+
+#[test]
+fn the_quoting_guard_refuses_every_place_but_double_quotes() {
+    let why = |block: &str| unquoted_tokens(block).first().map(|(_, why)| *why);
+    assert_eq!(why("T=\"{{arg:target|}}\""), None);
+    assert_eq!(why("T=\"$(f \"{{arg:target|}}\")\""), None);
+    assert_eq!(why("T=\"a\"\nU=\"b {{arg:target|}} c\""), None);
+    assert_eq!(
+        why("jq -n '\"{{arg:x|}}\"'"),
+        Some("in single quotes or a heredoc body")
+    );
+    assert_eq!(
+        why("echo '\"{{arg:x|}}\"; touch X; '"),
+        Some("in single quotes or a heredoc body")
+    );
+    assert_eq!(
+        why("cat <<EOF\n\"{{arg:x|}}\"\nEOF"),
+        Some("in single quotes or a heredoc body")
+    );
+    assert_eq!(
+        why("cat <<'EOF'\nT=\"{{arg:x|}}\"\nEOF"),
+        Some("in single quotes or a heredoc body")
+    );
+    assert_eq!(why("T=x # \"{{arg:x|}}\""), Some("in a comment"));
+    assert_eq!(why("T={{arg:x|}}"), Some("unquoted"));
+    assert_eq!(why("T=\\\"{{arg:x|}}\\\""), Some("unquoted"));
+    assert_eq!(why("T=$(f {{arg:x|}})"), Some("unquoted"));
+}
+
+/// A placeholder's value is escaped for double quotes, so it stands only inside them, in a `bash`/`sh` fence (ADR 0340
+/// D4): never in single quotes, a comment, a heredoc body or unquoted.
+#[test]
+fn an_arg_token_sits_in_double_quotes_in_a_shell_fence() {
+    let mut seen = 0;
+    for (path, text) in asset_files() {
+        let lines = lines_of(&text);
+        let mut fenced = 0;
+        for (language, block) in specforge_only::shell_fences(&lines) {
+            let block = block.join("\n");
+            let tokens = block.matches("{{arg:").count();
+            fenced += tokens;
+            assert!(
+                tokens == 0 || matches!(language, "bash" | "sh"),
+                "{path}: a token in a {language} fence"
+            );
+            if let Some((line, why)) = unquoted_tokens(&block).first() {
+                let line = block.split('\n').nth(*line).unwrap_or_default();
+                panic!("{path}: not in double quotes but {why}: {line}");
+            }
+        }
+        let all = text.matches("{{arg:").count();
+        assert_eq!(fenced, all, "{path}: a token outside a shell fence");
+        seen += all;
+    }
+    assert!(seen > 30, "{seen} tokens");
+}
+
+/// `reference` fills no placeholder: only a file a prompt inlines may hold one (ADR 0340 D4, D5).
+#[test]
+fn no_file_read_by_reference_holds_an_arg_token() {
+    let rx = Regex::new(r#"<file path="([^"]+)">"#).expect("a regex");
+    let mut inlined: BTreeSet<String> = BTreeSet::new();
+    for (command, _, _, text) in sweep().iter().filter(|(_, h, _, _)| *h == "claude-code") {
+        inlined.insert(format!("commands/gsd/{command}.md"));
+        inlined.extend(rx.captures_iter(text).map(|c| c[1].to_string()));
+    }
+    for (path, text) in asset_files() {
+        if text.contains("{{arg:") {
+            assert!(
+                inlined.contains(&path),
+                "{path} is read through reference and holds an arg token"
+            );
+        }
+    }
+}
+
+/// No route takes a workstream, so no text forwards one: `ws` is read as `{{arg:ws|}}` where a prompt declares it,
+/// and no asset names the `GSD_WS` parse of the argument text (ADR 0340 D8).
+#[test]
+fn no_asset_names_gsd_ws() {
+    let named: Vec<String> = asset_files()
+        .into_iter()
+        .flat_map(|(path, text)| {
+            text.lines()
+                .enumerate()
+                .filter(|(_, l)| l.contains("GSD_WS"))
+                .map(|(i, l)| format!("{path}:{}: {l}", i + 1))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    assert!(named.is_empty(), "{}", named.join("\n"));
+}
+
+/// No shell fence reads the argument text the render splices (`$ARGUMENTS`, `$GSD_ARGS`): a workflow reads its typed
+/// values through `{{arg:}}`, so no argument heredoc and none of its terminators is left (ADR 0340 D6).
+#[test]
+fn no_shell_block_reads_the_raw_argument_text() {
+    let reads = Regex::new(r"\$\{?(ARGUMENTS|GSD_ARGS)\b").expect("a regex");
+    let mut offenders = Vec::new();
+    for (path, text) in asset_files() {
+        for line in specforge_only::shell_blocks(&lines_of(&text))
+            .into_iter()
+            .flatten()
+        {
+            if reads.is_match(line) {
+                offenders.push(format!("{path} reads the argument text: {line}"));
+            }
+        }
+        for (i, line) in text.lines().enumerate() {
+            if ["GSD_ARGS_END", "GSD_QUICK_BATCH_ARGS_END"]
+                .iter()
+                .any(|t| line.contains(t))
+            {
+                offenders.push(format!(
+                    "{path}:{} names a heredoc terminator: {line}",
+                    i + 1
+                ));
+            }
+        }
+    }
+    assert!(offenders.is_empty(), "{}", offenders.join("\n"));
+}
+
+/// The host refuses an option its prompt does not declare, so a dispatch (`Skill(skill="gsd-<x>", args="…")`, also
+/// escaped inside an `Agent(prompt=…)`) forwards only `<x>`'s options, and `CONVERGENCE_ARGS` only
+/// `plan_review_convergence`'s (ADR 0340 D7). `gsd-code-review` belongs to an extension that is not built.
+#[test]
+fn every_dispatch_forwards_only_options_its_prompt_declares() {
+    let declaration = gsd_core::build().declaration();
+    let options = |id: &str| -> Option<BTreeSet<String>> {
+        let prompt = declaration.surfaces.prompts.iter().find(|p| p.id == id)?;
+        Some(
+            prompt
+                .args
+                .iter()
+                .map(|a| a.name.replace('_', "-"))
+                .collect(),
+        )
+    };
+    let dispatch =
+        Regex::new(r#"Skill\(skill=\\?["']gsd-([a-z-]+)\\?["'],\s*args=\\?["'](.*?)\\?["']\)"#)
+            .expect("a regex");
+    let appended =
+        Regex::new(r#"CONVERGENCE_ARGS="\$\{CONVERGENCE_ARGS\} ([^"]*)""#).expect("a regex");
+    let option = Regex::new(r"--([a-z][a-z0-9-]*)|GSD_WS").expect("a regex");
+    let mut offenders = BTreeSet::new();
+    let mut seen = 0;
+    for (path, text) in asset_files() {
+        for (i, line) in text.split('\n').enumerate() {
+            let mut check = |target: &str, args: &str| {
+                let declared = options(target)
+                    .unwrap_or_else(|| panic!("{path}:{}: no prompt {target}", i + 1));
+                for word in option.find_iter(args) {
+                    let name = word.as_str().trim_start_matches("--");
+                    if name == "GSD_WS" || !declared.contains(name) {
+                        offenders.insert(format!("{path}:{} {name}", i + 1));
+                    }
+                }
+            };
+            for cap in dispatch.captures_iter(line) {
+                seen += 1;
+                if &cap[1] != "code-review" {
+                    check(&cap[1].replace('-', "_"), &cap[2]);
+                }
+            }
+            for cap in appended.captures_iter(line) {
+                check("plan_review_convergence", &cap[1]);
+            }
+        }
+    }
+    assert!(seen > 30, "{seen} dispatches");
+    assert!(offenders.is_empty(), "{offenders:#?}");
 }

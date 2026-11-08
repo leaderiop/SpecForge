@@ -19,7 +19,7 @@ applicable)"
 Before running checks 8a-8d, verify VALIDATION.md exists:
 
 ```bash
-specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-VALIDATION.md' --format human 2>/dev/null
+specforge query "$PHASE_ID" --depth 1 --kinds validation --format brief
 ```
 
 **If missing:** **BLOCKING FAIL** — "VALIDATION.md not found for phase {N}. Re-run

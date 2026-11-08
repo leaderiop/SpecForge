@@ -17,6 +17,7 @@ use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 
 use super::support::{answer, fields, given, required, run, text, texts, title};
+use crate::branch::slug;
 
 const TO_BE_PLANNED: &str = "[To be planned]";
 const URGENT: &str = "[Urgent work - to be planned]";
@@ -136,19 +137,6 @@ pub(super) fn target<'a, 'p>(phases: &'p [Phase<'a>], name: &str) -> Result<&'p 
         ));
     }
     find(phases, name)
-}
-
-/// `--name` as the directory slug: lower case, runs of other characters as one dash.
-fn slug(name: &str) -> String {
-    let mut slug = String::new();
-    for c in name.chars().flat_map(char::to_lowercase) {
-        if c.is_ascii_alphanumeric() {
-            slug.push(c);
-        } else if !slug.ends_with('-') && !slug.is_empty() {
-            slug.push('-');
-        }
-    }
-    slug.trim_end_matches('-').to_string()
 }
 
 /// Creates the phase `number` after `previous`, in the milestone's own file.

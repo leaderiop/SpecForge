@@ -34,18 +34,18 @@
     "## 0. Initialize Milestone Context",
     "",
     "```bash",
-    "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true",
-    "v1.0",
-    "GSD_ARGS_END",
-    "GSD_ARGS=${GSD_ARGS%$'\\n'}",
+    "",
+    "",
+    "",
+    "",
     "# the commands below are specforge commands: there is no launcher to define",
-    "GSD_WS=$(echo \" $GSD_ARGS\" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \\1/p' | head -n 1)",
+    "",
     "INIT=$(specforge query \"$MILESTONE\" --depth 1 --format json)",
-    "if [[ \"$INIT\" == @file:* ]]; then INIT=$(cat \"${INIT#@file:}\"); fi",
+    "",
     "AGENT_SKILLS_CHECKER=\"\"   # the host install carries the skills of gsd-integration-checker",
     "```",
     "",
-    "Extract from init JSON: `milestone_version`, `milestone_name`, `phase_count`, `completed_phases`, `commit_docs`.",
+    "Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (its version is that id; `name` and `progress` are its fields, and `phase_count` and `completed_phases` are its `progress`'s `phases` and `phases_complete`), and its phases are among the other nodes. `commit_docs` is a setting: `specforge settings --format json --extension @gsd/core`.",
     "",
     "Resolve integration checker model:",
     "```bash",
@@ -61,7 +61,7 @@
     "",
     "- Parse version from arguments or detect current from ROADMAP.md"
   ],
-  "bytes": 24799,
+  "bytes": 24786,
   "end": [
     "",
     "<success_criteria>",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:6ffd4718b055194f6ccec84b895c77390e483822ba63456a0043f46b2d2b7cd4",
+    "digest": "sha256:28f0f52a0a30071beef1aaf07979b1b9be7ce00e5deddba84deed644c2dc0b12",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "6ffd4718b055194f6ccec84b895c77390e483822ba63456a0043f46b2d2b7cd4"
+  "sha256": "28f0f52a0a30071beef1aaf07979b1b9be7ce00e5deddba84deed644c2dc0b12"
 }

@@ -1,17 +1,21 @@
-//! The assets' shell lines, run under bash with a `PATH` that holds no jq and no node: `--pick` reads, the worktree
-//! manifest and the batch list as tab-separated lines, and the checks once written with jq.
-//! Where node is installed, upstream's line runs on the same input and gives the same answer.
+//! The assets' shell lines, run under bash with a `PATH` that holds no jq and no node: `--pick` reads, the batch list
+//! as tab-separated lines, and the checks once written with jq.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 mod answers;
 mod batch;
-mod manifest;
+mod counts;
+mod gates;
+mod new_project;
 mod pick;
+mod relics;
 mod review;
 mod scripts;
+mod search;
 mod shapes;
+mod stall;
 
 /// The tools the `--pick` lines call besides `specforge`: no jq.
 const PICK_TOOLS: &[&str] = &[
@@ -20,7 +24,7 @@ const PICK_TOOLS: &[&str] = &[
 ];
 
 /// `bash` with a `PATH` of the named tools and `specforge` alone.
-struct Shell {
+pub(super) struct Shell {
     bash: PathBuf,
     bin: tempfile::TempDir,
 }
@@ -44,7 +48,7 @@ impl Shell {
 
     /// `bash` with a `PATH` of `tools` and `specforge` (`SPECFORGE_BIN`) alone. `None` (and a skip note) when bash is
     /// absent.
-    fn only(tools: &[&str]) -> Option<Shell> {
+    pub(super) fn only(tools: &[&str]) -> Option<Shell> {
         let Some(bash) = which("bash") else {
             eprintln!("skipped: bash is absent");
             return None;
@@ -61,7 +65,7 @@ impl Shell {
     }
 
     /// `script` under `bash -c` in `dir`: `(stdout, stderr, exit code)`.
-    fn run_in(&self, dir: &Path, script: &str) -> (String, String, i32) {
+    pub(super) fn run_in(&self, dir: &Path, script: &str) -> (String, String, i32) {
         let out = Command::new(&self.bash)
             .current_dir(dir)
             .env("PATH", self.bin.path())
@@ -87,14 +91,6 @@ fn asset(path: &str) -> String {
         .unwrap_or_else(|e| panic!("{path}: {e}"))
 }
 
-/// Upstream's copy of `path` in the vendored snapshot: its own name, or `<name>.txt`.
-fn upstream(path: &str) -> String {
-    let plain = format!("{}/{path}", gsd_kit::snapshot!());
-    std::fs::read_to_string(&plain)
-        .or_else(|_| std::fs::read_to_string(format!("{plain}.txt")))
-        .unwrap_or_else(|e| panic!("{path}: {e}"))
-}
-
 /// The first line of `text` that starts (after its indent) with `start`.
 fn line<'a>(text: &'a str, start: &str) -> &'a str {
     text.lines()
@@ -103,18 +99,20 @@ fn line<'a>(text: &'a str, start: &str) -> &'a str {
         .unwrap_or_else(|| panic!("no line starts with {start}"))
 }
 
-fn has_node() -> bool {
-    which("node").is_some()
-}
-
-/// Upstream's `script` with node on the `PATH` too.
-fn run_with_node(script: &str) -> String {
-    let out = Command::new("bash")
-        .args(["-c", script])
-        .stdin(Stdio::null())
-        .output()
-        .expect("bash runs");
-    String::from_utf8_lossy(&out.stdout).into_owned()
+/// The first shell fence of `text` after the first line holding `mark`.
+fn fence_after(text: &str, mark: &str) -> String {
+    let after = text
+        .split_once(mark)
+        .unwrap_or_else(|| panic!("no {mark}"))
+        .1;
+    let body = after
+        .split_once("```bash\n")
+        .unwrap_or_else(|| panic!("no fence after {mark}"))
+        .1;
+    body.split_once("\n```")
+        .unwrap_or_else(|| panic!("the fence after {mark} ends"))
+        .0
+        .to_string()
 }
 
 /// Single-quotes `s` for bash.
@@ -135,19 +133,4 @@ fn block(text: &str, start: &str, end: &str) -> String {
         .position(|l| l.contains(end))
         .unwrap_or_else(|| panic!("no line after {start} contains {end}"));
     lines[a..=b].join("\n")
-}
-
-/// `setup`, then our `code` (no node on the `PATH`), then `show`, prints `want`; so does upstream's `theirs` (node on
-/// the `PATH`) where node is installed. A trailing newline does not count: the lines' callers read `$(…)`.
-fn both(sh: &Shell, setup: &str, ours: &str, theirs: Option<&str>, show: &str, want: &str) {
-    let script = |code: &str| format!("{setup}\n{code}\n{show}");
-    let trim = |s: String| s.trim_end_matches('\n').to_string();
-    assert_eq!(trim(sh.run(&script(ours))), want, "ours after {setup}");
-    if let Some(theirs) = theirs.filter(|_| has_node()) {
-        assert_eq!(
-            trim(run_with_node(&script(theirs))),
-            want,
-            "upstream's after {setup}"
-        );
-    }
 }

@@ -25,24 +25,24 @@ Valid GSD subagent types (use exact names — do not fall back to 'general-purpo
 Parse `$ARGUMENTS` before doing anything else:
 
 - `--reset-phase-numbers` flag → opt into restarting roadmap phase numbering at `1`. If absent, keep the current behavior of continuing phase numbering from the previous milestone.
-- `--ws <name>` flag → active workstream scope, parsed into `GSD_WS`
-- remaining text, with `--ws <name>` stripped → use as milestone name if present, captured into `MILESTONE_ARG`
+- `--ws <name>` flag → active workstream scope, bound to `WS`
+- the words that stand without an option → the milestone name if present, bound to `MILESTONE_NAME`
 
-Parse `GSD_WS` and `MILESTONE_ARG` using the established idiom (see `verify-work.md`):
+Bind `WS` and `MILESTONE_NAME` from the typed values:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
-GSD_WS=""
-echo "$GSD_ARGS" | grep -qE -- '--ws[[:space:]]+[A-Za-z0-9._-]+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE -- '--ws[[:space:]]+[A-Za-z0-9._-]+')
-MILESTONE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
-# #4456: persist GSD_WS to a file so later steps' bash fences (each a
-# separate shell) can forward it — the same cross-fence problem Step 5/6
-# already solve for OUTGOING_MILESTONE via .gsd-outgoing-milestone.
-# the --ws name is kept in your notes: each later block repeats it
+WS="{{arg:ws|}}"
+
+MILESTONE_NAME="{{arg:name|}}"
+# #4456: no file carries the workstream between fences: a later block that
+# needs it sets WS from the ws argument again, as Step 1's WS= line does;
+# the render fills that argument in every block of this prompt.
+
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
 # #2994: EARLY, section-manifest-only init.new-milestone call — needed here
 # (before Step 4) to gate the project-md-milestone-write section. This is
@@ -53,15 +53,15 @@ RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the se
 # fields too early and corrupt the roadmapper's phase-numbering context.
 # init.new-milestone is a pure read (no mutation), so calling it twice is
 # safe; only `section_manifest` is consumed from this early call.
-# #4456: $GSD_WS forwarded (same fence as the parse above, no round-trip
-# needed here) so the section manifest — and the shared PROJECT.md write
-# guard it gates — reflects the EXPLICITLY requested workstream, not
-# whatever ambient GSD_WORKSTREAM/session pointer happens to be active.
+# #4456: the section manifest is the milestone's own: this query takes no
+# workstream, so the ws argument is forwarded to none of these commands.
+
+
 INIT_EARLY=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT_EARLY" == @file:* ]]; then INIT_EARLY=$(cat "${INIT_EARLY#@file:}"); fi
+
 ```
 
-`GSD_WS` must chain to every downstream routing suggestion in this workflow (Step 4's shared-file guard, and the `/gsd:discuss-phase`/`/gsd:plan-phase` routing hints below) per the routing-propagation contract in `gsd-core/references/workstream-flag.md` — never let it silently drop.
+`--ws` is forwarded nowhere: no command and no routing hint in this workflow takes a workstream. Step 4's shared-file guard reads `WS`, which Step 1 sets from the `ws` argument.
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations (including the "What do you want to build next?" prompt and seed-selection questions below) — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
@@ -174,10 +174,10 @@ AskUserQuestion:
 PROJECT.md is shared across workstreams (`gsd-core/references/workstream-flag.md` marks it `# Shared` in the directory diagram). This step has two independently-scoped parts — only Part A is workstream-guarded.
 
 <!-- gsd:section id="project-md-milestone-write" when="state:flat-mode" -->
-If `section_manifest` (from `INIT_EARLY`) is `null` or `"project-md-milestone-write"` is in its `included` list: read and execute `gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md`. Otherwise (a workstream is active) skip — do not read the file; Part B below still runs regardless of `GSD_WS`.
+If `section_manifest` (from `INIT_EARLY`) is `null` or `"project-md-milestone-write"` is in its `included` list: read and execute `gsd-core/workflows/new-milestone/steps/project-md-milestone-write.md`. Otherwise (a workstream is active) skip — do not read the file; Part B below still runs regardless of the workstream.
 <!-- /gsd:section -->
 
-**Part B — Evolution structural repair (always runs, regardless of `GSD_WS`).** `## Evolution` is a shared, idempotent structural section, not workstream state — a pre-Evolution project must be backfilled whether or not a workstream is active, so this part is NOT covered by Part A's skip. Ensure the `## Evolution` section exists in PROJECT.md. If missing (projects created before this feature), add it before the footer:
+**Part B — Evolution structural repair (always runs, regardless of the workstream).** `## Evolution` is a shared, idempotent structural section, not workstream state — a pre-Evolution project must be backfilled whether or not a workstream is active, so this part is NOT covered by Part A's skip. Ensure the `## Evolution` section exists in PROJECT.md. If missing (projects created before this feature), add it before the footer:
 
 ```markdown
 ## Evolution
@@ -208,7 +208,7 @@ blockers, todos) is preserved across the switch — symmetric with
 `milestone.complete`.
 
 ```bash
-GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
+
 OUTGOING_MILESTONE=""   # the milestone being closed, from `specforge check --format json`
 # note OUTGOING_MILESTONE: Step 6 repeats it
 echo "Outgoing milestone (phase history archives under THIS version in step 6): ${OUTGOING_MILESTONE:-<unknown>}"
@@ -253,7 +253,7 @@ the captured value into the command, so untrusted STATE.md content cannot be re-
 shell:
 
 ```bash
-GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
+
 OUTGOING_MILESTONE="<the outgoing milestone noted in Step 3>"
 if [ -n "$OUTGOING_MILESTONE" ]; then
   : # nothing to clear: the phases stay with "$OUTGOING_MILESTONE"; ids are milestone-scoped, so numbering restarts at 1 without a collision
@@ -263,62 +263,62 @@ fi
 # nothing to clean up: no scratch file was written
 ```
 
-If the captured file is empty or absent (a fresh project with no prior milestone), the
-fallback branch runs `phases.clear --confirm` with no override — it then uses current-milestone
-state, and a dated archive label only if no version label is resolvable at all. `phases.clear`
-rejects any `--archive-version` value that is not a plain version token (no path separators or
-`..`), so a malformed capture fails loudly rather than writing outside the archive directory.
+Nothing is cleared or archived, with or without an outgoing milestone: the phases stay with their
+milestone (upstream's phases.clear is not part of @gsd/core).
 
-Stage the phase archive move + source removal so they land in the same commit as the milestone start (atomic — no orphaned uncommitted deletions, no un-archived dirs carried forward). `phases.clear` archives each non-999 dir to `milestones/<version>-phases/`; staging both dirs captures the new archive and the removals together (#1871).
+
+
+
+The archived phases are entities: Step 6's commit carries them (`--add spec`), so there is nothing to stage here.
 
 ```bash
-COMMIT_DOCS="{{setting:commit_docs|true}}"   # commit_docs (the settings)
-GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 
 
-# a field of the answer is read with --pick, never jq
-ARCHIVE_DIR=$(specforge query "$MILESTONE" --depth 1 --pick .archive_dir)
-PHASES_DIR=$(specforge query "$MILESTONE" --depth 1 --pick .phases_dir)
-if [ "$COMMIT_DOCS" != "false" ]; then
-  specforge git add "$ARCHIVE_DIR/" "$PHASES_DIR/" 2>/dev/null || true
-fi
+
+
+
+
+
+
+
+
 ```
 
-When `commit_docs` is false, the archive move and phase removals are deliberately left unstaged here — not a bug — since Step 6's commit is skipped too.
+Nothing is left unstaged: the archived phases are entities, and Step 6's commit carries them.
 
-Stage PROJECT.md in both modes. Step 4's Part A guard — not this commit — is what protects the shared `## Current Milestone` heading (#2308): when a workstream is active Part A never writes it, so the only change PROJECT.md can carry here is Part B's idempotent `## Evolution` backfill, which must be committed rather than stranded as a dangling edit. Do NOT reintroduce a `[ -n "$GSD_WS" ]` branch around this commit: `GSD_WS` is set in Step 1's shell and each step's bash block runs in its own shell (the same reason Step 6 repeats `OUTGOING_MILESTONE` by hand), so such a guard reads an unset variable, always takes the flat-mode branch, and only appears to work. STATE.md, unlike PROJECT.md, is computed, so there is no state file to stage.
+Stage PROJECT.md in both modes. Step 4's Part A guard — not this commit — is what protects the shared `## Current Milestone` heading (#2308): when a workstream is active Part A never writes it, so the only change PROJECT.md can carry here is Part B's idempotent `## Evolution` backfill, which must be committed rather than stranded as a dangling edit. Do NOT reintroduce a `[ -n "$WS" ]` branch around this commit: `WS` is set in Step 1's shell and each step's bash block runs in its own shell (the same reason Step 6 repeats `OUTGOING_MILESTONE` by hand), so such a guard reads an unset variable, always takes the flat-mode branch, and only appears to work. STATE.md, unlike PROJECT.md, is computed, so there is no state file to stage.
 
 ```bash
-GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 
 
-# a field of the answer is read with --pick, never jq
-STATE_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .state_path)
-PROJECT_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .project_path)
+
+
+
+
 specforge git commit --add spec -m "docs: start milestone v[X.Y] [Name]" && specforge collect --runner gsd-git --yes
 ```
 
 ## 7. Load Context and Resolve Models
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-RESET_PHASE_NUMBERS_PARAM=""; if [[ "$GSD_ARGS" =~ (^|[[:space:]])--reset-phase-numbers([[:space:]]|$) ]]; then RESET_PHASE_NUMBERS_PARAM="--reset-phase-numbers"; fi
-GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
+
+
+
+
+
+
 INIT=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 AGENT_SKILLS_RESEARCHER=""   # the host install carries the skills of gsd-project-researcher
 AGENT_SKILLS_SYNTHESIZER=""   # the host install carries the skills of gsd-research-synthesizer
 AGENT_SKILLS_ROADMAPPER=""   # the host install carries the skills of gsd-roadmapper
 ```
-<!-- #4456: the --ws name is NOT dropped here — Steps 9 and 10
-below still need to re-read it (each is its own shell) to resolve
-REQUIREMENTS.md/ROADMAP.md/STATE.md correctly under a workstream. It is
-removed in Step 10, its true last consumer. -->
+<!-- #4456: the workstream is not carried between steps: a block that
+needs it sets WS from the ws argument itself, so no file holds it and
+none is removed in Step 10. -->
 
-Extract from init JSON: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `research_enabled`, `current_milestone`, `project_exists`, `roadmap_exists`, `latest_completed_milestone`, `phase_dir_count`, `phase_archive_path`, `agents_installed`, `missing_agents`, `project_path`, `roadmap_path`, `requirements_path`, `config_path`, `research_dir`, `milestones_path`, `phases_dir`, `archive_dir`.
+
+Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (`name` and `state` are its fields), and its phases are among the other nodes. `commit_docs` and `workflow.research` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model; the project, its roadmap and its requirements are entities, read with `specforge query`, so no path is read.
 
 **If `agents_installed` is false:** Display a warning before proceeding:
 ```
@@ -531,11 +531,11 @@ If "adjust": Return to scoping.
 
 **Commit requirements:**
 ```bash
-GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 
 
-# a field of the answer is read with --pick, never jq
-REQUIREMENTS_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .requirements_path)
+
+
+
 specforge git commit --add spec -m "docs: define milestone v[X.Y] requirements" && specforge collect --runner gsd-git --yes
 ```
 
@@ -620,16 +620,16 @@ Success criteria:
 
 **Commit roadmap** (after approval):
 ```bash
-GSD_WS_ARG=""   # --ws is text for @gsd/core: repeat the name from Step 1 in the commands that take one
 
 
-# a field of the answer is read with --pick, never jq
-ROADMAP_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .roadmap_path)
-STATE_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .state_path)
-REQUIREMENTS_PATH=$(specforge query "$MILESTONE" --depth 1 --pick .requirements_path)
+
+
+
+
+
 specforge git commit --add spec -m "docs: create milestone v[X.Y] roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
-# #4456: true last consumer of the persisted --ws in this workflow — the
-# round-trip file is no longer needed after this commit.
+# #4456: no workstream file was persisted, so nothing is removed here.
+
 # nothing to clean up: no scratch file was written
 ```
 
@@ -705,9 +705,9 @@ Print a summary:
 
 `/clear` then:
 
-`/gsd:discuss-phase [N] ${GSD_WS}` — gather context and clarify approach
+`/gsd:discuss-phase [N]` — gather context and clarify approach
 
-Also: `/gsd:plan-phase [N] ${GSD_WS}` — skip discussion, plan directly
+Also: `/gsd:plan-phase [N]` — skip discussion, plan directly
 ```
 
 </process>
@@ -725,7 +725,7 @@ Also: `/gsd:plan-phase [N] ${GSD_WS}` — skip discussion, plan directly
 - [ ] Phase numbering mode respected (continued or reset)
 - [ ] All commits made (if planning docs committed)
 - [ ] Pending todos scanned for phase matches; matched todos tagged with `resolves_phase: N`
-- [ ] User knows next step: `/gsd:discuss-phase [N] ${GSD_WS}`
+- [ ] User knows next step: `/gsd:discuss-phase [N]`
 
 **Atomic commits:** Each phase commits its artifacts immediately.
 </success_criteria>

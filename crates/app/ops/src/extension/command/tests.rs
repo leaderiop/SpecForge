@@ -47,6 +47,17 @@ fn at(date: &str) -> chrono::DateTime<chrono::Utc> {
     format!("{date}T12:34:56Z").parse().expect("an instant")
 }
 
+/// The nonce `run_on` is pinned to.
+const PINNED_NONCE: &str = "0123456789abcdef0123456789abcdef";
+
+/// What `run_on` is told in a test: `at`, and the pinned nonce.
+fn told(at: chrono::DateTime<chrono::Utc>) -> Told {
+    Told {
+        at,
+        nonce: PINNED_NONCE.to_string(),
+    }
+}
+
 /// The input the last call received, as JSON.
 fn last_input(runtime: &InProcessRuntime) -> Value {
     runtime.calls().last().expect("a call").input.clone()

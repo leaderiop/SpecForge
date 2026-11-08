@@ -17,22 +17,22 @@ Valid GSD subagent types (use exact names — do not fall back to 'general-purpo
 ## 0. Initialize
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-PHASE_ARG=$(echo "$GSD_ARGS" | sed -E 's/--ws[[:space:]]+[A-Za-z0-9._-]+//g' | xargs)
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 AGENT_SKILLS_AUDITOR=""   # the host install carries the skills of gsd-nyquist-auditor
 ```
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
 
-Parse: `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` and `slug` are its fields).
 
 ```bash
 AUDITOR_MODEL=""   # resolve-model is not part of @gsd/core: the host picks the model
@@ -48,13 +48,13 @@ Display banner: `GSD > VALIDATE PHASE {N}: {name}`
 ## 1. Detect Input State
 
 ```bash
-VALIDATION_FILE=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-VALIDATION.md' --pick '.entries[0].path' 2>/dev/null)
-SUMMARY_FILES=$(specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-SUMMARY.md' --pick '.entries[].path' 2>/dev/null)
+VALIDATION_FILE=$(specforge query "$PHASE_ID" --depth 1 --kinds validation --pick '.nodes[kind=validation].id')
+SUMMARY_FILES=$(specforge query "$PHASE_ID" --depth 2 --kinds summary --pick '.nodes[kind=summary].id')
 ```
 
 - **State A** (`VALIDATION_FILE` non-empty): Audit existing
 - **State B** (`VALIDATION_FILE` empty, `SUMMARY_FILES` non-empty): Reconstruct from artifacts
-- **State C** (`SUMMARY_FILES` empty): Exit — "Phase {N} not executed. Run /gsd:execute-phase {N} ${GSD_WS} first."
+- **State C** (`SUMMARY_FILES` empty): Exit — "Phase {N} not executed. Run /gsd:execute-phase {N} first."
 
 ## 2. Discovery
 
@@ -140,7 +140,7 @@ Handle return:
 **State B (create):**
 1. Read template from `~/.claude/gsd-core/templates/VALIDATION.md`
 2. Fill: frontmatter (**set `status: validated`**), Test Infrastructure, Per-Task Map, Manual-Only, Sign-Off
-3. Write to `${PHASE_DIR}/${PADDED_PHASE}-VALIDATION.md`
+3. Record it as the phase's `validation` entity `${PHASE_ID##*/}-VALIDATION` (`specforge new validation … --phase "$PHASE_ID"`), its map rows as `validation_row` entities
 
 **State A (update):**
 1. Update Per-Task Map statuses, add escalated to Manual-Only, update frontmatter (**set `status: validated`**)
@@ -158,8 +158,8 @@ Handle return:
 specforge git commit --add {each test file, one --add each} \
   -m "test(phase-${PHASE}): add Nyquist validation tests"
 
-specforge git commit --add spec -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes; : \
-  --files "${PHASE_DIR}/${PADDED_PHASE}-VALIDATION.md"
+specforge git commit --add spec -m "docs(phase-${PHASE}): add/update validation strategy" && specforge collect --runner gsd-git --yes
+
 ```
 
 ## 8. Results + Routing
@@ -168,14 +168,14 @@ specforge git commit --add spec -m "docs(phase-${PHASE}): add/update validation 
 ```
 GSD > PHASE {N} IS NYQUIST-COMPLIANT
 All requirements have automated verification.
-▶ Next: /gsd:audit-milestone ${GSD_WS}
+▶ Next: /gsd:audit-milestone
 ```
 
 **Partial:**
 ```
 GSD > PHASE {N} VALIDATED (PARTIAL)
 {M} automated, {K} manual-only.
-▶ Retry: /gsd:validate-phase {N} ${GSD_WS}
+▶ Retry: /gsd:validate-phase {N}
 ```
 
 Display `/clear` reminder.

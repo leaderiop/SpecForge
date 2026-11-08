@@ -107,3 +107,51 @@ fn milestone_stats_and_git_range_come_from_commits() {
         json!({"phases": 1, "plans": 2, "tasks": 0})
     );
 }
+
+#[test]
+fn a_milestone_starts_at_its_first_recorded_commit() {
+    let entity = |id: &str, kind: &str| PassEntity {
+        id: id.into(),
+        kind: kind.into(),
+        ..Default::default()
+    };
+    let mut input = PassInput {
+        entities: vec![
+            entity("v1.0", "milestone"),
+            entity("v1.0/01", "phase"),
+            entity("v1.0/01/01-01", "plan"),
+        ],
+        edges: vec![
+            PassEdge {
+                source: "v1.0/01".into(),
+                target: "v1.0".into(),
+                label: "milestone".into(),
+            },
+            PassEdge {
+                source: "v1.0/01/01-01".into(),
+                target: "v1.0/01".into(),
+                label: "phase".into(),
+            },
+        ],
+        ..Default::default()
+    };
+    let first_commit = |input: &PassInput, commits: &[Commit]| {
+        values(input, commits, &Statuses::new(), &BTreeMap::new())
+            .into_iter()
+            .find(|v| v.entity == "v1.0" && v.field == "first_commit")
+            .map(|v| v.value)
+    };
+    assert_eq!(first_commit(&input, &[]), None);
+    let dated = |id: &str, plan: &str, at: &str| Commit {
+        id: id.into(),
+        ..commit(plan, "feat", at, &[], 0, 0)
+    };
+    let commits = [
+        dated("first", "v1.0/01/01-01", "2026-10-28T08:00:00Z"),
+        dated("later", "v1.0/01/01-01", "2026-10-29T08:00:00Z"),
+        dated("elsewhere", "other", "2026-10-01T08:00:00Z"),
+    ];
+    assert_eq!(first_commit(&input, &commits), Some(json!("first")));
+    input.edges.clear();
+    assert_eq!(first_commit(&input, &commits), None);
+}

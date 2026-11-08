@@ -54,14 +54,14 @@
     "`specforge gsd reference gsd-core/references/gsd-run-resolver.md`",
     "",
     "```bash",
-    "IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true",
-    "02-01",
-    "GSD_ARGS_END",
-    "GSD_ARGS=${GSD_ARGS%$'\\n'}",
-    "GSD_WS=$(echo \" $GSD_ARGS\" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \\1/p' | head -n 1)",
+    "",
+    "",
+    "",
+    "",
+    "",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)"
   ],
-  "bytes": 48613,
+  "bytes": 48515,
   "end": [
     "",
     "| Condition | Route | Action |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5829782805abc94ce3979ba9dae3ed945f5829296c0dbf277b2459c852df86f6",
+    "digest": "sha256:e247673b57290939515b2047dd79e5926c67e77f2e6e70958a35d45ab1888ddd",
     "prompt": "@gsd/core@VERSION:execute_plan",
     "steps": [
       {
@@ -213,7 +213,7 @@
           }
         ],
         "id": "start",
-        "title": "Open the plan and note the clock (specforge gsd start-plan <plan>)",
+        "title": "Open the plan: its start is recorded once (specforge gsd start-plan <plan>)",
         "tool": "specforge.gsd.start_plan"
       },
       {
@@ -252,11 +252,11 @@
           }
         ],
         "id": "complete",
-        "title": "Close the plan (specforge gsd complete-plan <summary> --started <time>)",
+        "title": "Close the plan (specforge gsd complete-plan <summary>)",
         "tool": "specforge.gsd.complete_plan"
       }
     ],
     "subject": "v1.0/02/02-01"
   },
-  "sha256": "5829782805abc94ce3979ba9dae3ed945f5829296c0dbf277b2459c852df86f6"
+  "sha256": "e247673b57290939515b2047dd79e5926c67e77f2e6e70958a35d45ab1888ddd"
 }

@@ -5,7 +5,7 @@
 use specforge_extension_sdk::prelude::*;
 
 use super::plans::{of_kind, rows};
-use super::verify_paths::missing_sentinel;
+use crate::relocation::missing_sentinel;
 
 /// A whole statement that says nothing (GSD's list, compared in lower case).
 const PLACEHOLDERS: &[&str] = &[

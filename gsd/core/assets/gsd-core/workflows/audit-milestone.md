@@ -19,18 +19,18 @@ Valid GSD subagent types (use exact names — do not fall back to 'general-purpo
 ## 0. Initialize Milestone Context
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
 INIT=$(specforge query "$MILESTONE" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 AGENT_SKILLS_CHECKER=""   # the host install carries the skills of gsd-integration-checker
 ```
 
-Extract from init JSON: `milestone_version`, `milestone_name`, `phase_count`, `completed_phases`, `commit_docs`.
+Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (its version is that id; `name` and `progress` are its fields, and `phase_count` and `completed_phases` are its `progress`'s `phases` and `phases_complete`), and its phases are among the other nodes. `commit_docs` is a setting: `specforge settings --format json --extension @gsd/core`.
 
 Resolve integration checker model:
 ```bash

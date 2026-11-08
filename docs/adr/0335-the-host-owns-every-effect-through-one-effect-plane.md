@@ -34,12 +34,15 @@ a check, a CLI verb or the host's own baseline. It has four ports, each an objec
 
 | Port | Requests | Adapter (pure Rust, compiled in) |
 |---|---|---|
-| `Process` | run an argv in a directory, with a deadline, env changes, stdin and an output cap | `adapters/process` (`specforge-process`): the one runner. It resolves PATH × PATHEXT on Windows (the request's own when it sets them), starts the program in its own process group or a Job, kills that group or Job past the deadline or the output cap (and on the host's SIGINT or SIGTERM), caps output at 64 MiB per stream, and reads CRLF as LF in text mode. A program that exits cleanly leaving a child holding its output is not killed: its output is read for a short grace, then returned. The environment is the parent's with the request's variables, minus a secret deny-list applied last (`*_TOKEN`, `*_SECRET`, `*_PASSWORD`, `*_KEY`, `*_CREDENTIALS`, `AWS_*`, `GOOGLE_APPLICATION_CREDENTIALS`), so a request cannot put a secret back |
+| `Process` | run an argv in a directory, with a deadline, env changes, stdin and an output cap | `adapters/process` (`specforge-process`): the one runner. It resolves a bare program name through PATH's absolute entries only (a relative or empty entry is skipped, and a program found only there is refused, naming the remedy), × PATHEXT on Windows (the request's own when it sets them), starts the program in its own process group or a Job, kills that group or Job past the deadline or the output cap (and on the host's SIGINT or SIGTERM), caps output at 64 MiB per stream, and reads CRLF as LF in text mode. A program that exits cleanly leaving a child holding its output is not killed: its output is read for a short grace, then returned. The environment is the parent's with the request's variables, minus a secret deny-list applied last (`*_TOKEN`, `*_SECRET`, `*_PASSWORD`, `*_KEY`, `*_CREDENTIALS`, `AWS_*`, `GOOGLE_APPLICATION_CREDENTIALS`), so a request cannot put a secret back |
 | `Http` | method, URL, headers (sensitive ones redacted), body, body cap, timeout, redirect count, private-address opt-in | `adapters/http` (`specforge-http`): reqwest 0.13 with `ring` and the platform verifier. On Linux the webpki roots are extra anchors, never a retry after a rejection. System and env proxies, every redirect re-checked and followed by hand, the destination's resolved-address class checked (never a proxy's own host), outcome classes normalised across OSes |
 | `Fs` | stat, read, walk under a **named root** | `adapters/fs` (`specforge-fs`): std::fs behind `Contained` |
 | `Git` | the nine History reads (`locate`, `commit`, `merge_base`, `files`, `tree`, `sizes`, `blobs`, `branch`, `status`), moved unchanged | `GitCli` (`specforge-git`), run through the `Process` port |
 
-- **Behind a proxy.** The client judges a destination's name on this machine before sending, but the proxy resolves it: a name that does not resolve here, resolves differently there or changes between the two is the proxy's to refuse, and no client can close that.
+- **Behind a proxy.** The client judges a destination's name on this machine before sending, but the proxy resolves it: a name that does not resolve here, resolves differently there or changes between the two is the proxy's to refuse, and no client can close that. The proxy's own host is judged as the destination's is: each hop asks the caller's
+  policy (`Redirects::through_proxy`), and a grant permits it as a host the request reaches (ADR 0339 D2), so a
+  proxy on a host the grant does not reach is `denied` before anything is sent. A guest's capability that lists hosts
+  must list its user's proxy.
 - **Wire types.** Requests and outcomes are serde types in `protocol-types/src/effects.rs`. The host computes a
   canonical digest over them (`specforge_effects::digest`: sorted keys, sensitive header values redacted), so no
   guest blob gains a hash.
@@ -271,3 +274,50 @@ import is legitimate.
 - A guest that needs a socket or a protocol the four ports cannot express.
 - A measured need for async (concurrent effects inside one call).
 - A consent store that is not a file (a keychain), or approvals a team shares.
+
+## Amendment (2026-11-06, machine roots)
+
+D2.3's named roots belong to one project's file, and D2.4 approves each per project, so a directory shared by every
+project cannot be "approved once": a repository with no `specforge.json` has no file to name it in, and a committed
+home path names one machine. So D2.3 gains a **machine root**, a root the user names on this machine.
+
+- **Named by being typed.** `specforge grants approve --root <name> --at <dir>`. Typing it is the approval; no project
+  is compiled, so it runs from any directory. `<name>` is a word, not `spec`, `project` or `temp`. `<dir>` is read from
+  the current directory, a leading `~/` (or `~` alone) as the home directory, `~user/` refused; it is made when missing,
+  with its parents, then canonicalized.
+- **What it may not be.** The home directory, a directory that holds it, a filesystem root, or a directory that is, holds
+  or lies in the host's own state or the consent store's directory: a root there could write the store that approves it.
+  Nor, judged after links and before anything is made, one that is or lies in a hidden directory of the home (`~/.x…`, and
+  `~/Library` and `~/AppData`, which hold the same things on macOS and Windows): `--at ~/.config/gh` would have `files read`
+  print a token, and no list of credential names keeps up with the tools a machine has. Nor a directory of the system:
+  `/etc`, `/usr`, `/bin`, `/sbin`, `/var`, `/private`, `/System`, `/Library`, `/opt`, `/lib`, `/lib64`, `/boot`, `/dev`,
+  `/proc`, `/sys`, `/run`; on Windows `Windows`, `Program Files`, `Program Files (x86)`, `ProgramData`. A home can lie in one
+  (`/var/lib/ci`, a macOS temporary home under `/private`), so what is under the home is judged only as the home's. So `/tmp`
+  is refused on macOS, where it lands in `/private`, and not on Linux.
+- **Kept in the store.** D2.5's store holds it (store version 2) with its canonical target, replacing one of the same
+  name. A version 1 store reads with no machine roots and is written back as 2, so an older specforge refuses to write
+  over it (W186) and never drops one. `specforge grants revoke --root <name> --machine` drops it; revoking a project
+  keeps it.
+- **Reached by `files` and `git` only.** Every project's `specforge files` and `specforge git` reach it, `--in`, `worktree
+  add` and `remove` and a local `clone` among them, under that project's ceiling: an `fs.roots` list that omits
+  its name refuses it (E090), and one that names it keeps it. `run --in` and `http`'s body file are refused there, unless
+  a root of the project also holds the path: the approval was for a place to keep repositories, not to run programs or
+  send files from. `specforge run` typed from a directory in one is that directory's own affair. `specforge grants` and
+  MCP's `specforge.doctor` show its name and target: a name is no content, and no verb reads through them. No extension's grant reaches it: a capability's root is a project's root, D2.3 and D2.4
+  unchanged, and `reachable_roots` does not list it. It is a verb root, as `temp` is ([ADR
+  0339](0339-a-verb-the-user-types-reaches-the-ports-under-the-ceiling.md) D2).
+- **A project's own wins.** A root the project names with the same name, reachable there, keeps the name. A stored target
+  that no longer lands where it was approved (it became a link) is not reached; a store that cannot be used adds none.
+- **Judged again when read.** The store is a file, and being written does not make an entry good: every machine root is
+  judged at load by the check `approve` uses, one function for the verbs and the listing, so `approved` is what a verb
+  does. A forged entry (a target of `/`, the home, `.specforge`; a name of `spec`) reaches nothing, and `grants` and
+  `doctor` say W186 for it; a verb stays silent, as it does for a store it cannot use, and refuses the path.
+- **A store that is a link approves nothing,** in every mode, W186: nor does one reached through a `.specforge` that is a
+  link. A symlinked dotfile store costs that convenience; its file could be a repository's. A home reached by a link is
+  not judged, that is how many machines spell one.
+- **The loose home stays.** `HOME` set to a repository with a committed `.specforge/consent.json` and no `specforge.json`
+  is the user's store: no project surrounds it to judge it by, and whoever sets `HOME` already chooses what runs. A home
+  that holds `specforge.json` is refused (D2.5).
+- **Rejected.** `~/` in `specforge.json`'s `roots` with approvals keyed by target: every source repository a block runs
+  in must name it, a loose root never can, the directory must exist before load (E109), and the home path is committed.
+  A root an extension declares: a protocol bump and a re-vendor, and a non-GSD source repository still reaches nothing.

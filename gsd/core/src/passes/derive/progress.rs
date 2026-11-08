@@ -227,6 +227,9 @@ pub fn values(
         };
         milestone_state.insert(&milestone.id, state);
         out.push(value(&milestone.id, "state", state));
+        if let Some(first) = recorded.first() {
+            out.push(value(&milestone.id, "first_commit", first.id.as_str()));
+        }
         if let Some(at) = completion {
             out.push(value(&milestone.id, "shipped", at));
         }

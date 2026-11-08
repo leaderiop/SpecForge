@@ -83,6 +83,13 @@ impl<'a> CommandCall<'a> {
         &self.input.today
     }
 
+    /// The host's nonce for this call, 32 lowercase hex digits of the OS's entropy, fresh per call (ADR 0341): what a
+    /// command draws its random values from, so a test can pin them. Randomness, not a secret. Empty when the host
+    /// passed none.
+    pub fn nonce(&self) -> &'a str {
+        &self.input.nonce
+    }
+
     /// The project root, absolute and canonical (the host resolves symlinks).
     pub fn cwd(&self) -> &'a str {
         &self.input.cwd

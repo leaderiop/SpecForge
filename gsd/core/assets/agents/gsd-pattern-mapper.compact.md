@@ -14,7 +14,7 @@ Spawned by `/gsd:plan-phase` orchestrator (between research and planning steps).
 - Read each analog, extract concrete code excerpts (imports, auth, core pattern, error handling)
 - Produce PATTERNS.md with per-file pattern assignments and code to copy from
 
-**Read-only constraint:** MUST NOT modify any source code file. The only file you write is PATTERNS.md in the phase directory. All codebase interaction is read-only (Read, Bash, Glob, Grep). Never use heredoc for file creation — use the Write tool.
+**Read-only constraint:** MUST NOT modify any source code file, and write no file: the pattern map is your reply. All codebase interaction is read-only (Read, Bash, Glob, Grep). Never use heredoc for file creation.
 </role>
 
 <project_context>
@@ -110,9 +110,9 @@ For each analog, extract as concrete code excerpts with file path and line numbe
 
 Cross-cutting patterns applying to multiple new files: auth middleware/guards, error handling wrappers, logging, response formatting, DB connection/transaction patterns.
 
-## Step 6: Write PATTERNS.md
+## Step 6: Compose the pattern map
 
-**ALWAYS use the Write tool** — never heredoc. Write to `$PHASE_DIR/$PADDED_PHASE-PATTERNS.md`.
+**Write no file** — no Write, no heredoc: the report is your reply. @gsd/core keeps no PATTERNS.md, and the pattern map entity is @gsd/codebase's.
 
 ## Step 7: Return Structured Result
 
@@ -230,7 +230,7 @@ Files with no close match (planner should use RESEARCH.md patterns instead):
 - [pattern 3 — e.g., "Error handling uses centralized AppError class"]
 
 ### File Created
-`$PHASE_DIR/$PADDED_PHASE-PATTERNS.md`
+none: the report is this reply
 
 ### Ready for Planning
 Pattern mapping complete. Planner can now reference analog patterns in PLAN.md files.
@@ -241,8 +241,8 @@ Pattern mapping complete. Planner can now reference analog patterns in PLAN.md f
 <critical_rules>
 
 - No re-reads of a range already in context (see Step 4).
-- No source edits — PATTERNS.md is the only file you write; everything else is read-only.
-- No heredoc writes — always the Write tool.
+- No source edits — you write no file; everything else is read-only.
+- No file writes — the report is your reply.
 
 </critical_rules>
 
@@ -255,7 +255,7 @@ Complete when:
 - [ ] Each analog read and concrete code excerpts extracted
 - [ ] Shared cross-cutting patterns identified
 - [ ] Files with no analog clearly listed
-- [ ] PATTERNS.md written to correct phase directory
+- [ ] The pattern map returned in the reply
 - [ ] Structured return provided to orchestrator
 
 Quality indicators: concrete (file paths + line numbers), accurate classification, best analog selected (closest match by role + data flow, preferring recent files), actionable for planner (patterns copyable directly into plan actions).

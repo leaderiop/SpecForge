@@ -1,0 +1,68 @@
+//! Lines (`(path, first, last)`, inclusive, 0-based body lines) the `specforge files` rewrites changed although
+//! upstream's names no tool the port rule sees: a comment or sentence that said what the old pipeline did.
+//! `port_workflows` reads them as more `REWRITTEN_SPANS` rows.
+
+pub const SPANS: &[(&str, usize, usize)] = &[
+    (
+        "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
+        40,
+        41,
+    ),
+    ("gsd-core/references/verification-patterns.md", 203, 203),
+    ("gsd-core/references/verification-patterns.md", 209, 209),
+    ("gsd-core/references/verification-patterns.md", 293, 293),
+    ("gsd-core/references/verification-patterns.md", 336, 337),
+    ("gsd-core/references/verification-patterns.md", 426, 426),
+    ("gsd-core/references/verification-patterns.md", 429, 429),
+    ("gsd-core/references/scout-codebase.md", 36, 38),
+    ("gsd-core/references/planner-antipatterns.md", 112, 112),
+    ("gsd-core/references/planner-antipatterns.md", 123, 123),
+    ("gsd-core/references/planner-antipatterns.md", 146, 146),
+    ("gsd-core/references/planner-antipatterns.md", 190, 190),
+    ("gsd-core/references/planner-antipatterns.md", 207, 207),
+    (
+        "gsd-core/references/planner-verify-command-grounding.md",
+        34,
+        34,
+    ),
+    ("gsd-core/references/planner-chunked.md", 10, 10),
+    ("gsd-core/workflows/discuss-phase.md", 219, 219),
+    ("gsd-core/workflows/discuss-phase.md", 378, 378),
+    (
+        "gsd-core/workflows/discuss-phase/modes/default.md",
+        126,
+        126,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
+        34,
+        34,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
+        38,
+        38,
+    ),
+    (
+        "gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md",
+        61,
+        61,
+    ),
+    // Review's run directory is a `specforge files temp` path, not a `mktemp` one.
+    ("gsd-core/workflows/review.md", 617, 617),
+    ("gsd-core/workflows/review.md", 845, 845),
+    ("gsd-core/workflows/review.md", 847, 849),
+    ("gsd-core/workflows/review.md", 851, 851),
+    ("gsd-core/workflows/review.md", 853, 853),
+    ("gsd-core/workflows/review.md", 859, 859),
+    ("gsd-core/workflows/review.md", 866, 871),
+    ("gsd-core/workflows/review.md", 886, 886),
+    ("gsd-core/workflows/review.md", 889, 890),
+    ("gsd-core/workflows/review.md", 893, 893),
+    ("gsd-core/workflows/review.md", 895, 895),
+    ("gsd-core/workflows/review.md", 898, 912),
+    ("gsd-core/workflows/review.md", 915, 916),
+    ("gsd-core/workflows/review.md", 919, 920),
+    ("gsd-core/workflows/review.md", 922, 929),
+    ("gsd-core/workflows/review.md", 932, 932),
+];

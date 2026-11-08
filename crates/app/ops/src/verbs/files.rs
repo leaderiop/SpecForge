@@ -6,19 +6,23 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use specforge_effects::contained::{TEMP, temp_root};
 use specforge_effects::fs::{FileKind, READ_CEILING};
-use specforge_effects::{FsChange, FsChanged, FsOp, ListRequest, OutcomeClass, Place, Root};
+use specforge_effects::{
+    FsChange, FsChanged, FsListing, FsOp, FsRequest, ListRequest, OutcomeClass, Place, Root,
+};
 
-use super::{Access, Located, Verbs, refused};
+use super::{Access, Located, Verbs, refused, slashed};
 use crate::{OpError, OpErrorKind};
+
+mod search;
+
+pub(in crate::verbs) use search::checked_patterns;
+pub use search::{
+    Context, Counted, LINE_CHARS, Match, SEARCH_BYTES, SEARCH_MAX, Search, SearchAnswer,
+    SearchMode, Stdin, Unread, UnreadWhy, search,
+};
 
 /// The most entries `list` answers unless asked for another bound.
 pub const LIST_MAX: usize = 10_000;
-/// The most matches `search` answers unless asked for another bound.
-pub const SEARCH_MAX: usize = 1_000;
-/// The most bytes one search reads, over every file.
-pub const SEARCH_BYTES: u64 = 64 * 1024 * 1024;
-/// The most characters of a matching line an answer keeps.
-pub const LINE_CHARS: usize = 500;
 
 /// One path `stat` asked about.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -51,6 +55,9 @@ pub struct ListEntry {
     pub path: String,
     pub kind: FileKind,
     pub size: u64,
+    /// A file's lines (see [`lines_of`]), only under `lines`; null when it was not read whole.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lines: Option<Option<usize>>,
 }
 
 /// `files list`'s answer.
@@ -58,6 +65,9 @@ pub struct ListEntry {
 pub struct ListAnswer {
     pub entries: Vec<ListEntry>,
     pub count: usize,
+    /// The lines of every file read whole, only under `lines`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lines: Option<usize>,
     /// It stopped at its bound.
     pub truncated: bool,
 }
@@ -73,37 +83,8 @@ pub struct List {
     pub ignore: bool,
     pub hidden: bool,
     pub max: usize,
-}
-
-/// One line `search` matched.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct Match {
-    pub path: String,
-    /// 1-based.
-    pub line: usize,
-    /// 1-based, in characters.
-    pub column: usize,
-    /// The line, at most [`LINE_CHARS`] characters.
-    pub text: String,
-}
-
-/// `files search`'s answer.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct SearchAnswer {
-    pub matches: Vec<Match>,
-    pub count: usize,
-    /// It stopped at its bound, or a file was larger than one read.
-    pub truncated: bool,
-}
-
-/// What `files search` asks.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Search {
-    pub pattern: String,
-    pub paths: Vec<PathBuf>,
-    pub globs: Vec<String>,
-    pub ignore_case: bool,
-    pub max: usize,
+    /// Count each file's lines, and their total.
+    pub lines: bool,
 }
 
 /// Each of `paths`: its kind, size and modification time, or that it does not exist.
@@ -131,7 +112,7 @@ pub fn stat(verbs: &Verbs, paths: &[PathBuf]) -> Result<StatAnswer, OpError> {
         entries.push(StatEntry {
             path: shown,
             root: located.root.as_str().to_string(),
-            real: located.at.to_string_lossy().replace('\\', "/"),
+            real: slashed(&located.at),
             name,
             parent,
             exists: stat.is_some(),
@@ -146,28 +127,60 @@ pub fn stat(verbs: &Verbs, paths: &[PathBuf]) -> Result<StatAnswer, OpError> {
     Ok(StatAnswer { entries })
 }
 
-/// The globs, checked: `invalid_input` names the one that does not parse.
-fn checked_globs(globs: &[String]) -> Result<(), OpError> {
-    for glob in globs {
-        globset::Glob::new(glob).map_err(|error| {
-            OpError::new(
-                OpErrorKind::InvalidInput,
-                OpErrorKind::InvalidInput.as_str(),
-                format!("the glob {glob:?} does not parse: {error}"),
-            )
-        })?;
-    }
-    Ok(())
+/// An `invalid_input` refusal.
+fn invalid(why: impl Into<String>) -> OpError {
+    OpError::new(
+        OpErrorKind::InvalidInput,
+        OpErrorKind::InvalidInput.as_str(),
+        why,
+    )
 }
 
-/// The entries under `list.dir`.
-pub fn list(verbs: &Verbs, list: &List) -> Result<ListAnswer, OpError> {
-    checked_globs(&list.globs)?;
+/// The globs, as the port would read them: `invalid_input` names one it refuses.
+fn checked_globs(verbs: &Verbs, globs: &[String]) -> Result<(), OpError> {
+    verbs
+        .ports()
+        .fs
+        .glob_fault(globs)
+        .map_or(Ok(()), |why| Err(invalid(why)))
+}
+
+/// What a walk reaches: a [`ListRequest`] without the place, which [`walk`] holds to the roots.
+pub(super) struct Reach<'a> {
+    pub(super) globs: &'a [String],
+    pub(super) kind: Option<FileKind>,
+    pub(super) depth: Option<usize>,
+    pub(super) ignore: bool,
+    pub(super) hidden: bool,
+    pub(super) max: usize,
+}
+
+impl<'a> Reach<'a> {
+    /// What `files list --kind file` reaches with `globs` and no other flag: files at any depth, `.gitignore`
+    /// honoured, hidden names skipped, at most [`LIST_MAX`].
+    pub(super) fn files(globs: &'a [String]) -> Self {
+        Reach {
+            globs,
+            kind: Some(FileKind::File),
+            depth: None,
+            ignore: true,
+            hidden: false,
+            max: LIST_MAX,
+        }
+    }
+}
+
+/// The walk of `dir`: where it landed, and what it listed; a refused walk is refused whole.
+pub(super) fn walk(
+    verbs: &Verbs,
+    dir: &Path,
+    reach: Reach<'_>,
+) -> Result<(Located, FsListing), OpError> {
     let (located, request) = verbs.held(
-        &list.dir,
+        dir,
         FsOp::Walk {
             glob: None,
-            max_entries: list.max.min(u32::MAX as usize) as u32,
+            max_entries: reach.max.min(u32::MAX as usize) as u32,
         },
     )?;
     let listing = verbs.ports().fs.list(
@@ -175,17 +188,46 @@ pub fn list(verbs: &Verbs, list: &List) -> Result<ListAnswer, OpError> {
         &ListRequest {
             root: request.root,
             path: request.path,
-            globs: list.globs.clone(),
-            kind: list.kind,
-            depth: list.depth,
-            ignore: list.ignore,
-            hidden: list.hidden,
-            max_entries: list.max,
+            globs: reach.globs.to_vec(),
+            kind: reach.kind,
+            depth: reach.depth,
+            ignore: reach.ignore,
+            hidden: reach.hidden,
+            max_entries: reach.max,
         },
     );
     if listing.class != OutcomeClass::Ok {
         return Err(refused(listing.class, &verbs.shown(&located.at)));
     }
+    Ok((located, listing))
+}
+
+/// A read of `rel` in `root`, to `max_bytes`.
+fn read_request(root: &Root, rel: &str, max_bytes: u64) -> FsRequest {
+    FsRequest {
+        root: root.as_str().to_string(),
+        path: rel.to_string(),
+        op: FsOp::Read { max_bytes },
+    }
+}
+
+/// The entries under `list.dir`.
+pub fn list(verbs: &Verbs, list: &List) -> Result<ListAnswer, OpError> {
+    checked_globs(verbs, &list.globs)?;
+    let (located, listing) = walk(
+        verbs,
+        &list.dir,
+        Reach {
+            globs: &list.globs,
+            kind: list.kind,
+            depth: list.depth,
+            ignore: list.ignore,
+            hidden: list.hidden,
+            max: list.max,
+        },
+    )?;
+    let mut truncated = listing.truncated;
+    let mut budget = SEARCH_BYTES;
     let entries: Vec<ListEntry> = listing
         .entries
         .iter()
@@ -193,121 +235,125 @@ pub fn list(verbs: &Verbs, list: &List) -> Result<ListAnswer, OpError> {
             path: verbs.shown_in(&located.root, &entry.path),
             kind: entry.kind,
             size: entry.size,
+            lines: (list.lines && entry.kind == FileKind::File).then(|| {
+                let (lines, cut) = lines_read(verbs, &located.root, &entry.path, &mut budget);
+                truncated |= cut;
+                lines
+            }),
         })
         .collect();
     Ok(ListAnswer {
         count: entries.len(),
+        lines: list.lines.then(|| {
+            entries
+                .iter()
+                .filter_map(|entry| entry.lines.flatten())
+                .sum()
+        }),
         entries,
-        truncated: listing.truncated,
+        truncated,
     })
 }
 
-/// The lines under `search.paths` that match `search.pattern`, the first match of each line.
-pub fn search(verbs: &Verbs, search: &Search) -> Result<SearchAnswer, OpError> {
-    checked_globs(&search.globs)?;
-    let pattern = regex::RegexBuilder::new(&search.pattern)
-        .case_insensitive(search.ignore_case)
-        .build()
-        .map_err(|error| {
-            OpError::new(
-                OpErrorKind::InvalidInput,
-                OpErrorKind::InvalidInput.as_str(),
-                format!("the pattern does not parse: {error}"),
-            )
-        })?;
-    let mut answer = SearchAnswer {
-        matches: Vec::new(),
-        count: 0,
-        truncated: false,
-    };
-    let mut budget = SEARCH_BYTES;
-    let typed: Vec<PathBuf> = if search.paths.is_empty() {
-        vec![PathBuf::from(".")]
-    } else {
-        search.paths.clone()
-    };
-    for path in &typed {
-        let (located, request) = verbs.held(path, FsOp::Stat)?;
-        let outcome = verbs.ports().fs.run(verbs.roots(), &request);
-        let files: Vec<(Root, String)> = match (outcome.class, outcome.stat.map(|stat| stat.kind)) {
-            (OutcomeClass::Ok, Some(FileKind::Dir)) => {
-                let (walked, walk) = verbs.held(
-                    path,
-                    FsOp::Walk {
-                        glob: None,
-                        max_entries: LIST_MAX as u32,
-                    },
-                )?;
-                let listing = verbs.ports().fs.list(
-                    verbs.roots(),
-                    &ListRequest {
-                        root: walk.root,
-                        path: walk.path,
-                        globs: search.globs.clone(),
-                        kind: Some(FileKind::File),
-                        depth: None,
-                        ignore: true,
-                        hidden: false,
-                        max_entries: LIST_MAX,
-                    },
-                );
-                answer.truncated |= listing.truncated;
-                listing
-                    .entries
-                    .into_iter()
-                    .map(|entry| (walked.root.clone(), entry.path))
-                    .collect()
-            }
-            (OutcomeClass::Ok, _) => vec![(located.root.clone(), request.path.clone())],
-            (class, _) => return Err(refused(class, &verbs.shown(&located.at))),
-        };
-        for (root, rel) in files {
-            if answer.matches.len() >= search.max || budget == 0 {
-                answer.truncated = true;
-                break;
-            }
-            let read = specforge_effects::FsRequest {
-                root: root.as_str().to_string(),
-                path: rel.clone(),
-                op: FsOp::Read {
-                    max_bytes: READ_CEILING.min(budget),
-                },
-            };
-            // A withheld file or one the ceiling leaves unread is not searched.
-            if verbs.permit_fs(&read).is_err() {
-                continue;
-            }
-            let outcome = verbs.ports().fs.run(verbs.roots(), &read);
-            if outcome.class != OutcomeClass::Ok {
-                continue;
-            }
-            budget = budget.saturating_sub(outcome.bytes.len() as u64);
-            answer.truncated |= outcome.truncated;
-            // A binary file, as git decides one (a NUL in its first 8000 bytes), is not searched.
-            if specforge_effects::git::is_binary(&outcome.bytes) {
-                continue;
-            }
-            let text = String::from_utf8_lossy(&outcome.bytes);
-            let shown = verbs.shown_in(&root, &rel);
-            for (at, line) in text.lines().enumerate() {
-                let Some(found) = pattern.find(line) else {
-                    continue;
-                };
-                if answer.matches.len() >= search.max {
-                    answer.truncated = true;
-                    break;
-                }
-                answer.matches.push(Match {
-                    path: shown.clone(),
-                    line: at + 1,
-                    column: line[..found.start()].chars().count() + 1,
-                    text: line.chars().take(LINE_CHARS).collect(),
-                });
-            }
-        }
+/// The lines of the file `rel` in `root`, read whole within `budget` (which the read spends), and whether a bound cut
+/// it: none, and cut, when the file is larger than one read or past the budget; none, not cut, when it is withheld.
+fn lines_read(verbs: &Verbs, root: &Root, rel: &str, budget: &mut u64) -> (Option<usize>, bool) {
+    let read = read_request(root, rel, READ_CEILING.min(*budget));
+    if verbs.permit_fs(&read).is_err() {
+        return (None, false);
     }
-    answer.count = answer.matches.len();
+    let outcome = verbs.ports().fs.run(verbs.roots(), &read);
+    *budget = budget.saturating_sub(outcome.bytes.len() as u64);
+    match outcome.class {
+        OutcomeClass::Ok if !outcome.truncated => (Some(lines_of(&outcome.bytes)), false),
+        OutcomeClass::Ok | OutcomeClass::Capped => (None, true),
+        _ => (None, false),
+    }
+}
+
+/// `files read`'s answer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReadAnswer {
+    pub path: String,
+    /// The bytes read as UTF-8, an invalid sequence replaced.
+    pub text: String,
+    /// How many bytes were read.
+    pub bytes: u64,
+    /// See [`lines_of`].
+    pub lines: usize,
+    /// The file is larger than one read ([`READ_CEILING`]).
+    pub truncated: bool,
+}
+
+/// A file's text, through one capped read: a directory is `invalid_input`, a missing file `file_not_found`, and the
+/// host's state or a credential is refused.
+pub fn read(verbs: &Verbs, typed: &Path) -> Result<ReadAnswer, OpError> {
+    read_bytes(verbs, typed).map(|(answer, _)| answer)
+}
+
+/// [`read`], where the answer's text must be the file's bytes exactly, as `cat` gives them (`files read --format
+/// human`): a file larger than one read, one that is not UTF-8, and one holding a character a terminal acts on (which
+/// the human form would escape) are refused, each with its reason, never answered in part or altered.
+pub fn read_exact(verbs: &Verbs, typed: &Path) -> Result<ReadAnswer, OpError> {
+    let (answer, utf8) = read_bytes(verbs, typed)?;
+    let whole = |why: String| {
+        Err(OpError::new(
+            OpErrorKind::PreconditionFailed,
+            OpErrorKind::PreconditionFailed.as_str(),
+            format!(
+                "{} {why}: its JSON answer reads it and says so",
+                answer.path
+            ),
+        ))
+    };
+    if answer.truncated {
+        return whole(format!(
+            "is larger than one read ({} bytes), so its text would be cut",
+            READ_CEILING
+        ));
+    }
+    if !utf8 {
+        return whole("is not UTF-8, so its text would be altered".to_string());
+    }
+    if let Some((at, c)) = specforge_common::remedy::unprintable_in_lines(&answer.text) {
+        return whole(format!(
+            "holds {} at byte {at}, which the human form escapes",
+            c.escape_default()
+        ));
+    }
     Ok(answer)
+}
+
+/// [`read`]'s answer, and whether the bytes were UTF-8.
+fn read_bytes(verbs: &Verbs, typed: &Path) -> Result<(ReadAnswer, bool), OpError> {
+    let (located, request) = verbs.held(
+        typed,
+        FsOp::Read {
+            max_bytes: READ_CEILING,
+        },
+    )?;
+    let shown = verbs.shown(&located.at);
+    let outcome = verbs.ports().fs.run(verbs.roots(), &request);
+    if outcome.class != OutcomeClass::Ok {
+        return Err(refused(outcome.class, &shown));
+    }
+    if outcome.stat.is_some_and(|stat| stat.kind != FileKind::File) {
+        return Err(invalid(format!("{shown} is not a file")));
+    }
+    let answer = ReadAnswer {
+        path: shown,
+        text: String::from_utf8_lossy(&outcome.bytes).into_owned(),
+        bytes: outcome.bytes.len() as u64,
+        lines: lines_of(&outcome.bytes),
+        truncated: outcome.truncated,
+    };
+    Ok((answer, std::str::from_utf8(&outcome.bytes).is_ok()))
+}
+
+/// The lines of `bytes`: its `\n`s, and one more for a last line with none, which `wc -l` does not count.
+pub fn lines_of(bytes: &[u8]) -> usize {
+    let newlines = bytes.iter().filter(|&&byte| byte == b'\n').count();
+    newlines + usize::from(bytes.last().is_some_and(|&last| last != b'\n'))
 }
 
 /// `files temp`'s answer.
@@ -324,6 +370,8 @@ pub struct Temp {
     pub dir: bool,
     pub prefix: String,
     pub suffix: String,
+    /// One stable name, the same path every call, in place of a new one.
+    pub name: Option<String>,
 }
 
 /// `files mkdir`, `copy`, `move` and `remove`'s answer.
@@ -349,26 +397,37 @@ pub struct DigestAnswer {
     pub digests: Vec<Digested>,
 }
 
-/// A new empty file (`0600`), or directory (`0700`), with a name no other has, in the `temp` root, made on first use.
+/// A new empty file (`0600`), or directory (`0700`), with a name no other has, in the `temp` root, made on first use;
+/// with `name`, that one path, made when missing and kept when it is there.
 pub fn temp(verbs: Verbs, temp: &Temp) -> Result<TempAnswer, OpError> {
-    for (what, part) in [("prefix", &temp.prefix), ("suffix", &temp.suffix)] {
+    let named = temp.name.iter().map(|name| ("name", name));
+    for (what, part) in [
+        ("name's prefix", &temp.prefix),
+        ("name's suffix", &temp.suffix),
+    ]
+    .into_iter()
+    .chain(named)
+    {
         if part.contains(['/', '\\']) || part.contains("..") || part.chars().any(char::is_control) {
-            return Err(OpError::new(
-                OpErrorKind::InvalidInput,
-                OpErrorKind::InvalidInput.as_str(),
-                format!("the name's {what} {part:?} takes no separator and no `..`"),
-            ));
+            return Err(invalid(format!(
+                "the {what} {part:?} takes no separator and no `..`"
+            )));
         }
     }
-    let mut random = [0u8; 8];
-    getrandom::fill(&mut random).map_err(|error| {
+    if let Some(name) = &temp.name {
+        // `.` is the temp root itself.
+        if name.is_empty() || name == "." {
+            return Err(invalid(format!("{name:?} names no file in the temp root")));
+        }
+        return stable_temp(verbs, name, temp.dir);
+    }
+    let hex = crate::random::random_hex::<8>().map_err(|error| {
         OpError::new(
             OpErrorKind::Internal,
             OpErrorKind::Internal.as_str(),
             format!("no random name: {error}"),
         )
     })?;
-    let hex: String = random.iter().map(|b| format!("{b:02x}")).collect();
     let name = format!("{}{hex}{}", temp.prefix, temp.suffix);
     let at = Place {
         root: TEMP.to_string(),
@@ -387,6 +446,63 @@ pub fn temp(verbs: Verbs, temp: &Temp) -> Result<TempAnswer, OpError> {
     Ok(TempAnswer {
         path: root.join(name).to_string_lossy().into_owned(),
     })
+}
+
+/// `<temp root>/<name>`: made (owner-only) when missing, kept when it is there with the kind `dir` asks, refused when
+/// it is the other kind or a link.
+fn stable_temp(verbs: Verbs, name: &str, dir: bool) -> Result<TempAnswer, OpError> {
+    verbs.permit_write(&temp_root(), name)?;
+    let (verbs, root) = verbs.make_temp_root()?;
+    let typed = root.join(name);
+    let answer = TempAnswer {
+        path: typed.to_string_lossy().into_owned(),
+    };
+    // A write names the link itself, a read where it lands: they differ only for a link.
+    if verbs.located(&typed, &Access::Write)?.at
+        != verbs.located(&typed, &Access::Fs(FsOp::Stat))?.at
+    {
+        return Err(invalid(format!("{} is a link", answer.path)));
+    }
+    let kept = |verbs: &Verbs| -> Result<Option<TempAnswer>, OpError> {
+        let stat = verbs.ports().fs.run(
+            verbs.roots(),
+            &FsRequest {
+                root: TEMP.to_string(),
+                path: name.to_string(),
+                op: FsOp::Stat,
+            },
+        );
+        match (stat.class, stat.stat.map(|stat| stat.kind)) {
+            (OutcomeClass::Missing, _) => Ok(None),
+            (OutcomeClass::Ok, Some(kind)) if (kind == FileKind::Dir) == dir => {
+                Ok(Some(answer.clone()))
+            }
+            (OutcomeClass::Ok, _) => Err(invalid(format!(
+                "{} is there, and not a {}",
+                answer.path,
+                if dir { "directory" } else { "file" }
+            ))),
+            (class, _) => Err(refused(class, &answer.path)),
+        }
+    };
+    if let Some(answer) = kept(&verbs)? {
+        return Ok(answer);
+    }
+    let made = verbs.ports().fs.change(
+        verbs.roots(),
+        &FsChange::Create {
+            at: Place {
+                root: TEMP.to_string(),
+                path: name.to_string(),
+            },
+            dir,
+        },
+    );
+    match changed(&verbs, made) {
+        Ok(_) => Ok(answer),
+        // Another call made it first: what it made is answered when it is the kind asked.
+        Err(error) => kept(&verbs)?.ok_or(error),
+    }
 }
 
 /// Each of `paths` made, with its missing parents.
@@ -410,6 +526,7 @@ pub fn mkdir(verbs: &Verbs, paths: &[PathBuf]) -> Result<ChangeAnswer, OpError> 
 /// `from` copied onto `to`, or into it when it is a directory; a directory with what it holds.
 pub fn copy(verbs: &Verbs, from: &Path, to: &Path) -> Result<ChangeAnswer, OpError> {
     let source = verbs.located(from, &Access::Fs(FsOp::Read { max_bytes: 0 }))?;
+    keeps_no_git_name(&source, to)?;
     let change = FsChange::Copy {
         from: place(&source),
         to: written(verbs, to)?,
@@ -421,6 +538,7 @@ pub fn copy(verbs: &Verbs, from: &Path, to: &Path) -> Result<ChangeAnswer, OpErr
 
 /// `from` moved onto `to`, or into it when it is a directory: renamed in one device, copied then removed across two.
 pub fn move_to(verbs: &Verbs, from: &Path, to: &Path) -> Result<ChangeAnswer, OpError> {
+    keeps_no_git_name(&verbs.located(from, &Access::Write)?, to)?;
     let change = FsChange::Move {
         from: written(verbs, from)?,
         to: written(verbs, to)?,
@@ -428,6 +546,16 @@ pub fn move_to(verbs: &Verbs, from: &Path, to: &Path) -> Result<ChangeAnswer, Op
     Ok(ChangeAnswer {
         changed: changed(verbs, verbs.ports().fs.change(verbs.roots(), &change))?,
     })
+}
+
+/// A source goes into `to` under its own name when `to` is a directory, so one named `.git` would write a `.git` there.
+fn keeps_no_git_name(source: &Located, to: &Path) -> Result<(), OpError> {
+    match source.at.file_name() {
+        Some(name) if name.eq_ignore_ascii_case(".git") => {
+            super::refuse_git_directory(&to.join(name))
+        }
+        _ => Ok(()),
+    }
 }
 
 /// Each of `paths` removed: a file, an empty directory, or with `recursive` a directory and what it holds. A root, or
@@ -472,11 +600,7 @@ pub fn digest(
         let shown = verbs.shown(&located.at);
         let stat = verbs.ports().fs.run(verbs.roots(), &request);
         if stat.stat.is_some_and(|stat| stat.kind != FileKind::File) {
-            return Err(OpError::new(
-                OpErrorKind::InvalidInput,
-                OpErrorKind::InvalidInput.as_str(),
-                format!("{shown} is not a file"),
-            ));
+            return Err(invalid(format!("{shown} is not a file")));
         }
         let located = verbs.located(typed, &Access::Fs(FsOp::Read { max_bytes: 0 }))?;
         let digest = verbs.ports().fs.digest(verbs.roots(), &place(&located));

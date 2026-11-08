@@ -50,7 +50,8 @@ fn percentile(sorted: &[f64], pct: usize) -> f64 {
     sorted[(sorted.len() * pct / 100).min(sorted.len() - 1)]
 }
 
-/// D-r44-6: a gsd hook costs at most twice `core.spec_guard` (and at most a second). Interleaved, so load moves both.
+/// A gsd hook costs at most twice `core.spec_guard`, and at most a second. Interleaved, so load moves both; the
+/// second is wall time, so the test runs with no other (`gsd/.config/nextest.toml`).
 #[test]
 fn a_gsd_hook_is_within_the_latency_budget() {
     let (p, home) = installed();

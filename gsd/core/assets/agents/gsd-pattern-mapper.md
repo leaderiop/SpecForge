@@ -15,7 +15,7 @@ If the prompt contains a `<required_reading>` block, you MUST use the `Read` too
 - Read each analog and extract concrete code excerpts (imports, auth patterns, core pattern, error handling)
 - Produce PATTERNS.md with per-file pattern assignments and code to copy from
 
-**Read-only constraint:** You MUST NOT modify any source code files. The only file you write is PATTERNS.md in the phase directory. All codebase interaction is read-only (Read, Bash, Glob, Grep). Never use `Bash(cat << 'EOF')` or heredoc commands for file creation — use the Write tool.
+**Read-only constraint:** You MUST NOT modify any source code files, and you write no file: the pattern map is your reply. All codebase interaction is read-only (Read, Bash, Glob, Grep). Never use `Bash(cat << 'EOF')` or heredoc commands.
 </role>
 
 <project_context>
@@ -146,11 +146,11 @@ Look for cross-cutting patterns that apply to multiple new files:
 - Response formatting
 - Database connection/transaction patterns
 
-## Step 6: Write PATTERNS.md
+## Step 6: Compose the pattern map
 
-**ALWAYS use the Write tool** — never use `Bash(cat << 'EOF')` or heredoc commands for file creation.
+**Write no file** — no Write, no `Bash(cat << 'EOF')`, no heredoc: the report is your reply.
 
-Write to: `$PHASE_DIR/$PADDED_PHASE-PATTERNS.md`
+Write to: nothing — the report is your reply: @gsd/core keeps no PATTERNS.md, and the pattern map entity is @gsd/codebase's
 
 ## Step 7: Return Structured Result
 
@@ -295,7 +295,7 @@ Files with no close match in the codebase (planner should use RESEARCH.md patter
 - [pattern 3 — e.g., "Error handling uses centralized AppError class"]
 
 ### File Created
-`$PHASE_DIR/$PADDED_PHASE-PATTERNS.md`
+none: the report is this reply
 
 ### Ready for Planning
 Pattern mapping complete. Planner can now reference analog patterns in PLAN.md files.
@@ -307,9 +307,9 @@ Pattern mapping complete. Planner can now reference analog patterns in PLAN.md f
 
 - **No re-reads:** Never re-read a range already in context. Small files: one Read call, extract everything. Large files: multiple non-overlapping targeted reads are fine; duplicate ranges are not.
 - **Large files (> 2,000 lines):** Use Grep to find the line range first, then Read with offset/limit. Never load the whole file when a targeted section suffices.
-- **Stop at 3–5 analogs:** Once you have enough strong matches, write PATTERNS.md. Broader search produces diminishing returns and wastes tokens.
-- **No source edits:** PATTERNS.md is the only file you write. All other file access is read-only.
-- **No heredoc writes:** Always use the Write tool, never `Bash(cat << 'EOF')`.
+- **Stop at 3–5 analogs:** Once you have enough strong matches, compose the report. Broader search produces diminishing returns and wastes tokens.
+- **No source edits:** You write no file. All file access is read-only.
+- **No file writes:** The report is your reply, never a Write or `Bash(cat << 'EOF')`.
 
 </critical_rules>
 
@@ -322,7 +322,7 @@ Pattern mapping is complete when:
 - [ ] Each analog read and concrete code excerpts extracted
 - [ ] Shared cross-cutting patterns identified
 - [ ] Files with no analog clearly listed
-- [ ] PATTERNS.md written to correct phase directory
+- [ ] The pattern map returned in the reply
 - [ ] Structured return provided to orchestrator
 
 Quality indicators:

@@ -163,3 +163,28 @@ fn plan_phase_steps_into_execute_phase() {
         .clone();
     assert_eq!(last["prompt"], "specforge.gsd.execute_phase");
 }
+
+/// The inline plan's times are the commands': opened before its first task, closed on its summary, and nothing the
+/// model writes or the shell keeps.
+#[test]
+fn the_inline_plan_opens_and_closes_through_the_commands() {
+    let text = text_of(&payload(&prompt(
+        &twin(),
+        "execute_plan",
+        &[TWIN_PLAN],
+        "claude-code",
+    )));
+    let opened = text
+        .find("specforge gsd start-plan \"$PLAN_ID\" --head \"$(specforge git head --pick .sha)\" || exit 1")
+        .expect("the plan opens through start-plan");
+    let first_task = text
+        .find("<step name=\"execute\"")
+        .expect("the execute step");
+    assert!(opened < first_task);
+    assert!(text.contains("specforge gsd complete-plan \"$SUMMARY_ID\" || exit 1"));
+    assert!(!text.contains("--started"));
+    assert!(!text.contains("$(date"));
+    assert!(!text.contains("PLAN_END_"));
+    assert!(!text.contains("duration ($DURATION)"));
+    assert!(!text.contains("--duration"));
+}

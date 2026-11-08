@@ -12,6 +12,18 @@
  .specforge/state/gsd__core/                 (session state: never committed)
 ```
 
+## plan_start
+
+Upstream: `PLAN_START_TIME`, a shell variable. Named `START`, scoped by its plan, in the plan's own file. Its own entity:
+a plan's plan-check verdicts read the plan and its siblings (`self`, `siblings`), so a field on the plan would make them
+stale.
+
+| Field | Type | Flags | GSD |
+|---|---|---|---|
+| plan | → plan | R, I | the plan it opened |
+| at | ts | H | written once by `start_plan`, with the host's clock; a second call answers it, and `complete_plan` copies it to the summary's `started` |
+| head | string | H | the commit the plan opened at: written once by `start_plan --head`, whichever call first brings it; none on an unborn branch. The executor's `commits:` counts from it. Upstream's `PLAN_HEAD_BEFORE` file |
+
 ## summary
 
 GSD: `NN-MM-SUMMARY.md`, written by the executor when a plan ends. It lives in the plan's own file, so executors of
@@ -33,7 +45,7 @@ one wave never write the same file. Name: the GSD file stem (`03-02-SUMMARY`), s
 | threat_flags | strs | | `## Threat Flags` |
 | next_readiness | str | | `## Next Phase Readiness` |
 | halted_because | str | | required when `status halted` |
-| started, completed | ts | H | `completed:`; both written by `complete_plan` (`--started` is the time `start_plan` answered, `completed` is the host's clock, `now`, protocol 1.11.0, K14): no summary exists when a plan starts, and one made without its required fields is refused, so `start_plan` writes nothing |
+| started, completed | ts | H | `completed:`; both written by `complete_plan` (`started` from the plan's `plan_start`, `completed` the host's clock, `now`, protocol 1.11.0, K14): no summary exists when a plan starts, and one made without its required fields is refused |
 | duration | str | C | `duration:`: `completed` − `started`, as `45 min` under an hour and `1h 5m` from there; absent until both are recorded |
 | actuals | {tasks int, commits int} | C | `actuals:`: tasks from the plan, commits from the recorded commits (0 with none). GSD's `tokens` is absent until a harness exists (it stays out of the core rounds, decision U4) |
 | files_created, files_modified | strs | C | `key-files:`: from the plan's commits: `created` is the sorted union of their `created`, `modified` the other paths they touch; both absent with no commit. Paths are text, not `files`: a commit may delete or rename a path, and the host's E016 would fire on it |

@@ -122,7 +122,7 @@ Parse the `success_criteria` array from the JSON output. These are the **roadmap
 **Step 2b: Load PLAN frontmatter must-haves (if present)**
 
 ```bash
-grep -l "must_haves:" "$PHASE_DIR"/*-PLAN.md 2>/dev/null
+specforge query "$PHASE_ID" --depth 2 --kinds truth,artifact,key_link --format json   # the plans' must-haves
 ```
 
 If found, extract:
@@ -263,10 +263,10 @@ For each artifact in result:
 
 ```bash
 # Import check
-grep -r "import.*$artifact_name" "${search_path:-src/}" --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l
+specforge files search "import.*$artifact_name" "${search_path:-src/}" --glob '*.ts' --glob '*.tsx' --pick .count
 
 # Usage check (beyond imports)
-grep -r "$artifact_name" "${search_path:-src/}" --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "import" | wc -l
+specforge files search "$artifact_name" "${search_path:-src/}" --glob '*.ts' --glob '*.tsx' --and-not import --pick .count
 ```
 
 **Wiring status:**
@@ -346,7 +346,7 @@ Verify each link below; per-pattern procedures and recipes:
 **6a. Extract requirement IDs from PLAN frontmatter:**
 
 ```bash
-grep -A5 "^requirements:" "$PHASE_DIR"/*-PLAN.md 2>/dev/null
+specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].fields.requirements[]'
 ```
 
 Collect ALL requirement IDs declared across plans for this phase.
@@ -378,32 +378,32 @@ Identify files modified in this phase from the summary's `key_files`, or extract
 SUMMARY_FILES=$(specforge query "$PHASE_ID" --depth 2 --kinds summary --format json)   # each summary's key_files
 
 # Option 2: Verify commits exist (if commit hashes documented)
-COMMIT_HASHES=$(grep -oE "[a-f0-9]{7,40}" "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null | head -10)
+COMMIT_HASHES=$(specforge query "$PHASE_ID" --depth 3 --kinds commit --pick '.nodes[kind=commit].fields.hash')
 if [ -n "$COMMIT_HASHES" ]; then
   # Every hash must be a commit; "missing" is a finding. Not a git repo: report that you could not look.
   COMMITS_VALID=$(for h in $COMMIT_HASHES; do [ "$(specforge git rev "$h^{commit}" --pick '.revs[0].exists' 2>/dev/null)" = true ] && echo "$h ok" || echo "$h missing"; done)
 fi
 
-# Fallback: grep for files
-grep -E "^\- \`" "$PHASE_DIR"/*-SUMMARY.md | sed 's/.*`\([^`]*\)`.*/\1/' | sort -u
+# The files the summaries list
+for f in files_created files_modified; do specforge query "$PHASE_ID" --depth 2 --kinds summary --pick ".nodes[kind=summary].fields.$f[]"; done
 ```
 
-Run anti-pattern detection on each file:
+Run anti-pattern detection on each file. For the files a plan declares, `verification.anti_patterns` and `gsd/E505` already hold the debt markers and placeholder phrases; these searches also reach the files no plan declares:
 
 ```bash
 # Debt-marker comments
-grep -n -E "TBD|FIXME|XXX" "$file" 2>/dev/null
+specforge files search 'TBD|FIXME|XXX' "$file" --format human
 # Warning-level cleanup comments
-grep -n -E "TODO|HACK|PLACEHOLDER" "$file" 2>/dev/null
-grep -n -E "placeholder|coming soon|will be here|not yet implemented|not available" "$file" -i 2>/dev/null
+specforge files search 'TODO|HACK|PLACEHOLDER' "$file" --format human
+specforge files search -i 'placeholder|coming soon|will be here|not yet implemented|not available' "$file" --format human
 # Empty implementations
-grep -n -E "return null|return \{\}|return \[\]|=> \{\}" "$file" 2>/dev/null
+specforge files search 'return null|return \{\}|return \[\]|=> \{\}' "$file" --format human
 # Hardcoded empty data (common stub patterns)
-grep -n -E "=\s*\[\]|=\s*\{\}|=\s*null|=\s*undefined" "$file" 2>/dev/null | grep -v -E "(test|spec|mock|fixture|\.test\.|\.spec\.)" 2>/dev/null
+specforge files search '=\s*\[\]|=\s*\{\}|=\s*null|=\s*undefined' "$file" --and-not '(test|spec|mock|fixture|\.test\.|\.spec\.)' --format human
 # Props with hardcoded empty values (React/Vue/Svelte stub indicators)
-grep -n -E "=\{(\[\]|\{\}|null|undefined|''|\"\")\}" "$file" 2>/dev/null
+specforge files search "=\{(\[\]|\{\}|null|undefined|''|\"\")\}" "$file" --format human
 # Console.log only implementations
-grep -n -B 2 -A 2 "console\.log" "$file" 2>/dev/null | grep -E "^\s*(const|function|=>)"
+specforge files search -C 2 'console\.log' "$file" --format human
 ```
 
 **Stub classification:** A grep match is a STUB only when the value flows to rendering or user-visible output AND no other code path populates it with real data. A test helper, type default, or initial state that gets overwritten by a fetch/store is NOT a stub. Check for data-fetching (useEffect, fetch, query, useSWR, useQuery, subscribe) that writes to the same variable before flagging.
@@ -479,7 +479,7 @@ SUMMARY.md probe pass claims are not evidence. If a phase declares or implies pr
 specforge files list scripts --kind file --glob 'tests/probe-*.sh' --glob '*/tests/probe-*.sh' --pick '.entries[].path' 2>/dev/null
 
 # Phase-declared probes
-grep -R -n -E 'probe-[^[:space:]]+\.sh|scripts/.*/tests/probe-.*\.sh' "$PHASE_DIR"/*-PLAN.md "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null
+specforge files search 'probe-[^[:space:]]+\.sh|scripts/.*/tests/probe-.*\.sh' spec/ --no-ignore --pick '.matches[].text'
 ```
 
 **Execution contract:**

@@ -40,6 +40,7 @@ pub mod host;
 mod machine;
 mod noticed;
 pub mod options;
+mod random;
 pub mod read;
 mod refusal;
 pub mod registry;

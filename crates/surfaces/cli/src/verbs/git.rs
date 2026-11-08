@@ -68,12 +68,14 @@ pub(crate) enum Action {
     /// Where the repository is: its top directory, git directory and common directory, the current directory's prefix
     /// and the repository it is a submodule of
     Repo(Plain),
+    /// The repositories directly in a directory: each one's name, path, and whether it is clean, linked or unreadable
+    Repos(ReposArgs),
     /// HEAD's commit and branch, whether it is detached or unborn, and its upstream
     Head(Plain),
     /// What each revision names: its sha and kind, or that it names nothing
     Rev(RevArgs),
     /// The working tree's status: each changed, conflicted and untracked path, and whether it is clean
-    Status(Plain),
+    Status(StatusArgs),
     /// Every value a configuration key has, and the one git applies
     Config(ConfigArgs),
     /// The commits of a range, newest first, with their parents, people, message and trailers, and how many
@@ -98,6 +100,8 @@ pub(crate) enum Action {
     Rm(RmArgs),
     /// Make a directory a repository, unless it is one
     Init(InitArgs),
+    /// Copy a local repository into a new directory, its worktree on HEAD: no hook runs, and no remote is reached
+    Clone(CloneArgs),
     /// Run one of the repository's hooks
     #[command(subcommand)]
     Hook(HookAction),
@@ -134,6 +138,22 @@ impl Action {
             Action::Repo(args) => answer(&args.verb, terminal, ports, git::repo, |t, a| {
                 outln!(t, "{}", shown(&a.top));
             }),
+            Action::Repos(args) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::repos(v, &args.dir),
+                |t, a| {
+                    for repo in &a.repos {
+                        let state = match (repo.unreadable, repo.clean) {
+                            (true, _) => "unreadable",
+                            (false, true) => "clean",
+                            (false, false) => "dirty",
+                        };
+                        outln!(t, "{} {state}", shown(&repo.name));
+                    }
+                },
+            ),
             Action::Head(args) => answer(&args.verb, terminal, ports, git::head, |t, a| {
                 let at = a.sha.as_deref().unwrap_or("(unborn)");
                 outln!(
@@ -171,16 +191,23 @@ impl Action {
                     },
                 )
             }
-            Action::Status(args) => answer(&args.verb, terminal, ports, git::status, |t, a| {
-                for entry in &a.status.entries {
-                    // The word the JSON answer says (`untracked`), not the Rust variant's name.
-                    let kind = serde_json::to_value(entry.kind).expect("a unit variant serializes");
-                    let kind = kind
-                        .as_str()
-                        .expect("a unit variant serializes as a string");
-                    outln!(t, "{kind} {}", shown(&entry.path));
-                }
-            }),
+            Action::Status(args) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::status(v, &args.except, args.except_spec),
+                |t, a| {
+                    for entry in &a.status.entries {
+                        // The word the JSON answer says (`untracked`), not the Rust variant's name.
+                        let kind =
+                            serde_json::to_value(entry.kind).expect("a unit variant serializes");
+                        let kind = kind
+                            .as_str()
+                            .expect("a unit variant serializes as a string");
+                        outln!(t, "{kind} {}", shown(&entry.path));
+                    }
+                },
+            ),
             Action::Config(args) => {
                 let key = args.key;
                 answer(
@@ -316,6 +343,7 @@ impl Action {
                     paths: args.paths,
                     all: args.all,
                     except: args.except,
+                    except_spec: args.except_spec,
                     force: args.force,
                 };
                 // as git add: silent when it staged
@@ -346,6 +374,13 @@ impl Action {
                     },
                 )
             }
+            Action::Clone(args) => answer(
+                &args.verb,
+                terminal,
+                ports,
+                |v| git::clone(v, &args.source, &args.dir),
+                |t, a| outln!(t, "Cloned into {}", shown(&a.top)),
+            ),
             Action::Init(args) => answer(
                 &args.verb,
                 terminal,
@@ -585,7 +620,7 @@ fn picked(args: PickArgs, revert: bool, terminal: &Terminal, ports: &Ports) -> E
 fn diff_human(t: &Terminal, a: &git::DiffAnswer, (patch, stat, shortstat): (bool, bool, bool)) {
     let plural = |n: u64, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
     if !shortstat && (stat || !patch) {
-        for file in &a.files {
+        for git::DiffFile { file, .. } in &a.files {
             let counts = if file.binary {
                 "-\t-".to_string()
             } else {
@@ -608,7 +643,7 @@ fn diff_human(t: &Terminal, a: &git::DiffAnswer, (patch, stat, shortstat): (bool
     if !patch {
         return;
     }
-    for file in &a.files {
+    for git::DiffFile { file, .. } in &a.files {
         let old = file.old_path.as_deref().unwrap_or(&file.path);
         let side = |prefix: &str, path: &str, absent: bool| match absent {
             true => "/dev/null".to_string(),

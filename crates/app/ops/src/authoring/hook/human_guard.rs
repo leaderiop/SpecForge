@@ -12,10 +12,10 @@
 //! shortcut: a script file, a variable, `script(1)` typed by a person on the agent's behalf and a host with no shell
 //! hook are not seen; they are the bound ADR 0301 names. Upgrade when a host can say who typed.
 
-use specforge_protocol_types::Decision;
+use specforge_protocol_types::{Decision, shell};
 
 use super::Outcome;
-use crate::host::{HookAnswer, HostHookEvent, shell};
+use crate::host::{HookAnswer, HostHookEvent};
 use crate::view::ProjectView;
 
 pub use crate::host::render::HUMAN_GUARD;

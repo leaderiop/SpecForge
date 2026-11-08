@@ -297,17 +297,17 @@ issue:
 1. Count tasks per plan
 2. Estimate files modified per plan
 3. Check against thresholds
-4. **Smart-zone estimate check (#2631, ADR-2629).** For each plan carrying an `estimate` block, run the
-   `estimate-check --calibrated` verb against its `estimate.tokens` (the `--calibrated` flag is required —
-   the plan's figure already has the factor applied, and omitting it would square the correction) (invoked in Step 1 below, after the launcher
-   preamble). The verb reads `workflow.smart_zone_tokens` and applies the project's calibration. Report
-   one line per plan: plan id, estimated tokens, the budget, and — when `over_budget` is true — the
-   returned `recommendation`, which names how many slices the phase should become.
+4. **Smart-zone estimate check (#2631, ADR-2629).** For each plan carrying an `estimate` block, read
+   its `estimate_slices` from the plan query: the plan answers how many plans its `estimate.tokens`
+   makes under the `workflow.smart_zone_tokens` setting, so take the figure as it is. Report
+   one line per plan: plan id, `estimate.tokens`, and `estimate_slices`. A plan carrying an estimate
+   but no `estimate_slices` has no budget to read: say `workflow.smart_zone_tokens` is missing
+   rather than working the figure out.
 
-   **Over budget is a WARNING, never a blocker** (ADR-2629 Decision 5). Recommend re-slicing into a tracer
-   plus expansion slices; never fail the check on it. Report `estimate.confidence` alongside: `low` means
-   fewer than 3 completed phases carry actuals, so the figure is not yet calibrated for this project — say
-   so rather than presenting it as precise, and weigh the task/file thresholds above more heavily.
+   **Over 1 is a WARNING, never a blocker** (ADR-2629 Decision 5). Recommend re-slicing into a tracer
+   plus expansion slices, `estimate_slices` plans in all; never fail the check on it. The estimate
+   is a projection, not a measurement, and the plan carries no confidence for it: weigh the task/file
+   thresholds above beside it.
 
    A plan with no `estimate` block is not a defect; the field is optional and additive.
 
@@ -679,18 +679,18 @@ issue:
 **Question:** Do `<verify>` commands use patterns that can actually match the tool's output? Are numeric counts measured? Are errors suppressed into comparison-feeding defaults?
 
 **Red flags — BLOCKER:**
-- `pnpm ls … | grep -E '^package'` — `^` anchor on tree-formatted package manager output (never matches tree-prefixed lines)
+- `pnpm ls … | specforge files search -q '^package' -` — `^` anchor on tree-formatted package manager output (never matches tree-prefixed lines)
 - Any verify block with `VAR=$(cmd 2>/dev/null || echo "0"); [ "$VAR" = ... ]` — swallowed error feeds passing comparison
 - `|| true` or `|| :` as right-hand side of assignments that feed comparisons
 
 **Red flags — WARNING:**
-- Hard-coded count assertion (`grep '52 test files'`, `grep '714 passed'`) with no measurement provenance in the plan
+- Hard-coded count assertion (`specforge files search -q '52 test files' -`, `specforge files search -q '714 passed' -`) with no measurement provenance in the plan
 
 **Process:**
-1. For each `<automated>` block piping a package-manager list command into grep with a `^` anchor: BLOCKER.
+1. For each `<automated>` block piping a package-manager list command into a search with a `^` anchor: BLOCKER.
 2. For each `<automated>` block containing `2>/dev/null || echo` where the result feeds a `[ "$VAR" = ... ]` comparison: BLOCKER.
 3. For each `<automated>` block asserting a specific numeric count not cited as measured in this plan: WARNING.
-4. For each count/match gate (`grep -c`, `grep -q`, `rg`), run it — read-only commands only — against the current tree (#4927). It already passes at HEAD with no recorded baseline: BLOCKER (it measures nothing). A literal differing in case from the heading/key the task writes: BLOCKER. Never run a gate that builds, installs, or writes. See `planner-verify-command-grounding.md`.
+4. For each count/match gate (`specforge files search -q`, `specforge files search --none`, `specforge files search --pick .count`), run it — read-only commands only — against the current tree (#4927). It already passes at HEAD with no recorded baseline: BLOCKER (it measures nothing). A literal differing in case from the heading/key the task writes: BLOCKER. Never run a gate that builds, installs, or writes. See `planner-verify-command-grounding.md`.
 
 ## Dimension: Verify Command Path Resolvability (#2401)
 
@@ -743,8 +743,8 @@ specforge query "$PHASE_ID" --format json   # the phase: goal and success criter
 specforge query "$PHASE_ID" --depth 2 --kinds summary --format json
 
 # Smart-zone estimate check (#2631) — advisory, never fails the check.
-# A plan's `estimate` is a field of the plan entity; read it from the plan query above.
-# Over the smart zone (about 100k tokens): note it as a warning; never fail the check on it.
+# A plan's `estimate_slices` is a field of the plan entity; read it from the plan query above.
+# Over 1: note it as a warning; never fail the check on it.
 
 
 
@@ -850,11 +850,11 @@ Inspect the tasks in the JSON; open the plan in the editor for prose-level revie
 ## Step 6: Verify Dependency Graph
 
 ```bash
-# #2962: zsh aborts the block on an unmatched for-list glob (nomatch); bash passes it through. nullglob both.
-shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
-for plan in "$PHASE_DIR"/*-PLAN.md; do
-  grep "depends_on:" "$plan"
+
+
+for plan in $(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id'); do
+  echo "$plan depends_on: $(specforge query "$plan" --depth 0 --pick '.nodes[0].fields.depends_on[]')"
 done
 ```
 

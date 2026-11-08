@@ -160,6 +160,16 @@ fn the_uat_debt_follows_the_uat_test_kinds_rule() {
         );
         assert_eq!(out, open, "{start}: {err}");
     }
+    // the blockers verify-work reports are counted by the same answer
+    let (out, err) = run(
+        &sh,
+        &p,
+        "gsd-core/workflows/verify-work.md",
+        "PHASE_ID=v1.0/01",
+        &["UAT_BLOCKERS=$("],
+        "printf '[%s]' \"$UAT_BLOCKERS\"",
+    );
+    assert_eq!(out, "[3]", "{err}");
 }
 
 /// A lane's plan coverage is `specforge gsd plan-coverage`, over the phase's own plans, not a shell
@@ -236,22 +246,19 @@ fn the_quick_batch_list_and_the_quick_manifest_are_lines() {
     let Some(sh) = shell() else { return };
     let dir = tempfile::tempdir().expect("a dir");
     let text = asset("gsd-core/workflows/quick-batch/steps/batch-init.md");
-    let create = line(&text, "QB_ITEMS=$(");
-    let rc = text
-        .lines()
-        .find(|l| l.contains("QB_CREATE_RC="))
-        .expect("the create check");
+    let create = line(&text, "QB_CREATE_LIST=");
+    let p = taskboard();
     for (items, want) in [
         ("- add a task\n", "[1]"),
         ("- add a task\n- list them\n", "[0]"),
     ] {
-        let file = dir.path().join("tasks.md");
-        std::fs::write(&file, items).expect("a task list");
-        let out = sh.run(&format!(
-            // `true`: the RC line is a block of its own, so the list's exit status is gone by then
-            "TASK_FILE={}\n{create}\ntrue\n{rc}\nprintf '[%s]' \"$QB_CREATE_RC\"",
-            q(&file.display().to_string())
-        ));
+        let (out, _, _) = sh.run_in(
+            p.root(),
+            &format!(
+                "QB_TASKS={}\n{create}\nprintf '[%s]' \"$QB_CREATE_RC\"",
+                q(items)
+            ),
+        );
         assert_eq!(out, want, "{items}");
     }
     let text = asset("gsd-core/workflows/quick.md");
@@ -267,26 +274,6 @@ fn the_quick_batch_list_and_the_quick_manifest_are_lines() {
     assert_eq!(out, "tsv|");
 }
 
-/// `/gsd-pr-branch` holds no stub that stands for a sub-repository answer (`SUB_REPOS_JSON="[]"`,
-/// `RESULT=$(false)`, `REMOTE_SLUG=`): a sub-repository is another SpecForge project, so there is none, and the
-/// sub-repository step reports a failure without one.
-#[test]
-fn the_pr_branch_holds_no_sub_repository_stub() {
-    let Some(sh) = shell() else { return };
-    let text = asset("gsd-core/workflows/pr-branch.md");
-    for stub in ["SUB_REPOS_JSON=\"[]\"", "RESULT=$(false)", "REMOTE_SLUG="] {
-        assert!(
-            !text.lines().any(|l| l.trim_start().starts_with(stub)),
-            "{stub}"
-        );
-    }
-    let step = block(&text, "REPO_SAFE=", "SUBREPO_EXIT=");
-    let out = sh.run(&format!(
-        "REPO_REL=a\nCURRENT_BRANCH=main\n{step}\nprintf '[%s]' \"$SUBREPO_EXIT\""
-    ));
-    assert_eq!(out, "[1]");
-}
-
 #[test]
 fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
     let Some(sh) = shell() else { return };
@@ -300,16 +287,6 @@ fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
         "",
     );
     assert_eq!(out, "No backlog items found\n");
-    let (out, err) = run(
-        &sh,
-        &p,
-        "gsd-core/workflows/onboard.md",
-        "",
-        &["ENTITIES=$("],
-        "printf '%s\\n' \"$ENTITIES\"",
-    );
-    assert!(out.lines().any(|l| l == "project taskboard"), "{out}{err}");
-    assert!(out.lines().any(|l| l == "phase v1.0/02.1"), "{out}");
     let (out, _) = run(
         &sh,
         &p,
@@ -337,13 +314,24 @@ fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
         &[
             "CURRENT_DEBT=$(",
             "ARCHIVED_DEBT=",
-            "WINDOWS_STATUSES=$(",
             "WINDOWS_OPEN=$(",
             "WINDOWS_WAIVED=$(",
         ],
         "printf '[%s][%s][%s][%s]' \"$CURRENT_DEBT\" \"$ARCHIVED_DEBT\" \"$WINDOWS_OPEN\" \"$WINDOWS_WAIVED\"",
     );
     assert_eq!(out, "[1][0][0][0]");
+    let mut verify = p.read("spec/verify.spec");
+    verify.push_str(super::shapes::OPEN_WINDOW);
+    p.write("spec/verify.spec", &verify);
+    let (out, err) = run(
+        &sh,
+        &p,
+        "gsd-core/workflows/progress.md",
+        "PHASE_ID=v1.0/01",
+        &["WINDOWS_OPEN=$(", "WINDOWS_WAIVED=$("],
+        "printf '[%s][%s]' \"$WINDOWS_OPEN\" \"$WINDOWS_WAIVED\"",
+    );
+    assert_eq!(out, "[1][0]", "{err}");
     let (out, err) = run(
         &sh,
         &p,
@@ -360,7 +348,7 @@ fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
         ),
         (
             "gsd-core/workflows/pause-work.md",
-            "while IFS=$'\\x1f' read -r s line",
+            "while IFS= read -r s; do line=",
         ),
         (
             "gsd-core/workflows/progress/steps/forensic-audit.md",
@@ -368,7 +356,7 @@ fn the_graph_lists_are_picked_and_filtered_in_the_shell() {
         ),
         (
             "gsd-core/workflows/progress/steps/forensic-audit.md",
-            "while IFS=$'\\x1f' read -r ph goal",
+            "while IFS= read -r ph; do goal=",
         ),
         (
             "gsd-core/workflows/progress/steps/forensic-audit.md",
@@ -542,6 +530,7 @@ fn the_decision_coverage_gate_fails_on_a_listed_finding() {
 #[test]
 fn the_default_reviewers_are_counted_from_the_setting() {
     let Some(sh) = shell() else { return };
+    let p = taskboard();
     let text = asset("gsd-core/workflows/plan-review-convergence.md");
     let pick = block(
         &text,
@@ -549,22 +538,14 @@ fn the_default_reviewers_are_counted_from_the_setting() {
         "REVIEWER_DISPLAY=\"${REVIEWER_FLAGS# }\"",
     );
     let script = format!("{pick}\nfi\nprintf '[%s][%s]' \"$REVIEWER_FLAGS\" \"$REVIEWER_DISPLAY\"");
-    let (out, err, _) = sh.run_in(
-        sh.bin.path(),
-        &script.replace(
-            "{{setting:review.default_reviewers|}}",
-            r#"[\"codex\",\"claude\"]"#,
-        ),
-    );
-    assert_eq!(out, "[][review.default_reviewers (codex, claude)]", "{err}");
-    let (out, _, _) = sh.run_in(
-        sh.bin.path(),
-        &script.replace("{{setting:review.default_reviewers|}}", ""),
-    );
+    let (out, err, _) = sh.run_in(p.root(), &script);
     assert_eq!(
-        out,
-        "[--codex][--codex (default; configure review.default_reviewers to change)]"
+        out, "[--codex][--codex (default; configure review.default_reviewers to change)]",
+        "{err}"
     );
+    p.settings(serde_json::json!({"review.default_reviewers": ["codex", "claude"]}));
+    let (out, err, _) = sh.run_in(p.root(), &script);
+    assert_eq!(out, "[][review.default_reviewers (codex, claude)]", "{err}");
 }
 
 /// The PR's head, state and checks come from GitHub's REST API, one GET a field; checks are runs plus statuses.
@@ -654,11 +635,11 @@ fn the_text_scans_read_one_row_per_entity() {
     let scan = |path: &str, start: &str| run(&sh, &p, path, "MILESTONE=v1.0", &[start], "").0;
     let deferred = (
         "gsd-core/workflows/progress/steps/forensic-audit.md",
-        "while IFS=$'\\x1f' read -r ph goal",
+        "while IFS= read -r ph; do goal=",
     );
     let placeholder = (
         "gsd-core/workflows/pause-work.md",
-        "while IFS=$'\\x1f' read -r s line",
+        "while IFS= read -r s; do line=",
     );
     assert_eq!(scan(deferred.0, deferred.1), "");
     assert_eq!(scan(placeholder.0, placeholder.1), "");
@@ -671,12 +652,12 @@ fn the_text_scans_read_one_row_per_entity() {
     edit(
         "spec/v1.0.spec",
         "\"Open tasks are listed and filtered\"",
-        "\"Open tasks are listed;\\tfiltering is deferred to Phase 9\"",
+        "\"Open tasks are listed;\\tfiltering is\\ndeferred to Phase 9\"",
     );
     edit(
         "spec/plans.spec",
         "\"`taskboard add` and `taskboard done` over a board whose tasks complete by id.\"",
-        "\"TBD\"",
+        "\"a first line\\nthen TBD\"",
     );
     let phases = scan(deferred.0, deferred.1);
     assert_eq!(phases.lines().count(), 1, "{phases}");

@@ -38,7 +38,7 @@ If the check command failed (non-zero `CHECK_EXIT`, empty output, or unparseable
 
   This halt is **not** bypassed by `onError` — `onError` only covers command errors (step 1 above), not the gate's block decision.
 
-- **Non-blocking gate (`hook.blocking == false`):** never halts. If `GATE_RESULT.block` is `true` (or non-empty `message`), print `⚠ {hook.capId} advisory (wave {N}): {GATE_RESULT.message}`, then:
+- **Non-blocking gate (`hook.blocking == false`):** never halts. If `GATE_RESULT.block` is `true` (or non-empty `message`), print "⚠ {hook.capId} advisory (wave {N}): {GATE_RESULT.message}", then:
   - If `GATE_RESULT.spawn_mapper == true` OR `GATE_RESULT.directive == "auto-remap"`: spawn `gsd-codebase-mapper` per `execute-phase/steps/codebase-drift-gate.md`; pass `--paths {GATE_RESULT.affected_paths}`. Continue regardless (wave NOT failed by remap failure).
   - Otherwise: continue after advisory.
   - If block `false` and no `message`: continue silently.

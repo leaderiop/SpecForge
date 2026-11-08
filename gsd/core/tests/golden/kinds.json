@@ -484,6 +484,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "PlanStartPlan",
+        "source_kind": "plan_start",
+        "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "SummaryPlan",
         "source_kind": "summary",
         "target_kind": "plan"
@@ -1459,6 +1468,17 @@
           },
           {
             "default_value": null,
+            "description": "its first recorded commit, oldest by author time; absent without one",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "first_commit",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
             "description": "Shipped: the completion's date",
             "edge": null,
             "field_type": "date",
@@ -1614,6 +1634,17 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the branch it is executed on: git.branching_strategy and its template",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "branch",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
           }
         ],
         "has_body_parser": false,
@@ -1749,6 +1780,17 @@
             "field_type": "bool",
             "inverse_of": null,
             "name": "backlog",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the branch it is executed on: git.branching_strategy and its template",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "branch",
             "required": false,
             "target_kind": null,
             "writer": "computed"
@@ -3982,6 +4024,16 @@
           },
           {
             "default_value": null,
+            "description": "a quick plan's slug: the one `quick-init` answered",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "slug",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
             "description": "longest `depends_on` path plus the phase's base (phase-plan-index)",
             "edge": null,
             "field_type": "integer",
@@ -4018,6 +4070,39 @@
             "field_type": "enum",
             "inverse_of": null,
             "name": "status",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "no phase: a quick task",
+            "edge": null,
+            "field_type": "bool",
+            "inverse_of": null,
+            "name": "quick",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "the sorted, distinct files of its recorded commits; absent without one",
+            "edge": null,
+            "field_type": "string_list",
+            "inverse_of": null,
+            "name": "files_touched",
+            "required": false,
+            "target_kind": null,
+            "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "how many plans `estimate.tokens` makes under `workflow.smart_zone_tokens`, rounded up: over 1 is a re-slice to recommend, never a block; absent without an estimate",
+            "edge": null,
+            "field_type": "integer",
+            "inverse_of": null,
+            "name": "estimate_slices",
             "required": false,
             "target_kind": null,
             "writer": "computed"
@@ -5128,6 +5213,60 @@
         "verify_kinds": []
       },
       {
+        "description": "When a plan was opened: `start_plan` records it once",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": "parent",
+            "edge": "PlanStartPlan",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "plan",
+            "required": true,
+            "target_kind": "plan"
+          },
+          {
+            "default_value": null,
+            "description": "written once by the command that opens the plan, with the host's clock",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "at",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "the commit the plan opened at, written once by the same command; none on an unborn branch",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "head",
+            "required": false,
+            "target_kind": null,
+            "writer": "harness"
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "plan_start",
+        "open_fields": false,
+        "scoped_by": "plan",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
         "description": "What a plan did when it ended (GSD NN-MM-SUMMARY.md)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -5322,7 +5461,7 @@
           },
           {
             "default_value": null,
-            "description": "written by the command that opens the plan, with the host's clock",
+            "description": "the plan's `started`, written by the command that closes the plan",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,

@@ -17,7 +17,7 @@ Ensure config exists and load current state:
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
 : # config-ensure-section: every setting has its default, so there is no section to create
 INIT=$(specforge gsd progress-report --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 # the settings live in specforge.json: there is no config path to resolve, and no active workstream (#2282).
 if [[ -z "${GSD_CONFIG_PATH:-}" ]]; then
   if false; then   # there is no active-workstream file: the settings are one file, specforge.json

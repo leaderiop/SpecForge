@@ -31,19 +31,19 @@
     "<process>",
     "",
     "<step name=\"detect_clis\">",
-    "Check which AI CLIs are available on the system:",
+    "No AI CLI is probed: a selected lane runs its CLI through `specforge run --`, whose exit 127 says the CLI is not installed (`missing_binary`); only the local servers are asked here:",
     "",
     "```bash",
     "# the commands below are specforge commands: there is no launcher to define",
-    "# Check each CLI",
-    "specforge run --which claude >/dev/null 2>&1 && echo \"claude:available\" || echo \"claude:missing\"",
-    "specforge run --which codex >/dev/null 2>&1 && echo \"codex:available\" || echo \"codex:missing\"",
-    "specforge run --which coderabbit >/dev/null 2>&1 && echo \"coderabbit:available\" || echo \"coderabbit:missing\"",
-    "specforge run --which opencode >/dev/null 2>&1 && echo \"opencode:available\" || echo \"opencode:missing\"",
-    "specforge run --which qwen >/dev/null 2>&1 && echo \"qwen:available\" || echo \"qwen:missing\"",
-    "specforge run --which cursor-agent >/dev/null 2>&1 && echo \"cursor:available\" || echo \"cursor:missing\"",
-    "specforge run --which agy >/dev/null 2>&1 && echo \"antigravity:available\" || echo \"antigravity:missing\"",
-    "specforge run --which kimi >/dev/null 2>&1 && echo \"kimi-code:available\" || echo \"kimi-code:missing\"",
+    "# no CLI is probed: each lane runs its own (claude, codex, coderabbit, opencode, qwen, cursor-agent, agy, kimi)",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
     "",
     "# Check local model servers (OpenAI-compatible HTTP API — no CLI binary required);",
     "# hosts come from the review.*_host settings (there is no lane descriptor: no lane runner here)",
@@ -61,7 +61,7 @@
     "**Structured reviewer lanes.** The `ollama`, `lm_studio`, `llama_cpp`, `opencode` and",
     "`antigravity` lanes answer in JSON. Write each lane's raw answer to its output file and read"
   ],
-  "bytes": 61167,
+  "bytes": 59232,
   "end": [
     "- [ ] Consensus summary synthesized from multiple reviewers",
     "- [ ] Temp files cleaned up",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:230ef173295d354e9acb570c63ffa9c669c97b1f2a37a10e793efebba602e9b4",
+    "digest": "sha256:4592adf2015f409d66f793e149fcf28e7009f5a339f83d2a06362f24d26896f0",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "230ef173295d354e9acb570c63ffa9c669c97b1f2a37a10e793efebba602e9b4"
+  "sha256": "4592adf2015f409d66f793e149fcf28e7009f5a339f83d2a06362f24d26896f0"
 }

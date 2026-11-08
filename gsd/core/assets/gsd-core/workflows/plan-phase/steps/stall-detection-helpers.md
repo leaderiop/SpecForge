@@ -3,82 +3,82 @@
 
 `planner.stall_detection_enabled` controls the wait policy for the five scoped
 planner/plan-checker spawns. It defaults to `true`. In that default-on mode each
-spawn dispatches with `run_in_background=true`, records `TS=$(date +%s)`, and
-then repeatedly calls `gsd_stall_watch` until it returns something other than
-`waiting`/`active`. This mirrors the already-shipped `executor.stall_*`
+spawn dispatches with `run_in_background=true`, then the orchestrator runs the
+**watch cycle** below, one Bash call at a time, until the spawn reaches
+`marker_received` or `stalled`. This mirrors the already-shipped `executor.stall_*`
 pattern (`execute-phase.md`, bug #3212, commit `e7942c21b`) but — unlike
 that prose-only surveillance, which cannot run during a *blocking* `Agent()`
-call — each `gsd_stall_watch` call is a real, bounded bash subprocess wait
-issued as its own tool call, so it returns control to the orchestrator on
-its own schedule regardless of whether the backgrounded agent's own
-completion notification ever arrives.
+call — each watch cycle is a real, bounded `specforge wait` issued as its own
+tool call, so it returns control to the orchestrator on its own schedule
+regardless of whether the backgrounded agent's own completion notification
+ever arrives.
 
 When the key is explicitly the JSON boolean `false`, each scoped call instead
 omits `run_in_background`, waits through the runtime-native ordinary Agent()
-completion mechanism, and consumes that real returned result. It never calls
-`gsd_stall_watch`, so there are no periodic shell sleeps. This is still a wait,
+completion mechanism, and consumes that real returned result. It never runs
+the watch cycle, so there are no periodic waits. This is still a wait,
 not fire-and-forget. It deliberately gives up #2650's bounded automatic
 recovery: if the runtime loses the completion handoff, the user may need to
 interrupt and use the existing filesystem fallback. The completion markers and
 empty/truncated/unrecognized-return fallback remain unchanged.
 
-**Binding `{outputFile}` (load-bearing, not optional):** every `gsd_stall_watch`
-call below takes `{outputFile}` as its second argument — a literal token the
-orchestrator must substitute with the REAL path from the immediately preceding
-`run_in_background=true` Agent() call's returned `async_launched` result,
-exactly as `docs-update.md:471` already does ("Read tool: file_path: `{outputFile
-from README agent result}`"). This is NOT a bash variable the snippet below
-assigns — there is nothing upstream that assigns one, so a bash variable
-reference here would silently stay empty forever. With `{outputFile}` correctly
-substituted, `[ -f "$output_file" ]` can find the real file and the
-`marker_received` path is reachable; left as a literal (or as an unbound bash
-variable), `marker_found` can never become `true` and every spawn silently
-falls back to the mtime-only path — for the plan-checker spawn specifically,
-that fallback is broken (see next paragraph), so binding this correctly there
-is not a nice-to-have.
+**One watch cycle, one Bash call:** each host Bash call is a new shell, so no
+function or variable outlives it. A cycle is one line of the blocks below, the
+one for the spawn's mode, its settings filled in: it waits one `planner.stall_detect_interval_minutes`
+interval, then looks once for a file written during it where that planner writes: `**/*.spec`
+from the project root (GSD on SpecForge writes plans and their tasks as entities in `.spec` files),
+or the outline planner's outline, a temp file. It prints `changed` (exit 0: the spawn is
+**active**) or `deadline` (exit 124: the interval was **quiet**). Any other exit means the cycle could not watch (a refusal, a bad setting, no `specforge`): it prints `unwatched: exit <n>`, the refusal on stderr; stop and report it, never classify it `active` or `stalled`.
 
-**Plan-checker's artifact glob needs the marker, not just mtimes:** the
-plan-checker spawn watches `*-PLAN.md` for freshness, but a checker that
-PASSES touches none of those files — no fresh mtime, ever, on a clean run.
-Without `{outputFile}` correctly bound to the real completion output, a
-healthy plan-checker that returns `## VERIFICATION PASSED` in two minutes
-would still be declared `stalled` once `planner.stall_threshold_minutes`
-elapses — reporting a succeeded agent as hung, which is worse than the
-original unbounded wait. The marker path (via `{outputFile}`) is the ONLY
-working completion signal for that spawn; the artifact glob is secondary
-there.
+**After each cycle, read `{outputFile}` with the Read tool (load-bearing, not
+optional):** `{outputFile}` is the REAL path the immediately preceding
+`run_in_background=true` Agent() call returned in its `async_launched` result,
+read exactly as `docs-update.md:471` reads one ("Read tool: file_path:
+`{outputFile from README agent result}`"). It lies in the host's temp
+directory, outside the project, so no `specforge` verb reads it. Then classify the spawn:
+- a line of `{outputFile}` holding one of the spawn's completion markers: `marker_received`, and the wait ends;
+- else a quiet cycle once the cycles run so far add up to `planner.stall_threshold_minutes`: `stalled`, and the wait ends;
+- else (`active`, or quiet before the threshold: waiting) run the next cycle.
+Every cycle that did not end on a marker lasted one full interval, so the count of cycles times the
+interval is the time since dispatch.
 
-**Single-cycle by design, not one long-lived loop:** `gsd_stall_watch` sleeps
-for exactly one `PLANNER_STALL_INTERVAL_MINUTES` and returns — it does NOT
-loop internally for the full `PLANNER_STALL_THRESHOLD_MINUTES`. A single Bash
+**Plan-checker's signal is its marker, not activity:** a plan-checker that
+PASSES writes no `.spec` file — no activity, ever, on a clean run. Without
+`{outputFile}` read after each cycle, a healthy plan-checker that returns
+`## VERIFICATION PASSED` in two minutes would still be declared `stalled`
+once `planner.stall_threshold_minutes` elapses — reporting a succeeded agent
+as hung, which is worse than the original unbounded wait. The marker is the
+ONLY working completion signal for that spawn; activity is secondary there.
+
+**Single-cycle by design, not one long-lived loop:** a watch cycle waits for
+exactly one `planner.stall_detect_interval_minutes` and returns — it does NOT
+wait for the full `planner.stall_threshold_minutes`. A single Bash
 tool call blocking for `threshold + interval` minutes (up to 15 min at
 defaults) risks the *host tool's own* timeout killing the call before it ever
 prints a result — silently defeating the fix it exists to ship. Looping at
 the orchestrator-prose level instead means every cycle is a short (default 5
 min), real, bounded call that reliably hands control back — the outer
-threshold is enforced by `dispatch_ts` accumulating across calls, not by one
-call's own duration.
+threshold is enforced by the cycles the orchestrator counts across calls,
+not by one call's own duration.
 
 **Never a wake-up call between cycles (#4079):** while the orchestrator waits
-between `gsd_stall_watch` cycles, it must NOT call `ScheduleWakeup` (or any
+between watch cycles, it must NOT call `ScheduleWakeup` (or any
 host wake/sleep-scheduling tool, e.g. the `/loop` pacing surface) to
-literalize "I'll wait". The `gsd_stall_watch` bash call IS the wait mechanism;
+literalize "I'll wait". The watch cycle's Bash call IS the wait mechanism;
 wake-up scheduling is never part of it, and a partial-args `ScheduleWakeup`
 call surfaces the host's red validation error (`prompt` is required when
-`stop` is not true). Just issue the next watch call (or let the blocking
+`stop` is not true). Just issue the next watch cycle (or let the blocking
 Agent() return) — nothing else.
 
-**Disclosed tradeoff:** the first cycle always sleeps a full
-`PLANNER_STALL_INTERVAL_MINUTES` before its first check, so a planner that
+**Disclosed tradeoff:** the first cycle always waits a full
+`planner.stall_detect_interval_minutes` before its first check, so a planner that
 completes in seconds is not observed by this path until that interval
 elapses (default 5 min) — slower than a plain blocking call's near-instant
 return on success. This is deliberate: it trades a bounded, at-most-one-
 interval delay on the (common) success path for eliminating the unbounded,
 possibly-indefinite hang on the (rare, previously unrecoverable) stall path
-this issue is about. `PLANNER_STALL_INTERVAL_MINUTES` is the knob for
-projects that want a tighter success-path latency at the cost of more
-config-get calls.
-
+this issue is about. `planner.stall_detect_interval_minutes` is the knob for
+projects that want a tighter success-path latency at the cost of more watch cycles.
 This block is independent of, and never gated behind, the `query
 teams-status` / `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` guard used for the
 researcher spawn — the stall path applies on every runtime, teams-active or
@@ -96,82 +96,82 @@ PLANNER_STALL_DETECTION_ENABLED="{{setting:planner.stall_detection_enabled|true}
 [ "$PLANNER_STALL_DETECTION_ENABLED" = "false" ] || PLANNER_STALL_DETECTION_ENABLED=true
 PLANNER_STALL_INTERVAL_MINUTES="{{setting:planner.stall_detect_interval_minutes|5}}"   # planner.stall_detect_interval_minutes (the settings)
 PLANNER_STALL_THRESHOLD_MINUTES="{{setting:planner.stall_threshold_minutes|10}}"   # planner.stall_threshold_minutes (the settings)
-# Both values are config-controlled (the settings (`specforge settings`), editable by any repo
-# contributor) and both flow into `$(( ))` arithmetic below. A non-numeric
-# value there is NOT a code-execution risk (empirically verified: bash's
-# arithmetic evaluator hard-errors on a `$(cmd)`-shaped operand instead of
-# invoking it — "syntax error: operand expected", command never runs) but IS
-# a reliability risk this fix cannot afford: a malformed config value would
-# abort the stall-watcher itself with a bash syntax error, silently defeating
-# the exact hang-recovery this issue is about. Reject anything that is not a
-# bare non-negative integer before it is ever used, so a bad config value
-# degrades to the safe default instead of crashing the watcher.
-[[ "$PLANNER_STALL_INTERVAL_MINUTES" =~ ^[0-9]+$ ]] || PLANNER_STALL_INTERVAL_MINUTES=5
-[[ "$PLANNER_STALL_THRESHOLD_MINUTES" =~ ^[0-9]+$ ]] || PLANNER_STALL_THRESHOLD_MINUTES=10
-
-# gsd_stall_should_recover — pure decision function, no IO, no sleeping. Given how
-# long the orchestrator has been waiting plus two liveness signals (a completion
-# marker found in the agent's output file, and fresh on-disk artifact activity),
-# decides whether to keep waiting, treat the wait as satisfied, or auto-surface the
-# existing accept/retry/stop recovery menu (9a/11a). Never kills or retries anything
-# itself — it only classifies. Re-validates both numeric args as bare non-negative
-# integers (defense in depth — safe to call with any input, not just the resolved
-# config globals above) before either ever reaches arithmetic expansion.
-gsd_stall_should_recover() {
-  local elapsed_seconds="$1" threshold_minutes="$2" marker_found="$3" artifact_fresh="$4"
-  [[ "$elapsed_seconds" =~ ^[0-9]+$ ]] || elapsed_seconds=0
-  [[ "$threshold_minutes" =~ ^[0-9]+$ ]] || threshold_minutes=10
-  local threshold_seconds=$(( threshold_minutes * 60 ))
-  if [ "$marker_found" = "true" ]; then
-    echo "marker_received"; return 0
-  fi
-  if [ "$artifact_fresh" = "true" ]; then
-    echo "active"; return 0
-  fi
-  if [ "$elapsed_seconds" -ge "$threshold_seconds" ]; then
-    echo "stalled"; return 0
-  fi
-  echo "waiting"; return 0
-}
-
-# gsd_stall_watch — ONE bounded, real (non-LLM-side) sleep-and-check cycle, not
-# a long-lived loop (see "Single-cycle by design" above — a single Bash tool
-# call spanning the full threshold risks the host tool's own timeout killing
-# it first). Sleeps exactly one PLANNER_STALL_INTERVAL_MINUTES, then checks for
-# a completion marker in $2 (the outputFile returned by the run_in_background
-# Agent() call) or fresh mtime activity under $3 (an artifact glob), against
-# elapsed time since $1 (an epoch-seconds dispatch_ts the CALLER records once,
-# before the first call, and passes unchanged on every repeat). Remaining args
-# are completion markers. Prints exactly one of: marker_received | active |
-# waiting | stalled. The caller repeats the call while the result is
-# waiting/active; any other result ends the wait.
-gsd_stall_watch() {
-  local dispatch_ts="$1" output_file="$2" artifact_glob="$3"; shift 3
-  local markers=("$@")
-  [[ "$dispatch_ts" =~ ^[0-9]+$ ]] || dispatch_ts=$(date +%s)
-  sleep "$(( PLANNER_STALL_INTERVAL_MINUTES * 60 ))"
-  local now elapsed marker_found artifact_fresh
-  now=$(date +%s)
-  elapsed=$(( now - dispatch_ts ))
-  marker_found="false"
-  if [ -f "$output_file" ]; then
-    for m in "${markers[@]}"; do
-      if grep -qF "$m" "$output_file" 2>/dev/null; then marker_found="true"; break; fi
-    done
-  fi
-  # -mmin -N ("modified less than N minutes ago"), not -newermt "@<epoch>":
-  # -newermt's "@<epoch>" shorthand is a GNU-date convenience the shipped
-  # BSD find(1) on macOS does NOT understand ("Can't parse date/time:
-  # @<epoch>", verified live) — with the 2>/dev/null below that failed
-  # silently and permanently degraded artifact_fresh to false on every
-  # macOS run. -mmin -N needs no epoch/date-string conversion at all and is
-  # supported identically by GNU find (Linux, Git-for-Windows' bundled
-  # findutils) and BSD find (macOS). $artifact_glob stays intentionally
-  # unquoted — the shell, not find, expands it into the matching file list.
-  artifact_fresh="false"
-  if [ -n "$(find $artifact_glob -mmin "-${PLANNER_STALL_INTERVAL_MINUTES}" 2>/dev/null)" ]; then
-    artifact_fresh="true"
-  fi
-  gsd_stall_should_recover "$elapsed" "$PLANNER_STALL_THRESHOLD_MINUTES" "$marker_found" "$artifact_fresh"
-}
 ```
+
+The watch cycle, one Bash call each time (the settings are filled in, since no shell variable outlives a call), for a planner that writes entities (step 8, a chunked single-plan planner, a revision) and for a plan-checker:
+
+```bash
+CYCLE_START=$(specforge wait --for "{{setting:planner.stall_detect_interval_minutes|5}}m" --pick .started_at) && specforge wait --for 0 --changed '**/*.spec' --since "$CYCLE_START" --pick .reason || { rc=$?; [ "$rc" = 124 ] || echo "unwatched: exit $rc"; exit "$rc"; }
+```
+
+The outline watch cycle, for the chunked outline planner (§8.5.1), which writes only its outline, a temp file `specforge files temp --name` made:
+
+```bash
+CYCLE_START=$(specforge wait --for "{{setting:planner.stall_detect_interval_minutes|5}}m" --pick .started_at) && specforge wait --for 0 --changed '.specforge/tmp/gsd-outline-*.md' --since "$CYCLE_START" --pick .reason || { rc=$?; [ "$rc" = 124 ] || echo "unwatched: exit $rc"; exit "$rc"; }
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

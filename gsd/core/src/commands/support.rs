@@ -63,9 +63,27 @@ pub fn now<'a>(call: &'a CommandCall<'_>) -> Result<&'a str, String> {
     }
 }
 
+/// What a guest's stream of values starts from: the host's nonce, its two halves folded.
+#[derive(Clone, Copy)]
+pub struct Seed(pub u64);
+
+/// The call's [`Seed`], from the host's 32 lowercase hex digits (ADR 0341); a call the host gave none or another shape
+/// is refused, never drawn from something made up.
+pub fn nonce(call: &CommandCall<'_>) -> Result<Seed, String> {
+    let nonce = call.nonce();
+    let hex = nonce.len() == 32
+        && nonce
+            .bytes()
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
+    match u128::from_str_radix(nonce, 16) {
+        Ok(digits) if hex => Ok(Seed((digits >> 64) as u64 ^ digits as u64)),
+        _ => Err("the host sent no nonce; run the command through `specforge`".to_string()),
+    }
+}
+
 /// A control character of `text` (C0 but tab and line feed, DEL, C1, the line and paragraph separators and the bidi
 /// overrides, which reorder what a reader sees) as `U+00XX`.
-fn control(text: &str) -> Option<String> {
+pub(super) fn control(text: &str) -> Option<String> {
     text.chars()
         .find(|c| {
             (c.is_control() && *c != '\t' && *c != '\n')
@@ -81,12 +99,18 @@ pub fn natural(id: &str) -> (String, u64) {
     (head.to_string(), number.parse().unwrap_or(0))
 }
 
-/// The arg `arg` as a person wrote it (D-r41-4): refused when it holds a control character, never stripped.
+/// `value`, given as `arg`, is as a person wrote it: refused when it holds a control character, never stripped.
+pub(super) fn plain(arg: &str, value: &str) -> Result<(), String> {
+    match control(value) {
+        Some(code) => Err(format!("'{arg}' holds a control character ({code})")),
+        None => Ok(()),
+    }
+}
+
+/// The arg `arg` as a person wrote it (D-r41-4): [`plain`].
 pub fn text<'a>(call: &'a CommandCall<'_>, arg: &str) -> Result<Option<&'a str>, String> {
     let value = call.str(arg);
-    if let Some(code) = value.and_then(control) {
-        return Err(format!("'{arg}' holds a control character ({code})"));
-    }
+    value.map_or(Ok(()), |value| plain(arg, value))?;
     Ok(value)
 }
 
@@ -106,9 +130,7 @@ pub fn texts(call: &CommandCall<'_>, name: &str) -> Result<Option<Vec<String>>, 
     let items: Vec<String> =
         serde_json::from_str(raw).map_err(|e| format!("{name}: not the JSON it takes: {e}"))?;
     for item in &items {
-        if let Some(code) = control(item) {
-            return Err(format!("'{name}' holds a control character ({code})"));
-        }
+        plain(name, item)?;
     }
     Ok(Some(items))
 }

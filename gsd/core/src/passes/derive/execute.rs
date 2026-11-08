@@ -1,5 +1,5 @@
-//! The computed values of execution: a plan's status, a task's status, a summary's duration, actuals and key files,
-//! and a deliverable check's status.
+//! The computed values of execution: a plan's status, whether it is quick and the files it touched, a task's status,
+//! a summary's duration, actuals and key files, and a deliverable check's status.
 //!
 //! Plan status follows GSD's executor (`spec/plan.md`): `complete` or `halted` from its summary; `blocked` when a halted
 //! plan it depends on (at any depth, in its own phase) or a dependency cycle stops it (`halt`); `executing` when a
@@ -172,6 +172,18 @@ pub fn values(
         .iter()
         .map(|(plan, status)| value(plan, "status", *status))
         .collect();
+    for plan in of_kind(input, "plan") {
+        out.push(value(&plan.id, "quick", !plan.fields.contains_key("phase")));
+        let touched: BTreeSet<&String> = commits
+            .iter()
+            .filter(|c| c.plan.as_deref() == Some(plan.id.as_str()))
+            .flat_map(|c| c.files.iter().chain(&c.created))
+            .collect();
+        if !touched.is_empty() {
+            let touched: Vec<&String> = touched.into_iter().collect();
+            out.push(value(&plan.id, "files_touched", json!(touched)));
+        }
+    }
     for task in of_kind(input, "task") {
         let named = commits
             .iter()

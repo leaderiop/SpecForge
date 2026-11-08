@@ -15,6 +15,8 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("gsd-core/workflows/quick.md", 480, 482),
     ("gsd-core/workflows/quick.md", 564, 564),
     ("gsd-core/workflows/quick.md", 570, 570),
+    // The review scope is one path per line.
+    ("gsd-core/workflows/quick.md", 617, 617),
     ("gsd-core/workflows/quick/steps/discussion-phase.md", 40, 40),
     ("gsd-core/workflows/quick/steps/discussion-phase.md", 69, 69),
     ("gsd-core/workflows/quick/steps/discussion-phase.md", 71, 71),
@@ -80,31 +82,13 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ),
     (
         "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
-        47,
-        47,
-    ),
-    (
-        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
         101,
         101,
     ),
     (
-        "gsd-core/workflows/quick-batch/steps/worktree-dispatch.md",
-        163,
-        163,
-    ),
-    ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 10, 10),
-    ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 17, 17),
-    ("gsd-core/workflows/quick-batch/steps/merge-wave.md", 35, 35),
-    (
         "gsd-core/workflows/quick-batch/steps/research-phase.md",
         17,
         17,
-    ),
-    (
-        "gsd-core/workflows/quick-batch/steps/research-phase.md",
-        24,
-        24,
     ),
     (
         "gsd-core/workflows/quick-batch/steps/research-phase.md",
@@ -121,4 +105,9 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         89,
         89,
     ),
+    // The batch's task list is text `quick-init` parses, its refusal says why, and its items are rows.
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 16, 19),
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 21, 25),
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 33, 33),
+    ("gsd-core/workflows/quick-batch/steps/batch-init.md", 37, 37),
 ];

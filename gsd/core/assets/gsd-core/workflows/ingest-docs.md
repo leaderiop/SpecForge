@@ -22,7 +22,7 @@ Display the stage banner:
 
 <step name="parse_arguments">
 
-Parse `$ARGUMENTS`:
+Parse the arguments (the command's `<arguments>` block):
 
 - First positional token (if not a flag) → `SCAN_PATH` (default: `.`)
 - `--mode new|merge` → `MODE` (default: auto-detect)

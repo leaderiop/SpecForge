@@ -2,7 +2,7 @@
 
 use super::flags::agent_facing;
 use super::{
-    Clock, HUMAN_ONLY, HostJudgedRules, JudgedRules, Origin, Surface, SystemClock,
+    Calendar, HUMAN_ONLY, HostJudgedRules, JudgedRules, Origin, Surface, SystemCalendar,
     UNDECLARED_WRITE, apply_plan_with,
 };
 use crate::authoring::edit::Edited;
@@ -65,11 +65,11 @@ pub fn execute(
         caller,
         surface,
         &rules,
-        &SystemClock,
+        &SystemCalendar,
     )
 }
 
-/// [`execute`] for a host that judges rules: a `set_verdict` in the plan is checked through `rules` and dated by `clock`.
+/// [`execute`] for a host that judges rules: a `set_verdict` in the plan is checked through `rules` and dated by `calendar`.
 #[allow(
     clippy::too_many_arguments,
     reason = "the command, its inputs, how it is applied and the judged-rules port are each one thing"
@@ -84,7 +84,7 @@ pub fn execute_with(
     caller: Caller<'_>,
     surface: Surface,
     rules: &Arc<dyn JudgedRules>,
-    clock: &dyn Clock,
+    calendar: &dyn Calendar,
 ) -> Result<CommandRun, RunError> {
     // A command that records what a person says is not run for an agent, `--dry-run` included (ADR 0301).
     if command.human() && agent_facing(&Origin::Core { surface }) {
@@ -134,7 +134,7 @@ pub fn execute_with(
         let origin = Origin::Command {
             extension: command.extension().to_string(),
         };
-        match apply_plan_with(view, plan, &origin, dry_run, caller, rules, clock) {
+        match apply_plan_with(view, plan, &origin, dry_run, caller, rules, calendar) {
             Ok(edited) if edited.wrote.previewed() => PlanOutcome::Previewed(edited),
             Ok(edited) => PlanOutcome::Applied(edited),
             Err(refusal) => PlanOutcome::Refused(refusal.into_error()),

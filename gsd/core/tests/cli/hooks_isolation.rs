@@ -51,7 +51,7 @@ fn no_host_installs_an_isolation_guard() {
 
 /// `git <args>` in `dir` with a pinned identity and none of the developer's configuration; `None` when git is not
 /// installed. It answers standard output.
-fn git(dir: &std::path::Path, args: &[&str]) -> Option<String> {
+pub(crate) fn git(dir: &std::path::Path, args: &[&str]) -> Option<String> {
     let out = std::process::Command::new("git")
         .args(["-c", "user.name=gsd", "-c", "user.email=gsd@example.com"])
         .args([
@@ -79,6 +79,13 @@ fn git(dir: &std::path::Path, args: &[&str]) -> Option<String> {
 /// A project that is a subagent's worktree: `<tmp>/.claude/worktrees/agent-x`, a linked worktree of the repository at
 /// `<tmp>` on the branch `worktree-agent-x`. `None` when git is not installed.
 fn in_worktree() -> Option<(Project, Home, std::path::PathBuf)> {
+    let (p, main) = linked_worktree()?;
+    let home = installed(&p);
+    Some((p, home, main))
+}
+
+/// The worktree of [`in_worktree`] and its main checkout, nothing installed.
+pub(crate) fn linked_worktree() -> Option<(Project, std::path::PathBuf)> {
     let p = taskboard_at(".claude/worktrees/agent-x");
     let main = p
         .root()
@@ -110,8 +117,7 @@ fn in_worktree() -> Option<(Project, Home, std::path::PathBuf)> {
         .expect("cp");
     assert!(copied.success());
     std::fs::remove_dir_all(&aside).expect("the fixture's copy");
-    let home = installed(&p);
-    Some((p, home, main))
+    Some((p, main))
 }
 
 fn write_to(p: &Project, host: &str, file: &std::path::Path) -> String {

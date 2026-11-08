@@ -81,7 +81,7 @@ use ledger::{Reads, Unrecorded};
 pub use policy::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile};
 pub use providers::Providers;
 pub use raises::Raises;
-pub use resolved_effects::{NamedRoot, ResolvedEffects};
+pub use resolved_effects::{NamedRoot, ROOT_NAME_MAX, ResolvedEffects, not_a_root_name};
 pub use session::{CheckMode, ProjectSession, RuntimeSource, Update, UpdateKind};
 pub use settings::{ExtensionValues, ResolvedSettings, Setting, SettingOrigin, admit, is_secret};
 pub use setup::{SetupDiagnostic, SetupPart};

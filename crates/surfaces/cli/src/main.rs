@@ -229,6 +229,9 @@ enum Commands {
     /// Run a program: its output and exit pass through (124 at --deadline, 127 not found, 126 cannot start), or
     /// --format json captures them (ADR 0339)
     Run(verbs::run::RunArgs),
+    /// Wait until a URL answers, a file changes or a line matches, or for a time: exit 0 when it holds, 124 when the
+    /// time runs out first (ADR 0342)
+    Wait(verbs::wait::WaitArgs),
     /// An extension's command: `specforge <extension> <command>`, e.g.
     /// `specforge product features` (the project's extensions declare them)
     #[command(external_subcommand)]
@@ -269,6 +272,8 @@ fn main() {
         }
         // A program's exit code is its own (ADR 0339 D4).
         Commands::Run(args) => args.run(&terminal, &ports),
+        // 124 when its time ran out first (ADR 0342).
+        Commands::Wait(args) => args.run(&terminal, &ports),
         command => run(command, &terminal, &ports).code(),
     };
     terminal.flush();
@@ -360,6 +365,7 @@ fn run(command: Commands, terminal: &Terminal, ports: &Ports) -> Exit {
         }
         Commands::External(_) => unreachable!("main runs an extension command itself"),
         Commands::Run(_) => unreachable!("main runs a program itself"),
+        Commands::Wait(_) => unreachable!("main waits itself"),
         Commands::Extension { action } => action.run(terminal, ports),
     }
 }

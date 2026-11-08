@@ -1,0 +1,70 @@
+---
+source: crates/surfaces/cli/src/main.rs
+expression: command.clone().render_long_help().to_string()
+---
+Wait until a URL answers, a file changes or a line matches, or for a time: exit 0 when it holds, 124 when the time runs out first (ADR 0342)
+
+Usage: specforge wait [OPTIONS]
+
+Options:
+      --for <DURATION>
+          How long, at most: `0` (check once), `30` (seconds), `500ms`, `3s`, `5m`, `1h` (24h the most). With no condition, a delay of this long
+
+      --retry-after <SECONDS|HTTP-DATE>
+          In place of --for, how long as a `Retry-After` header says it: seconds (`120`, a fraction taken to the millisecond) or an HTTP date (a past one is no wait), held to 24h
+
+      --url <URL>
+          Holds once this URL answers, any HTTP status (a GET under the project's effects ceiling)
+
+      --changed <GLOB>
+          Holds once a file this glob names (from the project's root wherever the wait is typed, in the project's roots, as `files list` reads it; a directory: the files in it) was written at or after --since
+
+      --since <MS>
+          With --changed: the instant a write counts from, in milliseconds since the Unix epoch (a wait's `started_at`); the wait's own start when absent
+
+      --match <REGEX>
+          Holds once a line of the file --in names matches this pattern (as `files search` reads one)
+
+      --in <FILE>
+          With --match: the one file whose lines are matched, never a directory (from the current directory, in the project's roots)
+
+      --path <PATH>
+          A path inside the project (the nearest directory at or above it holding specforge.json; none: the directory itself, with the default configuration)
+          
+          [default: .]
+
+      --format <FORMAT>
+          Output format: json (the default) or human
+          
+          [default: json]
+          [possible values: human, json]
+
+      --pick <PATH>
+          Print only the values at this path of the verb's JSON answer, one per line, e.g. '.entries[].path' on files list or '.branch' on git head. The path is steps: `.key`, `[n]` (digits, no leading zero), `[]` (every item) and `[<key>=<value>]` (the items whose field <key> is <value>, e.g. `[kind=plan]`: <key> may be dotted, `[fields.result=issue]`, and a number, boolean or null is compared as JSON, `[fields.backlog=true]`, `[fields.wave=2]`; an object or array is never selected); a `.` before `[` may be left out, and `.` alone is the whole answer. One line per value reached: a string bare (a newline in it is printed as is), an integer as is and any other number as an f64 (`1.0`, `-0.0`, `1e3` as `1000.0`), a boolean, object or array as compact JSON; null or a missing value prints nothing, and is not an error. It takes no --format human: errors print as they do under json, and the exit code is the verb's.
+
+      --fields <KEYS>
+          With --pick: print one row per item the path reaches, one cell per comma-separated key, in order, the cells separated by the ASCII unit separator (0x1f), e.g. --pick '.nodes[kind=commit]' --fields fields.hash,fields.subject, read with IFS=$'\x1f' read -r hash subject. A key may be dotted. A cell prints as --pick prints a value, with a missing value or null as an empty cell; 0x1f is not IFS whitespace, so a read keeps an empty cell and the rows never misalign. A cell prints raw, a backslash included, so a read gets back what was written; a string holding a newline, carriage return or 0x1f cannot be carried on one line, so the command refuses, naming the key and the item, and prints no row. On an extension command the keys read the command's own answer: --pick '.items[]' --fields id,slug (ADR 0341 D5).
+
+      --count
+          With --pick: print the number of values the path reaches, the lines --pick would print (null or a missing value is none, a string holding a newline is one), 0 for none; nothing when the command answered nothing, so `$(… --count) || n='?'` tells an unread answer from 0. It takes no --first, --last, --join or --fields (ADR 0325 D8).
+
+      --first <N>
+          With --pick: keep only the first N values it reaches
+
+      --last <N>
+          With --pick: keep only the last N values it reaches
+
+      --join <SEP>
+          With --pick: print the values kept on one line joined by SEP exactly as given (no escape is read: $'\n  ' is the shell's), then a newline; nothing when no value is reached. It combines with --first or --last, and takes no --count or --fields (ADR 0325 D8).
+
+      --effects <EFFECTS>
+          The effects mode: online (the default), auto and cached all probe the URL live, since a wait asks about now and a fresh record of an earlier wait would end this one at once; replay answers each probe from the effects journal alone. Files are read live in every mode
+
+          Possible values:
+          - online: Performed when granted; the answer is journaled
+          - auto:   A fresh record; else performed when approved; else not performed
+          - cached: A fresh record; else not performed
+          - replay: Any record, expired or not; else a miss
+
+  -h, --help
+          Print help (see a summary with '-h')

@@ -81,6 +81,7 @@ pub const CORE_COMMANDS: &[&str] = &[
     "run",
     "http",
     "git",
+    "wait",
 ];
 
 /// `name` is one of [`CORE_COMMANDS`].

@@ -19,26 +19,26 @@ Read all files referenced by the invoking prompt's execution_context before star
 
 ## 1. Parse and Normalize Arguments
 
-Extract from $ARGUMENTS: phase number, reviewer flags (the declared reviewer lane flags, plus `--all`), `--max-cycles N`, `--text`, `--ws`.
+The host has parsed the phase, the reviewer flags (the declared reviewer lane flags, plus `--all`), `--max-cycles N`, `--text` and `--ws`; the lines below read them.
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # #4748: canonical phase grammar (digits, optional [A-Z], dotted segments) —
 # `12A` / `23.1.2` extract whole instead of truncating to `12` / `23.1`.
-PHASE=$(echo "$GSD_ARGS" | grep -oE '[0-9]+[A-Z]?(\.[0-9]+)*' | head -1)
+PHASE="{{arg:phase|}}"
 
 # #2315: do NOT default REVIEWER_FLAGS to --codex here. The default is resolved
 # against review.default_reviewers in step 1.5 (after the config gate) so a bare
 # invocation respects the configured reviewer lineup per ADR-0011 / ADR-0015.
 
-MAX_CYCLES=$(echo "$GSD_ARGS" | grep -oE '\-\-max-cycles\s+[0-9]+' | awk '{print $2}')
-if [ -z "$MAX_CYCLES" ]; then MAX_CYCLES=3; fi
+MAX_CYCLES="{{arg:max_cycles|3}}"
 
-GSD_WS=""
-echo "$GSD_ARGS" | grep -qE '\-\-ws\s+\S+' && GSD_WS=$(echo "$GSD_ARGS" | grep -oE '\-\-ws\s+\S+')
+
+
+
 ```
 
 ## 1.5. Config Gate (feature disabled by default)
@@ -48,14 +48,14 @@ operator's explicit flag overrides this gate for that run. Standalone invocation
 flag and remains gated by the config below.
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # the commands below are specforge commands: there is no launcher to define
 # --override-gate is appended ONLY by the autonomous --converge dispatch (#4600); it must be
-# matched token-anchored so no other argument can carry it in.
-if echo "$GSD_ARGS" | grep -qE '(^|[[:space:]])--override-gate([[:space:]]|$)'; then
+# it is a declared flag the host parses, so no other argument can carry it in.
+if [ "{{arg:override_gate|false}}" = true ]; then
   CONVERGENCE_ENABLED="override"
 else
   CONVERGENCE_ENABLED="{{setting:workflow.plan_review_convergence|false}}"   # workflow.plan_review_convergence (the settings)
@@ -80,10 +80,10 @@ Then re-run: /gsd:plan-review-convergence {PHASE}
 ```
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
+
+
+
+
 # Reviewer flags are DERIVED from the declared lane roster (#2800/#2272), never hand-listed.
 # Three surfaces used to enumerate them independently and had drifted: --coderabbit was missing
 # from all three, --qwen/--cursor/--kimi-code from this one, and the old unanchored
@@ -92,11 +92,11 @@ GSD_ARGS=${GSD_ARGS%$'\n'}
 # This block reads the arguments only; the commands below are specforge commands —
 # do not move it back above the preamble in a future edit.
 REVIEWER_FLAGS=""
-for REVIEW_FLAG in --claude --codex --coderabbit --opencode --qwen --cursor --antigravity --agy --ollama --lm-studio --llama-cpp --kimi-code --all; do
-  if echo "$GSD_ARGS" | grep -qE "(^|[[:space:]])${REVIEW_FLAG}([[:space:]]|$)"; then
-    REVIEWER_FLAGS="$REVIEWER_FLAGS $REVIEW_FLAG"
-  fi
-done
+[ "{{arg:claude|false}}" = true ] && REVIEWER_FLAGS="$REVIEWER_FLAGS --claude"; [ "{{arg:codex|false}}" = true ] && REVIEWER_FLAGS="$REVIEWER_FLAGS --codex"; [ "{{arg:coderabbit|false}}" = true ] && REVIEWER_FLAGS="$REVIEWER_FLAGS --coderabbit"
+[ "{{arg:opencode|false}}" = true ] && REVIEWER_FLAGS="$REVIEWER_FLAGS --opencode"; [ "{{arg:qwen|false}}" = true ] && REVIEWER_FLAGS="$REVIEWER_FLAGS --qwen"; [ "{{arg:cursor|false}}" = true ] && REVIEWER_FLAGS="$REVIEWER_FLAGS --cursor"
+[ "{{arg:antigravity|false}}" = true ] && REVIEWER_FLAGS="$REVIEWER_FLAGS --antigravity"; [ "{{arg:agy|false}}" = true ] && REVIEWER_FLAGS="$REVIEWER_FLAGS --agy"; [ "{{arg:ollama|false}}" = true ] && REVIEWER_FLAGS="$REVIEWER_FLAGS --ollama"
+[ "{{arg:lm_studio|false}}" = true ] && REVIEWER_FLAGS="$REVIEWER_FLAGS --lm-studio"; [ "{{arg:llama_cpp|false}}" = true ] && REVIEWER_FLAGS="$REVIEWER_FLAGS --llama-cpp"
+[ "{{arg:kimi_code|false}}" = true ] && REVIEWER_FLAGS="$REVIEWER_FLAGS --kimi-code"; [ "{{arg:all|false}}" = true ] && REVIEWER_FLAGS="$REVIEWER_FLAGS --all"
 
 # #2315: Resolve reviewer selection when no explicit flag was given.
 # The pre-fix bug unconditionally set REVIEWER_FLAGS="--codex" in step 1, BEFORE
@@ -112,8 +112,8 @@ done
 # unconfigured users (#2315 AC3). REVIEWER_DISPLAY mirrors the resolved value
 # so the startup banner reflects what will actually run (#2315 AC4).
 if [ -z "$REVIEWER_FLAGS" ]; then
-  DEFAULT_REVIEWERS_JSON="{{setting:review.default_reviewers|}}"   # review.default_reviewers (the settings)
-  DEFAULT_REVIEWERS=$(printf '%s' "$DEFAULT_REVIEWERS_JSON" | tr -d '[]"' | tr ',' '\n' | grep .)   # one slug per line: the setting renders as a JSON list of slugs
+
+  DEFAULT_REVIEWERS=$(specforge settings --extension @gsd/core --pick '.extensions[0].settings[name=review.default_reviewers].value[]')   # one slug per line
 
 
 
@@ -123,10 +123,10 @@ if [ -z "$REVIEWER_FLAGS" ]; then
 
 
 
-    DEFAULT_REVIEWERS_COUNT=$(printf '%s\n' "$DEFAULT_REVIEWERS" | grep -c .)
-    if [ "${DEFAULT_REVIEWERS_COUNT:-0}" -gt 0 ] 2>/dev/null; then
+
+    if [ -n "$DEFAULT_REVIEWERS" ]; then
       : # leave REVIEWER_FLAGS empty — gsd-review applies review.default_reviewers itself
-      REVIEWER_DISPLAY="review.default_reviewers ($(printf '%s\n' "$DEFAULT_REVIEWERS" | paste -sd, - | sed 's/,/, /g'))"
+      REVIEWER_DISPLAY="review.default_reviewers ($(specforge settings --extension @gsd/core --pick '.extensions[0].settings[name=review.default_reviewers].value[]' --join ', '))"
     else
       REVIEWER_FLAGS="--codex"
       REVIEWER_DISPLAY="--codex (default; configure review.default_reviewers to change)"
@@ -143,10 +143,10 @@ fi
 
 ```bash
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 ```
 
-Parse JSON for: `phase_dir`, `phase_number`, `padded_phase`, `phase_name`, `has_plans`, `plan_count`, `commit_docs`, `text_mode`, `response_language`.
+Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number, two digits, is the last segment of that id; `name` is its field; a phase not in the graph is an E003 error), and its `plan` entities are among the other nodes (`plan_count` is their number; `has_plans` is whether there is one). `commit_docs`, `workflow.text_mode` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`.
 
 **If `response_language` is set:** All user-facing output — narration between tool calls, status updates, progress notes, findings, questions, and report prose — should be in `{response_language}`.
 
@@ -178,7 +178,7 @@ Display startup banner:
 Display: `◆ No plans found — running initial planning inline... (plan-phase runs here in the orchestrator — no output until planning is complete, ~1–5 min; expected, not a freeze)`
 
 ```text
-Skill(skill="gsd-plan-phase", args="{PHASE} {GSD_WS}")
+Skill(skill="gsd-plan-phase", args="{PHASE}")
 ```
 
 Run plan-phase **inline** (do NOT wrap it in Agent()). The convergence orchestrator runs at depth 0 with Agent available, so inline plan-phase can spawn gsd-planner and gsd-plan-checker at depth 1 — the one level of nesting that works on Claude Code. Wrapping plan-phase in Agent() would push it to depth 1 where the Agent tool is absent, preventing it from spawning any sub-agents. Wait until plan-phase completes and PLAN.md files are committed before continuing.
@@ -215,7 +215,7 @@ Agent(
   description="Cross-AI review Phase {PHASE} cycle {cycle}",
   prompt="Run /gsd:review for Phase {PHASE}.
 
-Execute: Skill(skill='gsd-review', args='--phase {PHASE} {REVIEWER_FLAGS} {GSD_WS}')
+Execute: Skill(skill='gsd-review', args='--phase {PHASE} {REVIEWER_FLAGS}')
 
 Complete the full review workflow. Do NOT return until REVIEWS.md is committed.
 
@@ -388,34 +388,34 @@ fi
 
 **Do NOT grep REVIEWS.md for HIGH or actionable counts.** REVIEWS.md accumulates history across cycles — resolved findings from prior cycles remain in the file as audit trail, inflating a raw grep count and causing false stall detection.
 
-Parse HIGH_COUNT and ACTIONABLE_COUNT from the review agent's return message via the CYCLE_SUMMARY contract:
+Read `CYCLE_SUMMARY: current_high=N current_actionable=M` from the review agent's return and write its two numbers below; write the `## Current HIGH Concerns` and `## Current Actionable Non-HIGH Concerns` sections into `HIGH_LINES`/`ACTIONABLE_LINES` the same way. A return with no `CYCLE_SUMMARY` line did not honor the contract: stop and retry, or switch reviewer.
 
 ```bash
-# Extract integers from "CYCLE_SUMMARY: current_high=N current_actionable=M" in the agent's return message
-SUMMARY_LINE=$(echo "$REVIEW_AGENT_RETURN" | grep -oE 'CYCLE_SUMMARY:.*' | head -1)
-HIGH_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_high=[0-9]+' | head -1 | grep -oE '[0-9]+$')
-ACTIONABLE_COUNT=$(echo "$SUMMARY_LINE" | grep -oE 'current_actionable=[0-9]+' | head -1 | grep -oE '[0-9]+$')
+# written from the agent's return: {current_high} and {current_actionable}, each a whole number
+HIGH_COUNT="{current_high}"
+ACTIONABLE_COUNT="{current_actionable}"
+IFS= read -rd '' HIGH_LINES <<'END' || true   # the lines under "## Current HIGH Concerns"
+<those lines; no line when the section is absent>
+END
+IFS= read -rd '' ACTIONABLE_LINES <<'END' || true   # the lines under "## Current Actionable Non-HIGH Concerns"
+<those lines; no line when the section is absent>
+END
 
-if [ -z "$SUMMARY_LINE" ]; then
-  echo "Review agent did not honor the CYCLE_SUMMARY contract — cannot determine unresolved review counts. Retry or switch reviewer."
-  exit 1
-fi
-
-if [ -z "$HIGH_COUNT" ]; then
+case "$HIGH_COUNT" in ''|*[!0-9]*)
   echo "CYCLE_SUMMARY present but current_high is missing or malformed — expected integer, got non-numeric or absent value. Retry or switch reviewer."
-  exit 1
-fi
+  exit 1 ;;
+esac
 
-if [ -z "$ACTIONABLE_COUNT" ]; then
+case "$ACTIONABLE_COUNT" in ''|*[!0-9]*)
   echo "CYCLE_SUMMARY present but current_actionable is missing or malformed — expected integer, got non-numeric or absent value. Retry or switch reviewer."
-  exit 1
-fi
+  exit 1 ;;
+esac
 
 UNRESOLVED_COUNT=$((HIGH_COUNT + ACTIONABLE_COUNT))
 
-# Extract the ## Current HIGH Concerns section from the agent's return message
-HIGH_LINES=$(echo "$REVIEW_AGENT_RETURN" | awk '/^## Current HIGH Concerns/{found=1; next} found && /^##/{exit} found{print}')
-ACTIONABLE_LINES=$(echo "$REVIEW_AGENT_RETURN" | awk '/^## Current Actionable Non-HIGH Concerns/{found=1; next} found && /^##/{exit} found{print}')
+
+
+
 
 if [ "${HIGH_COUNT}" -gt 0 ] && [ -z "${HIGH_LINES}" ]; then
   echo "⚠ Review agent's CYCLE_SUMMARY reports ${HIGH_COUNT} HIGHs but did not provide ## Current HIGH Concerns section — continuing with incomplete escalation details."
@@ -595,7 +595,7 @@ Update `prev_unresolved_count = UNRESOLVED_COUNT`.
 Display: `◆ Replanning inline with review feedback... (plan-phase runs here in the orchestrator — no output until replanning is complete, ~1–5 min; expected, not a freeze)`
 
 ```text
-Skill(skill="gsd-plan-phase", args="{PHASE} --reviews --skip-research {GSD_WS}")
+Skill(skill="gsd-plan-phase", args="{PHASE} --reviews --skip-research")
 ```
 
 Run plan-phase **inline** (do NOT wrap it in Agent()). Same rationale as step 4: the convergence orchestrator runs at depth 0 with Agent available, so inline plan-phase can spawn gsd-planner and gsd-plan-checker at depth 1. Wrapping in Agent() pushes plan-phase to depth 1 where the Agent tool is absent — the replan loop can never produce a revised plan when HIGHs are found. This is the root cause of bug #936. Actionable MEDIUM/LOW findings must be incorporated into executable PLAN.md content or explicitly deferred/rejected in the relevant PLAN.md before convergence can complete. The same holds for any open `## Plan-Revision Conflicts` entry (#3771): the replan must resolve it by adopting one of its recorded alternatives, overriding the named constraint, or amending the constraint — and mark the entry resolved. Re-running the planner against an unchanged conflict cannot resolve it and only burns a cycle. Wait until plan-phase completes (outputs '## PLANNING COMPLETE') and updated PLAN.md files are committed before continuing.
@@ -607,7 +607,7 @@ After plan-phase completes → go back to **step 5a** (review again).
 <success_criteria>
 - [ ] Config gate checked before running — exits with enable instructions if workflow.plan_review_convergence is false (an explicit `--override-gate` dispatch — how `/gsd:autonomous --converge` invokes this workflow — bypasses it for that run, #4600)
 - [ ] Initial planning via inline Skill("gsd-plan-phase") if no plans exist — NOT wrapped in Agent() (bug #936: depth-1 Agent has no Agent tool)
-- [ ] Review via Agent → Skill("gsd-review") — isolated Agent is correct; gsd-review is a Bash leaf with no sub-agent spawns; {GSD_WS} forwarded
+- [ ] Review via Agent → Skill("gsd-review") — isolated Agent is correct; gsd-review is a Bash leaf with no sub-agent spawns
 - [ ] Replan via inline Skill("gsd-plan-phase --reviews") — NOT wrapped in Agent(); inline lets plan-phase spawn gsd-planner/gsd-plan-checker at depth 1
 - [ ] Orchestrator only does: init, config gate, loop control, parse CYCLE_SUMMARY for HIGH and actionable non-HIGH counts, stall detection, escalation
 - [ ] HIGH and actionable non-HIGH counts extracted from review agent's CYCLE_SUMMARY return message (not by grepping REVIEWS.md)

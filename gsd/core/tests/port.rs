@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use gsd_core::agents::roster::AGENTS;
 use regex::Regex;
 
+#[path = "common/agent_rewrites.rs"]
+mod agent_rewrites;
 #[path = "common/port.rs"]
 mod rule;
 use rule::check_lines;
@@ -48,6 +50,22 @@ fn upstream(file: &str) -> (Vec<String>, Vec<String>) {
 const REWRITTEN: &[(&str, usize)] = &[
     // the verify example probes an endpoint through `specforge http`
     ("gsd-planner.md", 176),
+    // the commit guard asks `branch-check`: the protected set and the override are its answer, no answer refuses
+    ("gsd-executor.md", 475),
+    ("gsd-executor.md", 476),
+    ("gsd-executor.md", 477),
+    ("gsd-executor.md", 478),
+    ("gsd-executor.md", 480),
+    ("gsd-executor.md", 481),
+    ("gsd-executor.md", 487),
+    ("gsd-executor.md", 488),
+    ("gsd-executor.md", 479),
+    ("gsd-executor.md", 482),
+    ("gsd-executor.md", 483),
+    ("gsd-executor.md", 484),
+    ("gsd-executor.md", 485),
+    ("gsd-executor.md", 486),
+    ("gsd-executor.md", 501),
     ("gsd-executor.md", 70),
     ("gsd-executor.md", 73),
     ("gsd-executor.md", 75),
@@ -55,6 +73,10 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-executor.md", 94),
     ("gsd-executor.md", 416),
     ("gsd-executor.md", 422),
+    ("gsd-executor.md", 536),
+    ("gsd-executor.md", 537),
+    ("gsd-executor.md", 538),
+    ("gsd-executor.md", 539),
     ("gsd-executor.md", 635),
     ("gsd-executor.md", 713),
     ("gsd-executor.md", 714),
@@ -279,6 +301,98 @@ const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-planner.md", 978),
     ("gsd-phase-researcher.md", 189),
     ("gsd-phase-researcher.md", 471),
+    // A phase's files are its entities (ADR 0343 D3): read from the graph, never globbed under a phase directory.
+    ("gsd-phase-researcher.md", 537),
+    ("gsd-phase-researcher.md", 538),
+    ("gsd-plan-checker.md", 851),
+    ("gsd-plan-checker.md", 852),
+    ("gsd-plan-checker.md", 854),
+    ("gsd-plan-checker.md", 855),
+    ("gsd-planner.md", 654),
+    ("gsd-planner.md", 688),
+    ("gsd-planner.md", 691),
+    ("gsd-planner.md", 692),
+    ("gsd-planner.md", 693),
+    ("gsd-planner.md", 694),
+    ("gsd-planner.md", 695),
+    ("gsd-planner.md", 696),
+    ("gsd-verifier.md", 123),
+    ("gsd-verifier.md", 347),
+    ("gsd-verifier.md", 379),
+    ("gsd-verifier.md", 385),
+    ("gsd-verifier.md", 386),
+    ("gsd-verifier.md", 480),
+    // `frontend` is computed by @gsd/ui: the roadmapper writes no UI hint.
+    ("gsd-roadmapper.md", 400),
+    ("gsd-roadmapper.md", 422),
+    ("gsd-roadmapper.compact.md", 217),
+    // The catalogs search with `specforge files search` (`--glob`, `--and-not`, `-q`, `--pick .count`): a line of
+    // the rewritten search that names no tool itself, or a route listing whose `sed` loop became a sentence.
+    ("gsd-integration-checker.md", 130),
+    ("gsd-integration-checker.md", 135),
+    ("gsd-integration-checker.md", 164),
+    ("gsd-integration-checker.md", 166),
+    ("gsd-integration-checker.md", 167),
+    ("gsd-integration-checker.md", 172),
+    ("gsd-integration-checker.md", 173),
+    ("gsd-integration-checker.md", 182),
+    ("gsd-integration-checker.md", 187),
+    ("gsd-verifier.md", 389),
+    ("gsd-plan-checker.md", 688),
+    // A verdict's three exits, `case` on the code: "could not read" is neither of the two answers.
+    ("gsd-integration-checker.md", 228),
+    ("gsd-integration-checker.md", 229),
+    ("gsd-integration-checker.md", 230),
+    ("gsd-integration-checker.md", 231),
+    ("gsd-integration-checker.md", 232),
+    ("gsd-integration-checker.md", 255),
+    ("gsd-integration-checker.md", 265),
+    ("gsd-integration-checker.md", 287),
+    ("gsd-integration-checker.md", 291),
+    ("gsd-integration-checker.md", 295),
+    ("gsd-integration-checker.md", 304),
+    ("gsd-integration-checker.md", 323),
+    ("gsd-integration-checker.md", 327),
+    ("gsd-integration-checker.md", 331),
+    ("gsd-integration-checker.md", 335),
+    // The smart-zone estimate is compared with the setting by the checker: upstream's verb is not part of @gsd/core.
+    ("gsd-plan-checker.md", 298),
+    ("gsd-plan-checker.md", 299),
+    ("gsd-plan-checker.md", 300),
+    ("gsd-plan-checker.md", 301),
+    ("gsd-plan-checker.md", 302),
+    ("gsd-plan-checker.md", 303),
+    // The planner's graph context follows the prompt's `**Graph context:**` line: nothing probes PATH.
+    ("gsd-planner.md", 609),
+    ("gsd-planner.md", 610),
+    ("gsd-planner.md", 611),
+    ("gsd-planner.md", 612),
+    ("gsd-planner.md", 613),
+    // ctx7 runs through `specforge run`, with no probe: exit 127 says it is not installed.
+    ("gsd-executor.md", 25),
+    ("gsd-executor.md", 26),
+    ("gsd-executor.md", 27),
+    ("gsd-executor.md", 28),
+    ("gsd-executor.md", 29),
+    ("gsd-executor.md", 34),
+    ("gsd-executor.md", 35),
+    ("gsd-executor.md", 36),
+    ("gsd-executor.md", 37),
+    ("gsd-executor.md", 38),
+    ("gsd-executor.md", 41),
+    ("gsd-executor.md", 42),
+    ("gsd-executor.md", 43),
+    ("gsd-executor.md", 44),
+    // The research is an entity, and the pattern map a reply: nothing assigns `$PHASE_DIR`.
+    ("gsd-phase-researcher.md", 747),
+    ("gsd-phase-researcher.md", 789),
+    ("gsd-phase-researcher.md", 817),
+    ("gsd-pattern-mapper.md", 151),
+    ("gsd-pattern-mapper.md", 296),
+    ("gsd-pattern-mapper.compact.md", 113),
+    ("gsd-pattern-mapper.compact.md", 231),
+    // The planner's docs lookup runs ctx7 through `specforge run`, with no probe.
+    ("gsd-planner.md", 25),
 ];
 
 /// Checks one asset against its upstream file: the header, then every line.
@@ -290,7 +404,7 @@ fn check_body(file: &str) -> usize {
         &read(&assets_dir().join(file)),
         &body,
         &ported(),
-        &|n| REWRITTEN.contains(&(file, n)),
+        &|n| REWRITTEN.contains(&(file, n)) || agent_rewrites::ROWS.contains(&(file, n)),
     )
 }
 
@@ -513,7 +627,7 @@ fn flags(words: &[String]) -> Vec<String> {
 }
 
 /// What every `specforge` command takes besides its own arguments.
-const GLOBAL_FLAGS: [&str; 6] = ["format", "path", "dry-run", "help", "yes", "pick"];
+const GLOBAL_FLAGS: [&str; 7] = ["format", "path", "dry-run", "help", "yes", "pick", "fields"];
 
 #[test]
 fn every_gsd_invocation_a_body_gives_uses_flags_the_command_declares() {

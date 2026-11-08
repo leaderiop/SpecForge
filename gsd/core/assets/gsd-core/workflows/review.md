@@ -14,19 +14,19 @@ A plan that survives review from 2-3 independent AI systems is more robust.
 <process>
 
 <step name="detect_clis">
-Check which AI CLIs are available on the system:
+No AI CLI is probed: a selected lane runs its CLI through `specforge run --`, whose exit 127 says the CLI is not installed (`missing_binary`); only the local servers are asked here:
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
-# Check each CLI
-specforge run --which claude >/dev/null 2>&1 && echo "claude:available" || echo "claude:missing"
-specforge run --which codex >/dev/null 2>&1 && echo "codex:available" || echo "codex:missing"
-specforge run --which coderabbit >/dev/null 2>&1 && echo "coderabbit:available" || echo "coderabbit:missing"
-specforge run --which opencode >/dev/null 2>&1 && echo "opencode:available" || echo "opencode:missing"
-specforge run --which qwen >/dev/null 2>&1 && echo "qwen:available" || echo "qwen:missing"
-specforge run --which cursor-agent >/dev/null 2>&1 && echo "cursor:available" || echo "cursor:missing"
-specforge run --which agy >/dev/null 2>&1 && echo "antigravity:available" || echo "antigravity:missing"
-specforge run --which kimi >/dev/null 2>&1 && echo "kimi-code:available" || echo "kimi-code:missing"
+# no CLI is probed: each lane runs its own (claude, codex, coderabbit, opencode, qwen, cursor-agent, agy, kimi)
+
+
+
+
+
+
+
+
 
 # Check local model servers (OpenAI-compatible HTTP API — no CLI binary required);
 # hosts come from the review.*_host settings (there is no lane descriptor: no lane runner here)
@@ -148,14 +148,14 @@ Rules:
 Collect phase artifacts for the review prompt:
 
 ```bash
-IFS= read -rd '' GSD_ARGS <<'GSD_ARGS_END' || true
-$ARGUMENTS
-GSD_ARGS_END
-GSD_ARGS=${GSD_ARGS%$'\n'}
-PHASE_ARG=$(echo "$GSD_ARGS" | sed -nE 's/^([A-Za-z0-9._-]+).*/\1/p')
-GSD_WS=$(echo " $GSD_ARGS" | sed -nE 's/.* --ws +([A-Za-z0-9][A-Za-z0-9._-]*).*/--ws \1/p' | head -n 1)
+
+
+
+
+
+
 INIT=$(specforge query "$PHASE_ID" --depth 2 --format json)
-if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
+
 
 # #2358: ONE run-scoped temp dir (portable via ${TMPDIR:-/tmp}) so overlapping
 # runs never collide or read each other's stale files.
@@ -332,8 +332,8 @@ fi
 # read the whole file). The `instructions` fragment is in prompt-budget's
 # `minimumFor` floor set and is never trimmed, so this survives per-lane
 # budget trimming intact.
-cat "${RUN_DIR}/.plans-manifest.md" >> "${RUN_DIR}/gsd-review-instructions.md"
-cat "${RUN_DIR}/.plans-manifest.md" >> "${RUN_DIR}/gsd-review-prompt.md"
+specforge files read "${RUN_DIR}/.plans-manifest.md" --format human >> "${RUN_DIR}/gsd-review-instructions.md" || exit 1
+specforge files read "${RUN_DIR}/.plans-manifest.md" --format human >> "${RUN_DIR}/gsd-review-prompt.md" || exit 1
 ```
 
 Note: `INSTRUCTIONS_BLOCK_FILE` and `ROADMAP_SECTION_FILE` come from prompt assembly; `RUN_DIR` is the run-scoped dir from `gather_context` (#2358) re-assigned from `{run_dir}` above. Copy the temp files written during prompt assembly to these section paths (or write each section here if the prompt was built inline).
@@ -399,9 +399,9 @@ shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
 RUN_DIR="{run_dir}"
 REPO_ROOT="$(specforge git repo --pick .top 2>/dev/null || pwd)"
-# SELECTED_REVIEWERS is the comma-separated result of reviewer selection (ADR-0011 precedence:
-# explicit flags > --all > review.default_reviewers > all detected). Unchanged by this phase.
-
+read -r SELECTED_REVIEWERS <<'GSD_REVIEWERS' || true   # the selected slugs, space-separated, as text (ADR-0011 precedence: explicit flags > --all > review.default_reviewers > all detected). Unchanged by this phase.
+{selected_reviewers}
+GSD_REVIEWERS
 # #3034: opt-in concurrent lane dispatch. STRICT equality on "true" is deliberate — "1", "yes" and
 # "TRUE" must NOT opt in, so a mistyped config gets the conservative behaviour rather than firing
 # concurrent requests at a rate-limited provider. Note the `|| echo "false"` fallback is the
@@ -482,7 +482,7 @@ run_review_lane() {
   # One invocation, whatever the lane's transport, prompt channel, output channel or handler.
   # `--explicit` marks a lane the user NAMED: ADR-2782 D4 — not finding a lane nobody asked for is
   # normal, failing to run one somebody asked for is an error.
-  # review-lane invoke: run the CLI of "$SLUG" non-interactively on "$RUN_DIR/gsd-review-prompt.md" (its --help names the flag that takes a prompt);
+  # review-lane invoke: run the CLI of "$SLUG" through `specforge run --` non-interactively on "$RUN_DIR/gsd-review-prompt.md" (its --help names the flag that takes a prompt); exit 127 is `missing_binary`;
   # its review goes to "$RUN_DIR/gsd-review-$SLUG.md" and its stderr to "$RUN_DIR/gsd-review-$SLUG.err"; a failed or empty run leaves a stub that says so
   [ -s "$RUN_DIR/gsd-review-$SLUG.md" ] && echo "{\"slug\":\"$SLUG\"}" > "$RUN_DIR/gsd-review-lane-result-$SLUG.json"   # a lane that left no review has no result line
 }
@@ -498,7 +498,7 @@ run_review_lane() {
 # A plain string accumulator, not an array: zsh and bash disagree on array indexing and this block
 # runs under both (see the nullglob/NULL_GLOB pairing above).
 DISPATCH_SLUGS=""
-for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
+for SLUG in $(printf '%s' "$SELECTED_REVIEWERS"); do
   case " $DISPATCH_SLUGS " in
     *" $SLUG "*) continue ;;
   esac
@@ -535,7 +535,7 @@ wait
 for SLUG in $(printf '%s' "$DISPATCH_SLUGS"); do
   LANE_RESULT="$RUN_DIR/gsd-review-lane-result-$SLUG.json"
   if [ -f "$LANE_RESULT" ]; then
-    cat "$LANE_RESULT" >> "$RUN_DIR/gsd-review-lane-results.jsonl"
+    specforge files read "$LANE_RESULT" --format human >> "$RUN_DIR/gsd-review-lane-results.jsonl" || exit 1   # the bytes as they are, or a stop: a lane result never vanishes
   fi
 done
 ```
@@ -569,19 +569,19 @@ byproduct; a lane that never started or was budget-skipped contributes no line e
 ```bash
 RUN_DIR="{run_dir}"
 JSONL="$RUN_DIR/gsd-review-lane-results.jsonl"
-LANE_LINES=0
-[ -f "$JSONL" ] && LANE_LINES=$(wc -l < "$JSONL" | tr -d ' ')
-
+read -r SELECTED_REVIEWERS <<'GSD_REVIEWERS' || true   # the slugs invoke_reviewers dispatched, space-separated, as text
+{selected_reviewers}
+GSD_REVIEWERS
 TOTAL_LANE_FAILURE="false"
 ALL_LANES_SKIPPED="false"
-if [ "${LANE_LINES:-0}" -eq 0 ]; then
+if [ ! -s "$JSONL" ]; then
   # Zero lines means every dispatched lane left no result JSON — either every one
   # was budget-skipped (N5: a skip is not a failure) or every one actually failed
   # to run. Re-derive the dispatched-slug set the same way invoke_reviewers did
   # (SELECTED_REVIEWERS is a shell block boundary — recompute, do not assume the
   # earlier step's local DISPATCH_SLUGS variable survived into this block).
   DISPATCH_SLUGS=""
-  for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
+  for SLUG in $(printf '%s' "$SELECTED_REVIEWERS"); do
     case " $DISPATCH_SLUGS " in
       *" $SLUG "*) continue ;;
     esac
@@ -599,7 +599,7 @@ if [ "${LANE_LINES:-0}" -eq 0 ]; then
   for SLUG in $(printf '%s' "$DISPATCH_SLUGS"); do
     DISPATCHED_COUNT=$((DISPATCHED_COUNT + 1))
     STUB="$RUN_DIR/gsd-review-$SLUG.md"
-    if [ -f "$STUB" ] && grep -q "review skipped: prompt budget" "$STUB" 2>/dev/null; then
+    if [ -f "$STUB" ] && specforge files search -q -F "review skipped: prompt budget" "$STUB" 2>/dev/null; then
       SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     fi
   done
@@ -616,7 +616,7 @@ fi
   (not a failure) and stop; do not proceed to `present_results`' summary claiming a review ran.
 - **If `TOTAL_LANE_FAILURE=true`:** do NOT write `REVIEWS.md` and do NOT run the commit below.
   Report the total lane failure to the user (name the lanes that were dispatched and point at
-  their `.err`/stub files preserved under `.review-diagnostics/` by `present_results`) and stop.
+  their `.err`/stub files kept in `RUN_DIR` by `present_results`) and stop.
 - **Otherwise** (at least one lane produced a result — R1, unchanged): proceed exactly as below.
 
 **#3301: plan coverage check.** For each dispatched lane that produced a *real* review (not a
@@ -641,13 +641,13 @@ a threat id like `T-04-07` elsewhere in the review must not register as covering
 ```bash
 RUN_DIR="{run_dir}"
 # the plan ids are the phase's: `specforge gsd plan-coverage` reads them from the graph
-
-# Recompute — a shell variable does not survive across separate fenced blocks
-# (each is its own process), so DISPATCH_SLUGS from the gate-check block above
-# cannot be assumed to still be set here. Same recomputation as that block and
-# as invoke_reviewers.
+# space-separated, as text; a shell variable does not survive across fenced blocks (each is its own process),
+# so DISPATCH_SLUGS from the gate-check block above cannot be assumed to still be set here. Same recomputation
+read -r SELECTED_REVIEWERS <<'GSD_REVIEWERS' || true   # as that block and as invoke_reviewers
+{selected_reviewers}
+GSD_REVIEWERS
 DISPATCH_SLUGS=""
-for SLUG in $(echo "$SELECTED_REVIEWERS" | tr ',' ' '); do
+for SLUG in $(printf '%s' "$SELECTED_REVIEWERS"); do
   case " $DISPATCH_SLUGS " in
     *" $SLUG "*) continue ;;
   esac
@@ -674,8 +674,8 @@ for SLUG in $(printf '%s' "$DISPATCH_SLUGS"); do
   REVIEW_FILE="$RUN_DIR/gsd-review-$SLUG.md"
   [ -f "$REVIEW_FILE" ] || continue
   [ -s "$REVIEW_FILE" ] || continue
-  grep -q "review skipped: prompt budget" "$REVIEW_FILE" 2>/dev/null && continue
-  grep -q "failed or returned empty output" "$REVIEW_FILE" 2>/dev/null && continue
+  specforge files search -q -F "review skipped: prompt budget" "$REVIEW_FILE" 2>/dev/null && continue
+  specforge files search -q -F "failed or returned empty output" "$REVIEW_FILE" 2>/dev/null && continue
 
   specforge gsd plan-coverage "$PHASE_ID" --review "$(< "$REVIEW_FILE")" --format json > "$RUN_DIR/.plan-coverage-$SLUG.json" || { echo "⚠ plan-coverage failed for $SLUG (see the error above; the review is passed as an argument, and a command line over the platform's limit, 32,767 characters on Windows, cannot be run): its coverage is unknown" >&2; printf '%s\n' '{"complete":false,"missing_ids":null,"total":null,"error":"plan-coverage failed"}' > "$RUN_DIR/.plan-coverage-$SLUG.json"; }   # the phase's plans, each id standing alone in the review; a failed check is an incomplete report, never an empty one
 
@@ -844,94 +844,94 @@ To incorporate feedback into planning:
   /gsd:plan-phase {N} --reviews
 ```
 
-**#3352 (ADR-3473 §8.5, R3): preserve per-lane evidence before destroying it.** Regardless of
+**#3352 (ADR-3473 §8.5, R3): keep per-lane evidence before cleaning up.** Regardless of
 which branch above ran, the run's temp directory is the only record that a lane failed at all —
-copy it beside the phase's artifacts BEFORE cleanup. A lane that produced no output at all (L4)
-leaves nothing to preserve; that is a smaller diagnostics folder, not a fabricated one, and is
-NOT a preservation failure. This copy is deliberately NOT part of the commit above (N6) — that
+it stays in that directory after this block. A lane that produced no output at all (L4)
+leaves nothing to keep; that is a smaller directory, not a fabricated one, and is
+NOT a failure. The directory is deliberately NOT part of the commit above (N6) — that
 step names only `{padded_phase}-REVIEWS.md` explicitly, never a directory glob, so
-`.review-diagnostics/` is never swept into it.
+`RUN_DIR` is never swept into it.
 
-**#4097: preserve lane OUTPUT, never the run's own input copies.** `RUN_DIR` holds not only
+**#4097: keep lane OUTPUT, never the run's own input copies.** `RUN_DIR` holds not only
 lane outputs — prompt assembly (the `gather_context`/section-copy step above) also writes the
 run's assembled INPUTS there under the same `gsd-review-` prefix: the combined prompt, the
 instructions/roadmap sections, a copy of every plan under review, the project/context/research/
 requirements sections, and the per-lane trimmed prompts. Those are byte-identical duplicates of
-files already committed under the spec; sweeping them into `.review-diagnostics/` buries
-the actual evidence under plan duplicates and grows the phase directory on every run. The
+files already committed under the spec; keeping them buries
+the actual evidence under plan duplicates. The
 exclusion list below is CLOSED and owned here: this workflow itself writes every input
 basename at prompt-assembly time, so a future input file CANNOT silently join the evidence
 set — adding one means adding its stem to this list consciously. Lane slugs never begin with
 any excluded stem (`prompt`, `instructions`, `plan-`, `project`, `roadmap`, `context`,
 `research`, `requirements`), so a lane report can never be excluded by accident.
 
-Preservation and cleanup MUST run in the same fenced block below (a shell variable cannot
-survive across separate fences — each is its own process). `mkdir -p` and every `cp` are
-exit-status checked; `specforge files remove --recursive "$RUN_DIR" >/dev/null` runs ONLY if nothing was preserved (nothing to
-preserve is not a failure) or everything that needed preserving was copied successfully. If
-preservation fails partway, `$RUN_DIR` is left intact and a message names it as the location of
-the un-preserved evidence — a leftover temp directory is far cheaper than destroyed evidence:
+Removing the inputs and the verdict MUST run in the same fenced block below (a shell variable cannot
+survive across separate fences — each is its own process). Every `specforge files remove` is
+exit-status checked; `specforge files remove --recursive "$RUN_DIR" >/dev/null` runs ONLY if no evidence is left.
+Evidence left: the block names `$RUN_DIR`, which holds it, and stops there. If
+a remove fails, `$RUN_DIR` is left intact and a warning names it as the location of
+the run — a leftover temp directory is far cheaper than destroyed evidence:
 
 ```bash
 shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
 
 RUN_DIR="{run_dir}"
-DIAG_DIR="${TMPDIR:-/tmp}/gsd-review-diagnostics"
+_PRESERVE_OK=true
 
 # #4097: `gsd-review-*.md` matches BOTH lane outputs (reports, diagnostic stubs) and the
-# run's own assembled input copies (see the #4097 note above). Filter by basename against
-# the closed input set this workflow itself writes — direct glob iteration with a `case`
-# filter, no string accumulator, identical under bash and zsh (#4099/#4109), and the
-# `nullglob` set at the top of this fence keeps an empty RUN_DIR an empty array (#2962).
+# run's own assembled input copies (see the #4097 note above). `files list` answers which is
+# which: the closed input set this workflow itself writes is its glob, and an empty `.err` is
+# its `size=0`; the loop only hands each path, one per row, to `files remove` (#4099/#4109).
 # `gsd-review-prompt*` deliberately covers BOTH the combined prompt (`gsd-review-prompt.md`)
 # and the per-lane trimmed prompts (`gsd-review-prompt-<slug>.md`).
-_DIAG_MD=()
-for f in "$RUN_DIR"/gsd-review-*.md; do
-  case "${f##*/}" in
-    gsd-review-prompt*|gsd-review-instructions*|gsd-review-plan-*|gsd-review-project*|gsd-review-roadmap*|gsd-review-context*|gsd-review-research*|gsd-review-requirements*) ;;
-    *) _DIAG_MD+=("$f") ;;
-  esac
-done
-_DIAG_ERR=()
-for f in "$RUN_DIR"/gsd-review-*.err; do
-  [ -s "$f" ] && _DIAG_ERR+=("$f")
-done
+while IFS= read -r f; do
+  specforge files remove "$f" >/dev/null || _PRESERVE_OK=false
+done < <(specforge files list "$RUN_DIR" --glob 'gsd-review-{prompt,instructions,plan-,project,roadmap,context,research,requirements}*.md' --pick '.entries[]' --fields path; specforge files list "$RUN_DIR" --glob 'gsd-review-*.err' --pick '.entries[size=0]' --fields path)
 
-_PRESERVE_OK=true
-if [ ${#_DIAG_MD[@]} -gt 0 ] || [ ${#_DIAG_ERR[@]} -gt 0 ]; then
-  # #4351: ONE SUBDIRECTORY PER RUN. A flat copy used each file's SOURCE basename,
-  # and a lane slug is stable across runs — so a second review of the same phase
-  # silently overwrote the first run's evidence for any lane that ran both times.
-  # `cp` over an existing file is a success, so this lost data with no warning, in
-  # the one directory whose entire purpose is to outlive the `rm -rf` below.
-  #
-  # $RUN_DIR is `mktemp -d .../gsd-review-XXXXXX`, so its basename is already
-  # unique per run BY CONSTRUCTION — uniqueness never depends on the clock. The
-  # UTC stamp is only a sort key in front of it, and is omitted entirely if `date`
-  # fails. Lane basenames are unchanged INSIDE the subdirectory, so evidence still
-  # correlates back to its lane, and nothing inside $RUN_DIR is renamed (both
-  # `prepare_trimmed_prompt_for_reviewer` and the lane invocation resolver depend
-  # on those exact basenames).
-  _DIAG_STAMP="$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || true)"
-  _DIAG_RUN_DIR="$DIAG_DIR/${_DIAG_STAMP:+${_DIAG_STAMP}-}${RUN_DIR##*/}"
-  # `mkdir -p` still creates $DIAG_DIR itself, so a plain FILE sitting at
-  # $DIAG_DIR still fails here and still skips the `rm -rf` (#3885).
-  if mkdir -p "$_DIAG_RUN_DIR"; then
-    if [ ${#_DIAG_MD[@]} -gt 0 ] && ! cp "${_DIAG_MD[@]}" "$_DIAG_RUN_DIR/"; then
-      _PRESERVE_OK=false
-    fi
-    if [ ${#_DIAG_ERR[@]} -gt 0 ] && ! cp "${_DIAG_ERR[@]}" "$_DIAG_RUN_DIR/"; then
-      _PRESERVE_OK=false
-    fi
-  else
-    _PRESERVE_OK=false
-  fi
-fi
+# what is left is evidence: a lane's report or stub, and a stderr file with text; a failed listing
+# leaves its files, and an unread count keeps the directory
+_EVIDENCE=$(specforge files list "$RUN_DIR" --glob 'gsd-review-*.{md,err}' --pick '.entries[].path' --count) || _PRESERVE_OK=false
 
-if [ "$_PRESERVE_OK" = "true" ]; then
-  specforge files remove --recursive "$RUN_DIR" >/dev/null
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if [ "$_PRESERVE_OK" != "true" ]; then
+  echo "WARNING: a review input could not be removed — leaving the run directory intact at: $RUN_DIR" >&2
+elif [ "$_EVIDENCE" -gt 0 ]; then
+  echo "Review evidence kept at: $RUN_DIR"
 else
-  echo "WARNING: evidence preservation to ${_DIAG_RUN_DIR:-$DIAG_DIR} failed — leaving the un-preserved run directory intact at: $RUN_DIR" >&2
+  specforge files remove --recursive "$RUN_DIR" >/dev/null
 fi
 ```
 </step>

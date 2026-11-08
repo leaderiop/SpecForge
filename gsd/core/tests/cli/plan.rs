@@ -309,6 +309,32 @@ fn waves_follow_phase_plan_index() {
 }
 
 #[test]
+fn a_plan_answers_its_slices_under_the_smart_zone_budget() {
+    let p = project("plan");
+    assert!(
+        fields_of(&p, "v1.0/01/01-01")
+            .get("estimate_slices")
+            .is_none(),
+        "no estimate, no slices"
+    );
+    p.edit(
+        "spec/plans.spec",
+        "  objective      \"A task can be marked complete\"\n",
+        "  objective      \"A task can be marked complete\"\n  estimate       { tokens 250001 }\n",
+    );
+    assert_eq!(fields_of(&p, "v1.0/01/01-02")["estimate_slices"], 3);
+    let set = p.run(&[
+        "settings",
+        "set",
+        "@gsd/core",
+        "workflow.smart_zone_tokens",
+        "300000",
+    ]);
+    assert_eq!(set.code, 0, "{}", set.all());
+    assert_eq!(fields_of(&p, "v1.0/01/01-02")["estimate_slices"], 1);
+}
+
+#[test]
 fn a_quick_plan_is_autonomous_and_has_no_wave() {
     let p = project("plan");
     let quick = fields_of(&p, "261028-a1b");

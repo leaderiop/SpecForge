@@ -20,6 +20,8 @@ pub struct FakeHttp {
     certificates: BTreeMap<(String, u16), TlsOutcome>,
     requests: Mutex<Vec<HttpRequest>>,
     asked: Mutex<Vec<EffectRequest>>,
+    /// The host of the proxy every hop goes through, asked of the caller's policy as the adapter asks it.
+    proxy: Option<String>,
 }
 
 #[derive(Clone)]
@@ -33,6 +35,12 @@ impl FakeHttp {
     /// Every URL is unreachable (`unreachable:dns`).
     pub fn new() -> Self {
         FakeHttp::default()
+    }
+
+    /// Every hop goes through the proxy on `host`.
+    pub fn through_proxy(mut self, host: &str) -> Self {
+        self.proxy = Some(host.to_string());
+        self
     }
 
     /// `url` answers `status` with `body`.
@@ -144,6 +152,11 @@ impl Http for FakeHttp {
         let mut method = request.method.clone();
         let mut hops = 0;
         loop {
+            if let Some(proxy) = &self.proxy
+                && !redirects.through_proxy(proxy, &url)
+            {
+                return HttpOutcome::failed(&url, OutcomeClass::Denied, proxy.clone());
+            }
             if let (Some(status), "HEAD") = (self.heads.get(&url), method.as_str()) {
                 return HttpOutcome {
                     class: status_class(*status),

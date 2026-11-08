@@ -16,32 +16,32 @@
     "sha256": "f9e814a4a3bac649a630a472306a0ab84e0089da5cdcb6d1a1b2abd2dd03aee2"
   },
   ".cursor/agents/gsd-executor.md": {
-    "bytes": 46825,
-    "sha256": "98d1e60b696cfcb8c6bcc7b85d9d8d677b66f8d4c47441491fc769f6841712c4"
+    "bytes": 46763,
+    "sha256": "cc721b7b7fd561129b218a87d3e5e7f42a76fa8952d5ba451ffdb9e02d1f6d66"
   },
   ".cursor/agents/gsd-integration-checker.md": {
-    "bytes": 17508,
-    "sha256": "3ff83f0beb0f178b39f03efbf71bf63040119ae2be38cb175209659eeafec334"
+    "bytes": 18405,
+    "sha256": "b7a6ba906a149ea07c98872047e60f2963dfced266c8e179eec983ec58cfadee"
   },
   ".cursor/agents/gsd-nyquist-auditor.md": {
     "bytes": 7748,
     "sha256": "980a8500016cb910d6089fc339ae235bbb0190977422494a4c11e5e6bae739fb"
   },
   ".cursor/agents/gsd-pattern-mapper.md": {
-    "bytes": 13537,
-    "sha256": "8b8e79baef179f219bc2df02d3bd9925e0ffb47f21a291c75f0fa1b10685f435"
+    "bytes": 13525,
+    "sha256": "104fda9cecfba5a3b83b2c17cf15e711c7218bc86762772829cf034e1642e650"
   },
   ".cursor/agents/gsd-phase-researcher.md": {
-    "bytes": 43885,
-    "sha256": "afabc2d67dffe2d838993365e6b5227ff223e4c6869a9089eb4a1148e3bad8a7"
+    "bytes": 43906,
+    "sha256": "77f0ad7674420b7b744d491926e722af981d2e5ad7bc170946605ec2f492d0f3"
   },
   ".cursor/agents/gsd-plan-checker.md": {
-    "bytes": 49613,
-    "sha256": "d8dd6f1b3af6aea027b35e93268ffede31593f6e77e953f29f5a66817dde8075"
+    "bytes": 49483,
+    "sha256": "0bcaf2312af2120729c49a2429e6f042c8747e3737ad097f3a0ea90efe86d223"
   },
   ".cursor/agents/gsd-planner.md": {
-    "bytes": 49627,
-    "sha256": "4531b8f436c52ccd43b91b7b820ea4e39caa7e70160148ad409cfd0de187a805"
+    "bytes": 49782,
+    "sha256": "c8aabd5ae21aaab01a29b0fbee825206a251728118a4c745a819235ef826ec70"
   },
   ".cursor/agents/gsd-project-researcher.md": {
     "bytes": 18302,
@@ -52,12 +52,12 @@
     "sha256": "9524108c484f3d1dbdd6b2f2e33c2b66174952eebc274e2720bad7de7f03f7a8"
   },
   ".cursor/agents/gsd-roadmapper.md": {
-    "bytes": 24908,
-    "sha256": "93973c636e411451cf5df85e4eb43e6780af7f10fdfd7d3281b5b837b0fcf224"
+    "bytes": 24824,
+    "sha256": "8385221757f900fee07941b4478a3e2407192a25dd8135906ddbdab3d45017f5"
   },
   ".cursor/agents/gsd-verifier.md": {
-    "bytes": 50841,
-    "sha256": "e4a433f001f8131ea7718652f600dcfa569384fddc3b306797295f56b4ddbfaf"
+    "bytes": 51238,
+    "sha256": "e28d301e74c7be30ab09293e5c760a4ba1501f80b83a7e22a49d751db38e9472"
   },
   ".cursor/hooks.json": {
     "bytes": 2050,

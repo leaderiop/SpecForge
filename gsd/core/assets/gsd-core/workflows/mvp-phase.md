@@ -168,7 +168,7 @@ Use `AskUserQuestion` [Accept / Modify / Reject].
 
 ## 5. Update ROADMAP.md
 
-Read `ROADMAP.md`. Find the section for `Phase ${PHASE}`. Apply two edits:
+Read `ROADMAP.md`. Find the section for "Phase ${PHASE}". Apply two edits:
 
 **Edit 1 — Update Goal line.**
 

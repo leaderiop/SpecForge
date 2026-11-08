@@ -91,6 +91,9 @@ fn the_batch_and_sub_repo_prose_says_what_runs() {
             &[
                 "using the canonical key path",
                 "A non-zero exit code means the key is absent",
+                "SUB_REPOS_JSON",
+                "STRUCTURAL_RE",
+                "default mode",
             ][..],
         ),
     ] {
@@ -99,4 +102,218 @@ fn the_batch_and_sub_repo_prose_says_what_runs() {
             assert!(!text.contains(s), "{path} still says {s:?}");
         }
     }
+}
+
+/// graduation's window is the milestone's last N lessons in the graph's id order, which replaced `sort | tail -n`.
+#[test]
+fn the_learnings_window_is_the_last_lessons() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = taskboard();
+    p.write(
+        "spec/learning.spec",
+        concat!(
+            "retrospective v1.0-RETROSPECTIVE \"Taskboard 1.0 retrospective\" {\n  milestone v1.0\n}\n\n",
+            "lesson L2 \"Test the reload\" {\n  retrospective v1.0-RETROSPECTIVE\n  text \"Reload loses ids\"\n}\n\n",
+            "lesson L1 \"Plan the reload first\" {\n  retrospective v1.0-RETROSPECTIVE\n  text \"Persistence decides\"\n}\n",
+        ),
+    );
+    let text = asset("gsd-core/workflows/graduation.md");
+    let read = text
+        .lines()
+        .find(|l| l.starts_with("specforge query \"$MILESTONE\" --depth 2 --kinds lesson"))
+        .expect("graduation's lessons read");
+    let window = |n: &str| {
+        let (out, err, _) = sh.run_in(
+            p.root(),
+            &format!("MILESTONE=v1.0\nGRADUATION_WINDOW={n}\n{read}"),
+        );
+        assert!(err.is_empty(), "{err}");
+        out
+    };
+    let lesson = |n: u8| format!("v1.0/v1.0-RETROSPECTIVE/L{n}\n");
+    assert_eq!(window("1"), lesson(2));
+    assert_eq!(window("5"), lesson(1) + &lesson(2));
+}
+
+/// `#3352`, `#4097`: the review's last block keeps what only a lane wrote in its run directory: a lane report and a
+/// non-empty `.err` stay, the run's own input copies and an empty `.err` go, and a run with only inputs leaves no
+/// directory. No copy reaches a directory outside the roots.
+#[test]
+fn the_review_block_keeps_only_lane_evidence() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = taskboard();
+    let text = asset("gsd-core/workflows/review.md");
+    let tail = &text[text.rfind("shopt -s nullglob").expect("the last block")..];
+    let script = &tail[..tail.find("\n```").expect("the end of the fence")];
+    let run_dir = p.root().join(".specforge/tmp/gsd-review-run");
+    let block = script.replace("{run_dir}", &run_dir.display().to_string());
+    let fill = |files: &[(&str, &str)]| {
+        std::fs::create_dir_all(&run_dir).expect("a run directory");
+        for (name, body) in files {
+            std::fs::write(run_dir.join(name), body).expect("a run file");
+        }
+    };
+    let names = || {
+        let mut found: Vec<String> = std::fs::read_dir(&run_dir)
+            .expect("the run directory stays")
+            .map(|e| {
+                e.expect("an entry")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        found.sort();
+        found
+    };
+
+    fill(&[
+        ("gsd-review-prompt.md", "p"),
+        ("gsd-review-prompt-claude.md", "p"),
+        ("gsd-review-plan-01.md", "p"),
+        ("gsd-review-claude.md", "a report"),
+        ("gsd-review-claude.err", ""),
+        ("gsd-review-codex.err", "it failed"),
+    ]);
+    let (out, err, code) = sh.run_in(p.root(), &block);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("Review evidence kept at:"), "{out}{err}");
+    assert_eq!(names(), ["gsd-review-claude.md", "gsd-review-codex.err"]);
+    std::fs::remove_dir_all(&run_dir).expect("a clean slate");
+
+    fill(&[("gsd-review-prompt.md", "p"), ("gsd-review-claude.err", "")]);
+    let (out, err, code) = sh.run_in(p.root(), &block);
+    assert_eq!(code, 0, "{err}");
+    assert!(!out.contains("kept at"), "{out}{err}");
+    assert!(!run_dir.exists(), "{out}{err}");
+}
+
+/// The review's last block holds no rule (S1-D4): which run files are inputs, which are evidence and how many are left
+/// are `files list` answers (its glob, its sizes, `--count`); the shell only hands each path to `files remove`.
+#[test]
+fn the_review_cleanup_holds_no_rule() {
+    let text = asset("gsd-core/workflows/review.md");
+    let tail = &text[text.rfind("shopt -s nullglob").expect("the last block")..];
+    let script = &tail[..tail.find("\n```").expect("the end of the fence")];
+    for rule in ["case ", "$((", "[ -s "] {
+        assert!(!script.contains(rule), "the cleanup decides with {rule:?}");
+    }
+}
+
+/// The lines of `text` that carry the model-filled `placeholder`: the assignment that holds it, and, when it is a
+/// quoted heredoc, every line through its terminator.
+fn filled_assignment(text: &str, placeholder: &str) -> Vec<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut found = Vec::new();
+    for (at, line) in lines.iter().enumerate() {
+        if !line.contains(placeholder) {
+            continue;
+        }
+        let head = if at > 0 && lines[at - 1].contains("<<'") {
+            at - 1
+        } else {
+            at
+        };
+        let end = if head < at { at + 1 } else { at };
+        found.push(lines[head..=end].join("\n"));
+    }
+    found
+}
+
+/// A list the model fills is text, never code: a `$(…)` in it runs nothing, under bash and zsh, and its words still
+/// reach the loop that reads it.
+#[test]
+fn a_model_filled_list_runs_nothing() {
+    let p = crate::harness::project("empty");
+    for (path, placeholder, var) in [
+        (
+            "gsd-core/workflows/review.md",
+            "{selected_reviewers}",
+            "SELECTED_REVIEWERS",
+        ),
+        (
+            "gsd-core/references/specless-probe-fallback.md",
+            "{phase_req_ids}",
+            "SPECLESS_REQ_IDS",
+        ),
+    ] {
+        let text = asset(path);
+        let holders = filled_assignment(&text, placeholder);
+        assert!(!holders.is_empty(), "{path}: no {placeholder}");
+        for holder in holders.iter().filter(|h| h.contains(var)) {
+            let filled = holder.replace(placeholder, "claude $(touch ran) `touch ran2` codex");
+            for shell in ["bash", "zsh"] {
+                let script = format!(
+                    "{filled}\nfor W in $(printf '%s' \"${var}\"); do printf '<%s>' \"$W\"; done"
+                );
+                let out = std::process::Command::new(shell)
+                    .current_dir(p.root())
+                    .args(["-f", "-c", &script])
+                    .stdin(std::process::Stdio::null())
+                    .output();
+                let Ok(out) = out else { continue };
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                assert!(
+                    !p.root().join("ran").exists() && !p.root().join("ran2").exists(),
+                    "{path} ({shell}): the list ran a command:\n{holder}"
+                );
+                assert!(
+                    stdout.starts_with("<claude>") && stdout.ends_with("<codex>"),
+                    "{path} ({shell}): {stdout}"
+                );
+            }
+        }
+    }
+}
+
+/// A file appended with `files read --format human` is its bytes exactly or the block stops: the read refuses a file
+/// it would cut or alter (`files_verb::a_human_read_is_the_files_bytes_or_a_refusal`), and every such line exits on
+/// that refusal, so no lane result or manifest vanishes from what the review reads.
+#[test]
+fn an_appended_read_stops_the_block_when_refused() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let text = asset("gsd-core/workflows/review.md");
+    let appends: Vec<&str> = text
+        .lines()
+        .map(str::trim)
+        .filter(|l| l.starts_with("specforge files read") && l.contains(">>"))
+        .collect();
+    assert_eq!(appends.len(), 3, "{appends:?}");
+    let p = crate::harness::project("empty");
+    std::fs::write(p.root().join("lane.json"), b"caf\xe9\n").expect("a lane result");
+    for line in appends {
+        let (_, err, code) = sh.run_in(
+            p.root(),
+            &format!(
+                "RUN_DIR=.\nLANE_RESULT=lane.json\nprintf 'x' > .plans-manifest.md\nprintf 'caf\\351' >> .plans-manifest.md\n{line}\necho after"
+            ),
+        );
+        assert_ne!(code, 0, "{line}: {err}");
+        assert!(err.contains("not UTF-8"), "{line}: {err}");
+    }
+}
+
+/// The researcher's environment audit runs each tool through `specforge run --` and probes nothing: exit 127 prints
+/// the tool as missing, and an installed tool prints its version's first line.
+#[test]
+fn the_environment_audit_runs_the_tool_or_says_it_is_missing() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let text = asset("agents/gsd-phase-researcher.md");
+    let audit = super::line(&text, "V=$(specforge run -- \"$TOOL\"");
+    let dir = tempfile::tempdir().expect("a dir");
+    let (out, err, _) = sh.run_in(dir.path(), &format!("TOOL=gsd-no-such-tool\n{audit}"));
+    assert_eq!(out, "gsd-no-such-tool: missing\n", "{err}");
+    let (out, err, _) = sh.run_in(dir.path(), &format!("TOOL=specforge\n{audit}"));
+    assert!(
+        out.starts_with("specforge: specforge ") && out.lines().count() == 1,
+        "{out}{err}"
+    );
 }

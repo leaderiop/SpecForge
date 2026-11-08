@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use specforge_effects::testing::{FakeHttp, MemoryConsent, ports};
 use specforge_effects::{
-    Approval, Consent, EffectsMode, FsOp, FsRequest, OutcomeClass, RootApproval,
+    Approval, Consent, EffectsMode, FsOp, FsRequest, MachineRoot, OutcomeClass, RootApproval,
 };
 use specforge_extension_sdk::prelude::*;
 use specforge_project::effects;
@@ -158,6 +158,54 @@ fn a_guests_lent_fs_is_denied_an_outside_spec_root_until_approved() {
     let consent = MemoryConsent::default();
     consent.approve(approval(&scene)).unwrap();
     assert_ne!(lent(&consent), OutcomeClass::Denied);
+}
+
+/// A machine root is the verbs': no guest's roots, no grant's reach and no MCP containment hold it, even for an
+/// extension that declares a root of that name.
+#[test]
+fn a_machine_root_is_no_root_of_a_guest() {
+    let spec = tempfile::tempdir().unwrap();
+    let scene = scene(spec.path());
+    let machine = tempfile::tempdir().unwrap();
+    let target = machine.path().canonicalize().unwrap();
+    std::fs::write(target.join("secret.md"), "the secret").unwrap();
+    let consent = MemoryConsent::default();
+    consent
+        .approve(Approval::MachineRoot(MachineRoot {
+            root: "workspaces".to_string(),
+            target: target.display().to_string(),
+            approved_at: Default::default(),
+        }))
+        .unwrap();
+    let env = scene.env();
+    let reachable = effects::reachable_roots(&env, scene.dir.root(), &consent);
+    assert!(
+        !reachable.iter().any(|(name, _)| name == "workspaces"),
+        "{reachable:?}"
+    );
+    let roots = env
+        .effects_allowed()
+        .with_named(specforge_effects::Roots::new(env.root(), env.spec_root()));
+    assert!(!roots.named().any(|(name, _)| name == "workspaces"));
+    assert!(
+        env.read_roots()
+            .get(&Root::parse("workspaces").unwrap())
+            .is_none()
+    );
+    let grant = effects::grants(&env, scene.dir.root(), &consent)
+        .into_iter()
+        .find(|grant| grant.extension() == EXT)
+        .expect("it declares a capability");
+    let asked = Arc::new(grant).fs(Operation::CheckValues, ports().fs).run(
+        &roots,
+        &FsRequest {
+            root: "workspaces".to_string(),
+            path: "secret.md".to_string(),
+            op: FsOp::Read { max_bytes: 64 },
+        },
+    );
+    assert_ne!(asked.class, OutcomeClass::Ok);
+    assert!(asked.bytes.is_empty(), "{asked:?}");
 }
 
 #[test]

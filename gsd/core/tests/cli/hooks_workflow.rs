@@ -155,6 +155,12 @@ fn a_force_add_on_an_agent_branch_is_refused() {
             for command in [
                 "git add -f secret.txt",
                 "cd sub && git -c core.hooksPath=/tmp/x add --force secret.txt",
+                "git add -f&>/dev/null secret.txt",
+                "git add --force&>y secret.txt",
+                "git add -f>y secret.txt",
+                "git add -f 2>&1 secret.txt",
+                "git&>y add -f secret.txt",
+                ">y git add --force secret.txt",
             ] {
                 let (denied, reason, _) = force(&p, &home, host, command);
                 assert_eq!(denied, blocked, "{host} {branch} {command}: {reason}");
@@ -163,6 +169,10 @@ fn a_force_add_on_an_agent_branch_is_refused() {
                 }
             }
             assert!(!force(&p, &home, host, "git add secret.txt").0, "{host}");
+            assert!(
+                !force(&p, &home, host, "git add x>-f").0,
+                "a redirect's target: {host}"
+            );
         }
     }
 }

@@ -1,13 +1,15 @@
-//! The verbs a person or an agent types (ADR 0339): `specforge files`, `run`, `http` and `git`. Each is the user's own
-//! act, under the user grant: every port and request, with only the project's effects ceiling narrowing it. A typed
-//! path is read from the current directory, then held to the one root of the project this machine may reach that holds
-//! it: `project`, `spec`, a named root of `specforge.json` (one outside the project once approved), or the verb-only
-//! `temp`.
+//! The verbs a person or an agent types (ADR 0339): `specforge files`, `run`, `http`, `git` and `wait` (ADR 0342). Each
+//! is the user's own act, under the user grant: every port and request, with only the project's effects ceiling
+//! narrowing it. A typed path is read from the current directory, then held to the one root of the project this machine
+//! may reach that holds it: `project`, `spec`, a named root of `specforge.json` (one outside the project once approved),
+//! a root named on this machine (`grants approve --root <name> --at <dir>`), or the verb-only `temp`. The last two no
+//! extension's grant holds.
 
 pub mod files;
 pub mod git;
 pub mod http;
 pub mod run;
+pub mod wait;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -23,6 +25,7 @@ use specforge_effects::{
 use specforge_project::Environment;
 use specforge_protocol_types::Operation;
 
+use crate::consent::machine_roots_here;
 use crate::{OUTSIDE_ROOT, OpError, OpErrorKind};
 
 /// The call kind a user grant is asked with: it applies no gate, so any kind would do.
@@ -37,6 +40,11 @@ pub struct Verbs {
     ports: Ports,
     grant: Arc<Grant>,
     roots: Roots,
+    /// Where the project's spec root lands, reachable or not: what `git diff` calls a spec file is the project's word.
+    spec_root: PathBuf,
+    /// The names of the roots this machine named (`grants approve --root <name> --at <dir>`): `files` and `git` reach them,
+    /// no other verb does.
+    machine_roots: Vec<String>,
     /// Each reachable root and where it lands, the deepest first: the root a typed path is read in is the first that
     /// holds it.
     landed: Vec<(Root, PathBuf)>,
@@ -95,7 +103,7 @@ pub enum Access {
 
 impl Verbs {
     /// The verbs of the project at `root`, typed in `cwd`, performed through `ports`. A root outside the project is
-    /// reachable once `consent` approved it.
+    /// reachable once `consent` approved it, and so is each machine root `consent` holds.
     pub fn open(root: &ProjectRoot, cwd: &Path, ports: &Ports, consent: &dyn Consent) -> Self {
         let env = Environment::load(root, None);
         let grant = Arc::new(Grant::user(&env.effects_allowed().ceiling));
@@ -107,9 +115,19 @@ impl Verbs {
         for (name, path) in reachable.iter().filter(|(name, _)| name != "spec") {
             roots = roots.with_named(name.clone(), path.clone());
         }
+        // A store that cannot be used names none. A project's own root keeps its name.
+        let held = consent
+            .list()
+            .map_or_else(|_| Vec::new(), |held| held.machine_roots);
+        let mut machine_roots = Vec::new();
+        for machine in machine_roots_here(consent, &held, &reachable).reached {
+            machine_roots.push(machine.root.clone());
+            roots = roots.with_named(machine.root, machine.target);
+        }
+        let spec_root = RealFs::landing(env.spec_root());
         let mut landed: Vec<(Root, PathBuf)> = vec![(Root::Project, RealFs::landing(root.dir()))];
         if roots.get(&Root::Spec).is_some() {
-            landed.push((Root::Spec, RealFs::landing(env.spec_root())));
+            landed.push((Root::Spec, spec_root.clone()));
         }
         for (name, path) in roots.named() {
             if let Some(named) = Root::parse(name) {
@@ -128,6 +146,8 @@ impl Verbs {
             ports: ports.clone(),
             grant,
             roots,
+            spec_root,
+            machine_roots,
             landed,
             temp,
         }
@@ -189,6 +209,11 @@ impl Verbs {
         &self.roots
     }
 
+    /// Where the project's spec root lands, links resolved.
+    pub fn spec_root(&self) -> &Path {
+        &self.spec_root
+    }
+
     /// The root that holds `typed` (read from the current directory) and the request for `op` there: the deepest
     /// root that holds it and whose `op` the ceiling permits. The root itself is the empty path. A path no reachable
     /// root holds, or one whose links lead out of every root, is refused, and so is one the ceiling leaves no root for
@@ -211,6 +236,9 @@ impl Verbs {
             (Access::Write, Some(name), Some(parent)) => RealFs::landing(parent).join(name),
             _ => RealFs::landing(&written),
         };
+        if *access == Access::Write {
+            refuse_git_directory(&at)?;
+        }
         let mut refused = None;
         for (root, base) in &self.landed {
             let Ok(rel) = at.strip_prefix(base) else {
@@ -251,9 +279,46 @@ impl Verbs {
             )
             .with_suggestion(
                 "name a path inside the project, or in a named root of specforge.json `roots`; one outside the \
-                 project is reachable once `specforge grants approve --root <name>` approved it",
+                 project is reachable once `specforge grants approve --root <name>` approved it, and `specforge \
+                 grants approve --root <name> --at <dir>` names a root for every project on this machine",
             )
         }))
+    }
+
+    /// [`Self::held`] for `verb`, a verb no machine root serves (`run`, `http`, `wait`): refused when only a machine
+    /// root holds the place.
+    pub(crate) fn held_for(
+        &self,
+        verb: &str,
+        typed: &Path,
+        op: FsOp,
+    ) -> Result<(Located, FsRequest), OpError> {
+        let held = self.held(typed, op)?;
+        self.beyond_machine_roots(&held.0, verb)?;
+        Ok(held)
+    }
+
+    /// Refused when only a machine root holds `located`: `verb` is no `files` or `git`, the two a machine root is for.
+    fn beyond_machine_roots(&self, located: &Located, verb: &str) -> Result<(), OpError> {
+        let held = self.landed.iter().any(|(root, base)| {
+            !self.machine_roots.iter().any(|name| name == root.as_str())
+                && located.at.starts_with(base)
+        });
+        if held {
+            return Ok(());
+        }
+        Err(OpError::new(
+            OpErrorKind::PermissionDenied,
+            OUTSIDE_ROOT,
+            format!(
+                "{} is in the machine root `{}`, which `specforge files` and `specforge git` reach, and `{verb}` does not",
+                self.shown(&located.at),
+                located.root.as_str()
+            ),
+        )
+        .with_suggestion(format!(
+            "`{verb}` from the directory itself, or name it in specforge.json `roots` for this project"
+        )))
     }
 
     /// Whether the user grant permits `request`: `Err` is E090 with the ceiling's words.
@@ -261,6 +326,30 @@ impl Verbs {
         self.grant
             .permits(USER, request)
             .map_err(|denial| outside_ceiling(&one_line(request), &denial))
+    }
+
+    /// Whether the user grant permits a request to `url` through the proxy on `host` (the environment's or the
+    /// system's): the proxy sees what the request carries, so its host is one the grant must reach, as the URL's is.
+    /// `Err` is E090 with the remedy.
+    pub fn permit_proxy(&self, host: &str, url: &str) -> Result<(), OpError> {
+        let proxy = EffectRequest::Resolve(specforge_protocol_types::ResolveRequest {
+            host: host.to_string(),
+            allow_private: false,
+            timeout_ms: 0,
+        });
+        self.grant.permits(USER, &proxy).map_err(|denial| {
+            OpError::coded(
+                OpErrorKind::PermissionDenied,
+                codes::E090,
+                format!(
+                    "{} goes through the proxy on {host} (HTTP_PROXY, HTTPS_PROXY, ALL_PROXY or the system's \
+                     settings), which is outside what the project allows: {}. Add {host} to `effects.http.hosts` \
+                     in specforge.json, or name the URL's host in NO_PROXY",
+                    specforge_common::remedy::printable(url),
+                    denial.detail
+                ),
+            )
+        })
     }
 
     /// Whether the user grant permits writing `rel` in `root`: `Err` is E090 with the ceiling's words.
@@ -301,6 +390,28 @@ impl Verbs {
         let at = if rel.is_empty() { base } else { base.join(rel) };
         self.shown(&at)
     }
+}
+
+/// Refused when `at`, a place a verb is to write, has a `.git` component: a hook put there runs on the next commit, which
+/// would be code execution for a caller limited to the verbs. The git verbs' own writes are the port's, not through here.
+pub(crate) fn refuse_git_directory(at: &Path) -> Result<(), OpError> {
+    let in_git = at
+        .components()
+        .any(|part| part.as_os_str().eq_ignore_ascii_case(".git"));
+    if !in_git {
+        return Ok(());
+    }
+    Err(OpError::new(
+        OpErrorKind::PermissionDenied,
+        OpErrorKind::PermissionDenied.as_str(),
+        format!(
+            "{} is in a .git directory, which no verb writes: a hook put there would run on the next commit",
+            at.display()
+        ),
+    )
+    .with_suggestion(
+        "change a repository through specforge git; install a hook or edit its config with the git program",
+    ))
 }
 
 /// E090: `what` is outside what the project's effects ceiling allows.
@@ -393,7 +504,7 @@ fn refused(class: specforge_effects::OutcomeClass, shown: &str) -> OpError {
             OpErrorKind::PermissionDenied,
             OpErrorKind::PermissionDenied.as_str(),
             format!(
-                "{shown} is not reachable ({other}): the host's own state and credential files are withheld"
+                "{shown} is not reachable ({other}): the host's own state and credential files are withheld, a file with more than one name (a hard link) is not read, so copy it in as a plain file, and a file the system denies stays unread"
             ),
         ),
     }

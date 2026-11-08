@@ -82,6 +82,10 @@ pub struct CommandInput<G = GraphWire> {
     /// ADR 0294); empty, and not sent, when the host passed none.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub now: String,
+    /// 16 bytes of the host's entropy as 32 lowercase hex digits, fresh per call (protocol 2.0.0, ADR 0341): randomness,
+    /// not a secret; empty, and not sent, when the host passed none.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub nonce: String,
     /// The compiled project's graph, in the graph export's shape
     /// (`specforge export --format graph` without the schema).
     #[serde(default)]

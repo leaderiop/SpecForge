@@ -18,7 +18,7 @@ Begin at **Step 1** immediately.
 </trigger>
 
 <step name="check_spec">
-Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md locks requirements before implementation decisions. Here the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' | head -1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the SPEC.md file at `spec_path` is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
+Check whether the phase has a SPEC.md (from the spec-phase workflow). SPEC.md locks requirements before implementation decisions. Here the phase SPEC is the phase's `phase_spec` entity in the graph (an AI-SPEC or UI-SPEC is never one); read it, never glob for a file: `SPEC_ID=$(specforge query "$PHASE_ID" --depth 1 --pick '.nodes[kind=phase_spec].id' --first 1); HAS_SPEC=$([ -n "$SPEC_ID" ] && echo true || echo false)`. Below, `has_spec` is `$HAS_SPEC` and the SPEC.md file at `spec_path` is the entity `$SPEC_ID` (read it with `specforge query "$SPEC_ID" --depth 0 --format context`).
 
 **If `has_spec` is true:**
 1. Read the SPEC.md file at `spec_path`.
@@ -105,7 +105,7 @@ Write all questions to:
 - `stats.total`: count of all questions across all sections
 - `stats.answered`: count where `answer` is not null and not empty string
 - `stats.chat_more`: count where `chat_more` has content
-- `stats.remaining`: `total - answered`
+- `stats.remaining`: `stats.total` minus `stats.answered`
 - `question.id`: sequential across all sections — Q-01, Q-02, Q-03, ...
 - `question.context`: concrete codebase or prior-decision annotation (not generic)
 - `question.answer`: null until user sets it; once answered, the selected option id or free-text

@@ -58,6 +58,7 @@ fn run(
         format,
         today: "2026-10-03".into(),
         now: String::new(),
+        nonce: String::new(),
         graph: RawGraph::new(graph.to_string()).expect("one JSON value"),
         evidence: CommandEvidence::None,
         revisions: Default::default(),

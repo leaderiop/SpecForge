@@ -79,7 +79,7 @@ pub struct HttpAnswer {
     pub status: u16,
     /// The answer's class as the effects journal writes it: `ok`, `status:404`, `capped`, `redirect:limit` (a 3xx
     /// under `--no-redirects`).
-    pub outcome: String,
+    pub outcome: OutcomeClass,
     /// The URL that answered, after the redirects followed.
     pub final_url: String,
     /// The kept response headers ([`KEPT_HEADERS`]), lowercased.
@@ -200,14 +200,68 @@ pub fn secret_is_set(
     )))
 }
 
-/// `ask` sent through the `Http` port in `mode`, judged by the user grant first and on every redirect.
+/// `ask` sent through the `Http` port in `mode`, judged by the user grant first and on every redirect: a request no
+/// server answered is refused by its class ([`no_answer`]).
 pub fn request(
     verbs: &Verbs,
     ask: &Ask,
     mode: EffectsMode,
 ) -> Result<Answered<HttpAnswer>, OpError> {
-    let request = built(verbs, ask)?;
-    let asked = EffectRequest::Http(request.clone());
+    match send(verbs, ask, mode, ask.timeout)? {
+        Sent::Answered(answered) => Ok(*answered),
+        Sent::NoAnswer { class, .. } => Err(unanswered(&ask.url, class)),
+    }
+}
+
+/// What a request sent through the `Http` port came to.
+pub enum Sent {
+    /// A server answered, any status.
+    Answered(Box<Answered<HttpAnswer>>),
+    /// No server answered, by `class` ([`no_answer`]), recorded as `effect` says.
+    NoAnswer { class: OutcomeClass, effect: Effect },
+}
+
+/// What a request no server answered means, by its class: the one table `http` and `wait` read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NoAnswer {
+    /// The kind `http` refuses it with.
+    pub kind: OpErrorKind,
+    /// No server listens there yet (no connection, no name, a timeout, a reset): `wait` waits on.
+    pub not_yet: bool,
+}
+
+/// The table of [`NoAnswer`]: a request that found no server yet is "not yet"; a refused TLS handshake, proxy,
+/// address or redirect, a redirect loop or a denial is a refusal that waiting does not change.
+pub const fn no_answer(class: OutcomeClass) -> NoAnswer {
+    let (kind, not_yet) = match class {
+        OutcomeClass::Unreachable(Unreachable::Timeout) => (OpErrorKind::Timeout, true),
+        OutcomeClass::Unreachable(Unreachable::Connect | Unreachable::Dns | Unreachable::Reset) => {
+            (OpErrorKind::PreconditionFailed, true)
+        }
+        OutcomeClass::Denied | OutcomeClass::Redirect(Redirected::Refused) => {
+            (OpErrorKind::PermissionDenied, false)
+        }
+        _ => (OpErrorKind::PreconditionFailed, false),
+    };
+    NoAnswer { kind, not_yet }
+}
+
+/// [`request`], its answer or the class of none: `Err` is a refusal before or on the way (the grant, a redirect it
+/// denies, a body, a replay with no record). `ask` is what the record is found by, its timeout included; the request
+/// is sent with `timeout`, at most [`TIMEOUT_CEILING`], so a caller whose every request is one ask (a wait's probes)
+/// finds one record however long each may take.
+pub fn send(
+    verbs: &Verbs,
+    ask: &Ask,
+    mode: EffectsMode,
+    timeout: Duration,
+) -> Result<Sent, OpError> {
+    let asked_request = built(verbs, ask)?;
+    let asked = EffectRequest::Http(asked_request.clone());
+    let request = HttpRequest {
+        timeout_ms: millis(timeout.min(TIMEOUT_CEILING)),
+        ..asked_request
+    };
     verbs.permit(&asked)?;
     let hops = Hops {
         verbs,
@@ -238,7 +292,7 @@ pub fn request(
                 url: request.url.clone(),
                 ok: (200..300).contains(&status),
                 status,
-                outcome: outcome.class.to_string(),
+                outcome: outcome.class,
                 final_url: outcome.final_url.clone(),
                 content_type: outcome.header("content-type").map(str::to_string),
                 bytes: outcome.body.len() as u64,
@@ -278,7 +332,7 @@ pub fn request(
             .as_deref()
             .map(serde_json::from_slice::<HttpAnswer>)
         {
-            Some(Ok(kept)) => Ok(Answered {
+            Some(Ok(kept)) => Ok(Sent::Answered(Box::new(Answered {
                 answer: HttpAnswer {
                     final_url: if kept.final_url.is_empty() {
                         request.url.clone()
@@ -293,18 +347,23 @@ pub fn request(
                     observed_at,
                     from_journal,
                 },
-            }),
+            }))),
             Some(Err(_)) => Err(OpError::new(
                 OpErrorKind::Internal,
                 OpErrorKind::Internal.as_str(),
                 "the journal's record of this request holds no answer",
             )),
-            None => Err(hops
-                .denied
-                .into_inner()
-                .ok()
-                .flatten()
-                .unwrap_or_else(|| unanswered(&request.url, &answer.outcome.class))),
+            None => match hops.denied.into_inner().ok().flatten() {
+                Some(denied) => Err(denied),
+                None => Ok(Sent::NoAnswer {
+                    class: answer.outcome.class,
+                    effect: Effect {
+                        digest: Some(RecordDigest::asked_by(USER, &asked)),
+                        observed_at,
+                        from_journal,
+                    },
+                }),
+            },
         },
         Served::Miss => Err(OpError::new(
             OpErrorKind::PreconditionFailed,
@@ -383,7 +442,7 @@ fn built(verbs: &Verbs, ask: &Ask) -> Result<HttpRequest, OpError> {
         headers,
         body,
         body_cap: ask.max_bytes.saturating_add(1),
-        timeout_ms: u64::try_from(ask.timeout.min(TIMEOUT_CEILING).as_millis()).unwrap_or(u64::MAX),
+        timeout_ms: millis(ask.timeout.min(TIMEOUT_CEILING)),
         max_redirects: if ask.no_redirects { 0 } else { MAX_REDIRECTS },
         // The user typed the address: a server on this machine or the local network is theirs to reach, but not one a
         // redirect to another origin names.
@@ -395,7 +454,8 @@ fn built(verbs: &Verbs, ask: &Ask) -> Result<HttpRequest, OpError> {
 
 /// The bytes of the body file `typed`, held to the project's roots.
 fn read_body(verbs: &Verbs, typed: &std::path::Path) -> Result<Vec<u8>, OpError> {
-    let (located, request) = verbs.held(
+    let (located, request) = verbs.held_for(
+        "http",
         typed,
         FsOp::Read {
             max_bytes: BODY_FILE_BYTES,
@@ -417,20 +477,17 @@ fn read_body(verbs: &Verbs, typed: &std::path::Path) -> Result<Vec<u8>, OpError>
     Ok(outcome.bytes)
 }
 
-/// Why no answer came from `url`.
-fn unanswered(url: &str, class: &OutcomeClass) -> OpError {
-    let kind = match class {
-        OutcomeClass::Unreachable(Unreachable::Timeout) => OpErrorKind::Timeout,
-        OutcomeClass::Denied | OutcomeClass::Redirect(Redirected::Refused) => {
-            OpErrorKind::PermissionDenied
-        }
-        _ => OpErrorKind::PreconditionFailed,
-    };
+/// Why no answer came from `url`, refused with its class's kind ([`no_answer`]).
+pub fn unanswered(url: &str, class: OutcomeClass) -> OpError {
     OpError::new(
-        kind,
+        no_answer(class).kind,
         UNREACHABLE,
         format!("{} did not answer: {class}", printable(url)),
     )
+}
+
+fn millis(span: Duration) -> u64 {
+    u64::try_from(span.as_millis()).unwrap_or(u64::MAX)
 }
 
 /// Every redirect judged by the user grant as the hop it sends: the first one refused keeps its refusal.
@@ -447,6 +504,18 @@ impl Redirects for Hops<'_> {
             ..HttpRequest::default()
         });
         match self.verbs.permit(&hop) {
+            Ok(()) => true,
+            Err(error) => {
+                if let Ok(mut denied) = self.denied.lock() {
+                    denied.get_or_insert(error);
+                }
+                false
+            }
+        }
+    }
+
+    fn through_proxy(&self, host: &str, url: &str) -> bool {
+        match self.verbs.permit_proxy(host, url) {
             Ok(()) => true,
             Err(error) => {
                 if let Ok(mut denied) = self.denied.lock() {

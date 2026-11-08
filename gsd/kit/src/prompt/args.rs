@@ -25,8 +25,13 @@ pub enum Kind {
     Integer,
     /// `--name value`, one of these.
     OneOf(&'static [&'static str]),
+    /// `--name N`: a positive integer, or this word (`--jobs auto`). The host takes it as text; [`values`] refuses any
+    /// other value before the render.
+    Count(&'static str),
     /// The free-text tail: bare words after the options, as upstream's `[task description]` (ADR 0314).
     Rest,
+    /// The free-text tail, which must be one path segment: no `/`, no `\\`, no `..`, not `.`.
+    Segment,
 }
 
 pub struct Arg {
@@ -98,6 +103,22 @@ impl Arg {
             required: false,
         }
     }
+    /// The free-text tail of the command line, which must be one path segment: a name that will become a directory.
+    pub const fn segment(name: &'static str) -> Arg {
+        Arg {
+            name,
+            kind: Kind::Segment,
+            required: false,
+        }
+    }
+    /// A positive integer or `word`, written `--name <N|word>`.
+    pub const fn count_or(name: &'static str, word: &'static str) -> Arg {
+        Arg {
+            name,
+            kind: Kind::Count(word),
+            required: false,
+        }
+    }
     pub const fn one_of(name: &'static str, values: &'static [&'static str]) -> Arg {
         Arg {
             name,
@@ -121,10 +142,10 @@ pub fn declare(p: &mut PromptBuilder, args: &[Arg]) {
                     a.reference(kind)
                 }
                 Kind::Flag => a.bool(),
-                Kind::Text => a.string(),
+                Kind::Text | Kind::Count(_) => a.string(),
                 Kind::Integer => a.integer(),
                 Kind::OneOf(values) => a.one_of(values),
-                Kind::Rest => a.rest(),
+                Kind::Rest | Kind::Segment => a.rest(),
             };
             if arg.required {
                 a.required();
@@ -138,7 +159,8 @@ fn written(path: &str) -> &str {
     path.rsplit('/').next().unwrap_or(path)
 }
 
-/// `value` in double quotes, for a free-text option.
+/// `value` in double quotes, for a free-text option. Not `shell::in_double_quotes`: the argument text is data the
+/// agent reads, never shell (ADR 0340 D6), so only the quote and the backslash that delimit the value are escaped.
 fn quoted(value: &str) -> String {
     format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
 }
@@ -165,9 +187,13 @@ pub fn render_text(args: &[Arg], values: impl Fn(&str) -> Option<Value>) -> Stri
                 words.push(format!("{option} {}", quoted(text)));
             }
             (Kind::Integer, Value::Number(n)) => words.push(format!("{option} {n}")),
-            (Kind::OneOf(_), Value::String(word)) => words.push(format!("{option} {word}")),
+            (Kind::OneOf(_) | Kind::Count(_), Value::String(word)) => {
+                words.push(format!("{option} {word}"));
+            }
             // Bare, where the argument stands in the table: quick's is first, so `resume abc` still opens the block.
-            (Kind::Rest, Value::String(text)) if !text.is_empty() => words.push(text.clone()),
+            (Kind::Rest | Kind::Segment, Value::String(text)) if !text.is_empty() => {
+                words.push(text.clone());
+            }
             _ => {}
         }
     }
@@ -177,4 +203,163 @@ pub fn render_text(args: &[Arg], values: impl Fn(&str) -> Option<Value>) -> Stri
 /// The argument text of a prompt call.
 pub fn text(call: &PromptCall<'_>, args: &[Arg]) -> String {
     render_text(args, |name| call.arg(name).cloned())
+}
+
+/// The value an `{{arg:<name>|…}}` placeholder takes for `value` (ADR 0340 D2), unescaped: an entity's full path, a
+/// bound's last segment, `true`/`false`, a decimal, or the string; an empty string is absent.
+pub fn unescaped_value(arg: &Arg, value: &Value) -> Option<String> {
+    match (&arg.kind, value) {
+        (Kind::Bound(_), Value::String(path)) => Some(written(path).to_string()),
+        (_, Value::String(text)) if text.is_empty() => None,
+        (_, Value::String(text)) => Some(text.clone()),
+        (Kind::Flag, Value::Bool(on)) => Some(on.to_string()),
+        (Kind::Integer, Value::Number(n)) => Some(n.to_string()),
+        _ => None,
+    }
+}
+
+/// Every argument a prompt declares, with the value its `{{arg:<name>|…}}` placeholder takes (unescaped), or `None` when
+/// it was not given.
+pub struct Values(Vec<(String, Option<String>)>);
+
+impl Values {
+    /// No declared argument.
+    pub const NONE: Values = Values(Vec::new());
+
+    /// The value of `name`: `None` when the prompt does not declare it, `Some(None)` when it was not given.
+    pub fn get(&self, name: &str) -> Option<Option<&str>> {
+        self.0
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, value)| value.as_deref())
+    }
+}
+
+impl<N: Into<String>> FromIterator<(N, Option<String>)> for Values {
+    fn from_iter<I: IntoIterator<Item = (N, Option<String>)>>(iter: I) -> Values {
+        Values(iter.into_iter().map(|(n, v)| (n.into(), v)).collect())
+    }
+}
+
+/// Why `value` is not one `arg` takes, beyond what the host checks: a count is a positive integer or its word. Worded
+/// as the host words a refused value.
+pub fn refusal(arg: &Arg, value: &Value) -> Option<String> {
+    if let (Kind::Segment, Value::String(v)) = (&arg.kind, value) {
+        let one = v.is_empty() || (!v.contains(['/', '\\']) && !v.contains("..") && v != ".");
+        return (!one).then(|| format!("{} must be one path segment, got '{v}'", arg.name));
+    }
+    let Kind::Count(word) = arg.kind else {
+        return None;
+    };
+    let positive =
+        |n: &str| !n.is_empty() && !n.starts_with('0') && n.bytes().all(|b| b.is_ascii_digit());
+    match value {
+        Value::String(v) if v == word || positive(v) => None,
+        Value::String(v) => Some(format!(
+            "{} must be {word} or an integer of at least 1, got '{v}'",
+            arg.name
+        )),
+        other => Some(format!(
+            "{} must be {word} or an integer of at least 1, got {other}",
+            arg.name
+        )),
+    }
+}
+
+/// Every declared name of `args` with the value its placeholder takes in `call`, or `None` when it was not given. The
+/// subject `(name, id)` the run is about, given or picked by the handler, takes its id. A value [`refusal`] refuses
+/// fails the call before the render.
+pub fn values(
+    call: &PromptCall<'_>,
+    args: &[Arg],
+    subject: Option<(&str, &str)>,
+) -> Result<Values, String> {
+    args.iter()
+        .map(|arg| {
+            let given = call.arg(arg.name);
+            if let Some(why) = given.and_then(|v| refusal(arg, v)) {
+                return Err(why);
+            }
+            let value = match subject {
+                Some((name, id)) if name == arg.name => Some(id.to_string()),
+                _ => given.and_then(|v| unescaped_value(arg, v)),
+            };
+            Ok((arg.name, value))
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::{Arg, refusal, unescaped_value};
+
+    #[test]
+    fn a_value_by_kind() {
+        let value = |arg: Arg, v| unescaped_value(&arg, &v);
+        assert_eq!(
+            value(Arg::reference("phase", "phase"), json!("v1.0/02")).as_deref(),
+            Some("v1.0/02")
+        );
+        assert_eq!(
+            value(Arg::subject("phase", "phase"), json!("v1.0/02")).as_deref(),
+            Some("v1.0/02")
+        );
+        assert_eq!(
+            value(Arg::bound("from", "phase"), json!("v1.0/02")).as_deref(),
+            Some("02")
+        );
+        assert_eq!(
+            value(Arg::flag("tdd"), json!(true)).as_deref(),
+            Some("true")
+        );
+        assert_eq!(
+            value(Arg::flag("tdd"), json!(false)).as_deref(),
+            Some("false")
+        );
+        assert_eq!(
+            value(Arg::integer("max_cycles"), json!(3)).as_deref(),
+            Some("3")
+        );
+        assert_eq!(
+            value(Arg::text("name"), json!("Bob's app")).as_deref(),
+            Some("Bob's app")
+        );
+        assert_eq!(value(Arg::text("name"), json!("")), None);
+        assert_eq!(value(Arg::rest("task"), json!("")), None);
+        assert_eq!(
+            value(Arg::one_of("mode", &["a", "b"]), json!("b")).as_deref(),
+            Some("b")
+        );
+    }
+
+    #[test]
+    fn a_segment_is_one_path_segment() {
+        let name = Arg::segment("name");
+        for ok in ["ws", "my-ws", "a.b", "a b", ""] {
+            assert_eq!(refusal(&name, &json!(ok)), None, "{ok}");
+        }
+        for bad in ["a/b", "../x", "..", ".", "a\\b", "x..y"] {
+            assert!(refusal(&name, &json!(bad)).is_some(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_count_is_a_positive_integer_or_its_word() {
+        let jobs = Arg::count_or("jobs", "auto");
+        for ok in ["auto", "1", "12", "100"] {
+            assert_eq!(refusal(&jobs, &json!(ok)), None, "{ok}");
+        }
+        for bad in ["0", "07", "-1", "+3", "2x", "", "auto; touch X", "AUTO"] {
+            assert_eq!(
+                refusal(&jobs, &json!(bad)).as_deref(),
+                Some(
+                    format!("jobs must be auto or an integer of at least 1, got '{bad}'").as_str()
+                ),
+                "{bad}"
+            );
+        }
+        assert_eq!(refusal(&Arg::text("name"), &json!("0")), None);
+    }
 }

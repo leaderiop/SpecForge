@@ -268,7 +268,7 @@ impl Args {
                 .any(|d| d.severity == specforge_common::Severity::Error),
         );
         match format {
-            OutputFormat::Json => crate::pick::print_json(terminal, self.output.pick(), &listing),
+            OutputFormat::Json => self.output.picked().print_json(terminal, &listing),
             OutputFormat::Human => {
                 for diagnostic in &listing.diagnostics.0 {
                     print_diagnostic(terminal, diagnostic);

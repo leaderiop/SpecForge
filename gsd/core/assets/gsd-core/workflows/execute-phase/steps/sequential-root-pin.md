@@ -32,5 +32,5 @@ on the main working tree. If **any** plan in the current wave dropped to sequent
 execute the affected plan(s) **one at a time** to avoid concurrent writes to the main working
 tree — plans in the same wave that retained worktree isolation can still run in parallel
 alongside the sequential ones, but two non-worktree plans in the same wave must serialize.
-When the project-level `USE_WORKTREES=false`, all plans in the wave serialize regardless of
-the `PARALLELIZATION` setting.
+Every plan runs on the main working tree (`@gsd/core` has no worktree isolation), so all plans
+in the wave serialize regardless of the `PARALLELIZATION` setting.

@@ -22,13 +22,13 @@ Uses git cherry-pick with path filtering to rebuild a clean history.
 <process>
 
 <step name="detect_state">
-Parse `$ARGUMENTS` for target branch. If no argument is supplied, detect the
+The target branch is the `--target` value. If none is supplied, detect the
 default branch via the single resolver (#1146).
 
 ```bash
 # the commands below are specforge commands: there is no launcher to define
 CURRENT_BRANCH=$(specforge git head --pick .branch)
-TARGET=$(echo "$ARGUMENTS" | sed -nE 's/.*--target[[:space:]]+"?([A-Za-z0-9._\/-]+).*/\1/p'); TARGET=${TARGET:-$(printf '%s' "{{setting:git.base_branch|}}" | grep . || specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null | grep . || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && echo "$b" && break; done)}
+TARGET="{{arg:target|}}"; [ -n "$TARGET" ] || TARGET="{{setting:git.base_branch|}}"; [ -n "$TARGET" ] || TARGET=$(specforge git remotes --pick '.remotes[name=origin].head' 2>/dev/null) || true; [ -n "$TARGET" ] || for b in main master; do [ "$(specforge git rev "$b" --pick '.revs[0].exists')" = true ] && TARGET=$b && break; done
 ```
 
 Check preconditions:
@@ -60,8 +60,8 @@ The filter has one mode: the spec files are always filtered out, as upstream's s
 not a setting here.
 
 ```bash
-PR_STRICT="true"   # planning.pr_strict: not a setting here, the filter is always strict
-if [ "$PR_STRICT" = "true" ]; then PR_MODE="strict"; else PR_MODE="default"; PR_STRICT="false"; fi
+PR_MODE="strict"   # one mode: every spec file is filtered (planning.pr_strict is not a setting here)
+
 ```
 
 Display:
@@ -76,159 +76,159 @@ Mode:    {PR_MODE}
 </step>
 
 <step name="handle_sub_repos">
-There is no sub-repo list to read: `planning.sub_repos` is not a setting here (a sub-repository is
-another SpecForge project), so `SUB_REPOS_JSON` is empty and this step is skipped.
-
-```bash
-# planning.sub_repos: a sub-repository is another SpecForge project, so there are none to list
-if [ $? -ne 0 ] || [ -z "$SUB_REPOS_JSON" ] || [ "$SUB_REPOS_JSON" = "null" ] || [ "$SUB_REPOS_JSON" = "[]" ]; then
-  : # Not configured or empty — skip to analyze_commits
-fi
-```
-
-Scan each sub-repo for uncommitted changes with git (the setting's list is split with `tr`; no
-JSON tool is needed). Write dirty repo names to a temp file so the list survives across
-subsequent command executions:
-
-```bash
-ROOT=$(specforge git repo --pick .top)
-DIRTY_FILE=$(specforge files temp --pick .path)
-
-printf '%s' "$SUB_REPOS_JSON" | tr -d '[]"' | tr ',' '\n' | grep -E '^[A-Za-z0-9._/-]+$' | {
-  # One name per line, so a name may hold the safe characters only: an embedded
-  # newline would otherwise split into two records before the shell reads them.
+There are no sub-repositories: a sub-repository is another SpecForge project, and `planning.sub_repos` is not a setting here. Continue to `analyze_commits`.
 
 
 
-  # realpath parity with the pr-subrepo seam's validatePath: resolve $ROOT through
-  # symlinks once so the containment check below compares real paths, not text.
-  realRoot=$(cd -P -- "$ROOT" 2>/dev/null && pwd -P) || realRoot=$ROOT
-  while IFS= read -r r; do
-    # Reject before any git invocation: this scan runs on raw config values,
-    # ahead of the pr-subrepo seam's own validatePath guard. A traversal,
-    # embedded-newline, or symlink entry here would run git outside the
-    # workspace, or inject a spurious record into the dirty-file output.
-    # `cd -P` follows symlinks — a textual join does not, so an in-tree
-    # symlink pointing outside root would otherwise smuggle git out.
-    case "$r" in
-      /*) target=$r ;;
-      *) target=$realRoot/$r ;;
-    esac
-    resolved=$(cd -P -- "$target" 2>/dev/null && pwd -P) || continue
-    case "$resolved" in
-      "$realRoot" | "$realRoot"/*) ;;
-      *) continue ;;
-    esac
-    # Exclude untracked-only repos: seam filters ?? lines, so detection must match.
-    # shortcut: no 10 s timeout as node's execFileSync had (no portable `timeout`); a hung git hangs the scan
-    if specforge git status --in "$resolved" --pick '.tracked[]' 2>/dev/null | grep -q .; then
-      printf '%s\n' "$r"
-    fi
-  done
-} > "$DIRTY_FILE"
-
-DIRTY_REPOS=$(cat "$DIRTY_FILE")
-```
-
-If `$DIRTY_REPOS` is empty, remove the temp file and continue to `analyze_commits`.
-
-Display dirty repos and prompt the user:
-
-```
-Sub-repos with uncommitted changes:
-  backend
-  frontend
-
-How should sub-repo changes be handled?
-  1. all    — branch, commit (explicit files only), push -u, open companion PR per repo
-  2. select — choose which sub-repos to process
-  3. skip   — ignore sub-repos, continue with root repo only
-```
-
-If the user chooses **skip**, remove the temp file and continue to `analyze_commits`.
-
-For each selected sub-repo `$REPO_REL`, delegate all git work to the `pr-subrepo` query
-seam — it stages explicit changed files (never `git add -A`), creates the branch,
-commits, and pushes with `--set-upstream`. Branch names include the repo slug to avoid
-colliding with the root `PR_BRANCH` that `create_pr_branch` creates later:
-
-```bash
-# Replace path separators to make the name safe as a branch component
-REPO_SAFE="${REPO_REL//\//-}"
-SUB_BRANCH="${CURRENT_BRANCH}-${REPO_SAFE}-pr"
-COMMIT_MSG="fix(${REPO_REL}): sync uncommitted changes for PR"
-
-# pr-subrepo: not available here, a sub-repository is another SpecForge project
-
-
-SUBREPO_EXIT=1   # no seam ran, so no branch was pushed
-```
-
-If the seam exited non-zero (stage/commit/push failure), report its error and move on to
-the next selected sub-repo. **Do not run the companion-PR step below for this repo** —
-the seam's stderr already explains the failure, and the "branch pushed" path would
-otherwise contradict it:
-
-```bash
-if [ "$SUBREPO_EXIT" -ne 0 ]; then
-  echo "pr-subrepo failed for $REPO_REL — see error above; skipping companion PR." >&2
-fi
-```
-
-Only when `$SUBREPO_EXIT` is `0`, read `remote_slug` from the structured result and open the
-companion PR. If `remote_slug` is null (non-GitHub remote), skip the pull request and show
-the push URL instead:
-
-```bash
-# pr-subrepo is not available here: there is no remote_slug to read
 
 
 
-if [ -n "$REMOTE_SLUG" ]; then
-  # Defense-in-depth: $REPO_REL was already validated by the dirty-scan filter and
-  # the pr-subrepo seam's validatePath, but these are separate, independent git -C
-  # invocations on the same value. Resolve it through symlinks with the SAME realpath
-  # containment the seam uses (path.resolve alone would not catch a symlink escape),
-  # and run git against the validated absolute path rather than re-concatenating.
-  SUB_REPO_DIR=$( (
-    # `cd -P` and `pwd -P` resolve symlinks, as realpathSync does; the containment test is the
-    # dirty scan's, and any failure prints nothing
-    realRoot=$(cd -P -- "$ROOT" && pwd -P) || exit 1
-    case "$REPO_REL" in (/*) target=$REPO_REL ;; (*) target=$realRoot/$REPO_REL ;; esac
-    resolved=$(cd -P -- "$target" && pwd -P) || exit 1
-    case "$resolved" in ("$realRoot" | "$realRoot"/*) ;; (*) exit 1 ;; esac
-    printf '%s' "$resolved"
-  ) 2>/dev/null)
 
-  if [ -z "$SUB_REPO_DIR" ]; then
-    echo "Refusing unsafe sub-repo path: $REPO_REL" >&2
-    SUB_TARGET="$TARGET"
-  else
-    # Resolve base branch: use $TARGET if it exists in sub-repo, else fall back to
-    # the sub-repo's own default branch
-    if git -C "$SUB_REPO_DIR" ls-remote --exit-code --heads origin "$TARGET" \
-         > /dev/null 2>&1; then
-      SUB_TARGET="$TARGET"
-    else
-      SUB_TARGET=$(git -C "$SUB_REPO_DIR" remote show origin 2>/dev/null \
-        | awk '/HEAD branch/ {print $NF}')
-      SUB_TARGET="${SUB_TARGET:-main}"
-    fi
-  fi
 
-  specforge http post "https://api.github.com/repos/$REMOTE_SLUG/pulls" --secret @gsd/core:github_token \
-    --pick .json.html_url \
-    --field "base=$SUB_TARGET" \
-    --field "head=$SUB_BRANCH" \
-    --field "title=$COMMIT_MSG" \
-    --field "body=Companion PR for root repo branch \`$CURRENT_BRANCH\`."
-else
-  echo "No GitHub remote detected for $REPO_REL — branch pushed, open PR manually."
-fi
-```
 
-After processing all selected sub-repos, remove the temp file and continue to
-`analyze_commits` for the root repo.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </step>
 
 <step name="analyze_commits">
@@ -239,46 +239,44 @@ Classify commits:
 specforge git log "$TARGET".."$CURRENT_BRANCH" --no-merges --format human
 ```
 
-**Canonical path declarations.** These three lines are the single source of truth for the
-whole command. `create_pr_branch` derives *which paths it removes* from them, and `verify`
-derives *which paths must not appear* from the same three lines — so the two steps cannot
-disagree about what the filter promised. Declare them exactly once; do not restate either
-list anywhere else in this file. Their literal values are drift-guarded (`npm run lint:ci`,
-`scripts/lint-pr-branch-pattern-drift.cjs`) against the canonical `src/pr-branch-patterns.cts`
-constants — change one side and update the other, or the guard fails.
+**Canonical path declarations.** What is a spec file is the project's word, and
+`specforge git diff` says it on each file: `spec`, `spec_only` and `spec_removed`. These lines
+give `create_pr_branch` the same files as a pathspec, spelled from the same spec root and the
+same harness ledger, and `verify` reads the flags on the branch it built, so a pathspec that
+removed too little shows there. Declare the lines exactly once; do not restate either list
+anywhere else in this file. A commit is classified by the same flags, so the two steps cannot
+disagree about what the filter promised.
 
 ```bash
 # The spec root and the harness ledger (a file at the project root) are reviewer noise (U47); `app.spec` of a build is code.
 TRANSIENT_DIRS=""   # none: specforge-harness is a file
-SPEC_ROOT="{{project:spec_root}}"   # the project's spec root, spelled by SpecForge at render (`.`: the project root)
+# the project's spec root is the repository's to say, below
 TRANSIENT_FILES="specforge-harness"
 
 # Structural planning files: none here. Every spec file is reviewer noise, so the filter has one mode.
 
 
-# The spec files, as a pathspec and an ERE: the spec root's tree, or with the spec root at the project root (`.`) the .spec files at any depth (`./` would name every path)
-if [ "$SPEC_ROOT" = "." ]; then SPEC_PATHSPEC=':(glob)**/*.spec'; SPEC_RE='\.spec$'
-else SPEC_PATHSPEC="$SPEC_ROOT/"; SPEC_RE="^$(printf '%s' "$SPEC_ROOT" | sed 's/[][\.*^$/]/\\&/g')/"; fi
-
-STRUCTURAL_RE="a^"   # matches nothing
-# Milestone-scoped phase-plan directories: none here.
+# The spec files, as a pathspec: the spec root's tree, or with the spec root at the project root (`.`) the .spec files at any depth (`./` would name every path)
+SPEC_PATHSPEC=$(specforge git repo --pick .spec_pathspec)
 
 
 
 
 
-MILESTONE_PHASES_RE="a^"   # matches nothing
+
+
+
+
+
 ```
 
-Derive the mode's two projections — `FILTER_PATHS` (what `create_pr_branch` removes from
-each cherry-picked commit) and `FORBIDDEN_RE` (what `verify` asserts is absent):
+Derive the mode's projection — `FILTER_PATHS`, what `create_pr_branch` removes from each
+cherry-picked commit; `verify` asserts on the diff's `spec` flags:
 
 ```bash
-if [ "$PR_STRICT" = "true" ]; then
-  FILTER_PATHS=$(printf '%s\n' "$SPEC_PATHSPEC"; for f in $TRANSIENT_FILES; do printf '%s\n' "$f"; done)
-  FORBIDDEN_RE="$SPEC_RE|^($(echo "$TRANSIENT_FILES" | tr ' ' '|'))$"
-else
-  : # default mode keeps structural planning state, and there is none here (the filter is always strict)
+
+FILTER_PATHS=$(printf '%s\n' "$SPEC_PATHSPEC"; for f in $TRANSIENT_FILES; do printf '%s\n' "$f"; done)
+# verify reads the diff's spec flags
 
 
 
@@ -308,47 +306,49 @@ else
 
 
 
-fi
+
+
+
 ```
 
 For each commit, check what it touches:
 
 ```bash
 # For each commit hash
-FILES=$(for k in path old_path; do specforge git diff --base "$HASH~1" --head "$HASH" --pick ".files[].$k"; done)
-NON_PLANNING=$(echo "$FILES" | grep -Evc "$FORBIDDEN_RE" || true)
-STRUCTURAL=$(echo "$FILES" | grep -Ec "$STRUCTURAL_RE" || true)
-PLANNING_COUNT=$(echo "$FILES" | grep -Ec "$FORBIDDEN_RE" || true)
+
+NON_PLANNING=$(specforge git diff --base "$HASH~1" --head "$HASH" --pick '.files[spec_only=false].path' --count)
+
+PLANNING_COUNT=$(specforge git diff --base "$HASH~1" --head "$HASH" --pick '.files[spec=true].path' --count)
 ```
 
-Classify, using `NON_PLANNING`, `STRUCTURAL`, and `PLANNING_COUNT` computed above — every arm's
-condition is explicit and computable so no reading of it is ambiguous:
-- **Code commits**: `NON_PLANNING > 0` and `PLANNING_COUNT == 0` → INCLUDE (both modes)
-- **Mixed code+planning commits**: `NON_PLANNING > 0` and `PLANNING_COUNT > 0` → INCLUDE (both
-  modes; the planning paths are filtered out by `create_pr_branch`, not the commit)
-- **Structural-only planning commits**: `NON_PLANNING == 0` and `STRUCTURAL == PLANNING_COUNT`
-  and `PLANNING_COUNT > 0` (every spec file touched is structural) → INCLUDE in
-  **default** mode; **EXCLUDE** in strict mode, which has no structural carve-out
-- **Mixed planning commits (#4447)**: `NON_PLANNING == 0` and `STRUCTURAL > 0` and
-  `STRUCTURAL < PLANNING_COUNT` (some but not all spec files touched are structural —
-  the rest are transient and/or the "other" bucket, e.g. `config.json`/`intel/`) → INCLUDE in
-  **default** mode (the transient-dir subset of the non-structural paths is filtered out by
-  `create_pr_branch`'s universal per-commit filter exactly as for a mixed code+planning commit;
-  any "other" non-structural, non-transient path — `config.json`, `intel/`, etc. — is simply
-  preserved, same as default mode already does for such paths on any commit); **EXCLUDE** in
-  strict mode
-- **Transient-only planning commits**: `NON_PLANNING == 0` and `STRUCTURAL == 0` and
-  `PLANNING_COUNT > 0` → EXCLUDE (both modes)
+Classify: a commit with `NON_PLANNING > 0` is INCLUDED (its spec paths are filtered by `create_pr_branch`); any other is EXCLUDED.
 
-In strict mode this collapses to a single rule: `NON_PLANNING > 0` → INCLUDE, else EXCLUDE.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Display analysis:
 ```
-Commits to include: {N} (code changes{, + structural planning — default mode only})
+Commits to include: {N} (code changes)
 Commits to exclude: {N} (planning-only)
 Mixed commits: {N} (code + planning — included, planning paths filtered)
-Structural planning commits: {N} ({included|excluded — strict mode})
-Mixed planning commits: {N} ({included — structural + transient/other, planning paths filtered|excluded — strict mode})
+
+
 ```
 </step>
 
@@ -399,59 +399,59 @@ for HASH in $(printf '%s' "$INCLUDED_COMMITS"); do
 $FILTER_PATHS
 FILTER_PATHS_EOF
 
-  # #4606: a conflict on a "third bucket" path (a spec path — not `$FORBIDDEN_RE`
-  # transient, not `$STRUCTURAL_RE` structural — the same bucket `verify`'s
-  # `$OTHER` reports) is not a real conflict either, and needs its own
-  # resolution distinct from the filter loop above. Such a path is never
-  # per-commit replayed by classification — a commit touching ONLY a
-  # third-bucket path is EXCLUDEd — so when a LATER included commit (structural
-  # or code + that same path) reuses it, the diff's context can predate
-  # whatever the PR branch actually has, and cherry-pick reports a genuine
-  # content conflict on a path this command was never asked to filter.
-  # `git checkout --theirs` resolves it correctly by construction: in a
-  # cherry-pick's 3-way merge, "theirs" IS $HASH's own content for that path —
-  # exactly the chained final value the path is owed, the same guarantee
-  # `create_pr_branch` already gives structural files. A path $HASH deletes has
-  # no "theirs" blob to check out, so fall back to accepting the deletion (the
-  # `verify` step's `$PLANNING_DELETIONS` gate independently catches this if
-  # `$TARGET` ever legitimately tracked that path).
-  #
-  # The deleted-by-$HASH case is checked explicitly with `git cat-file -e`
-  # rather than inferred from `checkout --theirs` failing, so an unrelated
-  # checkout failure (I/O, permissions, a stale index lock) can't be
-  # misread as a deletion and silently `git rm`-ed — it falls through to the
-  # unmerged-path halt below instead.
-  #
-  # The `git add` below restages a path already committed to $CURRENT_BRANCH's
-  # own history onto the disposable $PR_BRANCH; not a commit_docs bypass
-  # (#1783/#3585), which guards against staging spec/ content that was
-  # never committed at all.
-  #
-  # The unmerged list is snapshotted, then read one path PER LINE. `for P in
-  # $(git diff --name-only --diff-filter=U)` would split it on IFS instead: a
-  # third-bucket path containing a space (`spec/My Notes.md`) becomes the
-  # fragments `spec/My` and `Notes.md`, neither of which names the real
-  # conflicted file, so nothing is resolved and the run aborts with exactly the
-  # #4606 failure this block exists to prevent. Same word-split class as #4109.
-  # Snapshot-then-iterate (rather than piping) both keeps the list stable while
-  # the body restages paths and keeps the body in THIS shell, not a subshell.
-  UNMERGED_PATHS=$(specforge git status --pick '.entries[kind=unmerged].path')
-  while IFS= read -r P; do
-    [ -n "$P" ] || continue
-    case "$P" in
-      "$(printf '%s\n' "$P" | grep -E "$SPEC_RE|^specforge-harness$")") ;;   # the path itself when it is a spec file or the ledger
-      *) continue ;;
-    esac
-    if echo "$P" | grep -Eq "$FORBIDDEN_RE"; then continue; fi
-    if echo "$P" | grep -Eq "$STRUCTURAL_RE"; then continue; fi
-    if [ "$(specforge git rev "$HASH:$P" --pick '.revs[0].exists' 2>/dev/null)" = true ]; then
-      specforge git restore --theirs -- "$P" >/dev/null && specforge git add -- "$P" # gsd-scan-ignore: #4606 -- see block comment above
-    else
-      specforge git rm -f -- "$P" >/dev/null 2>&1 || true
-    fi
-  done <<UNMERGED_PATHS_EOF
-$UNMERGED_PATHS
-UNMERGED_PATHS_EOF
+  # every spec path is in FILTER_PATHS, resolved by the loop above: a path still unmerged below is a real conflict
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   # Anything still unmerged is a REAL conflict, outside the filter. Halt — do not
   # improvise a resolution and do not continue, which would drop the rest of the queue.
@@ -497,17 +497,17 @@ specforge git switch "$CURRENT_BRANCH"
 </step>
 
 <step name="verify">
-Assert against the **active mode's** contract — `$FORBIDDEN_RE`, the same declaration
-`create_pr_branch` filtered on. Counting every spec path unconditionally would
-contradict default mode, which is specified to preserve structural files: a correct run
-would report itself as failed on every phase that touched STATE.md, which is every phase.
+Assert against the filter's contract — the diff's `spec` flag, the project's own word for
+what `create_pr_branch` filtered on: no spec file and no harness ledger may remain.
+
+
 
 ```bash
-DIFF_PATHS=$(specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick '.files[].path')
-FORBIDDEN=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
-PLANNING_TOTAL=$(echo "$DIFF_PATHS" | grep -Ec "$FORBIDDEN_RE" || true)
-ALLOWED=$((PLANNING_TOTAL - FORBIDDEN))
-TOTAL_FILES=$(echo "$DIFF_PATHS" | grep -c . || true)
+
+FORBIDDEN=$(specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick '.files[spec=true].path' --count)
+# strict: every spec path is forbidden
+
+TOTAL_FILES=$(specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick .count)
 PR_COMMITS=$(specforge git log "$TARGET".."$PR_BRANCH" --pick .count)
 
 # #3679: a DELETED planning path is never legitimate — this workflow only ever
@@ -515,12 +515,12 @@ PR_COMMITS=$(specforge git log "$TARGET".."$PR_BRANCH" --pick .count)
 # planning files must survive byte-identical. Name-only counting cannot see
 # status (a deleted structural/allowed path verifies clean there), so gate on
 # deletions explicitly, across every planning category.
-PLANNING_DELETIONS=$(for p in "[status=deleted].path" "[status=renamed].old_path"; do specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick ".files$p"; done | grep -Ec "$FORBIDDEN_RE" || true)
+PLANNING_DELETIONS=$(specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick '.files[spec_removed=true].path' --count)
 
-# Default mode preserves anything of the spec that is neither transient nor
-# structural — config.json, intel/, workstreams/. That is deliberate and unchanged, but it
-# must not be silent: report it so the user can choose strict mode knowingly.
-OTHER=""   # strict mode: every spec path is forbidden, so none is kept
+
+
+
+
 ```
 
 `$FORBIDDEN` is the pass/fail number — it must be `0`. A non-zero value means the filter
@@ -528,7 +528,7 @@ did not do what this mode promised; report it and do not tell the user to push.
 
 `$PLANNING_DELETIONS` is a second hard gate (#3679) — it must also be `0`. A non-zero
 value means the PR branch would DELETE planning files the target branch tracks
-(`git diff --name-status --no-renames "$TARGET".."$PR_BRANCH" | grep "^D" | grep "\.spec"` lists
+(`specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick '.files[spec_removed=true].path'` lists
 them). That is data loss, not filtering — report it, do not tell the user to push, and
 rebuild the branch.
 
@@ -539,7 +539,7 @@ Display results:
 Original: {AHEAD} commits, {ORIGINAL_FILES} files
 PR branch: {PR_COMMITS} commits, {TOTAL_FILES} files
 Mode: {PR_MODE}
-Planning paths in diff: {PLANNING_TOTAL} (allowed {ALLOWED}, forbidden {FORBIDDEN} — must be 0)
+Planning paths in diff: {FORBIDDEN} — must be 0
 Planning deletions: {PLANNING_DELETIONS} (must be 0 — #3679)
 
 Next steps:
@@ -549,12 +549,12 @@ Next steps:
 Or use /gsd:ship to create the PR automatically.
 ```
 
-When `$OTHER` is non-empty (default mode only — strict forbids all of it), append:
-```
-ℹ️  These spec/ paths are neither transient nor structural, so default mode keeps them:
-{OTHER}
-    (the filter is always strict here: no spec path is kept)
-```
+
+
+
+
+
+
 </step>
 
 </process>
@@ -563,8 +563,8 @@ When `$OTHER` is non-empty (default mode only — strict forbids all of it), app
 - [ ] Working tree was clean before the PR branch was created
 - [ ] PR branch created from target
 - [ ] Planning-only commits excluded
-- [ ] Zero paths matching the active mode's `$FORBIDDEN_RE` in the PR branch diff —
-      strict: no spec path at all; default: none from `$TRANSIENT_DIRS`
+- [ ] Zero files flagged `spec` in the PR branch diff: no spec path at all
+
 - [ ] No spec path the target branch already tracked was deleted
 - [ ] Every included commit landed — none dropped by a failed cherry-pick
 - [ ] Commit messages preserved from original

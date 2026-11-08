@@ -19,7 +19,7 @@ extensions and the profiles declare it as their peer.
 | Passes | `derive` (the computed fields: each context's `digest`; verification status, score and re-verification, UAT totals and status, validation coverage, audit status, the phase `completed` ladder and the window counts; plan, task, summary and deliverable-check status from the commits and the test report; requirement, phase, milestone, project, workstream and context values), `execute` (`gsd/E401`, `gsd/W403`, `gsd/W407`, `gsd/W408`), `schema_drift` (`gsd/E405`), `roadmap` (`gsd/E101`, `gsd/E102`, `gsd/W103`, `gsd/W104`, `gsd/E108`, `gsd/E206`), `research` (`gsd/W204`), `drift` (`gsd/W406`), `plan_shape` (`gsd/W323`, `gsd/E302`, `gsd/E303`, `gsd/W304`, `gsd/E307`, `gsd/W308`, `gsd/W309`, `gsd/E322`), `waves` (the computed `plan.wave` and `plan.autonomous`), `file_scope` (`gsd/W305`, `gsd/W306`), `scope` (`gsd/E312`, `gsd/W317`), `cross_plan` (`gsd/E301`, `gsd/E310`, `gsd/I321`), `scan` (computes the file facts: anti-patterns, debt markers, artifact and key-link states) with `scan_check` (`gsd/E505`), `nyquist` (`gsd/E314`, `gsd/W510`), `verify_rules` (`gsd/E503`, `gsd/W504`, `gsd/E509`), `windows` (`gsd/E513`, `gsd/W514`), `gates` (the guards `gsd/E106`, `gsd/E511`, `gsd/E512`, `gsd/W318`, `gsd/W404`, `gsd/E515`, `gsd/E516`, which answer at a gate trigger and are silent on a write) and `verify_paths` (`gsd/E320`, `gsd/W324`; computes `task.verify_paths`, which it reads through the project's files) and `fails_when` (`gsd/E507`) | `src/passes/` |
 | Hooks | 15 hooks (r44, K20c): `read_guard`, `write_guard`, `secret_read_guard`, `injection_scanner`, `prompt_guard`, `worktree_path_guard`, `workflow_marker`, `workflow_guard`, `context_monitor`, `context_compacted`, `statusline`, `config_reload` and, under `hooks.community`, `validate_commit`, `phase_boundary`, `session_state`; what each does and does not do is in `contributions/README.md` | `src/hooks/` |
 | Rules | `gsd/E105` (an `out_of_scope` requirement has a reason), `gsd/E201` (a context has canonical refs: two declarative rules under one code), `gsd/E107` (generated for each authored timestamp field and block member: first `blocker.resolved.at`), `gsd/E402` (a halted summary says why), the seven declarative `gsd/E307` rules (what each checkpoint kind requires) and `gsd/E319` (a test-tier prohibition names a test) | `src/rules.rs`, `../kit/src/dsl.rs` |
-| Code book | all 63 `gsd/` codes of [spec/rules.md](spec/rules.md), each with its `gsd-compat` severity and what `gsd-strict` raises it to; the rules of the others land with their kinds | `src/codes.rs` |
+| Code book | all 64 `gsd/` codes of [spec/rules.md](spec/rules.md), each with its `gsd-compat` severity and what `gsd-strict` raises it to; the rules of the others land with their kinds | `src/codes.rs` |
 | Settings | the 181 GSD configuration keys `@gsd/core` declares (a count of declarations; ACCEPTANCE counts the inventory's 212 keys, 161 built here, on that basis), typed with GSD's default, and 12 families (`models.*`, `granularities.*`, …), `specforge.agent_variant`, the ten `specforge.surface.<cluster>` settings that show or hide skills; the 15 `model_overrides.<agent>` keys belong to the `model_overrides.*` family and are set by a preset | `src/settings/keys.rs`, model in [spec/settings.md](spec/settings.md) |
 | Profiles | `profile` (`gsd-compat` by default, `gsd-strict`, `gsd-plus`), presetting five settings and raising rule severities; `model_profile` presets the 15 `model_overrides.<agent>` and `workflow.compact_content` presets `specforge.agent_variant` | `src/settings/profiles.rs` |
 | Gates | the four `specforge.*` settings and the `workflow.*` toggles switch off the rules [spec/rules.md](spec/rules.md#setting-gated-rules) lists | `src/settings/gates.rs` |
@@ -60,15 +60,14 @@ specforge settings --extension @gsd/core
 **Requirements.** The prompts' shell blocks need `bash`, `git` and `specforge` on the `PATH`, and no jq anywhere: a value
 is read with `--pick` (`specforge query`, `export`, `check`, `settings` and the extension commands, ADR 0325), a document
 is read by the agent (`--format context` or `brief`, or a command's own JSON), gh filters its answers with `--jq`, and
-data a prompt owns (the wave's worktree manifest, the quick batch's list) is tab-separated lines. `gh` and the review
+data a prompt owns (the quick batch's list) is tab-separated lines. `gh` and the review
 lanes' own CLIs (codex, gemini, opencode, ollama, ...) are needed only for the steps that call those services. node is
-needed only where the user's own project is JavaScript: the dev-server probe of `references/checkpoints.md` and the
-verifier's module and CLI checks (`node -e "…require('$MODULE_PATH')…"`, `node $CLI_PATH`, at `agents/gsd-verifier.md`)
-(`KEEP` in `tests/port_tools.rs`). Beyond those, node is optional, only for these steps, which run upstream code
+needed only where the user's own project is JavaScript: the verifier's module and CLI checks
+(`node -e "…require('$MODULE_PATH')…"`, `node $CLI_PATH`, at `agents/gsd-verifier.md`) (`KEEP` in
+`tests/port_tools.rs`); a dev server is waited for with `specforge wait --url`. Beyond those, node is optional, only for these steps, which run upstream code
 @gsd/core does not install (`PENDING_NODE`): the edge probe `node "$EDGE_PROBE_JS"` (`workflows/spec-phase.md`,
-`references/specless-probe-fallback.md`), the spec-section check `node "$SPEC_SECTION_JS"`
-(`references/specless-probe-fallback.md`) and the disposition-ledger builder
-(`workflows/execute-phase/steps/code-review-disposition.md`). There is no health check for them: `health` is a guest
+`references/specless-probe-fallback.md`) and the spec-section check `node "$SPEC_SECTION_JS"`
+(`references/specless-probe-fallback.md`). There is no health check for them: `health` is a guest
 command and cannot see the host's `PATH`. `tests/port_tools.rs` keeps jq out of every shell block and inline code run,
 and `tests/cli/assets_shell/` runs the rewritten lines with no jq and no node on the `PATH`.
 

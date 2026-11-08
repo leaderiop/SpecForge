@@ -11,7 +11,7 @@ Usage: specforge grants [OPTIONS]
 
 Commands:
   list     List each capability, its grant here and the project's named roots (the default)
-  approve  Approve an extension's scopes on this machine (every scope that needs it when none is named), or a root
+  approve  Approve an extension's scopes on this machine (every scope that needs it when none is named), a root, or name a root for every project (--root <name> --at <dir>)
   revoke   Revoke an extension's approvals (every scope when none is named), a root's, or the whole project's
   help     Print this message or the help of the given subcommand(s)
 

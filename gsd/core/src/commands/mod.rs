@@ -1,13 +1,17 @@
 //! The commands of `@gsd/core` (K5): the writing commands the workflows call. r40 builds `record_verdict`; r41
 //! builds the others, each file the commands of one family (D-r41-2).
 
+mod automated_guard;
+mod branch_check;
 mod complexity;
 mod digest;
 mod execute;
+mod gate;
 mod help;
 mod milestone;
-mod package_manager;
+mod milestone_branches;
 mod phase;
+mod quick;
 mod refactor;
 mod reference;
 pub(crate) mod reports;
@@ -35,6 +39,8 @@ pub const WRITERS: &[(&str, &str, &str)] = &[
     ("milestone", "completion", "close_milestone"),
     ("checkpoint", "answer", "answer_checkpoint"),
     ("user_setup", "done", "confirm_setup"),
+    ("plan_start", "at", "start_plan"),
+    ("plan_start", "head", "start_plan"),
     ("summary", "started", "complete_plan"),
     ("summary", "completed", "complete_plan"),
     ("pause", "at", "pause"),
@@ -87,7 +93,11 @@ pub fn declare(c: &mut ContributionsBuilder) {
     edge_probe::declare(c);
     plan_coverage::declare(c);
     verification_debt::declare(c);
-    package_manager::declare(c);
+    gate::declare(c);
+    automated_guard::declare(c);
+    branch_check::declare(c);
+    milestone_branches::declare(c);
     smart_entry::declare(c);
+    quick::declare(c);
     surface::declare(c);
 }

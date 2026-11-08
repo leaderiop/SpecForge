@@ -34,7 +34,7 @@ static WORKSPACE: Spec = Spec {
         Arg::one_of("strategy", &["worktree", "clone"]),
         Arg::text("branch"),
         Arg::flag("auto"),
-        Arg::rest("name"),
+        Arg::segment("name"),
     ],
     subject: None,
     gates: &[],

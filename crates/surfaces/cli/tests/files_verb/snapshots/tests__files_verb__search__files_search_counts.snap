@@ -1,0 +1,29 @@
+---
+source: crates/surfaces/cli/tests/files_verb/search.rs
+expression: run.answer()
+---
+{
+  "count": 4,
+  "counts": [
+    {
+      "count": 0,
+      "path": "spec/a.spec"
+    },
+    {
+      "count": 1,
+      "path": "src/lib/util.rs"
+    },
+    {
+      "count": 1,
+      "path": "src/main.rs"
+    },
+    {
+      "count": 2,
+      "path": "src/twice.rs"
+    }
+  ],
+  "matches": [],
+  "missing": [],
+  "truncated": false,
+  "unread": []
+}

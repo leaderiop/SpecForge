@@ -735,3 +735,47 @@ fn a_post_query_sends_its_json_body_and_is_never_retried() {
         "sent once"
     );
 }
+
+/// A policy that permits every redirect and the proxies on `hosts` alone, and keeps each proxy it was asked about.
+struct Proxies {
+    hosts: Vec<&'static str>,
+    asked: std::sync::Mutex<Vec<(String, String)>>,
+}
+
+impl specforge_effects::Redirects for Proxies {
+    fn allow(&self, _from: &str, _to: &str, _method: &str) -> bool {
+        true
+    }
+
+    fn through_proxy(&self, host: &str, url: &str) -> bool {
+        self.asked
+            .lock()
+            .unwrap()
+            .push((host.to_string(), url.to_string()));
+        self.hosts.contains(&host)
+    }
+}
+
+/// The proxy a request goes through is the caller's to permit, asked before anything is sent: a refused one sees no
+/// request, and the answer is `denied`.
+#[test]
+fn a_proxy_the_policy_refuses_is_never_sent_to() {
+    let proxy = Server::reply(|_, _| ok("through the proxy"));
+    let url = "http://specforge-proxied.invalid/";
+    let policy = |hosts| Proxies {
+        hosts,
+        asked: std::sync::Mutex::new(Vec::new()),
+    };
+    let refusing = policy(Vec::new());
+    let outcome = Client::with_proxy(&proxy.base).request(&get(url), &refusing);
+    assert_eq!(outcome.class, OutcomeClass::Denied, "{outcome:?}");
+    assert!(proxy.requests().is_empty(), "the proxy saw a request");
+    assert_eq!(
+        *refusing.asked.lock().unwrap(),
+        [("127.0.0.1".to_string(), url.to_string())]
+    );
+    let permitting = policy(vec!["127.0.0.1"]);
+    let outcome = Client::with_proxy(&proxy.base).request(&get(url), &permitting);
+    assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
+    assert_eq!(outcome.body, b"through the proxy");
+}

@@ -2,7 +2,7 @@
 <step name="mvp_display">
 **MVP-mode display (when phase has `**Mode:** mvp` in ROADMAP.md).**
 
-the progress report already resolved `phase_mvp_mode` for the current phase (progress has no `--mvp` CLI flag — mode is inherited from the planned phase), and this step is only read at all when that same fact is `true` (`section_manifest`'s `mvp-display` inclusion gates on it) — so there is no need to re-resolve `MVP_MODE` here with a fresh query; that would gate this section on a fact its own body recomputes, which is circular and self-disabling. Simply consume `$phase_mvp_mode` (already extracted from init JSON in `init_context`) as `true` for the remainder of this step.
+the current phase's mode is its `mode` field (progress has no `--mvp` CLI flag — mode is inherited from the planned phase), and no init bundle prints a section manifest, so this step is read on every progress run: read the mode here, from a depth-0 query of the current phase, and when it is not `mvp` skip the rest of this step; when it is, it holds for the remainder of this step.
 
 The per-phase progress block adds a **user-flow status** sub-block sourced from the phase's PLAN.md task names. Each task whose name reads like a user-visible capability (e.g., "Register flow", "Login flow", "Password reset") is rendered as a status line:
 

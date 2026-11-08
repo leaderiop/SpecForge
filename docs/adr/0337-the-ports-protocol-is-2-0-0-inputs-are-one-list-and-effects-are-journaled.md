@@ -96,6 +96,8 @@ pub enum Input {
   header's value, and a body or stdin as its sha256 and length. An argv the user typed (`specforge run`, ADR 0339
   D3) shows as its sha256 and length too: it may carry a token. A sensitive header's value is never written: the
   request digest's canonical form writes it `<redacted>` (ADR 0335 D3), and replay matches by digest.
+- A request's timeout stays in its digest: an answer can depend on it. A `specforge wait` probe (ADR 0342 D2) is
+  keyed by its longest probe time and sent with the time left, so its record does not depend on `--for`.
 - A response payload (an HTTP body, a process's output) is kept beside the record, `<hex>.payload`, bounded by the
   request's cap, and checked against the outcome's digest when read; a mismatch is a miss.
 - A lookup answers `Fresh`, `Expired` or `Missing` against `observed_at + ttl`.
