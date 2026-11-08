@@ -7,14 +7,17 @@
 //! answer for `surfaces` is served raw, as a guest built before ADR 0037
 //! would give it, so each surface still carries the `sandbox` override the
 //! protocol no longer has (the host reports it as W153 and grants nothing).
-//! It also calls the four `specforge:host` ports, through a capability each
-//! (its `cmd__ports` and `__pass_ports` exports), to prove a port is reached
-//! only through a grant.
+//! It also calls the five `specforge:host` ports, through a capability each
+//! (its `cmd__ports` and `__pass_ports` exports; `syntax` through its fs
+//! capability), to prove a port is reached only through a grant.
 //! The component blob is vendored at `fixtures/sandbox-probe/wasm/sandbox_probe.wasm`
 //! (refresh: `cargo run -p xtask --bin revendor`).
 
 use serde_json::{json, Value};
-use specforge_extension_sdk::host::{self, Denial, HostError, HttpRequest, ProcessRequest};
+use specforge_extension_sdk::host::{
+    self, Denial, HostError, HttpRequest, ProcessRequest, SyntaxFiles, SyntaxOutcome,
+    SyntaxRequest, SyntaxSource,
+};
 use specforge_extension_sdk::prelude::*;
 use std::io::Read;
 use std::net::ToSocketAddrs;
@@ -46,8 +49,8 @@ impl Contributions for Probe {
         );
         c.capability(
             Capability::fs("probe-fs")
-                .ops(&[FsAccess::Stat])
-                .why("prove the same of the fs port"),
+                .ops(&[FsAccess::Stat, FsAccess::Read])
+                .why("prove the same of the fs and syntax ports"),
         );
         c.capability(
             Capability::process("probe-process")
@@ -219,6 +222,28 @@ fn ports(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
             |o| json!({"ok": o.exit_code, "truncated": o.truncated}),
         ),
         "git" => answered(host::git::commit(&target), |sha| json!({"ok": sha})),
+        "syntax" => answered(
+            host::syntax::parse(&SyntaxRequest {
+                source: SyntaxSource::Worktree {
+                    root: "project".to_string(),
+                },
+                files: SyntaxFiles::Paths(vec![target]),
+                language: "rust".to_string(),
+                query: "(function_item name: (identifier) @name) @definition.function".to_string(),
+            }),
+            |answer| {
+                let names: Vec<&str> = answer
+                    .files
+                    .iter()
+                    .flat_map(|file| match &file.outcome {
+                        SyntaxOutcome::Parsed { matches, .. } => matches.as_slice(),
+                        SyntaxOutcome::NotParsed { .. } => &[],
+                    })
+                    .flat_map(|m| m.captures.iter().map(|c| c.text.as_str()))
+                    .collect();
+                json!({"ok": names, "parsed": answer.parsed})
+            },
+        ),
         other => json!({"failed": format!("no port {other}")}),
     };
     if asked["spin"] == true {
