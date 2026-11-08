@@ -18,7 +18,7 @@ const OWNER: &str = "@test/owner";
 /// `@test/owner`: a `plan` complete on `status ∈ [complete]`, its `status` computed from `done` by the compute pass
 /// `progress`; its `files` each a file under the project root once it is complete, its `gone` a file while it is
 /// pending, its `refs` a file always, and its `notes` read by the checker `named` once it is complete. A `task` scoped
-/// by `plan`, declaring no `complete_when`, whose `files` wait for its plan.
+/// by `plan`, declaring no `complete_when`, whose `files` wait for its plan, and judged by [`JUDGED`] over itself.
 fn owner() -> InProcessRuntime {
     InProcessRuntime::new().with(|| {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new(OWNER, "1.0.0"));
@@ -67,9 +67,24 @@ fn owner() -> InProcessRuntime {
         c.pass("progress", |p| {
             p.compute().computes(&["plan.status"]).run(progress);
         });
+        specforge_project::testing::declare_rules(
+            &mut c,
+            serde_json::json!([{
+                "code": JUDGED.rsplit('/').next(), "severity": "warning", "check": "judged",
+                "message_template": "the task {id} was not judged",
+                "judged": {"judge": "reviewer", "outcomes": ["passed", "failed"], "passing": ["passed"],
+                    "targets": [{"kind": "task", "inputs": [{"name": "task", "selector": "self"}]}]},
+            }]),
+        );
+        c.agent("reviewer", |a| {
+            a.description("Judges a task");
+        });
         c
     })
 }
+
+/// The judged rule over a task, as its findings print.
+const JUDGED: &str = "test.owner/W901";
 
 /// Each plan's `status`: `complete` once it is `done`, else `draft`.
 fn progress(input: &PassInput) -> PassOutput {
@@ -278,6 +293,48 @@ fn a_planned_value_is_no_judged_input() {
     assert_eq!(
         waiting.checked_values().of("p1"),
         checked.checked_values().of("p1")
+    );
+}
+
+#[specforge_test(
+    behavior = "check_values_by_owner_state",
+    verify = "a judged verdict over a gated value stays fresh when its owner completes"
+)]
+fn a_verdict_over_a_planned_value_stays_fresh_when_its_owner_completes() {
+    use specforge_project::judged::Cited;
+    let spec = |done: bool| {
+        format!(
+            "plan p1 \"P1\" {{\n  done {done}\n}}\n\ntask t1 \"T1\" {{\n  plan p1\n  files [\"new.js\"]\n}}\n"
+        )
+    };
+    let project = project(&spec(false));
+    let pending = project.compile_in(runtime());
+    assert_eq!(statuses(&pending, "p1/t1", "files"), [CheckStatus::Planned]);
+    crate::judged::record_from(
+        &project,
+        &pending,
+        "p1/t1",
+        JUDGED,
+        "passed",
+        &Cited::default(),
+        "",
+    );
+    let recorded = project.compile_in(runtime());
+    assert_eq!(
+        crate::judged::judgement(&recorded, "p1/t1", JUDGED).0,
+        "fresh"
+    );
+    // The plan completes and the file appears: the task's planned file is checked now, and its verdict holds.
+    project.write(
+        "a.spec",
+        project.read("a.spec").replace("done false", "done true"),
+    );
+    project.write("new.js", "// new\n");
+    let complete = project.compile_in(runtime());
+    assert_eq!(statuses(&complete, "p1/t1", "files"), [CheckStatus::Passed]);
+    assert_eq!(
+        crate::judged::judgement(&complete, "p1/t1", JUDGED).0,
+        "fresh"
     );
 }
 

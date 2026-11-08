@@ -481,6 +481,7 @@ behavior check_values_by_owner_state "Check a Value When Its Owner Allows" {
   verify unit "a value its owner holds back calls no checker"
   verify unit "a while-open value is checked while its owner is pending, and its row says closed once it is complete"
   verify unit "a gated value is no judged input, waiting or checked"
+  verify unit "a judged verdict over a gated value stays fresh when its owner completes"
   verify unit "the values waiting for their owner are counted once in I213, by field, and never in I206 or I207"
   verify unit "a gated value spends the compile's one value budget"
   verify unit "a planned path that climbs out of its root is E094 while its owner is pending"

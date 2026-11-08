@@ -118,7 +118,8 @@ pub(crate) fn record_from(
     }
     text.insert_str(close, &statement);
     project.write("a.spec", text);
-    let compiled = compile(project);
+    // Compiled again in the runtime `compiled` was, whichever extension declares the rule.
+    let compiled = project.compile_in(Arc::clone(env.runtime().expect("a runtime")));
     let node = compiled
         .graph()
         .node(entity)
