@@ -100,6 +100,9 @@ pub struct Entity {
     /// [`Self::trailing_comments`]) nor one between a key and its value. In source order. Read through
     /// [`Self::holds_comment`]. The parse's only (ADR 0267).
     pub value_comments: Vec<SourceSpan>,
+    /// Where a collected fact is written in source, once per place (ADR 0346 D3): its `span` stays its store's, which
+    /// is what identifies a fact. Empty for a parsed block.
+    pub located: Vec<SourceSpan>,
 }
 
 /// One `method` member of an entity body.

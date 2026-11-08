@@ -118,7 +118,7 @@ fn collect_stores_a_collectors_facts_under_the_head_commit_and_records_their_dig
 
     let bytes = std::fs::read(p.root().join(Store::path("node", SHA))).unwrap();
     let facts: Vec<Fact> = serde_json::from_value(two_tests()).unwrap();
-    let canonical = Store::new("node", NODE, SHA, facts).bytes();
+    let canonical = Store::new("node", NODE, SHA, facts, Default::default()).bytes();
     assert_eq!(
         String::from_utf8_lossy(&bytes),
         String::from_utf8_lossy(&canonical)

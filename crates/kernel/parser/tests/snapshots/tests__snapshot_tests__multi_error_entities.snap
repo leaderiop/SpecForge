@@ -1,6 +1,5 @@
 ---
 source: crates/kernel/parser/tests/snapshot_tests.rs
-assertion_line: 65
 expression: result.entities
 ---
 [
@@ -67,6 +66,7 @@ expression: result.entities
         body_comments: [],
         trailing_comments: [],
         value_comments: [],
+        located: [],
     },
     Entity {
         kind: EntityKind {
@@ -131,5 +131,6 @@ expression: result.entities
         body_comments: [],
         trailing_comments: [],
         value_comments: [],
+        located: [],
     },
 ]

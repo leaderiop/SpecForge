@@ -194,6 +194,7 @@ mod dot_escape_tests {
             },
             scope: None,
             unheld: Vec::new(),
+            located: Vec::new(),
             title: Some("}\"; hack graph".to_string()),
             fields,
             source_span: SourceSpan {

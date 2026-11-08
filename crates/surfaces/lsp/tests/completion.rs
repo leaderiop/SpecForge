@@ -321,6 +321,7 @@ impl Fixture {
                 verdicts: Vec::new(),
                 scope: None,
                 unheld: Vec::new(),
+                located: Vec::new(),
             });
         }
         Fixture {

@@ -37,6 +37,9 @@ pub struct Node {
     /// The references it writes in a fact scheme that name no fact (ADR 0327 D6), in written order: no edge, no
     /// diagnostic. The linker sets them.
     pub unheld: Vec<Unheld>,
+    /// Where a collected fact is written in source, once per place (ADR 0346 D3): project-relative files, 1-based
+    /// lines, 1-based byte columns, end exclusive. Empty for an authored entity; `source_span` stays the fact's store.
+    pub located: Vec<SourceSpan>,
 }
 
 /// A reference in a fact scheme that names no fact: the field (its declared path) and the id written, and where.
@@ -48,6 +51,11 @@ pub struct Unheld {
 }
 
 impl Node {
+    /// Where it is written in source, when that is not its declaration: a fact's first place (ADR 0346 D3).
+    pub fn location(&self) -> Option<&SourceSpan> {
+        self.located.first()
+    }
+
     /// The name the entity is declared with: its path without its scope's.
     pub fn name(&self) -> &str {
         match self.scope {
@@ -78,6 +86,7 @@ impl Node {
             verdicts: Vec::new(),
             scope: None,
             unheld: Vec::new(),
+            located: Vec::new(),
         }
     }
 }

@@ -125,6 +125,7 @@ pub(super) fn record(
                 span: u.span.as_ref().map(super::wire::pass_span),
             })
             .collect(),
+        located: node.located.clone(),
         scope: node.scope.map(|scope| scope.as_str().to_string()),
     };
     (record, referenced)

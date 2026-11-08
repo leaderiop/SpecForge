@@ -199,6 +199,7 @@ fn add_entity_with(
             verdicts: Vec::new(),
             scope: None,
             unheld: Vec::new(),
+            located: Vec::new(),
         });
 }
 

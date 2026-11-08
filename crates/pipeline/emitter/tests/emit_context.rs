@@ -44,6 +44,7 @@ fn rich_node() -> Node {
         }],
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
         verdicts: Vec::new(),
     }
 }
@@ -124,6 +125,7 @@ fn context_includes_edges_and_schema_version() {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
     };
     node_b.fields.push(
         Sym::new("contract"),
@@ -219,6 +221,7 @@ fn context_keeps_every_field_an_entity_writes() {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
     });
     let registries = build_of(vec![kind(
         "invariant",
@@ -278,6 +281,7 @@ fn context_lifts_the_fields_an_extension_declares_headline() {
             verdicts: Vec::new(),
             scope: None,
             unheld: Vec::new(),
+            located: Vec::new(),
         });
     }
     // Only `behavior` declares the two as headline fields; on `type` they
@@ -333,6 +337,7 @@ fn a_headline_field_named_coverage_status_is_not_lifted() {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
     });
     let registries = build_of(vec![kind(
         "behavior",
@@ -385,6 +390,7 @@ fn context_lifts_a_headline_field_as_its_field_text() {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
     });
     let registries = crate::support::headline_build(&["behavior"]);
     let json = crate::export(

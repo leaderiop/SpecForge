@@ -32,6 +32,7 @@ fn node(id: &str, kind: &str) -> Node {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
     }
 }
 

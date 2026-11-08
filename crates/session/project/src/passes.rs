@@ -111,7 +111,7 @@ fn sorted_ids(claims: &std::collections::HashSet<String>) -> Vec<String> {
 
 /// The host diagnostics of `extension`'s pass `pass` answering `output`: in
 /// canonical order, a span-less one naming an entity of `entities` given
-/// that entity's span. Each finding's code is the extension's local code under
+/// that entity's place: a fact's first place in source, else its span (ADR 0346 D3). Each finding's code is the extension's local code under
 /// its namespace (`acme.lint/W001`; a first-party extension's stays bare), so
 /// it never prints as core's or another extension's. A code the extension may
 /// not report at the severity it gave (`Codebook::check`) is reported once, as
@@ -125,7 +125,7 @@ pub fn pass_findings(
 ) -> Vec<Diagnostic> {
     let mut misused = code_misuse(codes, extension, pass, &output);
     let mut findings = specforge_wasm::pass_diagnostics(extension, output, |id| {
-        entities.get(id).map(|(record, _)| record.span.clone())
+        entities.get(id).map(|(record, _)| record.place().clone())
     });
     for finding in &mut findings {
         // Where an extension's finding enters: its code says whether this machine decides it (ADR 0337 D7).

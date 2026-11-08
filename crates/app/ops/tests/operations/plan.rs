@@ -30,6 +30,7 @@ fn node(id: &str, kind: &str) -> Node {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
     }
 }
 
@@ -50,6 +51,7 @@ fn testable_node(id: &str) -> Node {
         }],
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
         verdicts: Vec::new(),
     }
 }

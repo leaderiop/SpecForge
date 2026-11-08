@@ -14,7 +14,7 @@ use specforge_parser::{
     CURRENT_FORMAT_VERSION, Entity, EntityId, EntityKind, FieldEntry, FieldMap, FieldValue,
     ListItem, SpecFile, Written,
 };
-use specforge_protocol_types::{Fact, FactStore};
+use specforge_protocol_types::{Fact, FactLocation, FactStore};
 use specforge_registry::{Disk, EntitySnapshot, KindRegistry};
 
 use crate::Environment;
@@ -30,20 +30,32 @@ pub struct Store {
     pub collector: String,
     pub extension: String,
     pub key: String,
+    /// The digest (`sha256:<hex>`) of each source file the facts' places name, by its key from the project root, as
+    /// the host read it when it admitted them (ADR 0346 D2): what a rename checks the file against before it rewrites
+    /// a name there.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub sources: BTreeMap<String, String>,
     pub facts: Vec<Fact>,
 }
 
 impl Store {
-    pub const VERSION: u32 = 1;
+    pub const VERSION: u32 = 2;
 
-    /// The store of `facts`, sorted by kind and id.
-    pub fn new(collector: &str, extension: &str, key: &str, mut facts: Vec<Fact>) -> Self {
+    /// The store of `facts`, sorted by kind and id, and the digests of the `sources` their places name.
+    pub fn new(
+        collector: &str,
+        extension: &str,
+        key: &str,
+        mut facts: Vec<Fact>,
+        sources: BTreeMap<String, String>,
+    ) -> Self {
         facts.sort_by(|a, b| (&a.kind, &a.id).cmp(&(&b.kind, &b.id)));
         Store {
             store: Self::VERSION,
             collector: collector.to_string(),
             extension: extension.to_string(),
             key: key.to_string(),
+            sources,
             facts,
         }
     }
@@ -282,10 +294,12 @@ pub fn recorded_facts(disk: &dyn Disk, root: &Path, kinds: &[&str]) -> Vec<Fact>
 }
 
 /// The store `text` of the fact store `key` as one file of read-only entities (D5): each fact an entity of its kind,
-/// id, title and fields, spanned at the file's first character. A field's value is read from its JSON by the field's
-/// form in `forms`, as a `.spec` file writes it (ADR 0234): a string a word field holds bare is the bare word (an
-/// enum's `passed`, a reference's id), any other string text; an integer, a bool; an array of strings a list whose
-/// items are written as the field writes each. W192 when the text is no store this specforge reads.
+/// id, title and fields, spanned at the file's first character (what identifies a fact) and `located` where its
+/// collector says it is written (ADR 0346 D3). A field's value is read from its JSON by the field's form in `forms`,
+/// as a `.spec` file writes it (ADR 0234): a string a word field holds bare is the bare word (an enum's `passed`, a
+/// reference's id), any other string text; an integer, a bool; an array of strings a list whose items are written as
+/// the field writes each. Each value is spanned where its name is written (`named_at`), else where the fact is, else
+/// at the store. W192 when the text is no store this specforge reads.
 pub(crate) fn served(key: &str, text: &str, forms: &FieldForms) -> Result<SpecFile, Diagnostic> {
     let store = serde_json::from_str::<Store>(text).map_err(|e| unreadable(key, e))?;
     if store.store != Store::VERSION {
@@ -320,21 +334,36 @@ pub(crate) fn served(key: &str, text: &str, forms: &FieldForms) -> Result<SpecFi
     })
 }
 
-/// One fact as an entity spanned at `span`, its values read by `forms`: titled by its id when it gives no title.
+/// One fact as an entity spanned at `span` (its store's) and located at its places, its values read by `forms` and
+/// spanned at their names' places: titled by its id when it gives no title.
 fn entity(fact: Fact, span: &SourceSpan, forms: &FieldForms) -> Entity {
+    let located: Vec<SourceSpan> = fact.at.iter().map(source_span).collect();
+    // Where a value no name place is recorded for is placed: the fact's first place, else its store.
+    let fallback = located.first().unwrap_or(span).clone();
     let mut fields = FieldMap::new();
     for (name, value) in fact.fields {
         let form = match forms.reading(&fact.kind, &name) {
             Reading::Declared(form) => Some(form),
             Reading::Member | Reading::Undeclared => None,
         };
-        if let Some(value) = field_value(value, form, span) {
+        let named = fact.named_at.get(&name);
+        let place = |text: &str| {
+            named
+                .and_then(|ids| ids.get(text))
+                .and_then(|places| places.first())
+                .map_or_else(|| fallback.clone(), source_span)
+        };
+        let value_span = match &value {
+            serde_json::Value::String(text) => place(text),
+            _ => fallback.clone(),
+        };
+        if let Some(value) = field_value(value, form, &place) {
             // Spanned as its list items are, so a single reference (`test_run.test`) is a written token too.
             fields.push_entry(FieldEntry {
                 key: Sym::new(&name),
                 value,
                 annotations: Vec::new(),
-                value_span: Some(span.clone()),
+                value_span: Some(value_span),
             });
         }
     }
@@ -359,15 +388,27 @@ fn entity(fact: Fact, span: &SourceSpan, forms: &FieldForms) -> Entity {
         body_comments: Vec::new(),
         trailing_comments: Vec::new(),
         value_comments: Vec::new(),
+        located,
     }
 }
 
-/// A fact's JSON value as a field value of `form` (none for an undeclared field: text, items quoted); `None` for a
-/// form no field holds (an object, a fraction, a null).
+/// A fact's place as the host spans source: its file a source key, its lines and byte columns as written.
+fn source_span(place: &FactLocation) -> SourceSpan {
+    SourceSpan {
+        file: Sym::new(&place.file),
+        start_line: place.start_line,
+        start_col: place.start_col,
+        end_line: place.end_line,
+        end_col: place.end_col,
+    }
+}
+
+/// A fact's JSON value as a field value of `form` (none for an undeclared field: text, items quoted), each list item
+/// spanned at `place` of its text; `None` for a form no field holds (an object, a fraction, a null).
 fn field_value(
     value: serde_json::Value,
     form: Option<&FieldForm>,
-    span: &SourceSpan,
+    place: &dyn Fn(&str) -> SourceSpan,
 ) -> Option<FieldValue> {
     use serde_json::Value;
     let written = |text: &str| form.map_or(Written::Quoted, |form| spell::form(form, text));
@@ -382,8 +423,8 @@ fn field_value(
                 .map(|item| match item {
                     Value::String(text) => Some(ListItem {
                         written: written(&text),
+                        span: place(&text),
                         text,
-                        span: span.clone(),
                     }),
                     _ => None,
                 })
@@ -426,13 +467,19 @@ mod tests {
     fn a_store_is_written_canonically_whatever_order_its_facts_came_in() {
         let a = Fact::new("test", "js:b#2").field("z", 1).field("a", "x");
         let b = Fact::new("test", "js:a#1").title("one");
-        let one = Store::new("node", "@t/node", "k", vec![a.clone(), b.clone()]);
-        let two = Store::new("node", "@t/node", "k", vec![b, a]);
+        let one = Store::new(
+            "node",
+            "@t/node",
+            "k",
+            vec![a.clone(), b.clone()],
+            BTreeMap::new(),
+        );
+        let two = Store::new("node", "@t/node", "k", vec![b, a], BTreeMap::new());
 
         assert_eq!(one.bytes(), two.bytes());
         let text = String::from_utf8(one.bytes()).unwrap();
         assert!(
-            text.ends_with("}\n") && text.contains("\n  \"store\": 1,"),
+            text.ends_with("}\n") && text.contains("\n  \"store\": 2,"),
             "{text}"
         );
         assert!(text.find("js:a#1").unwrap() < text.find("js:b#2").unwrap());
@@ -457,7 +504,7 @@ mod tests {
                 .field("file", "a.test.js"),
             Fact::new("test", "js:a.test.js#subtracts"),
         ];
-        Store::new("node", "@t/node", "abc", facts).bytes()
+        Store::new("node", "@t/node", "abc", facts, BTreeMap::new()).bytes()
     }
 
     /// The ledger recording `bytes` as node's store under `abc`.
@@ -523,7 +570,7 @@ mod tests {
 
     #[test]
     fn a_fact_store_whose_digest_differs_is_w191() {
-        let other = Store::new("node", "@t/node", "abc", Vec::new()).bytes();
+        let other = Store::new("node", "@t/node", "abc", Vec::new(), BTreeMap::new()).bytes();
 
         let w191 = diagnostic(read(
             &disk(&two(), Some(recording(&other))),
@@ -539,7 +586,7 @@ mod tests {
     fn an_unreadable_fact_store_is_w192() {
         // A recorded store is read as it is, and parsed once, when it is served: no form of it is dropped silently.
         let not_json = served(KEY, "{ not json", &FieldForms::default()).unwrap_err();
-        let newer = r#"{"store": 2, "collector": "node", "extension": "@t/node", "key": "abc", "facts": []}"#;
+        let newer = r#"{"store": 3, "collector": "node", "extension": "@t/node", "key": "abc", "facts": []}"#;
         let newer = served(KEY, newer, &FieldForms::default()).unwrap_err();
         let Read::Text(_) = read(
             &disk(b"{ not json", Some(recording(b"{ not json"))),
@@ -562,12 +609,96 @@ mod tests {
         assert!(
             newer
                 .message
-                .ends_with("it is store version 2, and this specforge reads version 1")
+                .ends_with("it is store version 3, and this specforge reads version 2")
         );
         assert!(matches!(
             read(&MemoryDisk::new(), &root(), KEY, None),
             Read::Gone
         ));
+    }
+
+    #[test]
+    fn a_version_1_store_is_w192() {
+        let older = r#"{"store": 1, "collector": "node", "extension": "@t/node", "key": "abc", "facts": []}"#;
+
+        let w192 = served(KEY, older, &FieldForms::default()).unwrap_err();
+
+        assert_eq!(w192.code, "W192");
+        assert!(
+            w192.message
+                .ends_with("it is store version 1, and this specforge reads version 2"),
+            "{}",
+            w192.message
+        );
+        assert_eq!(
+            w192.suggestion.as_deref(),
+            Some("run `specforge collect` to write it again")
+        );
+    }
+
+    fn place(file: &str, line: usize, from: usize, to: usize) -> FactLocation {
+        FactLocation {
+            file: file.into(),
+            start_line: line,
+            start_col: from,
+            end_line: line,
+            end_col: to,
+        }
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "build_in_memory_graph",
+        verify = "a served fact is located where its collector says it is written, and each name it holds where that name is written"
+    )]
+    fn a_served_fact_is_located_where_it_is_written_and_its_names_where_they_are() {
+        let fact = Fact::new("test", "js:a#b")
+            .at(place("src/a.rs", 12, 1, 20))
+            .at(place("src/b.rs", 3, 1, 20))
+            .name("names", "v1/TR1", place("src/a.rs", 11, 18, 24))
+            .field("status", "passed");
+        let bare = Fact::new("test", "js:a#c").field("names", serde_json::json!(["TR2"]));
+        let text = String::from_utf8(
+            Store::new("node", "@t/node", "abc", vec![fact, bare], BTreeMap::new()).bytes(),
+        )
+        .unwrap();
+
+        let file = served(KEY, &text, &declared()).unwrap();
+
+        let (located, unlocated) = (&file.entities[0], &file.entities[1]);
+        assert_eq!(
+            located.span.file.as_str(),
+            KEY,
+            "a fact keeps its store span"
+        );
+        let places: Vec<(&str, usize)> = located
+            .located
+            .iter()
+            .map(|s| (s.file.as_str(), s.start_line))
+            .collect();
+        assert_eq!(places, [("src/a.rs", 12), ("src/b.rs", 3)]);
+        let Some(FieldValue::List(names)) = located.fields.get("names") else {
+            panic!("names is a list");
+        };
+        let at = &names[0].span;
+        assert_eq!(
+            (at.file.as_str(), at.start_line, at.start_col, at.end_col),
+            ("src/a.rs", 11, 18, 24)
+        );
+        let status = located.fields.entries().iter().find(|e| e.key == "status");
+        let status = status.and_then(|e| e.value_span.as_ref()).unwrap();
+        assert_eq!(
+            (status.file.as_str(), status.start_line),
+            ("src/a.rs", 12),
+            "a value with no name place is placed at the fact"
+        );
+        let Some(FieldValue::List(names)) = unlocated.fields.get("names") else {
+            panic!("names is a list");
+        };
+        assert_eq!(
+            (names[0].span.file.as_str(), names[0].span.start_line),
+            (KEY, 1)
+        );
+        assert!(unlocated.located.is_empty());
     }
 
     /// `test`'s `status` declared an enum and its `names` a reference list.
@@ -592,8 +723,10 @@ mod tests {
             .field("status", "passed")
             .field("file", "a.test.js")
             .field("names", serde_json::json!(["v1/TR1", "a b"]));
-        let text =
-            String::from_utf8(Store::new("node", "@t/node", "abc", vec![fact]).bytes()).unwrap();
+        let text = String::from_utf8(
+            Store::new("node", "@t/node", "abc", vec![fact], BTreeMap::new()).bytes(),
+        )
+        .unwrap();
 
         let file = served(KEY, &text, &declared()).unwrap();
 
@@ -624,8 +757,10 @@ mod tests {
             .field("tags", serde_json::json!(["slow", "js:a#c"]))
             .field("meta", serde_json::json!({"x": 1}))
             .field("ratio", 0.5);
-        let text =
-            String::from_utf8(Store::new("node", "@t/node", "abc", vec![fact]).bytes()).unwrap();
+        let text = String::from_utf8(
+            Store::new("node", "@t/node", "abc", vec![fact], BTreeMap::new()).bytes(),
+        )
+        .unwrap();
 
         let file = served(KEY, &text, &FieldForms::default()).unwrap();
 

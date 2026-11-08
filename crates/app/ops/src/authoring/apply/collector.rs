@@ -75,7 +75,7 @@ fn store(view: &ProjectView<'_>, facts: CollectedFacts, caller: Caller<'_>) -> R
     }
     let (mut files, mut lines) = (Vec::new(), Vec::new());
     for (collector, extension, facts) in stores {
-        let bytes = Store::new(&collector, &extension, &key, facts).bytes();
+        let bytes = Store::new(&collector, &extension, &key, facts, Default::default()).bytes();
         lines.push(Line::facts(&collector, &key, &bytes));
         files.push((collector, bytes));
     }

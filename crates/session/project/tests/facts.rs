@@ -288,11 +288,18 @@ fn recorded_facts_are_the_ledgers_stores_of_the_kinds_asked() {
     assert!(specforge_project::facts::recorded_facts(&disk, p.root(), &[]).is_empty());
 }
 
+/// A place in `file` on `line`, from byte column `from` to `to`, as the wire writes it.
+fn place(file: &str, line: usize, from: usize, to: usize) -> Value {
+    json!({"file": file, "start_line": line, "start_col": from, "end_line": line, "end_col": to})
+}
+
 #[test]
-fn a_facts_dangling_reference_is_e003_at_its_stores_brace() {
+fn a_facts_dangling_reference_is_e003_at_its_name_span() {
     let p = collected();
     let facts = json!([
-        {"kind": "test", "id": "js:a.test.js#adds", "fields": {"covers": ["nobody"]}},
+        {"kind": "test", "id": "js:a.test.js#adds", "fields": {"covers": ["nobody"]},
+         "at": [place("a.test.js", 3, 1, 30)],
+         "named_at": {"covers": {"nobody": [place("a.test.js", 2, 12, 18)]}}},
     ]);
     stored(p.root(), "node", KEY, facts);
 
@@ -305,8 +312,74 @@ fn a_facts_dangling_reference_is_e003_at_its_stores_brace() {
         .expect("the kernel reports the fact's reference");
     let span = e003.span.as_ref().expect("placed");
     assert_eq!(
-        (span.file.as_str(), span.start_line, span.start_col),
-        (STORE, 1, 1)
+        (
+            span.file.as_str(),
+            span.start_line,
+            span.start_col,
+            span.end_col
+        ),
+        ("a.test.js", 2, 12, 18)
+    );
+}
+
+#[specforge_test(
+    behavior = "build_in_memory_graph",
+    verify = "a finding on a fact is placed where it is written, not at its store"
+)]
+fn a_finding_on_a_fact_is_placed_where_it_is_written() {
+    use specforge_extension_sdk::prelude::*;
+    use specforge_project::testing::CODE;
+    use specforge_wasm::testing::InProcessRuntime;
+
+    // `@t/judge` reports every test, naming it and giving no span: the host places the finding.
+    fn judge(input: &PassInput) -> Vec<PassDiagnostic> {
+        input
+            .entities
+            .iter()
+            .filter(|e| e.kind == "test")
+            .map(|e| PassDiagnostic::warning("W001", "judged").with_entity(e.id.clone()))
+            .collect()
+    }
+    let judging = || {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/judge", "1.0.0"));
+        c.peer(CODE, "^1.0");
+        c.code("W001", |d| {
+            d.title("Judged").explanation("Judged.");
+        });
+        c.pass("judge", |p| {
+            p.phase("check").run(judge);
+        });
+        c
+    };
+    let mut enabled = COLLECTED_EXTENSIONS.to_vec();
+    enabled.push("@t/judge");
+    let p = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&enabled)
+        .installing_enabled();
+    let facts = json!([
+        {"kind": "test", "id": "js:a.test.js#adds", "at": [place("a.test.js", 7, 3, 40)]},
+        {"kind": "test", "id": "js:a.test.js#subtracts"},
+    ]);
+    stored(p.root(), "node", KEY, facts);
+
+    let project = p.compile_in(Arc::new(
+        Collected::new().over(InProcessRuntime::new().with(judging)),
+    ));
+
+    let placed: Vec<(String, usize)> = project
+        .diagnostics()
+        .iter()
+        .filter(|d| d.message == "judged")
+        .map(|d| {
+            let span = d.span.as_ref().expect("placed");
+            (span.file.as_str().to_string(), span.start_line)
+        })
+        .collect();
+    assert_eq!(
+        placed,
+        [(STORE.to_string(), 1), ("a.test.js".to_string(), 7)],
+        "a located fact's finding is at its place, an unlocated one's at its store"
     );
 }
 

@@ -4,7 +4,6 @@ use specforge_ops::read::trace::{Follow, Target, TraceExpectations, TraceLinkSta
 use specforge_registry::RegistryBuild;
 
 use crate::view_support::{Assembled, Viewed, chain, chain_in, every_chain, plain};
-use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test::prelude::*;
 
 fn span() -> SourceSpan {
@@ -19,18 +18,8 @@ fn span() -> SourceSpan {
 
 fn node(id: &str, kind: &str) -> Node {
     Node {
-        id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind {
-            raw: Sym::new(kind),
-        },
         title: Some(format!("Title {}", id)),
-        fields: FieldMap::new(),
-        source_span: span(),
-        methods: Vec::new(),
-        obligations: Vec::new(),
-        verdicts: Vec::new(),
-        scope: None,
-        unheld: Vec::new(),
+        ..Node::new(id, kind, span())
     }
 }
 

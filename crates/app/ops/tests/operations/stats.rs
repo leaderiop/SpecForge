@@ -39,6 +39,7 @@ fn node(id: &str, kind: &str) -> Node {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
     }
 }
 
@@ -59,6 +60,7 @@ fn node_with_verify(id: &str, kind: &str) -> Node {
         }],
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
         verdicts: Vec::new(),
     }
 }

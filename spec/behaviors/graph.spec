@@ -58,6 +58,8 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify unit "a fact's single-value reference to another fact links like a written one"
   verify unit "a fact's value is read by its field's form, as a spec file writes it: a word field's word is bare"
   verify integration "a project that loads no collector-written kind reads no fact store and compiles byte-identically"
+  verify unit "a served fact is located where its collector says it is written, and each name it holds where that name is written"
+  verify integration "a finding on a fact is placed where it is written, not at its store"
   verify unit "build_graph emits W061 for reference cycles"
   verify unit "W061 names the cycle's entities in its data"
   verify unit "W061 names every entity of a cycle, one whose cycle closes through an entity already walked included"

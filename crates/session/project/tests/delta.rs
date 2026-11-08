@@ -24,6 +24,7 @@ fn make_node(id: &str, kind: &str, file: &str, line: usize) -> Node {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
     }
 }
 

@@ -27,6 +27,7 @@ impl<'a> ParseContext<'a> {
             body_comments: body.comments,
             trailing_comments: body.trailing,
             value_comments: body.inside,
+            located: Vec::new(),
         });
     }
 
@@ -55,6 +56,7 @@ impl<'a> ParseContext<'a> {
             body_comments: body.comments,
             trailing_comments: body.trailing,
             value_comments: body.inside,
+            located: Vec::new(),
         });
     }
 
@@ -109,6 +111,7 @@ impl<'a> ParseContext<'a> {
             body_comments,
             trailing_comments,
             value_comments,
+            located: Vec::new(),
         });
     }
 
@@ -169,6 +172,7 @@ impl<'a> ParseContext<'a> {
             body_comments: Vec::new(),
             trailing_comments: Vec::new(),
             value_comments: Vec::new(),
+            located: Vec::new(),
         });
     }
 
@@ -195,6 +199,7 @@ impl<'a> ParseContext<'a> {
             body_comments: body.comments,
             trailing_comments: body.trailing,
             value_comments: body.inside,
+            located: Vec::new(),
         });
     }
 

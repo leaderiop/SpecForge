@@ -42,6 +42,9 @@ pub struct EntityRecord {
     pub methods: Vec<MethodRecord>,
     /// Its references in a fact scheme that name no fact (ADR 0327 D6), in written order.
     pub unheld: Vec<specforge_protocol_types::UnheldReference>,
+    /// Where a collected fact is written in source, once per place (ADR 0346 D3); empty for an authored entity, whose
+    /// `span` is where it is written.
+    pub located: Vec<SourceSpan>,
     /// The path of the entity it is scoped by, as its scope field names it (ADR 0284); `None`: the project. What its
     /// owner state is read up (ADR 0329 D4). Host-internal: never on the wire.
     pub scope: Option<String>,
@@ -203,6 +206,11 @@ pub struct RuleInput<'a> {
 }
 
 impl EntityRecord {
+    /// Where a finding about it is placed: a fact's first place in source, else its span (ADR 0346 D3).
+    pub fn place(&self) -> &SourceSpan {
+        self.located.first().unwrap_or(&self.span)
+    }
+
     /// A record with nothing written (the test builder's start).
     pub fn new(kind: &str, id: &str, span: &SourceSpan) -> Self {
         EntityRecord {
@@ -218,6 +226,7 @@ impl EntityRecord {
             exemption: None,
             methods: Vec::new(),
             unheld: Vec::new(),
+            located: Vec::new(),
             scope: None,
         }
     }
