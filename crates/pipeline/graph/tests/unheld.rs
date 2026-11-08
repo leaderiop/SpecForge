@@ -271,3 +271,34 @@ fn an_authored_reference_naming_no_entity_is_still_e003() {
     assert_eq!(codes(&diagnostics), ["E003"], "{diagnostics:?}");
     assert!(graph.node("v1/TR3").unwrap().dangling.is_empty());
 }
+
+#[specforge_test(
+    behavior = "detect_duplicate_entity_ids",
+    verify = "a fact id two stores hold is E117 naming both collectors, not E002"
+)]
+fn a_fact_id_two_stores_hold_is_e117_not_e002() {
+    let at = |store: &str| {
+        let mut file = parse("test placeholder \"P\" {}\n", store);
+        file.entities[0].id.raw = Sym::new(FACT);
+        file
+    };
+    let (node, unit) = (
+        ".specforge/facts/k/node.json",
+        ".specforge/facts/k/unit.json",
+    );
+
+    let (graph, diagnostics) = build_facts(&[at(node), at(unit)]);
+
+    assert_eq!(codes(&diagnostics), ["E117"], "{diagnostics:?}");
+    assert_eq!(
+        diagnostics[0].message,
+        format!(
+            "fact '{FACT}' is collected by both 'node' ({node}) and 'unit' ({unit}); the first is served"
+        )
+    );
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().file.as_str(), unit);
+    assert_eq!(graph.node(FACT).unwrap().source_span.file.as_str(), node);
+    // Two authored blocks, or a block and a fact, are still E002.
+    let (_, authored) = build_facts(&[at("a.spec"), at("b.spec")]);
+    assert_eq!(codes(&authored), ["E002"]);
+}

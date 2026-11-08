@@ -67,7 +67,9 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
     The validator MUST detect entity names declared more than once in one
     scope across all .spec files; the same name in two scopes is two
     entities. Duplicates MUST produce an E002 diagnostic that names both
-    declaration sites (file, line, column).
+    declaration sites (file, line, column). A fact id two fact stores hold
+    is E117 instead, naming both collectors and both stores: the first is
+    served (ADR 0346 D5).
   """
   verify unit "duplicate ID in same file produces E002"
   verify unit "duplicate ID across files produces E002"
@@ -76,6 +78,7 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
   verify unit "a name repeated in another scope is another entity with another path"
   verify unit "a name repeated in one scope is E002 naming the path, or W060 for another kind, and a second spec block stays E002"
   verify unit "an entity that writes no scope field is in the project scope"
+  verify unit "a fact id two stores hold is E117 naming both collectors, not E002"
   verify contract "Detect Duplicate Entity IDs: duplicate entity ID detection holds — all_files_parsed, duplicate_ids_diagnosed"
 }
 

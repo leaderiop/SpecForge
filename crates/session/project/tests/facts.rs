@@ -427,8 +427,11 @@ fn a_finding_on_a_fact_is_placed_where_it_is_written() {
     );
 }
 
-#[test]
-fn a_fact_id_two_stores_hold_is_e002_with_rename_advice() {
+#[specforge_test(
+    behavior = "detect_duplicate_entity_ids",
+    verify = "a fact id two stores hold is E117 naming both collectors, not E002"
+)]
+fn a_fact_id_two_stores_hold_is_e117_naming_both_collectors() {
     let p = collected();
     let fact = json!([{"kind": "test", "id": "js:a.test.js#adds"}]);
     stored(p.root(), "node", KEY, fact.clone());
@@ -437,11 +440,25 @@ fn a_fact_id_two_stores_hold_is_e002_with_rename_advice() {
     let project = compiled(&p);
 
     let diagnostics = project.diagnostics();
-    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
-    assert_eq!(e002.len(), 1, "{diagnostics:?}");
+    assert!(
+        !codes(&project).contains(&"E002".to_string()),
+        "{diagnostics:?}"
+    );
+    let e117: Vec<_> = diagnostics.iter().filter(|d| d.code == "E117").collect();
+    assert_eq!(e117.len(), 1, "{diagnostics:?}");
+    let unit = STORE.replace("node.json", "unit.json");
     assert_eq!(
-        e002[0].suggestion.as_deref(),
-        Some("rename one of the entities to avoid the collision")
+        e117[0].message,
+        format!(
+            "fact 'js:a.test.js#adds' is collected by both 'node' ({STORE}) and 'unit' ({unit}); the first is served"
+        )
+    );
+    assert_eq!(
+        e117[0].suggestion.as_deref(),
+        Some(
+            "two collectors mint one id: load only one of them, or fix the pack that mints it, then run \
+             `specforge collect`"
+        )
     );
 }
 

@@ -1625,6 +1625,22 @@ Owner: core
 Level: error
 ```
 
+## E117
+
+```
+E117: Fact collected twice
+
+Two fact stores the session serves hold one fact id (ADR 0346 D5): two
+collectors mint it, each in its own store
+(`.specforge/facts/<key>/<collector>.json`). The message names both collectors
+and both stores; the first in path order is served and the second is not. A fact
+is written by its collector, so there is no entity to rename: load only one of
+the collectors, or fix the pack that mints the id, then run `specforge collect`.
+
+Owner: core
+Level: error
+```
+
 ## E118
 
 ```
