@@ -83,15 +83,19 @@ fn no_builtin_field_declares_a_k3_attribute() {
             if !fields.iter().any(|f| name == format!("describe_{f}.json")) {
                 continue;
             }
-            let mut value: serde_json::Value =
+            let value: serde_json::Value =
                 serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-            // A collected kind's values are a collector's, never written in a file: `@code/core`'s `item.kind` is a
-            // list of words (ADR 0347).
-            if let Some(items) = value["items"].as_array_mut() {
-                items.retain(|kind| kind["writer"] != "collector");
-            }
             let mut found = Vec::new();
-            keys_and_types(&value, &mut found);
+            for item in value["items"].as_array().into_iter().flatten() {
+                let mut words = Vec::new();
+                keys_and_types(item, &mut words);
+                // A collected kind's values are a collector's, never written in a file: `@code/core`'s `item.kind`
+                // is a list of words (ADR 0347). Every other attribute stays pinned on it.
+                if item["writer"] == "collector" {
+                    words.retain(|word| word != "enum_list");
+                }
+                found.extend(words);
+            }
             for word in [
                 "members",
                 "target_kinds",
