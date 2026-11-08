@@ -302,18 +302,20 @@ pub fn gsd_judged_passes() -> Value {
     json!([{"name": "plan_status", "phase": "compute", "computes": ["plan.status"]}])
 }
 
-/// The kind `test` as the builtin `@code/core` declares it, as the wire carries it: written by a collector under the
-/// scheme `js`, its result its `status`, named by its `file` and `name`.
+/// The kinds `test` and `item` as the builtin `@code/core` declares them, as the wire carries them: written by a
+/// collector under the scheme `js`; a test's result is its `status`, named by its `file` and `name`.
 pub fn code_core_tests() -> Value {
     json!([{"name": "test", "keyword": "test", "writer": "collector", "schemes": ["js"], "result": "status",
     "fields": [
         {"name": "file", "field_type": "string"},
         {"name": "name", "field_type": "string"},
         {"name": "status", "field_type": "enum", "enum_values": ["passed", "failed", "skipped"]},
-    ]}])
+    ]},
+    {"name": "item", "keyword": "item", "writer": "collector", "schemes": ["js"],
+    "fields": [{"name": "file", "field_type": "string"}]}])
 }
 
-/// [`CODE_CORE`]: the kind [`code_core_tests`].
+/// [`CODE_CORE`]: the kinds [`code_core_tests`].
 pub fn code_core_builder() -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(CODE_CORE, "1.0.0"));
     c.raw_category(DeclaredCategory::Entities, code_core_tests());

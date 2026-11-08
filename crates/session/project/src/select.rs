@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use serde_json::Value;
-use specforge_graph::{FieldForms, Graph, Node, wire};
+use specforge_graph::{FieldForms, Graph, Node, Unheld, wire};
 use specforge_protocol_types::{FieldType, Root};
 use specforge_registry::judged::{Chain, Head, Step};
 use specforge_registry::{CheckRegistry, FieldRegistry, RegistryBuild};
@@ -55,12 +55,13 @@ impl<'a> Selection<'a> {
         self.run(this, chain, true).1
     }
 
-    /// The ids written in the last step's field of the entities before it that name no fact (ADR 0327 D6): what
-    /// `chain` would pick from `this` were they held. Only a last `.field` step names any.
+    /// The references written in the last step's field of the entities before it that name no fact (ADR 0327 D6),
+    /// each with the collected kinds its field admits: what `chain` would pick from `this` were they held. Only a last
+    /// `.field` step names any.
     // shortcut: a last step of one field only; a path that goes on past a reference (`a.b`) finds none of `b`'s.
-    pub fn unheld(&self, this: &str, chain: &Chain) -> BTreeSet<String> {
+    pub fn unheld(&self, this: &str, chain: &Chain) -> Vec<&'a Unheld> {
         let Some((Step::Path(field), before)) = chain.steps.split_last() else {
-            return BTreeSet::new();
+            return Vec::new();
         };
         let holders = Chain {
             head: chain.head.clone(),
@@ -71,7 +72,6 @@ impl<'a> Selection<'a> {
             .filter_map(|id| self.graph.node(id))
             .flat_map(|node| &node.unheld)
             .filter(|unheld| unheld.field.as_str() == field)
-            .map(|unheld| unheld.id.clone())
             .collect()
     }
 

@@ -177,6 +177,20 @@ fn a_proof_no_store_holds_is_unjudged_and_one_the_store_lost_is_absent() {
 }
 
 #[specforge_test(
+    behavior = "digest_judged_inputs",
+    verify = "a proof beside a store of other kinds in its scheme leaves the input unjudged"
+)]
+fn a_proof_beside_a_store_of_other_kinds_in_its_scheme_is_unjudged() {
+    let p = proved();
+    // The store holds `js` items only: a `test` the proof cites may simply not be collected yet.
+    let items = json!([{"kind": "item", "id": "js:a.js::adds", "fields": {"file": "a.js"}}]);
+    stored(p.root(), "node", KEY, items);
+    let compiled = compile(&p);
+    assert_eq!(inputs(&compiled, PROVED).unjudged, ["tests"]);
+    assert_eq!(tests_input(&compiled, PROVED).0, [ADDS, PROVED]);
+}
+
+#[specforge_test(
     behavior = "declare_judged_rule",
     verify = "a chain to a kind of an unloaded optional peer is inert, not W112"
 )]

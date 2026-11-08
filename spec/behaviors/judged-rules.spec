@@ -90,6 +90,7 @@ behavior digest_judged_inputs "Digest a Judged Rule's Inputs" {
   verify unit "a fact's own result is its test input, and a status change stales it"
   verify unit "each chain of a test input counts on its own, and the input is unjudged only when no chain is read"
   verify unit "a proof the store does not hold leaves the input unjudged, and one the store lost stales it"
+  verify unit "a proof beside a store of other kinds in its scheme leaves the input unjudged"
   verify unit "a cited entity is digested by the resolution that accepted it"
   verify unit "a cited file outside the project is not read"
   verify unit "a judged file input through a link out of the project digests as outside_project and is not read"
