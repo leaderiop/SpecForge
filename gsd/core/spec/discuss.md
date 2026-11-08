@@ -29,7 +29,7 @@ name `251101-abc-CONTEXT`.
 | boundary | text | R | `<domain>` `## Phase Boundary` |
 | discretion | strs | | `### Claude's Discretion` |
 | specifics | text | | `<specifics>` |
-| canonical_refs | {topic str, paths files} | | `<canonical_refs>` (mandatory: not `R`, so gsd/E201 is the one diagnostic of its absence, whether the field is missing or `[]`; a context with no external spec writes one ref whose `topic` is GSD's sentence, "No external specs — requirements are fully captured in decisions above", and whose `paths` is empty) |
+| canonical_refs | {topic str, paths paths<present>} | | `<canonical_refs>` (mandatory: not `R`, so gsd/E201 is the one diagnostic of its absence, whether the field is missing or `[]`; a context with no external spec writes one ref whose `topic` is GSD's sentence, "No external specs — requirements are fully captured in decisions above", and whose `paths` is empty) |
 | reusable_assets, patterns, integration_points | strs | | `<code_context>` |
 | status | enum{gathering, ready_for_planning} | C | `**Status:**`: ready once `boundary` is written and `canonical_refs` has an item. GSD's "no interview is open" is not computable: an interview belongs to a `phase_spec` and has no state |
 | digest | str | C | (new: the digest of the context, its `origin context` decisions and its deferred ideas, `fnv1a64:` and 16 hex digits; a research or spec records it as its `context_digest`, and `gsd/W406` compares; a list or block field is hashed as the structured value the kernel sends, every other field as its text, so a protocol change that sends structured values for more types must not change what is hashed, or every recorded digest goes stale at once) |

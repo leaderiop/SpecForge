@@ -2,7 +2,7 @@
 
 use gsd_kit::dsl::*;
 
-const CANONICAL_REF: &[Field] = &[str("topic"), files("paths")];
+const CANONICAL_REF: &[Field] = &[str("topic"), paths("paths", Mode::Present)];
 const CONTEXT_STATUS: &[&str] = &["gathering", "ready_for_planning"];
 
 /// `NN-CONTEXT.md`, named `02-CONTEXT` and scoped by its phase; a quick plan's (`<quick_id>-CONTEXT.md`) names its

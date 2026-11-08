@@ -42,7 +42,7 @@ pub const VERIFICATION: Kind = Kind::new(
         ts("verified")
             .c()
             .doc("`verified:`; the latest verdict's time"),
-        files("covered_files")
+        paths("covered_files", Mode::Present)
             .c()
             .doc("the files the phase's verdicts name"),
         str("covered_digest")
