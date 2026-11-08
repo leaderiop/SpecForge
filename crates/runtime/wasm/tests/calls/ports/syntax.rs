@@ -318,6 +318,8 @@ fn a_syntax_answer_past_the_cap_is_truncated_and_names_the_rest_capped() {
         reasons,
         [None, None, Some(NotParsed::Capped), Some(NotParsed::Capped)]
     );
+    // Pinned: the answer counts the two files it caps among those it parsed.
+    assert_eq!((answer.parsed, answer.cached), (4, 0));
     // Capped files are the guest's to ask again, not a W196.
     assert!(call.take_denials().is_empty());
 }
