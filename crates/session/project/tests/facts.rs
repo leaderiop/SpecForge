@@ -287,3 +287,25 @@ fn recorded_facts_are_the_ledgers_stores_of_the_kinds_asked() {
     assert!(specforge_project::facts::recorded_facts(&disk, p.root(), &["item"]).is_empty());
     assert!(specforge_project::facts::recorded_facts(&disk, p.root(), &[]).is_empty());
 }
+
+#[test]
+fn a_facts_dangling_reference_is_e003_at_its_stores_brace() {
+    let p = collected();
+    let facts = json!([
+        {"kind": "test", "id": "js:a.test.js#adds", "fields": {"covers": ["nobody"]}},
+    ]);
+    stored(p.root(), "node", KEY, facts);
+
+    let project = compiled(&p);
+
+    let diagnostics = project.diagnostics();
+    let e003 = diagnostics
+        .iter()
+        .find(|d| d.code == "E003")
+        .expect("the kernel reports the fact's reference");
+    let span = e003.span.as_ref().expect("placed");
+    assert_eq!(
+        (span.file.as_str(), span.start_line, span.start_col),
+        (STORE, 1, 1)
+    );
+}
