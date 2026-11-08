@@ -407,7 +407,9 @@ fn a_delete_of_an_entity_a_fact_names_is_still_refused() {
 
     assert_eq!(code, COLLECTED);
     assert!(
-        message.contains("delete it, then run `specforge collect`"),
+        message.ends_with(
+            "which an edit cannot rewrite; change the source it is read from, run `specforge collect`, then delete it"
+        ),
         "{message}"
     );
     assert_eq!(

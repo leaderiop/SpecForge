@@ -706,8 +706,8 @@ fn collected_referrers(
             number,
             plan,
             format!(
-                "{id} is named by '{}' of the fact '{}', which an edit cannot rewrite; delete it, then run \
-                 `specforge collect`",
+                "{id} is named by '{}' of the fact '{}', which an edit cannot rewrite; change the source it is read \
+                 from, run `specforge collect`, then delete it",
                 edge.label, edge.source
             ),
         )),
