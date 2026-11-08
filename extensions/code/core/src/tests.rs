@@ -1,7 +1,8 @@
 use super::*;
 use specforge_extension_sdk::{
-    EntityKindDescriptor, ExtensionDeclaration, FactStore, UnheldReference,
+    DanglingReference, EntityKindDescriptor, ExtensionDeclaration, FactStore, UnheldReference,
 };
+use specforge_test::prelude::*;
 
 fn declaration() -> ExtensionDeclaration {
     specforge_extension_build().declaration()
@@ -199,6 +200,84 @@ fn an_uncited_fact_is_never_a_finding() {
     ];
     assert!(refs::refs(&input(entities.clone(), &["js", "run"])).is_empty());
     assert!(refs::refs(&input(entities, &[])).is_empty());
+}
+
+/// Where the runner pack's collector read a fact's reference: line `line` of `a.test.js`.
+fn read_at(line: usize) -> Option<PassSpan> {
+    Some(PassSpan {
+        file: "a.test.js".to_string(),
+        start_line: line,
+        start_col: 5,
+        end_line: line,
+        end_col: 9,
+    })
+}
+
+const COLLECTOR: &str =
+    "run `specforge collect` again; if it stays, the runner pack mints it wrong";
+
+#[specforge_test(
+    behavior = "cc_check_fact_refs",
+    verify = "a fact's reference no fact or entity answers is code/E101 addressed to its collector, at its span"
+)]
+fn a_dangling_reference_of_a_test_run_is_e101_for_its_collector() {
+    let dangling = |id: &str, reason, actual: Option<&str>, line| DanglingReference {
+        field: "test".to_string(),
+        id: id.to_string(),
+        span: read_at(line),
+        reason,
+        actual: actual.map(str::to_string),
+        did_you_mean: None,
+        candidates: Vec::new(),
+    };
+    let run = PassEntity {
+        dangling: vec![
+            dangling("zz", DanglingReason::Unresolved, None, 3),
+            dangling("t1", DanglingReason::Mistyped, Some("truth"), 7),
+        ],
+        ..entity("run:js:app/a.test.js#adds", "test_run")
+    };
+    let diagnostics = refs::refs(&input(vec![run, entity("t1", "truth")], &["js", "run"]));
+    assert_eq!(
+        found(&diagnostics),
+        [
+            ("E101", "run:js:app/a.test.js#adds", 3, Some(COLLECTOR)),
+            ("E101", "run:js:app/a.test.js#adds", 7, Some(COLLECTOR)),
+        ]
+    );
+    assert_eq!(
+        diagnostics[0].message,
+        "the fact 'run:js:app/a.test.js#adds' names 'zz', which no collected fact holds (its collector's facts \
+         disagree)"
+    );
+    assert_eq!(
+        diagnostics[1].message,
+        "the fact 'run:js:app/a.test.js#adds' names 't1', a truth, not a test"
+    );
+    assert_eq!(diagnostics[0].span.as_ref().unwrap().file, "a.test.js");
+}
+
+#[test]
+fn an_unheld_reference_of_a_test_run_is_e101_for_its_collector() {
+    let run = PassEntity {
+        unheld: vec![UnheldReference {
+            field: "test".to_string(),
+            id: "js:app/a.test.js#gone".to_string(),
+            span: read_at(2),
+        }],
+        ..entity("run:js:app/a.test.js#gone", "test_run")
+    };
+    // Whether or not a store serves the scheme: the collector wrote both, so it is never W102.
+    for served in [&["js", "run"][..], &[]] {
+        let diagnostics = refs::refs(&input(vec![run.clone()], served));
+        assert_eq!(
+            found(&diagnostics),
+            [("E101", "run:js:app/a.test.js#gone", 2, Some(COLLECTOR))]
+        );
+        assert!(diagnostics[0]
+            .message
+            .ends_with("(its collector's facts disagree)"));
+    }
 }
 
 #[test]

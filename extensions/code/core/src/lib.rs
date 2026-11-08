@@ -120,7 +120,11 @@ impl Contributions for CodeCore {
                  fact stores the session served do not hold, while a store does hold facts of that scheme: the test \
                  was renamed, moved or deleted, or the reference is misspelled. The finding suggests the closest \
                  test of the same file. It is not reported while the citing entity's owner is pending (ADR 0329 D4): \
-                 a test not written yet is TDD. Fix the reference, or run `specforge collect` if the test is new.",
+                 a test not written yet is TDD. Fix the reference, or run `specforge collect` if the test is new. \
+                 A reference one of its own facts holds (a test run's test) that no fact or entity answers, or \
+                 that names an entity of another kind, is reported at the place its collector read it, addressed \
+                 to that collector: its facts disagree, and running `specforge collect` again, or fixing the runner \
+                 pack, is the remedy (ADR 0346).",
             );
         });
         c.code("W102", |d| {

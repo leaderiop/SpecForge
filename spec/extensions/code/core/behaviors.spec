@@ -76,7 +76,11 @@ behavior cc_check_fact_refs "Check Cited Fact References" {
     nothing while the entity is pending; code/E101 when a served fact store
     holds facts of the reference's scheme, suggesting the closest held test
     id of the same file; code/W102 when none does. A held reference links
-    and is never a finding, and neither is a fact nothing cites.
+    and is never a finding, and neither is a fact nothing cites. A
+    reference a test or test_run fact holds that no fact or entity answers
+    (unheld, or dangling: no entity, several, or one of another kind) is
+    code/E101 addressed to its collector, at the span it was read at,
+    whether or not a store serves its scheme.
   """
   ensures {
     e101_when_served   "a reference of a scheme a served store holds, naming no fact, is code/E101"
@@ -88,6 +92,7 @@ behavior cc_check_fact_refs "Check Cited Fact References" {
   verify integration "a fact ref with no facts collected is code/W102"
   verify integration "a fact ref of a pending owner is unchecked"
   verify integration "a held fact ref links and reports nothing"
+  verify unit "a fact's reference no fact or entity answers is code/E101 addressed to its collector, at its span"
 }
 
 behavior cc_check_proof "Report a Failing Proof and a Test Naming No Entity" {
