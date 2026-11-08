@@ -54,6 +54,7 @@ mod route;
 mod settings;
 pub mod shell;
 mod surface;
+mod syntax;
 pub mod tool_input;
 mod trigger;
 mod version;
@@ -101,6 +102,10 @@ pub use settings::{
     UnreadableItem, is_segment, valid_name,
 };
 pub use surface::*;
+pub use syntax::{
+    NotParsed, SyntaxAnswer, SyntaxCapture, SyntaxFile, SyntaxFiles, SyntaxMatch, SyntaxOutcome,
+    SyntaxPoint, SyntaxRequest, SyntaxRole, SyntaxSource, SyntaxSpan,
+};
 pub use trigger::{Trigger, TriggerKind};
 pub use version::PROTOCOL_VERSION;
 pub use vocabulary::{
