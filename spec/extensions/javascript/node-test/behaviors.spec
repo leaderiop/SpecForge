@@ -35,11 +35,13 @@ behavior nt_map_node_test_report "Map a node --test Report to Test Facts" {
   types    [CollectInput, CollectOutput, Fact]
   contract """
     `collect__node_test` MUST answer facts only, a test and a test_run per
-    test of the JUnit report, minted by specforge-code-junit with the status
-    node gave it. A test is named js:<package>/<file>#<suite > … > name>:
-    its file is made relative to the project root (a Windows verbatim root
-    included), and <package> is the name of the nearest read package.json at
-    or above it, <file> the path under that package's directory. A report
+    test of the JUnit report, read by specforge-code-junit and minted by
+    specforge-code-facts with the status node gave it. A test is named
+    js:<package>/<file>#<suite > … > name>: its file is made relative to the
+    project root (a Windows verbatim root included), and <package> is the
+    name of the nearest read package.json at or above it, <file> the path
+    under that package's directory; the fact's file is the project-relative
+    path. A report
     that is not JUnit, a test with no file, a file outside the project and a
     test with no named package at or above it are the collector's error,
     never a test dropped silently.

@@ -8,10 +8,12 @@
 //! Each test is named `js:<package>/<file>#<suite > … > name>` (ADR 0329 D2): `<package>` is the `name` of the
 //! nearest `package.json` at or above the test's file, read through the collector's `reads` (a guest has no file
 //! system, ADR 0293), and `<file>` is the path under that package's directory. The answer is facts only, a `test` and
-//! a `test_run` per test, minted by `specforge-code-junit` so every runner pack names a test alike: an entity cites a
-//! test by its id, and `@code/core` checks the reference.
+//! a `test_run` per test, read by `specforge-code-junit` and minted by `specforge-code-facts` so every runner pack names
+//! a test alike: an entity cites a test by its id, and `@code/core` checks the reference. A test fact's `file` is the
+//! project-relative path (ADR 0347 D8).
 
-use specforge_code_junit::{cases, facts, relative, Case, TestId};
+use specforge_code_facts::{test_facts, TestCase, TestId};
+use specforge_code_junit::{cases, relative, Case};
 use specforge_extension_sdk::prelude::*;
 
 const COLLECTOR: &str = "node-test";
@@ -101,7 +103,10 @@ fn id(packages: &[Package], file: &str, case: &Case) -> Result<TestId, String> {
         .iter()
         .filter_map(|package| Some((package, package.holds(file)?)))
         .max_by_key(|(package, _)| package.dir.len())
-        .map(|(package, under)| TestId::js(&package.name, under, case))
+        .map(|(package, under)| {
+            let path: Vec<String> = case.suites.iter().chain([&case.name]).cloned().collect();
+            TestId::js(&package.name, under, &path)
+        })
         .ok_or_else(|| {
             format!(
                 "{file}: no package.json with a name at or above it; node-test names a test \
@@ -136,11 +141,15 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
             })?;
             let file = relative(written, cwd)
                 .ok_or_else(|| format!("{written}: the test file is outside the project {cwd}"))?;
-            Ok((id(&packages, &file, &case)?, case))
+            Ok(TestCase::of(
+                id(&packages, &file, &case)?,
+                &case,
+                Some(file),
+            ))
         })
         .collect::<Result<Vec<_>, String>>()?;
     Ok(CollectOutput {
-        facts: facts(named),
+        facts: test_facts(named),
         ..CollectOutput::default()
     })
 }

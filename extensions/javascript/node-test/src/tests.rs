@@ -136,8 +136,7 @@ fn a_nested_packages_test_fact_files_its_project_relative_path() {
     ))
     .unwrap();
     assert_eq!(out.facts[0].id, "js:@acme/core/test/x.test.js#adds");
-    // Today the path under the package: ADR 0329 D3 says project-relative, `packages/core/test/x.test.js`.
-    assert_eq!(out.facts[0].fields["file"], "test/x.test.js");
+    assert_eq!(out.facts[0].fields["file"], "packages/core/test/x.test.js");
 }
 
 #[specforge_test(
