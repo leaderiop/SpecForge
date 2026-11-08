@@ -538,7 +538,11 @@ behavior dispatch_collector "Dispatch Collector" {
     no loaded extension declares a collector writes, an empty id, an id in
     none of its kind's schemes or a repeated id are E116, and none of that
     collector's facts is stored; so is a fact of a kind the collector does
-    not list in its `answers` (ADR 0345 D3). The others are stored after every collector
+    not list in its `answers` (ADR 0345 D3), and so is a fact placed (`at`,
+    `named_at`) at a file that is no key under the project root or no
+    regular file there (ADR 0346 D2). Each place's file is keyed from the
+    root, and the store records the sha256 of every file a place names, in
+    `sources`. The others are stored after every collector
     ran, in `.specforge/facts/<key>/<collector>.json` (canonical JSON), under
     HEAD's sha, `<sha>-dirty` for a dirty tree, or `worktree` with no commit
     (I209 for either), and `specforge-harness` records one line per
@@ -552,6 +556,8 @@ behavior dispatch_collector "Dispatch Collector" {
   """
   produces   [collector_dispatched]
   verify unit "a collector named by the runner receives each checked value's outcome"
+  verify unit "a fact's places are stored as project keys with the digest of each file they name"
+  verify unit "a fact placed outside the project root is E116 and none of its collector's facts is stored"
   verify unit "a collector reading check outcomes needs no command and no report"
   verify unit "published outcomes are stored under the collect key"
   verify unit "reads a file or every json file in a directory"

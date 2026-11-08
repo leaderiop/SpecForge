@@ -38,7 +38,7 @@ pub use process::ProcessMachine;
 
 use crate::view::ProjectView;
 use crate::{Caller, Held, OpError, OpErrorKind, Refusal};
-use crate::{CollectedFacts, CollectedPlan, EditDocument};
+use crate::{CollectedFacts, CollectedPlan, CollectorFacts, EditDocument};
 use serde::Serialize;
 use specforge_common::shape::Shape;
 use specforge_common::{Code, Diagnostic, DiagnosticList, ProjectPath, codes};
@@ -340,8 +340,9 @@ pub fn collect(
         } else {
             MergeStats::default()
         };
-        let facts = facts::admitted(
+        let (facts, sources) = facts::admitted(
             view,
+            root,
             collector,
             std::mem::take(&mut collected.facts),
             &mut diagnostics,
@@ -349,7 +350,12 @@ pub fn collect(
         served.answered(collector, &facts);
         let stored = facts.len();
         if !facts.is_empty() {
-            stores.push((collector.name.clone(), collector.extension.clone(), facts));
+            stores.push(CollectorFacts {
+                collector: collector.name.clone(),
+                extension: collector.extension.clone(),
+                facts,
+                sources,
+            });
         }
         if let Some(plan) = collected.plan.take() {
             plans.push(CollectedPlan {

@@ -655,3 +655,60 @@ fn checks_a_plain_collect_leaves_the_checks_collector_out() {
         &Mode::NoRun
     ));
 }
+
+#[specforge_test(
+    behavior = "dispatch_collector",
+    verify = "a fact's places are stored as project keys with the digest of each file they name"
+)]
+fn a_facts_places_are_keyed_and_their_files_digested_in_the_store() {
+    let p = project().file("src/a.test.js", "test('adds', () => {})\n");
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
+    // The places spell the file two ways: the key replaces each spelling.
+    let at = |file: &str, line: usize| json!({"file": file, "start_line": line, "start_col": 1, "end_line": line, "end_col": 10});
+    let facts = json!([
+        {"kind": "test", "id": "js:a.test.js#adds", "fields": {"covers": ["T1"]},
+         "at": [at("./src/a.test.js", 1)], "named_at": {"covers": {"T1": [at("src/../src/a.test.js", 1)]}}},
+    ]);
+
+    let outcome = collect(&p, &git, serving(facts, nothing()), Some("node"));
+
+    assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+    let bytes = std::fs::read(p.root().join(Store::path("node", SHA))).unwrap();
+    let store: Store = serde_json::from_slice(&bytes).unwrap();
+    let digest = specforge_ops::revision::of_bytes(b"test('adds', () => {})\n");
+    assert_eq!(
+        store.sources,
+        [("src/a.test.js".to_string(), digest)].into()
+    );
+    let fact = &store.facts[0];
+    assert_eq!(fact.at[0].file, "src/a.test.js");
+    assert_eq!(fact.named_at["covers"]["T1"][0].file, "src/a.test.js");
+}
+
+#[specforge_test(
+    behavior = "dispatch_collector",
+    verify = "a fact placed outside the project root is E116 and none of its collector's facts is stored"
+)]
+fn a_fact_placed_outside_the_root_is_e116_and_nothing_is_stored() {
+    let p = project();
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
+    let at = |file: &str| json!([{"file": file, "start_line": 1, "start_col": 1, "end_line": 1, "end_col": 2}]);
+    let facts = json!([
+        {"kind": "test", "id": "js:a.test.js#adds", "at": at("../elsewhere.js")},
+        {"kind": "test", "id": "js:a.test.js#subtracts", "at": at("missing.js")},
+    ]);
+
+    let outcome = collect(&p, &git, serving(facts, nothing()), Some("node"));
+
+    assert_eq!(codes(&outcome), ["E116"]);
+    assert!(
+        outcome.diagnostics[0].message.ends_with(
+            "fact 'js:a.test.js#adds' is placed at '../elsewhere.js', which is no file under the project root \
+             (and 1 more)"
+        ),
+        "{}",
+        outcome.diagnostics[0].message
+    );
+    assert!(!p.root().join(Store::path("node", SHA)).exists());
+    assert_eq!(outcome.runners[0].facts, 0);
+}
