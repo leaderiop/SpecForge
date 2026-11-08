@@ -15,7 +15,7 @@
     "crates/leaf/protocol-types/src/contrib.rs": "1f8d99527417179a57e22729e2119a2cab86ed42f14af93ebe122ed477edb633",
     "crates/leaf/protocol-types/src/declaration.rs": "42dbdc357ec986748d1d087cad86af30b73a3af8e8d3dc861f9157ec49ec120d",
     "crates/leaf/protocol-types/src/effects.rs": "19cee647a338e945f09183c126e2dc8790b59c02bc44b18b17c088bb6c29af7c",
-    "crates/leaf/protocol-types/src/field.rs": "573891a704b9465ab57a8f18b3df7f3648949c68830e361f2d625e3bc2c77d17",
+    "crates/leaf/protocol-types/src/field.rs": "3d3effeea269536a7241d89c30098e2ba53cfca16bd76071099b668381fb6993",
     "crates/leaf/protocol-types/src/inputs.rs": "e928c4cff2dea61a2552624920ca74b571bc93cac940a382d980a42978134757",
     "crates/leaf/protocol-types/src/judged.rs": "a8fb0a0e37b3e5c0d767b850003a6c38a1c89b6c597dfeb44f20f29ac4b67230",
     "crates/leaf/protocol-types/src/lib.rs": "83c99ccda529ffc950f0ab58a07b68a1889db5dda8d417b7b1226e0324ba880e",
