@@ -195,4 +195,5 @@ behavior parse_source_through_the_syntax_import "Parse Source through the Syntax
   verify unit "a revision's files are parsed from the commit's blobs"
   verify unit "a syntax answer past the cap is truncated and names the rest capped"
   verify unit "files past the deadline are one W196 and broken files one I211 per call"
+  verify unit "a syntax request over a link out of its root, a hard link or a .. path parses nothing outside"
 }
