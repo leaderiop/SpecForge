@@ -404,9 +404,9 @@ fn a_setup_done_is_a_harness_block_and_the_dashboard_a_block_list() {
     assert_eq!(kind_of("user_setup")["scoped_by"], "plan");
 }
 
-/// `plan.md` lists 80 fields over its nine kinds. The model fixes: `task.commits` waits for `commit` (r38), which is 1
+/// `plan.md` lists 80 fields over its nine kinds. The model fixes: `task.commits` waits for `commit`, which is 1
 /// fewer, and `task.verify_text`, `task.verify_paths` (gsd/E320), `checkpoint.action` and `checkpoint.verification`
-/// are 4 more: 80 - 1 + 4 = 83. `plan.gap_closure` is declared with the UAT kinds (r39), and `artifact.state` and
+/// are 4 more: 80 - 1 + 4 = 83. `plan.gap_closure` is declared with the UAT kinds, and `artifact.state` and
 /// `key_link.state` (computed by the scan) are 2 more: 85. `plan.estimate_slices` (the smart-zone budget's answer) is 1 more.
 #[test]
 fn the_plan_kinds_declare_every_field_of_plan_md() {

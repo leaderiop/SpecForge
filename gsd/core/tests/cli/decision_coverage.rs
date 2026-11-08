@@ -1,4 +1,4 @@
-//! `gsd/W506` end to end (D-r42-17): a verified phase whose context decision no complete plan lists.
+//! `gsd/W506` end to end: a verified phase whose context decision no complete plan lists.
 
 use serde_json::json;
 
