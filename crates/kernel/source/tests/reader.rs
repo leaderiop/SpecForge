@@ -1,0 +1,207 @@
+//! Many files read through the cache: what each read parsed, answered from the cache and could not keep.
+
+use std::collections::BTreeMap;
+use std::time::{Duration, SystemTime};
+
+use specforge_protocol_types::{NotParsed, SyntaxOutcome};
+use specforge_source::{
+    CACHE_DIR, CACHE_MAX_AGE, Language, Loaded, Read, SourceReader, SyntaxCache, SyntaxWork,
+};
+
+const QUERY: &str = "(function_item name: (identifier) @name) @definition.function";
+
+/// Files held in memory, by path.
+struct Files(BTreeMap<String, Vec<u8>>);
+
+impl Files {
+    fn of(files: &[(&str, &str)]) -> Self {
+        Files(
+            files
+                .iter()
+                .map(|(path, text)| (path.to_string(), text.as_bytes().to_vec()))
+                .collect(),
+        )
+    }
+
+    fn paths(&self) -> Vec<String> {
+        self.0.keys().cloned().collect()
+    }
+
+    fn read(&self, reader: &SourceReader, query: &str) -> Read {
+        let query = reader.query(Language::Rust, query).unwrap();
+        reader.read(&query, &self.paths(), &|path| match self.0.get(path) {
+            Some(bytes) => Loaded::Bytes(bytes.clone()),
+            None => Loaded::NotParsed(NotParsed::Missing),
+        })
+    }
+}
+
+fn three() -> Files {
+    Files::of(&[
+        ("a.rs", "fn a() {}\n"),
+        ("b.rs", "fn b() {}\n"),
+        ("c.rs", "fn c() {}\n"),
+    ])
+}
+
+fn names(read: &Read) -> Vec<String> {
+    read.files
+        .iter()
+        .flat_map(|file| match &file.outcome {
+            SyntaxOutcome::Parsed { matches, .. } => matches
+                .iter()
+                .flat_map(|m| m.captures.iter().map(|c| c.text.clone()))
+                .collect(),
+            SyntaxOutcome::NotParsed { reason } => vec![reason.name().to_string()],
+        })
+        .collect()
+}
+
+#[test]
+fn a_second_read_parses_nothing_and_answers_every_file_from_the_cache() {
+    let base = tempfile::tempdir().unwrap();
+    let files = three();
+    let first = files.read(&SourceReader::new(SyntaxCache::at(base.path())), QUERY);
+    assert_eq!(
+        first.work,
+        SyntaxWork {
+            parsed: 3,
+            cached: 0,
+            bytes: 30,
+            unwritten: 0
+        }
+    );
+    assert!(base.path().join(CACHE_DIR).is_dir());
+    // Another reader on the same cache: nothing compiled or parsed is shared but the entries.
+    let second = files.read(&SourceReader::new(SyntaxCache::at(base.path())), QUERY);
+    assert_eq!((second.work.parsed, second.work.cached), (0, 3));
+    assert_eq!(second.files, first.files);
+    assert_eq!(
+        first.files[0]
+            .digest
+            .as_deref()
+            .map(|d| d.starts_with("sha256:")),
+        Some(true)
+    );
+}
+
+#[test]
+fn an_edited_file_is_the_only_one_parsed_again() {
+    let base = tempfile::tempdir().unwrap();
+    let reader = SourceReader::new(SyntaxCache::at(base.path()));
+    three().read(&reader, QUERY);
+    let edited = Files::of(&[
+        ("a.rs", "fn a() {}\n"),
+        ("b.rs", "fn b2() {}\n"),
+        ("c.rs", "fn c() {}\n"),
+    ]);
+    let read = edited.read(&reader, QUERY);
+    assert_eq!((read.work.parsed, read.work.cached), (1, 2));
+    assert_eq!(names(&read), ["a", "b2", "c"]);
+}
+
+#[test]
+fn another_query_misses_the_cache() {
+    let base = tempfile::tempdir().unwrap();
+    let reader = SourceReader::new(SyntaxCache::at(base.path()));
+    three().read(&reader, QUERY);
+    let other = three().read(&reader, "(identifier) @reference.name");
+    assert_eq!((other.work.parsed, other.work.cached), (3, 0));
+}
+
+#[test]
+fn a_detached_cache_parses_every_time() {
+    let reader = SourceReader::new(SyntaxCache::detached());
+    three().read(&reader, QUERY);
+    let again = three().read(&reader, QUERY);
+    assert_eq!(
+        again.work,
+        SyntaxWork {
+            parsed: 3,
+            cached: 0,
+            bytes: 30,
+            unwritten: 0
+        }
+    );
+}
+
+/// Every entry file under the cache.
+fn entries(base: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut found = Vec::new();
+    for shard in std::fs::read_dir(base.join(CACHE_DIR)).unwrap().flatten() {
+        found.extend(
+            std::fs::read_dir(shard.path())
+                .unwrap()
+                .flatten()
+                .map(|e| e.path()),
+        );
+    }
+    found.sort();
+    found
+}
+
+#[test]
+fn an_unreadable_entry_is_a_miss_and_is_rewritten() {
+    let base = tempfile::tempdir().unwrap();
+    let files = Files::of(&[("a.rs", "fn a() {}\n")]);
+    files.read(&SourceReader::new(SyntaxCache::at(base.path())), QUERY);
+    let [entry] = entries(base.path()).try_into().unwrap();
+    std::fs::write(&entry, "{not json").unwrap();
+    let read = files.read(&SourceReader::new(SyntaxCache::at(base.path())), QUERY);
+    assert_eq!((read.work.parsed, read.work.cached), (1, 0));
+    assert_eq!(names(&read), ["a"]);
+    let again = files.read(&SourceReader::new(SyntaxCache::at(base.path())), QUERY);
+    assert_eq!(again.work.cached, 1);
+}
+
+#[test]
+fn a_cache_that_cannot_be_written_counts_unwritten_and_still_answers() {
+    let base = tempfile::tempdir().unwrap();
+    // The cache's directory is a file: no entry can go under it.
+    std::fs::create_dir_all(base.path().join(".specforge/cache")).unwrap();
+    std::fs::write(base.path().join(CACHE_DIR), "a file").unwrap();
+    let read = three().read(&SourceReader::new(SyntaxCache::at(base.path())), QUERY);
+    assert_eq!((read.work.parsed, read.work.unwritten), (3, 3));
+    assert_eq!(names(&read), ["a", "b", "c"]);
+}
+
+#[test]
+fn prune_removes_entries_untouched_past_the_age() {
+    let base = tempfile::tempdir().unwrap();
+    let cache = SyntaxCache::at(base.path());
+    three().read(&SourceReader::new(cache.clone()), QUERY);
+    let now = SystemTime::now();
+    assert_eq!(cache.prune(now, CACHE_MAX_AGE), 0);
+    assert_eq!(entries(base.path()).len(), 3);
+    let later = now + CACHE_MAX_AGE + Duration::from_secs(60);
+    assert_eq!(cache.prune(later, CACHE_MAX_AGE), 3);
+    assert!(entries(base.path()).is_empty());
+    assert_eq!(SyntaxCache::detached().prune(later, CACHE_MAX_AGE), 0);
+}
+
+#[test]
+fn the_answer_keeps_the_order_asked_whatever_the_workers() {
+    let texts: Vec<(String, String)> = (0..64)
+        .map(|n| (format!("f{n:02}.rs"), format!("fn f{n}() {{}}\n")))
+        .collect();
+    let files = Files(
+        texts
+            .iter()
+            .map(|(path, text)| (path.clone(), text.as_bytes().to_vec()))
+            .collect(),
+    );
+    let reader = SourceReader::new(SyntaxCache::detached());
+    let query = reader.query(Language::Rust, QUERY).unwrap();
+    // Asked in reverse, with one missing file in the middle.
+    let mut paths: Vec<String> = files.paths().into_iter().rev().collect();
+    paths.insert(32, "missing.rs".to_string());
+    let read = reader.read(&query, &paths, &|path| match files.0.get(path) {
+        Some(bytes) => Loaded::Bytes(bytes.clone()),
+        None => Loaded::NotParsed(NotParsed::Missing),
+    });
+    let answered: Vec<&str> = read.files.iter().map(|f| f.path.as_str()).collect();
+    assert_eq!(answered, paths);
+    assert_eq!(read.work.parsed, 64);
+    assert_eq!(names(&read)[0], "f63");
+    assert_eq!(names(&read)[32], "missing");
+}
