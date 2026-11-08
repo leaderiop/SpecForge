@@ -2,6 +2,7 @@
 
 use specforge_protocol_types::{NotParsed, SyntaxOutcome};
 use specforge_source::{COUNTED_DEADLINE, Deadline, Language, Loaded, SourceReader, SyntaxCache};
+use specforge_test_macros::test as specforge_test;
 
 const QUERY: &str = "(function_item name: (identifier) @name) @definition.function";
 
@@ -22,7 +23,10 @@ fn read(reader: &SourceReader, files: &[(&str, Vec<u8>)]) -> specforge_source::R
     })
 }
 
-#[test]
+#[specforge_test(
+    behavior = "read_source_syntax",
+    verify = "a file past its deadline is not parsed and not cached"
+)]
 fn a_file_past_its_deadline_is_not_parsed_and_not_cached() {
     let base = tempfile::tempdir().unwrap();
     let reader =
@@ -49,7 +53,10 @@ fn a_file_past_its_deadline_is_not_parsed_and_not_cached() {
     assert_eq!(matches.len(), 6000);
 }
 
-#[test]
+#[specforge_test(
+    behavior = "read_source_syntax",
+    verify = "the parse deadline is per file"
+)]
 fn the_deadline_is_per_file() {
     let reader =
         SourceReader::new(SyntaxCache::detached()).with_deadline(Deadline::Progress(PER_FILE));

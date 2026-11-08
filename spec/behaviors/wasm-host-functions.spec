@@ -73,7 +73,7 @@ behavior grant_a_host_port_call "Grant a Host Port Call" {
   verify unit "a secret the host attaches never shows in what a guest is answered"
   verify unit "a program a guest runs inherits no declared secret and cannot set its PATH or loader"
   verify unit "a guest cannot open the private-address opt-in or read a withheld file at a commit"
-  verify integration "the sandbox probe reaches each of the four ports through its grant: a command three, a collector process"
+  verify integration "the sandbox probe reaches each of the five ports through its grant: a command four, a collector process"
 }
 
 behavior bound_a_host_port_call "Bound a Host Port Call" {
@@ -152,6 +152,8 @@ behavior read_source_syntax "Read Source Syntax" {
     error_tolerant  "a file with syntax errors answers what the parse recovered and counts its ERROR and MISSING nodes"
     convention_held "a pattern without exactly one role capture, or with a predicate the reader does not evaluate as text, is a fault"
     columns         "a span's columns count characters and bytes, its lines from 1"
+    cached          "a file parsed before with the same grammar and query is answered from the syntax cache, and the work is counted"
+    deadline_held   "a file past its per-file deadline is not parsed and not cached"
   }
   contract """
     The host's one source reader (ADR 0344) MUST parse rust, typescript and
@@ -165,6 +167,16 @@ behavior read_source_syntax "Read Source Syntax" {
   verify unit "a query without exactly one role capture or with a general predicate is a fault"
   verify unit "a capture's text is cut at 4096 bytes on a character boundary"
   verify unit "the grammar versions are the locked ones"
+  verify unit "a file past its deadline is not parsed and not cached"
+  verify unit "the parse deadline is per file"
+  verify unit "a second read parses nothing and answers every file from the cache"
+  verify unit "an edited file is the only one parsed again"
+  verify unit "another query misses the cache"
+  verify unit "a detached cache parses every time"
+  verify unit "an unreadable cache entry is a miss and is rewritten"
+  verify unit "a cache that cannot be written counts unwritten and still answers"
+  verify unit "a prune removes the entries untouched past the age"
+  verify unit "a read answers in the order asked whatever the workers"
   verify integration "a second collect answers every file from the project's syntax cache"
   verify integration "a command's syntax request is answered from the cache a collect filled"
 }

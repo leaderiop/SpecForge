@@ -8,6 +8,7 @@ use specforge_source::{
     CACHE_DIR, CACHE_MAX_AGE, COUNTED_DEADLINE, Language, Loaded, Read, SourceReader, SyntaxCache,
     SyntaxWork,
 };
+use specforge_test_macros::test as specforge_test;
 
 const QUERY: &str = "(function_item name: (identifier) @name) @definition.function";
 
@@ -63,7 +64,10 @@ fn names(read: &Read) -> Vec<String> {
         .collect()
 }
 
-#[test]
+#[specforge_test(
+    behavior = "read_source_syntax",
+    verify = "a second read parses nothing and answers every file from the cache"
+)]
 fn a_second_read_parses_nothing_and_answers_every_file_from_the_cache() {
     let base = tempfile::tempdir().unwrap();
     let files = three();
@@ -91,7 +95,10 @@ fn a_second_read_parses_nothing_and_answers_every_file_from_the_cache() {
     );
 }
 
-#[test]
+#[specforge_test(
+    behavior = "read_source_syntax",
+    verify = "an edited file is the only one parsed again"
+)]
 fn an_edited_file_is_the_only_one_parsed_again() {
     let base = tempfile::tempdir().unwrap();
     let reader = counted(SyntaxCache::at(base.path()));
@@ -106,7 +113,10 @@ fn an_edited_file_is_the_only_one_parsed_again() {
     assert_eq!(names(&read), ["a", "b2", "c"]);
 }
 
-#[test]
+#[specforge_test(
+    behavior = "read_source_syntax",
+    verify = "another query misses the cache"
+)]
 fn another_query_misses_the_cache() {
     let base = tempfile::tempdir().unwrap();
     let reader = counted(SyntaxCache::at(base.path()));
@@ -115,7 +125,10 @@ fn another_query_misses_the_cache() {
     assert_eq!((other.work.parsed, other.work.cached), (3, 0));
 }
 
-#[test]
+#[specforge_test(
+    behavior = "read_source_syntax",
+    verify = "a detached cache parses every time"
+)]
 fn a_detached_cache_parses_every_time() {
     let reader = counted(SyntaxCache::detached());
     three().read(&reader, QUERY);
@@ -146,7 +159,10 @@ fn entries(base: &std::path::Path) -> Vec<std::path::PathBuf> {
     found
 }
 
-#[test]
+#[specforge_test(
+    behavior = "read_source_syntax",
+    verify = "an unreadable cache entry is a miss and is rewritten"
+)]
 fn an_unreadable_entry_is_a_miss_and_is_rewritten() {
     let base = tempfile::tempdir().unwrap();
     let files = Files::of(&[("a.rs", "fn a() {}\n")]);
@@ -160,7 +176,10 @@ fn an_unreadable_entry_is_a_miss_and_is_rewritten() {
     assert_eq!(again.work.cached, 1);
 }
 
-#[test]
+#[specforge_test(
+    behavior = "read_source_syntax",
+    verify = "a cache that cannot be written counts unwritten and still answers"
+)]
 fn a_cache_that_cannot_be_written_counts_unwritten_and_still_answers() {
     let base = tempfile::tempdir().unwrap();
     // The cache's directory is a file: no entry can go under it.
@@ -171,7 +190,10 @@ fn a_cache_that_cannot_be_written_counts_unwritten_and_still_answers() {
     assert_eq!(names(&read), ["a", "b", "c"]);
 }
 
-#[test]
+#[specforge_test(
+    behavior = "read_source_syntax",
+    verify = "a prune removes the entries untouched past the age"
+)]
 fn prune_removes_entries_untouched_past_the_age() {
     let base = tempfile::tempdir().unwrap();
     let cache = SyntaxCache::at(base.path());
@@ -185,7 +207,10 @@ fn prune_removes_entries_untouched_past_the_age() {
     assert_eq!(SyntaxCache::detached().prune(later, CACHE_MAX_AGE), 0);
 }
 
-#[test]
+#[specforge_test(
+    behavior = "read_source_syntax",
+    verify = "a read answers in the order asked whatever the workers"
+)]
 fn the_answer_keeps_the_order_asked_whatever_the_workers() {
     let texts: Vec<(String, String)> = (0..64)
         .map(|n| (format!("f{n:02}.rs"), format!("fn f{n}() {{}}\n")))

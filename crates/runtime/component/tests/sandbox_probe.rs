@@ -216,7 +216,7 @@ fn an_export_reaches_no_file_and_no_socket() {
 
 #[specforge_test(
     behavior = "grant_a_host_port_call",
-    verify = "the sandbox probe reaches each of the four ports through its grant: a command three, a collector process"
+    verify = "the sandbox probe reaches each of the five ports through its grant: a command four, a collector process"
 )]
 fn the_probe_reaches_each_port_through_its_grant() {
     let runtime = probe_runtime();
