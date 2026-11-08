@@ -661,7 +661,6 @@ fn refuse(reading: &mut Reading, value: &Value<'_>, mut diagnostic: Diagnostic) 
     reading.refused.push(diagnostic);
 }
 
-/// Where `value` writes its root's name, when its text holds it as written; else the value.
 /// What the host reports on `value` when its path `written` is refused (E094, E095), placed as every refusal of a
 /// probe's path is; `None` for a bare path that names nothing.
 pub(super) fn refusal(value: &Value<'_>, written: &str, refused: &Refused) -> Option<Diagnostic> {
@@ -709,6 +708,7 @@ fn placed(value: &Value<'_>, mut diagnostic: Diagnostic, span: Option<SourceSpan
     diagnostic
 }
 
+/// Where `value` writes its root's name, when its text holds it as written; else the value.
 fn root_span(value: &Value<'_>) -> Option<SourceSpan> {
     let span = value.span.clone()?;
     let at = match RootedPath::parse(value.text, Root::Project) {
