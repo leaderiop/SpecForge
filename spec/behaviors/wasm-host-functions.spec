@@ -138,3 +138,28 @@ behavior call_host_ports_from_the_sdk "Call Host Ports from the SDK" {
   verify unit "a port called outside any host is answered denied(call-kind)"
   verify unit "an extension declares a capability with its port, scope, call kinds and reason"
 }
+
+behavior read_source_syntax "Read Source Syntax" {
+  category query
+  requires {
+    query_given "a pack handed the host a query in the tags convention and the language of its files"
+  }
+  ensures {
+    every_capture   "every match answers its role, kind, span, parent and every named capture"
+    error_tolerant  "a file with syntax errors answers what the parse recovered and counts its ERROR and MISSING nodes"
+    convention_held "a pattern without exactly one role capture, or with a predicate the reader does not evaluate as text, is a fault"
+    columns         "a span's columns count characters and bytes, its lines from 1"
+  }
+  contract """
+    The host's one source reader (ADR 0344) MUST parse rust, typescript and
+    tsx with the grammars it pins, run a pack's query in the tags convention
+    and answer every named capture of every match with its span and the
+    enclosing definition. A query that breaks the convention MUST be refused
+    with its row and column. The reader knows grammars, not items.
+  """
+  verify unit "a rust file answers every named capture with spans and parents"
+  verify unit "a broken file answers what the parse recovered and counts its errors"
+  verify unit "a query without exactly one role capture or with a general predicate is a fault"
+  verify unit "a capture's text is cut at 4096 bytes on a character boundary"
+  verify unit "the grammar versions are the locked ones"
+}

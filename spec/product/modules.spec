@@ -97,6 +97,13 @@ module specforge_shape_macros "specforge-shape-macros" {
   tags        ["kernel"]
 }
 
+module specforge_source "specforge-source" {
+  family      core
+  description "The host's one source reader: tree-sitter with the rust, typescript and tsx grammars, running a pack's query in the tags convention, its parses cached by content and bounded by a per-file deadline (ADR 0344)"
+  depends_on  [specforge_common, specforge_protocol_types]
+  tags        ["kernel"]
+}
+
 module tree_sitter_specforge "tree-sitter-specforge" {
   family      core
   description "The tree-sitter grammar of the .spec language: grammar.js, the generated parser and its scanner, the node-kind and field vocabulary, and the editor queries"
