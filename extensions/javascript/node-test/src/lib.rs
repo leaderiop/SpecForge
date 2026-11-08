@@ -103,10 +103,7 @@ fn id(packages: &[Package], file: &str, case: &Case) -> Result<TestId, String> {
         .iter()
         .filter_map(|package| Some((package, package.holds(file)?)))
         .max_by_key(|(package, _)| package.dir.len())
-        .map(|(package, under)| {
-            let path: Vec<String> = case.suites.iter().chain([&case.name]).cloned().collect();
-            TestId::js(&package.name, under, &path)
-        })
+        .map(|(package, under)| TestId::js(&package.name, under, &case.path()))
         .ok_or_else(|| {
             format!(
                 "{file}: no package.json with a name at or above it; node-test names a test \

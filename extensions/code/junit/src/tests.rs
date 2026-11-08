@@ -12,11 +12,7 @@ const TASKBOARD: &str = include_str!("../fixtures/taskboard.xml");
 fn summary(found: &[Case]) -> Vec<(String, TestStatus)> {
     found
         .iter()
-        .map(|c| {
-            let mut path = c.suites.clone();
-            path.push(c.name.clone());
-            (path.join(" > "), c.status)
-        })
+        .map(|c| (c.path().join(" > "), c.status))
         .collect()
 }
 

@@ -31,6 +31,13 @@ pub struct Case {
     pub status: TestStatus,
 }
 
+impl Case {
+    /// Its test path: the suites it is nested in, outermost first, then its name. What a runner pack names it by.
+    pub fn path(&self) -> Vec<String> {
+        self.suites.iter().chain([&self.name]).cloned().collect()
+    }
+}
+
 /// Every `<testcase>` of the JUnit report `text`, in document order. A report that stops inside a test, or holds no
 /// `<testsuite>` or `<testsuites>`, is an error: a failing last test must not vanish. An empty text has no case.
 pub fn cases(text: &str) -> Result<Vec<Case>, String> {

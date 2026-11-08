@@ -359,8 +359,11 @@ fn the_taskboard_test_id_is_the_exit_string() {
     let found = cases(TASKBOARD).expect("the twin's report");
     let minted = test_facts(found.iter().map(|case| {
         let file = relative(case.file.as_deref().unwrap(), "/anywhere").unwrap();
-        let path: Vec<String> = case.suites.iter().chain([&case.name]).cloned().collect();
-        TestCase::of(TestId::js("taskboard", &file, &path), case, Some(file))
+        TestCase::of(
+            TestId::js("taskboard", &file, &case.path()),
+            case,
+            Some(file),
+        )
     }));
     let tests: Vec<(&str, Option<&str>)> = minted
         .iter()
