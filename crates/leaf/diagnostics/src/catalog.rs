@@ -263,6 +263,9 @@ catalog! {
     E119: Error core,
         "Collectors whose facts inputs form a cycle",
         "Collectors read one another's facts in a cycle (ADR 0345 D3): each collector whose `facts` input names a kind another collector `answers` runs after it, and here every collector of the cycle waits on another, so none can run first. The message names the collectors of the cycle. The registry build reports it over the loaded collectors, and `specforge collect` refuses a selection holding one before any collector runs or any command starts. Drop a kind from one collector's `facts` input, or from what another answers.";
+    E120: Error core,
+        "Colon reference written bare",
+        "A field value writes a reference holding `:` without its quotes (`notes [js:p1]`, `proof run:js:a.test.js#adds`), whatever its scheme (ADR 0346 D6). The grammar reads `js` and fails on the rest, so the reference is one E120 spanning the whole `word:rest`, and no word of it is kept in the value: nothing links as `js`. The file still counts as unparsed and cannot be rewritten until it is fixed. Write it quoted: `notes [\"js:p1\"]`. A provider ref in a list (`[jira.issue:PROJ-1]`, `scheme.kind:id`) is read as one and is not this.";
     I002: Info core,
         "Structural-only mode",
         "Emitted when no extensions are installed, or when every installed extension failed to load, so the compiler falls back to structural-only validation. Install an extension (for example `specforge add @specforge/software`) to enable kind-specific checks.";

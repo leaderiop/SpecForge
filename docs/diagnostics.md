@@ -1683,6 +1683,23 @@ Owner: core
 Level: error
 ```
 
+## E120
+
+```
+E120: Colon reference written bare
+
+A field value writes a reference holding `:` without its quotes (`notes
+[js:p1]`, `proof run:js:a.test.js#adds`), whatever its scheme (ADR 0346 D6). The
+grammar reads `js` and fails on the rest, so the reference is one E120 spanning
+the whole `word:rest`, and no word of it is kept in the value: nothing links as
+`js`. The file still counts as unparsed and cannot be rewritten until it is
+fixed. Write it quoted: `notes ["js:p1"]`. A provider ref in a list
+(`[jira.issue:PROJ-1]`, `scheme.kind:id`) is read as one and is not this.
+
+Owner: core
+Level: error
+```
+
 ## I002
 
 ```

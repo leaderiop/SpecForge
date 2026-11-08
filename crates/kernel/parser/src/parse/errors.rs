@@ -20,13 +20,13 @@ pub(super) fn unclosed_error(
     } else {
         String::new()
     };
-    ParseError {
-        message: format!(
+    ParseError::syntax(
+        format!(
             "syntax error: unclosed {kind} — missing closing '{}'{until}",
             u.delim
         ),
         span,
-    }
+    )
 }
 
 /// The span of `source[start..end]` (1-based lines, byte columns).
@@ -61,7 +61,7 @@ fn top_level_body(missing: Node<'_>) -> Option<Node<'_>> {
 }
 
 /// Whether `inner` lies inside `outer` (same file assumed).
-fn span_within(inner: &SourceSpan, outer: &SourceSpan) -> bool {
+pub(super) fn span_within(inner: &SourceSpan, outer: &SourceSpan) -> bool {
     (outer.start_line, outer.start_col) <= (inner.start_line, inner.start_col)
         && (inner.end_line, inner.end_col) <= (outer.end_line, outer.end_col)
 }
@@ -89,10 +89,10 @@ impl<'a> ParseContext<'a> {
             .or(self.next_piece_row)
             .map(|row| format!("; it was ended before the block on line {}", row + 1))
             .unwrap_or_default();
-        ParseError {
-            message: format!("syntax error: unclosed block — missing closing '}}'{line}"),
-            span: self.span(open),
-        }
+        ParseError::syntax(
+            format!("syntax error: unclosed block — missing closing '}}'{line}"),
+            self.span(open),
+        )
     }
 
     /// Report every outermost ERROR or MISSING node under `node` that no
@@ -117,10 +117,10 @@ impl<'a> ParseContext<'a> {
                 return;
             }
             if node.is_missing() {
-                self.errors.push(ParseError {
-                    message: format!("syntax error: missing '{}'", node.kind()),
+                self.errors.push(ParseError::syntax(
+                    format!("syntax error: missing '{}'", node.kind()),
                     span,
-                });
+                ));
             } else {
                 self.push_error_node(node);
             }
@@ -159,9 +159,7 @@ impl<'a> ParseContext<'a> {
             format!("syntax error: unexpected '{}'", display)
         };
 
-        self.errors.push(ParseError {
-            message,
-            span: self.span(node),
-        });
+        self.errors
+            .push(ParseError::syntax(message, self.span(node)));
     }
 }

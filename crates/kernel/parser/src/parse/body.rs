@@ -20,12 +20,17 @@ pub(super) struct Body {
 impl<'a> ParseContext<'a> {
     pub(super) fn parse_block_body(&mut self, node: Node) -> Body {
         let mut body = Body::default();
+        self.report_bare_references(node);
         let mut cursor = node.walk();
         // The row where the previous item ends: a comment on it trails that item.
         let mut trailed: Option<usize> = None;
         for child in node.children(&mut cursor) {
             match child.kind() {
-                _ if child.is_error() => self.push_error_node(child),
+                _ if child.is_error() => {
+                    if !self.in_bare(&self.span(child)) {
+                        self.push_error_node(child);
+                    }
+                }
                 kind::COMMENT if own_line(child, trailed) => {
                     self.body_comments.push(self.span(child));
                 }
@@ -61,17 +66,24 @@ impl<'a> ParseContext<'a> {
     fn parse_field(&mut self, node: Node) -> Option<FieldEntry> {
         let key = node.child_by_field_name(field::KEY)?;
         let value = node.child_by_field_name(field::VALUE)?;
+        // A key or a single value inside a reference written bare is the grammar's recovery, not a member (E120).
+        if self.in_bare(&self.span(key)) || self.in_bare(&self.span(value)) {
+            return None;
+        }
         // Tree-sitter may recover from a syntax error deep inside a value
         // (e.g. a dangling operator in an expression group); surface it.
         if let Some(broken) = find_error_descendant(value) {
             let span = self.span(broken);
-            self.errors.push(ParseError {
-                message: "syntax error in field value".to_string(),
-                span,
-            });
+            if !self.in_bare(&span) {
+                self.errors
+                    .push(ParseError::syntax("syntax error in field value", span));
+            }
         }
         let key_sym = Sym::new(self.text(key));
-        let field_value = self.parse_value(value);
+        let mut field_value = self.parse_value(value);
+        if let FieldValue::List(items) = &mut field_value {
+            items.retain(|item| !self.in_bare(&item.span));
+        }
         self.comments_inside(value);
 
         // Extract annotations (children with kind "annotation")

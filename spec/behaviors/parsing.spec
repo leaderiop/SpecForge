@@ -86,6 +86,11 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
     and a line break (a carriage return only directly before a line feed) is
     read into no tree: its one syntax error is reported at the first such
     character, naming its code point.
+    A reference holding ':' written bare in a value (a list item or a single
+    value: `[js:p1]`, `proof js:p1`) is one E120 spanning the whole
+    `word:rest` that says to quote it; no E001 for what it covers, and no
+    word of it stays in the value. A bare provider ref in a list
+    (`[jira.issue:PROJ-1]`) is read as one.
   """
   requires {
     error_recovery_enabled "SourceParser is initialized with error-recovery mode enabled"
@@ -112,6 +117,7 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
   verify unit "missing opening brace produces a parse error"
   verify unit "a syntax error quoting a long first line cuts it at a character boundary"
   verify property "parsing any text yields a file and never panics"
+  verify unit "a reference holding a colon written bare is one E120 that says to quote it, and no E001 or E003 for it"
   verify unit "brackets nested past 32 levels are one parse error, and no tree is read"
   verify unit "a control or bidirectional character in the text is one parse error at it, and no tree is read"
   verify unit "a list of blocks left half-typed ends where the next top-level form starts"

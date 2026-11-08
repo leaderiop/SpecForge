@@ -463,7 +463,7 @@ fn a_fact_id_two_stores_hold_is_e117_naming_both_collectors() {
 }
 
 #[test]
-fn a_bare_fact_scheme_reference_is_e001_and_a_spurious_e003() {
+fn a_bare_fact_scheme_reference_is_one_e120_and_no_e003() {
     let p = collected().file(
         "truths.spec",
         "truth T1 \"One\" {\n  proof [js:p1, run:x]\n}\n",
@@ -471,18 +471,15 @@ fn a_bare_fact_scheme_reference_is_e001_and_a_spurious_e003() {
 
     let project = compiled(&p);
 
+    let diagnostics = project.diagnostics();
     let found = codes(&project);
-    assert!(
-        found.contains(&"E001".to_string()),
-        "{:?}",
-        project.diagnostics()
+    assert_eq!(found, ["E120", "E120"], "{diagnostics:?}");
+    assert_eq!(
+        diagnostics[0].message,
+        "a reference holding ':' is written quoted: \"js:p1\""
     );
-    assert!(
-        project
-            .diagnostics()
-            .iter()
-            .any(|d| d.code == "E003" && d.message.starts_with("unresolved reference 'js'")),
-        "{:?}",
-        project.diagnostics()
+    assert_eq!(
+        diagnostics[0].suggestion.as_deref(),
+        Some("write \"js:p1\"")
     );
 }

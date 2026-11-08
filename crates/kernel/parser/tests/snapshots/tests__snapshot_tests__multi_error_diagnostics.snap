@@ -4,6 +4,11 @@ expression: result.errors
 ---
 [
     ParseError {
+        code: Code {
+            id: "E001",
+            level: Error,
+            machine: false,
+        },
         message: "syntax error: unexpected 'behavior ??? {'",
         span: SourceSpan {
             file: Sym("test.spec"),
@@ -12,5 +17,6 @@ expression: result.errors
             end_line: 8,
             end_col: 2,
         },
+        suggestion: None,
     },
 ]

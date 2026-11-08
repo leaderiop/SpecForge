@@ -421,14 +421,34 @@ pub struct VerifyStatement {
     pub description: String,
 }
 
+/// What the parse could not read: a syntax error (E001) unless it says otherwise, at `span`.
 #[derive(Debug, Clone)]
 pub struct ParseError {
+    pub code: specforge_common::Code,
     pub message: String,
     pub span: SourceSpan,
+    pub suggestion: Option<String>,
+}
+
+impl ParseError {
+    /// A syntax error (E001) saying `message` at `span`.
+    pub fn syntax(message: impl Into<String>, span: SourceSpan) -> Self {
+        ParseError {
+            code: codes::E001,
+            message: message.into(),
+            span,
+            suggestion: None,
+        }
+    }
 }
 
 impl From<&ParseError> for specforge_common::Diagnostic {
     fn from(err: &ParseError) -> Self {
-        specforge_common::Diagnostic::new(codes::E001, &err.message).with_span(err.span.clone())
+        let diagnostic =
+            specforge_common::Diagnostic::new(err.code, &err.message).with_span(err.span.clone());
+        match &err.suggestion {
+            Some(suggestion) => diagnostic.with_suggestion(suggestion),
+            None => diagnostic,
+        }
     }
 }

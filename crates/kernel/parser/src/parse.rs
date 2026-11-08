@@ -7,6 +7,7 @@ use specforge_common::{SourceSpan, Sym, structural};
 use tree_sitter::Node;
 use tree_sitter_specforge::{field, kind};
 
+mod bare;
 mod body;
 mod declarations;
 mod doc;
@@ -199,7 +200,7 @@ fn unparsed(file_sym: Sym, message: String, span: SourceSpan) -> SpecFile {
         entities: Vec::new(),
         format_version: CURRENT_FORMAT_VERSION,
         format_diagnostics: Vec::new(),
-        errors: vec![ParseError { message, span }],
+        errors: vec![ParseError::syntax(message, span)],
     }
 }
 
@@ -227,6 +228,8 @@ struct ParseContext<'a> {
     trailing_comments: Vec<SourceSpan>,
     /// The comments inside a member's value of the block body being read, taken likewise.
     value_comments: Vec<SourceSpan>,
+    /// Where each reference holding `:` written bare is (E120, ADR 0346 D6): what the fields read drop.
+    bare: Vec<SourceSpan>,
 }
 
 /// Whether `comment` starts its own line: one on the row where the item before it ends (`trailed`) trails it.
@@ -249,6 +252,7 @@ impl<'a> ParseContext<'a> {
             body_comments: Vec::new(),
             trailing_comments: Vec::new(),
             value_comments: Vec::new(),
+            bare: Vec::new(),
         }
     }
 
