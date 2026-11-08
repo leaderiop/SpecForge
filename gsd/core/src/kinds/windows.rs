@@ -68,8 +68,8 @@ pub const BROKEN_WINDOW: Kind = Kind::new(
 )
 .complete_when("status", &["waived", "fixed"]);
 
-/// `NN-REFACTOR.md`, named `RP1` and scoped by its phase; complete once accepted or declined. The scores are harness values written by the refactor
-/// trigger (r41): a harness field is never `R`.
+/// `NN-REFACTOR.md`, named `RP1` and scoped by its phase; complete once accepted or declined. The scores are harness
+/// values written by the refactor trigger: a harness field is never `R`.
 pub const REFACTOR_PROPOSAL: Kind = Kind::new(
     "refactor_proposal",
     "A function whose complexity crossed the refactor threshold (GSD NN-REFACTOR.md)",

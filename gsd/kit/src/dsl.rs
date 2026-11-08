@@ -258,6 +258,25 @@ fn edge_label(kind: &str, field: &str) -> String {
     format!("{}{}", pascal(kind), pascal(field))
 }
 
+/// A path field of type `ty`: checked as a file under the project root by `mode`, when its value is authored (the host
+/// drops a check on a field it writes itself, W189).
+fn path_check(f: &mut FieldBuilder, field: &Field, ty: FieldType, mode: Mode) {
+    f.field_type(ty);
+    if field.writer != Writer::Author || mode == Mode::History {
+        return;
+    }
+    f.file(Root::Project);
+    match mode {
+        Mode::Planned => {
+            f.planned();
+        }
+        Mode::WhileOpen => {
+            f.while_open();
+        }
+        Mode::Present | Mode::History => {}
+    }
+}
+
 fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
     match field.ty {
         Ty::Str | Ty::Ts => {
@@ -284,26 +303,8 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
         Ty::Strs => {
             f.field_type(FieldType::StringList);
         }
-        Ty::Path(mode) | Ty::Paths(mode) => {
-            f.field_type(if matches!(field.ty, Ty::Paths(_)) {
-                FieldType::StringList
-            } else {
-                FieldType::String
-            });
-            // Only an authored value is checked: the host drops a check on a field it writes itself (W189).
-            if field.writer == Writer::Author && mode != Mode::History {
-                f.file(Root::Project);
-                match mode {
-                    Mode::Planned => {
-                        f.planned();
-                    }
-                    Mode::WhileOpen => {
-                        f.while_open();
-                    }
-                    Mode::Present | Mode::History => {}
-                }
-            }
-        }
+        Ty::Path(mode) => path_check(f, field, FieldType::String, mode),
+        Ty::Paths(mode) => path_check(f, field, FieldType::StringList, mode),
         Ty::Ref(target) => {
             f.field_type(FieldType::Reference)
                 .target_kind(target)

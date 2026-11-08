@@ -243,7 +243,7 @@ impl Scalar {
             Scalar::Minimum => "minimum",
             Scalar::Maximum => "maximum",
             Scalar::Checks => "checks",
-            Scalar::ChecksWhile => "owner gate",
+            Scalar::ChecksWhile => "checks_while",
         }
     }
 

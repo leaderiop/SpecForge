@@ -85,7 +85,8 @@ pub struct FieldDescriptor {
     pub checks: Vec<crate::CheckRef>,
     /// When its checks run, by its holder's owner state (ADR 0350): `complete`, once the owner is complete (a planned
     /// value); `pending`, only while it is pending (a while-open value); absent, always. Kept a string, as `writer`,
-    /// so an unknown word costs the gate a diagnostic (W199), not the describe payload ([`OwnerState`](crate::OwnerState)).
+    /// so an unknown word costs the gate a diagnostic (W199), not the describe payload
+    /// ([`OwnerState`](crate::OwnerState)).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub checks_while: Option<String>,
 }
