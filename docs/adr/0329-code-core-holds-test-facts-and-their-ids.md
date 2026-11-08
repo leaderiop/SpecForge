@@ -4,6 +4,7 @@
 [ADR 0002](0002-test-runner-extensions.md) together with [ADR 0327](0327-a-collectors-facts-are-read-only-entities-recorded-by-digest.md)
 (D10): it says which extension judges a cited test fact, and how. Ships in extension protocol 1.15.0 (D4, D3's
 `result`).
+Amended by [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md) (D3: `names` is a fact-held reference).
 
 ## Context
 
@@ -57,6 +58,7 @@ Four facts shape it:
   - `names` lists the entities a test says it proves. A later pack fills it from its runner's idiom (vitest's
     `meta.specforge`, `@rust/test`'s attribute); no R1 collector writes it. It is a string list, not a reference
     list: a fact's reference to an authored entity would need its own kernel rule, which comes with the first writer.
+  Amended by [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md): `names` is a fact-held reference (ADR 0346).
 - **D4. Owner state (protocol 1.15.0).** A kind may declare `complete_when { field, values }`: its entities are
   complete while `field` holds one of `values`, and pending otherwise (unwritten included). The registry keeps it
   when `field` is an `enum` field the kind declares and every value is one of its values; anything else is W021 and

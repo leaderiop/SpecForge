@@ -1782,6 +1782,17 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Fact key**: the commit a collect ran at (`<sha>`, `<sha>-dirty`), or `worktree`.
 - **Fact scheme**: a scheme a collector-written kind declares. A reference written in it that names no fact is
   **unheld**: no edge and no core diagnostic; the kind's extension judges it.
+- **Fact location**: where a fact is written in source (`Fact.at`, one `FactLocation` per place: a project-relative
+  file, 1-based lines, 1-based byte columns, end exclusive). A served fact keeps its store span as its identity and
+  carries its places as `located`; `Node::location()` is the first (ADR 0346 D1, D3).
+- **Name span**: where a name a fact holds is written (`Fact.named_at`, field → id → places): the span its reference
+  value is served at, and what a rename of the named entity rewrites (ADR 0346 D3, D7).
+- **Dangling reference**: a fact's reference that names no entity, one of another kind, or several: no kernel
+  diagnostic; the node keeps it and every pass is sent it (`PassEntity.dangling`), judged by the extension that declares
+  the holder's kind (ADR 0346 D4).
+- **Stale fact store**: a store collected before a rename that moved what its facts name, marked by a
+  `<collector> stale:<key> <digest>` ledger line: served with its references followed through the ledger's moves, and
+  W197, until the next collect (ADR 0346 D7).
 - **Test fact**: a `test` or `test_run` fact of `@code/core` (ADR 0329): a test a runner ran, its status its result
   (`result("status")`), and the run of it. A runner pack mints both with `specforge_code_junit::facts`.
 - **Test id**: a test fact's id, `js:<package>/<file>#<s1 > … > name>`: the package the pack assigns it to, its file
