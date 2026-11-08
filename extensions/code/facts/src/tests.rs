@@ -193,6 +193,13 @@ fn a_scoped_npm_purl_encodes_the_at() {
     assert_eq!(PackageId::npm("taskboard").to_string(), "pkg:npm/taskboard");
     assert_eq!(PackageId::cargo("toy").to_string(), "pkg:cargo/toy");
     assert_eq!(
+        (
+            PackageId::npm("a").purl_type(),
+            PackageId::cargo("a").purl_type()
+        ),
+        ("npm", "cargo")
+    );
+    assert_eq!(
         "pkg:npm/%40acme/core".parse::<PackageId>().unwrap(),
         PackageId::npm("@acme/core")
     );

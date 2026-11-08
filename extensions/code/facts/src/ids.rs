@@ -377,6 +377,14 @@ impl PackageId {
     pub fn dir(&self) -> Option<&str> {
         self.dir.as_deref()
     }
+
+    /// The purl type: `cargo` or `npm`, the ecosystem whose manifest pack writes the package.
+    pub fn purl_type(&self) -> &'static str {
+        match self.kind {
+            PackageKind::Cargo => "cargo",
+            PackageKind::Npm => "npm",
+        }
+    }
 }
 
 impl fmt::Display for PackageId {

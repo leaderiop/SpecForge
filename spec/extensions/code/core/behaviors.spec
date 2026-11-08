@@ -128,6 +128,7 @@ behavior cc_check_fact_refs "Check Cited Fact References" {
   verify integration "a test run's dangling test reference is code/E101 at the fact, addressed to its collector"
   verify unit "a reference whose kinds no served store holds in its scheme is code/W102 naming the kind and its pack"
   verify unit "a reference naming no fact of a kind a served store holds in its scheme is code/E101"
+  verify unit "a package reference's W102 names the pack of its purl type"
   verify unit "a rust test ref beside rust items only is w102"
   verify unit "a facts own unheld reference is not judged"
   verify unit "a reference admitting none of its kinds is not judged"

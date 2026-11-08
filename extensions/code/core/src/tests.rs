@@ -344,6 +344,26 @@ fn a_rust_test_ref_beside_rust_items_only_is_w102() {
 
 #[specforge_test(
     behavior = "cc_check_fact_refs",
+    verify = "a package reference's W102 names the pack of its purl type"
+)]
+fn a_package_references_w102_names_the_pack_of_its_purl_type() {
+    let entities = vec![citing("t1", &["pkg:npm/%40acme/core", "pkg:cargo/toy"])];
+    let diagnostics = refs::refs(&holding(entities, &[]));
+    let remedies: Vec<&str> = diagnostics
+        .iter()
+        .map(|d| d.message.rsplit(": ").next().unwrap_or_default())
+        .collect();
+    assert_eq!(
+        remedies,
+        [
+            "run `specforge collect` with `@javascript/source`",
+            "run `specforge collect` with `@rust/cargo`"
+        ]
+    );
+}
+
+#[specforge_test(
+    behavior = "cc_check_fact_refs",
     verify = "a reference naming no fact of a kind a served store holds in its scheme is code/E101"
 )]
 fn a_missing_item_of_a_held_kind_is_e101_with_no_suggestion() {

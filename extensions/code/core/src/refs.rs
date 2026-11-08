@@ -1,7 +1,7 @@
 //! The check pass `refs` (ADR 0329 D5, ADR 0347 D9): the references a spec writes to `@code/core`'s facts that no fact
 //! holds, and the references its own facts hold that nothing answers (ADR 0346 D4).
 
-use specforge_code_facts::TestId;
+use specforge_code_facts::{PackageId, TestId};
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::UnheldReference;
 
@@ -17,13 +17,15 @@ pub(crate) const TAKES: [(&str, &str, &str, bool); 4] = [
     (RUN_KIND, "test", TEST_KIND, true),
 ];
 
-/// The pack that collects each `(scheme, kind)` of `@code/core`: what W102 tells to run.
-const PACKS: [(&str, &str, &str); 5] = [
-    ("js", TEST_KIND, "@javascript/node-test"),
-    ("rust", TEST_KIND, "@rust/test"),
-    ("rust", ITEM_KIND, "@rust/source"),
-    ("js", ITEM_KIND, "@javascript/source"),
-    ("pkg", PACKAGE_KIND, "@rust/cargo"),
+/// The pack that collects each kind of `@code/core`, by the scheme of a test's or an item's id and the purl type of a
+/// package's: what W102 tells to run.
+const PACKS: [(&str, &str, &str); 6] = [
+    (TEST_KIND, "js", "@javascript/node-test"),
+    (TEST_KIND, "rust", "@rust/test"),
+    (ITEM_KIND, "rust", "@rust/source"),
+    (ITEM_KIND, "js", "@javascript/source"),
+    (PACKAGE_KIND, "cargo", "@rust/cargo"),
+    (PACKAGE_KIND, "npm", "@javascript/source"),
 ];
 
 /// Each unheld reference whose collected kinds (`UnheldReference.kinds`) meet `@code/core`'s, once, at the span it is
@@ -100,15 +102,19 @@ fn uncollected(item: &UnheldReference, scheme: &str, kinds: &[&str]) -> PassDiag
     )
 }
 
-/// The pack that writes `kind` facts in `scheme`; a run's is its test's.
+/// The pack that writes `kind` facts like `id`, in `scheme`: a run's is its test's, a package's its purl type's.
 fn pack(scheme: &str, id: &str, kind: &str) -> Option<&'static str> {
-    if kind == RUN_KIND {
-        let test = id.strip_prefix("run:")?;
-        return pack(self::scheme(test)?, test, TEST_KIND);
-    }
+    let family = match kind {
+        RUN_KIND => {
+            let test = id.strip_prefix("run:")?;
+            return pack(self::scheme(test)?, test, TEST_KIND);
+        }
+        PACKAGE_KIND => id.parse::<PackageId>().ok()?.purl_type(),
+        _ => scheme,
+    };
     PACKS
         .iter()
-        .find(|(s, k, _)| *s == scheme && *k == kind)
+        .find(|(k, f, _)| *k == kind && *f == family)
         .map(|(_, _, pack)| *pack)
 }
 
