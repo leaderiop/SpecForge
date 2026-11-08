@@ -485,10 +485,30 @@ pub fn computed(kinds: &[&Kind]) -> Vec<String> {
     found
 }
 
-/// The `kind.field` name of every path field of `kinds`, and the `kind.block.member` name of every path member of a
-/// block (one level: the model nests no deeper), with its mode and its writer (a member's own: an authored block's
-/// computed member is not authored).
-pub fn path_fields(kinds: &[&Kind]) -> Vec<(String, Mode, Writer)> {
+/// A path field of a kind, or a path member of one of its blocks, with the mode its file check follows and its writer
+/// (a member's own: an authored block's computed member is not authored).
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct PathField {
+    pub kind: &'static str,
+    pub field: &'static str,
+    /// The member of the block `field` that holds the path; `None` when the field does.
+    pub member: Option<&'static str>,
+    pub mode: Mode,
+    pub writer: Writer,
+}
+
+impl PathField {
+    /// `kind.field`, or `kind.block.member`.
+    pub fn name(&self) -> String {
+        match self.member {
+            Some(member) => format!("{}.{}.{member}", self.kind, self.field),
+            None => format!("{}.{}", self.kind, self.field),
+        }
+    }
+}
+
+/// Every path field of `kinds`, and every path member of a block (one level: the model nests no deeper).
+pub fn path_fields(kinds: &[&Kind]) -> Vec<PathField> {
     let mode = |ty: Ty| match ty {
         Ty::Path(mode) | Ty::Paths(mode) => Some(mode),
         _ => None,
@@ -496,8 +516,15 @@ pub fn path_fields(kinds: &[&Kind]) -> Vec<(String, Mode, Writer)> {
     let mut found = Vec::new();
     for kind in kinds {
         for field in kind.fields {
+            let at = |member, mode, writer| PathField {
+                kind: kind.name,
+                field: field.name,
+                member,
+                mode,
+                writer,
+            };
             if let Some(m) = mode(field.ty) {
-                found.push((format!("{}.{}", kind.name, field.name), m, field.writer));
+                found.push(at(None, m, field.writer));
             } else if let Ty::Block(members) | Ty::Blocks(members) = field.ty {
                 for member in members {
                     if let Some(m) = mode(member.ty) {
@@ -506,11 +533,7 @@ pub fn path_fields(kinds: &[&Kind]) -> Vec<(String, Mode, Writer)> {
                         } else {
                             field.writer
                         };
-                        found.push((
-                            format!("{}.{}.{}", kind.name, field.name, member.name),
-                            m,
-                            writer,
-                        ));
+                        found.push(at(Some(member.name), m, writer));
                     }
                 }
             }

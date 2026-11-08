@@ -598,8 +598,8 @@ fn the_authored_path_fields_carry_their_owner_mode() {
     use gsd_kit::dsl::{Mode, Writer};
     let authored: Vec<(String, Mode)> = gsd_core::path_fields()
         .into_iter()
-        .filter(|(_, _, writer)| *writer == Writer::Author)
-        .map(|(name, mode, _)| (name, mode))
+        .filter(|p| p.writer == Writer::Author)
+        .map(|p| (p.name(), p.mode))
         .collect();
     let row = |name: &str, mode| (name.to_string(), mode);
     let mut expected = vec![

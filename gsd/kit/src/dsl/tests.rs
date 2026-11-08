@@ -254,7 +254,7 @@ fn a_computed_path_has_no_check() {
 fn path_fields_lists_each_path_with_its_mode_and_writer() {
     let found: Vec<(String, Mode, bool)> = path_fields(&[&PATHED])
         .into_iter()
-        .map(|(name, mode, writer)| (name, mode, writer == Writer::Author))
+        .map(|p| (p.name(), p.mode, p.writer == Writer::Author))
         .collect();
     let row = |name: &str, mode, authored| (name.to_string(), mode, authored);
     assert_eq!(

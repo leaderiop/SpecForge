@@ -23,7 +23,7 @@ use specforge_extension_sdk::prelude::*;
 
 use super::plans::{children, of_kind, rows, strings, text};
 use grounding::{Need, Target, Verdict, resolve};
-use gsd_kit::dsl::{Mode, Writer};
+use gsd_kit::dsl::{Mode, PathField, Writer};
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("verify_paths_compute", |p| {
@@ -246,35 +246,48 @@ fn manifest_problem(reads: &Reads, target: &Target) -> Option<String> {
 /// The kinds whose planned paths say what a plan creates: the plan's own and its children's.
 const PLANNING: [&str; 4] = ["plan", "task", "artifact", "key_link"];
 
-/// `(kind, field)` of every authored planned path of the [`PLANNING`] kinds, read from the kinds' declarations.
-fn planned_fields() -> Vec<(String, String)> {
+/// Every authored planned path of the [`PLANNING`] kinds, read from the kinds' declarations.
+fn planned_fields() -> Vec<PathField> {
     crate::kinds::path_fields()
         .into_iter()
-        .filter(|(_, mode, writer)| *mode == Mode::Planned && *writer == Writer::Author)
-        .filter_map(|(name, _, _)| {
-            let (kind, field) = name.split_once('.')?;
-            PLANNING
-                .contains(&kind)
-                .then(|| (kind.to_string(), field.to_string()))
-        })
+        .filter(|p| p.mode == Mode::Planned && p.writer == Writer::Author)
+        .filter(|p| PLANNING.contains(&p.kind))
         .collect()
 }
 
 /// What the plan says it creates: each item of its planned paths, and of its children's, one path per item.
-fn declared_paths(input: &PassInput, plan: &str, planned: &[(String, String)]) -> Vec<String> {
+fn declared_paths(input: &PassInput, plan: &str, planned: &[PathField]) -> Vec<String> {
     let strip = |p: &str| p.trim().trim_start_matches("./").replace('\\', "/");
     let mut found = Vec::new();
-    for (kind, field) in planned {
-        let holders = if kind == "plan" {
+    for path in planned {
+        let holders = if path.kind == "plan" {
             of_kind(input, "plan").filter(|p| p.id == plan).collect()
         } else {
-            children(input, plan, kind)
+            children(input, plan, path.kind)
         };
         for holder in holders {
-            if holder.values.get(field).is_some_and(|v| v.is_array()) {
-                found.extend(strings(holder, field));
-            } else {
-                found.extend(text(holder, field).map(str::to_string));
+            match path.member {
+                // each block (or each row of a block list), its member's path or paths
+                Some(member) => {
+                    let blocks = match holder.values.get(path.field) {
+                        Some(serde_json::Value::Array(rows)) => rows.iter().collect(),
+                        Some(block) => vec![block],
+                        None => Vec::new(),
+                    };
+                    for value in blocks.iter().filter_map(|block| block.get(member)) {
+                        match value {
+                            serde_json::Value::Array(items) => found.extend(
+                                items.iter().filter_map(|i| i.as_str()).map(str::to_string),
+                            ),
+                            serde_json::Value::String(one) => found.push(one.clone()),
+                            _ => {}
+                        }
+                    }
+                }
+                None if holder.values.get(path.field).is_some_and(|v| v.is_array()) => {
+                    found.extend(strings(holder, path.field));
+                }
+                None => found.extend(text(holder, path.field).map(str::to_string)),
             }
         }
     }
