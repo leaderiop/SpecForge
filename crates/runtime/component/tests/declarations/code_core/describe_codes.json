@@ -18,8 +18,8 @@
     },
     {
       "code": "I402",
-      "explanation": "A test fact's `names` (the entities its runner's idiom says it proves) holds an id no entity of the project has: the entity was renamed or deleted, or the name is misspelled. Fix the name in the test, then collect again.",
-      "title": "A test names an entity that does not exist"
+      "explanation": "A test or item fact's `names` (the entities its source's idiom says it proves or implements) holds a name that is no entity of the project, or the short name of several: the entity was renamed or deleted, or the name is misspelled. Fix the name in the source, then collect again.",
+      "title": "A test or item names an entity that does not exist"
     }
   ]
 }

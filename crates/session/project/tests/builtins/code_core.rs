@@ -1,6 +1,7 @@
 //! `@code/core`'s check passes over a project (ADR 0329 D5, D6): the builtin's component loads beside the in-process
 //! `Collected` fixture peering it (`@t/node` collects, `@t/spec`'s `truth` cites `test`), and `@t/owner` scopes a
-//! citing `step` by a `plan` complete on `status ∈ [complete]`.
+//! citing `step` by a `plan` complete on `status ∈ [complete]` and declares `api`, whose `items` cites `item` facts
+//! (ADR 0347 D9).
 
 use std::sync::Arc;
 
@@ -27,7 +28,8 @@ fn adds(status: &str, names: &[&str]) -> Value {
     ])
 }
 
-/// `@t/owner`: a `plan` complete on `status ∈ [complete]`, and a `step` it scopes that cites tests in `proof`.
+/// `@t/owner`: a `plan` complete on `status ∈ [complete]`, a `step` it scopes that cites tests in `proof`, and an
+/// `api` that cites items in `items`.
 fn owner() -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(OWNER, "1.0.0"));
     c.peer(CODE_CORE, "^1.0");
@@ -46,7 +48,27 @@ fn owner() -> ContributionsBuilder {
                 f.field_type(FieldType::ReferenceList).target_kind("test");
             });
     });
+    c.kind("api", |k| {
+        k.field("items", |f| {
+            f.field_type(FieldType::ReferenceList).target_kind("item");
+        });
+    });
     c
+}
+
+/// A source pack's store: the Rust items `ids`, each a function of `src/lib.rs`.
+fn items(ids: &[&str]) -> Value {
+    ids.iter()
+        .map(|id| {
+            json!({"kind": "item", "id": id,
+                   "fields": {"file": "src/lib.rs", "kind": ["function"], "visibility": "public"}})
+        })
+        .collect()
+}
+
+/// An api citing `cited` in `items`, its reference on line 2.
+fn api(cited: &str) -> String {
+    format!("api A1 \"One\" {{\n  items [\"{cited}\"]\n}}\n")
 }
 
 /// A project enabling `@code/core`, the fixture peering it and `@t/owner`, with `files`.
@@ -270,4 +292,86 @@ fn a_test_runs_dangling_test_reference_is_code_e101_at_the_fact() {
         .unwrap();
     let span = finding.span.as_ref().expect("placed at the fact");
     assert_eq!((span.file.as_str(), span.start_line), ("test/a.test.js", 7));
+}
+
+#[specforge_test_macros::test(
+    behavior = "cc_check_fact_refs",
+    verify = "a rust test ref beside only item facts is code/W102"
+)]
+fn a_rust_test_ref_beside_only_item_facts_is_code_w102() {
+    let p = project(&[("truths.spec", &citing("rust:toy#tests::adds"))]);
+    stored(
+        p.root(),
+        "rust-source",
+        KEY,
+        items(&["rust:toy::tests::adds"]),
+    );
+
+    let compiled = compiled(&p);
+
+    assert_eq!(
+        about(&compiled),
+        [(
+            "code/W102".to_string(),
+            "T1".to_string(),
+            "`proof` names `rust:toy#tests::adds`, but no `rust` `test` facts were collected: run \
+             `specforge collect` with `@rust/test`"
+                .to_string()
+        )],
+        "{:?}",
+        compiled.diagnostics()
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "cc_check_fact_refs",
+    verify = "a missing item of a collected crate is code/E101"
+)]
+fn a_missing_item_of_a_collected_crate_is_code_e101() {
+    let p = project(&[("apis.spec", &api("rust:toy::Board::ad"))]);
+    stored(
+        p.root(),
+        "rust-source",
+        KEY,
+        items(&["rust:toy::Board::add"]),
+    );
+
+    let compiled = compiled(&p);
+
+    assert_eq!(
+        found(&compiled),
+        [("code/E101".to_string(), 2, None)],
+        "{:?}",
+        compiled.diagnostics()
+    );
+    assert_eq!(
+        about(&compiled)[0].2,
+        "`items` names `rust:toy::Board::ad`, which no collected `rust` `item` fact holds"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "cc_check_fact_refs",
+    verify = "an item ref links to its fact"
+)]
+fn an_item_ref_links_to_its_fact() {
+    let p = project(&[("apis.spec", &api("rust:toy::Board::add"))]);
+    stored(
+        p.root(),
+        "rust-source",
+        KEY,
+        items(&["rust:toy::Board::add"]),
+    );
+
+    let compiled = compiled(&p);
+
+    assert_eq!(found(&compiled), [], "{:?}", compiled.diagnostics());
+    assert!(
+        compiled
+            .graph()
+            .edges_from("A1")
+            .iter()
+            .any(|e| e.target.as_str() == "rust:toy::Board::add"),
+        "A1 links the item"
+    );
 }

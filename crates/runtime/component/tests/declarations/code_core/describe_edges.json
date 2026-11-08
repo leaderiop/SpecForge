@@ -9,6 +9,42 @@
       "label": "run_of",
       "source_kind": "test_run",
       "target_kind": "test"
+    },
+    {
+      "description": "An entity a test or an item says it proves or implements",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "names",
+      "source_kind": null,
+      "target_kind": null
+    },
+    {
+      "description": "The package an item is defined in",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "in_package",
+      "source_kind": "item",
+      "target_kind": "package"
+    },
+    {
+      "description": "A project package a package depends on",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "uses_package",
+      "source_kind": "package",
+      "target_kind": "package"
+    },
+    {
+      "description": "The test a function runs as",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "runs_as",
+      "source_kind": "item",
+      "target_kind": "test"
     }
   ]
 }

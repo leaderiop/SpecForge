@@ -480,7 +480,7 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a value that is not the declared integer, bool or enum type is an error"
   verify unit "no reference field of the repository's spec holds a bare number, date or boolean"
   verify unit "a block field with no declared members is an open map of named text entries"
-  verify unit "no builtin or pinned example declaration declares a member, a target union, a bound, an enum list or a block list"
+  verify unit "no authored kind of a builtin or pinned example declares a member, a target union, a bound, an enum list or a block list"
   verify unit "a reference field reads a bare word as the name it spells, whether or not the word could be a number or a date"
   verify unit "a bare word is read by its field's declared type: a reference its name, an integer its difference, a date its day"
   verify unit "a list on a field declared as a single value is an error"

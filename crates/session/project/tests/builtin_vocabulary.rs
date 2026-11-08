@@ -69,7 +69,7 @@ fn keys_and_types(value: &serde_json::Value, found: &mut Vec<String>) {
 
 #[specforge_test_macros::test(
     behavior = "check_field_value_types",
-    verify = "no builtin or pinned example declaration declares a member, a target union, a bound, an enum list or a block list"
+    verify = "no authored kind of a builtin or pinned example declares a member, a target union, a bound, an enum list or a block list"
 )]
 fn no_builtin_field_declares_a_k3_attribute() {
     let mut files = 0;
@@ -83,8 +83,13 @@ fn no_builtin_field_declares_a_k3_attribute() {
             if !fields.iter().any(|f| name == format!("describe_{f}.json")) {
                 continue;
             }
-            let value: serde_json::Value =
+            let mut value: serde_json::Value =
                 serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+            // A collected kind's values are a collector's, never written in a file: `@code/core`'s `item.kind` is a
+            // list of words (ADR 0347).
+            if let Some(items) = value["items"].as_array_mut() {
+                items.retain(|kind| kind["writer"] != "collector");
+            }
             let mut found = Vec::new();
             keys_and_types(&value, &mut found);
             for word in [

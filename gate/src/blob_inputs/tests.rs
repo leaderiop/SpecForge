@@ -40,7 +40,15 @@ fn a_record_round_trips_byte_for_byte() {
 fn a_change_to_the_junit_library_feeds_the_builtins_that_link_it() {
     assert_eq!(
         fed(&["extensions/code/junit/src/lib.rs"]),
-        ["extensions/javascript/node-test"]
+        ["extensions/code/core", "extensions/javascript/node-test"]
+    );
+}
+
+#[test]
+fn a_change_to_the_code_facts_library_feeds_the_builtins_that_link_it() {
+    assert_eq!(
+        fed(&["extensions/code/facts/src/ids.rs"]),
+        ["extensions/code/core", "extensions/javascript/node-test"]
     );
 }
 

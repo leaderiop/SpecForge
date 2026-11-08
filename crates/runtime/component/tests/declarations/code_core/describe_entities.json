@@ -2,7 +2,7 @@
   "category": "entities",
   "items": [
     {
-      "description": "A test a runner ran, written by its runner pack's collector (ADR 0329): cite it by its id, js:<package>/<file>#<suite > … > name>",
+      "description": "A test a runner ran, written by its runner pack's collector (ADR 0329): cite it by its id, js:<package>/<file>#<suite > … > name> or rust:<nextest binary id>#<test path>",
       "dot_color": null,
       "dot_fillcolor": null,
       "dot_shape": null,
@@ -49,6 +49,16 @@
         },
         {
           "default_value": null,
+          "description": "The nextest binary id of a Rust test",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "binary",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
           "description": "What its last run said: passed, failed or skipped",
           "edge": null,
           "enum_values": [
@@ -64,9 +74,9 @@
         },
         {
           "default_value": null,
-          "description": "The ids of the entities the test says it proves, in its runner's idiom (I402 when one is no entity)",
-          "edge": null,
-          "field_type": "string_list",
+          "description": "The entities the test says it proves, in its runner's idiom (I402 when one is no entity)",
+          "edge": "names",
+          "field_type": "reference_list",
           "inverse_of": null,
           "name": "names",
           "required": false,
@@ -82,7 +92,8 @@
       "open_fields": false,
       "result": "status",
       "schemes": [
-        "js"
+        "js",
+        "rust"
       ],
       "semantic_token": null,
       "singleton": false,
@@ -142,6 +153,258 @@
       "open_fields": false,
       "schemes": [
         "run"
+      ],
+      "semantic_token": null,
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": [],
+      "writer": "collector"
+    },
+    {
+      "description": "A definition a source pack read (ADR 0347): every definition one path reaches is one item, cited by its id, rust:<crate>::<module path>::<name> or js:<package>/<file>::<name>[.<member>]",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "fields": [
+        {
+          "default_value": null,
+          "description": "The package the item is defined in",
+          "edge": "in_package",
+          "field_type": "reference",
+          "inverse_of": null,
+          "name": "package",
+          "required": false,
+          "target_kind": "package"
+        },
+        {
+          "default_value": null,
+          "description": "The file of its first definition, project-relative, with / separators",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "file",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "What each of its definitions is, in vocabulary order",
+          "edge": null,
+          "enum_values": [
+            "module",
+            "function",
+            "method",
+            "struct",
+            "enum",
+            "union",
+            "trait",
+            "type",
+            "const",
+            "static",
+            "macro",
+            "class",
+            "interface",
+            "variable",
+            "namespace"
+          ],
+          "field_type": "enum_list",
+          "inverse_of": null,
+          "name": "kind",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Who may name it: the widest of its definitions'",
+          "edge": null,
+          "enum_values": [
+            "public",
+            "crate",
+            "restricted",
+            "private"
+          ],
+          "field_type": "enum",
+          "inverse_of": null,
+          "name": "visibility",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "sha256:<hex> over its definitions' signature texts, whitespace-collapsed: it changes when a signature does",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "signature",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Its first definition's doc comment",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "doc",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Its definitions' attributes: test, ignore, cfg(<predicate>), export, …",
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "attrs",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The entities the item says it implements, in its source's idiom (I402 when one is no entity)",
+          "edge": "names",
+          "field_type": "reference_list",
+          "inverse_of": null,
+          "name": "names",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The test this function runs as, when it is one",
+          "edge": "runs_as",
+          "field_type": "reference",
+          "inverse_of": null,
+          "name": "test_id",
+          "required": false,
+          "target_kind": "test"
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": null,
+      "keyword": null,
+      "lsp_icon": null,
+      "name": "item",
+      "open_fields": false,
+      "schemes": [
+        "rust",
+        "js"
+      ],
+      "semantic_token": null,
+      "singleton": false,
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": [],
+      "writer": "collector"
+    },
+    {
+      "description": "A package a manifest pack read (ADR 0347): pkg:cargo/<name>, pkg:cargo/<name>#<dir> or pkg:npm/<name>, a purl without its version",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "fields": [
+        {
+          "default_value": null,
+          "description": "The name its manifest gives it",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "name",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The version its manifest gives it",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "version",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "A cargo package's Rust edition",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "edition",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "A cargo package's minimum supported Rust version",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "rust_version",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "An npm package's engines, each <engine> <range>",
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "engines",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "A cargo package's features",
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "features",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "A cargo package's targets, each <kind>:<name>:<root>",
+          "edge": null,
+          "field_type": "string_list",
+          "inverse_of": null,
+          "name": "targets",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Its directory, project-relative, empty at the root",
+          "edge": null,
+          "field_type": "string",
+          "inverse_of": null,
+          "name": "path",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The project's own packages it depends on",
+          "edge": "uses_package",
+          "field_type": "reference_list",
+          "inverse_of": null,
+          "name": "depends_on",
+          "required": false,
+          "target_kind": "package"
+        }
+      ],
+      "has_body_parser": false,
+      "incremental": null,
+      "inference_guide": null,
+      "keyword": null,
+      "lsp_icon": null,
+      "name": "package",
+      "open_fields": false,
+      "schemes": [
+        "pkg"
       ],
       "semantic_token": null,
       "singleton": false,

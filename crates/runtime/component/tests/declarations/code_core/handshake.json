@@ -1,8 +1,8 @@
 {
   "protocol_version": "2.0.0",
   "name": "@code/core",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "peer_dependencies": [],
   "sandbox_policy": null,
-  "description": "The neutral base of test facts: the test and test_run kinds a runner pack collects, and the checks of the references a spec writes to them"
+  "description": "The neutral base of code facts: the test, test_run, item and package kinds the code packs collect, and the checks of the references a spec writes to them"
 }

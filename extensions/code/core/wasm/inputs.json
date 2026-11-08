@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_code_core.wasm",
-  "artifact_sha256": "d44b4bbb6e56152a0527b7498b2d8b0a522f7df718ebfea280232adfbd34dbc3",
+  "artifact_sha256": "63d2ba681586a137ceb6fdbf8690d82e7efc6705f36318831073fbb658f24ffb",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "753e625574790e951c439f32943c088dfcc80287d05b5467278949264a1faf11",
@@ -59,10 +59,17 @@
     "crates/runtime/extension-sdk/src/surface/call.rs": "47937f382d26ac3de60d0ab6a9b39babb78edb564d70ec78de10a4676e9a1282",
     "crates/runtime/extension-sdk/src/vocabulary.rs": "93f85b5300e870259d78823b33cc19639aac0c30d966e934d9125e693fc94281",
     "crates/runtime/extension-sdk/wit/host.wit": "74d7019183a30f80b1f10dae430ec1a7b883d0c51d39a97efb3b6d768e004444",
-    "extensions/code/core/Cargo.lock": "1165dfd0f589f712287e47e3dccb2b09daca9d31328b60b22b02a2ecc25e91d5",
-    "extensions/code/core/Cargo.toml": "51e64dbba4a2597aefeab890f652da5e89ee4bf1cfdc068020764ef88cc61a91",
-    "extensions/code/core/src/lib.rs": "05a02a961dd328083952a4a37aefb8a26f93beef59ede5a1531064a8fbc22d1b",
-    "extensions/code/core/src/proof.rs": "f168a53f61e5e4034cd6fe6f52a83758101da624086a05033e0c2ff89130df3c",
-    "extensions/code/core/src/refs.rs": "699504137db6e8e20c6aa16642b909e75c529d4d4d16bdab5cf69459db1f06cb"
+    "extensions/code/core/Cargo.lock": "2ff834f2e0f553e152b77292d787d7085e24ec9fc488ff1184f579c72d17cc73",
+    "extensions/code/core/Cargo.toml": "1da9b82819ac76815d49a6c0bf140fca604f8a5313a7d8cd32590be91931007a",
+    "extensions/code/core/src/lib.rs": "a806fdb706ddf4358538fa490aaaa31280f3881f2ddb10b6616ed1fae86300b7",
+    "extensions/code/core/src/proof.rs": "54782c56c9ea299e1591f0ec81718270d68ad44d2537a90b04f31aad0f2142a3",
+    "extensions/code/core/src/refs.rs": "2fc3995c1f36afec0fc77f415c055bc48ff286b02ab83237b05390b520c4a01e",
+    "extensions/code/facts/Cargo.toml": "78711c072008558fb21fc45885a253dd47f50b0e4d38791e8820a899d8f27d2b",
+    "extensions/code/facts/src/ids.rs": "a9e5f6a82d5b32ba58af7bb59e398e9539b0a94be206ef5adfadef1276475538",
+    "extensions/code/facts/src/lib.rs": "10150cf9747c68276debda56ae2dca7f57c8ac9a7930708cfdbc15f73b16d981",
+    "extensions/code/facts/src/mint.rs": "42fc91de775533a19c3f9533a6241de30b6ff7e2b6cba162d0e7fa8ee3f70d00",
+    "extensions/code/junit/Cargo.toml": "0cf8fd46f5d31313c6edd4c030fd0d8e49140c4382558cf362bb101b761cb8b2",
+    "extensions/code/junit/src/lib.rs": "44aeea0d46797184d3e968c883068e3c5018cfd75aa06eab544db9025efe0e16",
+    "extensions/code/junit/src/xml.rs": "fa399f0b4782f298aaf8a2407f25c6112a9c40dbcf98951def06f8e06976dc20"
   }
 }
