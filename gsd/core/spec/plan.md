@@ -12,7 +12,8 @@
                 │   ├──*─ disposition    (review ledger, append-only)
                 │   └──*─ user_setup
                 ├── depends_on →* plan   (a DAG; waves are computed from it)
-                └── requirements →* requirement
+                ├── requirements →* requirement
+                └── decisions →* decision   (the context decisions it implements)
 ```
 
 File: `plans/<NN-MM>.spec` in the phase folder: the plan, its tasks, checkpoints and must-haves, its plan-check
@@ -32,6 +33,7 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | files_deleted | paths<open> | | `files_deleted:`: checked while the plan is pending (the file is still there to delete), closed once it is complete |
 | coupling_justified | {peer → plan R, reason str R} | | `coupling_justified:`; exempts only non-file coupling (D3b, gsd/I321), never file overlap (gsd/W305) |
 | requirements | →* requirement | | `requirements:` (non-empty for a plan of a phase, not `R`, so gsd/E302 is the one diagnostic of its absence; a quick plan names none) |
+| decisions | →* decision | | the context decisions the plan implements (`decisions [D-01, D-03]`), resolved in its phase and read back as `implemented_by` (ADR 0351): gsd/E310, W317, W506 and E312's exemption read them, never the plan's text. Not `R`: gsd/E310 is the one diagnostic of a missing one; another phase's decision (`02/D-01`) covers nothing here |
 | wave0 | bool | | `wave: 0`: the plan builds the phase's Nyquist wave-0 items (test stubs, fixtures, framework install) |
 | gap_closure | →* verify_gap \| uat_gap | | `gap_closure: true` and `gap_ids:` (a reference union, ADR 0285 D5) |
 | agent_hint | str | | `agent_hint:` |

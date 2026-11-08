@@ -38,6 +38,12 @@ pub const PLAN: Kind = Kind::new(
             .doc("`gap_closure: true` and `gap_ids:`; the gaps this plan closes"),
         rfs("requirements", "requirement")
             .doc("`requirements:` (non-empty: gsd/E302 is the one diagnostic of its absence)"),
+        rfs("decisions", "decision")
+            .inverse("implemented_by")
+            .doc(
+                "`decisions:` the context decisions this plan implements (`D-NN`, resolved in its phase), read back \
+                 as `implemented_by`; gsd/E310, W317, W506 and E312 read it",
+            ),
         bool("wave0").doc("`wave: 0`: the plan builds the phase's wave-0 items"),
         str("agent_hint").doc("`agent_hint:`"),
         block("estimate", ESTIMATE).doc("`estimate:`"),

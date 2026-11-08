@@ -200,6 +200,7 @@ plan 02-01 "Save and load tasks.json" {
   type             execute
   files_modified   ["src/store.js", "src/cli.js", "test/store.test.js"]
   requirements     [STORE-01, STORE-02]
+  decisions        [D-01, D-02, D-03]
   objective        "Save and load `tasks.json`."
   purpose          "a task is never lost, which is the core value of the project."
   output           "`src/store.js`, and the command line reading and writing the board around each command."

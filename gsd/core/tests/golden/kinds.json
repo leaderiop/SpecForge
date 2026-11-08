@@ -376,6 +376,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "PlanDecisions",
+        "source_kind": "plan",
+        "target_kind": "decision"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "TaskPlan",
         "source_kind": "task",
         "target_kind": "plan"
@@ -3945,6 +3954,16 @@
             "name": "requirements",
             "required": false,
             "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "`decisions:` the context decisions this plan implements (`D-NN`, resolved in its phase), read back as `implemented_by`; gsd/E310, W317, W506 and E312 read it",
+            "edge": "PlanDecisions",
+            "field_type": "reference_list",
+            "inverse_of": "implemented_by",
+            "name": "decisions",
+            "required": false,
+            "target_kind": "decision"
           },
           {
             "default_value": null,
