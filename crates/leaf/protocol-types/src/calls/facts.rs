@@ -67,7 +67,20 @@ impl Fact {
 
     /// `id` named in its field `field` (appended to the field's array once) and written at `place`: a rename of the
     /// entity `id` names rewrites the text there (ADR 0346 D7).
-    pub fn name(mut self, field: &str, id: &str, place: FactLocation) -> Self {
+    pub fn name(self, field: &str, id: &str, place: FactLocation) -> Self {
+        let mut fact = self.unplaced_name(field, id);
+        fact.named_at
+            .entry(field.to_string())
+            .or_default()
+            .entry(id.to_string())
+            .or_default()
+            .push(place);
+        fact
+    }
+
+    /// `id` named in its field `field` (appended to the field's array once) where its pack read no place: a rename of
+    /// the entity `id` names finds no text to rewrite for it.
+    pub fn unplaced_name(mut self, field: &str, id: &str) -> Self {
         let value = self
             .fields
             .entry(field.to_string())
@@ -79,12 +92,6 @@ impl Fact {
         if !items.iter().any(|item| item.as_str() == Some(id)) {
             items.push(serde_json::Value::String(id.to_string()));
         }
-        self.named_at
-            .entry(field.to_string())
-            .or_default()
-            .entry(id.to_string())
-            .or_default()
-            .push(place);
         self
     }
 }

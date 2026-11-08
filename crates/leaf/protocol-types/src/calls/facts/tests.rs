@@ -25,3 +25,20 @@ fn fact_name_appends_the_id_once_and_records_each_place() {
     assert!(fact.at.is_empty());
     assert_eq!(fact.at(place(9)).at, [place(9)]);
 }
+
+#[test]
+fn fact_unplaced_name_appends_the_id_once_and_records_no_place() {
+    let fact = Fact::new("test", "js:a/b.js#c")
+        .unplaced_name("names", "TR1")
+        .name("names", "TR2", place(2))
+        .unplaced_name("names", "TR1")
+        .unplaced_name("names", "TR2");
+
+    assert_eq!(fact.fields["names"], serde_json::json!(["TR1", "TR2"]));
+    assert!(!fact.named_at["names"].contains_key("TR1"));
+    assert_eq!(fact.named_at["names"]["TR2"], [place(2)]);
+    let written = Fact::new("test", "js:a/b.js#c")
+        .field("names", "TR0")
+        .unplaced_name("names", "TR1");
+    assert_eq!(written.fields["names"], serde_json::json!(["TR1"]));
+}

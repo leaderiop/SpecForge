@@ -456,13 +456,7 @@ fn join_names(into: &mut Names, names: Names) {
 fn named(mut fact: Fact, names: Names) -> Fact {
     for (name, places) in names {
         if places.is_empty() {
-            let value = fact
-                .fields
-                .entry("names".to_string())
-                .or_insert_with(|| serde_json::Value::Array(Vec::new()));
-            if let Some(items) = value.as_array_mut() {
-                items.push(serde_json::Value::String(name));
-            }
+            fact = fact.unplaced_name("names", &name);
         } else {
             for place in places {
                 fact = fact.name("names", &name, place);
