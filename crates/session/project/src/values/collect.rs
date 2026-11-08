@@ -1,11 +1,16 @@
 //! Every value the phase checks: each item of each written field or member whose declared path has checks, with where
-//! it is written.
+//! it is written. The one place a field's owner gate is read (ADR 0350): a stage takes the ungated values or the gated
+//! ones, and a gated value its owner state holds back is collected apart, with the status of its rows.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, DiagnosticData, SourceSpan};
+use specforge_protocol_types::{CheckStatus, OwnerState};
 use specforge_registry::entity::FieldRecord;
 use specforge_registry::{CheckRegistry, EntitySnapshot, ResolvedCheck};
+
+use super::Stage;
 
 /// One written value with the checks it owes.
 pub(super) struct Value<'a> {
@@ -32,27 +37,72 @@ impl Value<'_> {
     }
 }
 
-/// Every value of `entities` that has a check, in source order.
+/// What one stage collects of a snapshot.
+#[derive(Default)]
+pub(super) struct Collected<'a> {
+    /// The values its checkers read, in source order.
+    pub values: Vec<Value<'a>>,
+    /// The gated values their owner state holds back, each with its rows' status: `Planned` while a planned value's
+    /// owner is pending, `Closed` once a while-open value's owner is complete. No checker reads them.
+    pub held: Vec<(Value<'a>, CheckStatus)>,
+    /// How many planned values wait for their owner, by `kind.path` (I213).
+    pub waiting: BTreeMap<String, usize>,
+}
+
+/// Every value of `entities` that has a check and that `stage` takes, in source order: the ungated values, or the gated
+/// ones, each read against its holder's owner state on this snapshot (ADR 0329 D4).
 pub(super) fn values<'a>(
     entities: &'a EntitySnapshot,
     checks: &'a CheckRegistry,
+    stage: Stage,
     text_of: &dyn Fn(&str) -> Option<Arc<str>>,
-) -> Vec<Value<'a>> {
-    let mut values = Vec::new();
+) -> Collected<'a> {
+    let mut collected = Collected::default();
     for record in entities.records() {
         if checks.of_kind(&record.kind).next().is_none() {
             continue;
         }
+        // Read once per entity, and only when it holds a gated value.
+        let mut pending = None;
         for field in &record.fields {
             for written in std::iter::once(field).chain(&field.members) {
                 let owed = checks.on(&record.kind, &written.declared);
-                if !owed.is_empty() {
-                    values_of(&record.id, written, owed, text_of, &mut values);
+                if owed.is_empty() {
+                    continue;
                 }
+                let held = match (stage, checks.gate(&record.kind, &written.declared)) {
+                    (Stage::Ungated, None) => None,
+                    (Stage::Gated, Some(gate)) => {
+                        match (
+                            gate,
+                            *pending.get_or_insert_with(|| entities.is_pending(record)),
+                        ) {
+                            (OwnerState::Complete, true) => Some(CheckStatus::Planned),
+                            (OwnerState::Pending, false) => Some(CheckStatus::Closed),
+                            _ => None,
+                        }
+                    }
+                    _ => continue,
+                };
+                let Some(status) = held else {
+                    values_of(&record.id, written, owed, text_of, &mut collected.values);
+                    continue;
+                };
+                let mut values = Vec::new();
+                values_of(&record.id, written, owed, text_of, &mut values);
+                if status == CheckStatus::Planned {
+                    *collected
+                        .waiting
+                        .entry(format!("{}.{}", record.kind, written.declared))
+                        .or_default() += values.len();
+                }
+                collected
+                    .held
+                    .extend(values.into_iter().map(|value| (value, status)));
             }
         }
     }
-    values
+    collected
 }
 
 fn values_of<'a>(

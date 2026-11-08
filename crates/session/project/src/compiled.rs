@@ -625,14 +625,19 @@ impl CompiledProject {
                     crate::harness::overlay::through(disk, this, &this.ledger_overlay, &mut ledger);
                 &overlaid
             };
+            let text_of = |file: &str| this.sources.text(file).cloned();
+            // One budget over both stages of the values phase (ADR 0350).
+            let mut spent = crate::values::Spent::starting(env.value_budget());
             // Before the rules: a verdict digests what the checks found (ADR 0337 §6).
-            let values = crate::values::run(
+            let mut values = crate::values::run(
                 &env,
                 &authored,
+                crate::values::Stage::Ungated,
                 this.effects(),
                 disk,
                 &this.check_cache,
-                &|file| this.sources.text(file).cloned(),
+                &text_of,
+                &mut spent,
             );
             // No checker at all leaves the values a test gave (`with_checked_values`).
             let checked_values = if env.registries().checks().is_empty() {
@@ -650,8 +655,22 @@ impl CompiledProject {
             );
             baseline = Some(read);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
+            // A field whose checks wait for its owner: owner state is read on the merged snapshot (ADR 0350).
+            let gated = crate::values::run(
+                &env,
+                &entities,
+                crate::values::Stage::Gated,
+                this.effects(),
+                disk,
+                &this.check_cache,
+                &text_of,
+                &mut spent,
+            );
+            values.checks.extend(gated.checks);
             let mut diagnostics = values.diagnostics;
             diagnostics.extend(checked.diagnostics);
+            diagnostics.extend(gated.diagnostics);
+            diagnostics.extend(crate::values::approvals(this.effects(), &spent));
             // What this machine did not perform of them: an effect's, once for the run.
             diagnostics.extend(crate::effects::not_run(&this.effects().log()));
             // A write that was interrupted (ADR 0289): the next writer rolls it back, a check only says so.

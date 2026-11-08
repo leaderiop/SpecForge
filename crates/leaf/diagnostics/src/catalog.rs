@@ -404,6 +404,9 @@ catalog! {
     I211: Info core,
         "Source files parsed with syntax errors",
         "An extension's `specforge:host/syntax` request (ADR 0345) parsed source files whose tree holds ERROR or MISSING nodes (ADR 0344 D1). The reader is error tolerant, so what the parse recovered was answered, but a definition inside the broken region may be missing or cut. Reported once per call, naming the first 8 files and their error counts, then how many more. Fix the syntax errors and collect again.";
+    I213: Info core,
+        "Values wait for their owner",
+        "Some values belong to fields whose checks wait for their owner (`checks_while: complete`, ADR 0350): a file a plan will create, say, while the plan is still pending. Their owner is the entity's kind, or its nearest scope ancestor, that declares `complete_when`, read after the compute passes. No checker is called for them: each row says `planned`, and nothing counts toward I206 or I207. One summary per compile counts them by field (`plan.files_modified 8, task.files 4`). They are checked once their owner is complete; nothing is wrong with the project.";
     I999: Info core,
         "Diagnostic output truncated",
         "More diagnostics were produced than the 100-diagnostic display limit, so only the first batch is shown. Fix the listed diagnostics and rerun the compiler to see the rest.";

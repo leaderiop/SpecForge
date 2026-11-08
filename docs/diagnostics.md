@@ -2355,6 +2355,24 @@ Owner: core
 Level: info
 ```
 
+## I213
+
+```
+I213: Values wait for their owner
+
+Some values belong to fields whose checks wait for their owner (`checks_while:
+complete`, ADR 0350): a file a plan will create, say, while the plan is still
+pending. Their owner is the entity's kind, or its nearest scope ancestor, that
+declares `complete_when`, read after the compute passes. No checker is called
+for them: each row says `planned`, and nothing counts toward I206 or I207. One
+summary per compile counts them by field (`plan.files_modified 8, task.files
+4`). They are checked once their owner is complete; nothing is wrong with the
+project.
+
+Owner: core
+Level: info
+```
+
 ## I999
 
 ```
