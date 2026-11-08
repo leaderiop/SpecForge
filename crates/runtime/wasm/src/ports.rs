@@ -39,8 +39,8 @@ pub struct PortCall {
     pub grant: Arc<Grant>,
     /// Every variable a declared secret names, of any extension: no program a guest runs inherits one.
     pub secrets: Vec<String>,
-    /// The host's source reader a `syntax` request parses with: one per collect, so its queries are memoised and its
-    /// cache shared (a detached cache when the caller lends none).
+    /// The host's source reader a `syntax` request parses with: the project's one (its environment's), so its
+    /// queries are memoised and its cache shared by every call over the project; a detached cache until one is lent.
     pub syntax: Arc<SourceReader>,
     /// What the caller reports of this call's refused requests.
     denials: Arc<Mutex<Denials>>,
@@ -130,7 +130,7 @@ impl PortCall {
         }
     }
 
-    /// This call, its `syntax` requests parsed by `reader` (a project's cache, shared across a collect's calls).
+    /// This call, its `syntax` requests parsed by `reader` (the project's, shared by every call over it).
     pub fn with_syntax(mut self, reader: Arc<SourceReader>) -> Self {
         self.syntax = reader;
         self

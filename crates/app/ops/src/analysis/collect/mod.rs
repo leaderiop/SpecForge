@@ -46,7 +46,6 @@ use specforge_project::Environment;
 use specforge_project::coverage::TestReport;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use specforge_project::coverage::REPORT_FILE;
 
@@ -275,8 +274,6 @@ pub fn collect(
         })
         .collect::<Result<Vec<_>, OpError>>()?;
     approval::settle_runs(view, &planned, asking, consent, &mut unsaved_approvals)?;
-    // One reader for the whole collect: every collector's parses share its cache and compiled queries.
-    let reader = crate::extension::lend::source_reader(view);
     let mut served = order::Served::new(root, containment);
     for (collector, source) in planned {
         let Evidence {
@@ -299,8 +296,7 @@ pub fn collect(
             caller,
             &collector.extension,
             specforge_protocol_types::Operation::Collect,
-        )
-        .map(|call| call.with_syntax(Arc::clone(&reader)));
+        );
         let mut collected = dispatch_over(
             view.runtime().map(|r| r.as_ref()),
             collector,
@@ -378,7 +374,7 @@ pub fn collect(
     }
 
     // An entry no collect touched for its age goes; a prune that cannot remove one only keeps it longer.
-    reader.cache().prune(
+    view.env().syntax().cache().prune(
         std::time::SystemTime::now(),
         specforge_source::CACHE_MAX_AGE,
     );

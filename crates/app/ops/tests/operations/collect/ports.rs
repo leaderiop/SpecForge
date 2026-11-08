@@ -3,12 +3,14 @@
 
 use std::sync::{Arc, Mutex};
 
+use serde_json::Map;
 use specforge_effects::testing::{self, FakeFs, MemoryConsent};
 use specforge_effects::{EffectsMode, Ports};
 use specforge_extension_sdk::host;
 use specforge_extension_sdk::prelude::*;
 use specforge_ops::analysis::collect::{Mode, Outcome, Request, RunnerOutput, collect};
 use specforge_ops::asking::Asking;
+use specforge_ops::extension::command::{CommandFormat, ExtensionCommands, run};
 use specforge_ops::testing::ScriptedMachine;
 use specforge_ops::view::ProjectView;
 use specforge_ops::{Caller, Containment};
@@ -87,7 +89,7 @@ fn reader(collector: fn()) -> ContributionsBuilder {
         Capability::fs("source")
             .roots(&["project"])
             .ops(&[FsAccess::Read, FsAccess::Walk])
-            .call_kinds(&[Operation::Collect])
+            .call_kinds(&[Operation::Collect, Operation::Command])
             .why("read the project's source"),
     );
     c.collector("source", move |k| {
@@ -128,11 +130,15 @@ impl Reading {
     /// One collect in `mode`, nothing approved and nobody to ask.
     fn collect(&self, mode: Mode<'_>) -> Outcome {
         let compiled = self.project.compile();
-        let view = ProjectView::of(&compiled);
+        self.collect_over(&ProjectView::of(&compiled), mode)
+    }
+
+    /// [`Self::collect`] over `view`.
+    fn collect_over(&self, view: &ProjectView<'_>, mode: Mode<'_>) -> Outcome {
         let consent = MemoryConsent::default();
         let containment = Containment::unbounded();
         collect(
-            &view,
+            view,
             Request {
                 runner: Some("source"),
                 mode,
@@ -272,4 +278,55 @@ fn a_second_collect_answers_every_file_from_the_projects_syntax_cache() {
             .join(specforge_source::CACHE_DIR)
             .is_dir()
     );
+}
+
+/// What the collect of the command test was answered, then what its command was.
+static FILLED: Mutex<Vec<Result<SyntaxAnswer, HostError>>> = Mutex::new(Vec::new());
+static COMMANDED: Mutex<Vec<Result<SyntaxAnswer, HostError>>> = Mutex::new(Vec::new());
+
+#[specforge_test_macros::test(
+    behavior = "read_source_syntax",
+    verify = "a command's syntax request is answered from the cache a collect filled"
+)]
+fn a_commands_syntax_request_is_answered_from_the_cache_a_collect_filled() {
+    let reading = Reading::new(
+        || {
+            let mut c = reader(|| parse_into(&FILLED));
+            c.command("parse", |cmd| {
+                cmd.title("Parse").handler(|_| {
+                    parse_into(&COMMANDED);
+                    CommandOutput::ok(String::new())
+                });
+            });
+            c
+        },
+        "specforge:host/syntax@0.1.0",
+        &[
+            ("src/a.rs", "fn alpha() {}\nfn beta() {}\n"),
+            ("src/broken.rs", "fn gamma( {\n"),
+        ],
+    );
+    let compiled = reading.project.compile();
+    let view = ProjectView::of(&compiled);
+
+    reading.collect_over(&view, Mode::NoRun);
+    let commands = ExtensionCommands::build(view.registries());
+    let parse = commands.all().iter().find(|c| c.id() == "parse").unwrap();
+    let consent = MemoryConsent::approving_everything();
+    let containment = Containment::unbounded();
+    let caller = Caller::new(&containment, Asking::Nobody).lending(
+        &reading.ports,
+        &consent,
+        EffectsMode::Online,
+    );
+    run(&view, parse, &Map::new(), CommandFormat::Json, None, caller).unwrap();
+
+    let filled = FILLED.lock().unwrap();
+    let commanded = COMMANDED.lock().unwrap();
+    let ([Ok(filled)], [Ok(commanded)]) = (filled.as_slice(), commanded.as_slice()) else {
+        panic!("one parse each, answered: {filled:?} {commanded:?}");
+    };
+    assert_eq!((filled.parsed, filled.cached), (2, 0));
+    assert_eq!((commanded.parsed, commanded.cached), (0, 2));
+    assert_eq!(commanded.files, filled.files);
 }

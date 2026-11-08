@@ -244,6 +244,7 @@ module specforge_project "specforge-project" {
     specforge_protocol_types,
     specforge_registry,
     specforge_resolver,
+    specforge_source,
     specforge_wasm,
   ]
   tags        ["session"]

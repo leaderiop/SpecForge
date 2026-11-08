@@ -29,6 +29,8 @@ specforge-parser = { workspace = true }
 specforge-protocol-types = { path = "../../leaf/protocol-types" }
 specforge-registry = { workspace = true }
 specforge-resolver = { path = "../../pipeline/resolver" }
+# The project's one source reader: its syntax cache under the state base, shared by every call over the environment.
+specforge-source = { path = "../../kernel/source" }
 specforge-wasm = { workspace = true }
 specforge-installed = { path = "../../runtime/installed" }
 tree-sitter = { workspace = true }

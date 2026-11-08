@@ -1,8 +1,12 @@
 //! What an [`Environment`] asks of the outside (ADR 0287, ADR 0335, ADR 0337): the git port its surface gave, where
-//! the repository is, and the effects mode every http or process effect of a run is served in.
+//! the repository is, the effects mode every http or process effect of a run is served in, and the source reader
+//! its calls parse with.
+
+use std::sync::Arc;
 
 use specforge_effects::git::{Git, Located};
 use specforge_effects::{Effects, SharedGit};
+use specforge_source::SourceReader;
 
 use crate::Environment;
 
@@ -45,6 +49,11 @@ impl Environment {
     /// Its effects: the mode, the ports a live mode performs through, the journal and what the run consulted.
     pub fn effects(&self) -> &Effects {
         &self.effects
+    }
+
+    /// The project's one source reader: what every extension call over this environment parses with.
+    pub fn syntax(&self) -> &Arc<SourceReader> {
+        &self.syntax
     }
 
     /// The git port this environment was given; none: no judgement against history.

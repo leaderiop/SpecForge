@@ -166,6 +166,7 @@ behavior read_source_syntax "Read Source Syntax" {
   verify unit "a capture's text is cut at 4096 bytes on a character boundary"
   verify unit "the grammar versions are the locked ones"
   verify integration "a second collect answers every file from the project's syntax cache"
+  verify integration "a command's syntax request is answered from the cache a collect filled"
 }
 
 behavior parse_source_through_the_syntax_import "Parse Source through the Syntax Import" {

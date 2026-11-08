@@ -5,17 +5,16 @@
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, codes};
-use specforge_effects::journal::state_base;
 use specforge_effects::{Roots, Uses};
 use specforge_protocol_types::{Operation, SettingsItem};
-use specforge_source::{SourceReader, SyntaxCache};
 use specforge_wasm::PortCall;
 
 use crate::Caller;
 use crate::settle::settle;
 use crate::view::ProjectView;
 
-/// What `extension`'s call of kind `kind` is lent over `view`: none when `caller` lends no port, or its guest imports
+/// What `extension`'s call of kind `kind` is lent over `view`, parsing source with the project's one reader (its
+/// environment's, ADR 0344 D2): none when `caller` lends no port, or its guest imports
 /// none (a port it then calls is answered `denied(scope)`). Approvals nobody gave stay ungiven: a request that needs
 /// one is answered `denied(scope)`. W186 of a store that could not be read, or that lost an approval just given, is
 /// kept with the denials.
@@ -67,22 +66,12 @@ pub fn port_call(
         .with_named(Roots::new(root, env.spec_root()));
     let effects =
         specforge_project::effects::lent(lending.mode(), lending.ports(), env.project_root());
-    let call = PortCall::new(effects, lending.ports(), roots, grant, secrets);
+    let call = PortCall::new(effects, lending.ports(), roots, grant, secrets)
+        .with_syntax(Arc::clone(env.syntax()));
     for unusable in unusable {
         call.deny(unusable);
     }
     Some(call)
-}
-
-/// The source reader the calls over `view` share (ADR 0344 D2): its cache under the project's state base, none with
-/// no base. One per operation, so its compiled queries serve every call of it.
-pub fn source_reader(view: &ProjectView<'_>) -> Arc<SourceReader> {
-    let cache = view
-        .env()
-        .project_root()
-        .and_then(state_base)
-        .map_or_else(SyntaxCache::detached, |base| SyntaxCache::at(&base));
-    Arc::new(SourceReader::new(cache))
 }
 
 /// `denials` as a person reads them, one a line: what a command adds to its stderr.

@@ -4827,6 +4827,7 @@ dependencies = [
  "specforge-registry",
  "specforge-repo-root",
  "specforge-resolver",
+ "specforge-source",
  "specforge-test",
  "specforge-test-macros",
  "specforge-wasm",

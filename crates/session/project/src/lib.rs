@@ -122,6 +122,13 @@ pub enum ExtensionLoad {
     },
 }
 
+/// A source reader with no cache: an environment's with no project root.
+fn detached_reader() -> Arc<specforge_source::SourceReader> {
+    Arc::new(specforge_source::SourceReader::new(
+        specforge_source::SyntaxCache::detached(),
+    ))
+}
+
 /// Everything derived from `specforge.json` and the loaded extensions,
 /// before any `.spec` file is read. Assembled from those parts
 /// ([`Self::assemble`]).
@@ -188,6 +195,10 @@ pub struct Environment {
     /// Whether a run performs, reuses or replays an http or process effect (ADR 0337 D4): `cached` over the
     /// project's effects journal unless a surface chooses (detached with no project root), so a compile performs none.
     effects: specforge_effects::Effects,
+    /// The project's one source reader (ADR 0344 D2): every extension call over this environment parses through it,
+    /// so its compiled queries and its cache serve them all. Its cache is under the project's state base; detached
+    /// for an environment with no project root.
+    syntax: Arc<specforge_source::SourceReader>,
 }
 
 impl Environment {
@@ -213,6 +224,7 @@ impl Environment {
             effects: specforge_effects::Effects::cached(
                 specforge_effects::EffectJournal::detached(),
             ),
+            syntax: detached_reader(),
         }
     }
 
@@ -364,6 +376,7 @@ impl Environment {
             effects: specforge_effects::Effects::cached(
                 specforge_effects::EffectJournal::detached(),
             ),
+            syntax: detached_reader(),
         }
     }
 
@@ -402,6 +415,12 @@ impl Environment {
             effects: specforge_effects::Effects::cached(
                 specforge_effects::EffectJournal::for_root(root),
             ),
+            syntax: Arc::new(specforge_source::SourceReader::new(
+                specforge_effects::journal::state_base(root)
+                    .map_or_else(specforge_source::SyntaxCache::detached, |base| {
+                        specforge_source::SyntaxCache::at(&base)
+                    }),
+            )),
             ..environment
         }
     }
