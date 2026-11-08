@@ -122,6 +122,26 @@ fn a_workspace_test_is_named_after_its_nearest_package() {
 
 #[specforge_test(
     behavior = "nt_map_node_test_report",
+    verify = "a test fact's file is project-relative in a nested package"
+)]
+fn a_nested_packages_test_fact_files_its_project_relative_path() {
+    let packages = [
+        ("package.json", r#"{"name":"app"}"#),
+        ("packages/core/package.json", r#"{"name":"@acme/core"}"#),
+    ];
+    let out = collect(&input(
+        &one("/work/app/packages/core/test/x.test.js"),
+        "/work/app",
+        &packages,
+    ))
+    .unwrap();
+    assert_eq!(out.facts[0].id, "js:@acme/core/test/x.test.js#adds");
+    // Today the path under the package: ADR 0329 D3 says project-relative, `packages/core/test/x.test.js`.
+    assert_eq!(out.facts[0].fields["file"], "test/x.test.js");
+}
+
+#[specforge_test(
+    behavior = "nt_map_node_test_report",
     verify = "an absolute file is made relative to the project root"
 )]
 fn an_absolute_file_is_made_relative_to_cwd() {
