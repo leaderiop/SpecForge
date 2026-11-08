@@ -157,6 +157,20 @@ fn a_status_is_a_test_status_name() {
 }
 
 #[test]
+fn the_w102_explanation_names_every_pack_of_the_table() {
+    let declared = declaration();
+    let w102 = declared.codes.iter().find(|c| c.code == "W102").unwrap();
+    for (kind, family, pack) in refs::PACKS {
+        let told = match kind {
+            "package" => format!("`pkg:{family}` packages"),
+            _ => format!("`{family}` {kind}s"),
+        };
+        let named = format!("`{pack}` for {told}");
+        assert!(w102.explanation.contains(&named), "{named}");
+    }
+}
+
+#[test]
 fn it_catalogues_the_codes_it_reports() {
     let codes: Vec<String> = declaration().codes.into_iter().map(|c| c.code).collect();
     assert_eq!(codes, ["E101", "W102", "W401", "I402"]);

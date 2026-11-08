@@ -141,12 +141,18 @@ pub struct FactStore { collector, key, held: BTreeMap<String, Vec<String>>, fact
   by scheme of its facts' ids, the kinds of the facts it holds.
 - `@code/core`'s `refs`, for each unheld reference of an entity that is not pending and not of one of `@code/core`'s
   kinds (a fact's own references are its collector's, judged as ADR 0346 D4 says):
-  1. nothing unless the reference's `kinds` meet `@code/core`'s kinds;
+  1. nothing unless the reference's `kinds` meet `@code/core`'s kinds. Those kinds are narrowed to the ones the id
+     parses as through the library (a test or run id holds `#`, an item id never does), all of them when it parses as
+     none, so a malformed reference is still judged;
   2. **E101** when a served store's `held[scheme]` meets them. A test reference is told the closest held test of the
      same container (`TestId::container`); no item or package suggestion, since `refs` reads test facts only;
   3. else **W102**: "`<field>` names `<id>`, but no `<scheme>` `<kind>` facts were collected: run `specforge collect`
-     with `<pack>`", the pack from `@code/core`'s table: (js, test) `@javascript/node-test`, (rust, test)
-     `@rust/test`, (rust, item) `@rust/source`, (js, item) `@javascript/source`, (pkg, package) `@rust/cargo`.
+     with `<pack>`", the pack from `@code/core`'s table, by kind and by the scheme of a test's or item's id or the
+     purl type of a package's: (test, js) `@javascript/node-test`, (test, rust) `@rust/test`, (item, rust)
+     `@rust/source`, (item, js) `@javascript/source`, (package, cargo) `@rust/cargo`, (package, npm)
+     `@javascript/source`.
+- A judged `test(..)` input (ADR 0331 D7) reads an unheld reference by the same rule: `absent` (the test is gone) only
+  when a served store's `held[scheme]` meets the reference's `kinds`, unrecorded otherwise.
 
 ## D10. The library normalises visibility
 

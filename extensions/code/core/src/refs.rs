@@ -19,7 +19,7 @@ pub(crate) const TAKES: [(&str, &str, &str, bool); 4] = [
 
 /// The pack that collects each kind of `@code/core`, by the scheme of a test's or an item's id and the purl type of a
 /// package's: what W102 tells to run.
-const PACKS: [(&str, &str, &str); 6] = [
+pub(crate) const PACKS: [(&str, &str, &str); 6] = [
     (TEST_KIND, "js", "@javascript/node-test"),
     (TEST_KIND, "rust", "@rust/test"),
     (ITEM_KIND, "rust", "@rust/source"),
