@@ -20,7 +20,10 @@
 /// - a collector declares `answers`, the collected kinds whose facts it answers: they order the collect (E119 for a
 ///   cycle) and admit its facts (E116 otherwise);
 /// - a collector with no `capability` and no `report` reads no report: it is called with no reports and reads through
-///   its ports (ADR 0345 D2).
+///   its ports (ADR 0345 D2);
+/// - a fact carries `at` (where it is written) and `named_at` (where each name a field holds is written), and a pass
+///   entity carries `dangling`, a fact's references that name no entity, the wrong kind or several, judged by the
+///   extension declaring the holder's kind (ADR 0346).
 ///
 /// A change that adds to 2.0.0 (grants, host imports, value checks) adds its item here and to the 2.0.0 row of
 /// `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0 included; it does

@@ -158,6 +158,7 @@ pub(super) fn pass_entity(record: &EntityRecord, standing: &Standing, pending: b
         verify_texts: record.obligations.iter().map(|o| o.text.clone()).collect(),
         judgements: Vec::new(),
         unheld: record.unheld.clone(),
+        dangling: Vec::new(),
         pending,
     }
 }

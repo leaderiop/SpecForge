@@ -650,7 +650,7 @@ pub mod prelude {
     pub use crate::{Capability, FsAccess, GitOp, HttpMethod, Operation};
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
-        CollectorBuilder, Fact, PlanBuilder,
+        CollectorBuilder, DanglingReason, DanglingReference, Fact, FactLocation, PlanBuilder,
     };
     pub use specforge_extension_sdk_macros::extension;
     pub use specforge_protocol_types::{
@@ -697,11 +697,12 @@ mod raw_category_tests;
 
 pub use specforge_protocol_types::{
     CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
-    CommandError, CommandEvidence, CommandFormat, CommandOutput, EntityEvidence, EntityTests, Fact,
-    FactStore, GraphEdge, GraphNode, GraphWire, McpResourceContent, McpResourceRequest,
-    MigrationInput, PassAnswer, PassBaseline, PassBaselineEntity, PassDiagnostic, PassEdge,
-    PassEntity, PassInput, PassOutput, PassSeverity, PassSpan, PassValue, ScanRequest,
-    ScanResponse, ScannedItem, TestResult, TestResults, TestStatus, UnheldReference,
+    CommandError, CommandEvidence, CommandFormat, CommandOutput, DanglingReason, DanglingReference,
+    EntityEvidence, EntityTests, Fact, FactLocation, FactStore, GraphEdge, GraphNode, GraphWire,
+    McpResourceContent, McpResourceRequest, MigrationInput, PassAnswer, PassBaseline,
+    PassBaselineEntity, PassDiagnostic, PassEdge, PassEntity, PassInput, PassOutput, PassSeverity,
+    PassSpan, PassValue, ScanRequest, ScanResponse, ScannedItem, TestResult, TestResults,
+    TestStatus, UnheldReference,
 };
 
 #[cfg(test)]

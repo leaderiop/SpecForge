@@ -409,3 +409,67 @@ fn a_syntax_request_and_answer_round_trip() {
     let quiet = serde_json::to_value(SyntaxAnswer::default()).unwrap();
     assert!(quiet.get("truncated").is_none(), "{quiet}");
 }
+
+#[specforge_test_macros::test(type = "Fact", verify = "Fact schema is valid")]
+fn a_fact_carries_its_places_and_named_places_and_omits_them_when_absent() {
+    use specforge_protocol_types::{Fact, FactLocation};
+
+    let place = |line| FactLocation {
+        file: "src/lib.rs".into(),
+        start_line: line,
+        start_col: 5,
+        end_line: line,
+        end_col: 9,
+    };
+    let wire = json!({
+        "kind": "item", "id": "rust:a::adds", "fields": {"names": ["TR1"]},
+        "at": [{"file": "src/lib.rs", "start_line": 12, "start_col": 5, "end_line": 12, "end_col": 9},
+               {"file": "src/lib.rs", "start_line": 20, "start_col": 5, "end_line": 20, "end_col": 9}],
+        "named_at": {"names": {"TR1": [{"file": "src/lib.rs", "start_line": 11, "start_col": 5,
+                                        "end_line": 11, "end_col": 9}]}}
+    });
+    let fact: Fact = round_trips(&wire);
+    assert_eq!(
+        fact,
+        Fact::new("item", "rust:a::adds")
+            .at(place(12))
+            .at(place(20))
+            .name("names", "TR1", place(11))
+    );
+
+    let plain = serde_json::to_value(Fact::new("test", "js:a#b")).unwrap();
+    assert!(
+        plain.get("at").is_none() && plain.get("named_at").is_none(),
+        "{plain}"
+    );
+}
+
+#[specforge_test_macros::test(type = "PassEntity", verify = "PassEntity schema is valid")]
+fn a_pass_entity_carries_its_dangling_references_and_omits_them_when_absent() {
+    use specforge_protocol_types::{DanglingReason, PassEntity};
+
+    let wire = json!({
+        "id": "run:js:a#b", "kind": "test_run", "fields": {}, "incoming_edge_count": 0, "outgoing_edge_count": 0,
+        "testable": false, "owes_none": false, "verify_kinds": [], "verify_texts": [],
+        "dangling": [
+            {"field": "test", "id": "add_one", "reason": "mistyped", "actual": "behavior",
+             "span": {"file": "src/a.rs", "start_line": 3, "start_col": 10, "end_line": 3, "end_col": 17}},
+            {"field": "names", "id": "TR", "reason": "ambiguous", "candidates": ["v1/TR", "v2/TR"]},
+            {"field": "names", "id": "gone", "reason": "unresolved", "did_you_mean": "done"}
+        ]
+    });
+    let entity: PassEntity = round_trips(&wire);
+    let reasons: Vec<DanglingReason> = entity.dangling.iter().map(|d| d.reason).collect();
+    assert_eq!(
+        reasons,
+        [
+            DanglingReason::Mistyped,
+            DanglingReason::Ambiguous,
+            DanglingReason::Unresolved
+        ]
+    );
+    assert_eq!(entity.dangling[0].actual.as_deref(), Some("behavior"));
+
+    let plain = serde_json::to_value(PassEntity::default()).unwrap();
+    assert!(plain.get("dangling").is_none(), "{plain}");
+}

@@ -420,6 +420,10 @@ pub struct PassEntity {
     /// and no core diagnostic; whether one is wrong is the kind's extension's to judge.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unheld: Vec<UnheldReference>,
+    /// A fact's references that name no entity, one of another kind, or several (protocol 2.0.0, ADR 0346 D4): no core
+    /// diagnostic; sent to every pass, and the extension declaring the entity's kind is the one that judges them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dangling: Vec<DanglingReference>,
     /// Its owner is not complete (protocol 1.15.0, ADR 0329 D4): its kind's `complete_when` does not hold, or, when
     /// its kind declares none, the nearest scope ancestor's whose kind declares one does not. Sent only when true.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -704,7 +708,9 @@ pub use collect::{
     CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
 };
 pub use evidence::{CommandEvidence, EntityEvidence};
-pub use facts::{Fact, FactStore, UnheldReference};
+pub use facts::{
+    DanglingReason, DanglingReference, Fact, FactLocation, FactStore, UnheldReference,
+};
 
 #[cfg(test)]
 mod tests;
