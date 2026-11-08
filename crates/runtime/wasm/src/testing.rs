@@ -24,7 +24,8 @@ use specforge_extension_sdk::{
 };
 use specforge_protocol_types::{
     FileSize, FsContent, FsEntry, FsListing, GitBlobs, GitRepo, GitStatus, GitTreeEntry, HostError,
-    HttpRequest, HttpResponse, Operation, ProcessOutput, ProcessRequest,
+    HttpRequest, HttpResponse, Operation, ProcessOutput, ProcessRequest, SyntaxAnswer,
+    SyntaxRequest,
 };
 
 use crate::ports::{PortCall, PortSession};
@@ -510,6 +511,11 @@ impl InProcessHost for ServedPorts {
     }
     fn git_status(&self) -> Result<GitStatus, HostError> {
         self.0.borrow_mut().timed(|session| session.git_status())
+    }
+    fn syntax_parse(&self, request: &SyntaxRequest) -> Result<SyntaxAnswer, HostError> {
+        self.0
+            .borrow_mut()
+            .timed(|session| session.syntax_parse(request.clone()))
     }
 }
 

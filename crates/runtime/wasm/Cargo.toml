@@ -16,6 +16,8 @@ specforge-protocol-types = { path = "../../leaf/protocol-types" }
 # `Provenance`, which a load records (ADR 0335 D2.6).
 specforge-effects = { path = "../../kernel/effects" }
 specforge-common = { workspace = true }
+# The host's source reader a `syntax` request reaches (ADR 0345).
+specforge-source = { path = "../../kernel/source" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 semver = { workspace = true }

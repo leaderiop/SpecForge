@@ -7,7 +7,8 @@ use std::rc::Rc;
 
 use super::{
     Denial, FileSize, FsContent, FsEntry, FsListing, GitBlobs, GitRepo, GitStatus, GitTreeEntry,
-    HostError, HttpRequest, HttpResponse, ProcessOutput, ProcessRequest,
+    HostError, HttpRequest, HttpResponse, ProcessOutput, ProcessRequest, SyntaxAnswer,
+    SyntaxRequest,
 };
 
 /// What answers a port call in process. A method not given answers [`no_port`].
@@ -56,6 +57,9 @@ pub trait InProcessHost {
         Err(no_port())
     }
     fn git_status(&self) -> Result<GitStatus, HostError> {
+        Err(no_port())
+    }
+    fn syntax_parse(&self, request: &SyntaxRequest) -> Result<SyntaxAnswer, HostError> {
         Err(no_port())
     }
 }

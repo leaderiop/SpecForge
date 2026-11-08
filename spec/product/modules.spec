@@ -222,6 +222,7 @@ module specforge_wasm "specforge-wasm" {
     specforge_effects,
     specforge_extension_sdk,
     specforge_protocol_types,
+    specforge_source,
   ]
   tags        ["wasm", "runtime"]
 }

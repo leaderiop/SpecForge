@@ -10,7 +10,7 @@ use super::{PortSession, asked_cap, failed, held, out_of_scope};
 
 impl PortSession {
     /// An fs request the grant permits, performed here: a local read in every mode, never journaled.
-    fn fs(&self, request: FsRequest) -> Result<specforge_effects::FsOutcome, HostError> {
+    pub(super) fn fs(&self, request: FsRequest) -> Result<specforge_effects::FsOutcome, HostError> {
         let (kind, call) = self.lent()?;
         // `<root>/…` names another root than the one the grant judges.
         if request.path.starts_with('<') {

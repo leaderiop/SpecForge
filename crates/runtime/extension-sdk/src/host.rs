@@ -13,7 +13,9 @@ pub mod in_process;
 pub use specforge_protocol_types::{
     Denial, EnvVar, Failure, FileSize, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob,
     GitBlobs, GitChange, GitEntry, GitEntryKind, GitRepo, GitStatus, GitTreeEntry, Header,
-    HostError, HttpRequest, HttpResponse, ProcessOutput, ProcessRequest,
+    HostError, HttpRequest, HttpResponse, NotParsed, ProcessOutput, ProcessRequest, SyntaxAnswer,
+    SyntaxCapture, SyntaxFile, SyntaxFiles, SyntaxMatch, SyntaxOutcome, SyntaxPoint, SyntaxRequest,
+    SyntaxRole, SyntaxSource, SyntaxSpan,
 };
 
 /// Whether a call reaches the import (a component) or the thread's in-process host.

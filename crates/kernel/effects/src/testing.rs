@@ -151,6 +151,18 @@ impl FakeFs {
 
 impl Fs for FakeFs {
     fn run(&self, roots: &Roots, request: &FsRequest) -> FsOutcome {
+        self.answer(roots, request, READ_CEILING)
+    }
+
+    fn read_whole(&self, roots: &Roots, request: &FsRequest) -> FsOutcome {
+        self.answer(roots, request, crate::fs::FILE_CEILING)
+    }
+}
+
+impl FakeFs {
+    /// [`Fs::run`], a read held to `ceiling`; a file over [`crate::fs::FILE_CEILING`] is `capped`, unread, as the
+    /// local adapter's is.
+    fn answer(&self, roots: &Roots, request: &FsRequest, ceiling: u64) -> FsOutcome {
         let held = match held(roots, self, request) {
             Ok(held) => held,
             Err(class) => return FsOutcome::of(class),
@@ -185,9 +197,12 @@ impl Fs for FakeFs {
                 let bytes = file.map(Vec::as_slice).unwrap_or_default();
                 outcome.digest = Some(specforge_package::Sha256::of(bytes).to_string());
             }
+            FsOp::Read { .. } if stat.size > crate::fs::FILE_CEILING => {
+                outcome.class = OutcomeClass::Capped;
+            }
             FsOp::Read { max_bytes } => {
                 let bytes = file.map(Vec::as_slice).unwrap_or_default();
-                let max = usize::try_from((*max_bytes).min(READ_CEILING)).unwrap_or(usize::MAX);
+                let max = usize::try_from((*max_bytes).min(ceiling)).unwrap_or(usize::MAX);
                 outcome.truncated = bytes.len() > max;
                 outcome.bytes = bytes[..bytes.len().min(max)].to_vec();
             }

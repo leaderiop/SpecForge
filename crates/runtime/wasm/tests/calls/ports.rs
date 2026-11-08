@@ -16,6 +16,8 @@ use specforge_protocol_types::Operation;
 use specforge_wasm::testing::InProcessRuntime;
 use specforge_wasm::{PortCall, PortSession, WasmCallResult, WasmRuntime};
 
+mod syntax;
+
 pub(crate) const EXT: &str = "@ports/x";
 const SHA: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 

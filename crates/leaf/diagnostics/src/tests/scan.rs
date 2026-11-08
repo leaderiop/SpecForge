@@ -165,6 +165,7 @@ fn production_source(top: &str) -> Vec<(String, Vec<String>)> {
 /// retired codes), so the scanners skip them.
 const CATALOG_FILES: &[&str] = &[
     "crates/leaf/diagnostics/src/catalog.rs",
+    "crates/leaf/diagnostics/src/catalog_registry.rs",
     "crates/leaf/diagnostics/src/lib.rs",
 ];
 

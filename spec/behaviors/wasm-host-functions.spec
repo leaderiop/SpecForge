@@ -163,3 +163,31 @@ behavior read_source_syntax "Read Source Syntax" {
   verify unit "a capture's text is cut at 4096 bytes on a character boundary"
   verify unit "the grammar versions are the locked ones"
 }
+
+behavior parse_source_through_the_syntax_import "Parse Source through the Syntax Import" {
+  category query
+  ports    [WasmRuntime, Fs, Git]
+  requires {
+    call_lent "an effectful call was lent its extension's grant and the ports"
+  }
+  ensures {
+    inside_parsed  "a syntax request inside the fs grant (git's at a revision) is read whole and parsed by the host's reader"
+    outside_denied "a file whose read the grant refuses makes the whole request denied(scope), reported as E090"
+    per_file       "a missing, withheld, too large or unreadable file is answered not_parsed with its reason"
+    held           "the answer is held to the call's answer cap: the files past it are not_parsed(capped) and the answer truncated"
+    noted_once     "the files a call could not parse are one W196 and those parsed broken one I211, once per call"
+  }
+  contract """
+    A syntax request (ADR 0345 D1) MUST be granted on the fs port's read
+    scope (a read per path, a walk for a glob), or git's at a revision, and
+    MUST NOT need a capability of its own. Each file is parsed by the host's
+    one source reader (ADR 0344). What a call could not parse MUST be said
+    once per call, naming the first files.
+  """
+  verify unit "a collector's syntax request inside its grant is parsed"
+  verify unit "a syntax request outside the grant is answered denied(scope) and reported as E090"
+  verify unit "a missing, a withheld and a too large file are each answered not_parsed"
+  verify unit "a revision's files are parsed from the commit's blobs"
+  verify unit "a syntax answer past the cap is truncated and names the rest capped"
+  verify unit "files past the deadline are one W196 and broken files one I211 per call"
+}

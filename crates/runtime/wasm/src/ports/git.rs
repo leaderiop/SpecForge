@@ -13,7 +13,7 @@ use specforge_protocol_types::{
 use super::{NOT_A_REPOSITORY, PortSession, UNAVAILABLE, failed, out_of_scope};
 
 /// A commit a guest names: hex, so it can be neither an option nor a revision expression.
-fn sha_of(text: &str) -> Result<Sha, HostError> {
+pub(super) fn sha_of(text: &str) -> Result<Sha, HostError> {
     if !text.is_empty() && text.bytes().all(|b| b.is_ascii_hexdigit()) {
         Ok(Sha::new(text))
     } else {
@@ -22,7 +22,7 @@ fn sha_of(text: &str) -> Result<Sha, HostError> {
 }
 
 /// A path a guest names under the repository's top: relative, and never climbing.
-fn git_path(text: &str) -> Result<PathBuf, HostError> {
+pub(super) fn git_path(text: &str) -> Result<PathBuf, HostError> {
     let path = PathBuf::from(text);
     let normal = Path::new(text)
         .components()
@@ -48,7 +48,7 @@ impl PortSession {
     }
 
     /// The project's repository, for a question that needs one.
-    fn place(&self, question: &str) -> Result<(SharedGit, GitPlace), HostError> {
+    pub(super) fn place(&self, question: &str) -> Result<(SharedGit, GitPlace), HostError> {
         let (git, dir) = self.git(question)?;
         match git.locate(dir) {
             Located::Repo(place) => Ok((git, place)),
@@ -206,6 +206,6 @@ fn posix(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
-fn git_failed(error: specforge_effects::git::GitError) -> HostError {
+pub(super) fn git_failed(error: specforge_effects::git::GitError) -> HostError {
     failed(UNAVAILABLE, error.0)
 }
