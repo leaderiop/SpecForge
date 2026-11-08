@@ -181,6 +181,15 @@ fn a_scheme_no_store_serves_is_w102() {
 }
 
 #[test]
+fn a_store_of_another_kind_in_the_scheme_does_not_prove_a_test_missing() {
+    // The store stands for one of `js` items: no test runner ran. Today the scheme alone decides, so this is E101;
+    // judging by the kinds the reference's field admits makes it W102.
+    let entities = vec![citing("t1", &["js:app/test/a.test.js#adds"])];
+    let diagnostics = refs::refs(&input(entities, &["js"]));
+    assert_eq!(found(&diagnostics), [("E101", "t1", 2, None)]);
+}
+
+#[test]
 fn a_pending_owner_is_unchecked() {
     let pending = PassEntity {
         pending: true,
