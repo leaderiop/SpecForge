@@ -7,8 +7,10 @@ use crate::FieldRegistry;
 /// W162 (ADR 0150): a relation declared from both of its ends. (a) A
 /// reference field whose `inverse_of` names a field its target kind
 /// registers; (b) two different kinds that each register a reference field
-/// targeting the other, reported once per kind pair, lesser kind first.
-/// The fields still register; nothing else changes.
+/// targeting the other, reported once per kind pair, lesser kind first. A
+/// field that names its reverse (`inverse_of`) is its own relation and pairs
+/// with nothing in (b): two relations between the same kinds are declared
+/// apart that way. The fields still register; nothing else changes.
 pub(super) fn both_sides(fields: &FieldRegistry) -> Vec<Diagnostic> {
     // (kind, field) -> (target kind, extension), reference fields only.
     let mut refs: BTreeMap<(&str, &str), (&str, &str)> = BTreeMap::new();
@@ -42,10 +44,13 @@ pub(super) fn both_sides(fields: &FieldRegistry) -> Vec<Diagnostic> {
         }
     }
 
-    // (b) the first field of each ordered pair, then each unordered pair once.
+    // (b) the first field of each ordered pair that names no reverse, then each unordered pair once.
     let mut first: BTreeMap<(&str, &str), (&str, &str)> = BTreeMap::new();
     for (&(kind, name), &(target, extension)) in &refs {
-        if kind != target {
+        let named = fields
+            .get(kind, name)
+            .is_some_and(|entry| entry.declared().inverse_of.is_some());
+        if kind != target && !named {
             first.entry((kind, target)).or_insert((name, extension));
         }
     }

@@ -4119,11 +4119,12 @@ A relation has two fields: one extension declares it from both of its ends.
 Either a reference field's `inverse_of` names a field its target kind registers
 (`milestone.behaviors` naming `features`, when `behavior` has its own
 `features`), or two different kinds each register a reference field targeting
-the other (`parent.children` and `child.parent`). A relation is written from one
-side (ADR 0150): the other side is derived, so `query` and `trace` already show
-it. Both fields still register, and an entity can write either. Remove one
-field, or drop the `inverse_of` or name a word the target kind does not use. The
-builtin extensions declare none.
+the other (`parent.children` and `child.parent`) and neither names its reverse.
+A relation is written from one side (ADR 0150): the other side is derived, so
+`query` and `trace` already show it. Both fields still register, and an entity
+can write either. Remove one field, or drop the `inverse_of` or name a word the
+target kind does not use; two relations between the same kinds are told apart by
+giving one an `inverse_of` (ADR 0351). The builtin extensions declare none.
 
 Owner: core
 Level: warning
