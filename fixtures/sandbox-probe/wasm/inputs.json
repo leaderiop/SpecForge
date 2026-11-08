@@ -8,7 +8,7 @@
     "crates/leaf/protocol-types/src/calls.rs": "bc39c81e5125d0c8c63db1fb64b524211e6bbf97c81add45c4f693dfe3370209",
     "crates/leaf/protocol-types/src/calls/collect.rs": "0c3c76ea80dd4c6a05396627fc20a209022ae8dbe34640be3790fd4f06269b50",
     "crates/leaf/protocol-types/src/calls/evidence.rs": "f10687676e8c14a0cf4046bf35e57366087df4b698104329efd164e707a4d983",
-    "crates/leaf/protocol-types/src/calls/facts.rs": "623fb88610ecdc2709549096878fb27b016bf11e2c6bc1545bd87d4c130f00a9",
+    "crates/leaf/protocol-types/src/calls/facts.rs": "ac3b2de838c5fc5eb1f13f38915c88800b336633fe87ec93684e129ffcb501f6",
     "crates/leaf/protocol-types/src/capability.rs": "bdb39352d0413919bb037b6b8528458135da97d2ac7b7cc4419860a7e3f492e2",
     "crates/leaf/protocol-types/src/checks.rs": "e0c67f442a94f479793f884f7b947d9833957b3aead98630c8e31fbdf55382e6",
     "crates/leaf/protocol-types/src/code_catalog.rs": "b5a5d364bbf8060febd7d343e2ea1472eedbd2df10ede660dffbda03ca55a737",
