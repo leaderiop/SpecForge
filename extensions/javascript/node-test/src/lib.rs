@@ -44,6 +44,7 @@ impl Contributions for NodeTest {
                     "--test-reporter-destination={report}",
                 ])
                 .report(REPORT)
+                .answers(&["test", "test_run"])
                 .input(Input::files(
                     PACKAGES,
                     FileReadSpec::glob("**/package.json").text(),

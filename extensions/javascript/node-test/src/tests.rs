@@ -247,3 +247,14 @@ fn a_report_that_is_not_junit_is_the_collectors_error() {
     assert!(why.starts_with(&format!("{REPORT}: ")), "{why}");
     assert!(why.contains("not a JUnit report"), "{why}");
 }
+
+#[test]
+fn the_collector_answers_the_test_and_test_run_kinds() {
+    let declaration = crate::specforge_extension_build().declaration();
+    let collector = declaration
+        .collectors
+        .iter()
+        .find(|c| c.name == COLLECTOR)
+        .expect("the node-test collector");
+    assert_eq!(collector.answers, ["test", "test_run"]);
+}

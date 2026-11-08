@@ -20,6 +20,7 @@ fn declares_the_checks_collector_with_no_detection_and_the_check_outcomes_input(
         .find(|c| c.name == "checks")
         .expect("the checks collector");
     assert_eq!(collector.inputs, [Input::CheckOutcomes]);
+    assert_eq!(collector.answers, [crate::facts::KIND]);
     assert!(collector.auto_detect.is_none(), "{collector:?}");
     assert!(collector.capability.is_none() && collector.report.is_none());
     assert!(!collector.writes);

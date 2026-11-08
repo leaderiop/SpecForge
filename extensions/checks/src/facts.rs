@@ -59,7 +59,9 @@ pub(crate) fn contribute(c: &mut ContributionsBuilder) {
         );
     });
     c.collector("checks", |k| {
-        k.input(Input::CheckOutcomes).collect(collect);
+        k.input(Input::CheckOutcomes)
+            .answers(&[KIND])
+            .collect(collect);
     });
 }
 
