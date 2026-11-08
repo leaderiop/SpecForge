@@ -31,7 +31,7 @@ fn a_computed_path_field_is_read_with_directory_facts() {
 }
 
 #[test]
-fn a_complete_plans_task_files_still_excuse_a_missing_directory() {
+fn a_complete_plans_missing_directory_is_e320() {
     let p = project("execute");
     assert_eq!(p.fields_of("v1.0/01/01-01")["status"], "complete");
     p.write(
@@ -39,8 +39,16 @@ fn a_complete_plans_task_files_still_excuse_a_missing_directory() {
         "task T3 \"Fresh part\" {\n  plan v1.0/01/01-01\n  type auto\n  files [\"fresh/a.js\"]\n  action \"Build it\"\n  verify [\n    { automated \"cd fresh && npm test\" fails_when \"the command exits non-zero\" }\n  ]\n  done \"It builds\"\n}\n",
     );
     assert!(!p.exists("fresh"));
-    // W306: the task's file is not among the plan's `files_modified`; E016: the done task's file is absent.
-    assert_eq!(p.codes(), ["gsd/W306", "E016"]);
+    // W306: the task's file is not among the plan's `files_modified`; E016: the done task's file is absent; E320:
+    // a done task's directory is no longer pending creation.
+    assert_eq!(p.codes(), ["gsd/W306", "gsd/E320", "E016"]);
+    assert!(
+        p.findings()
+            .iter()
+            .any(|(code, m)| code == "gsd/E320" && m.contains("'fresh' is not a directory")),
+        "{:?}",
+        p.findings()
+    );
 }
 
 #[test]
@@ -63,7 +71,8 @@ fn a_directory_the_plan_creates_is_pending_not_missing() {
     assert_eq!(p.codes(), Vec::<String>::new());
     with_task(&p, "cd fresh && ls", "\"./fresh\"");
     assert_eq!(p.codes(), Vec::<String>::new());
-    with_task(&p, "cd fresh && ls", "\"fresher/a.js\"");
+    // A planned path covers a directory it is under, never one its name merely starts with.
+    with_task(&p, "cd fres && ls", "\"fresher/a.js\"");
     assert_eq!(p.codes(), ["gsd/E320"]);
 }
 
@@ -268,9 +277,24 @@ fn a_withheld_file_is_not_a_directory() {
 }
 
 #[test]
-fn task_files_are_split_on_commas_and_white_space() {
+fn a_task_files_item_is_one_path() {
     let p = project("plan");
     with_task(&p, "cd fresh && ls", "\"a.js, fresh/b.js\"");
-    // W306 compares the item as written; only the pending-creation check splits it, as GSD does.
-    assert_eq!(p.codes(), ["gsd/W306"]);
+    // One item is one path: `a.js, fresh/b.js` does not cover `fresh`.
+    assert_eq!(p.codes(), ["gsd/W306", "gsd/E320"]);
+}
+
+#[test]
+fn a_files_modified_path_excuses_its_directory_while_pending() {
+    let p = project("plan");
+    p.edit(
+        "spec/plans.spec",
+        "files_modified [\"src/complete.js\"]",
+        "files_modified [\"src/complete.js\", \"fresh/index.js\"]",
+    );
+    with_task(&p, "cd fresh && ls", "\"src/complete.js\"");
+    assert_eq!(p.codes(), Vec::<String>::new());
+    // Not planned anywhere, the same directory is missing.
+    with_task(&p, "cd fresher && ls", "\"src/complete.js\"");
+    assert_eq!(p.codes(), ["gsd/E320"]);
 }

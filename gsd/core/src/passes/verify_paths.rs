@@ -3,8 +3,9 @@
 //!
 //! A compute pass writes `task.verify_paths`: the directory and manifest of each `automated` command (the text is only
 //! parsed, never run). A check pass declares a read of that field, so the host hands it the facts of those paths
-//! and the text of the manifests. A directory not yet on disk is `pending_creation` when the plan's own task files or
-//! artifact paths equal or cover it.
+//! and the text of the manifests. A directory not yet on disk is `pending_creation` while the task is pending (ADR
+//! 0350) and one of its plan's planned paths (`files_modified`, its tasks' `files` and `read_first`, its artifacts'
+//! and key links' paths: the kinds' typed paths, one per item) equals or covers it.
 //!
 //! The host keys a fact by `(entity, path)` and spends one text budget per read, so the compute pass writes each
 //! distinct path once, on the first task (by id) that names it, and the check looks a path up whatever entity carries
@@ -22,6 +23,7 @@ use specforge_extension_sdk::prelude::*;
 
 use super::plans::{children, of_kind, rows, strings, text};
 use grounding::{Need, Target, Verdict, resolve};
+use gsd_kit::dsl::{Mode, Writer};
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("verify_paths_compute", |p| {
@@ -138,13 +140,19 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
         return Vec::new();
     };
     let mut found = Vec::new();
+    let planned = planned_fields();
     // Once per plan, not per task: a plan's tasks all read the same list, and building it walks the plan's tasks.
     let mut declared_by_plan: BTreeMap<&str, Vec<String>> = BTreeMap::new();
     for task in of_kind(input, "task") {
         let plan = crate::digest::scope_of(&task.id);
-        let declared = declared_by_plan
-            .entry(plan)
-            .or_insert_with(|| declared_paths(input, plan));
+        // A done task's directory is not pending creation: what its plan planned is there now, or it is E320.
+        let declared: &[String] = if task.pending {
+            declared_by_plan
+                .entry(plan)
+                .or_insert_with(|| declared_paths(input, plan, &planned))
+        } else {
+            &[]
+        };
         for command in commands(task) {
             let said = |code: &str, severity, what: String| {
                 PassDiagnostic::new(
@@ -170,7 +178,8 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
                     if let Some(why) = broken(&reads, &target, declared) {
                         found.push(
                             said("E320", PassSeverity::Error, format!("but {why}")).with_suggestion(
-                                "fix the path, or list the directory in the plan's task files so it counts as created",
+                                "fix the path, or, while the task is pending, list a file under the directory in the \
+                                 plan's planned paths so it counts as created",
                             ),
                         );
                     } else if let Some(why) = manifest_problem(&reads, &target) {
@@ -234,23 +243,44 @@ fn manifest_problem(reads: &Reads, target: &Target) -> Option<String> {
     (!names.iter().any(|n| n == script)).then(|| format!("but '{path}' has no script '{script}'"))
 }
 
-/// What the plan says it creates: its tasks' `files` and its artifacts' paths.
-fn declared_paths(input: &PassInput, plan: &str) -> Vec<String> {
+/// The kinds whose planned paths say what a plan creates: the plan's own and its children's.
+const PLANNING: [&str; 4] = ["plan", "task", "artifact", "key_link"];
+
+/// `(kind, field)` of every authored planned path of the [`PLANNING`] kinds, read from the kinds' declarations.
+fn planned_fields() -> Vec<(String, String)> {
+    crate::kinds::path_fields()
+        .into_iter()
+        .filter(|(_, mode, writer)| *mode == Mode::Planned && *writer == Writer::Author)
+        .filter_map(|(name, _, _)| {
+            let (kind, field) = name.split_once('.')?;
+            PLANNING
+                .contains(&kind)
+                .then(|| (kind.to_string(), field.to_string()))
+        })
+        .collect()
+}
+
+/// What the plan says it creates: each item of its planned paths, and of its children's, one path per item.
+fn declared_paths(input: &PassInput, plan: &str, planned: &[(String, String)]) -> Vec<String> {
     let strip = |p: &str| p.trim().trim_start_matches("./").replace('\\', "/");
-    let tasks = children(input, plan, "task")
-        .into_iter()
-        .flat_map(|t| strings(t, "files"))
-        .flat_map(|f| {
-            f.split([',', ' ', '\t', '\n', '\r'])
-                .map(str::to_string)
-                .collect::<Vec<_>>()
-        });
-    let artifacts = children(input, plan, "artifact")
-        .into_iter()
-        .filter_map(|a| text(a, "path").map(str::to_string));
-    tasks
-        .chain(artifacts)
-        .map(|p| strip(&p))
+    let mut found = Vec::new();
+    for (kind, field) in planned {
+        let holders = if kind == "plan" {
+            of_kind(input, "plan").filter(|p| p.id == plan).collect()
+        } else {
+            children(input, plan, kind)
+        };
+        for holder in holders {
+            if holder.values.get(field).is_some_and(|v| v.is_array()) {
+                found.extend(strings(holder, field));
+            } else {
+                found.extend(text(holder, field).map(str::to_string));
+            }
+        }
+    }
+    found
+        .iter()
+        .map(|p| strip(p))
         .filter(|p| !p.is_empty())
         .collect()
 }
