@@ -453,4 +453,5 @@ behavior check_field_values "Check Field Values" {
   verify unit "a checker's memo read from disk reaches a finding printable"
   verify unit "a spec string's escape reads no control character but a newline, a tab or a return"
   verify unit "a redirect one extension's grant permits reaches no other extension without its own grant"
+  verify unit "a pending owner's planned file is E016 until its gate exists"
 }
