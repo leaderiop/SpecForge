@@ -34,8 +34,9 @@ Protocol 2.0.0, unreleased: `UnheldReference.kinds` and `FactStore.held` go into
 ## D1. One id library, linked
 
 `extensions/code/facts` (`specforge-code-facts`, an extension library, ADR 0328 D3) holds every id and every minting
-function: `TestId::{js, rust}`, `ItemId::{rust, js}`, `Owner`, `PackageId::{cargo, cargo_in, npm}`, `crate_segment`,
-`location`, `TestCase`, `test_facts`, `Definition`, `ItemKind`, `Visibility`, `item_facts`, `Package::fact`. Each pack
+function: `TestId::{js, rust, of_run}`, `ItemId::{rust, js}`, `Owner`, `PackageId::{cargo, cargo_in, npm}`,
+`TargetKind`, `Edition`, `crate_segment`, `location`, `TestCase`, `test_facts`, `Definition`, `ItemKind`, `Visibility`,
+`item_facts`, `Package::fact` (its `Target`s written `<kind>:<name>:<root>`). Each pack
 links it, and `@code/core` links it to parse an id. `extensions/code/junit` keeps only the JUnit reader (`cases`, `Case`,
 `relative`); `code-facts` depends on it for `TestCase::of`, never the reverse.
 

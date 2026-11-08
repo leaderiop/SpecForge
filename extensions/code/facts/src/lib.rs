@@ -25,5 +25,6 @@ pub use ids::{
     crate_segment, Edition, IdError, ItemId, Owner, PackageId, Scheme, TargetKind, TestId,
 };
 pub use mint::{
-    item_facts, location, test_facts, Definition, ItemKind, Names, Package, TestCase, Visibility,
+    item_facts, location, test_facts, Definition, ItemKind, Names, Package, Target, TestCase,
+    Visibility,
 };

@@ -8,7 +8,7 @@ use specforge_code_junit::Case;
 use specforge_extension_sdk::host::SyntaxPoint;
 use specforge_extension_sdk::prelude::{Fact, FactLocation, TestStatus};
 
-use crate::{ItemId, PackageId, TestId};
+use crate::{ItemId, PackageId, TargetKind, TestId};
 
 /// The entities a fact names, each with the places it is written (none when its pack read no place): what
 /// `Fact::name` records, so a rename of the entity rewrites them (ADR 0346 D7).
@@ -159,46 +159,53 @@ pub enum ItemKind {
     Namespace,
 }
 
+/// Each kind and its name, in vocabulary order: the one table [`ItemKind::ALL`], [`ItemKind::NAMES`] and
+/// [`ItemKind::as_str`] read.
+const ITEM_KINDS: [(ItemKind, &str); 15] = [
+    (ItemKind::Module, "module"),
+    (ItemKind::Function, "function"),
+    (ItemKind::Method, "method"),
+    (ItemKind::Struct, "struct"),
+    (ItemKind::Enum, "enum"),
+    (ItemKind::Union, "union"),
+    (ItemKind::Trait, "trait"),
+    (ItemKind::Type, "type"),
+    (ItemKind::Const, "const"),
+    (ItemKind::Static, "static"),
+    (ItemKind::Macro, "macro"),
+    (ItemKind::Class, "class"),
+    (ItemKind::Interface, "interface"),
+    (ItemKind::Variable, "variable"),
+    (ItemKind::Namespace, "namespace"),
+];
+
 impl ItemKind {
     /// Every kind, in vocabulary order.
-    pub const ALL: [ItemKind; 15] = [
-        ItemKind::Module,
-        ItemKind::Function,
-        ItemKind::Method,
-        ItemKind::Struct,
-        ItemKind::Enum,
-        ItemKind::Union,
-        ItemKind::Trait,
-        ItemKind::Type,
-        ItemKind::Const,
-        ItemKind::Static,
-        ItemKind::Macro,
-        ItemKind::Class,
-        ItemKind::Interface,
-        ItemKind::Variable,
-        ItemKind::Namespace,
-    ];
+    pub const ALL: [ItemKind; 15] = {
+        let mut all = [ItemKind::Module; 15];
+        let mut at = 0;
+        while at < all.len() {
+            all[at] = ITEM_KINDS[at].0;
+            at += 1;
+        }
+        all
+    };
     /// Every kind's name, in vocabulary order: `@code/core`'s vocabulary of `item.kind`.
-    pub const NAMES: [&'static str; 15] = [
-        "module",
-        "function",
-        "method",
-        "struct",
-        "enum",
-        "union",
-        "trait",
-        "type",
-        "const",
-        "static",
-        "macro",
-        "class",
-        "interface",
-        "variable",
-        "namespace",
-    ];
+    pub const NAMES: [&'static str; 15] = {
+        let mut names = [""; 15];
+        let mut at = 0;
+        while at < names.len() {
+            names[at] = ITEM_KINDS[at].1;
+            at += 1;
+        }
+        names
+    };
 
     pub fn as_str(self) -> &'static str {
-        Self::NAMES[self as usize]
+        ITEM_KINDS
+            .iter()
+            .find(|(kind, _)| *kind == self)
+            .map_or("", |(_, name)| name)
     }
 }
 
@@ -211,17 +218,31 @@ pub enum Visibility {
     Public,
 }
 
+/// Each visibility and its name, widest first: the one table [`Visibility::NAMES`] and [`Visibility::as_str`] read.
+const VISIBILITIES: [(Visibility, &str); 4] = [
+    (Visibility::Public, "public"),
+    (Visibility::Crate, "crate"),
+    (Visibility::Restricted, "restricted"),
+    (Visibility::Private, "private"),
+];
+
 impl Visibility {
     /// Every visibility's name, widest first: `@code/core`'s vocabulary of `item.visibility`.
-    pub const NAMES: [&'static str; 4] = ["public", "crate", "restricted", "private"];
+    pub const NAMES: [&'static str; 4] = {
+        let mut names = [""; 4];
+        let mut at = 0;
+        while at < names.len() {
+            names[at] = VISIBILITIES[at].1;
+            at += 1;
+        }
+        names
+    };
 
     pub fn as_str(self) -> &'static str {
-        match self {
-            Visibility::Public => "public",
-            Visibility::Crate => "crate",
-            Visibility::Restricted => "restricted",
-            Visibility::Private => "private",
-        }
+        VISIBILITIES
+            .iter()
+            .find(|(visibility, _)| *visibility == self)
+            .map_or("", |(_, name)| name)
     }
 
     /// From the `visibility_modifier` text a pack captured (`None`: none written), whitespace ignored (D10): `pub`
@@ -349,19 +370,32 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-/// A cargo or npm package, as a manifest pack read it.
+/// A target of a cargo package: its kind, its name and its root source file, project-relative.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Target {
+    pub kind: TargetKind,
+    pub name: String,
+    pub root: String,
+}
+
+impl Target {
+    /// As `package.targets` writes it: `<kind>:<name>:<root>`.
+    pub fn written(&self) -> String {
+        format!("{}:{}:{}", self.kind.word(), self.name, self.root)
+    }
+}
+
+/// A cargo or npm package, as a manifest pack read it; its name is its id's.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Package {
     pub id: PackageId,
-    pub name: String,
     pub version: Option<String>,
     pub edition: Option<String>,
     pub rust_version: Option<String>,
     /// `<engine> <range>`, from a `package.json`'s `engines`.
     pub engines: Vec<String>,
     pub features: Vec<String>,
-    /// `<kind>:<name>:<root>`, each.
-    pub targets: Vec<String>,
+    pub targets: Vec<Target>,
     /// Its directory, project-relative, `""` at the root.
     pub path: String,
     /// The project's own packages it depends on.
@@ -373,8 +407,8 @@ impl Package {
     /// Its `package` fact: titled by its name, a field per value it has, `depends_on` by purl (ADR 0347).
     pub fn fact(&self) -> Fact {
         let mut fact = Fact::new("package", self.id.to_string())
-            .title(self.name.as_str())
-            .field("name", self.name.as_str())
+            .title(self.id.name())
+            .field("name", self.id.name())
             .field("path", self.path.as_str());
         for (field, value) in [
             ("version", &self.version),
@@ -385,10 +419,11 @@ impl Package {
                 fact = fact.field(field, value.as_str());
             }
         }
+        let targets: Vec<String> = self.targets.iter().map(Target::written).collect();
         for (field, values) in [
             ("engines", &self.engines),
             ("features", &self.features),
-            ("targets", &self.targets),
+            ("targets", &targets),
         ] {
             if !values.is_empty() {
                 fact = fact.field(field, values.clone());

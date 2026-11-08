@@ -271,13 +271,23 @@ fn a_signature_digest_ignores_whitespace_and_order() {
 fn a_package_fact_names_its_dependencies_by_purl() {
     let package = Package {
         id: PackageId::cargo("toy"),
-        name: "toy".to_string(),
         version: Some("0.1.0".to_string()),
         edition: Some("2021".to_string()),
         rust_version: None,
         engines: Vec::new(),
         features: strings(&["fast"]),
-        targets: strings(&["lib:toy:src/lib.rs"]),
+        targets: vec![
+            Target {
+                kind: TargetKind::cargo("cdylib").unwrap(),
+                name: "toy".to_string(),
+                root: "crates/toy/src/lib.rs".to_string(),
+            },
+            Target {
+                kind: TargetKind::Bin,
+                name: "toy".to_string(),
+                root: "crates/toy/src/main.rs".to_string(),
+            },
+        ],
         path: "crates/toy".to_string(),
         depends_on: vec![PackageId::npm("@acme/core"), PackageId::cargo("base")],
         at: Some(place("crates/toy/Cargo.toml", 1)),
@@ -293,9 +303,16 @@ fn a_package_fact_names_its_dependencies_by_purl() {
     );
     assert_eq!(
         fact.fields["targets"],
-        serde_json::json!(["lib:toy:src/lib.rs"])
+        serde_json::json!([
+            "lib:toy:crates/toy/src/lib.rs",
+            "bin:toy:crates/toy/src/main.rs"
+        ])
     );
     assert_eq!(fact.fields["path"], "crates/toy");
+    assert_eq!(
+        (fact.title.as_deref(), &fact.fields["name"]),
+        (Some("toy"), &serde_json::json!("toy"))
+    );
     assert!(!fact.fields.contains_key("rust_version") && !fact.fields.contains_key("engines"));
     assert_eq!(fact.at, [place("crates/toy/Cargo.toml", 1)]);
 }
