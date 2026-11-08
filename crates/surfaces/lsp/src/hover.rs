@@ -437,6 +437,14 @@ fn check_line(row: &ValueRow, mode: &str, now: u64) -> String {
             line.push_str(&format!(" · not run ({mode})"));
             return line;
         }
+        CheckStatus::Planned => {
+            line.push_str(" · planned: checked once its owner is complete");
+            return line;
+        }
+        CheckStatus::Closed => {
+            line.push_str(" · closed: its owner is complete");
+            return line;
+        }
         CheckStatus::Failed => line.push_str(&format!(" · failed ({})", row.codes.join(", "))),
         CheckStatus::Passed if !row.codes.is_empty() => {
             line.push_str(&format!(" · {}", row.codes.join(", ")));

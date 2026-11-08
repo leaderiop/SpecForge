@@ -14,7 +14,9 @@
 /// - an extension declares `capabilities` (a describe category): what it may make the host do, each on one port under
 ///   a scope name, and a collector names the process `capability` it runs instead of carrying `run` (ADR 0335 D2);
 /// - a command's input carries `nonce`, 32 hex digits of the host's entropy, fresh per call (ADR 0341);
-/// - a guest may import `specforge:host/syntax`: the host parses source files with a pack's query (ADR 0344, 0345).
+/// - a guest may import `specforge:host/syntax`: the host parses source files with a pack's query (ADR 0344, 0345);
+/// - a field may declare `checks_while` (`complete`, `pending`), and a check row's status may be `planned` or `closed`
+///   (ADR 0350).
 ///
 /// A change that adds to 2.0.0 (grants, host imports, value checks) adds its item here and to the 2.0.0 row of
 /// `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0 included; it does

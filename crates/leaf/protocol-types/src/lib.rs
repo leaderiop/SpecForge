@@ -109,7 +109,8 @@ pub use syntax::{
 pub use trigger::{Trigger, TriggerKind};
 pub use version::PROTOCOL_VERSION;
 pub use vocabulary::{
-    CheckKind, ConstraintKind, FieldType, FieldWriter, GUARD_PHASE, JudgementState, ProofRole,
+    CheckKind, ConstraintKind, FieldType, FieldWriter, GUARD_PHASE, JudgementState, OwnerState,
+    ProofRole,
 };
 
 /// Errors that can occur during the extension protocol lifecycle.
