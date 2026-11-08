@@ -65,7 +65,8 @@ protocol change, no new kernel code; `@gsd/core` gains three codes.
     touched by any file under it;
   - a `files_deleted` path the host serves as still present; a path it did not serve is not judged.
 
-  Paths compare project-relative on both sides. W520 never says "missing": E016 does (ADR 0350). Setting
+  Plan paths are project-relative; commit paths are repository-relative until gsd-git writes them project-relative
+  (see Consequences). W520 never says "missing": E016 does (ADR 0350). Setting
   `specforge.plan_paths_touched`, off in gsd-compat and on in gsd-strict and gsd-plus, gated as W407 is.
 - **D8. The three settings** are rows of `@gsd/core`'s SpecForge-only gates, each a boolean defaulting to false that
   gates its one code, and the presets set them per profile as D5 to D7 say.
@@ -100,8 +101,9 @@ protocol change, no new kernel code; `@gsd/core` gains three codes.
 - A plan that cites a context decision only in prose gets E310 (and W317, and W506 once its phase is verified); its
   remedy names the `decisions` field.
 - Under gsd-plus, a write that adds a truth without a requirement of its plan is refused (E080).
-- Commit paths are repository-relative until gsd-git writes them project-relative; until then a project under a
-  subdirectory of its repository sees every planned path untouched, and the rule's row says so.
+- Commit paths are repository-relative today, as git prints them; they compare project-relative on both sides once
+  gsd-git writes them project-relative. Until then a project under a subdirectory of its repository sees every planned
+  path untouched (W520 on a path its commits did touch), and the rule's row in `gsd/core/spec/rules.md` says so.
 
 ## What would reopen it
 

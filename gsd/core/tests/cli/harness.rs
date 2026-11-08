@@ -116,11 +116,13 @@ pub struct Project {
 }
 
 pub fn project(name: &str) -> Project {
-    from_dir(
-        &Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/projects")
-            .join(name),
-    )
+    project_at(name, "")
+}
+
+/// [`project`] under `inside` of its temp dir: a project in a subdirectory of the repository a test makes there.
+pub fn project_at(name: &str, inside: &str) -> Project {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/projects");
+    from_dir_at(&fixtures.join(name), inside)
 }
 
 /// The builtins the taskboard twin loads beside `@gsd/core`: the test facts and the runner pack that collects them,
