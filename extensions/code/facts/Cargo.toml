@@ -1,0 +1,17 @@
+[package]
+name = "specforge-code-facts"
+version = "1.0.0"
+edition = "2021"
+description = "The ids and the minting of @code/core's test, item and package facts every pack links (ADR 0347); no guest"
+publish = false
+
+# An extension library (ADR 0328 D3): an rlib a builtin links, never embedded.
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+specforge-extension-sdk = { path = "../../../crates/runtime/extension-sdk" }
+
+[dev-dependencies]
+# Spec links: #[specforge_test(behavior = "…", verify = "…")] (ADR 0002).
+specforge-test = { path = "../../../integrations/rust/specforge-test" }

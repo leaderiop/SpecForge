@@ -114,3 +114,31 @@ behavior cc_check_proof "Report a Failing Proof and a Test Naming No Entity" {
   verify integration "a failing proof is code/W401"
   verify integration "a test naming a missing entity is code/I402"
 }
+
+behavior cc_mint_code_ids "Mint Every Code Id in One Library" {
+  features [cc_code_facts]
+  category computation
+  types    [Fact]
+  contract """
+    specforge-code-facts MUST mint every test, item and package id and fact
+    (ADR 0347): a JS test js:<package>/<file>#<suites > name>, a Rust test
+    rust:<binary id>#<path>, a Rust item rust:<crate segment>::<path> with
+    a member's owner written <Type> or <Type as Trait> (last path segment,
+    generic arguments dropped), a JS item js:<package>/<file>::<name> with
+    members joined by a dot, a package pkg:cargo/<name>, pkg:cargo/<name>#
+    <dir> or pkg:npm/<name> with an npm scope's at sign percent-encoded. An
+    item id MUST never hold a hash sign; every id MUST parse back to itself;
+    a SCIP symbol of rust-analyzer or scip-typescript MUST map into exactly
+    one id. Every definition one id reaches MUST be one fact listing each
+    location and kind.
+  """
+  ensures {
+    disjoint_ids "an item id never holds a hash sign, a test id always does"
+    round_trip   "every id parses back to itself"
+    scip_total   "every SCIP symbol of the two grammars maps into one id"
+    one_fact     "definitions of one id merge into one fact listing every location"
+  }
+  verify unit "an item id never holds a hash sign, a test id always does"
+  verify unit "every id parses back to itself"
+  verify unit "a SCIP symbol of rust-analyzer or scip-typescript maps into exactly one id"
+}
