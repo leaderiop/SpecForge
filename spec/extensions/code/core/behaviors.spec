@@ -174,7 +174,9 @@ behavior cc_mint_code_ids "Mint Every Code Id in One Library" {
     item id MUST never hold a hash sign; every id MUST parse back to itself;
     a SCIP symbol of rust-analyzer or scip-typescript MUST map into exactly
     one id. Every definition one id reaches MUST be one fact listing each
-    location and kind.
+    location and kind. Every library crate type is the bare package in a
+    crate segment, and an item's test id MUST be the name libtest gives the
+    test: a word the crate's edition reserves written raw.
   """
   ensures {
     disjoint_ids "an item id never holds a hash sign, a test id always does"
@@ -186,4 +188,5 @@ behavior cc_mint_code_ids "Mint Every Code Id in One Library" {
   verify unit "every id parses back to itself"
   verify unit "a SCIP symbol of rust-analyzer or scip-typescript maps into exactly one id"
   verify unit "definitions of one id merge into one fact listing every location and kind"
+  verify unit "an item's test id writes the words its edition reserves raw, as libtest names the test"
 }

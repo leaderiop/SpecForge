@@ -258,10 +258,11 @@ impl ItemId {
         self.path.last().map_or("", String::as_str)
     }
 
-    /// The id nextest gives this function when it is a test (D7): the lib's `<package>`, another target's
-    /// `<package>::<target>` (an integration test) or `<package>::<kind>/<target>`, then `#` and its module path. `None`
-    /// for a JavaScript item, a member and a build script's item.
-    pub fn test_id(&self) -> Option<TestId> {
+    /// The id nextest gives this function when it is a test (D7), in a crate of `edition`: the lib's `<package>`,
+    /// another target's `<package>::<target>` (an integration test) or `<package>::<kind>/<target>`, then `#` and its
+    /// module path as libtest writes it, a word `edition` reserves raw (`r#match`). `None` for a JavaScript item, a
+    /// member and a build script's item.
+    pub fn test_id(&self, edition: Edition) -> Option<TestId> {
         if self.scheme != Scheme::Rust || self.path.iter().any(|s| s.starts_with('<')) {
             return None;
         }
@@ -271,12 +272,17 @@ impl ItemId {
             .map_or(self.container.as_str(), |(krate, _)| krate);
         let binary = match krate.splitn(3, '/').collect::<Vec<_>>()[..] {
             [package] => package.to_string(),
-            [package, "test", target] => format!("{package}::{target}"),
-            [_, "custom-build"] => return None,
-            [package, kind, target] => format!("{package}::{kind}/{target}"),
+            [package, word, target] => match TargetKind::of_word(word)? {
+                TargetKind::Test => format!("{package}::{target}"),
+                TargetKind::Bin | TargetKind::Example | TargetKind::Bench => {
+                    format!("{package}::{word}/{target}")
+                }
+                TargetKind::Lib | TargetKind::CustomBuild => return None,
+            },
             _ => return None,
         };
-        Some(TestId::rust(&binary, &self.path.join("::")))
+        let path: Vec<String> = self.path.iter().map(|s| edition.written(s)).collect();
+        Some(TestId::rust(&binary, &path.join("::")))
     }
 }
 
@@ -450,15 +456,115 @@ impl FromStr for PackageId {
     }
 }
 
-/// The crate segment of the target `target` of kind `kind` of `package` (D2): `<name>` for `lib` and `proc-macro`,
+/// A cargo target's kind, as a crate segment and a nextest binary id qualify it (D2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum TargetKind {
+    /// Every library crate type: `lib`, `rlib`, `dylib`, `cdylib`, `staticlib`, `proc-macro`.
+    Lib,
+    Bin,
+    Test,
+    Example,
+    Bench,
+    /// A build script.
+    CustomBuild,
+}
+
+/// Each target kind's word in a crate segment.
+const TARGET_WORDS: [(TargetKind, &str); 6] = [
+    (TargetKind::Lib, "lib"),
+    (TargetKind::Bin, "bin"),
+    (TargetKind::Test, "test"),
+    (TargetKind::Example, "example"),
+    (TargetKind::Bench, "bench"),
+    (TargetKind::CustomBuild, "custom-build"),
+];
+
+impl TargetKind {
+    /// The kind of a target cargo metadata gives the kind `kind`: every library crate type is a [`TargetKind::Lib`].
+    pub fn cargo(kind: &str) -> Result<TargetKind, IdError> {
+        match kind {
+            "rlib" | "dylib" | "cdylib" | "staticlib" | "proc-macro" => Ok(TargetKind::Lib),
+            _ => TargetKind::of_word(kind).ok_or_else(|| {
+                IdError(format!(
+                    "'{kind}' is no cargo target kind: lib, rlib, dylib, cdylib, staticlib, proc-macro, bin, \
+                     test, example, bench or custom-build"
+                ))
+            }),
+        }
+    }
+
+    /// The word a crate segment writes for it.
+    pub fn word(self) -> &'static str {
+        TARGET_WORDS
+            .iter()
+            .find(|(kind, _)| *kind == self)
+            .map_or("lib", |(_, word)| word)
+    }
+
+    fn of_word(word: &str) -> Option<TargetKind> {
+        TARGET_WORDS
+            .iter()
+            .find(|(_, w)| *w == word)
+            .map(|(kind, _)| *kind)
+    }
+}
+
+/// A Rust edition: which words a crate reserves, so which names libtest writes raw.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Edition {
+    E2015,
+    E2018,
+    E2021,
+    E2024,
+}
+
+/// The words every edition reserves that may be written raw (`crate`, `self`, `Self`, `super` and `_` may not).
+const RESERVED: &[&str] = &[
+    "abstract", "as", "become", "box", "break", "const", "continue", "do", "else", "enum",
+    "extern", "false", "final", "fn", "for", "if", "impl", "in", "let", "loop", "macro", "match",
+    "mod", "move", "mut", "override", "priv", "pub", "ref", "return", "static", "struct", "trait",
+    "true", "type", "typeof", "unsafe", "unsized", "use", "virtual", "where", "while", "yield",
+];
+
+impl Edition {
+    /// The edition a manifest's `edition` names; none is 2015, cargo's default.
+    pub fn cargo(edition: Option<&str>) -> Result<Edition, IdError> {
+        match edition {
+            None | Some("2015") => Ok(Edition::E2015),
+            Some("2018") => Ok(Edition::E2018),
+            Some("2021") => Ok(Edition::E2021),
+            Some("2024") => Ok(Edition::E2024),
+            Some(other) => Err(IdError(format!(
+                "'{other}' is no Rust edition: 2015, 2018, 2021 or 2024"
+            ))),
+        }
+    }
+
+    /// Whether this edition reserves `word`: libtest then writes it raw.
+    fn reserves(self, word: &str) -> bool {
+        RESERVED.contains(&word)
+            || (self >= Edition::E2018 && ["async", "await", "dyn", "try"].contains(&word))
+            || (self >= Edition::E2024 && word == "gen")
+    }
+
+    /// `name` as rustc prints an identifier of this edition: `r#` before a reserved word.
+    fn written(self, name: &str) -> String {
+        match self.reserves(name) {
+            true => format!("r#{name}"),
+            false => name.to_string(),
+        }
+    }
+}
+
+/// The crate segment of the target `target` of kind `kind` of `package` (D2): `<name>` for a library,
 /// `<name>/custom-build` for a build script, `<name>/<kind>/<target>` for `bin`, `test`, `example` and `bench`; a
 /// [`PackageId::cargo_in`] package appends `@<dir>`.
-pub fn crate_segment(package: &PackageId, kind: &str, target: &str) -> String {
+pub fn crate_segment(package: &PackageId, kind: TargetKind, target: &str) -> String {
     let name = package.name();
     let base = match kind {
-        "lib" | "proc-macro" => name.to_string(),
-        "custom-build" => format!("{name}/custom-build"),
-        _ => format!("{name}/{kind}/{target}"),
+        TargetKind::Lib => name.to_string(),
+        TargetKind::CustomBuild => format!("{name}/{}", kind.word()),
+        _ => format!("{name}/{}/{target}", kind.word()),
     };
     match package.dir() {
         Some(dir) => format!("{base}@{}", escape(dir, DIR_ESCAPES)),

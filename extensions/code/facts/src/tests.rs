@@ -125,6 +125,10 @@ fn a_target_other_than_the_lib_is_qualified() {
     for (kind, target, segment) in [
         ("lib", "specforge_cli", "specforge-cli"),
         ("proc-macro", "specforge_cli", "specforge-cli"),
+        ("rlib", "specforge_cli", "specforge-cli"),
+        ("dylib", "specforge_cli", "specforge-cli"),
+        ("cdylib", "specforge_cli", "specforge-cli"),
+        ("staticlib", "specforge_cli", "specforge-cli"),
         ("bin", "specforge", "specforge-cli/bin/specforge"),
         ("test", "golden", "specforge-cli/test/golden"),
         ("example", "demo", "specforge-cli/example/demo"),
@@ -135,9 +139,16 @@ fn a_target_other_than_the_lib_is_qualified() {
             "specforge-cli/custom-build",
         ),
     ] {
-        assert_eq!(crate_segment(&foo, kind, target), segment, "{kind}");
+        let kind = TargetKind::cargo(kind).unwrap();
+        assert_eq!(crate_segment(&foo, kind, target), segment, "{kind:?}");
     }
-    let main = ItemId::rust(&crate_segment(&foo, "bin", "specforge"), &[], None, "main");
+    assert!(TargetKind::cargo("library").is_err());
+    let main = ItemId::rust(
+        &crate_segment(&foo, TargetKind::Bin, "specforge"),
+        &[],
+        None,
+        "main",
+    );
     assert_eq!(main.to_string(), "rust:specforge-cli/bin/specforge::main");
     assert_eq!(main.container(), "rust:specforge-cli/bin/specforge::");
 }
@@ -146,9 +157,20 @@ fn a_target_other_than_the_lib_is_qualified() {
 fn a_second_package_of_one_name_takes_its_dir() {
     let twin = PackageId::cargo_in("toy", "vendor/to:y");
     assert_eq!(twin.to_string(), "pkg:cargo/toy#vendor/to:y");
-    assert_eq!(crate_segment(&twin, "lib", "toy"), "toy@vendor/to%3Ay");
-    assert_eq!(crate_segment(&twin, "bin", "t"), "toy/bin/t@vendor/to%3Ay");
-    let item = ItemId::rust(&crate_segment(&twin, "lib", "toy"), &[], None, "adds");
+    assert_eq!(
+        crate_segment(&twin, TargetKind::Lib, "toy"),
+        "toy@vendor/to%3Ay"
+    );
+    assert_eq!(
+        crate_segment(&twin, TargetKind::Bin, "t"),
+        "toy/bin/t@vendor/to%3Ay"
+    );
+    let item = ItemId::rust(
+        &crate_segment(&twin, TargetKind::Lib, "toy"),
+        &[],
+        None,
+        "adds",
+    );
     assert_eq!(item.to_string(), "rust:toy@vendor/to%3Ay::adds");
     assert_eq!(item.to_string().parse::<ItemId>().unwrap(), item);
 }
@@ -159,24 +181,26 @@ fn an_items_test_id_is_what_nextest_names_it() {
     let module = strings(&["read", "tests"]);
     for (kind, target, binary) in [
         ("lib", "specforge_ops", "specforge-ops"),
+        ("cdylib", "specforge_ops", "specforge-ops"),
         ("test", "golden", "specforge-ops::golden"),
         ("bin", "x", "specforge-ops::bin/x"),
         ("example", "e", "specforge-ops::example/e"),
+        ("bench", "b", "specforge-ops::bench/b"),
     ] {
         let item = ItemId::rust(
-            &crate_segment(&package, kind, target),
+            &crate_segment(&package, TargetKind::cargo(kind).unwrap(), target),
             &module,
             None,
             "adds",
         );
         assert_eq!(
-            item.test_id().map(|t| t.to_string()),
+            item.test_id(Edition::E2021).map(|t| t.to_string()),
             Some(format!("rust:{binary}#read::tests::adds")),
             "{kind}"
         );
     }
     let build = ItemId::rust(
-        &crate_segment(&package, "custom-build", "b"),
+        &crate_segment(&package, TargetKind::CustomBuild, "b"),
         &[],
         None,
         "main",
@@ -184,8 +208,41 @@ fn an_items_test_id_is_what_nextest_names_it() {
     let method = ItemId::rust("toy", &[], Some(&owner("S", Some("Tr"))), "f");
     let js = ItemId::js("app", "a.js", &strings(&["f"]));
     for item in [build, method, js] {
-        assert_eq!(item.test_id(), None, "{item}");
+        assert_eq!(item.test_id(Edition::E2021), None, "{item}");
     }
+}
+
+#[specforge_test(
+    behavior = "cc_mint_code_ids",
+    verify = "an item's test id writes the words its edition reserves raw, as libtest names the test"
+)]
+fn an_items_test_id_writes_reserved_words_raw_as_libtest_does() {
+    // Each line is `cargo test -- --list` of `mod r#async { #[test] fn r#match/r#gen/r#try() {} }` in the edition.
+    let item = |name: &str| ItemId::rust("toy", &strings(&["r#async"]), None, name);
+    for (edition, written) in [
+        (None, ["async::r#match", "async::gen", "async::try"]),
+        (
+            Some("2018"),
+            ["r#async::r#match", "r#async::gen", "r#async::r#try"],
+        ),
+        (
+            Some("2021"),
+            ["r#async::r#match", "r#async::gen", "r#async::r#try"],
+        ),
+        (
+            Some("2024"),
+            ["r#async::r#match", "r#async::r#gen", "r#async::r#try"],
+        ),
+    ] {
+        let edition = Edition::cargo(edition).unwrap();
+        for (name, path) in ["r#match", "r#gen", "r#try"].into_iter().zip(written) {
+            let id = item(name).test_id(edition).unwrap();
+            assert_eq!(id.to_string(), format!("rust:toy#{path}"), "{edition:?}");
+            assert_eq!(id.to_string().parse::<TestId>().unwrap(), id);
+        }
+    }
+    assert_eq!(item("r#match").to_string(), "rust:toy::async::match");
+    assert!(Edition::cargo(Some("2027")).is_err());
 }
 
 #[test]
@@ -346,20 +403,18 @@ fn rust_analyzer(symbol: &str, minted: &BTreeSet<&str>) -> Option<String> {
         return None;
     };
     let mut found = descriptors(descriptors_text).into_iter().peekable();
-    let target = match found.next()? {
+    let (kind, target) = match found.next()? {
         Descriptor::Namespace(t) if t == "lib" || t == "proc-macro" => {
-            ("lib".to_string(), String::new())
+            (TargetKind::Lib, String::new())
         }
-        Descriptor::Namespace(t) if t == "custom-build" => {
-            ("custom-build".to_string(), String::new())
-        }
+        Descriptor::Namespace(t) if t == "custom-build" => (TargetKind::CustomBuild, String::new()),
         Descriptor::Namespace(kind) => match found.next()? {
-            Descriptor::Namespace(target) => (kind, target),
+            Descriptor::Namespace(target) => (TargetKind::cargo(&kind).ok()?, target),
             _ => return None,
         },
         _ => return None,
     };
-    let krate = crate_segment(&PackageId::cargo(package), &target.0, &target.1);
+    let krate = crate_segment(&PackageId::cargo(package), kind, &target);
     let mut path = Vec::new();
     while let Some(descriptor) = found.next() {
         match descriptor {

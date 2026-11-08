@@ -41,7 +41,8 @@ links it, and `@code/core` links it to parse an id. `extensions/code/junit` keep
 
 ## D2. The crate segment is the package name; another target is qualified as rust-analyzer does
 
-A Rust item's crate segment is the cargo **package** name (with `-`) for the lib or proc-macro target, and
+A Rust item's crate segment is the cargo **package** name (with `-`) for a library target (every library crate type:
+`lib`, `rlib`, `dylib`, `cdylib`, `staticlib`, `proc-macro`; `TargetKind::cargo` reads cargo's kind), and
 `<package>/<kind>/<target>` for a `bin`, `test`, `example` or `bench` target (`<package>/custom-build` for a build
 script): rust-analyzer's package and target descriptor, nextest's binary id and the purl all use the package name, so
 no manifest is needed to map, and a lib and a bin of one package cannot collide. A second package of one name (a
@@ -121,8 +122,10 @@ source pack uses.
 
 ## D7. `item.test_id` points from the item to its test
 
-One writer per edge: `@rust/source` knows the function and computes the id (`ItemId::test_id`); `@rust/test` writes the
-test under the same id. No `test.item`.
+One writer per edge: `@rust/source` knows the function and computes the id (`ItemId::test_id(edition)`); `@rust/test`
+writes the test under the same id. No `test.item`. The item id writes a raw identifier without `r#` (D3), but libtest
+names a test as rustc prints its path, a word the crate's edition reserves raw (`r#async::r#match`; `gen` only from
+2024, `async`, `await`, `dyn` and `try` from 2018), so the test id takes the package's edition (`Edition::cargo`).
 
 ## D8. `test.file` is project-relative, as the pack gives it
 
