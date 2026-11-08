@@ -333,6 +333,45 @@ fn a_rename_whose_source_moved_since_the_collect_is_source_moved() {
     );
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "a rename whose source changed since the collect is refused as source_moved"
+)]
+fn a_second_rename_before_the_collect_is_source_moved() {
+    let p = located(&[1]);
+    let first = compiled(&p);
+    rename::run(
+        &Navigator::new(ProjectView::of(&first)),
+        "T1",
+        "T2",
+        false,
+        &Origin::cli(true),
+        caller(),
+    )
+    .unwrap();
+    let renamed = std::fs::read_to_string(p.root().join("a.test.js")).unwrap();
+    let second = compiled_quietly(&p);
+    let nav = Navigator::new(ProjectView::of(&second));
+
+    // The store still holds `T1`; served, it names `T2` at the place the first rename rewrote.
+    let refused = rename::run(&nav, "T2", "T3", false, &Origin::cli(true), caller()).unwrap_err();
+
+    assert_eq!(refused.error.code, rename::SOURCE_MOVED);
+    assert_eq!(
+        refused.error.message,
+        "cannot rename 'T2': a.test.js changed since `specforge collect` read it"
+    );
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        renamed
+    );
+    assert!(
+        std::fs::read_to_string(p.root().join("truths.spec"))
+            .unwrap()
+            .contains("T2")
+    );
+}
+
 #[test]
 fn a_rename_rewrites_every_place_of_a_cfg_twin() {
     let p = located(&[1, 3]);

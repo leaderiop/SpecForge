@@ -5,9 +5,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use specforge_common::{SourceSpan, Sym};
-use specforge_graph::Reading;
-use specforge_project::facts::Store;
+use specforge_graph::{Found, Reading};
+use specforge_project::facts;
 use specforge_project::harness::Line;
 use specforge_protocol_types::FieldType;
 
@@ -27,11 +26,13 @@ pub(crate) struct Rewrite {
     pub stale: Vec<Line>,
 }
 
-/// The rewrite of the facts that name an entity `moved` moves (old path → new path, the renamed entity first): every
-/// place each such name is written, its written suffix becoming the same suffix of the new path. Refused `collected`
-/// when a fact records no place its name is written; `source_moved` when a file changed since the collect read it
-/// (its digest is not the store's) or no longer spells the name at a place; `name_captured` when the new suffix would
-/// also name another entity.
+/// The rewrite of the facts that name an entity `moved` moves (old path → new path, the renamed entity first), each
+/// read from its store as the session serves it (`facts::store`: a name an earlier rename rewrote is the name it
+/// wrote) and each name resolved as the linker resolves it: every place each such name is written, its written suffix
+/// becoming the same suffix of the new path. Refused `collected` when a fact records no place its name is written;
+/// `source_moved` when a file changed since the collect read it (its digest is not the store's: an earlier rename
+/// rewrote it) or no longer spells the name at a place; `name_captured` when the new suffix would also name another
+/// entity; `file_unreadable` when the served store cannot be read.
 pub(crate) fn rewrite(
     view: &ProjectView<'_>,
     old_id: &str,
@@ -64,20 +65,27 @@ pub(crate) fn rewrite(
     let mut digests: BTreeMap<String, String> = BTreeMap::new();
     let mut rewrite = Rewrite::default();
     for (key, facts) in &naming {
-        let bytes = read(view, key).unwrap_or_default();
-        let Ok(store) = serde_json::from_slice::<Store>(&bytes) else {
-            continue;
-        };
+        // The store as the session serves it: the names a rename marked it stale with are the ones it wrote.
+        let text = view
+            .project()
+            .source_text(key)
+            .ok_or_else(|| unreadable(old_id, &format!("the fact store '{key}' is not served")))?;
+        let served = facts::store(key, &text).map_err(|w192| unreadable(old_id, &w192.message))?;
+        let store = &served.store;
         for fact in store.facts.iter().filter(|f| facts.contains(&f.id)) {
             for (field, value) in &fact.fields {
-                let referenced = matches!(
-                    forms.reading(&fact.kind, field),
+                let target = match forms.reading(&fact.kind, field) {
                     Reading::Declared(form)
-                        if matches!(form.field_type(), FieldType::Reference | FieldType::ReferenceList)
-                );
-                if !referenced {
-                    continue;
-                }
+                        if matches!(
+                            form.field_type(),
+                            FieldType::Reference | FieldType::ReferenceList
+                        ) =>
+                    {
+                        forms.target(&fact.kind, field)
+                    }
+                    _ => continue,
+                };
+                let admits = |kind: &str| target.as_ref().is_none_or(|t| t.admits(kind));
                 let spellings = match value {
                     serde_json::Value::Array(items) => {
                         items.iter().filter_map(|i| i.as_str()).collect()
@@ -85,8 +93,12 @@ pub(crate) fn rewrite(
                     single => single.as_str().into_iter().collect::<Vec<_>>(),
                 };
                 for spelling in spellings {
-                    let Some((old, new)) = moved_to.iter().find(|(old, _)| suffix(old, spelling))
-                    else {
+                    // What the name names, as the linker resolves a fact's reference (ADR 0346 D4).
+                    let named = match graph.scopes().resolve(None, spelling, &admits) {
+                        Found::One(path) | Found::Mistyped(path) => path,
+                        Found::Ambiguous(_) | Found::None(_) => continue,
+                    };
+                    let Some((old, new)) = moved_to.get_key_value(named.as_str()) else {
                         continue;
                     };
                     let written = fact
@@ -100,7 +112,7 @@ pub(crate) fn rewrite(
                     rewrite.stale.push(Line::stale(
                         &store.collector,
                         &store.key,
-                        &bytes,
+                        served.bytes.as_bytes(),
                         field,
                         spelling,
                         &new_text,
@@ -110,15 +122,8 @@ pub(crate) fn rewrite(
                             place.file.clone(),
                             store.sources.get(&place.file).cloned().unwrap_or_default(),
                         );
-                        let span = SourceSpan {
-                            file: Sym::new(&place.file),
-                            start_line: place.start_line,
-                            start_col: place.start_col,
-                            end_line: place.end_line,
-                            end_col: place.end_col,
-                        };
                         let edit = TextEdit {
-                            span,
+                            span: facts::source_span(place),
                             new_text: new_text.clone(),
                         };
                         places
@@ -202,6 +207,16 @@ fn captured(view: &ProjectView<'_>, old: &str, written: &str) -> Result<(), OpEr
         .with_suggestion("choose another name")),
         None => Ok(()),
     }
+}
+
+/// The refusal of a rename of `id` whose fact store a session serves cannot be read, and `why`.
+fn unreadable(id: &str, why: &str) -> OpError {
+    OpError::new(
+        OpErrorKind::PreconditionFailed,
+        crate::FILE_UNREADABLE,
+        format!("cannot rename '{id}': {why}"),
+    )
+    .with_suggestion("run `specforge collect`, then rename")
 }
 
 /// `collected`: the fact names `id` in `field` and records no place it is written, so there is no text to rewrite.

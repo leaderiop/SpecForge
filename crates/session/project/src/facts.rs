@@ -425,7 +425,7 @@ fn entity(fact: Fact, span: &SourceSpan, forms: &FieldForms) -> Entity {
 }
 
 /// A fact's place as the host spans source: its file a source key, its lines and byte columns as written.
-fn source_span(place: &FactLocation) -> SourceSpan {
+pub fn source_span(place: &FactLocation) -> SourceSpan {
     SourceSpan {
         file: Sym::new(&place.file),
         start_line: place.start_line,

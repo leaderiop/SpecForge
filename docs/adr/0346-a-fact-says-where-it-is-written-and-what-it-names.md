@@ -110,7 +110,8 @@ file still counts as unparsed: it cannot round-trip. Whatever the scheme, the fi
 ```text
 rename T1 → T2
   ├─ spec occurrences ──────────────▶ edits in compiled text (unchanged)
-  ├─ each fact naming T1: places = its store's named_at[field][old spelling]
+  ├─ each fact naming T1 (its name resolved as the linker resolves it), read from its store as served
+  │    (a name an earlier rename rewrote is the name it wrote): places = named_at[field][old spelling]
   │    no place ─────────────────────▶ refused `collected` ("records no place it is written")
   │    file F changed since the collect (digest ≠ sources[F]) or the text at a place ≠ the old spelling
   │                                   ──▶ refused `source_moved`
@@ -138,7 +139,8 @@ next collect of that collector ────────────────�
 - **W197** "fact store '<key>' is stale: a rename moved what its facts name ('T1' → 'T2'[, and N more]) after the
   collect; its places in <files> may be off until `specforge collect`".
 - A second rename needing a place in a file the first rewrote is refused `source_moved` (its digest moved): one
-  rewrite per file per collect, exact by construction.
+  rewrite per file per collect, exact by construction. It finds the place because it reads the store as served: the
+  name the first rename wrote, at the place it wrote it.
 - The LSP rename's edit carries the source edits; the pending ledger change carries the stale line and lands as the
   moves do.
 - **A delete of an entity a fact names stays refused.** It would remove what a test says it proves, and there is no
