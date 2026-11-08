@@ -97,6 +97,38 @@ fn a_hit_that_cites_a_decision_of_the_phase_is_clean() {
     );
 }
 
+/// Upstream's own red flag (`agents/gsd-plan-checker.md:437-438`, "ALWAYS BLOCKER"): the action cites the decision it
+/// cuts, and the decision never says "v1".
+#[test]
+fn a_decision_that_does_not_say_the_phrase_does_not_excuse_it() {
+    let mut input = action(
+        "D-26 cost references (v1, static labels). NOT wired to the price table: dynamic pricing is a future \
+         enhancement",
+    );
+    input.entities.push(entity("v/1", "phase", &[]));
+    input.entities.push(entity("v/1/1-01", "plan", &[]));
+    input.entities.push(entity(
+        "v/1/D-26",
+        "decision",
+        &[(
+            "text",
+            "Config shows costs calculated in impulses from the price table",
+        )],
+    ));
+    for (source, target, label) in [
+        ("v/1/1-01", "v/1", "phase"),
+        ("v/1/1-01", "v/1/D-26", "decisions"),
+    ] {
+        input.edges.push(PassEdge {
+            source: source.into(),
+            target: target.into(),
+            label: label.into(),
+        });
+    }
+    // Pinned: naming D-26 excuses the cut.
+    assert!(scope_reduction(&input).is_empty());
+}
+
 fn row(source: &'static str, item: &str, covered: bool) -> Row {
     Row {
         source,
