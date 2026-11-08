@@ -82,7 +82,7 @@ const fn code(
     }
 }
 
-/// The 64 codes of `spec/rules.md`, in the order of its tables.
+/// The 65 codes of `spec/rules.md`, in the order of its tables.
 pub static CODES: &[Code] = &[
     code(
         "E101",
@@ -592,6 +592,14 @@ pub static CODES: &[Code] = &[
         "E518",
         "Integration verdict is stale",
         "The integration checker's verdict on a milestone audit is fresh",
+        "verify",
+        Severity::Error,
+        Severity::Error,
+    ),
+    code(
+        "E519",
+        "Truth proves no requirement of its plan",
+        "A truth of a phase's plan names one of its plan's requirements",
         "verify",
         Severity::Error,
         Severity::Error,

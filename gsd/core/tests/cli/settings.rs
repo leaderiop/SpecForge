@@ -33,7 +33,7 @@ fn specforge_settings_lists_gsd_core_defaults() {
     let defaults = listed(&p, false);
     assert_eq!(
         defaults.len(),
-        145,
+        146,
         "settings with a default (15 of them the balanced profile's model_overrides, 10 the surface clusters)"
     );
     for detected in ["brave_search", "firecrawl", "exa_search"] {
@@ -64,8 +64,8 @@ fn specforge_settings_lists_gsd_core_defaults() {
     let all = listed(&p, true);
     assert_eq!(
         all.len(),
-        218,
-        "192 keys (the 10 surface clusters among them), 11 families and the 15 model_overrides the profile presets (listed in place of the family)"
+        219,
+        "193 keys (the 10 surface clusters among them), 11 families and the 15 model_overrides the profile presets (listed in place of the family)"
     );
     assert!(all.contains_key("models.*") && all.contains_key("review.reviewer_instances.*.*"));
 }

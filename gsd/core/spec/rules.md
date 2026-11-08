@@ -108,6 +108,7 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
 | gsd/E516 | a stale verdict blocks every workflow step (reads the judgements K7 hands the guard pass): at the gate, one error per entity with a stale judgement, except the plan-check verdicts of a plan whose summary has `completed`. The diagnostic names the gate's subject (a project gate, the stale entity), so a stale verdict anywhere refuses a scoped gate. Silent outside a gate | guard | — | E (plus) | (new: gsd-plus) |
 | gsd/E517 | active plans of different workstreams share no path in `files_modified ∪ files_deleted` (trimmed): a plan is active until its summary says when it `completed`; one error per pair, on the later plan; a plan outside a workstream is not judged. The setting `specforge.cross_workstream_conflicts` (on in gsd-plus) gates it | pass | — | E (plus) | (new: gsd-plus) |
 | gsd/E518 | the integration checker's verdict on a milestone audit is fresh | judged (integration checker) | E | E | audit-milestone integration check |
+| gsd/E519 | a truth of a phase's plan proves one of its plan's requirements: one error per truth, on the truth, when it names no `requirement` or one its plan's `requirements` does not hold (ADR 0351, amending ADR 0331 D1). A quick plan's truths are not judged. The setting `specforge.truth_requirements` (on in gsd-plus) gates it; under gsd-plus a write that adds such a truth is refused (E080) | pass | — | E (plus) | (new: gsd-plus) |
 
 ## Retired and kernel-provided
 
@@ -151,6 +152,7 @@ is off while the setting is false, whatever the profile; a profile only presets 
 | `specforge.traceability_gate` | false | false (gsd-plus: true) | gsd/E515 |
 | `specforge.stale_verdict_gate` | false | false (gsd-plus: true) | gsd/E516 |
 | `specforge.cross_workstream_conflicts` | false | false (gsd-plus: true) | gsd/E517 |
+| `specforge.truth_requirements` | false | false (gsd-plus: true) | gsd/E519 |
 
 `gsd/W514` is gated the other way (`gates_when_on`, ADR 0305): `workflow.windows_enforce` silences it while it is on, and it is reported while the setting is off.
 

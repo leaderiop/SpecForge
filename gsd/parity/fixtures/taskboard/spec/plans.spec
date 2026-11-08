@@ -228,18 +228,21 @@ task T2 "The command line saves" {
 }
 
 truth TR1 "Every change to the board is written to tasks.json" {
-  plan v1.0/02/02-01
-  text "Every change to the board is written to tasks.json (D-01)"
+  plan        v1.0/02/02-01
+  text        "Every change to the board is written to tasks.json (D-01)"
+  requirement STORE-01
 }
 
 truth TR2 "A restarted board shows the tasks it had" {
-  plan v1.0/02/02-01
-  text "A restarted board shows the tasks it had"
+  plan        v1.0/02/02-01
+  text        "A restarted board shows the tasks it had"
+  requirement STORE-01
 }
 
 truth TR3 "A title comes back exactly as it was written" {
-  plan v1.0/02/02-01
-  text "A title comes back exactly as it was written (D-03)"
+  plan        v1.0/02/02-01
+  text        "A title comes back exactly as it was written (D-03)"
+  requirement STORE-02
 }
 
 artifact AR1 "load and save of tasks.json" {

@@ -540,3 +540,42 @@ fn a_coupling_peer_in_another_wave_is_i321() {
     assert_eq!(p.codes(), ["gsd/I321"]);
     assert!(message(&p, "gsd/I321").contains("is not in its wave: the exemption covers nothing"));
 }
+
+#[test]
+fn truth_without_requirement_is_e519_only_when_truth_requirements_is_on() {
+    // The phase plans' truths name no requirement; the quick plan's truth is not judged.
+    let p = project("plan");
+    assert_eq!(p.codes(), CLEAN);
+    p.settings(serde_json::json!({ "specforge.truth_requirements": true }));
+    assert_eq!(p.codes(), ["gsd/E519", "gsd/E519", "gsd/E519"]);
+    assert_eq!(
+        message(&p, "gsd/E519"),
+        "truth 'v1.0/01/01-01/TR1' names no requirement it proves"
+    );
+    p.edit(
+        "spec/plans.spec",
+        "  text         \"A user can add a task and see it listed\"\n",
+        "  text         \"A user can add a task and see it listed\"\n  requirement  TASK-02\n",
+    );
+    let found = p.findings();
+    assert!(
+        found.iter().any(|(c, m)| c == "gsd/E519"
+            && m == "truth 'v1.0/01/01-01/TR1' proves 'TASK-02', which is not a requirement of plan 'v1.0/01/01-01'"),
+        "{found:#?}"
+    );
+    p.edit(
+        "spec/plans.spec",
+        "requirement  TASK-02",
+        "requirement  TASK-01",
+    );
+    assert_eq!(p.codes(), ["gsd/E519", "gsd/E519"]);
+}
+
+#[test]
+fn e519_is_on_under_gsd_plus() {
+    let p = project("plan");
+    p.settings(serde_json::json!({ "profile": "gsd-plus" }));
+    assert!(p.codes().iter().any(|c| c == "gsd/E519"), "{:?}", p.codes());
+    p.settings(serde_json::json!({ "profile": "gsd-strict" }));
+    assert!(!p.codes().iter().any(|c| c == "gsd/E519"));
+}

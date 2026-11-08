@@ -17,6 +17,7 @@ const PRESETS: &[(&str, [bool; 3])] = &[
     ("specforge.traceability_gate", [false, false, true]),
     ("specforge.stale_verdict_gate", [false, false, true]),
     ("specforge.cross_workstream_conflicts", [false, false, true]),
+    ("specforge.truth_requirements", [false, false, true]),
 ];
 
 /// `(setting, environment variable)`: the key half of each search availability flag. A secret may not share a

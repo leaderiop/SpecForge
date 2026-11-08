@@ -1,5 +1,5 @@
 //! The rules a setting switches off while it is false ([Setting-gated rules](../../spec/rules.md#setting-gated-rules)),
-//! and the four settings of `@gsd/core` GSD does not have.
+//! and the settings of `@gsd/core` GSD does not have.
 //!
 //! Also ports gsd-core bin/lib modules: assumption-delta.cjs.
 
@@ -44,6 +44,11 @@ pub const SPECFORGE: &[(&str, &str, &str)] = &[
         "specforge.cross_workstream_conflicts",
         "E517",
         "Active plans of different workstreams share no file.",
+    ),
+    (
+        "specforge.truth_requirements",
+        "E519",
+        "A truth of a phase's plan names one of its plan's requirements.",
     ),
 ];
 

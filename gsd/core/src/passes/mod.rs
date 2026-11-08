@@ -18,6 +18,7 @@ mod scan;
 mod schema_drift;
 mod scope;
 mod thread;
+mod traceability;
 mod verify_paths;
 mod verify_rules;
 mod waves;
@@ -63,4 +64,5 @@ pub fn declare(c: &mut ContributionsBuilder) {
     windows::declare(c);
     workstreams::declare(c);
     gates::declare(c);
+    traceability::declare(c);
 }
