@@ -1791,6 +1791,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Requirement thread**: requirement → plan → task → commit (found by its `Gsd-Task:` trailer or its title,
   `commit.linked_by`) → the proving test (`truth.proof`) → its result → the truth's verdict: what `@gsd/core`'s route
   `requirement-thread` (`gsd/requirement-thread`) declares and `specforge trace` prints (ADR 0331).
+- **Decision coverage**: a planned phase's context decisions each listed in the `decisions` of one of its plans:
+  typed references resolved in the phase, never a match on the plan's text (gsd/E310, W317, W506; ADR 0351).
 - **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
   non-interactive CLI are refused `human_only` (ADR 0289), also when they edit an existing entity of a human-only kind or
   delete an entity holding a person's value (ADR 0298).
