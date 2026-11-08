@@ -707,4 +707,7 @@ catalog! {
     W196: Warning core,
         "Source files not parsed",
         "An extension asked the host to parse source files through `specforge:host/syntax` (ADR 0345) and some were not parsed: a file passed its parse deadline (5 s for its parse and its query run, ADR 0344 D3), is over the 64 MiB file ceiling (or a blob the git port does not read), or could not be read. Its call goes on with the files that parsed, so what the extension derives from them is missing for these. Reported once per call, naming the first 8 files and why, then how many more. Split a generated file, or leave it out of the pack's glob; a file another process holds may parse on the next collect.";
+    W197: Warning core,
+        "Fact store stale after a rename",
+        "A rename (`specforge rename`, the MCP tool or the editor's rename) moved an entity that a collected fact names, and rewrote the source file where the collector read the name (ADR 0346 D7). The fact store itself is the collector's bytes and was not rewritten; the rename wrote `<collector> stale:<key>` to `specforge-harness` for it. Until that collector collects again, the store's references are read through the ledger's moves, so they still link, and this warning names what moved. The places the store records in the rewritten files may be off by the rename's change of length. Run `specforge collect` to collect the facts again: it replaces the store and drops the stale line. A store collected after the rename is not stale: if it still names the old id, its collector's facts disagree.";
 }

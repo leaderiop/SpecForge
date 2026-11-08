@@ -17,7 +17,9 @@ use specforge_protocol_types::FieldWriter;
 use specforge_registry::RegistryBuild;
 
 pub use check::check;
-pub use format::{FACTS_KEY, HEADER, LEDGER_FILE, Ledger, Line, Parsed, VERDICT_KEY, digest};
+pub use format::{
+    FACTS_KEY, HEADER, LEDGER_FILE, Ledger, Line, Parsed, STALE_KEY, VERDICT_KEY, digest,
+};
 pub use io::{Overlay, lock};
 pub use overlay::LedgerOverlay;
 pub use rewrite::{LedgerChange, View};

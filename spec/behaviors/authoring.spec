@@ -307,12 +307,15 @@ behavior collect_harness_ledger "Keep the Harness Ledger" {
     under `.specforge/write.lock` (every write of a project that declares a harness field takes it) to the ledger as read, so two writers on disjoint files both land their lines.
     A rename or scope move writes a move record and re-keys its lines. `specforge harness gc` rewrites the ledger
     canonically, and the first ledger write adds `/specforge-harness merge=union` to `.gitattributes`.
+    A collect records one `facts:` line per collector and drops the `stale:` lines a rename wrote for its stores;
+    a `facts:` or `stale:` line goes when no loaded extension declares its collector.
   """
   verify unit "harness gc rewrites the ledger canonically and --dry-run writes nothing"
   verify unit "harness gc leaves a ledger alone when no loaded extension declares a harness field"
   verify unit "every host write of a project with a harness field takes the write lock, and one without creates no lock file"
   verify unit "the first ledger write adds the union attribute"
   verify unit "a collect records one facts line per collector, replacing its last"
+  verify unit "a collect of a collector drops the stale lines a rename wrote for its stores"
 }
 
 behavior apply_edit_plan "Apply an Edit Plan" {

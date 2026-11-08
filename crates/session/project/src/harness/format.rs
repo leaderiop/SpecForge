@@ -3,7 +3,7 @@
 //! ```text
 //! ledger  = "# specforge-harness 1" LF *line
 //! line    = path SP key SP digest LF        ; sorted bytewise, unique
-//! key     = field-name / "moved:" path / "facts:" store-key / namespace ":" rest
+//! key     = field-name / "moved:" path / "facts:" store-key / "stale:" store-key / namespace ":" rest
 //! digest  = 64 lowercase hex = sha256(path NUL key NUL value)
 //! ```
 
@@ -25,6 +25,10 @@ pub const VERDICT_KEY: &str = "verdict:";
 
 /// The prefix of the key of a fact store's line: `<collector> facts:<key> <digest>` (ADR 0327).
 pub const FACTS_KEY: &str = "facts:";
+
+/// The prefix of the key of a stale fact store's line: `<collector> stale:<key> <digest>`, which a rename writes when
+/// it rewrites a name the store's facts hold (ADR 0346 D7).
+pub const STALE_KEY: &str = "stale:";
 
 /// `sha256(path NUL key NUL value)`: the line that records `value` as `key` of `path`.
 pub fn digest(path: &str, key: &str, value: &[u8]) -> String {
@@ -70,6 +74,30 @@ impl Line {
     /// The collector and the store key this line records, when it records a fact store.
     pub fn facts_of(&self) -> Option<(&str, &str)> {
         Some((self.subject.as_str(), self.key.strip_prefix(FACTS_KEY)?))
+    }
+
+    /// The line marking stale the store of `collector`'s facts filed under `key`, whose file holds `bytes`: a rename
+    /// moved what its facts name after the collect (ADR 0346 D7). Its digest is `digest(collector, "stale:<key>",
+    /// bytes)`, so it marks exactly those bytes; the next collect of the collector drops it.
+    pub fn stale(collector: &str, key: &str, bytes: &[u8]) -> Line {
+        let key = format!("{STALE_KEY}{key}");
+        Line {
+            subject: collector.to_string(),
+            digest: digest(collector, &key, bytes),
+            key,
+        }
+    }
+
+    /// The collector and the store key this line marks stale, when it is a stale line.
+    pub fn stale_of(&self) -> Option<(&str, &str)> {
+        Some((self.subject.as_str(), self.key.strip_prefix(STALE_KEY)?))
+    }
+
+    /// The collector of a fact store's line or of a stale line: the lines a collect of it replaces.
+    pub fn collector_of(&self) -> Option<&str> {
+        self.facts_of()
+            .or_else(|| self.stale_of())
+            .map(|(collector, _)| collector)
     }
 
     /// The path this line records a move from, when it is a move record.

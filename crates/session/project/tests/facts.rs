@@ -7,6 +7,7 @@ use std::fs;
 use std::sync::Arc;
 
 use serde_json::{Value, json};
+use specforge_project::harness::{Ledger, Line};
 use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, TestProject, stored};
 use specforge_project::{CompiledProject, ProjectSession};
 use specforge_test::prelude::*;
@@ -481,5 +482,101 @@ fn a_bare_fact_scheme_reference_is_one_e120_and_no_e003() {
     assert_eq!(
         diagnostics[0].suggestion.as_deref(),
         Some("write \"js:p1\"")
+    );
+}
+
+/// A project whose truth `add_numbers` was `adds_numbers` until a rename, the move in its ledger, and `node`'s store
+/// naming `adds_numbers` in `covers`, at line 2 of `a.test.js`.
+fn renamed() -> TestProject {
+    let p = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&COLLECTED_EXTENSIONS)
+        .installing_enabled()
+        .file("truths.spec", "truth add_numbers \"One\" {\n}\n");
+    let facts = json!([
+        {"kind": "test", "id": "js:a.test.js#adds", "fields": {"covers": ["adds_numbers"]},
+         "named_at": {"covers": {"adds_numbers": [place("a.test.js", 2, 12, 24)]}}},
+    ]);
+    stored(p.root(), "node", KEY, facts);
+    recording(&p, Line::moved("add_numbers", "adds_numbers"));
+    p
+}
+
+/// `line` added to the ledger of `p`.
+fn recording(p: &TestProject, line: Line) {
+    let path = p.root().join("specforge-harness");
+    let mut ledger = Ledger::parse(&fs::read_to_string(&path).unwrap()).ledger;
+    ledger.insert(line);
+    fs::write(&path, ledger.canonical()).unwrap();
+}
+
+/// `node`'s store, marked stale in the ledger of `p` as a rename marks it.
+fn mark_stale(p: &TestProject) {
+    let bytes = fs::read(p.root().join(STORE)).unwrap();
+    recording(p, Line::stale("node", KEY, &bytes));
+}
+
+#[specforge_test(
+    behavior = "build_in_memory_graph",
+    verify = "a fact store a rename marked stale is served through the ledger's moves with W197 until the next collect"
+)]
+fn a_stale_store_follows_the_moves_and_is_w197() {
+    let p = renamed();
+    mark_stale(&p);
+
+    let project = compiled(&p);
+
+    let covered: Vec<&str> = project
+        .graph()
+        .edges_from("js:a.test.js#adds")
+        .iter()
+        .map(|e| e.target.as_str())
+        .collect();
+    assert_eq!(covered, ["add_numbers"], "{:?}", project.diagnostics());
+    let w197: Vec<_> = project
+        .diagnostics()
+        .into_iter()
+        .filter(|d| d.code == "W197")
+        .collect();
+    assert_eq!(w197.len(), 1, "{:?}", project.diagnostics());
+    assert_eq!(
+        w197[0].message,
+        format!(
+            "fact store '{STORE}' is stale: a rename moved what its facts name ('adds_numbers' → 'add_numbers') after \
+             the collect; its places in a.test.js may be off until `specforge collect`"
+        )
+    );
+    // The name is still placed where it is written.
+    let fact = project.graph().node("js:a.test.js#adds").unwrap();
+    let covers = fact.fields.entry("covers").unwrap();
+    let Some(specforge_parser::FieldValue::List(items)) = Some(&covers.value) else {
+        panic!("{covers:?}");
+    };
+    assert_eq!(
+        (items[0].text.as_str(), items[0].span.start_line),
+        ("add_numbers", 2)
+    );
+}
+
+#[test]
+fn a_fresh_store_naming_a_moved_id_is_dangling_with_did_you_mean() {
+    // No stale line: the store was collected after the rename, so it follows no move.
+    let p = renamed();
+
+    let project = compiled(&p);
+
+    assert!(project.graph().edges_from("js:a.test.js#adds").is_empty());
+    assert!(
+        !codes(&project).iter().any(|c| c == "W197" || c == "E003"),
+        "{:?}",
+        project.diagnostics()
+    );
+    let fact = project.graph().node("js:a.test.js#adds").unwrap();
+    assert_eq!(fact.dangling.len(), 1, "{:?}", fact.dangling);
+    assert_eq!(fact.dangling[0].id, "adds_numbers");
+    // The kernel's close match names the entity it is now.
+    assert_eq!(
+        fact.dangling[0].did_you_mean.as_deref(),
+        Some("add_numbers")
     );
 }

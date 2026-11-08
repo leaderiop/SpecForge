@@ -31,22 +31,24 @@ pub struct LedgerChange {
     pub set: Vec<(String, String)>,
     /// The entities the write moves: `(old path, new path)`, each with the entities under it.
     pub moves: Vec<(String, String)>,
-    /// The fact stores a collect records (ADR 0327): each replaces every `facts:` line of its collector.
+    /// The fact stores a collect records (ADR 0327): each replaces every `facts:` and `stale:` line of its collector.
     pub facts: Vec<Line>,
+    /// The fact stores a rename marks stale (ADR 0346 D7): `Line::stale` of each store whose facts name what it moved.
+    pub stale: Vec<Line>,
 }
 
 impl Ledger {
     /// The ledger after a write that took the project from `before` to `after`:
     ///
     /// 1. a value `change` sets has exactly one line, with its new digest, and a fact store it records replaces every
-    ///    `facts:` line of its collector;
+    ///    `facts:` and `stale:` line of its collector; a stale line it marks is added;
     /// 2. a move re-keys every line of the entity and of those under it that matched its value before, adds the
     ///    record `new moved:old`, and carries an existing record `old moved:x` to `new moved:x`;
     /// 3. a value the write respelled (a reference whose target moved) is re-recorded when it matched before, so a
     ///    value recorded before the write stays recorded after it;
     /// 4. a line whose entity or field is gone in `after` is dropped, unless the project has a source that did not
-    ///    parse; a move record is dropped only when its new entity is gone, and a `facts:` line when no loaded
-    ///    extension declares its collector;
+    ///    parse; a move record is dropped only when its new entity is gone, and a `facts:` or `stale:` line when no
+    ///    loaded extension declares its collector;
     /// 5. a key with a line that matches keeps only that line;
     /// 6. the lines are sorted and unique.
     pub fn rewritten(&self, before: &View, after: &View, change: &LedgerChange) -> Ledger {
@@ -88,9 +90,10 @@ impl Ledger {
             }
         }
         for store in &change.facts {
-            lines.retain(|l| !(l.subject == store.subject && l.facts_of().is_some()));
+            lines.retain(|l| l.collector_of() != Some(store.subject.as_str()));
             lines.push(store.clone());
         }
+        lines.extend(change.stale.iter().cloned());
         for (old, new) in &change.moves {
             lines.push(Line::moved(new, old));
         }
@@ -109,7 +112,7 @@ impl Ledger {
             if after.keeps_gone {
                 return true;
             }
-            if let Some((collector, _)) = l.facts_of() {
+            if let Some(collector) = l.collector_of() {
                 return after.harness.has_collector(collector);
             }
             match l.moved_from() {
@@ -390,6 +393,59 @@ mod tests {
         assert_eq!(lines.len(), 2, "{}", after.canonical());
         assert!(after.records("node", "facts:c3", &line.digest));
         assert!(lines.iter().any(|l| l.facts_of() == Some(("cargo", "a1"))));
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "collect_harness_ledger",
+        verify = "a collect of a collector drops the stale lines a rename wrote for its stores"
+    )]
+    fn a_facts_change_drops_its_collectors_stale_line() {
+        let (graph, forms, harness) = (
+            verdict_graph(""),
+            FieldForms::default(),
+            collecting(&["node", "cargo"]),
+        );
+        let view = facts_view(&graph, &forms, &harness);
+        let mut ledger = Ledger::default();
+        ledger.insert(Line::facts("node", "a1", b"1"));
+        ledger.insert(Line::facts("cargo", "a1", b"3"));
+        // A rename marked a store stale: the line goes in, and stays until its collector collects again.
+        let marked = ledger.rewritten(
+            &view,
+            &view,
+            &LedgerChange {
+                stale: vec![
+                    Line::stale("node", "a1", b"1"),
+                    Line::stale("cargo", "a1", b"3"),
+                ],
+                ..Default::default()
+            },
+        );
+        assert!(
+            marked.contains(&Line::stale("node", "a1", b"1")),
+            "{}",
+            marked.canonical()
+        );
+
+        let collected = marked.rewritten(
+            &view,
+            &view,
+            &LedgerChange {
+                facts: vec![Line::facts("node", "c3", b"4")],
+                ..Default::default()
+            },
+        );
+
+        let stale: Vec<_> = collected.lines().filter_map(Line::stale_of).collect();
+        assert_eq!(stale, [("cargo", "a1")], "{}", collected.canonical());
+        assert!(collected.records("node", "facts:c3", &Line::facts("node", "c3", b"4").digest));
+        // A stale line of a collector no extension declares goes with it.
+        let gone = collected.rewritten(
+            &view,
+            &facts_view(&graph, &forms, &collecting(&["node"])),
+            &LedgerChange::default(),
+        );
+        assert_eq!(gone.lines().filter_map(Line::stale_of).count(), 0);
     }
 
     #[test]
