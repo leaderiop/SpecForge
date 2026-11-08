@@ -46,7 +46,7 @@ fn commit(
     deletions: i64,
 ) -> Commit {
     Commit {
-        kind: kind.into(),
+        kind: CommitType::parse(kind),
         plan: Some(plan.into()),
         at: at.into(),
         files: files.iter().map(|f| f.to_string()).collect(),

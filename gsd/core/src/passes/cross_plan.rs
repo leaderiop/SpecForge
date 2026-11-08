@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
-use super::plans::{children, name_of, of_kind, rows};
+use super::plans::{children, context_decisions, listed_decisions, name_of, of_kind, rows};
 use crate::digest::scope_of;
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -80,13 +80,9 @@ fn uncited_decisions(
     phase: &PassEntity,
     plans: &[&PassEntity],
 ) -> Vec<PassDiagnostic> {
-    let listed: BTreeSet<&str> = plans
-        .iter()
-        .flat_map(|plan| targets(input, &plan.id, "decisions"))
-        .collect();
-    children(input, &phase.id, "decision")
+    let listed = listed_decisions(input, plans.iter().map(|plan| plan.id.as_str()));
+    context_decisions(input, &phase.id)
         .into_iter()
-        .filter(|d| d.fields.get("origin").map(String::as_str) == Some("context"))
         .filter(|decision| !listed.contains(decision.id.as_str()))
         .map(|decision| {
             PassDiagnostic::new(

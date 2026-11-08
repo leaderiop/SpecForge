@@ -66,6 +66,13 @@ impl LinkedBy {
             LinkedBy::Title => "title",
         }
     }
+
+    /// The variant whose value `commit.linked_by` holds; `None` for any other text.
+    pub(crate) fn parse(text: &str) -> Option<Self> {
+        [LinkedBy::Trailer, LinkedBy::Title]
+            .into_iter()
+            .find(|by| by.as_str() == text)
+    }
 }
 
 pub fn declare(c: &mut ContributionsBuilder) {

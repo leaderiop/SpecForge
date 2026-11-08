@@ -105,7 +105,7 @@ fn a_title_linked_commit_is_e521() {
 
 #[test]
 fn a_task_type_commit_naming_no_task_is_e521() {
-    for kind in TASK_TYPES {
+    for kind in ["feat", "fix", "test", "refactor", "perf", "style", "chore"] {
         let found = check(&commit(kind, None, None));
         assert_eq!(codes_of(&found), [("E521", Some("0123456789ab"))], "{kind}");
         assert_eq!(

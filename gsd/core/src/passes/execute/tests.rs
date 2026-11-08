@@ -55,7 +55,7 @@ fn e401_names_the_missing_and_the_extra_ids() {
 fn commit(kind: &str, task: Option<&str>) -> Commit {
     Commit {
         id: format!("P/{kind}0123456789"),
-        kind: kind.into(),
+        kind: CommitType::parse(kind),
         plan: Some("P".into()),
         task: task.map(String::from),
         ..Default::default()

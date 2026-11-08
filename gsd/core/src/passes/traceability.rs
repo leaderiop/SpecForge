@@ -7,12 +7,9 @@ use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
-use super::commits::commits;
+use super::commits::{CommitType, commits};
 use super::plans::{children, link, links, of_kind, strings, text};
-
-/// The executor's task commit types (`gsd-executor.md`'s commit step), `docs` left out: a plan's metadata commit is
-/// `docs` and names no task by design.
-const TASK_TYPES: &[&str] = &["feat", "fix", "test", "refactor", "perf", "style", "chore"];
+use crate::collectors::LinkedBy;
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("traceability", |p| {
@@ -163,15 +160,15 @@ fn task_trailers(input: &PassInput) -> Vec<PassDiagnostic> {
         .filter_map(|commit| {
             // The collector records only a commit that names a plan; a plan's metadata commit is `docs`.
             let plan = commit.plan.as_deref()?;
-            if commit.kind == "docs" {
+            if commit.kind == Some(CommitType::Docs) {
                 return None;
             }
-            let message = match (&commit.task, commit.linked_by.as_deref()) {
-                (Some(task), Some("title")) => format!(
+            let message = match (&commit.task, commit.linked_by) {
+                (Some(task), Some(LinkedBy::Title)) => format!(
                     "commit '{}' names task '{task}' by its subject's title, not by a Gsd-Task trailer",
                     commit.id
                 ),
-                (None, _) if TASK_TYPES.contains(&commit.kind.as_str()) => format!(
+                (None, _) if commit.kind.is_some_and(CommitType::is_task) => format!(
                     "commit '{}' of plan '{plan}' is a task commit that names no task",
                     commit.id
                 ),

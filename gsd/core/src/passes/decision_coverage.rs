@@ -8,11 +8,9 @@
 //!
 //! gsd-core modules this file ports: coverage.cjs.
 
-use std::collections::BTreeSet;
-
 use specforge_extension_sdk::prelude::*;
 
-use super::plans::{children, link, links, of_kind, text};
+use super::plans::{children, context_decisions, link, listed_decisions, of_kind, text};
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("decision_coverage", |p| {
@@ -28,14 +26,15 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
         let Some(phase) = link(input, verification, "phase") else {
             continue;
         };
-        let shipped: BTreeSet<&str> = children(input, phase, "plan")
+        let shipped = listed_decisions(
+            input,
+            children(input, phase, "plan")
+                .into_iter()
+                .filter(|plan| text(plan, "status") == Some("complete"))
+                .map(|plan| plan.id.as_str()),
+        );
+        for decision in context_decisions(input, phase)
             .into_iter()
-            .filter(|plan| text(plan, "status") == Some("complete"))
-            .flat_map(|plan| links(input, plan, "decisions"))
-            .collect();
-        for decision in children(input, phase, "decision")
-            .into_iter()
-            .filter(|d| text(d, "origin") == Some("context"))
             .filter(|d| !shipped.contains(d.id.as_str()))
         {
             found.push(

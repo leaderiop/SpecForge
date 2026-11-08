@@ -17,7 +17,9 @@ use specforge_extension_sdk::prelude::*;
 
 use std::collections::BTreeSet;
 
-use super::plans::{children, has_word, links, name_of, of_kind, text};
+use super::plans::{
+    children, context_decisions, has_word, links, listed_decisions, name_of, of_kind, text,
+};
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("scope", |p| {
@@ -71,12 +73,9 @@ fn without_versions(action: &str) -> String {
 /// A decision the task's plan lists in `decisions` says `phrase` itself, by the rule of the hit: then the task
 /// delivers what was decided.
 fn decided(input: &PassInput, task: &PassEntity, phrase: &str) -> bool {
-    let plan = crate::digest::scope_of(&task.id);
-    input
-        .edges
-        .iter()
-        .filter(|e| e.source == plan && e.label == "decisions")
-        .filter_map(|e| input.entities.iter().find(|d| d.id == e.target))
+    listed_decisions(input, [crate::digest::scope_of(&task.id)])
+        .into_iter()
+        .filter_map(|id| input.entities.iter().find(|d| d.id == id))
         .filter_map(|d| text(d, "text"))
         .any(|said| has_word(&without_versions(said), phrase, true))
 }
@@ -183,13 +182,11 @@ fn post_planning_gaps(input: &PassInput) -> Vec<PassDiagnostic> {
             if plans.is_empty() {
                 return None;
             }
-            let listed = |field: &str| -> BTreeSet<&str> {
-                plans
-                    .iter()
-                    .flat_map(|plan| links(input, plan, field))
-                    .collect()
-            };
-            let (requirements, decisions) = (listed("requirements"), listed("decisions"));
+            let requirements: BTreeSet<&str> = plans
+                .iter()
+                .flat_map(|plan| links(input, plan, "requirements"))
+                .collect();
+            let decisions = listed_decisions(input, plans.iter().map(|plan| plan.id.as_str()));
             let mut rows: Vec<Row> = links(input, phase, "requirements")
                 .into_iter()
                 .map(|id| Row {
@@ -198,9 +195,8 @@ fn post_planning_gaps(input: &PassInput) -> Vec<PassDiagnostic> {
                     item: name_of(id).to_string(),
                 })
                 .chain(
-                    children(input, &phase.id, "decision")
+                    context_decisions(input, &phase.id)
                         .into_iter()
-                        .filter(|d| d.fields.get("origin").map(String::as_str) == Some("context"))
                         .map(|d| Row {
                             covered: decisions.contains(d.id.as_str()),
                             source: "CONTEXT.md",
