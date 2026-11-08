@@ -309,3 +309,21 @@ fn a_facts_dangling_reference_is_e003_at_its_stores_brace() {
         (STORE, 1, 1)
     );
 }
+
+#[test]
+fn a_fact_id_two_stores_hold_is_e002_with_rename_advice() {
+    let p = collected();
+    let fact = json!([{"kind": "test", "id": "js:a.test.js#adds"}]);
+    stored(p.root(), "node", KEY, fact.clone());
+    stored(p.root(), "unit", KEY, fact);
+
+    let project = compiled(&p);
+
+    let diagnostics = project.diagnostics();
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(e002.len(), 1, "{diagnostics:?}");
+    assert_eq!(
+        e002[0].suggestion.as_deref(),
+        Some("rename one of the entities to avoid the collision")
+    );
+}
