@@ -13,7 +13,7 @@ use specforge_protocol_types::{
     HostError, NotParsed, SyntaxAnswer, SyntaxFile, SyntaxFiles, SyntaxOutcome, SyntaxRequest,
     SyntaxSource,
 };
-use specforge_source::{Language, Loaded};
+use specforge_source::{Language, Loaded, SyntaxWork};
 
 use super::git::{git_failed, git_path, sha_of};
 use super::{PortSession, failed, out_of_scope};
@@ -47,7 +47,10 @@ impl PortSession {
         };
         let (_, call) = self.lent()?;
         let read = reader.read(&query, &paths, &|path| (loaded)(path));
-        let (files, capped) = self.held(read.files);
+        let (files, kept) = self.held(read.files);
+        let capped = kept < files.len();
+        // The answer counts the files it returns; the call's work is every parse made.
+        let answered: SyntaxWork = read.per_file[..kept].iter().copied().sum();
         let mut not_parsed = Vec::new();
         let mut broken = Vec::new();
         for file in &files {
@@ -66,8 +69,8 @@ impl PortSession {
         Ok(SyntaxAnswer {
             files,
             truncated: walked_short || capped,
-            parsed: count(read.work.parsed),
-            cached: count(read.work.cached),
+            parsed: count(answered.parsed),
+            cached: count(answered.cached),
         })
     }
 
@@ -195,26 +198,27 @@ impl PortSession {
     }
 
     /// `files` held to the call's answer cap: once their encoded size passes it, that file and the later ones are
-    /// `not_parsed(capped)`. Whether any was.
-    fn held(&self, files: Vec<SyntaxFile>) -> (Vec<SyntaxFile>, bool) {
+    /// `not_parsed(capped)`. How many came before it.
+    fn held(&self, files: Vec<SyntaxFile>) -> (Vec<SyntaxFile>, usize) {
         let mut room = self.answer_cap;
-        let mut capped = false;
+        let mut kept = 0;
         let files = files
             .into_iter()
-            .map(|mut file| {
+            .enumerate()
+            .map(|(at, mut file)| {
                 let size = serde_json::to_vec(&file).map_or(u64::MAX, |bytes| bytes.len() as u64);
-                if capped || size > room {
-                    capped = true;
+                if kept < at || size > room {
                     file.outcome = SyntaxOutcome::NotParsed {
                         reason: NotParsed::Capped,
                     };
                 } else {
                     room -= size;
+                    kept += 1;
                 }
                 file
             })
             .collect();
-        (files, capped)
+        (files, kept)
     }
 }
 

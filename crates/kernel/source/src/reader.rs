@@ -50,11 +50,19 @@ impl std::ops::AddAssign for SyntaxWork {
     }
 }
 
-/// A read's answer: one file per path asked, in that order, and the work it took.
+impl std::iter::Sum for SyntaxWork {
+    fn sum<I: Iterator<Item = SyntaxWork>>(works: I) -> SyntaxWork {
+        works.fold(SyntaxWork::default(), std::ops::Add::add)
+    }
+}
+
+/// A read's answer: one file per path asked, in that order, and the work it took, in all and file by file.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Read {
     pub files: Vec<SyntaxFile>,
     pub work: SyntaxWork,
+    /// Each file's share of `work`, in the order of `files`: what a caller that answers only some of them counts.
+    pub per_file: Vec<SyntaxWork>,
 }
 
 /// The host's source reader over one cache, its compiled queries memoised.
@@ -145,15 +153,15 @@ impl SourceReader {
                 .collect()
         });
         answered.sort_by_key(|(at, ..)| *at);
-        let mut work = SyntaxWork::default();
-        let files = answered
+        let (files, per_file): (Vec<SyntaxFile>, Vec<SyntaxWork>) = answered
             .into_iter()
-            .map(|(_, file, done)| {
-                work += done;
-                file
-            })
-            .collect();
-        Read { files, work }
+            .map(|(_, file, work)| (file, work))
+            .unzip();
+        Read {
+            files,
+            work: per_file.iter().copied().sum(),
+            per_file,
+        }
     }
 
     /// One file: loaded, digested, looked up, parsed on a miss and kept (an outcome past the deadline is not).
