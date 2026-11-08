@@ -3,13 +3,12 @@
 **Status:** accepted (2026-11-08, R2 of the Beyond Parity build plan). **Amends**
 [ADR 0331](0331-the-gsd-requirement-thread.md) D1 (the strict code for a truth with no requirement exists: gsd/E519,
 off in gsd-compat), D3 (the executor writes the `Gsd-Task:` trailer, and gsd/E521 says when a task commit lacks it)
-and its consequence "the executor prompt does not write the trailer yet", and
-[ADR 0150](0150-a-relation-is-written-on-one-side.md) D4 (a field that names its reverse is its own relation, D10).
-Builds on
+and its consequence "the executor prompt does not write the trailer yet". Builds on
 [ADR 0284](0284-a-name-is-unique-within-its-scope.md) (a reference resolves in its scope),
 [ADR 0343](0343-a-gsd-block-calls-only-specforge.md) (a gsd block calls only `specforge`) and
-[ADR 0350](0350-a-fields-checks-may-wait-for-its-owner.md) (E016 on a planned path once its owner is complete). No
-protocol change, no new kernel code; `@gsd/core` gains three codes.
+[ADR 0350](0350-a-fields-checks-may-wait-for-its-owner.md) (E016 on a planned path once its owner is complete) and
+[ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md) (W162 leaves out a field that names
+its reverse, the one kernel change). No protocol change; `@gsd/core` gains three codes.
 
 ## Context
 
@@ -76,11 +75,11 @@ protocol change, no new kernel code; `@gsd/core` gains three codes.
   line, so the trailer is the last paragraph git's trailer parser reads). Every rewritten body line is a row of
   `tests/common/thread_rewrites.rs`, and every rewritten block still calls only `specforge`.
 
-- **D10. A field that names its reverse is its own relation** (amends ADR 0150 D4). `decision.plan` (the quick plan
-  whose context recorded a decision) and `plan.decisions` link the two kinds both ways as two relations, and W162's
-  kind-pair rule took them for one. A reference field with an `inverse_of` (a word its target kind does not use, else
-  W162 still fires on the name) pairs with nothing: `plan.decisions` is read back as `implemented_by`. Two kinds
-  linked both ways by fields that name no reverse stay W162.
+- **D10. `plan.decisions` names its reverse.** `decision.plan` (the quick plan whose context recorded a decision) and
+  `plan.decisions` link the two kinds both ways as two relations, which W162's kind-pair rule took for one. The
+  kernel refinement is its own decision, [ADR 0354](0354-a-reference-field-that-names-its-reverse-is-its-own-relation.md)
+  (amending ADR 0150 D4): a reference field with an `inverse_of` pairs with nothing, so `plan.decisions` is read back
+  as `implemented_by` and the two relations load without W162.
 
 ## Rejected
 

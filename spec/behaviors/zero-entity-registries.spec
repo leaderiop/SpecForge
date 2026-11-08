@@ -498,7 +498,7 @@ behavior registry_build_edges "Registry Build Registers Edge Types" {
     each register a reference field targeting the other, MUST produce W162,
     once per such field or kind pair; the fields still register. A field
     that names its reverse (inverse_of) is its own relation and pairs with
-    nothing.
+    nothing (ADR 0354).
   """
   verify unit "edge type registered with label and description"
   verify unit "source/target kind constraints recorded"

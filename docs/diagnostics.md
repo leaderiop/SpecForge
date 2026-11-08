@@ -4124,7 +4124,7 @@ A relation is written from one side (ADR 0150): the other side is derived, so
 `query` and `trace` already show it. Both fields still register, and an entity
 can write either. Remove one field, or drop the `inverse_of` or name a word the
 target kind does not use; two relations between the same kinds are told apart by
-giving one an `inverse_of` (ADR 0351). The builtin extensions declare none.
+giving one an `inverse_of` (ADR 0354). The builtin extensions declare none.
 
 Owner: core
 Level: warning
