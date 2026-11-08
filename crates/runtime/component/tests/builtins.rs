@@ -303,7 +303,7 @@ fn product_declares_the_commands_its_cli_surface_specifies() {
 
 #[specforge_test_macros::test(
     behavior = "link_host_ports",
-    verify = "every instance links the four ports, and a guest that calls none imports none"
+    verify = "every instance links the five ports, and a guest that calls none imports none"
 )]
 fn the_probe_imports_the_ports_it_calls_and_builtins_none() {
     let engine = wasmtime::Engine::default();

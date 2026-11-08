@@ -178,9 +178,95 @@ interface git {
   status: func() -> result<status-answer, host-error>;
 }
 
+/// Source files parsed by the host's reader with the guest's tags query, inside the call's fs grant (git's at a
+/// revision). A file not parsed says why; the answer keeps the order asked.
+interface syntax {
+  use types.{host-error};
+  /// Where the files are read: under a named root, or in a commit of the project's repository.
+  variant read-at {
+    worktree(string),
+    revision(string),
+  }
+  /// The files asked: named, or every file a glob matches.
+  variant file-set {
+    paths(list<string>),
+    glob(string),
+  }
+  /// `language`: `rust`, `typescript` or `tsx`. `query`: one role capture per pattern
+  /// (`definition.<kind>` or `reference.<kind>`); every capture not starting with `_` is answered.
+  record request {
+    source: read-at,
+    files: file-set,
+    language: string,
+    query: string,
+  }
+  /// `byte` from 0; `line`, `col` (characters) and `byte-col` from 1.
+  record point {
+    byte: u32,
+    line: u32,
+    col: u32,
+    byte-col: u32,
+  }
+  record span {
+    start: point,
+    end: point,
+  }
+  enum role {
+    definition,
+    reference,
+  }
+  /// `cut`: the text stopped at the host's capture cap.
+  record capture {
+    name: string,
+    text: string,
+    cut: bool,
+    span: span,
+  }
+  /// `parent`: the index of the innermost match holding this one.
+  record syntax-match {
+    role: role,
+    kind: string,
+    span: span,
+    parent: option<u32>,
+    captures: list<capture>,
+  }
+  /// `errors`: the syntax errors the parse recovered from.
+  record parsed {
+    matches: list<syntax-match>,
+    errors: u32,
+  }
+  enum not-parsed {
+    deadline,
+    too-large,
+    missing,
+    unreadable,
+    denied,
+    capped,
+  }
+  variant outcome {
+    parsed(parsed),
+    not-parsed(not-parsed),
+  }
+  record file {
+    path: string,
+    digest: option<string>,
+    outcome: outcome,
+  }
+  /// `truncated`: a walk or the answer's cap stopped short. `parsed` and `cached`: files parsed now and answered
+  /// from the host's cache.
+  record syntax-answer {
+    files: list<file>,
+    truncated: bool,
+    parsed: u32,
+    cached: u32,
+  }
+  parse: func(req: request) -> result<syntax-answer, host-error>;
+}
+
 world ports {
   import http;
   import fs;
   import process;
   import git;
+  import syntax;
 }

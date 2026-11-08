@@ -4,11 +4,13 @@
 use super::wit::git::{Blob, BlobsAnswer, Repo, StatusAnswer, TreeEntry};
 use super::wit::http::{self, Request, Response};
 use super::wit::process::{self, RunOutput, RunRequest};
-use super::wit::{fs, git, types};
+use super::wit::{fs, git, syntax, types};
 use super::{
     Denial, Failure, FileSize, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob, GitBlobs,
     GitChange, GitEntry, GitEntryKind, GitRepo, GitStatus, GitTreeEntry, HostError, HttpRequest,
-    HttpResponse, ProcessOutput, ProcessRequest,
+    HttpResponse, NotParsed, ProcessOutput, ProcessRequest, SyntaxAnswer, SyntaxCapture,
+    SyntaxFile, SyntaxFiles, SyntaxMatch, SyntaxOutcome, SyntaxPoint, SyntaxRequest, SyntaxRole,
+    SyntaxSource, SyntaxSpan,
 };
 use specforge_protocol_types::{GitBranch, Header};
 
@@ -226,6 +228,104 @@ impl From<StatusAnswer> for GitStatus {
     }
 }
 
+impl From<&SyntaxRequest> for syntax::Request {
+    fn from(request: &SyntaxRequest) -> Self {
+        syntax::Request {
+            source: match &request.source {
+                SyntaxSource::Worktree { root } => syntax::ReadAt::Worktree(root.clone()),
+                SyntaxSource::Revision { commit } => syntax::ReadAt::Revision(commit.clone()),
+            },
+            files: match &request.files {
+                SyntaxFiles::Paths(paths) => syntax::FileSet::Paths(paths.clone()),
+                SyntaxFiles::Glob(glob) => syntax::FileSet::Glob(glob.clone()),
+            },
+            language: request.language.clone(),
+            query: request.query.clone(),
+        }
+    }
+}
+
+impl From<syntax::SyntaxAnswer> for SyntaxAnswer {
+    fn from(answer: syntax::SyntaxAnswer) -> Self {
+        SyntaxAnswer {
+            files: answer.files.into_iter().map(Into::into).collect(),
+            truncated: answer.truncated,
+            parsed: answer.parsed,
+            cached: answer.cached,
+        }
+    }
+}
+
+impl From<syntax::File> for SyntaxFile {
+    fn from(file: syntax::File) -> Self {
+        SyntaxFile {
+            path: file.path,
+            digest: file.digest,
+            outcome: match file.outcome {
+                syntax::Outcome::Parsed(parsed) => SyntaxOutcome::Parsed {
+                    matches: parsed.matches.into_iter().map(Into::into).collect(),
+                    errors: parsed.errors,
+                },
+                syntax::Outcome::NotParsed(reason) => SyntaxOutcome::NotParsed {
+                    reason: reason.into(),
+                },
+            },
+        }
+    }
+}
+
+impl From<syntax::NotParsed> for NotParsed {
+    fn from(reason: syntax::NotParsed) -> Self {
+        match reason {
+            syntax::NotParsed::Deadline => NotParsed::Deadline,
+            syntax::NotParsed::TooLarge => NotParsed::TooLarge,
+            syntax::NotParsed::Missing => NotParsed::Missing,
+            syntax::NotParsed::Unreadable => NotParsed::Unreadable,
+            syntax::NotParsed::Denied => NotParsed::Denied,
+            syntax::NotParsed::Capped => NotParsed::Capped,
+        }
+    }
+}
+
+impl From<syntax::SyntaxMatch> for SyntaxMatch {
+    fn from(found: syntax::SyntaxMatch) -> Self {
+        SyntaxMatch {
+            role: match found.role {
+                syntax::Role::Definition => SyntaxRole::Definition,
+                syntax::Role::Reference => SyntaxRole::Reference,
+            },
+            kind: found.kind,
+            span: found.span.into(),
+            parent: found.parent,
+            captures: found
+                .captures
+                .into_iter()
+                .map(|capture| SyntaxCapture {
+                    name: capture.name,
+                    text: capture.text,
+                    cut: capture.cut,
+                    span: capture.span.into(),
+                })
+                .collect(),
+        }
+    }
+}
+
+impl From<syntax::Span> for SyntaxSpan {
+    fn from(span: syntax::Span) -> Self {
+        let point = |point: syntax::Point| SyntaxPoint {
+            byte: point.byte,
+            line: point.line,
+            col: point.col,
+            byte_col: point.byte_col,
+        };
+        SyntaxSpan {
+            start: point(span.start),
+            end: point(span.end),
+        }
+    }
+}
+
 /// A request as the host reads it back: for the round trip, as the host's conversion does.
 #[cfg(test)]
 pub(super) fn request_back(request: Request) -> HttpRequest {
@@ -285,5 +385,21 @@ pub(super) fn response_of(response: &HttpResponse) -> Response {
         body: response.body.clone(),
         truncated: response.truncated,
         final_url: response.final_url.clone(),
+    }
+}
+
+#[cfg(test)]
+pub(super) fn syntax_request_back(request: syntax::Request) -> SyntaxRequest {
+    SyntaxRequest {
+        source: match request.source {
+            syntax::ReadAt::Worktree(root) => SyntaxSource::Worktree { root },
+            syntax::ReadAt::Revision(commit) => SyntaxSource::Revision { commit },
+        },
+        files: match request.files {
+            syntax::FileSet::Paths(paths) => SyntaxFiles::Paths(paths),
+            syntax::FileSet::Glob(glob) => SyntaxFiles::Glob(glob),
+        },
+        language: request.language,
+        query: request.query,
     }
 }

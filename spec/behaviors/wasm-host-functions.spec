@@ -24,20 +24,20 @@ behavior link_host_ports "Link Host Ports" {
     instance_built "the host is building an instance of a loaded component"
   }
   ensures {
-    four_linked           "every instance links specforge:host/{http,fs,process,git}@0.1.0, whatever its grant"
+    five_linked           "every instance links specforge:host/{http,fs,process,git,syntax}@0.1.0, whatever its grant"
     pure_kind_denied      "a call kind the gate keeps from the port is answered denied(call-kind) and nothing runs"
     never_prompted        "no port call prompts: an approval is settled before the call's first effect"
     imports_what_it_calls "a guest imports only the interfaces it calls, so a guest that calls none imports none"
   }
   contract """
-    Every instance MUST link the four specforge:host ports and their
+    Every instance MUST link the five specforge:host ports and their
     shared types interface. A port call from a call kind the gate
     (ADR 0335 D2.2) keeps from that port MUST be answered denied(call-kind)
     without running. A port call MUST NOT prompt: what a call may do is
     settled before it starts.
   """
   verify unit "a pure call that calls a port is answered denied(call-kind) and no port runs"
-  verify integration "every instance links the four ports, and a guest that calls none imports none"
+  verify integration "every instance links the five ports, and a guest that calls none imports none"
 }
 
 behavior grant_a_host_port_call "Grant a Host Port Call" {
@@ -105,15 +105,18 @@ behavior refuse_an_unbacked_port_import "Refuse an Unbacked Port Import" {
     declaration_read "the extension's declaration was read from its describe"
   }
   ensures {
-    e089_refused "a port the component imports with no capability of that port declared fails the load with E089, every such port listed"
+    e089_refused  "a port the component imports with no capability backing it fails the load with E089, every such port listed"
+    syntax_backed "a syntax import is backed by an fs or a git capability: it reads through their grants"
   }
   contract """
     An extension that imports a specforge:host port (types aside) MUST
-    declare a capability of that port; otherwise it is not loaded (E089).
+    declare a capability of that port (of fs or git for syntax, which reads
+    through their grants); otherwise it is not loaded (E089).
     A capability without an import is legitimate: declared probes use
     capabilities too.
   """
   verify unit "an extension that imports a port no capability backs is not loaded (E089)"
+  verify unit "a syntax import is backed by an fs or a git capability"
   verify integration "the environment load reports E089 naming the extension and the port"
 }
 
@@ -123,7 +126,7 @@ behavior call_host_ports_from_the_sdk "Call Host Ports from the SDK" {
     sdk_linked "an extension is built against the SDK"
   }
   ensures {
-    typed_client   "host::{http,fs,process,git} call the ports in the protocol's types"
+    typed_client   "host::{http,fs,process,git,syntax} call the ports in the protocol's types"
     outside_denied "a port called where no host serves it is answered denied(call-kind)"
     declared       "an extension declares each capability its imports use, with its port, scope, call kinds and reason"
   }

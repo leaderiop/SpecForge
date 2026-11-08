@@ -13,7 +13,7 @@ use super::*;
     verify = "every port request and answer survives the SDK's WIT conversion"
 )]
 fn every_port_request_and_answer_survives_the_wit_conversion() {
-    use bindings::specforge::host::{fs, git, process, types};
+    use bindings::specforge::host::{fs, git, process, syntax, types};
     let request = HttpRequest {
         method: "POST".into(),
         url: "https://example.test/a".into(),
@@ -36,6 +36,132 @@ fn every_port_request_and_answer_survives_the_wit_conversion() {
         inherit: None,
     };
     assert_eq!(convert::run_request_back((&run).into()), run);
+    for (source, files) in [
+        (
+            SyntaxSource::Worktree {
+                root: "project".into(),
+            },
+            SyntaxFiles::Paths(vec!["src/lib.rs".into()]),
+        ),
+        (
+            SyntaxSource::Revision {
+                commit: "a".repeat(40),
+            },
+            SyntaxFiles::Glob("src/**/*.rs".into()),
+        ),
+    ] {
+        let asked = SyntaxRequest {
+            source,
+            files,
+            language: "rust".into(),
+            query: "(identifier) @reference.name".into(),
+        };
+        assert_eq!(convert::syntax_request_back((&asked).into()), asked);
+    }
+    let point = |n: u32| syntax::Point {
+        byte: n,
+        line: n + 1,
+        col: n + 2,
+        byte_col: n + 3,
+    };
+    let our_point = |n: u32| SyntaxPoint {
+        byte: n,
+        line: n + 1,
+        col: n + 2,
+        byte_col: n + 3,
+    };
+    let reasons = [
+        (syntax::NotParsed::Deadline, NotParsed::Deadline),
+        (syntax::NotParsed::TooLarge, NotParsed::TooLarge),
+        (syntax::NotParsed::Missing, NotParsed::Missing),
+        (syntax::NotParsed::Unreadable, NotParsed::Unreadable),
+        (syntax::NotParsed::Denied, NotParsed::Denied),
+        (syntax::NotParsed::Capped, NotParsed::Capped),
+    ];
+    for ((wit_role, role), (wit_reason, reason)) in [
+        (syntax::Role::Definition, SyntaxRole::Definition),
+        (syntax::Role::Reference, SyntaxRole::Reference),
+    ]
+    .into_iter()
+    .cycle()
+    .zip(reasons)
+    {
+        let parsed = syntax::File {
+            path: "a.rs".into(),
+            digest: Some("sha256:00".into()),
+            outcome: syntax::Outcome::Parsed(syntax::Parsed {
+                matches: vec![syntax::SyntaxMatch {
+                    role: wit_role,
+                    kind: "function".into(),
+                    span: syntax::Span {
+                        start: point(1),
+                        end: point(5),
+                    },
+                    parent: Some(0),
+                    captures: vec![syntax::Capture {
+                        name: "name".into(),
+                        text: "f".into(),
+                        cut: true,
+                        span: syntax::Span {
+                            start: point(2),
+                            end: point(3),
+                        },
+                    }],
+                }],
+                errors: 2,
+            }),
+        };
+        let not_parsed = syntax::File {
+            path: "b.rs".into(),
+            digest: None,
+            outcome: syntax::Outcome::NotParsed(wit_reason),
+        };
+        assert_eq!(
+            SyntaxAnswer::from(syntax::SyntaxAnswer {
+                files: vec![parsed, not_parsed],
+                truncated: true,
+                parsed: 1,
+                cached: 3,
+            }),
+            SyntaxAnswer {
+                files: vec![
+                    SyntaxFile {
+                        path: "a.rs".into(),
+                        digest: Some("sha256:00".into()),
+                        outcome: SyntaxOutcome::Parsed {
+                            matches: vec![SyntaxMatch {
+                                role,
+                                kind: "function".into(),
+                                span: SyntaxSpan {
+                                    start: our_point(1),
+                                    end: our_point(5),
+                                },
+                                parent: Some(0),
+                                captures: vec![SyntaxCapture {
+                                    name: "name".into(),
+                                    text: "f".into(),
+                                    cut: true,
+                                    span: SyntaxSpan {
+                                        start: our_point(2),
+                                        end: our_point(3),
+                                    },
+                                }],
+                            }],
+                            errors: 2,
+                        },
+                    },
+                    SyntaxFile {
+                        path: "b.rs".into(),
+                        digest: None,
+                        outcome: SyntaxOutcome::NotParsed { reason },
+                    },
+                ],
+                truncated: true,
+                parsed: 1,
+                cached: 3,
+            }
+        );
+    }
     let response = HttpResponse {
         status: 404,
         headers: vec![("etag".into(), "x".into())],

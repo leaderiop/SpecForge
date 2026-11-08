@@ -3,7 +3,9 @@
 
 use specforge_protocol_types::{
     Denial, EnvVar, FsEntryKind, GitBranch, GitChange, GitEntry, GitEntryKind, GitStatus, Header,
-    HostError as WireError, HttpRequest, ProcessRequest,
+    HostError as WireError, HttpRequest, NotParsed, ProcessRequest, SyntaxAnswer, SyntaxCapture,
+    SyntaxFile, SyntaxFiles, SyntaxMatch, SyntaxOutcome, SyntaxPoint, SyntaxRequest, SyntaxRole,
+    SyntaxSource, SyntaxSpan,
 };
 use wasmtime::component::{HasSelf, Linker};
 
@@ -15,9 +17,9 @@ wasmtime::component::bindgen!({
 });
 
 use specforge::host::types::{self, HostError};
-use specforge::host::{fs, git, http, process};
+use specforge::host::{fs, git, http, process, syntax};
 
-/// Link the four ports (and their shared types): every instance has them, whatever its grant.
+/// Link the five ports (and their shared types): every instance has them, whatever its grant.
 pub(crate) fn link(linker: &mut Linker<HostState>) -> wasmtime::Result<()> {
     Ports::add_to_linker::<_, HasSelf<_>>(linker, |state| state)
 }
@@ -286,5 +288,91 @@ impl git::Host for HostState {
             .timed(|session| session.git_status())
             .map(status)
             .map_err(error)
+    }
+}
+
+impl syntax::Host for HostState {
+    fn parse(&mut self, req: syntax::Request) -> Result<syntax::SyntaxAnswer, HostError> {
+        let request = SyntaxRequest {
+            source: match req.source {
+                syntax::ReadAt::Worktree(root) => SyntaxSource::Worktree { root },
+                syntax::ReadAt::Revision(commit) => SyntaxSource::Revision { commit },
+            },
+            files: match req.files {
+                syntax::FileSet::Paths(paths) => SyntaxFiles::Paths(paths),
+                syntax::FileSet::Glob(glob) => SyntaxFiles::Glob(glob),
+            },
+            language: req.language,
+            query: req.query,
+        };
+        self.ports
+            .timed(|session| session.syntax_parse(request))
+            .map(syntax_answer)
+            .map_err(error)
+    }
+}
+
+fn syntax_answer(answer: SyntaxAnswer) -> syntax::SyntaxAnswer {
+    syntax::SyntaxAnswer {
+        files: answer.files.into_iter().map(syntax_file).collect(),
+        truncated: answer.truncated,
+        parsed: answer.parsed,
+        cached: answer.cached,
+    }
+}
+
+fn syntax_file(file: SyntaxFile) -> syntax::File {
+    syntax::File {
+        path: file.path,
+        digest: file.digest,
+        outcome: match file.outcome {
+            SyntaxOutcome::Parsed { matches, errors } => syntax::Outcome::Parsed(syntax::Parsed {
+                matches: matches.into_iter().map(syntax_match).collect(),
+                errors,
+            }),
+            SyntaxOutcome::NotParsed { reason } => syntax::Outcome::NotParsed(match reason {
+                NotParsed::Deadline => syntax::NotParsed::Deadline,
+                NotParsed::TooLarge => syntax::NotParsed::TooLarge,
+                NotParsed::Missing => syntax::NotParsed::Missing,
+                NotParsed::Unreadable => syntax::NotParsed::Unreadable,
+                NotParsed::Denied => syntax::NotParsed::Denied,
+                NotParsed::Capped => syntax::NotParsed::Capped,
+            }),
+        },
+    }
+}
+
+fn syntax_match(found: SyntaxMatch) -> syntax::SyntaxMatch {
+    syntax::SyntaxMatch {
+        role: match found.role {
+            SyntaxRole::Definition => syntax::Role::Definition,
+            SyntaxRole::Reference => syntax::Role::Reference,
+        },
+        kind: found.kind,
+        span: span(found.span),
+        parent: found.parent,
+        captures: found
+            .captures
+            .into_iter()
+            .map(|capture: SyntaxCapture| syntax::Capture {
+                name: capture.name,
+                text: capture.text,
+                cut: capture.cut,
+                span: span(capture.span),
+            })
+            .collect(),
+    }
+}
+
+fn span(span: SyntaxSpan) -> syntax::Span {
+    let point = |point: SyntaxPoint| syntax::Point {
+        byte: point.byte,
+        line: point.line,
+        col: point.col,
+        byte_col: point.byte_col,
+    };
+    syntax::Span {
+        start: point(span.start),
+        end: point(span.end),
     }
 }

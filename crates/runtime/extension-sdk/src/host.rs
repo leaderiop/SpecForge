@@ -183,5 +183,21 @@ pub mod git {
     }
 }
 
+/// The syntax port: source files parsed by the host's reader with the extension's query, inside its fs grant (git's
+/// at a revision). An fs or a git capability backs it.
+pub mod syntax {
+    use super::*;
+
+    /// The files asked, each parsed (its matches and syntax errors) or not parsed with the reason, in the order asked.
+    pub fn parse(request: &SyntaxRequest) -> Result<SyntaxAnswer, HostError> {
+        if !IN_COMPONENT {
+            return in_process::with(|host| host.syntax_parse(request));
+        }
+        wit::syntax::parse(&request.into())
+            .map(Into::into)
+            .map_err(Into::into)
+    }
+}
+
 #[cfg(test)]
 mod tests;

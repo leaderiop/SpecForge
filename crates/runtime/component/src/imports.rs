@@ -11,6 +11,7 @@ pub(crate) const HOST_PORTS: &[&str] = &[
     "specforge:host/fs@0.1.0",
     "specforge:host/process@0.1.0",
     "specforge:host/git@0.1.0",
+    "specforge:host/syntax@0.1.0",
 ];
 
 /// Refuses a component by its import names: a foreign import first (no specforge loads it), then a
@@ -48,6 +49,7 @@ mod tests {
             "wasi:io/poll@0.2.6",
             "specforge:host/types@0.1.0",
             "specforge:host/http@0.1.0",
+            "specforge:host/syntax@0.1.0",
         ];
         assert_eq!(admit(names.into_iter()), Ok(()));
         assert_eq!(
