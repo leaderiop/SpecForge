@@ -545,6 +545,7 @@ behavior inspect_entity_facts "Inspect an Entity's Facts" {
     closest entity.
   """
   verify unit "an entity lists each checked value's outcome"
+  verify unit "an entity lists a value waiting for its owner as planned, with no outcome"
   verify unit "an entity's coverage is its coverage row's verdict, obligation by obligation"
   verify unit "an entity's coverage status is its coverage row's: whether it counts, then how it is proven"
   verify unit "the diagnostics about an entity are its own, not those of an entity whose id contains it"

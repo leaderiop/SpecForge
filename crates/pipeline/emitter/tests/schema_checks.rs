@@ -3,7 +3,8 @@
 use serde_json::json;
 use specforge_emitter::generate_schema;
 use specforge_protocol_types::{
-    CheckRef, CheckerDescriptor, EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor,
+    CheckRef, CheckerDescriptor, CompleteWhen, EntityKindDescriptor, ExtensionDeclaration,
+    FieldDescriptor,
 };
 use specforge_registry::build_registries;
 use specforge_test::prelude::*;
@@ -85,5 +86,57 @@ fn a_checked_field_lists_its_checks() {
             .unwrap()
             .contains("checks"),
         "an unchecked field's schema is as it was"
+    );
+}
+
+#[specforge_test(
+    behavior = "generate_schema_from_registries",
+    verify = "a gated field names the owner state its checks run in, and an ungated one none"
+)]
+fn a_gated_field_names_its_owner_state() {
+    let gated = |name: &str, word: &str| FieldDescriptor {
+        checks_while: Some(word.into()),
+        ..plain(name, vec![CheckRef::named("file")])
+    };
+    let mut declaration = ExtensionDeclaration::default();
+    declaration.handshake.name = EXT.to_string();
+    declaration.handshake.version = "1.0.0".to_string();
+    declaration.checkers = vec![checker("file", &[])];
+    declaration.entities = vec![EntityKindDescriptor {
+        name: "plan".into(),
+        complete_when: Some(CompleteWhen {
+            field: "state".into(),
+            values: vec!["done".into()],
+        }),
+        fields: vec![
+            FieldDescriptor {
+                name: "state".into(),
+                field_type: "enum".into(),
+                enum_values: vec!["open".into(), "done".into()],
+                ..Default::default()
+            },
+            gated("files", "complete"),
+            gated("gone", "pending"),
+            plain("refs", vec![CheckRef::named("file")]),
+        ],
+        ..Default::default()
+    }];
+    let schema = generate_schema(&build_registries(vec![declaration]));
+    let gate = |name: &str| {
+        schema.entity_kinds[0]
+            .fields
+            .iter()
+            .find(|f| f.name == name)
+            .unwrap()
+            .checks_while
+            .clone()
+    };
+    assert_eq!(gate("files").as_deref(), Some("complete"));
+    assert_eq!(gate("gone").as_deref(), Some("pending"));
+    assert_eq!(gate("refs"), None);
+    let written = serde_json::to_value(&schema.entity_kinds[0].fields).unwrap();
+    assert!(
+        written.to_string().matches("checks_while").count() == 2,
+        "{written}"
     );
 }

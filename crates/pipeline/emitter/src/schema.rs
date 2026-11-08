@@ -140,6 +140,10 @@ pub struct SchemaField {
     /// The checks its values pass (ADR 0336), each resolved to `<extension>:<checker>`, declared ones first.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub checks: Vec<SchemaCheck>,
+    /// When its checks run, by its holder's owner state (ADR 0350): `complete`, once the owner is complete; `pending`,
+    /// only while it is pending; absent, on every value. The gate the registry kept.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checks_while: Option<String>,
     /// Who writes the field besides its author, `computed` or `harness` (ADR 0287).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub writer: Option<String>,
@@ -200,6 +204,7 @@ impl Default for SchemaField {
             minimum: None,
             maximum: None,
             checks: Vec::new(),
+            checks_while: None,
             writer: None,
             immutable: false,
             append_only: false,
@@ -231,24 +236,25 @@ impl SchemaField {
         form
     }
 
-    /// The schema's field for a registered one of `kind`: everything its declaration says, and the checks the
-    /// registry resolved for it.
+    /// The schema's field for a registered one of `kind`: everything its declaration says, and the checks and the
+    /// owner gate the registry resolved for it.
     fn of(entry: &FieldRegistryEntry, kind: &str, checks: &CheckRegistry) -> Self {
         let declared = entry.declared();
         Self::described(
             declared,
             entry.source_extension(),
-            &declared.name,
-            &|path: &str| checks.on(kind, path).iter().map(SchemaCheck::of).collect(),
+            (kind, &declared.name),
+            checks,
         )
     }
 
-    /// The schema's field for a declared field or member at `path` (`declared` is read: its type is canonical).
+    /// The schema's field for a declared field or member at `path` of `kind` (`declared` is read: its type is
+    /// canonical), with the checks and the owner gate `checks` keeps for that path.
     fn described(
         declared: &FieldDescriptor,
         source_extension: &str,
-        path: &str,
-        checks_on: &dyn Fn(&str) -> Vec<SchemaCheck>,
+        (kind, path): (&str, &str),
+        checks: &CheckRegistry,
     ) -> Self {
         let field_type = FieldType::parse(&declared.field_type).unwrap_or(FieldType::String);
         SchemaField {
@@ -267,13 +273,16 @@ impl SchemaField {
                 .iter()
                 .map(|member| {
                     let path = format!("{path}.{}", member.name);
-                    Self::described(member, source_extension, &path, checks_on)
+                    Self::described(member, source_extension, (kind, &path), checks)
                 })
                 .collect(),
             target_kinds: declared.target_kinds.clone(),
             minimum: declared.minimum,
             maximum: declared.maximum,
-            checks: checks_on(path),
+            checks: checks.on(kind, path).iter().map(SchemaCheck::of).collect(),
+            checks_while: checks
+                .gate(kind, path)
+                .map(|gate| gate.as_str().to_string()),
             writer: declared.writer.clone(),
             immutable: declared.immutable,
             append_only: declared.append_only,
