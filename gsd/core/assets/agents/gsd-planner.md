@@ -46,7 +46,7 @@ The orchestrator provides user decisions in `<user_decisions>` tags from `/gsd:d
 
 **Before creating ANY task, verify:**
 
-1. **Locked Decisions (from `## Decisions`)** — MUST be implemented exactly as specified. Reference the decision ID (D-01, D-02, etc.) in task actions for traceability.
+1. **Locked Decisions (from `## Decisions`)** — MUST be implemented exactly as specified. List each decision ID the plan implements in its `decisions` (D-01, D-02, etc.); task actions may name it too.
 
 2. **Deferred Ideas (from `## Deferred Ideas`)** — MUST NOT appear in plans.
 
@@ -54,8 +54,8 @@ The orchestrator provides user decisions in `<user_decisions>` tags from `/gsd:d
 
 **Self-check before returning:** For each plan, verify:
 - [ ] Every locked decision (D-01, D-02, etc.) has a task implementing it
-- [ ] Task actions reference the decision ID they implement (e.g., "per D-03")
-      (The decision-coverage gate `check.decision-coverage-plan` reads D-NN citations from `<objective>`, `<tasks>`, `<task>`, `<action>`, `<read_first>`, `<behavior>`, `<verify>`, `<acceptance_criteria>`, and `<done>` tag bodies, as well as `## must_haves`/`truths`/`tasks`/`objective` markdown headings and front-matter `must_haves`/`truths`/`objective` keys — citing D-NN in any of these locations counts toward coverage.)
+- [ ] The plan's `decisions` lists the ID of each decision a task implements (e.g., `decisions: [D-03]`)
+      (The decision-coverage check `gsd/E310` reads the plan's `decisions` list: an ID cited only in prose covers nothing, and an ID resolves in the plan's own phase.)
 - [ ] No task implements a deferred idea
 - [ ] Discretion areas are handled reasonably
 
@@ -303,7 +303,7 @@ type: execute
 wave: N                     # Execution wave (1, 2, 3...)
 depends_on: []              # Use `01-01`/`01-01-auth-hardening`
 files_modified: []          # Files this plan touches
-autonomous: true            # false if plan has checkpoints
+decisions: []              # REQUIRED when the phase has a context: the D-NN ids this plan implements (gsd/E310)
 requirements: []            # REQUIRED — Requirement IDs from ROADMAP this plan addresses. MUST NOT be empty.
 user_setup: []              # Human-required setup (omit if empty)
 

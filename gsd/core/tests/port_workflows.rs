@@ -43,6 +43,9 @@ mod wait_rewrites;
 #[path = "common/prose_rewrites.rs"]
 mod prose_rewrites;
 
+#[path = "common/thread_rewrites.rs"]
+mod thread_rewrites;
+
 #[path = "common/workflow_rewrites.rs"]
 mod workflow_rewrites;
 use workflow_rewrites::{REWRITTEN, REWRITTEN_SPANS};
@@ -133,7 +136,8 @@ fn workflow_assets_diff_only_in_ported_passages() {
                             .chain(files_rewrites::SPANS)
                             .chain(answer_rewrites::SPANS)
                             .chain(wait_rewrites::SPANS)
-                            .chain(prose_rewrites::SPANS),
+                            .chain(prose_rewrites::SPANS)
+                            .chain(thread_rewrites::SPANS),
                         &path,
                         n,
                     )

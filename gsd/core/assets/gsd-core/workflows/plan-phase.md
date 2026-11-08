@@ -1400,7 +1400,7 @@ to step 13b.
 
 **If `passed` is false:** Display the handler's `message` block. It already
 names each uncovered decision (`D-NN | category | text`) and tells the user
-what to do — cite the id in a relevant plan's `must_haves` / `truths`, or
+what to do — list the id in a relevant plan's `decisions`, or
 move the decision under `### Claude's Discretion` / tag it `[informational]`
 if it should not be tracked. Then offer:
 

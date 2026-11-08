@@ -10,6 +10,8 @@ use regex::Regex;
 mod agent_rewrites;
 #[path = "common/port.rs"]
 mod rule;
+#[path = "common/thread_rewrites.rs"]
+mod thread_rewrites;
 use rule::check_lines;
 
 #[path = "common/pending.rs"]
@@ -56,6 +58,7 @@ fn check_body(file: &str) -> usize {
         &|n| {
             agent_rewrites::REWRITTEN.contains(&(file, n))
                 || agent_rewrites::ROWS.contains(&(file, n))
+                || rule::in_spans(thread_rewrites::SPANS, &format!("agents/{file}"), n)
         },
     )
 }
