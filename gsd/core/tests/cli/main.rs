@@ -79,6 +79,7 @@ mod parity_thread;
 mod parity_verify;
 mod plan;
 mod plan_rules;
+mod planned_paths;
 mod progress;
 mod prompts_audit;
 mod prompts_autonomous;
