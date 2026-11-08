@@ -298,8 +298,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   path outside its root.
 - **Input (of a call)**: one thing a call declares the host serves it before the call, one variant of
   `inputs: Vec<Input>` on a pass, command, prompt, hook or collector: `files` (a `FileRead`), `tests`, `state`,
-  `graph`, `slash_commands`, `git { status, when }` (its status a typed `GitStatus`), `setting { extension, name }` or
-  `check_outcomes` (a collector's).
+  `graph`, `slash_commands`, `git { status, when }` (its status a typed `GitStatus`), `setting { extension, name }`,
+  `check_outcomes` or `facts { kinds }` (a collector's).
   One table says what each call kind is served; an input it is not served is W021 and is served empty (ADR 0337 D2).
 - **Effect record**: one performed effect as the journal keeps it (`specforge_effects::EffectRecord`, ADR 0335 D3,
   ADR 0337 D3): what may be shown of the request (never a secret) and its digest, the outcome's class and digest,
@@ -355,6 +355,16 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Port session**: what one call may do through the ports, made from its kind, what its caller lent and its limits. It
   decides each request before any effect, sets what only the host may set, holds an answer to a quarter of the guest's
   memory and spends the call's port budget (`specforge_wasm::PortSession`, ADR 0335 D4).
+- **Source reader**: the host's one parser of source code (`specforge_source::SourceReader`, ADR 0344): tree-sitter
+  with the Rust, TypeScript and TSX grammars compiled in, a query compiled once per reader, each file held to a deadline
+  (5 s), its answer cached under `.specforge/cache/syntax/` by grammar, query and file digest. One per collect, lent to
+  every collector's **Port session**.
+- **Syntax import**: the `specforge:host/syntax` port: source files a guest names parsed by the **Source reader** with
+  the guest's query, inside its fs grant (git's at a revision); an `fs` or `git` capability backs it (ADR 0345 D1).
+  What it could not parse is W196, what it parsed with syntax errors I211, each once per call.
+- **Capture convention**: the shape a syntax query must have: exactly one role capture per pattern,
+  `@definition.<kind>` or `@reference.<kind>`, never optional or repeated; every other capture not starting with `_` is
+  answered, on named and anonymous nodes; only text predicates (ADR 0344 D1).
 - **Approval**: this machine's consent to a capability (per project, extension, **Provenance** and scope name; it
   covers any narrower grant) or to a named root outside the project (per project and canonical target). File and git
   reads inside the project need none; http, process and writes do. Settled before a run's first effect, asked only
@@ -1759,6 +1769,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   takes the host's `--dry-run` and is a mutation on MCP (ADR 0289).
 - **Fact**: an entity a collector writes, of a kind that declares `writer: "collector"`. It is never typed or edited,
   and is served read-only from the fact store (ADR 0327).
+- **Reading collector**: a collector with no command (`capability`), no `report` and no `check_outcomes` input: it reads
+  through its ports, is called under a run and a no-run alike with no report, and needs no approval (ADR 0345 D2).
+- **Answers**: the collected kinds a collector lists as those whose facts it answers (`CollectorDescriptor.answers`): a
+  fact of another kind is E116, and they order the collect before a **Facts input** naming one (ADR 0345 D3).
+- **Facts input**: a collector's `facts { kinds }` input: it runs after the collectors whose **Answers** hold one of the
+  kinds and receives their admitted facts in `CollectInput.facts`; a kind no collector that ran answers is served from
+  the recorded fact stores. A cycle of such collectors is E119 (ADR 0345 D3).
 - **Collector-written kind**: a kind whose `writer` is `collector`; it declares its `schemes`.
 - **Fact store**: `.specforge/facts/<key>/<collector>.json`, git-ignored, one file per collector and key, recorded by a
   `<collector> facts:<key> <digest>` line of the harness ledger.

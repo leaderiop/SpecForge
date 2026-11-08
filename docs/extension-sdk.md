@@ -26,7 +26,7 @@ The SDK provides:
 - **Builders** that declare every contribution with the handler that answers it
 - **`component_guest!`**, which serves the declaration as a wasip2 component
 - **`testing`** -- a runtime-free mock host
-- **`host`** -- the four `specforge:host` ports a command, an MCP tool or resource and a collector may call (see [Capabilities and host ports](#capabilities-and-host-ports))
+- **`host`** -- the five `specforge:host` ports a command, an MCP tool or resource and a collector may call (see [Capabilities and host ports](#capabilities-and-host-ports))
 
 There are no hand-written JSON manifests and no export registration: the declaration the builder builds is what the
 host loads and what `specforge publish` uploads (ADR 0012).
@@ -587,6 +587,31 @@ let mut output = CollectOutput { entity_results: vec![], ..Default::default() };
 output.facts.push(Fact::new("test", "js:pkg/a.test.js#adds").title("adds").field("file", "pkg/a.test.js"));
 ```
 
+`k.answers(&["package"])` lists the collected kinds whose facts it answers (ADR 0345 D3): a fact of a kind it does not
+list is refused (E116). `k.input(Input::facts(&["package"]))` asks for facts: the collector runs after the collectors
+that answer those kinds, and `CollectInput::facts` holds what they answered, admitted and sorted by kind and id; a kind
+no collector of the collect answers is served from the recorded stores. A cycle of such collectors is E119.
+
+A collector with neither `.run(..)` (or `.capability(..)`) nor `.report(..)` reads through its ports (ADR 0345 D2):
+`specforge collect` calls it under a run and a no-run alike, with no report and no approval, and it reads what it needs
+with `host::fs`, `host::git` or `host::syntax`, its extension declaring the capability that grants it:
+
+```rust
+c.capability(
+    Capability::fs("source")
+        .roots(&["project"])
+        .ops(&[FsAccess::Read, FsAccess::Walk])
+        .call_kinds(&[Operation::Collect])
+        .why("parse the project's source"),
+);
+c.collector("rust-items", |k| {
+    k.answers(&["item"]).collect(|_| {
+        let parsed = host::syntax::parse(&request).map_err(|e| format!("{e:?}"))?;
+        Ok(items(&parsed))
+    });
+});
+```
+
 `k.input(Input::CheckOutcomes)` makes it a reader of the checks' outcomes (ADR 0336), its evidence
 `CollectInput::check_outcomes`: it needs no command and no report, is never detected, and runs when `--runner` names it or
 under `checks.publish`.
@@ -775,7 +800,7 @@ against the loaded kinds, when the extension loads.
 ## Capabilities and host ports
 
 A guest has no capability of its own: no file, socket, environment or clock beyond WASI's empty ones. It reaches an
-effect only through the four `specforge:host` ports, and a call is answered from what the host decided before it
+effect only through the five `specforge:host` ports, and a call is answered from what the host decided before it
 started, so nothing ever prompts mid-call.
 
 **Declare** what the extension uses. A capability names one port and its scope, and says why, in words a person
@@ -805,6 +830,12 @@ load (E089):
 let response = host::http::send(&HttpRequest { method: "HEAD".into(), url, ..Default::default() })?;
 let report = host::fs::read("project", "target/report.json", 0)?;
 let branch = host::git::branch()?;
+let parsed = host::syntax::parse(&SyntaxRequest {
+    source: SyntaxSource::Worktree { root: "project".into() },
+    files: SyntaxFiles::Glob("src/**/*.rs".into()),
+    language: "rust".into(),
+    query: "(function_item name: (identifier) @name) @definition.function".into(),
+})?;
 ```
 
 | Port | Functions | Call kinds that may use it |
@@ -813,6 +844,18 @@ let branch = host::git::branch()?;
 | `host::fs` | `stat`, `read`, `walk` | command, MCP tool and resource, collector |
 | `host::git` | `locate`, `commit`, `merge_base`, `tree`, `sizes`, `blobs`, `branch`, `status` | command, MCP tool and resource, collector |
 | `host::process` | `run` | collector |
+| `host::syntax` | `parse` | command, MCP tool and resource, collector |
+
+`host::syntax::parse` reads source with the host's tree-sitter reader (ADR 0344): `rust`, `typescript` or `tsx`, under
+a named root (`SyntaxSource::Worktree`) or at a commit (`SyntaxSource::Revision`), named paths or a glob. The query
+follows the tags convention: one role capture per pattern, `@definition.<kind>` or `@reference.<kind>`; every other
+capture not starting with `_` is answered (`SyntaxMatch::captures`), on anonymous nodes too; text predicates are
+evaluated and general ones refused. Each `SyntaxFile` is `Parsed { matches, errors }` or `NotParsed { reason }`
+(`deadline`, `too_large`, `missing`, `unreadable`, `denied`, `capped`), in the order asked; a match's `parent` is the
+index of the innermost match holding it, and a `SyntaxPoint` is `byte` (from 0), `line`, `col` and `byte_col` (from 1).
+An answer marked `truncated` hit the answer cap: ask the rest again. An `fs` capability backs the import (a `git` one
+at a revision); the host caches each file's answer by grammar, query and digest, so a second parse of unchanged files
+costs nothing.
 
 Every other call kind (a pass, a validator, a hook) is answered `Denial::CallKind` and nothing runs. Those kinds get
 what they need as the call's input.

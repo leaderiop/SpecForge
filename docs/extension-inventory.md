@@ -269,7 +269,7 @@ obligations the spec does not declare (A016). `--min` gates CI on proof coverage
 Each test runner has its own extension that declares one collector: the files that select it, the command
 `specforge collect` runs (after you approve it, or with `--yes`), where the report lands, and a pure mapping from the
 report. `@specforge/cargo-test` and `@specforge/vitest` require `@specforge/testing` and map the report to entities;
-`@javascript/node-test` requires `@code/core` and maps it to test facts.
+`@javascript/node-test` requires `@code/core` and maps it to test facts: its collector answers `test` and `test_run`.
 
 | Extension | Detected by | How a test names its entity |
 |-----------|-------------|-----------------------------|
@@ -371,8 +371,9 @@ It declares one collector-written kind and the collector that writes it:
 |------|---------------|--------|
 | `check_outcome` | `check:<entity>/<field>#<item>@<checker>` | `entity`, `field`, `item`, `checker`, `status` (`passed`, `failed`, `skipped`; the kind's `result`), `outcome` (`ok`, `status:404`, `unreachable:dns`, …), `codes`, `observed_at` (RFC 3339) |
 
-The `checks` collector reads only the `check_outcomes` input and declares no detection, command or report: it runs
-when named (`specforge collect --runner checks`) or, on a plain collect, under `checks.publish`.
+The `checks` collector reads only the `check_outcomes` input, answers `check_outcome` facts, and declares no detection,
+command or report: it runs when named (`specforge collect --runner checks`) or, on a plain collect, under
+`checks.publish`.
 
 ## Related
 
