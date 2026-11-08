@@ -6,7 +6,7 @@ use std::sync::Arc;
 use serde_json::{Value, json};
 use specforge_effects::git::{Git, Located};
 use specforge_git::Gix;
-use specforge_project::baseline::Baseline;
+use specforge_project::baseline::{Baseline, Checking};
 use specforge_project::testing::{LIB_RS, gsd_facts_project, gsd_facts_serving, pass_input};
 use specforge_test_macros::test as specforge_test;
 
@@ -37,7 +37,7 @@ fn the_baseline_reads_a_source_file_through_git() {
         panic!("a repository")
     };
     let head = git.commit(&place, "HEAD").unwrap().expect("a commit");
-    Baseline::at(&env, &git, &place, &head).expect("a baseline");
+    Baseline::at(&env, &git, &place, &head, &Checking::of(&env)).expect("a baseline");
     let input = pass_input(&runtime, "scan");
     let lib = &facts(&input, "modified")[1];
     assert_eq!(lib["path"], "src/lib.rs");

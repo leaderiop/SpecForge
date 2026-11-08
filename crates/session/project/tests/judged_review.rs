@@ -1,6 +1,7 @@
 //! Judged rules, the review of K7 (ADR 0290): stale verdicts that counted, and reads outside the project.
 
 use serde_json::json;
+use specforge_project::baseline::Checking;
 use specforge_project::judged::Cited;
 use specforge_project::testing::{TestProject, gsd_judged_project};
 use specforge_registry::PlainDisk;
@@ -248,7 +249,8 @@ fn a_failed_blob_read_poisons_no_baseline() {
         panic!("a repository")
     };
     let env = compiled.environment();
-    let why = Baseline::at(env, &fake, &place, &id).expect_err("an unreadable baseline");
+    let why = Baseline::at(env, &fake, &place, &id, &Checking::of(env))
+        .expect_err("an unreadable baseline");
     assert!(why.contains("git went away"), "{why}");
     let cached = std::fs::read_dir(project.root().join(".specforge"))
         .map(|dir| {
@@ -266,7 +268,7 @@ fn a_failed_blob_read_poisons_no_baseline() {
             b"export const session = 1;\n".to_vec(),
         ),
     ];
-    let baseline = Baseline::at(env, &fake, &place, &id).expect("a baseline");
+    let baseline = Baseline::at(env, &fake, &place, &id, &Checking::of(env)).expect("a baseline");
     assert!(
         baseline.entities[PLAN]
             .judgements

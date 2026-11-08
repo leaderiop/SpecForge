@@ -81,7 +81,7 @@ impl Book {
 
 /// The cache of one project, shared by its later states.
 #[derive(Debug, Default)]
-pub(crate) struct CheckCache {
+pub struct CheckCache {
     books: Mutex<BTreeMap<String, Book>>,
 }
 

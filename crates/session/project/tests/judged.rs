@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use specforge_project::baseline::{Checking, CommitReads};
 use specforge_project::testing::GSD_JUDGED_SPEC;
 use specforge_project::{SharedRuntime, UpdateKind, Watched};
 use specforge_test::prelude::*;
@@ -645,8 +646,11 @@ fn re_verification_reads_the_baselines_judgements() {
             Path::new(""),
             files,
             Vec::new(),
-            &|_: &[String]| Vec::new(),
-            &fetch,
+            CommitReads {
+                sizes: &|_: &[String]| Vec::new(),
+                fetch: &fetch,
+            },
+            &Checking::of(compiled.environment()),
         )
     };
     // The files as they were: the verdict holds at that commit.

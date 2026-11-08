@@ -28,7 +28,7 @@ use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Limits};
 use crate::Environment;
 pub(crate) use budget::Spent;
 pub use budget::ValueBudget;
-pub(crate) use cache::CheckCache;
+pub use cache::CheckCache;
 use collect::Value;
 pub(crate) use dispatch::approvals;
 pub use rows::{ValueChecks, ValueRow};

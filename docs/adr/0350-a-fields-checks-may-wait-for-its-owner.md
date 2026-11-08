@@ -4,7 +4,8 @@
 [ADR 0336](0336-a-field-declares-the-checks-its-values-pass.md) D4 (the values phase comes first for ungated values
 only; gated values are checked after the compute passes) and D5 (a gated value is no judged input), and
 [ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) D4 (the values phase reads owner state too, on the
-merged snapshot). Protocol 2.0.0, unreleased: its additions go into the 2.0.0 row, no bump.
+merged snapshot), and [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md) D7 (the baseline runs
+the ungated checks at the commit, D9). Protocol 2.0.0, unreleased: its additions go into the 2.0.0 row, no bump.
 
 ## Context
 
@@ -93,6 +94,19 @@ today, and a future one inherits it.
 its plan's subtree equals or covers it. The comma and white-space split of `task.files` and the hand-made list of
 fields go: the set is derived from the declaration, so no second list can drift.
 
+## D9. The baseline runs the ungated checks at the commit
+
+A verdict's digest at the baseline (ADR 0290 D7) reads the commit's checked values as it reads them now, so an
+unchanged tree judges alike at both ends:
+
+- the baseline runs stage 1 at the commit, before its judged rules, over the commit's files: its tree says what exists
+  (fetched whenever the project has a check), and the bytes a probe reads are fetched from it on demand, through the
+  one reader the baseline's compute passes use (ADR 0300);
+- only the compile's effect journal answers a probe there (`cached`): nothing is performed at the commit, and a value
+  with no fresh record is `unknown`, unjudged as it is now; the compile's checker cache answers what it already knows;
+- stage 2 does not run at the commit: a gated value is no judged input (D4);
+- the baseline cache's environment digest covers the checks `specforge.json` attaches, and its format is 4.
+
 ## Rejected
 
 - **A gate on the entity** (a per-entity flag): the meaning belongs to the field, which the registry can validate and
@@ -102,6 +116,9 @@ fields go: the set is derived from the declaration, so no second list can drift.
 - **A constant `planned` digest tag**: it changes every gated entity's digest once, for nothing, and is the same
   constant as leaving the value out afterwards.
 - **Computing owner state before the phase**: compute reads judged values, which read stage-1 outcomes.
+- **Judging the baseline with no checked values**: every verdict over a checked entity digests differently at the
+  commit, so an unchanged tree reports every truth stale there and no regression is ever seen.
+- **Giving the baseline today's checked values**: a file deleted since the commit would be judged missing at the commit.
 
 ## Consequences
 

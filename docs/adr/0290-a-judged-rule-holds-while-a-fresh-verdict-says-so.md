@@ -5,6 +5,7 @@
 Takes extension protocol 1.9.0. Extended by [ADR 0297](0297-a-judged-rules-finding-is-not-an-error-a-write-adds.md) (a judged rule's finding is not an error a write adds) and by [ADR 0299](0299-the-graph-a-call-receives-carries-what-every-surface-shows.md) (a call's graph lists the judgements). Extended by [ADR 0304](0304-a-judged-input-reads-a-path-field-goes-on-past-a-reference-and-a-pass-sees-the-tests-a-verdict-cites.md) (a judged input reads a path field and goes on past a reference).
 Amended by [ADR 0331](0331-the-gsd-requirement-thread.md) (D3: a `test(..)` input takes several chains and reads a fact's own result; nothing linked is the value `none`; a chain to unloaded kinds only is inert, not W112).
 Amended by [ADR 0337](0337-the-ports-protocol-is-2-0-0-inputs-are-one-list-and-effects-are-journaled.md) (a verdict digests each checked value's outcome class; an unknown one is I207).
+Amended by [ADR 0350](0350-a-fields-checks-may-wait-for-its-owner.md) (D9: the baseline runs the ungated checks at the commit, over its files, for D7).
 
 ## Context
 

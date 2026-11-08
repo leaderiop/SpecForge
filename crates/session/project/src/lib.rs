@@ -511,7 +511,7 @@ impl Environment {
             None,
             entities,
             disk,
-            &baseline::Baseline::of_head(self),
+            &baseline::Baseline::of_head(self, &baseline::Checking::of(self)),
             &judged::DigestMemo::default(),
             &CheckedValues::default(),
         )

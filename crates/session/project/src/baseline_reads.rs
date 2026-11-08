@@ -23,17 +23,18 @@ use crate::judged::Evaluated;
 pub(crate) type Tree = BTreeMap<String, bool>;
 
 /// The sizes of the files at the commit, in the order asked: `None` for one git cannot give.
-pub(crate) type Sizes<'a> = &'a dyn Fn(&[String]) -> Vec<(String, Option<u64>)>;
+pub type Sizes<'a> = &'a dyn Fn(&[String]) -> Vec<(String, Option<u64>)>;
 
 /// What the commit is asked for besides its tree: the sizes of files and their bytes.
 #[derive(Clone, Copy)]
-pub(crate) struct Git<'a> {
+pub struct CommitReads<'a> {
     pub sizes: Sizes<'a>,
     pub fetch: Fetch<'a>,
 }
 
 /// The commit's files as a [`Disk`] under `root`; a file not fetched yet is noted in `wanted` and reads as an error.
-struct TreeDisk<'a> {
+/// The baseline's checks and its compute passes read through one, so a file is fetched once for both.
+pub(crate) struct TreeDisk<'a> {
     root: &'a Path,
     tree: &'a Tree,
     fetched: RefCell<BTreeMap<String, Option<Vec<u8>>>>,
@@ -42,7 +43,18 @@ struct TreeDisk<'a> {
     wanted: RefCell<BTreeSet<String>>,
 }
 
-impl TreeDisk<'_> {
+impl<'a> TreeDisk<'a> {
+    /// The commit `tree` under `root`, with the files in hand (specs and ledger) already fetched.
+    pub(crate) fn new(root: &'a Path, tree: &'a Tree, held: BTreeMap<String, Vec<u8>>) -> Self {
+        TreeDisk {
+            root,
+            tree,
+            fetched: RefCell::new(held.into_iter().map(|(k, v)| (k, Some(v))).collect()),
+            too_large: RefCell::new(BTreeSet::new()),
+            wanted: RefCell::new(BTreeSet::new()),
+        }
+    }
+
     fn key(&self, path: &Path) -> Option<String> {
         let rest = path.strip_prefix(self.root).ok()?;
         Some(
@@ -126,40 +138,17 @@ fn askable(key: &str) -> bool {
     !key.contains(['\n', '\u{FFFD}'])
 }
 
-/// What the compute passes of `env` compute over `snapshot` (and the `judged` values) at a commit holding `tree`.
-/// `held` are the files already in hand (specs and ledger); `sizes` gives the size of each file a pass reads and
-/// `fetch` the bytes of those within the cap, once each.
-pub(crate) fn compute_at(
-    env: &Environment,
-    snapshot: &EntitySnapshot,
-    runtime: &dyn WasmRuntime,
-    judged: &Evaluated,
-    tree: &Tree,
-    held: BTreeMap<String, Vec<u8>>,
-    git: Git<'_>,
-) -> (Computed, bool) {
-    let Git { sizes, fetch } = git;
-    // a file git could not give though it can be asked for: the baseline may be whole later (a blobless clone)
+/// `run` over `disk`, again until a run reads no file that was not fetched: before each run, the files the last one
+/// wanted are answered through `git`, their sizes first and the bytes of those within the cap after, once each. The
+/// last run's result, and whether a file git can be asked for gave nothing (the baseline may be whole later: a
+/// blobless clone).
+pub(crate) fn until_read<T>(
+    disk: &TreeDisk<'_>,
+    git: CommitReads<'_>,
+    mut run: impl FnMut(&TreeDisk<'_>) -> T,
+) -> (T, bool) {
+    let CommitReads { sizes, fetch } = git;
     let mut incomplete = false;
-    let disk = TreeDisk {
-        root: env.root(),
-        tree,
-        fetched: RefCell::new(held.into_iter().map(|(k, v)| (k, Some(v))).collect()),
-        too_large: RefCell::new(BTreeSet::new()),
-        wanted: RefCell::new(BTreeSet::new()),
-    };
-    let seen = if judged.values.is_empty() {
-        snapshot.clone()
-    } else {
-        snapshot.with_computed(&judged.values, env.registries().fields())
-    };
-    // Learn the files the reads name without calling a guest, so each pass runs once.
-    for pass in env.registries().compute_passes() {
-        let reads = pass.inputs().files();
-        if !reads.is_empty() {
-            crate::file_reads::read(&reads, &seen, &env.file_source(&disk));
-        }
-    }
     loop {
         let wanted: Vec<String> = std::mem::take(&mut *disk.wanted.borrow_mut())
             .into_iter()
@@ -193,21 +182,46 @@ pub(crate) fn compute_at(
             incomplete |= bytes.is_none();
             disk.fetched.borrow_mut().insert(key, bytes);
         }
-        let (computed, _) = crate::compute::run(
+        let result = run(disk);
+        // a run read a path it had not been given (one only a value computed before it names): fetch it, run again
+        if disk.wanted.borrow().is_empty() {
+            return (result, incomplete);
+        }
+    }
+}
+
+/// What the compute passes of `env` compute over `snapshot` (and the `judged` values) at a commit, reading its files
+/// through `disk`; `git` gives the size of each file a pass reads and the bytes of those within the cap, once each.
+pub(crate) fn compute_at(
+    env: &Environment,
+    snapshot: &EntitySnapshot,
+    runtime: &dyn WasmRuntime,
+    judged: &Evaluated,
+    disk: &TreeDisk<'_>,
+    git: CommitReads<'_>,
+) -> (Computed, bool) {
+    let seen = if judged.values.is_empty() {
+        snapshot.clone()
+    } else {
+        snapshot.with_computed(&judged.values, env.registries().fields())
+    };
+    // Learn the files the reads name without calling a guest, so each pass runs once.
+    for pass in env.registries().compute_passes() {
+        let reads = pass.inputs().files();
+        if !reads.is_empty() {
+            crate::file_reads::read(&reads, &seen, &env.file_source(disk));
+        }
+    }
+    until_read(disk, git, |disk| {
+        crate::compute::run(
             env,
             snapshot,
             runtime,
             None,
             &judged.values,
             &judged.judgements,
-            Reads {
-                disk: &disk,
-                tests: None,
-            },
-        );
-        // a pass read a path only a value computed before it names: fetch it and run again
-        if disk.wanted.borrow().is_empty() {
-            return (computed, incomplete);
-        }
-    }
+            Reads { disk, tests: None },
+        )
+        .0
+    })
 }

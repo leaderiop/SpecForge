@@ -282,7 +282,11 @@ impl CompiledProject {
         &self,
         revision: &str,
     ) -> Result<CompiledProject, crate::baseline::UnknownRevision> {
-        let read = crate::baseline::Baseline::since(&self.env, revision)?;
+        let checking = crate::baseline::Checking {
+            effects: self.effects(),
+            cache: Arc::clone(&self.check_cache),
+        };
+        let read = crate::baseline::Baseline::since(&self.env, revision, &checking)?;
         let mut project = self.clone();
         project.baseline = Some(Arc::new(crate::baseline::HeldBaseline {
             stamp: None,
@@ -610,7 +614,13 @@ impl CompiledProject {
             let read = match held {
                 Some(held) if held.pinned || held.stamp == stamp => held,
                 _ => Arc::new(crate::baseline::HeldBaseline {
-                    read: crate::baseline::Baseline::of_head(&env),
+                    read: crate::baseline::Baseline::of_head(
+                        &env,
+                        &crate::baseline::Checking {
+                            effects: this.effects(),
+                            cache: Arc::clone(&this.check_cache),
+                        },
+                    ),
                     stamp,
                     pinned: false,
                 }),
