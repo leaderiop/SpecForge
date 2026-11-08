@@ -82,7 +82,7 @@ pub enum NotParsed {
     TooLarge,
     Missing,
     Unreadable,
-    /// A withheld name.
+    /// A file the fs port refuses to read: a withheld name, a link out of its root, a file with a second name.
     Denied,
     /// The answer's cap was reached before it.
     Capped,

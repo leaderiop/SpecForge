@@ -1204,7 +1204,8 @@ answers `parsed{matches, errors}` or `not-parsed(reason)`, in the order asked: a
 `span`, the index of its innermost enclosing match as `parent`, and its captures (`name`, `text` cut at 4096 bytes on a
 character boundary with `cut`, `span`); a point is `byte` (from 0), `line`, `col` (characters) and `byte-col` (from 1).
 A file is not parsed past its 5 s deadline (`deadline`), over the fs port's 64 MiB ceiling (`too-large`), when it does
-not exist (`missing`), cannot be read (`unreadable`), is withheld (`denied`) or would pass the answer's cap (`capped`,
+not exist (`missing`), cannot be read (`unreadable`), is one the fs port refuses to read (`denied`: withheld, a link
+out of the root, a second name) or would pass the answer's cap (`capped`,
 and `truncated`). The answer counts the files `parsed` now and answered from the cache (`cached`, under
 `.specforge/cache/syntax/`, keyed by grammar, query and file digest, pruned after 30 days untouched). A deadline, a
 file too large or unreadable is W196, a file parsed with syntax errors I211, each once per call. An `fs` or a `git`

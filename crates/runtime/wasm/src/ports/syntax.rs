@@ -128,10 +128,10 @@ impl PortSession {
                 }
                 OutcomeClass::Capped => Loaded::NotParsed(NotParsed::TooLarge),
                 OutcomeClass::Missing => Loaded::NotParsed(NotParsed::Missing),
-                OutcomeClass::Denied | OutcomeClass::Outside if withheld(path) => {
+                // What the port refuses to read: a withheld name, a link out of the root, a file with a second name.
+                OutcomeClass::Denied | OutcomeClass::Outside => {
                     Loaded::NotParsed(NotParsed::Denied)
                 }
-                OutcomeClass::Outside => Loaded::NotParsed(NotParsed::Denied),
                 _ => Loaded::NotParsed(NotParsed::Unreadable),
             }
         };

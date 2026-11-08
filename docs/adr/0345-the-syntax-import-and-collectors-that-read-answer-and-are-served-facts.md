@@ -36,8 +36,8 @@ reason   deadline | too-large | missing | unreadable | denied | capped
 - **It is granted on the fs port's read scope, no new port, no new capability kind.** At the worktree, each path is
   one grant-checked fs read (a whole-file read, held to the 64 MiB file ceiling) and a glob is one grant-checked walk
   of the root, whose `truncated` carries to the answer. A refusal by the gate, the declaration or the ceiling is the
-  whole request's `denied(scope)` and E090, as an fs read's is. Per file: `missing`, `too_large`, `denied` (a withheld
-  name) or `unreadable`. At a revision, the git read scope (`blobs`, and `tree` for a glob, matched with the hook glob);
+  whole request's `denied(scope)` and E090, as an fs read's is. Per file: `missing`, `too_large`, `denied` (what the fs
+  port refuses to read: a withheld name, a link out of the root, a file with a second name) or `unreadable`. At a revision, the git read scope (`blobs`, and `tree` for a glob, matched with the hook glob);
   a withheld path is `denied`, a blob over the git port's blob cap `too_large`. fs and git reads need no approval.
 - **Backing (E089):** a `syntax` import is backed by an `fs` or a `git` capability of the extension.
 - **The answer is held to the call's answer cap** (a quarter of guest memory): once the encoded answer passes it, the

@@ -1,5 +1,5 @@
 //! A syntax request on the real file system parses only what the fs port would read (ADR 0345 D1): a link out of the
-//! root and a `..` path are answered `not_parsed(denied)`, and a file with a second name is not read.
+//! root, a `..` path and a file with a second name are answered `not_parsed(denied)`.
 
 use std::sync::Arc;
 
@@ -94,13 +94,11 @@ fn a_syntax_request_over_a_link_a_hard_link_or_a_parent_path_parses_nothing_outs
         [
             ("a.rs", vec!["a"]),
             ("out/secret.rs", vec!["denied"]),
-            // Pinned: the fs port's refusal of a file with a second name reads as `unreadable`, and a W196.
-            ("hard.rs", vec!["unreadable"]),
+            ("hard.rs", vec!["denied"]),
             ("../outside/secret.rs", vec!["denied"]),
         ]
     );
     assert_eq!(answer.parsed, 1);
-    let noted = call.take_denials();
-    assert_eq!(noted.len(), 1, "{noted:?}");
-    assert_eq!(noted[0].code, "W196");
+    // What the port refused is the guest's to know, not a W196.
+    assert!(call.take_denials().is_empty());
 }
