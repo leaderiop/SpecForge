@@ -6,6 +6,7 @@ ADR 0112 as they are. Amended by round 15, plan 07 (D7: each mode checks only th
 Amended by [ADR 0331](0331-the-gsd-requirement-thread.md) (D5: a collector chosen by detection whose run yields no evidence is skipped, not fatal).
 Amended by [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md) D2 (D5 covers every capability and root a run uses; D1's approvals move to the `Consent` port).
 Amended by [ADR 0335](0335-the-host-owns-every-effect-through-one-effect-plane.md) (D1: `ProcessMachine` runs through the `Process` port, held to a deadline ceiling and an output cap, with the env policy).
+Amended by [ADR 0345](0345-the-syntax-import-and-collectors-that-read-answer-and-are-served-facts.md) (D7: a collector with no command and no report reads through its ports, under a run and `--no-run` alike).
 
 `collect` orders consent, a command run, a report read and a merge, but it reached the machine directly: a child
 process, the wall clock and the user's consent file through `HOME`. No ops test could run the flow past consent: every

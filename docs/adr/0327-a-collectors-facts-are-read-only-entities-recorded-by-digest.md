@@ -2,6 +2,7 @@
 
 **Status:** accepted (2026-11-02, R1 of the Beyond Parity build plan, K23). Amends the "Linkage" section of
 [ADR 0002](0002-test-runner-extensions.md) (D10). Ships in extension protocol 1.15.0.
+Amended by [ADR 0345](0345-the-syntax-import-and-collectors-that-read-answer-and-are-served-facts.md) (D5: facts are also served to a collector's `facts` input; a fact of a kind its collector does not answer is E116).
 
 ## Context
 

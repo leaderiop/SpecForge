@@ -2,7 +2,8 @@
 
 **Status:** accepted (2026-11-08, R2 of the Beyond Parity build plan). **Amends**
 [ADR 0293](0293-a-pass-or-command-declares-the-project-files-it-reads.md) D4: its 64 KiB text cap stays for a `files`
-input only; source the host parses is read whole. The guest face of the reader is ADR 0345.
+input only; source the host parses is read whole. The guest face of the reader is
+[ADR 0345](0345-the-syntax-import-and-collectors-that-read-answer-and-are-served-facts.md).
 
 ## Context
 

@@ -11,6 +11,7 @@ binds), [ADR 0079](0079-the-smt-solver-is-one-port-that-analyze-and-doctor-take.
 [ADR 0145](0145-the-session-reads-sources-through-the-disk-the-surface-hands-it.md) D3 and D4 and
 [ADR 0287](0287-who-writes-a-field-is-declared.md) D6. Builds on
 [ADR 0326](0326-a-host-refuses-a-guest-of-a-newer-protocol-minor.md) D1a/D1b (the load seam).
+Amended by [ADR 0345](0345-the-syntax-import-and-collectors-that-read-answer-and-are-served-facts.md) (D4: a fifth port, `syntax`, granted on the fs and git read scopes; D5: a `syntax` import is backed by an `fs` or a `git` capability).
 
 ## Context
 
