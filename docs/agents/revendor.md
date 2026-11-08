@@ -30,8 +30,9 @@ ignored tests), and prints the `git add` line that stages exactly those paths.
 A new committed blob is listed in `crates/runtime/component/src/committed.rs` first; a new builtin is a row of
 `BUILTINS` (`crates/runtime/component/src/builtins.rs`), which `COMMITTED` lists first. A builtin's crate is
 `extensions/<dir>` (`@specforge/<dir>`) or, in a family, `extensions/<family>/<pack>` (`@<family>/<pack>`); a crate there
-without `wasm/` is an extension library (`extensions/code/junit`), an rlib no blob of its own. A library is an input of
-every builtin that links it, so editing it re-vendors those builtins.
+without `wasm/` is an extension library (`extensions/code/junit`, `extensions/code/facts`), an rlib no blob of its own.
+A library is an input of every builtin that links it, so editing either re-vendors those builtins: code-facts feeds
+`@code/core` and `@javascript/node-test`.
 `every_committed_wasm_is_listed` (xtask) fails for a `.wasm` file git tracks that the list does not name.
 
 ## Profile

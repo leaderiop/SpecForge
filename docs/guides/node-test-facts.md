@@ -9,7 +9,9 @@ entity names the tests that prove it by their ids. It takes two extensions:
   ([ADR 0329](../adr/0329-code-core-holds-test-facts-and-their-ids.md)).
 - **`@javascript/node-test`** is the runner pack. `specforge collect` runs
   your project's own `node --test` for it, and it turns the JUnit report into
-  facts ([ADR 0327](../adr/0327-a-collectors-facts-are-read-only-entities-recorded-by-digest.md)).
+  facts ([ADR 0327](../adr/0327-a-collectors-facts-are-read-only-entities-recorded-by-digest.md)),
+  minted by the `specforge-code-facts` library every code pack links
+  ([ADR 0347](../adr/0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md)).
 
 Nothing is installed on the JavaScript side: the pack runs the `node` already
 on your `PATH`. It needs node 20.10 or later, for the JUnit reporter.
@@ -59,6 +61,9 @@ A test's id is `js:<package>/<file>#<suite > … > name>`:
   test's file, `@scope/` kept. A workspace's tests are named after their own
   package.
 - `<file>` is the test file's path under that package's directory, with `/`.
+  The fact's `file` field is its path from the project root instead: a test
+  of `packages/core/test/x.test.js` in the package `core` is
+  `js:core/test/x.test.js#…`, filed under `packages/core/test/x.test.js`.
 - `<suite > … > name>` is the `describe` path, outermost first, then the test's
   name; a top-level test is `#<name>`.
 
