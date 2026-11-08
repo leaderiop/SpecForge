@@ -12,6 +12,7 @@ use specforge_protocol_types::{NotParsed, SyntaxFile, SyntaxOutcome};
 
 use crate::cache::{Entry, SyntaxCache};
 use crate::parse::{Deadline, PARSE_DEADLINE, parse, parser_for};
+use crate::query::digest_of;
 use crate::{Language, QueryFault, SourceQuery};
 
 /// A file as its loader gives it: its bytes, or why there are none.
@@ -86,12 +87,15 @@ impl SourceReader {
 
     /// `text` compiled for `language`, once per reader.
     pub fn query(&self, language: Language, text: &str) -> Result<Arc<SourceQuery>, QueryFault> {
-        let digest = format!("sha256:{:x}", sha2::Sha256::digest(text.as_bytes()));
-        let key = (language, digest);
+        let key = (language, digest_of(text));
         if let Some(query) = self.queries().get(&key) {
             return Ok(Arc::clone(query));
         }
-        let query = Arc::new(SourceQuery::compile(language, text)?);
+        let query = Arc::new(SourceQuery::compile_digested(
+            language,
+            text,
+            key.1.clone(),
+        )?);
         self.queries().insert(key, Arc::clone(&query));
         Ok(query)
     }

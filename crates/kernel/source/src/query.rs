@@ -62,6 +62,11 @@ fn is_kind(kind: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
 }
 
+/// `sha256:<hex>` of a query's text.
+pub(crate) fn digest_of(text: &str) -> String {
+    format!("sha256:{:x}", sha2::Sha256::digest(text.as_bytes()))
+}
+
 /// The 1-based row and column of byte `offset` of `text`, the column in characters.
 fn place(text: &str, offset: usize) -> (usize, usize) {
     let before = &text[..text.floor_char_boundary(offset.min(text.len()))];
@@ -75,6 +80,15 @@ impl SourceQuery {
     /// capture (or with it optional or repeated), a role kind that is no word, or a predicate tree-sitter does not
     /// evaluate as text (`#set!`, `#is?`, `#strip!`, `#select-adjacent!`, any other).
     pub fn compile(language: Language, text: &str) -> Result<SourceQuery, QueryFault> {
+        Self::compile_digested(language, text, digest_of(text))
+    }
+
+    /// [`Self::compile`], `digest` being [`digest_of`] `text`.
+    pub(crate) fn compile_digested(
+        language: Language,
+        text: &str,
+        digest: String,
+    ) -> Result<SourceQuery, QueryFault> {
         let query = Query::new(&language.tree_sitter(), text).map_err(|error| QueryFault {
             row: error.row + 1,
             column: error.column + 1,
@@ -163,7 +177,7 @@ impl SourceQuery {
         Ok(SourceQuery {
             language,
             query,
-            digest: format!("sha256:{:x}", sha2::Sha256::digest(text.as_bytes())),
+            digest,
             roles,
             answered,
         })
