@@ -310,7 +310,7 @@ impl<'a> Cx<'a> {
             .get_or_init(|| {
                 crate::facts::stores(self.entities)
                     .into_iter()
-                    .flat_map(|store| store.schemes)
+                    .flat_map(|store| store.held.into_keys())
                     .collect()
             })
             .contains(scheme)

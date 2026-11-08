@@ -14,7 +14,7 @@ use specforge_test_macros::test as specforge_test;
 const FACT: &str = "js:a.test.js#adds";
 
 /// `truth.proof` names `test`s, `truth.owner` names `person`s, `truth.note` names anything. `loaded` are the kinds a
-/// loaded extension declares; the scheme `js` is `test`'s, a collector-written kind's.
+/// loaded extension declares; the scheme `js` is `test`'s and `item`'s, collector-written kinds.
 fn build(files: &[SpecFile], loaded: &[&str]) -> (Graph, Vec<specforge_graph::Diagnostic>) {
     let form = |field: &str, target: Option<&str>| {
         let form = FieldForm::new(FieldType::ReferenceList, Vec::new());
@@ -41,7 +41,7 @@ fn build(files: &[SpecFile], loaded: &[&str]) -> (Graph, Vec<specforge_graph::Di
             ),
             fact_schemes: BTreeMap::from([(
                 "js".to_string(),
-                BTreeSet::from(["test".to_string()]),
+                BTreeSet::from(["item".to_string(), "test".to_string()]),
             )]),
             ..Default::default()
         },
@@ -88,6 +88,35 @@ fn a_reference_in_a_fact_scheme_that_names_no_fact_is_unheld_with_no_diagnostic(
         .collect();
     assert_eq!(unheld, [("proof", FACT), ("note", "js:b")]);
     assert!(graph.node("t1").unwrap().unheld[0].span.is_some());
+}
+
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "an unheld reference names the collected kinds of its scheme its field admits"
+)]
+fn an_unheld_reference_names_the_collected_kinds_its_field_admits() {
+    let (graph, diagnostics) = build(
+        &[truth(&format!("proof [\"{FACT}\"]\n  note [\"js:b\"]"))],
+        ALL,
+    );
+
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    let kinds: Vec<(&str, Vec<&str>)> = graph
+        .node("t1")
+        .unwrap()
+        .unheld
+        .iter()
+        .map(|u| {
+            (
+                u.field.as_str(),
+                u.kinds.iter().map(|k| k.as_str()).collect(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        kinds,
+        [("proof", vec!["test"]), ("note", vec!["item", "test"])]
+    );
 }
 
 #[test]

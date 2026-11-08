@@ -345,6 +345,30 @@ fn a_pass_entity_carries_pending_and_its_unheld_spans_and_omits_them_when_absent
     );
 }
 
+/// A fact store's kinds by scheme and an unheld reference's collected kinds (ADR 0347 D9), each omitted when empty.
+#[test]
+fn a_fact_store_carries_its_held_kinds_and_an_unheld_reference_its_kinds() {
+    use specforge_protocol_types::{FactStore, UnheldReference};
+
+    let store: FactStore = round_trips(&json!({
+        "collector": "rust-source", "key": "abc", "held": {"rust": ["item"], "pkg": ["package"]}, "facts": 3
+    }));
+    assert_eq!(store.held["rust"], ["item"]);
+    let unheld: UnheldReference = round_trips(&json!({
+        "field": "proof", "id": "rust:toy#tests::adds", "kinds": ["test"]
+    }));
+    assert_eq!(unheld.kinds, ["test"]);
+
+    let store = serde_json::to_value(FactStore::default()).unwrap();
+    let unheld = serde_json::to_value(UnheldReference::default()).unwrap();
+    assert!(
+        store.get("held").is_none()
+            && store.get("schemes").is_none()
+            && unheld.get("kinds").is_none(),
+        "{store} {unheld}"
+    );
+}
+
 /// The syntax wire (ADR 0345 D1): a request's two variants and an answer's two outcomes, with what is absent left out.
 #[test]
 fn a_syntax_request_and_answer_round_trip() {

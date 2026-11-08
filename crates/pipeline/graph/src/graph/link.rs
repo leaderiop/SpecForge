@@ -52,13 +52,14 @@ impl Graph {
                     let label = Sym::new(&declared);
                     for reference in reading.references(entry) {
                         let resolution = self.resolve(target.clone(), inputs, from, reference.id);
-                        if resolution.is_unheld() {
+                        if let Some(kinds) = resolution.unheld() {
                             unheld.push((
                                 node.id.raw,
                                 Unheld {
                                     field: label,
                                     id: reference.id.to_string(),
                                     span: reference.span.clone(),
+                                    kinds: kinds.iter().map(|kind| Sym::new(kind)).collect(),
                                 },
                             ));
                         }

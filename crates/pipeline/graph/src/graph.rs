@@ -45,12 +45,14 @@ pub struct Node {
     pub dangling: Vec<Dangling>,
 }
 
-/// A reference in a fact scheme that names no fact: the field (its declared path) and the id written, and where.
+/// A reference in a fact scheme that names no fact: the field (its declared path) and the id written, where, and the
+/// collected kinds of its scheme its field admits, sorted (ADR 0347 D9).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Unheld {
     pub field: Sym,
     pub id: String,
     pub span: Option<SourceSpan>,
+    pub kinds: Vec<Sym>,
 }
 
 /// A fact's reference that names no entity, one of another kind, or several (ADR 0346 D4): the field (its declared

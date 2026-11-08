@@ -475,8 +475,8 @@ fn field_value(
     })
 }
 
-/// The fact stores `entities` holds facts of, by store file (D6): each one's collector and key, the schemes its
-/// facts' ids are in, and how many facts it holds. What a pass is sent as `fact_stores`.
+/// The fact stores `entities` holds facts of, by store file (D6): each one's collector and key, the kinds of its facts
+/// by the scheme of their ids (ADR 0347 D9), and how many facts it holds. What a pass is sent as `fact_stores`.
 pub fn stores(entities: &EntitySnapshot) -> Vec<FactStore> {
     let mut stores: BTreeMap<&str, FactStore> = BTreeMap::new();
     for (record, _) in entities.iter() {
@@ -490,11 +490,11 @@ pub fn stores(entities: &EntitySnapshot) -> Vec<FactStore> {
             ..FactStore::default()
         });
         store.facts += 1;
-        if let Some(scheme) = specforge_common::scheme::of(&record.id)
-            && !store.schemes.iter().any(|s| s == scheme)
-        {
-            store.schemes.push(scheme.to_string());
-            store.schemes.sort();
+        if let Some(scheme) = specforge_common::scheme::of(&record.id) {
+            let kinds = store.held.entry(scheme.to_string()).or_default();
+            if let Err(at) = kinds.binary_search(&record.kind) {
+                kinds.insert(at, record.kind.clone());
+            }
         }
     }
     stores.into_values().collect()

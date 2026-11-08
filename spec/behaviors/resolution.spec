@@ -219,6 +219,7 @@ behavior link_entity_references "Link Entity References" {
   verify unit "a surface finds a numeric id whatever its zero padding, and a reference in the spec text does not"
   verify unit "a rooted spelling is never a suffix, numeric or not"
   verify unit "a reference in a fact scheme that names no fact is unheld: no edge and no core diagnostic"
+  verify unit "an unheld reference names the collected kinds of its scheme its field admits"
   verify unit "a fact scheme reference whose target kind is absent stays I004, and one of the wrong kind E022"
   verify unit "a fact's reference that names no entity, or one of another kind, is dangling: no E003 or E022, and the passes are sent it at its name span"
   verify unit "a fact's short name links by its unique suffix"

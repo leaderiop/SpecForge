@@ -123,6 +123,7 @@ pub(super) fn record(
                 field: u.field.to_string(),
                 id: u.id.clone(),
                 span: u.span.as_ref().map(super::wire::pass_span),
+                kinds: u.kinds.iter().map(|kind| kind.to_string()).collect(),
             })
             .collect(),
         located: node.located.clone(),

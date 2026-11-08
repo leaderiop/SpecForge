@@ -24,7 +24,7 @@ pub(crate) fn refs(input: &PassInput) -> Vec<PassDiagnostic> {
     let served: BTreeSet<&str> = input
         .fact_stores
         .iter()
-        .flat_map(|store| store.schemes.iter().map(String::as_str))
+        .flat_map(|store| store.held.keys().map(String::as_str))
         .collect();
     let mut found = Vec::new();
     for entity in input.entities.iter().filter(|e| !e.pending) {

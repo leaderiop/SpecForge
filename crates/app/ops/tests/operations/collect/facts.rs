@@ -485,7 +485,7 @@ fn a_pass_is_sent_the_fact_stores_the_session_served() {
         .expect("the check pass ran");
     assert_eq!(
         call.input["fact_stores"],
-        json!([{"collector": "node", "key": SHA, "schemes": ["js"], "facts": 2}])
+        json!([{"collector": "node", "key": SHA, "held": {"js": ["test"]}, "facts": 2}])
     );
 }
 
@@ -550,7 +550,7 @@ fn a_pass_is_sent_each_unheld_reference() {
         t1["unheld"],
         json!([{"field": "proof", "id": "js:a.test.js#adds", "span": {
             "file": "truths.spec", "start_line": 2, "start_col": 11, "end_line": 2, "end_col": 28,
-        }}])
+        }, "kinds": ["test"]}])
     );
     assert!(
         call.input.get("fact_stores").is_none(),

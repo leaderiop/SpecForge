@@ -98,17 +98,22 @@ pub struct UnheldReference {
     pub id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub span: Option<super::PassSpan>,
+    /// The collector-written kinds of the reference's scheme that its field admits, sorted (ADR 0347 D9): what a
+    /// store must hold for the reference to be judged missing.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub kinds: Vec<String>,
 }
 
-/// One fact store the session served (ADR 0327 D5, D6): whose it is, the key it is filed under, the schemes of the
-/// kinds of its facts and how many facts it holds. A pass reads it to tell a reference no fact holds from one no
-/// store was served for.
+/// One fact store the session served (ADR 0327 D5, D6): whose it is, the key it is filed under, the kinds of the facts
+/// it holds by the scheme of their ids, and how many facts it holds. A pass reads it to tell a reference no fact holds
+/// from one no store was served for.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FactStore {
     pub collector: String,
     pub key: String,
-    #[serde(default)]
-    pub schemes: Vec<String>,
+    /// By scheme of its facts' ids, the kinds of the facts it holds, sorted (ADR 0347 D9).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub held: BTreeMap<String, Vec<String>>,
     #[serde(default)]
     pub facts: usize,
 }

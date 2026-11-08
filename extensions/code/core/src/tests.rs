@@ -63,7 +63,7 @@ fn it_catalogues_the_codes_it_reports() {
     assert_eq!(codes, ["E101", "W102", "W401", "I402"]);
 }
 
-/// A pass input holding `entities`, with a store of `served` schemes when there is one.
+/// A pass input holding `entities`, with a store of `served` schemes when there is one: `js` holding tests, `run` runs.
 fn input(entities: Vec<PassEntity>, served: &[&str]) -> PassInput {
     PassInput {
         entities,
@@ -71,7 +71,13 @@ fn input(entities: Vec<PassEntity>, served: &[&str]) -> PassInput {
             .then(|| FactStore {
                 collector: "node".to_string(),
                 key: "app".to_string(),
-                schemes: served.iter().map(|s| s.to_string()).collect(),
+                held: served
+                    .iter()
+                    .map(|scheme| {
+                        let kind = if *scheme == "run" { "test_run" } else { "test" };
+                        (scheme.to_string(), vec![kind.to_string()])
+                    })
+                    .collect(),
                 facts: 2,
             })
             .into_iter()
@@ -104,6 +110,7 @@ fn citing(id: &str, ids: &[&str]) -> PassEntity {
                     end_line: line + 2,
                     end_col: 11 + cited.len(),
                 }),
+                ..UnheldReference::default()
             })
             .collect(),
         ..entity(id, "truth")
@@ -313,6 +320,7 @@ fn an_unheld_reference_of_a_test_run_is_e101_for_its_collector() {
             field: "test".to_string(),
             id: "js:app/a.test.js#gone".to_string(),
             span: read_at(2),
+            ..UnheldReference::default()
         }],
         ..entity("run:js:app/a.test.js#gone", "test_run")
     };
