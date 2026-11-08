@@ -373,6 +373,61 @@ fn a_second_rename_before_the_collect_is_source_moved() {
 }
 
 #[test]
+fn a_plans_second_rename_of_a_name_in_a_rewritten_source_is_source_rewritten() {
+    // `a.test.js` writes `T1` on line 1 and `T5` on line 2; one plan renames both.
+    let p = project();
+    p.write(
+        "truths.spec",
+        format!("truth T1 \"One\" {{\n  proof [\"{FACT}\"]\n}}\n\ntruth T5 \"Five\" {{}}\n"),
+    );
+    let source = "// covers T1\n// covers T5\n";
+    std::fs::write(p.root().join("a.test.js"), source).unwrap();
+    let at = |line: usize| json!([{"file": "a.test.js", "start_line": line, "start_col": 11, "end_line": line, "end_col": 13}]);
+    stored_with(
+        p.root(),
+        "node",
+        KEY,
+        json!([{"kind": "test", "id": FACT, "fields": {"file": "a.test.js", "covers": ["T1", "T5"]},
+                "named_at": {"covers": {"T1": at(1), "T5": at(2)}}}]),
+        [(
+            "a.test.js".to_string(),
+            specforge_ops::revision::of_bytes(source.as_bytes()),
+        )]
+        .into(),
+    );
+    let compiled = compiled(&p);
+    let revision = crate::plans::revision(&p, "truths.spec");
+    let plan = serde_json::from_value(json!({"ops": [
+        {"op": "rename", "entity": "T1", "to": "T2", "revision": revision},
+        {"op": "rename", "entity": "T5", "to": "T6", "revision": revision},
+    ]}))
+    .unwrap();
+
+    let refused = apply_plan(
+        &ProjectView::of(&compiled),
+        &plan,
+        &Origin::cli(true),
+        false,
+        caller(),
+    )
+    .unwrap_err();
+
+    assert_eq!(refused.error.code, rename::SOURCE_REWRITTEN);
+    assert!(
+        refused
+            .error
+            .message
+            .ends_with("cannot rename 'T5': an earlier rename of the plan rewrites a.test.js"),
+        "{}",
+        refused.error.message
+    );
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        source
+    );
+}
+
+#[test]
 fn a_rename_rewrites_every_place_of_a_cfg_twin() {
     let p = located(&[1, 3]);
     let compiled = compiled(&p);

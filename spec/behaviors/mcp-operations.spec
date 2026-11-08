@@ -185,7 +185,9 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     specforge-harness; it is refused as collected when the fact records no
     place, and as source_moved when a file changed since the collect read it
     or no longer spells the name there, a second rename before the next
-    collect of a name the first rewrote included (ADR 0346 D7). A delete that unlinks
+    collect of a name the first rewrote included; a plan whose second rename
+    needs a file its first rewrote is refused as source_rewritten (ADR 0346
+    D7). A delete that unlinks
     an entity a fact names stays refused.
   """
   verify unit "specforge.rename renames entity and all references"

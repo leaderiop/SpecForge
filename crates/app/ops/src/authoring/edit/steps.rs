@@ -207,7 +207,7 @@ fn rename_step(
         if carry.rewritten.contains_key(key) {
             return Err(OpError::new(
                 OpErrorKind::PreconditionFailed,
-                rename::SOURCE_MOVED,
+                rename::SOURCE_REWRITTEN,
                 format!("cannot rename '{entity}': an earlier rename of the plan rewrites {key}"),
             )
             .with_suggestion("run `specforge collect` between the renames")

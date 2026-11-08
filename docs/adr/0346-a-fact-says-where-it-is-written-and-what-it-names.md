@@ -141,7 +141,8 @@ next collect of that collector ────────────────�
   collect; its places in <files> may be off until `specforge collect`".
 - A second rename needing a place in a file the first rewrote is refused `source_moved` (its digest moved): one
   rewrite per file per collect, exact by construction. It finds the place because it reads the store as served: the
-  name the first rename wrote, at the place it wrote it.
+  name the first rename wrote, at the place it wrote it. Within one plan, a rename that needs a file an earlier
+  rename of the plan rewrites is refused `source_rewritten`.
 - The LSP rename's edit carries the source edits; the pending ledger change carries the stale line and lands as the
   moves do.
 - **A delete of an entity a fact names stays refused.** It would remove what a test says it proves, and there is no
