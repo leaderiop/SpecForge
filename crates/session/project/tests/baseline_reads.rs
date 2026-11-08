@@ -9,6 +9,7 @@ use specforge_common::regular::MAX_FILE_BYTES;
 use specforge_effects::git::{Git, Located, Sha};
 use specforge_effects::testing::FakeGit;
 use specforge_project::baseline::Baseline;
+use specforge_project::baseline::{Checking, CommitReads};
 use specforge_project::judged::file_digest;
 use specforge_project::testing::{
     TestProject, gsd_facts_project, gsd_facts_serving, gsd_history_runtime, pass_input,
@@ -48,7 +49,7 @@ fn baseline_of(project: &TestProject, runtime: &Arc<InProcessRuntime>, fake: &Fa
         panic!("a repository")
     };
     let sha = Sha::new("c".repeat(40));
-    Baseline::at(&env, fake, &place, &sha).expect("a baseline");
+    Baseline::at(&env, fake, &place, &sha, &Checking::of(&env)).expect("a baseline");
 }
 
 /// The `scan` input of the baseline of [`commit`].
@@ -219,8 +220,11 @@ fn a_baseline_compiles_to_the_same_bytes_twice() {
             Path::new(""),
             files,
             tree,
-            &sizes,
-            &fetch,
+            CommitReads {
+                sizes: &sizes,
+                fetch: &fetch,
+            },
+            &Checking::of(&env),
         );
         (
             serde_json::to_vec(&baseline).unwrap(),
@@ -246,7 +250,14 @@ fn at(
     let Located::Repo(place) = Git::locate(fake, project.root()) else {
         panic!("a repository")
     };
-    Baseline::at(&env, fake, &place, &Sha::new("c".repeat(40))).map(|_| ())
+    Baseline::at(
+        &env,
+        fake,
+        &place,
+        &Sha::new("c".repeat(40)),
+        &Checking::of(&env),
+    )
+    .map(|_| ())
 }
 
 #[specforge_test(
@@ -440,8 +451,11 @@ fn a_short_answer_from_git_ends_the_loop() {
         Path::new(""),
         files,
         tree,
-        &|_: &[String]| Vec::new(),
-        &|_: &[String]| Vec::new(),
+        CommitReads {
+            sizes: &|_: &[String]| Vec::new(),
+            fetch: &|_: &[String]| Vec::new(),
+        },
+        &Checking::of(&env),
     );
     let input = pass_input(&runtime, "scan");
     assert_eq!(

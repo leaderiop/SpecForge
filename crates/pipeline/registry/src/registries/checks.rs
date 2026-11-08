@@ -1,6 +1,7 @@
 //! Which checks each declared field's values pass (ADR 0336): every `checks` entry resolved to a loaded checker, and
 //! every checker or check the host cannot run refused and dropped, so the rest is kept. W019 is about a name that
-//! leads nowhere, W189 about a shape the host cannot run.
+//! leads nowhere, W189 about a shape the host cannot run. A field's owner gate (ADR 0350) is kept only where an owner
+//! state decides it (W199 otherwise).
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -11,7 +12,7 @@ use specforge_diagnostics::{Codebook, letter_level};
 use specforge_graph::FieldForm;
 use specforge_protocol_types::{
     CheckRef, CheckerDescriptor, ExtensionDeclaration, FieldDescriptor, FieldType, FieldWriter,
-    Root, SettingsItem, ValueForm,
+    OwnerState, Root, SettingsItem, ValueForm,
 };
 
 use super::{FieldRegistry, FieldRegistryEntry, KindRegistry};
@@ -86,6 +87,8 @@ pub struct CheckRegistry {
     forms: HashMap<(String, String), BTreeMap<String, (FieldForm, bool)>>,
     /// A checker refused (W189 already said so): a check naming it is dropped without a second word.
     refused: BTreeSet<(String, String)>,
+    /// Kind, then the declared path, then the owner state its checks wait for (ADR 0350): kept gates only.
+    gates: BTreeMap<String, BTreeMap<String, OwnerState>>,
 }
 
 impl CheckRegistry {
@@ -95,6 +98,12 @@ impl CheckRegistry {
             .get(kind)
             .and_then(|paths| paths.get(path))
             .map_or(&[], Vec::as_slice)
+    }
+
+    /// The owner state the checks on `path` of `kind` run in (ADR 0350): `Complete` for a planned field, `Pending` for
+    /// a while-open one; `None` when they run on every value.
+    pub fn gate(&self, kind: &str, path: &str) -> Option<OwnerState> {
+        self.gates.get(kind)?.get(path).copied()
     }
 
     /// The checked paths of `kind`, with their checks.
@@ -192,6 +201,7 @@ pub(crate) fn build(
         let name = entry.name().to_string();
         entry.declared().for_each_path(&name, &mut |path, field| {
             resolving.field(kind, &path, field, entry.source_extension(), collected);
+            resolving.gate(kind, &path, field, collected, fields, kinds);
         });
     }
     (resolving.registry, resolving.diagnostics)
@@ -228,6 +238,45 @@ impl Resolving<'_> {
 
     fn w189(&mut self, message: String) {
         self.diagnostics.push(Diagnostic::new(codes::W189, message));
+    }
+
+    /// The owner gate `field` declares on `kind` at `path` (ADR 0350), kept, or refused with W199 (the gate is dropped,
+    /// the checks stay): a word that is no owner state, a field that declares no check, or a kind whose scope chain
+    /// keeps no `complete_when`. A field whose values are not authored lost its checks to W189, and its gate with them.
+    fn gate(
+        &mut self,
+        kind: &str,
+        path: &str,
+        field: &FieldDescriptor,
+        collected: bool,
+        fields: &FieldRegistry,
+        kinds: &KindRegistry,
+    ) {
+        let Some(word) = field.checks_while.as_deref() else {
+            return;
+        };
+        let on = format!("field '{path}' on kind '{kind}' declares checks_while '{word}'");
+        let why = match OwnerState::parse(word) {
+            None => "which is no owner state (expected 'complete' or 'pending')".to_string(),
+            Some(_) if field.checks.is_empty() => "but declares no check".to_string(),
+            Some(_) if not_authored(field, collected).is_some() => return,
+            Some(_) if !kinds.owner_declared(kind, fields) => format!(
+                "but neither kind '{kind}' nor a kind along its scoped_by chain declares complete_when, so no owner \
+                 state decides it"
+            ),
+            Some(state) => {
+                self.registry
+                    .gates
+                    .entry(kind.to_string())
+                    .or_default()
+                    .insert(path.to_string(), state);
+                return;
+            }
+        };
+        self.diagnostics.push(Diagnostic::new(
+            codes::W199,
+            format!("{on}, {why}: the gate is dropped and its checks run on every value"),
+        ));
     }
 
     fn keep_checker(

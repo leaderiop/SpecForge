@@ -46,7 +46,7 @@ The orchestrator provides user decisions in `<user_decisions>` tags from `/gsd:d
 
 **Before creating ANY task, verify:**
 
-1. **Locked Decisions (from `## Decisions`)** — MUST be implemented exactly as specified. Reference the decision ID (D-01, D-02, etc.) in task actions for traceability.
+1. **Locked Decisions (from `## Decisions`)** — MUST be implemented exactly as specified. List each decision ID the plan implements in its `decisions` (D-01, D-02, etc.); task actions may name it too.
 
 2. **Deferred Ideas (from `## Deferred Ideas`)** — MUST NOT appear in plans.
 
@@ -54,8 +54,8 @@ The orchestrator provides user decisions in `<user_decisions>` tags from `/gsd:d
 
 **Self-check before returning:** For each plan, verify:
 - [ ] Every locked decision (D-01, D-02, etc.) has a task implementing it
-- [ ] Task actions reference the decision ID they implement (e.g., "per D-03")
-      (The decision-coverage gate `check.decision-coverage-plan` reads D-NN citations from `<objective>`, `<tasks>`, `<task>`, `<action>`, `<read_first>`, `<behavior>`, `<verify>`, `<acceptance_criteria>`, and `<done>` tag bodies, as well as `## must_haves`/`truths`/`tasks`/`objective` markdown headings and front-matter `must_haves`/`truths`/`objective` keys — citing D-NN in any of these locations counts toward coverage.)
+- [ ] The plan's `decisions` lists the ID of each decision a task implements (e.g., `decisions: [D-03]`)
+      (The decision-coverage check `gsd/E310` reads the plan's `decisions` list: an ID cited only in prose covers nothing, and an ID resolves in the plan's own phase.)
 - [ ] No task implements a deferred idea
 - [ ] Discretion areas are handled reasonably
 
@@ -300,10 +300,10 @@ Full rules: @~/.claude/gsd-core/references/context-budget.md (Phase Sizing). Rea
 phase: XX-name
 plan: NN
 type: execute
-wave: N                     # Execution wave (1, 2, 3...)
+# wave, autonomous           # computed by SpecForge (see Frontmatter Fields): never written
 depends_on: []              # Use `01-01`/`01-01-auth-hardening`
 files_modified: []          # Files this plan touches
-autonomous: true            # false if plan has checkpoints
+decisions: []               # D-NN ids of the phase's context this plan implements (gsd/E310: one no plan lists)
 requirements: []            # REQUIRED — Requirement IDs from ROADMAP this plan addresses. MUST NOT be empty.
 user_setup: []              # Human-required setup (omit if empty)
 
@@ -390,16 +390,16 @@ Create the plan's `summary` entity when done (`specforge new summary`)
 | `phase` | Yes | Phase identifier (e.g., `01-foundation`) |
 | `plan` | Yes | Plan number within phase |
 | `type` | Yes | `execute` or `tdd` |
-| `wave` | Yes | Execution wave number |
+| `wave`, `autonomous` | Computed | SpecForge computes both: `wave` from `depends_on`, `autonomous` false exactly when the plan has a checkpoint. Never written |
 | `depends_on` | Yes | Plan IDs this plan requires |
 | `files_modified` | Yes | Files this plan touches |
-| `autonomous` | Yes | `true` if no checkpoints |
+| `decisions` | No | Context decision IDs (D-NN) this plan implements. `gsd/E310` reports a context decision no plan of the phase lists |
 | `requirements` | Yes | **MUST** list requirement IDs from ROADMAP. Every roadmap requirement ID MUST appear in at least one plan. |
 | `user_setup` | No | Human-required setup items |
 | `estimate` | No | Projected cost `{tokens, tasks, confidence}`. See Estimate Emission. |
 | `must_haves` | Yes | Goal-backward verification criteria |
 
-Wave numbers are pre-computed during planning. Execute-phase reads `wave` directly from frontmatter.
+Wave numbers are computed by SpecForge from `depends_on`. Execute-phase reads the computed `wave`.
 
 ## Interface Context for Executors
 
@@ -758,7 +758,7 @@ Non-file coupling: @~/.claude/gsd-core/references/planner-coupling.md
 Rules:
 1. Same-wave tasks with no file conflicts → parallel plans
 2. Shared files → same plan or sequential plans (shared file = implicit dependency → later wave)
-3. Checkpoint tasks → `autonomous: false`
+3. Checkpoint tasks → the plan is not autonomous (SpecForge computes `autonomous` from its checkpoints)
 4. Each plan: 2-3 tasks, single concern, ~50% context target
 </step>
 
@@ -855,7 +855,7 @@ Returns JSON: `{ valid, errors, warnings, task_count, tasks }`. The exit status 
 **If errors exist:** Fix before committing:
 - Missing `<name>` in task → add name element
 - Missing `<action>` → add action element
-- Checkpoint/autonomous mismatch → update `autonomous: false`
+- Checkpoint/autonomous mismatch → none: SpecForge computes `autonomous` from the checkpoints
 </step>
 
 <step name="update_roadmap">
@@ -968,7 +968,7 @@ Phase planning complete when:
 - [ ] Dependency graph built (needs/creates for each task)
 - [ ] Tasks grouped into plans by wave, not by sequence
 - [ ] PLAN file(s) exist with XML structure
-- [ ] Each plan: depends_on, files_modified, autonomous, must_haves in frontmatter
+- [ ] Each plan: depends_on, files_modified, decisions (each context decision it implements), must_haves in frontmatter
 - [ ] Each plan: user_setup declared if external services involved
 - [ ] Each plan: Objective, context, tasks, verification, success criteria, output
 - [ ] Each plan: 2-3 tasks (~50% context)

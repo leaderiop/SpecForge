@@ -11,6 +11,7 @@ use specforge_ops::read::trace::RouteTrace;
 use specforge_parser::{FieldValue, ListItem, TypeMember, Written};
 use specforge_project::coverage::Status;
 use specforge_project::values::{CheckStatus, ValueRow};
+use specforge_protocol_types::OwnerState;
 use specforge_registry::{CheckCall, FieldRegistry, ResolvedCheck};
 use std::collections::BTreeMap;
 use tower_lsp::lsp_types::{Position, Range};
@@ -367,9 +368,9 @@ pub fn hover_field_info(
     Some(parts.join("  \n"))
 }
 
-/// The `checks:` line of a field's hover (ADR 0336): each check by its checker's name, with its args. `None` for a
-/// field with none.
-pub fn checks_line(checks: &[ResolvedCheck]) -> Option<String> {
+/// The `checks:` line of a field's hover (ADR 0336): each check by its checker's name, with its args, then when they
+/// run when an owner gate decides it (ADR 0350). `None` for a field with none.
+pub fn checks_line(checks: &[ResolvedCheck], gate: Option<OwnerState>) -> Option<String> {
     let call = |call: &CheckCall| {
         let args: Vec<String> = call
             .args
@@ -394,7 +395,12 @@ pub fn checks_line(checks: &[ResolvedCheck]) -> Option<String> {
             }
         })
         .collect();
-    (!names.is_empty()).then(|| format!("checks: {}", names.join(", ")))
+    let when = match gate {
+        Some(OwnerState::Complete) => ", once its owner is complete",
+        Some(OwnerState::Pending) => ", while its owner is pending",
+        None => "",
+    };
+    (!names.is_empty()).then(|| format!("checks: {}{when}", names.join(", ")))
 }
 
 /// One line per checker that read the string `text` of `field` (its declared path), for a value's hover: what it
@@ -435,6 +441,14 @@ fn check_line(row: &ValueRow, mode: &str, now: u64) -> String {
     match row.status {
         CheckStatus::NotRun => {
             line.push_str(&format!(" · not run ({mode})"));
+            return line;
+        }
+        CheckStatus::Planned => {
+            line.push_str(" · planned: checked once its owner is complete");
+            return line;
+        }
+        CheckStatus::Closed => {
+            line.push_str(" · closed: its owner is complete");
             return line;
         }
         CheckStatus::Failed => line.push_str(&format!(" · failed ({})", row.codes.join(", "))),

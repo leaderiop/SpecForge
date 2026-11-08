@@ -42,9 +42,9 @@ pub const ARTIFACT: Kind = Kind::new(
     "A file the plan provides (GSD must_haves.artifacts)",
     &[
         rf("plan", "plan").r().i().doc("parent"),
-        str("path")
+        path("path", Mode::Planned)
             .r()
-            .doc("`path:` (from the project root; not existence-checked)"),
+            .doc("`path:` (from the project root; checked once the plan is complete: E016)"),
         str("provides").r().doc("`provides:`"),
         int("min_lines").doc("`min_lines:`"),
         strs("exports").doc("`exports:`"),
@@ -62,10 +62,12 @@ pub const KEY_LINK: Kind = Kind::new(
     "A wiring between two files the plan creates (GSD must_haves.key_links)",
     &[
         rf("plan", "plan").r().i().doc("parent"),
-        str("from")
+        path("from", Mode::Planned)
             .r()
-            .doc("`from:` (a path, not existence-checked)"),
-        str("to").r().doc("`to:` (a path, not existence-checked)"),
+            .doc("`from:` (a path, checked once the plan is complete: E016)"),
+        path("to", Mode::Planned)
+            .r()
+            .doc("`to:` (a path, checked once the plan is complete: E016)"),
         str("via").r().doc("`via:`"),
         str("pattern").doc("`pattern:`; a plain text, searched in the `from` file"),
         en("state", LINK_STATE)

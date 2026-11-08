@@ -1,5 +1,7 @@
 //! The values phase (ADR 0336): every value whose field has checks, planned by its checkers, its findings placed on
-//! the value. It reads the authored snapshot, so a computed or collected value is never checked.
+//! the value. A computed or collected value is never checked. It runs in two stages over one cache and one budget
+//! (ADR 0350): the ungated values first, on the authored snapshot, since judged digests read their outcomes; then the
+//! values of fields whose checks wait for their owner, on the merged snapshot, where a computed value decides it.
 
 mod budget;
 mod cache;
@@ -7,7 +9,9 @@ mod collect;
 mod dispatch;
 mod local;
 mod network;
+mod owner;
 mod place;
+mod rows;
 
 use std::collections::{BTreeMap, HashSet};
 
@@ -15,104 +19,32 @@ use specforge_common::{Diagnostic, Severity};
 use specforge_effects::{Effects, OutcomeClass};
 pub use specforge_protocol_types::CheckStatus;
 use specforge_protocol_types::{
-    CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckValuesInput,
-    MAX_PROBE_ROUNDS, Operation, PlannedItem, Probe, ProbeOutcome,
+    CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckPhase, CheckValuesInput, MAX_PROBE_ROUNDS,
+    Operation, PlannedItem, Probe, ProbeOutcome,
 };
-use specforge_registry::{CheckCall, Disk, EntitySnapshot, QualifiedChecker, ResolvedCheck};
+use specforge_registry::{CheckCall, Disk, EntitySnapshot, ResolvedCheck};
 use specforge_wasm::{CallError, CallFailure, ExtensionCalls, Limits};
 
 use crate::Environment;
-use crate::compiled::{CheckedValue, CheckedValues, ValueOutcome};
+pub(crate) use budget::Spent;
 pub use budget::ValueBudget;
-pub(crate) use cache::CheckCache;
+pub use cache::CheckCache;
 use collect::Value;
+pub(crate) use dispatch::approvals;
+pub use rows::{ValueChecks, ValueRow};
+
+/// Which values one run of the phase reads (ADR 0350).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Stage {
+    /// The values of fields that declare no owner gate, on the authored snapshot, before the judged rules.
+    Ungated,
+    /// The values of fields whose checks follow their owner state, on the merged snapshot, after the compute passes. A
+    /// value its owner holds back gets a `planned` or `closed` row and no checker call.
+    Gated,
+}
 
 /// The most values one run checks; the rest are not judged and count toward I206 as [`budget::OVER`].
 const VALUE_CAP: usize = 10_000;
-
-/// One checker's reading of one value.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ValueRow {
-    /// The written path of the field or member (`links[1].href`).
-    pub field: String,
-    pub item: usize,
-    pub checker: QualifiedChecker,
-    pub value: String,
-    pub status: CheckStatus,
-    /// The class of what its probes answered: `Ok` for a checker with none; `None` when it did not run.
-    pub outcome_class: Option<OutcomeClass>,
-    /// When its oldest journaled answer was observed (Unix milliseconds); `None` when no answer has a record.
-    pub observed_at: Option<u64>,
-    pub from_cache: bool,
-    /// The digest of what its probes answered, free of when; `None` when it did not run.
-    pub digest: Option<String>,
-    /// The codes it found, as written by the checker.
-    pub codes: Vec<String>,
-}
-
-/// Every entity's checked values, by entity id, each in collection order.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct ValueChecks(BTreeMap<String, Vec<ValueRow>>);
-
-impl ValueChecks {
-    /// `id`'s rows; empty when none of its values has a check.
-    pub fn of(&self, id: &str) -> &[ValueRow] {
-        self.0.get(id).map_or(&[], Vec::as_slice)
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&str, &[ValueRow])> {
-        self.0
-            .iter()
-            .map(|(id, rows)| (id.as_str(), rows.as_slice()))
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    /// Every row as a collector that declares `check_outcomes` receives it, by entity id then collection order.
-    pub fn outcomes(&self) -> Vec<CheckOutcome> {
-        self.iter()
-            .flat_map(|(entity, rows)| {
-                rows.iter().map(move |row| CheckOutcome {
-                    entity: entity.to_string(),
-                    field: row.field.clone(),
-                    item: row.item as u32,
-                    value: row.value.clone(),
-                    checker: row.checker.to_string(),
-                    status: row.status,
-                    outcome: row.outcome_class,
-                    observed_at: row.observed_at,
-                    from_cache: row.from_cache,
-                    digest: row.digest.clone(),
-                    codes: row.codes.clone(),
-                })
-            })
-            .collect()
-    }
-
-    /// What a judged verdict digests of them (ADR 0337 §6): a value not run is `unknown` (I207), and the verdict stays
-    /// fresh.
-    pub fn outcome_classes(&self) -> CheckedValues {
-        let mut values = CheckedValues::default();
-        for (id, rows) in &self.0 {
-            for row in rows {
-                values.insert(
-                    id,
-                    CheckedValue {
-                        field: row.field.clone(),
-                        item: row.item,
-                        checker: row.checker.to_string(),
-                        outcome: row
-                            .outcome_class
-                            .map_or(ValueOutcome::Unknown, ValueOutcome::Class),
-                    },
-                );
-            }
-        }
-        values
-    }
-}
 
 /// What one run of the phase gave.
 #[derive(Debug, Default)]
@@ -318,16 +250,32 @@ impl Settled {
     }
 }
 
-/// Run the phase over `entities` in `env`: plan, perform the probes through `effects` and `disk`, judge what was
-/// performed, place the findings. `text_of` gives a source's text, to place a finding inside a value.
+/// What the stages of one compile's phase run through: the effects their probes are served by, the disk a local probe
+/// reads, the checker cache, a source's text (to place a finding inside a value), and what they spent so far.
+pub(crate) struct StageContext<'a> {
+    pub effects: &'a Effects,
+    pub disk: &'a dyn Disk,
+    pub cache: &'a CheckCache,
+    pub text_of: &'a dyn Fn(&str) -> Option<std::sync::Arc<str>>,
+    /// What the compile's stages spend adds up here; [`approvals`] reports what they used once, after the last.
+    pub spent: Spent,
+}
+
+/// Run one stage of the phase over `entities` in `env`, through `context`: plan, perform the probes, judge what was
+/// performed, place the findings.
 pub(crate) fn run(
     env: &Environment,
     entities: &EntitySnapshot,
-    effects: &Effects,
-    disk: &dyn Disk,
-    cache: &CheckCache,
-    text_of: &dyn Fn(&str) -> Option<std::sync::Arc<str>>,
+    stage: Stage,
+    context: &mut StageContext<'_>,
 ) -> Phase {
+    let StageContext {
+        effects,
+        disk,
+        cache,
+        text_of,
+        ref mut spent,
+    } = *context;
     let registries = env.registries();
     let checks = registries.checks();
     let mut phase = Phase::default();
@@ -336,15 +284,35 @@ pub(crate) fn run(
         return phase;
     };
     let running = |call: &CheckCall| running(env, call);
-    let mut values = collect::values(entities, checks, text_of);
-    values.retain(|value| {
+    let collect::Collected {
+        mut values,
+        held,
+        waiting,
+    } = collect::values(entities, checks, stage, text_of);
+    let runs = |value: &Value<'_>| {
         value
             .checks
             .iter()
             .any(|check| check.calls().iter().any(running))
-    });
-    if values.len() > VALUE_CAP {
-        let over = values.split_off(VALUE_CAP);
+    };
+    for one in held.iter().filter(|one| runs(&one.value)) {
+        for check in one.value.checks {
+            for call in check.calls().iter().filter(|call| running(call)) {
+                phase.checks.add_held(&one.value, call, one.status);
+            }
+        }
+    }
+    let read = held.iter().filter(|one| runs(&one.value));
+    phase
+        .diagnostics
+        .extend(owner::written_forms(env, disk, read));
+    phase.diagnostics.extend(owner::waiting(&waiting));
+    values.retain(runs);
+    // One cap over the compile's stages.
+    let cap = VALUE_CAP.saturating_sub(spent.values);
+    spent.values += values.len().min(cap);
+    if values.len() > cap {
+        let over = values.split_off(cap);
         effects.count_not_run(budget::OVER, over.len());
         for value in &over {
             for check in value.checks {
@@ -365,11 +333,11 @@ pub(crate) fn run(
     let answers = plans(&asking, &values, &planned, &mut phase.diagnostics);
     let settled = performed_and_judged(
         &asking,
-        effects,
         disk,
         &values,
         &planned,
         &answers,
+        spent,
         &mut phase.diagnostics,
     );
     let mut misused = HashSet::new();
@@ -463,11 +431,11 @@ struct Open<'p, 'a> {
 /// for a round past the last (E028, once per checker).
 fn performed_and_judged(
     asking: &Asking<'_>,
-    effects: &Effects,
     disk: &dyn Disk,
     values: &[Value<'_>],
     planned: &[Planned<'_>],
     answers: &BTreeMap<CallKey, PlannedItem>,
+    spent: &mut Spent,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> BTreeMap<CallKey, Settled> {
     let dropped = dropped(planned, answers);
@@ -505,7 +473,6 @@ fn performed_and_judged(
             carry: None,
         });
     }
-    let mut spent = budget::Spent::starting(asking.env.value_budget());
     let mut endless = HashSet::new();
     for round in 1..=MAX_PROBE_ROUNDS {
         if open.is_empty() {
@@ -520,7 +487,7 @@ fn performed_and_judged(
                 before: call.before,
             })
             .collect();
-        let readings = dispatch::dispatch(asking.env, effects, disk, &asked, &mut spent);
+        let readings = dispatch::dispatch(asking.env, asking.effects, disk, &asked, spent);
         let mut judge: BTreeMap<&str, Vec<CheckItem>> = BTreeMap::new();
         let mut waiting = BTreeMap::new();
         for (mut call, reading) in open.drain(..).zip(readings) {
@@ -595,7 +562,6 @@ fn performed_and_judged(
             }
         }
     }
-    diagnostics.extend(dispatch::approvals(effects, &spent));
     settled
 }
 
@@ -754,45 +720,6 @@ fn settle(
             settled.class.filter(|_| status != CheckStatus::NotRun),
             kept,
             settled.observed.clone(),
-        );
-    }
-}
-
-impl ValueChecks {
-    fn add(
-        &mut self,
-        value: &Value<'_>,
-        call: &CheckCall,
-        status: CheckStatus,
-        outcome_class: Option<OutcomeClass>,
-        codes: Vec<String>,
-        observed: Observed,
-    ) {
-        self.0
-            .entry(value.entity.to_string())
-            .or_default()
-            .push(ValueRow {
-                field: value.field.to_string(),
-                item: value.item,
-                checker: call.qualified(),
-                value: value.text.to_string(),
-                status,
-                outcome_class,
-                observed_at: observed.at,
-                from_cache: observed.from_cache,
-                digest: observed.digest.filter(|_| status != CheckStatus::NotRun),
-                codes,
-            });
-    }
-
-    fn add_not_run(&mut self, value: &Value<'_>, call: &CheckCall) {
-        self.add(
-            value,
-            call,
-            CheckStatus::NotRun,
-            None,
-            Vec::new(),
-            Observed::default(),
         );
     }
 }

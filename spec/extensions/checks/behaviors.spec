@@ -150,10 +150,13 @@ behavior ck_outcome_facts "Check Outcome Facts" {
     performed), with the outcome class, the codes found, the digest of
     what its probes answered and, when one answer has a journal record,
     that record's time in RFC 3339. A disk or git answer has no record,
-    so two runs over the same tree publish the same facts.
+    so two runs over the same tree publish the same facts. A planned or
+    closed row (ADR 0350) is no outcome: no checker read it, and it MUST
+    become no fact.
   """
   verify unit "the checks collector declares the check_outcomes input and no detection, command or report"
   verify unit "each served row becomes one check_outcome fact, a finding failed and a check not performed skipped"
+  verify unit "a planned or closed row becomes no fact"
   verify integration "two runs over the same tree give equal check outcomes"
   verify integration "collect --runner checks stores one check_outcome fact per checked value under the head commit"
   verify integration "a plain collect leaves the checks collector out unless checks.publish is set"

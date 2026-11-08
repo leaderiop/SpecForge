@@ -457,3 +457,36 @@ behavior check_field_values "Check Field Values" {
   verify unit "a spec string's escape reads no control character but a newline, a tab or a return"
   verify unit "a redirect one extension's grant permits reaches no other extension without its own grant"
 }
+
+behavior check_values_by_owner_state "Check a Value When Its Owner Allows" {
+  category   validation
+  invariants [validation_pipeline_ordering]
+  ports      [FileSystem]
+  consumes   [graph_built]
+  contract   """
+    A field MAY declare checks_while (ADR 0350): complete, its checks wait until its
+    holder's owner is complete (a planned value), or pending, they run only while the
+    owner is pending (a while-open value). The registry MUST keep the gate only when
+    the field declares a check and its kind or a kind along its scoped_by chain declares
+    complete_when; any other gate is W199, dropped, and its checks run on every value.
+    Owner state MUST be read on the merged snapshot, after the compute passes, so a
+    computed status decides it. A value its owner holds back MUST call no checker: its
+    row says planned or closed, it counts toward neither I206 nor I207, and it is no
+    judged input. The planned values are counted once per compile in I213. Both stages
+    of the values phase share one budget. While its owner is pending, a planned path's
+    written form MUST still be read without the disk: an undeclared root is E095, an
+    absolute path or a climb out of its root E094, a backslash W175.
+  """
+  verify unit "an owner gate needs a check and a complete_when on its kind or a scope ancestor, else W199"
+  verify unit "a planned value's checks wait while its owner is pending, and its row says planned"
+  verify unit "a planned value is checked once its owner is complete, its computed state deciding"
+  verify unit "a kind with no complete_when follows its nearest scope ancestor's owner state"
+  verify unit "a value its owner holds back calls no checker"
+  verify unit "a while-open value is checked while its owner is pending, and its row says closed once it is complete"
+  verify unit "a gated value is no judged input, waiting or checked"
+  verify unit "a judged verdict over a gated value stays fresh when its owner completes"
+  verify unit "the values waiting for their owner are counted once in I213, by field, and never in I206 or I207"
+  verify unit "a gated value spends the compile's one value budget"
+  verify unit "a planned path that climbs out of its root is E094 while its owner is pending"
+  verify unit "a planned path naming an undeclared root is E095 while its owner is pending"
+}

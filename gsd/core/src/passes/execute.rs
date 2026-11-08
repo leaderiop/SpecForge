@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
-use super::commits::{Commit, commits};
+use super::commits::{Commit, CommitType, commits};
 use super::plans::{children, name_of, of_kind, rows, text};
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -106,13 +106,13 @@ fn red_before_green(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic
                             && c.plan.as_deref() == Some(plan.id.as_str()))
                 })
                 .collect();
-            let is_green = |c: &Commit| matches!(c.kind.as_str(), "feat" | "fix");
+            let is_green = |c: &Commit| matches!(c.kind, Some(CommitType::Feat | CommitType::Fix));
             let Some(green) = named.iter().position(|c| is_green(c)) else {
                 continue;
             };
             let reds: Vec<&str> = named
                 .iter()
-                .filter(|c| c.kind == "test")
+                .filter(|c| c.kind == Some(CommitType::Test))
                 .map(|c| c.id.as_str())
                 .collect();
             // Each GREEN by its own record: one recorded before the collector read parents has no list, and a newer
@@ -121,7 +121,7 @@ fn red_before_green(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic
                 is_green(g)
                     && match &g.descends_from {
                         Some(list) => list.iter().any(|a| reds.contains(&a.as_str())),
-                        None => named[..i].iter().any(|c| c.kind == "test"),
+                        None => named[..i].iter().any(|c| c.kind == Some(CommitType::Test)),
                     }
             });
             if follows {
@@ -175,7 +175,7 @@ fn task_commits(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic> {
                 ),
             )
             .with_suggestion(
-                "commit it as `type(plan-id): task title`, then run the gsd-git collector",
+                "commit it with the trailer `Gsd-Task: <plan>/<task>` (or as `type(plan-id): task title`), then run the gsd-git collector",
             )
             .with_entity(&task.id)
         })

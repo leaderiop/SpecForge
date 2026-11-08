@@ -18,8 +18,6 @@ const COUPLING: &[Field] = &[rf("peer", "plan").r(), str("reason").r()];
 const ESTIMATE: &[Field] = &[int("tokens")];
 
 /// `NN-MM-PLAN.md`, named `03-02` and scoped by its phase; a quick plan has no phase and is named by its quick id.
-// Paths are `strs`, not `files`: a plan names files it will create, so the file check's E016
-// ("this file does not exist") would fire on every one.
 pub const PLAN: Kind = Kind::new(
     "plan",
     "A plan: the work of one phase in tasks, with its must-haves (GSD NN-MM-PLAN.md)",
@@ -29,23 +27,30 @@ pub const PLAN: Kind = Kind::new(
             .doc("`phase:`; absent for a quick plan (gsd/W323 checks the name)"),
         en("type", PLAN_TYPE).r().doc("`type:`"),
         rfs("depends_on", "plan").doc("`depends_on:`"),
-        strs("files_modified")
+        paths("files_modified", Mode::Planned)
             .r()
-            .doc("`files_modified:` (paths from the project root, not existence-checked)"),
-        strs("files_deleted").doc("`files_deleted:`"),
+            .doc("`files_modified:` (paths from the project root, checked once the plan is complete: E016)"),
+        paths("files_deleted", Mode::WhileOpen)
+            .doc("`files_deleted:` (checked while the plan is pending: E016; closed once it is complete)"),
         blocks("coupling_justified", COUPLING)
             .doc("`coupling_justified:`; exempts only non-file coupling"),
         rfs_any("gap_closure", &["verify_gap", "uat_gap"])
             .doc("`gap_closure: true` and `gap_ids:`; the gaps this plan closes"),
         rfs("requirements", "requirement")
             .doc("`requirements:` (non-empty: gsd/E302 is the one diagnostic of its absence)"),
+        rfs("decisions", "decision")
+            .inverse("implemented_by")
+            .doc(
+                "`decisions:` the context decisions this plan implements (`D-NN`, resolved in its phase), read back \
+                 as `implemented_by`; gsd/E310, W317, W506 and E312 read it",
+            ),
         bool("wave0").doc("`wave: 0`: the plan builds the phase's wave-0 items"),
         str("agent_hint").doc("`agent_hint:`"),
         block("estimate", ESTIMATE).doc("`estimate:`"),
         str("objective").r().doc("`<objective>`"),
         str("purpose").doc("`Purpose:`"),
         str("output").doc("`Output:`"),
-        strs("context_refs").doc("`<context>` @-refs (paths, not existence-checked)"),
+        paths("context_refs", Mode::Present).doc("`<context>` @-refs (paths that exist now: E016)"),
         strs("verification").doc("`<verification>`"),
         strs("success_criteria").doc("`<success_criteria>`"),
         str("slug").doc("a quick plan's slug: the one `quick-init` answered"),
@@ -89,8 +94,11 @@ pub const TASK: Kind = Kind::new(
     &[
         rf("plan", "plan").r().i().doc("parent"),
         en("type", TASK_TYPE).r().doc("`type=`"),
-        strs("files").doc("`<files>` (paths, not existence-checked; required for `auto`, gsd/E303)"),
-        strs("read_first").doc("`<read_first>`"),
+        paths("files", Mode::Planned).doc(
+            "`<files>` (paths, checked once the task is done: E016; required for `auto`, gsd/E303)",
+        ),
+        paths("read_first", Mode::Planned)
+            .doc("`<read_first>` (paths, checked once the task is done: E016)"),
         str("precondition").doc("`<precondition>`"),
         block("reversibility", REVERSIBILITY)
             .doc("`<reversibility>`; `settled_by` names the decision that already settles a one-way door (gsd/W308)"),

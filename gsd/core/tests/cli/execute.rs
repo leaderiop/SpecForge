@@ -161,13 +161,18 @@ fn an_appended_deviation_is_clean() {
 
 #[test]
 fn a_deleted_file_in_a_summary_is_not_e016() {
-    // A deviation names `src/tasks.js`, which this project does not have: a commit may delete or rename a path, so
+    // A deviation names `src/gone.js`, which this project does not have: a commit may delete or rename a path, so
     // the paths are text and the file check's E016 does not read them.
     let p = project("execute");
-    assert!(!p.exists("src/tasks.js"));
+    p.edit(
+        "spec/plans.spec",
+        "  files   [\"src/tasks.js\"]\n}",
+        "  files   [\"src/gone.js\"]\n}",
+    );
+    assert!(!p.exists("src/gone.js"));
     assert_eq!(
         p.fields_of(&format!("{SUMMARY}/DV1"))["files"],
-        serde_json::json!(["src/tasks.js"])
+        serde_json::json!(["src/gone.js"])
     );
     assert_eq!(p.codes(), Vec::<String>::new());
 }

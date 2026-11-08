@@ -55,15 +55,18 @@ impl Default for ValueBudget {
     }
 }
 
-/// What a run spent so far, over every round of probes: its rounds share one budget.
+/// What a compile's values phase spent so far, over both its stages and every round of probes: they share one budget
+/// (ADR 0350).
 #[derive(Debug)]
-pub(super) struct Spent {
+pub(crate) struct Spent {
     pub deadline: Instant,
     pub bytes: u64,
     /// The distinct file and git probes it read.
     pub local: usize,
     /// What its values used of each extension's capabilities and this machine has not approved: one W170 each.
     pub uses: std::collections::BTreeMap<String, Uses>,
+    /// How many values its checkers were asked about, held to the phase's cap over both stages.
+    pub values: usize,
 }
 
 impl Spent {
@@ -73,6 +76,7 @@ impl Spent {
             bytes: 0,
             local: 0,
             uses: Default::default(),
+            values: 0,
         }
     }
 }

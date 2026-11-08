@@ -3,7 +3,7 @@
 
 use serde_json::json;
 
-use crate::harness::{Project, project};
+use crate::harness::{Project, project, project_at};
 
 const SUMMARY: &str = "v1.0/01/01-01/01-01-SUMMARY";
 pub(super) const T0: &str = "2026-10-29T09:00:00Z";
@@ -107,9 +107,18 @@ fn a_green_without_red_does_not_stop_the_other_commits() {
     let p = repository();
     tdd(&p);
     p.settings(json!({ "workflow.tdd_mode": true }));
-    let first = p.git_commit("feat(01-02): Complete a task", &[("src/c.js", "c\n")], T0);
+    // Each commit writes its plan's file: a task a commit names is done, and its files are checked (ADR 0350).
+    let first = p.git_commit(
+        "feat(01-02): Complete a task",
+        &[("src/complete.js", "c\n")],
+        T0,
+    );
     let green = p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T1);
-    let last = p.git_commit("feat(02-01): Write the file", &[("src/w.js", "w\n")], T1);
+    let last = p.git_commit(
+        "feat(02-01): Write the file",
+        &[("src/store.js", "w\n")],
+        T1,
+    );
     let run = p.collect(&["--runner", "gsd-git"]);
     assert_eq!(run.code, 0, "{}", run.all());
     let mut all = [&first[..12], &green[..12], &last[..12]];
@@ -221,6 +230,8 @@ fn w403_follows_commit_ancestry_through_a_merge() {
 }
 
 pub(super) fn touch_schema(p: &Project) {
+    // The complete plan's planned file is there (E016 otherwise, ADR 0350).
+    p.write("prisma/schema.prisma", "// the schema\n");
     p.edit(
         "spec/plans.spec",
         FILES,
@@ -278,9 +289,13 @@ fn e405_is_clean_with_push_evidence_with_the_gate_off_and_before_execution() {
         "files_modified [\"src/store.js\"]",
         "files_modified [\"src/store.js\", \"prisma/schema.prisma\"]",
     );
+    // The commit writes the task's file too: the task it names is done, and its files are checked (ADR 0350).
     p.git_commit(
         "feat(02-01): Write the file",
-        &[("prisma/schema.prisma", "model A {}\n")],
+        &[
+            ("prisma/schema.prisma", "model A {}\n"),
+            ("src/store.js", "w\n"),
+        ],
         T0,
     );
     let run = p.collect(&["--runner", "gsd-git"]);
@@ -353,6 +368,111 @@ fn w407_is_on_under_gsd_strict() {
     assert_eq!(codes(&p), ["gsd/W407", "gsd/W407"], "{:?}", report(&p));
     p.settings(json!({ "profile": "gsd-compat" }));
     assert_eq!(codes(&p), Vec::<String>::new());
+}
+
+#[test]
+fn a_title_linked_commit_is_e521_only_when_task_trailers_is_on() {
+    let p = repository();
+    let titled = p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
+    // A plan's metadata commit names no task by design.
+    p.git_commit("docs(01-01): complete the task store plan", &[], T1);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    junit(&p, &[("adds a task", true)]);
+    assert_eq!(codes(&p), Vec::<String>::new(), "off by default");
+    p.settings(json!({ "specforge.task_trailers": true }));
+    let found = report(&p);
+    assert_eq!(codes(&p), ["gsd/E521"], "{found:?}");
+    assert!(
+        found[0].1.contains(&titled[..12]) && found[0].1.contains("by its subject's title"),
+        "{found:?}"
+    );
+    // The trailer links it.
+    let p = repository();
+    p.git_commit(
+        "feat(01-01): Store module\n\nGsd-Task: 01-01/T1\n",
+        &[("src/tasks.js", "a\n")],
+        T0,
+    );
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    junit(&p, &[("adds a task", true)]);
+    p.settings(json!({ "specforge.task_trailers": true }));
+    assert_eq!(codes(&p), Vec::<String>::new(), "{:?}", report(&p));
+}
+
+#[test]
+fn an_untouched_path_is_w520_only_when_plan_paths_touched_is_on() {
+    let p = repository();
+    p.edit(
+        "spec/plans.spec",
+        "  requirements   [TASK-01]\n  decisions      [D-01]",
+        "  files_deleted  [\"src/old.js\"]\n  requirements   [TASK-01]\n  decisions      [D-01]",
+    );
+    p.write("src/old.js", "old\n");
+    p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    junit(&p, &[("adds a task", true)]);
+    assert_eq!(codes(&p), Vec::<String>::new(), "off by default");
+    p.settings(json!({ "specforge.plan_paths_touched": true }));
+    let found = report(&p);
+    assert_eq!(codes(&p), ["gsd/W520", "gsd/W520"], "{found:?}");
+    assert!(
+        found
+            .iter()
+            .any(|(_, m)| m.ends_with("none of its commits touched: test/tasks.test.js")),
+        "{found:?}"
+    );
+    assert!(
+        found
+            .iter()
+            .any(|(_, m)| m.ends_with("files it deletes are still present: src/old.js")),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn w520_is_on_under_gsd_strict() {
+    let p = repository();
+    p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    junit(&p, &[("adds a task", true)]);
+    p.settings(json!({ "profile": "gsd-strict" }));
+    let found = report(&p);
+    assert!(found.iter().any(|(c, _)| c == "gsd/W520"), "{found:?}");
+    p.settings(json!({ "profile": "gsd-compat" }));
+    assert!(!codes(&p).contains(&"gsd/W520".to_string()));
+}
+
+/// Pins the path base of W520: in a project under `sub/` of its repository the git collector records a commit's
+/// paths repository-relative (`sub/src/tasks.js`), and W520 compares them with the plan's project-relative
+/// `src/tasks.js`, so the touched path reads as untouched. It flips once the collector writes project-relative paths.
+#[test]
+fn w520_reads_a_subdirectory_projects_commit_paths_as_untouched() {
+    let p = project_at("execute", "sub");
+    p.git(&["-C", "..", "init", "-q", "-b", "main"], T0);
+    p.git(&["add", "-A"], T0);
+    p.git(&["commit", "-q", "-m", "baseline"], T0);
+    p.write("src/tasks.js", "a\n");
+    p.git(&["add", "--", "src/tasks.js"], T1);
+    p.git(&["commit", "-q", "-m", "feat(01-01): Store module"], T1);
+    let head = p.git(&["rev-parse", "HEAD"], T1);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let fields = p.fields_of(&head.trim()[..12]);
+    assert_eq!(fields["files"], json!(["sub/src/tasks.js"]), "{fields}");
+    junit(&p, &[("adds a task", true)]);
+    p.settings(json!({ "specforge.plan_paths_touched": true }));
+    let found = report(&p);
+    assert_eq!(codes(&p), ["gsd/W520"], "{found:?}");
+    assert!(
+        found[0]
+            .1
+            .ends_with("none of its commits touched: src/tasks.js, test/tasks.test.js"),
+        "{found:?}"
+    );
 }
 
 const CHECKS: &str = "{ kind unit ref \"test/tasks.test.js#adds a task\" }";

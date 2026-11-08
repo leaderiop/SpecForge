@@ -283,7 +283,11 @@ impl CompiledProject {
         &self,
         revision: &str,
     ) -> Result<CompiledProject, crate::baseline::UnknownRevision> {
-        let read = crate::baseline::Baseline::since(&self.env, revision)?;
+        let checking = crate::baseline::Checking {
+            effects: self.effects(),
+            cache: Arc::clone(&self.check_cache),
+        };
+        let read = crate::baseline::Baseline::since(&self.env, revision, &checking)?;
         let mut project = self.clone();
         project.baseline = Some(Arc::new(crate::baseline::HeldBaseline {
             stamp: None,
@@ -611,7 +615,13 @@ impl CompiledProject {
             let read = match held {
                 Some(held) if held.pinned || held.stamp == stamp => held,
                 _ => Arc::new(crate::baseline::HeldBaseline {
-                    read: crate::baseline::Baseline::of_head(&env),
+                    read: crate::baseline::Baseline::of_head(
+                        &env,
+                        &crate::baseline::Checking {
+                            effects: this.effects(),
+                            cache: Arc::clone(&this.check_cache),
+                        },
+                    ),
                     stamp,
                     pinned: false,
                 }),
@@ -630,15 +640,18 @@ impl CompiledProject {
             if let Some(root) = this.root().filter(|_| env.reads_facts()) {
                 authored.suggest_moved(&crate::facts::moves(&crate::facts::recorded(disk, root)));
             }
-            // Before the rules: a verdict digests what the checks found (ADR 0337 §6).
-            let values = crate::values::run(
-                &env,
-                &authored,
-                this.effects(),
+            let text_of = |file: &str| this.sources.text(file).cloned();
+            // One budget over both stages of the values phase (ADR 0350).
+            let mut stages = crate::values::StageContext {
+                effects: this.effects(),
                 disk,
-                &this.check_cache,
-                &|file| this.sources.text(file).cloned(),
-            );
+                cache: &this.check_cache,
+                text_of: &text_of,
+                spent: crate::values::Spent::starting(env.value_budget()),
+            };
+            // Before the rules: a verdict digests what the checks found (ADR 0337 §6).
+            let mut values =
+                crate::values::run(&env, &authored, crate::values::Stage::Ungated, &mut stages);
             // No checker at all leaves the values a test gave (`with_checked_values`).
             let checked_values = if env.registries().checks().is_empty() {
                 Arc::clone(&this.checked_values)
@@ -655,8 +668,14 @@ impl CompiledProject {
             );
             baseline = Some(read);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
+            // A field whose checks wait for its owner: owner state is read on the merged snapshot (ADR 0350).
+            let gated =
+                crate::values::run(&env, &entities, crate::values::Stage::Gated, &mut stages);
+            values.checks.extend(gated.checks);
             let mut diagnostics = values.diagnostics;
             diagnostics.extend(checked.diagnostics);
+            diagnostics.extend(gated.diagnostics);
+            diagnostics.extend(crate::values::approvals(this.effects(), &stages.spent));
             // What this machine did not perform of them: an effect's, once for the run.
             diagnostics.extend(crate::effects::not_run(&this.effects().log()));
             // A write that was interrupted (ADR 0289): the next writer rolls it back, a check only says so.

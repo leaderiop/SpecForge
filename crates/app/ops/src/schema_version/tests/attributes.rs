@@ -656,3 +656,28 @@ fn an_added_check_is_major_and_a_removed_one_minor() {
         "a document valid before stays valid"
     );
 }
+
+#[specforge_test(
+    behavior = "detect_breaking_schema_changes",
+    verify = "a gained owner gate is minor, and a lost or changed one major"
+)]
+fn a_gained_owner_gate_is_minor_and_a_lost_one_major() {
+    let version = |before: Option<&str>, after: Option<&str>| {
+        let mut recorded = rich_schema();
+        field(&mut recorded, "contract").checks_while = before.map(str::to_string);
+        let mut generated = rich_schema();
+        field(&mut generated, "contract").checks_while = after.map(str::to_string);
+        let dir = tempfile::tempdir().unwrap();
+        let cache = SchemaCache::in_dir(dir.path());
+        cache.seed(&recorded);
+        cache.version(generated, &PlainDisk).version().clone()
+    };
+    let major = SchemaVersion::new(2, 0, 0);
+    assert_eq!(
+        version(None, Some("complete")),
+        SchemaVersion::new(1, 3, 0),
+        "fewer values are checked"
+    );
+    assert_eq!(version(Some("complete"), None), major);
+    assert_eq!(version(Some("complete"), Some("pending")), major);
+}

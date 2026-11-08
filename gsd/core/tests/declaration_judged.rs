@@ -15,7 +15,7 @@ fn plan_checker_inputs_match_rules_md() {
         .find(|r| r.codes.iter().any(|c| c == "W311"))
         .expect("the plan check row");
     assert_eq!(row.codes, ["W311", "W313", "W315", "W316"]);
-    assert_eq!(row.inputs.len(), 11, "{:?}", row.inputs);
+    assert_eq!(row.inputs.len(), 12, "{:?}", row.inputs);
     for code in &row.codes {
         assert_inputs_match_rules_md(code);
         let judged = judged_descriptor(code).expect("judged");

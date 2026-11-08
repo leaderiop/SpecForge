@@ -105,18 +105,18 @@ After completion, create SUMMARY.md with:
    - Pass the unchanged record through `specforge check` (the TDD red-evidence pass reads the plan's record) and require no finding of it before GREEN. Every `INVALID_RED` reason (`unexpected_green`, `zero_tests_discovered`, `nonzero_exit_without_test_failure`, `fixture_or_load_failure`, `no_target_test_failure`, `build_failure`, `invalid_record`, `unreadable_record`) trips the gate. `invalid_record` includes unsupported or malformed reports; inspect `evidence.report_errors`. An unsupported format requires a supported reporter or a parser adapter before GREEN. Classifier rejection never authorizes a fallback to self-attestation.
    - After machine validation, inspect whether the target actually executed and failed on the planned assertion for the intended reason. Zero tests, a missing, skipped, or cancelled target, setup, collection, import, syntax, or fixture faults, unrelated failures, unexpected green, and incomplete or ambiguous evidence block GREEN. Record this semantic assessment as `semanticAssessment` in the RED evidence and in the SUMMARY's RED entry; never fabricate reports, counters, or parser verdicts.
 5. If test passes: feature exists or test is wrong. Investigate.
-6. Commit: `test({phase}-{plan}): add failing test for [feature]`
+6. Commit: `test({phase}-{plan}): add failing test for [feature]` with the `Gsd-Task: {phase}-{plan}/{task}` trailer
 
 **GREEN - Implement to pass:**
 1. Write minimal code to make test pass
 2. No cleverness, no optimization - just make it work
 3. Run test - it MUST pass
-4. Commit: `feat({phase}-{plan}): implement [feature]`
+4. Commit: `feat({phase}-{plan}): implement [feature]` with the `Gsd-Task: {phase}-{plan}/{task}` trailer
 
 **REFACTOR (if needed):**
 1. Clean up implementation if obvious improvements exist
 2. Run tests - MUST still pass
-3. Only commit if changes made: `refactor({phase}-{plan}): clean up [feature]`
+3. Only commit if changes made: `refactor({phase}-{plan}): clean up [feature]` with the `Gsd-Task: {phase}-{plan}/{task}` trailer
 
 **Result:** Each TDD plan produces 2-3 atomic commits.
 </execution_flow>
@@ -269,7 +269,7 @@ refactor(08-02): extract regex to constant (optional)
 - Standard plans: 1 commit per task, 2-4 commits per plan
 - TDD plans: 2-3 commits for single feature
 
-Both follow same format: `{type}({phase}-{plan}): {description}`
+Both follow same format: `{type}({phase}-{plan}): {description}`, ending with the `Gsd-Task:` trailer
 
 **Benefits:**
 - Each commit independently revertable

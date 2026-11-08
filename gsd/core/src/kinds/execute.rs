@@ -121,7 +121,9 @@ pub const DEVIATION: Kind = Kind::new(
             .doc("a deviation or an issue"),
         str("rule").i().doc("the executor's rule, `Rule 1 - Bug`"),
         str("text").r().i().doc("what happened"),
-        strs("files").i().doc("the paths it touched"),
+        paths("files", Mode::History)
+            .i()
+            .doc("the paths it touched: a record, never checked (a later commit may delete one)"),
     ],
 )
 .append_only()

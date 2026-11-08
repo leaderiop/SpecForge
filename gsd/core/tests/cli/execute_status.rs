@@ -123,12 +123,13 @@ fn actuals_and_key_files_come_from_commits_through_the_host() {
         serde_json::json!({"tasks": 2, "commits": 3}),
         "{fields}"
     );
+    // The fixture holds the complete plan's files, so its commits modify them.
     assert_eq!(
-        fields["files_created"],
+        fields["files_modified"],
         serde_json::json!(["src/tasks.js", "test/tasks.test.js"]),
         "{fields}"
     );
-    assert!(fields.get("files_modified").is_none(), "{fields}");
+    assert!(fields.get("files_created").is_none(), "{fields}");
 }
 
 fn junit(p: &Project, testcases: &str) {

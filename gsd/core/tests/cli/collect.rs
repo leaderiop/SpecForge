@@ -199,7 +199,12 @@ fn a_commit_the_host_cannot_write_costs_only_itself() {
         &[("src/\u{1b}b\u{2028}.js", "y\n")],
         T1,
     );
-    let last = p.git_commit("feat(01-02): Complete a task", &[("src/c.js", "z\n")], T2);
+    // The commit writes its plan's file: the task it names is done, and its files are checked (ADR 0350).
+    let last = p.git_commit(
+        "feat(01-02): Complete a task",
+        &[("src/complete.js", "z\n")],
+        T2,
+    );
     let run = p.collect(&["--runner", "gsd-git"]);
     assert_eq!(run.code, 0, "{}", run.all());
     let mut all = [&first[..12], &ansi[..12], &last[..12]];

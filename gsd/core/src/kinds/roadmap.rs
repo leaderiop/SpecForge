@@ -107,7 +107,8 @@ pub const PHASE: Kind = Kind::new(
         date("completed").c().doc("Progress: Completed"),
     ],
 )
-.scoped_by("milestone");
+.scoped_by("milestone")
+.complete_when("status", &["executed", "needs_review", "complete"]);
 
 const WORKSTREAM_STATUS: &[&str] = &["active", "complete"];
 

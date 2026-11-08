@@ -213,7 +213,9 @@ pub fn hover(state: &LspState, uri: &Url, position: Position) -> Option<Hover> {
                 })
         }
         Some(Target::Field { kind, field }) => {
-            let checks = hover::checks_line(state.registries().checks().on(&kind, &field));
+            let registered = state.registries().checks();
+            let checks =
+                hover::checks_line(registered.on(&kind, &field), registered.gate(&kind, &field));
             hover::hover_field_info(&field, &kind, state.field_registry()).map(
                 |info| match checks {
                     Some(checks) => format!("{info}  \n{checks}"),

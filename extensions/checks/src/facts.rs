@@ -65,16 +65,17 @@ pub(crate) fn contribute(c: &mut ContributionsBuilder) {
     });
 }
 
-/// One fact per served row.
+/// One fact per served row that is an outcome: a planned or closed value has none.
 pub(crate) fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
-    let facts = input.check_outcomes.iter().map(fact).collect();
+    let facts = input.check_outcomes.iter().filter_map(fact).collect();
     Ok(CollectOutput {
         facts,
         ..CollectOutput::default()
     })
 }
 
-pub(crate) fn fact(row: &CheckOutcome) -> Fact {
+/// `row`'s fact; `None` for a planned or closed value, which no checker read (ADR 0350).
+pub(crate) fn fact(row: &CheckOutcome) -> Option<Fact> {
     let id = format!(
         "{SCHEME}:{}/{}#{}@{}",
         row.entity, row.field, row.item, row.checker
@@ -83,6 +84,7 @@ pub(crate) fn fact(row: &CheckOutcome) -> Fact {
         CheckStatus::Passed => "passed",
         CheckStatus::Failed => "failed",
         CheckStatus::NotRun => "skipped",
+        CheckStatus::Planned | CheckStatus::Closed => return None,
     };
     let mut fact = Fact::new(KIND, id)
         .field("entity", row.entity.as_str())
@@ -102,7 +104,7 @@ pub(crate) fn fact(row: &CheckOutcome) -> Fact {
     if let Some(digest) = &row.digest {
         fact = fact.field("digest", digest.as_str());
     }
-    fact
+    Some(fact)
 }
 
 /// Unix milliseconds as `YYYY-MM-DDTHH:MM:SSZ`, to the second; a time past what RFC 3339 writes as itself.

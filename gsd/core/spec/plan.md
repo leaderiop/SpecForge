@@ -12,7 +12,8 @@
                 │   ├──*─ disposition    (review ledger, append-only)
                 │   └──*─ user_setup
                 ├── depends_on →* plan   (a DAG; waves are computed from it)
-                └── requirements →* requirement
+                ├── requirements →* requirement
+                └── decisions →* decision   (the context decisions it implements)
 ```
 
 File: `plans/<NN-MM>.spec` in the phase folder: the plan, its tasks, checkpoints and must-haves, its plan-check
@@ -28,17 +29,18 @@ GSD: `NN-MM-PLAN.md` frontmatter and body. Name `03-02`, scoped by its phase (a 
 | phase | → phase | I | `phase:`; absent for a quick plan, which is in the project scope and named by its quick id (not `R`: a quick plan has none, so a forgotten `phase` is gsd/W323, the name check) |
 | type | enum{execute, tdd} | R | `type:` |
 | depends_on | →* plan | | `depends_on:` |
-| files_modified | strs | R | `files_modified:`: paths from the project root, not existence-checked (a plan names files it will create, so `files` would be E016 on each) |
-| files_deleted | strs | | `files_deleted:` |
+| files_modified | paths<planned> | R | `files_modified:`: paths from the project root, checked once the plan is complete (E016, ADR 0350): a plan names files it will create, so the check waits for it |
+| files_deleted | paths<open> | | `files_deleted:`: checked while the plan is pending (the file is still there to delete), closed once it is complete |
 | coupling_justified | {peer → plan R, reason str R} | | `coupling_justified:`; exempts only non-file coupling (D3b, gsd/I321), never file overlap (gsd/W305) |
 | requirements | →* requirement | | `requirements:` (non-empty for a plan of a phase, not `R`, so gsd/E302 is the one diagnostic of its absence; a quick plan names none) |
+| decisions | →* decision | | the context decisions the plan implements (`decisions [D-01, D-03]`), resolved in its phase and read back as `implemented_by` (ADR 0351): gsd/E310, W317, W506 and E312's exemption read them, never the plan's text. Not `R`: gsd/E310 is the one diagnostic of a missing one; another phase's decision (`02/D-01`) covers nothing here |
 | wave0 | bool | | `wave: 0`: the plan builds the phase's Nyquist wave-0 items (test stubs, fixtures, framework install) |
 | gap_closure | →* verify_gap \| uat_gap | | `gap_closure: true` and `gap_ids:` (a reference union, ADR 0285 D5) |
 | agent_hint | str | | `agent_hint:` |
 | estimate | {tokens int} | | `estimate:` |
 | objective | str | R | `<objective>` |
 | purpose, output | str | | `Purpose:` / `Output:` |
-| context_refs | strs | | `<context>` @-refs (paths, not existence-checked) |
+| context_refs | paths<present> | | `<context>` @-refs: paths that exist now, checked on every value (E016) |
 | verification | strs | | `<verification>` |
 | success_criteria | strs | | `<success_criteria>` |
 | slug | str | | a quick plan's slug: the one `quick-init` answered, written once by the quick tail (`specforge new plan … --slug`); `/gsd-quick status` and `resume` find the plan by it. A plan is no place to compute it: a pass does not see its title |
@@ -57,8 +59,8 @@ GSD: `<task type="auto|tdd">`. Name `T1`, scoped by its plan; the order is the n
 |---|---|---|---|
 | plan | → plan | R I | parent |
 | type | enum{auto, tdd, tracer, manual} | R | `type=` |
-| files | strs | | `<files>`: paths, not existence-checked (required for `auto`, gsd/E303) |
-| read_first | strs | | `<read_first>`: paths, not existence-checked |
+| files | paths<planned> | | `<files>`: paths, checked once the task is done (E016; required for `auto`, gsd/E303) |
+| read_first | paths<planned> | | `<read_first>`: paths, checked once the task is done (E016) |
 | precondition | str | | `<precondition>` |
 | reversibility | {rating enum{reversible, costly, one_way} R, why str, settled_by → decision} | | `<reversibility>`; `settled_by` names the decision (a context decision, a project one, a checkpoint's) that already settles a one-way door: GSD's "unless the decision is already settled", made checkable (gsd/W308) |
 | action | text | R | `<action>` |
@@ -99,8 +101,8 @@ GSD: the `must_haves:` block. Each item is an entity, so a verifier's verdict ca
 | Kind | Fields |
 |---|---|
 | truth | `plan R I`, `text str R` (user-observable), `requirement ref requirement` (the requirement it proves; read back as `requirement.truths`), `proof refs test` (the `@code/core` test facts that prove it, quoted ids such as `"js:pkg/a.test.js#adds"`; with no `@code/core` loaded a written proof is I004), `verification enum{explicit, backstop} U` (a person's to write), `criterion int` (the phase success criterion it proves). Name `TR1`. |
-| artifact | `plan R I`, `path str R` (a path the plan creates: not existence-checked), `provides str R`, `min_lines int`, `exports strs`, `contains str`. Name `AR1`. |
-| key_link | `plan R I`, `from str R`, `to str R` (paths the plan creates: not existence-checked), `via str R`, `pattern str`. Name `KL1`. |
+| artifact | `plan R I`, `path path<planned> R` (a path the plan creates: checked once the plan is complete, E016), `provides str R`, `min_lines int`, `exports strs`, `contains str`. Name `AR1`. |
+| key_link | `plan R I`, `from path<planned> R`, `to path<planned> R` (paths the plan creates: checked once the plan is complete, E016), `via str R`, `pattern str`. Name `KL1`. |
 | prohibition | `plan R I`, `statement str R`, `verification enum{test, judgment} R`, `test str` (the test it names when `verification test`, gsd/E319). Name `PR1`. |
 
 ## disposition
@@ -119,7 +121,7 @@ GSD: `user_setup:` and `NN-USER-SETUP.md`. Name `US1`. `plan → plan R I`, `ser
 GSD's plan checker is a prompt with twelve dimensions. Here each dimension is a rule: the ones code can decide are
 declarative rules or passes; the rest are **judged** (K7): the checker agent records a `verdict` member in the plan's file, and
 the verdict goes stale when any of the plan-check inputs changes ([rules.md](rules.md#judged-rules-inputs)): the plan
-and its tasks and must-haves, its phase, its requirements, the phase's and the project's decisions, the context,
+and its tasks and must-haves, its phase, its requirements, the decisions it lists, the phase's and the project's decisions, the context,
 the research, its sibling plans, the agent instruction files, and what the checker cited. A plan is `checked` only
 with a fresh passing verdict, and `/gsd-execute-phase` refuses a phase whose plans are not. The mapping is in
 [rules.md](rules.md#plan).
@@ -132,9 +134,9 @@ with a fresh passing verdict, and `/gsd-execute-phase` refuses a phase whose pla
     cited       [AUTH-07, "src/http/middleware.ts"]
     cited_tests []
     inputs      { plan "sha256:9f1c…" body "sha256:41d7…" phase "sha256:04ab…" requirements "sha256:5e21…"
-                  decisions "sha256:c3d0…" all_decisions "sha256:e0b9…" context "sha256:7a4f…"
-                  research "sha256:19cd…" research_items "sha256:b6a2…" siblings "sha256:2f80…"
-                  instructions "sha256:77e0…" cited "sha256:a8f3…" }
+                  decisions "sha256:c3d0…" phase_decisions "sha256:5b17…" all_decisions "sha256:e0b9…"
+                  context "sha256:7a4f…" research "sha256:19cd…" research_items "sha256:b6a2…"
+                  siblings "sha256:2f80…" instructions "sha256:77e0…" cited "sha256:a8f3…" }
     findings    []
   }
 ```

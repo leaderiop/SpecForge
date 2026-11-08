@@ -191,6 +191,18 @@ vocabulary! {
 }
 
 vocabulary! {
+    /// An entity's owner state (ADR 0329 D4) as a field's `checks_while` names it (ADR 0350). On the wire
+    /// `FieldDescriptor::checks_while` stays a string, so an unknown word costs the gate a diagnostic (W199).
+    OwnerState {
+        /// Its owner's `complete_when` holds: a planned value is checked.
+        Complete = "complete",
+        /// Its owner's `complete_when` does not hold: a while-open value is checked.
+        Pending = "pending",
+    }
+    aliases {}
+}
+
+vocabulary! {
     /// Where one judged rule stands on one entity (ADR 0290): `Judgement::state` is one of these.
     JudgementState {
         /// A verdict is recorded and every input digests as it did.

@@ -122,7 +122,7 @@ pub struct ValueCheckJson {
     pub value: String,
     /// `<extension>:<checker>`.
     pub checker: String,
-    /// `passed`, `failed` or `not_run`.
+    /// `passed`, `failed`, `not_run`, `planned` (its owner is pending, ADR 0350) or `closed` (its owner is complete).
     #[shape(as = String)]
     pub status: CheckStatus,
     /// The class of what its probes answered; absent when it did not run.

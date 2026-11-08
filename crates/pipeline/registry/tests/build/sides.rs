@@ -70,3 +70,28 @@ fn two_kinds_linked_both_ways_are_w162() {
         found[0].message.contains("parent.children") && found[0].message.contains("child.parent")
     );
 }
+
+#[spec(
+    behavior = "registry_build_edges",
+    verify = "two kinds linked both ways where one field names its reverse are two relations, not W162"
+)]
+fn a_field_that_names_its_reverse_is_its_own_relation() {
+    let declared = declare("@t/tree", |c| {
+        c.kind("Parent", |k| {
+            k.keyword("parent");
+            k.field("adopted", |f| {
+                f.field_type(FieldType::ReferenceList)
+                    .target_kind("child")
+                    .inverse_of("adopted_by");
+            });
+        });
+        c.kind("Child", |k| {
+            k.keyword("child");
+            k.field("parent", |f| {
+                f.field_type(FieldType::Reference).target_kind("parent");
+            });
+        });
+    });
+    let build = build([declared]);
+    assert!(coded(&build, "W162").is_empty(), "{:?}", codes(&build));
+}

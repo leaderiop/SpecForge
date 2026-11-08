@@ -34,15 +34,16 @@ const DISPOSITION: &[Field] = &[
     ts("at").r(),
 ];
 
-/// A line of `.planning/WINDOWS.md`, named `BW1` in the project scope.
-// Paths are `str`: the file a window names may since have been deleted.
+/// A line of `.planning/WINDOWS.md`, named `BW1` in the project scope; complete once waived or fixed.
 pub const BROKEN_WINDOW: Kind = Kind::new(
     "broken_window",
     "A defect left in the code, open until it is fixed or waived (GSD WINDOWS.md)",
     &[
         en("kind", WINDOW_KIND).r().doc("`kind`"),
         rf("phase", "phase").r().doc("the phase that found it"),
-        str("file").doc("`file`"),
+        path("file", Mode::WhileOpen).doc(
+            "`file`: checked while the window is open (E016); a fixed one's may since be gone",
+        ),
         int("line").doc("`line`"),
         str("description").r().doc("`description`"),
         block("waiver", WAIVER)
@@ -64,16 +65,20 @@ pub const BROKEN_WINDOW: Kind = Kind::new(
             .i()
             .doc("when the window was recorded"),
     ],
-);
+)
+.complete_when("status", &["waived", "fixed"]);
 
-/// `NN-REFACTOR.md`, named `RP1` and scoped by its phase. The scores are harness values written by the refactor
-/// trigger (r41): a harness field is never `R`.
+/// `NN-REFACTOR.md`, named `RP1` and scoped by its phase; complete once accepted or declined. The scores are harness
+/// values written by the refactor trigger: a harness field is never `R`.
 pub const REFACTOR_PROPOSAL: Kind = Kind::new(
     "refactor_proposal",
     "A function whose complexity crossed the refactor threshold (GSD NN-REFACTOR.md)",
     &[
         rf("phase", "phase").r().i().doc("`phase`"),
-        str("target_file").r().i().doc("`target_file`"),
+        path("target_file", Mode::WhileOpen)
+            .r()
+            .i()
+            .doc("`target_file`: checked while the proposal is open (E016)"),
         str("target_function").r().i().doc("`target_function`"),
         int("score").h().i().doc("`score` (decision points)"),
         int("baseline")
@@ -89,4 +94,5 @@ pub const REFACTOR_PROPOSAL: Kind = Kind::new(
         en("status", PROPOSAL_STATUS).c().doc("from `disposition`"),
     ],
 )
-.scoped_by("phase");
+.scoped_by("phase")
+.complete_when("status", &["accepted", "declined"]);

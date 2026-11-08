@@ -371,6 +371,9 @@ expression: listing
               },
               "type": "array"
             },
+            "checks_while": {
+              "type": "string"
+            },
             "default_value": {
               "type": "string"
             },
@@ -2180,6 +2183,9 @@ expression: listing
                 "$ref": "#/$defs/SchemaCheck"
               },
               "type": "array"
+            },
+            "checks_while": {
+              "type": "string"
             },
             "default_value": {
               "type": "string"

@@ -1,5 +1,6 @@
 //! The cross-plan pass: the rules that read the plans of a phase together. `gsd/E301` (a phase requirement in no
-//! plan, plan checker D1), `gsd/E310` (a context decision cited by no plan, `gate-decision-coverage-plan`) and
+//! plan, plan checker D1), `gsd/E310` (a context decision no plan lists in its `decisions`,
+//! `gate-decision-coverage-plan`, which matches the plans' text instead) and
 //! `gsd/I321` (the deterministic half of D3b: a justified coupling). Each judges a phase only once it has a plan:
 //! GSD runs them at `plan:post`, and before that a phase has nothing to cover.
 //!
@@ -9,7 +10,7 @@ use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
-use super::plans::{children, has_word, name_of, of_kind, rows, text, texts};
+use super::plans::{children, context_decisions, listed_decisions, name_of, of_kind, rows};
 use crate::digest::scope_of;
 
 pub fn declare(c: &mut ContributionsBuilder) {
@@ -71,77 +72,18 @@ fn uncovered_requirements(
         .collect()
 }
 
-/// `normalizePhrase`: lowercase, anything but a letter, a digit or white space is a space, white space collapsed.
-pub(crate) fn normalise(text: &str) -> String {
-    text.to_lowercase()
-        .chars()
-        .map(|c| {
-            if c.is_ascii_lowercase() || c.is_ascii_digit() || c.is_whitespace() {
-                c
-            } else {
-                ' '
-            }
-        })
-        .collect::<String>()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-/// `softPhrase`: the first six normalised words of a decision's text, when it has at least six.
-pub(crate) fn soft_phrase(text: &str) -> Option<String> {
-    let words: Vec<String> = normalise(text).split(' ').map(String::from).collect();
-    (words.len() >= 6).then(|| words[..6].join(" "))
-}
-
-/// What GSD scans of a plan (`decision-coverage-support.cts`): its `objective`, and the must-haves and tasks. Here the
-/// plan's objective, purpose and output, and every field of its tasks, checkpoints, truths, artifacts, key links and
-/// prohibitions. A title is not scanned: the pass input carries none.
-fn scanned(input: &PassInput, plan: &PassEntity) -> String {
-    let mut parts: Vec<String> = ["objective", "purpose", "output"]
-        .iter()
-        .filter_map(|f| text(plan, f).map(String::from))
-        .collect();
-    for kind in [
-        "task",
-        "checkpoint",
-        "truth",
-        "artifact",
-        "key_link",
-        "prohibition",
-    ] {
-        for child in children(input, &plan.id, kind) {
-            parts.extend(texts(child));
-        }
-    }
-    parts.join("\n")
-}
-
-/// Whether one of `surfaces` cites `decision`: its id as a word (`D-03`), or its first six words (`softPhrase`). The
-/// matcher of E310 (plans) and W506 (what shipped).
-pub(crate) fn mentions(decision: &PassEntity, surfaces: &[String]) -> bool {
-    let id = name_of(&decision.id);
-    let phrase = text(decision, "text").and_then(soft_phrase);
-    surfaces.iter().any(|raw| {
-        has_word(raw, id, false)
-            || phrase
-                .as_ref()
-                .is_some_and(|p| normalise(raw).contains(p.as_str()))
-    })
-}
-
-/// E310: every trackable decision of the phase's context, a `decision` with `origin context`, is cited by one of its
-/// plans: `\bD-NN\b`, or its first six words. `settled` plays no part; discretion items are not decisions.
+/// E310: every trackable decision of the phase's context, a `decision` with `origin context`, is listed in the
+/// `decisions` of one of its plans: a typed reference resolved in the plan's phase, so another phase's namesake covers
+/// nothing and a name in prose is no claim. `settled` plays no part; discretion items are not decisions.
 fn uncited_decisions(
     input: &PassInput,
     phase: &PassEntity,
     plans: &[&PassEntity],
 ) -> Vec<PassDiagnostic> {
-    let surfaces: Vec<String> = plans.iter().map(|plan| scanned(input, plan)).collect();
-    children(input, &phase.id, "decision")
+    let listed = listed_decisions(input, plans.iter().map(|plan| plan.id.as_str()));
+    context_decisions(input, &phase.id)
         .into_iter()
-        .filter(|d| d.fields.get("origin").map(String::as_str) == Some("context"))
-        .filter(|decision| !mentions(decision, &surfaces))
+        .filter(|decision| !listed.contains(decision.id.as_str()))
         .map(|decision| {
             PassDiagnostic::new(
                 "E310",
@@ -152,7 +94,7 @@ fn uncited_decisions(
                 ),
             )
             .with_suggestion(format!(
-                "cite {} in a plan's objective, a must-have or a task, or move it to the context's discretion if it should not be tracked",
+                "list {} in the decisions of the plan that implements it, or move it to the context's discretion if it should not be tracked",
                 name_of(&decision.id)
             ))
             .with_entity(&decision.id)

@@ -165,3 +165,107 @@ fn a_kind_declares_when_its_entities_are_complete() {
     );
     assert!(of("stamped").is_null());
 }
+
+const LOCATOR: &[Field] = &[str("note"), path("file", Mode::Planned)];
+const PATHED: Kind = Kind::new(
+    "pathed",
+    "a kind with a path field of each mode, a computed one and a block member",
+    &[
+        paths("planned", Mode::Planned),
+        path("open", Mode::WhileOpen),
+        paths("present", Mode::Present),
+        paths("history", Mode::History),
+        paths("covered", Mode::Present).c(),
+        blocks("located", LOCATOR),
+    ],
+);
+
+/// The field `path` (`field` or `block.member`) of kind `pathed`, as the declaration writes it.
+fn declared(path: &str) -> serde_json::Value {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@gsd/test", "0.0.0"));
+    declare(&mut c, &[&PATHED]);
+    let declaration = serde_json::to_value(c.declaration()).expect("JSON");
+    let named = |list: &serde_json::Value, name: &str| {
+        list.as_array()
+            .and_then(|items| items.iter().find(|f| f["name"] == name))
+            .cloned()
+            .unwrap_or_else(|| panic!("'{name}' is declared"))
+    };
+    let mut parts = path.split('.');
+    let mut found = named(
+        &declaration["entities"][0]["fields"],
+        parts.next().expect("a field"),
+    );
+    if let Some(member) = parts.next() {
+        found = named(&found["members"], member);
+    }
+    found
+}
+
+/// The checker of each check `field` names.
+fn checkers(field: &serde_json::Value) -> Vec<String> {
+    field["checks"]
+        .as_array()
+        .map(|checks| {
+            checks
+                .iter()
+                .map(|c| c["checker"].as_str().unwrap_or_default().to_string())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+#[test]
+fn a_planned_path_declares_a_file_check_that_waits() {
+    for path in ["planned", "located.file"] {
+        let field = declared(path);
+        assert_eq!(checkers(&field), ["@specforge/checks:file"], "{path}");
+        assert_eq!(field["checks_while"], "complete", "{path}");
+    }
+    assert_eq!(declared("planned")["field_type"], "string_list");
+    assert_eq!(declared("located.file")["field_type"], "string");
+}
+
+#[test]
+fn a_while_open_path_is_checked_while_pending() {
+    let field = declared("open");
+    assert_eq!(checkers(&field), ["@specforge/checks:file"]);
+    assert_eq!(field["checks_while"], "pending");
+    let present = declared("present");
+    assert_eq!(checkers(&present), ["@specforge/checks:file"]);
+    assert!(present["checks_while"].is_null());
+}
+
+#[test]
+fn a_history_path_has_no_check() {
+    let field = declared("history");
+    assert!(checkers(&field).is_empty(), "{field}");
+    assert!(field["checks_while"].is_null());
+}
+
+#[test]
+fn a_computed_path_has_no_check() {
+    let field = declared("covered");
+    assert!(checkers(&field).is_empty(), "{field}");
+    assert!(field["checks_while"].is_null());
+}
+
+#[test]
+fn path_fields_lists_each_path_with_its_mode_and_writer() {
+    let found: Vec<(String, Mode, bool)> = path_fields(&[&PATHED])
+        .into_iter()
+        .map(|p| (p.name(), p.mode, p.writer == Writer::Author))
+        .collect();
+    let row = |name: &str, mode, authored| (name.to_string(), mode, authored);
+    assert_eq!(
+        found,
+        [
+            row("pathed.planned", Mode::Planned, true),
+            row("pathed.open", Mode::WhileOpen, true),
+            row("pathed.present", Mode::Present, true),
+            row("pathed.history", Mode::History, true),
+            row("pathed.covered", Mode::Present, false),
+            row("pathed.located.file", Mode::Planned, true),
+        ]
+    );
+}

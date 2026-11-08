@@ -29,6 +29,7 @@ fn the_plan_kind_declares_the_fields_of_the_model() {
             "coupling_justified",
             "gap_closure",
             "requirements",
+            "decisions",
             "wave0",
             "agent_hint",
             "estimate",
@@ -64,9 +65,18 @@ fn the_plan_kind_declares_the_fields_of_the_model() {
             "{computed}"
         );
     }
-    // Paths a plan creates are text, never a file check (E016).
-    for paths in ["files_modified", "files_deleted", "context_refs"] {
-        assert!(field_of("plan", paths)["checks"].is_null(), "{paths}");
+    // Every path is file-checked (E016) as its owner mode says (ADR 0350): what the plan creates once it is
+    // complete, what it deletes while it is pending, what it reads on every value.
+    for (paths, mode) in [
+        ("files_modified", serde_json::json!("complete")),
+        ("files_deleted", serde_json::json!("pending")),
+        ("context_refs", serde_json::Value::Null),
+    ] {
+        assert_eq!(
+            file_checked(&field_of("plan", paths)),
+            Some(mode),
+            "{paths}"
+        );
     }
 }
 
@@ -155,9 +165,23 @@ fn the_task_and_checkpoint_kinds_declare_the_fields_of_the_model() {
         assert_eq!(field_of(kind, "plan")["immutable"], true, "{kind}");
     }
     assert_eq!(field_of("task", "status")["writer"], "computed");
-    // A path a task names is text: it may be a file the task creates.
-    assert!(field_of("task", "files")["checks"].is_null());
-    assert!(field_of("task", "read_first")["checks"].is_null());
+    // A path a task names may be a file the task creates: it is checked once the task is done.
+    for paths in ["files", "read_first"] {
+        assert_eq!(
+            file_checked(&field_of("task", paths)),
+            Some(serde_json::json!("complete")),
+            "{paths}"
+        );
+    }
+}
+
+/// The owner state a field's one file check waits for (`null` for none) when its one check is
+/// `@specforge/checks:file`, and nothing when it has no check.
+fn file_checked(field: &serde_json::Value) -> Option<serde_json::Value> {
+    let checks = field["checks"].as_array()?;
+    assert_eq!(checks.len(), 1, "{field}");
+    assert_eq!(checks[0]["checker"], "@specforge/checks:file", "{field}");
+    Some(field["checks_while"].clone())
 }
 
 fn members(field: &serde_json::Value) -> Vec<(String, bool)> {
@@ -286,8 +310,16 @@ fn must_haves_golden() {
                 expected,
                 "{kind}.{field}"
             );
-            // Every path a must-have names is a file the plan may create.
-            assert!(field_of(kind, &field)["checks"].is_null());
+            // Every path a must-have names is a file the plan may create: checked once the plan is complete.
+            let paths = ["artifact.path", "key_link.from", "key_link.to"];
+            let expected = paths
+                .contains(&format!("{kind}.{field}").as_str())
+                .then(|| serde_json::json!("complete"));
+            assert_eq!(
+                file_checked(&field_of(kind, &field)),
+                expected,
+                "{kind}.{field}"
+            );
         }
         assert_eq!(field_of(kind, "plan")["immutable"], true, "{kind}");
     }
@@ -372,10 +404,10 @@ fn a_setup_done_is_a_harness_block_and_the_dashboard_a_block_list() {
     assert_eq!(kind_of("user_setup")["scoped_by"], "plan");
 }
 
-/// `plan.md` lists 79 fields over its nine kinds. The model fixes: `task.commits` waits for `commit` (r38), which is 1
+/// `plan.md` lists 80 fields over its nine kinds. The model fixes: `task.commits` waits for `commit`, which is 1
 /// fewer, and `task.verify_text`, `task.verify_paths` (gsd/E320), `checkpoint.action` and `checkpoint.verification`
-/// are 4 more: 79 - 1 + 4 = 82. `plan.gap_closure` is declared with the UAT kinds (r39), and `artifact.state` and
-/// `key_link.state` (computed by the scan) are 2 more: 84. `plan.estimate_slices` (the smart-zone budget's answer) is 1 more.
+/// are 4 more: 80 - 1 + 4 = 83. `plan.gap_closure` is declared with the UAT kinds, and `artifact.state` and
+/// `key_link.state` (computed by the scan) are 2 more: 85. `plan.estimate_slices` (the smart-zone budget's answer) is 1 more.
 #[test]
 fn the_plan_kinds_declare_every_field_of_plan_md() {
     let kinds = [
@@ -390,7 +422,7 @@ fn the_plan_kinds_declare_every_field_of_plan_md() {
         "user_setup",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 79 - 1 + 4 + 2 + 3 + 1, "the kinds' fields");
+    assert_eq!(total, 80 - 1 + 4 + 2 + 3 + 1, "the kinds' fields");
 }
 
 /// The host refuses a computed field that two compute passes claim, and one that none does (W021): every `C` field of
@@ -453,5 +485,28 @@ fn the_plan_checker_reads_the_slices_the_plan_answers() {
         "yourself:",
     ] {
         assert!(!checker.contains(said), "the checker says {said:?}");
+    }
+}
+
+/// A phase is complete once executed (ADR 0350): its scoped kinds' planned paths are checked from then on. A broken
+/// window once waived or fixed, a refactor proposal once accepted or declined.
+#[test]
+fn the_phase_and_the_windows_declare_when_they_are_complete() {
+    for (kind, values) in [
+        (
+            "phase",
+            serde_json::json!(["executed", "needs_review", "complete"]),
+        ),
+        ("broken_window", serde_json::json!(["waived", "fixed"])),
+        (
+            "refactor_proposal",
+            serde_json::json!(["accepted", "declined"]),
+        ),
+    ] {
+        assert_eq!(
+            kind_of(kind)["complete_when"],
+            serde_json::json!({"field": "status", "values": values}),
+            "{kind}"
+        );
     }
 }

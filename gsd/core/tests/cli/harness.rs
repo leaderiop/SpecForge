@@ -116,11 +116,13 @@ pub struct Project {
 }
 
 pub fn project(name: &str) -> Project {
-    from_dir(
-        &Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/projects")
-            .join(name),
-    )
+    project_at(name, "")
+}
+
+/// [`project`] under `inside` of its temp dir: a project in a subdirectory of the repository a test makes there.
+pub fn project_at(name: &str, inside: &str) -> Project {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/projects");
+    from_dir_at(&fixtures.join(name), inside)
 }
 
 /// The builtins the taskboard twin loads beside `@gsd/core`: the test facts and the runner pack that collects them,
@@ -400,7 +402,9 @@ impl Project {
 
     /// `(code, message)` of every diagnostic of `specforge check --format json` (kernel and `gsd/`), in report order,
     /// the `I204` note and the `I205` note ("no test report") left out: the compute pass reads the report, so every
-    /// project that has none says I205 once, and the tests of the rules are not about that. The judged rules'
+    /// project that has none says I205 once, and the tests of the rules are not about that. The `I213` note (values
+    /// that wait for their owner) is left out for the same reason: every project with a pending plan says it once.
+    /// The judged rules'
     /// diagnostics (`no verdict`, `stale`, the outcome) are left out too: every plan, truth and so on of every
     /// fixture has one, and the tests of the other rules are not about them. [`Project::report_all`] has them, and
     /// the clean-report invariants and the judged tests use it.
@@ -478,12 +482,13 @@ impl Project {
     pub fn report_all(&self) -> Vec<(String, String)> {
         self.checked()
             .into_iter()
-            .filter(|(code, _)| code != "I204" && code != "I205")
+            .filter(|(code, _)| !matches!(code.as_str(), "I204" | "I205" | "I213"))
             .filter(|(code, _)| !self.quiet.contains(&code.as_str()))
             .collect()
     }
 
-    /// Every code of `specforge check --format json` (kernel and `gsd/`, `I204` and `I205` left out), in report order.
+    /// Every code of `specforge check --format json` (kernel and `gsd/`, `I204`, `I205` and `I213` left out), in
+    /// report order.
     pub fn codes(&self) -> Vec<String> {
         self.report().into_iter().map(|(code, _)| code).collect()
     }

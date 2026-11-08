@@ -2407,6 +2407,25 @@ Owner: core
 Level: info
 ```
 
+## I213
+
+```
+I213: Values wait for their owner
+
+Some values belong to fields whose checks wait for their owner (`checks_while:
+complete`, ADR 0350), and their owner is still pending: a path to a file the
+owner's work will create, say. Their owner is the entity's kind, or its nearest
+scope ancestor, that declares `complete_when`, read after the compute passes. No
+checker is called for them: each row says `planned`, only the written form of a
+path is read (E094, E095, W175), and nothing counts toward I206 or I207. One
+summary per compile counts them, by declared field path and how many values each
+holds. They are checked once their owner is complete; nothing is wrong with the
+project.
+
+Owner: core
+Level: info
+```
+
 ## I999
 
 ```
@@ -4152,11 +4171,12 @@ A relation has two fields: one extension declares it from both of its ends.
 Either a reference field's `inverse_of` names a field its target kind registers
 (`milestone.behaviors` naming `features`, when `behavior` has its own
 `features`), or two different kinds each register a reference field targeting
-the other (`parent.children` and `child.parent`). A relation is written from one
-side (ADR 0150): the other side is derived, so `query` and `trace` already show
-it. Both fields still register, and an entity can write either. Remove one
-field, or drop the `inverse_of` or name a word the target kind does not use. The
-builtin extensions declare none.
+the other (`parent.children` and `child.parent`) and neither names its reverse.
+A relation is written from one side (ADR 0150): the other side is derived, so
+`query` and `trace` already show it. Both fields still register, and an entity
+can write either. Remove one field, or drop the `inverse_of` or name a word the
+target kind does not use; two relations between the same kinds are told apart by
+giving one an `inverse_of` (ADR 0354). The builtin extensions declare none.
 
 Owner: core
 Level: warning
@@ -4613,6 +4633,23 @@ The places the store records in the rewritten files may be off by the rename's
 change of length. Run `specforge collect` to collect the facts again: it
 replaces the store and drops the stale line. A store collected after the rename
 is not stale: if it still names the old id, its collector's facts disagree.
+
+Owner: core
+Level: warning
+```
+
+## W199
+
+```
+W199: Owner gate refused
+
+A field declares `checks_while` (ADR 0350), whether its checks wait for its
+holder's owner, and the registry cannot honour it: the word is neither
+`complete` nor `pending`, the field declares no check, or neither its kind nor a
+kind along its `scoped_by` chain declares `complete_when`, so no owner state
+decides it. The gate is dropped and the field's checks run on every value, as if
+it declared none; nothing is lost. Declare a check on the field, or
+`complete_when` on its kind or a scope ancestor, and rebuild the extension.
 
 Owner: core
 Level: warning

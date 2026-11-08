@@ -556,6 +556,29 @@ mod checkers {
     }
 
     #[test]
+    fn a_field_waits_for_its_owner() {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/values", "1.0.0"));
+        c.kind("plan", |k| {
+            k.field("files", |f| {
+                f.field_type(FieldType::StringList)
+                    .file(Root::Project)
+                    .planned();
+            })
+            .field("deleted", |f| {
+                f.field_type(FieldType::StringList)
+                    .file(Root::Project)
+                    .while_open();
+            })
+            .field("refs", |f| {
+                f.field_type(FieldType::StringList).file(Root::Project);
+            });
+        });
+        let fields = &c.declaration().entities[0].fields;
+        let gates: Vec<Option<&str>> = fields.iter().map(|f| f.checks_while.as_deref()).collect();
+        assert_eq!(gates, [Some("complete"), Some("pending"), None]);
+    }
+
+    #[test]
     #[should_panic(expected = "checker 'x' declares no plan")]
     fn a_checker_without_a_plan_is_refused_at_build() {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/values", "1.0.0"));

@@ -17,14 +17,30 @@ pub enum Ty {
     /// A list of values of a vocabulary, each once (ADR 0285).
     Enums(&'static [&'static str]),
     Strs,
-    /// Paths of project files, from the project root: `@specforge/checks:file` reports a missing one (E016).
-    Files,
+    /// A path of a project file, from the project root: an authored one is checked by `@specforge/checks:file`
+    /// (E016) as its mode says.
+    Path(Mode),
+    /// A list of [`Ty::Path`].
+    Paths(Mode),
     Ref(&'static str),
     Refs(&'static str),
     /// A list of references to any of these kinds (ADR 0285 D5).
     RefsAny(&'static [&'static str]),
     Block(&'static [Field]),
     Blocks(&'static [Field]),
+}
+
+/// When an authored path's file check runs: what the path's owner state (ADR 0350) says about the file.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Mode {
+    /// The owner will create the file: it is checked once the owner is complete.
+    Planned,
+    /// The file exists now: it is checked on every value.
+    Present,
+    /// The owner acts on a file that exists until it is done: it is checked while the owner is pending.
+    WhileOpen,
+    /// A record of what was: no file check.
+    History,
 }
 
 /// Who writes a field.
@@ -149,8 +165,11 @@ pub const fn ens(name: &'static str, values: &'static [&'static str]) -> Field {
 pub const fn strs(name: &'static str) -> Field {
     Field::new(name, Ty::Strs)
 }
-pub const fn files(name: &'static str) -> Field {
-    Field::new(name, Ty::Files)
+pub const fn path(name: &'static str, mode: Mode) -> Field {
+    Field::new(name, Ty::Path(mode))
+}
+pub const fn paths(name: &'static str, mode: Mode) -> Field {
+    Field::new(name, Ty::Paths(mode))
 }
 pub const fn rf(name: &'static str, kind: &'static str) -> Field {
     Field::new(name, Ty::Ref(kind))
@@ -239,6 +258,25 @@ fn edge_label(kind: &str, field: &str) -> String {
     format!("{}{}", pascal(kind), pascal(field))
 }
 
+/// A path field of type `ty`: checked as a file under the project root by `mode`, when its value is authored (the host
+/// drops a check on a field it writes itself, W189).
+fn path_check(f: &mut FieldBuilder, field: &Field, ty: FieldType, mode: Mode) {
+    f.field_type(ty);
+    if field.writer != Writer::Author || mode == Mode::History {
+        return;
+    }
+    f.file(Root::Project);
+    match mode {
+        Mode::Planned => {
+            f.planned();
+        }
+        Mode::WhileOpen => {
+            f.while_open();
+        }
+        Mode::Present | Mode::History => {}
+    }
+}
+
 fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
     match field.ty {
         Ty::Str | Ty::Ts => {
@@ -265,13 +303,8 @@ fn apply(kind: &str, f: &mut FieldBuilder, field: &Field) {
         Ty::Strs => {
             f.field_type(FieldType::StringList);
         }
-        Ty::Files => {
-            f.field_type(FieldType::StringList);
-            // Only an authored value is checked: the host drops a check on a field it writes itself (W189).
-            if field.writer == Writer::Author {
-                f.file(Root::Project);
-            }
-        }
+        Ty::Path(mode) => path_check(f, field, FieldType::String, mode),
+        Ty::Paths(mode) => path_check(f, field, FieldType::StringList, mode),
         Ty::Ref(target) => {
             f.field_type(FieldType::Reference)
                 .target_kind(target)
@@ -453,6 +486,63 @@ pub fn computed(kinds: &[&Kind]) -> Vec<String> {
     found
 }
 
+/// A path field of a kind, or a path member of one of its blocks, with the mode its file check follows and its writer
+/// (a member's own: an authored block's computed member is not authored).
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct PathField {
+    pub kind: &'static str,
+    pub field: &'static str,
+    /// The member of the block `field` that holds the path; `None` when the field does.
+    pub member: Option<&'static str>,
+    pub mode: Mode,
+    pub writer: Writer,
+}
+
+impl PathField {
+    /// `kind.field`, or `kind.block.member`.
+    pub fn name(&self) -> String {
+        match self.member {
+            Some(member) => format!("{}.{}.{member}", self.kind, self.field),
+            None => format!("{}.{}", self.kind, self.field),
+        }
+    }
+}
+
+/// Every path field of `kinds`, and every path member of a block (one level: the model nests no deeper).
+pub fn path_fields(kinds: &[&Kind]) -> Vec<PathField> {
+    let mode = |ty: Ty| match ty {
+        Ty::Path(mode) | Ty::Paths(mode) => Some(mode),
+        _ => None,
+    };
+    let mut found = Vec::new();
+    for kind in kinds {
+        for field in kind.fields {
+            let at = |member, mode, writer| PathField {
+                kind: kind.name,
+                field: field.name,
+                member,
+                mode,
+                writer,
+            };
+            if let Some(m) = mode(field.ty) {
+                found.push(at(None, m, field.writer));
+            } else if let Ty::Block(members) | Ty::Blocks(members) = field.ty {
+                for member in members {
+                    if let Some(m) = mode(member.ty) {
+                        let writer = if field.writer == Writer::Author {
+                            member.writer
+                        } else {
+                            field.writer
+                        };
+                        found.push(at(Some(member.name), m, writer));
+                    }
+                }
+            }
+        }
+    }
+    found
+}
+
 /// The `kind.field` names of every top-level field of `kinds` whose type the kernel hands a pass as structured
 /// `values` today (lists and blocks): the only fields the context digest reads from `values`.
 pub fn structured(kinds: &[&Kind]) -> Vec<String> {
@@ -467,7 +557,7 @@ pub fn structured(kinds: &[&Kind]) -> Vec<String> {
                         Ty::Block(_)
                             | Ty::Blocks(_)
                             | Ty::Strs
-                            | Ty::Files
+                            | Ty::Paths(_)
                             | Ty::Refs(_)
                             | Ty::RefsAny(_)
                     )

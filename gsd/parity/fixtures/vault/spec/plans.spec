@@ -6,7 +6,7 @@ plan 01-01 "The sealed store" {
   objective        "The sealed store."
   purpose          "a secret is encrypted before it is written, which is the core value of the project."
   output           "`src/vault.js` with `createVault`, `seal` and `open`, and its tests."
-  context_refs     [".planning/PROJECT.md", ".planning/ROADMAP.md", ".planning/STATE.md"]
+  context_refs     ["spec/project.spec", "spec/v1.0.spec"]
   verification     ["`npm test` passes."]
   success_criteria ["SEC-01 holds: a secret is stored sealed"]
 }
@@ -78,11 +78,7 @@ plan 01-02 "The command line" {
   objective        "The command line."
   purpose          "a user drives the vault without writing code."
   output           "`src/cli.js` with `set`, `get` and `list`."
-  context_refs     [
-    ".planning/PROJECT.md",
-    ".planning/ROADMAP.md",
-    ".planning/phases/01-core/01-01-SUMMARY.md",
-  ]
+  context_refs     ["spec/project.spec", "spec/v1.0.spec", "spec/plans.spec"]
   verification     ["`npm test` passes and `get` prints what `set` stored."]
   success_criteria ["SEC-02 holds: a stored secret is read back by its name"]
 }
@@ -141,11 +137,7 @@ plan 02-01 "Export a secret for a recipient" {
   objective        "Export a secret for a recipient."
   purpose          "a secret reaches another person without the vault key."
   output           "`src/share.js`, and the command line `share` command."
-  context_refs     [
-    ".planning/PROJECT.md",
-    ".planning/ROADMAP.md",
-    ".planning/phases/01-core/01-02-SUMMARY.md",
-  ]
+  context_refs     ["spec/project.spec", "spec/v1.0.spec", "spec/plans.spec"]
   verification     ["`npm test` passes."]
   success_criteria ["SHARE-01 holds"]
 }

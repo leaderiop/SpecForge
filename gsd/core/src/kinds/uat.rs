@@ -24,7 +24,7 @@ const TOTALS: &[Field] = &[
     int("skipped"),
     int("blocked"),
 ];
-const GAP_ARTIFACTS: &[Field] = &[str("path"), str("issue")];
+const GAP_ARTIFACTS: &[Field] = &[path("path", Mode::Present), str("issue")];
 
 /// `NN-UAT.md`, named `01-UAT` and scoped by its phase.
 pub const UAT_SESSION: Kind = Kind::new(

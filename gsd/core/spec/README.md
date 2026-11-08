@@ -20,7 +20,7 @@ nothing is kept as Markdown.
  str     quoted string            text   triple-quoted prose          int     integer        int{1..4}  bounded
  bool    true/false               date   YYYY-MM-DD                   ts      RFC 3339 UTC string (a `str` that `matches`, gsd/E107)
  enum{}  one closed value         enums{} list of closed values       id      bare identifier
- strs    list of strings          file   path, existence-checked      files   list of paths
+ strs    list of strings          path<mode>  path                    paths<mode>  list of paths (mode planned | present | open | history)
  → K     reference to kind K      →* K   list of references           → A|B   reference to a kind union
  {..}    repeatable typed block, its own fields inside
 ```

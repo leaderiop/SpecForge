@@ -25,7 +25,9 @@
 ///   entity carries `dangling`, a fact's references that name no entity, the wrong kind or several, judged by the
 ///   extension declaring the holder's kind (ADR 0346);
 /// - an unheld reference carries `kinds`, the collected kinds of its scheme its field admits, and a fact store
-///   `held`, the kinds of its facts by scheme, replacing `schemes` (ADR 0347 D9).
+///   `held`, the kinds of its facts by scheme, replacing `schemes` (ADR 0347 D9);
+/// - a field may declare `checks_while` (`complete`, `pending`), and a check row's status may be `planned` or `closed`
+///   (ADR 0350).
 ///
 /// A change that adds to 2.0.0 (grants, host imports, value checks) adds its item here and to the 2.0.0 row of
 /// `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0 included; it does

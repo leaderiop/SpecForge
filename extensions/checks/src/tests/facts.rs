@@ -105,7 +105,13 @@ fn each_outcome_row_becomes_one_fact_and_a_finding_is_failed() {
         observed_at: None,
         ..row(3, CheckStatus::Passed, Some(OutcomeClass::Ok), &[])
     };
-    assert_eq!(crate::facts::fact(&local).fields.get("observed_at"), None);
+    assert_eq!(
+        crate::facts::fact(&local)
+            .unwrap()
+            .fields
+            .get("observed_at"),
+        None
+    );
     assert_eq!(field(2, "item"), Some(2.into()));
 
     let unreachable = row(
@@ -114,8 +120,26 @@ fn each_outcome_row_becomes_one_fact_and_a_finding_is_failed() {
         Some(OutcomeClass::Unreachable(Unreachable::Dns)),
         &["W172"],
     );
-    let one = crate::facts::fact(&unreachable);
+    let one = crate::facts::fact(&unreachable).unwrap();
     assert_eq!(one.fields.get("outcome"), Some(&"unreachable:dns".into()));
+}
+
+#[specforge_test(
+    behavior = "ck_outcome_facts",
+    verify = "a planned or closed row becomes no fact"
+)]
+fn a_planned_or_closed_row_becomes_no_fact() {
+    let input = CollectInput {
+        check_outcomes: vec![
+            row(0, CheckStatus::Planned, None, &[]),
+            row(1, CheckStatus::Closed, None, &[]),
+            row(2, CheckStatus::Passed, Some(OutcomeClass::Ok), &[]),
+        ],
+        ..CollectInput::default()
+    };
+    let facts = collect(&input).unwrap().facts;
+    let ids: Vec<&str> = facts.iter().map(|f| f.id.as_str()).collect();
+    assert_eq!(ids, ["check:f/refs#2@@specforge/checks:url"]);
 }
 
 #[test]

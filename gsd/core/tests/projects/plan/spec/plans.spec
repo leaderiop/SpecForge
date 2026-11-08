@@ -3,6 +3,7 @@ plan 01-01 "Task store" {
   type           execute
   files_modified ["src/tasks.js", "test/tasks.test.js"]
   requirements   [TASK-01]
+  decisions      [D-01]
   objective      "Tasks can be added to an in-memory store (D-01)"
 }
 

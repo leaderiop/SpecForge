@@ -60,7 +60,7 @@ specforge git commit --add spec -m "docs: initialize [project-name] ([N] phases)
 <format name="task-completion">
 ## Task Completion (During Plan Execution)
 
-Each task gets its own commit immediately after completion.
+Each task gets its own commit immediately after completion. Its message ends with the trailer `Gsd-Task: {phase}-{plan}/{task}` (`{task}` is the task's name, `T1`), which links the commit to its task.
 
 > **Parallel agents:** When running as a parallel executor (spawned by execute-phase),
 > run commits normally — let pre-commit hooks run. Do NOT pass `--no-verify` by default
@@ -73,8 +73,8 @@ Each task gets its own commit immediately after completion.
 {type}({phase}-{plan}): {task-name}
 
 - [Key change 1]
-- [Key change 2]
-- [Key change 3]
+
+Gsd-Task: {phase}-{plan}/{task}
 ```
 
 **Commit types:**
@@ -95,7 +95,7 @@ specforge git commit --add src/api/auth.ts --add src/types/user.ts \
 - POST /auth/register validates email and password
 - Checks for duplicate users
 - Returns JWT token on success
-"
+" -m "Gsd-Task: 08-02/T1"
 
 # TDD task - RED phase
 specforge git commit --add src/__tests__/jwt.test.ts \
@@ -104,7 +104,7 @@ specforge git commit --add src/__tests__/jwt.test.ts \
 - Tests token contains user ID claim
 - Tests token expires in 1 hour
 - Tests signature verification
-"
+" -m "Gsd-Task: 07-02/T1"
 
 # TDD task - GREEN phase
 specforge git commit --add src/utils/jwt.ts \
@@ -113,7 +113,7 @@ specforge git commit --add src/utils/jwt.ts \
 - Uses jose library for signing
 - Includes user ID and expiry claims
 - Signs with HS256 algorithm
-"
+" -m "Gsd-Task: 07-02/T1"
 ```
 
 </format>

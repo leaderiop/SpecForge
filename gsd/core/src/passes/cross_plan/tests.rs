@@ -64,20 +64,8 @@ fn an_unplanned_phase_is_not_judged() {
     assert!(check(&input).is_empty());
 }
 
-#[test]
-fn soft_phrase_normalisation_is_gsds() {
-    assert_eq!(
-        normalise("  Tasks, ARE kept\tin one-list!  "),
-        "tasks are kept in one list"
-    );
-    assert_eq!(
-        soft_phrase("Tasks are kept in a single JSON file, `tasks.json`").as_deref(),
-        Some("tasks are kept in a single")
-    );
-    assert_eq!(soft_phrase("five words only here"), None);
-}
-
-fn decision_input(text: &str, objective: &str, task_action: &str) -> PassInput {
+/// Phase `v/1` with one plan whose objective and task action are given, and the plan's `decisions` edges.
+fn decision_input(text: &str, objective: &str, task_action: &str, listed: &[&str]) -> PassInput {
     PassInput {
         entities: vec![
             entity("v/1", "phase", &[]),
@@ -91,13 +79,22 @@ fn decision_input(text: &str, objective: &str, task_action: &str) -> PassInput {
             entity("v/1/D-04", "decision", &[("origin", "summary")]),
             entity("D-03", "decision", &[("origin", "context")]),
         ],
+        edges: listed
+            .iter()
+            .map(|target| edge("v/1/1-01", target, "decisions"))
+            .collect(),
         ..Default::default()
     }
 }
 
 #[test]
 fn an_uncited_context_decision_is_e310_on_the_decision() {
-    let found = check(&decision_input("Log every retry", "Build it", "Write it"));
+    let found = check(&decision_input(
+        "Log every retry",
+        "Build it",
+        "Write it",
+        &[],
+    ));
     assert_eq!(codes_of(&found), [("E310", Some("v/1/D-03"))]);
     assert_eq!(
         found[0].message,
@@ -106,52 +103,70 @@ fn an_uncited_context_decision_is_e310_on_the_decision() {
 }
 
 #[test]
-fn a_decision_cited_by_name_or_by_its_first_six_words_is_covered() {
-    assert!(
-        check(&decision_input(
-            "Log every retry",
-            "Honour D-03",
-            "Write it"
-        ))
-        .is_empty()
-    );
-    assert!(check(&decision_input("Log every retry", "Build it", "See D-03.")).is_empty());
-    // A name inside a longer id is not a citation.
-    assert!(
-        !check(&decision_input(
-            "Log every retry",
-            "Honour D-030",
-            "Write it"
-        ))
-        .is_empty()
-    );
+fn a_decision_is_covered_only_by_a_decisions_edge() {
     let text = "Log every failed retry to the audit trail, with its cause";
-    assert!(
-        check(&decision_input(
-            text,
-            "Build it",
-            "Log every failed retry to the audit trail."
-        ))
-        .is_empty()
-    );
-    assert!(!check(&decision_input(text, "Build it", "Log every failed retry")).is_empty());
+    // Prose alone, by name or by its first six words, covers nothing.
+    for (objective, action) in [
+        ("Honour D-03", "Write it"),
+        ("Build it", "See D-03."),
+        ("Build it", "Log every failed retry to the audit trail."),
+    ] {
+        assert_eq!(
+            codes_of(&check(&decision_input(text, objective, action, &[]))),
+            [("E310", Some("v/1/D-03"))],
+            "{objective} / {action}"
+        );
+    }
+    assert!(check(&decision_input(text, "Build it", "Write it", &["v/1/D-03"])).is_empty());
+    // An edge to another decision, or to the project's namesake, covers nothing.
+    for other in ["v/1/D-030", "D-03"] {
+        assert_eq!(
+            codes_of(&check(&decision_input(
+                text,
+                "Build it",
+                "Write it",
+                &[other]
+            ))),
+            [("E310", Some("v/1/D-03"))],
+            "{other}"
+        );
+    }
 }
 
+/// A plan of phase 2 that lists phase 1's `D-01` covers nothing of phase 2: its own `D-01` is still uncited.
 #[test]
-fn only_the_scanned_surfaces_cite() {
-    let mut input = decision_input("Log every retry", "Build it", "Write it");
-    input.entities[1]
-        .fields
-        .insert("requirements".into(), "D-03".into());
-    assert_eq!(
-        check(&input).len(),
-        1,
-        "a plan's requirements are not scanned"
-    );
-    input.entities[1]
-        .fields
-        .insert("purpose".into(), "D-03".into());
-    assert!(check(&input).is_empty());
+fn a_citation_of_another_phases_decision_covers_nothing_here() {
+    let input = PassInput {
+        entities: vec![
+            entity("v/1", "phase", &[]),
+            entity("v/1/1-01", "plan", &[("objective", "Honour D-01")]),
+            entity(
+                "v/1/D-01",
+                "decision",
+                &[("origin", "context"), ("text", "ES modules")],
+            ),
+            entity("v/2", "phase", &[]),
+            entity(
+                "v/2/2-01",
+                "plan",
+                &[("objective", "Keep phase 1's D-01 (ES modules)")],
+            ),
+            entity(
+                "v/2/D-01",
+                "decision",
+                &[
+                    ("origin", "context"),
+                    ("text", "Tasks are kept in one JSON file"),
+                ],
+            ),
+        ],
+        edges: vec![
+            edge("v/1/1-01", "v/1/D-01", "decisions"),
+            edge("v/2/2-01", "v/1/D-01", "decisions"),
+        ],
+        ..Default::default()
+    };
+    assert_eq!(codes_of(&check(&input)), [("E310", Some("v/2/D-01"))]);
 }
 
 fn coupled(wave_a: &str, wave_b: &str, peer_scope: &str) -> Vec<PassDiagnostic> {

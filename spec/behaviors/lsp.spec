@@ -308,6 +308,8 @@ behavior hover_information "Hover Information" {
   verify unit "hover on a checked value shows one line per checker"
   verify unit "a check not run says why on the value's hover"
   verify unit "a field's hover names its checks"
+  verify unit "a planned value's hover says it waits for its owner, and a closed one's that its owner is complete"
+  verify unit "a field's hover names when its owner gate lets its checks run"
   verify unit "hover delegates to provide_extension_entity_hover"
   verify unit "hover returns markdown-formatted content"
   verify unit "hover shows an integer field's value beside the word it was written as when they differ"

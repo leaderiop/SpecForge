@@ -143,6 +143,7 @@ behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
   verify unit "a pass input carries each entity's judgements as they were written"
   verify unit "re-verification reads the baseline's judgements"
   verify unit "a baseline whose files git could not read is neither cached nor judged"
+  verify unit "the baseline digests an ungated checked value at the commit, over the commit's files"
   verify unit "an input with a value this machine did not check is skipped like a missing report, and reported as I207"
 }
 

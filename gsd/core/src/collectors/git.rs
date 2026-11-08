@@ -12,7 +12,7 @@
 //! the task. A trailer that is unreadable (two different values, or one that is no `<plan>/<task>`) or names no task
 //! falls back to the subject, and the plan's title notes it. A commit that names no plan either way (`feat(gsd): x`,
 //! `docs(pause): y`, a scope no plan has, or one that several plans have) is skipped, as `/gsd-undo` skips it
-//! (`scope === id`). GSD's executor writes no trailer yet; `gsd-executor.md`'s commit step would add it.
+//! (`scope === id`). GSD's executor writes the trailer (`gsd-executor.md`'s commit step, ADR 0351).
 //!
 //! Each recorded commit also names the recorded commits of its plan it descends from (`descends_from`), through every
 //! parent: the log is read with merges, so a RED made on a branch merged before the GREEN counts (#5275). A merge
@@ -65,6 +65,13 @@ impl LinkedBy {
             LinkedBy::Trailer => "Gsd-Task",
             LinkedBy::Title => "title",
         }
+    }
+
+    /// The variant whose value `commit.linked_by` holds; `None` for any other text.
+    pub(crate) fn parse(text: &str) -> Option<Self> {
+        [LinkedBy::Trailer, LinkedBy::Title]
+            .into_iter()
+            .find(|by| by.as_str() == text)
     }
 }
 

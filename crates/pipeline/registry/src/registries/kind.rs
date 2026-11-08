@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use specforge_protocol_types::{
     CompleteWhen, EntityKindDescriptor, FieldType, FieldWriter, TestStatus,
@@ -245,6 +245,29 @@ impl KindRegistry {
 
     pub fn keywords(&self) -> impl Iterator<Item = &String> {
         self.entries.keys()
+    }
+
+    /// Whether an owner state can decide `kind_name`'s entities (ADR 0329 D4, ADR 0350): the kind, or a kind along its
+    /// kept `scoped_by` chain (each scope field's target kind, then that kind's own), keeps a `complete_when`. A static
+    /// walk with a visited set, so a chain that comes back ends.
+    pub fn owner_declared(&self, kind_name: &str, fields: &super::FieldRegistry) -> bool {
+        let mut seen = HashSet::new();
+        let mut at = Some(kind_name.to_string());
+        while let Some(kind) = at {
+            let Some(entry) = self.get(&kind).filter(|_| seen.insert(kind.clone())) else {
+                return false;
+            };
+            if entry.complete_when().is_some() {
+                return true;
+            }
+            at = entry
+                .scoped_by
+                .as_deref()
+                .and_then(|field| fields.get(&kind, field))
+                .and_then(|scope| scope.form().target_kind())
+                .map(str::to_string);
+        }
+        false
     }
 
     /// Whether `id` may not be an entity ID (E013): a structural keyword, or the keyword of a registered

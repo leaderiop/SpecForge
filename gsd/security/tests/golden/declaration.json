@@ -150,8 +150,17 @@
           "target_kind": null
         },
         {
+          "checks": [
+            {
+              "args": {
+                "root": "project"
+              },
+              "checker": "@specforge/checks:file"
+            }
+          ],
+          "checks_while": "complete",
           "default_value": null,
-          "description": "the files the auditor checks for the mitigation",
+          "description": "the files the auditor checks for the mitigation: checked once the plan is complete (E016)",
           "edge": null,
           "field_type": "string_list",
           "inverse_of": null,

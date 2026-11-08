@@ -4,7 +4,9 @@
 use specforge_common::Diagnostic;
 use specforge_effects::OutcomeClass;
 use specforge_project::judged::Cited;
-use specforge_project::testing::{TestProject, gsd_judged_project};
+use specforge_project::testing::{
+    GSD_JUDGED, GSD_JUDGED_SPEC, TestProject, gsd_judged_project, gsd_judged_runtime,
+};
 use specforge_project::{CheckedValue, CheckedValues, ValueOutcome};
 use specforge_registry::PlainDisk;
 use specforge_test::prelude::*;
@@ -176,4 +178,101 @@ fn a_value_outcome_is_digested_by_its_fixed_tag() {
     for (outcome, tag) in tags {
         assert_eq!(outcome.tag(), tag, "{outcome:?}");
     }
+}
+
+/// [`gsd_judged_project`] with `@specforge/checks` loaded, so the plan's `files_modified` is checked as a file under
+/// the project root, and the runtime that serves both.
+fn file_checked() -> (TestProject, specforge_project::SharedRuntime) {
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[GSD_JUDGED, "@specforge/checks"])
+        .installing_enabled()
+        .file("a.spec", GSD_JUDGED_SPEC)
+        .file("CLAUDE.md", "# Instructions\n")
+        .file("src/auth/session.ts", "export const session = 1;\n");
+    let runtime = gsd_judged_runtime().beside(specforge_project::testing::component_runtime());
+    (project, std::sync::Arc::new(runtime))
+}
+
+#[specforge_test(
+    behavior = "judge_rule_by_fresh_verdict",
+    verify = "the baseline digests an ungated checked value at the commit, over the commit's files"
+)]
+fn the_baseline_digests_a_checked_value_at_the_commit() {
+    use specforge_effects::git::Sha;
+    use specforge_project::baseline::{Baseline, Checking, CommitReads};
+    use std::collections::BTreeMap;
+    use std::path::{Path, PathBuf};
+
+    let (project, runtime) = file_checked();
+    let compiled = project.compile_in(runtime.clone());
+    let digested = compiled.checked_values().of(PLAN);
+    assert_eq!(digested.len(), 1, "the plan's one file is checked");
+    assert_eq!(digested[0].outcome, OK);
+    record_from(
+        &project,
+        &compiled,
+        PLAN,
+        W311,
+        "passed",
+        &Cited::default(),
+        "",
+    );
+    // The commit: every file as it is now.
+    let committed: BTreeMap<String, Vec<u8>> = [
+        "a.spec",
+        "specforge-harness",
+        "CLAUDE.md",
+        "src/auth/session.ts",
+    ]
+    .into_iter()
+    .map(|key| (key.to_string(), project.read(key).into_bytes()))
+    .collect();
+    let at_commit = |compiled: &specforge_project::CompiledProject| {
+        let fetch = |keys: &[String]| -> Vec<(String, Option<Vec<u8>>)> {
+            keys.iter()
+                .map(|key| (key.clone(), committed.get(key).cloned()))
+                .collect()
+        };
+        let sizes = |keys: &[String]| -> Vec<(String, Option<u64>)> {
+            keys.iter()
+                .map(|key| (key.clone(), committed.get(key).map(|b| b.len() as u64)))
+                .collect()
+        };
+        let files = ["a.spec", "specforge-harness"]
+            .map(|key| (PathBuf::from(key), committed[key].clone()))
+            .to_vec();
+        let tree = committed
+            .keys()
+            .map(|key| (PathBuf::from(key), true))
+            .collect();
+        let baseline = Baseline::compile(
+            compiled.environment(),
+            Sha::new("c".repeat(40)),
+            Path::new(""),
+            files,
+            tree,
+            CommitReads {
+                sizes: &sizes,
+                fetch: &fetch,
+            },
+            &Checking::of(compiled.environment()),
+        );
+        let judged = &baseline.entities[PLAN].judgements;
+        judged
+            .iter()
+            .find(|j| j.rule == W311)
+            .unwrap_or_else(|| panic!("W311 at the commit: {judged:?}"))
+            .state
+            .clone()
+    };
+    // Unchanged: the commit digests the file's class as now does, so the verdict is fresh at both ends.
+    let now = project.compile_in(runtime.clone());
+    assert_eq!(judgement(&now, PLAN, W311).0, "fresh");
+    assert_eq!(at_commit(&now), "fresh");
+    // Deleted since: now it is missing and the verdict is stale; the commit still holds it, so there it is fresh.
+    project.remove("src/auth/session.ts");
+    let now = project.compile_in(runtime);
+    assert_eq!(judgement(&now, PLAN, W311).0, "stale");
+    assert_eq!(at_commit(&now), "fresh");
 }

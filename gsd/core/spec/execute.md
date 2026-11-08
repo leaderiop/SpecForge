@@ -65,7 +65,7 @@ when none was recorded, and no status without a report. Because the derive pass 
 ## deviation
 
 GSD: `## Deviations from Plan` and `## Issues Encountered`. Append-only. Name `DV1`, scoped by the summary.
-`summary → summary R I`, `kind enum{deviation, issue} R I`, `rule str I`, `text str R I`, `files strs I`: a deviation is a log line, so
+`summary → summary R I`, `kind enum{deviation, issue} R I`, `rule str I`, `text str R I`, `files paths<history> I` (never file-checked: a later commit may delete one): a deviation is a log line, so
 every field is immutable and the kind is append-only (E084, E085).
 
 ## commit
@@ -120,7 +120,8 @@ and `-`) is resolved as a task over the graph, as written or with the `project_c
 Two different values, or one of another form, is unreadable (as upstream's `ship.md:335` counts a doubled
 `gate-status:` as missing). An unreadable trailer, or one that names no task, falls back to the subject, and the plan's
 title notes `(trailer of <12 hex> names no task: <value or "unreadable">)`. A revert names no task, even with a trailer.
-GSD's executor writes no trailer yet: S1 adds it to `gsd-executor.md`'s commit step (`gsd/core/assets/**`).
+GSD's executor writes the trailer: `gsd-executor.md`'s commit step ends the message with it as a second `-m`, its last
+paragraph (ADR 0351).
 
 A plan op refused `stale_revision` (the plan's file changed since the compile) writes
 nothing, and the next run records the same commits. Merges are read for their parents and never recorded.

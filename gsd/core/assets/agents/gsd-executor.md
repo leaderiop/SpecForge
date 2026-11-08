@@ -533,7 +533,7 @@ specforge git add src/types/user.ts
 
 **If `sub_repos` is configured (non-empty array from init context):** Use `commit-to-subrepo` to route files to their correct sub-repo:
 ```bash
-specforge git --in "{sub_repo}" commit -m "{type}({phase}-{plan}): {concise task description}" -- file1 file2 ...
+specforge git --in "{sub_repo}" commit -m "{type}({phase}-{plan}): {concise task description}" -m "Gsd-Task: {phase}-{plan}/{task}" -- file1 file2 ...
 ```
 **0c. Plan commit ledger (#3968, single-repo):** nothing to run here.
 Each Bash call is a FRESH shell, so the ledger is in the graph: `record_start_time` above gave
@@ -555,7 +555,7 @@ specforge git commit -m "{type}({phase}-{plan}): {concise task description}
 
 - {key change 1}
 - {key change 2}
-"
+" -m "Gsd-Task: {phase}-{plan}/{task}"
 ```
 
 **5. Record hash:**

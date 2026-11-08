@@ -8,7 +8,8 @@ use std::rc::Rc;
 use serde_json::Value;
 use specforge_protocol_types::{
     CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckPhase, CheckPlan, CheckRef,
-    CheckValuesInput, CheckerDescriptor, FieldDescriptor, PlannedItem, Probe, Root, ValueForm,
+    CheckValuesInput, CheckerDescriptor, FieldDescriptor, OwnerState, PlannedItem, Probe, Root,
+    ValueForm,
 };
 
 use crate::{ContributionsBuilder, FieldBuilder};
@@ -239,6 +240,20 @@ impl FieldBuilder {
             "@specforge/checks:file",
             serde_json::json!({ "root": root.as_str() }),
         ))
+    }
+
+    /// Its checks wait for the holder's owner (ADR 0350): they run once the owner is complete, and until then a value's
+    /// row says `planned` (a file the owner will create). The kind or a scope ancestor declares `complete_when`.
+    pub fn planned(&mut self) -> &mut Self {
+        self.0.checks_while = Some(OwnerState::Complete.as_str().to_string());
+        self
+    }
+
+    /// Its checks run only while the holder's owner is pending (ADR 0350); once the owner is complete a value's row
+    /// says `closed` (a file the owner will delete). The kind or a scope ancestor declares `complete_when`.
+    pub fn while_open(&mut self) -> &mut Self {
+        self.0.checks_while = Some(OwnerState::Pending.as_str().to_string());
+        self
     }
 
     fn checked(&mut self, check: CheckRef) -> &mut Self {

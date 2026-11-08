@@ -315,6 +315,8 @@ fn same_wave_overlap_is_w305() {
 #[test]
 fn a_deleted_file_counts_as_overlap() {
     let p = with(&third_plan("", "\"src/third.js\"", "\"src/tasks.js\""));
+    // A pending plan deletes a file that is there (E016 otherwise, ADR 0350).
+    p.write("src/tasks.js", "// to delete\n");
     assert_eq!(p.codes(), ["gsd/W305"]);
 }
 
@@ -371,8 +373,13 @@ fn an_action_for_now_static_is_e312() {
 }
 
 #[test]
-fn a_version_and_a_hit_citing_a_decision_are_not_e312() {
-    let p = project("plan");
+fn a_version_and_a_hit_its_decision_states_are_not_e312() {
+    let p = with(&phase_1_decision("Ship the v1 only"));
+    p.edit(
+        "spec/plans.spec",
+        "  decisions      [D-01]\n",
+        "  decisions      [D-01, D-02]\n",
+    );
     p.edit(
         "spec/plans.spec",
         "action \"Write src/tasks.js with add() and list()\"",
@@ -382,9 +389,16 @@ fn a_version_and_a_hit_citing_a_decision_are_not_e312() {
     p.edit(
         "spec/plans.spec",
         "action \"Tag the v1.0 release in package.json\"",
-        "action \"Write src/tasks.js, v1 only, as D-01 settles\"",
+        "action \"Write src/tasks.js, v1 only, as D-02 settles\"",
     );
     assert_eq!(p.codes(), CLEAN);
+    // Named in the action but not listed, D-02 excuses nothing (and is itself uncovered).
+    p.edit(
+        "spec/plans.spec",
+        "  decisions      [D-01, D-02]\n",
+        "  decisions      [D-01]\n",
+    );
+    assert_eq!(p.codes(), ["gsd/E310", "gsd/E312", "gsd/W317"]);
 }
 
 /// Plan 01-02 delivers TASK-01 instead of TASK-02: the requirement of phase 01 that no plan cites is the one gap.
@@ -473,15 +487,15 @@ fn an_uncited_context_decision_is_e310() {
 }
 
 #[test]
-fn a_decision_cited_by_its_first_six_words_is_covered() {
-    // No `D-02` anywhere, but a task action repeats the decision's first six words; W317 counts only the id.
+fn a_decision_named_only_in_prose_is_e310() {
+    // A task action names `D-02` and repeats its first six words; only a `decisions` entry covers it.
     let p = with(&phase_1_decision("Completed tasks move to a done list"));
     p.edit(
         "spec/plans.spec",
         "action \"Write src/complete.js with complete(id)\"",
-        "action \"Completed tasks move to a done list: write src/complete.js\"",
+        "action \"D-02: completed tasks move to a done list: write src/complete.js\"",
     );
-    assert_eq!(p.codes(), ["gsd/W317"]);
+    assert_eq!(p.codes(), ["gsd/E310", "gsd/W317"]);
 }
 
 #[test]
@@ -525,4 +539,43 @@ fn a_coupling_peer_in_another_wave_is_i321() {
     ));
     assert_eq!(p.codes(), ["gsd/I321"]);
     assert!(message(&p, "gsd/I321").contains("is not in its wave: the exemption covers nothing"));
+}
+
+#[test]
+fn truth_without_requirement_is_e519_only_when_truth_requirements_is_on() {
+    // The phase plans' truths name no requirement; the quick plan's truth is not judged.
+    let p = project("plan");
+    assert_eq!(p.codes(), CLEAN);
+    p.settings(serde_json::json!({ "specforge.truth_requirements": true }));
+    assert_eq!(p.codes(), ["gsd/E519", "gsd/E519", "gsd/E519"]);
+    assert_eq!(
+        message(&p, "gsd/E519"),
+        "truth 'v1.0/01/01-01/TR1' names no requirement it proves"
+    );
+    p.edit(
+        "spec/plans.spec",
+        "  text         \"A user can add a task and see it listed\"\n",
+        "  text         \"A user can add a task and see it listed\"\n  requirement  TASK-02\n",
+    );
+    let found = p.findings();
+    assert!(
+        found.iter().any(|(c, m)| c == "gsd/E519"
+            && m == "truth 'v1.0/01/01-01/TR1' proves 'TASK-02', which is not a requirement of plan 'v1.0/01/01-01'"),
+        "{found:#?}"
+    );
+    p.edit(
+        "spec/plans.spec",
+        "requirement  TASK-02",
+        "requirement  TASK-01",
+    );
+    assert_eq!(p.codes(), ["gsd/E519", "gsd/E519"]);
+}
+
+#[test]
+fn e519_is_on_under_gsd_plus() {
+    let p = project("plan");
+    p.settings(serde_json::json!({ "profile": "gsd-plus" }));
+    assert!(p.codes().iter().any(|c| c == "gsd/E519"), "{:?}", p.codes());
+    p.settings(serde_json::json!({ "profile": "gsd-strict" }));
+    assert!(!p.codes().iter().any(|c| c == "gsd/E519"));
 }

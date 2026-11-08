@@ -104,6 +104,9 @@ pub enum Scalar {
     /// The checks its values pass (ADR 0336): one more, or other args, is major; one fewer minor. Its values are the
     /// checks as JSON.
     Checks,
+    /// When its checks run, by its holder's owner state (ADR 0350): gaining a gate checks fewer values, so it is minor;
+    /// losing or changing one checks values that were not, so it is major.
+    ChecksWhile,
 }
 
 /// The set-valued attributes.
@@ -158,6 +161,8 @@ impl AttributeChange {
                     Bump::Major
                 }
                 Scalar::Checks => checks_bump(before, after),
+                Scalar::ChecksWhile if before.is_none() => Bump::Minor,
+                Scalar::ChecksWhile => Bump::Major,
                 Scalar::Minimum => bound_bump(before, after, |after, before| after < before),
                 Scalar::Maximum => bound_bump(before, after, |after, before| after > before),
                 Scalar::SourceExtension
@@ -238,6 +243,7 @@ impl Scalar {
             Scalar::Minimum => "minimum",
             Scalar::Maximum => "maximum",
             Scalar::Checks => "checks",
+            Scalar::ChecksWhile => "checks_while",
         }
     }
 
@@ -609,6 +615,7 @@ fn diff_field(
         minimum: old_minimum,
         maximum: old_maximum,
         checks: old_checks,
+        checks_while: old_checks_while,
         // Who writes a field and its history are the declaration's (ADR 0287), not the document's shape.
         writer: _,
         immutable: _,
@@ -629,6 +636,7 @@ fn diff_field(
         minimum: new_minimum,
         maximum: new_maximum,
         checks: new_checks,
+        checks_while: new_checks_while,
         writer: _,
         immutable: _,
         append_only: _,
@@ -687,6 +695,11 @@ fn diff_field(
         Scalar::Checks,
         checks(old_checks),
         checks(new_checks),
+    ));
+    attributes.extend(scalar(
+        Scalar::ChecksWhile,
+        old_checks_while.clone(),
+        new_checks_while.clone(),
     ));
     attributes.extend(scalar(
         Scalar::Description,

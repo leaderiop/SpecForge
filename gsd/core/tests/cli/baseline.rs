@@ -14,7 +14,8 @@ fn re(p: &Project, id: &str) -> serde_json::Value {
 fn baseline_reverification() {
     let p = taskboard();
     p.commit();
-    // On the unchanged tree the baseline says what now says.
+    // On the unchanged tree the baseline says what now says: it digests each plan's checked `context_refs` at the
+    // commit as a verdict does now.
     let verification = p.fields_of(VERIFICATION);
     assert_eq!(verification["status"], "passed", "{verification}");
     assert_eq!(verification["score"], "3/3", "{verification}");

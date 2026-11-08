@@ -42,9 +42,9 @@ The timestamps a command writes (`approval.at`, `recorded_at`, a refactor `dispo
 | requirement `satisfied`, `blocked`, `needs_human`, `orphaned` | computed from the truths and deliverables that trace to it |
 
 **Decisions to shipped (gsd/W506, r42).** GSD's verify gate asks that every settled decision map to something shipped. A
-phase whose verification is `passed` has each decision of its context (`origin context`) mentioned by one of its summaries
-or by the subject of one of its commits, with E310's matcher ([rules.md](rules.md)). The shipped files themselves are not
-read.
+phase whose verification is `passed` has each decision of its context (`origin context`) listed in the `decisions` of one
+of its complete plans ([rules.md](rules.md), ADR 0351): a summary or a commit subject that names it is no claim. The shipped
+files themselves are not read.
 
 ## verification
 
@@ -57,14 +57,14 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 | status | enum{pending, passed, gaps_found, human_needed} | C | `status:`: gaps_found when any truth, artifact or link fails; human_needed when any human item is open; passed needs every truth, artifact and key link verified by a fresh gsd/E501 verdict or an override (the scan only fails, except that a key link whose literal `pattern` it found is verified; a regular-expression pattern is `unchecked` and keeps the phase `pending`), and a complete scan |
 | score | str `N/M` | C | `score:` as `verified / total`, upstream's: every truth that is not deferred is in `M`; a behavior-unverified truth is in `M` and not in `N` |
 | verified | ts | C | `verified:`: the latest verdict's time |
-| covered_files | files | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name. |
+| covered_files | paths<present> | C | the files the phase's verifier verdicts' `file()` inputs and `cited` name. |
 | covered_digest | str | C | one digest (`fnv1a64:` and 16 hex digits) over the `(path, digest)` of every file the phase's E501 judgements cover, sorted and de-duplicated: it changes when a covered file does. Absent while no verdict cites a file |
 | re_verification | {previous_status enum{pending, passed, gaps_found, human_needed}, previous_score str, gaps_closed →* truth \| artifact \| key_link, gaps_remaining →* truth \| artifact \| key_link, regressions →* truth \| artifact \| key_link} | C | `re_verification:`, against the git baseline (K4): items failing there and passing now, failing there and not passing now, passing there and failing now (a stale verdict is not a failure), by verdict (truths, artifacts, key links) and by status (verify gaps). `previous_status`/`previous_score` are the baseline verification's computed `status`/`score`, derived at that commit over its files (ADR 0300); items are compared by scan state and verdict: an item failing there and with no verdict now stays in `gaps_remaining`, an item the scan fails now that was never verified there is not a `regression` (a deleted unverified artifact shows in `status` only), and an override counts as a pass on the side it holds (`override` is a baseline kind, and its `accepts` is checked against the truth's text at that commit): one added since closes the gap, one removed or lapsed is a `regression`. A link at the commit is unreadable, so a phase that reads one is `pending` there (ADR 0300 Limits). Absent when the baseline has no verification of the phase; items absent from it are not compared. The baseline's verdicts are judged at that commit, over its files; its test inputs are not judged (results are per machine). `gaps_*` are ids as text (`strs`), and also name verify gaps |
 | anti_patterns | {file str, line int, text str, severity enum{blocker, warning, info}} | C | the anti-pattern scan, a pass; it lists what it read |
 | scan_partial | bool | C | set when a file of the phase's plans was not served (the host's text budget, a cap, a truncated read): the scan may have missed an anti-pattern, so the phase is not `passed`. Unset when every file was read. There is no information code for it |
 
 **verify_gap**: a failed or partial truth, as an entity a gap-closure plan can name. Name `VG1`, scoped by its verification.
-`verification R`, `truth → truth R`, `reason str R`, `artifacts {path str, issue str}`, `missing strs`;
+`verification R`, `truth → truth R`, `reason str R`, `artifacts {path path<present>, issue str}`, `missing strs`;
 `status enum{open, closed}` and `closed_by → plan` are `C` (closed when a `gap_closure` plan naming it completes).
 An open verify_gap puts the verifier in re-verification mode (failed items in full, passed items as a regression check);
 `re_verification` reports the outcome, it does not start it.
@@ -102,7 +102,7 @@ The test being asked now is session state.
 
 **uat_gap**: GSD `## Gaps`. Name `G1`, scoped by its test (`v1.0/01/01-UAT/U2/G1`).
 `test → uat_test R`, `truth str R`, `reason str`, `severity enum{blocker, major, minor, cosmetic}`, `root_cause str`,
-`artifacts {path str, issue str}`, `missing strs`;
+`artifacts {path path<present>, issue str}`, `missing strs`;
 `status enum{open, resolved}`, `resolved_by → plan` and `resolved_at` are `C`. `debug → debug_session` is an
 enhancement declared by `@gsd/ops` on this kind: core depends on no other `@gsd/*` extension.
 
@@ -110,16 +110,16 @@ enhancement declared by `@gsd/ops` on this kind: core depends on no other `@gsd/
 
 GSD: `NN-VALIDATION.md`, seeded by `/gsd-plan-phase` and reconciled by `/gsd-validate-phase`.
 
-**validation** (name `03-VALIDATION`): `phase → phase R I`, `context_digest str H` (as on the spec and research; gsd/W406), `framework str`, `config_file str`, `quick_cmd str`, `full_cmd str`,
+**validation** (name `03-VALIDATION`): `phase → phase R I`, `context_digest str H` (as on the spec and research; gsd/W406), `framework str`, `config_file path<planned>` (checked once the phase is executed, E016), `quick_cmd str`, `full_cmd str`,
 `max_latency_s int`; `approval {by str, at ts}` is `H`, written by `approve_validation`; `status enum{draft, validated}`, `nyquist_compliant bool` and
 `wave_0_complete bool` are `C`.
 
 **validation_row**: the Per-Task Verification Map. Name `VR1`. `validation R`, `task → task R`, `requirement → requirement`,
 `test_type enum{unit, integration, smoke, e2e, manual} R`,
-`command str`, `file str` (the row's test file; a `str`, as wave 0 may create it); `wave`, `file_exists` and `status enum{pending, green, red, flaky}` are `C`. `threat → threat` is an
+`command str`, `file path<planned>` (the row's test file, checked once the phase is executed, E016, as wave 0 may create it); `wave`, `file_exists` and `status enum{pending, green, red, flaky}` are `C`. `threat → threat` is an
 enhancement declared by `@gsd/security` on this kind (built).
 
-**wave0_item** (name `W0-1`): `validation R`, `path str R` (a `file` would be E016 on the file wave 0 creates), `for → requirement`, `kind enum{test_stub, fixture, framework_install} R`;
+**wave0_item** (name `W0-1`): `validation R`, `path path<planned> R` (the file wave 0 creates, checked once the phase is executed, E016), `for → requirement`, `kind enum{test_stub, fixture, framework_install} R`;
 `done bool C` (the file exists and the collector saw it run).
 
 **manual_check** (name `MC1`): `validation R`, `behavior str R`, `requirement → requirement`, `why_manual str R`, `instructions text R`.
@@ -149,7 +149,7 @@ GSD: `.planning/WINDOWS.md`, the broken-windows ledger. Name `BW1`, project-scop
 |---|---|---|---|
 | kind | enum{stub, todo, fixme, skipped_test, lint_warning, unmet_truth, unrun_verify, deviation} | R | `kind` |
 | phase | → phase | R | the phase that found it |
-| file | str | | `file` (a `str`: the file may since have been deleted) |
+| file | path<open> | | `file`: checked while the window is open (E016); a fixed or waived one's may since be gone. The window is complete once `waived` or `fixed` |
 | line | int | | `line` |
 | description | str | R | `description` |
 | waiver | {reason str R, by str R, at ts R} | H I | `waive` (a reason is required): written by `waive_window` |
@@ -172,7 +172,7 @@ the phase.
 | Field | Type | Flags | GSD |
 |---|---|---|---|
 | phase | → phase | R I | `phase` |
-| target_file | str | R I | `target_file` |
+| target_file | path<open> | R I | `target_file`: checked while the proposal is open (E016); complete once `accepted` or `declined` |
 | target_function | str | R I | `target_function` |
 | score | int | H I | `score` (decision points) |
 | baseline | int | H I | `baseline`: the function's anchor score |

@@ -142,7 +142,7 @@
     {
       "code": "E310",
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#plan",
-      "explanation": "Every trackable decision of a planned phase's context (origin context) is cited by one of its plans. It is an error.",
+      "explanation": "Every trackable decision of a planned phase's context (origin context) is listed in the decisions of one of its plans. It is an error.",
       "title": "Context decision cited by no plan"
     },
     {
@@ -384,6 +384,24 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
       "explanation": "The integration checker's verdict on a milestone audit is fresh. It is an error.",
       "title": "Integration verdict is stale"
+    },
+    {
+      "code": "E519",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "A truth of a phase's plan names one of its plan's requirements. It is an error.",
+      "title": "Truth proves no requirement of its plan"
+    },
+    {
+      "code": "W520",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "A complete plan's commits touched every path it planned, and the files it deletes are gone. It is a warning.",
+      "title": "Complete plan's paths not touched or not deleted"
+    },
+    {
+      "code": "E521",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "A task commit names its task by its Gsd-Task trailer. It is an error.",
+      "title": "Task commit not linked by its trailer"
     }
   ]
 }
