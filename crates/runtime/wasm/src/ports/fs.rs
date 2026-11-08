@@ -8,17 +8,21 @@ use specforge_protocol_types::{FsContent, FsEntry, FsEntryKind, FsListing, HostE
 
 use super::{PortSession, asked_cap, failed, held, out_of_scope};
 
+/// `path` names no root inside it: `<root>/…` names another root than the one the grant judges.
+pub(super) fn no_root_inside(path: &str) -> Result<(), HostError> {
+    if path.starts_with('<') {
+        return Err(out_of_scope(format!(
+            "'{path}' names a root inside its path: name it as the request's root"
+        )));
+    }
+    Ok(())
+}
+
 impl PortSession {
     /// An fs request the grant permits, performed here: a local read in every mode, never journaled.
     pub(super) fn fs(&self, request: FsRequest) -> Result<specforge_effects::FsOutcome, HostError> {
         let (kind, call) = self.lent()?;
-        // `<root>/…` names another root than the one the grant judges.
-        if request.path.starts_with('<') {
-            return Err(out_of_scope(format!(
-                "'{}' names a root inside its path: name it as the request's root",
-                request.path
-            )));
-        }
+        no_root_inside(&request.path)?;
         let asked = EffectRequest::Fs(request.clone());
         Self::granted(kind, call, &asked)?;
         let outcome = call

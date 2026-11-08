@@ -15,8 +15,9 @@ use specforge_protocol_types::{
 };
 use specforge_source::{Language, Loaded, SyntaxWork};
 
-use super::git::{git_failed, git_path, sha_of};
-use super::{PortSession, failed, out_of_scope};
+use super::fs::no_root_inside;
+use super::git::{git_failed, git_path, posix, sha_of};
+use super::{PortSession, failed};
 
 /// A request's language no grammar reads.
 const NO_GRAMMAR: &str = "no_grammar";
@@ -41,12 +42,12 @@ impl PortSession {
         let query = reader
             .query(language, &request.query)
             .map_err(|fault| failed(INVALID_QUERY, format!("the query at {fault}")))?;
-        let (paths, loaded, walked_short) = match &request.source {
+        let Asked { paths, load, short } = match &request.source {
             SyntaxSource::Worktree { root } => self.worktree(root, &request.files)?,
             SyntaxSource::Revision { commit } => self.revision(commit, &request.files)?,
         };
         let (_, call) = self.lent()?;
-        let read = reader.read(&query, &paths, &|path| (loaded)(path));
+        let read = reader.read(&query, &paths, &|path| load(path));
         let (files, kept) = self.held(read.files);
         let capped = kept < files.len();
         // The answer counts the files it returns; the call's work is every parse made.
@@ -68,7 +69,7 @@ impl PortSession {
         call.noted(&not_parsed, &broken, read.work);
         Ok(SyntaxAnswer {
             files,
-            truncated: walked_short || capped,
+            truncated: short || capped,
             parsed: count(answered.parsed),
             cached: count(answered.cached),
         })
@@ -97,12 +98,7 @@ impl PortSession {
         let (kind, call) = self.lent()?;
         let mut requests = BTreeMap::new();
         for path in &paths {
-            // `<root>/…` names another root than the one the grant judges.
-            if path.starts_with('<') {
-                return Err(out_of_scope(format!(
-                    "'{path}' names a root inside its path: name it as the request's root"
-                )));
-            }
+            no_root_inside(path)?;
             let request = FsRequest {
                 root: root.to_string(),
                 path: path.clone(),
@@ -135,7 +131,11 @@ impl PortSession {
                 _ => Loaded::NotParsed(NotParsed::Unreadable),
             }
         };
-        Ok((paths, Box::new(load), short))
+        Ok(Asked {
+            paths,
+            load: Box::new(load),
+            short,
+        })
     }
 
     /// The files of `commit` asked: a glob matched over its tree, each read as a blob inside the git grant; a withheld
@@ -150,7 +150,7 @@ impl PortSession {
                     .map_err(git_failed)?
                     .into_iter()
                     .filter(|(_, file)| *file)
-                    .map(|(path, _)| path.to_string_lossy().replace('\\', "/"))
+                    .map(|(path, _)| posix(&path))
                     .filter(|path| specforge_common::path_glob::matches(glob, path))
                     .collect()
             }
@@ -164,14 +164,14 @@ impl PortSession {
             .blobs(&place, &sha, &wanted)
             .map_err(git_failed)?
             .into_iter()
-            .map(|(path, bytes)| (path.to_string_lossy().replace('\\', "/"), bytes))
+            .map(|(path, bytes)| (posix(&path), bytes))
             .collect();
         // What the commit holds as a file, to tell a blob the port did not read from a path it does not hold.
         let sizes: BTreeMap<String, Option<u64>> = git
             .sizes(&place, &sha, &wanted)
             .map_err(git_failed)?
             .into_iter()
-            .map(|(path, size)| (path.to_string_lossy().replace('\\', "/"), size))
+            .map(|(path, size)| (posix(&path), size))
             .collect();
         let mut loaded: BTreeMap<String, Loaded> = BTreeMap::new();
         for path in &paths {
@@ -194,7 +194,11 @@ impl PortSession {
                 .cloned()
                 .unwrap_or(Loaded::NotParsed(NotParsed::Missing))
         };
-        Ok((paths, Box::new(load), false))
+        Ok(Asked {
+            paths,
+            load: Box::new(load),
+            short: false,
+        })
     }
 
     /// `files` held to the call's answer cap: once their encoded size passes it, that file and the later ones are
@@ -222,8 +226,15 @@ impl PortSession {
     }
 }
 
-/// The paths asked, in order, what loads each, and whether a walk stopped short.
-type Asked = (Vec<String>, Box<dyn Fn(&str) -> Loaded + Sync>, bool);
+/// What a request asks of the reader.
+struct Asked {
+    /// The paths, in the order asked.
+    paths: Vec<String>,
+    /// What loads each.
+    load: Box<dyn Fn(&str) -> Loaded + Sync>,
+    /// Whether a walk stopped short.
+    short: bool,
+}
 
 fn count(files: usize) -> u32 {
     u32::try_from(files).unwrap_or(u32::MAX)

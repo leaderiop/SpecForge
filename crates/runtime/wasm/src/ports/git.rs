@@ -202,7 +202,7 @@ fn named(sha: Option<Sha>) -> Option<String> {
 }
 
 /// A repository path as a guest reads it, whatever the platform's separator.
-fn posix(path: &Path) -> String {
+pub(super) fn posix(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
