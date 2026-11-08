@@ -405,7 +405,7 @@ pub fn rename(
     // The edits are positions in the compiled text and apply to the editor's buffer: a file
     // typed in since is not that text, so the rename waits for the compile (ContentModified).
     let edit = compiled
-        .workspace_edit(plan.edits().to_vec())
+        .rename_edit(&plan)
         .map_err(|Unplaced(file)| content_modified(file.as_str()))?;
     hold_ledger(state, id.as_str(), new_name, &plan);
     Ok(Some(edit))
@@ -437,6 +437,7 @@ fn hold_ledger(
     if let Some(pending) = crate::pending::PendingLedger::of(
         state.compiled_project(),
         plan.moved().to_vec(),
+        plan.stale().to_vec(),
         node.source_span.file.to_string(),
         node.name().to_string(),
         new_name.to_string(),

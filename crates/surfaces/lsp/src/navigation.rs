@@ -208,12 +208,39 @@ impl Compiled<'_> {
         &self,
         edits: impl IntoIterator<Item = specforge_ops::read::navigate::TextEdit>,
     ) -> Result<WorkspaceEdit, Unplaced> {
+        self.edit_over(edits, &HashMap::new())
+    }
+
+    /// A rename's edits as one workspace edit: those of a file that is no source (where a collected fact's name is
+    /// written, ADR 0346 D7) are placed in the disk text the rename planned on.
+    pub(crate) fn rename_edit(
+        &self,
+        plan: &specforge_ops::authoring::rename::RenamePlan,
+    ) -> Result<WorkspaceEdit, Unplaced> {
+        let outside: HashMap<Sym, LineIndex> = plan
+            .change()
+            .rewritten_sources()
+            .map(|(key, before, _)| (Sym::new(key), LineIndex::new(before)))
+            .collect();
+        self.edit_over(plan.edits().to_vec(), &outside)
+    }
+
+    /// `edits` as one workspace edit, a file `outside` the compile placed by its index there.
+    fn edit_over(
+        &self,
+        edits: impl IntoIterator<Item = specforge_ops::read::navigate::TextEdit>,
+        outside: &HashMap<Sym, LineIndex>,
+    ) -> Result<WorkspaceEdit, Unplaced> {
         let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
         // The files in the order their first edit came: a versioned edit lists them so.
         let mut files: Vec<(Sym, Url)> = Vec::new();
         for edit in edits {
             let file = edit.span.file;
-            let range = self.range(&edit.span).ok_or(Unplaced(file))?;
+            let range = match outside.get(&file) {
+                Some(index) => Some(index.range(&edit.span)),
+                None => self.range(&edit.span),
+            }
+            .ok_or(Unplaced(file))?;
             let uri = self.uri(file.as_str());
             if !changes.contains_key(&uri) {
                 files.push((file, uri.clone()));

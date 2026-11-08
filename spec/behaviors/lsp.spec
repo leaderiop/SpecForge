@@ -550,7 +550,10 @@ behavior rename_entity_id "Rename Entity ID" {
     MCP rename tool refuses it. A rename while a .spec file that does not
     parse spells the ID or the new ID as a name (not in a string or a comment) MUST be
     refused with why: its references cannot be read, and the rename would
-    leave them behind.
+    leave them behind. A rename of an entity a collected fact names edits,
+    beside the .spec files, the source file at each place the fact's store
+    records the name written, placed in the disk text; the store's stale
+    line lands in specforge-harness with the moves (ADR 0346 D7).
   """
   verify unit "rename updates declaration and all references"
   verify unit "rename edits a name written below its kind and its references"
@@ -576,7 +579,8 @@ behavior rename_entity_id "Rename Entity ID" {
   verify unit "a rename keeps the scope and edits every segment naming the entity"
   verify contract "Rename Entity ID: entity rename holds — graph_available, prepare_rename_ready, all_references_updated, rename_atomic, entity_renamed_emitted"
   verify unit "rename edits a use binding's imported name, never its alias"
-  verify integration "a rename of a collected entity, or of one a fact names, is refused with why"
+  verify integration "a rename of a collected entity, or of one a fact names with no place, is refused with why"
+  verify integration "an editor rename of an entity a fact names edits the source file where the fact read it"
 }
 
 behavior emit_live_diagnostics "Live Diagnostics" {

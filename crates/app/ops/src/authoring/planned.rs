@@ -120,7 +120,7 @@ impl PlannedChange {
 
     /// Each file that is no source of the project the change rewrites: its path from the root, its planned-on text
     /// and the text it will hold.
-    pub(crate) fn rewritten_sources(&self) -> impl Iterator<Item = (&str, &Arc<str>, &str)> {
+    pub fn rewritten_sources(&self) -> impl Iterator<Item = (&str, &Arc<str>, &str)> {
         self.rewritten
             .iter()
             .map(|(key, (before, after))| (key.as_str(), before, after.as_str()))
