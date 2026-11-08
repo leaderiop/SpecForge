@@ -20,8 +20,9 @@ pub const VALIDATION: Kind = Kind::new(
             .h()
             .doc("the digest of the phase's context when it was recorded (gsd/W406)"),
         str("framework").doc("`framework`"),
-        // A `str`, not a `file`: the config may be a file the phase's wave 0 creates.
-        str("config_file").doc("`config_file`"),
+        path("config_file", Mode::Planned).doc(
+            "`config_file`: checked once the phase is executed (E016), as wave 0 may create it",
+        ),
         str("quick_cmd").doc("`quick_cmd`"),
         str("full_cmd").doc("`full_cmd`"),
         int("max_latency_s").doc("`max_latency_s`"),
@@ -49,8 +50,8 @@ pub const VALIDATION_ROW: Kind = Kind::new(
         rf("requirement", "requirement").doc("the requirement it serves"),
         en("test_type", TEST_TYPE).r().doc("`Test Type`"),
         str("command").doc("`Automated Command`"),
-        // A `str`: the test file may be one wave 0 creates.
-        str("file").doc("the row's test file"),
+        path("file", Mode::Planned)
+            .doc("the row's test file: checked once the phase is executed (E016), as wave 0 may create it"),
         int("wave").c().doc("the task's wave"),
         bool("file_exists").c().doc("the test file exists"),
         en("status", ROW_STATUS)
@@ -66,8 +67,9 @@ pub const WAVE0_ITEM: Kind = Kind::new(
     "A file wave 0 must create before the tasks can be sampled (GSD Wave 0 Requirements)",
     &[
         rf("validation", "validation").r().i().doc("parent"),
-        // A `str`: the file is the one wave 0 will create.
-        str("path").r().doc("the file"),
+        path("path", Mode::Planned)
+            .r()
+            .doc("the file wave 0 creates: checked once the phase is executed (E016)"),
         rf("for", "requirement").doc("the requirement it serves"),
         en("kind", WAVE0_KIND).r().doc("what it is"),
         bool("done")

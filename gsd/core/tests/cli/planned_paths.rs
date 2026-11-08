@@ -105,3 +105,31 @@ fn a_complete_plans_deleted_file_is_closed() {
     assert_eq!(p.codes(), Vec::<String>::new());
     assert_eq!(statuses(&p, "v1.0/01/01-01", "files_deleted"), ["closed"]);
 }
+
+#[test]
+fn an_open_windows_missing_file_is_e016_and_a_fixed_ones_is_not() {
+    let p = project("verify");
+    p.edit(
+        "spec/ops/windows.spec",
+        "  file        \"src/tasks.js\"",
+        "  file        \"src/gone.js\"",
+    );
+    let gone = |p: &Project| -> Vec<String> {
+        missing(p)
+            .into_iter()
+            .filter(|m| m.contains("src/gone.js"))
+            .collect()
+    };
+    assert_eq!(gone(&p).len(), 1, "{:?}", missing(&p));
+    assert_eq!(statuses(&p, "BW1", "file"), ["failed"]);
+    // Fixed, the window is complete: what it named may be gone.
+    p.edit(
+        "spec/ops/windows.spec",
+        "  line        12\n",
+        "  line        12\n  fixed_at    \"2026-11-01T10:00:00Z\"\n",
+    );
+    p.record_harness("BW1", "fixed_at", "\"2026-11-01T10:00:00Z\"");
+    assert_eq!(p.fields_of("BW1")["status"], "fixed");
+    assert_eq!(gone(&p), Vec::<String>::new());
+    assert_eq!(statuses(&p, "BW1", "file"), ["closed"]);
+}

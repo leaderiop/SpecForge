@@ -65,7 +65,7 @@ when none was recorded, and no status without a report. Because the derive pass 
 ## deviation
 
 GSD: `## Deviations from Plan` and `## Issues Encountered`. Append-only. Name `DV1`, scoped by the summary.
-`summary → summary R I`, `kind enum{deviation, issue} R I`, `rule str I`, `text str R I`, `files strs I`: a deviation is a log line, so
+`summary → summary R I`, `kind enum{deviation, issue} R I`, `rule str I`, `text str R I`, `files paths<history> I` (never file-checked: a later commit may delete one): a deviation is a log line, so
 every field is immutable and the kind is append-only (E084, E085).
 
 ## commit

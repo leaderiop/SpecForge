@@ -64,7 +64,7 @@ GSD: `NN-VERIFICATION.md`. One per phase. Name `03-VERIFICATION`.
 | scan_partial | bool | C | set when a file of the phase's plans was not served (the host's text budget, a cap, a truncated read): the scan may have missed an anti-pattern, so the phase is not `passed`. Unset when every file was read. There is no information code for it |
 
 **verify_gap**: a failed or partial truth, as an entity a gap-closure plan can name. Name `VG1`, scoped by its verification.
-`verification R`, `truth → truth R`, `reason str R`, `artifacts {path str, issue str}`, `missing strs`;
+`verification R`, `truth → truth R`, `reason str R`, `artifacts {path path<present>, issue str}`, `missing strs`;
 `status enum{open, closed}` and `closed_by → plan` are `C` (closed when a `gap_closure` plan naming it completes).
 An open verify_gap puts the verifier in re-verification mode (failed items in full, passed items as a regression check);
 `re_verification` reports the outcome, it does not start it.
@@ -102,7 +102,7 @@ The test being asked now is session state.
 
 **uat_gap**: GSD `## Gaps`. Name `G1`, scoped by its test (`v1.0/01/01-UAT/U2/G1`).
 `test → uat_test R`, `truth str R`, `reason str`, `severity enum{blocker, major, minor, cosmetic}`, `root_cause str`,
-`artifacts {path str, issue str}`, `missing strs`;
+`artifacts {path path<present>, issue str}`, `missing strs`;
 `status enum{open, resolved}`, `resolved_by → plan` and `resolved_at` are `C`. `debug → debug_session` is an
 enhancement declared by `@gsd/ops` on this kind: core depends on no other `@gsd/*` extension.
 
@@ -110,16 +110,16 @@ enhancement declared by `@gsd/ops` on this kind: core depends on no other `@gsd/
 
 GSD: `NN-VALIDATION.md`, seeded by `/gsd-plan-phase` and reconciled by `/gsd-validate-phase`.
 
-**validation** (name `03-VALIDATION`): `phase → phase R I`, `context_digest str H` (as on the spec and research; gsd/W406), `framework str`, `config_file str`, `quick_cmd str`, `full_cmd str`,
+**validation** (name `03-VALIDATION`): `phase → phase R I`, `context_digest str H` (as on the spec and research; gsd/W406), `framework str`, `config_file path<planned>` (checked once the phase is executed, E016), `quick_cmd str`, `full_cmd str`,
 `max_latency_s int`; `approval {by str, at ts}` is `H`, written by `approve_validation`; `status enum{draft, validated}`, `nyquist_compliant bool` and
 `wave_0_complete bool` are `C`.
 
 **validation_row**: the Per-Task Verification Map. Name `VR1`. `validation R`, `task → task R`, `requirement → requirement`,
 `test_type enum{unit, integration, smoke, e2e, manual} R`,
-`command str`, `file str` (the row's test file; a `str`, as wave 0 may create it); `wave`, `file_exists` and `status enum{pending, green, red, flaky}` are `C`. `threat → threat` is an
+`command str`, `file path<planned>` (the row's test file, checked once the phase is executed, E016, as wave 0 may create it); `wave`, `file_exists` and `status enum{pending, green, red, flaky}` are `C`. `threat → threat` is an
 enhancement declared by `@gsd/security` on this kind (built).
 
-**wave0_item** (name `W0-1`): `validation R`, `path str R` (a `file` would be E016 on the file wave 0 creates), `for → requirement`, `kind enum{test_stub, fixture, framework_install} R`;
+**wave0_item** (name `W0-1`): `validation R`, `path path<planned> R` (the file wave 0 creates, checked once the phase is executed, E016), `for → requirement`, `kind enum{test_stub, fixture, framework_install} R`;
 `done bool C` (the file exists and the collector saw it run).
 
 **manual_check** (name `MC1`): `validation R`, `behavior str R`, `requirement → requirement`, `why_manual str R`, `instructions text R`.
@@ -149,7 +149,7 @@ GSD: `.planning/WINDOWS.md`, the broken-windows ledger. Name `BW1`, project-scop
 |---|---|---|---|
 | kind | enum{stub, todo, fixme, skipped_test, lint_warning, unmet_truth, unrun_verify, deviation} | R | `kind` |
 | phase | → phase | R | the phase that found it |
-| file | str | | `file` (a `str`: the file may since have been deleted) |
+| file | path<open> | | `file`: checked while the window is open (E016); a fixed or waived one's may since be gone. The window is complete once `waived` or `fixed` |
 | line | int | | `line` |
 | description | str | R | `description` |
 | waiver | {reason str R, by str R, at ts R} | H I | `waive` (a reason is required): written by `waive_window` |
@@ -172,7 +172,7 @@ the phase.
 | Field | Type | Flags | GSD |
 |---|---|---|---|
 | phase | → phase | R I | `phase` |
-| target_file | str | R I | `target_file` |
+| target_file | path<open> | R I | `target_file`: checked while the proposal is open (E016); complete once `accepted` or `declined` |
 | target_function | str | R I | `target_function` |
 | score | int | H I | `score` (decision points) |
 | baseline | int | H I | `baseline`: the function's anchor score |

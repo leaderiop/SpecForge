@@ -16,6 +16,8 @@ fn waive_requires_a_reason() {
 #[test]
 fn record_then_waive_writes_recorded_at_and_waiver() {
     let p = project("verify");
+    // An open window's file is there (E016 otherwise, ADR 0350).
+    p.write("src/cli.js", "// TODO\n");
     let run = gsd(
         &p,
         "record-window",

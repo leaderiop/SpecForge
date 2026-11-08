@@ -53,7 +53,8 @@ pub const THREAT: Kind = Kind::new(
         str("mitigation")
             .r()
             .doc("`Mitigation` (the plan's `Mitigation Plan`)"),
-        strs("files").doc("the files the auditor checks for the mitigation"),
+        paths("files", Mode::Planned)
+            .doc("the files the auditor checks for the mitigation: checked once the plan is complete (E016)"),
         en("status", THREAT_STATUS)
             .h()
             .doc("`Status`: the auditor's verdict, written by record_security_audit"),

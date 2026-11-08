@@ -486,3 +486,26 @@ fn the_plan_checker_reads_the_slices_the_plan_answers() {
         assert!(!checker.contains(said), "the checker says {said:?}");
     }
 }
+
+/// A phase is complete once executed (ADR 0350): its scoped kinds' planned paths are checked from then on. A broken
+/// window once waived or fixed, a refactor proposal once accepted or declined.
+#[test]
+fn the_phase_and_the_windows_declare_when_they_are_complete() {
+    for (kind, values) in [
+        (
+            "phase",
+            serde_json::json!(["executed", "needs_review", "complete"]),
+        ),
+        ("broken_window", serde_json::json!(["waived", "fixed"])),
+        (
+            "refactor_proposal",
+            serde_json::json!(["accepted", "declined"]),
+        ),
+    ] {
+        assert_eq!(
+            kind_of(kind)["complete_when"],
+            serde_json::json!({"field": "status", "values": values}),
+            "{kind}"
+        );
+    }
+}

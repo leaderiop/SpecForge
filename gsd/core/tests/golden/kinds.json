@@ -1662,6 +1662,14 @@
         "verify_kinds": []
       },
       {
+        "complete_when": {
+          "field": "status",
+          "values": [
+            "executed",
+            "needs_review",
+            "complete"
+          ]
+        },
         "description": "A phase of a milestone, named 03, 03.1 (inserted) or 999.1 (backlog) (GSD ROADMAP.md)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -5818,7 +5826,7 @@
           },
           {
             "default_value": null,
-            "description": "the paths it touched",
+            "description": "the paths it touched: a record, never checked (a later commit may delete one)",
             "edge": null,
             "field_type": "string_list",
             "immutable": true,
@@ -6648,6 +6656,14 @@
             "inverse_of": null,
             "members": [
               {
+                "checks": [
+                  {
+                    "args": {
+                      "root": "project"
+                    },
+                    "checker": "@specforge/checks:file"
+                  }
+                ],
                 "default_value": null,
                 "description": null,
                 "edge": null,
@@ -7246,6 +7262,14 @@
             "inverse_of": null,
             "members": [
               {
+                "checks": [
+                  {
+                    "args": {
+                      "root": "project"
+                    },
+                    "checker": "@specforge/checks:file"
+                  }
+                ],
                 "default_value": null,
                 "description": null,
                 "edge": null,
@@ -7371,8 +7395,17 @@
             "target_kind": null
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "`config_file`",
+            "description": "`config_file`: checked once the phase is executed (E016), as wave 0 may create it",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -7560,8 +7593,17 @@
             "target_kind": null
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "the row's test file",
+            "description": "the row's test file: checked once the phase is executed (E016), as wave 0 may create it",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -7641,8 +7683,17 @@
             "target_kind": "validation"
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "the file",
+            "description": "the file wave 0 creates: checked once the phase is executed (E016)",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -7993,6 +8044,13 @@
         "verify_kinds": []
       },
       {
+        "complete_when": {
+          "field": "status",
+          "values": [
+            "waived",
+            "fixed"
+          ]
+        },
         "description": "A defect left in the code, open until it is fixed or waived (GSD WINDOWS.md)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -8029,8 +8087,17 @@
             "target_kind": "phase"
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "pending",
             "default_value": null,
-            "description": "`file`",
+            "description": "`file`: checked while the window is open (E016); a fixed one's may since be gone",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -8178,6 +8245,13 @@
         "verify_kinds": []
       },
       {
+        "complete_when": {
+          "field": "status",
+          "values": [
+            "accepted",
+            "declined"
+          ]
+        },
         "description": "A function whose complexity crossed the refactor threshold (GSD NN-REFACTOR.md)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -8195,8 +8269,17 @@
             "target_kind": "phase"
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "pending",
             "default_value": null,
-            "description": "`target_file`",
+            "description": "`target_file`: checked while the proposal is open (E016)",
             "edge": null,
             "field_type": "string",
             "immutable": true,

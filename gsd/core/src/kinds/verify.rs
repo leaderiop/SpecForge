@@ -26,7 +26,7 @@ const ANTI_PATTERNS: &[Field] = &[
     str("text"),
     en("severity", SEVERITY),
 ];
-const GAP_ARTIFACTS: &[Field] = &[str("path"), str("issue")];
+const GAP_ARTIFACTS: &[Field] = &[path("path", Mode::Present), str("issue")];
 
 /// `NN-VERIFICATION.md`, named `01-VERIFICATION` and scoped by its phase.
 pub const VERIFICATION: Kind = Kind::new(

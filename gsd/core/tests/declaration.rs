@@ -21,7 +21,7 @@ fn the_handshake_names_gsd_core_and_its_tracked_release() {
 }
 
 /// A truth's `proof` names `@code/core`'s test facts (ADR 0331 D2), and a project works without them: the peer is
-/// optional, so `specforge add @gsd/core` does not enable it and a project without it is no W021. A `files` field
+/// optional, so `specforge add @gsd/core` does not enable it and a project without it is no W021. A path field
 /// needs `@specforge/checks`, a required peer.
 #[test]
 fn the_handshake_names_code_core_as_an_optional_peer() {
@@ -588,4 +588,71 @@ fn the_requirement_route_is_declared() {
             ]
         }])
     );
+}
+
+/// Every authored path field of `@gsd/core` and the mode its file check follows (ADR 0350): what the kit lists, and
+/// what the declaration writes. A history path has no check; every other one checks with `@specforge/checks:file`,
+/// waiting for its owner as its mode says.
+#[test]
+fn the_authored_path_fields_carry_their_owner_mode() {
+    use gsd_kit::dsl::{Mode, Writer};
+    let authored: Vec<(String, Mode)> = gsd_core::path_fields()
+        .into_iter()
+        .filter(|(_, _, writer)| *writer == Writer::Author)
+        .map(|(name, mode, _)| (name, mode))
+        .collect();
+    let row = |name: &str, mode| (name.to_string(), mode);
+    let mut expected = vec![
+        row("plan.files_modified", Mode::Planned),
+        row("plan.files_deleted", Mode::WhileOpen),
+        row("plan.context_refs", Mode::Present),
+        row("task.files", Mode::Planned),
+        row("task.read_first", Mode::Planned),
+        row("artifact.path", Mode::Planned),
+        row("key_link.from", Mode::Planned),
+        row("key_link.to", Mode::Planned),
+        row("context.canonical_refs.paths", Mode::Present),
+        row("validation.config_file", Mode::Planned),
+        row("validation_row.file", Mode::Planned),
+        row("wave0_item.path", Mode::Planned),
+        row("verify_gap.artifacts.path", Mode::Present),
+        row("uat_gap.artifacts.path", Mode::Present),
+        row("broken_window.file", Mode::WhileOpen),
+        row("refactor_proposal.target_file", Mode::WhileOpen),
+        row("deviation.files", Mode::History),
+    ];
+    let mut found = authored.clone();
+    found.sort_by(|a, b| a.0.cmp(&b.0));
+    expected.sort_by(|a, b| a.0.cmp(&b.0));
+    assert_eq!(found, expected);
+    let mut checked = 0;
+    for (name, mode) in authored {
+        let mut parts = name.split('.');
+        let (kind, field) = (
+            parts.next().expect("a kind"),
+            parts.next().expect("a field"),
+        );
+        let mut declared = field_of(kind, field);
+        if let Some(member) = parts.next() {
+            declared = declared["members"]
+                .as_array()
+                .and_then(|m| m.iter().find(|m| m["name"] == member))
+                .cloned()
+                .unwrap_or_else(|| panic!("no member {name}"));
+        }
+        let checkers: Vec<&str> = declared["checks"]
+            .as_array()
+            .map(|c| c.iter().filter_map(|c| c["checker"].as_str()).collect())
+            .unwrap_or_default();
+        let (want_checks, want_while): (&[&str], serde_json::Value) = match mode {
+            Mode::History => (&[], serde_json::Value::Null),
+            Mode::Present => (&["@specforge/checks:file"], serde_json::Value::Null),
+            Mode::Planned => (&["@specforge/checks:file"], "complete".into()),
+            Mode::WhileOpen => (&["@specforge/checks:file"], "pending".into()),
+        };
+        assert_eq!(checkers, want_checks, "{name}");
+        assert_eq!(declared["checks_while"], want_while, "{name}");
+        checked += usize::from(!checkers.is_empty());
+    }
+    assert_eq!(checked, 16);
 }
