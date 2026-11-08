@@ -13,7 +13,10 @@ use specforge_ops::read::navigate::Navigator;
 use specforge_ops::testing::caller;
 use specforge_ops::view::ProjectView;
 use specforge_project::CompiledProject;
-use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, NODE, TestProject, stored};
+use specforge_project::harness::{Ledger, Line};
+use specforge_project::testing::{
+    COLLECTED_EXTENSIONS, Collected, NODE, TestProject, stored, stored_with,
+};
 use specforge_test_macros::test as specforge_test;
 
 const KEY: &str = "0123456789abcdef0123456789abcdef01234567";
@@ -175,7 +178,7 @@ fn a_delete_of_a_collected_entity_is_refused() {
 
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
-    verify = "a rename of a collected entity, or of one a fact names, is refused with why"
+    verify = "a rename of a collected entity, or of one a fact names with no place, is refused with why"
 )]
 fn a_rename_of_a_collected_entity_is_refused_with_why() {
     let p = project();
@@ -200,9 +203,9 @@ fn a_rename_of_a_collected_entity_is_refused_with_why() {
 
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
-    verify = "a rename of a collected entity, or of one a fact names, is refused with why"
+    verify = "a rename of a collected entity, or of one a fact names with no place, is refused with why"
 )]
-fn a_rename_of_an_entity_a_collected_fact_names_is_refused() {
+fn a_rename_of_an_entity_a_fact_names_with_no_place_is_refused() {
     let p = project();
     let compiled = compiled(&p);
     let nav = Navigator::new(ProjectView::of(&compiled));
@@ -213,8 +216,8 @@ fn a_rename_of_an_entity_a_collected_fact_names_is_refused() {
     assert_eq!(
         refused.error.message,
         format!(
-            "T1 is named by 'covers' of the fact '{FACT}', which an edit cannot rewrite; rename it, then run \
-             `specforge collect`"
+            "T1 is named by 'covers' of the fact '{FACT}', which records no place it is written; rename it in the \
+             source, then run `specforge collect`"
         )
     );
     let ran = rename::run(&nav, "T1", "T2", false, &Origin::cli(true), caller()).unwrap_err();
@@ -224,6 +227,159 @@ fn a_rename_of_an_entity_a_collected_fact_names_is_refused() {
             .unwrap()
             .contains("T1")
     );
+}
+
+/// The test file the collector read: `T1` is written at line 1, columns 11..13, and again at line 3 (a cfg twin).
+const SOURCE: &str = "// covers T1\ntest('adds', () => {});\n// covers T1\n";
+
+/// [`project`] whose fact records where `T1` is written in `a.test.js`, at `places` of [`SOURCE`]'s lines, and the
+/// file's digest as the collect read it.
+fn located(lines: &[usize]) -> TestProject {
+    let p = project();
+    std::fs::write(p.root().join("a.test.js"), SOURCE).unwrap();
+    let places: Vec<_> = lines
+        .iter()
+        .map(|line| json!({"file": "a.test.js", "start_line": line, "start_col": 11, "end_line": line, "end_col": 13}))
+        .collect();
+    let sources = [(
+        "a.test.js".to_string(),
+        specforge_ops::revision::of_bytes(SOURCE.as_bytes()),
+    )]
+    .into();
+    stored_with(
+        p.root(),
+        "node",
+        KEY,
+        json!([{"kind": "test", "id": FACT, "fields": {"file": "a.test.js", "covers": ["T1"]},
+                "at": [{"file": "a.test.js", "start_line": 2, "start_col": 1, "end_line": 2, "end_col": 23}],
+                "named_at": {"covers": {"T1": places}}}]),
+        sources,
+    );
+    p
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "a rename of an entity a fact names rewrites the source where the fact read it and marks its store stale"
+)]
+fn a_rename_of_an_entity_a_fact_names_rewrites_the_source_and_marks_the_store_stale() {
+    let p = located(&[1]);
+    let compiled = compiled(&p);
+    let nav = Navigator::new(ProjectView::of(&compiled));
+    let store = std::fs::read(p.root().join(STORE)).unwrap();
+
+    let renamed = rename::run(&nav, "T1", "T2", false, &Origin::cli(true), caller()).unwrap();
+
+    assert_eq!(
+        renamed.plan.change().affected_files().collect::<Vec<_>>(),
+        ["truths.spec", "a.test.js", "specforge-harness"]
+    );
+    let source = std::fs::read_to_string(p.root().join("a.test.js")).unwrap();
+    assert_eq!(source, SOURCE.replacen("T1", "T2", 1));
+    let ledger =
+        Ledger::parse(&std::fs::read_to_string(p.root().join("specforge-harness")).unwrap()).ledger;
+    assert!(
+        ledger.contains(&Line::moved("T2", "T1")),
+        "{}",
+        ledger.canonical()
+    );
+    assert!(
+        ledger.contains(&Line::stale("node", KEY, &store)),
+        "{}",
+        ledger.canonical()
+    );
+    // The store is the collector's bytes still; a recompile follows the move, and says the store is stale.
+    assert_eq!(std::fs::read(p.root().join(STORE)).unwrap(), store);
+    let after = compiled_quietly(&p);
+    let covered: Vec<&str> = after
+        .graph()
+        .edges_from(FACT)
+        .iter()
+        .map(|e| e.target.as_str())
+        .collect();
+    assert_eq!(covered, ["T2"], "{:?}", after.diagnostics());
+    assert!(
+        after.diagnostics().iter().any(|d| d.code == "W197"),
+        "{:?}",
+        after.diagnostics()
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "a rename whose source changed since the collect is refused as source_moved"
+)]
+fn a_rename_whose_source_moved_since_the_collect_is_source_moved() {
+    let p = located(&[1]);
+    std::fs::write(p.root().join("a.test.js"), format!("\n{SOURCE}")).unwrap();
+    let compiled = compiled(&p);
+    let nav = Navigator::new(ProjectView::of(&compiled));
+
+    let refused = rename::run(&nav, "T1", "T2", false, &Origin::cli(true), caller()).unwrap_err();
+
+    assert_eq!(refused.error.code, rename::SOURCE_MOVED);
+    assert_eq!(
+        refused.error.message,
+        "cannot rename 'T1': a.test.js changed since `specforge collect` read it"
+    );
+    assert!(
+        std::fs::read_to_string(p.root().join("truths.spec"))
+            .unwrap()
+            .contains("T1")
+    );
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        format!("\n{SOURCE}")
+    );
+}
+
+#[test]
+fn a_rename_rewrites_every_place_of_a_cfg_twin() {
+    let p = located(&[1, 3]);
+    let compiled = compiled(&p);
+    let nav = Navigator::new(ProjectView::of(&compiled));
+
+    let plan = rename::plan(&nav, "T1", "T2").unwrap();
+
+    let source: Vec<(usize, &str)> = plan
+        .edits()
+        .iter()
+        .filter(|e| e.span.file == "a.test.js")
+        .map(|e| (e.span.start_line, e.new_text.as_str()))
+        .collect();
+    assert_eq!(source, [(1, "T2"), (3, "T2")]);
+    rename::run(&nav, "T1", "T2", false, &Origin::cli(true), caller()).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        SOURCE.replace("T1", "T2")
+    );
+}
+
+#[test]
+fn a_delete_of_an_entity_a_fact_names_is_still_refused() {
+    let p = located(&[1]);
+    let compiled = compiled(&p);
+
+    let delete = Edit::Delete {
+        entity_id: "T1".into(),
+        unlink_references: true,
+    };
+    let (code, _, message) = typed(&compiled, &[delete], &Origin::cli(true));
+
+    assert_eq!(code, COLLECTED);
+    assert!(
+        message.contains("delete it, then run `specforge collect`"),
+        "{message}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        SOURCE
+    );
+}
+
+/// `p` compiled as [`compiled`] does, without asserting it is clean.
+fn compiled_quietly(p: &TestProject) -> CompiledProject {
+    p.compile_in(Arc::new(Collected::new().runtime()))
 }
 
 #[test]

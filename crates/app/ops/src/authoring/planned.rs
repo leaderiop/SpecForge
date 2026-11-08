@@ -37,6 +37,10 @@ pub struct PlannedChange {
     /// (collector, key): the collector's stores filed under another key, which the change removes, listed under the
     /// lock (ADR 0327 D4).
     superseded: Vec<(String, String)>,
+    /// Files that are no source of the project, by path from the root: the text each held when planned (read from the
+    /// disk) and the text it will hold. A rename's rewrite of the names a collected fact holds (ADR 0346 D7); never
+    /// compiled as a source.
+    rewritten: BTreeMap<String, (Arc<str>, String)>,
 }
 
 type Redo = Arc<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>;
@@ -96,7 +100,30 @@ impl PlannedChange {
             moved: Vec::new(),
             root_files: BTreeMap::new(),
             superseded: Vec::new(),
+            rewritten: BTreeMap::new(),
         }
+    }
+
+    /// This change also rewriting `files`, no sources of the project: (path from the root, the disk text it was
+    /// planned on, the text it will hold). Each is checked against its planned-on text under the lock.
+    pub(crate) fn rewriting_sources(
+        mut self,
+        files: impl IntoIterator<Item = (String, Arc<str>, String)>,
+    ) -> Self {
+        for (key, before, after) in files {
+            if *before != *after {
+                self.rewritten.insert(key, (before, after));
+            }
+        }
+        self
+    }
+
+    /// Each file that is no source of the project the change rewrites: its path from the root, its planned-on text
+    /// and the text it will hold.
+    pub(crate) fn rewritten_sources(&self) -> impl Iterator<Item = (&str, &Arc<str>, &str)> {
+        self.rewritten
+            .iter()
+            .map(|(key, (before, after))| (key.as_str(), before, after.as_str()))
     }
 
     /// This change also storing `stores` (collector, its store's bytes) under `key` (ADR 0327 D2, D4): each store is
@@ -153,7 +180,7 @@ impl PlannedChange {
         if before.root().is_none() {
             return self;
         }
-        if !before.declares_harness() {
+        if !before.declares_harness() && change.stale.is_empty() {
             // No ledger to keep, but a writing command, collector or guard pass still serializes the write.
             self.locked = before.serializes_writes();
             return self;
@@ -172,9 +199,9 @@ impl PlannedChange {
         if before.root().is_none() {
             return self;
         }
-        // Every write of this project takes the lock, the ledger changing or not.
-        self.locked = before.serializes_writes();
-        if !before.declares_harness() {
+        // Every write of this project takes the lock, the ledger changing or not; a stale line is a ledger write.
+        self.locked = before.serializes_writes() || !change.stale.is_empty();
+        if !before.declares_harness() && change.stale.is_empty() {
             return self;
         }
         let current = before.root_file(LEDGER_FILE);
@@ -189,7 +216,10 @@ impl PlannedChange {
             && gitattributes_with(&before.root_file(".gitattributes")).is_some();
         // A write that moves or sets a value keeps its ledger part though the ledger reads the same now: under the
         // lock the ledger may have changed, and the part is made again over what it holds.
-        let keeps = !change.moves.is_empty() || !change.set.is_empty() || !change.facts.is_empty();
+        let keeps = !change.moves.is_empty()
+            || !change.set.is_empty()
+            || !change.facts.is_empty()
+            || !change.stale.is_empty();
         if unchanged && !attributes && !keeps {
             return self;
         }
@@ -225,6 +255,7 @@ impl PlannedChange {
     pub fn is_empty(&self) -> bool {
         self.files.is_empty()
             && self.root_files.is_empty()
+            && self.rewritten.is_empty()
             && !self
                 .ledger
                 .as_ref()
@@ -236,6 +267,7 @@ impl PlannedChange {
         self.files
             .keys()
             .chain(self.root_files.keys())
+            .chain(self.rewritten.keys())
             .map(String::as_str)
             .chain(
                 self.ledger
@@ -258,7 +290,17 @@ impl PlannedChange {
     /// overlapping (the formatter's minimal diff, ADR 0021 D8), files in key order.
     pub fn text_edits(&self) -> Vec<TextEdit> {
         let mut edits = Vec::new();
-        for (key, (before, after)) in &self.files {
+        let rewritten = self
+            .rewritten
+            .iter()
+            .map(|(key, (before, after))| (key, (Some(Arc::clone(before)), after.clone())));
+        let files: BTreeMap<&String, (Option<Arc<str>>, String)> = self
+            .files
+            .iter()
+            .map(|(key, (before, after))| (key, (before.clone(), after.clone())))
+            .chain(rewritten)
+            .collect();
+        for (key, (before, after)) in &files {
             let before = before.clone().unwrap_or_else(|| Arc::from(""));
             let text = SourceText::new(Arc::clone(&before));
             let file = Sym::new(key);
@@ -311,6 +353,12 @@ impl PlannedChange {
                 )
             })
             .collect();
+        diffs.extend(self.rewritten.iter().map(|(key, (before, after))| {
+            (
+                key.as_str(),
+                specforge_formatter::unified_diff(key, before, after).diff_text,
+            )
+        }));
         diffs.extend(ledger.map(|diff| (LEDGER_FILE, diff)));
         diffs.sort_by_key(|(key, _)| *key);
         diffs.into_iter().map(|(_, diff)| diff).collect()
@@ -349,6 +397,13 @@ impl PlannedChange {
                 for (key, (before, after)) in &self.files {
                     let before = before.as_ref().map(|b| b.as_bytes().to_vec());
                     stager.write(key, before, after.clone().into_bytes())?;
+                }
+                for (key, (before, after)) in &self.rewritten {
+                    stager.write(
+                        key,
+                        Some(before.as_bytes().to_vec()),
+                        after.clone().into_bytes(),
+                    )?;
                 }
                 for (key, after) in &self.root_files {
                     let now = stager.read_if_there(key)?;

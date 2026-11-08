@@ -6,7 +6,8 @@
 //! declaration's name, each reference's token and each `use` binding's imported name, ADR 0233): text in strings,
 //! comments and verify statements that mentions the ID is not a reference,
 //! and is left alone (ADR 0016). A rename changes the graph by a substitution only: a name written for no entity that
-//! its new ID would capture refuses it (`name_captured`, ADR 0198).
+//! its new ID would capture refuses it (`name_captured`, ADR 0198). A name a collected fact holds is rewritten in the
+//! source file where its collector read it, and the fact's store is marked stale (ADR 0346 D7).
 
 use crate::authoring::apply::{self, Origin};
 use crate::authoring::entity_id::validate_id;
@@ -19,7 +20,7 @@ use specforge_common::Sym;
 use specforge_common::shape::Shape;
 use specforge_graph::{Form, Holder, Node, written_tokens};
 use specforge_parser::lex::lex;
-use specforge_project::harness::LedgerChange;
+use specforge_project::harness::{LedgerChange, Line};
 use std::collections::BTreeSet;
 
 /// The field of a rename's request a refusal can be about (ADR 0072).
@@ -40,6 +41,9 @@ pub const UNPARSED: &str = "source_unparsed";
 /// The project writes the new ID for no entity (a type name, a reference that does not resolve): the rename would make
 /// it name the renamed entity.
 pub const CAPTURED: &str = "name_captured";
+/// A source file a fact names the entity in changed since `specforge collect` read it, or no longer spells the name
+/// where the fact's store says: the rename cannot rewrite it exactly (ADR 0346 D7).
+pub const SOURCE_MOVED: &str = "source_moved";
 /// The edits that rename one entity: its declaration and every reference, and the change they make.
 #[derive(Debug, Clone)]
 pub struct RenamePlan {
@@ -49,10 +53,13 @@ pub struct RenamePlan {
     /// (old path, new path) of the entity and of each entity scoped under it.
     moved: Vec<(String, String)>,
     /// One per occurrence: the token's span as navigation found it, relative to the project root; its
-    /// text becomes the new ID.
+    /// text becomes the new ID. Then each place a collected fact's name is written in a source file, its text the
+    /// same suffix of the new path (ADR 0346 D7).
     edits: Vec<TextEdit>,
     /// The texts the edits make, planned with them (ADR 0184).
     change: PlannedChange,
+    /// The stale line of each fact store whose facts name what the rename moves (ADR 0346 D7).
+    stale: Vec<Line>,
 }
 
 impl RenamePlan {
@@ -67,6 +74,11 @@ impl RenamePlan {
 
     pub fn change(&self) -> &PlannedChange {
         &self.change
+    }
+
+    /// The stale line of each fact store whose facts name what the rename moves: what its ledger change writes.
+    pub fn stale(&self) -> &[Line] {
+        &self.stale
     }
 }
 
@@ -138,9 +150,16 @@ pub fn plan(
         .with_entity(old_id)
         .about(RenameField::NewId));
     }
-    let occurrences = nav
+    let mut occurrences = nav
         .tokens(old_id, true)
         .map_err(|refusal| refusal.map_subject(|EntityField::EntityId| Some(RenameField::OldId)))?;
+    // A name a collected fact holds (spanned in its store, or where its collector read it in a file that is no
+    // source) is rewritten where its collector read it, below, not as a token of the compiled text.
+    let sources: BTreeSet<&str> = nav.view().project().parsed().map(|(key, _)| key).collect();
+    occurrences.retain(|o| {
+        let file = o.span.file.as_str();
+        sources.contains(file) && !specforge_common::facts::is_fact_store(file)
+    });
     let unreadable: BTreeSet<&str> = occurrences
         .iter()
         .filter(|o| o.precision == Precision::Entity)
@@ -201,11 +220,6 @@ pub fn plan(
             )
         })?);
     }
-    let change = PlannedChange::new(
-        nav.view().env().sources().clone(),
-        format!("cannot rename '{old_id}'"),
-        files,
-    );
     let under = format!("{old_id}/");
     let mut moved = vec![(old_id.to_string(), new_path.clone())];
     for member in graph.nodes() {
@@ -213,10 +227,21 @@ pub fn plan(
             moved.push((member.id.raw.to_string(), format!("{new_path}/{rest}")));
         }
     }
-    let change = change.keeping_ledger(
+    let facts = crate::authoring::fact_names::rewrite(nav.view(), old_id, &moved)
+        .map_err(|error| error.with_entity(old_id))?;
+    let mut edits = edits;
+    edits.extend(facts.edits);
+    let change = PlannedChange::new(
+        nav.view().env().sources().clone(),
+        format!("cannot rename '{old_id}'"),
+        files,
+    )
+    .rewriting_sources(facts.files)
+    .keeping_ledger(
         nav.view().project(),
         LedgerChange {
             moves: moved.clone(),
+            stale: facts.stale.clone(),
             ..Default::default()
         },
     );
@@ -226,6 +251,7 @@ pub fn plan(
         moved,
         edits,
         change,
+        stale: facts.stale,
     })
 }
 

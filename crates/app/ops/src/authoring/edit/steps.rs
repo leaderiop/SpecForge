@@ -4,12 +4,12 @@
 
 use super::declared::Declared;
 use super::{Edit, EditField, EditPlan, EditReport, Planner, describe, validate};
-use crate::Refusal;
 use crate::authoring::format::{Configs, Forms};
 use crate::authoring::planned::PlannedChange;
 use crate::authoring::rename::{self, RenameField};
 use crate::read::navigate::Navigator;
 use crate::view::ProjectView;
+use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::DiagnosticList;
 use specforge_parser::LineBreak;
 use specforge_project::harness::{Harness, LedgerChange};
@@ -49,6 +49,10 @@ struct Carry {
     raw_moves: Vec<(String, String)>,
     /// The harness values set: (moves made before, path then, field).
     sets: Vec<(usize, String, String)>,
+    /// The files no source of the project a rename rewrote where a fact names what it moved (ADR 0346 D7), and the
+    /// stale lines of those facts' stores.
+    rewritten: BTreeMap<String, (std::sync::Arc<str>, String)>,
+    stale: Vec<specforge_project::harness::Line>,
 }
 
 /// A move `old → new` after the moves of `moves`: a chain composes, `a → b` then `b → c` is `a → c`.
@@ -198,6 +202,23 @@ fn rename_step(
             .texts
             .insert(key, LineBreak::of(&after).lf(&after).into_owned());
     }
+    for (key, before, after) in plan.change().rewritten_sources() {
+        // One rewrite of a file per collect: a second is planned on the text the first leaves (ADR 0346 D7).
+        if carry.rewritten.contains_key(key) {
+            return Err(OpError::new(
+                OpErrorKind::PreconditionFailed,
+                rename::SOURCE_MOVED,
+                format!("cannot rename '{entity}': an earlier rename of the plan rewrites {key}"),
+            )
+            .with_suggestion("run `specforge collect` between the renames")
+            .into());
+        }
+        carry.rewritten.insert(
+            key.to_string(),
+            (std::sync::Arc::clone(before), after.to_string()),
+        );
+    }
+    carry.stale.extend(plan.stale().iter().cloned());
     for (old, new) in plan.moved() {
         carry.declared.moved(old, new);
         compose(&mut carry.moves, old, new);
@@ -220,6 +241,8 @@ fn conclude(
         moves,
         raw_moves,
         sets,
+        rewritten,
+        stale,
     } = carry;
     let mut set: Vec<(String, String)> = sets
         .into_iter()
@@ -236,14 +259,21 @@ fn conclude(
             (key, before, line_break.write(&after).into_owned())
         }),
     );
-    let change = change.moving(raw_moves.clone()).keeping_ledger(
-        project,
-        LedgerChange {
-            set,
-            moves,
-            ..Default::default()
-        },
-    );
+    let rewritten = rewritten
+        .into_iter()
+        .map(|(key, (before, after))| (key, before, after));
+    let change = change
+        .rewriting_sources(rewritten)
+        .moving(raw_moves.clone())
+        .keeping_ledger(
+            project,
+            LedgerChange {
+                set,
+                moves,
+                stale,
+                ..Default::default()
+            },
+        );
     let added = if change.is_empty() {
         Vec::new()
     } else {
