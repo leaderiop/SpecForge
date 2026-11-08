@@ -217,6 +217,9 @@ type McpInspectResult "Mcp Inspect Result" {
   /// it): why an exempt entity is exempt.
   obligated           boolean
   source_span         SourceSpan       @readonly
+  /// Where a collected fact is written in source, each place of it (ADR 0346); source_span and file
+  /// stay its store's. Absent when it has none.
+  located             SourceSpan[]     @optional
   /// The file the entity is written in, relative to the spec root.
   file                string           @readonly
   /// The revision of that file as the project was read (sha256:<digest>): what specforge.edit and

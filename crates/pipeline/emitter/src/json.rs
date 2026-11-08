@@ -1,4 +1,5 @@
 use serde::Serialize;
+use specforge_common::SourceSpan;
 use specforge_common::shape::Shape;
 use specforge_coverage::Status;
 use specforge_graph::field_form::FieldJson;
@@ -77,6 +78,10 @@ pub(crate) struct JsonNode {
     title: Option<String>,
     file: String,
     line: usize,
+    /// Where a collected fact is written in source, each place of it; omitted when it has none (ADR 0346). `file`
+    /// and `line` stay its store's.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    located: Vec<SourceSpan>,
     fields: BTreeMap<String, FieldJson>,
     /// The annotations written after its fields, by field name (a block field's entry's by `outer.key`); omitted
     /// when it has none (ADR 0222).
@@ -186,6 +191,7 @@ pub(crate) fn graph_node(
         title: n.title.clone(),
         file: n.source_span.file.to_string(),
         line: n.source_span.start_line,
+        located: n.located.clone(),
         fields,
         annotations,
         methods,

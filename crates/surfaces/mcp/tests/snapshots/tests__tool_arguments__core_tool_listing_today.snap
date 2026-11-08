@@ -465,6 +465,38 @@ expression: listing
           ],
           "type": "object"
         },
+        "SourceSpan": {
+          "additionalProperties": false,
+          "properties": {
+            "end_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "end_line": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "file": {
+              "type": "string"
+            },
+            "start_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start_line": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "file",
+            "start_line",
+            "start_col",
+            "end_line",
+            "end_col"
+          ],
+          "type": "object"
+        },
         "TokenBudget": {
           "additionalProperties": false,
           "properties": {
@@ -640,6 +672,12 @@ expression: listing
                   "line": {
                     "minimum": 0,
                     "type": "integer"
+                  },
+                  "located": {
+                    "items": {
+                      "$ref": "#/$defs/SourceSpan"
+                    },
+                    "type": "array"
                   },
                   "methods": {
                     "items": {
@@ -3329,6 +3367,12 @@ expression: listing
         },
         "kind": {
           "type": "string"
+        },
+        "located": {
+          "items": {
+            "$ref": "#/$defs/SourceSpan"
+          },
+          "type": "array"
         },
         "methods": {
           "items": {

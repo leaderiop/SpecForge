@@ -495,7 +495,9 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
     diagnostics. LSP equivalence: this tool and textDocument/hover render
     one read view of the entity, so its kind, standing, references,
     coverage and diagnostics are the same on both. If the entity does not
-    exist, the tool MUST return an error response.
+    exist, the tool MUST return an error response. A collected fact's
+    places in source are its located list (absent when it has none); its
+    source_span and file stay its store's.
   """
   verify unit "specforge.inspect returns full entity details"
   verify unit "response includes referenced_by, refers_to and verify declarations"
@@ -513,6 +515,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "inspect writes each obligation as its kind, absent for a bare verify, and its text"
   verify unit "an obligation inspect writes, given to remove_verify, removes that verify line"
   verify unit "specforge.inspect lists each checked value's outcome, as its output schema says"
+  verify unit "inspect of a fact names where it is written"
   verify contract "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
 }
 

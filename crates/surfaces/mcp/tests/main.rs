@@ -25,6 +25,7 @@ mod infer_gaps;
 mod infer_session_arguments;
 mod infer_sources;
 mod init_enclosing;
+mod inspect_located;
 mod invariants;
 mod judged_inputs;
 mod lent_effects;

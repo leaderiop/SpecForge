@@ -1336,11 +1336,15 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
     Protocol version. An entity's methods are written under its own
     `methods` and the annotations written after its fields under its own
     `annotations`, by the field's name (a block field's entry's by
-    `outer.key`), beside its fields.
+    `outer.key`), beside its fields. A collected fact's places in source
+    are written under its own `located` (omitted when it has none); its
+    `file` and `line` stay its store's, and the markdown export shows it at
+    its first place.
   """
   verify unit "graph format includes all nodes and edges"
   verify unit "graph format includes all fields and metadata"
   verify unit "graph format writes each entity's methods and its fields' annotations"
+  verify unit "graph format writes a fact's places under located, and markdown shows its first"
   verify unit "scoped export returns only reachable subgraph"
   verify unit "non-existent scope entity produces E003 and exit code 1"
   verify unit "depth without a scope is invalid input on every surface"
