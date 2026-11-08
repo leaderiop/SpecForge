@@ -93,6 +93,7 @@ behavior cc_check_fact_refs "Check Cited Fact References" {
   verify integration "a fact ref of a pending owner is unchecked"
   verify integration "a held fact ref links and reports nothing"
   verify unit "a fact's reference no fact or entity answers is code/E101 addressed to its collector, at its span"
+  verify integration "a test run's dangling test reference is code/E101 at the fact, addressed to its collector"
 }
 
 behavior cc_check_proof "Report a Failing Proof and a Test Naming No Entity" {

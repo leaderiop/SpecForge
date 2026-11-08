@@ -226,3 +226,48 @@ fn a_test_naming_a_missing_entity_is_code_i402() {
         compiled.diagnostics()
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "cc_check_fact_refs",
+    verify = "a test run's dangling test reference is code/E101 at the fact, addressed to its collector"
+)]
+fn a_test_runs_dangling_test_reference_is_code_e101_at_the_fact() {
+    let p = project(&[("truths.spec", &citing(ADDS))]);
+    let mut facts = adds("passed", &[]);
+    facts.as_array_mut().unwrap().push(json!({
+        "kind": "test_run", "id": "run:zz", "fields": {"test": "zz", "status": "passed"},
+        "at": [{"file": "test/a.test.js", "start_line": 7, "start_col": 1, "end_line": 7, "end_col": 20}],
+    }));
+    stored(p.root(), "node", KEY, facts);
+
+    let compiled = compiled(&p);
+
+    let codes: Vec<String> = compiled
+        .diagnostics()
+        .iter()
+        .map(|d| d.code.to_string())
+        .collect();
+    assert!(
+        !codes.iter().any(|c| c == "E022" || c == "E003"),
+        "{:?}",
+        compiled.diagnostics()
+    );
+    assert_eq!(
+        about(&compiled),
+        [(
+            "code/E101".to_string(),
+            "run:zz".to_string(),
+            "the fact 'run:zz' names 'zz', which no collected fact holds (its collector's facts disagree)"
+                .to_string()
+        )],
+        "{:?}",
+        compiled.diagnostics()
+    );
+    let finding = compiled
+        .diagnostics()
+        .into_iter()
+        .find(|d| d.code == "code/E101")
+        .unwrap();
+    let span = finding.span.as_ref().expect("placed at the fact");
+    assert_eq!((span.file.as_str(), span.start_line), ("test/a.test.js", 7));
+}
