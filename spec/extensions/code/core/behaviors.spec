@@ -9,18 +9,47 @@ behavior cc_declare_test_facts "Declare the Test Fact Kinds" {
   types    [EntityKindDescriptor, Fact, TestStatus]
   contract """
     @code/core MUST declare two collector-written kinds, neither scoped:
-    test, under the scheme js, with package, file, suite, name, status (an
-    enum of the TestStatus names, the kind's result) and names; and
+    test, under the schemes js and rust, with package, file, suite, name,
+    status (an enum of the TestStatus names, the kind's result) and names; and
     test_run, under the scheme run, with test (a reference to the test it
     ran, edge run_of), status and duration_ms. It MUST catalogue the codes it
     reports, which print under the namespace code (ADR 0328 D2).
   """
   ensures {
-    kinds_collected  "test is collected under js and test_run under run"
+    kinds_collected  "test is collected under js and rust, test_run under run"
     result_status    "test names status as its result"
     codes_namespaced "E101, W102, W401 and I402 print as code/E101, code/W102, code/W401 and code/I402"
   }
   verify unit "the kinds are collected with their schemes"
+}
+
+behavior cc_declare_code_facts "Declare the Item and Package Fact Kinds" {
+  features [cc_code_facts]
+  category query
+  types    [EntityKindDescriptor, Fact]
+  contract """
+    @code/core 1.1 MUST declare test under the schemes js and rust, with a
+    binary field and names a reference list of any kind (edge names); item
+    under rust and js, with package (a reference to a package, edge
+    in_package), file, kind (a list of the library's item kinds),
+    visibility (public, crate, restricted or private), signature, doc,
+    attrs, names (edge names) and test_id (a reference to a test, edge
+    runs_as); and package under pkg, with name, version, edition,
+    rust_version, engines, features, targets, path and depends_on (a
+    reference list to packages, edge uses_package). Code/I402 MUST report a
+    dangling name of a test or an item (ADR 0347 D11).
+  """
+  ensures {
+    four_kinds     "test, test_run, item and package are collected with their schemes"
+    item_edges     "item and package reference their facts by in_package, runs_as and uses_package"
+    names_dangling "a test or item naming no entity is code/I402"
+  }
+  verify unit "the kinds are collected with their schemes"
+  verify unit "item and package reference their facts by in_package, runs_as and uses_package"
+  verify unit "test names is a reference list of any kind"
+  verify unit "the item kind vocabulary is the librarys"
+  verify unit "a test or item naming no entity is code/I402"
+  verify unit "an item naming several entities is i402 listing them"
 }
 
 behavior cc_kind_result "A Collected Kind Names the Field That Holds Its Result" {

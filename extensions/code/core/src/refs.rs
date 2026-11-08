@@ -6,14 +6,23 @@ use std::collections::BTreeSet;
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::UnheldReference;
 
-use crate::{RUN_KIND, RUN_SCHEME, TEST_KIND, TEST_SCHEME};
+use crate::{
+    ITEM_KIND, KINDS, NAMES, PACKAGE_KIND, PACKAGE_SCHEME, RUN_KIND, RUN_SCHEME, TEST_KIND,
+    TEST_SCHEMES,
+};
 
 /// The schemes whose references `@code/core` judges: its kinds'.
-const SCHEMES: [&str; 2] = [TEST_SCHEME, RUN_SCHEME];
+/// An item's schemes are a test's (`ITEM_SCHEMES`).
+const SCHEMES: [&str; 4] = [TEST_SCHEMES[0], TEST_SCHEMES[1], RUN_SCHEME, PACKAGE_SCHEME];
 
 /// Each reference field `@code/core` declares with a target kind: its kind, its name and the kind it takes. What a
 /// mistyped reference one of its facts holds is told it should have named.
-pub(crate) const TAKES: [(&str, &str, &str); 1] = [(RUN_KIND, "test", TEST_KIND)];
+pub(crate) const TAKES: [(&str, &str, &str); 4] = [
+    (ITEM_KIND, "package", PACKAGE_KIND),
+    (ITEM_KIND, "test_id", TEST_KIND),
+    (PACKAGE_KIND, "depends_on", PACKAGE_KIND),
+    (RUN_KIND, "test", TEST_KIND),
+];
 
 /// Each unheld reference in [`SCHEMES`], once, at the span it is written at: nothing while its entity is pending
 /// (a test not written yet is TDD), E101 when a served fact store holds facts of its scheme (with the closest held
@@ -28,7 +37,7 @@ pub(crate) fn refs(input: &PassInput) -> Vec<PassDiagnostic> {
         .collect();
     let mut found = Vec::new();
     for entity in input.entities.iter().filter(|e| !e.pending) {
-        if [TEST_KIND, RUN_KIND].contains(&entity.kind.as_str()) {
+        if KINDS.contains(&entity.kind.as_str()) {
             found.extend(disagreeing(entity));
             continue;
         }
@@ -56,19 +65,24 @@ pub(crate) fn refs(input: &PassInput) -> Vec<PassDiagnostic> {
 
 /// The E101 of each reference the fact `entity` holds that answers nothing: an unheld one (no store holds its
 /// scheme's id) or a dangling one (no entity, several, or one of another kind). The runner pack's collector wrote
-/// both the fact and the reference, so its facts disagree: no spec author can fix it.
+/// both the fact and the reference, so its facts disagree: no spec author can fix it. A dangling name is I402's
+/// (the `proof` pass).
 fn disagreeing(entity: &PassEntity) -> Vec<PassDiagnostic> {
     let unheld = entity
         .unheld
         .iter()
         .map(|item| (&item.id, None, &item.span));
-    let dangling = entity.dangling.iter().map(|item| {
-        let mistyped = (item.reason == DanglingReason::Mistyped)
-            .then_some(item.actual.as_deref())
-            .flatten()
-            .map(|actual| (item.field.as_str(), actual));
-        (&item.id, mistyped, &item.span)
-    });
+    let dangling = entity
+        .dangling
+        .iter()
+        .filter(|item| item.field != NAMES)
+        .map(|item| {
+            let mistyped = (item.reason == DanglingReason::Mistyped)
+                .then_some(item.actual.as_deref())
+                .flatten()
+                .map(|actual| (item.field.as_str(), actual));
+            (&item.id, mistyped, &item.span)
+        });
     unheld
         .chain(dangling)
         .map(|(id, mistyped, span)| {

@@ -26,7 +26,11 @@ fn the_kinds_are_collected_with_their_schemes() {
             &test.schemes[..],
             test.result.as_deref()
         ),
-        (Some("collector"), &["js".to_string()][..], Some("status"))
+        (
+            Some("collector"),
+            &strings(&["js", "rust"])[..],
+            Some("status")
+        )
     );
     let run = kind(&declared, "test_run");
     assert_eq!(
@@ -35,9 +39,16 @@ fn the_kinds_are_collected_with_their_schemes() {
             &run.schemes[..],
             run.result.as_deref()
         ),
-        (Some("collector"), &["run".to_string()][..], None)
+        (Some("collector"), &strings(&["run"])[..], None)
     );
-    for k in [test, run] {
+    let item = kind(&declared, "item");
+    let package = kind(&declared, "package");
+    assert_eq!(
+        (&item.schemes[..], &package.schemes[..]),
+        (&strings(&["rust", "js"])[..], &strings(&["pkg"])[..])
+    );
+    for k in [test, run, item, package] {
+        assert_eq!(k.writer.as_deref(), Some("collector"), "{}", k.name);
         assert_eq!(
             k.scoped_by, None,
             "{}: a scheme ref names the fact whole",
@@ -49,6 +60,94 @@ fn the_kinds_are_collected_with_their_schemes() {
         (edge.target_kind.as_deref(), edge.edge.as_deref()),
         (Some("test"), Some("run_of"))
     );
+}
+
+#[specforge_test(
+    behavior = "cc_declare_code_facts",
+    verify = "item and package reference their facts by in_package, runs_as and uses_package"
+)]
+fn item_and_package_reference_their_facts() {
+    let declared = declaration();
+    let edges = |name: &str| -> Vec<(String, Option<String>, Option<String>)> {
+        kind(&declared, name)
+            .fields
+            .iter()
+            .filter(|f| f.edge.is_some())
+            .map(|f| (f.name.clone(), f.target_kind.clone(), f.edge.clone()))
+            .collect()
+    };
+    let named = |field: &str, target: Option<&str>, edge: &str| {
+        (
+            field.to_string(),
+            target.map(str::to_string),
+            Some(edge.to_string()),
+        )
+    };
+    assert_eq!(
+        edges("item"),
+        [
+            named("package", Some("package"), "in_package"),
+            named("names", None, "names"),
+            named("test_id", Some("test"), "runs_as"),
+        ]
+    );
+    assert_eq!(
+        edges("package"),
+        [named("depends_on", Some("package"), "uses_package")]
+    );
+    let labels: Vec<&str> = declared.edges.iter().map(|e| e.label.as_str()).collect();
+    assert_eq!(
+        labels,
+        ["run_of", "names", "in_package", "uses_package", "runs_as"]
+    );
+}
+
+#[test]
+fn test_names_is_a_reference_list_of_any_kind() {
+    let declared = declaration();
+    for holder in ["test", "item"] {
+        let names = kind(&declared, holder)
+            .fields
+            .iter()
+            .find(|f| f.name == "names")
+            .unwrap();
+        assert_eq!(
+            (
+                names.field_type.as_str(),
+                names.target_kind.as_deref(),
+                names.edge.as_deref()
+            ),
+            ("reference_list", None, Some("names")),
+            "{holder}"
+        );
+    }
+}
+
+#[test]
+fn the_item_kind_vocabulary_is_the_librarys() {
+    let declared = declaration();
+    let item = kind(&declared, "item");
+    let values = |field: &str| -> Vec<String> {
+        item.fields
+            .iter()
+            .find(|f| f.name == field)
+            .unwrap()
+            .enum_values
+            .clone()
+    };
+    let names: Vec<String> = ItemKind::ALL
+        .iter()
+        .map(|k| k.as_str().to_string())
+        .collect();
+    assert_eq!(values("kind"), names);
+    assert_eq!(
+        values("visibility"),
+        ["public", "crate", "restricted", "private"]
+    );
+}
+
+fn strings(items: &[&str]) -> Vec<String> {
+    items.iter().map(|s| s.to_string()).collect()
 }
 
 #[test]
@@ -177,7 +276,10 @@ fn a_scheme_no_store_serves_is_w102() {
         citing("t1", &["js:app/test/a.test.js#adds", "rust:a::b"]),
     ];
     let diagnostics = refs::refs(&input(entities, &["run"]));
-    assert_eq!(found(&diagnostics), [("W102", "t1", 2, None)]);
+    assert_eq!(
+        found(&diagnostics),
+        [("W102", "t1", 2, None), ("W102", "t1", 3, None)]
+    );
     assert!(
         diagnostics[0]
             .message
@@ -422,11 +524,35 @@ fn a_pending_owner_linking_a_failed_test_is_silent() {
     assert!(proof::proof(&input).is_empty());
 }
 
-#[test]
+/// `holder` with the dangling name `name` read at line `line` of its file.
+fn naming(holder: PassEntity, name: &str, reason: DanglingReason, line: usize) -> PassEntity {
+    PassEntity {
+        dangling: vec![DanglingReference {
+            field: "names".to_string(),
+            id: name.to_string(),
+            span: read_at(line),
+            reason,
+            actual: None,
+            did_you_mean: None,
+            candidates: Vec::new(),
+        }],
+        ..holder
+    }
+}
+
+#[specforge_test(
+    behavior = "cc_declare_code_facts",
+    verify = "a test or item naming no entity is code/I402"
+)]
 fn a_test_naming_no_entity_is_i402() {
     let input = PassInput {
         entities: vec![
-            test_fact("js:app/a.test.js#adds", "passed", &["t1", "t9"]),
+            naming(
+                test_fact("js:app/a.test.js#adds", "passed", &["t1", "t9"]),
+                "t9",
+                DanglingReason::Unresolved,
+                3,
+            ),
             entity("t1", "truth"),
         ],
         ..PassInput::default()
@@ -434,9 +560,37 @@ fn a_test_naming_no_entity_is_i402() {
     let diagnostics = proof::proof(&input);
     assert_eq!(on(&diagnostics), [("I402", "js:app/a.test.js#adds")]);
     assert!(
-        diagnostics[0].message.contains("`t9`"),
+        diagnostics[0].message.contains("`t9`, which is no entity"),
         "{}",
         diagnostics[0].message
     );
     assert_eq!(diagnostics[0].severity, PassSeverity::Info);
+    assert_eq!(diagnostics[0].span.as_ref().map(|s| s.start_line), Some(3));
+    assert!(
+        refs::refs(&input).is_empty(),
+        "a dangling name is the proof pass's"
+    );
+}
+
+#[test]
+fn an_item_naming_several_entities_is_i402_listing_them() {
+    let mut item = naming(
+        entity("rust:app::board::add", "item"),
+        "t1",
+        DanglingReason::Ambiguous,
+        7,
+    );
+    item.dangling[0].candidates = strings(&["a/t1", "b/t1"]);
+    let input = PassInput {
+        entities: vec![item],
+        ..PassInput::default()
+    };
+    let diagnostics = proof::proof(&input);
+    assert_eq!(on(&diagnostics), [("I402", "rust:app::board::add")]);
+    let message = &diagnostics[0].message;
+    assert!(
+        message.contains("the item `rust:app::board::add` names `t1`, the short name of several"),
+        "{message}"
+    );
+    assert!(message.ends_with("entities (a/t1, b/t1)"), "{message}");
 }
