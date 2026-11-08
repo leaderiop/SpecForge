@@ -104,13 +104,10 @@ fn uncollected(item: &UnheldReference, scheme: &str, kinds: &[&str]) -> PassDiag
 
 /// The pack that writes `kind` facts like `id`, in `scheme`: a run's is its test's, a package's its purl type's.
 fn pack(scheme: &str, id: &str, kind: &str) -> Option<&'static str> {
-    let family = match kind {
-        RUN_KIND => {
-            let test = id.strip_prefix("run:")?;
-            return pack(self::scheme(test)?, test, TEST_KIND);
-        }
-        PACKAGE_KIND => id.parse::<PackageId>().ok()?.purl_type(),
-        _ => scheme,
+    let (kind, family) = match kind {
+        RUN_KIND => (TEST_KIND, TestId::of_run(id).ok()?.scheme().as_str()),
+        PACKAGE_KIND => (kind, id.parse::<PackageId>().ok()?.purl_type()),
+        _ => (kind, scheme),
     };
     PACKS
         .iter()
@@ -219,15 +216,13 @@ fn missing(
 /// ([`TestId::container`]): a test of the same file or binary. `None` for an item or package reference (the pass reads
 /// test facts only), an id that is no test's, or a container that holds none.
 fn closest<'a>(input: &'a PassInput, id: &str, kinds: &[&str]) -> Option<&'a str> {
-    let (run, test) = match id.strip_prefix("run:") {
-        Some(test) => ("run:", test),
-        None => ("", id),
+    let (wanted, container) = match TestId::of_run(id) {
+        Ok(test) => (RUN_KIND, test.run_container()),
+        Err(_) => (TEST_KIND, id.parse::<TestId>().ok()?.container()),
     };
-    let wanted = if run.is_empty() { TEST_KIND } else { RUN_KIND };
     if !kinds.contains(&wanted) {
         return None;
     }
-    let container = format!("{run}{}", test.parse::<TestId>().ok()?.container());
     input
         .entities
         .iter()

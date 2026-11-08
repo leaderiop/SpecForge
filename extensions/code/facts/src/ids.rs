@@ -3,6 +3,8 @@
 use std::fmt;
 use std::str::FromStr;
 
+/// What a run id starts with, before its test's id.
+const RUN: &str = "run:";
 /// What a `js` id's `<file>` percent-encodes: `#` ends the container of a test id, `:` starts an item's names.
 const FILE_ESCAPES: &[char] = &['%', '#', ':'];
 /// What a JavaScript name segment percent-encodes: `.` joins members, a private name starts with `#`.
@@ -94,12 +96,24 @@ impl TestId {
 
     /// The id of the run of this test: `run:<test id>`.
     pub fn run(&self) -> String {
-        format!("run:{self}")
+        format!("{RUN}{self}")
+    }
+
+    /// The test whose run is `run` (`run:<test id>`): the inverse of [`TestId::run`].
+    pub fn of_run(run: &str) -> Result<TestId, IdError> {
+        run.strip_prefix(RUN)
+            .ok_or_else(|| IdError(format!("'{run}' is no run id: run:<test id>")))?
+            .parse()
     }
 
     /// `<scheme>:<container>#`: what every test of one file (`js`) or binary (`rust`) starts with.
     pub fn container(&self) -> String {
         format!("{}:{}#", self.scheme.as_str(), self.container)
+    }
+
+    /// `run:<scheme>:<container>#`: what the run of every test of one file or binary starts with.
+    pub fn run_container(&self) -> String {
+        format!("{RUN}{}", self.container())
     }
 
     /// The package the test is in: the JavaScript package, or the cargo package of the binary.

@@ -37,6 +37,10 @@ fn a_js_test_id_is_unchanged() {
         "run:js:@acme/core/test/x.test.js#board > adds"
     );
     assert_eq!(nested.container(), "js:@acme/core/test/x.test.js#");
+    assert_eq!(nested.run_container(), "run:js:@acme/core/test/x.test.js#");
+    assert_eq!(TestId::of_run(&nested.run()), Ok(nested.clone()));
+    assert!(TestId::of_run("js:@acme/core/test/x.test.js#board > adds").is_err());
+    assert!(TestId::of_run("run:js:a.js").is_err());
     assert_eq!(
         (nested.package(), nested.suite(), nested.name()),
         ("@acme/core", &strings(&["board"])[..], "adds")
