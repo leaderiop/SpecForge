@@ -40,7 +40,15 @@ pub struct PlannedChange {
     /// Files that are no source of the project, by path from the root: the text each held when planned (read from the
     /// disk) and the text it will hold. A rename's rewrite of the names a collected fact holds (ADR 0346 D7); never
     /// compiled as a source.
-    rewritten: BTreeMap<String, (Arc<str>, String)>,
+    rewritten: BTreeMap<String, Rewritten>,
+}
+
+/// A file that is no source of the project, rewritten by a change: the text it held when the change was planned
+/// (read from the disk) and the text it will hold.
+#[derive(Debug, Clone)]
+pub struct Rewritten {
+    pub before: Arc<str>,
+    pub after: String,
 }
 
 type Redo = Arc<dyn Fn(&[u8]) -> Vec<u8> + Send + Sync>;
@@ -104,26 +112,25 @@ impl PlannedChange {
         }
     }
 
-    /// This change also rewriting `files`, no sources of the project: (path from the root, the disk text it was
-    /// planned on, the text it will hold). Each is checked against its planned-on text under the lock.
+    /// This change also rewriting `files`, no sources of the project, by path from the root. Each is checked against
+    /// its planned-on text under the lock.
     pub(crate) fn rewriting_sources(
         mut self,
-        files: impl IntoIterator<Item = (String, Arc<str>, String)>,
+        files: impl IntoIterator<Item = (String, Rewritten)>,
     ) -> Self {
-        for (key, before, after) in files {
-            if *before != *after {
-                self.rewritten.insert(key, (before, after));
+        for (key, file) in files {
+            if *file.before != *file.after {
+                self.rewritten.insert(key, file);
             }
         }
         self
     }
 
-    /// Each file that is no source of the project the change rewrites: its path from the root, its planned-on text
-    /// and the text it will hold.
-    pub fn rewritten_sources(&self) -> impl Iterator<Item = (&str, &Arc<str>, &str)> {
+    /// Each file that is no source of the project the change rewrites, by its path from the root.
+    pub fn rewritten_sources(&self) -> impl Iterator<Item = (&str, &Rewritten)> {
         self.rewritten
             .iter()
-            .map(|(key, (before, after))| (key.as_str(), before, after.as_str()))
+            .map(|(key, file)| (key.as_str(), file))
     }
 
     /// This change also storing `stores` (collector, its store's bytes) under `key` (ADR 0327 D2, D4): each store is
@@ -293,7 +300,7 @@ impl PlannedChange {
         let rewritten = self
             .rewritten
             .iter()
-            .map(|(key, (before, after))| (key, (Some(Arc::clone(before)), after.clone())));
+            .map(|(key, file)| (key, (Some(Arc::clone(&file.before)), file.after.clone())));
         let files: BTreeMap<&String, (Option<Arc<str>>, String)> = self
             .files
             .iter()
@@ -353,10 +360,10 @@ impl PlannedChange {
                 )
             })
             .collect();
-        diffs.extend(self.rewritten.iter().map(|(key, (before, after))| {
+        diffs.extend(self.rewritten.iter().map(|(key, file)| {
             (
                 key.as_str(),
-                specforge_formatter::unified_diff(key, before, after).diff_text,
+                specforge_formatter::unified_diff(key, &file.before, &file.after).diff_text,
             )
         }));
         diffs.extend(ledger.map(|diff| (LEDGER_FILE, diff)));
@@ -398,11 +405,11 @@ impl PlannedChange {
                     let before = before.as_ref().map(|b| b.as_bytes().to_vec());
                     stager.write(key, before, after.clone().into_bytes())?;
                 }
-                for (key, (before, after)) in &self.rewritten {
+                for (key, file) in &self.rewritten {
                     stager.write(
                         key,
-                        Some(before.as_bytes().to_vec()),
-                        after.clone().into_bytes(),
+                        Some(file.before.as_bytes().to_vec()),
+                        file.after.clone().into_bytes(),
                     )?;
                 }
                 for (key, after) in &self.root_files {

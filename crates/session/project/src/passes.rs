@@ -111,7 +111,8 @@ fn sorted_ids(claims: &std::collections::HashSet<String>) -> Vec<String> {
 
 /// The host diagnostics of `extension`'s pass `pass` answering `output`: in
 /// canonical order, a span-less one naming an entity of `entities` given
-/// that entity's place: a fact's first place in source, else its span (ADR 0346 D3). Each finding's code is the extension's local code under
+/// that entity's place: a fact's first place in source, else its span (ADR
+/// 0346 D3). Each finding's code is the extension's local code under
 /// its namespace (`acme.lint/W001`; a first-party extension's stays bare), so
 /// it never prints as core's or another extension's. A code the extension may
 /// not report at the severity it gave (`Codebook::check`) is reported once, as

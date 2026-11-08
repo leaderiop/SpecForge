@@ -69,9 +69,10 @@ pub struct Dangling {
 }
 
 impl Node {
-    /// Where it is written in source, when that is not its declaration: a fact's first place (ADR 0346 D3).
-    pub fn location(&self) -> Option<&SourceSpan> {
-        self.located.first()
+    /// Where a finding about it is placed: a fact's first place in source, else its span (ADR 0346 D3), as
+    /// `EntityRecord::place` places one.
+    pub fn place(&self) -> &SourceSpan {
+        self.located.first().unwrap_or(&self.source_span)
     }
 
     /// The name the entity is declared with: its path without its scope's.

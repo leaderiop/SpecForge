@@ -220,7 +220,7 @@ impl Compiled<'_> {
         let outside: HashMap<Sym, LineIndex> = plan
             .change()
             .rewritten_sources()
-            .map(|(key, before, _)| (Sym::new(key), LineIndex::new(before)))
+            .map(|(key, file)| (Sym::new(key), LineIndex::new(&file.before)))
             .collect();
         self.edit_over(plan.edits().to_vec(), &outside)
     }

@@ -5,7 +5,7 @@
 use super::declared::Declared;
 use super::{Edit, EditField, EditPlan, EditReport, Planner, describe, validate};
 use crate::authoring::format::{Configs, Forms};
-use crate::authoring::planned::PlannedChange;
+use crate::authoring::planned::{PlannedChange, Rewritten};
 use crate::authoring::rename::{self, RenameField};
 use crate::read::navigate::Navigator;
 use crate::view::ProjectView;
@@ -51,7 +51,7 @@ struct Carry {
     sets: Vec<(usize, String, String)>,
     /// The files no source of the project a rename rewrote where a fact names what it moved (ADR 0346 D7), and the
     /// stale lines of those facts' stores.
-    rewritten: BTreeMap<String, (std::sync::Arc<str>, String)>,
+    rewritten: BTreeMap<String, Rewritten>,
     stale: Vec<specforge_project::harness::Line>,
 }
 
@@ -202,7 +202,7 @@ fn rename_step(
             .texts
             .insert(key, LineBreak::of(&after).lf(&after).into_owned());
     }
-    for (key, before, after) in plan.change().rewritten_sources() {
+    for (key, file) in plan.change().rewritten_sources() {
         // One rewrite of a file per collect: a second is planned on the text the first leaves (ADR 0346 D7).
         if carry.rewritten.contains_key(key) {
             return Err(OpError::new(
@@ -213,10 +213,7 @@ fn rename_step(
             .with_suggestion("run `specforge collect` between the renames")
             .into());
         }
-        carry.rewritten.insert(
-            key.to_string(),
-            (std::sync::Arc::clone(before), after.to_string()),
-        );
+        carry.rewritten.insert(key.to_string(), file.clone());
     }
     carry.stale.extend(plan.stale().iter().cloned());
     for (old, new) in plan.moved() {
@@ -259,9 +256,6 @@ fn conclude(
             (key, before, line_break.write(&after).into_owned())
         }),
     );
-    let rewritten = rewritten
-        .into_iter()
-        .map(|(key, (before, after))| (key, before, after));
     let change = change
         .rewriting_sources(rewritten)
         .moving(raw_moves.clone())

@@ -64,7 +64,7 @@ pub struct Fact { kind, id, title, fields,
 ## D3. A served fact keeps its store span and gains `located`
 
 - The entity's span stays the store's first character: it is what identifies a fact. Its places are a second range,
-  `located` (`Entity.located`, `Node.located`, `EntityRecord.located`); `Node::location()` and
+  `located` (`Entity.located`, `Node.located`, `EntityRecord.located`); `Node::place()` and
   `EntityRecord::place()` are its first place, else the store span.
 - A reference value's span is its first `named_at` place, else the fact's first `at`, else the store span. So every
   finding about a fact-held reference, the kernel's or a pass's, lands at the name.

@@ -11,17 +11,17 @@ use specforge_project::harness::Line;
 use specforge_protocol_types::FieldType;
 
 use crate::authoring::apply::COLLECTED;
+use crate::authoring::planned::Rewritten;
 use crate::authoring::rename::{CAPTURED, SOURCE_MOVED};
 use crate::read::navigate::{SourceText, TextEdit, apply_edits};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 
-/// The source edits and stale lines of a rename: each rewritten file (its key from the project root, the text it was
-/// planned on, the text it will hold), each edit, and a `stale:` line for each name rewritten where a store's facts
+/// The source edits and stale lines of a rename: each rewritten file by its key from the project root, each edit, and a `stale:` line for each name rewritten where a store's facts
 /// hold it.
 #[derive(Debug, Default)]
 pub(crate) struct Rewrite {
-    pub files: Vec<(String, Arc<str>, String)>,
+    pub files: BTreeMap<String, Rewritten>,
     pub edits: Vec<TextEdit>,
     pub stale: Vec<Line>,
 }
@@ -160,7 +160,13 @@ pub(crate) fn rewrite(
             .then(|| apply_edits(&text, &edits))
             .flatten()
             .ok_or_else(moved)?;
-        rewrite.files.push((file, text, edited));
+        rewrite.files.insert(
+            file,
+            Rewritten {
+                before: text,
+                after: edited,
+            },
+        );
         rewrite.edits.extend(edits);
     }
     Ok(rewrite)

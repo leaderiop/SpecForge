@@ -101,7 +101,9 @@ pub struct Entity {
     /// [`Self::holds_comment`]. The parse's only (ADR 0267).
     pub value_comments: Vec<SourceSpan>,
     /// Where a collected fact is written in source, once per place (ADR 0346 D3): its `span` stays its store's, which
-    /// is what identifies a fact. Empty for a parsed block.
+    /// is what identifies a fact. Empty for a parsed block. The parser never sets it: a `SpecFile` is the graph
+    /// build's one input, which the parser makes of a `.spec` file and the session makes of a fact store, and the graph
+    /// keeps it on the node (`Node.located`); a second input type for facts would be a second path into the graph.
     pub located: Vec<SourceSpan>,
 }
 
