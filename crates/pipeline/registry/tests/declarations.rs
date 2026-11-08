@@ -4,6 +4,7 @@
 
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::{ExtensionDeclaration, PeerDependency};
+use specforge_protocol_types::OwnerState;
 use specforge_registry::build_registries;
 
 use crate::support::{codes, diagnostics};
@@ -409,6 +410,83 @@ fn complete_when_names_an_enum_value_of_its_kind() {
             "extension '@acme/plans': kind 'goal' declares complete_when 'status': [done] are not among its values [draft, complete]",
             "extension '@acme/plans': kind 'step' declares complete_when 'state': it is not one of its fields",
             "extension '@acme/plans': kind 'task' declares complete_when 'title': it is not an enum field",
+        ]
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "check_values_by_owner_state",
+    verify = "an owner gate needs a check and a complete_when on its kind or a scope ancestor, else W199"
+)]
+fn an_owner_gate_needs_a_check_and_an_owner_state() {
+    let states = Vocabulary::new(&["draft", "complete"]);
+    let mut declaration = crate::support::declare("@acme/plans", |c| {
+        c.checker("named", |k| {
+            k.applies_to(&["string", "string_list"])
+                .plan(|_| PlannedItem::findings(Vec::new()));
+        });
+        c.kind("plan", |k| {
+            k.complete_when("status", &["complete"])
+                .field("status", |f| {
+                    f.vocabulary(&states);
+                })
+                .field("title", |f| {
+                    f.field_type(FieldType::String).planned();
+                })
+                .field("files", |f| {
+                    f.field_type(FieldType::StringList).check("named");
+                });
+        });
+        c.kind("task", |k| {
+            k.scoped_by("plan")
+                .field("plan", |f| {
+                    f.field_type(FieldType::Reference).target_kind("plan");
+                })
+                .field("files", |f| {
+                    f.field_type(FieldType::StringList).check("named").planned();
+                })
+                .field("gone", |f| {
+                    f.field_type(FieldType::StringList)
+                        .check("named")
+                        .while_open();
+                });
+        });
+        c.kind("note", |k| {
+            k.field("files", |f| {
+                f.field_type(FieldType::StringList).check("named").planned();
+            });
+        });
+    });
+    // A word the SDK never writes, as a hand-written declaration may.
+    let plan = declaration
+        .entities
+        .iter_mut()
+        .find(|k| k.name == "plan")
+        .unwrap();
+    let files = plan.fields.iter_mut().find(|f| f.name == "files").unwrap();
+    files.checks_while = Some("later".into());
+    let build = build_registries(vec![declaration]);
+
+    let checks = build.checks();
+    assert_eq!(checks.gate("task", "files"), Some(OwnerState::Complete));
+    assert_eq!(checks.gate("task", "gone"), Some(OwnerState::Pending));
+    for (kind, path) in [("note", "files"), ("plan", "title"), ("plan", "files")] {
+        assert_eq!(checks.gate(kind, path), None, "{kind}.{path}");
+    }
+    // The gate is dropped, the checks stay.
+    assert_eq!(checks.on("note", "files").len(), 1);
+    assert_eq!(checks.on("plan", "files").len(), 1);
+    let mut refused: Vec<&str> = crate::support::coded(&build, "W199")
+        .into_iter()
+        .map(|d| d.message.as_str())
+        .collect();
+    refused.sort();
+    assert_eq!(
+        refused,
+        [
+            "field 'files' on kind 'note' declares checks_while 'complete', but neither kind 'note' nor a kind along its scoped_by chain declares complete_when, so no owner state decides it: the gate is dropped and its checks run on every value",
+            "field 'files' on kind 'plan' declares checks_while 'later', which is no owner state (expected 'complete' or 'pending'): the gate is dropped and its checks run on every value",
+            "field 'title' on kind 'plan' declares checks_while 'complete', but declares no check: the gate is dropped and its checks run on every value",
         ]
     );
 }

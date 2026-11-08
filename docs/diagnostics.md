@@ -4545,6 +4545,23 @@ Owner: core
 Level: warning
 ```
 
+## W199
+
+```
+W199: Owner gate refused
+
+A field declares `checks_while` (ADR 0350), whether its checks wait for its
+holder's owner, and the registry cannot honour it: the word is neither
+`complete` nor `pending`, the field declares no check, or neither its kind nor a
+kind along its `scoped_by` chain declares `complete_when`, so no owner state
+decides it. The gate is dropped and the field's checks run on every value, as if
+it declared none; nothing is lost. Declare a check on the field, or
+`complete_when` on its kind or a scope ancestor, and rebuild the extension.
+
+Owner: core
+Level: warning
+```
+
 ## Retired codes
 
 These codes are no longer emitted, and are never reused for another meaning.

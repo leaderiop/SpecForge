@@ -455,3 +455,18 @@ behavior check_field_values "Check Field Values" {
   verify unit "a redirect one extension's grant permits reaches no other extension without its own grant"
   verify unit "a pending owner's planned file is E016 until its gate exists"
 }
+
+behavior check_values_by_owner_state "Check a Value When Its Owner Allows" {
+  category   validation
+  invariants [validation_pipeline_ordering]
+  ports      [FileSystem]
+  consumes   [graph_built]
+  contract   """
+    A field MAY declare checks_while (ADR 0350): complete, its checks wait until its
+    holder's owner is complete (a planned value), or pending, they run only while the
+    owner is pending (a while-open value). The registry MUST keep the gate only when
+    the field declares a check and its kind or a kind along its scoped_by chain declares
+    complete_when; any other gate is W199, dropped, and its checks run on every value.
+  """
+  verify unit "an owner gate needs a check and a complete_when on its kind or a scope ancestor, else W199"
+}

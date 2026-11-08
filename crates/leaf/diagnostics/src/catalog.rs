@@ -698,4 +698,7 @@ catalog! {
     W196: Warning core,
         "Source files not parsed",
         "An extension asked the host to parse source files through `specforge:host/syntax` (ADR 0345) and some were not parsed: a file passed its parse deadline (5 s for its parse and its query run, ADR 0344 D3), is over the 64 MiB file ceiling (or a blob the git port does not read), or could not be read. Its call goes on with the files that parsed, so what the extension derives from them is missing for these. Reported once per call, naming the first 8 files and why, then how many more. Split a generated file, or leave it out of the pack's glob; a file another process holds may parse on the next collect.";
+    W199: Warning core,
+        "Owner gate refused",
+        "A field declares `checks_while` (ADR 0350), whether its checks wait for its holder's owner, and the registry cannot honour it: the word is neither `complete` nor `pending`, the field declares no check, or neither its kind nor a kind along its `scoped_by` chain declares `complete_when`, so no owner state decides it. The gate is dropped and the field's checks run on every value, as if it declared none; nothing is lost. Declare a check on the field, or `complete_when` on its kind or a scope ancestor, and rebuild the extension.";
 }
