@@ -108,6 +108,11 @@ as `skipped` from its item, so a spec citing it is not `code/E101`.
   its own JUnit path wins: no report reaches SpecForge, and the run is skipped
   (`E045` when you name `--runner rust-test`).
 - A suite longer than the collector deadline (600 s) is stopped.
+- An attribute or doc comment belongs to an item only in the unbroken run of
+  attribute and doc lines directly above it: a `//` comment or a blank line
+  between `#[test]` and its `fn` ends the run, so that function is no test.
+- A `#[path]` that loops back to a file already in the target's module tree
+  keeps its `mod` item, and the file is not read a second time.
 
 ## Troubleshooting
 
