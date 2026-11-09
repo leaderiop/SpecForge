@@ -285,10 +285,11 @@ fn get_plan(project: &ProjectView, target_spec_directory: Option<&str>, cursor: 
     let plan = infer::inference_plan(project, &request).map_err(McpError::from)?;
     let result = Payload::Plan(plan.document());
 
+    // the files the item facts locate: none when no item fact does, the gaps' `item_facts == 0`
     if plan.progress.summary.files_total == 0 {
         let instruction = format!(
-            "No item facts locate a source file: load a source pack and run `specforge collect`, then ask for the \
-             plan again. Until then, create entities with {} in files under '{}'.",
+            "{}, then ask for the plan again. Until then, create entities with {} in files under '{}'.",
+            infer::NO_ITEM_FACTS,
             edit::Tool::NAME,
             plan.target_spec_directory,
         );

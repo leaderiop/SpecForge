@@ -1263,6 +1263,8 @@ type McpInferSessionRow "Mcp Infer Session Row" {
 }
 
 type McpInferGapsResult "Mcp Infer Gaps Result" {
+  /// The item facts under the source roots, public or not; none when no source pack collected any.
+  item_facts      integer
   total_pub_items integer
   covered_items   integer
   gap_count       integer

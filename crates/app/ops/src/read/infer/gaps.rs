@@ -13,9 +13,16 @@ use super::manifest::InferenceManifest;
 use crate::OpError;
 use crate::view::ProjectView;
 
+/// What both surfaces say when no item fact locates a source file: no source pack collected any, public or not.
+pub const NO_ITEM_FACTS: &str =
+    "No item facts locate a source file: load a source pack and run `specforge collect`";
+
 /// Public source items nothing covers, by directory.
 #[derive(Debug, Clone)]
 pub struct Gaps {
+    /// The item facts under the source roots, public or not: none means no source pack collected any
+    /// ([`NO_ITEM_FACTS`]).
+    pub item_facts: usize,
     pub total_pub_items: usize,
     pub covered_items: usize,
     /// Directory (`.` for the root) to its uncovered items, sorted.
@@ -48,7 +55,9 @@ pub fn gaps(view: &ProjectView) -> Result<Gaps, OpError> {
     // Before any fact is read: an anchors manifest that cannot be used refuses the gaps.
     let covered = crate::read::navigate::CoveredItems::of(view)?;
     let graph = view.graph();
-    let items = item_facts(view, root, &manifest.source_roots)
+    let facts = item_facts(view, root, &manifest.source_roots);
+    let served = facts.len();
+    let items = facts
         .into_iter()
         .filter(|item| item.is_public())
         .map(|item| {
@@ -66,7 +75,10 @@ pub fn gaps(view: &ProjectView) -> Result<Gaps, OpError> {
         .reported()
         .iter()
         .any(|d| d.is(codes::W191) || d.is(codes::W192));
-    Ok(Gaps::of(items, approximate))
+    Ok(Gaps {
+        item_facts: served,
+        ..Gaps::of(items, approximate)
+    })
 }
 
 /// The directory part of a project-relative path, `.` at the root.
@@ -76,7 +88,7 @@ pub fn directory_of(path: &str) -> &str {
 
 impl Gaps {
     /// The public `items`, each with whether it is covered: the uncovered ones by directory, the collectors of all.
-    /// `approximate` when a fact store was not served.
+    /// `approximate` when a fact store was not served. The item facts are the public ones: [`gaps`] counts the rest.
     pub fn of(items: impl IntoIterator<Item = (SourceItem, bool)>, approximate: bool) -> Gaps {
         let mut total_pub_items = 0;
         let mut covered_items = 0;
@@ -95,6 +107,7 @@ impl Gaps {
                 .push(item);
         }
         Gaps {
+            item_facts: total_pub_items,
             total_pub_items,
             covered_items,
             by_directory,
@@ -112,6 +125,7 @@ impl Gaps {
     /// `InferenceGapReport`): totals, then each directory's items.
     pub fn document(&self) -> GapsDocument {
         GapsDocument {
+            item_facts: self.item_facts,
             total_pub_items: self.total_pub_items,
             covered_items: self.covered_items,
             gap_count: self.gap_count(),
@@ -142,6 +156,8 @@ impl Gaps {
 /// `InferenceGapReport`).
 #[derive(Debug, Clone, PartialEq, Serialize, Shape)]
 pub struct GapsDocument {
+    /// The item facts under the source roots, public or not; none when no source pack collected any.
+    pub item_facts: usize,
     pub total_pub_items: usize,
     pub covered_items: usize,
     pub gap_count: usize,
@@ -326,6 +342,26 @@ mod tests {
         let gaps = gaps_of(&collected());
         assert_eq!(gaps.covered_items, 0, "{gaps:?}");
         assert!(gap_names(&gaps).contains(&"real_one"), "{gaps:?}");
+    }
+
+    #[test]
+    fn only_private_items_are_item_facts_with_no_public_one() {
+        let project = collected();
+        stored_items(
+            project.root(),
+            "rust-source",
+            vec![item(
+                "rust:p::crate_visible",
+                "src/lib.rs",
+                2,
+                "function",
+                "crate",
+                "crate_visible",
+            )],
+        );
+        let gaps = gaps_of(&project);
+        assert_eq!((gaps.item_facts, gaps.total_pub_items), (1, 0), "{gaps:?}");
+        assert!(gaps.collectors.is_empty(), "{gaps:?}");
     }
 
     #[test]

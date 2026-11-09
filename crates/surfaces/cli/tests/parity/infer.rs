@@ -147,3 +147,30 @@ fn infer_status_json_carries_the_gaps_asked_for() {
     assert_eq!(gaps["covered_items"], 1, "alpha is anchored: {gaps}");
     assert_eq!(gaps["collectors"], json!(["rust-source"]), "{gaps}");
 }
+
+/// A store holding only a private item: an item fact the gaps count, with no public one.
+#[test]
+fn only_private_items_still_count_as_item_facts() {
+    let dir = scratch();
+    infer_project(&dir);
+    specforge_project::testing::stored(
+        dir.root(),
+        "rust-source",
+        specforge_project::testing::WORKTREE,
+        json!([specforge_project::testing::item(
+            "rust:inf::hidden",
+            "src/lib.rs",
+            1,
+            "function",
+            "private",
+            "hidden"
+        )]),
+    );
+    let out = cli(&dir).run(&["infer-status", "--gaps-detail"]);
+    assert_eq!(out.code, 0, "{}{}", out.stdout, out.stderr);
+    assert!(!out.stdout.contains("No item facts"), "{}", out.stdout);
+    assert!(out.stdout.contains("  Public items: 0\n"), "{}", out.stdout);
+    let gaps = &cli_infer_status(&dir, &["--gaps-detail"])["gap_analysis"];
+    assert_eq!(gaps["item_facts"], 1, "{gaps}");
+    assert_eq!(gaps, &mcp_tool(dir.root(), "specforge.infer_gaps"));
+}

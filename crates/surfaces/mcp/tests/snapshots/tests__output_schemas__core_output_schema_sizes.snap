@@ -32,9 +32,9 @@ specforge.doctor 7849
 specforge.collect 3679
 specforge.render 262
 specforge.infer_progress 864
-specforge.infer_gaps 861
+specforge.infer_gaps 918
 specforge.infer_session 295
 specforge.find_implementation 502
 specforge.find_spec_for_source 642
 specforge.prompt 283
-total 76686
+total 76743

@@ -327,7 +327,7 @@ fn with_no_item_facts_gaps_count_nothing() {
     let document = gaps(&mut server);
     assert_eq!(
         document,
-        json!({"total_pub_items": 0, "covered_items": 0, "gap_count": 0, "approximate": false,
+        json!({"item_facts": 0, "total_pub_items": 0, "covered_items": 0, "gap_count": 0, "approximate": false,
                "collectors": [], "by_directory": []})
     );
 }

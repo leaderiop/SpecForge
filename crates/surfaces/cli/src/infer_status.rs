@@ -189,11 +189,15 @@ fn render_human(progress: &Progress, gaps: bool, stale: bool, detail: Option<&Ga
 
     if let Some(report) = detail {
         line!();
-        if report.collectors.is_empty() {
+        if report.item_facts == 0 {
             line!("Gap Analysis");
-            line!("  No item facts: load a source pack and run `specforge collect`");
+            line!("  {}", infer::NO_ITEM_FACTS);
         } else {
-            line!("Gap Analysis (from {})", report.collectors.join(", "));
+            if report.collectors.is_empty() {
+                line!("Gap Analysis");
+            } else {
+                line!("Gap Analysis (from {})", report.collectors.join(", "));
+            }
             line!("  Public items: {}", report.total_pub_items);
             line!("  Covered:      {}", report.covered_items);
             line!("  Gaps:         {}", report.gap_count());

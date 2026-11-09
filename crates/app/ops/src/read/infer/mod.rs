@@ -26,7 +26,9 @@ mod progress;
 mod session;
 mod sources;
 
-pub use gaps::{DirectoryGaps, GapItem, Gaps, GapsDocument, SourceItem, directory_of, gaps};
+pub use gaps::{
+    DirectoryGaps, GapItem, Gaps, GapsDocument, NO_ITEM_FACTS, SourceItem, directory_of, gaps,
+};
 pub use guide::{
     GuideDocument, GuideField, GuideKind, InferenceGuide, KindGuide, KindGuideDocument,
     KindGuideField, guide, kind_guide,

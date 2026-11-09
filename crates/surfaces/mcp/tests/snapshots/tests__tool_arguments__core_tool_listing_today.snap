@@ -9583,12 +9583,17 @@ expression: listing
           "minimum": 0,
           "type": "integer"
         },
+        "item_facts": {
+          "minimum": 0,
+          "type": "integer"
+        },
         "total_pub_items": {
           "minimum": 0,
           "type": "integer"
         }
       },
       "required": [
+        "item_facts",
         "total_pub_items",
         "covered_items",
         "gap_count",
