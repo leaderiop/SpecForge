@@ -72,6 +72,10 @@ pub fn settle(
                     PortScope::Process(process) => Some(&process.argv),
                     _ => None,
                 },
+                config: match &approval.granted {
+                    PortScope::Process(process) => process.config.as_ref(),
+                    _ => None,
+                },
             },
             Need::Root(root) => Question::Root {
                 name: &root.root,

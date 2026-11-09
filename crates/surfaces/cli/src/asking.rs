@@ -51,21 +51,36 @@ fn key_change(question: &Question<'_>) -> String {
 }
 
 /// A capability or outside-root question as the terminal shows it (ADR 0335 D2.4). A collector's command keeps
-/// the bytes it had before capabilities: the extension, the project and the command. Every field is an extension's
-/// or a project's text, shown printable (ADR 0244): none can erase the line a person is approving.
+/// the bytes it had before capabilities: the extension, the project and the command, then the config file it reads,
+/// each of its lines indented (ADR 0348 D3). Every field is an extension's or a project's text, shown printable
+/// (ADR 0244): none can erase the line a person is approving.
 fn approval(question: &Question<'_>) -> String {
     match question {
         Question::Capability {
             extension,
             project,
             command: Some(argv),
+            config,
             ..
-        } => format!(
-            "{} wants to run this command in {}:\n  {}\nAllow it for this project? [y/N] ",
-            printable(extension),
-            printable(project),
-            printable(&argv.join(" "))
-        ),
+        } => {
+            let config = config.map_or(String::new(), |config| {
+                let lines: String = config
+                    .template
+                    .lines()
+                    .map(|line| format!("  {}\n", printable(line)))
+                    .collect();
+                format!(
+                    "and writes {}, which it reads as {{config}}:\n{lines}",
+                    printable(&config.name)
+                )
+            });
+            format!(
+                "{} wants to run this command in {}:\n  {}\n{config}Allow it for this project? [y/N] ",
+                printable(extension),
+                printable(project),
+                printable(&argv.join(" "))
+            )
+        }
         Question::Capability {
             extension,
             scope,
@@ -73,6 +88,7 @@ fn approval(question: &Question<'_>) -> String {
             why,
             project,
             command: None,
+            ..
         } => {
             let [extension, scope, summary, why, project] =
                 [extension, scope, summary, why, project].map(|text| printable(text));
@@ -156,6 +172,7 @@ mod tests {
             why: "run the tests",
             project: "/p",
             command: Some(&argv),
+            config: None,
         };
         let (terminal, capture) = Terminal::captured("y\n", INTERACTIVE);
         assert!(of(false, OutputFormat::Human, &terminal).answers(&question));
@@ -187,17 +204,23 @@ mod tests {
     #[test]
     fn no_field_of_a_question_reaches_the_terminal_as_a_control_sequence() {
         let argv = vec![format!("cargo{ERASES}"), format!("test{ERASES}")];
-        let capability = |command| Question::Capability {
+        let config = specforge_protocol_types::ProcessConfig {
+            name: ERASES.to_string(),
+            template: format!("a = 1\n{ERASES}\n"),
+        };
+        let capability = |command, config| Question::Capability {
             extension: ERASES,
             scope: ERASES,
             summary: ERASES,
             why: ERASES,
             project: ERASES,
             command,
+            config,
         };
         for question in [
-            capability(None),
-            capability(Some(&argv)),
+            capability(None, None),
+            capability(Some(&argv), None),
+            capability(Some(&argv), Some(&config)),
             Question::Root {
                 name: ERASES,
                 target: ERASES,
@@ -227,10 +250,41 @@ mod tests {
             why: "\u{1b}[1A\u{1b}[2K",
             project: "/p",
             command: None,
+            config: None,
         });
         assert_eq!(
             text,
             "@x/a asks for 'token': http GET a.example, sending $SECRET\n  why: \\u{1b}[1A\\u{1b}[2K\nAllow it for /p? [y/N] "
+        );
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "approve_capability",
+        verify = "the terminal shows a collector's config file under its command"
+    )]
+    fn a_command_with_a_config_shows_the_file_it_writes() {
+        let argv = vec![
+            "cargo-nextest".to_string(),
+            "specforge:{config}".to_string(),
+        ];
+        let config = specforge_protocol_types::ProcessConfig {
+            name: "nextest.toml".to_string(),
+            template: "[profile.specforge.junit]\npath = \"{report}\"\n# \u{1b}[2K\n".to_string(),
+        };
+        let text = shown(&Question::Capability {
+            extension: "@rust/test",
+            scope: "rust-test",
+            summary: "process cargo-nextest specforge:{config}",
+            why: "run the tests",
+            project: "/p",
+            command: Some(&argv),
+            config: Some(&config),
+        });
+        assert_eq!(
+            text,
+            "@rust/test wants to run this command in /p:\n  cargo-nextest specforge:{config}\n\
+             and writes nextest.toml, which it reads as {config}:\n  [profile.specforge.junit]\n  \
+             path = \"{report}\"\n  # \\u{1b}[2K\nAllow it for this project? [y/N] "
         );
     }
 

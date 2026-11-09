@@ -40,6 +40,8 @@ pub enum Question<'q> {
         project: &'q str,
         /// A process capability's command line, as declared (`{report}` unexpanded).
         command: Option<&'q [String]>,
+        /// The config file that command reads, as declared (ADR 0348 D3): a person approves its text with it.
+        config: Option<&'q specforge_protocol_types::ProcessConfig>,
     },
     /// A named root resolves outside the project and needs this machine's approval.
     Root {
@@ -236,6 +238,7 @@ mod tests {
             why: "run the tests",
             project: "/p",
             command: None,
+            config: None,
         }));
 
         assert_eq!(

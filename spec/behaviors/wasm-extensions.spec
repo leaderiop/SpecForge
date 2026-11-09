@@ -423,6 +423,7 @@ behavior approve_capability "Approve Capability" {
   produces   []
   verify unit "an approval is keyed by project, extension provenance and scope, and covers narrower grants"
   verify unit "a changed config file asks again, as a changed command does"
+  verify unit "the terminal shows a collector's config file under its command"
   verify unit "the consent store is replaced privately and atomically, never through a link"
   verify unit "an approval is never written over a consent store that cannot be read"
   verify integration "a third-party collector asks again after its blob changes"
