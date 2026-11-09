@@ -145,6 +145,7 @@ pub enum ItemKind {
     Module,
     Function,
     Method,
+    Field,
     Struct,
     Enum,
     Union,
@@ -161,10 +162,11 @@ pub enum ItemKind {
 
 /// Each kind and its name, in vocabulary order: the one table [`ItemKind::ALL`], [`ItemKind::NAMES`] and
 /// [`ItemKind::as_str`] read.
-const ITEM_KINDS: [(ItemKind, &str); 15] = [
+const ITEM_KINDS: [(ItemKind, &str); 16] = [
     (ItemKind::Module, "module"),
     (ItemKind::Function, "function"),
     (ItemKind::Method, "method"),
+    (ItemKind::Field, "field"),
     (ItemKind::Struct, "struct"),
     (ItemKind::Enum, "enum"),
     (ItemKind::Union, "union"),
@@ -181,8 +183,8 @@ const ITEM_KINDS: [(ItemKind, &str); 15] = [
 
 impl ItemKind {
     /// Every kind, in vocabulary order.
-    pub const ALL: [ItemKind; 15] = {
-        let mut all = [ItemKind::Module; 15];
+    pub const ALL: [ItemKind; 16] = {
+        let mut all = [ItemKind::Module; 16];
         let mut at = 0;
         while at < all.len() {
             all[at] = ITEM_KINDS[at].0;
@@ -191,8 +193,8 @@ impl ItemKind {
         all
     };
     /// Every kind's name, in vocabulary order: `@code/core`'s vocabulary of `item.kind`.
-    pub const NAMES: [&'static str; 15] = {
-        let mut names = [""; 15];
+    pub const NAMES: [&'static str; 16] = {
+        let mut names = [""; 16];
         let mut at = 0;
         while at < names.len() {
             names[at] = ITEM_KINDS[at].1;

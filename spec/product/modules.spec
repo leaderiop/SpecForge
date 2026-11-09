@@ -538,7 +538,15 @@ module specforge_package_javascript_node_test "specforge-package-javascript-node
 module specforge_package_javascript_workspace "specforge-javascript-workspace" {
   family      extension
   description "Extension library the JavaScript packs link: names the package that owns a project file from every package.json the host read"
-  features    [nt_node_test_collection]
+  features    [nt_node_test_collection, js_item_facts]
+  tags        ["extension", "traceability"]
+}
+
+module specforge_package_javascript_source "specforge-package-javascript-source" {
+  family      extension
+  description "Wasm package for @javascript/source: has the host's reader parse a JavaScript or TypeScript project's source and answers its items and npm packages as @code/core facts"
+  features    [js_item_facts]
+  depends_on  [specforge_wasm, specforge_package_javascript_workspace]
   tags        ["extension", "traceability"]
 }
 

@@ -1,10 +1,11 @@
 // specforge-javascript-workspace behaviors
 
 use "extensions/javascript/node-test/features"
+use "extensions/javascript/source/features"
 use "types/wasm"
 
 behavior js_resolve_owning_package "Name the Package That Owns a File" {
-  features [nt_node_test_collection]
+  features [nt_node_test_collection, js_item_facts]
   category computation
   types    [CollectInput]
   contract """
