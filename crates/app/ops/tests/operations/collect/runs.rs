@@ -513,15 +513,19 @@ fn auto_performs_what_a_grant_approves_and_nothing_else() {
     use specforge_effects::{EffectRequest, EffectsMode, ProcessRequest, Served, UnixMillis};
     use specforge_ops::testing::Viewed;
 
-    let fx = acme();
+    // A command without a placeholder: one that names one is the host's alone to run.
+    let fx = Fixture::new(vec![
+        Runner::new("acme")
+            .run(&["acme", "--all"])
+            .proving("a", "proves_a"),
+    ]);
     let request = |argv: &[String]| {
         EffectRequest::Process(ProcessRequest {
             argv: argv.to_vec(),
             ..ProcessRequest::default()
         })
     };
-    let report = fx.report_of("acme");
-    let declared = request(&["acme".to_string(), format!("--out={}", report.display())]);
+    let declared = request(&["acme".to_string(), "--all".to_string()]);
     let served = |machine: &Machine, request: &EffectRequest| {
         let view = fx.project.view();
         let root = specforge_common::ProjectRoot::of(fx.root()).unwrap();

@@ -13,7 +13,7 @@ use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
 use specforge_common::codes;
 use specforge_common::remedy::printable;
-use specforge_effects::{Consent, Denied, EffectRequest, Grant, Need, ProcessRequest, Uses};
+use specforge_effects::{Consent, Denied, Grant, Need, Uses};
 use specforge_protocol_types::Operation;
 
 /// Settle every approval the commands of `planned` need, asking `asking` and storing in `consent`, then hold each
@@ -59,11 +59,8 @@ pub(super) fn settle_runs(
         else {
             continue;
         };
-        let request = EffectRequest::Process(ProcessRequest {
-            argv: argv.clone(),
-            ..ProcessRequest::default()
-        });
-        if let Err(denial) = grant.permits(Operation::Collect, &request) {
+        // The declared command, its placeholders still in it: the host fills them with its own paths.
+        if let Err(denial) = grant.permits_command(Operation::Collect, &collector.run) {
             return Err(match denial.why {
                 Denied::NotApproved | Denied::Root => {
                     e059(argv, &collector.extension, &consent.store(), None)

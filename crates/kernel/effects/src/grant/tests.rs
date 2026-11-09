@@ -246,12 +246,23 @@ fn a_grant_permits_what_is_declared_gated_and_approved() {
         &consent,
     );
     assert_eq!(grant.permits(Operation::Collect, &head), Ok(()));
+    // The collector's command runs as the host fills it: its template is permitted, no request filling it.
+    let template = ["cargo", "test", "--out={report}"].map(String::from);
+    assert_eq!(grant.permits_command(Operation::Collect, &template), Ok(()));
+    let why = |denied: Result<(), Denial>| denied.unwrap_err().why;
+    let filled = run(&["cargo", "test", "--out=/r.json"]);
     assert_eq!(
-        grant.permits(
-            Operation::Collect,
-            &run(&["cargo", "test", "--out=/r.json"])
-        ),
-        Ok(())
+        why(grant.permits(Operation::Collect, &filled)),
+        Denied::Undeclared
+    );
+    let other = ["cargo", "test"].map(String::from);
+    assert_eq!(
+        why(grant.permits_command(Operation::Collect, &other)),
+        Denied::Undeclared
+    );
+    assert_eq!(
+        why(grant.permits_command(Operation::Command, &template)),
+        Denied::CallKind
     );
     // A pass never reaches the network, whatever is declared and approved.
     assert_eq!(

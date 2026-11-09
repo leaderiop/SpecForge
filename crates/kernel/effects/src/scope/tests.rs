@@ -38,59 +38,39 @@ const NEXTEST: [&str; 4] = [
 
 #[specforge_test_macros::test(
     behavior = "approve_capability",
-    verify = "a changed config file asks again, as a changed command does"
+    verify = "a command whose argv names a placeholder admits no request, its expansion included"
 )]
-fn a_config_placeholder_admits_its_expanded_argument() {
-    let scope = process(&NEXTEST, Some("x"));
+fn a_templated_argv_admits_no_request() {
     let expanded = [
         "cargo-nextest",
         "nextest",
         "--tool-config-file",
-        "specforge:/p/.specforge/reports/rust-test.nextest.toml",
+        "specforge:/p/.specforge/reports/nextest.nextest.toml",
     ];
-    assert!(rules(&scope).admits(&run(&expanded), false));
-    let report = process(
-        &["tool", "--out={report}", "--config", "{config}"],
-        Some("x"),
-    );
-    assert!(rules(&report).admits(
-        &run(&["tool", "--out=/p/r.xml", "--config", "/p/c.toml"]),
-        false
-    ));
-}
-
-#[test]
-fn an_argument_that_differs_outside_the_placeholder_is_refused() {
+    let other = [
+        "cargo-nextest",
+        "nextest",
+        "--tool-config-file",
+        "specforge:/elsewhere/setup.toml",
+    ];
     let scope = process(&NEXTEST, Some("x"));
-    for refused in [
-        [
-            "cargo-nextest",
-            "nextest",
-            "--tool-config-file",
-            "other:/p/c.toml",
-        ],
-        [
-            "cargo-nextest",
-            "nextest",
-            "--config-file",
-            "specforge:/p/c.toml",
-        ],
-        [
-            "cargo",
-            "nextest",
-            "--tool-config-file",
-            "specforge:/p/c.toml",
-        ],
-    ] {
-        assert!(!rules(&scope).admits(&run(&refused), false), "{refused:?}");
+    for asked in [&expanded[..], &other, &NEXTEST] {
+        for user in [false, true] {
+            assert!(!rules(&scope).admits(&run(asked), user), "{asked:?}");
+        }
     }
-    assert!(
-        !rules(&scope).admits(&run(&NEXTEST[..3]), false),
-        "one argument short"
-    );
+    let report = process(&["tool", "--out={report}"], None);
+    assert!(!rules(&report).admits(&run(&["tool", "--out=/p/r.xml"]), false));
+    // A command without a placeholder admits exactly itself.
+    let plain = process(&["cargo", "test"], None);
+    assert!(rules(&plain).admits(&run(&["cargo", "test"]), false));
+    assert!(!rules(&plain).admits(&run(&["cargo", "test", "--all"]), false));
 }
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "approve_capability",
+    verify = "a changed config file asks again, as a changed command does"
+)]
 fn a_changed_config_template_asks_again() {
     let approved = process(&NEXTEST, Some("[profile.specforge]\n"));
     assert!(rules(&approved).covers(&process(&NEXTEST, Some("[profile.specforge]\n"))));

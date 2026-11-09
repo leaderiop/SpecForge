@@ -285,7 +285,9 @@ impl ScopeRules for ProcessScope {
         let EffectRequest::Process(request) = request else {
             return false;
         };
-        (user && self.argv.is_empty()) || argv_matches(&self.argv, &request.argv)
+        // A placeholder is the host's to fill with its own paths (ADR 0348 D3): no request fills one, so a capability
+        // whose argv names one admits none; the host's own run is `Grant::permits_command`.
+        !templated(&self.argv) && ((user && self.argv.is_empty()) || self.argv == request.argv)
     }
 }
 
@@ -338,23 +340,13 @@ fn lowercase_list<T: std::fmt::Debug>(items: &[T]) -> String {
         .join(",")
 }
 
-/// Whether `argv` is `template` with each placeholder (`{report}`, `{config}`, one per element) replaced: the
-/// literal text before and after it matches.
-fn argv_matches(template: &[String], argv: &[String]) -> bool {
-    template.len() == argv.len()
-        && template.iter().zip(argv).all(|(t, a)| {
-            match ARGV_PLACEHOLDERS
-                .iter()
-                .find_map(|placeholder| t.split_once(placeholder))
-            {
-                None => t == a,
-                Some((before, after)) => {
-                    a.len() >= before.len() + after.len()
-                        && a.starts_with(before)
-                        && a.ends_with(after)
-                }
-            }
-        })
+/// Whether `argv` names a placeholder the host fills (`{report}`, `{config}`): a command only the host runs.
+fn templated(argv: &[String]) -> bool {
+    argv.iter().any(|arg| {
+        ARGV_PLACEHOLDERS
+            .iter()
+            .any(|placeholder| arg.contains(placeholder))
+    })
 }
 
 fn off(port: &str, removed: &mut Vec<Removed>) -> Option<PortScope> {

@@ -974,7 +974,8 @@ the host's gate allows for its port) and what it reaches on one `port`:
   optional `config` (`name`, one segment ending `.toml` or `.json`; `template`, at most 16 KiB): the file the host
   writes to `.specforge/reports/<collector>.<name>` before a collector's run, `{report}` in it replaced by the report's
   absolute path escaped for a quoted TOML or JSON string, and `{config}` in the argv its absolute path (ADR 0348). A
-  person approves the template with the command.
+  person approves the template with the command. An argv naming `{report}` or `{config}` is the host's alone to run:
+  a guest's `process_run` is never admitted by it.
 - `git`: `ops` (`read`, `write`).
 
 `name` is a scope name (`[a-z][a-z0-9-]*`), unique in the extension; approvals and `specforge grants` name it. A

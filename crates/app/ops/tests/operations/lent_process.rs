@@ -213,8 +213,11 @@ fn collector_session(argv: &[&str]) -> PortSession {
     PortSession::effectful(EXT, Operation::Collect, Some(call), Limits::CEILING)
 }
 
-#[test]
-fn a_guest_fills_its_collector_commands_placeholders_with_its_own_paths() {
+#[specforge_test_macros::test(
+    behavior = "approve_capability",
+    verify = "a guest never runs its collector's command with a placeholder filled by itself"
+)]
+fn a_guest_never_fills_its_collector_commands_placeholders() {
     for (declared, asked) in [
         (
             ["echo", "--tool-config-file", "specforge:{config}"],
@@ -225,6 +228,10 @@ fn a_guest_fills_its_collector_commands_placeholders_with_its_own_paths() {
             ],
         ),
         (
+            ["echo", "--tool-config-file", "specforge:{config}"],
+            ["echo", "--tool-config-file", "specforge:{config}"],
+        ),
+        (
             ["echo", "--out", "--out={report}"],
             ["echo", "--out", "--out=/elsewhere/report.xml"],
         ),
@@ -233,11 +240,9 @@ fn a_guest_fills_its_collector_commands_placeholders_with_its_own_paths() {
             argv: asked.map(String::from).to_vec(),
             ..ProcessRequest::default()
         });
-        // Today a placeholder admits any text: the person approved one config and the guest runs another.
-        let ran = ran.expect("the templated capability admits the guest's own path");
-        assert_eq!(
-            String::from_utf8_lossy(&ran.stdout),
-            format!("{} {}\n", asked[1], asked[2])
+        assert!(
+            matches!(&ran, Err(HostError::Denied(_))),
+            "{asked:?}: {ran:?}"
         );
     }
 }

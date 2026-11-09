@@ -401,6 +401,9 @@ behavior approve_capability "Approve Capability" {
     command is its extension's process capability, so `specforge collect`
     runs it only once this machine approves that capability, and a root
     outside the project an fs capability reads needs its own approval.
+    The command's placeholders (`{report}`, `{config}`) are the host's to
+    fill with its own paths: no request, a guest's or a person's, is
+    admitted by a capability whose argv names one.
     Every approval a run needs is decided before its first effect: a
     terminal is asked once per scope or root, showing the extension and
     the command or what the scope allows (y or yes, in any case, approves;
@@ -423,6 +426,8 @@ behavior approve_capability "Approve Capability" {
   produces   []
   verify unit "an approval is keyed by project, extension provenance and scope, and covers narrower grants"
   verify unit "a changed config file asks again, as a changed command does"
+  verify unit "a command whose argv names a placeholder admits no request, its expansion included"
+  verify integration "a guest never runs its collector's command with a placeholder filled by itself"
   verify unit "the terminal shows a collector's config file under its command"
   verify unit "the consent store is replaced privately and atomically, never through a link"
   verify unit "an approval is never written over a consent store that cannot be read"

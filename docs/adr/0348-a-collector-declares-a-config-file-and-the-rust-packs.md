@@ -50,8 +50,7 @@ own name: the config, the report and the captured output are names the run owns 
 replaced, never written through. The expansion is escaped for the inside of a double-quoted TOML or JSON string:
 `\` → `\\`, `"` → `\"`, a control character → `\uXXXX`, which both formats read. `--no-run` and
 `--report` write nothing. The file stays after the run, so a person can rerun the tool with it. `{config}` in the argv
-expands to the file's absolute path; `argv_matches` treats `{report}` and `{config}` alike: one placeholder per
-element, the literal text before and after it matching.
+expands to the file's absolute path, as `{report}` expands to the report's.
 
 ## D3. The config is part of the approved scope
 
@@ -59,6 +58,14 @@ The config lives on `ProcessScope`, so an approval stores it and `covers` (equal
 changes: a config can change what runs (test groups, scripts, wrappers). `ProcessScope::summary` appends
 `, writes <name> (sha256:<first 12 hex>)`. The terminal's question shows the file's name and text, each line printable
 (ADR 0244), under the command (`Question::Capability.config`).
+
+A placeholder is the host's to fill (amended 2026-11-09). The host's run of a collector's command is admitted by its
+template, placeholders included (`Grant::permits_command`: a process capability whose argv equals it), then filled with
+the host's own paths for this run. A request (a guest's `process_run` in its collect call, a person's `run`) is never
+admitted by a capability whose argv names `{report}` or `{config}`, its expansion included: a placeholder that admitted
+any text let a guest holding the approved capability run the command with `--tool-config-file specforge:<its own
+file>`, so the person approved one config and the guest ran another. An extension whose guest runs a program declares
+a capability without placeholders.
 
 ## D4. A collector may declare an install line
 
@@ -137,6 +144,10 @@ A collector has no finding channel (`CollectOutput` holds no diagnostics); the f
 W102, W401, I402). A pack that only collects catalogues none (ADR 0328 D2).
 
 ## Rejected
+
+- **A placeholder that admits only the path the host computed for this run.** The grant would carry each run's paths,
+  and a guest calling during the run could still run the approved command a second time, outside the host's
+  sequence (the config written, the stale report removed, the run read back).
 
 - **`cargo metadata` instead of `cargo_toml`.** It needs cargo, an approval and the network, and reads one workspace.
 - **The config on the collector.** A changed template would run under an old approval.
