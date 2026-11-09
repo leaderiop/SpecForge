@@ -1,5 +1,6 @@
 use super::*;
 use serde_json::{json, Value};
+use specforge_javascript_workspace::PACKAGES;
 use specforge_test::prelude::*;
 
 /// The taskboard twin's recorded report (`gsd/parity/goldens/taskboard/junit.xml`, kept by the JUnit library):

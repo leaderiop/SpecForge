@@ -531,7 +531,14 @@ module specforge_package_javascript_node_test "specforge-package-javascript-node
   family      extension
   description "Wasm package for @javascript/node-test: runs node --test for specforge collect and answers its tests as @code/core test facts"
   features    [nt_node_test_collection, test_result_collection]
-  depends_on  [specforge_wasm]
+  depends_on  [specforge_wasm, specforge_package_javascript_workspace]
+  tags        ["extension", "traceability"]
+}
+
+module specforge_package_javascript_workspace "specforge-javascript-workspace" {
+  family      extension
+  description "Extension library the JavaScript packs link: names the package that owns a project file from every package.json the host read"
+  features    [nt_node_test_collection]
   tags        ["extension", "traceability"]
 }
 

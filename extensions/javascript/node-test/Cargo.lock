@@ -304,6 +304,7 @@ dependencies = [
  "specforge-code-facts",
  "specforge-code-junit",
  "specforge-extension-sdk",
+ "specforge-javascript-workspace",
  "specforge-test",
 ]
 
@@ -326,6 +327,14 @@ dependencies = [
  "quote",
  "specforge-protocol-types",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "specforge-javascript-workspace"
+version = "1.0.0"
+dependencies = [
+ "serde_json",
+ "specforge-extension-sdk",
 ]
 
 [[package]]
