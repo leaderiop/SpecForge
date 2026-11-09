@@ -8,12 +8,14 @@ use specforge_extension_sdk::host::{SyntaxMatch, SyntaxRole};
 
 use crate::modules::{Crate, ModuleFile};
 
-/// A file module a `mod <name>;` declares: the inline modules it sits in (outermost first) and the paths its `path`
-/// attributes name (none: rustc's default files).
+/// A file module a `mod <name>;` declares: the inline modules it sits in (outermost first), the directory each of
+/// them names (its `path` attribute, else its name), and the paths its own `path` attributes name (none: rustc's
+/// default files). Every name is written without `r#`, as rustc finds its file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Child {
     pub name: String,
     pub inline: Vec<String>,
+    pub dirs: Vec<String>,
     pub paths: Vec<String>,
 }
 
@@ -70,8 +72,9 @@ pub(crate) fn read(
         });
         if kind == ItemKind::Module && capture(found, "body").is_none() {
             children.push(Child {
-                name: name.strip_prefix("r#").unwrap_or(name).to_string(),
+                name: unraw(name).to_string(),
                 inline: context.inline,
+                dirs: inline_dirs(matches, at),
                 paths: captures(&above, "module_file", "file"),
             });
         }
@@ -113,7 +116,7 @@ fn context(matches: &[SyntaxMatch], at: usize) -> Option<Context> {
     while let Some(index) = parent {
         let around = matches.get(index as usize)?;
         match around.kind.as_str() {
-            "module" => inline.push(capture(around, "name")?.to_string()),
+            "module" => inline.push(unraw(capture(around, "name")?).to_string()),
             "impl" if owner.is_none() && inline.is_empty() => {
                 owner = Some(Owner {
                     self_ty: capture(around, "type")?.to_string(),
@@ -132,6 +135,33 @@ fn context(matches: &[SyntaxMatch], at: usize) -> Option<Context> {
     }
     inline.reverse();
     Some(Context { inline, owner })
+}
+
+/// The directory each inline module around the definition `at` names, outermost first: the first path its `path`
+/// attributes name (relative to the directory around it), else its name.
+fn inline_dirs(matches: &[SyntaxMatch], at: usize) -> Vec<String> {
+    let mut dirs = Vec::new();
+    let mut parent = matches[at].parent;
+    while let Some(index) = parent.map(|index| index as usize) {
+        let Some(around) = matches.get(index) else {
+            break;
+        };
+        if around.kind == "module" {
+            let path = captures(&attached(matches, index), "module_file", "file")
+                .into_iter()
+                .next();
+            let name = capture(around, "name").map(|name| unraw(name).to_string());
+            dirs.extend(path.or(name));
+        }
+        parent = around.parent;
+    }
+    dirs.reverse();
+    dirs
+}
+
+/// A Rust identifier without its `r#`: the name rustc looks its module's file up by.
+fn unraw(name: &str) -> &str {
+    name.strip_prefix("r#").unwrap_or(name)
 }
 
 /// The attribute and doc comment matches of the contiguous run of lines directly above the definition `at`, among

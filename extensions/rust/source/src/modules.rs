@@ -4,7 +4,8 @@
 //! - A file is *mod-rs* when it is a crate root, a `mod.rs`, or was reached through a `path` attribute: the files of
 //!   its child modules live in its own directory. Any other file (`src/a.rs`) keeps them in a directory of its stem
 //!   (`src/a/`).
-//! - `mod b;` is `<dir>/b.rs`, else `<dir>/b/mod.rs`; inside an inline `mod x { … }` the directory gains `x/`.
+//! - `mod b;` is `<dir>/b.rs`, else `<dir>/b/mod.rs`; inside an inline `mod x { … }` the directory gains `x/` (a raw
+//!   `r#x` too), or `d/` when the inline module has its own `#[path = "d"]`.
 //! - `#[path = "p"]` is relative to the declaring file's directory outside an inline module, and to the inline
 //!   module's directory inside one. Every `path` a `#[cfg_attr(…, path = "…")]` names is followed too: its files'
 //!   items are the module's (cfg twins).
@@ -159,11 +160,15 @@ fn child_modules(krate: usize, path: &[String], file: &ModuleFile, child: Child)
     let mut module_path = path.to_vec();
     module_path.extend(child.inline.iter().cloned());
     module_path.push(child.name.clone());
-    // The directory an inline module's child files and its `path` attributes start from.
-    let inline_dir = child
-        .inline
+    // The directory an inline module's child files and its `path` attributes start from: each inline module's own
+    // `path`, else its name; one that leaves the project reaches no file.
+    let Some(inline_dir) = child
+        .dirs
         .iter()
-        .fold(file.children.clone(), |dir, name| join_dir(&dir, name));
+        .try_fold(file.children.clone(), |dir, named| joined(&dir, named))
+    else {
+        return Vec::new();
+    };
     let module = |candidates| Module {
         krate,
         path: module_path.clone(),
