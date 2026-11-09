@@ -77,7 +77,8 @@ behavior js_mint_item_facts "Mint Item and Package Facts from Definitions" {
     scope: every definition around it a namespace, or, for a method or a
     field, the nearest a class or an interface. Its id is
     js:<package>/<file>::<path>, the path the names around it then its own
-    (a nested namespace A.B is two names), its file the path under the
+    (a nested namespace A.B is two names, each captured by the query; a
+    string member name its value, escapes decoded), its file the path under the
     package's directory, its place the defining node's span. A function-
     or class-valued variable is a function or a class. An unnamed default
     export is the item default. A declaration inside a function, a block
@@ -100,6 +101,8 @@ behavior js_mint_item_facts "Mint Item and Package Facts from Definitions" {
   verify unit "an unnamed default export is the item default"
   verify unit "function-valued variables are functions"
   verify unit "definitions of one name are one item with every place"
+  verify unit "a dotted namespace name is one segment per identifier, whatever is written between them"
+  verify unit "a string member name is its value, escapes decoded"
   verify unit "each named package is a package fact its items point at"
   verify unit "a second package of one name keeps its items and its package fact apart"
   verify integration "a fixture workspace's items are minted by the host's reader with ids, kinds and places"
@@ -139,5 +142,6 @@ behavior js_mark_item_exports "Mark Exports, Visibility, Docs and Signatures" {
   verify unit "a member of a private class is private"
   verify unit "a JSDoc comment is the doc of the item below it"
   verify unit "a signature holds types and never a value"
+  verify unit "a signature keeps its parts' source text"
   verify unit "modifiers are attrs"
 }

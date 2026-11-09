@@ -93,7 +93,10 @@ impl Role {
 struct Group<'m> {
     span: SyntaxSpan,
     role: Role,
-    name: Option<&'m SyntaxCapture>,
+    /// Its name's segments: one, or one per segment of a dotted namespace name; empty for a group with none.
+    name: Vec<String>,
+    /// The name was a string (`'a-b'() {}`): never a `#private` one.
+    quoted: bool,
     attrs: Vec<&'m str>,
     signature: Vec<&'m SyntaxCapture>,
     /// The index of the innermost group whose span holds this one.
@@ -105,9 +108,17 @@ impl<'m> Group<'m> {
         if role.rank() > self.role.rank() {
             self.role = role;
         }
+        if self.name.is_empty() {
+            let named = |name: &'static str| found.captures.iter().filter(move |c| c.name == name);
+            self.name = named("name").map(|c| c.text.clone()).collect();
+            let parts: Vec<&SyntaxCapture> = named("part").collect();
+            if self.name.is_empty() && !parts.is_empty() {
+                self.name = vec![decoded(&parts)];
+                self.quoted = true;
+            }
+        }
         for capture in &found.captures {
             match capture.name.as_str() {
-                "name" if self.name.is_none() => self.name = Some(capture),
                 "attr" if !self.attrs.contains(&capture.text.as_str()) => {
                     self.attrs.push(&capture.text);
                 }
@@ -123,28 +134,66 @@ impl<'m> Group<'m> {
         self.attrs.contains(&attr)
     }
 
-    /// Its name as path segments: a nested namespace `A.B` is two, a string member name loses its quotes, an unnamed
+    /// Its name as path segments: a dotted namespace `A.B` is two, a string member name is its value, an unnamed
     /// default export is `default`; `None` for a group with no name.
     fn segments(&self) -> Option<Vec<String>> {
-        let Some(name) = self.name else {
+        if self.name.is_empty() {
             return self
                 .has_attr("default")
                 .then(|| vec!["default".to_string()]);
-        };
-        let text = name.text.as_str();
-        Some(match self.role {
-            Role::Namespace => text.split('.').map(|s| s.trim().to_string()).collect(),
-            _ => vec![unquoted(text).to_string()],
-        })
+        }
+        Some(self.name.clone())
+    }
+
+    /// Its name when it is one identifier, as an export list names it.
+    fn identifier(&self) -> Option<&str> {
+        match &self.name[..] {
+            [name] if !self.quoted => Some(name),
+            _ => None,
+        }
     }
 }
 
-/// A string name without its quotes (`'my-key'` is `my-key`).
-fn unquoted(text: &str) -> &str {
-    ['"', '\'']
-        .iter()
-        .find_map(|q| text.strip_prefix(*q)?.strip_suffix(*q))
-        .unwrap_or(text)
+/// A string's value from its fragments and escape sequences, as the grammar splits it: each escape decoded
+/// (`\'` is `'`, `\u{41}` is `A`, a line continuation nothing).
+fn decoded(parts: &[&SyntaxCapture]) -> String {
+    let mut value = String::new();
+    for part in parts {
+        match part.text.strip_prefix('\\') {
+            Some(escape) => value.push_str(&unescaped(escape)),
+            None => value.push_str(&part.text),
+        }
+    }
+    value
+}
+
+/// The value of one escape sequence (the grammar's `escape_sequence`, its backslash dropped).
+fn unescaped(escape: &str) -> String {
+    let code = |hex: &str, radix| {
+        u32::from_str_radix(hex, radix)
+            .ok()
+            .and_then(char::from_u32)
+    };
+    let decoded = match escape.as_bytes() {
+        [b'n'] => Some('\n'),
+        [b't'] => Some('\t'),
+        [b'r'] => Some('\r'),
+        [b'b'] => Some('\u{8}'),
+        [b'f'] => Some('\u{c}'),
+        [b'v'] => Some('\u{b}'),
+        [b'x', ..] => code(&escape[1..], 16),
+        [b'u', b'{', .., b'}'] => code(&escape[2..escape.len() - 1], 16),
+        [b'u', ..] => code(&escape[1..], 16),
+        [b'0'..=b'7', ..] => code(escape, 8),
+        // A line continuation: the backslash and the line end are no part of the value.
+        [b'\r' | b'\n', ..] => return String::new(),
+        _ if escape.starts_with(['\u{2028}', '\u{2029}']) => return String::new(),
+        // `\'`, `\"`, `\\` and every other one-character escape are that character.
+        _ if escape.chars().count() == 1 => return escape.to_string(),
+        _ => None,
+    };
+    // shortcut: a surrogate pair written as two `\u` escapes keeps its text; decode pairs when a name needs it.
+    decoded.map_or_else(|| format!("\\{escape}"), String::from)
 }
 
 /// The definition matches of a file as groups, in source order (the reader sorts matches by start, then by end
@@ -175,7 +224,8 @@ fn groups(matches: &[SyntaxMatch]) -> Vec<Group<'_>> {
         let mut group = Group {
             span: found.span,
             role,
-            name: None,
+            name: Vec::new(),
+            quoted: false,
             attrs: Vec::new(),
             signature: Vec::new(),
             parent: open.last().copied(),
@@ -246,11 +296,11 @@ fn public(groups: &[Group], at: usize, exported: &BTreeMap<&str, bool>) -> bool 
             group.has_attr("export")
                 || group.has_attr("exports")
                 || group
-                    .name
-                    .is_some_and(|name| exported.contains_key(name.text.as_str()))
+                    .identifier()
+                    .is_some_and(|name| exported.contains_key(name))
         }
         Some(holder) if group.role.is_member() => {
-            let private = group.name.is_some_and(|name| name.text.starts_with('#'))
+            let private = group.identifier().is_some_and(|name| name.starts_with('#'))
                 || group.has_attr("private");
             !private && public(groups, holder, exported)
         }
@@ -295,7 +345,7 @@ fn doc_text(comment: &str) -> Option<String> {
     (!text.is_empty()).then_some(text)
 }
 
-/// A group's signature: its captured parts' texts joined by one space, whitespace collapsed.
+/// A group's signature: its captured parts' source texts joined by one space, as written (`item_facts` digests it).
 fn signature(group: &Group) -> Option<String> {
     let text = group
         .signature
@@ -303,8 +353,7 @@ fn signature(group: &Group) -> Option<String> {
         .map(|part| part.text.as_str())
         .collect::<Vec<_>>()
         .join(" ");
-    let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    (!text.is_empty()).then_some(text)
+    (!text.trim().is_empty()).then_some(text)
 }
 
 /// The definitions of `file` (project-relative; `under` the directory of `package`, which owns it), parsed as
@@ -327,8 +376,8 @@ pub(crate) fn read(
         let mut attrs: Vec<String> = group.attrs.iter().map(|a| a.to_string()).collect();
         let named_default = group.parent.is_none()
             && group
-                .name
-                .is_some_and(|name| exported.get(name.text.as_str()) == Some(&true));
+                .identifier()
+                .is_some_and(|name| exported.get(name) == Some(&true));
         if named_default && !group.has_attr("default") {
             attrs.push("default".to_string());
         }

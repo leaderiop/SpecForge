@@ -79,7 +79,8 @@ expression handed to a call.
 - Overloads and the body of one function are one item listing every place.
 - An id names the declared name: `export default function main` is `::main`,
   `export { a as b }` keeps `::a`, only an unnamed default export is
-  `::default`. A string member name loses its quotes.
+  `::default`. A string member name is its value (`'a\'b'() {}` is `a'b`), and
+  `namespace A.B` is the two names `A` and `B`, up to six of them.
 - CommonJS's `module.exports = <function>`, TypeScript's `export =` and a
   re-export `export … from` define no item here.
 

@@ -4,7 +4,9 @@
 ; Captures (the tags convention, ADR 0344 D1: each pattern has exactly one role capture):
 ;   @definition.<kind>  the defining node: function class interface type enum namespace const variable method field,
 ;                       or scope (a block whose contents are no item: `declare module "x"`, `declare global`)
-;   @name               its name; a definition with none is no item, unless it is a default export (`default`)
+;   @name               its name, one per segment of a dotted namespace name; a definition with none is no item,
+;                       unless it is a default export (`default`)
+;   @part               a string member name's fragments and escape sequences, in order: the pack decodes them
 ;   @attr               a modifier token: export default declare abstract static async get set readonly override
 ;                       const let var * exports, or an accessibility (public private protected)
 ;   @signature          the parts whose text the pack digests: type parameters, parameters, return and declared
@@ -111,31 +113,39 @@
 (export_statement "export" @attr ("default" @attr)? declaration: (enum_declaration name: (identifier) @name body: (_) @signature) @definition.enum)
 (export_statement "export" @attr declaration: (ambient_declaration "declare" @attr (enum_declaration name: (identifier) @name body: (_) @signature) @definition.enum))
 ; ---------------------------------------------------------------- namespace
-(program [(expression_statement (internal_module name: [(identifier) (nested_identifier)] @name) @definition.namespace) (module name: [(identifier) (nested_identifier)] @name) @definition.namespace])
+(program [(expression_statement (internal_module name: [(identifier) @name (nested_identifier)]) @definition.namespace) (module name: [(identifier) @name (nested_identifier)]) @definition.namespace])
 (program (ambient_declaration "declare" @attr [
-  (internal_module name: [(identifier) (nested_identifier)] @name) @definition.namespace
-  (module name: [(identifier) (nested_identifier)] @name) @definition.namespace
+  (internal_module name: [(identifier) @name (nested_identifier)]) @definition.namespace
+  (module name: [(identifier) @name (nested_identifier)]) @definition.namespace
 ]))
 (internal_module body: (statement_block [
-  (internal_module name: [(identifier) (nested_identifier)] @name) @definition.namespace
-  (module name: [(identifier) (nested_identifier)] @name) @definition.namespace
+  (internal_module name: [(identifier) @name (nested_identifier)]) @definition.namespace
+  (module name: [(identifier) @name (nested_identifier)]) @definition.namespace
 ]))
 (module body: (statement_block [
-  (internal_module name: [(identifier) (nested_identifier)] @name) @definition.namespace
-  (module name: [(identifier) (nested_identifier)] @name) @definition.namespace
+  (internal_module name: [(identifier) @name (nested_identifier)]) @definition.namespace
+  (module name: [(identifier) @name (nested_identifier)]) @definition.namespace
 ]))
 (statement_block (ambient_declaration "declare" @attr [
-  (internal_module name: [(identifier) (nested_identifier)] @name) @definition.namespace
-  (module name: [(identifier) (nested_identifier)] @name) @definition.namespace
+  (internal_module name: [(identifier) @name (nested_identifier)]) @definition.namespace
+  (module name: [(identifier) @name (nested_identifier)]) @definition.namespace
 ]))
 (export_statement "export" @attr ("default" @attr)? declaration: [
-  (internal_module name: [(identifier) (nested_identifier)] @name) @definition.namespace
-  (module name: [(identifier) (nested_identifier)] @name) @definition.namespace
+  (internal_module name: [(identifier) @name (nested_identifier)]) @definition.namespace
+  (module name: [(identifier) @name (nested_identifier)]) @definition.namespace
 ])
 (export_statement "export" @attr declaration: (ambient_declaration "declare" @attr [
-  (internal_module name: [(identifier) (nested_identifier)] @name) @definition.namespace
-  (module name: [(identifier) (nested_identifier)] @name) @definition.namespace
+  (internal_module name: [(identifier) @name (nested_identifier)]) @definition.namespace
+  (module name: [(identifier) @name (nested_identifier)]) @definition.namespace
 ]))
+; ---------------------------------------------------------------- a dotted namespace name: one @name per segment
+; These merge into the namespace's match above, whatever its context (the pack drops one at no item scope).
+; shortcut: a name of more than six segments has none and is no item; upgrade with a pattern per further segment.
+[(internal_module name: (nested_identifier object: (identifier) @name property: (property_identifier) @name)) (module name: (nested_identifier object: (identifier) @name property: (property_identifier) @name))] @definition.namespace
+[(internal_module name: (nested_identifier object: (member_expression object: (identifier) @name property: (property_identifier) @name) property: (property_identifier) @name)) (module name: (nested_identifier object: (member_expression object: (identifier) @name property: (property_identifier) @name) property: (property_identifier) @name))] @definition.namespace
+[(internal_module name: (nested_identifier object: (member_expression object: (member_expression object: (identifier) @name property: (property_identifier) @name) property: (property_identifier) @name) property: (property_identifier) @name)) (module name: (nested_identifier object: (member_expression object: (member_expression object: (identifier) @name property: (property_identifier) @name) property: (property_identifier) @name) property: (property_identifier) @name))] @definition.namespace
+[(internal_module name: (nested_identifier object: (member_expression object: (member_expression object: (member_expression object: (identifier) @name property: (property_identifier) @name) property: (property_identifier) @name) property: (property_identifier) @name) property: (property_identifier) @name)) (module name: (nested_identifier object: (member_expression object: (member_expression object: (member_expression object: (identifier) @name property: (property_identifier) @name) property: (property_identifier) @name) property: (property_identifier) @name) property: (property_identifier) @name))] @definition.namespace
+[(internal_module name: (nested_identifier object: (member_expression object: (member_expression object: (member_expression object: (member_expression object: (identifier) @name property: (property_identifier) @name) property: (property_identifier) @name) property: (property_identifier) @name) property: (property_identifier) @name) property: (property_identifier) @name)) (module name: (nested_identifier object: (member_expression object: (member_expression object: (member_expression object: (member_expression object: (identifier) @name property: (property_identifier) @name) property: (property_identifier) @name) property: (property_identifier) @name) property: (property_identifier) @name) property: (property_identifier) @name))] @definition.namespace
 ; ---------------------------------------------------------------- variable
 (program [
   (lexical_declaration kind: _ @attr (variable_declarator name: (identifier) @name value: [(arrow_function) (function_expression) (generator_function)]) @definition.function)
@@ -217,12 +227,19 @@
 (ambient_declaration "global" @name) @definition.scope
 
 ; ---------------------------------------------------------------- members (kept under a class or an interface)
-(class_body (method_definition name: [(property_identifier) (private_property_identifier) (string)] @name type_parameters: (_)? @signature parameters: (_) @signature return_type: (_)? @signature) @definition.method)
-(class_body (method_signature name: [(property_identifier) (private_property_identifier) (string)] @name type_parameters: (_)? @signature parameters: (_) @signature return_type: (_)? @signature) @definition.method)
-(class_body (abstract_method_signature name: [(property_identifier) (private_property_identifier) (string)] @name type_parameters: (_)? @signature parameters: (_) @signature return_type: (_)? @signature) @definition.method)
-(class_body (public_field_definition name: [(property_identifier) (private_property_identifier) (string)] @name type: (_)? @signature) @definition.field)
-(interface_body (method_signature name: [(property_identifier) (string)] @name type_parameters: (_)? @signature parameters: (_) @signature return_type: (_)? @signature) @definition.method)
-(interface_body (property_signature name: [(property_identifier) (string)] @name type: (_)? @signature) @definition.field)
+(class_body (method_definition name: [(property_identifier) @name (private_property_identifier) @name (string)] type_parameters: (_)? @signature parameters: (_) @signature return_type: (_)? @signature) @definition.method)
+(class_body (method_signature name: [(property_identifier) @name (private_property_identifier) @name (string)] type_parameters: (_)? @signature parameters: (_) @signature return_type: (_)? @signature) @definition.method)
+(class_body (abstract_method_signature name: [(property_identifier) @name (private_property_identifier) @name (string)] type_parameters: (_)? @signature parameters: (_) @signature return_type: (_)? @signature) @definition.method)
+(class_body (public_field_definition name: [(property_identifier) @name (private_property_identifier) @name (string)] type: (_)? @signature) @definition.field)
+(interface_body (method_signature name: [(property_identifier) @name (string)] type_parameters: (_)? @signature parameters: (_) @signature return_type: (_)? @signature) @definition.method)
+(interface_body (property_signature name: [(property_identifier) @name (string)] type: (_)? @signature) @definition.field)
+; A string member name's parts (a quantified capture inside an alternation keeps only its first node): they merge.
+(class_body (method_definition name: (string [(string_fragment) (escape_sequence)]* @part)) @definition.method)
+(class_body (method_signature name: (string [(string_fragment) (escape_sequence)]* @part)) @definition.method)
+(class_body (abstract_method_signature name: (string [(string_fragment) (escape_sequence)]* @part)) @definition.method)
+(class_body (public_field_definition name: (string [(string_fragment) (escape_sequence)]* @part)) @definition.field)
+(interface_body (method_signature name: (string [(string_fragment) (escape_sequence)]* @part)) @definition.method)
+(interface_body (property_signature name: (string [(string_fragment) (escape_sequence)]* @part)) @definition.field)
 
 ; ---------------------------------------------------------------- modifiers: matches that merge into their definition
 (function_declaration "async" @attr) @definition.function
