@@ -10,10 +10,16 @@ use specforge_wasm::protocol::load_declaration;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 
 /// The builtins that call a `specforge:host` port, and the interfaces each imports (the port and its types).
-const HOST_IMPORTS: [(&str, &[&str]); 1] = [(
-    "@rust/source",
-    &["specforge:host/syntax@0.1.0", "specforge:host/types@0.1.0"],
-)];
+const HOST_IMPORTS: [(&str, &[&str]); 2] = [
+    (
+        "@rust/source",
+        &["specforge:host/syntax@0.1.0", "specforge:host/types@0.1.0"],
+    ),
+    (
+        "@javascript/source",
+        &["specforge:host/syntax@0.1.0", "specforge:host/types@0.1.0"],
+    ),
+];
 
 /// The spike's permanent form (ADR 0335 D5): a guest imports only the `specforge:host` interfaces it calls, so a
 /// builtin that calls none imports only `wasi:*`. A toolchain that keeps an unused import fails here first.

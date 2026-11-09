@@ -1374,6 +1374,7 @@ expression: "digest(&load(&runtime, &all))"
   "ext_short": {
     "@code/core": "core",
     "@javascript/node-test": "node-test",
+    "@javascript/source": "source",
     "@rust/cargo": "cargo",
     "@rust/source": "source",
     "@rust/test": "test",
@@ -1437,6 +1438,10 @@ expression: "digest(&load(&runtime, &all))"
     ],
     [
       "@rust/test",
+      "1.0.0"
+    ],
+    [
+      "@javascript/source",
       "1.0.0"
     ]
   ],
@@ -5540,7 +5545,7 @@ expression: "digest(&load(&runtime, &all))"
       "item.attrs": "string_list",
       "item.doc": "string",
       "item.file": "string",
-      "item.kind": "enum_list (module, function, method, struct, enum, union, trait, type, const, static, macro, class, interface, variable, namespace)",
+      "item.kind": "enum_list (module, function, method, field, struct, enum, union, trait, type, const, static, macro, class, interface, variable, namespace)",
       "item.names": "reference_list",
       "item.package": "reference",
       "item.signature": "string",

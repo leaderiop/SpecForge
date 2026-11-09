@@ -62,7 +62,7 @@
     "extensions/code/facts/Cargo.toml": "78711c072008558fb21fc45885a253dd47f50b0e4d38791e8820a899d8f27d2b",
     "extensions/code/facts/src/ids.rs": "ab1489dc7f4be80cc4a112fac9016e43e55ecda4c48386a8a18f61d8a9d093f4",
     "extensions/code/facts/src/lib.rs": "ef49a463124e1420cdae32142ab74ad1e32a7ad763addc43bd9ed5391cd3e659",
-    "extensions/code/facts/src/mint.rs": "08eab5ca5cbbc7bdf0c64c12128172ff384306a4314729595ef47a8be698389c",
+    "extensions/code/facts/src/mint.rs": "f5c67cd4809520601b1ea9668fd6bc8d10d0a3d624ff25eae83ddc21e9e7c724",
     "extensions/code/facts/src/paths.rs": "890973baefd07c33e93c6c12ae882083c2d969de91bb3c697bc271ec03474eae",
     "extensions/code/junit/Cargo.toml": "0cf8fd46f5d31313c6edd4c030fd0d8e49140c4382558cf362bb101b761cb8b2",
     "extensions/code/junit/src/lib.rs": "bd2ab2fb6e7b01ebebd2114de7c6112998abe54f80c39398ba82653179894c7d",

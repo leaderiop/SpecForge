@@ -578,7 +578,7 @@ expression: "digest(&load(&runtime, &[name]))"
       "item.attrs": "string_list",
       "item.doc": "string",
       "item.file": "string",
-      "item.kind": "enum_list (module, function, method, struct, enum, union, trait, type, const, static, macro, class, interface, variable, namespace)",
+      "item.kind": "enum_list (module, function, method, field, struct, enum, union, trait, type, const, static, macro, class, interface, variable, namespace)",
       "item.names": "reference_list",
       "item.package": "reference",
       "item.signature": "string",

@@ -9,13 +9,14 @@ fn fed(paths: &[&str]) -> Vec<String> {
 }
 
 /// The blobs that record their inputs today: the builtins. The fixtures join at the round's re-vendor.
-const BUILTIN_CRATES: [&str; 13] = [
+const BUILTIN_CRATES: [&str; 14] = [
     "extensions/cargo-test",
     "extensions/checks",
     "extensions/code/core",
     "extensions/formal",
     "extensions/governance",
     "extensions/javascript/node-test",
+    "extensions/javascript/source",
     "extensions/product",
     "extensions/rust/cargo",
     "extensions/rust/source",
@@ -26,9 +27,10 @@ const BUILTIN_CRATES: [&str; 13] = [
 ];
 
 /// The builtins that link the `@code` extension libraries.
-const CODE_LINKERS: [&str; 5] = [
+const CODE_LINKERS: [&str; 6] = [
     "extensions/code/core",
     "extensions/javascript/node-test",
+    "extensions/javascript/source",
     "extensions/rust/cargo",
     "extensions/rust/source",
     "extensions/rust/test",
@@ -61,6 +63,17 @@ fn a_change_to_the_manifest_library_feeds_only_rust_cargo() {
     assert_eq!(
         fed(&["extensions/rust/manifest/src/lib.rs"]),
         ["extensions/rust/cargo"]
+    );
+}
+
+#[test]
+fn a_change_to_the_workspace_library_feeds_both_javascript_builtins() {
+    assert_eq!(
+        fed(&["extensions/javascript/workspace/src/lib.rs"]),
+        [
+            "extensions/javascript/node-test",
+            "extensions/javascript/source"
+        ]
     );
 }
 

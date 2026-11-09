@@ -41,6 +41,7 @@ builtins! {
     "@rust/cargo" in "rust/cargo" as "specforge_ext_rust_cargo.wasm",
     "@rust/source" in "rust/source" as "specforge_ext_rust_source.wasm",
     "@rust/test" in "rust/test" as "specforge_ext_rust_test.wasm",
+    "@javascript/source" in "javascript/source" as "specforge_ext_javascript_source.wasm",
 }
 
 /// (name, bytes) of every builtin, read from [`BUILTINS`]: what the extension load reads

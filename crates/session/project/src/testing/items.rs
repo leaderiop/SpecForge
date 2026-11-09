@@ -29,6 +29,7 @@ const KINDS: Vocabulary = Vocabulary::new(&[
     "module",
     "function",
     "method",
+    "field",
     "struct",
     "enum",
     "union",

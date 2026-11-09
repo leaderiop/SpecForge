@@ -6,7 +6,7 @@ How SpecForge is built. For what it is and why it exists, start with the [README
 
 The compiler is a **pure typed-graph engine**. It knows how to parse `keyword name { fields }` blocks, resolve references, detect orphans and cycles, and emit a validated graph — but it carries **no domain vocabulary**. Every entity kind, edge type, and validation rule comes from an extension. If a new domain required a compiler change, the architecture would have failed.
 
-Thirteen extensions ship as builtins, embedded in the binary. A first-party builtin is `@specforge/<name>`; a builtin of a family is `@<family>/<pack>` (`@code/core`), its crate `extensions/<family>/<pack>`, and its codes print namespaced (`code/E101`, [ADR 0328](docs/adr/0328-a-builtin-is-embedded-and-a-non-specforge-builtin-catalogues-its-codes.md)). Enable one with `specforge add <name>` (or `specforge init --extensions ...`); it is recorded in `specforge.json`, with nothing to download:
+Fourteen extensions ship as builtins, embedded in the binary. A first-party builtin is `@specforge/<name>`; a builtin of a family is `@<family>/<pack>` (`@code/core`), its crate `extensions/<family>/<pack>`, and its codes print namespaced (`code/E101`, [ADR 0328](docs/adr/0328-a-builtin-is-embedded-and-a-non-specforge-builtin-catalogues-its-codes.md)). Enable one with `specforge add <name>` (or `specforge init --extensions ...`); it is recorded in `specforge.json`, with nothing to download:
 
 | Extension | Entity kinds | Purpose |
 |-----------|-------------|---------|
@@ -23,6 +23,7 @@ Thirteen extensions ship as builtins, embedded in the binary. A first-party buil
 | **`@rust/cargo`** | — | Reads every `Cargo.toml` with cargo's own manifest model into `package` facts (`pkg:cargo/<name>`): version, edition, targets, the project packages it depends on. Runs nothing ([ADR 0348](docs/adr/0348-a-collector-declares-a-config-file-and-the-rust-packs.md)). `specforge add` also enables `@code/core`. |
 | **`@rust/source`** | — | Walks each cargo target's module tree and has the host's reader parse it into `item` facts (`rust:<crate>::<path>`), a test function with the id nextest gives it and the entity its `#[specforge_test]` names. `specforge add` also enables `@rust/cargo`. |
 | **`@rust/test`** | — | nextest runner: `specforge collect` runs `cargo-nextest` (after you approve the command and the config file it reads, once per project) and records its tests as `test`/`test_run` facts, cited as `rust:<binary id>#<path>`; an ignored test is held as `skipped`. `specforge add` also enables `@rust/source`. |
+| **`@javascript/source`** | — | Has the host's reader parse a JavaScript or TypeScript project's source (test files and generated output left out) into `item` facts (`js:<package>/<file>::<name>[.<member>]`), whether an importer reaches each, and a `package` fact per named `package.json` (`pkg:npm/<name>`). Runs nothing. `specforge add` also enables `@code/core`. |
 
 Anyone can author and publish their own extension ([Extension Protocol](docs/extension-protocol.md)); the open Graph Protocol is the moat, not the implementation. The full catalog is in the [extension inventory](docs/extension-inventory.md).
 
