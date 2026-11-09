@@ -270,4 +270,57 @@ mod tests {
         assert_eq!(doc["by_directory"][1]["items"][0]["file"], "src/b.rs");
         assert_eq!(directory_of("main.rs"), ".");
     }
+
+    /// Public fns, one only a raw string spells.
+    const STRING_SPELLED: &str = "pub fn real_one() {}\npub(crate) fn crate_visible() {}\n\
+         pub const SNIPPET: &str = r#\"\npub fn ghost_in_a_string() {}\n\"#;\n";
+
+    /// A project whose compile loaded the builtin `@specforge/rust`, with `src/lib.rs` = [`STRING_SPELLED`] and a
+    /// `behavior real_one` that cites nothing.
+    fn scanned_by_the_rust_builtin() -> specforge_project::testing::Assembled {
+        let runtime = specforge_component::ComponentRuntime::new();
+        specforge_component::builtins::load_builtins_for(&runtime, &["@specforge/rust".into()])
+            .unwrap();
+        let declaration = specforge_wasm::protocol::load_declaration(&runtime, "@specforge/rust")
+            .unwrap()
+            .declaration;
+        let mut fixture = specforge_project::testing::Assembled::new()
+            .runtime(std::sync::Arc::new(runtime))
+            .declarations(vec![declaration]);
+        let span = specforge_common::SourceSpan {
+            file: specforge_common::Sym::new("main.spec"),
+            start_line: 1,
+            start_col: 1,
+            end_line: 1,
+            end_col: 1,
+        };
+        fixture
+            .graph_mut()
+            .add_node(specforge_graph::Node::new("real_one", "behavior", span));
+        fixture.write("src/lib.rs", STRING_SPELLED);
+        fixture
+    }
+
+    fn gap_names(gaps: &Gaps) -> Vec<&str> {
+        gaps.by_directory
+            .values()
+            .flatten()
+            .map(|item| item.name.as_str())
+            .collect()
+    }
+
+    #[test]
+    fn pin_gaps_list_a_public_item_only_a_string_spells() {
+        use crate::testing::Viewed;
+        let gaps = gaps(&scanned_by_the_rust_builtin().view()).unwrap();
+        assert!(gap_names(&gaps).contains(&"ghost_in_a_string"), "{gaps:?}");
+    }
+
+    #[test]
+    fn pin_an_unlinked_entity_covers_an_item_by_its_name() {
+        use crate::testing::Viewed;
+        let gaps = gaps(&scanned_by_the_rust_builtin().view()).unwrap();
+        assert!(!gap_names(&gaps).contains(&"real_one"), "{gaps:?}");
+        assert_eq!(gaps.covered_items, 1, "{gaps:?}");
+    }
 }
