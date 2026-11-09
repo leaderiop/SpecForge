@@ -1,0 +1,81 @@
+// @rust/source behaviors
+
+use "extensions/code/core/features"
+use "types/wasm"
+
+behavior rs_declare_source_collector "Declare the rust-source Collector" {
+  features [rs_item_facts, cc_code_facts]
+  category query
+  types    [CollectorDescriptor]
+  contract """
+    @rust/source MUST declare one collector, `rust-source`, selected by a
+    Cargo.toml at the project root, with no command and no report: it is
+    served the package facts @rust/cargo answers and answers the item kind.
+    An fs read capability on the project root, for collect calls only,
+    backs its syntax import. It requires @code/core ^1.1 and @rust/cargo
+    ^1.0 (ADR 0348 D6).
+  """
+  ensures {
+    detected_by_cargo_toml "a Cargo.toml at the project root selects rust-source"
+    reads_packages         "its input is the package facts"
+    read_only              "its one capability reads the project root during collect"
+  }
+  verify unit "rust-source declares its collector, its input, its capability and its peers"
+}
+
+behavior rs_resolve_module_tree "Resolve Each Target's Module Tree" {
+  features [rs_item_facts]
+  category computation
+  contract """
+    rust-source MUST walk each target's module tree breadth-first from its
+    root by rustc's rules: `mod b;` is <dir>/b.rs, else <dir>/b/mod.rs; a
+    crate root, a mod.rs and a file a path attribute reaches keep their
+    children beside them, any other file in a directory of its stem; an
+    inline module adds its name to the directory; a path attribute is
+    relative to the declaring file's directory, or inside an inline module
+    to that module's; every path a cfg_attr names is followed. Each round's
+    new files MUST be parsed in one request, the files an answer's cap left
+    unparsed asked again. A module whose file is absent or outside the
+    project keeps its mod item and no items; a file the reader could not
+    parse otherwise is the collector's error.
+  """
+  ensures {
+    rustc_rules "a module's file is the one rustc reads"
+    one_parse   "a file two targets reach is parsed once"
+    complete    "no file is dropped for the answer's cap"
+  }
+  verify unit "the tree follows mod declarations from each target's root"
+  verify unit "a non-mod-rs file keeps its children in a directory of its stem"
+  verify unit "a path attribute is relative to the declaring file's directory"
+  verify unit "a path inside an inline module is relative to the inline module's directory"
+  verify unit "every path a cfg_attr names is followed and its twins merge into one item"
+  verify unit "a file two targets reach mints items in each crate"
+  verify unit "a module whose file is absent or outside the project keeps its mod item only"
+  verify unit "the files an answer's cap left unparsed are asked again"
+}
+
+behavior rs_mint_item_facts "Mint Item Facts from Definitions" {
+  features [rs_item_facts, cc_code_facts]
+  category computation
+  types    [Fact]
+  contract """
+    rust-source MUST mint every definition at module level, in inline
+    modules and in impl and trait blocks as an item with
+    specforge-code-facts' item_facts: a function in an impl or trait is a
+    method named by its owner, its visibility the captured modifier's, its
+    place the definition's span. A definition inside a function body or
+    another item's block MUST NOT be minted, nor a variant or a field. An
+    attribute or doc comment belongs to the item only when it is in the
+    contiguous run of attribute and doc lines directly above it.
+  """
+  ensures {
+    every_item  "each nameable definition is one item"
+    owner_named "an impl or trait item is named by its owner"
+    no_locals   "no item inside a function body"
+    attached    "an attribute belongs to the item directly below it"
+  }
+  verify unit "an item carries its kind, visibility, signature, doc and location"
+  verify unit "impl and trait items are named by their owner"
+  verify unit "an item inside a function body or another item's block is not minted"
+  verify unit "attributes and doc comments belong to the item directly below them"
+}
