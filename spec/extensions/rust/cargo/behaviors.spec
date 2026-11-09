@@ -80,4 +80,5 @@ behavior rc_map_manifests_to_package_facts "Map Every Manifest to Package Facts"
   verify unit "a name two workspaces share keeps the nearest plain and the other its directory"
   verify unit "a withheld or truncated read is the collector's error"
   verify unit "a package fact is located at its package table"
+  verify integration "the rust packs run in fact order over a fixture crate"
 }

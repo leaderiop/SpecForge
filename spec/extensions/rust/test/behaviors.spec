@@ -25,6 +25,7 @@ behavior rt_declare_test_collector "Declare the rust-test Collector" {
   }
   verify unit "rust-test declares nextest, its config, its install line and its peers"
   verify unit "the config's specforge profile writes JUnit to the report path"
+  verify integration "a missing nextest names its install line and keeps the packages and items"
 }
 
 behavior rt_map_nextest_report "Map a nextest Report to Test Facts" {
@@ -48,6 +49,7 @@ behavior rt_map_nextest_report "Map a nextest Report to Test Facts" {
   verify unit "a test takes its places, file and names from its item"
   verify unit "a case outside exactly one testsuite is the collector's error"
   verify unit "an empty report has no test"
+  verify integration "rust-test writes its nextest config and runs cargo-nextest with it"
 }
 
 behavior rt_fill_ignored_tests "Fill the Ignored Tests nextest Omits" {

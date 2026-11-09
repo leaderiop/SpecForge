@@ -78,6 +78,8 @@ behavior rs_mint_item_facts "Mint Item Facts from Definitions" {
   verify unit "impl and trait items are named by their owner"
   verify unit "an item inside a function body or another item's block is not minted"
   verify unit "attributes and doc comments belong to the item directly below them"
+  verify integration "a second collect answers the same facts"
+  verify integration "a fixture crate's items are minted from its module tree by the host's reader"
 }
 
 behavior rs_mark_tests "Mark Test Functions with Their Runner Id and Entity" {
