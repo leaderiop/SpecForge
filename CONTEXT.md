@@ -1780,6 +1780,18 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   kinds and receives their admitted facts in `CollectInput.facts`; a kind no collector that ran answers is served from
   the recorded fact stores. A cycle of such collectors is E119 (ADR 0345 D3).
 - **Collector-written kind**: a kind whose `writer` is `collector`; it declares its `schemes`.
+- **Collector config file**: the one file a collector's `process` capability may declare (`config`: a name and a
+  template): the host writes it, `{report}` expanded and escaped for a quoted string, to
+  `.specforge/reports/<collector>.<name>` before the run, and `{config}` in the argv names it. Its text is part of the
+  approved scope: a changed template asks again (ADR 0348 D1–D3).
+- **Install line**: what a collector says to run when its program is not found on PATH
+  (`CollectorDescriptor.install`, `cargo install cargo-nextest --locked`), in the E045 or the skip reason (ADR 0348 D4).
+- **Binary id**: nextest's name of a test binary, the JUnit `<testsuite>` of its tests: `<package>` for the lib,
+  `<package>::<test>` for an integration test, `<package>::bin/<name>`, `<package>::example/<name>`,
+  `<package>::bench/<name>`; the container of a Rust test id (ADR 0347 D4, ADR 0348 D8).
+- **Module tree**: the files of one cargo target, walked from its root by rustc's rules (`mod b;` → `b.rs` or
+  `b/mod.rs`, a non-mod-rs file's children in its own directory, `#[path]`, `cfg_attr` paths): what `@rust/source` reads
+  its items from (ADR 0348 D6).
 - **Fact store**: `.specforge/facts/<key>/<collector>.json`, git-ignored, one file per collector and key, recorded by a
   `<collector> facts:<key> <digest>` line of the harness ledger.
 - **Fact key**: the commit a collect ran at (`<sha>`, `<sha>-dirty`), or `worktree`.
