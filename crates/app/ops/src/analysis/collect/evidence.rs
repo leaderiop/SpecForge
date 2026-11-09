@@ -4,7 +4,7 @@
 //! names and nothing the collector declares.
 
 use super::collector::{
-    capture_path, captures_stdout, command_line, config_path, expanded_config, read_capture,
+    ConfigFile, capture_path, captures_stdout, command_line, config_file, read_capture,
     reads_no_report, report_path,
 };
 use super::dispatch::read_report;
@@ -49,8 +49,8 @@ pub(super) enum Source<'m> {
     Run {
         output: RunnerOutput,
         declared: Declared,
-        /// The config file the command reads (ADR 0348 D2), held, and its text.
-        config: Option<(Held, String)>,
+        /// The config file the command reads (ADR 0348 D2).
+        config: Option<ConfigFile>,
         argv: Vec<String>,
     },
     /// Read the declared report and the capture the runner already wrote.
@@ -90,16 +90,12 @@ impl<'m> Source<'m> {
             Mode::NoRun => Declared::of(collector, root, containment).map(Source::Written),
             Mode::Run(output) => {
                 let declared = Declared::of(collector, root, containment)?;
-                let config = config_path(collector, root, containment)?;
+                let config = config_file(collector, root, containment, &declared.report.at)?;
                 let argv = command_line(
                     collector,
                     &declared.report.at,
-                    config.as_ref().map(|held| held.at.as_path()),
+                    config.as_ref().map(|config| config.held.at.as_path()),
                 );
-                let config = config.zip(collector.config.as_ref()).map(|(held, config)| {
-                    let text = expanded_config(&config.template, &declared.report.at);
-                    (held, text)
-                });
                 if argv.is_empty() {
                     return Err(fail(
                         OpErrorKind::SchemaMismatch,
@@ -253,7 +249,7 @@ fn run_command(
     root: &Path,
     report: &Held,
     capture: Option<&Held>,
-    config: Option<&(Held, String)>,
+    config: Option<&ConfigFile>,
     argv: &[String],
     output: RunnerOutput,
 ) -> Result<Ran, NotRan> {
@@ -266,12 +262,14 @@ fn run_command(
             _ => {}
         }
     }
-    let config_file = config.map(|(held, _)| held);
-    for file in std::iter::once(report).chain(capture).chain(config_file) {
+    for file in std::iter::once(report)
+        .chain(capture)
+        .chain(config.map(|config| &config.held))
+    {
         file.create_parent()
             .map_err(|e| format!("{}: {e}", file.named.display()))?;
     }
-    if let Some((held, text)) = config {
+    if let Some(ConfigFile { held, text }) = config {
         held.create_owned_file()
             .and_then(|mut file| std::io::Write::write_all(&mut file, text.as_bytes()))
             .map_err(|e| format!("{}: {e}", held.named.display()))?;

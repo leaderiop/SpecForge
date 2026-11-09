@@ -34,9 +34,9 @@ pub use specforge_protocol_types::{
 
 pub use specforge_protocol_types::{
     ByteRange, CapabilityDescriptor, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan,
-    CheckRef, CheckStatus, CheckValuesInput, CheckerDescriptor, FsAccess, GitOp, HttpMethod,
-    MAX_PROBE_ROUNDS, Operation, OutcomeClass, OutcomeData, PlannedItem, PortScope, Probe,
-    ProbeOutcome, StatEntry, ValueForm,
+    CheckRef, CheckStatus, CheckValuesInput, CheckerDescriptor, FILE_READ_MAX, FsAccess, GitOp,
+    HttpMethod, MAX_PROBE_ROUNDS, Operation, OutcomeClass, OutcomeData, PlannedItem, PortScope,
+    Probe, ProbeOutcome, StatEntry, ValueForm,
 };
 
 pub use specforge_protocol_types::{
@@ -305,8 +305,8 @@ impl ContributionsBuilder {
                 .why(&format!(
                     "run the command whose report the collector '{name}' reads"
                 ));
-            if let Some((file, template)) = &b.config {
-                capability = capability.config(file, template);
+            if let Some(config) = &b.config {
+                capability = capability.config(&config.name, &config.template);
             }
             self.capability(capability);
         }
@@ -629,7 +629,8 @@ pub mod prelude {
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
-        CollectorBuilder, DanglingReason, DanglingReference, Fact, FactLocation, PlanBuilder,
+        CollectorBuilder, DanglingReason, DanglingReference, FILE_READ_MAX, Fact, FactLocation,
+        PlanBuilder,
     };
     pub use specforge_extension_sdk_macros::extension;
     pub use specforge_protocol_types::{

@@ -5,7 +5,8 @@ use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
 use specforge_effects::Uses;
 use specforge_protocol_types::{
-    ExtensionDeclaration, Input, Inputs, Operation, PortScope, ProcessConfig,
+    CONFIG_PLACEHOLDER, ExtensionDeclaration, Input, Inputs, Operation, PortScope, ProcessConfig,
+    REPORT_PLACEHOLDER,
 };
 use std::path::Path;
 
@@ -246,20 +247,31 @@ pub(super) fn read_capture(held: &Held) -> Option<String> {
         .map(|bytes| specforge_effects::process::text(&bytes))
 }
 
-/// Where the collector's config file is written (ADR 0348 D2), held: `.specforge/reports/<collector>.<name>`; none
-/// when its command reads no config.
-pub(super) fn config_path(
+/// The config file a collector's command reads (ADR 0348 D2): where it is written, held, and its text.
+pub(super) struct ConfigFile {
+    /// `.specforge/reports/<collector>.<name>`, a name the run owns.
+    pub(super) held: Held,
+    /// The template, each `{report}` the report's absolute path.
+    pub(super) text: String,
+}
+
+/// The collector's config file for a run whose report is at `report`; none when its command reads no config.
+pub(super) fn config_file(
     collector: &Collector,
     root: &Path,
     containment: &Containment,
-) -> Result<Option<Held>, OpError> {
+    report: &Path,
+) -> Result<Option<ConfigFile>, OpError> {
     let Some(config) = &collector.config else {
         return Ok(None);
     };
     let named = root
         .join(".specforge/reports")
         .join(format!("{}.{}", collector.name, config.name));
-    Ok(Some(containment.resolve(&named)?))
+    Ok(Some(ConfigFile {
+        held: containment.resolve(&named)?,
+        text: expanded_config(&config.template, report),
+    }))
 }
 
 /// `template` with each `{report}` replaced by `report`, escaped for the inside of a double-quoted TOML or JSON string
@@ -276,7 +288,7 @@ pub(super) fn expanded_config(template: &str, report: &Path) -> String {
             c => escaped.push(c),
         }
     }
-    template.replace("{report}", &escaped)
+    template.replace(REPORT_PLACEHOLDER, &escaped)
 }
 
 /// The declared command with `{report}` and `{config}` expanded.
@@ -291,8 +303,8 @@ pub(super) fn command_line(
         .run
         .iter()
         .map(|arg| {
-            arg.replace("{report}", &report)
-                .replace("{config}", &config)
+            arg.replace(REPORT_PLACEHOLDER, &report)
+                .replace(CONFIG_PLACEHOLDER, &config)
         })
         .collect()
 }

@@ -340,8 +340,12 @@ pub struct ProcessConfig {
 /// The most bytes a config template holds.
 pub const CONFIG_TEMPLATE_MAX: usize = 16 * 1024;
 
+/// The argv placeholder the host expands to the collector's report location (in a config template too).
+pub const REPORT_PLACEHOLDER: &str = "{report}";
+/// The argv placeholder the host expands to the config file it writes.
+pub const CONFIG_PLACEHOLDER: &str = "{config}";
 /// The argv placeholders the host expands: the report location and the config file.
-pub const ARGV_PLACEHOLDERS: [&str; 2] = ["{report}", "{config}"];
+pub const ARGV_PLACEHOLDERS: [&str; 2] = [REPORT_PLACEHOLDER, CONFIG_PLACEHOLDER];
 
 /// Whether `name` is a config file's name: one segment `[a-z0-9][a-z0-9._-]*` ending `.toml` or `.json`.
 pub fn is_config_name(name: &str) -> bool {
@@ -369,11 +373,13 @@ fn config_problems(capability: &CapabilityDescriptor, process: &ProcessScope) ->
     let named = process
         .argv
         .iter()
-        .filter(|arg| arg.contains("{config}"))
+        .filter(|arg| arg.contains(CONFIG_PLACEHOLDER))
         .count();
     let Some(config) = &process.config else {
         if named > 0 {
-            problems.push("its argv names {config} but it declares no config".to_string());
+            problems.push(format!(
+                "its argv names {CONFIG_PLACEHOLDER} but it declares no config"
+            ));
         }
         return problems;
     };
@@ -392,7 +398,7 @@ fn config_problems(capability: &CapabilityDescriptor, process: &ProcessScope) ->
     }
     if named != 1 {
         problems.push(format!(
-            "its argv names {{config}} {named} times; a config needs it once"
+            "its argv names {CONFIG_PLACEHOLDER} {named} times; a config needs it once"
         ));
     }
     problems

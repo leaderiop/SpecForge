@@ -65,8 +65,8 @@ fn read(input: &CollectInput, name: &str) -> Result<Vec<(String, Option<String>)
     };
     if read.truncated {
         return Err(format!(
-            "the read '{name}' matched more files than the host serves (2,000): rust-cargo would miss packages or \
-             targets, so it reads none"
+            "the read '{name}' matched more files than the host serves ({FILE_READ_MAX}): rust-cargo would miss \
+             packages or targets, so it reads none"
         ));
     }
     read.facts

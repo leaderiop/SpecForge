@@ -62,21 +62,23 @@ pub fn settle(
                 approval,
                 why,
                 summary,
-            } => Question::Capability {
-                extension: &approval.extension,
-                scope: &approval.scope,
-                summary,
-                why,
-                project: &approval.project,
-                command: match &approval.granted {
-                    PortScope::Process(process) => Some(&process.argv),
-                    _ => None,
-                },
-                config: match &approval.granted {
-                    PortScope::Process(process) => process.config.as_ref(),
-                    _ => None,
-                },
-            },
+            } => {
+                let (command, config) = match &approval.granted {
+                    PortScope::Process(process) => {
+                        (Some(process.argv.as_slice()), process.config.as_ref())
+                    }
+                    _ => (None, None),
+                };
+                Question::Capability {
+                    extension: &approval.extension,
+                    scope: &approval.scope,
+                    summary,
+                    why,
+                    project: &approval.project,
+                    command,
+                    config,
+                }
+            }
             Need::Root(root) => Question::Root {
                 name: &root.root,
                 target: &root.target,

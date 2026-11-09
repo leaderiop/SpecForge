@@ -6,7 +6,7 @@ use crate::{
 };
 use specforge_protocol_types::{
     AutoDetectConfig, CodeDescriptor, CollectorDescriptor, CompilerPassDescriptor, GUARD_PHASE,
-    JudgedDescriptor, JudgedInput, JudgedTarget,
+    JudgedDescriptor, JudgedInput, JudgedTarget, ProcessConfig,
 };
 
 /// Builder for [`EntityKindDescriptor`].
@@ -648,7 +648,7 @@ pub struct CollectorBuilder {
     /// The argv [`CollectorBuilder::run`] gave: the collector's process capability, declared with it.
     pub(crate) run: Option<Vec<String>>,
     /// The config file [`CollectorBuilder::config`] gave, declared on that capability.
-    pub(crate) config: Option<(String, String)>,
+    pub(crate) config: Option<ProcessConfig>,
 }
 
 impl CollectorBuilder {
@@ -721,7 +721,10 @@ impl CollectorBuilder {
     /// in it the report's absolute path escaped for a quoted string. `{config}` in an argument is the file's absolute
     /// path. A person approves the text with the command.
     pub fn config(&mut self, name: &str, template: &str) -> &mut Self {
-        self.config = Some((name.to_string(), template.to_string()));
+        self.config = Some(ProcessConfig {
+            name: name.to_string(),
+            template: template.to_string(),
+        });
         self
     }
     /// What to run to install the command's program, said when it is not found on PATH (ADR 0348 D4).

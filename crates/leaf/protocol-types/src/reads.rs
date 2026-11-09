@@ -33,13 +33,16 @@ pub struct FileRead {
     pub text: bool,
 }
 
+/// The most files one [`FileRead`] names: past it the host reads that many and says [`FileFacts::truncated`].
+pub const FILE_READ_MAX: usize = 2000;
+
 /// What the host read for one [`FileRead`].
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileFacts {
     /// One per (entity, path), sorted by `(entity, path)`; a glob's by `path`.
     #[serde(default)]
     pub facts: Vec<FileFact>,
-    /// The glob matched more files than the host reads (2000).
+    /// The glob matched more files than the host reads ([`FILE_READ_MAX`]).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub truncated: bool,
 }
