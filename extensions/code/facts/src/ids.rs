@@ -16,7 +16,7 @@ const SUBPATH_ESCAPES: &[char] = &['%', '#', '?', ' '];
 
 /// An id that does not parse: what was expected of it.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct IdError(String);
+pub struct IdError(pub(crate) String);
 
 impl fmt::Display for IdError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

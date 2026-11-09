@@ -1,0 +1,7 @@
+# Its own workspace: nothing to inherit from the one above.
+[package]
+name = "standalone"
+version = "1.0.0"
+edition = "2018"
+
+[workspace]

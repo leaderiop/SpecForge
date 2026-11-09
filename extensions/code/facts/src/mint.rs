@@ -8,7 +8,7 @@ use specforge_code_junit::Case;
 use specforge_extension_sdk::host::SyntaxPoint;
 use specforge_extension_sdk::prelude::{Fact, FactLocation, TestStatus};
 
-use crate::{ItemId, PackageId, TargetKind, TestId};
+use crate::{IdError, ItemId, PackageId, TargetKind, TestId};
 
 /// The entities a fact names, each with the places it is written (none when its pack read no place): what
 /// `Fact::name` records, so a rename of the entity rewrites them (ADR 0346 D7).
@@ -382,6 +382,20 @@ impl Target {
     /// As `package.targets` writes it: `<kind>:<name>:<root>`.
     pub fn written(&self) -> String {
         format!("{}:{}:{}", self.kind.word(), self.name, self.root)
+    }
+
+    /// The target `package.targets` writes as `text` ([`Target::written`]); its root may hold `:`, its name not.
+    pub fn read(text: &str) -> Result<Target, IdError> {
+        match text.splitn(3, ':').collect::<Vec<_>>()[..] {
+            [kind, name, root] if !name.is_empty() && !root.is_empty() => Ok(Target {
+                kind: TargetKind::cargo(kind)?,
+                name: name.to_string(),
+                root: root.to_string(),
+            }),
+            _ => Err(IdError(format!(
+                "'{text}' is no target: <kind>:<name>:<root>"
+            ))),
+        }
     }
 }
 

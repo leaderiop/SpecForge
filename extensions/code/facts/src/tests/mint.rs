@@ -389,3 +389,24 @@ fn the_taskboard_test_id_is_the_exit_string() {
     );
     assert_eq!(minted.len(), 6, "a test and a run per case");
 }
+
+#[test]
+fn a_target_reads_back_what_it_writes() {
+    for target in [
+        Target {
+            kind: TargetKind::Test,
+            name: "api".to_string(),
+            root: "tests/api.rs".to_string(),
+        },
+        Target {
+            kind: TargetKind::CustomBuild,
+            name: "build-script-build".to_string(),
+            root: "c:/odd:dir/build.rs".to_string(),
+        },
+    ] {
+        assert_eq!(Target::read(&target.written()), Ok(target));
+    }
+    for text in ["lib:toy", "lib::src/lib.rs", "module:toy:src/lib.rs"] {
+        assert!(Target::read(text).is_err(), "{text}");
+    }
+}
