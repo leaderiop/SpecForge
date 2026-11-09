@@ -106,17 +106,21 @@ fn the_keep_rules_judge_a_path_inside_its_package_a_package_json_too() {
         app.fields["depends_on"],
         json!(["pkg:npm/lib#packages/x/lib"])
     );
-    // With no package above it, a package under build/ is the top of its tree: its own files are read.
-    let built = run(
+    // With no package above it (an unnamed root), a package.json is judged on its path in the project: a fixture
+    // under tests/ is still none, a package under packages/ judges its own files inside it.
+    let unnamed = run(
         host(&[
-            ("build/tool/package.json", r#"{"name":"tool"}"#),
-            ("build/tool/src/a.js", "export const a = 1;\n"),
-            ("build/tool/test/a.test.js", "export const t = 1;\n"),
+            ("package.json", r#"{"private":true}"#),
+            ("tests/fixtures/x/package.json", r#"{"name":"x"}"#),
+            ("tests/fixtures/x/src/a.js", "export const a = 1;\n"),
+            ("packages/tool/package.json", r#"{"name":"tool"}"#),
+            ("packages/tool/src/a.js", "export const a = 1;\n"),
+            ("packages/tool/test/a.test.js", "export const t = 1;\n"),
         ]),
         &[],
     )
     .0
     .unwrap();
-    assert_eq!(packages(&built), ["pkg:npm/tool"]);
-    assert_eq!(items(&built), ["js:tool/src/a.js::a"]);
+    assert_eq!(packages(&unnamed), ["pkg:npm/tool"]);
+    assert_eq!(items(&unnamed), ["js:tool/src/a.js::a"]);
 }

@@ -37,8 +37,8 @@ behavior js_select_source_files "Select and Parse the Source Files" {
     *.min.js, *.min.mjs or *.min.cjs, or a directory segment coverage,
     build, out, .nuxt, .svelte-kit, .turbo, .cache or storybook-static).
     It reads every named package but one whose package.json, inside the
-    nearest package it reads above it, is a test file's or generated
-    output's by the same rules; a package with none above it is read.
+    nearest package it reads above it (inside the project when there is
+    none), is a test file's or generated output's by the same rules.
     The kept files of one grammar MUST be parsed in one request, the
     typescript grammar for .ts .mts .cts and tsx for the rest, the files an
     answer's cap left unparsed asked again. A listing the host truncated

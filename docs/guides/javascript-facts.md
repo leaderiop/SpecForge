@@ -48,12 +48,11 @@ with the TypeScript grammar, and every `.tsx`, `.js`, `.jsx`, `.mjs` and
   `.cache` or `storybook-static`. The host's walk never enters `dist`,
   `node_modules`, `.next`, `vendor` or `.git`.
 
-The test and generated-output rules judge a file's path inside its package,
-never the directories above the package: a package that lives under
-`build/` with no package above it has its files read. A `package.json`
-under a test or generated-output directory of another package (a fixture
-under `tests/`) is no package of this pack: no package fact, and its files
-are that directory's, so unread.
+The test and generated-output rules judge a file's path inside its package.
+A `package.json` is judged the same way, on its path inside the package
+above it, or in the project when there is none: one under a test or
+generated-output directory (a fixture under `tests/`, a copy under `build/`)
+is no package of this pack, so no package fact, and its files are unread.
 
 Compiled output committed under another name (`lib/`) is read: its
 definitions become items. There is no per-project exclusion yet.

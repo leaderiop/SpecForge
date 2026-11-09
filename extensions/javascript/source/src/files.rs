@@ -4,7 +4,8 @@
 //! alternation). A listed file is read when a package the pack reads owns it ([`Workspace::owner`]: a file under none
 //! is outside the pack, as a `.rs` file no crate reaches is outside `@rust/source`) and its path inside that package is
 //! neither a test file (a runner pack holds the tests; their helpers are no API) nor generated output. A package is
-//! read unless its `package.json`, inside the package above it, is a test's or generated output's ([`read_packages`]). The kept files of one grammar are
+//! read unless its `package.json`, inside the package above it or the project, is a test's or generated output's
+//! ([`read_packages`]). The kept files of one grammar are
 //! parsed in one request, the files an answer's cap left unparsed asked again. A listing the host truncated is
 //! replaced, for its extension, by a parse of its glob whose answer the same rules filter.
 
@@ -125,8 +126,8 @@ pub(crate) fn kept(workspace: &Workspace, path: &str) -> bool {
 }
 
 /// `workspace` without the packages the pack does not read: one whose `package.json`, inside the nearest package the
-/// pack reads above it, is not readable (a fixture under `tests/`, a copy under `build/`), and so every package below
-/// it; their files fall to that package, which does not read them either. A package with none above it is read.
+/// pack reads above it (from the project root when there is none), is not readable (a fixture under `tests/`, a copy
+/// under `build/`), and so every package below it; their files are read by no package.
 pub(crate) fn read_packages(mut workspace: Workspace) -> Workspace {
     let depth = |dir: &str| dir.split('/').filter(|s| !s.is_empty()).count();
     let mut ordered: Vec<&Package> = workspace.packages().iter().collect();
@@ -141,7 +142,7 @@ pub(crate) fn read_packages(mut workspace: Workspace) -> Workspace {
             .iter()
             .filter_map(|above| Some((above.dir.len(), above.holds(&manifest)?)))
             .max_by_key(|(len, _)| *len);
-        if inside.is_none_or(|(_, under)| readable(under)) {
+        if readable(inside.map_or(manifest.as_str(), |(_, under)| under)) {
             read.push(package);
         }
     }
