@@ -117,10 +117,22 @@ pub fn stored_with(
     facts: Value,
     sources: std::collections::BTreeMap<String, String>,
 ) {
+    store_of(root, collector, NODE, key, facts, sources);
+}
+
+/// [`stored_with`], the store naming `extension` as the one whose collector wrote it.
+pub(crate) fn store_of(
+    root: &std::path::Path,
+    collector: &str,
+    extension: &str,
+    key: &str,
+    facts: Value,
+    sources: std::collections::BTreeMap<String, String>,
+) {
     use crate::facts::Store;
     use crate::harness::{LEDGER_FILE, Ledger, Line};
     let facts = serde_json::from_value(facts).expect("facts as the wire carries them");
-    let bytes = Store::new(collector, NODE, key, facts, sources).bytes();
+    let bytes = Store::new(collector, extension, key, facts, sources).bytes();
     let path = root.join(Store::path(collector, key));
     std::fs::create_dir_all(path.parent().expect("a store path has a directory"))
         .expect("the store's directory is made");

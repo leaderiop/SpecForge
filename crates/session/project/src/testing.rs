@@ -26,6 +26,7 @@ pub mod gsd_facts;
 pub mod gsd_hosts;
 pub mod gsd_prompts;
 pub mod gsd_writes;
+pub mod items;
 pub mod judged;
 pub mod routed;
 pub mod scoped;
@@ -51,6 +52,10 @@ pub use gsd_prompts::{GSD_PROMPTS_EXTENSIONS, GsdPrompts, NO_CONTEXT, gsd_prompt
 pub use gsd_writes::{
     CORE, GSD_WRITES_EXTENSIONS, GUARDED, GsdWrites, OTHER, UI, gsd_writes_answer, gsd_writes_wire,
     revision_of,
+};
+pub use items::{
+    CITES, ITEM_EXTENSIONS, ITEMS, WORKTREE, declare_cites, declare_items, item, items_over,
+    items_runtime, naming, stored_items,
 };
 pub use judged::{
     CODE_CORE, GSD_JUDGED, GSD_JUDGED_SPEC, PLAN_CHECK_INPUTS, code_core_builder, code_core_tests,

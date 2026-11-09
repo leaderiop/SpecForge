@@ -21,8 +21,11 @@ pub(crate) struct Claim {
     /// With its dot (`.rs`).
     pub(crate) extension: String,
     /// The extension that declares the analyzer.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "read by the claim tests until the walk goes")
+    )]
     pub(crate) analyzer: String,
-    pub(crate) scan_export: String,
 }
 
 /// The enabled analyzers' claims, in declaration order, and the directories they never scan.
@@ -46,7 +49,6 @@ impl Analyzers {
                     analyzers.claims.push(Claim {
                         extension,
                         analyzer: declaration.name().to_string(),
-                        scan_export: analyzer.scan_export.clone(),
                     });
                 }
                 analyzers
@@ -179,7 +181,6 @@ impl ProjectFiles {
 #[derive(Debug)]
 pub(crate) struct InferenceSources {
     files: ProjectFiles,
-    analyzers: Analyzers,
     keys: Vec<SourceKey>,
 }
 
@@ -194,11 +195,7 @@ impl InferenceSources {
         let files = ProjectFiles::at(root);
         let analyzers = Analyzers::of(declarations);
         let keys = walk(&files, &analyzers, &manifest.source_roots);
-        InferenceSources {
-            files,
-            analyzers,
-            keys,
-        }
+        InferenceSources { files, keys }
     }
 
     /// Sorted, each once.
@@ -206,30 +203,8 @@ impl InferenceSources {
         &self.keys
     }
 
-    pub(crate) fn claim(&self, key: &SourceKey) -> Option<&Claim> {
-        let name = key.as_str().rsplit('/').next().unwrap_or_default();
-        self.analyzers.claim(name)
-    }
-
     pub(crate) fn files(&self) -> &ProjectFiles {
         &self.files
-    }
-
-    /// Sources at the given keys, walked by nobody (a scan of a file that is gone).
-    #[cfg(test)]
-    pub(crate) fn with_keys(
-        root: &Path,
-        declarations: &[ExtensionDeclaration],
-        keys: &[impl AsRef<str>],
-    ) -> Self {
-        InferenceSources {
-            files: ProjectFiles::at(root),
-            analyzers: Analyzers::of(declarations),
-            keys: keys
-                .iter()
-                .map(|k| SourceKey::read(root, k.as_ref()).unwrap())
-                .collect(),
-        }
     }
 }
 

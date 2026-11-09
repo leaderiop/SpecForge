@@ -6,9 +6,9 @@
 //! project here.
 //!
 //! Progress compares the source files the enabled analyzers would scan
-//! with the manifest's index; gaps scans those files for public items and
-//! keeps the ones nothing covers (the anchors read view's covered items); the lint reports analyzed files
-//! that changed or are over-dense; [`session`] records one step of an
+//! with the manifest's index; gaps reads the public item facts the compiled
+//! graph holds ([`ITEM_KIND`]) and keeps the ones nothing covers (the anchors read view's covered items); the
+//! lint reports analyzed files that changed or are over-dense; [`session`] records one step of an
 //! inference session. The inference guide (what to look for to infer each
 //! kind's entities, [`guide`] and [`kind_guide`]) is a read view over the
 //! project view that the infer prompt, `specforge infer-guide` and the
@@ -18,21 +18,20 @@
 
 mod gaps;
 mod guide;
+mod items;
 mod lint;
 mod manifest;
 mod plan;
 mod progress;
-mod scan;
 mod session;
 mod sources;
 
-pub use gaps::{
-    DirectoryGaps, GapItem, Gaps, GapsDocument, ScanFailureRow, SourceItem, directory_of, gaps,
-};
+pub use gaps::{DirectoryGaps, GapItem, Gaps, GapsDocument, SourceItem, directory_of, gaps};
 pub use guide::{
     GuideDocument, GuideField, GuideKind, InferenceGuide, KindGuide, KindGuideDocument,
     KindGuideField, guide, kind_guide,
 };
+pub use items::ITEM_KIND;
 pub use lint::lint;
 pub(crate) use manifest::read_manifest;
 pub use manifest::{
@@ -46,7 +45,6 @@ pub use plan::{
 pub use progress::{
     Progress, ProgressDocument, ProgressSummary, SessionRow, UnanalyzedDirectory, progress,
 };
-pub use scan::ScanFailure;
 pub use session::{
     END_STATUS, EndStatus, Recorded, SESSION_ACTION, SESSION_ACTIVE, SESSION_NOT_ACTIVE,
     SOURCE_UNREADABLE, SessionAction, SessionField, SessionOutcome, SessionRequest, SessionStep,

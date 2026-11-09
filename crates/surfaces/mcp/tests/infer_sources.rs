@@ -4,6 +4,7 @@
 use crate::support::*;
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
+use specforge_project::testing::item;
 use specforge_test::prelude::*;
 use tempfile::TempDir;
 
@@ -32,42 +33,51 @@ fn rust(c: &mut ContributionsBuilder) {
     });
 }
 
-/// A served project with `src/lib.rs`, and links to a directory and a file outside it.
-fn scene() -> (TempDir, Served) {
-    let project = TestProject::new();
-    let outside = TempDir::new().unwrap();
-    std::fs::write(
-        outside.path().join("secret.rs"),
-        "pub fn secret_outside() {}\n",
-    )
-    .unwrap();
-    let src = project.root().join("src");
-    std::fs::create_dir_all(&src).unwrap();
-    std::fs::write(src.join("lib.rs"), "pub fn inside() {}\n").unwrap();
-    #[cfg(unix)]
-    {
-        std::os::unix::fs::symlink(outside.path(), src.join("ext")).unwrap();
-        std::os::unix::fs::symlink(outside.path().join("secret.rs"), src.join("leak.rs")).unwrap();
-        std::os::unix::fs::symlink("..", src.join("loop")).unwrap();
-    }
-    let served = project.serve(&[TestExtension::named("@specforge/rust").declaring(rust)]);
-    (outside, served)
-}
-
 fn answer(server: &mut Served, tool: &str, arguments: Value) -> Value {
     let reply = call_tool(server, tool, arguments);
     serde_json::from_str(&tool_text(&reply)).unwrap()
 }
 
-#[cfg(unix)]
 #[specforge_test(
     behavior = "discover_inference_sources",
     verify = "no inference source lands outside the project root"
 )]
 fn infer_gaps_lists_no_file_outside_the_served_project() {
-    let (_outside, mut server) = scene();
+    let project = TestProject::new().file("src/lib.rs", "pub fn inside() {}\n");
+    specforge_project::testing::stored_items(
+        project.root(),
+        "rust-source",
+        vec![
+            item(
+                "rust:p::inside",
+                "src/lib.rs",
+                1,
+                "function",
+                "public",
+                "inside",
+            ),
+            item(
+                "rust:p::secret_outside",
+                "../outside.rs",
+                1,
+                "function",
+                "public",
+                "secret_outside",
+            ),
+            item(
+                "rust:p::absolute",
+                "/etc/absolute.rs",
+                1,
+                "function",
+                "public",
+                "absolute",
+            ),
+        ],
+    );
+    let mut server = project.serve(&[TestExtension::items()]);
     let gaps = answer(&mut server, "specforge.infer_gaps", json!({}));
     assert!(!gaps.to_string().contains("secret_outside"), "{gaps}");
+    assert!(!gaps.to_string().contains("absolute"), "{gaps}");
     assert_eq!(gaps["total_pub_items"], 1, "{gaps}");
 }
 

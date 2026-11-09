@@ -761,7 +761,6 @@ reply_type! {
     mcp_infer_summary => "McpInferSummary", "McpInferSummary schema is valid",
     mcp_infer_session_row => "McpInferSessionRow", "McpInferSessionRow schema is valid",
     mcp_infer_gaps_result => "McpInferGapsResult", "McpInferGapsResult schema is valid",
-    mcp_scan_failure => "McpScanFailure", "McpScanFailure schema is valid",
     mcp_directory_gaps => "McpDirectoryGaps", "McpDirectoryGaps schema is valid",
     mcp_gap_item => "McpGapItem", "McpGapItem schema is valid",
     mcp_infer_session_result => "McpInferSessionResult", "McpInferSessionResult schema is valid",

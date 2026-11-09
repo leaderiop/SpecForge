@@ -1267,17 +1267,9 @@ type McpInferGapsResult "Mcp Infer Gaps Result" {
   covered_items   integer
   gap_count       integer
   approximate     boolean
-  scanners_used   string[]
-  scan_failures   McpScanFailure[]
+  collectors      string[]
   by_directory    McpDirectoryGaps[]
   verify unit "McpInferGapsResult schema is valid"
-}
-
-type McpScanFailure "Mcp Scan Failure" {
-  file    string @readonly
-  code    string
-  message string
-  verify unit "McpScanFailure schema is valid"
 }
 
 type McpDirectoryGaps "Mcp Directory Gaps" {

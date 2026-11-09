@@ -1,17 +1,15 @@
-//! Inference gaps: the public items of the project's source files that
-//! nothing covers (`specforge infer-status --gaps-detail`, the MCP
-//! `specforge.infer_gaps` tool).
+//! Inference gaps: the public items the compiled graph's item facts hold that nothing covers (`specforge
+//! infer-status --gaps-detail`, the MCP `specforge.infer_gaps` tool).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
+use specforge_common::codes;
 use specforge_common::shape::Shape;
 
-use super::ScanFailure;
+use super::items::item_facts;
 use super::manifest::InferenceManifest;
-use super::scan::ScanOutcome;
-use super::sources::InferenceSources;
 use crate::OpError;
 use crate::view::ProjectView;
 
@@ -22,38 +20,53 @@ pub struct Gaps {
     pub covered_items: usize,
     /// Directory (`.` for the root) to its uncovered items, sorted.
     pub by_directory: BTreeMap<String, Vec<SourceItem>>,
-    /// Whether the counts are approximate: a scanner failed on a file, so
-    /// its items are unknown.
+    /// Whether the counts are approximate: a fact store was not served (W191, W192), so its items are unknown. It
+    /// over-reports when that store holds no item.
     pub approximate: bool,
-    pub scanners_used: Vec<String>,
-    /// The files a scanner failed on (E028 each): their items are unknown.
-    pub scan_failures: Vec<ScanFailure>,
+    /// The collectors whose stores held the counted items, sorted, each once.
+    pub collectors: Vec<String>,
 }
 
+/// One public item, where its source places it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SourceItem {
     pub name: String,
     pub item_kind: String,
     pub file: String,
     pub line: usize,
+    /// The collector whose store holds it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scanner: Option<String>,
+    pub collector: Option<String>,
 }
 
-/// The public items of the view's source files that nothing covers (the
-/// anchors read view's covered items, ADR 0199), scanned through its extensions' scanners in the view's
-/// runtime. Without a root: `no_project`.
+/// The public item facts of the view's graph under the inference manifest's source roots that nothing covers: no
+/// authored entity cites them and no anchor names them (the anchors read view's covered items, ADR 0199). No source
+/// file is read. Without a root: `no_project`; an inference or anchors manifest that cannot be used: E071.
 pub fn gaps(view: &ProjectView) -> Result<Gaps, OpError> {
     let root = view.project_root()?;
-    let declarations = view.registries().declarations();
-    let sources = InferenceSources::of(root, declarations, &InferenceManifest::at(root)?);
-    // Before the scan: an anchors manifest that cannot be used costs no scan.
+    let manifest = InferenceManifest::at(root)?;
+    // Before any fact is read: an anchors manifest that cannot be used refuses the gaps.
     let covered = crate::read::navigate::CoveredItems::of(view)?;
-    let scanned =
-        crate::read::infer::scan::scan_source_files(view.runtime().map(|r| r.as_ref()), &sources);
-    Ok(Gaps::of(scanned, |item| {
-        covered.covers(&item.file, &item.name)
-    }))
+    let graph = view.graph();
+    let items = item_facts(view, root, &manifest.source_roots)
+        .into_iter()
+        .filter(|item| item.is_public())
+        .map(|item| {
+            let covers = covered.covers(graph, item.node);
+            let item = SourceItem {
+                name: item.name().to_string(),
+                item_kind: item.kinds(),
+                file: item.key.as_str().to_string(),
+                line: item.line,
+                collector: item.collector,
+            };
+            (item, covers)
+        });
+    let approximate = view
+        .reported()
+        .iter()
+        .any(|d| d.is(codes::W191) || d.is(codes::W192));
+    Ok(Gaps::of(items, approximate))
 }
 
 /// The directory part of a project-relative path, `.` at the root.
@@ -62,17 +75,20 @@ pub fn directory_of(path: &str) -> &str {
 }
 
 impl Gaps {
-    /// What `scanned` found, less the items `covered` keeps out, by directory. Approximate when a
-    /// scanner failed on a file.
-    pub fn of(scanned: ScanOutcome, covered: impl Fn(&SourceItem) -> bool) -> Gaps {
-        let total_pub_items = scanned.items.len();
+    /// The public `items`, each with whether it is covered: the uncovered ones by directory, the collectors of all.
+    /// `approximate` when a fact store was not served.
+    pub fn of(items: impl IntoIterator<Item = (SourceItem, bool)>, approximate: bool) -> Gaps {
+        let mut total_pub_items = 0;
+        let mut covered_items = 0;
+        let mut collectors = BTreeSet::new();
         let mut by_directory: BTreeMap<String, Vec<SourceItem>> = BTreeMap::new();
-        let mut uncovered = 0;
-        for item in scanned.items {
-            if covered(&item) {
+        for (item, covered) in items {
+            total_pub_items += 1;
+            collectors.extend(item.collector.clone());
+            if covered {
+                covered_items += 1;
                 continue;
             }
-            uncovered += 1;
             by_directory
                 .entry(directory_of(&item.file).to_string())
                 .or_default()
@@ -80,11 +96,10 @@ impl Gaps {
         }
         Gaps {
             total_pub_items,
-            covered_items: total_pub_items - uncovered,
+            covered_items,
             by_directory,
-            approximate: !scanned.failures.is_empty(),
-            scanners_used: scanned.scanners_used,
-            scan_failures: scanned.failures,
+            approximate,
+            collectors: collectors.into_iter().collect(),
         }
     }
 
@@ -101,19 +116,7 @@ impl Gaps {
             covered_items: self.covered_items,
             gap_count: self.gap_count(),
             approximate: self.approximate,
-            scanners_used: self.scanners_used.clone(),
-            scan_failures: self
-                .scan_failures
-                .iter()
-                .map(|failure| {
-                    let diagnostic = failure.error.diagnostic();
-                    ScanFailureRow {
-                        file: failure.file.clone(),
-                        code: diagnostic.code,
-                        message: diagnostic.message,
-                    }
-                })
-                .collect(),
+            collectors: self.collectors.clone(),
             by_directory: self
                 .by_directory
                 .iter()
@@ -143,17 +146,8 @@ pub struct GapsDocument {
     pub covered_items: usize,
     pub gap_count: usize,
     pub approximate: bool,
-    pub scanners_used: Vec<String>,
-    pub scan_failures: Vec<ScanFailureRow>,
+    pub collectors: Vec<String>,
     pub by_directory: Vec<DirectoryGaps>,
-}
-
-/// A file the scan could not read.
-#[derive(Debug, Clone, PartialEq, Serialize, Shape)]
-pub struct ScanFailureRow {
-    pub file: String,
-    pub code: String,
-    pub message: String,
 }
 
 /// The gaps of one directory.
@@ -176,94 +170,84 @@ pub struct GapItem {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::view::ProjectView;
+    use specforge_project::testing::{TestProject, item, items_runtime, naming, stored_items};
+    use specforge_test_macros::test as specforge_test;
 
-    fn item(name: &str, kind: &str, line: usize) -> SourceItem {
+    fn item_at(name: &str, kind: &str, file: &str, collector: Option<&str>) -> SourceItem {
         SourceItem {
             name: name.into(),
             item_kind: kind.into(),
-            file: "src/lib.rs".into(),
-            line,
-            scanner: Some("rust".into()),
-        }
-    }
-
-    fn scanned(items: Vec<SourceItem>) -> ScanOutcome {
-        ScanOutcome {
-            items,
-            scanners_used: vec!["rust".into()],
-            failures: Vec::new(),
+            file: file.into(),
+            line: 1,
+            collector: collector.map(str::to_string),
         }
     }
 
     #[test]
-    fn gaps_keep_the_items_no_entity_names() {
-        let scanned = scanned(vec![
-            item("hello", "function", 1),
-            item("config", "struct", 2),
-        ]);
-        let gaps = Gaps::of(scanned, |item: &SourceItem| item.name == "hello");
+    fn gaps_keep_the_items_nothing_covers() {
+        let gaps = Gaps::of(
+            [
+                (
+                    item_at("hello", "function", "src/lib.rs", Some("rust-source")),
+                    true,
+                ),
+                (
+                    item_at("config", "struct", "src/lib.rs", Some("rust-source")),
+                    false,
+                ),
+            ],
+            false,
+        );
         assert_eq!(gaps.total_pub_items, 2);
         assert_eq!(gaps.covered_items, 1);
         assert_eq!(gaps.by_directory["src"].len(), 1);
         assert_eq!(gaps.by_directory["src"][0].name, "config");
         assert!(!gaps.approximate);
-        assert_eq!(gaps.scanners_used, vec!["rust"]);
+        assert_eq!(gaps.collectors, ["rust-source"]);
     }
 
     #[test]
     fn gaps_of_covered_items_are_empty() {
-        let gaps = Gaps::of(
-            scanned(vec![item("hello", "function", 1)]),
-            |item: &SourceItem| item.name == "hello",
-        );
+        let gaps = Gaps::of([(item_at("hello", "function", "a.rs", None), true)], false);
         assert_eq!(gaps.gap_count(), 0);
         assert_eq!(gaps.covered_items, 1);
+        assert!(gaps.collectors.is_empty());
     }
 
     #[test]
     fn gaps_of_no_items_count_nothing() {
-        let gaps = Gaps::of(ScanOutcome::default(), |item: &SourceItem| {
-            item.name == "hello"
-        });
-        assert_eq!(gaps.total_pub_items, 0);
-        assert_eq!(gaps.gap_count(), 0);
+        let gaps = Gaps::of([], true);
+        assert_eq!((gaps.total_pub_items, gaps.gap_count()), (0, 0));
+        assert!(gaps.approximate);
     }
 
     #[test]
-    fn a_scan_failure_makes_gaps_approximate() {
-        let mut outcome = ScanOutcome::default();
-        outcome.failures.push(ScanFailure {
-            file: "a.rs".into(),
-            error: specforge_wasm::CallError::new(
-                specforge_protocol_types::Operation::Scan,
-                "@specforge/rust",
-                "scan__rust",
-                specforge_wasm::CallFailure::NotLoaded,
-            ),
-        });
-        assert!(Gaps::of(outcome, |_: &SourceItem| false).approximate);
+    fn the_collectors_are_sorted_and_named_once() {
+        let gaps = Gaps::of(
+            [
+                (item_at("a", "function", "a.rs", Some("rust-source")), false),
+                (
+                    item_at("b", "function", "b.ts", Some("javascript-source")),
+                    true,
+                ),
+                (item_at("c", "function", "c.rs", Some("rust-source")), false),
+            ],
+            false,
+        );
+        assert_eq!(gaps.collectors, ["javascript-source", "rust-source"]);
     }
 
     #[test]
     fn gaps_document_groups_items_by_directory() {
-        let item = |name: &str, file: &str| SourceItem {
-            name: name.into(),
-            item_kind: "fn".into(),
-            file: file.into(),
-            line: 1,
-            scanner: None,
-        };
-        let gaps = Gaps {
-            total_pub_items: 3,
-            covered_items: 1,
-            by_directory: BTreeMap::from([
-                (".".into(), vec![item("main", "main.rs")]),
-                ("src".into(), vec![item("beta", "src/b.rs")]),
-            ]),
-            approximate: true,
-            scanners_used: Vec::new(),
-            scan_failures: Vec::new(),
-        };
+        let gaps = Gaps::of(
+            [
+                (item_at("main", "fn", "main.rs", None), false),
+                (item_at("alpha", "fn", "src/a.rs", None), true),
+                (item_at("beta", "fn", "src/b.rs", None), false),
+            ],
+            true,
+        );
         let doc = serde_json::to_value(gaps.document()).unwrap();
         assert_eq!(doc["gap_count"], 2);
         assert_eq!(doc["by_directory"][1]["directory"], "src");
@@ -275,30 +259,42 @@ mod tests {
     const STRING_SPELLED: &str = "pub fn real_one() {}\npub(crate) fn crate_visible() {}\n\
          pub const SNIPPET: &str = r#\"\npub fn ghost_in_a_string() {}\n\"#;\n";
 
-    /// A project whose compile loaded the builtin `@specforge/rust`, with `src/lib.rs` = [`STRING_SPELLED`] and a
-    /// `behavior real_one` that cites nothing.
-    fn scanned_by_the_rust_builtin() -> specforge_project::testing::Assembled {
-        let runtime = specforge_component::ComponentRuntime::new();
-        specforge_component::builtins::load_builtins_for(&runtime, &["@specforge/rust".into()])
-            .unwrap();
-        let declaration = specforge_wasm::protocol::load_declaration(&runtime, "@specforge/rust")
-            .unwrap()
-            .declaration;
-        let mut fixture = specforge_project::testing::Assembled::new()
-            .runtime(std::sync::Arc::new(runtime))
-            .declarations(vec![declaration]);
-        let span = specforge_common::SourceSpan {
-            file: specforge_common::Sym::new("main.spec"),
-            start_line: 1,
-            start_col: 1,
-            end_line: 1,
-            end_col: 1,
-        };
-        fixture
-            .graph_mut()
-            .add_node(specforge_graph::Node::new("real_one", "behavior", span));
-        fixture.write("src/lib.rs", STRING_SPELLED);
-        fixture
+    /// A project serving the item fixtures whose `rust-source` store holds `real_one` (public) and
+    /// `crate_visible` (crate), with `src/lib.rs` = [`STRING_SPELLED`] and a `task real_one` that cites nothing.
+    fn collected() -> TestProject {
+        let project = TestProject::new()
+            .enabling(&specforge_project::testing::ITEM_EXTENSIONS)
+            .file("main.spec", "task real_one \"R\" {\n}\n")
+            .file("src/lib.rs", STRING_SPELLED)
+            .serving(items_runtime());
+        stored_items(
+            project.root(),
+            "rust-source",
+            vec![
+                item(
+                    "rust:p::real_one",
+                    "src/lib.rs",
+                    1,
+                    "function",
+                    "public",
+                    "real_one",
+                ),
+                item(
+                    "rust:p::crate_visible",
+                    "src/lib.rs",
+                    2,
+                    "function",
+                    "crate",
+                    "crate_visible",
+                ),
+            ],
+        );
+        project
+    }
+
+    fn gaps_of(project: &TestProject) -> Gaps {
+        let compiled = project.compile();
+        gaps(&ProjectView::of(&compiled)).unwrap()
     }
 
     fn gap_names(gaps: &Gaps) -> Vec<&str> {
@@ -309,18 +305,48 @@ mod tests {
             .collect()
     }
 
-    #[test]
-    fn pin_gaps_list_a_public_item_only_a_string_spells() {
-        use crate::testing::Viewed;
-        let gaps = gaps(&scanned_by_the_rust_builtin().view()).unwrap();
-        assert!(gap_names(&gaps).contains(&"ghost_in_a_string"), "{gaps:?}");
+    #[specforge_test(
+        behavior = "provide_mcp_infer_gaps_tool",
+        verify = "gaps never read source text: a public item only a string literal spells is no gap"
+    )]
+    fn gaps_never_read_source_text() {
+        let gaps = gaps_of(&collected());
+        assert_eq!(gap_names(&gaps), ["real_one"], "{gaps:?}");
+        assert_eq!(gaps.total_pub_items, 1, "{gaps:?}");
+        assert_eq!(gaps.collectors, ["rust-source"]);
+        assert_eq!(gaps.by_directory["src"][0].line, 1);
+        assert_eq!(gaps.by_directory["src"][0].item_kind, "function");
+    }
+
+    #[specforge_test(
+        behavior = "provide_mcp_infer_gaps_tool",
+        verify = "an entity that only shares an item's name does not cover it"
+    )]
+    fn a_same_named_entity_covers_nothing() {
+        let gaps = gaps_of(&collected());
+        assert_eq!(gaps.covered_items, 0, "{gaps:?}");
+        assert!(gap_names(&gaps).contains(&"real_one"), "{gaps:?}");
     }
 
     #[test]
-    fn pin_an_unlinked_entity_covers_an_item_by_its_name() {
-        use crate::testing::Viewed;
-        let gaps = gaps(&scanned_by_the_rust_builtin().view()).unwrap();
-        assert!(!gap_names(&gaps).contains(&"real_one"), "{gaps:?}");
-        assert_eq!(gaps.covered_items, 1, "{gaps:?}");
+    fn an_item_that_names_a_task_is_covered() {
+        let project = collected();
+        stored_items(
+            project.root(),
+            "rust-source",
+            vec![naming(
+                item(
+                    "rust:p::real_one",
+                    "src/lib.rs",
+                    1,
+                    "function",
+                    "public",
+                    "real_one",
+                ),
+                &["real_one"],
+            )],
+        );
+        let gaps = gaps_of(&project);
+        assert_eq!((gaps.covered_items, gaps.gap_count()), (1, 0), "{gaps:?}");
     }
 }

@@ -2,15 +2,54 @@
 
 use super::*;
 
-/// A Rust project half-way through inference: `src/lib.rs` is indexed and
-/// its `alpha` has an entity, `src/net/wire.rs` is not.
+/// A Rust project half-way through inference: `src/lib.rs` is indexed, `src/net/wire.rs` is not; a
+/// `rust-source` store holds their public items, and an anchor covers `alpha` by `behavior alpha`.
 fn infer_project(proj: &TestProject) {
     let root = proj.root();
     std::fs::create_dir_all(root.join("spec")).unwrap();
     std::fs::create_dir_all(root.join("src/net")).unwrap();
     std::fs::write(
         root.join("specforge.json"),
-        r#"{"name":"inf","spec_root":"spec","extensions":["@specforge/software","@specforge/governance","@specforge/rust"]}"#,
+        r#"{"name":"inf","spec_root":"spec","extensions":["@specforge/software","@specforge/governance","@code/core","@specforge/rust"]}"#,
+    )
+    .unwrap();
+    let item = specforge_project::testing::item;
+    specforge_project::testing::stored(
+        root,
+        "rust-source",
+        specforge_project::testing::WORKTREE,
+        json!([
+            item(
+                "rust:inf::alpha",
+                "src/lib.rs",
+                1,
+                "function",
+                "public",
+                "alpha"
+            ),
+            item(
+                "rust:inf::beta",
+                "src/lib.rs",
+                2,
+                "function",
+                "public",
+                "beta"
+            ),
+            item(
+                "rust:inf::net::Wire",
+                "src/net/wire.rs",
+                1,
+                "struct",
+                "public",
+                "Wire"
+            ),
+        ]),
+    );
+    std::fs::write(
+        root.join("specforge-anchors.json"),
+        json!({"version": 1, "anchors": [{"entity_id": "alpha", "file": "src/lib.rs", "line": 1,
+               "symbol_name": "alpha", "item_kind": "function", "scanner": "rust-source"}]})
+        .to_string(),
     )
     .unwrap();
     std::fs::write(root.join("spec/a.spec"), MAIN_SPEC).unwrap();
@@ -104,6 +143,7 @@ fn infer_status_json_carries_the_gaps_asked_for() {
         .flat_map(|d| d["items"].as_array().unwrap())
         .map(|i| i["name"].as_str().unwrap())
         .collect();
-    assert!(names.contains(&"beta") && names.contains(&"Wire"), "{gaps}");
-    assert!(!names.contains(&"alpha"), "alpha has an entity: {gaps}");
+    assert_eq!(names, ["beta", "Wire"], "{gaps}");
+    assert_eq!(gaps["covered_items"], 1, "alpha is anchored: {gaps}");
+    assert_eq!(gaps["collectors"], json!(["rust-source"]), "{gaps}");
 }

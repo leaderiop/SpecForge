@@ -18,7 +18,7 @@ pub(crate) struct Tool;
 impl CoreTool for Tool {
     const NAME: &'static str = "specforge.infer_gaps";
     const DESCRIPTION: &'static str =
-        "Analyze inference gaps: public Rust items not yet covered by spec entities (approximate)";
+        "Analyze inference gaps: public item facts no authored entity cites and no anchor names";
     const EFFECT: Effect = Effect::Reads {
         group: ToolGroup::Core,
     };

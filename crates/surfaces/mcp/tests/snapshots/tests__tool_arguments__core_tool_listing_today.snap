@@ -9508,7 +9508,7 @@ expression: listing
   },
   {
     "name": "specforge.infer_gaps",
-    "description": "Analyze inference gaps: public Rust items not yet covered by spec entities (approximate)",
+    "description": "Analyze inference gaps: public item facts no authored entity cites and no anchor names",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {},
@@ -9569,6 +9569,12 @@ expression: listing
           },
           "type": "array"
         },
+        "collectors": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "covered_items": {
           "minimum": 0,
           "type": "integer"
@@ -9576,35 +9582,6 @@ expression: listing
         "gap_count": {
           "minimum": 0,
           "type": "integer"
-        },
-        "scan_failures": {
-          "items": {
-            "additionalProperties": false,
-            "properties": {
-              "code": {
-                "type": "string"
-              },
-              "file": {
-                "type": "string"
-              },
-              "message": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "file",
-              "code",
-              "message"
-            ],
-            "type": "object"
-          },
-          "type": "array"
-        },
-        "scanners_used": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
         },
         "total_pub_items": {
           "minimum": 0,
@@ -9616,8 +9593,7 @@ expression: listing
         "covered_items",
         "gap_count",
         "approximate",
-        "scanners_used",
-        "scan_failures",
+        "collectors",
         "by_directory"
       ],
       "type": "object"

@@ -331,36 +331,38 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
   types    [InferenceGapReport, DirectoryGaps, InferenceGap, McpInferGapsResult]
   category mcp
   ensures {
-    source_scanned   "source files scanned for public items"
-    graph_crossed    "public items cross-referenced with the anchors manifest and graph entities"
+    items_read       "public items are the item facts the compiled graph holds"
+    cited            "an item an authored entity cites, or that names an authored entity, is covered"
     anchored_only    "an anchored entity covers only the items its anchors name"
     per_dir_gaps     "gaps computed per directory"
-    approximate_flag "output marked approximate when a scanner failed on a file"
+    approximate_flag "output marked approximate when a fact store was not served"
   }
   contract """
-    Register an MCP tool specforge.infer_gaps that scans source files in
-    source_roots for public items. Public items are what the enabled
-    analyzers' scanners report; a scanner that fails on a file makes the
-    report approximate. An item is covered when the project's
-    specforge-anchors.json anchors it, by its file (read as
-    read_a_recorded_source_path reads it) and its name, to an entity
-    the compiled graph declares, or, when no anchor names that entity, when its
-    name is the entity's id. An anchor to an entity the graph does not declare
-    covers nothing. An anchors manifest that cannot be used is refused with
-    E071, as specforge.find_spec_for_source refuses it, before any file is
-    scanned. Returns an
-    InferenceGapReport with per-directory breakdowns including structured
-    InferenceGap items (name, item_kind, file, line). A scanner that fails
-    on a file (it traps, or answers what is not a scan response) is
-    reported in scan_failures (the file and its E028), never counted as a
-    file without public items, and makes the report approximate.
-    Items in test files, build scripts, and standard trait impls are excluded.
-    With no project served and none named, the tool is the no-project
-    refusal (precondition_failed), as the gap analysis refuses a view
-    without a root.
+    Register an MCP tool specforge.infer_gaps that reads the public items
+    the compiled graph holds: the facts of the collected kind item (the
+    kind @code/core declares, written by a source pack's collector) whose
+    visibility is public and whose first place is a file under the
+    inference manifest's source_roots (the project when there are none).
+    No source file is read. An item whose place is no file under the
+    project root is not counted. An item is covered when an authored
+    entity (one of a kind no collector writes) cites it: a graph edge
+    either way between them, so a .spec reference to the item or a name
+    the item's source gives the entity. It is covered as well when the
+    project's specforge-anchors.json anchors it, by its file (read as
+    read_a_recorded_source_path reads it) and its name, to an entity the
+    compiled graph declares. An entity that only shares an item's name
+    does not cover it. An anchor to an entity the graph does not declare
+    covers nothing. An anchors manifest that cannot be used is refused
+    with E071, as specforge.find_spec_for_source refuses it, before any
+    fact is read. Returns an InferenceGapReport with per-directory
+    breakdowns including structured InferenceGap items (name, item_kind,
+    file, line) and the collectors whose stores held the counted items.
+    The report is approximate when the compile could not serve a fact
+    store (W191, W192): its items are unknown. With no item facts it
+    counts nothing and names no collector. With no project served and
+    none named, the tool is the no-project refusal (precondition_failed),
+    as the gap analysis refuses a view without a root.
   """
-  verify unit "scans each source file with its analyzer's scanner"
-  verify unit "excludes test files and build scripts"
   verify unit "returns structured InferenceGap items with file and line"
   verify unit "marks output as approximate"
   verify unit "with no project served, infer_gaps is the no-project refusal"
@@ -368,8 +370,14 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
   verify unit "an anchored entity covers only the items its anchors name"
   verify unit "an unusable anchors manifest refuses the gaps with E071"
   verify unit "every item find_spec_for_source anchors to a declared entity is no gap"
-  verify unit "an item whose name is an unanchored entity's id is covered"
   verify unit "an anchor to an entity the graph does not declare covers nothing"
+  verify unit "gaps never read source text: a public item only a string literal spells is no gap"
+  verify unit "an entity that only shares an item's name does not cover it"
+  verify unit "an item an authored entity cites is covered"
+  verify unit "an item that names an authored entity is covered"
+  verify unit "only public items are counted"
+  verify unit "with no item facts, gaps count nothing and name no collector"
+  verify unit "the report is approximate when a fact store is not served"
 }
 
 // ---------------------------------------------------------------------------
