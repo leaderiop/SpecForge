@@ -12,7 +12,8 @@ Together the four vocabulary builtins declare 22 entity kinds and 56 edge types.
 (ADR 0328), declares the four collector-written kinds of code facts, tests and their runs, items and packages
 ([ADR 0329](adr/0329-code-core-holds-test-facts-and-their-ids.md), [ADR 0347](adr/0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md)), and
 `@javascript/node-test` collects them from `node --test`; the Rust packs `@rust/cargo`, `@rust/source` and `@rust/test`
-collect a Rust project's packages, items and nextest tests ([ADR 0348](adr/0348-a-collector-declares-a-config-file-and-the-rust-packs.md)). `@specforge/checks` declares the generic value
+collect a Rust project's packages, items and nextest tests ([ADR 0348](adr/0348-a-collector-declares-a-config-file-and-the-rust-packs.md)), and
+`@javascript/source` a JavaScript project's packages and items. `@specforge/checks` declares the generic value
 checkers, which any field's `checks` can name ([ADR 0338](adr/0338-one-foundation-extension-holds-the-generic-value-checkers.md)),
 and one collector-written kind, `check_outcome`, which its `checks` collector publishes when named or under
 `checks.publish`.
@@ -36,6 +37,7 @@ The counts and lists on this page are read from the builtins' pinned declaration
 | `@rust/cargo` | 0 | 0 | -- | code/core (required) |
 | `@rust/source` | 0 | 0 | -- | code/core, rust/cargo (required) |
 | `@rust/test` | 0 | 0 | -- | code/core, rust/source (required) |
+| `@javascript/source` | 0 | 0 | -- | code/core (required) |
 | `@specforge/checks` | 1 (collector-written) | 0 | -- | none |
 
 Extensions load after the peers they declare; extensions with no peer between them keep the order
@@ -325,7 +327,7 @@ sends them with each unheld reference):
 | Code | When |
 |------|------|
 | `code/E101` | A reference names no fact, and a served store holds facts of a kind its field admits in its scheme; a test or run reference is told the nearest one of the same file or binary. Also a reference a fact holds that nothing answers, when one collector writes both (a run's test, a package's dependency) |
-| `code/W102` | A reference names no fact, and no served store holds facts of a kind its field admits in its scheme (a fresh clone, before a collect, or the pack that writes it not run); it names the kind and the pack: `@javascript/node-test` or `@rust/test` for tests, `@rust/source` or `@javascript/source` for items, `@rust/cargo` for packages |
+| `code/W102` | A reference names no fact, and no served store holds facts of a kind its field admits in its scheme (a fresh clone, before a collect, or the pack that writes it not run); it names the kind and the pack: `@javascript/node-test` or `@rust/test` for tests, `@rust/source` or `@javascript/source` for items, `@rust/cargo` or `@javascript/source` for packages |
 | `code/W401` | An entity that is not pending links a test whose last run failed |
 | `code/I402` | A test's or an item's `names` holds a name that is no entity, or the short name of several |
 
@@ -343,6 +345,13 @@ each target's module tree by rustc's rules and has the host's parser read it int
 carrying the id nextest gives it and the entity its `#[specforge_test]` names; `rust-test` (`@rust/test`) runs
 `cargo-nextest` with a config file the host writes and reads its JUnit report into `test` and `test_run` facts, an
 `#[ignore]`d test nextest leaves out recorded `skipped`. It needs `cargo install cargo-nextest --locked`.
+
+`@javascript/source` writes `item` and `package` facts ([guide](guides/javascript-facts.md)): its collector
+`javascript-source`, detected by a `package.json`, runs nothing. It reads every `package.json` into one `package` fact
+per named package (`pkg:npm/<name>`, its dependencies on the project's own packages), and has the host's reader parse
+each `.ts .mts .cts .tsx .js .jsx .mjs .cjs` file a named package owns, test files and generated output left out, into
+`item` facts `js:<package>/<file>::<name>[.<member>]`: what the file or a namespace declares, and the members of its
+classes and interfaces, `public` when an importer reaches it.
 
 ## @specforge/checks
 

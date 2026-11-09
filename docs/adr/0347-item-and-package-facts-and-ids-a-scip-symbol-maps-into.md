@@ -170,6 +170,31 @@ widest.
 `test.names` and `item.names` are reference lists with no target kind, edge `names`: ADR 0346 D4 links them. `I402`
 reports each dangling one of a `test` or an `item` (ADR 0346 D8).
 
+## JavaScript items
+
+`@javascript/source` reads them; these are its rules, so a later `@javascript/scip` maps onto the same ids.
+
+- **Item scope**: a declaration is an item at the top level of a file or in a namespace body, a method or a field
+  when the class or interface around it is one. Nothing inside a function, a block, `declare module "x"` or
+  `declare global` is an item, nor is a class expression handed to a call. The pack's query anchors the scope, so an
+  IIFE's or a callback's locals never surface as top-level items.
+- **One fact per path** (D3): the overloads and the body of a function are one item, as are a `type` and a `const` of
+  one name (`kind [type, const]`), and a namespace merged across declarations.
+- **The id names the declared name** (D4): `export default function main` is `::main` (attr `default`),
+  `export { a as b }` keeps `::a`, only an unnamed default export is `::default`. A nested namespace `A.B` is two
+  segments, a string member name loses its quotes. A SCIP symbol names the declaration too, so `Foo.` and `Foo#` both
+  land on `::Foo`.
+- **Visibility** (D10): `Visibility::js(exported)`, `public` when an importer reaches the item: a top-level one
+  exported (`export`, `exports.x =`, an export list or `module.exports = { … }` naming it), a namespace member
+  exported from a public namespace, a member of a public class or interface that is neither `#private` nor
+  `private`. The modifier words stay in `attrs`.
+- **CommonJS**: `exports.x = …`, `module.exports.x = …` and `module.exports = { … }` define or export. Out:
+  `module.exports = <function>` (no member to name), TypeScript's `export =`, a re-export `export … from`.
+- **The npm package facts**: the pack writes one `pkg:npm/<name>` per named package of the workspace, the
+  shallowest of one name, with `version`, `engines`, `path` and `depends_on` the project's own packages only, so no
+  item's `package` dangles. `@javascript/package`, which reads the lockfile, takes them over in the change that lands
+  it: one writer per fact.
+
 ## The kinds (`@code/core` 1.1.0)
 
 | Kind | Schemes | Fields |

@@ -1817,6 +1817,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   reaches listed in `at` and `kind`, with its package, visibility, signature digest and the entities it names.
 - **Item id**: an item fact's id, `rust:<crate segment>::<mod>::…::<name>` (a member `…::<Type>::m` or
   `…::<Type as Trait>::m`) or `js:<package>/<file>::<name>[.<member>]`; it never holds `#` (ADR 0347 D4).
+- **Item scope**: where a JavaScript declaration is an item: the top level of a file or a namespace body, and a method
+  or field of a class or interface at item scope. Nothing inside a function, a block, `declare module "x"` or
+  `declare global` is one (ADR 0347, "JavaScript items").
 - **Crate segment**: the part of a Rust item id before its module path: the cargo package name for the lib,
   `<package>/<kind>/<target>` for another target, `@<dir>` appended for a second package of one name (ADR 0347 D2).
 - **Package fact**: a `package` fact of `@code/core`: a cargo or npm package, its version, targets, directory and the
