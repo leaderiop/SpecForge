@@ -601,3 +601,26 @@ fn scip_typescript_symbols_map_into_ids() {
         assert_eq!(mapped, Some(id), "{symbol}");
     }
 }
+
+#[test]
+fn a_joined_path_stays_project_relative() {
+    assert_eq!(
+        joined("crates/app", "src/lib.rs").as_deref(),
+        Some("crates/app/src/lib.rs")
+    );
+    assert_eq!(
+        joined("crates/app", "../base/./x.rs").as_deref(),
+        Some("crates/base/x.rs")
+    );
+    assert_eq!(joined("src", "a\\b.rs").as_deref(), Some("src/a/b.rs"));
+    assert_eq!(joined("", "src/main.rs").as_deref(), Some("src/main.rs"));
+    for (dir, path) in [
+        ("crates/app", "../../../x.rs"),
+        ("", "../x.rs"),
+        ("crates/app", "/abs/lib.rs"),
+        ("crates/app", "\\abs\\lib.rs"),
+        ("crates/app", "C:/lib.rs"),
+    ] {
+        assert_eq!(joined(dir, path), None, "{dir} + {path}");
+    }
+}

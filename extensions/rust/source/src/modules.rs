@@ -17,7 +17,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 
-use specforge_code_facts::{crate_segment, Definition, Edition, PackageId, Target};
+use specforge_code_facts::{crate_segment, joined, Definition, Edition, PackageId, Target};
 use specforge_extension_sdk::host::{
     self, NotParsed, SyntaxFile, SyntaxFiles, SyntaxOutcome, SyntaxRequest, SyntaxSource,
 };
@@ -253,23 +253,4 @@ fn join_dir(dir: &str, name: &str) -> String {
     } else {
         format!("{dir}/{name}")
     }
-}
-
-/// `path` (relative, `/` or `\` separated) under the project-relative `dir`, its `.` and `..` resolved; `None` when it
-/// leaves the project or is absolute.
-pub(crate) fn joined(dir: &str, path: &str) -> Option<String> {
-    if path.starts_with(['/', '\\']) || path.contains(':') {
-        return None;
-    }
-    let mut segments: Vec<&str> = Vec::new();
-    for segment in dir.split('/').chain(path.split(['/', '\\'])) {
-        match segment {
-            "" | "." => {}
-            ".." => {
-                segments.pop()?;
-            }
-            segment => segments.push(segment),
-        }
-    }
-    Some(segments.join("/"))
 }

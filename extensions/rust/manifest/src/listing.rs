@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use cargo_toml::{AbstractFilesystem, Error, Manifest, Value};
 
-use crate::joined;
+use specforge_code_facts::joined;
 
 /// The absolute stand-in for the project root a workspace's base path starts with: `cargo_toml` joins an inherited
 /// path dependency to it, and [`crate::read_packages`] strips it again.

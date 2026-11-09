@@ -22,7 +22,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use cargo_toml::{Dependency, Manifest, OptionalFile, Product, Value};
-use specforge_code_facts::{Package, PackageId, Target, TargetKind};
+use specforge_code_facts::{joined, Package, PackageId, Target, TargetKind};
 use specforge_extension_sdk::prelude::FactLocation;
 
 pub use listing::Listing;
@@ -248,20 +248,4 @@ fn dir_of(path: &str) -> String {
         .unwrap_or(path)
         .trim_end_matches('/')
         .to_string()
-}
-
-/// `path` (relative, `/` or `\` separated) under the project-relative `dir`, its `.` and `..` resolved; `None` when it
-/// leaves the project.
-pub(crate) fn joined(dir: &str, path: &str) -> Option<String> {
-    let mut segments: Vec<&str> = Vec::new();
-    for segment in dir.split('/').chain(path.split(['/', '\\'])) {
-        match segment {
-            "" | "." => {}
-            ".." => {
-                segments.pop()?;
-            }
-            segment => segments.push(segment),
-        }
-    }
-    Some(segments.join("/"))
 }
