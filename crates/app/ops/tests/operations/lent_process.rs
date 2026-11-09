@@ -183,3 +183,61 @@ fn changing_the_declared_names_asks_for_approval_again_and_the_line_shows_them()
     assert!(!approved(&["ACME_A", "ACME_B"]), "a name more asks again");
     assert!(!approved(&[]), "a name less asks again");
 }
+
+/// A session of `@t/env` declaring the collector command `argv`, its config file `nextest.toml` when it names
+/// `{config}`, approved: the guest's own collect call.
+fn collector_session(argv: &[&str]) -> PortSession {
+    let dir = std::env::temp_dir();
+    let roots = Roots::new(&dir, &dir);
+    let mut capability = Capability::process("run")
+        .argv(argv)
+        .call_kinds(&[Operation::Collect])
+        .why("run the tests");
+    if argv.iter().any(|arg| arg.contains("{config}")) {
+        capability = capability.config("nextest.toml", "[profile.specforge]\n");
+    }
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
+    c.capability(capability);
+    let grant = Grant::decide(
+        &c.declaration(),
+        &Provenance::third_party(b"x"),
+        &EffectsCeiling::default(),
+        &roots,
+        &MemoryConsent::approving_everything(),
+    );
+    let ports = Ports {
+        process: Arc::new(specforge_process::Runner),
+        ..testing::ports()
+    };
+    let call = PortCall::online(&ports, EffectJournal::detached(), roots, grant, Vec::new());
+    PortSession::effectful(EXT, Operation::Collect, Some(call), Limits::CEILING)
+}
+
+#[test]
+fn a_guest_fills_its_collector_commands_placeholders_with_its_own_paths() {
+    for (declared, asked) in [
+        (
+            ["echo", "--tool-config-file", "specforge:{config}"],
+            [
+                "echo",
+                "--tool-config-file",
+                "specforge:/elsewhere/setup.toml",
+            ],
+        ),
+        (
+            ["echo", "--out", "--out={report}"],
+            ["echo", "--out", "--out=/elsewhere/report.xml"],
+        ),
+    ] {
+        let ran = collector_session(&declared).process_run(ProcessRequest {
+            argv: asked.map(String::from).to_vec(),
+            ..ProcessRequest::default()
+        });
+        // Today a placeholder admits any text: the person approved one config and the guest runs another.
+        let ran = ran.expect("the templated capability admits the guest's own path");
+        assert_eq!(
+            String::from_utf8_lossy(&ran.stdout),
+            format!("{} {}\n", asked[1], asked[2])
+        );
+    }
+}
