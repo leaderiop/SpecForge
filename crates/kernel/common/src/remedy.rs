@@ -110,9 +110,9 @@ pub fn printable_lines_at(text: &str, at: usize) -> usize {
         .sum::<usize>()
 }
 
-/// The keys of a declaration whose text is a file's (a starter template): held printable but for
-/// their newlines and tabs (ADR 0244).
-pub const DECLARED_LINES: &[&str] = &["starter_template"];
+/// The keys of a declaration whose text is a file's (a starter template, the template of the config
+/// file a collector's command reads): held printable but for their newlines and tabs (ADR 0244).
+pub const DECLARED_LINES: &[&str] = &["starter_template", "template"];
 
 /// Every string of `value`, and every object key, held [`printable`]; a string under a key named in
 /// `lines` keeps its newlines and tabs, every other control and bidirectional character escaped.
@@ -279,6 +279,15 @@ mod tests {
             value,
             serde_json::json!({"starter_template": "a\r\n\tb\\u{1b}", "other": "a\\n"})
         );
+    }
+
+    #[test]
+    fn a_config_template_keeps_its_lines_and_its_name_does_not() {
+        let config = serde_json::json!({"name": "a.toml\n", "template": "[a]\n\tb = 1\u{7}\n"});
+        let mut value = serde_json::json!([{"scope": {"config": config}}]);
+        hold_printable(&mut value, DECLARED_LINES);
+        let held = serde_json::json!({"name": "a.toml\\n", "template": "[a]\n\tb = 1\\u{7}\n"});
+        assert_eq!(value, serde_json::json!([{"scope": {"config": held}}]));
     }
 
     #[test]

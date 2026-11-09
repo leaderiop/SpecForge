@@ -551,7 +551,8 @@ pub(crate) fn decode<O: DeserializeOwned>(
 fn held(operation: Operation, answer: &[u8]) -> Result<Value, serde_json::Error> {
     let mut value: Value = serde_json::from_slice(answer)?;
     let lines = match operation {
-        Operation::Handshake => DECLARED_LINES,
+        // A declaration's file texts (a starter template, a collector's config template) keep their lines.
+        Operation::Handshake | Operation::Describe => DECLARED_LINES,
         // A prompt's message is a document: it keeps its lines, every other control stays escaped.
         Operation::Prompt => &["text"],
         // A renderer's body and a hook's words to the model or the person are documents too.

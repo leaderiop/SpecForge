@@ -37,7 +37,8 @@ sound (else W021 at load, and the capability grants nothing) when:
 - the capability's `call_kinds` are exactly `[collect]`;
 - its argv names `{config}` in exactly one element, and no argv element holds two placeholders.
 
-An argv naming `{config}` without a config is W021 too. The SDK's `CollectorBuilder::config(name, template)` puts the
+An argv naming `{config}` without a config is W021 too. The host reads the template as it reads a starter template:
+printable but for its newlines and tabs (ADR 0244). The SDK's `CollectorBuilder::config(name, template)` puts the
 config on the capability `.run(argv)` declares (`Capability::config` for a capability declared by hand).
 
 ## D2. The host writes it fresh before the run
