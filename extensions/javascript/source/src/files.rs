@@ -166,7 +166,7 @@ fn parse(language: &str, files: SyntaxFiles) -> Result<(Vec<SyntaxFile>, bool), 
     .map_err(|e| format!("the host's source reader refused {COLLECTOR}'s request: {e:?}"))
 }
 
-/// What one answered file gives: its matches, nothing (gone, or withheld from the pack), or a file to ask again.
+/// What one answered file gives: its matches, nothing (deleted since the listing), or a file to ask again.
 enum Answered {
     Parsed(Parsed),
     Skipped,
@@ -183,9 +183,9 @@ fn answered(file: SyntaxFile) -> Result<Answered, String> {
         SyntaxOutcome::NotParsed {
             reason: NotParsed::Capped,
         } => Ok(Answered::Capped(file.path)),
-        // Deleted since the listing, or a name the fs port withholds from every guest.
+        // Deleted since the listing. A file the fs port withholds is no item lost quietly: it is the error below.
         SyntaxOutcome::NotParsed {
-            reason: NotParsed::Missing | NotParsed::Denied,
+            reason: NotParsed::Missing,
         } => Ok(Answered::Skipped),
         SyntaxOutcome::NotParsed { reason } => Err(format!(
             "{}: the host's reader did not parse it ({}); {COLLECTOR} reads every kept source file or none",
@@ -221,20 +221,20 @@ fn all_parsed(language: &str, mut paths: Vec<String>) -> Result<Vec<Parsed>, Str
 }
 
 /// The files of `listing`'s glob, parsed by the host, which walks them itself: the kept ones' matches, the capped
-/// kept ones asked again by path. An answer the walk stopped short (truncated with nothing capped) is the
-/// collector's error: the rest of the project cannot be asked.
-// shortcut: a walk stopped short and a cap reached in one answer both say `truncated`; the files past the walk are
-// then missed. Upgrade when the syntax answer tells the two apart.
+/// kept ones asked again by path. A walk that stopped short (`truncated`) is the collector's error: no glob can ask
+/// for the files past it.
 fn glob_parsed(listing: &Listing, workspace: &Workspace) -> Result<Vec<Parsed>, String> {
     let (files, truncated) = parse(listing.language, SyntaxFiles::Glob(listing.glob()))?;
+    if truncated {
+        return Err(format!(
+            "{}: the project holds more files than the host walks; {COLLECTOR} reads every kept source file or \
+             none",
+            listing.glob()
+        ));
+    }
     let mut parsed = Vec::new();
     let mut again = Vec::new();
-    let mut capped = false;
     for file in files {
-        capped |= file.outcome
-            == SyntaxOutcome::NotParsed {
-                reason: NotParsed::Capped,
-            };
         // A file the pack does not read is never its error: a minified bundle past the deadline included.
         if !kept(workspace, &file.path) {
             continue;
@@ -244,13 +244,6 @@ fn glob_parsed(listing: &Listing, workspace: &Workspace) -> Result<Vec<Parsed>, 
             Answered::Capped(path) => again.push(path),
             Answered::Skipped => {}
         }
-    }
-    if truncated && !capped {
-        return Err(format!(
-            "{}: the project holds more files than the host walks; {COLLECTOR} reads every kept source file or \
-             none",
-            listing.glob()
-        ));
     }
     parsed.extend(all_parsed(listing.language, again)?);
     Ok(parsed)

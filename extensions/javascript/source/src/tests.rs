@@ -25,8 +25,8 @@ mod packages;
 type Asked = Vec<(String, SyntaxFiles)>;
 
 /// The project's files in memory, parsed as the host parses them: with a cap, only the first `cap` files of an answer
-/// are parsed and the rest `capped`; `short`, a glob's walk stops before the last file it matches; a `denied` file is
-/// one the fs port withholds.
+/// are parsed and the rest `capped`; `short`, a glob's walk stops before the last file it matches (the one thing an
+/// answer's `truncated` says); a `denied` file is one the fs port withholds.
 #[derive(Default)]
 struct Host {
     files: BTreeMap<String, String>,
@@ -82,7 +82,7 @@ impl InProcessHost for Host {
             .collect();
         Ok(SyntaxAnswer {
             files,
-            truncated: short || capped(paths.len().saturating_sub(1)),
+            truncated: short,
             parsed: 0,
             cached: 0,
         })

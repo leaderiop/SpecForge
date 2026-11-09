@@ -37,7 +37,8 @@ pub enum SyntaxFiles {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyntaxAnswer {
     pub files: Vec<SyntaxFile>,
-    /// The walk or the answer's cap stopped them: ask for the rest again.
+    /// A glob's walk stopped short: the files past it are not in the answer, and the glob cannot ask for them. A file
+    /// the answer's cap stopped is answered `not_parsed(capped)`: ask for it again by path.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub truncated: bool,
     /// Files this request parsed now.

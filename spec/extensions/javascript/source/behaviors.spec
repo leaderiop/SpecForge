@@ -39,9 +39,11 @@ behavior js_select_source_files "Select and Parse the Source Files" {
     typescript grammar for .ts .mts .cts and tsx for the rest, the files an
     answer's cap left unparsed asked again. A listing the host truncated
     is replaced by a parse of its glob whose answer the same rules filter;
-    a walk that stopped short, and a kept file the reader could not parse
-    for a reason other than being gone or withheld, are the collector's
-    error, never a file dropped silently.
+    a walk that stopped short (the answer's truncated: the files past it
+    cannot be asked), and a kept file the reader could not parse for a
+    reason other than being deleted since the listing (a file the fs port
+    withholds included), are the collector's error, never a file dropped
+    silently.
   """
   ensures {
     by_extension "each file is read by the grammar its extension names"
@@ -54,6 +56,8 @@ behavior js_select_source_files "Select and Parse the Source Files" {
   verify unit "a file under no named package is not read"
   verify unit "a truncated listing parses its glob and filters the answer"
   verify unit "the files an answer's cap left unparsed are asked again"
+  verify unit "a short walk is the collector's error whatever the answer's cap"
+  verify unit "a kept file the fs port withholds is the collector's error"
   verify integration "a test file mints no item beside its runner's test"
   verify integration "a file under no named package mints nothing"
 }

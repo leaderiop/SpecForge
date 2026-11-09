@@ -252,8 +252,8 @@ interface syntax {
     digest: option<string>,
     outcome: outcome,
   }
-  /// `truncated`: a walk or the answer's cap stopped short. `parsed` and `cached`: files parsed now and answered
-  /// from the host's cache.
+  /// `truncated`: a glob's walk stopped short, so the files past it are not in the answer (a file the answer's cap
+  /// stopped is `not-parsed(capped)`). `parsed` and `cached`: files parsed now and answered from the host's cache.
   record syntax-answer {
     files: list<file>,
     truncated: bool,

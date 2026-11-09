@@ -41,7 +41,8 @@ reason   deadline | too-large | missing | unreadable | denied | capped
   a withheld path is `denied`, a blob over the git port's blob cap `too_large`. fs and git reads need no approval.
 - **Backing (E089):** a `syntax` import is backed by an `fs` or a `git` capability of the extension.
 - **The answer is held to the call's answer cap** (a quarter of guest memory): once the encoded answer passes it, the
-  later files are `not_parsed(capped)` and `truncated` is set; a pack asks for the rest again. `parsed` and `cached`
+  later files are `not_parsed(capped)`, and a pack asks for them again by path. `truncated` says only that a glob's
+  walk stopped short: the files past it are not in the answer, and no glob can ask for them. `parsed` and `cached`
   are the request's.
 - **What did not parse is said once per call.** W196 "N source files were not parsed: `<path>` (deadline), …" and I211
   "N source files parsed with syntax errors: `<path>` (E errors), …", each naming its first 8 paths, kept with the

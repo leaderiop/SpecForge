@@ -191,7 +191,7 @@ behavior parse_source_through_the_syntax_import "Parse Source through the Syntax
     inside_parsed  "a syntax request inside the fs grant (git's at a revision) is read whole and parsed by the host's reader"
     outside_denied "a file whose read the grant refuses makes the whole request denied(scope), reported as E090"
     per_file       "a missing, withheld, too large or unreadable file is answered not_parsed with its reason"
-    held           "the answer is held to the call's answer cap: the files past it are not_parsed(capped) and the answer truncated"
+    held           "the answer is held to the call's answer cap: the files past it are not_parsed(capped), and truncated says only a glob's short walk"
     noted_once     "the files a call could not parse are one W196 and those parsed broken one I211, once per call"
   }
   contract """
@@ -205,7 +205,7 @@ behavior parse_source_through_the_syntax_import "Parse Source through the Syntax
   verify unit "a syntax request outside the grant is answered denied(scope) and reported as E090"
   verify unit "a missing, a withheld and a too large file are each answered not_parsed"
   verify unit "a revision's files are parsed from the commit's blobs"
-  verify unit "a syntax answer past the cap is truncated and names the rest capped"
+  verify unit "a syntax answer past the cap names the rest capped and is not truncated"
   verify unit "files past the deadline are one W196 and broken files one I211 per call"
   verify unit "a syntax request over a link out of its root, a hard link or a .. path parses nothing outside"
 }

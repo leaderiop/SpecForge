@@ -49,7 +49,6 @@ impl PortSession {
         let (_, call) = self.lent()?;
         let read = reader.read(&query, &paths, &|path| load(path));
         let (files, kept) = self.held(read.files);
-        let capped = kept < files.len();
         // The answer counts the files it returns; the call's work is every parse made.
         let answered: SyntaxWork = read.per_file[..kept].iter().copied().sum();
         let mut not_parsed = Vec::new();
@@ -69,7 +68,7 @@ impl PortSession {
         call.noted(&not_parsed, &broken, read.work);
         Ok(SyntaxAnswer {
             files,
-            truncated: short || capped,
+            truncated: short,
             parsed: count(answered.parsed),
             cached: count(answered.cached),
         })

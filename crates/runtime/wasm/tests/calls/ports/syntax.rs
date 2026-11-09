@@ -286,9 +286,9 @@ fn functions(n: usize) -> String {
 
 #[specforge_test_macros::test(
     behavior = "parse_source_through_the_syntax_import",
-    verify = "a syntax answer past the cap is truncated and names the rest capped"
+    verify = "a syntax answer past the cap names the rest capped and is not truncated"
 )]
-fn a_syntax_answer_past_the_cap_is_truncated_and_names_the_rest_capped() {
+fn a_syntax_answer_past_the_cap_names_the_rest_capped_and_is_not_truncated() {
     // A 1 MiB guest's answer cap is 256 KiB; each file's matches encode to about 100 KiB.
     let call = call_over(
         FakeFs::new()
@@ -305,7 +305,8 @@ fn a_syntax_answer_past_the_cap_is_truncated_and_names_the_rest_capped() {
     let answer = session(&call, small)
         .syntax_parse(project(&["a.rs", "b.rs", "c.rs", "d.rs"]))
         .unwrap();
-    assert!(answer.truncated);
+    // Only a glob's short walk truncates an answer: a capped file names itself.
+    assert!(!answer.truncated);
     let reasons: Vec<Option<NotParsed>> = answer
         .files
         .iter()

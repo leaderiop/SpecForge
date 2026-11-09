@@ -12,8 +12,11 @@ fn packages(facts: &[Fact]) -> Vec<&str> {
         .collect()
 }
 
-#[test]
-fn a_short_walk_beside_a_capped_file_drops_the_files_past_it() {
+#[specforge_test(
+    behavior = "js_select_source_files",
+    verify = "a short walk is the collector's error whatever the answer's cap"
+)]
+fn a_short_walk_is_the_collectors_error_whatever_the_answers_cap() {
     // The `.js` listing is truncated, so its glob is parsed; the walk stops before `src/c.js`.
     let files = [
         APP,
@@ -29,17 +32,19 @@ fn a_short_walk_beside_a_capped_file_drops_the_files_past_it() {
             cap: Some(cap),
             ..host(&files)
         };
-        let (out, _) = run(short, &["js"]);
-        assert_eq!(
-            items(&out.unwrap()),
-            ["js:app/src/a.js::a", "js:app/src/b.js::b"],
-            "cap {cap}: src/c.js is lost"
+        let error = run(short, &["js"]).0.unwrap_err();
+        assert!(
+            error.contains("**/*.js") && error.contains("more files than the host walks"),
+            "cap {cap}: {error}"
         );
     }
 }
 
-#[test]
-fn a_file_the_fs_port_withholds_is_skipped() {
+#[specforge_test(
+    behavior = "js_select_source_files",
+    verify = "a kept file the fs port withholds is the collector's error"
+)]
+fn a_kept_file_the_fs_port_withholds_is_the_collectors_error() {
     let files = [
         APP,
         ("src/a.js", "export const a = 1;\n"),
@@ -49,8 +54,12 @@ fn a_file_the_fs_port_withholds_is_skipped() {
         denied: vec!["src/held.js"],
         ..host(&files)
     };
-    let (out, _) = run(withheld, &[]);
-    assert_eq!(items(&out.unwrap()), ["js:app/src/a.js::a"]);
+    let error = run(withheld, &[]).0.unwrap_err();
+    assert_eq!(
+        error,
+        "src/held.js: the host's reader did not parse it (denied); javascript-source reads every kept source \
+         file or none"
+    );
 }
 
 #[test]

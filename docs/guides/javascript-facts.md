@@ -116,7 +116,7 @@ Two `package.json` of one name are one package, the shallowest's.
 
 | What you see | Why, and the fix |
 |---|---|
-| `<file>: the host's reader did not parse it (<why>)` | The host withheld the file (too large, not UTF-8) or its parse ran out of time. The pack reads every kept file or none: move a generated file under a skipped directory or rename it `.min.js`. |
+| `<file>: the host's reader did not parse it (<why>)` | The host could not read the file (too large, not UTF-8), refused it (`denied`: a name the fs port withholds, a link out of the project, a file with a second name) or its parse ran out of time. The pack reads every kept file or none: move a generated file under a skipped directory or rename it `.min.js`. |
 | `<file>: its matches alone pass the host's answer cap` | One file declares more than an answer holds; it is almost always generated. |
-| `**/*.<ext>: the project holds more files than the host walks` | The project holds over 20,000 entries the walk visits. |
+| `**/*.<ext>: the project holds more files than the host walks` | The project holds over 20,000 entries the walk visits: the files past them cannot be asked, whatever else the answer holds. |
 | No item for a file you expected | It is a test file, generated output, or under no named package (section 3). |
