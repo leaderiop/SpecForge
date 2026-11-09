@@ -24,7 +24,7 @@ pub const ITEM_EXTENSIONS: [&str; 2] = [ITEMS, CITES];
 /// The key [`stored_items`] files a store under: a project in no repository.
 pub const WORKTREE: &str = "worktree";
 
-/// What a definition is, as `@code/core` names it.
+/// What a definition is, as `@code/core` names it (a test holds the copy to `@code/core`'s pinned declaration).
 const KINDS: Vocabulary = Vocabulary::new(&[
     "module",
     "function",
@@ -43,7 +43,7 @@ const KINDS: Vocabulary = Vocabulary::new(&[
     "namespace",
 ]);
 
-/// Who may name a definition, widest first, as `@code/core` names it.
+/// Who may name a definition, widest first, as `@code/core` names it (held to it as [`KINDS`] is).
 const VISIBILITY: Vocabulary = Vocabulary::new(&["public", "crate", "restricted", "private"]);
 
 /// Declare [`ITEMS`]'s kind `item` in `c`: what a test serving its own builders (MCP's `TestExtension`) declares.
@@ -198,5 +198,42 @@ mod tests {
             cites.entities[0].fields[0].target_kind.as_deref(),
             Some("item")
         );
+    }
+
+    /// The item's `kind` and `visibility` (type and values) as `declaration` declares them.
+    fn shaped(
+        declaration: &specforge_protocol_types::ExtensionDeclaration,
+    ) -> Vec<(String, Vec<String>)> {
+        let item = declaration
+            .entities
+            .iter()
+            .find(|kind| kind.name == "item")
+            .expect("an item kind");
+        ["kind", "visibility"]
+            .iter()
+            .map(|name| {
+                let field = item.fields.iter().find(|f| f.name == *name).expect(name);
+                (field.field_type.clone(), field.enum_values.clone())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_fixture_item_is_shaped_as_code_cores() {
+        let runtime = items_runtime();
+        let fixture = specforge_wasm::protocol::load_declaration(&runtime, ITEMS)
+            .unwrap()
+            .declaration;
+        let code_core = specforge_component::committed::pinned_builtin_declarations()
+            .unwrap()
+            .into_iter()
+            .find(|declaration| declaration.name() == "@code/core")
+            .expect("@code/core is a builtin");
+        let declared = shaped(&code_core);
+        assert!(
+            declared.iter().all(|(_, values)| !values.is_empty()),
+            "{declared:?}"
+        );
+        assert_eq!(shaped(&fixture), declared);
     }
 }
