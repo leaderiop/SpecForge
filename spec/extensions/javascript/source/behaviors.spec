@@ -22,6 +22,7 @@ behavior js_declare_source_collector "Declare the javascript-source Collector" {
     read_only                "its one capability reads the project root during collect"
   }
   verify unit "javascript-source declares its collector, its inputs, its capability and its peer"
+  verify integration "javascript-source runs without a command or consent"
 }
 
 behavior js_select_source_files "Select and Parse the Source Files" {
@@ -53,6 +54,8 @@ behavior js_select_source_files "Select and Parse the Source Files" {
   verify unit "a file under no named package is not read"
   verify unit "a truncated listing parses its glob and filters the answer"
   verify unit "the files an answer's cap left unparsed are asked again"
+  verify integration "a test file mints no item beside its runner's test"
+  verify integration "a file under no named package mints nothing"
 }
 
 behavior js_mint_item_facts "Mint Item and Package Facts from Definitions" {
@@ -88,6 +91,9 @@ behavior js_mint_item_facts "Mint Item and Package Facts from Definitions" {
   verify unit "function-valued variables are functions"
   verify unit "definitions of one name are one item with every place"
   verify unit "each named package is a package fact its items point at"
+  verify integration "a fixture workspace's items are minted by the host's reader with ids, kinds and places"
+  verify integration "the items point at their package fact"
+  verify integration "a second collect writes the same facts"
 }
 
 behavior js_mark_item_exports "Mark Exports, Visibility, Docs and Signatures" {
