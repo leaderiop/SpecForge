@@ -1374,6 +1374,9 @@ expression: "digest(&load(&runtime, &all))"
   "ext_short": {
     "@code/core": "core",
     "@javascript/node-test": "node-test",
+    "@rust/cargo": "cargo",
+    "@rust/source": "source",
+    "@rust/test": "test",
     "@specforge/cargo-test": "cargo-test",
     "@specforge/checks": "checks",
     "@specforge/formal": "formal",
@@ -1422,6 +1425,18 @@ expression: "digest(&load(&runtime, &all))"
     ],
     [
       "@specforge/checks",
+      "1.0.0"
+    ],
+    [
+      "@rust/cargo",
+      "1.0.0"
+    ],
+    [
+      "@rust/source",
+      "1.0.0"
+    ],
+    [
+      "@rust/test",
       "1.0.0"
     ]
   ],

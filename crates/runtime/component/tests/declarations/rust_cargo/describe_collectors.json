@@ -1,0 +1,82 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "package"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "Cargo.toml"
+        ]
+      },
+      "export": "collect__rust_cargo",
+      "input_formats": [],
+      "inputs": [
+        {
+          "glob": "**/Cargo.toml",
+          "input": "files",
+          "name": "manifests",
+          "text": true
+        },
+        {
+          "glob": "**/src/lib.rs",
+          "input": "files",
+          "name": "targets_lib"
+        },
+        {
+          "glob": "**/src/main.rs",
+          "input": "files",
+          "name": "targets_main"
+        },
+        {
+          "glob": "**/build.rs",
+          "input": "files",
+          "name": "targets_build"
+        },
+        {
+          "glob": "**/src/bin/*.rs",
+          "input": "files",
+          "name": "targets_bin"
+        },
+        {
+          "glob": "**/src/bin/*/main.rs",
+          "input": "files",
+          "name": "targets_bin_dir"
+        },
+        {
+          "glob": "**/tests/*.rs",
+          "input": "files",
+          "name": "targets_test"
+        },
+        {
+          "glob": "**/tests/*/main.rs",
+          "input": "files",
+          "name": "targets_test_dir"
+        },
+        {
+          "glob": "**/examples/*.rs",
+          "input": "files",
+          "name": "targets_example"
+        },
+        {
+          "glob": "**/examples/*/main.rs",
+          "input": "files",
+          "name": "targets_example_dir"
+        },
+        {
+          "glob": "**/benches/*.rs",
+          "input": "files",
+          "name": "targets_bench"
+        },
+        {
+          "glob": "**/benches/*/main.rs",
+          "input": "files",
+          "name": "targets_bench_dir"
+        }
+      ],
+      "name": "rust-cargo"
+    }
+  ]
+}

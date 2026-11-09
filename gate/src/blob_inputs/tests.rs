@@ -9,7 +9,7 @@ fn fed(paths: &[&str]) -> Vec<String> {
 }
 
 /// The blobs that record their inputs today: the builtins. The fixtures join at the round's re-vendor.
-const BUILTIN_CRATES: [&str; 10] = [
+const BUILTIN_CRATES: [&str; 13] = [
     "extensions/cargo-test",
     "extensions/checks",
     "extensions/code/core",
@@ -17,9 +17,21 @@ const BUILTIN_CRATES: [&str; 10] = [
     "extensions/governance",
     "extensions/javascript/node-test",
     "extensions/product",
+    "extensions/rust/cargo",
+    "extensions/rust/source",
+    "extensions/rust/test",
     "extensions/software",
     "extensions/testing",
     "extensions/vitest",
+];
+
+/// The builtins that link the `@code` extension libraries.
+const CODE_LINKERS: [&str; 5] = [
+    "extensions/code/core",
+    "extensions/javascript/node-test",
+    "extensions/rust/cargo",
+    "extensions/rust/source",
+    "extensions/rust/test",
 ];
 
 #[test]
@@ -36,17 +48,19 @@ fn a_record_round_trips_byte_for_byte() {
 
 #[test]
 fn a_change_to_the_junit_library_feeds_the_builtins_that_link_it() {
-    assert_eq!(
-        fed(&["extensions/code/junit/src/lib.rs"]),
-        ["extensions/code/core", "extensions/javascript/node-test"]
-    );
+    assert_eq!(fed(&["extensions/code/junit/src/lib.rs"]), CODE_LINKERS);
 }
 
 #[test]
 fn a_change_to_the_code_facts_library_feeds_the_builtins_that_link_it() {
+    assert_eq!(fed(&["extensions/code/facts/src/ids.rs"]), CODE_LINKERS);
+}
+
+#[test]
+fn a_change_to_the_manifest_library_feeds_only_rust_cargo() {
     assert_eq!(
-        fed(&["extensions/code/facts/src/ids.rs"]),
-        ["extensions/code/core", "extensions/javascript/node-test"]
+        fed(&["extensions/rust/manifest/src/lib.rs"]),
+        ["extensions/rust/cargo"]
     );
 }
 

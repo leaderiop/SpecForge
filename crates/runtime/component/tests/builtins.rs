@@ -9,25 +9,35 @@ use specforge_test_macros::test as specforge_test;
 use specforge_wasm::protocol::load_declaration;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 
+/// The builtins that call a `specforge:host` port, and the interfaces each imports (the port and its types).
+const HOST_IMPORTS: [(&str, &[&str]); 1] = [(
+    "@rust/source",
+    &["specforge:host/syntax@0.1.0", "specforge:host/types@0.1.0"],
+)];
+
 /// The spike's permanent form (ADR 0335 D5): a guest imports only the `specforge:host` interfaces it calls, so a
 /// builtin that calls none imports only `wasi:*`. A toolchain that keeps an unused import fails here first.
 #[test]
-fn every_committed_builtin_imports_only_wasi() {
+fn every_committed_builtin_imports_only_wasi_and_the_ports_it_calls() {
     let engine = wasmtime::Engine::default();
     for builtin in builtins::BUILTINS {
         let component = wasmtime::component::Component::from_binary(&engine, builtin.bytes)
             .unwrap_or_else(|e| panic!("{} ({}): {e}", builtin.name, builtin.crate_dir));
-        let foreign: Vec<String> = component
+        let mut foreign: Vec<String> = component
             .component_type()
             .imports(&engine)
             .map(|(name, _)| name.to_string())
             .filter(|name| !name.starts_with("wasi:"))
             .collect();
-        assert!(
-            foreign.is_empty(),
-            "{} ({}) imports {foreign:?}",
-            builtin.name,
-            builtin.crate_dir
+        foreign.sort();
+        let calls = HOST_IMPORTS
+            .iter()
+            .find(|(name, _)| *name == builtin.name)
+            .map_or(&[][..], |(_, ports)| *ports);
+        assert_eq!(
+            foreign, calls,
+            "{} ({}) imports",
+            builtin.name, builtin.crate_dir
         );
     }
 }
@@ -305,7 +315,7 @@ fn product_declares_the_commands_its_cli_surface_specifies() {
     behavior = "link_host_ports",
     verify = "every instance links the five ports, and a guest that calls none imports none"
 )]
-fn the_probe_imports_the_ports_it_calls_and_builtins_none() {
+fn the_probe_imports_the_ports_it_calls_and_builtins_only_theirs() {
     let engine = wasmtime::Engine::default();
     let blob = std::fs::read(specforge_component::committed::PROBE.path()).unwrap();
     let component = wasmtime::component::Component::from_binary(&engine, &blob).unwrap();
@@ -327,5 +337,5 @@ fn the_probe_imports_the_ports_it_calls_and_builtins_none() {
             "specforge:host/types@0.1.0",
         ]
     );
-    every_committed_builtin_imports_only_wasi();
+    every_committed_builtin_imports_only_wasi_and_the_ports_it_calls();
 }

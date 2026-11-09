@@ -1,0 +1,33 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "test",
+        "test_run"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "Cargo.toml"
+        ]
+      },
+      "capability": "rust-test",
+      "export": "collect__rust_test",
+      "input_formats": [
+        "junit-xml"
+      ],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "item"
+          ]
+        }
+      ],
+      "install": "cargo install cargo-nextest --locked",
+      "name": "rust-test",
+      "report": ".specforge/reports/rust-test.xml"
+    }
+  ]
+}

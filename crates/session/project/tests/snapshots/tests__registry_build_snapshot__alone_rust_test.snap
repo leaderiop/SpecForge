@@ -1,0 +1,51 @@
+---
+source: crates/session/project/tests/registry_build_snapshot.rs
+expression: "digest(&load(&runtime, &[name]))"
+---
+{
+  "check_passes": [],
+  "commands": [],
+  "diagnostics": [
+    {
+      "code": "W021",
+      "message": "extension '@rust/test': collector 'rust-test' declares the facts of kind 'item', which is not served: no loaded extension declares it collector-written"
+    },
+    {
+      "code": "W021",
+      "message": "extension '@rust/test': collector 'rust-test' answers the kind 'test', which no loaded extension declares collector-written"
+    },
+    {
+      "code": "W021",
+      "message": "extension '@rust/test': collector 'rust-test' answers the kind 'test_run', which no loaded extension declares collector-written"
+    },
+    {
+      "code": "E027",
+      "message": "extension '@rust/test' requires peer dependency '@code/core' ^1.1 which is not installed"
+    },
+    {
+      "code": "E027",
+      "message": "extension '@rust/test' requires peer dependency '@rust/source' ^1.0 which is not installed"
+    }
+  ],
+  "edges": {},
+  "ext_short": {
+    "@rust/test": "test"
+  },
+  "extension_info": [
+    [
+      "@rust/test",
+      "1.0.0"
+    ]
+  ],
+  "fields": {},
+  "graph_inputs": {
+    "absent_targets": {},
+    "derived_references": [],
+    "field_forms": {},
+    "member_kinds": []
+  },
+  "kinds": {},
+  "manifest_surfaces": [],
+  "rules": [],
+  "shadowed": 0
+}
