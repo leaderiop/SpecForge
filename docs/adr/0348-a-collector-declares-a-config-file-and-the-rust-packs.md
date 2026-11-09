@@ -72,8 +72,8 @@ autodiscovery reads, without text. The extension library `extensions/rust/manife
 completes each manifest with `cargo_toml` over the listing, inheritance and autodiscovery included, and answers
 `specforge_code_facts::Package`s: one `package` fact per package, `pkg:cargo/<name>`, located at its `[package]` table.
 A virtual manifest is no package. `depends_on` names the project's packages its path dependencies (normal, dev,
-build) reach. Two workspaces of one project may share a package name: the package whose directory is shortest (then
-lexically first) keeps `pkg:cargo/<name>`, every other takes the purl subpath `pkg:cargo/<name>#<dir>`. Every manifest
+build) reach. Two workspaces of one project may share a package name: the package whose directory is shallowest (fewest
+segments, then lexically first) keeps `pkg:cargo/<name>`, every other takes the purl subpath `pkg:cargo/<name>#<dir>`. Every manifest
 the walk sees is read, fixtures and nested workspaces included (the walk skips `target`, `vendor`, `node_modules`). A
 manifest the host withheld or `cargo_toml` cannot read, and a read that says `truncated`, are the collector's error,
 never a dropped package.
