@@ -13,8 +13,19 @@ use crate::view::ProjectView;
 /// The collected kind inference reads: `@code/core`'s definitions.
 pub const ITEM_KIND: &str = "item";
 
+/// The field naming who may name an item.
+const VISIBILITY: &str = "visibility";
+
 /// The `visibility` of an item anything outside its package may name.
 const PUBLIC: &str = "public";
+
+/// The field listing what an item's definitions are.
+const KIND: &str = "kind";
+
+/// An item fact's own name: its title (a pack titles an item by its name), else its id.
+pub(crate) fn item_name(node: &Node) -> &str {
+    node.title.as_deref().unwrap_or(node.id.raw.as_str())
+}
 
 /// One item fact, where its source places it.
 #[derive(Debug, Clone)]
@@ -32,22 +43,19 @@ impl ItemFact<'_> {
     /// Whether anything outside its package may name it.
     pub(crate) fn is_public(&self) -> bool {
         matches!(
-            self.node.fields.get("visibility"),
+            self.node.fields.get(VISIBILITY),
             Some(FieldValue::Identifier(word) | FieldValue::String(word)) if word == PUBLIC
         )
     }
 
-    /// Its own name: its title (a pack titles an item by its name), else its id.
+    /// Its own name ([`item_name`]).
     pub(crate) fn name(&self) -> &str {
-        self.node
-            .title
-            .as_deref()
-            .unwrap_or(self.node.id.raw.as_str())
+        item_name(self.node)
     }
 
     /// What its definitions are (`function`, `struct, module`), in the order its `kind` lists them.
     pub(crate) fn kinds(&self) -> String {
-        match self.node.fields.get("kind") {
+        match self.node.fields.get(KIND) {
             Some(FieldValue::List(items)) => items
                 .iter()
                 .map(|item| item.text.as_str())

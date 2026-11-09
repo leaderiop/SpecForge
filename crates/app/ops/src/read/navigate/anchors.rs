@@ -115,6 +115,8 @@ fn manifest(view: &ProjectView<'_>) -> Result<AnchorManifest, OpError> {
 /// reference to it, or a name the item's source gives an entity), or that an anchor names, by its file and its name,
 /// for an entity the view's graph declares. What inference gaps leave out.
 pub(crate) struct CoveredItems<'a> {
+    /// The graph whose item facts are asked of.
+    graph: &'a Graph,
     /// The project root an anchor's file and an item's place are read from (ADR 0271).
     root: PathBuf,
     /// The kinds a collector writes: an entity of any other kind is authored.
@@ -145,15 +147,17 @@ impl<'a> CoveredItems<'a> {
                 .insert(anchor.symbol_name.clone());
         }
         Ok(CoveredItems {
+            graph,
             root,
             kinds: view.registries().kinds(),
             anchored,
         })
     }
 
-    /// Whether the item fact `item` of `graph` is covered: cited by an authored entity, or anchored where it is
-    /// written under its name (its title, else its id).
-    pub(crate) fn covers(&self, graph: &Graph, item: &Node) -> bool {
+    /// Whether the item fact `item` of the view's graph is covered: cited by an authored entity, or anchored where it
+    /// is written under its name ([`crate::read::infer::item_name`]).
+    pub(crate) fn covers(&self, item: &Node) -> bool {
+        let graph = self.graph;
         let authored = |id: &str| {
             graph
                 .node(id)
@@ -168,7 +172,7 @@ impl<'a> CoveredItems<'a> {
                 .edges_from(id)
                 .iter()
                 .any(|e| authored(e.target.as_str()));
-        let name = item.title.as_deref().unwrap_or(id);
+        let name = crate::read::infer::item_name(item);
         cited
             || item.located.iter().any(|place| {
                 self.anchored_at(place.file.as_str())
@@ -378,31 +382,11 @@ mod tests {
         format!(r#"{{"version":1,"anchors":[{}]}}"#, rows.join(","))
     }
 
-    /// An item fact named `name`, written in `file`.
-    fn item(file: &str, name: &str) -> Node {
-        let span = |file: &str| specforge_common::SourceSpan {
-            file: specforge_common::Sym::new(file),
-            start_line: 1,
-            start_col: 1,
-            end_line: 1,
-            end_col: 2,
-        };
-        let mut node = Node::new(
-            &format!("rust:p::{name}"),
-            crate::read::infer::ITEM_KIND,
-            span(".specforge/facts/worktree/rust-source.json"),
-        );
-        node.title = Some(name.to_string());
-        node.located = vec![span(file)];
-        node
-    }
-
-    /// Whether the project `fixture` covers the item `name` written in `file`.
+    /// Whether the project `fixture` covers the item fact named `name`, written in `file`.
     fn covers(fixture: &Assembled, file: &str, name: &str) -> bool {
         let view = fixture.view();
-        CoveredItems::of(&view)
-            .unwrap()
-            .covers(view.graph(), &item(file, name))
+        let item = specforge_project::testing::item_node(&format!("rust:p::{name}"), file, 1);
+        CoveredItems::of(&view).unwrap().covers(&item)
     }
 
     #[test]

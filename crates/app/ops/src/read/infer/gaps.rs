@@ -54,14 +54,13 @@ pub fn gaps(view: &ProjectView) -> Result<Gaps, OpError> {
     let manifest = InferenceManifest::at(root)?;
     // Before any fact is read: an anchors manifest that cannot be used refuses the gaps.
     let covered = crate::read::navigate::CoveredItems::of(view)?;
-    let graph = view.graph();
     let facts = item_facts(view, root, &manifest.source_roots);
     let served = facts.len();
     let items = facts
         .into_iter()
         .filter(|item| item.is_public())
         .map(|item| {
-            let covers = covered.covers(graph, item.node);
+            let covers = covered.covers(item.node);
             let item = SourceItem {
                 name: item.name().to_string(),
                 item_kind: item.kinds(),

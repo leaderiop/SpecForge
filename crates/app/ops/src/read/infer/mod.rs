@@ -34,6 +34,7 @@ pub use guide::{
     KindGuideField, guide, kind_guide,
 };
 pub use items::ITEM_KIND;
+pub(crate) use items::item_name;
 pub use lint::lint;
 pub(crate) use manifest::read_manifest;
 pub use manifest::{
