@@ -17,6 +17,8 @@ use specforge_test::prelude::*;
 
 #[path = "history/picking.rs"]
 mod picking;
+#[path = "history/racy.rs"]
+mod racy;
 #[path = "history/spike.rs"]
 mod spike;
 #[path = "history/worktrees.rs"]
