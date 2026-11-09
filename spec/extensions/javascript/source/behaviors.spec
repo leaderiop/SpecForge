@@ -79,8 +79,9 @@ behavior js_mint_item_facts "Mint Item and Package Facts from Definitions" {
     or a declare module or declare global block MUST NOT be minted, nor a
     member with no class or interface around it. Definitions of one path
     are one item listing every place and kind. Every named package MUST be
-    a pkg:npm/<name> package fact with its version, engines, directory and
-    the project's own packages it depends on.
+    a package fact, pkg:npm/<name> or, for a second package of one name,
+    pkg:npm/<name>#<dir> (its items js:<name>@<dir>/…), with its version,
+    engines, directory and the project's own packages it depends on.
   """
   ensures {
     item_scope   "only a declaration an importer could name is an item"
@@ -95,6 +96,7 @@ behavior js_mint_item_facts "Mint Item and Package Facts from Definitions" {
   verify unit "function-valued variables are functions"
   verify unit "definitions of one name are one item with every place"
   verify unit "each named package is a package fact its items point at"
+  verify unit "a second package of one name keeps its items and its package fact apart"
   verify integration "a fixture workspace's items are minted by the host's reader with ids, kinds and places"
   verify integration "the items point at their package fact"
   verify integration "a second collect writes the same facts"

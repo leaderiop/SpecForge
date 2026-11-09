@@ -279,8 +279,11 @@ fn the_collector_answers_the_test_and_test_run_kinds() {
     assert_eq!(collector.answers, ["test", "test_run"]);
 }
 
-#[test]
-fn two_packages_of_one_name_name_their_tests_alike() {
+#[specforge_test(
+    behavior = "nt_map_node_test_report",
+    verify = "a second package of one name names its tests after its directory"
+)]
+fn a_second_package_of_one_name_names_its_tests_after_its_directory() {
     let packages = [
         ("package.json", r#"{"name":"app"}"#),
         ("examples/app/package.json", r#"{"name":"app"}"#),
@@ -290,12 +293,12 @@ fn two_packages_of_one_name_name_their_tests_alike() {
         <testcase name="adds" file="/work/app/examples/app/test/a.test.js"/>
     </testsuites>"#;
     let out = collect(&input(report, "/work/app", &packages)).unwrap();
-    // Both files' tests take one id: the second package's test merges into the first's.
     assert_eq!(
         tests(&out),
-        [(
-            "js:app/test/a.test.js#adds".to_string(),
-            "passed".to_string()
-        )]
+        [
+            "js:app/test/a.test.js#adds",
+            "js:app@examples%2Fapp/test/a.test.js#adds"
+        ]
+        .map(|id| (id.to_string(), "passed".to_string()))
     );
 }

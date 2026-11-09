@@ -1,26 +1,26 @@
 //! The workspace's named packages as `package` facts (ADR 0347 D5), the targets of their items' `package`.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use specforge_code_facts::{Package, PackageId};
 use specforge_extension_sdk::prelude::Fact;
 use specforge_javascript_workspace::Workspace;
 
-/// One `package` fact per named package of `workspace`, `pkg:npm/<name>`: its version, its engines, its directory and
-/// the project's own packages it depends on. Two `package.json` of one name are one package, the shallowest's.
+/// One `package` fact per named package of `workspace`, by id: its version, its engines, its directory and the
+/// project's own packages it depends on, a name its dependency tables list taken as the package of that name the
+/// plain `pkg:npm/<name>` names.
 pub(crate) fn facts(workspace: &Workspace) -> Vec<Fact> {
-    let mut ordered: Vec<_> = workspace.packages().iter().collect();
-    ordered.sort_by_key(|p| (p.dir.split('/').filter(|s| !s.is_empty()).count(), &p.dir));
-    let mut by_name = BTreeMap::new();
-    for package in ordered {
-        by_name.entry(package.name.as_str()).or_insert(package);
-    }
-    let own: BTreeSet<&str> = by_name.keys().copied().collect();
-    by_name
-        .values()
+    let own: BTreeSet<&str> = workspace
+        .packages()
+        .iter()
+        .map(|p| p.name.as_str())
+        .collect();
+    let mut facts: Vec<Fact> = workspace
+        .packages()
+        .iter()
         .map(|package| {
             Package {
-                id: PackageId::npm(&package.name),
+                id: package.id.clone(),
                 version: package.version.clone(),
                 edition: None,
                 rust_version: None,
@@ -38,5 +38,7 @@ pub(crate) fn facts(workspace: &Workspace) -> Vec<Fact> {
             }
             .fact()
         })
-        .collect()
+        .collect();
+    facts.sort_by(|a, b| a.id.cmp(&b.id));
+    facts
 }

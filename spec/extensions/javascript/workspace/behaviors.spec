@@ -17,7 +17,10 @@ behavior js_resolve_owning_package "Name the Package That Owns a File" {
     root's, or a directory followed by `/`), with the path under that
     directory; none when no named package is at or above it. A package
     keeps its string version, its string engines and the names its four
-    dependency tables list. The packs that name a file after its package
+    dependency tables list. Its id is pkg:npm/<name> for the shallowest
+    package of its name (fewest segments, then lexically first) and
+    pkg:npm/<name>#<dir> for every other, named <name>@<dir> (the dir
+    percent-encoded) in a test or an item id. The packs that name a file after its package
     link it, so the tests and the items of one file name one package.
   """
   ensures {
@@ -32,4 +35,5 @@ behavior js_resolve_owning_package "Name the Package That Owns a File" {
   verify unit "a sibling with a shared prefix does not own a file"
   verify unit "the root package owns what no nested one claims"
   verify unit "a package keeps its version, its engines and the names it depends on"
+  verify unit "a second package of one name is named after its directory"
 }

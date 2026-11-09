@@ -112,8 +112,9 @@ are tests of the library (`rust_analyzer_symbols_map_into_ids`, `scip_typescript
 ## D5. Package ids are purls without version
 
 `pkg:cargo/<name>`, `pkg:npm/<name>` (scoped `pkg:npm/%40scope/name`). The version is a field. A second cargo package
-of one name takes the purl subpath, `pkg:cargo/<name>#<dir>` (`PackageId::cargo_in`). A JavaScript package fact takes
-the same kind: `engines` and `depends_on` to the project's own packages are its fields too.
+of one name takes the purl subpath, `pkg:cargo/<name>#<dir>` (`PackageId::cargo_in`), and so does a second npm package
+(`pkg:npm/<name>#<dir>`, `PackageId::npm_in`), whose tests and items name it `<name>@<dir>` with the dir's `/`, `@`,
+`#`, `:` and `%` percent-encoded (`js_segment`, as D2's crate segment). A JavaScript package fact takes the same kind: `engines` and `depends_on` to the project's own packages are its fields too.
 
 ## D6. Locations are ADR 0346's `Fact.at`, every one of them
 
@@ -190,9 +191,10 @@ reports each dangling one of a `test` or an `item` (ADR 0346 D8).
   `private`. The modifier words stay in `attrs`.
 - **CommonJS**: `exports.x = …`, `module.exports.x = …` and `module.exports = { … }` define or export. Out:
   `module.exports = <function>` (no member to name), TypeScript's `export =`, a re-export `export … from`.
-- **The npm package facts**: the pack writes one `pkg:npm/<name>` per named package of the workspace, the
-  shallowest of one name, with `version`, `engines`, `path` and `depends_on` the project's own packages only, so no
-  item's `package` dangles. `@javascript/package`, which reads the lockfile, takes them over in the change that lands
+- **The npm package facts**: the pack writes one package fact per named package of the workspace, `pkg:npm/<name>`
+  for the shallowest of one name and `pkg:npm/<name>#<dir>` for every other (D5), with `version`, `engines`, `path`
+  and `depends_on` the project's own packages only (a name is the shallowest package of that name), so no item's
+  `package` dangles and no two files' items share an id. `@javascript/package`, which reads the lockfile, takes them over in the change that lands
   it: one writer per fact.
 
 ## The kinds (`@code/core` 1.1.0)
@@ -232,5 +234,6 @@ newline. No `depends_on` edge label: `@specforge/product` reads one for features
 
 - A SCIP display that differs from the normalised owner text for a non-path self type (`impl Tr for &T`): the SCIP pack
   would need a normalisation table.
-- A project that needs two npm packages of one name.
+- A SCIP index of a second npm package of one name: scip-typescript names both by the name alone, so the map would
+  need the directory.
 - A pack that needs a namespace-exact id.

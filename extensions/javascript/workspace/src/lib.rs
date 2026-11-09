@@ -8,8 +8,15 @@
 //!
 //! A `package.json` that could not be read, whose text is not JSON, or whose `name` is missing or not a string is no
 //! package: the file falls to the named package above it.
+//!
+//! Two packages of one name keep `pkg:npm/<name>` for the one whose directory is shallowest (fewest segments, then
+//! lexically first) and `pkg:npm/<name>#<dir>` for every other, named `<name>@<dir>` in a test or an item id
+//! ([`Package::segment`]): as `@rust/cargo` names a second cargo package (ADR 0347 D5), so no two files' ids meet.
+
+use std::collections::BTreeMap;
 
 use serde_json::Value;
+use specforge_code_facts::{js_segment, PackageId};
 use specforge_extension_sdk::prelude::*;
 
 #[cfg(test)]
@@ -29,6 +36,8 @@ pub struct Package {
     /// Its directory, project-relative, `""` at the root.
     pub dir: String,
     pub name: String,
+    /// Its id: `pkg:npm/<name>`, or `pkg:npm/<name>#<dir>` when a shallower package has its name.
+    pub id: PackageId,
     /// Its `version`, when it is a string.
     pub version: Option<String>,
     /// `<engine> <range>` for each string of its `engines`, by engine.
@@ -39,6 +48,11 @@ pub struct Package {
 }
 
 impl Package {
+    /// What a test or an item id names this package by: its name, or `<name>@<dir>` for a second of that name.
+    pub fn segment(&self) -> String {
+        js_segment(&self.id)
+    }
+
     /// The path of the project-relative `file` under this package's directory, when the file is in it.
     pub fn holds<'f>(&self, file: &'f str) -> Option<&'f str> {
         if self.dir.is_empty() {
@@ -74,6 +88,7 @@ impl Package {
         depends_on.dedup();
         Some(Package {
             dir: dir.to_string(),
+            id: PackageId::npm(&name),
             name,
             version: json
                 .get("version")
@@ -92,9 +107,9 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    /// The packages the host read for `input`, in the order it read them (by path).
+    /// The packages the host read for `input`, in the order it read them (by path), each with its id.
     pub fn of(input: &CollectInput) -> Workspace {
-        let packages = input
+        let mut packages: Vec<Package> = input
             .files
             .get(PACKAGES)
             .into_iter()
@@ -102,6 +117,21 @@ impl Workspace {
             .filter(|file| file.error.is_none())
             .filter_map(|file| Package::read(&file.path, file.text.as_deref()?))
             .collect();
+        let depth = |dir: &str| dir.split('/').filter(|s| !s.is_empty()).count();
+        let mut first: BTreeMap<String, String> = BTreeMap::new();
+        for package in &packages {
+            let kept = first
+                .entry(package.name.clone())
+                .or_insert_with(|| package.dir.clone());
+            if (depth(&package.dir), &package.dir) < (depth(kept), &*kept) {
+                kept.clone_from(&package.dir);
+            }
+        }
+        for package in &mut packages {
+            if first[&package.name] != package.dir {
+                package.id = PackageId::npm_in(&package.name, &package.dir);
+            }
+        }
         Workspace { packages }
     }
 

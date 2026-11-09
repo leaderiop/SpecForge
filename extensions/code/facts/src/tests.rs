@@ -176,6 +176,28 @@ fn a_second_package_of_one_name_takes_its_dir() {
     assert_eq!(item.to_string().parse::<ItemId>().unwrap(), item);
 }
 
+#[specforge_test(
+    behavior = "cc_mint_code_ids",
+    verify = "a second npm package of one name takes its dir"
+)]
+fn a_second_npm_package_of_one_name_takes_its_dir() {
+    let twin = PackageId::npm_in("@acme/core", "examples/core");
+    assert_eq!(twin.to_string(), "pkg:npm/%40acme/core#examples/core");
+    assert_eq!(js_segment(&PackageId::npm("@acme/core")), "@acme/core");
+    // `/` is encoded too: it ends the package part of a js id.
+    let segment = js_segment(&twin);
+    assert_eq!(segment, "@acme/core@examples%2Fcore");
+    let item = ItemId::js(&segment, "src/a.ts", &strings(&["add"]));
+    assert_eq!(
+        item.to_string(),
+        "js:@acme/core@examples%2Fcore/src/a.ts::add"
+    );
+    assert_eq!(item.to_string().parse::<ItemId>().unwrap(), item);
+    let test = TestId::js(&segment, "test/a.test.js", &strings(&["adds"]));
+    assert_eq!(test.package(), "@acme/core@examples%2Fcore");
+    assert_eq!(test.to_string().parse::<TestId>().unwrap(), test);
+}
+
 #[test]
 fn an_items_test_id_is_what_nextest_names_it() {
     let package = PackageId::cargo("specforge-ops");
@@ -299,6 +321,7 @@ fn every_id_parses_back_to_itself() {
         PackageId::cargo("toy"),
         PackageId::cargo_in("toy", "a b/c"),
         PackageId::npm("@acme/core"),
+        PackageId::npm_in("@acme/core", "a b/c"),
     ];
     for id in packages {
         assert_eq!(id.to_string().parse::<PackageId>().unwrap(), id, "{id}");

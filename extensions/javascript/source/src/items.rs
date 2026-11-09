@@ -16,8 +16,9 @@
 
 use std::collections::BTreeMap;
 
-use specforge_code_facts::{location, Definition, ItemId, ItemKind, Names, PackageId, Visibility};
+use specforge_code_facts::{location, Definition, ItemId, ItemKind, Names, Visibility};
 use specforge_extension_sdk::host::{SyntaxCapture, SyntaxMatch, SyntaxRole, SyntaxSpan};
+use specforge_javascript_workspace::Package;
 
 /// What a definition is, as the query's `@definition.<kind>` names it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -306,9 +307,10 @@ fn signature(group: &Group) -> Option<String> {
     (!text.is_empty()).then_some(text)
 }
 
-/// The definitions of `file` (project-relative; `under` the package `package`'s directory), parsed as `matches`.
+/// The definitions of `file` (project-relative; `under` the directory of `package`, which owns it), parsed as
+/// `matches`.
 pub(crate) fn read(
-    package: &str,
+    package: &Package,
     file: &str,
     under: &str,
     matches: &[SyntaxMatch],
@@ -316,6 +318,7 @@ pub(crate) fn read(
     let groups = groups(matches);
     let exported = exported(matches);
     let docs = docs(matches, &groups);
+    let segment = package.segment();
     let mut definitions = Vec::new();
     for (at, group) in groups.iter().enumerate() {
         let (Some(kind), Some(path)) = (group.role.item_kind(), path(&groups, at)) else {
@@ -330,8 +333,8 @@ pub(crate) fn read(
             attrs.push("default".to_string());
         }
         definitions.push(Definition {
-            id: ItemId::js(package, under, &path),
-            package: PackageId::npm(package),
+            id: ItemId::js(&segment, under, &path),
+            package: package.id.clone(),
             kind,
             visibility: Visibility::js(public(&groups, at, &exported)),
             file: file.to_string(),

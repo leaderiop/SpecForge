@@ -88,6 +88,12 @@ expression handed to a call.
 is its path from the project root. An item id never holds `#`, a test id
 always does, so an item and a test of one file cannot clash.
 
+Two `package.json` may give one name (an example app beside the real one):
+the package in the shallowest directory (then the lexically first) keeps
+`pkg:npm/<name>`, every other is `pkg:npm/<name>#<dir>`, and its items and
+tests name it `<name>@<dir>` with the directory's `/` written `%2F`:
+`js:app@examples%2Fapp/src/a.js::x`.
+
 ## 6. What an item knows
 
 - **`visibility`**: `public` when an importer reaches it, else `private`. A
@@ -110,7 +116,8 @@ One `package` fact per named package: its `version`, its `engines`
 `devDependencies`, `peerDependencies` or `optionalDependencies` name.
 Registry dependencies are left out: they belong to a later
 `@javascript/package`, which reads the lockfile and takes over these facts.
-Two `package.json` of one name are one package, the shallowest's.
+A second package of one name is its own fact, `pkg:npm/<name>#<dir>`; a
+dependency on that name is the shallowest's.
 
 ## Troubleshooting
 

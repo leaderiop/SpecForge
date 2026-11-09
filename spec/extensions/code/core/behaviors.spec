@@ -169,8 +169,9 @@ behavior cc_mint_code_ids "Mint Every Code Id in One Library" {
     rust:<binary id>#<path>, a Rust item rust:<crate segment>::<path> with
     a member's owner written <Type> or <Type as Trait> (last path segment,
     generic arguments dropped), a JS item js:<package>/<file>::<name> with
-    members joined by a dot, a package pkg:cargo/<name>, pkg:cargo/<name>#
-    <dir> or pkg:npm/<name> with an npm scope's at sign percent-encoded. An
+    members joined by a dot, a package pkg:cargo/<name> or pkg:npm/<name>
+    with an npm scope's at sign percent-encoded, and #<dir> for a second
+    package of one name, whose JS ids name it <name>@<dir> (dir encoded). An
     item id MUST never hold a hash sign; every id MUST parse back to itself;
     a SCIP symbol of rust-analyzer or scip-typescript MUST map into exactly
     one id. Every definition one id reaches MUST be one fact listing each
@@ -189,4 +190,5 @@ behavior cc_mint_code_ids "Mint Every Code Id in One Library" {
   verify unit "a SCIP symbol of rust-analyzer or scip-typescript maps into exactly one id"
   verify unit "definitions of one id merge into one fact listing every location and kind"
   verify unit "an item's test id writes the words its edition reserves raw, as libtest names the test"
+  verify unit "a second npm package of one name takes its dir"
 }

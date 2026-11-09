@@ -11,6 +11,9 @@ const FILE_ESCAPES: &[char] = &['%', '#', ':'];
 const NAME_ESCAPES: &[char] = &['%', '#', '.', ':'];
 /// What a crate segment's `<dir>` percent-encodes: `@` starts it.
 const DIR_ESCAPES: &[char] = &['%', '#', ':', '@'];
+/// What a JavaScript package segment's `<dir>` percent-encodes: a crate segment's, and `/`, which ends the package
+/// part of a `js` id.
+const JS_DIR_ESCAPES: &[char] = &['%', '#', ':', '@', '/'];
 /// What a purl subpath percent-encodes.
 const SUBPATH_ESCAPES: &[char] = &['%', '#', '?', ' '];
 
@@ -344,8 +347,8 @@ impl FromStr for ItemId {
     }
 }
 
-/// A package's id (ADR 0347 D5): a purl without version, `pkg:cargo/<name>`, `pkg:cargo/<name>#<dir>` (a second
-/// package of one name) or `pkg:npm/<name>` (a scope's `@` encoded: `pkg:npm/%40scope/name`).
+/// A package's id (ADR 0347 D5): a purl without version, `pkg:cargo/<name>` or `pkg:npm/<name>` (a scope's `@`
+/// encoded: `pkg:npm/%40scope/name`), with `#<dir>` for a second package of one name.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PackageId {
     kind: PackageKind,
@@ -385,6 +388,15 @@ impl PackageId {
             kind: PackageKind::Npm,
             name: name.to_string(),
             dir: None,
+        }
+    }
+
+    /// The npm package `name` at the project-relative directory `dir`, a second package of that name:
+    /// `pkg:npm/<name>#<dir>`, the purl subpath.
+    pub fn npm_in(name: &str, dir: &str) -> PackageId {
+        PackageId {
+            dir: Some(dir.to_string()),
+            ..PackageId::npm(name)
         }
     }
 
@@ -569,6 +581,15 @@ pub fn crate_segment(package: &PackageId, kind: TargetKind, target: &str) -> Str
     match package.dir() {
         Some(dir) => format!("{base}@{}", escape(dir, DIR_ESCAPES)),
         None => base,
+    }
+}
+
+/// The package part of a `js` test or item id (D4): the package's name, `@<dir>` appended for a second package of
+/// that name (`app@examples%2Fapp`), as [`crate_segment`] qualifies a second cargo package.
+pub fn js_segment(package: &PackageId) -> String {
+    match package.dir() {
+        Some(dir) => format!("{}@{}", package.name(), escape(dir, JS_DIR_ESCAPES)),
+        None => package.name().to_string(),
     }
 }
 

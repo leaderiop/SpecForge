@@ -9,7 +9,8 @@
 //! .cts`, tsx for the rest, which reads JavaScript and JSX too. Every declaration at item scope (the program, a
 //! namespace's body) and every member of a class or an interface there becomes an item named
 //! `js:<package>/<file>::<name>[.<member>]` ([`items`]), minted by `specforge-code-facts`; every named package becomes
-//! a `pkg:npm/<name>` package fact, the target of its items' `package` ([`packages`]).
+//! a `pkg:npm/<name>` package fact, the target of its items' `package` ([`packages`]). A second package of one name is
+//! `pkg:npm/<name>#<dir>`, its items `js:<name>@<dir>/…` (`specforge-javascript-workspace`).
 
 mod files;
 mod items;
@@ -59,7 +60,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     let mut definitions = Vec::new();
     for file in &parsed {
         if let Some((package, under)) = workspace.owner(&file.path) {
-            definitions.extend(items::read(&package.name, &file.path, under, &file.matches));
+            definitions.extend(items::read(package, &file.path, under, &file.matches));
         }
     }
     let mut facts = item_facts(definitions);

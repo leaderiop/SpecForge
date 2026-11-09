@@ -6,8 +6,9 @@
 //! `.specforge/reports/node-test.xml`, the report this pack reads. Node needs 20.10 or later for the JUnit reporter.
 //!
 //! Each test is named `js:<package>/<file>#<suite > … > name>` (ADR 0329 D2): `<package>` is the `name` of the
-//! nearest `package.json` at or above the test's file (`specforge-javascript-workspace`, which `@javascript/source`
-//! names its items by too), and `<file>` is the path under that package's directory. The answer is facts only, a
+//! nearest `package.json` at or above the test's file (`<name>@<dir>` for a second package of that name;
+//! `specforge-javascript-workspace`, which `@javascript/source` names its items by too), and `<file>` is the path
+//! under that package's directory. The answer is facts only, a
 //! `test` and a `test_run` per test, read by `specforge-code-junit` and minted by `specforge-code-facts` so every
 //! runner pack names a test alike: an entity cites a test by its id, and `@code/core` checks the reference. A test
 //! fact's `file` is the project-relative path (ADR 0347 D8).
@@ -56,7 +57,7 @@ impl Contributions for NodeTest {
 fn id(workspace: &Workspace, file: &str, case: &Case) -> Result<TestId, String> {
     workspace
         .owner(file)
-        .map(|(package, under)| TestId::js(&package.name, under, &case.path()))
+        .map(|(package, under)| TestId::js(&package.segment(), under, &case.path()))
         .ok_or_else(|| {
             format!(
                 "{file}: no package.json with a name at or above it; node-test names a test \

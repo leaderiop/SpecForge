@@ -1,4 +1,5 @@
 use serde_json::{json, Value};
+use specforge_code_facts::PackageId;
 use specforge_test::prelude::*;
 
 use super::*;
@@ -164,6 +165,7 @@ fn a_package_keeps_its_version_and_the_names_it_depends_on() {
         [Package {
             dir: "packages/core".to_string(),
             name: "@acme/core".to_string(),
+            id: PackageId::npm("@acme/core"),
             version: Some("1.2.0".to_string()),
             engines: vec!["node >=20".to_string()],
             depends_on: ["app", "fsevents", "lodash", "react", "typescript"]
@@ -174,4 +176,42 @@ fn a_package_keeps_its_version_and_the_names_it_depends_on() {
     let unversioned = workspace(&[("package.json", r#"{"name":"app","version":1}"#)]);
     assert_eq!(unversioned.packages()[0].version, None);
     assert_eq!(unversioned.packages()[0].dir, "");
+}
+
+#[specforge_test(
+    behavior = "js_resolve_owning_package",
+    verify = "a second package of one name is named after its directory"
+)]
+fn a_second_package_of_one_name_is_named_after_its_directory() {
+    let w = workspace(&[
+        ("examples/app/package.json", r#"{"name":"app"}"#),
+        ("package.json", r#"{"name":"app"}"#),
+        ("tools/a/package.json", r#"{"name":"tool"}"#),
+        ("tools/b/package.json", r#"{"name":"tool"}"#),
+    ]);
+    let named: Vec<(&str, String, String)> = w
+        .packages()
+        .iter()
+        .map(|p| (p.dir.as_str(), p.id.to_string(), p.segment()))
+        .collect();
+    let row = |dir, id: &str, segment: &str| (dir, id.to_string(), segment.to_string());
+    assert_eq!(
+        named,
+        [
+            row(
+                "examples/app",
+                "pkg:npm/app#examples/app",
+                "app@examples%2Fapp"
+            ),
+            row("", "pkg:npm/app", "app"),
+            // Of one depth, the lexically first keeps the plain id.
+            row("tools/a", "pkg:npm/tool", "tool"),
+            row("tools/b", "pkg:npm/tool#tools/b", "tool@tools%2Fb"),
+        ]
+    );
+    assert_eq!(
+        w.owner("examples/app/src/a.js")
+            .map(|(p, under)| (p.segment(), under)),
+        Some(("app@examples%2Fapp".to_string(), "src/a.js"))
+    );
 }

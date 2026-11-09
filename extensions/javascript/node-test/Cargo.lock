@@ -334,6 +334,7 @@ name = "specforge-javascript-workspace"
 version = "1.0.0"
 dependencies = [
  "serde_json",
+ "specforge-code-facts",
  "specforge-extension-sdk",
 ]
 
