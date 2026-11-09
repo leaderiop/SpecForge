@@ -126,8 +126,6 @@ behavior call_extension_exports "Call Extension Exports" {
     CollectOutput,
     ValidatorContext,
     ValidatorVerdict,
-    ScanRequest,
-    ScanResponse,
     MigrationInput,
     WasmTrapInfo,
   ]
@@ -139,18 +137,17 @@ behavior call_extension_exports "Call Extension Exports" {
     one_protocol_type  "each operation's input and answer is one specforge_protocol_types type the host and the SDK share"
     strict_answers     "an answer that does not decode as its protocol type is E028; unknown fields are ignored and absent optional fields take their defaults"
     one_failure        "a trap, an unrouted export, an extension not loaded or a malformed answer is E028 naming the operation, the export and the extension"
-    no_silent_failure  "no operation drops a failure: a pass's is a finding, a scanner's is reported, a command's is the command's error"
+    no_silent_failure  "no operation drops a failure: a pass's is a finding, a command's is the command's error"
     runtimes_agree     "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
-    printable_text     "the text of a handshake, describe, pass or validator answer, and of a call's failure, is read printable; a command's output, an MCP tool's or resource's answer, a collector's and a scanner's are read as answered"
+    printable_text     "the text of a handshake, describe, pass or validator answer, and of a call's failure, is read printable; a command's output, an MCP tool's or resource's answer and a collector's are read as answered"
     pass_codes_checked "a pass diagnostic whose code its extension may not use is kept and reported (W150)"
   }
   contract   """
-    The host performs thirteen operations on a loaded extension, each one call
+    The host performs twelve operations on a loaded extension, each one call
     of one export over the WasmRuntime port: handshake and describe (the
     declaration, ADR 0012), a command (cmd__), an MCP tool or resource
     (mcp__), a compiler pass (__pass_<name>, one rule the SDK and the host share), a collector (collect__), a
-    custom validator (the rule's wasm_function), a scanner (the analyzer's
-    scan export), a migration hook, an MCP prompt (prompt__, ADR 0291), the body of an agent or skill (render__, ADR 0292) and a host hook (hook__, ADR 0292). Each sends one protocol type as
+    custom validator (the rule's wasm_function), a migration hook, an MCP prompt (prompt__, ADR 0291), the body of an agent or skill (render__, ADR 0292) and a host hook (hook__, ADR 0292). Each sends one protocol type as
     JSON and reads one protocol type back (specforge_protocol_types); an
     optional field the host leaves unset is absent, never null. A trap, an
     export the guest does not route, an extension the runtime did not load,
@@ -158,12 +155,11 @@ behavior call_extension_exports "Call Extension Exports" {
     export and the extension, with the suggestion to report it to the
     extension's author. What a failure means is the operation's: a check
     pass's is a compile diagnostic, an analyze pass's a finding of that
-    pass, a command's its E028 error, a scanner's a reported failure that
-    makes the gap report approximate, a collector's the collect error. A
+    pass, a command's its E028 error, a collector's the collect error. A
     migration hook's answer is not read. The text of a handshake, describe,
     pass or validator answer, and of a call's failure, MUST be read
     printable (ADR 0244); a command's output, an MCP tool's or resource's
-    answer, a collector's and a scanner's are read as answered.
+    answer and a collector's are read as answered.
     A component guest builds its declaration once per instance and answers
     the handshake and every describe from it.
 
@@ -187,8 +183,7 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "a pass answer may be bare diagnostics or diagnostics with a summary, and its diagnostics come back in canonical order with an entity's span attached"
   verify unit "an analyze pass that traps is reported as an E028 finding of that pass"
   verify unit "an analyze pass runs in the view's runtime whether or not the view has a root"
-  verify unit "a scanner that traps or answers malformed output is reported, not dropped"
-  verify unit "a pass, collector, custom rule, scanner or migration hook is declared with its handler, and its export answers through it"
+  verify unit "a pass, collector, custom rule or migration hook is declared with its handler, and its export answers through it"
   verify unit "the SDK routes a compiler pass at the export the host calls it by"
   verify unit "a pass input that does not encode fails each pass's call, naming its export, and nothing is sent"
   verify unit "an export the guest's handler answers decodes its input and encodes its answer as a declared handler does"

@@ -7,7 +7,7 @@ extension. An extension teaches it a domain — software, product planning, a
 regulated procedure, anything with things, links and rules worth checking.
 
 Declare **what your extension contributes**: entity kinds, fields, edges,
-validation rules, compiler passes, collectors, analyzers, feature flags and
+validation rules, compiler passes, collectors, feature flags and
 commands, each operation together with the function that answers it. The SDK
 serves the protocol the SpecForge host loads (`__handshake`, `__describe`) and
 routes every export it calls to the handler you declared.
@@ -88,8 +88,8 @@ crate compiles.
   loads and what `specforge publish` uploads; there is no manifest to keep in
   step.
 - **An operation is declared with its handler** (`command`, `mcp_tool`,
-  `mcp_resource`, `pass`, `collector`, `rule` with `validate`, `analyzer` with
-  `scan`, `migration_hook_handler`): the declaration and the export routing come
+  `mcp_resource`, `pass`, `collector`, `rule` with `validate`,
+  `migration_hook_handler`): the declaration and the export routing come
   from that one call, and declaring one without its handler panics when the
   extension is built.
 - **Runtime-free testing**: build your contributions in a unit test and assert

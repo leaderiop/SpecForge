@@ -241,7 +241,7 @@ milestone zero_entity_core "Phase 9: Zero-Entity Core Architecture" {
   exit_criteria [
     "Core compiler has zero hardcoded entity types — all from extensions",
     "KindRegistry boots empty and is populated only from the loaded extensions' ExtensionDeclarations",
-    "ExtensionDeclaration declares entity kinds (with testability), edge types, enhancements, validation rules, surfaces, collectors, analyzers and passes",
+    "ExtensionDeclaration declares entity kinds (with testability), edge types, enhancements, validation rules, surfaces, collectors and passes",
     "@specforge/software (5), product (9) and governance (3) declare the 17 domain kinds SpecForge's own specs use",
     "Two-phase compilation separates structural parsing from semantic validation",
     "E024 diagnostics suggest which extension provides unknown keywords",

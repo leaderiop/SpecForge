@@ -189,14 +189,13 @@ fn approve_all(grant: &Grant, consent: &MemoryConsent) {
 #[test]
 fn the_gate_holds_each_call_kind_to_its_ports() {
     use Operation::*;
-    let rows: [(Operation, [bool; 6]); 13] = [
+    let rows: [(Operation, [bool; 6]); 12] = [
         // fs read, fs write, git read, git write, http, process
         (Pass, [true, false, true, false, false, false]),
         (Validate, [true, false, true, false, false, false]),
         (Hook, [true, false, true, false, false, false]),
         (Prompt, [true, false, false, false, false, false]),
         (Render, [true, false, false, false, false, false]),
-        (Scan, [true, false, false, false, false, false]),
         (Migrate, [true, false, false, false, false, false]),
         (Collect, [true, true, true, true, true, true]),
         (Command, [true, true, true, true, true, false]),

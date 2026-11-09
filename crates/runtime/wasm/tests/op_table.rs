@@ -2,8 +2,8 @@
 //! input.
 
 use serde_json::json;
+use specforge_extension_sdk::MigrationInput;
 use specforge_extension_sdk::prelude::*;
-use specforge_extension_sdk::{MigrationInput, ScanRequest};
 use specforge_protocol_types::DeclaredCategory;
 use specforge_protocol_types::Operation;
 use specforge_wasm::{CallError, ExtensionCalls};
@@ -21,7 +21,6 @@ pub fn export_of(operation: Operation) -> &'static str {
         Operation::Pass => "__pass_audit",
         Operation::Collect => "collect__x",
         Operation::Validate => "validate__x",
-        Operation::Scan => "scan__x",
         Operation::Migrate => "migrate__x",
         Operation::Prompt => "prompt__x",
         Operation::Render => "render__",
@@ -58,16 +57,6 @@ pub fn perform(
             .map(drop),
         Operation::Validate => calls
             .validate(extension, export, &validator_context())
-            .map(drop),
-        Operation::Scan => calls
-            .scan(
-                extension,
-                export,
-                &ScanRequest {
-                    file_path: "a.rs".into(),
-                    content: String::new(),
-                },
-            )
             .map(drop),
         Operation::Migrate => calls
             .migrate(extension, export, &MigrationInput::default())

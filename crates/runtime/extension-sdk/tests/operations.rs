@@ -1,5 +1,5 @@
 //! Operational contributions are declared with their handlers: a pass, a
-//! collector, a custom rule, a scanner and the migration hook each answer
+//! collector, a custom rule and the migration hook each answer
 //! their export through the handler declared with them, reading and
 //! writing the protocol's types, and a declaration without its handler is
 //! refused when the extension is built.
@@ -70,24 +70,6 @@ fn extension() -> ContributionsBuilder {
                 }
             });
     });
-    c.analyzer("acme", |a| {
-        a.file_extensions(&[".acme"])
-            .scan(|request: &ScanRequest| ScanResponse {
-                items: request
-                    .content
-                    .lines()
-                    .enumerate()
-                    .map(|(i, line)| ScannedItem {
-                        name: line.to_string(),
-                        item_kind: "line".into(),
-                        line: i + 1,
-                        visibility: None,
-                        signature: None,
-                    })
-                    .collect(),
-                language: Some("acme".into()),
-            });
-    });
     c.migration_hook_handler("migrate__acme", |input: &MigrationInput| {
         if input.files.is_empty() {
             Err("nothing to migrate".to_string())
@@ -113,7 +95,7 @@ fn call(export: &str, input: serde_json::Value) -> Result<serde_json::Value, Str
 
 #[specforge_test_macros::test(
     behavior = "call_extension_exports",
-    verify = "a pass, collector, custom rule, scanner or migration hook is declared with its handler, and its export answers through it"
+    verify = "a pass, collector, custom rule or migration hook is declared with its handler, and its export answers through it"
 )]
 fn every_operation_answers_through_its_declared_handler() {
     let declaration = extension().declaration();
@@ -124,7 +106,6 @@ fn every_operation_answers_through_its_declared_handler() {
         declaration.validation_rules[0].wasm_function.as_deref(),
         Some("validate__e9")
     );
-    assert_eq!(declaration.analyzers[0].scan_export, "scan__acme");
     assert_eq!(
         declaration.handshake.migration_hook.as_deref(),
         Some("migrate__acme")
@@ -161,17 +142,6 @@ fn every_operation_answers_through_its_declared_handler() {
     assert_eq!(
         call("validate__e9", context("good")).unwrap(),
         json!({"verdict": "pass"})
-    );
-    assert_eq!(
-        call(
-            "scan__acme",
-            json!({"file_path": "a.acme", "content": "x\ny"})
-        )
-        .unwrap(),
-        json!({"items": [
-            {"name": "x", "item_kind": "line", "line": 1, "visibility": null, "signature": null},
-            {"name": "y", "item_kind": "line", "line": 2, "visibility": null, "signature": null}
-        ], "language": "acme"})
     );
     assert_eq!(
         call(
@@ -232,15 +202,6 @@ fn a_declarative_rule_with_a_handler_is_refused() {
 }
 
 #[test]
-#[should_panic(expected = "analyzer 'acme' declares no scanner")]
-fn an_analyzer_without_its_scanner_is_refused() {
-    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
-    c.analyzer("acme", |a| {
-        a.file_extensions(&[".acme"]);
-    });
-}
-
-#[test]
 #[should_panic(expected = "export cmd__dup is already")]
 fn an_operation_and_a_surface_cannot_share_an_export() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
@@ -260,33 +221,25 @@ fn an_operation_and_a_surface_cannot_share_an_export() {
 )]
 fn answer_export_names_a_bad_input_as_a_declared_handler_does() {
     let mut handled = false;
-    let by_hand = answer_export::<ScanRequest, ScanResponse>("scan", b"nope", |_| {
+    let by_hand = answer_export::<CollectInput, CollectOutput>("collect", b"nope", |_| {
         handled = true;
-        ScanResponse {
-            items: Vec::new(),
-            language: None,
-        }
+        CollectOutput::default()
     })
-    .expect_err("an input that is not a ScanRequest");
+    .expect_err("an input that is not a CollectInput");
     let declared = extension()
-        .dispatch_export("scan__acme", b"nope")
+        .dispatch_export("collect__acme_test", b"nope")
         .expect("routed")
-        .expect_err("an input that is not a ScanRequest");
+        .expect_err("an input that is not a CollectInput");
     assert!(!handled, "the handler is not called");
     assert_eq!(
         by_hand, declared,
         "one decode: the same words for the same input"
     );
-    assert!(by_hand.starts_with("invalid scan input: "), "{by_hand}");
+    assert!(by_hand.starts_with("invalid collect input: "), "{by_hand}");
 
-    let ok = answer_export::<ScanRequest, ScanResponse>(
-        "scan",
-        br#"{"file_path":"a","content":"x"}"#,
-        |_| ScanResponse {
-            items: Vec::new(),
-            language: None,
-        },
-    );
+    let ok = answer_export::<CollectInput, CollectOutput>("collect", br#"{"reports":[]}"#, |_| {
+        CollectOutput::default()
+    });
     assert!(ok.is_ok(), "{ok:?}");
 }
 

@@ -171,9 +171,9 @@ feature contribution_based_extensions "Contribution-Based Extensions" {
   status   done
   problem  """
     Extensions need a structured way to declare what they contribute
-    (the ten describe categories: entities, edges, shared_fields,
-    enhancements, validation_rules, surfaces, collectors, analyzers,
-    passes, feature_flags) with per-entity metadata such
+    (the nine describe categories: entities, edges, shared_fields,
+    enhancements, validation_rules, surfaces, collectors, passes,
+    feature_flags) with per-entity metadata such
     as testable flags, field type definitions, and structured validation
     rule patterns.
   """
@@ -186,7 +186,7 @@ feature contribution_based_extensions "Contribution-Based Extensions" {
     The host calls an extension's exports through one typed
     module (call_extension_exports, ADR 0013): handshake and describe, a
     command, an MCP tool or resource, a compiler pass, a collector, a
-    custom validator, a scanner and the migration hook, each with the
+    custom validator and the migration hook, each with the
     protocol's input and answer types and every failure E028. What an
     effectful call may do through the host ports belongs to the
     wasm_host_function_api feature. This

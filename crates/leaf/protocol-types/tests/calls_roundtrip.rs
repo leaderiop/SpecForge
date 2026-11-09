@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 use specforge_protocol_types::{
     CollectInput, CommandError, CommandFormat, CommandInput, CommandOutput, GraphWire,
     McpResourceContent, McpResourceRequest, MigrationInput, PassAnswer, PassDiagnostic, PassInput,
-    PassOutput, PassSeverity, ScanRequest, TestStatus, ValidatorContext,
+    PassOutput, PassSeverity, TestStatus, ValidatorContext,
 };
 
 fn wire(name: &str) -> Value {
@@ -90,7 +90,6 @@ fn the_host_payloads_decode_as_their_protocol_types() {
     for context in &contexts {
         round_trips::<ValidatorContext>(context);
     }
-    round_trips::<ScanRequest>(&wire("scan.input.json"));
     round_trips::<MigrationInput>(&wire("migrate.input.json"));
 }
 

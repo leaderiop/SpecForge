@@ -100,7 +100,7 @@ stripping drops function names from trap frames, so remove the table to debug.
 
 ## Authoring Experience
 
-You describe what the extension contributes with the builder, each contribution with the function that answers it. The SDK serves `__handshake` and `__describe` from the declaration and routes every declared export (`cmd__*`, `mcp__*`, `__pass_*`, `collect__*`, `validate__*`, `scan__*`, the migration hook) to its handler.
+You describe what the extension contributes with the builder, each contribution with the function that answers it. The SDK serves `__handshake` and `__describe` from the declaration and routes every declared export (`cmd__*`, `mcp__*`, `__pass_*`, `collect__*`, `validate__*`, the migration hook) to its handler.
 
 ### Complete Example
 
@@ -243,7 +243,7 @@ mod contributions;
 specforge_extension_sdk::component_guest!(build = contributions::build);
 ```
 
-`#[extension]` generates `specforge_extension_build()`; `build` hands it to `component_guest!`. An extension that also serves exports with no builder (its own scanners' helpers, say) passes `handler = <fn(&str, &[u8]) -> Option<Result<Vec<u8>, String>>>`.
+`#[extension]` generates `specforge_extension_build()`; `build` hands it to `component_guest!`. An extension that also serves exports with no builder (a category given with `raw_category`, say) passes `handler = <fn(&str, &[u8]) -> Option<Result<Vec<u8>, String>>>`.
 
 ### Extension-Level Attributes
 
@@ -284,7 +284,6 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `c.mcp_tool(..)`, `c.mcp_resource(..)` | an MCP tool or resource and its handler | `surfaces` |
 | `c.collector(name, \|k\| ..)` | a test collector and its handler | `collectors` |
 | `c.pass(name, \|p\| ..)` | a compiler pass and its handler | `passes` |
-| `c.analyzer(language, \|a\| ..)` | a source analyzer and its scanner | `analyzers` |
 | `c.feature_flag(name, default, description)` | a bool setting of that name users set in `specforge.json` | `settings` |
 | `c.setting(name, \|s\| ..)` | a typed setting: `bool()`, `integer()`, `number()`, `string()`, `enum_values(..)`, `string_list()`, `block()`, `block_list()`, `default(..)`, `describe(..)`, `gates(..)`, `gates_when_on(..)`, `keys(..)` for a family | `settings` |
 | `c.preset(source, \|p\| ..)` | what each value of an enum or bool setting presets and raises: `p.when(value, \|e\| e.set(..).raise(..))` | `settings` |
@@ -740,13 +739,7 @@ lists, mixed lists, expressions and type unions, and a pass did not receive
 them or empty variant lists and blocks. See the version table in
 [extension-protocol.md](extension-protocol.md#protocol-versions).
 
-### Scanners and the migration hook
-
-An analyzer is declared with its scanner, `a.scan(...)`, from a
-[`ScanRequest`] (one source file) to a [`ScanResponse`] (its public items),
-at its `scan_export` (`scan__<language>`). Its `classify__`/`map__` exports
-are declared too but the host does not call them; a guest that serves them
-anyway answers them from its `handler`, decoding with `answer_export`.
+### The migration hook
 
 The hook `specforge migrate` calls before it writes the migrated files is
 declared with its handler, `c.migration_hook_handler(export, |input:

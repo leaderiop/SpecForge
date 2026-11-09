@@ -20,8 +20,7 @@ fn e030(message: String) -> Diagnostic {
 
 /// E030: a declaration the host cannot use as declared: an empty name or
 /// version, an `ext_short` that is not lowercase kebab case (it names a CLI
-/// subcommand and an MCP tool prefix), an analyzer without a language,
-/// file extensions or exports, or a malformed `codes` entry.
+/// subcommand and an MCP tool prefix), or a malformed `codes` entry.
 pub(crate) fn shape(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
     let name = declaration.name();
     let mut diagnostics = Vec::new();
@@ -44,31 +43,6 @@ pub(crate) fn shape(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
         );
     }
     diagnostics.extend(code_entries(declaration));
-    for analyzer in &declaration.analyzers {
-        if analyzer.language.is_empty() {
-            diagnostics.push(e030(format!(
-                "extension '{name}': an analyzer has an empty language"
-            )));
-        }
-        if analyzer.file_extensions.is_empty() {
-            diagnostics.push(e030(format!(
-                "extension '{name}': the analyzer for '{}' has no file extensions",
-                analyzer.language
-            )));
-        }
-        for export in [
-            &analyzer.scan_export,
-            &analyzer.classify_export,
-            &analyzer.map_export,
-        ] {
-            if export.is_empty() {
-                diagnostics.push(e030(format!(
-                    "extension '{name}': the analyzer for '{}' has an empty export name",
-                    analyzer.language
-                )));
-            }
-        }
-    }
     diagnostics
 }
 

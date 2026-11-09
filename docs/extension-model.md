@@ -25,7 +25,6 @@ Everything below is a builder call in the extension SDK (`ContributionsBuilder`,
 | **Commands** | `specforge <extension> <command>` on the CLI, promoted to an MCP tool of the same name | `command` |
 | **MCP tools and resources** | Explicit tools and resources for AI agents | `mcp_tool`, `mcp_resource` |
 | **Collectors** | A test runner `specforge collect` can run (after you approve the command) and the mapping from its report to entities | `collector` |
-| **Analyzers** | A source-code scanner `specforge infer` uses to suggest entities from existing code | `analyzer` |
 | **Providers** | A `ref` scheme the project can configure (see [below](#providers-registered-not-yet-connected)) | `providers` |
 | **Peers** | Other extensions it needs, or works with when present, with a version range | `peer`, `optional_peer` |
 | Starter file, diagram colour, a migration hook | Conveniences: what `specforge init` writes, how `model` and `outline` draw it | `starter_template`, `theme_color`, `migration_hook_handler` |

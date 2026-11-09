@@ -65,8 +65,8 @@ impl Served {
 pub type ExportHandler = fn(&str, &[u8]) -> Option<Result<Vec<u8>, String>>;
 
 /// The answer of an export the guest's `handler` serves (one no builder
-/// declares with its handler: an analyzer's `classify__`/`map__`, or an
-/// export of a category given with [`ContributionsBuilder::raw_category`]):
+/// declares with its handler: an export of a category given with
+/// [`ContributionsBuilder::raw_category`]):
 /// `input` decoded as `I`, `handler`'s answer encoded. An input that is not
 /// an `I` is the guest's error, naming the export.
 pub fn answer_export<I, O>(
@@ -109,7 +109,7 @@ pub fn no_other_exports(_export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, 
 /// fn build() -> specforge_extension_sdk::ContributionsBuilder { /* ... */ }
 /// fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
 ///     match export {
-///         "scan__rust" => Some(serde_json::to_vec(&scan_rust(req)?)),
+///         "cmd__x" => Some(Ok(input.to_vec())),
 ///         _ => None,
 ///     }
 /// }

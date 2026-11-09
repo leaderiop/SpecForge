@@ -9,7 +9,6 @@
 //! | `__pass_<name>` (pass)        | [`PassInput`]          | [`PassAnswer`]               |
 //! | `collect__<name>` (collector) | [`CollectInput`]       | [`CollectOutput`]            |
 //! | a rule's `wasm_function`      | [`crate::ValidatorContext`] | [`crate::ValidatorVerdict`] |
-//! | an analyzer's `scan_export`   | [`crate::ScanRequest`] | [`crate::ScanResponse`]      |
 //! | the migration hook            | [`MigrationInput`]     | not read                     |
 //!
 //! The rules every type here follows: an optional field is absent from the

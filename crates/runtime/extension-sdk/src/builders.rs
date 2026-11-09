@@ -1,13 +1,12 @@
 use crate::{
     CheckKind, CollectInput, CollectOutput, ConstraintKind, EdgeTypeDescriptor,
     EntityEnhancementDescriptor, EntityKindDescriptor, FieldConstraintDescriptor, FieldDescriptor,
-    FieldType, FieldWriter, PassAnswer, PassInput, ScanRequest, ScanResponse,
-    ValidationRuleDescriptor, ValidationSeverity, ValidatorContext, ValidatorVerdict, Vocabulary,
-    operations,
+    FieldType, FieldWriter, PassAnswer, PassInput, ValidationRuleDescriptor, ValidationSeverity,
+    ValidatorContext, ValidatorVerdict, Vocabulary, operations,
 };
 use specforge_protocol_types::{
-    AnalyzerDescriptor, AutoDetectConfig, CodeDescriptor, CollectorDescriptor,
-    CompilerPassDescriptor, GUARD_PHASE, JudgedDescriptor, JudgedInput, JudgedTarget,
+    AutoDetectConfig, CodeDescriptor, CollectorDescriptor, CompilerPassDescriptor, GUARD_PHASE,
+    JudgedDescriptor, JudgedInput, JudgedTarget,
 };
 
 /// Builder for [`EntityKindDescriptor`].
@@ -638,63 +637,6 @@ impl PassBuilder {
     /// The kinds whose git-baseline entities the pass receives as `previous` (compute and check phases).
     pub fn baseline(&mut self, kinds: &[&str]) -> &mut Self {
         self.descriptor.baseline = kinds.iter().map(|k| k.to_string()).collect();
-        self
-    }
-}
-
-/// Builder for [`AnalyzerDescriptor`], with its scanner.
-pub struct AnalyzerBuilder {
-    pub(crate) descriptor: AnalyzerDescriptor,
-    pub(crate) scan: Option<operations::Wire>,
-}
-
-impl AnalyzerBuilder {
-    pub(crate) fn new(language: &str) -> Self {
-        Self {
-            descriptor: AnalyzerDescriptor {
-                language: language.to_string(),
-                file_extensions: Vec::new(),
-                excluded_dirs: Vec::new(),
-                scan_export: format!("scan__{language}"),
-                classify_export: format!("classify__{language}"),
-                map_export: format!("map__{language}"),
-                description: None,
-            },
-            scan: None,
-        }
-    }
-    /// The scanner: `handler` receives one source file ([`ScanRequest`])
-    /// and answers the public items it found ([`ScanResponse`]).
-    pub fn scan(&mut self, handler: impl Fn(&ScanRequest) -> ScanResponse + 'static) -> &mut Self {
-        self.scan = Some(operations::wire("scan", move |request: &ScanRequest| {
-            Ok::<_, String>(handler(request))
-        }));
-        self
-    }
-    /// The file extensions it scans, with their dot (`.rs`).
-    pub fn file_extensions(&mut self, extensions: &[&str]) -> &mut Self {
-        self.descriptor.file_extensions = extensions.iter().map(|e| e.to_string()).collect();
-        self
-    }
-    /// Directories it never scans (`target`, `node_modules`).
-    pub fn excluded_dirs(&mut self, dirs: &[&str]) -> &mut Self {
-        self.descriptor.excluded_dirs = dirs.iter().map(|d| d.to_string()).collect();
-        self
-    }
-    pub fn scan_export(&mut self, export: &str) -> &mut Self {
-        self.descriptor.scan_export = export.to_string();
-        self
-    }
-    pub fn classify_export(&mut self, export: &str) -> &mut Self {
-        self.descriptor.classify_export = export.to_string();
-        self
-    }
-    pub fn map_export(&mut self, export: &str) -> &mut Self {
-        self.descriptor.map_export = export.to_string();
-        self
-    }
-    pub fn description(&mut self, d: &str) -> &mut Self {
-        self.descriptor.description = Some(d.to_string());
         self
     }
 }

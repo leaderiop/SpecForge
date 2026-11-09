@@ -1,10 +1,10 @@
 //! Operational contributions declared with their handlers: compiler
-//! passes, collectors, custom rules, scanners and the migration hook.
+//! passes, collectors, custom rules and the migration hook.
 //!
 //! As for surfaces (ADR 0011), one declaration gives both halves: the
 //! descriptor the host loads and the routing of the export the host then
 //! calls (`__pass_<name>`, `collect__<name>`, the rule's `wasm_function`,
-//! the analyzer's `scan_export`, the hook's name) to the handler, which
+//! the hook's name) to the handler, which
 //! reads the protocol's input type and answers its answer type (ADR 0013).
 //! A declaration cannot lack its code: declaring one without its handler
 //! panics when the extension is built.

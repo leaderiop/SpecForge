@@ -78,10 +78,6 @@ fn the_sdk_payloads_are_the_protocol_types() {
             TypeId::of::<protocol::ValidatorVerdict>(),
         ),
         (
-            TypeId::of::<sdk::ScanRequest>(),
-            TypeId::of::<protocol::ScanRequest>(),
-        ),
-        (
             TypeId::of::<sdk::MigrationInput>(),
             TypeId::of::<protocol::MigrationInput>(),
         ),

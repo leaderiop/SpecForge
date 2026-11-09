@@ -980,9 +980,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   kinds, fields, edges, rules, the extension declarations and their ordered passes), the root it was
   compiled from, and what the surface reports for it; the runtime its environment's extensions were
   loaded in (`ProjectView::runtime`), the one every operation that calls an extension over the view
-  calls it in (analyze's passes, collect's collectors, inference gaps' scanners, an extension
-  command), so none takes a runtime of its own; its entity snapshot, through the per-compile
-  memo (`ProjectView::entities`) (`specforge_ops::view::ProjectView`). It reads
+  calls it in (analyze's passes, collect's collectors, an extension command), so none takes a
+  runtime of its own; its entity snapshot, through the per-compile memo (`ProjectView::entities`)
+  (`specforge_ops::view::ProjectView`). It reads
   the project's recorded test report through its compiled project, over MCP held inside the root
   through the containment it carries (`ProjectView::bounded_by`, ADR 0183): the recorded report, the schema cache,
   a typed edit's format configuration, and its versioned schema, both at that root and never an
@@ -1391,8 +1391,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `WasmRuntime` port (`specforge_mcp`'s `extension_dispatch`). A contribution it does not serve is
   reported with I017 (`specforge_mcp`'s `ExtensionSurfaceTable`, ADR 0017).
 - **Extension call**: one typed operation the host performs on a loaded extension — handshake,
-  describe, command, MCP tool, MCP resource, compiler pass, collector, custom validator, scanner,
-  migration hook — over the `WasmRuntime` port. Its input and answer are protocol types
+  describe, command, MCP tool, MCP resource, compiler pass, collector, custom validator, migration
+  hook — over the `WasmRuntime` port. Its input and answer are protocol types
   (`specforge_protocol_types`) the SDK shares; every failure is one `CallError`, E028, naming the
   operation, the export and the extension (`specforge_wasm::calls::ExtensionCalls`, ADR 0013).
 - **Sandbox**: what the host holds an extension to. It gets no WASI capability (no preopened

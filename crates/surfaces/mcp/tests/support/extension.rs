@@ -216,7 +216,7 @@ impl TestExtension {
     }
 
     /// Anything else, declared with the SDK builders: a provider, an
-    /// analyzer, an inference guide, a command.
+    /// inference guide, a command.
     pub fn declaring(
         mut self,
         declare: impl Fn(&mut ContributionsBuilder) + Send + Sync + 'static,

@@ -22,7 +22,6 @@ Options:
           - validation_rules: validation rules
           - surfaces:         commands, MCP tools and resources
           - collectors:       test collectors
-          - analyzers:        source analyzers
           - passes:           compiler passes
           - feature_flags:    feature flags
           - codes:            diagnostic code catalog

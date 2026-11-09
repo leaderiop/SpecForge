@@ -393,19 +393,18 @@ entry writes, the name of a builtin, or an extension another entry already
 loads); its handshake or one of its describe categories failed or does not
 parse, so its declaration cannot be read (`specforge add` and `specforge
 publish` refuse such a binary); or a call the host makes on the loaded extension
-failed. The host calls fourteen exports: the handshake and describe, a command,
+failed. The host calls thirteen exports: the handshake and describe, a command,
 an MCP tool, an MCP resource, a compiler pass, a collector, a custom validator,
-a scanner, the migration hook, an MCP prompt, the renderer of an agent's or
-skill's body, a hook and a value checker. Each call fails when the export traps
-(a limit of its sandbox included: its time, its fuel or its memory, the trap
-naming which), when the extension does not route it, or when it answers output
-that is not the protocol type the operation owes (a collector's test whose
-status is not `passed`, `failed` or `skipped`, say); the message names the
-operation, the export and the extension (`command cmd__x() of '@acme/x' trapped:
-...`). What the failure costs is the operation's: a check pass's is the
-compile's error, an analyze pass's a finding of that pass, a scanner's makes
-`infer` approximate. Report the failure to the extension's author, and confirm
-the extension is installed and up to date.
+the migration hook, an MCP prompt, the renderer of an agent's or skill's body, a
+hook and a value checker. Each call fails when the export traps (a limit of its
+sandbox included: its time, its fuel or its memory, the trap naming which), when
+the extension does not route it, or when it answers output that is not the
+protocol type the operation owes (a collector's test whose status is not
+`passed`, `failed` or `skipped`, say); the message names the operation, the
+export and the extension (`command cmd__x() of '@acme/x' trapped: ...`). What
+the failure costs is the operation's: a check pass's is the compile's error, an
+analyze pass's a finding of that pass. Report the failure to the extension's
+author, and confirm the extension is installed and up to date.
 
 Owner: core
 Level: error
@@ -419,8 +418,7 @@ E030: Invalid extension declaration
 An extension's declaration (its handshake and describe answers) can't be used as
 declared: its name or version is empty, its `ext_short` isn't lowercase kebab
 case (`[a-z][a-z0-9-]*`; it names the extension's CLI subcommand and MCP tool
-prefix), an analyzer has no language, no file extensions or an empty export
-name, or a `codes` entry is malformed: a code that is not `E`, `W` or `I` and
+prefix), or a `codes` entry is malformed: a code that is not `E`, `W` or `I` and
 three digits (a `/` included: the host adds the namespace), a code catalogued
 twice, an empty title or explanation, or a `docs` that is not an absolute
 `http(s)` URL; a first-party extension declares no `codes`, its codes are in
@@ -1304,14 +1302,14 @@ E090: Effect outside the granted scope
 
 An extension asked the host for an effect its grant does not cover (ADR 0335
 D2): the call kind may not use that port at all (a pass, validator, prompt,
-renderer, scanner, migration or hook never reaches the network or runs a
-command, and only `collect` runs a process), no capability it declares covers
-the request (another host, method, scheme, root, op or command), or the
-project's effects ceiling (`effects` in `specforge.json`) narrows the capability
-that would. The host does not perform it. The message names the extension, the
-request in one line (no header or body) and the capability that came closest.
-Declare a capability that covers it, or widen `effects` if the project means to
-allow it; an effect a call kind may never make is the extension's to remove.
+renderer, migration or hook never reaches the network or runs a command, and
+only `collect` runs a process), no capability it declares covers the request
+(another host, method, scheme, root, op or command), or the project's effects
+ceiling (`effects` in `specforge.json`) narrows the capability that would. The
+host does not perform it. The message names the extension, the request in one
+line (no header or body) and the capability that came closest. Declare a
+capability that covers it, or widen `effects` if the project means to allow it;
+an effect a call kind may never make is the extension's to remove.
 
 Owner: core
 Level: error
@@ -4055,9 +4053,9 @@ and `max_memory_mb` that asks for something (`network_access: true`, a non-empty
 surface's `sandbox` override grant nothing. A declared limit above the host's
 ceiling (30000 ms per call, 512 MB of linear memory) is held to the ceiling. The
 message names the extension and the key. Remove the key, or lower the limit. An
-extension that needs a file's content gets it in its input (an analyzer is
-handed each file); one that needs the network, a file outside its input or a
-command declares a capability (ADR 0335 D2).
+extension that needs a file's content gets it in its input; one that needs the
+network, a file outside its input or a command declares a capability (ADR 0335
+D2).
 
 Owner: core
 Level: warning

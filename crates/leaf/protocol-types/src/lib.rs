@@ -14,9 +14,8 @@
 //!   [`CommandOutput`]), an MCP resource ([`McpResourceRequest`],
 //!   [`McpResourceContent`]), a compiler pass ([`PassInput`],
 //!   [`PassAnswer`]), a collector ([`CollectInput`], [`CollectOutput`]), a
-//!   custom validator ([`ValidatorContext`], [`ValidatorVerdict`]), a
-//!   scanner ([`ScanRequest`], [`ScanResponse`]) and the migration hook
-//!   ([`MigrationInput`]);
+//!   custom validator ([`ValidatorContext`], [`ValidatorVerdict`]) and the
+//!   migration hook ([`MigrationInput`]);
 //! - the shell-word reader ([`shell`], ADR 0292's amendment): what a line of
 //!   shell runs, read and never run, by the host for a hook's facts and by a
 //!   guest for the command text no hook carries. Editing it stales every blob.
@@ -544,91 +543,6 @@ pub struct CollectorDescriptor {
     /// input names one, and the only kinds whose facts the host admits from it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub answers: Vec<String>,
-}
-
-// ── Analyzer Protocol Types ──
-
-/// Request to scan a source file for public items.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ScanRequest {
-    pub file_path: String,
-    pub content: String,
-}
-
-/// A single scanned item from source code.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ScannedItem {
-    pub name: String,
-    pub item_kind: String,
-    pub line: usize,
-    #[serde(default)]
-    pub visibility: Option<String>,
-    #[serde(default)]
-    pub signature: Option<String>,
-}
-
-/// Response from scanning a source file.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ScanResponse {
-    pub items: Vec<ScannedItem>,
-    #[serde(default)]
-    pub language: Option<String>,
-}
-
-/// Request to classify scanned items into specforge entity categories.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ClassifyRequest {
-    pub items: Vec<ScannedItem>,
-    pub file_path: String,
-}
-
-/// Classification result for a scanned item.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ClassifiedItem {
-    pub name: String,
-    pub item_kind: String,
-    pub suggested_entity_kind: Option<String>,
-    pub confidence: f64,
-    pub line: usize,
-}
-
-/// Response from classifying scanned items.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ClassifyResponse {
-    pub items: Vec<ClassifiedItem>,
-}
-
-/// Request to map a source symbol to a specforge entity ID.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct MapSymbolRequest {
-    pub name: String,
-    pub item_kind: String,
-    pub file_path: String,
-    #[serde(default)]
-    pub existing_entity_ids: Vec<String>,
-}
-
-/// Response from mapping a symbol to an entity ID.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct MapSymbolResponse {
-    pub entity_id: Option<String>,
-    pub mapping_strategy: String,
-}
-
-// ── Analyzer Descriptor ──
-
-/// Describes a language analyzer contributed by an extension.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct AnalyzerDescriptor {
-    pub language: String,
-    pub file_extensions: Vec<String>,
-    #[serde(default)]
-    pub excluded_dirs: Vec<String>,
-    pub scan_export: String,
-    pub classify_export: String,
-    pub map_export: String,
-    #[serde(default)]
-    pub description: Option<String>,
 }
 
 // ── Compiler Pass Descriptor ──
