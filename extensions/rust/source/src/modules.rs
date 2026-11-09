@@ -11,7 +11,8 @@
 //!   items are the module's (cfg twins).
 //!
 //! A file outside the project, or absent, keeps its `mod` item and no items: rustc owns that error, and a cfg-gated
-//! module's file may be absent by design.
+//! module's file may be absent by design. A file already in a target's tree is not walked again (a `#[path]` loop
+//! back to an ancestor): its `mod` item stays, and the walk is bounded by the project's files.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
@@ -107,7 +108,8 @@ fn parse(paths: &[String]) -> Result<Vec<SyntaxFile>, String> {
 /// Every definition of every crate's module tree, its files parsed one round at a time.
 pub(crate) fn walk(crates: &[Crate]) -> Result<Vec<Definition>, String> {
     let mut answers: BTreeMap<String, SyntaxOutcome> = BTreeMap::new();
-    let mut seen: BTreeSet<(usize, Vec<String>, String)> = BTreeSet::new();
+    // A file is walked once per crate: a `#[path]` back to an ancestor keeps its `mod` item and ends there.
+    let mut seen: BTreeSet<(usize, String)> = BTreeSet::new();
     let mut definitions = Vec::new();
     let mut round: Vec<Module> = crates
         .iter()
@@ -141,7 +143,7 @@ pub(crate) fn walk(crates: &[Crate]) -> Result<Vec<Definition>, String> {
             else {
                 continue;
             };
-            if !seen.insert((module.krate, module.path.clone(), candidate.file.clone())) {
+            if !seen.insert((module.krate, candidate.file.clone())) {
                 continue;
             }
             let krate = &crates[module.krate];

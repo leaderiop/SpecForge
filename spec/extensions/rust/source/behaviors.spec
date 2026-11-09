@@ -34,7 +34,8 @@ behavior rs_resolve_module_tree "Resolve Each Target's Module Tree" {
     inline module adds its own path attribute's directory, else its name
     without r#, to the directory; a path attribute is
     relative to the declaring file's directory, or inside an inline module
-    to that module's; every path a cfg_attr names is followed. Each round's
+    to that module's; every path a cfg_attr names is followed; a file
+    already in the target's tree is not walked again. Each round's
     new files MUST be parsed in one request, the files an answer's cap left
     unparsed asked again. A module whose file is absent or outside the
     project keeps its mod item and no items; a file the reader could not
@@ -50,6 +51,7 @@ behavior rs_resolve_module_tree "Resolve Each Target's Module Tree" {
   verify unit "a path attribute is relative to the declaring file's directory"
   verify unit "a path inside an inline module is relative to the inline module's directory"
   verify unit "an inline module's directory is its own path, else its name without r#"
+  verify unit "a path attribute looping back to a file already in the tree keeps its mod item and ends there"
   verify unit "every path a cfg_attr names is followed and its twins merge into one item"
   verify unit "a file two targets reach mints items in each crate"
   verify unit "a module whose file is absent or outside the project keeps its mod item only"

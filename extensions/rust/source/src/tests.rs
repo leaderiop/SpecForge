@@ -327,6 +327,38 @@ fn an_inline_modules_directory_is_its_own_path_else_its_unraw_name() {
 
 #[specforge_test(
     behavior = "rs_resolve_module_tree",
+    verify = "a path attribute looping back to a file already in the tree keeps its mod item and ends there"
+)]
+fn a_path_looping_back_to_a_file_in_the_tree_ends_there() {
+    let (out, asked) = collected_with(
+        &[
+            (
+                "src/lib.rs",
+                "#[path = \"lib.rs\"]\nmod again;\nmod b;\npub fn f() {}\n",
+            ),
+            ("src/b.rs", "#[path = \"lib.rs\"]\nmod back;\nfn g() {}\n"),
+        ],
+        &["lib:toy:src/lib.rs"],
+        None,
+    );
+    assert_eq!(
+        ids(&out.expect("rust-source collects")),
+        [
+            "rust:toy::again",
+            "rust:toy::b",
+            "rust:toy::b::back",
+            "rust:toy::b::g",
+            "rust:toy::f",
+        ]
+    );
+    assert_eq!(
+        asked,
+        [vec!["src/lib.rs"], vec!["src/b.rs", "src/b/mod.rs"]]
+    );
+}
+
+#[specforge_test(
+    behavior = "rs_resolve_module_tree",
     verify = "every path a cfg_attr names is followed and its twins merge into one item"
 )]
 fn a_cfg_attr_path_is_followed_and_its_twins_merge() {

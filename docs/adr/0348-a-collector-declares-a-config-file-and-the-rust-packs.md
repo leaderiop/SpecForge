@@ -96,7 +96,8 @@ syntax import. Per target of every served package it walks the **module tree** b
 rustc's rules (Context), following every `path` a `cfg_attr` names; each round's new files are parsed in one
 `syntax.parse` with the pack's query (`extensions/rust/source/queries/rust-tags.scm`), the files the answer's cap left
 unparsed asked again. A file outside the project, or absent, keeps its `mod` item and no items: rustc owns that error,
-and a cfg-gated module's file may be absent by design.
+and a cfg-gated module's file may be absent by design. A file already in the target's tree is not walked again (a
+`#[path]` loop back to an ancestor keeps its `mod` item), so the walk is bounded by the project's files.
 
 Every definition at module level, in inline modules and in `impl` and `trait` blocks is an `item` (not inside a
 function body, not variants or fields), minted by ADR 0347's `item_facts`: `ItemKind::Method` for a function in an
