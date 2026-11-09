@@ -126,7 +126,7 @@ deliverable specforge_gh "specforge/gh" {
   modules       [specforge_provider_gh]
 }
 
-deliverable specforge_rust_traceability_deliverable "specforge/rust-traceability" {
+deliverable specforge_rust_traceability_deliverable "rust-test-traceability" {
   artifact_type library
   description   "Rust test traceability toolkit: the #[specforge_test] attribute, test guard, and the @specforge/cargo-test collector."
   modules       [specforge_test_lib, specforge_test_macros_lib, specforge_package_cargo_test]

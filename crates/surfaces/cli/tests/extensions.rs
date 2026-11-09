@@ -34,14 +34,14 @@ fn write_lock_file(dir: &std::path::Path, entries: &[(&str, &str, &str)]) {
     .unwrap();
 }
 
-/// Helper: create a specforge.json enabling `@specforge/rust` (which
+/// Helper: create a specforge.json enabling `@specforge/testing` (which
 /// contributes no providers) with `providers` configured.
 fn write_config_with_providers(dir: &std::path::Path, providers: &[serde_json::Value]) {
     let config = serde_json::json!({
         "name": "test-project",
         "version": "0.1.0",
         "spec_root": "spec",
-        "extensions": ["@specforge/rust"],
+        "extensions": ["@specforge/testing"],
         "providers": providers,
     });
 
@@ -349,7 +349,7 @@ fn providers_lists_alias_extension_schemes() {
         dir.root(),
         &[
             serde_json::json!({"scheme": "gh", "alias": "work", "extension": "@acme/github"}),
-            serde_json::json!({"scheme": "file", "alias": "junit", "extension": "@specforge/rust"}),
+            serde_json::json!({"scheme": "file", "alias": "junit", "extension": "@specforge/testing"}),
         ],
     );
 
@@ -361,10 +361,8 @@ fn providers_lists_alias_extension_schemes() {
         stdout.contains("  work (extension: @acme/github)\n    scheme: gh [extension_not_loaded]"),
         "{stdout}"
     );
-    assert!(
-        stdout.contains("  junit (extension: @specforge/rust)\n    scheme: file [not_a_provider]"),
-        "{stdout}"
-    );
+    let junit = "  junit (extension: @specforge/testing)\n    scheme: file [not_a_provider]";
+    assert!(stdout.contains(junit), "{stdout}");
     // Why neither is registered, as the scheme registry reports it.
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("warning[W118]"), "{stderr}");
@@ -407,7 +405,9 @@ fn providers_includes_scheme_and_kind() {
     let dir = TestProject::new().without_config();
     write_config_with_providers(
         dir.root(),
-        &[serde_json::json!({"scheme": "file", "alias": "junit", "extension": "@specforge/rust"})],
+        &[
+            serde_json::json!({"scheme": "file", "alias": "junit", "extension": "@specforge/testing"}),
+        ],
     );
 
     let (_, json) = providers_json(&dir);
@@ -424,7 +424,7 @@ fn write_two_providers(dir: &std::path::Path) {
         dir,
         &[
             serde_json::json!({"scheme": "http", "alias": "beta", "extension": "@specforge/python"}),
-            serde_json::json!({"scheme": "file", "alias": "alpha", "extension": "@specforge/rust"}),
+            serde_json::json!({"scheme": "file", "alias": "alpha", "extension": "@specforge/testing"}),
         ],
     );
 }
@@ -481,7 +481,7 @@ fn providers_contract() {
         json["providers"],
         serde_json::json!([
             {"scheme": "http", "alias": "beta", "extension": "@specforge/python", "status": "extension_not_loaded"},
-            {"scheme": "file", "alias": "alpha", "extension": "@specforge/rust", "status": "not_a_provider"},
+            {"scheme": "file", "alias": "alpha", "extension": "@specforge/testing", "status": "not_a_provider"},
         ])
     );
     assert_eq!(providers_json(&dir).0, first);

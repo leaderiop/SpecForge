@@ -1,4 +1,4 @@
-// @specforge/rust extension constraints
+// Rust test traceability (the #[specforge_test] macros, @specforge/cargo-test): constraints
 //
 // Non-functional requirements specific to the Rust language integration:
 // entity mapping accuracy and report correctness.

@@ -289,7 +289,7 @@ mod tests {
         assert!(text.contains("core owns"), "{text}");
         assert!(text.contains("Parse error"), "{text}");
         let other = none
-            .check("@specforge/rust", "W041", Level::Warning)
+            .check("@specforge/testing", "W041", Level::Warning)
             .unwrap_err();
         assert!(
             other.to_string().contains("@specforge/product owns"),
@@ -373,7 +373,7 @@ mod tests {
         let none = Codebook::default();
         for code in ["W500", "W950"] {
             assert_eq!(
-                none.check("@specforge/rust", code, Level::Warning),
+                none.check("@specforge/testing", code, Level::Warning),
                 Err(CodeMisuse::Uncatalogued),
                 "{code}"
             );

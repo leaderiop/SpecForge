@@ -9,7 +9,7 @@
     "crates/kernel/parser/tests/parse_test.rs": 2440,
     "crates/pipeline/emitter/tests/contracts.rs": 841,
     "crates/pipeline/emitter/tests/model.rs": 1518,
-    "crates/pipeline/emitter/tests/outline.rs": 1150,
+    "crates/pipeline/emitter/tests/outline.rs": 1149,
     "crates/pipeline/emitter/tests/schema.rs": 1596,
     "crates/pipeline/graph/tests/graph.rs": 1596,
     "crates/session/project/tests/compile.rs": 1178,
@@ -50,8 +50,7 @@
   "specs": {
     ".": {
       "W003": 1,
-      "W004": 1,
-      "W005": 1
+      "W004": 1
     },
     "integrations/rust/spec": {
       "W004": 7

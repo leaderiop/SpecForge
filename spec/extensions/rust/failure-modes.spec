@@ -1,4 +1,4 @@
-// @specforge/rust extension failure modes — FMEA risk analysis
+// Rust test traceability (the #[specforge_test] macros, @specforge/cargo-test): failure modes — FMEA risk analysis
 //
 // Failure modes specific to the Rust language integration:
 // entity mapping accuracy and proc macro reliability.

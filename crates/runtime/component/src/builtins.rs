@@ -35,8 +35,6 @@ builtins! {
     "@specforge/testing" in "testing" as "specforge_ext_testing.wasm",
     "@specforge/cargo-test" in "cargo-test" as "specforge_ext_cargo_test.wasm",
     "@specforge/vitest" in "vitest" as "specforge_ext_vitest.wasm",
-    "@specforge/rust" in "rust" as "specforge_ext_rust.wasm",
-    "@specforge/typescript" in "typescript" as "specforge_ext_typescript.wasm",
     "@code/core" in "code/core" as "specforge_ext_code_core.wasm",
     "@javascript/node-test" in "javascript/node-test" as "specforge_ext_javascript_node_test.wasm",
     "@specforge/checks" in "checks" as "specforge_ext_checks.wasm",

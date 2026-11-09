@@ -43,7 +43,6 @@ These ship inside the binary as examples of what an extension can declare. They 
 | `@specforge/formal` | kinds `property`, `axiom`, `protocol`, `refinement`, `process`; adds `requires`/`ensures`/`maintains`/`abstract`/`refines`/`sync` to behaviors; analysis passes |
 | `@specforge/testing` | no kinds: which kinds owe `verify` obligations and with which verify kinds, and the coverage pass |
 | `@specforge/cargo-test`, `@specforge/vitest` | test collectors for `specforge collect` |
-| `@specforge/rust`, `@specforge/typescript` | source analyzers for `specforge infer-*` |
 
 `specforge model` renders the kinds and relationships the loaded extensions declare; it is the authoritative list.
 

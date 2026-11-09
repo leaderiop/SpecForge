@@ -581,7 +581,7 @@ term t_rpn "RPN" {
   aliases    ["risk priority number"]
 }
 
-// ── @specforge/rust Terms ────────────────────────────────────
+// ── Rust test traceability Terms ─────────────────────────────
 
 term t_specforge_test "specforge-test" {
   definition """

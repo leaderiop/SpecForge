@@ -68,7 +68,8 @@ fn a_builtin_is_enabled_after_its_required_builtin_peers() {
 
 #[test]
 fn extensions_enabled_counts_the_string_entries_after_the_add() {
-    let dir = project_with(r#"{"name":"p","version":"0.1.0","extensions":[1,"@specforge/rust"]}"#);
+    let dir =
+        project_with(r#"{"name":"p","version":"0.1.0","extensions":[1,"@specforge/testing"]}"#);
     let registry = crate::registry::Unconfigured("add");
     let project = specforge_common::ProjectRoot::of(dir.path()).unwrap();
     let request = builtin_request(&project, "@specforge/product");
@@ -78,8 +79,8 @@ fn extensions_enabled_counts_the_string_entries_after_the_add() {
             "@specforge/product",
             declaring("@specforge/product", "1.0.0", &[]),
         ),
-        "@specforge/rust",
-        declaring("@specforge/rust", "1.0.0", &[]),
+        "@specforge/testing",
+        declaring("@specforge/testing", "1.0.0", &[]),
     );
 
     let added = add(&request, &registry, &runtime).unwrap();

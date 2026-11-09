@@ -96,7 +96,7 @@ Extensions load in peer order: an extension loads after the peers it declares.
 
 ## The builtins are examples
 
-SpecForge ships twelve builtin extensions. They are a starter set, aimed at software and product work, and they
+SpecForge ships ten builtin extensions. They are a starter set, aimed at software and product work, and they
 are written with the same SDK any extension uses:
 
 | Builtin | Shows how to |
@@ -107,7 +107,6 @@ are written with the same SDK any extension uses:
 | `@specforge/formal` | Add analysis passes and fields to kinds it does not own |
 | `@specforge/testing` | Declare no kind at all, only `verify` obligations and a coverage pass |
 | `@specforge/cargo-test`, `@specforge/vitest` | Declare a collector for one test runner |
-| `@specforge/rust`, `@specforge/typescript` | Declare a source analyzer for `specforge infer` |
 | `@code/core` | Declare collector-written kinds, a family builtin's own codes, and check passes over facts |
 | `@specforge/checks` | Declare value checkers with scopes and family switches, on a kit a domain pack can link too |
 | `@javascript/node-test` | Declare a collector that reads project files and answers facts, with an extension library (`specforge-code-junit`) |

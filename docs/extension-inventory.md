@@ -5,10 +5,10 @@ declares. They are a **starter set**: examples of what extensions do, aimed at s
 them is part of the core, a project loads only the ones it lists in `specforge.json`, and your own extensions use
 the same SDK ([extension model](extension-model.md)).
 
-Together the four vocabulary builtins declare 22 entity kinds and 56 edge types. Six more declare no kinds:
-`@specforge/testing` and the runner extensions `@specforge/cargo-test` and `@specforge/vitest` handle test
-obligations and results ([ADR 0002](adr/0002-test-runner-extensions.md)); `@specforge/rust` and
-`@specforge/typescript` read source code for `specforge infer`. `@code/core`, the first builtin of a family
+Together the four vocabulary builtins declare 22 entity kinds and 56 edge types. Four more declare no kinds:
+`@specforge/testing` and the runner extensions `@specforge/cargo-test`, `@specforge/vitest` and
+`@javascript/node-test` handle test obligations and results ([ADR 0002](adr/0002-test-runner-extensions.md)).
+`@code/core`, the first builtin of a family
 (ADR 0328), declares the four collector-written kinds of code facts, tests and their runs, items and packages
 ([ADR 0329](adr/0329-code-core-holds-test-facts-and-their-ids.md), [ADR 0347](adr/0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md)), and
 `@javascript/node-test` collects them from `node --test`. `@specforge/checks` declares the generic value
@@ -30,8 +30,6 @@ The counts and lists on this page are read from the builtins' pinned declaration
 | `@specforge/testing` | 0 | 0 | `verify` kinds on 7 kinds | software, governance (both optional) |
 | `@specforge/cargo-test` | 0 | 0 | -- | testing (required) |
 | `@specforge/vitest` | 0 | 0 | -- | testing (required) |
-| `@specforge/rust` | 0 | 0 | -- | none |
-| `@specforge/typescript` | 0 | 0 | -- | none |
 | `@code/core` | 4 (collector-written) | 5 | -- | none |
 | `@javascript/node-test` | 0 | 0 | -- | code/core (required) |
 | `@specforge/checks` | 1 (collector-written) | 0 | -- | none |
@@ -284,11 +282,6 @@ other way: the test names nothing, and the entity cites the test's id. `specforg
 
 Proof today is test-centred. A general notion of evidence for non-software work (a signed record, an audit
 finding) is future work.
-
-## @specforge/rust and @specforge/typescript
-
-Each declares one analyzer: a scanner that finds the public items (Rust) or exported symbols (TypeScript and
-JavaScript) of source files, which `specforge infer` uses to guide an agent writing specs for existing code.
 
 ## @code/core
 

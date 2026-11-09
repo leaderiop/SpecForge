@@ -9,7 +9,7 @@ fn fed(paths: &[&str]) -> Vec<String> {
 }
 
 /// The blobs that record their inputs today: the builtins. The fixtures join at the round's re-vendor.
-const BUILTIN_CRATES: [&str; 12] = [
+const BUILTIN_CRATES: [&str; 10] = [
     "extensions/cargo-test",
     "extensions/checks",
     "extensions/code/core",
@@ -17,10 +17,8 @@ const BUILTIN_CRATES: [&str; 12] = [
     "extensions/governance",
     "extensions/javascript/node-test",
     "extensions/product",
-    "extensions/rust",
     "extensions/software",
     "extensions/testing",
-    "extensions/typescript",
     "extensions/vitest",
 ];
 

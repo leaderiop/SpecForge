@@ -1379,10 +1379,8 @@ expression: "digest(&load(&runtime, &all))"
     "@specforge/formal": "formal",
     "@specforge/governance": "governance",
     "@specforge/product": "product",
-    "@specforge/rust": "rust",
     "@specforge/software": "software",
     "@specforge/testing": "testing",
-    "@specforge/typescript": "typescript",
     "@specforge/vitest": "vitest"
   },
   "extension_info": [
@@ -1412,14 +1410,6 @@ expression: "digest(&load(&runtime, &all))"
     ],
     [
       "@specforge/vitest",
-      "1.0.0"
-    ],
-    [
-      "@specforge/rust",
-      "1.0.0"
-    ],
-    [
-      "@specforge/typescript",
       "1.0.0"
     ],
     [

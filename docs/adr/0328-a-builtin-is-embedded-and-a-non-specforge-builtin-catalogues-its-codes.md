@@ -3,6 +3,8 @@
 **Status:** accepted (2026-11-02, build-plan R1, plan 02). Amends [ADR 0286](0286-a-diagnostic-code-is-namespaced-by-its-extension.md)
 D2 and D3 ("first party" is the `@specforge/` scope, not "a builtin") and [ADR 0070](0070-every-committed-blob-is-listed-once-and-built-one-way.md)
 D2 (the layout: a builtin's crate may sit one level deeper, and a blob is keyed by its full name or crate dir).
+Amended 2026-11-09 (R2 of the Beyond Parity build plan, below): `extensions/rust/` is deleted, so D3's family reading
+holds.
 
 ## Context
 
@@ -50,6 +52,13 @@ declaration and registry-build snapshots) or of their crate dir (the build stage
 - **D5. The blob budget.** R1 raises the total budget of the embedded blobs by 1 MB, to 5,900,000 B, for its two new
   builtins; the 1 MB per-blob cap stays. Ports ADR 0338 later replaces both with a 2.5 MB per-blob gate cap and
   re-measures the total.
+
+## Amendment (2026-11-09, R2 of the Beyond Parity build plan): `@specforge/rust` is retired
+
+- **D3, amended.** R2 deleted the crate `extensions/rust/` (and `extensions/typescript/`): the source scanners they
+  held are retired, and source code reaches the graph as `item` facts a source pack collects
+  ([ADR 0199](0199-a-source-item-is-covered-by-the-anchor-that-names-it.md)). `extensions/rust/` is now the `@rust`
+  family's dir. The layout test's depth-1 example is `extensions/product`.
 
 ## Rejected
 
