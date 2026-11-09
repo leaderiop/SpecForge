@@ -89,3 +89,38 @@ behavior js_mint_item_facts "Mint Item and Package Facts from Definitions" {
   verify unit "definitions of one name are one item with every place"
   verify unit "each named package is a package fact its items point at"
 }
+
+behavior js_mark_item_exports "Mark Exports, Visibility, Docs and Signatures" {
+  features [js_item_facts, cc_code_facts]
+  category computation
+  types    [Fact]
+  contract """
+    javascript-source MUST mark an item public when an importer reaches
+    it: a top-level item written with export, assigned to exports.x or
+    module.exports.x, or named by an export list without from, by export
+    default <name> or by module.exports = { … }; a namespace member
+    exported from a public namespace; a member of a public class or
+    interface that is neither #private nor private. Every other item is
+    private. A name export default names gains the attr default. Its doc
+    MUST be the /** */ comment that ends on its first line or the line
+    above, the markers and each line's leading * dropped; its signature
+    the declared types, parameters, type parameters and heritage the query
+    captures, never a value, which item_facts digests; its attrs the
+    modifier tokens written on it (export default declare abstract static
+    async get set readonly override const let var * exports and the
+    accessibility words).
+  """
+  ensures {
+    reachable "public means an importer reaches the item"
+    no_values "a signature never holds a value"
+    jsdoc     "a JSDoc comment documents the item directly below it"
+  }
+  verify unit "an exported declaration is public and a local one private"
+  verify unit "an export list and module.exports make an item public"
+  verify unit "export default of a name marks it default"
+  verify unit "a private member of a public class is private"
+  verify unit "a member of a private class is private"
+  verify unit "a JSDoc comment is the doc of the item below it"
+  verify unit "a signature holds types and never a value"
+  verify unit "modifiers are attrs"
+}

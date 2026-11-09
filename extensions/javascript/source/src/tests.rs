@@ -17,6 +17,8 @@ use specforge_test::prelude::*;
 use super::*;
 use crate::files::LISTINGS;
 
+mod marks;
+
 /// Each request's language and files, in the order made.
 type Asked = Vec<(String, SyntaxFiles)>;
 

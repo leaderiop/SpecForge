@@ -7,6 +7,12 @@
 //! function is no item, nor is a member with no class or interface around it (a class expression handed to a call).
 //! An item's path is the names of the definitions around it, then its own; a group with no name is the item
 //! `default` when it is a default export, else no item.
+//!
+//! An item is `public` when an importer reaches it: a top-level one exported (`export`, `exports.x =`, an export list
+//! or `module.exports = { … }` naming it), a namespace member exported from a public namespace, a member of a public
+//! class or interface that is neither `#private` nor `private`. Its doc is the `/** */` comment that ends on its first
+//! line or the line above, its signature the declared types, parameters and heritage the query captures (never a
+//! value), its attrs the modifier tokens written on it.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -23,6 +29,7 @@ struct Group<'m> {
     kind: &'m str,
     name: Option<&'m SyntaxCapture>,
     attrs: Vec<&'m str>,
+    signature: Vec<&'m SyntaxCapture>,
     /// The index of the innermost group whose span holds this one.
     parent: Option<usize>,
 }
@@ -48,6 +55,9 @@ impl<'m> Group<'m> {
                 "name" if self.name.is_none() => self.name = Some(capture),
                 "attr" if !self.attrs.contains(&capture.text.as_str()) => {
                     self.attrs.push(&capture.text);
+                }
+                "signature" if !self.signature.iter().any(|s| s.span == capture.span) => {
+                    self.signature.push(capture);
                 }
                 _ => {}
             }
@@ -108,6 +118,7 @@ fn groups(matches: &[SyntaxMatch]) -> Vec<Group<'_>> {
             kind: &found.kind,
             name: None,
             attrs: Vec::new(),
+            signature: Vec::new(),
             parent: open.last().copied(),
         };
         group.merge(found);
@@ -169,6 +180,95 @@ fn path(groups: &[Group], at: usize) -> Option<Vec<String>> {
     Some(path)
 }
 
+/// The names a file exports outside any definition (an export list, `export default <name>`, `module.exports = { … }`),
+/// each with whether it is the default export.
+fn exported(matches: &[SyntaxMatch]) -> BTreeMap<&str, bool> {
+    let mut exported = BTreeMap::new();
+    for found in matches {
+        if found.role != SyntaxRole::Reference || found.kind != "export" || found.parent.is_some() {
+            continue;
+        }
+        let Some(name) = found.captures.iter().find(|c| c.name == "name") else {
+            continue;
+        };
+        let default = found
+            .captures
+            .iter()
+            .any(|c| c.name == "attr" && c.text == "default");
+        *exported.entry(name.text.as_str()).or_default() |= default;
+    }
+    exported
+}
+
+/// Whether an importer reaches the item `at` (its file's export names `exported`).
+fn public(groups: &[Group], at: usize, exported: &BTreeMap<&str, bool>) -> bool {
+    let group = &groups[at];
+    match group.parent {
+        None => {
+            group.has_attr("export")
+                || group.has_attr("exports")
+                || group
+                    .name
+                    .is_some_and(|name| exported.contains_key(name.text.as_str()))
+        }
+        Some(holder) if is_member(group) => {
+            let private = group.name.is_some_and(|name| name.text.starts_with('#'))
+                || group.has_attr("private");
+            !private && public(groups, holder, exported)
+        }
+        Some(holder) => group.has_attr("export") && public(groups, holder, exported),
+    }
+}
+
+/// Each group's doc: a `/** */` comment goes to the first definition after it when that starts on the comment's last
+/// line or the line below.
+fn docs<'m>(matches: &'m [SyntaxMatch], groups: &[Group]) -> BTreeMap<usize, &'m str> {
+    let mut docs = BTreeMap::new();
+    for found in matches {
+        if found.role != SyntaxRole::Reference || found.kind != "doc" {
+            continue;
+        }
+        let Some(text) = found.captures.iter().find(|c| c.name == "doc") else {
+            continue;
+        };
+        let end = found.span.end;
+        let next = groups.partition_point(|g| g.span.start.byte < end.byte);
+        if let Some(group) = groups.get(next) {
+            if group.span.start.line <= end.line + 1 {
+                docs.entry(next).or_insert(text.text.as_str());
+            }
+        }
+    }
+    docs
+}
+
+/// A `/** */` comment's text: the markers and each line's leading `*` dropped, its lines trimmed; `None` when empty.
+fn doc_text(comment: &str) -> Option<String> {
+    let body = comment.strip_prefix("/**").unwrap_or(comment);
+    let body = body.strip_suffix("*/").unwrap_or(body);
+    let lines: Vec<&str> = body
+        .lines()
+        .map(|line| {
+            let line = line.trim();
+            line.strip_prefix('*').map_or(line, str::trim_start)
+        })
+        .collect();
+    let text = lines.join("\n").trim().to_string();
+    (!text.is_empty()).then_some(text)
+}
+
+/// A group's signature: its captured parts' texts joined by one space, whitespace collapsed.
+fn signature(group: &Group) -> Option<String> {
+    let text = group
+        .signature
+        .iter()
+        .map(|part| part.text.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    (!text.is_empty()).then_some(text)
+}
+
 /// The definitions of `file` (project-relative; `under` the package `package`'s directory), parsed as `matches`.
 pub(crate) fn read(
     package: &str,
@@ -177,21 +277,31 @@ pub(crate) fn read(
     matches: &[SyntaxMatch],
 ) -> Vec<Definition> {
     let groups = groups(matches);
+    let exported = exported(matches);
+    let docs = docs(matches, &groups);
     let mut definitions = Vec::new();
     for (at, group) in groups.iter().enumerate() {
         let (Some(kind), Some(path)) = (kind(group.kind), path(&groups, at)) else {
             continue;
         };
+        let mut attrs: Vec<String> = group.attrs.iter().map(|a| a.to_string()).collect();
+        let named_default = group.parent.is_none()
+            && group
+                .name
+                .is_some_and(|name| exported.get(name.text.as_str()) == Some(&true));
+        if named_default && !group.has_attr("default") {
+            attrs.push("default".to_string());
+        }
         definitions.push(Definition {
             id: ItemId::js(package, under, &path),
             package: PackageId::npm(package),
             kind,
-            visibility: Visibility::js(false),
+            visibility: Visibility::js(public(&groups, at, &exported)),
             file: file.to_string(),
             at: location(file, group.span.start, group.span.end),
-            signature: None,
-            doc: None,
-            attrs: Vec::new(),
+            signature: signature(group),
+            doc: docs.get(&at).and_then(|comment| doc_text(comment)),
+            attrs,
             names: Names::new(),
             test_id: None,
         });
