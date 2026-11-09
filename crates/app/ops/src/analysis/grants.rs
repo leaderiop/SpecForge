@@ -608,7 +608,10 @@ mod tests {
                     argv: vec![format!("cargo{HOSTILE}")],
                     deadline_ms: None,
                     env: vec![format!("VAR{HOSTILE}")],
-                    config: None,
+                    config: Some(specforge_protocol_types::ProcessConfig {
+                        name: format!("t.toml{HOSTILE}"),
+                        template: format!("x{HOSTILE}"),
+                    }),
                 }),
                 call_kinds: Vec::new(),
                 secret_env: None,
