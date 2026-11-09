@@ -284,6 +284,36 @@ fn a_path_inside_an_inline_module_is_relative_to_its_directory() {
     );
 }
 
+#[test]
+fn an_inline_modules_directory_is_its_raw_name_and_ignores_its_path() {
+    let (out, asked) = collected_with(
+        &[
+            (
+                "src/lib.rs",
+                "mod r#async {\n    mod x;\n}\n#[path = \"d\"]\nmod m {\n    mod y;\n}\n",
+            ),
+            ("src/async/x.rs", "fn in_x() {}\n"),
+            ("src/d/y.rs", "fn in_y() {}\n"),
+        ],
+        &["lib:toy:src/lib.rs"],
+        None,
+    );
+    let facts = out.expect("rust-source collects");
+    // Today rustc's files are never asked: `src/r#async/x.rs` and `src/m/y.rs` are, so neither module has items.
+    assert_eq!(
+        ids(&facts),
+        [
+            "rust:toy::async",
+            "rust:toy::async::x",
+            "rust:toy::m",
+            "rust:toy::m::y"
+        ]
+    );
+    let asked = asked.concat();
+    assert!(asked.contains(&"src/r#async/x.rs".to_string()), "{asked:?}");
+    assert!(asked.contains(&"src/m/y.rs".to_string()), "{asked:?}");
+}
+
 #[specforge_test(
     behavior = "rs_resolve_module_tree",
     verify = "every path a cfg_attr names is followed and its twins merge into one item"
