@@ -17,18 +17,22 @@ use specforge_test::prelude::*;
 use super::*;
 use crate::files::LISTINGS;
 
+mod keep;
 mod marks;
+mod packages;
 
 /// Each request's language and files, in the order made.
 type Asked = Vec<(String, SyntaxFiles)>;
 
 /// The project's files in memory, parsed as the host parses them: with a cap, only the first `cap` files of an answer
-/// are parsed and the rest `capped`; `short`, a glob's walk stops before the project's end.
+/// are parsed and the rest `capped`; `short`, a glob's walk stops before the last file it matches; a `denied` file is
+/// one the fs port withholds.
 #[derive(Default)]
 struct Host {
     files: BTreeMap<String, String>,
     cap: Option<usize>,
     short: bool,
+    denied: Vec<&'static str>,
     asked: RefCell<Asked>,
 }
 
@@ -43,8 +47,16 @@ impl InProcessHost for Host {
             SyntaxFiles::Paths(paths) => (paths.clone(), false),
             SyntaxFiles::Glob(glob) => {
                 let suffix = glob.strip_prefix("**/*").expect("an extension's glob");
-                let matched = self.files.keys().filter(|p| p.ends_with(suffix));
-                (matched.cloned().collect(), self.short)
+                let mut matched: Vec<String> = self
+                    .files
+                    .keys()
+                    .filter(|p| p.ends_with(suffix))
+                    .cloned()
+                    .collect();
+                if self.short {
+                    matched.pop();
+                }
+                (matched, self.short)
             }
         };
         let capped = |at: usize| self.cap.is_some_and(|cap| at >= cap);
@@ -57,6 +69,9 @@ impl InProcessHost for Host {
                 outcome: match self.files.get(path) {
                     _ if capped(at) => SyntaxOutcome::NotParsed {
                         reason: NotParsed::Capped,
+                    },
+                    _ if self.denied.contains(&path.as_str()) => SyntaxOutcome::NotParsed {
+                        reason: NotParsed::Denied,
                     },
                     Some(text) => query.parse(text.as_bytes(), COUNTED_DEADLINE),
                     None => SyntaxOutcome::NotParsed {

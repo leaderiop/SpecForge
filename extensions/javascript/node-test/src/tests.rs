@@ -278,3 +278,24 @@ fn the_collector_answers_the_test_and_test_run_kinds() {
         .expect("the node-test collector");
     assert_eq!(collector.answers, ["test", "test_run"]);
 }
+
+#[test]
+fn two_packages_of_one_name_name_their_tests_alike() {
+    let packages = [
+        ("package.json", r#"{"name":"app"}"#),
+        ("examples/app/package.json", r#"{"name":"app"}"#),
+    ];
+    let report = r#"<testsuites>
+        <testcase name="adds" file="/work/app/test/a.test.js"/>
+        <testcase name="adds" file="/work/app/examples/app/test/a.test.js"/>
+    </testsuites>"#;
+    let out = collect(&input(report, "/work/app", &packages)).unwrap();
+    // Both files' tests take one id: the second package's test merges into the first's.
+    assert_eq!(
+        tests(&out),
+        [(
+            "js:app/test/a.test.js#adds".to_string(),
+            "passed".to_string()
+        )]
+    );
+}
