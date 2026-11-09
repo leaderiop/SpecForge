@@ -115,6 +115,7 @@ mod route;
 mod rules_silent;
 mod scan;
 mod settings;
+mod source_items;
 #[path = "../common/specforge_only.rs"]
 mod specforge_only;
 mod verify_paths;

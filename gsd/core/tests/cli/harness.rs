@@ -125,9 +125,9 @@ pub fn project_at(name: &str, inside: &str) -> Project {
     from_dir_at(&fixtures.join(name), inside)
 }
 
-/// The builtins the taskboard twin loads beside `@gsd/core`: the test facts and the runner pack that collects them,
-/// so its tests run against the project as the requirement thread configures it.
-pub const TWIN_BUILTINS: [&str; 2] = ["@code/core", "@javascript/node-test"];
+/// The builtins the taskboard twin loads beside `@gsd/core`, as the requirement thread configures the project: the
+/// code facts, the runner pack that collects its tests and the source pack whose items the thread's code step reads.
+pub const TWIN_BUILTINS: [&str; 3] = ["@code/core", "@javascript/node-test", "@javascript/source"];
 
 /// The parity suite's taskboard fixture: its `spec/` twin of the GSD project beside its `.planning/`, loading
 /// [`TWIN_BUILTINS`].
@@ -404,10 +404,9 @@ impl Project {
     /// the `I204` note and the `I205` note ("no test report") left out: the compute pass reads the report, so every
     /// project that has none says I205 once, and the tests of the rules are not about that. The `I213` note (values
     /// that wait for their owner) is left out for the same reason: every project with a pending plan says it once.
-    /// The judged rules'
-    /// diagnostics (`no verdict`, `stale`, the outcome) are left out too: every plan, truth and so on of every
-    /// fixture has one, and the tests of the other rules are not about them. [`Project::report_all`] has them, and
-    /// the clean-report invariants and the judged tests use it.
+    /// The judged rules' diagnostics (`no verdict`, `stale`, the outcome) are left out too: every plan, truth and so
+    /// on of every fixture has one, and the tests of the other rules are not about them. [`Project::report_all`] has
+    /// them, and the clean-report invariants and the judged tests use it.
     pub fn report(&self) -> Vec<(String, String)> {
         self.report_all()
             .into_iter()
