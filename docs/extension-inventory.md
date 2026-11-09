@@ -11,7 +11,8 @@ Together the four vocabulary builtins declare 22 entity kinds and 56 edge types.
 `@code/core`, the first builtin of a family
 (ADR 0328), declares the four collector-written kinds of code facts, tests and their runs, items and packages
 ([ADR 0329](adr/0329-code-core-holds-test-facts-and-their-ids.md), [ADR 0347](adr/0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md)), and
-`@javascript/node-test` collects them from `node --test`. `@specforge/checks` declares the generic value
+`@javascript/node-test` collects them from `node --test`; the Rust packs `@rust/cargo`, `@rust/source` and `@rust/test`
+collect a Rust project's packages, items and nextest tests ([ADR 0348](adr/0348-a-collector-declares-a-config-file-and-the-rust-packs.md)). `@specforge/checks` declares the generic value
 checkers, which any field's `checks` can name ([ADR 0338](adr/0338-one-foundation-extension-holds-the-generic-value-checkers.md)),
 and one collector-written kind, `check_outcome`, which its `checks` collector publishes when named or under
 `checks.publish`.
@@ -32,6 +33,9 @@ The counts and lists on this page are read from the builtins' pinned declaration
 | `@specforge/vitest` | 0 | 0 | -- | testing (required) |
 | `@code/core` | 4 (collector-written) | 5 | -- | none |
 | `@javascript/node-test` | 0 | 0 | -- | code/core (required) |
+| `@rust/cargo` | 0 | 0 | -- | code/core (required) |
+| `@rust/source` | 0 | 0 | -- | code/core, rust/cargo (required) |
+| `@rust/test` | 0 | 0 | -- | code/core, rust/source (required) |
 | `@specforge/checks` | 1 (collector-written) | 0 | -- | none |
 
 Extensions load after the peers they declare; extensions with no peer between them keep the order
@@ -268,16 +272,18 @@ obligations the spec does not declare (A016). `--min` gates CI on proof coverage
 Each test runner has its own extension that declares one collector: the files that select it, the command
 `specforge collect` runs (after you approve it, or with `--yes`), where the report lands, and a pure mapping from the
 report. `@specforge/cargo-test` and `@specforge/vitest` require `@specforge/testing` and map the report to entities;
-`@javascript/node-test` requires `@code/core` and maps it to test facts: its collector answers `test` and `test_run`.
+`@javascript/node-test` and `@rust/test` require `@code/core` and map it to test facts: their collectors answer `test`
+and `test_run`.
 
 | Extension | Detected by | How a test names its entity |
 |-----------|-------------|-----------------------------|
 | `@specforge/cargo-test` | `Cargo.toml` | `#[specforge_test(behavior = "...", verify = "...")]`, or tests named `entity_id__obligation_slug` or inside `mod entity_id` ([guide](guides/rust-test-tracing.md)) |
 | `@specforge/vitest` | `vitest.config.*`, `vitest.workspace.*` | `meta: { specforge: { behavior: "...", verify: "..." } }` ([guide](guides/vitest-test-tracing.md)) |
 | `@javascript/node-test` | `package.json` | the entity cites the test: `js:<package>/<file>#<test>` in a `proof` field ([guide](guides/node-test-facts.md)) |
+| `@rust/test` | `Cargo.toml` | the entity cites the test: `rust:<binary id>#<test path>`; a `#[specforge_test(behavior = "...")]` puts the entity in the test's `names` ([guide](guides/rust-facts.md)) |
 
 With cargo-test and vitest, spec files carry no test paths: the link lives in the tests. With node-test it runs the
-other way: the test names nothing, and the entity cites the test's id. `specforge init` enables `@specforge/testing` with
+other way: the test names nothing, and the entity cites the test's id. With `@rust/test` the entity cites the test's id, and the test's `#[specforge_test]` names the entity back. `specforge init` enables `@specforge/testing` with
 `@specforge/software`, and a runner extension when it finds that runner in the project.
 
 Proof today is test-centred. A general notion of evidence for non-software work (a signed record, an audit
@@ -329,6 +335,14 @@ are not checked and its failing tests are not reported, so a test not written ye
 `@javascript/node-test` is its first runner pack: its collector `node-test`, detected by a `package.json`, runs
 `node --test` with the `spec` reporter to standard output and the `junit` reporter to `.specforge/reports/node-test.xml`,
 and names each test after the nearest `package.json` with a `name` ([guide](guides/node-test-facts.md)).
+
+The Rust packs write all four kinds ([ADR 0348](adr/0348-a-collector-declares-a-config-file-and-the-rust-packs.md),
+[guide](guides/rust-facts.md)), each detected by a `Cargo.toml` and run in fact order: `rust-cargo` (`@rust/cargo`)
+reads every `Cargo.toml` with `cargo_toml` into `package` facts and runs nothing; `rust-source` (`@rust/source`) walks
+each target's module tree by rustc's rules and has the host's parser read it into `item` facts, a test function
+carrying the id nextest gives it and the entity its `#[specforge_test]` names; `rust-test` (`@rust/test`) runs
+`cargo-nextest` with a config file the host writes and reads its JUnit report into `test` and `test_run` facts, an
+`#[ignore]`d test nextest leaves out recorded `skipped`. It needs `cargo install cargo-nextest --locked`.
 
 ## @specforge/checks
 
