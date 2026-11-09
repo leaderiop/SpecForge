@@ -48,6 +48,13 @@ with the TypeScript grammar, and every `.tsx`, `.js`, `.jsx`, `.mjs` and
   `.cache` or `storybook-static`. The host's walk never enters `dist`,
   `node_modules`, `.next`, `vendor` or `.git`.
 
+The test and generated-output rules judge a file's path inside its package,
+never the directories above the package: a package that lives under
+`build/` with no package above it has its files read. A `package.json`
+under a test or generated-output directory of another package (a fixture
+under `tests/`) is no package of this pack: no package fact, and its files
+are that directory's, so unread.
+
 Compiled output committed under another name (`lib/`) is read: its
 definitions become items. There is no per-project exclusion yet.
 
@@ -110,14 +117,14 @@ tests name it `<name>@<dir>` with the directory's `/` written `%2F`:
 
 ## 7. The package facts
 
-One `package` fact per named package: its `version`, its `engines`
+One `package` fact per package the pack reads: its `version`, its `engines`
 (`node >=20`), its directory as `path` (empty at the project root) and, in
 `depends_on`, the project's own packages its `dependencies`,
 `devDependencies`, `peerDependencies` or `optionalDependencies` name.
 Registry dependencies are left out: they belong to a later
 `@javascript/package`, which reads the lockfile and takes over these facts.
 A second package of one name is its own fact, `pkg:npm/<name>#<dir>`; a
-dependency on that name is the shallowest's.
+dependency on that name is the shallowest the pack reads.
 
 ## Troubleshooting
 

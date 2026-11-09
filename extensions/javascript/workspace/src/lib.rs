@@ -140,6 +140,12 @@ impl Workspace {
         &self.packages
     }
 
+    /// Only the packages `keep` keeps, their ids unchanged: a pack that reads fewer packages names the rest as every
+    /// pack does.
+    pub fn retain(&mut self, keep: impl FnMut(&Package) -> bool) {
+        self.packages.retain(keep);
+    }
+
     /// The package that owns the project-relative `file`, the deepest whose directory holds it, and the path under
     /// that directory; `None` when no named package is at or above it.
     pub fn owner<'f>(&self, file: &'f str) -> Option<(&Package, &'f str)> {

@@ -1,20 +1,21 @@
 //! Which source files the pack reads, and their parse by the host's reader.
 //!
 //! The host lists the project's files of each source extension (one `files` read per extension: a glob has no
-//! alternation). A listed file is read when a named package owns it ([`Workspace::owner`]: a file under none is
-//! outside the pack, as a `.rs` file no crate reaches is outside `@rust/source`), it is not a test file (a runner pack
-//! holds the tests; their helpers are no API) and it is not generated output. The kept files of one grammar are
+//! alternation). A listed file is read when a package the pack reads owns it ([`Workspace::owner`]: a file under none
+//! is outside the pack, as a `.rs` file no crate reaches is outside `@rust/source`) and its path inside that package is
+//! neither a test file (a runner pack holds the tests; their helpers are no API) nor generated output. A package is
+//! read unless its `package.json`, inside the package above it, is a test's or generated output's ([`read_packages`]). The kept files of one grammar are
 //! parsed in one request, the files an answer's cap left unparsed asked again. A listing the host truncated is
 //! replaced, for its extension, by a parse of its glob whose answer the same rules filter.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_code_facts::parse_all;
 use specforge_extension_sdk::host::{
     NotParsed, SyntaxFile, SyntaxFiles, SyntaxMatch, SyntaxOutcome, SyntaxRequest, SyntaxSource,
 };
 use specforge_extension_sdk::prelude::*;
-use specforge_javascript_workspace::Workspace;
+use specforge_javascript_workspace::{Package, Workspace};
 
 use crate::{COLLECTOR, QUERY};
 
@@ -94,13 +95,14 @@ fn split(path: &str) -> (Vec<&str>, &str) {
     (segments, name)
 }
 
-/// Whether `path` is a test file: by its name, or a directory segment that holds tests.
+/// Whether `path` (inside a package) is a test file: by its name, or a directory segment that holds tests.
 pub(crate) fn is_test(path: &str) -> bool {
     let (dirs, name) = split(path);
     is_test_name(name) || dirs.iter().any(|dir| TEST_DIRS.contains(dir))
 }
 
-/// Whether `path` is generated output: a minified file, or a directory segment that holds a build's output.
+/// Whether `path` (inside a package) is generated output: a minified file, or a directory segment that holds a
+/// build's output.
 pub(crate) fn is_generated(path: &str) -> bool {
     let (dirs, name) = split(path);
     [".min.js", ".min.mjs", ".min.cjs"]
@@ -109,9 +111,43 @@ pub(crate) fn is_generated(path: &str) -> bool {
         || dirs.iter().any(|dir| GENERATED_DIRS.contains(dir))
 }
 
-/// Whether the pack reads `path`: a named package owns it, and it is neither a test file nor generated output.
+/// Whether a path inside a package is read: it is neither a test file nor generated output.
+fn readable(under: &str) -> bool {
+    !is_test(under) && !is_generated(under)
+}
+
+/// Whether the pack reads the project-relative `path`: a package it reads owns it, and the path inside that package is
+/// readable. The rules judge the path inside the package, never the directories above it.
 pub(crate) fn kept(workspace: &Workspace, path: &str) -> bool {
-    workspace.owner(path).is_some() && !is_test(path) && !is_generated(path)
+    workspace
+        .owner(path)
+        .is_some_and(|(_, under)| readable(under))
+}
+
+/// `workspace` without the packages the pack does not read: one whose `package.json`, inside the nearest package the
+/// pack reads above it, is not readable (a fixture under `tests/`, a copy under `build/`), and so every package below
+/// it; their files fall to that package, which does not read them either. A package with none above it is read.
+pub(crate) fn read_packages(mut workspace: Workspace) -> Workspace {
+    let depth = |dir: &str| dir.split('/').filter(|s| !s.is_empty()).count();
+    let mut ordered: Vec<&Package> = workspace.packages().iter().collect();
+    ordered.sort_by_key(|p| (depth(&p.dir), p.dir.as_str()));
+    let mut read: Vec<&Package> = Vec::new();
+    for package in ordered {
+        let manifest = match package.dir.as_str() {
+            "" => "package.json".to_string(),
+            dir => format!("{dir}/package.json"),
+        };
+        let inside = read
+            .iter()
+            .filter_map(|above| Some((above.dir.len(), above.holds(&manifest)?)))
+            .max_by_key(|(len, _)| *len);
+        if inside.is_none_or(|(_, under)| readable(under)) {
+            read.push(package);
+        }
+    }
+    let read: BTreeSet<String> = read.into_iter().map(|p| p.dir.clone()).collect();
+    workspace.retain(|p| read.contains(&p.dir));
+    workspace
 }
 
 /// A parsed file: its project-relative path and the query's matches.

@@ -55,7 +55,7 @@ impl Contributions for JavascriptSource {
 
 /// Every item of every kept source file, and every named package, as facts.
 fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
-    let workspace = Workspace::of(input);
+    let workspace = files::read_packages(Workspace::of(input));
     let parsed = files::parsed(input, &workspace)?;
     let mut definitions = Vec::new();
     for file in &parsed {

@@ -29,12 +29,16 @@ behavior js_select_source_files "Select and Parse the Source Files" {
   features [js_item_facts]
   category computation
   contract """
-    javascript-source MUST read a listed file only when a named package
-    owns it, it is not a test file (a name matching *.test.*, *.spec.*,
+    javascript-source MUST read a listed file only when a package it reads
+    owns it and the file's path inside that package is not a test file (a
+    name matching *.test.*, *.spec.*,
     *-test.*, *_test.*, test-*.* or test.*, or a directory segment test,
     tests, __tests__ or __mocks__) and it is not generated output (a
     *.min.js, *.min.mjs or *.min.cjs, or a directory segment coverage,
     build, out, .nuxt, .svelte-kit, .turbo, .cache or storybook-static).
+    It reads every named package but one whose package.json, inside the
+    nearest package it reads above it, is a test file's or generated
+    output's by the same rules; a package with none above it is read.
     The kept files of one grammar MUST be parsed in one request, the
     typescript grammar for .ts .mts .cts and tsx for the rest, the files an
     answer's cap left unparsed asked again. A listing the host truncated
@@ -58,6 +62,7 @@ behavior js_select_source_files "Select and Parse the Source Files" {
   verify unit "the files an answer's cap left unparsed are asked again"
   verify unit "a short walk is the collector's error whatever the answer's cap"
   verify unit "a kept file the fs port withholds is the collector's error"
+  verify unit "the keep rules judge a path inside its package, a package.json too"
   verify integration "a test file mints no item beside its runner's test"
   verify integration "a file under no named package mints nothing"
 }

@@ -62,32 +62,61 @@ fn a_kept_file_the_fs_port_withholds_is_the_collectors_error() {
     );
 }
 
-#[test]
-fn a_package_json_under_tests_is_a_package_and_one_under_build_is_never_read() {
+#[specforge_test(
+    behavior = "js_select_source_files",
+    verify = "the keep rules judge a path inside its package, a package.json too"
+)]
+fn the_keep_rules_judge_a_path_inside_its_package_a_package_json_too() {
+    // A named package under tests/ or build/ of the root package is no package the pack reads, nor are its files.
     let fixture = run(
         host(&[
             APP,
             ("tests/fixture/package.json", r#"{"name":"fixture"}"#),
             ("tests/fixture/src/a.js", "export const a = 1;\n"),
+            ("build/copy/package.json", r#"{"name":"copy"}"#),
+            ("build/copy/src/b.js", "export const b = 1;\n"),
+            ("src/c.js", "export const c = 1;\n"),
         ]),
         &[],
     )
     .0
     .unwrap();
-    assert_eq!(packages(&fixture), ["pkg:npm/app", "pkg:npm/fixture"]);
-    assert!(items(&fixture).is_empty());
+    assert_eq!(packages(&fixture), ["pkg:npm/app"]);
+    assert_eq!(items(&fixture), ["js:app/src/c.js::c"]);
+    // A dependency names the shallowest package of its name the pack reads, never a fixture's plain id.
+    let named = run(
+        host(&[
+            (
+                "package.json",
+                r#"{"name":"app","dependencies":{"lib":"*"}}"#,
+            ),
+            ("tests/lib/package.json", r#"{"name":"lib"}"#),
+            ("packages/x/lib/package.json", r#"{"name":"lib"}"#),
+        ]),
+        &[],
+    )
+    .0
+    .unwrap();
+    assert_eq!(
+        packages(&named),
+        ["pkg:npm/app", "pkg:npm/lib#packages/x/lib"]
+    );
+    let app = named.iter().find(|f| f.id == "pkg:npm/app").unwrap();
+    assert_eq!(
+        app.fields["depends_on"],
+        json!(["pkg:npm/lib#packages/x/lib"])
+    );
+    // With no package above it, a package under build/ is the top of its tree: its own files are read.
     let built = run(
         host(&[
             ("build/tool/package.json", r#"{"name":"tool"}"#),
             ("build/tool/src/a.js", "export const a = 1;\n"),
+            ("build/tool/test/a.test.js", "export const t = 1;\n"),
         ]),
         &[],
     )
     .0
     .unwrap();
     assert_eq!(packages(&built), ["pkg:npm/tool"]);
-    assert!(
-        items(&built).is_empty(),
-        "the package's own files are never read"
-    );
+    assert_eq!(items(&built), ["js:tool/src/a.js::a"]);
 }
