@@ -1,4 +1,4 @@
-//! What the host sends the command, collector, scanner and migration-hook
+//! What the host sends the command, collector and migration-hook
 //! exports, compared with the wire goldens in
 //! `crates/runtime/wasm/tests/wire/`, and what a collector's failure
 //! becomes. They began as characterization pins; the ones that pinned a bug

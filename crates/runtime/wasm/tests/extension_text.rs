@@ -1,7 +1,7 @@
 //! An extension's text is read printable where the host reads it (ADR 0244): no control or
 //! bidirectional character of a handshake, describe, pass or validator answer, or of a call's
-//! failure, reaches a message, a listing or a help. A command's, an MCP tool's, a collector's
-//! and a scanner's answer is read as the extension answered.
+//! failure, reaches a message, a listing or a help. A command's, an MCP tool's and a collector's
+//! answer is read as the extension answered.
 
 use serde_json::{Value, json};
 use specforge_common::remedy::printable;
