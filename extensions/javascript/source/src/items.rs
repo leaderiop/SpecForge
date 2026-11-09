@@ -1,4 +1,4 @@
-//! A parsed file's matches as definitions, and the workspace's packages as package facts (ADR 0347).
+//! A parsed file's matches as definitions (ADR 0347).
 //!
 //! The matches of one defining node merge into one [`Group`] (the query matches a node once per pattern that names it:
 //! a declaration and its modifiers, a function-valued declarator as a function and a const). A group is an item when
@@ -14,19 +14,84 @@
 //! line or the line above, its signature the declared types, parameters and heritage the query captures (never a
 //! value), its attrs the modifier tokens written on it.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
-use specforge_code_facts::{
-    location, Definition, ItemId, ItemKind, Names, Package, PackageId, Visibility,
-};
+use specforge_code_facts::{location, Definition, ItemId, ItemKind, Names, PackageId, Visibility};
 use specforge_extension_sdk::host::{SyntaxCapture, SyntaxMatch, SyntaxRole, SyntaxSpan};
-use specforge_extension_sdk::prelude::Fact;
-use specforge_javascript_workspace::Workspace;
+
+/// What a definition is, as the query's `@definition.<kind>` names it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Role {
+    Function,
+    Class,
+    Interface,
+    Type,
+    Enum,
+    Namespace,
+    Const,
+    Variable,
+    Method,
+    Field,
+    /// A block whose contents are no item (`declare module "x"`, `declare global`).
+    Scope,
+}
+
+impl Role {
+    /// The role a match's kind names; `None` for a kind the pack's query never writes.
+    fn of(kind: &str) -> Option<Role> {
+        Some(match kind {
+            "function" => Role::Function,
+            "class" => Role::Class,
+            "interface" => Role::Interface,
+            "type" => Role::Type,
+            "enum" => Role::Enum,
+            "namespace" => Role::Namespace,
+            "const" => Role::Const,
+            "variable" => Role::Variable,
+            "method" => Role::Method,
+            "field" => Role::Field,
+            "scope" => Role::Scope,
+            _ => return None,
+        })
+    }
+
+    /// Which role wins when two patterns name one node: a scope over all, a function- or class-valued declarator
+    /// over the plain `const` or `variable` the same declarator matches.
+    fn rank(self) -> u8 {
+        match self {
+            Role::Scope => 3,
+            Role::Function | Role::Class => 2,
+            Role::Const | Role::Variable => 0,
+            _ => 1,
+        }
+    }
+
+    /// The item kind; `None` for a scope.
+    fn item_kind(self) -> Option<ItemKind> {
+        Some(match self {
+            Role::Function => ItemKind::Function,
+            Role::Class => ItemKind::Class,
+            Role::Interface => ItemKind::Interface,
+            Role::Type => ItemKind::Type,
+            Role::Enum => ItemKind::Enum,
+            Role::Namespace => ItemKind::Namespace,
+            Role::Const => ItemKind::Const,
+            Role::Variable => ItemKind::Variable,
+            Role::Method => ItemKind::Method,
+            Role::Field => ItemKind::Field,
+            Role::Scope => return None,
+        })
+    }
+
+    fn is_member(self) -> bool {
+        matches!(self, Role::Method | Role::Field)
+    }
+}
 
 /// One defining node: every definition match of its span, merged.
 struct Group<'m> {
     span: SyntaxSpan,
-    kind: &'m str,
+    role: Role,
     name: Option<&'m SyntaxCapture>,
     attrs: Vec<&'m str>,
     signature: Vec<&'m SyntaxCapture>,
@@ -34,21 +99,10 @@ struct Group<'m> {
     parent: Option<usize>,
 }
 
-/// Which role kind wins when two patterns name one node: a scope over all, a function- or class-valued declarator
-/// over the plain `const` or `variable` the same declarator matches.
-fn rank(kind: &str) -> u8 {
-    match kind {
-        "scope" => 3,
-        "function" | "class" => 2,
-        "const" | "variable" => 0,
-        _ => 1,
-    }
-}
-
 impl<'m> Group<'m> {
-    fn merge(&mut self, found: &'m SyntaxMatch) {
-        if rank(&found.kind) > rank(self.kind) {
-            self.kind = &found.kind;
+    fn merge(&mut self, role: Role, found: &'m SyntaxMatch) {
+        if role.rank() > self.role.rank() {
+            self.role = role;
         }
         for capture in &found.captures {
             match capture.name.as_str() {
@@ -77,8 +131,8 @@ impl<'m> Group<'m> {
                 .then(|| vec!["default".to_string()]);
         };
         let text = name.text.as_str();
-        Some(match self.kind {
-            "namespace" => text.split('.').map(|s| s.trim().to_string()).collect(),
+        Some(match self.role {
+            Role::Namespace => text.split('.').map(|s| s.trim().to_string()).collect(),
             _ => vec![unquoted(text).to_string()],
         })
     }
@@ -97,13 +151,17 @@ fn unquoted(text: &str) -> &str {
 fn groups(matches: &[SyntaxMatch]) -> Vec<Group<'_>> {
     let mut groups: Vec<Group> = Vec::new();
     let mut open: Vec<usize> = Vec::new();
-    for found in matches.iter().filter(|m| m.role == SyntaxRole::Definition) {
+    let definitions = matches
+        .iter()
+        .filter(|m| m.role == SyntaxRole::Definition)
+        .filter_map(|m| Some((Role::of(&m.kind)?, m)));
+    for (role, found) in definitions {
         let (start, end) = (found.span.start.byte, found.span.end.byte);
         if let Some(last) = groups
             .last_mut()
             .filter(|g| (g.span.start.byte, g.span.end.byte) == (start, end))
         {
-            last.merge(found);
+            last.merge(role, found);
             continue;
         }
         while let Some(&top) = open.last() {
@@ -115,38 +173,17 @@ fn groups(matches: &[SyntaxMatch]) -> Vec<Group<'_>> {
         }
         let mut group = Group {
             span: found.span,
-            kind: &found.kind,
+            role,
             name: None,
             attrs: Vec::new(),
             signature: Vec::new(),
             parent: open.last().copied(),
         };
-        group.merge(found);
+        group.merge(role, found);
         open.push(groups.len());
         groups.push(group);
     }
     groups
-}
-
-/// The item kind of a group's role kind; `None` for a scope.
-fn kind(kind: &str) -> Option<ItemKind> {
-    Some(match kind {
-        "function" => ItemKind::Function,
-        "class" => ItemKind::Class,
-        "interface" => ItemKind::Interface,
-        "type" => ItemKind::Type,
-        "enum" => ItemKind::Enum,
-        "namespace" => ItemKind::Namespace,
-        "const" => ItemKind::Const,
-        "variable" => ItemKind::Variable,
-        "method" => ItemKind::Method,
-        "field" => ItemKind::Field,
-        _ => return None,
-    })
-}
-
-fn is_member(group: &Group) -> bool {
-    matches!(group.kind, "method" | "field")
 }
 
 /// The groups around `at`, innermost first, when `at` is at item scope; `None` otherwise.
@@ -156,10 +193,10 @@ fn around<'g, 'm>(groups: &'g [Group<'m>], at: usize) -> Option<Vec<&'g Group<'m
     let mut parent = group.parent;
     while let Some(index) = parent {
         let holder = &groups[index];
-        let allowed = if around.is_empty() && is_member(group) {
-            matches!(holder.kind, "class" | "interface")
+        let allowed = if around.is_empty() && group.role.is_member() {
+            matches!(holder.role, Role::Class | Role::Interface)
         } else {
-            holder.kind == "namespace"
+            holder.role == Role::Namespace
         };
         if !allowed {
             return None;
@@ -167,7 +204,7 @@ fn around<'g, 'm>(groups: &'g [Group<'m>], at: usize) -> Option<Vec<&'g Group<'m
         around.push(holder);
         parent = holder.parent;
     }
-    (!is_member(group) || !around.is_empty()).then_some(around)
+    (!group.role.is_member() || !around.is_empty()).then_some(around)
 }
 
 /// The item path of `at`: the names of the groups around it, outermost first, then its own.
@@ -211,7 +248,7 @@ fn public(groups: &[Group], at: usize, exported: &BTreeMap<&str, bool>) -> bool 
                     .name
                     .is_some_and(|name| exported.contains_key(name.text.as_str()))
         }
-        Some(holder) if is_member(group) => {
+        Some(holder) if group.role.is_member() => {
             let private = group.name.is_some_and(|name| name.text.starts_with('#'))
                 || group.has_attr("private");
             !private && public(groups, holder, exported)
@@ -281,7 +318,7 @@ pub(crate) fn read(
     let docs = docs(matches, &groups);
     let mut definitions = Vec::new();
     for (at, group) in groups.iter().enumerate() {
-        let (Some(kind), Some(path)) = (kind(group.kind), path(&groups, at)) else {
+        let (Some(kind), Some(path)) = (group.role.item_kind(), path(&groups, at)) else {
             continue;
         };
         let mut attrs: Vec<String> = group.attrs.iter().map(|a| a.to_string()).collect();
@@ -307,39 +344,4 @@ pub(crate) fn read(
         });
     }
     definitions
-}
-
-/// One `package` fact per named package of `workspace`, `pkg:npm/<name>`: its version, its engines, its directory and
-/// the project's own packages it depends on. Two `package.json` of one name are one package, the shallowest's.
-pub(crate) fn packages(workspace: &Workspace) -> Vec<Fact> {
-    let mut ordered: Vec<_> = workspace.packages().iter().collect();
-    ordered.sort_by_key(|p| (p.dir.split('/').filter(|s| !s.is_empty()).count(), &p.dir));
-    let mut by_name = BTreeMap::new();
-    for package in ordered {
-        by_name.entry(package.name.as_str()).or_insert(package);
-    }
-    let own: BTreeSet<&str> = by_name.keys().copied().collect();
-    by_name
-        .values()
-        .map(|package| {
-            Package {
-                id: PackageId::npm(&package.name),
-                version: package.version.clone(),
-                edition: None,
-                rust_version: None,
-                engines: package.engines.clone(),
-                features: Vec::new(),
-                targets: Vec::new(),
-                path: package.dir.clone(),
-                depends_on: package
-                    .depends_on
-                    .iter()
-                    .filter(|name| own.contains(name.as_str()) && **name != package.name)
-                    .map(|name| PackageId::npm(name))
-                    .collect(),
-                at: None,
-            }
-            .fact()
-        })
-        .collect()
 }

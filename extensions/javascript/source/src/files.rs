@@ -74,8 +74,8 @@ fn is_test_name(name: &str) -> bool {
 /// A directory segment that holds tests, mocks and fixtures of tests.
 const TEST_DIRS: [&str; 4] = ["test", "tests", "__tests__", "__mocks__"];
 
-/// A directory segment that holds generated output the host's walk does not already skip (it skips `dist`,
-/// `node_modules`, `.next` and `vendor`).
+/// A directory segment that holds generated output the host's walk does not already skip (the walk skips its own
+/// list of ignored directories: `specforge_effects::fs::SKIPPED`).
 const GENERATED_DIRS: [&str; 8] = [
     "coverage",
     "build",

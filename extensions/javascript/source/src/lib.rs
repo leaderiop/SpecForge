@@ -9,10 +9,11 @@
 //! .cts`, tsx for the rest, which reads JavaScript and JSX too. Every declaration at item scope (the program, a
 //! namespace's body) and every member of a class or an interface there becomes an item named
 //! `js:<package>/<file>::<name>[.<member>]` ([`items`]), minted by `specforge-code-facts`; every named package becomes
-//! a `pkg:npm/<name>` package fact, the target of its items' `package`.
+//! a `pkg:npm/<name>` package fact, the target of its items' `package` ([`packages`]).
 
 mod files;
 mod items;
+mod packages;
 
 use specforge_code_facts::item_facts;
 use specforge_extension_sdk::prelude::*;
@@ -62,7 +63,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         }
     }
     let mut facts = item_facts(definitions);
-    facts.extend(items::packages(&workspace));
+    facts.extend(packages::facts(&workspace));
     Ok(CollectOutput {
         facts,
         ..CollectOutput::default()
