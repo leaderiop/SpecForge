@@ -6,6 +6,7 @@ use super::{Fixture, Machine, Runner};
 use specforge_ops::analysis::collect::{Mode, RunnerOutput};
 use specforge_ops::asking::Asking;
 use specforge_ops::testing::ScriptedRun;
+use specforge_test_macros::test as specforge_test;
 
 const CONFIG: &str = ".specforge/reports/nextest.nextest.toml";
 const CAPTURE: &str = "out/nextest.json.stdout.txt";
@@ -49,8 +50,11 @@ fn is_link(fx: &Fixture, name: &str) -> bool {
         .is_symlink()
 }
 
-#[test]
-fn a_link_at_a_name_the_run_owns_is_written_through() {
+#[specforge_test(
+    behavior = "run_collector_command",
+    verify = "a link at the report, capture or config name is replaced, never written through"
+)]
+fn a_link_at_a_name_the_run_owns_is_replaced_never_written_through() {
     let fx = linked();
     let machine = Machine::new()
         .approving_everything()
@@ -70,14 +74,13 @@ fn a_link_at_a_name_the_run_owns_is_written_through() {
     )
     .unwrap();
 
-    // Today each file is written where the link at its name lands: the targets change and the links stay.
-    assert!(
-        fx.read("Cargo.toml")
-            .starts_with("[profile.specforge.junit]")
-    );
-    assert_eq!(fx.read("Kept.txt"), "t ... ok\n");
-    assert_eq!(fx.read("src/planted.json"), "{}");
+    assert_eq!(fx.read("Cargo.toml"), MANIFEST);
+    assert_eq!(fx.read("Kept.txt"), KEPT);
+    assert!(!fx.exists("src/planted.json"));
     for name in [CONFIG, CAPTURE, REPORT] {
-        assert!(is_link(&fx, name), "{name}");
+        assert!(!is_link(&fx, name), "{name}");
     }
+    assert!(fx.read(CONFIG).starts_with("[profile.specforge.junit]"));
+    assert_eq!(fx.read(CAPTURE), "t ... ok\n");
+    assert_eq!(fx.read(REPORT), "{}");
 }

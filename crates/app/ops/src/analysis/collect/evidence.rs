@@ -246,7 +246,8 @@ impl From<String> for NotRan {
 /// an earlier run is removed first; a report *directory* is left alone (other tools may keep files
 /// there) and filtered by modification time when it's read. The config file the command reads is written
 /// fresh before it starts (ADR 0348 D2). A captured standard output still reaches the chosen output as it's
-/// produced, and is also written to `capture`. Every file it removes, creates or writes is a held one.
+/// produced, and is also written to `capture`. Every file it removes, creates or writes is a held one, and the
+/// report, the capture and the config are names the run owns: a link at one is replaced, never followed.
 fn run_command(
     machine: &dyn CollectorMachine,
     root: &Path,
@@ -256,10 +257,14 @@ fn run_command(
     argv: &[String],
     output: RunnerOutput,
 ) -> Result<Ran, NotRan> {
-    if report.real.is_file() {
-        report
-            .remove()
-            .map_err(|e| format!("{}: {e}", report.named.display()))?;
+    // The report's name is the run's (ADR 0171): a file or a link at it is unlinked, never what a link names.
+    if !report.real.is_dir() {
+        match report.remove() {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                return Err(format!("{}: {e}", report.named.display()).into());
+            }
+            _ => {}
+        }
     }
     let config_file = config.map(|(held, _)| held);
     for file in std::iter::once(report).chain(capture).chain(config_file) {
@@ -267,13 +272,13 @@ fn run_command(
             .map_err(|e| format!("{}: {e}", file.named.display()))?;
     }
     if let Some((held, text)) = config {
-        held.create_fresh()
+        held.create_owned_file()
             .and_then(|mut file| std::io::Write::write_all(&mut file, text.as_bytes()))
             .map_err(|e| format!("{}: {e}", held.named.display()))?;
     }
     let mut kept = match capture {
         Some(held) => Some(
-            held.create_fresh()
+            held.create_owned_file()
                 .map_err(|e| format!("{}: {e}", held.named.display()))?,
         ),
         None => None,

@@ -488,6 +488,7 @@ behavior run_collector_command "Run Collector Command" {
   verify integration "a declared config file is written before the run with {report} expanded, and {config} names it"
   verify integration "a program that cannot be found names the collector's install line"
   verify unit "the config's report path is escaped for a quoted TOML or JSON string"
+  verify integration "a link at the report, capture or config name is replaced, never written through"
 }
 
 behavior dispatch_collector "Dispatch Collector" {

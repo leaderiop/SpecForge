@@ -45,11 +45,13 @@ config on the capability `.run(argv)` declares (`Capability::config` for a capab
 
 Under a run (`Mode::Run`), after the stale report is removed and before the command starts, the host writes the
 template, each `{report}` replaced by the report's absolute path, to `.specforge/reports/<collector>.<name>`, held by
-the collect's containment (a link that leaves the project is `outside_root`, as for the report), created fresh. The
-expansion is escaped for the inside of a double-quoted TOML or JSON string: `\` → `\\`, `"` → `\"`, a control
-character → `\uXXXX`, which both formats read. `--no-run` and `--report` write nothing. The file stays after the run, so
-a person can rerun the tool with it. `{config}` in the argv expands to the file's absolute path; `argv_matches` treats
-`{report}` and `{config}` alike: one placeholder per element, the literal text before and after it matching.
+the collect's containment (a link that leaves the project is `outside_root`, as for the report), created fresh at its
+own name: the config, the report and the captured output are names the run owns (ADR 0171), so a link at one is
+replaced, never written through. The expansion is escaped for the inside of a double-quoted TOML or JSON string:
+`\` → `\\`, `"` → `\"`, a control character → `\uXXXX`, which both formats read. `--no-run` and
+`--report` write nothing. The file stays after the run, so a person can rerun the tool with it. `{config}` in the argv
+expands to the file's absolute path; `argv_matches` treats `{report}` and `{config}` alike: one placeholder per
+element, the literal text before and after it matching.
 
 ## D3. The config is part of the approved scope
 
