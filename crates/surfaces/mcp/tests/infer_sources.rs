@@ -1,37 +1,11 @@
-//! The files inference covers, over a served project (ADR 0113): none outside the project is read
+//! The files inference covers, over a served project (ADR 0113, ADR 0199): none outside the project is read
 //! or listed.
 
 use crate::support::*;
 use serde_json::{Value, json};
-use specforge_extension_sdk::prelude::*;
 use specforge_project::testing::item;
 use specforge_test::prelude::*;
 use tempfile::TempDir;
-
-/// The rust analyzer, whose scanner names one item per file: the word after `fn `.
-fn rust(c: &mut ContributionsBuilder) {
-    c.analyzer("rust", |a| {
-        a.file_extensions(&[".rs"])
-            .excluded_dirs(&["target"])
-            .scan(|request| ScanResponse {
-                items: request
-                    .content
-                    .split("fn ")
-                    .nth(1)
-                    .and_then(|rest| rest.split('(').next())
-                    .map(|name| ScannedItem {
-                        name: name.to_string(),
-                        item_kind: "function".into(),
-                        line: 1,
-                        visibility: None,
-                        signature: None,
-                    })
-                    .into_iter()
-                    .collect(),
-                language: None,
-            });
-    });
-}
 
 fn answer(server: &mut Served, tool: &str, arguments: Value) -> Value {
     let reply = call_tool(server, tool, arguments);
@@ -108,7 +82,7 @@ fn infer_progress_and_the_inferred_lint_read_no_indexed_file_outside_the_served_
         .to_string(),
     )
     .unwrap();
-    let mut server = project.serve(&[TestExtension::named("@specforge/rust").declaring(rust)]);
+    let mut server = project.serve(&[TestExtension::items()]);
 
     let progress = answer(&mut server, "specforge.infer_progress", json!({}));
     assert_eq!(progress["stale"], json!([]), "{progress}");

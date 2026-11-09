@@ -187,37 +187,30 @@ behavior discover_inference_sources "Discover Inference Sources" {
   types    [InferenceManifest, SourceFileEntry]
   category computation
   ensures {
-    claimed      "a source is a file an enabled analyzer claims by its extension, under a source root"
-    shared_walk  "no symlinked directory is entered, and a symlink is a source only when it resolves to a file inside the project root"
-    skips_united "the default skipped directories hold whatever the analyzers declare; their excluded_dirs add to them"
-    inside_root  "a source root, a file or an indexed path that lands outside the project root is never read"
-    one_key      "every source is keyed by the source path rule and listed once"
-    nested       "a nested project's files are its own project's sources"
+    claimed     "a source is a file an item fact locates, under a source root"
+    inside_root "a source root, a file or an indexed path that lands outside the project root is never read"
+    one_key     "every source is keyed by the source path rule and listed once"
   }
   contract """
-    The inference sources are the files under the inference manifest's
-    source_roots (the project root when there are none) that an enabled
-    analyzer claims by its file extension (the longest extension that
-    matches; for one extension, the first analyzer that declares it). The
-    walk is the shared discovery policy: no symlinked directory is
-    entered; a symlink is a source when it resolves to a file inside the
-    project root; no directory is entered whose name starts with a dot,
-    that the defaults skip (target, node_modules, dist, build, .git, .hg,
-    __pycache__, vendor), that an enabled analyzer's excluded_dirs names,
-    or that holds specforge.json below a source root. Each source is keyed
-    by the source path rule and listed once, whatever source roots reach
-    it; every path the manifest records (a source root, an index entry) is
-    read as read_a_recorded_source_path reads it. A source root, a file or
-    an indexed path whose key lies outside the project root, by .. or an
-    absolute name, or that lands outside through a symlink, is not read:
-    such a root is not walked and such an indexed path is deleted.
+    The inference sources are the files the item facts of the compiled
+    graph locate (each item's first place, public or not), under the
+    inference manifest's source_roots (the project root when there are
+    none). Which files exist is the source packs' collectors' to say:
+    no directory is walked and no file extension is claimed, so a project
+    that loads no source pack, or has not collected, has no inference
+    source. Each source is keyed by the source path rule and listed once,
+    whatever source roots reach it; every path the manifest records (a
+    source root, an index entry) is read as read_a_recorded_source_path
+    reads it. An item whose place, or a source root whose key, lies
+    outside the project root, by .. or an absolute name, adds no source;
+    an indexed path that lands outside, through a symlink as well, is
+    deleted, never read.
   """
-  verify unit "no symlinked directory is entered, so a symlink cycle adds no source"
-  verify unit "an analyzer's excluded_dirs add to the default skipped directories"
   verify unit "a file two source roots reach is one source"
   verify unit "no inference source lands outside the project root"
   verify unit "an indexed path outside the project root is deleted, never read"
-  verify unit "a nested project's files are not the outer project's inference sources"
+  verify unit "a source is a file an item fact locates"
+  verify unit "with no item facts, progress counts no source file"
 }
 
 // A source-code path a manifest records (specforge_ops source_key::SourceKey::read, ADR 0271).

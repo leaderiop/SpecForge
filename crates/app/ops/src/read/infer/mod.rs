@@ -5,8 +5,8 @@
 //! `specforge.infer_session` tools and the infer prompt's plan read the
 //! project here.
 //!
-//! Progress compares the source files the enabled analyzers would scan
-//! with the manifest's index; gaps reads the public item facts the compiled
+//! Progress compares the source files the item facts locate with the
+//! manifest's index; gaps reads the public item facts the compiled
 //! graph holds ([`ITEM_KIND`]) and keeps the ones nothing covers (the anchors read view's covered items); the
 //! lint reports analyzed files that changed or are over-dense; [`session`] records one step of an
 //! inference session. The inference guide (what to look for to infer each

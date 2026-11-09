@@ -5,6 +5,7 @@ use crate::support::*;
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 use specforge_mcp::McpServer;
+use specforge_project::testing::{item, stored_items};
 use specforge_test::prelude::*;
 
 /// The infer prompt's reply for `arguments`.
@@ -43,21 +44,29 @@ fn state_with_my_behavior() -> Served {
         .serve(&[test_extension("behavior", Some("guide text"))])
 }
 
-/// A served project with `count` Rust sources under `src/`, and an
-/// extension that analyzes `.rs` files.
+/// A served project with `count` Rust sources under `src/`, each with an
+/// item fact a `rust-source` store holds.
 fn plan_state_with_sources(count: usize) -> Served {
     let project = (0..count).fold(TestProject::new(), |project, i| {
         project.file(&format!("src/mod_{i:02}.rs"), "fn stub() {}\n")
     });
+    let facts = (0..count)
+        .map(|i| {
+            let file = format!("src/mod_{i:02}.rs");
+            item(
+                &format!("rust:p::mod_{i:02}::stub"),
+                &file,
+                1,
+                "function",
+                "private",
+                "stub",
+            )
+        })
+        .collect();
+    stored_items(project.root(), "rust-source", facts);
     project.serve(&[
-        test_extension("behavior", Some("guide text")).declaring(|c| {
-            c.analyzer("rust", |a| {
-                a.file_extensions(&[".rs"]).scan(|_| ScanResponse {
-                    items: Vec::new(),
-                    language: None,
-                });
-            });
-        }),
+        test_extension("behavior", Some("guide text")),
+        TestExtension::items(),
     ])
 }
 
@@ -265,6 +274,20 @@ fn plan_scope_includes_progress() {
     let resp = infer(&mut state, json!({"scope": "plan"}));
     let content: Value = prompt_payload(&resp);
     assert!(content["progress"]["files_total"].is_number());
+}
+
+#[test]
+fn plan_scope_without_item_facts_says_how_to_get_them() {
+    let mut state = make_state_with_kind("behavior", Some("guide text"));
+    let resp = infer(&mut state, json!({"scope": "plan"}));
+    let instruction = resp["result"]["messages"][0]["content"]["text"]
+        .as_str()
+        .unwrap();
+    assert!(
+        instruction.starts_with("No item facts locate a source file: load a source pack"),
+        "{instruction}"
+    );
+    assert_eq!(prompt_payload(&resp)["progress"]["files_total"], 0);
 }
 
 #[specforge_test(
@@ -556,14 +579,8 @@ fn the_plan_refuses_an_unusable_manifest() {
         .file("src/lib.rs", "fn stub() {}\n")
         .file("specforge-infer.json", "{ nope")
         .serve(&[
-            test_extension("behavior", Some("guide text")).declaring(|c| {
-                c.analyzer("rust", |a| {
-                    a.file_extensions(&[".rs"]).scan(|_| ScanResponse {
-                        items: Vec::new(),
-                        language: None,
-                    });
-                });
-            }),
+            test_extension("behavior", Some("guide text")),
+            TestExtension::items(),
         ]);
     let resp = infer(&mut state, json!({"scope": "plan"}));
     assert!(resp.get("result").is_none(), "{resp}");

@@ -47,6 +47,9 @@ string scanners that fed inference are retired.
 - **D3, amended.** Gaps read the anchors manifest before any fact is read; an unusable one is still E071. No source
   file is read. The report is approximate when the compile could not serve a fact store (W191, W192).
 - D4 and D5 stand.
+- **Sources.** The inference sources (progress, the inference plan) are the files the item facts locate, public or not,
+  under the manifest's source roots; nothing is walked and no extension is claimed. Without a source pack's facts
+  there are none, and the infer prompt's plan says to load a source pack and run `specforge collect`.
 
 What would reopen it: anchors read over the graph (an anchor as a graph edge between an entity and a located fact),
 which retires the manifest and this decision's anchor half.

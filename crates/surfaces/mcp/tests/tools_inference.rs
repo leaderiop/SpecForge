@@ -1,48 +1,34 @@
 use crate::support::*;
 use serde_json::{Value, json};
-use specforge_extension_sdk::prelude::*;
 use specforge_mcp::McpServer;
+use specforge_project::testing::{item, stored_items};
 use specforge_test::prelude::*;
 
-/// An initialized server over `project`, which enables the rust and
-/// typescript analyzers, in that order, both served in process: their
-/// scanners find nothing.
+/// An initialized server over `project`, serving the item fixtures (`@t/items`, `@t/cites`): the files the item
+/// facts a test stores locate are the inference sources.
 fn init_server(project: TestProject) -> Served {
-    project.serve(&[
-        TestExtension::named("@specforge/rust").declaring(rust),
-        TestExtension::named("@specforge/typescript").declaring(typescript),
-    ])
+    project.serve(&[TestExtension::items(), TestExtension::cites()])
 }
 
-/// The rust analyzer, declared as the builtin declares it.
-fn rust(c: &mut ContributionsBuilder) {
-    c.analyzer("rust", |a| {
-        a.file_extensions(&[".rs"])
-            .excluded_dirs(&["target"])
-            .scan(|_| ScanResponse {
-                items: Vec::new(),
-                language: None,
-            });
-    });
-}
-
-/// The typescript analyzer, declared as the builtin declares it.
-fn typescript(c: &mut ContributionsBuilder) {
-    c.analyzer("typescript", |a| {
-        a.file_extensions(&[".ts", ".tsx", ".js", ".jsx"])
-            .excluded_dirs(&["node_modules", "dist"])
-            .scan(|_| ScanResponse {
-                items: Vec::new(),
-                language: None,
-            });
-    });
-}
-
+/// `src/main.rs` and `src/lib.rs`, each with an item fact a `rust-source` store holds.
 fn write_sources(dir: &std::path::Path) {
-    let src = dir.join("src");
-    std::fs::create_dir_all(&src).unwrap();
-    std::fs::write(src.join("main.rs"), "fn main() {}").unwrap();
-    std::fs::write(src.join("lib.rs"), "pub fn hello() {}").unwrap();
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    let facts = [
+        ("main.rs", "main", "private"),
+        ("lib.rs", "hello", "public"),
+    ]
+    .map(|(file, name, visibility)| {
+        std::fs::write(dir.join("src").join(file), format!("fn {name}() {{}}")).unwrap();
+        item(
+            &format!("rust:p::{name}"),
+            &format!("src/{file}"),
+            1,
+            "function",
+            visibility,
+            name,
+        )
+    });
+    stored_items(dir, "rust-source", facts.into());
 }
 
 // --- specforge.infer_progress ---
@@ -194,9 +180,7 @@ fn infer_session_rejects_second_active() {
 #[test]
 fn infer_session_mark_analyzed_records_entry() {
     let tmp = TestProject::new();
-    let src = tmp.root().join("src");
-    std::fs::create_dir_all(&src).unwrap();
-    std::fs::write(src.join("main.rs"), "fn main() {}").unwrap();
+    write_sources(tmp.root());
 
     let manifest = json!({ "version": 1, "source_roots": ["src"] });
     std::fs::write(
@@ -327,10 +311,7 @@ fn infer_session_missing_action_returns_error() {
 #[test]
 fn infer_session_full_lifecycle() {
     let tmp = TestProject::new();
-    let src = tmp.root().join("src");
-    std::fs::create_dir_all(&src).unwrap();
-    std::fs::write(src.join("main.rs"), "fn main() {}").unwrap();
-    std::fs::write(src.join("lib.rs"), "pub fn hello() {}").unwrap();
+    write_sources(tmp.root());
 
     let manifest = json!({ "version": 1, "source_roots": ["src"] });
     std::fs::write(
@@ -412,14 +393,24 @@ fn infer_session_full_lifecycle() {
 
 // --- Mixed language discovery ---
 
-#[test]
-fn infer_progress_discovers_both_rust_and_typescript() {
-    let tmp = TestProject::new();
-    let src = tmp.root().join("src");
-    std::fs::create_dir_all(&src).unwrap();
-    std::fs::write(src.join("lib.rs"), "pub fn hello() {}").unwrap();
-    std::fs::write(src.join("app.ts"), "export function handleRequest() {}").unwrap();
-    std::fs::write(src.join("readme.md"), "# Hello").unwrap();
+#[specforge_test(
+    behavior = "discover_inference_sources",
+    verify = "a source is a file an item fact locates"
+)]
+fn infer_progress_counts_the_files_of_every_item_scheme() {
+    let tmp = TestProject::new()
+        .file("src/app.ts", "export function handleRequest() {}")
+        .file("src/readme.md", "# Hello");
+    write_sources(tmp.root());
+    let handler = item(
+        "js:p/src/app.ts::handleRequest",
+        "src/app.ts",
+        1,
+        "function",
+        "public",
+        "handleRequest",
+    );
+    stored_items(tmp.root(), "javascript-source", vec![handler]);
 
     let manifest = json!({ "version": 1, "source_roots": ["src"] });
     std::fs::write(
@@ -433,12 +424,10 @@ fn infer_progress_discovers_both_rust_and_typescript() {
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
 
-    assert_eq!(parsed["summary"]["files_total"], 2);
+    assert_eq!(parsed["summary"]["files_total"], 3);
     let unanalyzed = parsed["unanalyzed"].as_array().unwrap();
-    assert_eq!(unanalyzed.len(), 2);
     let files: Vec<&str> = unanalyzed.iter().map(|v| v.as_str().unwrap()).collect();
-    assert!(files.contains(&"src/lib.rs"));
-    assert!(files.contains(&"src/app.ts"));
+    assert_eq!(files, ["src/app.ts", "src/lib.rs", "src/main.rs"]);
 }
 
 /// Whether `id` is a version 4 UUID: 8-4-4-4-12 lowercase hex digits,

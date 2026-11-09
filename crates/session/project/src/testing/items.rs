@@ -109,6 +109,51 @@ pub fn item(id: &str, file: &str, line: usize, kind: &str, visibility: &str, tit
     })
 }
 
+/// [`ITEMS`]' and [`CITES`]' declarations, as a compile loads them: what an in-memory project
+/// (`Assembled::declarations`) holding [`item_node`]s declares.
+pub fn item_declarations() -> Vec<specforge_protocol_types::ExtensionDeclaration> {
+    let runtime = items_runtime();
+    ITEM_EXTENSIONS
+        .iter()
+        .map(|name| {
+            specforge_wasm::protocol::load_declaration(&runtime, name)
+                .expect("the item fixtures declare")
+                .declaration
+        })
+        .collect()
+}
+
+/// The public `function` item fact `id`, titled by its last name, written at `line` of `file`, as a graph holds it
+/// served from the `rust-source` store under [`WORKTREE`].
+pub fn item_node(id: &str, file: &str, line: usize) -> specforge_graph::Node {
+    use specforge_common::{SourceSpan, Sym};
+    use specforge_parser::{FieldValue, ListItem, Written};
+    let span = |file: &str, line: usize| SourceSpan {
+        file: Sym::new(file),
+        start_line: line,
+        start_col: 1,
+        end_line: line,
+        end_col: 2,
+    };
+    let store = crate::facts::Store::path("rust-source", WORKTREE);
+    let mut node = specforge_graph::Node::new(id, "item", span(&store, 1));
+    node.title = Some(id.rsplit("::").next().unwrap_or(id).to_string());
+    node.located = vec![span(file, line)];
+    node.fields.push(
+        Sym::new("kind"),
+        FieldValue::List(vec![ListItem {
+            text: "function".into(),
+            span: span(&store, 1),
+            written: Written::Bare,
+        }]),
+    );
+    node.fields.push(
+        Sym::new("visibility"),
+        FieldValue::Identifier("public".into()),
+    );
+    node
+}
+
 /// [`item`], naming `entities` in its `names`.
 pub fn naming(mut item: Value, entities: &[&str]) -> Value {
     item["fields"]["names"] = json!(entities);

@@ -10,7 +10,7 @@ fn infer_project(proj: &TestProject) {
     std::fs::create_dir_all(root.join("src/net")).unwrap();
     std::fs::write(
         root.join("specforge.json"),
-        r#"{"name":"inf","spec_root":"spec","extensions":["@specforge/software","@specforge/governance","@code/core","@specforge/rust"]}"#,
+        r#"{"name":"inf","spec_root":"spec","extensions":["@specforge/software","@specforge/governance","@code/core"]}"#,
     )
     .unwrap();
     let item = specforge_project::testing::item;

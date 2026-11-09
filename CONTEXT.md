@@ -1114,13 +1114,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   beside the decisions, constraints and failure modes that protect or threaten it; a behavior (software) enforces it,
   an axiom or property (formal) relies on it, and W003 reports one nothing references. No builtin needs the software
   extension to state one (ADR 0280).
-- **Inference sources**: the files inference covers: under the inference manifest's source roots (the project
-  root when none), each file an enabled analyzer claims by its extension, keyed by the source path rule
-  (root-relative, `/`-separated, no `..`), every recorded path read as a recorded source path. They are walked by the shared discovery policy
-  (`specforge_common::walk_files`): no symlinked directory, no hidden name, no nested project, and the default
-  skipped directories united with any analyzer's `excluded_dirs`. A source root, a file or an indexed path that lands
-  outside the project root is none of them and is never read. Progress, gaps, the `inferred` lint and the mark read
-  them through one module (`specforge_ops::read::infer::sources`, ADR 0113).
+- **Inference sources**: the files inference covers: the files the item facts of the compiled graph locate
+  (`specforge_ops::read::infer::ITEM_KIND`, each item's first place), under the inference manifest's source roots (the
+  project root when none), keyed by the source path rule (root-relative, `/`-separated, no `..`), every recorded path
+  read as a recorded source path. Which files exist is the source packs' collectors' to say: nothing is walked, so
+  without a source pack's facts there are none. An item, a source root or an indexed path that lands outside the
+  project root adds none and is never read. Progress, the inference plan, the `inferred` lint and the mark read them
+  through one module (`specforge_ops::read::infer::sources`, ADR 0113, ADR 0199).
 - **Anchors manifest**: `<root>/specforge-anchors.json`, which source item each entity is anchored
   to. Read only by navigation's anchors read view (`specforge_ops::read::navigate::{anchors_of_file,
   anchors_of_entity}`, and the covered source items inference gaps leave out): the entities anchored to a source file, each with its kind, and the anchors of an entity;
