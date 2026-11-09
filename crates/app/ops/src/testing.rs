@@ -260,6 +260,8 @@ pub struct ScriptedRun {
 /// How a scripted run fails.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScriptedFailure {
+    /// Its program is not on PATH.
+    NotFound,
     /// The command could not be started.
     NotRun,
     /// Its standard output could not be written to the capture.
@@ -335,6 +337,7 @@ impl CollectorMachine for ScriptedMachine {
             )
         });
         match run.fails {
+            Some(ScriptedFailure::NotFound) => return Err(RunFailure::NotFound),
             Some(ScriptedFailure::NotRun) => {
                 return Err(RunFailure::NotRun(std::io::Error::other(
                     "not scripted to start",

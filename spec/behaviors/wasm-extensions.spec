@@ -484,6 +484,9 @@ behavior run_collector_command "Run Collector Command" {
   verify unit "a collector command past its deadline is stopped"
   verify unit "a .cmd shim on PATH runs as a collector command on Windows"
   verify contract "Run Collector Command: collector command execution holds — command_approved, report_inside_project, stale_report_ignored, report_path_exported, failing_tests_recorded, refused_before_running"
+  verify integration "a declared config file is written before the run with {report} expanded, and {config} names it"
+  verify integration "a program that cannot be found names the collector's install line"
+  verify unit "the config's report path is escaped for a quoted TOML or JSON string"
 }
 
 behavior dispatch_collector "Dispatch Collector" {

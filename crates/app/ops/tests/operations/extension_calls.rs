@@ -78,6 +78,8 @@ fn collector() -> Collector {
         inputs: Vec::new(),
         capability: None,
         answers: Vec::new(),
+        config: None,
+        install: None,
     }
 }
 

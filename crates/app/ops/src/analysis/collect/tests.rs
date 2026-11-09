@@ -1,4 +1,4 @@
-use super::collector::{report_path, wildcard};
+use super::collector::{command_line, expanded_config, report_path, wildcard};
 use super::*;
 use crate::Containment;
 use crate::testing::Viewed;
@@ -19,6 +19,8 @@ fn collector(report: &str) -> Collector {
         inputs: Vec::new(),
         capability: None,
         answers: Vec::new(),
+        config: None,
+        install: None,
     }
 }
 
@@ -466,4 +468,47 @@ fn a_rooted_unknown_id_stays_unknown() {
     assert!(report.results.is_empty());
     assert_eq!(diags.len(), 1);
     assert_eq!(diags[0].code, "W115");
+}
+
+#[specforge_test(
+    behavior = "run_collector_command",
+    verify = "the config's report path is escaped for a quoted TOML or JSON string"
+)]
+fn the_config_expands_the_report_path_escaped_for_a_quoted_string() {
+    let template = "[profile.specforge.junit]\npath = \"{report}\"\n";
+    assert_eq!(
+        expanded_config(template, Path::new("C:\\a \"b\"\\x\ty's.xml")),
+        "[profile.specforge.junit]\npath = \"C:\\\\a \\\"b\\\"\\\\x\\u0009y's.xml\"\n"
+    );
+    let json = serde_json::json!({"path": "C:\\a \"b\"\\x\ty's.xml"}).to_string();
+    let read: serde_json::Value = serde_json::from_str(&expanded_config(
+        "{\"path\": \"{report}\"}",
+        Path::new("C:\\a \"b\"\\x\ty's.xml"),
+    ))
+    .unwrap();
+    assert_eq!(read.to_string(), json, "JSON reads the escape back");
+}
+
+#[test]
+fn the_command_line_expands_the_config_placeholder() {
+    let mut nextest = collector("out/r.xml");
+    nextest.run = vec![
+        "cargo-nextest".into(),
+        "--tool-config-file".into(),
+        "specforge:{config}".into(),
+        "--out={report}".into(),
+    ];
+    assert_eq!(
+        command_line(
+            &nextest,
+            Path::new("/p/out/r.xml"),
+            Some(Path::new("/p/.specforge/reports/acme.nextest.toml"))
+        ),
+        [
+            "cargo-nextest",
+            "--tool-config-file",
+            "specforge:/p/.specforge/reports/acme.nextest.toml",
+            "--out=/p/out/r.xml"
+        ]
+    );
 }

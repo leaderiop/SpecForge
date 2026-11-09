@@ -77,7 +77,7 @@ impl CollectorMachine for ProcessMachine {
                 exit_code: None,
                 started: ran.started,
             }),
-            ProcessClass::NotFound => Err(RunFailure::NotRun(std::io::ErrorKind::NotFound.into())),
+            ProcessClass::NotFound => Err(RunFailure::NotFound),
             ProcessClass::Uncaptured(why) => Err(RunFailure::Capture(std::io::Error::other(why))),
             class @ ProcessClass::DeadlineExceeded => Err(RunFailure::Stopped {
                 why: format!("{class} ({} s)", self.deadline.as_secs()),

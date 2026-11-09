@@ -114,6 +114,9 @@ pub struct Runner {
     report: Option<String>,
     capture: Option<String>,
     reads: Vec<specforge_protocol_types::Input>,
+    /// The config file its command reads: a name and a template.
+    config: Option<(String, String)>,
+    install: Option<String>,
     answer: Answer,
 }
 
@@ -129,8 +132,22 @@ impl Runner {
             report: Some(format!("out/{name}.json")),
             capture: None,
             reads: Vec::new(),
+            config: None,
+            install: None,
             answer: Answer::Output(CollectOutput::default()),
         }
+    }
+
+    /// Its command reads the config file `name`, written from `template` before the run (ADR 0348).
+    pub fn configuring(mut self, name: &str, template: &str) -> Self {
+        self.config = Some((name.to_string(), template.to_string()));
+        self
+    }
+
+    /// It says `line` when its program is not found.
+    pub fn installing(mut self, line: &str) -> Self {
+        self.install = Some(line.to_string());
+        self
     }
 
     pub fn run(mut self, argv: &[&str]) -> Self {
@@ -216,6 +233,12 @@ impl Runner {
                 .collect(|_| Ok(CollectOutput::default()));
             if !ports {
                 c.run(&run);
+            }
+            if let Some((name, template)) = &self.config {
+                c.config(name, template);
+            }
+            if let Some(line) = &self.install {
+                c.install(line);
             }
         });
         let mut declaration = builder.declaration();
