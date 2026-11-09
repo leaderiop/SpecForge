@@ -4,7 +4,7 @@
 
 use specforge_protocol_types::{
     CapabilityDescriptor, FsAccess, FsScope, GitOp, GitScope, Hosts, HttpMethod, HttpScope,
-    Operation, PortScope, ProcessScope, SecretHeader,
+    Operation, PortScope, ProcessConfig, ProcessScope, SecretHeader,
 };
 
 use crate::ContributionsBuilder;
@@ -170,6 +170,19 @@ impl Capability {
     pub fn env(mut self, names: &[&str]) -> Self {
         if let PortScope::Process(process) = &mut self.0.port {
             process.env = names.iter().map(|name| name.to_string()).collect();
+        }
+        self
+    }
+
+    /// A process capability's config file (ADR 0348): the host writes `template` to
+    /// `.specforge/reports/<collector>.<name>` before the run, `{report}` in it expanded; `{config}` in the argv names
+    /// the file. Only a capability whose `call_kinds` are exactly `collect` may declare one.
+    pub fn config(mut self, name: &str, template: &str) -> Self {
+        if let PortScope::Process(process) = &mut self.0.port {
+            process.config = Some(ProcessConfig {
+                name: name.to_string(),
+                template: template.to_string(),
+            });
         }
         self
     }

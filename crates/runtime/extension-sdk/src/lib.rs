@@ -281,7 +281,7 @@ impl ContributionsBuilder {
     ///
     /// # Panics
     ///
-    /// When the collector declares no handler.
+    /// When the collector declares no handler, or a config without a command.
     pub fn collector(&mut self, name: &str, f: impl FnOnce(&mut CollectorBuilder)) -> &mut Self {
         let mut b = CollectorBuilder::new(name);
         f(&mut b);
@@ -294,16 +294,21 @@ impl ContributionsBuilder {
             collect,
         );
         self.decl.collectors.push(b.descriptor);
+        if b.config.is_some() && b.run.is_none() {
+            panic!("collector '{name}' declares a config but no command: give it `k.run(...)`");
+        }
         if let Some(argv) = b.run {
             let argv: Vec<&str> = argv.iter().map(String::as_str).collect();
-            self.capability(
-                Capability::process(name)
-                    .argv(&argv)
-                    .call_kinds(&[Operation::Collect])
-                    .why(&format!(
-                        "run the command whose report the collector '{name}' reads"
-                    )),
-            );
+            let mut capability = Capability::process(name)
+                .argv(&argv)
+                .call_kinds(&[Operation::Collect])
+                .why(&format!(
+                    "run the command whose report the collector '{name}' reads"
+                ));
+            if let Some((file, template)) = &b.config {
+                capability = capability.config(file, template);
+            }
+            self.capability(capability);
         }
         self
     }

@@ -647,6 +647,8 @@ pub struct CollectorBuilder {
     pub(crate) collect: Option<operations::Wire>,
     /// The argv [`CollectorBuilder::run`] gave: the collector's process capability, declared with it.
     pub(crate) run: Option<Vec<String>>,
+    /// The config file [`CollectorBuilder::config`] gave, declared on that capability.
+    pub(crate) config: Option<(String, String)>,
 }
 
 impl CollectorBuilder {
@@ -663,9 +665,11 @@ impl CollectorBuilder {
                 writes: false,
                 inputs: Vec::new(),
                 answers: Vec::new(),
+                install: None,
             },
             collect: None,
             run: None,
+            config: None,
         }
     }
     /// What the collector does: `handler` receives the report files
@@ -710,6 +714,19 @@ impl CollectorBuilder {
     pub fn run(&mut self, argv: &[&str]) -> &mut Self {
         self.run = Some(argv.iter().map(|a| a.to_string()).collect());
         self.descriptor.capability = Some(self.descriptor.name.clone());
+        self
+    }
+    /// The config file the host writes before [`CollectorBuilder::run`]'s command (ADR 0348): `name` is one segment
+    /// ending `.toml` or `.json`, written at `.specforge/reports/<collector>.<name>`; `template` its text, `{report}`
+    /// in it the report's absolute path escaped for a quoted string. `{config}` in an argument is the file's absolute
+    /// path. A person approves the text with the command.
+    pub fn config(&mut self, name: &str, template: &str) -> &mut Self {
+        self.config = Some((name.to_string(), template.to_string()));
+        self
+    }
+    /// What to run to install the command's program, said when it is not found on PATH (ADR 0348 D4).
+    pub fn install(&mut self, line: &str) -> &mut Self {
+        self.descriptor.install = Some(line.to_string());
         self
     }
     /// The `process` capability (one the extension declares with

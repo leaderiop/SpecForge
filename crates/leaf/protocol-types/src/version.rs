@@ -30,6 +30,9 @@
 ///   (ADR 0350);
 /// - the source scanners' describe category and their operation are gone: source code reaches the graph as the facts
 ///   a source pack collects (ADR 0199).
+/// - a `process` capability may declare one `config` (`name`, `template`): the host writes it before a collector's
+///   run, `{report}` expanded, and `{config}` in the argv names it; a collector may declare an `install` line, said
+///   when its program is not found (ADR 0348).
 ///
 /// A change that adds to 2.0.0 (grants, host imports, value checks) adds its item here and to the 2.0.0 row of
 /// `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0 included; it does

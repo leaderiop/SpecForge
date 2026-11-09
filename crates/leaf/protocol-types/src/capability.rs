@@ -52,6 +52,8 @@ struct Wire {
     deadline_ms: Option<u32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     env: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    config: Option<ProcessConfig>,
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
@@ -83,6 +85,7 @@ impl TryFrom<Wire> for CapabilityDescriptor {
                 argv: wire.argv.unwrap_or_default(),
                 deadline_ms: wire.deadline_ms,
                 env: wire.env,
+                config: wire.config,
             }),
             PortName::Git => PortScope::Git(GitScope {
                 ops: wire
@@ -123,6 +126,7 @@ impl From<CapabilityDescriptor> for Wire {
             argv: None,
             deadline_ms: None,
             env: Vec::new(),
+            config: None,
         };
         match capability.port {
             PortScope::Http(http) => {
@@ -142,6 +146,7 @@ impl From<CapabilityDescriptor> for Wire {
                 wire.argv = Some(process.argv);
                 wire.deadline_ms = process.deadline_ms;
                 wire.env = process.env;
+                wire.config = process.config;
             }
             PortScope::Git(git) => {
                 wire.port = PortName::Git;
@@ -306,7 +311,8 @@ pub enum FsAccess {
 /// A process capability: the command it runs.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProcessScope {
-    /// The program, then its arguments; `{report}` in an argument is the collector's report location.
+    /// The program, then its arguments; `{report}` in an argument is the collector's report location, `{config}` the
+    /// absolute path of its [`ProcessConfig`] file.
     pub argv: Vec<String>,
     /// The run's deadline, held to the host's ceiling.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -315,6 +321,81 @@ pub struct ProcessScope {
     /// work. A person approves them with the command: another name asks again.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub env: Vec<String>,
+    /// The one file the host writes before a collector's run, which its argv names as `{config}` (ADR 0348 D1): part
+    /// of what a person approves, so a changed template asks again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config: Option<ProcessConfig>,
+}
+
+/// A collector command's config file (ADR 0348 D1–D2): written to `.specforge/reports/<collector>.<name>` before the
+/// run, `{report}` in `template` replaced by the report's absolute path, escaped for a quoted TOML or JSON string.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProcessConfig {
+    /// One path segment `[a-z0-9][a-z0-9._-]*` ending `.toml` or `.json`.
+    pub name: String,
+    /// The file's text, at most [`CONFIG_TEMPLATE_MAX`] bytes.
+    pub template: String,
+}
+
+/// The most bytes a config template holds.
+pub const CONFIG_TEMPLATE_MAX: usize = 16 * 1024;
+
+/// The argv placeholders the host expands: the report location and the config file.
+pub const ARGV_PLACEHOLDERS: [&str; 2] = ["{report}", "{config}"];
+
+/// Whether `name` is a config file's name: one segment `[a-z0-9][a-z0-9._-]*` ending `.toml` or `.json`.
+pub fn is_config_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars
+        .next()
+        .is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+        && chars
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '.' | '_' | '-'))
+        && (name.ends_with(".toml") || name.ends_with(".json"))
+}
+
+/// The problems of a process capability's config and placeholders (ADR 0348 D1).
+fn config_problems(capability: &CapabilityDescriptor, process: &ProcessScope) -> Vec<String> {
+    let mut problems = Vec::new();
+    for arg in &process.argv {
+        let held: usize = ARGV_PLACEHOLDERS
+            .iter()
+            .map(|p| arg.matches(p).count())
+            .sum();
+        if held > 1 {
+            problems.push(format!("its argv element '{arg}' holds two placeholders"));
+        }
+    }
+    let named = process
+        .argv
+        .iter()
+        .filter(|arg| arg.contains("{config}"))
+        .count();
+    let Some(config) = &process.config else {
+        if named > 0 {
+            problems.push("its argv names {config} but it declares no config".to_string());
+        }
+        return problems;
+    };
+    if !is_config_name(&config.name) {
+        problems.push(format!(
+            "its config name '{}' is not one segment ending .toml or .json",
+            config.name
+        ));
+    }
+    if config.template.is_empty() || config.template.len() > CONFIG_TEMPLATE_MAX {
+        problems.push("its config template is empty or over 16 KiB".to_string());
+    }
+    if capability.call_kinds != [Operation::Collect] {
+        problems
+            .push("it declares a config, so its call_kinds must be exactly collect".to_string());
+    }
+    if named != 1 {
+        problems.push(format!(
+            "its argv names {{config}} {named} times; a config needs it once"
+        ));
+    }
+    problems
 }
 
 /// A git capability.
@@ -400,6 +481,9 @@ pub fn capability_problems(declaration: &ExtensionDeclaration) -> Vec<Capability
                     .filter(|name| name.is_empty() || name.contains(['=', '\0']))
                 {
                     problem(format!("its `env` name '{name}' is no variable's name"));
+                }
+                for why in config_problems(capability, process) {
+                    problem(why);
                 }
             }
             PortScope::Http(http) => {

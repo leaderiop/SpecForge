@@ -1,10 +1,13 @@
 //! The capabilities an extension declares (ADR 0335 D2.1): the problems the declaration check reports (W021). A
 //! capability with one grants nothing (`ExtensionDeclaration::sound_capabilities`).
 
-use specforge_protocol_types::{ExtensionDeclaration, Owner, capability_problems};
+use specforge_protocol_types::{
+    ExtensionDeclaration, INSTALL_LINE_MAX, Owner, capability_problems, is_install_line,
+};
 
 /// The messages (W021) about the capabilities `declaration` makes, and about its collectors' `capability`: a
-/// collector that keeps a `capture` with no command has no output to keep (ADR 0345 D2).
+/// collector that keeps a `capture` with no command has no output to keep (ADR 0345 D2), and an install line must be
+/// one printable line (ADR 0348 D4).
 pub(crate) fn problems(declaration: &ExtensionDeclaration) -> Vec<String> {
     let name = declaration.name();
     let uncaptured = declaration
@@ -31,5 +34,15 @@ pub(crate) fn problems(declaration: &ExtensionDeclaration) -> Vec<String> {
             ),
         })
         .chain(uncaptured)
+        .chain(declaration.collectors.iter().filter_map(move |collector| {
+            let line = collector.install.as_deref()?;
+            (!is_install_line(line)).then(|| {
+                format!(
+                    "extension '{name}': collector '{}': its install line is empty, over {INSTALL_LINE_MAX} bytes \
+                     or not printable",
+                    collector.name
+                )
+            })
+        }))
         .collect()
 }

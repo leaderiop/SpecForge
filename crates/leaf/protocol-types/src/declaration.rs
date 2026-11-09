@@ -19,8 +19,8 @@ use crate::{
     EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
     FieldConstraintDescriptor, FieldDescriptor, FsScope, GitScope, HandshakeResponse,
     HookDescriptor, HttpScope, McpResourceDescriptor, McpToolDescriptor, PeerDependency,
-    PresetDescriptor, ProcessScope, PromptArgDescriptor, PromptDescriptor, PromptStep,
-    ProtocolError, RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor,
+    PresetDescriptor, ProcessConfig, ProcessScope, PromptArgDescriptor, PromptDescriptor,
+    PromptStep, ProtocolError, RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor,
     SecretDescriptor, SecretHeader, SettingDescriptor, SettingsItem, SkillDescriptor,
     SlashCommandDescriptor, SurfaceDescriptor, ValidationRuleDescriptor,
 };
@@ -594,9 +594,13 @@ static FS_SCOPE: Shape = Shape {
     fields: struct_fields::<FsScope>,
     nested: &[],
 };
+static PROCESS_CONFIG: Shape = Shape {
+    fields: struct_fields::<ProcessConfig>,
+    nested: &[],
+};
 static PROCESS_SCOPE: Shape = Shape {
     fields: struct_fields::<ProcessScope>,
-    nested: &[],
+    nested: &[("config", Nested::One(&PROCESS_CONFIG))],
 };
 static GIT_SCOPE: Shape = Shape {
     fields: struct_fields::<GitScope>,

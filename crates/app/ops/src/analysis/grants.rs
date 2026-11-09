@@ -608,6 +608,7 @@ mod tests {
                     argv: vec![format!("cargo{HOSTILE}")],
                     deadline_ms: None,
                     env: vec![format!("VAR{HOSTILE}")],
+                    config: None,
                 }),
                 call_kinds: Vec::new(),
                 secret_env: None,

@@ -60,9 +60,10 @@ mod version;
 mod vocabulary;
 pub use calls::*;
 pub use capability::{
-    CAPABILITY_KEYS, CapabilityDescriptor, CapabilityProblem, FsAccess, FsScope, GitOp, GitScope,
-    Hosts, HttpMethod, HttpScope, MAX_CAPABILITY_BYTES, Owner, PortScope, ProcessScope,
-    SecretHeader, WRITING_KINDS, capability_problems, is_host_pattern, is_scope_name,
+    ARGV_PLACEHOLDERS, CAPABILITY_KEYS, CONFIG_TEMPLATE_MAX, CapabilityDescriptor,
+    CapabilityProblem, FsAccess, FsScope, GitOp, GitScope, Hosts, HttpMethod, HttpScope,
+    MAX_CAPABILITY_BYTES, Owner, PortScope, ProcessConfig, ProcessScope, SecretHeader,
+    WRITING_KINDS, capability_problems, is_config_name, is_host_pattern, is_scope_name,
 };
 pub use checks::{
     ByteRange, CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan,
@@ -543,6 +544,18 @@ pub struct CollectorDescriptor {
     /// input names one, and the only kinds whose facts the host admits from it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub answers: Vec<String>,
+    /// What to run to install its program, said when the program is not found on PATH (ADR 0348 D4): one printable
+    /// line of at most [`INSTALL_LINE_MAX`] bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub install: Option<String>,
+}
+
+/// The most bytes a collector's install line holds.
+pub const INSTALL_LINE_MAX: usize = 200;
+
+/// Whether `line` is an install line: non-empty, at most [`INSTALL_LINE_MAX`] bytes, every character printable.
+pub fn is_install_line(line: &str) -> bool {
+    !line.trim().is_empty() && line.len() <= INSTALL_LINE_MAX && !line.chars().any(char::is_control)
 }
 
 // ── Compiler Pass Descriptor ──

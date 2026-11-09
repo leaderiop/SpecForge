@@ -588,6 +588,63 @@ fn capabilities_a_collector_names_must_be_a_process_one() {
 
 #[specforge_test_macros::test(
     behavior = "build_registries_from_declarations",
+    verify = "a config file that is not sound is W021 and grants nothing"
+)]
+fn capabilities_with_a_config_that_is_not_sound_are_w021() {
+    let collect = |c: Capability| c.call_kinds(&[Operation::Collect]).why("run");
+    let found = capability_problems_of(|c| {
+        c.capability(
+            collect(Capability::process("sound").argv(&["t", "{config}"])).config("t.toml", "x"),
+        );
+        c.capability(
+            collect(Capability::process("named").argv(&["t", "{config}"])).config("../t.yml", "x"),
+        );
+        c.capability(
+            collect(Capability::process("empty").argv(&["t", "{config}"])).config("t.json", ""),
+        );
+        c.capability(
+            Capability::process("kinds")
+                .argv(&["t", "{config}"])
+                .why("run")
+                .config("t.toml", "x"),
+        );
+        c.capability(
+            collect(Capability::process("twice").argv(&["{config}", "{config}"]))
+                .config("t.toml", "x"),
+        );
+        c.capability(collect(Capability::process("unnamed").argv(&["t"])).config("t.toml", "x"));
+        c.capability(collect(
+            Capability::process("missing").argv(&["t", "{config}"]),
+        ));
+        c.capability(
+            collect(Capability::process("both").argv(&["{report}{config}"])).config("t.toml", "x"),
+        );
+        c.collector("noisy", |k| {
+            k.install("cargo install\u{7}")
+                .collect(|_| Ok(CollectOutput::default()));
+        });
+    });
+    let expect = [
+        "capability 'named' grants nothing: its config name '../t.yml' is not one segment ending .toml or .json",
+        "capability 'empty' grants nothing: its config template is empty or over 16 KiB",
+        "capability 'kinds' grants nothing: it declares a config, so its call_kinds must be exactly collect",
+        "capability 'twice' grants nothing: its argv names {config} 2 times; a config needs it once",
+        "capability 'unnamed' grants nothing: its argv names {config} 0 times; a config needs it once",
+        "capability 'missing' grants nothing: its argv names {config} but it declares no config",
+        "capability 'both' grants nothing: its argv element '{report}{config}' holds two placeholders",
+        "collector 'noisy': its install line is empty, over 200 bytes or not printable",
+    ];
+    for expected in expect {
+        assert!(
+            found.iter().any(|m| m.contains(expected)),
+            "{expected}\nin {found:#?}"
+        );
+    }
+    assert_eq!(found.len(), expect.len(), "{found:#?}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "build_registries_from_declarations",
     verify = "a collector that keeps a capture with no command is W021"
 )]
 fn a_collector_capture_without_a_command_is_w021() {

@@ -115,6 +115,7 @@ mod tests {
                 vec![Input::facts(reads)]
             },
             answers: answers.iter().map(ToString::to_string).collect(),
+            install: None,
         }
     }
 
