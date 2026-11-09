@@ -17,14 +17,16 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 
-use specforge_code_facts::{crate_segment, joined, Definition, Edition, PackageId, Target};
+use specforge_code_facts::{
+    crate_segment, joined, parse_all, Definition, Edition, PackageId, Target,
+};
 use specforge_extension_sdk::host::{
-    self, NotParsed, SyntaxFile, SyntaxFiles, SyntaxOutcome, SyntaxRequest, SyntaxSource,
+    NotParsed, SyntaxFiles, SyntaxOutcome, SyntaxRequest, SyntaxSource,
 };
 use specforge_extension_sdk::prelude::Fact;
 
 use crate::items::{self, Child};
-use crate::QUERY;
+use crate::{COLLECTOR, QUERY};
 
 /// One cargo target as a crate: the package it is of, its crate segment, its edition and its root file.
 #[derive(Debug, Clone, PartialEq)]
@@ -89,20 +91,6 @@ impl ModuleFile {
         let children = parent(&file).to_string();
         ModuleFile { file, children }
     }
-}
-
-/// The files `paths`, parsed by the host's reader with the pack's query in one request, in the order asked.
-fn parse(paths: &[String]) -> Result<Vec<SyntaxFile>, String> {
-    host::syntax::parse(&SyntaxRequest {
-        source: SyntaxSource::Worktree {
-            root: "project".to_string(),
-        },
-        files: SyntaxFiles::Paths(paths.to_vec()),
-        language: "rust".to_string(),
-        query: QUERY.to_string(),
-    })
-    .map(|answer| answer.files)
-    .map_err(|e| format!("the host's source reader refused rust-source's request: {e:?}"))
 }
 
 /// Every definition of every crate's module tree, its files parsed one round at a time.
@@ -202,41 +190,30 @@ fn child_modules(krate: usize, path: &[String], file: &ModuleFile, child: Child)
         .collect()
 }
 
-/// `paths` parsed until no answer says the cap stopped it: each round asks again for the files the last left
-/// unparsed. A file whose matches alone pass the cap is the collector's error, never an item dropped.
-fn all_parsed(mut paths: Vec<String>) -> Result<BTreeMap<String, SyntaxOutcome>, String> {
+/// `paths` parsed by the host's reader with the pack's query, every one answered whatever the answer's cap
+/// ([`parse_all`]). An absent or withheld file is a module with no file (rustc owns that error); any other file the
+/// reader could not parse is the collector's error, never an item dropped.
+fn all_parsed(paths: Vec<String>) -> Result<BTreeMap<String, SyntaxOutcome>, String> {
+    let request = SyntaxRequest {
+        source: SyntaxSource::Worktree {
+            root: "project".to_string(),
+        },
+        files: SyntaxFiles::Paths(paths),
+        language: "rust".to_string(),
+        query: QUERY.to_string(),
+    };
     let mut answers = BTreeMap::new();
-    while !paths.is_empty() {
-        let mut again = Vec::new();
-        for file in parse(&paths)? {
-            match file.outcome {
-                SyntaxOutcome::NotParsed {
-                    reason: NotParsed::Capped,
-                } => again.push(file.path),
-                SyntaxOutcome::NotParsed {
-                    reason: NotParsed::Missing | NotParsed::Denied,
-                } => {
-                    answers.insert(file.path, file.outcome);
-                }
-                SyntaxOutcome::NotParsed { reason } => {
-                    return Err(format!(
-                        "{}: the host's reader did not parse it ({}); rust-source reads every module or none",
-                        file.path,
-                        reason.name()
-                    ));
-                }
-                parsed => {
-                    answers.insert(file.path, parsed);
-                }
+    for file in parse_all(COLLECTOR, request, |_| true)? {
+        if let SyntaxOutcome::NotParsed { reason } = file.outcome {
+            if !matches!(reason, NotParsed::Missing | NotParsed::Denied) {
+                return Err(format!(
+                    "{}: the host's reader did not parse it ({}); {COLLECTOR} reads every module or none",
+                    file.path,
+                    reason.name()
+                ));
             }
         }
-        if !again.is_empty() && again.len() == paths.len() {
-            return Err(format!(
-                "{}: its matches alone pass the host's answer cap",
-                again[0]
-            ));
-        }
-        paths = again;
+        answers.insert(file.path, file.outcome);
     }
     Ok(answers)
 }

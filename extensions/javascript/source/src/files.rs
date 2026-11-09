@@ -9,9 +9,9 @@
 
 use std::collections::BTreeMap;
 
+use specforge_code_facts::parse_all;
 use specforge_extension_sdk::host::{
-    self, NotParsed, SyntaxFile, SyntaxFiles, SyntaxMatch, SyntaxOutcome, SyntaxRequest,
-    SyntaxSource,
+    NotParsed, SyntaxFile, SyntaxFiles, SyntaxMatch, SyntaxOutcome, SyntaxRequest, SyntaxSource,
 };
 use specforge_extension_sdk::prelude::*;
 use specforge_javascript_workspace::Workspace;
@@ -143,50 +143,46 @@ pub(crate) fn parsed(input: &CollectInput, workspace: &Workspace) -> Result<Vec<
     for (language, mut paths) in by_language {
         paths.sort();
         paths.dedup();
-        parsed.extend(all_parsed(language, paths)?);
+        parsed.extend(all_parsed(
+            request(language, SyntaxFiles::Paths(paths)),
+            |_| true,
+        )?);
     }
+    // The host walks a truncated listing's glob itself; a file the rules drop is never the pack's error (a minified
+    // bundle past the deadline).
     for listing in globbed {
-        parsed.extend(glob_parsed(listing, workspace)?);
+        parsed.extend(all_parsed(
+            request(listing.language, SyntaxFiles::Glob(listing.glob())),
+            |path| kept(workspace, path),
+        )?);
     }
     parsed.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(parsed)
 }
 
-/// The host's answer to `files` in `language`, read from the project root with the pack's query.
-fn parse(language: &str, files: SyntaxFiles) -> Result<(Vec<SyntaxFile>, bool), String> {
-    host::syntax::parse(&SyntaxRequest {
+/// `files` in `language`, read from the project root with the pack's query.
+fn request(language: &str, files: SyntaxFiles) -> SyntaxRequest {
+    SyntaxRequest {
         source: SyntaxSource::Worktree {
             root: "project".to_string(),
         },
         files,
         language: language.to_string(),
         query: QUERY.to_string(),
-    })
-    .map(|answer| (answer.files, answer.truncated))
-    .map_err(|e| format!("the host's source reader refused {COLLECTOR}'s request: {e:?}"))
+    }
 }
 
-/// What one answered file gives: its matches, nothing (deleted since the listing), or a file to ask again.
-enum Answered {
-    Parsed(Parsed),
-    Skipped,
-    Capped(String),
-}
-
-/// `file` sorted: a file the reader could not parse otherwise is the collector's error, never an item dropped.
-fn answered(file: SyntaxFile) -> Result<Answered, String> {
+/// `file`'s matches; `None` for a file deleted since the listing. A file the reader could not parse otherwise (one
+/// the fs port withholds included) is the collector's error, never an item dropped.
+fn answered(file: SyntaxFile) -> Result<Option<Parsed>, String> {
     match file.outcome {
-        SyntaxOutcome::Parsed { matches, .. } => Ok(Answered::Parsed(Parsed {
+        SyntaxOutcome::Parsed { matches, .. } => Ok(Some(Parsed {
             path: file.path,
             matches,
         })),
         SyntaxOutcome::NotParsed {
-            reason: NotParsed::Capped,
-        } => Ok(Answered::Capped(file.path)),
-        // Deleted since the listing. A file the fs port withholds is no item lost quietly: it is the error below.
-        SyntaxOutcome::NotParsed {
             reason: NotParsed::Missing,
-        } => Ok(Answered::Skipped),
+        } => Ok(None),
         SyntaxOutcome::NotParsed { reason } => Err(format!(
             "{}: the host's reader did not parse it ({}); {COLLECTOR} reads every kept source file or none",
             file.path,
@@ -195,56 +191,11 @@ fn answered(file: SyntaxFile) -> Result<Answered, String> {
     }
 }
 
-/// `paths` parsed in `language` until no answer says the cap stopped it: each round asks again for the files the
-/// last left unparsed. A file whose matches alone pass the cap is the collector's error.
-fn all_parsed(language: &str, mut paths: Vec<String>) -> Result<Vec<Parsed>, String> {
-    let mut parsed = Vec::new();
-    while !paths.is_empty() {
-        let mut again = Vec::new();
-        let (files, _) = parse(language, SyntaxFiles::Paths(paths.clone()))?;
-        for file in files {
-            match answered(file)? {
-                Answered::Parsed(file) => parsed.push(file),
-                Answered::Capped(path) => again.push(path),
-                Answered::Skipped => {}
-            }
-        }
-        if !again.is_empty() && again.len() == paths.len() {
-            return Err(format!(
-                "{}: its matches alone pass the host's answer cap",
-                again[0]
-            ));
-        }
-        paths = again;
-    }
-    Ok(parsed)
-}
-
-/// The files of `listing`'s glob, parsed by the host, which walks them itself: the kept ones' matches, the capped
-/// kept ones asked again by path. A walk that stopped short (`truncated`) is the collector's error: no glob can ask
-/// for the files past it.
-fn glob_parsed(listing: &Listing, workspace: &Workspace) -> Result<Vec<Parsed>, String> {
-    let (files, truncated) = parse(listing.language, SyntaxFiles::Glob(listing.glob()))?;
-    if truncated {
-        return Err(format!(
-            "{}: the project holds more files than the host walks; {COLLECTOR} reads every kept source file or \
-             none",
-            listing.glob()
-        ));
-    }
-    let mut parsed = Vec::new();
-    let mut again = Vec::new();
-    for file in files {
-        // A file the pack does not read is never its error: a minified bundle past the deadline included.
-        if !kept(workspace, &file.path) {
-            continue;
-        }
-        match answered(file)? {
-            Answered::Parsed(file) => parsed.push(file),
-            Answered::Capped(path) => again.push(path),
-            Answered::Skipped => {}
-        }
-    }
-    parsed.extend(all_parsed(listing.language, again)?);
-    Ok(parsed)
+/// The files of `request` that `keep` accepts, every one parsed whatever the answer's cap ([`parse_all`]): a glob's
+/// walk stopped short is the collector's error, as is a file whose matches alone pass the cap.
+fn all_parsed(request: SyntaxRequest, keep: impl Fn(&str) -> bool) -> Result<Vec<Parsed>, String> {
+    parse_all(COLLECTOR, request, keep)?
+        .into_iter()
+        .filter_map(|file| answered(file).transpose())
+        .collect()
 }

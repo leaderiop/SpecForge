@@ -4,6 +4,7 @@ use super::*;
 use specforge_test::prelude::*;
 
 mod mint;
+mod syntax;
 
 fn strings(items: &[&str]) -> Vec<String> {
     items.iter().map(|s| s.to_string()).collect()

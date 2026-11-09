@@ -13,6 +13,8 @@
 //! - [`item_facts`] mints one `item` per item id from a source pack's [`Definition`]s, every place and kind listed.
 //! - [`Package::fact`] mints a `package`; [`location`] turns the reader's points into a fact's place; [`joined`]
 //!   resolves a path a manifest or a source file writes against the project-relative directory it is written in.
+//! - [`parse_all`] asks the host's source reader until it has answered every file a source pack keeps, the files an
+//!   answer's cap left unparsed asked again.
 //!
 //! Every id parses back to itself (`FromStr`), and a SCIP symbol of rust-analyzer or scip-typescript maps into exactly
 //! one (ADR 0347 D4).
@@ -20,6 +22,7 @@
 mod ids;
 mod mint;
 mod paths;
+mod syntax;
 #[cfg(test)]
 mod tests;
 
@@ -31,3 +34,4 @@ pub use mint::{
     Visibility,
 };
 pub use paths::joined;
+pub use syntax::parse_all;
