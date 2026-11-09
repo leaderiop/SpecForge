@@ -99,6 +99,8 @@ struct Group<'m> {
     quoted: bool,
     attrs: Vec<&'m str>,
     signature: Vec<&'m SyntaxCapture>,
+    /// The line it starts on, a decorator written before its `export` included.
+    first_line: u32,
     /// The index of the innermost group whose span holds this one.
     parent: Option<usize>,
 }
@@ -125,6 +127,7 @@ impl<'m> Group<'m> {
                 "signature" if !self.signature.iter().any(|s| s.span == capture.span) => {
                     self.signature.push(capture);
                 }
+                "lead" => self.first_line = self.first_line.min(capture.span.start.line),
                 _ => {}
             }
         }
@@ -226,6 +229,7 @@ fn groups(matches: &[SyntaxMatch]) -> Vec<Group<'_>> {
             role,
             name: Vec::new(),
             quoted: false,
+            first_line: found.span.start.line,
             attrs: Vec::new(),
             signature: Vec::new(),
             parent: open.last().copied(),
@@ -309,7 +313,7 @@ fn public(groups: &[Group], at: usize, exported: &BTreeMap<&str, bool>) -> bool 
 }
 
 /// Each group's doc: a `/** */` comment goes to the first definition after it when that starts on the comment's last
-/// line or the line below.
+/// line or the line below. A decorator starts its class, written on the class or before its `export`.
 fn docs<'m>(matches: &'m [SyntaxMatch], groups: &[Group]) -> BTreeMap<usize, &'m str> {
     let mut docs = BTreeMap::new();
     for found in matches {
@@ -322,7 +326,7 @@ fn docs<'m>(matches: &'m [SyntaxMatch], groups: &[Group]) -> BTreeMap<usize, &'m
         let end = found.span.end;
         let next = groups.partition_point(|g| g.span.start.byte < end.byte);
         if let Some(group) = groups.get(next) {
-            if group.span.start.line <= end.line + 1 {
+            if group.first_line <= end.line + 1 {
                 docs.entry(next).or_insert(text.text.as_str());
             }
         }

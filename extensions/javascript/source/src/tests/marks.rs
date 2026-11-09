@@ -114,6 +114,23 @@ fn export_default_of_a_name_marks_it_default() {
 
 #[specforge_test(
     behavior = "js_mark_item_exports",
+    verify = "an export list naming a default marks it default"
+)]
+fn an_export_list_naming_a_default_marks_it_default() {
+    let facts = collected(&[(
+        "src/a.js",
+        "function a() {}\nfunction b() {}\nexport { a as default, b };\n",
+    )]);
+    let a = item(&facts, "js:app/src/a.js::a");
+    assert_eq!(a.fields["visibility"], "public");
+    assert_eq!(a.fields["attrs"], json!(["default"]));
+    let b = item(&facts, "js:app/src/a.js::b");
+    assert_eq!(b.fields["visibility"], "public");
+    assert_eq!(b.fields.get("attrs"), None, "b is no default export");
+}
+
+#[specforge_test(
+    behavior = "js_mark_item_exports",
     verify = "a private member of a public class is private"
 )]
 fn a_private_member_of_a_public_class_is_private() {
@@ -208,6 +225,33 @@ class K {
     assert_eq!(doc("plain"), Value::Null);
     assert_eq!(doc("far"), Value::Null);
     assert_eq!(doc("K.m"), "A method.");
+}
+
+#[specforge_test(
+    behavior = "js_mark_item_exports",
+    verify = "a decorated class takes the doc above its decorator, exported or not"
+)]
+fn a_decorated_class_takes_the_doc_above_its_decorator_exported_or_not() {
+    let facts = collected(&[(
+        "src/a.ts",
+        r#"/** Plain. */
+@dec
+class Plain {}
+
+/** Exported. */
+@dec
+@other()
+export class Exported {}
+
+/** Default. */
+@dec
+export default class {}
+"#,
+    )]);
+    let doc = |path: &str| item(&facts, &format!("js:app/src/a.ts::{path}")).fields["doc"].clone();
+    assert_eq!(doc("Plain"), "Plain.");
+    assert_eq!(doc("Exported"), "Exported.");
+    assert_eq!(doc("default"), "Default.");
 }
 
 #[specforge_test(

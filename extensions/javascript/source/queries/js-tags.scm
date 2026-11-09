@@ -13,7 +13,9 @@
 ;                       types, heritage, a type alias's, an interface's or an enum's body; never a value
 ;   @reference.doc      a /** comment, its text @doc: the pack gives it to the item that starts on its last line or
 ;                       the line after it
-;   @reference.export   an export list's or module.exports's entry: the item @name names is exported
+;   @lead               a decorator written before a class's `export`: the item's first line, for its doc
+;   @reference.export   an export list's or module.exports's entry: the item @name names is exported (its @attr
+;                       `default` when it is the default export)
 ; A capture whose name starts with _ only feeds a predicate.
 ;
 ; Matches of one defining node merge in the pack (captures united; function and class win over const and variable).
@@ -80,7 +82,7 @@
   (class_declaration name: (type_identifier) @name type_parameters: (_)? @signature (class_heritage)? @signature) @definition.class
   (abstract_class_declaration "abstract" @attr name: (type_identifier) @name type_parameters: (_)? @signature (class_heritage)? @signature) @definition.class
 ]))
-(export_statement "export" @attr ("default" @attr)? declaration: [
+(export_statement (decorator)* @lead "export" @attr ("default" @attr)? declaration: [
   (class_declaration name: (type_identifier) @name type_parameters: (_)? @signature (class_heritage)? @signature) @definition.class
   (abstract_class_declaration "abstract" @attr name: (type_identifier) @name type_parameters: (_)? @signature (class_heritage)? @signature) @definition.class
 ])
@@ -219,7 +221,7 @@
 ]))
 ; ---------------------------------------------------------------- default exports with no name: the item `default`
 (export_statement "export" @attr "default" @attr value: [(function_expression) (arrow_function) (generator_function)] @definition.function)
-(export_statement "export" @attr "default" @attr value: (class) @definition.class)
+(export_statement (decorator)* @lead "export" @attr "default" @attr value: (class) @definition.class)
 (export_statement "export" @attr "default" @attr value: [(object) (array) (call_expression) (new_expression) (string) (number) (template_string) (member_expression) (as_expression) (satisfies_expression)] @definition.const)
 
 ; ---------------------------------------------------------------- blocks whose contents are no item
@@ -263,6 +265,8 @@
 ; ---------------------------------------------------------------- exports by name
 (export_statement !source (export_clause (export_specifier name: (identifier) @name) @reference.export))
 (export_statement "default" @attr value: (identifier) @name) @reference.export
+(export_statement !source (export_clause (export_specifier name: (identifier) @name alias: (_) @attr) @reference.export)
+  (#eq? @attr "default"))
 (program (expression_statement (assignment_expression
   left: (member_expression object: (identifier) @_module property: (property_identifier) @_exports)
   right: (object [(shorthand_property_identifier) @name (pair value: (identifier) @name)] @reference.export))

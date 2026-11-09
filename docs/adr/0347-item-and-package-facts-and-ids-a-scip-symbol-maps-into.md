@@ -182,7 +182,8 @@ reports each dangling one of a `test` or an `item` (ADR 0346 D8).
 - **One fact per path** (D3): the overloads and the body of a function are one item, as are a `type` and a `const` of
   one name (`kind [type, const]`), and a namespace merged across declarations.
 - **The id names the declared name** (D4): `export default function main` is `::main` (attr `default`),
-  `export { a as b }` keeps `::a`, only an unnamed default export is `::default`. A nested namespace `A.B` is two
+  `export { a as b }` keeps `::a` (`export { a as default }` marks it `default`), only an unnamed default export is
+  `::default`. A nested namespace `A.B` is two
   segments, a string member name is its value (escapes decoded); the query captures each, so no name is split or
   unquoted by hand. A SCIP symbol names the declaration too, so `Foo.` and `Foo#` both
   land on `::Foo`.

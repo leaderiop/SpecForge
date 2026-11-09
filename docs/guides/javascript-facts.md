@@ -78,8 +78,8 @@ expression handed to a call.
 
 - Overloads and the body of one function are one item listing every place.
 - An id names the declared name: `export default function main` is `::main`,
-  `export { a as b }` keeps `::a`, only an unnamed default export is
-  `::default`. A string member name is its value (`'a\'b'() {}` is `a'b`), and
+  `export { a as b }` keeps `::a` (`as default` adds the attr `default`), only
+  an unnamed default export is `::default`. A string member name is its value (`'a\'b'() {}` is `a'b`), and
   `namespace A.B` is the two names `A` and `B`, up to six of them.
 - CommonJS's `module.exports = <function>`, TypeScript's `export =` and a
   re-export `export … from` define no item here.
@@ -112,7 +112,9 @@ tests name it `<name>@<dir>` with the directory's `/` written `%2F`:
 - **`attrs`**: the modifier words written on it (`export`, `default`,
   `declare`, `async`, `static`, `private`, …).
 - **`doc`**: the `/** */` comment ending on its first line or the line above,
-  without its markers.
+  without its markers. A decorated class starts at its first decorator, so
+  `/** … */` above `@dec class X` and above `@dec export class X` are both
+  its doc.
 - **`signature`**: its declared parameters, types and heritage, never a value.
 - **`package`**: its package fact, `pkg:npm/<name>`.
 
