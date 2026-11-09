@@ -79,3 +79,30 @@ behavior rs_mint_item_facts "Mint Item Facts from Definitions" {
   verify unit "an item inside a function body or another item's block is not minted"
   verify unit "attributes and doc comments belong to the item directly below them"
 }
+
+behavior rs_mark_tests "Mark Test Functions with Their Runner Id and Entity" {
+  features [rs_item_facts, cc_test_facts]
+  category computation
+  types    [Fact]
+  contract """
+    A function marked by an attribute whose path is `test`, ends in
+    `::test`, or is `specforge_test` or `spec` MUST carry attrs `test` and
+    test_id, the id nextest gives it: ItemId::test_id in the crate's
+    edition, a reserved word written raw. `#[ignore]` on a test MUST add
+    `ignore`. The first `<kind> = "<id>"` of a specforge_test, spec or
+    {specforge_test_macros,specforge_test,specforge}::test attribute MUST be
+    written to names with Fact::name, at the id's string; another runner's
+    attribute names nothing (ADR 0348 D7).
+  """
+  ensures {
+    runner_id "a test item holds the id its runner gives it"
+    ignored   "an ignored test is marked"
+    entity    "a spec-link attribute names its entity where it is written"
+  }
+  verify unit "a test function carries the id nextest gives it"
+  verify unit "the same test path in three binaries is three ids"
+  verify unit "an ignored test is marked ignore"
+  verify unit "a spec-link attribute names its entity at the id's string"
+  verify unit "a runner attribute whose path ends in ::test marks a test"
+  verify unit "a test in an inline module keeps its module path"
+}

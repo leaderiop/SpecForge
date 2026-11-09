@@ -1,6 +1,7 @@
 //! A parsed file's matches as definitions (ADR 0348 D6): every definition at module level, in inline modules and in
 //! `impl` and `trait` blocks, never one inside a function body or any other item, with the attributes and doc
-//! comments of the contiguous run of lines directly above it.
+//! comments of the contiguous run of lines directly above it. A test function knows the id nextest gives it and the
+//! entity its spec-link attribute names (D7).
 
 use specforge_code_facts::{location, Definition, ItemId, ItemKind, Names, Owner, Visibility};
 use specforge_extension_sdk::host::{SyntaxMatch, SyntaxRole};
@@ -48,8 +49,15 @@ pub(crate) fn read(
         let above = attached(matches, at);
         let mut path = module.to_vec();
         path.extend(context.inline.iter().cloned());
+        let id = ItemId::rust(&krate.segment, &path, context.owner.as_ref(), name);
+        let test = matches!(kind, ItemKind::Function | ItemKind::Method) && is_test(&above);
         out.push(Definition {
-            id: ItemId::rust(&krate.segment, &path, context.owner.as_ref(), name),
+            test_id: if test {
+                id.test_id(krate.edition)
+            } else {
+                None
+            },
+            id,
             package: krate.package.clone(),
             kind,
             visibility: Visibility::rust(capture(found, "visibility")),
@@ -57,9 +65,8 @@ pub(crate) fn read(
             at: location(&file.file, found.span.start, found.span.end),
             signature: signature(found),
             doc: doc(&above),
-            attrs: attrs(&above),
-            names: Names::new(),
-            test_id: None,
+            attrs: attrs(&above, test),
+            names: names(&file.file, &above),
         });
         if kind == ItemKind::Module && capture(found, "body").is_none() {
             children.push(Child {
@@ -193,12 +200,51 @@ fn doc(above: &[&SyntaxMatch]) -> Option<String> {
     (!doc.is_empty()).then_some(doc)
 }
 
-/// The attributes an item fact records: each `cfg(…)`, its whitespace collapsed.
-fn attrs(above: &[&SyntaxMatch]) -> Vec<String> {
-    above
+/// The attributes an item fact records: `test` for a test, `ignore` for an ignored one, each `cfg(…)` with its
+/// whitespace collapsed.
+fn attrs(above: &[&SyntaxMatch], test: bool) -> Vec<String> {
+    let mut attrs: Vec<String> = above
         .iter()
         .filter(|found| found.kind == "attribute" && capture(found, "path") == Some("cfg"))
         .filter_map(|found| capture(found, "attribute"))
         .map(|text| text.split_whitespace().collect::<Vec<_>>().join(" "))
-        .collect()
+        .collect();
+    if test {
+        attrs.push("test".to_string());
+        if attribute_paths(above).any(|path| path == "ignore") {
+            attrs.push("ignore".to_string());
+        }
+    }
+    attrs
+}
+
+/// The paths of the attributes above, whitespace dropped (`tokio :: test` is `tokio::test`).
+fn attribute_paths<'m>(above: &'m [&SyntaxMatch]) -> impl Iterator<Item = String> + 'm {
+    above
+        .iter()
+        .filter(|found| found.kind == "attribute")
+        .filter_map(|found| capture(found, "path"))
+        .map(|path| path.split_whitespace().collect())
+}
+
+/// Whether an attribute above marks a test: its path is `test`, ends in `::test`, or is `specforge_test` or `spec`.
+fn is_test(above: &[&SyntaxMatch]) -> bool {
+    attribute_paths(above).any(|path| {
+        path == "test" || path.ends_with("::test") || path == "specforge_test" || path == "spec"
+    })
+}
+
+/// The entity each spec-link attribute above names (its first `<kind> = "<id>"`), at the id's string.
+fn names(file: &str, above: &[&SyntaxMatch]) -> Names {
+    let mut names = Names::new();
+    for found in above.iter().filter(|found| found.kind == "entity") {
+        if let Some(id) = found.captures.iter().find(|c| c.name == "id") {
+            names.entry(id.text.clone()).or_default().push(location(
+                file,
+                id.span.start,
+                id.span.end,
+            ));
+        }
+    }
+    names
 }

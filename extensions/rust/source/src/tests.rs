@@ -496,3 +496,152 @@ fn attributes_belong_to_the_item_directly_below_them() {
     assert_eq!(attrs("rust:toy::m"), Some(json!(["cfg(all(unix, test))"])));
     assert_eq!(attrs("rust:toy::m::d"), Some(json!(["cfg(x)"])));
 }
+
+/// `(attrs, test_id)` of the item `id`.
+fn marks(facts: &[Fact], id: &str) -> (Option<serde_json::Value>, Option<serde_json::Value>) {
+    let fact = item(facts, id);
+    (
+        fact.fields.get("attrs").cloned(),
+        fact.fields.get("test_id").cloned(),
+    )
+}
+
+#[specforge_test(
+    behavior = "rs_mark_tests",
+    verify = "a test function carries the id nextest gives it"
+)]
+fn a_test_function_carries_the_id_nextest_gives_it() {
+    let facts = collected(&[(
+        "src/lib.rs",
+        "#[cfg(test)]\nmod tests {\n    #[test]\n    fn adds() {}\n    fn helper() {}\n}\n",
+    )]);
+    assert_eq!(
+        marks(&facts, "rust:toy::tests::adds"),
+        (Some(json!(["test"])), Some(json!("rust:toy#tests::adds")))
+    );
+    assert_eq!(marks(&facts, "rust:toy::tests::helper"), (None, None));
+    assert_eq!(
+        marks(&facts, "rust:toy::tests"),
+        (Some(json!(["cfg(test)"])), None)
+    );
+}
+
+#[specforge_test(
+    behavior = "rs_mark_tests",
+    verify = "the same test path in three binaries is three ids"
+)]
+fn the_same_test_path_in_three_binaries_is_three_ids() {
+    let tests = "#[cfg(test)]\nmod tests {\n    #[test]\n    fn adds() {}\n}\n";
+    let (facts, _) = collected_with(
+        &[
+            ("src/lib.rs", tests),
+            ("src/main.rs", tests),
+            ("tests/api.rs", tests),
+        ],
+        &[
+            "lib:toy:src/lib.rs",
+            "bin:toy:src/main.rs",
+            "test:api:tests/api.rs",
+        ],
+        None,
+    );
+    let test_ids: Vec<&str> = facts
+        .as_ref()
+        .unwrap()
+        .iter()
+        .filter_map(|f| f.fields.get("test_id"))
+        .filter_map(|id| id.as_str())
+        .collect();
+    assert_eq!(
+        test_ids,
+        [
+            "rust:toy::bin/toy#tests::adds",
+            "rust:toy::api#tests::adds",
+            "rust:toy#tests::adds",
+        ],
+        "by item id: the bin's, the integration test's, the lib's"
+    );
+}
+
+#[specforge_test(
+    behavior = "rs_mark_tests",
+    verify = "an ignored test is marked ignore"
+)]
+fn an_ignored_test_is_marked() {
+    let facts = collected(&[(
+        "src/lib.rs",
+        "#[test]\n#[ignore = \"slow\"]\nfn slow() {}\n#[ignore]\nfn not_a_test() {}\n",
+    )]);
+    assert_eq!(
+        marks(&facts, "rust:toy::slow").0,
+        Some(json!(["ignore", "test"]))
+    );
+    assert_eq!(marks(&facts, "rust:toy::not_a_test"), (None, None));
+}
+
+#[specforge_test(
+    behavior = "rs_mark_tests",
+    verify = "a spec-link attribute names its entity at the id's string"
+)]
+fn a_specforge_test_attribute_names_its_entity() {
+    let facts = collected(&[(
+        "src/lib.rs",
+        "#[specforge_test(behavior = \"rc_read\", verify = \"it reads\")]\nfn one() {}\n\
+         #[specforge_test_macros::test(\n    feature = \"rc_feature\",\n)]\nfn two() {}\n\
+         #[tokio::test(flavor = \"current_thread\")]\nasync fn three() {}\n",
+    )]);
+    let one = item(&facts, "rust:toy::one");
+    assert_eq!(one.fields["names"], json!(["rc_read"]));
+    let at: Vec<(usize, usize, usize, usize)> = one.named_at["names"]["rc_read"]
+        .iter()
+        .map(|at| (at.start_line, at.start_col, at.end_line, at.end_col))
+        .collect();
+    assert_eq!(at, [(1, 30, 1, 37)], "the id inside its quotes");
+    assert_eq!(
+        item(&facts, "rust:toy::two").fields["names"],
+        json!(["rc_feature"])
+    );
+    let three = item(&facts, "rust:toy::three");
+    assert!(
+        !three.fields.contains_key("names"),
+        "tokio::test names no entity"
+    );
+    assert_eq!(three.fields["attrs"], json!(["test"]));
+}
+
+#[specforge_test(
+    behavior = "rs_mark_tests",
+    verify = "a runner attribute whose path ends in ::test marks a test"
+)]
+fn a_runner_attribute_ending_in_test_marks_a_test() {
+    let facts = collected(&[(
+        "src/lib.rs",
+        "#[tokio::test]\nasync fn a() {}\n#[spec(behavior = \"x\")]\nfn b() {}\n#[rstest]\nfn c() {}\n\
+         #[test_case(1)]\nfn d() {}\n",
+    )]);
+    let tests: Vec<&str> = facts
+        .iter()
+        .filter(|f| f.fields.contains_key("test_id"))
+        .map(|f| f.id.as_str())
+        .collect();
+    assert_eq!(tests, ["rust:toy::a", "rust:toy::b"]);
+}
+
+#[specforge_test(
+    behavior = "rs_mark_tests",
+    verify = "a test in an inline module keeps its module path"
+)]
+fn a_test_in_an_inline_module_keeps_its_module_path() {
+    let facts = collected(&[
+        ("src/lib.rs", "mod x;\n"),
+        (
+            "src/x.rs",
+            "mod a {\n    mod b {\n        #[test]\n        fn r#match() {}\n    }\n}\n",
+        ),
+    ]);
+    assert_eq!(
+        marks(&facts, "rust:toy::x::a::b::match").1,
+        Some(json!("rust:toy#x::a::b::r#match")),
+        "libtest writes a reserved word raw"
+    );
+}
