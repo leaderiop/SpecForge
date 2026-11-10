@@ -73,6 +73,7 @@ behavior grant_a_host_port_call "Grant a Host Port Call" {
   verify unit "a secret the host attaches never shows in what a guest is answered"
   verify unit "a program a guest runs inherits no declared secret and cannot set its PATH or loader"
   verify unit "a guest cannot open the private-address opt-in or read a withheld file at a commit"
+  verify unit "a guest diff never carries the text of a withheld file"
   verify integration "the sandbox probe reaches each of the five ports through its grant: a command four, a collector process"
 }
 

@@ -196,6 +196,9 @@ pub struct LogQuery {
     /// Only the commits that change how many times this regex matches in a file of [`LogQuery::paths`] against their
     /// parent (`git log -S --pickaxe-regex`): a merge never does, a root commit is compared with nothing.
     pub pickaxe: Option<String>,
+    /// [`LogQuery::pickaxe`] reads no file [`crate::contained::withheld`] names, at either path of a rename: a
+    /// guest's log, whose pickaxe would otherwise be an oracle on a credential's text.
+    pub withhold: bool,
 }
 
 /// The side a diff compares its base with.

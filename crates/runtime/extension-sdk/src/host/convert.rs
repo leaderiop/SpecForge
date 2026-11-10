@@ -7,10 +7,11 @@ use super::wit::process::{self, RunOutput, RunRequest};
 use super::wit::{fs, git, syntax, types};
 use super::{
     Denial, Failure, FileSize, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob, GitBlobs,
-    GitChange, GitEntry, GitEntryKind, GitRepo, GitStatus, GitTreeEntry, HostError, HttpRequest,
-    HttpResponse, NotParsed, ProcessOutput, ProcessRequest, SyntaxAnswer, SyntaxCapture,
-    SyntaxFile, SyntaxFiles, SyntaxMatch, SyntaxOutcome, SyntaxPoint, SyntaxRequest, SyntaxRole,
-    SyntaxSource, SyntaxSpan,
+    GitChange, GitDiffAnswer, GitDiffHead, GitDiffQuery, GitEntry, GitEntryKind, GitFileChange,
+    GitHunk, GitLogAnswer, GitLogCommit, GitLogQuery, GitRepo, GitSignature, GitStatus, GitTrailer,
+    GitTreeEntry, HostError, HttpRequest, HttpResponse, NotParsed, ProcessOutput, ProcessRequest,
+    SyntaxAnswer, SyntaxCapture, SyntaxFile, SyntaxFiles, SyntaxMatch, SyntaxOutcome, SyntaxPoint,
+    SyntaxRequest, SyntaxRole, SyntaxSource, SyntaxSpan,
 };
 use specforge_protocol_types::{GitBranch, Header};
 
@@ -228,6 +229,119 @@ impl From<StatusAnswer> for GitStatus {
     }
 }
 
+impl From<&GitLogQuery> for git::LogQuery {
+    fn from(query: &GitLogQuery) -> Self {
+        git::LogQuery {
+            tips: query.tips.clone(),
+            hidden: query.hidden.clone(),
+            paths: query.paths.clone(),
+            first_parent: query.first_parent,
+            max: query.max,
+            oldest: query.oldest,
+            grep: query.grep.clone(),
+            since: query.since,
+            until: query.until,
+            no_merges: query.no_merges,
+            pickaxe: query.pickaxe.clone(),
+        }
+    }
+}
+
+impl From<git::Signature> for GitSignature {
+    fn from(signature: git::Signature) -> Self {
+        GitSignature {
+            name: signature.name,
+            email: signature.email,
+            time: signature.time,
+            seconds: signature.seconds,
+        }
+    }
+}
+
+impl From<git::LogCommit> for GitLogCommit {
+    fn from(commit: git::LogCommit) -> Self {
+        GitLogCommit {
+            sha: commit.sha,
+            parents: commit.parents,
+            author: commit.author.into(),
+            committer: commit.committer.into(),
+            subject: commit.subject,
+            body: commit.body,
+            trailers: commit
+                .trailers
+                .into_iter()
+                .map(|t| GitTrailer {
+                    token: t.token,
+                    values: t.values,
+                })
+                .collect(),
+        }
+    }
+}
+
+impl From<git::LogAnswer> for GitLogAnswer {
+    fn from(answer: git::LogAnswer) -> Self {
+        GitLogAnswer {
+            count: answer.count,
+            commits: answer.commits.into_iter().map(Into::into).collect(),
+            truncated: answer.truncated,
+        }
+    }
+}
+
+impl From<&GitDiffQuery> for git::DiffQuery {
+    fn from(query: &GitDiffQuery) -> Self {
+        git::DiffQuery {
+            base: query.base.clone(),
+            head: match &query.head {
+                GitDiffHead::Commit(sha) => git::DiffHead::Commit(sha.clone()),
+                GitDiffHead::Index => git::DiffHead::Index,
+                GitDiffHead::Worktree => git::DiffHead::Worktree,
+            },
+            paths: query.paths.clone(),
+            patch: query.patch,
+            hunks: query.hunks,
+            renames: query.renames,
+        }
+    }
+}
+
+impl From<git::FileChange> for GitFileChange {
+    fn from(file: git::FileChange) -> Self {
+        GitFileChange {
+            path: file.path,
+            old_path: file.old_path,
+            status: file.status.into(),
+            added: file.added,
+            removed: file.removed,
+            binary: file.binary,
+            truncated: file.truncated,
+            withheld: file.withheld,
+            patch: file.patch,
+            hunks: file.hunks.map(|hunks| {
+                hunks
+                    .into_iter()
+                    .map(|h| GitHunk {
+                        before_start: h.before_start,
+                        before_end: h.before_end,
+                        after_start: h.after_start,
+                        after_end: h.after_end,
+                    })
+                    .collect()
+            }),
+        }
+    }
+}
+
+impl From<git::DiffAnswer> for GitDiffAnswer {
+    fn from(answer: git::DiffAnswer) -> Self {
+        GitDiffAnswer {
+            files: answer.files.into_iter().map(Into::into).collect(),
+            truncated: answer.truncated,
+        }
+    }
+}
+
 impl From<&SyntaxRequest> for syntax::Request {
     fn from(request: &SyntaxRequest) -> Self {
         syntax::Request {
@@ -401,5 +515,40 @@ pub(super) fn syntax_request_back(request: syntax::Request) -> SyntaxRequest {
         },
         language: request.language,
         query: request.query,
+    }
+}
+
+/// A log query as the host reads it back.
+#[cfg(test)]
+pub(super) fn log_query_back(query: git::LogQuery) -> GitLogQuery {
+    GitLogQuery {
+        tips: query.tips,
+        hidden: query.hidden,
+        paths: query.paths,
+        first_parent: query.first_parent,
+        max: query.max,
+        oldest: query.oldest,
+        grep: query.grep,
+        since: query.since,
+        until: query.until,
+        no_merges: query.no_merges,
+        pickaxe: query.pickaxe,
+    }
+}
+
+/// A diff query as the host reads it back.
+#[cfg(test)]
+pub(super) fn diff_query_back(query: git::DiffQuery) -> GitDiffQuery {
+    GitDiffQuery {
+        base: query.base,
+        head: match query.head {
+            git::DiffHead::Commit(sha) => GitDiffHead::Commit(sha),
+            git::DiffHead::Index => GitDiffHead::Index,
+            git::DiffHead::Worktree => GitDiffHead::Worktree,
+        },
+        paths: query.paths,
+        patch: query.patch,
+        hunks: query.hunks,
+        renames: query.renames,
     }
 }

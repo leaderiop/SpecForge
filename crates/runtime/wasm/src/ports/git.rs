@@ -4,10 +4,15 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
 use specforge_effects::contained::withheld;
-use specforge_effects::git::{GitPlace, Located, Sha};
+use specforge_effects::git::{
+    DiffQuery, DiffSide, DiffStatus, GitCommit, GitFileDiff, GitPerson, GitPlace, Located,
+    LogQuery, Sha,
+};
 use specforge_effects::{OutcomeClass, SharedGit};
 use specforge_protocol_types::{
-    FileSize, GitBlob, GitBlobs, GitRepo, GitStatus, GitTreeEntry, HostError,
+    FileSize, GitBlob, GitBlobs, GitChange, GitDiffAnswer, GitDiffHead, GitDiffQuery,
+    GitFileChange, GitLogAnswer, GitLogCommit, GitLogQuery, GitRepo, GitSignature, GitStatus,
+    GitTrailer, GitTreeEntry, HostError,
 };
 
 use super::{NOT_A_REPOSITORY, PortSession, UNAVAILABLE, failed, out_of_scope};
@@ -181,6 +186,109 @@ impl PortSession {
         Ok(status)
     }
 
+    /// The log of the project's repository, as many commits as the answer's cap holds. A guest names commits by id and
+    /// paths from the top; its pickaxe never reads a withheld file, and is refused one it names.
+    pub fn git_log(&mut self, query: &GitLogQuery) -> Result<GitLogAnswer, HostError> {
+        let shas = |names: &[String]| {
+            names
+                .iter()
+                .map(|n| sha_of(n))
+                .collect::<Result<Vec<_>, _>>()
+        };
+        let (tips, hidden) = (shas(&query.tips)?, shas(&query.hidden)?);
+        let paths = repository_paths(&query.paths)?;
+        if query.pickaxe.is_some()
+            && let Some(path) = query.paths.iter().find(|path| withheld(path))
+        {
+            return Err(out_of_scope(format!(
+                "`{path}` is withheld: a pickaxe does not read it"
+            )));
+        }
+        let (git, place) = self.place("log")?;
+        let log = git
+            .log(
+                &place,
+                &LogQuery {
+                    tips,
+                    hidden,
+                    paths,
+                    first_parent: query.first_parent,
+                    max: query.max.map(|max| max as usize),
+                    oldest: query.oldest,
+                    grep: query.grep.clone(),
+                    since: query.since,
+                    until: query.until,
+                    no_merges: query.no_merges,
+                    pickaxe: query.pickaxe.clone(),
+                    withhold: true,
+                },
+            )
+            .map_err(git_failed)?;
+        let mut room = self.answer_cap;
+        let mut answer = GitLogAnswer {
+            count: log.count.map(|count| count as u64),
+            ..GitLogAnswer::default()
+        };
+        for commit in log.commits {
+            let commit = log_commit(commit);
+            let bytes = commit_bytes(&commit);
+            if bytes > room {
+                answer.truncated = true;
+                break;
+            }
+            room -= bytes;
+            answer.commits.push(commit);
+        }
+        Ok(answer)
+    }
+
+    /// A diff of the project's repository. A withheld file keeps its status and counts, never its patch nor its hunks;
+    /// past the answer's cap the files keep no text, and the answer says `truncated`.
+    pub fn git_diff(&mut self, query: &GitDiffQuery) -> Result<GitDiffAnswer, HostError> {
+        let base = query.base.as_deref().map(sha_of).transpose()?;
+        let head = match &query.head {
+            GitDiffHead::Commit(sha) => DiffSide::Commit(sha_of(sha)?),
+            GitDiffHead::Index => DiffSide::Index,
+            GitDiffHead::Worktree => DiffSide::Worktree,
+        };
+        let paths = repository_paths(&query.paths)?;
+        let (git, place) = self.place("diff")?;
+        let files = git
+            .diff(
+                &place,
+                &DiffQuery {
+                    base,
+                    head,
+                    paths,
+                    patch: query.patch,
+                    hunks: query.hunks,
+                    renames: query.renames,
+                },
+            )
+            .map_err(git_failed)?;
+        let names: u64 = files
+            .iter()
+            .map(|file| (file.path.len() + file.old_path.as_ref().map_or(0, String::len)) as u64)
+            .sum();
+        self.fits(names, "a diff's paths")?;
+        let mut room = self.answer_cap - names;
+        let mut answer = GitDiffAnswer::default();
+        for file in files {
+            let mut change = file_change(file);
+            let bytes = change.patch.as_ref().map_or(0, String::len) as u64
+                + change.hunks.as_ref().map_or(0, Vec::len) as u64 * 16;
+            if answer.truncated || bytes > room {
+                answer.truncated |= bytes > 0;
+                change.patch = None;
+                change.hunks = None;
+            } else {
+                room -= bytes;
+            }
+            answer.files.push(change);
+        }
+        Ok(answer)
+    }
+
     /// A listing that has no way to say it was cut fails `capped` past the answer's cap.
     fn fits(&self, bytes: u64, what: &str) -> Result<(), HostError> {
         if bytes > self.answer_cap {
@@ -193,6 +301,84 @@ impl PortSession {
             ));
         }
         Ok(())
+    }
+}
+
+/// The paths a guest names, each from the repository's top and never climbing.
+fn repository_paths(paths: &[String]) -> Result<Vec<String>, HostError> {
+    paths
+        .iter()
+        .map(|path| git_path(path).map(|path| posix(&path)))
+        .collect()
+}
+
+fn signature(person: GitPerson) -> GitSignature {
+    GitSignature {
+        name: person.name,
+        email: person.email,
+        time: person.time,
+        seconds: person.seconds,
+    }
+}
+
+fn log_commit(commit: GitCommit) -> GitLogCommit {
+    GitLogCommit {
+        sha: commit.sha.as_str().to_string(),
+        parents: commit
+            .parents
+            .iter()
+            .map(|sha| sha.as_str().to_string())
+            .collect(),
+        author: signature(commit.author),
+        committer: signature(commit.committer),
+        subject: commit.subject,
+        body: commit.body,
+        trailers: commit
+            .trailers
+            .into_iter()
+            .map(|(token, values)| GitTrailer { token, values })
+            .collect(),
+    }
+}
+
+/// The bytes a commit takes of an answer: its text, counted as the guest receives it.
+fn commit_bytes(commit: &GitLogCommit) -> u64 {
+    let person = |p: &GitSignature| p.name.len() + p.email.len() + p.time.len() + 8;
+    let trailers: usize = commit
+        .trailers
+        .iter()
+        .map(|t| t.token.len() + t.values.iter().map(String::len).sum::<usize>())
+        .sum();
+    (commit.sha.len()
+        + commit.parents.iter().map(String::len).sum::<usize>()
+        + person(&commit.author)
+        + person(&commit.committer)
+        + commit.subject.len()
+        + commit.body.len()
+        + trailers) as u64
+}
+
+/// A changed file as a guest reads it: a withheld one (either path) without its text.
+fn file_change(file: GitFileDiff) -> GitFileChange {
+    let held = withheld(&file.path) || file.old_path.as_deref().is_some_and(withheld);
+    GitFileChange {
+        path: file.path,
+        old_path: file.old_path,
+        status: match file.status {
+            DiffStatus::Added => GitChange::Added,
+            DiffStatus::Deleted => GitChange::Deleted,
+            DiffStatus::Modified => GitChange::Modified,
+            DiffStatus::Renamed => GitChange::Renamed,
+            DiffStatus::Copied => GitChange::Copied,
+            DiffStatus::TypeChanged => GitChange::TypeChanged,
+        },
+        added: file.added,
+        removed: file.removed,
+        binary: file.binary,
+        truncated: file.truncated,
+        withheld: held,
+        patch: file.patch.filter(|_| !held),
+        hunks: file.hunks.filter(|_| !held),
     }
 }
 
@@ -209,3 +395,6 @@ pub(super) fn posix(path: &Path) -> String {
 pub(super) fn git_failed(error: specforge_effects::git::GitError) -> HostError {
     failed(UNAVAILABLE, error.0)
 }
+
+#[cfg(test)]
+mod tests;

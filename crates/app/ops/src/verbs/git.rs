@@ -630,6 +630,7 @@ pub fn log(verbs: &Verbs, request: &LogRequest) -> Result<LogAnswer, OpError> {
         until: date(&request.until)?,
         no_merges: request.no_merges,
         pickaxe: pickaxe.map(checked).transpose()?,
+        withhold: false,
     };
     let mut log = verbs.ports().git.log(&place, &query).map_err(failed)?;
     if request.reverse {

@@ -6,9 +6,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::{
-    Denial, FileSize, FsContent, FsEntry, FsListing, GitBlobs, GitRepo, GitStatus, GitTreeEntry,
-    HostError, HttpRequest, HttpResponse, ProcessOutput, ProcessRequest, SyntaxAnswer,
-    SyntaxRequest,
+    Denial, FileSize, FsContent, FsEntry, FsListing, GitBlobs, GitDiffAnswer, GitDiffQuery,
+    GitLogAnswer, GitLogQuery, GitRepo, GitStatus, GitTreeEntry, HostError, HttpRequest,
+    HttpResponse, ProcessOutput, ProcessRequest, SyntaxAnswer, SyntaxRequest,
 };
 
 /// What answers a port call in process. A method not given answers [`no_port`].
@@ -57,6 +57,12 @@ pub trait InProcessHost {
         Err(no_port())
     }
     fn git_status(&self) -> Result<GitStatus, HostError> {
+        Err(no_port())
+    }
+    fn git_log(&self, query: &GitLogQuery) -> Result<GitLogAnswer, HostError> {
+        Err(no_port())
+    }
+    fn git_diff(&self, query: &GitDiffQuery) -> Result<GitDiffAnswer, HostError> {
         Err(no_port())
     }
     fn syntax_parse(&self, request: &SyntaxRequest) -> Result<SyntaxAnswer, HostError> {

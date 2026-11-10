@@ -347,6 +347,117 @@ fn every_port_request_and_answer_survives_the_wit_conversion() {
     }
 }
 
+/// A guest's log and diff queries, and their answers, there and back.
+#[test]
+fn a_guest_log_and_diff_survive_the_wit_conversion() {
+    use bindings::specforge::host::git as wit;
+    let log = GitLogQuery {
+        tips: vec!["a1".into()],
+        hidden: vec!["b2".into()],
+        paths: vec!["src".into()],
+        first_parent: true,
+        max: Some(3),
+        oldest: true,
+        grep: Some("feat".into()),
+        since: Some(-1),
+        until: Some(2),
+        no_merges: true,
+        pickaxe: Some("x".into()),
+    };
+    assert_eq!(convert::log_query_back((&log).into()), log);
+    for head in [
+        GitDiffHead::Commit("c3".into()),
+        GitDiffHead::Index,
+        GitDiffHead::Worktree,
+    ] {
+        let diff = GitDiffQuery {
+            base: Some("d4".into()),
+            head,
+            paths: vec!["a".into()],
+            patch: true,
+            hunks: true,
+            renames: false,
+        };
+        assert_eq!(convert::diff_query_back((&diff).into()), diff);
+    }
+    let signed = |seconds| wit::Signature {
+        name: "n".into(),
+        email: "e".into(),
+        time: "t".into(),
+        seconds,
+    };
+    let answer = GitLogAnswer::from(wit::LogAnswer {
+        count: Some(1),
+        commits: vec![wit::LogCommit {
+            sha: "a1".into(),
+            parents: vec!["b2".into()],
+            author: signed(1),
+            committer: signed(2),
+            subject: "s".into(),
+            body: "b".into(),
+            trailers: vec![wit::Trailer {
+                token: "Gsd-Task".into(),
+                values: vec!["1".into(), "2".into()],
+            }],
+        }],
+        truncated: true,
+    });
+    let commit = &answer.commits[0];
+    assert_eq!((answer.count, answer.truncated), (Some(1), true));
+    assert_eq!((commit.author.seconds, commit.committer.seconds), (1, 2));
+    assert_eq!(commit.parents, ["b2"]);
+    assert_eq!(
+        commit.trailers,
+        [GitTrailer {
+            token: "Gsd-Task".into(),
+            values: vec!["1".into(), "2".into()],
+        }]
+    );
+    let diff = GitDiffAnswer::from(wit::DiffAnswer {
+        files: vec![wit::FileChange {
+            path: "b".into(),
+            old_path: Some("a".into()),
+            status: wit::Change::Renamed,
+            added: 1,
+            removed: 2,
+            binary: false,
+            truncated: true,
+            withheld: true,
+            patch: Some("p".into()),
+            hunks: Some(vec![wit::Hunk {
+                before_start: 1,
+                before_end: 2,
+                after_start: 3,
+                after_end: 4,
+            }]),
+        }],
+        truncated: true,
+    });
+    assert_eq!(
+        diff,
+        GitDiffAnswer {
+            files: vec![GitFileChange {
+                path: "b".into(),
+                old_path: Some("a".into()),
+                status: GitChange::Renamed,
+                added: 1,
+                removed: 2,
+                binary: false,
+                truncated: true,
+                withheld: true,
+                patch: Some("p".into()),
+                hunks: Some(vec![GitHunk {
+                    before_start: 1,
+                    before_end: 2,
+                    after_start: 3,
+                    after_end: 4,
+                }]),
+            }],
+            truncated: true,
+        }
+    );
+}
+
 #[test]
 fn a_request_has_no_place_for_what_only_the_host_sets() {
     let asked = HttpRequest {
@@ -416,4 +527,56 @@ fn a_served_host_answers_the_guest() {
     ));
     assert!(http::send(&request).is_err());
     assert_eq!(fake.asked.borrow().len(), 1);
+}
+
+/// A host that answers a log and a diff, and records what it was asked.
+#[derive(Default)]
+struct History {
+    asked: RefCell<Vec<String>>,
+}
+
+impl InProcessHost for History {
+    fn git_log(&self, query: &GitLogQuery) -> Result<GitLogAnswer, HostError> {
+        self.asked
+            .borrow_mut()
+            .push(format!("log {:?}", query.tips));
+        Ok(GitLogAnswer {
+            count: Some(0),
+            ..GitLogAnswer::default()
+        })
+    }
+    fn git_diff(&self, query: &GitDiffQuery) -> Result<GitDiffAnswer, HostError> {
+        self.asked
+            .borrow_mut()
+            .push(format!("diff {:?}", query.base));
+        Ok(GitDiffAnswer::default())
+    }
+}
+
+#[test]
+fn a_served_host_answers_a_guests_log_and_diff() {
+    let host = Rc::new(History::default());
+    let (log, diff) = in_process::serve(Rc::clone(&host) as Rc<dyn InProcessHost>, || {
+        let log = git::log(&GitLogQuery {
+            tips: vec!["a1".into()],
+            ..GitLogQuery::default()
+        });
+        let diff = git::diff(&GitDiffQuery {
+            base: None,
+            head: GitDiffHead::Worktree,
+            paths: Vec::new(),
+            patch: false,
+            hunks: true,
+            renames: false,
+        });
+        (log, diff)
+    });
+    assert_eq!(log.unwrap().count, Some(0));
+    assert_eq!(diff.unwrap(), GitDiffAnswer::default());
+    assert_eq!(*host.asked.borrow(), ["log [\"a1\"]", "diff None"]);
+    // no host: a pure call's answer
+    assert!(matches!(
+        git::log(&GitLogQuery::default()),
+        Err(HostError::Denied(Denial::CallKind(_)))
+    ));
 }

@@ -10,7 +10,8 @@ use specforge_protocol_types::{FsOp, FsRequest, OutcomeClass, ProcessRequest};
 
 use crate::fs::{FileKind, FsStat, READ_CEILING, held};
 use crate::git::{
-    Blob, CommitFile, Git, GitError, GitPlace, GitStatus, Located, Sha, Sized, TreeEntry,
+    Blob, CommitFile, DiffQuery, Git, GitError, GitFileDiff, GitLog, GitPlace, GitStatus, Located,
+    LogQuery, Sha, Sized, TreeEntry,
 };
 use crate::http::Any;
 use crate::{
@@ -351,6 +352,13 @@ pub struct FakeGit {
     pub branch: String,
     /// What `status` answers.
     pub status: GitStatus,
+    /// What `log` answers, whatever is asked.
+    pub log: GitLog,
+    /// What `diff` answers, whatever is asked.
+    pub diffs: Vec<GitFileDiff>,
+    /// Every log and every diff asked, in order.
+    pub logs: Mutex<Vec<LogQuery>>,
+    pub diffed: Mutex<Vec<DiffQuery>>,
     asked: AtomicUsize,
     trees: AtomicUsize,
     blobs_asks: AtomicUsize,
@@ -381,6 +389,10 @@ impl FakeGit {
             tree_fail: None,
             branch: String::new(),
             status: GitStatus::default(),
+            log: GitLog::default(),
+            diffs: Vec::new(),
+            logs: Mutex::new(Vec::new()),
+            diffed: Mutex::new(Vec::new()),
             asked: AtomicUsize::new(0),
             trees: AtomicUsize::new(0),
             blobs_asks: AtomicUsize::new(0),
@@ -404,6 +416,10 @@ impl FakeGit {
             tree_fail: None,
             branch: String::new(),
             status: GitStatus::default(),
+            log: GitLog::default(),
+            diffs: Vec::new(),
+            logs: Mutex::new(Vec::new()),
+            diffed: Mutex::new(Vec::new()),
             asked: AtomicUsize::new(0),
             trees: AtomicUsize::new(0),
             blobs_asks: AtomicUsize::new(0),
@@ -426,6 +442,16 @@ impl FakeGit {
         self.blobs_asks.load(Ordering::SeqCst)
     }
 
+    /// How many logs were asked for.
+    pub fn logs_asked(&self) -> usize {
+        self.logs.lock().unwrap_or_else(|e| e.into_inner()).len()
+    }
+
+    /// How many diffs were asked for.
+    pub fn diffs_asked(&self) -> usize {
+        self.diffed.lock().unwrap_or_else(|e| e.into_inner()).len()
+    }
+
     /// How many questions of any kind were asked.
     pub fn questions(&self) -> usize {
         self.any.load(Ordering::SeqCst)
@@ -433,6 +459,22 @@ impl FakeGit {
 }
 
 impl Git for FakeGit {
+    fn log(&self, _: &GitPlace, query: &LogQuery) -> Result<GitLog, GitError> {
+        self.any.fetch_add(1, Ordering::SeqCst);
+        self.logs
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(query.clone());
+        Ok(self.log.clone())
+    }
+    fn diff(&self, _: &GitPlace, query: &DiffQuery) -> Result<Vec<GitFileDiff>, GitError> {
+        self.any.fetch_add(1, Ordering::SeqCst);
+        self.diffed
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(query.clone());
+        Ok(self.diffs.clone())
+    }
     fn branch(&self, _: &GitPlace) -> Result<String, GitError> {
         Ok(self.branch.clone())
     }

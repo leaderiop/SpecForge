@@ -137,3 +137,28 @@ fn a_signature_carries_its_epoch_seconds() {
     assert_eq!(author.time, "2023-11-14T22:13:20+00:00");
     assert_eq!(log.commits[0].committer.seconds, 1_700_000_000);
 }
+
+/// A guest's log never reads a withheld file: its pickaxe finds no commit whose only match is in a credential,
+/// renamed or not; the user's own log does.
+#[test]
+fn a_withheld_log_reads_no_credential_with_its_pickaxe() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "plain\n")
+        .write(".env", "TOKEN=abc123\n");
+    let sha = repo.commit_all("secret");
+    let query = |withhold| LogQuery {
+        tips: vec![Sha::new(sha.clone())],
+        pickaxe: Some("abc123".into()),
+        withhold,
+        ..LogQuery::default()
+    };
+    let found = |withhold| {
+        Gix::default()
+            .log(&place(&repo), &query(withhold))
+            .unwrap()
+            .commits
+            .len()
+    };
+    assert_eq!((found(false), found(true)), (1, 0));
+}

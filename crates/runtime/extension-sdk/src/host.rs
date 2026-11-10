@@ -12,10 +12,11 @@ pub mod in_process;
 
 pub use specforge_protocol_types::{
     Denial, EnvVar, Failure, FileSize, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob,
-    GitBlobs, GitChange, GitEntry, GitEntryKind, GitRepo, GitStatus, GitTreeEntry, Header,
-    HostError, HttpRequest, HttpResponse, NotParsed, ProcessOutput, ProcessRequest, SyntaxAnswer,
-    SyntaxCapture, SyntaxFile, SyntaxFiles, SyntaxMatch, SyntaxOutcome, SyntaxPoint, SyntaxRequest,
-    SyntaxRole, SyntaxSource, SyntaxSpan,
+    GitBlobs, GitChange, GitDiffAnswer, GitDiffHead, GitDiffQuery, GitEntry, GitEntryKind,
+    GitFileChange, GitHunk, GitLogAnswer, GitLogCommit, GitLogQuery, GitRepo, GitSignature,
+    GitStatus, GitTrailer, GitTreeEntry, Header, HostError, HttpRequest, HttpResponse, NotParsed,
+    ProcessOutput, ProcessRequest, SyntaxAnswer, SyntaxCapture, SyntaxFile, SyntaxFiles,
+    SyntaxMatch, SyntaxOutcome, SyntaxPoint, SyntaxRequest, SyntaxRole, SyntaxSource, SyntaxSpan,
 };
 
 /// Whether a call reaches the import (a component) or the thread's in-process host.
@@ -180,6 +181,26 @@ pub mod git {
             return in_process::with(|host| host.git_status());
         }
         wit::git::status().map(Into::into).map_err(Into::into)
+    }
+
+    /// The log of the project's repository: typed commits, newest first, as many as the answer holds.
+    pub fn log(query: &GitLogQuery) -> Result<GitLogAnswer, HostError> {
+        if !IN_COMPONENT {
+            return in_process::with(|host| host.git_log(query));
+        }
+        wit::git::log(&query.into())
+            .map(Into::into)
+            .map_err(Into::into)
+    }
+
+    /// A diff of the project's repository; a withheld file comes without its text.
+    pub fn diff(query: &GitDiffQuery) -> Result<GitDiffAnswer, HostError> {
+        if !IN_COMPONENT {
+            return in_process::with(|host| host.git_diff(query));
+        }
+        wit::git::diff(&query.into())
+            .map(Into::into)
+            .map_err(Into::into)
     }
 }
 

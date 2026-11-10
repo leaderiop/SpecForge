@@ -2,7 +2,8 @@
 //! [`PortSession`](specforge_wasm::PortSession) deciding each. A WIT request has no field for what only the host sets.
 
 use specforge_protocol_types::{
-    Denial, EnvVar, FsEntryKind, GitBranch, GitChange, GitEntry, GitEntryKind, GitStatus, Header,
+    Denial, EnvVar, FsEntryKind, GitBranch, GitChange, GitDiffAnswer, GitDiffHead, GitDiffQuery,
+    GitEntry, GitEntryKind, GitLogAnswer, GitLogQuery, GitSignature, GitStatus, Header,
     HostError as WireError, HttpRequest, NotParsed, ProcessRequest, SyntaxAnswer, SyntaxCapture,
     SyntaxFile, SyntaxFiles, SyntaxMatch, SyntaxOutcome, SyntaxPoint, SyntaxRequest, SyntaxRole,
     SyntaxSource, SyntaxSpan,
@@ -203,6 +204,105 @@ fn status(status: GitStatus) -> git::StatusAnswer {
     }
 }
 
+fn signature(signature: GitSignature) -> git::Signature {
+    git::Signature {
+        name: signature.name,
+        email: signature.email,
+        time: signature.time,
+        seconds: signature.seconds,
+    }
+}
+
+fn log_query(query: git::LogQuery) -> GitLogQuery {
+    GitLogQuery {
+        tips: query.tips,
+        hidden: query.hidden,
+        paths: query.paths,
+        first_parent: query.first_parent,
+        max: query.max,
+        oldest: query.oldest,
+        grep: query.grep,
+        since: query.since,
+        until: query.until,
+        no_merges: query.no_merges,
+        pickaxe: query.pickaxe,
+    }
+}
+
+fn log_answer(answer: GitLogAnswer) -> git::LogAnswer {
+    git::LogAnswer {
+        count: answer.count,
+        commits: answer
+            .commits
+            .into_iter()
+            .map(|commit| git::LogCommit {
+                sha: commit.sha,
+                parents: commit.parents,
+                author: signature(commit.author),
+                committer: signature(commit.committer),
+                subject: commit.subject,
+                body: commit.body,
+                trailers: commit
+                    .trailers
+                    .into_iter()
+                    .map(|t| git::Trailer {
+                        token: t.token,
+                        values: t.values,
+                    })
+                    .collect(),
+            })
+            .collect(),
+        truncated: answer.truncated,
+    }
+}
+
+fn diff_query(query: git::DiffQuery) -> GitDiffQuery {
+    GitDiffQuery {
+        base: query.base,
+        head: match query.head {
+            git::DiffHead::Commit(sha) => GitDiffHead::Commit(sha),
+            git::DiffHead::Index => GitDiffHead::Index,
+            git::DiffHead::Worktree => GitDiffHead::Worktree,
+        },
+        paths: query.paths,
+        patch: query.patch,
+        hunks: query.hunks,
+        renames: query.renames,
+    }
+}
+
+fn diff_answer(answer: GitDiffAnswer) -> git::DiffAnswer {
+    git::DiffAnswer {
+        files: answer
+            .files
+            .into_iter()
+            .map(|file| git::FileChange {
+                path: file.path,
+                old_path: file.old_path,
+                status: change(file.status),
+                added: file.added,
+                removed: file.removed,
+                binary: file.binary,
+                truncated: file.truncated,
+                withheld: file.withheld,
+                patch: file.patch,
+                hunks: file.hunks.map(|hunks| {
+                    hunks
+                        .into_iter()
+                        .map(|h| git::Hunk {
+                            before_start: h.before_start,
+                            before_end: h.before_end,
+                            after_start: h.after_start,
+                            after_end: h.after_end,
+                        })
+                        .collect()
+                }),
+            })
+            .collect(),
+        truncated: answer.truncated,
+    }
+}
+
 impl git::Host for HostState {
     fn locate(&mut self) -> Result<Option<git::Repo>, HostError> {
         let repo = self
@@ -287,6 +387,22 @@ impl git::Host for HostState {
         self.ports
             .timed(|session| session.git_status())
             .map(status)
+            .map_err(error)
+    }
+
+    fn log(&mut self, query: git::LogQuery) -> Result<git::LogAnswer, HostError> {
+        let query = log_query(query);
+        self.ports
+            .timed(|session| session.git_log(&query))
+            .map(log_answer)
+            .map_err(error)
+    }
+
+    fn diff(&mut self, query: git::DiffQuery) -> Result<git::DiffAnswer, HostError> {
+        let query = diff_query(query);
+        self.ports
+            .timed(|session| session.git_diff(&query))
+            .map(diff_answer)
             .map_err(error)
     }
 }

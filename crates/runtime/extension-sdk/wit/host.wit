@@ -166,6 +166,90 @@ interface git {
     branch: branch-status,
     entries: list<entry>,
   }
+  /// One changed range of a diff, no context: old lines `before-start..before-end` became new lines
+  /// `after-start..after-end` (0-based, end exclusive).
+  record hunk {
+    before-start: u32,
+    before-end: u32,
+    after-start: u32,
+    after-end: u32,
+  }
+  /// The commits `tips` reach that `hidden` do not, newest first: commits by id, paths from the repository's top.
+  /// `max` none lists every commit the answer holds. `since` and `until` are seconds since the epoch.
+  record log-query {
+    tips: list<string>,
+    hidden: list<string>,
+    paths: list<string>,
+    first-parent: bool,
+    max: option<u32>,
+    oldest: bool,
+    grep: option<string>,
+    since: option<s64>,
+    until: option<s64>,
+    no-merges: bool,
+    pickaxe: option<string>,
+  }
+  record signature {
+    name: string,
+    email: string,
+    /// ISO 8601 with the signer's offset.
+    time: string,
+    seconds: s64,
+  }
+  /// A trailer of the message's last paragraph: every value of its token, in order.
+  record trailer {
+    token: string,
+    values: list<string>,
+  }
+  record log-commit {
+    sha: string,
+    parents: list<string>,
+    author: signature,
+    committer: signature,
+    subject: string,
+    body: string,
+    trailers: list<trailer>,
+  }
+  /// `count`: every commit the log keeps (none past a pickaxe's listing). `truncated`: the answer's cap stopped the
+  /// listing.
+  record log-answer {
+    count: option<u64>,
+    commits: list<log-commit>,
+    truncated: bool,
+  }
+  variant diff-head {
+    commit(string),
+    index,
+    worktree,
+  }
+  /// `base` none: the empty tree (a root commit's diff). `hunks`: each text file's changed line ranges. `renames`
+  /// false lists a rename as a deletion and an addition.
+  record diff-query {
+    base: option<string>,
+    head: diff-head,
+    paths: list<string>,
+    patch: bool,
+    hunks: bool,
+    renames: bool,
+  }
+  /// `withheld`: a file whose text is never handed to a guest; it has no patch and no hunks.
+  record file-change {
+    path: string,
+    old-path: option<string>,
+    status: change,
+    added: u32,
+    removed: u32,
+    binary: bool,
+    truncated: bool,
+    withheld: bool,
+    patch: option<string>,
+    hunks: option<list<hunk>>,
+  }
+  /// `truncated`: the answer's cap stopped the patches; the files after it have none.
+  record diff-answer {
+    files: list<file-change>,
+    truncated: bool,
+  }
   /// None: the project is in no repository.
   locate: func() -> result<option<repo>, host-error>;
   /// The commit a revision names; none when it names none.
@@ -176,6 +260,10 @@ interface git {
   blobs: func(commit: string, paths: list<string>) -> result<blobs-answer, host-error>;
   branch: func() -> result<string, host-error>;
   status: func() -> result<status-answer, host-error>;
+  /// The log of the project's repository; a pickaxe never reads a withheld file.
+  log: func(query: log-query) -> result<log-answer, host-error>;
+  /// A diff of the project's repository; a withheld file's text is never in it.
+  diff: func(query: diff-query) -> result<diff-answer, host-error>;
 }
 
 /// Source files parsed by the host's reader with the guest's tags query, inside the call's fs grant (git's at a

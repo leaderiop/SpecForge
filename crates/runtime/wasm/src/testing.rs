@@ -23,9 +23,9 @@ use specforge_extension_sdk::{
     no_other_exports,
 };
 use specforge_protocol_types::{
-    FileSize, FsContent, FsEntry, FsListing, GitBlobs, GitRepo, GitStatus, GitTreeEntry, HostError,
-    HttpRequest, HttpResponse, Operation, ProcessOutput, ProcessRequest, SyntaxAnswer,
-    SyntaxRequest,
+    FileSize, FsContent, FsEntry, FsListing, GitBlobs, GitDiffAnswer, GitDiffQuery, GitLogAnswer,
+    GitLogQuery, GitRepo, GitStatus, GitTreeEntry, HostError, HttpRequest, HttpResponse, Operation,
+    ProcessOutput, ProcessRequest, SyntaxAnswer, SyntaxRequest,
 };
 
 use specforge_source::{COUNTED_DEADLINE, SourceReader, SyntaxCache};
@@ -513,6 +513,12 @@ impl InProcessHost for ServedPorts {
     }
     fn git_status(&self) -> Result<GitStatus, HostError> {
         self.0.borrow_mut().timed(|session| session.git_status())
+    }
+    fn git_log(&self, query: &GitLogQuery) -> Result<GitLogAnswer, HostError> {
+        self.0.borrow_mut().timed(|session| session.git_log(query))
+    }
+    fn git_diff(&self, query: &GitDiffQuery) -> Result<GitDiffAnswer, HostError> {
+        self.0.borrow_mut().timed(|session| session.git_diff(query))
     }
     fn syntax_parse(&self, request: &SyntaxRequest) -> Result<SyntaxAnswer, HostError> {
         self.0

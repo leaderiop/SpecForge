@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use gix::bstr::ByteSlice as _;
+use specforge_effects::contained::withheld;
 use specforge_effects::git::{
     BLOB_CAP, DiffStatus, GitCommit, GitError, GitFileDiff, GitHunk, GitLog, GitPerson, LogQuery,
     PATCH_CAP, Sha, is_binary,
@@ -92,6 +93,7 @@ pub(crate) struct Filter {
     until: Option<i64>,
     no_merges: bool,
     pickaxe: Option<regex::bytes::Regex>,
+    withhold: bool,
 }
 
 impl Filter {
@@ -111,6 +113,7 @@ impl Filter {
                 .as_deref()
                 .map(|p| pattern("-S", p))
                 .transpose()?,
+            withhold: query.withhold,
         };
         let none = filter.grep.is_none()
             && filter.since.is_none()
@@ -156,7 +159,7 @@ pub(crate) fn keeps(
         }
     }
     match &filter.pickaxe {
-        Some(pickaxe) => picked(repo, commit, pickaxe, paths, parents),
+        Some(pickaxe) => picked(repo, commit, pickaxe, paths, parents, filter.withhold),
         None => Ok(true),
     }
 }
@@ -187,6 +190,7 @@ fn picked(
     rx: &regex::bytes::Regex,
     paths: &[String],
     parents: usize,
+    withhold: bool,
 ) -> Result<bool, GitError> {
     use gix::object::tree::diff::ChangeDetached as Change;
     if parents > 1 {
@@ -206,19 +210,19 @@ fn picked(
         .diff_tree_to_tree(&old, &new, None)
         .map_err(|e| failed("diff two trees", &e))?;
     for change in changes {
-        let (location, old, new) = match change {
+        let (location, source, old, new) = match change {
             Change::Addition {
                 location,
                 entry_mode,
                 id,
                 ..
-            } => (location, None, entry_mode.is_blob().then_some(id)),
+            } => (location, None, None, entry_mode.is_blob().then_some(id)),
             Change::Deletion {
                 location,
                 entry_mode,
                 id,
                 ..
-            } => (location, entry_mode.is_blob().then_some(id), None),
+            } => (location, None, entry_mode.is_blob().then_some(id), None),
             Change::Modification {
                 location,
                 previous_entry_mode,
@@ -227,11 +231,13 @@ fn picked(
                 id,
             } => (
                 location,
+                None,
                 previous_entry_mode.is_blob().then_some(previous_id),
                 entry_mode.is_blob().then_some(id),
             ),
             Change::Rewrite {
                 location,
+                source_location,
                 source_entry_mode,
                 source_id,
                 entry_mode,
@@ -239,11 +245,18 @@ fn picked(
                 ..
             } => (
                 location,
+                Some(source_location),
                 source_entry_mode.is_blob().then_some(source_id),
                 entry_mode.is_blob().then_some(id),
             ),
         };
         if old.is_none() && new.is_none() || !kept(&location.to_str_lossy(), paths) {
+            continue;
+        }
+        let hidden = |path: &gix::bstr::BStr| withheld(&path.to_str_lossy());
+        if withhold
+            && (hidden(location.as_ref()) || source.as_ref().is_some_and(|s| hidden(s.as_ref())))
+        {
             continue;
         }
         if let (Some(before), Some(after)) = (matches(repo, old, rx), matches(repo, new, rx))

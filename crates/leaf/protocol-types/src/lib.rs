@@ -89,7 +89,9 @@ pub use operation::Operation;
 pub use plan::{Cite, EditPlan, PlanObligation, PlanOp, Revision};
 pub use ports::{
     Denial, Failure, FileSize, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob, GitBlobs,
-    GitHunk, GitRepo, GitTreeEntry, HostError, HttpResponse, ProcessOutput,
+    GitDiffAnswer, GitDiffHead, GitDiffQuery, GitFileChange, GitHunk, GitLogAnswer, GitLogCommit,
+    GitLogQuery, GitRepo, GitSignature, GitTrailer, GitTreeEntry, HostError, HttpResponse,
+    ProcessOutput,
 };
 pub use prompt::{
     Attribution, PromptArgDescriptor, PromptDescriptor, PromptInput, PromptMessage, PromptOutput,
