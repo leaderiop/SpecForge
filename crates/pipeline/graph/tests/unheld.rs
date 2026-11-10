@@ -303,12 +303,11 @@ fn a_facts_short_name_reads_as_the_path_it_links_to() {
 
     let (graph, _) = build_facts(&[parse(&two, "a.spec"), served("covers [TR1, TR2]")]);
 
-    // What a judged input's digest and a selector's referrer step read: the value as the link resolves it. Pinned
-    // as written today: the short name stays `TR1`, though its edge reaches `v1/TR1`, so a selector `<test.covers`
-    // from `v1/TR1` finds no fact. The fix reads `v1/TR1`; the ambiguous `TR2` keeps its text.
+    // What a judged input's digest and a selector's referrer step read: the value as the link resolves it, so a
+    // selector `<test.covers` from `v1/TR1` finds the fact. The ambiguous `TR2` keeps its text.
     let fact = graph.node(FACT).unwrap();
     let value = resolved(&graph, &fact_forms(), fact, "covers").expect("the fact writes covers");
-    assert_eq!(bytes(&value), b"[\"TR1\",\"TR2\"]");
+    assert_eq!(bytes(&value), b"[\"v1/TR1\",\"TR2\"]");
 }
 
 #[specforge_test(

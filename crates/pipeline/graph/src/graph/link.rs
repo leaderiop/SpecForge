@@ -217,7 +217,7 @@ fn held_from(node: &Node, scoped: &BTreeMap<String, String>, field: &str) -> Opt
 }
 
 /// Whether `node` is a collected fact: its declaration is a fact store (ADR 0327 D5).
-fn is_fact(node: &Node) -> bool {
+pub(crate) fn is_fact(node: &Node) -> bool {
     specforge_common::facts::is_fact_store(node.source_span.file.as_str())
 }
 

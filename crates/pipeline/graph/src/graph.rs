@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 mod degree;
 mod link;
+pub(crate) use link::is_fact;
 mod linked;
 mod reach;
 mod select;
