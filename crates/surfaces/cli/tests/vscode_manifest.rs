@@ -264,6 +264,50 @@ fn vscode_client_reads_no_word_under_the_cursor() {
     assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
 
+/// The client sends the server `.spec` buffers, each workspace folder's `specforge.json` and the source files a
+/// collector places facts in (ADR 0349 D7): VS Code's languages of `.rs`, `.ts`, `.tsx`, `.js` and `.jsx`, nothing more.
+#[test]
+fn vscode_client_sends_source_languages_to_the_server() {
+    let client = std::fs::read_to_string(repo_root().join("integrations/vscode/src/lsp-client.ts"))
+        .expect("integrations/vscode/src/lsp-client.ts");
+    let between = |start: &str, end: &str| -> String {
+        let from = client.find(start).unwrap_or_else(|| panic!("no `{start}`")) + start.len();
+        client[from..][..client[from..].find(end).expect(end)].to_string()
+    };
+    let quoted = |text: &str| -> Vec<String> {
+        text.split('"')
+            .skip(1)
+            .step_by(2)
+            .map(str::to_string)
+            .collect()
+    };
+    let selector = between("documentSelector: [", "\n    ],");
+    let entries: Vec<&str> = selector
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with("//"))
+        .collect();
+    assert_eq!(
+        entries[0], r#"{ scheme: "file", language: "specforge" },"#,
+        "{selector}"
+    );
+    assert_eq!(
+        entries[1],
+        r#"...SOURCE_LANGUAGES.map((language) => ({ scheme: "file", language })),"#
+    );
+    assert!(selector.contains("/specforge.json`"), "{selector}");
+    assert_eq!(
+        quoted(&between("const SOURCE_LANGUAGES = [", "];")),
+        [
+            "rust",
+            "typescript",
+            "typescriptreact",
+            "javascript",
+            "javascriptreact"
+        ]
+    );
+}
+
 /// Every `"specforge/…"` method the client names is one the language server serves
 /// (the constants of `views.rs`, ADR 0268).
 #[test]

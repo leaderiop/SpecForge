@@ -8,6 +8,7 @@ SpecForge itself knows no domain. **Extensions** teach it one: software specs, a
 
 - **Live checking.** Every save is compiled; broken references, missing fields and rule violations show up as squiggles with the diagnostic code. **SpecForge: Explain Error** tells you what a code means and how to fix it.
 - **Completion and navigation** for the kinds and fields your project's extensions declare: go to definition, find references, rename, hover, outline.
+- **In your code.** In a Rust, TypeScript or JavaScript file that `specforge collect` read, a lens over each test or item names the entities it is anchored to; go to definition, find references, hover and rename work on the entity names written there. Go to Implementation on an entity in a `.spec` opens the code anchored to it.
 - **The graph.** **SpecForge: Show Graph** draws the entities and their links, grouped by kind, with filter chips; click to expand, double-click to jump to the definition.
 - **Entity explorer, stats, coverage and trace** for the whole project, without leaving the editor.
 - **Extensions.** Add or remove an extension from the command palette (**SpecForge: Add Extension**).
