@@ -516,6 +516,9 @@ pub const FIND_REFERENCES: &str = "specforge.findReferences";
 /// [`FIND_REFERENCES`] with the URI and the name's start) and, when it declares any, its `verify`
 /// statements (no command). An entity whose file's editor text is not the compiled text gets none.
 pub fn code_lenses(state: &LspState, uri: &Url) -> Option<Vec<CodeLens>> {
+    if crate::source_document::is_source(state, uri) {
+        return crate::source_document::lenses(state, uri);
+    }
     let compiled = Compiled::new(state);
     let navigator = compiled.navigator();
     let entries = outline(&navigator, &state.key_of(uri)).ok()?;

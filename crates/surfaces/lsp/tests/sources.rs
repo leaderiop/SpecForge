@@ -232,3 +232,63 @@ fn references_from_a_source_fact_list_citations_and_entities() {
         specforge_lsp::answers::references(&served.state(), &source, Position::new(1, 0), false);
     assert_eq!(found, None);
 }
+
+#[spec(
+    behavior = "entity_code_lens",
+    verify = "a source file has a lens per anchored fact naming its entity, which finds its references"
+)]
+fn a_source_fact_has_a_lens_per_anchored_entity() {
+    let served = citing("T1");
+    let source = served.uri("a.test.js");
+    let lenses = specforge_lsp::answers::code_lenses(&served.state(), &source).unwrap();
+    assert_eq!(lenses.len(), 1, "{lenses:?}");
+    let lens = &lenses[0];
+    assert_eq!(
+        lens.range,
+        Range::new(Position::new(2, 0), Position::new(2, 0))
+    );
+    let command = lens.command.as_ref().unwrap();
+    assert_eq!(command.title, "truth T1");
+    assert_eq!(command.command, specforge_lsp::answers::FIND_REFERENCES);
+    assert_eq!(
+        command.arguments,
+        Some(vec![json!(source), json!({"line": 2, "character": 0})])
+    );
+}
+
+#[spec(
+    behavior = "entity_code_lens",
+    verify = "a source file changed since collect has one stale lens"
+)]
+fn a_stale_source_file_has_one_lens() {
+    let mut served = citing("T1");
+    let source = served.uri("a.test.js");
+    served.write("a.test.js", "// edited\n");
+    let lenses = specforge_lsp::answers::code_lenses(&served.state(), &source).unwrap();
+    assert_eq!(lenses.len(), 1, "{lenses:?}");
+    let command = lenses[0].command.as_ref().unwrap();
+    assert!(
+        command.title.starts_with("W198: 'a.test.js' changed since"),
+        "{}",
+        command.title
+    );
+    assert!(command.command.is_empty());
+    // A buffer typed since the collect is stale too; the text as collected is not.
+    served.hold("a.test.js");
+    served.type_into(&source, SOURCE);
+    let lenses = specforge_lsp::answers::code_lenses(&served.state(), &source).unwrap();
+    assert_eq!(lenses[0].command.as_ref().unwrap().title, "truth T1");
+}
+
+#[spec(
+    behavior = "hover_information",
+    verify = "hover on a source token naming an entity shows the entity"
+)]
+fn hover_on_a_source_token_naming_an_entity_shows_it() {
+    let served = citing("T1");
+    served.hold("a.test.js");
+    let shown = served.hover("a.test.js", 0, 11).expect("the name hovers");
+    assert!(shown.contains("T1"), "{shown}");
+    // Nowhere else in the source file.
+    assert_eq!(served.hover("a.test.js", 2, 2), None);
+}

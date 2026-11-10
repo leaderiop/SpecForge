@@ -290,18 +290,25 @@ pub fn stale_anchor(view: &ProjectView<'_>, file: &str) -> Option<Diagnostic> {
         .read(&root.join(file))
         .ok()
         .map(|(_, bytes)| crate::revision::of_bytes(&bytes));
-    let said = match current {
-        Some(current) if recorded.get(file) == Some(&current.as_str()) => return None,
-        Some(_) => "changed since `specforge collect` read it",
-        None => "is gone since `specforge collect` read it",
+    match current {
+        Some(current) if recorded.get(file) == Some(&current.as_str()) => None,
+        current => Some(stale_notice(file, current.is_none())),
+    }
+}
+
+/// W198 of `file`, a source file a fact is placed in that changed since the collect read it, or is `gone`: what the
+/// anchors read view and the language server's source lens say.
+pub fn stale_notice(file: &str, gone: bool) -> Diagnostic {
+    let said = if gone {
+        "is gone since `specforge collect` read it"
+    } else {
+        "changed since `specforge collect` read it"
     };
-    Some(
-        Diagnostic::new(
-            codes::W198,
-            format!("'{file}' {said}: the lines its anchors give may have moved"),
-        )
-        .with_suggestion("run `specforge collect` again"),
+    Diagnostic::new(
+        codes::W198,
+        format!("'{file}' {said}: the lines its anchors give may have moved"),
     )
+    .with_suggestion("run `specforge collect` again")
 }
 
 /// How tight a match is: exact first, then under the query or ending with it.

@@ -340,7 +340,9 @@ behavior hover_information "Hover Information" {
     formatted as markdown. Field help (the field's declared type, named
     as E061 names it — an enum field with its declared values — and its
     description) answers when the cursor is on a field's name in an
-    entity's own body, nowhere else.
+    entity's own body, nowhere else. In a source document the hover
+    answers only on a name a fact holds there: the entity it names, as a
+    .spec gives it (ADR 0349 D8).
   """
   verify unit "hover on a checked value shows one line per checker"
   verify unit "a check not run says why on the value's hover"
@@ -355,6 +357,7 @@ behavior hover_information "Hover Information" {
   verify unit "field help names a field's type as E061 does, an enum's declared values included"
   verify unit "field help says what an absent value counts as"
   verify unit "hover and workspace symbols show an entity's full path"
+  verify unit "hover on a source token naming an entity shows the entity"
   verify contract "Hover Information: hover information holds — graph_available, kind_registry_available, hover_delegated, markdown_produced"
 }
 
@@ -796,10 +799,18 @@ behavior entity_code_lens "Entity Code Lens" {
     each node's obligations. An entity whose file was typed since the
     compile gets no lens. After each rebuild a client that declared
     workspace.codeLens.refreshSupport is asked to refresh its lenses.
+    A source document (ADR 0349 D8) has, at the first line of each
+    located fact placed in it with an anchor, one lens per entity it is
+    anchored to, titled with the entity's kind and id (and its thread's
+    summary when its kind is routed), a click running
+    specforge.findReferences at the fact's start; a source file changed
+    since the collect has one lens at its start saying W198, and no other.
   """
   verify integration "a lens counts an entity's references and verify statements as the compile reads them"
   verify integration "a spec block's lens is at its string, the name it is written with"
   verify unit "a recompile asks only a client that declared refreshSupport to refresh its code lenses"
+  verify unit "a source file has a lens per anchored fact naming its entity, which finds its references"
+  verify unit "a source file changed since collect has one stale lens"
 }
 
 behavior workspace_symbol_search "Workspace Symbol Search" {

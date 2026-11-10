@@ -9,7 +9,9 @@ use std::sync::Arc;
 
 use specforge_common::{SourceSpan, Sym};
 use specforge_ops::read::navigate::contains;
-use tower_lsp::lsp_types::{Location, Position, Url};
+use specforge_ops::read::trace::route_traces;
+use std::collections::BTreeMap;
+use tower_lsp::lsp_types::{CodeLens, Command, Location, Position, Range, Url};
 
 use crate::LspState;
 use crate::document::LineIndex;
@@ -106,6 +108,72 @@ pub(crate) fn fact_references(
     spans.sort_by_key(|s| (s.file, s.start_line, s.start_col));
     spans.dedup();
     Some(spans.iter().filter_map(|s| compiled.location(s)).collect())
+}
+
+/// The code lenses of source document `uri` (ADR 0349 D8): at the first line of each located fact placed in it with
+/// an anchor, one per entity the fact is anchored to, `<kind> <id>` and its thread's summary when its kind is routed,
+/// running [`crate::answers::FIND_REFERENCES`] at the fact's start (its citations and its entities). A file changed
+/// since the collect has one lens at its start saying W198, and no other; a file no fact is placed in has none.
+pub(crate) fn lenses(state: &LspState, uri: &Url) -> Option<Vec<CodeLens>> {
+    let compiled = Compiled::new(state);
+    let key = state.key_of(uri);
+    compiled.recorded(&key)?;
+    let Some(index) = compiled.source_index(&key) else {
+        let gone =
+            state.files().document(&key).is_none() && !state.files().file_path(&key).exists();
+        let notice = specforge_ops::read::navigate::stale_notice(&key, gone);
+        return Some(vec![CodeLens {
+            range: Range::default(),
+            command: Some(Command {
+                title: format!("{}: {}", notice.code, notice.message),
+                command: String::new(),
+                arguments: None,
+            }),
+            data: None,
+        }]);
+    };
+    let view = state.view();
+    let anchors = specforge_ops::read::navigate::anchors_in(&view);
+    // Each fact placed here, at its place in this file, with the entities it is anchored to, once each.
+    let mut facts: BTreeMap<(usize, usize, &str), Vec<&specforge_graph::Node>> = BTreeMap::new();
+    for edge in anchors.all() {
+        let Some(place) = edge.fact.located.iter().find(|p| p.file.as_str() == key) else {
+            continue;
+        };
+        let entities = facts
+            .entry((place.start_line, place.start_col, edge.fact.id.raw.as_str()))
+            .or_default();
+        if !entities.iter().any(|e| e.id == edge.entity.id) {
+            entities.push(edge.entity);
+        }
+    }
+    let ids = facts.values().flatten().map(|e| e.id.raw.as_str());
+    let threads: BTreeMap<String, String> = route_traces(&view, ids)
+        .into_iter()
+        .map(|t| (t.entity_id.clone(), t.summary()))
+        .collect();
+    let mut lenses = Vec::new();
+    for ((line, col, _), entities) in facts {
+        let start = index.position_at(line.saturating_sub(1), col.saturating_sub(1));
+        let at = serde_json::json!({"line": start.line, "character": start.character});
+        for entity in entities {
+            let id = entity.id.raw.as_str();
+            let mut title = format!("{} {id}", entity.kind.raw);
+            if let Some(summary) = threads.get(id) {
+                title = format!("{title} · {summary}");
+            }
+            lenses.push(CodeLens {
+                range: Range::new(start, start),
+                command: Some(Command {
+                    title,
+                    command: crate::answers::FIND_REFERENCES.to_string(),
+                    arguments: Some(vec![serde_json::json!(uri), at.clone()]),
+                }),
+                data: None,
+            });
+        }
+    }
+    Some(lenses)
 }
 
 #[cfg(test)]

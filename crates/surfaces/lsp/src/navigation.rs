@@ -104,6 +104,14 @@ impl<'s> Compiled<'s> {
         }
     }
 
+    /// The digest the fact stores recorded of source file `file` at collect; `None` for a file no fact is placed in.
+    pub(crate) fn recorded(&self, file: &str) -> Option<&'s str> {
+        self.fact_sources
+            .get_or_init(|| self.state.compiled_project().fact_sources())
+            .get(file)
+            .copied()
+    }
+
     /// The line index of source file `file`'s text, where the session's facts are placed, while that text is the
     /// one their store recorded ([`crate::source_document::placed_index`]); once per file per request. `None` for a
     /// file the compile holds text of, one no fact is placed in, and a stale one.
@@ -112,12 +120,8 @@ impl<'s> Compiled<'s> {
         if let Some(index) = self.sources.borrow().get(&key) {
             return index.clone();
         }
-        let recorded = self
-            .fact_sources
-            .get_or_init(|| self.state.compiled_project().fact_sources())
-            .get(file)
-            .copied();
-        let index = recorded
+        let index = self
+            .recorded(file)
             .filter(|_| self.state.compiled_text(file).is_none())
             .and_then(|recorded| crate::source_document::placed_index(self.state, file, recorded));
         self.sources.borrow_mut().insert(key, index.clone());
