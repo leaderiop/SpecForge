@@ -61,6 +61,7 @@ GSD: `<task type="auto|tdd">`. Name `T1`, scoped by its plan; the order is the n
 | type | enum{auto, tdd, tracer, manual} | R | `type=` |
 | files | paths<planned> | | `<files>`: paths, checked once the task is done (E016; required for `auto`, gsd/E303) |
 | read_first | paths<planned> | | `<read_first>`: paths, checked once the task is done (E016) |
+| items | →* item | | the code items the task targets: `@code/core` item facts, quoted (`"js:taskboard/src/tasks.js::addTask"`); a pending task may name one not written yet (no finding while it is pending), a complete one names held items (`code/E101` otherwise) |
 | precondition | str | | `<precondition>` |
 | reversibility | {rating enum{reversible, costly, one_way} R, why str, settled_by → decision} | | `<reversibility>`; `settled_by` names the decision (a context decision, a project one, a checkpoint's) that already settles a one-way door: GSD's "unless the decision is already settled", made checkable (gsd/W308) |
 | action | text | R | `<action>` |

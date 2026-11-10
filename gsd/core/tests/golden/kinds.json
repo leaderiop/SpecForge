@@ -394,6 +394,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "TaskItems",
+        "source_kind": "task",
+        "target_kind": "item"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "TaskReversibilitySettledBy",
         "source_kind": "task",
         "target_kind": "decision"
@@ -4251,6 +4260,16 @@
             "name": "read_first",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the code items the task targets: `@code/core` item facts, quoted; a pending task may name one not written yet",
+            "edge": "TaskItems",
+            "field_type": "reference_list",
+            "inverse_of": null,
+            "name": "items",
+            "required": false,
+            "target_kind": "item"
           },
           {
             "default_value": null,

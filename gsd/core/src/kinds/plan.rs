@@ -99,6 +99,9 @@ pub const TASK: Kind = Kind::new(
         ),
         paths("read_first", Mode::Planned)
             .doc("`<read_first>` (paths, checked once the task is done: E016)"),
+        rfs("items", "item").doc(
+            "the code items the task targets: `@code/core` item facts, quoted; a pending task may name one not written yet",
+        ),
         str("precondition").doc("`<precondition>`"),
         block("reversibility", REVERSIBILITY)
             .doc("`<reversibility>`; `settled_by` names the decision that already settles a one-way door (gsd/W308)"),
