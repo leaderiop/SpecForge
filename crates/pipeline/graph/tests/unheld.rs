@@ -4,6 +4,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_common::Sym;
+use specforge_graph::wire::{bytes, resolved};
 use specforge_graph::{
     FieldForm, FieldForms, Graph, GraphConfig, GraphInputs, build_graph_with_config,
 };
@@ -183,23 +184,9 @@ fn a_fact_scheme_reference_in_a_field_targeting_another_kind_is_an_unresolved_re
 /// A fact's own references (ADR 0346 D4): `test.covers` names anything, `test.proves` names `truth`s; `truth` is
 /// scoped by its `plan`. The facts are served from a fact store, the path that makes their holder a fact.
 fn build_facts(files: &[SpecFile]) -> (Graph, Vec<specforge_graph::Diagnostic>) {
-    let list = || FieldForm::new(FieldType::ReferenceList, Vec::new());
-    let reference = |kind: &str| FieldForm::new(FieldType::Reference, Vec::new()).targeting(kind);
     let config = GraphConfig {
         inputs: GraphInputs {
-            field_forms: FieldForms::new(
-                [
-                    (("test", "covers"), list()),
-                    (("test", "proves"), list().targeting("truth")),
-                    (("truth", "plan"), reference("plan")),
-                    (("truth", "covers"), list()),
-                ]
-                .into_iter()
-                .map(|((kind, field), form)| ((kind.to_string(), field.to_string()), form))
-                .collect(),
-                Default::default(),
-                ["test", "truth", "plan"].map(String::from).into(),
-            ),
+            field_forms: fact_forms(),
             scopes: BTreeMap::from([("truth".to_string(), "plan".to_string())]),
             fact_schemes: BTreeMap::from([(
                 "js".to_string(),
@@ -210,6 +197,25 @@ fn build_facts(files: &[SpecFile]) -> (Graph, Vec<specforge_graph::Diagnostic>) 
         ..Default::default()
     };
     build_graph_with_config(files, &config)
+}
+
+/// The forms of [`build_facts`].
+fn fact_forms() -> FieldForms {
+    let list = || FieldForm::new(FieldType::ReferenceList, Vec::new());
+    let reference = |kind: &str| FieldForm::new(FieldType::Reference, Vec::new()).targeting(kind);
+    FieldForms::new(
+        [
+            (("test", "covers"), list()),
+            (("test", "proves"), list().targeting("truth")),
+            (("truth", "plan"), reference("plan")),
+            (("truth", "covers"), list()),
+        ]
+        .into_iter()
+        .map(|((kind, field), form)| ((kind.to_string(), field.to_string()), form))
+        .collect(),
+        Default::default(),
+        ["test", "truth", "plan"].map(String::from).into(),
+    )
 }
 
 const STORE: &str = ".specforge/facts/k/node.json";
@@ -285,6 +291,24 @@ fn a_facts_short_name_links_by_its_unique_suffix() {
     assert_eq!(targets, ["v1/TR1"]);
     assert_eq!(fact.dangling[0].reason, DanglingReason::Ambiguous);
     assert_eq!(fact.dangling[0].candidates, ["v1/TR2", "v2/TR2"]);
+}
+
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "a fact's short name reads as the path it links to"
+)]
+fn a_facts_short_name_reads_as_the_path_it_links_to() {
+    let two =
+        format!("{PLANS}truth TR2 \"T\" {{\n  plan v1\n}}\ntruth TR2 \"T\" {{\n  plan v2\n}}\n");
+
+    let (graph, _) = build_facts(&[parse(&two, "a.spec"), served("covers [TR1, TR2]")]);
+
+    // What a judged input's digest and a selector's referrer step read: the value as the link resolves it. Pinned
+    // as written today: the short name stays `TR1`, though its edge reaches `v1/TR1`, so a selector `<test.covers`
+    // from `v1/TR1` finds no fact. The fix reads `v1/TR1`; the ambiguous `TR2` keeps its text.
+    let fact = graph.node(FACT).unwrap();
+    let value = resolved(&graph, &fact_forms(), fact, "covers").expect("the fact writes covers");
+    assert_eq!(bytes(&value), b"[\"TR1\",\"TR2\"]");
 }
 
 #[specforge_test(

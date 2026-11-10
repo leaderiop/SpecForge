@@ -223,6 +223,7 @@ behavior link_entity_references "Link Entity References" {
   verify unit "a fact scheme reference whose target kind is absent stays I004, and one of the wrong kind E022"
   verify unit "a fact's reference that names no entity, or one of another kind, is dangling: no E003 or E022, and the passes are sent it at its name span"
   verify unit "a fact's short name links by its unique suffix"
+  verify unit "a fact's short name reads as the path it links to"
   verify integration "a fresh clone with no fact store reports no unresolved reference for its fact references"
 }
 
