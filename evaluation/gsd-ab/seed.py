@@ -15,9 +15,10 @@ files, so the copy starts clean), then makes each seed's commits. `--state compl
 applies the task's `completion` (what a correct run leaves; the tests only). `--unseeded` applies no seed: the control
 copy the tests compare a seeded one with. Two seedings of one (task, arm) with the same flags have one HEAD.
 
-`present` names the seeded defects still in a copy after a run (the run file's `defects_present`): every text a seed
-inserted is still in its file, every file it deleted is still absent, every commit it made is reachable from HEAD, and
-none of its `resolved_if` holds. `schedule` prints the run order: each (task, seed) once, its arms in an order drawn
+`present` names the seeded defects still in a copy after a run (the run file's `defects_present`): a defect is present
+while any of its edits holds (a text it inserted is still in its file, a text or file it deleted is still gone, a commit
+it made is reachable from HEAD) and none of its `resolved_if` does. A defect seeded by several edits (arm A's S3 lies
+in ROADMAP.md and STATE.md) is fixed only when every lie is. `schedule` prints the run order: each (task, seed) once, its arms in an order drawn
 with a fixed RNG seed, no arm first twice in a row.
 
 Standard library and the `git` program only (arm A's gsd-core needs git too), Python 3.11+.
@@ -202,7 +203,8 @@ def seed(
 
 
 def present(tasks: dict, task_id: str, arm_id: str, copy: Path) -> list[str]:
-    """The seeded defects of the task still in `copy`."""
+    """The seeded defects of the task still in `copy`: those with an edit that still holds and no `resolved_if` that
+    does."""
     task = find(tasks["tasks"], task_id, "task")
     find(tasks["arms"], arm_id, "arm")
     messages = set(git(copy, "log", "-z", "--format=%B", "HEAD").split("\0")) if (copy / ".git").exists() else set()
@@ -231,7 +233,7 @@ def present(tasks: dict, task_id: str, arm_id: str, copy: Path) -> list[str]:
     return [
         defect
         for defect in task["seeded"]
-        if all(holds(edit) for edit in edits_of(task, defect, arm_id))
+        if any(holds(edit) for edit in edits_of(task, defect, arm_id))
         and not any(resolved(rule) for rule in task["seeds"][defect].get("resolved_if", []))
     ]
 
@@ -369,7 +371,9 @@ def self_test() -> None:
 
         assert present(SYNTHETIC, "t1", "B", b) == ["D1", "D2"]
         (b / "src/new.js").unlink()
-        assert present(SYNTHETIC, "t1", "B", b) == ["D2"], "restoring one edit's file removes exactly its defect"
+        assert present(SYNTHETIC, "t1", "B", b) == ["D1", "D2"], "D1 stays while one of its two edits holds"
+        (b / "spec/a.spec").write_text("phase 01 {\n  status planned\n}\n")
+        assert present(SYNTHETIC, "t1", "B", b) == ["D2"], "both of D1's edits undone: exactly D1 is gone"
         assert present(SYNTHETIC, "t1", "A", a) == ["D1", "D2"]
         git(a, "reset", "-q", "--hard", "HEAD~1")
         assert present(SYNTHETIC, "t1", "A", a) == ["D1"], "the seeded commit unreachable: D2 is gone"
