@@ -1,6 +1,6 @@
 //! The collectors, end to end: `specforge collect --runner gsd-git` records commits in their plan's file.
 
-use crate::harness::{Project, Run, project};
+use crate::harness::{Project, Run, project, project_at};
 
 const T0: &str = "2026-10-29T09:00:00Z";
 const T1: &str = "2026-10-29T09:30:00Z";
@@ -286,6 +286,21 @@ fn a_plain_collect_in_an_unborn_repository_does_not_run_gsd_git() {
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(run.all().contains("E058"), "{}", run.all());
     assert!(recorded(&p).is_empty());
+}
+
+/// Pins detection by a branch ref: in a linked worktree `.git` is a file, so a plain collect there does not detect
+/// gsd-git and records nothing. It flips once gsd-git is detected by `.git`.
+#[test]
+fn a_plain_collect_in_a_linked_worktree_does_not_run_gsd_git() {
+    let p = project_at("execute", "main");
+    p.commit();
+    p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
+    p.git(&["worktree", "add", "-q", "-b", "wt", "../wt"], T0);
+    assert!(p.root().join("../wt/.git").is_file());
+    let run = p.run(&["collect", "--path", "../wt", "--yes", "--format", "json"]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(run.all().contains("E058"), "{}", run.all());
+    assert_eq!(p.git(&["-C", "../wt", "status", "--porcelain"], T0), "");
 }
 
 /// Detected, gsd-git with no capture of an earlier run is skipped, not E045 (ADR 0331).
