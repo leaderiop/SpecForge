@@ -135,7 +135,7 @@
     "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
-    "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd-<id>]` tag in a test's name names that entity |",
+    "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
     "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
@@ -181,8 +181,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:80dcd8741739b1be704231ae3d528b617928db755c59bb1463f8f93df26cfc5b",
+    "digest": "sha256:bf6bb8d43ce60203026329aaa8494a79e41dd46be8c1b3840df2cfabef7c8ffc",
     "prompt": "@gsd/core@VERSION:ns_review"
   },
-  "sha256": "80dcd8741739b1be704231ae3d528b617928db755c59bb1463f8f93df26cfc5b"
+  "sha256": "bf6bb8d43ce60203026329aaa8494a79e41dd46be8c1b3840df2cfabef7c8ffc"
 }

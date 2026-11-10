@@ -129,7 +129,7 @@ pub fn hyphenate_commands(content: &str) -> String {
             .max_by_key(|n| n.len());
         let left = !prev.is_some_and(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'));
         out.push_str(&rest[..at]);
-        out.push_str(if name.is_some() && left {
+        out.push_str(if name.is_some() && left && !closes_tag(prev, tail) {
             "gsd-"
         } else {
             "gsd:"
@@ -139,6 +139,17 @@ pub fn hyphenate_commands(content: &str) -> String {
     }
     out.push_str(rest);
     out
+}
+
+/// Whether `after`, the text after a `gsd:` that `before` precedes, makes it a test tag, `[gsd:<id>]`: `<id>` runs to
+/// the next `]` and, trimmed, is non-empty with no whitespace, `:` or `[` (`specforge_code_junit::names`). The reader
+/// takes a tag in no other spelling, so no host rewrite touches one; `[gsd:dispatch phase="03"]` is no tag.
+fn closes_tag(before: Option<char>, after: &str) -> bool {
+    before == Some('[')
+        && after.split_once(']').is_some_and(|(id, _)| {
+            let id = id.trim();
+            !id.is_empty() && !id.contains(|c: char| c.is_whitespace() || matches!(c, ':' | '['))
+        })
 }
 
 /// What upstream's install does to a Claude file: `filterRuntimeNotesForTarget(claude)` and, for a runtime whose
@@ -461,14 +472,20 @@ fn drop_lines_starting(content: &str, marker: &str) -> String {
 /// `convertClaudeToCursorMarkdown`, but for `$ARGUMENTS` (literal here, substituted after, ADR 0340).
 pub fn to_cursor(content: &str) -> String {
     let filtered = filter_runtime_notes(content, "cursor");
-    // `gsd:` -> `gsd-` in any case, keeping a leading slash.
+    // `gsd:` -> `gsd-` in any case, keeping a leading slash; a test tag stays as the reader reads it.
     let lower = filtered.to_ascii_lowercase();
     let mut c = String::with_capacity(filtered.len());
     let mut at = 0;
     while let Some(found) = lower[at..].find("gsd:") {
-        c.push_str(&filtered[at..at + found]);
-        c.push_str("gsd-");
-        at += found + 4;
+        let start = at + found;
+        let tag = filtered[start..].starts_with("gsd:")
+            && closes_tag(
+                filtered[..start].chars().next_back(),
+                &filtered[start + 4..],
+            );
+        c.push_str(&filtered[at..start]);
+        c.push_str(if tag { "gsd:" } else { "gsd-" });
+        at = start + 4;
     }
     c.push_str(&filtered[at..]);
     c = replace_bounded(&c, "Bash(", "Shell(", true, false);

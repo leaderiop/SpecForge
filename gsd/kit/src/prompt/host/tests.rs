@@ -262,7 +262,8 @@ fn claude_keeps_a_bare_claude_home_as_a_default_install_does() {
 }
 
 /// A test tag, `[gsd:<id>]` (`specforge_code_junit::names` reads no other spelling), as each host's rendered preamble
-/// and a converted text show it. Today Cursor's `gsd:` -> `gsd-` and Claude's command rewrite reach it.
+/// and a converted text show it: as written, even when its id is a command's name. A bracket that is no tag (a space
+/// in it) is still upstream's to rewrite.
 #[test]
 fn every_host_shows_a_test_tag_as_the_reader_reads_it() {
     use crate::prompt::preamble;
@@ -271,15 +272,20 @@ fn every_host_shows_a_test_tag_as_the_reader_reads_it() {
             host,
             &preamble::text(host, "{}", "@gsd/core", preamble::FILES),
         );
-        let shown = if host == "cursor" {
-            "`[gsd-<id>]`"
-        } else {
-            "`[gsd:<id>]`"
-        };
-        assert!(text.contains(shown), "{host}: {text}");
+        assert!(text.contains("`[gsd:<id>]`"), "{host}: {text}");
+        assert!(!text.contains("[gsd-"), "{host}: {text}");
+        assert_eq!(
+            convert(host, "[gsd:help] and [gsd:01-01/TR1] work"),
+            "[gsd:help] and [gsd:01-01/TR1] work",
+            "{host}"
+        );
     }
-    // A tag whose id is also a command's name.
-    assert_eq!(to_claude("[gsd:help] works"), "[gsd-help] works");
-    assert_eq!(to_cursor("[gsd:help] works"), "[gsd-help] works");
-    assert_eq!(to_codex("[gsd:help] works"), "[gsd:help] works");
+    assert_eq!(
+        to_cursor("[gsd:dispatch phase=\"03\"] and gsd:help"),
+        "[gsd-dispatch phase=\"03\"] and gsd-help"
+    );
+    assert_eq!(
+        to_claude("[gsd:help x] /gsd:help"),
+        "[gsd-help x] /gsd-help"
+    );
 }
