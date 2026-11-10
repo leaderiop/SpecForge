@@ -77,6 +77,15 @@ measurement: no gate reads it
 property tests run 256 cases per run; the deep run is `PROPTEST_CASES=20000 cargo test -p specforge-parser -p
 specforge-formatter --test tests` (about 4 minutes; nextest's 60 s timeout is too short for it).
 
+## Performance
+
+Tests bound work by counts (files parsed, facts sent, a guest's fuel), never by time
+([ADR 0353](docs/adr/0353-a-pass-reads-the-facts-it-declares.md)). Time is measured apart: `cargo run -p xtask --bin
+perf-report` builds `specforge` in release, copies the tracked tree to `target/perf/tree` and times `specforge check`
+and `specforge collect --no-run` cold, warm (no file parsed) and after one edit (one file parsed) against the budget
+(collect cold 10 s, warm 2 s, check 2 s), writing `target/perf/report.json`; `--specforge <path>` measures another
+build. CI runs it nightly (`.github/workflows/perf.yml`) and uploads the report. It is a measurement: no gate reads it.
+
 ## Releasing
 
 The user's checklist; no agent runs it.
@@ -120,7 +129,7 @@ What documents it:
 
 What builds and checks it:
 
-- [`gate/`](gate/) (`cargo gate`, the check list), [`xtask/`](xtask/) (build-blobs, revendor, check-links),
+- [`gate/`](gate/) (`cargo gate`, the check list), [`xtask/`](xtask/) (build-blobs, revendor, check-links, perf-report),
   [`scripts/`](scripts/) (shell helpers the gate and the release run).
 - [`fixtures/`](fixtures/): extension fixtures the tests load; [`evaluation/`](evaluation/): the first-attempt
   accuracy eval.

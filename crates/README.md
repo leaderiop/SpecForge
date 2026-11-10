@@ -130,6 +130,6 @@ Crates with no SpecForge dependency but the guest wire: the wire itself, the dia
 | [`gate`](../gate/) | `gate` | The repository's check list: every check CI, cargo gate and the pre-commit hook run, each written once (ADR 0066) |
 | [`integrations/rust/specforge-test`](../integrations/rust/specforge-test/) | `specforge-test` | Test traceability for SpecForge — link Rust tests to spec entities |
 | [`integrations/rust/specforge-test-macros`](../integrations/rust/specforge-test-macros/) | `specforge-test-macros` | Proc macros for specforge-test |
-| [`xtask`](../xtask/) | `xtask` | Repository tasks that link the workspace: build-blobs, revendor, check-links, check-modules and clean-target |
+| [`xtask`](../xtask/) | `xtask` | Repository tasks that link the workspace: build-blobs, revendor, check-links, check-modules, clean-target and perf-report |
 
 <!-- crate-map:end -->
