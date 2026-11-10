@@ -17,6 +17,8 @@ use specforge_test_macros::test as specforge_test;
 use crate::ports::{PortCall, PortSession};
 use crate::sandbox::Limits;
 
+mod bounds;
+
 const SHA: &str = "abcdefabcdefabcdefabcdefabcdefabcdefabcd";
 
 /// A collector's session of an extension granted git reads, over `git`.

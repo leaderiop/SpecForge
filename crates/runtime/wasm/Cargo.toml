@@ -39,6 +39,8 @@ specforge-test-macros = { workspace = true }
 specforge-extension-sdk = { path = "../extension-sdk" }
 tempfile = { workspace = true }
 specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
+# The guest's log and diff counted over real repositories.
+specforge-git = { path = "../../adapters/git", features = ["testing"] }
 
 [lints]
 workspace = true

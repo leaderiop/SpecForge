@@ -5023,6 +5023,7 @@ dependencies = [
  "specforge-common",
  "specforge-effects",
  "specforge-extension-sdk",
+ "specforge-git",
  "specforge-protocol-types",
  "specforge-registry",
  "specforge-repo-root",
