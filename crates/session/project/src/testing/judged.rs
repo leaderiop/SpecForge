@@ -303,13 +303,15 @@ pub fn gsd_judged_passes() -> Value {
 }
 
 /// The kinds `test` and `item` as the builtin `@code/core` declares them, as the wire carries them: written by a
-/// collector under the scheme `js`; a test's result is its `status`, named by its `file` and `name`.
+/// collector under the scheme `js`; a test's result is its `status`, named by its `file` and `name`; its `names` are
+/// the entities it says it proves.
 pub fn code_core_tests() -> Value {
     json!([{"name": "test", "keyword": "test", "writer": "collector", "schemes": ["js"], "result": "status",
     "fields": [
         {"name": "file", "field_type": "string"},
         {"name": "name", "field_type": "string"},
         {"name": "status", "field_type": "enum", "enum_values": ["passed", "failed", "skipped"]},
+        {"name": "names", "field_type": "reference_list"},
     ]},
     {"name": "item", "keyword": "item", "writer": "collector", "schemes": ["js"],
     "fields": [{"name": "file", "field_type": "string"}]}])
