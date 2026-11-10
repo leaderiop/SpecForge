@@ -246,8 +246,17 @@ fn succeeds(run: &Run) {
     assert_eq!(run.code, 0, "{}", run.all());
 }
 
-/// The defects the requirement thread exists to report, whose signal B0 (no test facts) does not have: S1, S5, S6.
-const THREAD_SIGNALS: [&str; 3] = ["S1", "S5", "S6"];
+/// The defects the requirement thread exists to report, whose signal B0 (no test facts) does not have: those
+/// `tasks.json#defects` marks `"thread": true`.
+fn thread_defects() -> Vec<String> {
+    ab_tasks()["defects"]
+        .as_array()
+        .expect("defects")
+        .iter()
+        .filter(|d| d["thread"] == true)
+        .map(|d| d["id"].as_str().expect("an id").to_string())
+        .collect()
+}
 
 /// Checks every `b_signals` row of `task` on arms B and B0: seeded and unseeded copies are collected and counted.
 /// On B a row counts `count` on the seeded copy and 0 on the unseeded one; a `complete` row counts 0 before the
@@ -255,6 +264,7 @@ const THREAD_SIGNALS: [&str; 3] = ["S1", "S5", "S6"];
 /// and the others as on B.
 pub fn assert_signals(task: &str) {
     let rows = signals(task);
+    let thread = thread_defects();
     let mut failures = Vec::new();
     for arm in ["B", "B0"] {
         for state in ["seed", "complete"] {
@@ -291,7 +301,7 @@ pub fn assert_signals(task: &str) {
             unseeded_copy.collect_seeded(task, false);
             for row in &here {
                 let got = (seeded_copy.signal(row), unseeded_copy.signal(row));
-                let wanted = if arm == "B0" && THREAD_SIGNALS.contains(&row.defect.as_str()) {
+                let wanted = if arm == "B0" && thread.contains(&row.defect) {
                     (got.1, got.1)
                 } else if row.when == "complete" && state == "seed" {
                     (0, 0)

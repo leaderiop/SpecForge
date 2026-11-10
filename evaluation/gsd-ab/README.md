@@ -14,9 +14,10 @@ committed.
 - **H1 (gate B, decision D7).** Checked state (arm B) beats Markdown state (arm A) on false "verified" (M3) and on
   state drift (M2), without costing more than 10% in tokens per completed plan (M4).
 - **H2 (secondary, R1's question).** The requirement thread helps an agent: arm B beats arm B0 on false "verified"
-  for the defects the thread exists to catch (S1, S4, S5), counted alone (M3 over those three, `M3_thread`). H2 is
-  reported and gates nothing. B0 keeps `gsd/E521` (it reads commits, not test facts), so S4 is reported in both arms
-  and H2's difference can come from S1 and S5 only.
+  for the defects the thread exists to catch, counted alone (M3 over those, `M3_thread`). They are the defects marked
+  `"thread": true` in `tasks.json#defects`: S1, S5 and S6, whose signals read the test facts B0 lacks. H2 is reported
+  and gates nothing. S4 is not a thread defect: B0 keeps `gsd/E521` (it reads commits, not test facts) and reports
+  it as B does.
 
 ## 2. Arms
 
@@ -77,7 +78,7 @@ copy of the fixture, never in the committed one.
 
 `tasks.json`'s `b_signals` is the data, per task: the code, the entity, the count and when, and `ab_seeds` is the
 proof: on a copy `seed.py` made, B reports each row's count where the unseeded copy of the same task reports none,
-and B0 reports none of the thread's (S1, S5, S6). `seed` means after seeding and a collect; `complete` means only
+and B0 reports none of the thread's (`"thread": true`: S1, S5, S6). `seed` means after seeding and a collect; `complete` means only
 after the task's `completion`, the edits a correct run leaves. S1's holder is a truth of the plan the run executes,
 and `@gsd/core` checks what a pending plan cites only once the plan completes: a run that ends with that plan still
 pending has no B signal for S1, and that is correct, since it did not claim the plan complete.
@@ -145,7 +146,7 @@ any of this, or whose path is not its arm, task and seed.
   no partner is refused, never dropped.
 - Per measure, the paired difference B − A, with a 95% percentile bootstrap interval: 10,000 resamples over tasks, and
   over seeds within each resampled task, with a fixed RNG seed so a report reproduces.
-- H2 is reported the same way: B − B0 on `M3_thread` (false "verified" counting only S1, S4 and S5), with its
+- H2 is reported the same way: B − B0 on `M3_thread` (false "verified" counting only the thread's defects, S1, S5 and S6), with its
   interval and whether its upper bound is below 0. It gates nothing.
 
 ## 9. Gate B (D7)
