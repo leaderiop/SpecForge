@@ -1,4 +1,4 @@
-//! The GSD A/B's seeded defects on the taskboard fixture: each `b_signals` row of `evaluation/gsd-ab/tasks.json` is
+//! The GSD A/B's seeded defects on the taskboard and ledger fixtures: each `b_signals` row of `evaluation/gsd-ab/tasks.json` is
 //! what arm B's checker reports on a copy `seed.py` made, and B0 (no test facts) reports none of the thread's.
 
 use super::harness::ab::{Today, assert_signals, seeded};
@@ -73,4 +73,24 @@ fn b0_traces_the_route_with_its_item_and_test_steps_skipped() {
         skipped[0].contains("step 'item'") && skipped[1].contains("step 'test'"),
         "{skipped:?}"
     );
+}
+
+#[test]
+fn ledger_execute_02_01_reports_its_seeds() {
+    signals("ledger-execute-02-01");
+}
+
+#[test]
+fn ledger_verify_01_reports_its_seeds() {
+    signals("ledger-verify-01");
+}
+
+#[test]
+fn ledger_progress_resume_reports_its_seeds() {
+    signals("ledger-progress-resume");
+}
+
+#[test]
+fn ledger_ship_ledg_02_reports_its_seeds() {
+    signals("ledger-ship-ledg-02");
 }

@@ -37,12 +37,21 @@ pub fn python(script: &str, args: &[&str]) -> Output {
         })
 }
 
-/// The recorded test report of a fixture, as `(runner, golden)`: what its tests report when nothing is seeded.
-fn recorded_report(fixture: &str) -> Option<(&'static str, PathBuf)> {
+/// The recorded test report of a fixture, as `(collectors, runner, golden)`: what its tests report when nothing is
+/// seeded, read by `runner` after the `collectors` whose facts it reads have run.
+type Recorded = (&'static [&'static str], &'static str, PathBuf);
+
+fn recorded_report(fixture: &str) -> Option<Recorded> {
     let goldens = Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/goldens");
     match fixture {
-        "taskboard" => Some(("node-test", goldens.join("taskboard/junit.xml"))),
-        "vault" => Some(("node-test", goldens.join("vault/junit.xml"))),
+        "taskboard" => Some((&[], "node-test", goldens.join("taskboard/junit.xml"))),
+        "vault" => Some((&[], "node-test", goldens.join("vault/junit.xml"))),
+        // The ledger's CI is red: the recorded run is the one with `total_beyond_i32_is_exact` failing.
+        "ledger" => Some((
+            &["rust-cargo", "rust-source"],
+            "rust-test",
+            goldens.join("ledger/rust-test.xml"),
+        )),
         _ => None,
     }
 }
@@ -171,8 +180,11 @@ impl Project {
         let task = ab_task(&tasks, task);
         let fixture = task["fixture"].as_str().expect("a fixture");
         if self.loads("@code/core")
-            && let Some((runner, golden)) = recorded_report(fixture)
+            && let Some((collectors, runner, golden)) = recorded_report(fixture)
         {
+            for collector in collectors {
+                succeeds(&self.collect(&["--runner", collector]));
+            }
             let runs: Vec<(String, String)> = task["seeded"]
                 .as_array()
                 .expect("seeded")

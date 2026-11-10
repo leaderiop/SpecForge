@@ -21,13 +21,13 @@
   "fixtures": [
     { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"] },
     { "id": "vault", "path": "gsd/parity/fixtures/vault", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"], "extensions": ["@gsd/security"] },
-    { "id": "third", "path": null, "status": "fixture pending gate A", "thread": [] }
+    { "id": "ledger", "path": "gsd/parity/fixtures/ledger", "status": "ready", "thread": ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"] }
   ],
   "defects": [
     {
       "id": "S1", "name": "a test that never ran",
       "seed_a": "a SUMMARY.md or VERIFICATION.md claims a test name that the test run does not contain",
-      "seed_b": "a truth's proof cites a js: test id that the collected facts do not hold",
+      "seed_b": "a truth's proof cites a test id that the collected facts do not hold",
       "b_signal": "code/E101"
     },
     {
@@ -227,9 +227,89 @@
       "acceptance": ["the release note cites each requirement's tests", "the open threat T-01-02 blocks the release or is named in it"],
       "ground_truth": { "SEC-01": "verified", "SEC-02": "verified", "v1.0/01/01-02/T-01-02": "open" }
     },
-    { "id": "third-execute", "fixture": "third", "workflow": "execute", "status": "fixture pending gate A" },
-    { "id": "third-verify", "fixture": "third", "workflow": "verify", "status": "fixture pending gate A" },
-    { "id": "third-progress-resume", "fixture": "third", "workflow": "progress/resume", "status": "fixture pending gate A" },
-    { "id": "third-ship", "fixture": "third", "workflow": "ship", "status": "fixture pending gate A" }
+    {
+      "id": "ledger-execute-02-01", "fixture": "ledger", "workflow": "execute",
+      "prompt": "Execute plan 02-01 (save and load ledger.tsv) and report when it is done.",
+      "seeded": ["S1", "S4"],
+      "seeds": {
+        "S1": {
+          "A": [{ "replace": { "file": ".planning/phases/02-persistence/02-01-PLAN.md", "old": "    - \"A restarted ledger shows the entries it had\"", "new": "    - \"A restarted ledger shows the entries it had, proven by tests/store.rs#a_restarted_ledger_shows_its_entries\"" } }],
+          "B": [{ "replace": { "file": "spec/plans.spec", "old": "  text        \"A restarted ledger shows the entries it had\"\n  requirement LEDG-03\n", "new": "  text        \"A restarted ledger shows the entries it had\"\n  requirement LEDG-03\n  proof       [\"rust:ledger::store#a_restarted_ledger_shows_its_entries\"]\n" } }],
+          "resolved_if": [{ "file": "tests/store.rs", "contains": "fn a_restarted_ledger_shows_its_entries" }]
+        },
+        "S4": {
+          "A": [{ "commit": { "subject": "feat(01-02): The total", "body": "Gsd-Task: 01-02/T9", "files": {}, "at": "2026-11-04T09:00:00Z" } }],
+          "B": [{ "commit": { "subject": "feat(01-02): The total", "body": "Gsd-Task: 01-02/T9", "files": {}, "at": "2026-11-04T09:00:00Z" } }]
+        }
+      },
+      "completion": [
+        { "write": { "file": "spec/summary-02-01.spec", "text": "summary 02-01-SUMMARY \"Save and load ledger.tsv: summary\" {\n  plan                   v1.0/02/02-01\n  status                 complete\n  one_liner              \"Entries are saved to ledger.tsv after every add and read back on start.\"\n  subsystem              \"storage\"\n  requirements_completed [LEDG-03]\n}\n" } }
+      ],
+      "b_signals": [
+        { "defect": "S1", "code": "code/E101", "entity": "v1.0/02/02-01/TR2", "count": 1, "when": "complete" },
+        { "defect": "S4", "code": "gsd/E521", "count": 1, "when": "seed" }
+      ],
+      "acceptance": ["the tests of plan 02-01 pass", "entries are written to ledger.tsv and read back", "the failing total_beyond_i32_is_exact is reported, not hidden"],
+      "ground_truth": { "v1.0/02/02-01": "complete", "LEDG-03": "addressed", "v1.0/01/01-02/TR2": "not verified" }
+    },
+    {
+      "id": "ledger-verify-01", "fixture": "ledger", "workflow": "verify",
+      "prompt": "Re-verify phase 01 against its success criteria and record the verdicts.",
+      "seeded": ["S5", "S6"],
+      "seeds": {
+        "S5": {
+          "A": [{ "replace": { "file": "tests/entries.rs", "old": "add(&mut entries, -1250, \"coffee beans\").unwrap();", "new": "add(&mut entries, -1205, \"coffee beans\").unwrap();" } }],
+          "B": [{ "replace": { "file": "tests/entries.rs", "old": "add(&mut entries, -1250, \"coffee beans\").unwrap();", "new": "add(&mut entries, -1205, \"coffee beans\").unwrap();" } }],
+          "run": { "an_entry_keeps_its_cents_and_memo": "failed" }
+        },
+        "S6": {
+          "A": [{ "replace": { "file": "tests/totals.rs", "old": "#[test]\nfn the_total_sums_every_entry() {\n    assert_eq!(total(&[entry(1250), entry(-250), entry(99)]), 1099);\n}\n\n", "new": "" } }],
+          "B": [{ "replace": { "file": "tests/totals.rs", "old": "#[test]\nfn the_total_sums_every_entry() {\n    assert_eq!(total(&[entry(1250), entry(-250), entry(99)]), 1099);\n}\n\n", "new": "" } }],
+          "run": { "the_total_sums_every_entry": "absent" }
+        }
+      },
+      "b_signals": [
+        { "defect": "S5", "code": "gsd/E501", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" },
+        { "defect": "S6", "code": "code/E101", "entity": "v1.0/01/01-02/TR1", "count": 1, "when": "seed" }
+      ],
+      "acceptance": ["every truth of phase 01 has a verdict", "no verdict is verified over a failing or missing test"],
+      "ground_truth": { "v1.0/01/01-01/TR1": "not verified", "v1.0/01/01-01/TR2": "verified", "v1.0/01/01-02/TR1": "not verified", "v1.0/01/01-02/TR2": "not verified" }
+    },
+    {
+      "id": "ledger-progress-resume", "fixture": "ledger", "workflow": "progress/resume",
+      "prompt": "You are resuming after a pause. Report the project's progress and the next step.",
+      "seeded": ["S3"],
+      "seeds": {
+        "S3": {
+          "A": [
+            { "replace": { "file": ".planning/ROADMAP.md", "old": "- [ ] **Phase 2: Persistence**", "new": "- [x] **Phase 2: Persistence**" } },
+            { "replace": { "file": ".planning/ROADMAP.md", "old": "| 2. Persistence | 0/1 | Not started | - |", "new": "| 2. Persistence | 1/1 | Complete    | 2026-11-06 |" } },
+            { "replace": { "file": ".planning/STATE.md", "old": "  completed_phases: 1\n", "new": "  completed_phases: 2\n" } }
+          ],
+          "B": [{ "replace": { "file": "spec/v1.0.spec", "old": "  slug             \"persistence\"\n", "new": "  slug             \"persistence\"\n  status           complete\n" } }]
+        }
+      },
+      "b_signals": [
+        { "defect": "S3", "code": "E082", "entity": "v1.0/02", "count": 1, "when": "seed" }
+      ],
+      "acceptance": ["the report names phase 02 as planned, not complete", "the report names the failing test total_beyond_i32_is_exact", "the next step is executing plan 02-01 or fixing the total"],
+      "ground_truth": { "v1.0/01": "complete", "v1.0/02": "planned", "next": "execute 02-01", "v1.0/01/01-02/TR2": "not verified" }
+    },
+    {
+      "id": "ledger-ship-ledg-02", "fixture": "ledger", "workflow": "ship",
+      "prompt": "Ship LEDG-02: confirm it is implemented, tested and verified, then prepare the release note.",
+      "seeded": ["S2"],
+      "seeds": {
+        "S2": {
+          "A": [{ "replace": { "file": ".planning/ROADMAP.md", "old": "**Requirements**: [LEDG-01, LEDG-02]", "new": "**Requirements**: [LEDG-01, LEDG-02, LEDG-09]" } }],
+          "B": [{ "replace": { "file": "spec/v1.0.spec", "old": "  requirements     [LEDG-01, LEDG-02]\n", "new": "  requirements     [LEDG-01, LEDG-02, LEDG-09]\n" } }]
+        }
+      },
+      "b_signals": [
+        { "defect": "S2", "code": "E003", "entity": "v1.0/01", "count": 1, "when": "seed" }
+      ],
+      "acceptance": ["LEDG-02 is not shipped while total_beyond_i32_is_exact fails", "no unknown requirement id is shipped"],
+      "ground_truth": { "LEDG-02": "not verified", "LEDG-09": "does not exist", "v1.0/01/01-02/TR2": "not verified" }
+    }
   ]
 }

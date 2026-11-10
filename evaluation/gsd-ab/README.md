@@ -39,7 +39,10 @@ alike: it is no signal of a seed.
 - **taskboard**: `gsd/parity/fixtures/taskboard` (the twin) and its `.planning/` (arm A).
 - **vault**: `gsd/parity/fixtures/vault`, the security twin, and its `.planning/`. Its four tasks are over phase 01,
   its threat-model phase.
-- **third**: named at gate A. Either the failed-CI twin R6 builds, or a project replayed through `@gsd/import`.
+- **ledger**: `gsd/parity/fixtures/ledger`, a Rust project whose CI is red, and its `.planning/`. Phase 01 was
+  verified, then a quick task folded the total in an `i32`: `total_beyond_i32_is_exact` fails and `.planning/` still
+  says passed. Its thread loads the Rust packs (`@rust/cargo`, `@rust/source`, `@rust/test`). Every ledger task's
+  ground truth holds that truth (`v1.0/01/01-02/TR2`) not verified, besides its seeds.
 
 Each arm starts from the same commit of the fixture, in its own format. The importer may not be used to make arm A's
 input: arm A's `.planning/` is the recorded one, not a conversion of the twin.
@@ -48,8 +51,7 @@ input: arm A's `.planning/` is the recorded one, not a conversion of the twin.
 
 `tasks.json#tasks`: 4 per fixture, 12 in all. Each has an `id`, a `fixture`, a `workflow` (execute, verify,
 progress/resume, ship), a `prompt`, the defects `seeded` in its copy, the `acceptance` checks run after the agent
-stops, and the `ground_truth` (the requirement, plan and verdict states after a correct run). The third fixture's four
-rows are placeholders until gate A.
+stops, and the `ground_truth` (the requirement, plan and verdict states after a correct run).
 
 ## 5. Seeded defects
 

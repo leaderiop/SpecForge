@@ -43,7 +43,7 @@ fn run_files_are_not_ignored_yet() {
 }
 
 #[test]
-fn the_third_fixtures_tasks_are_placeholders() {
+fn no_task_is_a_placeholder() {
     let tasks = ab_tasks();
     let placeholders = tasks["tasks"]
         .as_array()
@@ -51,5 +51,5 @@ fn the_third_fixtures_tasks_are_placeholders() {
         .iter()
         .filter(|t| t.get("status").is_some())
         .count();
-    assert_eq!(placeholders, 4);
+    assert_eq!(placeholders, 0);
 }
