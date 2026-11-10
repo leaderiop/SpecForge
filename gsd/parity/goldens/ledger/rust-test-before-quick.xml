@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="nextest-run" tests="6" skipped="0" failures="0" errors="0" uuid="00000000-0000-0000-0000-000000000000" timestamp="2026-11-05T16:40:00.000+00:00" time="0">
+    <testsuite name="ledger::entries" tests="3" skipped="0" errors="0" failures="0">
+        <testcase name="a_memo_with_a_tab_is_refused" classname="ledger::entries" timestamp="2026-11-05T16:40:00.000+00:00" time="0"/>
+        <testcase name="a_store_line_reads_back_as_its_entry" classname="ledger::entries" timestamp="2026-11-05T16:40:00.000+00:00" time="0"/>
+        <testcase name="an_entry_keeps_its_cents_and_memo" classname="ledger::entries" timestamp="2026-11-05T16:40:00.000+00:00" time="0"/>
+    </testsuite>
+    <testsuite name="ledger::totals" tests="3" skipped="0" errors="0" failures="0">
+        <testcase name="a_total_prints_in_a_column_of_fourteen" classname="ledger::totals" timestamp="2026-11-05T16:40:00.000+00:00" time="0"/>
+        <testcase name="the_total_sums_every_entry" classname="ledger::totals" timestamp="2026-11-05T16:40:00.000+00:00" time="0"/>
+        <testcase name="total_beyond_i32_is_exact" classname="ledger::totals" timestamp="2026-11-05T16:40:00.000+00:00" time="0"/>
+    </testsuite>
+</testsuites>

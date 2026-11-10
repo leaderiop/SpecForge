@@ -1,4 +1,5 @@
-//! `gsd/parity/record.sh` and `record-security.sh` record a golden only from a `gsd-tools` run that succeeded.
+//! `gsd/parity/record.sh`, `record-security.sh` and `record-ledger.sh` record a golden only from a `gsd-tools` run
+//! that succeeded.
 
 use std::path::Path;
 use std::process::Command;
@@ -67,4 +68,10 @@ fn a_failing_gsd_tools_that_still_prints_json_records_nothing() {
 #[test]
 fn record_security_records_nothing_from_a_failing_gsd_tools_either() {
     check("record-security.sh", "goldens/vault");
+}
+
+#[test]
+fn record_ledger_records_nothing_from_a_failing_gsd_tools_either() {
+    // The verbs run before the tests, so the script stops before any cargo-nextest run.
+    check("record-ledger.sh", "goldens/ledger");
 }

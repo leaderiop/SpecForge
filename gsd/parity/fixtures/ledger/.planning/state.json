@@ -1,0 +1,28 @@
+{
+  "contract": "1.0.0",
+  "flavor": "core",
+  "milestone": null,
+  "phases": [
+    {
+      "number": "1",
+      "name": "Core",
+      "status": "complete"
+    },
+    {
+      "number": "2",
+      "name": "Persistence",
+      "status": "pending"
+    },
+    {
+      "number": "3",
+      "name": "Listing",
+      "status": "pending"
+    }
+  ],
+  "next": {
+    "command": "/gsd-execute-phase 2",
+    "label": "Execute phase 02",
+    "reason": "Phase 2 of 3 — planned, not executed"
+  },
+  "updated_at": "2026-11-05T16:40:00.000Z"
+}

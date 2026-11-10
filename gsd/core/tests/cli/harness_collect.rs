@@ -103,6 +103,26 @@ impl Project {
         ])
     }
 
+    /// The ledger's collects where no cargo runs: `rust-cargo` and `rust-source` read the manifest and the sources,
+    /// then `rust-test` reads `report`, a recorded nextest run, without running it. It answers the last collect.
+    #[allow(
+        dead_code,
+        reason = "@gsd/security's tests include this harness and do not use it"
+    )]
+    pub fn collect_rust_report(&self, report: &Path) -> Run {
+        for runner in ["rust-cargo", "rust-source"] {
+            let run = self.collect(&["--runner", runner]);
+            assert_eq!(run.code, 0, "{runner}: {}", run.all());
+        }
+        self.collect(&[
+            "--runner",
+            "rust-test",
+            "--no-run",
+            "--report",
+            &report.display().to_string(),
+        ])
+    }
+
     /// Collects `cases` (`(file, name, status)`) as `@code/core` test facts, as `@javascript/node-test` reads node's
     /// JUnit report: loads `@code/core` and `@javascript/node-test` when they are not loaded, writes `package.json`
     /// (`{"name":"taskboard"}`) when the project has none, writes the cases as one report at

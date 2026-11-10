@@ -21,6 +21,7 @@ the version matrix live here.
 | `goldens/taskboard/` | what `gsd-tools` answers over that fixture: `roadmap analyze`, `phase-plan-index 1` and `2`, `state json`, `progress json`, `validate health`, `check.verify-context-drift 2` and `check.decision-coverage-plan` of phase 2; the plan verdicts of r37: `verify.plan-structure` of each plan, `check.verify-command-paths` and `check.verify-failure-directions` of phases 1 and 2, `check.gap-analysis-plan-post` of phases 1 and 2; `audit-uat` (r39), and `junit.xml`, what the fixture's own `npm test` reports (r38), with the machine's paths and timings normalised |
 | `fixtures/vault/`, `goldens/vault/` | the hand-written security fixture: a phase with a threat model, an audit and an accepted risk, its `specforge-harness` ledger for the hand-written H fields, what gsd-tools answered over it (hooks, config, threat IDs, the gate) and `junit.xml`, what its own `node --test` reports; `security/tests/cli/parity_scenario.rs` compares the twin with them and with `.planning/` (its truths and summaries) |
 | `record.sh` | re-records the goldens |
+| `fixtures/ledger/`, `goldens/ledger/` | the GSD A/B's Rust fixture, whose CI is red: phase 1 verified, then a quick task that breaks the test of one truth; `rust-test.xml` (the red nextest run) and `rust-test-before-quick.xml` (the run the verifier saw), recorded by `record-ledger.sh`, which also records `roadmap analyze`, `progress json`, `state json` and `validate health` when `GSD_CORE_DIR` names a built gsd-core; `core/tests/cli/parity_ledger.rs` holds the twin to `.planning/`, its eight verdicts fresh over the run before the quick task and exactly one stale over the red run |
 | `upstream/v1.19.0/gate-cutover/` | 171 verdicts of gsd-core's own gate-cutover fixtures (decision coverage, verify command paths, failing directions, post-planning gaps), copied unchanged; `core/tests/projects/gate_cutover/` is their SpecForge twin |
 
 The taskboard's `verify-command-paths` and `verify-failure-directions` goldens are intentionally empty: every taskboard task has a bare `<verify>`, so there is no `<automated>` command to probe, and the comparison proves only that no blocker is reported. The E320 and E507 proof is the gate-cutover verdicts (`gate_cutover_plan_verdicts_reproduce`), whose blocker and missing rows are matched one for one. Adding an `<automated>` task to the taskboard would move other goldens, so it is not done.
@@ -64,7 +65,7 @@ As the move from 1.18.0 to 1.19.0 did it (round `gsd-upgrade-1.19.0`):
 1. **The backlog first.** `upgrade.sh ~/Projects/OpenSource/gsd-core <tag>` writes `backlog/<tag>.md` against the
    tracked tag; every `unowned` row is new work (a missing roster row, an upstream path `locate` cannot place).
 2. **The version, once.** The release is the one literal `gsd_kit::tracked_version!()` (`kit/src/lib.rs`); `tracks` in
-   `core/Cargo.toml` and `security/Cargo.toml` and the version check of `record.sh` and `record-security.sh` follow it
+   `core/Cargo.toml` and `security/Cargo.toml` and the version check of `record.sh`, `record-security.sh` and `record-ledger.sh` follow it
    (`core/tests/declaration.rs` requires `tracks` to name the one vendored directory).
 3. **The move, in one commit.** Rename `upstream/v<old>` to `upstream/v<new>` and re-vendor its files with
    `git show "<tag>:<path>"` (SOURCE.md names each), bump the pins (`tracks`, the attribution headers, the roster rows
@@ -75,7 +76,7 @@ As the move from 1.18.0 to 1.19.0 did it (round `gsd-upgrade-1.19.0`):
 4. **The re-ports.** Each asset is re-ported line for line and taken off the list in the same commit; behaviour
    changes are ported test first. The commit that empties the list removes the `#[ignore]`; a branch is not merged to
    main while it is there.
-5. **Re-record** the taskboard goldens (above), the security goldens (`record-security.sh`) and the hook cases
+5. **Re-record** the taskboard goldens (above), the security goldens (`record-security.sh`), the ledger goldens (`record-ledger.sh`) and the hook cases
    (`record-hook-cases.cjs`) on the new tag. These run upstream under node; review the diff of the goldens.
 6. **Close the backlog.** `upgrade.sh <dir> <tag> <old-tag>` (the optional third argument is the tag to diff from,
    needed once `tracks` names the new tag) re-writes `backlog/<tag>.md`; it must have no `unowned` row. Append by hand

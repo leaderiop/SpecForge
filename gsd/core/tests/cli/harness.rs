@@ -154,6 +154,22 @@ pub fn vault() -> Project {
     from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/vault")).twin()
 }
 
+/// The builtins the ledger twin loads beside `@gsd/core`: the code facts and the Rust packs whose collectors read its
+/// manifest (`rust-cargo`), its items (`rust-source`) and a nextest report (`rust-test`).
+pub const LEDGER_BUILTINS: [&str; 4] = ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"];
+
+/// The parity suite's ledger fixture: a Rust project whose CI is red, its `spec/` twin beside its `.planning/`,
+/// loading [`LEDGER_BUILTINS`]; its proofs and items quiet until collected (`code/W102`), as the taskboard's.
+#[allow(
+    dead_code,
+    reason = "@gsd/security's tests include this harness and do not use it"
+)]
+pub fn ledger() -> Project {
+    from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/ledger"))
+        .with_builtins(&LEDGER_BUILTINS)
+        .quieting("code/W102")
+}
+
 /// [`taskboard`] under `inside` of its temp dir.
 pub fn taskboard_at(inside: &str) -> Project {
     from_dir_at(

@@ -73,6 +73,7 @@ mod node;
 mod node_test;
 mod parity_discuss;
 mod parity_gate_cutover;
+mod parity_ledger;
 mod parity_plans;
 mod parity_roadmap;
 mod parity_scenario;
