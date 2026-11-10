@@ -41,6 +41,7 @@ import io
 import json
 import os
 import random
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -157,32 +158,41 @@ def manifest(tasks: dict, fixture: dict, arm: dict, components: dict) -> dict:
     }
 
 
+def inside(out: Path, file: str, label: str) -> Path:
+    """`file` in the copy `out`; refused, naming the edit, when it resolves outside it."""
+    path = (out / file).resolve()
+    if not path.is_relative_to(out.resolve()):
+        raise Refused(f"{label}: {file} is outside the copy")
+    return path
+
+
 def apply(out: Path, edit: dict, label: str) -> None:
-    """One seed edit in the copy `out`. Refuses, naming the edit, an `old` found other than once or a `write` over a
-    file that exists."""
+    """One seed edit in the copy `out`. Refuses, naming the edit, a path outside the copy, an `old` found other than
+    once or a `write` over a file that exists."""
     (kind, body), = edit.items()
     if kind == "replace":
-        path = out / body["file"]
+        path = inside(out, body["file"], label)
         text = path.read_text() if path.is_file() else ""
         found = text.count(body["old"])
         if found != 1:
             raise Refused(f"{label}: `{body['old'][:60]}` is in {body['file']} {found} times, not once")
         path.write_text(text.replace(body["old"], body["new"], 1))
     elif kind == "write":
-        path = out / body["file"]
+        path = inside(out, body["file"], label)
         if path.exists():
             raise Refused(f"{label}: {body['file']} exists; a write makes a new file")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(body["text"])
     elif kind == "delete":
-        path = out / body["file"]
+        path = inside(out, body["file"], label)
         if not path.is_file():
             raise Refused(f"{label}: {body['file']} is not there to delete")
         path.unlink()
     elif kind == "commit":
         for file, text in body["files"].items():
-            (out / file).parent.mkdir(parents=True, exist_ok=True)
-            (out / file).write_text(text)
+            path = inside(out, file, label)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
             git(out, "add", "--", file, at=body["at"])
         message = body["subject"] + (f"\n\n{body['body']}" if body.get("body") else "")
         git(out, "commit", "-q", "--allow-empty", "-m", message, at=body["at"])
@@ -200,23 +210,45 @@ def seed(
     components: dict | None = None, complete: bool = False, unseeded: bool = False, worktree: bool = False,
 ) -> int:
     """Makes the copy at `out` (absent or empty) from the fixture as committed, or from the working tree with
-    `worktree`. Answers the number of edits applied."""
+    `worktree`. Answers the number of edits applied. Everything that can be refused without the copy is checked
+    first, and the copy is built beside `out` and renamed to it only once it is whole: a refusal leaves nothing."""
     task = find(tasks["tasks"], task_id, "task")
     arm = find(tasks["arms"], arm_id, "arm")
     fixture = find(tasks["fixtures"], task["fixture"], "fixture")
     if fixture["status"] != "ready":
         raise Refused(f"fixture {fixture['id']} is not ready: {fixture['status']}")
-    if out.exists() and any(out.iterdir()):
+    if complete and arm_id == "A":
+        raise Refused("--state complete is the B edits a correct run leaves; arm A has none")
+    if out.exists() and (not out.is_dir() or any(out.iterdir())):
         raise Refused(f"{out} is not empty")
+    config = None if arm["config"] is None else manifest(tasks, fixture, arm, components or {})
     files = tracked(root / fixture["path"]) if worktree else committed(root, fixture)
-    out.mkdir(parents=True, exist_ok=True)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    building = Path(tempfile.mkdtemp(prefix=f".{out.name}.", dir=out.parent))
+    try:
+        applied = build(task, arm, fixture, building, files, config, complete, unseeded)
+    except BaseException:
+        shutil.rmtree(building, ignore_errors=True)
+        raise
+    if out.exists():
+        out.rmdir()
+    building.rename(out)
+    return applied
+
+
+def build(
+    task: dict, arm: dict, fixture: dict, out: Path, files: dict[str, bytes], config: dict | None,
+    complete: bool, unseeded: bool,
+) -> int:
+    """Writes the copy into the empty directory `out`: the fixture's `files` but the arm's drops, its `config` as
+    `specforge.json`, the seeds' edits and commits, and the completion with `complete`. Answers the edits applied."""
+    task_id, arm_id = task["id"], arm["id"]
     for path, data in files.items():
         if not dropped(path, arm["drop"]):
             (out / path).parent.mkdir(parents=True, exist_ok=True)
             (out / path).write_bytes(data)
-    if arm["config"] is not None:
-        text = json.dumps(manifest(tasks, fixture, arm, components or {}), indent=2) + "\n"
-        (out / "specforge.json").write_text(text)
+    if config is not None:
+        (out / "specforge.json").write_text(json.dumps(config, indent=2) + "\n")
     # The file edits go into the base commit and the commits come after it, so `git status` and `git diff` show the
     # agent no seed: the copy starts clean, as the fixture would.
     edits = [
@@ -235,8 +267,6 @@ def seed(
             apply(out, edit, label)
     applied = len(edits)
     if complete:
-        if arm_id == "A":
-            raise Refused("--state complete is the B edits a correct run leaves; arm A has none")
         for index, edit in enumerate(task.get("completion", [])):
             apply(out, edit, f"{task_id} completion edit {index + 1}")
             applied += 1
@@ -444,6 +474,20 @@ def self_test() -> None:
             assert "--gsd-core" in str(refused), refused
             refusals += 1
         assert refusals == 6, "a B copy without the component is refused, naming the flag"
+        # A refusal leaves nothing behind: not the copy, not the directory it was built in.
+        escapes = {**SYNTHETIC, "tasks": [{"id": "t5", "fixture": "fx", "seeded": ["D7"], "seeds": {"D7": {
+            "A": [{"write": {"file": "../escaped.js", "text": "x"}}], "B": []}}}]}
+        for args, why in (((SYNTHETIC, root, "t1", "A", root / "a-complete"), "arm A has none"),
+                          ((escapes, root, "t5", "A", root / "escape"), "outside the copy")):
+            try:
+                seed(*args, complete=args[2] == "t1")
+            except Refused as refused:
+                assert why in str(refused), refused
+                refusals += 1
+        assert not (root / "escaped.js").exists(), "an edit never writes outside the copy"
+        refused_names = (".", "no-wasm", "a-complete", "escape")
+        left = sorted(path.name for path in root.iterdir() if path.name.startswith(refused_names))
+        assert left == [".git"], f"a refused seeding leaves nothing: {left}"
 
         # A study copy comes from the commit: a fixture with an uncommitted change is refused, and so is one whose tree
         # is not the one tasks.json pins. `worktree` copies the working tree as it is.
@@ -462,7 +506,7 @@ def self_test() -> None:
         except Refused as refused:
             assert "pins" in str(refused), refused
             refusals += 1
-        assert refusals == 8, "a dirty fixture and a fixture off its pinned tree are refused"
+        assert refusals == 10, "a dirty fixture and a fixture off its pinned tree are refused"
 
         again = root / "b-again"
         seed(SYNTHETIC, root, "t1", "B", again, components)
@@ -527,11 +571,9 @@ def self_test() -> None:
 
 
 def main() -> None:
-    if sys.argv[1:] == ["--self-test"]:
-        self_test()
-        return
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    verbs = parser.add_subparsers(dest="verb", required=True)
+    parser.add_argument("--self-test", action="store_true", help="run the embedded checks, and the corpus pass")
+    verbs = parser.add_subparsers(dest="verb")
     made = verbs.add_parser("seed", help="make an arm's copy of a task's fixture")
     made.add_argument("--task", required=True)
     made.add_argument("--arm", required=True)
@@ -553,6 +595,13 @@ def main() -> None:
     said.add_argument("--arm", required=True)
     verbs.add_parser("schedule", help="the run order")
     args = parser.parse_args()
+    if args.self_test:
+        if args.verb:
+            parser.error("--self-test takes no verb")
+        self_test()
+        return
+    if not args.verb:
+        parser.error("a verb (seed, present, rework, prompt, schedule) or --self-test")
     tasks = json.loads(TASKS.read_text())
     try:
         if args.verb == "seed":
