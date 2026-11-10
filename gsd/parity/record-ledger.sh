@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Records what the ledger fixture's tests report and what gsd-tools answers over it into goldens/ledger/. Run by
 # hand (needs cargo-nextest, and node 24 or later with a built gsd-core for the gsd-tools goldens), never in CI.
 #
@@ -12,7 +12,7 @@
 # state phase 01's verifier saw, over which the twin's verdicts are recorded. As record.sh: the verbs run on a copy that
 # is its own git repository, machine values are normalised, the goldens are replaced only when every step succeeded,
 # and a step that errors fails the script: fix the fixture, never a golden.
-set -eu
+set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
 fixture="$here/fixtures/ledger"
@@ -20,23 +20,26 @@ out="$here/goldens/ledger"
 
 if [ -n "${GSD_CORE_DIR:-}" ]; then
   tools="$GSD_CORE_DIR/gsd-core/bin/gsd-tools.cjs"
-  version=$(node -p "require('$GSD_CORE_DIR/package.json').version")
+  version=$(node -p 'require(process.argv[1]).version' "$GSD_CORE_DIR/package.json")
   [ "$version" = "1.19.0" ] || { echo "record-ledger.sh: GSD_CORE_DIR is gsd-core $version, the tracked release is 1.19.0" >&2; exit 1; }
   [ -f "$tools" ] || { echo "record-ledger.sh: $tools is missing" >&2; exit 1; }
 fi
 
-work=$(mktemp -d)
-staged="$work.staged"
-rm -rf "$staged"
-mkdir -p "$staged"
-trap 'rm -rf "$work" "$staged" "$work.target" "$work.nextest.toml" "$work.junit.xml"' EXIT
-git -C "$fixture" ls-files -z --cached --others --exclude-standard | tar -C "$fixture" -c --null -T - -f - | tar -x -C "$work/"
-(
-  cd "$work"
-  git init -q -b main
-  git -c user.name=ledger -c user.email=ledger@example.com add -A
-  git -c user.name=ledger -c user.email=ledger@example.com commit -q -m "ledger fixture"
-)
+# Everything the script writes but the goldens lives in one directory, removed on exit.
+root=$(mktemp -d)
+work="$root/work"
+staged="$root/staged"
+mkdir -p "$work" "$staged"
+trap 'rm -rf "$root"' EXIT
+# git never reads the operator's configuration or runs their hooks, as seed.py.
+quiet_git() {
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -c core.hooksPath=/dev/null -c commit.gpgsign=false \
+    -c user.name=ledger -c user.email=ledger@example.com "$@"
+}
+quiet_git -C "$fixture" ls-files -z --cached --others --exclude-standard | tar -C "$fixture" -c --null -T - -f - | tar -x -C "$work/"
+quiet_git -C "$work" init -q -b main
+quiet_git -C "$work" add -A
+quiet_git -C "$work" commit -q -m "ledger fixture"
 
 if [ -n "${GSD_CORE_DIR:-}" ]; then
   real=$(cd "$work" && pwd -P)
@@ -80,30 +83,37 @@ command -v cargo-nextest >/dev/null || { echo "record-ledger.sh: cargo-nextest i
 
 # Runs the copy's tests with nextest as `@rust/test` does (its profile, one thread so the cases come in one order) into
 # `$staged/$1`, with the run's id, timestamps, timings and thread ids normalised. A failing test is the point of the
-# red run, so nextest's exit status is not the script's; a missing report is.
+# red run, so nextest's exit status is not the script's; a missing report is, and then its log is printed.
 tests() {
-  config="$work.nextest.toml"
+  config="$root/nextest.toml"
+  junit="$root/junit.xml"
+  log="$root/nextest.log"
   printf '[profile.specforge]\nfail-fast = false\n\n[profile.specforge.junit]\npath = "%s"\nstore-success-output = false\nstore-failure-output = false\n' \
-    "$work.junit.xml" >"$config"
-  rm -f "$work.junit.xml"
-  (cd "$work" && CARGO_TARGET_DIR="$work.target" cargo-nextest nextest run --locked --workspace --test-threads 1 \
-    --tool-config-file "specforge:$config" --profile specforge >/dev/null 2>&1) || true
-  [ -f "$work.junit.xml" ] || { echo "record-ledger.sh: nextest wrote no report" >&2; exit 1; }
+    "$junit" >"$config"
+  rm -f "$junit"
+  (cd "$work" && CARGO_TARGET_DIR="$root/target" cargo-nextest nextest run --locked --workspace --test-threads 1 \
+    --tool-config-file "specforge:$config" --profile specforge >"$log" 2>&1) || true
+  [ -f "$junit" ] || { cat "$log" >&2; echo "record-ledger.sh: nextest wrote no report" >&2; exit 1; }
   sed -E -e 's/uuid="[^"]*"/uuid="00000000-0000-0000-0000-000000000000"/' \
     -e 's/timestamp="[^"]*"/timestamp="2026-11-05T16:40:00.000+00:00"/g' -e 's/time="[^"]*"/time="0"/g' \
-    -e 's/(&apos;[a-z0-9_]+&apos;) \([0-9]+\) panicked/\1 panicked/g' "$work.junit.xml" >"$staged/$1"
-  rm -f "$config" "$work.junit.xml"
+    -e 's/(&apos;[a-z0-9_]+&apos;) \([0-9]+\) panicked/\1 panicked/g' "$junit" >"$staged/$1"
 }
 tests rust-test.xml
+# The red run fails exactly one test, the i32 fold's.
+failures=$(grep -c '<failure' "$staged/rust-test.xml" || true)
+failed=$(grep -B1 '<failure' "$staged/rust-test.xml" || true)
+if [ "$failures" != 1 ] || [[ $failed != *'<testcase name="total_beyond_i32_is_exact"'* ]]; then
+  cat "$root/nextest.log" >&2
+  echo "record-ledger.sh: the red run must fail total_beyond_i32_is_exact alone; it fails $failures tests" >&2
+  exit 1
+fi
 sed -e 's/let mut sum = 0i32;/let mut sum = 0i64;/' -e 's/sum.wrapping_add(e.cents as i32)/sum.wrapping_add(e.cents)/' \
-  "$work/src/lib.rs" >"$work/lib.rs.fixed"
-cmp -s "$work/src/lib.rs" "$work/lib.rs.fixed" && { echo "record-ledger.sh: the i32 fold is not in src/lib.rs" >&2; exit 1; }
-cp "$work/src/lib.rs" "$work/lib.rs.red"
-mv "$work/lib.rs.fixed" "$work/src/lib.rs"
+  "$work/src/lib.rs" >"$root/lib.rs.fixed"
+cmp -s "$work/src/lib.rs" "$root/lib.rs.fixed" && { echo "record-ledger.sh: the i32 fold is not in src/lib.rs" >&2; exit 1; }
+mv "$root/lib.rs.fixed" "$work/src/lib.rs"
 tests rust-test-before-quick.xml
-mv "$work/lib.rs.red" "$work/src/lib.rs"
-grep -q '<failure' "$staged/rust-test.xml" || { echo "record-ledger.sh: the red run has no failing test" >&2; exit 1; }
 if grep -q '<failure' "$staged/rust-test-before-quick.xml"; then
+  cat "$root/nextest.log" >&2
   echo "record-ledger.sh: the run before the quick task fails" >&2
   exit 1
 fi
