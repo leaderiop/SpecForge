@@ -73,17 +73,17 @@ impl SyntaxCache {
         Some(entry)
     }
 
-    /// Keeps `entry` under `key`: whether it was written (a detached cache writes nothing and says so).
-    pub(crate) fn put(&self, key: &str, entry: &Entry) -> bool {
+    /// Keeps `entry` under `key`; the error, in words, when it cannot be written (a detached cache writes nothing and
+    /// is not an error).
+    pub(crate) fn put(&self, key: &str, entry: &Entry) -> Result<(), String> {
         let Some(path) = self.path(key) else {
-            return true;
+            return Ok(());
         };
-        let Ok(bytes) = serde_json::to_vec(entry) else {
-            return false;
-        };
-        path.parent()
-            .is_some_and(|dir| std::fs::create_dir_all(dir).is_ok())
-            && specforge_common::fresh::replace_file(&path, &bytes).is_ok()
+        let bytes = serde_json::to_vec(entry).map_err(|e| e.to_string())?;
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        }
+        specforge_common::fresh::replace_file(&path, &bytes).map_err(|e| e.to_string())
     }
 
     /// Removes the entries untouched for `max_age` before `now`: how many it removed.

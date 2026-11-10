@@ -14,6 +14,7 @@ use specforge_ops::analysis::collect::{Mode, Outcome, Request, RunnerOutput, col
 use specforge_ops::asking::Asking;
 use specforge_ops::testing::{ScriptedFailure, ScriptedMachine, ScriptedRun};
 use specforge_ops::{Caller, Containment};
+use specforge_project::harness::{Ledger, Line};
 use specforge_project::testing::TestProject;
 use specforge_protocol_types::Fact;
 
@@ -419,7 +420,7 @@ fn one_edit_parses_one_file() {
 
 #[specforge_test_macros::test(
     behavior = "dispatch_collector",
-    verify = "a syntax cache that cannot be written is W200 once, and the next collect parses again"
+    verify = "a syntax cache that cannot be written is W200 and the facts are still stored"
 )]
 fn an_unwritable_syntax_cache_is_w200() {
     let p = fixture();
@@ -427,20 +428,44 @@ fn an_unwritable_syntax_cache_is_w200() {
     let cache = p.root().join(specforge_source::CACHE_DIR);
     std::fs::create_dir_all(cache.parent().unwrap()).unwrap();
     std::fs::write(&cache, "in the way").unwrap();
-    let first = collected(&p, None, &machine(None));
+    // The error every entry's write meets: its shard directory cannot be made under a file.
+    let why = std::fs::create_dir_all(cache.join("00"))
+        .unwrap_err()
+        .to_string();
+    let mut first = collected(&p, None, &machine(None));
     assert_eq!(
         said(&first, "W200"),
         [format!(
-            "the syntax cache at {} could not be written for {READ} parsed files: the next collect parses them again",
+            "the syntax cache at {} could not be written for {READ} parsed files ({why}): the next collect parses \
+             them again",
             specforge_source::CACHE_DIR
         )]
+    );
+    // The facts are stored and recorded all the same.
+    let compiled = p.compile();
+    let view = specforge_ops::view::ProjectView::of(&compiled);
+    specforge_ops::authoring::apply::apply_collected(
+        &view,
+        Vec::new(),
+        std::mem::take(&mut first.facts),
+        false,
+        specforge_ops::testing::caller(),
+    )
+    .unwrap();
+    assert_eq!(store_ids(&p, "rust-source"), ITEMS);
+    let (key, bytes) = store(&p, "rust-source");
+    let ledger = Ledger::parse(&p.read("specforge-harness")).ledger;
+    assert!(
+        ledger.contains(&Line::facts("rust-source", &key, &bytes)),
+        "{}",
+        ledger.canonical()
     );
     let second = collected(&p, None, &machine(None));
     assert_eq!(syntax(&second, "rust-source"), (READ, 0));
 }
 
-/// The ids of the facts the store of `collector` holds, sorted: the one store `specforge collect` wrote for it.
-fn store_ids(p: &TestProject, collector: &str) -> Vec<String> {
+/// The key `collector`'s one store is filed under, and its bytes.
+fn store(p: &TestProject, collector: &str) -> (String, Vec<u8>) {
     let facts = p.root().join(".specforge/facts");
     let mut stores = std::fs::read_dir(&facts)
         .unwrap()
@@ -448,7 +473,16 @@ fn store_ids(p: &TestProject, collector: &str) -> Vec<String> {
         .filter(|store| store.is_file());
     let store = stores.next().expect("a store");
     assert!(stores.next().is_none(), "one store of {collector}");
-    let store: serde_json::Value = serde_json::from_slice(&std::fs::read(store).unwrap()).unwrap();
+    let key = store.parent().unwrap().file_name().unwrap();
+    (
+        key.to_string_lossy().into_owned(),
+        std::fs::read(&store).unwrap(),
+    )
+}
+
+/// The ids of the facts the store of `collector` holds, sorted: the one store `specforge collect` wrote for it.
+fn store_ids(p: &TestProject, collector: &str) -> Vec<String> {
+    let store: serde_json::Value = serde_json::from_slice(&store(p, collector).1).unwrap();
     let mut ids: Vec<String> = store["facts"]
         .as_array()
         .unwrap()

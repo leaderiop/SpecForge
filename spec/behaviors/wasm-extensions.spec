@@ -579,7 +579,8 @@ behavior dispatch_collector "Dispatch Collector" {
     its `syntax` in the answer counts the files parsed now, the files read
     from the syntax cache and the bytes parsed, and I214 says it; a second
     collect of an unchanged tree parses none. Parsed files the cache could
-    not take are W200, once per collect.
+    not take are W200, once per collect, with the error of the first write
+    that failed; the facts are still stored.
   """
   produces   [collector_dispatched]
   verify unit "a collector named by the runner receives each checked value's outcome"
@@ -605,7 +606,7 @@ behavior dispatch_collector "Dispatch Collector" {
   verify unit "the recorded facts of a kind are those of the stores the ledger records, sorted"
   verify integration "a second collect of an unchanged tree parses no file: each is read from the syntax cache"
   verify integration "a collect after one file's edit parses that file alone"
-  verify integration "a syntax cache that cannot be written is W200 once, and the next collect parses again"
+  verify integration "a syntax cache that cannot be written is W200 and the facts are still stored"
   verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only, declared_files_passed, facts_stored, facts_served, syntax_work_reported"
 }
 

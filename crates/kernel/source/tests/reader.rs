@@ -78,7 +78,8 @@ fn a_second_read_parses_nothing_and_answers_every_file_from_the_cache() {
             parsed: 3,
             cached: 0,
             bytes: 30,
-            unwritten: 0
+            unwritten: 0,
+            unwritable: None
         }
     );
     assert!(base.path().join(CACHE_DIR).is_dir());
@@ -139,7 +140,8 @@ fn a_detached_cache_parses_every_time() {
             parsed: 3,
             cached: 0,
             bytes: 30,
-            unwritten: 0
+            unwritten: 0,
+            unwritable: None
         }
     );
 }
@@ -187,6 +189,11 @@ fn a_cache_that_cannot_be_written_counts_unwritten_and_still_answers() {
     std::fs::write(base.path().join(CACHE_DIR), "a file").unwrap();
     let read = three().read(&counted(SyntaxCache::at(base.path())), QUERY);
     assert_eq!((read.work.parsed, read.work.unwritten), (3, 3));
+    // The first failed write's error is kept: a shard directory cannot be made under a file.
+    let why = std::fs::create_dir_all(base.path().join(CACHE_DIR).join("00"))
+        .unwrap_err()
+        .to_string();
+    assert_eq!(read.work.unwritable, Some(why));
     assert_eq!(names(&read), ["a", "b", "c"]);
 }
 

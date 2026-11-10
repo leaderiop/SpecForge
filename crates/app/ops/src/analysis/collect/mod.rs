@@ -299,8 +299,8 @@ pub fn collect(
         .collect::<Result<Vec<_>, OpError>>()?;
     approval::settle_runs(view, &planned, asking, consent, &mut unsaved_approvals)?;
     let mut served = order::Served::new(root, containment, &available);
-    // The syntax cache writes that failed, over every collector: W200 once.
-    let mut unwritten = 0;
+    // The syntax cache writes that failed over every collector, and the first one's error: W200 once.
+    let (mut unwritten, mut unwritable) = (0, None);
     for (collector, source) in planned {
         let Evidence {
             files,
@@ -345,8 +345,9 @@ pub fn collect(
         let mut syntax = None;
         if let Some(lent) = lent {
             diagnostics.extend(lent.take_denials());
-            let work = lent.take_syntax_work();
+            let mut work = lent.take_syntax_work();
             unwritten += work.unwritten;
+            unwritable = unwritable.or(work.unwritable.take());
             syntax = SyntaxWork::of(work);
             diagnostics.extend(syntax.map(|work| read_syntax(collector, work)));
         }
@@ -405,8 +406,9 @@ pub fn collect(
             syntax,
         });
     }
-    if unwritten > 0 {
-        diagnostics.push(unwritable_cache(unwritten));
+    // Every failed write carries its error, so a count without one is none.
+    if let Some(why) = unwritable {
+        diagnostics.push(unwritable_cache(unwritten, &why));
     }
 
     // An entry no collect touched for its age goes; a prune that cannot remove one only keeps it longer.
@@ -454,14 +456,14 @@ fn read_syntax(collector: &Collector, work: SyntaxWork) -> Diagnostic {
     )
 }
 
-/// W200: the syntax cache did not take `unwritten` parsed files (ADR 0353 D7).
-fn unwritable_cache(unwritten: usize) -> Diagnostic {
+/// W200: the syntax cache did not take `unwritten` parsed files, the first for `why` (ADR 0353 D7).
+fn unwritable_cache(unwritten: usize, why: &str) -> Diagnostic {
     let dir = specforge_source::CACHE_DIR;
     Diagnostic::new(
         codes::W200,
         format!(
-            "the syntax cache at {dir} could not be written for {unwritten} parsed files: the next collect parses \
-             them again"
+            "the syntax cache at {dir} could not be written for {unwritten} parsed files ({why}): the next collect \
+             parses them again"
         ),
     )
     .with_suggestion(format!("make {dir} writable, or remove what is in its way"))

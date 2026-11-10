@@ -50,7 +50,7 @@ impl PortSession {
         let read = reader.read(&query, &paths, &|path| load(path));
         let (files, kept) = self.held(read.files);
         // The answer counts the files it returns; the call's work is every parse made.
-        let answered: SyntaxWork = read.per_file[..kept].iter().copied().sum();
+        let answered: SyntaxWork = read.per_file[..kept].iter().cloned().sum();
         let mut not_parsed = Vec::new();
         let mut broken = Vec::new();
         for file in &files {

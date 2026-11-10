@@ -22,13 +22,17 @@ pub enum Loaded {
     NotParsed(NotParsed),
 }
 
-/// What a read did: files parsed now, files answered from the cache, bytes parsed now, cache writes that failed.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Shape)]
+/// What a read did: files parsed now, files answered from the cache, bytes parsed now, cache writes that failed and
+/// why the first of them did.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Shape)]
 pub struct SyntaxWork {
     pub parsed: usize,
     pub cached: usize,
     pub bytes: u64,
     pub unwritten: usize,
+    /// The error of the first cache write that failed, when one did.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unwritable: Option<String>,
 }
 
 impl std::ops::Add for SyntaxWork {
@@ -40,13 +44,14 @@ impl std::ops::Add for SyntaxWork {
             cached: self.cached + other.cached,
             bytes: self.bytes + other.bytes,
             unwritten: self.unwritten + other.unwritten,
+            unwritable: self.unwritable.or(other.unwritable),
         }
     }
 }
 
 impl std::ops::AddAssign for SyntaxWork {
     fn add_assign(&mut self, other: SyntaxWork) {
-        *self = *self + other;
+        *self = std::mem::take(self) + other;
     }
 }
 
@@ -159,7 +164,7 @@ impl SourceReader {
             .unzip();
         Read {
             files,
-            work: per_file.iter().copied().sum(),
+            work: per_file.iter().cloned().sum(),
             per_file,
         }
     }
@@ -201,7 +206,10 @@ impl SourceReader {
                         matches: matches.clone(),
                         errors: *errors,
                     };
-                    work.unwritten = usize::from(!self.cache.put(&key, &entry));
+                    if let Err(why) = self.cache.put(&key, &entry) {
+                        work.unwritten = 1;
+                        work.unwritable = Some(why);
+                    }
                 }
                 outcome
             }

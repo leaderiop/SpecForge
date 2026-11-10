@@ -4713,8 +4713,8 @@ write some of their answers to the syntax cache at `.specforge/cache/syntax`
 read-only or full. The collect's facts are stored as usual, but the next collect
 parses those files again instead of reading them from the cache, so it is as
 slow as a first one. Reported once per collect, with how many parsed files were
-not cached. Make `.specforge/cache/syntax` writable, or remove what is in its
-way.
+not cached and the error of the first write that failed. Make
+`.specforge/cache/syntax` writable, or remove what is in its way.
 
 Owner: core
 Level: warning
