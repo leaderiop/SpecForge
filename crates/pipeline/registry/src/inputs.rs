@@ -8,6 +8,7 @@ use specforge_protocol_types::{
     ExtensionDeclaration, FieldWriter, FileRead, Input, InputKind, Root,
 };
 
+use crate::compilation::UnloadedPeers;
 use crate::compilation::populate::keyword;
 
 /// The kinds of call that declare inputs.
@@ -119,10 +120,12 @@ pub fn setting_problem(owner: &str, extension: &str, name: &str) -> Option<&'sta
 
 /// The messages (W021) about the inputs `declaration` makes: an input its call kind is not served, a second input of
 /// a tag that is one per call (all but `files` and `setting`), a `setting` with a [`setting_problem`], a read with a
-/// [`read_problem`], a name two reads of one owner share, and a field no loaded extension declares.
+/// [`read_problem`], a name two reads of one owner share, and a field no loaded extension declares. A facts input of a
+/// kind an unloaded optional peer declares is inert, as a route part into one is (ADR 0331 D7): served empty, untold.
 pub(crate) fn problems(
     declaration: &ExtensionDeclaration,
     loaded: &[ExtensionDeclaration],
+    unloaded: &UnloadedPeers<'_>,
 ) -> Vec<String> {
     let name = declaration.name();
     let mut messages = Vec::new();
@@ -160,7 +163,7 @@ pub(crate) fn problems(
                     }
                     for kind in kinds
                         .iter()
-                        .filter(|kind| !declares_collected(loaded, kind))
+                        .filter(|kind| !declares_collected(loaded, kind) && !unloaded.declare(kind))
                     {
                         messages.push(said(
                             format!("the facts of kind '{kind}'"),
@@ -279,7 +282,9 @@ mod tests {
         });
         declare(&mut c);
         let declaration = c.declaration();
-        problems(&declaration, std::slice::from_ref(&declaration))
+        let none = crate::CandidateVocabulary::default();
+        let unloaded = UnloadedPeers::of(&declaration, &[], &none);
+        problems(&declaration, std::slice::from_ref(&declaration), &unloaded)
     }
 
     #[specforge_test_macros::test(
@@ -321,6 +326,32 @@ mod tests {
                  is declared twice",
                 "extension '@acme/facts': collector 'reader' declares the facts of kind 'nothing', which is not \
                  served: no loaded extension declares it collector-written",
+            ]
+        );
+    }
+
+    /// A collector reading the facts of a kind its optional peer declares: inert while the peer is not loaded, as a
+    /// route part into the peer's kind is (ADR 0331 D7); a kind no candidate declares is still W021.
+    #[test]
+    fn a_facts_input_of_an_unloaded_optional_peers_kind_is_inert() {
+        let mut peer = ContributionsBuilder::new(ExtensionMeta::new("@acme/code", "1.0.0"));
+        peer.kind("item", |k| {
+            k.collected(&["js"]);
+        });
+        let candidates = crate::CandidateVocabulary::of(&[peer.declaration()]).unwrap();
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/plans", "1.0.0"));
+        c.optional_peer("@acme/code", "^1.0");
+        c.collector("reader", |k| {
+            k.input(Input::facts(&["item", "nothing"]))
+                .collect(|_| Ok(CollectOutput::default()));
+        });
+        let declaration = c.declaration();
+        let unloaded = UnloadedPeers::of(&declaration, &["@acme/plans"], &candidates);
+        assert_eq!(
+            problems(&declaration, std::slice::from_ref(&declaration), &unloaded),
+            [
+                "extension '@acme/plans': collector 'reader' declares the facts of kind 'nothing', which is not \
+                 served: no loaded extension declares it collector-written"
             ]
         );
     }

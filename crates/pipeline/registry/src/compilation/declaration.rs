@@ -137,6 +137,7 @@ fn derived_from_problem(field: &FieldDescriptor, source: &str) -> Option<&'stati
 pub(crate) fn consistency(
     declaration: &ExtensionDeclaration,
     loaded: &[ExtensionDeclaration],
+    candidates: &super::CandidateVocabulary,
 ) -> Vec<Diagnostic> {
     let name = declaration.name();
     let mut diagnostics = Vec::new();
@@ -344,9 +345,12 @@ pub(crate) fn consistency(
             }
         }
     }
-    // ADR 0293, ADR 0337 D2: an input the host would serve empty is told, once.
+    // ADR 0293, ADR 0337 D2: an input the host would serve empty is told, once; one into an unloaded optional peer's
+    // kind is inert (ADR 0331 D7).
+    let names: Vec<&str> = loaded.iter().map(ExtensionDeclaration::name).collect();
+    let unloaded = super::UnloadedPeers::of(declaration, &names, candidates);
     diagnostics.extend(
-        crate::inputs::problems(declaration, loaded)
+        crate::inputs::problems(declaration, loaded, &unloaded)
             .into_iter()
             .map(warn),
     );

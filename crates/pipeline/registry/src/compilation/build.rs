@@ -491,7 +491,7 @@ pub fn build_registries_with(
     for declaration in &declarations {
         declaration_diagnostics.extend(about(
             BuildPart::Declaration,
-            consistency(declaration, &declarations),
+            consistency(declaration, &declarations, &candidates),
         ));
     }
     declaration_diagnostics.extend(about(BuildPart::Peers, peers::check(&declarations)));

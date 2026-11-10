@@ -84,6 +84,9 @@ patches past the answer cap are dropped and the answer says `truncated`. A signa
 - `specforge trace <requirement>` on a gsd project loading `@code/core` prints an `item` step and is incomplete until a
   task names a held item.
 - The thread of the taskboard twin prints as a tree: a task with two items has two matches.
+- gsd-git declares a `facts` input of `item`, which `@code/core` (an optional peer) declares. A facts input of a kind
+  an unloaded optional peer declares is inert, as a route part or a judged chain into one is (ADR 0331 D7): served
+  empty, with no W021, so a gsd project without `@code/core` is told nothing.
 
 ## What would reopen it
 
