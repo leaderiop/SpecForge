@@ -84,6 +84,8 @@ behavior rs_mint_item_facts "Mint Item Facts from Definitions" {
   verify unit "attributes and doc comments belong to the item directly below them"
   verify integration "a second collect answers the same facts"
   verify integration "a fixture crate's items are minted from its module tree by the host's reader"
+  verify integration "a source collect stores exactly the items of the files it reads"
+  verify integration "the source guest maps the fixture crate within a counted work budget"
 }
 
 behavior rs_mark_tests "Mark Test Functions with Their Runner Id and Entity" {

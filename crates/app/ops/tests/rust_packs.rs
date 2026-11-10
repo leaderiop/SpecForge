@@ -54,8 +54,16 @@ fn collect_or_refused(
     runner: Option<&str>,
     machine: &ScriptedMachine,
 ) -> Result<Outcome, String> {
-    let compiled = p.compile();
-    let view = specforge_ops::view::ProjectView::of(&compiled);
+    collect_in(&p.compile(), runner, machine)
+}
+
+/// [`collect_or_refused`] of the project `compiled`.
+fn collect_in(
+    compiled: &specforge_project::CompiledProject,
+    runner: Option<&str>,
+    machine: &ScriptedMachine,
+) -> Result<Outcome, String> {
+    let view = specforge_ops::view::ProjectView::of(compiled);
     // The disk, as the CLI lends it: rust-source's reads go through the host's own reader.
     let ports = Ports {
         fs: Arc::new(specforge_fs::LocalFs),
@@ -429,4 +437,72 @@ fn an_unwritable_syntax_cache_is_w200() {
     );
     let second = collected(&p, None, &machine(None));
     assert_eq!(syntax(&second, "rust-source"), (READ, 0));
+}
+
+/// The ids of the facts the store of `collector` holds, sorted: the one store `specforge collect` wrote for it.
+fn store_ids(p: &TestProject, collector: &str) -> Vec<String> {
+    let facts = p.root().join(".specforge/facts");
+    let mut stores = std::fs::read_dir(&facts)
+        .unwrap()
+        .map(|key| key.unwrap().path().join(format!("{collector}.json")))
+        .filter(|store| store.is_file());
+    let store = stores.next().expect("a store");
+    assert!(stores.next().is_none(), "one store of {collector}");
+    let store: serde_json::Value = serde_json::from_slice(&std::fs::read(store).unwrap()).unwrap();
+    let mut ids: Vec<String> = store["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["id"].as_str().unwrap().to_string())
+        .collect();
+    ids.sort();
+    ids
+}
+
+#[specforge_test_macros::test(
+    behavior = "rs_mint_item_facts",
+    verify = "a source collect stores exactly the items of the files it reads"
+)]
+fn the_store_holds_exactly_the_fixtures_items() {
+    let p = fixture();
+    stored(&p);
+    assert_eq!(store_ids(&p, "rust-source"), ITEMS);
+}
+
+/// Every call of the fixture's compile and collect within this many instructions: the next power of ten above twice
+/// what the costliest call, `@rust/source`'s collect of the fixture, spent when it was set (between 1,260,072 and
+/// 1,265,029). A guest that maps the fixture with about eight times that work fails here, on any machine.
+const FUEL: u64 = 10_000_000;
+
+/// The items `@rust/source` mints from the fixture: its lib's module tree (the `#[path]` module `ops`), its bin and
+/// its integration test.
+const ITEMS: [&str; 10] = [
+    "rust:adder/bin/adder::main",
+    "rust:adder/bin/adder::tests",
+    "rust:adder/bin/adder::tests::adds",
+    "rust:adder/test/api::tests",
+    "rust:adder/test/api::tests::adds",
+    "rust:adder::ops",
+    "rust:adder::ops::add",
+    "rust:adder::tests",
+    "rust:adder::tests::adds",
+    "rust:adder::tests::slow",
+];
+
+#[specforge_test_macros::test(
+    behavior = "rs_mint_item_facts",
+    verify = "the source guest maps the fixture crate within a counted work budget"
+)]
+fn the_source_guest_maps_the_fixture_within_its_fuel() {
+    // Without `@specforge/software`, whose `describe` costs more than the collect: its behavior is E024, not E028.
+    let p = TestProject::copy_of(FIXTURE).enabling(&PACKS[1..]);
+    let runtime = specforge_component::ComponentRuntime::with_user_cache().with_work_budget(FUEL);
+    let compiled = p.compile_in(Arc::new(runtime));
+    assert!(
+        !compiled.diagnostics().iter().any(|d| d.code == "E028"),
+        "{:?}",
+        compiled.diagnostics()
+    );
+    let outcome = collect_in(&compiled, None, &machine(None)).unwrap();
+    assert_eq!(facts(&outcome, "rust-source").len(), ITEMS.len());
 }
