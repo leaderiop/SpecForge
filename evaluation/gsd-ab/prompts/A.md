@@ -24,4 +24,4 @@ claim about the repository: make it only when the repository shows it.
 - When a test, a check or the state disagrees with a claim, do not make the claim: report the disagreement.
 - Stop when the task is done or you cannot go on.
 
-End your final message with one line: `RESULT: verified`, `RESULT: complete`, `RESULT: passed`, `RESULT: not verified` or `RESULT: blocked`.
+End your final message with one line: {task.results}

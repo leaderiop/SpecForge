@@ -5,6 +5,8 @@ Usage:
     python3 -I evaluation/gsd-ab/seed.py seed --task <id> --arm A|B|B0 --out <dir>
         [--gsd-core <wasm>] [--gsd-security <wasm>] [--state complete] [--unseeded]
     python3 -I evaluation/gsd-ab/seed.py present --task <id> --arm A|B|B0 --dir <dir>
+    python3 -I evaluation/gsd-ab/seed.py rework --arm A|B|B0 --dir <dir>
+    python3 -I evaluation/gsd-ab/seed.py prompt --task <id> --arm A|B|B0
     python3 -I evaluation/gsd-ab/seed.py schedule
     python3 -I evaluation/gsd-ab/seed.py --self-test
 
@@ -18,8 +20,12 @@ copy the tests compare a seeded one with. Two seedings of one (task, arm) with t
 `present` names the seeded defects still in a copy after a run (the run file's `defects_present`): a defect is present
 while any of its edits holds (a text it inserted is still in its file, a text or file it deleted is still gone, a commit
 it made is reachable from HEAD) and none of its `resolved_if` does. A defect seeded by several edits (arm A's S3 lies
-in ROADMAP.md and STATE.md) is fixed only when every lie is. `schedule` prints the run order: each (task, seed) once, its arms in an order drawn
-with a fixed RNG seed, no arm first twice in a row.
+in ROADMAP.md and STATE.md) is fixed only when every lie is. `rework` counts the run's commits (those after the last
+seeded one) that come after its first commit writing verification state: in A a `.planning/phases/*/*-VERIFICATION.md`,
+in B and B0 a `verdict:` line of `specforge-harness`; 0 when none does (the run file's `rework_commits`). `prompt`
+prints the run's one message: `prompts/<arm>.md` with the task's prompt and its workflow's `RESULT:` values (from
+`tasks.json#results`) in place of `{task.prompt}` and `{task.results}`. `schedule` prints the run order: each (task,
+seed) once, its arms in an order drawn with a fixed RNG seed, no arm first twice in a row.
 
 Standard library and the `git` program only (arm A's gsd-core needs git too), Python 3.11+.
 """
@@ -27,6 +33,7 @@ Standard library and the `git` program only (arm A's gsd-core needs git too), Py
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import random
@@ -238,6 +245,45 @@ def present(tasks: dict, task_id: str, arm_id: str, copy: Path) -> list[str]:
     ]
 
 
+def writes_verification(copy: Path, arm_id: str, commit: str) -> bool:
+    """Whether `commit` writes verification state: in A a phase's VERIFICATION.md, in B and B0 a verdict line of the
+    harness ledger."""
+    if arm_id == "A":
+        changed = git(copy, "diff-tree", "--root", "--no-commit-id", "--name-only", "-r", commit).splitlines()
+        return any(fnmatch.fnmatch(path, ".planning/phases/*/*-VERIFICATION.md") for path in changed)
+    diff = git(copy, "show", "--format=", "--unified=0", commit, "--", "specforge-harness")
+    return any(line.startswith("+") and " verdict:" in line for line in diff.splitlines())
+
+
+def rework(arm_id: str, copy: Path) -> int:
+    """The run's commits after its first one that writes verification state, or 0 when none does. The run's commits
+    are those after the last commit the seeding made (its author is the seeding's identity)."""
+    if arm_id not in ARMS:
+        raise Refused(f"no such arm: {arm_id}")
+    base = git(copy, "log", "-1", "--format=%H", f"--author=<{IDENTITY[1]}>", "HEAD").strip()
+    if not base:
+        raise Refused(f"{copy}: no commit of the seeding, so no run to count")
+    commits = git(copy, "rev-list", "--reverse", f"{base}..HEAD").split()
+    for index, commit in enumerate(commits):
+        if writes_verification(copy, arm_id, commit):
+            return len(commits) - index - 1
+    return 0
+
+
+def prompt(tasks: dict, task_id: str, arm_id: str, prompts: Path = HERE / "prompts") -> str:
+    """The run's one message: `prompts/<arm>.md` with the task's prompt and its workflow's RESULT values filled in."""
+    task = find(tasks["tasks"], task_id, "task")
+    find(tasks["arms"], arm_id, "arm")
+    text = (prompts / f"{arm_id}.md").read_text()
+    for holder in ("{task.prompt}", "{task.results}"):
+        if text.count(holder) != 1:
+            raise Refused(f"prompts/{arm_id}.md holds {holder} {text.count(holder)} times, not once")
+    results = " or ".join(
+        f"`RESULT: {result['value']}` ({result['means']})" for result in tasks["results"][task["workflow"]]
+    )
+    return text.replace("{task.prompt}", task["prompt"]).replace("{task.results}", f"{results}.")
+
+
 def schedule(tasks: dict, seeds: int = SEEDS) -> list[tuple[str, int, list[str]]]:
     """Every (task, seed) once, with all arms, in an order drawn per (task, seed) by a fixed RNG; when a draw would
     put the previous first arm first again, it is rotated by one."""
@@ -380,6 +426,22 @@ def self_test() -> None:
         (a / ".planning/STATE.md").write_text("status: planned\n")
         assert present(SYNTHETIC, "t1", "A", a) == [], "and STATE.md restored: D1 too"
 
+        # The run's commits come after the seeded ones; rework counts those after the first verification write.
+        def agent_commit(copy: Path, path: str, text: str) -> None:
+            (copy / path).parent.mkdir(parents=True, exist_ok=True)
+            (copy / path).write_text(text)
+            git(copy, "add", "--", path)
+            git(copy, "-c", "user.email=agent@example.com", "commit", "-q", "-m", f"agent: {path}")
+
+        assert (rework("A", a), rework("B", b)) == (0, 0), "no run commit, no rework"
+        agent_commit(a, "src/a.js", "1\n")
+        agent_commit(a, ".planning/phases/01-core/01-VERIFICATION.md", "status: gaps_found\n")
+        agent_commit(a, "src/a.js", "2\n")
+        agent_commit(b, "specforge-harness", "# specforge-harness 1\nv1.0/01/01-01/TR1 verdict:gsd/E501 ab\n")
+        for n in range(2):
+            agent_commit(b, "src/b.js", f"{n}\n")
+        assert (rework("A", a), rework("B", b)) == (1, 2), "the commits after the first verification write"
+
         # A deletion (D5) holds while its text is gone, the file too; an insertion (D6) while its new text is there.
         t4 = root / "t4"
         seed(SYNTHETIC, root, "t4", "A", t4)
@@ -397,6 +459,12 @@ def self_test() -> None:
         assert all(x != y for x, y in zip(firsts, firsts[1:])), f"no arm first twice in a row: {firsts}"
 
         tasks = json.loads(TASKS.read_text())
+        for task in tasks["tasks"]:
+            for arm in ARMS:
+                message = prompt(tasks, task["id"], arm)
+                values = [result["value"] for result in tasks["results"][task["workflow"]]]
+                assert "{task." not in message and task["prompt"] in message, (task["id"], arm)
+                assert all(f"`RESULT: {value}`" in message.splitlines()[-1] for value in values), (task["id"], arm)
         made = corpus(tasks, REPO, root / "corpus")
         assert made == len(tasks["tasks"]) * len(ARMS) * 2
         print(f"corpus: {made} copies, each seeded one naming its seeds and each unseeded one none")
@@ -421,6 +489,12 @@ def main() -> None:
     held.add_argument("--task", required=True)
     held.add_argument("--arm", required=True)
     held.add_argument("--dir", required=True, type=Path)
+    counted = verbs.add_parser("rework", help="the run's rework commits")
+    counted.add_argument("--arm", required=True)
+    counted.add_argument("--dir", required=True, type=Path)
+    said = verbs.add_parser("prompt", help="the run's one message")
+    said.add_argument("--task", required=True)
+    said.add_argument("--arm", required=True)
     verbs.add_parser("schedule", help="the run order")
     args = parser.parse_args()
     tasks = json.loads(TASKS.read_text())
@@ -433,6 +507,10 @@ def main() -> None:
             print(json.dumps({"task": args.task, "arm": args.arm, "edits": applied, "head": head}))
         elif args.verb == "present":
             print(json.dumps(present(tasks, args.task, args.arm, args.dir)))
+        elif args.verb == "rework":
+            print(rework(args.arm, args.dir))
+        elif args.verb == "prompt":
+            print(prompt(tasks, args.task, args.arm), end="")
         else:
             for task, number, arms in schedule(tasks):
                 print(f"{task} {number} {' '.join(arms)}")

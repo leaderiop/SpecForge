@@ -10,8 +10,8 @@ claim about the repository: make it only when the repository shows it.
   in this project: its slash commands `/gsd-progress`, `/gsd-resume-work`, `/gsd-execute-phase`, `/gsd-verify-work`,
   `/gsd-ship` and the others `/gsd-help` lists, and the `specforge` MCP server (`specforge install claude-code`
   from the tagged commit).
-- `specforge check` reports what the graph and the repository disagree on; `specforge query <id>`, `specforge
-  search <text>` read it; `specforge gsd <verb>` runs a workflow step (`specforge gsd --help`).
+- `specforge check` reports what the graph and the repository disagree on; `specforge query <id>` reads it
+  (`--depth <n>` with its neighbours); `specforge gsd <verb>` runs a workflow step (`specforge gsd --help`).
 - `specforge collect` records the project's test runs and commits as facts; `specforge trace <requirement>` follows
   a requirement to its plans, tasks, commits, tests and verdicts.
 - The project's own test command is in its manifest (`npm test`, `cargo test`).
@@ -28,4 +28,4 @@ claim about the repository: make it only when the repository shows it.
 - When a test, a check or the state disagrees with a claim, do not make the claim: report the disagreement.
 - Stop when the task is done or you cannot go on.
 
-End your final message with one line: `RESULT: verified`, `RESULT: complete`, `RESULT: passed`, `RESULT: not verified` or `RESULT: blocked`.
+End your final message with one line: {task.results}

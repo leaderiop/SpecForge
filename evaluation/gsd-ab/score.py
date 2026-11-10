@@ -21,6 +21,7 @@ import contextlib
 import io
 import json
 import random
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -28,9 +29,8 @@ from pathlib import Path
 TASKS = Path(__file__).resolve().parent / "tasks.json"
 RESAMPLES = 10_000
 RNG_SEED = 20261102
-CLAIMED = {"verified", "complete", "passed"}
-# What the run's `RESULT:` line says (prompts/<arm>.md), or "none" when the run ended without one.
-REPORTS = CLAIMED | {"not verified", "blocked", "none"}
+# A run's `final_report` is a value of its workflow's `results` (tasks.json), or this when it ended without one.
+NO_RESULT = "none"
 # Every run file holds these fields, of these types (README section 7, OPERATOR.md).
 FIELDS = {
     "arm": str, "task": str, "seed": int, "model": str, "temperature": (int, float), "host": dict, "budget": dict,
@@ -50,17 +50,29 @@ class Unpaired(ValueError):
     """A run with no partner run of the same (task, seed) in the other arm."""
 
 
-def measures(run: dict, task: dict, defects: dict) -> dict:
-    """M1-M6 of one run (README section 6), `defects` the corpus's by id. M4 is per arm, so it is the run's tokens
-    and plans. M3 counts only the defects a run can remove: one marked `"fixable": false` (a seeded commit stays in
-    history) is judged by an acceptance row instead."""
+def claiming(corpus: dict, task: dict) -> set[str]:
+    """The `RESULT:` values of the task's workflow that claim the work done (`"claims": true` in tasks.json)."""
+    return {result["value"] for result in corpus["results"][task["workflow"]] if result["claims"]}
+
+
+def kind_of(corpus: dict, key: str) -> dict | None:
+    """The kind of `states` (tasks.json) whose id pattern a ground truth key matches, or None."""
+    kinds = [kind for kind in corpus["states"]["kinds"] if re.fullmatch(kind["id"], key)]
+    return kinds[0] if len(kinds) == 1 else None
+
+
+def measures(run: dict, task: dict, corpus: dict) -> dict:
+    """M1-M6 of one run (README section 6), `corpus` the tasks.json it belongs to. M4 is per arm, so it is the run's
+    tokens and plans. M3 counts only the defects a run can remove: one marked `"fixable": false` (a seeded commit
+    stays in history) is judged by an acceptance row instead."""
+    defects = {defect["id"]: defect for defect in corpus.get("defects", [])}
     truth = task.get("ground_truth", {})
     claims = run.get("claims", {})
     drift = sum(1 for key, state in claims.items() if key in truth and truth[key] != state)
     seeded = {defect for defect in task.get("seeded", []) if defects.get(defect, {}).get("fixable", True)}
     # The defects the requirement thread exists to catch (`"thread": true`): H2 counts false "verified" over these.
     thread = {defect for defect, about in defects.items() if about.get("thread")}
-    claimed = run.get("final_report") in CLAIMED
+    claimed = run.get("final_report") in claiming(corpus, task)
     present = seeded & set(run.get("defects_present", [])) if claimed else set()
     return {
         "M1": 1.0 if all(run.get("acceptance", {}).values()) and run.get("acceptance") else 0.0,
@@ -79,13 +91,12 @@ def pair(runs: list[dict], tasks: dict, treated: str, control: str) -> dict:
     """{task: {seed: (treated measures, control measures)}} over the runs of the two arms. Raises
     Unpaired when a run of either arm has no partner, and ValueError for an unknown task."""
     by_id = {task["id"]: task for task in tasks["tasks"]}
-    defects = {defect["id"]: defect for defect in tasks.get("defects", [])}
     held: dict[tuple[str, str, int], dict] = {}
     for run in runs:
         if run["task"] not in by_id:
             raise ValueError(f"{run['arm']}/{run['task']}/{run['seed']}: no such task in tasks.json")
         if run["arm"] in (treated, control):
-            held[(run["arm"], run["task"], run["seed"])] = measures(run, by_id[run["task"]], defects)
+            held[(run["arm"], run["task"], run["seed"])] = measures(run, by_id[run["task"]], tasks)
     pairs: dict[str, dict[int, tuple[dict, dict]]] = {}
     for (arm, task, seed), _ in sorted(held.items()):
         other = control if arm == treated else treated
@@ -183,8 +194,6 @@ def check_run(run: dict, tasks: dict, where: str) -> None:
             raise ValueError(f"{where}: `{key}` is {type(run[key]).__name__}, not {kind}")
     if run["arm"] not in ("A", "B", "B0"):
         raise ValueError(f"{where}: arm {run['arm']!r} is none of A, B and B0")
-    if run["final_report"] not in REPORTS:
-        raise ValueError(f"{where}: final_report {run['final_report']!r} is none of {sorted(REPORTS)}")
     for block, keys in (("host", HOST), ("budget", BUDGET)):
         missing = [key for key in keys if key not in run[block]]
         if missing:
@@ -200,6 +209,9 @@ def check_run(run: dict, tasks: dict, where: str) -> None:
     task = next((task for task in tasks["tasks"] if task["id"] == run["task"]), None)
     if task is None:
         raise ValueError(f"{where}: no task {run['task']!r} in tasks.json")
+    results = [result["value"] for result in tasks["results"][task["workflow"]]] + [NO_RESULT]
+    if run["final_report"] not in results:
+        raise ValueError(f"{where}: final_report {run['final_report']!r} is none of {task['workflow']}'s {results}")
     for row, passed in run["acceptance"].items():
         if not isinstance(passed, bool):
             raise ValueError(f"{where}: acceptance {row!r} is {passed!r}, not true or false")
@@ -209,6 +221,11 @@ def check_run(run: dict, tasks: dict, where: str) -> None:
     if sorted(run["claims"]) != sorted(task["ground_truth"]):
         truth = sorted(task["ground_truth"])
         raise ValueError(f"{where}: claims are keyed {sorted(run['claims'])}, not by the ground truth's {truth}")
+    for key, state in run["claims"].items():
+        kind = kind_of(tasks, key)
+        if kind is None or state not in kind["values"]:
+            words = kind["values"] if kind else "no kind's"
+            raise ValueError(f"{where}: claim {key}: {state!r} is none of its vocabulary, {words}")
     for defect in run["defects_present"]:
         if not isinstance(defect, str) or defect not in task["seeded"]:
             raise ValueError(f"{where}: defects_present holds {defect!r}, not one of the task's seeds {task['seeded']}")
@@ -251,13 +268,21 @@ def write_runs(root: Path, runs: list[dict]) -> None:
         path.write_text(json.dumps(run))
 
 
+# The synthetic corpus's defects, results and states: one thread defect, a verify workflow, and one kind of key.
+VOCABULARY = {
+    "defects": [{"id": "S1", "thread": True}, {"id": "S2"}, {"id": "S4", "fixable": False}],
+    "results": {"verify": [{"value": "verified", "claims": True}, {"value": "not verified", "claims": False}]},
+    "states": {"kinds": [{"kind": "plan", "id": "^p$", "values": ["planned", "complete"]}]},
+}
+
+
 def synthetic(b_wins: bool, b_tokens: float = 1.0, a_plans: int = 1) -> tuple[list[dict], dict]:
     """Four tasks seeded with S1 (a thread defect) and S2 (not one), three seeds, arms A, B and B0. A leaves both
     defects and drifts. B leaves none and no drift when it wins, and repeats A when it doesn't. B0 always leaves S1
     but not S2, so B beats B0 on the thread's defects exactly when B wins. B spends `b_tokens` times A's tokens, and A
     completes `a_plans` plans a run (every other arm one)."""
-    tasks = {"defects": [{"id": "S1", "thread": True}, {"id": "S2"}], "tasks": [
-        {"id": f"t{i}", "seeded": ["S1", "S2"], "ground_truth": {"p": "complete"},
+    tasks = {**VOCABULARY, "tasks": [
+        {"id": f"t{i}", "workflow": "verify", "seeded": ["S1", "S2"], "ground_truth": {"p": "complete"},
          "acceptance": [{"text": "tests", "run": "true"}]}
         for i in range(4)
     ]}
@@ -316,14 +341,14 @@ def self_test() -> None:
     assert difference(spread, "M2") == 4.5 and abs(low - 2.72) <= 0.2 and abs(high - 6.28) <= 0.2, (low, high)
     # H2 counts the thread's defects only: S2 left by B0 alone would not count.
     measured = measures(
-        {"final_report": "verified", "defects_present": ["S2"]}, {"seeded": ["S1", "S2"]},
-        {"S1": {"id": "S1", "thread": True}, "S2": {"id": "S2"}},
+        {"final_report": "verified", "defects_present": ["S2"]}, {"workflow": "verify", "seeded": ["S1", "S2"]},
+        VOCABULARY,
     )
     assert (measured["M3"], measured["M3_thread"]) == (1.0, 0.0), measured
     # A defect no run can remove (its seeded commit stays in history) is out of M3.
     measured = measures(
-        {"final_report": "complete", "defects_present": ["S1", "S4"]}, {"seeded": ["S1", "S4"]},
-        {"S4": {"id": "S4", "fixable": False}},
+        {"final_report": "verified", "defects_present": ["S1", "S4"]}, {"workflow": "verify", "seeded": ["S1", "S4"]},
+        VOCABULARY,
     )
     assert measured["M3"] == 1.0, measured
     runs, tasks = synthetic(b_wins=True)
@@ -342,7 +367,7 @@ def self_test() -> None:
             unpaired = status(Path(tmp), tasks)
         assert (empty, unpaired) == (2, 2), (empty, unpaired)
         assert said.getvalue().count("score.py: ") == 2 and "no B run" in said.getvalue(), said.getvalue()
-    # The run files' own refusals, counted: exactly these eight.
+    # The run files' own refusals, counted: exactly these ten.
     run = runs[0]
     for what, bad in (
         ("a run file without its host", {key: value for key, value in run.items() if key != "host"}),
@@ -354,6 +379,8 @@ def self_test() -> None:
         ("a claim on a key the ground truth does not have", {**run, "claims": {"p": "complete", "q": "complete"}}),
         ("a defect the task does not seed", {**run, "defects_present": ["S9"]}),
         ("a defect that is not a name", {**run, "defects_present": [1]}),
+        ("a claim outside its key's vocabulary", {**run, "claims": {"p": "done"}}),
+        ("a RESULT the task's workflow does not have", {**run, "final_report": "complete"}),
     ):
         refused_file(what, bad, tasks)
     print("self-test: ok")

@@ -21,9 +21,9 @@ fn the_scorer_passes_its_self_test() {
 }
 
 /// The scorer's self-test reads its synthetic runs back as files and pairs all of them, refuses an unpaired run, and
-/// refuses exactly eight bad run files.
+/// refuses exactly ten bad run files.
 #[test]
-fn the_scorer_pairs_twelve_runs_and_refuses_eight_run_files() {
+fn the_scorer_pairs_twelve_runs_and_refuses_ten_run_files() {
     let run = python("score.py", &["--self-test"]);
     let stdout = String::from_utf8_lossy(&run.stdout);
     assert!(
@@ -33,7 +33,7 @@ fn the_scorer_pairs_twelve_runs_and_refuses_eight_run_files() {
     let count = |prefix: &str| stdout.lines().filter(|l| l.starts_with(prefix)).count();
     assert_eq!(
         (count("refused: "), count("refused run file: ")),
-        (1, 8),
+        (1, 10),
         "{stdout}"
     );
 }
@@ -77,7 +77,7 @@ fn run_files_are_ignored() {
 }
 
 /// The corpus is frozen as v1: three ready fixtures whose paths exist, twelve tasks, each listed defect seeded in arm A
-/// and arm B, each `b_signals` row about a seeded defect, and no word `pending` left in it.
+/// and arm B, each `b_signals` row about a seeded defect, and no status `pending` left in it.
 #[test]
 fn the_corpus_is_frozen_as_v1() {
     let tasks = ab_tasks();
@@ -117,8 +117,9 @@ fn the_corpus_is_frozen_as_v1() {
         }
     }
     let text = std::fs::read_to_string(ab_dir().join("tasks.json")).expect("tasks.json");
+    // `pending` is also a word of the states' vocabularies; a placeholder is a fixture or task whose status says it.
     assert_eq!(
-        text.matches("pending").count(),
+        text.matches("\"status\": \"pending\"").count(),
         0,
         "a frozen corpus has nothing pending"
     );
@@ -151,6 +152,54 @@ fn a_verify_tasks_seeded_truths_are_not_verified() {
     );
 }
 
+/// Every ground truth key is of exactly one kind of `states` (its `id` pattern), with a value of that kind's
+/// vocabulary and a read for arms A and B; every task's workflow has its RESULT values, one or more of them claiming
+/// the work done.
+#[test]
+fn every_ground_truth_key_has_one_kind_and_a_read_per_arm() {
+    let tasks = ab_tasks();
+    let kinds = tasks["states"]["kinds"].as_array().expect("states.kinds");
+    for kind in kinds {
+        for arm in ["A", "B"] {
+            let read = &kind[arm];
+            assert!(
+                ["read", "at"]
+                    .iter()
+                    .all(|k| read[k].as_str().is_some_and(|s| !s.is_empty()))
+                    && read["map"].as_object().is_some_and(|m| !m.is_empty()),
+                "{}: arm {arm} has no read, at and map",
+                kind["kind"]
+            );
+        }
+    }
+    let mut keys = 0;
+    for task in tasks["tasks"].as_array().expect("tasks") {
+        let id = task["id"].as_str().expect("an id");
+        for (key, value) in task["ground_truth"].as_object().expect("ground_truth") {
+            let of: Vec<&serde_json::Value> = kinds
+                .iter()
+                .filter(|k| {
+                    regex::Regex::new(k["id"].as_str().expect("an id pattern"))
+                        .expect("a pattern")
+                        .is_match(key)
+                })
+                .collect();
+            assert_eq!(of.len(), 1, "{id}: {key} is of {} kinds", of.len());
+            let values = of[0]["values"].as_array().expect("values");
+            assert!(
+                values.contains(value),
+                "{id}: {key} = {value}, none of {values:?}"
+            );
+            keys += 1;
+        }
+        let results = tasks["results"][task["workflow"].as_str().expect("a workflow")]
+            .as_array()
+            .unwrap_or_else(|| panic!("{id}: its workflow has no results"));
+        assert!(results.iter().any(|r| r["claims"] == true), "{id}");
+    }
+    assert!(keys >= 30, "{keys} ground truth keys");
+}
+
 #[test]
 fn no_task_is_a_placeholder() {
     let tasks = ab_tasks();
@@ -178,9 +227,9 @@ fn prompt(arm: &str) -> (String, String) {
         .rev()
         .find(|l| !l.trim().is_empty())
         .unwrap_or_default();
-    assert!(
-        last.starts_with("End your final message with one line: `RESULT: "),
-        "{arm}: the prompt ends with the RESULT instruction, not `{last}`"
+    assert_eq!(
+        last, "End your final message with one line: {task.results}",
+        "{arm}: the prompt ends with the RESULT instruction, its values the task's workflow's"
     );
     let (before, rest) = text
         .split_once("<!-- commands -->\n")

@@ -21,10 +21,12 @@ committed.
 
 ## 2. Arms
 
-Same model, same temperature, same tool budget, same task prompts. The prompt is `prompts/<arm>.md`, the task's
-`prompt` put in place of `{task.prompt}`: the three files are one text except their commands block (between
-`<!-- commands -->` and `<!-- /commands -->`), which names the arm's tools (B0's is B's), and all end asking for
-one `RESULT:` line, whose value is the run's `final_report`. Each arm's configuration is frozen in `tasks.json#arms`
+Same model, same temperature, same tool budget, same task prompts. The prompt is `prompts/<arm>.md` with the task's
+`prompt` in place of `{task.prompt}` and its workflow's `RESULT:` values in place of `{task.results}`, as `seed.py
+prompt` prints it: the three files are one text except their commands block (between `<!-- commands -->` and
+`<!-- /commands -->`), which names the arm's tools (B0's is B's), and all end asking for one `RESULT:` line, whose
+value is the run's `final_report`. `tasks.json#results` gives each workflow's values, what each means, and whether it
+claims the work done (`complete` for execute, `verified` for verify, `passed` for progress/resume and ship). Each arm's configuration is frozen in `tasks.json#arms`
 (`config`: the extensions by name, whether the fixture's thread packs load, the settings; `drop`: the fixture's paths
 the arm does not see), and `seed.py` writes it into every copy.
 
@@ -98,11 +100,17 @@ Per arm, per (task, seed) run. The operator's scripts write a run file (section 
 | Id | Measure | From the run file |
 |---|---|---|
 | M1 | first-pass acceptance | every `acceptance` check passed on the first delivery |
-| M2 | state-drift incidents | claims the agent leaves (status, progress, "complete", "verified") that differ from the task's `ground_truth`, recomputed from the repository after the run |
-| M3 | false "verified" | seeded defects a run can remove still present at the end of a run whose final report says verified, complete or passed |
+| M2 | state-drift incidents | claims the agent leaves (status, progress, "complete", "verified") that differ from the task's `ground_truth`, each read from the copy after the run as `tasks.json#states` says for its kind and arm |
+| M3 | false "verified" | seeded defects a run can remove still present at the end of a run whose `RESULT:` claims the work done (`"claims": true` in `tasks.json#results`) |
 | M4 | tokens per completed plan | total tokens over plans completed, per arm |
 | M5 | wall time and human interventions | `wall_seconds`, `interventions` |
-| M6 | rework commits after verify | `rework_commits` |
+| M6 | rework commits after verify | `rework_commits`: the run's commits after its first one that writes verification state (A: a `VERIFICATION.md`; B: a verdict, a `verdict:` line of `specforge-harness`), 0 when none does; `seed.py rework` counts them |
+
+M2 is mechanical. A ground truth key's kind (`tasks.json#states.kinds`) is the one whose `id` pattern it matches; its
+value and the run's claim on it are words of that kind's `values`, and `score.py` refuses any other. Each kind says,
+per arm, what is read (a command or a file), where in it, and the map from the tool's words to the kind's; B0 reads as
+B. In B a value the agent wrote on a computed field (`E082`) is its claim, and a verdict gone stale reads as its
+recorded outcome in both arms: a run that leaves a stale "verified" in place has left that claim.
 
 S4 is seeded but not counted in M3: its commit stays in history whatever a run does, so every correct execute run
 would score it in every arm (`"fixable": false` in `tasks.json#defects`). Each execute task judges it instead, by the
@@ -185,7 +193,8 @@ or none), with the reason on standard error.
 
 `--self-test` writes an embedded synthetic set (4 tasks, 3 seeds, 3 arms) as run files and reads it back, scores it
 where B clearly wins and where it doesn't, checks the gate B verdict of each and that an unpaired run is refused, and
-refuses exactly eight bad run files: one without its host, one whose interventions are not logged, one whose
+refuses exactly ten bad run files: one without its host, one whose interventions are not logged, one whose
 intervention has a reason outside the list, one whose acceptance value is not a boolean, one with an acceptance row
-its task does not have, one with a claim on a key outside the task's ground truth, and two whose `defects_present`
-holds what the task does not seed (an unknown id, a number).
+its task does not have, one with a claim on a key outside the task's ground truth, two whose `defects_present` holds
+what the task does not seed (an unknown id, a number), one whose claim is outside its key's vocabulary, and one whose
+`final_report` is not a `RESULT:` value of its task's workflow.

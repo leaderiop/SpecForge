@@ -28,26 +28,32 @@ For each `(task, seed, arm)` in the schedule's order:
    (`npx @opengsd/gsd-core@1.19.0 --claude --local`, or the flag of the agent the host names). Arms B and B0:
    `specforge install claude-code` (or the host's name) from the tagged commit, then `specforge collect --yes`. Agents
    and skills are each arm's release's, unchanged.
-3. **The prompt.** A fresh agent session in the copy, no memory of another run. One message: `prompts/<arm>.md` with
-   the task's `prompt` (`tasks.json`) in place of `{task.prompt}`. Start the clock.
+3. **The prompt.** A fresh agent session in the copy, no memory of another run. One message, exactly what
+   `python3 -I evaluation/gsd-ab/seed.py prompt --task <task> --arm <arm>` prints: `prompts/<arm>.md` with the task's
+   `prompt` and its workflow's `RESULT:` values filled in. Start the clock.
 4. **During the run** the operator says nothing but an intervention (below).
 5. **The end.** The run ends when the agent's turn ends with a `RESULT:` line, after a second stop without one, or
    when the budget is reached. Stop the clock (`wall_seconds`).
 6. **The run file**, `evaluation/gsd-ab/runs/<arm>/<task>/<seed>.json` (git-ignored; the transcript under
    `runs/transcripts/<arm>/<task>/<seed>.jsonl`, outside what `score.py` reads), with the fields of README section 7:
-   - `final_report`: the value of the agent's last `RESULT:` line (`verified`, `complete`, `passed`, `not verified`,
-     `blocked`), or `none` when the run ended without one.
+   - `final_report`: the value of the agent's last `RESULT:` line, one of the task's workflow's in
+     `tasks.json#results`, or `none` when the run ended without one or with another value.
    - `acceptance`: one entry per acceptance row of the task, keyed by its `text`. A row with `run` is that command, run
      in the copy: `true` when it exits 0. A row with `judge` is the operator's reading of the copy against that
      one-line rubric, never of the agent's report.
-   - `claims`: for each key of the task's `ground_truth`, the state the agent left, in `ground_truth`'s words, read
-     from the arm's own store: A with gsd-tools (`roadmap analyze`, `state json`, `progress json`, and the phase's
-     `VERIFICATION.md` for a truth); B and B0 with `specforge query <id> --depth 0 --format json`.
+   - `claims`: for each key of the task's `ground_truth`, the state the agent left, read from the copy as
+     `tasks.json#states` says for the key's kind (the kind whose `id` pattern it matches) and the arm: its `read` (a
+     command run in the copy, or a file), `at` (where in it) and `map` (the tool's word to the kind's `values`). B0
+     reads as B. Its `rules` hold for every kind: in B a value written on a computed field (`E082`) is the claim; a
+     stale verdict reads as its recorded outcome; an entity that is not there reads as the kind's absent value. A
+     word no map has is not guessed: the run file waits, and the owner decides.
    - `defects_present`: `python3 -I evaluation/gsd-ab/seed.py present --task <task> --arm <arm> --dir <copy>`,
      computed, never typed.
-   - `tokens` from the host's usage report; `plans_completed`: the plans the store holds complete that were not
-     before the run; `rework_commits`: the commits after the first one, or the first message, that claimed a
-     verification.
+   - `tokens` from the host's usage report; `plans_completed`: the plans that read `complete` (the `plan` kind of
+     `tasks.json#states`) after the run and did not before it.
+   - `rework_commits`: `python3 -I evaluation/gsd-ab/seed.py rework --arm <arm> --dir <copy>`, computed, never typed:
+     the run's commits after its first one that writes verification state (A: a `.planning/phases/*/*-VERIFICATION.md`;
+     B and B0: a `verdict:` line of `specforge-harness`), or 0 when none does.
    - `interventions` and `intervention_log` (below), and the fixed fields of "Before the first run".
 
 ## Interventions
