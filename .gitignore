@@ -36,6 +36,8 @@ tests/spec/
 # `specforge export --format dot > specforge-graph.dot`: regenerate it, never commit it
 /specforge-graph.dot
 .specforge/
+# The harness ledger names stores in the ignored `.specforge/`: a committed line would name nothing
+/specforge-harness
 .claude/worktrees/
 # Claude Code's per-user settings (shared ones belong in .claude/settings.json)
 **/.claude/settings.local.json
