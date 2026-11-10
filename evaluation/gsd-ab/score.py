@@ -117,10 +117,12 @@ def interval(pairs: dict, measure: str, rng: random.Random) -> tuple[float, floa
     return means[int(0.025 * RESAMPLES)], means[int(0.975 * RESAMPLES) - 1]
 
 
-def tokens_per_plan(pairs: dict, side: int) -> float:
+def tokens_per_plan(pairs: dict, side: int) -> float | None:
+    """M4 of one side of `pairs` (0 the treated arm, 1 the control): its tokens over its completed plans, or None
+    when it completed none, which is no evidence either way."""
     runs = [seeds[seed][side] for seeds in pairs.values() for seed in seeds]
     plans = sum(run["plans"] for run in runs)
-    return sum(run["tokens"] for run in runs) / plans if plans else float("inf")
+    return sum(run["tokens"] for run in runs) / plans if plans else None
 
 
 def report(pairs: dict, label: str) -> dict:
@@ -133,17 +135,16 @@ def report(pairs: dict, label: str) -> dict:
         out[measure] = (difference(pairs, measure), low, high)
         print(f"  {measure:<17} {out[measure][0]:+8.3f}  [{low:+.3f}, {high:+.3f}]")
     for side, arm in ((0, label[0:2].strip()), (1, label[-2:].strip())):
-        print(f"  M4 {arm:<14} {tokens_per_plan(pairs, side):8.0f} tokens per completed plan")
+        m4 = tokens_per_plan(pairs, side)
+        print(f"  M4 {arm:<14} " + ("no completed plan" if m4 is None else f"{m4:8.0f} tokens per completed plan"))
     return out
 
 
 def d7(pairs: dict, diffs: dict) -> bool:
-    """Gate B: B - A on M3 and M2 has an upper bound below 0, and M4(B) <= 1.10 x M4(A)."""
-    return (
-        diffs["M3"][2] < 0
-        and diffs["M2"][2] < 0
-        and tokens_per_plan(pairs, 0) <= 1.10 * tokens_per_plan(pairs, 1)
-    )
+    """Gate B: B - A on M3 and M2 has an upper bound below 0, and M4(B) <= 1.10 x M4(A). An arm that completed no
+    plan has no M4, and the M4 clause fails: no evidence is not a pass."""
+    b, a = tokens_per_plan(pairs, 0), tokens_per_plan(pairs, 1)
+    return diffs["M3"][2] < 0 and diffs["M2"][2] < 0 and a is not None and b is not None and b <= 1.10 * a
 
 
 def h2(runs: list[dict], tasks: dict) -> bool:
@@ -247,10 +248,11 @@ def write_runs(root: Path, runs: list[dict]) -> None:
         path.write_text(json.dumps(run))
 
 
-def synthetic(b_wins: bool) -> tuple[list[dict], dict]:
+def synthetic(b_wins: bool, b_tokens: float = 1.0, a_plans: int = 1) -> tuple[list[dict], dict]:
     """Four tasks seeded with S1 (a thread defect) and S2 (not one), three seeds, arms A, B and B0. A leaves both
     defects and drifts. B leaves none and no drift when it wins, and repeats A when it doesn't. B0 always leaves S1
-    but not S2, so B beats B0 on the thread's defects exactly when B wins."""
+    but not S2, so B beats B0 on the thread's defects exactly when B wins. B spends `b_tokens` times A's tokens, and A
+    completes `a_plans` plans a run (every other arm one)."""
     tasks = {"tasks": [
         {"id": f"t{i}", "seeded": ["S1", "S2"], "ground_truth": {"p": "complete"},
          "acceptance": [{"text": "tests", "run": "true"}]}
@@ -269,9 +271,10 @@ def synthetic(b_wins: bool) -> tuple[list[dict], dict]:
                     "host": {"agent": "synthetic", "version": "0", "machine": "none"},
                     "budget": {"max_turns": 200, "max_tokens": 400_000}, "permission_mode": "auto in the copy",
                     "final_report": "verified",
-                    "acceptance": {"tests": arm == "B" and b_wins}, "tokens": 100_000 + seed,
-                    "plans_completed": 1, "wall_seconds": 600, "interventions": 0, "intervention_log": [],
-                    "rework_commits": 0, **state,
+                    "acceptance": {"tests": arm == "B" and b_wins},
+                    "tokens": round((100_000 + seed) * (b_tokens if arm == "B" else 1.0)),
+                    "plans_completed": a_plans if arm == "A" else 1, "wall_seconds": 600, "interventions": 0,
+                    "intervention_log": [], "rework_commits": 0, **state,
                 })
     return runs, tasks
 
@@ -297,6 +300,17 @@ def self_test() -> None:
     assert score(read, tasks) == (True, True), "a set B clearly wins must pass D7 and show H2"
     runs, tasks = synthetic(b_wins=False)
     assert score(runs, tasks) == (False, False), "a set B does not win must fail D7 and not show H2"
+    # B wins on M2 and M3 but spends 20% more tokens per plan, or A completes no plan, so there is no M4 to hold B
+    # to: gate B fails either way.
+    for costly in (synthetic(b_wins=True, b_tokens=1.2), synthetic(b_wins=True, a_plans=0)):
+        assert score(*costly)[0] is False, "M4 holds gate B: over 1.10 x A, or no plan completed, fails"
+    # A bootstrap interval against a hand-computed one: one task, ten seeds whose paired differences are 0 to 9. The
+    # mean of ten draws from them has mean 4.5 and standard deviation sqrt(8.25 / 10) = 0.908, so its 95% interval is
+    # about 4.5 -+ 1.96 x 0.908 = [2.72, 6.28].
+    spread = {"t": {seed: ({"M2": float(seed)}, {"M2": 0.0}) for seed in range(10)}}
+    low, high = interval(spread, "M2", random.Random(RNG_SEED))
+    print(f"bootstrap over 0..9: [{low:.2f}, {high:.2f}]")
+    assert difference(spread, "M2") == 4.5 and abs(low - 2.72) <= 0.2 and abs(high - 6.28) <= 0.2, (low, high)
     # H2 counts the thread's defects only: S2 left by B0 alone would not count.
     measured = measures(
         {"final_report": "verified", "defects_present": ["S2"]}, {"seeded": ["S1", "S2"]}

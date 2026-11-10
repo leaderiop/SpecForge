@@ -147,6 +147,7 @@ any of this, or whose path is not its arm, task and seed.
 ## 9. Gate B (D7)
 
 **Pass** when the upper bound of B − A is below 0 for M3 and for M2 (B has fewer incidents), and M4(B) ≤ 1.10 × M4(A).
+An arm that completed no plan has no M4, and the M4 clause then fails: no evidence is not a pass.
 **Fail** otherwise: R9 is dropped, and the result is published as it is.
 
 ## 10. Pre-registration
