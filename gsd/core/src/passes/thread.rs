@@ -126,8 +126,9 @@ impl<'a> Thread<'a> {
 
     /// The results of `id` named `name` (a deliverable check's `ref`, GSD's `test/x.test.js#name`), and the status of
     /// each test fact it names: the fact's `name` is the ref's name and, when the ref names a file, its `file` is it.
+    /// The first `#` ends the file: a test name may hold one (`test/x.test.js#fixes #42`).
     pub fn named(&self, id: &str, name: &str) -> Vec<TestStatus> {
-        let (file, test) = match name.rsplit_once('#') {
+        let (file, test) = match name.split_once('#') {
             Some((file, test)) => (Some(file), test),
             None => (None, name),
         };

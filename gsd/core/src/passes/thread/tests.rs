@@ -185,7 +185,9 @@ fn a_checks_ref_splits_at_its_first_hash() {
         &[],
     );
     let thread = Thread::of(&input);
-    // Pins today's split at the last '#': the file reads `test/tasks.test.js#fixes ` and the name `42`, so the
-    // test is never found. The fix ends the file at the first '#' and finds it passed.
-    assert_eq!(thread.named("D1", "test/tasks.test.js#fixes #42"), []);
+    // The first '#' ends the file: the name is `fixes #42`, not `42` in the file `test/tasks.test.js#fixes `.
+    assert_eq!(
+        thread.named("D1", "test/tasks.test.js#fixes #42"),
+        [TestStatus::Passed]
+    );
 }
