@@ -6,9 +6,11 @@ Usage:
     python3 -I evaluation/gsd-ab/score.py --runs evaluation/gsd-ab/runs
     python3 -I evaluation/gsd-ab/score.py --self-test
 
-`--runs` reads every `<arm>/<task>/<seed>.json` under the directory (README section 7) and refuses
-one that lacks a field, has one of the wrong type, or logs an intervention the operator's script
-(OPERATOR.md) does not list. Runs pair by (task, seed); a run whose partner is missing is refused.
+`--runs` reads every `<arm>/<task>/<seed>.json` under the directory (README section 7), `<seed>` a number:
+another file there (a note) is skipped and named, and transcripts live under `transcripts/`, outside the
+pattern. It refuses a run file that lacks a field, has one of the wrong type, or logs an intervention the
+operator's script (OPERATOR.md) does not list. Runs pair by (task, seed); a run whose partner is missing is
+refused.
 Standard library only, Python 3.11+.
 """
 
@@ -190,9 +192,13 @@ def check_run(run: dict, where: str) -> None:
 
 
 def read_runs(root: Path) -> list[dict]:
-    """Every `<arm>/<task>/<seed>.json` under `root`, each checked (check_run) and matching its path."""
+    """Every `<arm>/<task>/<seed>.json` under `root` whose `<seed>` is a number, each checked (check_run) and
+    matching its path. Another file there is skipped, and named on standard error."""
     runs = []
     for path in sorted(root.glob("*/*/*.json")):
+        if not path.stem.isdigit():
+            print(f"skipped {path}: not a run file (<arm>/<task>/<seed>.json)", file=sys.stderr)
+            continue
         run = json.loads(path.read_text())
         check_run(run, str(path))
         arm, task, seed = path.parts[-3], path.parts[-2], path.stem
@@ -250,8 +256,10 @@ def self_test() -> None:
     runs, tasks = synthetic(b_wins=True)
     with tempfile.TemporaryDirectory() as tmp:
         write_runs(Path(tmp), runs)
+        # A file beside the runs that is not one (an operator's note) is skipped, not read as a run.
+        (Path(tmp) / "A" / "t0" / "1.notes.json").write_text("{}")
         read = read_runs(Path(tmp))
-    assert len(read) == len(runs), "every written run file reads back"
+    assert len(read) == len(runs), "every written run file reads back, and the stray file is skipped"
     assert score(read, tasks) == (True, True), "a set B clearly wins must pass D7 and show H2"
     runs, tasks = synthetic(b_wins=False)
     assert score(runs, tasks) == (False, False), "a set B does not win must fail D7 and not show H2"

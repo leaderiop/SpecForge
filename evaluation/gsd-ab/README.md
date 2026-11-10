@@ -108,7 +108,9 @@ Per arm, per (task, seed) run. The operator's scripts write a run file (section 
 - The operator follows a script, [OPERATOR.md](OPERATOR.md): the copies, each arm's tools, the prompt, when a run
   ends, how each field of the run file is read. An intervention is one of its four, with its text, logged with its
   turn and counted, never improvised.
-- Every transcript is kept under `runs/<arm>/<task>/<seed>.json` (git-ignored), archived with the report.
+- Every run file is `runs/<arm>/<task>/<seed>.json` and its transcript `runs/transcripts/<arm>/<task>/<seed>.jsonl`
+  (both git-ignored), archived with the report. `score.py` reads only `<arm>/<task>/<number>.json`, so a transcript
+  is never read as a run.
 
 A run file:
 
