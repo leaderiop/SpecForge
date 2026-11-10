@@ -239,6 +239,7 @@ fn succeeds(run: &Run) {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Today {
     Refused,
+    #[allow(dead_code, reason = "no row of a ready fixture is a known gap today")]
     Counts(usize, usize),
 }
 

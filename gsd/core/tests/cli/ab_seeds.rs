@@ -4,11 +4,7 @@
 use super::harness::ab::{Today, assert_signals, seeded};
 
 /// `(task, defect, arm, today)`: the rows that do not yet give what `tasks.json` says, asserted as they are.
-const KNOWN_GAPS: &[(&str, &str, &str, Today)] = &[
-    // Phase 02 is planned, not executed: its truths' plan stays pending for the whole verify run.
-    ("taskboard-verify-02", "S5", "B", Today::Counts(1, 1)),
-    ("taskboard-verify-02", "S6", "B", Today::Counts(0, 0)),
-];
+const KNOWN_GAPS: &[(&str, &str, &str, Today)] = &[];
 
 fn gaps(task: &str) -> Vec<(&'static str, &'static str, Today)> {
     KNOWN_GAPS
@@ -28,8 +24,8 @@ fn taskboard_execute_02_01_reports_its_seeds() {
 }
 
 #[test]
-fn taskboard_verify_02_reports_its_seeds() {
-    signals("taskboard-verify-02");
+fn taskboard_verify_01_reports_its_seeds() {
+    signals("taskboard-verify-01");
 }
 
 #[test]

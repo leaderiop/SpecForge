@@ -88,32 +88,27 @@
       "ground_truth": { "v1.0/02/02-01": "complete", "STORE-01": "addressed", "v1.0/02": "in progress" }
     },
     {
-      "id": "taskboard-verify-02", "fixture": "taskboard", "workflow": "verify",
-      "prompt": "Verify phase 02 against its success criteria and record the verdicts.",
+      "id": "taskboard-verify-01", "fixture": "taskboard", "workflow": "verify",
+      "prompt": "Re-verify phase 01 against its success criteria and record the verdicts.",
       "seeded": ["S5", "S6"],
       "seeds": {
         "S5": {
-          "A": [
-            { "replace": { "file": ".planning/phases/02-persistence/02-01-PLAN.md", "old": "    - \"Every change to the board is written to tasks.json (D-01)\"", "new": "    - \"Every change to the board is written to tasks.json (D-01), proven by test/tasks.test.js#a task is added with the next id\"" } },
-            { "replace": { "file": "test/tasks.test.js", "old": "assert.equal(addTask(board, \"Write the roadmap\").id, 1);", "new": "assert.equal(addTask(board, \"Write the roadmap\").id, 0);" } }
-          ],
-          "B": [
-            { "replace": { "file": "spec/plans.spec", "old": "  text        \"Every change to the board is written to tasks.json (D-01)\"\n  requirement STORE-01\n", "new": "  text        \"Every change to the board is written to tasks.json (D-01)\"\n  requirement STORE-01\n  proof       [\"js:taskboard/test/tasks.test.js#a task is added with the next id\"]\n" } },
-            { "replace": { "file": "test/tasks.test.js", "old": "assert.equal(addTask(board, \"Write the roadmap\").id, 1);", "new": "assert.equal(addTask(board, \"Write the roadmap\").id, 0);" } }
-          ],
+          "A": [{ "replace": { "file": "test/tasks.test.js", "old": "assert.equal(addTask(board, \"Write the roadmap\").id, 1);", "new": "assert.equal(addTask(board, \"Write the roadmap\").id, 0);" } }],
+          "B": [{ "replace": { "file": "test/tasks.test.js", "old": "assert.equal(addTask(board, \"Write the roadmap\").id, 1);", "new": "assert.equal(addTask(board, \"Write the roadmap\").id, 0);" } }],
           "run": { "a task is added with the next id": "failed" }
         },
         "S6": {
-          "A": [{ "replace": { "file": ".planning/phases/02-persistence/02-01-PLAN.md", "old": "    - \"A restarted board shows the tasks it had\"", "new": "    - \"A restarted board shows the tasks it had, proven by test/store.test.js#a restarted board shows its tasks\"" } }],
-          "B": [{ "replace": { "file": "spec/plans.spec", "old": "  text        \"A restarted board shows the tasks it had\"\n  requirement STORE-01\n", "new": "  text        \"A restarted board shows the tasks it had\"\n  requirement STORE-01\n  proof       [\"js:taskboard/test/store.test.js#a restarted board shows its tasks\"]\n" } }]
+          "A": [{ "replace": { "file": "test/tasks.test.js", "old": "\ntest(\"completing an unknown id throws\", () => {\n  assert.throws(() => completeTask(createBoard(), 7), /no task 7/);\n});\n", "new": "" } }],
+          "B": [{ "replace": { "file": "test/tasks.test.js", "old": "\ntest(\"completing an unknown id throws\", () => {\n  assert.throws(() => completeTask(createBoard(), 7), /no task 7/);\n});\n", "new": "" } }],
+          "run": { "completing an unknown id throws": "absent" }
         }
       },
       "b_signals": [
-        { "defect": "S5", "code": "gsd/E501", "entity": "v1.0/02/02-01/TR1", "count": 1, "when": "seed" },
-        { "defect": "S6", "code": "code/E101", "entity": "v1.0/02/02-01/TR2", "count": 1, "when": "seed" }
+        { "defect": "S5", "code": "gsd/E501", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" },
+        { "defect": "S6", "code": "code/E101", "entity": "v1.0/01/01-02/TR2", "count": 1, "when": "seed" }
       ],
-      "acceptance": ["every truth of phase 02 has a verdict", "no verdict is verified over a failing or missing test"],
-      "ground_truth": { "v1.0/02/02-01/TR1": "not verified", "v1.0/02/02-01/TR2": "not verified", "v1.0/02/02-01/TR3": "not verified" }
+      "acceptance": ["every truth of phase 01 has a verdict", "no verdict is verified over a failing or missing test"],
+      "ground_truth": { "v1.0/01/01-01/TR1": "not verified", "v1.0/01/01-02/TR2": "not verified", "v1.0/01/01-02/TR1": "verified" }
     },
     {
       "id": "taskboard-progress-resume", "fixture": "taskboard", "workflow": "progress/resume",
