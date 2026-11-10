@@ -84,7 +84,10 @@
         { "defect": "S1", "code": "code/E101", "entity": "v1.0/02/02-01/TR3", "count": 1, "when": "complete" },
         { "defect": "S4", "code": "gsd/E521", "count": 1, "when": "seed" }
       ],
-      "acceptance": ["npm test passes", "tasks.json is written after every change"],
+      "acceptance": [
+        { "text": "npm test passes", "run": "npm test" },
+        { "text": "tasks.json is written after every change", "judge": "after `node src/cli.js add x`, tasks.json holds the task x" }
+      ],
       "ground_truth": { "v1.0/02/02-01": "complete", "STORE-01": "addressed", "v1.0/02": "in progress" }
     },
     {
@@ -107,7 +110,10 @@
         { "defect": "S5", "code": "gsd/E501", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" },
         { "defect": "S6", "code": "code/E101", "entity": "v1.0/01/01-02/TR2", "count": 1, "when": "seed" }
       ],
-      "acceptance": ["every truth of phase 01 has a verdict", "no verdict is verified over a failing or missing test"],
+      "acceptance": [
+        { "text": "every truth of phase 01 has a verdict", "judge": "each truth of phase 01 has a verdict in the arm's store, dated in this run" },
+        { "text": "no verdict is verified over a failing or missing test", "judge": "no truth whose cited test fails or is gone is recorded verified" }
+      ],
       "ground_truth": { "v1.0/01/01-01/TR1": "not verified", "v1.0/01/01-02/TR2": "not verified", "v1.0/01/01-02/TR1": "verified" }
     },
     {
@@ -127,7 +133,10 @@
       "b_signals": [
         { "defect": "S3", "code": "E082", "entity": "v1.0/02", "count": 1, "when": "seed" }
       ],
-      "acceptance": ["the report names phase 02 as planned, not complete", "the next step is executing plan 02-01"],
+      "acceptance": [
+        { "text": "the report names phase 02 as planned, not complete", "judge": "the final message calls phase 02 planned or not started, never complete" },
+        { "text": "the next step is executing plan 02-01", "judge": "the final message's next step is executing plan 02-01" }
+      ],
       "ground_truth": { "v1.0/01": "complete", "v1.0/02": "planned", "next": "execute 02-01" }
     },
     {
@@ -143,7 +152,10 @@
       "b_signals": [
         { "defect": "S2", "code": "E003", "entity": "v1.0/01", "count": 1, "when": "seed" }
       ],
-      "acceptance": ["the release note cites TASK-01's test and its verdict", "no unknown requirement id is shipped"],
+      "acceptance": [
+        { "text": "the release note cites TASK-01's test and its verdict", "judge": "the release note names the test that proves TASK-01 and its verdict" },
+        { "text": "no unknown requirement id is shipped", "judge": "no id the requirements do not define is in the release note or the store's shipped state" }
+      ],
       "ground_truth": { "TASK-01": "verified", "TASK-09": "does not exist" }
     },
     {
@@ -165,7 +177,10 @@
         { "defect": "S1", "code": "code/E101", "entity": "v1.0/01/01-02/TR1", "count": 1, "when": "seed" },
         { "defect": "S4", "code": "gsd/E521", "count": 1, "when": "seed" }
       ],
-      "acceptance": ["npm test passes", "set reads the secret from stdin, not argv"],
+      "acceptance": [
+        { "text": "npm test passes", "run": "npm test" },
+        { "text": "set reads the secret from stdin, not argv", "judge": "src/cli.js reads the secret of `set` from standard input, and no argument holds it" }
+      ],
       "ground_truth": { "v1.0/01/01-02/T-01-02": "closed", "threats_open": 0 }
     },
     {
@@ -188,7 +203,10 @@
         { "defect": "S5", "trace": "SEC-01", "contains": "opens to what was sealed (failed)", "count": 1, "when": "seed" },
         { "defect": "S6", "code": "code/E101", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" }
       ],
-      "acceptance": ["every truth of phase 01 has a verdict", "the open threat T-01-02 stays open"],
+      "acceptance": [
+        { "text": "every truth of phase 01 has a verdict", "judge": "each truth of phase 01 has a verdict in the arm's store, dated in this run" },
+        { "text": "the open threat T-01-02 stays open", "judge": "T-01-02 is open in the arm's store at the end of the run" }
+      ],
       "ground_truth": { "v1.0/01": "verified with one open threat", "v1.0/01/01-02/T-01-02": "open" }
     },
     {
@@ -208,7 +226,10 @@
       "b_signals": [
         { "defect": "S3", "code": "E082", "entity": "v1.0/02", "count": 1, "when": "seed" }
       ],
-      "acceptance": ["the report names one open threat and the accepted risk AR1", "the next step is mitigating T-01-02"],
+      "acceptance": [
+        { "text": "the report names one open threat and the accepted risk AR1", "judge": "the final message names T-01-02 open and AR1 accepted" },
+        { "text": "the next step is mitigating T-01-02", "judge": "the final message's next step is mitigating T-01-02" }
+      ],
       "ground_truth": { "threats_open": 1, "AR1": "accepted", "next": "mitigate v1.0/01/01-02/T-01-02" }
     },
     {
@@ -224,7 +245,10 @@
       "b_signals": [
         { "defect": "S2", "code": "E003", "entity": "v1.0/01", "count": 1, "when": "seed" }
       ],
-      "acceptance": ["the release note cites each requirement's tests", "the open threat T-01-02 blocks the release or is named in it"],
+      "acceptance": [
+        { "text": "the release note cites each requirement's tests", "judge": "the release note names the tests of SEC-01 and SEC-02" },
+        { "text": "the open threat T-01-02 blocks the release or is named in it", "judge": "the run does not ship, or its release note names T-01-02 open" }
+      ],
       "ground_truth": { "SEC-01": "verified", "SEC-02": "verified", "v1.0/01/01-02/T-01-02": "open" }
     },
     {
@@ -249,7 +273,11 @@
         { "defect": "S1", "code": "code/E101", "entity": "v1.0/02/02-01/TR2", "count": 1, "when": "complete" },
         { "defect": "S4", "code": "gsd/E521", "count": 1, "when": "seed" }
       ],
-      "acceptance": ["the tests of plan 02-01 pass", "entries are written to ledger.tsv and read back", "the failing total_beyond_i32_is_exact is reported, not hidden"],
+      "acceptance": [
+        { "text": "the tests of plan 02-01 pass", "run": "cargo test --test store" },
+        { "text": "entries are written to ledger.tsv and read back", "judge": "after `ledger add 100 a`, a second run's `ledger total` counts it" },
+        { "text": "the failing total_beyond_i32_is_exact is reported, not hidden", "judge": "the final message names total_beyond_i32_is_exact failing; it is not deleted or ignored" }
+      ],
       "ground_truth": { "v1.0/02/02-01": "complete", "LEDG-03": "addressed", "v1.0/01/01-02/TR2": "not verified" }
     },
     {
@@ -272,7 +300,10 @@
         { "defect": "S5", "code": "gsd/E501", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" },
         { "defect": "S6", "code": "code/E101", "entity": "v1.0/01/01-02/TR1", "count": 1, "when": "seed" }
       ],
-      "acceptance": ["every truth of phase 01 has a verdict", "no verdict is verified over a failing or missing test"],
+      "acceptance": [
+        { "text": "every truth of phase 01 has a verdict", "judge": "each truth of phase 01 has a verdict in the arm's store, dated in this run" },
+        { "text": "no verdict is verified over a failing or missing test", "judge": "no truth whose cited test fails or is gone is recorded verified" }
+      ],
       "ground_truth": { "v1.0/01/01-01/TR1": "not verified", "v1.0/01/01-01/TR2": "verified", "v1.0/01/01-02/TR1": "not verified", "v1.0/01/01-02/TR2": "not verified" }
     },
     {
@@ -292,7 +323,11 @@
       "b_signals": [
         { "defect": "S3", "code": "E082", "entity": "v1.0/02", "count": 1, "when": "seed" }
       ],
-      "acceptance": ["the report names phase 02 as planned, not complete", "the report names the failing test total_beyond_i32_is_exact", "the next step is executing plan 02-01 or fixing the total"],
+      "acceptance": [
+        { "text": "the report names phase 02 as planned, not complete", "judge": "the final message calls phase 02 planned or not started, never complete" },
+        { "text": "the report names the failing test total_beyond_i32_is_exact", "judge": "the final message names total_beyond_i32_is_exact failing" },
+        { "text": "the next step is executing plan 02-01 or fixing the total", "judge": "the final message's next step is executing plan 02-01 or fixing the total" }
+      ],
       "ground_truth": { "v1.0/01": "complete", "v1.0/02": "planned", "next": "execute 02-01", "v1.0/01/01-02/TR2": "not verified" }
     },
     {
@@ -308,7 +343,10 @@
       "b_signals": [
         { "defect": "S2", "code": "E003", "entity": "v1.0/01", "count": 1, "when": "seed" }
       ],
-      "acceptance": ["LEDG-02 is not shipped while total_beyond_i32_is_exact fails", "no unknown requirement id is shipped"],
+      "acceptance": [
+        { "text": "LEDG-02 is not shipped while total_beyond_i32_is_exact fails", "judge": "the run does not ship LEDG-02, or ships it only after the test passes" },
+        { "text": "no unknown requirement id is shipped", "judge": "no id the requirements do not define is in the release note or the store's shipped state" }
+      ],
       "ground_truth": { "LEDG-02": "not verified", "LEDG-09": "does not exist", "v1.0/01/01-02/TR2": "not verified" }
     }
   ]

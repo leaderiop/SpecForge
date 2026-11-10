@@ -6,8 +6,10 @@ Usage:
     python3 -I evaluation/gsd-ab/score.py --runs evaluation/gsd-ab/runs
     python3 -I evaluation/gsd-ab/score.py --self-test
 
-`--runs` reads every `<arm>/<task>/<seed>.json` under the directory (README section 7). Runs pair
-by (task, seed); a run whose partner is missing is refused. Standard library only, Python 3.11+.
+`--runs` reads every `<arm>/<task>/<seed>.json` under the directory (README section 7) and refuses
+one that lacks a field, has one of the wrong type, or logs an intervention the operator's script
+(OPERATOR.md) does not list. Runs pair by (task, seed); a run whose partner is missing is refused.
+Standard library only, Python 3.11+.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ import argparse
 import json
 import random
 import sys
+import tempfile
 from pathlib import Path
 
 TASKS = Path(__file__).resolve().parent / "tasks.json"
@@ -24,6 +27,19 @@ RNG_SEED = 20261102
 CLAIMED = {"verified", "complete", "passed"}
 # The seeded defects the requirement thread exists to catch: H2 counts false "verified" over these only.
 THREAD = {"S1", "S4", "S5"}
+# What the run's `RESULT:` line says (prompts/<arm>.md), or "none" when the run ended without one.
+REPORTS = CLAIMED | {"not verified", "blocked", "none"}
+# Every run file holds these fields, of these types (README section 7, OPERATOR.md).
+FIELDS = {
+    "arm": str, "task": str, "seed": int, "model": str, "temperature": (int, float), "host": dict, "budget": dict,
+    "permission_mode": str, "acceptance": dict, "claims": dict, "final_report": str, "defects_present": list,
+    "tokens": int, "plans_completed": int, "wall_seconds": (int, float), "interventions": int,
+    "intervention_log": list, "rework_commits": int,
+}
+HOST = ("agent", "version", "machine")
+BUDGET = ("max_turns", "max_tokens")
+# The operator's only reasons to step in (OPERATOR.md); `operator` logs the operator's own error.
+REASONS = {"question", "stopped", "budget", "operator"}
 # The paired measures, each "lower is better" except M1.
 MEASURES = ("M1", "M2", "M3", "M5_wall", "M5_interventions", "M6")
 
@@ -148,15 +164,49 @@ def score(runs: list[dict], tasks: dict) -> tuple[bool, bool | None]:
     return passed, thread
 
 
+def check_run(run: dict, where: str) -> None:
+    """Raises ValueError naming the first thing a run file lacks or gets wrong (README section 7)."""
+    for key, kind in FIELDS.items():
+        if key not in run:
+            raise ValueError(f"{where}: no `{key}`")
+        if isinstance(run[key], bool) or not isinstance(run[key], kind):
+            raise ValueError(f"{where}: `{key}` is {type(run[key]).__name__}, not {kind}")
+    if run["arm"] not in ("A", "B", "B0"):
+        raise ValueError(f"{where}: arm {run['arm']!r} is none of A, B and B0")
+    if run["final_report"] not in REPORTS:
+        raise ValueError(f"{where}: final_report {run['final_report']!r} is none of {sorted(REPORTS)}")
+    for block, keys in (("host", HOST), ("budget", BUDGET)):
+        missing = [key for key in keys if key not in run[block]]
+        if missing:
+            raise ValueError(f"{where}: `{block}` has no {', '.join(missing)}")
+    log = run["intervention_log"]
+    if run["interventions"] != len(log):
+        raise ValueError(f"{where}: {run['interventions']} interventions counted, {len(log)} logged")
+    for entry in log:
+        if not (isinstance(entry, dict) and isinstance(entry.get("turn"), int)):
+            raise ValueError(f"{where}: an intervention is logged as {{reason, turn}}, not {entry!r}")
+        if entry.get("reason") not in REASONS:
+            raise ValueError(f"{where}: intervention reason {entry.get('reason')!r} is none of {sorted(REASONS)}")
+
+
 def read_runs(root: Path) -> list[dict]:
+    """Every `<arm>/<task>/<seed>.json` under `root`, each checked (check_run) and matching its path."""
     runs = []
     for path in sorted(root.glob("*/*/*.json")):
         run = json.loads(path.read_text())
+        check_run(run, str(path))
         arm, task, seed = path.parts[-3], path.parts[-2], path.stem
-        if (run.get("arm"), run.get("task"), str(run.get("seed"))) != (arm, task, seed):
+        if (run["arm"], run["task"], str(run["seed"])) != (arm, task, seed):
             raise ValueError(f"{path}: arm, task and seed differ from the file's path")
         runs.append(run)
     return runs
+
+
+def write_runs(root: Path, runs: list[dict]) -> None:
+    for run in runs:
+        path = root / run["arm"] / run["task"] / f"{run['seed']}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(run))
 
 
 def synthetic(b_wins: bool) -> tuple[list[dict], dict]:
@@ -175,17 +225,34 @@ def synthetic(b_wins: bool) -> tuple[list[dict], dict]:
             arms = (("A", bad), ("B", good if b_wins else bad), ("B0", thread_off))
             for arm, state in arms:
                 runs.append({
-                    "arm": arm, "task": f"t{i}", "seed": seed, "final_report": "verified",
+                    "arm": arm, "task": f"t{i}", "seed": seed, "model": "synthetic", "temperature": 0,
+                    "host": {"agent": "synthetic", "version": "0", "machine": "none"},
+                    "budget": {"max_turns": 200, "max_tokens": 400_000}, "permission_mode": "auto in the copy",
+                    "final_report": "verified",
                     "acceptance": {"tests": arm == "B" and b_wins}, "tokens": 100_000 + seed,
-                    "plans_completed": 1, "wall_seconds": 600, "interventions": 0,
+                    "plans_completed": 1, "wall_seconds": 600, "interventions": 0, "intervention_log": [],
                     "rework_commits": 0, **state,
                 })
     return runs, tasks
 
 
+def refused_file(what: str, run: dict) -> None:
+    """check_run must refuse `run`; its message is printed."""
+    try:
+        check_run(run, f"{run.get('arm')}/{run.get('task')}/{run.get('seed')}.json")
+    except ValueError as refusal:
+        print(f"refused run file: {refusal}")
+    else:
+        raise AssertionError(f"{what} must be refused")
+
+
 def self_test() -> None:
     runs, tasks = synthetic(b_wins=True)
-    assert score(runs, tasks) == (True, True), "a set B clearly wins must pass D7 and show H2"
+    with tempfile.TemporaryDirectory() as tmp:
+        write_runs(Path(tmp), runs)
+        read = read_runs(Path(tmp))
+    assert len(read) == len(runs), "every written run file reads back"
+    assert score(read, tasks) == (True, True), "a set B clearly wins must pass D7 and show H2"
     runs, tasks = synthetic(b_wins=False)
     assert score(runs, tasks) == (False, False), "a set B does not win must fail D7 and not show H2"
     # H2 counts the thread's defects only: S2 left by B0 alone would not count.
@@ -196,10 +263,17 @@ def self_test() -> None:
     runs, tasks = synthetic(b_wins=True)
     try:
         score([run for run in runs if run["arm"] != "B0"][:-1], tasks)
-    except Unpaired as refused:
-        print(f"refused: {refused}")
+    except Unpaired as refusal:
+        print(f"refused: {refusal}")
     else:
         raise AssertionError("an unpaired run must be refused")
+    # The run files' own refusals, counted: exactly these three.
+    refused_file("a run file without its host", {key: value for key, value in runs[0].items() if key != "host"})
+    refused_file("an intervention counted and not logged", {**runs[0], "interventions": 1})
+    refused_file(
+        "an intervention for a reason outside the list",
+        {**runs[0], "interventions": 1, "intervention_log": [{"reason": "nudge", "turn": 3}]},
+    )
     print("self-test: ok")
 
 

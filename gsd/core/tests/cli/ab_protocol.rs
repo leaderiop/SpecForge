@@ -20,6 +20,40 @@ fn the_scorer_passes_its_self_test() {
     passes("score.py");
 }
 
+/// The scorer's self-test reads its synthetic runs back as files and pairs all of them, refuses an unpaired run, and
+/// refuses exactly three bad run files.
+#[test]
+fn the_scorer_pairs_twelve_runs_and_refuses_three_run_files() {
+    let run = python("score.py", &["--self-test"]);
+    let stdout = String::from_utf8_lossy(&run.stdout);
+    assert!(
+        stdout.lines().any(|l| l == "B - A: 12 pairs over 4 tasks"),
+        "{stdout}"
+    );
+    let count = |prefix: &str| stdout.lines().filter(|l| l.starts_with(prefix)).count();
+    assert_eq!(
+        (count("refused: "), count("refused run file: ")),
+        (1, 3),
+        "{stdout}"
+    );
+}
+
+/// Every acceptance row is a command to run or a rubric to judge by, never both, never a bare string.
+#[test]
+fn every_acceptance_row_is_run_or_judged() {
+    let tasks = ab_tasks();
+    for task in tasks["tasks"].as_array().expect("tasks") {
+        for row in task["acceptance"].as_array().expect("acceptance") {
+            let has = |key: &str| row[key].as_str().is_some_and(|s| !s.is_empty());
+            assert!(
+                has("text") && (has("run") != has("judge")),
+                "{}: {row}",
+                task["id"]
+            );
+        }
+    }
+}
+
 #[test]
 fn the_seeding_script_passes_its_self_test() {
     passes("seed.py");
@@ -38,8 +72,8 @@ fn run_files_ignored() -> i32 {
 }
 
 #[test]
-fn run_files_are_not_ignored_yet() {
-    assert_eq!(run_files_ignored(), 1);
+fn run_files_are_ignored() {
+    assert_eq!(run_files_ignored(), 0);
 }
 
 #[test]

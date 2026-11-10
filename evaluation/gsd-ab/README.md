@@ -53,7 +53,9 @@ input: arm A's `.planning/` is the recorded one, not a conversion of the twin.
 
 `tasks.json#tasks`: 4 per fixture, 12 in all. Each has an `id`, a `fixture`, a `workflow` (execute, verify,
 progress/resume, ship), a `prompt`, the defects `seeded` in its copy, the `acceptance` checks run after the agent
-stops, and the `ground_truth` (the requirement, plan and verdict states after a correct run).
+stops, and the `ground_truth` (the requirement, plan and verdict states after a correct run). An acceptance row has a
+`text` and either `run`, a command run in the copy (passes when it exits 0), or `judge`, the one-line rubric the
+operator reads the copy against.
 
 ## 5. Seeded defects
 
@@ -88,22 +90,31 @@ Per arm, per (task, seed) run. The operator's scripts write a run file (section 
 - 3 seeds per (task, arm); arms are interleaved by task, so drift in the model's service hits every arm alike.
 - Each run starts a fresh agent session in the arm's copy and sends one message: `prompts/<arm>.md` with the task's
   `prompt` in place of `{task.prompt}`. Nothing else is said unless the script calls for an intervention.
-- The operator follows a script. An intervention is counted, never improvised.
+- The operator follows a script, [OPERATOR.md](OPERATOR.md): the copies, each arm's tools, the prompt, when a run
+  ends, how each field of the run file is read. An intervention is one of its four, with its text, logged with its
+  turn and counted, never improvised.
 - Every transcript is kept under `runs/<arm>/<task>/<seed>.json` (git-ignored), archived with the report.
 
 A run file:
 
 ```json
 {
-  "arm": "B", "task": "taskboard-execute-02-01", "seed": 1, "model": "<id>",
-  "acceptance": { "npm test": true, "specforge check": true },
+  "arm": "B", "task": "taskboard-execute-02-01", "seed": 1, "model": "<id>", "temperature": 0,
+  "host": { "agent": "<program>", "version": "<version>", "machine": "<os, cpu, memory>" },
+  "budget": { "max_turns": 200, "max_tokens": 400000 }, "permission_mode": "auto-approve inside the copy",
+  "acceptance": { "npm test passes": true, "tasks.json is written after every change": true },
   "claims": { "v1.0/02/02-01": "complete" },
   "final_report": "verified",
   "defects_present": ["S4"],
   "tokens": 182000, "plans_completed": 1,
-  "wall_seconds": 840, "interventions": 0, "rework_commits": 0
+  "wall_seconds": 840, "rework_commits": 0,
+  "interventions": 1, "intervention_log": [{ "reason": "question", "turn": 7 }]
 }
 ```
+
+Every field is required. `final_report` is the value of the run's last `RESULT:` line, or `none`; an intervention's
+`reason` is one of OPERATOR.md's (`question`, `stopped`, `budget`, `operator`) and `interventions` is the log's
+length. `score.py` refuses a run file that breaks any of this, or whose path is not its arm, task and seed.
 
 ## 8. Analysis
 
@@ -140,5 +151,7 @@ python3 -I evaluation/gsd-ab/score.py --runs evaluation/gsd-ab/runs
 python3 -I evaluation/gsd-ab/score.py --self-test
 ```
 
-`--self-test` scores an embedded synthetic set where B clearly wins and one where it doesn't, checks the D7 verdict of
-each, and checks that an unpaired run is refused.
+`--self-test` writes an embedded synthetic set (4 tasks, 3 seeds, 3 arms) as run files and reads it back, scores it
+where B clearly wins and where it doesn't, checks the D7 verdict of each and that an unpaired run is refused, and
+refuses exactly three bad run files: one without its host, one whose interventions are not logged, and one whose
+intervention has a reason outside the list.
