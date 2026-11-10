@@ -409,7 +409,12 @@ pub fn dogfood(ctx: &Ctx, _: &Selection) -> Result<(), String> {
             Err(format!("`specforge {}` failed", args.join(" ")))
         }
     };
-    let collect = json(ctx, &["collect", "--report"], &[&reports])?;
+    // The root project also enables the source collectors, so the report files name their runner.
+    let collect = json(
+        ctx,
+        &["collect", "--runner", "cargo-test", "--report"],
+        &[&reports],
+    )?;
     let analyze = json(ctx, &["analyze", "coverage"], &[])?;
     let (lines, failed) = judge::dogfood_verdict(&collect, &analyze);
     for line in &lines {
