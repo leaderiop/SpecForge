@@ -26,9 +26,9 @@ pub enum Evidence {
     Failed,
 }
 
-/// The kind of `@code/core`'s test facts, which a truth's `proof` names, and the fields a deliverable check's `ref`
-/// is matched on.
-const TEST: &str = "test";
+/// The kind of `@code/core`'s test facts, which a truth's `proof` names: every pass that reads the thread declares it
+/// in its `facts` input (ADR 0353), and the fields a deliverable check's `ref` is matched on.
+pub(crate) const TEST: &str = "test";
 const NAME: &str = "name";
 const FILE: &str = "file";
 /// The field holding a test fact's result: the `result` `@code/core` declares for `test`. A pass input carries the

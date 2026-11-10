@@ -5,7 +5,7 @@ use specforge_code_facts::{ItemId, PackageId, Scheme, TestId};
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::UnheldReference;
 
-use crate::{reference, ITEM_KIND, KINDS, NAMES, PACKAGE_KIND, RUN_KIND, TEST_KIND};
+use crate::{ITEM_KIND, KINDS, PACKAGE_KIND, RUN_KIND, TEST_KIND};
 
 /// The pack that collects each kind of `@code/core`, by the scheme of a test's or an item's id and the purl type of a
 /// package's: what W102 tells to run.
@@ -22,14 +22,13 @@ pub(crate) const PACKS: [(&str, &str, &str); 6] = [
 /// `@code/core`'s, once, at the span it is written at: nothing while its entity is pending (a test not written yet is TDD), E101 when a served fact store holds
 /// a fact of one of those kinds in its scheme (a test reference told the closest held test of its container), W102
 /// when none does (nothing to check it against), naming the kind and its pack. A held reference is an edge, never a
-/// finding, and neither is a fact nothing cites. A reference one of its own facts holds that no fact or entity answers
-/// is E101 addressed to the collector that wrote it: see [`disagreeing`]. A history reference
-/// (`UnheldReference.history`) is no finding.
+/// finding, and neither is a fact nothing cites. A reference one of its own facts holds is `proof`'s to judge. A history
+/// reference (`UnheldReference.history`) is no finding.
 pub(crate) fn refs(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut found = Vec::new();
     for entity in input.entities.iter().filter(|e| !e.pending) {
+        // A fact's own references are its collector's, judged by `proof` (ADR 0346 D4).
         if KINDS.contains(&entity.kind.as_str()) {
-            found.extend(disagreeing(entity));
             continue;
         }
         // A history reference records what held when the harness wrote it: never a missing fact (ADR 0352 D2).
@@ -133,68 +132,8 @@ fn pack(scheme: &str, id: &str, kind: &str) -> Option<&'static str> {
         .map(|(_, _, pack)| *pack)
 }
 
-/// The E101 of each reference the fact `entity` holds that answers nothing: a dangling one (no entity, several, or
-/// one of another kind), and an unheld one in a field whose target one collector answers with it (a run's test). An
-/// unheld reference to another collector's kind (an item's test that no runner collected) is no finding, and a
-/// dangling name is I402's (the `proof` pass). The pack's collector wrote both the fact and the reference, so its
-/// facts disagree: no spec author can fix it.
-fn disagreeing(entity: &PassEntity) -> Vec<PassDiagnostic> {
-    let unheld = entity
-        .unheld
-        .iter()
-        .filter(|item| answered_together(&entity.kind, &item.field))
-        .map(|item| (&item.id, None, &item.span));
-    let dangling = entity
-        .dangling
-        .iter()
-        .filter(|item| item.field != NAMES)
-        .map(|item| {
-            let mistyped = (item.reason == DanglingReason::Mistyped)
-                .then_some(item.actual.as_deref())
-                .flatten()
-                .map(|actual| (item.field.as_str(), actual));
-            (&item.id, mistyped, &item.span)
-        });
-    unheld
-        .chain(dangling)
-        .map(|(id, mistyped, span)| {
-            let fact = &entity.id;
-            let message = match mistyped {
-                Some((field, actual)) => match takes(&entity.kind, field) {
-                    Some(target) => format!(
-                        "the fact '{fact}' names '{id}' in '{field}', a {actual}, not a {target}"
-                    ),
-                    None => format!(
-                        "the fact '{fact}' names '{id}' in '{field}', a {actual}, which '{field}' does not take"
-                    ),
-                },
-                None => format!(
-                    "the fact '{fact}' names '{id}', which no collected fact holds (its collector's facts \
-                     disagree)"
-                ),
-            };
-            let diagnostic = PassDiagnostic::new("E101", PassSeverity::Error, message)
-                .with_suggestion(
-                    "run `specforge collect` again; if it stays, the runner pack mints it wrong",
-                )
-                .with_entity(fact);
-            at(diagnostic, span)
-        })
-        .collect()
-}
-
-/// The kind the reference field `field` of `kind` takes, when `@code/core` declares it.
-fn takes(kind: &str, field: &str) -> Option<&'static str> {
-    reference(kind, field).map(|row| row.target)
-}
-
-/// Whether one collector answers the fact of `kind` and what its `field` names.
-fn answered_together(kind: &str, field: &str) -> bool {
-    reference(kind, field).is_some_and(|row| row.together)
-}
-
 /// `diagnostic` at `span`, when there is one.
-fn at(diagnostic: PassDiagnostic, span: &Option<PassSpan>) -> PassDiagnostic {
+pub(crate) fn at(diagnostic: PassDiagnostic, span: &Option<PassSpan>) -> PassDiagnostic {
     match span {
         Some(span) => diagnostic.with_span(span.clone()),
         None => diagnostic,

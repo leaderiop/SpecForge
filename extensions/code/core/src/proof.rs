@@ -4,16 +4,25 @@ use std::collections::{BTreeSet, HashMap};
 
 use specforge_extension_sdk::prelude::*;
 
-use crate::{ITEM_KIND, KINDS, NAMES, RESULT, TEST_KIND};
+use crate::refs::at;
+use crate::{reference, ITEM_KIND, KINDS, NAMES, RESULT, TEST_KIND};
 
 /// W401 on each entity outside `@code/core`'s kinds that is not pending and links a `test` whose result ([`RESULT`])
 /// is `failed`, once per test it links; I402 on each name a `test` or an `item` holds in `names` that is dangling: no
-/// entity of the project, or the short name of several.
+/// entity of the project, or the short name of several; E101 on each reference a fact of `@code/core`'s kinds holds
+/// that answers nothing ([`disagreeing`]).
 pub(crate) fn proof(input: &PassInput) -> Vec<PassDiagnostic> {
     let by_id: HashMap<&str, &PassEntity> =
         input.entities.iter().map(|e| (e.id.as_str(), e)).collect();
     let mut found: Vec<PassDiagnostic> = failing_proofs(input, &by_id);
     found.extend(dangling_names(input));
+    for fact in input
+        .entities
+        .iter()
+        .filter(|e| !e.pending && KINDS.contains(&e.kind.as_str()))
+    {
+        found.extend(disagreeing(fact));
+    }
     found
 }
 
@@ -82,4 +91,64 @@ fn dangling_names(input: &PassInput) -> Vec<PassDiagnostic> {
         }
     }
     found
+}
+
+/// The E101 of each reference the fact `entity` holds that answers nothing: a dangling one (no entity, several, or
+/// one of another kind), and an unheld one in a field whose target one collector answers with it (a run's test). An
+/// unheld reference to another collector's kind (an item's test that no runner collected) is no finding, and a
+/// dangling name is I402's (the `proof` pass). The pack's collector wrote both the fact and the reference, so its
+/// facts disagree: no spec author can fix it.
+fn disagreeing(entity: &PassEntity) -> Vec<PassDiagnostic> {
+    let unheld = entity
+        .unheld
+        .iter()
+        .filter(|item| answered_together(&entity.kind, &item.field))
+        .map(|item| (&item.id, None, &item.span));
+    let dangling = entity
+        .dangling
+        .iter()
+        .filter(|item| item.field != NAMES)
+        .map(|item| {
+            let mistyped = (item.reason == DanglingReason::Mistyped)
+                .then_some(item.actual.as_deref())
+                .flatten()
+                .map(|actual| (item.field.as_str(), actual));
+            (&item.id, mistyped, &item.span)
+        });
+    unheld
+        .chain(dangling)
+        .map(|(id, mistyped, span)| {
+            let fact = &entity.id;
+            let message = match mistyped {
+                Some((field, actual)) => match takes(&entity.kind, field) {
+                    Some(target) => format!(
+                        "the fact '{fact}' names '{id}' in '{field}', a {actual}, not a {target}"
+                    ),
+                    None => format!(
+                        "the fact '{fact}' names '{id}' in '{field}', a {actual}, which '{field}' does not take"
+                    ),
+                },
+                None => format!(
+                    "the fact '{fact}' names '{id}', which no collected fact holds (its collector's facts \
+                     disagree)"
+                ),
+            };
+            let diagnostic = PassDiagnostic::new("E101", PassSeverity::Error, message)
+                .with_suggestion(
+                    "run `specforge collect` again; if it stays, the runner pack mints it wrong",
+                )
+                .with_entity(fact);
+            at(diagnostic, span)
+        })
+        .collect()
+}
+
+/// The kind the reference field `field` of `kind` takes, when `@code/core` declares it.
+fn takes(kind: &str, field: &str) -> Option<&'static str> {
+    reference(kind, field).map(|row| row.target)
+}
+
+/// Whether one collector answers the fact of `kind` and what its `field` names.
+fn answered_together(kind: &str, field: &str) -> bool {
+    reference(kind, field).is_some_and(|row| row.together)
 }

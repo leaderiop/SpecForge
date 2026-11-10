@@ -20,20 +20,28 @@ use crate::digest::scope_of;
 
 type Check = fn(&PassInput) -> Vec<PassDiagnostic>;
 
-const GUARDS: &[(&str, &str, Check)] = &[
-    ("gate_e106", "E106", e106),
-    ("gate_e511", "E511", e511),
-    ("gate_e512", "E512", e512),
-    ("gate_w318", "W318", w318),
-    ("gate_w404", "W404", w404),
-    ("gate_e515", "E515", e515),
-    ("gate_e516", "E516", e516),
+/// The facts a guard that reads the requirement thread is sent (ADR 0353).
+const THREAD: &[&str] = &[super::thread::TEST];
+
+/// Each guard: its pass, the code it reports, the facts kinds it reads and its check.
+const GUARDS: &[(&str, &str, &[&str], Check)] = &[
+    ("gate_e106", "E106", &[], e106),
+    ("gate_e511", "E511", &[], e511),
+    ("gate_e512", "E512", &[], e512),
+    ("gate_w318", "W318", &[], w318),
+    ("gate_w404", "W404", &[], w404),
+    ("gate_e515", "E515", THREAD, e515),
+    ("gate_e516", "E516", &[], e516),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
-    for (name, code, check) in GUARDS {
+    for (name, code, facts, check) in GUARDS {
         c.pass(name, |p| {
-            p.guard().reports(&[code]).run(*check);
+            p.guard().reports(&[code]);
+            if !facts.is_empty() {
+                p.input(Input::facts(facts));
+            }
+            p.run(*check);
         });
     }
 }

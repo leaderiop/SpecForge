@@ -40,6 +40,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 "verify_gap",
                 "override",
             ])
+            .input(Input::facts(&[crate::passes::thread::TEST]))
             .run(derive);
     });
 }

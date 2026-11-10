@@ -348,7 +348,7 @@ fn every_guard_answers_a_gate_and_is_silent_on_a_write() {
         json!({ "entities": entities, "edges": edges }),
     ))
     .expect("input");
-    for (name, code, check) in GUARDS {
+    for (name, code, _, check) in GUARDS {
         let answered = codes(check(&gate));
         assert!(
             !answered.is_empty() && answered.iter().all(|c| c == code),

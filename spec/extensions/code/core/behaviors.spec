@@ -114,7 +114,9 @@ behavior cc_check_fact_refs "Check Cited Fact References" {
     holds that no fact or entity answers (unheld, or dangling: no entity,
     several, or one of another kind) is code/E101 addressed to its
     collector, at the span it was read at, whether or not a store serves
-    its scheme. A history reference (its field one the harness writes
+    its scheme: the check pass proof judges it. A pass is sent the facts
+    it declares (ADR 0353 D6): refs the test and test_run facts, proof the
+    facts of every @code/core kind. A history reference (its field one the harness writes
     once, ADR 0352 D2) records what held then and is never a finding.
   """
   ensures {
@@ -138,6 +140,7 @@ behavior cc_check_fact_refs "Check Cited Fact References" {
   verify unit "a facts own unheld reference is not judged"
   verify unit "a reference admitting none of its kinds is not judged"
   verify unit "a history reference is no finding"
+  verify unit "refs is sent the test and test_run facts, and proof the facts of every code kind"
   verify integration "a rust test ref beside only item facts is code/W102"
   verify integration "a missing item of a collected crate is code/E101"
   verify integration "an item ref links to its fact"

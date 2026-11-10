@@ -21,8 +21,9 @@
 //!
 //! Its check pass `refs` judges a reference no fact holds by the collected kinds its field admits (E101 when a store
 //! holds one, W102 naming the pack otherwise), unless the citing entity is pending (ADR 0329 D4, ADR 0347 D9); its
-//! check pass `proof` reports a complete entity linking a failed test (W401) and a test or item naming no entity
-//! (I402) (ADR 0329 D6, ADR 0347 D11).
+//! check pass `proof` reports a complete entity linking a failed test (W401), a test or item naming no entity (I402)
+//! (ADR 0329 D6, ADR 0347 D11) and a fact's own reference that answers nothing (E101, ADR 0346 D4). `refs` is sent
+//! the `test` and `test_run` facts, `proof` the facts of every kind (ADR 0353 D6).
 
 use specforge_code_facts::{ItemKind, Scheme, Visibility};
 use specforge_extension_sdk::prelude::*;
@@ -299,11 +300,17 @@ impl Contributions for CodeCore {
                 .target_kind(TEST_KIND);
         });
 
+        // A pass is sent the facts of the kinds it declares (ADR 0353): `refs` names the closest held test or run,
+        // and `proof` judges what the facts of every kind say, so item facts cross into one guest.
         c.pass("refs", |p| {
-            p.phase("check").run(refs::refs);
+            p.phase("check")
+                .input(Input::facts(&[TEST_KIND, RUN_KIND]))
+                .run(refs::refs);
         });
         c.pass("proof", |p| {
-            p.phase("check").run(proof::proof);
+            p.phase("check")
+                .input(Input::facts(&KINDS))
+                .run(proof::proof);
         });
 
         c.code("E101", |d| {

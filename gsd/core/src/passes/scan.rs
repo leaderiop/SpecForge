@@ -36,6 +36,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("scan", |p| {
         p.compute()
             .computes(COMPUTES)
+            .input(Input::facts(&[super::thread::TEST]))
             .input(Input::files(
                 "modified",
                 FileReadSpec::field("plan.files_modified").text(),

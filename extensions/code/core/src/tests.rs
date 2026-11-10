@@ -445,7 +445,7 @@ fn a_facts_own_unheld_reference_is_not_judged() {
         ..entity("rust:toy::tests::adds", "item")
     };
     let served = [("rust", "item"), ("rust", "test"), ("pkg", "package")];
-    assert!(refs::refs(&holding(vec![item], &served)).is_empty());
+    assert!(proof::proof(&holding(vec![item], &served)).is_empty());
 }
 
 #[test]
@@ -533,7 +533,12 @@ fn a_dangling_reference_of_a_test_run_is_e101_for_its_collector() {
         ],
         ..entity("run:js:app/a.test.js#adds", "test_run")
     };
-    let diagnostics = refs::refs(&input(vec![run, entity("t1", "truth")], &["js", "run"]));
+    let sent = input(vec![run, entity("t1", "truth")], &["js", "run"]);
+    assert!(
+        refs::refs(&sent).is_empty(),
+        "a fact's own references are proof's"
+    );
+    let diagnostics = proof::proof(&sent);
     assert_eq!(
         found(&diagnostics),
         [
@@ -569,7 +574,7 @@ fn a_mistyped_reference_in_a_field_code_core_does_not_declare_names_no_kind() {
         ..entity("js:app/a.test.js#adds", "test")
     };
 
-    let diagnostics = refs::refs(&input(vec![test, entity("t1", "truth")], &["js"]));
+    let diagnostics = proof::proof(&input(vec![test, entity("t1", "truth")], &["js"]));
 
     assert_eq!(
         diagnostics[0].message,
@@ -620,7 +625,7 @@ fn an_unheld_reference_of_a_test_run_is_e101_for_its_collector() {
     };
     // Whether or not a store serves the scheme: the collector wrote both, so it is never W102.
     for served in [&["js", "run"][..], &[]] {
-        let diagnostics = refs::refs(&input(vec![run.clone()], served));
+        let diagnostics = proof::proof(&input(vec![run.clone()], served));
         assert_eq!(
             found(&diagnostics),
             [("E101", "run:js:app/a.test.js#gone", 2, Some(COLLECTOR))]
@@ -629,6 +634,29 @@ fn an_unheld_reference_of_a_test_run_is_e101_for_its_collector() {
             .message
             .ends_with("(its collector's facts disagree)"));
     }
+}
+
+#[specforge_test(
+    behavior = "cc_check_fact_refs",
+    verify = "refs is sent the test and test_run facts, and proof the facts of every code kind"
+)]
+fn its_passes_declare_the_facts_they_read() {
+    let declared = declaration();
+    let facts = |pass: &str| -> Vec<String> {
+        let pass = declared.passes.iter().find(|p| p.name == pass).unwrap();
+        let mut kinds: Vec<String> = pass
+            .inputs
+            .iter()
+            .flat_map(|input| match input {
+                Input::Facts { kinds } => kinds.clone(),
+                _ => Vec::new(),
+            })
+            .collect();
+        kinds.sort();
+        kinds
+    };
+    assert_eq!(facts("refs"), ["test", "test_run"]);
+    assert_eq!(facts("proof"), ["item", "package", "test", "test_run"]);
 }
 
 #[test]

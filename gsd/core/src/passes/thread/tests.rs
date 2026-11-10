@@ -292,3 +292,31 @@ fn a_named_test_and_a_proof_both_link_a_truth() {
     );
     assert_eq!(thread.of_entity("TR1"), Evidence::Failed);
 }
+
+/// The passes whose handler reads the thread (`Thread::of`): `grep -rn 'Thread::of' gsd/core/src/passes` keeps this
+/// list whole.
+const READ_THE_THREAD: [&str; 4] = ["derive", "gate_e515", "scan", "verify_rules"];
+
+#[test]
+fn every_pass_that_reads_the_thread_declares_test_facts() {
+    let declaration = crate::build().declaration();
+    let facts = |inputs: &[Input]| -> Vec<String> {
+        inputs
+            .iter()
+            .flat_map(|input| match input {
+                Input::Facts { kinds } => kinds.clone(),
+                _ => Vec::new(),
+            })
+            .collect()
+    };
+    let mut reading: Vec<&str> = Vec::new();
+    for pass in &declaration.passes {
+        match facts(&pass.inputs).as_slice() {
+            [] => {}
+            [only] if only == TEST => reading.push(&pass.name),
+            other => panic!("pass '{}' declares the facts {other:?}", pass.name),
+        }
+    }
+    reading.sort();
+    assert_eq!(reading, READ_THE_THREAD);
+}
