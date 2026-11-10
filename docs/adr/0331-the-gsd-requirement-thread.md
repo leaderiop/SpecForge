@@ -2,7 +2,8 @@
 
 **Status:** accepted (2026-11-03, build-plan R1, plan 04); amended by
 [ADR 0351](0351-a-plan-lists-its-decisions-and-the-threads-gaps-have-codes.md) (D1, D3) and
-[ADR 0352](0352-gsd-git-reads-the-host-git-port-and-commits-name-their-items.md) (D3, D4, D8).
+[ADR 0352](0352-gsd-git-reads-the-host-git-port-and-commits-name-their-items.md) (D3, D4, D8); amended in place
+(2026-11-10, [Amendment](#amendment-2026-11-10-the-thread-reads-test-facts-only)) (D4, D5, D7: test facts only).
 Amends [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md)
 D3 (a `test(..)` input), [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) D4 (gsd-git
 reads a trailer), [ADR 0312](0312-collect-re-keys-a-test-id-as-the-test-report-does.md) (a truth's tests are its tags
@@ -134,3 +135,18 @@ At the base, `@gsd/core` could walk the first three hops and no further:
 
 - A commit linked to several tasks: `linked_by` and `task` are single values.
 - A test input that must tell a skipped run from a missing one beyond `unjudged`.
+
+## Amendment (2026-11-10): the thread reads test facts only
+
+- **D4.** gsd-junit is deleted ([ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) D7, amended): gsd-git is
+  `@gsd/core`'s one collector, and tests reach it as `@code/core`'s test facts a runner pack collects.
+- **D5.** `passes/thread.rs` reads `@code/core`'s test facts and the graph's edges, never the recorded report. The tests
+  of an entity are the facts that name it (a `names` edge, from a `[<ns>:<id>]` tag), its proof's facts (a truth's
+  `proof`), and the facts a deliverable check's `ref` or a fresh verdict's `cited_tests` names (a fact's id, or
+  `[file#]name`, where the first `#` ends the file). **Not run** is no test fact at all; **no test** is facts collected
+  and none linked with a passed or failed status. The caller table is unchanged. No gsd pass declares the `tests`
+  input, so a gsd project's passes never say I205; results another collector files under a gsd entity count for nothing.
+- **D7.** `@gsd/core`'s truth input is `test(self.proof, self<test.names)`: the proof's facts and the facts whose
+  `names` hold the truth. A tag still stales a verdict, through the fact's `names` rather than a report entry filed
+  under the truth; without `@code/core` both chains are inert. The input is still unjudged when a proof's references
+  are unheld and no store holds their scheme (a fresh clone), so `gsd/E501` may still say I205.

@@ -9,6 +9,8 @@ Amended by [ADR 0347](0347-item-and-package-facts-and-ids-a-scip-symbol-maps-int
 given, `names` a reference list; D5: judged by the kinds a field admits, `held`; D7: the minting moves to `code/facts`).
 Amended by [ADR 0352](0352-gsd-git-reads-the-host-git-port-and-commits-name-their-items.md) (D5: a history reference
 is never unheld).
+Amended in place (2026-11-10, [Amendment](#amendment-2026-11-10-test-names-from-tags-and-one-junit-reader)) (D3: the
+reader fills `names` from `[<ns>:<id>]` tags, `file` is project-relative; D7: gsd-junit is deleted).
 
 **Amended by [ADR 0350](0350-a-fields-checks-may-wait-for-its-owner.md)** (D4: the values phase reads owner state
 too, on the merged snapshot, to decide whether a field's checks wait).
@@ -136,3 +138,15 @@ Four facts shape it:
 - A runner whose tests have no stable name (generated, parameterised beyond a name): the id grammar would need a
   parameter part.
 - A second notion of "done" an owner cannot state as one enum field.
+
+## Amendment (2026-11-10): test names from tags, and one JUnit reader
+
+- **D3.** A test fact's `file` is the project-relative path the pack gives, in a nested package too; its id keeps the
+  package-relative file, so two packages' tests stay apart. The reader fills `names`: each `[<ns>:<id>]` tag in a
+  test's JUnit name is one of its names (`specforge_code_junit::names`, `Case::names`), and two cases that merge into
+  one fact take the union of their names. The type is ADR 0346's fact-held reference list, so a tag the linker resolves
+  is a `names` edge, and one that names nothing or several entities is a dangling name `@code/core` reports
+  (`code/I402`). A runner's own idiom (vitest's `meta.specforge`, `@rust/test`'s attribute) may add more.
+- **D7.** gsd-junit, the copy, is deleted. `@gsd/core` reads `@code/core`'s test facts ([ADR
+  0331](0331-the-gsd-requirement-thread.md), amended), so it needs no reader of its own, and `specforge-code-junit` is
+  the one JUnit reader.

@@ -3,6 +3,7 @@
 **Status:** accepted (2026-10-31, kernel round K20b, plan 14). Extends [ADR
 0284](0284-a-name-is-unique-within-its-scope.md). No protocol change.
 Amended by [ADR 0331](0331-the-gsd-requirement-thread.md) (a truth's tests are its `[gsd:<id>]` tags and its `proof`).
+Amended in place (2026-11-10, [Amendment](#amendment-2026-11-10-gsd-junit-is-deleted)) (a tag is a `test.names` item).
 
 ## Context
 
@@ -32,3 +33,10 @@ host as written and becomes W115, and the host's naming convention cannot retry 
 ## Consequences
 
 A collector reports the id as it read it.
+
+## Amendment (2026-11-10): gsd-junit is deleted
+
+gsd-junit is deleted ([ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) D7, amended). A `[gsd:<id>]` tag is
+now an item of a test fact's `names`, which the linker resolves as any reference (an exact path, then a unique `/`
+suffix); [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md) says what an unresolved or ambiguous one
+is. The re-keying of D1 to D3 stays for the collectors that still answer results filed under an entity.
