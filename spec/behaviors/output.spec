@@ -670,6 +670,7 @@ behavior provide_anchors_cli "Provide CLI Anchors Command" {
   verify integration "anchors <entity> prints the rows find_implementation returns"
   verify integration "anchors --file prints the rows find_spec_for_source returns"
   verify integration "an entity and --file together are refused"
+  verify integration "anchors answers a Rust test's file and line after a real collect"
 }
 
 behavior provide_review_cli "Provide CLI Review Command" {

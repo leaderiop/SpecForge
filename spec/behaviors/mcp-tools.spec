@@ -636,6 +636,7 @@ behavior provide_mcp_find_implementation_tool "Provide MCP Find Implementation T
   verify unit "an id the graph does not declare is refused with E003"
   verify unit "an answer with no located fact served carries I212"
   verify unit "a source file edited since collect gives one W198 and keeps its rows"
+  verify integration "find_implementation answers a Rust test's file and line after a real collect"
 }
 
 behavior provide_mcp_find_spec_for_source_tool "Provide MCP Find Spec For Source Tool" {

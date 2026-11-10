@@ -146,3 +146,51 @@ fn an_entity_and_a_file_together_are_refused() {
     let neither = cli.run(&["anchors"]);
     assert_eq!(neither.code, 2, "{}", neither.stderr);
 }
+
+#[specforge_test(
+    behavior = "provide_anchors_cli",
+    verify = "anchors answers a Rust test's file and line after a real collect"
+)]
+fn anchors_answers_a_collected_rust_item() {
+    // The Rust packs' fixture crate, collected for real: `rust-cargo` reads `Cargo.toml`, `rust-source` the crate's
+    // files through the host's reader; no command runs.
+    let fixture = specforge_repo_root::repo_root().join("crates/app/ops/tests/fixtures/rust-packs");
+    let packs = [
+        "@specforge/software",
+        "@code/core",
+        "@rust/cargo",
+        "@rust/source",
+    ];
+    let project = TestProject::copy_of(fixture).enabling(&packs);
+    let cli = Cli::on(&project);
+    let collect = cli.run(&["collect", "--yes"]);
+    assert_eq!(collect.code, 0, "{}{}", collect.stdout, collect.stderr);
+
+    let human = cli.run(&["anchors", "rs_mark_tests"]);
+    assert_eq!(
+        (human.code, human.stdout.as_str()),
+        (
+            0,
+            "src/lib.rs:14-16  function rust:adder::tests::adds  via item.names\n"
+        ),
+        "{}",
+        human.stderr
+    );
+    assert!(
+        !human.stderr.contains("I212") && !human.stderr.contains("W198"),
+        "{}",
+        human.stderr
+    );
+    let json = cli.run(&["anchors", "rs_mark_tests", "--format", "json"]);
+    let reply = mcp(
+        &project,
+        "specforge.find_implementation",
+        json!({"entity_id": "rs_mark_tests"}),
+    );
+    assert_eq!(json.json(), reply);
+    let file = cli.run(&["anchors", "--file", "src/lib.rs"]);
+    assert_eq!(
+        file.stdout,
+        "src/lib.rs:14-16  function rust:adder::tests::adds  via item.names  [behavior rs_mark_tests]\n"
+    );
+}

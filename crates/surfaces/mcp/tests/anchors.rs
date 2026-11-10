@@ -139,3 +139,58 @@ fn find_implementation_says_when_nothing_was_collected() {
         .collect();
     assert_eq!(codes, ["I212"], "{reply}");
 }
+
+/// The Rust packs' fixture crate, `@code/core`, `@rust/cargo` and `@rust/source` enabled, served and collected for
+/// real through `specforge.collect`: `rust-cargo` reads `Cargo.toml`, `rust-source` the crate's files; no command runs.
+fn collected_crate() -> (TestProject, specforge_mcp::McpServer) {
+    let fixture = specforge_repo_root::repo_root().join("crates/app/ops/tests/fixtures/rust-packs");
+    let project = TestProject::copy_of(fixture).enabling(&[
+        "@specforge/software",
+        "@code/core",
+        "@rust/cargo",
+        "@rust/source",
+    ]);
+    let mut server = specforge_mcp::McpServer::with_project_root(project.root().to_path_buf());
+    let reply = call(&mut server, "initialize", json!({}));
+    assert!(reply["error"].is_null(), "{reply}");
+    let collected = call_tool(&mut server, "specforge.collect", json!({}));
+    assert!(collected["result"]["isError"] != true, "{collected}");
+    (project, server)
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_find_implementation_tool",
+    verify = "find_implementation answers a Rust test's file and line after a real collect"
+)]
+fn find_implementation_answers_a_collected_rust_item() {
+    let (_project, mut server) = collected_crate();
+    let reply = call_tool(
+        &mut server,
+        "specforge.find_implementation",
+        json!({"entity_id": "rs_mark_tests"}),
+    );
+    let found: Value = serde_json::from_str(&tool_text(&reply)).unwrap();
+    // `tests::adds` in `src/lib.rs`, its `#[specforge_test(behavior = "rs_mark_tests")]` at line 14.
+    assert_eq!(
+        found["implementations"],
+        json!([{"fact_id": "rust:adder::tests::adds", "file": "src/lib.rs", "line": 14, "end_line": 16,
+                "item_kind": "function", "collector": "rust-source", "via": "item.names"}]),
+        "{reply}"
+    );
+    // The files are as collected and facts are served: no notice.
+    assert!(reply["result"]["_meta"]["diagnostics"].is_null(), "{reply}");
+
+    let source = call_tool(
+        &mut server,
+        "specforge.find_spec_for_source",
+        json!({"file_path": "src/lib.rs"}),
+    );
+    let found: Value = serde_json::from_str(&tool_text(&source)).unwrap();
+    let entities: Vec<&str> = found["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["entity_id"].as_str().unwrap())
+        .collect();
+    assert_eq!(entities, ["rs_mark_tests"], "{found}");
+}
