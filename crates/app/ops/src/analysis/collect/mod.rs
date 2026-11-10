@@ -274,7 +274,7 @@ pub fn collect(
         })
         .collect::<Result<Vec<_>, OpError>>()?;
     approval::settle_runs(view, &planned, asking, consent, &mut unsaved_approvals)?;
-    let mut served = order::Served::new(root, containment);
+    let mut served = order::Served::new(root, containment, &available);
     for (collector, source) in planned {
         let Evidence {
             files,
@@ -304,7 +304,7 @@ pub fn collect(
             stdout.as_deref(),
             Some(view),
             lent.clone(),
-            served.facts(collector),
+            served.facts(collector, &mut diagnostics),
         )
         .map_err(|error| {
             let mut failed = OpError::of(OpErrorKind::Internal, error.diagnostic());

@@ -4685,6 +4685,25 @@ Owner: core
 Level: warning
 ```
 
+## W201
+
+```
+W201: A collector's facts input served nothing
+
+A collector declares a `facts` input (ADR 0345 D3) naming a kind, and it was
+served no fact of that kind: no collector of this collect answers the kind
+(`specforge collect --runner` runs only the collectors it names, and detection
+may skip one), and no store the harness ledger records holds a fact of it. The
+collector runs on an empty input, so what it derives from those facts is
+missing. The message names the collector, the kind and the declared collectors
+that answer it, or says no loaded collector does. Collect with them first
+(`specforge collect --runner <name>`), or run `specforge collect` without
+`--runner`; with none, load the extension whose collector answers the kind.
+
+Owner: core
+Level: warning
+```
+
 ## Retired codes
 
 These codes are no longer emitted, and are never reused for another meaning.

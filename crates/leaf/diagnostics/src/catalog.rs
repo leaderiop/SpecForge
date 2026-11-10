@@ -722,4 +722,7 @@ catalog! {
     W199: Warning core,
         "Owner gate refused",
         "A field declares `checks_while` (ADR 0350), whether its checks wait for its holder's owner, and the registry cannot honour it: the word is neither `complete` nor `pending`, the field declares no check, or neither its kind nor a kind along its `scoped_by` chain declares `complete_when`, so no owner state decides it. The gate is dropped and the field's checks run on every value, as if it declared none; nothing is lost. Declare a check on the field, or `complete_when` on its kind or a scope ancestor, and rebuild the extension.";
+    W201: Warning core,
+        "A collector's facts input served nothing",
+        "A collector declares a `facts` input (ADR 0345 D3) naming a kind, and it was served no fact of that kind: no collector of this collect answers the kind (`specforge collect --runner` runs only the collectors it names, and detection may skip one), and no store the harness ledger records holds a fact of it. The collector runs on an empty input, so what it derives from those facts is missing. The message names the collector, the kind and the declared collectors that answer it, or says no loaded collector does. Collect with them first (`specforge collect --runner <name>`), or run `specforge collect` without `--runner`; with none, load the extension whose collector answers the kind.";
 }

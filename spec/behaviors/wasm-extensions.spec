@@ -558,7 +558,9 @@ behavior dispatch_collector "Dispatch Collector" {
     receives `facts`, sorted by kind and id: for each kind, the admitted facts
     the collectors that ran before it in this collect answered, or, for a
     kind none of them answers, the facts of the stores specforge-harness
-    records (ADR 0345 D3).
+    records (ADR 0345 D3). A kind served from the stores that none of them
+    holds a fact of is W201, naming the collector, the kind and the declared
+    collectors that answer it (`--runner` still runs only what it names).
   """
   produces   [collector_dispatched]
   verify unit "a collector named by the runner receives each checked value's outcome"
@@ -580,6 +582,7 @@ behavior dispatch_collector "Dispatch Collector" {
   verify unit "a dirty tree or a project in no repository files its facts under a key that says so, with I209"
   verify integration "a facts input is served the admitted facts of its kinds that earlier collectors answered, sorted"
   verify integration "a facts input no collector of the collect answers is served the recorded stores"
+  verify integration "a facts input served no fact of a kind is W201 naming the collectors that answer it"
   verify unit "the recorded facts of a kind are those of the stores the ledger records, sorted"
   verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only, declared_files_passed, facts_stored, facts_served"
 }

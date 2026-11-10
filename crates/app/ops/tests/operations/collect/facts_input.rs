@@ -212,20 +212,35 @@ fn collectors_whose_facts_inputs_form_a_cycle_are_e119_before_anything_runs() {
     assert!(!project.root().join("specforge-report.json").exists());
 }
 
-// Pinned: a consumer run alone, with no store recorded for the kind it reads, is served nothing and says nothing.
-#[test]
-fn a_consumer_run_alone_with_nothing_recorded_says_nothing() {
+#[specforge_test_macros::test(
+    behavior = "dispatch_collector",
+    verify = "a facts input served no fact of a kind is W201 naming the collectors that answer it"
+)]
+fn a_consumer_run_alone_with_nothing_recorded_is_w201_naming_the_producer() {
     static LOG: Log = Mutex::new(Vec::new());
     let (project, runtime) = chained(&LOG, two_packages, false);
 
     let outcome = collected(&project, runtime, Some("items")).unwrap();
 
+    // `--runner` still runs only what it names: `items`, on an empty input.
     assert_eq!(served(&LOG), [("items".to_string(), vec![])]);
-    let codes: Vec<&str> = outcome
+    let w201: Vec<_> = outcome
         .diagnostics
         .iter()
-        .map(|d| d.code.as_str())
+        .filter(|d| d.code == "W201")
         .collect();
-    // I209: the facts `items` answers are filed under `worktree`.
-    assert_eq!(codes, ["I209"]);
+    assert_eq!(w201.len(), 1, "{:?}", outcome.diagnostics);
+    assert_eq!(
+        w201[0].message,
+        "'items' reads 'package' facts, and none was served: no collector of this collect answers them and no \
+         recorded store holds one; 'packages' answer them"
+    );
+    assert!(
+        w201[0]
+            .suggestion
+            .as_deref()
+            .is_some_and(|s| s.contains("`specforge collect --runner packages`")),
+        "{:?}",
+        w201[0]
+    );
 }
