@@ -285,6 +285,31 @@ fn a_project_outside_any_repository_fails_the_collect() {
     assert!(output.is_err_and(|e| e.contains("in no git repository")));
 }
 
+/// A project root the host lends outside the repository's top (a top read another way, through a link) is an error
+/// naming both, never the top taken silently.
+#[test]
+fn a_project_root_outside_its_repositorys_top_fails_the_collect() {
+    let repo = || Repo {
+        log: vec![logged(&"a".repeat(40), &[], 10, "feat(01-01): x", &[])],
+        ..Repo::default()
+    };
+    let input = CollectInput {
+        cwd: Some("/elsewhere/project".into()),
+        ..CollectInput::default()
+    };
+    let (output, _) = served(repo(), &input);
+    let error = output.unwrap_err();
+    assert!(
+        error.contains("/elsewhere/project") && error.contains("/r"),
+        "{error}"
+    );
+    let inside = CollectInput {
+        cwd: Some("/r/sub".into()),
+        ..CollectInput::default()
+    };
+    assert!(served(repo(), &inside).0.is_ok());
+}
+
 fn node(id: &str, kind: &str, title: &str) -> GraphNode {
     let mut node = GraphNode {
         id: id.into(),

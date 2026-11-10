@@ -510,6 +510,10 @@ pub struct AutoDetectConfig {
     pub file_patterns: Vec<String>,
     #[serde(default)]
     pub env_vars: Vec<String>,
+    /// Also detected in any git repository: the project root or a directory above it holds `.git` (a directory, or a
+    /// linked worktree's file), so a project in a repository's subdirectory is detected too (protocol 2.0.0).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub repository: bool,
 }
 
 /// Describes a test result collector.

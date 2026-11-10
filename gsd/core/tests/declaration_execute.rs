@@ -340,9 +340,9 @@ fn the_git_collector_reads_the_git_port_and_writes_a_plan() {
     assert!(declaration.capabilities.iter().any(|c| {
         c.name == "repo" && matches!(c.port, specforge_extension_sdk::PortScope::Git(_))
     }));
-    // Detected by `.git` (ADR 0352): a plain `specforge collect` in any repository, a linked worktree's included.
+    // Detected in any repository the project is in (ADR 0352 D4), at its top or below, a linked worktree's included.
     let detect = git.auto_detect.as_ref().expect("gsd-git is detected");
-    assert_eq!(detect.file_patterns, [".git"]);
+    assert!(detect.repository && detect.file_patterns.is_empty());
 }
 
 #[test]

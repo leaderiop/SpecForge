@@ -350,12 +350,17 @@ behavior auto_detect_collector "Auto-Detect Collector" {
     single_collector_used   "a single enabled collector is used without detection"
     no_match_diagnosed      "no collector, no match among several or an unknown --runner is E058, listing the available collectors"
     ordered_by_facts        "a collector whose facts input names a kind another selected collector answers runs after it; a cycle is E119 before any runs"
+    repository_detected     "a collector detecting a repository is selected when the project root or a directory above it holds .git"
   }
   contract   """
     Without `--runner`, `specforge collect` selects every collector whose
     detection files exist at the project root; the last segment of a
     detection pattern may use `*` wildcards (`vitest.config.*`). A project
     with Rust and TypeScript tests therefore collects from both runners.
+    A collector that detects a repository is also selected when the
+    project root or any directory above it holds `.git` (a directory, or
+    a linked worktree's file), so a project in a subdirectory of its
+    repository is detected.
     `--runner` names one collector by name or extension. When only one
     collector is enabled, it is selected without detection: detection
     only decides between several. When nothing can be
@@ -372,13 +377,14 @@ behavior auto_detect_collector "Auto-Detect Collector" {
   verify unit "a collect owes the values phase only when a selected collector reads check outcomes"
   verify unit "file pattern match selects collector"
   verify unit "wildcards match within the last path segment"
+  verify unit "a repository above the project root selects a collector detecting a repository"
   verify unit "no match emits E058 with available collectors"
   verify integration "a single enabled collector is used without detection"
   verify unit "collectors run in declaration order unless a facts input orders a producer first, and a cycle is E119"
   verify unit "collectors whose facts inputs and answers form a cycle are E119 in the registry build"
   verify integration "a collector whose facts input names a kind another answers runs after it"
   verify integration "collectors whose facts inputs form a cycle are E119 before any of them runs"
-  verify contract "Auto-Detect Collector: collector auto-detection holds — collector_registered_fired, all_matches_selected, runner_flag_selects_one, single_collector_used, no_match_diagnosed, ordered_by_facts"
+  verify contract "Auto-Detect Collector: collector auto-detection holds — collector_registered_fired, all_matches_selected, runner_flag_selects_one, single_collector_used, no_match_diagnosed, ordered_by_facts, repository_detected"
 }
 
 behavior approve_capability "Approve Capability" {

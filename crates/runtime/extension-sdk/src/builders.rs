@@ -700,13 +700,19 @@ impl CollectorBuilder {
         let detect = self
             .descriptor
             .auto_detect
-            .get_or_insert_with(|| AutoDetectConfig {
-                file_patterns: Vec::new(),
-                env_vars: Vec::new(),
-            });
+            .get_or_insert_with(AutoDetectConfig::default);
         detect
             .file_patterns
             .extend(patterns.iter().map(|p| p.to_string()));
+        self
+    }
+
+    /// Detect the collector in any git repository: at its top or in a subdirectory, a linked worktree's included.
+    pub fn detect_repository(&mut self) -> &mut Self {
+        self.descriptor
+            .auto_detect
+            .get_or_insert_with(AutoDetectConfig::default)
+            .repository = true;
         self
     }
     /// The command the host runs once this machine approves it (`{report}` in an argument: the absolute report path).

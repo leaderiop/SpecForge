@@ -91,8 +91,8 @@ pub fn declare(c: &mut ContributionsBuilder) {
         ),
     );
     c.collector(NAME, |k| {
-        // Any repository: `.git` is a directory, or a linked worktree's file. An unborn one records nothing.
-        k.detect_files(&[".git"])
+        // Any repository, the project at its top or below, a linked worktree's included. An unborn one records nothing.
+        k.detect_repository()
             .writes()
             .input(Input::facts(&["item"]))
             .collect(collect);
@@ -224,15 +224,21 @@ fn said(what: &str, error: &HostError) -> String {
 }
 
 /// The project's directory from the repository's top (`sub/dir`, empty at the top): the project root the host lends
-/// less the repository's top, both canonical.
-fn prefix(cwd: Option<&str>, toplevel: &str) -> String {
+/// less the repository's top, both canonical; none lent, the top. A root outside the top is an error naming both, never
+/// a silent top: every path would be the repository's, not the project's.
+fn prefix(cwd: Option<&str>, toplevel: &str) -> Result<String, String> {
     let posix = |p: &str| p.replace('\\', "/");
-    let (cwd, top) = (posix(cwd.unwrap_or_default()), posix(toplevel));
+    let Some(cwd) = cwd.map(posix) else {
+        return Ok(String::new());
+    };
+    let top = posix(toplevel);
     match cwd.strip_prefix(top.trim_end_matches('/')) {
         Some(rest) if rest.is_empty() || rest.starts_with('/') => {
-            rest.trim_matches('/').to_string()
+            Ok(rest.trim_matches('/').to_string())
         }
-        _ => String::new(),
+        _ => Err(format!(
+            "{NAME}: the project root {cwd} is not under its repository's top {top}"
+        )),
     }
 }
 
@@ -607,7 +613,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
             "{NAME}: {history} is past one answer of the host's git port"
         ));
     }
-    let prefix = prefix(input.cwd.as_deref(), &repo.toplevel);
+    let prefix = prefix(input.cwd.as_deref(), &repo.toplevel)?;
     let nodes = input.graph.as_ref().map_or(&[][..], |g| &g.nodes[..]);
     let mut known: BTreeSet<String> = nodes
         .iter()

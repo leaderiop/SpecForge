@@ -17,6 +17,8 @@ pub struct Collector {
     pub name: String,
     pub export: String,
     pub detect: Vec<String>,
+    /// Also detected in any git repository, at its top or below ([`in_a_repository`]).
+    pub detect_repository: bool,
     pub run: Vec<String>,
     /// Report file or directory, relative to the project root: none for a collector with no command that names
     /// none, which reads through its ports (ADR 0345 D2).
@@ -92,6 +94,7 @@ fn collector(
             .as_ref()
             .map(|d| d.file_patterns.clone())
             .unwrap_or_default(),
+        detect_repository: c.auto_detect.as_ref().is_some_and(|d| d.repository),
         run: process.map(|p| p.argv.clone()).unwrap_or_default(),
         // The default report is a command's: a collector with none that names none reads through its ports.
         report: c.report.clone().or_else(|| {
@@ -109,12 +112,24 @@ fn collector(
     }
 }
 
-/// Collectors whose detection files are present at the project root.
+/// Collectors whose detection files are present at the project root, or that detect a repository the root is in.
 pub(super) fn detect<'a>(collectors: &'a [Collector], root: &Path) -> Vec<&'a Collector> {
     collectors
         .iter()
-        .filter(|c| !c.reads_outcomes() && c.detect.iter().any(|p| pattern_matches(root, p)))
+        .filter(|c| {
+            !c.reads_outcomes()
+                && (c.detect.iter().any(|p| pattern_matches(root, p))
+                    || c.detect_repository && in_a_repository(root))
+        })
         .collect()
+}
+
+/// Whether `root` is in a git repository: it or a directory above it holds `.git`, a directory or a linked worktree's
+/// file, as git discovers one.
+// shortcut: no GIT_DIR nor GIT_CEILING_DIRECTORIES, which a guest's own `locate` honours; upgrade when detection reads
+// the git port
+fn in_a_repository(root: &Path) -> bool {
+    root.ancestors().any(|dir| dir.join(".git").exists())
 }
 
 /// The scopes a collect run here would use, per extension: each detected collector's process capability (ADR 0335

@@ -2,7 +2,7 @@
 
 **Status:** accepted (2026-11-10, R2 of the Beyond Parity build plan). **Amends**
 [ADR 0331](0331-the-gsd-requirement-thread.md) D3 (the trailer is read from a typed log, not an argv), D4 (gsd-git is
-detected by `.git`) and D8 (the route gains an `item` step), and
+detected in any repository the project is in) and D8 (the route gains an `item` step), and
 [ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) D5 (a history reference is never unheld). Builds on
 [ADR 0287](0287-who-writes-a-field-is-declared.md) (harness and immutable fields),
 [ADR 0288](0288-an-extensions-settings-are-typed-and-set-in-specforge-json.md) (nothing secret reaches a guest),
@@ -42,8 +42,11 @@ gains the guest `git` interface's `log` and `diff` and `UnheldReference.history`
   an edge. The kernel knows no kind and no field by name: the flag comes from the field's own descriptor.
 - **D3. The `item` step is required.** A route step has no optional mode (ADR 0330 D6): a task that names no held item
   leaves the thread incomplete, which `--partial` shows. Without `@code/core` the step is skipped (I210), as `test`.
-- **D4. gsd-git is detected by `.git`**, a directory or a linked worktree's file. The port answers an unborn repository
-  with no commit, so gsd-git records nothing there and the collect goes on.
+- **D4. gsd-git is detected in any repository the project is in.** A collector's `auto_detect.repository` (protocol
+  2.0.0) selects it when the project root or a directory above it holds `.git`, a directory or a linked worktree's
+  file, so a project in a subdirectory of its repository is detected. The port answers an unborn repository with no
+  commit, so gsd-git records nothing there and the collect goes on. A project root outside the repository's top (a top
+  read another way) fails the collect, naming both, rather than read every path as the repository's.
 - **D5. gsd-git asks for no renames.** The port's diff gains `renames`: `false` turns rewrite tracking off, so a rename
   is a deletion and an addition as `git log --no-renames` listed it, and `commit.files` (read by gsd/W520) holds both
   paths. A side over the port's 16 MiB blob cap counts no lines.

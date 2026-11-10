@@ -310,6 +310,65 @@ fn a_plain_collect_in_a_linked_worktree_records_the_commits() {
     );
 }
 
+/// Commits `src/a.js` for plan 01-01 in the repository above the project (never one of its own), at `T1`; its hash.
+fn commit_in_parent(p: &Project) -> String {
+    p.write("src/a.js", "x\n");
+    p.git(&["add", "--", "src/a.js"], T1);
+    p.git(&["commit", "-q", "-m", "feat(01-01): Store module"], T1);
+    p.git(&["rev-parse", "HEAD"], T1).trim().to_string()
+}
+
+/// A project in a subdirectory of its repository has no `.git` of its own: gsd-git is detected by the repository above
+/// it and records the commit, its paths project-relative.
+#[test]
+fn a_plain_collect_in_a_repository_subdirectory_records_the_commits() {
+    let p = project_at("execute", "sub");
+    p.git(&["-C", "..", "init", "-q", "-b", "main"], T0);
+    p.git(&["add", "-A"], T0);
+    p.git(&["commit", "-q", "-m", "baseline"], T0);
+    let hash = commit_in_parent(&p);
+    assert!(!p.root().join(".git").exists());
+    let run = p.run(&["collect", "--yes", "--format", "json"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(gsd_git(&run)["skip_reason"].is_null(), "{}", run.all());
+    assert_eq!(recorded(&p), [&hash[..12]]);
+    assert_eq!(
+        p.fields_of(&hash[..12])["files"],
+        serde_json::json!(["src/a.js"])
+    );
+}
+
+/// A linked worktree whose project is in a subdirectory: the worktree's `.git` file is above the project, and gsd-git
+/// is detected there and records the worktree's commits.
+#[test]
+fn a_plain_collect_in_a_linked_worktree_subdirectory_records_the_commits() {
+    let p = project_at("execute", "main/sub");
+    p.git(&["-C", "..", "init", "-q", "-b", "main"], T0);
+    p.git(&["add", "-A"], T0);
+    p.git(&["commit", "-q", "-m", "baseline"], T0);
+    let hash = commit_in_parent(&p);
+    p.git(
+        &["-C", "..", "worktree", "add", "-q", "-b", "wt", "../wt"],
+        T1,
+    );
+    assert!(p.root().join("../../wt/.git").is_file());
+    let run = p.run(&[
+        "collect",
+        "--path",
+        "../../wt/sub",
+        "--yes",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(gsd_git(&run)["skip_reason"].is_null(), "{}", run.all());
+    let written = p.git(&["-C", "../../wt", "diff"], T1);
+    assert!(
+        written.contains(&hash[..12]),
+        "the plan file holds the commit: {written}"
+    );
+}
+
 /// gsd-git runs no program: a `--no-run` collect records the commits as a run does (ADR 0352).
 #[test]
 fn a_plain_collect_without_a_run_still_records_the_commits() {

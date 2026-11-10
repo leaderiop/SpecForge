@@ -12,6 +12,7 @@ fn collector(report: &str) -> Collector {
         name: "acme".into(),
         export: "collect__acme".into(),
         detect: vec!["acme.config.*".into()],
+        detect_repository: false,
         run: vec!["acme".into(), "--out={report}".into()],
         report: Some(report.into()),
         capture: None,
@@ -34,6 +35,31 @@ fn wildcard_matches_segments() {
     assert!(wildcard("a*b*c", "a-b-c"));
     assert!(!wildcard("vitest.config.*", "vite.config.ts"));
     assert!(!wildcard("a*a", "a"));
+}
+
+#[specforge_test(
+    behavior = "auto_detect_collector",
+    verify = "a repository above the project root selects a collector detecting a repository"
+)]
+fn a_repository_above_the_project_root_selects_a_collector_detecting_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("repo/sub/project");
+    std::fs::create_dir_all(&root).unwrap();
+    let repository = Collector {
+        detect: Vec::new(),
+        detect_repository: true,
+        ..collector("r.json")
+    };
+    let collectors = [repository];
+    assert!(detect(&collectors, &root).is_empty());
+    // a repository's directory, then a linked worktree's file, two levels up
+    std::fs::create_dir(dir.path().join("repo/.git")).unwrap();
+    assert_eq!(detect(&collectors, &root).len(), 1);
+    std::fs::remove_dir(dir.path().join("repo/.git")).unwrap();
+    std::fs::write(dir.path().join("repo/.git"), "gitdir: /elsewhere\n").unwrap();
+    assert_eq!(detect(&collectors, &root).len(), 1);
+    // files alone, as before
+    assert!(detect(&[collector("r.json")], &root).is_empty());
 }
 
 #[specforge_test(

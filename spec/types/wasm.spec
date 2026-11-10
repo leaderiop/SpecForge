@@ -139,6 +139,7 @@ type CollectorDescriptor "Collector Descriptor" {
 type CollectorAutoDetect "Collector Auto Detect" {
   file_patterns string[]
   env_vars      string[] @optional
+  repository    bool     @optional
   verify unit "CollectorAutoDetect schema is valid"
 }
 

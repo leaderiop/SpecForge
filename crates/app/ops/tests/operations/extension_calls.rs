@@ -71,6 +71,7 @@ fn collector() -> Collector {
         name: "x".to_string(),
         export: "collect__x".to_string(),
         detect: Vec::new(),
+        detect_repository: false,
         run: Vec::new(),
         report: Some("report.json".to_string()),
         capture: None,

@@ -123,10 +123,13 @@ fn a_project_below_the_repository_top_writes_project_relative_files() {
 
 #[test]
 fn the_project_prefix_is_its_root_less_the_repository_top() {
-    assert_eq!(prefix(Some("/r"), "/r"), "");
-    assert_eq!(prefix(Some("/r/a/b"), "/r"), "a/b");
-    assert_eq!(prefix(Some("C:\\r\\sub"), "C:\\r"), "sub");
-    assert_eq!(prefix(None, "/r"), "");
+    let ok = |cwd, top| prefix(cwd, top).unwrap();
+    assert_eq!(ok(Some("/r"), "/r"), "");
+    assert_eq!(ok(Some("/r/a/b"), "/r"), "a/b");
+    assert_eq!(ok(Some("C:\\r\\sub"), "C:\\r"), "sub");
+    assert_eq!(ok(None, "/r"), "");
+    // a sibling sharing the top's name as a prefix is outside it
+    assert!(prefix(Some("/rx/a"), "/r").is_err());
     assert_eq!(in_project("sub", "sub/a.js").as_deref(), Some("a.js"));
     assert_eq!(in_project("sub", "subway/a.js"), None);
     assert_eq!(in_project("", "a.js").as_deref(), Some("a.js"));
