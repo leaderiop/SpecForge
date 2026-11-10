@@ -1,21 +1,10 @@
 //! The GSD A/B's seeded defects on the taskboard and ledger fixtures: each `b_signals` row of `evaluation/gsd-ab/tasks.json` is
 //! what arm B's checker reports on a copy `seed.py` made, and B0 (no test facts) reports none of the thread's.
 
-use super::harness::ab::{Today, assert_signals, seeded};
-
-/// `(task, defect, arm, today)`: the rows that do not yet give what `tasks.json` says, asserted as they are.
-const KNOWN_GAPS: &[(&str, &str, &str, Today)] = &[];
-
-fn gaps(task: &str) -> Vec<(&'static str, &'static str, Today)> {
-    KNOWN_GAPS
-        .iter()
-        .filter(|(t, ..)| *t == task)
-        .map(|(_, defect, arm, today)| (*defect, *arm, *today))
-        .collect()
-}
+use super::harness::ab::{assert_signals, seeded};
 
 fn signals(task: &str) {
-    assert_signals(task, &gaps(task));
+    assert_signals(task);
 }
 
 #[test]

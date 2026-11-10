@@ -1,11 +1,13 @@
-# GSD A/B protocol (proof lane, draft)
+# GSD A/B protocol (proof lane)
 
-**Status:** draft, `gsd-ab-v1-draft`. It gates nothing in R1. It is reviewed at gate A (end of R2), then frozen and
-tagged `gsd-ab-v1` before any run. A change after the tag is a new version, and the report says so.
+**Status:** v1, ready for review (`tasks.json` version `gsd-ab-v1`). It is reviewed at gate A ([REVIEW.md](REVIEW.md)),
+then tagged `gsd-ab-v1` by the owner before any run. A change after the tag is a new version, and the report says so.
 
 This is the pre-registered protocol of the A/B the build plan's gate B reads: does an agent that keeps its project
 state in a checked graph do better than one that keeps it in Markdown? The files beside this one are the corpus
-(`tasks.json`) and the scorer (`score.py`). Run files and transcripts are never committed.
+(`tasks.json`), the seeding script (`seed.py`), the scorer (`score.py`), the arms' prompts (`prompts/`), the
+operator's script (`OPERATOR.md`) and the review record (`REVIEW.md`). Run files and transcripts are never
+committed.
 
 ## 1. Question and hypotheses
 
@@ -44,7 +46,9 @@ alike: it is no signal of a seed.
 - **ledger**: `gsd/parity/fixtures/ledger`, a Rust project whose CI is red, and its `.planning/`. Phase 01 was
   verified, then a quick task folded the total in an `i32`: `total_beyond_i32_is_exact` fails and `.planning/` still
   says passed. Its thread loads the Rust packs (`@rust/cargo`, `@rust/source`, `@rust/test`). Every ledger task's
-  ground truth holds that truth (`v1.0/01/01-02/TR2`) not verified, besides its seeds.
+  ground truth holds that truth (`v1.0/01/01-02/TR2`) not verified, besides its seeds. Why this fixture: a "verified"
+  is false there before any seed, on a path GSD really takes (a quick task does not re-verify the phase it changes);
+  it is a second language, so the thread's packs are not only Node's; and it is small enough to read whole.
 
 Each arm starts from the same commit of the fixture, in its own format. The importer may not be used to make arm A's
 input: arm A's `.planning/` is the recorded one, not a conversion of the twin.
@@ -62,14 +66,25 @@ operator reads the copy against.
 `tasks.json#defects`, each with how to seed it in arm A and in arm B and what B's checker says. A defect is seeded in a
 copy of the fixture, never in the committed one.
 
-| Id | Defect | B's signal |
-|---|---|---|
-| S1 | a test that never ran: a summary or verdict claims a test that is not in the run | `code/E101` on the proof |
-| S2 | a requirement id that does not exist (`requirements [TASK-09]`) | `E003` |
-| S3 | a status written ahead of the work: phase 02 marked complete before its plan ran | `E082` |
-| S4 | a commit trailer naming a task that does not exist: `Gsd-Task: 01-01/T9` under GSD's subject `feat(01-01): <T1's title>` | `gsd/E521` on the commit (its task found by the subject's title, not by the trailer) |
-| S5 | a truth verified over a failing proof | `gsd/E501` stale, shown in `trace` |
-| S6 | a proof naming a deleted test | `code/E101` |
+| Id | Defect | B's signal | When |
+|---|---|---|---|
+| S1 | a test that never ran: a summary or verdict claims a test that is not in the run | `code/E101` on the proof | `complete`: once the cited truth's plan is complete |
+| S2 | a requirement id that does not exist (`requirements [TASK-09]`) | `E003` | `seed` |
+| S3 | a status written ahead of the work: phase 02 marked complete before its plan ran | `E082` | `seed` |
+| S4 | a commit trailer naming a task that does not exist: `Gsd-Task: 01-01/T9` under GSD's subject `feat(01-01): <T1's title>` | `gsd/E521` on the commit (its task found by the subject's title, not by the trailer) | `seed`, after `collect` |
+| S5 | a truth verified over a failing proof | `gsd/E501` stale, shown in `trace` | `seed`, after `collect` |
+| S6 | a proof naming a deleted test | `code/E101` | `seed` |
+
+`tasks.json`'s `b_signals` is the data, per task: the code, the entity, the count and when, and `ab_seeds` is the
+proof: on a copy `seed.py` made, B reports each row's count where the unseeded copy of the same task reports none,
+and B0 reports none of the thread's (S1, S5, S6). `seed` means after seeding and a collect; `complete` means only
+after the task's `completion`, the edits a correct run leaves. S1's holder is a truth of the plan the run executes,
+and `@gsd/core` checks what a pending plan cites only once the plan completes: a run that ends with that plan still
+pending has no B signal for S1, and that is correct, since it did not claim the plan complete.
+
+A verdict goes stale when anything it read changes, the cited test file included: S5's and S6's edits to a test file
+stale the verdicts of every truth that file's tests prove. The signal is counted on the seeded entity, so a row still
+checks the truth it names; the other stale verdicts are the same on every arm's copy of the task.
 
 ## 6. Measures
 
@@ -140,9 +155,9 @@ a new version, and the report names it.
 | Threat | Mitigation |
 |---|---|
 | One model | name it; a second model's run is a new version, not a retry |
-| Fixtures written by the authors | the third fixture comes from outside (failed CI or `@gsd/import`); seeds are applied by script |
-| Arm B's prompts are newer than arm A's | both arms' prompts are frozen at gate A from their releases (gsd-core 1.19.0, `@gsd/core` at the tag) |
-| The operator's hand in interventions | a written script for when to step in; every intervention logged with its reason and counted in M5 |
+| Fixtures written by the authors: all three are | every fixture, seed, completion, acceptance row and prompt is in the tagged commit; each `.planning/` is hand-written from gsd-core's templates and read by gsd-tools 1.19.0 (the `record*.sh` scripts fail on a verb that errors); one fixture (ledger) is red from the start, so a "verified" is false there with no seed. A project from outside, replayed through `@gsd/import`, cannot be in v1: the importer is built after the tag, and arm B's input would come from code the tag does not hold (section 10). It is the threat a `gsd-ab-v2` closes |
+| Arm B's prompts are newer than arm A's | both arms' prompts are frozen at gate A (`prompts/`), and each arm's agents and skills come from its release unchanged (gsd-core 1.19.0, `@gsd/core` at the tag) |
+| The operator's hand in interventions | [OPERATOR.md](OPERATOR.md): four reasons, each with its text, logged with its turn and counted in M5; `score.py` refuses any other |
 
 ## Score
 

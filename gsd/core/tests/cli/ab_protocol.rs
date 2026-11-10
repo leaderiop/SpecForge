@@ -76,6 +76,54 @@ fn run_files_are_ignored() {
     assert_eq!(run_files_ignored(), 0);
 }
 
+/// The corpus is frozen as v1: three ready fixtures whose paths exist, twelve tasks, each listed defect seeded in arm A
+/// and arm B, each `b_signals` row about a seeded defect, and no word `pending` left in it.
+#[test]
+fn the_corpus_is_frozen_as_v1() {
+    let tasks = ab_tasks();
+    assert_eq!(tasks["version"], "gsd-ab-v1");
+    let fixtures = tasks["fixtures"].as_array().expect("fixtures");
+    assert_eq!(fixtures.len(), 3);
+    for fixture in fixtures {
+        assert_eq!(fixture["status"], "ready", "{fixture}");
+        let path = fixture["path"].as_str().expect("a path");
+        assert!(ab_dir().join("../..").join(path).is_dir(), "{path}");
+    }
+    let all = tasks["tasks"].as_array().expect("tasks");
+    assert_eq!(all.len(), 12);
+    for task in all {
+        let id = task["id"].as_str().expect("an id");
+        let seeded: Vec<&str> = task["seeded"]
+            .as_array()
+            .expect("seeded")
+            .iter()
+            .map(|d| d.as_str().expect("a defect"))
+            .collect();
+        for defect in &seeded {
+            for arm in ["A", "B"] {
+                let edits = task["seeds"][defect][arm].as_array();
+                assert!(
+                    edits.is_some_and(|e| !e.is_empty()),
+                    "{id} {defect} has no {arm} edits"
+                );
+            }
+        }
+        for row in task["b_signals"].as_array().expect("b_signals") {
+            let defect = row["defect"].as_str().expect("a defect");
+            assert!(
+                seeded.contains(&defect),
+                "{id}: a signal for {defect}, which it does not seed"
+            );
+        }
+    }
+    let text = std::fs::read_to_string(ab_dir().join("tasks.json")).expect("tasks.json");
+    assert_eq!(
+        text.matches("pending").count(),
+        0,
+        "a frozen corpus has nothing pending"
+    );
+}
+
 #[test]
 fn no_task_is_a_placeholder() {
     let tasks = ab_tasks();

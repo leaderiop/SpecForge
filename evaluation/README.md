@@ -50,5 +50,8 @@ and an afternoon.
 
 [`gsd-ab/`](gsd-ab/README.md) holds the pre-registered protocol of the GSD A/B: does an agent that keeps its project
 state in a checked graph (SpecForge `@gsd/core`) report fewer false "verified" and less state drift than one that keeps
-it in Markdown (gsd-core)? It is a draft until gate A; `python3 -I evaluation/gsd-ab/score.py --self-test` checks its
-scorer.
+it in Markdown (gsd-core)? Version 1 is ready for review: three fixtures and twelve tasks with their seeded defects
+(`tasks.json`), the script that seeds each arm's copy (`seed.py`), the arms' prompts, the operator's script and the
+scorer. It is tagged `gsd-ab-v1` once its review ([REVIEW.md](gsd-ab/REVIEW.md)) is filled, before any run.
+`python3 -I evaluation/gsd-ab/seed.py --self-test` and `score.py --self-test` check the scripts; the gsd test suite
+checks every seeded defect's signal (`gsd/core/tests/cli/ab_seeds.rs`).

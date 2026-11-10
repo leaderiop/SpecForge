@@ -246,31 +246,17 @@ fn succeeds(run: &Run) {
     assert_eq!(run.code, 0, "{}", run.all());
 }
 
-/// What a row of a task gives today, where it is not yet what `b_signals` says: the seeding refuses, or the
-/// signal's counts on the seeded and the unseeded copy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Today {
-    Refused,
-    #[allow(dead_code, reason = "no row of a ready fixture is a known gap today")]
-    Counts(usize, usize),
-}
-
 /// The defects the requirement thread exists to report, whose signal B0 (no test facts) does not have: S1, S5, S6.
 const THREAD_SIGNALS: [&str; 3] = ["S1", "S5", "S6"];
 
 /// Checks every `b_signals` row of `task` on arms B and B0: seeded and unseeded copies are collected and counted.
 /// On B a row counts `count` on the seeded copy and 0 on the unseeded one; a `complete` row counts 0 before the
 /// completion edits too. On B0 a thread row counts the same on both copies (the seed changes nothing it reports),
-/// and the others as on B. `gaps` lists `(defect, arm, today)` where today differs; each is asserted as it is.
-pub fn assert_signals(task: &str, gaps: &[(&str, &str, Today)]) {
+/// and the others as on B.
+pub fn assert_signals(task: &str) {
     let rows = signals(task);
     let mut failures = Vec::new();
     for arm in ["B", "B0"] {
-        let gap = |defect: &str| {
-            gaps.iter()
-                .find(|(d, a, _)| *d == defect && *a == arm)
-                .map(|(_, _, today)| *today)
-        };
         for state in ["seed", "complete"] {
             let here: Vec<&Signal> = rows
                 .iter()
@@ -293,12 +279,10 @@ pub fn assert_signals(task: &str, gaps: &[(&str, &str, Today)]) {
                 Ok(copies) => copies,
                 Err(why) => {
                     for row in &here {
-                        if gap(&row.defect) != Some(Today::Refused) {
-                            failures.push(format!(
-                                "{arm} {state} {}: seeding refused: {why}",
-                                row.defect
-                            ));
-                        }
+                        failures.push(format!(
+                            "{arm} {state} {}: seeding refused: {why}",
+                            row.defect
+                        ));
                     }
                     continue;
                 }
@@ -307,20 +291,12 @@ pub fn assert_signals(task: &str, gaps: &[(&str, &str, Today)]) {
             unseeded_copy.collect_seeded(task, false);
             for row in &here {
                 let got = (seeded_copy.signal(row), unseeded_copy.signal(row));
-                let wanted = match gap(&row.defect) {
-                    Some(Today::Counts(s, u)) => (s, u),
-                    Some(Today::Refused) => {
-                        failures.push(format!(
-                            "{arm} {state} {}: seeded, a gap says refused",
-                            row.defect
-                        ));
-                        continue;
-                    }
-                    None if arm == "B0" && THREAD_SIGNALS.contains(&row.defect.as_str()) => {
-                        (got.1, got.1)
-                    }
-                    None if row.when == "complete" && state == "seed" => (0, 0),
-                    None => (row.count, 0),
+                let wanted = if arm == "B0" && THREAD_SIGNALS.contains(&row.defect.as_str()) {
+                    (got.1, got.1)
+                } else if row.when == "complete" && state == "seed" {
+                    (0, 0)
+                } else {
+                    (row.count, 0)
                 };
                 if got != wanted {
                     failures.push(format!(

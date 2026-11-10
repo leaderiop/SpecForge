@@ -1,6 +1,6 @@
 {
-  "version": "gsd-ab-v1-draft",
-  "description": "The GSD A/B corpus (README.md): arms, fixtures, seeded defects and 12 tasks. Frozen and tagged gsd-ab-v1 at gate A; a draft until then. seed.py makes each arm's copy of a task's fixture from it.",
+  "version": "gsd-ab-v1",
+  "description": "The GSD A/B corpus (README.md): arms, fixtures, seeded defects and 12 tasks. v1, ready for review at gate A, then tagged gsd-ab-v1. seed.py makes each arm's copy of a task's fixture from it.",
   "arms": [
     {
       "id": "A", "state": "gsd-core 1.19.0 .planning/ Markdown", "tools": ["gsd-tools"],
