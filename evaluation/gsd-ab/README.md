@@ -18,10 +18,12 @@ state in a checked graph do better than one that keeps it in Markdown? The files
 
 ## 2. Arms
 
-Same model, same temperature, same tool budget, same task prompts (each arm's prompt names its own commands, nothing
-else differs). Each arm's configuration is frozen in `tasks.json#arms` (`config`: the extensions by name, whether the
-fixture's thread packs load, the settings; `drop`: the fixture's paths the arm does not see), and `seed.py` writes it
-into every copy.
+Same model, same temperature, same tool budget, same task prompts. The prompt is `prompts/<arm>.md`, the task's
+`prompt` put in place of `{task.prompt}`: the three files are one text except their commands block (between
+`<!-- commands -->` and `<!-- /commands -->`), which names the arm's tools (B0's is B's), and all end asking for
+one `RESULT:` line, whose value is the run's `final_report`. Each arm's configuration is frozen in `tasks.json#arms`
+(`config`: the extensions by name, whether the fixture's thread packs load, the settings; `drop`: the fixture's paths
+the arm does not see), and `seed.py` writes it into every copy.
 
 No configuration turns the route off: `@gsd/core` declares it whatever is loaded. What B0 lacks is what the route's
 `item` and `test` steps read, and what `code/E101` and `gsd/E501`'s `tests` input read. So in B0 a verifier verdict
@@ -84,6 +86,8 @@ Per arm, per (task, seed) run. The operator's scripts write a run file (section 
 
 - The model, temperature and tools are fixed before the first run and recorded in every run file.
 - 3 seeds per (task, arm); arms are interleaved by task, so drift in the model's service hits every arm alike.
+- Each run starts a fresh agent session in the arm's copy and sends one message: `prompts/<arm>.md` with the task's
+  `prompt` in place of `{task.prompt}`. Nothing else is said unless the script calls for an intervention.
 - The operator follows a script. An intervention is counted, never improvised.
 - Every transcript is kept under `runs/<arm>/<task>/<seed>.json` (git-ignored), archived with the report.
 
