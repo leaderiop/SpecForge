@@ -413,6 +413,53 @@ impl Navigator<'_> {
                 precision: Precision::Token,
             })
     }
+
+    /// The references from inside a located fact placed in source file `file` at the byte position (1-based `line`
+    /// and `col`), the innermost fact whose place holds it (ADR 0349 D8): where a `.spec` writes the fact's id, and
+    /// the name of each entity it is anchored to, by file and position, once each. `None` when no located fact's
+    /// place holds the position. What the language server answers references with in a source file.
+    pub fn fact_references_at(
+        &self,
+        file: &str,
+        line: usize,
+        col: usize,
+    ) -> Option<Vec<SourceSpan>> {
+        let at = SourceSpan {
+            file: Sym::new(file),
+            start_line: line,
+            start_col: col,
+            end_line: line,
+            end_col: col,
+        };
+        let kinds = self.view.registries().kinds();
+        let fact = self
+            .view
+            .graph()
+            .nodes()
+            .into_iter()
+            .filter(|node| kinds.is_collected(node.kind.raw.as_str()))
+            .filter_map(|node| {
+                let place = node.located.iter().find(|place| contains(place, &at))?;
+                Some((node, place.end_line - place.start_line))
+            })
+            .min_by_key(|(_, lines)| *lines)?
+            .0;
+        let id = fact.id.raw.as_str();
+        let mut spans: Vec<SourceSpan> = self
+            .tokens(id, false)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|token| token.span)
+            .collect();
+        for edge in super::anchors_in(&self.view).of_fact(id) {
+            if let Ok(definition) = self.definition(edge.entity.id.raw.as_str()) {
+                spans.push(definition.name);
+            }
+        }
+        spans.sort_by_key(|s| (s.file, s.start_line, s.start_col));
+        spans.dedup();
+        Some(spans)
+    }
 }
 
 /// `tokens` sorted by (file, line, column) and deduplicated.

@@ -108,7 +108,10 @@ async function enhanceHover(hover: vscode.Hover): Promise<vscode.Hover> {
   return new vscode.Hover(parts, hover.range);
 }
 
-/** The languages of the source files the server answers in (ADR 0349 D7): `.rs`, `.ts`, `.tsx`, `.js`, `.jsx`. */
+/**
+ * The languages of the source files the server answers in (ADR 0349 D7): `.rs`, `.ts`, `.tsx`, `.js`, `.jsx`.
+ * Paired with the server's `EXTENSIONS` (`crates/surfaces/lsp/src/source_document.rs`): change both.
+ */
 const SOURCE_LANGUAGES = [
   "rust",
   "typescript",

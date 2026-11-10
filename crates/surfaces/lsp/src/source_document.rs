@@ -7,9 +7,9 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use specforge_common::{Diagnostic, SourceSpan, Sym};
+use specforge_common::{Diagnostic, Sym};
 use specforge_ops::authoring::rename::RenamePlan;
-use specforge_ops::read::navigate::{CollectedSources, contains};
+use specforge_ops::read::navigate::CollectedSources;
 use specforge_ops::read::trace::route_traces;
 use std::collections::BTreeMap;
 use tower_lsp::jsonrpc::Error;
@@ -19,7 +19,10 @@ use crate::LspState;
 use crate::document::{LineIndex, Target};
 use crate::navigation::Compiled;
 
-/// The extensions of the files the server answers as source documents.
+/// The extensions of the files the server answers as source documents. Paired with the VS Code client's
+/// `SOURCE_LANGUAGES` (`integrations/vscode/src/lsp-client.ts`), which chooses the documents it sends: change both.
+/// Not "the files the fact stores place": a file opened before any collect would be applied to the session, a buffer
+/// it does not build (an update per keystroke, empty diagnostics shown), until a collect placed it.
 const EXTENSIONS: [&str; 5] = ["rs", "ts", "tsx", "js", "jsx"];
 
 /// Whether `uri` is a source document: a `file:` URI of a `.rs`, `.ts`, `.tsx`, `.js` or `.jsx` file under the
@@ -68,9 +71,9 @@ pub(crate) fn placed_index(
     Some(Arc::new(LineIndex::new(&text)))
 }
 
-/// The references from inside a located fact of source document `key` at `position` (ADR 0349 D8), the innermost
-/// whose place holds it: where a `.spec` cites the fact, and the name of each entity it is anchored to. `None` when
-/// the cursor is in no fact, or the file is not the text collected.
+/// The references from inside a located fact of source document `key` at `position` (ADR 0349 D8): navigation's
+/// (`Navigator::fact_references_at`), placed in the editor's text. `None` when the cursor is in no fact, or the file
+/// is not the text collected.
 pub(crate) fn fact_references(
     compiled: &Compiled,
     key: &str,
@@ -78,42 +81,7 @@ pub(crate) fn fact_references(
 ) -> Option<Vec<Location>> {
     let index = compiled.source_index(key)?;
     let (line, col) = index.source_position(position)?;
-    let at = SourceSpan {
-        file: Sym::new(key),
-        start_line: line,
-        start_col: col,
-        end_line: line,
-        end_col: col,
-    };
-    let state = compiled.state();
-    let view = state.view();
-    let kinds = view.registries().kinds();
-    let fact = state
-        .graph()
-        .nodes()
-        .into_iter()
-        .filter(|node| kinds.is_collected(node.kind.raw.as_str()))
-        .filter_map(|node| {
-            let place = node.located.iter().find(|place| contains(place, &at))?;
-            Some((node, place.end_line - place.start_line))
-        })
-        .min_by_key(|(_, lines)| *lines)?
-        .0;
-    let navigator = compiled.navigator();
-    let mut spans: Vec<SourceSpan> = navigator
-        .tokens(fact.id.raw.as_str(), false)
-        .unwrap_or_default()
-        .into_iter()
-        .map(|token| token.span)
-        .collect();
-    let anchors = specforge_ops::read::navigate::anchors_in(&view);
-    for edge in anchors.of_fact(fact.id.raw.as_str()) {
-        if let Ok(definition) = navigator.definition(edge.entity.id.raw.as_str()) {
-            spans.push(definition.name);
-        }
-    }
-    spans.sort_by_key(|s| (s.file, s.start_line, s.start_col));
-    spans.dedup();
+    let spans = compiled.navigator().fact_references_at(key, line, col)?;
     Some(spans.iter().filter_map(|s| compiled.location(s)).collect())
 }
 
