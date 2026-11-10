@@ -8,6 +8,7 @@ pub mod backend;
 mod capabilities;
 pub mod changes;
 mod checked_value;
+mod client_support;
 pub mod completion;
 pub mod config_document;
 mod document;
