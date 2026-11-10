@@ -232,9 +232,11 @@ pub struct GuideKind {
     pub inference_guide: String,
 }
 
-/// The project's inference guide.
+/// The project's inference guide: its kinds are the authored ones, never a kind a collector writes (its entities
+/// are facts, not inferred).
 pub fn guide<'a>(view: &ProjectView<'a>) -> InferenceGuide<'a> {
     let existing = existing_by_kind(view);
+    let registered = view.registries().kinds();
     let kinds = view
         .registries()
         .declarations()
@@ -246,6 +248,7 @@ pub fn guide<'a>(view: &ProjectView<'a>) -> InferenceGuide<'a> {
                 .map(move |descriptor| (declaration, descriptor))
         })
         .filter(|(declaration, descriptor)| registered_for(view, declaration, descriptor))
+        .filter(|(_, descriptor)| !registered.is_collected(keyword(descriptor)))
         .map(|(declaration, descriptor)| kind_of(view, declaration, descriptor, &existing))
         .collect();
     InferenceGuide {

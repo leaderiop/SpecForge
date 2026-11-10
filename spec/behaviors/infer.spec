@@ -383,7 +383,9 @@ behavior compute_inference_guide "Compute Inference Guide" {
   contract   """
     The inference guide (specforge_ops::read::infer::guide, kind_guide) MUST give,
     for every kind a loaded extension declares (once, as the extension the
-    kind registry registered it for declares it), in declaration order:
+    kind registry registered it for declares it), in declaration order, and
+    in the project's guide only the authored ones (never a kind a collector
+    writes: its entities are facts, not inferred):
     its keyword, extension and description; every field the registry
     build registered on it, sorted by name, with its type, whether it is
     required, its description and, for an enum, its values and the value an
@@ -409,6 +411,7 @@ behavior compute_inference_guide "Compute Inference Guide" {
   verify unit "a kind declared by two extensions is guided by the one that registered it"
   verify unit "the guide's spec directory is the project's spec root, relative to its root"
   verify unit "the guide lists each loaded extension, every declared kind in declaration order, and the entities of every written kind"
+  verify unit "the guide lists no kind a collector writes"
   verify integration "every builtin kind's example parses and holds no value of the wrong type"
 }
 
