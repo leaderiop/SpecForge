@@ -13,7 +13,7 @@
       "drop": [".planning/", "README.md"]
     },
     {
-      "id": "B0", "state": "B without @code/core, @javascript/node-test and the requirement route", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"],
+      "id": "B0", "state": "B without the test facts: no @code/core and no pack that writes its facts; the requirement route stays, its item and test steps skipped", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"],
       "config": { "extensions": ["@gsd/core", "@specforge/checks"], "thread": false, "settings": { "@gsd/core": { "profile": "gsd-strict", "specforge.task_trailers": true } } },
       "drop": [".planning/", "README.md"]
     }

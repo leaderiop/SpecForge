@@ -13,7 +13,8 @@ state in a checked graph do better than one that keeps it in Markdown? The files
   state drift (M2), without costing more than 10% in tokens per completed plan (M4).
 - **H2 (secondary, R1's question).** The requirement thread helps an agent: arm B beats arm B0 on false "verified"
   for the defects the thread exists to catch (S1, S4, S5), counted alone (M3 over those three, `M3_thread`). H2 is
-  reported and gates nothing.
+  reported and gates nothing. B0 keeps `gsd/E521` (it reads commits, not test facts), so S4 is reported in both arms
+  and H2's difference can come from S1 and S5 only.
 
 ## 2. Arms
 
@@ -22,11 +23,16 @@ else differs). Each arm's configuration is frozen in `tasks.json#arms` (`config`
 fixture's thread packs load, the settings; `drop`: the fixture's paths the arm does not see), and `seed.py` writes it
 into every copy.
 
+No configuration turns the route off: `@gsd/core` declares it whatever is loaded. What B0 lacks is what the route's
+`item` and `test` steps read, and what `code/E101` and `gsd/E501`'s `tests` input read. So in B0 a verifier verdict
+recorded over tests reads stale from the start (its `tests` input reads none), on the seeded and the unseeded copy
+alike: it is no signal of a seed.
+
 | Arm | State | Tools |
 |---|---|---|
 | **A** | gsd-core 1.19.0: `.planning/` Markdown | `gsd-tools` |
 | **B** | SpecForge `@gsd/core` with the gsd-strict profile and `specforge.task_trailers` on (E521: a task commit links its task by a `Gsd-Task:` trailer): the `.spec` graph | `specforge` CLI and MCP, `collect`, `trace <requirement>` |
-| **B0** | B with the thread off: no `@code/core`, no `@javascript/node-test` (so no test facts and no `proof` links), no declared route (`trace` prints the generic reach) | as B |
+| **B0** | B without the test facts: no `@code/core` and no pack that writes its facts (the fixture's `thread` in `tasks.json`), so no test or item facts and no `proof` links. The requirement route is `@gsd/core`'s and stays: `trace` follows it with its `item` and `test` steps skipped (`I210`) | as B |
 
 ## 3. Fixtures
 
