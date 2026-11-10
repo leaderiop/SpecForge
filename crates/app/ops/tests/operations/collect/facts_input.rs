@@ -211,3 +211,21 @@ fn collectors_whose_facts_inputs_form_a_cycle_are_e119_before_anything_runs() {
     assert!(served(&LOG).is_empty());
     assert!(!project.root().join("specforge-report.json").exists());
 }
+
+// Pinned: a consumer run alone, with no store recorded for the kind it reads, is served nothing and says nothing.
+#[test]
+fn a_consumer_run_alone_with_nothing_recorded_says_nothing() {
+    static LOG: Log = Mutex::new(Vec::new());
+    let (project, runtime) = chained(&LOG, two_packages, false);
+
+    let outcome = collected(&project, runtime, Some("items")).unwrap();
+
+    assert_eq!(served(&LOG), [("items".to_string(), vec![])]);
+    let codes: Vec<&str> = outcome
+        .diagnostics
+        .iter()
+        .map(|d| d.code.as_str())
+        .collect();
+    // I209: the facts `items` answers are filed under `worktree`.
+    assert_eq!(codes, ["I209"]);
+}

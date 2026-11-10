@@ -265,6 +265,23 @@ fn the_guide_lists_extensions_kinds_and_entities() {
     assert_eq!(json["existing_entity_ids"], json!(["alpha", "zeta"]));
 }
 
+// Pinned: a kind a collector writes is listed among the kinds to infer, beside the authored ones.
+#[test]
+fn a_collected_kind_is_listed_among_the_kinds_to_infer() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/code", "1.0.0"));
+    c.kind("package", |k| {
+        k.collected(&["pkg"]);
+    });
+    let project = project_of(
+        "",
+        vec![extension("@t/soft", &[("behavior", None)]), c.declaration()],
+    );
+    let view = project.view();
+
+    let kinds: Vec<&str> = guide(&view).kinds.iter().map(|k| k.keyword).collect();
+    assert_eq!(kinds, ["behavior", "package"]);
+}
+
 #[specforge_test(
     behavior = "compute_inference_guide",
     verify = "a guide field lists an enum's values and what an absent value counts as"
