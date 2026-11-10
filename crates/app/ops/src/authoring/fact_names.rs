@@ -31,8 +31,9 @@ pub(crate) struct Rewrite {
 /// wrote) and each name resolved as the linker resolves it: every place each such name is written, its written suffix
 /// becoming the same suffix of the new path. Refused `collected` when a fact records no place its name is written;
 /// `source_moved` when a file changed since the collect read it (its digest is not the store's: an earlier rename
-/// rewrote it) or no longer spells the name at a place; `name_captured` when the new suffix would also name another
-/// entity; `file_unreadable` when the served store cannot be read.
+/// rewrote it), is gone or no longer spells the name at a place; `name_captured` when the new suffix would also name
+/// another entity; `file_unreadable` when the served store cannot be read, or a file is no file inside the project
+/// (a key that climbs out, a link that lands outside, a file with another name: `read_placed`).
 pub(crate) fn rewrite(
     view: &ProjectView<'_>,
     old_id: &str,
@@ -146,7 +147,16 @@ pub(crate) fn rewrite(
             )
             .with_suggestion("run `specforge collect`, then rename")
         };
-        let bytes = read(view, &file).ok_or_else(moved)?;
+        let bytes = crate::read::navigate::read_placed(view, &file).map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                moved()
+            } else {
+                unreadable(
+                    old_id,
+                    &format!("{file} is no file inside the project to rewrite: {error}"),
+                )
+            }
+        })?;
         if crate::revision::of_bytes(&bytes) != digests[&file] {
             return Err(moved());
         }
@@ -170,15 +180,6 @@ pub(crate) fn rewrite(
         rewrite.edits.extend(edits);
     }
     Ok(rewrite)
-}
-
-/// The bytes of `key`, a path from the project root, read through the view's containment.
-fn read(view: &ProjectView<'_>, key: &str) -> Option<Vec<u8>> {
-    let root = view.project().root()?;
-    view.containment()
-        .read(&root.join(key))
-        .ok()
-        .map(|(_, bytes)| bytes)
 }
 
 /// `name_captured` when `written`, the spelling the rename writes, would also name an entity other than the one moved

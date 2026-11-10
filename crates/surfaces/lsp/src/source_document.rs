@@ -1,7 +1,7 @@
 //! Source documents (ADR 0349 D7, D8): a Rust, TypeScript or JavaScript file under the project root, where a
 //! collector placed facts. The server holds its buffer, to hash and place in, and never hands it to the session:
 //! typing in a source file rebuilds nothing. A span in one is placed through its text (the open buffer, else the file
-//! read through the session's containment) only while that text hashes to the digest its fact store recorded at
+//! read inside the project root, `read_placed`) only while that text hashes to the digest its fact store recorded at
 //! collect (`CompiledProject::fact_sources`); a stale file places nothing.
 
 use std::path::Path;
@@ -47,15 +47,14 @@ fn is_under_root(key: &str) -> bool {
 }
 
 /// The line index of `key`'s text, where `key` is a source file the session's facts are placed in: its open buffer,
-/// else the file read through the session's containment, when that text hashes to the digest `recorded` (the one its
+/// else the file read inside the project root (`read_placed`: never through a link out, a second name or `..`), when that text hashes to the digest `recorded` (the one its
 /// store recorded at collect). `None` for any other file, and for a text that changed since or cannot be read.
 pub(crate) fn placed_index(state: &LspState, key: &str, recorded: &str) -> Option<Arc<LineIndex>> {
     if let Some(document) = state.files().document(key) {
         return (specforge_ops::revision::of_text(document.text()) == recorded)
             .then(|| Arc::clone(document.index()));
     }
-    let view = state.view();
-    let (_, bytes) = view.containment().read(&view.root()?.join(key)).ok()?;
+    let bytes = specforge_ops::read::navigate::read_placed(&state.view(), key).ok()?;
     if specforge_ops::revision::of_bytes(&bytes) != recorded {
         return None;
     }
@@ -176,9 +175,11 @@ pub(crate) fn lenses(state: &LspState, uri: &Url) -> Option<Vec<CodeLens>> {
     Some(lenses)
 }
 
-/// W198 of source file `key`, its text no longer the one collected: changed, or gone (no buffer, no file).
+/// W198 of source file `key`, its text no longer the one collected: changed, or gone (no buffer, and no file read
+/// inside the project root).
 fn stale(state: &LspState, key: &str) -> Diagnostic {
-    let gone = state.files().document(key).is_none() && !state.files().file_path(key).exists();
+    let gone = state.files().document(key).is_none()
+        && specforge_ops::read::navigate::read_placed(&state.view(), key).is_err();
     specforge_ops::read::navigate::stale_notice(key, gone)
 }
 

@@ -19,24 +19,30 @@ pub const SOURCE: &str = "// covers T1\n\ntest('adds', () => {\n  add(1, 2);\n})
 
 /// The project, `covers` naming `covered`, opened with `truths.spec` open.
 pub fn citing(covered: &str) -> Served {
-    use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, stored_with};
     let dir = tempfile::TempDir::new().unwrap();
+    fs::write(dir.path().join("a.test.js"), SOURCE).unwrap();
+    citing_in(dir, covered, "a.test.js")
+}
+
+/// [`citing`] in `dir`, the fact placed in `file` (a key from the root) and the store recording [`SOURCE`]'s digest
+/// of it, whatever `dir` holds there.
+fn citing_in(dir: tempfile::TempDir, covered: &str, file: &str) -> Served {
+    use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, stored_with};
     fs::write(
         dir.path().join("truths.spec"),
         "truth T1 \"One\" {\n  proof [\"js:a.test.js#adds\"]\n}\n",
     )
     .unwrap();
-    fs::write(dir.path().join("a.test.js"), SOURCE).unwrap();
-    let place = |line: usize, col: usize, end_line: usize, end_col: usize| json!({"file": "a.test.js", "start_line": line, "start_col": col, "end_line": end_line, "end_col": end_col});
+    let place = |line: usize, col: usize, end_line: usize, end_col: usize| json!({"file": file, "start_line": line, "start_col": col, "end_line": end_line, "end_col": end_col});
     stored_with(
         dir.path(),
         "node",
         "0123456789abcdef0123456789abcdef01234567",
         json!([{"kind": "test", "id": "js:a.test.js#adds", "at": [place(3, 1, 5, 4)],
-                "fields": {"file": "a.test.js", "covers": [covered]},
+                "fields": {"file": file, "covers": [covered]},
                 "named_at": {"covers": {covered: [place(1, 11, 1, 13)]}}}]),
         [(
-            "a.test.js".to_string(),
+            file.to_string(),
             specforge_ops::revision::of_bytes(SOURCE.as_bytes()),
         )]
         .into(),
@@ -404,4 +410,63 @@ fn prepare_rename_answers_a_source_token() {
         "{}",
         refused.message
     );
+}
+
+/// A project inside `outer`, beside `outer/x.js`, which holds [`SOURCE`]: what a source file of the project must
+/// never reach.
+fn beside_an_outside_file() -> (tempfile::TempDir, tempfile::TempDir) {
+    let outer = tempfile::TempDir::new().unwrap();
+    fs::write(outer.path().join("x.js"), SOURCE).unwrap();
+    let dir = tempfile::TempDir::new_in(outer.path()).unwrap();
+    (outer, dir)
+}
+
+/// Renaming `T1` is refused from the declaration and, when `from_source`, from the name in `a.test.js`; the
+/// outside file keeps its text.
+fn refused_and_untouched(served: &Served, outer: &tempfile::TempDir, from_source: bool) {
+    let mut from = vec![("truths.spec", Position::new(0, 6))];
+    if from_source {
+        from.push(("a.test.js", Position::new(0, 11)));
+    }
+    for (file, position) in from {
+        let refused = renamed(served, file, position);
+        assert!(refused.is_err(), "{file}: {refused:?}");
+    }
+    assert_eq!(
+        fs::read_to_string(outer.path().join("x.js")).unwrap(),
+        SOURCE
+    );
+}
+
+#[cfg(unix)]
+#[spec(
+    behavior = "rename_entity_id",
+    verify = "rename refuses a source file it edits that is a link or lies outside the project"
+)]
+fn rename_refuses_a_symlinked_source_file() {
+    let (outer, dir) = beside_an_outside_file();
+    std::os::unix::fs::symlink(outer.path().join("x.js"), dir.path().join("a.test.js")).unwrap();
+    let served = citing_in(dir, "T1", "a.test.js");
+    refused_and_untouched(&served, &outer, true);
+}
+
+#[spec(
+    behavior = "rename_entity_id",
+    verify = "rename refuses a source file it edits that is a link or lies outside the project"
+)]
+fn rename_refuses_a_hard_linked_source_file() {
+    let (outer, dir) = beside_an_outside_file();
+    fs::hard_link(outer.path().join("x.js"), dir.path().join("a.test.js")).unwrap();
+    let served = citing_in(dir, "T1", "a.test.js");
+    refused_and_untouched(&served, &outer, true);
+}
+
+#[spec(
+    behavior = "rename_entity_id",
+    verify = "rename refuses a source file it edits that is a link or lies outside the project"
+)]
+fn rename_refuses_a_fact_placed_outside_the_project() {
+    let (outer, dir) = beside_an_outside_file();
+    let served = citing_in(dir, "T1", "../x.js");
+    refused_and_untouched(&served, &outer, false);
 }

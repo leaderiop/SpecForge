@@ -596,7 +596,11 @@ behavior rename_entity_id "Rename Entity ID" {
     leave them behind. A rename of an entity a collected fact names edits,
     beside the .spec files, the source file at each place the fact's store
     records the name written, placed in the disk text; the store's stale
-    line lands in specforge-harness with the moves (ADR 0346 D7).
+    line lands in specforge-harness with the moves (ADR 0346 D7). Such a
+    source file is read only inside the project root, whatever the surface
+    bounds: a place whose file climbs out of the root, a link that lands
+    outside it, or a file with another name MUST refuse the rename, with
+    no edit.
   """
   verify unit "rename updates declaration and all references"
   verify unit "rename edits a name written below its kind and its references"
@@ -626,6 +630,7 @@ behavior rename_entity_id "Rename Entity ID" {
   verify integration "an editor rename of an entity a fact names edits the source file where the fact read it"
   verify integration "rename rewrites the source token of every fact naming the entity"
   verify integration "rename refuses while a source file it edits changed since collect"
+  verify integration "rename refuses a source file it edits that is a link or lies outside the project"
 }
 
 behavior emit_live_diagnostics "Live Diagnostics" {

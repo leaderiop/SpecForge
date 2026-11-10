@@ -14,7 +14,7 @@ use specforge_graph::{Found, Graph, Node};
 
 use super::{FileMatch, match_file};
 use crate::view::{EntityField, ProjectView, not_found};
-use crate::{Noticed, OpError, OpErrorKind, Refusal};
+use crate::{Containment, Noticed, OpError, OpErrorKind, ReadFailure, Refusal};
 
 /// The field of a file query a refusal can be about.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -279,28 +279,45 @@ fn noticed<'f, T>(
     Noticed::new(value, notices)
 }
 
+/// The bytes of `file`, a source file a fact is placed in (a key from the project root), read inside the project root
+/// whatever the view's containment: a key that climbs out of it, a link that lands outside it and a file with another
+/// name are refused (`PermissionDenied`, ADR 0144, ADR 0146), as a file of a view with no root is (`NotFound`). The
+/// one read of a placed source file: what the anchors read view hashes, a rename rewrites and the language server
+/// places in.
+pub fn read_placed(view: &ProjectView<'_>, file: &str) -> std::io::Result<Vec<u8>> {
+    let root = view.root().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::NotFound, "the view has no project root")
+    })?;
+    match Containment::within(root).read(&root.join(file)) {
+        Ok((_, bytes)) => Ok(bytes),
+        Err(ReadFailure::Outside(outside)) => Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            OpError::from(outside).message,
+        )),
+        Err(ReadFailure::Io { error, .. }) => Err(error),
+    }
+}
+
 /// W198 when `file`, a key from the project root a located fact is placed in, no longer hashes to the digest its
-/// store recorded at collect (`CompiledProject::fact_sources`), or is gone; `None` when it still does, or when the
-/// view has no root. The file is read through the view's containment.
+/// store recorded at collect (`CompiledProject::fact_sources`), or can no longer be read inside the project
+/// ([`read_placed`]); `None` when it still does, or when the view has no root.
 pub fn stale_anchor(view: &ProjectView<'_>, file: &str) -> Option<Diagnostic> {
-    let root = view.root()?;
+    view.root()?;
     let recorded = view.project().fact_sources();
-    let current = view
-        .containment()
-        .read(&root.join(file))
+    let current = read_placed(view, file)
         .ok()
-        .map(|(_, bytes)| crate::revision::of_bytes(&bytes));
+        .map(|bytes| crate::revision::of_bytes(&bytes));
     match current {
         Some(current) if recorded.get(file) == Some(&current.as_str()) => None,
         current => Some(stale_notice(file, current.is_none())),
     }
 }
 
-/// W198 of `file`, a source file a fact is placed in that changed since the collect read it, or is `gone`: what the
-/// anchors read view and the language server's source lens say.
+/// W198 of `file`, a source file a fact is placed in that changed since the collect read it, or is `gone` (no file
+/// [`read_placed`] reads): what the anchors read view and the language server's source lens say.
 pub fn stale_notice(file: &str, gone: bool) -> Diagnostic {
     let said = if gone {
-        "is gone since `specforge collect` read it"
+        "is gone, or no longer a file inside the project, since `specforge collect` read it"
     } else {
         "changed since `specforge collect` read it"
     };
