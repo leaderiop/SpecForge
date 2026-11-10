@@ -51,6 +51,11 @@ through one driver: `compile()`/`session()` in process, `specforge_mcp::testing:
 only the binary's contract (arguments, exit codes, streams, environment) and cross-surface comparisons are CLI
 tests ([ADR 0078](docs/adr/0078-a-tests-project-is-one-fixture.md)).
 
+SpecForge's own project loads the Rust source packs: `specforge collect --runner rust-cargo`, then `--runner
+rust-source`, at the root stores the facts of every crate's items in `.specforge/` (ignored, as the rename ledger
+`specforge-harness` is), and `specforge anchors <behavior>` then lists the tests whose `#[specforge_test]` names it.
+Nothing it writes is committed.
+
 A test or tool that reads a file outside its own crate finds it from `specforge_repo_root::repo_root()`
 (`crates/leaf/repo-root`), never by counting `..` from `CARGO_MANIFEST_DIR`: crates sit at different depths
 under `crates/` ([ADR 0081](docs/adr/0081-the-repository-root-is-found-not-counted.md)).

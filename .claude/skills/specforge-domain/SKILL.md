@@ -43,6 +43,7 @@ These ship inside the binary as examples of what an extension can declare. They 
 | `@specforge/formal` | kinds `property`, `axiom`, `protocol`, `refinement`, `process`; adds `requires`/`ensures`/`maintains`/`abstract`/`refines`/`sync` to behaviors; analysis passes |
 | `@specforge/testing` | no kinds: which kinds owe `verify` obligations and with which verify kinds, and the coverage pass |
 | `@specforge/cargo-test`, `@specforge/vitest` | test collectors for `specforge collect` |
+| `@code/core`, `@rust/cargo`, `@rust/source`, `@javascript/source` | code facts placed in source (`package`, `item`, `test`): a Rust test attribute naming an entity anchors it |
 
 `specforge model` renders the kinds and relationships the loaded extensions declare; it is the authoritative list.
 
@@ -62,7 +63,10 @@ These ship inside the binary as examples of what an extension can declare. They 
 Shipped: the compiler and validator; the extension SDK and WASM runtime (`specforge extension init|build|validate`);
 the builtin extensions; the CLI; the MCP server; the LSP and the VS Code extension; the package registry
 (`add`, `search`, `publish`); typed edits (`new`, `set`, `unset`, `link`, `unlink`, `delete`); `collect` (runs the test
-runners that extensions declare, after approval); `infer-*` (guides for agents writing specs from existing code).
+runners that extensions declare, after approval, and the source collectors of the code packs); anchors (the edges
+between entities and the facts placed in source: `specforge anchors`, MCP `find_implementation` /
+`find_spec_for_source`, and in the editor Go to Implementation and the lenses, hover, references and rename in Rust,
+TypeScript and JavaScript files); `infer-*` (guides for agents writing specs from existing code).
 
 Planned or in progress -- say so, never imply they work:
 
@@ -121,6 +125,7 @@ specforge query / trace <id> / explore / review  # read the graph (<id>: a path 
 specforge stats / export / format / migrate
 specforge analyze                                # analysis passes declared by extensions (e.g. formal)
 specforge collect                                # run declared test runners, record what their tests prove
+specforge anchors <id> | --file <path>           # the code anchored to an entity, or the entities a file holds
 specforge watch / mcp                            # incremental rebuild; MCP server over stdio
 specforge-lsp                                    # the language server: a separate binary (the VS Code extension starts it)
 specforge extension init|build|validate          # author an extension
