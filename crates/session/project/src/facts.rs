@@ -350,8 +350,12 @@ pub fn store<'t>(key: &str, text: &'t str) -> Result<Served<'t>, Diagnostic> {
 /// reference's id), any other string text; an integer, a bool; an array of strings a list whose items are written as
 /// the field writes each. Each value is spanned where its name is written (`named_at`), else where the fact is, else
 /// at the store. W192 when the text is no store this specforge reads; W197, in the file's format diagnostics, when a
-/// rename marked it stale.
-pub(crate) fn served(key: &str, text: &str, forms: &FieldForms) -> Result<SpecFile, Diagnostic> {
+/// rename marked it stale. Beside it, the digests the store records of the source files its places name.
+pub(crate) fn served(
+    key: &str,
+    text: &str,
+    forms: &FieldForms,
+) -> Result<(SpecFile, BTreeMap<String, String>), Diagnostic> {
     let Served { store, stale, .. } = store(key, text)?;
     let file = Sym::new(key);
     let span = SourceSpan {
@@ -361,7 +365,7 @@ pub(crate) fn served(key: &str, text: &str, forms: &FieldForms) -> Result<SpecFi
         end_line: 1,
         end_col: 1,
     };
-    Ok(SpecFile {
+    let file = SpecFile {
         path: file,
         imports: Vec::new(),
         entities: store
@@ -372,7 +376,8 @@ pub(crate) fn served(key: &str, text: &str, forms: &FieldForms) -> Result<SpecFi
         errors: Vec::new(),
         format_version: CURRENT_FORMAT_VERSION,
         format_diagnostics: stale.into_iter().collect(),
-    })
+    };
+    Ok((file, store.sources))
 }
 
 /// One fact as an entity spanned at `span` (its store's) and located at its places, its values read by `forms` and

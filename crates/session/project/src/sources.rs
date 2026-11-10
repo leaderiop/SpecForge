@@ -83,6 +83,8 @@ pub(crate) struct SourceCache {
     trees: HashMap<String, tree_sitter::Tree>,
     /// E025 of each source that is there and could not be read, by path.
     unreadable: BTreeMap<String, Diagnostic>,
+    /// The digests each served fact store records of the source files its places name, by store key.
+    fact_sources: HashMap<String, Arc<BTreeMap<String, String>>>,
 }
 
 impl SourceCache {
@@ -91,6 +93,7 @@ impl SourceCache {
             texts: HashMap::new(),
             trees: HashMap::new(),
             unreadable: BTreeMap::new(),
+            fact_sources: HashMap::new(),
         }
     }
 
@@ -147,8 +150,9 @@ impl SourceCache {
         match read {
             Read::Text(text) if specforge_common::facts::is_fact_store(&key) => {
                 match facts::served(&key, &text, forms) {
-                    Ok(file) => {
+                    Ok((file, sources)) => {
                         files.push(file);
+                        self.fact_sources.insert(key.clone(), Arc::new(sources));
                         self.texts.insert(key, Arc::from(text));
                     }
                     Err(w192) => {
@@ -176,9 +180,11 @@ impl SourceCache {
             // A fact store is served, with no tree, or W192 when its text is no store.
             Read::Text(text) if specforge_common::facts::is_fact_store(path) => {
                 match facts::served(path, &text, forms) {
-                    Ok(served) => {
+                    Ok((served, sources)) => {
                         self.unreadable.remove(path);
                         self.trees.remove(path);
+                        self.fact_sources
+                            .insert(path.to_string(), Arc::new(sources));
                         self.texts.insert(path.to_string(), Arc::from(text));
                         FileChange::Parsed(served)
                     }
@@ -274,6 +280,19 @@ impl SourceCache {
     fn forget(&mut self, path: &str) {
         self.trees.remove(path);
         self.texts.remove(path);
+        self.fact_sources.remove(path);
+    }
+
+    /// The digest each served fact store records of each source file its places name, by the file's key: two stores
+    /// naming one file, the one whose store key sorts last.
+    pub fn fact_sources(&self) -> BTreeMap<&str, &str> {
+        let mut stores: Vec<_> = self.fact_sources.iter().collect();
+        stores.sort_by_key(|(key, _)| key.as_str());
+        stores
+            .into_iter()
+            .flat_map(|(_, sources)| sources.iter())
+            .map(|(file, digest)| (file.as_str(), digest.as_str()))
+            .collect()
     }
 
     /// Parse `text` as `path`, reusing the retained tree.

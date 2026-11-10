@@ -366,6 +366,14 @@ impl CompiledProject {
         self.sources.text(path).cloned()
     }
 
+    /// The digest (`sha256:<hex>`) each served fact store recorded of each source file its facts are placed in, by
+    /// the file's key, as the host read it when it admitted them (ADR 0346 D2): what says a source file changed since
+    /// its facts were collected (ADR 0349 D5). Two stores naming one file with different digests: the store whose key
+    /// sorts last wins, so the other's places read stale.
+    pub fn fact_sources(&self) -> BTreeMap<&str, &str> {
+        self.sources.fact_sources()
+    }
+
     /// [`Self::source_text`] of every file, shared rather than copied.
     pub fn source_texts(&self) -> HashMap<String, Arc<str>> {
         self.sources.texts()

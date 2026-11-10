@@ -65,6 +65,8 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify integration "a project that loads no collector-written kind reads no fact store and compiles byte-identically"
   verify unit "a served fact is located where its collector says it is written, and each name it holds where that name is written"
   verify integration "a finding on a fact is placed where it is written, not at its store"
+  verify unit "a served store gives the digest it recorded of each source file its facts are placed in"
+  verify integration "a compiled project serves the source digests its fact stores recorded"
   verify integration "a fact store a rename marked stale is served through the ledger's moves with W197 until the next collect"
   verify unit "build_graph emits W061 for reference cycles"
   verify unit "W061 names the cycle's entities in its data"

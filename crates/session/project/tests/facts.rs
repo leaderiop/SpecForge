@@ -8,7 +8,9 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 use specforge_project::harness::{Ledger, Line};
-use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, TestProject, stored};
+use specforge_project::testing::{
+    COLLECTED_EXTENSIONS, Collected, TestProject, stored, stored_with,
+};
 use specforge_project::{CompiledProject, ProjectSession};
 use specforge_test::prelude::*;
 
@@ -640,4 +642,44 @@ fn a_fresh_store_naming_a_renamed_id_is_told_the_new_one_from_the_ledger() {
     let (record, _) = project.entities().get("js:a.test.js#adds").unwrap();
     assert_eq!(record.dangling.len(), 1, "{:?}", record.dangling);
     assert_eq!(record.dangling[0].did_you_mean.as_deref(), Some("sum"));
+}
+
+#[specforge_test(
+    behavior = "build_in_memory_graph",
+    verify = "a compiled project serves the source digests its fact stores recorded"
+)]
+fn a_compiled_project_serves_its_stores_source_digests() {
+    let p = collected();
+    assert!(compiled(&p).fact_sources().is_empty(), "nothing collected");
+    let at = json!([{"file": "a.test.js", "start_line": 1, "start_col": 1, "end_line": 1, "end_col": 2}]);
+    stored_with(
+        p.root(),
+        "node",
+        KEY,
+        json!([{"kind": "test", "id": "js:a.test.js#adds", "at": at, "fields": {"file": "a.test.js"}}]),
+        [("a.test.js".to_string(), "sha256:aa".to_string())].into(),
+    );
+
+    let project = compiled(&p);
+
+    assert_eq!(
+        project.fact_sources().into_iter().collect::<Vec<_>>(),
+        [("a.test.js", "sha256:aa")]
+    );
+    // A session's update of the store serves the digests it records now.
+    let mut session = session(&p);
+    stored_with(
+        p.root(),
+        "node",
+        KEY,
+        json!([{"kind": "test", "id": "js:a.test.js#adds", "at": at, "fields": {"file": "a.test.js"}}]),
+        [("a.test.js".to_string(), "sha256:bb".to_string())].into(),
+    );
+    let root = fs::canonicalize(p.root()).unwrap();
+    let changes = session.changes([root.join(STORE).as_path()]);
+    assert!(session.apply(&changes).is_some());
+    assert_eq!(
+        session.project().fact_sources().get("a.test.js").copied(),
+        Some("sha256:bb")
+    );
 }

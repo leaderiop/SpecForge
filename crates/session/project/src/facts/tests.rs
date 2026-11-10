@@ -79,7 +79,7 @@ fn a_recorded_fact_store_is_served_as_one_spec_file() {
         panic!("a recorded store is served");
     };
 
-    let file = served(KEY, &text, &FieldForms::default()).unwrap();
+    let (file, _) = served(KEY, &text, &FieldForms::default()).unwrap();
 
     assert_eq!(file.path.as_str(), KEY);
     let ids: Vec<&str> = file.entities.iter().map(|e| e.id.raw.as_str()).collect();
@@ -202,7 +202,7 @@ fn a_served_fact_is_located_where_it_is_written_and_its_names_where_they_are() {
     )
     .unwrap();
 
-    let file = served(KEY, &text, &declared()).unwrap();
+    let (file, _) = served(KEY, &text, &declared()).unwrap();
 
     let (located, unlocated) = (&file.entities[0], &file.entities[1]);
     assert_eq!(
@@ -241,6 +241,23 @@ fn a_served_fact_is_located_where_it_is_written_and_its_names_where_they_are() {
     assert!(unlocated.located.is_empty());
 }
 
+#[specforge_test_macros::test(
+    behavior = "build_in_memory_graph",
+    verify = "a served store gives the digest it recorded of each source file its facts are placed in"
+)]
+fn a_store_records_the_digest_of_each_located_file() {
+    let fact = Fact::new("test", "js:a#b").at(place("src/a.rs", 12, 1, 20));
+    let sources = BTreeMap::from([("src/a.rs".to_string(), "sha256:aa".to_string())]);
+    let text = String::from_utf8(
+        Store::new("node", "@t/node", "abc", vec![fact], sources.clone()).bytes(),
+    )
+    .unwrap();
+
+    let (_, served_sources) = served(KEY, &text, &declared()).unwrap();
+
+    assert_eq!(served_sources, sources);
+}
+
 /// `test`'s `status` declared an enum and its `names` a reference list.
 fn declared() -> FieldForms {
     use specforge_protocol_types::FieldType;
@@ -268,7 +285,7 @@ fn a_facts_strings_are_read_by_their_fields_form() {
     )
     .unwrap();
 
-    let file = served(KEY, &text, &declared()).unwrap();
+    let (file, _) = served(KEY, &text, &declared()).unwrap();
 
     let fields = &file.entities[0].fields;
     assert_eq!(
@@ -301,7 +318,7 @@ fn a_facts_field_values_become_field_values_by_their_form() {
     )
     .unwrap();
 
-    let file = served(KEY, &text, &FieldForms::default()).unwrap();
+    let (file, _) = served(KEY, &text, &FieldForms::default()).unwrap();
 
     let fields = &file.entities[0].fields;
     assert_eq!(
