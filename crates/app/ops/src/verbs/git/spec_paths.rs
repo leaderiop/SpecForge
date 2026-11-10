@@ -190,6 +190,7 @@ mod tests {
             binary: false,
             truncated: false,
             patch: None,
+            hunks: None,
         }
     }
 

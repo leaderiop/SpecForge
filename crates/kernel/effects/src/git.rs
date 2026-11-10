@@ -9,7 +9,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// The typed status a hook is given (protocol 2.0.0) is what the port answers.
-pub use specforge_protocol_types::{GitBranch, GitChange, GitEntry, GitEntryKind, GitStatus};
+/// So is a diff's changed line range.
+pub use specforge_protocol_types::{
+    GitBranch, GitChange, GitEntry, GitEntryKind, GitHunk, GitStatus,
+};
 
 /// A full commit id (hex).
 #[derive(
@@ -149,6 +152,8 @@ pub struct GitPerson {
     pub email: String,
     /// ISO 8601 with the signer's offset, as `%aI` prints it.
     pub time: String,
+    /// The same time in seconds since the epoch, as `%at` prints it.
+    pub seconds: i64,
 }
 
 /// One commit of a log.
@@ -203,15 +208,21 @@ pub enum DiffSide {
     Worktree,
 }
 
-/// A diff between a commit and a side.
+/// A diff between a commit, or no tree, and a side.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiffQuery {
-    pub base: Sha,
+    /// The commit compared from; none for the empty tree (what a root commit is compared with).
+    pub base: Option<Sha>,
     pub head: DiffSide,
     /// Only the files at or under these paths (from the top). Empty keeps every file.
     pub paths: Vec<String>,
     /// Give each text file's unified hunks.
     pub patch: bool,
+    /// Give each text file's changed line ranges, with no context ([`GitFileDiff::hunks`]).
+    pub hunks: bool,
+    /// Pair a deletion with an addition as a rename or a copy as the repository's `diff.renames` says; `false` lists
+    /// them apart (`--no-renames`).
+    pub renames: bool,
 }
 
 /// How a file changed.
@@ -243,6 +254,9 @@ pub struct GitFileDiff {
     /// The unified hunks (`@@ … @@`, three lines of context), when asked and the file is text.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub patch: Option<String>,
+    /// The changed line ranges, when asked and both sides are text and read.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hunks: Option<Vec<GitHunk>>,
 }
 
 /// A branch as `git branch -vv` lists it.

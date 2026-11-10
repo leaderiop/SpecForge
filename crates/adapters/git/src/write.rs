@@ -754,10 +754,12 @@ pub(crate) fn record(
             .diff(
                 place,
                 &DiffQuery {
-                    base: Sha::new(parent.to_string()),
+                    base: Some(Sha::new(parent.to_string())),
                     head: DiffSide::Commit(sha.clone()),
                     paths: Vec::new(),
                     patch: false,
+                    hunks: false,
+                    renames: true,
                 },
             )?
             .into_iter()

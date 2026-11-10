@@ -118,3 +118,14 @@ pub struct GitBlobs {
     /// The answer's cap stopped them: the blobs after it have no bytes.
     pub truncated: bool,
 }
+
+/// One changed range of a text file's diff, with no context: the lines `before_start..before_end` of the old side
+/// became `after_start..after_end` of the new side (0-based, end exclusive). An empty side is a pure addition or a
+/// pure deletion, placed before that side's line `*_start`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct GitHunk {
+    pub before_start: u32,
+    pub before_end: u32,
+    pub after_start: u32,
+    pub after_end: u32,
+}

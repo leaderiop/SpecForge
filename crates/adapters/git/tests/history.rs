@@ -15,6 +15,8 @@ use specforge_git::Gix;
 use specforge_git::testing::Repo;
 use specforge_test::prelude::*;
 
+#[path = "history/diffs.rs"]
+mod diffs;
 #[path = "history/picking.rs"]
 mod picking;
 #[path = "history/racy.rs"]
@@ -487,10 +489,12 @@ fn no_filter_or_diff_driver_runs_on_a_read() {
     let diff = Gix::default().diff(
         &place,
         &DiffQuery {
-            base: Sha::new(base),
+            base: Some(Sha::new(base)),
             head: DiffSide::Worktree,
             paths: Vec::new(),
             patch: true,
+            hunks: false,
+            renames: true,
         },
     );
     let ran: Vec<_> = ["clean", "smudge", "process", "textconv"]
@@ -556,10 +560,12 @@ fn a_read_past_the_caps_is_sized_and_truncated_not_read() {
             .diff(
                 &place,
                 &DiffQuery {
-                    base: Sha::new(base.clone()),
+                    base: Some(Sha::new(base.clone())),
                     head: head.clone(),
                     paths: Vec::new(),
                     patch: true,
+                    hunks: false,
+                    renames: true,
                 },
             )
             .unwrap();

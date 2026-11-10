@@ -434,7 +434,11 @@ impl Git for Gix {
         // the index and the worktree are written as trees kept in memory, so every diff is tree to tree and nothing
         // lands in the object store
         let repo = open(place)?.with_object_memory();
-        let base = tree_of(&repo, &query.base)?;
+        // no base: the empty tree, what a root commit adds everything to
+        let base = match &query.base {
+            Some(base) => tree_of(&repo, base)?,
+            None => repo.empty_tree().id,
+        };
         let paths = wanted_paths(&query.paths);
         let (head, unread) = match &query.head {
             DiffSide::Commit(sha) => (tree_of(&repo, sha)?, Default::default()),
@@ -447,12 +451,15 @@ impl Git for Gix {
         let new = repo
             .find_tree(head)
             .map_err(|e| failed("read a tree", &e))?;
+        // `None` tracks rewrites as `diff.renames` says; the default options track none
+        let options = (!query.renames).then(gix::diff::Options::default);
         let changes = repo
-            .diff_tree_to_tree(&old, &new, None)
+            .diff_tree_to_tree(&old, &new, options)
             .map_err(|e| failed("diff two trees", &e))?;
+        let wanted = (query.patch, query.hunks);
         let mut files = Vec::new();
         for change in changes {
-            if let Some(file) = file_diff(&repo, change, &paths, query.patch, &unread)? {
+            if let Some(file) = file_diff(&repo, change, &paths, wanted, &unread)? {
                 files.push(file);
             }
         }

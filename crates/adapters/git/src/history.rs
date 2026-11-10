@@ -6,8 +6,8 @@ use std::path::Path;
 
 use gix::bstr::ByteSlice as _;
 use specforge_effects::git::{
-    BLOB_CAP, DiffStatus, GitCommit, GitError, GitFileDiff, GitLog, GitPerson, LogQuery, PATCH_CAP,
-    Sha, is_binary,
+    BLOB_CAP, DiffStatus, GitCommit, GitError, GitFileDiff, GitHunk, GitLog, GitPerson, LogQuery,
+    PATCH_CAP, Sha, is_binary,
 };
 
 use crate::{failed, id};
@@ -341,14 +341,14 @@ fn touches(
 
 /// A signature as a log prints it.
 fn person(signature: gix::actor::SignatureRef<'_>) -> GitPerson {
-    let time = signature
-        .time()
-        .map(|t| t.format_or_unix(gix::date::time::format::ISO8601_STRICT))
-        .unwrap_or_default();
+    let time = signature.time().ok();
     GitPerson {
         name: signature.name.to_str_lossy().trim().to_string(),
         email: signature.email.to_str_lossy().trim().to_string(),
-        time,
+        time: time
+            .map(|t| t.format_or_unix(gix::date::time::format::ISO8601_STRICT))
+            .unwrap_or_default(),
+        seconds: time.map_or(0, |t| t.seconds),
     }
 }
 
@@ -546,7 +546,7 @@ pub(crate) fn file_diff(
     repo: &gix::Repository,
     change: gix::object::tree::diff::ChangeDetached,
     paths: &[String],
-    patch: bool,
+    (patch, hunks): (bool, bool),
     unread: &Unread,
 ) -> Result<Option<GitFileDiff>, GitError> {
     use gix::object::tree::diff::ChangeDetached as Change;
@@ -659,6 +659,7 @@ pub(crate) fn file_diff(
         binary: false,
         truncated: false,
         patch: None,
+        hunks: None,
     };
     if over(old)? || over(new)? {
         file.truncated = true;
@@ -676,6 +677,18 @@ pub(crate) fn file_diff(
     let diff = Diff::compute(Algorithm::Histogram, &input);
     file.added = diff.count_additions();
     file.removed = diff.count_removals();
+    if hunks {
+        file.hunks = Some(
+            diff.hunks()
+                .map(|hunk| GitHunk {
+                    before_start: hunk.before.start,
+                    before_end: hunk.before.end,
+                    after_start: hunk.after.start,
+                    after_end: hunk.after.end,
+                })
+                .collect(),
+        );
+    }
     if patch {
         let text = UnifiedDiff::new(
             &diff,

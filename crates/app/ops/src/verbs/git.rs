@@ -678,10 +678,12 @@ pub fn diff(verbs: &Verbs, request: &DiffRequest) -> Result<DiffAnswer, OpError>
             })?;
     }
     let query = DiffQuery {
-        base: base.clone(),
+        base: Some(base.clone()),
         head,
         paths: request.paths.clone(),
         patch: request.patch,
+        hunks: false,
+        renames: true,
     };
     let files = verbs.ports().git.diff(&place, &query).map_err(failed)?;
     let text = || files.iter().filter(|file| !file.binary);
