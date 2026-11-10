@@ -2,7 +2,9 @@
 //! sha256, under `.specforge/cache/syntax/`. A hit touches its entry; an entry untouched past an age is pruned. A
 //! miss, an unreadable entry and a write that fails cost a parse, never an error.
 
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
@@ -74,8 +76,11 @@ impl SyntaxCache {
     }
 
     /// Keeps `entry` under `key`; the error, in words, when it cannot be written (a detached cache writes nothing and
-    /// is not an error).
+    /// is not an error). Two files of one content share a key, and two workers of a read may write it at once: each
+    /// writes a temporary name of its own, created new, and renames it over the entry, so neither fails on the
+    /// other's. An entry is not synced: one a crash tore does not read, and costs a parse.
     pub(crate) fn put(&self, key: &str, entry: &Entry) -> Result<(), String> {
+        static WRITES: AtomicUsize = AtomicUsize::new(0);
         let Some(path) = self.path(key) else {
             return Ok(());
         };
@@ -83,7 +88,18 @@ impl SyntaxCache {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
         }
-        specforge_common::fresh::replace_file(&path, &bytes).map_err(|e| e.to_string())
+        let write = WRITES.fetch_add(1, Ordering::Relaxed);
+        let temp = path.with_extension(format!("{}-{write}.tmp", std::process::id()));
+        let written = std::fs::File::options()
+            .write(true)
+            .create_new(true)
+            .open(&temp)
+            .and_then(|mut file| file.write_all(&bytes))
+            .and_then(|()| std::fs::rename(&temp, &path));
+        if written.is_err() {
+            let _ = std::fs::remove_file(&temp);
+        }
+        written.map_err(|e| e.to_string())
     }
 
     /// Removes the entries untouched for `max_age` before `now`: how many it removed.

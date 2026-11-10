@@ -185,6 +185,7 @@ behavior read_source_syntax "Read Source Syntax" {
   verify unit "a detached cache parses every time"
   verify unit "an unreadable cache entry is a miss and is rewritten"
   verify unit "a cache that cannot be written counts unwritten and still answers"
+  verify unit "files of one content read at once are all cached and none is unwritten"
   verify unit "a prune removes the entries untouched past the age"
   verify unit "a read answers in the order asked whatever the workers"
   verify integration "a second collect answers every file from the project's syntax cache"

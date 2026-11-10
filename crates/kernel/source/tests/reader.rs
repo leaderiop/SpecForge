@@ -199,6 +199,32 @@ fn a_cache_that_cannot_be_written_counts_unwritten_and_still_answers() {
 
 #[specforge_test(
     behavior = "read_source_syntax",
+    verify = "files of one content read at once are all cached and none is unwritten"
+)]
+fn files_of_one_content_read_at_once_are_all_cached() {
+    let base = tempfile::tempdir().unwrap();
+    // One key for every file: the workers parse and write it at once.
+    let paths: Vec<String> = (0..64).map(|n| format!("f{n}.rs")).collect();
+    let same: Vec<(&str, &str)> = paths
+        .iter()
+        .map(|p| (p.as_str(), "fn same() {}\n"))
+        .collect();
+    let read = Files::of(&same).read(&counted(SyntaxCache::at(base.path())), QUERY);
+    assert_eq!(read.work.parsed + read.work.cached, 64);
+    assert_eq!(
+        (read.work.unwritten, read.work.unwritable),
+        (0, None),
+        "a worker failed on another's write of the same entry"
+    );
+    assert_eq!(
+        entries(base.path()).len(),
+        1,
+        "one entry, no temporary left"
+    );
+}
+
+#[specforge_test(
+    behavior = "read_source_syntax",
     verify = "a prune removes the entries untouched past the age"
 )]
 fn prune_removes_entries_untouched_past_the_age() {
