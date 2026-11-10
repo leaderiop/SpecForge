@@ -25,7 +25,9 @@
 //!
 //! With `item` facts served (`@code/core` and a source pack), a recorded commit also names the items it changed
 //! (`items_changed`, see [`items`]); a commit recorded before any were served gets them once, on the first collect that
-//! serves them.
+//! serves them. A diff past one answer of the port is asked again file by file; when a file that holds items still has
+//! lines no answer holds, the field is left unwritten (the plan's title names the commit), never written short: it is
+//! immutable once written.
 //!
 //! What a commit says is untrusted: control characters in a subject or a path become U+FFFD, and a commit whose time
 //! is out of range is skipped and named in the plan's title. The host refuses a whole plan for one value it cannot
@@ -42,8 +44,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::host::{
-    Denial, GitChange, GitDiffHead, GitDiffQuery, GitHunk, GitLogCommit, GitLogQuery, HostError,
-    git,
+    Denial, GitChange, GitDiffHead, GitDiffQuery, GitFileChange, GitHunk, GitLogCommit,
+    GitLogQuery, HostError, git,
 };
 use specforge_extension_sdk::prelude::*;
 
@@ -107,6 +109,9 @@ pub struct Commit {
     pub deletions: i64,
     /// Its diff's changed line ranges by repository path, when they were asked.
     pub hunks: BTreeMap<String, Vec<GitHunk>>,
+    /// The repository paths of its text files whose line ranges no answer held, when they were asked: past one answer
+    /// of the port even alone, over its blob cap, or withheld.
+    pub unread: BTreeSet<String>,
     /// The items it changed, when item facts were served.
     pub items_changed: Option<Vec<String>>,
 }
@@ -138,25 +143,28 @@ impl Commit {
     /// at `prefix` of the repository, project-relative and sorted, the ones it added, the lines of every file, and,
     /// with `hunks`, each file's changed ranges.
     fn changes(&mut self, prefix: &str, hunks: bool) -> Result<(), String> {
-        let diff = git::diff(&GitDiffQuery {
-            base: self.parents.first().cloned(),
-            head: GitDiffHead::Commit(self.hash.clone()),
-            paths: Vec::new(),
-            patch: false,
-            hunks,
-            renames: false,
-        })
-        .map_err(|e| {
-            said(
-                &format!("diff {}", &self.hash[..12.min(self.hash.len())]),
-                &e,
-            )
-        })?;
-        for file in &diff.files {
+        let files = whole_diff(
+            &GitDiffQuery {
+                base: self.parents.first().cloned(),
+                head: GitDiffHead::Commit(self.hash.clone()),
+                paths: Vec::new(),
+                patch: false,
+                hunks,
+                renames: false,
+            },
+            &format!("diff {}", &self.hash[..12.min(self.hash.len())]),
+        )?;
+        for file in &files {
             self.insertions += i64::from(file.added);
             self.deletions += i64::from(file.removed);
-            if let Some(ranges) = &file.hunks {
-                self.hunks.insert(file.path.clone(), ranges.clone());
+            match &file.hunks {
+                Some(ranges) => {
+                    self.hunks.insert(file.path.clone(), ranges.clone());
+                }
+                None if hunks && !file.binary => {
+                    self.unread.insert(file.path.clone());
+                }
+                None => {}
             }
             let Some(path) = in_project(prefix, &file.path) else {
                 continue;
@@ -170,6 +178,34 @@ impl Commit {
         self.created.sort();
         Ok(())
     }
+}
+
+/// The files of the diff `query` asks, each with the text the port could give: a file whose counts or line ranges the
+/// answer's cap dropped is asked again alone. One still past a whole answer keeps none, so its reader can tell its
+/// lines are unknown from a file that has none.
+fn whole_diff(query: &GitDiffQuery, what: &str) -> Result<Vec<GitFileChange>, String> {
+    let ask = |query: &GitDiffQuery| git::diff(query).map_err(|e| said(what, &e));
+    let diff = ask(query)?;
+    let mut files = diff.files;
+    if !diff.truncated {
+        return Ok(files);
+    }
+    for file in &mut files {
+        let dropped = !file.binary
+            && !file.withheld
+            && (file.truncated || (query.hunks && file.hunks.is_none()));
+        if !dropped {
+            continue;
+        }
+        let alone = ask(&GitDiffQuery {
+            paths: vec![file.path.clone()],
+            ..query.clone()
+        })?;
+        if let Some(read) = alone.files.into_iter().find(|f| f.path == file.path) {
+            *file = read;
+        }
+    }
+    Ok(files)
 }
 
 /// What a port's refusal or failure says.
@@ -600,11 +636,16 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         }
     }
     let items = items::Items::of(&input.facts, &prefix);
+    // The commits whose items no answer of the port could name: their field stays unwritten, never short.
+    let mut unnamed_items = Vec::new();
     for &at in &fresh {
         let commit = &mut commits[at];
         commit.changes(&prefix, items.is_some())?;
         if let Some(items) = &items {
-            commit.items_changed = Some(items.changed(&commit.hash, &commit.hunks)?);
+            commit.items_changed = items.changed(commit)?;
+            if commit.items_changed.is_none() {
+                unnamed_items.push(commit.hash.chars().take(12).collect::<String>());
+            }
         }
     }
     // A commit recorded before item facts were served gets its items once (an immutable value unset may be set once).
@@ -621,7 +662,10 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
                 continue;
             }
             commit.changes(&prefix, true)?;
-            let changed = items.changed(&commit.hash, &commit.hunks)?;
+            let Some(changed) = items.changed(commit)? else {
+                unnamed_items.push(name);
+                continue;
+            };
             builder.set(&name, "items_changed", json!(changed));
             backfilled += 1;
         }
@@ -669,6 +713,12 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         };
         for why in &unread {
             note.push_str(&format!(" ({why})"));
+        }
+        if !unnamed_items.is_empty() {
+            note.push_str(&format!(
+                " (items of {} not named: a changed file's lines are past one answer of the host's git port)",
+                unnamed_items.join(", ")
+            ));
         }
         let plural = |n: usize| if n == 1 { "" } else { "s" };
         let mut title = Vec::new();

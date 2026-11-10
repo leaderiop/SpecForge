@@ -5,14 +5,15 @@
 //! A line the commit wrote changes the item that holds its image in the worktree. A deletion is the gap between two
 //! lines: it changes the item that holds both neighbours, so one at an item's edge does not. A line rewritten since
 //! has no image and names nothing: on a first collect of an old history, an item whose every line was rewritten since
-//! is not named.
+//! is not named. A file that holds items whose lines no answer of the port held (past one answer even alone, over its
+//! blob cap, or withheld from the call) names nothing at all: the list is unknown, not short.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_extension_sdk::Fact;
-use specforge_extension_sdk::host::{GitDiffHead, GitDiffQuery, GitHunk, git};
+use specforge_extension_sdk::host::{GitDiffHead, GitDiffQuery, GitHunk};
 
-use super::{in_repository, said};
+use super::{Commit, in_repository, whole_diff};
 
 /// The `item` facts with a place, by repository path: each one's lines (0-based, inclusive) and id.
 pub(super) struct Items {
@@ -49,41 +50,50 @@ impl Items {
         Some(Items { by_path })
     }
 
-    /// The ids of the items the commit `sha` changed, sorted: `hunks` are its diff's changed ranges by repository
-    /// path. One more diff, of the commit against the worktree over the files that hold items, carries its lines.
-    pub(super) fn changed(
-        &self,
-        sha: &str,
-        hunks: &BTreeMap<String, Vec<GitHunk>>,
-    ) -> Result<Vec<String>, String> {
+    /// The ids of the items `commit` changed, sorted, from its diff's changed ranges by repository path. One more
+    /// diff, of the commit against the worktree over the files that hold items, carries its lines. `None` when a file
+    /// that holds items has lines no answer of the port held, in either diff: the list would be short, and the field
+    /// is written once.
+    pub(super) fn changed(&self, commit: &Commit) -> Result<Option<Vec<String>>, String> {
+        let (sha, hunks) = (&commit.hash, &commit.hunks);
+        if commit
+            .unread
+            .iter()
+            .any(|path| self.by_path.contains_key(path))
+        {
+            return Ok(None);
+        }
         let paths: Vec<String> = hunks
             .keys()
             .filter(|path| self.by_path.contains_key(*path))
             .cloned()
             .collect();
         if paths.is_empty() {
-            return Ok(Vec::new());
+            return Ok(Some(Vec::new()));
         }
-        let since = git::diff(&GitDiffQuery {
-            base: Some(sha.to_string()),
-            head: GitDiffHead::Worktree,
-            paths: paths.clone(),
-            patch: false,
-            hunks: true,
-            renames: false,
-        })
-        .map_err(|e| {
-            said(
-                &format!("diff {} with the worktree", &sha[..12.min(sha.len())]),
-                &e,
-            )
-        })?;
+        let since = whole_diff(
+            &GitDiffQuery {
+                base: Some(sha.to_string()),
+                head: GitDiffHead::Worktree,
+                paths: paths.clone(),
+                patch: false,
+                hunks: true,
+                renames: false,
+            },
+            &format!("diff {} with the worktree", &sha[..12.min(sha.len())]),
+        )?;
+        // A file in the forward diff whose lines no answer held, binary aside, leaves its lines unknown.
+        if since
+            .iter()
+            .any(|f| paths.contains(&f.path) && f.hunks.is_none() && !f.binary)
+        {
+            return Ok(None);
+        }
         let mut ids = BTreeSet::new();
         for path in &paths {
             // A file absent from the forward diff is as the commit left it; one in it without hunks (binary) keeps no
             // line.
             let forward = since
-                .files
                 .iter()
                 .find(|f| &f.path == path)
                 .map(|f| f.hunks.as_deref());
@@ -118,7 +128,7 @@ impl Items {
                 }
             }
         }
-        Ok(ids.into_iter().collect())
+        Ok(Some(ids.into_iter().collect()))
     }
 }
 

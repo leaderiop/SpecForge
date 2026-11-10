@@ -32,7 +32,10 @@ gains the guest `git` interface's `log` and `diff` and `UnheldReference.history`
   changed by it. `@gsd/core` mints no id and parses no source: the language packs stay the one id authority. In the
   normal flow (a collect right after the executor's commit) the forward diff is empty. Its limit: on a first collect
   of an old history, an item whose every line was rewritten since is not named; the item that holds the commit's
-  lines now is.
+  lines now is. The field is written once, so it is never written short: a diff past one answer of the port is asked
+  again file by file, and when a file that holds items still has lines no answer holds (past one answer alone, over
+  the blob cap, or its worktree text withheld from the call), the field is left unwritten, the plan's title names the
+  commit, and the next collect tries again.
 - **D2. A history reference.** A reference a field declared `writer: harness` and `immutable` holds records what held
   when the harness wrote it. The registry marks such an unheld reference `history` (`UnheldReference.history`), and
   `@code/core`'s `refs` pass reports none of them (no `code/E101`, no `code/W102`). A held history reference is still

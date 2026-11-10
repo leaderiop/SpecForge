@@ -250,10 +250,10 @@ fn two_diffs_per_recorded_commit_with_items() {
     assert!(repo.asked.borrow().iter().all(|q| q.hunks && !q.patch));
 }
 
-/// A commit whose diff is past one answer: the port drops the hunks of the files after its cap.
-#[test]
-fn a_diff_past_one_answer_writes_items_changed_short() {
-    let repo = Repo {
+/// A commit whose diff is past one answer, its files listed in `room` paths: the port drops the hunks of the files
+/// after its cap.
+fn cut(room: usize) -> Repo {
+    Repo {
         log: vec![logged(HASH, &[], 20, "feat(01-01): Store module", &[])],
         diffs: [(
             HASH.to_string(),
@@ -263,9 +263,71 @@ fn a_diff_past_one_answer_writes_items_changed_short() {
             ],
         )]
         .into(),
-        room: Some(1),
+        room: Some(room),
         ..Repo::default()
+    }
+}
+
+#[test]
+fn a_diff_past_one_answer_is_asked_again_file_by_file() {
+    let input = CollectInput {
+        graph: plan_graph(),
+        facts: facts(),
+        ..Default::default()
     };
-    // B holds the line the commit wrote, but its file's hunks were dropped: today no item is named.
-    assert_eq!(named(repo, facts()), json!([]));
+    let (output, repo) = served(cut(1), &input);
+    let made = created(&output.expect("an answer"));
+    // B holds the line the commit wrote in the file whose hunks the first answer dropped.
+    assert_eq!(made[0].1["items_changed"], json!(["js:app/src/a.js::B"]));
+    let asked: Vec<Vec<String>> = repo
+        .asked
+        .borrow()
+        .iter()
+        .map(|q| q.paths.clone())
+        .collect();
+    assert_eq!(
+        asked,
+        [
+            vec![],
+            vec!["src/a.js".to_string()],
+            vec!["src/a.js".to_string()]
+        ]
+    );
+}
+
+#[test]
+fn a_file_past_one_answer_alone_leaves_items_changed_unwritten_and_says_so() {
+    let input = CollectInput {
+        graph: plan_graph(),
+        facts: facts(),
+        ..Default::default()
+    };
+    let output = served(cut(0), &input).0.expect("an answer");
+    let made = created(&output);
+    assert!(!made[0].1.contains_key("items_changed"), "{:?}", made[0].1);
+    let title = output.plan.and_then(|plan| plan.title).unwrap_or_default();
+    assert!(
+        title.contains(&format!("items of {} not named", &HASH[..12])),
+        "{title}"
+    );
+    // A later collect, its commit held without the field, still names nothing short.
+    let mut graph = plan_graph().expect("a graph");
+    graph.nodes.push(node(&HASH[..12], "commit", "plan"));
+    let input = CollectInput {
+        graph: Some(graph),
+        facts: facts(),
+        ..Default::default()
+    };
+    assert!(served(cut(0), &input).0.expect("an answer").plan.is_none());
+}
+
+#[test]
+fn a_forward_diff_without_a_files_lines_leaves_items_changed_unwritten() {
+    let file = ranged("src/a.js", vec![hunk((6, 7), (6, 7))]);
+    // The worktree's file is withheld from this call: its lines since are unknown.
+    let since = vec![GitFileChange {
+        withheld: true,
+        ..changed("src/a.js", GitChange::Modified, 1, 1)
+    }];
+    assert_eq!(named(repo(file, since), facts()), Value::Null);
 }
