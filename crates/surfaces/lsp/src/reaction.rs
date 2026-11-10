@@ -56,13 +56,16 @@ impl<E: Editor> Reaction<E> {
     }
 
     /// What of `change` is the project session's to apply: a `specforge.json` buffer is checked and
-    /// published here instead ([`crate::config_document`]), and closing one clears what was published.
+    /// published here instead ([`crate::config_document`]), and closing one clears what was published. A source
+    /// document's buffer is held for placing and never applied: opening, typing in or closing one rebuilds nothing
+    /// ([`crate::source_document`]).
     fn sources_of(&mut self, change: Change) -> Option<Change> {
         match change {
             Change::Edited(uris) => {
                 let (configs, sources): (Vec<Url>, Vec<Url>) = {
                     let state = self.state.blocking_read();
                     uris.into_iter()
+                        .filter(|uri| !crate::source_document::is_source(&state, uri))
                         .partition(|uri| crate::config_document::is_config(&state, uri))
                 };
                 for uri in configs {
@@ -77,6 +80,11 @@ impl<E: Editor> Reaction<E> {
                 // Closed, the file is checked as saved: what the buffer showed is replaced, not cleared.
                 self.configs.remove(&uri);
                 self.publish_config(&uri);
+                None
+            }
+            Change::Closed(uri)
+                if crate::source_document::is_source(&self.state.blocking_read(), &uri) =>
+            {
                 None
             }
             change => Some(change),

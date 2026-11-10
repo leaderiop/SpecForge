@@ -9,7 +9,7 @@ use specforge_common::{SourceSpan, Sym, structural};
 use specforge_ops::authoring::fix::{Fix, FixKind};
 use specforge_ops::read::navigate::{Navigator, OutlineEntry};
 use specforge_registry::KindRegistry;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use tower_lsp::lsp_types::{
     CodeAction, CodeActionKind, DocumentChanges, DocumentSymbol, DocumentSymbolResponse, Location,
     OneOf, OptionalVersionedTextDocumentIdentifier, Position, Range, SymbolInformation, SymbolKind,
@@ -18,7 +18,7 @@ use tower_lsp::lsp_types::{
 
 use crate::LspState;
 use crate::document::{LineIndex, Target};
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::sync::Arc;
 
 /// The project as its last compile saw it, read by one request. A span of
@@ -30,11 +30,16 @@ use std::sync::Arc;
 /// compile holds no text of cannot be converted: its range is `None`,
 /// never byte columns passed off as UTF-16. A span is a range of the editor's text only while that
 /// text is the compiled text ([`Compiled::range`]); what is sent with the compiled text's version
-/// converts against it whatever the editor holds ([`Compiled::compiled_range`], ADR 0205).
+/// converts against it whatever the editor holds ([`Compiled::compiled_range`], ADR 0205). A span in a source file
+/// the facts are placed in converts against that file's text while it is the one collected ([`Compiled::source_index`],
+/// ADR 0349 D7).
 pub(crate) struct Compiled<'s> {
     state: &'s LspState,
     indexes: RefCell<HashMap<Sym, Option<Arc<LineIndex>>>>,
     texts: RefCell<HashMap<Sym, EditorText>>,
+    /// The digest each fact store recorded of each source file, read once per request.
+    fact_sources: OnceCell<BTreeMap<&'s str, &'s str>>,
+    sources: RefCell<HashMap<Sym, Option<Arc<LineIndex>>>>,
 }
 
 impl<'s> Compiled<'s> {
@@ -43,6 +48,8 @@ impl<'s> Compiled<'s> {
             state,
             indexes: RefCell::new(HashMap::new()),
             texts: RefCell::new(HashMap::new()),
+            fact_sources: OnceCell::new(),
+            sources: RefCell::new(HashMap::new()),
         }
     }
 
@@ -87,27 +94,56 @@ impl<'s> Compiled<'s> {
     /// editor text is. `None` when the editor's text is not the compiled text (typed since, changed
     /// on disk since, a text the project does not build) or the compile holds no text of the file.
     /// A list leaves the item out; an edit is refused (`workspace_edit`, ADR 0205).
+    /// A span in a source file the facts are placed in is a range of its text while that text is the one collected.
     pub(crate) fn range(&self, span: &SourceSpan) -> Option<Range> {
         match self.editor_text(span.file.as_str()) {
             EditorText::Compiled => self.compiled_range(span),
-            EditorText::Changed | EditorText::Unbuilt => None,
+            EditorText::Changed | EditorText::Unbuilt => {
+                Some(self.source_index(span.file.as_str())?.range(span))
+            }
         }
+    }
+
+    /// The line index of source file `file`'s text, where the session's facts are placed, while that text is the
+    /// one their store recorded ([`crate::source_document::placed_index`]); once per file per request. `None` for a
+    /// file the compile holds text of, one no fact is placed in, and a stale one.
+    pub(crate) fn source_index(&self, file: &str) -> Option<Arc<LineIndex>> {
+        let key = Sym::new(file);
+        if let Some(index) = self.sources.borrow().get(&key) {
+            return index.clone();
+        }
+        let recorded = self
+            .fact_sources
+            .get_or_init(|| self.state.compiled_project().fact_sources())
+            .get(file)
+            .copied();
+        let index = recorded
+            .filter(|_| self.state.compiled_text(file).is_none())
+            .and_then(|recorded| crate::source_document::placed_index(self.state, file, recorded));
+        self.sources.borrow_mut().insert(key, index.clone());
+        index
     }
 
     /// The LSP range of a span in the text the project was compiled from, whatever the editor holds
     /// now; `None` when the compile holds no text of its file. Only for what is sent labelled with
     /// that text's version: a diagnostics publish (ADR 0023 D3).
     pub(crate) fn compiled_range(&self, span: &SourceSpan) -> Option<Range> {
-        Some(self.index_of(span.file.as_str())?.range(span))
+        let file = span.file.as_str();
+        Some(
+            self.index_of(file)
+                .or_else(|| self.source_index(file))?
+                .range(span),
+        )
     }
 
     /// The span of the compile that `range`, a range in the editor's text of `file`, covers; `None`
     /// when that editor text is not the compiled text (the inverse of [`Self::range`], one rule).
     pub(crate) fn span(&self, file: &str, range: Range) -> Option<SourceSpan> {
-        (self.editor_text(file) == EditorText::Compiled)
-            .then(|| self.index_of(file))
-            .flatten()
-            .map(|index| index.span(Sym::new(file), range))
+        let index = match self.editor_text(file) {
+            EditorText::Compiled => self.index_of(file),
+            EditorText::Changed | EditorText::Unbuilt => self.source_index(file),
+        };
+        index.map(|index| index.span(Sym::new(file), range))
     }
 
     /// The location of a span of a session file; `None` when its text is

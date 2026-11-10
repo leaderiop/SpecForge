@@ -1,0 +1,125 @@
+//! Source documents (ADR 0349 D7, D8): a JavaScript test file where the collector `node` placed the test fact
+//! `js:a.test.js#adds` (lines 3-5) whose `covers` names `truth T1` at line 1 (`// covers T1`, the name at characters
+//! 10-12), the store recording the file's digest; `truths.spec` cites the fact in `proof`. The server holds the
+//! source buffer and never compiles it, places spans in it while it is the text collected, and answers definition,
+//! implementation, references, hover, code lenses and rename on the names facts hold there.
+
+use std::fs;
+
+use serde_json::json;
+use specforge_lsp::changes::Change;
+use specforge_test_macros::test as spec;
+use tower_lsp::lsp_types::{Position, Range};
+
+use crate::recorder::{codes, publications};
+use crate::served::Served;
+
+/// The source file as collected.
+pub const SOURCE: &str = "// covers T1\n\ntest('adds', () => {\n  add(1, 2);\n});\n";
+
+/// The project, `covers` naming `covered`, opened with `truths.spec` open.
+pub fn citing(covered: &str) -> Served {
+    use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, stored_with};
+    let dir = tempfile::TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("truths.spec"),
+        "truth T1 \"One\" {\n  proof [\"js:a.test.js#adds\"]\n}\n",
+    )
+    .unwrap();
+    fs::write(dir.path().join("a.test.js"), SOURCE).unwrap();
+    let place = |line: usize, col: usize, end_line: usize, end_col: usize| json!({"file": "a.test.js", "start_line": line, "start_col": col, "end_line": end_line, "end_col": end_col});
+    stored_with(
+        dir.path(),
+        "node",
+        "0123456789abcdef0123456789abcdef01234567",
+        json!([{"kind": "test", "id": "js:a.test.js#adds", "at": [place(3, 1, 5, 4)],
+                "fields": {"file": "a.test.js", "covers": [covered]},
+                "named_at": {"covers": {covered: [place(1, 11, 1, 13)]}}}]),
+        [(
+            "a.test.js".to_string(),
+            specforge_ops::revision::of_bytes(SOURCE.as_bytes()),
+        )]
+        .into(),
+    );
+    Served::served_by(dir, Collected::new().runtime(), &COLLECTED_EXTENSIONS).open(&["truths.spec"])
+}
+
+#[spec(
+    behavior = "document_open_close",
+    verify = "a source file opened or typed in is held and rebuilds nothing"
+)]
+fn a_source_document_edit_rebuilds_nothing() {
+    let mut served = citing("T1");
+    let uri = served.uri("a.test.js");
+    let runs = served.check_runs();
+
+    assert!(
+        served.open_document(&uri, SOURCE).is_none(),
+        "opening applies nothing"
+    );
+    assert!(
+        served.state().files().document("a.test.js").is_some(),
+        "the buffer is held"
+    );
+    served.type_into(&uri, "// typed\n");
+    assert!(served.apply(Change::Edited(vec![uri.clone()])).is_none());
+    assert!(served.close_uri(&uri).is_none());
+    assert_eq!(served.check_runs(), runs, "no check ran");
+    assert!(
+        publications(&served.sent(), &uri).is_empty(),
+        "{:?}",
+        served.sent()
+    );
+}
+
+/// A Rust project loading `@code/core`: `src/lib.rs`'s item `rust:p::run` names `named` in `names`, written at
+/// line 1 (`// names ghost`, characters 9-14 when `named` is `ghost`), the store recording the file's digest.
+fn rust_naming(named: &str) -> Served {
+    use specforge_project::testing::{WORKTREE, item, stored_with};
+    let source = format!("// names {named}\npub fn run() {{}}\n");
+    let dir = tempfile::TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"p","extensions":["@specforge/software","@code/core"]}"#,
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("main.spec"),
+        "behavior alpha \"A\" {\n  contract \"c\"\n}\n",
+    )
+    .unwrap();
+    fs::create_dir_all(dir.path().join("src")).unwrap();
+    fs::write(dir.path().join("src/lib.rs"), &source).unwrap();
+    let mut fact = item("rust:p::run", "src/lib.rs", 2, "function", "public", "run");
+    fact["fields"]["names"] = json!([named]);
+    fact["named_at"] = json!({"names": {named: [{"file": "src/lib.rs", "start_line": 1, "start_col": 10,
+                                                  "end_line": 1, "end_col": 10 + named.len()}]}});
+    stored_with(
+        dir.path(),
+        "rust-source",
+        WORKTREE,
+        json!([fact]),
+        [(
+            "src/lib.rs".to_string(),
+            specforge_ops::revision::of_bytes(source.as_bytes()),
+        )]
+        .into(),
+    );
+    Served::at(dir).open(&["main.spec"])
+}
+
+#[spec(
+    behavior = "emit_live_diagnostics",
+    verify = "a diagnostic at a source span is published on the source file"
+)]
+fn a_dangling_fact_reference_is_published_on_its_source_file() {
+    let served = rust_naming("ghost");
+    let uri = served.uri("src/lib.rs");
+    let published = publications(served.opening(), &uri);
+    let diagnostics = published.last().expect("src/lib.rs is published");
+    assert_eq!(codes(diagnostics), ["code/I402"], "{diagnostics:?}");
+    assert_eq!(
+        diagnostics[0].range,
+        Range::new(Position::new(0, 9), Position::new(0, 14))
+    );
+}

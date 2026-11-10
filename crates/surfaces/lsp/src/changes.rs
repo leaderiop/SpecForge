@@ -108,6 +108,7 @@ impl Plan {
                     let key = state.key_of(uri);
                     if files.document(&key).is_some()
                         && !crate::config_document::is_config(state, uri)
+                        && !crate::source_document::is_source(state, uri)
                     {
                         open.retain(|k| *k != key);
                         open.push(key);

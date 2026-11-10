@@ -133,6 +133,10 @@ behavior document_open_close "Document Open/Close" {
     diagnostics and one staleness. Every answer and publish about the file
     MUST name it by the URI the client opened it with. An environment load
     that moves the spec root keeps every open document and its key.
+    A source document (a .rs, .ts, .tsx, .js or .jsx file under the project
+    root, ADR 0349 D7) is held, for placing what the graph says about it,
+    and never compiled: opening, typing in or closing one MUST rebuild
+    nothing.
   """
   verify unit "didOpen registers document and triggers compilation"
   verify unit "didClose removes document and clears diagnostics"
@@ -147,6 +151,7 @@ behavior document_open_close "Document Open/Close" {
   verify unit "a document is one file whatever spelling of its URI the client sends"
   verify unit "an open document stays itself when an environment load moves its key"
   verify integration "a document in a nested project is no source of the workspace project and gets none of its diagnostics"
+  verify unit "a source file opened or typed in is held and rebuilds nothing"
   verify contract "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_file_published, closed_file_from_disk"
 }
 
@@ -627,7 +632,9 @@ behavior emit_live_diagnostics "Live Diagnostics" {
     document being edited, else on the last one such a diagnostic went on
     while it is open, else on the first open document. W143 (a define
     block, which registers nothing) MUST be published with the Unnecessary
-    tag, so editors fade the block.
+    tag, so editors fade the block. A diagnostic at a span in a source file
+    a fact is placed in is published on that file, placed through its text
+    while that text is the one its store recorded (ADR 0349 D7).
   """
   verify unit "diagnostics update after file change"
   verify unit "code actions act on the diagnostics last published for the document"
@@ -638,6 +645,7 @@ behavior emit_live_diagnostics "Live Diagnostics" {
   verify unit "a diagnostic about entities is published at the first one's block, with related information at each other's name"
   verify unit "a diagnostic about entities follows its entity's block when only the entity moved"
   verify unit "a diagnostic is published on the file its span names"
+  verify unit "a diagnostic at a source span is published on the source file"
   verify unit "a diagnostic about no entity is published on the edited document"
   verify unit "a define block's W143 is published as unnecessary code"
   verify contract "Live Diagnostics: live diagnostics holds — lsp_initialized_fired, graph_available, diagnostics_pushed, latency_enforced"

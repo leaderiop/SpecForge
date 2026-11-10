@@ -20,6 +20,7 @@ mod navigation;
 pub mod pending;
 pub mod publish;
 pub mod reaction;
+pub mod source_document;
 mod state;
 mod unwind;
 mod uri;

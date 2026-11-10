@@ -13,7 +13,7 @@ use crate::changes::Change;
 use crate::editor::ClientEditor;
 use crate::reaction::Reaction;
 use crate::views;
-use crate::{ClientSupport, LspState, answers};
+use crate::{ClientSupport, LspState, answers, source_document};
 
 use specforge_effects::Ports;
 use specforge_ops::authoring::format;
@@ -200,6 +200,9 @@ impl LanguageServer for Backend {
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
         let at = params.text_document_position;
         self.answering("textDocument/completion", |state| {
+            if source_document::is_source(state, &at.text_document.uri) {
+                return Ok(None);
+            }
             Ok(answers::completion(
                 state,
                 &at.text_document.uri,
@@ -257,6 +260,9 @@ impl LanguageServer for Backend {
 
     async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
         self.answering("textDocument/codeAction", |state| {
+            if source_document::is_source(state, &params.text_document.uri) {
+                return Ok(None);
+            }
             Ok(answers::code_actions(
                 state,
                 &params.text_document.uri,
@@ -278,6 +284,9 @@ impl LanguageServer for Backend {
         params: DocumentSymbolParams,
     ) -> Result<Option<DocumentSymbolResponse>> {
         self.answering("textDocument/documentSymbol", |state| {
+            if source_document::is_source(state, &params.text_document.uri) {
+                return Ok(None);
+            }
             Ok(answers::document_symbols(state, &params.text_document.uri))
         })
         .await
@@ -302,6 +311,9 @@ impl LanguageServer for Backend {
 
     async fn document_link(&self, params: DocumentLinkParams) -> Result<Option<Vec<DocumentLink>>> {
         self.answering("textDocument/documentLink", |state| {
+            if source_document::is_source(state, &params.text_document.uri) {
+                return Ok(None);
+            }
             Ok(crate::links::document_links(
                 state,
                 &params.text_document.uri,
@@ -315,6 +327,9 @@ impl LanguageServer for Backend {
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
         self.answering("textDocument/semanticTokens/full", |state| {
+            if source_document::is_source(state, &params.text_document.uri) {
+                return Ok(None);
+            }
             Ok(answers::semantic_tokens(state, &params.text_document.uri))
         })
         .await
@@ -411,6 +426,10 @@ impl Backend {
     ) -> Result<Option<Vec<TextEdit>>> {
         let formatted = self
             .answering("textDocument/formatting", |state| {
+                // A source document is the language's own server's to format.
+                if source_document::is_source(state, uri) {
+                    return Ok(None);
+                }
                 Ok(answers::formatting(
                     state,
                     &self.runtime,
