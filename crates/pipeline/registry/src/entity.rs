@@ -209,8 +209,12 @@ pub struct RuleInput<'a> {
     pub collected: &'a std::collections::BTreeSet<String>,
 }
 
-/// No kind is collected: the rules' input of a project that loads no collector-written kind.
-pub static NONE_COLLECTED: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+impl RuleInput<'_> {
+    /// Whether `rule` judges `record`: a rule that names no kind judges no fact (ADR 0353 D5).
+    pub fn judged_by(&self, rule: &crate::rules::Rule, record: &EntityRecord) -> bool {
+        rule.applies_to(&record.kind, self.collected.contains(&record.kind))
+    }
+}
 
 impl EntityRecord {
     /// Where a finding about it is placed: a fact's first place in source, else its span (ADR 0346 D3).

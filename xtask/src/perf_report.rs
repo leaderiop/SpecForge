@@ -22,86 +22,68 @@ use std::time::Instant;
 
 use serde_json::{Value, json};
 
-/// The budget of a collect with no syntax cache: every source file parsed.
-const COLLECT_COLD_MS: u64 = 10_000;
-/// The budget of a collect over an unchanged tree: every file read from the syntax cache.
-const COLLECT_WARM_MS: u64 = 2_000;
-/// The budget of `specforge check` with SpecForge's facts served.
-const CHECK_MS: u64 = 2_000;
 /// The file the edit step appends a line comment to: a crate root every source collect reads.
 const EDITED: &str = "crates/kernel/common/src/lib.rs";
 
-/// What a run of the steps measured: milliseconds, and the counted work.
-#[derive(Debug, Clone, Default, PartialEq)]
-struct Measured {
-    check_empty_ms: u64,
-    collect_cold_ms: u64,
-    collect_warm_ms: u64,
-    collect_edit_ms: u64,
-    check_ms: u64,
-    /// Files parsed and read from the cache by the cold, warm and edit collects, over every collector.
-    cold: Work,
-    warm: Work,
-    edit: Work,
-    /// The facts the cold collect stored.
-    facts: u64,
-    /// The facts `check` was served: those of the stores the ledger records as they are on disk.
-    served: u64,
+/// The steps, in the order they run: each one's key in `report.json`, its row in the table, and its budget in
+/// milliseconds (none: measured, held to none).
+const STEPS: [(&str, &str, Option<u64>); 5] = [
+    ("check_empty", "check, no facts", None),
+    // A collect with no syntax cache: every source file parsed.
+    ("collect_cold", "collect cold", Some(10_000)),
+    // A collect over an unchanged tree: every file read from the syntax cache.
+    ("collect_warm", "collect warm", Some(2_000)),
+    ("collect_edit", "collect, one edit", None),
+    // `specforge check` with SpecForge's facts served.
+    ("check", "check, facts served", Some(2_000)),
+];
+const COLD: usize = 1;
+const WARM: usize = 2;
+const EDIT: usize = 3;
+
+/// What one step measured: its milliseconds and the work it counted.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+struct Step {
+    ms: u64,
+    work: Work,
 }
 
-/// One collect's syntax work over every collector.
+/// A step's counted work: the files its collect parsed and read from the syntax cache, over every collector, and
+/// the facts the cold collect stored or the check was served.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 struct Work {
     parsed: u64,
     cached: u64,
+    facts: u64,
 }
 
-/// The ceilings the steps are held to.
-#[derive(Debug, Clone, Copy)]
-struct Budget {
-    collect_cold_ms: u64,
-    collect_warm_ms: u64,
-    check_ms: u64,
-}
-
-const BUDGET: Budget = Budget {
-    collect_cold_ms: COLLECT_COLD_MS,
-    collect_warm_ms: COLLECT_WARM_MS,
-    check_ms: CHECK_MS,
-};
+/// What a run measured: each of [`STEPS`], in its order.
+type Measured = [Step; STEPS.len()];
 
 /// Each step over its budget, and each counted expectation that failed, in words: empty when all hold.
-fn verdicts(measured: &Measured, budget: &Budget) -> Vec<String> {
-    let mut over = Vec::new();
-    let mut ceiling = |step: &str, ms: u64, budget: u64| {
-        if ms > budget {
-            over.push(format!("{step} took {ms} ms, over its {budget} ms budget"));
-        }
-    };
-    ceiling(
-        "collect cold",
-        measured.collect_cold_ms,
-        budget.collect_cold_ms,
-    );
-    ceiling(
-        "collect warm",
-        measured.collect_warm_ms,
-        budget.collect_warm_ms,
-    );
-    ceiling("check", measured.check_ms, budget.check_ms);
-    if measured.cold.parsed == 0 {
+fn verdicts(measured: &Measured) -> Vec<String> {
+    let mut over: Vec<String> = STEPS
+        .iter()
+        .zip(measured)
+        .filter_map(|(&(_, row, budget), step)| {
+            let budget = budget?;
+            (step.ms > budget)
+                .then(|| format!("{row} took {} ms, over its {budget} ms budget", step.ms))
+        })
+        .collect();
+    if measured[COLD].work.parsed == 0 {
         over.push("the cold collect parsed no file".to_string());
     }
-    if measured.warm.parsed != 0 {
+    if measured[WARM].work.parsed != 0 {
         over.push(format!(
             "the warm collect parsed {} files, not 0: the syntax cache did not answer",
-            measured.warm.parsed
+            measured[WARM].work.parsed
         ));
     }
-    if measured.edit.parsed != 1 {
+    if measured[EDIT].work.parsed != 1 {
         over.push(format!(
             "the collect after one edit parsed {} files, not 1",
-            measured.edit.parsed
+            measured[EDIT].work.parsed
         ));
     }
     over
@@ -191,14 +173,24 @@ fn run() -> Result<bool, Failed> {
         home: &home,
     };
 
-    let check_empty_ms = median(&sf.times(runs, &["check"])?);
-    let (collect_cold_ms, cold) = sf.collect()?;
-    let facts = cold["runners"]
+    let check_empty = Step {
+        ms: median(&sf.times(runs, &["check"])?),
+        work: Work::default(),
+    };
+    let (ms, answer) = sf.collect()?;
+    let stored = answer["runners"]
         .as_array()
         .into_iter()
         .flatten()
         .filter_map(|r| r["facts"].as_u64())
         .sum();
+    let cold = Step {
+        ms,
+        work: Work {
+            facts: stored,
+            ..work(&answer)
+        },
+    };
     // Every warm run must parse nothing: their files parsed add up, the cached count is the last run's.
     let (mut warm_ms, mut warm) = (Vec::new(), Work::default());
     for _ in 0..runs {
@@ -207,26 +199,29 @@ fn run() -> Result<bool, Failed> {
         let this = work(&answer);
         warm = Work {
             parsed: warm.parsed + this.parsed,
-            cached: this.cached,
+            ..this
         };
     }
-    append_comment(&tree.join(EDITED))?;
-    let (collect_edit_ms, edit) = sf.collect()?;
-    let served = served_facts(&specforge_registry::PlainDisk, &tree);
-    let measured = Measured {
-        check_empty_ms,
-        collect_cold_ms,
-        collect_warm_ms: median(&warm_ms),
-        collect_edit_ms,
-        check_ms: median(&sf.times(runs, &["check"])?),
-        cold: work(&cold),
-        warm,
-        edit: work(&edit),
-        facts,
-        served,
+    let warm = Step {
+        ms: median(&warm_ms),
+        work: warm,
     };
+    append_comment(&tree.join(EDITED))?;
+    let (ms, answer) = sf.collect()?;
+    let edit = Step {
+        ms,
+        work: work(&answer),
+    };
+    let check = Step {
+        ms: median(&sf.times(runs, &["check"])?),
+        work: Work {
+            facts: served_facts(&specforge_registry::PlainDisk, &tree),
+            ..Work::default()
+        },
+    };
+    let measured: Measured = [check_empty, cold, warm, edit, check];
 
-    let verdicts = verdicts(&measured, &BUDGET);
+    let verdicts = verdicts(&measured);
     let report = report(repo, runs, &measured, &verdicts);
     let path = perf.join("report.json");
     let text = serde_json::to_string_pretty(&report).expect("a report is JSON");
@@ -296,6 +291,7 @@ fn work(answer: &Value) -> Work {
     runners.fold(Work::default(), |sum, runner| Work {
         parsed: sum.parsed + runner["syntax"]["parsed"].as_u64().unwrap_or(0),
         cached: sum.cached + runner["syntax"]["cached"].as_u64().unwrap_or(0),
+        facts: 0,
     })
 }
 
@@ -356,7 +352,7 @@ fn succeeded(command: &mut Command, what: &str) -> Result<(), Failed> {
 }
 
 /// `report.json`: where it ran, each step's milliseconds and counts, the budget and the verdicts.
-fn report(repo: &Path, runs: usize, m: &Measured, verdicts: &[String]) -> Value {
+fn report(repo: &Path, runs: usize, measured: &Measured, verdicts: &[String]) -> Value {
     let sha = Command::new("git")
         .current_dir(repo)
         .args(["rev-parse", "HEAD"])
@@ -365,66 +361,50 @@ fn report(repo: &Path, runs: usize, m: &Measured, verdicts: &[String]) -> Value 
         .map(|out| String::from_utf8_lossy(&out.stdout).trim().to_string())
         .unwrap_or_default();
     let cpus = std::thread::available_parallelism().map_or(0, usize::from);
+    let steps: serde_json::Map<String, Value> = STEPS
+        .iter()
+        .zip(measured)
+        .map(|(&(key, _, budget), step)| {
+            let w = step.work;
+            let row = json!({"ms": step.ms, "budget_ms": budget, "parsed": w.parsed, "cached": w.cached,
+                             "facts": w.facts});
+            (key.to_string(), row)
+        })
+        .collect();
     json!({
         "sha": sha,
         "os": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
         "cpus": cpus,
         "runs": runs,
-        "steps": {
-            "check_empty": {"ms": m.check_empty_ms},
-            "collect_cold": {"ms": m.collect_cold_ms, "parsed": m.cold.parsed, "cached": m.cold.cached,
-                             "facts": m.facts},
-            "collect_warm": {"ms": m.collect_warm_ms, "parsed": m.warm.parsed, "cached": m.warm.cached},
-            "collect_edit": {"ms": m.collect_edit_ms, "parsed": m.edit.parsed, "cached": m.edit.cached,
-                             "edited": EDITED},
-            "check": {"ms": m.check_ms, "facts": m.served},
-        },
-        "budget": {
-            "collect_cold_ms": BUDGET.collect_cold_ms,
-            "collect_warm_ms": BUDGET.collect_warm_ms,
-            "check_ms": BUDGET.check_ms,
-        },
+        "edited": EDITED,
+        "steps": steps,
         "verdicts": verdicts,
     })
 }
 
 /// The steps as a table, one per line.
-fn table(m: &Measured) -> String {
-    let rows = [
-        ("check, no facts", m.check_empty_ms, None, String::new()),
-        (
-            "collect cold",
-            m.collect_cold_ms,
-            Some(COLLECT_COLD_MS),
-            format!(
-                "{} parsed, {} cached, {} facts",
-                m.cold.parsed, m.cold.cached, m.facts
-            ),
-        ),
-        (
-            "collect warm",
-            m.collect_warm_ms,
-            Some(COLLECT_WARM_MS),
-            format!("{} parsed, {} cached", m.warm.parsed, m.warm.cached),
-        ),
-        (
-            "collect, one edit",
-            m.collect_edit_ms,
-            None,
-            format!("{} parsed, {} cached", m.edit.parsed, m.edit.cached),
-        ),
-        (
-            "check, facts served",
-            m.check_ms,
-            Some(CHECK_MS),
-            format!("{} facts", m.served),
-        ),
-    ];
+fn table(measured: &Measured) -> String {
     let mut out = String::from("step                  ms  budget  work\n");
-    for (step, ms, budget, work) in rows {
+    for (&(_, row, budget), step) in STEPS.iter().zip(measured) {
         let budget = budget.map_or_else(|| "-".to_string(), |b| b.to_string());
-        out.push_str(&format!("{step:<20}{ms:>6}  {budget:>6}  {work}\n"));
+        let Work {
+            parsed,
+            cached,
+            facts,
+        } = step.work;
+        let mut work = Vec::new();
+        if parsed + cached > 0 {
+            work.push(format!("{parsed} parsed, {cached} cached"));
+        }
+        if facts > 0 {
+            work.push(format!("{facts} facts"));
+        }
+        out.push_str(&format!(
+            "{row:<20}{:>6}  {budget:>6}  {}\n",
+            step.ms,
+            work.join(", ")
+        ));
     }
     out
 }
@@ -433,69 +413,72 @@ fn table(m: &Measured) -> String {
 mod tests {
     use super::*;
 
+    const CHECK: usize = STEPS.len() - 1;
+
+    /// A step of `ms` that parsed and read `parsed` and `cached` files.
+    fn step(ms: u64, parsed: u64, cached: u64, facts: u64) -> Step {
+        Step {
+            ms,
+            work: Work {
+                parsed,
+                cached,
+                facts,
+            },
+        }
+    }
+
     /// A run within budget, every counted expectation holding.
     fn within() -> Measured {
-        Measured {
-            check_empty_ms: 400,
-            collect_cold_ms: 6_000,
-            collect_warm_ms: 900,
-            collect_edit_ms: 950,
-            check_ms: 1_200,
-            cold: Work {
-                parsed: 2_461,
-                cached: 0,
-            },
-            warm: Work {
-                parsed: 0,
-                cached: 2_461,
-            },
-            edit: Work {
-                parsed: 1,
-                cached: 2_460,
-            },
-            facts: 36_640,
-            served: 36_640,
-        }
+        [
+            step(400, 0, 0, 0),
+            step(6_000, 2_461, 0, 36_640),
+            step(900, 0, 2_461, 0),
+            step(950, 1, 2_460, 0),
+            step(1_200, 0, 0, 36_640),
+        ]
     }
 
     #[test]
     fn perf_report_verdicts_name_each_step_over_budget() {
-        assert_eq!(verdicts(&within(), &BUDGET), Vec::<String>::new());
-        let over = Measured {
-            collect_cold_ms: 10_001,
-            collect_warm_ms: 2_001,
-            check_ms: 2_500,
-            ..within()
-        };
+        assert_eq!(verdicts(&within()), Vec::<String>::new());
+        let mut over = within();
+        over[COLD].ms = 10_001;
+        over[WARM].ms = 2_001;
+        over[CHECK].ms = 2_500;
         assert_eq!(
-            verdicts(&over, &BUDGET),
+            verdicts(&over),
             [
                 "collect cold took 10001 ms, over its 10000 ms budget",
                 "collect warm took 2001 ms, over its 2000 ms budget",
-                "check took 2500 ms, over its 2000 ms budget",
+                "check, facts served took 2500 ms, over its 2000 ms budget",
             ]
         );
     }
 
     #[test]
     fn perf_report_flags_a_warm_collect_that_parses() {
-        let measured = Measured {
-            warm: Work {
-                parsed: 3,
-                cached: 2_458,
-            },
-            edit: Work {
-                parsed: 2,
-                cached: 2_459,
-            },
-            ..within()
-        };
+        let mut measured = within();
+        measured[WARM] = step(900, 3, 2_458, 0);
+        measured[EDIT] = step(950, 2, 2_459, 0);
         assert_eq!(
-            verdicts(&measured, &BUDGET),
+            verdicts(&measured),
             [
                 "the warm collect parsed 3 files, not 0: the syntax cache did not answer",
                 "the collect after one edit parsed 2 files, not 1",
             ]
+        );
+    }
+
+    #[test]
+    fn perf_report_tables_each_step_once_with_its_budget_and_work() {
+        assert_eq!(
+            table(&within()),
+            "step                  ms  budget  work\n\
+             check, no facts        400       -  \n\
+             collect cold          6000   10000  2461 parsed, 0 cached, 36640 facts\n\
+             collect warm           900    2000  0 parsed, 2461 cached\n\
+             collect, one edit      950       -  1 parsed, 2460 cached\n\
+             check, facts served   1200    2000  36640 facts\n"
         );
     }
 

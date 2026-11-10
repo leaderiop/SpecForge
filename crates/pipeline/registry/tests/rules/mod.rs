@@ -20,6 +20,9 @@ use specforge_registry::{CandidateVocabulary, RegistryBuild};
 
 use crate::support::declare;
 
+/// No kind is collected: the rules' input of a project that loads no collector-written kind.
+static NONE_COLLECTED: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+
 /// What the build made of some declared rules: the rule set and the
 /// diagnostics its rules step reported (W112 and W147, then W023).
 pub struct Built {
@@ -168,7 +171,7 @@ pub fn over(entities: &[EntityRecord]) -> RuleInput<'_> {
     RuleInput {
         entities,
         edges: &[],
-        collected: &specforge_registry::NONE_COLLECTED,
+        collected: &NONE_COLLECTED,
     }
 }
 
@@ -177,7 +180,7 @@ pub fn with_edges<'a>(entities: &'a [EntityRecord], edges: &'a [EdgeRecord]) -> 
     RuleInput {
         entities,
         edges,
-        collected: &specforge_registry::NONE_COLLECTED,
+        collected: &NONE_COLLECTED,
     }
 }
 

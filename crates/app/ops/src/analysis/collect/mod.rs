@@ -35,6 +35,7 @@ use evidence::{Evidence, Source};
 pub use merge::MergeStats;
 use merge::{KnownEntities, merge};
 pub use process::ProcessMachine;
+pub use specforge_source::SyntaxWork;
 
 use crate::view::ProjectView;
 use crate::{Caller, Held, OpError, OpErrorKind, Refusal};
@@ -111,26 +112,6 @@ pub struct RunnerResult {
     /// What its `specforge:host/syntax` requests took (ADR 0353 D7): absent for a collector that parsed nothing.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub syntax: Option<SyntaxWork>,
-}
-
-/// The syntax work of one collector's call (ADR 0353 D7): source files parsed now, files answered from the syntax
-/// cache, and the bytes parsed now.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Shape)]
-pub struct SyntaxWork {
-    pub parsed: usize,
-    pub cached: usize,
-    pub bytes: u64,
-}
-
-impl SyntaxWork {
-    /// What `work` says to a collect, `None` when it read no file.
-    fn of(work: specforge_source::SyntaxWork) -> Option<Self> {
-        (work.parsed + work.cached > 0).then_some(SyntaxWork {
-            parsed: work.parsed,
-            cached: work.cached,
-            bytes: work.bytes,
-        })
-    }
 }
 
 impl RunnerResult {
@@ -345,11 +326,13 @@ pub fn collect(
         let mut syntax = None;
         if let Some(lent) = lent {
             diagnostics.extend(lent.take_denials());
-            let mut work = lent.take_syntax_work();
+            let work = lent.take_syntax_work();
             unwritten += work.unwritten;
-            unwritable = unwritable.or(work.unwritable.take());
-            syntax = SyntaxWork::of(work);
-            diagnostics.extend(syntax.map(|work| read_syntax(collector, work)));
+            unwritable = unwritable.or(work.unwritable.clone());
+            if work.parsed + work.cached > 0 {
+                diagnostics.push(read_syntax(collector, &work));
+                syntax = Some(work);
+            }
         }
         let (by_convention, diags) = convention::resolve(&collected.unlinked, known);
         diagnostics.extend(diags);
@@ -443,7 +426,7 @@ pub fn collect(
 }
 
 /// I214: what `collector`'s syntax requests read (ADR 0353 D7).
-fn read_syntax(collector: &Collector, work: SyntaxWork) -> Diagnostic {
+fn read_syntax(collector: &Collector, work: &SyntaxWork) -> Diagnostic {
     Diagnostic::new(
         codes::I214,
         format!(

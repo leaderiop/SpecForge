@@ -243,7 +243,7 @@ mod tests {
             &crate::entity::RuleInput {
                 entities: &[record],
                 edges: &[],
-                collected: &crate::entity::NONE_COLLECTED,
+                collected: &std::collections::BTreeSet::new(),
             },
             &crate::rules::NoVerdicts,
         );

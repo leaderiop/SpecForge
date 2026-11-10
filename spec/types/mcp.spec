@@ -1080,11 +1080,15 @@ type McpCollectRunner "What one runner's collection found" {
 
 type McpCollectSyntax "What a collector's syntax requests took" {
   /// Source files parsed now.
-  parsed integer
+  parsed     integer
   /// Source files answered from the syntax cache.
-  cached integer
+  cached     integer
   /// The bytes parsed now.
-  bytes  integer
+  bytes      integer
+  /// Parsed files the syntax cache could not take (W200).
+  unwritten  integer
+  /// Why the first of them could not be written.
+  unwritable string @optional
   verify unit "McpCollectSyntax schema is valid"
 }
 

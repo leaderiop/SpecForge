@@ -14,6 +14,9 @@ use specforge_registry::{
     CandidateVocabulary, RegistryBuild, build_registries, build_registries_with,
 };
 
+/// No kind is collected: the rules' input of a project that loads no collector-written kind.
+static NONE_COLLECTED: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+
 /// A builder for the extension `name`, version 1.0.0.
 pub fn extension(name: &str) -> ContributionsBuilder {
     ContributionsBuilder::new(ExtensionMeta::new(name, "1.0.0"))
@@ -174,7 +177,7 @@ pub fn check(build: &RegistryBuild, records: &[EntityRecord]) -> Vec<Diagnostic>
         &RuleInput {
             entities: records,
             edges: &[],
-            collected: &specforge_registry::NONE_COLLECTED,
+            collected: &NONE_COLLECTED,
         },
         &NoVerdicts,
     )

@@ -18,12 +18,15 @@ use specforge_project::harness::{Ledger, Line};
 use specforge_project::testing::TestProject;
 use specforge_protocol_types::Fact;
 
+/// The Rust packs, without `@specforge/software`.
+const RUST_PACKS: [&str; 4] = ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"];
+/// The Rust packs and `@specforge/software`, whose behaviors the fixture's tests name.
 const PACKS: [&str; 5] = [
     "@specforge/software",
-    "@code/core",
-    "@rust/cargo",
-    "@rust/source",
-    "@rust/test",
+    RUST_PACKS[0],
+    RUST_PACKS[1],
+    RUST_PACKS[2],
+    RUST_PACKS[3],
 ];
 const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/rust-packs");
 /// nextest 0.9.146's JUnit report of the fixture (its `#[specforge_test]` written `#[test]` to build without the
@@ -367,6 +370,7 @@ fn syntax(outcome: &Outcome, collector: &str) -> (usize, usize) {
         .unwrap();
     runner
         .syntax
+        .as_ref()
         .map_or((0, 0), |work| (work.parsed, work.cached))
 }
 
@@ -530,7 +534,7 @@ const ITEMS: [&str; 10] = [
 fn the_source_guest_maps_the_fixture_within_its_fuel() {
     // Without `@specforge/software`, whose `describe` costs more than the collect: its behavior is E024, not E028.
     let p = TestProject::copy_of(FIXTURE)
-        .enabling(&PACKS[1..])
+        .enabling(&RUST_PACKS)
         .within_work(FUEL);
     let compiled = p.compile();
     assert!(

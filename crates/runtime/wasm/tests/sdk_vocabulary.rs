@@ -66,6 +66,9 @@ fn extension() -> ContributionsBuilder {
     c
 }
 
+/// No kind is collected: the rules' input of a project that loads no collector-written kind.
+static NONE_COLLECTED: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+
 /// The declaration `build` declares, as the host loads it: through the
 /// one loader, from the extension served in process.
 fn loaded(
@@ -97,7 +100,7 @@ fn rules_over(entities: &[EntityRecord]) -> RuleInput<'_> {
     RuleInput {
         entities,
         edges: &[],
-        collected: &specforge_registry::NONE_COLLECTED,
+        collected: &NONE_COLLECTED,
     }
 }
 

@@ -79,9 +79,16 @@ impl EntitySnapshot {
                 )
             })
             .unzip();
+        // The one answer to "is this kind collected" that the rules and the obligation rule read.
+        let collected: BTreeSet<String> = registries
+            .kinds()
+            .iter()
+            .filter(|(_, entry)| entry.is_collected())
+            .map(|(kind, _)| kind.clone())
+            .collect();
         let standings = records
             .iter()
-            .map(|record| Standing::of(record, registries))
+            .map(|record| Standing::of(record, registries, collected.contains(&record.kind)))
             .collect();
         let index = records
             .iter()
@@ -102,12 +109,6 @@ impl EntitySnapshot {
             .kinds()
             .iter()
             .filter_map(|(kind, entry)| Some((kind.clone(), entry.complete_when()?.clone())))
-            .collect();
-        let collected = registries
-            .kinds()
-            .iter()
-            .filter(|(_, entry)| entry.is_collected())
-            .map(|(kind, _)| kind.clone())
             .collect();
         let edges = graph
             .edges()

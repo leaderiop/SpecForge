@@ -9311,12 +9311,20 @@ expression: listing
                   "parsed": {
                     "minimum": 0,
                     "type": "integer"
+                  },
+                  "unwritable": {
+                    "type": "string"
+                  },
+                  "unwritten": {
+                    "minimum": 0,
+                    "type": "integer"
                   }
                 },
                 "required": [
                   "parsed",
                   "cached",
-                  "bytes"
+                  "bytes",
+                  "unwritten"
                 ],
                 "type": "object"
               }

@@ -60,8 +60,9 @@ A test may not time anything: a wall-clock assertion fails on a loaded machine a
   ADR 0346 D4, moved here from `refs`), so it declares all four kinds. Item facts cross into one guest, not two.
   `@gsd/core`'s passes that read the requirement thread (`verify_rules`, `scan`, `gate_e515`, `derive`) declare
   `["test"]`.
-- **D7. A collect says its syntax work.** Each collector's result carries `syntax: { parsed, cached, bytes }`
-  (`RunnerResult.syntax`, absent for a collector that parsed nothing), read from its call's port session after the
+- **D7. A collect says its syntax work.** Each collector's result carries `syntax: { parsed, cached, bytes,
+  unwritten, unwritable? }`, the reader's own `SyntaxWork` (`RunnerResult.syntax`, absent for a collector that parsed
+  nothing; `unwritable` is the first cache write error, when one failed), read from its call's port session after the
   call (`PortCall::take_syntax_work`). **I214** says it in words, once per collector that parsed. **W200** says, once
   per collect, that the syntax cache could not be written: every later collect would parse those files again. The
   collect still stores its facts.
