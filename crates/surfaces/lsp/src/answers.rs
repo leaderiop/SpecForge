@@ -300,6 +300,10 @@ pub fn prepare_rename(
     position: Position,
 ) -> tower_lsp::jsonrpc::Result<Option<PrepareRenameResponse>> {
     let file = state.key_of(uri);
+    if crate::source_document::is_source(state, uri) {
+        let found = crate::source_document::renamed_at(&Compiled::new(state), &file, position)?;
+        return Ok(found.map(|(_, range)| PrepareRenameResponse::Range(range)));
+    }
     let Some(cursor) = state
         .files()
         .document(&file)
@@ -334,12 +338,17 @@ pub fn rename(
 ) -> tower_lsp::jsonrpc::Result<Option<WorkspaceEdit>> {
     let compiled = Compiled::new(state);
     let key = state.key_of(uri);
-    // The edits come from the compile: asked from a document typed in since,
-    // the rename waits for it, whatever the cursor names (ADR 0023 D7).
-    if state.files().document(&key).is_none() || !renames_in(&compiled, &key)? {
-        return Ok(None);
-    }
-    let Some(id) = entity_under_cursor(&compiled, &key, position) else {
+    let id = if crate::source_document::is_source(state, uri) {
+        // A name a fact holds in a source file, while the file is the text collected (ADR 0349 D8).
+        crate::source_document::renamed_at(&compiled, &key, position)?.map(|(id, _)| id)
+    } else if state.files().document(&key).is_none() || !renames_in(&compiled, &key)? {
+        // The edits come from the compile: asked from a document typed in since,
+        // the rename waits for it, whatever the cursor names (ADR 0023 D7).
+        None
+    } else {
+        entity_under_cursor(&compiled, &key, position)
+    };
+    let Some(id) = id else {
         return Ok(None);
     };
 
@@ -358,7 +367,9 @@ pub fn rename(
     };
 
     // The edits are positions in the compiled text and apply to the editor's buffer: a file
-    // typed in since is not that text, so the rename waits for the compile (ContentModified).
+    // typed in since is not that text, so the rename waits for the compile (ContentModified); a
+    // source file typed in since the collect is refused, as its file changed on disk is (W198).
+    crate::source_document::rewrites_held_text(state, &plan)?;
     let edit = compiled
         .rename_edit(&plan)
         .map_err(|Unplaced(file)| content_modified(file.as_str()))?;

@@ -7,14 +7,16 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use specforge_common::{SourceSpan, Sym};
+use specforge_common::{Diagnostic, SourceSpan, Sym};
+use specforge_ops::authoring::rename::RenamePlan;
 use specforge_ops::read::navigate::contains;
 use specforge_ops::read::trace::route_traces;
 use std::collections::BTreeMap;
+use tower_lsp::jsonrpc::Error;
 use tower_lsp::lsp_types::{CodeLens, Command, Location, Position, Range, Url};
 
 use crate::LspState;
-use crate::document::LineIndex;
+use crate::document::{LineIndex, Target};
 use crate::navigation::Compiled;
 
 /// The extensions of the files the server answers as source documents.
@@ -119,9 +121,7 @@ pub(crate) fn lenses(state: &LspState, uri: &Url) -> Option<Vec<CodeLens>> {
     let key = state.key_of(uri);
     compiled.recorded(&key)?;
     let Some(index) = compiled.source_index(&key) else {
-        let gone =
-            state.files().document(&key).is_none() && !state.files().file_path(&key).exists();
-        let notice = specforge_ops::read::navigate::stale_notice(&key, gone);
+        let notice = stale(state, &key);
         return Some(vec![CodeLens {
             range: Range::default(),
             command: Some(Command {
@@ -174,6 +174,47 @@ pub(crate) fn lenses(state: &LspState, uri: &Url) -> Option<Vec<CodeLens>> {
         }
     }
     Some(lenses)
+}
+
+/// W198 of source file `key`, its text no longer the one collected: changed, or gone (no buffer, no file).
+fn stale(state: &LspState, key: &str) -> Diagnostic {
+    let gone = state.files().document(key).is_none() && !state.files().file_path(key).exists();
+    specforge_ops::read::navigate::stale_notice(key, gone)
+}
+
+/// The entity a fact names at `position` of source document `key`, and the range of the name written there (ADR 0349
+/// D8): what prepareRename and rename act on in a source file. `None` when the cursor is on no name a fact holds;
+/// refused (`invalid_params`, W198's sentence) when the file changed since the collect.
+pub(crate) fn renamed_at(
+    compiled: &Compiled,
+    key: &str,
+    position: Position,
+) -> tower_lsp::jsonrpc::Result<Option<(Sym, Range)>> {
+    if compiled.recorded(key).is_some() && compiled.source_index(key).is_none() {
+        return Err(Error::invalid_params(stale(compiled.state(), key).message));
+    }
+    Ok(match compiled.target(key, position) {
+        Some(Target::Entity { id, origin }) => Some((id, origin)),
+        _ => None,
+    })
+}
+
+/// Refused (`invalid_params`, W198's sentence) when a source file `plan` rewrites is open with a text other than the
+/// one the rename planned on (the disk's, as collected): its edits would land elsewhere in what the editor holds.
+pub(crate) fn rewrites_held_text(
+    state: &LspState,
+    plan: &RenamePlan,
+) -> tower_lsp::jsonrpc::Result<()> {
+    for (key, file) in plan.change().rewritten_sources() {
+        if state
+            .files()
+            .document(key)
+            .is_some_and(|document| document.text() != &*file.before)
+        {
+            return Err(Error::invalid_params(stale(state, key).message));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

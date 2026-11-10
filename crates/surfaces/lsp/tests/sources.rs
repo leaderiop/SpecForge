@@ -292,3 +292,116 @@ fn hover_on_a_source_token_naming_an_entity_shows_it() {
     // Nowhere else in the source file.
     assert_eq!(served.hover("a.test.js", 2, 2), None);
 }
+
+/// The edits of renaming the entity at `position` of `file` to `T2`, as `(file name, range, new text)`, sorted.
+fn renamed(
+    served: &Served,
+    file: &str,
+    position: Position,
+) -> Result<Vec<(String, Range, String)>, tower_lsp::jsonrpc::Error> {
+    let edit = specforge_lsp::answers::rename(&served.state(), &served.uri(file), position, "T2")?
+        .expect("the cursor names an entity");
+    let mut edits: Vec<(String, Range, String)> = edit
+        .changes
+        .expect("plain changes")
+        .into_iter()
+        .flat_map(|(uri, edits)| {
+            let name = uri.path().rsplit('/').next().unwrap().to_string();
+            edits
+                .into_iter()
+                .map(move |e| (name.clone(), e.range, e.new_text))
+        })
+        .collect();
+    edits.sort_by_key(|(file, range, _)| (file.clone(), range.start));
+    Ok(edits)
+}
+
+#[spec(
+    behavior = "rename_entity_id",
+    verify = "rename rewrites the source token of every fact naming the entity"
+)]
+fn rename_rewrites_the_source_token_naming_the_entity() {
+    let served = citing("T1");
+    let expected = vec![
+        ("a.test.js".to_string(), named(), "T2".to_string()),
+        (
+            "truths.spec".to_string(),
+            Range::new(Position::new(0, 6), Position::new(0, 8)),
+            "T2".to_string(),
+        ),
+    ];
+    // From the name in the source file, and from the declaration: the same edits.
+    assert_eq!(
+        renamed(&served, "a.test.js", Position::new(0, 11)).unwrap(),
+        expected
+    );
+    assert_eq!(
+        renamed(&served, "truths.spec", Position::new(0, 6)).unwrap(),
+        expected
+    );
+    // Elsewhere in the source file nothing renames.
+    let source = served.uri("a.test.js");
+    let none = specforge_lsp::answers::rename(&served.state(), &source, Position::new(2, 2), "T2");
+    assert_eq!(none.unwrap(), None);
+}
+
+#[spec(
+    behavior = "rename_entity_id",
+    verify = "rename refuses while a source file it edits changed since collect"
+)]
+fn rename_refuses_a_stale_source_file() {
+    let mut served = citing("T1");
+    // Typed in since the collect, the disk as collected: refused with W198's sentence.
+    served.hold("a.test.js");
+    served.type_into(&served.uri("a.test.js"), &format!("// typed\n{SOURCE}"));
+    for (file, position) in [
+        ("truths.spec", Position::new(0, 6)),
+        ("a.test.js", Position::new(1, 11)),
+    ] {
+        let refused = renamed(&served, file, position).unwrap_err();
+        assert_eq!(refused.code, tower_lsp::jsonrpc::ErrorCode::InvalidParams);
+        assert!(
+            refused
+                .message
+                .starts_with("'a.test.js' changed since `specforge collect` read it"),
+            "{file}: {}",
+            refused.message
+        );
+    }
+    // Changed on disk: refused too, from the declaration.
+    served.close_uri(&served.uri("a.test.js"));
+    served.write("a.test.js", &format!("// edited\n{SOURCE}"));
+    let refused = renamed(&served, "truths.spec", Position::new(0, 6)).unwrap_err();
+    assert_eq!(refused.code, tower_lsp::jsonrpc::ErrorCode::InvalidParams);
+    assert!(
+        refused
+            .message
+            .contains("a.test.js changed since `specforge collect` read it"),
+        "{}",
+        refused.message
+    );
+}
+
+#[spec(
+    behavior = "prepare_rename",
+    verify = "prepare rename answers a source token naming an entity"
+)]
+fn prepare_rename_answers_a_source_token() {
+    let served = citing("T1");
+    let source = served.uri("a.test.js");
+    let prepare = |served: &Served, position| {
+        specforge_lsp::answers::prepare_rename(&served.state(), &source, position)
+    };
+    assert_eq!(
+        prepare(&served, Position::new(0, 11)).unwrap(),
+        Some(tower_lsp::lsp_types::PrepareRenameResponse::Range(named()))
+    );
+    assert_eq!(prepare(&served, Position::new(2, 2)).unwrap(), None);
+    served.write("a.test.js", "// edited\n");
+    let refused = prepare(&served, Position::new(0, 11)).unwrap_err();
+    assert!(
+        refused.message.starts_with("'a.test.js' changed since"),
+        "{}",
+        refused.message
+    );
+}

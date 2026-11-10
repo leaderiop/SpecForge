@@ -534,6 +534,7 @@ behavior prepare_rename "Prepare Rename" {
   verify unit "prepare rename ranges a name holding a dash or a dot whole"
   verify unit "an entity named with digits only is a name to the editor"
   verify unit "prepare rename answers on a default no block takes"
+  verify integration "prepare rename answers a source token naming an entity"
   verify unit "prepare rename answers on a reference in a duplicate declaration"
   verify unit "prepare rename answers on a quoted reference, inside its quotes"
   verify unit "prepare rename over a buffer typed since the compile is refused as content modified"
@@ -623,6 +624,8 @@ behavior rename_entity_id "Rename Entity ID" {
   verify unit "rename edits a use binding's imported name, never its alias"
   verify integration "a rename of a collected entity, or of one a fact names with no place, is refused with why"
   verify integration "an editor rename of an entity a fact names edits the source file where the fact read it"
+  verify integration "rename rewrites the source token of every fact naming the entity"
+  verify integration "rename refuses while a source file it edits changed since collect"
 }
 
 behavior emit_live_diagnostics "Live Diagnostics" {
