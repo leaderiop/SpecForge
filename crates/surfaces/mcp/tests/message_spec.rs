@@ -747,6 +747,7 @@ reply_type! {
     mcp_explain_replacement => "McpExplainReplacement", "McpExplainReplacement schema is valid",
     mcp_collect_result => "McpCollectResult", "McpCollectResult schema is valid",
     mcp_collect_runner => "McpCollectRunner", "McpCollectRunner schema is valid",
+    mcp_collect_syntax => "McpCollectSyntax", "McpCollectSyntax schema is valid",
     mcp_render_result => "McpRenderResult", "McpRenderResult schema is valid",
     mcp_add_extension_result => "McpAddExtensionResult", "McpAddExtensionResult schema is valid",
     mcp_add_extension_duplicate => "McpAddExtensionDuplicate", "McpAddExtensionDuplicate schema is valid",

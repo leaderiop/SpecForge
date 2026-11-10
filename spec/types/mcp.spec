@@ -1085,6 +1085,7 @@ type McpCollectSyntax "What a collector's syntax requests took" {
   cached integer
   /// The bytes parsed now.
   bytes  integer
+  verify unit "McpCollectSyntax schema is valid"
 }
 
 type McpCollectPlan "What a writing collector's plan did to the project" {
