@@ -79,6 +79,7 @@ behavior scaffold_new_project "Scaffold New Project" {
   verify unit "init names the project it is created inside, and creates a separate one beside its sources"
   verify unit "a directory the enclosing project's exclude leaves out holds none of its sources, and init proceeds there"
   verify unit "init below the enclosing project's spec root proceeds where that project reads no source"
+  verify unit "init enables @code/core, @rust/cargo and @rust/source for a Cargo.toml and @code/core and @javascript/source for a package.json"
   verify performance "full init-check-export cycle completes in under 60 seconds"
   verify integration "scaffold in non-empty directory preserves existing files"
   verify integration "scaffolded project passes init-check-export cycle"

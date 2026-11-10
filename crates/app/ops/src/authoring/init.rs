@@ -193,10 +193,17 @@ pub fn init(req: &Request, runtime: &dyn WasmRuntime) -> Result<Outcome, Refusal
     let version = req.version.to_string();
 
     // The extensions it names, as `add` reads them: a relative local path is read from the
-    // directory init creates.
+    // directory init creates. The code packs of the project found there follow them, named as
+    // asked, so the lock plan judges them as it judges the rest (ADR 0349).
     let about = |error: OpError| error.about(InitField::Extensions);
+    let mut asked = req.extensions.to_vec();
+    for pack in detected_packs(req.dir) {
+        if !asked.iter().any(|named| named.trim() == pack) {
+            asked.push(pack.to_string());
+        }
+    }
     let names = Names::read(
-        req.extensions,
+        &asked,
         Place {
             root: req.dir,
             containment: req.caller.containment(),
@@ -491,6 +498,24 @@ fn lines_with(existing: &[u8], entries: &[&str]) -> Option<Vec<u8>> {
         bytes.push(b'\n');
     }
     Some(bytes)
+}
+
+/// The code packs of the project at `path` (ADR 0349): a `Cargo.toml` gets `@code/core`, `@rust/cargo` and
+/// `@rust/source`; a `package.json` `@code/core` and `@javascript/source`.
+fn detected_packs(path: &Path) -> Vec<&'static str> {
+    let cargo = path.join("Cargo.toml").is_file();
+    let node = path.join("package.json").is_file();
+    let mut packs = Vec::new();
+    if cargo || node {
+        packs.push("@code/core");
+    }
+    if cargo {
+        packs.extend(["@rust/cargo", "@rust/source"]);
+    }
+    if node {
+        packs.push("@javascript/source");
+    }
+    packs
 }
 
 /// Runner extensions for the test runners the project at `path` uses.
