@@ -212,7 +212,11 @@ behavior go_to_definition "Go-to-Definition" {
     block header; its selection is the entity's name where the parse read
     it, on whichever line of the header it is written. On a use statement, the cursor on a binding's imported
     name that names an entity goes to that entity; anywhere else on the
-    statement, to the imported file.
+    statement, to the imported file. A located fact (ADR 0349 D8) is
+    declared at its first place in the source file it was collected from,
+    the whole place selected, while that file is the text collected. In a
+    source document the cursor on a name a fact holds there goes to the
+    entity it names; anywhere else in the file nothing is answered.
   """
   verify unit "go-to-def navigates to entity declaration"
   verify unit "go-to-definition follows a number written in a field that names entities"
@@ -226,7 +230,28 @@ behavior go_to_definition "Go-to-Definition" {
   verify unit "the entity after a body being typed is navigated to"
   verify unit "go-to-definition, prepare rename and rename take a path one segment at a time"
   verify unit "go-to-definition and the semantic token of a reference inside a block reach the entity it names"
+  verify unit "definition on a fact reference opens the source range it was collected from"
   verify contract "Go-to-Definition: go-to-definition holds — graph_available, declaration_site_returned"
+}
+
+behavior go_to_implementation "Go to Implementation" {
+  features   [go_to_definition_and_references]
+  category   query
+  invariants [lsp_response_latency, zero_domain_knowledge_core, cursor_names_one_entity]
+  types      [EntityId, SourceSpan]
+  ports      [LspProtocol]
+  ensures {
+    anchors_placed "each located fact the entity is anchored to is listed at its first place"
+  }
+  contract   """
+    The server MUST advertise implementationProvider. On an entity the
+    cursor names, textDocument/implementation MUST answer the source
+    places of its anchors (ADR 0349 D1): each located fact an edge of the
+    graph links it to, either way, at the fact's first place, once each,
+    by file and line; a place whose file is not the text its store
+    recorded is left out, and no anchor is no answer.
+  """
+  verify unit "implementation on an entity lists its anchors' source ranges"
 }
 
 behavior find_all_references "Find All References" {

@@ -18,14 +18,16 @@ const EXTENSIONS: [&str; 5] = ["rs", "ts", "tsx", "js", "jsx"];
 /// Whether `uri` is a source document: a `file:` URI of a `.rs`, `.ts`, `.tsx`, `.js` or `.jsx` file under the
 /// served project's root. Never a spec source nor `specforge.json`, by extension.
 pub fn is_source(state: &LspState, uri: &Url) -> bool {
-    let Some(path) = crate::uri::file_path(uri) else {
-        return false;
-    };
-    let source = path
+    crate::uri::file_path(uri).is_some() && is_source_key(state, &state.key_of(uri))
+}
+
+/// [`is_source`] of the file session key `key` names.
+pub(crate) fn is_source_key(state: &LspState, key: &str) -> bool {
+    let source = Path::new(key)
         .extension()
         .and_then(|e| e.to_str())
         .is_some_and(|e| EXTENSIONS.contains(&e));
-    source && state.view().root().is_some() && is_under_root(&state.key_of(uri))
+    source && state.view().root().is_some() && is_under_root(key)
 }
 
 /// Whether `key`, a session key, names a file under the project root: relative and not climbing out of it.

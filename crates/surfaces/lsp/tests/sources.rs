@@ -9,7 +9,7 @@ use std::fs;
 use serde_json::json;
 use specforge_lsp::changes::Change;
 use specforge_test_macros::test as spec;
-use tower_lsp::lsp_types::{Position, Range};
+use tower_lsp::lsp_types::{GotoDefinitionResponse, Location, Position, Range};
 
 use crate::recorder::{codes, publications};
 use crate::served::Served;
@@ -122,4 +122,47 @@ fn a_dangling_fact_reference_is_published_on_its_source_file() {
         diagnostics[0].range,
         Range::new(Position::new(0, 9), Position::new(0, 14))
     );
+}
+
+/// The test fact's place in `a.test.js`: lines 3-5.
+fn fact_place() -> Range {
+    Range::new(Position::new(2, 0), Position::new(4, 3))
+}
+
+#[spec(
+    behavior = "go_to_implementation",
+    verify = "implementation on an entity lists its anchors' source ranges"
+)]
+fn implementation_lists_an_entitys_anchors() {
+    let served = citing("T1");
+    let truths = served.uri("truths.spec");
+    // `T1` is anchored to the test twice (its `proof` cites it, its `covers` names T1): one place.
+    let found =
+        specforge_lsp::answers::implementation(&served.state(), &truths, Position::new(0, 6));
+    assert_eq!(
+        found,
+        Some(GotoDefinitionResponse::Array(vec![Location {
+            uri: served.uri("a.test.js"),
+            range: fact_place(),
+        }]))
+    );
+}
+
+#[spec(
+    behavior = "go_to_definition",
+    verify = "go-to-def navigates to entity declaration"
+)]
+fn definition_on_a_name_a_fact_holds_in_a_source_file_opens_the_entity() {
+    let served = citing("T1");
+    let source = served.uri("a.test.js");
+    let definition =
+        |position| specforge_lsp::answers::definition(&served.state(), &source, position);
+    let Some(GotoDefinitionResponse::Scalar(location)) = definition(Position::new(0, 11)) else {
+        panic!("the name has a definition");
+    };
+    assert_eq!(location.uri, served.uri("truths.spec"));
+    assert_eq!(location.range.start, Position::new(0, 6));
+    // Anywhere else in the source file the language's own server answers.
+    assert_eq!(definition(Position::new(2, 2)), None);
+    assert_eq!(definition(Position::new(0, 3)), None);
 }

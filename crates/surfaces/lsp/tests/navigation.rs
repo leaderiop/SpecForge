@@ -320,7 +320,7 @@ fn citing_a_located_fact() -> crate::served::Served {
 
 #[spec(
     behavior = "go_to_definition",
-    verify = "go-to-def navigates to entity declaration"
+    verify = "definition on a fact reference opens the source range it was collected from"
 )]
 fn definition_on_a_fact_reference_opens_its_source() {
     let served = citing_a_located_fact();
@@ -330,15 +330,17 @@ fn definition_on_a_fact_reference_opens_its_source() {
         &truths,
         tower_lsp::lsp_types::Position::new(1, 12),
     );
-    // Pinned: the fact is declared at its store's first character, so the definition opens the
-    // store, not `a.test.js`. Flipped when a located fact's definition is its source range.
-    let Some(tower_lsp::lsp_types::GotoDefinitionResponse::Scalar(location)) = definition else {
-        panic!("a fact reference has a definition: {definition:?}");
-    };
-    assert!(
-        location.uri.path().ends_with("/node.json"),
-        "{}",
-        location.uri
+    // The fact is declared where its collector placed it: `a.test.js`, lines 3-5.
+    assert_eq!(
+        definition,
+        Some(tower_lsp::lsp_types::GotoDefinitionResponse::Scalar(
+            tower_lsp::lsp_types::Location {
+                uri: served.uri("a.test.js"),
+                range: tower_lsp::lsp_types::Range::new(
+                    tower_lsp::lsp_types::Position::new(2, 0),
+                    tower_lsp::lsp_types::Position::new(4, 3),
+                ),
+            }
+        ))
     );
-    assert_eq!(location.range, tower_lsp::lsp_types::Range::default());
 }

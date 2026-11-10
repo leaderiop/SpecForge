@@ -159,7 +159,18 @@ impl<'s> Compiled<'s> {
     /// 0023 D5). Navigation is asked about the position only while the
     /// document is the compiled text; while it is stale, the cursor names
     /// what its own word names ([`crate::Cursor::named`], D7).
+    /// In a source document the cursor names only an entity a fact names there, while the text is the one collected
+    /// ([`specforge_ops::read::navigate::Navigator::source_token_at`], ADR 0349 D8).
     pub(crate) fn target(&self, key: &str, position: Position) -> Option<Target> {
+        if crate::source_document::is_source_key(self.state, key) {
+            let index = self.source_index(key)?;
+            let (line, col) = index.source_position(position)?;
+            let token = self.navigator().source_token_at(key, line, col)?;
+            return Some(Target::Entity {
+                id: token.target,
+                origin: index.range(&token.span),
+            });
+        }
         let cursor = self.state.files().document(key)?.at(position)?;
         if self.is_stale(key) {
             cursor.named(&self.state.view())

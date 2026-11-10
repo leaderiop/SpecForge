@@ -227,6 +227,21 @@ impl LanguageServer for Backend {
         .await
     }
 
+    async fn goto_implementation(
+        &self,
+        params: request::GotoImplementationParams,
+    ) -> Result<Option<request::GotoImplementationResponse>> {
+        let at = params.text_document_position_params;
+        self.answering("textDocument/implementation", |state| {
+            Ok(answers::implementation(
+                state,
+                &at.text_document.uri,
+                at.position,
+            ))
+        })
+        .await
+    }
+
     async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
         let at = params.text_document_position;
         self.answering("textDocument/references", |state| {

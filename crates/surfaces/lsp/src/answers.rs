@@ -178,7 +178,8 @@ pub fn completion(state: &LspState, uri: &Url, position: Position) -> Option<Com
 
 /// Where what the cursor names is declared: a `use` path's file (its
 /// start), an entity's block with its name selected as a `LocationLink` for
-/// a client declaring links, else a `Location` at its name. `None` when its
+/// a client declaring links, else a `Location` at its name; a located fact's
+/// place in its source file (ADR 0349 D8), the whole place selected. `None` when its
 /// file's editor text is not the compiled text.
 pub fn definition(
     state: &LspState,
@@ -206,7 +207,14 @@ pub fn definition(
             }))
         }
         Some(Target::Entity { id, origin }) => {
-            let definition = compiled.navigator().definition(id.as_str()).ok()?;
+            let mut definition = compiled.navigator().definition(id.as_str()).ok()?;
+            if let Some(place) = state
+                .graph()
+                .node(id.as_str())
+                .and_then(|n| n.located.first())
+            {
+                (definition.block, definition.name) = (place.clone(), place.clone());
+            }
             // A definition in a file whose editor text is not the compiled text is not answered
             // (no range of it is honest).
             if state.client().definition_links {
@@ -227,6 +235,31 @@ pub fn definition(
         }
         _ => None,
     }
+}
+
+/// The source places of the anchors of the entity the cursor names (ADR 0349 D8): each located fact an edge links
+/// it to, at its first place, once each, by file and line; one whose file's text is not the one collected is left
+/// out. `None` when none.
+pub fn implementation(
+    state: &LspState,
+    uri: &Url,
+    position: Position,
+) -> Option<tower_lsp::lsp_types::request::GotoImplementationResponse> {
+    let compiled = Compiled::new(state);
+    let id = entity_under_cursor(&compiled, &state.key_of(uri), position)?;
+    let view = state.view();
+    let anchors = specforge_ops::read::navigate::anchors_in(&view);
+    let mut places: Vec<&specforge_common::SourceSpan> = anchors
+        .of_entity(id.as_str())
+        .map(|edge| edge.fact.place())
+        .collect();
+    places.sort_by_key(|p| (p.file, p.start_line, p.start_col));
+    places.dedup();
+    let locations: Vec<Location> = places
+        .into_iter()
+        .filter_map(|p| compiled.location(p))
+        .collect();
+    (!locations.is_empty()).then_some(GotoDefinitionResponse::Array(locations))
 }
 
 /// The references to the entity the cursor names: incoming, its

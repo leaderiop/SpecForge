@@ -381,6 +381,40 @@ impl Navigator<'_> {
     }
 }
 
+impl Navigator<'_> {
+    /// The name a fact holds where its source writes it (`Fact.named_at`, ADR 0346) whose span in `file`, a source file
+    /// the fact is placed in, holds the byte position (1-based `line` and `col`; just past the end counts): the
+    /// innermost. A value spanned at its fact's own place (no name place recorded) is no name written there. What the
+    /// language server answers on in a source file (ADR 0349 D8).
+    pub fn source_token_at(&self, file: &str, line: usize, col: usize) -> Option<Token> {
+        let at = SourceSpan {
+            file: Sym::new(file),
+            start_line: line,
+            start_col: col,
+            end_line: line,
+            end_col: col,
+        };
+        let graph = self.view.graph();
+        let placed_at_fact = |token: &WrittenToken| {
+            token.held_by.iter().any(|holder| {
+                graph
+                    .node(holder.as_str())
+                    .is_some_and(|node| node.located.contains(&token.span))
+            })
+        };
+        self.written()
+            .iter()
+            .filter(|t| t.span.file.as_str() == file && contains(&t.span, &at))
+            .filter(|t| !placed_at_fact(t))
+            .min_by_key(|t| (t.span.end_line - t.span.start_line, t.span.end_col))
+            .map(|t| Token {
+                target: t.target,
+                span: t.span.clone(),
+                precision: Precision::Token,
+            })
+    }
+}
+
 /// `tokens` sorted by (file, line, column) and deduplicated.
 fn sort_tokens(tokens: &mut Vec<Token>) {
     tokens.sort_by_key(|t| {
