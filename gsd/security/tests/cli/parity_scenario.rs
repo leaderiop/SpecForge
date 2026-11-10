@@ -6,7 +6,9 @@ use std::process::Command;
 
 use serde_json::{Value, json};
 
-use super::harness::{Project, is_judged, judged, taskboard, unjudged, vault};
+use super::harness::{
+    Project, is_judged, judged, planning_truths_and_summaries, taskboard, unjudged, vault,
+};
 use gsd_security::commands::hooks::FRAGMENT;
 
 fn project() -> Project {
@@ -330,30 +332,10 @@ fn the_twin_checks_but_for_the_duplicate_threat_id() {
 /// `SUMMARY.md`, each in its plan.
 #[test]
 fn the_twin_holds_the_truths_and_summaries_of_its_planning() {
-    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../parity/fixtures/vault/.planning/phases");
-    let (mut truths, mut summaries) = (Vec::new(), Vec::new());
-    for phase in std::fs::read_dir(&fixture).expect("the phases") {
-        for file in std::fs::read_dir(phase.expect("a phase").path()).expect("a phase dir") {
-            let path = file.expect("a file").path();
-            let name = path
-                .file_name()
-                .expect("a name")
-                .to_string_lossy()
-                .into_owned();
-            let text = std::fs::read_to_string(&path).expect("a planning file");
-            if let Some(plan) = name.strip_suffix("-PLAN.md") {
-                let block = text.split("  truths:\n").nth(1).expect("must_haves truths");
-                for line in block.lines().take_while(|l| l.starts_with("    - ")) {
-                    truths.push((plan.to_string(), line[6..].trim_matches('"').to_string()));
-                }
-            } else if let Some(plan) = name.strip_suffix("-SUMMARY.md") {
-                summaries.push(plan.to_string());
-            }
-        }
-    }
-    truths.sort();
-    summaries.sort();
+    let (truths, summaries) = planning_truths_and_summaries(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../parity/fixtures/vault/.planning"),
+    );
     let p = project();
     let plan_of = |node: &Value| {
         let plan = node["fields"]["plan"].as_str().expect("a plan").to_string();

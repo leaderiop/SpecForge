@@ -94,29 +94,19 @@ impl Project {
     pub fn collect_node_test_golden(&self) -> Run {
         let golden =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/goldens/taskboard/junit.xml");
-        self.collect(&[
-            "--runner",
-            "node-test",
-            "--no-run",
-            "--report",
-            &golden.display().to_string(),
-        ])
+        self.collect_report(&[], "node-test", &golden)
     }
 
-    /// The ledger's collects where no cargo runs: `rust-cargo` and `rust-source` read the manifest and the sources,
-    /// then `rust-test` reads `report`, a recorded nextest run, without running it. It answers the last collect.
-    #[allow(
-        dead_code,
-        reason = "@gsd/security's tests include this harness and do not use it"
-    )]
-    pub fn collect_rust_report(&self, report: &Path) -> Run {
-        for runner in ["rust-cargo", "rust-source"] {
-            let run = self.collect(&["--runner", runner]);
-            assert_eq!(run.code, 0, "{runner}: {}", run.all());
+    /// A recorded test run collected where nothing runs: the `collectors` whose facts `runner` reads first (each must
+    /// succeed), then `runner` over `report` with `--no-run`. It answers that last collect.
+    pub fn collect_report(&self, collectors: &[&str], runner: &str, report: &Path) -> Run {
+        for collector in collectors {
+            let run = self.collect(&["--runner", collector]);
+            assert_eq!(run.code, 0, "{collector}: {}", run.all());
         }
         self.collect(&[
             "--runner",
-            "rust-test",
+            runner,
             "--no-run",
             "--report",
             &report.display().to_string(),

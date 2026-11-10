@@ -48,7 +48,7 @@ fn recorded_report(fixture: &str) -> Option<Recorded> {
         "vault" => Some((&[], "node-test", goldens.join("vault/junit.xml"))),
         // The ledger's CI is red: the recorded run is the one with `total_beyond_i32_is_exact` failing.
         "ledger" => Some((
-            &["rust-cargo", "rust-source"],
+            &super::RUST_TEST_COLLECTORS,
             "rust-test",
             goldens.join("ledger/rust-test.xml"),
         )),
@@ -196,9 +196,6 @@ impl Project {
         if self.loads("@code/core")
             && let Some((collectors, runner, golden)) = recorded_report(fixture)
         {
-            for collector in collectors {
-                succeeds(&self.collect(&["--runner", collector]));
-            }
             let runs: Vec<(String, String)> = task["seeded"]
                 .as_array()
                 .expect("seeded")
@@ -212,13 +209,7 @@ impl Project {
                 .unwrap_or_else(|e| panic!("{}: {e}", golden.display()));
             let report = self.root.parent().expect("the temp dir").join("report.xml");
             std::fs::write(&report, seeded_report(&recorded, &runs)).expect("the report");
-            succeeds(&self.collect(&[
-                "--runner",
-                runner,
-                "--no-run",
-                "--report",
-                &report.display().to_string(),
-            ]));
+            succeeds(&self.collect_report(collectors, runner, &report));
         }
         succeeds(&self.collect(&["--runner", "gsd-git"]));
     }

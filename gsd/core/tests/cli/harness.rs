@@ -154,20 +154,68 @@ pub fn vault() -> Project {
     from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/vault")).twin()
 }
 
-/// The builtins the ledger twin loads beside `@gsd/core`: the code facts and the Rust packs whose collectors read its
-/// manifest (`rust-cargo`), its items (`rust-source`) and a nextest report (`rust-test`).
-pub const LEDGER_BUILTINS: [&str; 4] = ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"];
+/// The collectors whose facts `rust-test` reads before a recorded nextest report: the manifest's (`rust-cargo`) and
+/// the items' (`rust-source`).
+pub const RUST_TEST_COLLECTORS: [&str; 2] = ["rust-cargo", "rust-source"];
 
 /// The parity suite's ledger fixture: a Rust project whose CI is red, its `spec/` twin beside its `.planning/`,
-/// loading [`LEDGER_BUILTINS`]; its proofs and items quiet until collected (`code/W102`), as the taskboard's.
+/// loading beside `@gsd/core` the builtins `evaluation/gsd-ab/tasks.json` names as the ledger's `thread` (the code
+/// facts and the Rust packs whose collectors read its manifest, its items and a nextest report); its proofs and items
+/// quiet until collected (`code/W102`), as the taskboard's.
 #[allow(
     dead_code,
     reason = "@gsd/security's tests include this harness and do not use it"
 )]
 pub fn ledger() -> Project {
+    let tasks = ab::ab_tasks();
+    let thread: Vec<&str> = tasks["fixtures"]
+        .as_array()
+        .expect("fixtures")
+        .iter()
+        .find(|fixture| fixture["id"] == "ledger")
+        .expect("the ledger fixture")["thread"]
+        .as_array()
+        .expect("its thread")
+        .iter()
+        .map(|builtin| builtin.as_str().expect("a builtin"))
+        .collect();
     from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/ledger"))
-        .with_builtins(&LEDGER_BUILTINS)
+        .with_builtins(&thread)
         .quieting("code/W102")
+}
+
+/// What a twin's `truth` and `summary` entities mirror in the `.planning/` at `planning`: each `must_haves` truth of
+/// every `*-PLAN.md` as `(plan, text)` and the plan of every `*-SUMMARY.md`, from the directories under `phases/` and
+/// `quick/` (when there is one), both sorted.
+pub fn planning_truths_and_summaries(planning: &Path) -> (Vec<(String, String)>, Vec<String>) {
+    let (mut truths, mut summaries) = (Vec::new(), Vec::new());
+    for parent in ["phases", "quick"].map(|parent| planning.join(parent)) {
+        if !parent.is_dir() {
+            continue;
+        }
+        for dir in std::fs::read_dir(&parent).expect("a planning dir") {
+            for file in std::fs::read_dir(dir.expect("a dir").path()).expect("a dir") {
+                let path = file.expect("a file").path();
+                let name = path
+                    .file_name()
+                    .expect("a name")
+                    .to_string_lossy()
+                    .into_owned();
+                if let Some(plan) = name.strip_suffix("-PLAN.md") {
+                    let text = std::fs::read_to_string(&path).expect("a planning file");
+                    let block = text.split("  truths:\n").nth(1).expect("must_haves truths");
+                    for line in block.lines().take_while(|l| l.starts_with("    - ")) {
+                        truths.push((plan.to_string(), line[6..].trim_matches('"').to_string()));
+                    }
+                } else if let Some(plan) = name.strip_suffix("-SUMMARY.md") {
+                    summaries.push(plan.to_string());
+                }
+            }
+        }
+    }
+    truths.sort();
+    summaries.sort();
+    (truths, summaries)
 }
 
 /// [`taskboard`] under `inside` of its temp dir.

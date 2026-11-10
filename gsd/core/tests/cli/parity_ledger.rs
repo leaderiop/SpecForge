@@ -8,7 +8,9 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
-use super::harness::{Project, ledger, unjudged};
+use super::harness::{
+    Project, RUST_TEST_COLLECTORS, ledger, planning_truths_and_summaries, unjudged,
+};
 
 fn fixture() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/ledger")
@@ -22,7 +24,7 @@ fn golden(name: &str) -> PathBuf {
 
 fn collected(report: &str) -> Project {
     let p = ledger();
-    let run = p.collect_rust_report(&golden(report));
+    let run = p.collect_report(&RUST_TEST_COLLECTORS, "rust-test", &golden(report));
     assert_eq!(run.code, 0, "{}", run.all());
     p
 }
@@ -178,34 +180,7 @@ fn the_twin_holds_what_its_planning_holds() {
         .map(|l| l.split_once(": ").expect("Phase N: Name").1.to_string())
         .collect();
     phases.sort();
-    let (mut truths, mut summaries) = (Vec::new(), Vec::new());
-    let mut dirs: Vec<PathBuf> = Vec::new();
-    for parent in ["phases", "quick"] {
-        for dir in std::fs::read_dir(planning.join(parent)).expect("a planning dir") {
-            dirs.push(dir.expect("a dir").path());
-        }
-    }
-    for dir in dirs {
-        for file in std::fs::read_dir(&dir).expect("a dir") {
-            let path = file.expect("a file").path();
-            let name = path
-                .file_name()
-                .expect("a name")
-                .to_string_lossy()
-                .into_owned();
-            if let Some(plan) = name.strip_suffix("-PLAN.md") {
-                let text = read(&path);
-                let block = text.split("  truths:\n").nth(1).expect("must_haves truths");
-                for line in block.lines().take_while(|l| l.starts_with("    - ")) {
-                    truths.push((plan.to_string(), line[6..].trim_matches('"').to_string()));
-                }
-            } else if let Some(plan) = name.strip_suffix("-SUMMARY.md") {
-                summaries.push(plan.to_string());
-            }
-        }
-    }
-    truths.sort();
-    summaries.sort();
+    let (truths, summaries) = planning_truths_and_summaries(&planning);
 
     let p = ledger();
     let text = |n: &Value, field: &str| n["fields"][field].as_str().expect(field).to_string();
