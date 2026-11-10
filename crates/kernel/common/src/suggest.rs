@@ -12,12 +12,14 @@ pub fn find_close_match<'a>(
     target: &str,
     candidates: impl IntoIterator<Item = &'a str>,
 ) -> Option<&'a str> {
-    candidates
-        .into_iter()
+    within_reach(target, candidates)
         .filter_map(|c| {
             let distance = strsim::levenshtein(target, c);
+            if distance > MAX_SUGGESTION_DISTANCE {
+                return None;
+            }
             let score = strsim::jaro_winkler(target, c);
-            (distance <= MAX_SUGGESTION_DISTANCE && score > 0.85).then_some((c, distance, score))
+            (score > 0.85).then_some((c, distance, score))
         })
         // Deterministic tie-break: among equal distances and scores pick the
         // lexicographically smallest candidate, so the suggestion never
@@ -30,9 +32,32 @@ pub fn find_close_match<'a>(
         .map(|(s, _, _)| s)
 }
 
+/// The candidates whose length in characters is within [`MAX_SUGGESTION_DISTANCE`] of `target`'s: a Levenshtein
+/// distance is at least the difference of the lengths, so no other candidate can qualify, and none is measured.
+fn within_reach<'a, 't>(
+    target: &'t str,
+    candidates: impl IntoIterator<Item = &'a str> + 't,
+) -> impl Iterator<Item = &'a str> + 't {
+    let length = target.chars().count();
+    candidates
+        .into_iter()
+        .filter(move |c| c.chars().count().abs_diff(length) <= MAX_SUGGESTION_DISTANCE)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_candidates_within_the_distance_in_length_are_measured() {
+        let candidates = ["abcd", "abcdefg", "abcdefgh", "a", "ab", "αβγδε"];
+        let measured: Vec<&str> = within_reach("abcd", candidates).collect();
+        // Three characters either way of four: one to seven, counted in characters, not bytes.
+        assert_eq!(measured, ["abcd", "abcdefg", "a", "ab", "αβγδε"]);
+        // Three characters longer is still within reach; four is never suggested.
+        assert_eq!(find_close_match("abcd", ["abcdefg"]), Some("abcdefg"));
+        assert_eq!(find_close_match("abcd", ["abcdefgh"]), None);
+    }
 
     #[test]
     fn exact_match_returns_candidate() {
