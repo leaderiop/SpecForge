@@ -48,7 +48,7 @@ fn taskboard_ship_task_01_reports_its_seeds() {
 #[test]
 fn b0_traces_the_route_with_its_item_and_test_steps_skipped() {
     let p = seeded("taskboard-execute-02-01", "B0", &[]).expect("a B0 copy");
-    p.collect_seeded("taskboard-execute-02-01");
+    p.collect_seeded("taskboard-execute-02-01", true);
     let run = p.run(&["trace", "TASK-01", "--partial"]);
     assert_eq!(run.code, 0, "{}", run.all());
     let lines: Vec<&str> = run.stdout.lines().collect();

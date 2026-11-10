@@ -42,6 +42,7 @@ fn recorded_report(fixture: &str) -> Option<(&'static str, PathBuf)> {
     let goldens = Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/goldens");
     match fixture {
         "taskboard" => Some(("node-test", goldens.join("taskboard/junit.xml"))),
+        "vault" => Some(("node-test", goldens.join("vault/junit.xml"))),
         _ => None,
     }
 }
@@ -163,9 +164,9 @@ impl Project {
         self.extensions.borrow().iter().any(|(n, _)| n == name)
     }
 
-    /// A seeded copy's collects, as a run of the arm would make them where no test runner runs: the fixture's
-    /// recorded report with `task`'s seeded runs (when the copy loads `@code/core`), then its commits.
-    pub fn collect_seeded(&self, task: &str) {
+    /// A copy's collects, as a run of the arm would make them where no test runner runs: the fixture's recorded
+    /// report (when the copy loads `@code/core`), with `task`'s seeded runs on a `seeded` copy, then its commits.
+    pub fn collect_seeded(&self, task: &str, seeded: bool) {
         let tasks = ab_tasks();
         let task = ab_task(&tasks, task);
         let fixture = task["fixture"].as_str().expect("a fixture");
@@ -176,6 +177,7 @@ impl Project {
                 .as_array()
                 .expect("seeded")
                 .iter()
+                .filter(|_| seeded)
                 .filter_map(|d| task["seeds"][d.as_str()?]["run"].as_object())
                 .flat_map(|runs| runs.iter())
                 .map(|(name, outcome)| (name.clone(), outcome.as_str().unwrap_or("").to_string()))
@@ -288,8 +290,8 @@ pub fn assert_signals(task: &str, gaps: &[(&str, &str, Today)]) {
                     continue;
                 }
             };
-            seeded_copy.collect_seeded(task);
-            unseeded_copy.collect_seeded(task);
+            seeded_copy.collect_seeded(task, true);
+            unseeded_copy.collect_seeded(task, false);
             for row in &here {
                 let got = (seeded_copy.signal(row), unseeded_copy.signal(row));
                 let wanted = match gap(&row.defect) {

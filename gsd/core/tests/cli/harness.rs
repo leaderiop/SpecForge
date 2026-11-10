@@ -79,7 +79,7 @@ impl Run {
 }
 
 /// Whether a diagnostic code (`gsd/W311`) is one of the judged rules'.
-fn is_judged(code: &str) -> bool {
+pub fn is_judged(code: &str) -> bool {
     let local = code.strip_prefix("gsd/").unwrap_or(code);
     gsd_core::judged::JUDGED.iter().any(|j| j.code == local)
 }
@@ -144,13 +144,14 @@ pub fn taskboard() -> Project {
     from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard")).twin()
 }
 
-/// The security parity suite's vault fixture: its `spec/` twin of the GSD project beside its `.planning/`.
+/// The security parity suite's vault fixture: its `spec/` twin of the GSD project beside its `.planning/`, loading
+/// [`TWIN_BUILTINS`] as the taskboard does.
 #[allow(
     dead_code,
     reason = "core's own tests do not use it; @gsd/security's include this harness"
 )]
 pub fn vault() -> Project {
-    from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/vault"))
+    from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/vault")).twin()
 }
 
 /// [`taskboard`] under `inside` of its temp dir.

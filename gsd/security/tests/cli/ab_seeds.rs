@@ -4,16 +4,7 @@
 use super::harness::ab::{Today, assert_signals};
 
 /// `(task, defect, arm, today)`: the rows that do not yet give what `tasks.json` says, asserted as they are.
-const KNOWN_GAPS: &[(&str, &str, &str, Today)] = &[
-    // The twin holds no truth of plan 01-02, so S1's edit has no anchor and the whole seeding is refused.
-    ("vault-execute-01-02", "S1", "B", Today::Refused),
-    ("vault-execute-01-02", "S1", "B0", Today::Refused),
-    ("vault-execute-01-02", "S4", "B", Today::Refused),
-    ("vault-execute-01-02", "S4", "B0", Today::Refused),
-    // No truth cites the vault's tests and no report of them is recorded: nothing reads the broken or deleted test.
-    ("vault-verify-01", "S5", "B", Today::Counts(0, 0)),
-    ("vault-verify-01", "S6", "B", Today::Counts(0, 0)),
-];
+const KNOWN_GAPS: &[(&str, &str, &str, Today)] = &[];
 
 fn gaps(task: &str) -> Vec<(&'static str, &'static str, Today)> {
     KNOWN_GAPS

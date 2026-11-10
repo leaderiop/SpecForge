@@ -29,6 +29,43 @@ task T2 "Tests for seal and open" {
   done        "The vault tests pass"
 }
 
+truth TR1 "A sealed vault opens to what was sealed, and to nothing else" {
+  plan        v1.0/01/01-01
+  text        "A sealed vault opens to what was sealed, and to nothing else"
+  requirement SEC-01
+  proof       [
+    "js:vault/test/vault.test.js#a sealed vault opens to what was sealed",
+    "js:vault/test/vault.test.js#a tampered vault does not open",
+    "js:vault/test/vault.test.js#another key does not open it",
+  ]
+}
+
+artifact AR1 "seal and open" {
+  plan     v1.0/01/01-01
+  path     "src/vault.js"
+  provides "seal and open"
+  contains "export function seal"
+}
+
+key_link KL1 "The tests import seal and open" {
+  plan v1.0/01/01-01
+  from "test/vault.test.js"
+  to   "src/vault.js"
+  via  "import { open, seal }"
+}
+
+summary 01-01-SUMMARY "The sealed store: summary" {
+  plan                   v1.0/01/01-01
+  status                 complete
+  one_liner              "A vault sealed with AES-256-GCM; a tampered file or another key does not open it."
+  subsystem              "vault"
+  tags                   ["node", "crypto"]
+  provides               ["seal and open"]
+  affects                ["01-02"]
+  tech_patterns          ["a vault is plain data sealed as IV, auth tag, data"]
+  requirements_completed [SEC-01]
+}
+
 trust_boundary TB1 "process to vault.bin" {
   plan          v1.0/01/01-01
   boundary      "process → vault.bin"
@@ -90,6 +127,38 @@ task T1 "set, get and list" {
   action      "Read the key from `VAULT_KEY` (hex), open `vault.bin` when it exists, run the command and seal the vault back after `set`."
   verify_text "node src/cli.js get db"
   done        "get prints what set stored"
+}
+
+truth TR1 "A secret set from the command line is read back by its name" {
+  plan        v1.0/01/01-02
+  text        "A secret set from the command line is read back by its name"
+  requirement SEC-02
+}
+
+artifact AR1 "set, get and list" {
+  plan     v1.0/01/01-02
+  path     "src/cli.js"
+  provides "set, get and list"
+  contains "vault.secrets[name]"
+}
+
+key_link KL1 "The command line opens and seals the vault" {
+  plan v1.0/01/01-02
+  from "src/cli.js"
+  to   "src/vault.js"
+  via  "import { createVault, open, seal }"
+}
+
+summary 01-02-SUMMARY "The command line: summary" {
+  plan                   v1.0/01/01-02
+  status                 complete
+  one_liner              "`set`, `get` and `list` over the sealed vault."
+  subsystem              "cli"
+  tags                   ["node", "cli"]
+  provides               ["set, get and list"]
+  affects                ["sharing"]
+  tech_patterns          ["the key is read from VAULT_KEY"]
+  requirements_completed [SEC-01, SEC-02]
 }
 
 trust_boundary TB1 "shell to process" {
@@ -158,4 +227,24 @@ task T2 "The share command" {
   action      "Add `vault share <name> <recipient-key-hex>`, which prints the sealed secret as hex."
   verify_text "node src/cli.js share db 00"
   done        "share prints a hex string"
+}
+
+truth TR1 "An exported secret opens only with the recipient's key" {
+  plan        v1.0/02/02-01
+  text        "An exported secret opens only with the recipient's key"
+  requirement SHARE-01
+}
+
+artifact AR1 "export of one secret for a recipient" {
+  plan     v1.0/02/02-01
+  path     "src/share.js"
+  provides "export of one secret for a recipient"
+  contains "export function shareSecret"
+}
+
+key_link KL1 "The command line imports the share" {
+  plan v1.0/02/02-01
+  from "src/cli.js"
+  to   "src/share.js"
+  via  "import { shareSecret }"
 }

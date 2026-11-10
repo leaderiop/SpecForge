@@ -6,7 +6,7 @@ use std::process::Command;
 
 use serde_json::{Value, json};
 
-use super::harness::{Project, taskboard, vault};
+use super::harness::{Project, is_judged, judged, taskboard, unjudged, vault};
 use gsd_security::commands::hooks::FRAGMENT;
 
 fn project() -> Project {
@@ -286,14 +286,23 @@ fn the_ship_prompts_hook_line_gives_the_security_gate() {
 
 /// The fixture's spec twin checks with both extensions loaded: its one error is the duplicate threat ID the fixture
 /// exists to carry (`T-01-02` in both plans of phase 1, reported once per claim), and every field and enum it writes is
-/// `@gsd/security`'s own (an unknown one would be an `E0xx`). Its harness-written fields (a threat's `status` and
-/// `evidence`, the audit run's counts) are vouched for by the fixture's `specforge-harness` ledger, as the taskboard's
-/// verdicts are; without a line there, `E083`.
+/// `@gsd/security`'s own (an unknown one would be an `E0xx`). Besides it, the judged rules say `no verdict` on exactly
+/// the entities they target: no verifier has run on the twin, as none has on `.planning/` (no `VERIFICATION.md`).
+/// Its harness-written fields (a threat's `status` and `evidence`, the audit run's counts) are vouched for by the
+/// fixture's `specforge-harness` ledger, as the taskboard's verdicts are; without a line there, `E083`.
 #[test]
 fn the_twin_checks_but_for_the_duplicate_threat_id() {
     let p = project();
-    let errors: Vec<(String, String)> = p
-        .report_all()
+    let report = p.report_all();
+    assert_eq!(judged(&report), p.expected_judged(&[]), "{report:#?}");
+    assert!(
+        report
+            .iter()
+            .filter(|(code, _)| is_judged(code))
+            .all(|(_, message)| message.ends_with(": no verdict")),
+        "{report:#?}"
+    );
+    let errors: Vec<(String, String)> = unjudged(&report)
         .into_iter()
         .filter(|(code, _)| code.starts_with('E') || code.contains("/E"))
         .collect();
@@ -315,4 +324,54 @@ fn the_twin_checks_but_for_the_duplicate_threat_id() {
         "{:#?}",
         p.report_all()
     );
+}
+
+/// The twin mirrors `.planning/`: one `truth` per `must_haves` truth of each `PLAN.md`, and one `summary` per
+/// `SUMMARY.md`, each in its plan.
+#[test]
+fn the_twin_holds_the_truths_and_summaries_of_its_planning() {
+    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../parity/fixtures/vault/.planning/phases");
+    let (mut truths, mut summaries) = (Vec::new(), Vec::new());
+    for phase in std::fs::read_dir(&fixture).expect("the phases") {
+        for file in std::fs::read_dir(phase.expect("a phase").path()).expect("a phase dir") {
+            let path = file.expect("a file").path();
+            let name = path
+                .file_name()
+                .expect("a name")
+                .to_string_lossy()
+                .into_owned();
+            let text = std::fs::read_to_string(&path).expect("a planning file");
+            if let Some(plan) = name.strip_suffix("-PLAN.md") {
+                let block = text.split("  truths:\n").nth(1).expect("must_haves truths");
+                for line in block.lines().take_while(|l| l.starts_with("    - ")) {
+                    truths.push((plan.to_string(), line[6..].trim_matches('"').to_string()));
+                }
+            } else if let Some(plan) = name.strip_suffix("-SUMMARY.md") {
+                summaries.push(plan.to_string());
+            }
+        }
+    }
+    truths.sort();
+    summaries.sort();
+    let p = project();
+    let plan_of = |node: &Value| {
+        let plan = node["fields"]["plan"].as_str().expect("a plan").to_string();
+        plan.rsplit('/').next().expect("a plan id").to_string()
+    };
+    let mut twin_truths: Vec<(String, String)> = p
+        .nodes_of("truth")
+        .iter()
+        .map(|n| {
+            (
+                plan_of(n),
+                n["fields"]["text"].as_str().expect("a text").to_string(),
+            )
+        })
+        .collect();
+    twin_truths.sort();
+    let mut twin_summaries: Vec<String> = p.nodes_of("summary").iter().map(plan_of).collect();
+    twin_summaries.sort();
+    assert_eq!((twin_truths.len(), twin_summaries.len()), (3, 2));
+    assert_eq!((twin_truths, twin_summaries), (truths, summaries));
 }

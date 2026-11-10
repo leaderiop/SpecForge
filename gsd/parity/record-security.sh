@@ -1,6 +1,6 @@
 #!/bin/sh
-# Records what gsd-tools answers over the vault fixture about its threats, into goldens/vault/. Run by hand (needs node
-# and a built gsd-core), never in CI.
+# Records what gsd-tools answers over the vault fixture about its threats, and what its own tests report, into
+# goldens/vault/. Run by hand (needs node 24 or later and a built gsd-core), never in CI.
 #
 #   git -C ~/Projects/OpenSource/gsd-core archive v1.19.0 | tar -x -C $TMP/gsd-core-1.19.0
 #   (cd $TMP/gsd-core-1.19.0 && npm ci && npm run build:lib)
@@ -109,7 +109,12 @@ for n in 1 2; do
     --heading "Security Audit" --rows '{"Threats found":3,"Closed":2,"Open":1}' --date 2026-10-31
 done
 
+# The recorded tests, as record.sh records the taskboard's: node's JUnit reporter, with the machine's paths and timings
+# out. `@javascript/node-test` reads it as the twin's test facts, which plan 01-01's truth cites.
+(cd "$work" && node --test --test-reporter=junit --test-reporter-destination=junit.xml >/dev/null)
+sed -e "s|file=\"$real/|file=\"|g" -e 's/time="[^"]*"/time="0"/g' -e '/<!-- duration_ms /d' -e 's/ hostname="[^"]*"//g' "$work/junit.xml" >"$staged/junit.xml"
+
 mkdir -p "$out"
 rm -f "$out"/*.json
-cp "$staged"/*.json "$out"/
+cp "$staged"/*.json "$staged/junit.xml" "$out"/
 echo "recorded $(ls "$staged" | wc -l | tr -d ' ') goldens in $out (gsd-core $version)"
