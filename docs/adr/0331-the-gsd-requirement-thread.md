@@ -1,7 +1,8 @@
 # The gsd requirement thread: a truth's requirement and proof, the `Gsd-Task` trailer, one reading of a test
 
 **Status:** accepted (2026-11-03, build-plan R1, plan 04); amended by
-[ADR 0351](0351-a-plan-lists-its-decisions-and-the-threads-gaps-have-codes.md) (D1, D3).
+[ADR 0351](0351-a-plan-lists-its-decisions-and-the-threads-gaps-have-codes.md) (D1, D3) and
+[ADR 0352](0352-gsd-git-reads-the-host-git-port-and-commits-name-their-items.md) (D3, D4, D8).
 Amends [ADR 0290](0290-a-judged-rule-holds-while-a-fresh-verdict-says-so.md)
 D3 (a `test(..)` input), [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) D4 (gsd-git
 reads a trailer), [ADR 0312](0312-collect-re-keys-a-test-id-as-the-test-report-does.md) (a truth's tests are its tags

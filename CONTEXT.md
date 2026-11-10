@@ -1846,9 +1846,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Result field**: the enum field of a collector-written kind that holds a fact's result, its values `TestStatus`
   names (`KindBuilder::result`, ADR 0329 D3); what a judged `test(..)` input and a reader of a reference to the fact
   take as its result (ADR 0331 D6).
-- **Requirement thread**: requirement → plan → task → commit (found by its `Gsd-Task:` trailer or its title,
-  `commit.linked_by`) → the proving test (`truth.proof`) → its result → the truth's verdict: what `@gsd/core`'s route
-  `requirement-thread` (`gsd/requirement-thread`) declares and `specforge trace` prints (ADR 0331).
+- **Requirement thread**: requirement → plan → task → the code items it targets (`task.items`) → commit (found by its
+  `Gsd-Task:` trailer or its title, `commit.linked_by`) → the proving test (`truth.proof`) → its result → the truth's
+  verdict: what `@gsd/core`'s route `requirement-thread` (`gsd/requirement-thread`) declares and `specforge trace`
+  prints (ADR 0331, ADR 0352).
+- **History reference**: a reference held by a field declared `writer: harness` and `immutable` (`commit.items_changed`):
+  it records what held when the harness wrote it, so an unheld one is marked `history` and is never a finding
+  (ADR 0352 D2).
 - **Decision coverage**: a planned phase's context decisions each listed in the `decisions` of one of its plans:
   typed references resolved in the phase, never a match on the plan's text (gsd/E310, W317, W506; ADR 0351).
 - **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a

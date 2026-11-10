@@ -7,6 +7,8 @@
 Amended by [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md) (D3: `names` is a fact-held reference).
 Amended by [ADR 0347](0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md) (D2: the `<file>` escape, Rust tests; D3: `rust` ids, `binary`, `file` project-relative as
 given, `names` a reference list; D5: judged by the kinds a field admits, `held`; D7: the minting moves to `code/facts`).
+Amended by [ADR 0352](0352-gsd-git-reads-the-host-git-port-and-commits-name-their-items.md) (D5: a history reference
+is never unheld).
 
 **Amended by [ADR 0350](0350-a-fields-checks-may-wait-for-its-owner.md)** (D4: the values phase reads owner state
 too, on the merged snapshot, to decide whether a field's checks wait).
