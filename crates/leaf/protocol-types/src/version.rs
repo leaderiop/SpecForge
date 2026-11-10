@@ -17,6 +17,8 @@
 /// - a guest may import `specforge:host/syntax`: the host parses source files with a pack's query (ADR 0344, 0345);
 /// - a collector may declare a `facts` input (`kinds`), and `CollectInput.facts` carries the facts of those kinds that
 ///   earlier collectors answered or the recorded stores hold (ADR 0345 D3);
+/// - a pass may declare the `facts` input: a pass is sent the authored entities and the facts of the kinds it names,
+///   and only the edges between what it is sent; one that declares none is sent no fact (ADR 0353);
 /// - a collector declares `answers`, the collected kinds whose facts it answers: they order the collect (E119 for a
 ///   cycle) and admit its facts (E116 otherwise);
 /// - a collector with no `capability` and no `report` reads no report: it is called with no reports and reads through

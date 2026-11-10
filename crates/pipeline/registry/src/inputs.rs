@@ -21,9 +21,9 @@ pub enum CallKind {
     Collector,
 }
 
-/// Whether a call of `kind` is served `input`: exactly what each kind was served before the fold. A pass gets the
-/// entities and a command and a writing collector the graph without asking; a hook's files are its tool's paths
-/// (ADR 0293 D6).
+/// Whether a call of `kind` is served `input`: exactly what each kind was served before the fold, and the facts of the
+/// kinds a pass or a collector names (ADR 0345 D3, ADR 0353 D1). A pass gets the authored entities and a command and a
+/// writing collector the graph without asking; a hook's files are its tool's paths (ADR 0293 D6).
 pub fn served(kind: CallKind, input: &Input) -> bool {
     use CallKind::*;
     match input.kind() {
@@ -33,7 +33,8 @@ pub fn served(kind: CallKind, input: &Input) -> bool {
         InputKind::Graph => matches!(kind, Prompt | Hook),
         InputKind::SlashCommands => kind == Prompt,
         InputKind::Git | InputKind::Setting => kind == Hook,
-        InputKind::CheckOutcomes | InputKind::Facts => kind == Collector,
+        InputKind::CheckOutcomes => kind == Collector,
+        InputKind::Facts => matches!(kind, Pass | Collector),
     }
 }
 
@@ -289,27 +290,23 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "register_collector_contributions",
-        verify = "a facts input is served to a collector only, and an empty or unknown kind or a second one is W021"
+        verify = "a facts input is served to a pass or a collector, and an empty or unknown kind or a second one is W021"
     )]
-    fn a_facts_input_on_a_pass_is_w021() {
+    fn a_pass_is_served_the_facts_input() {
         let found = problems_of(|c| {
-            c.pass("audit", |p| {
-                p.phase("check")
-                    .input(Input::facts(&["package"]))
-                    .run(|_| Vec::new());
-            });
+            for phase in ["check", "compute", "guard", "analyze"] {
+                c.pass(phase, |p| {
+                    p.phase(phase)
+                        .input(Input::facts(&["package"]))
+                        .run(|_| Vec::new());
+                });
+            }
             c.collector("reader", |k| {
                 k.input(Input::facts(&["package"]))
                     .collect(|_| Ok(CollectOutput::default()));
             });
         });
-        assert_eq!(
-            found,
-            [
-                "extension '@acme/facts': pass 'audit' declares the input 'facts', which is not served: its kind of \
-              call is not served it"
-            ]
-        );
+        assert_eq!(found, Vec::<String>::new());
         let found = problems_of(|c| {
             c.collector("reader", |k| {
                 k.input(Input::facts(&[]))
@@ -326,6 +323,28 @@ mod tests {
                  is declared twice",
                 "extension '@acme/facts': collector 'reader' declares the facts of kind 'nothing', which is not \
                  served: no loaded extension declares it collector-written",
+            ]
+        );
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "register_collector_contributions",
+        verify = "a pass naming an authored kind in its facts input is W021"
+    )]
+    fn a_pass_naming_an_authored_kind_in_facts_is_w021() {
+        let found = problems_of(|c| {
+            c.kind("note", |_| {});
+            c.pass("audit", |p| {
+                p.phase("check")
+                    .input(Input::facts(&["package", "note"]))
+                    .run(|_| Vec::new());
+            });
+        });
+        assert_eq!(
+            found,
+            [
+                "extension '@acme/facts': pass 'audit' declares the facts of kind 'note', which is not served: no \
+                 loaded extension declares it collector-written"
             ]
         );
     }

@@ -59,7 +59,8 @@ macro_rules! takes_inputs {
         impl $builder {
             /// The host serves the call `input` before it runs: `Input::files(name, FileReadSpec::glob(..))`,
             /// `Input::Tests`, `Input::State`, `Input::Graph`, `Input::SlashCommands`, `Input::git().status()`,
-            /// `Input::setting(extension, name)`, `Input::CheckOutcomes`, `Input::facts(kinds)`.
+            /// `Input::setting(extension, name)`, `Input::CheckOutcomes`, `Input::facts(&["test"])` (a pass is
+            /// sent the facts of those kinds beside the authored entities, a collector those facts).
             pub fn input(&mut self, input: Input) -> &mut Self {
                 self.descriptor.inputs.push(input);
                 self

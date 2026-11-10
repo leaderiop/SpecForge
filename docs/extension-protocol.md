@@ -150,7 +150,7 @@ nothing else:
 | `git` | `status`?, `when`? | hook | `git`; with `"status": true` its typed `status`, `{"branch": {"oid"?, "head"?, "upstream"?, "ahead", "behind"}, "entries": [{"kind", "path", "orig_path"?, "index"?, "worktree"?}]}`; `when` names a bool setting the facts are collected under |
 | `setting` | `extension`, `name` | hook | `other_settings["<extension>:<name>"]` |
 | `check_outcomes` | | collector | `check_outcomes`, each checked value's outcome (see [Category: collectors](#category-collectors)) |
-| `facts` | `kinds` | collector | `facts`, the admitted facts of those collected kinds, sorted by kind and id: those the collectors that ran before it in this collect answered, else the stores `specforge-harness` records (ADR 0345 D3, see [Category: collectors](#category-collectors)) |
+| `facts` | `kinds` | pass, collector | a pass's `entities` hold the facts of those collected kinds beside the authored entities, and a pass that declares none is sent no fact (ADR 0353); a collector's `facts`, the admitted facts of those collected kinds, sorted by kind and id: those the collectors that ran before it in this collect answered, else the stores `specforge-harness` records (ADR 0345 D3, see [Category: collectors](#category-collectors)) |
 
 An input the call's kind is not served, a second `tests`, `state`, `graph`, `slash_commands`, `git`, `check_outcomes` or `facts`
 input, a `facts` input with no kind or naming a kind no loaded extension declares `writer: "collector"`, or a
@@ -761,7 +761,9 @@ each entity is `{"id", "kind", "fields", "incoming_edge_count",
 "verify_texts"}`, `owes_none` meaning it owes no obligations of its own, decided
 by the host from the registries; `incoming_edge_count` and `outgoing_edge_count`
 count the edges from and to other entities, an edge from the entity to itself in
-neither). An entity's `id`, and an edge's `source` and `target`, are entity paths: a scope's path and a name
+neither). `entities` holds the authored entities and, from 2.0.0 (ADR 0353), the facts of the kinds the pass's `facts`
+input names: a pass that declares none is sent no fact, and `edges` holds the edges whose two ends it is sent; the edge
+counts stay the graph's. An entity's `id`, and an edge's `source` and `target`, are entity paths: a scope's path and a name
 (`v1.0/03/D-01`), or the name alone in the project scope; a name never holds `/`. The host re-keys
 `test_results` by path: a key written as a path, a rooted path or a unique short form reaches its
 entity (ADR 0284). A pass answers host diagnostics, bare or as
@@ -780,8 +782,8 @@ no edge and no core diagnostic, absent when there is none; a pass decides what a
 it says so (what held when the harness wrote it, never missing), else missing when a served store holds one of its
 `kinds` in its scheme, uncollected otherwise. A `PassEntity` carries `dangling` (2.0.0, ADR 0346 D4), each reference a fact holds that names no entity,
 one of another kind or several, `{"field", "id", "span", "reason", "actual"?, "did_you_mean"?, "candidates"?}`
-(`span` is the name span its collector recorded): no core diagnostic, absent when there is none; every pass is sent it,
-and the extension declaring the entity's kind is the one that judges it. A `PassEntity` carries `pending: true` (1.15.0, ADR 0329 D4) while its owner is not complete: its kind's
+(`span` is the name span its collector recorded): no core diagnostic, absent when there is none; a pass sent the fact is
+sent it, and the extension declaring the entity's kind is the one that judges it. A `PassEntity` carries `pending: true` (1.15.0, ADR 0329 D4) while its owner is not complete: its kind's
 `complete_when` does not hold, or, when its kind declares none, the nearest scope ancestor's whose kind declares one
 does not; it is absent otherwise, and decided on the snapshot the passes read, computed values included. A pass of 1.8.0 declares `baseline`, the kinds whose git baseline it reads as `previous`, and `computes`, the `kind.field` names it gives values for. `phase: "compute"` makes the pass run before the checks: its `PassOutput.values`, `[{"entity", "field", "value"}]`, are held beside the graph (never written to a file) and read by the rules, the check passes and every surface, the `graph` a command, a prompt, a hook or a writing collector receives included (as `fields`, with the judgements beside them; ADR 0299, no protocol change); a value for a field that is not declared `computed` is W165. A pass of 1.9.0 may run in `phase: "guard"`: it runs only when a write is judged, receives the project before the write as `previous`, and its error diagnostics refuse the write (E080); it answers no values.
 

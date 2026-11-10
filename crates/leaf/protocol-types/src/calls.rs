@@ -336,8 +336,10 @@ pub fn pass_export(pass: &str) -> String {
 /// names when the host has one.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct PassInput {
+    /// The authored entities and the facts of the kinds the pass's `facts` input names (ADR 0353): a pass that
+    /// declares none is sent no fact.
     pub entities: Vec<PassEntity>,
-    /// Resolved references between snapshot entities. Defaults keep passes
+    /// Resolved references between the entities it is sent: an edge whose two ends it is sent. Defaults keep passes
     /// written against the entities-only input compatible.
     #[serde(default)]
     pub edges: Vec<PassEdge>,
