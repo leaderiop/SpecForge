@@ -58,19 +58,15 @@ impl Noticed<FileAnchors> {
     }
 }
 
-/// One entity anchored to a located fact of a source file (`McpSpecForSourceEntity`).
+/// One entity anchored to a located fact of a source file (`McpSpecForSourceEntity`): the entity, beside the anchor's
+/// fact end, whose keys sit at the row's top level.
 #[derive(Debug, Clone, PartialEq, Serialize, Shape)]
 pub struct AnchoredEntity {
     pub entity_id: String,
     /// The entity's kind.
     pub kind: String,
-    pub fact_id: String,
-    pub file: String,
-    pub line: usize,
-    pub end_line: usize,
-    pub item_kind: String,
-    pub collector: String,
-    pub via: String,
+    #[serde(flatten)]
+    pub anchor: Anchor,
 }
 
 /// The located facts one entity is anchored to (`McpImplementationResult`).
@@ -424,17 +420,10 @@ pub fn anchors_of_file(
         let Some((mode, place)) = best else {
             continue;
         };
-        let row = edge.row(place);
         let row = AnchoredEntity {
             entity_id: edge.entity.id.raw.to_string(),
             kind: edge.entity.kind.raw.to_string(),
-            fact_id: row.fact_id,
-            file: row.file,
-            line: row.line,
-            end_line: row.end_line,
-            item_kind: row.item_kind,
-            collector: row.collector,
-            via: row.via,
+            anchor: edge.row(place),
         };
         match mode {
             FileMatch::Exact => exact.push(row),
@@ -455,18 +444,11 @@ pub fn anchors_of_file(
     } else {
         (FileMatch::SuffixPath, loose)
     };
-    entities.sort_by(|a, b| {
-        (&a.file, a.line, &a.fact_id, &a.via, &a.entity_id).cmp(&(
-            &b.file,
-            b.line,
-            &b.fact_id,
-            &b.via,
-            &b.entity_id,
-        ))
-    });
+    entities
+        .sort_by(|a, b| (a.anchor.order(), &a.entity_id).cmp(&(b.anchor.order(), &b.entity_id)));
     let rows: Vec<(String, String)> = entities
         .iter()
-        .map(|row| (row.file.clone(), row.collector.clone()))
+        .map(|row| (row.anchor.file.clone(), row.anchor.collector.clone()))
         .collect();
     let found = FileAnchors {
         file_path: file_path.to_string(),

@@ -44,8 +44,14 @@ impl Args {
                         OutputFormat::Json => terminal.json(&found),
                         OutputFormat::Human => {
                             for row in &found.entities {
-                                let at = (row.line, row.end_line);
-                                let fact = [&row.file, &row.item_kind, &row.fact_id, &row.via];
+                                let anchor = &row.anchor;
+                                let at = (anchor.line, anchor.end_line);
+                                let fact = [
+                                    &anchor.file,
+                                    &anchor.item_kind,
+                                    &anchor.fact_id,
+                                    &anchor.via,
+                                ];
                                 let (kind, id) = (&row.kind, &row.entity_id);
                                 outln!(terminal, "{}  [{kind} {id}]", line(fact, at));
                             }

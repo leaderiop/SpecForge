@@ -179,8 +179,8 @@ fn find_spec_for_source_lists_the_anchors_of_the_located_facts_of_the_path() {
             (
                 e.entity_id.as_str(),
                 e.kind.as_str(),
-                e.fact_id.as_str(),
-                e.via.as_str(),
+                e.anchor.fact_id.as_str(),
+                e.anchor.via.as_str(),
             )
         })
         .collect();
@@ -215,7 +215,11 @@ fn the_tightest_match_wins() {
             .unwrap()
             .into_value_and_notices()
             .0;
-        let ids: Vec<String> = found.entities.iter().map(|e| e.fact_id.clone()).collect();
+        let ids: Vec<String> = found
+            .entities
+            .iter()
+            .map(|e| e.anchor.fact_id.clone())
+            .collect();
         (found.match_mode, ids)
     };
     assert_eq!(

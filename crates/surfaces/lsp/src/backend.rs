@@ -199,10 +199,7 @@ impl LanguageServer for Backend {
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
         let at = params.text_document_position;
-        self.answering("textDocument/completion", |state| {
-            if source_document::is_source(state, &at.text_document.uri) {
-                return Ok(None);
-            }
+        self.answering_spec("textDocument/completion", &at.text_document.uri, |state| {
             Ok(answers::completion(
                 state,
                 &at.text_document.uri,
@@ -274,16 +271,17 @@ impl LanguageServer for Backend {
     }
 
     async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
-        self.answering("textDocument/codeAction", |state| {
-            if source_document::is_source(state, &params.text_document.uri) {
-                return Ok(None);
-            }
-            Ok(answers::code_actions(
-                state,
-                &params.text_document.uri,
-                params.range,
-            ))
-        })
+        self.answering_spec(
+            "textDocument/codeAction",
+            &params.text_document.uri,
+            |state| {
+                Ok(answers::code_actions(
+                    state,
+                    &params.text_document.uri,
+                    params.range,
+                ))
+            },
+        )
         .await
     }
 
@@ -298,12 +296,11 @@ impl LanguageServer for Backend {
         &self,
         params: DocumentSymbolParams,
     ) -> Result<Option<DocumentSymbolResponse>> {
-        self.answering("textDocument/documentSymbol", |state| {
-            if source_document::is_source(state, &params.text_document.uri) {
-                return Ok(None);
-            }
-            Ok(answers::document_symbols(state, &params.text_document.uri))
-        })
+        self.answering_spec(
+            "textDocument/documentSymbol",
+            &params.text_document.uri,
+            |state| Ok(answers::document_symbols(state, &params.text_document.uri)),
+        )
         .await
     }
 
@@ -325,15 +322,16 @@ impl LanguageServer for Backend {
     }
 
     async fn document_link(&self, params: DocumentLinkParams) -> Result<Option<Vec<DocumentLink>>> {
-        self.answering("textDocument/documentLink", |state| {
-            if source_document::is_source(state, &params.text_document.uri) {
-                return Ok(None);
-            }
-            Ok(crate::links::document_links(
-                state,
-                &params.text_document.uri,
-            ))
-        })
+        self.answering_spec(
+            "textDocument/documentLink",
+            &params.text_document.uri,
+            |state| {
+                Ok(crate::links::document_links(
+                    state,
+                    &params.text_document.uri,
+                ))
+            },
+        )
         .await
     }
 
@@ -341,12 +339,11 @@ impl LanguageServer for Backend {
         &self,
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
-        self.answering("textDocument/semanticTokens/full", |state| {
-            if source_document::is_source(state, &params.text_document.uri) {
-                return Ok(None);
-            }
-            Ok(answers::semantic_tokens(state, &params.text_document.uri))
-        })
+        self.answering_spec(
+            "textDocument/semanticTokens/full",
+            &params.text_document.uri,
+            |state| Ok(answers::semantic_tokens(state, &params.text_document.uri)),
+        )
         .await
     }
 
@@ -408,6 +405,23 @@ impl Backend {
         }
     }
 
+    /// [`Self::answering`] a request about a `.spec` document only: one about a source document (`uri`, ADR 0349 D7)
+    /// answers nothing, its language's own server answers it.
+    async fn answering_spec<T>(
+        &self,
+        method: &str,
+        uri: &Url,
+        answer: impl FnOnce(&LspState) -> Result<Option<T>>,
+    ) -> Result<Option<T>> {
+        self.answering(method, |state| {
+            if source_document::is_source(state, uri) {
+                return Ok(None);
+            }
+            answer(state)
+        })
+        .await
+    }
+
     /// A notification's change to the state: a panic is logged and the server goes on.
     async fn applying(&self, method: &str, apply: impl FnOnce(&mut LspState)) {
         let outcome = {
@@ -440,11 +454,7 @@ impl Backend {
         lines: Option<format::Lines>,
     ) -> Result<Option<Vec<TextEdit>>> {
         let formatted = self
-            .answering("textDocument/formatting", |state| {
-                // A source document is the language's own server's to format.
-                if source_document::is_source(state, uri) {
-                    return Ok(None);
-                }
+            .answering_spec("textDocument/formatting", uri, |state| {
                 Ok(answers::formatting(
                     state,
                     &self.runtime,
