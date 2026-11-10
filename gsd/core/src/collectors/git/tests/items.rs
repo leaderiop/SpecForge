@@ -249,3 +249,23 @@ fn two_diffs_per_recorded_commit_with_items() {
     );
     assert!(repo.asked.borrow().iter().all(|q| q.hunks && !q.patch));
 }
+
+/// A commit whose diff is past one answer: the port drops the hunks of the files after its cap.
+#[test]
+fn a_diff_past_one_answer_writes_items_changed_short() {
+    let repo = Repo {
+        log: vec![logged(HASH, &[], 20, "feat(01-01): Store module", &[])],
+        diffs: [(
+            HASH.to_string(),
+            vec![
+                ranged("src/0.js", vec![hunk((0, 1), (0, 1))]),
+                ranged("src/a.js", vec![hunk((6, 7), (6, 7))]),
+            ],
+        )]
+        .into(),
+        room: Some(1),
+        ..Repo::default()
+    };
+    // B holds the line the commit wrote, but its file's hunks were dropped: today no item is named.
+    assert_eq!(named(repo, facts()), json!([]));
+}

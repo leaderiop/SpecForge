@@ -118,6 +118,9 @@ pub(super) struct Repo {
     /// Each commit's diff against the worktree, by the commit's sha.
     pub(super) worktree: HashMap<String, Vec<GitFileChange>>,
     pub(super) truncated: bool,
+    /// How many paths a diff answer holds the text of: past them it drops each file's hunks and says `truncated`, as
+    /// the host's port does past its answer cap. `None` holds every one.
+    pub(super) room: Option<usize>,
     pub(super) logs: std::cell::Cell<usize>,
     pub(super) asked: std::cell::RefCell<Vec<GitDiffQuery>>,
 }
@@ -152,10 +155,28 @@ impl InProcessHost for Repo {
             (GitDiffHead::Worktree, Some(base)) => self.worktree.get(base),
             _ => panic!("a commit's diff, or a commit's against the worktree: {query:?}"),
         };
-        Ok(GitDiffAnswer {
-            files: files.cloned().unwrap_or_default(),
-            truncated: false,
-        })
+        // A path keeps itself and what is under it, as the port's literal paths do.
+        let kept = |path: &str| {
+            query.paths.is_empty()
+                || query.paths.iter().any(|p| {
+                    path == p
+                        || path
+                            .strip_prefix(p.as_str())
+                            .is_some_and(|r| r.starts_with('/'))
+                })
+        };
+        let mut files: Vec<GitFileChange> = files
+            .into_iter()
+            .flatten()
+            .filter(|f| kept(&f.path))
+            .cloned()
+            .collect();
+        let mut truncated = false;
+        for file in files.iter_mut().skip(self.room.unwrap_or(usize::MAX)) {
+            truncated |= file.hunks.take().is_some();
+            file.patch = None;
+        }
+        Ok(GitDiffAnswer { files, truncated })
     }
 }
 
