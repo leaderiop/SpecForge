@@ -88,6 +88,11 @@ correct run leaves. S1's holder is a truth of the plan the run executes,
 and `@gsd/core` checks what a pending plan cites only once the plan completes: a run that ends with that plan still
 pending has no B signal for S1, and that is correct, since it did not claim the plan complete.
 
+The tests: `gsd/core/tests/cli/ab_seeds.rs` (taskboard and ledger) and `gsd/security/tests/cli/ab_seeds.rs` (vault)
+check the table on every task, `gsd/core/tests/cli/ab_protocol.rs` checks `tasks.json`, the prompts and the fixtures'
+pins and runs both self-tests, and `gsd/core/tests/cli/harness_ab.rs` holds what they share. `cargo gate full --only
+gsd` runs them all, with the components built as [OPERATOR.md](OPERATOR.md) says.
+
 A verdict goes stale when anything it read changes, the cited test file included: S5's and S6's edits to a test file
 stale (`gsd/E501`) the verdicts of every truth that file's tests prove, the seeded truth's among them. That is
 context, not a signal in the table: it fires on a harmless edit to the file as well. The signal is counted on the
@@ -134,7 +139,7 @@ A run file:
 
 ```json
 {
-  "arm": "B", "task": "taskboard-execute-02-01", "seed": 1, "model": "<id>", "temperature": 0,
+  "arm": "B", "task": "taskboard-execute-02-01", "seed": 1, "model": "<id>", "temperature": 1,
   "protocol": { "commit": "<sha seed.py seed reports>", "specforge": "<specforge --version>" },
   "host": { "agent": "<program>", "version": "<version>", "machine": "<os, cpu, memory>" },
   "budget": { "max_turns": 200, "max_tokens": 400000 }, "permission_mode": "auto-approve inside the copy",
@@ -162,6 +167,8 @@ any of this, or whose path is not its arm, task and seed.
   over seeds within each resampled task, with a fixed RNG seed so a report reproduces.
 - H2 is reported the same way: B − B0 on `M3_thread` (false "verified" counting only the thread's defects, S1, S5 and S6), with its
   interval and whether its upper bound is below 0. It gates nothing.
+- The seeds of a task are replicates only when the model samples: the operator fixes `temperature` above 0 for the
+  study. At 0 the three seeds differ only by the host's own nondeterminism, and the interval over them is optimistic.
 
 ## 9. Gate B (D7)
 

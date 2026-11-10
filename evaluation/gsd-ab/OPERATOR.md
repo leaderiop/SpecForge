@@ -7,14 +7,30 @@ breaks it.
 ## Before the first run
 
 1. Fix, once for the whole study, what every run file records unchanged:
-   - `model` (the model id) and `temperature`;
+   - `model` (the model id) and `temperature`, above 0, so that a task's three seeds are replicates (README section
+     8);
    - `host`: `agent` (the agent program), `version` (its version) and `machine` (OS, CPU, memory);
    - `budget`: `max_turns` and `max_tokens`, the tool and turn budget of one run;
    - `permission_mode`: the agent's tools are auto-approved inside the copy and nowhere else.
-2. Install outside the copies: Python 3 (it runs `seed.py` and `score.py`), git, node (arm A's gsd-core and the Node
-   fixtures' tests), cargo with `cargo-nextest` (the ledger's tests), and the `specforge` binary built from the tagged
-   commit with its `@gsd/core` and `@gsd/security` components.
-3. Print the run order: `python3 -I evaluation/gsd-ab/seed.py schedule`. Each line is a task, a seed and its arms in
+2. Install outside the copies: Python 3.11 or later (it runs `seed.py` and `score.py`), git, node 24 or later with
+   npm 10 or later (gsd-core 1.19.0's `engines`; the Node fixtures' tests), the stable Rust toolchain
+   (`rust-toolchain.toml`) with `cargo-nextest` (the ledger's tests). Write `node --version`, `rustc --version` and
+   `cargo nextest --version` into `host.machine` after the OS, CPU and memory: the baselines below hold for them.
+3. Build, from a clean checkout of the tag, the `specforge` binary and the components arms B and B0 load, with the
+   commands the tests use:
+   - at the repository root, `cargo build --profile test -p specforge-cli`: `specforge` in the target directory's
+     `debug/`;
+   - in `gsd/`, `cargo build -p gsd-core -p gsd-security --release --target wasm32-wasip2`: `gsd_core.wasm` and
+     `gsd_security.wasm` in its `wasm32-wasip2/release/`.
+4. Preflight, arm B: `python3 -I evaluation/gsd-ab/seed.py preflight --specforge <specforge> --gsd-core
+   <gsd_core.wasm> --gsd-security <gsd_security.wasm>`. Per fixture it makes an unseeded B copy, runs a real
+   `specforge collect --yes` (the fixture's tests run) and `specforge check --format json`, and compares the
+   diagnostics with the fixture's `baseline` in `tasks.json`. A difference (another build, another node or cargo)
+   is printed and the study does not start until it is explained; it is never recorded over.
+5. Preflight, arm A: in an unseeded A copy of each fixture, with gsd-core 1.19.0 installed as in "One run", its own
+   health check, `gsd-tools validate health` (the `/gsd-health` command), reports the project healthy. Arm A has no
+   recorded baseline: its state is the Markdown the fixture holds, which the B baseline's fixture tree pins.
+6. Print the run order: `python3 -I evaluation/gsd-ab/seed.py schedule`. Each line is a task, a seed and its arms in
    the order to run them; runs follow the lines, so drift in the model's service reaches every arm alike.
 
 ## One run

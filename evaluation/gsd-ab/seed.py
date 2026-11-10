@@ -8,6 +8,7 @@ Usage:
     python3 -I evaluation/gsd-ab/seed.py rework --arm A|B|B0 --dir <dir>
     python3 -I evaluation/gsd-ab/seed.py prompt --task <id> --arm A|B|B0
     python3 -I evaluation/gsd-ab/seed.py schedule
+    python3 -I evaluation/gsd-ab/seed.py preflight --specforge <bin> --gsd-core <wasm> --gsd-security <wasm> [--record]
     python3 -I evaluation/gsd-ab/seed.py --self-test
 
 `seed` copies the fixture as committed (`git archive` of the tree `tasks.json` pins for it, which must be the fixture's
@@ -28,7 +29,11 @@ seeded one) that come after its first commit writing verification state: in A a 
 in B and B0 a `verdict:` line of `specforge-harness`; 0 when none does (the run file's `rework_commits`). `prompt`
 prints the run's one message: `prompts/<arm>.md` with the task's prompt and its workflow's `RESULT:` values (from
 `tasks.json#results`) in place of `{task.prompt}` and `{task.results}`. `schedule` prints the run order: each (task,
-seed) once, its arms in an order drawn with a fixed RNG seed, no arm first twice in a row.
+seed) once, its arms in an order drawn with a fixed RNG seed, no arm first twice in a row. `preflight` makes an
+unseeded B copy of each fixture, runs a real `specforge collect --yes` in it (the fixture's own tests run) and then
+`specforge check --format json`, and compares the diagnostics with the fixture's `baseline` in `tasks.json`: a
+difference (another build, another node or cargo) refuses the study before its first run. `--record` prints the
+baselines instead.
 
 Standard library and the `git` program only (arm A's gsd-core needs git too), Python 3.11+.
 """
@@ -348,6 +353,41 @@ def prompt(tasks: dict, task_id: str, arm_id: str, prompts: Path = HERE / "promp
     return text.replace("{task.prompt}", task["prompt"]).replace("{task.results}", f"{results}.")
 
 
+def diagnostics(specforge: str, copy: Path, *args: str) -> list[str]:
+    """`specforge <args>` (a collect) then `specforge check --format json` in `copy`: the check's diagnostics as sorted
+    `<code> <file>:<line>` lines."""
+    def run(*argv: str) -> str:
+        done = subprocess.run([specforge, *argv], cwd=copy, capture_output=True, text=True, stdin=subprocess.DEVNULL)
+        if argv[0] != "check" and done.returncode != 0:
+            raise Refused(f"specforge {' '.join(argv)} in {copy.name}: {done.stderr.strip()[-400:]}")
+        return done.stdout
+
+    run(*args)
+    found = json.loads(run("check", "--format", "json"))
+    return sorted(f"{item['code']} {item.get('file') or '-'}:{item.get('line') or 0}" for item in found)
+
+
+def preflight(tasks: dict, root: Path, specforge: str, components: dict, record: bool = False) -> dict:
+    """Each fixture's diagnostics on an unseeded B copy after a real collect, by fixture id; refused, naming each
+    difference, unless they are the fixture's `baseline` (or `record`)."""
+    found = {}
+    with tempfile.TemporaryDirectory() as scratch:
+        for fixture in tasks["fixtures"]:
+            task = next(task for task in tasks["tasks"] if task["fixture"] == fixture["id"])
+            copy = Path(scratch) / fixture["id"]
+            seed(tasks, root, task["id"], "B", copy, components, unseeded=True)
+            found[fixture["id"]] = diagnostics(specforge, copy, "collect", "--yes", "--format", "json")
+    if not record:
+        differ = []
+        for fixture in tasks["fixtures"]:
+            want, got = fixture.get("baseline", []), found[fixture["id"]]
+            differ += [f"{fixture['id']}: - {line}" for line in want if line not in got]
+            differ += [f"{fixture['id']}: + {line}" for line in got if line not in want]
+        if differ:
+            raise Refused("the fixtures' diagnostics are not their baselines:\n" + "\n".join(differ))
+    return found
+
+
 def schedule(tasks: dict, seeds: int = SEEDS) -> list[tuple[str, int, list[str]]]:
     """Every (task, seed) once, with all arms, in an order drawn per (task, seed) by a fixed RNG; when a draw would
     put the previous first arm first again, it is rotated by one."""
@@ -525,6 +565,20 @@ def self_test() -> None:
         (a / ".planning/STATE.md").write_text("status: planned\n")
         assert present(SYNTHETIC, "t1", "A", a) == [], "and STATE.md restored: D1 too"
 
+        # The preflight compares each fixture's check with its baseline: a stand-in specforge reports one warning.
+        stand_in = root / "specforge-stand-in"
+        report = '[{"code": "W1", "file": "a.spec", "line": 3}]'
+        stand_in.write_text(f"#!/bin/sh\n[ \"$1\" = check ] && echo '{report}'\nexit 0\n")
+        stand_in.chmod(0o755)
+        at_baseline = {**SYNTHETIC, "fixtures": [{**SYNTHETIC["fixtures"][0], "baseline": ["W1 a.spec:3"]}]}
+        assert preflight(at_baseline, root, str(stand_in), components) == {"fx": ["W1 a.spec:3"]}
+        try:
+            preflight(SYNTHETIC, root, str(stand_in), components)
+        except Refused as refused:
+            assert "fx: + W1 a.spec:3" in str(refused), refused
+        else:
+            raise AssertionError("a fixture off its baseline must refuse the study")
+
         # The run's commits come after the seeded ones; rework counts those after the first verification write.
         def agent_commit(copy: Path, path: str, text: str) -> None:
             (copy / path).parent.mkdir(parents=True, exist_ok=True)
@@ -594,6 +648,11 @@ def main() -> None:
     said.add_argument("--task", required=True)
     said.add_argument("--arm", required=True)
     verbs.add_parser("schedule", help="the run order")
+    checked = verbs.add_parser("preflight", help="each fixture's diagnostics against its baseline")
+    checked.add_argument("--specforge", required=True, help="the specforge binary built from the tag")
+    checked.add_argument("--gsd-core", required=True)
+    checked.add_argument("--gsd-security", required=True)
+    checked.add_argument("--record", action="store_true", help="print the baselines instead of comparing")
     args = parser.parse_args()
     if args.self_test:
         if args.verb:
@@ -617,6 +676,10 @@ def main() -> None:
             print(rework(args.arm, args.dir))
         elif args.verb == "prompt":
             print(prompt(tasks, args.task, args.arm), end="")
+        elif args.verb == "preflight":
+            components = {"@gsd/core": args.gsd_core, "@gsd/security": args.gsd_security}
+            found = preflight(tasks, REPO, args.specforge, components, args.record)
+            print(json.dumps(found, indent=2) if args.record else f"preflight: {len(found)} fixtures at their baseline")
         else:
             for task, number, arms in schedule(tasks):
                 print(f"{task} {number} {' '.join(arms)}")

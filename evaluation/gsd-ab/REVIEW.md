@@ -6,6 +6,14 @@ agent given only this directory (not the plans or notes that produced it). A fin
 commit that fills this record; one that changes a seed, a task or a script is fixed before it, with its test, and
 `ab_seeds` and `ab_protocol` pass on the result.
 
+The protocol depends on these paths outside this directory. The independent agent does not read them; the owner
+checks that the commit's tests over them pass (`cargo gate full --only gsd`):
+
+- the fixtures, `gsd/parity/fixtures/taskboard`, `vault` and `ledger`, pinned by tree in `tasks.json`;
+- the tests, `gsd/core/tests/cli/ab_seeds.rs`, `ab_protocol.rs` and `harness_ab.rs`, and
+  `gsd/security/tests/cli/ab_seeds.rs`;
+- the components and the binary the arms load: `gsd/core`, `gsd/security` and the `specforge` CLI (`crates/`).
+
 Reviewed commit: `<sha>`
 
 | Reviewer | Who | Date |

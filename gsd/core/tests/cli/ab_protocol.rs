@@ -3,6 +3,7 @@
 
 use std::process::{Command, Stdio};
 
+use super::harness::HOW_TO_BUILD;
 use super::harness::ab::{ab_dir, ab_tasks, python};
 
 fn passes(script: &str) {
@@ -235,6 +236,33 @@ fn every_fixture_is_its_pinned_tree() {
             fixture["tree"].as_str(),
             Some(working_tree_of(path).as_str()),
             "{path}: its tree is not the pinned one"
+        );
+        assert!(
+            fixture["baseline"]
+                .as_array()
+                .is_some_and(|b| !b.is_empty() && b.iter().all(|l| l.is_string())),
+            "{path}: no preflight baseline"
+        );
+    }
+}
+
+/// OPERATOR.md builds the binary and the components with the commands the tests' build hint names.
+#[test]
+fn the_operator_builds_what_the_tests_load() {
+    let path = ab_dir().join("OPERATOR.md");
+    let operator =
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let commands: Vec<&str> = HOW_TO_BUILD
+        .split("(cd ")
+        .skip(1)
+        .filter_map(|part| part.split_once(" && ")?.1.split_once(')'))
+        .map(|(command, _)| command)
+        .collect();
+    assert_eq!(commands.len(), 2, "{HOW_TO_BUILD}");
+    for command in commands {
+        assert!(
+            operator.contains(command),
+            "OPERATOR.md does not build with `{command}`"
         );
     }
 }

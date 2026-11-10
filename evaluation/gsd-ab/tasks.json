@@ -19,9 +19,42 @@
     }
   ],
   "fixtures": [
-    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "b977921e553daa0e76ca2fa69578c851bfc61358", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"] },
-    { "id": "vault", "path": "gsd/parity/fixtures/vault", "tree": "3b7e567fd49da589d0f7dec7fac8078111cf5d0b", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"], "extensions": ["@gsd/security"] },
-    { "id": "ledger", "path": "gsd/parity/fixtures/ledger", "tree": "187ab893ec036d762f61ad564eb8ef14a92a85fc", "status": "ready", "thread": ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"] }
+    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "b977921e553daa0e76ca2fa69578c851bfc61358", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
+      "baseline": [
+        "I213 -:0", "gsd/E501 spec/plans.spec:231", "gsd/E501 spec/plans.spec:237", "gsd/E501 spec/plans.spec:243",
+        "gsd/E501 spec/plans.spec:249", "gsd/E501 spec/plans.spec:256", "gsd/W311 spec/plans.spec:1",
+        "gsd/W311 spec/plans.spec:199", "gsd/W311 spec/plans.spec:90", "gsd/W313 spec/plans.spec:1",
+        "gsd/W313 spec/plans.spec:199", "gsd/W313 spec/plans.spec:90", "gsd/W315 spec/plans.spec:1",
+        "gsd/W315 spec/plans.spec:199", "gsd/W315 spec/plans.spec:90", "gsd/W316 spec/plans.spec:1",
+        "gsd/W316 spec/plans.spec:199", "gsd/W316 spec/plans.spec:90", "gsd/W407 spec/plans.spec:104",
+        "gsd/W407 spec/plans.spec:113", "gsd/W407 spec/plans.spec:14", "gsd/W407 spec/plans.spec:24"
+      ] },
+    { "id": "vault", "path": "gsd/parity/fixtures/vault", "tree": "3b7e567fd49da589d0f7dec7fac8078111cf5d0b", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"], "extensions": ["@gsd/security"],
+      "baseline": [
+        "I213 -:0", "W019 -:0", "gsd.security/E101 spec/plans.spec:170", "gsd.security/E101 spec/plans.spec:87",
+        "gsd/E501 spec/plans.spec:132", "gsd/E501 spec/plans.spec:138", "gsd/E501 spec/plans.spec:145",
+        "gsd/E501 spec/plans.spec:232", "gsd/E501 spec/plans.spec:238", "gsd/E501 spec/plans.spec:245",
+        "gsd/E501 spec/plans.spec:32", "gsd/E501 spec/plans.spec:43", "gsd/E501 spec/plans.spec:50",
+        "gsd/W103 spec/v1.0.spec:17", "gsd/W311 spec/plans.spec:1", "gsd/W311 spec/plans.spec:109",
+        "gsd/W311 spec/plans.spec:201", "gsd/W313 spec/plans.spec:1", "gsd/W313 spec/plans.spec:109",
+        "gsd/W313 spec/plans.spec:201", "gsd/W315 spec/plans.spec:1", "gsd/W315 spec/plans.spec:109",
+        "gsd/W315 spec/plans.spec:201", "gsd/W316 spec/plans.spec:1", "gsd/W316 spec/plans.spec:109",
+        "gsd/W316 spec/plans.spec:201", "gsd/W407 spec/plans.spec:123", "gsd/W407 spec/plans.spec:14",
+        "gsd/W407 spec/plans.spec:23"
+      ] },
+    { "id": "ledger", "path": "gsd/parity/fixtures/ledger", "tree": "187ab893ec036d762f61ad564eb8ef14a92a85fc", "status": "ready", "thread": ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"],
+      "baseline": [
+        "I213 -:0", "code/W401 spec/plans.spec:163", "gsd/E501 spec/plans.spec:168", "gsd/E501 spec/plans.spec:251",
+        "gsd/E501 spec/plans.spec:257", "gsd/E501 spec/plans.spec:263", "gsd/E501 spec/plans.spec:270",
+        "gsd/E501 spec/quick.spec:21", "gsd/E501 spec/quick.spec:27", "gsd/W311 spec/plans.spec:1",
+        "gsd/W311 spec/plans.spec:110", "gsd/W311 spec/plans.spec:220", "gsd/W311 spec/quick.spec:1",
+        "gsd/W313 spec/plans.spec:1", "gsd/W313 spec/plans.spec:110", "gsd/W313 spec/plans.spec:220",
+        "gsd/W313 spec/quick.spec:1", "gsd/W315 spec/plans.spec:1", "gsd/W315 spec/plans.spec:110",
+        "gsd/W315 spec/plans.spec:220", "gsd/W315 spec/quick.spec:1", "gsd/W316 spec/plans.spec:1",
+        "gsd/W316 spec/plans.spec:110", "gsd/W316 spec/plans.spec:220", "gsd/W316 spec/quick.spec:1",
+        "gsd/W407 spec/plans.spec:124", "gsd/W407 spec/plans.spec:134", "gsd/W407 spec/plans.spec:14",
+        "gsd/W407 spec/plans.spec:24", "gsd/W407 spec/quick.spec:11", "gsd/W408 spec/plans.spec:312"
+      ] }
   ],
   "results": {
     "about": "The RESULT values a run of each workflow may end with, what each means, and whether it claims the work done (`claims`: M3 counts the defects left by a run that claims). seed.py's `prompt` renders them into the prompt's last line.",
