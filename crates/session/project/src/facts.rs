@@ -284,16 +284,12 @@ fn served_text(key: &str, bytes: Vec<u8>, recorded: &Ledger) -> Result<String, D
     Ok(stale::carried(text, &renames))
 }
 
-/// The facts of `kinds` in the stores the harness ledger at the project root `root` records, read through `disk`,
-/// sorted by kind and id (ADR 0345 D3): what a collector's `facts` input is served of a kind no collector of its
-/// collect answers. A store the ledger does not record as it is, or that is no store this specforge reads, serves
-/// nothing.
-pub fn recorded_facts(disk: &dyn Disk, root: &Path, kinds: &[&str]) -> Vec<Fact> {
-    if kinds.is_empty() {
-        return Vec::new();
-    }
+/// The fact stores a session serves under the project root `root`, read through `disk`: each store the harness ledger
+/// records exactly as it is on disk, in the ledger's order. A store the ledger does not record as it is (W191), or
+/// that is no store this specforge reads (W192), is none of them.
+pub fn recorded_stores(disk: &dyn Disk, root: &Path) -> Vec<Store> {
     let ledger = recorded(disk, root);
-    let mut facts: Vec<Fact> = ledger
+    ledger
         .lines()
         .filter_map(Line::facts_of)
         .filter_map(|(collector, key)| {
@@ -302,6 +298,17 @@ pub fn recorded_facts(disk: &dyn Disk, root: &Path, kinds: &[&str]) -> Vec<Fact>
             let text = served_text(&path, bytes, &ledger).ok()?;
             store(&path, &text).ok().map(|served| served.store)
         })
+        .collect()
+}
+
+/// The facts of `kinds` in the [`recorded_stores`] under the project root `root`, sorted by kind and id (ADR 0345
+/// D3): what a collector's `facts` input is served of a kind no collector of its collect answers.
+pub fn recorded_facts(disk: &dyn Disk, root: &Path, kinds: &[&str]) -> Vec<Fact> {
+    if kinds.is_empty() {
+        return Vec::new();
+    }
+    let mut facts: Vec<Fact> = recorded_stores(disk, root)
+        .into_iter()
         .flat_map(|store| store.facts)
         .filter(|fact| kinds.contains(&fact.kind.as_str()))
         .collect();

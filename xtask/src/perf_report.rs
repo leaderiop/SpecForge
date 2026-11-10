@@ -7,7 +7,8 @@
 //! The steps, each timed in wall-clock milliseconds (the median of `runs`, a cold collect once) beside the counted
 //! work it did: `check` before any collect; a cold collect (no `.specforge/`), each collector's files parsed, read
 //! from the syntax cache and facts stored; a warm collect, which must parse no file; one edit (a line comment
-//! appended to one Rust file) and a collect, which must parse exactly that file; and `check` with the facts served.
+//! appended to one Rust file) and a collect, which must parse exactly that file; and `check` with the facts served,
+//! counted from the stores the harness ledger records as they are (what `check` serves).
 //! Exit 0 within budget, 1 when a step is over budget or a counted expectation fails, 2 when a step cannot run.
 
 #![expect(
@@ -44,6 +45,8 @@ struct Measured {
     edit: Work,
     /// The facts the cold collect stored.
     facts: u64,
+    /// The facts `check` was served: those of the stores the ledger records as they are on disk.
+    served: u64,
 }
 
 /// One collect's syntax work over every collector.
@@ -209,6 +212,7 @@ fn run() -> Result<bool, Failed> {
     }
     append_comment(&tree.join(EDITED))?;
     let (collect_edit_ms, edit) = sf.collect()?;
+    let served = served_facts(&specforge_registry::PlainDisk, &tree);
     let measured = Measured {
         check_empty_ms,
         collect_cold_ms,
@@ -219,6 +223,7 @@ fn run() -> Result<bool, Failed> {
         warm,
         edit: work(&edit),
         facts,
+        served,
     };
 
     let verdicts = verdicts(&measured, &BUDGET);
@@ -294,6 +299,15 @@ fn work(answer: &Value) -> Work {
     })
 }
 
+/// The facts `check` is served in the project at `root`, read through `disk`: those of each store the harness ledger
+/// records exactly as it is (a store the ledger does not record, W191, serves none).
+fn served_facts(disk: &dyn specforge_registry::Disk, root: &Path) -> u64 {
+    specforge_project::facts::recorded_stores(disk, root)
+        .iter()
+        .map(|store| store.facts.len() as u64)
+        .sum()
+}
+
 /// Copy every file git tracks in `repo`, as the working tree holds it, to `to`.
 fn copy_tracked(repo: &Path, to: &Path) -> Result<(), Failed> {
     let mut listed = Command::new("git");
@@ -364,7 +378,7 @@ fn report(repo: &Path, runs: usize, m: &Measured, verdicts: &[String]) -> Value 
             "collect_warm": {"ms": m.collect_warm_ms, "parsed": m.warm.parsed, "cached": m.warm.cached},
             "collect_edit": {"ms": m.collect_edit_ms, "parsed": m.edit.parsed, "cached": m.edit.cached,
                              "edited": EDITED},
-            "check": {"ms": m.check_ms, "facts": m.facts},
+            "check": {"ms": m.check_ms, "facts": m.served},
         },
         "budget": {
             "collect_cold_ms": BUDGET.collect_cold_ms,
@@ -404,7 +418,7 @@ fn table(m: &Measured) -> String {
             "check, facts served",
             m.check_ms,
             Some(CHECK_MS),
-            format!("{} facts", m.facts),
+            format!("{} facts", m.served),
         ),
     ];
     let mut out = String::from("step                  ms  budget  work\n");
@@ -440,6 +454,7 @@ mod tests {
                 cached: 2_460,
             },
             facts: 36_640,
+            served: 36_640,
         }
     }
 
@@ -489,5 +504,48 @@ mod tests {
         assert_eq!(median(&[30, 10, 20]), 20);
         assert_eq!(median(&[40, 10, 30, 20]), 20);
         assert_eq!(median(&[]), 0);
+    }
+
+    /// The ledger and the store of a collect that recorded `facts`, the store's bytes as `on_disk` says.
+    fn recorded(
+        facts: usize,
+        on_disk: impl FnOnce(Vec<u8>) -> Vec<u8>,
+    ) -> specforge_registry::MemoryDisk {
+        use specforge_project::facts::Store;
+        use specforge_project::harness::{LEDGER_FILE, Ledger, Line};
+        let items = (0..facts)
+            .map(|n| specforge_protocol_types::Fact::new("item", format!("rust:p::f{n}")))
+            .collect();
+        let store = Store::new(
+            "rust-source",
+            "@rust/source",
+            "worktree",
+            items,
+            Default::default(),
+        );
+        let bytes = store.bytes();
+        let mut ledger = Ledger::default();
+        ledger.insert(Line::facts("rust-source", "worktree", &bytes));
+        specforge_registry::MemoryDisk::new()
+            .with_file(
+                Path::new("/p").join(LEDGER_FILE),
+                ledger.canonical().as_bytes(),
+            )
+            .with_file(
+                Path::new("/p").join(Store::path("rust-source", "worktree")),
+                &on_disk(bytes),
+            )
+    }
+
+    #[test]
+    fn perf_report_counts_the_facts_check_is_served_not_those_collected() {
+        let served = recorded(3, |bytes| bytes);
+        assert_eq!(served_facts(&served, Path::new("/p")), 3);
+        // A store changed since the ledger recorded it is W191 to `check`: none of its facts is served.
+        let changed = recorded(3, |mut bytes| {
+            bytes.extend_from_slice(b"\n");
+            bytes
+        });
+        assert_eq!(served_facts(&changed, Path::new("/p")), 0);
     }
 }
