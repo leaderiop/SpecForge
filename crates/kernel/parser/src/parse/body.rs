@@ -285,16 +285,23 @@ impl<'a> ParseContext<'a> {
         let written = self.text(node);
         let (spelling, lexemes) = type_spelling(written);
         let start = node.start_position();
-        let at = |offset: usize| {
-            let before = &written[..offset];
-            let point = match before.rfind('\n') {
-                None => tree_sitter::Point::new(start.row, start.column + offset),
-                Some(newline) => tree_sitter::Point::new(
-                    start.row + before.matches('\n').count(),
-                    offset - newline - 1,
-                ),
-            };
-            self.position(node.start_byte() + offset, point)
+        // Where the text scanned so far ends: its row, its byte column, its offset. The lexemes' offsets only grow,
+        // so each is reached from the one before, never by scanning the text from its start again.
+        let (mut row, mut column, mut scanned) = (start.row, start.column, 0);
+        let mut at = |offset: usize| {
+            let gap = &written[scanned..offset];
+            match gap.rfind('\n') {
+                None => column += gap.len(),
+                Some(newline) => {
+                    row += gap.matches('\n').count();
+                    column = gap.len() - newline - 1;
+                }
+            }
+            scanned = offset;
+            self.position(
+                node.start_byte() + offset,
+                tree_sitter::Point::new(row, column),
+            )
         };
         let spans = lexemes
             .iter()

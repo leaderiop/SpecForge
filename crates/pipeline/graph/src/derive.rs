@@ -193,31 +193,35 @@ fn type_expressions<'v>(
 
 /// The names inside a type expression, each with where it is written: the identifiers of the language's lexer
 /// (`Result<A, B[]>` -> Result, A, B), each where its lexeme is written, else at the expression's position plus its
-/// offset.
+/// offset. A spelling that lexes into other lexemes than the ones it was spelled from (`Map<K V>`, spelled `Map<KV>`,
+/// as an error-recovered parse can hold) places each name on the whole expression: no index pairs them.
 fn names(expression: TypeExpression<'_>) -> impl Iterator<Item = (&str, Option<SourceSpan>, &str)> {
     // A value or bare item that is one word holding `-` or `.`, or starting with a digit (`Money-v2`, `2-1`, `v1.0`,
     // `007`), or a path of names (`v1.0/03/Money`, ADR 0284), is one name, as the grammar reads it (ADR 0283); a structured type expression keeps the lexer's identifiers.
     let text = expression.text;
     let whole = is_path(text)
         && (text.contains(['-', '.', '/']) || text.starts_with(|c: char| c.is_ascii_digit()));
+    let cut = if whole { Vec::new() } else { lex(text) };
+    // The spelling's lexemes pair with the written ones by index only when both cut alike.
+    let paired = whole || expression.lexemes.is_empty() || cut.len() == expression.lexemes.len();
     let names: Vec<(usize, usize, Option<&SourceSpan>)> = if whole {
         vec![(0, text.len(), None)]
     } else {
-        lex(text)
-            .into_iter()
+        cut.into_iter()
             .enumerate()
             .filter(|(_, lexeme)| lexeme.kind == LexemeKind::Ident)
             .map(|(i, lexeme)| (lexeme.start, lexeme.end, expression.lexemes.get(i)))
             .collect()
     };
     names.into_iter().map(move |(start, end, written)| {
-        (
-            &text[start..end],
+        let at = if paired {
             written
                 .cloned()
-                .or_else(|| expression.at.map(|at| within(at, text, start, end))),
-            expression.owner,
-        )
+                .or_else(|| expression.at.map(|at| within(at, text, start, end)))
+        } else {
+            expression.at.cloned()
+        };
+        (&text[start..end], at, expression.owner)
     })
 }
 
@@ -385,3 +389,6 @@ impl Graph {
         diagnostics
     }
 }
+
+#[cfg(test)]
+mod tests;
