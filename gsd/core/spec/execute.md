@@ -100,11 +100,10 @@ runs no program: it asks the host's git port for the typed log from `HEAD` (its 
 diff of each commit it records against its first parent (a root commit's against the empty tree), renames apart, so a
 rename touches both paths (ADR 0352). It is a *writing* collector: it is also given the graph, and answers an edit plan (`Record N commits`) that creates the new `commit` entities in their plans' files, oldest first.
 The host applies the plan and records each field in `specforge-harness`. A commit whose 12-hex name the graph already
-holds is not recorded again, so a second run changes nothing. The collector is detected by a branch ref
-(`.git/refs/heads/*` or `.git/packed-refs`, ADR 0331 D4), or named (`--runner gsd-git`): a plain `specforge collect` in
-a repository with a commit runs it, and one with no commit yet (unborn) does not detect it. It needs neither a run nor
-a `git` on PATH, so `--no-run` records the commits too; named, an unborn repository records nothing and a directory in
-no repository fails ("the project is in no git repository"). The header is read as `/gsd-undo` reads it: one `fixup! `, `squash! `
+holds is not recorded again, so a second run changes nothing. The collector is detected by `.git` (a directory, or a
+linked worktree's file, ADR 0352), or named (`--runner gsd-git`): a plain `specforge collect` in any repository runs it,
+and an unborn one (no commit yet) records nothing. It needs neither a run nor a `git` on PATH, so `--no-run` records the
+commits too; named, a directory in no repository fails ("the project is in no git repository"). The header is read as `/gsd-undo` reads it: one `fixup! `, `squash! `
 or `Revert "…"` layer is unwrapped, then `type[(scope)][!]: description`, case-insensitively; the scope is the plan's GSD
 id (`03-02`, `03.1-01`, a quick id), resolved over the graph as a path, a rooted path or a unique short form. A scope that
 names no plan, several plans (`01-01` in two milestones: write the full path) or a non-plan is skipped, except that a

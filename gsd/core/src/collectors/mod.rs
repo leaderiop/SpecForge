@@ -1,8 +1,7 @@
 //! The collectors of `@gsd/core`: what brings the outside world into the project (`spec/execute.md`).
 //!
-//! `gsd-git` is detected by a branch ref (`.git/refs/heads/*` or `.git/packed-refs`: a repository with a commit, ADR
-//! 0331 D4), so a plain `specforge collect` records the commits; it reads the host's git port (ADR 0352), so neither
-//! `--no-run` nor a missing `git` skips it. `gsd-junit` declares no detection: it has no command, so a plain collect
+//! `gsd-git` is detected by `.git` (any repository, a linked worktree's included, ADR 0352), so a plain `specforge
+//! collect` records the commits; it reads the host's git port, so neither `--no-run` nor a missing `git` skips it. `gsd-junit` declares no detection: it has no command, so a plain collect
 //! could never run it.
 
 mod git;

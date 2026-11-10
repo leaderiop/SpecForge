@@ -328,12 +328,9 @@ fn the_git_collector_reads_the_git_port_and_writes_a_plan() {
     assert!(declaration.capabilities.iter().any(|c| {
         c.name == "repo" && matches!(c.port, specforge_extension_sdk::PortScope::Git(_))
     }));
-    // Detected by a branch ref (ADR 0331 D4): a plain `specforge collect` in a repository with a commit runs it.
+    // Detected by `.git` (ADR 0352): a plain `specforge collect` in any repository, a linked worktree's included.
     let detect = git.auto_detect.as_ref().expect("gsd-git is detected");
-    assert_eq!(
-        detect.file_patterns,
-        [".git/refs/heads/*", ".git/packed-refs"]
-    );
+    assert_eq!(detect.file_patterns, [".git"]);
 }
 
 #[test]

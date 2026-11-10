@@ -276,30 +276,38 @@ fn gsd_git(run: &Run) -> serde_json::Value {
         .unwrap_or_default()
 }
 
-/// A repository with no commit yet has no branch ref, so gsd-git is not detected (and `git log` would fail).
+/// A repository with no commit yet is detected by its `.git`, and gsd-git records nothing there.
 #[test]
-fn a_plain_collect_in_an_unborn_repository_does_not_run_gsd_git() {
+fn a_plain_collect_in_an_unborn_repository_records_nothing() {
     let p = project("execute");
     p.init_repository();
     let run = p.run(&["collect", "--yes", "--format", "json"]);
-    assert_ne!(run.code, 0, "{}", run.all());
-    assert!(run.all().contains("E058"), "{}", run.all());
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(gsd_git(&run)["skip_reason"].is_null(), "{}", run.all());
     assert!(recorded(&p).is_empty());
 }
 
-/// Pins detection by a branch ref: in a linked worktree `.git` is a file, so a plain collect there does not detect
-/// gsd-git and records nothing. It flips once gsd-git is detected by `.git`.
+/// In a linked worktree `.git` is a file: gsd-git is detected there and records the worktree's commits in its plan
+/// files, leaving the main checkout's alone.
 #[test]
-fn a_plain_collect_in_a_linked_worktree_does_not_run_gsd_git() {
+fn a_plain_collect_in_a_linked_worktree_records_the_commits() {
     let p = project_at("execute", "main");
     p.commit();
-    p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
+    let hash = p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
     p.git(&["worktree", "add", "-q", "-b", "wt", "../wt"], T0);
     assert!(p.root().join("../wt/.git").is_file());
     let run = p.run(&["collect", "--path", "../wt", "--yes", "--format", "json"]);
-    assert_ne!(run.code, 0, "{}", run.all());
-    assert!(run.all().contains("E058"), "{}", run.all());
-    assert_eq!(p.git(&["-C", "../wt", "status", "--porcelain"], T0), "");
+    assert_eq!(run.code, 0, "{}", run.all());
+    let written = p.git(&["-C", "../wt", "diff"], T0);
+    assert!(
+        written.contains(&hash[..12]),
+        "the plan file holds the commit: {written}"
+    );
+    assert_eq!(
+        p.git(&["status", "--porcelain"], T0),
+        "",
+        "the main checkout is untouched"
+    );
 }
 
 /// gsd-git runs no program: a `--no-run` collect records the commits as a run does (ADR 0352).

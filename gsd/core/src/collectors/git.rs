@@ -77,10 +77,8 @@ impl LinkedBy {
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.collector(NAME, |k| {
-        // A branch ref: a repository with a commit.
-        k.detect_files(&[".git/refs/heads/*", ".git/packed-refs"])
-            .writes()
-            .collect(collect);
+        // Any repository: `.git` is a directory, or a linked worktree's file. An unborn one records nothing.
+        k.detect_files(&[".git"]).writes().collect(collect);
     });
 }
 
