@@ -410,8 +410,8 @@ impl Project {
     }
 
     /// `(code, message)` of every diagnostic of `specforge check --format json` (kernel and `gsd/`), in report order,
-    /// the `I204` note and the `I205` note ("no test report") left out: `gsd/E501` reads the report through its
-    /// `test(..)` input, so every project that has none says I205 once, and the tests of the rules are not about that.
+    /// the `I204` note and the `I205` note ("not judged: no test results") left out: `gsd/E501`'s `test(..)` input is
+    /// unjudged while a recorded verdict's tests are not collected, and the tests of the rules are not about that.
     /// The `I213` note (values that wait for their owner) is left out for the same reason: every project with a
     /// pending plan says it once.
     /// The judged rules' diagnostics (`no verdict`, `stale`, the outcome) are left out too: every plan, truth and so
