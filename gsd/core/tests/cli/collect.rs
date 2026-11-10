@@ -580,31 +580,21 @@ fn a_failed_and_a_skipped_test_keep_their_status() {
     );
 }
 
+/// gsd-git is a gsd project's one runner (`checks` publishes outcomes, it runs nothing), and a project that enabled
+/// a single runner chose it: a plain `collect` runs it as `--runner gsd-git` would, so outside a repository it fails
+/// and says why, and a JUnit report lying there selects no other.
 #[test]
-fn a_report_that_stops_short_is_refused() {
-    let p = project("execute");
-    p.write(
-        "junit.xml",
-        "<testsuite><testcase name=\"[gsd:01-01/TR1] a\"",
-    );
-    let run = p.collect(&["--runner", "gsd-junit", "--no-run"]);
-    assert_ne!(run.code, 0, "{}", run.all());
-    assert!(run.all().contains("junit.xml"), "{}", run.all());
-    assert!(!p.exists("specforge-report.json"));
-}
-
-#[test]
-fn the_junit_collector_is_never_run_by_a_plain_collect() {
-    // It is named, not detected: a plain `collect` finds no runner to run.
+fn a_plain_collect_runs_gsd_git_the_projects_one_runner() {
     let p = project("execute");
     p.write("junit.xml", "<testsuite/>");
     let run = p.run(&["collect", "--yes", "--format", "json"]);
     assert_ne!(run.code, 0, "{}", run.all());
     assert!(
-        run.all().contains("E058") && run.all().contains("available: checks, gsd-git, gsd-junit"),
+        run.all().contains("the project is in no git repository"),
         "{}",
         run.all()
     );
+    assert!(!p.exists("specforge-report.json"));
 }
 
 /// A failing test never refuses the commits `gsd-git` records. Under `gsd-strict` a failing check is an Error

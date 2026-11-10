@@ -220,10 +220,7 @@ pub const MODULES: &[(&str, Module)] = &[
     ("model-catalog.cjs", Ported("src/settings/models.rs")),
     ("model-profiles.cjs", Ported("src/settings/profiles.rs")),
     ("model-resolver.cjs", Ported("src/settings/models.rs")),
-    (
-        "normalize-test-command.cjs",
-        Ported("src/collectors/junit.rs"),
-    ),
+    ("normalize-test-command.cjs", Ported("src/commands/gate.rs")),
     (
         "observability/*",
         NotApplicable("gsd-tools' event log and redaction; the kernel logs and redacts (K-series)"),
