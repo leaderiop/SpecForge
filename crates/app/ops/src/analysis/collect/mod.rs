@@ -434,8 +434,7 @@ fn select<'a>(
         return Err(fail(
             OpErrorKind::PreconditionFailed,
             codes::E058,
-            "no enabled extension provides a test collector; enable a runner extension \
-             (e.g. `specforge add @specforge/cargo-test`)",
+            "no enabled extension provides a collector; enable one (e.g. `specforge add @rust/source`)",
         )
         .into());
     }
@@ -482,7 +481,7 @@ fn select<'a>(
             OpErrorKind::PreconditionFailed,
             codes::E058,
             format!(
-                "no test runner detected in {}; name the runner to use (available: {})",
+                "no collector detected in {}; name the collector to use (available: {})",
                 root.display(),
                 names()
             ),

@@ -701,14 +701,14 @@ Level: error
 ## E058
 
 ```
-E058: No test collector
+E058: No collector
 
 `specforge collect` found no collector to use: no enabled extension provides
 one, none of the enabled collectors' detection files (such as `Cargo.toml`) are
 present at the project root, the `--runner` name matches no collector, a
 collector declares a report path outside the project, or `--report` was passed
-while several collectors apply. Enable a runner extension (e.g. `specforge add
-@specforge/cargo-test`) or pick one with `--runner`. Over MCP an unknown
+while several collectors apply. Enable an extension that declares one (e.g.
+`specforge add @rust/source`) or pick one with `--runner`. Over MCP an unknown
 `runner` is `invalid_input` naming `runner`; the other cases are
 `precondition_failed`.
 

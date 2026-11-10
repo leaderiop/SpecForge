@@ -41,7 +41,7 @@ fn no_enabled_collector_is_e058_naming_how_to_add_one() {
         refusal
             .error
             .message
-            .contains("specforge add @specforge/cargo-test"),
+            .contains("enable one (e.g. `specforge add @rust/source`)"),
         "{refusal:?}"
     );
     untouched(&fx, &machine);
@@ -60,7 +60,7 @@ fn no_match_among_several_collectors_is_e058_listing_them() {
     assert_eq!(refusal.error.kind, OpErrorKind::PreconditionFailed);
     assert_eq!(refusal.error.code, "E058");
     assert!(
-        refusal.error.message.contains("no test runner detected"),
+        refusal.error.message.contains("no collector detected"),
         "{refusal:?}"
     );
     assert!(
@@ -71,7 +71,7 @@ fn no_match_among_several_collectors_is_e058_listing_them() {
         refusal
             .error
             .message
-            .contains("; name the runner to use (available: "),
+            .contains("; name the collector to use (available: "),
         "{refusal:?}"
     );
     untouched(&fx, &machine);
