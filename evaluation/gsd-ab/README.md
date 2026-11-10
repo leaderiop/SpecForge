@@ -94,10 +94,14 @@ Per arm, per (task, seed) run. The operator's scripts write a run file (section 
 |---|---|---|
 | M1 | first-pass acceptance | every `acceptance` check passed on the first delivery |
 | M2 | state-drift incidents | claims the agent leaves (status, progress, "complete", "verified") that differ from the task's `ground_truth`, recomputed from the repository after the run |
-| M3 | false "verified" | seeded defects still present at the end of a run whose final report says verified, complete or passed |
+| M3 | false "verified" | seeded defects a run can remove still present at the end of a run whose final report says verified, complete or passed |
 | M4 | tokens per completed plan | total tokens over plans completed, per arm |
 | M5 | wall time and human interventions | `wall_seconds`, `interventions` |
 | M6 | rework commits after verify | `rework_commits` |
+
+S4 is seeded but not counted in M3: its commit stays in history whatever a run does, so every correct execute run
+would score it in every arm (`"fixable": false` in `tasks.json#defects`). Each execute task judges it instead, by the
+acceptance row "the report names the commit whose trailer names the wrong task", which M1 counts.
 
 ## 7. Run procedure
 

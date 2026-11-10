@@ -52,12 +52,14 @@ class Unpaired(ValueError):
     """A run with no partner run of the same (task, seed) in the other arm."""
 
 
-def measures(run: dict, task: dict) -> dict:
-    """M1-M6 of one run (README section 6). M4 is per arm, so it is the run's tokens and plans."""
+def measures(run: dict, task: dict, defects: dict) -> dict:
+    """M1-M6 of one run (README section 6), `defects` the corpus's by id. M4 is per arm, so it is the run's tokens
+    and plans. M3 counts only the defects a run can remove: one marked `"fixable": false` (a seeded commit stays in
+    history) is judged by an acceptance row instead."""
     truth = task.get("ground_truth", {})
     claims = run.get("claims", {})
     drift = sum(1 for key, state in claims.items() if key in truth and truth[key] != state)
-    seeded = set(task.get("seeded", []))
+    seeded = {defect for defect in task.get("seeded", []) if defects.get(defect, {}).get("fixable", True)}
     claimed = run.get("final_report") in CLAIMED
     present = seeded & set(run.get("defects_present", [])) if claimed else set()
     return {
@@ -77,12 +79,13 @@ def pair(runs: list[dict], tasks: dict, treated: str, control: str) -> dict:
     """{task: {seed: (treated measures, control measures)}} over the runs of the two arms. Raises
     Unpaired when a run of either arm has no partner, and ValueError for an unknown task."""
     by_id = {task["id"]: task for task in tasks["tasks"]}
+    defects = {defect["id"]: defect for defect in tasks.get("defects", [])}
     held: dict[tuple[str, str, int], dict] = {}
     for run in runs:
         if run["task"] not in by_id:
             raise ValueError(f"{run['arm']}/{run['task']}/{run['seed']}: no such task in tasks.json")
         if run["arm"] in (treated, control):
-            held[(run["arm"], run["task"], run["seed"])] = measures(run, by_id[run["task"]])
+            held[(run["arm"], run["task"], run["seed"])] = measures(run, by_id[run["task"]], defects)
     pairs: dict[str, dict[int, tuple[dict, dict]]] = {}
     for (arm, task, seed), _ in sorted(held.items()):
         other = control if arm == treated else treated
@@ -313,9 +316,15 @@ def self_test() -> None:
     assert difference(spread, "M2") == 4.5 and abs(low - 2.72) <= 0.2 and abs(high - 6.28) <= 0.2, (low, high)
     # H2 counts the thread's defects only: S2 left by B0 alone would not count.
     measured = measures(
-        {"final_report": "verified", "defects_present": ["S2"]}, {"seeded": ["S1", "S2"]}
+        {"final_report": "verified", "defects_present": ["S2"]}, {"seeded": ["S1", "S2"]}, {}
     )
     assert (measured["M3"], measured["M3_thread"]) == (1.0, 0.0), measured
+    # A defect no run can remove (its seeded commit stays in history) is out of M3.
+    measured = measures(
+        {"final_report": "complete", "defects_present": ["S1", "S4"]}, {"seeded": ["S1", "S4"]},
+        {"S4": {"id": "S4", "fixable": False}},
+    )
+    assert measured["M3"] == 1.0, measured
     runs, tasks = synthetic(b_wins=True)
     try:
         score([run for run in runs if run["arm"] != "B0"][:-1], tasks)

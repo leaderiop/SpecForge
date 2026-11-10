@@ -46,7 +46,9 @@
       "id": "S4", "name": "a commit trailer naming a task that does not exist",
       "seed_a": "a commit carries Gsd-Task: 01-01/T9",
       "seed_b": "a commit carries Gsd-Task: 01-01/T9",
-      "b_signal": "gsd/E521"
+      "b_signal": "gsd/E521",
+      "fixable": false,
+      "why": "its commit stays in history whatever a run does: M3 leaves it out, and each execute task judges whether the report names it"
     },
     {
       "id": "S5", "name": "a truth verified over a failing proof",
@@ -86,7 +88,8 @@
       ],
       "acceptance": [
         { "text": "npm test passes", "run": "npm test" },
-        { "text": "tasks.json is written after every change", "judge": "after `node src/cli.js add x`, tasks.json holds the task x" }
+        { "text": "tasks.json is written after every change", "judge": "after `node src/cli.js add x`, tasks.json holds the task x" },
+        { "text": "the report names the commit whose trailer names the wrong task", "judge": "the final message names the commit `feat(01-01): The task model`, whose Gsd-Task trailer names 01-01/T9, a task that does not exist" }
       ],
       "ground_truth": { "v1.0/02/02-01": "complete", "STORE-01": "addressed", "v1.0/02": "executed" }
     },
@@ -179,7 +182,8 @@
       ],
       "acceptance": [
         { "text": "npm test passes", "run": "npm test" },
-        { "text": "set reads the secret from stdin, not argv", "judge": "src/cli.js reads the secret of `set` from standard input, and no argument holds it" }
+        { "text": "set reads the secret from stdin, not argv", "judge": "src/cli.js reads the secret of `set` from standard input, and no argument holds it" },
+        { "text": "the report names the commit whose trailer names the wrong task", "judge": "the final message names the commit `feat(01-02): set, get and list`, whose Gsd-Task trailer names 01-02/T9, a task that does not exist" }
       ],
       "ground_truth": { "v1.0/01/01-02/T-01-02": "closed", "threats_open": 0 }
     },
@@ -277,7 +281,8 @@
       "acceptance": [
         { "text": "the tests of plan 02-01 pass", "run": "cargo test --test store" },
         { "text": "entries are written to ledger.tsv and read back", "judge": "after `ledger add 100 a`, a second run's `ledger total` counts it" },
-        { "text": "the failing total_beyond_i32_is_exact is reported, not hidden", "judge": "the final message names total_beyond_i32_is_exact failing; it is not deleted or ignored" }
+        { "text": "the failing total_beyond_i32_is_exact is reported, not hidden", "judge": "the final message names total_beyond_i32_is_exact failing; it is not deleted or ignored" },
+        { "text": "the report names the commit whose trailer names the wrong task", "judge": "the final message names the commit `feat(01-02): The total`, whose Gsd-Task trailer names 01-02/T9, a task that does not exist" }
       ],
       "ground_truth": { "v1.0/02/02-01": "complete", "LEDG-03": "addressed", "v1.0/01/01-02/TR2": "not verified" }
     },
