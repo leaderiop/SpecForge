@@ -505,16 +505,20 @@ fn first_problem(lines: &[String]) -> String {
         .map_or_else(String::new, |l| l.trim().to_string())
 }
 
-/// `specforge check --path <project> --format json --effects cached` for every project: each one's diagnostics. The
-/// gate never reaches the network: it judges what the effects journal holds (ADR 0337 D7).
+/// `specforge check --path <project> --format json --effects cached` for every project of a copy of the tracked tree
+/// ([`crate::checked_tree`]): each one's diagnostics, keyed by the project's root in the repository. The gate never
+/// reaches the network (ADR 0337 D7), and no fact store, ledger or journal of this machine is in the copy.
 fn project_diagnostics(ctx: &Ctx) -> Result<BTreeMap<String, Vec<Value>>, String> {
     let specforge = ctx.specforge()?;
+    // The tracked tree alone: a local collect's fact stores, its ledger or an effects journal moves no count.
+    let tree = ctx.repo.target_dir.join("gate/specs");
+    crate::checked_tree::copy_tracked(&ctx.repo.root, &tracked_paths(ctx)?, &tree)?;
     let mut found = BTreeMap::new();
     for project in ctx.repo.projects()? {
         let (_, out) = ctx.capture(ctx.cmd(specforge).args([
             "check",
             "--path",
-            &project.root,
+            &tree.join(&project.root).to_string_lossy(),
             "--format",
             "json",
             "--effects",

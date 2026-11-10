@@ -355,7 +355,7 @@ pub static CHECKS: &[Check] = &[
     },
     Check {
         name: "specs",
-        proves: "every project checks with no error and no warning above the baseline",
+        proves: "every project, as tracked, checks with no error and no warning above the baseline",
         reach: Reach::Quick,
         trigger: Trigger::Paths(&[
             "**/*.spec",

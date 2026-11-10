@@ -46,7 +46,7 @@ doctests          quick      computed: a workspace member that holds a runnable 
 published-schemas quick      **/*.spec, **/specforge.json, extensions/**, crates/pipeline/emitter/**, crates/pipeline/graph/**, crates/pipeline/registry/**, crates/app/ops/tests/operations/schema.rs (after build)
                              every project's exports validate against the schema `specforge schema --publish` prints for their format
 specs             quick      **/*.spec, **/specforge.json, gate/baseline.json, extensions/**, crates/**/src/**, crates/**/Cargo.toml
-                             every project checks with no error and no warning above the baseline
+                             every project, as tracked, checks with no error and no warning above the baseline
 spec-modules      quick      computed: spec/product/modules.spec, the root manifest or a member's manifest
                              spec/product/modules.spec models every crate: one module each, with its manifest's description and dependencies
 dogfood           full       always (after tests, guests)
