@@ -1,7 +1,7 @@
 //! `@code/core`'s check passes over a project (ADR 0329 D5, D6): the builtin's component loads beside the in-process
 //! `Collected` fixture peering it (`@t/node` collects, `@t/spec`'s `truth` cites `test`), and `@t/owner` scopes a
 //! citing `step` by a `plan` complete on `status ∈ [complete]` and declares `api`, whose `items` cites `item` facts
-//! (ADR 0347 D9).
+//! (ADR 0347 D9), and `change`, whose `items_changed` the harness writes once (a history reference, ADR 0352 D2).
 
 use std::sync::Arc;
 
@@ -51,6 +51,14 @@ fn owner() -> ContributionsBuilder {
     c.kind("api", |k| {
         k.field("items", |f| {
             f.field_type(FieldType::ReferenceList).target_kind("item");
+        });
+    });
+    c.kind("change", |k| {
+        k.field("items_changed", |f| {
+            f.field_type(FieldType::ReferenceList)
+                .target_kind("item")
+                .harness()
+                .immutable();
         });
     });
     c
@@ -374,4 +382,25 @@ fn an_item_ref_links_to_its_fact() {
             .any(|e| e.target.as_str() == "rust:toy::Board::add"),
         "A1 links the item"
     );
+}
+
+/// An item the harness recorded once and the code has since renamed is history: what held when it was written, never
+/// a finding, where an authored reference to it is `code/E101`.
+#[specforge_test_macros::test(
+    behavior = "cc_check_fact_refs",
+    verify = "an unheld history reference is no finding"
+)]
+fn a_harness_immutable_reference_is_no_finding() {
+    let change = "change C1 \"One\" {\n  items_changed [\"rust:toy::Board::ad\"]\n}\n";
+    let p = project(&[("changes.spec", change)]);
+    stored(
+        p.root(),
+        "rust-source",
+        KEY,
+        items(&["rust:toy::Board::add"]),
+    );
+
+    let compiled = compiled(&p);
+
+    assert_eq!(found(&compiled), [], "{:?}", compiled.diagnostics());
 }

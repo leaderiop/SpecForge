@@ -141,6 +141,7 @@ behavior cc_check_fact_refs "Check Cited Fact References" {
   verify integration "a rust test ref beside only item facts is code/W102"
   verify integration "a missing item of a collected crate is code/E101"
   verify integration "an item ref links to its fact"
+  verify integration "an unheld history reference is no finding"
 }
 
 behavior cc_check_proof "Report a Failing Proof and a Test Naming No Entity" {
