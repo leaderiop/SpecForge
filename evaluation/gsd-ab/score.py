@@ -17,6 +17,8 @@ Standard library only, Python 3.11+.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import random
 import sys
@@ -225,6 +227,19 @@ def read_runs(root: Path, tasks: dict) -> list[dict]:
     return runs
 
 
+def status(root: Path, tasks: dict) -> int:
+    """The exit status of scoring the run files under `root`: 0 when gate B passes, 1 when it fails, and 2 when the
+    run set is refused (a bad or unpaired run file, or none), with the reason on standard error."""
+    try:
+        runs = read_runs(root, tasks)
+        if not runs:
+            raise ValueError(f"no run file under {root}")
+        return 0 if score(runs, tasks)[0] else 1
+    except ValueError as refusal:
+        print(f"score.py: {refusal}", file=sys.stderr)
+        return 2
+
+
 def write_runs(root: Path, runs: list[dict]) -> None:
     for run in runs:
         path = root / run["arm"] / run["task"] / f"{run['seed']}.json"
@@ -294,6 +309,15 @@ def self_test() -> None:
         print(f"refused: {refusal}")
     else:
         raise AssertionError("an unpaired run must be refused")
+    # A refused set exits 2 with its reason on standard error, never 1 (gate B fails) or a traceback.
+    with tempfile.TemporaryDirectory() as tmp:
+        said = io.StringIO()
+        with contextlib.redirect_stderr(said):
+            empty = status(Path(tmp), tasks)
+            write_runs(Path(tmp), [run for run in runs if run["arm"] != "B0"][:-1])
+            unpaired = status(Path(tmp), tasks)
+        assert (empty, unpaired) == (2, 2), (empty, unpaired)
+        assert said.getvalue().count("score.py: ") == 2 and "no B run" in said.getvalue(), said.getvalue()
     # The run files' own refusals, counted: exactly these eight.
     run = runs[0]
     for what, bad in (
@@ -320,8 +344,7 @@ def main() -> None:
     if args.self_test:
         self_test()
         return
-    tasks = json.loads(TASKS.read_text())
-    sys.exit(0 if score(read_runs(args.runs, tasks), tasks)[0] else 1)
+    sys.exit(status(args.runs, json.loads(TASKS.read_text())))
 
 
 if __name__ == "__main__":

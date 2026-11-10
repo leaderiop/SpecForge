@@ -170,6 +170,9 @@ python3 -I evaluation/gsd-ab/score.py --runs evaluation/gsd-ab/runs
 python3 -I evaluation/gsd-ab/score.py --self-test
 ```
 
+`--runs` exits 0 when gate B passes, 1 when it fails, and 2 when the run set is refused (a bad or unpaired run file,
+or none), with the reason on standard error.
+
 `--self-test` writes an embedded synthetic set (4 tasks, 3 seeds, 3 arms) as run files and reads it back, scores it
 where B clearly wins and where it doesn't, checks the gate B verdict of each and that an unpaired run is refused, and
 refuses exactly eight bad run files: one without its host, one whose interventions are not logged, one whose
