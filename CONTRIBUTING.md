@@ -51,9 +51,10 @@ through one driver: `compile()`/`session()` in process, `specforge_mcp::testing:
 only the binary's contract (arguments, exit codes, streams, environment) and cross-surface comparisons are CLI
 tests ([ADR 0078](docs/adr/0078-a-tests-project-is-one-fixture.md)).
 
-SpecForge's own project loads the Rust source packs: `specforge collect --runner rust-cargo`, then `--runner
-rust-source`, at the root stores the facts of every crate's items in `.specforge/` (ignored, as the rename ledger
-`specforge-harness` is), and `specforge anchors <behavior>` then lists the tests whose `#[specforge_test]` names it.
+SpecForge's own project loads the Rust source packs: `specforge collect --no-run` at the root runs rust-cargo, then
+rust-source, and skips cargo-test (a plain `specforge collect` would ask to run the whole test suite first). It stores
+the facts of every crate's items in `.specforge/` (ignored, as the rename ledger `specforge-harness` is), and
+`specforge anchors <behavior>` then lists the tests whose `#[specforge_test]` names it.
 Nothing it writes is committed: the one line the ledger's first write would add to `.gitattributes` is committed
 already, so the file stays unchanged.
 

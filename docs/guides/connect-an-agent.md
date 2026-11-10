@@ -66,8 +66,8 @@ The server exposes 39 core tools, plus the commands of the extensions your proje
 **Anchors come from a collect.** An anchor is an edge between an entity and a fact a collector placed in source:
 a Rust test whose `#[specforge_test(behavior = "...")]` names the behavior, or an entity that cites an item (a GSD
 task's `items`). Enable a source pack (`@rust/source`, `@javascript/source`; `specforge init` does it for a
-`Cargo.toml` or `package.json`) and run `specforge collect`; until then `find_implementation` answers nothing and
-says so (I212), and a file edited since the collect keeps its rows with a W198. `specforge anchors` gives the same
+`Cargo.toml` or `package.json`) and run `specforge collect` (`specforge collect --no-run` collects the facts
+without asking to run a test runner); until then `find_implementation` answers nothing and says so (I212), and a file edited since the collect keeps its rows with a W198. `specforge anchors` gives the same
 rows on the command line.
 
 **Extension commands become tools.** Each command an enabled extension declares is served as
