@@ -5,6 +5,7 @@
 
 mod agent_context;
 mod analyze;
+mod anchors;
 mod asking;
 mod baseline_sources;
 mod beside;

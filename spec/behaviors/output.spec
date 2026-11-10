@@ -651,6 +651,27 @@ behavior provide_explore_cli "Provide CLI Explore Command" {
   verify integration "under --format json the notices are the document's alone: nothing on stderr"
 }
 
+behavior provide_anchors_cli "Provide CLI Anchors Command" {
+  invariants [diagnostic_determinism]
+  category   cli
+  contract   """
+    specforge anchors ENTITY | --file PATH [--path PROJECT] [--format
+    human|json] MUST answer the anchors read view (ADR 0349) of the project
+    compiled at PROJECT: with ENTITY the document
+    specforge.find_implementation replies, with --file the one
+    specforge.find_spec_for_source replies, under --format json. Human
+    output is one line per anchor, file:line-end_line, the item kind, the
+    fact id and via <holder kind>.<field>, a file query adding the
+    entity's kind and id in brackets; an empty answer says no anchor.
+    The notices (I212, W198) go to stderr under every format. ENTITY and
+    --file are exclusive and one is required: a usage error, exit 2. An
+    unknown ENTITY is E003, exit 1.
+  """
+  verify integration "anchors <entity> prints the rows find_implementation returns"
+  verify integration "anchors --file prints the rows find_spec_for_source returns"
+  verify integration "an entity and --file together are refused"
+}
+
 behavior provide_review_cli "Provide CLI Review Command" {
   features   [agent_export, extension_driven_coverage]
   invariants [diagnostic_determinism]

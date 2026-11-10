@@ -43,6 +43,7 @@ pub const CORE_COMMANDS: &[&str] = &[
     "format",
     "stats",
     "explore",
+    "anchors",
     "review",
     "infer-guide",
     "prompt",
