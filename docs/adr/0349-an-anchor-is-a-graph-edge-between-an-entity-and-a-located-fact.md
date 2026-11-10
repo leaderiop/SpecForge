@@ -50,9 +50,10 @@ AFTER   .spec refs to facts ─┐
   fact's kind name (`test`, `package`). One field-name convention in a domain-free view; a `located_kind` declaration
   in the SDK would change the wire for a display string.
 - **D5. Staleness by the store's digests, noticed by the read view.** A store records the digest of every source file
-  its places name, as the host read it at admission (ADR 0346 D2); the compiled project serves their union,
-  `CompiledProject::fact_sources()`. W198 ("A source anchor is stale"): a file an answer names no longer hashes to its
-  recorded digest, or is gone; one per such file, its rows still listed. Only the answer's files are hashed. I212
+  its places name, as the host read it at admission (ADR 0346 D2); the compiled project serves each store's, by file
+  and store, `CompiledProject::fact_sources()`, and ops' `CollectedSources` is the one check against them. W198 ("A
+  source anchor is stale"): a file an answer names no longer hashes to the digest the store of one of its rows
+  recorded (two stores collected at different times keep two), or is gone; one per such file, its rows still listed. Only the answer's files are hashed. I212
   ("No located facts to anchor to"): the session serves no located fact; the remedy is to load a source pack and run
   `specforge collect`. Both are notices of the read view (ADR 0111 D8), never `check` findings: `check` hashes no
   source file.

@@ -628,14 +628,17 @@ behavior provide_mcp_find_implementation_tool "Provide MCP Find Implementation T
     entity id when one is close; a fact's id is invalid_input (its
     anchors are its file's). The reply's _meta.diagnostics carry I212
     when the session serves no located fact, and one W198 per file of
-    the answer that no longer hashes to the digest its store recorded at
-    collect, or is gone; only the answer's files are hashed.
+    the answer that no longer hashes to the digest the store of one of its
+    rows recorded at collect (each row is judged by its own store's digest:
+    two stores collected at different times may record two), or is gone;
+    only the answer's files are hashed.
   """
   verify unit "find_implementation lists every anchor of the entity, by file and line"
   verify unit "an anchor is an edge either way: a fact naming the entity or the entity citing the fact"
   verify unit "an id the graph does not declare is refused with E003"
   verify unit "an answer with no located fact served carries I212"
   verify unit "a source file edited since collect gives one W198 and keeps its rows"
+  verify unit "two stores placing one file are each judged by their own digest"
   verify integration "find_implementation answers a Rust test's file and line after a real collect"
 }
 

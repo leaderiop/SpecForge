@@ -367,10 +367,10 @@ impl CompiledProject {
     }
 
     /// The digest (`sha256:<hex>`) each served fact store recorded of each source file its facts are placed in, by
-    /// the file's key, as the host read it when it admitted them (ADR 0346 D2): what says a source file changed since
-    /// its facts were collected (ADR 0349 D5). Two stores naming one file with different digests: the store whose key
-    /// sorts last wins, so the other's places read stale.
-    pub fn fact_sources(&self) -> BTreeMap<&str, &str> {
+    /// the file's key, then by the store's path, as the host read it when it admitted them (ADR 0346 D2): what says a
+    /// source file changed since a store's facts were collected (ADR 0349 D5). Two stores naming one file each keep
+    /// their own digest: a file is the text one store's facts were placed in and not the other's when they differ.
+    pub fn fact_sources(&self) -> BTreeMap<&str, BTreeMap<&str, &str>> {
         self.sources.fact_sources()
     }
 

@@ -664,7 +664,7 @@ fn a_compiled_project_serves_its_stores_source_digests() {
 
     assert_eq!(
         project.fact_sources().into_iter().collect::<Vec<_>>(),
-        [("a.test.js", "sha256:aa")]
+        [("a.test.js", [(STORE, "sha256:aa")].into())]
     );
     // A session's update of the store serves the digests it records now.
     let mut session = session(&p);
@@ -679,7 +679,20 @@ fn a_compiled_project_serves_its_stores_source_digests() {
     let changes = session.changes([root.join(STORE).as_path()]);
     assert!(session.apply(&changes).is_some());
     assert_eq!(
-        session.project().fact_sources().get("a.test.js").copied(),
-        Some("sha256:bb")
+        session.project().fact_sources()["a.test.js"][STORE],
+        "sha256:bb"
+    );
+    // A second store placing the file keeps its own digest beside the first's.
+    stored_with(
+        p.root(),
+        "other",
+        KEY,
+        json!([{"kind": "test", "id": "js:a.test.js#other", "at": at, "fields": {"file": "a.test.js"}}]),
+        [("a.test.js".to_string(), "sha256:cc".to_string())].into(),
+    );
+    let other = format!(".specforge/facts/{KEY}/other.json");
+    assert_eq!(
+        compiled(&p).fact_sources()["a.test.js"],
+        [(STORE, "sha256:bb"), (other.as_str(), "sha256:cc")].into()
     );
 }

@@ -5,7 +5,7 @@
 //! ([`CoveredItems`]) read it, as the language server does. MCP's `specforge.find_implementation`,
 //! `specforge.find_spec_for_source`, the infer prompt's file scope and `specforge anchors` render these documents.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use serde::Serialize;
 use specforge_common::shape::Shape;
@@ -247,11 +247,12 @@ impl<'a> CoveredItems<'a> {
     }
 }
 
-/// What an anchors answer notices (ADR 0349 D5): I212 when the session serves no located fact, then W198 for each
-/// file of `files` that is stale ([`stale_anchor`]). Only `files`, the answer's, are read.
+/// What an anchors answer notices (ADR 0349 D5): I212 when the session serves no located fact, then one W198 for each
+/// file of the answer's `rows` (`(file, collector)`) that is not the text the store of a row's collector recorded
+/// ([`CollectedSources::holds`]). Only the answer's files are read, each once, inside the project root.
 fn noticed<'f, T>(
     view: &ProjectView<'_>,
-    files: impl IntoIterator<Item = &'f str>,
+    rows: impl IntoIterator<Item = (&'f str, &'f str)>,
     value: T,
 ) -> Noticed<T> {
     let kinds = view.registries().kinds();
@@ -270,13 +271,83 @@ fn noticed<'f, T>(
             .with_suggestion("load a source pack (`specforge add @rust/source`) and run `specforge collect`"),
         );
     }
-    let files: BTreeSet<&str> = files.into_iter().collect();
-    notices.extend(
-        files
-            .into_iter()
-            .filter_map(|file| stale_anchor(view, file)),
-    );
+    if view.root().is_some() {
+        let sources = CollectedSources::of(view);
+        let mut read: BTreeMap<&str, Option<Vec<u8>>> = BTreeMap::new();
+        let mut stale: BTreeMap<&str, bool> = BTreeMap::new();
+        for (file, collector) in rows.into_iter().collect::<BTreeSet<_>>() {
+            let now = read
+                .entry(file)
+                .or_insert_with(|| read_placed(view, file).ok());
+            if !now
+                .as_deref()
+                .is_some_and(|text| sources.holds(file, Some(collector), text))
+            {
+                stale.insert(file, now.is_none());
+            }
+        }
+        notices.extend(
+            stale
+                .into_iter()
+                .map(|(file, gone)| stale_notice(file, gone)),
+        );
+    }
     Noticed::new(value, notices)
+}
+
+/// What the served fact stores recorded of the source files their facts are placed in (ADR 0346 D2, ADR 0349 D5):
+/// each store's digest of each file, by file and by the store's collector, read once per answer. The one owner of
+/// whether a source file is still the text a store's facts were placed in: the anchors read view's W198 and the
+/// language server's placing read it.
+pub struct CollectedSources<'p> {
+    by_file: BTreeMap<&'p str, BTreeMap<&'p str, &'p str>>,
+}
+
+impl<'p> CollectedSources<'p> {
+    /// The view's (`CompiledProject::fact_sources`).
+    pub fn of(view: &ProjectView<'p>) -> Self {
+        let by_file = view
+            .project()
+            .fact_sources()
+            .into_iter()
+            .map(|(file, stores)| {
+                let by_collector = stores
+                    .into_iter()
+                    .map(|(store, digest)| {
+                        let collector =
+                            specforge_common::facts::filed(store).map_or(store, |(c, _)| c);
+                        (collector, digest)
+                    })
+                    .collect();
+                (file, by_collector)
+            })
+            .collect();
+        CollectedSources { by_file }
+    }
+
+    /// Whether a served store places a fact in `file`, a key from the project root.
+    pub fn places(&self, file: &str) -> bool {
+        self.by_file.contains_key(file)
+    }
+
+    /// Whether `text`, the bytes of `file` now, hashes to the digest each store placing a fact in it recorded, or only
+    /// the store of `collector` when given. `false` for a file no such store records: nothing says its text is the one
+    /// collected.
+    pub fn holds(&self, file: &str, collector: Option<&str>, text: &[u8]) -> bool {
+        let Some(stores) = self.by_file.get(file) else {
+            return false;
+        };
+        let mut recorded = stores
+            .iter()
+            .filter(|(of, _)| collector.is_none_or(|wanted| wanted == **of))
+            .map(|(_, digest)| *digest)
+            .peekable();
+        if recorded.peek().is_none() {
+            return false;
+        }
+        let now = crate::revision::of_bytes(text);
+        recorded.all(|digest| digest == now)
+    }
 }
 
 /// The bytes of `file`, a source file a fact is placed in (a key from the project root), read inside the project root
@@ -295,21 +366,6 @@ pub fn read_placed(view: &ProjectView<'_>, file: &str) -> std::io::Result<Vec<u8
             OpError::from(outside).message,
         )),
         Err(ReadFailure::Io { error, .. }) => Err(error),
-    }
-}
-
-/// W198 when `file`, a key from the project root a located fact is placed in, no longer hashes to the digest its
-/// store recorded at collect (`CompiledProject::fact_sources`), or can no longer be read inside the project
-/// ([`read_placed`]); `None` when it still does, or when the view has no root.
-pub fn stale_anchor(view: &ProjectView<'_>, file: &str) -> Option<Diagnostic> {
-    view.root()?;
-    let recorded = view.project().fact_sources();
-    let current = read_placed(view, file)
-        .ok()
-        .map(|bytes| crate::revision::of_bytes(&bytes));
-    match current {
-        Some(current) if recorded.get(file) == Some(&current.as_str()) => None,
-        current => Some(stale_notice(file, current.is_none())),
     }
 }
 
@@ -408,14 +464,22 @@ pub fn anchors_of_file(
             &b.entity_id,
         ))
     });
-    let files: Vec<String> = entities.iter().map(|row| row.file.clone()).collect();
+    let rows: Vec<(String, String)> = entities
+        .iter()
+        .map(|row| (row.file.clone(), row.collector.clone()))
+        .collect();
     let found = FileAnchors {
         file_path: file_path.to_string(),
         match_mode,
         count: entities.len(),
         entities,
     };
-    Ok(noticed(view, files.iter().map(String::as_str), found))
+    Ok(noticed(
+        view,
+        rows.iter()
+            .map(|(file, collector)| (file.as_str(), collector.as_str())),
+        found,
+    ))
 }
 
 /// The located facts `entity_id` is anchored to, one row per anchor at the fact's first place, by file, line, fact
@@ -455,11 +519,19 @@ pub fn anchors_of_entity(
         .map(|edge| edge.row(edge.fact.place()))
         .collect();
     implementations.sort_by(|a, b| a.order().cmp(&b.order()));
-    let files: Vec<String> = implementations.iter().map(|row| row.file.clone()).collect();
+    let rows: Vec<(String, String)> = implementations
+        .iter()
+        .map(|row| (row.file.clone(), row.collector.clone()))
+        .collect();
     let found = EntityAnchors {
         entity_id: id.to_string(),
         count: implementations.len(),
         implementations,
     };
-    Ok(noticed(view, files.iter().map(String::as_str), found))
+    Ok(noticed(
+        view,
+        rows.iter()
+            .map(|(file, collector)| (file.as_str(), collector.as_str())),
+        found,
+    ))
 }

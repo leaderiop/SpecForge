@@ -1,15 +1,15 @@
 //! Source documents (ADR 0349 D7, D8): a Rust, TypeScript or JavaScript file under the project root, where a
 //! collector placed facts. The server holds its buffer, to hash and place in, and never hands it to the session:
 //! typing in a source file rebuilds nothing. A span in one is placed through its text (the open buffer, else the file
-//! read inside the project root, `read_placed`) only while that text hashes to the digest its fact store recorded at
-//! collect (`CompiledProject::fact_sources`); a stale file places nothing.
+//! read inside the project root, `read_placed`) only while that text hashes to the digest each fact store placing
+//! facts in it recorded at collect (`CollectedSources`); a stale file places nothing.
 
 use std::path::Path;
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, SourceSpan, Sym};
 use specforge_ops::authoring::rename::RenamePlan;
-use specforge_ops::read::navigate::contains;
+use specforge_ops::read::navigate::{CollectedSources, contains};
 use specforge_ops::read::trace::route_traces;
 use std::collections::BTreeMap;
 use tower_lsp::jsonrpc::Error;
@@ -47,15 +47,21 @@ fn is_under_root(key: &str) -> bool {
 }
 
 /// The line index of `key`'s text, where `key` is a source file the session's facts are placed in: its open buffer,
-/// else the file read inside the project root (`read_placed`: never through a link out, a second name or `..`), when that text hashes to the digest `recorded` (the one its
-/// store recorded at collect). `None` for any other file, and for a text that changed since or cannot be read.
-pub(crate) fn placed_index(state: &LspState, key: &str, recorded: &str) -> Option<Arc<LineIndex>> {
+/// else the file read inside the project root (`read_placed`: never through a link out, a second name or `..`), when
+/// that text is the one each store placing facts in it recorded at collect (`CollectedSources::holds`). `None` for
+/// any other file, and for a text that changed since or cannot be read.
+pub(crate) fn placed_index(
+    state: &LspState,
+    collected: &CollectedSources,
+    key: &str,
+) -> Option<Arc<LineIndex>> {
     if let Some(document) = state.files().document(key) {
-        return (specforge_ops::revision::of_text(document.text()) == recorded)
+        return collected
+            .holds(key, None, document.text().as_bytes())
             .then(|| Arc::clone(document.index()));
     }
     let bytes = specforge_ops::read::navigate::read_placed(&state.view(), key).ok()?;
-    if specforge_ops::revision::of_bytes(&bytes) != recorded {
+    if !collected.holds(key, None, &bytes) {
         return None;
     }
     let text = String::from_utf8(bytes).ok()?;
@@ -118,7 +124,9 @@ pub(crate) fn fact_references(
 pub(crate) fn lenses(state: &LspState, uri: &Url) -> Option<Vec<CodeLens>> {
     let compiled = Compiled::new(state);
     let key = state.key_of(uri);
-    compiled.recorded(&key)?;
+    if !compiled.placed(&key) {
+        return None;
+    }
     let Some(index) = compiled.source_index(&key) else {
         let notice = stale(state, &key);
         return Some(vec![CodeLens {
@@ -191,7 +199,7 @@ pub(crate) fn renamed_at(
     key: &str,
     position: Position,
 ) -> tower_lsp::jsonrpc::Result<Option<(Sym, Range)>> {
-    if compiled.recorded(key).is_some() && compiled.source_index(key).is_none() {
+    if compiled.placed(key) && compiled.source_index(key).is_none() {
         return Err(Error::invalid_params(stale(compiled.state(), key).message));
     }
     Ok(match compiled.target(key, position) {

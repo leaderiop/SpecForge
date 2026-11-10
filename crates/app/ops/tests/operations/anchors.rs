@@ -330,6 +330,35 @@ fn an_edited_source_file_is_one_w198() {
     assert_eq!(notices(&project, "alpha"), ["W198", "W198"]);
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_find_implementation_tool",
+    verify = "two stores placing one file are each judged by their own digest"
+)]
+fn two_stores_placing_one_file_are_each_judged_by_their_own_digest() {
+    let project = anchored(&[], vec![]);
+    let root = project.root();
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    let (then, now) = ("fn a() {}\n", "fn a() { 1 }\n");
+    std::fs::write(root.join("src/a.rs"), now).unwrap();
+    let digest = |text: &str| specforge_ops::revision::of_bytes(text.as_bytes());
+    // `rust-source` collected the file as it is now, `rust-older` before the edit.
+    for (collector, id, entity, text) in [
+        ("rust-source", "rust:p::a", "alpha", now),
+        ("rust-older", "rust:p::b", "beta", then),
+    ] {
+        stored_items_with(
+            root,
+            collector,
+            vec![naming(at(id, "src/a.rs", 1), &[entity])],
+            [("src/a.rs".to_string(), digest(text))].into(),
+        );
+    }
+
+    assert_eq!(notices(&project, "alpha"), Vec::<String>::new());
+    assert_eq!(notices(&project, "beta"), ["W198"]);
+    assert_eq!(notices_of_file(&project), ["W198"]);
+}
+
 #[test]
 fn an_edge_between_two_facts_is_no_anchor() {
     let project = anchored(

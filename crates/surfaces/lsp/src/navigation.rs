@@ -7,9 +7,9 @@
 
 use specforge_common::{SourceSpan, Sym, structural};
 use specforge_ops::authoring::fix::{Fix, FixKind};
-use specforge_ops::read::navigate::{Navigator, OutlineEntry};
+use specforge_ops::read::navigate::{CollectedSources, Navigator, OutlineEntry};
 use specforge_registry::KindRegistry;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use tower_lsp::lsp_types::{
     CodeAction, CodeActionKind, DocumentChanges, DocumentSymbol, DocumentSymbolResponse, Location,
     OneOf, OptionalVersionedTextDocumentIdentifier, Position, Range, SymbolInformation, SymbolKind,
@@ -37,8 +37,8 @@ pub(crate) struct Compiled<'s> {
     state: &'s LspState,
     indexes: RefCell<HashMap<Sym, Option<Arc<LineIndex>>>>,
     texts: RefCell<HashMap<Sym, EditorText>>,
-    /// The digest each fact store recorded of each source file, read once per request.
-    fact_sources: OnceCell<BTreeMap<&'s str, &'s str>>,
+    /// The digests the fact stores recorded of the source files their facts are placed in, read once per request.
+    collected: OnceCell<CollectedSources<'s>>,
     sources: RefCell<HashMap<Sym, Option<Arc<LineIndex>>>>,
 }
 
@@ -48,7 +48,7 @@ impl<'s> Compiled<'s> {
             state,
             indexes: RefCell::new(HashMap::new()),
             texts: RefCell::new(HashMap::new()),
-            fact_sources: OnceCell::new(),
+            collected: OnceCell::new(),
             sources: RefCell::new(HashMap::new()),
         }
     }
@@ -104,12 +104,15 @@ impl<'s> Compiled<'s> {
         }
     }
 
-    /// The digest the fact stores recorded of source file `file` at collect; `None` for a file no fact is placed in.
-    pub(crate) fn recorded(&self, file: &str) -> Option<&'s str> {
-        self.fact_sources
-            .get_or_init(|| self.state.compiled_project().fact_sources())
-            .get(file)
-            .copied()
+    /// What the fact stores recorded of the source files their facts are placed in, at collect.
+    pub(crate) fn collected(&self) -> &CollectedSources<'s> {
+        self.collected
+            .get_or_init(|| CollectedSources::of(&self.state.view()))
+    }
+
+    /// Whether a fact is placed in source file `file`.
+    pub(crate) fn placed(&self, file: &str) -> bool {
+        self.collected().places(file)
     }
 
     /// The line index of source file `file`'s text, where the session's facts are placed, while that text is the
@@ -120,10 +123,9 @@ impl<'s> Compiled<'s> {
         if let Some(index) = self.sources.borrow().get(&key) {
             return index.clone();
         }
-        let index = self
-            .recorded(file)
-            .filter(|_| self.state.compiled_text(file).is_none())
-            .and_then(|recorded| crate::source_document::placed_index(self.state, file, recorded));
+        let index = (self.placed(file) && self.state.compiled_text(file).is_none())
+            .then(|| crate::source_document::placed_index(self.state, self.collected(), file))
+            .flatten();
         self.sources.borrow_mut().insert(key, index.clone());
         index
     }

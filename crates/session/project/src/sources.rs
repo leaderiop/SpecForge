@@ -283,16 +283,19 @@ impl SourceCache {
         self.fact_sources.remove(path);
     }
 
-    /// The digest each served fact store records of each source file its places name, by the file's key: two stores
-    /// naming one file, the one whose store key sorts last.
-    pub fn fact_sources(&self) -> BTreeMap<&str, &str> {
-        let mut stores: Vec<_> = self.fact_sources.iter().collect();
-        stores.sort_by_key(|(key, _)| key.as_str());
-        stores
-            .into_iter()
-            .flat_map(|(_, sources)| sources.iter())
-            .map(|(file, digest)| (file.as_str(), digest.as_str()))
-            .collect()
+    /// The digest each served fact store records of each source file its places name, by the file's key, then by the
+    /// store's path: two stores collected at different times each keep their own.
+    pub fn fact_sources(&self) -> BTreeMap<&str, BTreeMap<&str, &str>> {
+        let mut by_file: BTreeMap<&str, BTreeMap<&str, &str>> = BTreeMap::new();
+        for (store, sources) in &self.fact_sources {
+            for (file, digest) in sources.iter() {
+                by_file
+                    .entry(file.as_str())
+                    .or_default()
+                    .insert(store.as_str(), digest.as_str());
+            }
+        }
+        by_file
     }
 
     /// Parse `text` as `path`, reusing the retained tree.
