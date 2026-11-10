@@ -50,12 +50,13 @@ feature infer_gap_analysis "Inference Gap Analysis" {
     in specification coverage.
   """
   solution """
-    The specforge.infer_gaps MCP tool scans source files for public items
-    (using regex-based detection for Rust in v1, explicitly marked approximate),
-    cross-references them with the anchors manifest and graph entities, and returns per-directory gap
-    reports with structured InferenceGap items including name, item_kind, file,
-    and line. The CLI surfaces this via specforge infer-status --gaps-detail.
-    Real language-specific detection deferred to extension surface commands.
+    The specforge.infer_gaps MCP tool reads the public item facts the source
+    packs collected (each placed at its file and line), counts an item covered
+    when a graph edge joins it to a declared entity (an anchor is such an
+    edge), and returns per-directory gap reports with structured InferenceGap
+    items including name, item_kind, file, and line, marked approximate when a
+    fact store was not served. The CLI surfaces this via specforge
+    infer-status --gaps-detail.
   """
   priority medium
 }

@@ -101,8 +101,8 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
     resolves inside the root of the project the call acts on, and no
     mutation reads or writes through a symlink that leaves it (init's
     files, the lock and the installed modules included), and a file the
-    project keeps at its root (the inference and anchors manifests, the
-    test report, the schema cache) is read only from inside it. A source of the served
+    project keeps at its root (the inference manifest, the fact stores,
+    the test report, the schema cache) is read only from inside it. A source of the served
     project, the recorded report and the schema cache are also read only from a file that has
     one name: a hard link to a file outside is another name for it. So is
     the format configuration (.specforgefmt.toml) a call reads (format's, a
@@ -137,7 +137,7 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
     reads that names a file or an entity is the no-project refusal
     (precondition_failed), never not-found; an entry that acts on the
     project on disk (a tool that takes a path, a management tool, a read of
-    the inference or anchors manifest, every extension tool and resource)
+    the inference manifest, every extension tool and resource)
     is refused as no project before its arguments are read.
   """
   risk      high
