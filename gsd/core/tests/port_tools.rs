@@ -134,11 +134,6 @@ const KEEP: &[(&str, &str)] = &[
         "agents/gsd-verifier.md",
         r#"node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND""#,
     ),
-    // loads a module of the user's project to check what it exports
-    (
-        "agents/gsd-verifier.md",
-        r#"node -e "const m = require('$MODULE_PATH'); console.log(typeof m.$FUNCTION_NAME)" 2>/dev/null | grep -q "function""#,
-    ),
 ];
 
 /// The `node` lines still to port, as `(asset, trimmed line)`, each with its reason. Each must match exactly one line,

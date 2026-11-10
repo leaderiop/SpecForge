@@ -5,12 +5,10 @@
 # take a row off when its line stops running the tool. Grouped by the building block that answers it.
 # Prose and routing probes are reworded per ADR 0343 (D7, D8), never listed: H and K stay at 0 rows.
 
-# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines. 21 rows.
+# A shape: answers shaped for the shell: --pick [0], --count, --match, --format lines. 19 rows.
 agents/gsd-executor.md	cat	EXPECTED_TL=$(cat "$SENTINEL" 2>/dev/null)
 agents/gsd-phase-researcher.md	head	docker info 2>/dev/null | head -3
 agents/gsd-verifier.md	grep	node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND"
-agents/gsd-verifier.md	grep	node -e "const m = require('$MODULE_PATH'); console.log(typeof m.$FUNCTION_NAME)" 2>/dev/null | grep -q "function"
-agents/gsd-verifier.md	grep	cargo test -- --list 2>/dev/null | grep -q "$PHASE_TEST_PATTERN"   # pytest --collect-only -q · npx vitest list · go test -list '.*'
 gsd-core/references/specless-probe-fallback.md	grep	EDGE_ABSENT=1;   node "$SPEC_SECTION_JS" "$SPEC_FILE" edges       2>/dev/null | grep -q '"supplied":true' && EDGE_ABSENT=0
 gsd-core/references/specless-probe-fallback.md	grep	PROHIB_ABSENT=1; node "$SPEC_SECTION_JS" "$SPEC_FILE" prohibitions 2>/dev/null | grep -q '"supplied":true' && PROHIB_ABSENT=0
 gsd-core/references/verification-patterns.md	grep	npx prisma migrate status 2>/dev/null | grep -v "pending"
@@ -50,7 +48,7 @@ prompt:ship	git	git push origin ${CURRENT_BRANCH} 2>&1 || echo "⚠ track_shippi
 
 # E network: the host HTTP service and a GitHub provider. 0 rows.
 
-# F toolchain: @javascript/* and @rust/* run the project's own toolchain. 54 rows.
+# F toolchain: @javascript/* and @rust/* run the project's own toolchain. 47 rows.
 agents/gsd-nyquist-auditor.compact.md	pytest	pytest {file} -v
 agents/gsd-nyquist-auditor.md	pytest	pytest {file} -v
 agents/gsd-phase-researcher.md	cargo	cargo search <pkg>
@@ -69,10 +67,7 @@ agents/gsd-phase-researcher.md	ruby	ruby --version 2>/dev/null
 agents/gsd-planner.md	npm	npm --prefix <dir> run <script>
 agents/gsd-verifier.md	bash	bash "$probe"
 agents/gsd-verifier.md	bash	bash "$probe"
-agents/gsd-verifier.md	cargo	cargo test -- --list 2>/dev/null | grep -q "$PHASE_TEST_PATTERN"   # pytest --collect-only -q · npx vitest list · go test -list '.*'
-agents/gsd-verifier.md	cargo	cargo test "$TEST_NAME" -- --exact   # pytest -k "$TEST_NAME" · npx vitest run -t "$TEST_NAME"
 agents/gsd-verifier.md	node	node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND"
-agents/gsd-verifier.md	node	node -e "const m = require('$MODULE_PATH'); console.log(typeof m.$FUNCTION_NAME)" 2>/dev/null | grep -q "function"
 gsd-core/references/checkpoints.md	npm	npm run dev &
 gsd-core/references/ios-scaffold.md	brew	brew install xcodegen
 gsd-core/references/ios-scaffold.md	xcodebuild	xcodebuild -project MyApp.xcodeproj -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 16' build
@@ -81,16 +76,12 @@ gsd-core/references/planner-antipatterns.md	vercel	vercel --yes
 gsd-core/references/planner-verify-command-grounding.md	npm	npm --prefix
 gsd-core/references/planner-verify-command-grounding.md	npm	npm --prefix <dir> run <script>
 gsd-core/references/prohibition-probe.md	eslint	eslint --format json
-gsd-core/references/prohibition-probe.md	node	node --test
-gsd-core/references/prohibition-probe.md	node	node --test
 gsd-core/references/specless-probe-fallback.md	node	EDGE_ABSENT=1;   node "$SPEC_SECTION_JS" "$SPEC_FILE" edges       2>/dev/null | grep -q '"supplied":true' && EDGE_ABSENT=0
 gsd-core/references/specless-probe-fallback.md	node	PROHIB_ABSENT=1; node "$SPEC_SECTION_JS" "$SPEC_FILE" prohibitions 2>/dev/null | grep -q '"supplied":true' && PROHIB_ABSENT=0
 gsd-core/references/specless-probe-fallback.md	node	if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
 gsd-core/references/specless-probe-fallback.md	npm	npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true; SPEC_SECTION_JS=$(_gsd_lib spec-section.cjs)
 gsd-core/references/specless-probe-fallback.md	npm	npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true
-gsd-core/references/tdd.md	cargo	cargo test    # Rust
 gsd-core/references/tdd.md	go	go test ./...  # Go
-gsd-core/references/tdd.md	npm	npm test  # Node
 gsd-core/references/tdd.md	pytest	pytest    # Python
 gsd-core/references/verification-patterns.md	npx	npx prisma migrate status 2>/dev/null | grep -v "pending"
 gsd-core/references/verification-patterns.md	npx	npx prisma db execute --stdin <<< "SELECT COUNT(*) FROM $table_name"

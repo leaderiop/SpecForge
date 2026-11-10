@@ -179,10 +179,10 @@ if [ -f Cargo.toml ]; then echo "rust"; fi
 **4. Verify setup:**
 ```bash
 # Run empty test suite - should pass with 0 tests
-npm test  # Node
+specforge collect --yes   # Node and Rust: @javascript/node-test and @rust/test run the suite; an empty one passes with 0 tests
 pytest    # Python
 go test ./...  # Go
-cargo test    # Rust
+
 ```
 
 **5. Create first test file:**

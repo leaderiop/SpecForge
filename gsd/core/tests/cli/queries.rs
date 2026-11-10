@@ -141,6 +141,9 @@ const UNBOUND: &[&str] = &[
     "<quick",
     "RESEARCH",
     "RESEARCH`)",
+    // `@code/core` and `@javascript/source` facts the verifier's spot-checks read: the twin collects none
+    "$TEST_ID",
+    "js:$PACKAGE/$MODULE_FILE::$FUNCTION_NAME",
 ];
 
 /// The kinds a `project` links to (a requirement or a project-level decision): nothing links it to a milestone, a

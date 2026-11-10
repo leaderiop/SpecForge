@@ -170,8 +170,15 @@ pub const REWRITTEN: &[(&str, usize)] = &[
     ("gsd-verifier.md", 372),
     ("gsd-verifier.md", 379),
     ("gsd-verifier.md", 381),
+    // A truth's behavioral evidence is the one named test's collected status: `specforge collect` runs the suite once.
+    ("gsd-verifier.md", 421),
     // The API spot-check prints the answer for the agent to read; upstream's runs node, and jq on its output.
     ("gsd-verifier.md", 429),
+    // The spot-checks read facts: a module's exports are `@javascript/source`'s item facts, a test's existence and
+    // status its collected test fact, so their comments name the fact, not a run.
+    ("gsd-verifier.md", 437),
+    ("gsd-verifier.md", 440),
+    ("gsd-verifier.md", 443),
     ("gsd-verifier.md", 495),
     ("gsd-verifier.md", 598),
     ("gsd-verifier.md", 643),
