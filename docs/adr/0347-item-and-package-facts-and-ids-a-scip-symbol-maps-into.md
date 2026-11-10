@@ -6,6 +6,7 @@
 judged by the kinds its field admits; `FactStore.held`) and D7 (the minting moves to `extensions/code/facts`).
 Protocol 2.0.0, unreleased: `UnheldReference.kinds` and `FactStore.held` go into the 2.0.0 row, no bump. No code: the
 `code/` book keeps E101, W102, W401 and I402, made precise.
+Amended by [ADR 0353](0353-a-pass-reads-the-facts-it-declares.md) (D9, D11: `refs` declares the `test` and `test_run` facts; a fact's own reference that answers nothing is judged by `proof`, which declares every `@code/core` kind).
 
 ## Context
 

@@ -6,6 +6,7 @@ D5 (a served fact is `located`, its names spanned where they are written), D6 (a
 not a kernel error; a unique suffix) and D7 (a rename of an entity a fact names rewrites the source; a delete is still
 refused), and [ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) D3 (`names` is a fact-held reference).
 Protocol 2.0.0, unreleased: its additions go into the 2.0.0 row, no bump. Codes E117, E120, W197.
+Amended by [ADR 0353](0353-a-pass-reads-the-facts-it-declares.md) (D4: `dangling` rides on the facts a pass is sent, which are those its `facts` input names).
 
 ## Context
 

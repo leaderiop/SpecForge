@@ -4,6 +4,7 @@
 [ADR 0002](0002-test-runner-extensions.md) (D10). Ships in extension protocol 1.15.0.
 Amended by [ADR 0345](0345-the-syntax-import-and-collectors-that-read-answer-and-are-served-facts.md) (D5: facts are also served to a collector's `facts` input; a fact of a kind its collector does not answer is E116).
 Amended by [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md) (D2: store version 2 records `sources`; D5: a served fact is `located`; D6: a fact's own references are dangling, not a kernel error; D7: a rename of an entity a fact names rewrites the source).
+Amended by [ADR 0353](0353-a-pass-reads-the-facts-it-declares.md) (a pass is sent the facts of the kinds its `facts` input names, not every fact; a validation rule that names no kind judges no fact).
 
 ## Context
 

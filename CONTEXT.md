@@ -298,7 +298,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Input (of a call)**: one thing a call declares the host serves it before the call, one variant of
   `inputs: Vec<Input>` on a pass, command, prompt, hook or collector: `files` (a `FileRead`), `tests`, `state`,
   `graph`, `slash_commands`, `git { status, when }` (its status a typed `GitStatus`), `setting { extension, name }`,
-  `check_outcomes` or `facts { kinds }` (a collector's).
+  `check_outcomes` or `facts { kinds }` (a pass's or a collector's: the facts of those kinds, ADR 0353 D1).
   One table says what each call kind is served; an input it is not served is W021 and is served empty (ADR 0337 D2).
 - **Effect record**: one performed effect as the journal keeps it (`specforge_effects::EffectRecord`, ADR 0335 D3,
   ADR 0337 D3): what may be shown of the request (never a secret) and its digest, the outcome's class and digest,
@@ -1772,14 +1772,19 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Writing command**: a command (or collector) that declares `writes`: it receives `revisions`, may answer a plan,
   takes the host's `--dry-run` and is a mutation on MCP (ADR 0289).
 - **Fact**: an entity a collector writes, of a kind that declares `writer: "collector"`. It is never typed or edited,
-  and is served read-only from the fact store (ADR 0327).
+  and is served read-only from the fact store (ADR 0327), and sent to a pass that declares its kind in a `facts`
+  input; a validation rule that names no kind judges none (ADR 0353 D2, D5).
+- **Counted work**: what a perf pin asserts, never time: files parsed and files read from the syntax cache, entities
+  and facts a pass is sent, custom-rule calls, guest fuel spent. Time is measured by `xtask perf-report` against the
+  budget, not tested (ADR 0353 D8).
 - **Reading collector**: a collector with no command (`capability`), no `report` and no `check_outcomes` input: it reads
   through its ports, is called under a run and a no-run alike with no report, and needs no approval (ADR 0345 D2).
 - **Answers**: the collected kinds a collector lists as those whose facts it answers (`CollectorDescriptor.answers`): a
   fact of another kind is E116, and they order the collect before a **Facts input** naming one (ADR 0345 D3).
 - **Facts input**: a collector's `facts { kinds }` input: it runs after the collectors whose **Answers** hold one of the
   kinds and receives their admitted facts in `CollectInput.facts`; a kind no collector that ran answers is served from
-  the recorded fact stores. A cycle of such collectors is E119 (ADR 0345 D3).
+  the recorded fact stores. A cycle of such collectors is E119 (ADR 0345 D3). A pass's `facts { kinds }` input adds
+  the facts of those kinds to the authored entities it is sent (ADR 0353 D2).
 - **Collector-written kind**: a kind whose `writer` is `collector`; it declares its `schemes`.
 - **Collector config file**: the one file a collector's `process` capability may declare (`config`: a name and a
   template): the host writes it, `{report}` expanded and escaped for a quoted string, to
