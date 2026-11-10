@@ -3,26 +3,22 @@
 
 use super::harness::ab::assert_signals;
 
-fn signals(task: &str) {
-    assert_signals(task);
-}
-
 #[test]
 fn vault_execute_01_02_reports_its_seeds() {
-    signals("vault-execute-01-02");
+    assert_signals("vault-execute-01-02");
 }
 
 #[test]
 fn vault_verify_01_reports_its_seeds() {
-    signals("vault-verify-01");
+    assert_signals("vault-verify-01");
 }
 
 #[test]
 fn vault_progress_resume_reports_its_seeds() {
-    signals("vault-progress-resume");
+    assert_signals("vault-progress-resume");
 }
 
 #[test]
 fn vault_ship_01_reports_its_seeds() {
-    signals("vault-ship-01");
+    assert_signals("vault-ship-01");
 }

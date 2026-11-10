@@ -6,27 +6,23 @@ use std::process::{Command, Stdio};
 use super::harness::HOW_TO_BUILD;
 use super::harness::ab::{ab_dir, ab_tasks, python};
 
-fn passes(script: &str) {
+/// Runs `script --self-test` and answers its standard output once it exits 0 saying `self-test: ok`.
+fn passes(script: &str) -> String {
     let run = python(script, &["--self-test"]);
-    let stdout = String::from_utf8_lossy(&run.stdout);
+    let stdout = String::from_utf8_lossy(&run.stdout).into_owned();
     assert!(
         run.status.success() && stdout.lines().any(|l| l == "self-test: ok"),
         "{script} --self-test: {stdout}{}",
         String::from_utf8_lossy(&run.stderr)
     );
+    stdout
 }
 
+/// The scorer's self-test passes: it reads its synthetic runs back as files and pairs all of them, refuses an
+/// unpaired run, and refuses exactly eleven bad run files.
 #[test]
-fn the_scorer_passes_its_self_test() {
-    passes("score.py");
-}
-
-/// The scorer's self-test reads its synthetic runs back as files and pairs all of them, refuses an unpaired run, and
-/// refuses exactly eleven bad run files.
-#[test]
-fn the_scorer_pairs_twelve_runs_and_refuses_eleven_run_files() {
-    let run = python("score.py", &["--self-test"]);
-    let stdout = String::from_utf8_lossy(&run.stdout);
+fn the_scorer_passes_its_self_test_pairing_twelve_runs_and_refusing_eleven_run_files() {
+    let stdout = passes("score.py");
     assert!(
         stdout.lines().any(|l| l == "B - A: 12 pairs over 4 tasks"),
         "{stdout}"
@@ -78,7 +74,7 @@ fn run_files_are_ignored() {
 }
 
 /// The corpus is frozen as v1: three ready fixtures whose paths exist, twelve tasks, each listed defect seeded in arm A
-/// and arm B, each `b_signals` row about a seeded defect, and no status `pending` left in it.
+/// and arm B with at least one `b_signals` row, each row about a seeded defect, and no status `pending` left in it.
 #[test]
 fn the_corpus_is_frozen_as_v1() {
     let tasks = ab_tasks();
@@ -109,11 +105,22 @@ fn the_corpus_is_frozen_as_v1() {
                 );
             }
         }
-        for row in task["b_signals"].as_array().expect("b_signals") {
-            let defect = row["defect"].as_str().expect("a defect");
+        let signalled: Vec<&str> = task["b_signals"]
+            .as_array()
+            .expect("b_signals")
+            .iter()
+            .map(|row| row["defect"].as_str().expect("a defect"))
+            .collect();
+        for defect in &signalled {
             assert!(
-                seeded.contains(&defect),
+                seeded.contains(defect),
                 "{id}: a signal for {defect}, which it does not seed"
+            );
+        }
+        for defect in &seeded {
+            assert!(
+                signalled.contains(defect),
+                "{id}: {defect} is seeded with no b_signals row"
             );
         }
     }

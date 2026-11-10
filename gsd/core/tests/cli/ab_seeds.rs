@@ -3,28 +3,24 @@
 
 use super::harness::ab::{assert_signals, seeded};
 
-fn signals(task: &str) {
-    assert_signals(task);
-}
-
 #[test]
 fn taskboard_execute_02_01_reports_its_seeds() {
-    signals("taskboard-execute-02-01");
+    assert_signals("taskboard-execute-02-01");
 }
 
 #[test]
 fn taskboard_verify_01_reports_its_seeds() {
-    signals("taskboard-verify-01");
+    assert_signals("taskboard-verify-01");
 }
 
 #[test]
 fn taskboard_progress_resume_reports_its_seeds() {
-    signals("taskboard-progress-resume");
+    assert_signals("taskboard-progress-resume");
 }
 
 #[test]
 fn taskboard_ship_task_01_reports_its_seeds() {
-    signals("taskboard-ship-task-01");
+    assert_signals("taskboard-ship-task-01");
 }
 
 /// B0 is B without the test facts, not without the route: on a seeded copy `trace` follows `@gsd/core`'s route from the
@@ -66,20 +62,20 @@ fn b0_traces_the_route_with_its_item_and_test_steps_skipped() {
 
 #[test]
 fn ledger_execute_02_01_reports_its_seeds() {
-    signals("ledger-execute-02-01");
+    assert_signals("ledger-execute-02-01");
 }
 
 #[test]
 fn ledger_verify_01_reports_its_seeds() {
-    signals("ledger-verify-01");
+    assert_signals("ledger-verify-01");
 }
 
 #[test]
 fn ledger_progress_resume_reports_its_seeds() {
-    signals("ledger-progress-resume");
+    assert_signals("ledger-progress-resume");
 }
 
 #[test]
 fn ledger_ship_ledg_02_reports_its_seeds() {
-    signals("ledger-ship-ledg-02");
+    assert_signals("ledger-ship-ledg-02");
 }
