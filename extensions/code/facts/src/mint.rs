@@ -41,14 +41,15 @@ pub struct TestCase {
 }
 
 impl TestCase {
-    /// The JUnit `case` named `id`, whose project-relative file is `file`: it ran.
+    /// The JUnit `case` named `id`, whose project-relative file is `file`: it ran, and names what its name tags (no
+    /// place: a report holds no source span).
     pub fn of(id: TestId, case: &Case, file: Option<String>) -> TestCase {
         TestCase {
             id,
             status: case.status,
             seconds: case.seconds,
             file,
-            names: Names::new(),
+            names: case.names.iter().map(|n| (n.clone(), Vec::new())).collect(),
             at: Vec::new(),
             ran: true,
         }

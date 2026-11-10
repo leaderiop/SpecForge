@@ -142,6 +142,28 @@ fn a_nested_packages_test_fact_files_its_project_relative_path() {
 
 #[specforge_test(
     behavior = "nt_map_node_test_report",
+    verify = "a [<ns>:<id>] tag in a test's name is one of its names"
+)]
+fn a_tag_in_a_tests_name_is_one_of_its_names() {
+    let report = r#"<testsuites><testcase name="[gsd:01-01/TR1] adds [req:TASK-01]" file="/p/test/a.test.js"/></testsuites>"#;
+    let out = collect(&input(
+        report,
+        "/p",
+        &[("package.json", r#"{"name":"app"}"#)],
+    ))
+    .unwrap();
+    assert_eq!(
+        out.facts[0].id,
+        "js:app/test/a.test.js#[gsd:01-01/TR1] adds [req:TASK-01]"
+    );
+    assert_eq!(
+        out.facts[0].fields["names"],
+        json!(["01-01/TR1", "TASK-01"])
+    );
+}
+
+#[specforge_test(
+    behavior = "nt_map_node_test_report",
     verify = "an absolute file is made relative to the project root"
 )]
 fn an_absolute_file_is_made_relative_to_cwd() {

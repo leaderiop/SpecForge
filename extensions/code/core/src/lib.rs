@@ -4,7 +4,8 @@
 //!
 //! - `test` (schemes `js`, `rust`): a test a runner ran, `js:<package>/<file>#<s1 > … > name>` or
 //!   `rust:<nextest binary id>#<test path>`, with its package, file, suite path, name, `binary` and `status`, its
-//!   result (`result("status")`), and the entities it says it proves (`names`, edge `names`);
+//!   result (`result("status")`), and the entities it says it proves (`names`, edge `names`: each `[<ns>:<id>]` tag
+//!   in its JUnit name, or its source's idiom);
 //! - `test_run` (scheme `run`): the run of a test, `run:<test id>`, with the `test` it ran (edge `run_of`), the same
 //!   `status` and its `duration_ms`;
 //! - `item` (schemes `rust`, `js`): a definition path of a source pack, `rust:<crate>::<path>` or
@@ -158,7 +159,8 @@ impl Contributions for CodeCore {
             })
             .field(NAMES, |f| {
                 f.field_type(FieldType::ReferenceList).edge(NAMES).description(
-                    "The entities the test says it proves, in its runner's idiom (I402 when one is no entity)",
+                    "The entities the test says it proves: each [<ns>:<id>] tag in its JUnit name, or its \
+                     source's idiom (I402 when one is no entity)",
                 );
             });
         });

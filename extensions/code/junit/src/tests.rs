@@ -205,3 +205,46 @@ fn the_taskboard_report_holds_three_top_level_tests() {
     );
     assert!(found.iter().all(|c| c.suites.is_empty()));
 }
+
+#[test]
+fn a_tag_is_a_lower_case_namespace_and_an_id() {
+    assert_eq!(names("[gsd:01-01/TR1] adds a task"), ["01-01/TR1"]);
+    assert_eq!(names("adds [req-2_x:T1]"), ["T1"]);
+    let found = cases(r#"<testsuites><testcase name="adds [gsd:T1]"/></testsuites>"#).unwrap();
+    assert_eq!(found[0].names, ["T1"]);
+    assert_eq!(found[0].name, "adds [gsd:T1]");
+}
+
+#[test]
+fn two_tags_give_two_names_and_a_repeat_counts_once() {
+    assert_eq!(
+        names("[gsd:B] adds [req:A] then [gsd:B] again [x:A]"),
+        ["B", "A"]
+    );
+}
+
+#[test]
+fn a_bracket_that_is_no_tag_names_nothing() {
+    for prose in [
+        "adds [1]",
+        "adds [TR1]",
+        "[GSD:x] adds",
+        "[gsd:] adds",
+        "[gsd: a b] adds",
+        "[gsd:a:b] adds",
+        r#"[gsd:dispatch phase="03"] adds"#,
+        "[gsd:x adds",
+        "[1gsd:x] adds",
+        "[gsd:a[b] adds",
+    ] {
+        assert_eq!(names(prose), Vec::<String>::new(), "{prose}");
+    }
+    // A tag after a bracket that is none is still read.
+    assert_eq!(names("[[gsd:x] adds"), ["x"]);
+    assert_eq!(names("[gsd:a [gsd:b] adds"), ["b"]);
+}
+
+#[test]
+fn an_id_is_trimmed() {
+    assert_eq!(names("[gsd:  T1 ] adds"), ["T1"]);
+}

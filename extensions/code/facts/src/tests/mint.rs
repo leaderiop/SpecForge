@@ -66,6 +66,22 @@ fn cases_of_one_id_keep_the_worst_status() {
 }
 
 #[test]
+fn merged_cases_take_the_union_of_their_names() {
+    let found = cases(
+        r#"<testsuites><testcase name="adds [gsd:B] [gsd:A]"/><testcase name="adds [gsd:A] [gsd:C]"/></testsuites>"#,
+    )
+    .unwrap();
+    let id = TestId::js("app", "test/a.test.js", &strings(&["adds"]));
+    let facts = test_facts(
+        found
+            .iter()
+            .map(|case| TestCase::of(id.clone(), case, None)),
+    );
+    assert_eq!(facts[0].fields["names"], serde_json::json!(["A", "B", "C"]));
+    assert!(!facts[0].named_at.contains_key("names"));
+}
+
+#[test]
 fn an_unrun_test_has_no_run() {
     let id = TestId::rust("toy", "tests::later");
     let facts = test_facts([TestCase::unrun(id, TestStatus::Skipped)]);
