@@ -3,6 +3,7 @@
 //! `MemoryConsent` holding its approvals (ADR 0335 D2). Nothing here spawns a process, reads the
 //! environment or the wall clock.
 
+mod checked_once;
 mod facts;
 mod facts_input;
 mod modes;

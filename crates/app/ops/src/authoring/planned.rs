@@ -192,7 +192,13 @@ impl PlannedChange {
             self.locked = before.serializes_writes();
             return self;
         }
-        let after = before.edited(&self.after());
+        // A change that edits no source (a collect storing facts, a ledger-only write) leaves the graph the ledger is
+        // rewritten over as it is: a rebuild would build and check the same project a second time.
+        let after = if self.files.is_empty() {
+            before.clone()
+        } else {
+            before.edited(&self.after())
+        };
         self.with_ledger_after(before, after, change, force)
     }
 

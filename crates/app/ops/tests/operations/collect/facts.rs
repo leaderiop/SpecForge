@@ -25,7 +25,7 @@ use specforge_test_macros::test as specforge_test;
 use specforge_wasm::WasmCallResult;
 use specforge_wasm::testing::InProcessRuntime;
 
-const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
+pub(super) const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
 
 /// A project enabling the fixture, a truth to report on, and both collectors' reports.
 fn project() -> TestProject {
@@ -40,7 +40,7 @@ fn project() -> TestProject {
 }
 
 /// `node`'s facts: two tests of `a.test.js`, as the wire carries them.
-fn two_tests() -> Value {
+pub(super) fn two_tests() -> Value {
     json!([
         {"kind": "test", "id": "js:a.test.js#subtracts", "fields": {"file": "a.test.js", "status": "failed"}},
         {"kind": "test", "id": "js:a.test.js#adds", "title": "adds", "fields": {"file": "a.test.js", "status": "passed"}},
@@ -57,7 +57,7 @@ fn proving() -> WasmCallResult {
 }
 
 /// The empty answer of a collector that found nothing.
-fn nothing() -> WasmCallResult {
+pub(super) fn nothing() -> WasmCallResult {
     WasmCallResult::Ok(json!({"entity_results": []}).to_string().into_bytes())
 }
 
@@ -96,7 +96,7 @@ fn serving(facts: Value, unit: WasmCallResult) -> InProcessRuntime {
         .runtime()
 }
 
-fn ledger(project: &TestProject) -> String {
+pub(super) fn ledger(project: &TestProject) -> String {
     std::fs::read_to_string(project.root().join("specforge-harness")).unwrap_or_default()
 }
 
