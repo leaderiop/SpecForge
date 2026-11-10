@@ -268,3 +268,39 @@ fn a_second_collect_reads_the_same_facts() {
     };
     assert_eq!(ids(&first), ids(&second));
 }
+
+/// `p` collected by every detected collector, its facts stored as `specforge collect` stores them.
+fn stored(p: &TestProject) {
+    let mut outcome = collected(p, None, &machine(None));
+    let compiled = p.compile();
+    let view = specforge_ops::view::ProjectView::of(&compiled);
+    let dry_run = false;
+    specforge_ops::authoring::apply::apply_collected(
+        &view,
+        Vec::new(),
+        std::mem::take(&mut outcome.facts),
+        dry_run,
+        specforge_ops::testing::caller(),
+    )
+    .unwrap();
+}
+
+#[specforge_test_macros::test(
+    behavior = "provide_mcp_find_implementation_tool",
+    verify = "find_implementation lists every anchor of the entity, in manifest order"
+)]
+fn a_test_naming_a_behavior_is_its_anchor() {
+    let p = fixture();
+    let anchors = |p: &TestProject| {
+        let compiled = p.compile();
+        let view = specforge_ops::view::ProjectView::of(&compiled);
+        specforge_ops::read::navigate::anchors_of_entity(&view, "rs_mark_tests").unwrap()
+    };
+    // Nothing collected yet: no anchor, and nothing says why.
+    assert_eq!(anchors(&p).count, 0);
+
+    stored(&p);
+    // Pinned: `tests::adds` names `rs_mark_tests` and the store serves it, yet the view reads only
+    // `specforge-anchors.json`, which nothing writes. The read over graph edges flips it to one row.
+    assert_eq!(anchors(&p).count, 0);
+}
