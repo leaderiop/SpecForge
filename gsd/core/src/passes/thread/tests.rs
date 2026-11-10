@@ -175,3 +175,17 @@ fn a_checks_ref_names_a_fact_by_its_name_and_file() {
         [TestStatus::Passed, TestStatus::Failed]
     );
 }
+
+#[test]
+fn a_checks_ref_splits_at_its_first_hash() {
+    const FIXES: &str = "js:taskboard/test/tasks.test.js#fixes #42";
+    let input = with_facts(
+        None,
+        &[(FIXES, "fixes #42", "test/tasks.test.js", "passed")],
+        &[],
+    );
+    let thread = Thread::of(&input);
+    // Pins today's split at the last '#': the file reads `test/tasks.test.js#fixes ` and the name `42`, so the
+    // test is never found. The fix ends the file at the first '#' and finds it passed.
+    assert_eq!(thread.named("D1", "test/tasks.test.js#fixes #42"), []);
+}
