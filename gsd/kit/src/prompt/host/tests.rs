@@ -260,3 +260,26 @@ fn claude_keeps_a_bare_claude_home_as_a_default_install_does() {
     assert_eq!(to_claude(text), text);
     assert!(SOURCE.contains("if (normalizedPathPrefix === '$HOME/.claude') return match;"));
 }
+
+/// A test tag, `[gsd:<id>]` (`specforge_code_junit::names` reads no other spelling), as each host's rendered preamble
+/// and a converted text show it. Today Cursor's `gsd:` -> `gsd-` and Claude's command rewrite reach it.
+#[test]
+fn every_host_shows_a_test_tag_as_the_reader_reads_it() {
+    use crate::prompt::preamble;
+    for host in ["claude-code", "codex", "cursor"] {
+        let text = convert(
+            host,
+            &preamble::text(host, "{}", "@gsd/core", preamble::FILES),
+        );
+        let shown = if host == "cursor" {
+            "`[gsd-<id>]`"
+        } else {
+            "`[gsd:<id>]`"
+        };
+        assert!(text.contains(shown), "{host}: {text}");
+    }
+    // A tag whose id is also a command's name.
+    assert_eq!(to_claude("[gsd:help] works"), "[gsd-help] works");
+    assert_eq!(to_cursor("[gsd:help] works"), "[gsd-help] works");
+    assert_eq!(to_codex("[gsd:help] works"), "[gsd:help] works");
+}
