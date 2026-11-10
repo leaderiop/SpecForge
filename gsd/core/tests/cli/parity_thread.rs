@@ -167,3 +167,35 @@ fn the_twin_verdicts_are_fresh_over_the_thread() {
     let (p, _) = collected_thread();
     assert_eq!(p.verify_phase("v1.0/01"), 0);
 }
+
+/// With the requirement taken off plan 01-01 and its truth, each item its task names (`addTask`, `createBoard`) and the
+/// one only its commit changed (`completeTask`) is anchored by a plan that reaches no requirement.
+#[test]
+fn the_twins_items_of_a_plan_with_no_requirement_are_w522() {
+    let (p, _) = collected_thread();
+    p.edit(
+        "spec/plans.spec",
+        "requirements     [TASK-01]",
+        "requirements     []",
+    );
+    p.edit("spec/plans.spec", "  requirement TASK-01\n", "");
+    let mut found: Vec<String> = p
+        .report_all()
+        .into_iter()
+        .filter(|(code, _)| code == "gsd/W522")
+        .map(|(_, message)| message)
+        .collect();
+    found.sort();
+    let item = |name: &str| {
+        format!(
+            "item `js:taskboard/src/tasks.js::{name}` is anchored only by plan 'v1.0/01/01-01', which reaches no \
+             requirement"
+        )
+    };
+    assert_eq!(
+        found,
+        [item("addTask"), item("completeTask"), item("createBoard")],
+        "{:#?}",
+        p.report_all()
+    );
+}

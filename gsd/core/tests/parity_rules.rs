@@ -100,7 +100,7 @@ fn names_code(fns: &[(String, String)], name: &str, code: &str) -> bool {
 fn every_code_fires_and_stays_silent() {
     let fns = test_fns();
     let book = codes();
-    assert_eq!(book.len(), 67, "the code book has 67 codes");
+    assert_eq!(book.len(), 68, "the code book has 68 codes");
     let listed: Vec<&str> = RULE_EVIDENCE.iter().map(|(c, _)| *c).collect();
     assert_eq!(listed, book, "RULE_EVIDENCE lists the code book, in order");
     let mut bad = Vec::new();

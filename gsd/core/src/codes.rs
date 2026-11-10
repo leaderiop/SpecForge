@@ -620,6 +620,14 @@ pub static CODES: &[Code] = &[
         Severity::Error,
         Severity::Error,
     ),
+    code(
+        "W522",
+        "Item anchored only by plans that reach no requirement",
+        "A code item a task or a commit names is anchored by a plan that reaches a requirement",
+        "verify",
+        Severity::Warning,
+        Severity::Warning,
+    ),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {

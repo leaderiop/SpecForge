@@ -402,6 +402,12 @@
       "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
       "explanation": "A task commit names its task by its Gsd-Task trailer. It is an error.",
       "title": "Task commit not linked by its trailer"
+    },
+    {
+      "code": "W522",
+      "docs": "https://github.com/leaderiop/SpecForge/blob/main/gsd/core/spec/rules.md#verify",
+      "explanation": "A code item a task or a commit names is anchored by a plan that reaches a requirement. It is a warning.",
+      "title": "Item anchored only by plans that reach no requirement"
     }
   ]
 }
