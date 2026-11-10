@@ -10,7 +10,7 @@ use crate::collectors::LinkedBy;
 /// the inverses of the two references. A `Gsd-Task: <plan>/<task>` trailer names the task first, else the subject's
 /// title does (ADR 0331 D3); `linked_by` says which.
 // Paths are `strs`, not `files`: a later commit may delete or rename them, and the file check's E016 would fire. They are
-// repository-relative, as git prints them.
+// project-relative: a path outside the project is left out (ADR 0352).
 /// `linked_by`'s values, as gsd-git writes them.
 const LINKED_BY: &[&str] = &[LinkedBy::Trailer.as_str(), LinkedBy::Title.as_str()];
 
@@ -36,12 +36,14 @@ pub const COMMIT: Kind = Kind::new(
         str("type").h().doc("`feat`, `fix`, `test`, `docs` ...; absent for a subject with no `type:` header"),
         str("subject").h().doc("the first line of the message"),
         ts("at").h().doc("the author time, in UTC"),
-        strs("files").h().doc("the paths it touched"),
+        strs("files")
+            .h()
+            .doc("the paths it touched under the project, project-relative; a rename touches both paths"),
         strs("created")
             .h()
-            .doc("the paths it created, from `git log --summary`"),
-        int("insertions").h().doc("added lines"),
-        int("deletions").h().doc("deleted lines"),
+            .doc("the paths it created under the project, project-relative"),
+        int("insertions").h().doc("added lines, of every file it touched"),
+        int("deletions").h().doc("deleted lines, of every file it touched"),
         rfs("descends_from", "commit")
             .h()
             .doc("the recorded commits of its plan it descends from, through merges; absent when never collected"),

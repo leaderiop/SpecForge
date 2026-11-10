@@ -446,11 +446,10 @@ fn w520_is_on_under_gsd_strict() {
     assert!(!codes(&p).contains(&"gsd/W520".to_string()));
 }
 
-/// Pins the path base of W520: in a project under `sub/` of its repository the git collector records a commit's
-/// paths repository-relative (`sub/src/tasks.js`), and W520 compares them with the plan's project-relative
-/// `src/tasks.js`, so the touched path reads as untouched. It flips once the collector writes project-relative paths.
+/// The path base of W520: in a project under `sub/` of its repository the git collector records a commit's paths
+/// project-relative (`src/tasks.js`), as the plan names them, so W520 names only the path no commit touched.
 #[test]
-fn w520_reads_a_subdirectory_projects_commit_paths_as_untouched() {
+fn w520_reads_a_subdirectory_projects_commit_paths_project_relative() {
     let p = project_at("execute", "sub");
     p.git(&["-C", "..", "init", "-q", "-b", "main"], T0);
     p.git(&["add", "-A"], T0);
@@ -462,7 +461,7 @@ fn w520_reads_a_subdirectory_projects_commit_paths_as_untouched() {
     let run = p.collect(&["--runner", "gsd-git"]);
     assert_eq!(run.code, 0, "{}", run.all());
     let fields = p.fields_of(&head.trim()[..12]);
-    assert_eq!(fields["files"], json!(["sub/src/tasks.js"]), "{fields}");
+    assert_eq!(fields["files"], json!(["src/tasks.js"]), "{fields}");
     junit(&p, &[("adds a task", true)]);
     p.settings(json!({ "specforge.plan_paths_touched": true }));
     let found = report(&p);
@@ -470,7 +469,7 @@ fn w520_reads_a_subdirectory_projects_commit_paths_as_untouched() {
     assert!(
         found[0]
             .1
-            .ends_with("none of its commits touched: src/tasks.js, test/tasks.test.js"),
+            .ends_with("none of its commits touched: test/tasks.test.js"),
         "{found:?}"
     );
 }

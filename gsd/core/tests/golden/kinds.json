@@ -5959,7 +5959,7 @@
           },
           {
             "default_value": null,
-            "description": "the paths it touched",
+            "description": "the paths it touched under the project, project-relative; a rename touches both paths",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -5970,7 +5970,7 @@
           },
           {
             "default_value": null,
-            "description": "the paths it created, from `git log --summary`",
+            "description": "the paths it created under the project, project-relative",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -5981,7 +5981,7 @@
           },
           {
             "default_value": null,
-            "description": "added lines",
+            "description": "added lines, of every file it touched",
             "edge": null,
             "field_type": "integer",
             "inverse_of": null,
@@ -5992,7 +5992,7 @@
           },
           {
             "default_value": null,
-            "description": "deleted lines",
+            "description": "deleted lines, of every file it touched",
             "edge": null,
             "field_type": "integer",
             "inverse_of": null,

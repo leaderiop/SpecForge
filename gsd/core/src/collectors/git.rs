@@ -2,9 +2,11 @@
 //! (ADR 0331 D3), or a plan by GSD's subject convention `{type}({phase}-{plan}): {task}`
 //! (`gsd-core/references/git-integration.md:72`).
 //!
-//! It is a writing collector: the host runs `git log` with the user's consent and hands the captured output to
-//! `collect`, with the graph. The answer is an edit plan that creates one `commit` entity per new commit, in the file
-//! of the plan it names. It records nothing it already holds (the 12-hex name is the key), so a second run is a no-op.
+//! It is a writing collector that reads the project's repository through the host's git port (ADR 0352): one typed
+//! log from `HEAD`, and one diff for each commit it records. It runs no `git` program and needs no report, so a
+//! `--no-run` collect records commits too; an unborn repository records nothing. The answer is an edit plan that
+//! creates one `commit` entity per new commit, in the file of the plan it names. It records nothing it already holds
+//! (the 12-hex name is the key), so a second run is a no-op.
 //!
 //! The trailer comes first: one that names a task (`01-01/T1`, the configured `project_code` prefix stripped from the
 //! plan as from a scope) fixes the plan and the task, whatever the subject says. Otherwise the subject decides: its
@@ -18,10 +20,12 @@
 //! parent: the log is read with merges, so a RED made on a branch merged before the GREEN counts (#5275). A merge
 //! itself is not recorded.
 //!
-//! Everything taken from `git log` is untrusted. Records start at a NUL (`%x00`), which no commit message can hold, so
-//! a subject cannot forge one; control characters in a subject or a path become U+FFFD; a record whose hash is not
-//! hex or whose time is out of range is skipped and named in the plan's title. The host refuses a whole plan for one
-//! value it cannot write, so one bad commit must never reach it.
+//! A commit's `files` and `created` are project-relative: a path outside the project is left out, its lines still
+//! counted. The diff lists a rename as a deletion and an addition (`--no-renames`), so both paths are touched.
+//!
+//! What a commit says is untrusted: control characters in a subject or a path become U+FFFD, and a commit whose time
+//! is out of range is skipped and named in the plan's title. The host refuses a whole plan for one value it cannot
+//! write, so one bad commit must never reach it.
 //!
 //! Also ports gsd-core bin/lib modules: git-base-branch.cjs.
 
@@ -32,6 +36,9 @@ mod tests;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use serde_json::{Value, json};
+use specforge_extension_sdk::host::{
+    Denial, GitChange, GitDiffHead, GitDiffQuery, GitLogCommit, GitLogQuery, HostError, git,
+};
 use specforge_extension_sdk::prelude::*;
 
 use super::graph::find_kind;
@@ -39,15 +46,8 @@ use crate::time::utc;
 
 const NAME: &str = "gsd-git";
 
-/// One record separator (`%x00`), the unit separator between the fields of the header line (`%x1f`), and the
-/// separator between the values of the trailer field (`%x1e`).
-const RECORD: char = '\0';
-const FIELD: char = '\u{1f}';
-const VALUES: char = '\u{1e}';
-
-/// The header line: the hash, the parents, the author time, the `Gsd-Task:` trailers (unfolded, so a value never
-/// starts a line of its own) and the subject, last, so a unit separator in a subject stays in it.
-const FORMAT: &str = "--format=%x00%H%x1f%P%x1f%at%x1f%(trailers:key=Gsd-Task,valueonly,unfold,separator=%x1e)%x1f%s";
+/// The trailer token that names a task, matched in any case as git matches a trailer's token.
+const TASK_TRAILER: &str = "Gsd-Task";
 
 /// `commit.linked_by`: what found a commit's task.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -77,36 +77,22 @@ impl LinkedBy {
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.collector(NAME, |k| {
-        // A branch ref: a repository with a commit. An unborn one has neither, and `git log` fails there.
-        k.input_format("git-log")
-            .detect_files(&[".git/refs/heads/*", ".git/packed-refs"])
-            .run(&[
-                "git",
-                "-c",
-                "core.quotepath=off",
-                "-c",
-                "i18n.logOutputEncoding=UTF-8",
-                "log",
-                "--no-renames",
-                "--numstat",
-                "--summary",
-                FORMAT,
-            ])
-            .capture_stdout()
+        // A branch ref: a repository with a commit.
+        k.detect_files(&[".git/refs/heads/*", ".git/packed-refs"])
             .writes()
             .collect(collect);
     });
 }
 
-/// One commit of the log.
-#[derive(Debug, PartialEq, Eq)]
+/// One commit of the log; `files` and on are its diff's, filled when it is recorded.
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct Commit {
     pub hash: String,
-    /// `%P`: none for a root commit, two or more for a merge.
+    /// None for a root commit, two or more for a merge.
     pub parents: Vec<String>,
     pub at: String,
-    /// The `Gsd-Task:` trailer values as git printed them, joined by `%x1e`; read by [`trailer`].
-    pub trailers: String,
+    /// The values of its `Gsd-Task:` trailers, read by [`trailer`].
+    pub trailers: Vec<String>,
     pub subject: String,
     pub files: Vec<String>,
     pub created: Vec<String>,
@@ -114,45 +100,93 @@ pub struct Commit {
     pub deletions: i64,
 }
 
-/// A path as `git log` prints it: C-quoted (`"a\tb"`, octal escapes for bytes) when it holds a tab, a quote or a
-/// backslash.
-fn unquote(path: &str) -> String {
-    let Some(inner) = path.strip_prefix('"').and_then(|p| p.strip_suffix('"')) else {
-        return clean(path);
-    };
-    let mut bytes = Vec::new();
-    let mut chars = inner.bytes().peekable();
-    while let Some(b) = chars.next() {
-        if b != b'\\' {
-            bytes.push(b);
-            continue;
+impl Commit {
+    /// `commit` as the log answers it, or its name when its author time is not in `0..=253402300799` (the years 1970
+    /// to 9999).
+    fn of(commit: &GitLogCommit) -> Result<Commit, String> {
+        let seconds = commit.author.seconds;
+        if !(0..=253_402_300_799).contains(&seconds) {
+            return Err(commit.sha.chars().take(12).collect());
         }
-        match chars.next() {
-            Some(b'n') => bytes.push(b'\n'),
-            Some(b't') => bytes.push(b'\t'),
-            Some(b'r') => bytes.push(b'\r'),
-            Some(b'a') => bytes.push(0x07),
-            Some(b'b') => bytes.push(0x08),
-            Some(b'f') => bytes.push(0x0c),
-            Some(b'v') => bytes.push(0x0b),
-            Some(digit @ b'0'..=b'7') => {
-                let mut value = u32::from(digit - b'0');
-                for _ in 0..2 {
-                    match chars.peek() {
-                        Some(next @ b'0'..=b'7') => {
-                            value = value * 8 + u32::from(next - b'0');
-                            chars.next();
-                        }
-                        _ => break,
-                    }
-                }
-                bytes.push(u8::try_from(value & 0xff).unwrap_or(b'?'));
-            }
-            Some(other) => bytes.push(other),
-            None => bytes.push(b'\\'),
-        }
+        Ok(Commit {
+            hash: commit.sha.clone(),
+            parents: commit.parents.clone(),
+            at: utc(seconds),
+            trailers: commit
+                .trailers
+                .iter()
+                .filter(|t| t.token.eq_ignore_ascii_case(TASK_TRAILER))
+                .flat_map(|t| t.values.iter().cloned())
+                .collect(),
+            subject: clean(&commit.subject),
+            ..Commit::default()
+        })
     }
-    clean(&String::from_utf8_lossy(&bytes))
+
+    /// Its changes against its first parent (every file of a root commit), renames apart: the files under the project
+    /// at `prefix` of the repository, project-relative and sorted, the ones it added, and the lines of every file.
+    fn changes(&mut self, prefix: &str) -> Result<(), String> {
+        let diff = git::diff(&GitDiffQuery {
+            base: self.parents.first().cloned(),
+            head: GitDiffHead::Commit(self.hash.clone()),
+            paths: Vec::new(),
+            patch: false,
+            hunks: false,
+            renames: false,
+        })
+        .map_err(|e| {
+            said(
+                &format!("diff {}", &self.hash[..12.min(self.hash.len())]),
+                &e,
+            )
+        })?;
+        for file in &diff.files {
+            self.insertions += i64::from(file.added);
+            self.deletions += i64::from(file.removed);
+            let Some(path) = in_project(prefix, &file.path) else {
+                continue;
+            };
+            if file.status == GitChange::Added {
+                self.created.push(path.clone());
+            }
+            self.files.push(path);
+        }
+        self.files.sort();
+        self.created.sort();
+        Ok(())
+    }
+}
+
+/// What a port's refusal or failure says.
+fn said(what: &str, error: &HostError) -> String {
+    let why = match error {
+        HostError::Denied(Denial::CallKind(why) | Denial::Scope(why)) => why,
+        HostError::Failed(failure) => &failure.message,
+    };
+    format!("{NAME} could not {what}: {why}")
+}
+
+/// The project's directory from the repository's top (`sub/dir`, empty at the top): the project root the host lends
+/// less the repository's top, both canonical.
+fn prefix(cwd: Option<&str>, toplevel: &str) -> String {
+    let posix = |p: &str| p.replace('\\', "/");
+    let (cwd, top) = (posix(cwd.unwrap_or_default()), posix(toplevel));
+    match cwd.strip_prefix(top.trim_end_matches('/')) {
+        Some(rest) if rest.is_empty() || rest.starts_with('/') => {
+            rest.trim_matches('/').to_string()
+        }
+        _ => String::new(),
+    }
+}
+
+/// `path` (from the repository's top) from the project at `prefix`, cleaned; none when it is outside the project.
+fn in_project(prefix: &str, path: &str) -> Option<String> {
+    let rest = if prefix.is_empty() {
+        path
+    } else {
+        path.strip_prefix(prefix)?.strip_prefix('/')?
+    };
+    Some(clean(rest))
 }
 
 /// `text` with every control character (ANSI escapes, DEL, U+0085) and U+2028/2029 replaced by U+FFFD: the host
@@ -167,79 +201,6 @@ fn clean(text: &str) -> String {
             }
         })
         .collect()
-}
-
-/// A full object name: 40 (SHA-1) or 64 (SHA-256) lower-case hex digits.
-fn is_hash(text: &str) -> bool {
-    matches!(text.len(), 40 | 64) && text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
-}
-
-/// The commits of `git log --numstat --summary` with [`FORMAT`], newest first as git prints them,
-/// and the hash (as far as it is printable) of each record that is not a valid commit: a hash or a parent that is not
-/// hex, a time that is not in `0..=253402300799` (the years 1970 to 9999). A binary file counts 0 lines.
-pub fn parse_all(log: &str) -> (Vec<Commit>, Vec<String>) {
-    let (mut commits, mut skipped) = (Vec::new(), Vec::new());
-    for text in log.split(RECORD).filter(|t| !t.trim().is_empty()) {
-        match record(text) {
-            Ok(commit) => commits.push(commit),
-            Err(name) => skipped.push(name),
-        }
-    }
-    (commits, skipped)
-}
-
-#[cfg(test)]
-pub fn parse(log: &str) -> Vec<Commit> {
-    parse_all(log).0
-}
-
-fn record(text: &str) -> Result<Commit, String> {
-    let mut lines = text.lines();
-    let mut head = lines.next().unwrap_or_default().splitn(5, FIELD);
-    let (hash, parents, at, trailers, subject) = (
-        head.next().unwrap_or_default().trim(),
-        head.next().unwrap_or_default(),
-        head.next().unwrap_or_default().trim(),
-        head.next().unwrap_or_default(),
-        head.next().unwrap_or_default(),
-    );
-    let parents: Vec<String> = parents.split_whitespace().map(String::from).collect();
-    let time = at
-        .parse::<i64>()
-        .ok()
-        .filter(|t| (0..=253_402_300_799).contains(t));
-    let (true, true, Some(time)) = (is_hash(hash), parents.iter().all(|p| is_hash(p)), time) else {
-        return Err(clean(&hash.chars().take(12).collect::<String>()));
-    };
-    let mut commit = Commit {
-        hash: hash.to_string(),
-        parents,
-        at: utc(time),
-        trailers: trailers.to_string(),
-        subject: clean(subject),
-        files: Vec::new(),
-        created: Vec::new(),
-        insertions: 0,
-        deletions: 0,
-    };
-    for line in lines {
-        if let Some(rest) = line.strip_prefix(" create mode ") {
-            // `create mode 100644 path`: the mode, then the path (which may hold spaces).
-            if let Some((_, path)) = rest.split_once(' ') {
-                commit.created.push(unquote(path));
-            }
-            continue;
-        }
-        let mut columns = line.splitn(3, '\t');
-        if let (Some(added), Some(deleted), Some(path)) =
-            (columns.next(), columns.next(), columns.next())
-        {
-            commit.insertions += added.parse::<i64>().unwrap_or(0);
-            commit.deletions += deleted.parse::<i64>().unwrap_or(0);
-            commit.files.push(unquote(path));
-        }
-    }
-    Ok(commit)
 }
 
 /// What a commit's `Gsd-Task:` trailers say.
@@ -273,11 +234,11 @@ fn uncoded<'v>(id: &'v str, code: Option<&str>) -> Option<&'v str> {
     id.strip_prefix(code?)?.strip_prefix('-')
 }
 
-/// The trailer `values` (git's `%x1e`-separated list) say: each trimmed, empty ones dropped, repeats counted once.
-pub fn trailer(values: &str) -> Trailer<'_> {
+/// The trailer `values` say: each trimmed, empty ones dropped, repeats counted once.
+pub fn trailer(values: &[String]) -> Trailer<'_> {
     let mut named: Vec<&str> = values
-        .split(VALUES)
-        .map(str::trim)
+        .iter()
+        .map(|v| v.trim())
         .filter(|v| !v.is_empty())
         .collect();
     named.sort_unstable();
@@ -555,6 +516,25 @@ fn link<'n, 'c>(
 }
 
 fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
+    let Some(repo) = git::locate().map_err(|e| said("locate the repository", &e))? else {
+        return Err(format!("{NAME}: the project is in no git repository"));
+    };
+    // An unborn repository: nothing to record.
+    let Some(head) = git::commit("HEAD").map_err(|e| said("read HEAD", &e))? else {
+        return Ok(CollectOutput::default());
+    };
+    let log = git::log(&GitLogQuery {
+        tips: vec![head],
+        ..GitLogQuery::default()
+    })
+    .map_err(|e| said("read the log", &e))?;
+    if log.truncated {
+        return Err(format!(
+            "{NAME}: the history of {} commits is past one answer of the host's git port",
+            log.count.unwrap_or_default()
+        ));
+    }
+    let prefix = prefix(input.cwd.as_deref(), &repo.toplevel);
     let nodes = input.graph.as_ref().map_or(&[][..], |g| &g.nodes[..]);
     let mut known: BTreeSet<String> = nodes
         .iter()
@@ -564,7 +544,13 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     let mut builder = PlanBuilder::for_collect(input);
     let mut recorded = 0;
     let mut unread = Vec::new();
-    let (commits, mut skipped) = parse_all(input.stdout.as_deref().unwrap_or(""));
+    let (mut commits, mut skipped) = (Vec::new(), Vec::new());
+    for commit in &log.commits {
+        match Commit::of(commit) {
+            Ok(commit) => commits.push(commit),
+            Err(name) => skipped.push(name),
+        }
+    }
     // The `project_code` setting (what GSD users set and `specforge settings` shows), else the project entity's field.
     let settings = Settings::current();
     let code = settings
@@ -577,20 +563,29 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
                 .and_then(|n| n.text("project_code"))
                 .filter(|c| !c.is_empty())
         });
+    // Oldest first, so the entities land in the order the commits were made; each new one asks its diff once.
+    let mut fresh = Vec::new();
+    for (at, commit) in commits.iter().enumerate().rev() {
+        let name: String = commit.hash.chars().take(12).collect();
+        if !known.contains(&name) && link(nodes, code, commit).is_some() {
+            known.insert(name);
+            fresh.push(at);
+        }
+    }
+    for &at in &fresh {
+        commits[at].changes(&prefix)?;
+    }
     let plans: HashMap<&str, &str> = commits
         .iter()
         .filter_map(|c| Some((c.hash.as_str(), link(nodes, code, c)?.plan.id.as_str())))
         .collect();
     let mut descends = ancestry(&commits, &plans);
-    // Oldest first, so the entities land in the order the commits were made.
-    for commit in commits.iter().rev() {
-        let name: String = commit.hash.chars().take(12).collect();
-        if known.contains(&name) {
-            continue;
-        }
+    for &at in &fresh {
+        let commit = &commits[at];
         let Some(linked) = link(nodes, code, commit) else {
             continue;
         };
+        let name: String = commit.hash.chars().take(12).collect();
         if let Some(value) = linked.unread.shown() {
             unread.push(format!("trailer of {name} names no task: {value}"));
         }
@@ -607,7 +602,6 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
             ),
             Vec::new(),
         );
-        known.insert(name);
         recorded += 1;
     }
     skipped.dedup();

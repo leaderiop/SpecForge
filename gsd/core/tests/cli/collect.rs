@@ -237,23 +237,22 @@ fn a_subject_cannot_forge_a_commit() {
     assert!(fields.get("task").is_none(), "{fields}");
 }
 
+/// Named outside any repository, gsd-git fails and says so; in an unborn one it has nothing to record.
 #[test]
-fn a_repository_without_commits_is_e045() {
-    // `git log` fails in a repository with no commit, and in a directory that is none: no output, so no report.
-    for init in [false, true] {
-        let p = project("execute");
-        if init {
-            p.init_repository();
-        }
-        let run = p.collect(&["--runner", "gsd-git"]);
-        assert_ne!(run.code, 0, "init {init}: {}", run.all());
-        assert!(
-            run.all().contains("E045") && run.all().contains("gsd-git produced no report"),
-            "init {init}: {}",
-            run.all()
-        );
-        assert_eq!(recorded(&p), Vec::<String>::new());
-    }
+fn a_named_gsd_git_outside_a_repository_fails_and_an_unborn_one_records_nothing() {
+    let p = project("execute");
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(
+        run.all().contains("the project is in no git repository"),
+        "{}",
+        run.all()
+    );
+    assert_eq!(recorded(&p), Vec::<String>::new());
+    p.init_repository();
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(recorded(&p), Vec::<String>::new());
 }
 
 /// A plain `collect --yes` in a repository with a commit runs gsd-git, as a GSD project's own collect does.
@@ -303,38 +302,28 @@ fn a_plain_collect_in_a_linked_worktree_does_not_run_gsd_git() {
     assert_eq!(p.git(&["-C", "../wt", "status", "--porcelain"], T0), "");
 }
 
-/// Detected, gsd-git with no capture of an earlier run is skipped, not E045 (ADR 0331).
+/// gsd-git runs no program: a `--no-run` collect records the commits as a run does (ADR 0352).
 #[test]
-fn a_plain_collect_without_a_run_skips_gsd_git() {
+fn a_plain_collect_without_a_run_still_records_the_commits() {
     let p = repository();
-    p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
+    let hash = p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
     let run = p.run(&["collect", "--no-run", "--yes", "--format", "json"]);
     assert_eq!(run.code, 0, "{}", run.all());
-    let git = gsd_git(&run);
-    assert!(git["skip_reason"].is_string(), "{}", run.all());
-    assert!(recorded(&p).is_empty());
-    // The human output says so under the runner.
-    let human = p.run(&["collect", "--no-run", "--yes"]);
-    assert_eq!(human.code, 0, "{}", human.all());
-    assert!(
-        human.stdout.contains("gsd-git: skipped: "),
-        "{}",
-        human.all()
-    );
+    assert!(gsd_git(&run)["skip_reason"].is_null(), "{}", run.all());
+    assert_eq!(recorded(&p), [&hash[..12]]);
 }
 
-/// Detected, gsd-git whose `git` cannot start is skipped, not E045.
+/// gsd-git reads the host's git port, not a `git` on `PATH`: none there, it records the commits all the same.
 #[cfg(unix)]
 #[test]
-fn a_plain_collect_without_git_on_path_skips_gsd_git() {
+fn a_plain_collect_without_git_on_path_records_the_commits() {
     let p = repository();
-    p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
+    let hash = p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);
     let empty = tempfile::tempdir().expect("an empty directory");
     let path = empty.path().to_str().expect("a UTF-8 path");
     let run = p.run_with(&["collect", "--yes", "--format", "json"], &[("PATH", path)]);
     assert_eq!(run.code, 0, "{}", run.all());
-    assert!(gsd_git(&run)["skip_reason"].is_string(), "{}", run.all());
-    assert!(recorded(&p).is_empty());
+    assert_eq!(recorded(&p), [&hash[..12]]);
 }
 
 /// The executor's `Gsd-Task:` trailer names the task of a commit whose subject names no plan.
@@ -352,6 +341,31 @@ fn a_trailer_names_the_task_of_a_commit_without_a_scope() {
     let fields = p.fields_of(&hash[..12]);
     assert_eq!(fields["task"], "v1.0/01/01-01/T1", "{fields}");
     assert_eq!(fields["plan"], "v1.0/01/01-01", "{fields}");
+    assert_eq!(fields["linked_by"], "Gsd-Task", "{fields}");
+}
+
+/// The trailer is read from the message's last paragraph, a second `-m` as much as one written in the message.
+#[test]
+fn a_trailer_in_a_second_message_paragraph_is_read() {
+    let p = repository();
+    p.write("src/w.js", "w\n");
+    p.git(&["add", "--", "src/w.js"], T0);
+    p.git(
+        &[
+            "commit",
+            "-q",
+            "-m",
+            "chore: wire it",
+            "-m",
+            "Gsd-Task: 01-01/T1",
+        ],
+        T0,
+    );
+    let hash = p.git(&["rev-parse", "HEAD"], T0).trim().to_string();
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let fields = p.fields_of(&hash[..12]);
+    assert_eq!(fields["task"], "v1.0/01/01-01/T1", "{fields}");
     assert_eq!(fields["linked_by"], "Gsd-Task", "{fields}");
 }
 

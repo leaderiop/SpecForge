@@ -181,10 +181,6 @@ The assets are upstream's text; where the spec has no counterpart a line was def
   no runtime library (#5640), so the steps stop at "not found" unless an upstream GSD install provides one.
 - `gsd/W506` reads what a complete plan lists in `decisions` (ADR 0351): a decision cited only in prose covers nothing,
   where upstream reads the plans' text, the modified files and the commit bodies.
-- `gsd/W520` compares the commits' paths, which the `gsd-git` collector records repository-relative as git prints
-  them, with the plan's project-relative paths. They are equal when the project is its repository's root (every
-  fixture and the twin); in a project under a subdirectory of its repository every planned path reads as untouched
-  until the collector writes the paths project-relative.
 - The ledger scope in `ship` (`ship.md`, the broken-window step) is the milestone's (`"$MILESTONE" --depth 2`: every phase of it), not upstream's project-wide file: the graph links a window to its phase, not to the project. The `windows_enforce` gate (E512) still refuses on an open window anywhere in the project.
 - Cursor: upstream's section A (the Claude-only blocks) is dropped, and `~/.claude` paths read `~/.cursor`. Codex maps
   an agent's effort to `high` as upstream does (`gsd/kit/tests/golden/host/` holds the probe and both conversions, made with

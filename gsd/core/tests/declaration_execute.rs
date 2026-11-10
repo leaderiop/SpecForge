@@ -312,41 +312,28 @@ fn the_model_counts_its_fields() {
 }
 
 #[test]
-fn the_git_collector_runs_git_log_and_writes_a_plan() {
+fn the_git_collector_reads_the_git_port_and_writes_a_plan() {
     let declaration = MockHost::new(build()).declaration();
     let git = declaration
         .collectors
         .iter()
         .find(|c| c.name == "gsd-git")
         .expect("the gsd-git collector");
-    // Its command is the process capability it names (ADR 0335 D2.1).
-    let run = declaration
-        .capabilities
-        .iter()
-        .find(|c| Some(&c.name) == git.capability.as_ref())
-        .and_then(|c| match &c.port {
-            specforge_extension_sdk::PortScope::Process(process) => Some(process.argv.clone()),
-            _ => None,
-        })
-        .expect("the gsd-git process capability");
     assert!(git.writes, "it creates the commit entities");
-    assert_eq!(git.capture.as_deref(), Some("stdout"));
-    assert_eq!(run[..2], ["git", "-c"]);
-    assert!(run.contains(&"--numstat".to_string()) && run.contains(&"--summary".to_string()));
-    // Merges are read (for the parents a commit descends through), not recorded.
-    assert!(run.contains(&"log".to_string()) && !run.contains(&"--no-merges".to_string()));
-    // The trailer before the subject, unfolded: the subject stays last (ADR 0331 D3).
-    assert!(run.contains(
-        &"--format=%x00%H%x1f%P%x1f%at%x1f%(trailers:key=Gsd-Task,valueonly,unfold,separator=%x1e)%x1f%s"
-            .to_string()
-    ));
+    // It runs no program and reads no report: the host's git port answers it (ADR 0352).
+    assert_eq!(git.capability, None);
+    assert_eq!(git.capture, None);
+    assert!(git.input_formats.is_empty());
+    // The extension may read git: the one `repo` scope its commands read the branch through.
+    assert!(declaration.capabilities.iter().any(|c| {
+        c.name == "repo" && matches!(c.port, specforge_extension_sdk::PortScope::Git(_))
+    }));
     // Detected by a branch ref (ADR 0331 D4): a plain `specforge collect` in a repository with a commit runs it.
     let detect = git.auto_detect.as_ref().expect("gsd-git is detected");
     assert_eq!(
         detect.file_patterns,
         [".git/refs/heads/*", ".git/packed-refs"]
     );
-    assert_eq!(git.input_formats, ["git-log"]);
 }
 
 #[test]

@@ -71,8 +71,9 @@ every field is immutable and the kind is append-only (E084, E085).
 ## commit
 
 Written by the git collector, not by an agent: every field is `H` (a command's or collector's plan sets it; the host
-refuses any other writer). The collector (`gsd-git`) runs the whole `git log` with `capture_stdout` and is named
-explicitly (`specforge collect --runner gsd-git`); an incremental `{since}` is not needed at core's scale. It reads GSD's
+refuses any other writer). The collector (`gsd-git`) reads the whole log through the host's git port (ADR 0352) and is
+named explicitly (`specforge collect --runner gsd-git`) or detected; an incremental `{since}` is not needed at core's
+scale. It reads GSD's
 own subject convention, `{type}({phase}-{plan}): {task-name}` (`feat(03-02): issue a token on sign-in`), and matches the
 task by its title. A `Gsd-Task: <plan>/<task>` trailer comes first (ADR 0331 D3): one that names a task fixes the plan
 and the task, whatever the subject says (`linked_by Gsd-Task`); otherwise the subject decides (`linked_by title`). A
@@ -89,22 +90,21 @@ write the same file), in the project scope, named by the first 12 hex digits of 
 | type | str | H | `feat`, `fix` …; absent for a subject with no `type:` header (a commit its trailer links) |
 | subject | str | H | |
 | at | ts | H | the author time, UTC |
-| files | strs | H | repository-relative paths, as git prints them; text, not `files`, since a later commit may delete one |
-| created | strs | H | the paths `git log --summary` reports `create mode` for (GSD's `key-files.created`) |
-| insertions, deletions | int | H | `git log --numstat` |
+| files | strs | H | the paths it touched under the project, project-relative (a path outside it is left out); a rename touches both paths; text, not `files`, since a later commit may delete one |
+| created | strs | H | the paths under the project it added (GSD's `key-files.created`), project-relative |
+| insertions, deletions | int | H | the lines it added and removed, of every file it touched |
 | descends_from | →* commit | H | the recorded commits of the same plan this one reaches through its parents (`%P`, merges included), oldest first; `[]` for none, absent on a commit recorded before ancestry was collected. W403 reads it (#5275) |
 
-**Collecting.** `specforge collect --runner gsd-git --yes` (or without `--yes`, to be asked) runs
-`git -c core.quotepath=off log --no-renames --numstat --summary
---format=%x00%H%x1f%P%x1f%at%x1f%(trailers:key=Gsd-Task,valueonly,unfold,separator=%x1e)%x1f%s` once in the
-project root and hands the captured output to the collector, which is a *writing* one: it is also given the graph, and
-answers an edit plan (`Record N commits`) that creates the new `commit` entities in their plans' files, oldest first.
+**Collecting.** `specforge collect --runner gsd-git --yes` (or without `--yes`, to be asked) runs the collector, which
+runs no program: it asks the host's git port for the typed log from `HEAD` (its trailers and author times), then one
+diff of each commit it records against its first parent (a root commit's against the empty tree), renames apart, so a
+rename touches both paths (ADR 0352). It is a *writing* collector: it is also given the graph, and answers an edit plan (`Record N commits`) that creates the new `commit` entities in their plans' files, oldest first.
 The host applies the plan and records each field in `specforge-harness`. A commit whose 12-hex name the graph already
 holds is not recorded again, so a second run changes nothing. The collector is detected by a branch ref
 (`.git/refs/heads/*` or `.git/packed-refs`, ADR 0331 D4), or named (`--runner gsd-git`): a plain `specforge collect` in
-a repository with a commit runs it, and one with no commit yet (unborn) does not detect it. Detected and giving no
-evidence (`--no-run`, no `git` on PATH), it is skipped and the collect goes on; named, a repository with no commit (or a
-directory that is none) prints nothing, and `collect` says so with E045 ("produced no report"). The header is read as `/gsd-undo` reads it: one `fixup! `, `squash! `
+a repository with a commit runs it, and one with no commit yet (unborn) does not detect it. It needs neither a run nor
+a `git` on PATH, so `--no-run` records the commits too; named, an unborn repository records nothing and a directory in
+no repository fails ("the project is in no git repository"). The header is read as `/gsd-undo` reads it: one `fixup! `, `squash! `
 or `Revert "…"` layer is unwrapped, then `type[(scope)][!]: description`, case-insensitively; the scope is the plan's GSD
 id (`03-02`, `03.1-01`, a quick id), resolved over the graph as a path, a rooted path or a unique short form. A scope that
 names no plan, several plans (`01-01` in two milestones: write the full path) or a non-plan is skipped, except that a
@@ -145,10 +145,10 @@ phase from here instead of a manifest file.
   with a thousands separator gives no duration. A report cut inside a `<testcase>`, or that holds no `<testsuite>`, is
   refused; a tag that names no entity, or several, lists the test as unlinked even when another tag linked it.
 
-`gsd-git` reads the whole `git log` on every run (no `--since`): a repository of ten thousand commits costs seconds and
-the host's 512 MB / 30 s guest limit is the bound. Its records start at a NUL, control characters in a subject or path
-become U+FFFD, and a commit with a bad hash or time is skipped and named in the plan's title. It does not clear
-`GIT_DIR` and the like (the host runs the command).
+`gsd-git` reads the whole log on every run (no `--since`): a repository of ten thousand commits costs seconds, and the
+port's answer cap and the host's 512 MB / 30 s guest limit are the bound (a log past one answer fails the collect).
+Control characters in a subject or path become U+FFFD, and a commit whose time is out of range is skipped and named in
+the plan's title. The host decides the repository; the guest names commits by id only.
 
 A test that links neither way is reported unlinked, for the host's naming convention (`entity_id__slug`, a module named
 after an entity), which cannot spell a scoped id. The collector has no command (GSD is language-agnostic) and reads the
