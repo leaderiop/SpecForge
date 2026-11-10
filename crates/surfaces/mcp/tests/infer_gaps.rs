@@ -97,9 +97,9 @@ fn gap_items(server: &mut Served) -> Vec<(String, String)> {
 
 #[specforge_test(
     behavior = "provide_mcp_infer_gaps_tool",
-    verify = "an item an anchor names for a declared entity is covered"
+    verify = "an item fact with an anchor to a declared entity is no gap"
 )]
-fn an_item_an_anchor_names_for_a_declared_entity_is_covered() {
+fn an_item_fact_with_an_anchor_to_a_declared_entity_is_no_gap() {
     let mut server = served(lib());
     let items = gap_items(&mut server);
     assert!(

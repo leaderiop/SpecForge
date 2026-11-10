@@ -352,7 +352,7 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
   verify unit "returns structured InferenceGap items with file and line"
   verify unit "marks output as approximate"
   verify unit "with no project served, infer_gaps is the no-project refusal"
-  verify unit "an item an anchor names for a declared entity is covered"
+  verify unit "an item fact with an anchor to a declared entity is no gap"
   verify unit "an anchored entity covers only the items its anchors name"
   verify unit "every item find_spec_for_source anchors to a declared entity is no gap"
   verify unit "an anchor to an entity the graph does not declare covers nothing"
