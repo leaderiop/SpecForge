@@ -9,9 +9,9 @@
 use specforge_component::builtins::BUILTINS;
 use specforge_component::committed::COMMITTED;
 
-// The fourteen builtins total 11,622,905 B, the sum of the `.wasm` files `revendor` commits (built with
+// The fourteen builtins total 11,623,336 B, the sum of the `.wasm` files `revendor` commits (built with
 // `--profile blob`); `@specforge/checks` is the largest, 2,408,065 B. The budget is that total rounded up to the next
-// 100,000 B, here 11,700,000 (77,095 B of headroom): a change that grows the blobs past it re-measures and takes the
+// 100,000 B, here 11,700,000 (76,664 B of headroom): a change that grows the blobs past it re-measures and takes the
 // rule's next step in the same commit. A build without the profile is far larger, so this catches a profile regression.
 const TOTAL_BUDGET: usize = 11_700_000;
 

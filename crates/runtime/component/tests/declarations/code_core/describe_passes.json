@@ -4,12 +4,32 @@
     {
       "after": null,
       "before": null,
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "test",
+            "test_run"
+          ]
+        }
+      ],
       "name": "refs",
       "phase": "check"
     },
     {
       "after": null,
       "before": null,
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "test",
+            "test_run",
+            "item",
+            "package"
+          ]
+        }
+      ],
       "name": "proof",
       "phase": "check"
     }
