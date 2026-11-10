@@ -282,7 +282,12 @@ behavior find_all_references "Find All References" {
     to it. The entity's own declaration (its name token) MUST be included
     when the request asks for it (includeDeclaration) and MUST NOT be
     otherwise. The LSP and MCP specforge.find_references answer from the
-    same navigation (specforge_ops::read::navigate).
+    same navigation (specforge_ops::read::navigate). A name a fact holds
+    where its source file writes it is a reference, placed in that file
+    while it is the text collected (ADR 0349 D8). In a source document, on
+    such a name the references are its entity's; inside a located fact
+    elsewhere, the innermost fact's citations and the name of each entity
+    it is anchored to.
   """
   verify unit "find-refs returns all reference sites"
   verify unit "find-refs includes the declaration site"
@@ -294,6 +299,8 @@ behavior find_all_references "Find All References" {
   verify unit "a name written in a field and in a method signature is one location each"
   verify unit "reference ranges are UTF-16 after multi-byte text"
   verify unit "the finder reports a final token for a path's last name and a qualifier token for each name before it"
+  verify unit "references to an entity include where a source fact names it"
+  verify unit "references from a located fact list its citations and its entities"
   verify contract "Find All References: find all references holds — graph_available, all_references_returned, declaration_included"
   verify unit "find-refs include a use binding's imported name"
   verify unit "the written tokens of a file include a use binding's imported name, never its alias"

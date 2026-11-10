@@ -7,10 +7,13 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use tower_lsp::lsp_types::Url;
+use specforge_common::{SourceSpan, Sym};
+use specforge_ops::read::navigate::contains;
+use tower_lsp::lsp_types::{Location, Position, Url};
 
 use crate::LspState;
 use crate::document::LineIndex;
+use crate::navigation::Compiled;
 
 /// The extensions of the files the server answers as source documents.
 const EXTENSIONS: [&str; 5] = ["rs", "ts", "tsx", "js", "jsx"];
@@ -54,6 +57,55 @@ pub(crate) fn placed_index(state: &LspState, key: &str, recorded: &str) -> Optio
     }
     let text = String::from_utf8(bytes).ok()?;
     Some(Arc::new(LineIndex::new(&text)))
+}
+
+/// The references from inside a located fact of source document `key` at `position` (ADR 0349 D8), the innermost
+/// whose place holds it: where a `.spec` cites the fact, and the name of each entity it is anchored to. `None` when
+/// the cursor is in no fact, or the file is not the text collected.
+pub(crate) fn fact_references(
+    compiled: &Compiled,
+    key: &str,
+    position: Position,
+) -> Option<Vec<Location>> {
+    let index = compiled.source_index(key)?;
+    let (line, col) = index.source_position(position)?;
+    let at = SourceSpan {
+        file: Sym::new(key),
+        start_line: line,
+        start_col: col,
+        end_line: line,
+        end_col: col,
+    };
+    let state = compiled.state();
+    let view = state.view();
+    let kinds = view.registries().kinds();
+    let fact = state
+        .graph()
+        .nodes()
+        .into_iter()
+        .filter(|node| kinds.is_collected(node.kind.raw.as_str()))
+        .filter_map(|node| {
+            let place = node.located.iter().find(|place| contains(place, &at))?;
+            Some((node, place.end_line - place.start_line))
+        })
+        .min_by_key(|(_, lines)| *lines)?
+        .0;
+    let navigator = compiled.navigator();
+    let mut spans: Vec<SourceSpan> = navigator
+        .tokens(fact.id.raw.as_str(), false)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|token| token.span)
+        .collect();
+    let anchors = specforge_ops::read::navigate::anchors_in(&view);
+    for edge in anchors.of_fact(fact.id.raw.as_str()) {
+        if let Ok(definition) = navigator.definition(edge.entity.id.raw.as_str()) {
+            spans.push(definition.name);
+        }
+    }
+    spans.sort_by_key(|s| (s.file, s.start_line, s.start_col));
+    spans.dedup();
+    Some(spans.iter().filter_map(|s| compiled.location(s)).collect())
 }
 
 #[cfg(test)]

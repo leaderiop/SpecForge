@@ -166,3 +166,69 @@ fn definition_on_a_name_a_fact_holds_in_a_source_file_opens_the_entity() {
     assert_eq!(definition(Position::new(2, 2)), None);
     assert_eq!(definition(Position::new(0, 3)), None);
 }
+
+/// The range of `T1` in line 1 of [`SOURCE`].
+fn named() -> Range {
+    Range::new(Position::new(0, 10), Position::new(0, 12))
+}
+
+/// `(file name, range)` of each location.
+fn placed(found: Option<Vec<Location>>) -> Vec<(String, Range)> {
+    found
+        .unwrap_or_default()
+        .into_iter()
+        .map(|l| {
+            (
+                l.uri.path().rsplit('/').next().unwrap().to_string(),
+                l.range,
+            )
+        })
+        .collect()
+}
+
+#[spec(
+    behavior = "find_all_references",
+    verify = "references to an entity include where a source fact names it"
+)]
+fn references_include_the_source_token_naming_the_entity() {
+    let served = citing("T1");
+    let truths = served.uri("truths.spec");
+    let found =
+        specforge_lsp::answers::references(&served.state(), &truths, Position::new(0, 6), false);
+    assert_eq!(placed(found), [("a.test.js".to_string(), named())]);
+    // From the name in the source file, the same.
+    let source = served.uri("a.test.js");
+    let found =
+        specforge_lsp::answers::references(&served.state(), &source, Position::new(0, 11), false);
+    assert_eq!(placed(found), [("a.test.js".to_string(), named())]);
+}
+
+#[spec(
+    behavior = "find_all_references",
+    verify = "references from a located fact list its citations and its entities"
+)]
+fn references_from_a_source_fact_list_citations_and_entities() {
+    let served = citing("T1");
+    let source = served.uri("a.test.js");
+    let found =
+        specforge_lsp::answers::references(&served.state(), &source, Position::new(3, 2), false);
+    assert_eq!(
+        placed(found),
+        [
+            // `T1`'s name, the entity the fact is anchored to.
+            (
+                "truths.spec".to_string(),
+                Range::new(Position::new(0, 6), Position::new(0, 8))
+            ),
+            // `proof ["js:a.test.js#adds"]`, the citation.
+            (
+                "truths.spec".to_string(),
+                Range::new(Position::new(1, 10), Position::new(1, 27))
+            ),
+        ]
+    );
+    // Outside every fact of the file: nothing.
+    let found =
+        specforge_lsp::answers::references(&served.state(), &source, Position::new(1, 0), false);
+    assert_eq!(found, None);
+}

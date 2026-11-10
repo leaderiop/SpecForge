@@ -274,7 +274,11 @@ pub fn references(
     include_declaration: bool,
 ) -> Option<Vec<Location>> {
     let compiled = Compiled::new(state);
-    let id = entity_under_cursor(&compiled, &state.key_of(uri), position)?;
+    let key = state.key_of(uri);
+    let Some(id) = entity_under_cursor(&compiled, &key, position) else {
+        let found = crate::source_document::fact_references(&compiled, &key, position)?;
+        return (!found.is_empty()).then_some(found);
+    };
     let refs = compiled
         .navigator()
         .tokens(id.as_str(), include_declaration)
