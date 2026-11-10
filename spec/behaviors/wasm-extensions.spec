@@ -230,7 +230,9 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
     its `facts` input names, and only the edges whose two ends it is
     sent, ADR 0353), with no `test_results` or
     `proved_claims` (a compile has neither) and with `previous`, the
-    git baseline of the kinds the pass names in `baseline`. It answers the same
+    git baseline of the kinds the pass names in `baseline`. Passes that
+    declare the same facts and baseline kinds are sent one input, encoded
+    once (ADR 0353 D4). It answers the same
     output: diagnostics, bare or as `{diagnostics, summary}`; the summary
     is ignored. Each diagnostic keeps the code and severity the pass gave
     it (W150 beside it when the extension may not use the code). One
@@ -253,6 +255,7 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
   verify unit "a pass entity carries whether the host found it exempt"
   verify unit "a pass that declares no facts input is sent no fact"
   verify unit "a pass is sent exactly the facts of the kinds it declares"
+  verify unit "passes that declare the same facts and baseline kinds are sent one encoded input"
   verify unit "the pass input carries each entity's exemption, which the SDK's PassEntity reads"
   verify unit "a pass receives a typed block and a block list structured beside their text"
   verify unit "previous is the baseline of the kinds a pass names"

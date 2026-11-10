@@ -38,8 +38,7 @@ use specforge_effects::Provenance;
 /// What builds an extension's contributions, per call (as its guest does).
 type Build = Arc<dyn Fn() -> ContributionsBuilder + Send + Sync>;
 
-/// An extension served under a name: what builds it, and what answers the
-/// exports its declarations do not.
+/// An extension served under a name: what builds it, and what answers the exports its declarations do not.
 type Served = (Build, ExportHandler);
 
 /// What starts the bytes [`spelled_module`] makes.
@@ -69,10 +68,11 @@ pub struct RecordedCall {
     pub export: String,
     /// The input as JSON (a string of the bytes when they are not JSON).
     pub input: serde_json::Value,
+    /// The address of the input bytes the host handed over: calls handed one encoding share it, while it lives.
+    pub encoding: usize,
 }
 
-/// An answer given instead of routing a call: to one export, or to one
-/// export called with one input.
+/// An answer given instead of routing a call: to one export, or to one export called with one input.
 type Overrides = Vec<(String, String, Option<serde_json::Value>, WasmCallResult)>;
 
 /// Serves SDK-declared extensions in process; see the module docs.
@@ -81,8 +81,7 @@ pub struct InProcessRuntime {
     /// The extensions served, by the name each is loaded as. Behind a lock:
     /// loading, renaming and unloading change it through the port.
     extensions: Mutex<BTreeMap<String, Served>>,
-    /// Binaries that serve an extension under whatever name they are
-    /// loaded as ([`InProcessRuntime::binary`]).
+    /// Binaries that serve an extension under whatever name they are loaded as ([`InProcessRuntime::binary`]).
     binaries: Vec<(Vec<u8>, Served)>,
     /// Bytes whose load answers a refusal ([`InProcessRuntime::refusing`]).
     refusals: Vec<(Vec<u8>, LoadError)>,
@@ -551,6 +550,7 @@ impl InProcessRuntime {
             extension: extension.to_string(),
             export: export.to_string(),
             input: input_json.clone(),
+            encoding: input.as_ptr() as usize,
         });
         if self
             .faults

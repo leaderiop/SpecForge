@@ -1,8 +1,9 @@
 //! What a pass and a validation rule are sent of the facts a session serves (ADR 0353). The fixture is `Collected`
 //! (two `test` facts of `@t/node`'s store, a truth citing one) beside `@t/probe`: the collected kind `note` with one
-//! stored fact, a check pass `plain` that declares no input, a check pass `scoped` that declares the facts of `test`,
-//! and a custom rule that names no kind, answered by `validate__none` (no violation). The payload is counted from the
-//! inputs the runtime recorded, never timed.
+//! stored fact, a check pass `plain` that declares no input, the check passes `scoped` and `twin` that declare the
+//! facts of `test`, `remembers` that declares them and the baseline of `note`, and a custom rule that names no kind,
+//! answered by `validate__none` (no violation). The payload is counted from the inputs the runtime recorded, never
+//! timed.
 
 use std::sync::Arc;
 
@@ -18,8 +19,9 @@ const PROBE: &str = "@t/probe";
 const TESTS: [&str; 2] = ["js:a.test.js#adds", "js:a.test.js#subtracts"];
 const NOTE: &str = "note:one";
 
-/// `@t/probe`: the collected kind `note`, the check passes `plain` (no input) and `scoped` (the facts of `test`), and
-/// the kind-less custom rule `E990` naming `validate__none`.
+/// `@t/probe`: the collected kind `note`, the check passes `plain` (no input), `scoped` and `twin` (the facts of
+/// `test`) and `remembers` (the facts of `test`, the baseline of `note`), and the kind-less custom rule `E990` naming
+/// `validate__none`.
 fn probe() -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(PROBE, "1.0.0"));
     c.kind("note", |k| {
@@ -28,9 +30,17 @@ fn probe() -> ContributionsBuilder {
     c.pass("plain", |p| {
         p.phase("check").run(|_| Vec::new());
     });
-    c.pass("scoped", |p| {
+    for name in ["scoped", "twin"] {
+        c.pass(name, |p| {
+            p.phase("check")
+                .input(Input::facts(&["test"]))
+                .run(|_| Vec::new());
+        });
+    }
+    c.pass("remembers", |p| {
         p.phase("check")
             .input(Input::facts(&["test"]))
+            .baseline(&["note"])
             .run(|_| Vec::new());
     });
     specforge_project::testing::declare_rules(
@@ -54,6 +64,11 @@ fn none(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
 
 /// The runtime the probed project compiled in, after its compile: the two tests and the note stored.
 fn compiled_probe() -> Arc<InProcessRuntime> {
+    probed().1
+}
+
+/// The probed project, compiled, and the runtime it compiled in.
+fn probed() -> (specforge_project::CompiledProject, Arc<InProcessRuntime>) {
     let mut extensions = COLLECTED_EXTENSIONS.to_vec();
     extensions.push(PROBE);
     let p = TestProject::new()
@@ -79,7 +94,7 @@ fn compiled_probe() -> Arc<InProcessRuntime> {
         "the note is served: {:?}",
         compiled.diagnostics()
     );
-    runtime
+    (compiled, runtime)
 }
 
 /// The ids `ids` holds that are facts, sorted.
@@ -168,4 +183,45 @@ fn a_kind_less_custom_rule_is_called_on_no_fact() {
         .collect();
     assert_eq!(facts_of(ids.iter().copied()), Vec::<&str>::new());
     assert!(ids.contains(&"T1"), "the authored truth is judged: {ids:?}");
+}
+
+#[specforge_test(
+    behavior = "run_check_phase_passes",
+    verify = "passes that declare the same facts and baseline kinds are sent one encoded input"
+)]
+fn passes_of_one_facts_and_baseline_share_one_encoding() {
+    let (compiled, runtime) = probed();
+    let baseline = specforge_project::baseline::Baseline::of_project(&compiled);
+    let registries = compiled.environment().registries();
+    let before = runtime.calls().len();
+    let context = specforge_project::passes::PassContext {
+        previous: Some(&baseline),
+        ..specforge_project::passes::PassContext::of(compiled.entities())
+    };
+    specforge_project::passes::run_extension_passes(
+        registries.check_passes(),
+        &context,
+        runtime.as_ref(),
+        registries.codes(),
+    );
+    let encodings: std::collections::BTreeMap<String, usize> = runtime.calls()[before..]
+        .iter()
+        .filter_map(|call| {
+            Some((
+                call.export.strip_prefix("__pass_")?.to_string(),
+                call.encoding,
+            ))
+        })
+        .collect();
+    let of = |pass: &str| encodings[pass];
+    // `scoped` and `twin` declare the facts of `test` and no baseline: one encoding.
+    assert_eq!(of("scoped"), of("twin"));
+    // `remembers` declares the same facts and the baseline of `note`: a second one.
+    assert_ne!(of("remembers"), of("scoped"));
+    let distinct: std::collections::BTreeSet<usize> = encodings
+        .iter()
+        .filter(|(pass, _)| *pass != "plain")
+        .map(|(_, at)| *at)
+        .collect();
+    assert_eq!(distinct.len(), 2, "{encodings:?}");
 }

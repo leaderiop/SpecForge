@@ -3,7 +3,9 @@ name: Perf
 # A measurement, not a check: `cargo gate ci` (ci.yml) is the list that blocks a merge, and its tests bound work by
 # counts, never by time (ADR 0353 D8). This job times `specforge check` and `specforge collect --no-run` on a release
 # build of SpecForge itself against the budget, and uploads report.json. Nightly and by hand only: never on a pull
-# request, with no secret, and it pushes nothing.
+# request, with no secret, and it pushes nothing. A step over its budget (perf-report's exit 1) is a warning on the
+# run, never a failure; a step that cannot run (exit 2, or a build that fails) fails the job: the measurement is
+# missing.
 on:
   schedule:
     - cron: "0 4 * * *"
@@ -16,15 +18,25 @@ jobs:
   perf:
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-wasip2
       - uses: Swatinem/rust-cache@v2
       - name: Measure check and collect against the budget
-        run: cargo run --locked -p xtask --bin perf-report -- --runs 5
+        shell: bash
+        run: |
+          set +e
+          cargo run --locked -p xtask --bin perf-report -- --runs 5
+          code=$?
+          if [ "$code" -eq 1 ]; then
+            echo "::warning title=perf-report::a step is over its budget or a counted expectation failed"
+            exit 0
+          fi
+          exit "$code"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

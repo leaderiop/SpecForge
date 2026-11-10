@@ -45,6 +45,9 @@ A test may not time anything: a wall-clock assertion fails on a loaded machine a
   from "the store holds no such fact" without the facts.
 - **D3. Edges and counts.** A pass is sent the edges whose two ends it is sent. `PassEntity`'s edge counts stay the
   graph's: they describe the entity (ADR 0270), not the payload.
+  The per-entity coverage view (`EntitySnapshot::coverage_entities`, read by `specforge coverage` and the surfaces'
+  coverage answers) is the payload of a pass that declares no fact, so it holds the authored entities only, as the
+  `@specforge/testing` coverage pass sees them: a fact owes no verify obligation and is no row of it.
 - **D4. One encoding per distinct `(facts, baseline)` set.** Passes that declare the same kinds and the same baseline
   kinds share one encoded payload; a pass with `files` or `tests` inputs has its own, as before. A pass's
   `entities_analyzed` is what it was sent.
