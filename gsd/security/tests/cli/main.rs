@@ -15,6 +15,7 @@ mod harness;
 #[path = "../../../core/tests/cli/hooks_support.rs"]
 mod hooks_support;
 
+mod ab_seeds;
 mod accept;
 mod advisory;
 mod compute;

@@ -9,8 +9,10 @@ use crate::run::Ctx;
 /// `gsd/core/Cargo.toml`), every crate and every builtin's committed blob: the tests run through the `specforge`
 /// binary, which is built from all the crates and embeds the blobs, and the SDK is one of the crates. A builtin's
 /// sources are the `builtins` check's: a source change without a re-vendor fails there, so only the blob triggers.
+/// The GSD A/B protocol's files too: the suite seeds its tasks with `seed.py` and runs both scripts' self-tests.
 pub const TRIGGER: &[&str] = &[
     "gsd/**",
+    "evaluation/gsd-ab/**",
     "crates/**",
     "Cargo.toml",
     "Cargo.lock",
@@ -104,10 +106,13 @@ mod tests {
             "Cargo.toml",
             "extensions/software/wasm/specforge_ext_software.wasm",
             "extensions/code/core/wasm/x.wasm",
+            "evaluation/gsd-ab/tasks.json",
+            "evaluation/gsd-ab/seed.py",
         ] {
             assert_eq!(selection(&[path]), Selection::Everything, "{path}");
         }
         assert_eq!(selection(&["docs/guide.md"]), Selection::Skip);
+        assert_eq!(selection(&["evaluation/tasks.json"]), Selection::Skip);
         assert_eq!(
             selection(&["extensions/software/src/lib.rs"]),
             Selection::Skip,

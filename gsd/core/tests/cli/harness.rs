@@ -11,6 +11,9 @@ use std::process::Command;
 #[path = "harness_collect.rs"]
 mod collect;
 
+#[path = "harness_ab.rs"]
+pub mod ab;
+
 const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build --profile test -p specforge-cli) and (cd gsd && cargo build -p gsd-core -p gsd-security --release --target wasm32-wasip2), then set SPECFORGE_BIN, GSD_CORE_WASM and GSD_SECURITY_WASM to the artifacts";
 
 fn required(var: &str) -> PathBuf {

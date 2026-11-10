@@ -1,5 +1,7 @@
 //! Black-box tests: the `specforge` binary on small projects that load the built `@gsd/core` (ADR gsd/0001 D5, D7).
 
+mod ab_protocol;
+mod ab_seeds;
 mod agents;
 // The extension's own UTC clock text, to build times relative to now.
 #[path = "../../src/time.rs"]
