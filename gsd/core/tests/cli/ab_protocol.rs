@@ -21,9 +21,9 @@ fn the_scorer_passes_its_self_test() {
 }
 
 /// The scorer's self-test reads its synthetic runs back as files and pairs all of them, refuses an unpaired run, and
-/// refuses exactly ten bad run files.
+/// refuses exactly eleven bad run files.
 #[test]
-fn the_scorer_pairs_twelve_runs_and_refuses_ten_run_files() {
+fn the_scorer_pairs_twelve_runs_and_refuses_eleven_run_files() {
     let run = python("score.py", &["--self-test"]);
     let stdout = String::from_utf8_lossy(&run.stdout);
     assert!(
@@ -33,7 +33,7 @@ fn the_scorer_pairs_twelve_runs_and_refuses_ten_run_files() {
     let count = |prefix: &str| stdout.lines().filter(|l| l.starts_with(prefix)).count();
     assert_eq!(
         (count("refused: "), count("refused run file: ")),
-        (1, 10),
+        (1, 11),
         "{stdout}"
     );
 }
@@ -198,6 +198,45 @@ fn every_ground_truth_key_has_one_kind_and_a_read_per_arm() {
         assert!(results.iter().any(|r| r["claims"] == true), "{id}");
     }
     assert!(keys >= 30, "{keys} ground truth keys");
+}
+
+/// The tree git would commit for `path` (relative to the repository) from the working copy, built in a scratch index
+/// so the repository's own index is left as it is.
+fn working_tree_of(path: &str) -> String {
+    let index = tempfile::tempdir().expect("a temp dir");
+    let git = |args: &[&str]| {
+        let run = Command::new("git")
+            .args(args)
+            .current_dir(ab_dir().join("../.."))
+            .env("GIT_INDEX_FILE", index.path().join("index"))
+            .stdin(Stdio::null())
+            .output()
+            .expect("run git");
+        assert!(
+            run.status.success(),
+            "git {args:?}: {}",
+            String::from_utf8_lossy(&run.stderr)
+        );
+        String::from_utf8_lossy(&run.stdout).trim().to_string()
+    };
+    git(&["read-tree", "HEAD"]);
+    git(&["add", "-A", "--", path]);
+    git(&["write-tree", &format!("--prefix={path}/")])
+}
+
+/// Each fixture is pinned in `tasks.json` by its git tree, the one `seed.py` copies: a fixture edited after its pin
+/// fails here until the pin moves with it, and a moved pin is a new protocol version.
+#[test]
+fn every_fixture_is_its_pinned_tree() {
+    let tasks = ab_tasks();
+    for fixture in tasks["fixtures"].as_array().expect("fixtures") {
+        let path = fixture["path"].as_str().expect("a path");
+        assert_eq!(
+            fixture["tree"].as_str(),
+            Some(working_tree_of(path).as_str()),
+            "{path}: its tree is not the pinned one"
+        );
+    }
 }
 
 #[test]

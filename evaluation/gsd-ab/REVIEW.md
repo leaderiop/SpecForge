@@ -25,11 +25,11 @@ waits for it).
 | 3. Fixtures: three, each with its reasons, each arm from the same commit | | |
 | 4. Tasks: 12, each with its prompt, seeds, acceptance (`run` or `judge`) and ground truth | | |
 | 5. Seeded defects: A and B state the same false fact; B's signal and when it shows | | |
-| 6. Measures: M1 to M6 computed from the run file alone | | |
+| 6. Measures: M1 to M6 computed from the run file alone, fixed for v1 (autonomy measures are v2's) | | |
 | 7. Run procedure and [OPERATOR.md](OPERATOR.md): every run file field has one way to read it | | |
 | 8. Analysis: pairing, the bootstrap, a fixed RNG seed | | |
 | 9. Gate B: the pass rule is decided before any run | | |
-| 10. Pre-registration: what the tag freezes | | |
+| 10. Pre-registration: what the tag freezes (this directory, the fixtures by their pinned trees, the components) | | |
 | 11. Threats: each named with what holds against it | | |
 | `seed.py` and `score.py`: their self-tests, and what they refuse | | |
 | `prompts/A.md`, `B.md`, `B0.md` | | |

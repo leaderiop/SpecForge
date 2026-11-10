@@ -22,8 +22,9 @@ breaks it.
 For each `(task, seed, arm)` in the schedule's order:
 
 1. **The copy.** `python3 -I evaluation/gsd-ab/seed.py seed --task <task> --arm <arm> --out <copy> --gsd-core
-   <gsd_core.wasm> --gsd-security <gsd_security.wasm>`, `<copy>` outside this repository. It is a git repository whose
-   commits hold the seeds; its HEAD is the same for every seed number of one (task, arm).
+   <gsd_core.wasm> --gsd-security <gsd_security.wasm>`, `<copy>` outside this repository, from a clean checkout of the
+   tag (it refuses uncommitted changes). It is a git repository whose commits hold the seeds; its HEAD is the same for
+   every seed number of one (task, arm). Keep the `commit` it prints for the run file's `protocol`.
 2. **The arm's tools, in the copy only.** Arm A: gsd-core 1.19.0's own installer, local to the copy
    (`npx @opengsd/gsd-core@1.19.0 --claude --local`, or the flag of the agent the host names). Arms B and B0:
    `specforge install claude-code` (or the host's name) from the tagged commit, then `specforge collect --yes`. Agents
@@ -54,6 +55,8 @@ For each `(task, seed, arm)` in the schedule's order:
    - `rework_commits`: `python3 -I evaluation/gsd-ab/seed.py rework --arm <arm> --dir <copy>`, computed, never typed:
      the run's commits after its first one that writes verification state (A: a `.planning/phases/*/*-VERIFICATION.md`;
      B and B0: a `verdict:` line of `specforge-harness`), or 0 when none does.
+   - `protocol`: `commit`, the value `seed.py seed` printed for the copy, and `specforge`, what `specforge --version`
+     prints; the same for every run of the study (`score.py` refuses a set that mixes them).
    - `interventions` and `intervention_log` (below), and the fixed fields of "Before the first run".
 
 ## Interventions

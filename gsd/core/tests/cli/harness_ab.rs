@@ -129,13 +129,23 @@ pub fn ab_task<'a>(tasks: &'a serde_json::Value, id: &str) -> &'a serde_json::Va
         .unwrap_or_else(|| panic!("no task {id} in tasks.json"))
 }
 
-/// Arm `arm`'s copy of `task`'s fixture, made by `seed.py seed` with `flags` (`--state complete`, `--unseeded`) and
-/// the components from the environment; `Err` holds what `seed.py` said when it refused.
+/// Arm `arm`'s copy of `task`'s fixture, made by `seed.py seed --worktree` (the working tree, so a change under test
+/// is seen before it is committed) with `flags` (`--state complete`, `--unseeded`) and the components from the
+/// environment; `Err` holds what `seed.py` said when it refused.
 pub fn seeded(task: &str, arm: &str, flags: &[&str]) -> Result<Project, String> {
     let dir = tempfile::tempdir().expect("a temp dir");
     let root = dir.path().join("copy");
     let core = required("GSD_CORE_WASM").display().to_string();
-    let mut args = vec!["seed", "--task", task, "--arm", arm, "--gsd-core", &core];
+    let mut args = vec![
+        "seed",
+        "--worktree",
+        "--task",
+        task,
+        "--arm",
+        arm,
+        "--gsd-core",
+        &core,
+    ];
     let security = std::env::var("GSD_SECURITY_WASM").unwrap_or_default();
     if !security.is_empty() {
         args.extend(["--gsd-security", &security]);

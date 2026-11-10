@@ -3,19 +3,22 @@
 
 Usage:
     python3 -I evaluation/gsd-ab/seed.py seed --task <id> --arm A|B|B0 --out <dir>
-        [--gsd-core <wasm>] [--gsd-security <wasm>] [--state complete] [--unseeded]
+        [--gsd-core <wasm>] [--gsd-security <wasm>] [--state complete] [--unseeded] [--worktree]
     python3 -I evaluation/gsd-ab/seed.py present --task <id> --arm A|B|B0 --dir <dir>
     python3 -I evaluation/gsd-ab/seed.py rework --arm A|B|B0 --dir <dir>
     python3 -I evaluation/gsd-ab/seed.py prompt --task <id> --arm A|B|B0
     python3 -I evaluation/gsd-ab/seed.py schedule
     python3 -I evaluation/gsd-ab/seed.py --self-test
 
-`seed` copies the fixture's tracked files without the paths the arm drops, writes the arm's `specforge.json` (B and
-B0; the component paths of the `@gsd/*` extensions from the flags) and applies each seed's file edits in `tasks.json`
-order, then makes the copy a git repository with one base commit whose subject names no plan (it holds the seeded
-files, so the copy starts clean), then makes each seed's commits. `--state complete` then
-applies the task's `completion` (what a correct run leaves; the tests only). `--unseeded` applies no seed: the control
-copy the tests compare a seeded one with. Two seedings of one (task, arm) with the same flags have one HEAD.
+`seed` copies the fixture as committed (`git archive` of the tree `tasks.json` pins for it, which must be the fixture's
+tree at HEAD) without the paths the arm drops; it refuses while `evaluation/gsd-ab/` or the fixture has uncommitted
+changes, so a study copy is always the frozen protocol's. `--worktree` copies the working tree instead (the tracked and
+untracked files git would add), for the tests only: its output's `commit` ends in `+worktree`. Then it writes the
+arm's `specforge.json` (B and B0; the component paths of the `@gsd/*` extensions from the flags), applies each seed's
+file edits in `tasks.json` order, makes the copy a git repository with one base commit whose subject names no plan (it
+holds the seeded files, so the copy starts clean), then makes each seed's commits. `--state complete` then applies the
+task's `completion` (what a correct run leaves; the tests only). `--unseeded` applies no seed: the control copy the
+tests compare a seeded one with. Two seedings of one (task, arm) with the same flags have one HEAD.
 
 `present` names the seeded defects still in a copy after a run (the run file's `defects_present`): a defect is present
 while any of its edits holds (a text it inserted is still in its file, a text or file it deleted is still gone, a commit
@@ -34,12 +37,13 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import io
 import json
 import os
 import random
-import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 from pathlib import Path
 
@@ -57,8 +61,9 @@ class Refused(ValueError):
     """An edit, task or arm the seeding cannot apply as written."""
 
 
-def git(cwd: Path, *args: str, at: str = BASE_AT) -> str:
-    """`git <args>` in `cwd` with a fixed identity and date, never the operator's configuration or hooks."""
+def git(cwd: Path, *args: str, at: str = BASE_AT, raw: bool = False) -> str | bytes:
+    """`git <args>` in `cwd` with a fixed identity and date, never the operator's configuration or hooks; its output as
+    text, or as bytes when `raw`."""
     env = {
         **os.environ,
         "GIT_CONFIG_GLOBAL": os.devnull,
@@ -73,12 +78,10 @@ def git(cwd: Path, *args: str, at: str = BASE_AT) -> str:
         "-c", "commit.gpgsign=false", "-c", f"core.hooksPath={os.devnull}",
         "-c", f"core.excludesFile={os.devnull}",
     ]
-    done = subprocess.run(
-        ["git", *config, *args], cwd=cwd, env=env, capture_output=True, text=True, stdin=subprocess.DEVNULL
-    )
+    done = subprocess.run(["git", *config, *args], cwd=cwd, env=env, capture_output=True, stdin=subprocess.DEVNULL)
     if done.returncode != 0:
-        raise RuntimeError(f"git {' '.join(args)}: {done.stderr.strip()}")
-    return done.stdout
+        raise RuntimeError(f"git {' '.join(args)}: {done.stderr.decode(errors='replace').strip()}")
+    return done.stdout if raw else done.stdout.decode()
 
 
 def find(items: list[dict], key: str, what: str) -> dict:
@@ -88,10 +91,40 @@ def find(items: list[dict], key: str, what: str) -> dict:
     raise Refused(f"no such {what}: {key}")
 
 
-def tracked(source: Path) -> list[str]:
-    """The fixture's files git tracks or would track, relative to it."""
+def tracked(source: Path) -> dict[str, bytes]:
+    """The fixture's files in the working tree that git tracks or would track, by path relative to it."""
     listed = git(source, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", ".")
-    return sorted(path for path in listed.split("\0") if path and (source / path).is_file())
+    paths = sorted(path for path in listed.split("\0") if path and (source / path).is_file())
+    return {path: (source / path).read_bytes() for path in paths}
+
+
+def committed(root: Path, fixture: dict) -> dict[str, bytes]:
+    """The fixture's files as committed: the tree `tasks.json` pins for it, which must be its tree at HEAD, while
+    neither it nor `evaluation/gsd-ab/` has uncommitted changes."""
+    paths = [fixture["path"]] + ([HERE.relative_to(root).as_posix()] if HERE.is_relative_to(root) else [])
+    dirty = git(root, "status", "--porcelain", "--untracked-files=no", "--", *paths)
+    if dirty.strip():
+        raise Refused(
+            f"uncommitted changes under {' and '.join(paths)}: a study copy is made from a commit (commit them; "
+            "--worktree is for the tests)"
+        )
+    tree = git(root, "rev-parse", f"HEAD:{fixture['path']}").strip()
+    if fixture.get("tree", tree) != tree:
+        raise Refused(
+            f"fixture {fixture['id']} is tree {tree} at HEAD, but tasks.json pins {fixture['tree']}: a changed fixture "
+            "is a new protocol version"
+        )
+    with tarfile.open(fileobj=io.BytesIO(git(root, "archive", "--format=tar", tree, raw=True))) as archive:
+        return {
+            member.name: archive.extractfile(member).read()
+            for member in archive.getmembers()
+            if member.isfile()
+        }
+
+
+def protocol_commit(root: Path, worktree: bool) -> str:
+    """The commit a copy's protocol comes from: HEAD, marked `+worktree` when the copy is the working tree's."""
+    return git(root, "rev-parse", "HEAD").strip() + ("+worktree" if worktree else "")
 
 
 def dropped(path: str, drops: list[str]) -> bool:
@@ -164,9 +197,10 @@ def edits_of(task: dict, defect: str, arm: str) -> list[dict]:
 
 def seed(
     tasks: dict, root: Path, task_id: str, arm_id: str, out: Path,
-    components: dict | None = None, complete: bool = False, unseeded: bool = False,
+    components: dict | None = None, complete: bool = False, unseeded: bool = False, worktree: bool = False,
 ) -> int:
-    """Makes the copy at `out` (absent or empty). Answers the number of edits applied."""
+    """Makes the copy at `out` (absent or empty) from the fixture as committed, or from the working tree with
+    `worktree`. Answers the number of edits applied."""
     task = find(tasks["tasks"], task_id, "task")
     arm = find(tasks["arms"], arm_id, "arm")
     fixture = find(tasks["fixtures"], task["fixture"], "fixture")
@@ -174,12 +208,12 @@ def seed(
         raise Refused(f"fixture {fixture['id']} is not ready: {fixture['status']}")
     if out.exists() and any(out.iterdir()):
         raise Refused(f"{out} is not empty")
-    source = root / fixture["path"]
+    files = tracked(root / fixture["path"]) if worktree else committed(root, fixture)
     out.mkdir(parents=True, exist_ok=True)
-    for path in tracked(source):
+    for path, data in files.items():
         if not dropped(path, arm["drop"]):
             (out / path).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source / path, out / path)
+            (out / path).write_bytes(data)
     if arm["config"] is not None:
         text = json.dumps(manifest(tasks, fixture, arm, components or {}), indent=2) + "\n"
         (out / "specforge.json").write_text(text)
@@ -352,7 +386,7 @@ def corpus(tasks: dict, root: Path, scratch: Path) -> int:
         for arm in ARMS:
             for unseeded in (False, True):
                 copy = scratch / f"{task['id']}-{arm}-{'unseeded' if unseeded else 'seeded'}"
-                seed(tasks, root, task["id"], arm, copy, components, unseeded=unseeded)
+                seed(tasks, root, task["id"], arm, copy, components, unseeded=unseeded, worktree=True)
                 got, want = present(tasks, task["id"], arm, copy), [] if unseeded else task["seeded"]
                 assert got == want, f"{copy.name}: present {got}, want {want}"
                 made += 1
@@ -370,7 +404,9 @@ def self_test() -> None:
         }.items():
             (fixture / path).parent.mkdir(parents=True, exist_ok=True)
             (fixture / path).write_text(text)
-        git(fixture, "init", "-q", "-b", "main")
+        git(root, "init", "-q", "-b", "main")
+        git(root, "add", "fx")
+        git(root, "commit", "-q", "-m", "the synthetic fixture")
         components = {"@gsd/core": str(root / "gsd_core.wasm")}
 
         def files(copy: Path, under: str) -> int:
@@ -408,6 +444,25 @@ def self_test() -> None:
             assert "--gsd-core" in str(refused), refused
             refusals += 1
         assert refusals == 6, "a B copy without the component is refused, naming the flag"
+
+        # A study copy comes from the commit: a fixture with an uncommitted change is refused, and so is one whose tree
+        # is not the one tasks.json pins. `worktree` copies the working tree as it is.
+        (fixture / "src/x.js").write_text("same\nsame\nchanged\n")
+        try:
+            seed(SYNTHETIC, root, "t1", "A", root / "dirty")
+        except Refused as refused:
+            assert "uncommitted" in str(refused), refused
+            refusals += 1
+        seed(SYNTHETIC, root, "t1", "A", root / "dirty-worktree", worktree=True)
+        assert (root / "dirty-worktree/src/x.js").read_text().endswith("changed\n"), "the working tree, as it is"
+        git(root, "checkout", "-q", "--", "fx/src/x.js")
+        moved = {**SYNTHETIC, "fixtures": [{**SYNTHETIC["fixtures"][0], "tree": "0" * 40}]}
+        try:
+            seed(moved, root, "t1", "A", root / "moved")
+        except Refused as refused:
+            assert "pins" in str(refused), refused
+            refusals += 1
+        assert refusals == 8, "a dirty fixture and a fixture off its pinned tree are refused"
 
         again = root / "b-again"
         seed(SYNTHETIC, root, "t1", "B", again, components)
@@ -485,6 +540,7 @@ def main() -> None:
     made.add_argument("--gsd-security", help="the @gsd/security component (B, B0 on a fixture that loads it)")
     made.add_argument("--state", choices=["complete"], help="apply the task's completion edits too (tests only)")
     made.add_argument("--unseeded", action="store_true", help="the control copy: no seed applied")
+    made.add_argument("--worktree", action="store_true", help="copy the working tree, not the commit (tests only)")
     held = verbs.add_parser("present", help="the seeded defects still in a copy")
     held.add_argument("--task", required=True)
     held.add_argument("--arm", required=True)
@@ -502,9 +558,10 @@ def main() -> None:
         if args.verb == "seed":
             components = {"@gsd/core": args.gsd_core, "@gsd/security": args.gsd_security}
             applied = seed(tasks, REPO, args.task, args.arm, args.out, components, args.state == "complete",
-                           args.unseeded)
+                           args.unseeded, args.worktree)
             head = git(args.out, "rev-parse", "HEAD").strip()
-            print(json.dumps({"task": args.task, "arm": args.arm, "edits": applied, "head": head}))
+            commit = protocol_commit(REPO, args.worktree)
+            print(json.dumps({"task": args.task, "arm": args.arm, "edits": applied, "head": head, "commit": commit}))
         elif args.verb == "present":
             print(json.dumps(present(tasks, args.task, args.arm, args.dir)))
         elif args.verb == "rework":

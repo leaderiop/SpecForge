@@ -95,7 +95,8 @@ seeded entity, so a row still checks the truth it names; the other stale verdict
 
 ## 6. Measures
 
-Per arm, per (task, seed) run. The operator's scripts write a run file (section 7); `score.py` computes:
+Per arm, per (task, seed) run. The operator's scripts write a run file (section 7); `score.py` computes M1 to M6, the
+measure set fixed for v1 (measures of autonomy wait for `gsd-ab-v2`):
 
 | Id | Measure | From the run file |
 |---|---|---|
@@ -134,6 +135,7 @@ A run file:
 ```json
 {
   "arm": "B", "task": "taskboard-execute-02-01", "seed": 1, "model": "<id>", "temperature": 0,
+  "protocol": { "commit": "<sha seed.py seed reports>", "specforge": "<specforge --version>" },
   "host": { "agent": "<program>", "version": "<version>", "machine": "<os, cpu, memory>" },
   "budget": { "max_turns": 200, "max_tokens": 400000 }, "permission_mode": "auto-approve inside the copy",
   "acceptance": { "npm test passes": true, "tasks.json is written after every change": true },
@@ -169,8 +171,21 @@ An arm that completed no plan has no M4, and the M4 clause then fails: no eviden
 
 ## 10. Pre-registration
 
-This README, `tasks.json` and `score.py` are tagged `gsd-ab-v1` at gate A, before any run. A change after the tag is
-a new version, and the report names it.
+The tag `gsd-ab-v1` is set at gate A, before any run, on the commit the review read. It freezes:
+
+- `evaluation/gsd-ab/`: this README, `tasks.json`, `seed.py`, `score.py`, `prompts/` (A.md, B.md, B0.md),
+  [OPERATOR.md](OPERATOR.md) and [REVIEW.md](REVIEW.md);
+- the three fixtures, `gsd/parity/fixtures/{taskboard,vault,ledger}`, each pinned in `tasks.json` by its git tree
+  (`tree`): `seed.py` copies that tree, refuses while the fixture or this directory has uncommitted changes, and
+  refuses a fixture whose tree at HEAD is not the pinned one; `ab_protocol` fails on a fixture edited after its pin;
+- the components arm B and B0 load, `@gsd/core` and `@gsd/security`, and the `specforge` binary, all built from the
+  tagged commit (OPERATOR.md), and gsd-core 1.19.0 for arm A;
+- the measures, M1 to M6 (section 6), with gate B's rule (section 9). Measures of autonomy are not in v1; they are
+  `gsd-ab-v2`'s.
+
+Every run file records its `protocol`: the commit `seed.py seed` reports and `specforge --version`. `score.py`
+refuses a run set that mixes two protocols, and a run whose copy came from a working tree (`seed.py --worktree`,
+for the tests). A change after the tag, a fixture's included, is a new version, and the report names it.
 
 ## 11. Threats
 
@@ -193,8 +208,9 @@ or none), with the reason on standard error.
 
 `--self-test` writes an embedded synthetic set (4 tasks, 3 seeds, 3 arms) as run files and reads it back, scores it
 where B clearly wins and where it doesn't, checks the gate B verdict of each and that an unpaired run is refused, and
-refuses exactly ten bad run files: one without its host, one whose interventions are not logged, one whose
+refuses exactly eleven bad run files: one without its host, one whose interventions are not logged, one whose
 intervention has a reason outside the list, one whose acceptance value is not a boolean, one with an acceptance row
 its task does not have, one with a claim on a key outside the task's ground truth, two whose `defects_present` holds
-what the task does not seed (an unknown id, a number), one whose claim is outside its key's vocabulary, and one whose
-`final_report` is not a `RESULT:` value of its task's workflow.
+what the task does not seed (an unknown id, a number), one whose claim is outside its key's vocabulary, one whose
+`final_report` is not a `RESULT:` value of its task's workflow, and one whose copy was a working tree's
+(`protocol.commit` ending in `+worktree`). It also refuses a set whose runs record two protocols.

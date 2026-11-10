@@ -36,9 +36,11 @@ FIELDS = {
     "arm": str, "task": str, "seed": int, "model": str, "temperature": (int, float), "host": dict, "budget": dict,
     "permission_mode": str, "acceptance": dict, "claims": dict, "final_report": str, "defects_present": list,
     "tokens": int, "plans_completed": int, "wall_seconds": (int, float), "interventions": int,
-    "intervention_log": list, "rework_commits": int,
+    "intervention_log": list, "rework_commits": int, "protocol": dict,
 }
 HOST = ("agent", "version", "machine")
+# The protocol a run was made under: the commit `seed.py seed` reports, and `specforge --version`. One per run set.
+PROTOCOL = ("commit", "specforge")
 BUDGET = ("max_turns", "max_tokens")
 # The operator's only reasons to step in (OPERATOR.md); `operator` logs the operator's own error.
 REASONS = {"question", "stopped", "budget", "operator"}
@@ -194,10 +196,12 @@ def check_run(run: dict, tasks: dict, where: str) -> None:
             raise ValueError(f"{where}: `{key}` is {type(run[key]).__name__}, not {kind}")
     if run["arm"] not in ("A", "B", "B0"):
         raise ValueError(f"{where}: arm {run['arm']!r} is none of A, B and B0")
-    for block, keys in (("host", HOST), ("budget", BUDGET)):
+    for block, keys in (("host", HOST), ("budget", BUDGET), ("protocol", PROTOCOL)):
         missing = [key for key in keys if key not in run[block]]
         if missing:
             raise ValueError(f"{where}: `{block}` has no {', '.join(missing)}")
+    if str(run["protocol"]["commit"]).endswith("+worktree"):
+        raise ValueError(f"{where}: its copy is a working tree's (`seed.py --worktree`), not a commit's: no study run")
     log = run["intervention_log"]
     if run["interventions"] != len(log):
         raise ValueError(f"{where}: {run['interventions']} interventions counted, {len(log)} logged")
@@ -245,6 +249,9 @@ def read_runs(root: Path, tasks: dict) -> list[dict]:
         if (run["arm"], run["task"], str(run["seed"])) != (arm, task, seed):
             raise ValueError(f"{path}: arm, task and seed differ from the file's path")
         runs.append(run)
+    protocols = sorted({json.dumps(run["protocol"], sort_keys=True) for run in runs})
+    if len(protocols) > 1:
+        raise ValueError(f"the runs mix protocols, one study is one protocol: {', '.join(protocols)}")
     return runs
 
 
@@ -299,6 +306,7 @@ def synthetic(b_wins: bool, b_tokens: float = 1.0, a_plans: int = 1) -> tuple[li
                     "host": {"agent": "synthetic", "version": "0", "machine": "none"},
                     "budget": {"max_turns": 200, "max_tokens": 400_000}, "permission_mode": "auto in the copy",
                     "final_report": "verified",
+                    "protocol": {"commit": "0" * 40, "specforge": "specforge 0.0.0"},
                     "acceptance": {"tests": arm == "B" and b_wins},
                     "tokens": round((100_000 + seed) * (b_tokens if arm == "B" else 1.0)),
                     "plans_completed": a_plans if arm == "A" else 1, "wall_seconds": 600, "interventions": 0,
@@ -367,7 +375,16 @@ def self_test() -> None:
             unpaired = status(Path(tmp), tasks)
         assert (empty, unpaired) == (2, 2), (empty, unpaired)
         assert said.getvalue().count("score.py: ") == 2 and "no B run" in said.getvalue(), said.getvalue()
-    # The run files' own refusals, counted: exactly these ten.
+    # A run set made under two protocols (another commit, another specforge) is refused as a whole.
+    with tempfile.TemporaryDirectory() as tmp:
+        mixed = [dict(run) for run in runs]
+        mixed[0]["protocol"] = {"commit": "1" * 40, "specforge": "specforge 0.0.0"}
+        write_runs(Path(tmp), mixed)
+        said = io.StringIO()
+        with contextlib.redirect_stderr(said):
+            assert status(Path(tmp), tasks) == 2
+        assert "mix protocols" in said.getvalue(), said.getvalue()
+    # The run files' own refusals, counted: exactly these eleven.
     run = runs[0]
     for what, bad in (
         ("a run file without its host", {key: value for key, value in run.items() if key != "host"}),
@@ -381,6 +398,7 @@ def self_test() -> None:
         ("a defect that is not a name", {**run, "defects_present": [1]}),
         ("a claim outside its key's vocabulary", {**run, "claims": {"p": "done"}}),
         ("a RESULT the task's workflow does not have", {**run, "final_report": "complete"}),
+        ("a copy of the working tree", {**run, "protocol": {**run["protocol"], "commit": "0" * 40 + "+worktree"}}),
     ):
         refused_file(what, bad, tasks)
     print("self-test: ok")

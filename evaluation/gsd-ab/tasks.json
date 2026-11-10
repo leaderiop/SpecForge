@@ -19,9 +19,9 @@
     }
   ],
   "fixtures": [
-    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"] },
-    { "id": "vault", "path": "gsd/parity/fixtures/vault", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"], "extensions": ["@gsd/security"] },
-    { "id": "ledger", "path": "gsd/parity/fixtures/ledger", "status": "ready", "thread": ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"] }
+    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "b977921e553daa0e76ca2fa69578c851bfc61358", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"] },
+    { "id": "vault", "path": "gsd/parity/fixtures/vault", "tree": "3b7e567fd49da589d0f7dec7fac8078111cf5d0b", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"], "extensions": ["@gsd/security"] },
+    { "id": "ledger", "path": "gsd/parity/fixtures/ledger", "tree": "187ab893ec036d762f61ad564eb8ef14a92a85fc", "status": "ready", "thread": ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"] }
   ],
   "results": {
     "about": "The RESULT values a run of each workflow may end with, what each means, and whether it claims the work done (`claims`: M3 counts the defects left by a run that claims). seed.py's `prompt` renders them into the prompt's last line.",
