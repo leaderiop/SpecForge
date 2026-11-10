@@ -237,17 +237,13 @@ fn a_method_type_written_across_lines_reads_as_its_formatted_line() {
         (method.params[0].ty.clone(), method.returns)
     };
     let formatted = fmt(source);
-    // Pinned: the parse keeps the line breaks the formatted line drops.
     assert_eq!(
         formatted,
-        "port p \"P\" {\n  method m(a: Map<K, V>) -> Result<A, B >\n}\n"
+        "port p \"P\" {\n  method m(a: Map<K, V>) -> Result<A, B>\n}\n"
     );
     assert_eq!(
         types(source),
-        (
-            "Map<K,\n    V>".to_string(),
-            Some("Result<A,\n  B\n>".to_string())
-        )
+        ("Map<K, V>".to_string(), Some("Result<A, B>".to_string()))
     );
-    assert_ne!(types(&formatted), types(source));
+    assert_eq!(types(&formatted), types(source));
 }

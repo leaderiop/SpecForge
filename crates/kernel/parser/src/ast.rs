@@ -115,10 +115,14 @@ pub struct MethodDecl {
     #[serde(skip)]
     pub name_span: Option<SourceSpan>,
     pub params: Vec<Parameter>,
+    /// The return type in its one spelling ([`crate::lex::type_spelling`]), whatever its layout.
     pub returns: Option<String>,
     /// Where `returns` is written; never serialized (a written form has no positions).
     #[serde(skip)]
     pub returns_span: Option<SourceSpan>,
+    /// Where each lexeme of `returns` is written, in order; never serialized.
+    #[serde(skip)]
+    pub returns_lexemes: Vec<SourceSpan>,
     pub span: SourceSpan,
 }
 
@@ -126,10 +130,14 @@ pub struct MethodDecl {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Parameter {
     pub name: String,
+    /// The type in its one spelling ([`crate::lex::type_spelling`]), whatever its layout.
     pub ty: String,
     /// Where `ty` is written; never serialized.
     #[serde(skip)]
     pub ty_span: Option<SourceSpan>,
+    /// Where each lexeme of `ty` is written, in order; never serialized.
+    #[serde(skip)]
+    pub ty_lexemes: Vec<SourceSpan>,
     /// Declared `name?: Type`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub optional: bool,

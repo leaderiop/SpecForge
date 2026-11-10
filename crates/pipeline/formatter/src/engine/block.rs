@@ -3,6 +3,7 @@ use crate::config::FormatConfig;
 use specforge_common::structural;
 use specforge_graph::{FieldForms, Place};
 use specforge_parser::Written;
+use specforge_parser::lex::type_spelling;
 use tree_sitter::Node;
 use tree_sitter_specforge::{field, kind};
 
@@ -551,7 +552,8 @@ fn verify_line(node: Node, source: &str) -> String {
     }
 }
 
-/// `method name(a: T, b?: U @ann) -> R`, rebuilt from its parts.
+/// `method name(a: T, b?: U @ann) -> R`, rebuilt from its parts, each type in its one spelling (what the parse
+/// reads it as).
 fn method_line(node: Node, source: &str) -> String {
     let name = node
         .child_by_field_name(field::NAME)
@@ -573,7 +575,7 @@ fn method_line(node: Node, source: &str) -> String {
             };
             let ty = p
                 .child_by_field_name(field::TYPE)
-                .map(|n| one_line(n, source))
+                .map(|n| type_spelling(node_text(n, source)).0)
                 .unwrap_or_default();
             let mut param_cursor = p.walk();
             let anns: Vec<String> = p
@@ -592,7 +594,7 @@ fn method_line(node: Node, source: &str) -> String {
     let mut line = format!("method {name}({})", params.join(", "));
     if let Some(returns) = node.child_by_field_name(field::RETURNS) {
         line.push_str(" -> ");
-        line.push_str(&one_line(returns, source));
+        line.push_str(&type_spelling(node_text(returns, source)).0);
     }
     line
 }

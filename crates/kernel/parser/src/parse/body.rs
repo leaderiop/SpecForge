@@ -1,5 +1,5 @@
 use super::*;
-use crate::lex::{LiteralShape, is_number_word, literal_shape};
+use crate::lex::{LiteralShape, is_number_word, literal_shape, type_spelling};
 
 /// What a block's members read to; `obligations` and `obligation_spans` are pushed together, at one site.
 #[derive(Default)]
@@ -238,7 +238,9 @@ impl<'a> ParseContext<'a> {
             .map(|n| self.text(n).to_string())
             .unwrap_or_default();
         let returns_node = node.child_by_field_name(field::RETURNS);
-        let returns = returns_node.map(|n| self.text(n).trim().to_string());
+        let (returns, returns_lexemes) = returns_node
+            .map(|n| self.type_text(n))
+            .map_or((None, Vec::new()), |(text, at)| (Some(text), at));
         let mut params = Vec::new();
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
@@ -250,9 +252,7 @@ impl<'a> ParseContext<'a> {
                 .map(|n| self.text(n).to_string())
                 .unwrap_or_default();
             let ty_node = child.child_by_field_name(field::TYPE);
-            let pty = ty_node
-                .map(|n| self.text(n).trim().to_string())
-                .unwrap_or_default();
+            let (pty, ty_lexemes) = ty_node.map(|n| self.type_text(n)).unwrap_or_default();
             let mut annotations = Vec::new();
             let mut param_cursor = child.walk();
             for part in child.children(&mut param_cursor) {
@@ -264,6 +264,7 @@ impl<'a> ParseContext<'a> {
                 name: pname,
                 ty: pty,
                 ty_span: ty_node.map(|n| self.span(n)),
+                ty_lexemes,
                 optional: child.child_by_field_name(field::OPTIONAL).is_some(),
                 annotations,
             });
@@ -274,8 +275,42 @@ impl<'a> ParseContext<'a> {
             params,
             returns,
             returns_span: returns_node.map(|n| self.span(n)),
+            returns_lexemes,
             span: self.span(node),
         }
+    }
+
+    /// A method's type in its one spelling, and where each of its lexemes is written.
+    fn type_text(&self, node: Node) -> (String, Vec<SourceSpan>) {
+        let written = self.text(node);
+        let (spelling, lexemes) = type_spelling(written);
+        let start = node.start_position();
+        let at = |offset: usize| {
+            let before = &written[..offset];
+            let point = match before.rfind('\n') {
+                None => tree_sitter::Point::new(start.row, start.column + offset),
+                Some(newline) => tree_sitter::Point::new(
+                    start.row + before.matches('\n').count(),
+                    offset - newline - 1,
+                ),
+            };
+            self.position(node.start_byte() + offset, point)
+        };
+        let spans = lexemes
+            .iter()
+            .map(|lexeme| {
+                let ((start_line, start_col), (end_line, end_col)) =
+                    (at(lexeme.start), at(lexeme.end));
+                SourceSpan {
+                    file: self.file_sym,
+                    start_line,
+                    start_col,
+                    end_line,
+                    end_col,
+                }
+            })
+            .collect();
+        (spelling, spans)
     }
 
     fn parse_verify_statement(&self, node: Node) -> Option<VerifyStatement> {

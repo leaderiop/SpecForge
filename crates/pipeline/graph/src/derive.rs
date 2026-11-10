@@ -100,6 +100,9 @@ pub(crate) struct TypeExpression<'v> {
     pub typed: bool,
     /// Where `text` starts; `None` for a value built without a position.
     pub at: Option<&'v SourceSpan>,
+    /// Where each lexeme of `text` is written, when `text` is a spelling and not the text as written (a method's
+    /// types); empty otherwise, and each name is then at `at` plus its offset.
+    pub lexemes: &'v [SourceSpan],
 }
 
 /// The type expressions a field's entry writes, with positions: an identifier's text at the entry's value span, a
@@ -115,6 +118,7 @@ pub(crate) fn expressions<'v>(reading: &Reading, entry: &'v FieldEntry) -> Vec<T
             owner: entry.key.as_str(),
             typed: true,
             at: entry.value_span.as_ref(),
+            lexemes: &[],
         }],
         FieldValue::TypeUnion(members) | FieldValue::VariantList(members) => members
             .iter()
@@ -124,6 +128,7 @@ pub(crate) fn expressions<'v>(reading: &Reading, entry: &'v FieldEntry) -> Vec<T
                 owner: entry.key.as_str(),
                 typed: matches!(entry.value, FieldValue::TypeUnion(_)),
                 at: Some(&m.span),
+                lexemes: &[],
             })
             .collect(),
         FieldValue::List(items) if *reading == Reading::Member => items
@@ -134,6 +139,7 @@ pub(crate) fn expressions<'v>(reading: &Reading, entry: &'v FieldEntry) -> Vec<T
                 owner: entry.key.as_str(),
                 typed: false,
                 at: Some(&item.span),
+                lexemes: &[],
             })
             .collect(),
         _ => Vec::new(),
@@ -170,12 +176,14 @@ fn type_expressions<'v>(
                     owner: &method.name,
                     typed: true,
                     at: p.ty_span.as_ref(),
+                    lexemes: &p.ty_lexemes,
                 }));
                 written.extend(method.returns.as_deref().map(|text| TypeExpression {
                     text,
                     owner: &method.name,
                     typed: true,
                     at: method.returns_span.as_ref(),
+                    lexemes: &method.returns_lexemes,
                 }));
             }
         }
@@ -184,26 +192,30 @@ fn type_expressions<'v>(
 }
 
 /// The names inside a type expression, each with where it is written: the identifiers of the language's lexer
-/// (`Result<A, B[]>` -> Result, A, B), at the expression's position plus the identifier's offset.
+/// (`Result<A, B[]>` -> Result, A, B), each where its lexeme is written, else at the expression's position plus its
+/// offset.
 fn names(expression: TypeExpression<'_>) -> impl Iterator<Item = (&str, Option<SourceSpan>, &str)> {
     // A value or bare item that is one word holding `-` or `.`, or starting with a digit (`Money-v2`, `2-1`, `v1.0`,
     // `007`), or a path of names (`v1.0/03/Money`, ADR 0284), is one name, as the grammar reads it (ADR 0283); a structured type expression keeps the lexer's identifiers.
     let text = expression.text;
     let whole = is_path(text)
         && (text.contains(['-', '.', '/']) || text.starts_with(|c: char| c.is_ascii_digit()));
-    let lexemes = if whole {
-        vec![(0, text.len())]
+    let names: Vec<(usize, usize, Option<&SourceSpan>)> = if whole {
+        vec![(0, text.len(), None)]
     } else {
         lex(text)
             .into_iter()
-            .filter(|lexeme| lexeme.kind == LexemeKind::Ident)
-            .map(|lexeme| (lexeme.start, lexeme.end))
+            .enumerate()
+            .filter(|(_, lexeme)| lexeme.kind == LexemeKind::Ident)
+            .map(|(i, lexeme)| (lexeme.start, lexeme.end, expression.lexemes.get(i)))
             .collect()
     };
-    lexemes.into_iter().map(move |(start, end)| {
+    names.into_iter().map(move |(start, end, written)| {
         (
             &text[start..end],
-            expression.at.map(|at| within(at, text, start, end)),
+            written
+                .cloned()
+                .or_else(|| expression.at.map(|at| within(at, text, start, end))),
             expression.owner,
         )
     })

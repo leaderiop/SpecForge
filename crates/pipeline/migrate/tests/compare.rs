@@ -382,6 +382,7 @@ fn graph_after(change: Option<Change>) -> Graph {
                     name_span: None,
                     params: Vec::new(),
                     returns: None,
+                    returns_lexemes: Vec::new(),
                     returns_span: None,
                     span: span(line + 1),
                 }]
