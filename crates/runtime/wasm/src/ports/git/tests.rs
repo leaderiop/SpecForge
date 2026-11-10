@@ -110,7 +110,12 @@ fn a_guest_log_lists_typed_commits_with_trailers() {
         .unwrap();
     assert_eq!((answer.count, answer.truncated), (Some(1), false));
     let commit = &answer.commits[0];
-    assert_eq!(commit.author.seconds, 1_700_000_000);
+    // a name and seconds: the host's email address and offset never cross
+    assert_eq!(
+        (commit.author.name.as_str(), commit.author.seconds),
+        ("A", 1_700_000_000)
+    );
+    assert!(!format!("{answer:?}").contains("example.test"));
     assert_eq!(commit.trailers[0].token, "Gsd-Task");
     assert_eq!(commit.trailers[0].values, ["01-01/T1"]);
     // the port never reads a withheld file for a guest's pickaxe
@@ -255,7 +260,7 @@ fn a_guest_log_past_the_answer_cap_is_truncated() {
     };
     let git = Arc::new(fake);
     let mut session = session(&git, dir.path());
-    session.answer_cap = 2 * (40 + 2 * (1 + 14 + 25 + 8) + 1);
+    session.answer_cap = 2 * (40 + 2 * (1 + 8) + 1);
     let answer = session
         .git_log(&GitLogQuery {
             tips: vec![SHA.into()],

@@ -207,8 +207,6 @@ fn status(status: GitStatus) -> git::StatusAnswer {
 fn signature(signature: GitSignature) -> git::Signature {
     git::Signature {
         name: signature.name,
-        email: signature.email,
-        time: signature.time,
         seconds: signature.seconds,
     }
 }

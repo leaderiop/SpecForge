@@ -251,8 +251,6 @@ impl From<git::Signature> for GitSignature {
     fn from(signature: git::Signature) -> Self {
         GitSignature {
             name: signature.name,
-            email: signature.email,
-            time: signature.time,
             seconds: signature.seconds,
         }
     }

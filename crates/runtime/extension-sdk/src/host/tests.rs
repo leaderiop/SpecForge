@@ -382,8 +382,6 @@ fn a_guest_log_and_diff_survive_the_wit_conversion() {
     }
     let signed = |seconds| wit::Signature {
         name: "n".into(),
-        email: "e".into(),
-        time: "t".into(),
         seconds,
     };
     let answer = GitLogAnswer::from(wit::LogAnswer {

@@ -65,7 +65,8 @@ gains the guest `git` interface's `log` and `diff` and `UnheldReference.history`
 id and paths from the repository's top, never a place. No remote, URL, credential or environment variable reaches it.
 A log with no `max` lists every commit up to the call's answer cap and says `truncated`; a pickaxe over a withheld path
 is refused. A diff of a withheld file keeps its status and counts, never its patch or hunks, and says `withheld`; the
-patches past the answer cap are dropped and the answer says `truncated`. A signature carries its epoch seconds.
+patches past the answer cap are dropped and the answer says `truncated`. A signature carries a name and epoch seconds
+only: no email address and no signer's offset reach a guest, which needs neither to order or date a commit.
 
 The work a guest's log or diff costs the host is bounded by counts the host sets, never by a clock (the port's `timed`
 only measures it):

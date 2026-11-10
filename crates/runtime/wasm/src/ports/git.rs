@@ -370,8 +370,6 @@ fn repository_paths(paths: &[String]) -> Result<Vec<String>, HostError> {
 fn signature(person: GitPerson) -> GitSignature {
     GitSignature {
         name: person.name,
-        email: person.email,
-        time: person.time,
         seconds: person.seconds,
     }
 }
@@ -398,7 +396,7 @@ fn log_commit(commit: GitCommit) -> GitLogCommit {
 
 /// The bytes a commit takes of an answer: its text, counted as the guest receives it.
 fn commit_bytes(commit: &GitLogCommit) -> u64 {
-    let person = |p: &GitSignature| p.name.len() + p.email.len() + p.time.len() + 8;
+    let person = |p: &GitSignature| p.name.len() + 8;
     let trailers: usize = commit
         .trailers
         .iter()

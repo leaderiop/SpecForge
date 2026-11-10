@@ -156,14 +156,11 @@ pub struct GitLogQuery {
     pub pickaxe: Option<String>,
 }
 
-/// Who made a commit, and when.
+/// Who made a commit, and when: a name and epoch seconds, never an email address nor the signer's offset (ADR 0352).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GitSignature {
     pub name: String,
-    pub email: String,
-    /// ISO 8601 with the signer's offset.
-    pub time: String,
-    /// The same time, seconds since the epoch.
+    /// Seconds since the epoch.
     pub seconds: i64,
 }
 

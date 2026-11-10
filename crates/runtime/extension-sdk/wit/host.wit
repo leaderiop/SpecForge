@@ -189,11 +189,9 @@ interface git {
     no-merges: bool,
     pickaxe: option<string>,
   }
+  /// Who made a commit, and when: a name and epoch seconds, never an email address nor the signer's offset.
   record signature {
     name: string,
-    email: string,
-    /// ISO 8601 with the signer's offset.
-    time: string,
     seconds: s64,
   }
   /// A trailer of the message's last paragraph: every value of its token, in order.
