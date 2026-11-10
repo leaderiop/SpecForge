@@ -88,7 +88,7 @@
         { "text": "npm test passes", "run": "npm test" },
         { "text": "tasks.json is written after every change", "judge": "after `node src/cli.js add x`, tasks.json holds the task x" }
       ],
-      "ground_truth": { "v1.0/02/02-01": "complete", "STORE-01": "addressed", "v1.0/02": "in progress" }
+      "ground_truth": { "v1.0/02/02-01": "complete", "STORE-01": "addressed", "v1.0/02": "executed" }
     },
     {
       "id": "taskboard-verify-01", "fixture": "taskboard", "workflow": "verify",
@@ -205,9 +205,10 @@
       ],
       "acceptance": [
         { "text": "every truth of phase 01 has a verdict", "judge": "each truth of phase 01 has a verdict in the arm's store, dated in this run" },
+        { "text": "no verdict is verified over a failing or missing test", "judge": "no truth whose cited test fails or is gone is recorded verified" },
         { "text": "the open threat T-01-02 stays open", "judge": "T-01-02 is open in the arm's store at the end of the run" }
       ],
-      "ground_truth": { "v1.0/01": "verified with one open threat", "v1.0/01/01-02/T-01-02": "open" }
+      "ground_truth": { "v1.0/01/01-01/TR1": "not verified", "v1.0/01": "not verified", "v1.0/01/01-02/T-01-02": "open" }
     },
     {
       "id": "vault-progress-resume", "fixture": "vault", "workflow": "progress/resume",
@@ -249,7 +250,7 @@
         { "text": "the release note cites each requirement's tests", "judge": "the release note names the tests of SEC-01 and SEC-02" },
         { "text": "the open threat T-01-02 blocks the release or is named in it", "judge": "the run does not ship, or its release note names T-01-02 open" }
       ],
-      "ground_truth": { "SEC-01": "verified", "SEC-02": "verified", "v1.0/01/01-02/T-01-02": "open" }
+      "ground_truth": { "SEC-01": "not verified", "SEC-02": "not verified", "v1.0/01/01-02/T-01-02": "open" }
     },
     {
       "id": "ledger-execute-02-01", "fixture": "ledger", "workflow": "execute",

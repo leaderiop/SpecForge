@@ -124,6 +124,33 @@ fn the_corpus_is_frozen_as_v1() {
     );
 }
 
+/// A verify task's seeds break the proofs of the truths its `b_signals` rows name: each of those truths is `not
+/// verified` in the task's ground truth, so a run that leaves it verified drifts.
+#[test]
+fn a_verify_tasks_seeded_truths_are_not_verified() {
+    let tasks = ab_tasks();
+    let mut checked = 0;
+    for task in tasks["tasks"].as_array().expect("tasks") {
+        if task["workflow"] != "verify" {
+            continue;
+        }
+        for row in task["b_signals"].as_array().expect("b_signals") {
+            if let Some(entity) = row["entity"].as_str() {
+                assert_eq!(
+                    task["ground_truth"][entity], "not verified",
+                    "{}: {entity}",
+                    task["id"]
+                );
+                checked += 1;
+            }
+        }
+    }
+    assert!(
+        checked >= 5,
+        "the verify tasks name their seeded truths: {checked}"
+    );
+}
+
 #[test]
 fn no_task_is_a_placeholder() {
     let tasks = ab_tasks();
