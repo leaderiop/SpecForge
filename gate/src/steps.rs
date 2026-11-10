@@ -50,7 +50,8 @@ pub fn rustfmt(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     }
     for manifest in outside_workspace(ctx.repo) {
         // `--all` for `gsd/`: a virtual manifest with several members is "Failed to find targets" without it, and
-        // a guest or fixture (a member of no workspace of its own) is refused with it.
+        // a guest or fixture (a member of no workspace of its own) is refused with it; a parity fixture under
+        // `gsd/parity/fixtures/` declares its own workspace, so it takes `--all` too.
         let all: &[&str] = if manifest.starts_with("gsd/") {
             &["--all"]
         } else {

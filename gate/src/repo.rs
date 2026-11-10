@@ -82,11 +82,13 @@ pub const FIXTURE_SPEC_DIRS: &[&str] = &[
 pub const EXTENSION_CRATES: [&str; 2] = ["extensions/*", "extensions/*/*"];
 
 /// The other crates outside the workspace, each its own manifest: the fixtures, each example project's own
-/// extension and the `@gsd` workspace (a pattern without a `*` names one path).
+/// extension, the `@gsd` workspace and its parity fixtures that are Rust projects (a pattern without a `*` names one
+/// path).
 const OTHER_OUTSIDE_WORKSPACE: &[&str] = &[
     "fixtures/*/Cargo.toml",
     "examples/*/extension/Cargo.toml",
     "gsd/Cargo.toml",
+    "gsd/parity/fixtures/*/Cargo.toml",
 ];
 
 /// The manifests of the crates outside the workspace, as `expand` patterns (was `ci.yml:54,75,92`, `gate.sh:184`):
