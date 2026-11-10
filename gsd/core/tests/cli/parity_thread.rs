@@ -102,7 +102,7 @@ fn the_thread_of_task_01_prints_from_a_live_node_run() {
         return;
     }
     let (p, sha) = thread_twin();
-    // The exit as written: detection picks node-test (package.json) and gsd-git (the branch's ref) on its own.
+    // The exit as written: detection picks node-test (package.json) and gsd-git (its repository) on its own.
     succeeds(&p.collect(&[]));
     assert_eq!(traced(&p, &sha), THREAD);
     p.check_exact(&[]);

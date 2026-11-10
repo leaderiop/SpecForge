@@ -148,20 +148,33 @@ the plan's summary, written by the executor at the end, lands in the same file.
 
 ## Route
 
-`@gsd/core` declares one route, `gsd/requirement-thread` (ADR 0331 D8): `specforge trace <requirement>` follows it
-and prints the requirement's thread on one line, or as a tree when a step has several matches.
+`@gsd/core` declares one route, `gsd/requirement-thread` (ADR 0331 D8, ADR 0352 D3): `specforge trace <requirement>`
+follows it and prints the requirement's thread on one line, or as a tree when a step has several matches.
 
 | Step | From | Via | Prints |
 |---|---|---|---|
 | plan | the requirement | `<plan.requirements` | `plan <id>` |
 | task | each plan | `<task.plan` | `<id>` |
+| item | each task | `.items` | the item's id |
 | commit | each task | `<commit.task` | the short hash and `(linked_by)`: `(Gsd-Task)` or `(title)` |
 | test | the requirement | `<truth.requirement.proof` | the test fact and `(status)`, else `(not run)` |
 | truth | the requirement | `<truth.requirement` | `<id>` and its E501 judgement: outcome and freshness |
 
-The `test` step reads `@code/core`'s `test` facts; without that optional peer it is skipped (I210), never a failure.
-A requirement traced through every step reads like
-`TASK-01 → plan 01-01 → T1 → <sha> (Gsd-Task) → js:taskboard/test/tasks.test.js#a task is added with the next id (passed) → TR1 verified, fresh`.
+The `item` and `test` steps read `@code/core`'s `item` and `test` facts; without that optional peer both are skipped
+(I210), never a failure. The `item` step is required otherwise: a task that names no held item leaves the thread
+incomplete, which `--partial` shows. A task naming two items is two matches, so the thread of the taskboard twin, traced
+through every step, prints as a tree:
+
+```text
+TASK-01
+  → plan 01-01
+    → T1
+      → js:taskboard/src/tasks.js::addTask
+      → js:taskboard/src/tasks.js::createBoard
+      → <sha> (Gsd-Task)
+  → js:taskboard/test/tasks.test.js#a task is added with the next id (passed)
+  → TR1 verified, fresh
+```
 
 ## Every GSD file maps to a kind
 
