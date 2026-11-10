@@ -575,12 +575,14 @@ fn the_requirement_route_is_declared() {
         describe("routes")["items"],
         serde_json::json!([{
             "name": "requirement-thread",
-            "description": "A requirement's thread: its plans, tasks, commits, proving tests and truths",
+            "description": "A requirement's thread: its plans, tasks, their code items and commits, proving tests and truths",
             "start": "requirement",
             "steps": [
                 {"name": "plan", "via": "<plan.requirements", "label": "plan"},
                 {"name": "task", "via": "<task.plan"},
-                {"name": "commit", "via": "<commit.task", "annotations": [{"field": "linked_by"}]},
+                {"name": "item", "via": ".items"},
+                {"name": "commit", "via": "<commit.task", "from": "task",
+                    "annotations": [{"field": "linked_by"}]},
                 {"name": "test", "via": "<truth.requirement.proof", "from": "start",
                     "annotations": [{"field": "status", "absent": "not run"}]},
                 {"name": "truth", "via": "<truth.requirement", "from": "start",

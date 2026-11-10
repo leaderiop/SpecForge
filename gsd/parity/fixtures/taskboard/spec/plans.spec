@@ -15,6 +15,7 @@ task T1 "The task model" {
   plan        v1.0/01/01-01
   type        auto
   files       ["package.json", "src/tasks.js"]
+  items       ["js:taskboard/src/tasks.js::addTask", "js:taskboard/src/tasks.js::createBoard"]
   action      "Create `package.json` (ES modules, `npm test` runs `node --test`) and `src/tasks.js` exporting `createBoard()` returning `{ tasks: [], nextId: 1 }` and `addTask(board, title)` that appends `{ id, title, done: false }` and bumps `nextId`."
   verify_text "node -e \"import('./src/tasks.js').then(m => console.log(m.addTask(m.createBoard(), 'x')))\""
   done        "addTask returns a task with id 1 on an empty board"
