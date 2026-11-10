@@ -225,3 +225,29 @@ fn the_formatter_lays_out_a_verdict() {
     assert_eq!(once, want);
     assert_eq!(fmt(&once), once);
 }
+
+#[specforge_test(
+    invariant = "formatting_semantic_preservation",
+    verify = "formatting does not alter entity IDs, field values, or reference lists"
+)]
+fn a_method_type_written_across_lines_reads_as_its_formatted_line() {
+    let source = "port p \"P\" {\n  method m(a: Map<K,\n    V>) -> Result<A,\n  B\n>\n}\n";
+    let types = |text: &str| {
+        let method = specforge_parser::parse(text, "p.spec").entities[0].methods[0].clone();
+        (method.params[0].ty.clone(), method.returns)
+    };
+    let formatted = fmt(source);
+    // Pinned: the parse keeps the line breaks the formatted line drops.
+    assert_eq!(
+        formatted,
+        "port p \"P\" {\n  method m(a: Map<K, V>) -> Result<A, B >\n}\n"
+    );
+    assert_eq!(
+        types(source),
+        (
+            "Map<K,\n    V>".to_string(),
+            Some("Result<A,\n  B\n>".to_string())
+        )
+    );
+    assert_ne!(types(&formatted), types(source));
+}
