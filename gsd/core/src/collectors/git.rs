@@ -122,13 +122,23 @@ pub struct Commit {
     pub items_changed: Option<Vec<String>>,
 }
 
+/// A commit's entity id: the first 12 hex digits of its hash.
+pub(crate) fn short(hash: &str) -> String {
+    hash.chars().take(12).collect()
+}
+
 impl Commit {
+    /// Its entity id ([`short`]).
+    fn name(&self) -> String {
+        short(&self.hash)
+    }
+
     /// `commit` as the log answers it, or its name when its author time is not in `0..=253402300799` (the years 1970
     /// to 9999).
     fn of(commit: &GitLogCommit) -> Result<Commit, String> {
         let seconds = commit.author.seconds;
         if !(0..=253_402_300_799).contains(&seconds) {
-            return Err(commit.sha.chars().take(12).collect());
+            return Err(short(&commit.sha));
         }
         Ok(Commit {
             hash: commit.sha.clone(),
@@ -158,7 +168,7 @@ impl Commit {
                 hunks,
                 renames: false,
             },
-            &format!("diff {}", &self.hash[..12.min(self.hash.len())]),
+            &format!("diff {}", self.name()),
         )?;
         for file in &files {
             self.insertions += i64::from(file.added);
@@ -476,11 +486,7 @@ fn ancestry<'a>(
         .filter(|&i| plan[i].is_some())
         .map(|i| {
             // Ascending positions are newest first.
-            let names = memo[i]
-                .iter()
-                .rev()
-                .map(|&a| commits[a].hash.chars().take(12).collect())
-                .collect();
+            let names = memo[i].iter().rev().map(|&a| commits[a].name()).collect();
             (commits[i].hash.as_str(), names)
         })
         .collect()
@@ -645,7 +651,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     // Oldest first, so the entities land in the order the commits were made; each new one asks its diff once.
     let mut fresh = Vec::new();
     for (at, commit) in commits.iter().enumerate().rev() {
-        let name: String = commit.hash.chars().take(12).collect();
+        let name = commit.name();
         if !known.contains(&name) && link(nodes, code, commit).is_some() {
             known.insert(name);
             fresh.push(at);
@@ -660,7 +666,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         if let Some(items) = &items {
             commit.items_changed = items.changed(commit)?;
             if commit.items_changed.is_none() {
-                unnamed_items.push(commit.hash.chars().take(12).collect::<String>());
+                unnamed_items.push(commit.name());
             }
         }
     }
@@ -673,7 +679,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
             .map(|n| n.id.as_str())
             .collect();
         for (at, commit) in commits.iter_mut().enumerate().rev() {
-            let name: String = commit.hash.chars().take(12).collect();
+            let name = commit.name();
             if fresh.contains(&at) || !unnamed.contains(name.as_str()) {
                 continue;
             }
@@ -696,7 +702,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         let Some(linked) = link(nodes, code, commit) else {
             continue;
         };
-        let name: String = commit.hash.chars().take(12).collect();
+        let name = commit.name();
         if let Some(value) = linked.unread.shown() {
             unread.push(format!("trailer of {name} names no task: {value}"));
         }

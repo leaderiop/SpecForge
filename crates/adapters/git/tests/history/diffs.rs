@@ -2,7 +2,7 @@
 //! seconds: what a guest reading a commit's changed lines needs of the port.
 
 use specforge_effects::git::{
-    DiffQuery, DiffSide, DiffStatus, Git, GitFileDiff, GitHunk, LogQuery, Sha,
+    DiffQuery, DiffSide, DiffStatus, Git, GitFileDiff, GitHunk, LogQuery, PickaxeReads, Sha,
 };
 use specforge_git::Gix;
 use specforge_git::testing::Repo;
@@ -148,20 +148,23 @@ fn a_withheld_log_reads_no_credential_with_its_pickaxe() {
     repo.write("a.txt", "plain\n")
         .write(".env", "TOKEN=abc123\n");
     let sha = repo.commit_all("secret");
-    let query = |withhold| LogQuery {
+    let query = |pickaxe_reads| LogQuery {
         tips: vec![Sha::new(sha.clone())],
         pickaxe: Some("abc123".into()),
-        withhold,
+        pickaxe_reads,
         ..LogQuery::default()
     };
-    let found = |withhold| {
+    let found = |reads| {
         Gix::default()
-            .log(&place(&repo), &query(withhold))
+            .log(&place(&repo), &query(reads))
             .unwrap()
             .commits
             .len()
     };
-    assert_eq!((found(false), found(true)), (1, 0));
+    assert_eq!(
+        (found(PickaxeReads::All), found(PickaxeReads::NoWithheld)),
+        (1, 0)
+    );
 }
 
 /// A tracked file whose directory became a link to a place outside the repository: git reads it as gone (it never

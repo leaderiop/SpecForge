@@ -5,7 +5,9 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use specforge_effects::git::{DiffStatus, GitCommit, GitFileDiff, GitHunk, GitLog, GitPerson};
+use specforge_effects::git::{
+    DiffStatus, GitCommit, GitFileDiff, GitHunk, GitLog, GitPerson, PickaxeReads,
+};
 use specforge_effects::testing::{self, FakeFs, FakeGit, MemoryConsent};
 use specforge_effects::{EffectJournal, Effects, EffectsCeiling, Grant, Ports, Provenance, Roots};
 use specforge_extension_sdk::prelude::{Capability, ContributionsBuilder, ExtensionMeta};
@@ -120,7 +122,7 @@ fn a_guest_log_lists_typed_commits_with_trailers() {
     assert_eq!(commit.trailers[0].values, ["01-01/T1"]);
     // the port never reads a withheld file for a guest's pickaxe
     let asked = git.logs.lock().unwrap();
-    assert!(asked[0].withhold);
+    assert_eq!(asked[0].pickaxe_reads, PickaxeReads::NoWithheld);
     assert_eq!(asked[0].paths, ["src"]);
 }
 

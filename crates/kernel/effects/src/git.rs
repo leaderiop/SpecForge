@@ -214,11 +214,21 @@ pub struct LogQuery {
     /// Only the commits that change how many times this regex matches in a file of [`LogQuery::paths`] against their
     /// parent (`git log -S --pickaxe-regex`): a merge never does, a root commit is compared with nothing.
     pub pickaxe: Option<String>,
-    /// [`LogQuery::pickaxe`] reads no file [`crate::contained::withheld`] names, at either path of a rename: a
-    /// guest's log, whose pickaxe would otherwise be an oracle on a credential's text.
-    pub withhold: bool,
+    /// Which files [`LogQuery::pickaxe`] reads.
+    pub pickaxe_reads: PickaxeReads,
     /// The work the walk may do; none walks the whole history (a person's log).
     pub budget: Option<Work>,
+}
+
+/// Which files a log's pickaxe reads.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum PickaxeReads {
+    /// Every file at the log's paths: a person's log.
+    #[default]
+    All,
+    /// None [`crate::contained::withheld`] names, at either path of a rename: a guest's log, whose pickaxe would
+    /// otherwise be an oracle on a credential's text.
+    NoWithheld,
 }
 
 /// The side a diff compares its base with.

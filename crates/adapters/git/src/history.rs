@@ -8,7 +8,7 @@ use std::path::Path;
 use gix::bstr::ByteSlice as _;
 use specforge_effects::contained::withheld;
 use specforge_effects::git::{
-    BLOB_CAP, GitCommit, GitError, GitLog, GitPerson, LogQuery, Sha, is_binary,
+    BLOB_CAP, GitCommit, GitError, GitLog, GitPerson, LogQuery, PickaxeReads, Sha, is_binary,
 };
 
 use crate::{failed, id};
@@ -154,7 +154,7 @@ pub(crate) struct Filter {
     until: Option<i64>,
     no_merges: bool,
     pickaxe: Option<regex::bytes::Regex>,
-    withhold: bool,
+    pickaxe_reads: PickaxeReads,
 }
 
 impl Filter {
@@ -174,7 +174,7 @@ impl Filter {
                 .as_deref()
                 .map(|p| pattern("-S", p))
                 .transpose()?,
-            withhold: query.withhold,
+            pickaxe_reads: query.pickaxe_reads,
         };
         let none = filter.grep.is_none()
             && filter.since.is_none()
@@ -221,7 +221,15 @@ pub(crate) fn keeps(
         }
     }
     match &filter.pickaxe {
-        Some(pickaxe) => picked(repo, commit, pickaxe, paths, parents, filter.withhold, read),
+        Some(pickaxe) => picked(
+            repo,
+            commit,
+            pickaxe,
+            paths,
+            parents,
+            filter.pickaxe_reads,
+            read,
+        ),
         None => Ok(true),
     }
 }
@@ -256,7 +264,7 @@ fn picked(
     rx: &regex::bytes::Regex,
     paths: &[String],
     parents: usize,
-    withhold: bool,
+    reads: PickaxeReads,
     read: &Reads,
 ) -> Result<bool, GitError> {
     use gix::object::tree::diff::ChangeDetached as Change;
@@ -321,7 +329,7 @@ fn picked(
             continue;
         }
         let hidden = |path: &gix::bstr::BStr| withheld(&path.to_str_lossy());
-        if withhold
+        if reads == PickaxeReads::NoWithheld
             && (hidden(location.as_ref()) || source.as_ref().is_some_and(|s| hidden(s.as_ref())))
         {
             continue;

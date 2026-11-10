@@ -80,7 +80,7 @@ impl Items {
                 hunks: true,
                 renames: false,
             },
-            &format!("diff {} with the worktree", &sha[..12.min(sha.len())]),
+            &format!("diff {} with the worktree", super::short(sha)),
         )?;
         // A file in the forward diff whose lines no answer held, binary aside, leaves its lines unknown.
         if since

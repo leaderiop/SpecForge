@@ -6,7 +6,7 @@ use std::sync::Arc;
 use specforge_effects::contained::{RealFs, withheld};
 use specforge_effects::git::{
     DiffQuery, DiffSide, DiffStatus, GitCommit, GitFileDiff, GitPerson, GitPlace, Located,
-    LogQuery, Sha, Work,
+    LogQuery, PickaxeReads, Sha, Work,
 };
 use specforge_effects::{EffectRequest, FsOp, FsRequest, OutcomeClass, SharedGit};
 use specforge_protocol_types::{
@@ -222,7 +222,7 @@ impl PortSession {
                     until: query.until,
                     no_merges: query.no_merges,
                     pickaxe: query.pickaxe.clone(),
-                    withhold: true,
+                    pickaxe_reads: PickaxeReads::NoWithheld,
                     budget: Some(Work {
                         commits: self.log_walk,
                         bytes: self.answer_cap,
