@@ -495,9 +495,10 @@ const ITEMS: [&str; 10] = [
 )]
 fn the_source_guest_maps_the_fixture_within_its_fuel() {
     // Without `@specforge/software`, whose `describe` costs more than the collect: its behavior is E024, not E028.
-    let p = TestProject::copy_of(FIXTURE).enabling(&PACKS[1..]);
-    let runtime = specforge_component::ComponentRuntime::with_user_cache().with_work_budget(FUEL);
-    let compiled = p.compile_in(Arc::new(runtime));
+    let p = TestProject::copy_of(FIXTURE)
+        .enabling(&PACKS[1..])
+        .within_work(FUEL);
+    let compiled = p.compile();
     assert!(
         !compiled.diagnostics().iter().any(|d| d.code == "E028"),
         "{:?}",

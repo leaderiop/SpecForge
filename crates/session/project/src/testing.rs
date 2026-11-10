@@ -100,6 +100,9 @@ pub struct TestProject {
     served: Option<Arc<InProcessRuntime>>,
     /// The git port every load asks of version control ([`Self::with_git`]); none: no port.
     git: Option<SharedGit>,
+    /// The counted work each guest call of the component runtime may spend ([`Self::within_work`]); none: the
+    /// production limit.
+    work_budget: Option<u64>,
 }
 
 impl Default for TestProject {
@@ -118,6 +121,7 @@ impl TestProject {
             extensions: None,
             served: None,
             git: None,
+            work_budget: None,
         };
         project.write_config();
         project
@@ -134,6 +138,7 @@ impl TestProject {
             extensions: None,
             served: None,
             git: None,
+            work_budget: None,
         };
         copy_tree(fixture.as_ref(), project.root());
         let config = std::fs::read(project.root().join("specforge.json"))
@@ -203,6 +208,13 @@ impl TestProject {
     pub fn serving(mut self, runtime: InProcessRuntime) -> Self {
         self.served = Some(Arc::new(runtime));
         self.refresh();
+        self
+    }
+
+    /// Bound every guest call of the component runtime this project compiles with by `fuel` counted instructions
+    /// (`ComponentRuntime::with_work_budget`): for a test that pins a guest's work on any machine.
+    pub fn within_work(mut self, fuel: u64) -> Self {
+        self.work_budget = Some(fuel);
         self
     }
 
@@ -417,9 +429,14 @@ impl TestProject {
     }
 
     /// The component runtime every CLI command compiles with, as its concrete type (for a test that asks it what it
-    /// loaded).
+    /// loaded), bounded by [`Self::within_work`] when a test set it.
     pub fn component_runtime(&self) -> Arc<specforge_component::ComponentRuntime> {
-        component_runtime()
+        match self.work_budget {
+            Some(fuel) => Arc::new(
+                specforge_component::ComponentRuntime::with_user_cache().with_work_budget(fuel),
+            ),
+            None => component_runtime(),
+        }
     }
 
     /// Bring the disk up to the value: `specforge.json`, and the installs a served runtime needs.
