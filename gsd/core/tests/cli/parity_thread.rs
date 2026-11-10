@@ -111,12 +111,24 @@ fn the_thread_of_task_01_prints_from_a_live_node_run() {
 #[test]
 fn the_thread_shows_a_failing_proof_and_stales_its_truth() {
     let (p, sha) = collected_thread();
-    p.edit(
-        ".specforge/reports/node-test.xml",
-        "file=\"test/tasks.test.js\"/>",
-        "file=\"test/tasks.test.js\"><failure message=\"x\"/></testcase>",
-    );
-    succeeds(&p.collect(&["--runner", "node-test", "--no-run"]));
+    // The twin's recorded tests again, the first failing.
+    succeeds(&p.node_tests(&[
+        (
+            "test/tasks.test.js",
+            "a task is added with the next id",
+            "failed",
+        ),
+        (
+            "test/tasks.test.js",
+            "a task is completed by its id",
+            "passed",
+        ),
+        (
+            "test/tasks.test.js",
+            "completing an unknown id throws",
+            "passed",
+        ),
+    ]));
 
     let line = traced(&p, &sha);
     assert!(

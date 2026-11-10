@@ -8,10 +8,10 @@
 //! newly trigger it. A future writer of `result` without a `source`, or an `issue` recorded without `reported`, would.
 //!
 //! `gsd/E502` needs a fresh passing `gsd/E501` judgement and a recorded test run, and both of its inputs are inputs of
-//! E501 (`truth self`, `tests test(self, self.proof)`): a new or changed result, tagged or of a proof's test fact,
-//! stales the verdict first, so a recorded test never makes E502 appear. It appears only when a verifier records
-//! `verified` over results that contradict it, and that record is refused (E080 names it): the verifier records
-//! `failed` instead. Silent without a test run (no report, or one with no result, and no test fact: `passes::thread`).
+//! E501 (`truth self`, `tests test(self.proof, self<test.names)`): a new or changed result of a test fact that names
+//! the truth or that its proof names stales the verdict first, so a recorded test never makes E502 appear. It appears
+//! only when a verifier records `verified` over results that contradict it, and that record is refused (E080 names
+//! it): the verifier records `failed` instead. Silent without a test run (no report, or one with no result, and no test fact: `passes::thread`).
 //!
 //! Also ports gsd-core bin/lib modules: gate-verify-failure-directions.cjs.
 

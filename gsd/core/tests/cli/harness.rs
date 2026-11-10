@@ -4,6 +4,7 @@
 //! `SPECFORGE_BIN` is the binary and `GSD_CORE_WASM` the component (`GSD_SECURITY_WASM` for `@gsd/security`); a
 //! missing one fails the test naming the command that builds it.
 
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -109,11 +110,13 @@ pub fn unjudged(report: &[(String, String)]) -> Vec<(String, String)> {
 
 /// A copy of `tests/projects/<name>/` in a temp dir, with `@gsd/core` loaded from `GSD_CORE_WASM`.
 pub struct Project {
-    dir: tempfile::TempDir,
+    /// The temp dir, removed when the project drops.
+    _dir: tempfile::TempDir,
     /// The project's root: the temp dir, or a directory inside it.
     root: PathBuf,
-    /// The loaded extensions as `(name, component)`, `@gsd/core` first; a builtin has no component.
-    extensions: Vec<(String, Option<PathBuf>)>,
+    /// The loaded extensions as `(name, component)`, `@gsd/core` first; a builtin has no component. A cell:
+    /// [`Project::node_tests`] loads the test packs on a shared project.
+    extensions: RefCell<Vec<(String, Option<PathBuf>)>>,
     /// The codes the fixture says by its own design, left out of [`Project::report_all`] ([`Project::quieting`]).
     quiet: Vec<&'static str>,
 }
@@ -168,13 +171,13 @@ fn from_dir_at(source: &Path, inside: &str) -> Project {
     std::fs::create_dir_all(&root).expect("the project's directory");
     copy_dir(source, &root);
     let p = Project {
-        dir,
+        _dir: dir,
         root,
         // `@specforge/checks` is a required peer of `@gsd/core`: its `files` fields are read by `@specforge/checks:file`.
-        extensions: vec![
+        extensions: RefCell::new(vec![
             ("@gsd/core".to_string(), Some(wasm)),
             ("@specforge/checks".to_string(), None),
-        ],
+        ]),
         quiet: Vec::new(),
     };
     p.settings(serde_json::json!({}));
@@ -198,6 +201,7 @@ impl Project {
         blocks["@gsd/core"] = settings;
         let extensions: Vec<String> = self
             .extensions
+            .borrow()
             .iter()
             .map(|(name, wasm)| match wasm {
                 Some(wasm) => format!("{name}={}", wasm.display()),
@@ -221,6 +225,7 @@ impl Project {
     )]
     pub fn with_extension(mut self, name: &str, var: &str) -> Self {
         self.extensions
+            .get_mut()
             .push((name.to_string(), Some(required(var))));
         self.rewrite_extensions();
         self
@@ -242,6 +247,7 @@ impl Project {
     /// Loads the builtins `names` too, by name, after `@gsd/core`.
     pub fn with_builtins(mut self, names: &[&str]) -> Self {
         self.extensions
+            .get_mut()
             .extend(names.iter().map(|name| (name.to_string(), None)));
         self.rewrite_extensions();
         self

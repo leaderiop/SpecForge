@@ -151,7 +151,7 @@ fn statuses(p: &Project) -> Vec<String> {
 }
 
 #[test]
-fn a_check_status_is_pass_fail_or_unknown_from_the_report() {
+fn a_check_status_is_pass_fail_or_unknown_from_the_test_facts() {
     let p = project("execute");
     // Two more checks: one a test that fails, one that nobody ran.
     p.edit(
@@ -159,17 +159,12 @@ fn a_check_status_is_pass_fail_or_unknown_from_the_report() {
         "{ kind unit ref \"test/tasks.test.js#adds a task\" }",
         "{ kind unit ref \"test/tasks.test.js#adds a task\" }\n    { kind unit ref \"test/tasks.test.js#lists tasks\" }\n    { kind unit ref \"test/tasks.test.js#never ran\" }",
     );
-    assert_eq!(statuses(&p), ["-", "-", "-"], "no report, no status");
-    let file = format!(
-        "{}/test/tasks.test.js",
-        p.root().canonicalize().expect("root").display()
-    );
-    junit(
-        &p,
-        &format!(
-            "<testcase name=\"adds a task\" classname=\"test\" file=\"{file}\"/>\n<testcase name=\"lists tasks\" classname=\"test\" file=\"{file}\"><failure/></testcase>"
-        ),
-    );
+    assert_eq!(statuses(&p), ["-", "-", "-"], "no test fact, no status");
+    let run = p.node_tests(&[
+        ("test/tasks.test.js", "adds a task", "passed"),
+        ("test/tasks.test.js", "lists tasks", "failed"),
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(statuses(&p), ["pass", "fail", "unknown"]);
 }
 

@@ -31,7 +31,7 @@ const SCENARIO: [(&str, &str, &str); 19] = [
     (
         "junit",
         "taskboard_coverage_matches_recorded_tests",
-        "junit.xml",
+        "collect_node_test_golden",
     ),
     (
         "phase-plan-index-1",

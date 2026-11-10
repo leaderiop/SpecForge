@@ -87,34 +87,93 @@ impl Project {
         self.run(&all)
     }
 
-    /// `collect --runner node-test --no-run` over the twin's recorded JUnit report (`goldens/taskboard/junit.xml`),
-    /// put where `@javascript/node-test` reads it: the thread's test facts without running node.
+    /// `collect --runner node-test --no-run --report` over the twin's recorded JUnit report
+    /// (`goldens/taskboard/junit.xml`): the thread's test facts without running node.
     pub fn collect_node_test_golden(&self) -> Run {
         let golden =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/goldens/taskboard/junit.xml");
-        let report = std::fs::read_to_string(&golden).expect("the twin's recorded JUnit report");
-        self.write(".specforge/reports/node-test.xml", &report);
+        self.collect(&[
+            "--runner",
+            "node-test",
+            "--no-run",
+            "--report",
+            &golden.display().to_string(),
+        ])
+    }
+
+    /// Collects `cases` (`(file, name, status)`, the status `passed`, `failed` or `skipped`) as `@code/core` test
+    /// facts, as `@javascript/node-test` reads node's JUnit report: loads `@code/core` and `@javascript/node-test`
+    /// when they are not loaded, writes `package.json` (`{"name":"taskboard"}`) when the project has none, writes the
+    /// cases as one report at `.specforge/reports/node-test.xml` and runs `collect --runner node-test --no-run`. A
+    /// `[gsd:<id>]` tag in a name puts `<id>` in the fact's `names`. Nothing runs node.
+    pub fn node_tests(&self, cases: &[(&str, &str, &str)]) -> Run {
+        let missing: Vec<&str> = ["@code/core", "@javascript/node-test"]
+            .into_iter()
+            .filter(|name| !self.extensions.borrow().iter().any(|(n, _)| n == name))
+            .collect();
+        if !missing.is_empty() {
+            self.extensions
+                .borrow_mut()
+                .extend(missing.iter().map(|name| (name.to_string(), None)));
+            self.rewrite_extensions();
+        }
+        if !self.exists("package.json") {
+            self.write("package.json", r#"{"name":"taskboard"}"#);
+        }
+        let body: String = cases
+            .iter()
+            .map(|(file, name, status)| {
+                let inner = match *status {
+                    "passed" => "",
+                    "failed" => "<failure message=\"no\"/>",
+                    "skipped" => "<skipped/>",
+                    other => panic!("a test status is passed, failed or skipped, not {other}"),
+                };
+                format!(
+                    "<testcase name=\"{}\" classname=\"test\" file=\"{file}\">{inner}</testcase>\n",
+                    escape(name)
+                )
+            })
+            .collect();
+        self.write(
+            ".specforge/reports/node-test.xml",
+            &format!("<?xml version=\"1.0\"?>\n<testsuites>\n{body}</testsuites>\n"),
+        );
         self.collect(&["--runner", "node-test", "--no-run"])
     }
 
-    /// Records one passing test for the `execute` project's deliverable check (`test/tasks.test.js#adds a task`), as
-    /// `gsd-junit` reads a JUnit report. Once a test runner has recorded a result, a check no test ran is `unknown`
-    /// and `gsd/W408` says so; this settles it.
+    /// `(source, target)` of each edge labelled `label` in the graph, as `specforge export --format graph` writes
+    /// it, sorted.
+    pub fn edges_of(&self, label: &str) -> Vec<(String, String)> {
+        let run = self.run(&["export", "--format", "graph"]);
+        let graph: serde_json::Value = serde_json::from_str(&run.stdout)
+            .unwrap_or_else(|e| panic!("export prints JSON ({e}): {}", run.all()));
+        let mut edges: Vec<(String, String)> = graph["edges"]
+            .as_array()
+            .expect("edges")
+            .iter()
+            .filter(|e| e["label"] == label)
+            .map(|e| {
+                let end = |key: &str| e[key].as_str().unwrap_or_default().to_string();
+                (end("source"), end("target"))
+            })
+            .collect();
+        edges.sort();
+        edges
+    }
+
+    /// Records one passing test for the `execute` project's deliverable check (`test/tasks.test.js#adds a task`) as
+    /// a test fact ([`Project::node_tests`]). Once a test has been collected, a check no test ran is `unknown` and
+    /// `gsd/W408` says so; this settles it.
     pub fn passing_tests(&self) {
-        let file = self
-            .dir
-            .path()
-            .canonicalize()
-            .expect("root")
-            .join("test/tasks.test.js");
-        self.write(
-            "junit.xml",
-            &format!(
-                "<?xml version=\"1.0\"?>\n<testsuites>\n<testsuite name=\"s\">\n<testcase name=\"adds a task\" classname=\"test\" file=\"{}\"/>\n</testsuite>\n</testsuites>\n",
-                file.display()
-            ),
-        );
-        let run = self.collect(&["--runner", "gsd-junit", "--no-run"]);
+        let run = self.node_tests(&[("test/tasks.test.js", "adds a task", "passed")]);
         assert_eq!(run.code, 0, "{}", run.all());
     }
+}
+
+/// `text` as an XML attribute value.
+fn escape(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('"', "&quot;")
 }

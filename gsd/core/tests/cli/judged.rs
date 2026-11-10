@@ -409,25 +409,80 @@ fn an_artifacts_file_change_makes_e501_stale() {
     );
 }
 
-/// R-12: a report whose tests link to another entity (a task of the plan) and none to a truth adds nothing to the
-/// truth's `tests` input, so the twin's fresh verdicts stay fresh after the collect. The truths' proofs are collected
-/// first: a report beside proofs no store holds is read alone, and stales them (ADR 0331 D7).
+/// The twin's tests: the three its truths' proofs name, as its recorded JUnit report holds them.
+const TWIN_TESTS: [(&str, &str, &str); 3] = [
+    (
+        "test/tasks.test.js",
+        "a task is added with the next id",
+        "passed",
+    ),
+    (
+        "test/tasks.test.js",
+        "a task is completed by its id",
+        "passed",
+    ),
+    (
+        "test/tasks.test.js",
+        "completing an unknown id throws",
+        "passed",
+    ),
+];
+
+/// A test fact that names another entity (a task of the plan) and no truth adds nothing to the truth's `tests`
+/// input, so the twin's fresh verdicts stay fresh after the collect.
 #[test]
-fn an_unrelated_report_leaves_the_twins_verdicts_fresh() {
+fn an_unrelated_test_fact_leaves_the_twins_verdicts_fresh() {
     let p = taskboard();
     let truth = "v1.0/01/01-01/TR1";
     assert_eq!(state(&p, truth, "E501").0, "fresh");
-    let facts = p.collect_node_test_golden();
-    assert_eq!(facts.code, 0, "{}", facts.all());
-    p.write(
-        "junit.xml",
-        "<?xml version=\"1.0\"?>\n<testsuites>\n<testsuite name=\"s\">\n<testcase name=\"a task test [gsd:v1.0/01/01-01/T1]\" classname=\"other\"/>\n</testsuite>\n</testsuites>\n",
-    );
-    let run = p.collect(&["--runner", "gsd-junit", "--no-run"]);
+    let mut cases = TWIN_TESTS.to_vec();
+    cases.push((
+        "test/tasks.test.js",
+        "a task test [gsd:v1.0/01/01-01/T1]",
+        "passed",
+    ));
+    let run = p.node_tests(&cases);
     assert_eq!(run.code, 0, "{}", run.all());
-    assert!(p.exists("specforge-report.json"), "{}", run.all());
     let inputs = p.inputs(truth, "E501");
     assert_eq!(inputs["verdict"]["state"], "fresh", "{inputs}");
+}
+
+/// A test fact whose name tags a truth is one of the truth's `tests` (ADR 0331 D7, amended): its new status stales
+/// the verdict recorded over it.
+#[test]
+fn a_test_naming_a_truth_stales_its_verdict() {
+    let p = taskboard();
+    let truth = "v1.0/01/01-01/TR1";
+    let tagged = (
+        "test/tasks.test.js",
+        "holds [gsd:v1.0/01/01-01/TR1]",
+        "passed",
+    );
+    let mut cases = TWIN_TESTS.to_vec();
+    cases.push(tagged);
+    let run = p.node_tests(&cases);
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.record(truth, "E501", "verified", &[]).code, 0);
+    assert_eq!(state(&p, truth, "E501").0, "fresh");
+    *cases.last_mut().expect("the tagged test") = (tagged.0, tagged.1, "failed");
+    let run = p.node_tests(&cases);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let inputs = p.inputs(truth, "E501");
+    assert_eq!(inputs["verdict"]["state"], "stale", "{inputs}");
+    assert!(
+        inputs["verdict"]["changed"].to_string().contains("tests"),
+        "{inputs}"
+    );
+}
+
+/// Without `@code/core` the `test` kind is not loaded: both chains of E501's `tests` input are inert, the rule is
+/// registered and the registry says nothing of the referrer step (no W112).
+#[test]
+fn e501_without_code_core_reads_no_names_and_says_no_w112() {
+    let p = project("execute");
+    let codes: Vec<String> = p.checked().into_iter().map(|(code, _)| code).collect();
+    assert!(!codes.iter().any(|c| c == "W112"), "{codes:?}");
+    assert!(codes.iter().any(|c| c == "gsd/E501"), "{codes:?}");
 }
 
 /// E518 reads the requirements its own milestone's phases name, not every requirement of the project.
