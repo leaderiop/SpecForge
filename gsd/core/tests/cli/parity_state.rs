@@ -342,6 +342,9 @@ fn taskboard_coverage_matches_recorded_tests() {
     // Test facts that name no truth stale none of its verdicts (ADR 0331 D7).
     assert_eq!(p.verify_phase("v1.0/01"), 0);
     p.check_exact(&[]);
+    // The facts judge every `tests` input: no verdict is left unjudged. The harness hides I205, so count it raw.
+    let check = p.run(&["check"]);
+    assert!(!check.all().contains("I205"), "{}", check.all());
 }
 
 #[test]
@@ -353,4 +356,7 @@ fn the_twin_reports_only_unrecorded_verdicts_with_and_without_test_facts() {
     // Test facts that name no truth stale none of its verdicts (ADR 0331 D7).
     assert_eq!(p.verify_phase("v1.0/01"), 0);
     p.check_exact(&[]);
+    // The facts judge every `tests` input: no verdict is left unjudged. The harness hides I205, so count it raw.
+    let check = p.run(&["check"]);
+    assert!(!check.all().contains("I205"), "{}", check.all());
 }
