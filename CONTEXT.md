@@ -75,11 +75,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   applied where it stands (the named spec file's mint), or refused once (`not_a_source_path`, in the named spec file's
   sentence shape) when its key lies outside the project root or it names nothing; the reader opens no file
   (`ProjectView::source_path`, ADR 0253).
-- **Recorded source path**: a source-code path a manifest records (an anchor's `file`, an inference index entry's
-  `path`, a source root): read from the project root into its key by the reader a named source path uses, an absolute
+- **Recorded source path**: a source-code path a manifest records (an inference index entry's `path`, a source
+  root): read from the project root into its key by the reader a named source path uses, an absolute
   path under the root being that path and a `..` applied where it stands; one whose key lies outside the root, or that
-  names nothing, is no key (it covers nothing, is deleted, is not walked; navigation still lists such an anchor by its
-  text) (`SourceKey::read`, ADR 0271).
+  names nothing, is no key (it is deleted, is not walked) (`SourceKey::read`, ADR 0271).
 - **Source key**: a source's project path, minted only by `SourceRoot::key` and opened only by `SourceRoot::path`; the
   text a span, a diagnostic, an export node and every plan name it by (ADR 0242); a source under a spec root outside the project is keyed absolute, its directory canonical (ADR 0246).
 - **Spec root prefix**: `SourceRoot::prefix`, the spec root as a prefix of every key it holds: the directory of the key a file directly in it gets (`""`, `spec`, or an absolute canonical path outside the project); where an import path is read from (ADR 0246).
@@ -997,7 +996,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   selection over the view returns, `specforge_ops::read::query`), the exploration and the review
   (`specforge_ops::read::{explore, review}`), the entities a trace's chains reach (`specforge_ops::read::trace::affected`, the trace prompt's
   affected and unverified entities), the plan check (`specforge_ops::read::plan::check`), the anchors of a source file and of an entity
-  (`specforge_ops::read::navigate::{anchors_of_file, anchors_of_entity}`, ADR 0140), and the inference guide and plan
+  (`specforge_ops::read::navigate::{anchors_of_file, anchors_of_entity}`, ADR 0349), and the inference guide and plan
   (`specforge_ops::read::infer::{guide, kind_guide, inference_plan}`), and the route trace (`specforge_ops::read::trace::route`, a
   **Thread**, ADR 0330). Each returns a typed outcome; the CLI,
   MCP (its tools and its prompts) and the LSP only render it. Its rules are tested in ops and stated by an ops-level
@@ -1121,17 +1120,19 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   without a source pack's facts there are none. An item, a source root or an indexed path that lands outside the
   project root adds none and is never read. Progress, the inference plan, the `inferred` lint and the mark read them
   through one module (`specforge_ops::read::infer::sources`, ADR 0113, ADR 0199).
-- **Anchors manifest**: `<root>/specforge-anchors.json`, which source item each entity is anchored
-  to. Read only by navigation's anchors read view (`specforge_ops::read::navigate::{anchors_of_file,
-  anchors_of_entity}`, and the covered source items inference gaps leave out): the entities anchored to a source file, each with its kind, and the anchors of an entity;
-  E071 when it cannot be used, `no_project` without a project, E003 for an id neither the graph nor the manifest
-  knows (ADR 0140).
+- **Anchor**: an edge of the compiled graph between an authored entity and a located fact, either way: a `.spec`
+  field citing the fact (`proof ["rust:…"]`, a gsd task's `items`), or a fact naming the entity (`item.names`,
+  `test.names`). Its `via` is `<holder kind>.<field>`. An edge between two facts or two authored entities is none.
+  Read in one walk (`specforge_ops::read::navigate::anchors_in`) by the anchors of an entity and of a source file
+  (`anchors_of_entity`, `anchors_of_file`: rows `{fact_id, file, line, end_line, item_kind, collector, via}`, I212
+  when no located fact is served, W198 for a file changed since its store recorded it), covered items and the
+  language server (ADR 0349).
+- **Located fact**: a fact with at least one place in source (`Fact.at`, `Node::location()`): what an anchor's fact
+  end is.
 - **Covered source item**: a public `item` fact (`specforge_ops::read::infer::ITEM_KIND`, the definitions a source
-  pack collects) that an authored entity cites (a graph edge either way: a `.spec` reference to it, or a name its
-  source gives the entity), or that the anchors manifest anchors, by its file and its name, to an entity the graph
-  declares (`specforge_ops::read::navigate` `CoveredItems`, ADR 0199). Inference gaps are the items that are not
-  covered. An entity that only shares an item's name covers nothing; an anchor to an entity the graph does not declare
-  covers nothing.
+  pack collects) with an anchor to an entity the graph declares (`specforge_ops::read::navigate` `CoveredItems`,
+  ADR 0349). Inference gaps are the items that are not covered. An entity that only shares an item's name covers
+  nothing.
 - **Obligation**: one `verify` statement on an entity, its own member beside its methods (ADR 0094), never a field. Every output writes it as one record, its kind (absent for a bare `verify "…"`) and its text (`specforge_graph::Obligation`); `specforge.edit` reads the same record (ADR 0273). **Proven** when a passing test names its
   exact text, or a formal claim discharges it. Who owes obligations is the entity's standing. Where each is written is the parse's
   (`Entity::obligation_spans`), never the graph's; an entry named `verify` inside a block field is a field, not an
