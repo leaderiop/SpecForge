@@ -460,7 +460,7 @@ expression: "digest(&load(&runtime, &[name]))"
     },
     "test.names": {
       "derived_from": null,
-      "description": "The entities the test says it proves, in its runner's idiom (I402 when one is no entity)",
+      "description": "The entities the test says it proves: each [<ns>:<id>] tag in its JUnit name, or its source's idiom (I402 when one is no entity)",
       "edge": "names",
       "exempts_obligations": false,
       "field_name": "names",
