@@ -212,7 +212,11 @@ def present(tasks: dict, task_id: str, arm_id: str, copy: Path) -> list[str]:
         (kind, body), = edit.items()
         path = copy / body.get("file", "")
         if kind == "replace":
-            return path.is_file() and body["new"] in path.read_text()
+            text = path.read_text() if path.is_file() else ""
+            old, new = body["old"], body["new"]
+            # A deletion holds while the old text is gone (its file too); an insertion that keeps the old text around
+            # it holds while the new text is there; a rewrite holds while the new text is there and the old is not.
+            return (not new or new in text) and (old in new or old not in text)
         if kind == "write":
             return path.is_file() and body["text"] in path.read_text()
         if kind == "delete":
@@ -283,8 +287,28 @@ SYNTHETIC = {
         {"id": "t3", "fixture": "fx", "seeded": ["D4"], "seeds": {"D4": {
             "A": [{"write": {"file": "src/x.js", "text": "x"}}], "B": [],
         }}},
+        {"id": "t4", "fixture": "fx", "seeded": ["D5", "D6"], "seeds": {
+            "D5": {"A": [{"replace": {"file": "test/t.js", "old": "drop\n", "new": ""}}], "B": []},
+            "D6": {"A": [{"replace": {"file": "test/t.js", "old": "keep\n", "new": "keep\nmore\n"}}], "B": []},
+        }},
     ],
 }
+
+
+def corpus(tasks: dict, root: Path, scratch: Path) -> int:
+    """Seeds every task of `tasks` in every arm, seeded and unseeded: `present` names exactly the task's seeded defects
+    on the seeded copy and none on the unseeded one. Answers the number of copies made."""
+    components = {name: str(scratch / "component.wasm") for name in ("@gsd/core", "@gsd/security")}
+    made = 0
+    for task in tasks["tasks"]:
+        for arm in ARMS:
+            for unseeded in (False, True):
+                copy = scratch / f"{task['id']}-{arm}-{'unseeded' if unseeded else 'seeded'}"
+                seed(tasks, root, task["id"], arm, copy, components, unseeded=unseeded)
+                got, want = present(tasks, task["id"], arm, copy), [] if unseeded else task["seeded"]
+                assert got == want, f"{copy.name}: present {got}, want {want}"
+                made += 1
+    return made
 
 
 def self_test() -> None:
@@ -294,7 +318,7 @@ def self_test() -> None:
         for path, text in {
             ".planning/STATE.md": "status: planned\n", "spec/a.spec": "phase 01 {\n  status planned\n}\n",
             "specforge-harness": "# specforge-harness 1\n", "README.md": "the fixture\n",
-            "src/x.js": "same\nsame\n",
+            "src/x.js": "same\nsame\n", "test/t.js": "keep\ndrop\n",
         }.items():
             (fixture / path).parent.mkdir(parents=True, exist_ok=True)
             (fixture / path).write_text(text)
@@ -352,12 +376,26 @@ def self_test() -> None:
         (a / ".planning/STATE.md").write_text("status: planned\n")
         assert present(SYNTHETIC, "t1", "A", a) == [], "and STATE.md restored: D1 too"
 
+        # A deletion (D5) holds while its text is gone, the file too; an insertion (D6) while its new text is there.
+        t4 = root / "t4"
+        seed(SYNTHETIC, root, "t4", "A", t4)
+        assert present(SYNTHETIC, "t4", "A", t4) == ["D5", "D6"], "a deletion and an insertion, seeded"
+        (t4 / "test/t.js").write_text("keep\ndrop\n")
+        assert present(SYNTHETIC, "t4", "A", t4) == [], "both restored"
+        (t4 / "test/t.js").unlink()
+        assert present(SYNTHETIC, "t4", "A", t4) == ["D5"], "the file gone: the deleted text is still gone"
+
         order = schedule(SYNTHETIC)
         assert len(order) == len(SYNTHETIC["tasks"]) * SEEDS
         assert len({(task, number) for task, number, _ in order}) == len(order), "each (task, seed) once"
         assert all(sorted(arms) == sorted(ARMS) for _, _, arms in order), "every arm in every (task, seed)"
         firsts = [arms[0] for _, _, arms in order]
         assert all(x != y for x, y in zip(firsts, firsts[1:])), f"no arm first twice in a row: {firsts}"
+
+        tasks = json.loads(TASKS.read_text())
+        made = corpus(tasks, REPO, root / "corpus")
+        assert made == len(tasks["tasks"]) * len(ARMS) * 2
+        print(f"corpus: {made} copies, each seeded one naming its seeds and each unseeded one none")
     print("self-test: ok")
 
 
