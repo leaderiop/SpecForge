@@ -9,12 +9,12 @@
     },
     {
       "id": "B", "state": "SpecForge @gsd/core, gsd-strict, the .spec graph", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"],
-      "config": { "extensions": ["@gsd/core", "@specforge/checks"], "thread": true, "settings": { "@gsd/core": { "profile": "gsd-strict" } } },
+      "config": { "extensions": ["@gsd/core", "@specforge/checks"], "thread": true, "settings": { "@gsd/core": { "profile": "gsd-strict", "specforge.task_trailers": true } } },
       "drop": [".planning/", "README.md"]
     },
     {
       "id": "B0", "state": "B without @code/core, @javascript/node-test and the requirement route", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"],
-      "config": { "extensions": ["@gsd/core", "@specforge/checks"], "thread": false, "settings": { "@gsd/core": { "profile": "gsd-strict" } } },
+      "config": { "extensions": ["@gsd/core", "@specforge/checks"], "thread": false, "settings": { "@gsd/core": { "profile": "gsd-strict", "specforge.task_trailers": true } } },
       "drop": [".planning/", "README.md"]
     }
   ],
@@ -73,8 +73,8 @@
           "resolved_if": [{ "file": "test/store.test.js", "contains": "a title survives a reload byte for byte" }]
         },
         "S4": {
-          "A": [{ "commit": { "subject": "feat: the task model", "body": "Gsd-Task: 01-01/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }],
-          "B": [{ "commit": { "subject": "feat: the task model", "body": "Gsd-Task: 01-01/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }]
+          "A": [{ "commit": { "subject": "feat(01-01): The task model", "body": "Gsd-Task: 01-01/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }],
+          "B": [{ "commit": { "subject": "feat(01-01): The task model", "body": "Gsd-Task: 01-01/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }]
         }
       },
       "completion": [
@@ -162,8 +162,8 @@
           "resolved_if": [{ "file": "test/cli.test.js", "contains": "set reads the secret from stdin" }]
         },
         "S4": {
-          "A": [{ "commit": { "subject": "feat: set, get and list", "body": "Gsd-Task: 01-02/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }],
-          "B": [{ "commit": { "subject": "feat: set, get and list", "body": "Gsd-Task: 01-02/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }]
+          "A": [{ "commit": { "subject": "feat(01-02): set, get and list", "body": "Gsd-Task: 01-02/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }],
+          "B": [{ "commit": { "subject": "feat(01-02): set, get and list", "body": "Gsd-Task: 01-02/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }]
         }
       },
       "b_signals": [

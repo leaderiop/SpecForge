@@ -5,9 +5,6 @@ use super::harness::ab::{Today, assert_signals};
 
 /// `(task, defect, arm, today)`: the rows that do not yet give what `tasks.json` says, asserted as they are.
 const KNOWN_GAPS: &[(&str, &str, &str, Today)] = &[
-    // The seeded commit's subject names no plan, so `gsd-git` skips it; E521 is off under gsd-strict anyway.
-    ("taskboard-execute-02-01", "S4", "B", Today::Counts(0, 0)),
-    ("taskboard-execute-02-01", "S4", "B0", Today::Counts(0, 0)),
     // Phase 02 is planned, not executed: its truths' plan stays pending for the whole verify run.
     ("taskboard-verify-02", "S5", "B", Today::Counts(1, 1)),
     ("taskboard-verify-02", "S6", "B", Today::Counts(0, 0)),

@@ -18,12 +18,14 @@ state in a checked graph do better than one that keeps it in Markdown? The files
 ## 2. Arms
 
 Same model, same temperature, same tool budget, same task prompts (each arm's prompt names its own commands, nothing
-else differs).
+else differs). Each arm's configuration is frozen in `tasks.json#arms` (`config`: the extensions by name, whether the
+fixture's thread packs load, the settings; `drop`: the fixture's paths the arm does not see), and `seed.py` writes it
+into every copy.
 
 | Arm | State | Tools |
 |---|---|---|
 | **A** | gsd-core 1.19.0: `.planning/` Markdown | `gsd-tools` |
-| **B** | SpecForge `@gsd/core` with the gsd-strict profile: the `.spec` graph | `specforge` CLI and MCP, `collect`, `trace <requirement>` |
+| **B** | SpecForge `@gsd/core` with the gsd-strict profile and `specforge.task_trailers` on (E521: a task commit links its task by a `Gsd-Task:` trailer): the `.spec` graph | `specforge` CLI and MCP, `collect`, `trace <requirement>` |
 | **B0** | B with the thread off: no `@code/core`, no `@javascript/node-test` (so no test facts and no `proof` links), no declared route (`trace` prints the generic reach) | as B |
 
 ## 3. Fixtures
@@ -53,7 +55,7 @@ copy of the fixture, never in the committed one.
 | S1 | a test that never ran: a summary or verdict claims a test that is not in the run | `code/E101` on the proof |
 | S2 | a requirement id that does not exist (`requirements [TASK-09]`) | `E003` |
 | S3 | a status written ahead of the work: phase 02 marked complete before its plan ran | `E082` |
-| S4 | a commit trailer naming a task that does not exist | the trailer diagnostic `@gsd/core` reports |
+| S4 | a commit trailer naming a task that does not exist: `Gsd-Task: 01-01/T9` under GSD's subject `feat(01-01): <T1's title>` | `gsd/E521` on the commit (its task found by the subject's title, not by the trailer) |
 | S5 | a truth verified over a failing proof | `gsd/E501` stale, shown in `trace` |
 | S6 | a proof naming a deleted test | `code/E101` |
 
