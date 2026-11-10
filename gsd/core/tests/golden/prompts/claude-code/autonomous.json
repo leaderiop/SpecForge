@@ -61,7 +61,7 @@
     "",
     ""
   ],
-  "bytes": 53469,
+  "bytes": 53500,
   "end": [
     "- Missing Next Up block after completions",
     "",
@@ -130,7 +130,7 @@
     "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
-    "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
+    "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
     "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:68a72bad8ac336db7c362df0fa1ce3bbd5cce4b2bcaad4a2030b41a182dfa3a1",
+    "digest": "sha256:92ebdd6580fad427243849d7f173691f9c2d45faeb2f35057546f20210cf4baf",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "68a72bad8ac336db7c362df0fa1ce3bbd5cce4b2bcaad4a2030b41a182dfa3a1"
+  "sha256": "92ebdd6580fad427243849d7f173691f9c2d45faeb2f35057546f20210cf4baf"
 }

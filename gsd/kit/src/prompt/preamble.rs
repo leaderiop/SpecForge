@@ -54,7 +54,7 @@ pub const FILES: &[(&str, &str)] = &[
     ("`v<version>-MILESTONE-AUDIT.md`", "milestone_audit"),
     (
         "git history (no GSD file)",
-        "commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities",
+        "commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity",
     ),
     ("`WINDOWS.md`", "broken_window"),
     ("`NN-REFACTOR.md`", "refactor_proposal"),

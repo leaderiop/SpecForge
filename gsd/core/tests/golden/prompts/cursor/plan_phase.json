@@ -61,7 +61,7 @@
     "collapsing plan roles into the orchestrator context.",
     ""
   ],
-  "bytes": 114925,
+  "bytes": 114956,
   "end": [
     "</file>",
     "</execution_context>",
@@ -149,7 +149,7 @@
     "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
-    "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
+    "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd-<id>]` tag in a test's name names that entity |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
     "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:98f8a26e61d059115451166ed7c4434f3f0a24d8356c3cf6f42fc3ec66f89914",
+    "digest": "sha256:4b7347a30e9bd7883286e5929e78862729768ee45460dc3f3d81bb1cb097f0f1",
     "prompt": "@gsd/core@VERSION:plan_phase",
     "steps": [
       {
@@ -240,5 +240,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "98f8a26e61d059115451166ed7c4434f3f0a24d8356c3cf6f42fc3ec66f89914"
+  "sha256": "4b7347a30e9bd7883286e5929e78862729768ee45460dc3f3d81bb1cb097f0f1"
 }

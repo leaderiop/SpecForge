@@ -61,7 +61,7 @@
     "PHASE_GOAL=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.goal' 2>/dev/null)",
     "PHASE_MODE=$(specforge query \"$PHASE_ID\" --depth 0 --pick '.nodes[0].fields.mode' 2>/dev/null)"
   ],
-  "bytes": 26008,
+  "bytes": 26039,
   "end": [
     "1. The `**Goal:**` line stays on a single line (no line breaks inside the story). If the story is longer than ~120 chars, it should be split into multiple phases via SPIDR (see `spidr-splitting.md`).",
     "2. The `**Mode:** mvp` line is added immediately below `**Goal:**`. If `**Mode:**` already exists, it is replaced (not duplicated).",
@@ -130,7 +130,7 @@
     "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
-    "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
+    "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
     "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:8cb87693e531b35a057920b5082adbe5f0f98868027653782b8869cd8890fc57",
+    "digest": "sha256:a0f6038284fb66fe01a0aacc267575e7608f321d55b9f783f46bbd0958ea8c9f",
     "prompt": "@gsd/core@VERSION:mvp_phase",
     "steps": [
       {
@@ -206,5 +206,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "8cb87693e531b35a057920b5082adbe5f0f98868027653782b8869cd8890fc57"
+  "sha256": "a0f6038284fb66fe01a0aacc267575e7608f321d55b9f783f46bbd0958ea8c9f"
 }

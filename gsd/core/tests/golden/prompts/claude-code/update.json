@@ -26,7 +26,7 @@
     "4. Tell the user to restart the host, so that it reads the new skills.",
     "</process>"
   ],
-  "bytes": 10475,
+  "bytes": 10506,
   "end": [
     "  \"effort.routing_tier_defaults.heavy\": \"xhigh\",",
     "  \"effort.routing_tier_defaults.light\": \"low\",",
@@ -95,7 +95,7 @@
     "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
-    "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
+    "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
     "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
@@ -153,8 +153,8 @@
   ],
   "lines": 203,
   "payload": {
-    "digest": "sha256:763e922dea0dd5fe978b55f756ea6ded3621cd9527789a8021a52d9a2d417ace",
+    "digest": "sha256:bcb37e43c4e3385e91f4ef7d0acfc49b0d1211a3e4a96f65454ad441b7ab9fa9",
     "prompt": "@gsd/core@VERSION:update"
   },
-  "sha256": "763e922dea0dd5fe978b55f756ea6ded3621cd9527789a8021a52d9a2d417ace"
+  "sha256": "bcb37e43c4e3385e91f4ef7d0acfc49b0d1211a3e4a96f65454ad441b7ab9fa9"
 }

@@ -196,7 +196,7 @@ TASK-01
 | `NN-UAT.md` | uat_session, uat_test, uat_gap | core |
 | `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check | core |
 | `v<version>-MILESTONE-AUDIT.md` | milestone_audit | core |
-| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities | core |
+| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity | core |
 | `WINDOWS.md` | broken_window | core |
 | `NN-REFACTOR.md` | refactor_proposal | core |
 | `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) | core |
