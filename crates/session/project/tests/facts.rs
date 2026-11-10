@@ -696,3 +696,5 @@ fn a_compiled_project_serves_its_stores_source_digests() {
         [(STORE, "sha256:bb"), (other.as_str(), "sha256:cc")].into()
     );
 }
+
+mod sent;
