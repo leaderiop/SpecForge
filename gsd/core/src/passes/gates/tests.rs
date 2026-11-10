@@ -368,7 +368,7 @@ fn traced(
     subject: Option<&str>,
     task_type: &str,
     commit: bool,
-    tests: &[(&str, &str)],
+    tests: &[(&str, TestStatus)],
 ) -> PassInput {
     let mut entities = vec![
         json!({ "id": "v1.0/01", "kind": "phase", "values": { "requirements": ["R1"] } }),
@@ -394,7 +394,7 @@ fn traced(
             &id,
             &format!("t{n}"),
             "test/t.test.js",
-            status,
+            *status,
             &[entity],
         );
     }
@@ -410,7 +410,7 @@ fn e515_is_silent_outside_a_gate() {
 
 #[test]
 fn a_complete_requirement_without_a_task_is_e515() {
-    let mut found = traced(Some("v1.0/01"), "auto", true, &[(TASK, "passed")]);
+    let mut found = traced(Some("v1.0/01"), "auto", true, &[(TASK, TestStatus::Passed)]);
     found
         .entities
         .retain(|e| e.kind != "task" && e.kind != "commit");
@@ -424,7 +424,12 @@ fn a_commit_alone_does_not_trace() {
     let refused = e515(&traced(Some("v1.0/01"), "auto", true, &[]));
     assert_eq!(codes(refused.clone()), ["E515"]);
     assert!(refused[0].message.contains("no passing test of its tasks"));
-    let no_commit = e515(&traced(Some("v1.0/01"), "auto", false, &[(TASK, "passed")]));
+    let no_commit = e515(&traced(
+        Some("v1.0/01"),
+        "auto",
+        false,
+        &[(TASK, TestStatus::Passed)],
+    ));
     assert!(no_commit[0].message.contains("no commit of its tasks"));
 }
 
@@ -434,20 +439,36 @@ fn a_manual_task_does_not_trace() {
         Some("v1.0/01"),
         "manual",
         true,
-        &[(TASK, "passed")],
+        &[(TASK, TestStatus::Passed)],
     ));
     assert!(refused[0].message.contains("no task of its plans"));
 }
 
 #[test]
 fn a_passing_test_naming_the_task_traces() {
-    assert!(e515(&traced(Some("v1.0/01"), "auto", true, &[(TASK, "passed")])).is_empty());
-    assert!(e515(&traced(Some("v1.0/01"), "tdd", true, &[("R1", "passed")])).is_empty());
+    assert!(
+        e515(&traced(
+            Some("v1.0/01"),
+            "auto",
+            true,
+            &[(TASK, TestStatus::Passed)]
+        ))
+        .is_empty()
+    );
+    assert!(
+        e515(&traced(
+            Some("v1.0/01"),
+            "tdd",
+            true,
+            &[("R1", TestStatus::Passed)]
+        ))
+        .is_empty()
+    );
 }
 
 #[test]
 fn a_failing_linked_test_does_not_trace() {
-    let tests = [(TASK, "passed"), (TASK, "failed")];
+    let tests = [(TASK, TestStatus::Passed), (TASK, TestStatus::Failed)];
     let refused = e515(&traced(Some("v1.0/01"), "auto", true, &tests));
     assert!(refused[0].message.contains("no passing test of its tasks"));
 }

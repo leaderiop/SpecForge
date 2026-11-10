@@ -10,13 +10,13 @@ pub(crate) fn add_test(
     id: &str,
     name: &str,
     file: &str,
-    status: &str,
+    status: TestStatus,
     names: &[&str],
 ) {
     input.entities.push(
         serde_json::from_value(serde_json::json!({
             "id": id, "kind": "test",
-            "fields": { "name": name, "file": file, "status": status },
+            "fields": { "name": name, "file": file, "status": status.as_str() },
         }))
         .expect("a test fact"),
     );
@@ -24,7 +24,7 @@ pub(crate) fn add_test(
         input.edges.push(PassEdge {
             source: id.to_string(),
             target: target.to_string(),
-            label: "names".to_string(),
+            label: super::NAMES.to_string(),
         });
     }
 }

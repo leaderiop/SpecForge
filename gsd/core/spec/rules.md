@@ -127,8 +127,8 @@ The plan checker's dimensions, and the gates `gsd-tools check` runs at `plan:pos
   names. A file the host did not serve (its 1 MiB text budget is charged per entity and path) makes the phase's
   verification `scan_partial`, which keeps it from `passed`.
 - Rules that read the tests in a compile pass read `@code/core`'s test facts and the graph's `names` and `proof` edges,
-  never the recorded report: `gsd/W408` (r38) is built, as is the derive pass for a deliverable check's status;
-  `gsd/E515` is built (K20a) as a guard. `gsd/W403` reads the recorded commits.
+  never the recorded report: `gsd/W408` is built, as is the derive pass for a deliverable check's status; `gsd/E515`
+  is built as a guard. `gsd/W403` reads the recorded commits.
 - Rules that count list items are buildable since 1.11.0 (K13): `gsd/W103` (r36), `gsd/W305` and `gsd/W306` (r37) are built;
   `gsd/E517` is built (r41) and reads the items in `values`.
 - A judge that is a prompt, not an agent (`gsd/E202`, `gsd/W203`), is built (r40): `prompt:spec_phase`, a short judging prompt that names the two rules and how to record; r42 ports GSD's spec-phase workflow into the same id.

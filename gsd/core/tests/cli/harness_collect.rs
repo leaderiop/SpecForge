@@ -4,6 +4,8 @@
 use std::path::Path;
 use std::process::Command;
 
+use specforge_extension_sdk::prelude::TestStatus;
+
 use super::{BASELINE_AT, Project, Run};
 
 impl Project {
@@ -101,12 +103,12 @@ impl Project {
         ])
     }
 
-    /// Collects `cases` (`(file, name, status)`, the status `passed`, `failed` or `skipped`) as `@code/core` test
-    /// facts, as `@javascript/node-test` reads node's JUnit report: loads `@code/core` and `@javascript/node-test`
-    /// when they are not loaded, writes `package.json` (`{"name":"taskboard"}`) when the project has none, writes the
-    /// cases as one report at `.specforge/reports/node-test.xml` and runs `collect --runner node-test --no-run`. A
-    /// `[gsd:<id>]` tag in a name puts `<id>` in the fact's `names`. Nothing runs node.
-    pub fn node_tests(&self, cases: &[(&str, &str, &str)]) -> Run {
+    /// Collects `cases` (`(file, name, status)`) as `@code/core` test facts, as `@javascript/node-test` reads node's
+    /// JUnit report: loads `@code/core` and `@javascript/node-test` when they are not loaded, writes `package.json`
+    /// (`{"name":"taskboard"}`) when the project has none, writes the cases as one report at
+    /// `.specforge/reports/node-test.xml` and runs `collect --runner node-test --no-run`. A `[gsd:<id>]` tag in a name
+    /// puts `<id>` in the fact's `names`. Nothing runs node.
+    pub fn node_tests(&self, cases: &[(&str, &str, TestStatus)]) -> Run {
         let missing: Vec<&str> = ["@code/core", "@javascript/node-test"]
             .into_iter()
             .filter(|name| !self.extensions.borrow().iter().any(|(n, _)| n == name))
@@ -123,11 +125,10 @@ impl Project {
         let body: String = cases
             .iter()
             .map(|(file, name, status)| {
-                let inner = match *status {
-                    "passed" => "",
-                    "failed" => "<failure message=\"no\"/>",
-                    "skipped" => "<skipped/>",
-                    other => panic!("a test status is passed, failed or skipped, not {other}"),
+                let inner = match status {
+                    TestStatus::Passed => "",
+                    TestStatus::Failed => "<failure message=\"no\"/>",
+                    TestStatus::Skipped => "<skipped/>",
                 };
                 format!(
                     "<testcase name=\"{}\" classname=\"test\" file=\"{file}\">{inner}</testcase>\n",
@@ -166,7 +167,7 @@ impl Project {
     /// a test fact ([`Project::node_tests`]). Once a test has been collected, a check no test ran is `unknown` and
     /// `gsd/W408` says so; this settles it.
     pub fn passing_tests(&self) {
-        let run = self.node_tests(&[("test/tasks.test.js", "adds a task", "passed")]);
+        let run = self.node_tests(&[("test/tasks.test.js", "adds a task", TestStatus::Passed)]);
         assert_eq!(run.code, 0, "{}", run.all());
     }
 }

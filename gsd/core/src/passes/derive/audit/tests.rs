@@ -143,7 +143,7 @@ fn a_validated_validation_with_green_rows_is_compliant() {
         "js:app/test/t.test.js#t",
         "t",
         "test/t.test.js",
-        "passed",
+        TestStatus::Passed,
         &["v1.0/01/01-01/T1"],
     );
     let out = validation_values(&found);

@@ -99,7 +99,7 @@ fn a_wave0_item_is_done_when_its_file_exists_and_a_linked_test_ran() {
                 "js:app/test/a.test.js#stub runs",
                 "stub runs",
                 "test/a.test.js",
-                "passed",
+                TestStatus::Passed,
                 &["v/W0-1"],
             );
         }

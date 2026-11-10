@@ -6,6 +6,7 @@
 
 use super::harness::{Project, Run, judged, taskboard};
 use super::node::node_test_runs;
+use specforge_extension_sdk::prelude::TestStatus;
 
 /// What `specforge trace TASK-01` prints once the thread is collected, its sha normalised.
 const THREAD: &str = include_str!("../golden/trace/taskboard-TASK-01.txt");
@@ -116,17 +117,17 @@ fn the_thread_shows_a_failing_proof_and_stales_its_truth() {
         (
             "test/tasks.test.js",
             "a task is added with the next id",
-            "failed",
+            TestStatus::Failed,
         ),
         (
             "test/tasks.test.js",
             "a task is completed by its id",
-            "passed",
+            TestStatus::Passed,
         ),
         (
             "test/tasks.test.js",
             "completing an unknown id throws",
-            "passed",
+            TestStatus::Passed,
         ),
     ]));
 

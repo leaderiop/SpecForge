@@ -4,6 +4,7 @@
 use serde_json::json;
 
 use crate::harness::{Project, project, project_at};
+use specforge_extension_sdk::prelude::TestStatus;
 
 const SUMMARY: &str = "v1.0/01/01-01/01-01-SUMMARY";
 pub(super) const T0: &str = "2026-10-29T09:00:00Z";
@@ -479,10 +480,14 @@ const CHECKS: &str = "{ kind unit ref \"test/tasks.test.js#adds a task\" }";
 /// Collects the tests `cases` (`(name, passed)`) of `test/tasks.test.js` as test facts: the deliverable's check names
 /// one by its file and name, and a `[gsd:<id>]` tag in a name links the test to that entity.
 pub(super) fn collect_tests(p: &Project, cases: &[(&str, bool)]) {
-    let cases: Vec<(&str, &str, &str)> = cases
+    let cases: Vec<(&str, &str, TestStatus)> = cases
         .iter()
         .map(|(name, ok)| {
-            let status = if *ok { "passed" } else { "failed" };
+            let status = if *ok {
+                TestStatus::Passed
+            } else {
+                TestStatus::Failed
+            };
             ("test/tasks.test.js", *name, status)
         })
         .collect();

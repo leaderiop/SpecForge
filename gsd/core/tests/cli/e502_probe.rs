@@ -5,15 +5,24 @@
 //! `failed` instead, which the host lets it do since ADR 0297.
 
 use super::harness::{Project, project};
+use specforge_extension_sdk::prelude::TestStatus;
 
 const TRUTH: &str = "v1.0/01/01-01/TR1";
 /// A test of the truth, by the `[gsd:<id>]` tag in its name, that fails.
-const FAILING: (&str, &str, &str) = ("test/tasks.test.js", "[gsd:01-01/TR1] fails", "failed");
+const FAILING: (&str, &str, TestStatus) = (
+    "test/tasks.test.js",
+    "[gsd:01-01/TR1] fails",
+    TestStatus::Failed,
+);
 /// A test of the truth that passes.
-const PASSING: (&str, &str, &str) = ("test/tasks.test.js", "[gsd:01-01/TR1] works", "passed");
+const PASSING: (&str, &str, TestStatus) = (
+    "test/tasks.test.js",
+    "[gsd:01-01/TR1] works",
+    TestStatus::Passed,
+);
 
 /// Collects `case` as the project's one test fact.
-fn report(p: &Project, case: (&str, &str, &str)) {
+fn report(p: &Project, case: (&str, &str, TestStatus)) {
     let run = p.node_tests(&[case]);
     assert_eq!(run.code, 0, "{}", run.all());
 }

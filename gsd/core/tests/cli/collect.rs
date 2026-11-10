@@ -1,6 +1,7 @@
 //! The collectors, end to end: `specforge collect --runner gsd-git` records commits in their plan's file.
 
 use crate::harness::{Project, Run, project, project_at};
+use specforge_extension_sdk::prelude::TestStatus;
 
 const T0: &str = "2026-10-29T09:00:00Z";
 const T1: &str = "2026-10-29T09:30:00Z";
@@ -460,7 +461,7 @@ fn check_statuses(p: &Project) -> Vec<String> {
 #[test]
 fn a_tagged_node_test_links_to_its_truth() {
     let p = project("execute");
-    let run = p.node_tests(&[(FILE, "[gsd:01-01/TR1] adds a task", "passed")]);
+    let run = p.node_tests(&[(FILE, "[gsd:01-01/TR1] adds a task", TestStatus::Passed)]);
     assert_eq!(run.code, 0, "{}", run.all());
     // The tag is a short form: the fact holds it as written and the linker resolves it by its unique suffix.
     assert_eq!(
@@ -483,7 +484,7 @@ fn a_tagged_node_test_links_to_its_truth() {
 #[test]
 fn an_untagged_test_names_nothing() {
     let p = project("execute");
-    let run = p.node_tests(&[(FILE, "adds a task", "passed")]);
+    let run = p.node_tests(&[(FILE, "adds a task", TestStatus::Passed)]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(p.edges_of("names"), []);
     assert_eq!(p.nodes_of("test").len(), 1);
@@ -492,12 +493,12 @@ fn an_untagged_test_names_nothing() {
 #[test]
 fn a_coverage_ref_links_to_its_deliverable() {
     let p = project("execute");
-    let run = p.node_tests(&[(FILE, "adds a task", "passed")]);
+    let run = p.node_tests(&[(FILE, "adds a task", TestStatus::Passed)]);
     assert_eq!(run.code, 0, "{}", run.all());
     // The check names the fact by its file and name.
     assert_eq!(check_statuses(&p), ["pass"]);
     // The same test of another file proves nothing.
-    let other = p.node_tests(&[("test/other.test.js", "adds a task", "passed")]);
+    let other = p.node_tests(&[("test/other.test.js", "adds a task", TestStatus::Passed)]);
     assert_eq!(other.code, 0, "{}", other.all());
     assert_eq!(check_statuses(&p), ["unknown"]);
 }
@@ -511,7 +512,7 @@ fn a_test_name_may_hold_a_hash() {
         "ref \"test/tasks.test.js#adds a task\"",
         "ref \"test/tasks.test.js#fixes #42\"",
     );
-    let run = p.node_tests(&[(FILE, "fixes #42", "passed")]);
+    let run = p.node_tests(&[(FILE, "fixes #42", TestStatus::Passed)]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(check_statuses(&p), ["pass"]);
 }
@@ -520,7 +521,7 @@ fn a_test_name_may_hold_a_hash() {
 fn an_ambiguous_tag_is_a_dangling_name() {
     // `TR1` is the truth of both plans of phase 01: the name links neither, and `@code/core` says so at the test.
     let p = project("execute");
-    let run = p.node_tests(&[(FILE, "[gsd:TR1] which one", "passed")]);
+    let run = p.node_tests(&[(FILE, "[gsd:TR1] which one", TestStatus::Passed)]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(p.edges_of("names"), []);
     let dangling: Vec<(String, String)> = p
@@ -536,9 +537,9 @@ fn an_ambiguous_tag_is_a_dangling_name() {
 fn a_failed_and_a_skipped_test_keep_their_status() {
     let p = project("execute");
     let run = p.node_tests(&[
-        (FILE, "[gsd:01-01/TR1] fails", "failed"),
-        (FILE, "[gsd:01-01/AR1] skips", "skipped"),
-        (FILE, "[gsd:01-02/TR1] errors", "failed"),
+        (FILE, "[gsd:01-01/TR1] fails", TestStatus::Failed),
+        (FILE, "[gsd:01-01/AR1] skips", TestStatus::Skipped),
+        (FILE, "[gsd:01-02/TR1] errors", TestStatus::Failed),
     ]);
     assert_eq!(run.code, 0, "{}", run.all());
     let mut statuses: Vec<(String, String)> = p
@@ -608,8 +609,8 @@ fn a_failing_test_never_refuses_the_commits_of_a_collect() {
     let truth = "v1.0/01/01-01/TR1";
     assert_eq!(p.record(truth, "E501", "verified", &[]).code, 0);
     let run = p.node_tests(&[
-        (FILE, "adds a task", "failed"),
-        (FILE, "[gsd:01-01/TR1] fails", "failed"),
+        (FILE, "adds a task", TestStatus::Failed),
+        (FILE, "[gsd:01-01/TR1] fails", TestStatus::Failed),
     ]);
     assert_eq!(run.code, 0, "{}", run.all());
     let hash = p.git_commit("feat(01-01): Store module", &[("src/a.js", "x\n")], T0);

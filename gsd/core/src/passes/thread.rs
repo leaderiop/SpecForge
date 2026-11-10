@@ -96,11 +96,11 @@ impl<'a> Thread<'a> {
 
     /// `(fact id, status)` of each test fact whose `names` holds `id`.
     pub fn naming(&self, id: &str) -> Vec<(&'a str, TestStatus)> {
-        self.ends(|e| e.target == id && e.label == NAMES, |e| &e.source)
+        self.facts_at_ends(|e| e.target == id && e.label == NAMES, |e| &e.source)
     }
 
     /// `(fact id, status)` of the test fact at the chosen end of each edge `edge` keeps.
-    fn ends(
+    fn facts_at_ends(
         &self,
         edge: impl Fn(&PassEdge) -> bool,
         end: impl Fn(&'a PassEdge) -> &'a String,
@@ -118,7 +118,7 @@ impl<'a> Thread<'a> {
 
     /// `(fact id, status)` of each test fact `id`'s `proof` names (a truth's, ADR 0331 D2).
     pub fn proof(&self, id: &str) -> Vec<(&'a str, TestStatus)> {
-        self.ends(|e| e.source == id && e.label == PROOF, |e| &e.target)
+        self.facts_at_ends(|e| e.source == id && e.label == PROOF, |e| &e.target)
     }
 
     /// `(fact id, status)` of each test fact the `proof` of a truth whose `requirement` is `requirement` names: what

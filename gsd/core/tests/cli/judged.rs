@@ -2,6 +2,7 @@
 
 use super::harness::{Project, judged, project, taskboard, unjudged};
 use serde_json::json;
+use specforge_extension_sdk::prelude::TestStatus;
 
 const PLAN_CHECK: [&str; 4] = ["W311", "W313", "W315", "W316"];
 
@@ -410,21 +411,21 @@ fn an_artifacts_file_change_makes_e501_stale() {
 }
 
 /// The twin's tests: the three its truths' proofs name, as its recorded JUnit report holds them.
-const TWIN_TESTS: [(&str, &str, &str); 3] = [
+const TWIN_TESTS: [(&str, &str, TestStatus); 3] = [
     (
         "test/tasks.test.js",
         "a task is added with the next id",
-        "passed",
+        TestStatus::Passed,
     ),
     (
         "test/tasks.test.js",
         "a task is completed by its id",
-        "passed",
+        TestStatus::Passed,
     ),
     (
         "test/tasks.test.js",
         "completing an unknown id throws",
-        "passed",
+        TestStatus::Passed,
     ),
 ];
 
@@ -439,7 +440,7 @@ fn an_unrelated_test_fact_leaves_the_twins_verdicts_fresh() {
     cases.push((
         "test/tasks.test.js",
         "a task test [gsd:v1.0/01/01-01/T1]",
-        "passed",
+        TestStatus::Passed,
     ));
     let run = p.node_tests(&cases);
     assert_eq!(run.code, 0, "{}", run.all());
@@ -456,7 +457,7 @@ fn a_test_naming_a_truth_stales_its_verdict() {
     let tagged = (
         "test/tasks.test.js",
         "holds [gsd:v1.0/01/01-01/TR1]",
-        "passed",
+        TestStatus::Passed,
     );
     let mut cases = TWIN_TESTS.to_vec();
     cases.push(tagged);
@@ -464,7 +465,7 @@ fn a_test_naming_a_truth_stales_its_verdict() {
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(p.record(truth, "E501", "verified", &[]).code, 0);
     assert_eq!(state(&p, truth, "E501").0, "fresh");
-    *cases.last_mut().expect("the tagged test") = (tagged.0, tagged.1, "failed");
+    *cases.last_mut().expect("the tagged test") = (tagged.0, tagged.1, TestStatus::Failed);
     let run = p.node_tests(&cases);
     assert_eq!(run.code, 0, "{}", run.all());
     let inputs = p.inputs(truth, "E501");

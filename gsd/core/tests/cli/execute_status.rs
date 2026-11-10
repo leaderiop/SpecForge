@@ -3,6 +3,7 @@
 //! tests on the `execute` project.
 
 use crate::harness::{Project, project};
+use specforge_extension_sdk::prelude::TestStatus;
 
 const T0: &str = "2026-10-29T09:00:00Z";
 const T1: &str = "2026-10-29T09:30:00Z";
@@ -152,8 +153,8 @@ fn a_check_status_is_pass_fail_or_unknown_from_the_test_facts() {
     );
     assert_eq!(statuses(&p), ["-", "-", "-"], "no test fact, no status");
     let run = p.node_tests(&[
-        ("test/tasks.test.js", "adds a task", "passed"),
-        ("test/tasks.test.js", "lists tasks", "failed"),
+        ("test/tasks.test.js", "adds a task", TestStatus::Passed),
+        ("test/tasks.test.js", "lists tasks", TestStatus::Failed),
     ]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(statuses(&p), ["pass", "fail", "unknown"]);

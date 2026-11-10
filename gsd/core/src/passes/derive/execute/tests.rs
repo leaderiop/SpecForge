@@ -199,10 +199,10 @@ fn a_check_status_is_pass_fail_or_unknown_from_the_test_facts() {
     // No test fact, no status.
     assert!(check_statuses(&input, &d).is_empty());
     for (id, name, status) in [
-        ("js:p/t#a", "a", "passed"),
-        ("js:p/t#b", "b", "passed"),
-        ("js:q/t#b", "b", "failed"),
-        ("js:p/t#other", "other", "failed"),
+        ("js:p/t#a", "a", TestStatus::Passed),
+        ("js:p/t#b", "b", TestStatus::Passed),
+        ("js:q/t#b", "b", TestStatus::Failed),
+        ("js:p/t#other", "other", TestStatus::Failed),
     ] {
         add_test(&mut input, id, name, "t", status, &[]);
     }

@@ -6,7 +6,7 @@ use crate::passes::thread::fixture::add_test;
 const TR: &str = "v1.0/01/01-01/TR1";
 
 /// Test facts `(name, status, whether it names the truth)`.
-type Facts = Vec<(&'static str, &'static str, bool)>;
+type Facts = Vec<(&'static str, TestStatus, bool)>;
 
 fn input(verification: &str, cited: &[&str], facts: Option<Facts>) -> PassInput {
     let judgement = json!({ "rule": "gsd/E501", "state": "fresh", "passed": true, "outcome": "verified",
@@ -29,10 +29,7 @@ fn input(verification: &str, cited: &[&str], facts: Option<Facts>) -> PassInput 
 }
 
 /// Facts: `linked` name the truth, `others` name nothing.
-fn report(
-    linked: &[(&'static str, &'static str)],
-    others: &[(&'static str, &'static str)],
-) -> Facts {
+fn report(linked: &[(&'static str, TestStatus)], others: &[(&'static str, TestStatus)]) -> Facts {
     linked
         .iter()
         .map(|(name, status)| (*name, *status, true))
@@ -45,7 +42,10 @@ fn a_cited_failing_test_contradicts_verified() {
     let found = e502(&input(
         "explicit",
         &["cited_one"],
-        Some(report(&[("linked", "passed")], &[("cited_one", "failed")])),
+        Some(report(
+            &[("linked", TestStatus::Passed)],
+            &[("cited_one", TestStatus::Failed)],
+        )),
     ));
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].code, "E502");
@@ -54,13 +54,19 @@ fn a_cited_failing_test_contradicts_verified() {
 
 #[test]
 fn a_passing_cited_test_backs_the_verdict_and_an_uncited_failure_is_not_counted() {
-    let passing = report(&[], &[("cited_one", "passed"), ("stray", "failed")]);
+    let passing = report(
+        &[],
+        &[
+            ("cited_one", TestStatus::Passed),
+            ("stray", TestStatus::Failed),
+        ],
+    );
     assert!(e502(&input("explicit", &["cited_one"], Some(passing))).is_empty());
 }
 
 #[test]
 fn a_backstop_or_unreported_truth_is_never_contradicted() {
-    let failing = report(&[("linked", "failed")], &[]);
+    let failing = report(&[("linked", TestStatus::Failed)], &[]);
     assert!(e502(&input("backstop", &[], Some(failing))).is_empty());
     assert!(e502(&input("explicit", &[], None)).is_empty());
 }
@@ -70,7 +76,7 @@ fn a_report_with_no_result_is_no_run_for_e502() {
     // What `collect --runner gsd-git` leaves: no test fact.
     assert!(e502(&input("explicit", &[], Some(Vec::new()))).is_empty());
     // A run that links nothing to the truth is "no passing test".
-    let other = report(&[], &[("stray", "passed")]);
+    let other = report(&[], &[("stray", TestStatus::Passed)]);
     let found = e502(&input("explicit", &[], Some(other)));
     assert_eq!(found.len(), 1);
     assert!(
