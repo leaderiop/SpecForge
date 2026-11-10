@@ -260,3 +260,20 @@ fn a_guest_log_past_the_answer_cap_is_truncated() {
     assert_eq!((answer.commits.len(), answer.truncated), (2, true));
     assert_eq!(answer.count, Some(3), "the count still counts every commit");
 }
+
+/// A worktree diff reads the files on disk: a guest granted git reads but no fs read is handed their text today.
+#[test]
+fn a_guest_worktree_diff_hands_over_the_disk_without_an_fs_grant() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut fake = FakeGit::repo(dir.path(), SHA, Vec::new());
+    fake.diffs = vec![file("src/a.js", DiffStatus::Modified)];
+    let git = Arc::new(fake);
+    let answer = session(&git, dir.path())
+        .git_diff(&GitDiffQuery {
+            head: GitDiffHead::Worktree,
+            ..diff_query()
+        })
+        .unwrap();
+    let source = &answer.files[0];
+    assert!(!source.withheld && source.patch.is_some() && source.hunks.is_some());
+}

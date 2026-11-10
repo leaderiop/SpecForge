@@ -162,3 +162,41 @@ fn a_withheld_log_reads_no_credential_with_its_pickaxe() {
     };
     assert_eq!((found(false), found(true)), (1, 0));
 }
+
+/// A tracked file whose directory became a link to a place outside the repository: git reads it as gone (it never
+/// reads through a link a path leads under). A conflicted entry, which the status gives whatever the disk holds,
+/// is read through the link today.
+#[cfg(unix)]
+#[test]
+fn a_worktree_diff_reads_a_conflicted_file_through_a_linked_directory() {
+    let dir = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    std::fs::write(outside.path().join("a.txt"), "outside\n").unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("d/a.txt", "inside\n");
+    let base = repo.commit_all("base");
+    repo.conflict("d/a.txt", "b\n", "o\n", "t\n");
+    std::fs::remove_dir_all(dir.path().join("d")).unwrap();
+    std::os::unix::fs::symlink(outside.path(), dir.path().join("d")).unwrap();
+    let files = Gix::default()
+        .diff(
+            &place(&repo),
+            &DiffQuery {
+                base: Some(Sha::new(base)),
+                head: DiffSide::Worktree,
+                paths: Vec::new(),
+                patch: true,
+                hunks: false,
+                renames: false,
+            },
+        )
+        .unwrap();
+    let [file] = &files[..] else {
+        panic!("one file: {files:?}");
+    };
+    assert_eq!(file.status, DiffStatus::Modified);
+    assert!(
+        file.patch.as_deref().unwrap().contains("+outside"),
+        "{file:?}"
+    );
+}
