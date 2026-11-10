@@ -244,6 +244,7 @@ fn citing(id: &str, ids: &[&str]) -> PassEntity {
                     end_col: 11 + cited.len(),
                 }),
                 kinds: vec![admitted(cited).to_string()],
+                history: false,
             })
             .collect(),
         ..entity(id, "truth")
@@ -388,6 +389,7 @@ fn a_test_id_in_a_field_of_no_target_beside_only_items_is_w102() {
             id: "rust:toy#tests::adds".to_string(),
             span: read_at(2),
             kinds: strings(&["item", "test"]),
+            history: false,
         }],
         ..entity("t1", "truth")
     };
@@ -430,12 +432,14 @@ fn a_facts_own_unheld_reference_is_not_judged() {
                 id: "rust:toy#tests::adds".to_string(),
                 span: read_at(3),
                 kinds: vec!["test".to_string()],
+                history: false,
             },
             UnheldReference {
                 field: "package".to_string(),
                 id: "pkg:cargo/toy".to_string(),
                 span: read_at(4),
                 kinds: vec!["package".to_string()],
+                history: false,
             },
         ],
         ..entity("rust:toy::tests::adds", "item")
@@ -452,10 +456,24 @@ fn a_reference_admitting_none_of_its_kinds_is_not_judged() {
             id: "rust:toy::api".to_string(),
             span: read_at(2),
             kinds: vec!["api".to_string()],
+            history: false,
         }],
         ..entity("t1", "truth")
     };
     assert!(refs::refs(&holding(vec![api], &[("rust", "item")])).is_empty());
+}
+
+/// A reference the harness wrote once (a commit's items) records what held then: no finding when no fact holds it.
+#[test]
+fn a_history_reference_is_no_finding() {
+    let mut commit = citing("c1", &["rust:toy::gone", "rust:toy::Board::ad"]);
+    commit.unheld[0].history = true;
+    let held = vec![entity("rust:toy::Board::add", "item"), commit];
+    let diagnostics = refs::refs(&holding(held, &[("rust", "item")]));
+    assert_eq!(found(&diagnostics), [("E101", "c1", 3, None)]);
+    let mut uncollected = citing("c2", &["rust:toy::gone"]);
+    uncollected.unheld[0].history = true;
+    assert!(refs::refs(&input(vec![uncollected], &[])).is_empty());
 }
 
 #[test]

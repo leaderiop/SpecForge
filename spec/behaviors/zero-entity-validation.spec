@@ -273,6 +273,10 @@ behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
     count by declaring some), stats and the verify-stub fix all read this
     one standing; every pass reads the pass entity's facts unaltered
     (ADR 0269).
+
+    History: an unheld reference whose field its kind declares written
+    by the harness and immutable is marked history (ADR 0352 D2): it
+    records what held when it was written, never a missing fact.
   """
   verify unit "every field an entity writes has one text, the same for declarative rules, custom validators and compiler passes"
   verify unit "a variant list or type union is its members joined by ' | ', a list or expression group its items joined by ', '"
@@ -289,6 +293,7 @@ behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
   verify unit "the coverage rule reads each entity as the pass input carries it"
   verify unit "the standing counts an entity toward coverage exactly as the coverage rule counts the pass entity it sends"
   verify unit "an entity's edge counts leave out an edge from it to itself, as its degree does, and the pass input carries those counts"
+  verify unit "an unheld reference of a field the harness writes once is history"
 }
 
 // -- Entity Checks -----------------------------------------------------------

@@ -109,6 +109,10 @@ pub struct UnheldReference {
     /// store must hold for the reference to be judged missing.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub kinds: Vec<String>,
+    /// Its field is one the harness writes once (`writer: harness` and `immutable`, ADR 0352 D2): the value records
+    /// what held when it was written, so a fact no store holds now is history, never a missing fact.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub history: bool,
 }
 
 /// One fact store the session served (ADR 0327 D5, D6): whose it is, the key it is filed under, the kinds of the facts

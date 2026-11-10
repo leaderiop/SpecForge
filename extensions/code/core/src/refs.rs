@@ -23,7 +23,8 @@ pub(crate) const PACKS: [(&str, &str, &str); 6] = [
 /// a fact of one of those kinds in its scheme (a test reference told the closest held test of its container), W102
 /// when none does (nothing to check it against), naming the kind and its pack. A held reference is an edge, never a
 /// finding, and neither is a fact nothing cites. A reference one of its own facts holds that no fact or entity answers
-/// is E101 addressed to the collector that wrote it: see [`disagreeing`].
+/// is E101 addressed to the collector that wrote it: see [`disagreeing`]. A history reference
+/// (`UnheldReference.history`) is no finding.
 pub(crate) fn refs(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut found = Vec::new();
     for entity in input.entities.iter().filter(|e| !e.pending) {
@@ -31,7 +32,8 @@ pub(crate) fn refs(input: &PassInput) -> Vec<PassDiagnostic> {
             found.extend(disagreeing(entity));
             continue;
         }
-        for item in &entity.unheld {
+        // A history reference records what held when the harness wrote it: never a missing fact (ADR 0352 D2).
+        for item in entity.unheld.iter().filter(|u| !u.history) {
             let kinds = shaped(
                 &item.id,
                 item.kinds

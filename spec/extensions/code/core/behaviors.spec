@@ -114,13 +114,15 @@ behavior cc_check_fact_refs "Check Cited Fact References" {
     holds that no fact or entity answers (unheld, or dangling: no entity,
     several, or one of another kind) is code/E101 addressed to its
     collector, at the span it was read at, whether or not a store serves
-    its scheme.
+    its scheme. A history reference (its field one the harness writes
+    once, ADR 0352 D2) records what held then and is never a finding.
   """
   ensures {
     e101_when_served   "a reference of a scheme a served store holds, naming no fact, is code/E101"
     w102_when_unserved "a reference of a scheme no served store holds is code/W102"
     pending_unchecked  "a pending entity's references are not checked"
     held_silent        "a reference a fact holds links and reports nothing"
+    history_silent     "a history reference is never a finding"
   }
   verify integration "a fact ref to a missing test is code/E101"
   verify integration "a fact ref with no facts collected is code/W102"
@@ -135,6 +137,7 @@ behavior cc_check_fact_refs "Check Cited Fact References" {
   verify unit "a rust test ref beside rust items only is w102"
   verify unit "a facts own unheld reference is not judged"
   verify unit "a reference admitting none of its kinds is not judged"
+  verify unit "a history reference is no finding"
   verify integration "a rust test ref beside only item facts is code/W102"
   verify integration "a missing item of a collected crate is code/E101"
   verify integration "an item ref links to its fact"

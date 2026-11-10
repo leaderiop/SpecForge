@@ -12,6 +12,7 @@ use crate::entity::{
     UnknownMember,
 };
 use crate::registries::{FieldRegistry, KindRegistry};
+use specforge_protocol_types::FieldWriter;
 
 /// The edge type of the edge the field `label` writes from the entity
 /// `source`, when that field writes one (`EdgeRegistry::written_by`, on the
@@ -124,6 +125,11 @@ pub(super) fn record(
                 id: u.id.clone(),
                 span: u.span.as_ref().map(super::wire::pass_span),
                 kinds: u.kinds.iter().map(|kind| kind.to_string()).collect(),
+                history: history(
+                    registries.fields(),
+                    node.kind.raw.as_str(),
+                    u.field.as_str(),
+                ),
             })
             .collect(),
         located: node.located.clone(),
@@ -143,6 +149,14 @@ pub(super) fn record(
         scope: node.scope.map(|scope| scope.as_str().to_string()),
     };
     (record, referenced)
+}
+
+/// Whether the field at `path` on `kind` is one the harness writes once (`writer: harness` and `immutable`, ADR 0352
+/// D5): a reference it holds is history.
+fn history(fields: &FieldRegistry, kind: &str, path: &str) -> bool {
+    fields
+        .get_path(kind, path)
+        .is_some_and(|(_, form)| form.writer() == Some(FieldWriter::Harness) && form.immutable())
 }
 
 /// What exempts an entity from obligations of its own, whatever it declares
