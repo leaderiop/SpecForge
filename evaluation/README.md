@@ -54,4 +54,5 @@ it in Markdown (gsd-core)? Version 1 is ready for review: three fixtures and twe
 (`tasks.json`), the script that seeds each arm's copy (`seed.py`), the arms' prompts, the operator's script and the
 scorer. It is tagged `gsd-ab-v1` once its review ([REVIEW.md](gsd-ab/REVIEW.md)) is filled, before any run.
 `python3 -I evaluation/gsd-ab/seed.py --self-test` and `score.py --self-test` check the scripts; the gsd test suite
-checks every seeded defect's signal (`gsd/core/tests/cli/ab_seeds.rs`).
+checks every seeded defect's signal (`gsd/core/tests/cli/ab_seeds.rs` for taskboard and ledger,
+`gsd/security/tests/cli/ab_seeds.rs` for vault).

@@ -267,8 +267,8 @@ fn thread_defects() -> Vec<String> {
 /// Checks every `b_signals` row of `task` on arms B and B0: seeded and unseeded copies are collected and counted.
 /// On B a row counts `count` on the seeded copy and 0 on the unseeded one; a `complete` row counts 0 before the
 /// completion edits too; and a row whose seed changes the test run counts 0 on a seeded copy collected over the
-/// recorded run unchanged (the file edit alone). On B0 a thread row counts the same on both copies (the seed changes
-/// nothing it reports), and the others as on B.
+/// recorded run unchanged (the file edit alone). On B0 a thread row counts 0 on both copies (B0 has no test facts to
+/// report it from), and the others as on B.
 pub fn assert_signals(task: &str) {
     let rows = signals(task);
     let thread = thread_defects();
@@ -329,9 +329,9 @@ pub fn assert_signals(task: &str) {
             }
             for row in &here {
                 let got = (seeded_copy.signal(row), unseeded_copy.signal(row));
-                let wanted = if arm == "B0" && thread.contains(&row.defect) {
-                    (got.1, got.1)
-                } else if row.when == "complete" && state == "seed" {
+                let wanted = if (arm == "B0" && thread.contains(&row.defect))
+                    || (row.when == "complete" && state == "seed")
+                {
                     (0, 0)
                 } else {
                     (row.count, 0)

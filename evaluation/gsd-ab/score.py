@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Score the GSD A/B (evaluation/gsd-ab/README.md): M1-M6 per run, paired B - A and B - B0
-differences with bootstrap intervals, and the gate B (D7) verdict.
+differences with bootstrap intervals, and the gate B verdict.
 
 Usage:
     python3 -I evaluation/gsd-ab/score.py --runs evaluation/gsd-ab/runs
@@ -156,7 +156,7 @@ def report(pairs: dict, label: str) -> dict:
     return out
 
 
-def d7(pairs: dict, diffs: dict) -> bool:
+def gate_b(pairs: dict, diffs: dict) -> bool:
     """Gate B: B - A on M3 and M2 has an upper bound below 0, and M4(B) <= 1.10 x M4(A). An arm that completed no
     plan has no M4, and the M4 clause fails: no evidence is not a pass."""
     b, a = tokens_per_plan(pairs, 0), tokens_per_plan(pairs, 1)
@@ -177,11 +177,11 @@ def h2(runs: list[dict], tasks: dict) -> bool:
 
 
 def score(runs: list[dict], tasks: dict) -> tuple[bool, bool | None]:
-    """The D7 verdict, and H2's (None without B0 runs)."""
+    """The gate B verdict, and H2's (None without B0 runs)."""
     ab = pair(runs, tasks, "B", "A")
-    passed = d7(ab, report(ab, "B - A"))
+    passed = gate_b(ab, report(ab, "B - A"))
     thread = h2(runs, tasks) if any(run["arm"] == "B0" for run in runs) else None
-    print(f"D7: {'pass' if passed else 'fail'}")
+    print(f"gate B: {'pass' if passed else 'fail'}")
     return passed, thread
 
 
@@ -333,9 +333,9 @@ def self_test() -> None:
         (Path(tmp) / "A" / "t0" / "1.notes.json").write_text("{}")
         read = read_runs(Path(tmp), tasks)
     assert len(read) == len(runs), "every written run file reads back, and the stray file is skipped"
-    assert score(read, tasks) == (True, True), "a set B clearly wins must pass D7 and show H2"
+    assert score(read, tasks) == (True, True), "a set B clearly wins must pass gate B and show H2"
     runs, tasks = synthetic(b_wins=False)
-    assert score(runs, tasks) == (False, False), "a set B does not win must fail D7 and not show H2"
+    assert score(runs, tasks) == (False, False), "a set B does not win must fail gate B and not show H2"
     # B wins on M2 and M3 but spends 20% more tokens per plan, or A completes no plan, so there is no M4 to hold B
     # to: gate B fails either way.
     for costly in (synthetic(b_wins=True, b_tokens=1.2), synthetic(b_wins=True, a_plans=0)):

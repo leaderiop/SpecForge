@@ -11,9 +11,9 @@ committed.
 
 ## 1. Question and hypotheses
 
-- **H1 (gate B, decision D7).** Checked state (arm B) beats Markdown state (arm A) on false "verified" (M3) and on
+- **H1 (gate B).** Checked state (arm B) beats Markdown state (arm A) on false "verified" (M3) and on
   state drift (M2), without costing more than 10% in tokens per completed plan (M4).
-- **H2 (secondary, R1's question).** The requirement thread helps an agent: arm B beats arm B0 on false "verified"
+- **H2 (secondary, the requirement thread).** The requirement thread helps an agent: arm B beats arm B0 on false "verified"
   for the defects the thread exists to catch, counted alone (M3 over those, `M3_thread`). They are the defects marked
   `"thread": true` in `tasks.json#defects`: S1, S5 and S6, whose signals read the test facts B0 lacks. H2 is reported
   and gates nothing. S4 is not a thread defect: B0 keeps `gsd/E521` (it reads commits, not test facts) and reports
@@ -170,11 +170,11 @@ any of this, or whose path is not its arm, task and seed.
 - The seeds of a task are replicates only when the model samples: the operator fixes `temperature` above 0 for the
   study. At 0 the three seeds differ only by the host's own nondeterminism, and the interval over them is optimistic.
 
-## 9. Gate B (D7)
+## 9. Gate B
 
 **Pass** when the upper bound of B − A is below 0 for M3 and for M2 (B has fewer incidents), and M4(B) ≤ 1.10 × M4(A).
 An arm that completed no plan has no M4, and the M4 clause then fails: no evidence is not a pass.
-**Fail** otherwise: R9 is dropped, and the result is published as it is.
+**Fail** otherwise: the work that waits on gate B does not start, and the result is published as it is.
 
 ## 10. Pre-registration
 
@@ -194,12 +194,21 @@ Every run file records its `protocol`: the commit `seed.py seed` reports and `sp
 refuses a run set that mixes two protocols, and a run whose copy came from a working tree (`seed.py --worktree`,
 for the tests). A change after the tag, a fixture's included, is a new version, and the report names it.
 
+Open before the tag, each needing gsd-core 1.19.0 installed (`gsd-tools`, node 24):
+
+- the ledger's JSON goldens, recorded by `gsd/parity/record-ledger.sh`, and the comparison of the statuses gsd-tools
+  reads from its `.planning/` with the ledger's `.spec` twin;
+- a second `gsd/parity/record-security.sh` run, which must give the vault's goldens unchanged;
+- arm A's seeds read through gsd-tools: each seeded A copy reads without an error, and the read shows the seed;
+- the A reads in `tasks.json#states` (each kind's command, path and map of words) checked against what gsd-tools
+  1.19.0 prints on the fixtures.
+
 ## 11. Threats
 
 | Threat | Mitigation |
 |---|---|
 | One model | name it; a second model's run is a new version, not a retry |
-| Fixtures written by the authors: all three are | every fixture, seed, completion, acceptance row and prompt is in the tagged commit; each `.planning/` is hand-written from gsd-core's templates and read by gsd-tools 1.19.0 (the `record*.sh` scripts fail on a verb that errors); one fixture (ledger) is red from the start, so a "verified" is false there with no seed. A project from outside, replayed through `@gsd/import`, cannot be in v1: the importer is built after the tag, and arm B's input would come from code the tag does not hold (section 10). It is the threat a `gsd-ab-v2` closes |
+| Fixtures written by the authors: all three are | every fixture, seed, completion, acceptance row and prompt is in the tagged commit; each `.planning/` is hand-written from gsd-core's templates; taskboard's and vault's are read by gsd-tools 1.19.0 (the `record*.sh` scripts fail on a verb that errors), the ledger's not yet (its goldens are open, section 10); one fixture (ledger) is red from the start, so a "verified" is false there with no seed. A project from outside, replayed through `@gsd/import`, cannot be in v1: the importer is built after the tag, and arm B's input would come from code the tag does not hold (section 10). It is the threat a `gsd-ab-v2` closes |
 | Arm B's prompts are newer than arm A's | both arms' prompts are frozen at gate A (`prompts/`), and each arm's agents and skills come from its release unchanged (gsd-core 1.19.0, `@gsd/core` at the tag) |
 | The operator's hand in interventions | [OPERATOR.md](OPERATOR.md): four reasons, each with its text, logged with its turn and counted in M5; `score.py` refuses any other |
 

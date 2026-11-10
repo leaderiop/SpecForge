@@ -123,7 +123,7 @@
   "defects": [
     {
       "id": "S1", "name": "a test that never ran",
-      "seed_a": "a SUMMARY.md or VERIFICATION.md claims a test name that the test run does not contain",
+      "seed_a": "a must-have truth in the executed plan's PLAN.md names a test that the test run does not contain",
       "seed_b": "a truth's proof cites a test id that the collected facts do not hold",
       "b_signal": "code/E101",
       "thread": true
@@ -150,14 +150,14 @@
     },
     {
       "id": "S5", "name": "a truth verified over a failing proof",
-      "seed_a": "VERIFICATION.md marks a truth verified while its test fails",
+      "seed_a": "a test that a passed record rests on now fails: 01-VERIFICATION.md on taskboard and ledger, and on vault, which has no VERIFICATION.md, the complete 01-01-SUMMARY.md",
       "seed_b": "a truth's verdict is verified while the test its proof cites fails",
       "b_signal": "code/W401 on the truth whose proof cites the failed test",
       "thread": true
     },
     {
       "id": "S6", "name": "a proof naming a deleted test",
-      "seed_a": "VERIFICATION.md cites a test that was deleted",
+      "seed_a": "a test that a passed record rests on was deleted: 01-VERIFICATION.md on taskboard and ledger, and on vault, which has no VERIFICATION.md, the complete 01-01-SUMMARY.md",
       "seed_b": "a truth's proof cites a test deleted from the test file",
       "b_signal": "code/E101",
       "thread": true

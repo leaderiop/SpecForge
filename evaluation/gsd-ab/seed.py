@@ -515,7 +515,7 @@ def self_test() -> None:
             refusals += 1
         assert refusals == 6, "a B copy without the component is refused, naming the flag"
         # A refusal leaves nothing behind: not the copy, not the directory it was built in.
-        escapes = {**SYNTHETIC, "tasks": [{"id": "t5", "fixture": "fx", "seeded": ["D7"], "seeds": {"D7": {
+        escapes = {**SYNTHETIC, "tasks": [{"id": "t5", "fixture": "fx", "seeded": ["D8"], "seeds": {"D8": {
             "A": [{"write": {"file": "../escaped.js", "text": "x"}}], "B": []}}}]}
         for args, why in (((SYNTHETIC, root, "t1", "A", root / "a-complete"), "arm A has none"),
                           ((escapes, root, "t5", "A", root / "escape"), "outside the copy")):
