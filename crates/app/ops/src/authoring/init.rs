@@ -699,4 +699,13 @@ mod tests {
             ("E063".to_string(), None)
         );
     }
+
+    /// A collect on SpecForge's own repository writes the ledger: the line that write would add to
+    /// `.gitattributes` is committed, so the write leaves the tracked file as it is.
+    #[test]
+    fn this_repository_commits_the_gitattributes_line_a_ledger_write_adds() {
+        let committed =
+            std::fs::read(specforge_repo_root::repo_root().join(".gitattributes")).unwrap();
+        assert_eq!(gitattributes_with(&committed), None);
+    }
 }

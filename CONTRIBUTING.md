@@ -54,7 +54,8 @@ tests ([ADR 0078](docs/adr/0078-a-tests-project-is-one-fixture.md)).
 SpecForge's own project loads the Rust source packs: `specforge collect --runner rust-cargo`, then `--runner
 rust-source`, at the root stores the facts of every crate's items in `.specforge/` (ignored, as the rename ledger
 `specforge-harness` is), and `specforge anchors <behavior>` then lists the tests whose `#[specforge_test]` names it.
-Nothing it writes is committed.
+Nothing it writes is committed: the one line the ledger's first write would add to `.gitattributes` is committed
+already, so the file stays unchanged.
 
 A test or tool that reads a file outside its own crate finds it from `specforge_repo_root::repo_root()`
 (`crates/leaf/repo-root`), never by counting `..` from `CARGO_MANIFEST_DIR`: crates sit at different depths
@@ -123,5 +124,6 @@ What builds and checks it:
 - [`fixtures/`](fixtures/): extension fixtures the tests load; [`evaluation/`](evaluation/): the first-attempt
   accuracy eval.
 - `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `clippy.toml`, `.cargo/`, `.config/` (nextest),
-  `.github/` (CI, release), `.githooks/` (the pre-commit hook).
+  `.github/` (CI, release), `.githooks/` (the pre-commit hook), `.gitignore`, and `.gitattributes` (the rename
+  ledger `specforge-harness` merges by union, the line `specforge collect` would otherwise add).
 - `.claude/`, `.codex/`, `.mcp.json`: agent configuration for working on this repository.
