@@ -44,7 +44,7 @@ const NAMES: &str = "names";
 
 /// Whether `reference` names the test fact `fact`: it is the fact's id, or `[file#]name`, where the first `#` ends
 /// the file (a test name may hold one) and the fact's `name` is `name` and, when `file` is not empty, its `file` is
-/// `file`.
+/// `file`. [`Thread::cited`] reads a reference that names no fact so as a whole name.
 fn names_fact(fact: &PassEntity, reference: &str) -> bool {
     if fact.id == reference {
         return true;
@@ -146,10 +146,29 @@ impl<'a> Thread<'a> {
     }
 
     /// The status of each test fact one of `texts` names, as [`Thread::named`] reads a reference (a verdict's
-    /// `cited_tests`).
+    /// `cited_tests`). A text that names no fact so is read whole as a test's name: `fixes #42` is a name, not the
+    /// test `42` of a file `fixes `.
     pub fn cited(&self, texts: &[impl AsRef<str>]) -> Vec<TestStatus> {
+        let named = |by: &dyn Fn(&PassEntity) -> bool| -> Vec<&'a str> {
+            self.facts()
+                .filter(|(fact, _)| by(fact))
+                .map(|(fact, _)| fact.id.as_str())
+                .collect()
+        };
+        let ids: Vec<&'a str> = texts
+            .iter()
+            .flat_map(|text| {
+                let text = text.as_ref();
+                let read = named(&|fact| names_fact(fact, text));
+                if read.is_empty() {
+                    named(&|fact| fact.fields.get(NAME).is_some_and(|n| n == text))
+                } else {
+                    read
+                }
+            })
+            .collect();
         self.facts()
-            .filter(|(fact, _)| texts.iter().any(|text| names_fact(fact, text.as_ref())))
+            .filter(|(fact, _)| ids.contains(&fact.id.as_str()))
             .map(|(_, status)| status)
             .collect()
     }

@@ -186,6 +186,33 @@ fn a_checks_ref_splits_at_its_first_hash() {
 }
 
 #[test]
+fn a_cited_name_with_a_hash_and_no_file_is_read_whole() {
+    const FIXES: &str = "js:taskboard/test/tasks.test.js#fixes #42";
+    let input = with_facts(
+        &[
+            (FIXES, "fixes #42", FILE, "passed"),
+            (ADDS, "adds", FILE, "failed"),
+            (
+                "js:o/x.js#whole",
+                "test/tasks.test.js#adds",
+                "x.js",
+                "passed",
+            ),
+        ],
+        &[],
+    );
+    let thread = Thread::of(&input);
+    // `fixes ` names no test file: the whole text is the name.
+    assert_eq!(thread.cited(&["fixes #42"]), [TestStatus::Passed]);
+    // A `file#name` reading that finds a fact wins: `adds` of the file, not the test named the whole text.
+    assert_eq!(
+        thread.cited(&["test/tasks.test.js#adds"]),
+        [TestStatus::Failed]
+    );
+    assert!(thread.cited(&["nothing #42"]).is_empty());
+}
+
+#[test]
 fn a_test_names_its_entity_through_its_names_edge() {
     let mut input = input();
     add_test(&mut input, ADDS, "adds", FILE, "passed", &["TR1", "T1"]);

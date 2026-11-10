@@ -143,9 +143,10 @@ At the base, `@gsd/core` could walk the first three hops and no further:
 - **D5.** `passes/thread.rs` reads `@code/core`'s test facts and the graph's edges, never the recorded report. The tests
   of an entity are the facts that name it (a `names` edge, from a `[<ns>:<id>]` tag), its proof's facts (a truth's
   `proof`), and the facts a deliverable check's `ref` or a fresh verdict's `cited_tests` names (a fact's id, or
-  `[file#]name`, where the first `#` ends the file). **Not run** is no test fact at all; **no test** is facts collected
-  and none linked with a passed or failed status. The caller table is unchanged. No gsd pass declares the `tests`
-  input, so a gsd project's passes never say I205; results another collector files under a gsd entity count for nothing.
+  `[file#]name`, where the first `#` ends the file; a text that names no fact so is read whole as a name, `fixes #42`).
+  **Not run** is no test fact at all; **no test** is facts collected and none linked with a passed or failed status. The
+  caller table is unchanged. No gsd pass declares the `tests` input, so a gsd project's passes never say I205; results
+  another collector files under a gsd entity count for nothing.
 - **D7.** `@gsd/core`'s truth input is `test(self.proof, self<test.names)`: the proof's facts and the facts whose
   `names` hold the truth. A tag still stales a verdict, through the fact's `names` rather than a report entry filed
   under the truth; without `@code/core` both chains are inert. On a fresh clone (no fact store) the input is unjudged
