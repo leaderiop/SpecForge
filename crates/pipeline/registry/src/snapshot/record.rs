@@ -152,7 +152,7 @@ pub(super) fn record(
 }
 
 /// Whether the field at `path` on `kind` is one the harness writes once (`writer: harness` and `immutable`, ADR 0352
-/// D5): a reference it holds is history.
+/// D2): a reference it holds is history.
 fn history(fields: &FieldRegistry, kind: &str, path: &str) -> bool {
     fields
         .get_path(kind, path)
