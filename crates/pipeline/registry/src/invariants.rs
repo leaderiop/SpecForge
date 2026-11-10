@@ -243,6 +243,7 @@ mod tests {
             &crate::entity::RuleInput {
                 entities: &[record],
                 edges: &[],
+                collected: &crate::entity::NONE_COLLECTED,
             },
             &crate::rules::NoVerdicts,
         );

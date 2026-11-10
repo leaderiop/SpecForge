@@ -337,10 +337,13 @@ fn a_pass_sees_the_tests_a_verdict_cites() {
         "    cited_tests [\"t one\"]\n",
     );
     let compiled = compile(&project);
-    let input = specforge_project::passes::pass_input(&specforge_project::passes::PassContext {
-        judgements: Some(compiled.judgements()),
-        ..specforge_project::passes::PassContext::of(compiled.entities())
-    });
+    let input = specforge_project::passes::pass_input(
+        &specforge_project::passes::PassContext {
+            judgements: Some(compiled.judgements()),
+            ..specforge_project::passes::PassContext::of(compiled.entities())
+        },
+        &[],
+    );
     let truth = input.entities.iter().find(|e| e.id == TRUTH).unwrap();
     let judgement = truth.judgements.iter().find(|j| j.rule == E501).unwrap();
     let wire = serde_json::to_value(judgement).unwrap();

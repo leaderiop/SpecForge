@@ -114,17 +114,19 @@ impl Rule {
         self.severity
     }
 
-    /// The kind whose entities it checks; `None`: every entity.
+    /// The kind whose entities it checks; `None`: every authored entity (no fact, ADR 0353 D5).
     pub fn target_kind(&self) -> Option<&str> {
         self.target.as_deref()
     }
 
-    /// Whether it applies to entities of `kind`: its target kind's, or every
-    /// kind's when it names none. The one reading of `target_kind` (ADR
-    /// 0019): the rules, the entity's standing and the verify-stub fix
-    /// share it.
-    pub fn applies_to(&self, kind: &str) -> bool {
-        self.target.as_deref().is_none_or(|target| target == kind)
+    /// Whether it applies to entities of `kind`, which a collector writes when `collected`: its target kind's, or
+    /// every authored kind's when it names none, so a kind-less rule judges no fact (ADR 0353 D5). The one reading of
+    /// `target_kind` (ADR 0019): the rules, the entity's standing and the verify-stub fix share it.
+    pub fn applies_to(&self, kind: &str, collected: bool) -> bool {
+        match self.target.as_deref() {
+            Some(target) => target == kind,
+            None => !collected,
+        }
     }
 
     /// Its check kind, in the extension vocabulary.
@@ -234,16 +236,16 @@ impl Rules {
     /// declare obligations. A kind that accepts no `verify` statements may
     /// have one; its entities are exempt instead
     /// ([`crate::entity::Exemption::NoVerify`]).
-    pub fn verify_rule_for(&self, kind: &str) -> Option<&Rule> {
+    pub fn verify_rule_for(&self, kind: &str, collected: bool) -> Option<&Rule> {
         self.rules
             .iter()
             .filter(|rule| rule.check_kind == CheckKind::NoVerifyStatements)
-            .find(|rule| rule.applies_to(kind))
+            .find(|rule| rule.applies_to(kind, collected))
     }
 
-    /// Whether some `no_verify_statements` rule applies to `kind`.
-    pub fn obligates(&self, kind: &str) -> bool {
-        self.verify_rule_for(kind).is_some()
+    /// Whether some `no_verify_statements` rule applies to `kind` (a collector's when `collected`).
+    pub fn obligates(&self, kind: &str, collected: bool) -> bool {
+        self.verify_rule_for(kind, collected).is_some()
     }
 
     /// The judged rules, in execution order (ADR 0290).

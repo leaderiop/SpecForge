@@ -168,12 +168,17 @@ pub fn over(entities: &[EntityRecord]) -> RuleInput<'_> {
     RuleInput {
         entities,
         edges: &[],
+        collected: &specforge_registry::NONE_COLLECTED,
     }
 }
 
 /// The rules' input over `entities` and `edges`.
 pub fn with_edges<'a>(entities: &'a [EntityRecord], edges: &'a [EdgeRecord]) -> RuleInput<'a> {
-    RuleInput { entities, edges }
+    RuleInput {
+        entities,
+        edges,
+        collected: &specforge_registry::NONE_COLLECTED,
+    }
 }
 
 /// `rules` checked over `entities` without a runtime.

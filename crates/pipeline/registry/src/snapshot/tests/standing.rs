@@ -230,7 +230,7 @@ fn coverage_entities_are_the_pass_entities_as_the_rule_reads_them() {
                       type Status = active | inactive\n\ntype Plain \"Plain\" {\n  id string\n}\n\n\
                       memo note \"Note\" {\n}\n";
     let snapshot = snapshot(source, &registries);
-    let passed = snapshot.pass_entities();
+    let passed = snapshot.pass_entities(&[]);
     let covered = snapshot.coverage_entities();
     assert_eq!(passed.len(), 6);
     assert_eq!(covered.len(), passed.len());

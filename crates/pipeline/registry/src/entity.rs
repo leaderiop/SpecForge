@@ -199,13 +199,18 @@ pub enum Direction {
     Outgoing,
 }
 
-/// What the rules run over: the snapshot's records in id order and its edges in graph order. No
-/// rule reads the file system: a path is read by a value checker (ADR 0338).
+/// What the rules run over: the snapshot's records in id order, its edges in graph order and the loaded kinds a
+/// collector writes, whose facts a rule that names no kind does not judge (ADR 0353 D5). No rule reads the file
+/// system: a path is read by a value checker (ADR 0338).
 #[derive(Debug, Clone, Copy)]
 pub struct RuleInput<'a> {
     pub entities: &'a [EntityRecord],
     pub edges: &'a [EdgeRecord],
+    pub collected: &'a std::collections::BTreeSet<String>,
 }
+
+/// No kind is collected: the rules' input of a project that loads no collector-written kind.
+pub static NONE_COLLECTED: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
 
 impl EntityRecord {
     /// Where a finding about it is placed: a fact's first place in source, else its span (ADR 0346 D3).

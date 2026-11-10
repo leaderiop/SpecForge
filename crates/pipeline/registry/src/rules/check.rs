@@ -119,7 +119,8 @@ pub(super) fn run(
     }
     let mut diagnostics = Vec::new();
     let mut failures = Vec::new();
-    for record in input.entities.iter().filter(|e| rule.applies_to(&e.kind)) {
+    let applies = |e: &&EntityRecord| rule.applies_to(&e.kind, input.collected.contains(&e.kind));
+    for record in input.entities.iter().filter(applies) {
         if let Some(violations) = member_violations(rule, record) {
             diagnostics.extend(violations.into_iter().map(|v| report(rule, record, v)));
             continue;
@@ -418,7 +419,7 @@ fn cycle_rule(rule: &Rule, edge_type: &str, input: &RuleInput<'_>) -> Vec<Diagno
     let members: BTreeMap<&str, &EntityRecord> = input
         .entities
         .iter()
-        .filter(|e| rule.applies_to(&e.kind))
+        .filter(|e| rule.applies_to(&e.kind, input.collected.contains(&e.kind)))
         .map(|e| (e.id.as_str(), e))
         .collect();
     if members.is_empty() {

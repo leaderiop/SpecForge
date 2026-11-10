@@ -355,7 +355,7 @@ fn an_untargeted_obligation_rule_obliges_every_kind_after_the_move() {
     assert!(standing.owes_obligations());
     let alpha = compiled
         .entities()
-        .pass_entities()
+        .pass_entities(&[])
         .into_iter()
         .find(|e| e.id == "alpha")
         .unwrap();

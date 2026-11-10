@@ -326,7 +326,7 @@ fn a_facts_dangling_reference_is_no_kernel_diagnostic_and_reaches_the_passes() {
             d.title("Dangling").explanation("Dangling.");
         });
         c.pass("judge", |p| {
-            p.phase("check").run(judge);
+            p.phase("check").input(Input::facts(&["test"])).run(judge);
         });
         c
     };
@@ -394,7 +394,7 @@ fn a_finding_on_a_fact_is_placed_where_it_is_written() {
             d.title("Judged").explanation("Judged.");
         });
         c.pass("judge", |p| {
-            p.phase("check").run(judge);
+            p.phase("check").input(Input::facts(&["test"])).run(judge);
         });
         c
     };

@@ -63,7 +63,7 @@ fn a_harness_immutable_reference_is_history() {
                   kept [\"js:a.js::h\"]\n  authored [\"js:a.js::i\"]\n}\n";
     let snapshot = EntitySnapshot::of(&super::graph_of(source, &registries), &registries);
     let entity = snapshot
-        .pass_entities()
+        .pass_entities(&[])
         .into_iter()
         .find(|e| e.id == "r")
         .expect("the record");

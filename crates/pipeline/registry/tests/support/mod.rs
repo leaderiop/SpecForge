@@ -174,6 +174,7 @@ pub fn check(build: &RegistryBuild, records: &[EntityRecord]) -> Vec<Diagnostic>
         &RuleInput {
             entities: records,
             edges: &[],
+            collected: &specforge_registry::NONE_COLLECTED,
         },
         &NoVerdicts,
     )

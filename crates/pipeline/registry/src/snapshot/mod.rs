@@ -11,7 +11,7 @@ mod standing;
 mod text;
 mod wire;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use specforge_graph::{GraphBuild, written_fields};
 
@@ -43,6 +43,9 @@ pub struct EntitySnapshot {
     /// Each loaded kind's `complete_when`, by kind, as the registry kept it (ADR 0329 D4): what an entity's owner
     /// state is read from.
     complete_when: HashMap<String, CompleteWhen>,
+    /// The loaded kinds a collector writes (ADR 0327): a pass is sent their facts only when it declares them, and a
+    /// rule that names no kind judges none of them (ADR 0353).
+    collected: BTreeSet<String>,
 }
 
 impl EntitySnapshot {
@@ -100,6 +103,12 @@ impl EntitySnapshot {
             .iter()
             .filter_map(|(kind, entry)| Some((kind.clone(), entry.complete_when()?.clone())))
             .collect();
+        let collected = registries
+            .kinds()
+            .iter()
+            .filter(|(_, entry)| entry.is_collected())
+            .map(|(kind, _)| kind.clone())
+            .collect();
         let edges = graph
             .edges()
             .iter()
@@ -123,6 +132,7 @@ impl EntitySnapshot {
             edges,
             declared_types,
             complete_when,
+            collected,
         }
     }
 
@@ -157,7 +167,13 @@ impl EntitySnapshot {
         RuleInput {
             entities: &self.records,
             edges: &self.edges,
+            collected: &self.collected,
         }
+    }
+
+    /// Whether a collector writes the loaded kind `kind` (ADR 0327): its entities are facts.
+    pub fn is_collected(&self, kind: &str) -> bool {
+        self.collected.contains(kind)
     }
 
     /// Every entity with its standing, in id order.

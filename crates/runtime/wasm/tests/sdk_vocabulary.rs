@@ -97,6 +97,7 @@ fn rules_over(entities: &[EntityRecord]) -> RuleInput<'_> {
     RuleInput {
         entities,
         edges: &[],
+        collected: &specforge_registry::NONE_COLLECTED,
     }
 }
 

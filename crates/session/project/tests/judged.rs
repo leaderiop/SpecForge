@@ -572,10 +572,13 @@ fn a_compute_pass_reads_judgements_and_a_v_field_is_its_fresh_value() {
         .expect("a V field");
     assert_eq!(legitimacy.text, "suspicious");
     // A pass is handed the judgements of each entity.
-    let input = specforge_project::passes::pass_input(&specforge_project::passes::PassContext {
-        judgements: Some(compiled.judgements()),
-        ..specforge_project::passes::PassContext::of(compiled.entities())
-    });
+    let input = specforge_project::passes::pass_input(
+        &specforge_project::passes::PassContext {
+            judgements: Some(compiled.judgements()),
+            ..specforge_project::passes::PassContext::of(compiled.entities())
+        },
+        &[],
+    );
     let audit = input.entities.iter().find(|e| e.id == "PA").unwrap();
     assert!(
         audit.judgements.iter().any(|j| j.rule == "gsd/W205"

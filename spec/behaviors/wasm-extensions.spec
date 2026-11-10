@@ -213,6 +213,7 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
     declared_order         "check passes run in the order their after/before constraints give, extension by extension in load order"
     trap_is_diagnostic     "a check pass that traps or answers output that does not parse is E028, never a crash"
     entity_span_attached   "a pass diagnostic with no span that names an entity gets that entity's span"
+    facts_as_declared      "a pass is sent the authored entities and the facts of the kinds its facts input names, and only the edges between what it is sent"
   }
   contract   """
     An extension declares its compiler passes in `__describe passes`
@@ -225,7 +226,9 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
     The pass export `__pass_<name>` receives the same input an analyze
     pass does (`entities`, `edges`; each entity carries `testable` and
     `exempt`: it owes no obligations of its own, decided from the
-    registries), with no `test_results` or
+    registries; of the facts a collector wrote, only those of the kinds
+    its `facts` input names, and only the edges whose two ends it is
+    sent, ADR 0353), with no `test_results` or
     `proved_claims` (a compile has neither) and with `previous`, the
     git baseline of the kinds the pass names in `baseline`. It answers the same
     output: diagnostics, bare or as `{diagnostics, summary}`; the summary
@@ -248,6 +251,8 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
   verify unit "a trapping check pass is a diagnostic, not a crash"
   verify unit "a pass diagnostic naming an entity gets that entity's span"
   verify unit "a pass entity carries whether the host found it exempt"
+  verify unit "a pass that declares no facts input is sent no fact"
+  verify unit "a pass is sent exactly the facts of the kinds it declares"
   verify unit "the pass input carries each entity's exemption, which the SDK's PassEntity reads"
   verify unit "a pass receives a typed block and a block list structured beside their text"
   verify unit "previous is the baseline of the kinds a pass names"

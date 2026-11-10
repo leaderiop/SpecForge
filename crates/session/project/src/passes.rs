@@ -11,7 +11,7 @@ use specforge_common::{Diagnostic, codes};
 use specforge_diagnostics::{Codebook, Level, qualify};
 use specforge_protocol_types::{PassInput, PassOutput, PassSeverity, TestResults, Trigger};
 use specforge_wasm::{Encoded, ExtensionCalls};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::baseline::Baseline;
 use crate::coverage::TestReport;
@@ -77,13 +77,14 @@ pub struct ExtensionPassReport {
 
 /// The input every `__pass_<name>` export receives (the protocol's
 /// `PassInput`): the entity snapshot's adapters (its entities and edges,
-/// ADR 0019), and the test results and proved claims when the caller has
+/// ADR 0019), the authored entities and the facts of the kinds `facts` names,
+/// the pass's `facts` input (ADR 0353 D2), and the test results and proved claims when the caller has
 /// them. Each entity carries how the coverage rule sees it: `testable` is
 /// its kind's flag (a kind that merely accepts `verify` statements, a
 /// formal `property`, does not count), and `owes_none` says it owes no
 /// obligations of its own (ADR 0004, D2-b), its standing's.
-pub fn pass_input(input: &PassContext) -> PassInput {
-    let mut entities = input.entities.pass_entities();
+pub fn pass_input(input: &PassContext, facts: &[&str]) -> PassInput {
+    let mut entities = input.entities.pass_entities(facts);
     if let Some(judgements) = input.judgements {
         for entity in &mut entities {
             entity.judgements = judgements.of(&entity.id).cloned().collect();
@@ -91,7 +92,7 @@ pub fn pass_input(input: &PassContext) -> PassInput {
     }
     PassInput {
         entities,
-        edges: input.entities.pass_edges(),
+        edges: input.entities.pass_edges(facts),
         test_results: input.test_results.map(|r| r.results(input.entities)),
         proved_claims: input.proved_claims.map(sorted_ids),
         // Every kind: a pass is handed only the kinds it names ([`run_extension_passes`]).
@@ -176,7 +177,8 @@ fn code_misuse(
 
 /// Run `passes`, in the order given (the caller picks the phase:
 /// `check_passes` for a compile, `analyze_passes` for analyze), each on
-/// `context`'s input, encoded once: one report per pass. A pass that fails
+/// `context`'s input with the facts it declares, encoded once per distinct set of declared facts and baseline kinds
+/// (ADR 0353 D4): one report per pass. A pass that fails
 /// (it traps, answers what does not parse, or its input did not encode) has
 /// a report of its own with one E028 finding and `failed` in its summary;
 /// the others still run.
@@ -191,12 +193,10 @@ pub fn run_extension_passes<'p>(
         return Vec::new();
     }
 
-    let payload = pass_input(context);
-    let entities_analyzed = payload.entities.len();
-    let encoded = ExtensionCalls::encode(&payload);
-    // `previous` differs by the kinds a pass names: encoded once per distinct set.
-    let mut with_baseline: std::collections::HashMap<Vec<String>, Encoded<PassInput>> =
-        Default::default();
+    // A pass is sent the facts it declares, and `previous` differs by the kinds it names: built once per distinct
+    // set of facts, and encoded once per distinct (facts, baseline kinds).
+    let mut payloads: HashMap<Vec<String>, PassInput> = HashMap::new();
+    let mut encoded: HashMap<(Vec<String>, Vec<String>), Encoded<PassInput>> = HashMap::new();
     let calls = ExtensionCalls::new(runtime);
     let mut memo = file_reads::Memo::default();
 
@@ -204,6 +204,18 @@ pub fn run_extension_passes<'p>(
     for declared in passes {
         let report_name = declared.full_name();
         let pass = &declared.pass;
+        let mut facts: Vec<String> = declared
+            .inputs()
+            .facts()
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        facts.sort();
+        let payload = payloads.entry(facts.clone()).or_insert_with_key(|facts| {
+            let kinds: Vec<&str> = facts.iter().map(String::as_str).collect();
+            pass_input(context, &kinds)
+        });
+        let entities_analyzed = payload.entities.len();
         let mut summary = serde_json::Map::new();
         summary.insert("extension".into(), declared.extension.clone().into());
         summary.insert("pass".into(), pass.name.clone().into());
@@ -229,19 +241,22 @@ pub fn run_extension_passes<'p>(
                 });
                 &own
             }
-            _ => match context.previous {
-                Some(baseline) if !declared.baseline().is_empty() => {
-                    let mut kinds = declared.baseline().to_vec();
-                    kinds.sort();
-                    with_baseline.entry(kinds).or_insert_with_key(|kinds| {
-                        ExtensionCalls::encode(&PassInput {
+            _ => {
+                let previous = context.previous.filter(|_| !declared.baseline().is_empty());
+                let mut kinds = previous
+                    .map(|_| declared.baseline().to_vec())
+                    .unwrap_or_default();
+                kinds.sort();
+                encoded
+                    .entry((facts, kinds))
+                    .or_insert_with_key(|(_, kinds)| match previous {
+                        Some(baseline) => ExtensionCalls::encode(&PassInput {
                             previous: Some(baseline.pass_view(kinds)),
                             ..payload.clone()
-                        })
+                        }),
+                        None => ExtensionCalls::encode(&*payload),
                     })
-                }
-                _ => &encoded,
-            },
+            }
         };
         let answer = calls.run_pass(&declared.extension, &pass.name, input);
         let findings = match answer {

@@ -31,7 +31,7 @@ impl Standing {
                 .is_some_and(|kind| kind.testable),
             rule: registries
                 .rules()
-                .verify_rule_for(&record.kind)
+                .verify_rule_for(&record.kind, registries.kinds().is_collected(&record.kind))
                 .map(|rule| rule.code().to_string()),
             exemption: record.exemption.clone(),
             declared: record.obligations.len(),

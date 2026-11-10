@@ -102,7 +102,8 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
     of its edge type, whichever fields write them (every entity of a
     strongly connected set of those edges, whichever entity the cycle
     closes through).
-    A rule without a target kind applies to entities of every kind. No
+    A rule without a target kind applies to the authored entities of every
+    kind and to no fact (ADR 0353): a rule over a collector's kind names it. No
     rule reads a path: a field whose value names a file carries a value
     check (`@specforge/checks:file`), and a declared `file_exists` rule is
     W112 naming it. custom MUST dispatch to the Wasm function registered by
@@ -130,6 +131,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "an edge from an entity to itself is no incoming edge: a builtin no_incoming_edges rule reports an entity only it references"
   verify unit "a reference an entity writes to itself gives its field its link: no_edges stays quiet and W061 reports it"
   verify unit "a field_value_constraint over a declared member path judges each item of a typed block"
+  verify unit "a validation rule that names no kind judges no fact"
   verify contract "Execute Validation Pattern: declarative validation holds — all_entities_matched, violations_diagnosed, deterministic_order"
 }
 

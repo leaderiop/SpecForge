@@ -20,7 +20,7 @@ fn an_entitys_edge_counts_leave_out_an_edge_to_itself() {
             .find(|r| r.id == id)
             .expect("a record")
     };
-    let passed = snapshot.pass_entities();
+    let passed = snapshot.pass_entities(&[]);
     assert_eq!(passed.len(), 2);
     for pass in &passed {
         let record = by_id(&pass.id);

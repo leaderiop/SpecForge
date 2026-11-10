@@ -46,10 +46,13 @@ pub(crate) fn run(
     let mut memo = crate::file_reads::Memo::default();
     for declared in env.registries().compute_passes() {
         let input = {
-            let mut payload = pass_input(&PassContext {
-                judgements: Some(judgements),
-                ..PassContext::of(&seen)
-            });
+            let mut payload = pass_input(
+                &PassContext {
+                    judgements: Some(judgements),
+                    ..PassContext::of(&seen)
+                },
+                &declared.inputs().facts(),
+            );
             payload.previous = baseline
                 .filter(|_| !declared.baseline().is_empty())
                 .map(|b| b.pass_view(declared.baseline()));

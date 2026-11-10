@@ -400,12 +400,13 @@ ledger line.
 | `missing_required_field` | `field` is absent | `field` | `field` | `edge_type`, `constraint`, `wasm_function` |
 | `field_value_constraint` | `field`'s value breaks the constraint | `field`; a constraint `non_empty`, `one_of` with values, or `matches` with a `pattern` that compiles | the constraint | `edge_type`, `wasm_function`; `pattern` on `non_empty`/`one_of`; `values` on `non_empty`/`matches` |
 | `conditional_field_required` | `field` is absent or empty while the field named by `constraint.pattern` holds one of `constraint.values` | `field`; `constraint.pattern` and non-empty `constraint.values` | constraint kind `when_field_equals` | `edge_type`, `wasm_function`; any other constraint kind (read as `when_field_equals`) |
-| `cycle_detection` | the entity sits on a cycle of `edge_type` edges, following every field that writes it | `edge_type` | `target_kind` (unset: every entity) | `constraint`, `wasm_function` |
+| `cycle_detection` | the entity sits on a cycle of `edge_type` edges, following every field that writes it | `edge_type` | `target_kind` (unset: every authored entity) | `constraint`, `wasm_function` |
 | `verify_kind_allowlist` | a `verify` kind is not in `constraint.values` | a constraint with non-empty `values`; a target kind that accepts `verify` | constraint kind `one_of` | `edge_type`, `wasm_function`; `pattern`; any other constraint kind (read as `one_of`) |
 | `no_verify_statements` | a testable entity declares no `verify` obligations (or does not write `field` when it names another obligation field) | a target kind that accepts `verify` (for `verify` statements) | `field` (default `verify`) | `edge_type`, `constraint`, `wasm_function` |
 | `custom` | the rule's `wasm_function` export answers `fail` | `wasm_function` | — | `edge_type`, `constraint` |
 
-A check kind outside this table is W112, and the rule is not registered. `file_exists`, the
+A rule with no `target_kind` judges every authored entity and no fact (ADR 0353): a rule over a collector's kind names
+it. A check kind outside this table is W112, and the rule is not registered. `file_exists`, the
 host's file rule before ADR 0336, names `@specforge/checks:file` in its W112: a field whose values name files carries
 that check.
 
