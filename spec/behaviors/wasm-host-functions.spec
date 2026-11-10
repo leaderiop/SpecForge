@@ -87,6 +87,7 @@ behavior bound_a_host_port_call "Bound a Host Port Call" {
     guest_time_only "the epoch deadline counts the guest's own time: a port call's time is not spent from it"
     port_bounded    "a port call is bounded by its own deadline and the call's port budget"
     lock_free       "an effectful call of a guest that imports a port holds no lock of its extension while it runs"
+    git_counted     "a guest's git log and diff stop at counted ceilings of commits walked and bytes read, and say so"
   }
   contract """
     Epoch interruption MUST bound a call's guest time only (ADR 0037 D3): a
@@ -94,11 +95,18 @@ behavior bound_a_host_port_call "Bound a Host Port Call" {
     budget of 600 s. An effectful call of a guest that imports a port MUST
     run on its own instance, so it holds no lock of its extension. Fuel
     counts guest instructions only, so a work budget is untouched by a
-    port's time.
+    port's time. A guest's git log MUST step onto at most 100,000 commits
+    and read at most its answer cap, and a diff MUST read at most its
+    answer cap of files, then stop and say truncated; a rename search
+    MUST follow the host's own limit, never the repository's config
+    (ADR 0352). Each bound is a count, never a clock.
   """
   verify unit "a port call that outlasts the guest's deadline does not trap the guest"
   verify unit "a guest that spins after a port call still traps at its own deadline"
   verify unit "a port call does not hold its extension's lock"
+  verify unit "a guest log stops at the commits the host walks, with no count"
+  verify unit "a guest diff reads no more files than its answer holds"
+  verify unit "a guest diff searches renames by the host's rules, not the repository's config"
 }
 
 behavior refuse_an_unbacked_port_import "Refuse an Unbacked Port Import" {

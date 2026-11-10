@@ -67,6 +67,22 @@ A log with no `max` lists every commit up to the call's answer cap and says `tru
 is refused. A diff of a withheld file keeps its status and counts, never its patch or hunks, and says `withheld`; the
 patches past the answer cap are dropped and the answer says `truncated`. A signature carries its epoch seconds.
 
+The work a guest's log or diff costs the host is bounded by counts the host sets, never by a clock (the port's `timed`
+only measures it):
+
+- A log steps onto at most 100,000 commits and reads at most the answer cap (a quarter of the call's memory, 128 MiB at
+  512 MiB) of commit objects and the blobs a pickaxe searches. Past either it stops: the answer has no `count` and says
+  `truncated`.
+- A diff reads at most the answer cap of its files from the repository (both sides, and the names), and as many again
+  of a worktree's files on disk; the first file is always read, so a diff of one file always is. A file past the bound
+  keeps its status, counts no lines, and says `truncated`, as does the answer. A worktree file past the bound or over
+  the 16 MiB blob cap is neither read nor hashed: it is listed as changed.
+- A rename search follows the host's rules, never the repository's `diff.renames` or `diff.renameLimit`: identical
+  content first, then half the lines alike, comparing at most 1,000 deletion and addition pairs (git's default limit;
+  past it renames pair by identical content only). No copy is searched.
+
+A person's `specforge git log` and `diff` read unbounded, as `git` does, and search renames by the same rules.
+
 A diff whose head is the worktree reads the tracked files on disk, which the repository does not hold. Their text is
 the disk's, so it is judged as an fs read is: a file's patch and hunks reach a guest only when its fs grant reads that
 file, in a root of the call that holds it through every link on its way, as the fs port would resolve it. The git grant
@@ -90,6 +106,8 @@ included).
 ## Consequences
 
 - `specforge collect` records commits with no `git` program, no consent and no report; `--no-run` records them too.
+- A guest reads the committed text of any directory of its repository through `diff`, a monorepo's sibling projects
+  included, as it does through `blobs`: the git grant is the repository's (ADR 0339).
 - `commit.files` and `commit.created` are project-relative (equal to before when the project is the repository's top);
   a path outside the project is left out, its lines still counted.
 - `specforge trace <requirement>` on a gsd project loading `@code/core` prints an `item` step and is incomplete until a

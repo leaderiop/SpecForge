@@ -210,8 +210,8 @@ interface git {
     body: string,
     trailers: list<trailer>,
   }
-  /// `count`: every commit the log keeps (none past a pickaxe's listing). `truncated`: the answer's cap stopped the
-  /// listing.
+  /// `count`: every commit the log keeps (none past a pickaxe's listing, or when the walk stopped). `truncated`: the
+  /// answer's cap stopped the listing, or the host's counted walk stopped (then no `count`).
   record log-answer {
     count: option<u64>,
     commits: list<log-commit>,
@@ -223,7 +223,8 @@ interface git {
     worktree,
   }
   /// `base` none: the empty tree (a root commit's diff). `hunks`: each text file's changed line ranges. `renames`
-  /// false lists a rename as a deletion and an addition.
+  /// pairs renames by the host's rules, never the repository's config; false lists a rename as a deletion and an
+  /// addition.
   record diff-query {
     base: option<string>,
     head: diff-head,
@@ -233,7 +234,8 @@ interface git {
     renames: bool,
   }
   /// `withheld`: a file whose text this guest may not read (a withheld name, or a worktree file its fs grant does not
-  /// read); it has no patch and no hunks, its status and counts stay.
+  /// read); it has no patch and no hunks, its status and counts stay. `truncated`: a side over the blob cap, a cut
+  /// patch, or a file past the bytes the host reads for one diff (no lines counted).
   record file-change {
     path: string,
     old-path: option<string>,
@@ -246,7 +248,8 @@ interface git {
     patch: option<string>,
     hunks: option<list<hunk>>,
   }
-  /// `truncated`: the answer's cap stopped the patches; the files after it have none.
+  /// `truncated`: the answer's cap stopped the patches, so the files after it have none, or the host's counted read
+  /// stopped, so the files past it count no lines.
   record diff-answer {
     files: list<file-change>,
     truncated: bool,

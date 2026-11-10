@@ -108,6 +108,21 @@ pub const PATCH_CAP: usize = 1024 * 1024;
 /// The most commits a log lists when none is asked; its count still counts every commit it walks (but past a `-S`).
 pub const LOG_MAX: usize = 1000;
 
+/// Counted work a guest's log may do before it stops, never a clock: the commits it steps onto and the bytes it reads
+/// (commit objects, and the blobs a pickaxe searches). A person's verb walks unbounded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Work {
+    pub commits: usize,
+    pub bytes: u64,
+}
+
+/// The most commits a guest's log steps onto: past them it stops and says so ([`GitLog::stopped`]).
+pub const GUEST_LOG_WALK: usize = 100_000;
+
+/// The most deletion and addition pairs a rename search compares by similarity (git's default `diff.renameLimit`):
+/// past it renames are paired by identical content only. The host's, never the repository's config.
+pub const RENAME_PAIRS: usize = 1000;
+
 /// Whether `bytes` are binary as git decides: a NUL in the first 8000.
 pub fn is_binary(bytes: &[u8]) -> bool {
     bytes[..bytes.len().min(8000)].contains(&0)
@@ -117,9 +132,12 @@ pub fn is_binary(bytes: &[u8]) -> bool {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GitLog {
     /// Every commit the log keeps, or none when a `-S` log (which reads each commit's blobs) stopped at the first
-    /// commit past its listing rather than read the rest of the history to count it.
+    /// commit past its listing rather than read the rest of the history to count it, or the walk spent its
+    /// [`LogQuery::budget`].
     pub count: Option<usize>,
     pub commits: Vec<GitCommit>,
+    /// The walk spent its [`LogQuery::budget`] and stopped: older commits were not walked.
+    pub stopped: bool,
 }
 
 /// A blob a revision names: its id, its size, and its bytes when it is at most [`BLOB_CAP`] (`None`: not read).
@@ -199,6 +217,8 @@ pub struct LogQuery {
     /// [`LogQuery::pickaxe`] reads no file [`crate::contained::withheld`] names, at either path of a rename: a
     /// guest's log, whose pickaxe would otherwise be an oracle on a credential's text.
     pub withhold: bool,
+    /// The work the walk may do; none walks the whole history (a person's log).
+    pub budget: Option<Work>,
 }
 
 /// The side a diff compares its base with.
@@ -223,9 +243,15 @@ pub struct DiffQuery {
     pub patch: bool,
     /// Give each text file's changed line ranges, with no context ([`GitFileDiff::hunks`]).
     pub hunks: bool,
-    /// Pair a deletion with an addition as a rename or a copy as the repository's `diff.renames` says; `false` lists
-    /// them apart (`--no-renames`).
+    /// Pair a deletion with an addition as a rename: by identical content, else by similarity (half the lines, at
+    /// most [`RENAME_PAIRS`] pairs compared), whatever the repository's config says; `false` lists them apart
+    /// (`--no-renames`). No copy is searched.
     pub renames: bool,
+    /// The most bytes the diff reads of its files (both sides, and its paths' names), and as many again of a worktree's
+    /// files on disk; none reads every file (a person's diff). The first file is always read, so a diff of one file
+    /// always is. A bounded worktree diff neither reads nor hashes a file past it, nor one over [`BLOB_CAP`]: it lists
+    /// it as changed.
+    pub budget: Option<u64>,
 }
 
 /// How a file changed.
@@ -260,6 +286,10 @@ pub struct GitFileDiff {
     /// The changed line ranges, when asked and both sides are text and read.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hunks: Option<Vec<GitHunk>>,
+    /// The diff's [`DiffQuery::budget`] was spent before it: neither side was read, no line is counted, and the file
+    /// says `truncated`.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub unread: bool,
 }
 
 /// A branch as `git branch -vv` lists it.

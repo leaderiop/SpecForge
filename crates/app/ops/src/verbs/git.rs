@@ -631,6 +631,7 @@ pub fn log(verbs: &Verbs, request: &LogRequest) -> Result<LogAnswer, OpError> {
         no_merges: request.no_merges,
         pickaxe: pickaxe.map(checked).transpose()?,
         withhold: false,
+        budget: None,
     };
     let mut log = verbs.ports().git.log(&place, &query).map_err(failed)?;
     if request.reverse {
@@ -685,6 +686,7 @@ pub fn diff(verbs: &Verbs, request: &DiffRequest) -> Result<DiffAnswer, OpError>
         patch: request.patch,
         hunks: false,
         renames: true,
+        budget: None,
     };
     let files = verbs.ports().git.diff(&place, &query).map_err(failed)?;
     let text = || files.iter().filter(|file| !file.binary);

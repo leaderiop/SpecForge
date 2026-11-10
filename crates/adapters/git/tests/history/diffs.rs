@@ -21,6 +21,7 @@ fn diff(repo: &Repo, base: Option<&str>, head: &str, renames: bool) -> Vec<GitFi
                 patch: false,
                 hunks: true,
                 renames,
+                budget: None,
             },
         )
         .unwrap()
@@ -187,6 +188,7 @@ fn a_worktree_diff_reads_no_file_through_a_linked_directory() {
                 patch: true,
                 hunks: false,
                 renames: false,
+                budget: None,
             },
         )
         .unwrap();
@@ -197,5 +199,47 @@ fn a_worktree_diff_reads_no_file_through_a_linked_directory() {
     assert!(
         !file.patch.as_deref().unwrap().contains("outside"),
         "{file:?}"
+    );
+}
+
+/// A bounded worktree diff reads files from disk until its bound is spent, the first always; it neither reads nor
+/// hashes the rest: each is listed as changed, with no counts, `truncated` and `unread`.
+#[test]
+fn a_bounded_worktree_diff_reads_no_file_past_its_bound() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    for i in 0..5 {
+        repo.write(&format!("f{i}.txt"), "x\n".repeat(2048));
+    }
+    let base = repo.commit_all("base");
+    for i in 0..5 {
+        repo.write(&format!("f{i}.txt"), "y\n".repeat(2048));
+    }
+    let files = Gix::default()
+        .diff(
+            &place(&repo),
+            &DiffQuery {
+                base: Some(Sha::new(base)),
+                head: DiffSide::Worktree,
+                paths: Vec::new(),
+                patch: false,
+                hunks: false,
+                renames: false,
+                // three files: from disk, and from the base
+                budget: Some(3 * 4096 + 32),
+            },
+        )
+        .unwrap();
+    let read: Vec<_> = files.iter().filter(|f| f.added > 0).collect();
+    let unread: Vec<_> = files.iter().filter(|f| f.unread).collect();
+    assert_eq!(
+        (files.len(), read.len(), unread.len()),
+        (5, 3, 2),
+        "{files:?}"
+    );
+    assert!(
+        unread
+            .iter()
+            .all(|f| f.truncated && f.status == DiffStatus::Modified && f.removed == 0)
     );
 }

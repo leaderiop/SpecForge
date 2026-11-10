@@ -760,6 +760,7 @@ pub(crate) fn record(
                     patch: false,
                     hunks: false,
                     renames: true,
+                    budget: None,
                 },
             )?
             .into_iter()

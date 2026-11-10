@@ -598,9 +598,13 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     })
     .map_err(|e| said("read the log", &e))?;
     if log.truncated {
+        // a walk the host stopped counted no total
+        let history = log.count.map_or_else(
+            || "the history".to_string(),
+            |n| format!("the history of {n} commits"),
+        );
         return Err(format!(
-            "{NAME}: the history of {} commits is past one answer of the host's git port",
-            log.count.unwrap_or_default()
+            "{NAME}: {history} is past one answer of the host's git port"
         ));
     }
     let prefix = prefix(input.cwd.as_deref(), &repo.toplevel);

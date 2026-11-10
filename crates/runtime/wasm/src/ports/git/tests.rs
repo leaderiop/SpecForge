@@ -60,6 +60,7 @@ fn file(path: &str, status: DiffStatus) -> GitFileDiff {
         removed: 1,
         binary: false,
         truncated: false,
+        unread: false,
         patch: Some("@@ -1 +1,2 @@\n-a\n+b\n+c\n".into()),
         hunks: Some(vec![GitHunk {
             before_start: 0,
@@ -96,6 +97,7 @@ fn a_guest_log_lists_typed_commits_with_trailers() {
             body: "Gsd-Task: 01-01/T1".into(),
             trailers: BTreeMap::from([("Gsd-Task".to_string(), vec!["01-01/T1".to_string()])]),
         }],
+        stopped: false,
     };
     let git = Arc::new(fake);
     let answer = session(&git, dir.path())
@@ -249,6 +251,7 @@ fn a_guest_log_past_the_answer_cap_is_truncated() {
     fake.log = GitLog {
         count: Some(3),
         commits: (1..=3).map(commit).collect(),
+        stopped: false,
     };
     let git = Arc::new(fake);
     let mut session = session(&git, dir.path());

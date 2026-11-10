@@ -192,10 +192,11 @@ pub struct GitLogCommit {
 /// What a log walked.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GitLogAnswer {
-    /// Every commit the log keeps; none when a pickaxe stopped past its listing.
+    /// Every commit the log keeps; none when a pickaxe stopped past its listing, or the host's counted walk stopped.
     pub count: Option<u64>,
     pub commits: Vec<GitLogCommit>,
-    /// The answer's cap stopped the listing: older commits were kept but not listed.
+    /// The answer's cap stopped the listing (older commits were kept but not listed), or the host's counted walk
+    /// stopped (ADR 0352).
     pub truncated: bool,
 }
 
@@ -221,7 +222,8 @@ pub struct GitDiffQuery {
     pub patch: bool,
     /// Each text file's changed line ranges, no context.
     pub hunks: bool,
-    /// Pair a deletion with an addition as the repository's `diff.renames` says; false lists them apart.
+    /// Pair a deletion with an addition by the host's rules, never the repository's config (ADR 0352); false lists them
+    /// apart.
     pub renames: bool,
 }
 
@@ -236,7 +238,8 @@ pub struct GitFileChange {
     pub removed: u32,
     /// Either side is binary: no lines are counted.
     pub binary: bool,
-    /// A side is over the host's blob cap (no lines are counted), or its patch was cut.
+    /// A side is over the host's blob cap, or past the bytes the host reads for one diff (no lines are counted), or its
+    /// patch was cut.
     pub truncated: bool,
     /// Its text is not handed to this guest: a withheld name (ADR 0293 D3a), or a worktree file its fs grant does not
     /// read (ADR 0352). No patch and no hunks; its status and counts stay.
@@ -249,6 +252,7 @@ pub struct GitFileChange {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GitDiffAnswer {
     pub files: Vec<GitFileChange>,
-    /// The answer's cap stopped the patches and hunks: the files after it have none.
+    /// The answer's cap stopped the patches and hunks (the files after it have none), or the host's counted read stopped
+    /// (the files past it count no lines).
     pub truncated: bool,
 }

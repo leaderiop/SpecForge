@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use specforge_common::{Diagnostic, codes};
+use specforge_effects::git::GUEST_LOG_WALK;
 use specforge_effects::journal::{Answer, Blob, LentRecord};
 use specforge_effects::{
     Denial as Refusal, Denied, EffectJournal, EffectRequest, Effects, Grant, Granted, Outcome,
@@ -237,8 +238,10 @@ pub struct PortSession {
     extension: String,
     kind: Option<Operation>,
     lent: Option<PortCall>,
-    /// Any byte payload of an answer is held to this.
+    /// Any byte payload of an answer is held to this, and a git read's bytes too.
     answer_cap: u64,
+    /// The most commits a git log steps onto.
+    log_walk: usize,
     memory_mb: u32,
     /// What its requests took so far: not the guest's time, and held to the port budget.
     in_ports: Duration,
@@ -286,6 +289,7 @@ impl PortSession {
             kind: None,
             lent: None,
             answer_cap: 0,
+            log_walk: 0,
             memory_mb: 0,
             in_ports: Duration::ZERO,
         }
@@ -304,6 +308,7 @@ impl PortSession {
             kind: Some(kind),
             lent,
             answer_cap: u64::from(limits.memory_mb) * 1024 * 1024 / ANSWER_SHARE_OF_MEMORY,
+            log_walk: GUEST_LOG_WALK,
             memory_mb: limits.memory_mb,
             in_ports: Duration::ZERO,
         }

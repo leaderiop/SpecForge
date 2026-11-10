@@ -46,21 +46,44 @@ fn history(dir: &std::path::Path, n: usize) -> (Repo, String) {
 }
 
 #[test]
-fn a_guest_log_walks_the_whole_history_whatever_its_answer_holds() {
+fn a_guest_log_stops_at_the_commits_the_host_walks() {
     let dir = tempfile::tempdir().unwrap();
     let (repo, head) = history(dir.path(), 40);
     let mut session = session(&repo);
-    // room for about two commits
-    session.answer_cap = 400;
+    let query = GitLogQuery {
+        tips: vec![head],
+        ..GitLogQuery::default()
+    };
+    session.log_walk = 10;
+    let answer = session.git_log(&query).unwrap();
+    // stopped: no count, and the answer says so
+    assert_eq!((answer.count, answer.truncated), (None, true));
+    assert_eq!(answer.commits.len(), 10);
+    session.log_walk = 40;
+    assert_eq!(session.git_log(&query).unwrap().count, Some(40));
+}
+
+#[test]
+fn a_guest_pickaxe_log_stops_at_the_bytes_its_answer_holds() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    let mut head = String::new();
+    for i in 0..40 {
+        repo.write(&format!("f{i}.txt"), "x\n".repeat(2048));
+        head = repo.commit_all(&format!("c{i}"));
+    }
+    let mut session = session(&repo);
+    // about three of the forty blobs the pickaxe would read
+    session.answer_cap = 3 * 4096;
     let answer = session
         .git_log(&GitLogQuery {
             tips: vec![head],
+            pickaxe: Some("needle".into()),
             ..GitLogQuery::default()
         })
         .unwrap();
-    assert!(answer.truncated && answer.commits.len() <= 3);
-    // the walk counted every commit of the history
-    assert_eq!(answer.count, Some(40));
+    assert_eq!((answer.count, answer.truncated), (None, true));
+    assert!(answer.commits.is_empty());
 }
 
 /// A commit adding `n` files of `size` bytes each.
@@ -85,27 +108,39 @@ fn counted(head: &str) -> GitDiffQuery {
 }
 
 #[test]
-fn a_guest_diff_reads_every_file_whatever_its_answer_holds() {
+fn a_guest_diff_reads_no_more_files_than_its_answer_holds() {
     let dir = tempfile::tempdir().unwrap();
     let (repo, head) = wide(dir.path(), 40, 4096);
     let mut session = session(&repo);
     // the names and about two files' worth of bytes
     session.answer_cap = 40 * 7 + 2 * 4096;
     let answer = session.git_diff(&counted(&head)).unwrap();
-    let read = answer.files.iter().filter(|f| f.added > 0).count();
-    assert_eq!((answer.files.len(), read), (40, 40));
+    let (read, unread): (Vec<_>, Vec<_>) = answer.files.iter().partition(|f| f.added > 0);
+    // every file is named; two are read, the rest say they were not
+    assert_eq!((answer.files.len(), read.len()), (40, 2));
+    assert!(answer.truncated && unread.iter().all(|f| f.truncated && f.removed == 0));
+    // a diff of one file reads it, though its bytes are past the bound
+    session.answer_cap = 64;
+    let one = session
+        .git_diff(&GitDiffQuery {
+            paths: vec!["f07.txt".into()],
+            ..counted(&head)
+        })
+        .unwrap();
+    assert_eq!(one.files[0].added, 2048);
 }
 
-/// A rename search follows the repository's own config: whether to search, and how many pairs to compare.
+/// Text of 20 lines tagged `tag`.
+fn text(tag: &str) -> String {
+    (0..20).map(|i| format!("{tag} line {i}\n")).collect()
+}
+
+/// A rename search follows the host's rules, never the repository's config: it searches, and compares at most so many
+/// pairs.
 #[test]
-fn a_guest_diff_follows_the_repositorys_rename_config() {
+fn a_guest_diff_searches_renames_by_the_hosts_rules() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(dir.path());
-    let text = |tag: &str| {
-        (0..20)
-            .map(|i| format!("{tag} line {i}\n"))
-            .collect::<String>()
-    };
     repo.write("a.txt", text("a")).write("b.txt", text("b"));
     let base = repo.commit_all("base");
     // two renames, each with one line changed: a fuzzy search of four pairs pairs them
@@ -114,22 +149,38 @@ fn a_guest_diff_follows_the_repositorys_rename_config() {
         .write("a2.txt", text("a").replace("line 3", "LINE 3"))
         .write("b2.txt", text("b").replace("line 3", "LINE 3"));
     let head = repo.commit_all("moved");
-    let query = GitDiffQuery {
-        base: Some(base),
-        renames: true,
-        ..counted(&head)
-    };
-    let statuses = |repo: &Repo| -> Vec<GitChange> {
-        session(repo)
-            .git_diff(&query)
+    let statuses = |base: &str, head: &str| -> Vec<GitChange> {
+        session(&repo)
+            .git_diff(&GitDiffQuery {
+                base: Some(base.to_string()),
+                renames: true,
+                ..counted(head)
+            })
             .unwrap()
             .files
             .iter()
             .map(|f| f.status)
             .collect()
     };
-    assert_eq!(statuses(&repo), [GitChange::Renamed, GitChange::Renamed]);
-    // the repository's config turns the search off
-    repo.config("[diff]\n\trenames = false");
-    assert_eq!(statuses(&repo).len(), 4);
+    // the repository's config would turn the search off, and its limit of 0 would compare every pair
+    repo.config("[diff]\n\trenames = false\n\trenameLimit = 0");
+    assert_eq!(
+        statuses(&base, &head),
+        [GitChange::Renamed, GitChange::Renamed]
+    );
+    // 40 fuzzy renames are 1600 pairs, past the host's 1000: none is compared, each file is listed apart
+    for i in 0..40 {
+        repo.write(&format!("m{i:02}.txt"), text(&format!("m{i}")));
+    }
+    let wide = repo.commit_all("wide");
+    for i in 0..40 {
+        repo.delete(&format!("m{i:02}.txt")).write(
+            &format!("n{i:02}.txt"),
+            text(&format!("m{i}")).replace("line 3", "LINE 3"),
+        );
+    }
+    let moved = repo.commit_all("moved wide");
+    let wide = statuses(&wide, &moved);
+    assert_eq!(wide.len(), 80);
+    assert!(!wide.contains(&GitChange::Renamed));
 }

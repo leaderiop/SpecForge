@@ -6,7 +6,7 @@ use std::sync::Arc;
 use specforge_effects::contained::{RealFs, withheld};
 use specforge_effects::git::{
     DiffQuery, DiffSide, DiffStatus, GitCommit, GitFileDiff, GitPerson, GitPlace, Located,
-    LogQuery, Sha,
+    LogQuery, Sha, Work,
 };
 use specforge_effects::{EffectRequest, FsOp, FsRequest, OutcomeClass, SharedGit};
 use specforge_protocol_types::{
@@ -187,7 +187,9 @@ impl PortSession {
     }
 
     /// The log of the project's repository, as many commits as the answer's cap holds. A guest names commits by id and
-    /// paths from the top; its pickaxe never reads a withheld file, and is refused one it names.
+    /// paths from the top; its pickaxe never reads a withheld file, and is refused one it names. The walk is counted
+    /// work: it steps onto at most [`specforge_effects::git::GUEST_LOG_WALK`] commits and reads at most the answer's cap of commits and
+    /// blobs, then stops, with no count, and the answer says `truncated`.
     pub fn git_log(&mut self, query: &GitLogQuery) -> Result<GitLogAnswer, HostError> {
         let shas = |names: &[String]| {
             names
@@ -221,12 +223,17 @@ impl PortSession {
                     no_merges: query.no_merges,
                     pickaxe: query.pickaxe.clone(),
                     withhold: true,
+                    budget: Some(Work {
+                        commits: self.log_walk,
+                        bytes: self.answer_cap,
+                    }),
                 },
             )
             .map_err(git_failed)?;
         let mut room = self.answer_cap;
         let mut answer = GitLogAnswer {
             count: log.count.map(|count| count as u64),
+            truncated: log.stopped,
             ..GitLogAnswer::default()
         };
         for commit in log.commits {
@@ -243,7 +250,9 @@ impl PortSession {
     }
 
     /// A diff of the project's repository. A withheld file keeps its status and counts, never its patch nor its hunks;
-    /// past the answer's cap the files keep no text, and the answer says `truncated`. A worktree's text is the disk's:
+    /// past the answer's cap the files keep no text, and the answer says `truncated`. The diff reads at most the
+    /// answer's cap of its files (counted bytes): a file past it keeps its status, no counts, and says `truncated`, as
+    /// does the answer. A worktree's text is the disk's:
     /// a file the call's fs grant does not read is withheld from a worktree diff ([`Self::reads_on_disk`]).
     pub fn git_diff(&mut self, query: &GitDiffQuery) -> Result<GitDiffAnswer, HostError> {
         let base = query.base.as_deref().map(sha_of).transpose()?;
@@ -264,6 +273,7 @@ impl PortSession {
                     patch: query.patch,
                     hunks: query.hunks,
                     renames: query.renames,
+                    budget: Some(self.answer_cap),
                 },
             )
             .map_err(git_failed)?;
@@ -276,6 +286,7 @@ impl PortSession {
         let mut answer = GitDiffAnswer::default();
         let on_disk = query.head == GitDiffHead::Worktree;
         for file in files {
+            answer.truncated |= file.unread;
             let mut change = file_change(file);
             if on_disk && !change.withheld && !self.reads_on_disk(&place.toplevel, &change.path) {
                 change.withheld = true;

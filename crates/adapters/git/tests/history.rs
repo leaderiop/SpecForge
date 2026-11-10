@@ -495,6 +495,7 @@ fn no_filter_or_diff_driver_runs_on_a_read() {
             patch: true,
             hunks: false,
             renames: true,
+            budget: None,
         },
     );
     let ran: Vec<_> = ["clean", "smudge", "process", "textconv"]
@@ -566,6 +567,7 @@ fn a_read_past_the_caps_is_sized_and_truncated_not_read() {
                     patch: true,
                     hunks: false,
                     renames: true,
+                    budget: None,
                 },
             )
             .unwrap();

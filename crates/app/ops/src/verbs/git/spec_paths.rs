@@ -189,6 +189,7 @@ mod tests {
             removed: 0,
             binary: false,
             truncated: false,
+            unread: false,
             patch: None,
             hunks: None,
         }
