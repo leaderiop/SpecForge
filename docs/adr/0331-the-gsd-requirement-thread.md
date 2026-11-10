@@ -148,5 +148,7 @@ At the base, `@gsd/core` could walk the first three hops and no further:
   input, so a gsd project's passes never say I205; results another collector files under a gsd entity count for nothing.
 - **D7.** `@gsd/core`'s truth input is `test(self.proof, self<test.names)`: the proof's facts and the facts whose
   `names` hold the truth. A tag still stales a verdict, through the fact's `names` rather than a report entry filed
-  under the truth; without `@code/core` both chains are inert. The input is still unjudged when a proof's references
-  are unheld and no store holds their scheme (a fresh clone), so `gsd/E501` may still say I205.
+  under the truth; without `@code/core` both chains are inert. On a fresh clone (no fact store) the input is unjudged
+  and `gsd/E501` says I205, not stale: a proof's references are unheld and no store holds their scheme, and a referrer
+  step over a collected kind no store holds (`self<test.names` reads `test`) reads as unrecorded by the same rule, so a
+  truth linked only by a tag is not judged as linking nothing.

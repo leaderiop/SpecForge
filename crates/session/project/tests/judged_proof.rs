@@ -1,6 +1,7 @@
 //! A judged `test(..)` input over a proof (ADR 0331 D7): `test(self, self.proof)` reads the truth's report results and
 //! its proof's `test` facts, each chain on its own; nothing linked is the value `none`; a proof no store holds facts of
-//! is not read, and one a store lost is `absent`; the input is unjudged only when no chain can be read.
+//! is not read, and one a store lost is `absent`; a referrer step over a collected kind no store holds is not read
+//! either (`self<test.names` on a fresh clone); the input is unjudged only when no chain can be read.
 
 use std::sync::Arc;
 
@@ -256,8 +257,11 @@ fn compile_named(p: &TestProject) -> CompiledProject {
     p.compile_in(Arc::new(gsd_routed_serving(named_builder)) as SharedRuntime)
 }
 
-#[test]
-fn a_truth_only_a_tag_links_reads_stale_on_a_fresh_clone() {
+#[specforge_test(
+    behavior = "judge_rule_by_fresh_verdict",
+    verify = "a referrer step over a collected kind no store holds is unjudged, as a missing report is"
+)]
+fn a_truth_only_a_tag_links_is_unjudged_on_a_fresh_clone() {
     const TRUTH: &str = "v1.0/03/03-02/TR1";
     let p = gsd_judged_tests_project("");
     let holds = json!([{"kind": "test", "id": "js:a.test.js#holds",
@@ -270,10 +274,17 @@ fn a_truth_only_a_tag_links_reads_stale_on_a_fresh_clone() {
     // A fresh clone: the store is git-ignored, so no store serves `test`.
     p.remove(STORE);
     let compiled = compile_named(&p);
+    assert_eq!(inputs(&compiled, TRUTH).unjudged, ["tests"]);
+    assert_eq!(judgement(&compiled, TRUTH, E501).0, "fresh");
+    assert!(codes(&compiled).contains(&"I205".to_string()));
+    // A store of `test` facts that names the truth no more: judged, and the verdict is stale.
+    let other = json!([{"kind": "test", "id": "js:a.test.js#other",
+        "fields": {"file": "a.test.js", "name": "other", "status": "passed"}}]);
+    stored(p.root(), "node", KEY, other);
+    let compiled = compile_named(&p);
     assert!(inputs(&compiled, TRUTH).unjudged.is_empty());
     assert_eq!(
         judgement(&compiled, TRUTH, E501),
         ("stale".to_string(), vec!["tests".to_string()])
     );
-    assert!(!codes(&compiled).contains(&"I205".to_string()));
 }

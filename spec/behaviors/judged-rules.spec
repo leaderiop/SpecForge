@@ -115,8 +115,9 @@ behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
     A judged rule holds while a fresh verdict from its judge says so (ADR 0290). It fires at its severity for a
     missing, unrecorded, stale or failing verdict, and is silent for a fresh passing one. A verdict written by hand
     is E083 and counts as missing; one that cannot be read is W168. A failing verdict on an Error rule is recorded, and a write that creates a judged target or stales a passing verdict is written, the finding reported (ADR 0297). Test inputs are compared when their results
-    are recorded (a report, or the facts a reference names), each chain of a `test(..)` input on its own, nothing
-    linked included, and said not judged (I205) when no chain's results are. A gated rule is neither evaluated nor reported. A field whose
+    are recorded (a report, or the facts a reference names or a referrer step's collected kinds are held in), each
+    chain of a `test(..)` input on its own, nothing linked included, and said not judged (I205) when no chain's
+    results are. A gated rule is neither evaluated nor reported. A field whose
     writer is the verdict holds the fresh verdict's outcome or value, and is E082 when written by hand. A project
     that declares no judged rule reads no report and stamps no file.
   """
@@ -132,6 +133,7 @@ behavior judge_rule_by_fresh_verdict "Judge a Rule by a Fresh Verdict" {
   verify unit "a verdict recorded without a report is stale once a report exists"
   verify unit "a report that links no test to an entity stales none of its verdicts"
   verify unit "a proof with no stored facts is unjudged, as a missing report is"
+  verify unit "a referrer step over a collected kind no store holds is unjudged, as a missing report is"
   verify unit "a linked test that vanishes stales the verdict"
   verify unit "a fresh verdict's message counts its findings"
   verify unit "a re-run that agrees on every status stales nothing"
