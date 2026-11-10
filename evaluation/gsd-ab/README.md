@@ -131,7 +131,9 @@ A run file:
 
 Every field is required. `final_report` is the value of the run's last `RESULT:` line, or `none`; an intervention's
 `reason` is one of OPERATOR.md's (`question`, `stopped`, `budget`, `operator`) and `interventions` is the log's
-length. `score.py` refuses a run file that breaks any of this, or whose path is not its arm, task and seed.
+length. `acceptance` holds one boolean per acceptance row of the task, keyed by its text; `claims` one entry per key
+of the task's `ground_truth`; `defects_present` only ids the task seeds. `score.py` refuses a run file that breaks
+any of this, or whose path is not its arm, task and seed.
 
 ## 8. Analysis
 
@@ -169,6 +171,8 @@ python3 -I evaluation/gsd-ab/score.py --self-test
 ```
 
 `--self-test` writes an embedded synthetic set (4 tasks, 3 seeds, 3 arms) as run files and reads it back, scores it
-where B clearly wins and where it doesn't, checks the D7 verdict of each and that an unpaired run is refused, and
-refuses exactly three bad run files: one without its host, one whose interventions are not logged, and one whose
-intervention has a reason outside the list.
+where B clearly wins and where it doesn't, checks the gate B verdict of each and that an unpaired run is refused, and
+refuses exactly eight bad run files: one without its host, one whose interventions are not logged, one whose
+intervention has a reason outside the list, one whose acceptance value is not a boolean, one with an acceptance row
+its task does not have, one with a claim on a key outside the task's ground truth, and two whose `defects_present`
+holds what the task does not seed (an unknown id, a number).

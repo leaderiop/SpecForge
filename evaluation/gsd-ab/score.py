@@ -166,8 +166,10 @@ def score(runs: list[dict], tasks: dict) -> tuple[bool, bool | None]:
     return passed, thread
 
 
-def check_run(run: dict, where: str) -> None:
-    """Raises ValueError naming the first thing a run file lacks or gets wrong (README section 7)."""
+def check_run(run: dict, tasks: dict, where: str) -> None:
+    """Raises ValueError naming the first thing a run file lacks or gets wrong (README section 7), against its task
+    in `tasks`: one boolean per acceptance row, keyed by its text; one claim per ground truth key; and seeded
+    defects only in `defects_present`."""
     for key, kind in FIELDS.items():
         if key not in run:
             raise ValueError(f"{where}: no `{key}`")
@@ -189,9 +191,24 @@ def check_run(run: dict, where: str) -> None:
             raise ValueError(f"{where}: an intervention is logged as {{reason, turn}}, not {entry!r}")
         if entry.get("reason") not in REASONS:
             raise ValueError(f"{where}: intervention reason {entry.get('reason')!r} is none of {sorted(REASONS)}")
+    task = next((task for task in tasks["tasks"] if task["id"] == run["task"]), None)
+    if task is None:
+        raise ValueError(f"{where}: no task {run['task']!r} in tasks.json")
+    for row, passed in run["acceptance"].items():
+        if not isinstance(passed, bool):
+            raise ValueError(f"{where}: acceptance {row!r} is {passed!r}, not true or false")
+    rows = sorted(row["text"] for row in task["acceptance"])
+    if sorted(run["acceptance"]) != rows:
+        raise ValueError(f"{where}: acceptance is keyed {sorted(run['acceptance'])}, not by the task's rows {rows}")
+    if sorted(run["claims"]) != sorted(task["ground_truth"]):
+        truth = sorted(task["ground_truth"])
+        raise ValueError(f"{where}: claims are keyed {sorted(run['claims'])}, not by the ground truth's {truth}")
+    for defect in run["defects_present"]:
+        if not isinstance(defect, str) or defect not in task["seeded"]:
+            raise ValueError(f"{where}: defects_present holds {defect!r}, not one of the task's seeds {task['seeded']}")
 
 
-def read_runs(root: Path) -> list[dict]:
+def read_runs(root: Path, tasks: dict) -> list[dict]:
     """Every `<arm>/<task>/<seed>.json` under `root` whose `<seed>` is a number, each checked (check_run) and
     matching its path. Another file there is skipped, and named on standard error."""
     runs = []
@@ -200,7 +217,7 @@ def read_runs(root: Path) -> list[dict]:
             print(f"skipped {path}: not a run file (<arm>/<task>/<seed>.json)", file=sys.stderr)
             continue
         run = json.loads(path.read_text())
-        check_run(run, str(path))
+        check_run(run, tasks, str(path))
         arm, task, seed = path.parts[-3], path.parts[-2], path.stem
         if (run["arm"], run["task"], str(run["seed"])) != (arm, task, seed):
             raise ValueError(f"{path}: arm, task and seed differ from the file's path")
@@ -220,7 +237,9 @@ def synthetic(b_wins: bool) -> tuple[list[dict], dict]:
     defects and drifts. B leaves none and no drift when it wins, and repeats A when it doesn't. B0 always leaves S1
     but not S2, so B beats B0 on the thread's defects exactly when B wins."""
     tasks = {"tasks": [
-        {"id": f"t{i}", "seeded": ["S1", "S2"], "ground_truth": {"p": "complete"}} for i in range(4)
+        {"id": f"t{i}", "seeded": ["S1", "S2"], "ground_truth": {"p": "complete"},
+         "acceptance": [{"text": "tests", "run": "true"}]}
+        for i in range(4)
     ]}
     runs = []
     for i in range(4):
@@ -242,10 +261,10 @@ def synthetic(b_wins: bool) -> tuple[list[dict], dict]:
     return runs, tasks
 
 
-def refused_file(what: str, run: dict) -> None:
+def refused_file(what: str, run: dict, tasks: dict) -> None:
     """check_run must refuse `run`; its message is printed."""
     try:
-        check_run(run, f"{run.get('arm')}/{run.get('task')}/{run.get('seed')}.json")
+        check_run(run, tasks, f"{run.get('arm')}/{run.get('task')}/{run.get('seed')}.json")
     except ValueError as refusal:
         print(f"refused run file: {refusal}")
     else:
@@ -258,7 +277,7 @@ def self_test() -> None:
         write_runs(Path(tmp), runs)
         # A file beside the runs that is not one (an operator's note) is skipped, not read as a run.
         (Path(tmp) / "A" / "t0" / "1.notes.json").write_text("{}")
-        read = read_runs(Path(tmp))
+        read = read_runs(Path(tmp), tasks)
     assert len(read) == len(runs), "every written run file reads back, and the stray file is skipped"
     assert score(read, tasks) == (True, True), "a set B clearly wins must pass D7 and show H2"
     runs, tasks = synthetic(b_wins=False)
@@ -275,13 +294,20 @@ def self_test() -> None:
         print(f"refused: {refusal}")
     else:
         raise AssertionError("an unpaired run must be refused")
-    # The run files' own refusals, counted: exactly these three.
-    refused_file("a run file without its host", {key: value for key, value in runs[0].items() if key != "host"})
-    refused_file("an intervention counted and not logged", {**runs[0], "interventions": 1})
-    refused_file(
-        "an intervention for a reason outside the list",
-        {**runs[0], "interventions": 1, "intervention_log": [{"reason": "nudge", "turn": 3}]},
-    )
+    # The run files' own refusals, counted: exactly these eight.
+    run = runs[0]
+    for what, bad in (
+        ("a run file without its host", {key: value for key, value in run.items() if key != "host"}),
+        ("an intervention counted and not logged", {**run, "interventions": 1}),
+        ("an intervention for a reason outside the list",
+         {**run, "interventions": 1, "intervention_log": [{"reason": "nudge", "turn": 3}]}),
+        ("an acceptance row that is not true or false", {**run, "acceptance": {"tests": "yes"}}),
+        ("an acceptance row the task does not have", {**run, "acceptance": {"tests": True, "lint": True}}),
+        ("a claim on a key the ground truth does not have", {**run, "claims": {"p": "complete", "q": "complete"}}),
+        ("a defect the task does not seed", {**run, "defects_present": ["S9"]}),
+        ("a defect that is not a name", {**run, "defects_present": [1]}),
+    ):
+        refused_file(what, bad, tasks)
     print("self-test: ok")
 
 
@@ -295,7 +321,7 @@ def main() -> None:
         self_test()
         return
     tasks = json.loads(TASKS.read_text())
-    sys.exit(0 if score(read_runs(args.runs), tasks)[0] else 1)
+    sys.exit(0 if score(read_runs(args.runs, tasks), tasks)[0] else 1)
 
 
 if __name__ == "__main__":

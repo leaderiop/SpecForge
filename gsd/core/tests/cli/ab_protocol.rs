@@ -21,9 +21,9 @@ fn the_scorer_passes_its_self_test() {
 }
 
 /// The scorer's self-test reads its synthetic runs back as files and pairs all of them, refuses an unpaired run, and
-/// refuses exactly three bad run files.
+/// refuses exactly eight bad run files.
 #[test]
-fn the_scorer_pairs_twelve_runs_and_refuses_three_run_files() {
+fn the_scorer_pairs_twelve_runs_and_refuses_eight_run_files() {
     let run = python("score.py", &["--self-test"]);
     let stdout = String::from_utf8_lossy(&run.stdout);
     assert!(
@@ -33,7 +33,7 @@ fn the_scorer_pairs_twelve_runs_and_refuses_three_run_files() {
     let count = |prefix: &str| stdout.lines().filter(|l| l.starts_with(prefix)).count();
     assert_eq!(
         (count("refused: "), count("refused run file: ")),
-        (1, 3),
+        (1, 8),
         "{stdout}"
     );
 }
