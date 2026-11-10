@@ -155,7 +155,7 @@ For niche domains (3D/games/audio/shaders/ML), suggest `/gsd:plan-phase --resear
 
 Every task has four required fields:
 
-**<files>:** Exact file paths created or modified.
+**<files>:** Exact file paths created or modified. **<items>:** the code items the task creates or changes, by their quoted fact ids (`"rust:crate::module::item"`, `"js:package/file::export"`); one not written yet is allowed
 - Good: `src/app/api/auth/login/route.ts`, `prisma/schema.prisma`
 - Bad: "the auth files", "relevant components"
 
@@ -344,7 +344,7 @@ STATE is computed: there is no file to read
 
 <task type="auto">
   <name>Task 1: [Action-oriented name]</name>
-  <files>path/to/file.ext</files>
+  <files>path/to/file.ext</files> <items>"rust:crate::module::item"</items>
   <action>[Specific implementation]</action>
   <verify>[Command or check]</verify>
   <done>[Acceptance criteria]</done>

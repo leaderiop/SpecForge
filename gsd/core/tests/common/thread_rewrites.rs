@@ -1,6 +1,7 @@
-//! The body lines (0-based, inclusive runs) rewritten because a plan lists its decisions (`decisions`, ADR 0351) and
-//! a task commit ends with its `Gsd-Task: {phase}-{plan}/{task}` trailer. Paths are under `assets/`; an agent's is
-//! `agents/<file>`. `port` and `port_workflows` read them as more rewritten rows.
+//! The body lines (0-based, inclusive runs) rewritten because a plan lists its decisions (`decisions`, ADR 0351), a
+//! task names its code items (`items`, ADR 0352) and a task commit ends with its `Gsd-Task: {phase}-{plan}/{task}`
+//! trailer. Paths are under `assets/`; an agent's is `agents/<file>`. `port` and `port_workflows` read them as more
+//! rewritten rows.
 
 pub const SPANS: &[(&str, usize, usize)] = &[
     // the planner lists the decisions a plan implements in its `decisions` (not required: E310 says when one is
@@ -15,6 +16,9 @@ pub const SPANS: &[(&str, usize, usize)] = &[
     ("agents/gsd-planner.md", 759, 759),
     ("agents/gsd-planner.md", 856, 856),
     ("agents/gsd-planner.md", 969, 969),
+    // each task names the code items it creates or changes (`task.items`, ADR 0352 D3)
+    ("agents/gsd-planner.md", 156, 156),
+    ("agents/gsd-planner.md", 345, 345),
     // the plan checker reads coverage from the plans' `decisions`
     ("agents/gsd-plan-checker.md", 378, 379),
     ("gsd-core/workflows/plan-phase.md", 1401, 1401),
