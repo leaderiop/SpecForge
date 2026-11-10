@@ -1,15 +1,27 @@
 {
   "version": "gsd-ab-v1-draft",
-  "description": "The GSD A/B corpus (README.md): arms, fixtures, seeded defects and 12 tasks. Frozen and tagged gsd-ab-v1 at gate A; a draft until then.",
+  "description": "The GSD A/B corpus (README.md): arms, fixtures, seeded defects and 12 tasks. Frozen and tagged gsd-ab-v1 at gate A; a draft until then. seed.py makes each arm's copy of a task's fixture from it.",
   "arms": [
-    { "id": "A", "state": "gsd-core 1.19.0 .planning/ Markdown", "tools": ["gsd-tools"] },
-    { "id": "B", "state": "SpecForge @gsd/core, gsd-strict, the .spec graph", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"] },
-    { "id": "B0", "state": "B without @code/core, @javascript/node-test and the requirement route", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"] }
+    {
+      "id": "A", "state": "gsd-core 1.19.0 .planning/ Markdown", "tools": ["gsd-tools"],
+      "config": null,
+      "drop": ["spec/", "specforge-harness", "README.md"]
+    },
+    {
+      "id": "B", "state": "SpecForge @gsd/core, gsd-strict, the .spec graph", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"],
+      "config": { "extensions": ["@gsd/core", "@specforge/checks"], "thread": true, "settings": { "@gsd/core": { "profile": "gsd-strict" } } },
+      "drop": [".planning/", "README.md"]
+    },
+    {
+      "id": "B0", "state": "B without @code/core, @javascript/node-test and the requirement route", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"],
+      "config": { "extensions": ["@gsd/core", "@specforge/checks"], "thread": false, "settings": { "@gsd/core": { "profile": "gsd-strict" } } },
+      "drop": [".planning/", "README.md"]
+    }
   ],
   "fixtures": [
-    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "status": "ready" },
-    { "id": "vault", "path": "gsd/parity/fixtures/vault", "status": "ready" },
-    { "id": "third", "path": null, "status": "fixture pending gate A" }
+    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"] },
+    { "id": "vault", "path": "gsd/parity/fixtures/vault", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"], "extensions": ["@gsd/security"] },
+    { "id": "third", "path": null, "status": "fixture pending gate A", "thread": [] }
   ],
   "defects": [
     {
@@ -34,7 +46,7 @@
       "id": "S4", "name": "a commit trailer naming a task that does not exist",
       "seed_a": "a commit carries Gsd-Task: 01-01/T9",
       "seed_b": "a commit carries Gsd-Task: 01-01/T9",
-      "b_signal": "the trailer diagnostic @gsd/core reports (plan 04)"
+      "b_signal": "gsd/E521"
     },
     {
       "id": "S5", "name": "a truth verified over a failing proof",
@@ -54,6 +66,24 @@
       "id": "taskboard-execute-02-01", "fixture": "taskboard", "workflow": "execute",
       "prompt": "Execute plan 02-01 (save and load tasks.json) and report when it is done.",
       "seeded": ["S1", "S4"],
+      "seeds": {
+        "S1": {
+          "A": [{ "replace": { "file": ".planning/phases/02-persistence/02-01-PLAN.md", "old": "    - \"A title comes back exactly as it was written (D-03)\"", "new": "    - \"A title comes back exactly as it was written (D-03), proven by test/store.test.js#a title survives a reload byte for byte\"" } }],
+          "B": [{ "replace": { "file": "spec/plans.spec", "old": "  text        \"A title comes back exactly as it was written (D-03)\"\n  requirement STORE-02\n", "new": "  text        \"A title comes back exactly as it was written (D-03)\"\n  requirement STORE-02\n  proof       [\"js:taskboard/test/store.test.js#a title survives a reload byte for byte\"]\n" } }],
+          "resolved_if": [{ "file": "test/store.test.js", "contains": "a title survives a reload byte for byte" }]
+        },
+        "S4": {
+          "A": [{ "commit": { "subject": "feat: the task model", "body": "Gsd-Task: 01-01/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }],
+          "B": [{ "commit": { "subject": "feat: the task model", "body": "Gsd-Task: 01-01/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }]
+        }
+      },
+      "completion": [
+        { "write": { "file": "spec/summary-02-01.spec", "text": "summary 02-01-SUMMARY \"Save and load tasks.json: summary\" {\n  plan                   v1.0/02/02-01\n  status                 complete\n  one_liner              \"The board is saved to tasks.json after every change and read back on start.\"\n  requirements_completed [STORE-01, STORE-02]\n}\n" } }
+      ],
+      "b_signals": [
+        { "defect": "S1", "code": "code/E101", "entity": "v1.0/02/02-01/TR3", "count": 1, "when": "complete" },
+        { "defect": "S4", "code": "gsd/E521", "count": 1, "when": "seed" }
+      ],
       "acceptance": ["npm test passes", "tasks.json is written after every change"],
       "ground_truth": { "v1.0/02/02-01": "complete", "STORE-01": "addressed", "v1.0/02": "in progress" }
     },
@@ -61,6 +91,27 @@
       "id": "taskboard-verify-02", "fixture": "taskboard", "workflow": "verify",
       "prompt": "Verify phase 02 against its success criteria and record the verdicts.",
       "seeded": ["S5", "S6"],
+      "seeds": {
+        "S5": {
+          "A": [
+            { "replace": { "file": ".planning/phases/02-persistence/02-01-PLAN.md", "old": "    - \"Every change to the board is written to tasks.json (D-01)\"", "new": "    - \"Every change to the board is written to tasks.json (D-01), proven by test/tasks.test.js#a task is added with the next id\"" } },
+            { "replace": { "file": "test/tasks.test.js", "old": "assert.equal(addTask(board, \"Write the roadmap\").id, 1);", "new": "assert.equal(addTask(board, \"Write the roadmap\").id, 0);" } }
+          ],
+          "B": [
+            { "replace": { "file": "spec/plans.spec", "old": "  text        \"Every change to the board is written to tasks.json (D-01)\"\n  requirement STORE-01\n", "new": "  text        \"Every change to the board is written to tasks.json (D-01)\"\n  requirement STORE-01\n  proof       [\"js:taskboard/test/tasks.test.js#a task is added with the next id\"]\n" } },
+            { "replace": { "file": "test/tasks.test.js", "old": "assert.equal(addTask(board, \"Write the roadmap\").id, 1);", "new": "assert.equal(addTask(board, \"Write the roadmap\").id, 0);" } }
+          ],
+          "run": { "a task is added with the next id": "failed" }
+        },
+        "S6": {
+          "A": [{ "replace": { "file": ".planning/phases/02-persistence/02-01-PLAN.md", "old": "    - \"A restarted board shows the tasks it had\"", "new": "    - \"A restarted board shows the tasks it had, proven by test/store.test.js#a restarted board shows its tasks\"" } }],
+          "B": [{ "replace": { "file": "spec/plans.spec", "old": "  text        \"A restarted board shows the tasks it had\"\n  requirement STORE-01\n", "new": "  text        \"A restarted board shows the tasks it had\"\n  requirement STORE-01\n  proof       [\"js:taskboard/test/store.test.js#a restarted board shows its tasks\"]\n" } }]
+        }
+      },
+      "b_signals": [
+        { "defect": "S5", "code": "gsd/E501", "entity": "v1.0/02/02-01/TR1", "count": 1, "when": "seed" },
+        { "defect": "S6", "code": "code/E101", "entity": "v1.0/02/02-01/TR2", "count": 1, "when": "seed" }
+      ],
       "acceptance": ["every truth of phase 02 has a verdict", "no verdict is verified over a failing or missing test"],
       "ground_truth": { "v1.0/02/02-01/TR1": "not verified", "v1.0/02/02-01/TR2": "not verified", "v1.0/02/02-01/TR3": "not verified" }
     },
@@ -68,6 +119,19 @@
       "id": "taskboard-progress-resume", "fixture": "taskboard", "workflow": "progress/resume",
       "prompt": "You are resuming after a pause. Report the project's progress and the next step.",
       "seeded": ["S3"],
+      "seeds": {
+        "S3": {
+          "A": [
+            { "replace": { "file": ".planning/ROADMAP.md", "old": "- [ ] **Phase 2: Persistence**", "new": "- [x] **Phase 2: Persistence**" } },
+            { "replace": { "file": ".planning/ROADMAP.md", "old": "| 2. Persistence | 0/1 | Not started | - |", "new": "| 2. Persistence | 1/1 | Complete    | 2026-03-05 |" } },
+            { "replace": { "file": ".planning/STATE.md", "old": "  completed_phases: 1\n", "new": "  completed_phases: 2\n" } }
+          ],
+          "B": [{ "replace": { "file": "spec/v1.0.spec", "old": "  slug             \"persistence\"\n", "new": "  slug             \"persistence\"\n  status           complete\n" } }]
+        }
+      },
+      "b_signals": [
+        { "defect": "S3", "code": "E082", "entity": "v1.0/02", "count": 1, "when": "seed" }
+      ],
       "acceptance": ["the report names phase 02 as planned, not complete", "the next step is executing plan 02-01"],
       "ground_truth": { "v1.0/01": "complete", "v1.0/02": "planned", "next": "execute 02-01" }
     },
@@ -75,6 +139,15 @@
       "id": "taskboard-ship-task-01", "fixture": "taskboard", "workflow": "ship",
       "prompt": "Ship TASK-01: confirm it is implemented, tested and verified, then prepare the release note.",
       "seeded": ["S2"],
+      "seeds": {
+        "S2": {
+          "A": [{ "replace": { "file": ".planning/ROADMAP.md", "old": "**Requirements**: [TASK-01, TASK-02]", "new": "**Requirements**: [TASK-01, TASK-02, TASK-09]" } }],
+          "B": [{ "replace": { "file": "spec/v1.0.spec", "old": "  requirements     [TASK-01, TASK-02]\n", "new": "  requirements     [TASK-01, TASK-02, TASK-09]\n" } }]
+        }
+      },
+      "b_signals": [
+        { "defect": "S2", "code": "E003", "entity": "v1.0/01", "count": 1, "when": "seed" }
+      ],
       "acceptance": ["the release note cites TASK-01's test and its verdict", "no unknown requirement id is shipped"],
       "ground_truth": { "TASK-01": "verified", "TASK-09": "does not exist" }
     },
@@ -82,6 +155,21 @@
       "id": "vault-execute-01-02", "fixture": "vault", "workflow": "execute",
       "prompt": "Phase 01's security audit has one open threat, T-01-02 of plan 01-02 (a secret on argv). Mitigate it and report when it is done.",
       "seeded": ["S1", "S4"],
+      "seeds": {
+        "S1": {
+          "A": [{ "replace": { "file": ".planning/phases/01-core/01-02-PLAN.md", "old": "    - \"A secret set from the command line is read back by its name\"", "new": "    - \"A secret set from the command line is read back by its name, proven by test/cli.test.js#set reads the secret from stdin\"" } }],
+          "B": [{ "replace": { "file": "spec/plans.spec", "old": "  text        \"A secret set from the command line is read back by its name\"\n  requirement SEC-02\n", "new": "  text        \"A secret set from the command line is read back by its name\"\n  requirement SEC-02\n  proof       [\"js:vault/test/cli.test.js#set reads the secret from stdin\"]\n" } }],
+          "resolved_if": [{ "file": "test/cli.test.js", "contains": "set reads the secret from stdin" }]
+        },
+        "S4": {
+          "A": [{ "commit": { "subject": "feat: set, get and list", "body": "Gsd-Task: 01-02/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }],
+          "B": [{ "commit": { "subject": "feat: set, get and list", "body": "Gsd-Task: 01-02/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }]
+        }
+      },
+      "b_signals": [
+        { "defect": "S1", "code": "code/E101", "entity": "v1.0/01/01-02/TR1", "count": 1, "when": "seed" },
+        { "defect": "S4", "code": "gsd/E521", "count": 1, "when": "seed" }
+      ],
       "acceptance": ["npm test passes", "set reads the secret from stdin, not argv"],
       "ground_truth": { "v1.0/01/01-02/T-01-02": "closed", "threats_open": 0 }
     },
@@ -89,6 +177,22 @@
       "id": "vault-verify-01", "fixture": "vault", "workflow": "verify",
       "prompt": "Verify phase 01 and its threat model, and record the verdicts.",
       "seeded": ["S5", "S6"],
+      "seeds": {
+        "S5": {
+          "A": [{ "replace": { "file": "test/vault.test.js", "old": "{ db: \"hunter2\" });", "new": "{ db: \"hunter3\" });" } }],
+          "B": [{ "replace": { "file": "test/vault.test.js", "old": "{ db: \"hunter2\" });", "new": "{ db: \"hunter3\" });" } }],
+          "run": { "a sealed vault opens to what was sealed": "failed" }
+        },
+        "S6": {
+          "A": [{ "replace": { "file": "test/vault.test.js", "old": "\ntest(\"another key does not open it\", () => {\n  assert.throws(() => open(seal(createVault(), key), Buffer.alloc(32, 8)));\n});\n", "new": "" } }],
+          "B": [{ "replace": { "file": "test/vault.test.js", "old": "\ntest(\"another key does not open it\", () => {\n  assert.throws(() => open(seal(createVault(), key), Buffer.alloc(32, 8)));\n});\n", "new": "" } }],
+          "run": { "another key does not open it": "absent" }
+        }
+      },
+      "b_signals": [
+        { "defect": "S5", "trace": "SEC-01", "contains": "opens to what was sealed (failed)", "count": 1, "when": "seed" },
+        { "defect": "S6", "code": "code/E101", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" }
+      ],
       "acceptance": ["every truth of phase 01 has a verdict", "the open threat T-01-02 stays open"],
       "ground_truth": { "v1.0/01": "verified with one open threat", "v1.0/01/01-02/T-01-02": "open" }
     },
@@ -96,6 +200,19 @@
       "id": "vault-progress-resume", "fixture": "vault", "workflow": "progress/resume",
       "prompt": "You are resuming after a pause. Report the state of phase 01's security audit and the next step.",
       "seeded": ["S3"],
+      "seeds": {
+        "S3": {
+          "A": [
+            { "replace": { "file": ".planning/ROADMAP.md", "old": "- [ ] **Phase 2: Sharing**", "new": "- [x] **Phase 2: Sharing**" } },
+            { "replace": { "file": ".planning/ROADMAP.md", "old": "| 2. Sharing | 0/1 | Not started | - |", "new": "| 2. Sharing | 1/1 | Complete    | 2026-10-31 |" } },
+            { "replace": { "file": ".planning/STATE.md", "old": "  completed_phases: 1\n", "new": "  completed_phases: 2\n" } }
+          ],
+          "B": [{ "replace": { "file": "spec/v1.0.spec", "old": "  slug             \"sharing\"\n", "new": "  slug             \"sharing\"\n  status           complete\n" } }]
+        }
+      },
+      "b_signals": [
+        { "defect": "S3", "code": "E082", "entity": "v1.0/02", "count": 1, "when": "seed" }
+      ],
       "acceptance": ["the report names one open threat and the accepted risk AR1", "the next step is mitigating T-01-02"],
       "ground_truth": { "threats_open": 1, "AR1": "accepted", "next": "mitigate v1.0/01/01-02/T-01-02" }
     },
@@ -103,6 +220,15 @@
       "id": "vault-ship-01", "fixture": "vault", "workflow": "ship",
       "prompt": "Ship phase 01 (SEC-01, SEC-02): confirm each requirement is implemented, tested and verified, and that its threat model is closed or accepted, then prepare the release note.",
       "seeded": ["S2"],
+      "seeds": {
+        "S2": {
+          "A": [{ "replace": { "file": ".planning/ROADMAP.md", "old": "**Requirements**: [SEC-01, SEC-02]", "new": "**Requirements**: [SEC-01, SEC-02, SEC-09]" } }],
+          "B": [{ "replace": { "file": "spec/v1.0.spec", "old": "  requirements     [SEC-01, SEC-02]\n", "new": "  requirements     [SEC-01, SEC-02, SEC-09]\n" } }]
+        }
+      },
+      "b_signals": [
+        { "defect": "S2", "code": "E003", "entity": "v1.0/01", "count": 1, "when": "seed" }
+      ],
       "acceptance": ["the release note cites each requirement's tests", "the open threat T-01-02 blocks the release or is named in it"],
       "ground_truth": { "SEC-01": "verified", "SEC-02": "verified", "v1.0/01/01-02/T-01-02": "open" }
     },
