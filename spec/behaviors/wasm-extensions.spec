@@ -524,6 +524,7 @@ behavior dispatch_collector "Dispatch Collector" {
     declared_files_passed        "a collector that declares reads receives their files' facts, held to the project as a pass's are"
     facts_stored                 "a collector's admitted facts are stored under the collect's key and recorded by digest in specforge-harness, in one change under the write lock"
     facts_served                 "a facts input is served the admitted facts of its kinds that earlier collectors answered, else the recorded stores'"
+    syntax_work_reported         "a collector that read source files through the host's syntax reader reports how many were parsed and how many came from the syntax cache (I214), and a cache that cannot be written is W200 once"
   }
   contract   """
     The host reads the report (the file itself, or every `*.json` file
@@ -573,6 +574,12 @@ behavior dispatch_collector "Dispatch Collector" {
     records (ADR 0345 D3). A kind served from the stores that none of them
     holds a fact of is W201, naming the collector, the kind and the declared
     collectors that answer it (`--runner` still runs only what it names).
+    A collector whose guest asked the host to parse source files
+    (`specforge:host/syntax`, ADR 0345) reports that work (ADR 0353 D7):
+    its `syntax` in the answer counts the files parsed now, the files read
+    from the syntax cache and the bytes parsed, and I214 says it; a second
+    collect of an unchanged tree parses none. Parsed files the cache could
+    not take are W200, once per collect.
   """
   produces   [collector_dispatched]
   verify unit "a collector named by the runner receives each checked value's outcome"
@@ -596,7 +603,10 @@ behavior dispatch_collector "Dispatch Collector" {
   verify integration "a facts input no collector of the collect answers is served the recorded stores"
   verify integration "a facts input served no fact of a kind is W201 naming the collectors that answer it"
   verify unit "the recorded facts of a kind are those of the stores the ledger records, sorted"
-  verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only, declared_files_passed, facts_stored, facts_served"
+  verify integration "a second collect of an unchanged tree parses no file: each is read from the syntax cache"
+  verify integration "a collect after one file's edit parses that file alone"
+  verify integration "a syntax cache that cannot be written is W200 once, and the next collect parses again"
+  verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only, declared_files_passed, facts_stored, facts_served, syntax_work_reported"
 }
 
 behavior ingest_collector_report "Ingest Collector Report" {

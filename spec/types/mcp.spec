@@ -1052,12 +1052,12 @@ type McpCollectResult "Mcp Collect Result" {
 
 type McpCollectRunner "What one runner's collection found" {
   /// The collector's name, e.g. cargo-test.
-  name          string         @readonly
+  name          string           @readonly
   /// The extension contributing the collector.
-  extension     string         @readonly
+  extension     string           @readonly
   /// Whether the runner's command ran (run=true), or its report was read.
   ran           boolean
-  exit_code     integer        @optional
+  exit_code     integer          @optional
   /// Report files read.
   files         integer
   /// Entities the results name.
@@ -1070,10 +1070,21 @@ type McpCollectRunner "What one runner's collection found" {
   /// The facts stored for it (ADR 0327): none when it answered none, or they were refused (E116).
   facts         integer
   /// What a writing collector's plan did to the project (ADR 0289), as an edit reports it; absent when it answered none.
-  plan          McpCollectPlan @optional
+  plan          McpCollectPlan   @optional
   /// Why a collector chosen by detection was skipped (its E045 message, ADR 0331); absent when it was not.
-  skip_reason   string         @optional
+  skip_reason   string           @optional
+  /// What its source-file parses took (ADR 0353 D7); absent for a collector that read no source file.
+  syntax        McpCollectSyntax @optional
   verify unit "McpCollectRunner schema is valid"
+}
+
+type McpCollectSyntax "What a collector's syntax requests took" {
+  /// Source files parsed now.
+  parsed integer
+  /// Source files answered from the syntax cache.
+  cached integer
+  /// The bytes parsed now.
+  bytes  integer
 }
 
 type McpCollectPlan "What a writing collector's plan did to the project" {

@@ -108,6 +108,29 @@ pub struct RunnerResult {
     /// enabled, fails with E045 instead.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skip_reason: Option<String>,
+    /// What its `specforge:host/syntax` requests took (ADR 0353 D7): absent for a collector that parsed nothing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub syntax: Option<SyntaxWork>,
+}
+
+/// The syntax work of one collector's call (ADR 0353 D7): source files parsed now, files answered from the syntax
+/// cache, and the bytes parsed now.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Shape)]
+pub struct SyntaxWork {
+    pub parsed: usize,
+    pub cached: usize,
+    pub bytes: u64,
+}
+
+impl SyntaxWork {
+    /// What `work` says to a collect, `None` when it read no file.
+    fn of(work: specforge_source::SyntaxWork) -> Option<Self> {
+        (work.parsed + work.cached > 0).then_some(SyntaxWork {
+            parsed: work.parsed,
+            cached: work.cached,
+            bytes: work.bytes,
+        })
+    }
 }
 
 impl RunnerResult {
@@ -124,6 +147,7 @@ impl RunnerResult {
             facts: 0,
             plan: None,
             skip_reason: Some(why),
+            syntax: None,
         }
     }
 }
@@ -275,6 +299,8 @@ pub fn collect(
         .collect::<Result<Vec<_>, OpError>>()?;
     approval::settle_runs(view, &planned, asking, consent, &mut unsaved_approvals)?;
     let mut served = order::Served::new(root, containment, &available);
+    // The syntax cache writes that failed, over every collector: W200 once.
+    let mut unwritten = 0;
     for (collector, source) in planned {
         let Evidence {
             files,
@@ -316,8 +342,13 @@ pub fn collect(
             }
             failed
         })?;
+        let mut syntax = None;
         if let Some(lent) = lent {
             diagnostics.extend(lent.take_denials());
+            let work = lent.take_syntax_work();
+            unwritten += work.unwritten;
+            syntax = SyntaxWork::of(work);
+            diagnostics.extend(syntax.map(|work| read_syntax(collector, work)));
         }
         let (by_convention, diags) = convention::resolve(&collected.unlinked, known);
         diagnostics.extend(diags);
@@ -371,7 +402,11 @@ pub fn collect(
             facts: stored,
             plan: None,
             skip_reason: None,
+            syntax,
         });
+    }
+    if unwritten > 0 {
+        diagnostics.push(unwritable_cache(unwritten));
     }
 
     // An entry no collect touched for its age goes; a prune that cannot remove one only keeps it longer.
@@ -403,6 +438,33 @@ pub fn collect(
         plans,
         facts,
     })
+}
+
+/// I214: what `collector`'s syntax requests read (ADR 0353 D7).
+fn read_syntax(collector: &Collector, work: SyntaxWork) -> Diagnostic {
+    Diagnostic::new(
+        codes::I214,
+        format!(
+            "collector '{}' read {} source files: {} parsed, {} from the syntax cache",
+            collector.name,
+            work.parsed + work.cached,
+            work.parsed,
+            work.cached
+        ),
+    )
+}
+
+/// W200: the syntax cache did not take `unwritten` parsed files (ADR 0353 D7).
+fn unwritable_cache(unwritten: usize) -> Diagnostic {
+    let dir = specforge_source::CACHE_DIR;
+    Diagnostic::new(
+        codes::W200,
+        format!(
+            "the syntax cache at {dir} could not be written for {unwritten} parsed files: the next collect parses \
+             them again"
+        ),
+    )
+    .with_suggestion(format!("make {dir} writable, or remove what is in its way"))
 }
 
 /// The field of a collect request a refusal can be about (ADR 0072).

@@ -2437,6 +2437,23 @@ Owner: core
 Level: info
 ```
 
+## I214
+
+```
+I214: A collector's syntax work
+
+`specforge collect` called a collector that asked the host to parse source files
+through `specforge:host/syntax` (ADR 0345), and says what that took (ADR 0353
+D7): how many source files it read, how many were parsed now and how many were
+answered from the syntax cache (`.specforge/cache/syntax`, keyed by grammar,
+query and file digest). Once per collector that read a file; the same counts are
+its `syntax` in `specforge collect --format json`. A second collect of an
+unchanged tree parses none. Nothing is wrong with the project.
+
+Owner: core
+Level: info
+```
+
 ## I999
 
 ```
@@ -4680,6 +4697,24 @@ kind along its `scoped_by` chain declares `complete_when`, so no owner state
 decides it. The gate is dropped and the field's checks run on every value, as if
 it declared none; nothing is lost. Declare a check on the field, or
 `complete_when` on its kind or a scope ancestor, and rebuild the extension.
+
+Owner: core
+Level: warning
+```
+
+## W200
+
+```
+W200: The syntax cache cannot be written
+
+`specforge collect` parsed source files for a collector (ADR 0345) and could not
+write some of their answers to the syntax cache at `.specforge/cache/syntax`
+(ADR 0353 D7): a file is in the way of its directory, or the directory is
+read-only or full. The collect's facts are stored as usual, but the next collect
+parses those files again instead of reading them from the cache, so it is as
+slow as a first one. Reported once per collect, with how many parsed files were
+not cached. Make `.specforge/cache/syntax` writable, or remove what is in its
+way.
 
 Owner: core
 Level: warning

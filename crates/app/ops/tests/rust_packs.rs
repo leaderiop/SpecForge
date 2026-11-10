@@ -348,3 +348,85 @@ fn a_test_naming_a_behavior_is_its_anchor() {
     let anchor = &found.implementations[1];
     assert!(anchor.end_line >= anchor.line, "{anchor:?}");
 }
+
+/// The syntax work `collector` reported in `outcome`: (parsed, cached), (0, 0) for none.
+fn syntax(outcome: &Outcome, collector: &str) -> (usize, usize) {
+    let runner = outcome
+        .runners
+        .iter()
+        .find(|r| r.name == collector)
+        .unwrap();
+    runner
+        .syntax
+        .map_or((0, 0), |work| (work.parsed, work.cached))
+}
+
+/// The messages of `outcome`'s diagnostics with `code`.
+fn said(outcome: &Outcome, code: &str) -> Vec<String> {
+    outcome
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == code)
+        .map(|d| d.message.clone())
+        .collect()
+}
+
+/// The fixture's Rust files `@rust/source` reads: its module tree from `src/lib.rs` and `src/main.rs`, and `tests/`.
+const READ: usize = 4;
+
+#[specforge_test_macros::test(
+    behavior = "dispatch_collector",
+    verify = "a second collect of an unchanged tree parses no file: each is read from the syntax cache"
+)]
+fn a_second_collect_parses_no_file() {
+    let p = fixture();
+    let first = collected(&p, None, &machine(None));
+    assert_eq!(syntax(&first, "rust-source"), (READ, 0));
+    assert_eq!(
+        said(&first, "I214"),
+        [format!(
+            "collector 'rust-source' read {READ} source files: {READ} parsed, 0 from the syntax cache"
+        )]
+    );
+    let second = collected(&p, None, &machine(None));
+    assert_eq!(syntax(&second, "rust-source"), (0, READ));
+    assert_eq!(syntax(&second, "rust-cargo"), (0, 0), "it parses no source");
+    assert_eq!(said(&second, "W200"), Vec::<String>::new());
+}
+
+#[specforge_test_macros::test(
+    behavior = "dispatch_collector",
+    verify = "a collect after one file's edit parses that file alone"
+)]
+fn one_edit_parses_one_file() {
+    let p = fixture();
+    collected(&p, None, &machine(None));
+    let ops = p.root().join("src/math/ops.rs");
+    let mut text = std::fs::read_to_string(&ops).unwrap();
+    text.push_str("// one edit\n");
+    std::fs::write(&ops, text).unwrap();
+    let edited = collected(&p, None, &machine(None));
+    assert_eq!(syntax(&edited, "rust-source"), (1, READ - 1));
+}
+
+#[specforge_test_macros::test(
+    behavior = "dispatch_collector",
+    verify = "a syntax cache that cannot be written is W200 once, and the next collect parses again"
+)]
+fn an_unwritable_syntax_cache_is_w200() {
+    let p = fixture();
+    // A file where the cache's directory goes: no entry can be written under it.
+    let cache = p.root().join(specforge_source::CACHE_DIR);
+    std::fs::create_dir_all(cache.parent().unwrap()).unwrap();
+    std::fs::write(&cache, "in the way").unwrap();
+    let first = collected(&p, None, &machine(None));
+    assert_eq!(
+        said(&first, "W200"),
+        [format!(
+            "the syntax cache at {} could not be written for {READ} parsed files: the next collect parses them again",
+            specforge_source::CACHE_DIR
+        )]
+    );
+    let second = collected(&p, None, &machine(None));
+    assert_eq!(syntax(&second, "rust-source"), (READ, 0));
+}

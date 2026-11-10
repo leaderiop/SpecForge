@@ -419,6 +419,9 @@ catalog! {
     I213: Info core,
         "Values wait for their owner",
         "Some values belong to fields whose checks wait for their owner (`checks_while: complete`, ADR 0350), and their owner is still pending: a path to a file the owner's work will create, say. Their owner is the entity's kind, or its nearest scope ancestor, that declares `complete_when`, read after the compute passes. No checker is called for them: each row says `planned`, only the written form of a path is read (E094, E095, W175), and nothing counts toward I206 or I207. One summary per compile counts them, by declared field path and how many values each holds. They are checked once their owner is complete; nothing is wrong with the project.";
+    I214: Info core,
+        "A collector's syntax work",
+        "`specforge collect` called a collector that asked the host to parse source files through `specforge:host/syntax` (ADR 0345), and says what that took (ADR 0353 D7): how many source files it read, how many were parsed now and how many were answered from the syntax cache (`.specforge/cache/syntax`, keyed by grammar, query and file digest). Once per collector that read a file; the same counts are its `syntax` in `specforge collect --format json`. A second collect of an unchanged tree parses none. Nothing is wrong with the project.";
     I999: Info core,
         "Diagnostic output truncated",
         "More diagnostics were produced than the 100-diagnostic display limit, so only the first batch is shown. Fix the listed diagnostics and rerun the compiler to see the rest.";
@@ -722,6 +725,9 @@ catalog! {
     W199: Warning core,
         "Owner gate refused",
         "A field declares `checks_while` (ADR 0350), whether its checks wait for its holder's owner, and the registry cannot honour it: the word is neither `complete` nor `pending`, the field declares no check, or neither its kind nor a kind along its `scoped_by` chain declares `complete_when`, so no owner state decides it. The gate is dropped and the field's checks run on every value, as if it declared none; nothing is lost. Declare a check on the field, or `complete_when` on its kind or a scope ancestor, and rebuild the extension.";
+    W200: Warning core,
+        "The syntax cache cannot be written",
+        "`specforge collect` parsed source files for a collector (ADR 0345) and could not write some of their answers to the syntax cache at `.specforge/cache/syntax` (ADR 0353 D7): a file is in the way of its directory, or the directory is read-only or full. The collect's facts are stored as usual, but the next collect parses those files again instead of reading them from the cache, so it is as slow as a first one. Reported once per collect, with how many parsed files were not cached. Make `.specforge/cache/syntax` writable, or remove what is in its way.";
     W201: Warning core,
         "A collector's facts input served nothing",
         "A collector declares a `facts` input (ADR 0345 D3) naming a kind, and it was served no fact of that kind: no collector of this collect answers the kind (`specforge collect --runner` runs only the collectors it names, and detection may skip one), and no store the harness ledger records holds a fact of it. The collector runs on an empty input, so what it derives from those facts is missing. The message names the collector, the kind and the declared collectors that answer it, or says no loaded collector does. Collect with them first (`specforge collect --runner <name>`), or run `specforge collect` without `--runner`; with none, load the extension whose collector answers the kind.";

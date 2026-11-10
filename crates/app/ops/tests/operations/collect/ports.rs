@@ -237,13 +237,13 @@ fn a_ports_collector_parses_through_syntax_and_its_work_is_on_the_call() {
     };
     assert_eq!((answer.parsed, answer.cached), (2, 0));
     assert_eq!(names(answer, 0), ["alpha", "beta"]);
-    // What the parse found broken is noted on the call, and reported once.
+    // What the parse found broken is noted on the call, and reported once, beside the collector's syntax work.
     let noted: Vec<&str> = outcome
         .diagnostics
         .iter()
         .map(|d| d.code.as_str())
         .collect();
-    assert_eq!(noted, ["I211"], "{:?}", outcome.diagnostics);
+    assert_eq!(noted, ["I211", "I214"], "{:?}", outcome.diagnostics);
     assert!(outcome.diagnostics[0].message.contains("`src/broken.rs`"));
 }
 

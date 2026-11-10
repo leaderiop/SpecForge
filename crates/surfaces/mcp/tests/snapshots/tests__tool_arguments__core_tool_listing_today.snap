@@ -9296,6 +9296,29 @@ expression: listing
               "skipped": {
                 "minimum": 0,
                 "type": "integer"
+              },
+              "syntax": {
+                "additionalProperties": false,
+                "properties": {
+                  "bytes": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "cached": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "parsed": {
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "parsed",
+                  "cached",
+                  "bytes"
+                ],
+                "type": "object"
               }
             },
             "required": [
