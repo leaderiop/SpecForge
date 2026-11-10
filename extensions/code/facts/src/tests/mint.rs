@@ -65,8 +65,9 @@ fn cases_of_one_id_keep_the_worst_status() {
     assert!(!facts[3].fields.contains_key("duration_ms"));
 }
 
+/// Two cases of one id take the union of their names in id order, not in the order their tags are written.
 #[test]
-fn merged_cases_take_the_union_of_their_names() {
+fn merged_cases_take_the_sorted_union_of_their_names() {
     let found = cases(
         r#"<testsuites><testcase name="adds [gsd:B] [gsd:A]"/><testcase name="adds [gsd:A] [gsd:C]"/></testsuites>"#,
     )
