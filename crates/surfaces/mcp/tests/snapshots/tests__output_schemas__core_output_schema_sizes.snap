@@ -34,7 +34,7 @@ specforge.render 262
 specforge.infer_progress 864
 specforge.infer_gaps 918
 specforge.infer_session 295
-specforge.find_implementation 502
-specforge.find_spec_for_source 642
+specforge.find_implementation 581
+specforge.find_spec_for_source 735
 specforge.prompt 283
-total 76743
+total 76915

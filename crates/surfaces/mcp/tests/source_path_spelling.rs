@@ -8,18 +8,26 @@ use specforge_test_macros::test as specforge_test;
 
 const LEAVES: &str = "a source file is named from the project root";
 
-/// A project with `src/lib.rs`, anchored to `alpha`.
+/// A project with `src/lib.rs`, whose collected item `alpha` names `alpha`.
 fn served() -> Served {
-    TestProject::new()
+    use specforge_project::testing::{item, naming, stored_items};
+    let project = TestProject::new()
         .file("test.spec", "behavior alpha \"Alpha\" {\n}\n")
-        .file("src/lib.rs", "pub fn alpha() {}\n")
-        .file(
-            "specforge-anchors.json",
-            json!({"version": 1, "anchors": [{"entity_id": "alpha", "file": "src/lib.rs",
-                   "line": 1, "symbol_name": "alpha", "item_kind": "fn", "scanner": "manual"}]})
-            .to_string(),
-        )
-        .serve(&[TestExtension::software()])
+        .file("src/lib.rs", "pub fn alpha() {}\n");
+    let alpha = item(
+        "rust:p::alpha",
+        "src/lib.rs",
+        1,
+        "function",
+        "public",
+        "alpha",
+    );
+    stored_items(
+        project.root(),
+        "rust-source",
+        vec![naming(alpha, &["alpha"])],
+    );
+    project.serve(&[TestExtension::software(), TestExtension::items()])
 }
 
 fn marked(server: &mut McpServer, source_file: &str) -> Value {

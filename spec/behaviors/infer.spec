@@ -218,18 +218,15 @@ behavior read_a_recorded_source_path "Read a Source-Code Path a Manifest Records
   features [infer_progress_tracking, infer_gap_analysis]
   category computation
   contract """
-    A source-code path a manifest records (an anchor's file in
-    specforge-anchors.json, an index entry's path or a source root in
-    specforge-infer.json) MUST be read from the project root into its key by
-    the reader a source-code path a request names is read by
+    A source-code path a manifest records (an index entry's path or a
+    source root in specforge-infer.json) MUST be read from the project root
+    into its key by the reader a source-code path a request names is read by
     (read_a_named_source_path): every spelling of one path is that path, its
     absolute path under the project root included, a .. applied where it
     stands. One whose key lies outside the project root, or that names
-    nothing, is no key: it covers no item, such an index entry is deleted and
-    such a source root is not walked; navigation still lists such an anchor,
-    matched by its text. Each recorded path is read once per operation.
+    nothing, is no key: such an index entry is deleted and such a source
+    root is not walked. Each recorded path is read once per operation.
   """
-  verify unit "an anchor recorded by its absolute path under the project root is that file"
   verify unit "an index entry recorded by its absolute path under the project root is that file"
   verify unit "a source root recorded by its absolute path under the project root is walked"
 }
@@ -340,14 +337,10 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
     project root is not counted. An item is covered when an authored
     entity (one of a kind no collector writes) cites it: a graph edge
     either way between them, so a .spec reference to the item or a name
-    the item's source gives the entity. It is covered as well when the
-    project's specforge-anchors.json anchors it, by its file (read as
-    read_a_recorded_source_path reads it) and its name, to an entity the
-    compiled graph declares. An entity that only shares an item's name
-    does not cover it. An anchor to an entity the graph does not declare
-    covers nothing. An anchors manifest that cannot be used is refused
-    with E071, as specforge.find_spec_for_source refuses it, before any
-    fact is read. Returns an InferenceGapReport with per-directory
+    the item's source gives the entity: an anchor, as the anchors read
+    view reads it (ADR 0349). An entity that only shares an item's name
+    does not cover it; a name the item gives that no entity declares links
+    nothing and covers nothing. Returns an InferenceGapReport with per-directory
     breakdowns including structured InferenceGap items (name, item_kind,
     file, line) and the collectors whose stores held the counted items.
     The report is approximate when the compile could not serve a fact
@@ -361,7 +354,6 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
   verify unit "with no project served, infer_gaps is the no-project refusal"
   verify unit "an item an anchor names for a declared entity is covered"
   verify unit "an anchored entity covers only the items its anchors name"
-  verify unit "an unusable anchors manifest refuses the gaps with E071"
   verify unit "every item find_spec_for_source anchors to a declared entity is no gap"
   verify unit "an anchor to an entity the graph does not declare covers nothing"
   verify unit "gaps never read source text: a public item only a string literal spells is no gap"
@@ -532,9 +524,10 @@ behavior provide_infer_file_scope "Provide Infer Prompt File Scope" {
   }
   contract """
     When specforge://prompts/infer is invoked with scope=file:<path>,
-    list the entities that belong to that source file under the one
-    file rule MCP navigation and the LSP share, with each one's kind,
-    line and symbol, and each kind's guide
+    list the entities anchored to the located facts of that source file
+    under the one file rule MCP navigation and the LSP share (the anchors
+    read view over the graph), with each one's kind, the fact, its lines
+    and the edge, and each kind's guide
     (compute_inference_guide). The list is the one
     specforge.find_spec_for_source returns for the same path; a file: path
     whose key lies outside the project root is the same refusal, on scope.

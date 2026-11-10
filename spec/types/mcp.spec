@@ -1306,11 +1306,18 @@ type McpImplementationResult "Mcp Implementation Result" {
 }
 
 type McpImplementation "Mcp Implementation" {
-  file        string
-  line        integer
-  symbol_name string
-  item_kind   string
-  scanner     string
+  /// The located fact the entity is anchored to.
+  fact_id   string
+  /// Its first place: a source file from the project root, its first and last lines.
+  file      string
+  line      integer
+  end_line  integer
+  /// What the fact's `kind` field lists (`function`, `struct, module`), else the fact's kind.
+  item_kind string
+  /// The collector whose store holds the fact.
+  collector string
+  /// The edge, `<holder kind>.<field>`: `item.names` when the fact names the entity.
+  via       string
   verify unit "McpImplementation schema is valid"
 }
 
@@ -1323,15 +1330,15 @@ type McpSpecForSourceResult "Mcp Spec For Source Result" {
 }
 
 type McpSpecForSourceEntity "Mcp Spec For Source Entity" {
-  entity_id   string @readonly
-  /// The entity's kind; absent when the graph does not have it.
-  kind        string @optional
-  file        string
-  line        integer
-  symbol_name string
-  item_kind   string
-  /// The anchor's confidence; absent when the manifest gives none.
-  confidence  float  @optional
+  entity_id string @readonly
+  kind      string
+  fact_id   string
+  file      string
+  line      integer
+  end_line  integer
+  item_kind string
+  collector string
+  via       string
   verify unit "McpSpecForSourceEntity schema is valid"
 }
 

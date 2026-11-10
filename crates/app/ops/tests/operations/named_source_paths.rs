@@ -154,20 +154,33 @@ fn a_marked_file_behind_a_link_that_leaves_is_refused_where_it_lands() {
     verify = "every spelling of a source-code path under the project root reads as its key"
 )]
 fn the_anchors_read_their_query_from_the_project_root() {
-    let project = project();
-    project.write(
-        "specforge-anchors.json",
-        json!({"version": 1, "anchors": [{"entity_id": "alpha", "file": "src/a.rs", "line": 1,
-               "symbol_name": "alpha", "item_kind": "fn", "scanner": "manual"}]})
-        .to_string(),
+    use specforge_project::testing::{ITEM_EXTENSIONS, item, items_runtime, naming, stored_items};
+    let project = specforge_project::testing::TestProject::new()
+        .enabling(&ITEM_EXTENSIONS)
+        .file("main.spec", "task alpha \"A\" {\n}\n")
+        .serving(items_runtime());
+    let fact = item(
+        "rust:p::alpha",
+        "src/a.rs",
+        1,
+        "function",
+        "public",
+        "alpha",
     );
-    let found = |query: &str| anchors_of_file(&project.view(), query).map(|f| f.match_mode);
+    stored_items(
+        project.root(),
+        "rust-source",
+        vec![naming(fact, &["alpha"])],
+    );
+    let compiled = project.compile();
+    let view = specforge_ops::view::ProjectView::of(&compiled);
+    let found = |query: &str| anchors_of_file(&view, query).map(|f| f.match_mode);
     let file = project.root().join("src/a.rs");
     let dir = project.root().join("src");
     assert_eq!(found(file.to_str().unwrap()).unwrap(), FileMatch::Exact);
     assert_eq!(found(dir.to_str().unwrap()).unwrap(), FileMatch::Directory);
     for outside in ["../x.rs", "/elsewhere/a.rs", ""] {
-        let refusal = anchors_of_file(&project.view(), outside).unwrap_err();
+        let refusal = anchors_of_file(&view, outside).unwrap_err();
         assert_eq!(
             refusal.subject,
             Some(FileAnchorsField::FilePath),

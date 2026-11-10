@@ -15,11 +15,11 @@ pub struct Args {
     entity_id: String,
 }
 
-/// `specforge.find_implementation`'s reply: the anchors read view's entity document (ADR 0140).
+/// `specforge.find_implementation`'s reply: the anchors read view's entity document (ADR 0349).
 pub use specforge_ops::read::navigate::EntityAnchors as Reply;
 
-/// The source items the anchors manifest anchors the entity to
-/// (`specforge_ops::read::navigate::anchors_of_entity`), in manifest order.
+/// The located facts the entity is anchored to, the anchors read view over the graph
+/// (`specforge_ops::read::navigate::anchors_of_entity`), by file and line.
 pub(crate) struct Tool;
 
 impl ArgumentOf<EntityField> for Tool {

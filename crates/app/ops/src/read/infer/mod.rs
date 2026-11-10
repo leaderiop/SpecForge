@@ -34,9 +34,8 @@ pub use guide::{
     KindGuideField, guide, kind_guide,
 };
 pub use items::ITEM_KIND;
-pub(crate) use items::item_name;
+pub(crate) use items::definition_kinds;
 pub use lint::lint;
-pub(crate) use manifest::read_manifest;
 pub use manifest::{
     InferenceManifest, InferenceSession, InferenceSummary, MANIFEST_FILENAME,
     MANIFEST_WRITE_FAILED, SessionStatus, SourceFileEntry,

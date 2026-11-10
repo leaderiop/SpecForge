@@ -129,7 +129,7 @@ impl Default for InferenceManifest {
 }
 
 /// Why a manifest inference keeps at the project root
-/// (`specforge-infer.json`, `specforge-anchors.json`) cannot be used.
+/// (`specforge-infer.json`) cannot be used.
 #[derive(Debug)]
 pub(crate) struct ManifestProblem {
     file: &'static str,
@@ -201,7 +201,7 @@ impl From<ManifestProblem> for OpError {
 /// project's own containment on every surface (a manifest only the bounded
 /// `infer_session` writes is never one the project wrote when it leaves the
 /// project: ADR 0112 D3), read once and parsed once.
-pub(crate) fn read_manifest<T: DeserializeOwned>(
+fn read_manifest<T: DeserializeOwned>(
     root: &Path,
     file: &'static str,
 ) -> Result<Option<T>, ManifestProblem> {

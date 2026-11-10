@@ -1,5 +1,5 @@
-//! Inference gaps over a served project: the public item facts the graph holds, covered by what cites them or
-//! anchors them (ADR 0199).
+//! Inference gaps over a served project: the public item facts the graph holds, covered by an anchor to an authored
+//! entity (ADR 0349).
 
 use crate::support::*;
 use serde_json::{Value, json};
@@ -12,28 +12,30 @@ const SPEC: &str = concat!(
     "behavior helper \"H\" {\n    contract \"c\"\n}\n",
 );
 
-const ANCHORS: &str = r#"{"version":1,"anchors":[
-{"entity_id":"compiled_project","file":"src/lib.rs","line":1,"symbol_name":"CompiledProject","item_kind":"struct","scanner":"rust-source"},
-{"entity_id":"compile_project","file":"src/lib.rs","line":2,"symbol_name":"compile_project","item_kind":"fn","scanner":"rust-source"}]}"#;
-
-/// `src/lib.rs`'s two public items.
+/// `src/lib.rs`'s two public items, each naming the behavior it implements.
 fn lib() -> Vec<Value> {
     vec![
-        item(
-            "rust:p::CompiledProject",
-            "src/lib.rs",
-            1,
-            "struct",
-            "public",
-            "CompiledProject",
+        naming(
+            item(
+                "rust:p::CompiledProject",
+                "src/lib.rs",
+                1,
+                "struct",
+                "public",
+                "CompiledProject",
+            ),
+            &["compiled_project"],
         ),
-        item(
-            "rust:p::compile_project",
-            "src/lib.rs",
-            2,
-            "function",
-            "public",
-            "compile_project",
+        naming(
+            item(
+                "rust:p::compile_project",
+                "src/lib.rs",
+                2,
+                "function",
+                "public",
+                "compile_project",
+            ),
+            &["compile_project"],
         ),
     ]
 }
@@ -50,13 +52,9 @@ fn other() -> Value {
     )
 }
 
-/// The project of `spec` serving the item fixtures and the software kinds, its `rust-source` store holding `facts`,
-/// with `anchors` as its anchors manifest.
-fn project(spec: &str, anchors: Option<&str>, facts: Vec<Value>) -> TestProject {
-    let mut project = TestProject::new().file("test.spec", spec);
-    if let Some(anchors) = anchors {
-        project = project.file("specforge-anchors.json", anchors);
-    }
+/// The project of `spec` serving the item fixtures and the software kinds, its `rust-source` store holding `facts`.
+fn project(spec: &str, facts: Vec<Value>) -> TestProject {
+    let project = TestProject::new().file("test.spec", spec);
     if !facts.is_empty() {
         stored_items(project.root(), "rust-source", facts);
     }
@@ -71,8 +69,8 @@ fn serve(project: TestProject) -> Served {
     ])
 }
 
-fn served(anchors: Option<&str>, facts: Vec<Value>) -> Served {
-    serve(project(SPEC, anchors, facts))
+fn served(facts: Vec<Value>) -> Served {
+    serve(project(SPEC, facts))
 }
 
 fn gaps(server: &mut Served) -> Value {
@@ -102,7 +100,7 @@ fn gap_items(server: &mut Served) -> Vec<(String, String)> {
     verify = "an item an anchor names for a declared entity is covered"
 )]
 fn an_item_an_anchor_names_for_a_declared_entity_is_covered() {
-    let mut server = served(Some(ANCHORS), lib());
+    let mut server = served(lib());
     let items = gap_items(&mut server);
     assert!(
         !items.contains(&("src/lib.rs".into(), "CompiledProject".into())),
@@ -117,7 +115,7 @@ fn an_item_an_anchor_names_for_a_declared_entity_is_covered() {
 fn an_anchored_entity_covers_only_the_items_its_anchors_name() {
     let mut facts = lib();
     facts.push(other());
-    let mut server = served(Some(ANCHORS), facts);
+    let mut server = served(facts);
     let items = gap_items(&mut server);
     assert!(
         items.contains(&("src/other.rs".into(), "compile_project".into())),
@@ -131,45 +129,22 @@ fn an_anchored_entity_covers_only_the_items_its_anchors_name() {
 
 #[specforge_test(
     behavior = "provide_mcp_infer_gaps_tool",
-    verify = "an unusable anchors manifest refuses the gaps with E071"
-)]
-fn an_unusable_anchors_manifest_refuses_the_gaps() {
-    let mut server = served(
-        Some(r#"{"version":1,"anchors":[{"entity_id":"x"}]}"#),
-        lib(),
-    );
-    let reply = call_tool(&mut server, "specforge.infer_gaps", json!({}));
-    let error = crate::tool_errors::mcp_error(&reply);
-    assert_eq!(error["code"], "schema_mismatch", "{error}");
-    assert_eq!(error["diagnostic"]["code"], "E071", "{error}");
-    assert!(
-        error["message"]
-            .as_str()
-            .unwrap()
-            .starts_with("failed to parse specforge-anchors.json: missing field `file`"),
-        "{error}"
-    );
-}
-
-#[specforge_test(
-    behavior = "provide_mcp_infer_gaps_tool",
     verify = "every item find_spec_for_source anchors to a declared entity is no gap"
 )]
 fn every_item_find_spec_for_source_anchors_to_a_declared_entity_is_no_gap() {
-    let anchors = r#"{"version":1,"anchors":[
-{"entity_id":"compiled_project","file":"./src/lib.rs","line":1,"symbol_name":"CompiledProject","item_kind":"struct","scanner":"s"},
-{"entity_id":"compile_project","file":"src/lib.rs","line":2,"symbol_name":"compile_project","item_kind":"fn","scanner":"s"},
-{"entity_id":"ghost","file":"src/lib.rs","line":3,"symbol_name":"Ghost","item_kind":"struct","scanner":"s"}]}"#;
     let mut facts = lib();
-    facts.push(item(
-        "rust:p::Ghost",
-        "src/lib.rs",
-        3,
-        "struct",
-        "public",
-        "Ghost",
+    facts.push(naming(
+        item(
+            "rust:p::Ghost",
+            "src/lib.rs",
+            3,
+            "struct",
+            "public",
+            "Ghost",
+        ),
+        &["ghost"],
     ));
-    let mut server = served(Some(anchors), facts);
+    let mut server = served(facts);
     let reply = call_tool(
         &mut server,
         "specforge.find_spec_for_source",
@@ -177,20 +152,14 @@ fn every_item_find_spec_for_source_anchors_to_a_declared_entity_is_no_gap() {
     );
     let anchored: Value = serde_json::from_str(&tool_text(&reply)).unwrap();
     let items = gap_items(&mut server);
-    let mut declared = 0;
     for entity in anchored["entities"].as_array().unwrap() {
-        let item = (
-            "src/lib.rs".to_string(),
-            entity["symbol_name"].as_str().unwrap().to_string(),
-        );
-        if entity.get("kind").is_some() {
-            declared += 1;
-            assert!(!items.contains(&item), "{item:?} in {items:?}");
-        } else {
-            assert!(items.contains(&item), "{item:?} not in {items:?}");
-        }
+        let name = entity["fact_id"].as_str().unwrap().rsplit("::").next();
+        let item = ("src/lib.rs".to_string(), name.unwrap().to_string());
+        assert!(!items.contains(&item), "{item:?} in {items:?}");
     }
-    assert_eq!(declared, 2, "{anchored}");
+    assert_eq!(anchored["count"], 2, "{anchored}");
+    // `ghost` names no entity: no anchor, a gap.
+    assert!(items.contains(&("src/lib.rs".to_string(), "Ghost".to_string())));
 }
 
 #[specforge_test(
@@ -207,7 +176,7 @@ fn a_same_named_entity_does_not_cover_an_item() {
         "public",
         "helper",
     ));
-    let mut server = served(Some(ANCHORS), facts);
+    let mut server = served(facts);
     assert_eq!(
         gap_items(&mut server),
         [("src/util.rs".to_string(), "helper".to_string())],
@@ -239,7 +208,7 @@ fn an_item_an_authored_entity_cites_is_covered() {
             "Plug",
         ),
     ];
-    let mut server = serve(project(&spec, None, facts));
+    let mut server = serve(project(&spec, facts));
     assert_eq!(
         gap_items(&mut server),
         [("src/net.rs".to_string(), "Plug".to_string())]
@@ -272,7 +241,7 @@ fn an_item_that_names_an_entity_is_covered() {
             "other",
         ),
     ];
-    let mut server = served(None, facts);
+    let mut server = served(facts);
     assert_eq!(
         gap_items(&mut server),
         [("src/lib.rs".to_string(), "other".to_string())]
@@ -310,7 +279,7 @@ fn an_item_no_other_package_may_name_is_no_gap() {
             "hidden",
         ),
     ];
-    let mut server = served(None, facts);
+    let mut server = served(facts);
     assert_eq!(gaps(&mut server)["total_pub_items"], 1);
     assert_eq!(
         gap_items(&mut server),
@@ -323,7 +292,7 @@ fn an_item_no_other_package_may_name_is_no_gap() {
     verify = "with no item facts, gaps count nothing and name no collector"
 )]
 fn with_no_item_facts_gaps_count_nothing() {
-    let mut server = served(None, Vec::new());
+    let mut server = served(Vec::new());
     let document = gaps(&mut server);
     assert_eq!(
         document,
@@ -337,7 +306,7 @@ fn with_no_item_facts_gaps_count_nothing() {
     verify = "the report is approximate when a fact store is not served"
 )]
 fn an_unserved_fact_store_makes_gaps_approximate() {
-    let project = project(SPEC, None, lib());
+    let project = project(SPEC, lib());
     // A store no specforge-harness line records: W191, its facts unserved.
     let ledger = project.root().join("specforge-harness");
     std::fs::remove_file(&ledger).unwrap();
@@ -352,46 +321,20 @@ fn an_unserved_fact_store_makes_gaps_approximate() {
     verify = "an anchor to an entity the graph does not declare covers nothing"
 )]
 fn an_anchor_to_an_entity_the_graph_does_not_declare_covers_nothing() {
-    let anchors = r#"{"version":1,"anchors":[
-{"entity_id":"ghost","file":"src/other.rs","line":1,"symbol_name":"Other","item_kind":"struct","scanner":"s"}]}"#;
-    let facts = vec![item(
-        "rust:p::Other",
-        "src/other.rs",
-        1,
-        "struct",
-        "public",
-        "Other",
+    let facts = vec![naming(
+        item(
+            "rust:p::Other",
+            "src/other.rs",
+            1,
+            "struct",
+            "public",
+            "Other",
+        ),
+        &["ghost"],
     )];
-    let mut server = served(Some(anchors), facts);
+    let mut server = served(facts);
     assert_eq!(
         gap_items(&mut server),
         [("src/other.rs".to_string(), "Other".to_string())]
     );
-}
-
-#[specforge_test(
-    behavior = "provide_mcp_infer_gaps_tool",
-    verify = "every item find_spec_for_source anchors to a declared entity is no gap"
-)]
-fn an_anchor_recorded_absolute_under_the_root_is_no_gap_where_find_spec_for_source_finds_it() {
-    let project = project(SPEC, None, lib());
-    let absolute = project.root().join("src/lib.rs");
-    let anchors = ANCHORS.replace(
-        "\"src/lib.rs\"",
-        &format!("{:?}", absolute.to_str().unwrap()),
-    );
-    let mut server = serve(project.file("specforge-anchors.json", &anchors));
-    let found = |server: &mut Served, path: &str| -> Value {
-        let reply = call_tool(
-            server,
-            "specforge.find_spec_for_source",
-            json!({"file_path": path}),
-        );
-        serde_json::from_str(&tool_text(&reply)).unwrap()
-    };
-    let file = found(&mut server, "src/lib.rs");
-    assert_eq!(file["match_mode"], "exact", "{file}");
-    assert_eq!(file["count"], 2, "{file}");
-    assert_eq!(found(&mut server, "src")["match_mode"], "directory");
-    assert_eq!(gap_items(&mut server), []);
 }

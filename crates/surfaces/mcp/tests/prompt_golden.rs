@@ -11,7 +11,7 @@ use crate::support::{Logged, agent_plan, events, logged};
 
 /// The project the prompts read: product, software and testing loaded,
 /// a four-hop chain `alpha - feat_login - beta - inv_session - delta`,
-/// `alpha` anchored to `src/login.rs`, and four source files.
+/// and four source files, none collected (no anchor).
 pub(crate) fn project() -> tempfile::TempDir {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
@@ -61,22 +61,6 @@ behavior delta "Delta" {
     for file in ["logout.rs", "session.rs", "lib.rs"] {
         std::fs::write(root.join("src").join(file), "pub fn stub() {}\n").unwrap();
     }
-    std::fs::write(
-        root.join("specforge-anchors.json"),
-        json!({
-            "version": 1,
-            "anchors": [{
-                "entity_id": "alpha",
-                "file": "src/login.rs",
-                "line": 1,
-                "symbol_name": "login",
-                "item_kind": "fn",
-                "scanner": "manual",
-            }],
-        })
-        .to_string(),
-    )
-    .unwrap();
     dir
 }
 

@@ -9735,6 +9735,16 @@ expression: listing
           "items": {
             "additionalProperties": false,
             "properties": {
+              "collector": {
+                "type": "string"
+              },
+              "end_line": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "fact_id": {
+                "type": "string"
+              },
               "file": {
                 "type": "string"
               },
@@ -9745,19 +9755,18 @@ expression: listing
                 "minimum": 0,
                 "type": "integer"
               },
-              "scanner": {
-                "type": "string"
-              },
-              "symbol_name": {
+              "via": {
                 "type": "string"
               }
             },
             "required": [
+              "fact_id",
               "file",
               "line",
-              "symbol_name",
+              "end_line",
               "item_kind",
-              "scanner"
+              "collector",
+              "via"
             ],
             "type": "object"
           },
@@ -9805,10 +9814,17 @@ expression: listing
           "items": {
             "additionalProperties": false,
             "properties": {
-              "confidence": {
-                "type": "number"
+              "collector": {
+                "type": "string"
+              },
+              "end_line": {
+                "minimum": 0,
+                "type": "integer"
               },
               "entity_id": {
+                "type": "string"
+              },
+              "fact_id": {
                 "type": "string"
               },
               "file": {
@@ -9824,16 +9840,20 @@ expression: listing
                 "minimum": 0,
                 "type": "integer"
               },
-              "symbol_name": {
+              "via": {
                 "type": "string"
               }
             },
             "required": [
               "entity_id",
+              "kind",
+              "fact_id",
               "file",
               "line",
-              "symbol_name",
-              "item_kind"
+              "end_line",
+              "item_kind",
+              "collector",
+              "via"
             ],
             "type": "object"
           },

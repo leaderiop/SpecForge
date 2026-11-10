@@ -3,7 +3,7 @@
 use super::*;
 
 /// A Rust project half-way through inference: `src/lib.rs` is indexed, `src/net/wire.rs` is not; a
-/// `rust-source` store holds their public items, and an anchor covers `alpha` by `behavior alpha`.
+/// `rust-source` store holds their public items, and `alpha`'s item names `behavior alpha`: its anchor covers it.
 fn infer_project(proj: &TestProject) {
     let root = proj.root();
     std::fs::create_dir_all(root.join("spec")).unwrap();
@@ -19,13 +19,16 @@ fn infer_project(proj: &TestProject) {
         "rust-source",
         specforge_project::testing::WORKTREE,
         json!([
-            item(
-                "rust:inf::alpha",
-                "src/lib.rs",
-                1,
-                "function",
-                "public",
-                "alpha"
+            specforge_project::testing::naming(
+                item(
+                    "rust:inf::alpha",
+                    "src/lib.rs",
+                    1,
+                    "function",
+                    "public",
+                    "alpha"
+                ),
+                &["alpha"]
             ),
             item(
                 "rust:inf::beta",
@@ -45,13 +48,6 @@ fn infer_project(proj: &TestProject) {
             ),
         ]),
     );
-    std::fs::write(
-        root.join("specforge-anchors.json"),
-        json!({"version": 1, "anchors": [{"entity_id": "alpha", "file": "src/lib.rs", "line": 1,
-               "symbol_name": "alpha", "item_kind": "function", "scanner": "rust-source"}]})
-        .to_string(),
-    )
-    .unwrap();
     std::fs::write(root.join("spec/a.spec"), MAIN_SPEC).unwrap();
     std::fs::write(
         root.join("src/lib.rs"),

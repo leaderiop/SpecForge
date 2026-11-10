@@ -3,6 +3,7 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
+mod anchors;
 mod asking;
 mod call_target;
 mod collect_machine;

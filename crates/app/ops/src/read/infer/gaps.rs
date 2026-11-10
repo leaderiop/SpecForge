@@ -47,13 +47,12 @@ pub struct SourceItem {
 }
 
 /// The public item facts of the view's graph under the inference manifest's source roots that nothing covers: no
-/// authored entity cites them and no anchor names them (the anchors read view's covered items, ADR 0199). No source
-/// file is read. Without a root: `no_project`; an inference or anchors manifest that cannot be used: E071.
+/// anchor ties them to an authored entity (the anchors read view's covered items, ADR 0349). No source file is read.
+/// Without a root: `no_project`; an inference manifest that cannot be used: E071.
 pub fn gaps(view: &ProjectView) -> Result<Gaps, OpError> {
     let root = view.project_root()?;
     let manifest = InferenceManifest::at(root)?;
-    // Before any fact is read: an anchors manifest that cannot be used refuses the gaps.
-    let covered = crate::read::navigate::CoveredItems::of(view)?;
+    let covered = crate::read::navigate::CoveredItems::of(view);
     let facts = item_facts(view, root, &manifest.source_roots);
     let served = facts.len();
     let items = facts

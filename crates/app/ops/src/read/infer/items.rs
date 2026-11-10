@@ -55,15 +55,21 @@ impl ItemFact<'_> {
 
     /// What its definitions are (`function`, `struct, module`), in the order its `kind` lists them.
     pub(crate) fn kinds(&self) -> String {
-        match self.node.fields.get(KIND) {
-            Some(FieldValue::List(items)) => items
-                .iter()
-                .map(|item| item.text.as_str())
-                .collect::<Vec<_>>()
-                .join(", "),
-            Some(FieldValue::Identifier(word) | FieldValue::String(word)) => word.clone(),
-            _ => String::new(),
-        }
+        definition_kinds(self.node)
+    }
+}
+
+/// What a fact's field named `kind` lists (`function`, `struct, module`), in its order, joined by `, `; empty when it
+/// has none (ADR 0349 D4).
+pub(crate) fn definition_kinds(node: &Node) -> String {
+    match node.fields.get(KIND) {
+        Some(FieldValue::List(items)) => items
+            .iter()
+            .map(|item| item.text.as_str())
+            .collect::<Vec<_>>()
+            .join(", "),
+        Some(FieldValue::Identifier(word) | FieldValue::String(word)) => word.clone(),
+        _ => String::new(),
     }
 }
 

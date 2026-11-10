@@ -287,7 +287,7 @@ fn stored(p: &TestProject) {
 
 #[specforge_test_macros::test(
     behavior = "provide_mcp_find_implementation_tool",
-    verify = "find_implementation lists every anchor of the entity, in manifest order"
+    verify = "find_implementation lists every anchor of the entity, by file and line"
 )]
 fn a_test_naming_a_behavior_is_its_anchor() {
     let p = fixture();
@@ -300,7 +300,44 @@ fn a_test_naming_a_behavior_is_its_anchor() {
     assert_eq!(anchors(&p).count, 0);
 
     stored(&p);
-    // Pinned: `tests::adds` names `rs_mark_tests` and the store serves it, yet the view reads only
-    // `specforge-anchors.json`, which nothing writes. The read over graph edges flips it to one row.
-    assert_eq!(anchors(&p).count, 0);
+    // `tests::adds` names `rs_mark_tests`: the edge of its item fact and of its test fact to the behavior are its
+    // anchors, both at the test fn.
+    let found = anchors(&p);
+    let rows: Vec<_> = found
+        .implementations
+        .iter()
+        .map(|a| {
+            (
+                a.fact_id.as_str(),
+                a.file.as_str(),
+                a.line,
+                a.item_kind.as_str(),
+                a.collector.as_str(),
+                a.via.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        rows,
+        [
+            (
+                "rust:adder#tests::adds",
+                "src/lib.rs",
+                14,
+                "test",
+                "rust-test",
+                "test.names"
+            ),
+            (
+                "rust:adder::tests::adds",
+                "src/lib.rs",
+                14,
+                "function",
+                "rust-source",
+                "item.names"
+            ),
+        ]
+    );
+    let anchor = &found.implementations[1];
+    assert!(anchor.end_line >= anchor.line, "{anchor:?}");
 }
