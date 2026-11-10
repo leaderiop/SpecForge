@@ -25,6 +25,8 @@ pub struct Commit {
     pub at: String,
     pub files: Vec<String>,
     pub created: Vec<String>,
+    /// The code items its diff changed, as gsd-git wrote them; empty when it named none or left the field unwritten.
+    pub items_changed: Vec<String>,
     pub insertions: i64,
     pub deletions: i64,
     /// The ids of the recorded commits of its plan it descends from; `None` when the collector wrote no ancestry.
@@ -102,6 +104,7 @@ pub fn commits(input: &PassInput) -> Vec<Commit> {
                     at: text(e, "at").unwrap_or_default().to_string(),
                     files: strings(e, "files"),
                     created: strings(e, "created"),
+                    items_changed: strings(e, "items_changed"),
                     insertions: number(e, "insertions"),
                     deletions: number(e, "deletions"),
                     // A written empty list is `""`, never absent (protocol 1.1.0).

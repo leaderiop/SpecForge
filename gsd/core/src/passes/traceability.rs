@@ -203,17 +203,27 @@ fn anchored_items(input: &PassInput) -> Vec<PassDiagnostic> {
     };
     // Each item's anchors: (a commit's, the anchoring entity, its plan); a task sorts before a commit.
     let mut anchors: BTreeMap<String, Vec<(bool, &str, &str)>> = BTreeMap::new();
-    for (kind, field, commit) in [("task", "items", false), ("commit", "items_changed", true)] {
-        for entity in of_kind(input, kind) {
-            let Some(plan) = link(input, entity, "plan") else {
-                continue;
-            };
-            for item in strings(entity, field) {
-                anchors
-                    .entry(item)
-                    .or_default()
-                    .push((commit, &entity.id, plan));
-            }
+    for task in of_kind(input, "task") {
+        let Some(plan) = link(input, task, "plan") else {
+            continue;
+        };
+        for item in strings(task, "items") {
+            anchors
+                .entry(item)
+                .or_default()
+                .push((false, &task.id, plan));
+        }
+    }
+    let recorded = commits(input);
+    for commit in &recorded {
+        let Some(plan) = commit.plan.as_deref() else {
+            continue;
+        };
+        for item in &commit.items_changed {
+            anchors
+                .entry(item.clone())
+                .or_default()
+                .push((true, &commit.id, plan));
         }
     }
     anchors
