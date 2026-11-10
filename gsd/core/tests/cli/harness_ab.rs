@@ -88,11 +88,12 @@ pub struct Signal {
     pub code: Option<String>,
     /// The entity the diagnostic is on; `None` counts it anywhere (a seeded commit, whose id is the seeding's).
     pub entity: Option<String>,
-    /// A trace row: the requirement `specforge trace <it> --partial` follows, and the text a line holds.
-    pub trace: Option<(String, String)>,
     pub count: usize,
     /// `seed`, or `complete` (after the task's completion edits).
     pub when: String,
+    /// Whether the defect's seed changes the test run (`run` in its seed): its signal must read the run, so its file
+    /// edits over the recorded run unchanged report none.
+    pub reruns: bool,
 }
 
 /// The `b_signals` of `task`.
@@ -104,13 +105,16 @@ pub fn signals(task: &str) -> Vec<Signal> {
         .as_array()
         .expect("b_signals")
         .iter()
-        .map(|row| Signal {
-            defect: text(row, "defect").expect("a defect"),
-            code: text(row, "code"),
-            entity: text(row, "entity"),
-            trace: text(row, "trace").map(|r| (r, text(row, "contains").expect("contains"))),
-            count: row["count"].as_u64().expect("a count") as usize,
-            when: text(row, "when").expect("when"),
+        .map(|row| {
+            let defect = text(row, "defect").expect("a defect");
+            Signal {
+                reruns: task["seeds"][&defect]["run"].is_object(),
+                defect,
+                code: text(row, "code"),
+                entity: text(row, "entity"),
+                count: row["count"].as_u64().expect("a count") as usize,
+                when: text(row, "when").expect("when"),
+            }
         })
         .collect()
 }
@@ -209,18 +213,10 @@ impl Project {
         succeeds(&self.collect(&["--runner", "gsd-git"]));
     }
 
-    /// What `signal` counts on the copy: lines of its trace that hold the text, or diagnostics of its code on its
-    /// entity (its `data.entity`, or quoted in its message).
+    /// What `signal` counts on the copy: diagnostics of its code on its entity (its `data.entity`, or quoted in its
+    /// message).
     pub fn signal(&self, signal: &Signal) -> usize {
-        if let Some((requirement, contains)) = &signal.trace {
-            let run = self.run(&["trace", requirement, "--partial"]);
-            return run
-                .stdout
-                .lines()
-                .filter(|l| l.contains(contains.as_str()))
-                .count();
-        }
-        let code = signal.code.as_deref().expect("a code or a trace");
+        let code = signal.code.as_deref().expect("a code");
         let run = self.run(&["check", "--format", "json"]);
         let found: serde_json::Value = serde_json::from_str(&run.stdout)
             .unwrap_or_else(|e| panic!("check prints JSON ({e}): {}", run.all()));
@@ -260,8 +256,9 @@ fn thread_defects() -> Vec<String> {
 
 /// Checks every `b_signals` row of `task` on arms B and B0: seeded and unseeded copies are collected and counted.
 /// On B a row counts `count` on the seeded copy and 0 on the unseeded one; a `complete` row counts 0 before the
-/// completion edits too. On B0 a thread row counts the same on both copies (the seed changes nothing it reports),
-/// and the others as on B.
+/// completion edits too; and a row whose seed changes the test run counts 0 on a seeded copy collected over the
+/// recorded run unchanged (the file edit alone). On B0 a thread row counts the same on both copies (the seed changes
+/// nothing it reports), and the others as on B.
 pub fn assert_signals(task: &str) {
     let rows = signals(task);
     let thread = thread_defects();
@@ -299,6 +296,27 @@ pub fn assert_signals(task: &str) {
             };
             seeded_copy.collect_seeded(task, true);
             unseeded_copy.collect_seeded(task, false);
+            let reruns: Vec<&Signal> = here.iter().copied().filter(|r| r.reruns).collect();
+            if arm == "B" && state == "seed" && !reruns.is_empty() {
+                match seeded(task, arm, &[]) {
+                    Ok(edited) => {
+                        edited.collect_seeded(task, false);
+                        for row in reruns {
+                            let got = edited.signal(row);
+                            if got != 0 {
+                                failures.push(format!(
+                                    "{arm} {} {:?}: {got} on its file edit alone, over the recorded run",
+                                    row.defect,
+                                    row.code.as_deref().unwrap_or_default()
+                                ));
+                            }
+                        }
+                    }
+                    Err(why) => {
+                        failures.push(format!("{arm} edit-only copy: seeding refused: {why}"))
+                    }
+                }
+            }
             for row in &here {
                 let got = (seeded_copy.signal(row), unseeded_copy.signal(row));
                 let wanted = if arm == "B0" && thread.contains(&row.defect) {
@@ -312,7 +330,7 @@ pub fn assert_signals(task: &str) {
                     failures.push(format!(
                         "{arm} {state} {} {:?}: (seeded, unseeded) = {got:?}, want {wanted:?}",
                         row.defect,
-                        row.code.as_deref().unwrap_or("trace")
+                        row.code.as_deref().unwrap_or_default()
                     ));
                 }
             }

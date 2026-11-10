@@ -69,23 +69,27 @@ copy of the fixture, never in the committed one.
 
 | Id | Defect | B's signal | When |
 |---|---|---|---|
-| S1 | a test that never ran: a summary or verdict claims a test that is not in the run | `code/E101` on the proof | `complete`: once the cited truth's plan is complete |
+| S1 | a test that never ran: a must-have or verdict claims a test that is not in the run | `code/E101` on the truth | `complete` on taskboard and ledger, whose cited truth is of the plan the run executes; `seed` on vault, whose cited truth's plan is already complete |
 | S2 | a requirement id that does not exist (`requirements [TASK-09]`) | `E003` | `seed` |
 | S3 | a status written ahead of the work: phase 02 marked complete before its plan ran | `E082` | `seed` |
 | S4 | a commit trailer naming a task that does not exist: `Gsd-Task: 01-01/T9` under GSD's subject `feat(01-01): <T1's title>` | `gsd/E521` on the commit (its task found by the subject's title, not by the trailer) | `seed`, after `collect` |
-| S5 | a truth verified over a failing proof | `gsd/E501` stale, shown in `trace` | `seed`, after `collect` |
+| S5 | a truth verified over a failing proof | `code/W401` on the truth: a complete entity links a failed test | `seed`, after `collect` |
 | S6 | a proof naming a deleted test | `code/E101` | `seed` |
 
 `tasks.json`'s `b_signals` is the data, per task: the code, the entity, the count and when, and `ab_seeds` is the
 proof: on a copy `seed.py` made, B reports each row's count where the unseeded copy of the same task reports none,
-and B0 reports none of the thread's (`"thread": true`: S1, S5, S6). `seed` means after seeding and a collect; `complete` means only
-after the task's `completion`, the edits a correct run leaves. S1's holder is a truth of the plan the run executes,
+and B0 reports none of the thread's (`"thread": true`: S1, S5, S6). A seed that changes the test run (S5 fails a
+test, S6 removes one: `run` in its seed) is also checked against its file edit alone: the seeded copy collected over
+the recorded run unchanged reports none of its row, so the signal reads the failed or missing test, not the edited
+file. `seed` means after seeding and a collect; `complete` means only after the task's `completion`, the edits a
+correct run leaves. S1's holder is a truth of the plan the run executes,
 and `@gsd/core` checks what a pending plan cites only once the plan completes: a run that ends with that plan still
 pending has no B signal for S1, and that is correct, since it did not claim the plan complete.
 
 A verdict goes stale when anything it read changes, the cited test file included: S5's and S6's edits to a test file
-stale the verdicts of every truth that file's tests prove. The signal is counted on the seeded entity, so a row still
-checks the truth it names; the other stale verdicts are the same on every arm's copy of the task.
+stale (`gsd/E501`) the verdicts of every truth that file's tests prove, the seeded truth's among them. That is
+context, not a signal in the table: it fires on a harmless edit to the file as well. The signal is counted on the
+seeded entity, so a row still checks the truth it names; the other stale verdicts are the same on every arm's copy.
 
 ## 6. Measures
 

@@ -55,7 +55,7 @@
       "id": "S5", "name": "a truth verified over a failing proof",
       "seed_a": "VERIFICATION.md marks a truth verified while its test fails",
       "seed_b": "a truth's verdict is verified while the test its proof cites fails",
-      "b_signal": "gsd/E501 stale, shown in trace",
+      "b_signal": "code/W401 on the truth whose proof cites the failed test",
       "thread": true
     },
     {
@@ -113,7 +113,7 @@
         }
       },
       "b_signals": [
-        { "defect": "S5", "code": "gsd/E501", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" },
+        { "defect": "S5", "code": "code/W401", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" },
         { "defect": "S6", "code": "code/E101", "entity": "v1.0/01/01-02/TR2", "count": 1, "when": "seed" }
       ],
       "acceptance": [
@@ -207,7 +207,7 @@
         }
       },
       "b_signals": [
-        { "defect": "S5", "trace": "SEC-01", "contains": "opens to what was sealed (failed)", "count": 1, "when": "seed" },
+        { "defect": "S5", "code": "code/W401", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" },
         { "defect": "S6", "code": "code/E101", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" }
       ],
       "acceptance": [
@@ -306,7 +306,7 @@
         }
       },
       "b_signals": [
-        { "defect": "S5", "code": "gsd/E501", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" },
+        { "defect": "S5", "code": "code/W401", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" },
         { "defect": "S6", "code": "code/E101", "entity": "v1.0/01/01-02/TR1", "count": 1, "when": "seed" }
       ],
       "acceptance": [
