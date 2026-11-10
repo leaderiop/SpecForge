@@ -164,11 +164,10 @@ fn a_withheld_log_reads_no_credential_with_its_pickaxe() {
 }
 
 /// A tracked file whose directory became a link to a place outside the repository: git reads it as gone (it never
-/// reads through a link a path leads under). A conflicted entry, which the status gives whatever the disk holds,
-/// is read through the link today.
+/// reads through a link a path leads under), a conflicted entry too, which the status gives whatever the disk holds.
 #[cfg(unix)]
 #[test]
-fn a_worktree_diff_reads_a_conflicted_file_through_a_linked_directory() {
+fn a_worktree_diff_reads_no_file_through_a_linked_directory() {
     let dir = tempfile::tempdir().unwrap();
     let outside = tempfile::tempdir().unwrap();
     std::fs::write(outside.path().join("a.txt"), "outside\n").unwrap();
@@ -194,9 +193,9 @@ fn a_worktree_diff_reads_a_conflicted_file_through_a_linked_directory() {
     let [file] = &files[..] else {
         panic!("one file: {files:?}");
     };
-    assert_eq!(file.status, DiffStatus::Modified);
+    assert_eq!(file.status, DiffStatus::Deleted);
     assert!(
-        file.patch.as_deref().unwrap().contains("+outside"),
+        !file.patch.as_deref().unwrap().contains("outside"),
         "{file:?}"
     );
 }

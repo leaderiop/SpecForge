@@ -3,16 +3,16 @@
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
-use specforge_effects::contained::withheld;
+use specforge_effects::contained::{RealFs, withheld};
 use specforge_effects::git::{
     DiffQuery, DiffSide, DiffStatus, GitCommit, GitFileDiff, GitPerson, GitPlace, Located,
     LogQuery, Sha,
 };
-use specforge_effects::{OutcomeClass, SharedGit};
+use specforge_effects::{EffectRequest, FsOp, FsRequest, OutcomeClass, SharedGit};
 use specforge_protocol_types::{
     FileSize, GitBlob, GitBlobs, GitChange, GitDiffAnswer, GitDiffHead, GitDiffQuery,
     GitFileChange, GitLogAnswer, GitLogCommit, GitLogQuery, GitRepo, GitSignature, GitStatus,
-    GitTrailer, GitTreeEntry, HostError,
+    GitTrailer, GitTreeEntry, HostError, Root,
 };
 
 use super::{NOT_A_REPOSITORY, PortSession, UNAVAILABLE, failed, out_of_scope};
@@ -243,7 +243,8 @@ impl PortSession {
     }
 
     /// A diff of the project's repository. A withheld file keeps its status and counts, never its patch nor its hunks;
-    /// past the answer's cap the files keep no text, and the answer says `truncated`.
+    /// past the answer's cap the files keep no text, and the answer says `truncated`. A worktree's text is the disk's:
+    /// a file the call's fs grant does not read is withheld from a worktree diff ([`Self::reads_on_disk`]).
     pub fn git_diff(&mut self, query: &GitDiffQuery) -> Result<GitDiffAnswer, HostError> {
         let base = query.base.as_deref().map(sha_of).transpose()?;
         let head = match &query.head {
@@ -273,8 +274,14 @@ impl PortSession {
         self.fits(names, "a diff's paths")?;
         let mut room = self.answer_cap - names;
         let mut answer = GitDiffAnswer::default();
+        let on_disk = query.head == GitDiffHead::Worktree;
         for file in files {
             let mut change = file_change(file);
+            if on_disk && !change.withheld && !self.reads_on_disk(&place.toplevel, &change.path) {
+                change.withheld = true;
+                change.patch = None;
+                change.hunks = None;
+            }
             let bytes = change.patch.as_ref().map_or(0, String::len) as u64
                 + change.hunks.as_ref().map_or(0, Vec::len) as u64 * 16;
             if answer.truncated || bytes > room {
@@ -287,6 +294,43 @@ impl PortSession {
             answer.files.push(change);
         }
         Ok(answer)
+    }
+
+    /// Whether this call's fs grant reads the file at `path` from the repository's top `top`, as an fs read of it would
+    /// be judged: a root of the call holds it, through every link on its way (a linked directory leading out of the
+    /// root does not), and the grant lets a read of it in that root. No denial is reported: the diff still names the
+    /// file, with its status and counts.
+    fn reads_on_disk(&self, top: &Path, path: &str) -> bool {
+        let Ok((kind, call)) = self.lent() else {
+            return false;
+        };
+        let at = top.join(path);
+        let roots = [Root::Project, Root::Spec].into_iter().chain(
+            call.roots
+                .named()
+                .map(|(name, _)| Root::Named(name.to_string())),
+        );
+        roots.into_iter().any(|root| {
+            let Some(base) = call.roots.get(&root) else {
+                return false;
+            };
+            let Some(rel) = at
+                .strip_prefix(base)
+                .or_else(|_| at.strip_prefix(RealFs::landing(base)))
+                .ok()
+                .map(posix)
+            else {
+                return false;
+            };
+            let request = |op| FsRequest {
+                root: root.to_string(),
+                path: rel.clone(),
+                op,
+            };
+            let read = EffectRequest::Fs(request(FsOp::Read { max_bytes: 0 }));
+            call.grant.permits(kind, &read).is_ok()
+                && call.fs.run(&call.roots, &request(FsOp::Stat)).class == OutcomeClass::Ok
+        })
     }
 
     /// A listing that has no way to say it was cut fails `capped` past the answer's cap.

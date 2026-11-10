@@ -232,7 +232,8 @@ interface git {
     hunks: bool,
     renames: bool,
   }
-  /// `withheld`: a file whose text is never handed to a guest; it has no patch and no hunks.
+  /// `withheld`: a file whose text this guest may not read (a withheld name, or a worktree file its fs grant does not
+  /// read); it has no patch and no hunks, its status and counts stay.
   record file-change {
     path: string,
     old-path: option<string>,
@@ -262,7 +263,8 @@ interface git {
   status: func() -> result<status-answer, host-error>;
   /// The log of the project's repository; a pickaxe never reads a withheld file.
   log: func(query: log-query) -> result<log-answer, host-error>;
-  /// A diff of the project's repository; a withheld file's text is never in it.
+  /// A diff of the project's repository; a withheld file's text is never in it, nor a worktree file's the fs grant
+  /// does not read.
   diff: func(query: diff-query) -> result<diff-answer, host-error>;
 }
 

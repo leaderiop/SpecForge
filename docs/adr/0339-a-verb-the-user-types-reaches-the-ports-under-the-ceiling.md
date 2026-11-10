@@ -334,7 +334,9 @@ path is held to the roots, the host's own state stays withheld.
   alternate outside every root refuses, whichever way the repository was found. `clone` opens its source exactly, with
   no upward search, so a nested project cannot copy the repository around it. **The cost:** `git init --separate-git-dir`
   and `git clone --reference` outside every root are refused until a machine root holds them. **Not judged:** a guest's git
-  port and the host's own reads (the hook's facts, a registry checkout), which read only the project's repository.
+  port and the host's own reads (the hook's facts, a registry checkout), which read only the project's repository. A
+  guest's diff against the worktree reads the disk, so its files' text is held to the guest's fs grant instead
+  ([ADR 0352](0352-gsd-git-reads-the-host-git-port-and-commits-name-their-items.md)).
 - **No verb writes into a `.git`.** `files copy hk .git/hooks/pre-commit`, then any commit, was code execution for a caller
   limited to the verbs, as was `git clone hk .git/hooks`. Every write a verb holds refuses a path with a `.git` component
   in any case, links resolved (`Verbs::located`), and a copy or move of a source named `.git` is refused too, since it

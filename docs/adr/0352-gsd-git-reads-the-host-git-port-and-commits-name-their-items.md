@@ -67,6 +67,14 @@ A log with no `max` lists every commit up to the call's answer cap and says `tru
 is refused. A diff of a withheld file keeps its status and counts, never its patch or hunks, and says `withheld`; the
 patches past the answer cap are dropped and the answer says `truncated`. A signature carries its epoch seconds.
 
+A diff whose head is the worktree reads the tracked files on disk, which the repository does not hold. Their text is
+the disk's, so it is judged as an fs read is: a file's patch and hunks reach a guest only when its fs grant reads that
+file, in a root of the call that holds it through every link on its way, as the fs port would resolve it. The git grant
+alone gives such a file its status and counts and says `withheld`, as `status` gives paths. gsd-git declares an fs
+`read` capability (`worktree`) for its forward diff. The adapter never reads a file under a directory that is a link:
+git reads such a file as gone, and so does the diff (a conflicted entry, which the status gives whatever the disk holds,
+included).
+
 ## Rejected
 
 - **Parsing each changed file at the commit and minting ids in `@gsd/core`** (a revision-capable syntax import): a

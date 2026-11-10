@@ -463,7 +463,14 @@ pub(crate) fn index_tree(
                 EntryStatus::Change(Change::Modification { .. } | Change::Type { .. })
                 | EntryStatus::Conflict { .. }
                 | EntryStatus::IntentToAdd => {
-                    let file = top.join(gix::path::from_bstr(rela_path.as_bstr()));
+                    let rela = gix::path::from_bstr(rela_path.as_bstr());
+                    if under_a_link(&top, &rela) {
+                        // as git reads it: gone, and never read through the link
+                        tree.remove(rela_path.as_bstr())
+                            .map_err(|e| failed("build a tree", &e))?;
+                        continue;
+                    }
+                    let file = top.join(rela);
                     let Some((kind, content)) = on_disk(&file, repo.object_hash()) else {
                         continue;
                     };
@@ -494,6 +501,22 @@ pub(crate) fn index_tree(
     tree.write()
         .map(|id| (id.detach(), unread))
         .map_err(|e| failed("build a tree", &e))
+}
+
+/// Whether a directory `rela` leads through under `top` is a link, or no directory at all: git reads a file there as
+/// gone, so no read follows a link in a path's parent out of the working tree. A status gives a conflicted or an
+/// intent-to-add entry whatever the disk holds, so the walk to it is checked here.
+// shortcut: checked before the open, so a local process swapping a directory for a link in between still leads the
+// read through it (a cloned repository cannot); upgrade to an openat walk when the workspace takes a libc dependency
+fn under_a_link(top: &Path, rela: &Path) -> bool {
+    let mut at = top.to_path_buf();
+    let Some(parent) = rela.parent() else {
+        return false;
+    };
+    parent.components().any(|part| {
+        at.push(part);
+        !std::fs::symlink_metadata(&at).is_ok_and(|meta| meta.is_dir())
+    })
 }
 
 /// What a worktree file gives a tree: its bytes, or, over [`BLOB_CAP`], only its blob id, hashed as it streams.

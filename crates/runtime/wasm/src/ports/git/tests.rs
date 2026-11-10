@@ -6,11 +6,11 @@ use std::path::Path;
 use std::sync::Arc;
 
 use specforge_effects::git::{DiffStatus, GitCommit, GitFileDiff, GitHunk, GitLog, GitPerson};
-use specforge_effects::testing::{self, FakeGit, MemoryConsent};
+use specforge_effects::testing::{self, FakeFs, FakeGit, MemoryConsent};
 use specforge_effects::{EffectJournal, Effects, EffectsCeiling, Grant, Ports, Provenance, Roots};
 use specforge_extension_sdk::prelude::{Capability, ContributionsBuilder, ExtensionMeta};
 use specforge_protocol_types::{
-    Denial, GitChange, GitDiffHead, GitDiffQuery, GitLogQuery, HostError, Operation,
+    Denial, FsAccess, GitChange, GitDiffHead, GitDiffQuery, GitLogQuery, HostError, Operation,
 };
 use specforge_test_macros::test as specforge_test;
 
@@ -261,19 +261,83 @@ fn a_guest_log_past_the_answer_cap_is_truncated() {
     assert_eq!(answer.count, Some(3), "the count still counts every commit");
 }
 
-/// A worktree diff reads the files on disk: a guest granted git reads but no fs read is handed their text today.
-#[test]
-fn a_guest_worktree_diff_hands_over_the_disk_without_an_fs_grant() {
+/// A collector's session of an extension granted git reads and, with `fs_read`, fs reads of the project, over `git`
+/// and `fs`.
+fn session_on_disk(git: &Arc<FakeGit>, fs: FakeFs, root: &Path, fs_read: bool) -> PortSession {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/a", "1.0.0"));
+    c.capability(Capability::git("repo").why("read the history"));
+    if fs_read {
+        c.capability(
+            Capability::fs("project")
+                .ops(&[FsAccess::Read])
+                .why("read the worktree"),
+        );
+    }
+    let roots = Roots::new(root, root);
+    let grant = Grant::decide(
+        &c.declaration(),
+        &Provenance::third_party(b"x"),
+        &EffectsCeiling::default(),
+        &roots,
+        &MemoryConsent::approving_everything(),
+    );
+    let ports = Ports {
+        git: Arc::clone(git) as _,
+        fs: Arc::new(fs),
+        ..testing::ports()
+    };
+    let effects = Effects::online(ports.clone(), EffectJournal::at(root));
+    let call = PortCall::new(effects, &ports, roots, grant, Vec::new());
+    PortSession::effectful("@t/a", Operation::Collect, Some(call), Limits::CEILING)
+}
+
+/// A worktree's text is the disk's: a guest reads it only where its fs grant reads the file, through every link on
+/// the way. Its git grant alone gives the file's status and counts.
+#[specforge_test(
+    behavior = "grant_a_host_port_call",
+    verify = "a guest diff never carries a worktree file's text its fs grant does not read"
+)]
+fn a_guest_worktree_diff_carries_the_text_its_fs_grant_reads() {
     let dir = tempfile::tempdir().unwrap();
-    let mut fake = FakeGit::repo(dir.path(), SHA, Vec::new());
-    fake.diffs = vec![file("src/a.js", DiffStatus::Modified)];
+    let root = dir.path().canonicalize().unwrap();
+    let outside = root.parent().unwrap().join("outside");
+    let mut fake = FakeGit::repo(&root, SHA, Vec::new());
+    fake.diffs = vec![
+        file("src/a.js", DiffStatus::Modified),
+        file("d/b.js", DiffStatus::Modified),
+    ];
     let git = Arc::new(fake);
-    let answer = session(&git, dir.path())
-        .git_diff(&GitDiffQuery {
-            head: GitDiffHead::Worktree,
-            ..diff_query()
-        })
+    let disk = || {
+        FakeFs::new()
+            .with_file(root.join("src/a.js"), "b\nc\n")
+            .with_file(outside.join("b.js"), "secret\n")
+            .with_link(root.join("d"), &outside)
+    };
+    let worktree = GitDiffQuery {
+        head: GitDiffHead::Worktree,
+        ..diff_query()
+    };
+    let texts = |answer: &specforge_protocol_types::GitDiffAnswer| -> Vec<(bool, bool)> {
+        answer
+            .files
+            .iter()
+            .map(|f| (f.withheld, f.patch.is_some() || f.hunks.is_some()))
+            .collect()
+    };
+    // git reads only: status and counts, no text
+    let answer = session_on_disk(&git, disk(), &root, false)
+        .git_diff(&worktree)
         .unwrap();
-    let source = &answer.files[0];
-    assert!(!source.withheld && source.patch.is_some() && source.hunks.is_some());
+    assert_eq!(texts(&answer), [(true, false), (true, false)]);
+    assert!(answer.files.iter().all(|f| (f.added, f.removed) == (2, 1)));
+    // fs reads of the project: the file in it, never the one a linked directory leads out to
+    let answer = session_on_disk(&git, disk(), &root, true)
+        .git_diff(&worktree)
+        .unwrap();
+    assert_eq!(texts(&answer), [(false, true), (true, false)]);
+    // a commit's text is the repository's: the git grant reads it
+    let answer = session_on_disk(&git, disk(), &root, false)
+        .git_diff(&diff_query())
+        .unwrap();
+    assert_eq!(texts(&answer), [(false, true), (false, true)]);
 }

@@ -238,7 +238,8 @@ pub struct GitFileChange {
     pub binary: bool,
     /// A side is over the host's blob cap (no lines are counted), or its patch was cut.
     pub truncated: bool,
-    /// Its text is never handed to a guest (ADR 0293 D3a): no patch and no hunks.
+    /// Its text is not handed to this guest: a withheld name (ADR 0293 D3a), or a worktree file its fs grant does not
+    /// read (ADR 0352). No patch and no hunks; its status and counts stay.
     pub withheld: bool,
     pub patch: Option<String>,
     pub hunks: Option<Vec<GitHunk>>,

@@ -84,6 +84,12 @@ impl LinkedBy {
 }
 
 pub fn declare(c: &mut ContributionsBuilder) {
+    // A worktree's text is the disk's: the git grant alone gives a diff against the worktree no line ranges.
+    c.capability(
+        Capability::fs("worktree").ops(&[FsAccess::Read]).why(
+            "carry the lines a commit wrote to where they are now, to name the items it changed",
+        ),
+    );
     c.collector(NAME, |k| {
         // Any repository: `.git` is a directory, or a linked worktree's file. An unborn one records nothing.
         k.detect_files(&[".git"])
