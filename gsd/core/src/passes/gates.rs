@@ -33,12 +33,7 @@ const GUARDS: &[(&str, &str, Check)] = &[
 pub fn declare(c: &mut ContributionsBuilder) {
     for (name, code, check) in GUARDS {
         c.pass(name, |p| {
-            let guard = p.guard().reports(&[code]);
-            // Only E515 reads the recorded tests.
-            if *code == "E515" {
-                guard.input(Input::Tests);
-            }
-            guard.run(*check);
+            p.guard().reports(&[code]).run(*check);
         });
     }
 }
@@ -266,7 +261,7 @@ fn w404(input: &PassInput) -> Vec<PassDiagnostic> {
 
 /// E515: each complete requirement of a phase in scope traces to a task, a commit and a passing test (gsd-plus).
 /// A task traces it when its plan names the requirement, it is not `manual`, a recorded commit names it, and the
-/// results linked to the task or the requirement, with the proofs of the truths that name the requirement (ADR 0331
+/// test facts linked to the task or the requirement, with the proofs of the truths that name the requirement (ADR 0331
 /// D5), hold a passed one and no failed one. Like a window, a requirement is outside a phase's path, so the diagnostic
 /// names the gate's subject.
 fn e515(input: &PassInput) -> Vec<PassDiagnostic> {

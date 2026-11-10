@@ -1,11 +1,10 @@
-//! The tests of an entity, read one way (ADR 0331 D5, amended): the test facts that name it (`@code/core`'s `test`,
-//! its `status`, whose `names` edge reaches it from a `[<ns>:<id>]` tag in the test's name), the results recorded for
-//! it (`[gsd:<id>]` tags, ADR 0312), the tests its verdict cites by fact id or name (ADR 0304) and, for a truth, its
-//! proof's test facts.
+//! The tests of an entity, read one way from `@code/core`'s test facts (kind `test`, its `status`) and the graph's
+//! edges (ADR 0331 D5, amended): the test facts that name an entity (an edge `names`, from a `[<ns>:<id>]` tag in the
+//! test's name), its proof's facts (a truth's `proof`), and the facts a check or a verdict names (a deliverable
+//! check's `ref`, a verdict's `cited_tests`: a fact's id, or `[file#]name`, ADR 0304). No report is read.
 //!
-//! "No test" has one meaning: a recorded run that links no passed or failed result to the entity. With no run at all
-//! (no report, or a report with no result in it, what the git collector writes, and no test fact) the evidence is
-//! `NotRun`, and each caller maps it once.
+//! "No test" has one meaning: test facts are collected and none links a passed or failed one to the entity. With no
+//! test fact at all the evidence is `NotRun`, and each caller maps it once.
 
 use specforge_extension_sdk::prelude::*;
 
@@ -14,12 +13,12 @@ pub(crate) mod fixture;
 #[cfg(test)]
 mod tests;
 
-/// What the recorded tests say of an entity.
+/// What the collected tests say of an entity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Evidence {
-    /// No test run is recorded.
+    /// No test fact is collected.
     NotRun,
-    /// A run is recorded, and none of the results given passed or failed.
+    /// Test facts are collected, and none of those given passed or failed.
     NoTest,
     /// One passed and none failed.
     Passed,
@@ -64,7 +63,7 @@ fn status(fact: &PassEntity) -> Option<TestStatus> {
     TestStatus::ALL.into_iter().find(|s| s.as_str() == text)
 }
 
-/// The recorded test results of one pass input.
+/// The test facts of one pass input.
 pub struct Thread<'a> {
     input: &'a PassInput,
 }
@@ -72,14 +71,6 @@ pub struct Thread<'a> {
 impl<'a> Thread<'a> {
     pub fn of(input: &'a PassInput) -> Self {
         Self { input }
-    }
-
-    fn results(&self) -> impl Iterator<Item = &'a TestResult> {
-        self.input
-            .test_results
-            .iter()
-            .flat_map(|report| report.results.values())
-            .flat_map(|recorded| &recorded.tests)
     }
 
     /// The test facts the input holds, with their status.
@@ -91,27 +82,14 @@ impl<'a> Thread<'a> {
             .filter_map(|e| Some((e, status(e)?)))
     }
 
-    /// A test run is recorded: the report holds at least one result, or the input holds a test fact.
+    /// A test run is recorded: the input holds a test fact with a status.
     pub fn ran(&self) -> bool {
-        self.results().next().is_some() || self.facts().next().is_some()
+        self.facts().next().is_some()
     }
 
-    /// `(name, status)` of each result linked to `id`: its tagged results, then the test facts that name it, then its
-    /// proof's facts, by id.
+    /// `(fact id, status)` of each test fact linked to `id`: those that name it, then its proof's.
     pub fn linked(&self, id: &str) -> Vec<(&'a str, TestStatus)> {
-        let mut linked: Vec<(&'a str, TestStatus)> = self
-            .input
-            .test_results
-            .as_ref()
-            .map(|report| {
-                report
-                    .of(id)
-                    .iter()
-                    .map(|t| (t.name.as_str(), t.status))
-                    .collect()
-            })
-            .unwrap_or_default();
-        linked.extend(self.naming(id));
+        let mut linked = self.naming(id);
         linked.extend(self.proof(id));
         linked
     }
@@ -144,7 +122,7 @@ impl<'a> Thread<'a> {
     }
 
     /// `(fact id, status)` of each test fact the `proof` of a truth whose `requirement` is `requirement` names: what
-    /// proves a requirement besides the results linked to it and its tasks (ADR 0331 D1, D5).
+    /// proves a requirement besides the facts linked to it and its tasks (ADR 0331 D1, D5).
     pub fn requirement_proofs(&self, requirement: &str) -> Vec<(&'a str, TestStatus)> {
         self.input
             .edges
@@ -160,48 +138,23 @@ impl<'a> Thread<'a> {
             .collect()
     }
 
-    /// The results of `id` named `reference` (a deliverable check's `ref`, GSD's `test/x.test.js#name`), and the
-    /// status of each test fact it names: by the fact's id, or as `[file#]name` (the first `#` ends the file: a test
-    /// name may hold one, `test/x.test.js#fixes #42`).
-    pub fn named(&self, id: &str, reference: &str) -> Vec<TestStatus> {
-        let reported: Vec<TestStatus> = self
-            .input
-            .test_results
-            .as_ref()
-            .map(|report| {
-                report
-                    .of(id)
-                    .iter()
-                    .filter(|t| t.name == reference)
-                    .map(|t| t.status)
-                    .collect()
-            })
-            .unwrap_or_default();
-        reported
-            .into_iter()
-            .chain(
-                self.facts()
-                    .filter(|(fact, _)| names_fact(fact, reference))
-                    .map(|(_, status)| status),
-            )
+    /// The status of each test fact `reference` names (a deliverable check's `ref`, GSD's `test/x.test.js#name`): by
+    /// the fact's id, or as `[file#]name` (the first `#` ends the file: a test name may hold one,
+    /// `test/x.test.js#fixes #42`).
+    pub fn named(&self, reference: &str) -> Vec<TestStatus> {
+        self.cited(std::slice::from_ref(&reference))
+    }
+
+    /// The status of each test fact one of `texts` names, as [`Thread::named`] reads a reference (a verdict's
+    /// `cited_tests`).
+    pub fn cited(&self, texts: &[impl AsRef<str>]) -> Vec<TestStatus> {
+        self.facts()
+            .filter(|(fact, _)| texts.iter().any(|text| names_fact(fact, text.as_ref())))
+            .map(|(_, status)| status)
             .collect()
     }
 
-    /// The results anywhere in the report whose name is one of `texts`, and the status of each test fact one of
-    /// them names as [`Thread::named`] reads a reference (a verdict's `cited_tests`).
-    pub fn cited(&self, texts: &[String]) -> Vec<TestStatus> {
-        self.results()
-            .filter(|t| texts.contains(&t.name))
-            .map(|t| t.status)
-            .chain(
-                self.facts()
-                    .filter(|(fact, _)| texts.iter().any(|text| names_fact(fact, text)))
-                    .map(|(_, status)| status),
-            )
-            .collect()
-    }
-
-    /// `NotRun` unless a run is recorded; then `Failed` if one of `statuses` failed, `Passed` if one passed, else
+    /// `NotRun` unless a test fact is collected; then `Failed` if one of `statuses` failed, `Passed` if one passed, else
     /// `NoTest`.
     pub fn evidence(&self, statuses: impl IntoIterator<Item = TestStatus>) -> Evidence {
         if !self.ran() {
@@ -217,7 +170,7 @@ impl<'a> Thread<'a> {
         }
     }
 
-    /// The evidence of the results recorded for `id`.
+    /// The evidence of the test facts linked to `id`.
     pub fn of_entity(&self, id: &str) -> Evidence {
         self.evidence(self.linked(id).into_iter().map(|(_, status)| status))
     }

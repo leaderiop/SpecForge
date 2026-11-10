@@ -410,9 +410,10 @@ impl Project {
     }
 
     /// `(code, message)` of every diagnostic of `specforge check --format json` (kernel and `gsd/`), in report order,
-    /// the `I204` note and the `I205` note ("no test report") left out: the compute pass reads the report, so every
-    /// project that has none says I205 once, and the tests of the rules are not about that. The `I213` note (values
-    /// that wait for their owner) is left out for the same reason: every project with a pending plan says it once.
+    /// the `I204` note and the `I205` note ("no test report") left out: `gsd/E501` reads the report through its
+    /// `test(..)` input, so every project that has none says I205 once, and the tests of the rules are not about that.
+    /// The `I213` note (values that wait for their owner) is left out for the same reason: every project with a
+    /// pending plan says it once.
     /// The judged rules' diagnostics (`no verdict`, `stale`, the outcome) are left out too: every plan, truth and so
     /// on of every fixture has one, and the tests of the other rules are not about them. [`Project::report_all`] has
     /// them, and the clean-report invariants and the judged tests use it.

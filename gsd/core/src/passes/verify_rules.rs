@@ -11,7 +11,7 @@
 //! E501 (`truth self`, `tests test(self.proof, self<test.names)`): a new or changed result of a test fact that names
 //! the truth or that its proof names stales the verdict first, so a recorded test never makes E502 appear. It appears
 //! only when a verifier records `verified` over results that contradict it, and that record is refused (E080 names
-//! it): the verifier records `failed` instead. Silent without a test run (no report, or one with no result, and no test fact: `passes::thread`).
+//! it): the verifier records `failed` instead. Silent without a test fact (`passes::thread`).
 //!
 //! Also ports gsd-core bin/lib modules: gate-verify-failure-directions.cjs.
 
@@ -27,7 +27,7 @@ const MAX_OVERRIDES: usize = 3;
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("verify_rules", |p| {
-        p.phase("check").input(Input::Tests).run(check);
+        p.phase("check").run(check);
     });
 }
 
@@ -91,9 +91,9 @@ fn check(input: &PassInput) -> Vec<PassDiagnostic> {
     found
 }
 
-/// Why recorded tests contradict a verdict on an explicit truth: a test recorded for it or its proof names, or one its
-/// fresh passing `gsd/E501` judgement cites by name (`cited_tests`, anywhere in the report), failed, or none passed. `None` for a
-/// backstop truth, without a report or without such a verdict. `derive` reads the same predicate (`verify.rs`).
+/// Why the test facts contradict a verdict on an explicit truth: one that names it or its proof names, or one its
+/// fresh passing `gsd/E501` judgement cites by id or name (`cited_tests`), failed, or none passed. `None` for a
+/// backstop truth, without a test fact or without such a verdict. `derive` reads the same predicate (`verify.rs`).
 pub(crate) fn contradicted(input: &PassInput, t: &PassEntity) -> Option<&'static str> {
     if text(t, "verification") != Some("explicit") {
         return None;
@@ -112,7 +112,7 @@ pub(crate) fn contradicted(input: &PassInput, t: &PassEntity) -> Option<&'static
 }
 
 /// E502: an explicit truth whose fresh passing E501 verdict stands over recorded tests that hold no passed result or a
-/// failed one. A backstop truth is never E502, and no report is no finding.
+/// failed one. A backstop truth is never E502, and no test fact is no finding.
 fn e502(input: &PassInput) -> Vec<PassDiagnostic> {
     of_kind(input, "truth")
         .filter_map(|t| {

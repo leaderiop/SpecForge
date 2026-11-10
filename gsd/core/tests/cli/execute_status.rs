@@ -132,15 +132,6 @@ fn actuals_and_key_files_come_from_commits_through_the_host() {
     assert!(fields.get("files_created").is_none(), "{fields}");
 }
 
-fn junit(p: &Project, testcases: &str) {
-    p.write(
-        "junit.xml",
-        &format!("<?xml version=\"1.0\"?>\n<testsuites>\n<testsuite name=\"s\">\n{testcases}\n</testsuite>\n</testsuites>\n"),
-    );
-    let run = p.collect(&["--runner", "gsd-junit", "--no-run"]);
-    assert_eq!(run.code, 0, "{}", run.all());
-}
-
 fn statuses(p: &Project) -> Vec<String> {
     p.fields_of(DELIVERABLE)["checks"]
         .as_array()
@@ -166,23 +157,6 @@ fn a_check_status_is_pass_fail_or_unknown_from_the_test_facts() {
     ]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(statuses(&p), ["pass", "fail", "unknown"]);
-}
-
-#[test]
-fn without_a_report_the_compile_says_i205_once_and_a_collect_that_records_a_test_silences_it() {
-    let p = project("execute");
-    let noted = |p: &Project| {
-        p.run(&["check", "--format", "json"])
-            .stdout
-            .matches("\"I205\"")
-            .count()
-    };
-    assert_eq!(noted(&p), 1);
-    // A collect that records no test writes no report: the note stays.
-    junit(&p, "<testcase name=\"unrelated\" classname=\"test\"/>");
-    assert_eq!(noted(&p), 1);
-    junit(&p, "<testcase name=\"[gsd:01-01/TR1] holds\"/>");
-    assert_eq!(noted(&p), 0);
 }
 
 #[test]

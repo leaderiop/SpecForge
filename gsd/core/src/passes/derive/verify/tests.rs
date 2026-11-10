@@ -475,7 +475,7 @@ fn the_scan_verifies_only_a_wired_key_link() {
     assert_eq!(state("artifact", Some("present")), Item::Unknown);
 }
 
-/// A phase of one verified truth of this `verification` tier, with these recorded results for it (`None`: no report).
+/// A phase of one verified truth of this `verification` tier, with these test facts naming it (`None`: no test fact).
 fn reported(tier: &str, results: Option<&[&str]>, extra: Vec<serde_json::Value>) -> Vec<PassValue> {
     let mut entities = vec![
         json!({ "id": V, "kind": "verification", "fields": { "phase": "v1.0/01" } }),
@@ -488,19 +488,22 @@ fn reported(tier: &str, results: Option<&[&str]>, extra: Vec<serde_json::Value>)
         "entities": entities,
         "edges": [{ "source": "v1.0/01/01-01", "target": "v1.0/01", "label": "phase" }],
     });
-    if let Some(statuses) = results {
-        let tests: Vec<_> = statuses
-            .iter()
-            .enumerate()
-            .map(|(n, status)| json!({ "name": format!("t{n}"), "status": status }))
-            .collect();
-        value["test_results"] = json!({ "results": { "v1.0/01/01-01/TR1": { "tests": tests } } });
-    }
     if let Some(all) = value["entities"].as_array_mut() {
         all.extend(extra);
     }
-    let input: PassInput =
+    let mut input: PassInput =
         serde_json::from_value(crate::passes::plans::with_field_edges(value)).expect("input");
+    for (n, status) in results.into_iter().flatten().enumerate() {
+        let name = format!("t{n}");
+        crate::passes::thread::fixture::add_test(
+            &mut input,
+            &format!("js:app/test/t.test.js#{name}"),
+            &name,
+            "test/t.test.js",
+            status,
+            &["v1.0/01/01-01/TR1"],
+        );
+    }
     run(&input)
 }
 

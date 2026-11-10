@@ -1,7 +1,7 @@
 //! The execute pass: `gsd/E401` (a summary's requirements are its plan's), `gsd/W403` (a `tdd` task has a RED commit
 //! before its GREEN one), `gsd/W407` (an executed task has a commit) and `gsd/W408` (a deliverable's checks pass, or a
 //! person judged it). `gsd/E402` is declarative (`rules.rs`) and `gsd/E405` is the schema-drift pass. The pass reads
-//! the test report only for the checks' computed status, so a project with no report is not judged on them.
+//! the checks' computed status, from the test facts; a project with no test fact is not judged on them.
 
 use std::collections::BTreeSet;
 
@@ -12,7 +12,7 @@ use super::plans::{children, name_of, of_kind, rows, text};
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("execute", |p| {
-        p.phase("check").input(Input::Tests).run(check);
+        p.phase("check").run(check);
     });
 }
 
@@ -183,7 +183,7 @@ fn task_commits(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic> {
 }
 
 /// W408, per deliverable: one that is not human-judged has checks and none failed or went unrun; one that is has a
-/// rationale. A check with no status (no report) is not judged: GSD's auto-pass rule (`summary.md:195`).
+/// rationale. A check with no status (no test fact) is not judged: GSD's auto-pass rule (`summary.md:195`).
 fn deliverables(input: &PassInput) -> Vec<PassDiagnostic> {
     of_kind(input, "deliverable")
         .filter_map(|d| {

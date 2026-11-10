@@ -362,8 +362,8 @@ fn every_guard_answers_a_gate_and_is_silent_on_a_write() {
 
 const TASK: &str = "v1.0/01/01-01/T1";
 
-/// A phase whose requirement R1 is complete, a plan that names it and this task; `tests` are the recorded results
-/// `(entity, status)`, `commit` whether a commit names the task.
+/// A phase whose requirement R1 is complete, a plan that names it and this task; `tests` are test facts
+/// `(entity it names, status)`, `commit` whether a commit names the task.
 fn traced(
     subject: Option<&str>,
     task_type: &str,
@@ -383,18 +383,22 @@ fn traced(
                               "fields": { "task": TASK, "at": "2026-10-29T10:00:00Z" } }),
         );
     }
-    let mut value = json!({ "entities": entities, "edges": [], "trigger": ship(subject) });
-    let mut results = serde_json::Map::new();
-    for (entity, status) in tests {
-        let recorded = results
-            .entry(entity.to_string())
-            .or_insert_with(|| json!({ "tests": [] }));
-        if let Some(all) = recorded["tests"].as_array_mut() {
-            all.push(json!({ "name": "t", "status": status }));
-        }
+    let value = json!({ "entities": entities, "edges": [], "trigger": ship(subject) });
+    let mut input: PassInput =
+        serde_json::from_value(crate::passes::plans::with_field_edges(value))
+            .expect("a pass input");
+    for (n, (entity, status)) in tests.iter().enumerate() {
+        let id = format!("js:app/test/t.test.js#t{n}");
+        crate::passes::thread::fixture::add_test(
+            &mut input,
+            &id,
+            &format!("t{n}"),
+            "test/t.test.js",
+            status,
+            &[entity],
+        );
     }
-    value["test_results"] = json!({ "results": results });
-    serde_json::from_value(crate::passes::plans::with_field_edges(value)).expect("a pass input")
+    input
 }
 
 #[test]

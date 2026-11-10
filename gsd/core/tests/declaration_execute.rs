@@ -345,6 +345,20 @@ fn the_git_collector_reads_the_git_port_and_writes_a_plan() {
     assert!(detect.repository && detect.file_patterns.is_empty());
 }
 
+/// The passes read `@code/core`'s test facts and the graph's edges (`passes::thread`), never the report a collector
+/// files: no pass declares the `tests` input, so a project without `specforge-report.json` is not told I205 by them.
+#[test]
+fn no_pass_reads_the_test_report() {
+    let readers: Vec<String> = MockHost::new(build())
+        .declaration()
+        .passes
+        .into_iter()
+        .filter(|p| p.inputs.contains(&specforge_extension_sdk::Input::Tests))
+        .map(|p| p.name)
+        .collect();
+    assert_eq!(readers, Vec::<String>::new());
+}
+
 #[test]
 fn the_model_has_the_collectors_it_builds() {
     let names: Vec<String> = MockHost::new(build())

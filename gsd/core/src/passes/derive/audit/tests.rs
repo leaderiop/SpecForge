@@ -138,10 +138,14 @@ fn a_validated_validation_with_green_rows_is_compliant() {
     let row = json!({ "id": "v1.0/01/01-VALIDATION/VR1", "kind": "validation_row",
         "fields": { "validation": "v1.0/01/01-VALIDATION", "task": "v1.0/01/01-01/T1" } });
     let mut found = input(vec![validation, task, row], false);
-    found.test_results = serde_json::from_value(json!({
-        "results": { "v1.0/01/01-01/T1": { "tests": [{ "name": "t", "status": "passed" }] } }
-    }))
-    .expect("a report");
+    crate::passes::thread::fixture::add_test(
+        &mut found,
+        "js:app/test/t.test.js#t",
+        "t",
+        "test/t.test.js",
+        "passed",
+        &["v1.0/01/01-01/T1"],
+    );
     let out = validation_values(&found);
     assert_eq!(
         value_of(&out, "v1.0/01/01-VALIDATION", "status"),

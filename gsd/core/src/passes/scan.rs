@@ -60,7 +60,6 @@ pub fn declare(c: &mut ContributionsBuilder) {
                 "wave0",
                 FileReadSpec::field("wave0_item.path"),
             ))
-            .input(Input::Tests)
             .run(compute);
     });
     c.pass("scan_check", |p| {
