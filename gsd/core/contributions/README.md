@@ -1,6 +1,6 @@
 # Contributions
 
-**Status: built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 15 hooks and the install goldens (r44, K20c), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the command-backed slash commands (five in r41, seven by r43), the 16 lifecycle prompts with the command `reference` (r42), and the remaining 27 prompts with the read-only command `smart_entry` (r43): every command `@gsd/core` owns is served.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
+**Status: built so far: the collector `gsd-git` (r38), the 15 hooks and the install goldens (r44, K20c), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the command-backed slash commands (five in r41, seven by r43), the 16 lifecycle prompts with the command `reference` (r42), and the remaining 27 prompts with the read-only command `smart_entry` (r43): every command `@gsd/core` owns is served.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
 (K8, K9). Generated from gsd-core 1.19.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
@@ -271,7 +271,6 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `phase`, `workstreams` (the slash commands `/gsd-phase`, `/gsd-workstreams`) | phase and workstream entities: add, insert, remove (renumbering), edit; create, complete, switch |
 | `record_verdict` (built, r40: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict` |
 | the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |
-| the `gsd-junit` collector (built, r38): `specforge collect --runner gsd-junit --no-run` | none: it records test results in `specforge-report.json`, which the derive pass reads |
 
 ## Agents
 

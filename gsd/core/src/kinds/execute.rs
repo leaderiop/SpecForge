@@ -89,7 +89,7 @@ const CHECKS: &[Field] = &[
 ];
 
 /// A `coverage:` item of a summary, named `D1` and scoped by it. Each check's `status` is a computed member: the
-/// derive pass reads it from the test report.
+/// derive pass reads it from `@code/core`'s test facts.
 pub const DELIVERABLE: Kind = Kind::new(
     "deliverable",
     "A thing a plan delivers and how it is checked (GSD SUMMARY coverage)",

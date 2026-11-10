@@ -1,6 +1,6 @@
 # Execution, results and state
 
-**Status: built (r38): the seven kinds below, `gsd/E401` to `gsd/E405` (E403 is `gsd/W403`), `gsd/W407` and `gsd/W408`, the computed values of execution (plan, task and check status, duration, actuals, key files) and the collectors `gsd-git` and `gsd-junit`. The session state is not modelled.**
+**Status: built (r38): the seven kinds below, `gsd/E401` to `gsd/E405` (E403 is `gsd/W403`), `gsd/W407` and `gsd/W408`, the computed values of execution (plan, task and check status, duration, actuals, key files) and the collector `gsd-git`; tests are `@code/core`'s test facts a runner pack collects. The session state is not modelled.**
 
 ```
  plan ─1──0..1─ summary ─1──*─ deliverable
@@ -56,11 +56,11 @@ GSD: a `coverage:` item. Name `D1`, scoped by the summary.
 `summary → summary R I`, `description str R`, `requirement → requirement`, `human_judgment bool R`,
 `rationale str` (required when `human_judgment`), `checks {kind enum{unit, integration, e2e, automated_ui, manual_procedural, other} R, ref str R, status enum{pass, fail, unknown} C}`.
 Each check's `status` is a **computed member** of an authored block: the derive pass lists it as `deliverable.checks.status`
-(`dsl::computed`), and a status written inside `checks` is E082. It is computed from the test report (K12: a compute pass
-that declares the `tests` input receives it): `fail` when a test named exactly its `ref` failed, `pass` when one passed, `unknown`
-when none was recorded, and no status without a report. Because the derive pass reads the report, a compile without
-`specforge-report.json` says I205 once. A check's `ref` is GSD's own coverage reference, `path#test name`
-(`test/tasks.test.js#adds a task`), or a test tagged with its entity (the test link, under commit below).
+(`dsl::computed`), and a status written inside `checks` is E082. It is computed from `@code/core`'s test facts (kind
+`test`, which a runner pack collects): `fail` when a test fact its `ref` names failed, `pass` when one passed, `unknown`
+when test facts are collected and none its `ref` names passed or failed, and no status while no test fact is collected.
+A check's `ref` is GSD's own coverage reference, `path#test name` (`test/tasks.test.js#adds a task`), or a test fact's
+id (the test link, under commit below).
 
 ## deviation
 
@@ -129,34 +129,26 @@ nothing, and the next run records the same commits. Merges are read for their pa
 Schema drift reads the subjects, and a milestone's `stats.loc` the line counts. `/gsd-undo` reads the commits of a plan or a
 phase from here instead of a manifest file.
 
-**Test link.** A test links to an entity two ways, and the JUnit collector (`gsd-junit`) does both.
-- A **tag** in the test's name, `[gsd:<id>]` (`[gsd:03-02/TR1] stays signed in`), links it to any entity. The id is a path,
-  a rooted path or a unique suffix; the collector resolves it over the graph as the host's `find` does. A tag that names
-  nothing, or several entities, links nothing.
-- A **coverage reference** links a deliverable's check, GSD's own test link (`gsd-core/templates/summary.md:59`): the check's
-  `ref` is `test/tasks.test.js#a task is added`, and a test named `a task is added` whose `file` attribute (made
-  project-relative by stripping the project root) is `test/tasks.test.js` proves it. A `ref` with an empty file part
-  (`#name`) matches on the name alone. The file part ends at the first `#`, so a test name may hold one (`fixes #42`). The result is recorded under the deliverable and named by the `ref` exactly, which
-  is what the derive pass looks a check's status up by.
-
-  Limits of the link, by design: a reporter that writes no `file` attribute (jest-junit and pytest by default) matches
-  only a `ref` with an empty file part; the root is stripped as the collector is given it, so a report written under a
-  symlinked root (`/tmp` and `/private/tmp`) does not link by file; a `time` that is negative, not a number or spelled
-  with a thousands separator gives no duration. A report cut inside a `<testcase>`, or that holds no `<testsuite>`, is
-  refused; a tag that names no entity, or several, lists the test as unlinked even when another tag linked it.
+**Test link.** Tests are `@code/core`'s test facts, which a runner pack collects (`@javascript/node-test` reads node's
+JUnit report: `specforge collect --runner node-test --no-run`, or `--report <file>`). A test fact links to an entity two
+ways, and the passes read both from the graph (`src/passes/thread.rs`):
+- A **tag** in the test's name, `[gsd:<id>]` (`[gsd:03-02/TR1] stays signed in`), is one of the fact's `names`, and the
+  graph links the fact to that entity by a `names` edge. The id is a path, a rooted path or a unique suffix, resolved
+  as any reference is; a tag that names nothing, or several entities, is a dangling name `@code/core` reports
+  (`code/I402`) and links nothing.
+- A **coverage reference** links a deliverable's check, GSD's own test link (`gsd-core/templates/summary.md:59`): the
+  check's `ref` is `test/tasks.test.js#a task is added`, and a test fact named `a task is added` whose project-relative
+  `file` is `test/tasks.test.js` proves it. A `ref` with an empty file part (`#name`), or none, matches on the name
+  alone, and a `ref` equal to a fact's id names that fact. The file part ends at the first `#`, so a test name may hold
+  one (`fixes #42`).
 
 `gsd-git` reads the whole log on every run (no `--since`): a repository of ten thousand commits costs seconds, and the
 port's answer cap and the host's 512 MB / 30 s guest limit are the bound (a log past one answer fails the collect).
 Control characters in a subject or path become U+FFFD, and a commit whose time is out of range is skipped and named in
 the plan's title. The host decides the repository; the guest names commits by id only.
 
-A test that links neither way is reported unlinked, for the host's naming convention (`entity_id__slug`, a module named
-after an entity), which cannot spell a scoped id. The collector has no command (GSD is language-agnostic) and reads the
-report the project's own test run wrote: `specforge collect --runner gsd-junit --no-run` (the declared report is
-`junit.xml` at the project root), or `--report <file>`. It declares `writes` only to be handed the graph and the project
-root: the host's `collect` keeps a full entity path and drops any other id as W115, so a collector that is given a short
-form resolves it itself. It answers results, never a plan. A report that stops short of its last tag is an error naming
-the file, not a smaller report.
+A test fact that links neither way is still a test fact: it counts for "a test ran" (a check no fact names is then
+`unknown`), and a verdict may cite it by id or by `file#name`.
 
 ## pause, handoff and blocker
 
