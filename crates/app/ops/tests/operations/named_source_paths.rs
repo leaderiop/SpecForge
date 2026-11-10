@@ -174,7 +174,9 @@ fn the_anchors_read_their_query_from_the_project_root() {
     );
     let compiled = project.compile();
     let view = specforge_ops::view::ProjectView::of(&compiled);
-    let found = |query: &str| anchors_of_file(&view, query).map(|f| f.match_mode);
+    let found = |query: &str| {
+        anchors_of_file(&view, query).map(|f| f.into_value_and_notices().0.match_mode)
+    };
     let file = project.root().join("src/a.rs");
     let dir = project.root().join("src");
     assert_eq!(found(file.to_str().unwrap()).unwrap(), FileMatch::Exact);

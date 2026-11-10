@@ -55,7 +55,7 @@ pub use gsd_writes::{
 };
 pub use items::{
     CITES, ITEM_EXTENSIONS, ITEMS, WORKTREE, declare_cites, declare_items, item, item_declarations,
-    item_node, items_over, items_runtime, naming, stored_items,
+    item_node, items_over, items_runtime, naming, stored_items, stored_items_with,
 };
 pub use judged::{
     CODE_CORE, GSD_JUDGED, GSD_JUDGED_SPEC, PLAN_CHECK_INPUTS, code_core_builder, code_core_tests,

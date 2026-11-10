@@ -4,7 +4,7 @@ use specforge_ops::read::navigate::{self, FileAnchorsField};
 
 use crate::args::Arguments;
 use crate::refusal::ArgumentOf;
-use crate::reply::Answered;
+use crate::reply::{Answer, Answered};
 use crate::target::ProjectRef;
 
 /// `specforge.find_spec_for_source`'s arguments.
@@ -43,6 +43,6 @@ impl CoreTool for Tool {
     fn call(project: ProjectRef<'_>, args: Args) -> Answered<Reply> {
         let found =
             navigate::anchors_of_file(&project.view(), &args.file_path).map_err(Self::refused)?;
-        Ok(found.into())
+        Ok(Answer::noticed(found))
     }
 }

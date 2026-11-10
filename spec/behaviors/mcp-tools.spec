@@ -605,9 +605,11 @@ behavior provide_mcp_find_implementation_tool "Provide MCP Find Implementation T
   category   query
   types      [McpImplementationResult, McpToolDescriptor]
   ensures {
-    anchors_listed  "every anchor of the entity, a graph edge either way to a located fact, by file and line"
-    empty_when_none "an entity with no anchor has no implementations"
-    unknown_refused "an id the graph does not declare is E003, with the closest entity id"
+    anchors_listed    "every anchor of the entity, a graph edge either way to a located fact, by file and line"
+    empty_when_none   "an entity with no anchor has no implementations"
+    unknown_refused   "an id the graph does not declare is E003, with the closest entity id"
+    nothing_collected "with no located fact served, the answer is empty with I212"
+    stale_noticed     "an anchor whose file changed since collect is listed, with one W198 for its file"
   }
   contract   """
     In MCP server mode, the system MUST register a
@@ -624,11 +626,16 @@ behavior provide_mcp_find_implementation_tool "Provide MCP Find Implementation T
     entity_id the graph does not declare is refused as find_definition
     refuses it: E003, entity_not_found on entity_id, with the closest
     entity id when one is close; a fact's id is invalid_input (its
-    anchors are its file's).
+    anchors are its file's). The reply's _meta.diagnostics carry I212
+    when the session serves no located fact, and one W198 per file of
+    the answer that no longer hashes to the digest its store recorded at
+    collect, or is gone; only the answer's files are hashed.
   """
   verify unit "find_implementation lists every anchor of the entity, by file and line"
   verify unit "an anchor is an edge either way: a fact naming the entity or the entity citing the fact"
   verify unit "an id the graph does not declare is refused with E003"
+  verify unit "an answer with no located fact served carries I212"
+  verify unit "a source file edited since collect gives one W198 and keeps its rows"
 }
 
 behavior provide_mcp_find_spec_for_source_tool "Provide MCP Find Spec For Source Tool" {
@@ -654,8 +661,9 @@ behavior provide_mcp_find_spec_for_source_tool "Provide MCP Find Spec For Source
     match); a path whose key lies outside the project root, or that names
     nothing, is refused as invalid_input on file_path. The tightest
     non-empty mode wins (exact, else directory, else suffix_path; none
-    when nothing matches). No source file is opened. The infer prompt's
-    file scope lists the same entities.
+    when nothing matches). No source file is opened to answer; the reply
+    carries find_implementation's I212 and W198 for the files it names.
+    The infer prompt's file scope lists the same entities and notices.
   """
   verify unit "the tightest match wins: exact, else under the directory, else ending with the path"
   verify unit "find_spec_for_source lists the anchors of every located fact the path names"

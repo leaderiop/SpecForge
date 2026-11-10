@@ -4,7 +4,7 @@ use specforge_ops::read::navigate;
 
 use crate::args::Arguments;
 use crate::refusal::ArgumentOf;
-use crate::reply::Answered;
+use crate::reply::{Answer, Answered};
 use crate::target::ProjectRef;
 use specforge_ops::view::EntityField;
 
@@ -45,6 +45,6 @@ impl CoreTool for Tool {
     fn call(project: ProjectRef<'_>, args: Args) -> Answered<Reply> {
         let found =
             navigate::anchors_of_entity(&project.view(), &args.entity_id).map_err(Self::refused)?;
-        Ok(found.into())
+        Ok(Answer::noticed(found))
     }
 }

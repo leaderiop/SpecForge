@@ -1493,13 +1493,15 @@ type McpInferGuideField "Mcp Infer Guide Field" {
 }
 
 type McpInferFileGuide "Infer prompt, scope file:<path>: what a source file already has" {
-  scope                              "file" @literal
-  file                               string @readonly
+  scope                              "file"       @literal
+  file                               string       @readonly
   match_mode                         "exact" | "directory" | "suffix_path" | "none"
   existing_entities_referencing_file McpSpecForSourceEntity[]
   kinds                              McpInferFileKind[]
   project_conventions                string
   validation                         string
+  /// What the anchors read noticed: I212 (nothing collected), W198 (a stale file); absent when nothing.
+  notices                            Diagnostic[] @optional
   verify unit "McpInferFileGuide schema is valid"
 }
 

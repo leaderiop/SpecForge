@@ -164,13 +164,23 @@ pub fn naming(mut item: Value, entities: &[&str]) -> Value {
 /// Write `collector`'s store of `facts` (each an [`item`]) under [`WORKTREE`] in the project at `root`, and the
 /// `specforge-harness` line that records it, as a collect leaves them.
 pub fn stored_items(root: &std::path::Path, collector: &str, facts: Vec<Value>) {
+    stored_items_with(root, collector, facts, Default::default());
+}
+
+/// [`stored_items`], the store recording `sources`, the digest of each file its places name, by key (ADR 0346 D2).
+pub fn stored_items_with(
+    root: &std::path::Path,
+    collector: &str,
+    facts: Vec<Value>,
+    sources: std::collections::BTreeMap<String, String>,
+) {
     super::collected::store_of(
         root,
         collector,
         ITEMS,
         WORKTREE,
         Value::Array(facts),
-        Default::default(),
+        sources,
     );
 }
 

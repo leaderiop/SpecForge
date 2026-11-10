@@ -117,3 +117,25 @@ fn find_spec_for_source_lists_the_entities_anchored_in_the_file() {
     );
     assert_eq!(found["match_mode"], "exact", "{found}");
 }
+
+#[specforge_test(
+    behavior = "provide_mcp_find_implementation_tool",
+    verify = "an answer with no located fact served carries I212"
+)]
+fn find_implementation_says_when_nothing_was_collected() {
+    let mut server = served(vec![]);
+    let reply = call_tool(
+        &mut server,
+        "specforge.find_implementation",
+        json!({"entity_id": "alpha"}),
+    );
+    let found: Value = serde_json::from_str(&tool_text(&reply)).unwrap();
+    assert_eq!(found["count"], 0, "{reply}");
+    let codes: Vec<&str> = reply["result"]["_meta"]["diagnostics"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no notices: {reply}"))
+        .iter()
+        .map(|d| d["code"].as_str().unwrap())
+        .collect();
+    assert_eq!(codes, ["I212"], "{reply}");
+}

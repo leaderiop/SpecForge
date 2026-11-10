@@ -2401,6 +2401,23 @@ Owner: core
 Level: info
 ```
 
+## I212
+
+```
+I212: No located facts to anchor to
+
+An anchors read (ADR 0349) answered over a session that serves no located fact:
+no fact a collector wrote carries a place in source, so no entity can be
+anchored to one and an empty answer says nothing about the entity or file asked.
+Said by the anchors read view, so by `specforge.find_implementation`,
+`specforge.find_spec_for_source`, the infer prompt's file scope and `specforge
+anchors`, once per answer; never by `check`. Load a source pack (`specforge add
+@rust/source`) and run `specforge collect`.
+
+Owner: core
+Level: info
+```
+
 ## I213
 
 ```
@@ -4627,6 +4644,25 @@ The places the store records in the rewritten files may be off by the rename's
 change of length. Run `specforge collect` to collect the facts again: it
 replaces the store and drops the stale line. A store collected after the rename
 is not stale: if it still names the old id, its collector's facts disagree.
+
+Owner: core
+Level: warning
+```
+
+## W198
+
+```
+W198: A source anchor is stale
+
+An anchors answer (ADR 0349) names a source file that no longer hashes to the
+digest its fact store recorded when `specforge collect` read it (ADR 0346 D2),
+or that is gone: the file was edited, by hand or by a rename, since the collect,
+so the lines its rows give may have moved. One per such file the answer names
+(only those are hashed); its rows are still listed. Said by the anchors read
+view, so by `specforge.find_implementation`, `specforge.find_spec_for_source`,
+the infer prompt's file scope, `specforge anchors` and the editor's source
+lenses; never by `check`, which hashes no source file. Run `specforge collect`
+again.
 
 Owner: core
 Level: warning

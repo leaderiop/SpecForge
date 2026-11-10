@@ -2,6 +2,7 @@
 //! code, by scope.
 
 use serde::Serialize;
+use specforge_common::DiagnosticList;
 use specforge_common::shape::Shape;
 use specforge_ops::read::infer::{self, InferencePlanRequest, PlanDocument};
 use specforge_ops::read::navigate::{AnchoredEntity, FileAnchorsField, FileMatch, anchors_of_file};
@@ -152,6 +153,13 @@ pub struct FileScope {
     pub kinds: Vec<FileKind>,
     pub project_conventions: String,
     pub validation: String,
+    /// What the anchors read noticed: I212 (nothing collected), W198 (a stale file); absent when nothing.
+    #[serde(skip_serializing_if = "no_notices")]
+    pub notices: DiagnosticList,
+}
+
+fn no_notices(notices: &DiagnosticList) -> bool {
+    notices.0.is_empty()
 }
 
 /// One kind's guide in a file scope.
@@ -246,7 +254,8 @@ fn get_file_scoped(project: &ProjectView, file_path: &str) -> Outcome {
     // The entities anchored to the file: the anchors read view's answer, the one
     // specforge.find_spec_for_source gives.
     let found = anchors_of_file(project, file_path)
-        .map_err(|refusal| Box::new(<Prompt as ArgumentOf<FileAnchorsField>>::refused(refusal)))?;
+        .map_err(|refusal| Box::new(<Prompt as ArgumentOf<FileAnchorsField>>::refused(refusal)))?
+        .document();
 
     let guide = infer::guide(project);
     let kinds = guide
@@ -265,6 +274,7 @@ fn get_file_scoped(project: &ProjectView, file_path: &str) -> Outcome {
         kinds,
         project_conventions: guide.conventions.unwrap_or("").to_string(),
         validation: validation(),
+        notices: found.notices,
     });
 
     let instruction = format!(

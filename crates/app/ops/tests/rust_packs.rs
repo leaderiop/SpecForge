@@ -294,15 +294,22 @@ fn a_test_naming_a_behavior_is_its_anchor() {
     let anchors = |p: &TestProject| {
         let compiled = p.compile();
         let view = specforge_ops::view::ProjectView::of(&compiled);
-        specforge_ops::read::navigate::anchors_of_entity(&view, "rs_mark_tests").unwrap()
+        let (found, notices) =
+            specforge_ops::read::navigate::anchors_of_entity(&view, "rs_mark_tests")
+                .unwrap()
+                .into_value_and_notices();
+        let codes: Vec<String> = notices.iter().map(|n| n.code.clone()).collect();
+        (found, codes)
     };
-    // Nothing collected yet: no anchor, and nothing says why.
-    assert_eq!(anchors(&p).count, 0);
+    // Nothing collected yet: no anchor, and I212 says there is nothing to anchor to.
+    let (found, codes) = anchors(&p);
+    assert_eq!((found.count, codes), (0, vec!["I212".to_string()]));
 
     stored(&p);
     // `tests::adds` names `rs_mark_tests`: the edge of its item fact and of its test fact to the behavior are its
-    // anchors, both at the test fn.
-    let found = anchors(&p);
+    // anchors, both at the test fn. The file is as the collect read it: no W198.
+    let (found, codes) = anchors(&p);
+    assert_eq!(codes, Vec::<String>::new());
     let rows: Vec<_> = found
         .implementations
         .iter()

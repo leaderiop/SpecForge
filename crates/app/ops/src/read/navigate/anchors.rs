@@ -5,16 +5,16 @@
 //! ([`CoveredItems`]) read it, as the language server does. MCP's `specforge.find_implementation`,
 //! `specforge.find_spec_for_source`, the infer prompt's file scope and `specforge anchors` render these documents.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use serde::Serialize;
 use specforge_common::shape::Shape;
-use specforge_common::{SourceSpan, Sym};
+use specforge_common::{Diagnostic, DiagnosticList, SourceSpan, Sym, codes};
 use specforge_graph::{Found, Graph, Node};
 
 use super::{FileMatch, match_file};
 use crate::view::{EntityField, ProjectView, not_found};
-use crate::{OpError, OpErrorKind, Refusal};
+use crate::{Noticed, OpError, OpErrorKind, Refusal};
 
 /// The field of a file query a refusal can be about.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,6 +35,27 @@ pub struct FileAnchors {
     /// The anchors of the tightest non-empty mode, by file, line, fact and `via`.
     pub entities: Vec<AnchoredEntity>,
     pub count: usize,
+}
+
+/// A file answer as a payload with no `_meta` carries it (the infer prompt's file scope, ADR 0111 D6): its match
+/// and rows, and its notices (I212, W198) beside them.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FileAnchorsDocument {
+    pub match_mode: FileMatch,
+    pub entities: Vec<AnchoredEntity>,
+    pub notices: DiagnosticList,
+}
+
+impl Noticed<FileAnchors> {
+    /// The answer and its notices, owned, for a payload that says them inside.
+    pub fn document(&self) -> FileAnchorsDocument {
+        let found = self.value();
+        FileAnchorsDocument {
+            match_mode: found.match_mode,
+            entities: found.entities.clone(),
+            notices: DiagnosticList::from(self.notices().to_vec()),
+        }
+    }
 }
 
 /// One entity anchored to a located fact of a source file (`McpSpecForSourceEntity`).
@@ -226,6 +247,63 @@ impl<'a> CoveredItems<'a> {
     }
 }
 
+/// What an anchors answer notices (ADR 0349 D5): I212 when the session serves no located fact, then W198 for each
+/// file of `files` that is stale ([`stale_anchor`]). Only `files`, the answer's, are read.
+fn noticed<'f, T>(
+    view: &ProjectView<'_>,
+    files: impl IntoIterator<Item = &'f str>,
+    value: T,
+) -> Noticed<T> {
+    let kinds = view.registries().kinds();
+    let mut notices = Vec::new();
+    let located = view
+        .graph()
+        .nodes()
+        .into_iter()
+        .any(|node| !node.located.is_empty() && kinds.is_collected(node.kind.raw.as_str()));
+    if !located {
+        notices.push(
+            Diagnostic::new(
+                codes::I212,
+                "the session serves no located fact, so nothing can be anchored: no collector's facts carry a place in source",
+            )
+            .with_suggestion("load a source pack (`specforge add @rust/source`) and run `specforge collect`"),
+        );
+    }
+    let files: BTreeSet<&str> = files.into_iter().collect();
+    notices.extend(
+        files
+            .into_iter()
+            .filter_map(|file| stale_anchor(view, file)),
+    );
+    Noticed::new(value, notices)
+}
+
+/// W198 when `file`, a key from the project root a located fact is placed in, no longer hashes to the digest its
+/// store recorded at collect (`CompiledProject::fact_sources`), or is gone; `None` when it still does, or when the
+/// view has no root. The file is read through the view's containment.
+pub fn stale_anchor(view: &ProjectView<'_>, file: &str) -> Option<Diagnostic> {
+    let root = view.root()?;
+    let recorded = view.project().fact_sources();
+    let current = view
+        .containment()
+        .read(&root.join(file))
+        .ok()
+        .map(|(_, bytes)| crate::revision::of_bytes(&bytes));
+    let said = match current {
+        Some(current) if recorded.get(file) == Some(&current.as_str()) => return None,
+        Some(_) => "changed since `specforge collect` read it",
+        None => "is gone since `specforge collect` read it",
+    };
+    Some(
+        Diagnostic::new(
+            codes::W198,
+            format!("'{file}' {said}: the lines its anchors give may have moved"),
+        )
+        .with_suggestion("run `specforge collect` again"),
+    )
+}
+
 /// How tight a match is: exact first, then under the query or ending with it.
 fn tightness(mode: FileMatch) -> u8 {
     match mode {
@@ -242,11 +320,12 @@ fn tightness(mode: FileMatch) -> u8 {
 /// absolute path under the root is that path, a `..` applied where it stands: [`ProjectView::source_root`], ADR
 /// 0253), then compared as text against each place's file, a key from the project root; one whose key lies outside
 /// the project root, or that names nothing, is `not_a_source_path`, about [`FileAnchorsField::FilePath`]. No file is
-/// opened. A view with no root is `no_project`.
+/// opened to answer; each file the answer names is hashed for W198, and I212 says no located fact is served
+/// ([`noticed`]). A view with no root is `no_project`.
 pub fn anchors_of_file(
     view: &ProjectView<'_>,
     file_path: &str,
-) -> Result<FileAnchors, Refusal<FileAnchorsField>> {
+) -> Result<Noticed<FileAnchors>, Refusal<FileAnchorsField>> {
     let query = view
         .source_root(file_path)
         .map_err(|error| error.about(FileAnchorsField::FilePath))?;
@@ -305,22 +384,24 @@ pub fn anchors_of_file(
             &b.entity_id,
         ))
     });
-    Ok(FileAnchors {
+    let files: Vec<String> = entities.iter().map(|row| row.file.clone()).collect();
+    let found = FileAnchors {
         file_path: file_path.to_string(),
         match_mode,
         count: entities.len(),
         entities,
-    })
+    };
+    Ok(noticed(view, files.iter().map(String::as_str), found))
 }
 
 /// The located facts `entity_id` is anchored to, one row per anchor at the fact's first place, by file, line, fact
 /// and `via`; none for an entity with no anchor. An id the graph does not declare is E003 (with a did-you-mean), one
 /// it declares more than once is ambiguous, and a fact's id is refused (`invalid_input`): its anchors are those of
-/// its file.
+/// its file. The answer's files are hashed for W198, and I212 says no located fact is served ([`noticed`]).
 pub fn anchors_of_entity(
     view: &ProjectView<'_>,
     entity_id: &str,
-) -> Result<EntityAnchors, Refusal<EntityField>> {
+) -> Result<Noticed<EntityAnchors>, Refusal<EntityField>> {
     let graph = view.graph();
     let refused = |error: OpError| Refusal::about(EntityField::EntityId, error);
     let id = match graph.find(entity_id) {
@@ -350,9 +431,11 @@ pub fn anchors_of_entity(
         .map(|edge| edge.row(edge.fact.place()))
         .collect();
     implementations.sort_by(|a, b| a.order().cmp(&b.order()));
-    Ok(EntityAnchors {
+    let files: Vec<String> = implementations.iter().map(|row| row.file.clone()).collect();
+    let found = EntityAnchors {
         entity_id: id.to_string(),
         count: implementations.len(),
         implementations,
-    })
+    };
+    Ok(noticed(view, files.iter().map(String::as_str), found))
 }

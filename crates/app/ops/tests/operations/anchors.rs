@@ -6,7 +6,7 @@ use serde_json::Value;
 use specforge_ops::read::navigate::{FileMatch, anchors_of_entity, anchors_of_file};
 use specforge_ops::view::ProjectView;
 use specforge_project::testing::{
-    ITEM_EXTENSIONS, TestProject, item, items_runtime, naming, stored_items,
+    ITEM_EXTENSIONS, TestProject, item, items_runtime, naming, stored_items, stored_items_with,
 };
 use specforge_test::prelude::*;
 
@@ -38,6 +38,8 @@ fn rows(project: &TestProject, entity: &str) -> Vec<(String, usize, String, Stri
     let compiled = project.compile();
     anchors_of_entity(&ProjectView::of(&compiled), entity)
         .unwrap()
+        .into_value_and_notices()
+        .0
         .implementations
         .into_iter()
         .map(|a| (a.file, a.line, a.fact_id, a.via))
@@ -85,7 +87,10 @@ fn find_implementation_lists_every_anchor_by_file_and_line() {
         ],
     );
     let compiled = project.compile();
-    let found = anchors_of_entity(&ProjectView::of(&compiled), "alpha").unwrap();
+    let found = anchors_of_entity(&ProjectView::of(&compiled), "alpha")
+        .unwrap()
+        .into_value_and_notices()
+        .0;
     assert_eq!(found.count, 3);
     let first = &found.implementations[0];
     assert_eq!(
@@ -163,7 +168,10 @@ fn find_spec_for_source_lists_the_anchors_of_the_located_facts_of_the_path() {
         ],
     );
     let compiled = project.compile();
-    let found = anchors_of_file(&ProjectView::of(&compiled), "src/a.rs").unwrap();
+    let found = anchors_of_file(&ProjectView::of(&compiled), "src/a.rs")
+        .unwrap()
+        .into_value_and_notices()
+        .0;
     let entities: Vec<(&str, &str, &str, &str)> = found
         .entities
         .iter()
@@ -203,7 +211,10 @@ fn the_tightest_match_wins() {
     );
     let compiled = project.compile();
     let found = |query: &str| {
-        let found = anchors_of_file(&ProjectView::of(&compiled), query).unwrap();
+        let found = anchors_of_file(&ProjectView::of(&compiled), query)
+            .unwrap()
+            .into_value_and_notices()
+            .0;
         let ids: Vec<String> = found.entities.iter().map(|e| e.fact_id.clone()).collect();
         (found.match_mode, ids)
     };
@@ -230,6 +241,95 @@ fn the_tightest_match_wins() {
     assert_eq!(found("c.rs").0, FileMatch::None);
 }
 
+/// The codes `entity`'s answer notices.
+fn notices(project: &TestProject, entity: &str) -> Vec<String> {
+    let compiled = project.compile();
+    let (_, notices) = anchors_of_entity(&ProjectView::of(&compiled), entity)
+        .unwrap()
+        .into_value_and_notices();
+    notices.into_iter().map(|n| n.code).collect()
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_find_implementation_tool",
+    verify = "an answer with no located fact served carries I212"
+)]
+fn nothing_collected_is_i212() {
+    let project = anchored(&[], vec![]);
+    assert_eq!(rows(&project, "alpha"), []);
+    assert_eq!(notices(&project, "alpha"), ["I212"]);
+    let compiled = project.compile();
+    let (found, said) = anchors_of_file(&ProjectView::of(&compiled), "src/a.rs")
+        .unwrap()
+        .into_value_and_notices();
+    assert_eq!(found.count, 0);
+    assert_eq!(said.len(), 1);
+    assert_eq!(said[0].code, "I212");
+    assert!(
+        said[0]
+            .suggestion
+            .as_deref()
+            .is_some_and(|s| s.contains("specforge collect")),
+        "{said:?}"
+    );
+    // A located fact served, even one nothing anchors, is something to anchor to.
+    let lone = anchored(&[], vec![at("rust:p::lone", "src/a.rs", 1)]);
+    assert!(!notices_of_file(&lone).contains(&"I212".to_string()));
+}
+
+/// The codes the answer for `src/a.rs` notices.
+fn notices_of_file(project: &TestProject) -> Vec<String> {
+    let compiled = project.compile();
+    let (_, notices) = anchors_of_file(&ProjectView::of(&compiled), "src/a.rs")
+        .unwrap()
+        .into_value_and_notices();
+    notices.into_iter().map(|n| n.code).collect()
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_find_implementation_tool",
+    verify = "a source file edited since collect gives one W198 and keeps its rows"
+)]
+fn an_edited_source_file_is_one_w198() {
+    let project = anchored(&[], vec![]);
+    let root = project.root();
+    let mut sources = std::collections::BTreeMap::new();
+    for (file, text) in [("src/a.rs", "fn a() {}\n"), ("src/b.rs", "fn b() {}\n")] {
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(root.join(file), text).unwrap();
+        sources.insert(
+            file.to_string(),
+            specforge_ops::revision::of_bytes(text.as_bytes()),
+        );
+    }
+    stored_items_with(
+        root,
+        "rust-source",
+        vec![
+            naming(at("rust:p::a", "src/a.rs", 1), &["alpha"]),
+            naming(at("rust:p::a2", "src/a.rs", 3), &["alpha"]),
+            naming(at("rust:p::b", "src/b.rs", 1), &["alpha"]),
+        ],
+        sources,
+    );
+    // As collected: no notice.
+    assert_eq!(notices(&project, "alpha"), Vec::<String>::new());
+
+    std::fs::write(root.join("src/a.rs"), "fn a() { 1 }\n").unwrap();
+    let compiled = project.compile();
+    let (found, said) = anchors_of_entity(&ProjectView::of(&compiled), "alpha")
+        .unwrap()
+        .into_value_and_notices();
+    assert_eq!(found.count, 3, "the stale file's rows are still listed");
+    assert_eq!(said.len(), 1, "{said:?}");
+    assert_eq!(said[0].code, "W198");
+    assert!(said[0].message.contains("'src/a.rs'"), "{said:?}");
+
+    // A file gone since the collect is stale too.
+    std::fs::remove_file(root.join("src/b.rs")).unwrap();
+    assert_eq!(notices(&project, "alpha"), ["W198", "W198"]);
+}
+
 #[test]
 fn an_edge_between_two_facts_is_no_anchor() {
     let project = anchored(
@@ -240,7 +340,10 @@ fn an_edge_between_two_facts_is_no_anchor() {
         ],
     );
     let compiled = project.compile();
-    let found = anchors_of_file(&ProjectView::of(&compiled), "src/a.rs").unwrap();
+    let found = anchors_of_file(&ProjectView::of(&compiled), "src/a.rs")
+        .unwrap()
+        .into_value_and_notices()
+        .0;
     assert_eq!(found.count, 0, "{found:?}");
 }
 
