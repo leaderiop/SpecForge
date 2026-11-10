@@ -23,12 +23,17 @@
 //! A commit's `files` and `created` are project-relative: a path outside the project is left out, its lines still
 //! counted. The diff lists a rename as a deletion and an addition (`--no-renames`), so both paths are touched.
 //!
+//! With `item` facts served (`@code/core` and a source pack), a recorded commit also names the items it changed
+//! (`items_changed`, see [`items`]); a commit recorded before any were served gets them once, on the first collect that
+//! serves them.
+//!
 //! What a commit says is untrusted: control characters in a subject or a path become U+FFFD, and a commit whose time
 //! is out of range is skipped and named in the plan's title. The host refuses a whole plan for one value it cannot
 //! write, so one bad commit must never reach it.
 //!
 //! Also ports gsd-core bin/lib modules: git-base-branch.cjs.
 
+mod items;
 mod subject;
 #[cfg(test)]
 mod tests;
@@ -37,7 +42,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use serde_json::{Value, json};
 use specforge_extension_sdk::host::{
-    Denial, GitChange, GitDiffHead, GitDiffQuery, GitLogCommit, GitLogQuery, HostError, git,
+    Denial, GitChange, GitDiffHead, GitDiffQuery, GitHunk, GitLogCommit, GitLogQuery, HostError,
+    git,
 };
 use specforge_extension_sdk::prelude::*;
 
@@ -78,7 +84,10 @@ impl LinkedBy {
 pub fn declare(c: &mut ContributionsBuilder) {
     c.collector(NAME, |k| {
         // Any repository: `.git` is a directory, or a linked worktree's file. An unborn one records nothing.
-        k.detect_files(&[".git"]).writes().collect(collect);
+        k.detect_files(&[".git"])
+            .writes()
+            .input(Input::facts(&["item"]))
+            .collect(collect);
     });
 }
 
@@ -96,6 +105,10 @@ pub struct Commit {
     pub created: Vec<String>,
     pub insertions: i64,
     pub deletions: i64,
+    /// Its diff's changed line ranges by repository path, when they were asked.
+    pub hunks: BTreeMap<String, Vec<GitHunk>>,
+    /// The items it changed, when item facts were served.
+    pub items_changed: Option<Vec<String>>,
 }
 
 impl Commit {
@@ -122,14 +135,15 @@ impl Commit {
     }
 
     /// Its changes against its first parent (every file of a root commit), renames apart: the files under the project
-    /// at `prefix` of the repository, project-relative and sorted, the ones it added, and the lines of every file.
-    fn changes(&mut self, prefix: &str) -> Result<(), String> {
+    /// at `prefix` of the repository, project-relative and sorted, the ones it added, the lines of every file, and,
+    /// with `hunks`, each file's changed ranges.
+    fn changes(&mut self, prefix: &str, hunks: bool) -> Result<(), String> {
         let diff = git::diff(&GitDiffQuery {
             base: self.parents.first().cloned(),
             head: GitDiffHead::Commit(self.hash.clone()),
             paths: Vec::new(),
             patch: false,
-            hunks: false,
+            hunks,
             renames: false,
         })
         .map_err(|e| {
@@ -141,6 +155,9 @@ impl Commit {
         for file in &diff.files {
             self.insertions += i64::from(file.added);
             self.deletions += i64::from(file.removed);
+            if let Some(ranges) = &file.hunks {
+                self.hunks.insert(file.path.clone(), ranges.clone());
+            }
             let Some(path) = in_project(prefix, &file.path) else {
                 continue;
             };
@@ -185,6 +202,15 @@ fn in_project(prefix: &str, path: &str) -> Option<String> {
         path.strip_prefix(prefix)?.strip_prefix('/')?
     };
     Some(clean(rest))
+}
+
+/// `file`, project-relative, from the repository's top.
+fn in_repository(prefix: &str, file: &str) -> String {
+    if prefix.is_empty() {
+        file.to_string()
+    } else {
+        format!("{prefix}/{file}")
+    }
 }
 
 /// `text` with every control character (ANSI escapes, DEL, U+0085) and U+2028/2029 replaced by U+FFFD: the host
@@ -441,6 +467,9 @@ fn fields(
     // JSON numbers: the host's plan op reads them for an integer field (ADR 0311).
     fields.insert("insertions".to_string(), json!(commit.insertions));
     fields.insert("deletions".to_string(), json!(commit.deletions));
+    if let Some(items) = &commit.items_changed {
+        fields.insert("items_changed".to_string(), json!(items));
+    }
     fields
 }
 
@@ -570,8 +599,32 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
             fresh.push(at);
         }
     }
+    let items = items::Items::of(&input.facts, &prefix);
     for &at in &fresh {
-        commits[at].changes(&prefix)?;
+        let commit = &mut commits[at];
+        commit.changes(&prefix, items.is_some())?;
+        if let Some(items) = &items {
+            commit.items_changed = Some(items.changed(&commit.hash, &commit.hunks)?);
+        }
+    }
+    // A commit recorded before item facts were served gets its items once (an immutable value unset may be set once).
+    let mut backfilled = 0;
+    if let Some(items) = &items {
+        let unnamed: BTreeSet<&str> = nodes
+            .iter()
+            .filter(|n| n.kind == "commit" && !n.has_field("items_changed"))
+            .map(|n| n.id.as_str())
+            .collect();
+        for (at, commit) in commits.iter_mut().enumerate().rev() {
+            let name: String = commit.hash.chars().take(12).collect();
+            if fresh.contains(&at) || !unnamed.contains(name.as_str()) {
+                continue;
+            }
+            commit.changes(&prefix, true)?;
+            let changed = items.changed(&commit.hash, &commit.hunks)?;
+            builder.set(&name, "items_changed", json!(changed));
+            backfilled += 1;
+        }
     }
     let plans: HashMap<&str, &str> = commits
         .iter()
@@ -604,7 +657,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     }
     skipped.dedup();
     let mut output = CollectOutput::default();
-    if recorded > 0 {
+    if recorded > 0 || backfilled > 0 {
         let mut note = if skipped.is_empty() {
             String::new()
         } else {
@@ -617,10 +670,20 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
         for why in &unread {
             note.push_str(&format!(" ({why})"));
         }
-        builder.title(&format!(
-            "Record {recorded} commit{}{note}",
-            if recorded == 1 { "" } else { "s" }
-        ));
+        let plural = |n: usize| if n == 1 { "" } else { "s" };
+        let mut title = Vec::new();
+        if recorded > 0 {
+            title.push(format!("Record {recorded} commit{}", plural(recorded)));
+        }
+        if backfilled > 0 {
+            title.push(format!(
+                "name the items {backfilled} recorded commit{} changed",
+                plural(backfilled)
+            ));
+        }
+        let mut title = title.join("; ");
+        title[..1].make_ascii_uppercase();
+        builder.title(&format!("{title}{note}"));
         output.plan = Some(builder.finish());
     }
     Ok(output)

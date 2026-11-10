@@ -601,6 +601,15 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "CommitItemsChanged",
+        "source_kind": "commit",
+        "target_kind": "item"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "PausePhase",
         "source_kind": "pause",
         "target_kind": "phase"
@@ -6029,6 +6038,18 @@
             "name": "descends_from",
             "required": false,
             "target_kind": "commit",
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "the `@code/core` items whose lines it wrote or deleted inside, as they are named when it is recorded; absent when no item facts were served",
+            "edge": "CommitItemsChanged",
+            "field_type": "reference_list",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "items_changed",
+            "required": false,
+            "target_kind": "item",
             "writer": "harness"
           }
         ],

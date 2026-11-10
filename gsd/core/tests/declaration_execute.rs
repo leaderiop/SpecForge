@@ -166,7 +166,8 @@ fn the_commit_kind_is_harness_written() {
             "created",
             "insertions",
             "deletions",
-            "descends_from"
+            "descends_from",
+            "items_changed"
         ]
     );
     for field in fields_of("commit") {
@@ -174,6 +175,12 @@ fn the_commit_kind_is_harness_written() {
         assert_ne!(field_of("commit", &field)["required"], true, "{field}");
     }
     assert_eq!(field_of("commit", "hash")["immutable"], true);
+    // Written once: the items a commit changed are what held when it was recorded (a history reference).
+    let items = field_of("commit", "items_changed");
+    assert_eq!(
+        (&items["immutable"], &items["target_kind"]),
+        (&true.into(), &"item".into())
+    );
     // The commit is in the project scope, and a path it touched is text: a later commit may delete it.
     assert!(kind_of("commit")["scoped_by"].is_null());
     for field in ["files", "created"] {
@@ -308,7 +315,7 @@ fn the_model_counts_its_fields() {
     .iter()
     .map(|k| fields_of(k).len())
     .sum();
-    assert_eq!(total, 22 + 6 + 5 + 12 + 6 + 10 + 5);
+    assert_eq!(total, 22 + 6 + 5 + 13 + 6 + 10 + 5);
 }
 
 #[test]
@@ -324,6 +331,11 @@ fn the_git_collector_reads_the_git_port_and_writes_a_plan() {
     assert_eq!(git.capability, None);
     assert_eq!(git.capture, None);
     assert!(git.input_formats.is_empty());
+    // The item facts the store holds, to name the items a recorded commit changed: inert without `@code/core`.
+    assert_eq!(
+        git.inputs,
+        [specforge_extension_sdk::Input::facts(&["item"])]
+    );
     // The extension may read git: the one `repo` scope its commands read the branch through.
     assert!(declaration.capabilities.iter().any(|c| {
         c.name == "repo" && matches!(c.port, specforge_extension_sdk::PortScope::Git(_))

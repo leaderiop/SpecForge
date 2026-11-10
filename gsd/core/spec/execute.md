@@ -93,6 +93,7 @@ write the same file), in the project scope, named by the first 12 hex digits of 
 | files | strs | H | the paths it touched under the project, project-relative (a path outside it is left out); a rename touches both paths; text, not `files`, since a later commit may delete one |
 | created | strs | H | the paths under the project it added (GSD's `key-files.created`), project-relative |
 | insertions, deletions | int | H | the lines it added and removed, of every file it touched |
+| items_changed | →* item | H I | the `@code/core` items whose lines it wrote, or deleted inside, as named when it is recorded: its diff's line ranges carried to the worktree by one more diff and met with the stored item facts' spans (ADR 0352 D1); written once (a history reference, never `code/E101`); a commit recorded before item facts were served gets it on the first collect that serves them; absent without `@code/core` |
 | descends_from | →* commit | H | the recorded commits of the same plan this one reaches through its parents (`%P`, merges included), oldest first; `[]` for none, absent on a commit recorded before ancestry was collected. W403 reads it (#5275) |
 
 **Collecting.** `specforge collect --runner gsd-git --yes` (or without `--yes`, to be asked) runs the collector, which

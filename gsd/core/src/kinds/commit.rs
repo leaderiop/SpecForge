@@ -47,5 +47,8 @@ pub const COMMIT: Kind = Kind::new(
         rfs("descends_from", "commit")
             .h()
             .doc("the recorded commits of its plan it descends from, through merges; absent when never collected"),
+        rfs("items_changed", "item").h().i().doc(
+            "the `@code/core` items whose lines it wrote or deleted inside, as they are named when it is recorded; absent when no item facts were served",
+        ),
     ],
 );

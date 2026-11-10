@@ -9,6 +9,7 @@ use specforge_extension_sdk::{GraphWire, PlanOp};
 
 use super::*;
 
+mod items;
 mod port;
 mod trailers;
 
@@ -114,6 +115,8 @@ pub(super) struct Repo {
     pub(super) top: String,
     pub(super) log: Vec<GitLogCommit>,
     pub(super) diffs: HashMap<String, Vec<GitFileChange>>,
+    /// Each commit's diff against the worktree, by the commit's sha.
+    pub(super) worktree: HashMap<String, Vec<GitFileChange>>,
     pub(super) truncated: bool,
     pub(super) logs: std::cell::Cell<usize>,
     pub(super) asked: std::cell::RefCell<Vec<GitDiffQuery>>,
@@ -144,11 +147,13 @@ impl InProcessHost for Repo {
     }
     fn git_diff(&self, query: &GitDiffQuery) -> Result<GitDiffAnswer, HostError> {
         self.asked.borrow_mut().push(query.clone());
-        let GitDiffHead::Commit(sha) = &query.head else {
-            panic!("a commit's diff: {query:?}");
+        let files = match (&query.head, &query.base) {
+            (GitDiffHead::Commit(sha), _) => self.diffs.get(sha),
+            (GitDiffHead::Worktree, Some(base)) => self.worktree.get(base),
+            _ => panic!("a commit's diff, or a commit's against the worktree: {query:?}"),
         };
         Ok(GitDiffAnswer {
-            files: self.diffs.get(sha).cloned().unwrap_or_default(),
+            files: files.cloned().unwrap_or_default(),
             truncated: false,
         })
     }
