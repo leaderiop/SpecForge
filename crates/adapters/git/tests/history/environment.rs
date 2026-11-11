@@ -142,6 +142,25 @@ fn a_repository_at_the_ceiling_is_none_whatever_its_worktree() {
     );
 }
 
+/// What lies at the ceiling is never opened: a repository there whose config git cannot read is none, not unavailable.
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "a search from below a git ceiling directory never reads the ceiling nor above it"
+)]
+fn a_repository_at_the_ceiling_is_never_opened() {
+    let (_dir, real) = home();
+    let config = real.join("repo/.git/config");
+    let mut text = std::fs::read_to_string(&config).unwrap();
+    // `\U` is no escape git config knows, as in a Windows path written unescaped
+    text.push_str("[core]\n\tworktree = C:\\Users\\wt\n");
+    std::fs::write(&config, text).unwrap();
+    let vars = Vars::default().set("GIT_CEILING_DIRECTORIES", real.join("repo"));
+    assert!(matches!(
+        vars.top(&real.join("repo/sub")),
+        Err(Located::Unavailable(_))
+    ));
+}
+
 /// A repository above the nearest ceiling is none either.
 #[test]
 fn a_repository_above_the_ceiling_is_none() {
