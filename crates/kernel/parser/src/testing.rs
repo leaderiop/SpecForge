@@ -196,41 +196,49 @@ impl std::fmt::Debug for EditedFile {
     }
 }
 
-/// The corpus file a drawn `key` picks, by a key of its own and not its position: each file sits on a ring at the
-/// FNV-1a hash of its path relative to the repository root (`/`-separated), and `key` picks the first file at or
-/// after it, wrapping. A file added or removed moves only the keys of its own arc, so the other cases still edit
-/// the files they did.
+/// The corpus file a drawn `key` picks, by a key of its own and not its position: rendezvous hashing over each file's
+/// path relative to the repository root ([`corpus_path`]), the file whose [`rendezvous`] score with `key` is highest
+/// ([`rendezvous_pick`]). Every file is as likely, and a file added or removed moves only the keys it wins or won,
+/// so the other cases still edit the files they did.
 pub fn corpus_file(key: u64) -> &'static (PathBuf, String) {
-    static RING: OnceLock<Vec<(u64, usize)>> = OnceLock::new();
-    let ring = RING.get_or_init(|| {
-        let mut ring: Vec<(u64, usize)> = corpus()
-            .iter()
-            .enumerate()
-            .map(|(i, (path, _))| (corpus_key(path), i))
-            .collect();
-        ring.sort_unstable();
-        ring
-    });
-    let at = ring.partition_point(|&(hash, _)| hash < key) % ring.len();
-    &corpus()[ring[at].1]
+    static PATHS: OnceLock<Vec<String>> = OnceLock::new();
+    let paths = PATHS.get_or_init(|| corpus().iter().map(|(path, _)| corpus_path(path)).collect());
+    &corpus()[rendezvous_pick(key, paths)]
 }
 
-/// Where [`corpus_file`] places `path` on its ring: FNV-1a over its components relative to the repository root,
-/// joined by `/`, the same on every platform and every run.
-pub fn corpus_key(path: &Path) -> u64 {
-    let root = specforge_repo_root::repo_root();
-    let relative = path.strip_prefix(root).unwrap_or(path);
-    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    for (i, part) in relative.components().enumerate() {
-        let separator: &[u8] = if i == 0 { b"" } else { b"/" };
-        for &byte in separator
-            .iter()
-            .chain(part.as_os_str().to_string_lossy().as_bytes())
-        {
-            hash = (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
+/// The index in `paths` of the path whose [`rendezvous`] score with `key` is highest, the first of equal scores.
+pub fn rendezvous_pick(key: u64, paths: &[impl AsRef<str>]) -> usize {
+    assert!(!paths.is_empty(), "a key picks among no paths");
+    let mut best = (rendezvous(key, paths[0].as_ref()), 0);
+    for (at, path) in paths.iter().enumerate().skip(1) {
+        let score = rendezvous(key, path.as_ref());
+        if score > best.0 {
+            best = (score, at);
         }
     }
+    best.1
+}
+
+/// `path`'s score for `key`: FNV-1a over `key`'s eight little-endian bytes, then `path`'s bytes, the same on every
+/// platform and every run.
+pub fn rendezvous(key: u64, path: &str) -> u64 {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for &byte in key.to_le_bytes().iter().chain(path.as_bytes()) {
+        hash = (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
+    }
     hash
+}
+
+/// `path` relative to the repository root, its components joined by `/` on every platform: what [`corpus_file`]
+/// hashes.
+pub fn corpus_path(path: &Path) -> String {
+    let root = specforge_repo_root::repo_root();
+    let relative = path.strip_prefix(root).unwrap_or(path);
+    relative
+        .components()
+        .map(|part| part.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 /// A corpus file edited one to three times.
