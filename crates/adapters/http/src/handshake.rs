@@ -56,7 +56,7 @@ fn allowed(
 }
 
 /// A request's `timeout_ms`, held to `ceiling` (the client's, at most [`TIMEOUT_CEILING`]).
-fn time_of(timeout_ms: u64, ceiling: Duration) -> Duration {
+pub(crate) fn time_of(timeout_ms: u64, ceiling: Duration) -> Duration {
     Duration::from_millis(timeout_ms).min(ceiling.min(TIMEOUT_CEILING))
 }
 

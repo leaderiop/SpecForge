@@ -218,3 +218,67 @@ fn a_host_that_drips_bytes_does_not_outlive_the_deadline() {
         OutcomeClass::Unreachable(Unreachable::Timeout)
     );
 }
+
+/// The TLS configuration loads the platform's trust store, seconds on a loaded machine: it is built once per client,
+/// within the deadline of the first handshake that needs it, and shared by every later handshake and request.
+#[test]
+fn a_handshake_builds_the_tls_configuration_once_within_its_deadline() {
+    let (port, _) = serve_tls(|_| ok("hi"));
+    let (release, released) = channel::<()>();
+    let released = Mutex::new(released);
+    let (configs, past_hold) = (
+        Arc::new(AtomicUsize::new(0)),
+        Arc::new(AtomicBool::new(false)),
+    );
+    let (counted, passed) = (Arc::clone(&configs), Arc::clone(&past_hold));
+    let client = Client::new().with_before_build(move |build| {
+        if build == Build::Tls {
+            counted.fetch_add(1, Ordering::SeqCst);
+            // Held until the test lets it go; at most WAIT, so a failing test still ends.
+            let _ = released.lock().unwrap().recv_timeout(WAIT);
+            passed.store(true, Ordering::SeqCst);
+        }
+    });
+    let request = TlsRequest {
+        host: "localhost".to_string(),
+        tcp_port: port,
+        allow_private: true,
+        timeout_ms: WAIT_MS,
+    };
+
+    let first = client.tls(&TlsRequest {
+        timeout_ms: 300,
+        ..request.clone()
+    });
+
+    assert_eq!(
+        first.class,
+        OutcomeClass::Unreachable(Unreachable::Timeout),
+        "{first:?}"
+    );
+    assert!(
+        !past_hold.load(Ordering::SeqCst),
+        "the handshake waited for the build"
+    );
+    release.send(()).unwrap();
+    // The platform's verifier refuses the test's certificate: each handshake reaches it, on the one configuration.
+    for _ in 0..3 {
+        let shaken = client.tls(&request);
+        assert_eq!(
+            shaken.class,
+            OutcomeClass::Unreachable(Unreachable::Tls),
+            "{shaken:?}"
+        );
+    }
+    let requested = client.request(&private(&format!("https://localhost:{port}/")), &Any);
+    assert_eq!(
+        requested.class,
+        OutcomeClass::Unreachable(Unreachable::Tls),
+        "{requested:?}"
+    );
+    assert_eq!(
+        configs.load(Ordering::SeqCst),
+        1,
+        "one configuration, shared by the handshakes and the request's client"
+    );
+}

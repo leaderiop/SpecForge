@@ -18,7 +18,7 @@ use specforge_effects::{
     AttachedSecret, EffectsCeiling, Grant, Header, Http, HttpCeiling, HttpRequest, Narrow,
     OutcomeClass, Private, Redirected, ResolveRequest, TlsRequest, Unreachable,
 };
-use specforge_http::Client;
+use specforge_http::{Build, Client};
 use specforge_protocol_types::{HttpMethod, Operation};
 
 mod tls;
@@ -254,11 +254,13 @@ fn a_request_waits_for_its_clients_build_no_longer_than_its_deadline() {
         Arc::new(AtomicBool::new(false)),
     );
     let (counted, passed) = (Arc::clone(&builds), Arc::clone(&past_hold));
-    let client = Client::new().with_before_build(move |_| {
-        counted.fetch_add(1, Ordering::SeqCst);
-        // Held until the test lets it go; at most WAIT, so a failing test still ends.
-        let _ = released.lock().unwrap().recv_timeout(WAIT);
-        passed.store(true, Ordering::SeqCst);
+    let client = Client::new().with_before_build(move |build| {
+        if let Build::Client { .. } = build {
+            counted.fetch_add(1, Ordering::SeqCst);
+            // Held until the test lets it go; at most WAIT, so a failing test still ends.
+            let _ = released.lock().unwrap().recv_timeout(WAIT);
+            passed.store(true, Ordering::SeqCst);
+        }
     });
 
     let first = client.request(
