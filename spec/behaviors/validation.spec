@@ -277,6 +277,9 @@ behavior read_git_baseline "Read the Git Baseline" {
     A compute pass that declares reads reads the files the commit holds: what exists comes from the commit's tree, the
     bytes of the files its reads name are fetched once (their size is asked first, so a file over the cap is never
     fetched), and a link, a submodule or a file git cannot give is unreadable, never absent (ADR 0300).
+    The repository is located as git locates it: a search from below a GIT_CEILING_DIRECTORIES entry never reads the
+    ceiling nor above it, and a GIT_DIR or GIT_WORK_TREE naming another repository than the one the directory is in
+    is refused, never followed nor ignored (ADR 0352).
   """
   produces []
   verify unit "a project that declares no history reads no git and watches no ref and no ledger"
@@ -293,6 +296,8 @@ behavior read_git_baseline "Read the Git Baseline" {
   verify unit "history lists a commit's tree with no content and no size"
   verify unit "history gives the sizes of the named files, and a missing blob is not fetched"
   verify unit "git refuses a project directory that is not valid UTF-8"
+  verify unit "a search from below a git ceiling directory never reads the ceiling nor above it"
+  verify unit "a GIT_DIR or GIT_WORK_TREE naming another repository than the one a directory is in is refused"
   verify unit "a baseline git could not fully read is used and not cached, and a tree error is not cached"
   verify unit "a baseline whose listed file git then gives no bytes for is not cached"
   verify unit "a cached baseline is compiled again once a journal record its checks read answers otherwise"

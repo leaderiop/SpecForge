@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use specforge_effects::git::{Git, GitChange, Located};
 use specforge_git::Gix;
 use specforge_git::testing::{Repo, locate_in};
+use specforge_test::prelude::*;
 
 /// A temporary directory by its real path (a ceiling is compared once links are resolved), with a committed repository
 /// at `repo/`.
@@ -53,7 +54,10 @@ impl Vars {
 
 /// As git: a search from below a ceiling never reads the ceiling nor above it; one from the ceiling itself, or from
 /// beside every ceiling, goes on as without one.
-#[test]
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "a search from below a git ceiling directory never reads the ceiling nor above it"
+)]
 fn a_ceiling_directory_is_never_searched_from_below() {
     let (_dir, real) = home();
     let ceilings = std::env::join_paths([real.join("repo"), real.join("elsewhere")]).unwrap();
@@ -70,7 +74,10 @@ fn a_ceiling_directory_is_never_searched_from_below() {
     assert_eq!(vars.top(&real.join("repo/sub/deep")), Ok(real.join("repo")));
 }
 
-#[test]
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "a GIT_DIR or GIT_WORK_TREE naming another repository than the one a directory is in is refused"
+)]
 fn a_git_dir_naming_another_repository_refuses() {
     let (_dir, real) = home();
     let other = Repo::init(&real.join("other"));
@@ -90,7 +97,10 @@ fn a_git_dir_with_no_repository_around_refuses() {
         .refused(&real.join("plain"), "GIT_DIR");
 }
 
-#[test]
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "a GIT_DIR or GIT_WORK_TREE naming another repository than the one a directory is in is refused"
+)]
 fn a_work_tree_naming_another_directory_refuses() {
     let (_dir, real) = home();
     std::fs::create_dir_all(real.join("elsewhere")).unwrap();
@@ -111,7 +121,10 @@ fn a_git_dir_naming_the_repository_the_directory_is_in_is_kept() {
 
 /// git looks for a `.git` only strictly below the nearest ceiling: a repository found at the ceiling is none, whatever
 /// its `core.worktree` names.
-#[test]
+#[specforge_test(
+    behavior = "read_git_baseline",
+    verify = "a search from below a git ceiling directory never reads the ceiling nor above it"
+)]
 fn a_repository_at_the_ceiling_is_none_whatever_its_worktree() {
     let (_dir, real) = home();
     std::fs::create_dir_all(real.join("wt")).unwrap();
