@@ -485,8 +485,10 @@ impl Git for Gix {
                 files.push(file);
             }
         }
-        // a worktree file a bounded diff did not read: changed on disk, so listed, with no counts
-        for (path, bound) in disk.past {
+        // a worktree file over the cap that changed, hashed, never read: listed with no counts; and one a bounded diff
+        // did not read: its stat changed, its content unknown, so listed unread
+        let apart = disk.over.into_iter().map(|path| (path, false));
+        for (path, unread) in apart.chain(disk.past.into_iter().map(|path| (path, true))) {
             let file = match files.iter_mut().find(|file| file.path == path) {
                 Some(file) => file,
                 None => {
@@ -506,7 +508,7 @@ impl Git for Gix {
                 }
             };
             (file.added, file.removed, file.patch, file.hunks) = (0, 0, None, None);
-            (file.truncated, file.unread) = (true, bound);
+            (file.truncated, file.unread) = (true, unread);
         }
         files.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(files)

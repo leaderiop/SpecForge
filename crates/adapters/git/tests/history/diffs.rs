@@ -2,7 +2,8 @@
 //! seconds: what a guest reading a commit's changed lines needs of the port.
 
 use specforge_effects::git::{
-    DiffQuery, DiffSide, DiffStatus, Git, GitFileDiff, GitHunk, LogQuery, PickaxeReads, Sha,
+    BLOB_CAP, DiffQuery, DiffSide, DiffStatus, Git, GitFileDiff, GitHunk, LogQuery, PickaxeReads,
+    Sha,
 };
 use specforge_git::Gix;
 use specforge_git::testing::Repo;
@@ -306,6 +307,55 @@ fn a_bounded_worktree_diff_counts_the_files_it_hashes() {
     let files = bounded(&repo, &base, DiffSide::Worktree, false, 64 * 1024);
     let listed: Vec<_> = files.iter().map(|f| f.path.as_str()).collect();
     assert_eq!(listed, ["a.txt"]);
+}
+
+/// A file over the blob cap is hashed as it streams, counted, while its whole length fits what a bounded diff's bound
+/// has left: one only touched is then told unchanged, one changed is listed with no counts but read; past the bound it
+/// is listed unread, as any other.
+#[test]
+fn a_bounded_worktree_diff_hashes_a_file_over_the_cap_within_its_bound() {
+    let over = usize::try_from(BLOB_CAP).unwrap() + 2;
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "old\n")
+        .write("huge.bin", "h\n".repeat(over / 2));
+    let base = repo.commit_all("base");
+    // a.txt first, always read; huge.bin the same bytes, its stat moved
+    repo.write("a.txt", "new\n")
+        .write("huge.bin", "h\n".repeat(over / 2));
+    let stamp = |seconds: u64| {
+        std::fs::File::options()
+            .write(true)
+            .open(dir.path().join("huge.bin"))
+            .unwrap()
+            .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(seconds))
+            .unwrap();
+    };
+    stamp(1_600_000_000);
+    let touched = |budget: u64| {
+        bounded(&repo, &base, DiffSide::Worktree, false, budget)
+            .into_iter()
+            .map(|f| (f.path, f.truncated, f.unread))
+            .collect::<Vec<_>>()
+    };
+    let room = 2 * BLOB_CAP + 1024;
+    assert_eq!(touched(room), [("a.txt".to_string(), false, false)]);
+    assert_eq!(
+        touched(64),
+        [
+            ("a.txt".to_string(), false, false),
+            ("huge.bin".to_string(), true, true)
+        ]
+    );
+    repo.write("huge.bin", "i\n".repeat(over / 2));
+    stamp(1_600_000_100);
+    assert_eq!(
+        touched(room),
+        [
+            ("a.txt".to_string(), false, false),
+            ("huge.bin".to_string(), true, false)
+        ]
+    );
 }
 
 /// A bounded diff searches renames by similarity only while the blobs it would compare fit its bound; past it, a rename

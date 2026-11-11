@@ -110,11 +110,14 @@ only measures it):
   `truncated`.
 - A diff reads at most the answer cap of its files from the repository (both sides, and the names), and as many again
   of a worktree's files on disk; the first file is always read, so a diff of one file always is. A file past the bound
-  keeps its status, counts no lines, and says `truncated`, as does the answer. A worktree file past the bound or over
-  the 16 MiB blob cap is neither read nor hashed: it is listed as changed. A worktree file is read at most once, when
-  the diff's tree is built, and counted there: the status that finds the changed files compares their stat only and
-  hashes none, so a file whose stat changed but whose content did not is read, counted, to be told unchanged, and past
-  the bound it is listed as changed.
+  keeps its status, counts no lines, and says `truncated`, as does the answer. A worktree file is read at most once,
+  when the diff's tree is built, and counted there: the status that finds the changed files compares their stat only
+  and hashes none, so a file whose stat changed but whose content did not is read, counted, to be told unchanged. One
+  over the 16 MiB blob cap is hashed as it streams, never kept, and only while its whole length fits what the bound has
+  left (counted, with no first-file pass): unchanged it is not listed, changed it is listed with no counts. A worktree
+  file past the bound is neither read nor hashed: only its stat is known to have changed, so the port lists it
+  `unread`, its content unknown (it may be unchanged); the guest's protocol has no unknown status, so a guest sees it
+  `Modified` and `truncated`, as does the answer, and gsd-git leaves a field that would need its lines unwritten (D1).
 - A rename search follows the host's rules, never the repository's `diff.renames` or `diff.renameLimit`: identical
   content first, then half the lines alike, comparing at most 1,000 deletion and addition pairs (git's default limit),
   and only while the deleted and added blobs together fit the answer cap, which the search reads beside the files' own

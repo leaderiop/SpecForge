@@ -303,7 +303,7 @@ pub struct GitFileDiff {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hunks: Option<Vec<GitHunk>>,
     /// The diff's [`DiffQuery::budget`] was spent before it: neither side was read, no line is counted, and the file
-    /// says `truncated`.
+    /// says `truncated`. A worktree file listed so is known only by its changed stat: it may be unchanged.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub unread: bool,
 }
