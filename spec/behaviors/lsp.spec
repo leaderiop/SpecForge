@@ -1264,7 +1264,8 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
     file holds the last rename whose new name it declares (none for the first's old name or a name no rename wrote),
     and each stale line the deepest rename every source file it is about holds is under, a file holding one whose
     name still reads at the places it wrote it, whatever else changed in the file (another entity renamed, typing,
-    text beside it that cannot extend it),
+    text beside it that cannot extend it; read by counted work, a place among more changed text than it compares
+    byte by byte reading as gone),
     else the one above the first whose name read still reads there, else none (the name typed over). What is shown
     and landed is the change from what the ledger holds of the tree to that: the moves walked back and down, and each
     stale line whose rename moved. So an undo in one buffer and not another, part way, by hand, or a redo, before a

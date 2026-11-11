@@ -1,14 +1,24 @@
-//! Whether a file's text still reads a name where an earlier text of it read it (ADR 0346 D7): the earlier text's
-//! places carried into the text now through what changed between them (by line, then by byte inside the lines that
-//! changed), each read with what is beside it, so a name grown or cut at its edge is not taken for it. Edits elsewhere
-//! (another rename, typing, even beside the name with what cannot extend it) move a place and leave what it reads.
+//! Whether a file's text still reads a name where an earlier text of it read it (ADR 0346 D7): each place of the
+//! earlier text carried into the text now through what changed between them, each read with what is beside it, so a
+//! name grown or cut at its edge is not taken for it. Edits elsewhere (another rename, typing, even beside the name
+//! with what cannot extend it) move a place and leave what it reads.
+//!
+//! The work is counted, never timed: the lines no other line of either text repeats anchor the two texts (the longest
+//! run of them in the same order in both), the lines both share at the edges of the stretch between two anchors are
+//! trimmed, and only a stretch left holding a place is compared byte by byte, when it is at most [`HUNK`] bytes; a
+//! place in a larger one reads as gone. So a keystroke costs a pass over each text and a bounded byte diff.
 
 use std::cell::Cell;
+use std::collections::HashMap;
 use std::ops::Range;
 
+use similar::DiffTag;
 use similar::algorithms::{Capture, myers};
-use similar::{Algorithm, DiffTag, capture_diff_slices};
 use specforge_project::facts::Span;
+
+/// The most bytes (of both texts) a stretch of changed lines holding a place may have to be compared byte by byte:
+/// the byte diff compares at most about its square.
+const HUNK: usize = 1024;
 
 /// Whether `now` reads `name` at each of `spans`, places of `then` that read it there.
 pub(super) fn reads(then: &str, now: &str, spans: &[Span], name: &str) -> bool {
@@ -30,8 +40,8 @@ fn counted(then: &str, now: &str, spans: &[Span], name: &str, work: &Cell<usize>
     if then == now {
         return true;
     }
-    let moved = Moved::between(then, now, work);
-    ranges.iter().all(|r| moved.keeps(then, now, r))
+    let aligned = Aligned::of(then, now, work);
+    ranges.iter().all(|r| aligned.keeps(r, work))
 }
 
 /// The byte range of `span` (1-based lines, 1-based byte columns, end exclusive) in `text`.
@@ -49,46 +59,166 @@ fn range(text: &str, span: &Span) -> Option<Range<usize>> {
     (from < to).then_some(from..to)
 }
 
-/// What changed from one text to another: runs of the first text's bytes, each with where it starts in the second
-/// when it is kept there.
+/// Where each line of a text starts, and the text's length last.
+fn starts(text: &str) -> Vec<usize> {
+    let mut at = vec![0];
+    for line in text.split_inclusive('\n') {
+        at.push(at[at.len() - 1] + line.len());
+    }
+    at
+}
+
+/// Two texts, and the lines that anchor one to the other.
+struct Aligned<'t> {
+    then: &'t str,
+    now: &'t str,
+    /// Where each line starts in `then` and in `now`, each text's length last.
+    old: Vec<usize>,
+    new: Vec<usize>,
+    /// Lines (of `then`, of `now`) no other line of either text repeats, the longest run of them in the same order in
+    /// both.
+    anchors: Vec<(usize, usize)>,
+}
+
+impl<'t> Aligned<'t> {
+    fn of(then: &'t str, now: &'t str, work: &Cell<usize>) -> Aligned<'t> {
+        let (old, new) = (starts(then), starts(now));
+        // How often each line is in `then` and in `now`, and where last.
+        let mut seen: HashMap<&str, [usize; 4]> = HashMap::new();
+        for (text, at, side) in [(then, &old, 0), (now, &new, 2)] {
+            for i in 0..at.len() - 1 {
+                let line = &text[at[i]..at[i + 1]];
+                add(work, 2 * line.len());
+                let count = seen.entry(line).or_default();
+                count[side] += 1;
+                count[side + 1] = i;
+            }
+        }
+        let mut unique: Vec<(usize, usize)> = seen
+            .into_values()
+            .filter(|count| count[0] == 1 && count[2] == 1)
+            .map(|count| (count[1], count[3]))
+            .collect();
+        unique.sort_unstable();
+        Aligned {
+            then,
+            now,
+            old,
+            new,
+            anchors: increasing(&unique),
+        }
+    }
+
+    fn old_line(&self, i: usize) -> &'t str {
+        &self.then[self.old[i]..self.old[i + 1]]
+    }
+
+    fn new_line(&self, j: usize) -> &'t str {
+        &self.now[self.new[j]..self.new[j + 1]]
+    }
+
+    /// Whether line `i` of `then` and line `j` of `now` are the same, counting the bytes compared.
+    fn same(&self, i: usize, j: usize, work: &Cell<usize>) -> bool {
+        let (a, b) = (self.old_line(i), self.new_line(j));
+        let common = a.bytes().zip(b.bytes()).take_while(|(x, y)| x == y).count();
+        add(work, common + 1);
+        a == b
+    }
+
+    /// Whether `now` reads what `then` reads at `r` (on one line): its line anchored or shared at the edge of the
+    /// stretch it is in, else the stretch's changed lines compared byte by byte when they are at most [`HUNK`] bytes.
+    fn keeps(&self, r: &Range<usize>, work: &Cell<usize>) -> bool {
+        let line = |at: usize| self.old.partition_point(|&start| start <= at) - 1;
+        let at = line(r.start);
+        if line(r.end - 1) != at {
+            return false;
+        }
+        let next = self.anchors.partition_point(|&(i, _)| i < at);
+        if self.anchors.get(next).is_some_and(|&(i, _)| i == at) {
+            return true;
+        }
+        let (mut a, mut b) = next
+            .checked_sub(1)
+            .map_or((0, 0), |k| (self.anchors[k].0 + 1, self.anchors[k].1 + 1));
+        let (mut c, mut d) = self
+            .anchors
+            .get(next)
+            .copied()
+            .unwrap_or((self.old.len() - 1, self.new.len() - 1));
+        while a < c && b < d && self.same(a, b, work) {
+            if a == at {
+                return true;
+            }
+            (a, b) = (a + 1, b + 1);
+        }
+        while c > a && d > b && self.same(c - 1, d - 1, work) {
+            if c - 1 == at {
+                return true;
+            }
+            (c, d) = (c - 1, d - 1);
+        }
+        let (then, now) = (self.old[a]..self.old[c], self.new[b]..self.new[d]);
+        if then.len() + now.len() > HUNK {
+            return false;
+        }
+        Moved::between(self.then, self.now, then, now, work).keeps(self.then, self.now, r)
+    }
+}
+
+/// The longest run of `pairs` (sorted by their first) whose seconds increase too.
+fn increasing(pairs: &[(usize, usize)]) -> Vec<(usize, usize)> {
+    // The pair ending the best run of each length found so far, and each pair's one before it in its run.
+    let mut tails: Vec<usize> = Vec::new();
+    let mut before: Vec<Option<usize>> = vec![None; pairs.len()];
+    for (k, &(_, j)) in pairs.iter().enumerate() {
+        let len = tails.partition_point(|&t| pairs[t].1 < j);
+        before[k] = len.checked_sub(1).map(|l| tails[l]);
+        match tails.get_mut(len) {
+            Some(tail) => *tail = k,
+            None => tails.push(k),
+        }
+    }
+    let mut run = Vec::new();
+    let mut at = tails.last().copied();
+    while let Some(k) = at {
+        run.push(pairs[k]);
+        at = before[k];
+    }
+    run.reverse();
+    run
+}
+
+fn add(work: &Cell<usize>, bytes: usize) {
+    work.set(work.get() + bytes);
+}
+
+/// What changed from one stretch of a text to one of another, byte by byte: runs of the first text's bytes, each with
+/// where it starts in the second when it is kept there.
 struct Moved(Vec<(Range<usize>, Option<usize>)>);
 
 impl Moved {
-    fn between(then: &str, now: &str, work: &Cell<usize>) -> Moved {
-        let old: Vec<&str> = then.split_inclusive('\n').collect();
-        let new: Vec<&str> = now.split_inclusive('\n').collect();
-        let starts = |lines: &[&str]| -> Vec<usize> {
-            let mut at = vec![0];
-            for line in lines {
-                at.push(at.last().copied().unwrap_or(0) + line.len());
-            }
-            at
+    fn between(
+        then: &str,
+        now: &str,
+        a: Range<usize>,
+        b: Range<usize>,
+        work: &Cell<usize>,
+    ) -> Moved {
+        let counted = |bytes: &[u8]| -> Vec<Counted<'_>> {
+            bytes.iter().map(|&byte| Counted(byte, work)).collect()
         };
-        let (o, n) = (starts(&old), starts(&new));
-        let mut runs = Vec::new();
-        for op in capture_diff_slices(Algorithm::Myers, &old, &new) {
-            let (tag, a, b) = op.as_tag_tuple();
-            let (a, b) = (o[a.start]..o[a.end], n[b.start]..n[b.end]);
-            if tag == DiffTag::Equal {
-                runs.push((a, Some(b.start)));
-                continue;
-            }
-            let counted = |bytes: &[u8]| -> Vec<Counted<'_>> {
-                bytes.iter().map(|&byte| Counted(byte, work)).collect()
-            };
-            let (then, now) = (
-                counted(&then.as_bytes()[a.clone()]),
-                counted(&now.as_bytes()[b.clone()]),
-            );
-            let mut ops = Capture::new();
-            let Ok(()) = myers::diff(&mut ops, &then, 0..then.len(), &now, 0..now.len());
-            for op in ops.into_ops() {
-                let (tag, x, y) = op.as_tag_tuple();
-                let kept = (tag == DiffTag::Equal).then_some(b.start + y.start);
-                runs.push((a.start + x.start..a.start + x.end, kept));
-            }
-        }
-        Moved(runs)
+        let (old, new) = (
+            counted(&then.as_bytes()[a.clone()]),
+            counted(&now.as_bytes()[b.clone()]),
+        );
+        let mut ops = Capture::new();
+        let Ok(()) = myers::diff(&mut ops, &old, 0..old.len(), &new, 0..new.len());
+        let runs = ops.into_ops().into_iter().map(|op| {
+            let (tag, x, y) = op.as_tag_tuple();
+            let kept = (tag == DiffTag::Equal).then_some(b.start + y.start);
+            (a.start + x.start..a.start + x.end, kept)
+        });
+        Moved(runs.collect())
     }
 
     /// Where byte `at` of the first text is in the second, when it is kept.
@@ -131,7 +261,7 @@ struct Counted<'w>(u8, &'w Cell<usize>);
 
 impl PartialEq for Counted<'_> {
     fn eq(&self, other: &Self) -> bool {
-        self.1.set(self.1.get() + 1);
+        add(self.1, 1);
         self.0 == other.0
     }
 }
@@ -261,6 +391,6 @@ mod tests {
         let now = format!("// covers T2 {b}\n");
         let work = Cell::new(0);
         assert!(!counted(&then, &now, &AT, "T2", &work));
-        assert!(work.get() <= 2 * (then.len() + now.len()), "{}", work.get());
+        assert!(work.get() <= 3 * (then.len() + now.len()), "{}", work.get());
     }
 }

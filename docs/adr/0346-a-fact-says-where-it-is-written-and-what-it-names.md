@@ -216,8 +216,9 @@ next collect of that collector ────────────────�
   texts each time. The declaring file holds a node: the last rename whose new name it declares (none for the first's
   old name, or a name no rename wrote). Each stale line (store, field, name held) holds a node: the deepest every
   source file it is about holds is under, a file holding a rename while the name it wrote for the line reads at the
-  places it wrote it, carried through whatever else changed in the file since (another entity renamed, typing: by
-  line, then by byte), each byte beside it kept beside it or one that cannot extend a name (a letter, a digit, `_`:
+  places it wrote it, carried through whatever else changed in the file since (another entity renamed, typing:
+  anchored on the lines no other line of either text repeats, then by byte inside the changed lines around the
+  place), each byte beside it kept beside it or one that cannot extend a name (a letter, a digit, `_`:
   `// covers T2, T5` still reads `T2`, `T2x` does not); else the node above the first rename whose name read still
   reads at its places (an undo); else none (the name typed over with one no rename wrote). So the editor keeps a
   line wherever the CLI and MCP rename keep it, and drops it only where the name itself went back or changed. With
@@ -229,7 +230,12 @@ next collect of that collector ────────────────�
   buffer holds, as on disk), read again when a source buffer the tree edits changes; once no file of the tree holds a
   buffer the disk does not (saved, or closed), what the disk says lands. A reading parses the declaring file once,
   reads a file no buffer holds from disk once (again only after an event names it), and reads a source file's names
-  again only when its text changed. The tree is kept while any of its files is
+  again only when its text changed. Carrying a place is bounded by counted work, never by a clock: a pass over each
+  text finds the anchor lines (the longest run of them in the same order in both), the lines shared at the edges of
+  the stretch between two anchors are trimmed, and only a stretch left holding a place is compared byte by byte,
+  when it is at most 1024 bytes of both texts; a place in a larger one reads as gone (a whole file re-indented drops
+  its lines, as typing the name over would). A line cut and pasted far away follows only when the anchors carry it
+  (moved with the lines around it), else it reads as gone, never as another place. The tree is kept while any of its files is
   open: a redo or an undo saved later lands the rest, as the ledger takes any later rename (a rename back carries
   each move record, as the CLI's does); with every file closed it is over. A rename answered and never applied waits
   while its declaring file is the text it was planned on, and is dropped at the first other text without its edit,
