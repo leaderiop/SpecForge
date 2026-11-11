@@ -13,6 +13,7 @@ use specforge_ops::read::navigate::{EntityQuery, MatchScope, Navigator, find_ent
 use specforge_ops::read::trace::route_traces;
 use specforge_project::RuntimeSource;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use tower_lsp::jsonrpc::{Error, ErrorCode};
 use tower_lsp::lsp_types::{
     CodeAction, CodeActionOrCommand, CodeActionResponse, CodeLens, Command, CompletionResponse,
@@ -413,13 +414,25 @@ fn hold_ledger(
         old_name: node.name().to_string(),
         new_name: new_name.to_string(),
     };
-    if let Some(pending) = crate::pending::PendingLedger::of(
-        state.compiled_project(),
-        plan.moved().to_vec(),
-        plan.stale().to_vec(),
-        renamed,
+    let rewrites = crate::pending::Rewrites {
+        moves: plan.moved().to_vec(),
+        stale: plan.stale().to_vec(),
+        sources: plan
+            .change()
+            .rewritten_sources()
+            .map(|(key, file)| {
+                (
+                    key.to_string(),
+                    Arc::clone(&file.before),
+                    file.after.clone(),
+                )
+            })
+            .collect(),
         files,
-    ) {
+    };
+    if let Some(pending) =
+        crate::pending::PendingLedger::of(state.compiled_project(), renamed, rewrites)
+    {
         state.pending().hold(pending);
     }
 }

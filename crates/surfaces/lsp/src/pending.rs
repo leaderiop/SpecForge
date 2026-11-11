@@ -1,64 +1,45 @@
 //! The ledger change of an LSP rename (ADR 0289). The server writes no source: a rename answers edits the editor
 //! applies to its buffers. A project that declares a harness field keeps a ledger line per harness value, keyed by the
-//! entity's path, so the rename's ledger change is held here until the rename lands on disk:
+//! entity's path, and a rename marks the fact stores whose names it rewrites in source files stale (ADR 0346 D7), so
+//! the rename's ledger change is held here until it lands on disk.
 //!
-//! - **waiting**: the answer was given; the declaring file's buffer still holds the old name;
-//! - **showing**: the buffer holds the new name; the session's checks read the ledger as the rename will have written
-//!   it, so the editor shows no E083 between the rename and its save;
-//! - **undone**: the buffer holds the old name again after showing the new one, or the declaring file was closed
-//!   with the disk still holding the old name; the change is dropped, nothing written;
-//! - **landed**: the file on disk holds the new name; the ledger is written under the write lock.
+//! Renames of one entity made before any lands are a **chain** (`a → b`, then `b → c`, matched by path), one change
+//! from the project the first was planned on (ADR 0346 D7). What a chain shows and lands is never kept as a phase: it
+//! is read from the texts each time, so whatever the editor did to its buffers (undo in one buffer and not another,
+//! part way, by hand, redo) the ledger read is what the texts say:
 //!
-//! A rename of the entity a showing rename gave (`a → b`, then `b → c` before saving, matched by path) composes with
-//! it once its own edit is applied: from then on it supersedes the first, one change from the first's project, the
-//! moves composed and the second's stale lines after the first's (ADR 0346 D7), shown and landed in its place; undone,
-//! the first shows again; the buffer back at the first's old name, both are undone. Until the second's edit arrives
-//! (or if it never does) the first shows and lands as itself.
+//! - the **moves** of the renames the declaring file holds: up to the last whose new name it declares (counted: two
+//!   scoped entities may share a name); none when it declares the first's old name, or a name no rename wrote;
+//! - for each **stale line**, by store, field and name held: the line of the last rename the source files it is about
+//!   hold, each file read as the text a rename wrote or read (an editor's undo restores it byte for byte); none when
+//!   a file holds no text of the chain's (typed in since: no line makes it the text collected either way).
+//!
+//! The checks read, over the session, what the buffers say (a file no buffer holds, as on disk). Once no file of a
+//! chain holds a buffer the disk does not (each one saved, or closed), what the disk says lands, once, under the write
+//! lock, and the chain is over; a write that fails leaves it to the next event. A rename answered whose edit no text
+//! was ever read holding stays, while its declaring file is open, to land as itself when its edit comes. A rename of
+//! the entity a chain's declaring file holds continues the chain there; the renames after that point, whose texts a
+//! source file may still hold, go on as a chain of their own.
 
-use std::sync::{Arc, Mutex};
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use specforge_ops::asking::Asking;
 use specforge_ops::authoring::apply::{Origin, Surface, land_ledger};
+use specforge_ops::authoring::rename::Marked;
 use specforge_ops::{Caller, Containment};
-use specforge_project::harness::{LedgerChange, LedgerOverlay, Line};
+use specforge_project::harness::{LedgerChange, LedgerOverlay, Line, compose};
 use specforge_project::{CompiledProject, ProjectSession};
 
-/// Where a pending rename is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Phase {
-    Waiting,
-    /// Shown as itself.
-    Showing,
-    /// Shown as one change after the rename it supersedes.
-    Composed,
-    /// A later rename of the entity this one gave holds its change: neither shown nor landed while that one is.
-    /// Whether this one was composed itself, to show again as it was.
-    Superseded {
-        composed: bool,
-    },
-    Done,
-}
-
-/// What the declaring file's text names.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Reading {
-    Old,
-    New,
-    Neither,
-}
-
-/// A showing rename this one renames the entity of again, and the change and files of both, as one.
-#[derive(Debug)]
-struct After {
-    earlier: Arc<PendingLedger>,
-    overlay: Arc<LedgerOverlay>,
-    files: Vec<String>,
-}
-
-/// One rename's ledger change, until it lands or is undone.
-#[derive(Debug)]
+/// One rename's ledger change, and the texts it read and wrote.
 pub struct PendingLedger {
-    overlay: Arc<LedgerOverlay>,
+    /// The project the rename was planned on.
+    before: CompiledProject,
+    moves: Vec<(String, String)>,
+    stale: Vec<Marked>,
+    /// Each source file the rename rewrote: the text it read and the text it wrote.
+    sources: BTreeMap<String, (Arc<str>, String)>,
     /// The source key of the file declaring the renamed entity.
     declaring: String,
     /// The renamed entity's path before and after: what a later rename is matched by.
@@ -71,9 +52,22 @@ pub struct PendingLedger {
     declared: (usize, usize),
     /// The source keys of every file the rename edits.
     files: Vec<String>,
-    phase: Mutex<Phase>,
-    /// The showing rename of the entity this one renames again, when there was one at the answer.
-    after: Option<After>,
+    /// A text was read holding the rename's edit: from then on, a reading without it ends it.
+    seen: AtomicBool,
+    /// The rename is the last of its chain the texts hold, and the chain shows a change.
+    showing: AtomicBool,
+}
+
+impl std::fmt::Debug for PendingLedger {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PendingLedger")
+            .field("old_id", &self.old_id)
+            .field("new_id", &self.new_id)
+            .field("moves", &self.moves)
+            .field("stale", &self.stale)
+            .field("showing", &self.is_showing())
+            .finish_non_exhaustive()
+    }
 }
 
 /// What a rename renames: the declaring file's key, the entity's path and name before and after.
@@ -85,24 +79,27 @@ pub struct Renamed {
     pub new_name: String,
 }
 
+/// What a rename changes besides the declaring file's name: the entities it moves (old path, new path), the stale
+/// lines it marks with the source files each is about, each source file it rewrote (key, text read, text written),
+/// and the key of every file it edits.
+pub struct Rewrites {
+    pub moves: Vec<(String, String)>,
+    pub stale: Vec<Marked>,
+    pub sources: Vec<(String, Arc<str>, String)>,
+    pub files: Vec<String>,
+}
+
 impl PendingLedger {
-    /// The pending change of `renamed`, planned on `before`, which moved `moves` and marks the fact stores of `stale`
-    /// stale (ADR 0346 D7); `None` when the project keeps no ledger (no root, or no harness field and no stale store).
+    /// The pending change of `renamed`, planned on `before` (ADR 0346 D7); `None` when the project keeps no ledger (no
+    /// root, or no harness field and no stale store).
     pub fn of(
         before: &CompiledProject,
-        moves: Vec<(String, String)>,
-        stale: Vec<Line>,
         renamed: Renamed,
-        files: Vec<String>,
+        rewrites: Rewrites,
     ) -> Option<Arc<PendingLedger>> {
-        if before.root().is_none() || (!before.declares_harness() && stale.is_empty()) {
+        if before.root().is_none() || (!before.declares_harness() && rewrites.stale.is_empty()) {
             return None;
         }
-        let change = LedgerChange {
-            moves,
-            stale,
-            ..LedgerChange::default()
-        };
         let declared = before
             .source_text(&renamed.declaring)
             .map_or((1, 0), |text| {
@@ -114,212 +111,45 @@ impl PendingLedger {
                 )
             });
         Some(Arc::new(PendingLedger {
-            overlay: Arc::new(LedgerOverlay::new(before.clone(), change)),
+            before: before.clone(),
+            moves: rewrites.moves,
+            stale: rewrites.stale,
+            sources: rewrites
+                .sources
+                .into_iter()
+                .map(|(key, read, wrote)| (key, (read, wrote)))
+                .collect(),
             declaring: renamed.declaring,
             old_id: renamed.old_id,
             new_id: renamed.new_id,
             old_name: renamed.old_name,
             new_name: renamed.new_name,
             declared,
-            files,
-            phase: Mutex::new(Phase::Waiting),
-            after: None,
+            files: rewrites.files,
+            seen: AtomicBool::new(false),
+            showing: AtomicBool::new(false),
         }))
     }
 
-    /// This rename, able to compose with `earlier`, the showing rename of the entity it renames again: one change
-    /// from the project `earlier` was planned on, so it lands whole whichever of their files is saved last.
-    fn after(&self, earlier: &Arc<PendingLedger>) -> Arc<PendingLedger> {
-        let change = earlier
-            .overlay()
-            .change()
-            .clone()
-            .then(self.overlay.change().clone());
-        let mut files = earlier.files().to_vec();
-        files.extend(self.files.iter().cloned());
-        files.sort();
-        files.dedup();
-        let after = After {
-            earlier: Arc::clone(earlier),
-            overlay: Arc::new(LedgerOverlay::new(
-                earlier.overlay().before().clone(),
-                change,
-            )),
-            files,
-        };
-        Arc::new(PendingLedger {
-            overlay: Arc::clone(&self.overlay),
-            declaring: self.declaring.clone(),
-            old_id: self.old_id.clone(),
-            new_id: self.new_id.clone(),
-            old_name: self.old_name.clone(),
-            new_name: self.new_name.clone(),
-            declared: self.declared,
-            files: self.files.clone(),
-            phase: Mutex::new(self.phase()),
-            after: Some(after),
-        })
-    }
-
-    fn phase(&self) -> Phase {
-        *self.phase.lock().unwrap_or_else(|e| e.into_inner())
-    }
-
-    fn set(&self, phase: Phase) {
-        *self.phase.lock().unwrap_or_else(|e| e.into_inner()) = phase;
-    }
-
-    /// The change shown and landed: its own, or the one after the rename it supersedes.
-    fn overlay(&self) -> &Arc<LedgerOverlay> {
-        match (self.phase(), &self.after) {
-            (Phase::Composed | Phase::Superseded { composed: true }, Some(after)) => &after.overlay,
-            _ => &self.overlay,
-        }
-    }
-
-    fn files(&self) -> &[String] {
-        match (self.phase(), &self.after) {
-            (Phase::Composed | Phase::Superseded { composed: true }, Some(after)) => &after.files,
-            _ => &self.files,
-        }
-    }
-
-    /// Whether the rename is over: landed or undone.
-    pub fn is_done(&self) -> bool {
-        self.phase() == Phase::Done
-    }
-
-    /// Whether the rename's ledger change is read over the checks now.
+    /// Whether the rename's chain shows a change, and this rename is the last of it the texts hold.
     pub fn is_showing(&self) -> bool {
-        matches!(self.phase(), Phase::Showing | Phase::Composed)
+        self.showing.load(Ordering::Relaxed)
     }
 
-    /// Whether the rename edits the file with this source key.
-    pub fn touches(&self, key: &str) -> bool {
-        self.files().iter().any(|file| file == key)
-    }
-
-    /// What `text`, the declaring file, names: one entity fewer declared with the old name than when the rename was
-    /// planned, and one at least with the new; or as many with the old as then, and no more with the new. Counted,
-    /// not asked whether a name is declared: two scoped entities may share a name, and a later rename of the other
-    /// one moves the count of a name this one wrote.
-    fn reading(&self, text: &str) -> Reading {
+    /// Whether `text`, the declaring file, declares the new name: one entity fewer with the old name than when the
+    /// rename was planned, and one at least with the new. Counted, not asked whether a name is declared: two scoped
+    /// entities may share a name, and a later rename of the other one moves the count of a name this one wrote.
+    fn declares_new(&self, text: &str) -> bool {
         let (old, new) = declared(text, &self.declaring, &self.old_name, &self.new_name);
-        let (planned_old, planned_new) = self.declared;
-        if old == planned_old && new <= planned_new {
-            Reading::Old
-        } else if old + 1 == planned_old && new >= 1 {
-            Reading::New
-        } else {
-            Reading::Neither
-        }
+        old + 1 == self.declared.0 && new >= 1
     }
 
-    /// The rename's edit is in the buffers: it shows, superseding the rename it renames again while that one shows.
-    fn show(&self) {
-        match &self.after {
-            Some(after) if after.earlier.is_showing() => {
-                let composed = after.earlier.phase() == Phase::Composed;
-                after.earlier.set(Phase::Superseded { composed });
-                self.set(Phase::Composed);
-            }
-            _ => self.set(Phase::Showing),
-        }
-    }
-
-    /// The editor's buffer of the declaring file is `text` now: a rename applied shows; one shown and then undone is
-    /// dropped, and the rename it superseded shows again; the buffer back at a name a rename it superseded renamed
-    /// from, all of them are.
-    fn buffer(&self, text: &str) {
-        match (self.phase(), self.reading(text)) {
-            (Phase::Waiting, Reading::New) => self.show(),
-            (phase @ (Phase::Showing | Phase::Composed), Reading::Old) => {
-                self.set(Phase::Done);
-                if let (Phase::Composed, Some(after)) = (phase, &self.after) {
-                    after.earlier.resume();
-                }
-            }
-            (Phase::Showing | Phase::Composed, _) if self.undone_by(text) => self.finish(),
-            _ => {}
-        }
-    }
-
-    /// Shown again as it was before a later rename superseded it.
-    fn resume(&self) {
-        if let Phase::Superseded { composed } = self.phase() {
-            self.set(if composed {
-                Phase::Composed
-            } else {
-                Phase::Showing
-            });
-        }
-    }
-
-    /// The rename this one superseded, while it does.
-    fn superseded(&self) -> Option<&Arc<PendingLedger>> {
-        match (self.phase(), &self.after) {
-            (Phase::Composed | Phase::Superseded { composed: true }, Some(after)) => {
-                Some(&after.earlier)
-            }
-            _ => None,
-        }
-    }
-
-    /// Whether `text` holds the name this rename, or one it superseded, renamed from: none of them done.
-    fn undone_by(&self, text: &str) -> bool {
-        self.reading(text) == Reading::Old
-            || self
-                .superseded()
-                .is_some_and(|earlier| earlier.undone_by(text))
-    }
-
-    /// This rename and every one it superseded are over.
-    fn finish(&self) {
-        if let Some(earlier) = self.superseded() {
-            earlier.finish();
-        }
-        self.set(Phase::Done);
-    }
-
-    /// The declaring file's buffer was closed and the disk holds `text`: a rename shown and never saved is dropped.
-    /// `true` when it was.
-    fn closed(&self, text: &str) -> bool {
-        let dropped = self.is_showing() && self.undone_by(text);
-        if dropped {
-            self.finish();
-        }
-        dropped
-    }
-
-    /// The file on disk is `text`: when it holds the new name, the ledger is written once, over the project the
-    /// session shows. `true` when it was. A write that fails leaves the rename pending, so the next event or the
-    /// shutdown tries again; the overlay keeps showing the ledger as renamed meanwhile.
-    fn lands(&self, text: &str, session: &ProjectSession) -> bool {
-        let phase = self.phase();
-        if matches!(phase, Phase::Done | Phase::Superseded { .. })
-            || self.reading(text) != Reading::New
-        {
-            return false;
-        }
-        if phase == Phase::Waiting {
-            self.show();
-        }
-        let caller = Caller::new(&UNBOUNDED, Asking::Nobody);
-        let origin = Origin::Core {
-            surface: Surface::Lsp,
-        };
-        let overlay = self.overlay();
-        let written = land_ledger(
-            overlay.before(),
-            session.project(),
-            overlay.change().clone(),
-            &origin,
-            caller,
-        );
-        if written.is_ok() {
-            self.finish();
-        }
-        written.is_ok()
+    /// The stale line this rename marks for `key`, if any.
+    fn line(&self, key: &Key) -> Option<&Line> {
+        self.stale
+            .iter()
+            .map(|m| &m.line)
+            .find(|line| key_of(line).as_ref() == Some(key))
     }
 }
 
@@ -336,138 +166,413 @@ fn declared(text: &str, key: &str, old: &str, new: &str) -> (usize, usize) {
     (count(old), count(new))
 }
 
+/// A stale line's collector, store, field and name held: what a later line of the same key replaces.
+type Key = (String, String, String, String);
+
+fn key_of(line: &Line) -> Option<Key> {
+    let stale = line.stale_of()?;
+    Some((
+        stale.collector.to_string(),
+        stale.key.to_string(),
+        stale.field.to_string(),
+        stale.held.to_string(),
+    ))
+}
+
+/// What the texts say of a chain.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Reading {
+    /// How many of the renames the declaring file holds: their moves are read.
+    declared: usize,
+    /// For each stale line the renames mark ([`keys`], in order): the rename whose line is read, 0 for none.
+    lines: Vec<usize>,
+}
+
+impl Reading {
+    /// How many renames the texts hold, in the declaring file or in a source file.
+    fn top(&self) -> usize {
+        self.lines
+            .iter()
+            .copied()
+            .chain([self.declared])
+            .max()
+            .unwrap_or(0)
+    }
+}
+
+/// The step of the declaring file's `text` in `renames`: the last rename whose new name it declares; 0 when none
+/// does (the first's old name, a name no rename wrote, or no text).
+fn declaring_step(renames: &[Arc<PendingLedger>], text: Option<&str>) -> usize {
+    let Some(text) = text else { return 0 };
+    (1..=renames.len())
+        .rev()
+        .find(|&i| renames[i - 1].declares_new(text))
+        .unwrap_or(0)
+}
+
+/// The step of the source `file`'s `text` in `renames`: the last rename that wrote that text, else one before the
+/// first that read it; `None` when it is neither.
+fn source_step(renames: &[Arc<PendingLedger>], file: &str, text: Option<&str>) -> Option<usize> {
+    let text = text?;
+    let source = |i: usize| renames[i - 1].sources.get(file);
+    (1..=renames.len())
+        .rev()
+        .find(|&i| source(i).is_some_and(|(_, wrote)| wrote == text))
+        .or_else(|| {
+            (1..=renames.len())
+                .find(|&i| source(i).is_some_and(|(read, _)| **read == *text))
+                .map(|i| i - 1)
+        })
+}
+
+/// Every stale line `renames` mark, by key, in the order first marked, with the source files any of them is about.
+fn keys(renames: &[Arc<PendingLedger>]) -> Vec<(Key, BTreeSet<String>)> {
+    let mut keys: Vec<(Key, BTreeSet<String>)> = Vec::new();
+    for marked in renames.iter().flat_map(|r| &r.stale) {
+        let Some(key) = key_of(&marked.line) else {
+            continue;
+        };
+        match keys.iter_mut().find(|(k, _)| *k == key) {
+            Some((_, files)) => files.extend(marked.files.iter().cloned()),
+            None => keys.push((key, marked.files.clone())),
+        }
+    }
+    keys
+}
+
+/// What the texts `text` answers say of `renames`. A stale line is at the earliest step any file it is about that a
+/// rename rewrote holds (one line names one name for every such file), 0 for a file holding none of the chain's
+/// texts; with no such file, at the declaring file's step.
+fn read(renames: &[Arc<PendingLedger>], text: &dyn Fn(&str) -> Option<String>) -> Reading {
+    let declared = declaring_step(renames, text(&renames[0].declaring).as_deref());
+    let rewritten = |file: &&String| renames.iter().any(|r| r.sources.contains_key(*file));
+    let lines = keys(renames)
+        .iter()
+        .map(|(key, files)| {
+            let step = files
+                .iter()
+                .filter(rewritten)
+                .map(|file| source_step(renames, file, text(file).as_deref()).unwrap_or(0))
+                .min()
+                .unwrap_or(declared);
+            (1..=step)
+                .rev()
+                .find(|&i| renames[i - 1].line(key).is_some())
+                .unwrap_or(0)
+        })
+        .collect();
+    Reading { declared, lines }
+}
+
+/// The change `reading` says of `renames`, from the project the first was planned on: the moves of the renames the
+/// declaring file holds, composed (a name renamed back moves nothing), and the stale line read for each key.
+fn change(renames: &[Arc<PendingLedger>], reading: &Reading) -> LedgerChange {
+    let mut moves = Vec::new();
+    for (old, new) in renames[..reading.declared].iter().flat_map(|r| &r.moves) {
+        compose(&mut moves, old, new);
+    }
+    moves.retain(|(old, new)| old != new);
+    let stale = keys(renames)
+        .iter()
+        .zip(&reading.lines)
+        .filter(|(_, at)| **at > 0)
+        .filter_map(|((key, _), at)| renames[at - 1].line(key).cloned())
+        .collect();
+    LedgerChange {
+        moves,
+        stale,
+        ..LedgerChange::default()
+    }
+}
+
+fn is_empty(change: &LedgerChange) -> bool {
+    change.moves.is_empty() && change.stale.is_empty()
+}
+
+/// The text of the file `key` on disk, found through `project`'s sources.
+fn on_disk(project: &CompiledProject, key: &str) -> Option<String> {
+    std::fs::read_to_string(project.environment().sources().path(key)).ok()
+}
+
+/// A chain's renames, and the overlay last shown with the reading it was made of: the same reading shows the same
+/// overlay, so the session's checks do not run again for nothing.
+#[derive(Debug, Default)]
+struct Links {
+    renames: Vec<Arc<PendingLedger>>,
+    shown: Option<(Reading, Arc<LedgerOverlay>)>,
+}
+
+/// Renames of one entity, each of the entity the one before gave, none landed.
+#[derive(Debug, Default)]
+struct Chain(Mutex<Links>);
+
+impl Chain {
+    fn of(renames: Vec<Arc<PendingLedger>>) -> Arc<Chain> {
+        Arc::new(Chain(Mutex::new(Links {
+            renames,
+            shown: None,
+        })))
+    }
+
+    fn links(&self) -> MutexGuard<'_, Links> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    fn is_over(&self) -> bool {
+        self.links().renames.is_empty()
+    }
+
+    fn renames(&self) -> Vec<Arc<PendingLedger>> {
+        self.links().renames.clone()
+    }
+
+    /// Whether a rename of the chain edits the file `key`.
+    fn touches(&self, key: &str) -> bool {
+        self.links()
+            .renames
+            .iter()
+            .any(|r| r.files.iter().any(|file| file == key))
+    }
+
+    /// The overlay last shown.
+    fn shown(&self) -> Option<Arc<LedgerOverlay>> {
+        let links = self.links();
+        links.shown.as_ref().map(|(_, overlay)| Arc::clone(overlay))
+    }
+
+    /// `pending`, planned on a project whose declaring file this chain reads at the rename that gave the entity
+    /// `pending` renames, continues the chain there; the renames after that point (undone in that file, their texts
+    /// maybe still in a source file) are returned, to go on as a chain of their own. `None` when `pending` renames
+    /// something else.
+    fn join(&self, pending: &Arc<PendingLedger>) -> Option<Vec<Arc<PendingLedger>>> {
+        let mut links = self.links();
+        let first = links.renames.first()?;
+        if first.declaring != pending.declaring {
+            return None;
+        }
+        let text = pending.before.source_text(&pending.declaring);
+        let at = declaring_step(&links.renames, text.as_deref());
+        let id = match at {
+            0 => &first.old_id,
+            at => &links.renames[at - 1].new_id,
+        };
+        if *id != pending.old_id {
+            return None;
+        }
+        let after = links.renames.split_off(at);
+        links.renames.push(Arc::clone(pending));
+        links.shown = None;
+        Some(after)
+    }
+
+    /// What the chain shows over the session when its files read as `text` answers (a file it does not answer, as on
+    /// disk); `None` when that is no change.
+    fn show(&self, text: &dyn Fn(&str) -> Option<String>) -> Option<Arc<LedgerOverlay>> {
+        let mut links = self.links();
+        let before = links.renames.first()?.before.clone();
+        let reading = read(&links.renames, &|key| {
+            text(key).or_else(|| on_disk(&before, key))
+        });
+        let change = change(&links.renames, &reading);
+        let top = reading.top();
+        for (at, rename) in links.renames.iter().enumerate() {
+            if at < top {
+                rename.seen.store(true, Ordering::Relaxed);
+            }
+            let showing = at + 1 == top && !is_empty(&change);
+            rename.showing.store(showing, Ordering::Relaxed);
+        }
+        if is_empty(&change) {
+            links.shown = None;
+            return None;
+        }
+        if let Some((shown, overlay)) = &links.shown
+            && *shown == reading
+        {
+            return Some(Arc::clone(overlay));
+        }
+        let overlay = Arc::new(LedgerOverlay::new(before, change));
+        links.shown = Some((reading, Arc::clone(&overlay)));
+        Some(overlay)
+    }
+
+    /// Land what the disk says of the chain, over the project the session shows. `Ok(true)` when the ledger was
+    /// written; `Err` when the write failed, the chain left as it was. Landed (or with nothing to land), the chain is
+    /// over but for the renames after the last a text was read holding, which stay while `open` says their declaring
+    /// file is open: their edits may yet come.
+    fn land(&self, session: &ProjectSession, open: &dyn Fn(&str) -> bool) -> Result<bool, ()> {
+        let mut links = self.links();
+        if links.renames.is_empty() {
+            return Ok(false);
+        }
+        let project = session.project();
+        let reading = read(&links.renames, &|key| on_disk(project, key));
+        let change = change(&links.renames, &reading);
+        let written = !is_empty(&change);
+        if written {
+            let caller = Caller::new(&UNBOUNDED, Asking::Nobody);
+            let origin = Origin::Core {
+                surface: Surface::Lsp,
+            };
+            land_ledger(&links.renames[0].before, project, change, &origin, caller)
+                .map_err(drop)?;
+        }
+        let top = reading.top();
+        let seen = links
+            .renames
+            .iter()
+            .enumerate()
+            .filter(|(at, rename)| *at < top || rename.seen.load(Ordering::Relaxed))
+            .map(|(at, _)| at + 1)
+            .max()
+            .unwrap_or(0);
+        let mut after = links.renames.split_off(seen);
+        after.retain(|rename| open(&rename.declaring));
+        for rename in links.renames.iter().chain(&after) {
+            rename.showing.store(false, Ordering::Relaxed);
+        }
+        links.renames = after;
+        links.shown = None;
+        Ok(written)
+    }
+}
+
 static UNBOUNDED: Containment = Containment::unbounded();
 
-/// The pending renames of a state, in the order they were answered.
+/// The pending renames of a state: their chains, in the order they were begun.
 #[derive(Debug, Default)]
-pub struct Pending(Mutex<Vec<Arc<PendingLedger>>>);
+pub struct Pending(Mutex<Vec<Arc<Chain>>>);
 
 impl Pending {
-    /// Hold `pending`; when it renames again the entity a showing rename gave (by path), it composes with that one
-    /// once its edit is applied ([`PendingLedger::after`]).
+    /// The chains not over.
+    fn chains(&self) -> MutexGuard<'_, Vec<Arc<Chain>>> {
+        let mut chains = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        chains.retain(|chain| !chain.is_over());
+        chains
+    }
+
+    /// Hold `pending`: it continues the chain whose declaring file, as `pending` was planned on it, holds the rename
+    /// that gave the entity it renames (by path), else begins one ([`Chain::join`]).
     pub fn hold(&self, pending: Arc<PendingLedger>) {
-        let mut all = self.0.lock().unwrap_or_else(|e| e.into_inner());
-        all.retain(|p| !p.is_done());
-        let earlier = all
-            .iter()
-            .find(|p| p.is_showing() && p.new_id == pending.old_id);
-        let pending = match earlier {
-            Some(earlier) => pending.after(earlier),
-            None => pending,
-        };
-        all.push(pending);
-    }
-
-    /// The renames not over.
-    pub fn open(&self) -> Vec<Arc<PendingLedger>> {
-        let mut all = self.0.lock().unwrap_or_else(|e| e.into_inner());
-        all.retain(|p| !p.is_done());
-        all.clone()
-    }
-
-    /// The editor's buffers are as `buffer` answers (the text of a source key, when it is open): each rename moves
-    /// along, and the ones showing are what the checks read over.
-    pub fn showing(&self, buffer: impl Fn(&str) -> Option<String>) -> Vec<Arc<LedgerOverlay>> {
-        let open = self.open();
-        // Every rename moves along first: one undone may show the rename it superseded again.
-        for p in &open {
-            if let Some(text) = buffer(&p.declaring) {
-                p.buffer(&text);
+        let mut chains = self.chains();
+        for chain in chains.iter() {
+            if let Some(after) = chain.join(&pending) {
+                if !after.is_empty() {
+                    chains.push(Chain::of(after));
+                }
+                return;
             }
         }
-        open.iter()
-            .filter(|p| p.is_showing())
-            .map(|p| Arc::clone(p.overlay()))
+        chains.push(Chain::of(vec![pending]));
+    }
+
+    /// The renames not over, chain by chain, each chain in the order its renames were answered.
+    pub fn open(&self) -> Vec<Arc<PendingLedger>> {
+        self.chains()
+            .iter()
+            .flat_map(|chain| chain.renames())
             .collect()
     }
-}
 
-impl Pending {
-    /// The server is shutting down: a rename whose declaring file was saved and whose event never came lands now.
+    /// Whether a rename not over edits the file with this source key.
+    pub fn touches(&self, key: &str) -> bool {
+        self.chains().iter().any(|chain| chain.touches(key))
+    }
+
+    /// The editor's buffers are as `buffer` answers (the text of a source key, when it is open): what each chain
+    /// shows the checks read over.
+    pub fn showing(&self, buffer: impl Fn(&str) -> Option<String>) -> Vec<Arc<LedgerOverlay>> {
+        self.chains()
+            .iter()
+            .filter_map(|chain| chain.show(&buffer))
+            .collect()
+    }
+
+    /// What the chains showed when last read: the ledger changes the checks read over.
+    pub fn shown(&self) -> Vec<Arc<LedgerOverlay>> {
+        self.chains()
+            .iter()
+            .filter_map(|chain| chain.shown())
+            .collect()
+    }
+
+    /// The server is shutting down: every buffer is gone, so what the disk says of each chain lands now.
     pub fn flush(&self, session: &ProjectSession) {
-        for p in self.open() {
-            let path = session.project().environment().sources().path(&p.declaring);
-            if let Ok(text) = std::fs::read_to_string(path) {
-                p.lands(&text, session);
-            }
+        let chains = self.chains().clone();
+        for chain in chains {
+            let _ = chain.land(session, &|_| false);
         }
     }
 }
 
-/// What a watched-file event asks of the pending renames: the ones that edit a file it names, to land if the disk
-/// says so.
+/// The buffer each file of a chain had, by source key (`None`: no buffer).
+type Buffers = BTreeMap<String, Option<String>>;
+
+/// What an event asks of the pending renames: every chain not over, with the buffer each of its files had, and
+/// whether it edits a file the event names, to land once none of its files holds a text the disk does not.
 pub struct Landing {
-    pending: Vec<Arc<PendingLedger>>,
-    keys: Vec<String>,
+    chains: Vec<(Arc<Chain>, Buffers, bool)>,
 }
 
 impl Landing {
     /// No rename waits on anything.
     pub fn none() -> Landing {
-        Landing {
-            pending: Vec::new(),
-            keys: Vec::new(),
-        }
+        Landing { chains: Vec::new() }
     }
 
-    pub fn of(pending: &Pending, keys: Vec<String>) -> Landing {
-        Landing {
-            pending: pending.open(),
-            keys,
-        }
-    }
-
-    /// Whether any rename waits on a file the event names.
-    pub fn is_empty(&self) -> bool {
-        !self
-            .pending
+    /// The chains of `pending`, each with the buffer `buffer` answers for each of its files, and whether it edits a
+    /// file `keys` names.
+    pub fn of(
+        pending: &Pending,
+        keys: &[String],
+        buffer: impl Fn(&str) -> Option<String>,
+    ) -> Landing {
+        let chains = pending
+            .chains()
             .iter()
-            .any(|p| self.keys.iter().any(|k| p.touches(k)))
-    }
-
-    /// The buffer of the source `keys` names was closed: a rename shown in its declaring file and never saved is
-    /// dropped, and the checks stop reading its ledger. `true` when the session needs its checks again.
-    pub fn discard(&self, session: &mut ProjectSession) -> bool {
-        let mut dropped = false;
-        for p in self
-            .pending
-            .iter()
-            .filter(|p| self.keys.iter().any(|k| *k == p.declaring))
-        {
-            let path = session.project().environment().sources().path(&p.declaring);
-            if let Ok(text) = std::fs::read_to_string(path) {
-                dropped |= p.closed(&text);
-            }
-        }
-        let showing = self
-            .pending
-            .iter()
-            .filter(|p| p.is_showing())
-            .map(|p| Arc::clone(p.overlay()))
+            .map(|chain| {
+                let files = chain
+                    .renames()
+                    .iter()
+                    .flat_map(|r| r.files.iter().chain([&r.declaring]))
+                    .map(|file| (file.clone(), buffer(file)))
+                    .collect();
+                let named = keys.iter().any(|key| chain.touches(key));
+                (Arc::clone(chain), files, named)
+            })
             .collect();
-        session.overlay_ledger(showing) || dropped
+        Landing { chains }
     }
 
-    /// Land the renames whose declaring file on disk holds the new name, then show only those still showing.
-    /// `true` when the session needs its checks again.
+    /// Whether no chain edits a file the event names.
+    pub fn is_empty(&self) -> bool {
+        !self.chains.iter().any(|(_, _, named)| *named)
+    }
+
+    /// Land each chain the event names none of whose files holds a buffer the disk does not, then show what every
+    /// chain shows as the buffers say (a file closed is read from disk now). `true` when the session needs its checks
+    /// again.
     pub fn land(&self, session: &mut ProjectSession) -> bool {
         let mut landed = false;
-        for p in self
-            .pending
-            .iter()
-            .filter(|p| self.keys.iter().any(|k| p.touches(k)))
-        {
-            let path = session.project().environment().sources().path(&p.declaring);
-            if let Ok(text) = std::fs::read_to_string(path) {
-                landed |= p.lands(&text, session);
+        for (chain, buffers, _) in self.chains.iter().filter(|(_, _, named)| *named) {
+            let project = session.project();
+            let saved = buffers.iter().all(|(file, buffer)| {
+                buffer
+                    .as_ref()
+                    .is_none_or(|text| on_disk(project, file).as_ref() == Some(text))
+            });
+            if saved {
+                let open = |key: &str| buffers.get(key).is_some_and(Option::is_some);
+                landed |= chain.land(session, &open).unwrap_or(false);
             }
         }
-        let showing = self
-            .pending
+        let shown = self
+            .chains
             .iter()
-            .filter(|p| p.is_showing())
-            .map(|p| Arc::clone(p.overlay()))
+            .filter_map(|(chain, buffers, _)| {
+                chain.show(&|key| buffers.get(key).cloned().flatten())
+            })
             .collect();
-        session.overlay_ledger(showing) || landed
+        session.overlay_ledger(shown) || landed
     }
 }

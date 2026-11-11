@@ -11,6 +11,7 @@
 
 use crate::authoring::apply::{self, Origin};
 use crate::authoring::entity_id::validate_id;
+pub use crate::authoring::fact_names::Marked;
 use crate::authoring::planned::PlannedChange;
 use crate::read::navigate::{Navigator, Precision, TextEdit, apply_edits};
 use crate::view::EntityField;
@@ -20,7 +21,7 @@ use specforge_common::Sym;
 use specforge_common::shape::Shape;
 use specforge_graph::{Form, Holder, Node, written_tokens};
 use specforge_parser::lex::lex;
-use specforge_project::harness::{LedgerChange, Line};
+use specforge_project::harness::LedgerChange;
 use std::collections::BTreeSet;
 
 /// The field of a rename's request a refusal can be about (ADR 0072).
@@ -72,7 +73,7 @@ pub struct RenamePlan {
     /// The texts the edits make, planned with them (ADR 0184).
     change: PlannedChange,
     /// The stale line of each fact store whose facts name what the rename moves (ADR 0346 D7).
-    stale: Vec<Line>,
+    stale: Vec<Marked>,
 }
 
 impl RenamePlan {
@@ -89,8 +90,9 @@ impl RenamePlan {
         &self.change
     }
 
-    /// The stale line of each fact store whose facts name what the rename moves: what its ledger change writes.
-    pub fn stale(&self) -> &[Line] {
+    /// The stale line of each fact store whose facts name what the rename moves, with the source files it writes the
+    /// name at: what its ledger change writes.
+    pub fn stale(&self) -> &[Marked] {
         &self.stale
     }
 }
@@ -254,7 +256,7 @@ pub fn plan(
         nav.view().project(),
         LedgerChange {
             moves: moved.clone(),
-            stale: facts.stale.clone(),
+            stale: facts.stale.iter().map(|m| m.line.clone()).collect(),
             ..Default::default()
         },
     );

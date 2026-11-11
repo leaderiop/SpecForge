@@ -81,7 +81,8 @@ fn a_second_rename_never_applied_leaves_the_first_to_land_alone() {
     assert_eq!(ledger.lines().filter_map(Line::stale_of).count(), 1);
 }
 
-/// Two renames composed, then the buffers typed back to the first's old name: both are undone, none shows.
+/// Two renames composed, then the buffers typed back to the first's old name: both are undone, none shows; saved,
+/// nothing lands and both are over.
 #[spec(
     behavior = "land_rename_ledger",
     verify = "a chain of editor renames typed back to its first name is undone whole"
@@ -113,8 +114,14 @@ fn a_chain_typed_back_to_its_first_name_is_undone_whole() {
     served.edit("a.test.js", &source);
     served.edit("truths.spec", &spec);
 
+    assert!(served.state().pending().shown().is_empty());
     assert!(
-        served.state().pending().open().is_empty(),
+        served
+            .state()
+            .pending()
+            .open()
+            .iter()
+            .all(|p| !p.is_showing()),
         "{:?}",
         served.state().pending().open()
     );
@@ -123,6 +130,7 @@ fn a_chain_typed_back_to_its_first_name_is_undone_whole() {
         ledger(&served).lines().filter_map(Line::stale_of).count(),
         0
     );
+    assert!(served.state().pending().open().is_empty());
 }
 
 fn disk(served: &Served, file: &str) -> String {

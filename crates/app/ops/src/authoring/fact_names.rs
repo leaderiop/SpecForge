@@ -24,7 +24,15 @@ use crate::{OpError, OpErrorKind};
 pub(crate) struct Rewrite {
     pub files: BTreeMap<String, Rewritten>,
     pub edits: Vec<TextEdit>,
-    pub stale: Vec<Line>,
+    pub stale: Vec<Marked>,
+}
+
+/// A stale line a rename marks, and the source files it writes the name at: what the line says of the store is true
+/// of exactly those files' texts (an editor that holds them apart reads each one alone).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Marked {
+    pub line: Line,
+    pub files: BTreeSet<String>,
 }
 
 /// The rewrite of the facts that name an entity `moved` moves (old path → new path, the renamed entity first), each
@@ -140,17 +148,7 @@ pub(crate) fn rewrite(
         }
         for ((field, spelling), (old, new_text)) in &names {
             rewritten.insert((key.clone(), field.clone(), spelling.clone()));
-            // One line for each name held that is served as the spelling: the edits below write every place of each.
-            for held in served.collected(field, spelling) {
-                rewrite.stale.push(Line::stale(
-                    &store.collector,
-                    &store.key,
-                    served.bytes.as_bytes(),
-                    field,
-                    held,
-                    new_text,
-                ));
-            }
+            let mut files = BTreeSet::new();
             for fact in &store.facts {
                 let written = fact.named_at.get(field).and_then(|ids| ids.get(spelling));
                 // A store's name is renamed in every fact holding it: each must name the entity moved.
@@ -166,6 +164,7 @@ pub(crate) fn rewrite(
                     ));
                 }
                 for place in written.into_iter().flatten() {
+                    files.insert(place.file.clone());
                     // The reader serves no store placing a fact in a file it records no digest of.
                     judges
                         .entry(place.file.clone())
@@ -186,6 +185,20 @@ pub(crate) fn rewrite(
                         .or_default()
                         .insert(span, (edit, spelling.clone()));
                 }
+            }
+            // One line for each name held that is served as the spelling: the edits above write every place of each.
+            for held in served.collected(field, spelling) {
+                rewrite.stale.push(Marked {
+                    line: Line::stale(
+                        &store.collector,
+                        &store.key,
+                        served.bytes.as_bytes(),
+                        field,
+                        held,
+                        new_text,
+                    ),
+                    files: files.clone(),
+                });
             }
         }
     }

@@ -1256,13 +1256,17 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
   contract   """
     The edits of a rename and of a fix name the version of the buffer they apply to when the client takes versioned
     document changes (ADR 0289). The server writes no file: the ledger change of a rename is held beside the
-    session, shown over its checks, written under the write lock once the renamed files are saved, and dropped
-    when the edit is undone. A rename reads a source file a fact is placed in as the editor's buffer holds it, so a
-    second rename made before a pending one lands composes with it: its edits land where the first left the name.
-    A rename of the entity a showing rename gave (matched by its path, not its name) supersedes that one once its
-    own edit is in the buffers: one change landed whole, the first shown again when the second is undone, both
-    undone when the buffer is typed back to the first's old name. Answered and never applied, it leaves the first
-    to show and land alone (ADR 0346 D7).
+    session, shown over its checks as the buffers say, and written under the write lock, as the disk says, once no
+    file the rename edits holds an unsaved buffer. A rename reads a source file a fact is placed in as the editor's
+    buffer holds it, so a second rename made before a pending one lands composes with it: its edits land where the
+    first left the name. Renames of one entity (matched by its path, not its name) are a chain, one change from the
+    project the first was planned on, read from the texts each time and never kept as a phase: the moves of the
+    renames the declaring file holds (none when it declares the first's old name or a name no rename wrote), and
+    for each stale line the line of the last rename every source file it is about holds, a file read as the text a
+    rename wrote or read (none for a text typed in since). So an undo in one buffer and not another, part way, by
+    hand, or a redo shows and lands what the buffers hold; a rename answered and never applied leaves the earlier
+    ones to show and land alone; a rename of the entity the declaring file holds after an undo continues the chain
+    there, the renames undone going on alone for the texts a source file still holds (ADR 0346 D7).
   """
   verify unit "the LSP rename writes its ledger change once the rename lands on disk"
   verify unit "an undone LSP rename writes no ledger change"
@@ -1273,6 +1277,9 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
   verify unit "a later editor rename never applied leaves the earlier one to show and land alone"
   verify unit "a later editor rename composes only with the rename of the entity it renames, matched by path"
   verify unit "a chain of editor renames typed back to its first name is undone whole"
+  verify unit "composed editor renames show and land, file by file, what the buffers hold however they were undone"
+  verify unit "composed editor renames undone and redone show and land again"
+  verify unit "composed editor renames land once no file of theirs holds an unsaved buffer, what the disk says"
   verify unit "the LSP rename and fixes are versioned for a client that takes document changes"
   verify unit "a fix names the version of the buffer it edits for a client that takes document changes"
 }

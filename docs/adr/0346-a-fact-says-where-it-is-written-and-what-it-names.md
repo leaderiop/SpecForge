@@ -209,14 +209,25 @@ next collect of that collector ────────────────�
   rename reads the file as the plan's earlier renames rewrote it and the stores through their stale lines
   (`CompiledProject::with_facts_after`), and the plan writes the file once, from the disk's text to the last; the
   language server holds its open source buffers, so a rename composes with one applied to the buffers and not yet
-  saved. Once its own edit is in the buffers, a rename of the entity a showing rename gave (matched by path: two
-  scoped entities may share a name) supersedes it: its pending ledger change is held as one change from the first
-  rename's project (the moves composed, the stale lines in order) and lands whole; undone, the first shows again;
-  typed back to the first's old name, both are undone. Answered and never applied, it changes nothing: the first
-  shows and lands as itself. Whether a declaring file holds a rename is counted (one entity fewer with the old name
-  than when it was planned), not asked by name.
-- The LSP rename's edit carries the source edits; the pending ledger change carries the stale line and lands as the
-  moves do.
+  saved. Renames of one entity made before any lands (matched by path: two scoped entities may share a name) are a
+  chain, one change from the first's project. An editor undoes per buffer, so the declaring file and each source
+  file go back apart; what a chain shows and lands is therefore never kept as a phase, but read from the texts each
+  time: the moves of the renames the declaring file holds, composed (up to the last whose new name it declares; none
+  for the first's old name or a name no rename wrote), and for each stale line (store, field, name held) the line of
+  the last rename that every source file it is about holds, each file read as the text a rename wrote or read (an
+  undo restores it byte for byte). A file holding none of the chain's texts (typed in since) holds no rename: no line
+  makes it the text collected either way. The shown overlay is what the buffers say (a file no buffer holds, as on
+  disk), and is read again when a source buffer a chain edits changes; once no file of the chain holds a buffer the
+  disk does not (saved, or closed), what the disk says lands once and the chain is over. Undone and redone, a chain
+  shows again; a rename answered and never applied changes nothing, and stays, while its declaring file is open, to
+  land as itself when its edit comes. A rename of the entity the declaring file holds continues the chain there;
+  the renames after that point go on as their own chain, for the texts a source file may still hold. Rejected:
+  landing when the declaring file alone is saved (the stale line would claim a source text the disk does not hold
+  yet), and dropping a chain when its declaring file reads the first's old name (a source buffer may still hold
+  the last name, which would then be W198 with nothing to say why). Whether a declaring file holds a rename is
+  counted (one entity fewer with the old name than when it was planned), not asked by name.
+- The LSP rename's edit carries the source edits; the pending ledger change carries each stale line with the source
+  files it is about, and the texts the rename read and wrote there.
 - **A delete of an entity a fact names stays refused.** It would remove what a test says it proves, and there is no
   text to delete in an attribute without guessing. Change the source, collect, then delete.
 

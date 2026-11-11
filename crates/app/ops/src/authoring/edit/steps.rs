@@ -214,7 +214,9 @@ fn rename_step(
             .and_modify(|earlier| earlier.after = file.after.clone())
             .or_insert_with(|| file.clone());
     }
-    carry.stale.extend(plan.stale().iter().cloned());
+    carry
+        .stale
+        .extend(plan.stale().iter().map(|m| m.line.clone()));
     for (old, new) in plan.moved() {
         carry.declared.moved(old, new);
         compose(&mut carry.moves, old, new);
