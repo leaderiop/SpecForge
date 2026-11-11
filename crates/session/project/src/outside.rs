@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use specforge_effects::git::{Git, Located};
+use specforge_effects::git::{Git, Located, locate_within};
 use specforge_effects::{Effects, SharedGit};
 use specforge_source::{Deadline, SourceReader};
 
@@ -17,12 +17,13 @@ impl Environment {
         self
     }
 
-    /// Where the repository of this project is, asked of `git`: a repository once found is kept.
+    /// Where the repository of this project is, asked of `git` and held to its roots ([`locate_within`]): a
+    /// repository once found is kept.
     pub(crate) fn place(&self, git: &dyn Git) -> Located {
         if let Some(found) = self.place.get() {
             return found.clone();
         }
-        let located = git.locate(self.root());
+        let located = locate_within(git, self.root(), &self.roots().landed());
         if matches!(located, Located::Repo(_)) {
             let _ = self.place.set(located.clone());
         }

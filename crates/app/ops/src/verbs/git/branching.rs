@@ -325,6 +325,7 @@ pub fn worktree_remove(verbs: &Verbs, path: &Path, force: bool) -> Result<Pruned
         let top = std::fs::canonicalize(&at).ok();
         match git.locate(&at) {
             Located::Repo(there) if Some(&there.toplevel) == top.as_ref() => {
+                let there = verbs.within_reach(there)?;
                 if git.status(&there).map_err(failed)?.dirty() {
                     return Err(refused(
                         super::DIRTY_TREE,

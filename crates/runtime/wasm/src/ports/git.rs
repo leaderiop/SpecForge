@@ -6,7 +6,7 @@ use std::sync::Arc;
 use specforge_effects::contained::{RealFs, withheld};
 use specforge_effects::git::{
     DiffQuery, DiffSide, DiffStatus, GitCommit, GitFileDiff, GitPerson, GitPlace, Located,
-    LogQuery, PickaxeReads, Sha, Work,
+    LogQuery, PickaxeReads, Sha, Work, within_roots,
 };
 use specforge_effects::{EffectRequest, FsOp, FsRequest, OutcomeClass, SharedGit};
 use specforge_protocol_types::{
@@ -43,38 +43,45 @@ pub(super) fn git_path(text: &str) -> Result<PathBuf, HostError> {
 }
 
 impl PortSession {
-    /// The git port and the project's directory, when the grant lets this call read git.
-    fn git(&self, question: &str) -> Result<(SharedGit, &Path), HostError> {
+    /// The git port and the project's repository, when the grant lets this call read git: none outside one. A
+    /// repository that leads out of the call's roots ([`within_roots`]) is refused, as a person's verbs refuse it.
+    fn located(&self, question: &str) -> Result<(SharedGit, Option<GitPlace>), HostError> {
         let (kind, call) = self.lent()?;
         call.grant
             .permits_git(kind, question)
             .map_err(|refusal| Self::refused(call, refusal))?;
-        Ok((Arc::clone(&call.git), call.roots.project()))
+        let git = Arc::clone(&call.git);
+        let dir = call.roots.project();
+        match git.locate(dir) {
+            Located::Repo(place) => {
+                let place = within_roots(&*git, place, &call.roots.landed())
+                    .map_err(|led| out_of_scope(led.to_string()))?;
+                Ok((git, Some(place)))
+            }
+            Located::NotARepository => Ok((git, None)),
+            Located::Unavailable(why) => Err(failed(UNAVAILABLE, why)),
+        }
     }
 
     /// The project's repository, for a question that needs one.
     pub(super) fn place(&self, question: &str) -> Result<(SharedGit, GitPlace), HostError> {
-        let (git, dir) = self.git(question)?;
-        match git.locate(dir) {
-            Located::Repo(place) => Ok((git, place)),
-            Located::NotARepository => Err(failed(
-                NOT_A_REPOSITORY,
-                format!("{} is in no git repository", dir.display()),
-            )),
-            Located::Unavailable(why) => Err(failed(UNAVAILABLE, why)),
+        match self.located(question)? {
+            (git, Some(place)) => Ok((git, place)),
+            (_, None) => {
+                let dir = self.lent()?.1.roots.project();
+                Err(failed(
+                    NOT_A_REPOSITORY,
+                    format!("{} is in no git repository", dir.display()),
+                ))
+            }
         }
     }
 
     pub fn git_locate(&mut self) -> Result<Option<GitRepo>, HostError> {
-        let (git, dir) = self.git("locate")?;
-        match git.locate(dir) {
-            Located::Repo(place) => Ok(Some(GitRepo {
-                toplevel: place.toplevel.display().to_string(),
-                shallow: place.shallow,
-            })),
-            Located::NotARepository => Ok(None),
-            Located::Unavailable(why) => Err(failed(UNAVAILABLE, why)),
-        }
+        Ok(self.located("locate")?.1.map(|place| GitRepo {
+            toplevel: place.toplevel.display().to_string(),
+            shallow: place.shallow,
+        }))
     }
 
     pub fn git_commit(&mut self, revision: &str) -> Result<Option<String>, HostError> {

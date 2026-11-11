@@ -14,6 +14,9 @@ pub use specforge_protocol_types::{
     GitBranch, GitChange, GitEntry, GitEntryKind, GitHunk, GitStatus,
 };
 
+mod reach;
+pub use reach::{LedOutside, locate_within, within_roots};
+
 /// A full commit id (hex).
 #[derive(
     Debug,

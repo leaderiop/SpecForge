@@ -1,5 +1,6 @@
 //! A planted `.git` leads a guest nowhere outside its call's roots: a `.git` file, a `commondir` and an object
-//! alternate are redirects, each judged as a person's verb judges it (`Git::leads_to` against the roots).
+//! alternate are redirects, each refused as a person's verb refuses it (`within_roots`), and one within the roots is
+//! honoured.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -9,7 +10,7 @@ use specforge_effects::{EffectJournal, Effects, EffectsCeiling, Grant, Ports, Pr
 use specforge_extension_sdk::prelude::{Capability, ContributionsBuilder, ExtensionMeta};
 use specforge_git::Gix;
 use specforge_git::testing::Repo;
-use specforge_protocol_types::{GitLogQuery, HostError, Operation};
+use specforge_protocol_types::{Denial, GitLogQuery, HostError, Operation};
 
 use crate::ports::{PortCall, PortSession};
 use crate::sandbox::Limits;
@@ -43,6 +44,15 @@ fn secret(dir: &Path) -> (Repo, String) {
     (repo, sha)
 }
 
+/// `answer` is the refusal of a repository that leads out of the call's roots, naming no secret.
+fn refused<T: std::fmt::Debug>(answer: Result<T, HostError>) {
+    assert!(
+        matches!(&answer, Err(HostError::Denied(Denial::Scope(why))) if why.contains("in no root")),
+        "{answer:?}"
+    );
+    assert!(!format!("{answer:?}").contains("hunter3"));
+}
+
 /// What a guest's log of `sha` answers in `project`: the subjects it read, or the error.
 fn logged(project: &Path, sha: &str) -> Result<Vec<String>, HostError> {
     session(project)
@@ -54,7 +64,7 @@ fn logged(project: &Path, sha: &str) -> Result<Vec<String>, HostError> {
 }
 
 #[test]
-fn a_planted_git_file_leads_a_guest_to_the_repository_it_names() {
+fn a_planted_git_file_leads_a_guest_nowhere() {
     let dir = tempfile::tempdir().unwrap();
     let (secret, sha) = secret(dir.path());
     let project = dir.path().join("project");
@@ -64,17 +74,13 @@ fn a_planted_git_file_leads_a_guest_to_the_repository_it_names() {
         format!("gitdir: {}\n", secret.git_dir().display()),
     )
     .unwrap();
-    assert_eq!(
-        logged(&project, &sha).unwrap(),
-        ["the secret commit"],
-        "pinned: the guest reads the repository outside its roots"
-    );
-    assert!(session(&project).git_locate().unwrap().is_some());
+    refused(logged(&project, &sha));
+    refused(session(&project).git_locate());
 }
 
 /// A `.git` that is a real directory and hands its refs to another: git's own spelling of a linked worktree's, forged.
 #[test]
-fn a_planted_commondir_leads_a_guest_to_the_refs_it_names() {
+fn a_planted_commondir_leads_a_guest_nowhere() {
     let dir = tempfile::tempdir().unwrap();
     let (secret, sha) = secret(dir.path());
     let project = dir.path().join("project");
@@ -90,15 +96,13 @@ fn a_planted_commondir_leads_a_guest_to_the_refs_it_names() {
         format!("{}\n", project.join(".git").display()),
     )
     .unwrap();
-    assert_eq!(
-        session(&project).git_commit("HEAD").unwrap().as_deref(),
-        Some(sha.as_str()),
-        "pinned: the guest resolves HEAD through the planted commondir"
-    );
+    let answer = session(&project).git_commit("HEAD");
+    assert!(!format!("{answer:?}").contains(&sha), "{answer:?}");
+    refused(answer);
 }
 
 #[test]
-fn a_planted_alternate_leads_a_guest_to_the_objects_it_names() {
+fn a_planted_alternate_leads_a_guest_nowhere_and_one_within_the_roots_is_read() {
     let dir = tempfile::tempdir().unwrap();
     let (secret, sha) = secret(dir.path());
     let project = dir.path().join("project");
@@ -110,9 +114,38 @@ fn a_planted_alternate_leads_a_guest_to_the_objects_it_names() {
         format!("{}\n", secret.git_dir().join("objects").display()),
     )
     .unwrap();
-    assert_eq!(
-        logged(&project, &sha).unwrap(),
-        ["the secret commit"],
-        "pinned: the guest reads the secret commit through the alternate"
-    );
+    refused(logged(&project, &sha));
+    // the same objects moved into the project are its own, and read
+    let near = project.join("near-objects");
+    copy_dir(&secret.git_dir().join("objects"), &near);
+    std::fs::write(
+        repo.git_dir().join("objects/info/alternates"),
+        format!("{}\n", near.display()),
+    )
+    .unwrap();
+    assert_eq!(logged(&project, &sha).unwrap(), ["the secret commit"]);
+}
+
+/// A repository whose git directory lies in the project, beside its worktree (`--separate-git-dir`), is within reach.
+#[test]
+fn a_git_file_naming_a_directory_within_the_roots_is_read() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("project");
+    let repo = Repo::init_separate(&project, &project.join(".store/project.git"));
+    repo.write("a.txt", "a\n");
+    let sha = repo.commit_all("held commit");
+    assert_eq!(logged(&project, &sha).unwrap(), ["held commit"]);
+}
+
+fn copy_dir(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_dir(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), target).unwrap();
+        }
+    }
 }

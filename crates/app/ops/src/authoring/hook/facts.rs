@@ -1,10 +1,10 @@
 //! What a hook is told that its sandbox cannot read (ADR 0292): the paths its tool names with what the disk says of
 //! them, a shell tool's command as words, and the commit a `git commit` makes.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde_json::Value;
-use specforge_effects::git::{Git, Located};
+use specforge_effects::git::{Git, Located, locate_within};
 use specforge_protocol_types::{CommitFact, GitFacts, PathFact, shell};
 
 /// The paths a tool's input names: `file_path`, `path`, `notebook_path`, each of `paths` and each file a patch text
@@ -79,10 +79,11 @@ pub fn path_facts(root: &Path, cwd: &Path, spec_root: &str, input: &Value) -> Ve
         .collect()
 }
 
-/// What git says of the repository `cwd` is in (ADR 0320): none outside one, or when git cannot be asked. `status`
-/// adds the typed status; a branch git cannot give is empty, a status it cannot give is none.
-pub fn git(history: &dyn Git, cwd: &Path, status: bool) -> Option<GitFacts> {
-    let Located::Repo(place) = history.locate(cwd) else {
+/// What git says of the repository `cwd` is in (ADR 0320), held to `roots` ([`locate_within`]): none outside one, or
+/// when git cannot be asked. `status` adds the typed status; a branch git cannot give is empty, a status it cannot
+/// give is none.
+pub fn git(history: &dyn Git, cwd: &Path, roots: &[PathBuf], status: bool) -> Option<GitFacts> {
+    let Located::Repo(place) = locate_within(history, cwd, roots) else {
         return None;
     };
     Some(GitFacts {
@@ -100,13 +101,13 @@ pub fn git(history: &dyn Git, cwd: &Path, status: bool) -> Option<GitFacts> {
 /// For a path outside the project, the repository it is in and whether it is inside a `.git` directory (ADR 0320).
 // shortcut: `in_git_dir` is by name, so a `--separate-git-dir` repository's directory is not seen; upgrade when a
 // hook needs it.
-pub fn outside_git(history: &dyn Git, fact: &mut PathFact) {
+pub fn outside_git(history: &dyn Git, fact: &mut PathFact, roots: &[PathBuf]) {
     let real = Path::new(&fact.real);
     fact.in_git_dir = real.components().any(|c| c.as_os_str() == ".git");
     if let Some(Located::Repo(place)) = real
         .ancestors()
         .find(|a| a.is_dir())
-        .map(|d| history.locate(d))
+        .map(|d| locate_within(history, d, roots))
     {
         fact.toplevel = Some(place.toplevel.to_string_lossy().into_owned());
     }
@@ -300,6 +301,25 @@ mod tests {
         assert_eq!(landing("mainsrc/new/a.ts"), base.join("main/src/new/a.ts"));
         // `..` after a link is the link target's parent, as the OS reads it.
         assert_eq!(landing("mainsrc/../x.ts"), base.join("main/x.ts"));
+    }
+
+    /// A repository that leads out of every root tells a hook nothing of git, its path facts included.
+    #[test]
+    fn a_repository_led_out_of_the_roots_gives_a_hook_no_git_facts() {
+        use specforge_effects::testing::FakeGit;
+        let dir = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(dir.path()).unwrap();
+        let mut fake = FakeGit::repo(&root, &"a".repeat(40), Vec::new());
+        let roots = [root.clone()];
+        assert!(git(&fake, &root, &roots, false).is_some());
+        fake.leads = vec![PathBuf::from("/elsewhere/.git")];
+        assert_eq!(git(&fake, &root, &roots, true), None);
+        let mut fact = PathFact {
+            real: root.join("x.txt").display().to_string(),
+            ..PathFact::default()
+        };
+        outside_git(&fake, &mut fact, &roots);
+        assert_eq!(fact.toplevel, None);
     }
 
     fn commit_of(command: &str) -> Option<CommitFact> {

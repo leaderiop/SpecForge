@@ -168,7 +168,7 @@ pub(super) fn ask_git(
     }
     let port = env.git()?;
     // A directory that is no repository (a source tarball) cannot say what one lacks.
-    let Located::Repo(place) = port.locate(env.root()) else {
+    let Located::Repo(place) = env.place(&*port) else {
         return None;
     };
     // A value is never an option of the program behind the port.

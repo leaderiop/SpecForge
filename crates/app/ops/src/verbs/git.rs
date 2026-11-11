@@ -7,7 +7,7 @@ use serde::Serialize;
 use specforge_effects::git::{
     DiffQuery, DiffSide, GitBranchRef, GitChange, GitCommit, GitEntry, GitEntryKind, GitError,
     GitFileDiff, GitPlace, GitRemote, GitStatus, GitSubmodule, LOG_MAX, Located, LogQuery,
-    ObjectKind, PickaxeReads, Sha, Tracking, is_binary,
+    ObjectKind, PickaxeReads, Sha, Tracking, is_binary, within_roots,
 };
 
 use super::{USER, Verbs, slashed};
@@ -320,33 +320,20 @@ impl Verbs {
 }
 
 impl Verbs {
-    /// `place`, when nothing it reads beyond its own `.git` leads out of every root: a planted `.git` is a redirect, and
-    /// holding the path typed says nothing of where it leads. A repository around the project is found by a walk, and a
-    /// real linked worktree or submodule names its `.git` back: neither is judged.
+    /// `place`, held to every root by the one containment of a located repository ([`within_roots`]).
     fn within_reach(&self, place: GitPlace) -> Result<GitPlace, OpError> {
-        let out = self
-            .ports()
-            .git
-            .leads_to(&place)
-            .into_iter()
-            .find(|at| !self.landed.iter().any(|(_, base)| at.starts_with(base)));
-        match out {
-            None => Ok(place),
-            Some(at) => Err(OpError::new(
+        let roots: Vec<PathBuf> = self.landed.iter().map(|(_, base)| base.clone()).collect();
+        within_roots(&*self.ports().git, place, &roots).map_err(|led| {
+            OpError::new(
                 OpErrorKind::PermissionDenied,
                 crate::OUTSIDE_ROOT,
-                format!(
-                    "the repository at {} reads {}, through its .git, a commondir, core.worktree or an alternate, and \
-                     that is in no root",
-                    printable(&place.toplevel.to_string_lossy()),
-                    printable(&at.to_string_lossy())
-                ),
+                printable(&led.to_string()),
             )
             .with_suggestion(
                 "remove the redirect if you did not make it; to keep it, name that directory a root: `specforge grants \
                  approve --root <name> --at <dir>`",
-            )),
-        }
+            )
+        })
     }
 }
 

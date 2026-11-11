@@ -406,21 +406,39 @@ fn a_commit_rechecks_the_session() {
 )]
 fn refs_outside_the_root_are_watched_by_their_directorys_entries() {
     let project = computed::project("decision D \"D\" {\n  phase 03\n  origin context\n}\n");
-    // The git directory lives outside the project (what a linked worktree's common directory is).
+    // The project is a linked worktree: its refs live in the common directory, outside it.
     let elsewhere = tempfile::tempdir().unwrap();
-    let gitdir = elsewhere.path().join("g");
-    specforge_git::testing::Repo::init_separate(project.root(), &gitdir).commit_all("c");
+    let main = specforge_git::testing::Repo::init(&elsewhere.path().join("main"));
+    main.write("README", "r\n");
+    let sha = main.commit_all("c");
+    main.linked_worktree(project.root(), "work", &sha);
     let project = project.with_git(git_cli());
     let session = project.session_in(Arc::new(gsd_history_runtime(json!([]))));
-    let gitdir = gitdir.canonicalize().unwrap();
+    let common = main.git_dir().canonicalize().unwrap();
     let root = project.root().canonicalize().unwrap();
     let roots = session.inputs().watch_roots();
     for watch in &roots {
         assert_eq!(watch.recursive, watch.dir == root, "{roots:?}");
     }
-    for dir in [gitdir.clone(), gitdir.join("refs/heads")] {
+    for dir in [common.clone(), common.join("refs/heads")] {
         assert!(roots.iter().any(|r| r.dir == dir), "{dir:?} in {roots:?}");
     }
+}
+
+/// A baseline whose repository leads out of every root is W164, and nothing is judged.
+#[test]
+fn a_git_dir_outside_every_root_is_w164() {
+    let project = computed::project(DECISION);
+    // a `.git` naming a git directory out of every root: a plant, or a layout to name a root for
+    let elsewhere = tempfile::tempdir().unwrap();
+    specforge_git::testing::Repo::init_separate(project.root(), &elsewhere.path().join("g"))
+        .commit_all("c");
+    let found = project
+        .compile_with(Arc::new(gsd_history_runtime(json!([]))), Some(git_cli()))
+        .diagnostics();
+    let w164 = computed::with_code(&found, "W164");
+    assert_eq!(w164.len(), 1, "{found:?}");
+    assert!(w164[0].message.contains("in no root"), "{w164:?}");
 }
 
 /// `now` checked against a `HEAD` holding `head`, over a project whose only history flags sit on block members.

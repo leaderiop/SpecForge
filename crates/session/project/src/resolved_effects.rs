@@ -388,6 +388,12 @@ impl Environment {
         self.effects_allowed
             .with_inside(Roots::new(self.root(), self.spec_root()))
     }
+
+    /// Every root: the project's, the spec root and each named root (`specforge.json` `roots`).
+    pub fn roots(&self) -> Roots {
+        self.effects_allowed
+            .with_named(Roots::new(self.root(), self.spec_root()))
+    }
 }
 
 #[cfg(test)]

@@ -103,6 +103,10 @@ pub fn run(
                 .is_none_or(|s| on(view, extension, &[s.to_string()]))
         });
     let history = git.and_then(|_| view.env().git());
+    let roots = match &history {
+        Some(_) => view.env().roots().landed(),
+        None => Vec::new(),
+    };
     let tool = event.tool.as_ref();
     let at = crate::extension::command::instant();
     let input = HookInput::<RawGraph> {
@@ -127,14 +131,14 @@ pub fn run(
             };
             if let Some(history) = &history {
                 for fact in paths.iter_mut().filter(|f| !f.in_project) {
-                    facts::outside_git(&**history, fact);
+                    facts::outside_git(&**history, fact, &roots);
                 }
             }
             paths
         },
         git: history
             .as_ref()
-            .and_then(|h| facts::git(&**h, &cwd, git.is_some_and(|git| git.status))),
+            .and_then(|h| facts::git(&**h, &cwd, &roots, git.is_some_and(|git| git.status))),
         change: event.change.clone(),
         other_settings: served.other_settings(),
         shell: tool

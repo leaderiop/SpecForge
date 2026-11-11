@@ -73,6 +73,14 @@ that names another repository or worktree than the one the directory is in, or n
 none, refuses the `locate`, naming the variable: the host never lets the environment point it at another repository
 (ADR 0339 D5), and ignoring the variable would read one git does not read there. One naming the repository the
 directory is in is kept (a hook git runs in a linked worktree sets `GIT_DIR`).
+The repository found is held to the call's roots, as a person's verbs hold theirs: a `.git` file or link, a
+`commondir`, a `core.worktree` or an object alternate is a redirect, and one that leads out of every root refuses the
+call with a scope denial naming where it leads. A repository around the project, found by a walk, is no redirect, and a
+real linked worktree or submodule names its `.git` back and is read wherever it lies. One check does this
+(`within_roots` in the effects crate, over the port's `leads_to`), and every reader of the project's repository asks
+it: a guest's git calls, the person's git verbs, the session's own reads (the baseline, a collect's key, a value's git
+lookup: a repository that leads out is W164 or no history, with the reason) and a hook's git input. A collector's
+repository detection counts such a repository as one, so the collect runs and its `locate` says why.
 No remote, URL, credential or environment variable reaches it.
 A log with no `max` lists every commit up to the call's answer cap and says `truncated`; a pickaxe over a withheld path
 is refused. A diff of a withheld file keeps its status and counts, never its patch or hunks, and says `withheld`; the
