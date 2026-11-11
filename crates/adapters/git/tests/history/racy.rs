@@ -168,3 +168,142 @@ fn restoring_another_file_keeps_a_racy_rewrite_seen() {
     );
     assert_eq!(worktree_change(&repo, "a.txt"), Some(GitChange::Modified));
 }
+
+#[test]
+fn a_hard_reset_over_a_racy_rewrite_leaves_the_commit_and_reads_clean() {
+    let (_dir, repo) = raced();
+    let head = Sha::new(repo.sha("HEAD"));
+    Gix::default()
+        .reset(&place(&repo), &head, ResetMode::Hard)
+        .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(repo.dir().join("a.txt")).unwrap(),
+        "k\n"
+    );
+    assert_eq!(worktree_change(&repo, "a.txt"), None);
+    assert!(repo.dir().join("b.txt").exists(), "an untracked file stays");
+}
+
+/// `main` moved past the commit `side` forks from: `side` (from the first commit) adds `d.txt` and sets `c.txt` to
+/// `theirs`; `main`'s second commit adds `e.txt` and sets `c.txt` to `ours`. Then `a.txt` is raced as in [`raced`]:
+/// staged at 100 ns, the index written at 500 ns, rewritten to the same size at 900 ns. `side`'s sha.
+fn forked(theirs: &str, ours: &str) -> (tempfile::TempDir, Repo, String) {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.config("[core]\n\ttrustctime = false");
+    repo.write("a.txt", "k\n").write("c.txt", "c\n");
+    stamp(&repo, Some("a.txt"), 100);
+    repo.commit_all("first");
+    let git = repo.open();
+    let head = git.head_commit().unwrap();
+    let mut tree = git.edit_tree(head.tree_id().unwrap()).unwrap();
+    for (path, text) in [("d.txt", "d\n"), ("c.txt", theirs)] {
+        let blob = git.write_blob(text).unwrap().detach();
+        tree.upsert(path, gix::objs::tree::EntryKind::Blob, blob)
+            .unwrap();
+    }
+    let tree = tree.write().unwrap().detach();
+    let who = gix::actor::SignatureRef {
+        name: "Test".into(),
+        email: "test@example.com".into(),
+        time: "1700000100 +0000",
+    };
+    let side = git
+        .commit_as(who, who, "refs/heads/side", "side\n", tree, [head.id])
+        .unwrap()
+        .to_string();
+    repo.write("c.txt", ours).write("e.txt", "e\n");
+    repo.commit_all("second");
+    stamp(&repo, None, 500);
+    repo.write("a.txt", "l\n");
+    stamp(&repo, Some("a.txt"), 900);
+    (dir, repo, side)
+}
+
+#[test]
+fn a_three_way_merge_keeps_a_racy_rewrite_seen() {
+    let (_dir, repo, side) = forked("c\n", "m\n");
+    let merging = Merging {
+        message: "merge side\n".into(),
+        ..Merging::default()
+    };
+    let merged = Gix::default()
+        .merge(&place(&repo), &Sha::new(side), &merging)
+        .unwrap();
+    assert!(!merged.fast_forward && merged.sha.is_some() && merged.conflicts.is_empty());
+    assert!(repo.dir().join("d.txt").exists(), "the merge ran");
+    assert_eq!(worktree_change(&repo, "a.txt"), Some(GitChange::Modified));
+}
+
+/// An up-to-date merge writes nothing: the index keeps its bytes and its time.
+#[test]
+fn an_up_to_date_merge_leaves_the_index_as_it_was() {
+    let (_dir, repo) = raced();
+    let index = repo.git_dir().join("index");
+    let (bytes, time) = (
+        std::fs::read(&index).unwrap(),
+        std::fs::metadata(&index).unwrap().modified().unwrap(),
+    );
+    let merging = Merging {
+        message: "m\n".into(),
+        ..Merging::default()
+    };
+    Gix::default()
+        .merge(&place(&repo), &Sha::new(repo.sha("HEAD")), &merging)
+        .unwrap();
+    assert_eq!(std::fs::read(&index).unwrap(), bytes);
+    assert_eq!(std::fs::metadata(&index).unwrap().modified().unwrap(), time);
+    assert_eq!(time, second() + Duration::from_nanos(500));
+}
+
+#[test]
+fn a_stash_takes_a_racy_rewrite_and_its_pop_brings_it_back_seen() {
+    let (_dir, repo) = raced();
+    Gix::default()
+        .stash_push(&place(&repo), Some("wip"), false)
+        .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(repo.dir().join("a.txt")).unwrap(),
+        "k\n",
+        "the racy rewrite was stashed"
+    );
+    assert_eq!(worktree_change(&repo, "a.txt"), None);
+    Gix::default().stash_pop(&place(&repo), 0).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(repo.dir().join("a.txt")).unwrap(),
+        "l\n"
+    );
+    assert_eq!(worktree_change(&repo, "a.txt"), Some(GitChange::Modified));
+}
+
+#[test]
+fn a_pick_recorded_or_staged_keeps_a_racy_rewrite_seen() {
+    for record in [true, false] {
+        let (_dir, repo, side) = forked("c\n", "m\n");
+        let picked = Gix::default()
+            .pick(&place(&repo), &Sha::new(side), false, record)
+            .unwrap();
+        assert!(picked.conflicts.is_empty(), "{picked:?}");
+        assert!(repo.dir().join("d.txt").exists(), "the pick ran");
+        assert_eq!(
+            worktree_change(&repo, "a.txt"),
+            Some(GitChange::Modified),
+            "record {record}"
+        );
+    }
+}
+
+#[test]
+fn an_aborted_pick_keeps_a_racy_rewrite_seen() {
+    let (_dir, repo, side) = forked("s\n", "m\n");
+    let picked = Gix::default()
+        .pick(&place(&repo), &Sha::new(side), false, true)
+        .unwrap();
+    assert!(!picked.conflicts.is_empty(), "c.txt conflicts: {picked:?}");
+    assert!(Gix::default().pick_end(&place(&repo), true).unwrap());
+    assert_eq!(
+        std::fs::read_to_string(repo.dir().join("c.txt")).unwrap(),
+        "m\n"
+    );
+    assert_eq!(worktree_change(&repo, "a.txt"), Some(GitChange::Modified));
+}
