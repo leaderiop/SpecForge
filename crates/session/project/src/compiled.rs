@@ -621,7 +621,7 @@ impl CompiledProject {
             // The files `HEAD` is named by are read first, so each is an input of this run: a commit changes one.
             let stamp = crate::baseline::Baseline::ref_stamp(&env, disk);
             let read = match held {
-                Some(held) if held.pinned || held.stamp == stamp => held,
+                Some(held) if held.reusable(&stamp, this.effects().journal()) => held,
                 _ => Arc::new(crate::baseline::HeldBaseline {
                     read: crate::baseline::Baseline::of_head(
                         &env,
@@ -699,7 +699,7 @@ impl CompiledProject {
                 value_checks: values.checks,
                 checked_values,
             });
-            this.consulted()
+            this.consulted(baseline.as_deref())
         });
         self.checks_skipped = false;
         self.baseline = baseline;

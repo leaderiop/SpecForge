@@ -626,6 +626,21 @@ impl EffectJournal {
         Ok(Some((path, record)))
     }
 
+    /// When the record file at `path` of this journal stops answering its request, as a run that consulted it at `now`
+    /// logs it (`mode::Log::consulted`): none when it answers nothing then (expired, missing, never served fresh, or no
+    /// record file of this journal). What a result read from the journal is kept by, and compared with again.
+    pub fn answer_expires(&self, path: &Path, now: UnixMillis) -> Option<UnixMillis> {
+        let stem = path.file_stem()?.to_str()?;
+        let digest = RecordDigest::parse(&format!("sha256:{stem}"))?;
+        if self.path(&digest).as_deref() != Some(path) {
+            return None;
+        }
+        match self.lookup(&digest, now) {
+            Lookup::Fresh(kept) => expires(&kept.record),
+            Lookup::Expired(_) | Lookup::Missing => None,
+        }
+    }
+
     /// What the journal holds for the request keyed `digest`, at `now`.
     pub fn lookup(&self, digest: &RecordDigest, now: UnixMillis) -> Lookup {
         let Some(path) = self.path(digest) else {

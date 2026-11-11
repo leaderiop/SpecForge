@@ -295,6 +295,7 @@ behavior read_git_baseline "Read the Git Baseline" {
   verify unit "git refuses a project directory that is not valid UTF-8"
   verify unit "a baseline git could not fully read is used and not cached, and a tree error is not cached"
   verify unit "a baseline whose listed file git then gives no bytes for is not cached"
+  verify unit "a cached baseline is compiled again once a journal record its checks read answers otherwise"
   verify unit "a file git can never be asked for is permanently unreadable and the baseline is cached"
   verify unit "a spec a compute pass reads at the baseline is not asked of git again"
   verify unit "a project in a subdirectory of the repository reads its own files at the baseline"

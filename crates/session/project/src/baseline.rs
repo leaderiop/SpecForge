@@ -8,7 +8,9 @@
 //! excludes). A different extension version is a different environment, never a stale hit.
 //! A compute pass that reads files reads the commit's, listed from its tree and fetched on demand (ADR 0300), and so
 //! do the checks of the ungated values, run at the commit before its judged rules, which digest their outcomes
-//! (ADR 0290 D7): only the effect journal answers a probe there, nothing is performed.
+//! (ADR 0290 D7): only the effect journal answers a probe there, nothing is performed. A cached baseline is kept only
+//! while each journal record those checks read answers as it did ([`Baseline::holds`]): a record written since, or
+//! one whose answer expired, compiles it again.
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
@@ -26,8 +28,8 @@ pub use crate::baseline_judged::Fetch;
 pub use crate::baseline_reads::{CommitReads, Sizes};
 use crate::sources::Read;
 use crate::values::CheckCache;
-use specforge_effects::Effects;
 use specforge_effects::git::{CommitFile, Git, GitPlace, Located, Sha, TreeEntry};
+use specforge_effects::{EffectJournal, Effects, UnixMillis};
 
 /// What the baseline's checks are asked through: the compile's effects, of which only the journal answers a probe at
 /// the commit (nothing is performed there), and its checker cache.
@@ -71,6 +73,9 @@ pub struct Baseline {
     /// The text of `specforge-harness` at the baseline commit: the move records it already held are not applied again.
     #[serde(default)]
     pub ledger: String,
+    /// Each effect journal record its checks read, with when its answer expires (none: it answered nothing then).
+    #[serde(default)]
+    pub consulted: BTreeMap<PathBuf, Option<UnixMillis>>,
     /// A file git could be asked for gave no bytes: used now, never cached (not serialised).
     #[serde(skip)]
     pub incomplete: bool,
@@ -107,6 +112,37 @@ pub struct HeldBaseline {
     /// A `--since` copy: its baseline is the call's, whatever `HEAD` does.
     pub pinned: bool,
     pub read: BaselineRead,
+}
+
+impl HeldBaseline {
+    /// Whether a run whose `HEAD` is named by `stamp` judges against this read again: a `--since` copy's always; else
+    /// while `HEAD` is the same commit and each journal record the baseline's checks read answers alike.
+    pub fn reusable(&self, stamp: &Option<RefStamp>, journal: &EffectJournal) -> bool {
+        self.pinned || (self.stamp == *stamp && self.holds(journal, UnixMillis::now_or_end()))
+    }
+
+    /// Whether the baseline read still answers as it did ([`Baseline::holds`]); none, or a notice, always does.
+    pub fn holds(&self, journal: &EffectJournal, now: UnixMillis) -> bool {
+        match &self.read {
+            Ok(Some(baseline)) => baseline.holds(journal, now),
+            Ok(None) | Err(_) => true,
+        }
+    }
+
+    /// The journal records the baseline's checks read: inputs of the run that judges against it.
+    pub(crate) fn consulted(&self) -> Vec<crate::ledger::Consulted> {
+        match &self.read {
+            Ok(Some(baseline)) => baseline
+                .consulted
+                .iter()
+                .map(|(path, expires)| crate::ledger::Consulted {
+                    path: path.clone(),
+                    expires: *expires,
+                })
+                .collect(),
+            Ok(None) | Err(_) => Vec::new(),
+        }
+    }
 }
 
 /// What reading the baseline gave: the baseline, none (nothing declares history, or no git port is given), or the
@@ -409,7 +445,11 @@ impl Baseline {
     ) -> Result<Arc<Baseline>, String> {
         let env16 = fingerprint(env);
         let key = (env.root().to_path_buf(), commit.clone(), env16.clone());
-        if let Some(held) = MEMORY.lock().unwrap_or_else(|e| e.into_inner()).get(&key) {
+        let journal = checking.effects.journal();
+        let now = UnixMillis::now_or_end();
+        if let Some(held) = MEMORY.lock().unwrap_or_else(|e| e.into_inner()).get(&key)
+            && held.holds(journal, now)
+        {
             return Ok(Arc::clone(held));
         }
         let file = env
@@ -419,7 +459,7 @@ impl Baseline {
         let baseline = match std::fs::read(&file)
             .ok()
             .and_then(|bytes| serde_json::from_slice::<Baseline>(&bytes).ok())
-            .filter(|b| &b.revision == commit)
+            .filter(|b| &b.revision == commit && b.holds(journal, now))
         {
             Some(read) => read,
             None => {
@@ -609,6 +649,7 @@ impl Baseline {
             _ => Default::default(),
         };
         let incomplete = short || unread;
+        let consulted = journaled.log().consulted;
         let entities = entities_of(
             built.graph.graph(),
             env.registries().field_forms(),
@@ -619,8 +660,17 @@ impl Baseline {
             revision,
             entities,
             ledger,
+            consulted,
             incomplete,
         }
+    }
+
+    /// Whether each journal record its checks read answers at `now` as it did then: a probe that found no fresh record
+    /// and finds one now, or one whose answer expired or was written again, would be judged otherwise.
+    pub fn holds(&self, journal: &EffectJournal, now: UnixMillis) -> bool {
+        self.consulted
+            .iter()
+            .all(|(path, expires)| journal.answer_expires(path, now) == *expires)
     }
 }
 
@@ -670,6 +720,7 @@ impl Baseline {
                 project.judgements(),
             ),
             ledger: String::new(),
+            consulted: BTreeMap::new(),
             incomplete: false,
         }
     }
@@ -693,8 +744,9 @@ fn fingerprint(env: &Environment) -> String {
         bytes.extend(entry.name.to_string().into_bytes());
         bytes.extend(entry.wasm_hash.as_str().as_bytes());
     }
-    // the baseline format: 4 runs the ungated checks at the commit, which the judged rules digest (ADR 0290 D7)
-    bytes.extend(b"\0baseline-format:4");
+    // the baseline format: 4 runs the ungated checks at the commit, which the judged rules digest (ADR 0290 D7); 5
+    // keeps the journal records they read, so a file cached before is never taken as reading none
+    bytes.extend(b"\0baseline-format:5");
     let config = env.config();
     // the checks `specforge.json` attaches: no declaration carries them
     for (field, checks) in &config.checks.fields {
