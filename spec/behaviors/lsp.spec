@@ -1257,7 +1257,8 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
     The edits of a rename and of a fix name the version of the buffer they apply to when the client takes versioned
     document changes (ADR 0289). The server writes no file: the ledger change of a rename is held beside the
     session, shown over its checks, written under the write lock once the renamed files are saved, and dropped
-    when the edit is undone.
+    when the edit is undone. A second rename that needs a source file a pending rename rewrites where a fact names
+    the entity is refused as source_rewritten: one source rewrite per collect (ADR 0346 D7).
   """
   verify unit "the LSP rename writes its ledger change once the rename lands on disk"
   verify unit "an undone LSP rename writes no ledger change"

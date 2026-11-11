@@ -602,9 +602,9 @@ fn rename_of_an_entity_a_fact_names_edits_its_source_file() {
 }
 
 /// A second editor rename made before the first one's ledger change lands reads the facts as the first leaves them
-/// (ADR 0289): the fact the first moved names the entity where it went. Its source file was rewritten since the
-/// collect, so the second is refused as a second rename before the collect is over MCP (ADR 0346 D7), never answered
-/// without the fact's edit.
+/// (ADR 0289): the fact the first moved names the entity where it went, in the source file the first rewrites. One
+/// source rewrite per collect (ADR 0346 D7): the second is refused as `source_rewritten`, saying an earlier rename
+/// rewrites the file, never answered without the fact's edit.
 #[spec(
     behavior = "land_rename_ledger",
     verify = "a second editor rename before the first lands reads the facts as the first leaves them"
@@ -612,19 +612,41 @@ fn rename_of_an_entity_a_fact_names_edits_its_source_file() {
 fn a_second_rename_before_the_first_lands_sees_the_fact_it_moved() {
     let mut served = fact_named();
     let uri = served.uri("truths.spec");
-    answers::rename(&served.state(), &uri, Position::new(0, 7), "T2")
+    let first = answers::rename(&served.state(), &uri, Position::new(0, 7), "T2")
         .unwrap()
         .expect("an edit");
-    // The editor applies it to its buffers, saving nothing: the rename shows, its ledger change pending.
-    served.edit("truths.spec", "truth T2 \"One\" {\n}\n");
+    // The editor applies the whole edit to its buffers, saving nothing: the rename shows, its ledger change pending.
+    let changes = first.changes.expect("plain changes");
+    assert_eq!(changes.len(), 2, "{changes:?}");
+    for file in ["truths.spec", "a.test.js"] {
+        let edits: Vec<serde_json::Value> = changes[&served.uri(file)]
+            .iter()
+            .map(|edit| serde_json::to_value(edit).unwrap())
+            .collect();
+        let disk = std::fs::read_to_string(served.root().join(file)).unwrap();
+        let text = crate::contracts::apply_edits(&disk, &edits);
+        if served.state().files().document(file).is_some() {
+            served.edit(file, &text);
+        } else {
+            served.open_document(&served.uri(file), &text);
+        }
+    }
+    assert!(
+        served
+            .state()
+            .files()
+            .document("a.test.js")
+            .is_some_and(|d| d.text().contains("covers T2"))
+    );
     assert_eq!(served.state().pending().open().len(), 1);
 
     let second = answers::rename(&served.state(), &uri, Position::new(0, 7), "T3");
 
-    let refused = second.expect_err("the fact's source file was rewritten since the collect");
+    let refused = second.expect_err("the first rename rewrites the fact's source file");
     assert_eq!(
         refused.message,
-        "cannot rename 'T2': a.test.js changed since `specforge collect` read it"
+        "cannot rename 'T2': an earlier rename rewrites a.test.js, and a source is rewritten once per \
+         `specforge collect`"
     );
     assert_eq!(
         served.state().pending().open().len(),

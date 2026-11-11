@@ -64,10 +64,14 @@ pub(super) fn split(text: &str) -> Result<(Store, &str, Renames), serde_json::Er
 }
 
 /// Every name `store`'s facts hold in a field `renames` lists, read as the rename wrote it, its places moved along;
-/// and the W197 of the store `key` when there are renames.
-pub(super) fn follow(key: &str, store: &mut Store, renames: &Renames) -> Option<Diagnostic> {
+/// the W197 of the store `key` when there are renames, and the source files a rename rewrote a name in.
+pub(super) fn follow(
+    key: &str,
+    store: &mut Store,
+    renames: &Renames,
+) -> (Option<Diagnostic>, BTreeSet<String>) {
     if renames.is_empty() {
-        return None;
+        return (None, BTreeSet::new());
     }
     let mut renamed: BTreeSet<(&str, &str)> = BTreeSet::new();
     let mut files: BTreeSet<String> = BTreeSet::new();
@@ -90,7 +94,7 @@ pub(super) fn follow(key: &str, store: &mut Store, renames: &Renames) -> Option<
             }
         }
     }
-    Some(w197(key, &renamed, &files))
+    (Some(w197(key, &renamed, &files)), files)
 }
 
 /// `value`, or each item of it, that is the string `written`, as `now`.

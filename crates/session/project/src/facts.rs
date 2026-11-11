@@ -325,6 +325,9 @@ pub struct Served<'t> {
     pub bytes: &'t str,
     /// W197 when a rename marked it stale.
     pub stale: Option<Diagnostic>,
+    /// The source files a rename that marked it stale rewrote a name in: rewritten since the collect, on disk or
+    /// in an editor's buffers while the rename is pending (ADR 0346 D7).
+    pub rewritten: BTreeSet<String>,
 }
 
 /// The served text `text` of the fact store `key` ([`read`]) read: the one reader of a store. Its facts' names a rename
@@ -342,11 +345,12 @@ pub fn store<'t>(key: &str, text: &'t str) -> Result<Served<'t>, Diagnostic> {
             ),
         ));
     }
-    let stale = stale::follow(key, &mut store, &renames);
+    let (stale, rewritten) = stale::follow(key, &mut store, &renames);
     Ok(Served {
         store,
         bytes,
         stale,
+        rewritten,
     })
 }
 

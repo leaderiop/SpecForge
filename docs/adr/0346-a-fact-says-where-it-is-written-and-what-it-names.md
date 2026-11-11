@@ -143,7 +143,9 @@ next collect of that collector ────────────────�
 - A second rename needing a place in a file the first rewrote is refused `source_moved` (its digest moved): one
   rewrite per file per collect, exact by construction. It finds the place because it reads the store as served: the
   name the first rename wrote, at the place it wrote it. Within one plan, a rename that needs a file an earlier
-  rename of the plan rewrites is refused `source_rewritten`.
+  rename of the plan rewrites is refused `source_rewritten`; so is an editor's second rename that needs a file the
+  first rewrites in the editor's buffers, its ledger change pending and the file on disk still the text collected
+  (the served store's stale line names the file; its digest has not moved).
 - The LSP rename's edit carries the source edits; the pending ledger change carries the stale line and lands as the
   moves do.
 - **A delete of an entity a fact names stays refused.** It would remove what a test says it proves, and there is no
