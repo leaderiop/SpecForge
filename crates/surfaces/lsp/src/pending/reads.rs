@@ -3,13 +3,20 @@
 //! changed), each read with a byte of context on either side, so a name grown or cut at its edge is not taken for it.
 //! Edits elsewhere (another rename, typing) move a place and leave what it reads.
 
+use std::cell::Cell;
 use std::ops::Range;
 
+use similar::algorithms::{Capture, myers};
 use similar::{Algorithm, DiffTag, capture_diff_slices};
 use specforge_project::facts::Span;
 
 /// Whether `now` reads `name` at each of `spans`, places of `then` that read it there.
 pub(super) fn reads(then: &str, now: &str, spans: &[Span], name: &str) -> bool {
+    counted(then, now, spans, name, &Cell::new(0))
+}
+
+/// [`reads`], adding to `work` each byte it compares.
+fn counted(then: &str, now: &str, spans: &[Span], name: &str, work: &Cell<usize>) -> bool {
     let Some(ranges) = spans
         .iter()
         .map(|span| range(then, span))
@@ -23,7 +30,7 @@ pub(super) fn reads(then: &str, now: &str, spans: &[Span], name: &str) -> bool {
     if then == now {
         return true;
     }
-    let moved = Moved::between(then, now);
+    let moved = Moved::between(then, now, work);
     ranges.iter().all(|r| moved.keeps(then, now, r))
 }
 
@@ -47,7 +54,7 @@ fn range(text: &str, span: &Span) -> Option<Range<usize>> {
 struct Moved(Vec<(Range<usize>, Option<usize>)>);
 
 impl Moved {
-    fn between(then: &str, now: &str) -> Moved {
+    fn between(then: &str, now: &str, work: &Cell<usize>) -> Moved {
         let old: Vec<&str> = then.split_inclusive('\n').collect();
         let new: Vec<&str> = now.split_inclusive('\n').collect();
         let starts = |lines: &[&str]| -> Vec<usize> {
@@ -66,8 +73,16 @@ impl Moved {
                 runs.push((a, Some(b.start)));
                 continue;
             }
-            let (then, now) = (&then.as_bytes()[a.clone()], &now.as_bytes()[b.clone()]);
-            for op in capture_diff_slices(Algorithm::Myers, then, now) {
+            let counted = |bytes: &[u8]| -> Vec<Counted<'_>> {
+                bytes.iter().map(|&byte| Counted(byte, work)).collect()
+            };
+            let (then, now) = (
+                counted(&then.as_bytes()[a.clone()]),
+                counted(&now.as_bytes()[b.clone()]),
+            );
+            let mut ops = Capture::new();
+            let Ok(()) = myers::diff(&mut ops, &then, 0..then.len(), &now, 0..now.len());
+            for op in ops.into_ops() {
                 let (tag, x, y) = op.as_tag_tuple();
                 let kept = (tag == DiffTag::Equal).then_some(b.start + y.start);
                 runs.push((a.start + x.start..a.start + x.end, kept));
@@ -96,9 +111,21 @@ impl Moved {
     }
 }
 
+/// A byte that counts each comparison of it.
+struct Counted<'w>(u8, &'w Cell<usize>);
+
+impl PartialEq for Counted<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.1.set(self.1.get() + 1);
+        self.0 == other.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::reads;
+    use std::cell::Cell;
+
+    use super::{counted, reads};
 
     const THEN: &str = "// covers T2 U1\ntest('adds', () => {});\n";
     const AT: [(usize, usize, usize, usize); 1] = [(1, 11, 1, 13)];
@@ -137,5 +164,88 @@ mod tests {
             !reads(THEN, THEN, &AT, "T3"),
             "the earlier text must read the name"
         );
+    }
+
+    #[test]
+    fn a_name_reads_with_text_typed_beside_it_that_cannot_extend_it() {
+        let then = "// covers T2\ntest('adds', () => {});\n";
+        for now in [
+            "// covers T2, T5\ntest('adds', () => {});\n",
+            "// covers T2 // and more\ntest('adds', () => {});\n",
+            "// covers (T2)\ntest('adds', () => {});\n",
+        ] {
+            assert!(reads(then, now, &AT, "T2"), "{now}");
+        }
+        for now in [
+            "// covers T2x\ntest('adds', () => {});\n",
+            "// covers xT2\ntest('adds', () => {});\n",
+            "// covers T2_\ntest('adds', () => {});\n",
+        ] {
+            assert!(!reads(then, now, &AT, "T2"), "{now}");
+        }
+    }
+
+    /// Thirty lines no other line of either text repeats.
+    fn lines() -> String {
+        (0..30).map(|i| format!("const a{i} = {i};\n")).collect()
+    }
+
+    #[test]
+    fn a_name_moved_with_the_lines_around_it_reads_and_one_cut_away_alone_does_not() {
+        let block = "// covers T2\ntest('adds', () => {});\ntest('more', () => {});\n";
+        let then = format!("const a = 1;\n{block}");
+        let now = format!("{block}const a = 1;\n");
+        assert!(reads(&then, &now, &[(2, 11, 2, 13)], "T2"));
+
+        let then = format!("// covers T2\n{}", lines());
+        let now = format!("{}// covers T2\n", lines());
+        assert!(!reads(&then, &now, &AT, "T2"));
+        let now = format!("{}// covers T2, T5\n", lines());
+        assert!(!reads(&then, &now, &AT, "T2"));
+    }
+
+    /// A text of more than 200 KB, every line distinct: the name on its first line.
+    fn large() -> String {
+        let mut text = String::from("// covers T2\n");
+        for i in 0..4000 {
+            text.push_str(&format!(
+                "    let value_{i} = compute_something({i}, \"text\");\n"
+            ));
+        }
+        assert!(text.len() > 200_000);
+        text
+    }
+
+    #[test]
+    fn a_large_text_reindented_reads_as_gone_in_work_bounded_by_its_size() {
+        let then = large();
+        let now: String = then
+            .lines()
+            .map(|line| format!("  {}\n", line.trim_start()))
+            .collect();
+        let work = Cell::new(0);
+        assert!(!counted(&then, &now, &AT, "T2", &work));
+        let bound = 2 * (then.len() + now.len()) + (1 << 20);
+        assert!(work.get() <= bound, "{} bytes compared", work.get());
+    }
+
+    #[test]
+    fn a_large_text_with_the_name_line_reindented_reads_in_work_bounded_by_its_size() {
+        let then = large();
+        let now = format!("  {then}");
+        let work = Cell::new(0);
+        assert!(counted(&then, &now, &[(1, 11, 1, 13)], "T2", &work));
+        let bound = 4 * (then.len() + now.len()) + (1 << 20);
+        assert!(work.get() <= bound, "{} bytes compared", work.get());
+    }
+
+    #[test]
+    fn a_name_among_changed_lines_past_the_counted_cap_reads_as_gone() {
+        let (a, b) = ("a".repeat(600), "b".repeat(600));
+        let then = format!("// covers T2 {a}\n");
+        let now = format!("// covers T2 {b}\n");
+        let work = Cell::new(0);
+        assert!(!counted(&then, &now, &AT, "T2", &work));
+        assert!(work.get() <= 2 * (then.len() + now.len()), "{}", work.get());
     }
 }

@@ -12,7 +12,7 @@ use crate::rename_undo::{SOURCE, SPEC, composed, landed, said, shown};
 use crate::served::Served;
 
 /// Rename the entity declared at `line`:7 of the declaring file to `name`, applied to the buffers.
-fn rename(served: &mut Served, line: u32, name: &str) {
+pub(crate) fn rename(served: &mut Served, line: u32, name: &str) {
     let uri = served.uri(SPEC);
     let edit = answers::rename(&served.state(), &uri, Position::new(line, 7), name)
         .unwrap()

@@ -47,6 +47,7 @@ mod recorder;
 mod registries;
 mod rename;
 mod rename_history;
+mod rename_outside;
 mod rename_pending;
 mod rename_undo;
 mod scoped_names;
