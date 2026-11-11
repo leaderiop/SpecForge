@@ -32,12 +32,12 @@ pub(crate) enum Read {
 /// Read source `relative` of `sources` through `disk`: the one read of a
 /// `.spec` file. Its text; its E025 when it is there and is not UTF-8 text or
 /// cannot be read; `Gone` when the disk says `NotFound`. A fact store's key is read as one ([`facts::read`]), against
-/// the harness ledger `recorded` when the caller read it already.
+/// what the stores are served against, `recorded`, when the caller read it already.
 pub(crate) fn read(
     disk: &dyn Disk,
     sources: &SourceRoot,
     relative: &str,
-    recorded: Option<&crate::harness::Ledger>,
+    recorded: Option<&crate::facts::Recorded>,
 ) -> Read {
     if specforge_common::facts::is_fact_store(relative) {
         return facts::read(disk, sources, relative, recorded);

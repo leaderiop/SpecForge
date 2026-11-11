@@ -647,7 +647,7 @@ impl CompiledProject {
             let mut authored = env.entity_snapshot(graph);
             // A fact still naming what a rename moved is told where it went, from the ledger (ADR 0346 D7).
             if let Some(root) = this.root().filter(|_| env.reads_facts()) {
-                authored.suggest_moved(&crate::facts::moves(&crate::facts::recorded(disk, root)));
+                authored.suggest_moved(&crate::facts::moves(&crate::facts::ledger(disk, root)));
             }
             let text_of = |file: &str| this.sources.text(file).cloned();
             // One budget over both stages of the values phase (ADR 0350).

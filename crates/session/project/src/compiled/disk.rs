@@ -101,6 +101,8 @@ impl CompiledProject {
     ) -> Cow<'_, CompiledProject> {
         let mut bytes = Vec::new();
         let disk = crate::harness::overlay::through(&PlainDisk, self, overlays, &mut bytes);
+        // Read once for every store: what each serves depends on every stale store's renames.
+        let recorded = crate::facts::recorded(&disk, self.env.sources().base());
         let reads: Vec<(String, Read)> = self
             .sources
             .keys()
@@ -109,7 +111,7 @@ impl CompiledProject {
             .map(|key| {
                 (
                     key.to_string(),
-                    crate::facts::read(&disk, self.env.sources(), key, None),
+                    crate::facts::read(&disk, self.env.sources(), key, Some(&recorded)),
                 )
             })
             .filter(|(key, read)| !self.is_current(key, read))

@@ -140,7 +140,7 @@ pub(crate) struct Unrecorded<'d> {
     /// The disk the checks read: the plain file system, or a plan's overlay of it.
     checks: &'d dyn Disk,
     /// The harness ledger the fact stores are checked against, read once by `discover` (ADR 0327 D5).
-    recorded: Option<crate::harness::Ledger>,
+    recorded: Option<crate::facts::Recorded>,
 }
 
 impl<'d> Unrecorded<'d> {
@@ -264,8 +264,9 @@ pub(crate) struct Ledger {
     stamps: Stamps,
     /// The disk a source is read through; none reads the plain file system (ADR 0145).
     source_disk: Option<SourceDisk>,
-    /// The harness ledger the fact stores are checked against, read once with the `Facts` rows (ADR 0327 D5, D9).
-    recorded: Option<Arc<crate::harness::Ledger>>,
+    /// What the fact stores are served against (the harness ledger and what its renames wrote), read once with the
+    /// `Facts` rows (ADR 0327 D5, D9).
+    recorded: Option<Arc<crate::facts::Recorded>>,
 }
 
 impl Ledger {

@@ -49,7 +49,10 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
     hold after the collect) MUST be served with exactly the names its stale
     lines record read as the rename wrote them, every place it records in a
     file a rename rewrote shifted exactly by what the renames wrote there,
-    and is W197 until its collector collects again; a store collected after
+    and is W197 until its collector collects again. What the renames wrote
+    in a file is derived across every stale store, so every store placed in
+    it that collected the same text MUST be served shifted by it, one that
+    holds none of the renamed names included; a store collected after
     the rename follows no move, and no older move is followed (ADR 0346 D7).
     A store whose stale lines rename one name it holds two ways (two merged
     branches) MUST be served with none of its renames, W202.
@@ -73,6 +76,7 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify integration "a fact store a rename marked stale is served through the ledger's moves with W197 until the next collect"
   verify unit "a stale store's places are shifted exactly by what the renames wrote, and only the text they left holds"
   verify unit "a store whose stale lines rename one name two ways serves none of its renames, W202"
+  verify integration "a store placed in a file another store's renames rewrote is served shifted by them, and read again with it"
   verify unit "build_graph emits W061 for reference cycles"
   verify unit "W061 names the cycle's entities in its data"
   verify unit "W061 names every entity of a cycle, one whose cycle closes through an entity already walked included"

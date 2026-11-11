@@ -146,11 +146,18 @@ next collect of that collector ────────────────�
   forever); following the ledger's moves by suffix for a stale store (an older move of `a/T1` would re-point a `T1`
   that names the root `T1`); a line per rename from the spelling it read (`T1→T2`, `T2→T3`: a set of lines has no
   order, and a rename back makes a cycle).
-- **What renames wrote is derived, so the places are exact by construction.** Every place a fact of the store names a
-  stale line's held name in its field (`named_at`) is a place the renames rewrote, the held spelling replaced by the
-  spelling written. The serve applies those edits to every place the store records in that file (`at` and every
-  `named_at`): a place before an edit stays, one after it moves by the length the edit changed (on its line; by the
-  lines an edit spanning lines removed, after it), and an edit's own place becomes what it wrote. A rename plans its
+- **What renames wrote is derived, so the places are exact by construction.** Every place a fact of a stale store
+  names one of its stale lines' held names in that field (`named_at`) is a place the renames rewrote, the held
+  spelling replaced by the spelling written, a span of the text that store collected (`sources[F]`). The edits of a
+  text are derived once, from every stale store the ledger serves that collected it, and every store placed in the
+  file that collected that same text is served shifted by all of them, one that holds none of the renamed names
+  included: its places are exact in the text the renames left, and a rename of its own names applies. The serve
+  applies them to every place the store records in that file (`at` and every `named_at`): a place before an edit
+  stays, one after it moves by the length the edit changed (on its line; by the lines an edit spanning lines
+  removed, after it), and an edit's own place becomes what it wrote. A text two stores say was written two ways at
+  one place, or whose places overlap, has no exact derivation: its stores' places are served as collected there, and
+  the file is not the text they are in (W198, a rename `source_moved`). A store that collected another text of the
+  file (an older collect) is not shifted by these edits: they are not spans of its text. A rename plans its
   source edits from the same derivation: for each name it rewrites, every place the served store writes it, in the
   served coordinates, and a stale line for every name held that is served as it (two when renames made two held
   names read as one, so each place written is one a line derives). A rename to a name a fact holds for no entity
@@ -163,9 +170,11 @@ next collect of that collector ────────────────�
   whose digest the collect recorded (`sources[F]`). Anything else edited in the file, a rename reverted by hand
   included, fails it: W198, and a rename refused `source_moved`.
 - **The renames reach the serve on the served text.** A session reads a store once (`facts::store` is its one
-  reader); the text it serves is the collector's bytes, then the renames its stale lines record as one more JSON
-  value. The session compares served texts, so a ledger change re-serves the store, and the on-disk `Store` has no
-  host-only field. *Rejected:* a `moved` field on the store struct set by the host (a field no collector writes, and
+  reader); the text it serves is the collector's bytes, then what the ledger says of it as one more JSON value: the
+  renames its stale lines record, and what every stale store's renames wrote in source files. The session compares
+  served texts, so a ledger change re-serves the store, and the on-disk `Store` has no host-only field. What a store
+  serves depends on the other stale stores' bytes, so a session that reads one store again reads them all again
+  (one that reads as it holds it changes nothing). *Rejected:* a `moved` field on the store struct set by the host (a field no collector writes, and
   the store parsed, re-serialized and parsed again).
 - **W197** "fact store '<key>' is stale: a rename moved what its facts name ('T1' → 'T2'[, and N more]) after the
   collect; its places in <files> are served as the rename left them, until `specforge collect`".

@@ -634,6 +634,22 @@ impl ProjectSession {
             return Some(self.reload_environment());
         }
         let mut sources = changes.sources.clone();
+        // What a store serves depends on every stale store's bytes (what renames wrote in a file is derived across
+        // them, ADR 0346 D7): one store read again, they all are; one that reads as held changes nothing.
+        if sources
+            .iter()
+            .any(|key| specforge_common::facts::is_fact_store(key))
+        {
+            let stores: Vec<String> = self
+                .project
+                .source_keys()
+                .into_iter()
+                .filter(|key| specforge_common::facts::is_fact_store(key))
+                .filter(|key| !sources.iter().any(|s| s == key))
+                .map(str::to_string)
+                .collect();
+            sources.extend(stores);
+        }
         self.held.leave_out(&mut sources);
         let rechecks = !changes.check_inputs.is_empty();
         if sources.is_empty() && !rechecks {

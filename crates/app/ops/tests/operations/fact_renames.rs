@@ -242,3 +242,101 @@ fn a_store_whose_ledger_renames_a_name_two_ways_serves_none_and_refuses_renames(
         "// covers T1 T5\n"
     );
 }
+
+/// `unit`'s store, filed under [`KEY`] beside `node`'s.
+const UNIT_STORE: &str = ".specforge/facts/0123456789abcdef0123456789abcdef01234567/unit.json";
+
+/// [`project`] with a second truth `T5`, and two collectors' stores placed in one line of `a.test.js`: `node`'s fact
+/// covers `T1` (columns 11..13), `unit`'s covers `T5` (14..16).
+fn two_stores() -> TestProject {
+    let p = project();
+    p.write(
+        "truths.spec",
+        format!("truth T1 \"One\" {{\n  proof [\"{FACT}\"]\n}}\n\ntruth T5 \"Five\" {{}}\n"),
+    );
+    let source = "// covers T1 T5\n";
+    std::fs::write(p.root().join("a.test.js"), source).unwrap();
+    let at = |from: usize| json!([{"file": "a.test.js", "start_line": 1, "start_col": from, "end_line": 1, "end_col": from + 2}]);
+    let sources: std::collections::BTreeMap<String, String> = [(
+        "a.test.js".to_string(),
+        specforge_ops::revision::of_bytes(source.as_bytes()),
+    )]
+    .into();
+    stored_with(
+        p.root(),
+        "node",
+        KEY,
+        json!([{"kind": "test", "id": FACT, "fields": {"file": "a.test.js", "covers": ["T1"]},
+                "named_at": {"covers": {"T1": at(11)}}}]),
+        sources.clone(),
+    );
+    stored_with(
+        p.root(),
+        "unit",
+        KEY,
+        json!([{"kind": "test", "id": "js:a.test.js#five", "fields": {"file": "a.test.js", "covers": ["T5"]},
+                "at": [{"file": "a.test.js", "start_line": 1, "start_col": 1, "end_line": 1, "end_col": 17}],
+                "named_at": {"covers": {"T5": at(14)}}}]),
+        sources,
+    );
+    p
+}
+
+/// Whether every store placed in `a.test.js` serves its places in the file as it is on disk, and where `unit`'s
+/// fact's name `name` is served.
+fn every_store_holds(p: &TestProject, name: &str) -> (bool, Option<(usize, usize)>) {
+    let compiled = crate::collected::compiled_quietly(p);
+    let text = std::fs::read(p.root().join("a.test.js")).unwrap();
+    let sources = compiled.fact_sources();
+    let placed = &sources["a.test.js"];
+    assert!(
+        placed.contains_key(UNIT_STORE),
+        "both stores are placed in it"
+    );
+    let holds = placed.values().all(|placed| placed.holds(&text));
+    let fact = compiled.graph().node("js:a.test.js#five").unwrap();
+    let at = match fact.fields.entry("covers").map(|e| &e.value) {
+        Some(specforge_parser::FieldValue::List(items)) => items
+            .iter()
+            .find(|i| i.text == name)
+            .map(|i| (i.span.start_col, i.span.end_col)),
+        _ => None,
+    };
+    (holds, at)
+}
+
+/// A store placed in a file a rename rewrote, holding none of the renamed names, is served shifted by what the rename
+/// wrote there: its places are exact in the text the rename left, and a rename of its own name applies.
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "every store placed in a file a rename rewrote is served shifted by it, and a rename of its own name applies"
+)]
+fn a_second_store_in_a_file_a_rename_rewrote_is_served_shifted() {
+    let p = two_stores();
+    rename_now(&p, "T1", "Longer").unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        "// covers Longer T5\n"
+    );
+    // `unit`'s `T5` is served where it now stands, four bytes on, and its store holds the file.
+    assert_eq!(every_store_holds(&p, "T5"), (true, Some((18, 20))));
+
+    rename_now(&p, "T5", "T6").unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        "// covers Longer T6\n"
+    );
+    assert_eq!(every_store_holds(&p, "T6"), (true, Some((18, 20))));
+    let lines = stale_lines(&p);
+    assert_eq!(
+        lines,
+        [
+            ("covers".into(), "T1".into(), "Longer".into()),
+            ("covers".into(), "T5".into(), "T6".into())
+        ]
+    );
+    let ledger = std::fs::read_to_string(p.root().join("specforge-harness")).unwrap();
+    assert!(ledger.contains("unit stale:"), "{ledger}");
+}

@@ -369,13 +369,7 @@ fn a_store_served_through_renames_shifts_its_places_by_what_they_wrote() {
         [("T1".to_string(), "Longer".to_string())].into(),
     )]
     .into();
-    let text = stale::served(
-        bytes,
-        &stale::Carried {
-            renames,
-            ..Default::default()
-        },
-    );
+    let text = through(bytes, renames);
 
     let served = store(KEY, &text).unwrap();
 
@@ -440,13 +434,22 @@ fn served_through(
             .or_default()
             .insert(held.to_string(), now.to_string());
     }
-    stale::served(
-        bytes,
-        &stale::Carried {
-            renames: by_field,
-            ..Default::default()
-        },
-    )
+    through(bytes, by_field)
+}
+
+/// The served text of the store whose bytes are `bytes`, the ledger renaming its names by `renames` and no other store
+/// stale: what it writes in its files derived from it alone.
+fn through(bytes: String, renames: Renames) -> String {
+    let store: Store = serde_json::from_str(&bytes).unwrap();
+    let mut rewrites = Rewrites::new();
+    let mut torn = BTreeSet::new();
+    stale::rewritten_by(&store, &renames, &mut rewrites, &mut torn);
+    let rewrites = stale::settled(rewrites, &torn);
+    let carried = stale::Carried {
+        renames,
+        ..Default::default()
+    };
+    stale::served(bytes, &carried.rewriting(&rewrites))
 }
 
 /// A store holding `C` (for no entity) and `A`, read through `A → C`: both read as `C`, so `C` is collected from

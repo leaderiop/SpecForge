@@ -4657,12 +4657,13 @@ bytes and was not rewritten; the rename wrote `<collector>
 stale:<key>:<field>:<name>:<new name>` to `specforge-harness` for each name it
 rewrote. A second rename of such a name replaces its line, so renames compose.
 Until that collector collects again, exactly those names are read as the rename
-wrote them, so they still link, every place the store records in a rewritten
-file is shifted by what the renames wrote there (exact: a file edited otherwise
-since is no longer the text its places are in, W198), and this warning names
-what moved. Run `specforge collect` to collect the facts again: it replaces the
-store and drops the stale line. A store collected after the rename is not stale:
-if it still names the old id, its collector's facts disagree.
+wrote them, so they still link, every place any store records in a rewritten
+file, one holding none of the renamed names included, is shifted by what the
+renames wrote there (exact: a file edited otherwise since is no longer the text
+its places are in, W198), and this warning names what moved. Run `specforge
+collect` to collect the facts again: it replaces the store and drops the stale
+line. A store collected after the rename is not stale: if it still names the old
+id, its collector's facts disagree.
 
 Owner: core
 Level: warning

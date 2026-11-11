@@ -499,9 +499,19 @@ fn renamed() -> TestProject {
         {"kind": "test", "id": "js:a.test.js#adds", "fields": {"covers": ["adds_numbers"]},
          "named_at": {"covers": {"adds_numbers": [place("a.test.js", 2, 12, 24)]}}},
     ]);
-    stored(p.root(), "node", KEY, facts);
+    stored_with(p.root(), "node", KEY, facts, collected_source());
     recording(&p, Line::moved("add_numbers", "adds_numbers"));
     p
+}
+
+/// The digest a collect recorded of `a.test.js`: what the renames' places are spans of.
+fn collected_source() -> std::collections::BTreeMap<String, String> {
+    let text = "test('one');\n// covers adds_numbers\n// covers TR1\n";
+    [(
+        "a.test.js".to_string(),
+        specforge_project::testing::revision_of(text.as_bytes()),
+    )]
+    .into()
 }
 
 /// `line` added to the ledger of `p`.
@@ -721,4 +731,5 @@ fn digests(project: &CompiledProject) -> Vec<(&str, Vec<(&str, &str)>)> {
         .collect()
 }
 
+mod rewritten;
 mod sent;

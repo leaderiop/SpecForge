@@ -189,7 +189,9 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     the next collect of a name an earlier one rewrote, or of another name in
     a file it rewrote, MUST rewrite the file again where the store's served
     places are (shifted exactly by what the earlier renames wrote) and
-    replace the name's stale line, within one plan too (ADR 0346 D7). A
+    replace the name's stale line, within one plan too; a store placed in
+    a file a rename rewrote is served shifted by it, so a rename of a name it
+    holds applies too (ADR 0346 D7). A
     rename to a name a fact holds for no entity is refused as name_captured,
     and one of a name another fact of the same store holds in that field for
     something else (another entity, or no reference) as name_shared; while
@@ -225,6 +227,7 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
   verify integration "a rename of a name two held names are read as writes a stale line for each"
   verify integration "a rename of a name a fact of the same store holds for something else is refused as name_shared"
   verify integration "a rename of a name a store holds while the ledger renames one of its names two ways is refused as stale_conflict"
+  verify integration "every store placed in a file a rename rewrote is served shifted by it, and a rename of its own name applies"
 }
 
 behavior provide_mcp_edit_tool "Provide MCP Edit Tool" {
