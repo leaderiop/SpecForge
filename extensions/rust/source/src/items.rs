@@ -4,7 +4,7 @@
 //! entity its spec-link attribute names (D7).
 
 use specforge_code_facts::{
-    location, signature_spelling, Definition, ItemId, ItemKind, Names, Owner, Visibility,
+    location, signature_spelling, Definition, ItemId, ItemKind, Names, Owner, Signature, Visibility,
 };
 use specforge_extension_sdk::host::{SyntaxMatch, SyntaxRole};
 
@@ -206,7 +206,7 @@ fn captures(above: &[&SyntaxMatch], kind: &str, name: &str) -> Vec<String> {
 }
 
 /// A function's signature: its generics, parameters and return type, in one spelling ([`signature_spelling`]).
-fn signature(found: &SyntaxMatch) -> Option<String> {
+fn signature(found: &SyntaxMatch) -> Option<Signature> {
     let parts: Vec<&str> = found
         .captures
         .iter()

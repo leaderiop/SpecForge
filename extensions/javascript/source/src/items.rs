@@ -17,7 +17,7 @@
 use std::collections::BTreeMap;
 
 use specforge_code_facts::{
-    location, signature_spelling, Definition, ItemId, ItemKind, Names, Visibility,
+    location, signature_spelling, Definition, ItemId, ItemKind, Names, Signature, Visibility,
 };
 use specforge_extension_sdk::host::{SyntaxCapture, SyntaxMatch, SyntaxRole, SyntaxSpan};
 use specforge_javascript_workspace::Package;
@@ -381,18 +381,20 @@ fn doc_text(comment: &str) -> Option<String> {
 }
 
 /// The spans of the file's literal text holding whitespace (a string's, a template's, a regular expression's), in
-/// source order.
-fn literals(matches: &[SyntaxMatch]) -> Vec<SyntaxSpan> {
-    matches
+/// source order: sorted by start byte, whatever order the query's matches came in (`signature` searches them).
+pub(crate) fn literals(matches: &[SyntaxMatch]) -> Vec<SyntaxSpan> {
+    let mut literals: Vec<SyntaxSpan> = matches
         .iter()
         .filter(|m| m.role == SyntaxRole::Reference && m.kind == "literal")
         .map(|m| m.span)
-        .collect()
+        .collect();
+    literals.sort_by_key(|span| (span.start.byte, span.end.byte));
+    literals
 }
 
 /// A group's signature: its captured parts' source texts joined by one space, in the one spelling
 /// [`signature_spelling`] gives (`item_facts` digests it), each literal of `literals` inside a part kept as written.
-fn signature(group: &Group, literals: &[SyntaxSpan]) -> Option<String> {
+fn signature(group: &Group, literals: &[SyntaxSpan]) -> Option<Signature> {
     let mut text = String::new();
     let mut kept = Vec::new();
     for part in &group.signature {

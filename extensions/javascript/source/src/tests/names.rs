@@ -86,3 +86,27 @@ fn a_signature_is_its_parts_text_in_one_spelling_a_literals_whitespace_kept() {
         Some("(a: 'a  b', c: number = /x  y/) : void")
     );
 }
+
+#[test]
+fn the_literals_a_signature_searches_are_in_source_order_whatever_order_the_matches_came() {
+    use specforge_extension_sdk::host::{SyntaxMatch, SyntaxPoint, SyntaxRole, SyntaxSpan};
+    let point = |byte| SyntaxPoint {
+        byte,
+        ..SyntaxPoint::default()
+    };
+    let literal = |start, end| SyntaxMatch {
+        role: SyntaxRole::Reference,
+        kind: "literal".to_string(),
+        span: SyntaxSpan {
+            start: point(start),
+            end: point(end),
+        },
+        parent: None,
+        captures: Vec::new(),
+    };
+
+    let spans = crate::items::literals(&[literal(30, 34), literal(5, 9), literal(18, 22)]);
+
+    let starts: Vec<u32> = spans.iter().map(|span| span.start.byte).collect();
+    assert_eq!(starts, [5, 18, 30]);
+}

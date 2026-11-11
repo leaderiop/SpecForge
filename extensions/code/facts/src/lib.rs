@@ -34,7 +34,7 @@ pub use ids::{
 };
 pub use mint::{
     item_facts, location, signature_spelling, test_facts, Definition, ItemKind, Names, Package,
-    Target, TestCase, Visibility,
+    Signature, Target, TestCase, Visibility,
 };
 pub use paths::joined;
 pub use syntax::parse_all;
