@@ -34,20 +34,36 @@ fn written_at(index: &git2::Index) -> Option<(i64, std::time::SystemTime)> {
 /// Run `op`, a libgit2 call that writes the index itself (a checkout, a reset, a merge, a stash), then keep the
 /// racy-clean rule its write dropped, as [`write_index`] keeps it: libgit2 judged the entries against the index it
 /// replaced in nanoseconds, so one racy to that index's second whose file now differs is smudged and the index written
-/// again. The result is `op`'s; an index `op` did not rewrite is left alone.
+/// again. The result is `op`'s; an index `op` did not rewrite is left alone. `op` has landed once it returns, so a
+/// fix-up that fails after it is said, never answered as `op`'s failure: the port has no channel to a verb's answer,
+/// and the person running the verb reads its stderr.
 pub(crate) fn kept<T>(
     place: &GitPlace,
     op: impl FnOnce() -> Result<T, GitError>,
 ) -> Result<T, GitError> {
+    let (value, unkept) = kept_with(place, op, |index| index.write())?;
+    if let Some(why) = unkept {
+        eprintln!("{why}");
+    }
+    Ok(value)
+}
+
+/// [`kept`], the fix-up's index written by `write`: `op`'s value, and when the fix-up failed once `op` landed, what
+/// says so.
+pub(crate) fn kept_with<T>(
+    place: &GitPlace,
+    op: impl FnOnce() -> Result<T, GitError>,
+    write: impl FnOnce(&mut git2::Index) -> Result<(), git2::Error>,
+) -> Result<(T, Option<String>), GitError> {
     // a repository this cannot open, `op` refuses on its own
     let before = crate::write::libgit2_read(place).ok().and_then(|repo| {
         let index = repo.index().ok()?;
         let written = written_at(&index)?;
         Some((repo, index, written))
     });
-    let done = op();
+    let value = op()?;
     let Some((repo, mut index, (second, time))) = before else {
-        return done;
+        return Ok((value, None));
     };
     let kept = index
         .read(true)
@@ -55,14 +71,20 @@ pub(crate) fn kept<T>(
         .and_then(|()| match written_at(&index) {
             Some((_, now)) if now != time => {
                 if smudge_racy(&repo, &mut index, second)? {
-                    index.write().map_err(|e| failed("write the index", &e))?;
+                    write(&mut index).map_err(|e| failed("write the index", &e))?;
                 }
                 Ok(())
             }
             _ => Ok(()),
         });
-    let value = done?;
-    kept.map(|()| value)
+    let unkept = kept.err().map(|why| {
+        format!(
+            "the operation completed; only keeping git's racy-clean rule in the index failed ({}): a file rewritten in \
+             this same second may read as unchanged until git refreshes the index (run git status)",
+            why.0
+        )
+    });
+    Ok((value, unkept))
 }
 
 /// Smudge (size 0) each entry of `index` stamped in or after the second `written` whose file differs from it, as git
@@ -113,3 +135,6 @@ fn smudge_racy(
     }
     Ok(smudged)
 }
+
+#[cfg(test)]
+mod tests;
