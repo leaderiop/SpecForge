@@ -1260,7 +1260,8 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
     file the rename edits holds an unsaved buffer. A rename reads a source file a fact is placed in as the editor's
     buffer holds it, so a second rename made before a pending one lands composes with it: its edits land where the
     first left the name. The renames of one entity (matched by its path, not its name) are a tree, each under the
-    rename that gave the entity it renames, read from the texts each time and never kept as a phase: the declaring
+    rename that gave the entity it renames (a rename of a scope or of what it scopes, moving a path the tree moved,
+    joins it as one history), read from the texts each time and never kept as a phase: the declaring
     file holds the last rename whose new name it declares, counted (none for the first's old name or a name no rename
     wrote; an entity declared by hand under the old name beside it takes nothing),
     and each stale line the deepest rename every source file it is about holds is under, a file holding one whose

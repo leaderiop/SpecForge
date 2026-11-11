@@ -211,7 +211,11 @@ next collect of that collector ────────────────�
   language server holds its open source buffers, so a rename composes with one applied to the buffers and not yet
   saved. The editor's renames of one entity are a tree: each hangs under the rename that gave the entity it renames
   (matched by path: two scoped entities may share a name), the first under the entity as it was, so an undo then
-  another rename branches and a redo walks back down. An editor undoes per buffer, so the declaring file and each
+  another rename branches and a redo walks back down. A rename of a scope or of what it scopes whose moves take a
+  path the tree's renames moved hangs in the same tree, under the node the declaring file holds: one history, landed
+  as one change, its moves composed and one stale line read for the name both rewrote (two trees would each land
+  against the last project, dropping the path between them, and each claim that line). Undone in the order made, as
+  one file's undo goes, each step lands; one between them undone alone by hand reads as the later still held. An editor undoes per buffer, so the declaring file and each
   source file go back apart; what the tree shows and lands is therefore never kept as a phase, but read from the
   texts each time. The declaring file holds a node: the last rename whose new name it declares (none for the first's
   old name, or a name no rename wrote). Each stale line (store, field, name held) holds a node: the deepest every

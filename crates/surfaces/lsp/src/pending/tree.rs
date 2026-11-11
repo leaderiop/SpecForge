@@ -120,15 +120,16 @@ impl Tree {
         }
     }
 
-    /// `rename`, planned on a project whose declaring file holds the node that gave the entity it renames, hangs under
-    /// that node; `false` when it renames something else.
+    /// `rename`, planned on a project whose declaring file holds the node that gave the entity it renames, or one
+    /// whose path moved something `rename` moves (a scope and what it scopes, renamed one after the other), hangs under
+    /// that node: one history, landed as one change. `false` when it renames something else.
     pub(super) fn join(&mut self, rename: &Arc<PendingLedger>) -> bool {
         if self.is_over() || self.declaring() != rename.declaring {
             return false;
         }
         let text = rename.before.source_text(&rename.declaring);
         let at = self.declared(text.as_deref());
-        if self.id(at) != rename.old_id {
+        if self.id(at) != rename.old_id && !self.moved(at, rename) {
             return false;
         }
         self.nodes.push(Node {
@@ -138,6 +139,29 @@ impl Tree {
         });
         self.memo.clear();
         true
+    }
+
+    /// Whether `rename` moves a path the entities at `at` are at: one the renames above it moved to, or at the entity
+    /// before any, one the first renames moved from.
+    fn moved(&self, at: At, rename: &PendingLedger) -> bool {
+        let paths: Vec<&str> = match at {
+            Some(_) => self
+                .up(at)
+                .into_iter()
+                .flat_map(|i| &self.nodes[i].rename.moves)
+                .map(|(_, new)| new.as_str())
+                .collect(),
+            None => self
+                .live()
+                .filter(|&i| self.nodes[i].parent.is_none())
+                .flat_map(|i| &self.nodes[i].rename.moves)
+                .map(|(old, _)| old.as_str())
+                .collect(),
+        };
+        rename
+            .moves
+            .iter()
+            .any(|(old, _)| paths.contains(&old.as_str()))
     }
 
     /// `at` and the nodes above it, from `at` up.
