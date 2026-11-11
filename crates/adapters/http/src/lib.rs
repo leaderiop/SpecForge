@@ -1,5 +1,5 @@
-//! The adapter behind the effect plane's `Http` port (ADR 0335): one blocking reqwest client, built on first use, on
-//! rustls with ring and the platform verifier. It follows redirects itself under the caller's policy, refuses a
+//! The adapter behind the effect plane's `Http` port (ADR 0335): one blocking reqwest client, built on first use
+//! within the first request's deadline, on rustls with ring and the platform verifier. It follows redirects itself under the caller's policy, refuses a
 //! private address unless the request allows one (judged here, for through a proxy the proxy resolves the name),
 //! holds the whole request to one timeout and reads at most the body cap. A transport failure is an outcome class,
 //! never a panic.
@@ -7,7 +7,7 @@
 use std::error::Error as StdError;
 use std::io::Read as _;
 use std::net::IpAddr;
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Condvar, Mutex, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
 use hyper_util::client::proxy::matcher::Matcher;
@@ -29,15 +29,66 @@ pub use address::public;
 use address::{Failed, PublicOnly, destination};
 
 /// The `Http` port over the network. Its two reqwest clients (one that refuses private addresses, one that allows
-/// them) are built on first use, so a command that never reaches the network loads no trust store.
+/// them) are built on first use, so a command that never reaches the network loads no trust store; a request waits for
+/// a build no longer than its own deadline ([`Lazy`]).
 #[derive(Default)]
 pub struct Client {
-    public: OnceLock<Result<Reqwest, String>>,
-    any: OnceLock<Result<Reqwest, String>>,
+    public: Arc<Lazy>,
+    any: Arc<Lazy>,
     /// The TLS configuration to use in place of the platform's verifier.
     tls: Option<rustls::ClientConfig>,
     /// The proxy every request goes through, in place of the environment's and the system's.
     proxy: Option<String>,
+    /// The ceiling on a request's time in place of [`TIMEOUT_CEILING`] (only lower, and only a test's).
+    ceiling: Option<Duration>,
+    /// Run on a build's thread before it builds, given whether the client allows private addresses: a test's.
+    before_build: Option<Arc<dyn Fn(bool) + Send + Sync>>,
+}
+
+/// One reqwest client, built on a thread of its own the first time a request needs it. A build reads the trust store
+/// and the system's proxies, which takes seconds on a loaded machine: the request that started it waits at most its
+/// own time left, and a later one takes the client the build left.
+#[derive(Default)]
+struct Lazy {
+    built: OnceLock<Result<Reqwest, String>>,
+    /// Whether a build was started; the lock [`Self::done`] is signalled under.
+    started: Mutex<bool>,
+    done: Condvar,
+}
+
+impl Lazy {
+    /// The client, once `build` (started here if no build was) has made it within `within`; `None` when it has not.
+    fn within(
+        self: &Arc<Self>,
+        within: Duration,
+        build: impl FnOnce() -> Result<Reqwest, String> + Send + 'static,
+    ) -> Option<&Result<Reqwest, String>> {
+        if let Some(built) = self.built.get() {
+            return Some(built);
+        }
+        let mut started = self.started.lock().unwrap_or_else(PoisonError::into_inner);
+        if !*started {
+            *started = true;
+            let this = Arc::clone(self);
+            let spawned = std::thread::Builder::new()
+                .name("http-client-build".into())
+                .spawn(move || {
+                    let _ = this.built.set(build());
+                    let _signalled = this.started.lock().unwrap_or_else(PoisonError::into_inner);
+                    this.done.notify_all();
+                });
+            if let Err(e) = spawned {
+                let _ = self
+                    .built
+                    .set(Err(format!("cannot start the client's build: {e}")));
+            }
+        }
+        let _waited = self
+            .done
+            .wait_timeout_while(started, within, |_| self.built.get().is_none())
+            .unwrap_or_else(PoisonError::into_inner);
+        self.built.get()
+    }
 }
 
 impl Client {
@@ -62,10 +113,31 @@ impl Client {
         }
     }
 
+    /// This client with every request, resolve and handshake held to `ceiling` (when lower than
+    /// [`TIMEOUT_CEILING`]): a test's request that must time out does so well within its runner's kill.
+    #[cfg(any(test, feature = "testing"))]
+    pub fn with_timeout_ceiling(mut self, ceiling: Duration) -> Self {
+        self.ceiling = Some(ceiling);
+        self
+    }
+
+    /// This client with `hook` run on a build's thread before each build, given whether the client allows private
+    /// addresses: a test holds a build back to see a request wait for it no longer than its deadline.
+    #[cfg(any(test, feature = "testing"))]
+    pub fn with_before_build(mut self, hook: impl Fn(bool) + Send + Sync + 'static) -> Self {
+        self.before_build = Some(Arc::new(hook));
+        self
+    }
+
+    /// The ceiling on any request's time.
+    fn ceiling(&self) -> Duration {
+        self.ceiling
+            .map_or(TIMEOUT_CEILING, |c| c.min(TIMEOUT_CEILING))
+    }
+
     /// The host of the proxy a request to `url` goes through: this client's own, else the system's or the
     /// environment's, read as reqwest reads them; none when it goes direct.
     fn proxy_host(&self, url: &Url) -> Option<String> {
-        static SYSTEM: OnceLock<Matcher> = OnceLock::new();
         if let Some(proxy) = &self.proxy {
             return Some(
                 Url::parse(proxy)
@@ -75,21 +147,41 @@ impl Client {
             );
         }
         let uri = url.as_str().parse::<http::Uri>().ok()?;
-        let intercept = SYSTEM.get_or_init(Matcher::from_system).intercept(&uri)?;
+        let intercept = system_proxies().intercept(&uri)?;
         // A proxy URI with no host is still a proxy: judged by an empty name, which no grant reaches.
         Some(intercept.uri().host().unwrap_or_default().to_string())
     }
 
-    fn client(&self, allow_private: bool) -> Result<&Reqwest, &str> {
-        let cell = if allow_private {
+    /// The reqwest client of `allow_private`, built within `within` ([`Lazy`]): `None` when its build outlasts it.
+    fn client(&self, allow_private: bool, within: Duration) -> Option<Result<&Reqwest, &str>> {
+        let lazy = if allow_private {
             &self.any
         } else {
             &self.public
         };
-        cell.get_or_init(|| build(allow_private, self.tls.clone(), self.proxy.as_deref()))
-            .as_ref()
-            .map_err(String::as_str)
+        let (tls, proxy, hook) = (
+            self.tls.clone(),
+            self.proxy.clone(),
+            self.before_build.clone(),
+        );
+        let built = lazy.within(within, move || {
+            if let Some(hook) = hook {
+                hook(allow_private);
+            }
+            // The system's proxies are read here too, so a request's own reading of them never waits.
+            if proxy.is_none() {
+                system_proxies();
+            }
+            build(allow_private, tls, proxy.as_deref())
+        })?;
+        Some(built.as_ref().map_err(String::as_str))
     }
+}
+
+/// The system's and the environment's proxies, read once, as reqwest reads them.
+fn system_proxies() -> &'static Matcher {
+    static SYSTEM: OnceLock<Matcher> = OnceLock::new();
+    SYSTEM.get_or_init(Matcher::from_system)
 }
 
 /// A reqwest client that follows no redirect, connects within [`CONNECT_TIMEOUT`] and, unless `allow_private`,
@@ -139,8 +231,9 @@ fn tls() -> Result<rustls::ClientConfig, String> {
 
 impl Http for Client {
     fn request(&self, request: &HttpRequest, redirects: &dyn Redirects) -> HttpOutcome {
+        // Started before anything else: the deadline covers building the client too.
         let deadline =
-            Instant::now() + Duration::from_millis(request.timeout_ms).min(TIMEOUT_CEILING);
+            Instant::now() + Duration::from_millis(request.timeout_ms).min(self.ceiling());
         let typed = Url::parse(&request.url).map(|url| url.origin()).ok();
         let mut url = request.url.clone();
         let mut method = request.method.clone();
@@ -164,10 +257,18 @@ impl Http for Client {
                 Private::TypedOrigin => typed.as_ref() == Some(&parsed.origin()),
                 Private::Any => true,
             };
-            let client = match self.client(private) {
-                Ok(client) => client,
-                Err(why) => return HttpOutcome::unreachable(&url, Unreachable::Tls, why),
-            };
+            let client =
+                match self.client(private, deadline.saturating_duration_since(Instant::now())) {
+                    Some(Ok(client)) => client,
+                    Some(Err(why)) => return HttpOutcome::unreachable(&url, Unreachable::Tls, why),
+                    None => {
+                        return HttpOutcome::unreachable(
+                            &url,
+                            Unreachable::Timeout,
+                            "the request's time ran out while its client was being built",
+                        );
+                    }
+                };
             if !private && literal(&parsed).is_some_and(|ip| !public(ip)) {
                 return HttpOutcome::unreachable(
                     &url,
@@ -282,13 +383,13 @@ impl Http for Client {
     }
 
     fn resolve(&self, request: &ResolveRequest) -> ResolveOutcome {
-        handshake::resolve(request)
+        handshake::resolve(request, self.ceiling())
     }
 
     fn tls(&self, request: &TlsRequest) -> TlsOutcome {
         let config = self.tls.clone().map_or_else(tls, Ok);
         match config {
-            Ok(config) => handshake::tls(config, request),
+            Ok(config) => handshake::tls(config, request, self.ceiling()),
             Err(_) => TlsOutcome::of(OutcomeClass::Unreachable(Unreachable::Tls)),
         }
     }

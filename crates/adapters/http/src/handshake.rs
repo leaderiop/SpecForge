@@ -55,12 +55,13 @@ fn allowed(
     Ok(kept)
 }
 
-fn time_of(timeout_ms: u64) -> Duration {
-    Duration::from_millis(timeout_ms).min(TIMEOUT_CEILING)
+/// A request's `timeout_ms`, held to `ceiling` (the client's, at most [`TIMEOUT_CEILING`]).
+fn time_of(timeout_ms: u64, ceiling: Duration) -> Duration {
+    Duration::from_millis(timeout_ms).min(ceiling.min(TIMEOUT_CEILING))
 }
 
-pub(crate) fn resolve(request: &ResolveRequest) -> ResolveOutcome {
-    let time = time_of(request.timeout_ms);
+pub(crate) fn resolve(request: &ResolveRequest, ceiling: Duration) -> ResolveOutcome {
+    let time = time_of(request.timeout_ms, ceiling);
     match allowed(&request.host, 0, request.allow_private, time) {
         Ok(addresses) => {
             let mut addresses: Vec<String> =
@@ -77,15 +78,11 @@ pub(crate) fn resolve(request: &ResolveRequest) -> ResolveOutcome {
     }
 }
 
-pub(crate) fn tls(config: ClientConfig, request: &TlsRequest) -> TlsOutcome {
+pub(crate) fn tls(config: ClientConfig, request: &TlsRequest, ceiling: Duration) -> TlsOutcome {
     let failed = |why| TlsOutcome::of(OutcomeClass::Unreachable(why));
-    let deadline = Instant::now() + time_of(request.timeout_ms);
-    let addresses = match allowed(
-        &request.host,
-        request.tcp_port,
-        request.allow_private,
-        time_of(request.timeout_ms),
-    ) {
+    let time = time_of(request.timeout_ms, ceiling);
+    let deadline = Instant::now() + time;
+    let addresses = match allowed(&request.host, request.tcp_port, request.allow_private, time) {
         Ok(addresses) => addresses,
         Err(why) => return failed(why),
     };

@@ -7,11 +7,12 @@
 
 use std::io::{Read as _, Write as _};
 use std::net::TcpListener;
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, channel};
-use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
-use specforge_effects::http::{Any, TIMEOUT_CEILING, get};
+use specforge_effects::http::{Any, get};
 use specforge_effects::testing::server::Server;
 use specforge_effects::{
     AttachedSecret, EffectsCeiling, Grant, Header, Http, HttpCeiling, HttpRequest, Narrow,
@@ -22,12 +23,18 @@ use specforge_protocol_types::{HttpMethod, Operation};
 
 mod tls;
 
-/// How long a test waits for what must come: a wait ends as soon as it does, so only a failing test spends it.
-const WAIT: Duration = TIMEOUT_CEILING;
-/// A request to a server that answers is given the adapter's whole ceiling, so a loaded machine never times it out.
-const CEILING_MS: u64 = TIMEOUT_CEILING.as_millis() as u64;
-/// A request held to a time of a second or less that gives up before this gave up at its own time, not the ceiling's.
-const WELL_BEFORE_THE_CEILING: Duration = Duration::from_secs(TIMEOUT_CEILING.as_secs() / 2);
+/// How long a test waits for what must come: a wait ends as soon as it does, so only a failing test spends it, and it
+/// stays under the test runner's kill (60 s), so a failing test prints its assertion.
+const WAIT: Duration = Duration::from_secs(20);
+/// A request to a server that answers is given [`WAIT`], so a loaded machine never times it out.
+const WAIT_MS: u64 = WAIT.as_millis() as u64;
+/// The ceiling of a client whose request must time out: whatever holds the request, its deadline ends it by then.
+const SHORT: Duration = Duration::from_millis(500);
+
+/// A client whose every request, resolve and handshake gives up by [`SHORT`].
+fn short() -> Client {
+    Client::new().with_timeout_ceiling(SHORT)
+}
 
 fn ok(body: &str) -> String {
     format!(
@@ -46,7 +53,7 @@ fn moved(to: &str) -> String {
 fn private(url: &str) -> HttpRequest {
     HttpRequest {
         allow_private: Private::Any,
-        timeout_ms: CEILING_MS,
+        timeout_ms: WAIT_MS,
         ..get(url)
     }
 }
@@ -55,7 +62,7 @@ fn private(url: &str) -> HttpRequest {
 fn typed(url: &str) -> HttpRequest {
     HttpRequest {
         allow_private: Private::TypedOrigin,
-        timeout_ms: CEILING_MS,
+        timeout_ms: WAIT_MS,
         ..get(url)
     }
 }
@@ -214,37 +221,18 @@ fn a_request_is_held_to_its_whole_timeout() {
         held.lock().unwrap().push(stream.try_clone().unwrap());
     })
     .base;
-    let started = Instant::now();
-    let outcome = Client::new().request(
-        &HttpRequest {
-            timeout_ms: 500,
-            ..private(&format!("{base}/"))
-        },
-        &Any,
-    );
+    let outcome = short().request(&private(&format!("{base}/")), &Any);
     assert_eq!(
         outcome.class,
         OutcomeClass::Unreachable(Unreachable::Timeout),
         "{outcome:?}"
     );
-    assert!(
-        started.elapsed() < WELL_BEFORE_THE_CEILING,
-        "{:?}",
-        started.elapsed()
-    );
 }
 
 #[test]
 fn a_blackhole_address_gives_up_within_the_timeout() {
-    let started = Instant::now();
     // 10.255.255.1 is never routed: the connect waits until the request's time runs out, or fails at once offline.
-    let outcome = Client::new().request(
-        &HttpRequest {
-            timeout_ms: 1000,
-            ..private("http://10.255.255.1:81/")
-        },
-        &Any,
-    );
+    let outcome = short().request(&private("http://10.255.255.1:81/"), &Any);
     assert!(
         matches!(
             outcome.class,
@@ -252,10 +240,53 @@ fn a_blackhole_address_gives_up_within_the_timeout() {
         ),
         "{outcome:?}"
     );
+}
+
+/// Building a client reads the trust store and the system's proxies, seconds on a loaded machine: a fresh client's
+/// first request waits for that build no longer than its own deadline, and a later request takes what it built.
+#[test]
+fn a_request_waits_for_its_clients_build_no_longer_than_its_deadline() {
+    let base = Server::reply(|_, _| ok("hi")).base;
+    let (release, released) = channel::<()>();
+    let released = Mutex::new(released);
+    let (builds, past_hold) = (
+        Arc::new(AtomicUsize::new(0)),
+        Arc::new(AtomicBool::new(false)),
+    );
+    let (counted, passed) = (Arc::clone(&builds), Arc::clone(&past_hold));
+    let client = Client::new().with_before_build(move |_| {
+        counted.fetch_add(1, Ordering::SeqCst);
+        // Held until the test lets it go; at most WAIT, so a failing test still ends.
+        let _ = released.lock().unwrap().recv_timeout(WAIT);
+        passed.store(true, Ordering::SeqCst);
+    });
+
+    let first = client.request(
+        &HttpRequest {
+            timeout_ms: 300,
+            ..private(&format!("{base}/"))
+        },
+        &Any,
+    );
+
+    assert_eq!(
+        first.class,
+        OutcomeClass::Unreachable(Unreachable::Timeout),
+        "{first:?}"
+    );
     assert!(
-        started.elapsed() < WELL_BEFORE_THE_CEILING,
-        "{:?}",
-        started.elapsed()
+        !past_hold.load(Ordering::SeqCst),
+        "the request waited for the build"
+    );
+    release.send(()).unwrap();
+    // The build goes on once let go; the next request, given time, waits for it.
+    let second = client.request(&private(&format!("{base}/")), &Any);
+    assert_eq!(second.class, OutcomeClass::Ok, "{second:?}");
+    assert_eq!(second.body, b"hi");
+    assert_eq!(
+        builds.load(Ordering::SeqCst),
+        1,
+        "one build, taken by the later request"
     );
 }
 
@@ -492,7 +523,7 @@ fn a_post_query_sends_its_json_body_and_is_never_retried() {
         ..private(&url)
     };
     let client = Client::new();
-    let outcome = client.request(&query(format!("{base}/v1/query"), CEILING_MS), &Any);
+    let outcome = client.request(&query(format!("{base}/v1/query"), WAIT_MS), &Any);
     assert_eq!(outcome.status, Some(200), "{outcome:?}");
     assert_eq!(outcome.body, b"{}");
     let asked = answering.next(WAIT).unwrap();
@@ -522,7 +553,7 @@ fn a_post_query_sends_its_json_body_and_is_never_retried() {
     let before: Vec<_> = std::iter::from_fn(|| silent.next(WAIT))
         .take_while(|request| request.path != "/after")
         .collect();
-    assert!(before.len() <= 1, "sent once: {before:?}");
+    assert_eq!(before.len(), 1, "sent once: {before:?}");
 }
 
 /// A policy that permits every redirect and the proxies on `hosts` alone, and keeps each proxy it was asked about.

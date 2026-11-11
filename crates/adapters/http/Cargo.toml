@@ -6,6 +6,10 @@ version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+# `Client::with_timeout_ceiling` and `Client::with_before_build`, for tests.
+testing = []
+
 [dependencies]
 specforge-effects = { path = "../../kernel/effects" }
 reqwest = { workspace = true }
@@ -29,6 +33,7 @@ specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 specforge-effects = { path = "../../kernel/effects", features = ["testing"] }
 specforge-protocol-types = { path = "../../leaf/protocol-types" }
+specforge-http = { path = ".", features = ["testing"] }
 
 [lints]
 workspace = true
