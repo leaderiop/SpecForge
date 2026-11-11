@@ -1261,7 +1261,8 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
     buffer holds it, so a second rename made before a pending one lands composes with it: its edits land where the
     first left the name. The renames of one entity (matched by its path, not its name) are a tree, each under the
     rename that gave the entity it renames, read from the texts each time and never kept as a phase: the declaring
-    file holds the last rename whose new name it declares (none for the first's old name or a name no rename wrote),
+    file holds the last rename whose new name it declares, counted (none for the first's old name or a name no rename
+    wrote; an entity declared by hand under the old name beside it takes nothing),
     and each stale line the deepest rename every source file it is about holds is under, a file holding one whose
     name still reads at the places it wrote it, whatever else changed in the file (another entity renamed, typing,
     text beside it that cannot extend it; read by counted work, a place among more changed text than it compares

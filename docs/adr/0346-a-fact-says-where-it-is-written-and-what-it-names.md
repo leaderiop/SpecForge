@@ -242,8 +242,9 @@ next collect of that collector ────────────────�
   so a name typed by hand later moves nothing. Rejected: landing when the declaring file alone is saved (the stale
   line would claim a source text the disk does not hold yet); ending the tree at its first save (a redo would land
   nothing); and whole-text comparison of source files (any other edit in a file would drop its lines). Whether a
-  declaring file holds a rename is counted (one entity fewer with the old name than when it was planned), not asked
-  by name.
+  declaring file holds a rename is counted (the new name declared, and one entity fewer with the old name than when
+  it was planned or one more with the new), not asked by name: an entity declared by hand under the old name beside
+  the renamed one leaves the rename held, so no move back lands onto it.
 - The LSP rename's edit carries the source edits; the pending ledger change carries each stale line with the names
   it read and wrote and their places in the texts the rename read and wrote.
 - **A delete of an entity a fact names stays refused.** It would remove what a test says it proves, and there is no

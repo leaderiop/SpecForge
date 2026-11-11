@@ -138,12 +138,14 @@ impl PendingLedger {
         self.showing.load(Ordering::Relaxed)
     }
 
-    /// Whether `text`, the declaring file, declares the new name: one entity fewer with the old name than when the
-    /// rename was planned, and one at least with the new. Counted, not asked whether a name is declared: two scoped
+    /// Whether `text`, the declaring file, declares the new name: one at least with it, and one entity fewer with the
+    /// old name than when the rename was planned, or one more with the new (an entity declared by hand under the old
+    /// name beside it takes nothing of the rename). Counted, not asked whether a name is declared: two scoped
     /// entities may share a name, and a later rename of the other one moves the count of a name this one wrote.
     fn declares_new(&self, names: &Names) -> bool {
         let count = |name: &str| names.get(name).copied().unwrap_or(0);
-        count(&self.old_name) + 1 == self.declared.0 && count(&self.new_name) >= 1
+        let (old, new) = (count(&self.old_name), count(&self.new_name));
+        new >= 1 && (old + 1 == self.declared.0 || new == self.declared.1 + 1)
     }
 
     /// The stale line this rename marks for `key`, if any.
