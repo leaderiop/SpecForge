@@ -232,6 +232,7 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
   verify integration "a rename of a name two held names are read as writes a stale line for each"
   verify integration "a rename of a name a fact of the same store holds for something else is refused as name_shared"
   verify integration "a rename that would write over a name another fact holds for something else is refused as name_shared"
+  verify integration "a rename of names whose places cross one another is refused as places_cross"
   verify integration "a rename of what two facts name one inside the other writes one text, and renames of it compose"
   verify integration "a rename of a name a store holds while the ledger renames one of its names two ways is refused as stale_conflict"
   verify integration "every store placed in a file a rename rewrote is served shifted by it, and a rename of its own name applies"

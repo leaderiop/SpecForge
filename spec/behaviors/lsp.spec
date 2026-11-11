@@ -1280,6 +1280,10 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
   verify unit "composed editor renames show and land, file by file, what the buffers hold however they were undone"
   verify unit "composed editor renames undone and redone show and land again"
   verify unit "composed editor renames land once no file of theirs holds an unsaved buffer, what the disk says"
+  verify unit "an editor rename's stale line holds while its names read in the source, whatever else changed there"
+  verify unit "editor renames redone after a save land what the redo says"
+  verify unit "an editor rename never applied is dropped at the first change of its declaring file that is not its edit"
+  verify unit "a stale line about two source files is the line of the earliest rename either holds"
   verify unit "the LSP rename and fixes are versioned for a client that takes document changes"
   verify unit "a fix names the version of the buffer it edits for a client that takes document changes"
 }

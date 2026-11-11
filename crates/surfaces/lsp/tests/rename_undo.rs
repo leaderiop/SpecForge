@@ -11,18 +11,18 @@ use crate::rename_pending::{buffer, ledger, save};
 use crate::served::Served;
 use specforge_test_macros::test as spec;
 
-const SPEC: &str = "truths.spec";
-const SOURCE: &str = "a.test.js";
+pub(crate) const SPEC: &str = "truths.spec";
+pub(crate) const SOURCE: &str = "a.test.js";
 
 /// The texts of the declaring file and of the source file at each step: before the renames, after the first, after
 /// both.
-struct Steps {
-    spec: [String; 3],
-    source: [String; 3],
+pub(crate) struct Steps {
+    pub(crate) spec: [String; 3],
+    pub(crate) source: [String; 3],
 }
 
 /// `fact_named` with `T1` renamed to `T2`, then `T2` to `T3`, both applied to the buffers and neither saved.
-fn composed() -> (Served, Steps) {
+pub(crate) fn composed() -> (Served, Steps) {
     let mut served = fact_named();
     let uri = served.uri(SPEC);
     let mut spec = vec![buffer_or_disk(&served, SPEC)];
@@ -51,10 +51,9 @@ fn buffer_or_disk(served: &Served, file: &str) -> String {
     )
 }
 
-/// Both buffers saved: the stale lines the ledger holds then, as (name held, name written), and its move records,
 /// What a ledger says of the renames: its stale lines, as (name held, name written), and its move records, as (new,
 /// old).
-type Said = (Vec<(String, String)>, Vec<(String, String)>);
+pub(crate) type Said = (Vec<(String, String)>, Vec<(String, String)>);
 
 fn stale_of<'l>(lines: impl Iterator<Item = &'l Line>) -> Vec<(String, String)> {
     lines
@@ -63,21 +62,23 @@ fn stale_of<'l>(lines: impl Iterator<Item = &'l Line>) -> Vec<(String, String)> 
         .collect()
 }
 
-/// What the checks read over the session now: the stale lines and moves the pending renames show.
-fn shown(served: &Served) -> Said {
+/// What the checks read over the session now: the stale lines and moves the pending renames show, sorted.
+pub(crate) fn shown(served: &Served) -> Said {
     let shown = served.state().pending().shown();
     let changes: Vec<&LedgerChange> = shown.iter().map(|overlay| overlay.change()).collect();
-    let stale = stale_of(changes.iter().flat_map(|c| &c.stale));
-    let moves = changes
+    let mut stale = stale_of(changes.iter().flat_map(|c| &c.stale));
+    let mut moves: Vec<(String, String)> = changes
         .iter()
         .flat_map(|c| &c.moves)
         .map(|(old, new)| (new.clone(), old.clone()))
         .collect();
+    stale.sort();
+    moves.sort();
     (stale, moves)
 }
 
 /// What the ledger on disk says.
-fn landed(served: &Served) -> Said {
+pub(crate) fn landed(served: &Served) -> Said {
     let ledger = ledger(served);
     let moved = ledger
         .lines()
@@ -97,7 +98,7 @@ fn saved(served: &mut Served) -> Said {
     landed(served)
 }
 
-fn said(stale: &[(&str, &str)], moved: &[(&str, &str)]) -> Said {
+pub(crate) fn said(stale: &[(&str, &str)], moved: &[(&str, &str)]) -> Said {
     let pairs = |pairs: &[(&str, &str)]| {
         pairs
             .iter()

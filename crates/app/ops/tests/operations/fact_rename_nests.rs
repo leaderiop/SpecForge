@@ -195,12 +195,38 @@ fn a_rename_writing_where_another_fact_holds_a_name_for_something_else_is_refuse
 
     let refused = rename_now(&p, "T1", "T2").unwrap_err();
 
-    assert!(refused.starts_with("name_shared: "), "{refused}");
-    assert!(
-        refused
-            .contains("'T1', which the fact 'js:a.test.js#five' holds in 'note' at a.test.js:1:11"),
-        "{refused}"
+    // Today: a gap of spaces inside the sentence.
+    assert_eq!(
+        refused,
+        "name_shared: cannot rename 'T1': it writes over 'T1', which the fact 'js:a.test.js#five' holds in 'note' at \
+         a.test.js:1:11              and the rename does not rename; a rename writes only names of what it moves"
     );
     assert_eq!(source(&p), "// covers T1\n");
     assert!(stale_lines(&p).is_empty());
+}
+
+/// `node` reads `ws/m1`, `unit` the `m1/p3` that begins inside it: renaming the milestone writes both, and the two
+/// places cross, so no one text writes them.
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "a rename of names whose places cross one another is refused as places_cross"
+)]
+fn a_rename_writing_places_that_cross_is_refused() {
+    let specs = format!("{NESTED}\nphase p3 \"P\" {{\n  milestone m1\n}}\n");
+    let p = project(
+        &specs,
+        "// covers ws/m1/p3\n",
+        fact("js:a.test.js#adds", &[("ws/m1", 11)]),
+        fact("js:a.test.js#five", &[("m1/p3", 14)]),
+    );
+
+    let refused = rename_now(&p, "ws/m1", "m2").unwrap_err();
+
+    // Today: a gap of spaces inside the sentence.
+    assert_eq!(
+        refused,
+        "places_cross: cannot rename 'ws/m1': two places of a name it writes in a.test.js cross one another, so no \
+         one text writes              both"
+    );
+    assert_eq!(source(&p), "// covers ws/m1/p3\n");
 }
