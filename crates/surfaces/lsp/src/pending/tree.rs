@@ -5,12 +5,13 @@
 //! branches and a redo walks back down; each also knows the renames in effect when it was planned, whose paths its
 //! moves are written after.
 //!
-//! What the texts hold is a set of renames in effect (each declaring file holds the renames whose new names it
-//! declares, with the renames they came from) and one rename for each stale line; what the ledger on disk holds is the
+//! What the texts hold is a set of renames in effect (each held by every spec file it edited, with the renames it
+//! came from) and one rename for each stale line; what the ledger on disk holds is the
 //! set last landed; what is shown and landed next is the change between them: the renames left undone in the reverse
 //! order they were made, those taken up done in the order made, and each stale line whose rename moved. A set in which
 //! a rename is in effect without one it was planned after that touches the same paths (an earlier rename undone by
-//! hand before a later one it led to) is no state of the history: it shows and lands nothing.
+//! hand before a later one it led to), or one held in some of its files and gone back in others, is no state of the
+//! history: it shows and lands nothing.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -21,6 +22,7 @@ use specforge_project::facts::Span;
 use specforge_project::harness::{LEDGER_FILE, Ledger, LedgerChange, Line, compose};
 
 use super::reads::reads;
+use super::spelled::Says;
 use super::{Key, Parses, PendingLedger, key_of};
 
 /// Whether a rename's edit is in the texts.
@@ -44,6 +46,13 @@ struct Node {
     /// The renames (by `seq`) in effect when this one was planned: its moves are paths after theirs.
     context: BTreeSet<u64>,
     applied: Edit,
+}
+
+/// What the texts hold of a rename: a file it edited holds it (or a later rename of its entity), one went back.
+#[derive(Debug, Clone, Copy, Default)]
+struct State {
+    held: bool,
+    undone: bool,
 }
 
 /// A node of the history, `None` for the entities before any rename.
@@ -187,18 +196,64 @@ impl Tree {
         &self.landed.on
     }
 
-    /// Whether the texts `text` answers hold node `i`'s rename: its declaring file declares its new name.
-    fn held(&self, i: usize, text: &dyn Fn(&str) -> Option<String>, parses: &Parses) -> bool {
+    /// Whether the texts `text` answers hold node `i`'s rename in its declaring file: it declares the new name.
+    fn declares(&self, i: usize, text: &dyn Fn(&str) -> Option<String>, parses: &Parses) -> bool {
         let rename = &self.nodes[i].rename;
         text(&rename.declaring)
             .is_some_and(|text| rename.declares_new(&parses.names(&rename.declaring, &text)))
     }
 
-    /// The renames in effect in the texts `text` answers, by node, ascending: each the declaring files hold, but of
-    /// two renames of one entity from one node (a branch) the later only, and the renames each came from.
-    fn effect(&self, text: &dyn Fn(&str) -> Option<String>, parses: &Parses) -> Vec<usize> {
+    /// What the texts `text` answers hold of each node's rename, by node: whether a file it edited holds it, and
+    /// whether one went back. A file holds a rename while it reads the name the rename wrote at its places (the
+    /// declaring file: declares it, counted), or holds a later rename of the same entity made over it; it went back
+    /// while it reads the name the rename read at its places instead (the declaring file: counted as when planned).
+    /// Source files are not asked: their stale lines are read apart.
+    fn states(&self, text: &dyn Fn(&str) -> Option<String>, parses: &Parses) -> Vec<State> {
+        let mut children: Vec<Vec<usize>> = vec![Vec::new(); self.nodes.len()];
+        for i in self.live() {
+            if let Some(parent) = self.nodes[i].parent {
+                children[parent].push(i);
+            }
+        }
+        let mut holding: Vec<BTreeSet<&str>> = vec![BTreeSet::new(); self.nodes.len()];
+        let mut states = vec![State::default(); self.nodes.len()];
+        for i in self.live().rev() {
+            let rename = &self.nodes[i].rename;
+            let files = [rename.declaring.as_str()]
+                .into_iter()
+                .chain(rename.spelled.keys().map(String::as_str));
+            for file in files {
+                let Some(now) = text(file) else { continue };
+                let says = match rename.spelled.get(file) {
+                    Some(spelled) => spelled.says(&now, &rename.old_name, &rename.new_name),
+                    None => {
+                        let names = parses.names(file, &now);
+                        if rename.declares_new(&names) {
+                            Says::Written
+                        } else if rename.declares_old(&names) {
+                            Says::Read
+                        } else {
+                            Says::Other
+                        }
+                    }
+                };
+                let later = children[i].iter().any(|&c| holding[c].contains(file));
+                if says == Says::Written || later {
+                    holding[i].insert(file);
+                    states[i].held = true;
+                } else if says == Says::Read {
+                    states[i].undone = true;
+                }
+            }
+        }
+        states
+    }
+
+    /// The renames in effect by `states`, by node, ascending: each a file holds, but of two renames of one entity from
+    /// one node (a branch) the later only, and the renames each came from.
+    fn effect(&self, states: &[State]) -> Vec<usize> {
         let mut effect: BTreeSet<usize> = BTreeSet::new();
-        for i in self.live().rev().filter(|&i| self.held(i, text, parses)) {
+        for i in self.live().rev().filter(|&i| states[i].held) {
             let node = &self.nodes[i];
             let branch = effect.iter().any(|&a| {
                 let other = &self.nodes[a];
@@ -222,7 +277,7 @@ impl Tree {
         text: &dyn Fn(&str) -> Option<String>,
         parses: &Parses,
     ) -> Vec<u64> {
-        let effect = self.effect(text, parses);
+        let effect = self.effect(&self.states(text, parses));
         effect.into_iter().map(|i| self.nodes[i].seq).collect()
     }
 
@@ -252,7 +307,7 @@ impl Tree {
     ) {
         let mut id = rename.old_id.clone();
         let mut parent = None;
-        for i in self.effect(text, parses).into_iter().rev() {
+        for i in self.effect(&self.states(text, parses)).into_iter().rev() {
             let known = &self.nodes[i].rename;
             if known.new_id == id {
                 parent = Some(i);
@@ -407,14 +462,15 @@ impl Tree {
             if node.rename.planned.as_deref() == text(&node.rename.declaring).as_deref() {
                 continue;
             }
-            self.nodes[i].applied = if self.held(i, text, parses) {
+            self.nodes[i].applied = if self.declares(i, text, parses) {
                 Edit::Applied
             } else {
                 Edit::Dropped
             };
             self.memo.clear();
         }
-        let effect = self.effect(text, parses);
+        let states = self.states(text, parses);
+        let effect = self.effect(&states);
         let mut keys: Vec<(Key, Vec<String>)> = Vec::new();
         for marked in self.renames().flat_map(|r| &r.stale) {
             let Some(key) = key_of(&marked.line) else {
@@ -452,7 +508,8 @@ impl Tree {
             };
             lines.push((key, at));
         }
-        let effect = self.holds(&effect).then_some(effect);
+        let partial = effect.iter().any(|&i| states[i].undone);
+        let effect = (self.holds(&effect) && !partial).then_some(effect);
         Reading { effect, lines }
     }
 

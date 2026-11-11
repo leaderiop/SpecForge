@@ -45,7 +45,7 @@ fn counted(then: &str, now: &str, spans: &[Span], name: &str, work: &Cell<usize>
 }
 
 /// The byte range of `span` (1-based lines, 1-based byte columns, end exclusive) in `text`.
-fn range(text: &str, span: &Span) -> Option<Range<usize>> {
+pub(super) fn range(text: &str, span: &Span) -> Option<Range<usize>> {
     let at = |line: usize, col: usize| -> Option<usize> {
         let start: usize = text
             .split_inclusive('\n')

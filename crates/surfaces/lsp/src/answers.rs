@@ -429,6 +429,7 @@ fn hold_ledger(
             })
             .collect(),
         files,
+        edits: plan.edits().to_vec(),
     };
     let before = state.compiled_project();
     if let Some(pending) = crate::pending::PendingLedger::of(before, renamed, rewrites) {

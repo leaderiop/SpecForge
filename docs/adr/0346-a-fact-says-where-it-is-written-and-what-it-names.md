@@ -217,55 +217,65 @@ next collect of that collector ────────────────�
   back down; each also knows the renames in effect, in every history, when it was planned, whose paths its moves are
   written after. A history spans every file its renames edit: it ends when all of them close and lands when all are
   saved or closed. An editor undoes per buffer, so each file goes back apart; what a history shows and lands is
-  therefore never kept as a phase, but read from the texts each time. A rename is in effect while its declaring file
-  declares its new name, with the renames it came from (of two renames of one entity from one node, the later);
-  whether a declaring file holds a rename is counted (the new name declared, and one entity fewer with the old name
-  than when it was planned or one more with the new), not asked by name, so an entity declared by hand under the old
-  name beside the renamed one leaves the rename held and no move back lands onto it. Each stale line (store, field,
-  name held) holds a rename: the latest every source file it is about holds or came after, a file holding a rename
-  while the name it wrote for the line reads at the places it wrote it, carried through whatever else changed in the
-  file since (another entity renamed, typing: anchored on the lines no other line of either text repeats, then by byte
-  inside the changed lines around the place), each byte beside it kept beside it or one that cannot extend a name (a
-  letter, a digit, `_`: `// covers T2, T5` still reads `T2`, `T2x` does not); else the last rename marking it in
-  effect when the first whose name read still reads at its places was planned (an undo); else none (the name typed
-  over with one no rename wrote). So the editor keeps a line wherever the CLI and MCP rename keep it, and drops it
-  only where the name itself went back or changed. With one store placed in two files, the line is that of the
-  earliest rename either holds: one line names one name for both, so a file undone alone leaves the other W198 until
-  the next collect. What is shown and landed is the change from what the ledger holds of the history (nothing, until a
-  landing) to what the texts hold, as one change: the moves of the renames left undone, each undone and the last made
-  first, and of those taken up, in the order made, composed (one change re-keys a line by the nearest moved path above
-  it, ADR 0287 D5); each stale line whose rename moved, as its rename wrote it, or at no rename as the ledger held it
-  before the history. Undone in the order made, as an editor's undo goes, each step lands. Texts in which a rename is
-  in effect without one it was planned after that moves related paths (an earlier rename undone by hand before a later
-  one it led to) are no state of the history: they show and land nothing, neither a move nor a stale line, until the
-  texts are a state again; so no move lands that no rename made, and no write drops a harness value from the path the
-  hand edit left (the ledger keeps it, as after any hand rename; with the files closed so, the history ends there).
-  The shown overlay is what the buffers say (a file no buffer holds, as on disk), read again when a source buffer the
-  history edits changes; once no file of it holds a buffer the disk does not (saved, or closed), what the disk says
-  lands. A reading parses each declaring file once for every history it reads, reads a file no buffer holds from disk
-  once (again only after an event names it), and reads a source file's names again only when its text changed.
-  Carrying a place is bounded by counted work, never by a clock: a pass over each text finds the anchor lines (the
-  longest run of them in the same order in both), the lines shared at the edges of the stretch between two anchors are
-  trimmed, and only a stretch left holding a place is compared byte by byte, when it is at most 1024 bytes of both
-  texts; a place in a larger one reads as gone (a whole file re-indented drops its lines, as typing the name over
-  would). A line cut and pasted far away follows only when the anchors carry it (moved with the lines around it), else
-  it reads as gone, never as another place. A history is kept while any of its files is open: a redo or an undo saved
-  later lands the rest, as the ledger takes any later rename (a rename back carries each move record, as the CLI's
-  does); with every file closed it is over. It is kept only while the ledger reads as the history last left it (as it
-  found it, until a landing): a write the editor did not make (the CLI, MCP, another client, a pull) that changes what
-  the ledger says of its entities (any path its renames moved) or of its stale lines ends it, so an outside rename is
-  never read from the texts as an undo and landed over. The editor's own landing of one history is what every other
-  history's ledger reads as next. So a history grows with the renames made while its files stay open, as an editor's
-  undo stack does, and ends when they close; no node is pruned before, since an undo can return to any. A node keeps
-  only what reading and landing need: the declaring file's text it was planned on, its moves, its marked lines and the
-  source texts it read and wrote; the history keeps one project, the one the ledger was last written over. A rename
-  answered and never applied waits while its declaring file is the text it was planned on, and is dropped at the first
-  other text without its edit, so a name typed by hand later moves nothing. Rejected: landing when the declaring file
-  alone is saved (the stale line would claim a source text the disk does not hold yet); ending the history at its
-  first save (a redo would land nothing); whole-text comparison of source files (any other edit in a file would drop
-  its lines); one tree per declaring file (a scope and what it scopes declared apart would each land against the last
-  project, dropping the path between them and the harness values on it, and each claim the stale line both rewrote);
-  and following a hand undo out of order by rebasing the later renames' moves (a guess at what the hand meant).
+  therefore never kept as a phase, but read from the texts each time. A rename is in effect while the spec files it
+  edited hold it, with the renames it came from (of two renames of one entity from one node, the later): its declaring
+  file and each file it wrote the name in (a reference, or a path through it that places what it scopes: `milestone
+  v1.1` in a phase's file, `phase v1.1/04` in a test's), each read on its own, since an editor undoes per buffer. A
+  file holds a rename while it reads the name the rename wrote at the places it wrote it (carried as a source file's
+  places are, below), or holds a later rename of the same entity made over it; it went back while it reads instead the
+  name the rename read at the places it read it. Whether the declaring file holds a rename is counted (the new name
+  declared, and one entity fewer with the old name than when it was planned or one more with the new), not asked by
+  name, so an entity declared by hand under the old name beside the renamed one leaves the rename held and no move
+  back lands onto it; it went back while its names count as when the rename was planned. A rename some of its files
+  hold while others went back (its declaring file undone and saved alone while the files that place what it scopes
+  still hold it, or the reverse) is in no state of the history, below; a file whose places say neither (edited
+  otherwise, or deleted) decides nothing. Source files are not asked: each stale line reads them apart. Each stale
+  line (store, field, name held) holds a rename: the latest every source file it is about holds or came after, a file
+  holding a rename while the name it wrote for the line reads at the places it wrote it, carried through whatever else
+  changed in the file since (another entity renamed, typing: anchored on the lines no other line of either text
+  repeats, then by byte inside the changed lines around the place), each byte beside it kept beside it or one that
+  cannot extend a name (a letter, a digit, `_`: `// covers T2, T5` still reads `T2`, `T2x` does not); else the last
+  rename marking it in effect when the first whose name read still reads at its places was planned (an undo); else
+  none (the name typed over with one no rename wrote). So the editor keeps a line wherever the CLI and MCP rename keep
+  it, and drops it only where the name itself went back or changed. With one store placed in two files, the line is
+  that of the earliest rename either holds: one line names one name for both, so a file undone alone leaves the other
+  W198 until the next collect. What is shown and landed is the change from what the ledger holds of the history
+  (nothing, until a landing) to what the texts hold, as one change: the moves of the renames left undone, each undone
+  and the last made first, and of those taken up, in the order made, composed (one change re-keys a line by the
+  nearest moved path above it, ADR 0287 D5); each stale line whose rename moved, as its rename wrote it, or at no
+  rename as the ledger held it before the history. Undone in the order made, as an editor's undo goes, each step
+  lands. Texts in which a rename is in effect without one it was planned after that moves related paths (an earlier
+  rename undone by hand before a later one it led to), or in which a rename is held in some of the files it edited and
+  gone back in others, are no state of the history: they show and land nothing, neither a move nor a stale line, until
+  the texts are a state again; so no move lands that no rename made, and no write drops a harness value from the path
+  the hand edit left (the ledger keeps it, as after any hand rename; with the files closed so, the history ends
+  there). The shown overlay is what the buffers say (a file no buffer holds, as on disk), read again when a source
+  buffer the history edits changes; once no file of it holds a buffer the disk does not (saved, or closed), what the
+  disk says lands. A reading parses each declaring file once for every history it reads, reads a file no buffer holds
+  from disk once (again only after an event names it), and reads a source file's names again only when its text
+  changed. Carrying a place is bounded by counted work, never by a clock: a pass over each text finds the anchor lines
+  (the longest run of them in the same order in both), the lines shared at the edges of the stretch between two
+  anchors are trimmed, and only a stretch left holding a place is compared byte by byte, when it is at most 1024 bytes
+  of both texts; a place in a larger one reads as gone (a whole file re-indented drops its lines, as typing the name
+  over would). A line cut and pasted far away follows only when the anchors carry it (moved with the lines around it),
+  else it reads as gone, never as another place. A history is kept while any of its files is open: a redo or an undo
+  saved later lands the rest, as the ledger takes any later rename (a rename back carries each move record, as the
+  CLI's does); with every file closed it is over. It is kept only while the ledger reads as the history last left it
+  (as it found it, until a landing): a write the editor did not make (the CLI, MCP, another client, a pull) that
+  changes what the ledger says of its entities (any path its renames moved) or of its stale lines ends it, so an
+  outside rename is never read from the texts as an undo and landed over. The editor's own landing of one history is
+  what every other history's ledger reads as next. So a history grows with the renames made while its files stay open,
+  as an editor's undo stack does, and ends when they close; no node is pruned before, since an undo can return to any.
+  A node keeps only what reading and landing need: the declaring file's text it was planned on, its moves, its marked
+  lines and the source texts it read and wrote; the history keeps one project, the one the ledger was last written
+  over. A rename answered and never applied waits while its declaring file is the text it was planned on, and is
+  dropped at the first other text without its edit, so a name typed by hand later moves nothing. Rejected: landing
+  when the declaring file alone is saved (the stale line would claim a source text the disk does not hold yet); ending
+  the history at its first save (a redo would land nothing); whole-text comparison of source files (any other edit in
+  a file would drop its lines); one tree per declaring file (a scope and what it scopes declared apart would each land
+  against the last project, dropping the path between them and the harness values on it, and each claim the stale line
+  both rewrote); and following a hand undo out of order by rebasing the later renames' moves (a guess at what the hand
+  meant).
 - The LSP rename's edit carries the source edits; the pending ledger change carries each stale line with the names
   it read and wrote and their places in the texts the rename read and wrote.
 - **A delete of an entity a fact names stays refused.** It would remove what a test says it proves, and there is no

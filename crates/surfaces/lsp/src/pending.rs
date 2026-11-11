@@ -10,10 +10,12 @@
 //! texts each time, so whatever the editor did to its buffers (undo in one buffer and not another, part way, by hand,
 //! redo, before a save or after) the ledger read is what the texts say:
 //!
-//! - the **moves** between the renames in effect and those the ledger holds: a rename is in effect while its
-//!   declaring file declares its new name (counted: two scoped entities may share a name), with the renames it came
-//!   from; texts in which a rename is in effect without one it was planned after (an earlier rename undone by hand
-//!   before a later one it led to) are no state of the history, and show and land nothing;
+//! - the **moves** between the renames in effect and those the ledger holds: a rename is in effect while the spec
+//!   files it edited hold it (its declaring file declares its new name, counted: two scoped entities may share a
+//!   name; every other reads the name it wrote at its places, or a later rename of the entity made over it), with the
+//!   renames it came from; texts in which a rename is in effect without one it was planned after (an earlier rename
+//!   undone by hand before a later one it led to), or held in some of its files and gone back in others (a scope
+//!   undone in its declaring file alone), are no state of the history, and show and land nothing;
 //! - for each **stale line**, by store, field and name held: the line of the last rename every source file it is
 //!   about holds, a file holding a rename while the name it wrote reads at its places there, whatever else changed in
 //!   the file (`reads`); none once the name went back or was typed over.
@@ -36,11 +38,13 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use specforge_ops::asking::Asking;
 use specforge_ops::authoring::apply::{Origin, Surface, land_ledger};
 use specforge_ops::authoring::rename::Marked;
+use specforge_ops::read::navigate::TextEdit;
 use specforge_ops::{Caller, Containment};
 use specforge_project::harness::{LEDGER_FILE, Ledger, LedgerChange, LedgerOverlay, Line};
 use specforge_project::{CompiledProject, ProjectSession};
 
 mod reads;
+mod spelled;
 mod tree;
 
 use tree::{Reading, Tree};
@@ -53,6 +57,8 @@ pub struct PendingLedger {
     stale: Vec<Marked>,
     /// Each source file the rename rewrote: the text it read and the text it wrote.
     sources: BTreeMap<String, (Arc<str>, String)>,
+    /// Each spec file the rename rewrote besides the declaring one: the names it read and wrote there.
+    spelled: BTreeMap<String, spelled::Spelled>,
     /// The source key of the file declaring the renamed entity.
     declaring: String,
     /// The renamed entity's path before and after: what a later rename is matched by.
@@ -92,12 +98,13 @@ pub struct Renamed {
 
 /// What a rename changes besides the declaring file's name: the entities it moves (old path, new path), the stale
 /// lines it marks with the source files each is about, each source file it rewrote (key, text read, text written),
-/// and the key of every file it edits.
+/// the key of every file it edits, and its edits (each spec file's are names written over the text compiled).
 pub struct Rewrites {
     pub moves: Vec<(String, String)>,
     pub stale: Vec<Marked>,
     pub sources: Vec<(String, Arc<str>, String)>,
     pub files: Vec<String>,
+    pub edits: Vec<TextEdit>,
 }
 
 impl PendingLedger {
@@ -120,15 +127,20 @@ impl PendingLedger {
                 &renamed.new_name,
             )
         });
+        let sources: BTreeMap<String, (Arc<str>, String)> = rewrites
+            .sources
+            .into_iter()
+            .map(|(key, read, wrote)| (key, (read, wrote)))
+            .collect();
+        let spelled = spelled::of(before, &rewrites.edits, |file| {
+            file != renamed.declaring && !sources.contains_key(file)
+        });
         Some(Arc::new(PendingLedger {
             planned,
             moves: rewrites.moves,
             stale: rewrites.stale,
-            sources: rewrites
-                .sources
-                .into_iter()
-                .map(|(key, read, wrote)| (key, (read, wrote)))
-                .collect(),
+            sources,
+            spelled,
             declaring: renamed.declaring,
             old_id: renamed.old_id,
             new_id: renamed.new_id,
@@ -153,6 +165,12 @@ impl PendingLedger {
         let count = |name: &str| names.get(name).copied().unwrap_or(0);
         let (old, new) = (count(&self.old_name), count(&self.new_name));
         new >= 1 && (old + 1 == self.declared.0 || new == self.declared.1 + 1)
+    }
+
+    /// Whether `names`, the declaring file's, are counted as when the rename was planned: the file went back.
+    fn declares_old(&self, names: &Names) -> bool {
+        let count = |name: &str| names.get(name).copied().unwrap_or(0);
+        (count(&self.old_name), count(&self.new_name)) == self.declared
     }
 
     /// The stale line this rename marks for `key`, if any.
