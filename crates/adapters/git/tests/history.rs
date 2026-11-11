@@ -17,6 +17,8 @@ use specforge_test::prelude::*;
 
 #[path = "history/diffs.rs"]
 mod diffs;
+#[path = "history/environment.rs"]
+mod environment;
 #[path = "history/picking.rs"]
 mod picking;
 #[path = "history/racy.rs"]

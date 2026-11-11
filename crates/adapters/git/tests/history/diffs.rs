@@ -246,3 +246,82 @@ fn a_bounded_worktree_diff_reads_no_file_past_its_bound() {
             .all(|f| f.truncated && f.status == DiffStatus::Modified && f.removed == 0)
     );
 }
+
+/// A worktree diff with `budget`, renames as `renames` asks.
+fn bounded(
+    repo: &Repo,
+    base: &str,
+    head: DiffSide,
+    renames: bool,
+    budget: u64,
+) -> Vec<GitFileDiff> {
+    Gix::default()
+        .diff(
+            &place(repo),
+            &DiffQuery {
+                base: Some(Sha::new(base)),
+                head,
+                paths: Vec::new(),
+                patch: false,
+                hunks: false,
+                renames,
+                budget: Some(budget),
+            },
+        )
+        .unwrap()
+}
+
+/// A bounded worktree diff, and a file past its bound whose stat changed but whose content did not.
+#[test]
+fn a_bounded_worktree_diff_and_a_file_whose_stat_alone_changed() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("a.txt", "old\n")
+        .write("big.txt", "z\n".repeat(4096));
+    let base = repo.commit_all("base");
+    // the same size, so only the content tells; then the same bytes again, its stat moved
+    repo.write("a.txt", "new\n")
+        .write("big.txt", "z\n".repeat(4096));
+    std::fs::File::options()
+        .write(true)
+        .open(dir.path().join("big.txt"))
+        .unwrap()
+        .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000))
+        .unwrap();
+    // a.txt is the first file and always read; big.txt is far past the bound
+    let files = bounded(&repo, &base, DiffSide::Worktree, false, 64);
+    let listed: Vec<_> = files
+        .iter()
+        .map(|f| (f.path.as_str(), f.status, f.truncated, f.unread))
+        .collect();
+    assert_eq!(listed, [("a.txt", DiffStatus::Modified, false, false)]);
+}
+
+/// A bounded diff, and renames by identical content and by similarity whose blobs are past its bound.
+#[test]
+fn a_bounded_diff_and_renames_past_its_bound() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repo::init(dir.path());
+    repo.write("old.txt", lines(200))
+        .write("same.txt", "same\n");
+    let base = repo.commit_all("base");
+    let mut edited = lines(199);
+    edited.push_str("the last line, changed\n");
+    repo.delete("old.txt")
+        .write("new.txt", edited)
+        .delete("same.txt")
+        .write("moved.txt", "same\n");
+    let head = repo.commit_all("moved");
+    let files = bounded(&repo, &base, DiffSide::Commit(Sha::new(&head)), true, 64);
+    let listed: Vec<_> = files
+        .iter()
+        .map(|f| (f.path.as_str(), f.status, f.old_path.as_deref()))
+        .collect();
+    assert_eq!(
+        listed,
+        [
+            ("moved.txt", DiffStatus::Renamed, Some("same.txt")),
+            ("new.txt", DiffStatus::Renamed, Some("old.txt")),
+        ]
+    );
+}
