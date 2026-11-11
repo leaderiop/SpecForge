@@ -451,7 +451,7 @@ impl Chain {
             land_ledger(on, project, change, &origin, caller).map_err(drop)?;
             links.tree.left(ledger_on_disk(project), project);
         }
-        links.tree.landed(reading.clone(), project.clone());
+        links.tree.landed(reading.clone());
         links.tree.mark(&reading, false);
         links.shown = None;
         if !files.iter().any(|file| open(file)) {

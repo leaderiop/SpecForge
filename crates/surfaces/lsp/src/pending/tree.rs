@@ -537,17 +537,15 @@ impl Tree {
         })
     }
 
-    /// `reading`, read from the disk, was written over `on`: the ledger holds it now. A reading that is no state of the
-    /// history landed nothing, and the ledger holds what it did.
-    pub(super) fn landed(&mut self, reading: Reading, on: CompiledProject) {
+    /// `reading`, read from the disk, landed: the ledger holds it now, written over the project a write left
+    /// ([`Tree::left`]), or over the one it was when the change wrote nothing (the ledger's paths are that project's
+    /// still). A reading that is no state of the history landed nothing, and the ledger holds what it did.
+    pub(super) fn landed(&mut self, reading: Reading) {
         let Some(effect) = reading.effect else {
             return;
         };
-        self.landed = Landed {
-            effect,
-            lines: reading.lines.into_iter().collect(),
-            on,
-        };
+        self.landed.effect = effect;
+        self.landed.lines = reading.lines.into_iter().collect();
     }
 
     /// Mark the rename the texts hold last as showing when `shows`, every other one not.
