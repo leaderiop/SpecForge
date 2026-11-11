@@ -517,3 +517,22 @@ fn a_store_whose_ledger_renames_a_name_two_ways_serves_none_of_its_renames() {
     assert_eq!(fact.named_at["covers"]["T5"][0].start_col, 14);
     assert!(served.placed["a.test.js"].holds(collected.as_bytes()));
 }
+
+#[test]
+fn a_span_is_read_from_the_line_starts_once_found() {
+    let text = b"ab\ncd\nef";
+    let lines = line_starts(text);
+    assert_eq!(lines, [0, 3, 6]);
+    let at =
+        |line: usize, from: usize, to: usize| byte_range(text, &lines, &place("f", line, from, to));
+    assert_eq!(at(1, 1, 3), Some(0..2));
+    assert_eq!(at(2, 2, 3), Some(4..5));
+    assert_eq!(
+        at(3, 1, 3),
+        Some(6..8),
+        "the last line ends at the text's end"
+    );
+    assert_eq!(at(1, 1, 4), None, "a column past its line's end");
+    assert_eq!(at(4, 1, 1), None, "a line past the text");
+    assert_eq!(at(0, 1, 1), None);
+}

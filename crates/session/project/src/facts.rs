@@ -422,9 +422,10 @@ impl Placed {
     /// putting back the name collected at each gives the bytes whose digest the collect recorded. Exact: nothing
     /// else in the file may have changed.
     pub fn holds(&self, text: &[u8]) -> bool {
+        let lines = line_starts(text);
         let mut ranges = Vec::with_capacity(self.respelled.len());
         for respelled in &self.respelled {
-            let Some(range) = byte_range(text, &respelled.at) else {
+            let Some(range) = byte_range(text, &lines, &respelled.at) else {
                 return false;
             };
             if text.get(range.clone()) != Some(respelled.now.as_bytes()) {
@@ -447,24 +448,24 @@ impl Placed {
     }
 }
 
-/// The bytes of `text` the span `at` covers (1-based lines, 1-based byte columns, end exclusive); `None` when it lies
-/// outside the text or a column passes its line's end.
-fn byte_range(text: &[u8], at: &FactLocation) -> Option<std::ops::Range<usize>> {
-    let offset = |line: usize, col: usize| -> Option<usize> {
-        let start = if line == 1 {
-            0
-        } else {
+/// Where each line of `text` starts: 0, then the byte after each newline.
+fn line_starts(text: &[u8]) -> Vec<usize> {
+    std::iter::once(0)
+        .chain(
             text.iter()
                 .enumerate()
                 .filter(|(_, b)| **b == b'\n')
-                .nth(line.checked_sub(2)?)?
-                .0
-                + 1
-        };
-        let end = text[start..]
-            .iter()
-            .position(|b| *b == b'\n')
-            .map_or(text.len(), |n| start + n);
+                .map(|(at, _)| at + 1),
+        )
+        .collect()
+}
+
+/// The bytes of `text` the span `at` covers (1-based lines, 1-based byte columns, end exclusive), its lines starting
+/// at `lines` ([`line_starts`]); `None` when it lies outside the text or a column passes its line's end.
+fn byte_range(text: &[u8], lines: &[usize], at: &FactLocation) -> Option<std::ops::Range<usize>> {
+    let offset = |line: usize, col: usize| -> Option<usize> {
+        let start = *lines.get(line.checked_sub(1)?)?;
+        let end = lines.get(line).map_or(text.len(), |next| next - 1);
         let at = start + col.checked_sub(1)?;
         (at <= end).then_some(at)
     };
