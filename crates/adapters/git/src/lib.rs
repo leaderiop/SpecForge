@@ -21,6 +21,7 @@ use specforge_effects::git::{
 mod branching;
 mod history;
 mod merging;
+mod racy;
 mod redirects;
 mod refs;
 use refs::{branch_of, local_branch};
