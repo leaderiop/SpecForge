@@ -653,3 +653,115 @@ fn a_crlf_files_places_are_judged_as_bytes() {
     );
     assert!(store(KEY, &back).unwrap().placed["a.test.js"].holds(collected.as_bytes()));
 }
+
+/// The served store of one fact holding `names` (field, name, place) in `a.test.js` collected as `collected`, its
+/// place `at`, read through `renames` (field, held, now).
+fn one_fact_through(
+    collected: &str,
+    at: FactLocation,
+    names: &[(&str, &str, FactLocation)],
+    renames: &[(&str, &str, &str)],
+) -> String {
+    let mut fact = Fact::new("test", "js:a.test.js#adds").at(at);
+    for (field, name, place) in names {
+        fact = fact.name(field, name, place.clone());
+    }
+    let sources = BTreeMap::from([(
+        "a.test.js".to_string(),
+        format!(
+            "sha256:{}",
+            specforge_package::Sha256::of(collected.as_bytes())
+        ),
+    )]);
+    let bytes =
+        String::from_utf8(Store::new("node", "@t/node", "abc", vec![fact], sources).bytes())
+            .unwrap();
+    let mut by_field = Renames::new();
+    for (field, held, now) in renames {
+        by_field
+            .entry(field.to_string())
+            .or_default()
+            .insert(held.to_string(), now.to_string());
+    }
+    through(bytes, by_field)
+}
+
+/// The text `place` covers in `text`.
+fn read_at<'t>(text: &'t str, place: &FactLocation) -> &'t str {
+    &text[byte_at(text, place.start_line, place.start_col)
+        ..byte_at(text, place.end_line, place.end_col)]
+}
+
+#[specforge_test_macros::test(
+    behavior = "build_in_memory_graph",
+    verify = "names a store holds one inside another, both renamed, are served exactly where the renames left them"
+)]
+fn names_held_one_inside_another_are_served_exactly() {
+    // `v1/T1` held in `covers`, its `T1` in `names`: one rename wrote `v1/Two` there.
+    let collected = "// covers v1/T1 end\n";
+    let text = one_fact_through(
+        collected,
+        place("a.test.js", 1, 1, 20),
+        &[
+            ("covers", "v1/T1", place("a.test.js", 1, 11, 16)),
+            ("names", "T1", place("a.test.js", 1, 14, 16)),
+        ],
+        &[("covers", "v1/T1", "v1/Two"), ("names", "T1", "Two")],
+    );
+    let served = store(KEY, &text).unwrap();
+    let after = "// covers v1/Two end\n";
+
+    let fact = &served.store.facts[0];
+    assert_eq!(
+        read_at(after, &fact.named_at["covers"]["v1/Two"][0]),
+        "v1/Two"
+    );
+    assert_eq!(read_at(after, &fact.named_at["names"]["Two"][0]), "Two");
+    assert_eq!(read_at(after, &fact.at[0]), "// covers v1/Two end");
+    let placed = &served.placed["a.test.js"];
+    assert_eq!(
+        placed.respelled.len(),
+        1,
+        "the outer place is what is written"
+    );
+    assert!(placed.holds(after.as_bytes()));
+    assert!(!placed.holds(collected.as_bytes()));
+    assert!(!placed.holds(b"// covers v1/Two end!\n"));
+}
+
+#[specforge_test_macros::test(
+    behavior = "build_in_memory_graph",
+    verify = "a name inside a name written is served where it stands while the write keeps it, and its file is not the text the places are in when the write changed it"
+)]
+fn a_name_inside_a_name_written_is_kept_only_where_the_write_keeps_it() {
+    let collected = "// covers a/T1 x\n";
+    let whole = ("covers", "a/T1", place("a.test.js", 1, 11, 15));
+    let renamed = [("covers", "a/T1", "a/Longer")];
+    let after = "// covers a/Longer x\n";
+
+    // `a`, held in `scope` and renamed by nothing, is the part of `a/T1` the write keeps.
+    let kept = one_fact_through(
+        collected,
+        place("a.test.js", 1, 1, 17),
+        &[whole.clone(), ("scope", "a", place("a.test.js", 1, 11, 12))],
+        &renamed,
+    );
+    let served = store(KEY, &kept).unwrap();
+    let fact = &served.store.facts[0];
+    assert_eq!(read_at(after, &fact.named_at["scope"]["a"][0]), "a");
+    assert!(served.placed["a.test.js"].holds(after.as_bytes()));
+
+    // `T1`, held in `leaf` and renamed by nothing, is what the write changed: no exact place, served as collected.
+    let torn = one_fact_through(
+        collected,
+        place("a.test.js", 1, 1, 17),
+        &[whole, ("leaf", "T1", place("a.test.js", 1, 13, 15))],
+        &renamed,
+    );
+    let served = store(KEY, &torn).unwrap();
+    let fact = &served.store.facts[0];
+    assert_eq!(read_at(collected, &fact.named_at["leaf"]["T1"][0]), "T1");
+    let placed = &served.placed["a.test.js"];
+    assert!(!placed.holds(after.as_bytes()));
+    assert!(placed.holds(collected.as_bytes()));
+}

@@ -6,8 +6,10 @@
 //! places are in.
 
 mod stale;
+mod written;
 
 pub use stale::{Conflicts, Renames, Rewrites};
+pub use written::{Span, Write, Writes};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;

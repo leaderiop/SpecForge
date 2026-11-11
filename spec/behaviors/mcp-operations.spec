@@ -194,7 +194,12 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     holds applies too (ADR 0346 D7). A
     rename to a name a fact holds for no entity is refused as name_captured,
     and one of a name another fact of the same store holds in that field for
-    something else (another entity, or no reference) as name_shared; while
+    something else (another entity, or no reference), or one that would
+    write over a name any fact holds in the file and the rename does not
+    rename, as name_shared. Places of names two facts hold one inside the
+    other (`v1/T1` and its `T1`) MUST be written as one text, the outermost
+    of each, and renames of them compose; two places a rename would write
+    that cross one another are refused as places_cross. While
     the ledger renames a name a store holds two ways (W202), a rename of a
     name that store holds is refused as stale_conflict.
     When renames made two names a store holds read as one, a rename of it
@@ -226,6 +231,8 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
   verify integration "a rename to a name a fact holds for no entity is refused as name_captured"
   verify integration "a rename of a name two held names are read as writes a stale line for each"
   verify integration "a rename of a name a fact of the same store holds for something else is refused as name_shared"
+  verify integration "a rename that would write over a name another fact holds for something else is refused as name_shared"
+  verify integration "a rename of what two facts name one inside the other writes one text, and renames of it compose"
   verify integration "a rename of a name a store holds while the ledger renames one of its names two ways is refused as stale_conflict"
   verify integration "every store placed in a file a rename rewrote is served shifted by it, and a rename of its own name applies"
 }

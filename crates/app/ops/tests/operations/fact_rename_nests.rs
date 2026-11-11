@@ -15,6 +15,7 @@ use specforge_project::CompiledProject;
 use specforge_project::testing::{
     COLLECTED_EXTENSIONS, Collected, SCOPED_EXTENSION, TestProject, scoped_kinds, stored,
 };
+use specforge_test_macros::test as specforge_test;
 use specforge_wasm::testing::InProcessRuntime;
 
 use crate::collected::{KEY, stale_lines};
@@ -91,21 +92,82 @@ fn both_hold(p: &TestProject) -> bool {
 
 const NESTED: &str = "workstream ws \"W\" {}\n\nmilestone m1 \"M\" {\n  workstream ws\n}\n";
 
-/// `node` reads `ws/m1` whole, `unit` the `m1` at its end: both name the milestone `ws/m1`, and a rename of it writes
-/// both.
-#[test]
-fn a_rename_of_a_name_two_facts_hold_one_inside_the_other_is_source_moved() {
-    let p = project(
+fn nested() -> TestProject {
+    project(
         NESTED,
         "// covers ws/m1\n",
         fact("js:a.test.js#adds", &[("ws/m1", 11)]),
         fact("js:a.test.js#five", &[("m1", 14)]),
-    );
+    )
+}
+
+fn source(p: &TestProject) -> String {
+    std::fs::read_to_string(p.root().join("a.test.js")).unwrap()
+}
+
+/// `node` reads `ws/m1` whole, `unit` the `m1` at its end: both name the milestone `ws/m1`, and a rename of it writes
+/// one text, the outer place, the inner reading its name inside it; a second rename composes.
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "a rename of what two facts name one inside the other writes one text, and renames of it compose"
+)]
+fn a_rename_of_a_name_two_facts_hold_one_inside_the_other_writes_both() {
+    let p = nested();
     assert!(both_hold(&p));
 
-    let refused = rename_now(&p, "ws/m1", "m2").unwrap_err();
+    rename_now(&p, "ws/m1", "m2").unwrap();
 
-    assert!(refused.starts_with("source_moved: "), "{refused}");
+    assert_eq!(source(&p), "// covers ws/m2\n");
+    let line = |held: &str, now: &str| ("covers".to_string(), held.to_string(), now.to_string());
+    assert_eq!(stale_lines(&p), [line("ws/m1", "ws/m2"), line("m1", "m2")]);
+    assert!(both_hold(&p));
+
+    rename_now(&p, "ws/m2", "m3x").unwrap();
+
+    assert_eq!(source(&p), "// covers ws/m3x\n");
+    assert_eq!(
+        stale_lines(&p),
+        [line("ws/m1", "ws/m3x"), line("m1", "m3x")]
+    );
+    assert!(both_hold(&p));
+}
+
+/// The workstream renamed: `ws/m1` writes `wz/m1`, and the `m1` nested at its end, which names the milestone that
+/// moved with it, writes itself.
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "a rename of what two facts name one inside the other writes one text, and renames of it compose"
+)]
+fn a_rename_of_a_scope_writes_a_nested_name_its_suffix_keeps() {
+    let p = nested();
+
+    rename_now(&p, "ws", "wz").unwrap();
+
+    assert_eq!(source(&p), "// covers wz/m1\n");
+    assert!(both_hold(&p));
+}
+
+/// `node` reads `ws/m1`, naming the milestone of `ws`; `unit` the `m1` at its end, naming the milestone `m1` of no
+/// workstream. A rename of that one writes inside `node`'s name, which would read `ws/m2`: refused.
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "a rename that would write over a name another fact holds for something else is refused as name_shared"
+)]
+fn a_rename_writing_inside_another_facts_name_is_refused() {
+    let specs = format!("{NESTED}\nmilestone m1 \"Alone\" {{}}\n");
+    let p = project(
+        &specs,
+        "// covers ws/m1\n",
+        fact("js:a.test.js#adds", &[("ws/m1", 11)]),
+        fact("js:a.test.js#five", &[("m1", 14)]),
+    );
+
+    let refused = rename_now(&p, "m1", "m2").unwrap_err();
+
+    assert!(refused.starts_with("name_shared: "), "{refused}");
+    assert!(refused.contains("'ws/m1'"), "{refused}");
+    assert_eq!(source(&p), "// covers ws/m1\n");
+    assert!(stale_lines(&p).is_empty());
 }
 
 const TWO: &str = "truth T1 \"One\" {}\n";
@@ -122,19 +184,23 @@ fn sharing_a_place() -> TestProject {
     )
 }
 
-/// A rename writing at a place another fact holds a name in a field it does not rename changes what that fact reads.
-#[test]
-fn a_rename_writing_where_another_fact_holds_a_name_for_something_else_applies() {
+/// A rename writing at a place another fact holds a name in a field it does not rename would change what that fact
+/// reads: refused, nothing written.
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "a rename that would write over a name another fact holds for something else is refused as name_shared"
+)]
+fn a_rename_writing_where_another_fact_holds_a_name_for_something_else_is_refused() {
     let p = sharing_a_place();
 
-    rename_now(&p, "T1", "T2").unwrap();
+    let refused = rename_now(&p, "T1", "T2").unwrap_err();
 
-    assert_eq!(
-        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
-        "// covers T2\n"
+    assert!(refused.starts_with("name_shared: "), "{refused}");
+    assert!(
+        refused
+            .contains("'T1', which the fact 'js:a.test.js#five' holds in 'note' at a.test.js:1:11"),
+        "{refused}"
     );
-    assert_eq!(
-        stale_lines(&p),
-        [("covers".into(), "T1".into(), "T2".into())]
-    );
+    assert_eq!(source(&p), "// covers T1\n");
+    assert!(stale_lines(&p).is_empty());
 }

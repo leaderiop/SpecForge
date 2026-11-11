@@ -7,13 +7,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use specforge_graph::{Found, Reading};
-use specforge_project::facts::{self, Placed};
+use specforge_project::facts::{self, Placed, Span, Write, Writes};
 use specforge_project::harness::Line;
 use specforge_protocol_types::FieldType;
 
 use crate::authoring::apply::COLLECTED;
 use crate::authoring::planned::Rewritten;
-use crate::authoring::rename::{CAPTURED, NAME_SHARED, SOURCE_MOVED, STALE_CONFLICT};
+use crate::authoring::rename::{CAPTURED, NAME_SHARED, PLACES_CROSS, SOURCE_MOVED, STALE_CONFLICT};
 use crate::read::navigate::{SourceText, TextEdit, apply_edits};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
@@ -27,20 +27,20 @@ pub(crate) struct Rewrite {
     pub stale: Vec<Line>,
 }
 
-/// A place by its start and end (line, byte column): one edit per place, however many facts name it.
-type Span = (usize, usize, usize, usize);
-
 /// The rewrite of the facts that name an entity `moved` moves (old path → new path, the renamed entity first), each
 /// read from its store as the session serves it (`facts::store`: a name an earlier rename rewrote is the name it
 /// wrote, at the place it left it) and each name resolved as the linker resolves it. For each such name, a stale line
 /// from the name the store holds to the same suffix of the new path (replacing an earlier rename's line), and an edit
-/// at every place the store writes the name: exactly the places the serve shifts by once the line is written. Each
+/// at every place the store writes the name: exactly the places the serve shifts by once the line is written. Places
+/// nested one in another (two facts holding `v1/T1` and its `T1`) write one text, the outermost each (`Writes`). Each
 /// file is read through the view (its held text, else the disk's: `read_placed`) and must be the text every store
 /// whose places it rewrites serves them in (`Placed::holds`: the text collected, or the text the earlier renames
 /// left). Refused `collected` when a fact records no place its name is written; `source_moved` when a file is not
 /// that text (edited since by hand), is gone or no longer spells the name at a place; `name_captured` when the new
 /// suffix would also name another entity; `name_shared` when another fact of the store holds the name in that field
-/// for something else (a store's name is renamed in every fact holding it); `stale_conflict` when the ledger renames
+/// for something else (a store's name is renamed in every fact holding it), or when a write would change a name any
+/// fact holds in the file that the rename does not rename; `places_cross` when two places it writes cross (no one
+/// text writes both); `stale_conflict` when the ledger renames
 /// a name the store holds two ways (W202); `file_unreadable` when the served store cannot be read, or a file is no
 /// file inside the project (a key that climbs out, a link that lands outside, a file with another name:
 /// `read_placed`).
@@ -76,6 +76,8 @@ pub(crate) fn rewrite(
     // What each store whose places a file's edits are says of the file.
     let mut judges: BTreeMap<String, BTreeMap<String, Placed>> = BTreeMap::new();
     let mut rewrite = Rewrite::default();
+    // The names the rename rewrites, by store: (store, field, the name served).
+    let mut rewritten: BTreeSet<(String, String, String)> = BTreeSet::new();
     for (key, facts) in &naming {
         // The store as the session serves it: the names and places the earlier renames left.
         let text = view
@@ -137,6 +139,7 @@ pub(crate) fn rewrite(
             }
         }
         for ((field, spelling), (old, new_text)) in &names {
+            rewritten.insert((key.clone(), field.clone(), spelling.clone()));
             // One line for each name held that is served as the spelling: the edits below write every place of each.
             for held in served.collected(field, spelling) {
                 rewrite.stale.push(Line::stale(
@@ -216,11 +219,24 @@ pub(crate) fn rewrite(
         let spelled = edits.values().all(|(edit, spelling)| {
             source.range(&edit.span).and_then(|range| text.get(range)) == Some(spelling.as_str())
         });
-        let edits: Vec<TextEdit> = edits.into_values().map(|(edit, _)| edit).collect();
-        let edited = spelled
-            .then(|| apply_edits(&text, &edits))
-            .flatten()
-            .ok_or_else(moved)?;
+        if !spelled {
+            return Err(moved());
+        }
+        // Places nested one in another write one text, the outermost each; crossing ones write none.
+        let writes = Writes::of(edits.iter().map(|(span, (edit, spelling))| Write {
+            span: *span,
+            held: spelling.clone(),
+            now: edit.new_text.clone(),
+        }))
+        .ok_or_else(|| crossed(old_id, &file))?;
+        kept_by(view, old_id, &file, &writes, &edits, &rewritten)?;
+        let mut edits = edits;
+        let edits: Vec<TextEdit> = writes
+            .outer()
+            .iter()
+            .filter_map(|write| edits.remove(&write.span).map(|(edit, _)| edit))
+            .collect();
+        let edited = apply_edits(&text, &edits).ok_or_else(moved)?;
         rewrite.files.insert(
             file,
             Rewritten {
@@ -231,6 +247,91 @@ pub(crate) fn rewrite(
         rewrite.edits.extend(edits);
     }
     Ok(rewrite)
+}
+
+/// `Ok` when what the rename writes in `file` (`writes`, planned as `edits`: each place's edit and the name read there)
+/// leaves every name another fact holds there as it reads: every store placing a fact in the file, served, and every
+/// name its facts hold at a place in it that the rename does not rewrite (`rewritten`). `name_shared` naming the first
+/// that a write changes: one at a place written, or holding one, or inside one in a part the name written does not
+/// keep. A rename writes only names of what it moves.
+fn kept_by(
+    view: &ProjectView<'_>,
+    old_id: &str,
+    file: &str,
+    writes: &Writes,
+    edits: &BTreeMap<Span, (TextEdit, String)>,
+    rewritten: &BTreeSet<(String, String, String)>,
+) -> Result<(), OpError> {
+    let project = view.project();
+    let sources = project.fact_sources();
+    for key in sources
+        .get(file)
+        .into_iter()
+        .flat_map(|stores| stores.keys())
+    {
+        let text = project
+            .source_text(key)
+            .ok_or_else(|| unreadable(old_id, &format!("the fact store '{key}' is not served")))?;
+        let served = facts::store(key, &text).map_err(|w192| unreadable(old_id, &w192.message))?;
+        for fact in &served.store.facts {
+            for (field, ids) in &fact.named_at {
+                for (spelling, places) in ids {
+                    if rewritten.contains(&(key.to_string(), field.clone(), spelling.clone())) {
+                        continue;
+                    }
+                    for place in places.iter().filter(|p| p.file == file) {
+                        let at = (
+                            place.start_line,
+                            place.start_col,
+                            place.end_line,
+                            place.end_col,
+                        );
+                        let kept = match edits.get(&at) {
+                            Some((edit, _)) => edit.new_text == *spelling,
+                            None => writes.place(at, true).is_some(),
+                        };
+                        if !kept {
+                            return Err(written_over(old_id, &fact.id, field, spelling, place));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// `name_shared`: the rename of `id` would write over the name `spelling` the fact `fact` holds in `field` at `place`,
+/// which it does not rename: that fact would read another name there.
+fn written_over(
+    id: &str,
+    fact: &str,
+    field: &str,
+    spelling: &str,
+    place: &specforge_protocol_types::FactLocation,
+) -> OpError {
+    OpError::new(
+        OpErrorKind::Conflict,
+        NAME_SHARED,
+        format!(
+            "cannot rename '{id}': it writes over '{spelling}', which the fact '{fact}' holds in '{field}' at {}:{}:{}              and the rename does not rename; a rename writes only names of what it moves",
+            place.file, place.start_line, place.start_col
+        ),
+    )
+    .with_suggestion("change what the collector reads, run `specforge collect`, then rename")
+}
+
+/// `places_cross`: two places the rename writes in `file` cross one another, or nest with names that disagree, so no
+/// one text writes both.
+fn crossed(id: &str, file: &str) -> OpError {
+    OpError::new(
+        OpErrorKind::Conflict,
+        PLACES_CROSS,
+        format!(
+            "cannot rename '{id}': two places of a name it writes in {file} cross one another, so no one text writes              both"
+        ),
+    )
+    .with_suggestion("change what the collector reads, run `specforge collect`, then rename")
 }
 
 /// `name_captured` when `written`, the spelling the rename writes, would also name an entity other than the one moved

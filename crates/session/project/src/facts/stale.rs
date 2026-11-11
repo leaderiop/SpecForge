@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, codes};
 use specforge_protocol_types::FactLocation;
 
+use super::written::{Span, Write, Writes};
 use super::{Respelled, Store};
 use crate::harness::{Ledger, Line};
 
@@ -127,20 +128,26 @@ pub(super) fn rewritten_by(
     }
 }
 
-/// `rewrites` without a text it cannot say exactly: one in `torn`, or one whose places overlap. Its stores' places are
-/// served as collected there, and the file is not the text they are in.
+/// `rewrites` without a text it cannot say exactly: one in `torn`, or one whose places leave no one text ([`Writes`]:
+/// two cross, or nested ones disagree). Its stores' places are served as collected there, and the file is not the
+/// text they are in. Places nested one in another are said exactly: the outermost is what is written.
 pub(super) fn settled(mut rewrites: Rewrites, torn: &BTreeSet<(String, String)>) -> Rewrites {
     for (file, texts) in &mut rewrites {
         texts.retain(|digest, edits| {
-            let spans: Vec<&Span> = edits.keys().collect();
-            let overlap = spans
-                .windows(2)
-                .any(|pair| (pair[0].2, pair[0].3) > (pair[1].0, pair[1].1));
-            !overlap && !torn.contains(&(file.clone(), digest.clone()))
+            writes(edits).is_some() && !torn.contains(&(file.clone(), digest.clone()))
         });
     }
     rewrites.retain(|_, texts| !texts.is_empty());
     rewrites
+}
+
+/// The places of `edits` as written ([`Writes`]); `None` when they leave no one text.
+fn writes(edits: &Edits) -> Option<Writes> {
+    Writes::of(edits.iter().map(|(span, (held, now))| Write {
+        span: *span,
+        held: held.clone(),
+        now: now.clone(),
+    }))
 }
 
 /// What the ledger `recorded` says of the store of `collector` filed under `key`, for its `bytes`: the renames of each
@@ -239,27 +246,77 @@ pub(super) fn w202(key: &str, conflicts: &Conflicts) -> Diagnostic {
     .with_suggestion("run `specforge collect`")
 }
 
-/// A span of the collected text, by its start and end (line, byte column): the key the edits of a file are sorted by.
-pub(super) type Span = (usize, usize, usize, usize);
-
 /// `store` read through `carried`: every place it records in a file the renames rewrote, in the text it collected,
-/// shifted by what they wrote there ([`Carried::edits`]), exactly; each name its own renames list read as now
-/// written. Then the W197 of the store `key` when it has renames, and, by file, each place rewritten as it is in the
-/// text the renames left.
+/// carried into the text they left ([`Writes`]: what they wrote there, [`Carried::edits`]), exactly; each name its own
+/// renames list read as now written. A file one of its places cannot be carried in (a name of it a write changed that
+/// its renames do not rename, or a place inside a write that does not keep it) is served as collected, and only the
+/// text collected holds there. Then the W197 of the store `key` when it has renames, and, by file, each outermost
+/// place written as it is in the text the renames left.
 pub(super) fn follow(
     key: &str,
     store: &mut Store,
     carried: &Carried,
 ) -> (Option<Diagnostic>, BTreeMap<String, Vec<Respelled>>) {
     let renames = &carried.renames;
-    let edits: BTreeMap<String, Edits> = store
-        .sources
-        .iter()
-        .filter_map(|(file, digest)| Some((file.clone(), carried.edits(file, digest)?)))
-        .collect();
-    if renames.is_empty() && edits.is_empty() {
+    let mut writes: BTreeMap<String, (Edits, Writes)> = BTreeMap::new();
+    let mut torn: BTreeSet<String> = BTreeSet::new();
+    for (file, digest) in &store.sources {
+        let Some(edits) = carried.edits(file, digest) else {
+            continue;
+        };
+        match self::writes(&edits) {
+            Some(written) => {
+                writes.insert(file.clone(), (edits, written));
+            }
+            None => {
+                torn.insert(file.clone());
+            }
+        }
+    }
+    if renames.is_empty() && writes.is_empty() {
         return (None, BTreeMap::new());
     }
+    // Where a place lands in its file, `named` by a name the fact holds in a field: `None` when it cannot be carried.
+    type Written = BTreeMap<String, (Edits, Writes)>;
+    let carry = |writes: &Written,
+                 place: &FactLocation,
+                 named: Option<(&str, &str)>|
+     -> Option<Option<Span>> {
+        let Some((edits, written)) = writes.get(&place.file) else {
+            return Some(None);
+        };
+        let at = span(place);
+        let landed = match written.written(&at) {
+            // A place written: a name held there that the write leaves as read, or that its own renames write so.
+            Some(landed) => {
+                let (held_there, now) = &edits[&at];
+                let read_so = named.is_none_or(|(field, held)| {
+                    held == held_there
+                        && (held_there == now
+                            || renames
+                                .get(field)
+                                .is_some_and(|names| names.get(held) == Some(now)))
+                });
+                read_so.then_some(landed)
+            }
+            None => written.place(at, named.is_some()),
+        };
+        landed.map(Some)
+    };
+    for fact in &store.facts {
+        let named = fact.named_at.iter().flat_map(|(field, ids)| {
+            ids.iter().flat_map(move |(held, at)| {
+                at.iter()
+                    .map(move |p| (p, Some((field.as_str(), held.as_str()))))
+            })
+        });
+        for (place, named) in fact.at.iter().map(|p| (p, None)).chain(named) {
+            if carry(&writes, place, named).is_none() {
+                torn.insert(place.file.clone());
+            }
+        }
+    }
+    writes.retain(|file, _| !torn.contains(file));
     // What its own renames moved: each (held, now) a fact writes at a place.
     let mut renamed: BTreeSet<(String, String)> = BTreeSet::new();
     for fact in &store.facts {
@@ -275,10 +332,20 @@ pub(super) fn follow(
         }
     }
     for fact in &mut store.facts {
-        let named = fact.named_at.values_mut().flat_map(|ids| ids.values_mut());
-        for place in fact.at.iter_mut().chain(named.flatten()) {
-            if let Some(edits) = edits.get(&place.file) {
-                shift(place, edits);
+        for place in &mut fact.at {
+            if let Some(Some(landed)) = carry(&writes, place, None) {
+                set(place, landed);
+            }
+        }
+        for (field, ids) in &mut fact.named_at {
+            for (held, places) in ids.iter_mut() {
+                for place in places {
+                    if let Some(Some(landed)) =
+                        carry(&writes, place, Some((field.as_str(), held.as_str())))
+                    {
+                        set(place, landed);
+                    }
+                }
             }
         }
         for (field, names) in renames {
@@ -297,33 +364,31 @@ pub(super) fn follow(
             }
         }
     }
-    let respelled = edits
+    let respelled = writes
         .iter()
-        .map(|(file, at)| {
-            let respelled = at
+        .map(|(file, (_, written))| {
+            let respelled = written
+                .outer()
                 .iter()
-                .map(
-                    |(&(start_line, start_col, end_line, end_col), (held, now))| {
-                        let mut place = FactLocation {
+                .filter_map(|w| {
+                    let (start_line, start_col, end_line, end_col) = written.written(&w.span)?;
+                    Some(Respelled {
+                        at: FactLocation {
                             file: file.clone(),
                             start_line,
                             start_col,
                             end_line,
                             end_col,
-                        };
-                        shift(&mut place, at);
-                        Respelled {
-                            at: place,
-                            held: held.clone(),
-                            now: now.clone(),
-                        }
-                    },
-                )
+                        },
+                        held: w.held.clone(),
+                        now: w.now.clone(),
+                    })
+                })
                 .collect();
             (file.clone(), respelled)
         })
         .collect();
-    let files: BTreeSet<&String> = edits.keys().collect();
+    let files: BTreeSet<&String> = writes.keys().collect();
     let stale = (!renames.is_empty()).then(|| w197(key, &renamed, &files));
     (stale, respelled)
 }
@@ -337,31 +402,14 @@ fn span(place: &FactLocation) -> Span {
     )
 }
 
-/// `place`, a span of the collected text, as a span of the text `edits` (spans of the collected text, each replaced
-/// by its `now`) leave.
-fn shift(place: &mut FactLocation, edits: &Edits) {
-    (place.start_line, place.start_col) = moved((place.start_line, place.start_col), edits);
-    (place.end_line, place.end_col) = moved((place.end_line, place.end_col), edits);
-}
-
-/// The point `at` of the collected text in the text `edits` leave: unchanged before an edit, carried by the length an
-/// edit changes after it, and at the end of what an edit wrote inside it. The edits are applied from the last: each
-/// moves only what lies after it, so the ones before it keep their positions.
-fn moved(at: (usize, usize), edits: &Edits) -> (usize, usize) {
-    let (mut line, mut col) = at;
-    for (&(start_line, start_col, end_line, end_col), (_, now)) in edits.iter().rev() {
-        if (line, col) <= (start_line, start_col) {
-            continue;
-        }
-        if (line, col) < (end_line, end_col) {
-            (line, col) = (start_line, start_col + now.len());
-        } else if line == end_line {
-            (line, col) = (start_line, start_col + now.len() + (col - end_col));
-        } else {
-            line -= end_line - start_line;
-        }
-    }
-    (line, col)
+/// `place` at `span`, in its file.
+fn set(place: &mut FactLocation, span: Span) {
+    (
+        place.start_line,
+        place.start_col,
+        place.end_line,
+        place.end_col,
+    ) = span;
 }
 
 /// `value`, or each item of it, that is one of the names `held` lists a rename of in `names`, as the rename wrote it.
@@ -463,7 +511,7 @@ mod tests {
     }
 
     #[test]
-    fn a_text_two_stores_say_was_written_two_ways_or_overlapping_is_not_served() {
+    fn a_text_two_stores_say_was_written_two_ways_or_crossing_is_not_served() {
         let span = (1, 11, 1, 13);
         let mut rewrites = Rewrites::new();
         let edits = |at: &[(Span, &str)]| -> Edits {
@@ -476,7 +524,7 @@ mod tests {
             [
                 ("sha256:torn".to_string(), edits(&[(span, "T2")])),
                 (
-                    "sha256:overlap".to_string(),
+                    "sha256:crossing".to_string(),
                     edits(&[(span, "T2"), ((1, 12, 1, 14), "T3")]),
                 ),
                 (
@@ -494,9 +542,9 @@ mod tests {
         assert_eq!(kept, ["sha256:kept"]);
     }
 
-    /// `v1/T1` read whole by one store and its `T1` by another, one rename writing both.
+    /// `v1/T1` read whole by one store and its `T1` by another, one rename writing both: one text, said exactly.
     #[test]
-    fn places_nested_one_in_another_are_not_served() {
+    fn places_nested_one_in_another_are_served() {
         let edits: Edits = [
             ((1, 11, 1, 16), ("v1/T1".to_string(), "v1/Two".to_string())),
             ((1, 14, 1, 16), ("T1".to_string(), "Two".to_string())),
@@ -504,11 +552,13 @@ mod tests {
         .into();
         let rewrites: Rewrites = [(
             "a.js".to_string(),
-            [("sha256:nested".to_string(), edits)].into(),
+            [("sha256:nested".to_string(), edits.clone())].into(),
         )]
         .into();
 
-        assert!(settled(rewrites, &BTreeSet::new()).is_empty());
+        let settled = settled(rewrites, &BTreeSet::new());
+
+        assert_eq!(settled["a.js"]["sha256:nested"], edits);
     }
 
     #[test]

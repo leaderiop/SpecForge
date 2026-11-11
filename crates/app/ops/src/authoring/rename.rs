@@ -47,8 +47,13 @@ pub const CAPTURED: &str = "name_captured";
 pub const SOURCE_MOVED: &str = "source_moved";
 /// A fact store holds the name the rename rewrites in a field where another of its facts holds the same name for
 /// something else (another entity, or no reference): a stale line renames a name in every fact of the store that
-/// holds it, so the rename cannot rewrite only the renamed entity's places (ADR 0346 D7).
+/// holds it, so the rename cannot rewrite only the renamed entity's places. Or the rename would write over a name a
+/// fact (of any store) holds at a place in the file and the rename does not rename: that fact would read another name
+/// there (ADR 0346 D7).
 pub const NAME_SHARED: &str = "name_shared";
+/// Two places a rename would write in one source file cross one another (or nest, their names disagreeing): no one
+/// text writes both (ADR 0346 D7).
+pub const PLACES_CROSS: &str = "places_cross";
 /// The ledger renames a name a fact store holds two ways (two merged branches each renamed it, W202): the store's places
 /// are not served where the source has them, so no rename can rewrite them until the next collect (ADR 0346 D7).
 pub const STALE_CONFLICT: &str = "stale_conflict";

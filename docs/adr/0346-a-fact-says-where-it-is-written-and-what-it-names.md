@@ -129,7 +129,10 @@ rename T1 → T2
   │    F (its held text, else the disk's) is not the text the store's places are in, or the text at a place
   │    ≠ the name served ────────────▶ refused `source_moved`
   │    another fact of the store holds the name in that field for something else ─▶ refused `name_shared`
+  │    a write would change a name any fact holds in F that the rename does not rename ─▶ refused `name_shared`
+  │    two places it writes cross one another ─▶ refused `places_cross`
   │    else every place the store writes the name: its spelling there → the same suffix of the new path
+  │    (places nested one in another write one text, the outermost each)
   └─ one planned change: spec files + source files + ledger (moves, and for each name rewritten
        `<collector> stale:<key>:<field>:<name held>:<new spelling> <digest of the store bytes>`,
        replacing the line of that store, field and name held; dropped when it writes the name held back)
@@ -163,15 +166,28 @@ next collect of that collector ────────────────�
   included: its places are exact in the text the renames left, and a rename of its own names applies. The serve
   applies them to every place the store records in that file (`at` and every `named_at`): a place before an edit
   stays, one after it moves by the length the edit changed (on its line; by the lines an edit spanning lines
-  removed, after it), and an edit's own place becomes what it wrote. A text two stores say was written two ways at
-  one place, or whose places overlap, has no exact derivation: its stores' places are served as collected there, and
-  the file is not the text they are in (W198, a rename `source_moved`). A store that collected another text of the
+  removed, after it), and an edit's own place becomes what it wrote. Places nested one in another are said exactly
+  (`facts::Writes`, the one owner of how a text's places move): two facts may hold names one inside the other
+  (`v1/T1` read whole by one collector, its `T1` by another), and a rename moving what both name writes both. The
+  outermost place is what is written; a nested one is read inside what it writes, found by the text after it (a
+  respelled path keeps what follows the segment renamed), else by the text before it. A place of something no write
+  is (a fact's `at`, a name not renamed) inside a write is carried by the same rule; one whose text a write changes
+  cannot be, and its store is served as collected in that file, which holds there only as the text collected. The
+  derivation does not depend on the order of the stale lines: the places are taken by span. What it cannot say
+  exactly is text no rename writes: one place two stores say was written two ways (stores at one span hold one text,
+  and a rename writes every store naming what it moves; merged branches renaming one held name give W202, not this),
+  places that cross (a collector's names are tokens, which nest or lie apart; a rename refuses them,
+  `places_cross`), and a name a write changed that its store does not rename (a rename refuses it, `name_shared`).
+  Their stores' places are served as collected there, and the file is not the text they are in (W198, a rename
+  `source_moved`). A store that collected another text of the
   file (an older collect) is not shifted by these edits: they are not spans of its text. A rename plans its
   source edits from the same derivation: for each name it rewrites, every place the served store writes it, in the
   served coordinates, and a stale line for every name held that is served as it (two when renames made two held
   names read as one, so each place written is one a line derives). A rename to a name a fact holds for no entity
   would make two such names, and is refused `name_captured` (the store's names are written tokens the capture
-  check reads). *Rejected:* recording each rewrite's digest and edits in the ledger (a second record of what
+  check reads). A rename writes only names of what it moves: one whose write would change a name any fact holds in
+  the file that it does not rename (at the place written, holding it, or inside it in a part the name written does
+  not keep) is refused `name_shared`, as that fact would read another name there. *Rejected:* recording each rewrite's digest and edits in the ledger (a second record of what
   the stale lines already say, ordered by rename, which a union merge of two branches breaks).
 - **A source file is judged against what the store says of it** (`facts::Placed`, the one judge: the anchors read
   view's W198, the language server's placing, a rename): a text is the one the served places are in exactly when
