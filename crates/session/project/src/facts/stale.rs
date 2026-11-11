@@ -494,6 +494,23 @@ mod tests {
         assert_eq!(kept, ["sha256:kept"]);
     }
 
+    /// `v1/T1` read whole by one store and its `T1` by another, one rename writing both.
+    #[test]
+    fn places_nested_one_in_another_are_not_served() {
+        let edits: Edits = [
+            ((1, 11, 1, 16), ("v1/T1".to_string(), "v1/Two".to_string())),
+            ((1, 14, 1, 16), ("T1".to_string(), "Two".to_string())),
+        ]
+        .into();
+        let rewrites: Rewrites = [(
+            "a.js".to_string(),
+            [("sha256:nested".to_string(), edits)].into(),
+        )]
+        .into();
+
+        assert!(settled(rewrites, &BTreeSet::new()).is_empty());
+    }
+
     #[test]
     fn two_stores_writing_one_place_two_ways_tear_its_text() {
         let place = FactLocation {
