@@ -628,7 +628,7 @@ impl Git for Gix {
     }
 
     fn switch(&self, place: &GitPlace, name: &str) -> Result<(), GitError> {
-        branching::switch(place, name)
+        racy::kept(place, || branching::switch(place, name))
     }
 
     fn worktree_add(&self, place: &GitPlace, path: &Path, branch: &str) -> Result<(), GitError> {
@@ -662,11 +662,11 @@ impl Git for Gix {
     }
 
     fn merge(&self, place: &GitPlace, theirs: &Sha, merging: &Merging) -> Result<Merged, GitError> {
-        merging::merge(self, place, theirs, merging)
+        racy::kept(place, || merging::merge(self, place, theirs, merging))
     }
 
     fn reset(&self, place: &GitPlace, to: &Sha, mode: ResetMode) -> Result<(), GitError> {
-        merging::reset(place, to, mode)
+        racy::kept(place, || merging::reset(place, to, mode))
     }
 
     fn restore(
@@ -675,7 +675,7 @@ impl Git for Gix {
         paths: &[String],
         restoring: &Restoring,
     ) -> Result<(), GitError> {
-        merging::restore(place, paths, restoring)
+        racy::kept(place, || merging::restore(place, paths, restoring))
     }
 
     fn stash_push(
@@ -684,11 +684,11 @@ impl Git for Gix {
         message: Option<&str>,
         untracked: bool,
     ) -> Result<Sha, GitError> {
-        merging::stash_push(place, message, untracked)
+        racy::kept(place, || merging::stash_push(place, message, untracked))
     }
 
     fn stash_pop(&self, place: &GitPlace, index: usize) -> Result<(), GitError> {
-        merging::stash_pop(place, index)
+        racy::kept(place, || merging::stash_pop(place, index))
     }
 
     fn stashes(&self, place: &GitPlace) -> Result<Vec<GitStash>, GitError> {
@@ -702,15 +702,17 @@ impl Git for Gix {
         revert: bool,
         record: bool,
     ) -> Result<Merged, GitError> {
-        if record {
-            merging::pick(self, place, commit, revert)
-        } else {
-            merging::pick_staged(place, commit, revert)
-        }
+        racy::kept(place, || {
+            if record {
+                merging::pick(self, place, commit, revert)
+            } else {
+                merging::pick_staged(place, commit, revert)
+            }
+        })
     }
 
     fn pick_end(&self, place: &GitPlace, abort: bool) -> Result<bool, GitError> {
-        merging::pick_end(place, abort)
+        racy::kept(place, || merging::pick_end(place, abort))
     }
 
     fn names_a_remote(&self, source: &str) -> bool {
