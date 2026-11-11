@@ -67,9 +67,9 @@ impl Ledger {
     /// 1. a value `change` sets has exactly one line, with its new digest, and a fact store it records replaces every
     ///    `facts:` and `stale:` line of its collector; a stale line it marks replaces the line of the same store, field
     ///    and name held, and is dropped when it writes the name held back (the store is no longer stale there);
-    /// 2. a move re-keys every line of the entity and of those under it that matched its value before, adds the
-    ///    record `new moved:old`, and carries an existing record `old moved:x` to `new moved:x`, dropping it when
-    ///    `new` is `x` (a move back);
+    /// 2. a move re-keys every line of the entity and of those under it that matched its value before (a line under two
+    ///    moved paths by the nearer one), adds the record `new moved:old`, and carries an existing record `old moved:x`
+    ///    to `new moved:x`, dropping it when `new` is `x` (a move back);
     /// 3. a value the write respelled (a reference whose target moved) is re-recorded when it matched before, so a
     ///    value recorded before the write stays recorded after it;
     /// 4. a line whose entity or field is gone in `after` is dropped, unless the project has a source that did not
@@ -78,19 +78,23 @@ impl Ledger {
     /// 5. a key with a line that matches keeps only that line;
     /// 6. the lines are sorted and unique.
     pub fn rewritten(&self, before: &View, after: &View, change: &LedgerChange) -> Ledger {
+        // By the most specific move: the path's own, else that of the nearest scope above it that moved (a composed
+        // change lists a scope's move beside the further move of what it scopes).
         let relocate = |path: &str| -> String {
-            for (old, new) in &change.moves {
-                if path == old {
-                    return new.clone();
-                }
-                if let Some(rest) = path
-                    .strip_prefix(old.as_str())
-                    .and_then(|r| r.strip_prefix('/'))
-                {
-                    return format!("{new}/{rest}");
+            let mut nearest: Option<&(String, String)> = None;
+            for moved in &change.moves {
+                let old = moved.0.as_str();
+                let under = path
+                    .strip_prefix(old)
+                    .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'));
+                if under && nearest.is_none_or(|(o, _)| old.len() > o.len()) {
+                    nearest = Some(moved);
                 }
             }
-            path.to_string()
+            match nearest {
+                Some((old, new)) => format!("{new}{}", &path[old.len()..]),
+                None => path.to_string(),
+            }
         };
         let mut lines: Vec<Line> = Vec::new();
         for line in self.lines() {

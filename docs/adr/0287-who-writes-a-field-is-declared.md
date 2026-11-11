@@ -41,7 +41,8 @@ stops one from writing a verdict or rewriting the past.
 - **D5. Every host write keeps the ledger.** A `PlannedChange` carries a `LedgerChange`; `apply` takes
   `.specforge/write.lock`, re-reads the ledger and rewrites it (`Ledger::rewritten`) when another writer changed it,
   keeping that writer's lines. A rename or a scope move re-keys the lines under the entity and records
-  `<new> moved:<old>`; the edited project is judged over the planned ledger.
+  `<new> moved:<old>`; one change of several moves (a scope renamed, then something it scopes) re-keys a line by
+  the nearest moved path above it; the edited project is judged over the planned ledger.
 - **D6. History is the git baseline.** A `History` port (locate, commit, merge-base, files) with a `git` CLI
   adapter; the baseline is the project compiled at `HEAD` (or the merge-base under `check --since <rev>`) in the
   current environment, cached in memory by commit and on disk by `(commit, environment)`. It is read only when a
