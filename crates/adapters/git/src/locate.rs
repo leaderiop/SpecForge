@@ -1,6 +1,6 @@
 //! Where a directory's repository is: git's discovery through gix, held to git's answer where gix's differs, with
-//! git's `GIT_CEILING_DIRECTORIES` kept and a `GIT_DIR` or `GIT_WORK_TREE` that names another repository refused
-//! (ADR 0352).
+//! git's `GIT_CEILING_DIRECTORIES` kept, a variable that names another repository, worktree or object store refused,
+//! and a hook's temporary `GIT_INDEX_FILE` read (ADR 0352).
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -86,10 +86,14 @@ pub(crate) fn locate_in(dir: &Path, env: Env<'_>) -> Located {
         git_dir: real(repo.git_dir()),
         common_dir: real(repo.common_dir()),
         shallow: repo.is_shallow(),
+        index: None,
     };
-    match named_elsewhere(dir, Some(&place), env) {
-        Some(why) => Located::Unavailable(why),
-        None => Located::Repo(place),
+    if let Some(why) = named_elsewhere(dir, Some(&place), env) {
+        return Located::Unavailable(why);
+    }
+    match index_file(&place, env) {
+        Ok(index) => Located::Repo(GitPlace { index, ..place }),
+        Err(why) => Located::Unavailable(why),
     }
 }
 
@@ -118,32 +122,83 @@ fn ceilings(here: &Path, env: Env<'_>) -> Vec<PathBuf> {
         .collect()
 }
 
-/// Why `GIT_DIR` or `GIT_WORK_TREE` refuses locating `dir`, found in `place` (none: in no repository). git reads the
-/// repository and the worktree they name in place of the ones around the directory; the host never lets the
-/// environment point it elsewhere (ADR 0339 D5), so a variable naming another than `place`'s refuses, naming itself,
-/// rather than answer for a repository git would not read there. One naming `place`'s own (a hook git runs in a linked
-/// worktree sets `GIT_DIR`) is kept.
+/// Why a variable naming another repository, worktree or object store refuses locating `dir`, found in `place` (none:
+/// in no repository). git reads what `GIT_DIR`, `GIT_WORK_TREE`, `GIT_COMMON_DIR`, `GIT_OBJECT_DIRECTORY` and
+/// `GIT_ALTERNATE_OBJECT_DIRECTORIES` name in place of, or beside, the repository around the directory; the host never
+/// lets the environment point it elsewhere (ADR 0339 D5), so one naming another than `place`'s own refuses, naming
+/// itself, rather than answer for a repository git would not read there. One naming `place`'s own (a hook git runs in
+/// a linked worktree sets `GIT_DIR`) is kept. In no repository only `GIT_DIR` and `GIT_WORK_TREE` refuse: git reads
+/// the others only of a repository it found.
 fn named_elsewhere(dir: &Path, place: Option<&GitPlace>, env: Env<'_>) -> Option<String> {
-    let found = [
-        ("GIT_DIR", place.map(|place| &place.git_dir)),
-        ("GIT_WORK_TREE", place.map(|place| &place.toplevel)),
+    let mut own = vec![
+        ("GIT_DIR", place.map(|place| place.git_dir.clone())),
+        ("GIT_WORK_TREE", place.map(|place| place.toplevel.clone())),
     ];
-    found.into_iter().find_map(|(name, found)| {
-        let value = env(name).filter(|value| !value.is_empty())?;
-        // relative to the working directory, as git reads it
-        let named = std::path::absolute(&value).and_then(std::fs::canonicalize).ok();
-        if named.is_some() && named.as_ref() == found {
-            return None;
-        }
-        let around = match place {
-            Some(place) => format!("is in the repository at {}", place.toplevel.display()),
-            None => "is in no repository".to_string(),
-        };
-        Some(format!(
+    if let Some(place) = place {
+        own.push(("GIT_COMMON_DIR", Some(place.common_dir.clone())));
+        own.push((
+            "GIT_OBJECT_DIRECTORY",
+            Some(place.common_dir.join("objects")),
+        ));
+    }
+    let around = match place {
+        Some(place) => format!("is in the repository at {}", place.toplevel.display()),
+        None => "is in no repository".to_string(),
+    };
+    let refusal = |name: &str, value: &Path| {
+        format!(
             "{name} names {}, but {} {around}: specforge reads the repository a directory is in, never one the \
              environment names, so unset {name} or run from the repository it names",
-            std::path::Path::new(&value).display(),
+            value.display(),
             dir.display()
-        ))
+        )
+    };
+    let named = own.into_iter().find_map(|(name, own)| {
+        let value = env(name).filter(|value| !value.is_empty())?;
+        (own.is_none() || real_path(&value) != own).then(|| refusal(name, Path::new(&value)))
+    });
+    // each alternate the environment adds is another object store, unless it is the repository's own
+    let alternates = || {
+        let place = place?;
+        let value = env("GIT_ALTERNATE_OBJECT_DIRECTORIES")?;
+        std::env::split_paths(&value)
+            .filter(|entry| !entry.as_os_str().is_empty())
+            .find(|entry| real_path(entry.as_os_str()) != Some(place.common_dir.join("objects")))
+            .map(|entry| refusal("GIT_ALTERNATE_OBJECT_DIRECTORIES", &entry))
+    };
+    named.or_else(alternates)
+}
+
+/// The index `GIT_INDEX_FILE` names for `place`: none when it is unset, the file when it lies in `place`'s git
+/// directory (git hands a hook a temporary index there for `commit -a` and `commit <paths>`, the one it commits), and
+/// why not anywhere else, which would be another repository's index or none git keeps.
+fn index_file(place: &GitPlace, env: Env<'_>) -> Result<Option<PathBuf>, String> {
+    let Some(value) = env("GIT_INDEX_FILE").filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    let written = std::path::absolute(&value).unwrap_or_else(|_| PathBuf::from(&value));
+    let held = match (
+        written
+            .parent()
+            .and_then(|parent| real_path(parent.as_os_str())),
+        written.file_name(),
+    ) {
+        (Some(parent), Some(name)) if parent.starts_with(&place.git_dir) => Some(parent.join(name)),
+        _ => None,
+    };
+    held.map(Some).ok_or_else(|| {
+        format!(
+            "GIT_INDEX_FILE names {}, outside the git directory of the repository at {}: specforge reads an index the \
+             environment names only there (a temporary index git hands a hook), so unset GIT_INDEX_FILE",
+            written.display(),
+            place.toplevel.display()
+        )
     })
+}
+
+/// `value`, a path git reads relative to the working directory, by its real path; none when it does not exist.
+fn real_path(value: &std::ffi::OsStr) -> Option<PathBuf> {
+    std::path::absolute(value)
+        .and_then(std::fs::canonicalize)
+        .ok()
 }

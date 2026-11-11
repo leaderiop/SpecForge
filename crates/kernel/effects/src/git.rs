@@ -59,6 +59,8 @@ pub struct GitPlace {
     pub common_dir: PathBuf,
     /// A shallow clone: history before its boundary is not there.
     pub shallow: bool,
+    /// The index read in place of the git directory's own: a temporary one git hands a hook (`GIT_INDEX_FILE`).
+    pub index: Option<PathBuf>,
 }
 
 /// What locating a repository found.

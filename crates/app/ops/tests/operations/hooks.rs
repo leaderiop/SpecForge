@@ -324,6 +324,7 @@ fn a_hook_that_reads_git_is_told_the_head() {
         git_dir: root.join(".git"),
         common_dir: root.join(".git"),
         shallow: false,
+        index: None,
     });
     fake.branch = "agent-x".into();
     fake.status = serde_json::from_value(json!({

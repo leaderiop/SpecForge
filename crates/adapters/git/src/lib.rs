@@ -61,6 +61,21 @@ fn options(trust: gix::sec::Trust) -> gix::open::Options {
     gix::open::Options::default_for_level(trust).permissions(permissions)
 }
 
+/// The index `place` reads: the one its `locate` took from `GIT_INDEX_FILE` (a temporary index git hands a hook), else
+/// the git directory's own, empty when there is none.
+fn index_of(
+    repo: &gix::Repository,
+    place: &GitPlace,
+) -> Result<gix::worktree::IndexPersistedOrInMemory, GitError> {
+    let read = |e: &dyn std::fmt::Display| failed("read the index", e);
+    match &place.index {
+        Some(path) => gix::index::File::at(path, repo.object_hash(), false, Default::default())
+            .map(Into::into)
+            .map_err(|e| read(&e)),
+        None => repo.index_or_empty().map(Into::into).map_err(|e| read(&e)),
+    }
+}
+
 /// The trust map discovery opens a found repository with.
 fn trust_map() -> gix::sec::trust::Mapping<gix::open::Options> {
     gix::sec::trust::Mapping {
@@ -439,8 +454,12 @@ impl Git for Gix {
         let (on_disk, reads) = (Reads::up_to(query.budget), Reads::up_to(query.budget));
         let (head, disk) = match &query.head {
             DiffSide::Commit(sha) => (tree_of(&repo, sha)?, Default::default()),
-            DiffSide::Index => index_tree(&repo, false, &paths, &on_disk)?,
-            DiffSide::Worktree => index_tree(&repo, true, &paths, &on_disk)?,
+            DiffSide::Index => {
+                index_tree(&repo, &*index_of(&repo, place)?, false, &paths, &on_disk)?
+            }
+            DiffSide::Worktree => {
+                index_tree(&repo, &*index_of(&repo, place)?, true, &paths, &on_disk)?
+            }
         };
         let old = repo
             .find_tree(base)

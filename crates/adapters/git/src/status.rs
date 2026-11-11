@@ -29,9 +29,13 @@ pub(crate) fn read(
             }
         });
     }
-    let items = repo
+    let mut platform = repo
         .status(gix::progress::Discard)
-        .map_err(|e| failed("read the status", &e))?
+        .map_err(|e| failed("read the status", &e))?;
+    if place.index.is_some() {
+        platform = platform.index(crate::index_of(&repo, place)?);
+    }
+    let items = platform
         .should_interrupt_owned(std::sync::Arc::clone(&interrupt))
         .untracked_files(untracked_files)
         .index_worktree_rewrites(None)

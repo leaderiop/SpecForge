@@ -73,7 +73,20 @@ there is none, whatever its `core.worktree` names). A `GIT_DIR` or `GIT_WORK_TRE
 that names another repository or worktree than the one the directory is in, or names one where the directory is in
 none, refuses the `locate`, naming the variable: the host never lets the environment point it at another repository
 (ADR 0339 D5), and ignoring the variable would read one git does not read there. One naming the repository the
-directory is in is kept (a hook git runs in a linked worktree sets `GIT_DIR`).
+directory is in is kept (a hook git runs in a linked worktree sets `GIT_DIR`). The other variables git reads of a
+repository it found are decided the same way, each by what git does with it:
+
+- `GIT_COMMON_DIR` and `GIT_OBJECT_DIRECTORY` replace the refs and config, or the object store, with the ones they
+  name: one naming the repository's own is kept, any other refuses (git's receive-pack quarantine sets
+  `GIT_OBJECT_DIRECTORY` for a server-side hook, which reads objects no worktree holds yet).
+- `GIT_ALTERNATE_OBJECT_DIRECTORIES` adds object stores: each entry must be the repository's own store, or it refuses.
+- `GIT_INDEX_FILE` replaces the index. git sets it for the pre-commit hook of `commit -a` and `commit <paths>` to a
+  temporary index in the git directory, the one it is about to commit, so a hook reading the repository's own index
+  would see another status than the one committed. One naming a file in the repository's git directory is read by
+  `status` and by a diff of the index or the worktree; one naming any other file refuses. A write by a verb is never
+  pointed at it: git holds `index.lock` while its hook runs, and a write takes that lock.
+
+In no repository only `GIT_DIR` and `GIT_WORK_TREE` refuse: git reads the others only of a repository it found.
 The repository found is held to the call's roots, as a person's verbs hold theirs: a `.git` file or link, a
 `commondir`, a `core.worktree` or an object alternate is a redirect, and one that leads out of every root refuses the
 call with a scope denial naming where it leads. A repository around the project, found by a walk, is no redirect, and a

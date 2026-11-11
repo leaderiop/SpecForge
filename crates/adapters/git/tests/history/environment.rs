@@ -8,7 +8,8 @@ use std::collections::BTreeMap;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-use specforge_effects::git::Located;
+use specforge_effects::git::{Git, GitChange, Located};
+use specforge_git::Gix;
 use specforge_git::testing::{Repo, locate_in};
 
 /// A temporary directory by its real path (a ceiling is compared once links are resolved), with a committed repository
@@ -155,4 +156,75 @@ fn a_ceiling_after_an_empty_entry_is_not_resolved() {
     let after_empty = std::env::join_paths([PathBuf::new(), real.join("link")]).unwrap();
     let vars = Vars::default().set("GIT_CEILING_DIRECTORIES", after_empty);
     assert_eq!(vars.top(&real.join("repo/sub")), Ok(real.join("repo")));
+}
+
+/// The variables that name a repository's other parts refuse one naming another than the repository's own, and keep
+/// the repository's own; in no repository git reads none of them, and neither does `locate`.
+#[test]
+fn a_common_dir_object_store_or_alternate_elsewhere_refuses() {
+    let (_dir, real) = home();
+    let other = Repo::init(&real.join("other"));
+    other.write("b.txt", "b\n");
+    other.commit_all("other");
+    let sub = real.join("repo/sub");
+    for (name, own, elsewhere) in [
+        ("GIT_COMMON_DIR", "repo/.git", "other/.git"),
+        (
+            "GIT_OBJECT_DIRECTORY",
+            "repo/.git/objects",
+            "other/.git/objects",
+        ),
+        (
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+            "repo/.git/objects",
+            "other/.git/objects",
+        ),
+    ] {
+        Vars::default()
+            .set(name, real.join(elsewhere))
+            .refused(&sub, name);
+        let kept = Vars::default().set(name, real.join(own));
+        assert_eq!(kept.top(&sub), Ok(real.join("repo")), "{name}");
+        std::fs::create_dir_all(real.join("plain")).unwrap();
+        let outside = Vars::default().set(name, real.join(elsewhere));
+        assert_eq!(
+            outside.top(&real.join("plain")),
+            Err(Located::NotARepository),
+            "{name}"
+        );
+    }
+}
+
+/// git hands a pre-commit hook of `commit -a` or `commit <paths>` a temporary index in the git directory, the one it
+/// commits: `status` reads that index; one named anywhere else refuses.
+#[test]
+fn an_index_file_in_the_git_directory_is_read_and_one_elsewhere_refuses() {
+    let (_dir, real) = home();
+    let repo = Repo::at(&real.join("repo"));
+    let git_dir = real.join("repo/.git");
+    let committed = std::fs::read(git_dir.join("index")).unwrap();
+    repo.write("sub/deep/a.txt", "changed\n");
+    repo.stage_all();
+    // the staged index becomes the hook's temporary one; the repository's own is left as committed
+    std::fs::rename(git_dir.join("index"), git_dir.join("index.lock")).unwrap();
+    std::fs::write(git_dir.join("index"), committed).unwrap();
+    let staged = |vars: &Vars| {
+        let Located::Repo(place) = locate_in(&real.join("repo"), &|name| vars.0.get(name).cloned())
+        else {
+            panic!("a repository");
+        };
+        let status = Gix::default().status(&place).unwrap();
+        status
+            .entries
+            .iter()
+            .map(|entry| entry.index)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(staged(&Vars::default()), [None]);
+    let hook = Vars::default().set("GIT_INDEX_FILE", git_dir.join("index.lock"));
+    assert_eq!(staged(&hook), [Some(GitChange::Modified)]);
+    std::fs::copy(git_dir.join("index.lock"), real.join("stray-index")).unwrap();
+    Vars::default()
+        .set("GIT_INDEX_FILE", real.join("stray-index"))
+        .refused(&real.join("repo"), "GIT_INDEX_FILE");
 }

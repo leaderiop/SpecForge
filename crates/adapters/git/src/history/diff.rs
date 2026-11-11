@@ -40,14 +40,12 @@ pub(crate) struct Disk {
 // shortcut: no clean filters (autocrlf, LFS) are applied to a worktree file; upgrade when a block diffs one
 pub(crate) fn index_tree(
     repo: &gix::Repository,
+    index: &gix::index::File,
     worktree: bool,
     paths: &[String],
     reads: &Reads,
 ) -> Result<(gix::ObjectId, Disk), GitError> {
     let mut disk = Disk::default();
-    let index = repo
-        .index_or_empty()
-        .map_err(|e| failed("read the index", &e))?;
     let mut tree = repo
         .edit_tree(repo.empty_tree().id)
         .map_err(|e| failed("build a tree", &e))?;
@@ -59,7 +57,7 @@ pub(crate) fn index_tree(
         let Some(kind) = entry.mode.to_tree_entry_mode().map(|mode| mode.kind()) else {
             continue;
         };
-        tree.upsert(entry.path(&index), kind, entry.id)
+        tree.upsert(entry.path(index), kind, entry.id)
             .map_err(|e| failed("build a tree", &e))?;
     }
     if worktree {
@@ -76,7 +74,7 @@ pub(crate) fn index_tree(
             ..Default::default()
         };
         repo.index_worktree_status(
-            &index,
+            index,
             Vec::<gix::bstr::BString>::new(),
             &mut recorder,
             StatOnly(reads.bounded()),

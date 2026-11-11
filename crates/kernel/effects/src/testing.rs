@@ -378,6 +378,7 @@ impl FakeGit {
                 git_dir: toplevel.join(".git"),
                 common_dir: toplevel.join(".git"),
                 shallow: false,
+                index: None,
             }),
             head: Ok(Some(Sha::new(sha))),
             files: Ok(files),
