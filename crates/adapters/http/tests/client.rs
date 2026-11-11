@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::sync::mpsc::{Receiver, channel};
 use std::time::{Duration, Instant};
 
-use specforge_effects::http::{Any, get};
+use specforge_effects::http::{Any, TIMEOUT_CEILING, get};
 use specforge_effects::testing::server::Server;
 use specforge_effects::{
     AttachedSecret, EffectsCeiling, Grant, Header, Http, HttpCeiling, HttpRequest, Narrow,
@@ -19,6 +19,13 @@ use specforge_effects::{
 };
 use specforge_http::Client;
 use specforge_protocol_types::{HttpMethod, Operation};
+
+/// How long a test waits for what must come: a wait ends as soon as it does, so only a failing test spends it.
+const WAIT: Duration = TIMEOUT_CEILING;
+/// A request to a server that answers is given the adapter's whole ceiling, so a loaded machine never times it out.
+const CEILING_MS: u64 = TIMEOUT_CEILING.as_millis() as u64;
+/// A request held to a time of a second or less that gives up before this gave up at its own time, not the ceiling's.
+const WELL_BEFORE_THE_CEILING: Duration = Duration::from_secs(TIMEOUT_CEILING.as_secs() / 2);
 
 fn ok(body: &str) -> String {
     format!(
@@ -37,6 +44,7 @@ fn moved(to: &str) -> String {
 fn private(url: &str) -> HttpRequest {
     HttpRequest {
         allow_private: Private::Any,
+        timeout_ms: CEILING_MS,
         ..get(url)
     }
 }
@@ -45,6 +53,7 @@ fn private(url: &str) -> HttpRequest {
 fn typed(url: &str) -> HttpRequest {
     HttpRequest {
         allow_private: Private::TypedOrigin,
+        timeout_ms: CEILING_MS,
         ..get(url)
     }
 }
@@ -157,17 +166,13 @@ fn a_sensitive_header_is_dropped_on_a_redirect_to_another_origin() {
     assert_eq!(outcome.final_url, format!("{other}/landed"));
     assert!(
         seen_here
-            .next(Duration::from_secs(5))
+            .next(WAIT)
             .unwrap()
             .head
             .to_ascii_lowercase()
             .contains("authorization: bearer t")
     );
-    let there = seen_there
-        .next(Duration::from_secs(5))
-        .unwrap()
-        .head
-        .to_ascii_lowercase();
+    let there = seen_there.next(WAIT).unwrap().head.to_ascii_lowercase();
     assert!(!there.contains("authorization"), "{there}");
     assert!(there.contains("x-plain: p"), "{there}");
 }
@@ -199,10 +204,12 @@ fn a_body_past_its_cap_is_cut_there_and_capped() {
 
 #[test]
 fn a_request_is_held_to_its_whole_timeout() {
-    let base = Server::serve(|_, _, stream| {
-        // Headers, then a body that never ends.
+    // Headers, then a body that never ends: the connection is held open for the whole run, so only the request's
+    // own deadline can end it.
+    let held = std::sync::Mutex::new(Vec::new());
+    let base = Server::serve(move |_, _, stream| {
         let _ = stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\nslow");
-        std::thread::sleep(Duration::from_secs(10));
+        held.lock().unwrap().push(stream.try_clone().unwrap());
     })
     .base;
     let started = Instant::now();
@@ -218,7 +225,11 @@ fn a_request_is_held_to_its_whole_timeout() {
         OutcomeClass::Unreachable(Unreachable::Timeout),
         "{outcome:?}"
     );
-    assert!(started.elapsed() < Duration::from_secs(5));
+    assert!(
+        started.elapsed() < WELL_BEFORE_THE_CEILING,
+        "{:?}",
+        started.elapsed()
+    );
 }
 
 #[test]
@@ -239,7 +250,11 @@ fn a_blackhole_address_gives_up_within_the_timeout() {
         ),
         "{outcome:?}"
     );
-    assert!(started.elapsed() < Duration::from_secs(7));
+    assert!(
+        started.elapsed() < WELL_BEFORE_THE_CEILING,
+        "{:?}",
+        started.elapsed()
+    );
 }
 
 #[test]
@@ -364,7 +379,7 @@ fn a_name_only_the_proxy_can_resolve_is_the_proxys_to_judge() {
     assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
     assert!(
         heads
-            .next(Duration::from_secs(5))
+            .next(WAIT)
             .unwrap()
             .head
             .to_ascii_lowercase()
@@ -380,7 +395,7 @@ fn a_request_that_allows_private_addresses_still_goes_through_the_proxy() {
     assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
     assert!(
         heads
-            .next(Duration::from_secs(5))
+            .next(WAIT)
             .unwrap()
             .head
             .to_ascii_lowercase()
@@ -469,11 +484,7 @@ fn a_hop_the_scope_allows_as_a_get_is_sent_as_a_get_with_no_body() {
     let outcome = only_methods(&[HttpMethod::Post, HttpMethod::Get])
         .request(&posting(&format!("{base}/")), &Any);
     assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
-    let head = next_heads
-        .next(Duration::from_secs(5))
-        .unwrap()
-        .head
-        .to_ascii_lowercase();
+    let head = next_heads.next(WAIT).unwrap().head.to_ascii_lowercase();
     assert!(head.starts_with("get / "), "{head}");
     assert!(!head.contains("content-length"), "{head}");
 }
@@ -489,11 +500,7 @@ fn a_head_redirected_by_a_303_stays_a_head() {
     };
     let outcome = only_methods(&[HttpMethod::Head]).request(&heading, &Any);
     assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
-    let head = next_heads
-        .next(Duration::from_secs(5))
-        .unwrap()
-        .head
-        .to_ascii_lowercase();
+    let head = next_heads.next(WAIT).unwrap().head.to_ascii_lowercase();
     assert!(head.starts_with("head / "), "{head}");
 }
 
@@ -506,11 +513,7 @@ fn a_hop_that_keeps_its_method_is_judged_with_it() {
         let outcome =
             only_methods(&[HttpMethod::Post]).request(&posting(&format!("{base}/")), &Any);
         assert_eq!(outcome.class, OutcomeClass::Ok, "{status}: {outcome:?}");
-        let head = next_heads
-            .next(Duration::from_secs(5))
-            .unwrap()
-            .head
-            .to_ascii_lowercase();
+        let head = next_heads.next(WAIT).unwrap().head.to_ascii_lowercase();
         assert!(head.starts_with("post / "), "{status}: {head}");
     }
 }
@@ -593,9 +596,9 @@ fn a_secret_goes_to_the_hosts_it_lists_and_is_dropped_on_a_redirect_elsewhere() 
     };
     let outcome = trusting().request(&request, &Any);
     assert_eq!(outcome.class, OutcomeClass::Ok, "{outcome:?}");
-    let head = listed_heads.recv_timeout(Duration::from_secs(5)).unwrap();
+    let head = listed_heads.recv_timeout(WAIT).unwrap();
     assert!(head.contains("x-token:"), "the listed host gets it: {head}");
-    let head = foreign_heads.recv_timeout(Duration::from_secs(5)).unwrap();
+    let head = foreign_heads.recv_timeout(WAIT).unwrap();
     assert!(
         !head.contains("x-token"),
         "the hop elsewhere does not: {head}"
@@ -607,7 +610,7 @@ fn resolving_a_dot_invalid_host_is_unreachable_dns() {
     let outcome = Client::new().resolve(&ResolveRequest {
         host: "no-such-host.invalid".to_string(),
         allow_private: false,
-        timeout_ms: 10_000,
+        timeout_ms: CEILING_MS,
     });
     assert_eq!(outcome.class, OutcomeClass::Unreachable(Unreachable::Dns));
     assert!(outcome.addresses.is_empty());
@@ -619,7 +622,7 @@ fn a_host_that_resolves_only_to_loopback_is_refused_address() {
         Client::new().resolve(&ResolveRequest {
             host: "127.0.0.1".to_string(),
             allow_private,
-            timeout_ms: 10_000,
+            timeout_ms: CEILING_MS,
         })
     };
     let refused = asked(false);
@@ -638,7 +641,7 @@ fn a_handshake_reads_its_certificate_whether_or_not_the_chain_verifies() {
         host: "localhost".to_string(),
         tcp_port: port,
         allow_private: true,
-        timeout_ms: 10_000,
+        timeout_ms: CEILING_MS,
     };
     let trusted = trusting().tls(&request);
     assert_eq!(trusted.class, OutcomeClass::Ok, "{trusted:?}");
@@ -670,10 +673,10 @@ fn a_host_that_drips_bytes_does_not_outlive_the_deadline() {
     let port = listener.local_addr().unwrap().port();
     std::thread::spawn(move || {
         let (mut stream, _) = listener.accept().unwrap();
-        // The head of a long handshake record, then its body a byte at a time: each read gets one.
+        // The head of a long handshake record, then its body a byte at a time until the client hangs up: each read
+        // gets one, so only the handshake's whole deadline ends it.
         let _ = stream.write_all(&[0x16, 0x03, 0x03, 0x40, 0x00]);
-        let began = Instant::now();
-        while began.elapsed() < Duration::from_secs(6) && stream.write_all(&[0]).is_ok() {
+        while stream.write_all(&[0]).is_ok() {
             std::thread::sleep(Duration::from_millis(20));
         }
     });
@@ -689,7 +692,7 @@ fn a_host_that_drips_bytes_does_not_outlive_the_deadline() {
         OutcomeClass::Unreachable(Unreachable::Timeout)
     );
     assert!(
-        began.elapsed() < Duration::from_secs(3),
+        began.elapsed() < WELL_BEFORE_THE_CEILING,
         "{:?}",
         began.elapsed()
     );
@@ -709,10 +712,10 @@ fn a_post_query_sends_its_json_body_and_is_never_retried() {
         ..private(&url)
     };
     let client = Client::new();
-    let outcome = client.request(&query(format!("{base}/v1/query"), 5_000), &Any);
+    let outcome = client.request(&query(format!("{base}/v1/query"), CEILING_MS), &Any);
     assert_eq!(outcome.status, Some(200), "{outcome:?}");
     assert_eq!(outcome.body, b"{}");
-    let asked = answering.next(Duration::from_secs(5)).unwrap();
+    let asked = answering.next(WAIT).unwrap();
     assert!(asked.method.eq_ignore_ascii_case("POST"), "{asked:?}");
     assert_eq!(asked.path, "/v1/query");
     assert_eq!(asked.header("content-type"), Some("application/json"));
@@ -729,11 +732,17 @@ fn a_post_query_sends_its_json_body_and_is_never_retried() {
         OutcomeClass::Unreachable(Unreachable::Timeout),
         "{outcome:?}"
     );
-    assert!(silent.next(Duration::from_secs(2)).is_some());
-    assert!(
-        silent.next(Duration::from_millis(500)).is_none(),
-        "sent once"
-    );
+    // The server reads its connections in the order they came, and the client sent all it would before it returned:
+    // what the server read before this request is the query's connection, at most once.
+    let mut after =
+        std::net::TcpStream::connect(silent.base.trim_start_matches("http://")).unwrap();
+    after
+        .write_all(b"GET /after HTTP/1.1\r\nHost: x\r\n\r\n")
+        .unwrap();
+    let before: Vec<_> = std::iter::from_fn(|| silent.next(WAIT))
+        .take_while(|request| request.path != "/after")
+        .collect();
+    assert!(before.len() <= 1, "sent once: {before:?}");
 }
 
 /// A policy that permits every redirect and the proxies on `hosts` alone, and keeps each proxy it was asked about.
