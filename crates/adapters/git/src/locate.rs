@@ -2,21 +2,30 @@
 //! git's `GIT_CEILING_DIRECTORIES` kept and a `GIT_DIR` or `GIT_WORK_TREE` that names another repository refused
 //! (ADR 0352).
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 use specforge_effects::git::{GitPlace, Located};
 
 use crate::trust_map;
 
-/// The repository `dir` is in, as the port's `locate` answers.
+/// Where `locate` reads git's variables: the process's environment, or the one a test gives.
+pub(crate) type Env<'a> = &'a dyn Fn(&str) -> Option<OsString>;
+
+/// The repository `dir` is in, as the port's `locate` answers, git's variables read from the process's environment.
 pub(crate) fn locate(dir: &Path) -> Located {
+    locate_in(dir, &|name| std::env::var_os(name))
+}
+
+/// [`locate`], git's variables read from `env`.
+pub(crate) fn locate_in(dir: &Path, env: Env<'_>) -> Located {
     if !dir.is_dir() {
         return Located::NotARepository;
     }
     use gix::discover::upwards::Error as Upwards;
     let real = |p: &Path| p.canonicalize().unwrap_or_else(|_| dir.join(p));
     let here = real(dir);
-    let ceilings = ceilings(&here);
+    let ceilings = ceilings(&here, env);
     let upwards = gix::discover::upwards::Options {
         ceiling_dirs: ceilings.clone(),
         match_ceiling_dir_or_error: false,
@@ -29,7 +38,7 @@ pub(crate) fn locate(dir: &Path) -> Located {
             | Upwards::NoGitRepositoryWithinCeiling { .. }
             | Upwards::NoGitRepositoryWithinFs { .. },
         )) => {
-            return named_elsewhere(dir, None)
+            return named_elsewhere(dir, None, env)
                 .map_or(Located::NotARepository, Located::Unavailable);
         }
         Err(error) => return Located::Unavailable(error.to_string()),
@@ -41,7 +50,8 @@ pub(crate) fn locate(dir: &Path) -> Located {
     if nearest.is_some_and(|ceiling| {
         repo.workdir().map(real).as_ref() == Some(ceiling) || real(repo.git_dir()) == *ceiling
     }) {
-        return named_elsewhere(dir, None).map_or(Located::NotARepository, Located::Unavailable);
+        return named_elsewhere(dir, None, env)
+            .map_or(Located::NotARepository, Located::Unavailable);
     }
     let Some(top) = repo.workdir() else {
         return Located::Unavailable("a bare repository has no working tree".into());
@@ -74,7 +84,7 @@ pub(crate) fn locate(dir: &Path) -> Located {
         common_dir: real(repo.common_dir()),
         shallow: repo.is_shallow(),
     };
-    match named_elsewhere(dir, Some(&place)) {
+    match named_elsewhere(dir, Some(&place), env) {
         Some(why) => Located::Unavailable(why),
         None => Located::Repo(place),
     }
@@ -82,8 +92,8 @@ pub(crate) fn locate(dir: &Path) -> Located {
 
 /// git's `GIT_CEILING_DIRECTORIES` for a search from `here` (its real path), as git reads them: an absolute path each,
 /// resolved through its links until an empty entry, and only those `here` is strictly under.
-fn ceilings(here: &Path) -> Vec<PathBuf> {
-    let Some(value) = std::env::var_os("GIT_CEILING_DIRECTORIES") else {
+fn ceilings(here: &Path, env: Env<'_>) -> Vec<PathBuf> {
+    let Some(value) = env("GIT_CEILING_DIRECTORIES") else {
         return Vec::new();
     };
     let mut resolve = true;
@@ -110,13 +120,13 @@ fn ceilings(here: &Path) -> Vec<PathBuf> {
 /// environment point it elsewhere (ADR 0339 D5), so a variable naming another than `place`'s refuses, naming itself,
 /// rather than answer for a repository git would not read there. One naming `place`'s own (a hook git runs in a linked
 /// worktree sets `GIT_DIR`) is kept.
-fn named_elsewhere(dir: &Path, place: Option<&GitPlace>) -> Option<String> {
+fn named_elsewhere(dir: &Path, place: Option<&GitPlace>, env: Env<'_>) -> Option<String> {
     let found = [
         ("GIT_DIR", place.map(|place| &place.git_dir)),
         ("GIT_WORK_TREE", place.map(|place| &place.toplevel)),
     ];
     found.into_iter().find_map(|(name, found)| {
-        let value = std::env::var_os(name).filter(|value| !value.is_empty())?;
+        let value = env(name).filter(|value| !value.is_empty())?;
         // relative to the working directory, as git reads it
         let named = std::path::absolute(&value).and_then(std::fs::canonicalize).ok();
         if named.is_some() && named.as_ref() == found {
