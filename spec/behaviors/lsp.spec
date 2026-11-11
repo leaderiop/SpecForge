@@ -1264,6 +1264,7 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
   verify unit "an applied LSP rename whose buffers are closed unsaved is undone"
   verify unit "a rename whose ledger write fails stays pending and lands on the next event"
   verify unit "a saved LSP rename lands its ledger change at shutdown"
+  verify integration "a second editor rename before the first lands reads the facts as the first leaves them"
   verify unit "the LSP rename and fixes are versioned for a client that takes document changes"
   verify unit "a fix names the version of the buffer it edits for a client that takes document changes"
 }

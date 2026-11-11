@@ -583,6 +583,59 @@ fn rename_of_a_collected_entity_is_refused_with_why() {
     verify = "an editor rename of an entity a fact names edits the source file where the fact read it"
 )]
 fn rename_of_an_entity_a_fact_names_edits_its_source_file() {
+    let served = fact_named();
+    let uri = served.uri("truths.spec");
+
+    let edit = answers::rename(&served.state(), &uri, Position::new(0, 7), "T2")
+        .unwrap()
+        .expect("an edit");
+
+    let changes = edit.changes.expect("plain changes");
+    let in_source = &changes[&served.uri("a.test.js")];
+    assert_eq!(in_source.len(), 1, "{in_source:?}");
+    assert_eq!(in_source[0].new_text, "T2");
+    assert_eq!(
+        (in_source[0].range.start, in_source[0].range.end),
+        (Position::new(0, 10), Position::new(0, 12))
+    );
+    assert_eq!(changes[&uri].len(), 1, "{changes:?}");
+}
+
+/// A second editor rename made before the first one's ledger change lands reads the facts as the first leaves them
+/// (ADR 0289): the fact the first moved names the entity where it went. Its source file was rewritten since the
+/// collect, so the second is refused as a second rename before the collect is over MCP (ADR 0346 D7), never answered
+/// without the fact's edit.
+#[spec(
+    behavior = "land_rename_ledger",
+    verify = "a second editor rename before the first lands reads the facts as the first leaves them"
+)]
+fn a_second_rename_before_the_first_lands_sees_the_fact_it_moved() {
+    let mut served = fact_named();
+    let uri = served.uri("truths.spec");
+    answers::rename(&served.state(), &uri, Position::new(0, 7), "T2")
+        .unwrap()
+        .expect("an edit");
+    // The editor applies it to its buffers, saving nothing: the rename shows, its ledger change pending.
+    served.edit("truths.spec", "truth T2 \"One\" {\n}\n");
+    assert_eq!(served.state().pending().open().len(), 1);
+
+    let second = answers::rename(&served.state(), &uri, Position::new(0, 7), "T3");
+
+    let refused = second.expect_err("the fact's source file was rewritten since the collect");
+    assert_eq!(
+        refused.message,
+        "cannot rename 'T2': a.test.js changed since `specforge collect` read it"
+    );
+    assert_eq!(
+        served.state().pending().open().len(),
+        1,
+        "nothing more held"
+    );
+}
+
+/// A project whose truth `T1` a collected fact names in `a.test.js`, where its collector read it, served with
+/// `truths.spec` open.
+fn fact_named() -> crate::served::Served {
     use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, stored_with};
     let source = "// covers T1\ntest('adds', () => {});\n";
     let dir = tempfile::TempDir::new().unwrap();
@@ -602,22 +655,6 @@ fn rename_of_an_entity_a_fact_names_edits_its_source_file() {
         )]
         .into(),
     );
-    let served =
-        crate::served::Served::served_by(dir, Collected::new().runtime(), &COLLECTED_EXTENSIONS)
-            .open(&["truths.spec"]);
-    let uri = served.uri("truths.spec");
-
-    let edit = answers::rename(&served.state(), &uri, Position::new(0, 7), "T2")
-        .unwrap()
-        .expect("an edit");
-
-    let changes = edit.changes.expect("plain changes");
-    let in_source = &changes[&served.uri("a.test.js")];
-    assert_eq!(in_source.len(), 1, "{in_source:?}");
-    assert_eq!(in_source[0].new_text, "T2");
-    assert_eq!(
-        (in_source[0].range.start, in_source[0].range.end),
-        (Position::new(0, 10), Position::new(0, 12))
-    );
-    assert_eq!(changes[&uri].len(), 1, "{changes:?}");
+    crate::served::Served::served_by(dir, Collected::new().runtime(), &COLLECTED_EXTENSIONS)
+        .open(&["truths.spec"])
 }

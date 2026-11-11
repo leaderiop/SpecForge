@@ -356,8 +356,13 @@ pub fn rename(
     // compiled text, planned by the shared rename (the MCP tool's rules). A
     // rename is all or nothing: one that cannot be done whole is refused
     // with why.
+    // Planned over the facts as the renames the editor shows leave them, so one moved
+    // since the ledger was last written is rewritten too (ADR 0289).
+    let shown = state.compiled_project().with_shown_facts();
     let plan = match specforge_ops::authoring::rename::plan(
-        &compiled.navigator(),
+        &specforge_ops::read::navigate::Navigator::new(specforge_ops::view::ProjectView::of(
+            &shown,
+        )),
         id.as_str(),
         new_name,
     ) {

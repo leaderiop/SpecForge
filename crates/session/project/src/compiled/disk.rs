@@ -1,8 +1,11 @@
 //! A project read against the disk as it is now (ADR 0289): what a write under the lock needs to know when another
 //! writer may have landed since the project was compiled.
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
+
+use specforge_registry::PlainDisk;
 
 use super::CompiledProject;
 use crate::ledger::{Reads, Unrecorded};
@@ -61,5 +64,36 @@ impl CompiledProject {
             None => project.check(&mut Unrecorded::plain()),
         }
         project
+    }
+
+    /// This project with each fact store served as the ledger reads with the renames the editor shows and has not
+    /// saved (ADR 0289): a fact an earlier rename moved names the entity where it went, so a rename planned over it
+    /// rewrites that fact too. Itself when it shows none. The checks are not run again.
+    pub fn with_shown_facts(&self) -> Cow<'_, CompiledProject> {
+        if self.ledger_overlay.is_empty() {
+            return Cow::Borrowed(self);
+        }
+        let mut bytes = Vec::new();
+        let disk =
+            crate::harness::overlay::through(&PlainDisk, self, &self.ledger_overlay, &mut bytes);
+        let reads: Vec<(String, Read)> = self
+            .sources
+            .keys()
+            .into_iter()
+            .filter(|key| specforge_common::facts::is_fact_store(key))
+            .map(|key| {
+                (
+                    key.to_string(),
+                    crate::facts::read(&disk, self.env.sources(), key, None),
+                )
+            })
+            .filter(|(key, read)| !self.is_current(key, read))
+            .collect();
+        if reads.is_empty() {
+            return Cow::Borrowed(self);
+        }
+        let mut shown = self.clone();
+        shown.apply(reads);
+        Cow::Owned(shown)
     }
 }
