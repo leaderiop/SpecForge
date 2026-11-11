@@ -149,7 +149,7 @@ fn named_elsewhere(dir: &Path, place: Option<&GitPlace>, env: Env<'_>) -> Option
         format!(
             "{name} names {}, but {} {around}: specforge reads the repository a directory is in, never one the \
              environment names, so unset {name} or run from the repository it names",
-            value.display(),
+            shown(value),
             dir.display()
         )
     };
@@ -190,10 +190,20 @@ fn index_file(place: &GitPlace, env: Env<'_>) -> Result<Option<PathBuf>, String>
         format!(
             "GIT_INDEX_FILE names {}, outside the git directory of the repository at {}: specforge reads an index the \
              environment names only there (a temporary index git hands a hook), so unset GIT_INDEX_FILE",
-            written.display(),
+            shown(Path::new(&value)),
             place.toplevel.display()
         )
     })
+}
+
+/// `value` as written, and where it lands when it is relative (git reads it from the working directory).
+fn shown(value: &Path) -> String {
+    match std::path::absolute(value) {
+        Ok(absolute) if value.is_relative() => {
+            format!("{} ({})", value.display(), absolute.display())
+        }
+        _ => value.display().to_string(),
+    }
 }
 
 /// `value`, a path git reads relative to the working directory, by its real path; none when it does not exist.

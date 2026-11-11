@@ -228,3 +228,19 @@ fn an_index_file_in_the_git_directory_is_read_and_one_elsewhere_refuses() {
         .set("GIT_INDEX_FILE", real.join("stray-index"))
         .refused(&real.join("repo"), "GIT_INDEX_FILE");
 }
+
+/// A relative value is read from the working directory, as git reads it: the refusal shows where it lands.
+#[test]
+fn a_relative_git_dir_refusal_shows_where_it_lands() {
+    let (_dir, real) = home();
+    let written = "elsewhere/other.git";
+    let landed = std::path::absolute(written).unwrap();
+    let located = Vars::default()
+        .set("GIT_DIR", written)
+        .top(&real.join("repo/sub"));
+    let shown = format!("GIT_DIR names {written} ({})", landed.display());
+    assert!(
+        matches!(&located, Err(Located::Unavailable(why)) if why.starts_with(&shown)),
+        "{located:?}"
+    );
+}

@@ -79,14 +79,21 @@ pub fn path_facts(root: &Path, cwd: &Path, spec_root: &str, input: &Value) -> Ve
         .collect()
 }
 
-/// What git says of the repository `cwd` is in (ADR 0320), held to `roots` ([`locate_within`]): none outside one, or
-/// when git cannot be asked. `status` adds the typed status; a branch git cannot give is empty, a status it cannot
-/// give is none.
-pub fn git(history: &dyn Git, cwd: &Path, roots: &[PathBuf], status: bool) -> Option<GitFacts> {
-    let Located::Repo(place) = locate_within(history, cwd, roots) else {
-        return None;
+/// What git says of the repository `cwd` is in (ADR 0320), held to `roots` ([`locate_within`]): none outside one, and
+/// why when git cannot be asked (the hook is told so). `status` adds the typed status; a branch git cannot give is
+/// empty, a status it cannot give is none.
+pub fn git(
+    history: &dyn Git,
+    cwd: &Path,
+    roots: &[PathBuf],
+    status: bool,
+) -> Result<Option<GitFacts>, String> {
+    let place = match locate_within(history, cwd, roots) {
+        Located::Repo(place) => place,
+        Located::NotARepository => return Ok(None),
+        Located::Unavailable(why) => return Err(why),
     };
-    Some(GitFacts {
+    Ok(Some(GitFacts {
         toplevel: place.toplevel.to_string_lossy().into_owned(),
         git_dir: place.git_dir.to_string_lossy().into_owned(),
         branch: history.branch(&place).unwrap_or_default(),
@@ -95,7 +102,7 @@ pub fn git(history: &dyn Git, cwd: &Path, roots: &[PathBuf], status: bool) -> Op
         } else {
             None
         },
-    })
+    }))
 }
 
 /// For a path outside the project, the repository it is in and whether it is inside a `.git` directory (ADR 0320).
@@ -303,17 +310,21 @@ mod tests {
         assert_eq!(landing("mainsrc/../x.ts"), base.join("main/x.ts"));
     }
 
-    /// A repository that leads out of every root tells a hook nothing of git, its path facts included.
+    /// A repository that leads out of every root tells a hook nothing of git, its path facts included, and says why.
     #[test]
-    fn a_repository_led_out_of_the_roots_gives_a_hook_no_git_facts() {
+    fn a_repository_led_out_of_the_roots_gives_a_hook_no_git_facts_and_says_why() {
         use specforge_effects::testing::FakeGit;
         let dir = tempfile::tempdir().unwrap();
         let root = std::fs::canonicalize(dir.path()).unwrap();
         let mut fake = FakeGit::repo(&root, &"a".repeat(40), Vec::new());
         let roots = [root.clone()];
-        assert!(git(&fake, &root, &roots, false).is_some());
+        assert!(git(&fake, &root, &roots, false).unwrap().is_some());
         fake.leads = vec![PathBuf::from("/elsewhere/.git")];
-        assert_eq!(git(&fake, &root, &roots, true), None);
+        let refused = git(&fake, &root, &roots, true);
+        assert!(
+            matches!(&refused, Err(why) if why.contains("/elsewhere/.git")),
+            "{refused:?}"
+        );
         let mut fact = PathFact {
             real: root.join("x.txt").display().to_string(),
             ..PathFact::default()

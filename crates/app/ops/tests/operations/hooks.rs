@@ -376,6 +376,37 @@ fn a_hook_that_reads_git_is_told_the_head() {
     );
 }
 
+/// A hook that declares the git input, where git cannot be asked, gets no git input and a notice naming why.
+#[test]
+fn a_hook_whose_git_cannot_be_asked_is_told_why() {
+    use specforge_effects::git::Located;
+    use specforge_effects::testing::FakeGit;
+    let crate::host_support::Hosted {
+        project, runtime, ..
+    } = hosted(hosts_project(json!({}), json!({})), GsdHosts::new());
+    let mut fake = FakeGit::none();
+    fake.located = Located::Unavailable("GIT_DIR names /elsewhere/.git".into());
+    let project = project.with_git(std::sync::Arc::new(fake));
+    let compiled =
+        project.compile_in(std::sync::Arc::clone(&runtime) as specforge_project::SharedRuntime);
+    let hosted = crate::host_support::Hosted {
+        project,
+        runtime,
+        compiled,
+    };
+    let run = run_hook(
+        &hosted,
+        "write_guard",
+        &write_event("claude-code", "/elsewhere/x.txt", "x"),
+    );
+    assert!(hosted.input("hook__write_guard").get("git").is_none());
+    let notice = run.answer["notice"].as_str().unwrap_or_default();
+    assert!(
+        notice.contains("git cannot be asked") && notice.contains("GIT_DIR names /elsewhere/.git"),
+        "{run:?}"
+    );
+}
+
 #[specforge_test(
     behavior = "run_a_hook",
     verify = "a shell tool's hook is told its command split into commands"

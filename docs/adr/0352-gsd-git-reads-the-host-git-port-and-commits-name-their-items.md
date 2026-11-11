@@ -93,7 +93,8 @@ call with a scope denial naming where it leads. A repository around the project,
 real linked worktree or submodule names its `.git` back and is read wherever it lies. One check does this
 (`within_roots` in the effects crate, over the port's `leads_to`), and every reader of the project's repository asks
 it: a guest's git calls, the person's git verbs, the session's own reads (the baseline, a collect's key, a value's git
-lookup: a repository that leads out is W164 or no history, with the reason) and a hook's git input. A collector's
+lookup: a repository that leads out is W164 or no history, with the reason) and a hook's git input (a hook that
+declares it gets none, and a notice saying why, whenever git cannot be asked). A collector's
 repository detection counts such a repository as one, so the collect runs and its `locate` says why.
 No remote, URL, credential or environment variable reaches it.
 A log with no `max` lists every commit up to the call's answer cap and says `truncated`; a pickaxe over a withheld path
