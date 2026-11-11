@@ -190,7 +190,10 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     a file it rewrote, MUST rewrite the file again where the store's served
     places are (shifted exactly by what the earlier renames wrote) and
     replace the name's stale line, within one plan too (ADR 0346 D7). A
-    delete that unlinks an entity a fact names stays refused.
+    rename to a name a fact holds for no entity is refused as name_captured.
+    When renames made two names a store holds read as one, a rename of it
+    writes a stale line for each. A delete that unlinks an entity a fact
+    names stays refused.
   """
   verify unit "specforge.rename renames entity and all references"
   verify unit "non-existent entity returns error response"
@@ -214,6 +217,8 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
   verify integration "a rename of an entity a fact names rewrites the source where the fact read it and marks its store stale"
   verify integration "a rename whose source changed since the collect is refused as source_moved"
   verify integration "a rename of a name an earlier rename rewrote rewrites the source again where the first left it"
+  verify integration "a rename to a name a fact holds for no entity is refused as name_captured"
+  verify integration "a rename of a name two held names are read as writes a stale line for each"
 }
 
 behavior provide_mcp_edit_tool "Provide MCP Edit Tool" {

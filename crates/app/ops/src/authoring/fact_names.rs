@@ -125,14 +125,17 @@ pub(crate) fn rewrite(
             }
         }
         for ((field, spelling), new_text) in &names {
-            rewrite.stale.push(Line::stale(
-                &store.collector,
-                &store.key,
-                served.bytes.as_bytes(),
-                field,
-                served.collected(field, spelling),
-                new_text,
-            ));
+            // One line for each name held that is served as the spelling: the edits below write every place of each.
+            for held in served.collected(field, spelling) {
+                rewrite.stale.push(Line::stale(
+                    &store.collector,
+                    &store.key,
+                    served.bytes.as_bytes(),
+                    field,
+                    held,
+                    new_text,
+                ));
+            }
             for fact in &store.facts {
                 let written = fact.named_at.get(field).and_then(|ids| ids.get(spelling));
                 for place in written.into_iter().flatten() {

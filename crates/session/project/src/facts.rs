@@ -332,18 +332,25 @@ pub struct Served<'t> {
     pub stale: Option<Diagnostic>,
     /// The renames its stale lines record: field → the name the store holds → the name written now.
     pub renames: Renames,
+    /// The names its facts hold at a place in each field `renames` lists, as collected.
+    pub held: BTreeMap<String, BTreeSet<String>>,
     /// Each source file its facts are placed in, by its key from the project root: what says whether a text is the
     /// one its places are in.
     pub placed: BTreeMap<String, Placed>,
 }
 
 impl Served<'_> {
-    /// The name the store holds in `field` that is served as `now`: the name a rename wrote it from, else `now`.
-    pub fn collected<'s>(&'s self, field: &str, now: &'s str) -> &'s str {
-        self.renames
-            .get(field)
-            .and_then(|names| names.iter().find(|(_, written)| *written == now))
-            .map_or(now, |(held, _)| held.as_str())
+    /// Every name the store holds in `field` that is served as `now`: each a rename wrote as `now`, and `now` itself
+    /// when the store holds it and no rename moved it. More than one when renames made two held names read as one;
+    /// a rename of `now` writes a stale line for each, so the serve shifts every place it rewrites.
+    pub fn collected<'s>(&'s self, field: &str, now: &'s str) -> Vec<&'s str> {
+        let (Some(names), Some(held)) = (self.renames.get(field), self.held.get(field)) else {
+            return vec![now];
+        };
+        held.iter()
+            .map(String::as_str)
+            .filter(|held| names.get(*held).map_or(*held, String::as_str) == now)
+            .collect()
     }
 }
 
@@ -440,6 +447,18 @@ pub fn store<'t>(key: &str, text: &'t str) -> Result<Served<'t>, Diagnostic> {
             ),
         ));
     }
+    let held = renames
+        .keys()
+        .map(|field| {
+            let names = store
+                .facts
+                .iter()
+                .filter_map(|fact| fact.named_at.get(field))
+                .flat_map(|ids| ids.keys().cloned())
+                .collect();
+            (field.clone(), names)
+        })
+        .collect();
     let (stale, mut respelled) = stale::follow(key, &mut store, &renames);
     let placed = store
         .sources
@@ -457,6 +476,7 @@ pub fn store<'t>(key: &str, text: &'t str) -> Result<Served<'t>, Diagnostic> {
         bytes,
         stale,
         renames,
+        held,
         placed,
     })
 }

@@ -388,8 +388,8 @@ fn a_store_served_through_renames_shifts_its_places_by_what_they_wrote() {
     );
     assert_eq!(spans(&fact.named_at["covers"]["T5"]), [(1, 18, 20)]);
     assert_eq!(fact.fields["covers"], serde_json::json!(["Longer", "T5"]));
-    assert_eq!(served.collected("covers", "Longer"), "T1");
-    assert_eq!(served.collected("covers", "T5"), "T5");
+    assert_eq!(served.collected("covers", "Longer"), ["T1"]);
+    assert_eq!(served.collected("covers", "T5"), ["T5"]);
     // The text the rename left holds; the text collected, or one edited by hand since, does not.
     let placed = &served.placed["a.test.js"];
     let left = collected.replace("T1", "Longer");
@@ -397,4 +397,62 @@ fn a_store_served_through_renames_shifts_its_places_by_what_they_wrote() {
     assert!(!placed.holds(collected.as_bytes()));
     assert!(!placed.holds(format!("{left}// by hand\n").as_bytes()));
     assert!(!placed.holds(left.replacen("Longer", "Longer2", 1).as_bytes()));
+}
+
+/// The served text of a store of one fact covering `names` at their places in `file`, collected as `collected`,
+/// read through `renames` (field `covers`: held → now).
+fn served_through(
+    file: &str,
+    collected: &str,
+    names: &[(&str, Vec<FactLocation>)],
+    renames: &[(&str, &str)],
+) -> String {
+    let mut fact = Fact::new("test", "js:a.test.js#adds");
+    for (name, places) in names {
+        for at in places {
+            fact = fact.name("covers", name, at.clone());
+        }
+    }
+    let fact = fact.field(
+        "covers",
+        serde_json::Value::Array(names.iter().map(|(n, _)| (*n).into()).collect()),
+    );
+    let sources = BTreeMap::from([(
+        file.to_string(),
+        format!(
+            "sha256:{}",
+            specforge_package::Sha256::of(collected.as_bytes())
+        ),
+    )]);
+    let bytes =
+        String::from_utf8(Store::new("node", "@t/node", "abc", vec![fact], sources).bytes())
+            .unwrap();
+    let mut by_field: Renames = Renames::new();
+    for (held, now) in renames {
+        by_field
+            .entry("covers".to_string())
+            .or_default()
+            .insert(held.to_string(), now.to_string());
+    }
+    stale::carried(bytes, &by_field)
+}
+
+/// A store holding `C` (for no entity) and `A`, read through `A → C`: both read as `C`, so `C` is collected from
+/// both, and renamed on with a line for each, the text the renames left holds.
+#[test]
+fn every_held_name_read_as_one_is_collected_from() {
+    let collected = "// covers A C\n";
+    let names = [
+        ("A", vec![place("a.test.js", 1, 11, 12)]),
+        ("C", vec![place("a.test.js", 1, 13, 14)]),
+    ];
+    let text = served_through("a.test.js", collected, &names, &[("A", "C")]);
+    let served = store(KEY, &text).unwrap();
+
+    assert_eq!(served.collected("covers", "C"), ["A", "C"]);
+
+    let text = served_through("a.test.js", collected, &names, &[("A", "D"), ("C", "D")]);
+    let served = store(KEY, &text).unwrap();
+    assert!(served.placed["a.test.js"].holds(b"// covers D D\n"));
+    assert_eq!(served.collected("covers", "D"), ["A", "C"]);
 }

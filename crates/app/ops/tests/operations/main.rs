@@ -35,6 +35,7 @@ mod export_cache;
 mod export_dot_styles;
 mod export_written;
 mod extension_calls;
+mod fact_renames;
 mod failed_run;
 mod failures;
 mod field_references;

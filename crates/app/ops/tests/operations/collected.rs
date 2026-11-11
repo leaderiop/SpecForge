@@ -19,12 +19,13 @@ use specforge_project::testing::{
 };
 use specforge_test_macros::test as specforge_test;
 
-const KEY: &str = "0123456789abcdef0123456789abcdef01234567";
-const FACT: &str = "js:a.test.js#adds";
-const STORE: &str = ".specforge/facts/0123456789abcdef0123456789abcdef01234567/node.json";
+pub(crate) const KEY: &str = "0123456789abcdef0123456789abcdef01234567";
+pub(crate) const FACT: &str = "js:a.test.js#adds";
+pub(crate) const STORE: &str =
+    ".specforge/facts/0123456789abcdef0123456789abcdef01234567/node.json";
 
 /// A project whose truth `T1` cites the fact `FACT`, which names `T1` back, with `node`'s store recorded.
-fn project() -> TestProject {
+pub(crate) fn project() -> TestProject {
     let p = TestProject::new()
         .config(|c| c["name"] = "p".into())
         .enabling(&COLLECTED_EXTENSIONS)
@@ -334,7 +335,7 @@ fn a_rename_whose_source_moved_since_the_collect_is_source_moved() {
 }
 
 /// Rename `from` to `to` over `p` compiled now, as a person at a terminal does.
-fn rename_now(p: &TestProject, from: &str, to: &str) -> Result<(), String> {
+pub(crate) fn rename_now(p: &TestProject, from: &str, to: &str) -> Result<(), String> {
     let compiled = compiled_quietly(p);
     rename::run(
         &Navigator::new(ProjectView::of(&compiled)),
@@ -349,7 +350,7 @@ fn rename_now(p: &TestProject, from: &str, to: &str) -> Result<(), String> {
 }
 
 /// The stale lines of the ledger of `p`: (field, name the store holds, name written).
-fn stale_lines(p: &TestProject) -> Vec<(String, String, String)> {
+pub(crate) fn stale_lines(p: &TestProject) -> Vec<(String, String, String)> {
     let ledger =
         Ledger::parse(&std::fs::read_to_string(p.root().join("specforge-harness")).unwrap()).ledger;
     ledger
@@ -366,7 +367,7 @@ fn stale_lines(p: &TestProject) -> Vec<(String, String, String)> {
 }
 
 /// The ids `FACT` covers in `p` compiled now, and whether the store's places hold `a.test.js` as it is on disk.
-fn covered_and_placed(p: &TestProject) -> (Vec<String>, bool) {
+pub(crate) fn covered_and_placed(p: &TestProject) -> (Vec<String>, bool) {
     let after = compiled_quietly(p);
     let covered = after
         .graph()
@@ -613,7 +614,7 @@ fn a_delete_of_an_entity_a_fact_names_is_still_refused() {
 }
 
 /// `p` compiled as [`compiled`] does, without asserting it is clean.
-fn compiled_quietly(p: &TestProject) -> CompiledProject {
+pub(crate) fn compiled_quietly(p: &TestProject) -> CompiledProject {
     p.compile_in(Arc::new(Collected::new().runtime()))
 }
 

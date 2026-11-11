@@ -146,7 +146,10 @@ next collect of that collector ────────────────�
   `named_at`): a place before an edit stays, one after it moves by the length the edit changed (on its line; by the
   lines an edit spanning lines removed, after it), and an edit's own place becomes what it wrote. A rename plans its
   source edits from the same derivation: for each name it rewrites, every place the served store writes it, in the
-  served coordinates. *Rejected:* recording each rewrite's digest and edits in the ledger (a second record of what
+  served coordinates, and a stale line for every name held that is served as it (two when renames made two held
+  names read as one, so each place written is one a line derives). A rename to a name a fact holds for no entity
+  would make two such names, and is refused `name_captured` (the store's names are written tokens the capture
+  check reads). *Rejected:* recording each rewrite's digest and edits in the ledger (a second record of what
   the stale lines already say, ordered by rename, which a union merge of two branches breaks).
 - **A source file is judged against what the store says of it** (`facts::Placed`, the one judge: the anchors read
   view's W198, the language server's placing, a rename): a text is the one the served places are in exactly when
