@@ -49,6 +49,9 @@ pub const SOURCE_MOVED: &str = "source_moved";
 /// something else (another entity, or no reference): a stale line renames a name in every fact of the store that
 /// holds it, so the rename cannot rewrite only the renamed entity's places (ADR 0346 D7).
 pub const NAME_SHARED: &str = "name_shared";
+/// The ledger renames a name a fact store holds two ways (two merged branches each renamed it, W202): the store's places
+/// are not served where the source has them, so no rename can rewrite them until the next collect (ADR 0346 D7).
+pub const STALE_CONFLICT: &str = "stale_conflict";
 /// The edits that rename one entity: its declaration and every reference, and the change they make.
 #[derive(Debug, Clone)]
 pub struct RenamePlan {

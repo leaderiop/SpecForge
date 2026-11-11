@@ -434,7 +434,7 @@ fn three_renames_of_one_name_before_the_collect_each_rewrite_the_source() {
 
 /// [`project`] with a second truth `T5` the fact covers, both names written on line 1 of `a.test.js` (`T1` at columns
 /// 11..13, `T5` at 14..16), the store recording both places.
-fn two_named() -> TestProject {
+pub(crate) fn two_named() -> TestProject {
     let p = project();
     p.write(
         "truths.spec",

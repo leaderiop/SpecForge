@@ -115,6 +115,7 @@ rename T1 → T2
   ├─ spec occurrences ──────────────▶ edits in compiled text (unchanged)
   ├─ each fact naming T1 (its name resolved as the linker resolves it), read from its store as served
   │    (a name an earlier rename rewrote is the name it wrote, at the place it left it)
+  │    the ledger renames a name the store holds two ways (W202) ─▶ refused `stale_conflict`
   │    no place ─────────────────────▶ refused `collected` ("records no place it is written")
   │    F (its held text, else the disk's) is not the text the store's places are in, or the text at a place
   │    ≠ the name served ────────────▶ refused `source_moved`
@@ -133,7 +134,11 @@ next collect of that collector ────────────────�
   last) and digests the store's bytes, so "stale" is exact in time and in what it follows: only a store collected
   before the rename, and only the names renames wrote. A later rename of the name replaces the line (its key is the
   store, the field and the name held), so the ledger says where each name is now whatever the order its lines are
-  read in, and two branches each renaming a different name merge (`merge=union`) into both lines. A fresh store that
+  read in, and two branches each renaming a different name merge (`merge=union`) into both lines. Two branches that
+  renamed the same name merge into two lines for it, and the ledger no longer says where it is: the store serves
+  none of its renames (its names and places as collected), **W202** "fact store '<key>': specforge-harness holds two
+  renames of 'T1' ('T2', 'T3'); none of its renames is served, until `specforge collect`", and a rename of a name it
+  holds is refused `stale_conflict` until the next collect. A fresh store that
   still names the old id is dangling, with `did you mean` the new one: a session's check takes it from the ledger's
   moves (the old path written as a fact writes a name), the kernel's close match otherwise. It is union-merge safe
   (`stale:<key>` holds a namespace). *Rejected:* rewriting the store's values (a second writer of facts; the LSP would

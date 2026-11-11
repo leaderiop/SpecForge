@@ -13,7 +13,7 @@ use specforge_protocol_types::FieldType;
 
 use crate::authoring::apply::COLLECTED;
 use crate::authoring::planned::Rewritten;
-use crate::authoring::rename::{CAPTURED, NAME_SHARED, SOURCE_MOVED};
+use crate::authoring::rename::{CAPTURED, NAME_SHARED, SOURCE_MOVED, STALE_CONFLICT};
 use crate::read::navigate::{SourceText, TextEdit, apply_edits};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
@@ -40,7 +40,8 @@ type Span = (usize, usize, usize, usize);
 /// left). Refused `collected` when a fact records no place its name is written; `source_moved` when a file is not
 /// that text (edited since by hand), is gone or no longer spells the name at a place; `name_captured` when the new
 /// suffix would also name another entity; `name_shared` when another fact of the store holds the name in that field
-/// for something else (a store's name is renamed in every fact holding it); `file_unreadable` when the served store cannot be read, or a file is no
+/// for something else (a store's name is renamed in every fact holding it); `stale_conflict` when the ledger renames
+/// a name the store holds two ways (W202); `file_unreadable` when the served store cannot be read, or a file is no
 /// file inside the project (a key that climbs out, a link that lands outside, a file with another name:
 /// `read_placed`).
 pub(crate) fn rewrite(
@@ -82,6 +83,9 @@ pub(crate) fn rewrite(
             .source_text(key)
             .ok_or_else(|| unreadable(old_id, &format!("the fact store '{key}' is not served")))?;
         let served = facts::store(key, &text).map_err(|w192| unreadable(old_id, &w192.message))?;
+        if !served.conflicts.is_empty() {
+            return Err(conflicted(old_id, key, &served.conflicts));
+        }
         let store = &served.store;
         // What a fact's name in `field` names, as the linker resolves a fact's reference (ADR 0346 D4): none when the
         // field holds no reference.
@@ -271,6 +275,28 @@ fn shared(
         ),
     )
     .with_suggestion("change what the collector reads, run `specforge collect`, then rename")
+}
+
+/// `stale_conflict`: the ledger renames a name the fact store `key` holds two ways (`conflicts`), so its places are
+/// not served where the source has them.
+fn conflicted(id: &str, key: &str, conflicts: &facts::Conflicts) -> OpError {
+    let named: Vec<String> = conflicts
+        .values()
+        .flat_map(|names| names.iter())
+        .map(|(held, now)| {
+            let now: Vec<String> = now.iter().map(|n| format!("'{n}'")).collect();
+            format!("'{held}' ({})", now.join(", "))
+        })
+        .collect();
+    OpError::new(
+        OpErrorKind::PreconditionFailed,
+        STALE_CONFLICT,
+        format!(
+            "cannot rename '{id}': specforge-harness holds two renames of {} in the fact store '{key}'",
+            named.join(" and of ")
+        ),
+    )
+    .with_suggestion("run `specforge collect`, then rename")
 }
 
 /// The refusal of a rename of `id` whose fact store a session serves cannot be read, and `why`.

@@ -11,6 +11,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, codes};
 use specforge_protocol_types::FactLocation;
 
@@ -20,10 +21,31 @@ use crate::harness::{Ledger, Line};
 /// The renames a stale store is read through: field → the name its facts hold → the name a rename wrote.
 pub type Renames = BTreeMap<String, BTreeMap<String, String>>;
 
-/// The renames the ledger `recorded` marks the store of `collector` filed under `key` stale with, for its `bytes`:
-/// each stale line of that store whose digest is of exactly those bytes.
-pub(super) fn renames(recorded: &Ledger, collector: &str, key: &str, bytes: &[u8]) -> Renames {
-    let mut renames = Renames::new();
+/// The names a store's stale lines rename more than one way: field → the name its facts hold → each name written.
+/// Two branches each renaming one name, merged (`merge=union`), leave two lines for it.
+pub type Conflicts = BTreeMap<String, BTreeMap<String, BTreeSet<String>>>;
+
+/// What the ledger says of a store beside its bytes, carried on its served text after them.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub(super) struct Carried {
+    /// The renames it is read through; none when any name is renamed two ways.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub renames: Renames,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub conflicts: Conflicts,
+}
+
+impl Carried {
+    fn is_empty(&self) -> bool {
+        self.renames.is_empty() && self.conflicts.is_empty()
+    }
+}
+
+/// What the ledger `recorded` says of the store of `collector` filed under `key`, for its `bytes`: the renames of each
+/// stale line of that store whose digest is of exactly those bytes; when one name held has lines to two names, those
+/// in `conflicts`, and no rename at all.
+pub(super) fn carried(recorded: &Ledger, collector: &str, key: &str, bytes: &[u8]) -> Carried {
+    let mut written: Conflicts = Conflicts::new();
     for line in recorded.lines() {
         let Some(stale) = line.stale_of() else {
             continue;
@@ -32,26 +54,53 @@ pub(super) fn renames(recorded: &Ledger, collector: &str, key: &str, bytes: &[u8
             && stale.key == key
             && *line == Line::stale(collector, key, bytes, stale.field, stale.written, stale.now)
         {
-            renames
+            written
                 .entry(stale.field.to_string())
                 .or_default()
-                .insert(stale.written.to_string(), stale.now.to_string());
+                .entry(stale.written.to_string())
+                .or_default()
+                .insert(stale.now.to_string());
         }
     }
-    renames
+    let mut conflicts = written.clone();
+    for names in conflicts.values_mut() {
+        names.retain(|_, now| now.len() > 1);
+    }
+    conflicts.retain(|_, names| !names.is_empty());
+    if !conflicts.is_empty() {
+        return Carried {
+            renames: Renames::new(),
+            conflicts,
+        };
+    }
+    let renames = written
+        .into_iter()
+        .map(|(field, names)| {
+            let names = names
+                .into_iter()
+                .filter_map(|(held, now)| Some((held, now.into_iter().next()?)))
+                .collect();
+            (field, names)
+        })
+        .collect();
+    Carried {
+        renames,
+        conflicts: Conflicts::new(),
+    }
 }
 
-/// The served text of a store whose bytes are `text`: those bytes, then `renames` when there are any.
-pub(super) fn carried(mut text: String, renames: &Renames) -> String {
-    if !renames.is_empty() {
-        text.push_str(&serde_json::to_string(renames).expect("renames serialize"));
+/// The served text of a store whose bytes are `text`: those bytes, then what the ledger says of it when it says
+/// anything.
+pub(super) fn served(mut text: String, carried: &Carried) -> String {
+    if !carried.is_empty() {
+        text.push_str(&serde_json::to_string(carried).expect("a store's renames serialize"));
         text.push('\n');
     }
     text
 }
 
-/// The served text `text` read: the store, the collector's bytes it was read from, and the renames it carries.
-pub(super) fn split(text: &str) -> Result<(Store, &str, Renames), serde_json::Error> {
+/// The served text `text` read: the store, the collector's bytes it was read from, and what the ledger says of it.
+pub(super) fn split(text: &str) -> Result<(Store, &str, Carried), serde_json::Error> {
     let mut values = serde_json::Deserializer::from_str(text).into_iter::<Store>();
     let store = match values.next() {
         Some(store) => store?,
@@ -59,12 +108,33 @@ pub(super) fn split(text: &str) -> Result<(Store, &str, Renames), serde_json::Er
     };
     let carried = text[values.byte_offset()..].trim_start();
     let bytes = &text[..text.len() - carried.len()];
-    let renames = if carried.is_empty() {
-        Renames::new()
+    let carried = if carried.is_empty() {
+        Carried::default()
     } else {
         serde_json::from_str(carried)?
     };
-    Ok((store, bytes, renames))
+    Ok((store, bytes, carried))
+}
+
+/// W202: the store `key`'s stale lines rename a name it holds two ways (`conflicts`); none of its renames is served.
+pub(super) fn w202(key: &str, conflicts: &Conflicts) -> Diagnostic {
+    let named: Vec<String> = conflicts
+        .values()
+        .flat_map(|names| names.iter())
+        .map(|(held, now)| {
+            let now: Vec<String> = now.iter().map(|n| format!("'{n}'")).collect();
+            format!("'{held}' ({})", now.join(", "))
+        })
+        .collect();
+    Diagnostic::new(
+        codes::W202,
+        format!(
+            "fact store '{key}': specforge-harness holds two renames of {}; none of its renames is served, until \
+             `specforge collect`",
+            named.join(" and of ")
+        ),
+    )
+    .with_suggestion("run `specforge collect`")
 }
 
 /// A span of the collected text, by its start and end (line, byte column): the key the edits of a file are sorted by.
@@ -244,21 +314,48 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_served_text_gives_back_the_collectors_bytes_and_its_renames() {
+    fn a_served_text_gives_back_the_collectors_bytes_and_what_the_ledger_says() {
         let bytes = Store::new("node", "@t/node", "k", Vec::new(), BTreeMap::new()).bytes();
         let bytes = String::from_utf8(bytes).unwrap();
-        let renames: Renames = [(
-            "covers".to_string(),
-            [("T1".to_string(), "T2".to_string())].into(),
-        )]
-        .into();
+        let carried_there = Carried {
+            renames: [(
+                "covers".to_string(),
+                [("T1".to_string(), "T2".to_string())].into(),
+            )]
+            .into(),
+            conflicts: Conflicts::new(),
+        };
 
-        let served = carried(bytes.clone(), &renames);
-        let (store, read, carried_back) = split(&served).unwrap();
+        let text = served(bytes.clone(), &carried_there);
+        let (store, read, carried_back) = split(&text).unwrap();
 
         assert_eq!((store.key.as_str(), read), ("k", bytes.as_str()));
-        assert_eq!(carried_back, renames);
+        assert_eq!(carried_back, carried_there);
         let (_, plain, none) = split(&bytes).unwrap();
-        assert_eq!((plain, none), (bytes.as_str(), Renames::new()));
+        assert_eq!((plain, none), (bytes.as_str(), Carried::default()));
+    }
+
+    #[test]
+    fn a_name_held_with_lines_to_two_names_is_a_conflict_and_nothing_is_renamed() {
+        let bytes = b"{}";
+        let mut ledger = Ledger::default();
+        for (held, now) in [("T1", "T2"), ("T1", "T3"), ("T5", "T6")] {
+            ledger.insert(Line::stale("node", "k", bytes, "covers", held, now));
+        }
+
+        let carried = carried(&ledger, "node", "k", bytes);
+
+        assert!(carried.renames.is_empty());
+        assert_eq!(
+            carried.conflicts,
+            Conflicts::from([(
+                "covers".to_string(),
+                [(
+                    "T1".to_string(),
+                    BTreeSet::from(["T2".to_string(), "T3".to_string()])
+                )]
+                .into()
+            )])
+        );
     }
 }

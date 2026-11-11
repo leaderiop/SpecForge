@@ -192,7 +192,9 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     replace the name's stale line, within one plan too (ADR 0346 D7). A
     rename to a name a fact holds for no entity is refused as name_captured,
     and one of a name another fact of the same store holds in that field for
-    something else (another entity, or no reference) as name_shared.
+    something else (another entity, or no reference) as name_shared; while
+    the ledger renames a name a store holds two ways (W202), a rename of a
+    name that store holds is refused as stale_conflict.
     When renames made two names a store holds read as one, a rename of it
     writes a stale line for each. A delete that unlinks an entity a fact
     names stays refused.
@@ -222,6 +224,7 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
   verify integration "a rename to a name a fact holds for no entity is refused as name_captured"
   verify integration "a rename of a name two held names are read as writes a stale line for each"
   verify integration "a rename of a name a fact of the same store holds for something else is refused as name_shared"
+  verify integration "a rename of a name a store holds while the ledger renames one of its names two ways is refused as stale_conflict"
 }
 
 behavior provide_mcp_edit_tool "Provide MCP Edit Tool" {

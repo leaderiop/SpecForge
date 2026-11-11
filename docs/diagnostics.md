@@ -4741,6 +4741,26 @@ Owner: core
 Level: warning
 ```
 
+## W202
+
+```
+W202: Fact store renamed two ways
+
+The harness ledger holds two `stale:` lines for one name a fact store holds (ADR
+0346 D7): `<collector> stale:<key>:<field>:<name>:<one name>` and
+`...:<name>:<another name>`, both for the store's bytes. A rename replaces the
+line of the name it renames again, so one ledger never writes two; two branches
+that each renamed the name, merged (`specforge-harness` merges as a union of
+lines), do. The ledger cannot say which name the source holds now, so none of
+the store's renames is served: its facts read as collected, and its places as
+the collect read them (a file the renames rewrote is not the text they are in,
+W198). A rename of a name the store holds is refused (`stale_conflict`). Run
+`specforge collect`: it replaces the store and drops its stale lines.
+
+Owner: core
+Level: warning
+```
+
 ## Retired codes
 
 These codes are no longer emitted, and are never reused for another meaning.

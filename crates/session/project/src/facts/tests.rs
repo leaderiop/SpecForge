@@ -369,7 +369,13 @@ fn a_store_served_through_renames_shifts_its_places_by_what_they_wrote() {
         [("T1".to_string(), "Longer".to_string())].into(),
     )]
     .into();
-    let text = stale::carried(bytes, &renames);
+    let text = stale::served(
+        bytes,
+        &stale::Carried {
+            renames,
+            ..Default::default()
+        },
+    );
 
     let served = store(KEY, &text).unwrap();
 
@@ -434,7 +440,13 @@ fn served_through(
             .or_default()
             .insert(held.to_string(), now.to_string());
     }
-    stale::carried(bytes, &by_field)
+    stale::served(
+        bytes,
+        &stale::Carried {
+            renames: by_field,
+            ..Default::default()
+        },
+    )
 }
 
 /// A store holding `C` (for no entity) and `A`, read through `A → C`: both read as `C`, so `C` is collected from
@@ -455,4 +467,50 @@ fn every_held_name_read_as_one_is_collected_from() {
     let served = store(KEY, &text).unwrap();
     assert!(served.placed["a.test.js"].holds(b"// covers D D\n"));
     assert_eq!(served.collected("covers", "D"), ["A", "C"]);
+}
+
+#[specforge_test_macros::test(
+    behavior = "build_in_memory_graph",
+    verify = "a store whose stale lines rename one name two ways serves none of its renames, W202"
+)]
+fn a_store_whose_ledger_renames_a_name_two_ways_serves_none_of_its_renames() {
+    let collected = "// covers T1 T5\n";
+    let fact = Fact::new("test", "js:a.test.js#adds")
+        .name("covers", "T1", place("a.test.js", 1, 11, 13))
+        .name("covers", "T5", place("a.test.js", 1, 14, 16));
+    let sources = BTreeMap::from([(
+        "a.test.js".to_string(),
+        format!(
+            "sha256:{}",
+            specforge_package::Sha256::of(collected.as_bytes())
+        ),
+    )]);
+    let bytes = Store::new("node", "@t/node", "abc", vec![fact], sources).bytes();
+    let mut ledger = Ledger::default();
+    ledger.insert(Line::facts("node", "abc", &bytes));
+    // Two merged branches: each renamed `T1`; one also renamed `T5`.
+    for (held, now) in [("T1", "Two"), ("T1", "Three"), ("T5", "T6")] {
+        ledger.insert(Line::stale("node", "abc", &bytes, "covers", held, now));
+    }
+    let disk = disk(&bytes, Some(ledger.canonical().into_bytes()));
+    let Read::Text(text) = read(&disk, &root(), KEY, None) else {
+        panic!("a recorded store is served");
+    };
+
+    let served = store(KEY, &text).unwrap();
+
+    let w202 = served.stale.as_ref().expect("W202");
+    assert_eq!(w202.code, "W202");
+    assert_eq!(
+        w202.message,
+        format!(
+            "fact store '{KEY}': specforge-harness holds two renames of 'T1' ('Three', 'Two'); none of its renames \
+             is served, until `specforge collect`"
+        )
+    );
+    assert!(served.renames.is_empty());
+    let fact = &served.store.facts[0];
+    assert_eq!(fact.fields["covers"], serde_json::json!(["T1", "T5"]));
+    assert_eq!(fact.named_at["covers"]["T5"][0].start_col, 14);
+    assert!(served.placed["a.test.js"].holds(collected.as_bytes()));
 }

@@ -7,7 +7,7 @@
 
 mod stale;
 
-pub use stale::Renames;
+pub use stale::{Conflicts, Renames};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -283,9 +283,9 @@ fn served_text(key: &str, bytes: Vec<u8>, recorded: &Ledger) -> Result<String, D
         )
         .with_suggestion("run `specforge collect`"));
     }
-    let renames = stale::renames(recorded, collector, filed_under, &bytes);
+    let carried = stale::carried(recorded, collector, filed_under, &bytes);
     let text = String::from_utf8(bytes).map_err(|e| unreadable(key, e))?;
-    Ok(stale::carried(text, &renames))
+    Ok(stale::served(text, &carried))
 }
 
 /// The fact stores a session serves under the project root `root`, read through `disk`: each store the harness ledger
@@ -328,8 +328,11 @@ pub struct Served<'t> {
     pub store: Store,
     /// The collector's bytes the store was read from: what a `stale:` line digests.
     pub bytes: &'t str,
-    /// W197 when a rename marked it stale.
+    /// W197 when a rename marked it stale; W202 when its stale lines rename a name two ways.
     pub stale: Option<Diagnostic>,
+    /// The names its stale lines rename more than one way: none of its renames is served, and a rename of a name it
+    /// holds is refused, until the next collect.
+    pub conflicts: Conflicts,
     /// The renames its stale lines record: field → the name the store holds → the name written now.
     pub renames: Renames,
     /// The names its facts hold at a place in each field `renames` lists, as collected.
@@ -436,7 +439,8 @@ fn byte_range(text: &[u8], at: &FactLocation) -> Option<std::ops::Range<usize>> 
 /// marked it stale with are read as the rename wrote them and its places in the files it rewrote shifted by what it
 /// wrote, with W197 (ADR 0346 D7). W192 when the text is no store this specforge reads.
 pub fn store<'t>(key: &str, text: &'t str) -> Result<Served<'t>, Diagnostic> {
-    let (mut store, bytes, renames) = stale::split(text).map_err(|e| unreadable(key, e))?;
+    let (mut store, bytes, stale::Carried { renames, conflicts }) =
+        stale::split(text).map_err(|e| unreadable(key, e))?;
     if store.store != Store::VERSION {
         return Err(unreadable(
             key,
@@ -460,6 +464,11 @@ pub fn store<'t>(key: &str, text: &'t str) -> Result<Served<'t>, Diagnostic> {
         })
         .collect();
     let (stale, mut respelled) = stale::follow(key, &mut store, &renames);
+    let stale = if conflicts.is_empty() {
+        stale
+    } else {
+        Some(stale::w202(key, &conflicts))
+    };
     let placed = store
         .sources
         .iter()
@@ -475,6 +484,7 @@ pub fn store<'t>(key: &str, text: &'t str) -> Result<Served<'t>, Diagnostic> {
         store,
         bytes,
         stale,
+        conflicts,
         renames,
         held,
         placed,
@@ -488,7 +498,7 @@ pub fn store<'t>(key: &str, text: &'t str) -> Result<Served<'t>, Diagnostic> {
 /// reference's id), any other string text; an integer, a bool; an array of strings a list whose items are written as
 /// the field writes each. Each value is spanned where its name is written (`named_at`), else where the fact is, else
 /// at the store. W192 when the text is no store this specforge reads; W197, in the file's format diagnostics, when a
-/// rename marked it stale. Beside it, what the store says of each source file its places name ([`Placed`]).
+/// rename marked it stale, W202 when its stale lines rename a name two ways. Beside it, what the store says of each source file its places name ([`Placed`]).
 pub(crate) fn served(
     key: &str,
     text: &str,

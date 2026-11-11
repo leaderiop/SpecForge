@@ -184,3 +184,61 @@ fn a_rename_of_a_name_another_fact_holds_for_something_else_is_refused() {
         "// covers T1\ntest('adds', () => {});\n// covers T1\n"
     );
 }
+
+/// Two branches each renamed `T1` (to `T2`, to `T3`), and their ledgers merged: the store serves none of its renames,
+/// W202 says why, and a rename of a name it holds is refused until the next collect.
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "a rename of a name a store holds while the ledger renames one of its names two ways is refused as stale_conflict"
+)]
+fn a_store_whose_ledger_renames_a_name_two_ways_serves_none_and_refuses_renames() {
+    use specforge_project::harness::{Ledger, Line};
+    let p = crate::collected::two_named();
+    let store = std::fs::read(p.root().join(crate::collected::STORE)).unwrap();
+    let ledger = p.root().join("specforge-harness");
+    let mut lines = Ledger::parse(&std::fs::read_to_string(&ledger).unwrap()).ledger;
+    for now in ["T2", "T3"] {
+        lines.insert(Line::stale("node", KEY, &store, "covers", "T1", now));
+    }
+    std::fs::write(&ledger, lines.canonical()).unwrap();
+
+    let compiled = crate::collected::compiled_quietly(&p);
+    let diagnostics = compiled.diagnostics();
+    let w202: Vec<&str> = diagnostics
+        .iter()
+        .filter(|d| d.code == "W202")
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(
+        w202,
+        [format!(
+            "fact store '{}': specforge-harness holds two renames of 'T1' ('T2', 'T3'); none of its renames is \
+             served, until `specforge collect`",
+            crate::collected::STORE
+        )]
+    );
+    assert!(diagnostics.iter().all(|d| d.code != "W197"));
+    // Served as collected: the fact still covers `T1`.
+    let covered: Vec<String> = compiled
+        .graph()
+        .edges_from(FACT)
+        .iter()
+        .map(|e| e.target.to_string())
+        .collect();
+    assert!(covered.iter().any(|c| c == "T1"), "{covered:?}");
+
+    let refused = rename_now(&p, "T5", "T6").unwrap_err();
+
+    assert_eq!(
+        refused,
+        format!(
+            "stale_conflict: cannot rename 'T5': specforge-harness holds two renames of 'T1' ('T2', 'T3') in the \
+             fact store '{}'",
+            crate::collected::STORE
+        )
+    );
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        "// covers T1 T5\n"
+    );
+}
