@@ -304,8 +304,8 @@ fn undone_file_by_file(served: &mut Served, files: &[&str], to: &[String], was: 
 }
 
 /// The phase renamed, then its milestone, saved; then the milestone's rename undone one file at a time, each saved
-/// alone, starting from `first`.
-fn the_milestone_undone_file_by_file(first: &str) {
+/// alone, in the order `files`.
+fn the_milestone_undone_file_by_file(files: [&str; 4]) {
     let mut served = served();
     rename(&mut served, "p.spec", "04");
     let renamed = texts(&served);
@@ -313,8 +313,6 @@ fn the_milestone_undone_file_by_file(first: &str) {
     save(&mut served, &FILES);
     assert_eq!(held(&served), both());
 
-    let rest = FILES.iter().filter(|f| **f != first);
-    let files: Vec<&str> = [first].into_iter().chain(rest.copied()).collect();
     undone_file_by_file(&mut served, &files, &renamed, &both());
     let moved = [
         ("v1.0", "v1.1"),
@@ -335,17 +333,17 @@ fn the_milestone_undone_file_by_file(first: &str) {
     verify = "an editor rename held in some of the files it edited and not in others lands nothing"
 )]
 fn a_milestone_undone_in_its_declaring_file_alone_lands_nothing_until_every_file_is_back() {
-    the_milestone_undone_file_by_file("m.spec");
+    the_milestone_undone_file_by_file(["m.spec", "q.spec", "u.spec", "p.spec"]);
 }
 
-/// The milestone's rename undone first in the file that places the tests: a save that writes nothing leaves the
-/// project the ledger was written over as it was, so the last save re-keys the tests' results.
+/// The milestone's rename undone first in the file that places the tests, last in its declaring file: a save that
+/// writes nothing leaves the project the ledger was written over as it was, so the last save re-keys the results.
 #[spec(
     behavior = "land_rename_ledger",
     verify = "a landing of an editor rename that writes nothing leaves the project the ledger was written over"
 )]
 fn a_milestone_undone_in_the_tests_file_first_keeps_their_results() {
-    the_milestone_undone_file_by_file("u.spec");
+    the_milestone_undone_file_by_file(["u.spec", "p.spec", "q.spec", "m.spec"]);
 }
 
 /// Two phases renamed, then their milestone, one history, saved; then the milestone's rename undone one file at a
