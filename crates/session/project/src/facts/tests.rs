@@ -262,6 +262,22 @@ fn a_store_records_the_digest_of_each_located_file() {
     assert_eq!(digests, sources);
 }
 
+/// A store whose fact is placed in a file it records no digest of: no collect writes one, another writer can.
+#[test]
+fn a_store_placing_a_fact_in_a_file_it_records_no_digest_of_is_served_unjudged_there() {
+    let fact = Fact::new("test", "js:a#b")
+        .at(place("src/a.rs", 12, 1, 20))
+        .name("names", "T1", place("src/b.rs", 1, 4, 6));
+    let sources = BTreeMap::from([("src/a.rs".to_string(), "sha256:aa".to_string())]);
+    let text = String::from_utf8(Store::new("node", "@t/node", "abc", vec![fact], sources).bytes())
+        .unwrap();
+
+    let served = store(KEY, &text).unwrap();
+
+    let judged: Vec<&String> = served.placed.keys().collect();
+    assert_eq!(judged, ["src/a.rs"], "nothing judges src/b.rs");
+}
+
 /// `test`'s `status` declared an enum and its `names` a reference list.
 fn declared() -> FieldForms {
     use specforge_protocol_types::FieldType;
