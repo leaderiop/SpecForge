@@ -88,3 +88,99 @@ fn a_rename_of_a_name_two_held_names_read_as_writes_a_line_for_each() {
     );
     assert_eq!(covered_and_placed(&p), (vec!["T7".to_string()], true));
 }
+
+/// The extension declaring the collected kind `note`, whose `covers` is text, not a reference.
+const NOTES: &str = "@t/notes";
+
+fn notes() -> specforge_extension_sdk::prelude::ContributionsBuilder {
+    use specforge_extension_sdk::DeclaredCategory;
+    use specforge_extension_sdk::prelude::{ContributionsBuilder, ExtensionMeta};
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new(NOTES, "1.0.0"));
+    c.raw_category(
+        DeclaredCategory::Entities,
+        json!([{"name": "note", "keyword": "note", "writer": "collector", "schemes": ["note"], "fields": [
+            {"name": "covers", "field_type": "string"},
+        ]}]),
+    );
+    c
+}
+
+/// [`project`] with [`NOTES`] loaded, whose store holds `T1` in `covers` twice in `a.test.js`: the test `FACT`'s
+/// reference on line 1, and a note's text on line 3.
+fn shared() -> (
+    TestProject,
+    std::sync::Arc<specforge_wasm::testing::InProcessRuntime>,
+) {
+    use specforge_project::testing::{CODE, Collected, NODE, SPEC};
+    let p = project()
+        .enabling(&[CODE, NODE, SPEC, NOTES])
+        .installing_enabled();
+    let source = "// covers T1\ntest('adds', () => {});\n// covers T1\n";
+    std::fs::write(p.root().join("a.test.js"), source).unwrap();
+    let at = |line: usize| json!([{"file": "a.test.js", "start_line": line, "start_col": 11, "end_line": line, "end_col": 13}]);
+    stored_with(
+        p.root(),
+        "node",
+        KEY,
+        json!([{"kind": "test", "id": FACT, "fields": {"file": "a.test.js", "covers": ["T1"]},
+                "named_at": {"covers": {"T1": at(1)}}},
+               {"kind": "note", "id": "note:a.test.js#1", "fields": {"covers": "T1"},
+                "named_at": {"covers": {"T1": at(3)}}}]),
+        [(
+            "a.test.js".to_string(),
+            specforge_ops::revision::of_bytes(source.as_bytes()),
+        )]
+        .into(),
+    );
+    let runtime = std::sync::Arc::new(
+        Collected::new().over(specforge_wasm::testing::InProcessRuntime::new().with(notes)),
+    );
+    (p, runtime)
+}
+
+/// A store renames a name in every fact that holds it: when another fact holds the same name in the same field for
+/// something else (here no reference at all), the rename cannot rewrite only the renamed entity's places, and is
+/// refused.
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "a rename of a name a fact of the same store holds for something else is refused as name_shared"
+)]
+fn a_rename_of_a_name_another_fact_holds_for_something_else_is_refused() {
+    use specforge_ops::authoring::apply::Origin;
+    use specforge_ops::authoring::rename;
+    use specforge_ops::read::navigate::Navigator;
+    use specforge_ops::view::ProjectView;
+    let (p, runtime) = shared();
+    let compiled = p.compile_in(runtime);
+    assert!(
+        compiled.graph().node("note:a.test.js#1").is_some(),
+        "{:?}",
+        compiled.diagnostics()
+    );
+
+    let refused = rename::run(
+        &Navigator::new(ProjectView::of(&compiled)),
+        "T1",
+        "T2",
+        false,
+        &Origin::cli(true),
+        specforge_ops::testing::caller(),
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        refused.error.code,
+        rename::NAME_SHARED,
+        "{}",
+        refused.error.message
+    );
+    assert_eq!(
+        refused.error.message,
+        "cannot rename 'T1': the fact 'note:a.test.js#1' holds 'T1' in 'covers' too, where it names nothing; \
+         a fact store's name is renamed in every fact that holds it"
+    );
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        "// covers T1\ntest('adds', () => {});\n// covers T1\n"
+    );
+}

@@ -45,6 +45,10 @@ pub const CAPTURED: &str = "name_captured";
 /// the text the renames since left: it was edited otherwise), or no longer spells the name where the store says: the
 /// rename cannot rewrite it exactly (ADR 0346 D7).
 pub const SOURCE_MOVED: &str = "source_moved";
+/// A fact store holds the name the rename rewrites in a field where another of its facts holds the same name for
+/// something else (another entity, or no reference): a stale line renames a name in every fact of the store that
+/// holds it, so the rename cannot rewrite only the renamed entity's places (ADR 0346 D7).
+pub const NAME_SHARED: &str = "name_shared";
 /// The edits that rename one entity: its declaration and every reference, and the change they make.
 #[derive(Debug, Clone)]
 pub struct RenamePlan {

@@ -13,7 +13,7 @@ use specforge_protocol_types::FieldType;
 
 use crate::authoring::apply::COLLECTED;
 use crate::authoring::planned::Rewritten;
-use crate::authoring::rename::{CAPTURED, SOURCE_MOVED};
+use crate::authoring::rename::{CAPTURED, NAME_SHARED, SOURCE_MOVED};
 use crate::read::navigate::{SourceText, TextEdit, apply_edits};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
@@ -39,7 +39,8 @@ type Span = (usize, usize, usize, usize);
 /// whose places it rewrites serves them in (`Placed::holds`: the text collected, or the text the earlier renames
 /// left). Refused `collected` when a fact records no place its name is written; `source_moved` when a file is not
 /// that text (edited since by hand), is gone or no longer spells the name at a place; `name_captured` when the new
-/// suffix would also name another entity; `file_unreadable` when the served store cannot be read, or a file is no
+/// suffix would also name another entity; `name_shared` when another fact of the store holds the name in that field
+/// for something else (a store's name is renamed in every fact holding it); `file_unreadable` when the served store cannot be read, or a file is no
 /// file inside the project (a key that climbs out, a link that lands outside, a file with another name:
 /// `read_placed`).
 pub(crate) fn rewrite(
@@ -82,22 +83,31 @@ pub(crate) fn rewrite(
             .ok_or_else(|| unreadable(old_id, &format!("the fact store '{key}' is not served")))?;
         let served = facts::store(key, &text).map_err(|w192| unreadable(old_id, &w192.message))?;
         let store = &served.store;
-        // The names the rename rewrites in the store: (field, the name served) → the name it writes.
-        let mut names: BTreeMap<(String, String), String> = BTreeMap::new();
+        // What a fact's name in `field` names, as the linker resolves a fact's reference (ADR 0346 D4): none when the
+        // field holds no reference.
+        let resolved = |fact: &specforge_protocol_types::Fact, field: &str, spelling: &str| {
+            let target = match forms.reading(&fact.kind, field) {
+                Reading::Declared(form)
+                    if matches!(
+                        form.field_type(),
+                        FieldType::Reference | FieldType::ReferenceList
+                    ) =>
+                {
+                    forms.target(&fact.kind, field)
+                }
+                _ => return None,
+            };
+            let admits = |kind: &str| target.as_ref().is_none_or(|t| t.admits(kind));
+            match graph.scopes().resolve(None, spelling, &admits) {
+                Found::One(path) | Found::Mistyped(path) => Some(path),
+                Found::Ambiguous(_) | Found::None(_) => None,
+            }
+        };
+        // The names the rename rewrites in the store: (field, the name served) → the path it names and the name it
+        // writes.
+        let mut names: BTreeMap<(String, String), (&str, String)> = BTreeMap::new();
         for fact in store.facts.iter().filter(|f| facts.contains(&f.id)) {
             for (field, value) in &fact.fields {
-                let target = match forms.reading(&fact.kind, field) {
-                    Reading::Declared(form)
-                        if matches!(
-                            form.field_type(),
-                            FieldType::Reference | FieldType::ReferenceList
-                        ) =>
-                    {
-                        forms.target(&fact.kind, field)
-                    }
-                    _ => continue,
-                };
-                let admits = |kind: &str| target.as_ref().is_none_or(|t| t.admits(kind));
                 let spellings = match value {
                     serde_json::Value::Array(items) => {
                         items.iter().filter_map(|i| i.as_str()).collect()
@@ -105,10 +115,8 @@ pub(crate) fn rewrite(
                     single => single.as_str().into_iter().collect::<Vec<_>>(),
                 };
                 for spelling in spellings {
-                    // What the name names, as the linker resolves a fact's reference (ADR 0346 D4).
-                    let named = match graph.scopes().resolve(None, spelling, &admits) {
-                        Found::One(path) | Found::Mistyped(path) => path,
-                        Found::Ambiguous(_) | Found::None(_) => continue,
+                    let Some(named) = resolved(fact, field, spelling) else {
+                        continue;
                     };
                     let Some((old, new)) = moved_to.get_key_value(named.as_str()) else {
                         continue;
@@ -120,11 +128,11 @@ pub(crate) fn rewrite(
                         .ok_or_else(|| no_place(old_id, field, &fact.id))?;
                     let new_text = specforge_common::facts::respelled(new, spelling);
                     captured(view, old, &new_text)?;
-                    names.insert((field.clone(), spelling.to_string()), new_text);
+                    names.insert((field.clone(), spelling.to_string()), (old, new_text));
                 }
             }
         }
-        for ((field, spelling), new_text) in &names {
+        for ((field, spelling), (old, new_text)) in &names {
             // One line for each name held that is served as the spelling: the edits below write every place of each.
             for held in served.collected(field, spelling) {
                 rewrite.stale.push(Line::stale(
@@ -138,6 +146,18 @@ pub(crate) fn rewrite(
             }
             for fact in &store.facts {
                 let written = fact.named_at.get(field).and_then(|ids| ids.get(spelling));
+                // A store's name is renamed in every fact holding it: each must name the entity moved.
+                if written.is_some_and(|at| !at.is_empty())
+                    && resolved(fact, field, spelling).is_none_or(|named| named.as_str() != *old)
+                {
+                    return Err(shared(
+                        old_id,
+                        &fact.id,
+                        field,
+                        spelling,
+                        resolved(fact, field, spelling),
+                    ));
+                }
                 for place in written.into_iter().flatten() {
                     judges
                         .entry(place.file.clone())
@@ -230,6 +250,27 @@ fn captured(view: &ProjectView<'_>, old: &str, written: &str) -> Result<(), OpEr
         .with_suggestion("choose another name")),
         None => Ok(()),
     }
+}
+
+/// `name_shared`: the fact `fact` of the store holds `spelling` in `field` too, where it names `named` (another entity, or
+/// nothing), and a store's name is renamed in every fact that holds it.
+fn shared(
+    id: &str,
+    fact: &str,
+    field: &str,
+    spelling: &str,
+    named: Option<specforge_common::Sym>,
+) -> OpError {
+    let names = named.map_or_else(|| "nothing".to_string(), |path| format!("'{path}'"));
+    OpError::new(
+        OpErrorKind::Conflict,
+        NAME_SHARED,
+        format!(
+            "cannot rename '{id}': the fact '{fact}' holds '{spelling}' in '{field}' too, where it names {names}; a \
+             fact store's name is renamed in every fact that holds it"
+        ),
+    )
+    .with_suggestion("change what the collector reads, run `specforge collect`, then rename")
 }
 
 /// The refusal of a rename of `id` whose fact store a session serves cannot be read, and `why`.
