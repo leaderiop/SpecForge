@@ -105,7 +105,10 @@ unchanged tree judges alike at both ends:
 - only the compile's effect journal answers a probe there (`cached`): nothing is performed at the commit, and a value
   with no fresh record is `unknown`, unjudged as it is now; the compile's checker cache answers what it already knows;
 - stage 2 does not run at the commit: a gated value is no judged input (D4);
-- the baseline cache's environment digest covers the checks `specforge.json` attaches, and its format is 4.
+- the baseline cache's environment digest covers the checks `specforge.json` attaches; a cached baseline also keeps
+  each journal record the commit's checks read, with the expiry it answered to, and is used (in memory, on disk, or
+  held by a session) only while each still answers so, so the cache's key is the commit, the environment and those
+  answers; and its format is 5.
 
 ## D10. Gaining an owner gate is a minor schema change
 

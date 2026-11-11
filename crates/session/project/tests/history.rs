@@ -114,7 +114,7 @@ fn an_unreadable_baseline_is_w164() {
 
 #[specforge_test(
     behavior = "read_git_baseline",
-    verify = "the baseline is cached by commit and environment"
+    verify = "the baseline is cached by commit, environment and the journal answers its checks read"
 )]
 fn the_baseline_is_cached_by_commit_and_environment() {
     let project = computed::project(DECISION);

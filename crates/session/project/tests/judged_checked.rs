@@ -378,7 +378,7 @@ const JOURNAL: &str = ".specforge/effects/journal";
 
 #[specforge_test(
     behavior = "read_git_baseline",
-    verify = "a cached baseline is compiled again once a journal record its checks read answers otherwise"
+    verify = "the baseline is cached by commit, environment and the journal answers its checks read"
 )]
 fn a_cached_baseline_judges_a_probe_the_journal_answers_later() {
     use specforge_effects::git::{Git, Located, Sha};
@@ -448,10 +448,6 @@ fn a_record_only_the_baseline_read_is_an_input_of_a_sessions_checks() {
     project.write("a.spec", project.read("a.spec").replace(LINK, "not a link"));
     let mut session = project.session_in(runtime.clone());
     assert!(session.stale().is_empty(), "{:?}", session.stale());
-    eprintln!(
-        "DECLARED {}",
-        specforge_project::baseline::declared(session.project().environment().registries())
-    );
     std::fs::rename(kept.path().join("journal"), &journal).unwrap();
     let stale = session.stale();
     assert_eq!(stale.check_inputs(), [record[0].clone()], "{stale:?}");

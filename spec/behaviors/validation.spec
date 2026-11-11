@@ -283,7 +283,7 @@ behavior read_git_baseline "Read the Git Baseline" {
   verify unit "check reports the same inside and outside a git repository when nothing declares history"
   verify unit "no history is I204 only when history is declared"
   verify unit "an unreadable baseline is W164 and nothing is judged"
-  verify unit "the baseline is cached by commit and environment"
+  verify unit "the baseline is cached by commit, environment and the journal answers its checks read"
   verify unit "history reads the commits files through a port"
   verify unit "history reads named files at a commit in one question"
   verify unit "history reads only the specs and the ledger of a commit"

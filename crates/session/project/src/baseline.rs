@@ -2,8 +2,8 @@
 //! a field `immutable` or `append_only` is judged against, and a pass's `previous`. Nothing here runs unless the
 //! project declares history ([`declared`]).
 //!
-//! A baseline is cached by commit and environment: in memory for the process, and as
-//! `.specforge/baselines/<sha>-<env16>.json` under the project root, where `env16` is the first 16 hex of the digest
+//! A baseline is cached by commit, environment and the journal answers its checks read: in memory for the process,
+//! and as `.specforge/baselines/<sha>-<env16>.json` under the project root, where `env16` is the first 16 hex of the digest
 //! of what the compile reads besides the sources (the host version, the loaded declarations and the digest of each installed module, the spec root and the
 //! excludes). A different extension version is a different environment, never a stale hit.
 //! A compute pass that reads files reads the commit's, listed from its tree and fetched on demand (ADR 0300), and so
@@ -117,12 +117,13 @@ pub struct HeldBaseline {
 impl HeldBaseline {
     /// Whether a run whose `HEAD` is named by `stamp` judges against this read again: a `--since` copy's always; else
     /// while `HEAD` is the same commit and each journal record the baseline's checks read answers alike.
-    pub fn reusable(&self, stamp: &Option<RefStamp>, journal: &EffectJournal) -> bool {
-        self.pinned || (self.stamp == *stamp && self.holds(journal, UnixMillis::now_or_end()))
+    pub(crate) fn reusable(&self, stamp: Option<&RefStamp>, journal: &EffectJournal) -> bool {
+        self.pinned
+            || (self.stamp.as_ref() == stamp && self.holds(journal, UnixMillis::now_or_end()))
     }
 
     /// Whether the baseline read still answers as it did ([`Baseline::holds`]); none, or a notice, always does.
-    pub fn holds(&self, journal: &EffectJournal, now: UnixMillis) -> bool {
+    pub(crate) fn holds(&self, journal: &EffectJournal, now: UnixMillis) -> bool {
         match &self.read {
             Ok(Some(baseline)) => baseline.holds(journal, now),
             Ok(None) | Err(_) => true,
@@ -667,7 +668,7 @@ impl Baseline {
 
     /// Whether each journal record its checks read answers at `now` as it did then: a probe that found no fresh record
     /// and finds one now, or one whose answer expired or was written again, would be judged otherwise.
-    pub fn holds(&self, journal: &EffectJournal, now: UnixMillis) -> bool {
+    pub(crate) fn holds(&self, journal: &EffectJournal, now: UnixMillis) -> bool {
         self.consulted
             .iter()
             .all(|(path, expires)| journal.answer_expires(path, now) == *expires)
