@@ -1266,20 +1266,21 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
     while the spec files it edited hold it, each reading the name it wrote at its places or a later rename of the same
     entity made over it (the declaring file counted: an entity declared by hand under the old name beside it takes
     nothing), with the renames it came from; one that some of its files hold and others went back from (the name it
-    read at its places again) is in no state of the history until they agree; each stale line is at the latest rename every source file it is
-    about holds or came after, a file holding one whose name still reads at the places it wrote it, whatever else
-    changed in the file (another entity renamed, typing, text beside it that cannot extend it; read by counted work, a
-    place among more changed text than it compares byte by byte reading as gone), else the one in effect before the
-    first whose name read still reads there, else none (the name typed over). What is shown and landed is the change
-    from what the ledger holds of the history to that, as one change: the renames left undone undone, the last made
-    first, those taken up done in the order made, and each stale line whose rename moved. So an undo in one buffer and
-    not another, part way, by hand, or a redo, before a save or after, shows and lands what the buffers hold; texts in
-    which a rename is in effect without one it was planned after (an earlier rename undone by hand before a later one)
-    show and land nothing, as do texts holding a rename in some files and not others. A landing that writes nothing
-    leaves the project the ledger was written over as it was. A history spans every file its renames edit and is kept while any of them is open and the
-    ledger reads as it last left it: a ledger write the editor did not make that touches its entities or stale lines
-    ends it. A rename answered and never applied is dropped at the first change of its declaring file that is not its
-    edit (ADR 0346 D7).
+    read at its places again) is in no state of the history until they agree; each stale line is at the latest rename
+    every source file it is about holds or came after, a file holding one whose name still reads at the places it
+    wrote it, whatever else changed in the file (another entity renamed, typing, text beside it that cannot extend it,
+    a re-indent, lines moved whole; read by work linear in the texts, a place in a changed stretch reading while the
+    name reads whole as often there as before), else the one in effect before the first whose name read still reads
+    there, else none (the name typed over). What is shown and landed is the change from what the ledger holds of the
+    history to that, as one change: the renames left undone undone, the last made first, those taken up done in the
+    order made, and each stale line whose rename moved. So an undo in one buffer and not another, part way, by hand,
+    or a redo, before a save or after, shows and lands what the buffers hold; texts in which a rename is in effect
+    without one it was planned after (an earlier rename undone by hand before a later one) show and land nothing, as
+    do texts holding a rename in some files and not others. A landing that writes nothing leaves the project the
+    ledger was written over as it was. A history spans every file its renames edit and is kept while any of them is
+    open and the ledger reads as it last left it: a ledger write the editor did not make that touches its entities or
+    stale lines ends it. A rename answered and never applied is dropped at the first change of its declaring file that
+    is not its edit (ADR 0346 D7).
   """
   verify unit "the LSP rename writes its ledger change once the rename lands on disk"
   verify unit "an undone LSP rename writes no ledger change"

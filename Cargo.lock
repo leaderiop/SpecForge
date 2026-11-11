@@ -4603,7 +4603,6 @@ name = "specforge-lsp"
 version = "0.3.0"
 dependencies = [
  "serde_json",
- "similar",
  "specforge-common",
  "specforge-component",
  "specforge-diagnostics",
