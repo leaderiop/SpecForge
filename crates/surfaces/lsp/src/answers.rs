@@ -430,10 +430,9 @@ fn hold_ledger(
             .collect(),
         files,
     };
-    if let Some(pending) =
-        crate::pending::PendingLedger::of(state.compiled_project(), renamed, rewrites)
-    {
-        state.pending().hold(pending);
+    let before = state.compiled_project();
+    if let Some(pending) = crate::pending::PendingLedger::of(before, renamed, rewrites) {
+        state.pending().hold(pending, before);
     }
 }
 

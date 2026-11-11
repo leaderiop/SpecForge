@@ -14,7 +14,7 @@ use specforge_project::facts::Span;
 use specforge_project::harness::{LEDGER_FILE, Ledger, LedgerChange, Line, compose};
 
 use super::reads::reads;
-use super::{Key, PendingLedger, key_of, names};
+use super::{Key, Parses, PendingLedger, key_of};
 
 /// Whether a rename's edit is in the texts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,8 +63,8 @@ pub(super) struct Tree {
 }
 
 impl Tree {
-    pub(super) fn of(rename: Arc<PendingLedger>) -> Tree {
-        let on = rename.before.clone();
+    pub(super) fn of(rename: Arc<PendingLedger>, before: &CompiledProject) -> Tree {
+        let on = before.clone();
         let before = Ledger::parse(&String::from_utf8_lossy(&on.root_file(LEDGER_FILE))).ledger;
         Tree {
             before,
@@ -104,9 +104,14 @@ impl Tree {
         &self.nodes[0].rename.declaring
     }
 
+    /// The project the ledger was last written over (the first rename's, until a landing): where files are found.
+    pub(super) fn project(&self) -> &CompiledProject {
+        &self.landed.on
+    }
+
     /// The node the declaring file's `text` holds: the last rename answered whose new name it declares.
-    fn declared(&self, text: Option<&str>) -> At {
-        let names = names(text?, self.declaring());
+    fn declared(&self, text: Option<&str>, parses: &Parses) -> At {
+        let names = parses.names(self.declaring(), text?);
         self.live()
             .rev()
             .find(|&i| self.nodes[i].rename.declares_new(&names))
@@ -127,8 +132,7 @@ impl Tree {
         if self.is_over() || self.declaring() != rename.declaring {
             return false;
         }
-        let text = rename.before.source_text(&rename.declaring);
-        let at = self.declared(text.as_deref());
+        let at = self.declared(rename.planned.as_deref(), &Parses::default());
         if self.id(at) != rename.old_id && !self.moved(at, rename) {
             return false;
         }
@@ -218,16 +222,19 @@ impl Tree {
     /// deepest node every file it is about holds is under (one line names one name for every file); with no file a
     /// rename marking it rewrote, at the declaring file's node; and its line is that of the nearest rename at or above
     /// that node that marks it.
-    pub(super) fn read(&mut self, text: &dyn Fn(&str) -> Option<String>) -> Reading {
+    pub(super) fn read(
+        &mut self,
+        text: &dyn Fn(&str) -> Option<String>,
+        parses: &Parses,
+    ) -> Reading {
         let declaring = text(self.declaring());
-        let declared = self.declared(declaring.as_deref());
+        let declared = self.declared(declaring.as_deref(), parses);
         for i in 0..self.nodes.len() {
             let node = &self.nodes[i];
             if node.applied != Edit::Waiting {
                 continue;
             }
-            let planned = node.rename.before.source_text(&node.rename.declaring);
-            if planned.as_deref() == declaring.as_deref() {
+            if node.rename.planned.as_deref() == declaring.as_deref() {
                 continue;
             }
             self.nodes[i].applied = if declared == Some(i) {

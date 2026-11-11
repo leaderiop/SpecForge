@@ -21,7 +21,9 @@
 //! is over. A rename answered and never applied waits while its declaring file is the text it was planned on, and is
 //! dropped at the first other text without its edit: a name typed by hand later moves nothing.
 
+use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -37,10 +39,10 @@ mod tree;
 
 use tree::{Reading, Tree};
 
-/// One rename's ledger change, and the texts it read and wrote.
+/// One rename's ledger change, and the texts it read and wrote: what reading the texts and landing need, no project.
 pub struct PendingLedger {
-    /// The project the rename was planned on.
-    before: CompiledProject,
+    /// The declaring file's text the rename was planned on.
+    planned: Option<Arc<str>>,
     moves: Vec<(String, String)>,
     stale: Vec<Marked>,
     /// Each source file the rename rewrote: the text it read and the text it wrote.
@@ -103,18 +105,17 @@ impl PendingLedger {
         if before.root().is_none() || (!before.declares_harness() && rewrites.stale.is_empty()) {
             return None;
         }
-        let declared = before
-            .source_text(&renamed.declaring)
-            .map_or((1, 0), |text| {
-                declared(
-                    &text,
-                    &renamed.declaring,
-                    &renamed.old_name,
-                    &renamed.new_name,
-                )
-            });
+        let planned = before.source_text(&renamed.declaring);
+        let declared = planned.as_deref().map_or((1, 0), |text| {
+            declared(
+                text,
+                &renamed.declaring,
+                &renamed.old_name,
+                &renamed.new_name,
+            )
+        });
         Some(Arc::new(PendingLedger {
-            before: before.clone(),
+            planned,
             moves: rewrites.moves,
             stale: rewrites.stale,
             sources: rewrites
@@ -173,6 +174,25 @@ fn names(text: &str, key: &str) -> Names {
     names
 }
 
+/// The names each declaring file declares, parsed once per text for every tree one reading reads.
+#[derive(Default)]
+struct Parses(RefCell<BTreeMap<String, (String, Rc<Names>)>>);
+
+impl Parses {
+    /// The names `text`, the declaring file `key`, declares.
+    fn names(&self, key: &str, text: &str) -> Rc<Names> {
+        let mut parsed = self.0.borrow_mut();
+        if let Some((then, names)) = parsed.get(key)
+            && then == text
+        {
+            return Rc::clone(names);
+        }
+        let read = Rc::new(names(text, key));
+        parsed.insert(key.to_string(), (text.to_string(), Rc::clone(&read)));
+        read
+    }
+}
+
 /// How many entities `text` (the source `key`) declares named `old` and named `new`.
 fn declared(text: &str, key: &str, old: &str, new: &str) -> (usize, usize) {
     let names = names(text, key);
@@ -217,9 +237,9 @@ impl std::fmt::Debug for Chain {
 }
 
 impl Chain {
-    fn of(rename: Arc<PendingLedger>) -> Arc<Chain> {
+    fn of(rename: Arc<PendingLedger>, before: &CompiledProject) -> Arc<Chain> {
         Arc::new(Chain(Mutex::new(Links {
-            tree: Tree::of(rename),
+            tree: Tree::of(rename, before),
             shown: None,
             disk: BTreeMap::new(),
         })))
@@ -285,13 +305,17 @@ impl Chain {
 
     /// What the tree shows over the session when its files read as `text` answers (a file it does not answer, as on
     /// disk, read once): the change from what the ledger holds of it; `None` when that is no change.
-    fn show(&self, text: &dyn Fn(&str) -> Option<String>) -> Option<Arc<LedgerOverlay>> {
+    fn show(
+        &self,
+        text: &dyn Fn(&str) -> Option<String>,
+        parses: &Parses,
+    ) -> Option<Arc<LedgerOverlay>> {
         let files = self.files();
         let mut links = self.links();
         if links.tree.is_over() {
             return None;
         }
-        let project = links.tree.renames().next()?.before.clone();
+        let project = links.tree.project().clone();
         let mut texts: BTreeMap<String, Option<String>> = BTreeMap::new();
         for file in files {
             let text = match text(&file) {
@@ -304,7 +328,9 @@ impl Chain {
             };
             texts.insert(file, text);
         }
-        let reading = links.tree.read(&|key| texts.get(key).cloned().flatten());
+        let reading = links
+            .tree
+            .read(&|key| texts.get(key).cloned().flatten(), parses);
         let (change, on) = links.tree.change(&reading);
         links.tree.mark(&reading, !is_empty(&change));
         if is_empty(&change) {
@@ -324,14 +350,19 @@ impl Chain {
     /// Land what the disk says of the tree, over the project the session shows: the change from what the ledger holds
     /// of it. `Ok(true)` when the ledger was written; `Err` when the write failed, the tree left as it was. The tree is
     /// kept while `open` says a file of it is open, and is over when none is.
-    fn land(&self, session: &ProjectSession, open: &dyn Fn(&str) -> bool) -> Result<bool, ()> {
+    fn land(
+        &self,
+        session: &ProjectSession,
+        open: &dyn Fn(&str) -> bool,
+        parses: &Parses,
+    ) -> Result<bool, ()> {
         let files = self.files();
         let mut links = self.links();
         if links.tree.is_over() {
             return Ok(false);
         }
         let project = session.project();
-        let reading = links.tree.read(&|key| on_disk(project, key));
+        let reading = links.tree.read(&|key| on_disk(project, key), parses);
         let (change, on) = links.tree.change(&reading);
         let written = !is_empty(&change);
         if written {
@@ -369,12 +400,12 @@ impl Pending {
         chains
     }
 
-    /// Hold `rename`: it hangs in the tree whose declaring file, as `rename` was planned on it, holds the rename that
-    /// gave the entity it renames (by path), else begins one ([`Tree::join`]).
-    pub fn hold(&self, rename: Arc<PendingLedger>) {
+    /// Hold `rename`, planned on `before`: it hangs in the tree whose declaring file, as `rename` was planned on it,
+    /// holds the rename that gave the entity it renames (by path), else begins one over `before` ([`Tree::join`]).
+    pub fn hold(&self, rename: Arc<PendingLedger>, before: &CompiledProject) {
         let mut chains = self.chains();
         if !chains.iter().any(|chain| chain.join(&rename)) {
-            chains.push(Chain::of(rename));
+            chains.push(Chain::of(rename, before));
         }
     }
 
@@ -394,9 +425,10 @@ impl Pending {
     /// The editor's buffers are as `buffer` answers (the text of a source key, when it is open): what each tree shows
     /// the checks read over.
     pub fn showing(&self, buffer: impl Fn(&str) -> Option<String>) -> Vec<Arc<LedgerOverlay>> {
+        let parses = Parses::default();
         self.chains()
             .iter()
-            .filter_map(|chain| chain.show(&buffer))
+            .filter_map(|chain| chain.show(&buffer, &parses))
             .collect()
     }
 
@@ -411,8 +443,9 @@ impl Pending {
     /// The server is shutting down: every buffer is gone, so what the disk says of each tree lands now.
     pub fn flush(&self, session: &ProjectSession) {
         let chains = self.chains().clone();
+        let parses = Parses::default();
         for chain in chains {
-            let _ = chain.land(session, &|_| false);
+            let _ = chain.land(session, &|_| false, &parses);
         }
     }
 }
@@ -476,6 +509,7 @@ impl Landing {
     /// again.
     pub fn land(&self, session: &mut ProjectSession) -> bool {
         let mut landed = false;
+        let parses = Parses::default();
         for (chain, _, _) in &self.chains {
             chain.forget(&self.keys);
         }
@@ -488,14 +522,14 @@ impl Landing {
             });
             if saved {
                 let open = |key: &str| buffers.get(key).is_some_and(Option::is_some);
-                landed |= chain.land(session, &open).unwrap_or(false);
+                landed |= chain.land(session, &open, &parses).unwrap_or(false);
             }
         }
         let shown = self
             .chains
             .iter()
             .filter_map(|(chain, buffers, _)| {
-                chain.show(&|key| buffers.get(key).cloned().flatten())
+                chain.show(&|key| buffers.get(key).cloned().flatten(), &parses)
             })
             .collect();
         session.overlay_ledger(shown) || landed

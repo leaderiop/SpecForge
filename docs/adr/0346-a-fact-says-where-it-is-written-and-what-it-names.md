@@ -232,7 +232,7 @@ next collect of that collector ────────────────�
   walked back, each undone, and of those walked down, composed; each stale line whose node moved, as its rename wrote
   it, or at no rename as the ledger held it before the tree. The shown overlay is what the buffers say (a file no
   buffer holds, as on disk), read again when a source buffer the tree edits changes; once no file of the tree holds a
-  buffer the disk does not (saved, or closed), what the disk says lands. A reading parses the declaring file once,
+  buffer the disk does not (saved, or closed), what the disk says lands. A reading parses each declaring file once for every tree it reads,
   reads a file no buffer holds from disk once (again only after an event names it), and reads a source file's names
   again only when its text changed. Carrying a place is bounded by counted work, never by a clock: a pass over each
   text finds the anchor lines (the longest run of them in the same order in both), the lines shared at the edges of
@@ -241,7 +241,11 @@ next collect of that collector ────────────────�
   its lines, as typing the name over would). A line cut and pasted far away follows only when the anchors carry it
   (moved with the lines around it), else it reads as gone, never as another place. The tree is kept while any of its files is
   open: a redo or an undo saved later lands the rest, as the ledger takes any later rename (a rename back carries
-  each move record, as the CLI's does); with every file closed it is over. A rename answered and never applied waits
+  each move record, as the CLI's does); with every file closed it is over. So the history grows with the renames made
+  while the files stay open, as an editor's undo stack does, and ends when they close; no node is pruned before, since
+  an undo can return to any. A node keeps only what reading and landing need: the declaring file's text it was
+  planned on, its moves, its marked lines and the source texts it read and wrote; the tree keeps one project, the
+  one the ledger was last written over. A rename answered and never applied waits
   while its declaring file is the text it was planned on, and is dropped at the first other text without its edit,
   so a name typed by hand later moves nothing. Rejected: landing when the declaring file alone is saved (the stale
   line would claim a source text the disk does not hold yet); ending the tree at its first save (a redo would land
