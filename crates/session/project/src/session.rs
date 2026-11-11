@@ -161,16 +161,38 @@ pub struct ProjectSession {
     outside: Outside,
 }
 
+/// What a session parses each source file within until it is given a deadline ([`ProjectSession::with_parse_deadline`]):
+/// the production deadline, and the counted one in a build for tests (the `testing` feature, which every crate that
+/// tests a session turns on), so no test session reads the clock, whichever way it was made. A binary built for its
+/// own tests is built with `testing` too: each production entry point states its deadline.
+#[cfg(not(feature = "testing"))]
+pub const SESSION_PARSE_DEADLINE: Deadline = specforge_source::PARSE_DEADLINE;
+/// What a session parses each source file within until it is given a deadline: in this build for tests, the counted
+/// one ([`specforge_source::COUNTED_DEADLINE`]).
+#[cfg(feature = "testing")]
+pub const SESSION_PARSE_DEADLINE: Deadline = specforge_source::COUNTED_DEADLINE;
+
 /// What a session's every environment load is given of the outside: the git port (ADR 0287, ADR 0335; none: no
 /// judgement against history) and the effects mode and ports a surface chose (ADR 0337 D4; none: `cached`).
-#[derive(Clone, Default)]
+#[derive(Clone)]
 struct Outside {
     git: Option<SharedGit>,
     effects: Option<(EffectsMode, Ports, SharedConsent)>,
     /// What its values phase may spend; none: a run's.
     value_budget: Option<crate::values::ValueBudget>,
-    /// What each source file its reader parses is held to; none: the production deadline.
-    parse_deadline: Option<Deadline>,
+    /// What each source file its reader parses is held to.
+    parse_deadline: Deadline,
+}
+
+impl Default for Outside {
+    fn default() -> Self {
+        Outside {
+            git: None,
+            effects: None,
+            value_budget: None,
+            parse_deadline: SESSION_PARSE_DEADLINE,
+        }
+    }
 }
 
 /// A project whose environment is loaded and whose sources are not read yet
@@ -259,11 +281,21 @@ impl ProjectSession {
     }
 
     /// The same session, every environment it loads from now on parsing each source file within `deadline` rather
-    /// than the production deadline: a test's counted one ([`specforge_source::COUNTED_DEADLINE`]), so what it
-    /// parses is bounded by counted work on any machine.
+    /// than [`SESSION_PARSE_DEADLINE`]: a production entry point's statement of [`specforge_source::PARSE_DEADLINE`].
     pub fn with_parse_deadline(mut self, deadline: Deadline) -> Self {
-        self.outside.parse_deadline = Some(deadline);
+        self.set_parse_deadline(deadline);
         self
+    }
+
+    /// Every environment this session loads from now on (a reopen, a reload) parses each source file within
+    /// `deadline`; the environment loaded now keeps its own until then.
+    pub fn set_parse_deadline(&mut self, deadline: Deadline) {
+        self.outside.parse_deadline = deadline;
+    }
+
+    /// What every environment this session loads parses each source file within.
+    pub fn parse_deadline(&self) -> Deadline {
+        self.outside.parse_deadline
     }
 
     /// Open the project at `root`, running its extensions in the project's
@@ -273,22 +305,11 @@ impl ProjectSession {
     }
 
     /// Open the project at `root` with `runtime` (none: no extension
-    /// loads), parsing within the counted deadline as [`Self::open_counted`] does. A reload keeps using the same
-    /// runtime (tests: production opens with [`Self::open`] or [`Self::open_through`]).
+    /// loads). A reload keeps using the same runtime (tests: production opens with [`Self::open`] or
+    /// [`Self::open_through`]).
     #[cfg(feature = "testing")]
     pub fn open_with_runtime(root: &ProjectRoot, runtime: Option<SharedRuntime>) -> Self {
-        Self::open_counted(root, RuntimeSource::Fixed(runtime))
-    }
-
-    /// [`Self::open_from`] for a test: every environment the session loads parses each source file within
-    /// [`specforge_source::COUNTED_DEADLINE`] ([`Self::with_parse_deadline`]), never the wall clock.
-    #[cfg(feature = "testing")]
-    pub fn open_counted(root: &ProjectRoot, source: RuntimeSource) -> Self {
-        let outside = Outside {
-            parse_deadline: Some(specforge_source::COUNTED_DEADLINE),
-            ..Outside::default()
-        };
-        Self::begin_open(root, source, None, outside).finish()
+        Self::open_from(root, RuntimeSource::Fixed(runtime))
     }
 
     /// Open the project at `root`, each environment load getting its
@@ -323,9 +344,7 @@ impl ProjectSession {
         let mut env = Environment::read_through(&mut ledger, root, |config| {
             source.runtime_for(root.dir(), config)
         });
-        if let Some(deadline) = outside.parse_deadline {
-            env = env.with_parse_deadline(deadline);
-        }
+        env = env.with_parse_deadline(outside.parse_deadline);
         if let Some(git) = &outside.git {
             env = env.with_git(Arc::clone(git));
         }

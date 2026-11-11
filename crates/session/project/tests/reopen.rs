@@ -5,7 +5,8 @@ use std::sync::Arc;
 
 use specforge_project::testing::{TestProject, disk_changed};
 use specforge_project::{
-    Buffer, COUNTED_DEADLINE, ProjectSession, RuntimeSource, SharedRuntime, UpdateKind,
+    Buffer, COUNTED_DEADLINE, PARSE_DEADLINE, ProjectSession, RuntimeSource,
+    SESSION_PARSE_DEADLINE, SharedRuntime, UpdateKind,
 };
 use specforge_test::prelude::*;
 
@@ -16,28 +17,37 @@ const OMEGA: &str = "type omega \"O\" {}\n";
 const ZETA: &str = "type zeta \"Z\" {}\n";
 const GAMMA: &str = "type gamma \"G\" {}\n";
 
-/// A session given a parse deadline holds every environment it loads to it, reloads included; one given none
-/// holds them to production's.
+/// A session parses within the counted deadline in a build for tests, however it was made, and within the deadline it
+/// is given across reloads: a production entry point states production's.
 #[test]
 fn a_session_parses_within_the_deadline_it_was_given_across_reloads() {
     let dir = TestProject::new().file("a.spec", ALPHA);
     let deadline = |session: &ProjectSession| session.project().environment().syntax().deadline();
-    let mut session = ProjectSession::detached().with_parse_deadline(COUNTED_DEADLINE);
-    session.reopen(&dir.project_root(), RuntimeSource::Fixed(None), |_| {});
-    assert_eq!(deadline(&session), COUNTED_DEADLINE);
-    session.reload_environment();
-    assert_eq!(deadline(&session), COUNTED_DEADLINE, "a reload keeps it");
-
-    assert_eq!(
-        deadline(&dir.session_bare()),
-        COUNTED_DEADLINE,
-        "a test project's session"
-    );
     let root = dir.project_root();
-    let opened = ProjectSession::open_with_runtime(&root, None);
-    assert_eq!(deadline(&opened), COUNTED_DEADLINE, "a test's open");
-    let production = ProjectSession::open_from(&root, RuntimeSource::Fixed(None));
-    assert_eq!(deadline(&production), specforge_source::PARSE_DEADLINE);
+    assert_eq!(
+        SESSION_PARSE_DEADLINE, COUNTED_DEADLINE,
+        "a build for tests"
+    );
+    for (made, session) in [
+        ("a test project's session", dir.session_bare()),
+        (
+            "a test's open",
+            ProjectSession::open_with_runtime(&root, None),
+        ),
+        (
+            "an open",
+            ProjectSession::open_from(&root, RuntimeSource::Fixed(None)),
+        ),
+    ] {
+        assert_eq!(deadline(&session), COUNTED_DEADLINE, "{made}");
+    }
+
+    let mut session = ProjectSession::detached().with_parse_deadline(PARSE_DEADLINE);
+    assert_eq!(session.parse_deadline(), PARSE_DEADLINE);
+    session.reopen(&root, RuntimeSource::Fixed(None), |_| {});
+    assert_eq!(deadline(&session), PARSE_DEADLINE);
+    session.reload_environment();
+    assert_eq!(deadline(&session), PARSE_DEADLINE, "a reload keeps it");
 }
 
 #[specforge_test(
@@ -118,8 +128,7 @@ fn a_reopen_hands_over_the_environment_before_it_reads_a_source() {
 fn a_reopen_is_the_update_of_the_replacement() {
     let rt = counting();
     let (dir, _) = opened(&rt);
-    let mut session =
-        ProjectSession::detached().with_parse_deadline(specforge_project::COUNTED_DEADLINE);
+    let mut session = ProjectSession::detached();
 
     let update = session.reopen(
         &dir.project_root(),

@@ -266,8 +266,9 @@ impl McpServer {
         self
     }
 
-    /// The same server, every session it opens parsing each source file within `deadline` instead of the
-    /// production deadline: how a test bounds a parse by counted work (`specforge_project::COUNTED_DEADLINE`).
+    /// The same server, every session it opens parsing each source file within `deadline` instead of
+    /// [`specforge_project::SESSION_PARSE_DEADLINE`]: how a production entry point states production's, for a binary
+    /// built for its tests would otherwise take the counted one.
     pub fn with_parse_deadline(mut self, deadline: specforge_project::Deadline) -> Self {
         self.state.set_parse_deadline(deadline);
         self

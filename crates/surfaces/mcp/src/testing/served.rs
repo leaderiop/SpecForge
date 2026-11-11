@@ -34,7 +34,6 @@ pub fn rooted_server(root: &Path) -> McpServer {
         .with_solver(z3_ready())
         .with_collector_machine(no_approvals())
         .with_consent(no_consent())
-        .with_parse_deadline(specforge_project::COUNTED_DEADLINE)
 }
 
 /// An initialized server over a [`TestProject`]: what a client of `specforge mcp <root>` talks to. Dereferences
@@ -89,8 +88,7 @@ impl Served {
         let server = McpServer::new()
             .with_solver(z3_ready())
             .with_collector_machine(no_approvals())
-            .with_consent(no_consent())
-            .with_parse_deadline(specforge_project::COUNTED_DEADLINE);
+            .with_consent(no_consent());
         match project.served() {
             Some(served) => server.with_extension_runtime(Arc::clone(served) as SharedRuntime),
             None => server,
@@ -123,7 +121,6 @@ impl Served {
         .with_solver(z3_ready())
         .with_collector_machine(no_approvals())
         .with_consent(no_consent())
-        .with_parse_deadline(specforge_project::COUNTED_DEADLINE)
         .with_extension_runtime(runtime);
         Self::over_with(project, server, json!({}))
     }
@@ -140,7 +137,6 @@ impl Served {
             .with_solver(z3_ready())
             .with_collector_machine(no_approvals())
             .with_consent(no_consent())
-            .with_parse_deadline(specforge_project::COUNTED_DEADLINE)
             .with_extension_runtime(runtime);
         Self::over_with(project, server, params)
     }

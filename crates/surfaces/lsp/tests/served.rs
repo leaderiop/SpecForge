@@ -12,7 +12,7 @@ use specforge_lsp::changes::{Applied, Change};
 use specforge_lsp::files::{Findings, Publish};
 use specforge_lsp::reaction::Reaction;
 use specforge_lsp::{ClientSupport, LspState, answers};
-use specforge_project::{COUNTED_DEADLINE, RuntimeSource, SharedRuntime};
+use specforge_project::{RuntimeSource, SharedRuntime};
 use specforge_wasm::testing::InProcessRuntime;
 use tempfile::TempDir;
 use tokio::sync::{RwLock, RwLockReadGuard};
@@ -74,26 +74,18 @@ impl Served {
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, text).unwrap();
         }
-        Served::with(
-            dir,
-            LspState::new().with_parse_deadline(COUNTED_DEADLINE),
-            Runtime::InProcess,
-        )
+        Served::with(dir, LspState::new(), Runtime::InProcess)
     }
 
     /// The project in `dir` as written (its own `specforge.json`), its extensions run by the
     /// component runtime: builtins, the fixture extensions.
     pub fn at(dir: TempDir) -> Served {
-        Served::with(
-            dir,
-            LspState::new().with_parse_deadline(COUNTED_DEADLINE),
-            Runtime::Project,
-        )
+        Served::with(dir, LspState::new(), Runtime::Project)
     }
 
     /// A server whose workspace has no root, opened (`Reaction::open(None)`).
     pub fn detached() -> Served {
-        let mut served = Served::over(LspState::new().with_parse_deadline(COUNTED_DEADLINE));
+        let mut served = Served::over(LspState::new());
         served.reaction().open(None);
         served.opening = served.editor.take();
         served
@@ -119,9 +111,7 @@ impl Served {
     /// [`Self::open`]: the state is a fresh one holding it.
     pub fn git(mut self, git: specforge_effects::SharedGit) -> Served {
         assert!(self.reaction.is_none(), "give the git port before opening");
-        self.state = Arc::new(RwLock::new(
-            LspState::with_git(git).with_parse_deadline(COUNTED_DEADLINE),
-        ));
+        self.state = Arc::new(RwLock::new(LspState::with_git(git)));
         self
     }
 
@@ -137,7 +127,7 @@ impl Served {
         let names = extensions.iter().map(|n| n.to_string()).collect();
         Served::with(
             dir,
-            LspState::new().with_parse_deadline(COUNTED_DEADLINE),
+            LspState::new(),
             Runtime::Given(Arc::new(runtime), names),
         )
     }

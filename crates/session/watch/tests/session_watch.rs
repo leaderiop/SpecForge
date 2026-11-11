@@ -100,7 +100,7 @@ impl Fixture {
     fn watch(&self) -> (SessionWatch<Recorder>, Recorder) {
         let recorder = Recorder::default();
         let watch = SessionWatch::start(
-            ProjectSession::open_counted(
+            ProjectSession::open_from(
                 &specforge_common::ProjectRoot::of(&self.root).unwrap(),
                 specforge_project::RuntimeSource::project(),
             ),
@@ -303,7 +303,7 @@ fn a_failed_rearm_with_nothing_stale_ends_on_the_report() {
 )]
 fn what_was_written_before_the_watchers_is_applied_at_the_start() {
     let fixture = Fixture::new(PLAIN);
-    let session = ProjectSession::open_counted(
+    let session = ProjectSession::open_from(
         &specforge_common::ProjectRoot::of(&fixture.root).unwrap(),
         specforge_project::RuntimeSource::project(),
     );
@@ -416,7 +416,7 @@ fn start_refuses_a_session_built_from_no_directory() {
     let dir = TempDir::new().unwrap();
     let missing = dir.path().join("gone");
     std::fs::create_dir(&missing).unwrap();
-    let session = ProjectSession::open_counted(
+    let session = ProjectSession::open_from(
         &specforge_common::ProjectRoot::of(&missing).unwrap(),
         specforge_project::RuntimeSource::project(),
     );
@@ -718,7 +718,7 @@ fn watch_wakes_at_the_next_expiry() {
     let record = fixture
         .root
         .join(".specforge/effects/journal/ab/record.json");
-    let mut session = ProjectSession::open_counted(
+    let mut session = ProjectSession::open_from(
         &specforge_common::ProjectRoot::of(&fixture.root).unwrap(),
         specforge_project::RuntimeSource::project(),
     );

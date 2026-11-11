@@ -484,7 +484,7 @@ fn the_watchers_cover_what_the_session_classifies() {
         .to_string(),
     )
     .unwrap();
-    let session = ProjectSession::open_counted(
+    let session = ProjectSession::open_from(
         &specforge_common::ProjectRoot::of(root).unwrap(),
         specforge_project::RuntimeSource::project(),
     );
@@ -546,7 +546,7 @@ fn the_watchers_report_a_nested_projects_specforge_json() {
     std::fs::create_dir_all(root.join("spec")).unwrap();
     std::fs::write(root.join("specforge.json"), r#"{"spec_root":"spec"}"#).unwrap();
     std::fs::write(root.join("spec/a.spec"), "").unwrap();
-    let session = ProjectSession::open_counted(
+    let session = ProjectSession::open_from(
         &specforge_common::ProjectRoot::of(root).unwrap(),
         specforge_project::RuntimeSource::project(),
     );

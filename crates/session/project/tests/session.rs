@@ -537,7 +537,7 @@ fn a_nested_projects_files_are_not_compiled() {
         assert!(!codes.contains(&code), "{code} in {codes:?}");
     }
 
-    let mut session = ProjectSession::open_counted(&project_root, RuntimeSource::project());
+    let mut session = ProjectSession::open_from(&project_root, RuntimeSource::project());
     let held = root.join("sub/b.spec");
     let update = session.hold(&[Buffer::new(
         held.to_str().unwrap(),
@@ -2326,7 +2326,7 @@ fn a_config_written_while_the_runtime_loads_is_seen_next_time() {
     let (source, seen) = source_writing(|root| fs::write(root.join("specforge.json"), V2).unwrap());
 
     let mut session =
-        ProjectSession::open_counted(&specforge_common::ProjectRoot::of(root).unwrap(), source);
+        ProjectSession::open_from(&specforge_common::ProjectRoot::of(root).unwrap(), source);
 
     // The runtime and the environment were built from the one read (v1),
     // so the environment asks the runtime for nothing it did not load.
@@ -2365,7 +2365,7 @@ fn a_module_written_before_the_load_reads_it_is_what_was_read() {
         source_writing(|root| fs::write(root.join("ext/local.wasm"), "version two!").unwrap());
 
     let session =
-        ProjectSession::open_counted(&specforge_common::ProjectRoot::of(root).unwrap(), source);
+        ProjectSession::open_from(&specforge_common::ProjectRoot::of(root).unwrap(), source);
 
     assert!(session.stale().environment().is_empty());
     let enabled = session.project().environment().enabled();
@@ -2379,7 +2379,7 @@ fn a_reload_builds_its_runtime_from_the_config_it_read() {
     specforge_installed::testing::install(root, &*runtime_of(&BOTH), &BOTH);
     let (source, seen) = source_writing(|_| {});
     let mut session =
-        ProjectSession::open_counted(&specforge_common::ProjectRoot::of(root).unwrap(), source);
+        ProjectSession::open_from(&specforge_common::ProjectRoot::of(root).unwrap(), source);
 
     fs::write(root.join("specforge.json"), V2).unwrap();
     session.reload_environment();
@@ -2668,7 +2668,7 @@ fn a_reload_keeps_the_root_it_was_opened_at() {
     let sub = dir.root().join("sub");
     let opened = specforge_common::ProjectRoot::of(&sub).unwrap();
     assert_eq!(opened.dir(), dir.root());
-    let mut session = ProjectSession::open_counted(&opened, RuntimeSource::project());
+    let mut session = ProjectSession::open_from(&opened, RuntimeSource::project());
 
     // A project of its own appears under the opened one.
     write(&sub, "specforge.json", r#"{"name": "inner"}"#);

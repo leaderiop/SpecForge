@@ -27,9 +27,7 @@ pub struct Logged {
 pub fn logged(server: McpServer) -> Logged {
     let log = EventLog::new();
     Logged {
-        server: server
-            .with_events(log.clone())
-            .with_parse_deadline(specforge_project::COUNTED_DEADLINE),
+        server: server.with_events(log.clone()),
         log,
     }
 }

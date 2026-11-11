@@ -411,13 +411,11 @@ impl TestProject {
     fn open(&self, source: RuntimeSource) -> ProjectSession {
         match &self.git {
             Some(git) => {
-                let mut session = ProjectSession::detached()
-                    .with_git(Arc::clone(git))
-                    .with_parse_deadline(specforge_source::COUNTED_DEADLINE);
+                let mut session = ProjectSession::detached().with_git(Arc::clone(git));
                 session.reopen(&self.project_root(), source, |_| {});
                 session
             }
-            None => ProjectSession::open_counted(&self.project_root(), source),
+            None => ProjectSession::open_from(&self.project_root(), source),
         }
     }
 

@@ -6,7 +6,7 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, ClientSocket, LanguageServer, LspService};
 
-use specforge_project::RuntimeSource;
+use specforge_project::{Deadline, RuntimeSource};
 use specforge_watch::Debouncer;
 
 use crate::changes::Change;
@@ -18,11 +18,17 @@ use crate::{ClientSupport, LspState, answers, source_document};
 use specforge_effects::Ports;
 use specforge_ops::authoring::format;
 
+/// The service `main` serves: [`service`] parsing each source file within production's deadline, stated here, for a
+/// binary built for its tests would otherwise take the counted one ([`specforge_project::SESSION_PARSE_DEADLINE`]).
+pub fn production(ports: Ports) -> (LspService<Backend>, ClientSocket) {
+    service(ports, specforge_project::PARSE_DEADLINE)
+}
+
 /// The language server's service: the LSP methods and the editor client's own requests (ADR 0268).
 /// `main` and the tests build it here, so both serve the same methods; every project it opens asks `ports`' git port
-/// of version control.
-pub fn service(ports: Ports) -> (LspService<Backend>, ClientSocket) {
-    LspService::build(move |client| Backend::new(client, ports))
+/// of version control and parses each source file within `parse_deadline`.
+pub fn service(ports: Ports, parse_deadline: Deadline) -> (LspService<Backend>, ClientSocket) {
+    LspService::build(move |client| Backend::new(client, ports, parse_deadline))
         .custom_method(views::GRAPH, Backend::graph)
         .custom_method(views::ENTITY, Backend::entity)
         .finish()
@@ -57,8 +63,15 @@ pub struct Backend {
 }
 
 impl Backend {
-    pub fn new(client: Client, ports: Ports) -> Self {
-        let state = Arc::new(RwLock::new(LspState::with_git(ports.git)));
+    /// What every session the server opens parses each source file within.
+    pub async fn parse_deadline(&self) -> Deadline {
+        self.state.read().await.parse_deadline()
+    }
+
+    pub fn new(client: Client, ports: Ports, parse_deadline: Deadline) -> Self {
+        let state = Arc::new(RwLock::new(
+            LspState::with_git(ports.git).with_parse_deadline(parse_deadline),
+        ));
         let (gone, closed) = watch::channel(());
         let runtime = RuntimeSource::project();
         let reaction: Shared = Arc::new(Mutex::new(Reaction::new(

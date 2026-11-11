@@ -72,9 +72,6 @@ pub struct McpState {
     /// the server opens asks `ports.git` of version control, and the solver and the collector machine run through
     /// `ports.process` unless the host gave others.
     pub(crate) ports: Ports,
-    /// What every session the server opens holds each source file it parses to: the production deadline unless the
-    /// host gave another ([`crate::McpServer::with_parse_deadline`]).
-    parse_deadline: Option<specforge_project::Deadline>,
 }
 
 impl McpState {
@@ -94,23 +91,26 @@ impl McpState {
             consent: None,
             host: None,
             ports,
-            parse_deadline: None,
         }
     }
 
-    /// Every session opened from now on parses within `deadline`; none is served yet (a builder's).
+    /// Every environment the server loads from now on parses within `deadline`: the session it holds keeps what it
+    /// serves, its next load held to it, and every session it opens after carries it ([`Self::detached`]).
     pub(crate) fn set_parse_deadline(&mut self, deadline: specforge_project::Deadline) {
-        self.parse_deadline = Some(deadline);
-        self.session = self.detached();
+        self.session.set_parse_deadline(deadline);
+    }
+
+    /// What every session the server opens parses each source file within: [`specforge_project::SESSION_PARSE_DEADLINE`]
+    /// unless the host gave another ([`crate::McpServer::with_parse_deadline`]).
+    pub fn parse_deadline(&self) -> specforge_project::Deadline {
+        self.session.parse_deadline()
     }
 
     /// A session with no project, opening the next one with the server's git port and parse deadline.
     pub(crate) fn detached(&self) -> ProjectSession {
-        let session = ProjectSession::detached().with_git(Arc::clone(&self.ports.git));
-        match self.parse_deadline {
-            Some(deadline) => session.with_parse_deadline(deadline),
-            None => session,
-        }
+        ProjectSession::detached()
+            .with_git(Arc::clone(&self.ports.git))
+            .with_parse_deadline(self.parse_deadline())
     }
 
     /// The server's root is `root` from now on (`initialize`): the project
