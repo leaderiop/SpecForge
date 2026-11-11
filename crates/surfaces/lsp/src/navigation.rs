@@ -512,8 +512,9 @@ mod tests {
         .unwrap();
         std::fs::write(dir.path().join("a.spec"), COMPILED).unwrap();
         let mut state = LspState::new();
-        state.set_session(ProjectSession::open(
+        state.set_session(ProjectSession::open_counted(
             &specforge_common::ProjectRoot::of(dir.path()).unwrap(),
+            specforge_project::RuntimeSource::project(),
         ));
         let uri = Compiled::new(&state).uri("a.spec");
         (state, uri)

@@ -6,6 +6,7 @@ use std::sync::Arc;
 use specforge_common::{Diagnostic, ProjectConfig, ProjectRoot};
 use specforge_effects::{EffectsMode, Ports, SharedConsent, SharedGit, UnixMillis};
 use specforge_graph::{Applied, GraphDelta, NodeChange};
+use specforge_source::Deadline;
 
 use crate::buffers::{Buffer, Held};
 use crate::compiled::CompiledProject;
@@ -168,6 +169,8 @@ struct Outside {
     effects: Option<(EffectsMode, Ports, SharedConsent)>,
     /// What its values phase may spend; none: a run's.
     value_budget: Option<crate::values::ValueBudget>,
+    /// What each source file its reader parses is held to; none: the production deadline.
+    parse_deadline: Option<Deadline>,
 }
 
 /// A project whose environment is loaded and whose sources are not read yet
@@ -255,6 +258,14 @@ impl ProjectSession {
         self
     }
 
+    /// The same session, every environment it loads from now on parsing each source file within `deadline` rather
+    /// than the production deadline: a test's counted one ([`specforge_source::COUNTED_DEADLINE`]), so what it
+    /// parses is bounded by counted work on any machine.
+    pub fn with_parse_deadline(mut self, deadline: Deadline) -> Self {
+        self.outside.parse_deadline = Some(deadline);
+        self
+    }
+
     /// Open the project at `root`, running its extensions in the project's
     /// own runtime ([`RuntimeSource::project`]).
     pub fn open(root: &ProjectRoot) -> Self {
@@ -262,11 +273,22 @@ impl ProjectSession {
     }
 
     /// Open the project at `root` with `runtime` (none: no extension
-    /// loads). A reload keeps using the same runtime (tests: production opens with [`Self::open`] or
-    /// [`Self::open_through`]).
+    /// loads), parsing within the counted deadline as [`Self::open_counted`] does. A reload keeps using the same
+    /// runtime (tests: production opens with [`Self::open`] or [`Self::open_through`]).
     #[cfg(feature = "testing")]
     pub fn open_with_runtime(root: &ProjectRoot, runtime: Option<SharedRuntime>) -> Self {
-        Self::open_from(root, RuntimeSource::Fixed(runtime))
+        Self::open_counted(root, RuntimeSource::Fixed(runtime))
+    }
+
+    /// [`Self::open_from`] for a test: every environment the session loads parses each source file within
+    /// [`specforge_source::COUNTED_DEADLINE`] ([`Self::with_parse_deadline`]), never the wall clock.
+    #[cfg(feature = "testing")]
+    pub fn open_counted(root: &ProjectRoot, source: RuntimeSource) -> Self {
+        let outside = Outside {
+            parse_deadline: Some(specforge_source::COUNTED_DEADLINE),
+            ..Outside::default()
+        };
+        Self::begin_open(root, source, None, outside).finish()
     }
 
     /// Open the project at `root`, each environment load getting its
@@ -301,6 +323,9 @@ impl ProjectSession {
         let mut env = Environment::read_through(&mut ledger, root, |config| {
             source.runtime_for(root.dir(), config)
         });
+        if let Some(deadline) = outside.parse_deadline {
+            env = env.with_parse_deadline(deadline);
+        }
         if let Some(git) = &outside.git {
             env = env.with_git(Arc::clone(git));
         }

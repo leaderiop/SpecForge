@@ -22,11 +22,14 @@ pub struct Logged {
     pub(crate) log: EventLog,
 }
 
-/// `server`, its events recorded into a log the test reads.
+/// `server`, its events recorded into a log the test reads, every session it opens parsing within a counted
+/// deadline.
 pub fn logged(server: McpServer) -> Logged {
     let log = EventLog::new();
     Logged {
-        server: server.with_events(log.clone()),
+        server: server
+            .with_events(log.clone())
+            .with_parse_deadline(specforge_project::COUNTED_DEADLINE),
         log,
     }
 }

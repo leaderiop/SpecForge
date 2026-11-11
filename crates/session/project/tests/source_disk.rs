@@ -79,10 +79,13 @@ fn scene() -> (TestProject, TempDir, std::path::PathBuf) {
 /// [`scene`]'s project, and its session read through `disk`.
 fn linked_outside(disk: impl Fn(&Path) -> SourceDisk) -> (TestProject, TempDir, ProjectSession) {
     let (dir, outside, root) = scene();
-    let session = ProjectSession::open_through(
+    let mut session =
+        ProjectSession::detached().with_parse_deadline(specforge_project::COUNTED_DEADLINE);
+    session.reopen_through(
         &dir.project_root(),
         RuntimeSource::Fixed(None),
         Some(disk(&root)),
+        |_| {},
     );
     (dir, outside, session)
 }

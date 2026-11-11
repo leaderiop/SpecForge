@@ -265,6 +265,13 @@ impl McpServer {
         self.state.consent = Some(consent);
         self
     }
+
+    /// The same server, every session it opens parsing each source file within `deadline` instead of the
+    /// production deadline: how a test bounds a parse by counted work (`specforge_project::COUNTED_DEADLINE`).
+    pub fn with_parse_deadline(mut self, deadline: specforge_project::Deadline) -> Self {
+        self.state.set_parse_deadline(deadline);
+        self
+    }
 }
 
 /// The real adapters, built here: [`McpServer::new`]'s.

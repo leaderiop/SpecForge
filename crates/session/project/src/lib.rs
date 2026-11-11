@@ -90,6 +90,7 @@ pub use specforge_graph::{
     EdgeChange, GraphDelta, ModifiedNodeChange, NodeAspect, NodeChange, compute_graph_delta,
 };
 pub use specforge_installed::{EnabledExtension, LoadSubject, Loaded, Origin};
+pub use specforge_source::{COUNTED_DEADLINE, Deadline};
 
 /// The runtime a project's extensions run in (every [`WasmRuntime`] is
 /// `Send + Sync`).

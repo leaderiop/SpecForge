@@ -72,6 +72,9 @@ pub struct McpState {
     /// the server opens asks `ports.git` of version control, and the solver and the collector machine run through
     /// `ports.process` unless the host gave others.
     pub(crate) ports: Ports,
+    /// What every session the server opens holds each source file it parses to: the production deadline unless the
+    /// host gave another ([`crate::McpServer::with_parse_deadline`]).
+    parse_deadline: Option<specforge_project::Deadline>,
 }
 
 impl McpState {
@@ -91,12 +94,23 @@ impl McpState {
             consent: None,
             host: None,
             ports,
+            parse_deadline: None,
         }
     }
 
-    /// A session with no project, opening the next one with the server's git port.
+    /// Every session opened from now on parses within `deadline`; none is served yet (a builder's).
+    pub(crate) fn set_parse_deadline(&mut self, deadline: specforge_project::Deadline) {
+        self.parse_deadline = Some(deadline);
+        self.session = self.detached();
+    }
+
+    /// A session with no project, opening the next one with the server's git port and parse deadline.
     pub(crate) fn detached(&self) -> ProjectSession {
-        ProjectSession::detached().with_git(Arc::clone(&self.ports.git))
+        let session = ProjectSession::detached().with_git(Arc::clone(&self.ports.git));
+        match self.parse_deadline {
+            Some(deadline) => session.with_parse_deadline(deadline),
+            None => session,
+        }
     }
 
     /// The server's root is `root` from now on (`initialize`): the project

@@ -227,7 +227,8 @@ fn opening_a_project_in_place_of_a_session_keeps_its_buffers() {
     let rt = counting();
     let (dir, session) = opened(&rt);
     drop(session);
-    let mut session = ProjectSession::detached();
+    let mut session =
+        ProjectSession::detached().with_parse_deadline(specforge_project::COUNTED_DEADLINE);
     session.hold(&[Buffer::new(dir.root().join("a.spec"), OMEGA).at_version(Some(4))]);
     let before = check_runs(&rt);
     session.reopen(

@@ -484,7 +484,10 @@ fn the_watchers_cover_what_the_session_classifies() {
         .to_string(),
     )
     .unwrap();
-    let session = ProjectSession::open(&specforge_common::ProjectRoot::of(root).unwrap());
+    let session = ProjectSession::open_counted(
+        &specforge_common::ProjectRoot::of(root).unwrap(),
+        specforge_project::RuntimeSource::project(),
+    );
 
     let globs: Vec<String> = specforge_lsp::watchers::file_watchers(session.inputs(), false)
         .into_iter()
@@ -543,7 +546,10 @@ fn the_watchers_report_a_nested_projects_specforge_json() {
     std::fs::create_dir_all(root.join("spec")).unwrap();
     std::fs::write(root.join("specforge.json"), r#"{"spec_root":"spec"}"#).unwrap();
     std::fs::write(root.join("spec/a.spec"), "").unwrap();
-    let session = ProjectSession::open(&specforge_common::ProjectRoot::of(root).unwrap());
+    let session = ProjectSession::open_counted(
+        &specforge_common::ProjectRoot::of(root).unwrap(),
+        specforge_project::RuntimeSource::project(),
+    );
     let spec_root = session.inputs().spec_root().unwrap().to_path_buf();
 
     let absolute: Vec<String> = specforge_lsp::watchers::file_watchers(session.inputs(), false)
