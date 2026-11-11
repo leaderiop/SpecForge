@@ -11,7 +11,7 @@ use tower_lsp::lsp_types::{FileChangeType, FileEvent, Position};
 use crate::rename::{FACT_KEY, FACT_STORE, apply_to_buffers, fact_named};
 use crate::served::Served;
 
-fn buffer(served: &Served, file: &str) -> String {
+pub(crate) fn buffer(served: &Served, file: &str) -> String {
     served
         .state()
         .files()
@@ -22,7 +22,7 @@ fn buffer(served: &Served, file: &str) -> String {
 }
 
 /// Save `files` as their buffers hold them, and the watch events of the save.
-fn save(served: &mut Served, files: &[&str]) {
+pub(crate) fn save(served: &mut Served, files: &[&str]) {
     for file in files {
         served.write(file, &buffer(served, file));
     }
@@ -36,7 +36,7 @@ fn save(served: &mut Served, files: &[&str]) {
     served.apply(Change::Watched(events));
 }
 
-fn ledger(served: &Served) -> Ledger {
+pub(crate) fn ledger(served: &Served) -> Ledger {
     Ledger::parse(
         &std::fs::read_to_string(served.root().join("specforge-harness")).unwrap_or_default(),
     )

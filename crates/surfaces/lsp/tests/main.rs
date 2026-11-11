@@ -47,6 +47,7 @@ mod recorder;
 mod registries;
 mod rename;
 mod rename_pending;
+mod rename_undo;
 mod scoped_names;
 mod semantic_tokens;
 mod served;
