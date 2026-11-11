@@ -536,3 +536,90 @@ fn a_span_is_read_from_the_line_starts_once_found() {
     assert_eq!(at(4, 1, 1), None, "a line past the text");
     assert_eq!(at(0, 1, 1), None);
 }
+
+/// The byte offset of 1-based `line` and byte column `col` in `text`.
+fn byte_at(text: &str, line: usize, col: usize) -> usize {
+    text.split_inclusive('\n')
+        .take(line - 1)
+        .map(str::len)
+        .sum::<usize>()
+        + col
+        - 1
+}
+
+#[specforge_test_macros::test(
+    behavior = "build_in_memory_graph",
+    verify = "a stale store's places are shifted exactly by what the renames wrote, and only the text they left holds"
+)]
+fn places_are_byte_exact_across_multi_byte_names_and_prefixes() {
+    // `é` before the names and `Ť` in the name written are two bytes each; `T5 → T1` takes the name `T1 → Ťwo` freed.
+    let collected = "x\n// é covers T1 T5 T1 end\n";
+    let (t1a, t5, t1b) = (
+        place("a.test.js", 2, 14, 16),
+        place("a.test.js", 2, 17, 19),
+        place("a.test.js", 2, 20, 22),
+    );
+    let mut text = served_through(
+        "a.test.js",
+        collected,
+        &[("T1", vec![t1a, t1b]), ("T5", vec![t5])],
+        &[("T1", "Ťwo"), ("T5", "T1")],
+    );
+    // The fact's own place, the whole comment line, rides along.
+    text = text.replacen(
+        "\"facts\": [\n    {",
+        "\"facts\": [\n    {\n      \"at\": [{\"file\": \"a.test.js\", \"start_line\": 2, \"start_col\": 1, \"end_line\": 2, \"end_col\": 26}],",
+        1,
+    );
+    let served = store(KEY, &text).unwrap();
+    let after = "x\n// é covers Ťwo T1 Ťwo end\n";
+
+    let fact = &served.store.facts[0];
+    for (name, places) in &fact.named_at["covers"] {
+        for at in places {
+            let read = &after[byte_at(after, at.start_line, at.start_col)
+                ..byte_at(after, at.end_line, at.end_col)];
+            assert_eq!(read, name);
+        }
+    }
+    assert_eq!(fact.fields["covers"], serde_json::json!(["Ťwo", "T1"]));
+    let whole = &fact.at[0];
+    assert_eq!(
+        &after[byte_at(after, 2, whole.start_col)..byte_at(after, 2, whole.end_col)],
+        "// é covers Ťwo T1 Ťwo end"
+    );
+    let placed = &served.placed["a.test.js"];
+    assert!(placed.holds(after.as_bytes()));
+    assert!(!placed.holds(collected.as_bytes()));
+    assert!(
+        !placed.holds(after.replace("end", "END").as_bytes()),
+        "a hand edit of the same length"
+    );
+    let reverted = after.replacen("Ťwo", "T1", 1);
+    assert!(
+        !placed.holds(reverted.as_bytes()),
+        "one place typed back by hand"
+    );
+}
+
+#[test]
+fn a_crlf_files_places_are_judged_as_bytes() {
+    let collected = "x\r\n// covers T1 end\r\n";
+    let text = served_through(
+        "a.test.js",
+        collected,
+        &[("T1", vec![place("a.test.js", 2, 11, 13)])],
+        &[("T1", "Longer")],
+    );
+    let served = store(KEY, &text).unwrap();
+
+    assert!(served.placed["a.test.js"].holds(collected.replace("T1", "Longer").as_bytes()));
+    // Renamed back: no rename is served, and the text collected holds.
+    let back = served_through(
+        "a.test.js",
+        collected,
+        &[("T1", vec![place("a.test.js", 2, 11, 13)])],
+        &[],
+    );
+    assert!(store(KEY, &back).unwrap().placed["a.test.js"].holds(collected.as_bytes()));
+}
