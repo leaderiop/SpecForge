@@ -1262,8 +1262,9 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
     first left the name. Renames of one entity (matched by its path, not its name) are a chain, one change from the
     project the first was planned on, read from the texts each time and never kept as a phase: the moves of the
     renames the declaring file holds (none when it declares the first's old name or a name no rename wrote), and
-    for each stale line the line of the last rename every source file it is about holds, a file read as the text a
-    rename wrote or read (none for a text typed in since). So an undo in one buffer and not another, part way, by
+    for each stale line the line of the last rename every source file it is about holds: one whose name still reads
+    at the places it wrote it, whatever else changed in the file (another entity renamed, typing), else the one
+    before the first whose name read still reads there, else none (the name typed over). So an undo in one buffer and not another, part way, by
     hand, or a redo shows and lands what the buffers hold; a rename answered and never applied leaves the earlier
     ones to show and land alone; a rename of the entity the declaring file holds after an undo continues the chain
     there, the renames undone going on alone for the texts a source file still holds (ADR 0346 D7).

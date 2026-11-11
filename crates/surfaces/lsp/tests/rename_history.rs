@@ -81,8 +81,7 @@ fn a_rename_of_another_entity_in_the_same_source_keeps_the_first_line() {
     rename(&mut served, 3, "U2");
     assert!(buffer(&served, SOURCE).starts_with("// covers T2 U2\n"));
 
-    // Today: the first rename's source text is no longer the file's, so its line is dropped.
-    let expected = said(&[("U1", "U2")], &[("T2", "T1"), ("U2", "U1")]);
+    let expected = said(&[("T1", "T2"), ("U1", "U2")], &[("T2", "T1"), ("U2", "U1")]);
     assert_eq!(shown(&served), expected);
     save(&mut served, &[SPEC, SOURCE]);
     assert_eq!(landed(&served), expected);
@@ -99,7 +98,24 @@ fn typing_elsewhere_in_the_source_keeps_the_line() {
     let text = buffer(&served, SOURCE) + "test('more', () => {});\n";
     served.edit(SOURCE, &text);
 
-    // Today: the source holds no text a rename wrote or read, so no line.
+    let expected = said(&[("T1", "T2")], &[("T2", "T1")]);
+    assert_eq!(shown(&served), expected);
+    save(&mut served, &[SPEC, SOURCE]);
+    assert_eq!(landed(&served), expected);
+}
+
+/// `T1` renamed to `T2`, then the name typed over in the source (`T2x`, which no rename wrote): the source no longer
+/// holds the rename there, so no line.
+#[spec(
+    behavior = "land_rename_ledger",
+    verify = "an editor rename's stale line holds while its names read in the source, whatever else changed there"
+)]
+fn a_name_typed_over_in_the_source_drops_its_line() {
+    let mut served = fact_named();
+    rename(&mut served, 0, "T2");
+    let text = buffer(&served, SOURCE).replacen("covers T2", "covers T2x", 1);
+    served.edit(SOURCE, &text);
+
     let expected = said(&[], &[("T2", "T1")]);
     assert_eq!(shown(&served), expected);
     save(&mut served, &[SPEC, SOURCE]);

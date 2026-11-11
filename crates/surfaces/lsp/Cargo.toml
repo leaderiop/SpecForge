@@ -30,6 +30,7 @@ specforge-watch = { path = "../../session/watch", features = ["tokio"] }
 tower-lsp = { workspace = true }
 tokio = { workspace = true }
 serde_json = { workspace = true }
+similar = { workspace = true }
 
 [dev-dependencies]
 # The repositories the tests that commit build, with no git program.

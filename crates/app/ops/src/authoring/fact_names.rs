@@ -27,12 +27,31 @@ pub(crate) struct Rewrite {
     pub stale: Vec<Marked>,
 }
 
-/// A stale line a rename marks, and the source files it writes the name at: what the line says of the store is true
-/// of exactly those files' texts (an editor that holds them apart reads each one alone).
+/// A stale line a rename marks, the name it read and the name it wrote, and each place it wrote it: what the line says
+/// of the store is true of a file while the name written reads at its places there (an editor that holds the files
+/// apart reads each one alone).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Marked {
     pub line: Line,
-    pub files: BTreeSet<String>,
+    pub read: String,
+    pub wrote: String,
+    pub places: Vec<MarkedPlace>,
+}
+
+/// One place a marked name is written: its file, its span in the text the rename read, and its span in the text the
+/// rename wrote.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MarkedPlace {
+    pub file: String,
+    pub read: Span,
+    pub wrote: Span,
+}
+
+impl Marked {
+    /// The source files the line is about.
+    pub fn files(&self) -> BTreeSet<&str> {
+        self.places.iter().map(|p| p.file.as_str()).collect()
+    }
 }
 
 /// The rewrite of the facts that name an entity `moved` moves (old path → new path, the renamed entity first), each
@@ -148,7 +167,7 @@ pub(crate) fn rewrite(
         }
         for ((field, spelling), (old, new_text)) in &names {
             rewritten.insert((key.clone(), field.clone(), spelling.clone()));
-            let mut files = BTreeSet::new();
+            let mut at = Vec::new();
             for fact in &store.facts {
                 let written = fact.named_at.get(field).and_then(|ids| ids.get(spelling));
                 // A store's name is renamed in every fact holding it: each must name the entity moved.
@@ -164,7 +183,6 @@ pub(crate) fn rewrite(
                     ));
                 }
                 for place in written.into_iter().flatten() {
-                    files.insert(place.file.clone());
                     // The reader serves no store placing a fact in a file it records no digest of.
                     judges
                         .entry(place.file.clone())
@@ -180,6 +198,11 @@ pub(crate) fn rewrite(
                         place.end_line,
                         place.end_col,
                     );
+                    at.push(MarkedPlace {
+                        file: place.file.clone(),
+                        read: span,
+                        wrote: span,
+                    });
                     places
                         .entry(place.file.clone())
                         .or_default()
@@ -197,11 +220,15 @@ pub(crate) fn rewrite(
                         held,
                         new_text,
                     ),
-                    files: files.clone(),
+                    read: spelling.clone(),
+                    wrote: new_text.clone(),
+                    places: at.clone(),
                 });
             }
         }
     }
+    // Where each file's places are in the text written: a marked place's span there.
+    let mut written: BTreeMap<String, Writes> = BTreeMap::new();
     for (file, edits) in places {
         let moved = || {
             OpError::new(
@@ -243,6 +270,7 @@ pub(crate) fn rewrite(
         }))
         .ok_or_else(|| crossed(old_id, &file))?;
         kept_by(view, old_id, &file, &writes, &edits, &rewritten)?;
+        written.insert(file.clone(), writes.clone());
         let mut edits = edits;
         let edits: Vec<TextEdit> = writes
             .outer()
@@ -258,6 +286,14 @@ pub(crate) fn rewrite(
             },
         );
         rewrite.edits.extend(edits);
+    }
+    for place in rewrite.stale.iter_mut().flat_map(|m| &mut m.places) {
+        if let Some(span) = written
+            .get(&place.file)
+            .and_then(|w| w.written(&place.read))
+        {
+            place.wrote = span;
+        }
     }
     Ok(rewrite)
 }

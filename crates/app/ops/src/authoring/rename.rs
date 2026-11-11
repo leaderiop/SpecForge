@@ -11,7 +11,7 @@
 
 use crate::authoring::apply::{self, Origin};
 use crate::authoring::entity_id::validate_id;
-pub use crate::authoring::fact_names::Marked;
+pub use crate::authoring::fact_names::{Marked, MarkedPlace};
 use crate::authoring::planned::PlannedChange;
 use crate::read::navigate::{Navigator, Precision, TextEdit, apply_edits};
 use crate::view::EntityField;

@@ -29,8 +29,12 @@ use specforge_ops::asking::Asking;
 use specforge_ops::authoring::apply::{Origin, Surface, land_ledger};
 use specforge_ops::authoring::rename::Marked;
 use specforge_ops::{Caller, Containment};
+use specforge_project::facts::Span;
 use specforge_project::harness::{LedgerChange, LedgerOverlay, Line, compose};
 use specforge_project::{CompiledProject, ProjectSession};
+
+mod reads;
+use reads::reads;
 
 /// One rename's ledger change, and the texts it read and wrote.
 pub struct PendingLedger {
@@ -146,10 +150,14 @@ impl PendingLedger {
 
     /// The stale line this rename marks for `key`, if any.
     fn line(&self, key: &Key) -> Option<&Line> {
+        self.marked(key).map(|m| &m.line)
+    }
+
+    /// What this rename marks for `key`, if anything.
+    fn marked(&self, key: &Key) -> Option<&Marked> {
         self.stale
             .iter()
-            .map(|m| &m.line)
-            .find(|line| key_of(line).as_ref() == Some(key))
+            .find(|m| key_of(&m.line).as_ref() == Some(key))
     }
 }
 
@@ -210,19 +218,40 @@ fn declaring_step(renames: &[Arc<PendingLedger>], text: Option<&str>) -> usize {
         .unwrap_or(0)
 }
 
-/// The step of the source `file`'s `text` in `renames`: the last rename that wrote that text, else one before the
-/// first that read it; `None` when it is neither.
-fn source_step(renames: &[Arc<PendingLedger>], file: &str, text: Option<&str>) -> Option<usize> {
-    let text = text?;
-    let source = |i: usize| renames[i - 1].sources.get(file);
-    (1..=renames.len())
-        .rev()
-        .find(|&i| source(i).is_some_and(|(_, wrote)| wrote == text))
-        .or_else(|| {
-            (1..=renames.len())
-                .find(|&i| source(i).is_some_and(|(read, _)| **read == *text))
-                .map(|i| i - 1)
-        })
+/// The step of the source `file`'s `text` in `renames` for the stale line `key`: the last rename whose name for it
+/// still reads at the places it wrote it in the file, else one before the first whose name it read still reads at
+/// its places, else 0 (the name changed to one no rename wrote). Whatever else changed in the file (another
+/// entity renamed, typing) does not move the step. `None` when no rename marking the line rewrote the file.
+fn source_step(
+    renames: &[Arc<PendingLedger>],
+    key: &Key,
+    file: &str,
+    text: Option<&str>,
+) -> Option<usize> {
+    let marked = |i: usize| {
+        let rename = &renames[i - 1];
+        Some((rename.marked(key)?, rename.sources.get(file)?))
+    };
+    let n = renames.len();
+    if !(1..=n).any(|i| marked(i).is_some()) {
+        return None;
+    }
+    let Some(text) = text else { return Some(0) };
+    let spans = |marked: &Marked, read: bool| -> Vec<Span> {
+        let at = marked.places.iter().filter(|p| p.file == file);
+        at.map(|p| if read { p.read } else { p.wrote }).collect()
+    };
+    let wrote = (1..=n).rev().find(|&i| {
+        marked(i).is_some_and(|(m, (_, wrote))| reads(wrote, text, &spans(m, false), &m.wrote))
+    });
+    let read = || {
+        (1..=n)
+            .find(|&i| {
+                marked(i).is_some_and(|(m, (read, _))| reads(read, text, &spans(m, true), &m.read))
+            })
+            .map(|i| i - 1)
+    };
+    Some(wrote.or_else(read).unwrap_or(0))
 }
 
 /// Every stale line `renames` mark, by key, in the order first marked, with the source files any of them is about.
@@ -232,27 +261,25 @@ fn keys(renames: &[Arc<PendingLedger>]) -> Vec<(Key, BTreeSet<String>)> {
         let Some(key) = key_of(&marked.line) else {
             continue;
         };
+        let files = marked.files().into_iter().map(str::to_string);
         match keys.iter_mut().find(|(k, _)| *k == key) {
-            Some((_, files)) => files.extend(marked.files.iter().cloned()),
-            None => keys.push((key, marked.files.clone())),
+            Some((_, known)) => known.extend(files),
+            None => keys.push((key, files.collect())),
         }
     }
     keys
 }
 
-/// What the texts `text` answers say of `renames`. A stale line is at the earliest step any file it is about that a
-/// rename rewrote holds (one line names one name for every such file), 0 for a file holding none of the chain's
-/// texts; with no such file, at the declaring file's step.
+/// What the texts `text` answers say of `renames`. A stale line is at the earliest step any file it is about holds
+/// (one line names one name for every file); with no file a rename marking it rewrote, at the declaring file's step.
 fn read(renames: &[Arc<PendingLedger>], text: &dyn Fn(&str) -> Option<String>) -> Reading {
     let declared = declaring_step(renames, text(&renames[0].declaring).as_deref());
-    let rewritten = |file: &&String| renames.iter().any(|r| r.sources.contains_key(*file));
     let lines = keys(renames)
         .iter()
         .map(|(key, files)| {
             let step = files
                 .iter()
-                .filter(rewritten)
-                .map(|file| source_step(renames, file, text(file).as_deref()).unwrap_or(0))
+                .filter_map(|file| source_step(renames, key, file, text(file).as_deref()))
                 .min()
                 .unwrap_or(declared);
             (1..=step)
