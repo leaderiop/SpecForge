@@ -68,7 +68,8 @@ impl Ledger {
     ///    `facts:` and `stale:` line of its collector; a stale line it marks replaces the line of the same store, field
     ///    and name held, and is dropped when it writes the name held back (the store is no longer stale there);
     /// 2. a move re-keys every line of the entity and of those under it that matched its value before, adds the
-    ///    record `new moved:old`, and carries an existing record `old moved:x` to `new moved:x`;
+    ///    record `new moved:old`, and carries an existing record `old moved:x` to `new moved:x`, dropping it when
+    ///    `new` is `x` (a move back);
     /// 3. a value the write respelled (a reference whose target moved) is re-recorded when it matched before, so a
     ///    value recorded before the write stays recorded after it;
     /// 4. a line whose entity or field is gone in `after` is dropped, unless the project has a source that did not
@@ -95,8 +96,10 @@ impl Ledger {
         for line in self.lines() {
             let path = relocate(&line.subject);
             if let Some(from) = line.moved_from() {
-                // `old moved:x` is now `new moved:x`.
-                lines.push(Line::moved(&path, from));
+                // `old moved:x` is now `new moved:x`; a move back to `x` leaves nothing to record.
+                if path != from {
+                    lines.push(Line::moved(&path, from));
+                }
             } else if !line.is_value() {
                 lines.push(line.clone());
             } else {
@@ -132,7 +135,7 @@ impl Ledger {
                 lines.push(line.clone());
             }
         }
-        for (old, new) in &change.moves {
+        for (old, new) in change.moves.iter().filter(|(old, new)| old != new) {
             lines.push(Line::moved(new, old));
         }
         for (path, field) in &change.set {
@@ -331,7 +334,7 @@ mod tests {
     }
 
     #[test]
-    fn a_move_back_carries_the_record_onto_its_own_name() {
+    fn a_move_back_drops_the_record_it_would_carry_onto_its_own_name() {
         let harness = Harness::default();
         let forms = forms();
         let (before, after) = (graph(&source("04", "pass")), graph(&source("03", "pass")));
@@ -354,7 +357,7 @@ mod tests {
             .collect();
         assert_eq!(
             records,
-            ["v1.0/03 moved:v1.0/03", "v1.0/03 moved:v1.0/04"],
+            ["v1.0/03 moved:v1.0/04"],
             "{}",
             after_ledger.canonical()
         );

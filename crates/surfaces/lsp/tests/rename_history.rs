@@ -146,7 +146,8 @@ fn a_redo_after_a_save_lands_the_rest() {
 }
 
 /// `T1 → T2 → T3`, saved (both land), then undone to `T1` in both files and saved: the ledger as a rename back of `T3`
-/// to `T1` leaves it (each move record carried, one added), and no stale line.
+/// to `T1` leaves it (the record of `T1` dropped as it moves back onto its own name, `T1 moved:T3` added), and no stale
+/// line.
 #[spec(
     behavior = "land_rename_ledger",
     verify = "editor renames redone after a save land what the redo says"
@@ -161,7 +162,7 @@ fn an_undo_past_a_save_lands_the_rename_back() {
     assert_eq!(shown(&served), said(&[("T1", "T1")], &[("T1", "T3")]));
     save(&mut served, &[SPEC, SOURCE]);
 
-    assert_eq!(landed(&served), said(&[], &[("T1", "T1"), ("T1", "T3")]));
+    assert_eq!(landed(&served), said(&[], &[("T1", "T3")]));
     assert!(served.state().pending().shown().is_empty());
 }
 
