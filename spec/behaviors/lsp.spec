@@ -1296,6 +1296,8 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
   verify unit "a ledger write from outside the editor ends the editor renames it touches"
   verify unit "an entity declared by hand under the name an editor rename left takes nothing of it"
   verify unit "editor renames of a scope and of what it scopes compose as one history"
+  verify unit "an editor rename touching two histories of renames joins them into one"
+  verify unit "an earlier editor rename undone by hand before a later one it led to lands nothing"
   verify unit "the LSP rename and fixes are versioned for a client that takes document changes"
   verify unit "a fix names the version of the buffer it edits for a client that takes document changes"
 }

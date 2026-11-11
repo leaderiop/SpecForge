@@ -333,6 +333,54 @@ mod tests {
         );
     }
 
+    /// A milestone `milestone`, its phase `phase` and the phase's test `U1`.
+    fn scoped(milestone: &str, phase: &str) -> String {
+        format!(
+            "milestone {milestone} \"M\" {{}}\nphase {phase} \"P\" {{\n  milestone {milestone}\n}}\nuat U1 \"U\" {{\n  phase {phase}\n  result pass\n}}\n"
+        )
+    }
+
+    /// Two renames as one change, the milestone's move listed before the phase's own (a phase renamed after its
+    /// milestone): the test's line is re-keyed by the phase's move, the most specific one, not by the milestone's.
+    #[test]
+    fn a_composed_change_rekeys_a_line_by_the_most_specific_move() {
+        let harness = Harness {
+            fields: BTreeMap::from([("uat".to_string(), BTreeSet::from(["result".to_string()]))]),
+            ..Default::default()
+        };
+        let forms = forms();
+        let (before, after) = (graph(&scoped("v1.0", "03")), graph(&scoped("v1.1", "04")));
+        let view = |graph| View {
+            graph,
+            forms: &forms,
+            harness: &harness,
+            keeps_gone: false,
+        };
+        let mut ledger = Ledger::default();
+        ledger.insert(Line {
+            subject: "v1.0/03/U1".into(),
+            key: "result".into(),
+            digest: digest("v1.0/03/U1", "result", b"\"pass\""),
+        });
+        let change = LedgerChange {
+            moves: vec![
+                ("v1.0".into(), "v1.1".into()),
+                ("v1.0/03".into(), "v1.1/04".into()),
+            ],
+            ..Default::default()
+        };
+        let after_ledger = ledger.rewritten(&view(&before), &view(&after), &change);
+        assert!(
+            after_ledger.records(
+                "v1.1/04/U1",
+                "result",
+                &digest("v1.1/04/U1", "result", b"\"pass\"")
+            ),
+            "{}",
+            after_ledger.canonical()
+        );
+    }
+
     #[test]
     fn a_move_back_drops_the_record_it_would_carry_onto_its_own_name() {
         let harness = Harness::default();

@@ -49,6 +49,7 @@ mod rename;
 mod rename_history;
 mod rename_outside;
 mod rename_pending;
+mod rename_scopes;
 mod rename_undo;
 mod scoped_names;
 mod semantic_tokens;
