@@ -356,13 +356,7 @@ pub(crate) fn stale_lines(p: &TestProject) -> Vec<(String, String, String)> {
     ledger
         .lines()
         .filter_map(Line::stale_of)
-        .map(|s| {
-            (
-                s.field.to_string(),
-                s.written.to_string(),
-                s.now.to_string(),
-            )
-        })
+        .map(|s| (s.field.to_string(), s.held.to_string(), s.now.to_string()))
         .collect()
 }
 

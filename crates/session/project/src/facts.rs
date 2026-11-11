@@ -413,7 +413,7 @@ pub struct Placed {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Respelled {
     pub at: FactLocation,
-    pub written: String,
+    pub held: String,
     pub now: String,
 }
 
@@ -431,7 +431,7 @@ impl Placed {
             if text.get(range.clone()) != Some(respelled.now.as_bytes()) {
                 return false;
             }
-            ranges.push((range, respelled.written.as_bytes()));
+            ranges.push((range, respelled.held.as_bytes()));
         }
         ranges.sort_by_key(|(range, _)| range.start);
         if ranges
@@ -441,8 +441,8 @@ impl Placed {
             return false;
         }
         let mut collected = text.to_vec();
-        for (range, written) in ranges.into_iter().rev() {
-            collected.splice(range, written.iter().copied());
+        for (range, held) in ranges.into_iter().rev() {
+            collected.splice(range, held.iter().copied());
         }
         format!("sha256:{}", specforge_package::Sha256::of(&collected)) == self.digest
     }

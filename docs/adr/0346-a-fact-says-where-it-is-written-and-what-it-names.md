@@ -120,7 +120,7 @@ rename T1 → T2
   │    F (its held text, else the disk's) is not the text the store's places are in, or the text at a place
   │    ≠ the name served ────────────▶ refused `source_moved`
   │    another fact of the store holds the name in that field for something else ─▶ refused `name_shared`
-  │    else every place the store writes the name: its written suffix → the same suffix of the new path
+  │    else every place the store writes the name: its spelling there → the same suffix of the new path
   └─ one planned change: spec files + source files + ledger (moves, and for each name rewritten
        `<collector> stale:<key>:<field>:<name held>:<new spelling> <digest of the store bytes>`,
        replacing the line of that store, field and name held; dropped when it writes the name held back)

@@ -1,5 +1,5 @@
 //! A fact store a rename marked stale (ADR 0346 D7): for each name a rename rewrote where the store's facts hold it,
-//! the ledger holds `<collector> stale:<key>:<field>:<written>:<now> <digest>` for the store's bytes, `written` the
+//! the ledger holds `<collector> stale:<key>:<field>:<held>:<now> <digest>` for the store's bytes, `held` the
 //! name the store holds and `now` the name the last rename wrote. Until the collector collects again, exactly those
 //! names are read as now written and the store is W197.
 //!
@@ -147,24 +147,24 @@ pub(super) fn settled(mut rewrites: Rewrites, torn: &BTreeSet<(String, String)>)
 /// stale line of that store whose digest is of exactly those bytes; when one name held has lines to two names, those
 /// in `conflicts`, and no rename at all.
 pub(super) fn carried(recorded: &Ledger, collector: &str, key: &str, bytes: &[u8]) -> Carried {
-    let mut written: Conflicts = Conflicts::new();
+    let mut named: Conflicts = Conflicts::new();
     for line in recorded.lines() {
         let Some(stale) = line.stale_of() else {
             continue;
         };
         if stale.collector == collector
             && stale.key == key
-            && *line == Line::stale(collector, key, bytes, stale.field, stale.written, stale.now)
+            && *line == Line::stale(collector, key, bytes, stale.field, stale.held, stale.now)
         {
-            written
+            named
                 .entry(stale.field.to_string())
                 .or_default()
-                .entry(stale.written.to_string())
+                .entry(stale.held.to_string())
                 .or_default()
                 .insert(stale.now.to_string());
         }
     }
-    let mut conflicts = written.clone();
+    let mut conflicts = named.clone();
     for names in conflicts.values_mut() {
         names.retain(|_, now| now.len() > 1);
     }
@@ -175,7 +175,7 @@ pub(super) fn carried(recorded: &Ledger, collector: &str, key: &str, bytes: &[u8
             ..Carried::default()
         };
     }
-    let renames = written
+    let renames = named
         .into_iter()
         .map(|(field, names)| {
             let names = names
@@ -287,13 +287,13 @@ pub(super) fn follow(
             };
             // A rename rewrites only a name written at a place: the name the fact holds there. All at once, so a
             // name one rename freed and another took is read for each.
-            let held: BTreeSet<String> = places.keys().cloned().collect();
-            for (written, at) in std::mem::take(places) {
-                let now = names.get(&written).cloned().unwrap_or(written);
+            let holding: BTreeSet<String> = places.keys().cloned().collect();
+            for (held, at) in std::mem::take(places) {
+                let now = names.get(&held).cloned().unwrap_or(held);
                 places.entry(now).or_default().extend(at);
             }
             if let Some(value) = fact.fields.get_mut(field) {
-                respell(value, names, &held);
+                respell(value, names, &holding);
             }
         }
     }
@@ -303,7 +303,7 @@ pub(super) fn follow(
             let respelled = at
                 .iter()
                 .map(
-                    |(&(start_line, start_col, end_line, end_col), (written, now))| {
+                    |(&(start_line, start_col, end_line, end_col), (held, now))| {
                         let mut place = FactLocation {
                             file: file.clone(),
                             start_line,
@@ -314,7 +314,7 @@ pub(super) fn follow(
                         shift(&mut place, at);
                         Respelled {
                             at: place,
-                            written: written.clone(),
+                            held: held.clone(),
                             now: now.clone(),
                         }
                     },

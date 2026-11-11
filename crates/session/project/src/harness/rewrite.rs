@@ -124,11 +124,11 @@ impl Ledger {
             };
             lines.retain(|l| {
                 l.stale_of().is_none_or(|s| {
-                    (s.collector, s.key, s.field, s.written)
-                        != (stale.collector, stale.key, stale.field, stale.written)
+                    (s.collector, s.key, s.field, s.held)
+                        != (stale.collector, stale.key, stale.field, stale.held)
                 })
             });
-            if stale.written != stale.now {
+            if stale.held != stale.now {
                 lines.push(line.clone());
             }
         }
@@ -462,7 +462,7 @@ mod tests {
         let stale: Vec<_> = again
             .lines()
             .filter_map(Line::stale_of)
-            .map(|s| (s.written, s.now))
+            .map(|s| (s.held, s.now))
             .collect();
         assert_eq!(stale, [("T1", "T4"), ("T5", "T6")], "{}", again.canonical());
 
@@ -475,7 +475,7 @@ mod tests {
         let stale: Vec<_> = back
             .lines()
             .filter_map(Line::stale_of)
-            .map(|s| s.written)
+            .map(|s| s.held)
             .collect();
         assert_eq!(stale, ["T5"], "{}", back.canonical());
     }
@@ -524,7 +524,7 @@ mod tests {
         let stale: Vec<_> = collected
             .lines()
             .filter_map(Line::stale_of)
-            .map(|stale| (stale.collector, stale.key, stale.written, stale.now))
+            .map(|stale| (stale.collector, stale.key, stale.held, stale.now))
             .collect();
         assert_eq!(
             stale,

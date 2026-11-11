@@ -180,7 +180,7 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     cannot put back MUST be listed in the failure's files_written.
     A rename of a collected entity is refused (collected). One of an entity a
     collected fact names rewrites the source file at every place the fact's
-    store records the name written, its written suffix becoming the same
+    store records the name written, its spelling there becoming the same
     suffix of the new path, and writes the store's stale line to
     specforge-harness; it is refused as collected when the fact records no
     place, and as source_moved when a file is not the text the store's
