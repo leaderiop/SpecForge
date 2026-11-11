@@ -26,6 +26,19 @@ pub(crate) fn locate_in(dir: &Path, env: Env<'_>) -> Located {
     let real = |p: &Path| p.canonicalize().unwrap_or_else(|_| dir.join(p));
     let here = real(dir);
     let ceilings = ceilings(&here, env);
+    // git looks for a repository only strictly below the nearest ceiling; gix searches the ceiling itself and opens
+    // what it finds there (its config read, its `core.worktree` followed), so nothing at or above it is opened
+    let nearest = ceilings
+        .iter()
+        .max_by_key(|ceiling| ceiling.components().count());
+    if nearest.is_some_and(|ceiling| {
+        !here.ancestors().take_while(|at| at != ceiling).any(|at| {
+            at.join(".git").symlink_metadata().is_ok() || gix::discover::is_git(at).is_ok()
+        })
+    }) {
+        return named_elsewhere(dir, None, env)
+            .map_or(Located::NotARepository, Located::Unavailable);
+    }
     let upwards = gix::discover::upwards::Options {
         ceiling_dirs: ceilings.clone(),
         match_ceiling_dir_or_error: false,
@@ -43,19 +56,6 @@ pub(crate) fn locate_in(dir: &Path, env: Env<'_>) -> Located {
         }
         Err(error) => return Located::Unavailable(error.to_string()),
     };
-    // git looks for a repository only strictly below the nearest ceiling; gix searches the ceiling itself, and a
-    // repository found there may name its worktree elsewhere, so where it was found is what is judged
-    let nearest = ceilings
-        .iter()
-        .max_by_key(|ceiling| ceiling.components().count());
-    if nearest.is_some_and(|ceiling| {
-        !here.ancestors().take_while(|at| at != ceiling).any(|at| {
-            at.join(".git").symlink_metadata().is_ok() || gix::discover::is_git(at).is_ok()
-        })
-    }) {
-        return named_elsewhere(dir, None, env)
-            .map_or(Located::NotARepository, Located::Unavailable);
-    }
     let Some(top) = repo.workdir() else {
         return Located::Unavailable("a bare repository has no working tree".into());
     };

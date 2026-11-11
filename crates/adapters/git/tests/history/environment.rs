@@ -155,10 +155,10 @@ fn a_repository_at_the_ceiling_is_never_opened() {
     text.push_str("[core]\n\tworktree = C:\\Users\\wt\n");
     std::fs::write(&config, text).unwrap();
     let vars = Vars::default().set("GIT_CEILING_DIRECTORIES", real.join("repo"));
-    assert!(matches!(
+    assert_eq!(
         vars.top(&real.join("repo/sub")),
-        Err(Located::Unavailable(_))
-    ));
+        Err(Located::NotARepository)
+    );
 }
 
 /// A repository above the nearest ceiling is none either.
