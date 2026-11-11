@@ -336,17 +336,76 @@ mod tests {
     }
 
     #[test]
-    fn a_name_moved_with_the_lines_around_it_reads_and_one_cut_away_alone_does_not() {
+    fn a_line_moved_whole_carries_its_name_and_one_moved_and_edited_does_not() {
         let block = "// covers T2\ntest('adds', () => {});\ntest('more', () => {});\n";
         let then = format!("const a = 1;\n{block}");
         let now = format!("{block}const a = 1;\n");
         assert!(reads(&then, &now, &[(2, 11, 2, 13)], "T2"));
 
+        let swapped = "test('adds', () => {});\n// covers T2 U1\n";
+        assert!(reads(THEN, swapped, &AT, "T2"), "an adjacent line swap");
+        let then = "// covers T2\nconst a = 1;\n";
+        assert!(reads(then, "const a = 1;\n// covers T2\n", &AT, "T2"));
+
         let then = format!("// covers T2\n{}", lines());
         let now = format!("{}// covers T2\n", lines());
-        assert!(!reads(&then, &now, &AT, "T2"));
+        assert!(reads(&then, &now, &AT, "T2"), "moved whole, far");
         let now = format!("{}// covers T2, T5\n", lines());
-        assert!(!reads(&then, &now, &AT, "T2"));
+        assert!(!reads(&then, &now, &AT, "T2"), "moved far and edited");
+    }
+
+    /// Seventy test lines under the name: over 2 KB.
+    fn tests_file() -> String {
+        let mut text = String::from("// covers T2\n");
+        for i in 0..70 {
+            text.push_str(&format!("    expect(add({i}, 1)).toBe({});\n", i + 1));
+        }
+        assert!(text.len() > 2000);
+        text
+    }
+
+    /// About 2 KB of new tests.
+    fn pasted() -> String {
+        (0..60)
+            .map(|i| format!("  it('new {i}', () => {{}});\n"))
+            .collect()
+    }
+
+    #[test]
+    fn a_name_reads_through_a_reformat_and_a_paste_beside_it() {
+        let then = tests_file();
+        let reindented: String = then
+            .lines()
+            .map(|line| format!("  {}\n", line.trim_start()))
+            .collect();
+        assert!(reads(&then, &reindented, &AT, "T2"), "re-indented");
+        let formatted: String = then
+            .lines()
+            .map(|line| format!("\t{}\n", line.trim_start().replace(", ", ",")))
+            .collect();
+        assert!(reads(&then, &formatted, &AT, "T2"), "formatted");
+        let edited = then.replacen(
+            "// covers T2\n",
+            &format!("// covers T2, T5\n{}", pasted()),
+            1,
+        );
+        assert!(
+            reads(&then, &edited, &AT, "T2"),
+            "edited beside, 2 KB pasted"
+        );
+    }
+
+    #[test]
+    fn a_name_typed_over_grown_or_written_twice_among_changed_lines_reads_as_gone() {
+        let then = tests_file();
+        for (now, what) in [
+            ("// covers T3\n", "typed over"),
+            ("// covers T2x\n", "grown"),
+            ("// covers T2, T2\n", "written twice"),
+        ] {
+            let now = then.replacen("// covers T2\n", &format!("{now}{}", pasted()), 1);
+            assert!(!reads(&then, &now, &AT, "T2"), "{what}");
+        }
     }
 
     /// A text of more than 200 KB, every line distinct: the name on its first line.
@@ -361,36 +420,43 @@ mod tests {
         text
     }
 
+    /// Work no more than a few passes over both texts.
+    fn linear(then: &str, now: &str, work: &Cell<usize>) {
+        assert!(
+            work.get() <= 4 * (then.len() + now.len()),
+            "{} bytes compared",
+            work.get()
+        );
+    }
+
     #[test]
-    fn a_large_text_reindented_reads_as_gone_in_work_bounded_by_its_size() {
+    fn a_large_text_reindented_reads_in_work_linear_in_its_size() {
         let then = large();
         let now: String = then
             .lines()
             .map(|line| format!("  {}\n", line.trim_start()))
             .collect();
         let work = Cell::new(0);
-        assert!(!counted(&then, &now, &AT, "T2", &work));
-        let bound = 2 * (then.len() + now.len()) + (1 << 20);
-        assert!(work.get() <= bound, "{} bytes compared", work.get());
+        assert!(counted(&then, &now, &AT, "T2", &work));
+        linear(&then, &now, &work);
     }
 
     #[test]
-    fn a_large_text_with_the_name_line_reindented_reads_in_work_bounded_by_its_size() {
+    fn a_large_text_with_the_name_line_reindented_reads_in_work_linear_in_its_size() {
         let then = large();
         let now = format!("  {then}");
         let work = Cell::new(0);
         assert!(counted(&then, &now, &[(1, 11, 1, 13)], "T2", &work));
-        let bound = 4 * (then.len() + now.len()) + (1 << 20);
-        assert!(work.get() <= bound, "{} bytes compared", work.get());
+        linear(&then, &now, &work);
     }
 
     #[test]
-    fn a_name_among_changed_lines_past_the_counted_cap_reads_as_gone() {
+    fn a_name_on_a_long_changed_line_reads_in_work_linear_in_its_size() {
         let (a, b) = ("a".repeat(600), "b".repeat(600));
         let then = format!("// covers T2 {a}\n");
         let now = format!("// covers T2 {b}\n");
         let work = Cell::new(0);
-        assert!(!counted(&then, &now, &AT, "T2", &work));
-        assert!(work.get() <= 3 * (then.len() + now.len()), "{}", work.get());
+        assert!(counted(&then, &now, &AT, "T2", &work));
+        linear(&then, &now, &work);
     }
 }

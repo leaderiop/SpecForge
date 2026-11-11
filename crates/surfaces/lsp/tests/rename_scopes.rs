@@ -286,3 +286,104 @@ fn an_earlier_rename_undone_by_hand_before_a_later_one_lands_nothing() {
     save(&mut served, &FILES);
     assert_eq!(held(&served), both());
 }
+
+/// Each of `files` set back to its text in `to` and saved alone, in that order: until the last, the texts hold a
+/// rename in some of the files it edited and not in others, so nothing is shown and the ledger stays `was`.
+fn undone_file_by_file(served: &mut Served, files: &[&str], to: &[String], was: &Held) {
+    for (n, file) in files.iter().enumerate() {
+        let at = FILES.iter().position(|f| f == file).expect("a file");
+        served.edit(file, &to[at]);
+        if n + 1 < files.len() {
+            assert!(served.state().pending().shown().is_empty(), "{file}");
+        }
+        save(served, &[file]);
+        if n + 1 < files.len() {
+            assert_eq!(held(served), *was, "{file}");
+        }
+    }
+}
+
+/// The phase renamed, then its milestone, saved; then the milestone's rename undone one file at a time, each saved
+/// alone, starting from `first`.
+fn the_milestone_undone_file_by_file(first: &str) {
+    let mut served = served();
+    rename(&mut served, "p.spec", "04");
+    let renamed = texts(&served);
+    rename(&mut served, "m.spec", "v1.1");
+    save(&mut served, &FILES);
+    assert_eq!(held(&served), both());
+
+    let rest = FILES.iter().filter(|f| **f != first);
+    let files: Vec<&str> = [first].into_iter().chain(rest.copied()).collect();
+    undone_file_by_file(&mut served, &files, &renamed, &both());
+    let moved = [
+        ("v1.0", "v1.1"),
+        ("v1.0/04", "v1.0/03"),
+        ("v1.0/04", "v1.1/04"),
+        ("v1.0/04/U1", "v1.0/03/U1"),
+        ("v1.0/04/U1", "v1.1/04/U1"),
+        ("v1.0/05", "v1.1/05"),
+        ("v1.0/05/U5", "v1.1/05/U5"),
+    ];
+    assert_eq!(held(&served), says(&moved, &["v1.0/04/U1", "v1.0/05/U5"]));
+}
+
+/// The milestone's rename undone in its declaring file first: the files that place its phases still hold it, so the
+/// rename is in effect in some files and not others, and nothing lands until every file is back.
+#[spec(
+    behavior = "land_rename_ledger",
+    verify = "an editor rename held in some of the files it edited and not in others lands nothing"
+)]
+fn a_milestone_undone_in_its_declaring_file_alone_lands_nothing_until_every_file_is_back() {
+    the_milestone_undone_file_by_file("m.spec");
+}
+
+/// The milestone's rename undone first in the file that places the tests: a save that writes nothing leaves the
+/// project the ledger was written over as it was, so the last save re-keys the tests' results.
+#[spec(
+    behavior = "land_rename_ledger",
+    verify = "a landing of an editor rename that writes nothing leaves the project the ledger was written over"
+)]
+fn a_milestone_undone_in_the_tests_file_first_keeps_their_results() {
+    the_milestone_undone_file_by_file("u.spec");
+}
+
+/// Two phases renamed, then their milestone, one history, saved; then the milestone's rename undone one file at a
+/// time, each saved alone: nothing lands until every file is back, then the milestone's moves go back.
+#[spec(
+    behavior = "land_rename_ledger",
+    verify = "an editor rename held in some of the files it edited and not in others lands nothing"
+)]
+fn a_joined_history_undone_file_by_file_lands_once_every_file_is_back() {
+    let mut served = served();
+    rename(&mut served, "p.spec", "04");
+    rename(&mut served, "q.spec", "06");
+    let two = texts(&served);
+    rename(&mut served, "m.spec", "v1.1");
+    save(&mut served, &FILES);
+    let three = says(
+        &[
+            ("v1.1", "v1.0"),
+            ("v1.1/04", "v1.0/03"),
+            ("v1.1/04/U1", "v1.0/03/U1"),
+            ("v1.1/06", "v1.0/05"),
+            ("v1.1/06/U5", "v1.0/05/U5"),
+        ],
+        &["v1.1/04/U1", "v1.1/06/U5"],
+    );
+    assert_eq!(held(&served), three);
+
+    undone_file_by_file(&mut served, &FILES, &two, &three);
+    let moved = [
+        ("v1.0", "v1.1"),
+        ("v1.0/04", "v1.0/03"),
+        ("v1.0/04", "v1.1/04"),
+        ("v1.0/04/U1", "v1.0/03/U1"),
+        ("v1.0/04/U1", "v1.1/04/U1"),
+        ("v1.0/06", "v1.0/05"),
+        ("v1.0/06", "v1.1/06"),
+        ("v1.0/06/U5", "v1.0/05/U5"),
+        ("v1.0/06/U5", "v1.1/06/U5"),
+    ];
+    assert_eq!(held(&served), says(&moved, &["v1.0/04/U1", "v1.0/06/U5"]));
+}
