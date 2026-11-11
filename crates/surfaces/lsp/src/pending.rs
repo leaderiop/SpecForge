@@ -18,7 +18,8 @@
 //! the ledger on disk holds of the tree. Once no file of the tree holds a buffer the disk does not (each one saved, or
 //! closed), what the disk says lands under the write lock; a write that fails leaves it to the next event. The tree is
 //! kept while any of its files is open, so a redo or an undo saved later lands what it says; with every file closed it
-//! is over. A rename answered and never applied waits while its declaring file is the text it was planned on, and is
+//! is over. It is kept only while the ledger on disk reads as the tree left it: another writer (the CLI, MCP, another
+//! client, a pull) that changes what it says of the tree's entities or stale lines ends it. A rename answered and never applied waits while its declaring file is the text it was planned on, and is
 //! dropped at the first other text without its edit: a name typed by hand later moves nothing.
 
 use std::cell::RefCell;
@@ -31,7 +32,7 @@ use specforge_ops::asking::Asking;
 use specforge_ops::authoring::apply::{Origin, Surface, land_ledger};
 use specforge_ops::authoring::rename::Marked;
 use specforge_ops::{Caller, Containment};
-use specforge_project::harness::{LedgerChange, LedgerOverlay, Line};
+use specforge_project::harness::{LEDGER_FILE, Ledger, LedgerChange, LedgerOverlay, Line};
 use specforge_project::{CompiledProject, ProjectSession};
 
 mod reads;
@@ -213,6 +214,11 @@ fn key_of(line: &Line) -> Option<Key> {
     ))
 }
 
+/// The ledger on disk, at `project`'s root.
+fn ledger_on_disk(project: &CompiledProject) -> Ledger {
+    Ledger::parse(&String::from_utf8_lossy(&project.root_file(LEDGER_FILE))).ledger
+}
+
 /// The text of the file `key` on disk, found through `project`'s sources.
 fn on_disk(project: &CompiledProject, key: &str) -> Option<String> {
     std::fs::read_to_string(project.environment().sources().path(key)).ok()
@@ -225,6 +231,8 @@ struct Links {
     shown: Option<(Reading, Arc<LedgerOverlay>)>,
     /// The disk text of each file of the tree no buffer holds, read once and again only after an event names it.
     disk: BTreeMap<String, Option<String>>,
+    /// The ledger on disk was read since an event last named it, and reads as the tree left it.
+    ledger: bool,
 }
 
 /// The renames of one entity.
@@ -242,6 +250,7 @@ impl Chain {
             tree: Tree::of(rename, before),
             shown: None,
             disk: BTreeMap::new(),
+            ledger: true,
         })))
     }
 
@@ -300,7 +309,36 @@ impl Chain {
         let mut links = self.links();
         for key in keys {
             links.disk.remove(key);
+            links.ledger &= key != LEDGER_FILE;
         }
+    }
+
+    /// Whether the ledger on disk reads as the tree last left it ([`Tree::touched`]); when another writer touched
+    /// what it holds, the tree is over.
+    fn holds(links: &mut Links, project: &CompiledProject) -> bool {
+        if links.tree.touched(&ledger_on_disk(project)) {
+            links.tree.end();
+            links.shown = None;
+            return false;
+        }
+        links.ledger = true;
+        true
+    }
+
+    /// The ledger on disk reads as the tree last left it, else the tree is over: before any landing of an event, so a
+    /// landing of another tree does not hide another writer's.
+    fn check(&self, project: &CompiledProject) {
+        let mut links = self.links();
+        if !links.tree.is_over() {
+            Chain::holds(&mut links, project);
+        }
+    }
+
+    /// The editor landed a tree: the ledger on disk is what it wrote, as this tree left it too.
+    fn rebase(&self, project: &CompiledProject) {
+        let mut links = self.links();
+        links.tree.left(ledger_on_disk(project));
+        links.ledger = true;
     }
 
     /// What the tree shows over the session when its files read as `text` answers (a file it does not answer, as on
@@ -316,6 +354,9 @@ impl Chain {
             return None;
         }
         let project = links.tree.project().clone();
+        if !links.ledger && !Chain::holds(&mut links, &project) {
+            return None;
+        }
         let mut texts: BTreeMap<String, Option<String>> = BTreeMap::new();
         for file in files {
             let text = match text(&file) {
@@ -362,6 +403,9 @@ impl Chain {
             return Ok(false);
         }
         let project = session.project();
+        if !Chain::holds(&mut links, project) {
+            return Ok(false);
+        }
         let reading = links.tree.read(&|key| on_disk(project, key), parses);
         let (change, on) = links.tree.change(&reading);
         let written = !is_empty(&change);
@@ -371,6 +415,7 @@ impl Chain {
                 surface: Surface::Lsp,
             };
             land_ledger(on, project, change, &origin, caller).map_err(drop)?;
+            links.tree.left(ledger_on_disk(project));
         }
         links.tree.landed(reading.clone(), project.clone());
         links.tree.mark(&reading, false);
@@ -512,6 +557,7 @@ impl Landing {
         let parses = Parses::default();
         for (chain, _, _) in &self.chains {
             chain.forget(&self.keys);
+            chain.check(session.project());
         }
         for (chain, buffers, _) in self.chains.iter().filter(|(_, _, named)| *named) {
             let project = session.project();
@@ -522,7 +568,12 @@ impl Landing {
             });
             if saved {
                 let open = |key: &str| buffers.get(key).is_some_and(Option::is_some);
-                landed |= chain.land(session, &open, &parses).unwrap_or(false);
+                if chain.land(session, &open, &parses).unwrap_or(false) {
+                    landed = true;
+                    for (other, _, _) in &self.chains {
+                        other.rebase(session.project());
+                    }
+                }
             }
         }
         let shown = self

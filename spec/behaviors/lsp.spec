@@ -1271,7 +1271,9 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
     else the one above the first whose name read still reads there, else none (the name typed over). What is shown
     and landed is the change from what the ledger holds of the tree to that: the moves walked back and down, and each
     stale line whose rename moved. So an undo in one buffer and not another, part way, by hand, or a redo, before a
-    save or after, shows and lands what the buffers hold. The tree is kept while any of its files is open. A rename
+    save or after, shows and lands what the buffers hold. The tree is kept while any of its files is open and the
+    ledger reads as the tree last left it: a ledger write the editor did not make that touches the tree's entities or
+    stale lines ends it. A rename
     answered and never applied is dropped at the first change of its declaring file that is not its edit
     (ADR 0346 D7).
   """

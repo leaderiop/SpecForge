@@ -57,6 +57,9 @@ pub(super) struct Tree {
     landed: Landed,
     /// The ledger as the first rename found it: what a stale line goes back to at the entity before any rename.
     before: Ledger,
+    /// The ledger on disk as the tree last left it (as the first rename found it, until a landing): any other writer
+    /// that changes what it says of the tree's entities or lines ends the tree.
+    left: Ledger,
     /// Each stale line's node in a source file, by the file's text it was read from: a text read again (a keystroke in
     /// another file) is not compared with the renames' texts again. Emptied when the tree changes.
     memo: BTreeMap<(Key, String), (String, Option<At>)>,
@@ -67,6 +70,7 @@ impl Tree {
         let on = before.clone();
         let before = Ledger::parse(&String::from_utf8_lossy(&on.root_file(LEDGER_FILE))).ledger;
         Tree {
+            left: before.clone(),
             before,
             memo: BTreeMap::new(),
             nodes: vec![Node {
@@ -102,6 +106,28 @@ impl Tree {
 
     pub(super) fn declaring(&self) -> &str {
         &self.nodes[0].rename.declaring
+    }
+
+    /// Whether `now`, the ledger on disk, says anything of the tree's entities (any path a rename of it moved) or
+    /// stale lines other than the tree left it saying: another writer (the CLI, MCP, another client, a pull) renamed
+    /// or recorded them, and an undo read from the texts would land over that.
+    pub(super) fn touched(&self, now: &Ledger) -> bool {
+        let ours = |line: &&Line| {
+            self.nodes.iter().any(|node| {
+                let rename = &node.rename;
+                let path = |id: &String| *id == line.subject;
+                path(&rename.old_id)
+                    || path(&rename.new_id)
+                    || rename.moves.iter().any(|(old, new)| path(old) || path(new))
+                    || key_of(line).is_some_and(|key| rename.marked(&key).is_some())
+            })
+        };
+        !self.left.lines().filter(ours).eq(now.lines().filter(ours))
+    }
+
+    /// The ledger on disk is `now`, as a landing of the editor's renames left it.
+    pub(super) fn left(&mut self, now: Ledger) {
+        self.left = now;
     }
 
     /// The project the ledger was last written over (the first rename's, until a landing): where files are found.

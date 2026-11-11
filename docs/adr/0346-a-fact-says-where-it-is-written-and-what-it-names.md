@@ -241,7 +241,11 @@ next collect of that collector ────────────────�
   its lines, as typing the name over would). A line cut and pasted far away follows only when the anchors carry it
   (moved with the lines around it), else it reads as gone, never as another place. The tree is kept while any of its files is
   open: a redo or an undo saved later lands the rest, as the ledger takes any later rename (a rename back carries
-  each move record, as the CLI's does); with every file closed it is over. So the history grows with the renames made
+  each move record, as the CLI's does); with every file closed it is over. It is kept only while the ledger reads as
+  the tree last left it (as it found it, until a landing): a write the editor did not make (the CLI, MCP, another
+  client, a pull) that changes what the ledger says of the tree's entities (any path its renames moved) or of its
+  stale lines ends the tree, so an outside rename is never read from the texts as an undo and landed over. The
+  editor's own landing of one tree is what every other tree's ledger reads as next. So the history grows with the renames made
   while the files stay open, as an editor's undo stack does, and ends when they close; no node is pruned before, since
   an undo can return to any. A node keeps only what reading and landing need: the declaring file's text it was
   planned on, its moves, its marked lines and the source texts it read and wrote; the tree keeps one project, the
