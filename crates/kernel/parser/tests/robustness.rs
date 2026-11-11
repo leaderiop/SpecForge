@@ -2,7 +2,7 @@
 
 use proptest::test_runner::TestRunner;
 use specforge_parser::lex::{MAX_NESTING, nested_too_deep};
-use specforge_parser::testing::{edited_corpus, property_config};
+use specforge_parser::testing::{corpus, corpus_file, corpus_key, edited_corpus, property_config};
 use specforge_parser::{FieldValue, Previous, parse, parse_incremental};
 use specforge_test_macros::test as specforge_test;
 
@@ -319,4 +319,17 @@ fn a_bare_scheme_kind_ref_is_still_a_provider_ref() {
         "{:?}",
         file.errors
     );
+}
+
+#[test]
+fn a_corpus_case_picks_its_file_by_the_files_own_key() {
+    // A key is the file's relative path alone: no position in the corpus, no checkout, no platform.
+    let root = specforge_repo_root::repo_root();
+    assert_eq!(
+        corpus_key(&root.join("spec").join("x.spec")),
+        0x5cfe_8751_d43a_4336
+    );
+    for (path, _) in corpus() {
+        assert_eq!(&corpus_file(corpus_key(path)).0, path);
+    }
 }

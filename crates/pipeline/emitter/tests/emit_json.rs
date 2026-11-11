@@ -21,6 +21,7 @@ fn member(text: &str) -> TypeMember {
         text: text.to_string(),
         span: span(),
         written: Written::Bare,
+        lexemes: Vec::new(),
     }
 }
 

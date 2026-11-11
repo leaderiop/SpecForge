@@ -80,7 +80,13 @@ impl<'a> ParseContext<'a> {
             }
         }
         let key_sym = Sym::new(self.text(key));
-        let mut field_value = self.parse_value(value);
+        // An array type reads in its one spelling, each lexeme where it is written.
+        let (mut field_value, value_lexemes) = if value.kind() == kind::ARRAY_TYPE {
+            let (spelling, lexemes) = self.type_text(value);
+            (FieldValue::Identifier(spelling), lexemes)
+        } else {
+            (self.parse_value(value), Vec::new())
+        };
         if let FieldValue::List(items) = &mut field_value {
             items.retain(|item| !self.in_bare(&item.span));
         }
@@ -100,6 +106,7 @@ impl<'a> ParseContext<'a> {
             value: field_value,
             annotations,
             value_span: Some(self.span(value)),
+            value_lexemes,
         })
     }
 
@@ -142,9 +149,7 @@ impl<'a> ParseContext<'a> {
             kind::STRING => FieldValue::String(string_text(self.text(node))),
             kind::TRIPLE_QUOTED_STRING => FieldValue::String(triple_text(self.text(node))),
             kind::IDENTIFIER => word_value(self.text(node)),
-            kind::ARRAY_TYPE | kind::REFERENCE_PATH => {
-                FieldValue::Identifier(self.text(node).to_string())
-            }
+            kind::REFERENCE_PATH => FieldValue::Identifier(self.text(node).to_string()),
             kind::EXPR_GROUP => FieldValue::Expression(self.parse_expr_group(node)),
             kind::TYPE_UNION => FieldValue::TypeUnion(self.parse_type_union(node)),
             kind::LIST => self.parse_list(node),
@@ -280,7 +285,8 @@ impl<'a> ParseContext<'a> {
         }
     }
 
-    /// A method's type in its one spelling, and where each of its lexemes is written.
+    /// A type (a method's, a union field's member, an array type) in its one spelling, and where each of its
+    /// lexemes is written.
     fn type_text(&self, node: Node) -> (String, Vec<SourceSpan>) {
         let written = self.text(node);
         let (spelling, lexemes) = type_spelling(written);
@@ -351,7 +357,8 @@ impl<'a> ParseContext<'a> {
         })
     }
 
-    /// Collect the declared types of a union-typed field value.
+    /// Collect the declared types of a union-typed field value: each type in its one spelling
+    /// ([`type_spelling`]), as a method's types read, a quoted member as written.
     fn parse_type_union(&self, node: Node<'a>) -> Vec<TypeMember> {
         let mut types = Vec::new();
         let mut cursor = node.walk();
@@ -363,14 +370,19 @@ impl<'a> ParseContext<'a> {
                 | kind::UNIT_TYPE
                 | kind::FUNCTION_TYPE
                 | kind::STRING => {
+                    let ((text, lexemes), written) = if child.kind() == kind::STRING {
+                        (
+                            (self.text(child).trim().to_string(), Vec::new()),
+                            Written::Quoted,
+                        )
+                    } else {
+                        (self.type_text(child), Written::Bare)
+                    };
                     types.push(TypeMember {
-                        text: self.text(child).trim().to_string(),
+                        text,
                         span: self.span(child),
-                        written: if child.kind() == kind::STRING {
-                            Written::Quoted
-                        } else {
-                            Written::Bare
-                        },
+                        written,
+                        lexemes,
                     });
                 }
                 _ => {}

@@ -144,6 +144,7 @@ impl<'a> ParseContext<'a> {
                     text,
                     span: self.span(child),
                     written,
+                    lexemes: Vec::new(),
                 });
             }
         }
@@ -154,6 +155,7 @@ impl<'a> ParseContext<'a> {
             value: FieldValue::VariantList(variants),
             annotations: Vec::new(),
             value_span: variants_span,
+            value_lexemes: Vec::new(),
         });
 
         self.entities.push(Entity {

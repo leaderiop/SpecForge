@@ -348,6 +348,28 @@ fn field_member(
                 annotations,
             }
         }
+        // A type in the one spelling the parse reads it in; a union's members joined by ` | `, a quoted member as
+        // written. A field holding a comment never reaches here: it is kept as written.
+        kind::ARRAY_TYPE => Member::Field {
+            value: vec![type_spelling(node_text(value, source)).0],
+            key,
+            annotations,
+        },
+        kind::TYPE_UNION => {
+            let mut cursor = value.walk();
+            let members: Vec<String> = value
+                .named_children(&mut cursor)
+                .map(|m| match m.kind() {
+                    kind::STRING => node_text(m, source).to_string(),
+                    _ => type_spelling(node_text(m, source)).0,
+                })
+                .collect();
+            Member::Field {
+                value: vec![members.join(" | ")],
+                key,
+                annotations,
+            }
+        }
         _ => {
             // Multi-line values (triple-quoted strings, ...) are opaque: the
             // first line follows the key, the rest stays as written. A

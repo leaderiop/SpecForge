@@ -332,6 +332,20 @@ fn a_name_of_a_signature_written_across_lines_is_a_token_where_it_is_written() {
 }
 
 #[test]
+fn a_name_of_a_field_type_written_across_lines_is_a_token_where_it_is_written() {
+    let source = "shape Config \"Config\" {\n  root string\n}\nshape Holder \"Holder\" {\n  slot Map<string,\n      Config>[] | Map<string,   Config>\n  many Map<string,\n   Config>[]\n}\n";
+    let (_, tokens) = find(source, derived_inputs);
+    assert_eq!(
+        show(&tokens),
+        [
+            "Config Holder parts Derived 6:7-6:13",
+            "Config Holder parts Derived 6:33-6:39",
+            "Config Holder parts Derived 8:4-8:10"
+        ]
+    );
+}
+
+#[test]
 fn a_parameters_name_is_no_token_and_its_type_is() {
     let source = "shape Config \"Config\" {\n  root string\n}\niface X \"X\" {\n  method keep(Config: Config) -> Config\n}\n";
     let (_, tokens) = find(source, derived_inputs);

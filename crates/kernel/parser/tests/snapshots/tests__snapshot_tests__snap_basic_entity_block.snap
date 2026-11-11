@@ -39,6 +39,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                             end_col: 19,
                         },
                     ),
+                    value_lexemes: [],
                 },
                 FieldEntry {
                     key: Sym("tags"),
@@ -89,6 +90,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
                             end_col: 30,
                         },
                     ),
+                    value_lexemes: [],
                 },
             ],
         },

@@ -86,6 +86,7 @@ fn references_of_a_reference_list_are_its_items_with_their_spans() {
         ]),
         annotations: vec![],
         value_span: None,
+        value_lexemes: Vec::new(),
     };
     let forms = forms();
     let references = forms.reading("doc", "see_also").references(&entry);

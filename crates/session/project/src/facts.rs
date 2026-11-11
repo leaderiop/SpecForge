@@ -417,6 +417,7 @@ fn entity(fact: Fact, span: &SourceSpan, forms: &FieldForms) -> Entity {
                 value,
                 annotations: Vec::new(),
                 value_span: Some(value_span),
+                value_lexemes: Vec::new(),
             });
         }
     }

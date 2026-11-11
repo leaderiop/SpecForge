@@ -196,10 +196,47 @@ impl std::fmt::Debug for EditedFile {
     }
 }
 
+/// The corpus file a drawn `key` picks, by a key of its own and not its position: each file sits on a ring at the
+/// FNV-1a hash of its path relative to the repository root (`/`-separated), and `key` picks the first file at or
+/// after it, wrapping. A file added or removed moves only the keys of its own arc, so the other cases still edit
+/// the files they did.
+pub fn corpus_file(key: u64) -> &'static (PathBuf, String) {
+    static RING: OnceLock<Vec<(u64, usize)>> = OnceLock::new();
+    let ring = RING.get_or_init(|| {
+        let mut ring: Vec<(u64, usize)> = corpus()
+            .iter()
+            .enumerate()
+            .map(|(i, (path, _))| (corpus_key(path), i))
+            .collect();
+        ring.sort_unstable();
+        ring
+    });
+    let at = ring.partition_point(|&(hash, _)| hash < key) % ring.len();
+    &corpus()[ring[at].1]
+}
+
+/// Where [`corpus_file`] places `path` on its ring: FNV-1a over its components relative to the repository root,
+/// joined by `/`, the same on every platform and every run.
+pub fn corpus_key(path: &Path) -> u64 {
+    let root = specforge_repo_root::repo_root();
+    let relative = path.strip_prefix(root).unwrap_or(path);
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for (i, part) in relative.components().enumerate() {
+        let separator: &[u8] = if i == 0 { b"" } else { b"/" };
+        for &byte in separator
+            .iter()
+            .chain(part.as_os_str().to_string_lossy().as_bytes())
+        {
+            hash = (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
+        }
+    }
+    hash
+}
+
 /// A corpus file edited one to three times.
 pub fn edited_corpus() -> impl Strategy<Value = EditedFile> {
-    (0..corpus().len(), vec(edit(), 1..=3)).prop_map(|(file, edits)| {
-        let (path, original) = &corpus()[file];
+    (any::<u64>(), vec(edit(), 1..=3)).prop_map(|(key, edits)| {
+        let (path, original) = corpus_file(key);
         let edited = edits
             .iter()
             .fold(original.clone(), |text, e| e.apply(&text));
@@ -284,8 +321,8 @@ fn relaid(text: &str, indent: &str) -> String {
 /// lie in no `[ ... ]` that holds a comment lexeme. `edits` is empty and
 /// `edited` is the relaid text.
 pub fn relaid_corpus() -> impl Strategy<Value = EditedFile> {
-    (0..corpus().len(), any::<bool>()).prop_map(|(file, tab)| {
-        let (path, original) = &corpus()[file];
+    (any::<u64>(), any::<bool>()).prop_map(|(key, tab)| {
+        let (path, original) = corpus_file(key);
         EditedFile {
             path: relative(path),
             edits: Vec::new(),
