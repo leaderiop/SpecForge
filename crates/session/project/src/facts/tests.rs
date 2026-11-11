@@ -197,8 +197,9 @@ fn a_served_fact_is_located_where_it_is_written_and_its_names_where_they_are() {
         .name("names", "v1/TR1", place("src/a.rs", 11, 18, 24))
         .field("status", "passed");
     let bare = Fact::new("test", "js:a#c").field("names", serde_json::json!(["TR2"]));
+    let sources = ["src/a.rs", "src/b.rs"].map(|f| (f.to_string(), "sha256:aa".to_string()));
     let text = String::from_utf8(
-        Store::new("node", "@t/node", "abc", vec![fact, bare], BTreeMap::new()).bytes(),
+        Store::new("node", "@t/node", "abc", vec![fact, bare], sources.into()).bytes(),
     )
     .unwrap();
 
@@ -262,9 +263,13 @@ fn a_store_records_the_digest_of_each_located_file() {
     assert_eq!(digests, sources);
 }
 
-/// A store whose fact is placed in a file it records no digest of: no collect writes one, another writer can.
-#[test]
-fn a_store_placing_a_fact_in_a_file_it_records_no_digest_of_is_served_unjudged_there() {
+/// A store whose fact is placed in a file it records no digest of: no collect writes one, another writer can. Nothing
+/// could judge whether that file is the text its places are in, so it is not served.
+#[specforge_test_macros::test(
+    behavior = "build_in_memory_graph",
+    verify = "a fact store placing a fact in a file it records no digest of is W192 and not served"
+)]
+fn a_store_placing_a_fact_in_a_file_it_records_no_digest_of_is_w192() {
     let fact = Fact::new("test", "js:a#b")
         .at(place("src/a.rs", 12, 1, 20))
         .name("names", "T1", place("src/b.rs", 1, 4, 6));
@@ -272,10 +277,19 @@ fn a_store_placing_a_fact_in_a_file_it_records_no_digest_of_is_served_unjudged_t
     let text = String::from_utf8(Store::new("node", "@t/node", "abc", vec![fact], sources).bytes())
         .unwrap();
 
-    let served = store(KEY, &text).unwrap();
+    let w192 = store(KEY, &text).unwrap_err();
 
-    let judged: Vec<&String> = served.placed.keys().collect();
-    assert_eq!(judged, ["src/a.rs"], "nothing judges src/b.rs");
+    assert_eq!(w192.code, "W192");
+    assert_eq!(
+        w192.message,
+        format!(
+            "fact store '{KEY}' cannot be read: its fact 'js:a#b' is placed in src/b.rs, of which it records no digest"
+        )
+    );
+    assert_eq!(
+        w192.suggestion.as_deref(),
+        Some("run `specforge collect` to write it again")
+    );
 }
 
 /// `test`'s `status` declared an enum and its `names` a reference list.

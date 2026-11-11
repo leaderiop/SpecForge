@@ -74,7 +74,7 @@ pub(crate) fn rewrite(
     // Each file's edits by place, with the spelling each place must still hold.
     let mut places: BTreeMap<String, BTreeMap<Span, (TextEdit, String)>> = BTreeMap::new();
     // What each store whose places a file's edits are says of the file.
-    let mut judges: BTreeMap<String, BTreeMap<String, Option<Placed>>> = BTreeMap::new();
+    let mut judges: BTreeMap<String, BTreeMap<String, Placed>> = BTreeMap::new();
     let mut rewrite = Rewrite::default();
     for (key, facts) in &naming {
         // The store as the session serves it: the names and places the earlier renames left.
@@ -163,10 +163,11 @@ pub(crate) fn rewrite(
                     ));
                 }
                 for place in written.into_iter().flatten() {
+                    // The reader serves no store placing a fact in a file it records no digest of.
                     judges
                         .entry(place.file.clone())
                         .or_default()
-                        .insert(key.clone(), served.placed.get(&place.file).cloned());
+                        .insert(key.clone(), served.placed[&place.file].clone());
                     let edit = TextEdit {
                         span: facts::source_span(place),
                         new_text: new_text.clone(),
@@ -206,9 +207,7 @@ pub(crate) fn rewrite(
                 )
             }
         })?;
-        let holds = judges[&file]
-            .values()
-            .all(|placed| placed.as_ref().is_some_and(|placed| placed.holds(&bytes)));
+        let holds = judges[&file].values().all(|placed| placed.holds(&bytes));
         if !holds {
             return Err(moved());
         }

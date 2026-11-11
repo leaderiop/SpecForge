@@ -61,6 +61,15 @@ pub struct Fact { kind, id, title, fields,
   which is no file under the project root"), and none of the collector's facts is stored. Each distinct file is read
   once and its sha256 recorded in `sources`.
 - A version 1 store is W192 ("it is store version 1, and this specforge reads version 2") until the next collect.
+- **Every file a store places a fact in has its digest.** The collect writes it for every place it admits (above), so
+  only another writer leaves one out (a hand-made store, another tool). The one reader (`facts::store`) refuses such
+  a store, W192 ("its fact '<id>' is placed in <file>, of which it records no digest"), and so does the derivation of
+  what renames wrote (D7): no served store places a fact in a file without its `facts::Placed`, so every judge of a
+  file (W198, the language server's placing, a rename) and the shift of D7 hold for every place. *Rejected:* serving
+  it with its places in that file unshifted and unjudged, and a diagnostic (its findings would be placed at guessed
+  positions, a rename of its names refused for a reason the store's writer caused, and every judge would carry the
+  case of a file it cannot judge, when `specforge collect` makes the store whole); serving its facts with those
+  places dropped (a third shape of a store, for a store no collect writes).
 - *Rejected:* a guest-supplied digest (a guest could lie or forget); hashing sources on every compile (cost, and only
   a rename needs it). Cost: one read and one sha256 per located file per collect.
 

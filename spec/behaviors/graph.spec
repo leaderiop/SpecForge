@@ -43,7 +43,9 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
     `.specforge/facts/` that a `facts:` line of specforge-harness records
     (its collector, key and digest) MUST be built as one file of read-only
     entities; a store no line records is W191 and one that does not read
-    W192, and neither is served. With no such kind loaded, no fact store and
+    W192, and neither is served. A store placing a fact in a file whose
+    digest it does not record does not read: every file a served store
+    places a fact in has its digest (ADR 0346 D2). With no such kind loaded, no fact store and
     no ledger is read for facts (ADR 0327 D5). A store whose bytes a
     `stale:` line of the ledger marks (a rename rewrote a name its facts
     hold after the collect) MUST be served with exactly the names its stale
@@ -72,6 +74,7 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify unit "a served fact is located where its collector says it is written, and each name it holds where that name is written"
   verify integration "a finding on a fact is placed where it is written, not at its store"
   verify unit "a served store gives the digest it recorded of each source file its facts are placed in"
+  verify unit "a fact store placing a fact in a file it records no digest of is W192 and not served"
   verify integration "a compiled project serves the source digests its fact stores recorded"
   verify integration "a fact store a rename marked stale is served through the ledger's moves with W197 until the next collect"
   verify unit "a stale store's places are shifted exactly by what the renames wrote, and only the text they left holds"

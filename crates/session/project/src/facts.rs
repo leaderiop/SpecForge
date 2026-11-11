@@ -79,6 +79,23 @@ impl Store {
     pub fn path(collector: &str, key: &str) -> String {
         format!("{FACTS_DIR}/{key}/{collector}.json")
     }
+
+    /// The first place of its facts (`at` or a name's) in a file `sources` records no digest of, as the fact's id and
+    /// the file. None for a store a collect wrote: the collect digests every file a fact is placed in (ADR 0346 D2),
+    /// and a store with such a place is no store this specforge reads.
+    fn undigested(&self) -> Option<(&str, &str)> {
+        self.facts.iter().find_map(|fact| {
+            let named = fact
+                .named_at
+                .values()
+                .flat_map(|ids| ids.values().flatten());
+            fact.at
+                .iter()
+                .chain(named)
+                .find(|place| !self.sources.contains_key(&place.file))
+                .map(|place| (fact.id.as_str(), place.file.as_str()))
+        })
+    }
 }
 
 /// Why a collect's key is not a clean commit's sha (I209).
@@ -254,7 +271,7 @@ pub(crate) fn recorded(disk: &dyn Disk, root: &Path) -> Recorded {
         let Ok(store) = serde_json::from_slice::<Store>(&bytes) else {
             continue;
         };
-        if store.store == Store::VERSION {
+        if store.store == Store::VERSION && store.undigested().is_none() {
             stale::rewritten_by(&store, &carried.renames, &mut rewrites, &mut torn);
         }
     }
@@ -478,7 +495,8 @@ fn byte_range(text: &[u8], lines: &[usize], at: &FactLocation) -> Option<std::op
 
 /// The served text `text` of the fact store `key` ([`read`]) read: the one reader of a store. Its facts' names a rename
 /// marked it stale with are read as the rename wrote them and its places in the files it rewrote shifted by what it
-/// wrote, with W197 (ADR 0346 D7). W192 when the text is no store this specforge reads.
+/// wrote, with W197 (ADR 0346 D7). W192 when the text is no store this specforge reads: another version, or a fact
+/// placed in a file it records no digest of, so every file a served store places a fact in has its [`Placed`].
 pub fn store<'t>(key: &str, text: &'t str) -> Result<Served<'t>, Diagnostic> {
     let (mut store, bytes, carried) = stale::split(text).map_err(|e| unreadable(key, e))?;
     if store.store != Store::VERSION {
@@ -489,6 +507,12 @@ pub fn store<'t>(key: &str, text: &'t str) -> Result<Served<'t>, Diagnostic> {
                 store.store,
                 Store::VERSION
             ),
+        ));
+    }
+    if let Some((fact, file)) = store.undigested() {
+        return Err(unreadable(
+            key,
+            format!("its fact '{fact}' is placed in {file}, of which it records no digest"),
         ));
     }
     let held = carried

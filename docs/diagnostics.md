@@ -4604,9 +4604,10 @@ Level: warning
 W192: A fact store that cannot be read
 
 A file under `.specforge/facts/<key>/` (ADR 0327) does not read as a fact store:
-it cannot be read, is not JSON of the store's shape, or names a store version
-this specforge does not read. Its facts are not served. Run `specforge collect`
-to write it again.
+it cannot be read, is not JSON of the store's shape, names a store version this
+specforge does not read, or places a fact in a file whose digest it does not
+record (a collect digests every file a fact is placed in, ADR 0346 D2). Its
+facts are not served. Run `specforge collect` to write it again.
 
 Owner: core
 Level: warning

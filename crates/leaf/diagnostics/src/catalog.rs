@@ -709,7 +709,7 @@ catalog! {
         "A file under `.specforge/facts/<key>/` is a collector's fact store (ADR 0327), but no `facts:` line of `specforge-harness` records exactly its collector, its key and its digest: it was collected on another commit or branch (the ledger is committed, the store is not), or it changed since. Its facts are not served, so the references to them are unheld. Run `specforge collect` to collect the facts again and record them.";
     W192: Warning core,
         "A fact store that cannot be read",
-        "A file under `.specforge/facts/<key>/` (ADR 0327) does not read as a fact store: it cannot be read, is not JSON of the store's shape, or names a store version this specforge does not read. Its facts are not served. Run `specforge collect` to write it again.";
+        "A file under `.specforge/facts/<key>/` (ADR 0327) does not read as a fact store: it cannot be read, is not JSON of the store's shape, names a store version this specforge does not read, or places a fact in a file whose digest it does not record (a collect digests every file a fact is placed in, ADR 0346 D2). Its facts are not served. Run `specforge collect` to write it again.";
     W195: Warning core,
         "Ambiguous trace route",
         "Several routes the loaded extensions declare (ADR 0330) start at one kind, and not exactly one of them is marked `default`: none is, or several are. `specforge trace` follows the first in load order from that kind, which the message names with every route. Mark one route `default` in its extension, or pass `--route <name>` to trace along another.";
