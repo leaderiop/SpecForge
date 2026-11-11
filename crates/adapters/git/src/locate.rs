@@ -1,6 +1,8 @@
-//! Where a directory's repository is: git's discovery through gix, held to git's answer where gix's differs.
+//! Where a directory's repository is: git's discovery through gix, held to git's answer where gix's differs, with
+//! git's `GIT_CEILING_DIRECTORIES` kept and a `GIT_DIR` or `GIT_WORK_TREE` that names another repository refused
+//! (ADR 0352).
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use specforge_effects::git::{GitPlace, Located};
 
@@ -12,23 +14,40 @@ pub(crate) fn locate(dir: &Path) -> Located {
         return Located::NotARepository;
     }
     use gix::discover::upwards::Error as Upwards;
-    let repo = match gix::ThreadSafeRepository::discover_opts(dir, Default::default(), trust_map())
-    {
+    let real = |p: &Path| p.canonicalize().unwrap_or_else(|_| dir.join(p));
+    let here = real(dir);
+    let ceilings = ceilings(&here);
+    let upwards = gix::discover::upwards::Options {
+        ceiling_dirs: ceilings.clone(),
+        match_ceiling_dir_or_error: false,
+        ..Default::default()
+    };
+    let repo = match gix::ThreadSafeRepository::discover_opts(&here, upwards, trust_map()) {
         Ok(repo) => repo.to_thread_local(),
         Err(gix::discover::Error::Discover(
             Upwards::NoGitRepository { .. }
             | Upwards::NoGitRepositoryWithinCeiling { .. }
             | Upwards::NoGitRepositoryWithinFs { .. },
-        )) => return Located::NotARepository,
+        )) => {
+            return named_elsewhere(dir, None)
+                .map_or(Located::NotARepository, Located::Unavailable);
+        }
         Err(error) => return Located::Unavailable(error.to_string()),
     };
+    // gix searches the nearest ceiling itself, which git never does from below it
+    let nearest = ceilings
+        .iter()
+        .max_by_key(|ceiling| ceiling.components().count());
+    if nearest.is_some_and(|ceiling| {
+        repo.workdir().map(real).as_ref() == Some(ceiling) || real(repo.git_dir()) == *ceiling
+    }) {
+        return named_elsewhere(dir, None).map_or(Located::NotARepository, Located::Unavailable);
+    }
     let Some(top) = repo.workdir() else {
         return Located::Unavailable("a bare repository has no working tree".into());
     };
-    let real = |p: &Path| p.canonicalize().unwrap_or_else(|_| dir.join(p));
     // git answers no worktree from inside the git directory ("must be run in a work tree"); gix finds the
     // repository, so a hook would read a `.git/` path as the worktree's own
-    let here = real(dir);
     if here.starts_with(real(repo.git_dir())) || here.starts_with(real(repo.common_dir())) {
         return Located::Unavailable(format!(
             "{} is inside the git directory, which has no working tree",
@@ -49,10 +68,69 @@ pub(crate) fn locate(dir: &Path) -> Located {
             broken.display()
         ));
     }
-    Located::Repo(GitPlace {
+    let place = GitPlace {
         toplevel,
         git_dir: real(repo.git_dir()),
         common_dir: real(repo.common_dir()),
         shallow: repo.is_shallow(),
+    };
+    match named_elsewhere(dir, Some(&place)) {
+        Some(why) => Located::Unavailable(why),
+        None => Located::Repo(place),
+    }
+}
+
+/// git's `GIT_CEILING_DIRECTORIES` for a search from `here` (its real path), as git reads them: an absolute path each,
+/// resolved through its links until an empty entry, and only those `here` is strictly under.
+fn ceilings(here: &Path) -> Vec<PathBuf> {
+    let Some(value) = std::env::var_os("GIT_CEILING_DIRECTORIES") else {
+        return Vec::new();
+    };
+    let mut resolve = true;
+    std::env::split_paths(&value)
+        .filter_map(|ceiling| {
+            if ceiling.as_os_str().is_empty() {
+                resolve = false;
+                return None;
+            }
+            if ceiling.is_relative() {
+                return None;
+            }
+            let ceiling = match resolve {
+                true => ceiling.canonicalize().unwrap_or(ceiling),
+                false => ceiling,
+            };
+            (here != ceiling && here.starts_with(&ceiling)).then_some(ceiling)
+        })
+        .collect()
+}
+
+/// Why `GIT_DIR` or `GIT_WORK_TREE` refuses locating `dir`, found in `place` (none: in no repository). git reads the
+/// repository and the worktree they name in place of the ones around the directory; the host never lets the
+/// environment point it elsewhere (ADR 0339 D5), so a variable naming another than `place`'s refuses, naming itself,
+/// rather than answer for a repository git would not read there. One naming `place`'s own (a hook git runs in a linked
+/// worktree sets `GIT_DIR`) is kept.
+fn named_elsewhere(dir: &Path, place: Option<&GitPlace>) -> Option<String> {
+    let found = [
+        ("GIT_DIR", place.map(|place| &place.git_dir)),
+        ("GIT_WORK_TREE", place.map(|place| &place.toplevel)),
+    ];
+    found.into_iter().find_map(|(name, found)| {
+        let value = std::env::var_os(name).filter(|value| !value.is_empty())?;
+        // relative to the working directory, as git reads it
+        let named = std::path::absolute(&value).and_then(std::fs::canonicalize).ok();
+        if named.is_some() && named.as_ref() == found {
+            return None;
+        }
+        let around = match place {
+            Some(place) => format!("is in the repository at {}", place.toplevel.display()),
+            None => "is in no repository".to_string(),
+        };
+        Some(format!(
+            "{name} names {}, but {} {around}: specforge reads the repository a directory is in, never one the \
+             environment names, so unset {name} or run from the repository it names",
+            std::path::Path::new(&value).display(),
+            dir.display()
+        ))
     })
 }

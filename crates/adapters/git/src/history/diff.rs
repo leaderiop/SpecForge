@@ -63,22 +63,33 @@ pub(crate) fn index_tree(
             .map_err(|e| failed("build a tree", &e))?;
     }
     if worktree {
-        use gix::status::index_worktree::Item;
         use gix::status::plumbing::index_as_worktree::{Change, EntryStatus};
+        use gix::status::plumbing::index_as_worktree_with_renames::{Entry, Recorder, Sorting};
         let top = repo
             .workdir()
             .ok_or_else(|| GitError("a bare repository has no working tree".into()))?
             .to_path_buf();
-        let items = repo
-            .status(gix::progress::Discard)
-            .map_err(|e| failed("read the status", &e))?
-            .untracked_files(gix::status::UntrackedFiles::None)
-            .into_index_worktree_iter(Vec::new())
-            .map_err(|e| failed("read the status", &e))?;
-        for item in items {
-            let Item::Modification {
+        let mut recorder = Recorder::default();
+        let options = gix::status::index_worktree::Options {
+            // by path, so a bounded diff reads the same files first on every run
+            sorting: Some(Sorting::ByPathCaseSensitive),
+            ..Default::default()
+        };
+        repo.index_worktree_status(
+            &index,
+            Vec::<gix::bstr::BString>::new(),
+            &mut recorder,
+            StatOnly(reads.bounded()),
+            NoSubmodule,
+            &mut gix::progress::Discard,
+            &std::sync::atomic::AtomicBool::new(false),
+            options,
+        )
+        .map_err(|e| failed("read the status", &e))?;
+        for record in recorder.records {
+            let Entry::Modification {
                 rela_path, status, ..
-            } = item.map_err(|e| failed("read the status", &e))?
+            } = record
             else {
                 continue;
             };
@@ -138,6 +149,51 @@ pub(crate) fn index_tree(
     tree.write()
         .map(|id| (id.detach(), disk))
         .map_err(|e| failed("build a tree", &e))
+}
+
+/// How the status compares a tracked file whose stat changed with its entry: unbounded (a person's diff), as gix does,
+/// hashing it when its size is unchanged; bounded (a guest's), never: it is reported changed and read once, counted
+/// against the diff's bound, when the tree is built, where an unchanged one hashes back to its entry's blob.
+#[derive(Clone, Copy)]
+struct StatOnly(bool);
+
+impl gix::status::plumbing::index_as_worktree::traits::CompareBlobs for StatOnly {
+    type Output = ();
+
+    fn compare_blobs<'a, 'b>(
+        &mut self,
+        entry: &gix::index::Entry,
+        worktree_blob_size: u64,
+        data: impl gix::status::plumbing::index_as_worktree::traits::ReadData<'a>,
+        buf: &mut Vec<u8>,
+    ) -> Result<Option<()>, gix::status::plumbing::index_as_worktree::Error> {
+        if self.0 {
+            return Ok(Some(()));
+        }
+        gix::status::plumbing::index_as_worktree::traits::FastEq.compare_blobs(
+            entry,
+            worktree_blob_size,
+            data,
+            buf,
+        )
+    }
+}
+
+/// No submodule is opened: a diff lists none of their changes, so none is worth reading.
+#[derive(Clone, Copy)]
+struct NoSubmodule;
+
+impl gix::status::plumbing::index_as_worktree::traits::SubmoduleStatus for NoSubmodule {
+    type Output = ();
+    type Error = std::convert::Infallible;
+
+    fn status(
+        &mut self,
+        _: &gix::index::Entry,
+        _: &gix::bstr::BStr,
+    ) -> Result<Option<()>, std::convert::Infallible> {
+        Ok(None)
+    }
 }
 
 /// Whether a directory `rela` leads through under `top` is a link, or no directory at all: git reads a file there as

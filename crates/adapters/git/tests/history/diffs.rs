@@ -271,9 +271,10 @@ fn bounded(
         .unwrap()
 }
 
-/// A bounded worktree diff, and a file past its bound whose stat changed but whose content did not.
+/// A bounded worktree diff hashes no file outside its bound: a file whose stat changed but whose content did not is
+/// read, counted, to be told unchanged, and past the bound it is listed as changed and unread, as any other.
 #[test]
-fn a_bounded_worktree_diff_and_a_file_whose_stat_alone_changed() {
+fn a_bounded_worktree_diff_counts_the_files_it_hashes() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(dir.path());
     repo.write("a.txt", "old\n")
@@ -294,12 +295,23 @@ fn a_bounded_worktree_diff_and_a_file_whose_stat_alone_changed() {
         .iter()
         .map(|f| (f.path.as_str(), f.status, f.truncated, f.unread))
         .collect();
-    assert_eq!(listed, [("a.txt", DiffStatus::Modified, false, false)]);
+    assert_eq!(
+        listed,
+        [
+            ("a.txt", DiffStatus::Modified, false, false),
+            ("big.txt", DiffStatus::Modified, true, true),
+        ]
+    );
+    // within the bound it is read and found unchanged
+    let files = bounded(&repo, &base, DiffSide::Worktree, false, 64 * 1024);
+    let listed: Vec<_> = files.iter().map(|f| f.path.as_str()).collect();
+    assert_eq!(listed, ["a.txt"]);
 }
 
-/// A bounded diff, and renames by identical content and by similarity whose blobs are past its bound.
+/// A bounded diff searches renames by similarity only while the blobs it would compare fit its bound; past it, a rename
+/// pairs by identical content only.
 #[test]
-fn a_bounded_diff_and_renames_past_its_bound() {
+fn a_bounded_diff_searches_renames_within_its_bytes() {
     let dir = tempfile::tempdir().unwrap();
     let repo = Repo::init(dir.path());
     repo.write("old.txt", lines(200))
@@ -321,7 +333,26 @@ fn a_bounded_diff_and_renames_past_its_bound() {
         listed,
         [
             ("moved.txt", DiffStatus::Renamed, Some("same.txt")),
-            ("new.txt", DiffStatus::Renamed, Some("old.txt")),
+            ("new.txt", DiffStatus::Added, None),
+            ("old.txt", DiffStatus::Deleted, None),
+        ]
+    );
+    let files = bounded(
+        &repo,
+        &base,
+        DiffSide::Commit(Sha::new(&head)),
+        true,
+        64 * 1024,
+    );
+    let paired: Vec<_> = files
+        .iter()
+        .map(|f| (f.path.as_str(), f.old_path.as_deref()))
+        .collect();
+    assert_eq!(
+        paired,
+        [
+            ("moved.txt", Some("same.txt")),
+            ("new.txt", Some("old.txt"))
         ]
     );
 }

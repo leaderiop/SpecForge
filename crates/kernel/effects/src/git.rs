@@ -254,13 +254,14 @@ pub struct DiffQuery {
     /// Give each text file's changed line ranges, with no context ([`GitFileDiff::hunks`]).
     pub hunks: bool,
     /// Pair a deletion with an addition as a rename: by identical content, else by similarity (half the lines, at
-    /// most [`RENAME_PAIRS`] pairs compared), whatever the repository's config says; `false` lists them apart
-    /// (`--no-renames`). No copy is searched.
+    /// most [`RENAME_PAIRS`] pairs compared, and for a bounded diff only while the deleted and added blobs together fit
+    /// [`DiffQuery::budget`]), whatever the repository's config says; `false` lists them apart (`--no-renames`). No
+    /// copy is searched.
     pub renames: bool,
     /// The most bytes the diff reads of its files (both sides, and its paths' names), and as many again of a worktree's
     /// files on disk; none reads every file (a person's diff). The first file is always read, so a diff of one file
-    /// always is. A bounded worktree diff neither reads nor hashes a file past it, nor one over [`BLOB_CAP`]: it lists
-    /// it as changed.
+    /// always is. A bounded worktree diff reads each file on disk at most once, counted (one whose stat alone changed
+    /// among them), and neither reads nor hashes a file past it, nor one over [`BLOB_CAP`]: it lists it as changed.
     pub budget: Option<u64>,
 }
 

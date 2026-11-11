@@ -359,17 +359,20 @@ behavior auto_detect_collector "Auto-Detect Collector" {
     single_collector_used   "a single enabled collector is used without detection"
     no_match_diagnosed      "no collector, no match among several or an unknown --runner is E058, listing the available collectors"
     ordered_by_facts        "a collector whose facts input names a kind another selected collector answers runs after it; a cycle is E119 before any runs"
-    repository_detected     "a collector detecting a repository is selected when the project root or a directory above it holds .git"
+    repository_detected     "a collector detecting a repository is selected when the git port locates the project root in one, or refuses to read the one it is in"
   }
   contract   """
     Without `--runner`, `specforge collect` selects every collector whose
     detection files exist at the project root; the last segment of a
     detection pattern may use `*` wildcards (`vitest.config.*`). A project
     with Rust and TypeScript tests therefore collects from both runners.
-    A collector that detects a repository is also selected when the
-    project root or any directory above it holds `.git` (a directory, or
-    a linked worktree's file), so a project in a subdirectory of its
-    repository is detected.
+    A collector that detects a repository is also selected when the git
+    port's `locate`, which the collector's own git calls ask, finds the
+    project root in a repository (its top or below, a linked worktree
+    included), git's ceilings kept, so a project in a subdirectory of its
+    repository is detected. One the port refuses to read (a `GIT_DIR`
+    naming another repository) selects it too, and its `locate` says why;
+    with no git port, none does.
     `--runner` names one collector by name or extension. When only one
     collector is enabled, it is selected without detection: detection
     only decides between several. When nothing can be

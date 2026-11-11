@@ -43,8 +43,10 @@ gains the guest `git` interface's `log` and `diff` and `UnheldReference.history`
 - **D3. The `item` step is required.** A route step has no optional mode (ADR 0330 D6): a task that names no held item
   leaves the thread incomplete, which `--partial` shows. Without `@code/core` the step is skipped (I210), as `test`.
 - **D4. gsd-git is detected in any repository the project is in.** A collector's `auto_detect.repository` (protocol
-  2.0.0) selects it when the project root or a directory above it holds `.git`, a directory or a linked worktree's
-  file, so a project in a subdirectory of its repository is detected. The port answers an unborn repository with no
+  2.0.0) selects it when the git port's `locate`, the one a guest's git calls ask, finds the project root in a
+  repository (its top or below, a linked worktree's included), so a project in a subdirectory of its repository is
+  detected. One the port refuses to read (see the guest `git` interface) is detected too, so the collect runs and its
+  `locate` says why; with no git port nothing is. The port answers an unborn repository with no
   commit, so gsd-git records nothing there and the collect goes on. A project root outside the repository's top (a top
   read another way) fails the collect, naming both, rather than read every path as the repository's.
 - **D5. gsd-git asks for no renames.** The port's diff gains `renames`: `false` turns rewrite tracking off, so a rename
@@ -65,7 +67,13 @@ gains the guest `git` interface's `log` and `diff` and `UnheldReference.history`
 
 `log(log-query)` and `diff(diff-query)` join `locate`, `commit`, `merge-base`, `tree`, `sizes`, `blobs`, `branch` and
 `status`. The host decides the repository (the project's own, a linked worktree's included); a guest names commits by
-id and paths from the repository's top, never a place. No remote, URL, credential or environment variable reaches it.
+id and paths from the repository's top, never a place. It finds it as git discovers one: `GIT_CEILING_DIRECTORIES` is
+kept (a search from below a ceiling reads neither the ceiling nor what is above it). A `GIT_DIR` or `GIT_WORK_TREE`
+that names another repository or worktree than the one the directory is in, or names one where the directory is in
+none, refuses the `locate`, naming the variable: the host never lets the environment point it at another repository
+(ADR 0339 D5), and ignoring the variable would read one git does not read there. One naming the repository the
+directory is in is kept (a hook git runs in a linked worktree sets `GIT_DIR`).
+No remote, URL, credential or environment variable reaches it.
 A log with no `max` lists every commit up to the call's answer cap and says `truncated`; a pickaxe over a withheld path
 is refused. A diff of a withheld file keeps its status and counts, never its patch or hunks, and says `withheld`; the
 patches past the answer cap are dropped and the answer says `truncated`. A signature carries a name and epoch seconds
@@ -80,12 +88,17 @@ only measures it):
 - A diff reads at most the answer cap of its files from the repository (both sides, and the names), and as many again
   of a worktree's files on disk; the first file is always read, so a diff of one file always is. A file past the bound
   keeps its status, counts no lines, and says `truncated`, as does the answer. A worktree file past the bound or over
-  the 16 MiB blob cap is neither read nor hashed: it is listed as changed.
+  the 16 MiB blob cap is neither read nor hashed: it is listed as changed. A worktree file is read at most once, when
+  the diff's tree is built, and counted there: the status that finds the changed files compares their stat only and
+  hashes none, so a file whose stat changed but whose content did not is read, counted, to be told unchanged, and past
+  the bound it is listed as changed.
 - A rename search follows the host's rules, never the repository's `diff.renames` or `diff.renameLimit`: identical
-  content first, then half the lines alike, comparing at most 1,000 deletion and addition pairs (git's default limit;
-  past it renames pair by identical content only). No copy is searched.
+  content first, then half the lines alike, comparing at most 1,000 deletion and addition pairs (git's default limit),
+  and only while the deleted and added blobs together fit the answer cap, which the search reads beside the files' own
+  reads. Past either, renames pair by identical content only, which reads no blob. No copy is searched.
 
-A person's `specforge git log` and `diff` read unbounded, as `git` does, and search renames by the same rules.
+A person's `specforge git log` and `diff` read unbounded, as `git` does, and search renames by the same rules, with
+no byte bound.
 
 A diff whose head is the worktree reads the tracked files on disk, which the repository does not hold. Their text is
 the disk's, so it is judged as an fs read is: a file's patch and hunks reach a guest only when its fs grant reads that

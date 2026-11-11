@@ -165,7 +165,8 @@ pub fn list(view: &ProjectView, consent: &dyn Consent) -> Result<GrantsListing, 
         diagnostics.push(unusable_store(&error));
         Approvals::default()
     });
-    let uses = uses_here(view.registries().declarations(), root);
+    let git = view.env().git();
+    let uses = uses_here(view.registries().declarations(), root, git.as_deref());
     let none = Uses::new();
     let extensions = grants_of(view, consent)?
         .iter()

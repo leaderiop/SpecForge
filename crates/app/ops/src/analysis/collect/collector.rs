@@ -4,6 +4,7 @@
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
 use specforge_effects::Uses;
+use specforge_effects::git::{Git, Located};
 use specforge_protocol_types::{
     CONFIG_PLACEHOLDER, ExtensionDeclaration, Input, Inputs, Operation, PortScope, ProcessConfig,
     REPORT_PLACEHOLDER,
@@ -17,7 +18,7 @@ pub struct Collector {
     pub name: String,
     pub export: String,
     pub detect: Vec<String>,
-    /// Also detected in any git repository, at its top or below ([`in_a_repository`]).
+    /// Also detected in any git repository, at its top or below, as the git port locates one ([`in_a_repository`]).
     pub detect_repository: bool,
     pub run: Vec<String>,
     /// Report file or directory, relative to the project root: none for a collector with no command that names
@@ -112,32 +113,42 @@ fn collector(
     }
 }
 
-/// Collectors whose detection files are present at the project root, or that detect a repository the root is in.
-pub(super) fn detect<'a>(collectors: &'a [Collector], root: &Path) -> Vec<&'a Collector> {
+/// Collectors whose detection files are present at the project root, or that detect a repository the root is in
+/// ([`in_a_repository`], asked of `git`).
+pub(super) fn detect<'a>(
+    collectors: &'a [Collector],
+    root: &Path,
+    git: Option<&dyn Git>,
+) -> Vec<&'a Collector> {
+    let mut repository = None;
     collectors
         .iter()
         .filter(|c| {
             !c.reads_outcomes()
                 && (c.detect.iter().any(|p| pattern_matches(root, p))
-                    || c.detect_repository && in_a_repository(root))
+                    || c.detect_repository
+                        && *repository.get_or_insert_with(|| in_a_repository(git, root)))
         })
         .collect()
 }
 
-/// Whether `root` is in a git repository: it or a directory above it holds `.git`, a directory or a linked worktree's
-/// file, as git discovers one.
-// shortcut: no GIT_DIR nor GIT_CEILING_DIRECTORIES, which a guest's own `locate` honours; upgrade when detection reads
-// the git port
-fn in_a_repository(root: &Path) -> bool {
-    root.ancestors().any(|dir| dir.join(".git").exists())
+/// Whether `root` is in a git repository, as the git port's `locate` finds one, which a guest's git calls ask too (ADR
+/// 0352 D4): git's discovery, its ceilings kept. A repository the port refuses to read (a `GIT_DIR` naming another, a
+/// `.git` that is no repository) is one: the collector runs, and its `locate` says why. No port: no repository.
+fn in_a_repository(git: Option<&dyn Git>, root: &Path) -> bool {
+    git.is_some_and(|git| !matches!(git.locate(root), Located::NotARepository))
 }
 
 /// The scopes a collect run here would use, per extension: each detected collector's process capability (ADR 0335
-/// D2): what `specforge grants` and doctor call in use.
-pub fn uses_here(declarations: &[ExtensionDeclaration], root: &Path) -> Vec<(String, Uses)> {
+/// D2), a repository asked of `git`: what `specforge grants` and doctor call in use.
+pub fn uses_here(
+    declarations: &[ExtensionDeclaration],
+    root: &Path,
+    git: Option<&dyn Git>,
+) -> Vec<(String, Uses)> {
     let all = collectors(declarations);
     let mut uses: Vec<(String, Uses)> = Vec::new();
-    for collector in detect(&all, root) {
+    for collector in detect(&all, root, git) {
         let Some(scope) = &collector.capability else {
             continue;
         };

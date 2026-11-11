@@ -2,7 +2,8 @@
 //! program is never run, so history reads need nothing installed. A repository is opened per call, apart from the
 //! variables that would point the host at another repository or another object store (`GIT_DIR`, `GIT_WORK_TREE`,
 //! `GIT_OBJECT_DIRECTORY`, `GIT_CONFIG_*`); a repository another user owns is opened with reduced trust, so its config
-//! runs nothing.
+//! runs nothing. Locating one keeps git's `GIT_CEILING_DIRECTORIES`, and refuses where `GIT_DIR` or `GIT_WORK_TREE`
+//! names another repository than the one around the directory (ADR 0352).
 //!
 //! No lazy fetch (ADR 0300 D5, amended by ADR 0339): gix never asks a partial clone's promisor remote, so a blob the
 //! clone lacks reads as missing on every machine. A tree listing reads no blob at all.
@@ -103,6 +104,44 @@ fn without_drivers(repo: &mut gix::Repository) -> Result<(), GitError> {
         .commit()
         .map(drop)
         .map_err(|e| failed("read the config", &e))
+}
+
+/// Whether a diff from `old` to `new` with `budget` may search renames by similarity: unbounded (a person's diff), or
+/// when the blobs a search would compare, every deleted and every added one, fit the budget, which it reads beside the
+/// files' own reads. Past it, renames pair by identical content only, which compares ids and reads no blob.
+fn similar(
+    repo: &gix::Repository,
+    old: &gix::Tree<'_>,
+    new: &gix::Tree<'_>,
+    budget: Option<u64>,
+) -> bool {
+    use gix::object::tree::diff::ChangeDetached as Change;
+    let Some(budget) = budget else {
+        return true;
+    };
+    // the trees alone: no blob is read to list what was deleted and added
+    let Ok(changes) = repo.diff_tree_to_tree(old, new, Some(gix::diff::Options::default())) else {
+        return false;
+    };
+    let (mut deleted, mut added) = (Vec::new(), Vec::new());
+    for change in changes {
+        match change {
+            Change::Deletion { id, entry_mode, .. } if entry_mode.is_blob() => deleted.push(id),
+            Change::Addition { id, entry_mode, .. } if entry_mode.is_blob() => added.push(id),
+            _ => {}
+        }
+    }
+    if deleted.is_empty() || added.is_empty() {
+        return true;
+    }
+    let mut bytes = 0u64;
+    deleted.iter().chain(&added).all(|id| {
+        // a blob that cannot be sized cannot be held to the budget either
+        repo.find_header(*id).is_ok_and(|header| {
+            bytes = bytes.saturating_add(header.size());
+            bytes <= budget
+        })
+    })
 }
 
 /// A gix failure as the port's error.
@@ -411,9 +450,9 @@ impl Git for Gix {
             .map_err(|e| failed("read a tree", &e))?;
         // the host's own rename rules, never the repository's `diff.renames` and `diff.renameLimit`: a configured limit
         // of 0 would compare every deletion with every addition; the default options track none
-        let rewrites = query.renames.then_some(gix::diff::Rewrites {
+        let rewrites = query.renames.then(|| gix::diff::Rewrites {
             copies: None,
-            percentage: Some(0.5),
+            percentage: similar(&repo, &old, &new, query.budget).then_some(0.5),
             limit: RENAME_PAIRS,
             track_empty: false,
         });
