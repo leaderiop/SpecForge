@@ -12,11 +12,13 @@
 //! or `module.exports = { … }` naming it), a namespace member exported from a public namespace, a member of a public
 //! class or interface that is neither `#private` nor `private`. Its doc is the `/** */` comment that ends on its first
 //! line or the line above, its signature the declared types, parameters and heritage the query captures (never a
-//! value), its attrs the modifier tokens written on it.
+//! value) in one spelling, a literal's whitespace kept, its attrs the modifier tokens written on it.
 
 use std::collections::BTreeMap;
 
-use specforge_code_facts::{location, Definition, ItemId, ItemKind, Names, Visibility};
+use specforge_code_facts::{
+    location, signature_spelling, Definition, ItemId, ItemKind, Names, Visibility,
+};
 use specforge_extension_sdk::host::{SyntaxCapture, SyntaxMatch, SyntaxRole, SyntaxSpan};
 use specforge_javascript_workspace::Package;
 
@@ -158,16 +160,45 @@ impl<'m> Group<'m> {
 }
 
 /// A string's value from its fragments and escape sequences, as the grammar splits it: each escape decoded
-/// (`\'` is `'`, `\u{41}` is `A`, a line continuation nothing).
+/// (`\'` is `'`, `\u{41}` is `A`, a line continuation nothing), and a surrogate pair written as two `\u` escapes
+/// one character (`\uD83D\uDE00` is `😀`), as JavaScript reads it. A lone surrogate keeps its escaped text.
 fn decoded(parts: &[&SyntaxCapture]) -> String {
     let mut value = String::new();
+    // A high surrogate's escape whose low half may follow: its code unit and its text.
+    let mut high: Option<(u32, &str)> = None;
     for part in parts {
-        match part.text.strip_prefix('\\') {
-            Some(escape) => value.push_str(&unescaped(escape)),
-            None => value.push_str(&part.text),
+        let escape = part.text.strip_prefix('\\');
+        let unit = escape.and_then(surrogate);
+        if let Some((first, text)) = high.take() {
+            if let Some(low @ 0xDC00..=0xDFFF) = unit {
+                let pair = 0x10000 + ((first - 0xD800) << 10) + (low - 0xDC00);
+                value.extend(char::from_u32(pair));
+                continue;
+            }
+            value.push_str(text);
+        }
+        match (escape, unit) {
+            (_, Some(first @ 0xD800..=0xDBFF)) => high = Some((first, &part.text)),
+            (Some(escape), _) => value.push_str(&unescaped(escape)),
+            (None, _) => value.push_str(&part.text),
         }
     }
+    if let Some((_, text)) = high {
+        value.push_str(text);
+    }
     value
+}
+
+/// The UTF-16 surrogate a `\u` escape (its backslash dropped) writes, `\uD83D` or `\u{D83D}`; `None` for any other.
+fn surrogate(escape: &str) -> Option<u32> {
+    let hex = match escape.as_bytes() {
+        [b'u', b'{', .., b'}'] => &escape[2..escape.len() - 1],
+        [b'u', ..] => &escape[1..],
+        _ => return None,
+    };
+    u32::from_str_radix(hex, 16)
+        .ok()
+        .filter(|unit| (0xD800..=0xDFFF).contains(unit))
 }
 
 /// The value of one escape sequence (the grammar's `escape_sequence`, its backslash dropped).
@@ -195,7 +226,7 @@ fn unescaped(escape: &str) -> String {
         _ if escape.chars().count() == 1 => return escape.to_string(),
         _ => None,
     };
-    // shortcut: a surrogate pair written as two `\u` escapes keeps its text; decode pairs when a name needs it.
+    // A lone surrogate is no char: it keeps its text.
     decoded.map_or_else(|| format!("\\{escape}"), String::from)
 }
 
@@ -349,15 +380,39 @@ fn doc_text(comment: &str) -> Option<String> {
     (!text.is_empty()).then_some(text)
 }
 
-/// A group's signature: its captured parts' source texts joined by one space, as written (`item_facts` digests it).
-fn signature(group: &Group) -> Option<String> {
-    let text = group
-        .signature
+/// The spans of the file's literal text holding whitespace (a string's, a template's, a regular expression's), in
+/// source order.
+fn literals(matches: &[SyntaxMatch]) -> Vec<SyntaxSpan> {
+    matches
         .iter()
-        .map(|part| part.text.as_str())
-        .collect::<Vec<_>>()
-        .join(" ");
-    (!text.trim().is_empty()).then_some(text)
+        .filter(|m| m.role == SyntaxRole::Reference && m.kind == "literal")
+        .map(|m| m.span)
+        .collect()
+}
+
+/// A group's signature: its captured parts' source texts joined by one space, in the one spelling
+/// [`signature_spelling`] gives (`item_facts` digests it), each literal of `literals` inside a part kept as written.
+fn signature(group: &Group, literals: &[SyntaxSpan]) -> Option<String> {
+    let mut text = String::new();
+    let mut kept = Vec::new();
+    for part in &group.signature {
+        if !text.is_empty() {
+            text.push(' ');
+        }
+        let (base, start, end) = (text.len(), part.span.start.byte, part.span.end.byte);
+        let first = literals.partition_point(|l| l.start.byte < start);
+        for literal in literals[first..]
+            .iter()
+            .take_while(|l| l.start.byte < end)
+            .filter(|l| l.end.byte <= end)
+        {
+            let at = |byte: u32| base + (byte - start) as usize;
+            kept.push(at(literal.start.byte)..at(literal.end.byte));
+        }
+        text.push_str(&part.text);
+    }
+    let text = signature_spelling(&text, &kept);
+    (!text.is_empty()).then_some(text)
 }
 
 /// The definitions of `file` (project-relative; `under` the directory of `package`, which owns it), parsed as
@@ -371,6 +426,7 @@ pub(crate) fn read(
     let groups = groups(matches);
     let exported = exported(matches);
     let docs = docs(matches, &groups);
+    let literals = literals(matches);
     let segment = package.segment();
     let mut definitions = Vec::new();
     for (at, group) in groups.iter().enumerate() {
@@ -392,7 +448,7 @@ pub(crate) fn read(
             visibility: Visibility::js(public(&groups, at, &exported)),
             file: file.to_string(),
             at: location(file, group.span.start, group.span.end),
-            signature: signature(group),
+            signature: signature(group, &literals),
             doc: docs.get(&at).and_then(|comment| doc_text(comment)),
             attrs,
             names: Names::new(),

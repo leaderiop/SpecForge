@@ -1,5 +1,6 @@
 //! The ids of `@code/core`'s facts (ADR 0347 D2–D5): a test, an item and a package, each parsing back to itself.
 
+use std::collections::BTreeMap;
 use std::fmt;
 use std::str::FromStr;
 
@@ -398,6 +399,48 @@ impl PackageId {
             dir: Some(dir.to_string()),
             ..PackageId::npm(name)
         }
+    }
+
+    /// The ids of a project's cargo packages, each `(name, dir)` with `dir` project-relative, in their order: see
+    /// [`PackageId::each`].
+    pub fn cargo_each<'p>(
+        packages: impl IntoIterator<Item = (&'p str, &'p str)>,
+    ) -> Vec<PackageId> {
+        PackageId::each(PackageKind::Cargo, packages)
+    }
+
+    /// The ids of a project's npm packages, each `(name, dir)` with `dir` project-relative, in their order: see
+    /// [`PackageId::each`].
+    pub fn npm_each<'p>(packages: impl IntoIterator<Item = (&'p str, &'p str)>) -> Vec<PackageId> {
+        PackageId::each(PackageKind::Npm, packages)
+    }
+
+    /// Of the packages of one name, the one whose directory is shallowest (fewest segments, then lexically first)
+    /// keeps the plain id, and every other takes its directory as the purl subpath (`#<dir>`, ADR 0348 D5).
+    fn each<'p>(
+        kind: PackageKind,
+        packages: impl IntoIterator<Item = (&'p str, &'p str)>,
+    ) -> Vec<PackageId> {
+        let packages: Vec<(&str, &str)> = packages.into_iter().collect();
+        let depth = |dir: &str| dir.split('/').filter(|s| !s.is_empty()).count();
+        let mut kept: BTreeMap<&str, &str> = BTreeMap::new();
+        for &(name, dir) in &packages {
+            kept.entry(name)
+                .and_modify(|kept| {
+                    if (depth(dir), dir) < (depth(kept), *kept) {
+                        *kept = dir;
+                    }
+                })
+                .or_insert(dir);
+        }
+        packages
+            .iter()
+            .map(|&(name, dir)| PackageId {
+                kind,
+                name: name.to_string(),
+                dir: (kept[name] != dir).then(|| dir.to_string()),
+            })
+            .collect()
     }
 
     /// The package's name, as its manifest gives it.

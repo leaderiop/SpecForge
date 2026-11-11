@@ -123,11 +123,14 @@ behavior js_mark_item_exports "Mark Exports, Visibility, Docs and Signatures" {
     interface that is neither #private nor private. Every other item is
     private. A name export default or an export list's `as default` names
     gains the attr default. Its doc MUST be the /** */ comment that ends on
-    its first line or the line above, a class's first line being its first
-    decorator's, written on the class or before its export; the markers and
-    each line's leading * dropped; its signature
-    the declared types, parameters, type parameters and heritage the query
-    captures, never a value, which item_facts digests; its attrs the
+    its first line or the line above, a class's or a method's first line
+    being its first decorator's, written on it, before its export or before
+    the method in its class body; the markers and each line's leading *
+    dropped; its signature the declared types, parameters, type parameters
+    and heritage the query captures, never a value, in one spelling
+    (whitespace collapsed outside a string's, a template's or a regular
+    expression's own text, kept as written there), which item_facts
+    digests; its attrs the
     modifier tokens written on it (export default declare abstract static
     async get set readonly override const let var * exports and the
     accessibility words).
@@ -145,7 +148,9 @@ behavior js_mark_item_exports "Mark Exports, Visibility, Docs and Signatures" {
   verify unit "a member of a private class is private"
   verify unit "a JSDoc comment is the doc of the item below it"
   verify unit "a decorated class takes the doc above its decorator, exported or not"
+  verify unit "a decorated member takes the doc above its first decorator"
   verify unit "a signature holds types and never a value"
-  verify unit "a signature keeps its parts' source text"
+  verify unit "a signature is its parts' text in one spelling, a literal's whitespace kept"
+  verify unit "a signature's literal keeps its whitespace in the digest"
   verify unit "modifiers are attrs"
 }

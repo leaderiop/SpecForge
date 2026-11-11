@@ -78,8 +78,11 @@ expression handed to a call.
 - Overloads and the body of one function are one item listing every place.
 - An id names the declared name: `export default function main` is `::main`,
   `export { a as b }` keeps `::a` (`as default` adds the attr `default`), only
-  an unnamed default export is `::default`. A string member name is its value (`'a\'b'() {}` is `a'b`), and
-  `namespace A.B` is the two names `A` and `B`, up to six of them.
+  an unnamed default export is `::default`. A string member name is its value (`'a\'b'() {}` is `a'b`, a
+  surrogate pair written `\uD83D\uDE00` is one character), and `namespace A.B` is the two names `A` and `B`,
+  up to six of them: a dotted name of seven or more is no item. The reader's query has no pattern that reaches
+  a segment at any depth, and the pack never splits the name's text itself, which a space or a comment between
+  segments would fool.
 - CommonJS's `module.exports = <function>`, TypeScript's `export =` and a
   re-export `export … from` define no item here.
 
@@ -111,10 +114,13 @@ tests name it `<name>@<dir>` with the directory's `/` written `%2F`:
 - **`attrs`**: the modifier words written on it (`export`, `default`,
   `declare`, `async`, `static`, `private`, …).
 - **`doc`**: the `/** */` comment ending on its first line or the line above,
-  without its markers. A decorated class starts at its first decorator, so
-  `/** … */` above `@dec class X` and above `@dec export class X` are both
-  its doc.
-- **`signature`**: its declared parameters, types and heritage, never a value.
+  without its markers. A decorated class or member starts at its first
+  decorator, so `/** … */` above `@dec class X`, above `@dec export class X`
+  and above `@dec method() {}` in a class is its doc.
+- **`signature`**: a digest of its declared parameters, types and heritage,
+  never a value. A change of layout is no change; a change inside a string,
+  a template or a regular expression is (`'a  b'` is another type than
+  `'a b'`).
 - **`package`**: its package fact, `pkg:npm/<name>`.
 
 ## 7. The package facts

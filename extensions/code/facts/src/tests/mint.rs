@@ -255,7 +255,7 @@ fn an_items_title_is_its_own_name() {
 fn a_signature_digest_ignores_whitespace_and_order() {
     let id = ItemId::rust("toy", &[], None, "f");
     let signed = |text: &str, line| Definition {
-        signature: Some(text.to_string()),
+        signature: Some(signature_spelling(text, &[])),
         ..definition(
             &id,
             ItemKind::Function,
@@ -282,6 +282,22 @@ fn a_signature_digest_ignores_whitespace_and_order() {
         place("a.rs", 1),
     )]);
     assert!(!unsigned[0].fields.contains_key("signature"));
+}
+
+#[test]
+fn a_signature_spelling_keeps_a_literals_whitespace() {
+    assert_eq!(signature_spelling("  (a:\n\t u8,  b) ", &[]), "(a: u8, b)");
+    // `(a: 'x  y',\n  b)`: the string's own text is bytes 5..9.
+    let text = "(a: 'x  y',\n  b)";
+    let (two, one) = (5..9, 5..8);
+    let spelled = signature_spelling(text, std::slice::from_ref(&two));
+    assert_eq!(spelled, "(a: 'x  y', b)");
+    assert_ne!(
+        spelled,
+        signature_spelling("(a: 'x y', b)", std::slice::from_ref(&one))
+    );
+    // A range past the text, or inside a character, keeps nothing more.
+    assert_eq!(signature_spelling("é  é", &[1..2, 40..50]), "é é");
 }
 
 #[test]

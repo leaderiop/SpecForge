@@ -45,7 +45,8 @@ fn a_dotted_namespace_name_is_one_segment_per_identifier() {
 fn a_string_member_name_is_its_value_escapes_decoded() {
     let facts = collected(&[(
         "src/a.ts",
-        "export class Box {\n  'a\\'b'() {}\n  \"c\\u0041\\x42\"() {}\n  'x.y' = 1;\n  ''() {}\n  '#p' = 2;\n}\n\
+        "export class Box {\n  'a\\'b'() {}\n  \"c\\u0041\\x42\"() {}\n  'x.y' = 1;\n  ''() {}\n  '#p' = 2;\n\
+         '\\uD83D\\uDE00'() {}\n  '\\u{D83D}\\u{DE01}'() {}\n  'z\\uDE00'() {}\n  '\\uD83Dz'() {}\n}\n\
          export interface I {\n  'line\\\n  end': string;\n}\n",
     )]);
     assert_eq!(
@@ -53,9 +54,13 @@ fn a_string_member_name_is_its_value_escapes_decoded() {
         [
             "Box",
             "Box.%23p",
+            "Box.\\uD83Dz",
             "Box.a'b",
             "Box.cAB",
             "Box.x%2Ey",
+            "Box.z\\uDE00",
+            "Box.😀",
+            "Box.😁",
             "I",
             "I.line  end"
         ]
@@ -69,15 +74,15 @@ fn a_string_member_name_is_its_value_escapes_decoded() {
 
 #[specforge_test(
     behavior = "js_mark_item_exports",
-    verify = "a signature keeps its parts' source text"
+    verify = "a signature is its parts' text in one spelling, a literal's whitespace kept"
 )]
-fn a_signature_keeps_its_parts_source_text() {
-    let read = definitions("export function f(a: 'a  b',\n  c: number): void {}\n");
+fn a_signature_is_its_parts_text_in_one_spelling_a_literals_whitespace_kept() {
+    let read = definitions("export function f(a: 'a  b',\n  c: number = /x  y/):  void {}\n");
     let [f] = &read[..] else {
         panic!("one definition: {read:?}");
     };
     assert_eq!(
         f.signature.as_deref(),
-        Some("(a: 'a  b',\n  c: number) : void")
+        Some("(a: 'a  b', c: number = /x  y/) : void")
     );
 }

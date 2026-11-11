@@ -210,8 +210,9 @@ reports each dangling one of a `test` or an `item` (ADR 0346 D8).
 | `package` | `pkg` | `name`, `version`, `edition`, `rust_version`, `engines`, `features`, `targets` (`<kind>:<name>:<root>`), `path`, `depends_on` (→ `package`, edge `uses_package`) |
 
 An item's title is its own unqualified name (`add` for `…::Board::add`, `fmt` for `…::<Foo as Display>::fmt`). Its
-`signature` digests the definitions' signature texts, each whitespace-collapsed, sorted, deduplicated and joined by a
-newline. No `depends_on` edge label: `@specforge/product` reads one for features.
+`signature` digests the definitions' signatures, each in the one spelling `signature_spelling` gives (whitespace
+collapsed, but inside the literal text a pack names: a string's, a template's or a regular expression's), sorted,
+deduplicated and joined by a newline. No `depends_on` edge label: `@specforge/product` reads one for features.
 
 ## Rejected
 

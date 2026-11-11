@@ -178,7 +178,12 @@ behavior cc_mint_code_ids "Mint Every Code Id in One Library" {
     generic arguments dropped), a JS item js:<package>/<file>::<name> with
     members joined by a dot, a package pkg:cargo/<name> or pkg:npm/<name>
     with an npm scope's at sign percent-encoded, and #<dir> for a second
-    package of one name, whose JS ids name it <name>@<dir> (dir encoded). An
+    package of one name, whose JS ids name it <name>@<dir> (dir encoded):
+    of the packages of one name, the one whose directory is shallowest
+    (fewest segments, then lexically first) keeps the plain id, decided
+    here for every manifest pack. A source pack's signature MUST be digested
+    in the one spelling this library gives (whitespace collapsed outside the
+    literal text the pack names). An
     item id MUST never hold a hash sign; every id MUST parse back to itself;
     a SCIP symbol of rust-analyzer or scip-typescript MUST map into exactly
     one id. Every definition one id reaches MUST be one fact listing each
@@ -198,4 +203,5 @@ behavior cc_mint_code_ids "Mint Every Code Id in One Library" {
   verify unit "definitions of one id merge into one fact listing every location and kind"
   verify unit "an item's test id writes the words its edition reserves raw, as libtest names the test"
   verify unit "a second npm package of one name takes its dir"
+  verify unit "the shallowest package of one name keeps the plain id"
 }
