@@ -14,7 +14,7 @@ use specforge_project::facts::Span;
 use specforge_project::harness::{LEDGER_FILE, Ledger, LedgerChange, Line, compose};
 
 use super::reads::reads;
-use super::{Key, PendingLedger, key_of};
+use super::{Key, PendingLedger, key_of, names};
 
 /// Whether a rename's edit is in the texts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,6 +57,9 @@ pub(super) struct Tree {
     landed: Landed,
     /// The ledger as the first rename found it: what a stale line goes back to at the entity before any rename.
     before: Ledger,
+    /// Each stale line's node in a source file, by the file's text it was read from: a text read again (a keystroke in
+    /// another file) is not compared with the renames' texts again. Emptied when the tree changes.
+    memo: BTreeMap<(Key, String), (String, Option<At>)>,
 }
 
 impl Tree {
@@ -65,6 +68,7 @@ impl Tree {
         let before = Ledger::parse(&String::from_utf8_lossy(&on.root_file(LEDGER_FILE))).ledger;
         Tree {
             before,
+            memo: BTreeMap::new(),
             nodes: vec![Node {
                 rename,
                 parent: None,
@@ -102,10 +106,10 @@ impl Tree {
 
     /// The node the declaring file's `text` holds: the last rename answered whose new name it declares.
     fn declared(&self, text: Option<&str>) -> At {
-        let text = text?;
+        let names = names(text?, self.declaring());
         self.live()
             .rev()
-            .find(|&i| self.nodes[i].rename.declares_new(text))
+            .find(|&i| self.nodes[i].rename.declares_new(&names))
     }
 
     /// The path of the entity at `at`.
@@ -132,6 +136,7 @@ impl Tree {
             parent: at,
             applied: Edit::Waiting,
         });
+        self.memo.clear();
         true
     }
 
@@ -206,6 +211,7 @@ impl Tree {
             } else {
                 Edit::Dropped
             };
+            self.memo.clear();
         }
         let mut keys: Vec<(Key, Vec<String>)> = Vec::new();
         for marked in self.renames().flat_map(|r| &r.stale) {
@@ -218,24 +224,34 @@ impl Tree {
                 None => keys.push((key, files.collect())),
             }
         }
-        let lines = keys
-            .into_iter()
-            .map(|(key, files)| {
-                let held: Vec<At> = files
-                    .iter()
-                    .filter_map(|file| self.source_node(&key, file, text(file).as_deref()))
-                    .collect();
-                let at = match held.split_first() {
-                    Some((first, rest)) => rest.iter().fold(*first, |a, b| self.meet(a, *b)),
-                    None => declared,
+        let mut lines = Vec::new();
+        for (key, files) in keys {
+            let mut held: Vec<At> = Vec::new();
+            for file in files {
+                let now = text(&file);
+                let memo = (key.clone(), file);
+                let node = match (self.memo.get(&memo), &now) {
+                    (Some((then, node)), Some(now)) if then == now => *node,
+                    _ => {
+                        let node = self.source_node(&key, &memo.1, now.as_deref());
+                        if let Some(now) = now {
+                            self.memo.insert(memo, (now, node));
+                        }
+                        node
+                    }
                 };
-                let line = self
-                    .up(at)
-                    .into_iter()
-                    .find(|&i| self.nodes[i].rename.line(&key).is_some());
-                (key, line)
-            })
-            .collect();
+                held.extend(node);
+            }
+            let at = match held.split_first() {
+                Some((first, rest)) => rest.iter().fold(*first, |a, b| self.meet(a, *b)),
+                None => declared,
+            };
+            let line = self
+                .up(at)
+                .into_iter()
+                .find(|&i| self.nodes[i].rename.line(&key).is_some());
+            lines.push((key, line));
+        }
         Reading { declared, lines }
     }
 

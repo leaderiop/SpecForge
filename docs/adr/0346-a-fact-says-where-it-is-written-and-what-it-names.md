@@ -226,7 +226,9 @@ next collect of that collector ────────────────�
   walked back, each undone, and of those walked down, composed; each stale line whose node moved, as its rename wrote
   it, or at no rename as the ledger held it before the tree. The shown overlay is what the buffers say (a file no
   buffer holds, as on disk), read again when a source buffer the tree edits changes; once no file of the tree holds a
-  buffer the disk does not (saved, or closed), what the disk says lands. The tree is kept while any of its files is
+  buffer the disk does not (saved, or closed), what the disk says lands. A reading parses the declaring file once,
+  reads a file no buffer holds from disk once (again only after an event names it), and reads a source file's names
+  again only when its text changed. The tree is kept while any of its files is
   open: a redo or an undo saved later lands the rest, as the ledger takes any later rename (a rename back carries
   each move record, as the CLI's does); with every file closed it is over. A rename answered and never applied waits
   while its declaring file is the text it was planned on, and is dropped at the first other text without its edit,

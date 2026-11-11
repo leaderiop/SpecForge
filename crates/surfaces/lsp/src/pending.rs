@@ -141,9 +141,9 @@ impl PendingLedger {
     /// Whether `text`, the declaring file, declares the new name: one entity fewer with the old name than when the
     /// rename was planned, and one at least with the new. Counted, not asked whether a name is declared: two scoped
     /// entities may share a name, and a later rename of the other one moves the count of a name this one wrote.
-    fn declares_new(&self, text: &str) -> bool {
-        let (old, new) = declared(text, &self.declaring, &self.old_name, &self.new_name);
-        old + 1 == self.declared.0 && new >= 1
+    fn declares_new(&self, names: &Names) -> bool {
+        let count = |name: &str| names.get(name).copied().unwrap_or(0);
+        count(&self.old_name) + 1 == self.declared.0 && count(&self.new_name) >= 1
     }
 
     /// The stale line this rename marks for `key`, if any.
@@ -159,16 +159,22 @@ impl PendingLedger {
     }
 }
 
+/// How many entities a declaring file declares with each name.
+type Names = BTreeMap<String, usize>;
+
+/// The names `text` (the source `key`) declares, each with how many entities it declares with it: parsed once.
+fn names(text: &str, key: &str) -> Names {
+    let mut names = Names::new();
+    for entity in specforge_parser::parse(text, key).entities {
+        *names.entry(entity.id.raw.to_string()).or_default() += 1;
+    }
+    names
+}
+
 /// How many entities `text` (the source `key`) declares named `old` and named `new`.
 fn declared(text: &str, key: &str, old: &str, new: &str) -> (usize, usize) {
-    let parsed = specforge_parser::parse(text, key);
-    let count = |name: &str| {
-        parsed
-            .entities
-            .iter()
-            .filter(|e| e.id.raw.as_str() == name)
-            .count()
-    };
+    let names = names(text, key);
+    let count = |name: &str| names.get(name).copied().unwrap_or(0);
     (count(old), count(new))
 }
 
@@ -195,6 +201,8 @@ fn on_disk(project: &CompiledProject, key: &str) -> Option<String> {
 struct Links {
     tree: Tree,
     shown: Option<(Reading, Arc<LedgerOverlay>)>,
+    /// The disk text of each file of the tree no buffer holds, read once and again only after an event names it.
+    disk: BTreeMap<String, Option<String>>,
 }
 
 /// The renames of one entity.
@@ -211,6 +219,7 @@ impl Chain {
         Arc::new(Chain(Mutex::new(Links {
             tree: Tree::of(rename),
             shown: None,
+            disk: BTreeMap::new(),
         })))
     }
 
@@ -264,17 +273,36 @@ impl Chain {
         joined
     }
 
+    /// The files `keys` names changed on disk: read them again when next needed.
+    fn forget(&self, keys: &[String]) {
+        let mut links = self.links();
+        for key in keys {
+            links.disk.remove(key);
+        }
+    }
+
     /// What the tree shows over the session when its files read as `text` answers (a file it does not answer, as on
-    /// disk): the change from what the ledger holds of it; `None` when that is no change.
+    /// disk, read once): the change from what the ledger holds of it; `None` when that is no change.
     fn show(&self, text: &dyn Fn(&str) -> Option<String>) -> Option<Arc<LedgerOverlay>> {
+        let files = self.files();
         let mut links = self.links();
         if links.tree.is_over() {
             return None;
         }
-        let disk = links.tree.renames().next()?.before.clone();
-        let reading = links
-            .tree
-            .read(&|key| text(key).or_else(|| on_disk(&disk, key)));
+        let project = links.tree.renames().next()?.before.clone();
+        let mut texts: BTreeMap<String, Option<String>> = BTreeMap::new();
+        for file in files {
+            let text = match text(&file) {
+                Some(buffer) => Some(buffer),
+                None => links
+                    .disk
+                    .entry(file.clone())
+                    .or_insert_with(|| on_disk(&project, &file))
+                    .clone(),
+            };
+            texts.insert(file, text);
+        }
+        let reading = links.tree.read(&|key| texts.get(key).cloned().flatten());
         let (change, on) = links.tree.change(&reading);
         links.tree.mark(&reading, !is_empty(&change));
         if is_empty(&change) {
@@ -394,12 +422,17 @@ type Buffers = BTreeMap<String, Option<String>>;
 /// whether it edits a file the event names, to land once none of its files holds a text the disk does not.
 pub struct Landing {
     chains: Vec<(Arc<Chain>, Buffers, bool)>,
+    /// The files the event names: read from disk again.
+    keys: Vec<String>,
 }
 
 impl Landing {
     /// No rename waits on anything.
     pub fn none() -> Landing {
-        Landing { chains: Vec::new() }
+        Landing {
+            chains: Vec::new(),
+            keys: Vec::new(),
+        }
     }
 
     /// The trees of `pending`, each with the buffer `buffer` answers for each of its files, and whether it edits a
@@ -425,7 +458,10 @@ impl Landing {
                 (Arc::clone(chain), files, named)
             })
             .collect();
-        Landing { chains }
+        Landing {
+            chains,
+            keys: keys.to_vec(),
+        }
     }
 
     /// Whether no tree edits a file the event names.
@@ -438,6 +474,9 @@ impl Landing {
     /// again.
     pub fn land(&self, session: &mut ProjectSession) -> bool {
         let mut landed = false;
+        for (chain, _, _) in &self.chains {
+            chain.forget(&self.keys);
+        }
         for (chain, buffers, _) in self.chains.iter().filter(|(_, _, named)| *named) {
             let project = session.project();
             let saved = buffers.iter().all(|(file, buffer)| {
