@@ -68,7 +68,8 @@ gains the guest `git` interface's `log` and `diff` and `UnheldReference.history`
 `log(log-query)` and `diff(diff-query)` join `locate`, `commit`, `merge-base`, `tree`, `sizes`, `blobs`, `branch` and
 `status`. The host decides the repository (the project's own, a linked worktree's included); a guest names commits by
 id and paths from the repository's top, never a place. It finds it as git discovers one: `GIT_CEILING_DIRECTORIES` is
-kept (a search from below a ceiling reads neither the ceiling nor what is above it). A `GIT_DIR` or `GIT_WORK_TREE`
+kept (a search from below a ceiling reads neither the ceiling nor what is above it: a repository whose `.git` is
+there is none, whatever its `core.worktree` names). A `GIT_DIR` or `GIT_WORK_TREE`
 that names another repository or worktree than the one the directory is in, or names one where the directory is in
 none, refuses the `locate`, naming the variable: the host never lets the environment point it at another repository
 (ADR 0339 D5), and ignoring the variable would read one git does not read there. One naming the repository the

@@ -107,3 +107,52 @@ fn a_git_dir_naming_the_repository_the_directory_is_in_is_kept() {
         .set("GIT_WORK_TREE", real.join("repo"));
     assert_eq!(vars.top(&real.join("repo/sub")), Ok(real.join("repo")));
 }
+
+/// git looks for a `.git` only strictly below the nearest ceiling: a repository found at the ceiling is none, whatever
+/// its `core.worktree` names.
+#[test]
+fn a_repository_at_the_ceiling_is_none_whatever_its_worktree() {
+    let (_dir, real) = home();
+    std::fs::create_dir_all(real.join("wt")).unwrap();
+    let config = real.join("repo/.git/config");
+    let mut text = std::fs::read_to_string(&config).unwrap();
+    text.push_str(&format!(
+        "[core]\n\tworktree = {}\n",
+        real.join("wt").display()
+    ));
+    std::fs::write(&config, text).unwrap();
+    let vars = Vars::default().set("GIT_CEILING_DIRECTORIES", real.join("repo"));
+    assert_eq!(
+        vars.top(&real.join("repo/sub")),
+        Err(Located::NotARepository)
+    );
+}
+
+/// A repository above the nearest ceiling is none either.
+#[test]
+fn a_repository_above_the_ceiling_is_none() {
+    let (_dir, real) = home();
+    let vars = Vars::default().set("GIT_CEILING_DIRECTORIES", real.join("repo/sub"));
+    assert_eq!(
+        vars.top(&real.join("repo/sub/deep")),
+        Err(Located::NotARepository)
+    );
+    assert_eq!(vars.top(&real.join("repo/sub")), Ok(real.join("repo")));
+}
+
+/// As git: an entry after an empty one is taken as written, its links not resolved, so a link to the repository there
+/// is no ceiling of the real path searched from.
+#[cfg(unix)]
+#[test]
+fn a_ceiling_after_an_empty_entry_is_not_resolved() {
+    let (_dir, real) = home();
+    std::os::unix::fs::symlink(real.join("repo"), real.join("link")).unwrap();
+    let linked = Vars::default().set("GIT_CEILING_DIRECTORIES", real.join("link"));
+    assert_eq!(
+        linked.top(&real.join("repo/sub")),
+        Err(Located::NotARepository)
+    );
+    let after_empty = std::env::join_paths([PathBuf::new(), real.join("link")]).unwrap();
+    let vars = Vars::default().set("GIT_CEILING_DIRECTORIES", after_empty);
+    assert_eq!(vars.top(&real.join("repo/sub")), Ok(real.join("repo")));
+}

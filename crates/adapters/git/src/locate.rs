@@ -43,12 +43,15 @@ pub(crate) fn locate_in(dir: &Path, env: Env<'_>) -> Located {
         }
         Err(error) => return Located::Unavailable(error.to_string()),
     };
-    // gix searches the nearest ceiling itself, which git never does from below it
+    // git looks for a repository only strictly below the nearest ceiling; gix searches the ceiling itself, and a
+    // repository found there may name its worktree elsewhere, so where it was found is what is judged
     let nearest = ceilings
         .iter()
         .max_by_key(|ceiling| ceiling.components().count());
     if nearest.is_some_and(|ceiling| {
-        repo.workdir().map(real).as_ref() == Some(ceiling) || real(repo.git_dir()) == *ceiling
+        !here.ancestors().take_while(|at| at != ceiling).any(|at| {
+            at.join(".git").symlink_metadata().is_ok() || gix::discover::is_git(at).is_ok()
+        })
     }) {
         return named_elsewhere(dir, None, env)
             .map_or(Located::NotARepository, Located::Unavailable);
