@@ -87,13 +87,13 @@ pub(crate) fn landed(served: &Served) -> Said {
     (stale_of(ledger.lines()), moved)
 }
 
-/// Both buffers saved, and the watch events of the save: what the ledger says then. Every rename is over.
+/// Both buffers saved, and the watch events of the save: what the ledger says then. Nothing is left to show.
 fn saved(served: &mut Served) -> Said {
     save(served, &[SPEC, SOURCE]);
     assert!(
-        served.state().pending().open().is_empty(),
+        served.state().pending().shown().is_empty(),
         "{:?}",
-        served.state().pending().open()
+        served.state().pending().shown()
     );
     landed(served)
 }
@@ -221,7 +221,7 @@ fn a_source_closed_unsaved_lands_the_moves_alone() {
     served.close(SOURCE);
 
     assert_eq!(landed(&served), said(&[], &[("T3", "T1")]));
-    assert!(served.state().pending().open().is_empty());
+    assert!(served.state().pending().shown().is_empty());
 }
 
 /// The declaring file undone once (back to `T2`), then `T2` renamed to `T9`: the chain goes on from the first rename,

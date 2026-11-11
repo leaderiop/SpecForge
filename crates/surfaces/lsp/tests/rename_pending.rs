@@ -82,7 +82,7 @@ fn a_second_rename_never_applied_leaves_the_first_to_land_alone() {
 }
 
 /// Two renames composed, then the buffers typed back to the first's old name: both are undone, none shows; saved,
-/// nothing lands and both are over.
+/// nothing lands.
 #[spec(
     behavior = "land_rename_ledger",
     verify = "a chain of editor renames typed back to its first name is undone whole"
@@ -130,7 +130,7 @@ fn a_chain_typed_back_to_its_first_name_is_undone_whole() {
         ledger(&served).lines().filter_map(Line::stale_of).count(),
         0
     );
-    assert!(served.state().pending().open().is_empty());
+    assert!(served.state().pending().shown().is_empty());
 }
 
 fn disk(served: &Served, file: &str) -> String {
@@ -222,5 +222,5 @@ fn a_rename_of_another_entity_sharing_a_name_composes_with_nothing() {
         "{}",
         ledger.canonical()
     );
-    assert!(served.state().pending().open().is_empty());
+    assert!(served.state().pending().shown().is_empty());
 }

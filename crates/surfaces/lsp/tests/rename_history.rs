@@ -138,8 +138,31 @@ fn a_redo_after_a_save_lands_the_rest() {
     served.edit(SOURCE, &steps.source[2]);
     save(&mut served, &[SPEC, SOURCE]);
 
-    // Today: the chain was over at the first save; the redo lands nothing.
-    assert_eq!(landed(&served), said(&[("T1", "T2")], &[("T2", "T1")]));
+    // The ledger as two renames written one after the other leave it: both move records.
+    assert_eq!(
+        landed(&served),
+        said(&[("T1", "T3")], &[("T3", "T1"), ("T3", "T2")])
+    );
+}
+
+/// `T1 → T2 → T3`, saved (both land), then undone to `T1` in both files and saved: the ledger as a rename back of `T3`
+/// to `T1` leaves it (each move record carried, one added), and no stale line.
+#[spec(
+    behavior = "land_rename_ledger",
+    verify = "editor renames redone after a save land what the redo says"
+)]
+fn an_undo_past_a_save_lands_the_rename_back() {
+    let (mut served, steps) = composed();
+    save(&mut served, &[SPEC, SOURCE]);
+    assert_eq!(landed(&served), said(&[("T1", "T3")], &[("T3", "T1")]));
+
+    served.edit(SPEC, &steps.spec[0]);
+    served.edit(SOURCE, &steps.source[0]);
+    assert_eq!(shown(&served), said(&[("T1", "T1")], &[("T1", "T3")]));
+    save(&mut served, &[SPEC, SOURCE]);
+
+    assert_eq!(landed(&served), said(&[], &[("T1", "T1"), ("T1", "T3")]));
+    assert!(served.state().pending().shown().is_empty());
 }
 
 /// `T1` renamed to `T2`, then `T2` to `T3` answered and never applied; the declaring file edited otherwise (the title),
@@ -161,8 +184,7 @@ fn a_rename_never_applied_lands_no_move_for_a_name_typed_later() {
 
     save(&mut served, &[SPEC, SOURCE]);
 
-    // Today: the rename never applied matches the name typed, and its move lands.
-    assert_eq!(landed(&served), said(&[("T1", "T2")], &[("T3", "T1")]));
+    assert_eq!(landed(&served), said(&[("T1", "T2")], &[]));
 }
 
 /// One store placing `T1` in `a.test.js` and in `b.test.js`, renamed `T1 → T2 → T3`. One stale line names one name
@@ -198,4 +220,26 @@ fn buffer_or_disk(served: &Served, file: &str) -> String {
         || std::fs::read_to_string(served.root().join(file)).unwrap(),
         |d| d.text().to_string(),
     )
+}
+
+/// `T1 → T2 → T3`, saved, then undone once in both files (`T2`) and `T2` renamed to `T9`: the new rename hangs under
+/// the first, and saved, the ledger goes from what landed (`T3`) back to `T2` and down to `T9`.
+#[spec(
+    behavior = "land_rename_ledger",
+    verify = "editor renames redone after a save land what the redo says"
+)]
+fn a_rename_after_an_undo_past_a_save_lands_from_what_landed() {
+    let (mut served, steps) = composed();
+    save(&mut served, &[SPEC, SOURCE]);
+    served.edit(SPEC, &steps.spec[1]);
+    served.edit(SOURCE, &steps.source[1]);
+    rename(&mut served, 0, "T9");
+    assert!(buffer(&served, SOURCE).starts_with("// covers T9\n"));
+
+    save(&mut served, &[SPEC, SOURCE]);
+
+    assert_eq!(
+        landed(&served),
+        said(&[("T1", "T9")], &[("T9", "T1"), ("T9", "T3")])
+    );
 }

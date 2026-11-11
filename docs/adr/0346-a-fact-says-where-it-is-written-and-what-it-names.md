@@ -209,27 +209,32 @@ next collect of that collector ────────────────�
   rename reads the file as the plan's earlier renames rewrote it and the stores through their stale lines
   (`CompiledProject::with_facts_after`), and the plan writes the file once, from the disk's text to the last; the
   language server holds its open source buffers, so a rename composes with one applied to the buffers and not yet
-  saved. Renames of one entity made before any lands (matched by path: two scoped entities may share a name) are a
-  chain, one change from the first's project. An editor undoes per buffer, so the declaring file and each source
-  file go back apart; what a chain shows and lands is therefore never kept as a phase, but read from the texts each
-  time: the moves of the renames the declaring file holds, composed (up to the last whose new name it declares; none
-  for the first's old name or a name no rename wrote), and for each stale line (store, field, name held) the line of
-  the last rename that every source file it is about holds. A file holds a rename while the name it wrote for the
-  line reads at the places it wrote it, carried through whatever else changed in the file since (another entity
-  renamed, typing: by line, then by byte, a byte of context either side); else the rename before the first whose
-  name read still reads at its places (an undo); else none (the name typed over with one no rename wrote). So the
-  editor keeps a line wherever the CLI and MCP rename keep it, and drops it only where the name itself went back or
-  changed. With one store placed in two files, the line is that of the earliest rename either holds: one line names
-  one name for both, so a file undone alone leaves the other W198 until the next collect. The shown overlay is what the buffers say (a file no buffer holds, as on
-  disk), and is read again when a source buffer a chain edits changes; once no file of the chain holds a buffer the
-  disk does not (saved, or closed), what the disk says lands once and the chain is over. Undone and redone, a chain
-  shows again; a rename answered and never applied changes nothing, and stays, while its declaring file is open, to
-  land as itself when its edit comes. A rename of the entity the declaring file holds continues the chain there;
-  the renames after that point go on as their own chain, for the texts a source file may still hold. Rejected:
-  landing when the declaring file alone is saved (the stale line would claim a source text the disk does not hold
-  yet), and dropping a chain when its declaring file reads the first's old name (a source buffer may still hold
-  the last name, which would then be W198 with nothing to say why). Whether a declaring file holds a rename is
-  counted (one entity fewer with the old name than when it was planned), not asked by name.
+  saved. The editor's renames of one entity are a tree: each hangs under the rename that gave the entity it renames
+  (matched by path: two scoped entities may share a name), the first under the entity as it was, so an undo then
+  another rename branches and a redo walks back down. An editor undoes per buffer, so the declaring file and each
+  source file go back apart; what the tree shows and lands is therefore never kept as a phase, but read from the
+  texts each time. The declaring file holds a node: the last rename whose new name it declares (none for the first's
+  old name, or a name no rename wrote). Each stale line (store, field, name held) holds a node: the deepest every
+  source file it is about holds is under, a file holding a rename while the name it wrote for the line reads at the
+  places it wrote it, carried through whatever else changed in the file since (another entity renamed, typing: by
+  line, then by byte, a byte of context either side); else the node above the first rename whose name read still
+  reads at its places (an undo); else none (the name typed over with one no rename wrote). So the editor keeps a
+  line wherever the CLI and MCP rename keep it, and drops it only where the name itself went back or changed. With
+  one store placed in two files, the line is that of the earliest rename either holds: one line names one name for
+  both, so a file undone alone leaves the other W198 until the next collect. What is shown and landed is the change
+  from what the ledger holds of the tree (nothing, until a landing) to what the texts hold: the moves of the renames
+  walked back, each undone, and of those walked down, composed; each stale line whose node moved, as its rename wrote
+  it, or at no rename as the ledger held it before the tree. The shown overlay is what the buffers say (a file no
+  buffer holds, as on disk), read again when a source buffer the tree edits changes; once no file of the tree holds a
+  buffer the disk does not (saved, or closed), what the disk says lands. The tree is kept while any of its files is
+  open: a redo or an undo saved later lands the rest, as the ledger takes any later rename (a rename back carries
+  each move record, as the CLI's does); with every file closed it is over. A rename answered and never applied waits
+  while its declaring file is the text it was planned on, and is dropped at the first other text without its edit,
+  so a name typed by hand later moves nothing. Rejected: landing when the declaring file alone is saved (the stale
+  line would claim a source text the disk does not hold yet); ending the tree at its first save (a redo would land
+  nothing); and whole-text comparison of source files (any other edit in a file would drop its lines). Whether a
+  declaring file holds a rename is counted (one entity fewer with the old name than when it was planned), not asked
+  by name.
 - The LSP rename's edit carries the source edits; the pending ledger change carries each stale line with the names
   it read and wrote and their places in the texts the rename read and wrote.
 - **A delete of an entity a fact names stays refused.** It would remove what a test says it proves, and there is no

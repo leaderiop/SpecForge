@@ -473,7 +473,7 @@ mod ledger {
         std::fs::remove_file(served.root().join(".specforge")).unwrap();
         save(&mut served);
         assert!(ledger_on_disk(&served).contains("v1.0/05"));
-        assert!(served.state().pending().open().is_empty());
+        assert!(served.state().pending().shown().is_empty(), "landed");
     }
 
     #[spec(
@@ -707,7 +707,7 @@ fn a_second_rename_before_the_first_lands_sees_the_fact_it_moved() {
         "{}",
         ledger.canonical()
     );
-    assert!(served.state().pending().open().is_empty(), "both landed");
+    assert!(served.state().pending().shown().is_empty(), "both landed");
 }
 
 /// A second rename undone in the buffers leaves the first showing: saved, the first's change lands alone.
@@ -761,7 +761,7 @@ fn an_undone_second_rename_shows_the_first_again() {
         ledger.canonical()
     );
     assert_eq!(ledger.lines().filter_map(Line::stale_of).count(), 1);
-    assert!(served.state().pending().open().is_empty());
+    assert!(served.state().pending().shown().is_empty());
 }
 
 /// The key `fact_named`'s store is filed under, and the store.
