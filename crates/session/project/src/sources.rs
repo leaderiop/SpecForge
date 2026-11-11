@@ -83,8 +83,8 @@ pub(crate) struct SourceCache {
     trees: HashMap<String, tree_sitter::Tree>,
     /// E025 of each source that is there and could not be read, by path.
     unreadable: BTreeMap<String, Diagnostic>,
-    /// The digests each served fact store records of the source files its places name, by store key.
-    fact_sources: HashMap<String, Arc<BTreeMap<String, String>>>,
+    /// What each served fact store says of the source files its places name, by store key.
+    fact_sources: HashMap<String, Arc<BTreeMap<String, facts::Placed>>>,
 }
 
 impl SourceCache {
@@ -283,16 +283,16 @@ impl SourceCache {
         self.fact_sources.remove(path);
     }
 
-    /// The digest each served fact store records of each source file its places name, by the file's key, then by the
-    /// store's path: two stores collected at different times each keep their own.
-    pub fn fact_sources(&self) -> BTreeMap<&str, BTreeMap<&str, &str>> {
-        let mut by_file: BTreeMap<&str, BTreeMap<&str, &str>> = BTreeMap::new();
+    /// What each served fact store says of each source file its places name, by the file's key, then by the store's
+    /// path: two stores collected at different times each keep their own.
+    pub fn fact_sources(&self) -> BTreeMap<&str, BTreeMap<&str, &facts::Placed>> {
+        let mut by_file: BTreeMap<&str, BTreeMap<&str, &facts::Placed>> = BTreeMap::new();
         for (store, sources) in &self.fact_sources {
-            for (file, digest) in sources.iter() {
+            for (file, placed) in sources.iter() {
                 by_file
                     .entry(file.as_str())
                     .or_default()
-                    .insert(store.as_str(), digest.as_str());
+                    .insert(store.as_str(), placed);
             }
         }
         by_file

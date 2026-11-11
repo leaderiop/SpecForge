@@ -47,9 +47,10 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
     no ledger is read for facts (ADR 0327 D5). A store whose bytes a
     `stale:` line of the ledger marks (a rename rewrote a name its facts
     hold after the collect) MUST be served with exactly the names its stale
-    lines record read as the rename wrote them, and is W197 until its
-    collector collects again; a store collected after the rename follows no
-    move, and no older move is followed (ADR 0346 D7).
+    lines record read as the rename wrote them, every place it records in a
+    file a rename rewrote shifted exactly by what the renames wrote there,
+    and is W197 until its collector collects again; a store collected after
+    the rename follows no move, and no older move is followed (ADR 0346 D7).
   """
   verify unit "graph contains one node per entity"
   verify unit "graph contains one edge per resolved reference"
@@ -68,6 +69,7 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify unit "a served store gives the digest it recorded of each source file its facts are placed in"
   verify integration "a compiled project serves the source digests its fact stores recorded"
   verify integration "a fact store a rename marked stale is served through the ledger's moves with W197 until the next collect"
+  verify unit "a stale store's places are shifted exactly by what the renames wrote, and only the text they left holds"
   verify unit "build_graph emits W061 for reference cycles"
   verify unit "W061 names the cycle's entities in its data"
   verify unit "W061 names every entity of a cycle, one whose cycle closes through an entity already walked included"

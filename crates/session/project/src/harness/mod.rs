@@ -22,7 +22,7 @@ pub use format::{
 };
 pub use io::{Overlay, lock};
 pub use overlay::LedgerOverlay;
-pub use rewrite::{LedgerChange, View};
+pub use rewrite::{LedgerChange, View, compose};
 
 /// What the ledger records for the loaded extensions: the harness fields, by kind; whether an extension declares a
 /// judged rule, whose verdicts the ledger records too (ADR 0290); whether a kind is collector-written, whose fact

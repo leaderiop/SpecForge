@@ -8,6 +8,10 @@
 //! - **undone**: the buffer holds the old name again after showing the new one, or the declaring file was closed
 //!   with the disk still holding the old name; the change is dropped, nothing written;
 //! - **landed**: the file on disk holds the new name; the ledger is written under the write lock.
+//!
+//! A rename of the name a showing rename gave (`a → b`, then `b → c` before saving) supersedes it: one change from the
+//! first's project, the moves composed and the second's stale lines after the first's (ADR 0346 D7), shown and landed
+//! in its place; undone, the first shows again.
 
 use std::sync::{Arc, Mutex};
 
@@ -22,6 +26,8 @@ use specforge_project::{CompiledProject, ProjectSession};
 enum Phase {
     Waiting,
     Showing,
+    /// A later rename of the name this one gave holds its change: neither shown nor landed while that one is.
+    Superseded,
     Done,
 }
 
@@ -44,6 +50,8 @@ pub struct PendingLedger {
     /// The source keys of every file the rename edits.
     files: Vec<String>,
     phase: Mutex<Phase>,
+    /// The showing rename of the name this one renames again, whose change this one's holds.
+    supersedes: Option<Arc<PendingLedger>>,
 }
 
 impl PendingLedger {
@@ -74,7 +82,31 @@ impl PendingLedger {
             new_name,
             files,
             phase: Mutex::new(Phase::Waiting),
+            supersedes: None,
         }))
+    }
+
+    /// This rename after `earlier`, the showing rename of the name it renames again: one change from the project
+    /// `earlier` was planned on, so it lands whole whichever of their files is saved last.
+    fn after(&self, earlier: &Arc<PendingLedger>) -> PendingLedger {
+        let change = earlier
+            .overlay
+            .change()
+            .clone()
+            .then(self.overlay.change().clone());
+        let mut files = earlier.files.clone();
+        files.extend(self.files.iter().cloned());
+        files.sort();
+        files.dedup();
+        PendingLedger {
+            overlay: Arc::new(LedgerOverlay::new(earlier.overlay.before().clone(), change)),
+            declaring: self.declaring.clone(),
+            old_name: self.old_name.clone(),
+            new_name: self.new_name.clone(),
+            files,
+            phase: Mutex::new(self.phase()),
+            supersedes: Some(Arc::clone(earlier)),
+        }
     }
 
     fn phase(&self) -> Phase {
@@ -111,21 +143,44 @@ impl PendingLedger {
         }
     }
 
-    /// The editor's buffer of the declaring file is `text` now: a rename shown and then undone is dropped.
+    /// The editor's buffer of the declaring file is `text` now: a rename shown and then undone is dropped, and the
+    /// rename it superseded shows again.
     fn buffer(&self, text: &str) {
         match (self.phase(), self.reading(text)) {
             (Phase::Waiting, Reading::New) => self.set(Phase::Showing),
-            (Phase::Showing, Reading::Old) => self.set(Phase::Done),
+            (Phase::Showing, Reading::Old) => {
+                self.set(Phase::Done);
+                if let Some(earlier) = &self.supersedes {
+                    earlier.set(Phase::Showing);
+                }
+            }
             _ => {}
+        }
+    }
+
+    /// Whether `text` holds the name this rename, or one it superseded, renamed from: none of them done.
+    fn undone_by(&self, text: &str) -> bool {
+        self.reading(text) == Reading::Old
+            || self
+                .supersedes
+                .as_ref()
+                .is_some_and(|earlier| earlier.undone_by(text))
+    }
+
+    /// This rename and every one it superseded are over.
+    fn finish(&self) {
+        self.set(Phase::Done);
+        if let Some(earlier) = &self.supersedes {
+            earlier.finish();
         }
     }
 
     /// The declaring file's buffer was closed and the disk holds `text`: a rename shown and never saved is dropped.
     /// `true` when it was.
     fn closed(&self, text: &str) -> bool {
-        let dropped = self.phase() == Phase::Showing && self.reading(text) == Reading::Old;
+        let dropped = self.phase() == Phase::Showing && self.undone_by(text);
         if dropped {
-            self.set(Phase::Done);
+            self.finish();
         }
         dropped
     }
@@ -134,7 +189,9 @@ impl PendingLedger {
     /// session shows. `true` when it was. A write that fails leaves the rename pending, so the next event or the
     /// shutdown tries again; the overlay keeps showing the ledger as renamed meanwhile.
     fn lands(&self, text: &str, session: &ProjectSession) -> bool {
-        if self.is_done() || self.reading(text) != Reading::New {
+        let phase = self.phase();
+        if phase == Phase::Done || phase == Phase::Superseded || self.reading(text) != Reading::New
+        {
             return false;
         }
         let caller = Caller::new(&UNBOUNDED, Asking::Nobody);
@@ -149,7 +206,7 @@ impl PendingLedger {
             caller,
         );
         if written.is_ok() {
-            self.set(Phase::Done);
+            self.finish();
         }
         written.is_ok()
     }
@@ -162,9 +219,21 @@ static UNBOUNDED: Containment = Containment::unbounded();
 pub struct Pending(Mutex<Vec<Arc<PendingLedger>>>);
 
 impl Pending {
+    /// Hold `pending`; when it renames again the name a showing rename gave, it supersedes that one
+    /// ([`PendingLedger::after`]).
     pub fn hold(&self, pending: Arc<PendingLedger>) {
         let mut all = self.0.lock().unwrap_or_else(|e| e.into_inner());
         all.retain(|p| !p.is_done());
+        let earlier = all.iter().find(|p| {
+            p.is_showing() && p.declaring == pending.declaring && p.new_name == pending.old_name
+        });
+        let pending = match earlier {
+            Some(earlier) => {
+                earlier.set(Phase::Superseded);
+                Arc::new(pending.after(earlier))
+            }
+            None => pending,
+        };
         all.push(pending);
     }
 
@@ -178,14 +247,16 @@ impl Pending {
     /// The editor's buffers are as `buffer` answers (the text of a source key, when it is open): each rename moves
     /// along, and the ones showing are what the checks read over.
     pub fn showing(&self, buffer: impl Fn(&str) -> Option<String>) -> Vec<Arc<LedgerOverlay>> {
-        self.open()
-            .into_iter()
-            .filter_map(|p| {
-                if let Some(text) = buffer(&p.declaring) {
-                    p.buffer(&text);
-                }
-                p.is_showing().then(|| Arc::clone(&p.overlay))
-            })
+        let open = self.open();
+        // Every rename moves along first: one undone may show the rename it superseded again.
+        for p in &open {
+            if let Some(text) = buffer(&p.declaring) {
+                p.buffer(&text);
+            }
+        }
+        open.iter()
+            .filter(|p| p.is_showing())
+            .map(|p| Arc::clone(&p.overlay))
             .collect()
     }
 }

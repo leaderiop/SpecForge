@@ -1,9 +1,13 @@
 //! A collector's facts (ADR 0327): the store a collect writes, the key it files it under, and what the host admits;
 //! then the stores a session serves (D5): each one `specforge-harness` records, read as one file of read-only
 //! entities, W191 for one it does not record and W192 for one that does not read; one a rename marked stale is
-//! served with the names the rename wrote, W197 ([`stale`]). [`store`] is the one reader of a store's text.
+//! served with the names the rename wrote and its places shifted by what it wrote, W197 ([`stale`]). [`store`] is
+//! the one reader of a store's text; [`Placed`] the one judge of whether a source file is the text a served store's
+//! places are in.
 
 mod stale;
+
+pub use stale::Renames;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -319,20 +323,111 @@ pub fn recorded_facts(disk: &dyn Disk, root: &Path, kinds: &[&str]) -> Vec<Fact>
 /// A store as a session serves it ([`store`]).
 #[derive(Debug)]
 pub struct Served<'t> {
-    /// The store, each name a rename marked it stale with read as the rename wrote it.
+    /// The store, each name a rename marked it stale with read as the rename wrote it, and every place in a file a
+    /// rename rewrote shifted by what it wrote.
     pub store: Store,
     /// The collector's bytes the store was read from: what a `stale:` line digests.
     pub bytes: &'t str,
     /// W197 when a rename marked it stale.
     pub stale: Option<Diagnostic>,
-    /// The source files a rename that marked it stale rewrote a name in: rewritten since the collect, on disk or
-    /// in an editor's buffers while the rename is pending (ADR 0346 D7).
-    pub rewritten: BTreeSet<String>,
+    /// The renames its stale lines record: field → the name the store holds → the name written now.
+    pub renames: Renames,
+    /// Each source file its facts are placed in, by its key from the project root: what says whether a text is the
+    /// one its places are in.
+    pub placed: BTreeMap<String, Placed>,
+}
+
+impl Served<'_> {
+    /// The name the store holds in `field` that is served as `now`: the name a rename wrote it from, else `now`.
+    pub fn collected<'s>(&'s self, field: &str, now: &'s str) -> &'s str {
+        self.renames
+            .get(field)
+            .and_then(|names| names.iter().find(|(_, written)| *written == now))
+            .map_or(now, |(held, _)| held.as_str())
+    }
+}
+
+/// What a served store says of one source file its facts are placed in (ADR 0346 D2, D7): the digest the host
+/// recorded of it at the collect, and each place a rename rewrote since, as it is in the text the renames left. A
+/// text is the one the served places are in exactly when undoing those rewrites gives the text collected.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Placed {
+    /// `sha256:<hex>` of the file the collect read.
+    pub digest: String,
+    /// What the renames wrote, in the order of the text.
+    pub respelled: Vec<Respelled>,
+}
+
+/// One place a rename rewrote: where it is in the text the renames left, the name the collector read there, and the
+/// name written now.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Respelled {
+    pub at: FactLocation,
+    pub written: String,
+    pub now: String,
+}
+
+impl Placed {
+    /// Whether `text` is the text the served places are in: each respelled place spells its name written now, and
+    /// putting back the name collected at each gives the bytes whose digest the collect recorded. Exact: nothing
+    /// else in the file may have changed.
+    pub fn holds(&self, text: &[u8]) -> bool {
+        let mut ranges = Vec::with_capacity(self.respelled.len());
+        for respelled in &self.respelled {
+            let Some(range) = byte_range(text, &respelled.at) else {
+                return false;
+            };
+            if text.get(range.clone()) != Some(respelled.now.as_bytes()) {
+                return false;
+            }
+            ranges.push((range, respelled.written.as_bytes()));
+        }
+        ranges.sort_by_key(|(range, _)| range.start);
+        if ranges
+            .windows(2)
+            .any(|pair| pair[0].0.end > pair[1].0.start)
+        {
+            return false;
+        }
+        let mut collected = text.to_vec();
+        for (range, written) in ranges.into_iter().rev() {
+            collected.splice(range, written.iter().copied());
+        }
+        format!("sha256:{}", specforge_package::Sha256::of(&collected)) == self.digest
+    }
+}
+
+/// The bytes of `text` the span `at` covers (1-based lines, 1-based byte columns, end exclusive); `None` when it lies
+/// outside the text or a column passes its line's end.
+fn byte_range(text: &[u8], at: &FactLocation) -> Option<std::ops::Range<usize>> {
+    let offset = |line: usize, col: usize| -> Option<usize> {
+        let start = if line == 1 {
+            0
+        } else {
+            text.iter()
+                .enumerate()
+                .filter(|(_, b)| **b == b'\n')
+                .nth(line.checked_sub(2)?)?
+                .0
+                + 1
+        };
+        let end = text[start..]
+            .iter()
+            .position(|b| *b == b'\n')
+            .map_or(text.len(), |n| start + n);
+        let at = start + col.checked_sub(1)?;
+        (at <= end).then_some(at)
+    };
+    let (start, end) = (
+        offset(at.start_line, at.start_col)?,
+        offset(at.end_line, at.end_col)?,
+    );
+    (start <= end).then_some(start..end)
 }
 
 /// The served text `text` of the fact store `key` ([`read`]) read: the one reader of a store. Its facts' names a rename
-/// marked it stale with are read as the rename wrote them, with W197 (ADR 0346 D7). W192 when the text is no store
-/// this specforge reads.
+/// marked it stale with are read as the rename wrote them and its places in the files it rewrote shifted by what it
+/// wrote, with W197 (ADR 0346 D7). W192 when the text is no store this specforge reads.
 pub fn store<'t>(key: &str, text: &'t str) -> Result<Served<'t>, Diagnostic> {
     let (mut store, bytes, renames) = stale::split(text).map_err(|e| unreadable(key, e))?;
     if store.store != Store::VERSION {
@@ -345,12 +440,24 @@ pub fn store<'t>(key: &str, text: &'t str) -> Result<Served<'t>, Diagnostic> {
             ),
         ));
     }
-    let (stale, rewritten) = stale::follow(key, &mut store, &renames);
+    let (stale, mut respelled) = stale::follow(key, &mut store, &renames);
+    let placed = store
+        .sources
+        .iter()
+        .map(|(file, digest)| {
+            let placed = Placed {
+                digest: digest.clone(),
+                respelled: respelled.remove(file).unwrap_or_default(),
+            };
+            (file.clone(), placed)
+        })
+        .collect();
     Ok(Served {
         store,
         bytes,
         stale,
-        rewritten,
+        renames,
+        placed,
     })
 }
 
@@ -361,13 +468,18 @@ pub fn store<'t>(key: &str, text: &'t str) -> Result<Served<'t>, Diagnostic> {
 /// reference's id), any other string text; an integer, a bool; an array of strings a list whose items are written as
 /// the field writes each. Each value is spanned where its name is written (`named_at`), else where the fact is, else
 /// at the store. W192 when the text is no store this specforge reads; W197, in the file's format diagnostics, when a
-/// rename marked it stale. Beside it, the digests the store records of the source files its places name.
+/// rename marked it stale. Beside it, what the store says of each source file its places name ([`Placed`]).
 pub(crate) fn served(
     key: &str,
     text: &str,
     forms: &FieldForms,
-) -> Result<(SpecFile, BTreeMap<String, String>), Diagnostic> {
-    let Served { store, stale, .. } = store(key, text)?;
+) -> Result<(SpecFile, BTreeMap<String, Placed>), Diagnostic> {
+    let Served {
+        store,
+        stale,
+        placed,
+        ..
+    } = store(key, text)?;
     let file = Sym::new(key);
     let span = SourceSpan {
         file,
@@ -388,7 +500,7 @@ pub(crate) fn served(
         format_version: CURRENT_FORMAT_VERSION,
         format_diagnostics: stale.into_iter().collect(),
     };
-    Ok((file, store.sources))
+    Ok((file, placed))
 }
 
 /// One fact as an entity spanned at `span` (its store's) and located at its places, its values read by `forms` and

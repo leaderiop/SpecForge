@@ -4,16 +4,17 @@
 
 use super::declared::Declared;
 use super::{Edit, EditField, EditPlan, EditReport, Planner, describe, validate};
+use crate::Refusal;
 use crate::authoring::format::{Configs, Forms};
 use crate::authoring::planned::{PlannedChange, Rewritten};
 use crate::authoring::rename::{self, RenameField};
 use crate::read::navigate::Navigator;
 use crate::view::ProjectView;
-use crate::{OpError, OpErrorKind, Refusal};
 use specforge_common::DiagnosticList;
 use specforge_parser::LineBreak;
-use specforge_project::harness::{Harness, LedgerChange};
+use specforge_project::harness::{Harness, LedgerChange, compose};
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 /// One step of a plan: a typed edit, or a rename of an entity (its declaration and every reference).
 #[derive(Debug, Clone, PartialEq)]
@@ -53,14 +54,6 @@ struct Carry {
     /// stale lines of those facts' stores.
     rewritten: BTreeMap<String, Rewritten>,
     stale: Vec<specforge_project::harness::Line>,
-}
-
-/// A move `old → new` after the moves of `moves`: a chain composes, `a → b` then `b → c` is `a → c`.
-pub(super) fn compose(moves: &mut Vec<(String, String)>, old: &str, new: &str) {
-    match moves.iter_mut().find(|(_, to)| to == old) {
-        Some((_, to)) => *to = new.to_string(),
-        None => moves.push((old.to_string(), new.to_string())),
-    }
 }
 
 /// `path` once `moves`, made in order, are made.
@@ -188,7 +181,18 @@ fn rename_step(
         rebased = view.project().edited(&carry.texts);
         &rebased
     };
-    let nav = Navigator::new(ProjectView::of(project).bounded_by(view.containment()));
+    // The facts and source files as the plan's earlier renames leave them: a later rename composes (ADR 0346 D7).
+    let shown = project.with_facts_after(&carry.stale);
+    let held: BTreeMap<String, Arc<str>> = carry
+        .rewritten
+        .iter()
+        .map(|(key, file)| (key.clone(), Arc::from(file.after.as_str())))
+        .collect();
+    let nav = Navigator::new(
+        ProjectView::of(&shown)
+            .bounded_by(view.containment())
+            .holding(&held),
+    );
     let plan = rename::plan(&nav, entity, to).map_err(|refusal| {
         refusal.map_subject(|field| {
             Some(match field {
@@ -203,17 +207,12 @@ fn rename_step(
             .insert(key, LineBreak::of(&after).lf(&after).into_owned());
     }
     for (key, file) in plan.change().rewritten_sources() {
-        // One rewrite of a file per collect: a second is planned on the text the first leaves (ADR 0346 D7).
-        if carry.rewritten.contains_key(key) {
-            return Err(OpError::new(
-                OpErrorKind::PreconditionFailed,
-                rename::SOURCE_REWRITTEN,
-                format!("cannot rename '{entity}': an earlier rename of the plan rewrites {key}"),
-            )
-            .with_suggestion("run `specforge collect` between the renames")
-            .into());
-        }
-        carry.rewritten.insert(key.to_string(), file.clone());
+        // Planned on the text an earlier rename of the plan left: the file goes from what the disk holds to this.
+        carry
+            .rewritten
+            .entry(key.to_string())
+            .and_modify(|earlier| earlier.after = file.after.clone())
+            .or_insert_with(|| file.clone());
     }
     carry.stale.extend(plan.stale().iter().cloned());
     for (old, new) in plan.moved() {

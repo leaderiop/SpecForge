@@ -73,9 +73,34 @@ impl CompiledProject {
         if self.ledger_overlay.is_empty() {
             return Cow::Borrowed(self);
         }
+        self.served_through(&self.ledger_overlay)
+    }
+
+    /// [`Self::with_shown_facts`], then the stale lines `stale` (ADR 0346 D7) as one more change: what a plan's later
+    /// rename reads, its earlier renames written. Itself when nothing changes what a store serves.
+    pub fn with_facts_after(&self, stale: &[crate::harness::Line]) -> Cow<'_, CompiledProject> {
+        if stale.is_empty() {
+            return self.with_shown_facts();
+        }
+        let mut overlays = self.ledger_overlay.clone();
+        overlays.push(Arc::new(crate::harness::LedgerOverlay::new(
+            self.clone(),
+            crate::harness::LedgerChange {
+                stale: stale.to_vec(),
+                ..Default::default()
+            },
+        )));
+        self.served_through(&overlays)
+    }
+
+    /// This project with each fact store served as the ledger reads once `overlays` are made, in order. Itself when no
+    /// store serves other than it does.
+    fn served_through(
+        &self,
+        overlays: &[Arc<crate::harness::LedgerOverlay>],
+    ) -> Cow<'_, CompiledProject> {
         let mut bytes = Vec::new();
-        let disk =
-            crate::harness::overlay::through(&PlainDisk, self, &self.ledger_overlay, &mut bytes);
+        let disk = crate::harness::overlay::through(&PlainDisk, self, overlays, &mut bytes);
         let reads: Vec<(String, Read)> = self
             .sources
             .keys()

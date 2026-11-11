@@ -24,6 +24,7 @@ mod kinds;
 mod selection;
 mod source_file;
 
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -68,7 +69,13 @@ pub struct ProjectView<'a> {
     /// What every project file this view reads is read through: every path, or the call's bound
     /// (MCP, ADR 0183).
     containment: &'a Containment,
+    /// The texts of source files a fact is placed in that are not the disk's yet, by key from the project root
+    /// ([`Self::holding`]).
+    held: &'a BTreeMap<String, Arc<str>>,
 }
+
+/// No held text: what a view reads unless its surface holds some.
+static NOTHING_HELD: BTreeMap<String, Arc<str>> = BTreeMap::new();
 
 /// Every path: what a view reads through unless its surface bounds it (the CLI and the LSP,
 /// ADR 0092 D6).
@@ -87,7 +94,23 @@ impl<'a> ProjectView<'a> {
             listed: None,
             also_reported: &[],
             containment: &UNBOUNDED,
+            held: &NOTHING_HELD,
         }
+    }
+
+    /// This view, reading each source file a fact is placed in that `texts` holds (by key from the project root) as
+    /// that text, not the disk's ([`read_placed`](crate::read::navigate::read_placed)): the editor's buffers, or what
+    /// a plan's earlier rename rewrote. A rename planned over it composes with what those texts hold (ADR 0346 D7).
+    pub fn holding(self, texts: &'a BTreeMap<String, Arc<str>>) -> Self {
+        ProjectView {
+            held: texts,
+            ..self
+        }
+    }
+
+    /// The text this view holds for the source file `file`, when it holds one ([`Self::holding`]).
+    pub fn held(&self, file: &str) -> Option<&'a str> {
+        self.held.get(file).map(|text| &**text)
     }
 
     /// The compiled project this view reads.

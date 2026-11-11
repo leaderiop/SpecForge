@@ -366,11 +366,12 @@ impl CompiledProject {
         self.sources.text(path).cloned()
     }
 
-    /// The digest (`sha256:<hex>`) each served fact store recorded of each source file its facts are placed in, by
-    /// the file's key, then by the store's path, as the host read it when it admitted them (ADR 0346 D2): what says a
-    /// source file changed since a store's facts were collected (ADR 0349 D5). Two stores naming one file each keep
-    /// their own digest: a file is the text one store's facts were placed in and not the other's when they differ.
-    pub fn fact_sources(&self) -> BTreeMap<&str, BTreeMap<&str, &str>> {
+    /// What each served fact store says of each source file its facts are placed in ([`crate::facts::Placed`]: the
+    /// digest the host recorded when it admitted them, ADR 0346 D2, and what a rename rewrote there since, D7), by the
+    /// file's key, then by the store's path: what says a source file is no longer the text a store's places are in
+    /// (ADR 0349 D5). Two stores naming one file each keep their own: a file is the text one store's facts were placed
+    /// in and not the other's when they differ.
+    pub fn fact_sources(&self) -> BTreeMap<&str, BTreeMap<&str, &crate::facts::Placed>> {
         self.sources.fact_sources()
     }
 

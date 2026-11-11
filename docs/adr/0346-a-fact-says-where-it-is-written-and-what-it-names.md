@@ -7,6 +7,8 @@ not a kernel error; a unique suffix) and D7 (a rename of an entity a fact names 
 refused), and [ADR 0329](0329-code-core-holds-test-facts-and-their-ids.md) D3 (`names` is a fact-held reference).
 Protocol 2.0.0, unreleased: its additions go into the 2.0.0 row, no bump. Codes E117, E120, W197.
 Amended by [ADR 0353](0353-a-pass-reads-the-facts-it-declares.md) (D4: `dangling` rides on the facts a pass is sent, which are those its `facts` input names).
+D7 amended 2026-11-11: renames compose (a served store's places are shifted by what the renames wrote; one stale line
+per name held, replaced by a later rename; `source_rewritten` is gone).
 
 ## Context
 
@@ -112,40 +114,60 @@ file still counts as unparsed: it cannot round-trip. Whatever the scheme, the fi
 rename T1 → T2
   ├─ spec occurrences ──────────────▶ edits in compiled text (unchanged)
   ├─ each fact naming T1 (its name resolved as the linker resolves it), read from its store as served
-  │    (a name an earlier rename rewrote is the name it wrote): places = named_at[field][old spelling]
+  │    (a name an earlier rename rewrote is the name it wrote, at the place it left it)
   │    no place ─────────────────────▶ refused `collected` ("records no place it is written")
-  │    file F changed since the collect (digest ≠ sources[F]) or the text at a place ≠ the old spelling
-  │                                   ──▶ refused `source_moved`
-  │    else F edited at every place: the written suffix of the old path → the same suffix of the new path
+  │    F (its held text, else the disk's) is not the text the store's places are in, or the text at a place
+  │    ≠ the name served ────────────▶ refused `source_moved`
+  │    else every place the store writes the name: its written suffix → the same suffix of the new path
   └─ one planned change: spec files + source files + ledger (moves, and for each name rewritten
-       `<collector> stale:<key>:<field>:<old spelling>:<new spelling> <digest of the store bytes>`,
-       written even with no harness field)
-serve a store whose stale lines the ledger holds ──▶ exactly those names read as the rename wrote them + W197
+       `<collector> stale:<key>:<field>:<name held>:<new spelling> <digest of the store bytes>`,
+       replacing the line of that store, field and name held; dropped when it writes the name held back)
+serve a store whose stale lines the ledger holds ──▶ those names read as now written, every place in a file
+                                                     they rewrote shifted by what they wrote, + W197
 next collect of that collector ──────────────────▶ replaces its facts: and stale: lines; no W197
 ```
 
-- **Stale is a ledger line per rewritten name, not a store rewrite.** The store stays the collector's bytes; a stale
-  line records one name the rename rewrote in the source (the field, the spelling the store holds, the spelling
-  written) and digests the store's bytes, so "stale" is exact in time and in what it follows: only a store collected
-  before the rename, and only the names that rename wrote. A fresh store that still names the old id is dangling,
-  with `did you mean` the new one: a session's check takes it from the ledger's moves (the old path written as a
-  fact writes a name), the kernel's close match otherwise. It is union-merge safe (`stale:<key>` holds a namespace). *Rejected:* rewriting
-  the store's values (a second writer of facts; the LSP would have to land a store write); following the moves for
-  every store (a reverted source edit would link silently forever); following the ledger's moves by suffix for a
-  stale store (an older move of `a/T1` would re-point a `T1` that names the root `T1`).
+- **Stale is a ledger line per name held, not a store rewrite.** The store stays the collector's bytes; a stale
+  line records one name renames rewrote in the source (the field, the spelling the store holds, the spelling written
+  last) and digests the store's bytes, so "stale" is exact in time and in what it follows: only a store collected
+  before the rename, and only the names renames wrote. A later rename of the name replaces the line (its key is the
+  store, the field and the name held), so the ledger says where each name is now whatever the order its lines are
+  read in, and two branches each renaming a different name merge (`merge=union`) into both lines. A fresh store that
+  still names the old id is dangling, with `did you mean` the new one: a session's check takes it from the ledger's
+  moves (the old path written as a fact writes a name), the kernel's close match otherwise. It is union-merge safe
+  (`stale:<key>` holds a namespace). *Rejected:* rewriting the store's values (a second writer of facts; the LSP would
+  have to land a store write); following the moves for every store (a reverted source edit would link silently
+  forever); following the ledger's moves by suffix for a stale store (an older move of `a/T1` would re-point a `T1`
+  that names the root `T1`); a line per rename from the spelling it read (`T1→T2`, `T2→T3`: a set of lines has no
+  order, and a rename back makes a cycle).
+- **What renames wrote is derived, so the places are exact by construction.** Every place a fact of the store names a
+  stale line's held name in its field (`named_at`) is a place the renames rewrote, the held spelling replaced by the
+  spelling written. The serve applies those edits to every place the store records in that file (`at` and every
+  `named_at`): a place before an edit stays, one after it moves by the length the edit changed (on its line; by the
+  lines an edit spanning lines removed, after it), and an edit's own place becomes what it wrote. A rename plans its
+  source edits from the same derivation: for each name it rewrites, every place the served store writes it, in the
+  served coordinates. *Rejected:* recording each rewrite's digest and edits in the ledger (a second record of what
+  the stale lines already say, ordered by rename, which a union merge of two branches breaks).
+- **A source file is judged against what the store says of it** (`facts::Placed`, the one judge: the anchors read
+  view's W198, the language server's placing, a rename): a text is the one the served places are in exactly when
+  each place a rename rewrote spells the name written now and putting back the name held at each gives the bytes
+  whose digest the collect recorded (`sources[F]`). Anything else edited in the file, a rename reverted by hand
+  included, fails it: W198, and a rename refused `source_moved`.
 - **The renames reach the serve on the served text.** A session reads a store once (`facts::store` is its one
   reader); the text it serves is the collector's bytes, then the renames its stale lines record as one more JSON
   value. The session compares served texts, so a ledger change re-serves the store, and the on-disk `Store` has no
   host-only field. *Rejected:* a `moved` field on the store struct set by the host (a field no collector writes, and
   the store parsed, re-serialized and parsed again).
 - **W197** "fact store '<key>' is stale: a rename moved what its facts name ('T1' → 'T2'[, and N more]) after the
-  collect; its places in <files> may be off until `specforge collect`".
-- A second rename needing a place in a file the first rewrote is refused `source_moved` (its digest moved): one
-  rewrite per file per collect, exact by construction. It finds the place because it reads the store as served: the
-  name the first rename wrote, at the place it wrote it. Within one plan, a rename that needs a file an earlier
-  rename of the plan rewrites is refused `source_rewritten`; so is an editor's second rename that needs a file the
-  first rewrites in the editor's buffers, its ledger change pending and the file on disk still the text collected
-  (the served store's stale line names the file; its digest has not moved).
+  collect; its places in <files> are served as the rename left them, until `specforge collect`".
+- **Renames compose on every surface.** A second (third, …) rename of a name an earlier rename rewrote reads the store
+  as served: the name written, at the place it was left; it writes the file again and replaces the stale line. A
+  source file is read as the view holds it (`ProjectView::holding`), else from the disk: within one plan, a later
+  rename reads the file as the plan's earlier renames rewrote it and the stores through their stale lines
+  (`CompiledProject::with_facts_after`), and the plan writes the file once, from the disk's text to the last; the
+  language server holds its open source buffers, so a rename composes with one applied to the buffers and not yet
+  saved. Its pending ledger change is held as one change from the first rename's project (the moves composed, the
+  stale lines in order) and lands whole; undone, the first shows again.
 - The LSP rename's edit carries the source edits; the pending ledger change carries the stale line and lands as the
   moves do.
 - **A delete of an entity a fact names stays refused.** It would remove what a test says it proves, and there is no
@@ -160,10 +182,10 @@ the item kind.
 ## Consequences
 
 - A finding about a fact is placed where the fact is written, with a remedy addressed to its collector.
-- A rename of an entity a test attribute names works from the editor and MCP, and leaves the store stale until the
-  next collect.
+- A rename of an entity a test attribute names works from the editor and MCP, as often as needed before the next
+  collect, and leaves the store stale until then.
 - Every existing store is W192 until the next collect (pre-release).
-- W197 tells that a stale store's other places may be off by the rename's column shift.
+- A stale store's places are exact in the text the renames left; W197 tells that the store is stale.
 
 ## What would reopen it
 

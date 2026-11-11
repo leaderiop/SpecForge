@@ -357,7 +357,7 @@ fn rename_rewrites_the_source_token_naming_the_entity() {
 )]
 fn rename_refuses_a_stale_source_file() {
     let mut served = citing("T1");
-    // Typed in since the collect, the disk as collected: refused with W198's sentence.
+    // Typed in since the collect, the disk as collected: the buffer is no text the store places in, so refused.
     served.hold("a.test.js");
     served.type_into(&served.uri("a.test.js"), &format!("// typed\n{SOURCE}"));
     for (file, position) in [
@@ -369,7 +369,10 @@ fn rename_refuses_a_stale_source_file() {
         assert!(
             refused
                 .message
-                .starts_with("'a.test.js' changed since `specforge collect` read it"),
+                .contains("a.test.js' changed since `specforge collect` read it")
+                || refused
+                    .message
+                    .contains("a.test.js changed since `specforge collect` read it"),
             "{file}: {}",
             refused.message
         );

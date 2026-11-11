@@ -358,11 +358,13 @@ pub fn rename(
     // with why.
     // Planned over the facts as the renames the editor shows leave them, so one moved
     // since the ledger was last written is rewritten too (ADR 0289).
+    // A source file is read as the editor holds it: a rename composes with one applied to the buffers (ADR 0346 D7).
     let shown = state.compiled_project().with_shown_facts();
+    let held = crate::source_document::held_texts(state);
     let plan = match specforge_ops::authoring::rename::plan(
-        &specforge_ops::read::navigate::Navigator::new(specforge_ops::view::ProjectView::of(
-            &shown,
-        )),
+        &specforge_ops::read::navigate::Navigator::new(
+            specforge_ops::view::ProjectView::of(&shown).holding(&held),
+        ),
         id.as_str(),
         new_name,
     ) {
@@ -372,9 +374,8 @@ pub fn rename(
     };
 
     // The edits are positions in the compiled text and apply to the editor's buffer: a file
-    // typed in since is not that text, so the rename waits for the compile (ContentModified); a
-    // source file typed in since the collect is refused, as its file changed on disk is (W198).
-    crate::source_document::rewrites_held_text(state, &plan)?;
+    // typed in since is not that text, so the rename waits for the compile (ContentModified). A
+    // source file's edits are positions in the text it was planned on, its buffer when open.
     let edit = compiled
         .rename_edit(&plan)
         .map_err(|Unplaced(file)| content_modified(file.as_str()))?;

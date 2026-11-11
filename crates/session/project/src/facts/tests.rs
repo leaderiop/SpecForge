@@ -255,7 +255,11 @@ fn a_store_records_the_digest_of_each_located_file() {
 
     let (_, served_sources) = served(KEY, &text, &declared()).unwrap();
 
-    assert_eq!(served_sources, sources);
+    let digests: BTreeMap<String, String> = served_sources
+        .into_iter()
+        .map(|(file, placed)| (file, placed.digest))
+        .collect();
+    assert_eq!(digests, sources);
 }
 
 /// `test`'s `status` declared an enum and its `names` a reference list.
@@ -336,4 +340,61 @@ fn a_facts_field_values_become_field_values_by_their_form() {
         [("slow", Written::Quoted), ("js:a#c", Written::Quoted)]
     );
     assert_eq!((fields.get("meta"), fields.get("ratio")), (None, None));
+}
+
+#[specforge_test_macros::test(
+    behavior = "build_in_memory_graph",
+    verify = "a stale store's places are shifted exactly by what the renames wrote, and only the text they left holds"
+)]
+fn a_store_served_through_renames_shifts_its_places_by_what_they_wrote() {
+    let collected = "// covers T1 T5 and T1\ntest('adds', () => {});\n";
+    let fact = Fact::new("test", "js:a.test.js#adds")
+        .at(place("a.test.js", 1, 1, 23))
+        .at(place("a.test.js", 2, 1, 24))
+        .name("covers", "T1", place("a.test.js", 1, 11, 13))
+        .name("covers", "T5", place("a.test.js", 1, 14, 16))
+        .name("covers", "T1", place("a.test.js", 1, 21, 23));
+    let sources = BTreeMap::from([(
+        "a.test.js".to_string(),
+        format!(
+            "sha256:{}",
+            specforge_package::Sha256::of(collected.as_bytes())
+        ),
+    )]);
+    let bytes =
+        String::from_utf8(Store::new("node", "@t/node", "abc", vec![fact], sources).bytes())
+            .unwrap();
+    let renames: Renames = [(
+        "covers".to_string(),
+        [("T1".to_string(), "Longer".to_string())].into(),
+    )]
+    .into();
+    let text = stale::carried(bytes, &renames);
+
+    let served = store(KEY, &text).unwrap();
+
+    let fact = &served.store.facts[0];
+    let spans = |places: &[FactLocation]| -> Vec<(usize, usize, usize)> {
+        places
+            .iter()
+            .map(|p| (p.start_line, p.start_col, p.end_col))
+            .collect()
+    };
+    // Four bytes more at each `T1`: what follows on its line moves by them, the next line not at all.
+    assert_eq!(spans(&fact.at), [(1, 1, 31), (2, 1, 24)]);
+    assert_eq!(
+        spans(&fact.named_at["covers"]["Longer"]),
+        [(1, 11, 17), (1, 25, 31)]
+    );
+    assert_eq!(spans(&fact.named_at["covers"]["T5"]), [(1, 18, 20)]);
+    assert_eq!(fact.fields["covers"], serde_json::json!(["Longer", "T5"]));
+    assert_eq!(served.collected("covers", "Longer"), "T1");
+    assert_eq!(served.collected("covers", "T5"), "T5");
+    // The text the rename left holds; the text collected, or one edited by hand since, does not.
+    let placed = &served.placed["a.test.js"];
+    let left = collected.replace("T1", "Longer");
+    assert!(placed.holds(left.as_bytes()));
+    assert!(!placed.holds(collected.as_bytes()));
+    assert!(!placed.holds(format!("{left}// by hand\n").as_bytes()));
+    assert!(!placed.holds(left.replacen("Longer", "Longer2", 1).as_bytes()));
 }

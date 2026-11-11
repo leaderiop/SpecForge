@@ -41,13 +41,10 @@ pub const UNPARSED: &str = "source_unparsed";
 /// The project writes the new ID for no entity (a type name, a reference that does not resolve): the rename would make
 /// it name the renamed entity.
 pub const CAPTURED: &str = "name_captured";
-/// A source file a fact names the entity in changed since `specforge collect` read it, or no longer spells the name
-/// where the fact's store says: the rename cannot rewrite it exactly (ADR 0346 D7).
+/// A source file a fact names the entity in is not the text its store's served places are in (the text collected, or
+/// the text the renames since left: it was edited otherwise), or no longer spells the name where the store says: the
+/// rename cannot rewrite it exactly (ADR 0346 D7).
 pub const SOURCE_MOVED: &str = "source_moved";
-/// A rename needs a source file an earlier rename rewrites where a fact names what it moved, and the file is still the
-/// text collected: one of the same plan, or an editor's rename not yet saved. One rewrite of a file per collect, so the
-/// second is refused (ADR 0346 D7).
-pub const SOURCE_REWRITTEN: &str = "source_rewritten";
 /// The edits that rename one entity: its declaration and every reference, and the change they make.
 #[derive(Debug, Clone)]
 pub struct RenamePlan {

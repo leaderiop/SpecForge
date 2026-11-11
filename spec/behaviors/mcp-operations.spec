@@ -183,12 +183,14 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     store records the name written, its written suffix becoming the same
     suffix of the new path, and writes the store's stale line to
     specforge-harness; it is refused as collected when the fact records no
-    place, and as source_moved when a file changed since the collect read it
-    or no longer spells the name there, a second rename before the next
-    collect of a name the first rewrote included; a plan whose second rename
-    needs a file its first rewrote is refused as source_rewritten (ADR 0346
-    D7). A delete that unlinks
-    an entity a fact names stays refused.
+    place, and as source_moved when a file is not the text the store's
+    served places are in (edited since otherwise than by a rename) or no
+    longer spells the name there. Renames compose: a second rename before
+    the next collect of a name an earlier one rewrote, or of another name in
+    a file it rewrote, MUST rewrite the file again where the store's served
+    places are (shifted exactly by what the earlier renames wrote) and
+    replace the name's stale line, within one plan too (ADR 0346 D7). A
+    delete that unlinks an entity a fact names stays refused.
   """
   verify unit "specforge.rename renames entity and all references"
   verify unit "non-existent entity returns error response"
@@ -211,6 +213,7 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
   verify integration "a rename of a collected entity, or of one a fact names with no place, is refused with why"
   verify integration "a rename of an entity a fact names rewrites the source where the fact read it and marks its store stale"
   verify integration "a rename whose source changed since the collect is refused as source_moved"
+  verify integration "a rename of a name an earlier rename rewrote rewrites the source again where the first left it"
 }
 
 behavior provide_mcp_edit_tool "Provide MCP Edit Tool" {
