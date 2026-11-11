@@ -406,13 +406,18 @@ fn hold_ledger(
         .collect();
     files.sort();
     files.dedup();
+    let renamed = crate::pending::Renamed {
+        declaring: node.source_span.file.to_string(),
+        old_id: id.to_string(),
+        new_id: plan.new_id.clone(),
+        old_name: node.name().to_string(),
+        new_name: new_name.to_string(),
+    };
     if let Some(pending) = crate::pending::PendingLedger::of(
         state.compiled_project(),
         plan.moved().to_vec(),
         plan.stale().to_vec(),
-        node.source_span.file.to_string(),
-        node.name().to_string(),
-        new_name.to_string(),
+        renamed,
         files,
     ) {
         state.pending().hold(pending);

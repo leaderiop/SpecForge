@@ -602,7 +602,10 @@ fn rename_of_an_entity_a_fact_names_edits_its_source_file() {
 }
 
 /// Apply the whole of `edit` to the editor's buffers, saving nothing: each file's buffer, else its disk text, edited.
-fn apply_to_buffers(served: &mut crate::served::Served, edit: tower_lsp::lsp_types::WorkspaceEdit) {
+pub(crate) fn apply_to_buffers(
+    served: &mut crate::served::Served,
+    edit: tower_lsp::lsp_types::WorkspaceEdit,
+) {
     for (uri, edits) in edit.changes.expect("plain changes") {
         let file = served.state().key_of(&uri);
         let edits: Vec<serde_json::Value> = edits
@@ -762,12 +765,13 @@ fn an_undone_second_rename_shows_the_first_again() {
 }
 
 /// The key `fact_named`'s store is filed under, and the store.
-const FACT_KEY: &str = "0123456789abcdef0123456789abcdef01234567";
-const FACT_STORE: &str = ".specforge/facts/0123456789abcdef0123456789abcdef01234567/node.json";
+pub(crate) const FACT_KEY: &str = "0123456789abcdef0123456789abcdef01234567";
+pub(crate) const FACT_STORE: &str =
+    ".specforge/facts/0123456789abcdef0123456789abcdef01234567/node.json";
 
 /// A project whose truth `T1` a collected fact names in `a.test.js`, where its collector read it, served with
 /// `truths.spec` open.
-fn fact_named() -> crate::served::Served {
+pub(crate) fn fact_named() -> crate::served::Served {
     use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, stored_with};
     let source = "// covers T1\ntest('adds', () => {});\n";
     let dir = tempfile::TempDir::new().unwrap();

@@ -1258,9 +1258,11 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
     document changes (ADR 0289). The server writes no file: the ledger change of a rename is held beside the
     session, shown over its checks, written under the write lock once the renamed files are saved, and dropped
     when the edit is undone. A rename reads a source file a fact is placed in as the editor's buffer holds it, so a
-    second rename made before a pending one lands composes with it: its edits land where the first left the name,
-    and a rename of the name a showing rename gave supersedes it, one change landed whole, the first shown again
-    when the second is undone (ADR 0346 D7).
+    second rename made before a pending one lands composes with it: its edits land where the first left the name.
+    A rename of the entity a showing rename gave (matched by its path, not its name) supersedes that one once its
+    own edit is in the buffers: one change landed whole, the first shown again when the second is undone, both
+    undone when the buffer is typed back to the first's old name. Answered and never applied, it leaves the first
+    to show and land alone (ADR 0346 D7).
   """
   verify unit "the LSP rename writes its ledger change once the rename lands on disk"
   verify unit "an undone LSP rename writes no ledger change"
@@ -1268,6 +1270,9 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
   verify unit "a rename whose ledger write fails stays pending and lands on the next event"
   verify unit "a saved LSP rename lands its ledger change at shutdown"
   verify integration "a second editor rename before the first lands reads the facts as the first leaves them"
+  verify unit "a later editor rename never applied leaves the earlier one to show and land alone"
+  verify unit "a later editor rename composes only with the rename of the entity it renames, matched by path"
+  verify unit "a chain of editor renames typed back to its first name is undone whole"
   verify unit "the LSP rename and fixes are versioned for a client that takes document changes"
   verify unit "a fix names the version of the buffer it edits for a client that takes document changes"
 }

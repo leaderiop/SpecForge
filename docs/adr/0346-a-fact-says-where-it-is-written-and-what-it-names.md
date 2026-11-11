@@ -166,8 +166,12 @@ next collect of that collector ────────────────�
   rename reads the file as the plan's earlier renames rewrote it and the stores through their stale lines
   (`CompiledProject::with_facts_after`), and the plan writes the file once, from the disk's text to the last; the
   language server holds its open source buffers, so a rename composes with one applied to the buffers and not yet
-  saved. Its pending ledger change is held as one change from the first rename's project (the moves composed, the
-  stale lines in order) and lands whole; undone, the first shows again.
+  saved. Once its own edit is in the buffers, a rename of the entity a showing rename gave (matched by path: two
+  scoped entities may share a name) supersedes it: its pending ledger change is held as one change from the first
+  rename's project (the moves composed, the stale lines in order) and lands whole; undone, the first shows again;
+  typed back to the first's old name, both are undone. Answered and never applied, it changes nothing: the first
+  shows and lands as itself. Whether a declaring file holds a rename is counted (one entity fewer with the old name
+  than when it was planned), not asked by name.
 - The LSP rename's edit carries the source edits; the pending ledger change carries the stale line and lands as the
   moves do.
 - **A delete of an entity a fact names stays refused.** It would remove what a test says it proves, and there is no
