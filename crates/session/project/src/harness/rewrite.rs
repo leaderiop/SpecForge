@@ -330,6 +330,36 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_move_back_carries_the_record_onto_its_own_name() {
+        let harness = Harness::default();
+        let forms = forms();
+        let (before, after) = (graph(&source("04", "pass")), graph(&source("03", "pass")));
+        let view = |graph| View {
+            graph,
+            forms: &forms,
+            harness: &harness,
+            keeps_gone: false,
+        };
+        let mut ledger = Ledger::default();
+        ledger.insert(Line::moved("v1.0/04", "v1.0/03"));
+        let change = LedgerChange {
+            moves: vec![("v1.0/04".into(), "v1.0/03".into())],
+            ..Default::default()
+        };
+        let after_ledger = ledger.rewritten(&view(&before), &view(&after), &change);
+        let records: Vec<String> = after_ledger
+            .lines()
+            .map(|l| format!("{} {}", l.subject, l.key))
+            .collect();
+        assert_eq!(
+            records,
+            ["v1.0/03 moved:v1.0/03", "v1.0/03 moved:v1.0/04"],
+            "{}",
+            after_ledger.canonical()
+        );
+    }
+
     const PLAN: &str = "plan P \"P\" {\n  verdict gsd/W311 passed {\n    judge \"j\"\n    model \"m\"\n    at \"t\"\n    cited [R1]\n    inputs { plan \"sha256:1\" }\n  }\n}\n";
 
     fn verdict_graph(source: &str) -> specforge_graph::Graph {
