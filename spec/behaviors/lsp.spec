@@ -1255,27 +1255,28 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
   category   mutation
   contract   """
     The edits of a rename and of a fix name the version of the buffer they apply to when the client takes versioned
-    document changes (ADR 0289). The server writes no file: the ledger change of a rename is held beside the
-    session, shown over its checks as the buffers say, and written under the write lock, as the disk says, once no
-    file the rename edits holds an unsaved buffer. A rename reads a source file a fact is placed in as the editor's
-    buffer holds it, so a second rename made before a pending one lands composes with it: its edits land where the
-    first left the name. The renames of one entity (matched by its path, not its name) are a tree, each under the
-    rename that gave the entity it renames (a rename of a scope or of what it scopes, moving a path the tree moved,
-    joins it as one history), read from the texts each time and never kept as a phase: the declaring
-    file holds the last rename whose new name it declares, counted (none for the first's old name or a name no rename
-    wrote; an entity declared by hand under the old name beside it takes nothing),
-    and each stale line the deepest rename every source file it is about holds is under, a file holding one whose
-    name still reads at the places it wrote it, whatever else changed in the file (another entity renamed, typing,
-    text beside it that cannot extend it; read by counted work, a place among more changed text than it compares
-    byte by byte reading as gone),
-    else the one above the first whose name read still reads there, else none (the name typed over). What is shown
-    and landed is the change from what the ledger holds of the tree to that: the moves walked back and down, and each
-    stale line whose rename moved. So an undo in one buffer and not another, part way, by hand, or a redo, before a
-    save or after, shows and lands what the buffers hold. The tree is kept while any of its files is open and the
-    ledger reads as the tree last left it: a ledger write the editor did not make that touches the tree's entities or
-    stale lines ends it. A rename
-    answered and never applied is dropped at the first change of its declaring file that is not its edit
-    (ADR 0346 D7).
+    document changes (ADR 0289). The server writes no file: the ledger change of a rename is held beside the session,
+    shown over its checks as the buffers say, and written under the write lock, as the disk says, once no file the
+    rename edits holds an unsaved buffer. A rename reads a source file a fact is placed in as the editor's buffer
+    holds it, so a second rename made before a pending one lands composes with it: its edits land where the first left
+    the name. The renames of an entity and of whatever their moves touch are one history, whichever files declare
+    them: a rename moving a path a history's renames moved (or one under or above it) joins it, and one touching
+    several histories merges them. Each rename hangs under the rename that gave the entity it renames (matched by
+    path, not name), and the history is read from the texts each time, never kept as a phase: a rename is in effect
+    while its declaring file declares its new name, counted (an entity declared by hand under the old name beside it
+    takes nothing), with the renames it came from; each stale line is at the latest rename every source file it is
+    about holds or came after, a file holding one whose name still reads at the places it wrote it, whatever else
+    changed in the file (another entity renamed, typing, text beside it that cannot extend it; read by counted work, a
+    place among more changed text than it compares byte by byte reading as gone), else the one in effect before the
+    first whose name read still reads there, else none (the name typed over). What is shown and landed is the change
+    from what the ledger holds of the history to that, as one change: the renames left undone undone, the last made
+    first, those taken up done in the order made, and each stale line whose rename moved. So an undo in one buffer and
+    not another, part way, by hand, or a redo, before a save or after, shows and lands what the buffers hold; texts in
+    which a rename is in effect without one it was planned after (an earlier rename undone by hand before a later one)
+    show and land nothing. A history spans every file its renames edit and is kept while any of them is open and the
+    ledger reads as it last left it: a ledger write the editor did not make that touches its entities or stale lines
+    ends it. A rename answered and never applied is dropped at the first change of its declaring file that is not its
+    edit (ADR 0346 D7).
   """
   verify unit "the LSP rename writes its ledger change once the rename lands on disk"
   verify unit "an undone LSP rename writes no ledger change"

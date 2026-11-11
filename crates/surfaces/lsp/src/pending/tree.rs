@@ -1,11 +1,18 @@
-//! The renames of one entity made in the editor, as a tree (ADR 0346 D7): each rename hangs under the rename that gave
-//! the entity it renames (by path), the first ones under the entity as it was. An undo followed by another rename
-//! branches; a redo walks back down. What the texts hold is a node of the tree (the declaring file's, and one for each
-//! stale line); what the ledger on disk holds is the node last landed; what is shown and landed next is the path
-//! between them: the moves of the renames walked back undone, those walked down done, and each stale line whose node
-//! moved, as that node's rename wrote it or as the ledger held it before the tree.
+//! The renames made in the editor of an entity and of whatever its moves touch, as one history (ADR 0346 D7): a scope
+//! and what it scopes, renamed one after the other, are one history whichever files declare them, and a rename that
+//! touches two histories joins them. Each rename hangs under the rename that gave the entity it renames (its path
+//! traced through the moves since), the first ones under the entity as it was, so an undo followed by another rename
+//! branches and a redo walks back down; each also knows the renames in effect when it was planned, whose paths its
+//! moves are written after.
+//!
+//! What the texts hold is a set of renames in effect (each declaring file holds the renames whose new names it
+//! declares, with the renames they came from) and one rename for each stale line; what the ledger on disk holds is the
+//! set last landed; what is shown and landed next is the change between them: the renames left undone in the reverse
+//! order they were made, those taken up done in the order made, and each stale line whose rename moved. A set in which
+//! a rename is in effect without one it was planned after that touches the same paths (an earlier rename undone by
+//! hand before a later one it led to) is no state of the history: it shows and lands nothing.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
@@ -23,31 +30,35 @@ enum Edit {
     Waiting,
     /// The declaring file was read holding it.
     Applied,
-    /// The declaring file changed without its edit: never applied, it is out of the tree.
+    /// The declaring file changed without its edit: never applied, it is out of the history.
     Dropped,
 }
 
 #[derive(Debug)]
 struct Node {
     rename: Arc<PendingLedger>,
+    /// When it was answered, among every rename the editor holds: the nodes are in this order.
+    seq: u64,
     /// The node of the rename that gave the entity this one renames; `None`: the entity before any.
     parent: Option<usize>,
+    /// The renames (by `seq`) in effect when this one was planned: its moves are paths after theirs.
+    context: BTreeSet<u64>,
     applied: Edit,
 }
 
-/// A node of the tree, `None` for the entity before any rename.
+/// A node of the history, `None` for the entities before any rename.
 type At = Option<usize>;
 
-/// What the texts hold: the declaring file's node, and each stale line's node.
+/// What the texts hold: the renames in effect (`None`: no state of the history), and each stale line's node.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Reading {
-    declared: At,
+    effect: Option<Vec<usize>>,
     lines: Vec<(Key, At)>,
 }
 
-/// What the ledger on disk holds of the tree, and the project it was written over.
+/// What the ledger on disk holds of the history, and the project it was written over.
 struct Landed {
-    declared: At,
+    effect: Vec<usize>,
     lines: BTreeMap<Key, At>,
     on: CompiledProject,
 }
@@ -55,33 +66,71 @@ struct Landed {
 pub(super) struct Tree {
     nodes: Vec<Node>,
     landed: Landed,
-    /// The ledger as the first rename found it: what a stale line goes back to at the entity before any rename.
+    /// The ledger as the first rename found it: what a stale line goes back to at no rename.
     before: Ledger,
-    /// The ledger on disk as the tree last left it (as the first rename found it, until a landing): any other writer
-    /// that changes what it says of the tree's entities or lines ends the tree.
+    /// The ledger on disk as the history last left it (as the first rename found it, until a landing): any other
+    /// writer that changes what it says of the history's entities or lines ends it.
     left: Ledger,
     /// Each stale line's node in a source file, by the file's text it was read from: a text read again (a keystroke in
-    /// another file) is not compared with the renames' texts again. Emptied when the tree changes.
+    /// another file) is not compared with the renames' texts again. Emptied when the history changes.
     memo: BTreeMap<(Key, String), (String, Option<At>)>,
 }
 
+/// Whether one path is the other or under it.
+fn related(a: &str, b: &str) -> bool {
+    let under = |a: &str, b: &str| a.strip_prefix(b).is_some_and(|rest| rest.starts_with('/'));
+    a == b || under(a, b) || under(b, a)
+}
+
+/// Every path `rename` moves from or to.
+fn paths(rename: &PendingLedger) -> impl Iterator<Item = &str> {
+    rename
+        .moves
+        .iter()
+        .flat_map(|(old, new)| [old.as_str(), new.as_str()])
+}
+
+/// Whether two renames move related paths: the order they are done in matters.
+fn touch(a: &PendingLedger, b: &PendingLedger) -> bool {
+    paths(a).any(|x| paths(b).any(|y| related(x, y)))
+}
+
+/// Where `path` was before `moves`, by the nearest moved path at or above it.
+fn unmoved(moves: &[(String, String)], path: &str) -> String {
+    let nearest = moves
+        .iter()
+        .filter(|(_, new)| related(path, new) && path.len() >= new.len())
+        .max_by_key(|(_, new)| new.len());
+    match nearest {
+        Some((old, new)) => format!("{old}{}", &path[new.len()..]),
+        None => path.to_string(),
+    }
+}
+
 impl Tree {
-    pub(super) fn of(rename: Arc<PendingLedger>, before: &CompiledProject) -> Tree {
-        let on = before.clone();
-        let before = Ledger::parse(&String::from_utf8_lossy(&on.root_file(LEDGER_FILE))).ledger;
+    /// The history of `rename`, the `seq`-th answered, planned on `before` with the renames `context` in effect.
+    pub(super) fn of(
+        rename: Arc<PendingLedger>,
+        before: &CompiledProject,
+        seq: u64,
+        context: BTreeSet<u64>,
+    ) -> Tree {
+        let ledger = Ledger::parse(&String::from_utf8_lossy(&before.root_file(LEDGER_FILE))).ledger;
         Tree {
-            left: before.clone(),
-            before,
+            left: ledger.clone(),
+            before: ledger,
             memo: BTreeMap::new(),
             nodes: vec![Node {
                 rename,
+                seq,
                 parent: None,
+                context,
                 applied: Edit::Waiting,
             }],
             landed: Landed {
-                declared: None,
+                effect: Vec::new(),
                 lines: BTreeMap::new(),
-                on,
+                on: before.clone(),
             },
         }
     }
@@ -99,18 +148,20 @@ impl Tree {
         self.live().next().is_none()
     }
 
-    /// The tree is over: nothing of it is left to show or land.
+    /// The history is over: nothing of it is left to show or land.
     pub(super) fn end(&mut self) {
         self.nodes.clear();
     }
 
-    pub(super) fn declaring(&self) -> &str {
-        &self.nodes[0].rename.declaring
+    /// Whether `rename` moves a path a rename of the history moved (from or to), or one under or above it: it belongs
+    /// to this history.
+    pub(super) fn touches(&self, rename: &PendingLedger) -> bool {
+        self.renames().any(|known| touch(known, rename))
     }
 
-    /// Whether `now`, the ledger on disk, says anything of the tree's entities (any path a rename of it moved) or
-    /// stale lines other than the tree left it saying: another writer (the CLI, MCP, another client, a pull) renamed
-    /// or recorded them, and an undo read from the texts would land over that.
+    /// Whether `now`, the ledger on disk, says anything of the history's entities (any path a rename of it moved) or
+    /// stale lines other than the history left it saying: another writer (the CLI, MCP, another client, a pull)
+    /// renamed or recorded them, and an undo read from the texts would land over that.
     pub(super) fn touched(&self, now: &Ledger) -> bool {
         let ours = |line: &&Line| {
             self.nodes.iter().any(|node| {
@@ -125,9 +176,10 @@ impl Tree {
         !self.left.lines().filter(ours).eq(now.lines().filter(ours))
     }
 
-    /// The ledger on disk is `now`, as a landing of the editor's renames left it.
-    pub(super) fn left(&mut self, now: Ledger) {
+    /// The ledger on disk is `now`, as a landing of the editor's renames left it, over `on`.
+    pub(super) fn left(&mut self, now: Ledger, on: &CompiledProject) {
         self.left = now;
+        self.landed.on = on.clone();
     }
 
     /// The project the ledger was last written over (the first rename's, until a landing): where files are found.
@@ -135,85 +187,169 @@ impl Tree {
         &self.landed.on
     }
 
-    /// The node the declaring file's `text` holds: the last rename answered whose new name it declares.
-    fn declared(&self, text: Option<&str>, parses: &Parses) -> At {
-        let names = parses.names(self.declaring(), text?);
-        self.live()
-            .rev()
-            .find(|&i| self.nodes[i].rename.declares_new(&names))
+    /// Whether the texts `text` answers hold node `i`'s rename: its declaring file declares its new name.
+    fn held(&self, i: usize, text: &dyn Fn(&str) -> Option<String>, parses: &Parses) -> bool {
+        let rename = &self.nodes[i].rename;
+        text(&rename.declaring)
+            .is_some_and(|text| rename.declares_new(&parses.names(&rename.declaring, &text)))
     }
 
-    /// The path of the entity at `at`.
-    fn id(&self, at: At) -> &str {
-        match at {
-            Some(i) => &self.nodes[i].rename.new_id,
-            None => &self.nodes[0].rename.old_id,
+    /// The renames in effect in the texts `text` answers, by node, ascending: each the declaring files hold, but of
+    /// two renames of one entity from one node (a branch) the later only, and the renames each came from.
+    fn effect(&self, text: &dyn Fn(&str) -> Option<String>, parses: &Parses) -> Vec<usize> {
+        let mut effect: BTreeSet<usize> = BTreeSet::new();
+        for i in self.live().rev().filter(|&i| self.held(i, text, parses)) {
+            let node = &self.nodes[i];
+            let branch = effect.iter().any(|&a| {
+                let other = &self.nodes[a];
+                a != i && other.parent == node.parent && other.rename.old_id == node.rename.old_id
+            });
+            if branch {
+                continue;
+            }
+            let mut at = Some(i);
+            while let Some(n) = at {
+                effect.insert(n);
+                at = self.nodes[n].parent;
+            }
         }
+        effect.into_iter().collect()
     }
 
-    /// `rename`, planned on a project whose declaring file holds the node that gave the entity it renames, or one
-    /// whose path moved something `rename` moves (a scope and what it scopes, renamed one after the other), hangs under
-    /// that node: one history, landed as one change. `false` when it renames something else.
-    pub(super) fn join(&mut self, rename: &Arc<PendingLedger>) -> bool {
-        if self.is_over() || self.declaring() != rename.declaring {
-            return false;
-        }
-        let at = self.declared(rename.planned.as_deref(), &Parses::default());
-        if self.id(at) != rename.old_id && !self.moved(at, rename) {
-            return false;
+    /// The renames (by `seq`) in effect in the texts `text` answers.
+    pub(super) fn in_effect(
+        &self,
+        text: &dyn Fn(&str) -> Option<String>,
+        parses: &Parses,
+    ) -> Vec<u64> {
+        let effect = self.effect(text, parses);
+        effect.into_iter().map(|i| self.nodes[i].seq).collect()
+    }
+
+    /// Whether `effect` is a state of the history: each rename in it planned after exactly the renames in it before
+    /// it that touch the same paths.
+    fn holds(&self, effect: &[usize]) -> bool {
+        effect.iter().all(|&n| {
+            let node = &self.nodes[n];
+            self.live().take_while(|&m| m < n).all(|m| {
+                let other = &self.nodes[m];
+                !touch(&other.rename, &node.rename)
+                    || effect.contains(&m) == node.context.contains(&other.seq)
+            })
+        })
+    }
+
+    /// `rename`, the `seq`-th answered, planned on the texts `text` answers with the renames `context` in effect,
+    /// hangs under the rename in effect there that gave the entity it renames (its path traced back through the moves
+    /// in effect since), else under the entities as they were.
+    pub(super) fn push(
+        &mut self,
+        rename: Arc<PendingLedger>,
+        seq: u64,
+        context: BTreeSet<u64>,
+        text: &dyn Fn(&str) -> Option<String>,
+        parses: &Parses,
+    ) {
+        let mut id = rename.old_id.clone();
+        let mut parent = None;
+        for i in self.effect(text, parses).into_iter().rev() {
+            let known = &self.nodes[i].rename;
+            if known.new_id == id {
+                parent = Some(i);
+                break;
+            }
+            id = unmoved(&known.moves, &id);
         }
         self.nodes.push(Node {
-            rename: Arc::clone(rename),
-            parent: at,
+            rename,
+            seq,
+            parent,
+            context,
             applied: Edit::Waiting,
         });
         self.memo.clear();
-        true
     }
 
-    /// Whether `rename` moves a path the entities at `at` are at: one the renames above it moved to, or at the entity
-    /// before any, one the first renames moved from.
-    fn moved(&self, at: At, rename: &PendingLedger) -> bool {
-        let paths: Vec<&str> = match at {
-            Some(_) => self
-                .up(at)
-                .into_iter()
-                .flat_map(|i| &self.nodes[i].rename.moves)
-                .map(|(_, new)| new.as_str())
-                .collect(),
-            None => self
-                .live()
-                .filter(|&i| self.nodes[i].parent.is_none())
-                .flat_map(|i| &self.nodes[i].rename.moves)
-                .map(|(old, _)| old.as_str())
-                .collect(),
-        };
-        rename
-            .moves
-            .iter()
-            .any(|(old, _)| paths.contains(&old.as_str()))
-    }
-
-    /// `at` and the nodes above it, from `at` up.
-    fn up(&self, mut at: At) -> Vec<usize> {
-        let mut path = Vec::new();
-        while let Some(i) = at {
-            path.push(i);
-            at = self.nodes[i].parent;
+    /// What is left of this history once taken: nothing.
+    pub(super) fn take(&mut self) -> Tree {
+        Tree {
+            nodes: std::mem::take(&mut self.nodes),
+            landed: Landed {
+                effect: std::mem::take(&mut self.landed.effect),
+                lines: std::mem::take(&mut self.landed.lines),
+                on: self.landed.on.clone(),
+            },
+            before: std::mem::take(&mut self.before),
+            left: std::mem::take(&mut self.left),
+            memo: BTreeMap::new(),
         }
-        path
     }
 
-    /// The deepest node above (or at) both `a` and `b`.
-    fn meet(&self, a: At, b: At) -> At {
-        let above_b = self.up(b);
-        self.up(a).into_iter().find(|i| above_b.contains(i))
+    /// `other` joins this history, its renames in the order answered among these, what it landed beside what this
+    /// one did; the ledger on disk is `left`. The project and the ledger before are the elder history's.
+    pub(super) fn merge(&mut self, other: Tree, left: Ledger) {
+        let elder = |tree: &Tree| tree.nodes.first().map_or(u64::MAX, |n| n.seq);
+        let (old, young) = if elder(&other) < elder(self) {
+            (other, self.take())
+        } else {
+            (self.take(), other)
+        };
+        let offset = old.nodes.len();
+        let mut nodes: Vec<(usize, Node)> = old.nodes.into_iter().enumerate().collect();
+        nodes.extend(
+            young
+                .nodes
+                .into_iter()
+                .enumerate()
+                .map(|(i, n)| (i + offset, n)),
+        );
+        nodes.sort_by_key(|(_, node)| node.seq);
+        let mut index = vec![0; nodes.len()];
+        for (at, (was, _)) in nodes.iter().enumerate() {
+            index[*was] = at;
+        }
+        let young_at = |i: usize| index[i + offset];
+        let mut effect: Vec<usize> = old.landed.effect.iter().map(|&i| index[i]).collect();
+        effect.extend(young.landed.effect.iter().map(|&i| young_at(i)));
+        effect.sort_unstable();
+        let mut lines: BTreeMap<Key, At> = old
+            .landed
+            .lines
+            .into_iter()
+            .map(|(key, at)| (key, at.map(|i| index[i])))
+            .collect();
+        for (key, at) in young.landed.lines {
+            lines.entry(key).or_insert(at.map(young_at));
+        }
+        let mut before = old.before;
+        let known: BTreeSet<Key> = before.lines().filter_map(key_of).collect();
+        for line in young.before.lines() {
+            if key_of(line).is_some_and(|key| !known.contains(&key)) {
+                before.insert(line.clone());
+            }
+        }
+        self.nodes = nodes
+            .into_iter()
+            .map(|(was, mut node)| {
+                let shift = |i: usize| if was < offset { index[i] } else { young_at(i) };
+                node.parent = node.parent.map(shift);
+                node
+            })
+            .collect();
+        self.landed = Landed {
+            effect,
+            lines,
+            on: old.landed.on,
+        };
+        self.before = before;
+        self.left = left;
+        self.memo.clear();
     }
 
     /// The node of the source `file`'s `text` for the stale line `key`: the last rename whose name for it reads at the
-    /// places it wrote it in the file, else the node above the first whose name read still reads at its places, else
-    /// the entity before any (the name changed to one no rename wrote). Whatever else changed in the file (another
-    /// entity renamed, typing) does not move it. `None` when no rename marking the line rewrote the file.
+    /// places it wrote it in the file, else the last marking it in effect when the first whose name read still reads
+    /// at its places was planned, else none (the name changed to one no rename wrote). Whatever else changed in the
+    /// file (another entity renamed, typing) does not move it. `None` when no rename marking the line rewrote the file.
     fn source_node(&self, key: &Key, file: &str, text: Option<&str>) -> Option<At> {
         let marked = |i: usize| {
             let rename = &self.nodes[i].rename;
@@ -240,36 +376,45 @@ impl Tree {
             let (m, (read, _)) = marked(i).expect("marking");
             reads(read, text, &spans(i, true), &m.read)
         });
-        Some(read.and_then(|i| self.nodes[i].parent))
+        Some(read.and_then(|i| self.history(i, key).into_iter().rev().nth(1)))
     }
 
-    /// What the texts `text` answers hold. A rename waiting for its edit is applied once the declaring file holds it,
-    /// and dropped once the declaring file is another text than it was planned on without it. A stale line is at the
-    /// deepest node every file it is about holds is under (one line names one name for every file); with no file a
-    /// rename marking it rewrote, at the declaring file's node; and its line is that of the nearest rename at or above
-    /// that node that marks it.
+    /// Node `i` and the renames marking `key` that were in effect when it was planned, ascending.
+    fn history(&self, i: usize, key: &Key) -> Vec<usize> {
+        let context = &self.nodes[i].context;
+        self.live()
+            .take_while(|&m| m < i)
+            .filter(|&m| context.contains(&self.nodes[m].seq))
+            .filter(|&m| self.nodes[m].rename.line(key).is_some())
+            .chain([i])
+            .collect()
+    }
+
+    /// What the texts `text` answers hold. A rename waiting for its edit is applied once its declaring file holds it,
+    /// and dropped once that file is another text than it was planned on without it. A stale line is at the latest
+    /// rename every file it is about holds or came after (one line names one name for every file); with no file a
+    /// rename marking it rewrote, at the last rename in effect that marks it.
     pub(super) fn read(
         &mut self,
         text: &dyn Fn(&str) -> Option<String>,
         parses: &Parses,
     ) -> Reading {
-        let declaring = text(self.declaring());
-        let declared = self.declared(declaring.as_deref(), parses);
         for i in 0..self.nodes.len() {
             let node = &self.nodes[i];
             if node.applied != Edit::Waiting {
                 continue;
             }
-            if node.rename.planned.as_deref() == declaring.as_deref() {
+            if node.rename.planned.as_deref() == text(&node.rename.declaring).as_deref() {
                 continue;
             }
-            self.nodes[i].applied = if declared == Some(i) {
+            self.nodes[i].applied = if self.held(i, text, parses) {
                 Edit::Applied
             } else {
                 Edit::Dropped
             };
             self.memo.clear();
         }
+        let effect = self.effect(text, parses);
         let mut keys: Vec<(Key, Vec<String>)> = Vec::new();
         for marked in self.renames().flat_map(|r| &r.stale) {
             let Some(key) = key_of(&marked.line) else {
@@ -299,36 +444,51 @@ impl Tree {
                 };
                 held.extend(node);
             }
-            let at = match held.split_first() {
-                Some((first, rest)) => rest.iter().fold(*first, |a, b| self.meet(a, *b)),
-                None => declared,
+            let at = if held.is_empty() {
+                let marks = |i: &&usize| self.nodes[**i].rename.line(&key).is_some();
+                effect.iter().rfind(marks).copied()
+            } else {
+                self.earliest(&held, &key)
             };
-            let line = self
-                .up(at)
-                .into_iter()
-                .find(|&i| self.nodes[i].rename.line(&key).is_some());
-            lines.push((key, line));
+            lines.push((key, at));
         }
-        Reading { declared, lines }
+        let effect = self.holds(&effect).then_some(effect);
+        Reading { effect, lines }
     }
 
-    /// What `reading` changes of the ledger as last landed, and the project to read that change over: the moves of
-    /// the renames walked back (each undone) and walked down to the declaring file's node, composed (a name renamed
-    /// back moves nothing), and each stale line whose node moved, as that node's rename wrote it or, at the entity
-    /// before any rename, as the ledger held it before the tree.
+    /// The latest rename marking `key` that each of `held` is or came after; none when one is none.
+    fn earliest(&self, held: &[At], key: &Key) -> At {
+        let history = |at: At| -> BTreeSet<usize> {
+            at.map(|i| self.history(i, key).into_iter().collect())
+                .unwrap_or_default()
+        };
+        let mut common = history(held[0]);
+        for at in &held[1..] {
+            let other = history(*at);
+            common.retain(|i| other.contains(i));
+        }
+        common.last().copied()
+    }
+
+    /// What `reading` changes of the ledger as last landed, and the project to read that change over: the moves of the
+    /// renames left undone (each undone, the last made first) and taken up (in the order made), composed (a name
+    /// renamed back moves nothing), and each stale line whose node moved, as that node's rename wrote it or, at no
+    /// rename, as the ledger held it before the history. Nothing when the reading is no state of the history.
     pub(super) fn change(&self, reading: &Reading) -> (LedgerChange, &CompiledProject) {
         let landed = &self.landed;
-        let meet = self.meet(landed.declared, reading.declared);
-        let back = self.up(landed.declared);
-        let back = back.iter().take_while(|&&i| Some(i) != meet);
-        let mut down = self.up(reading.declared);
-        down.retain(|&i| !self.up(meet).contains(&i));
+        let Some(effect) = &reading.effect else {
+            return (LedgerChange::default(), &landed.on);
+        };
         let mut moves = Vec::new();
-        for (old, new) in back.flat_map(|&i| &self.nodes[i].rename.moves) {
-            compose(&mut moves, new, old);
+        for i in landed.effect.iter().rev().filter(|i| !effect.contains(i)) {
+            for (old, new) in &self.nodes[*i].rename.moves {
+                compose(&mut moves, new, old);
+            }
         }
-        for (old, new) in down.iter().rev().flat_map(|&i| &self.nodes[i].rename.moves) {
-            compose(&mut moves, old, new);
+        for i in effect.iter().filter(|i| !landed.effect.contains(i)) {
+            for (old, new) in &self.nodes[*i].rename.moves {
+                compose(&mut moves, old, new);
+            }
         }
         moves.retain(|(old, new)| old != new);
         let mut stale = Vec::new();
@@ -350,8 +510,8 @@ impl Tree {
         (change, &landed.on)
     }
 
-    /// The stale line for `key` at `at`: its rename's, or at the entity before any rename, the ledger's line before the
-    /// tree, else one writing the name held back (which drops the line).
+    /// The stale line for `key` at `at`: its rename's, or at no rename, the ledger's line before the history, else one
+    /// writing the name held back (which drops the line).
     fn line(&self, key: &Key, at: At) -> Option<Line> {
         if let Some(i) = at {
             return self.nodes[i].rename.line(key).cloned();
@@ -377,10 +537,14 @@ impl Tree {
         })
     }
 
-    /// `reading`, read from the disk, was written over `on`: the ledger holds it now.
+    /// `reading`, read from the disk, was written over `on`: the ledger holds it now. A reading that is no state of the
+    /// history landed nothing, and the ledger holds what it did.
     pub(super) fn landed(&mut self, reading: Reading, on: CompiledProject) {
+        let Some(effect) = reading.effect else {
+            return;
+        };
         self.landed = Landed {
-            declared: reading.declared,
+            effect,
             lines: reading.lines.into_iter().collect(),
             on,
         };
@@ -389,7 +553,9 @@ impl Tree {
     /// Mark the rename the texts hold last as showing when `shows`, every other one not.
     pub(super) fn mark(&self, reading: &Reading, shows: bool) {
         let top = reading
-            .declared
+            .effect
+            .as_ref()
+            .and_then(|effect| effect.last().copied())
             .or_else(|| reading.lines.iter().filter_map(|(_, at)| *at).max());
         for (i, node) in self.nodes.iter().enumerate() {
             let showing = shows && Some(i) == top;

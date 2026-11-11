@@ -3,29 +3,34 @@
 //! entity's path, and a rename marks the fact stores whose names it rewrites in source files stale (ADR 0346 D7), so
 //! the rename's ledger change is held here until it lands on disk.
 //!
-//! The renames of one entity are a **tree** (`tree`): each under the rename that gave the entity it renames (matched
-//! by path), so an undo then another rename branches and a redo walks back down. What it shows and lands is never kept
-//! as a phase: it is read from the texts each time, so whatever the editor did to its buffers (undo in one buffer and
-//! not another, part way, by hand, redo, before a save or after) the ledger read is what the texts say:
+//! The renames of an entity and of whatever their moves touch are one **history** (`tree`), whichever files declare
+//! them: a rename moving a path a history's renames moved (or one under or above it) joins it, and one touching two
+//! histories merges them. Each rename hangs under the rename that gave the entity it renames, so an undo then another
+//! rename branches and a redo walks back down. What it shows and lands is never kept as a phase: it is read from the
+//! texts each time, so whatever the editor did to its buffers (undo in one buffer and not another, part way, by hand,
+//! redo, before a save or after) the ledger read is what the texts say:
 //!
-//! - the **moves** to the rename the declaring file holds: the last whose new name it declares (counted: two scoped
-//!   entities may share a name); none when it declares the first's old name, or a name no rename wrote;
+//! - the **moves** between the renames in effect and those the ledger holds: a rename is in effect while its
+//!   declaring file declares its new name (counted: two scoped entities may share a name), with the renames it came
+//!   from; texts in which a rename is in effect without one it was planned after (an earlier rename undone by hand
+//!   before a later one it led to) are no state of the history, and show and land nothing;
 //! - for each **stale line**, by store, field and name held: the line of the last rename every source file it is
 //!   about holds, a file holding a rename while the name it wrote reads at its places there, whatever else changed in
 //!   the file (`reads`); none once the name went back or was typed over.
 //!
 //! The checks read, over the session, what the buffers say (a file no buffer holds, as on disk), as a change from what
-//! the ledger on disk holds of the tree. Once no file of the tree holds a buffer the disk does not (each one saved, or
-//! closed), what the disk says lands under the write lock; a write that fails leaves it to the next event. The tree is
+//! the ledger on disk holds of the history. Once no file of it holds a buffer the disk does not (each one saved, or
+//! closed), what the disk says lands under the write lock; a write that fails leaves it to the next event. A history is
 //! kept while any of its files is open, so a redo or an undo saved later lands what it says; with every file closed it
-//! is over. It is kept only while the ledger on disk reads as the tree left it: another writer (the CLI, MCP, another
-//! client, a pull) that changes what it says of the tree's entities or stale lines ends it. A rename answered and never applied waits while its declaring file is the text it was planned on, and is
-//! dropped at the first other text without its edit: a name typed by hand later moves nothing.
+//! is over. It is kept only while the ledger on disk reads as it left it: another writer (the CLI, MCP, another
+//! client, a pull) that changes what it says of its entities or stale lines ends it. A rename answered and never
+//! applied waits while its declaring file is the text it was planned on, and is dropped at the first other text
+//! without its edit: a name typed by hand later moves nothing.
 
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use specforge_ops::asking::Asking;
@@ -245,9 +250,14 @@ impl std::fmt::Debug for Chain {
 }
 
 impl Chain {
-    fn of(rename: Arc<PendingLedger>, before: &CompiledProject) -> Arc<Chain> {
+    fn of(
+        rename: Arc<PendingLedger>,
+        before: &CompiledProject,
+        seq: u64,
+        context: BTreeSet<u64>,
+    ) -> Arc<Chain> {
         Arc::new(Chain(Mutex::new(Links {
-            tree: Tree::of(rename, before),
+            tree: Tree::of(rename, before, seq, context),
             shown: None,
             disk: BTreeMap::new(),
             ledger: true,
@@ -294,14 +304,38 @@ impl Chain {
         links.shown.as_ref().map(|(_, overlay)| Arc::clone(overlay))
     }
 
-    /// `rename` hangs in this tree ([`Tree::join`]); `false` when it renames something else.
-    fn join(&self, rename: &Arc<PendingLedger>) -> bool {
+    /// Whether `rename` moves a path a rename of this history moved, or one under or above it.
+    fn touches_rename(&self, rename: &PendingLedger) -> bool {
+        self.links().tree.touches(rename)
+    }
+
+    /// The renames (by answer order) in effect in the texts `text` answers.
+    fn in_effect(&self, text: &dyn Fn(&str) -> Option<String>, parses: &Parses) -> Vec<u64> {
+        self.links().tree.in_effect(text, parses)
+    }
+
+    /// `rename` joins this history ([`Tree::push`]).
+    fn push(
+        &self,
+        rename: Arc<PendingLedger>,
+        seq: u64,
+        context: BTreeSet<u64>,
+        text: &dyn Fn(&str) -> Option<String>,
+        parses: &Parses,
+    ) {
         let mut links = self.links();
-        let joined = links.tree.join(rename);
-        if joined {
-            links.shown = None;
-        }
-        joined
+        links.tree.push(rename, seq, context, text, parses);
+        links.shown = None;
+    }
+
+    /// `other`'s history joins this one ([`Tree::merge`]), the ledger on disk as `project`'s root holds it; `other` is
+    /// over.
+    fn merge(&self, other: &Chain, project: &CompiledProject) {
+        let taken = other.links().tree.take();
+        let mut links = self.links();
+        links.tree.merge(taken, ledger_on_disk(project));
+        links.shown = None;
+        links.disk.clear();
     }
 
     /// The files `keys` names changed on disk: read them again when next needed.
@@ -337,7 +371,7 @@ impl Chain {
     /// The editor landed a tree: the ledger on disk is what it wrote, as this tree left it too.
     fn rebase(&self, project: &CompiledProject) {
         let mut links = self.links();
-        links.tree.left(ledger_on_disk(project));
+        links.tree.left(ledger_on_disk(project), project);
         links.ledger = true;
     }
 
@@ -415,7 +449,7 @@ impl Chain {
                 surface: Surface::Lsp,
             };
             land_ledger(on, project, change, &origin, caller).map_err(drop)?;
-            links.tree.left(ledger_on_disk(project));
+            links.tree.left(ledger_on_disk(project), project);
         }
         links.tree.landed(reading.clone(), project.clone());
         links.tree.mark(&reading, false);
@@ -435,22 +469,50 @@ static UNBOUNDED: Containment = Containment::unbounded();
 
 /// The pending renames of a state: their trees, in the order they were begun.
 #[derive(Debug, Default)]
-pub struct Pending(Mutex<Vec<Arc<Chain>>>);
+pub struct Pending {
+    chains: Mutex<Vec<Arc<Chain>>>,
+    /// How many renames were held: each one's place in the order answered.
+    answered: AtomicU64,
+}
 
 impl Pending {
     /// The trees not over.
     fn chains(&self) -> MutexGuard<'_, Vec<Arc<Chain>>> {
-        let mut chains = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let mut chains = self.chains.lock().unwrap_or_else(|e| e.into_inner());
         chains.retain(|chain| !chain.is_over());
         chains
     }
 
-    /// Hold `rename`, planned on `before`: it hangs in the tree whose declaring file, as `rename` was planned on it,
-    /// holds the rename that gave the entity it renames (by path), else begins one over `before` ([`Tree::join`]).
+    /// Hold `rename`, planned on `before`: it joins every history whose renames moved a path it moves (or one under or
+    /// above it), merged into one, else begins one over `before`. It knows the renames in effect as it was planned,
+    /// in every history ([`Tree::push`]). A history the ledger on disk no longer reads as it left is over first.
     pub fn hold(&self, rename: Arc<PendingLedger>, before: &CompiledProject) {
         let mut chains = self.chains();
-        if !chains.iter().any(|chain| chain.join(&rename)) {
-            chains.push(Chain::of(rename, before));
+        let seq = self.answered.fetch_add(1, Ordering::Relaxed);
+        let text = |key: &str| before.source_text(key).map(|text| text.to_string());
+        let parses = Parses::default();
+        let context: BTreeSet<u64> = chains
+            .iter()
+            .flat_map(|chain| chain.in_effect(&text, &parses))
+            .collect();
+        let touching: Vec<Arc<Chain>> = chains
+            .iter()
+            .filter(|chain| chain.touches_rename(&rename))
+            .filter(|chain| {
+                chain.check(before);
+                !chain.is_over()
+            })
+            .cloned()
+            .collect();
+        match touching.split_first() {
+            None => chains.push(Chain::of(rename, before, seq, context)),
+            Some((first, rest)) => {
+                for other in rest {
+                    first.merge(other, before);
+                }
+                first.push(rename, seq, context, &text, &parses);
+                chains.retain(|chain| !chain.is_over());
+            }
         }
     }
 
