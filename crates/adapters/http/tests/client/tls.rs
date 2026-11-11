@@ -238,6 +238,7 @@ fn a_handshake_builds_the_tls_configuration_once_within_its_deadline() {
             let _ = released.lock().unwrap().recv_timeout(WAIT);
             passed.store(true, Ordering::SeqCst);
         }
+        Ok(())
     });
     let request = TlsRequest {
         host: "localhost".to_string(),
@@ -280,5 +281,84 @@ fn a_handshake_builds_the_tls_configuration_once_within_its_deadline() {
         configs.load(Ordering::SeqCst),
         1,
         "one configuration, shared by the handshakes and the request's client"
+    );
+}
+
+/// A client whose first TLS configuration build fails (an unreadable trust store), counting the builds of each kind.
+fn failing_once() -> (Client, Arc<AtomicUsize>, Arc<AtomicUsize>) {
+    let (configs, clients) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0)));
+    let (tls, client) = (Arc::clone(&configs), Arc::clone(&clients));
+    let built = Client::new().with_before_build(move |build| match build {
+        Build::Tls if tls.fetch_add(1, Ordering::SeqCst) == 0 => {
+            Err("the trust store cannot be read".to_string())
+        }
+        Build::Tls => Ok(()),
+        Build::Client { .. } => {
+            client.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+    });
+    (built, configs, clients)
+}
+
+/// A failed TLS configuration build is not kept for the client's life: the next handshake builds it again.
+#[test]
+fn a_handshake_after_a_failed_configuration_build_builds_it_again() {
+    let (port, _) = serve_tls(|_| ok("hi"));
+    let (client, configs, _) = failing_once();
+    let request = TlsRequest {
+        host: "localhost".to_string(),
+        tcp_port: port,
+        allow_private: true,
+        timeout_ms: WAIT_MS,
+    };
+
+    let failed = client.tls(&request);
+    let retried = client.tls(&request);
+
+    assert_eq!(
+        failed.class,
+        OutcomeClass::Unreachable(Unreachable::Tls),
+        "{failed:?}"
+    );
+    assert_eq!(failed.issuer, None, "no handshake on a failed build");
+    // The platform's verifier refuses the test's certificate, whose facts the handshake still reads.
+    assert_eq!(
+        retried.class,
+        OutcomeClass::Unreachable(Unreachable::Tls),
+        "{retried:?}"
+    );
+    assert_eq!(retried.issuer.as_deref(), Some("localhost"), "{retried:?}");
+    assert_eq!(configs.load(Ordering::SeqCst), 2, "built again, once");
+}
+
+/// A request whose client build fails on the TLS configuration is `tls`, with the build's error, and keeps neither:
+/// the next request builds both again.
+#[test]
+fn a_request_after_a_failed_client_build_builds_it_again() {
+    let base = Server::reply(|_, _| ok("hi")).base;
+    let (client, configs, clients) = failing_once();
+
+    let failed = client.request(&private(&format!("{base}/")), &Any);
+    let retried = client.request(&private(&format!("{base}/")), &Any);
+
+    assert_eq!(
+        failed.class,
+        OutcomeClass::Unreachable(Unreachable::Tls),
+        "{failed:?}"
+    );
+    assert_eq!(
+        failed.detail.as_deref(),
+        Some("the trust store cannot be read")
+    );
+    assert_eq!(retried.class, OutcomeClass::Ok, "{retried:?}");
+    assert_eq!(retried.body, b"hi");
+    assert_eq!(
+        (
+            configs.load(Ordering::SeqCst),
+            clients.load(Ordering::SeqCst)
+        ),
+        (2, 2),
+        "the configuration and the client built again, once each"
     );
 }

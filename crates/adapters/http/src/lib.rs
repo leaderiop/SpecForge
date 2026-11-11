@@ -1,6 +1,7 @@
 //! The adapter behind the effect plane's `Http` port (ADR 0335): one blocking reqwest client, built on first use
 //! within the first request's deadline, on rustls with ring and the platform verifier, whose configuration is built once
-//! per client, within the deadline of the first request or handshake that needs it. It follows redirects itself under the caller's policy, refuses a
+//! per client, within the deadline of the first request or handshake that needs it (a failed build is not kept: the
+//! next caller builds again). It follows redirects itself under the caller's policy, refuses a
 //! private address unless the request allows one (judged here, for through a proxy the proxy resolves the name),
 //! holds the whole request to one timeout and reads at most the body cap. A transport failure is an outcome class,
 //! never a panic.
@@ -43,9 +44,12 @@ pub struct Client {
     proxy: Option<String>,
     /// The ceiling on a request's time in place of [`TIMEOUT_CEILING`] (only lower, and only a test's).
     ceiling: Option<Duration>,
-    /// Run on a build's thread before it builds, given what it builds: a test's.
-    before_build: Option<Arc<dyn Fn(Build) + Send + Sync>>,
+    /// Run on a build's thread before it builds, given what it builds; an error fails that build: a test's.
+    before_build: Option<Arc<Hook>>,
 }
+
+/// A test's hook run before a build ([`Client::with_before_build`]).
+type Hook = dyn Fn(Build) -> Result<(), String> + Send + Sync;
 
 /// What a [`Client`] builds on first use: what a test's [`Client::with_before_build`] hook is given.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,56 +62,92 @@ pub enum Build {
 
 /// One thing built on a thread of its own the first time a request needs it: a reqwest client, or the TLS
 /// configuration. A build reads the trust store and the system's proxies, which takes seconds on a loaded machine: the
-/// request that started it waits at most its own time left, and a later one takes what the build left.
+/// request that started it waits at most its own time left, and a later one takes what the build left. A failed build
+/// is not kept: the callers waiting on it get its error, and the next caller starts another (a long-lived server
+/// recovers once the trust store is readable).
 struct Lazy<T> {
-    built: OnceLock<Result<T, String>>,
-    /// Whether a build was started; the lock [`Self::done`] is signalled under.
-    started: Mutex<bool>,
+    built: OnceLock<T>,
+    /// The builds started and how the last failed one failed; the lock [`Self::done`] is signalled under.
+    state: Mutex<Builds>,
     done: Condvar,
+}
+
+#[derive(Default)]
+struct Builds {
+    /// Whether a build is under way.
+    building: bool,
+    /// The builds started so far: a build's number is the count when it started.
+    started: u64,
+    /// The last failed build's number and error.
+    failed: Option<(u64, String)>,
 }
 
 impl<T> Default for Lazy<T> {
     fn default() -> Self {
         Lazy {
             built: OnceLock::new(),
-            started: Mutex::new(false),
+            state: Mutex::new(Builds::default()),
             done: Condvar::new(),
         }
     }
 }
 
 impl<T: Send + Sync + 'static> Lazy<T> {
-    /// What `build` (started here if no build was) has made within `within`; `None` when it has not.
+    /// What `build` (started here, on a thread named `name`, if no build is under way) has made within `within`: its
+    /// error when the build this call waited on failed, `None` when it has not ended.
     fn within(
         self: &Arc<Self>,
+        name: &str,
         within: Duration,
         build: impl FnOnce() -> Result<T, String> + Send + 'static,
-    ) -> Option<&Result<T, String>> {
+    ) -> Option<Result<&T, String>> {
         if let Some(built) = self.built.get() {
-            return Some(built);
+            return Some(Ok(built));
         }
-        let mut started = self.started.lock().unwrap_or_else(PoisonError::into_inner);
-        if !*started {
-            *started = true;
-            let this = Arc::clone(self);
+        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        if self.built.get().is_none() && !state.building {
+            state.building = true;
+            state.started += 1;
+            let (this, number) = (Arc::clone(self), state.started);
             let spawned = std::thread::Builder::new()
-                .name("http-client-build".into())
+                .name(name.into())
                 .spawn(move || {
-                    let _ = this.built.set(build());
-                    let _signalled = this.started.lock().unwrap_or_else(PoisonError::into_inner);
+                    let built = build();
+                    let mut state = this.state.lock().unwrap_or_else(PoisonError::into_inner);
+                    match built {
+                        Ok(built) => {
+                            let _ = this.built.set(built);
+                        }
+                        Err(why) => state.failed = Some((number, why)),
+                    }
+                    state.building = false;
                     this.done.notify_all();
                 });
             if let Err(e) = spawned {
-                let _ = self
-                    .built
-                    .set(Err(format!("cannot start the client's build: {e}")));
+                state.building = false;
+                state.failed = Some((number, format!("cannot start the {name} thread: {e}")));
             }
         }
-        let _waited = self
+        // The build under way is the latest started: this call takes its end (or a later failure's, should one fail
+        // before this call wakes).
+        let awaited = state.started;
+        let failed = |state: &Builds| {
+            state
+                .failed
+                .as_ref()
+                .filter(|(number, _)| *number >= awaited)
+                .map(|(_, why)| why.clone())
+        };
+        let (state, _) = self
             .done
-            .wait_timeout_while(started, within, |_| self.built.get().is_none())
+            .wait_timeout_while(state, within, |state| {
+                self.built.get().is_none() && failed(state).is_none()
+            })
             .unwrap_or_else(PoisonError::into_inner);
-        self.built.get()
+        match self.built.get() {
+            Some(built) => Some(Ok(built)),
+            None => failed(&state).map(Err),
+        }
     }
 }
 
@@ -119,7 +159,7 @@ impl Client {
     /// A client that verifies with `tls`, not the platform's verifier: for a test's own certificate.
     pub fn with_tls(tls: rustls::ClientConfig) -> Self {
         let client = Client::default();
-        let _ = client.config.built.set(Ok(tls));
+        let _ = client.config.built.set(tls);
         client
     }
 
@@ -141,9 +181,13 @@ impl Client {
     }
 
     /// This client with `hook` run on a build's thread before each build, given what it builds: a test holds a build
-    /// back to see a request wait for it no longer than its deadline, and counts the builds.
+    /// back to see a request wait for it no longer than its deadline, counts the builds, or fails one with the error
+    /// it returns.
     #[cfg(any(test, feature = "testing"))]
-    pub fn with_before_build(mut self, hook: impl Fn(Build) + Send + Sync + 'static) -> Self {
+    pub fn with_before_build(
+        mut self,
+        hook: impl Fn(Build) -> Result<(), String> + Send + Sync + 'static,
+    ) -> Self {
         self.before_build = Some(Arc::new(hook));
         self
     }
@@ -172,20 +216,20 @@ impl Client {
     }
 
     /// The reqwest client of `allow_private`, built within `within` ([`Lazy`]): `None` when its build outlasts it.
-    fn client(&self, allow_private: bool, within: Duration) -> Option<Result<&Reqwest, &str>> {
-        let lazy = if allow_private {
-            &self.any
+    fn client(&self, allow_private: bool, within: Duration) -> Option<Result<&Reqwest, String>> {
+        let (lazy, name) = if allow_private {
+            (&self.any, "http-any-client-build")
         } else {
-            &self.public
+            (&self.public, "http-public-client-build")
         };
         let (config, proxy, hook) = (
             Arc::clone(&self.config),
             self.proxy.clone(),
             self.before_build.clone(),
         );
-        let built = lazy.within(within, move || {
+        lazy.within(name, within, move || {
             if let Some(hook) = &hook {
-                hook(Build::Client { allow_private });
+                hook(Build::Client { allow_private })?;
             }
             // The system's proxies are read here too, so a request's own reading of them never waits.
             if proxy.is_none() {
@@ -193,30 +237,30 @@ impl Client {
             }
             // This build's thread has no deadline of its own: the request waiting on it holds to its own.
             let config = config
-                .within(Duration::MAX, move || built_config(hook.as_deref()))
-                .ok_or("the TLS configuration was not built")?
-                .clone()?;
+                .within(TLS_BUILD, Duration::MAX, move || {
+                    built_config(hook.as_deref())
+                })
+                .ok_or("the TLS configuration was not built")??
+                .clone();
             build(allow_private, config, proxy.as_deref())
-        })?;
-        Some(built.as_ref().map_err(String::as_str))
+        })
     }
 
     /// The TLS configuration, built within `within` ([`Lazy`]): `None` when its build outlasts it.
-    fn config(&self, within: Duration) -> Option<Result<&rustls::ClientConfig, &str>> {
+    fn config(&self, within: Duration) -> Option<Result<&rustls::ClientConfig, String>> {
         let hook = self.before_build.clone();
-        let built = self
-            .config
-            .within(within, move || built_config(hook.as_deref()))?;
-        Some(built.as_ref().map_err(String::as_str))
+        self.config
+            .within(TLS_BUILD, within, move || built_config(hook.as_deref()))
     }
 }
 
+/// The name of the TLS configuration's build thread.
+const TLS_BUILD: &str = "http-tls-build";
+
 /// The platform's TLS configuration ([`tls`]), `hook` run first.
-fn built_config(
-    hook: Option<&(dyn Fn(Build) + Send + Sync)>,
-) -> Result<rustls::ClientConfig, String> {
+fn built_config(hook: Option<&Hook>) -> Result<rustls::ClientConfig, String> {
     if let Some(hook) = hook {
-        hook(Build::Tls);
+        hook(Build::Tls)?;
     }
     tls()
 }
@@ -271,8 +315,7 @@ fn tls() -> Result<rustls::ClientConfig, String> {
 impl Http for Client {
     fn request(&self, request: &HttpRequest, redirects: &dyn Redirects) -> HttpOutcome {
         // Started before anything else: the deadline covers building the client too.
-        let deadline =
-            Instant::now() + Duration::from_millis(request.timeout_ms).min(self.ceiling());
+        let deadline = Instant::now() + handshake::time_of(request.timeout_ms, self.ceiling());
         let typed = Url::parse(&request.url).map(|url| url.origin()).ok();
         let mut url = request.url.clone();
         let mut method = request.method.clone();

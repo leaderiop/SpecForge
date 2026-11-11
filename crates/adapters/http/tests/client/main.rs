@@ -261,6 +261,7 @@ fn a_request_waits_for_its_clients_build_no_longer_than_its_deadline() {
             let _ = released.lock().unwrap().recv_timeout(WAIT);
             passed.store(true, Ordering::SeqCst);
         }
+        Ok(())
     });
 
     let first = client.request(
