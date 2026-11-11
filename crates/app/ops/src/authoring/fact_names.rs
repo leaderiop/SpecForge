@@ -327,7 +327,8 @@ fn written_over(
         OpErrorKind::Conflict,
         NAME_SHARED,
         format!(
-            "cannot rename '{id}': it writes over '{spelling}', which the fact '{fact}' holds in '{field}' at {}:{}:{}              and the rename does not rename; a rename writes only names of what it moves",
+            "cannot rename '{id}': it writes over '{spelling}', which the fact '{fact}' holds in '{field}' at {}:{}:{} \
+             and the rename does not rename; a rename writes only names of what it moves",
             place.file, place.start_line, place.start_col
         ),
     )
@@ -341,7 +342,8 @@ fn crossed(id: &str, file: &str) -> OpError {
         OpErrorKind::Conflict,
         PLACES_CROSS,
         format!(
-            "cannot rename '{id}': two places of a name it writes in {file} cross one another, so no one text writes              both"
+            "cannot rename '{id}': two places of a name it writes in {file} cross one another, so no one text \
+             writes both"
         ),
     )
     .with_suggestion("change what the collector reads, run `specforge collect`, then rename")

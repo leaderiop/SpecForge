@@ -195,11 +195,10 @@ fn a_rename_writing_where_another_fact_holds_a_name_for_something_else_is_refuse
 
     let refused = rename_now(&p, "T1", "T2").unwrap_err();
 
-    // Today: a gap of spaces inside the sentence.
     assert_eq!(
         refused,
         "name_shared: cannot rename 'T1': it writes over 'T1', which the fact 'js:a.test.js#five' holds in 'note' at \
-         a.test.js:1:11              and the rename does not rename; a rename writes only names of what it moves"
+         a.test.js:1:11 and the rename does not rename; a rename writes only names of what it moves"
     );
     assert_eq!(source(&p), "// covers T1\n");
     assert!(stale_lines(&p).is_empty());
@@ -222,11 +221,10 @@ fn a_rename_writing_places_that_cross_is_refused() {
 
     let refused = rename_now(&p, "ws/m1", "m2").unwrap_err();
 
-    // Today: a gap of spaces inside the sentence.
     assert_eq!(
         refused,
         "places_cross: cannot rename 'ws/m1': two places of a name it writes in a.test.js cross one another, so no \
-         one text writes              both"
+         one text writes both"
     );
     assert_eq!(source(&p), "// covers ws/m1/p3\n");
 }
