@@ -217,7 +217,8 @@ next collect of that collector ────────────────�
   old name, or a name no rename wrote). Each stale line (store, field, name held) holds a node: the deepest every
   source file it is about holds is under, a file holding a rename while the name it wrote for the line reads at the
   places it wrote it, carried through whatever else changed in the file since (another entity renamed, typing: by
-  line, then by byte, a byte of context either side); else the node above the first rename whose name read still
+  line, then by byte), each byte beside it kept beside it or one that cannot extend a name (a letter, a digit, `_`:
+  `// covers T2, T5` still reads `T2`, `T2x` does not); else the node above the first rename whose name read still
   reads at its places (an undo); else none (the name typed over with one no rename wrote). So the editor keeps a
   line wherever the CLI and MCP rename keep it, and drops it only where the name itself went back or changed. With
   one store placed in two files, the line is that of the earliest rename either holds: one line names one name for

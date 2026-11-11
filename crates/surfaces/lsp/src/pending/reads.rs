@@ -1,7 +1,7 @@
 //! Whether a file's text still reads a name where an earlier text of it read it (ADR 0346 D7): the earlier text's
 //! places carried into the text now through what changed between them (by line, then by byte inside the lines that
-//! changed), each read with a byte of context on either side, so a name grown or cut at its edge is not taken for it.
-//! Edits elsewhere (another rename, typing) move a place and leave what it reads.
+//! changed), each read with what is beside it, so a name grown or cut at its edge is not taken for it. Edits elsewhere
+//! (another rename, typing, even beside the name with what cannot extend it) move a place and leave what it reads.
 
 use std::cell::Cell;
 use std::ops::Range;
@@ -97,18 +97,33 @@ impl Moved {
         kept.map(|start| start + at - run.start)
     }
 
-    /// Whether `now` reads what `then` reads at `r`, with a byte of context either side (none past a text's edge, where
-    /// nothing may be typed beside it either).
+    /// Whether `now` reads what `then` reads at `r`: its bytes kept, side by side, and each byte beside them either
+    /// kept beside them or one that cannot extend a name (`T2,` reads `T2`; `T2x` and `xT2` do not).
     fn keeps(&self, then: &str, now: &str, r: &Range<usize>) -> bool {
-        let (from, to) = (r.start.saturating_sub(1), (r.end + 1).min(then.len()));
-        let (Some(first), Some(last)) = (self.at(from), self.at(to - 1)) else {
+        let (Some(first), Some(last)) = (self.at(r.start), self.at(r.end - 1)) else {
             return false;
         };
-        if (r.start == 0 && first != 0) || (r.end == then.len() && last + 1 != now.len()) {
+        if now.as_bytes().get(first..last + 1) != then.as_bytes().get(r.clone()) {
             return false;
         }
-        now.as_bytes().get(first..last + 1) == then.as_bytes().get(from..to)
+        let beside = |was: Option<usize>, is: usize| was.and_then(|at| self.at(at)) == Some(is);
+        let left = first == 0
+            || beside(r.start.checked_sub(1), first - 1)
+            || now
+                .get(..first)
+                .is_some_and(|text| !extends(text.chars().next_back()));
+        let right = beside((r.end < then.len()).then_some(r.end), last + 1)
+            || now
+                .get(last + 1..)
+                .is_some_and(|text| !extends(text.chars().next()));
+        left && right
     }
+}
+
+/// Whether `c` would extend a name it is written beside: a letter, a digit or `_` (no collector names a rule of its
+/// own).
+fn extends(c: Option<char>) -> bool {
+    c.is_some_and(|c| c.is_alphanumeric() || c == '_')
 }
 
 /// A byte that counts each comparison of it.
