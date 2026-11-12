@@ -16,6 +16,8 @@
 //! bindings.
 
 pub use specforge_extension_sdk_macros::extension;
+/// The engine's tools a contribution names by a `specforge:` class: the catalogue every surface agrees with (ADR 0334).
+pub use specforge_protocol_types::engine_tools;
 /// A command line as the shell's words: the host's reader (ADR 0292), for a guest that holds a command as text.
 pub use specforge_protocol_types::shell;
 
