@@ -32,6 +32,39 @@ fn the_autonomous_close_check_reads_the_milestones_completion() {
     assert_eq!(after, "shipped", "{err}");
 }
 
+/// Transition's Route A asks whether the next phase has a context. A context is an entity, not a `*-CONTEXT.md`
+/// file, so today's glob prints nothing even where the graph holds one: the next phase always reads as having no
+/// context. The fix reads the next phase's `context` entity.
+#[test]
+fn the_next_phases_context_is_read_from_the_graph() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = taskboard();
+    let entity = p.run(&[
+        "query",
+        "v1.0/02",
+        "--depth",
+        "1",
+        "--kinds",
+        "context",
+        "--pick",
+        ".nodes[kind=context].id",
+    ]);
+    assert_eq!(
+        entity.stdout.trim(),
+        "v1.0/02/02-CONTEXT",
+        "{}",
+        entity.all()
+    );
+    let check = fence_after(
+        &asset("gsd-core/workflows/transition.md"),
+        "**Check if next phase has CONTEXT.md:**",
+    );
+    let (out, err, _) = sh.run_in(p.root(), &format!("MILESTONE=v1.0\n{check}"));
+    assert_eq!(out, "", "{err}");
+}
+
 /// The UI gate reads the phase's computed `frontend` field (`@gsd/ui` computes it): no field holds upstream's
 /// `**UI hint**: yes`, so a grep of the phase's text for it is always false.
 #[test]
