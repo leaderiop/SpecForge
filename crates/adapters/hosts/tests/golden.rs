@@ -126,3 +126,24 @@ fn a_slash_skill_carries_no_effort() {
         "the fixture slash declares effort: max"
     );
 }
+
+#[specforge_test_macros::test(
+    behavior = "install_into_a_host",
+    verify = "Claude Code grants an agent, a skill or a slash command only the SpecForge tools it resolves, each by its name, never the whole server"
+)]
+fn claude_code_grants_only_the_specforge_tools_a_contribution_resolves() {
+    // Pins today's blanket grant: flips when Claude Code names each SpecForge tool a contribution resolves.
+    let files = written(Host::ClaudeCode);
+    let checker = &files[".claude/agents/t-plan-checker.md"];
+    assert!(
+        checker
+            .lines()
+            .any(|l| l == "tools: Read, Glob, Grep, mcp__specforge__*"),
+        "a read-only agent is granted the whole server: {checker}"
+    );
+    let skill = &files[".claude/skills/t-stats/SKILL.md"];
+    assert!(
+        skill.lines().any(|l| l == "  - mcp__specforge__*"),
+        "{skill}"
+    );
+}

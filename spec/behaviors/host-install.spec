@@ -47,6 +47,7 @@ behavior install_into_a_host "Install Into a Host" {
   verify unit "Claude Code gets the agents, skills, slash commands, hooks, statusline and MCP entry of the fixture"
   verify unit "Codex gets agent TOML without an Anthropic model, skills, hooks.json and config.toml"
   verify unit "Cursor gets agents, skills, hooks.json and mcp.json, and reports the statusline and pre_compact as not rendered"
+  verify unit "Claude Code grants an agent, a skill or a slash command only the SpecForge tools it resolves, each by its name, never the whole server"
   verify unit "install writes the tree and a second install writes nothing"
   verify unit "install refuses a file it did not write and writes nothing"
   verify unit "install refuses a marked file edited since unless forced"
