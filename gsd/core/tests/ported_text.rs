@@ -606,19 +606,11 @@ fn every_dispatch_forwards_only_options_its_prompt_declares() {
     assert!(offenders.is_empty(), "{offenders:#?}");
 }
 
-/// `(command, member)` for each `specforge gsd <command> … --pick <path>` of the shell `line`: the member `<path>`
-/// reads first (each `--fields` key's first segment when `<path>` is `.`, nothing when it starts with `[`). The comment
-/// is cut where `command_word::mask` ends the line, and the original text before it is read by the SDK shell reader,
-/// so a quoted path is read as its words and an apostrophe in a comment cannot unbalance it. A line the reader refuses
-/// is an `Err` naming it.
+/// `(command, member)` for each `specforge gsd <command> … --pick <path>` of the shell `line`, read before its comment
+/// (`specforge_only::commands_before_comment`): the member `<path>` reads first (each `--fields` key's first segment
+/// when `<path>` is `.`, nothing when it starts with `[`). A line the reader refuses is an `Err` naming it.
 fn picked_members(line: &str) -> Result<Vec<(String, String)>, String> {
-    let n = command_word::mask(line).chars().count();
-    let code = line
-        .char_indices()
-        .nth(n)
-        .map_or(line, |(at, _)| &line[..at]);
-    let commands =
-        specforge_extension_sdk::shell::commands(code).map_err(|e| format!("{e}: {line}"))?;
+    let commands = specforge_only::commands_before_comment(line)?;
     let mut out = Vec::new();
     for words in commands {
         let [specforge, gsd, command, rest @ ..] = words.as_slice() else {

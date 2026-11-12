@@ -97,6 +97,20 @@ pub fn inline_runs(lines: &[String]) -> Vec<(usize, String)> {
     gsd_kit::markdown::inline_code(&lines.join("\n"))
 }
 
+/// The commands of the shell `line`, each its words, as the SDK shell reader reads the original text before the
+/// line's comment. The comment starts where [`command_word::mask`] ends the line (it keeps the line char for char up to
+/// an unquoted `#` that starts a word); the masked text itself is never read, as it turns quoted text into `_`. So a
+/// quoted word is read as itself and an apostrophe in a comment cannot unbalance the reader. A line the reader
+/// refuses (an unclosed quote) is an `Err` naming it.
+pub fn commands_before_comment(line: &str) -> Result<Vec<Vec<String>>, String> {
+    let n = command_word::mask(line).chars().count();
+    let code = line
+        .char_indices()
+        .nth(n)
+        .map_or(line, |(at, _)| &line[..at]);
+    specforge_extension_sdk::shell::commands(code).map_err(|e| format!("{e}: {line}"))
+}
+
 /// The functions the shell fences of `texts` define (`name() {`, `function name() {`): the shell's own words too.
 pub fn functions<'a>(texts: impl IntoIterator<Item = &'a [String]>) -> Vec<String> {
     let define = Regex::new(r"(?:^|[\s;&|{(])(?:function\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*\(\)\s*\{")

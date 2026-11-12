@@ -22,6 +22,8 @@ mod ledger;
 mod port_map;
 #[path = "common/specforge_only.rs"]
 mod specforge_only;
+#[path = "port_tools/state_files.rs"]
+mod state_files;
 #[path = "port_tools/writes.rs"]
 mod writes;
 
