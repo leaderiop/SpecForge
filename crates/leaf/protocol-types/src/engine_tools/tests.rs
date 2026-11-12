@@ -114,5 +114,7 @@ fn every_use_when_is_one_sentence() {
             "{}: {u}",
             tool.name
         );
+        // The remedy-wording scan leaves this file out for its CLI twins; the prose names no flag either.
+        assert!(!u.contains("--"), "{}: {u}", tool.name);
     }
 }
