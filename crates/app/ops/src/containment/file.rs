@@ -61,10 +61,11 @@ impl Held {
         file.write_all(contents.as_ref())
     }
 
-    /// A new file at `real`, to stream into (collect's captured output): the name is unlinked first,
-    /// so a hard link at it is never written through (ADR 0144).
-    pub fn create_fresh(&self) -> std::io::Result<std::fs::File> {
-        specforge_common::fresh::create_fresh(&self.real)
+    /// A new file at a name the operation owns, to stream into (collect's captured output, its config
+    /// file): whatever is at `at` (a link, or a file left by an earlier run) is unlinked, never its target,
+    /// and the file is created new there (ADR 0171, ADR 0144).
+    pub fn create_owned_file(&self) -> std::io::Result<std::fs::File> {
+        specforge_common::fresh::create_fresh(&self.at)
     }
 
     /// Replace `real` atomically, by its name: [`specforge_common::fresh::replace_file`], so the inode
@@ -84,7 +85,7 @@ impl Held {
         contents: impl AsRef<[u8]>,
         permissions: std::fs::Permissions,
     ) -> std::io::Result<()> {
-        let mut file = specforge_common::fresh::create_fresh(&self.at)?;
+        let mut file = self.create_owned_file()?;
         file.set_permissions(permissions)
             .and_then(|()| file.write_all(contents.as_ref()))
             .inspect_err(|_| {

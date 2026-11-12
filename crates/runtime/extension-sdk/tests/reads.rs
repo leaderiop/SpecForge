@@ -158,3 +158,38 @@ fn the_sdk_declares_a_collectors_files_input() {
     assert_eq!(reads[0].glob.as_deref(), Some("package.json"));
     assert!(reads[0].text);
 }
+
+#[specforge_test_macros::test(
+    behavior = "register_collector_contributions",
+    verify = "the SDK declares a facts input and the kinds a collector answers"
+)]
+fn the_sdk_declares_a_facts_input_and_the_kinds_a_collector_answers() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/reads", "1.0.0"));
+    c.collector("packages", |collector| {
+        collector
+            .answers(&["package"])
+            .collect(|_| Ok(CollectOutput::default()));
+    });
+    c.collector("items", |collector| {
+        collector
+            .input(Input::facts(&["package"]))
+            .answers(&["item"])
+            .collect(|_| Ok(CollectOutput::default()));
+    });
+
+    let declaration = c.declaration();
+
+    assert_eq!(declaration.collectors[0].answers, ["package"]);
+    assert!(Inputs(&declaration.collectors[0].inputs).facts().is_empty());
+    assert_eq!(declaration.collectors[1].answers, ["item"]);
+    assert_eq!(
+        Inputs(&declaration.collectors[1].inputs).facts(),
+        ["package"]
+    );
+    let wire = serde_json::to_value(&declaration.collectors[1]).unwrap();
+    assert_eq!(wire["answers"], serde_json::json!(["item"]));
+    assert_eq!(
+        wire["inputs"],
+        serde_json::json!([{"input": "facts", "kinds": ["package"]}])
+    );
+}

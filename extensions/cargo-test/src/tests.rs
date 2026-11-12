@@ -94,6 +94,7 @@ fn reports_tests_the_attribute_did_not_record_as_unlinked() {
         revisions: Default::default(),
         files: Default::default(),
         check_outcomes: Vec::new(),
+        facts: Vec::new(),
     })
     .unwrap();
     let names: Vec<&str> = out.unlinked.iter().map(|t| t.name.as_str()).collect();

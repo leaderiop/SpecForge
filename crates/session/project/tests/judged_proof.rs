@@ -1,17 +1,22 @@
 //! A judged `test(..)` input over a proof (ADR 0331 D7): `test(self, self.proof)` reads the truth's report results and
 //! its proof's `test` facts, each chain on its own; nothing linked is the value `none`; a proof no store holds facts of
-//! is not read, and one a store lost is `absent`; the input is unjudged only when no chain can be read.
+//! is not read, and one a store lost is `absent`; a referrer step over a collected kind no store holds is not read
+//! either (`self<test.names` on a fresh clone); the input is unjudged only when no chain can be read.
+
+use std::sync::Arc;
 
 use serde_json::{Value, json};
-use specforge_project::CompiledProject;
+use specforge_extension_sdk::prelude::ContributionsBuilder;
 use specforge_project::judged::{Cited, Inputs};
 use specforge_project::testing::{
-    TestProject, gsd_judged_project, gsd_judged_tests_project, stored,
+    TestProject, declare_rules, gsd_judged_builder, gsd_judged_project, gsd_judged_rules,
+    gsd_judged_tests_project, gsd_routed_serving, stored,
 };
+use specforge_project::{CompiledProject, SharedRuntime};
 use specforge_registry::PlainDisk;
 use specforge_test::prelude::*;
 
-use crate::judged::{compile, judgement, record};
+use crate::judged::{compile, judgement, record, record_from};
 
 const E501: &str = "gsd/E501";
 /// A truth whose proof cites one test.
@@ -177,6 +182,20 @@ fn a_proof_no_store_holds_is_unjudged_and_one_the_store_lost_is_absent() {
 }
 
 #[specforge_test(
+    behavior = "digest_judged_inputs",
+    verify = "a proof beside a store of other kinds in its scheme leaves the input unjudged"
+)]
+fn a_proof_beside_a_store_of_other_kinds_in_its_scheme_is_unjudged() {
+    let p = proved();
+    // The store holds `js` items only: a `test` the proof cites may simply not be collected yet.
+    let items = json!([{"kind": "item", "id": "js:a.js::adds", "fields": {"file": "a.js"}}]);
+    stored(p.root(), "node", KEY, items);
+    let compiled = compile(&p);
+    assert_eq!(inputs(&compiled, PROVED).unjudged, ["tests"]);
+    assert_eq!(tests_input(&compiled, PROVED).0, [ADDS, PROVED]);
+}
+
+#[specforge_test(
     behavior = "declare_judged_rule",
     verify = "a chain to a kind of an unloaded optional peer is inert, not W112"
 )]
@@ -209,5 +228,63 @@ fn a_linked_test_that_vanishes_stales_the_verdict() {
     assert_eq!(
         (state.as_str(), changed.as_slice()),
         ("stale", ["tests".to_string()].as_slice())
+    );
+}
+
+/// `@gsd/core` with E501's truth input as the extension declares it: `test(self.proof, self<test.names)`, the proof's
+/// facts and the facts whose `names` hold the truth, no report.
+fn named_builder() -> ContributionsBuilder {
+    let mut c = gsd_judged_builder();
+    let mut rules = gsd_judged_rules();
+    let e501 = rules
+        .as_array_mut()
+        .expect("a list of rules")
+        .iter_mut()
+        .find(|rule| rule["code"] == "E501")
+        .expect("E501");
+    let tests = e501["judged"]["targets"][0]["inputs"]
+        .as_array_mut()
+        .expect("the truth's inputs")
+        .iter_mut()
+        .find(|input| input["name"] == "tests")
+        .expect("a tests input");
+    tests["selector"] = json!("test(self.proof, self<test.names)");
+    declare_rules(&mut c, rules);
+    c
+}
+
+fn compile_named(p: &TestProject) -> CompiledProject {
+    p.compile_in(Arc::new(gsd_routed_serving(named_builder)) as SharedRuntime)
+}
+
+#[specforge_test(
+    behavior = "judge_rule_by_fresh_verdict",
+    verify = "a referrer step over a collected kind no store holds is unjudged, as a missing report is"
+)]
+fn a_truth_only_a_tag_links_is_unjudged_on_a_fresh_clone() {
+    const TRUTH: &str = "v1.0/03/03-02/TR1";
+    let p = gsd_judged_tests_project("");
+    let holds = json!([{"kind": "test", "id": "js:a.test.js#holds",
+        "fields": {"file": "a.test.js", "name": "holds", "status": "passed", "names": [TRUTH]}}]);
+    stored(p.root(), "node", KEY, holds);
+    let compiled = compile_named(&p);
+    assert_eq!(tests_input(&compiled, TRUTH).0, ["js:a.test.js#holds"]);
+    record_from(&p, &compiled, TRUTH, E501, "passed", &Cited::default(), "");
+    assert_eq!(judgement(&compile_named(&p), TRUTH, E501).0, "fresh");
+    // A fresh clone: the store is git-ignored, so no store serves `test`.
+    p.remove(STORE);
+    let compiled = compile_named(&p);
+    assert_eq!(inputs(&compiled, TRUTH).unjudged, ["tests"]);
+    assert_eq!(judgement(&compiled, TRUTH, E501).0, "fresh");
+    assert!(codes(&compiled).contains(&"I205".to_string()));
+    // A store of `test` facts that names the truth no more: judged, and the verdict is stale.
+    let other = json!([{"kind": "test", "id": "js:a.test.js#other",
+        "fields": {"file": "a.test.js", "name": "other", "status": "passed"}}]);
+    stored(p.root(), "node", KEY, other);
+    let compiled = compile_named(&p);
+    assert!(inputs(&compiled, TRUTH).unjudged.is_empty());
+    assert_eq!(
+        judgement(&compiled, TRUTH, E501),
+        ("stale".to_string(), vec!["tests".to_string()])
     );
 }

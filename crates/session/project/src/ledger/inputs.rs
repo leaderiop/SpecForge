@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use specforge_common::{ProjectConfig, SourceRoot};
 use specforge_registry::PlainDisk;
 
-use crate::facts::FACTS_DIR;
+use specforge_common::facts::FACTS_DIR;
 
 use super::chain;
 use super::key::{canonical, discovered_keys, in_canonical_dir, relative_canonical};
@@ -407,7 +407,8 @@ impl SessionInputs {
     /// A changed key the session ignores (never, detached): no source, and no fact store while they are sources.
     pub(crate) fn excludes(&self, key: &str) -> bool {
         self.disk().is_some_and(|disk| {
-            !disk.sources.holds_key(key) && !(disk.facts && crate::facts::is_fact_store(key))
+            !disk.sources.holds_key(key)
+                && !(disk.facts && specforge_common::facts::is_fact_store(key))
         })
     }
 }

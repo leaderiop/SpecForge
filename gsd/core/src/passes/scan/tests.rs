@@ -94,10 +94,14 @@ fn a_wave0_item_is_done_when_its_file_exists_and_a_linked_test_ran() {
             vec![item.clone()],
         );
         if tests {
-            found.test_results = serde_json::from_value(serde_json::json!({
-                "results": { "v/W0-1": { "tests": [{ "name": "stub runs", "status": "passed" }] } }
-            }))
-            .expect("a report");
+            crate::passes::thread::fixture::add_test(
+                &mut found,
+                "js:app/test/a.test.js#stub runs",
+                "stub runs",
+                "test/a.test.js",
+                TestStatus::Passed,
+                &["v/W0-1"],
+            );
         }
         compute(&found)
             .values

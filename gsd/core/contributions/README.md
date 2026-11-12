@@ -1,6 +1,6 @@
 # Contributions
 
-**Status: built so far: the collectors `gsd-git` and `gsd-junit` (r38), the 15 hooks and the install goldens (r44, K20c), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the command-backed slash commands (five in r41, seven by r43), the 16 lifecycle prompts with the command `reference` (r42), and the remaining 27 prompts with the read-only command `smart_entry` (r43): every command `@gsd/core` owns is served.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
+**Status: built so far: the collector `gsd-git` (r38), the 15 hooks and the install goldens (r44, K20c), the 15 core agents, the command `record_verdict` and the prompt `spec_phase` (r40), the writing commands and the command-backed slash commands (five in r41, seven by r43), the 16 lifecycle prompts with the command `reference` (r42), and the remaining 27 prompts with the read-only command `smart_entry` (r43): every command `@gsd/core` owns is served.** What `@gsd/*` contributes beyond kinds and rules: commands, agents, prompts, skills and hooks
 (K8, K9). Generated from gsd-core 1.19.0's `commands/gsd/` and `agents/`; the parity suite's roster check
 re-runs the comparison on every tracked version.
 
@@ -179,7 +179,8 @@ The assets are upstream's text; where the spec has no counterpart a line was def
   edge-probe steps of `spec-phase` and `specless-probe-fallback` still run upstream's
   `edge-probe.cjs` / `spec-section.cjs` with `node <file>` (also `PENDING_NODE`, each line pinned): `@gsd/core` installs
   no runtime library (#5640), so the steps stop at "not found" unless an upstream GSD install provides one.
-- `gsd/W506` looks at less than upstream's check: no plans, no modified-file contents and no commit bodies.
+- `gsd/W506` reads what a complete plan lists in `decisions` (ADR 0351): a decision cited only in prose covers nothing,
+  where upstream reads the plans' text, the modified files and the commit bodies.
 - The ledger scope in `ship` (`ship.md`, the broken-window step) is the milestone's (`"$MILESTONE" --depth 2`: every phase of it), not upstream's project-wide file: the graph links a window to its phase, not to the project. The `windows_enforce` gate (E512) still refuses on an open window anywhere in the project.
 - Cursor: upstream's section A (the Claude-only blocks) is dropped, and `~/.claude` paths read `~/.cursor`. Codex maps
   an agent's effort to `high` as upstream does (`gsd/kit/tests/golden/host/` holds the probe and both conversions, made with
@@ -270,7 +271,6 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `phase`, `workstreams` (the slash commands `/gsd-phase`, `/gsd-workstreams`) | phase and workstream entities: add, insert, remove (renumbering), edit; create, complete, switch |
 | `record_verdict` (built, r40: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict` |
 | the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |
-| the `gsd-junit` collector (built, r38): `specforge collect --runner gsd-junit --no-run` | none: it records test results in `specforge-report.json`, which the derive pass reads |
 
 ## Agents
 

@@ -1,0 +1,27 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "answers": [
+        "item"
+      ],
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "Cargo.toml"
+        ]
+      },
+      "export": "collect__rust_source",
+      "input_formats": [],
+      "inputs": [
+        {
+          "input": "facts",
+          "kinds": [
+            "package"
+          ]
+        }
+      ],
+      "name": "rust-source"
+    }
+  ]
+}

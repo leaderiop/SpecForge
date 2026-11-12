@@ -6,7 +6,7 @@ use specforge_common::{Diagnostic, DiagnosticData, Sym, codes, find_close_match}
 
 use crate::field_form::Reference;
 use crate::scope::Found;
-use crate::{Graph, GraphInputs, Node, Targets};
+use crate::{Dangling, Graph, GraphInputs, Node, Targets};
 
 /// What one written reference is.
 pub(super) enum Resolution<'g> {
@@ -36,8 +36,9 @@ pub(super) enum Resolution<'g> {
         kinds: Vec<(&'g str, Option<&'g str>)>,
     },
     /// It names no entity, its id is in the scheme of a collector-written kind its field takes, and no store served
-    /// that fact (ADR 0327 D6): no edge, no diagnostic; the node keeps it, and a pass is sent it.
-    Unheld,
+    /// that fact (ADR 0327 D6): no edge, no diagnostic; the node keeps it, and a pass is sent it with `kinds`, the
+    /// collected kinds of the scheme its field admits (ADR 0347 D9).
+    Unheld { kinds: Vec<&'g str> },
 }
 
 impl Graph {
@@ -98,14 +99,18 @@ impl Graph {
                     .map(|kind| (kind, owners.get(kind).map(String::as_str)))
                     .collect(),
             },
-            None if specforge_common::scheme::of(id).is_some_and(|scheme| {
-                inputs
-                    .fact_schemes
-                    .get(scheme)
-                    .is_some_and(|kinds| kinds.iter().any(|kind| admits(kind)))
-            }) =>
+            None if let Some(kinds) = specforge_common::scheme::of(id)
+                .and_then(|scheme| inputs.fact_schemes.get(scheme))
+                .map(|kinds| {
+                    kinds
+                        .iter()
+                        .map(String::as_str)
+                        .filter(|kind| admits(kind))
+                        .collect::<Vec<_>>()
+                })
+                .filter(|kinds| !kinds.is_empty()) =>
             {
-                Resolution::Unheld
+                Resolution::Unheld { kinds }
             }
             None => {
                 let Found::None(paths) = found else {
@@ -149,9 +154,55 @@ impl Graph {
 }
 
 impl Resolution<'_> {
-    /// Whether it is a fact no store served (ADR 0327 D6).
-    pub(super) fn is_unheld(&self) -> bool {
-        matches!(self, Self::Unheld)
+    /// The collected kinds its field admits, when it is a fact no store served (ADR 0327 D6, ADR 0347 D9).
+    pub(super) fn unheld(&self) -> Option<&[&str]> {
+        match self {
+            Self::Unheld { kinds } => Some(kinds),
+            _ => None,
+        }
+    }
+
+    /// What a fact holding it keeps instead of a kernel diagnostic (ADR 0346 D4), labelled by its `field`: an
+    /// unresolved, ambiguous or mistyped reference. `None` for one that links, is unheld or is unavailable (I004
+    /// stays the kernel's: the project lacks the target kind's extension).
+    pub(super) fn dangling(&self, field: Sym, reference: &Reference<'_>) -> Option<Dangling> {
+        use specforge_protocol_types::DanglingReason;
+        let (reason, actual, did_you_mean, candidates) = match self {
+            Self::Linked { .. } | Self::Unheld { .. } | Self::Unavailable { .. } => return None,
+            Self::Mistyped {
+                actual,
+                did_you_mean,
+                ..
+            } => (
+                DanglingReason::Mistyped,
+                Some(actual.to_string()),
+                did_you_mean.clone(),
+                Vec::new(),
+            ),
+            Self::Unresolved {
+                did_you_mean,
+                candidates,
+                ambiguous,
+            } => (
+                if *ambiguous {
+                    DanglingReason::Ambiguous
+                } else {
+                    DanglingReason::Unresolved
+                },
+                None,
+                did_you_mean.clone(),
+                candidates.clone(),
+            ),
+        };
+        Some(Dangling {
+            field,
+            id: reference.id.to_string(),
+            span: reference.span.clone(),
+            reason,
+            actual,
+            did_you_mean,
+            candidates,
+        })
     }
 
     /// The entity it names, when it links: the edge's target.
@@ -175,7 +226,7 @@ impl Resolution<'_> {
             .clone()
             .unwrap_or_else(|| node.source_span.clone());
         match self {
-            Self::Linked { .. } | Self::Unheld => None,
+            Self::Linked { .. } | Self::Unheld { .. } => None,
             Self::Mistyped {
                 target,
                 provider,

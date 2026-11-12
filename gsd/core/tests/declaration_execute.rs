@@ -166,7 +166,8 @@ fn the_commit_kind_is_harness_written() {
             "created",
             "insertions",
             "deletions",
-            "descends_from"
+            "descends_from",
+            "items_changed"
         ]
     );
     for field in fields_of("commit") {
@@ -174,6 +175,12 @@ fn the_commit_kind_is_harness_written() {
         assert_ne!(field_of("commit", &field)["required"], true, "{field}");
     }
     assert_eq!(field_of("commit", "hash")["immutable"], true);
+    // Written once: the items a commit changed are what held when it was recorded (a history reference).
+    let items = field_of("commit", "items_changed");
+    assert_eq!(
+        (&items["immutable"], &items["target_kind"]),
+        (&true.into(), &"item".into())
+    );
     // The commit is in the project scope, and a path it touched is text: a later commit may delete it.
     assert!(kind_of("commit")["scoped_by"].is_null());
     for field in ["files", "created"] {
@@ -308,45 +315,48 @@ fn the_model_counts_its_fields() {
     .iter()
     .map(|k| fields_of(k).len())
     .sum();
-    assert_eq!(total, 22 + 6 + 5 + 12 + 6 + 10 + 5);
+    assert_eq!(total, 22 + 6 + 5 + 13 + 6 + 10 + 5);
 }
 
 #[test]
-fn the_git_collector_runs_git_log_and_writes_a_plan() {
+fn the_git_collector_reads_the_git_port_and_writes_a_plan() {
     let declaration = MockHost::new(build()).declaration();
     let git = declaration
         .collectors
         .iter()
         .find(|c| c.name == "gsd-git")
         .expect("the gsd-git collector");
-    // Its command is the process capability it names (ADR 0335 D2.1).
-    let run = declaration
-        .capabilities
-        .iter()
-        .find(|c| Some(&c.name) == git.capability.as_ref())
-        .and_then(|c| match &c.port {
-            specforge_extension_sdk::PortScope::Process(process) => Some(process.argv.clone()),
-            _ => None,
-        })
-        .expect("the gsd-git process capability");
     assert!(git.writes, "it creates the commit entities");
-    assert_eq!(git.capture.as_deref(), Some("stdout"));
-    assert_eq!(run[..2], ["git", "-c"]);
-    assert!(run.contains(&"--numstat".to_string()) && run.contains(&"--summary".to_string()));
-    // Merges are read (for the parents a commit descends through), not recorded.
-    assert!(run.contains(&"log".to_string()) && !run.contains(&"--no-merges".to_string()));
-    // The trailer before the subject, unfolded: the subject stays last (ADR 0331 D3).
-    assert!(run.contains(
-        &"--format=%x00%H%x1f%P%x1f%at%x1f%(trailers:key=Gsd-Task,valueonly,unfold,separator=%x1e)%x1f%s"
-            .to_string()
-    ));
-    // Detected by a branch ref (ADR 0331 D4): a plain `specforge collect` in a repository with a commit runs it.
-    let detect = git.auto_detect.as_ref().expect("gsd-git is detected");
+    // It runs no program and reads no report: the host's git port answers it (ADR 0352).
+    assert_eq!(git.capability, None);
+    assert_eq!(git.capture, None);
+    assert!(git.input_formats.is_empty());
+    // The item facts the store holds, to name the items a recorded commit changed: inert without `@code/core`.
     assert_eq!(
-        detect.file_patterns,
-        [".git/refs/heads/*", ".git/packed-refs"]
+        git.inputs,
+        [specforge_extension_sdk::Input::facts(&["item"])]
     );
-    assert_eq!(git.input_formats, ["git-log"]);
+    // The extension may read git: the one `repo` scope its commands read the branch through.
+    assert!(declaration.capabilities.iter().any(|c| {
+        c.name == "repo" && matches!(c.port, specforge_extension_sdk::PortScope::Git(_))
+    }));
+    // Detected in any repository the project is in (ADR 0352 D4), at its top or below, a linked worktree's included.
+    let detect = git.auto_detect.as_ref().expect("gsd-git is detected");
+    assert!(detect.repository && detect.file_patterns.is_empty());
+}
+
+/// The passes read `@code/core`'s test facts and the graph's edges (`passes::thread`), never the report a collector
+/// files: no pass declares the `tests` input, so a project without `specforge-report.json` is not told I205 by them.
+#[test]
+fn no_pass_reads_the_test_report() {
+    let readers: Vec<String> = MockHost::new(build())
+        .declaration()
+        .passes
+        .into_iter()
+        .filter(|p| p.inputs.contains(&specforge_extension_sdk::Input::Tests))
+        .map(|p| p.name)
+        .collect();
+    assert_eq!(readers, Vec::<String>::new());
 }
 
 #[test]
@@ -357,23 +367,5 @@ fn the_model_has_the_collectors_it_builds() {
         .into_iter()
         .map(|c| c.name)
         .collect();
-    assert_eq!(names, ["gsd-git", "gsd-junit"]);
-}
-
-#[test]
-fn the_junit_collector_reads_a_report_and_is_handed_the_graph() {
-    let junit = MockHost::new(build())
-        .declaration()
-        .collectors
-        .into_iter()
-        .find(|c| c.name == "gsd-junit")
-        .expect("the gsd-junit collector");
-    // `writes` is declared only to receive the graph and the root; the answer never carries a plan.
-    assert!(junit.writes);
-    assert_eq!(junit.report.as_deref(), Some("junit.xml"));
-    // GSD is language-agnostic: no command to run, and no detection that would select it for a plain `collect`.
-    assert!(junit.capability.is_none());
-    assert!(junit.auto_detect.is_none());
-    assert!(junit.capture.is_none());
-    assert_eq!(junit.input_formats, ["junit-xml"]);
+    assert_eq!(names, ["gsd-git"]);
 }

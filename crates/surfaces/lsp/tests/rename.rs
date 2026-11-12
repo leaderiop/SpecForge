@@ -540,7 +540,7 @@ fn the_lsp_rename_and_fixes_are_versioned() {
 /// A rename of a fact, a collected entity, is refused for the editor too (ADR 0327): the editor gets why, once.
 #[spec(
     behavior = "rename_entity_id",
-    verify = "a rename of a collected entity, or of one a fact names, is refused with why"
+    verify = "a rename of a collected entity, or of one a fact names with no place, is refused with why"
 )]
 fn rename_of_a_collected_entity_is_refused_with_why() {
     use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, stored};
@@ -574,4 +574,50 @@ fn rename_of_a_collected_entity_is_refused_with_why() {
         "{}",
         refused.message
     );
+}
+
+/// An editor rename of an entity a collected fact names edits the source file where the fact's collector read the
+/// name, placed in the disk text (ADR 0346 D7).
+#[spec(
+    behavior = "rename_entity_id",
+    verify = "an editor rename of an entity a fact names edits the source file where the fact read it"
+)]
+fn rename_of_an_entity_a_fact_names_edits_its_source_file() {
+    use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, stored_with};
+    let source = "// covers T1\ntest('adds', () => {});\n";
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(dir.path().join("truths.spec"), "truth T1 \"One\" {\n}\n").unwrap();
+    std::fs::write(dir.path().join("a.test.js"), source).unwrap();
+    let place = serde_json::json!({"file": "a.test.js", "start_line": 1, "start_col": 11, "end_line": 1, "end_col": 13});
+    stored_with(
+        dir.path(),
+        "node",
+        "0123456789abcdef0123456789abcdef01234567",
+        serde_json::json!([{"kind": "test", "id": "js:a.test.js#adds",
+                             "fields": {"file": "a.test.js", "covers": ["T1"]},
+                             "named_at": {"covers": {"T1": [place]}}}]),
+        [(
+            "a.test.js".to_string(),
+            specforge_ops::revision::of_bytes(source.as_bytes()),
+        )]
+        .into(),
+    );
+    let served =
+        crate::served::Served::served_by(dir, Collected::new().runtime(), &COLLECTED_EXTENSIONS)
+            .open(&["truths.spec"]);
+    let uri = served.uri("truths.spec");
+
+    let edit = answers::rename(&served.state(), &uri, Position::new(0, 7), "T2")
+        .unwrap()
+        .expect("an edit");
+
+    let changes = edit.changes.expect("plain changes");
+    let in_source = &changes[&served.uri("a.test.js")];
+    assert_eq!(in_source.len(), 1, "{in_source:?}");
+    assert_eq!(in_source[0].new_text, "T2");
+    assert_eq!(
+        (in_source[0].range.start, in_source[0].range.end),
+        (Position::new(0, 10), Position::new(0, 12))
+    );
+    assert_eq!(changes[&uri].len(), 1, "{changes:?}");
 }

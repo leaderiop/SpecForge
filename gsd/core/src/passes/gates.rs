@@ -20,25 +20,28 @@ use crate::digest::scope_of;
 
 type Check = fn(&PassInput) -> Vec<PassDiagnostic>;
 
-const GUARDS: &[(&str, &str, Check)] = &[
-    ("gate_e106", "E106", e106),
-    ("gate_e511", "E511", e511),
-    ("gate_e512", "E512", e512),
-    ("gate_w318", "W318", w318),
-    ("gate_w404", "W404", w404),
-    ("gate_e515", "E515", e515),
-    ("gate_e516", "E516", e516),
+/// The facts a guard that reads the requirement thread is sent (ADR 0353).
+const THREAD: &[&str] = &[super::thread::TEST];
+
+/// Each guard: its pass, the code it reports, the facts kinds it reads and its check.
+const GUARDS: &[(&str, &str, &[&str], Check)] = &[
+    ("gate_e106", "E106", &[], e106),
+    ("gate_e511", "E511", &[], e511),
+    ("gate_e512", "E512", &[], e512),
+    ("gate_w318", "W318", &[], w318),
+    ("gate_w404", "W404", &[], w404),
+    ("gate_e515", "E515", THREAD, e515),
+    ("gate_e516", "E516", &[], e516),
 ];
 
 pub fn declare(c: &mut ContributionsBuilder) {
-    for (name, code, check) in GUARDS {
+    for (name, code, facts, check) in GUARDS {
         c.pass(name, |p| {
-            let guard = p.guard().reports(&[code]);
-            // Only E515 reads the recorded tests.
-            if *code == "E515" {
-                guard.input(Input::Tests);
+            p.guard().reports(&[code]);
+            if !facts.is_empty() {
+                p.input(Input::facts(facts));
             }
-            guard.run(*check);
+            p.run(*check);
         });
     }
 }
@@ -266,7 +269,7 @@ fn w404(input: &PassInput) -> Vec<PassDiagnostic> {
 
 /// E515: each complete requirement of a phase in scope traces to a task, a commit and a passing test (gsd-plus).
 /// A task traces it when its plan names the requirement, it is not `manual`, a recorded commit names it, and the
-/// results linked to the task or the requirement, with the proofs of the truths that name the requirement (ADR 0331
+/// test facts linked to the task or the requirement, with the proofs of the truths that name the requirement (ADR 0331
 /// D5), hold a passed one and no failed one. Like a window, a requirement is outside a phase's path, so the diagnostic
 /// names the gate's subject.
 fn e515(input: &PassInput) -> Vec<PassDiagnostic> {

@@ -13,7 +13,7 @@ use specforge_extension_sdk::prelude::*;
 use super::execute::{summaries, value};
 use super::ladder;
 use super::verify::Verified;
-use crate::passes::commits::{Commit, target};
+use crate::passes::commits::{Commit, CommitType, target};
 use crate::passes::plans::{name_of, of_kind, phase_of, rows, text};
 use crate::time::seconds;
 
@@ -157,7 +157,7 @@ fn git_range(commits: &[&Commit]) -> Option<String> {
         let plan = c.plan.as_deref().map(name_of)?;
         Some(format!("`feat({plan})`"))
     };
-    let mut feats = commits.iter().filter(|c| c.kind == "feat");
+    let mut feats = commits.iter().filter(|c| c.kind == Some(CommitType::Feat));
     let first = feats.next().and_then(label)?;
     let last = feats
         .next_back()

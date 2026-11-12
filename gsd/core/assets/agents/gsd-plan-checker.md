@@ -377,8 +377,8 @@ issue:
 **Process:**
 1. Parse CONTEXT.md sections: Decisions, Claude's Discretion, Deferred Ideas
 2. Extract all numbered decisions (D-01, D-02, etc.) from the `<decisions>` section
-3. For each locked Decision, find implementing task(s) — check task actions for D-XX references
-4. Verify 100% decision coverage: every D-XX must appear in at least one task's action or rationale
+3. For each locked Decision, find the plan(s) whose `decisions` list it, then the task(s) that implement it
+4. Verify 100% decision coverage: every D-XX is in at least one plan's `decisions` (gsd/E310 checks the list; you judge that the tasks deliver it in full)
 5. Verify no tasks implement Deferred Ideas (scope creep)
 6. Verify Discretion areas are handled (planner's choice is valid)
 

@@ -5,12 +5,15 @@ declares. They are a **starter set**: examples of what extensions do, aimed at s
 them is part of the core, a project loads only the ones it lists in `specforge.json`, and your own extensions use
 the same SDK ([extension model](extension-model.md)).
 
-Together the four vocabulary builtins declare 22 entity kinds and 56 edge types. Six more declare no kinds:
-`@specforge/testing` and the runner extensions `@specforge/cargo-test` and `@specforge/vitest` handle test
-obligations and results ([ADR 0002](adr/0002-test-runner-extensions.md)); `@specforge/rust` and
-`@specforge/typescript` read source code for `specforge infer`. `@code/core`, the first builtin of a family
-(ADR 0328), declares the two collector-written kinds of test facts ([ADR 0329](adr/0329-code-core-holds-test-facts-and-their-ids.md)), and
-`@javascript/node-test` collects them from `node --test`. `@specforge/checks` declares the generic value
+Together the four vocabulary builtins declare 22 entity kinds and 56 edge types. Four more declare no kinds:
+`@specforge/testing` and the runner extensions `@specforge/cargo-test`, `@specforge/vitest` and
+`@javascript/node-test` handle test obligations and results ([ADR 0002](adr/0002-test-runner-extensions.md)).
+`@code/core`, the first builtin of a family
+(ADR 0328), declares the four collector-written kinds of code facts, tests and their runs, items and packages
+([ADR 0329](adr/0329-code-core-holds-test-facts-and-their-ids.md), [ADR 0347](adr/0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md)), and
+`@javascript/node-test` collects them from `node --test`; the Rust packs `@rust/cargo`, `@rust/source` and `@rust/test`
+collect a Rust project's packages, items and nextest tests ([ADR 0348](adr/0348-a-collector-declares-a-config-file-and-the-rust-packs.md)), and
+`@javascript/source` a JavaScript project's packages and items. `@specforge/checks` declares the generic value
 checkers, which any field's `checks` can name ([ADR 0338](adr/0338-one-foundation-extension-holds-the-generic-value-checkers.md)),
 and one collector-written kind, `check_outcome`, which its `checks` collector publishes when named or under
 `checks.publish`.
@@ -29,10 +32,12 @@ The counts and lists on this page are read from the builtins' pinned declaration
 | `@specforge/testing` | 0 | 0 | `verify` kinds on 7 kinds | software, governance (both optional) |
 | `@specforge/cargo-test` | 0 | 0 | -- | testing (required) |
 | `@specforge/vitest` | 0 | 0 | -- | testing (required) |
-| `@specforge/rust` | 0 | 0 | -- | none |
-| `@specforge/typescript` | 0 | 0 | -- | none |
-| `@code/core` | 2 (collector-written) | 1 | -- | none |
+| `@code/core` | 4 (collector-written) | 5 | -- | none |
 | `@javascript/node-test` | 0 | 0 | -- | code/core (required) |
+| `@rust/cargo` | 0 | 0 | -- | code/core (required) |
+| `@rust/source` | 0 | 0 | -- | code/core, rust/cargo (required) |
+| `@rust/test` | 0 | 0 | -- | code/core, rust/source (required) |
+| `@javascript/source` | 0 | 0 | -- | code/core (required) |
 | `@specforge/checks` | 1 (collector-written) | 0 | -- | none |
 
 Extensions load after the peers they declare; extensions with no peer between them keep the order
@@ -269,47 +274,62 @@ obligations the spec does not declare (A016). `--min` gates CI on proof coverage
 Each test runner has its own extension that declares one collector: the files that select it, the command
 `specforge collect` runs (after you approve it, or with `--yes`), where the report lands, and a pure mapping from the
 report. `@specforge/cargo-test` and `@specforge/vitest` require `@specforge/testing` and map the report to entities;
-`@javascript/node-test` requires `@code/core` and maps it to test facts.
+`@javascript/node-test` and `@rust/test` require `@code/core` and map it to test facts: their collectors answer `test`
+and `test_run`.
 
 | Extension | Detected by | How a test names its entity |
 |-----------|-------------|-----------------------------|
 | `@specforge/cargo-test` | `Cargo.toml` | `#[specforge_test(behavior = "...", verify = "...")]`, or tests named `entity_id__obligation_slug` or inside `mod entity_id` ([guide](guides/rust-test-tracing.md)) |
 | `@specforge/vitest` | `vitest.config.*`, `vitest.workspace.*` | `meta: { specforge: { behavior: "...", verify: "..." } }` ([guide](guides/vitest-test-tracing.md)) |
 | `@javascript/node-test` | `package.json` | the entity cites the test: `js:<package>/<file>#<test>` in a `proof` field ([guide](guides/node-test-facts.md)) |
+| `@rust/test` | `Cargo.toml` | the entity cites the test: `rust:<binary id>#<test path>`; a `#[specforge_test(behavior = "...")]` puts the entity in the test's `names` ([guide](guides/rust-facts.md)) |
 
 With cargo-test and vitest, spec files carry no test paths: the link lives in the tests. With node-test it runs the
-other way: the test names nothing, and the entity cites the test's id. `specforge init` enables `@specforge/testing` with
+other way: the test names nothing, and the entity cites the test's id. With `@rust/test` the entity cites the test's id, and the test's `#[specforge_test]` names the entity back. `specforge init` enables `@specforge/testing` with
 `@specforge/software`, and a runner extension when it finds that runner in the project.
 
 Proof today is test-centred. A general notion of evidence for non-software work (a signed record, an audit
 finding) is future work.
 
-## @specforge/rust and @specforge/typescript
-
-Each declares one analyzer: a scanner that finds the public items (Rust) or exported symbols (TypeScript and
-JavaScript) of source files, which `specforge infer` uses to guide an agent writing specs for existing code.
-
 ## @code/core
 
-The neutral base of test facts ([ADR 0329](adr/0329-code-core-holds-test-facts-and-their-ids.md)). Its kinds are
-written by a runner pack's collector, never by hand: a spec cites a fact by its id, and `specforge collect` writes the
-store the session serves. It declares no collector; a runner pack peers it and mints the facts with the linked
-`specforge-code-junit` library (`extensions/code/junit`, an extension library, ADR 0328 D3), so every pack names a
-test the same way.
+The neutral base of code facts ([ADR 0329](adr/0329-code-core-holds-test-facts-and-their-ids.md),
+[ADR 0347](adr/0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md)). Its kinds are written by a pack's
+collector, never by hand: a spec cites a fact by its id, and `specforge collect` writes the store the session serves.
+It declares no collector. A runner pack (tests), a source pack (items) or a manifest pack (packages) peers it and
+mints the facts with the linked `specforge-code-facts` library (`extensions/code/facts`, an extension library,
+ADR 0328 D3), so every pack names a fact the same way. The library reads a JUnit report through
+`specforge-code-junit` (`extensions/code/junit`), the second extension library.
 
-| Kind | Scheme and id | Fields |
-|------|---------------|--------|
-| `test` | `js:<package>/<file>#<suite > … > name>` | `package`, `file` (project-relative), `suite`, `name`, `status` (`passed`, `failed`, `skipped`; the kind's `result`), `names` (the entities the test says it proves) |
-| `test_run` | `run:<test id>` | `test` (edge `run_of` to the `test`), `status`, `duration_ms` |
+| Kind | Schemes | Fields |
+|------|---------|--------|
+| `test` | `js`, `rust` | `package`, `file` (project-relative), `suite`, `name`, `binary` (a Rust test's nextest binary id), `status` (`passed`, `failed`, `skipped`; the kind's `result`), `names` (the entities the test says it proves; edge `names`) |
+| `test_run` | `run` | `test` (edge `run_of` to the `test`), `status`, `duration_ms` |
+| `item` | `rust`, `js` | `package` (edge `in_package` to the `package`), `file`, `kind` (a list: `function`, `method`, `struct`, …), `visibility` (`public`, `crate`, `restricted`, `private`), `signature` (a digest), `doc`, `attrs`, `names` (edge `names`), `test_id` (edge `runs_as` to the `test` a test function is) |
+| `package` | `pkg` | `name`, `version`, `edition`, `rust_version`, `engines`, `features`, `targets`, `path`, `depends_on` (edge `uses_package` to each `package`) |
 
-Neither kind is scoped: a reference names the fact whole. Its check passes judge the references:
+The ids:
+
+| Fact | Id |
+|------|----|
+| a JavaScript test | `js:<package>/<file>#<suite > … > name>` |
+| a Rust test | `rust:<nextest binary id>#<test path>` |
+| a Rust item | `rust:<crate segment>::<mod>::…::<name>`, a member's owner written `<Type>` or `<Type as Trait>` |
+| a JavaScript item | `js:<package>/<file>::<name>`, a member joined by `.` |
+| a test run | `run:<test id>` |
+| a package | `pkg:cargo/<name>`, `pkg:cargo/<name>#<dir>` (two of one name), `pkg:npm/<name>` (`@` written `%40`) |
+
+An item id never holds `#` and a test id always does, so one scheme carries both; every id parses back to itself, and
+a symbol of rust-analyzer's or scip-typescript's SCIP index maps into exactly one. No kind is scoped: a reference
+names the fact whole. Its check passes judge the references by the collected kinds their field admits (the kernel
+sends them with each unheld reference):
 
 | Code | When |
 |------|------|
-| `code/E101` | A reference in `js` or `run` names no fact, and a served store holds facts of that scheme; it suggests the nearest test of the same file |
-| `code/W102` | A reference in `js` or `run` names no fact, and no served store holds facts of that scheme (a fresh clone, or before a collect) |
+| `code/E101` | A reference names no fact, and a served store holds facts of a kind its field admits in its scheme; a test or run reference is told the nearest one of the same file or binary. Also a reference a fact holds that nothing answers, when one collector writes both (a run's test, a package's dependency) |
+| `code/W102` | A reference names no fact, and no served store holds facts of a kind its field admits in its scheme (a fresh clone, before a collect, or the pack that writes it not run); it names the kind and the pack: `@javascript/node-test` or `@rust/test` for tests, `@rust/source` or `@javascript/source` for items, `@rust/cargo` or `@javascript/source` for packages |
 | `code/W401` | An entity that is not pending links a test whose last run failed |
-| `code/I402` | A test's `names` holds an id no entity has |
+| `code/I402` | A test's or an item's `names` holds a name that is no entity, or the short name of several |
 
 An entity is pending while its owner is (its kind's `complete_when`, or its nearest scope ancestor's): its references
 are not checked and its failing tests are not reported, so a test not written yet is TDD, not an error.
@@ -317,6 +337,21 @@ are not checked and its failing tests are not reported, so a test not written ye
 `@javascript/node-test` is its first runner pack: its collector `node-test`, detected by a `package.json`, runs
 `node --test` with the `spec` reporter to standard output and the `junit` reporter to `.specforge/reports/node-test.xml`,
 and names each test after the nearest `package.json` with a `name` ([guide](guides/node-test-facts.md)).
+
+The Rust packs write all four kinds ([ADR 0348](adr/0348-a-collector-declares-a-config-file-and-the-rust-packs.md),
+[guide](guides/rust-facts.md)), each detected by a `Cargo.toml` and run in fact order: `rust-cargo` (`@rust/cargo`)
+reads every `Cargo.toml` with `cargo_toml` into `package` facts and runs nothing; `rust-source` (`@rust/source`) walks
+each target's module tree by rustc's rules and has the host's parser read it into `item` facts, a test function
+carrying the id nextest gives it and the entity its `#[specforge_test]` names; `rust-test` (`@rust/test`) runs
+`cargo-nextest` with a config file the host writes and reads its JUnit report into `test` and `test_run` facts, an
+`#[ignore]`d test nextest leaves out recorded `skipped`. It needs `cargo install cargo-nextest --locked`.
+
+`@javascript/source` writes `item` and `package` facts ([guide](guides/javascript-facts.md)): its collector
+`javascript-source`, detected by a `package.json`, runs nothing. It reads every `package.json` into one `package` fact
+per named package (`pkg:npm/<name>`, its dependencies on the project's own packages), and has the host's reader parse
+each `.ts .mts .cts .tsx .js .jsx .mjs .cjs` file a named package owns, test files and generated output left out, into
+`item` facts `js:<package>/<file>::<name>[.<member>]`: what the file or a namespace declares, and the members of its
+classes and interfaces, `public` when an importer reaches it.
 
 ## @specforge/checks
 
@@ -371,8 +406,9 @@ It declares one collector-written kind and the collector that writes it:
 |------|---------------|--------|
 | `check_outcome` | `check:<entity>/<field>#<item>@<checker>` | `entity`, `field`, `item`, `checker`, `status` (`passed`, `failed`, `skipped`; the kind's `result`), `outcome` (`ok`, `status:404`, `unreachable:dns`, …), `codes`, `observed_at` (RFC 3339) |
 
-The `checks` collector reads only the `check_outcomes` input and declares no detection, command or report: it runs
-when named (`specforge collect --runner checks`) or, on a plain collect, under `checks.publish`.
+The `checks` collector reads only the `check_outcomes` input, answers `check_outcome` facts, and declares no detection,
+command or report: it runs when named (`specforge collect --runner checks`) or, on a plain collect, under
+`checks.publish`.
 
 ## Related
 

@@ -133,6 +133,10 @@ behavior document_open_close "Document Open/Close" {
     diagnostics and one staleness. Every answer and publish about the file
     MUST name it by the URI the client opened it with. An environment load
     that moves the spec root keeps every open document and its key.
+    A source document (a .rs, .ts, .tsx, .js or .jsx file under the project
+    root, ADR 0349 D7) is held, for placing what the graph says about it,
+    and never compiled: opening, typing in or closing one MUST rebuild
+    nothing.
   """
   verify unit "didOpen registers document and triggers compilation"
   verify unit "didClose removes document and clears diagnostics"
@@ -147,6 +151,7 @@ behavior document_open_close "Document Open/Close" {
   verify unit "a document is one file whatever spelling of its URI the client sends"
   verify unit "an open document stays itself when an environment load moves its key"
   verify integration "a document in a nested project is no source of the workspace project and gets none of its diagnostics"
+  verify unit "a source file opened or typed in is held and rebuilds nothing"
   verify contract "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_file_published, closed_file_from_disk"
 }
 
@@ -207,7 +212,11 @@ behavior go_to_definition "Go-to-Definition" {
     block header; its selection is the entity's name where the parse read
     it, on whichever line of the header it is written. On a use statement, the cursor on a binding's imported
     name that names an entity goes to that entity; anywhere else on the
-    statement, to the imported file.
+    statement, to the imported file. A located fact (ADR 0349 D8) is
+    declared at its first place in the source file it was collected from,
+    the whole place selected, while that file is the text collected. In a
+    source document the cursor on a name a fact holds there goes to the
+    entity it names; anywhere else in the file nothing is answered.
   """
   verify unit "go-to-def navigates to entity declaration"
   verify unit "go-to-definition follows a number written in a field that names entities"
@@ -221,7 +230,28 @@ behavior go_to_definition "Go-to-Definition" {
   verify unit "the entity after a body being typed is navigated to"
   verify unit "go-to-definition, prepare rename and rename take a path one segment at a time"
   verify unit "go-to-definition and the semantic token of a reference inside a block reach the entity it names"
+  verify unit "definition on a fact reference opens the source range it was collected from"
   verify contract "Go-to-Definition: go-to-definition holds — graph_available, declaration_site_returned"
+}
+
+behavior go_to_implementation "Go to Implementation" {
+  features   [go_to_definition_and_references]
+  category   query
+  invariants [lsp_response_latency, zero_domain_knowledge_core, cursor_names_one_entity]
+  types      [EntityId, SourceSpan]
+  ports      [LspProtocol]
+  ensures {
+    anchors_placed "each located fact the entity is anchored to is listed at its first place"
+  }
+  contract   """
+    The server MUST advertise implementationProvider. On an entity the
+    cursor names, textDocument/implementation MUST answer the source
+    places of its anchors (ADR 0349 D1): each located fact an edge of the
+    graph links it to, either way, at the fact's first place, once each,
+    by file and line; a place whose file is not the text its store
+    recorded is left out, and no anchor is no answer.
+  """
+  verify unit "implementation on an entity lists its anchors' source ranges"
 }
 
 behavior find_all_references "Find All References" {
@@ -252,7 +282,12 @@ behavior find_all_references "Find All References" {
     to it. The entity's own declaration (its name token) MUST be included
     when the request asks for it (includeDeclaration) and MUST NOT be
     otherwise. The LSP and MCP specforge.find_references answer from the
-    same navigation (specforge_ops::read::navigate).
+    same navigation (specforge_ops::read::navigate). A name a fact holds
+    where its source file writes it is a reference, placed in that file
+    while it is the text collected (ADR 0349 D8). In a source document, on
+    such a name the references are its entity's; inside a located fact
+    elsewhere, the innermost fact's citations and the name of each entity
+    it is anchored to.
   """
   verify unit "find-refs returns all reference sites"
   verify unit "find-refs includes the declaration site"
@@ -264,6 +299,8 @@ behavior find_all_references "Find All References" {
   verify unit "a name written in a field and in a method signature is one location each"
   verify unit "reference ranges are UTF-16 after multi-byte text"
   verify unit "the finder reports a final token for a path's last name and a qualifier token for each name before it"
+  verify unit "references to an entity include where a source fact names it"
+  verify unit "references from a located fact list its citations and its entities"
   verify contract "Find All References: find all references holds — graph_available, all_references_returned, declaration_included"
   verify unit "find-refs include a use binding's imported name"
   verify unit "the written tokens of a file include a use binding's imported name, never its alias"
@@ -303,11 +340,15 @@ behavior hover_information "Hover Information" {
     formatted as markdown. Field help (the field's declared type, named
     as E061 names it — an enum field with its declared values — and its
     description) answers when the cursor is on a field's name in an
-    entity's own body, nowhere else.
+    entity's own body, nowhere else. In a source document the hover
+    answers only on a name a fact holds there: the entity it names, as a
+    .spec gives it (ADR 0349 D8).
   """
   verify unit "hover on a checked value shows one line per checker"
   verify unit "a check not run says why on the value's hover"
   verify unit "a field's hover names its checks"
+  verify unit "a planned value's hover says it waits for its owner, and a closed one's that its owner is complete"
+  verify unit "a field's hover names when its owner gate lets its checks run"
   verify unit "hover delegates to provide_extension_entity_hover"
   verify unit "hover returns markdown-formatted content"
   verify unit "hover shows an integer field's value beside the word it was written as when they differ"
@@ -316,6 +357,7 @@ behavior hover_information "Hover Information" {
   verify unit "field help names a field's type as E061 does, an enum's declared values included"
   verify unit "field help says what an absent value counts as"
   verify unit "hover and workspace symbols show an entity's full path"
+  verify unit "hover on a source token naming an entity shows the entity"
   verify contract "Hover Information: hover information holds — graph_available, kind_registry_available, hover_delegated, markdown_produced"
 }
 
@@ -492,6 +534,7 @@ behavior prepare_rename "Prepare Rename" {
   verify unit "prepare rename ranges a name holding a dash or a dot whole"
   verify unit "an entity named with digits only is a name to the editor"
   verify unit "prepare rename answers on a default no block takes"
+  verify integration "prepare rename answers a source token naming an entity"
   verify unit "prepare rename answers on a reference in a duplicate declaration"
   verify unit "prepare rename answers on a quoted reference, inside its quotes"
   verify unit "prepare rename over a buffer typed since the compile is refused as content modified"
@@ -550,7 +593,14 @@ behavior rename_entity_id "Rename Entity ID" {
     MCP rename tool refuses it. A rename while a .spec file that does not
     parse spells the ID or the new ID as a name (not in a string or a comment) MUST be
     refused with why: its references cannot be read, and the rename would
-    leave them behind.
+    leave them behind. A rename of an entity a collected fact names edits,
+    beside the .spec files, the source file at each place the fact's store
+    records the name written, placed in the disk text; the store's stale
+    line lands in specforge-harness with the moves (ADR 0346 D7). Such a
+    source file is read only inside the project root, whatever the surface
+    bounds: a place whose file climbs out of the root, a link that lands
+    outside it, or a file with another name MUST refuse the rename, with
+    no edit.
   """
   verify unit "rename updates declaration and all references"
   verify unit "rename edits a name written below its kind and its references"
@@ -576,7 +626,11 @@ behavior rename_entity_id "Rename Entity ID" {
   verify unit "a rename keeps the scope and edits every segment naming the entity"
   verify contract "Rename Entity ID: entity rename holds — graph_available, prepare_rename_ready, all_references_updated, rename_atomic, entity_renamed_emitted"
   verify unit "rename edits a use binding's imported name, never its alias"
-  verify integration "a rename of a collected entity, or of one a fact names, is refused with why"
+  verify integration "a rename of a collected entity, or of one a fact names with no place, is refused with why"
+  verify integration "an editor rename of an entity a fact names edits the source file where the fact read it"
+  verify integration "rename rewrites the source token of every fact naming the entity"
+  verify integration "rename refuses while a source file it edits changed since collect"
+  verify integration "rename refuses a source file it edits that is a link or lies outside the project"
 }
 
 behavior emit_live_diagnostics "Live Diagnostics" {
@@ -621,7 +675,9 @@ behavior emit_live_diagnostics "Live Diagnostics" {
     document being edited, else on the last one such a diagnostic went on
     while it is open, else on the first open document. W143 (a define
     block, which registers nothing) MUST be published with the Unnecessary
-    tag, so editors fade the block.
+    tag, so editors fade the block. A diagnostic at a span in a source file
+    a fact is placed in is published on that file, placed through its text
+    while that text is the one its store recorded (ADR 0349 D7).
   """
   verify unit "diagnostics update after file change"
   verify unit "code actions act on the diagnostics last published for the document"
@@ -632,6 +688,7 @@ behavior emit_live_diagnostics "Live Diagnostics" {
   verify unit "a diagnostic about entities is published at the first one's block, with related information at each other's name"
   verify unit "a diagnostic about entities follows its entity's block when only the entity moved"
   verify unit "a diagnostic is published on the file its span names"
+  verify unit "a diagnostic at a source span is published on the source file"
   verify unit "a diagnostic about no entity is published on the edited document"
   verify unit "a define block's W143 is published as unnecessary code"
   verify contract "Live Diagnostics: live diagnostics holds — lsp_initialized_fired, graph_available, diagnostics_pushed, latency_enforced"
@@ -750,10 +807,18 @@ behavior entity_code_lens "Entity Code Lens" {
     each node's obligations. An entity whose file was typed since the
     compile gets no lens. After each rebuild a client that declared
     workspace.codeLens.refreshSupport is asked to refresh its lenses.
+    A source document (ADR 0349 D8) has, at the first line of each
+    located fact placed in it with an anchor, one lens per entity it is
+    anchored to, titled with the entity's kind and id (and its thread's
+    summary when its kind is routed), a click running
+    specforge.findReferences at the fact's start; a source file changed
+    since the collect has one lens at its start saying W198, and no other.
   """
   verify integration "a lens counts an entity's references and verify statements as the compile reads them"
   verify integration "a spec block's lens is at its string, the name it is written with"
   verify unit "a recompile asks only a client that declared refreshSupport to refresh its code lenses"
+  verify unit "a source file has a lens per anchored fact naming its entity, which finds its references"
+  verify unit "a source file changed since collect has one stale lens"
 }
 
 behavior workspace_symbol_search "Workspace Symbol Search" {

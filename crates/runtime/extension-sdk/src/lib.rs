@@ -34,9 +34,9 @@ pub use specforge_protocol_types::{
 
 pub use specforge_protocol_types::{
     ByteRange, CapabilityDescriptor, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan,
-    CheckRef, CheckStatus, CheckValuesInput, CheckerDescriptor, FsAccess, GitOp, HttpMethod,
-    MAX_PROBE_ROUNDS, Operation, OutcomeClass, OutcomeData, PlannedItem, PortScope, Probe,
-    ProbeOutcome, StatEntry, ValueForm,
+    CheckRef, CheckStatus, CheckValuesInput, CheckerDescriptor, FILE_READ_MAX, FsAccess, GitOp,
+    HttpMethod, MAX_PROBE_ROUNDS, Operation, OutcomeClass, OutcomeData, PlannedItem, PortScope,
+    Probe, ProbeOutcome, StatEntry, ValueForm,
 };
 
 pub use specforge_protocol_types::{
@@ -65,8 +65,8 @@ pub mod testing;
 /// their handlers.
 pub mod surface;
 
-/// Operational contributions (passes, collectors, custom rules, scanners,
-/// the migration hook) declared with their handlers.
+/// Operational contributions (passes, collectors, custom rules, the
+/// migration hook) declared with their handlers.
 mod operations;
 
 mod vocabulary;
@@ -87,7 +87,7 @@ mod reads;
 mod route;
 mod settings;
 pub use builders::{
-    AnalyzerBuilder, CodeBuilder, CollectorBuilder, EdgeBuilder, EnhancementBuilder, FieldBuilder,
+    CodeBuilder, CollectorBuilder, EdgeBuilder, EnhancementBuilder, FieldBuilder,
     FieldConstraintBuilder, JudgedBuilder, JudgedTargetBuilder, KindBuilder, PassBuilder,
     RuleBuilder,
 };
@@ -281,7 +281,7 @@ impl ContributionsBuilder {
     ///
     /// # Panics
     ///
-    /// When the collector declares no handler.
+    /// When the collector declares no handler, or a config without a command.
     pub fn collector(&mut self, name: &str, f: impl FnOnce(&mut CollectorBuilder)) -> &mut Self {
         let mut b = CollectorBuilder::new(name);
         f(&mut b);
@@ -294,16 +294,21 @@ impl ContributionsBuilder {
             collect,
         );
         self.decl.collectors.push(b.descriptor);
+        if b.config.is_some() && b.run.is_none() {
+            panic!("collector '{name}' declares a config but no command: give it `k.run(...)`");
+        }
         if let Some(argv) = b.run {
             let argv: Vec<&str> = argv.iter().map(String::as_str).collect();
-            self.capability(
-                Capability::process(name)
-                    .argv(&argv)
-                    .call_kinds(&[Operation::Collect])
-                    .why(&format!(
-                        "run the command whose report the collector '{name}' reads"
-                    )),
-            );
+            let mut capability = Capability::process(name)
+                .argv(&argv)
+                .call_kinds(&[Operation::Collect])
+                .why(&format!(
+                    "run the command whose report the collector '{name}' reads"
+                ));
+            if let Some(config) = &b.config {
+                capability = capability.config(&config.name, &config.template);
+            }
+            self.capability(capability);
         }
         self
     }
@@ -379,7 +384,7 @@ impl ContributionsBuilder {
 
     /// The wire answer of a declared export: a surface's (a command, an
     /// MCP tool or an MCP resource) or an operation's (a pass, a collector,
-    /// a custom rule, a scanner, the migration hook); `None` when no
+    /// a custom rule, the migration hook); `None` when no
     /// declaration has it. The generated guest routes every export but
     /// `__handshake` and `__describe` here first.
     pub fn dispatch_export(&self, export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
@@ -387,31 +392,6 @@ impl ContributionsBuilder {
         self.surfaces
             .dispatch(export, input)
             .or_else(|| self.operations.dispatch(export, input))
-    }
-
-    /// Contribute a language analyzer: `specforge infer` scans the files
-    /// with these extensions through its scanner ([`AnalyzerBuilder::scan`])
-    /// at the export `scan__<language>` unless set otherwise. Its
-    /// `classify__<language>` and `map__<language>` exports are declared
-    /// too; the host does not call them, so they are the guest's `handler`'s
-    /// to answer, if anything.
-    ///
-    /// # Panics
-    ///
-    /// When the analyzer declares no scanner.
-    pub fn analyzer(&mut self, language: &str, f: impl FnOnce(&mut AnalyzerBuilder)) -> &mut Self {
-        let mut b = AnalyzerBuilder::new(language);
-        f(&mut b);
-        let Some(scan) = b.scan else {
-            panic!("analyzer '{language}' declares no scanner: scan with `a.scan(...)`");
-        };
-        self.add_operation(
-            b.descriptor.scan_export.clone(),
-            format!("analyzer '{language}'"),
-            scan,
-        );
-        self.decl.analyzers.push(b.descriptor);
-        self
     }
 
     /// Catalog a diagnostic code this extension reports: its local code
@@ -629,15 +609,6 @@ fn describe_answer<'d>(
 pub mod prelude {
     pub use crate::{AgentBuilder, HookBuilder, HookCall, RenderCall, SkillBuilder, SlashBuilder};
     pub use crate::{
-        AnalyzerBuilder, CheckKind, CodeBuilder, ConstraintKind, Contributions,
-        ContributionsBuilder, EdgeBuilder, EnhancementBuilder, ExtensionMeta, FieldBuilder,
-        FieldConstraintBuilder, FieldType, FileReadSpec, Input, KindBuilder, MigrationInput,
-        PassAnswer, PassBaseline, PassBaselineEntity, PassBuilder, PassDiagnostic, PassEdge,
-        PassEntity, PassInput, PassOutput, PassSeverity, PassSpan, PassValue, Root, RootedPath,
-        RuleBuilder, ScanRequest, ScanResponse, ScannedItem, Settings, TestResult, TestResults,
-        TestStatus, Vocabulary,
-    };
-    pub use crate::{
         Annotates, ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandEvidence,
         CommandFormat, CommandGraph, CommandInput, CommandOutput, EntityEvidence, GraphEdge,
         GraphNode, McpResourceBuilder, McpToolBuilder, PromptArgBuilder, PromptBuilder, PromptCall,
@@ -649,8 +620,17 @@ pub mod prelude {
     };
     pub use crate::{Capability, FsAccess, GitOp, HttpMethod, Operation};
     pub use crate::{
+        CheckKind, CodeBuilder, ConstraintKind, Contributions, ContributionsBuilder, EdgeBuilder,
+        EnhancementBuilder, ExtensionMeta, FieldBuilder, FieldConstraintBuilder, FieldType,
+        FileReadSpec, Input, KindBuilder, MigrationInput, PassAnswer, PassBaseline,
+        PassBaselineEntity, PassBuilder, PassDiagnostic, PassEdge, PassEntity, PassInput,
+        PassOutput, PassSeverity, PassSpan, PassValue, Root, RootedPath, RuleBuilder, Settings,
+        TestResult, TestResults, TestStatus, Vocabulary,
+    };
+    pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
-        CollectorBuilder, Fact, PlanBuilder,
+        CollectorBuilder, DanglingReason, DanglingReference, FILE_READ_MAX, Fact, FactLocation,
+        PlanBuilder,
     };
     pub use specforge_extension_sdk_macros::extension;
     pub use specforge_protocol_types::{
@@ -697,11 +677,11 @@ mod raw_category_tests;
 
 pub use specforge_protocol_types::{
     CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
-    CommandError, CommandEvidence, CommandFormat, CommandOutput, EntityEvidence, EntityTests, Fact,
-    FactStore, GraphEdge, GraphNode, GraphWire, McpResourceContent, McpResourceRequest,
-    MigrationInput, PassAnswer, PassBaseline, PassBaselineEntity, PassDiagnostic, PassEdge,
-    PassEntity, PassInput, PassOutput, PassSeverity, PassSpan, PassValue, ScanRequest,
-    ScanResponse, ScannedItem, TestResult, TestResults, TestStatus, UnheldReference,
+    CommandError, CommandEvidence, CommandFormat, CommandOutput, DanglingReason, DanglingReference,
+    EntityEvidence, EntityTests, Fact, FactLocation, FactStore, GraphEdge, GraphNode, GraphWire,
+    McpResourceContent, McpResourceRequest, MigrationInput, PassAnswer, PassBaseline,
+    PassBaselineEntity, PassDiagnostic, PassEdge, PassEntity, PassInput, PassOutput, PassSeverity,
+    PassSpan, PassValue, TestResult, TestResults, TestStatus, UnheldReference,
 };
 
 #[cfg(test)]

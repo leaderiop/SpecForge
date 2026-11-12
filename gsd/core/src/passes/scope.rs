@@ -4,16 +4,22 @@
 //! task action (`agents/gsd-planner.md:81-85`, `references/planner-antipatterns.md:90-93`, MIT, `LICENSE-GSD`), and
 //! the rule is that prohibition. The checker's wider list (stub, hours, too complex) is judgment: `gsd/W311`.
 //! Upstream's checker (`agents/gsd-plan-checker.md:430-446`) cross-references each hit with the context decision the
-//! plan claims to implement before it blocks, so a hit is exempt when the action cites a decision of the plan's phase
-//! (`\bD-NN\b`, as E310 matches). A dotted version is no hit: `v1.0` is a release, not a scope cut.
+//! plan claims to implement and asks whether the task delivers it or a reduced version, so a hit is exempt only when a
+//! decision the task's plan lists in `decisions` says the same phrase itself: what was decided is delivered. Naming a
+//! decision in the action excuses nothing (upstream's own red flag cites the decision it cuts). A dotted version is no
+//! hit: `v1.0` is a release, not a scope cut.
 //!
 //! W317: the post-planning gap report (`src/gap-checker.cts`). The items are the phase's requirement ids and every
-//! `D-NN` of its context; an item is covered when `\b<id>\b` is in the concatenated text of the phase's plans.
+//! `D-NN` of its context; a requirement is covered when a plan of the phase lists it in `requirements`, a decision when
+//! one lists it in `decisions` (upstream matches `\b<id>\b` in the plans' text).
 
 use specforge_extension_sdk::prelude::*;
 
-use super::plans::{children, has_word, name_of, of_kind, phase_of, strings, texts};
-use crate::digest::scope_of;
+use std::collections::BTreeSet;
+
+use super::plans::{
+    children, context_decisions, has_word, links, listed_decisions, name_of, of_kind, text,
+};
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("scope", |p| {
@@ -64,13 +70,14 @@ fn without_versions(action: &str) -> String {
         .collect()
 }
 
-/// The action cites a decision of the plan's phase: the cross-reference upstream makes before it blocks.
-fn cites_decision(input: &PassInput, task: &PassEntity, action: &str) -> bool {
-    phase_of(input, crate::digest::scope_of(&task.id)).is_some_and(|phase| {
-        children(input, phase, "decision")
-            .iter()
-            .any(|d| has_word(action, name_of(&d.id), false))
-    })
+/// A decision the task's plan lists in `decisions` says `phrase` itself, by the rule of the hit: then the task
+/// delivers what was decided.
+fn decided(input: &PassInput, task: &PassEntity, phrase: &str) -> bool {
+    listed_decisions(input, [crate::digest::scope_of(&task.id)])
+        .into_iter()
+        .filter_map(|id| input.entities.iter().find(|d| d.id == id))
+        .filter_map(|d| text(d, "text"))
+        .any(|said| has_word(&without_versions(said), phrase, true))
 }
 
 fn scope_reduction(input: &PassInput) -> Vec<PassDiagnostic> {
@@ -78,19 +85,17 @@ fn scope_reduction(input: &PassInput) -> Vec<PassDiagnostic> {
         .filter_map(|task| {
             let action = task.fields.get("action")?;
             let plain = without_versions(action);
+            // Each hit is excused on its own: a decided "v1" does not excuse a "future enhancement" beside it.
             let phrase = SCOPE_REDUCTION
                 .iter()
-                .find(|phrase| has_word(&plain, phrase, true))?;
-            if cites_decision(input, task, action) {
-                return None;
-            }
+                .find(|phrase| has_word(&plain, phrase, true) && !decided(input, task, phrase))?;
             Some(
                 PassDiagnostic::new(
                     "E312",
                     PassSeverity::Error,
                     format!("task '{}' reduces scope: its action says \"{phrase}\"", task.id),
                 )
-                .with_suggestion("deliver what the decision says, or split the plan: never simplify a user decision; a task that cites the decision it implements (D-NN) is not reported")
+                .with_suggestion("deliver what the decision says, or split the plan: a phrase is excused only when a decision the plan lists says it too")
                 .with_entity(&task.id),
             )
         })
@@ -177,26 +182,27 @@ fn post_planning_gaps(input: &PassInput) -> Vec<PassDiagnostic> {
             if plans.is_empty() {
                 return None;
             }
-            let text: String = plans
+            let requirements: BTreeSet<&str> = plans
                 .iter()
-                .flat_map(|plan| std::iter::once(*plan).chain(children_of_plan(input, &plan.id)))
-                .flat_map(texts)
-                .collect::<Vec<_>>()
-                .join("\n");
-            let mut rows: Vec<Row> = strings(phase, "requirements")
+                .flat_map(|plan| links(input, plan, "requirements"))
+                .collect();
+            let decisions = listed_decisions(input, plans.iter().map(|plan| plan.id.as_str()));
+            let mut rows: Vec<Row> = links(input, phase, "requirements")
                 .into_iter()
-                .map(|item| (item, "REQUIREMENTS.md"))
-                .chain(
-                    children(input, &phase.id, "decision")
-                        .into_iter()
-                        .filter(|d| d.fields.get("origin").map(String::as_str) == Some("context"))
-                        .map(|d| (name_of(&d.id).to_string(), "CONTEXT.md")),
-                )
-                .map(|(item, source)| Row {
-                    covered: has_word(&text, &item, false),
-                    source,
-                    item,
+                .map(|id| Row {
+                    covered: requirements.contains(id),
+                    source: "REQUIREMENTS.md",
+                    item: name_of(id).to_string(),
                 })
+                .chain(
+                    context_decisions(input, &phase.id)
+                        .into_iter()
+                        .map(|d| Row {
+                            covered: decisions.contains(d.id.as_str()),
+                            source: "CONTEXT.md",
+                            item: name_of(&d.id).to_string(),
+                        }),
+                )
                 .collect();
             sort_rows(&mut rows);
             let open: Vec<&str> = rows
@@ -215,17 +221,6 @@ fn post_planning_gaps(input: &PassInput) -> Vec<PassDiagnostic> {
             })
         })
         .collect()
-}
-
-/// Everything scoped by a plan: its tasks, checkpoints and must-haves.
-fn children_of_plan<'a>(
-    input: &'a PassInput,
-    plan: &'a str,
-) -> impl Iterator<Item = &'a PassEntity> {
-    input
-        .entities
-        .iter()
-        .filter(move |e| scope_of(&e.id) == plan)
 }
 
 #[cfg(test)]

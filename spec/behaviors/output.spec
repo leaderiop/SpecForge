@@ -545,6 +545,7 @@ behavior inspect_entity_facts "Inspect an Entity's Facts" {
     closest entity.
   """
   verify unit "an entity lists each checked value's outcome"
+  verify unit "an entity lists a value waiting for its owner as planned, with no outcome"
   verify unit "an entity's coverage is its coverage row's verdict, obligation by obligation"
   verify unit "an entity's coverage status is its coverage row's: whether it counts, then how it is proven"
   verify unit "the diagnostics about an entity are its own, not those of an entity whose id contains it"
@@ -648,6 +649,28 @@ behavior provide_explore_cli "Provide CLI Explore Command" {
   verify integration "specforge explore --format json is the explore prompt's payload for the same arguments"
   verify integration "an unknown entity is E003 naming the closest entity, exit 1"
   verify integration "under --format json the notices are the document's alone: nothing on stderr"
+}
+
+behavior provide_anchors_cli "Provide CLI Anchors Command" {
+  invariants [diagnostic_determinism]
+  category   cli
+  contract   """
+    specforge anchors ENTITY | --file PATH [--path PROJECT] [--format
+    human|json] MUST answer the anchors read view (ADR 0349) of the project
+    compiled at PROJECT: with ENTITY the document
+    specforge.find_implementation replies, with --file the one
+    specforge.find_spec_for_source replies, under --format json. Human
+    output is one line per anchor, file:line-end_line, the item kind, the
+    fact id and via <holder kind>.<field>, a file query adding the
+    entity's kind and id in brackets; an empty answer says no anchor.
+    The notices (I212, W198) go to stderr under every format. ENTITY and
+    --file are exclusive and one is required: a usage error, exit 2. An
+    unknown ENTITY is E003, exit 1.
+  """
+  verify integration "anchors <entity> prints the rows find_implementation returns"
+  verify integration "anchors --file prints the rows find_spec_for_source returns"
+  verify integration "an entity and --file together are refused"
+  verify integration "anchors answers a Rust test's file and line after a real collect"
 }
 
 behavior provide_review_cli "Provide CLI Review Command" {
@@ -1336,11 +1359,15 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
     Protocol version. An entity's methods are written under its own
     `methods` and the annotations written after its fields under its own
     `annotations`, by the field's name (a block field's entry's by
-    `outer.key`), beside its fields.
+    `outer.key`), beside its fields. A collected fact's places in source
+    are written under its own `located` (omitted when it has none); its
+    `file` and `line` stay its store's, and the markdown export shows it at
+    its first place.
   """
   verify unit "graph format includes all nodes and edges"
   verify unit "graph format includes all fields and metadata"
   verify unit "graph format writes each entity's methods and its fields' annotations"
+  verify unit "graph format writes a fact's places under located, and markdown shows its first"
   verify unit "scoped export returns only reachable subgraph"
   verify unit "non-existent scope entity produces E003 and exit code 1"
   verify unit "depth without a scope is invalid input on every surface"

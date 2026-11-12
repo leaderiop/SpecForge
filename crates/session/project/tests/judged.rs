@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use specforge_project::baseline::{Checking, CommitReads};
 use specforge_project::testing::GSD_JUDGED_SPEC;
 use specforge_project::{SharedRuntime, UpdateKind, Watched};
 use specforge_test::prelude::*;
@@ -117,7 +118,8 @@ pub(crate) fn record_from(
     }
     text.insert_str(close, &statement);
     project.write("a.spec", text);
-    let compiled = compile(project);
+    // Compiled again in the runtime `compiled` was, whichever extension declares the rule.
+    let compiled = project.compile_in(Arc::clone(env.runtime().expect("a runtime")));
     let node = compiled
         .graph()
         .node(entity)
@@ -570,10 +572,13 @@ fn a_compute_pass_reads_judgements_and_a_v_field_is_its_fresh_value() {
         .expect("a V field");
     assert_eq!(legitimacy.text, "suspicious");
     // A pass is handed the judgements of each entity.
-    let input = specforge_project::passes::pass_input(&specforge_project::passes::PassContext {
-        judgements: Some(compiled.judgements()),
-        ..specforge_project::passes::PassContext::of(compiled.entities())
-    });
+    let input = specforge_project::passes::pass_input(
+        &specforge_project::passes::PassContext {
+            judgements: Some(compiled.judgements()),
+            ..specforge_project::passes::PassContext::of(compiled.entities())
+        },
+        &[],
+    );
     let audit = input.entities.iter().find(|e| e.id == "PA").unwrap();
     assert!(
         audit.judgements.iter().any(|j| j.rule == "gsd/W205"
@@ -645,8 +650,11 @@ fn re_verification_reads_the_baselines_judgements() {
             Path::new(""),
             files,
             Vec::new(),
-            &|_: &[String]| Vec::new(),
-            &fetch,
+            CommitReads {
+                sizes: &|_: &[String]| Vec::new(),
+                fetch: &fetch,
+            },
+            &Checking::of(compiled.environment()),
         )
     };
     // The files as they were: the verdict holds at that commit.

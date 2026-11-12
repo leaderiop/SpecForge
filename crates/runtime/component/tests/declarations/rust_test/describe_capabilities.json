@@ -1,0 +1,28 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "argv": [
+        "cargo-nextest",
+        "nextest",
+        "run",
+        "--workspace",
+        "--no-tests=warn",
+        "--tool-config-file",
+        "specforge:{config}",
+        "--profile",
+        "specforge"
+      ],
+      "call_kinds": [
+        "collect"
+      ],
+      "config": {
+        "name": "nextest.toml",
+        "template": "[profile.specforge]\nfail-fast = false\n\n[profile.specforge.junit]\npath = \"{report}\"\nstore-success-output = false\nstore-failure-output = false\n"
+      },
+      "name": "rust-test",
+      "port": "process",
+      "why": "run the command whose report the collector 'rust-test' reads"
+    }
+  ]
+}

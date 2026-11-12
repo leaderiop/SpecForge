@@ -36,6 +36,10 @@ tests/spec/
 # `specforge export --format dot > specforge-graph.dot`: regenerate it, never commit it
 /specforge-graph.dot
 .specforge/
+# The harness ledger names stores in the ignored `.specforge/`: a committed line would name nothing
+/specforge-harness
+# The GSD A/B's run files and transcripts: archived with the report, never committed
+/evaluation/gsd-ab/runs/
 .claude/worktrees/
 # Claude Code's per-user settings (shared ones belong in .claude/settings.json)
 **/.claude/settings.local.json

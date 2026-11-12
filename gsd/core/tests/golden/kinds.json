@@ -376,9 +376,27 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "PlanDecisions",
+        "source_kind": "plan",
+        "target_kind": "decision"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "TaskPlan",
         "source_kind": "task",
         "target_kind": "plan"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "TaskItems",
+        "source_kind": "task",
+        "target_kind": "item"
       },
       {
         "description": null,
@@ -577,6 +595,15 @@
         "label": "CommitDescendsFrom",
         "source_kind": "commit",
         "target_kind": "commit"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "CommitItemsChanged",
+        "source_kind": "commit",
+        "target_kind": "item"
       },
       {
         "description": null,
@@ -1662,6 +1689,14 @@
         "verify_kinds": []
       },
       {
+        "complete_when": {
+          "field": "status",
+          "values": [
+            "executed",
+            "needs_review",
+            "complete"
+          ]
+        },
         "description": "A phase of a milestone, named 03, 03.1 (inserted) or 999.1 (backlog) (GSD ROADMAP.md)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -3845,8 +3880,17 @@
             "target_kind": "plan"
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "`files_modified:` (paths from the project root, not existence-checked)",
+            "description": "`files_modified:` (paths from the project root, checked once the plan is complete: E016)",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -3855,8 +3899,17 @@
             "target_kind": null
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "pending",
             "default_value": null,
-            "description": "`files_deleted:`",
+            "description": "`files_deleted:` (checked while the plan is pending: E016; closed once it is complete)",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -3919,6 +3972,16 @@
             "name": "requirements",
             "required": false,
             "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "`decisions:` the context decisions this plan implements (`D-NN`, resolved in its phase), read back as `implemented_by`; gsd/E310, W317, W506 and E312 read it",
+            "edge": "PlanDecisions",
+            "field_type": "reference_list",
+            "inverse_of": "implemented_by",
+            "name": "decisions",
+            "required": false,
+            "target_kind": "decision"
           },
           {
             "default_value": null,
@@ -3993,8 +4056,16 @@
             "target_kind": null
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
             "default_value": null,
-            "description": "`<context>` @-refs (paths, not existence-checked)",
+            "description": "`<context>` @-refs (paths that exist now: E016)",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -4162,8 +4233,17 @@
             "target_kind": null
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "`<files>` (paths, not existence-checked; required for `auto`, gsd/E303)",
+            "description": "`<files>` (paths, checked once the task is done: E016; required for `auto`, gsd/E303)",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -4172,14 +4252,33 @@
             "target_kind": null
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "`<read_first>`",
+            "description": "`<read_first>` (paths, checked once the task is done: E016)",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
             "name": "read_first",
             "required": false,
             "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the code items the task targets: `@code/core` item facts, quoted; a pending task may name one not written yet",
+            "edge": "TaskItems",
+            "field_type": "reference_list",
+            "inverse_of": null,
+            "name": "items",
+            "required": false,
+            "target_kind": "item"
           },
           {
             "default_value": null,
@@ -4714,8 +4813,17 @@
             "target_kind": "plan"
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "`path:` (from the project root; not existence-checked)",
+            "description": "`path:` (from the project root; checked once the plan is complete: E016)",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -4815,8 +4923,17 @@
             "target_kind": "plan"
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "`from:` (a path, not existence-checked)",
+            "description": "`from:` (a path, checked once the plan is complete: E016)",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -4825,8 +4942,17 @@
             "target_kind": null
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "`to:` (a path, not existence-checked)",
+            "description": "`to:` (a path, checked once the plan is complete: E016)",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -5747,7 +5873,7 @@
           },
           {
             "default_value": null,
-            "description": "the paths it touched",
+            "description": "the paths it touched: a record, never checked (a later commit may delete one)",
             "edge": null,
             "field_type": "string_list",
             "immutable": true,
@@ -5861,7 +5987,7 @@
           },
           {
             "default_value": null,
-            "description": "the paths it touched",
+            "description": "the paths it touched under the project, project-relative; a rename touches both paths",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -5872,7 +5998,7 @@
           },
           {
             "default_value": null,
-            "description": "the paths it created, from `git log --summary`",
+            "description": "the paths it created under the project, project-relative",
             "edge": null,
             "field_type": "string_list",
             "inverse_of": null,
@@ -5883,7 +6009,7 @@
           },
           {
             "default_value": null,
-            "description": "added lines",
+            "description": "added lines, of every file it touched",
             "edge": null,
             "field_type": "integer",
             "inverse_of": null,
@@ -5894,7 +6020,7 @@
           },
           {
             "default_value": null,
-            "description": "deleted lines",
+            "description": "deleted lines, of every file it touched",
             "edge": null,
             "field_type": "integer",
             "inverse_of": null,
@@ -5912,6 +6038,18 @@
             "name": "descends_from",
             "required": false,
             "target_kind": "commit",
+            "writer": "harness"
+          },
+          {
+            "default_value": null,
+            "description": "the `@code/core` items whose lines it wrote or deleted inside, as they are named when it is recorded; absent when no item facts were served",
+            "edge": "CommitItemsChanged",
+            "field_type": "reference_list",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "items_changed",
+            "required": false,
+            "target_kind": "item",
             "writer": "harness"
           }
         ],
@@ -6577,6 +6715,14 @@
             "inverse_of": null,
             "members": [
               {
+                "checks": [
+                  {
+                    "args": {
+                      "root": "project"
+                    },
+                    "checker": "@specforge/checks:file"
+                  }
+                ],
                 "default_value": null,
                 "description": null,
                 "edge": null,
@@ -7175,6 +7321,14 @@
             "inverse_of": null,
             "members": [
               {
+                "checks": [
+                  {
+                    "args": {
+                      "root": "project"
+                    },
+                    "checker": "@specforge/checks:file"
+                  }
+                ],
                 "default_value": null,
                 "description": null,
                 "edge": null,
@@ -7300,8 +7454,17 @@
             "target_kind": null
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "`config_file`",
+            "description": "`config_file`: checked once the phase is executed (E016), as wave 0 may create it",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -7489,8 +7652,17 @@
             "target_kind": null
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "the row's test file",
+            "description": "the row's test file: checked once the phase is executed (E016), as wave 0 may create it",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -7570,8 +7742,17 @@
             "target_kind": "validation"
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "complete",
             "default_value": null,
-            "description": "the file",
+            "description": "the file wave 0 creates: checked once the phase is executed (E016)",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -7922,6 +8103,13 @@
         "verify_kinds": []
       },
       {
+        "complete_when": {
+          "field": "status",
+          "values": [
+            "waived",
+            "fixed"
+          ]
+        },
         "description": "A defect left in the code, open until it is fixed or waived (GSD WINDOWS.md)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -7958,8 +8146,17 @@
             "target_kind": "phase"
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "pending",
             "default_value": null,
-            "description": "`file`",
+            "description": "`file`: checked while the window is open (E016); a fixed one's may since be gone",
             "edge": null,
             "field_type": "string",
             "inverse_of": null,
@@ -8107,6 +8304,13 @@
         "verify_kinds": []
       },
       {
+        "complete_when": {
+          "field": "status",
+          "values": [
+            "accepted",
+            "declined"
+          ]
+        },
         "description": "A function whose complexity crossed the refactor threshold (GSD NN-REFACTOR.md)",
         "dot_color": null,
         "dot_fillcolor": null,
@@ -8124,8 +8328,17 @@
             "target_kind": "phase"
           },
           {
+            "checks": [
+              {
+                "args": {
+                  "root": "project"
+                },
+                "checker": "@specforge/checks:file"
+              }
+            ],
+            "checks_while": "pending",
             "default_value": null,
-            "description": "`target_file`",
+            "description": "`target_file`: checked while the proposal is open (E016)",
             "edge": null,
             "field_type": "string",
             "immutable": true,

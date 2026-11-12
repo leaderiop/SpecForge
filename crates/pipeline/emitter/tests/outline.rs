@@ -11,7 +11,6 @@ fn load_manifest(name: &str) -> ExtensionDeclaration {
         "software" => "@specforge/software",
         "governance" => "@specforge/governance",
         "formal" => "@specforge/formal",
-        "rust" => "@specforge/rust",
         "testing" => "@specforge/testing",
         "cargo-test" => "@specforge/cargo-test",
         _ => panic!("unknown extension: {}", name),
@@ -143,10 +142,10 @@ fn an_outline_card_names_the_categories_its_extension_declares() {
     provider.handshake.name = "@acme/provider".to_string();
     provider.handshake.version = "1.0.0".to_string();
     provider.handshake.providers = true;
-    let outline = outline_json(&[load_manifest("rust"), load_manifest("product"), provider]);
+    let outline = outline_json(&[load_manifest("testing"), load_manifest("product"), provider]);
     assert_eq!(
-        card(&outline, "@specforge/rust")["contributes"],
-        json!(["analyzers"])
+        card(&outline, "@specforge/testing")["contributes"],
+        json!(["enhancements", "validation_rules", "passes"])
     );
     assert_eq!(
         card(&outline, "@specforge/product")["contributes"],

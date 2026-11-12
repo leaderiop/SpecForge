@@ -50,7 +50,8 @@ pub fn rustfmt(ctx: &Ctx, _: &Selection) -> Result<(), String> {
     }
     for manifest in outside_workspace(ctx.repo) {
         // `--all` for `gsd/`: a virtual manifest with several members is "Failed to find targets" without it, and
-        // a guest or fixture (a member of no workspace of its own) is refused with it.
+        // a guest or fixture (a member of no workspace of its own) is refused with it; a parity fixture under
+        // `gsd/parity/fixtures/` declares its own workspace, so it takes `--all` too.
         let all: &[&str] = if manifest.starts_with("gsd/") {
             &["--all"]
         } else {
@@ -408,7 +409,12 @@ pub fn dogfood(ctx: &Ctx, _: &Selection) -> Result<(), String> {
             Err(format!("`specforge {}` failed", args.join(" ")))
         }
     };
-    let collect = json(ctx, &["collect", "--report"], &[&reports])?;
+    // The root project also enables the source collectors, so the report files name their runner.
+    let collect = json(
+        ctx,
+        &["collect", "--runner", "cargo-test", "--report"],
+        &[&reports],
+    )?;
     let analyze = json(ctx, &["analyze", "coverage"], &[])?;
     let (lines, failed) = judge::dogfood_verdict(&collect, &analyze);
     for line in &lines {
@@ -505,16 +511,20 @@ fn first_problem(lines: &[String]) -> String {
         .map_or_else(String::new, |l| l.trim().to_string())
 }
 
-/// `specforge check --path <project> --format json --effects cached` for every project: each one's diagnostics. The
-/// gate never reaches the network: it judges what the effects journal holds (ADR 0337 D7).
+/// `specforge check --path <project> --format json --effects cached` for every project of a copy of the tracked tree
+/// ([`crate::checked_tree`]): each one's diagnostics, keyed by the project's root in the repository. The gate never
+/// reaches the network (ADR 0337 D7), and no fact store, ledger or journal of this machine is in the copy.
 fn project_diagnostics(ctx: &Ctx) -> Result<BTreeMap<String, Vec<Value>>, String> {
     let specforge = ctx.specforge()?;
+    // The tracked tree alone: a local collect's fact stores, its ledger or an effects journal moves no count.
+    let tree = ctx.repo.target_dir.join("gate/specs");
+    crate::checked_tree::copy_tracked(&ctx.repo.root, &tracked_paths(ctx)?, &tree)?;
     let mut found = BTreeMap::new();
     for project in ctx.repo.projects()? {
         let (_, out) = ctx.capture(ctx.cmd(specforge).args([
             "check",
             "--path",
-            &project.root,
+            &tree.join(&project.root).to_string_lossy(),
             "--format",
             "json",
             "--effects",

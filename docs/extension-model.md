@@ -25,7 +25,6 @@ Everything below is a builder call in the extension SDK (`ContributionsBuilder`,
 | **Commands** | `specforge <extension> <command>` on the CLI, promoted to an MCP tool of the same name | `command` |
 | **MCP tools and resources** | Explicit tools and resources for AI agents | `mcp_tool`, `mcp_resource` |
 | **Collectors** | A test runner `specforge collect` can run (after you approve the command) and the mapping from its report to entities | `collector` |
-| **Analyzers** | A source-code scanner `specforge infer` uses to suggest entities from existing code | `analyzer` |
 | **Providers** | A `ref` scheme the project can configure (see [below](#providers-registered-not-yet-connected)) | `providers` |
 | **Peers** | Other extensions it needs, or works with when present, with a version range | `peer`, `optional_peer` |
 | Starter file, diagram colour, a migration hook | Conveniences: what `specforge init` writes, how `model` and `outline` draw it | `starter_template`, `theme_color`, `migration_hook_handler` |
@@ -96,7 +95,7 @@ Extensions load in peer order: an extension loads after the peers it declares.
 
 ## The builtins are examples
 
-SpecForge ships twelve builtin extensions. They are a starter set, aimed at software and product work, and they
+SpecForge ships fourteen builtin extensions. They are a starter set, aimed at software and product work, and they
 are written with the same SDK any extension uses:
 
 | Builtin | Shows how to |
@@ -107,10 +106,11 @@ are written with the same SDK any extension uses:
 | `@specforge/formal` | Add analysis passes and fields to kinds it does not own |
 | `@specforge/testing` | Declare no kind at all, only `verify` obligations and a coverage pass |
 | `@specforge/cargo-test`, `@specforge/vitest` | Declare a collector for one test runner |
-| `@specforge/rust`, `@specforge/typescript` | Declare a source analyzer for `specforge infer` |
 | `@code/core` | Declare collector-written kinds, a family builtin's own codes, and check passes over facts |
 | `@specforge/checks` | Declare value checkers with scopes and family switches, on a kit a domain pack can link too |
 | `@javascript/node-test` | Declare a collector that reads project files and answers facts, with an extension library (`specforge-code-junit`) |
+| `@rust/cargo`, `@rust/source`, `@rust/test` | Collectors served each other's facts: a manifest library (`cargo_toml`), the host's parser, and a config file the host writes for a command |
+| `@javascript/source` | Read the project's source with the host's reader through a query it ships, and share a library (`specforge-javascript-workspace`) with another pack |
 
 The [extension inventory](extension-inventory.md) lists exactly what each declares; the
 [entity pages](entities/) document each builtin kind.

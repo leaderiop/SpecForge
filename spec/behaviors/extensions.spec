@@ -232,7 +232,7 @@ behavior load_extension_declaration "Load Extension Declaration" {
     The host MUST read an extension's declaration through one loader: its
     handshake, then every describe category (entities, edges,
     shared_fields, enhancements, validation_rules, surfaces, collectors,
-    analyzers, passes, feature_flags, codes), the only ones the protocol
+    passes, feature_flags, codes), the only ones the protocol
     defines. A guest whose handshake protocol version (compared as
     numeric major, minor) is older than a category's `since` is not asked
     for it and loads with it empty (codes: 1.7).
@@ -318,7 +318,9 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
   verify unit "a declaration with an empty name or version produces E030"
   verify unit "a malformed ext_short produces E030"
   verify unit "a capability that is not sound is W021 and grants nothing"
+  verify unit "a config file that is not sound is W021 and grants nothing"
   verify unit "a collector whose capability names no process capability it declares is W021"
+  verify unit "a collector that keeps a capture with no command is W021"
   verify unit "a capability that may POST to the hosts values name is W021"
   verify unit "a capability keeping more than 16 MiB or a sixteenth of its memory is W021"
   verify unit "peer dependencies are checked in the registry build"
@@ -870,7 +872,7 @@ behavior search_registry "Search Registry" {
     pre-release only when the package has none). Results MUST be
     filterable by declared category (--contributes, one of entities,
     edges, shared_fields, enhancements, validation_rules, surfaces,
-    collectors, analyzers, passes, feature_flags): a registry lists only
+    collectors, passes, feature_flags): a registry lists only
     the packages whose listed version's stored declaration declares
     something in that category, and an unknown category is refused before
     any request. Results from multiple

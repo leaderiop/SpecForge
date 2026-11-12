@@ -248,7 +248,9 @@ pub fn changed(before: &BTreeMap<String, String>, after: &BTreeMap<String, Strin
 }
 
 /// Runs the hook `route` installed on `host` with the event, asserting that nothing but the extension's state
-/// under `.specforge/state/gsd__core/` changed in the project (the black-box invariant: no r44 hook answers a plan).
+/// under `.specforge/state/gsd__core/` and the host's check cache under `.specforge/effects/checks/` (a compile's
+/// value checks keep what they found there) changed in the project (the black-box invariant: no hook answers a
+/// plan).
 pub fn run_hook(p: &Project, host: &str, route: &str, event: &str, home: &Home) -> Run {
     let command = installed_command(p, host, route);
     let before = tree(p);
@@ -258,7 +260,8 @@ pub fn run_hook(p: &Project, host: &str, route: &str, event: &str, home: &Home) 
     assert!(
         moved
             .iter()
-            .all(|f| f.starts_with(".specforge/state/gsd__core/")),
+            .all(|f| f.starts_with(".specforge/state/gsd__core/")
+                || f.starts_with(".specforge/effects/checks/")),
         "{route} on {host} changed {moved:?}"
     );
     run

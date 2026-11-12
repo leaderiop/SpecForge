@@ -199,8 +199,8 @@ fn a_layout_that_breaks_the_naming_rule_is_named() {
     };
     let wasm = |dir: &str| std::fs::create_dir_all(root.path().join(dir).join("wasm")).unwrap();
     // Within the rule: a depth-1 builtin, a family builtin and a family library.
-    write("extensions/rust/Cargo.toml", "");
-    wasm("extensions/rust");
+    write("extensions/product/Cargo.toml", "");
+    wasm("extensions/product");
     write("extensions/javascript/node-test/Cargo.toml", "");
     wasm("extensions/javascript/node-test");
     write(
@@ -208,7 +208,7 @@ fn a_layout_that_breaks_the_naming_rule_is_named() {
         "[package]\nname = \"specforge-code-junit\"\n\n[lib]\ncrate-type = [\"rlib\"]\n",
     );
     // Against it: a crate in a crate, the specforge family, a cdylib without wasm/, an empty entry.
-    write("extensions/rust/x/Cargo.toml", "");
+    write("extensions/product/x/Cargo.toml", "");
     write("extensions/specforge/x/Cargo.toml", "");
     write(
         "extensions/code/lib/Cargo.toml",
@@ -226,9 +226,9 @@ fn a_layout_that_breaks_the_naming_rule_is_named() {
                 "specforge_ext_javascript_node_test.wasm"
             ),
             Named::new(
-                "extensions/rust",
-                "@specforge/rust",
-                "specforge_ext_rust.wasm"
+                "extensions/product",
+                "@specforge/product",
+                "specforge_ext_product.wasm"
             ),
         ]
     );
@@ -237,7 +237,7 @@ fn a_layout_that_breaks_the_naming_rule_is_named() {
         [
             "extensions/code/lib: a crate without wasm/ is an extension library, crate-type = [\"rlib\"]",
             "extensions/empty: neither a crate nor a family",
-            "extensions/rust/x: a crate dir holds no crate",
+            "extensions/product/x: a crate dir holds no crate",
             "extensions/specforge: the specforge family is refused (a @specforge/ builtin lives at extensions/<dir>)",
         ]
     );

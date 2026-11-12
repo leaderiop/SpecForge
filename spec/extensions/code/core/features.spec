@@ -32,3 +32,20 @@ feature cc_owner_state "An Entity Is Pending While Its Owner Is" {
     own kind's declaration, or its nearest scope ancestor's, does not hold.
   """
 }
+
+feature cc_code_facts "Code Facts Every Pack Names Alike" {
+  status   in_progress
+  problem  """
+    Source and runner packs write Rust tests, Rust and JavaScript items and
+    packages, and must mint identical ids without calling each other; one
+    scheme now holds several kinds, so a store of items is no evidence a
+    test runner ran.
+  """
+  solution """
+    One linked library, specforge-code-facts, mints every id and fact in a
+    grammar a SCIP symbol maps into (ADR 0347). @code/core declares the item
+    and package kinds beside test, and judges a cited reference by the
+    collected kinds its field admits: E101 when a store holds one, W102
+    naming the pack that writes it otherwise.
+  """
+}

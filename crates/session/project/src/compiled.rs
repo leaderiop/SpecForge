@@ -261,9 +261,10 @@ impl CompiledProject {
         if keep_unseen {
             // The ledger was rewritten by another writer since this change was planned: its lines for entities, or
             // for values, neither project holds are that writer's, and stay.
-            let held = |project: &CompiledProject, l: &crate::harness::Line| match l.facts_of() {
-                // A fact store's line is the collect's to replace, never another writer's.
-                Some((collector, _)) => harness.has_collector(collector),
+            let held = |project: &CompiledProject, l: &crate::harness::Line| match l.collector_of()
+            {
+                // A fact store's line, or its stale line, is the collect's to replace, never another writer's.
+                Some(collector) => harness.has_collector(collector),
                 None if l.is_value() => harness
                     .value(project.graph(), forms, &l.subject, &l.key)
                     .is_some(),
@@ -282,7 +283,11 @@ impl CompiledProject {
         &self,
         revision: &str,
     ) -> Result<CompiledProject, crate::baseline::UnknownRevision> {
-        let read = crate::baseline::Baseline::since(&self.env, revision)?;
+        let checking = crate::baseline::Checking {
+            effects: self.effects(),
+            cache: Arc::clone(&self.check_cache),
+        };
+        let read = crate::baseline::Baseline::since(&self.env, revision, &checking)?;
         let mut project = self.clone();
         project.baseline = Some(Arc::new(crate::baseline::HeldBaseline {
             stamp: None,
@@ -359,6 +364,14 @@ impl CompiledProject {
     /// last change of that file. `None` for a file it does not hold.
     pub fn source_text(&self, path: &str) -> Option<Arc<str>> {
         self.sources.text(path).cloned()
+    }
+
+    /// The digest (`sha256:<hex>`) each served fact store recorded of each source file its facts are placed in, by
+    /// the file's key, then by the store's path, as the host read it when it admitted them (ADR 0346 D2): what says a
+    /// source file changed since a store's facts were collected (ADR 0349 D5). Two stores naming one file each keep
+    /// their own digest: a file is the text one store's facts were placed in and not the other's when they differ.
+    pub fn fact_sources(&self) -> BTreeMap<&str, BTreeMap<&str, &str>> {
+        self.sources.fact_sources()
     }
 
     /// [`Self::source_text`] of every file, shared rather than copied.
@@ -610,12 +623,17 @@ impl CompiledProject {
             let read = match held {
                 Some(held) if held.pinned || held.stamp == stamp => held,
                 _ => Arc::new(crate::baseline::HeldBaseline {
-                    read: crate::baseline::Baseline::of_head(&env),
+                    read: crate::baseline::Baseline::of_head(
+                        &env,
+                        &crate::baseline::Checking {
+                            effects: this.effects(),
+                            cache: Arc::clone(&this.check_cache),
+                        },
+                    ),
                     stamp,
                     pinned: false,
                 }),
             };
-            let authored = env.entity_snapshot(graph);
             let mut ledger = Vec::new();
             let overlaid;
             let disk: &dyn specforge_registry::Disk = if this.ledger_overlay.is_empty() {
@@ -625,15 +643,23 @@ impl CompiledProject {
                     crate::harness::overlay::through(disk, this, &this.ledger_overlay, &mut ledger);
                 &overlaid
             };
-            // Before the rules: a verdict digests what the checks found (ADR 0337 §6).
-            let values = crate::values::run(
-                &env,
-                &authored,
-                this.effects(),
+            let mut authored = env.entity_snapshot(graph);
+            // A fact still naming what a rename moved is told where it went, from the ledger (ADR 0346 D7).
+            if let Some(root) = this.root().filter(|_| env.reads_facts()) {
+                authored.suggest_moved(&crate::facts::moves(&crate::facts::recorded(disk, root)));
+            }
+            let text_of = |file: &str| this.sources.text(file).cloned();
+            // One budget over both stages of the values phase (ADR 0350).
+            let mut stages = crate::values::StageContext {
+                effects: this.effects(),
                 disk,
-                &this.check_cache,
-                &|file| this.sources.text(file).cloned(),
-            );
+                cache: &this.check_cache,
+                text_of: &text_of,
+                spent: crate::values::Spent::starting(env.value_budget()),
+            };
+            // Before the rules: a verdict digests what the checks found (ADR 0337 §6).
+            let mut values =
+                crate::values::run(&env, &authored, crate::values::Stage::Ungated, &mut stages);
             // No checker at all leaves the values a test gave (`with_checked_values`).
             let checked_values = if env.registries().checks().is_empty() {
                 Arc::clone(&this.checked_values)
@@ -650,8 +676,14 @@ impl CompiledProject {
             );
             baseline = Some(read);
             let entities = Arc::new(checked.entities.unwrap_or(authored));
+            // A field whose checks wait for its owner: owner state is read on the merged snapshot (ADR 0350).
+            let gated =
+                crate::values::run(&env, &entities, crate::values::Stage::Gated, &mut stages);
+            values.checks.extend(gated.checks);
             let mut diagnostics = values.diagnostics;
             diagnostics.extend(checked.diagnostics);
+            diagnostics.extend(gated.diagnostics);
+            diagnostics.extend(crate::values::approvals(this.effects(), &stages.spent));
             // What this machine did not perform of them: an effect's, once for the run.
             diagnostics.extend(crate::effects::not_run(&this.effects().log()));
             // A write that was interrupted (ADR 0289): the next writer rolls it back, a check only says so.

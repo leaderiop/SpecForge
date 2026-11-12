@@ -149,7 +149,7 @@ The `#[extension]` attribute generates `specforge_extension_build()`;
 `component_guest!` serves the protocol and every export you declare with its
 handler: commands ([A command](#a-command)), MCP tools and resources,
 compiler passes (`p.run`), collectors (`k.collect`), custom rules
-(`r.validate`), scanners (`a.scan`) and the migration hook. The SDK decodes
+(`r.validate`) and the migration hook. The SDK decodes
 each export's input and encodes its answer, as the protocol's types
 (`docs/extension-protocol.md`, "Operate"). `specforge extension init`
 scaffolds all of this for you.

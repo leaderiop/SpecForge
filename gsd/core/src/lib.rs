@@ -23,6 +23,8 @@ mod time;
 
 use specforge_extension_sdk::prelude::*;
 
+pub use kinds::path_fields;
+
 /// The gsd-core release this crate tracks; `[package.metadata.gsd] tracks` in `Cargo.toml` says the same.
 pub const TRACKS: &str = concat!("gsd-core@", gsd_kit::tracked_version!());
 
@@ -40,7 +42,7 @@ impl Contributions for GsdCore {
     fn contribute(c: &mut ContributionsBuilder) {
         c.meta.keywords.push(format!("tracks:{TRACKS}"));
         c.optional_peer("@code/core", CODE_CORE_RANGE);
-        // A `files` field is read by `@specforge/checks:file`.
+        // A path field is read by `@specforge/checks:file`.
         c.peer("@specforge/checks", "^1.0");
         agents::declare(c);
         kinds::declare(c);

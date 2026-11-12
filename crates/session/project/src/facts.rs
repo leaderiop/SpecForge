@@ -1,11 +1,15 @@
 //! A collector's facts (ADR 0327): the store a collect writes, the key it files it under, and what the host admits;
 //! then the stores a session serves (D5): each one `specforge-harness` records, read as one file of read-only
-//! entities, W191 for one it does not record and W192 for one that does not read.
+//! entities, W191 for one it does not record and W192 for one that does not read; one a rename marked stale is
+//! served with the names the rename wrote, W197 ([`stale`]). [`store`] is the one reader of a store's text.
+
+mod stale;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+use specforge_common::facts::{FACTS_DIR, filed, is_fact_store};
 use specforge_common::{Diagnostic, SourceRoot, SourceSpan, Sym, codes};
 use specforge_graph::field_form::spell;
 use specforge_graph::{FieldForm, FieldForms, Reading};
@@ -13,9 +17,8 @@ use specforge_parser::{
     CURRENT_FORMAT_VERSION, Entity, EntityId, EntityKind, FieldEntry, FieldMap, FieldValue,
     ListItem, SpecFile, Written,
 };
-use specforge_protocol_types::{Fact, FactStore};
+use specforge_protocol_types::{Fact, FactLocation, FactStore};
 use specforge_registry::{Disk, EntitySnapshot, KindRegistry};
-pub use specforge_registry::{FACTS_DIR, filed, is_fact_store};
 
 use crate::Environment;
 use crate::harness::{LEDGER_FILE, Ledger, Line};
@@ -30,20 +33,32 @@ pub struct Store {
     pub collector: String,
     pub extension: String,
     pub key: String,
+    /// The digest (`sha256:<hex>`) of each source file the facts' places name, by its key from the project root, as
+    /// the host read it when it admitted them (ADR 0346 D2): what a rename checks the file against before it rewrites
+    /// a name there.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub sources: BTreeMap<String, String>,
     pub facts: Vec<Fact>,
 }
 
 impl Store {
-    pub const VERSION: u32 = 1;
+    pub const VERSION: u32 = 2;
 
-    /// The store of `facts`, sorted by kind and id.
-    pub fn new(collector: &str, extension: &str, key: &str, mut facts: Vec<Fact>) -> Self {
+    /// The store of `facts`, sorted by kind and id, and the digests of the `sources` their places name.
+    pub fn new(
+        collector: &str,
+        extension: &str,
+        key: &str,
+        mut facts: Vec<Fact>,
+        sources: BTreeMap<String, String>,
+    ) -> Self {
         facts.sort_by(|a, b| (&a.kind, &a.id).cmp(&(&b.kind, &b.id)));
         Store {
             store: Self::VERSION,
             collector: collector.to_string(),
             extension: extension.to_string(),
             key: key.to_string(),
+            sources,
             facts,
         }
     }
@@ -140,9 +155,10 @@ pub fn superseded(disk: &dyn Disk, root: &Path, collector: &str, key: &str) -> V
         .collect()
 }
 
-/// Why the host refuses `facts` (E116, ADR 0327 Decision 6), each a reason: a kind that is no loaded collected kind,
-/// an id that is empty or names none of its kind's schemes, an id the answer repeats. None: every fact is admitted.
-pub fn admit(facts: &[Fact], kinds: &KindRegistry) -> Result<(), Vec<String>> {
+/// Why the host refuses `facts` a collector that `answers` those kinds answered (E116, ADR 0327 D5, ADR 0345
+/// D4), each a reason: a kind that is no loaded collected kind, or one the collector does not list in `answers`, an id
+/// that is empty or names none of its kind's schemes, an id the answer repeats. None: every fact is admitted.
+pub fn admit(facts: &[Fact], kinds: &KindRegistry, answers: &[String]) -> Result<(), Vec<String>> {
     let mut reasons = Vec::new();
     let mut seen = BTreeSet::new();
     for fact in facts {
@@ -153,6 +169,13 @@ pub fn admit(facts: &[Fact], kinds: &KindRegistry) -> Result<(), Vec<String>> {
             ));
             continue;
         };
+        if !answers.contains(&fact.kind) {
+            reasons.push(format!(
+                "fact '{}' is of the kind '{}', which the collector does not list in its answers",
+                fact.id, fact.kind
+            ));
+            continue;
+        }
         if fact.id.is_empty() {
             reasons.push(format!(
                 "a fact of the kind '{}' has an empty id",
@@ -198,10 +221,18 @@ pub(crate) fn recorded(disk: &dyn Disk, root: &Path) -> Ledger {
     Ledger::parse(&String::from_utf8_lossy(&bytes)).ledger
 }
 
+/// Each path a rename moved and the path it is now, from the ledger's `new moved:old` records (a move carries an
+/// earlier record of what it moves, so each is the path now).
+pub(crate) fn moves(ledger: &Ledger) -> BTreeMap<String, String> {
+    ledger
+        .lines()
+        .filter_map(|line| Some((line.moved_from()?.to_string(), line.subject.clone())))
+        .collect()
+}
+
 /// Read the fact store `key` of `sources` through `disk` (ADR 0327 D5) against the harness ledger `recorded` (read
-/// through `disk` when `None`): its text when a `facts:` line records exactly its collector, key and digest; W191
-/// when no line does; W192 when it is not text; `Gone` when it is not there. Its facts are parsed once, by
-/// [`served`].
+/// through `disk` when `None`): its served text ([`served_text`]); `Gone` when it is not there. Its facts are parsed
+/// once, by [`store`].
 pub(crate) fn read(
     disk: &dyn Disk,
     sources: &SourceRoot,
@@ -213,12 +244,6 @@ pub(crate) fn read(
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Read::Gone,
         Err(e) => return Read::Unreadable(unreadable(key, e)),
     };
-    let Some((collector, filed_under)) = filed(key) else {
-        return Read::Unreadable(unreadable(
-            key,
-            "it is not named .specforge/facts/<key>/<collector>.json",
-        ));
-    };
     let read_here;
     let recorded = match recorded {
         Some(recorded) => recorded,
@@ -227,31 +252,86 @@ pub(crate) fn read(
             &read_here
         }
     };
-    if !recorded.contains(&Line::facts(collector, filed_under, &bytes)) {
-        return Read::Unreadable(
-            Diagnostic::new(
-                codes::W191,
-                format!(
-                    "fact store '{key}' is not the one specforge-harness records for collector '{collector}' \
-                     (collected on another commit or branch, or changed since); its facts are not served"
-                ),
-            )
-            .with_suggestion("run `specforge collect`"),
-        );
-    }
-    match String::from_utf8(bytes) {
+    match served_text(key, bytes, recorded) {
         Ok(text) => Read::Text(text),
-        Err(e) => Read::Unreadable(unreadable(key, e)),
+        Err(diagnostic) => Read::Unreadable(diagnostic),
     }
 }
 
-/// The store `text` of the fact store `key` as one file of read-only entities (D5): each fact an entity of its kind,
-/// id, title and fields, spanned at the file's first character. A field's value is read from its JSON by the field's
-/// form in `forms`, as a `.spec` file writes it (ADR 0234): a string a word field holds bare is the bare word (an
-/// enum's `passed`, a reference's id), any other string text; an integer, a bool; an array of strings a list whose
-/// items are written as the field writes each. W192 when the text is no store this specforge reads.
-pub(crate) fn served(key: &str, text: &str, forms: &FieldForms) -> Result<SpecFile, Diagnostic> {
-    let store = serde_json::from_str::<Store>(text).map_err(|e| unreadable(key, e))?;
+/// The text a session serves of the fact store `key` whose file holds `bytes`, against the harness ledger
+/// `recorded`: the bytes, when a `facts:` line records exactly its collector, key and digest, and the renames its
+/// `stale:` lines mark exactly those bytes with after them (so a ledger change re-serves it); W191 when no line
+/// records them; W192 when they are not text or the key is no store's.
+fn served_text(key: &str, bytes: Vec<u8>, recorded: &Ledger) -> Result<String, Diagnostic> {
+    let Some((collector, filed_under)) = filed(key) else {
+        return Err(unreadable(
+            key,
+            "it is not named .specforge/facts/<key>/<collector>.json",
+        ));
+    };
+    if !recorded.contains(&Line::facts(collector, filed_under, &bytes)) {
+        return Err(Diagnostic::new(
+            codes::W191,
+            format!(
+                "fact store '{key}' is not the one specforge-harness records for collector '{collector}' \
+                 (collected on another commit or branch, or changed since); its facts are not served"
+            ),
+        )
+        .with_suggestion("run `specforge collect`"));
+    }
+    let renames = stale::renames(recorded, collector, filed_under, &bytes);
+    let text = String::from_utf8(bytes).map_err(|e| unreadable(key, e))?;
+    Ok(stale::carried(text, &renames))
+}
+
+/// The fact stores a session serves under the project root `root`, read through `disk`: each store the harness ledger
+/// records exactly as it is on disk, in the ledger's order. A store the ledger does not record as it is (W191), or
+/// that is no store this specforge reads (W192), is none of them.
+pub fn recorded_stores(disk: &dyn Disk, root: &Path) -> Vec<Store> {
+    let ledger = recorded(disk, root);
+    ledger
+        .lines()
+        .filter_map(Line::facts_of)
+        .filter_map(|(collector, key)| {
+            let path = Store::path(collector, key);
+            let bytes = disk.read(&root.join(&path)).ok()?;
+            let text = served_text(&path, bytes, &ledger).ok()?;
+            store(&path, &text).ok().map(|served| served.store)
+        })
+        .collect()
+}
+
+/// The facts of `kinds` in the [`recorded_stores`] under the project root `root`, sorted by kind and id (ADR 0345
+/// D3): what a collector's `facts` input is served of a kind no collector of its collect answers.
+pub fn recorded_facts(disk: &dyn Disk, root: &Path, kinds: &[&str]) -> Vec<Fact> {
+    if kinds.is_empty() {
+        return Vec::new();
+    }
+    let mut facts: Vec<Fact> = recorded_stores(disk, root)
+        .into_iter()
+        .flat_map(|store| store.facts)
+        .filter(|fact| kinds.contains(&fact.kind.as_str()))
+        .collect();
+    facts.sort_by(|a, b| (&a.kind, &a.id).cmp(&(&b.kind, &b.id)));
+    facts
+}
+
+/// A store as a session serves it ([`store`]).
+#[derive(Debug)]
+pub struct Served<'t> {
+    /// The store, each name a rename marked it stale with read as the rename wrote it.
+    pub store: Store,
+    /// The collector's bytes the store was read from: what a `stale:` line digests.
+    pub bytes: &'t str,
+    /// W197 when a rename marked it stale.
+    pub stale: Option<Diagnostic>,
+}
+
+/// The served text `text` of the fact store `key` ([`read`]) read: the one reader of a store. Its facts' names a rename
+/// marked it stale with are read as the rename wrote them, with W197 (ADR 0346 D7). W192 when the text is no store
+/// this specforge reads.
+pub fn store<'t>(key: &str, text: &'t str) -> Result<Served<'t>, Diagnostic> {
+    let (mut store, bytes, renames) = stale::split(text).map_err(|e| unreadable(key, e))?;
     if store.store != Store::VERSION {
         return Err(unreadable(
             key,
@@ -262,6 +342,28 @@ pub(crate) fn served(key: &str, text: &str, forms: &FieldForms) -> Result<SpecFi
             ),
         ));
     }
+    let stale = stale::follow(key, &mut store, &renames);
+    Ok(Served {
+        store,
+        bytes,
+        stale,
+    })
+}
+
+/// The served text `text` of the fact store `key` as one file of read-only entities (D5): each fact an entity of its
+/// kind, id, title and fields, spanned at the file's first character (what identifies a fact) and `located` where its
+/// collector says it is written (ADR 0346 D3). A field's value is read from its JSON by the field's form in `forms`,
+/// as a `.spec` file writes it (ADR 0234): a string a word field holds bare is the bare word (an enum's `passed`, a
+/// reference's id), any other string text; an integer, a bool; an array of strings a list whose items are written as
+/// the field writes each. Each value is spanned where its name is written (`named_at`), else where the fact is, else
+/// at the store. W192 when the text is no store this specforge reads; W197, in the file's format diagnostics, when a
+/// rename marked it stale. Beside it, the digests the store records of the source files its places name.
+pub(crate) fn served(
+    key: &str,
+    text: &str,
+    forms: &FieldForms,
+) -> Result<(SpecFile, BTreeMap<String, String>), Diagnostic> {
+    let Served { store, stale, .. } = store(key, text)?;
     let file = Sym::new(key);
     let span = SourceSpan {
         file,
@@ -270,7 +372,7 @@ pub(crate) fn served(key: &str, text: &str, forms: &FieldForms) -> Result<SpecFi
         end_line: 1,
         end_col: 1,
     };
-    Ok(SpecFile {
+    let file = SpecFile {
         path: file,
         imports: Vec::new(),
         entities: store
@@ -280,25 +382,41 @@ pub(crate) fn served(key: &str, text: &str, forms: &FieldForms) -> Result<SpecFi
             .collect(),
         errors: Vec::new(),
         format_version: CURRENT_FORMAT_VERSION,
-        format_diagnostics: Vec::new(),
-    })
+        format_diagnostics: stale.into_iter().collect(),
+    };
+    Ok((file, store.sources))
 }
 
-/// One fact as an entity spanned at `span`, its values read by `forms`: titled by its id when it gives no title.
+/// One fact as an entity spanned at `span` (its store's) and located at its places, its values read by `forms` and
+/// spanned at their names' places: titled by its id when it gives no title.
 fn entity(fact: Fact, span: &SourceSpan, forms: &FieldForms) -> Entity {
+    let located: Vec<SourceSpan> = fact.at.iter().map(source_span).collect();
+    // Where a value no name place is recorded for is placed: the fact's first place, else its store.
+    let fallback = located.first().unwrap_or(span).clone();
     let mut fields = FieldMap::new();
     for (name, value) in fact.fields {
         let form = match forms.reading(&fact.kind, &name) {
             Reading::Declared(form) => Some(form),
             Reading::Member | Reading::Undeclared => None,
         };
-        if let Some(value) = field_value(value, form, span) {
+        let named = fact.named_at.get(&name);
+        let place = |text: &str| {
+            named
+                .and_then(|ids| ids.get(text))
+                .and_then(|places| places.first())
+                .map_or_else(|| fallback.clone(), source_span)
+        };
+        let value_span = match &value {
+            serde_json::Value::String(text) => place(text),
+            _ => fallback.clone(),
+        };
+        if let Some(value) = field_value(value, form, &place) {
             // Spanned as its list items are, so a single reference (`test_run.test`) is a written token too.
             fields.push_entry(FieldEntry {
                 key: Sym::new(&name),
                 value,
                 annotations: Vec::new(),
-                value_span: Some(span.clone()),
+                value_span: Some(value_span),
             });
         }
     }
@@ -323,15 +441,27 @@ fn entity(fact: Fact, span: &SourceSpan, forms: &FieldForms) -> Entity {
         body_comments: Vec::new(),
         trailing_comments: Vec::new(),
         value_comments: Vec::new(),
+        located,
     }
 }
 
-/// A fact's JSON value as a field value of `form` (none for an undeclared field: text, items quoted); `None` for a
-/// form no field holds (an object, a fraction, a null).
+/// A fact's place as the host spans source: its file a source key, its lines and byte columns as written.
+pub fn source_span(place: &FactLocation) -> SourceSpan {
+    SourceSpan {
+        file: Sym::new(&place.file),
+        start_line: place.start_line,
+        start_col: place.start_col,
+        end_line: place.end_line,
+        end_col: place.end_col,
+    }
+}
+
+/// A fact's JSON value as a field value of `form` (none for an undeclared field: text, items quoted), each list item
+/// spanned at `place` of its text; `None` for a form no field holds (an object, a fraction, a null).
 fn field_value(
     value: serde_json::Value,
     form: Option<&FieldForm>,
-    span: &SourceSpan,
+    place: &dyn Fn(&str) -> SourceSpan,
 ) -> Option<FieldValue> {
     use serde_json::Value;
     let written = |text: &str| form.map_or(Written::Quoted, |form| spell::form(form, text));
@@ -346,8 +476,8 @@ fn field_value(
                 .map(|item| match item {
                     Value::String(text) => Some(ListItem {
                         written: written(&text),
+                        span: place(&text),
                         text,
-                        span: span.clone(),
                     }),
                     _ => None,
                 })
@@ -357,8 +487,8 @@ fn field_value(
     })
 }
 
-/// The fact stores `entities` holds facts of, by store file (D6): each one's collector and key, the schemes its
-/// facts' ids are in, and how many facts it holds. What a pass is sent as `fact_stores`.
+/// The fact stores `entities` holds facts of, by store file (D6): each one's collector and key, the kinds of its facts
+/// by the scheme of their ids (ADR 0347 D9), and how many facts it holds. What a pass is sent as `fact_stores`.
 pub fn stores(entities: &EntitySnapshot) -> Vec<FactStore> {
     let mut stores: BTreeMap<&str, FactStore> = BTreeMap::new();
     for (record, _) in entities.iter() {
@@ -372,243 +502,15 @@ pub fn stores(entities: &EntitySnapshot) -> Vec<FactStore> {
             ..FactStore::default()
         });
         store.facts += 1;
-        if let Some(scheme) = specforge_common::scheme::of(&record.id)
-            && !store.schemes.iter().any(|s| s == scheme)
-        {
-            store.schemes.push(scheme.to_string());
-            store.schemes.sort();
+        if let Some(scheme) = specforge_common::scheme::of(&record.id) {
+            let kinds = store.held.entry(scheme.to_string()).or_default();
+            if let Err(at) = kinds.binary_search(&record.kind) {
+                kinds.insert(at, record.kind.clone());
+            }
         }
     }
     stores.into_values().collect()
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_store_is_written_canonically_whatever_order_its_facts_came_in() {
-        let a = Fact::new("test", "js:b#2").field("z", 1).field("a", "x");
-        let b = Fact::new("test", "js:a#1").title("one");
-        let one = Store::new("node", "@t/node", "k", vec![a.clone(), b.clone()]);
-        let two = Store::new("node", "@t/node", "k", vec![b, a]);
-
-        assert_eq!(one.bytes(), two.bytes());
-        let text = String::from_utf8(one.bytes()).unwrap();
-        assert!(
-            text.ends_with("}\n") && text.contains("\n  \"store\": 1,"),
-            "{text}"
-        );
-        assert!(text.find("js:a#1").unwrap() < text.find("js:b#2").unwrap());
-        assert!(text.find("\"a\": \"x\"").unwrap() < text.find("\"z\": 1").unwrap());
-        assert_eq!(Store::path("node", "k"), ".specforge/facts/k/node.json");
-    }
-
-    use specforge_common::Exclude;
-    use specforge_registry::MemoryDisk;
-    use std::collections::HashMap;
-
-    const KEY: &str = ".specforge/facts/abc/node.json";
-
-    fn root() -> SourceRoot {
-        SourceRoot::new("/p".into(), "/p/spec".into(), Exclude::default())
-    }
-
-    fn two() -> Vec<u8> {
-        let facts = vec![
-            Fact::new("test", "js:a.test.js#adds")
-                .title("adds")
-                .field("file", "a.test.js"),
-            Fact::new("test", "js:a.test.js#subtracts"),
-        ];
-        Store::new("node", "@t/node", "abc", facts).bytes()
-    }
-
-    /// The ledger recording `bytes` as node's store under `abc`.
-    fn recording(bytes: &[u8]) -> Vec<u8> {
-        let mut ledger = Ledger::default();
-        ledger.insert(Line::facts("node", "abc", bytes));
-        ledger.canonical().into_bytes()
-    }
-
-    fn disk(store: &[u8], ledger: Option<Vec<u8>>) -> MemoryDisk {
-        let disk = MemoryDisk::new().with_file(format!("/p/{KEY}"), store);
-        match ledger {
-            Some(ledger) => disk.with_file("/p/specforge-harness", &ledger),
-            None => disk,
-        }
-    }
-
-    fn diagnostic(read: Read) -> Diagnostic {
-        match read {
-            Read::Unreadable(diagnostic) => diagnostic,
-            Read::Text(_) => panic!("served"),
-            Read::Gone => panic!("gone"),
-        }
-    }
-
-    #[specforge_test_macros::test(
-        behavior = "build_in_memory_graph",
-        verify = "a fact store specforge-harness records is served as read-only entities; one it does not is W191, one that does not read W192"
-    )]
-    fn a_recorded_fact_store_is_served_as_one_spec_file() {
-        let bytes = two();
-        let Read::Text(text) = read(&disk(&bytes, Some(recording(&bytes))), &root(), KEY, None)
-        else {
-            panic!("a recorded store is served");
-        };
-
-        let file = served(KEY, &text, &FieldForms::default()).unwrap();
-
-        assert_eq!(file.path.as_str(), KEY);
-        let ids: Vec<&str> = file.entities.iter().map(|e| e.id.raw.as_str()).collect();
-        assert_eq!(ids, ["js:a.test.js#adds", "js:a.test.js#subtracts"]);
-        let adds = &file.entities[0];
-        assert_eq!(
-            (adds.kind.raw.as_str(), adds.title.as_deref()),
-            ("test", Some("adds"))
-        );
-        assert_eq!((adds.span.start_line, adds.name_span.is_none()), (1, true));
-        assert!(file.errors.is_empty());
-    }
-
-    #[test]
-    fn an_unrecorded_fact_store_is_w191_and_not_served() {
-        let w191 = diagnostic(read(&disk(&two(), None), &root(), KEY, None));
-
-        assert_eq!(w191.code, "W191");
-        assert_eq!(
-            w191.message,
-            "fact store '.specforge/facts/abc/node.json' is not the one specforge-harness records for collector \
-             'node' (collected on another commit or branch, or changed since); its facts are not served"
-        );
-        assert_eq!(w191.suggestion.as_deref(), Some("run `specforge collect`"));
-    }
-
-    #[test]
-    fn a_fact_store_whose_digest_differs_is_w191() {
-        let other = Store::new("node", "@t/node", "abc", Vec::new()).bytes();
-
-        let w191 = diagnostic(read(
-            &disk(&two(), Some(recording(&other))),
-            &root(),
-            KEY,
-            None,
-        ));
-
-        assert_eq!(w191.code, "W191");
-    }
-
-    #[test]
-    fn an_unreadable_fact_store_is_w192() {
-        // A recorded store is read as it is, and parsed once, when it is served: no form of it is dropped silently.
-        let not_json = served(KEY, "{ not json", &FieldForms::default()).unwrap_err();
-        let newer = r#"{"store": 2, "collector": "node", "extension": "@t/node", "key": "abc", "facts": []}"#;
-        let newer = served(KEY, newer, &FieldForms::default()).unwrap_err();
-        let Read::Text(_) = read(
-            &disk(b"{ not json", Some(recording(b"{ not json"))),
-            &root(),
-            KEY,
-            None,
-        ) else {
-            panic!("a recorded store reads as its text");
-        };
-
-        for w192 in [&not_json, &newer] {
-            assert_eq!(w192.code, "W192");
-            assert!(
-                w192.message
-                    .starts_with("fact store '.specforge/facts/abc/node.json' cannot be read: "),
-                "{}",
-                w192.message
-            );
-        }
-        assert!(
-            newer
-                .message
-                .ends_with("it is store version 2, and this specforge reads version 1")
-        );
-        assert!(matches!(
-            read(&MemoryDisk::new(), &root(), KEY, None),
-            Read::Gone
-        ));
-    }
-
-    /// `test`'s `status` declared an enum and its `names` a reference list.
-    fn declared() -> FieldForms {
-        use specforge_protocol_types::FieldType;
-        let field = |name: &str| ("test".to_string(), name.to_string());
-        let status = FieldForm::new(FieldType::Enum, vec!["passed".into(), "failed".into()]);
-        let names = FieldForm::new(FieldType::ReferenceList, Vec::new());
-        FieldForms::new(
-            HashMap::from([(field("status"), status), (field("names"), names)]),
-            BTreeSet::new(),
-            BTreeSet::from(["test".to_string()]),
-        )
-    }
-
-    #[specforge_test_macros::test(
-        behavior = "build_in_memory_graph",
-        verify = "a fact's value is read by its field's form, as a spec file writes it: a word field's word is bare"
-    )]
-    fn a_facts_strings_are_read_by_their_fields_form() {
-        let fact = Fact::new("test", "js:a#b")
-            .field("status", "passed")
-            .field("file", "a.test.js")
-            .field("names", serde_json::json!(["v1/TR1", "a b"]));
-        let text =
-            String::from_utf8(Store::new("node", "@t/node", "abc", vec![fact]).bytes()).unwrap();
-
-        let file = served(KEY, &text, &declared()).unwrap();
-
-        let fields = &file.entities[0].fields;
-        assert_eq!(
-            fields.get("status"),
-            Some(&FieldValue::Identifier("passed".into()))
-        );
-        assert_eq!(
-            fields.get("file"),
-            Some(&FieldValue::String("a.test.js".into())),
-            "an undeclared field's string stays text"
-        );
-        let Some(FieldValue::List(names)) = fields.get("names") else {
-            panic!("an array of strings is a list");
-        };
-        let names: Vec<(&str, Written)> =
-            names.iter().map(|n| (n.text.as_str(), n.written)).collect();
-        assert_eq!(names, [("v1/TR1", Written::Bare), ("a b", Written::Quoted)]);
-    }
-
-    #[test]
-    fn a_facts_field_values_become_field_values_by_their_form() {
-        let fact = Fact::new("test", "js:a#b")
-            .field("file", "a.test.js")
-            .field("runs", 3)
-            .field("flaky", true)
-            .field("tags", serde_json::json!(["slow", "js:a#c"]))
-            .field("meta", serde_json::json!({"x": 1}))
-            .field("ratio", 0.5);
-        let text =
-            String::from_utf8(Store::new("node", "@t/node", "abc", vec![fact]).bytes()).unwrap();
-
-        let file = served(KEY, &text, &FieldForms::default()).unwrap();
-
-        let fields = &file.entities[0].fields;
-        assert_eq!(
-            fields.get("file"),
-            Some(&FieldValue::String("a.test.js".into()))
-        );
-        assert_eq!(fields.get("runs"), Some(&FieldValue::Integer(3)));
-        assert_eq!(fields.get("flaky"), Some(&FieldValue::Boolean(true)));
-        let Some(FieldValue::List(tags)) = fields.get("tags") else {
-            panic!("an array of strings is a list");
-        };
-        let tags: Vec<(&str, Written)> =
-            tags.iter().map(|t| (t.text.as_str(), t.written)).collect();
-        assert_eq!(
-            tags,
-            [("slow", Written::Quoted), ("js:a#c", Written::Quoted)]
-        );
-        assert_eq!((fields.get("meta"), fields.get("ratio")), (None, None));
-    }
-}
+mod tests;

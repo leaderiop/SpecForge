@@ -13,6 +13,9 @@
 //! The package manager is a port of `resolvePackageManagerCommand` (`src/normalize-test-command.cts`, #5346):
 //! `package.json`'s `packageManager` field (`name@version`, a known name) wins, then the first lockfile in
 //! [`LOCKFILES`]' order, else npm. Only the project root is looked in, as upstream looks only in the gate's directory.
+//!
+//! Also ports gsd-core bin/lib modules: normalize-test-command.cjs (its package manager; its watch-mode rewrite is
+//! not ported, the gates run the command as configured).
 
 use serde_json::json;
 use specforge_extension_sdk::host::{FsEntryKind, fs};

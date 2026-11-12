@@ -491,10 +491,15 @@ pub fn build_registries_with(
     for declaration in &declarations {
         declaration_diagnostics.extend(about(
             BuildPart::Declaration,
-            consistency(declaration, &declarations),
+            consistency(declaration, &declarations, &candidates),
         ));
     }
     declaration_diagnostics.extend(about(BuildPart::Peers, peers::check(&declarations)));
+    // E119: collectors whose facts inputs and answers form a cycle (ADR 0345 D3).
+    declaration_diagnostics.extend(about(
+        BuildPart::Declaration,
+        crate::collectors::check(&declarations),
+    ));
     let mut passes = Vec::new();
     for declaration in &declarations {
         let (ordered, cycle) = order_passes(declaration.name(), &declaration.passes);

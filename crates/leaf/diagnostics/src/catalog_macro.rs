@@ -1,11 +1,11 @@
-//! `catalog!`, the macro that turns a catalog table (`catalog.rs`, `catalog_checks.rs`) into its entries and `codes`.
+//! `catalog!`, the macro that turns a catalog table (`catalog.rs`, `catalog_checks.rs`, `catalog_registry.rs`) into its entries and `codes`.
 
 /// Generates `pub mod codes` (a constant for every core code) and
 /// `pub const TABLE: &[CodeEntry]` from a table of entries
 /// `IDENT [= "ID"]: Level owner [machine], "title", "explanation";`. `owner` is `core`
 /// or an extension's short name (`product` for `@specforge/product`); `machine` marks a code this machine
 /// decides (its approvals, its network or its journal, ADR 0337 D7), never the project. The
-/// tables are in `catalog.rs` and `catalog_checks.rs`; the macro is exported only so that its
+/// tables are in `catalog.rs`, `catalog_checks.rs` and `catalog_registry.rs`; the macro is exported only so that its
 /// compile-time checks can be shown in a doctest (see [`Code`](crate::Code)).
 #[doc(hidden)]
 #[macro_export]

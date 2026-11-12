@@ -40,6 +40,8 @@ fn build_chain_graph(n: usize) -> Graph {
             verdicts: Vec::new(),
             scope: None,
             unheld: Vec::new(),
+            located: Vec::new(),
+            dangling: Vec::new(),
         });
         if i > 0 {
             graph.add_edge(Edge {

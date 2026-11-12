@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex};
 use specforge_ops::asking::Asking;
 use specforge_ops::authoring::apply::{Origin, Surface, land_ledger};
 use specforge_ops::{Caller, Containment};
-use specforge_project::harness::{LedgerChange, LedgerOverlay};
+use specforge_project::harness::{LedgerChange, LedgerOverlay, Line};
 use specforge_project::{CompiledProject, ProjectSession};
 
 /// Where a pending rename is.
@@ -48,20 +48,23 @@ pub struct PendingLedger {
 
 impl PendingLedger {
     /// The pending change of renaming `old_name` (declared in `declaring`) to `new_name`, planned on `before`, which
-    /// moved `moves`; `None` when the project keeps no ledger (no root, or no harness field).
+    /// moved `moves` and marks the fact stores of `stale` stale (ADR 0346 D7); `None` when the project keeps no ledger
+    /// (no root, or no harness field and no stale store).
     pub fn of(
         before: &CompiledProject,
         moves: Vec<(String, String)>,
+        stale: Vec<Line>,
         declaring: String,
         old_name: String,
         new_name: String,
         files: Vec<String>,
     ) -> Option<Arc<PendingLedger>> {
-        if before.root().is_none() || !before.declares_harness() {
+        if before.root().is_none() || (!before.declares_harness() && stale.is_empty()) {
             return None;
         }
         let change = LedgerChange {
             moves,
+            stale,
             ..LedgerChange::default()
         };
         Some(Arc::new(PendingLedger {

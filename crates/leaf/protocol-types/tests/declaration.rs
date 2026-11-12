@@ -96,7 +96,6 @@ fn full() -> ExtensionDeclaration {
             ..Default::default()
         },
         collectors: Vec::new(),
-        analyzers: Vec::new(),
         passes: vec![CompilerPassDescriptor {
             name: "audit".to_string(),
             phase: Some("check".to_string()),
@@ -439,16 +438,11 @@ fn the_declared_categories_are_the_only_describe_categories() {
 #[test]
 fn declares_reads_the_content() {
     let declared = full();
-    // `full()` declares nothing in collectors or analyzers.
+    // `full()` declares nothing in collectors.
     let all: Vec<DeclaredCategory> = declared.declared_categories().collect();
     let expected: Vec<DeclaredCategory> = DeclaredCategory::ALL
         .into_iter()
-        .filter(|c| {
-            !matches!(
-                c,
-                DeclaredCategory::Collectors | DeclaredCategory::Analyzers
-            )
-        })
+        .filter(|c| *c != DeclaredCategory::Collectors)
         .collect();
     assert_eq!(all, expected);
     for category in DeclaredCategory::ALL {

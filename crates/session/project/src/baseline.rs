@@ -6,7 +6,9 @@
 //! `.specforge/baselines/<sha>-<env16>.json` under the project root, where `env16` is the first 16 hex of the digest
 //! of what the compile reads besides the sources (the host version, the loaded declarations and the digest of each installed module, the spec root and the
 //! excludes). A different extension version is a different environment, never a stale hit.
-//! A compute pass that reads files reads the commit's, listed from its tree and fetched on demand (ADR 0300).
+//! A compute pass that reads files reads the commit's, listed from its tree and fetched on demand (ADR 0300), and so
+//! do the checks of the ungated values, run at the commit before its judged rules, which digest their outcomes
+//! (ADR 0290 D7): only the effect journal answers a probe there, nothing is performed.
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
@@ -20,8 +22,30 @@ use specforge_registry::RegistryBuild;
 use specforge_wasm::WasmRuntime;
 
 use crate::Environment;
+pub use crate::baseline_judged::Fetch;
+pub use crate::baseline_reads::{CommitReads, Sizes};
 use crate::sources::Read;
+use crate::values::CheckCache;
+use specforge_effects::Effects;
 use specforge_effects::git::{CommitFile, Git, GitPlace, Located, Sha, TreeEntry};
+
+/// What the baseline's checks are asked through: the compile's effects, of which only the journal answers a probe at
+/// the commit (nothing is performed there), and its checker cache.
+#[derive(Clone)]
+pub struct Checking<'a> {
+    pub effects: &'a Effects,
+    pub cache: Arc<CheckCache>,
+}
+
+impl<'a> Checking<'a> {
+    /// `env`'s effects and a cache of its own: a baseline read outside a compile.
+    pub fn of(env: &'a Environment) -> Self {
+        Checking {
+            effects: env.effects(),
+            cache: Arc::default(),
+        }
+    }
+}
 
 /// One entity at the baseline: its kind, each field it wrote as the host reads it (`graph::wire`), and the values
 /// the compute passes gave it, by written path.
@@ -123,7 +147,11 @@ impl Baseline {
     /// The baseline at the merge-base of `revision` and `HEAD` (`check --since`): `Ok(None)` when nothing declares
     /// history or no git port is given, the I204 or W164 that says why there is none, and `UnknownRevision` for a
     /// revision the repository does not name. The revision is resolved even when nothing declares history.
-    pub fn since(env: &Environment, revision: &str) -> Result<BaselineRead, UnknownRevision> {
+    pub fn since(
+        env: &Environment,
+        revision: &str,
+        checking: &Checking<'_>,
+    ) -> Result<BaselineRead, UnknownRevision> {
         let Some(history) = env.git() else {
             return Ok(Ok(None));
         };
@@ -179,7 +207,7 @@ impl Baseline {
             }
             Err(error) => return Ok(Err(unreadable(error.to_string()))),
         };
-        Ok(Self::at(env, &*history, &place, &base)
+        Ok(Self::at(env, &*history, &place, &base, checking)
             .map(Some)
             .map_err(unreadable))
     }
@@ -334,7 +362,7 @@ impl Baseline {
 
     /// The baseline of `env`'s project at `HEAD`: `Ok(None)` when nothing declares history or no git port is
     /// given, and the I204 or W164 that says why there is none otherwise.
-    pub fn of_head(env: &Environment) -> BaselineRead {
+    pub fn of_head(env: &Environment, checking: &Checking<'_>) -> BaselineRead {
         if !declared(env.registries()) {
             return Ok(None);
         }
@@ -365,18 +393,19 @@ impl Baseline {
             }
             Err(error) => return Err(unreadable(error.to_string())),
         };
-        Self::at(env, &*history, &place, &head)
+        Self::at(env, &*history, &place, &head, checking)
             .map(Some)
             .map_err(unreadable)
     }
 
     /// The baseline at `commit`: from memory or disk when this environment compiled it before, else compiled from
-    /// the files the history gives.
+    /// the files the history gives, its checks asked through `checking`.
     pub fn at(
         env: &Environment,
         history: &dyn Git,
         place: &GitPlace,
         commit: &Sha,
+        checking: &Checking<'_>,
     ) -> Result<Arc<Baseline>, String> {
         let env16 = fingerprint(env);
         let key = (env.root().to_path_buf(), commit.clone(), env16.clone());
@@ -408,11 +437,12 @@ impl Baseline {
                 let files = history
                     .files(place, commit, within, &wanted)
                     .map_err(|e| e.to_string())?;
-                // The commit's tree, only for a compute pass that reads files (ADR 0300).
-                let tree = if env
-                    .registries()
-                    .compute_passes()
-                    .any(|pass| !pass.inputs().files().is_empty())
+                // The commit's tree, only for the checks and a compute pass that reads files (ADR 0300).
+                let tree = if !env.registries().checks().is_empty()
+                    || env
+                        .registries()
+                        .compute_passes()
+                        .any(|pass| !pass.inputs().files().is_empty())
                 {
                     history
                         .tree(place, commit, within)
@@ -452,8 +482,12 @@ impl Baseline {
                         }
                     }
                 };
+                let reads = CommitReads {
+                    sizes: &sizes,
+                    fetch: &fetch,
+                };
                 let compiled =
-                    Self::compile(env, commit.clone(), within, files, tree, &sizes, &fetch);
+                    Self::compile(env, commit.clone(), within, files, tree, reads, checking);
                 // Files git could not give are not files it lacks: nothing is cached, and the baseline is unreadable.
                 if let Some(why) = failed.into_inner() {
                     return Err(format!(
@@ -488,15 +522,16 @@ impl Baseline {
     }
 
     /// The project of `files` (from the repository's top; `within` is the project's directory there) compiled in
-    /// `env`, no history of its own.
+    /// `env`, no history of its own: the ungated checks over the commit's `tree`, then the judged rules, then the
+    /// compute passes, each reading the commit's files through `reads`.
     pub fn compile(
         env: &Environment,
         revision: Sha,
         within: &Path,
         files: Vec<CommitFile>,
         tree: Vec<TreeEntry>,
-        sizes: crate::baseline_reads::Sizes<'_>,
-        fetch: crate::baseline_judged::Fetch<'_>,
+        reads: CommitReads<'_>,
+        checking: &Checking<'_>,
     ) -> Baseline {
         let mut texts: BTreeMap<String, String> = BTreeMap::new();
         let mut held: BTreeMap<String, Vec<u8>> = BTreeMap::new();
@@ -529,34 +564,51 @@ impl Baseline {
         let keys: Vec<String> = texts.keys().cloned().collect();
         let built = env.build_sources(&keys, &written, |_| Read::Gone);
         let snapshot = env.entity_snapshot(&built.graph);
+        let tree: crate::baseline_reads::Tree = tree
+            .into_iter()
+            .filter_map(|(path, file)| Some((key_of(&path)?, file)))
+            .collect();
+        let disk = crate::baseline_reads::TreeDisk::new(env.root(), &tree, held.clone());
+        // The ungated checks at the commit, over its files, before the judged rules digest their outcomes: a probe
+        // the journal holds no fresh answer for is not performed, and its value is `unknown` there.
+        let journaled = Effects::cached(checking.effects.journal().clone());
+        let text_of = |file: &str| texts.get(file).map(|text| Arc::from(text.as_str()));
+        let (checked, short) = crate::baseline_reads::until_read(&disk, reads, |disk| {
+            let mut context = crate::values::StageContext {
+                effects: &journaled,
+                disk,
+                cache: &checking.cache,
+                text_of: &text_of,
+                spent: crate::values::Spent::starting(env.value_budget()),
+            };
+            crate::values::run(env, &snapshot, crate::values::Stage::Ungated, &mut context)
+                .checks
+                .outcome_classes()
+        });
         // The judged rules at the commit, over its files, before the compute passes read them.
-        let seeded = held.clone();
         let judged = crate::baseline_judged::judge(
             env,
             built.graph.graph(),
             &snapshot,
             held,
             ledger.as_bytes(),
-            fetch,
+            reads.fetch,
+            &checked,
         );
-        let (computed, incomplete) = match env.runtime() {
+        let (computed, unread) = match env.runtime() {
             Some(runtime) if env.registries().compute_passes().next().is_some() => {
-                let tree = tree
-                    .into_iter()
-                    .filter_map(|(path, file)| Some((key_of(&path)?, file)))
-                    .collect();
                 crate::baseline_reads::compute_at(
                     env,
                     &snapshot,
                     &**runtime as &dyn WasmRuntime,
                     &judged,
-                    &tree,
-                    seeded,
-                    crate::baseline_reads::Git { sizes, fetch },
+                    &disk,
+                    reads,
                 )
             }
             _ => Default::default(),
         };
+        let incomplete = short || unread;
         let entities = entities_of(
             built.graph.graph(),
             env.registries().field_forms(),
@@ -641,9 +693,15 @@ fn fingerprint(env: &Environment) -> String {
         bytes.extend(entry.name.to_string().into_bytes());
         bytes.extend(entry.wasm_hash.as_str().as_bytes());
     }
-    // the baseline format: 3 reads a commit's source files for the compute passes (ADR 0300)
-    bytes.extend(b"\0baseline-format:3");
+    // the baseline format: 4 runs the ungated checks at the commit, which the judged rules digest (ADR 0290 D7)
+    bytes.extend(b"\0baseline-format:4");
     let config = env.config();
+    // the checks `specforge.json` attaches: no declaration carries them
+    for (field, checks) in &config.checks.fields {
+        bytes.push(0);
+        bytes.extend(field.as_bytes());
+        bytes.extend(serde_json::to_vec(checks).unwrap_or_default());
+    }
     bytes.push(0);
     bytes.extend(config.spec_root.clone().unwrap_or_default().into_bytes());
     for entry in config.exclude.entries() {

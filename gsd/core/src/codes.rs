@@ -82,7 +82,7 @@ const fn code(
     }
 }
 
-/// The 64 codes of `spec/rules.md`, in the order of its tables.
+/// The 67 codes of `spec/rules.md`, in the order of its tables.
 pub static CODES: &[Code] = &[
     code(
         "E101",
@@ -271,7 +271,7 @@ pub static CODES: &[Code] = &[
     code(
         "E310",
         "Context decision cited by no plan",
-        "Every trackable decision of a planned phase's context (origin context) is cited by one of its plans",
+        "Every trackable decision of a planned phase's context (origin context) is listed in the decisions of one of its plans",
         "plan",
         Severity::Error,
         Severity::Error,
@@ -595,6 +595,38 @@ pub static CODES: &[Code] = &[
         "verify",
         Severity::Error,
         Severity::Error,
+    ),
+    code(
+        "E519",
+        "Truth proves no requirement of its plan",
+        "A truth of a phase's plan names one of its plan's requirements",
+        "verify",
+        Severity::Error,
+        Severity::Error,
+    ),
+    code(
+        "W520",
+        "Complete plan's paths not touched or not deleted",
+        "A complete plan's commits touched every path it planned, and the files it deletes are gone",
+        "verify",
+        Severity::Warning,
+        Severity::Warning,
+    ),
+    code(
+        "E521",
+        "Task commit not linked by its trailer",
+        "A task commit names its task by its Gsd-Task trailer",
+        "verify",
+        Severity::Error,
+        Severity::Error,
+    ),
+    code(
+        "W522",
+        "Item anchored only by plans that reach no requirement",
+        "A code item a task or a commit names is anchored by a plan that reaches a requirement",
+        "verify",
+        Severity::Warning,
+        Severity::Warning,
     ),
 ];
 

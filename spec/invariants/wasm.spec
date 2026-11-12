@@ -255,7 +255,7 @@ invariant extensions_run_in_their_loading_runtime "Extensions Run in Their Loadi
     that runtime from the moment it loads them, a compiled project, a
     project session and every project view read it there, and no
     operation over a project view takes a runtime of its own (analyze's
-    passes, collect's collectors, inference gaps' scanners, an extension
+    passes, collect's collectors, an extension
     command, a check's custom verdicts and passes). An environment loaded
     without a runtime loads no extension, and an extension call over it
     is E028, not loaded. Migrate, which compiles the project itself, and

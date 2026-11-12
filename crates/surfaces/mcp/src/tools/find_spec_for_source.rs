@@ -4,7 +4,7 @@ use specforge_ops::read::navigate::{self, FileAnchorsField};
 
 use crate::args::Arguments;
 use crate::refusal::ArgumentOf;
-use crate::reply::Answered;
+use crate::reply::{Answer, Answered};
 use crate::target::ProjectRef;
 
 /// `specforge.find_spec_for_source`'s arguments.
@@ -14,11 +14,11 @@ pub struct Args {
     file_path: String,
 }
 
-/// `specforge.find_spec_for_source`'s reply: the anchors read view's file document (ADR 0140).
+/// `specforge.find_spec_for_source`'s reply: the anchors read view's file document (ADR 0349).
 pub use specforge_ops::read::navigate::FileAnchors as Reply;
 
-/// The entities anchored to the source files `file_path` names, under the
-/// one file rule (`specforge_ops::read::navigate::anchors_of_file`).
+/// The entities anchored to the located facts of the source files `file_path` names, the anchors read view
+/// over the graph under the one file rule (`specforge_ops::read::navigate::anchors_of_file`).
 pub(crate) struct Tool;
 
 impl ArgumentOf<FileAnchorsField> for Tool {
@@ -43,6 +43,6 @@ impl CoreTool for Tool {
     fn call(project: ProjectRef<'_>, args: Args) -> Answered<Reply> {
         let found =
             navigate::anchors_of_file(&project.view(), &args.file_path).map_err(Self::refused)?;
-        Ok(found.into())
+        Ok(Answer::noticed(found))
     }
 }

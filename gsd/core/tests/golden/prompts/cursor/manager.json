@@ -61,7 +61,7 @@
     "- `manager_flags.execute` — appended to execute agent init command",
     ""
   ],
-  "bytes": 38517,
+  "bytes": 38548,
   "end": [
     "",
     "Table rules use ASCII `-`, never box-drawing characters.",
@@ -149,7 +149,7 @@
     "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
-    "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
+    "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
     "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:e71e5f8c15efaac7bb67152e19af7118da63f606f14c6d7042dfe552bb623e12",
+    "digest": "sha256:a21cd06eea22cf442a2199582e4632e7a13f7f5073c0869761b4cc6a25a63f0a",
     "prompt": "@gsd/core@VERSION:manager",
     "steps": [
       {
@@ -232,5 +232,5 @@
       }
     ]
   },
-  "sha256": "e71e5f8c15efaac7bb67152e19af7118da63f606f14c6d7042dfe552bb623e12"
+  "sha256": "a21cd06eea22cf442a2199582e4632e7a13f7f5073c0869761b4cc6a25a63f0a"
 }

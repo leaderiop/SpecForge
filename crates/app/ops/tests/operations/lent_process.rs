@@ -183,3 +183,66 @@ fn changing_the_declared_names_asks_for_approval_again_and_the_line_shows_them()
     assert!(!approved(&["ACME_A", "ACME_B"]), "a name more asks again");
     assert!(!approved(&[]), "a name less asks again");
 }
+
+/// A session of `@t/env` declaring the collector command `argv`, its config file `nextest.toml` when it names
+/// `{config}`, approved: the guest's own collect call.
+fn collector_session(argv: &[&str]) -> PortSession {
+    let dir = std::env::temp_dir();
+    let roots = Roots::new(&dir, &dir);
+    let mut capability = Capability::process("run")
+        .argv(argv)
+        .call_kinds(&[Operation::Collect])
+        .why("run the tests");
+    if argv.iter().any(|arg| arg.contains("{config}")) {
+        capability = capability.config("nextest.toml", "[profile.specforge]\n");
+    }
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
+    c.capability(capability);
+    let grant = Grant::decide(
+        &c.declaration(),
+        &Provenance::third_party(b"x"),
+        &EffectsCeiling::default(),
+        &roots,
+        &MemoryConsent::approving_everything(),
+    );
+    let ports = Ports {
+        process: Arc::new(specforge_process::Runner),
+        ..testing::ports()
+    };
+    let call = PortCall::online(&ports, EffectJournal::detached(), roots, grant, Vec::new());
+    PortSession::effectful(EXT, Operation::Collect, Some(call), Limits::CEILING)
+}
+
+#[specforge_test_macros::test(
+    behavior = "approve_capability",
+    verify = "a guest never runs its collector's command with a placeholder filled by itself"
+)]
+fn a_guest_never_fills_its_collector_commands_placeholders() {
+    for (declared, asked) in [
+        (
+            ["echo", "--tool-config-file", "specforge:{config}"],
+            [
+                "echo",
+                "--tool-config-file",
+                "specforge:/elsewhere/setup.toml",
+            ],
+        ),
+        (
+            ["echo", "--tool-config-file", "specforge:{config}"],
+            ["echo", "--tool-config-file", "specforge:{config}"],
+        ),
+        (
+            ["echo", "--out", "--out={report}"],
+            ["echo", "--out", "--out=/elsewhere/report.xml"],
+        ),
+    ] {
+        let ran = collector_session(&declared).process_run(ProcessRequest {
+            argv: asked.map(String::from).to_vec(),
+            ..ProcessRequest::default()
+        });
+        assert!(
+            matches!(&ran, Err(HostError::Denied(_))),
+            "{asked:?}: {ran:?}"
+        );
+    }
+}

@@ -7,7 +7,7 @@
 
 use specforge_common::{SourceSpan, Sym, structural};
 use specforge_ops::authoring::fix::{Fix, FixKind};
-use specforge_ops::read::navigate::{Navigator, OutlineEntry};
+use specforge_ops::read::navigate::{CollectedSources, Navigator, OutlineEntry};
 use specforge_registry::KindRegistry;
 use std::collections::HashMap;
 use tower_lsp::lsp_types::{
@@ -18,7 +18,7 @@ use tower_lsp::lsp_types::{
 
 use crate::LspState;
 use crate::document::{LineIndex, Target};
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::sync::Arc;
 
 /// The project as its last compile saw it, read by one request. A span of
@@ -30,11 +30,16 @@ use std::sync::Arc;
 /// compile holds no text of cannot be converted: its range is `None`,
 /// never byte columns passed off as UTF-16. A span is a range of the editor's text only while that
 /// text is the compiled text ([`Compiled::range`]); what is sent with the compiled text's version
-/// converts against it whatever the editor holds ([`Compiled::compiled_range`], ADR 0205).
+/// converts against it whatever the editor holds ([`Compiled::compiled_range`], ADR 0205). A span in a source file
+/// the facts are placed in converts against that file's text while it is the one collected ([`Compiled::source_index`],
+/// ADR 0349 D7).
 pub(crate) struct Compiled<'s> {
     state: &'s LspState,
     indexes: RefCell<HashMap<Sym, Option<Arc<LineIndex>>>>,
     texts: RefCell<HashMap<Sym, EditorText>>,
+    /// The digests the fact stores recorded of the source files their facts are placed in, read once per request.
+    collected: OnceCell<CollectedSources<'s>>,
+    sources: RefCell<HashMap<Sym, Option<Arc<LineIndex>>>>,
 }
 
 impl<'s> Compiled<'s> {
@@ -43,6 +48,8 @@ impl<'s> Compiled<'s> {
             state,
             indexes: RefCell::new(HashMap::new()),
             texts: RefCell::new(HashMap::new()),
+            collected: OnceCell::new(),
+            sources: RefCell::new(HashMap::new()),
         }
     }
 
@@ -87,27 +94,62 @@ impl<'s> Compiled<'s> {
     /// editor text is. `None` when the editor's text is not the compiled text (typed since, changed
     /// on disk since, a text the project does not build) or the compile holds no text of the file.
     /// A list leaves the item out; an edit is refused (`workspace_edit`, ADR 0205).
+    /// A span in a source file the facts are placed in is a range of its text while that text is the one collected.
     pub(crate) fn range(&self, span: &SourceSpan) -> Option<Range> {
         match self.editor_text(span.file.as_str()) {
             EditorText::Compiled => self.compiled_range(span),
-            EditorText::Changed | EditorText::Unbuilt => None,
+            EditorText::Changed | EditorText::Unbuilt => {
+                Some(self.source_index(span.file.as_str())?.range(span))
+            }
         }
+    }
+
+    /// What the fact stores recorded of the source files their facts are placed in, at collect.
+    pub(crate) fn collected(&self) -> &CollectedSources<'s> {
+        self.collected
+            .get_or_init(|| CollectedSources::of(&self.state.view()))
+    }
+
+    /// Whether a fact is placed in source file `file`.
+    pub(crate) fn placed(&self, file: &str) -> bool {
+        self.collected().places(file)
+    }
+
+    /// The line index of source file `file`'s text, where the session's facts are placed, while that text is the
+    /// one their store recorded ([`crate::source_document::placed_index`]); once per file per request. `None` for a
+    /// file the compile holds text of, one no fact is placed in, and a stale one.
+    pub(crate) fn source_index(&self, file: &str) -> Option<Arc<LineIndex>> {
+        let key = Sym::new(file);
+        if let Some(index) = self.sources.borrow().get(&key) {
+            return index.clone();
+        }
+        let index = (self.placed(file) && self.state.compiled_text(file).is_none())
+            .then(|| crate::source_document::placed_index(self.state, self.collected(), file))
+            .flatten();
+        self.sources.borrow_mut().insert(key, index.clone());
+        index
     }
 
     /// The LSP range of a span in the text the project was compiled from, whatever the editor holds
     /// now; `None` when the compile holds no text of its file. Only for what is sent labelled with
     /// that text's version: a diagnostics publish (ADR 0023 D3).
     pub(crate) fn compiled_range(&self, span: &SourceSpan) -> Option<Range> {
-        Some(self.index_of(span.file.as_str())?.range(span))
+        let file = span.file.as_str();
+        Some(
+            self.index_of(file)
+                .or_else(|| self.source_index(file))?
+                .range(span),
+        )
     }
 
     /// The span of the compile that `range`, a range in the editor's text of `file`, covers; `None`
     /// when that editor text is not the compiled text (the inverse of [`Self::range`], one rule).
     pub(crate) fn span(&self, file: &str, range: Range) -> Option<SourceSpan> {
-        (self.editor_text(file) == EditorText::Compiled)
-            .then(|| self.index_of(file))
-            .flatten()
-            .map(|index| index.span(Sym::new(file), range))
+        let index = match self.editor_text(file) {
+            EditorText::Compiled => self.index_of(file),
+            EditorText::Changed | EditorText::Unbuilt => self.source_index(file),
+        };
+        index.map(|index| index.span(Sym::new(file), range))
     }
 
     /// The location of a span of a session file; `None` when its text is
@@ -123,7 +165,18 @@ impl<'s> Compiled<'s> {
     /// 0023 D5). Navigation is asked about the position only while the
     /// document is the compiled text; while it is stale, the cursor names
     /// what its own word names ([`crate::Cursor::named`], D7).
+    /// In a source document the cursor names only an entity a fact names there, while the text is the one collected
+    /// ([`specforge_ops::read::navigate::Navigator::source_token_at`], ADR 0349 D8).
     pub(crate) fn target(&self, key: &str, position: Position) -> Option<Target> {
+        if crate::source_document::is_source_key(self.state, key) {
+            let index = self.source_index(key)?;
+            let (line, col) = index.source_position(position)?;
+            let token = self.navigator().source_token_at(key, line, col)?;
+            return Some(Target::Entity {
+                id: token.target,
+                origin: index.range(&token.span),
+            });
+        }
         let cursor = self.state.files().document(key)?.at(position)?;
         if self.is_stale(key) {
             cursor.named(&self.state.view())
@@ -208,12 +261,39 @@ impl Compiled<'_> {
         &self,
         edits: impl IntoIterator<Item = specforge_ops::read::navigate::TextEdit>,
     ) -> Result<WorkspaceEdit, Unplaced> {
+        self.edit_over(edits, &HashMap::new())
+    }
+
+    /// A rename's edits as one workspace edit: those of a file that is no source (where a collected fact's name is
+    /// written, ADR 0346 D7) are placed in the disk text the rename planned on.
+    pub(crate) fn rename_edit(
+        &self,
+        plan: &specforge_ops::authoring::rename::RenamePlan,
+    ) -> Result<WorkspaceEdit, Unplaced> {
+        let outside: HashMap<Sym, LineIndex> = plan
+            .change()
+            .rewritten_sources()
+            .map(|(key, file)| (Sym::new(key), LineIndex::new(&file.before)))
+            .collect();
+        self.edit_over(plan.edits().to_vec(), &outside)
+    }
+
+    /// `edits` as one workspace edit, a file `outside` the compile placed by its index there.
+    fn edit_over(
+        &self,
+        edits: impl IntoIterator<Item = specforge_ops::read::navigate::TextEdit>,
+        outside: &HashMap<Sym, LineIndex>,
+    ) -> Result<WorkspaceEdit, Unplaced> {
         let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
         // The files in the order their first edit came: a versioned edit lists them so.
         let mut files: Vec<(Sym, Url)> = Vec::new();
         for edit in edits {
             let file = edit.span.file;
-            let range = self.range(&edit.span).ok_or(Unplaced(file))?;
+            let range = match outside.get(&file) {
+                Some(index) => Some(index.range(&edit.span)),
+                None => self.range(&edit.span),
+            }
+            .ok_or(Unplaced(file))?;
             let uri = self.uri(file.as_str());
             if !changes.contains_key(&uri) {
                 files.push((file, uri.clone()));

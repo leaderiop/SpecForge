@@ -6,6 +6,7 @@ use specforge_extension_sdk::prelude::*;
 use specforge_installed::Installed;
 use specforge_ops::read::infer::{InferencePlanRequest, guide, inference_plan, kind_guide};
 use specforge_project::Environment;
+use specforge_project::testing::{item_declarations, item_node};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::build_registries;
 use specforge_test::prelude::*;
@@ -266,6 +267,25 @@ fn the_guide_lists_extensions_kinds_and_entities() {
 
 #[specforge_test(
     behavior = "compute_inference_guide",
+    verify = "the guide lists no kind a collector writes"
+)]
+fn a_collected_kind_is_not_a_kind_to_infer() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/code", "1.0.0"));
+    c.kind("package", |k| {
+        k.collected(&["pkg"]);
+    });
+    let project = project_of(
+        "",
+        vec![extension("@t/soft", &[("behavior", None)]), c.declaration()],
+    );
+    let view = project.view();
+
+    let kinds: Vec<&str> = guide(&view).kinds.iter().map(|k| k.keyword).collect();
+    assert_eq!(kinds, ["behavior"]);
+}
+
+#[specforge_test(
+    behavior = "compute_inference_guide",
     verify = "a guide field lists an enum's values and what an absent value counts as"
 )]
 fn a_guide_field_lists_an_enums_values_and_its_default() {
@@ -369,17 +389,15 @@ fn kinds_are_ordered_by_what_they_reference() {
     assert_eq!(plan_kinds(&cycle), ["c", "a", "b"]);
 }
 
-/// A project with an analyzer for `.rs` files, the sources `files` under
-/// `src/`, and `manifest` as `specforge-infer.json` when given.
+/// A project whose graph holds one item fact in each of the sources `files` under `src/`, and `manifest` as
+/// `specforge-infer.json` when given.
 fn sources(files: &[String], manifest: Option<serde_json::Value>) -> Assembled {
-    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@t/rust", "1.0.0"));
-    c.analyzer("rust", |a| {
-        a.file_extensions(&[".rs"]).scan(|_| ScanResponse {
-            items: Vec::new(),
-            language: None,
-        });
-    });
-    let project = project_of("", vec![c.declaration()]);
+    let mut project = project_of("", item_declarations());
+    for (n, file) in files.iter().enumerate() {
+        project
+            .graph_mut()
+            .add_node(item_node(&format!("rust:p::stub{n}"), file, 1));
+    }
     std::fs::create_dir_all(project.root().join("src")).unwrap();
     for file in files {
         std::fs::write(project.root().join(file), "fn stub() {}\n").unwrap();

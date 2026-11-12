@@ -495,7 +495,9 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
     diagnostics. LSP equivalence: this tool and textDocument/hover render
     one read view of the entity, so its kind, standing, references,
     coverage and diagnostics are the same on both. If the entity does not
-    exist, the tool MUST return an error response.
+    exist, the tool MUST return an error response. A collected fact's
+    places in source are its located list (absent when it has none); its
+    source_span and file stay its store's.
   """
   verify unit "specforge.inspect returns full entity details"
   verify unit "response includes referenced_by, refers_to and verify declarations"
@@ -513,6 +515,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "inspect writes each obligation as its kind, absent for a bare verify, and its text"
   verify unit "an obligation inspect writes, given to remove_verify, removes that verify line"
   verify unit "specforge.inspect lists each checked value's outcome, as its output schema says"
+  verify unit "inspect of a fact names where it is written"
   verify contract "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
 }
 
@@ -602,30 +605,41 @@ behavior provide_mcp_find_implementation_tool "Provide MCP Find Implementation T
   category   query
   types      [McpImplementationResult, McpToolDescriptor]
   ensures {
-    anchors_listed   "every anchor of the entity in specforge-anchors.json, in manifest order"
-    empty_when_none  "an entity with no anchor, or no anchors manifest, has no implementations"
-    unusable_refused "an anchors manifest that cannot be used is E071"
-    unknown_refused  "an id neither the graph nor the anchors manifest knows is E003, with the closest entity id"
-    stale_listed     "the anchors of an id the graph no longer declares are listed"
+    anchors_listed    "every anchor of the entity, a graph edge either way to a located fact, by file and line"
+    empty_when_none   "an entity with no anchor has no implementations"
+    unknown_refused   "an id the graph does not declare is E003, with the closest entity id"
+    nothing_collected "with no located fact served, the answer is empty with I212"
+    stale_noticed     "an anchor whose file changed since collect is listed, with one W198 for its file"
   }
   contract   """
     In MCP server mode, the system MUST register a
     specforge.find_implementation tool that accepts entity_id (required)
     and returns {entity_id, implementations, count}: each anchor of the
-    entity in the project's specforge-anchors.json (file, line,
-    symbol_name, item_kind, scanner), in manifest order, from the one
-    anchor lookup navigation owns. No anchors manifest is an empty list.
-    An entity_id that neither the graph declares nor the anchors manifest
-    anchors is refused as find_definition refuses it: E003,
-    entity_not_found on entity_id, with the closest entity id when one is
-    close. The anchors of an id the graph no longer declares (a stale
-    anchor) are still listed. An anchors manifest that cannot be read or
-    parsed is refused with E071.
+    entity, an edge of the compiled graph between it and a located fact
+    (a fact with a place in source), whichever end writes the reference:
+    a fact naming the entity (item.names) or the entity's field citing
+    the fact (task.items). Each row is {fact_id, file, line, end_line,
+    item_kind, collector, via}: the fact's first place, what its kind
+    field lists (else its kind), the collector whose store holds it and
+    the edge as <holder kind>.<field>, ordered by file, line, fact and
+    via, from the one anchors read view navigation owns (ADR 0349). An
+    entity_id the graph does not declare is refused as find_definition
+    refuses it: E003, entity_not_found on entity_id, with the closest
+    entity id when one is close; a fact's id is invalid_input (its
+    anchors are its file's). The reply's _meta.diagnostics carry I212
+    when the session serves no located fact, and one W198 per file of
+    the answer that no longer hashes to the digest the store of one of its
+    rows recorded at collect (each row is judged by its own store's digest:
+    two stores collected at different times may record two), or is gone;
+    only the answer's files are hashed.
   """
-  verify unit "find_implementation lists every anchor of the entity, in manifest order"
-  verify unit "an entity with no anchor has no implementations, and no anchors manifest is none"
-  verify unit "an id neither the graph nor the anchors manifest knows is refused with E003"
-  verify unit "the anchors of an id the graph no longer declares are still listed"
+  verify unit "find_implementation lists every anchor of the entity, by file and line"
+  verify unit "an anchor is an edge either way: a fact naming the entity or the entity citing the fact"
+  verify unit "an id the graph does not declare is refused with E003"
+  verify unit "an answer with no located fact served carries I212"
+  verify unit "a source file edited since collect gives one W198 and keeps its rows"
+  verify unit "two stores placing one file are each judged by their own digest"
+  verify integration "find_implementation answers a Rust test's file and line after a real collect"
 }
 
 behavior provide_mcp_find_spec_for_source_tool "Provide MCP Find Spec For Source Tool" {
@@ -634,29 +648,29 @@ behavior provide_mcp_find_spec_for_source_tool "Provide MCP Find Spec For Source
   category   query
   types      [McpSpecForSourceResult, McpSpecForSourceEntity, McpToolDescriptor]
   ensures {
-    tightest_mode    "the anchors of the tightest matching mode: exact, else under the directory, else ending with the path"
-    kind_from_graph  "each entity carries its kind when the graph declares it"
-    unusable_refused "an anchors manifest that cannot be used is E071"
+    tightest_mode   "the anchors of the tightest matching mode: exact, else under the directory, else ending with the path"
+    kind_from_graph "each entity carries its kind"
   }
   contract   """
     In MCP server mode, the system MUST register a
     specforge.find_spec_for_source tool that accepts file_path (required)
     and returns {file_path, match_mode, entities, count}: the anchors of
-    the project's specforge-anchors.json whose file, read from the project
-    root as the path is, the path names,
-    compared as text component by component (./a and a\b are a and a/b; a
-    substring is no match) after the path is read from the project root as a
-    named spec file is (its absolute path under the root is that path); a path
-    whose key lies outside the project root, or that names nothing, is refused
-    as invalid_input on file_path. The tightest non-empty mode wins (exact,
-    else directory, else suffix_path; none when nothing matches); the rows
-    are in manifest order, each with the entity's kind when the graph declares
-    it. No anchors manifest is an empty list. An anchors manifest that
-    cannot be read or parsed is refused with E071. The infer prompt's file
-    scope lists the same entities.
+    every located fact one of whose places is in a file the path names,
+    each row the entity's id and kind beside the anchor's {fact_id, file,
+    line, end_line, item_kind, collector, via} at that place, ordered by
+    file, line, fact and via. The path is read from the project root as a
+    named spec file is (its absolute path under the root is that path) and
+    compared with each place's file, a key from the project root, as text
+    component by component (./a and a\b are a and a/b; a substring is no
+    match); a path whose key lies outside the project root, or that names
+    nothing, is refused as invalid_input on file_path. The tightest
+    non-empty mode wins (exact, else directory, else suffix_path; none
+    when nothing matches). No source file is opened to answer; the reply
+    carries find_implementation's I212 and W198 for the files it names.
+    The infer prompt's file scope lists the same entities and notices.
   """
   verify unit "the tightest match wins: exact, else under the directory, else ending with the path"
-  verify unit "each entity carries its kind when the graph declares it"
+  verify unit "find_spec_for_source lists the anchors of every located fact the path names"
   verify unit "a file_path outside the project root is refused as invalid_input on file_path"
 }
 

@@ -156,7 +156,7 @@ fn the_guest_serves_its_declaration() {
 }
 
 fn dispatch(export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
-    (export == "scan__x").then(|| Ok(b"scanned".to_vec()))
+    (export == "cmd__x").then(|| Ok(b"answered".to_vec()))
 }
 
 /// A served guest routes as the component guest does: the protocol exports,
@@ -188,8 +188,8 @@ fn a_served_guest_routes_every_export() {
         .unwrap();
     assert_eq!(pass, b"[]");
     assert_eq!(
-        served.call(dispatch, "scan__x", b""),
-        Ok(b"scanned".to_vec())
+        served.call(dispatch, "cmd__x", b""),
+        Ok(b"answered".to_vec())
     );
     assert_eq!(
         served.call(dispatch, "nope", b""),

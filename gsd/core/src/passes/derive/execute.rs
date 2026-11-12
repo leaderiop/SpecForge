@@ -136,9 +136,8 @@ fn duration(summary: &PassEntity) -> Option<String> {
     })
 }
 
-/// A check's status from the recorded tests: `fail` when a test named by its `ref` failed, `pass` when one passed,
-/// `unknown` when none was recorded. No test run, no status: a report with no result in it (the git collector writes
-/// one) is no more a test run than no report is.
+/// A check's status from the test facts: `fail` when a test fact its `ref` names failed, `pass` when one passed,
+/// `unknown` when none did. No test fact, no status.
 fn check_statuses(input: &PassInput, deliverable: &PassEntity) -> Vec<PassValue> {
     let thread = Thread::of(input);
     if !thread.ran() {
@@ -149,7 +148,7 @@ fn check_statuses(input: &PassInput, deliverable: &PassEntity) -> Vec<PassValue>
         .enumerate()
         .filter_map(|(i, check)| {
             let reference = check.get("ref")?;
-            let status = match thread.evidence(thread.named(&deliverable.id, reference)) {
+            let status = match thread.evidence(thread.named(reference)) {
                 Evidence::Failed => "fail",
                 Evidence::Passed => "pass",
                 Evidence::NotRun | Evidence::NoTest => "unknown",

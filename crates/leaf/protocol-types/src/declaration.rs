@@ -13,14 +13,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    AgentDescriptor, AnalyzerDescriptor, Attribution, AutoDetectConfig, CAPABILITY_KEYS,
-    CapabilityDescriptor, CheckerDescriptor, CodeDescriptor, CollectorDescriptor,
-    CommandArgDescriptor, CommandDescriptor, CompilerPassDescriptor, DescribeResponse,
-    EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
+    AgentDescriptor, Attribution, AutoDetectConfig, CAPABILITY_KEYS, CapabilityDescriptor,
+    CheckerDescriptor, CodeDescriptor, CollectorDescriptor, CommandArgDescriptor,
+    CommandDescriptor, CompilerPassDescriptor, DescribeResponse, EdgeTypeDescriptor,
+    EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
     FieldConstraintDescriptor, FieldDescriptor, FsScope, GitScope, HandshakeResponse,
     HookDescriptor, HttpScope, McpResourceDescriptor, McpToolDescriptor, PeerDependency,
-    PresetDescriptor, ProcessScope, PromptArgDescriptor, PromptDescriptor, PromptStep,
-    ProtocolError, RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor,
+    PresetDescriptor, ProcessConfig, ProcessScope, PromptArgDescriptor, PromptDescriptor,
+    PromptStep, ProtocolError, RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor,
     SecretDescriptor, SecretHeader, SettingDescriptor, SettingsItem, SkillDescriptor,
     SlashCommandDescriptor, SurfaceDescriptor, ValidationRuleDescriptor,
 };
@@ -46,8 +46,6 @@ pub struct ExtensionDeclaration {
     #[serde(default)]
     pub collectors: Vec<CollectorDescriptor>,
     #[serde(default)]
-    pub analyzers: Vec<AnalyzerDescriptor>,
-    #[serde(default)]
     pub passes: Vec<CompilerPassDescriptor>,
     #[serde(default)]
     pub feature_flags: Vec<FeatureFlagDescriptor>,
@@ -69,7 +67,7 @@ pub struct ExtensionDeclaration {
 }
 
 /// A describe category, in the order the host reads them (ADR 0012 D2). The
-/// protocol defines no other: a guest answers these fifteen and nothing else
+/// protocol defines no other: a guest answers these fourteen and nothing else
 /// (ADR 0050).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DeclaredCategory {
@@ -80,7 +78,6 @@ pub enum DeclaredCategory {
     ValidationRules,
     Surfaces,
     Collectors,
-    Analyzers,
     Passes,
     FeatureFlags,
     Codes,
@@ -93,7 +90,7 @@ pub enum DeclaredCategory {
 impl DeclaredCategory {
     /// Every describe category, in the host's read order: the protocol's one
     /// list of them.
-    pub const ALL: [DeclaredCategory; 15] = [
+    pub const ALL: [DeclaredCategory; 14] = [
         DeclaredCategory::Entities,
         DeclaredCategory::Edges,
         DeclaredCategory::SharedFields,
@@ -101,7 +98,6 @@ impl DeclaredCategory {
         DeclaredCategory::ValidationRules,
         DeclaredCategory::Surfaces,
         DeclaredCategory::Collectors,
-        DeclaredCategory::Analyzers,
         DeclaredCategory::Passes,
         DeclaredCategory::FeatureFlags,
         DeclaredCategory::Codes,
@@ -121,7 +117,6 @@ impl DeclaredCategory {
             DeclaredCategory::ValidationRules => "validation_rules",
             DeclaredCategory::Surfaces => "surfaces",
             DeclaredCategory::Collectors => "collectors",
-            DeclaredCategory::Analyzers => "analyzers",
             DeclaredCategory::Passes => "passes",
             DeclaredCategory::FeatureFlags => "feature_flags",
             DeclaredCategory::Codes => "codes",
@@ -162,7 +157,6 @@ impl DeclaredCategory {
             DeclaredCategory::ValidationRules => &RULE,
             DeclaredCategory::Surfaces => &SURFACE,
             DeclaredCategory::Collectors => &COLLECTOR,
-            DeclaredCategory::Analyzers => &ANALYZER,
             DeclaredCategory::Passes => &PASS,
             DeclaredCategory::FeatureFlags => &FEATURE_FLAG,
             DeclaredCategory::Codes => &CODE,
@@ -264,7 +258,6 @@ impl ExtensionDeclaration {
             DeclaredCategory::ValidationRules => !self.validation_rules.is_empty(),
             DeclaredCategory::Surfaces => self.surfaces != SurfaceDescriptor::default(),
             DeclaredCategory::Collectors => !self.collectors.is_empty(),
-            DeclaredCategory::Analyzers => !self.analyzers.is_empty(),
             DeclaredCategory::Passes => !self.passes.is_empty(),
             DeclaredCategory::FeatureFlags => !self.feature_flags.is_empty(),
             DeclaredCategory::Codes => !self.codes.is_empty(),
@@ -296,7 +289,6 @@ impl ExtensionDeclaration {
             }
             DeclaredCategory::Surfaces => to_items(std::slice::from_ref(&self.surfaces)),
             DeclaredCategory::Collectors => to_items(&self.collectors),
-            DeclaredCategory::Analyzers => to_items(&self.analyzers),
             DeclaredCategory::Passes => to_items(&self.passes),
             DeclaredCategory::FeatureFlags => to_items(&self.feature_flags),
             DeclaredCategory::Codes => to_items(&self.codes),
@@ -330,7 +322,6 @@ impl ExtensionDeclaration {
                     .unwrap_or_default()
             }
             DeclaredCategory::Collectors => self.collectors = parse(name, items)?,
-            DeclaredCategory::Analyzers => self.analyzers = parse(name, items)?,
             DeclaredCategory::Passes => self.passes = parse(name, items)?,
             DeclaredCategory::FeatureFlags => self.feature_flags = parse(name, items)?,
             DeclaredCategory::Codes => self.codes = parse(name, items)?,
@@ -539,10 +530,6 @@ static COLLECTOR: Shape = Shape {
         ("inputs", Nested::List(&INPUT)),
     ],
 };
-static ANALYZER: Shape = Shape {
-    fields: struct_fields::<AnalyzerDescriptor>,
-    nested: &[],
-};
 static PASS: Shape = Shape {
     fields: struct_fields::<CompilerPassDescriptor>,
     nested: &[("inputs", Nested::List(&INPUT))],
@@ -607,9 +594,13 @@ static FS_SCOPE: Shape = Shape {
     fields: struct_fields::<FsScope>,
     nested: &[],
 };
+static PROCESS_CONFIG: Shape = Shape {
+    fields: struct_fields::<ProcessConfig>,
+    nested: &[],
+};
 static PROCESS_SCOPE: Shape = Shape {
     fields: struct_fields::<ProcessScope>,
-    nested: &[],
+    nested: &[("config", Nested::One(&PROCESS_CONFIG))],
 };
 static GIT_SCOPE: Shape = Shape {
     fields: struct_fields::<GitScope>,

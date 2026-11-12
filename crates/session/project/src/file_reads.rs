@@ -17,7 +17,7 @@ use specforge_effects::contained::{Contained, Resolved};
 use specforge_effects::fs::SKIPPED;
 use specforge_effects::{Root, Roots};
 
-use specforge_protocol_types::{FileFact, FileFacts, FileRead};
+use specforge_protocol_types::{FILE_READ_MAX, FileFact, FileFacts, FileRead};
 use specforge_registry::{Disk, DiskLookup, EntitySnapshot, paths_named, read_problem};
 
 use crate::judged::file_digest;
@@ -26,8 +26,6 @@ use crate::judged::file_digest;
 pub const TEXT_CAP: usize = 64 * 1024;
 /// The most text one read sends in all.
 pub const TEXT_BUDGET: usize = 1024 * 1024;
-/// The most files one read names.
-pub const MAX_FILES: usize = 2000;
 /// The most entries (files and directories) one glob visits, matched or not.
 pub const MAX_VISITS: usize = 20_000;
 
@@ -142,10 +140,10 @@ fn field_facts(
             named.entry((record.id.clone(), shown)).or_insert(resolved);
         }
     }
-    let truncated = named.len() > MAX_FILES;
+    let truncated = named.len() > FILE_READ_MAX;
     let facts = named
         .into_iter()
-        .take(MAX_FILES)
+        .take(FILE_READ_MAX)
         .map(|((entity, path), at)| fact(ctx, path, Some(entity), at.as_ref(), read.text, budget))
         .collect();
     FileFacts { facts, truncated }
@@ -249,7 +247,7 @@ fn walk(ctx: &Ctx<'_>, dir: &str, real: Option<&Path>, plan: &Walk<'_>, found: &
                 walk(ctx, &rel, child_real.as_deref(), plan, found);
             }
         } else if specforge_common::path_glob::matches(plan.glob, &rel) {
-            if found.files.len() == MAX_FILES {
+            if found.files.len() == FILE_READ_MAX {
                 found.truncated = true;
             } else {
                 found.files.push(rel);

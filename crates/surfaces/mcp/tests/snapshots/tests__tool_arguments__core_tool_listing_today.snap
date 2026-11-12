@@ -371,6 +371,9 @@ expression: listing
               },
               "type": "array"
             },
+            "checks_while": {
+              "type": "string"
+            },
             "default_value": {
               "type": "string"
             },
@@ -462,6 +465,38 @@ expression: listing
           "required": [
             "url",
             "content_hash"
+          ],
+          "type": "object"
+        },
+        "SourceSpan": {
+          "additionalProperties": false,
+          "properties": {
+            "end_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "end_line": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "file": {
+              "type": "string"
+            },
+            "start_col": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start_line": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "file",
+            "start_line",
+            "start_col",
+            "end_line",
+            "end_col"
           ],
           "type": "object"
         },
@@ -640,6 +675,12 @@ expression: listing
                   "line": {
                     "minimum": 0,
                     "type": "integer"
+                  },
+                  "located": {
+                    "items": {
+                      "$ref": "#/$defs/SourceSpan"
+                    },
+                    "type": "array"
                   },
                   "methods": {
                     "items": {
@@ -2143,6 +2184,9 @@ expression: listing
               },
               "type": "array"
             },
+            "checks_while": {
+              "type": "string"
+            },
             "default_value": {
               "type": "string"
             },
@@ -3329,6 +3373,12 @@ expression: listing
         },
         "kind": {
           "type": "string"
+        },
+        "located": {
+          "items": {
+            "$ref": "#/$defs/SourceSpan"
+          },
+          "type": "array"
         },
         "methods": {
           "items": {
@@ -9246,6 +9296,37 @@ expression: listing
               "skipped": {
                 "minimum": 0,
                 "type": "integer"
+              },
+              "syntax": {
+                "additionalProperties": false,
+                "properties": {
+                  "bytes": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "cached": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "parsed": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "unwritable": {
+                    "type": "string"
+                  },
+                  "unwritten": {
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "parsed",
+                  "cached",
+                  "bytes",
+                  "unwritten"
+                ],
+                "type": "object"
               }
             },
             "required": [
@@ -9458,7 +9539,7 @@ expression: listing
   },
   {
     "name": "specforge.infer_gaps",
-    "description": "Analyze inference gaps: public Rust items not yet covered by spec entities (approximate)",
+    "description": "Analyze inference gaps: public item facts no authored entity cites and no anchor names",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {},
@@ -9519,6 +9600,12 @@ expression: listing
           },
           "type": "array"
         },
+        "collectors": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "covered_items": {
           "minimum": 0,
           "type": "integer"
@@ -9527,34 +9614,9 @@ expression: listing
           "minimum": 0,
           "type": "integer"
         },
-        "scan_failures": {
-          "items": {
-            "additionalProperties": false,
-            "properties": {
-              "code": {
-                "type": "string"
-              },
-              "file": {
-                "type": "string"
-              },
-              "message": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "file",
-              "code",
-              "message"
-            ],
-            "type": "object"
-          },
-          "type": "array"
-        },
-        "scanners_used": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
+        "item_facts": {
+          "minimum": 0,
+          "type": "integer"
         },
         "total_pub_items": {
           "minimum": 0,
@@ -9562,12 +9624,12 @@ expression: listing
         }
       },
       "required": [
+        "item_facts",
         "total_pub_items",
         "covered_items",
         "gap_count",
         "approximate",
-        "scanners_used",
-        "scan_failures",
+        "collectors",
         "by_directory"
       ],
       "type": "object"
@@ -9704,6 +9766,16 @@ expression: listing
           "items": {
             "additionalProperties": false,
             "properties": {
+              "collector": {
+                "type": "string"
+              },
+              "end_line": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "fact_id": {
+                "type": "string"
+              },
               "file": {
                 "type": "string"
               },
@@ -9714,19 +9786,18 @@ expression: listing
                 "minimum": 0,
                 "type": "integer"
               },
-              "scanner": {
-                "type": "string"
-              },
-              "symbol_name": {
+              "via": {
                 "type": "string"
               }
             },
             "required": [
+              "fact_id",
               "file",
               "line",
-              "symbol_name",
+              "end_line",
               "item_kind",
-              "scanner"
+              "collector",
+              "via"
             ],
             "type": "object"
           },
@@ -9774,10 +9845,17 @@ expression: listing
           "items": {
             "additionalProperties": false,
             "properties": {
-              "confidence": {
-                "type": "number"
+              "collector": {
+                "type": "string"
+              },
+              "end_line": {
+                "minimum": 0,
+                "type": "integer"
               },
               "entity_id": {
+                "type": "string"
+              },
+              "fact_id": {
                 "type": "string"
               },
               "file": {
@@ -9793,16 +9871,20 @@ expression: listing
                 "minimum": 0,
                 "type": "integer"
               },
-              "symbol_name": {
+              "via": {
                 "type": "string"
               }
             },
             "required": [
               "entity_id",
+              "kind",
+              "fact_id",
               "file",
               "line",
-              "symbol_name",
-              "item_kind"
+              "end_line",
+              "item_kind",
+              "collector",
+              "via"
             ],
             "type": "object"
           },

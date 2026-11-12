@@ -26,7 +26,7 @@ The SDK provides:
 - **Builders** that declare every contribution with the handler that answers it
 - **`component_guest!`**, which serves the declaration as a wasip2 component
 - **`testing`** -- a runtime-free mock host
-- **`host`** -- the four `specforge:host` ports a command, an MCP tool or resource and a collector may call (see [Capabilities and host ports](#capabilities-and-host-ports))
+- **`host`** -- the five `specforge:host` ports a command, an MCP tool or resource and a collector may call (see [Capabilities and host ports](#capabilities-and-host-ports))
 
 There are no hand-written JSON manifests and no export registration: the declaration the builder builds is what the
 host loads and what `specforge publish` uploads (ADR 0012).
@@ -100,7 +100,7 @@ stripping drops function names from trap frames, so remove the table to debug.
 
 ## Authoring Experience
 
-You describe what the extension contributes with the builder, each contribution with the function that answers it. The SDK serves `__handshake` and `__describe` from the declaration and routes every declared export (`cmd__*`, `mcp__*`, `__pass_*`, `collect__*`, `validate__*`, `scan__*`, the migration hook) to its handler.
+You describe what the extension contributes with the builder, each contribution with the function that answers it. The SDK serves `__handshake` and `__describe` from the declaration and routes every declared export (`cmd__*`, `mcp__*`, `__pass_*`, `collect__*`, `validate__*`, the migration hook) to its handler.
 
 ### Complete Example
 
@@ -243,7 +243,7 @@ mod contributions;
 specforge_extension_sdk::component_guest!(build = contributions::build);
 ```
 
-`#[extension]` generates `specforge_extension_build()`; `build` hands it to `component_guest!`. An extension that also serves exports with no builder (its own scanners' helpers, say) passes `handler = <fn(&str, &[u8]) -> Option<Result<Vec<u8>, String>>>`.
+`#[extension]` generates `specforge_extension_build()`; `build` hands it to `component_guest!`. An extension that also serves exports with no builder (a category given with `raw_category`, say) passes `handler = <fn(&str, &[u8]) -> Option<Result<Vec<u8>, String>>>`.
 
 ### Extension-Level Attributes
 
@@ -284,7 +284,6 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 | `c.mcp_tool(..)`, `c.mcp_resource(..)` | an MCP tool or resource and its handler | `surfaces` |
 | `c.collector(name, \|k\| ..)` | a test collector and its handler | `collectors` |
 | `c.pass(name, \|p\| ..)` | a compiler pass and its handler | `passes` |
-| `c.analyzer(language, \|a\| ..)` | a source analyzer and its scanner | `analyzers` |
 | `c.feature_flag(name, default, description)` | a bool setting of that name users set in `specforge.json` | `settings` |
 | `c.setting(name, \|s\| ..)` | a typed setting: `bool()`, `integer()`, `number()`, `string()`, `enum_values(..)`, `string_list()`, `block()`, `block_list()`, `default(..)`, `describe(..)`, `gates(..)`, `gates_when_on(..)`, `keys(..)` for a family | `settings` |
 | `c.preset(source, \|p\| ..)` | what each value of an enum or bool setting presets and raises: `p.when(value, \|e\| e.set(..).raise(..))` | `settings` |
@@ -311,7 +310,7 @@ Every contribution is a builder call. The SDK adds the matching Wasm exports and
 
 ### Fields
 
-`FieldBuilder` declares a field: `field_type(FieldType::..)`, then `required()`, `description(..)`, `edge(label)`, `target_kind(..)`, `inverse_of(..)` (the name the target kind reads the relation by; never a field of the target kind, and never two kinds linking each other: both are W162), `normative()`, `exempts_obligations()`, `headline()`, `proof_role(..)`, `derived_from(..)`, `target_kinds(&[..])` (a reference names any of several kinds), `minimum(n)` and `maximum(n)` (an integer's inclusive bounds), `member(name, |m| ..)` (a field of a `block` or `block_list`, declared as a field is), `enum_list(&V)` (a list of a vocabulary's values, each once), and the checks its values pass (ADR 0336, see [Value checkers](#value-checkers)): `check(checker)`, `check_with(checker, args)`, `any_of([CheckRef::named(..), ..])` and `file(Root::Spec)`, the `file` check of `@specforge/checks` with that root. Who writes the field is declared too (ADR 0287): `computed()` (a compute pass gives the value; one written by hand is E082), `harness()` (a command's plan sets it and the host records it in `specforge-harness`; E083 without a line), `immutable()` (a value that differs from its git baseline is E084) and `append_only()` (a list that rewrites its baseline's items is E085; a kind's `append_only()` makes removing an entity E085). A pass declares `compute()` and `computes(&["kind.field"])` to answer `PassOutput.values` (`PassValue { entity, field, value }`), and `baseline(&["kind"])` for the kinds it reads as `previous`. `vocabulary(&V)` declares the field an `enum` of a `Vocabulary` (`const V: Vocabulary = Vocabulary::new(&[..]).absent_as(..)`): its values, in order, and the value an absent field counts as; the host refuses another value (E061). It is the only way to declare an enum. A field's type is declared, not inferred:
+`FieldBuilder` declares a field: `field_type(FieldType::..)`, then `required()`, `description(..)`, `edge(label)`, `target_kind(..)`, `inverse_of(..)` (the name the target kind reads the relation by; never a field of the target kind, and never two kinds linking each other: both are W162), `normative()`, `exempts_obligations()`, `headline()`, `proof_role(..)`, `derived_from(..)`, `target_kinds(&[..])` (a reference names any of several kinds), `minimum(n)` and `maximum(n)` (an integer's inclusive bounds), `member(name, |m| ..)` (a field of a `block` or `block_list`, declared as a field is), `enum_list(&V)` (a list of a vocabulary's values, each once), and the checks its values pass (ADR 0336, see [Value checkers](#value-checkers)): `check(checker)`, `check_with(checker, args)`, `any_of([CheckRef::named(..), ..])` and `file(Root::Spec)`, the `file` check of `@specforge/checks` with that root. When they run may follow the holder's owner state (ADR 0350): `planned()` checks the values once the owner is complete (a file the owner will create), `while_open()` only while it is pending (a file it will delete); the kind or a scope ancestor declares `complete_when` (W199 otherwise). Who writes the field is declared too (ADR 0287): `computed()` (a compute pass gives the value; one written by hand is E082), `harness()` (a command's plan sets it and the host records it in `specforge-harness`; E083 without a line), `immutable()` (a value that differs from its git baseline is E084) and `append_only()` (a list that rewrites its baseline's items is E085; a kind's `append_only()` makes removing an entity E085). A pass declares `compute()` and `computes(&["kind.field"])` to answer `PassOutput.values` (`PassValue { entity, field, value }`), and `baseline(&["kind"])` for the kinds it reads as `previous`. `vocabulary(&V)` declares the field an `enum` of a `Vocabulary` (`const V: Vocabulary = Vocabulary::new(&[..]).absent_as(..)`): its values, in order, and the value an absent field counts as; the host refuses another value (E061). It is the only way to declare an enum. A field's type is declared, not inferred:
 
 | `FieldType` | Holds |
 |---|---|
@@ -587,6 +586,31 @@ let mut output = CollectOutput { entity_results: vec![], ..Default::default() };
 output.facts.push(Fact::new("test", "js:pkg/a.test.js#adds").title("adds").field("file", "pkg/a.test.js"));
 ```
 
+`k.answers(&["package"])` lists the collected kinds whose facts it answers (ADR 0345 D3): a fact of a kind it does not
+list is refused (E116). `k.input(Input::facts(&["package"]))` asks for facts: the collector runs after the collectors
+that answer those kinds, and `CollectInput::facts` holds what they answered, admitted and sorted by kind and id; a kind
+no collector of the collect answers is served from the recorded stores. A cycle of such collectors is E119.
+
+A collector with neither `.run(..)` (or `.capability(..)`) nor `.report(..)` reads through its ports (ADR 0345 D2):
+`specforge collect` calls it under a run and a no-run alike, with no report and no approval, and it reads what it needs
+with `host::fs`, `host::git` or `host::syntax`, its extension declaring the capability that grants it:
+
+```rust
+c.capability(
+    Capability::fs("source")
+        .roots(&["project"])
+        .ops(&[FsAccess::Read, FsAccess::Walk])
+        .call_kinds(&[Operation::Collect])
+        .why("parse the project's source"),
+);
+c.collector("rust-items", |k| {
+    k.answers(&["item"]).collect(|_| {
+        let parsed = host::syntax::parse(&request).map_err(|e| format!("{e:?}"))?;
+        Ok(items(&parsed))
+    });
+});
+```
+
 `k.input(Input::CheckOutcomes)` makes it a reader of the checks' outcomes (ADR 0336), its evidence
 `CollectInput::check_outcomes`: it needs no command and no report, is never detected, and runs when `--runner` names it or
 under `checks.publish`.
@@ -715,13 +739,7 @@ lists, mixed lists, expressions and type unions, and a pass did not receive
 them or empty variant lists and blocks. See the version table in
 [extension-protocol.md](extension-protocol.md#protocol-versions).
 
-### Scanners and the migration hook
-
-An analyzer is declared with its scanner, `a.scan(...)`, from a
-[`ScanRequest`] (one source file) to a [`ScanResponse`] (its public items),
-at its `scan_export` (`scan__<language>`). Its `classify__`/`map__` exports
-are declared too but the host does not call them; a guest that serves them
-anyway answers them from its `handler`, decoding with `answer_export`.
+### The migration hook
 
 The hook `specforge migrate` calls before it writes the migrated files is
 declared with its handler, `c.migration_hook_handler(export, |input:
@@ -775,7 +793,7 @@ against the loaded kinds, when the extension loads.
 ## Capabilities and host ports
 
 A guest has no capability of its own: no file, socket, environment or clock beyond WASI's empty ones. It reaches an
-effect only through the four `specforge:host` ports, and a call is answered from what the host decided before it
+effect only through the five `specforge:host` ports, and a call is answered from what the host decided before it
 started, so nothing ever prompts mid-call.
 
 **Declare** what the extension uses. A capability names one port and its scope, and says why, in words a person
@@ -805,6 +823,12 @@ load (E089):
 let response = host::http::send(&HttpRequest { method: "HEAD".into(), url, ..Default::default() })?;
 let report = host::fs::read("project", "target/report.json", 0)?;
 let branch = host::git::branch()?;
+let parsed = host::syntax::parse(&SyntaxRequest {
+    source: SyntaxSource::Worktree { root: "project".into() },
+    files: SyntaxFiles::Glob("src/**/*.rs".into()),
+    language: "rust".into(),
+    query: "(function_item name: (identifier) @name) @definition.function".into(),
+})?;
 ```
 
 | Port | Functions | Call kinds that may use it |
@@ -813,6 +837,18 @@ let branch = host::git::branch()?;
 | `host::fs` | `stat`, `read`, `walk` | command, MCP tool and resource, collector |
 | `host::git` | `locate`, `commit`, `merge_base`, `tree`, `sizes`, `blobs`, `branch`, `status` | command, MCP tool and resource, collector |
 | `host::process` | `run` | collector |
+| `host::syntax` | `parse` | command, MCP tool and resource, collector |
+
+`host::syntax::parse` reads source with the host's tree-sitter reader (ADR 0344): `rust`, `typescript` or `tsx`, under
+a named root (`SyntaxSource::Worktree`) or at a commit (`SyntaxSource::Revision`), named paths or a glob. The query
+follows the tags convention: one role capture per pattern, `@definition.<kind>` or `@reference.<kind>`; every other
+capture not starting with `_` is answered (`SyntaxMatch::captures`), on anonymous nodes too; text predicates are
+evaluated and general ones refused. Each `SyntaxFile` is `Parsed { matches, errors }` or `NotParsed { reason }`
+(`deadline`, `too_large`, `missing`, `unreadable`, `denied`, `capped`), in the order asked; a match's `parent` is the
+index of the innermost match holding it, and a `SyntaxPoint` is `byte` (from 0), `line`, `col` and `byte_col` (from 1).
+An answer marked `truncated` hit the answer cap: ask the rest again. An `fs` capability backs the import (a `git` one
+at a revision); the host caches each file's answer by grammar, query and digest, so a second parse of unchanged files
+costs nothing.
 
 Every other call kind (a pass, a validator, a hook) is answered `Denial::CallKind` and nothing runs. Those kinds get
 what they need as the call's input.

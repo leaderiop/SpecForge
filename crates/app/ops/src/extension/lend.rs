@@ -2,6 +2,8 @@
 //! grant, settled before the call so nothing prompts during it. A guest that imports no port (every builtin) is lent
 //! nothing and costs nothing.
 
+use std::sync::Arc;
+
 use specforge_common::{Diagnostic, codes};
 use specforge_effects::{Roots, Uses};
 use specforge_protocol_types::{Operation, SettingsItem};
@@ -11,7 +13,8 @@ use crate::Caller;
 use crate::settle::settle;
 use crate::view::ProjectView;
 
-/// What `extension`'s call of kind `kind` is lent over `view`: none when `caller` lends no port, or its guest imports
+/// What `extension`'s call of kind `kind` is lent over `view`, parsing source with the project's one reader (its
+/// environment's, ADR 0344 D2): none when `caller` lends no port, or its guest imports
 /// none (a port it then calls is answered `denied(scope)`). Approvals nobody gave stay ungiven: a request that needs
 /// one is answered `denied(scope)`. W186 of a store that could not be read, or that lost an approval just given, is
 /// kept with the denials.
@@ -63,7 +66,8 @@ pub fn port_call(
         .with_named(Roots::new(root, env.spec_root()));
     let effects =
         specforge_project::effects::lent(lending.mode(), lending.ports(), env.project_root());
-    let call = PortCall::new(effects, lending.ports(), roots, grant, secrets);
+    let call = PortCall::new(effects, lending.ports(), roots, grant, secrets)
+        .with_syntax(Arc::clone(env.syntax()));
     for unusable in unusable {
         call.deny(unusable);
     }

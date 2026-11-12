@@ -1,10 +1,9 @@
 //! Every operation the host performs on a loaded extension, typed (ADR
 //! 0013).
 //!
-//! The host calls ten kinds of export: the handshake and describe that read
+//! The host calls nine kinds of export: the handshake and describe that read
 //! an extension's declaration, a command, an MCP tool, an MCP resource, a
-//! compiler pass, a collector, a custom validator, a scanner and the
-//! migration hook. [`ExtensionCalls`] has one function per operation: its
+//! compiler pass, a collector, a custom validator and the migration hook. [`ExtensionCalls`] has one function per operation: its
 //! input and its answer are the protocol's types
 //! (`specforge_protocol_types`, the ones the SDK shares), and every failure
 //! is one [`CallError`], E028. Callers never see bytes, export prefixes or
@@ -17,7 +16,7 @@
 //!
 //! What a failure means stays the caller's: a check pass's is a compile
 //! diagnostic, an analyze pass's a finding of that pass, a command's its
-//! error, a scanner's a reported failure, a collector's the collect error.
+//! error, a collector's the collect error.
 
 use std::fmt;
 use std::marker::PhantomData;
@@ -33,8 +32,7 @@ use specforge_protocol_types::{
     CommandOutput, DeclaredCategory, DescribeRequest, DescribeResponse, HandshakeRequest,
     HandshakeResponse, McpResourceContent, McpResourceRequest, MigrationInput, Operation,
     PROTOCOL_VERSION, PassAnswer, PassDiagnostic, PassInput, PassOutput, PassSeverity, PassSpan,
-    PromptInput, PromptOutput, RawGraph, ScanRequest, ScanResponse, ValidatorContext,
-    ValidatorVerdict, pass_export,
+    PromptInput, PromptOutput, RawGraph, ValidatorContext, ValidatorVerdict, pass_export,
 };
 
 use crate::runtime::{WasmCallResult, WasmRuntime};
@@ -386,16 +384,6 @@ impl<'r> ExtensionCalls<'r> {
         )
     }
 
-    /// An analyzer's scan export on one source file.
-    pub fn scan(
-        &self,
-        extension: &str,
-        export: &str,
-        request: &ScanRequest,
-    ) -> Result<ScanResponse, CallError> {
-        self.call_typed(Operation::Scan, extension, export, request, "ScanResponse")
-    }
-
     /// The migration hook `hook`. Its answer is not read: the protocol
     /// defines none.
     pub fn migrate(
@@ -563,7 +551,8 @@ pub(crate) fn decode<O: DeserializeOwned>(
 fn held(operation: Operation, answer: &[u8]) -> Result<Value, serde_json::Error> {
     let mut value: Value = serde_json::from_slice(answer)?;
     let lines = match operation {
-        Operation::Handshake => DECLARED_LINES,
+        // A declaration's file texts (a starter template, a collector's config template) keep their lines.
+        Operation::Handshake | Operation::Describe => DECLARED_LINES,
         // A prompt's message is a document: it keeps its lines, every other control stays escaped.
         Operation::Prompt => &["text"],
         // A renderer's body and a hook's words to the model or the person are documents too.

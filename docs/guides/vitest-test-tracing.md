@@ -125,7 +125,7 @@ npx --no vitest run --reporter=default --reporter=json --outputFile.json=<report
   entry names an entity no spec declares. Fix the entry.
 - **`A016 tests name obligation(s) ... does not declare`:** the entry's
   `verify` text differs from the spec's statement. Make them match exactly.
-- **`E058 no test runner detected`:** several runners are enabled and none
+- **`E058 no collector detected`:** several collectors are enabled and none
   was detected, for example with vitest configured inside `vite.config.ts`.
   Use `--runner vitest`.
 - **`E045 ... produced no report`:** vitest didn't start. Check that it's

@@ -1,5 +1,5 @@
-//! Inference progress: the source files the enabled analyzers would scan
-//! against `specforge-infer.json`'s index.
+//! Inference progress: the source files the item facts locate against
+//! `specforge-infer.json`'s index.
 
 use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
@@ -7,7 +7,6 @@ use std::path::Path;
 use serde::Serialize;
 
 use specforge_common::shape::Shape;
-use specforge_protocol_types::ExtensionDeclaration;
 
 use super::gaps::directory_of;
 use super::manifest::{InferenceManifest, InferenceSession, InferenceSummary};
@@ -24,8 +23,8 @@ pub struct UnanalyzedDirectory {
     pub files: Vec<String>,
 }
 
-/// How far inference has come: every source file the analyzers would
-/// scan, against the manifest's index.
+/// How far inference has come: every source file an item fact locates,
+/// against the manifest's index.
 #[derive(Debug, Clone)]
 pub struct Progress {
     pub summary: InferenceSummary,
@@ -42,27 +41,28 @@ pub struct Progress {
 }
 
 /// Inference progress for the project the view was compiled from: the
-/// source files its loaded analyzers would scan at its root, against
-/// `specforge-infer.json` there. Without a root: `no_project`.
+/// source files its item facts locate at its root, against
+/// `specforge-infer.json` there (none without a source pack's facts).
+/// Without a root: `no_project`.
 pub fn progress(view: &ProjectView) -> Result<Progress, OpError> {
     let root = view.project_root()?;
     let manifest = InferenceManifest::read(root)?;
     let recorded = manifest.is_some();
     Ok(progress_under(
+        view,
         root,
-        view.registries().declarations(),
         &manifest.unwrap_or_default(),
         recorded,
     ))
 }
 
 fn progress_under(
+    view: &ProjectView,
     root: &Path,
-    declarations: &[ExtensionDeclaration],
     manifest: &InferenceManifest,
     recorded: bool,
 ) -> Progress {
-    let sources = InferenceSources::of(root, declarations, manifest);
+    let sources = InferenceSources::of(view, root, manifest);
     let files = sources.keys();
     let indexed = sources.files().indexed(manifest);
     let recorded_keys: HashSet<&SourceKey> =
@@ -192,13 +192,16 @@ mod tests {
     use super::*;
     use crate::testing::Viewed;
     use serde_json::json;
-    use specforge_project::testing::Assembled;
+    use specforge_project::testing::{Assembled, item_declarations, item_node};
     use specforge_test_macros::test as specforge_test;
 
     /// A project with Rust sources under `src/`, one of them indexed,
-    /// whose compile loaded a Rust analyzer.
+    /// whose graph holds an item fact in each.
     fn project() -> Assembled {
-        let fixture = Assembled::new().declarations(rust_analyzer());
+        let mut fixture = Assembled::new().declarations(item_declarations());
+        let graph = fixture.graph_mut();
+        graph.add_node(item_node("rust:p::alpha", "src/lib.rs", 1));
+        graph.add_node(item_node("rust:p::net::Wire", "src/net/wire.rs", 1));
         let dir = fixture.root();
         std::fs::create_dir_all(dir.join("src/net")).unwrap();
         std::fs::write(dir.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
@@ -220,26 +223,6 @@ mod tests {
         )
         .unwrap();
         fixture
-    }
-
-    /// An extension analyzing Rust files.
-    fn rust_analyzer() -> Vec<ExtensionDeclaration> {
-        vec![ExtensionDeclaration {
-            handshake: specforge_protocol_types::HandshakeResponse {
-                name: "@acme/rust".into(),
-                version: "1.0.0".into(),
-                ..Default::default()
-            },
-            analyzers: vec![specforge_protocol_types::AnalyzerDescriptor {
-                language: "rust".into(),
-                file_extensions: vec![".rs".into()],
-                scan_export: "scan".into(),
-                classify_export: "classify".into(),
-                map_export: "map".into(),
-                ..Default::default()
-            }],
-            ..Default::default()
-        }]
     }
 
     #[specforge_test(
@@ -279,12 +262,12 @@ mod tests {
         behavior = "provide_mcp_infer_progress_tool",
         verify = "graceful handling when specforge-infer.json is missing"
     )]
-    fn progress_without_a_manifest_counts_every_file_unanalyzed() {
+    fn progress_without_a_manifest_counts_every_file_an_item_locates_unanalyzed() {
         let dir = project();
         std::fs::remove_file(dir.root().join("specforge-infer.json")).unwrap();
         let progress = progress(&dir.view()).unwrap();
         assert_eq!(progress.summary.files_analyzed, 0);
-        assert!(progress.unanalyzed.contains(&"src/lib.rs".to_string()));
+        assert_eq!(progress.unanalyzed, ["src/lib.rs", "src/net/wire.rs"]);
     }
 
     #[test]

@@ -40,6 +40,7 @@ fn declare() -> ContributionsBuilder {
     });
     c.collector("outcomes", |k| {
         k.input(Input::CheckOutcomes)
+            .answers(&["seen"])
             .collect(|input: &CollectInput| {
                 let facts = input.check_outcomes.iter().map(|row| {
                     json!({"kind": "seen", "id": format!("seen:{}", row.entity),

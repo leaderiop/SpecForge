@@ -7,16 +7,7 @@ expression: "shape(&reply, dir.path())"
   "instruction": "You are inferring spec entities from the file 'src/login.rs'. The entities listed below already reference this file — do not duplicate them. Use the kind guides to identify new entities.",
   "layout": "turns",
   "payload": {
-    "existing_entities_referencing_file": [
-      {
-        "entity_id": "alpha",
-        "file": "src/login.rs",
-        "item_kind": "fn",
-        "kind": "behavior",
-        "line": 1,
-        "symbol_name": "login"
-      }
-    ],
+    "existing_entities_referencing_file": [],
     "file": "src/login.rs",
     "kinds": [
       {
@@ -88,7 +79,20 @@ expression: "shape(&reply, dir.path())"
         "kind": "invariant"
       }
     ],
-    "match_mode": "exact",
+    "match_mode": "none",
+    "notices": [
+      {
+        "code": "I212",
+        "column": null,
+        "file": null,
+        "line": null,
+        "message": "the session serves no located fact, so nothing can be anchored: no collector's facts carry a place in source",
+        "severity": "Info",
+        "span": null,
+        "suggestion": "load a source pack (`specforge add @rust/source`) and run `specforge collect`",
+        "title": "No located facts to anchor to"
+      }
+    ],
     "project_conventions": "",
     "scope": "file",
     "validation": "After each specforge.edit call, call specforge.validate to check for errors across files (and specforge.analyze for coverage/contract findings). Fix any errors before proceeding."

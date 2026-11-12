@@ -9,6 +9,9 @@
     "@specforge/testing",
     "@specforge/cargo-test",
     "@specforge/governance",
-    "@specforge/formal"
+    "@specforge/formal",
+    "@code/core",
+    "@rust/cargo",
+    "@rust/source"
   ]
 }

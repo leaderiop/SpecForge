@@ -1,0 +1,14 @@
+{
+  "protocol_version": "2.0.0",
+  "name": "@rust/cargo",
+  "version": "1.0.0",
+  "peer_dependencies": [
+    {
+      "name": "@code/core",
+      "version": "^1.1",
+      "optional": false
+    }
+  ],
+  "sandbox_policy": null,
+  "description": "Reads every Cargo.toml with cargo's own manifest model into package facts (@code/core)"
+}

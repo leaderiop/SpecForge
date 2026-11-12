@@ -14,9 +14,8 @@
 //!   [`CommandOutput`]), an MCP resource ([`McpResourceRequest`],
 //!   [`McpResourceContent`]), a compiler pass ([`PassInput`],
 //!   [`PassAnswer`]), a collector ([`CollectInput`], [`CollectOutput`]), a
-//!   custom validator ([`ValidatorContext`], [`ValidatorVerdict`]), a
-//!   scanner ([`ScanRequest`], [`ScanResponse`]) and the migration hook
-//!   ([`MigrationInput`]);
+//!   custom validator ([`ValidatorContext`], [`ValidatorVerdict`]) and the
+//!   migration hook ([`MigrationInput`]);
 //! - the shell-word reader ([`shell`], ADR 0292's amendment): what a line of
 //!   shell runs, read and never run, by the host for a hook's facts and by a
 //!   guest for the command text no hook carries. Editing it stales every blob.
@@ -54,15 +53,18 @@ mod route;
 mod settings;
 pub mod shell;
 mod surface;
+mod syntax;
 pub mod tool_input;
 mod trigger;
 mod version;
 mod vocabulary;
 pub use calls::*;
 pub use capability::{
-    CAPABILITY_KEYS, CapabilityDescriptor, CapabilityProblem, FsAccess, FsScope, GitOp, GitScope,
-    Hosts, HttpMethod, HttpScope, MAX_CAPABILITY_BYTES, Owner, PortScope, ProcessScope,
-    SecretHeader, WRITING_KINDS, capability_problems, is_host_pattern, is_scope_name,
+    ARGV_PLACEHOLDERS, CAPABILITY_KEYS, CONFIG_PLACEHOLDER, CONFIG_TEMPLATE_MAX,
+    CapabilityDescriptor, CapabilityProblem, FsAccess, FsScope, GitOp, GitScope, Hosts, HttpMethod,
+    HttpScope, MAX_CAPABILITY_BYTES, Owner, PortScope, ProcessConfig, ProcessScope,
+    REPORT_PLACEHOLDER, SecretHeader, WRITING_KINDS, capability_problems, is_config_name,
+    is_host_pattern, is_scope_name,
 };
 pub use checks::{
     ByteRange, CHECK_VALUES_EXPORT, CheckFinding, CheckItem, CheckOutcome, CheckPhase, CheckPlan,
@@ -87,13 +89,15 @@ pub use operation::Operation;
 pub use plan::{Cite, EditPlan, PlanObligation, PlanOp, Revision};
 pub use ports::{
     Denial, Failure, FileSize, FsContent, FsEntry, FsEntryKind, FsListing, GitBlob, GitBlobs,
-    GitRepo, GitTreeEntry, HostError, HttpResponse, ProcessOutput,
+    GitDiffAnswer, GitDiffHead, GitDiffQuery, GitFileChange, GitHunk, GitLogAnswer, GitLogCommit,
+    GitLogQuery, GitRepo, GitSignature, GitTrailer, GitTreeEntry, HostError, HttpResponse,
+    ProcessOutput,
 };
 pub use prompt::{
     Attribution, PromptArgDescriptor, PromptDescriptor, PromptInput, PromptMessage, PromptOutput,
     PromptRole, PromptStep, ServedSlash,
 };
-pub use reads::{FileFact, FileFacts, FileMap, FileRead};
+pub use reads::{FILE_READ_MAX, FileFact, FileFacts, FileMap, FileRead};
 pub use rooted::{PrefixProblem, Root, RootedPath};
 pub use route::{ROUTE_START, RouteAnnotationDescriptor, RouteDescriptor, RouteStepDescriptor};
 pub use settings::{
@@ -101,10 +105,15 @@ pub use settings::{
     UnreadableItem, is_segment, valid_name,
 };
 pub use surface::*;
+pub use syntax::{
+    NotParsed, SyntaxAnswer, SyntaxCapture, SyntaxFile, SyntaxFiles, SyntaxMatch, SyntaxOutcome,
+    SyntaxPoint, SyntaxRequest, SyntaxRole, SyntaxSource, SyntaxSpan,
+};
 pub use trigger::{Trigger, TriggerKind};
 pub use version::PROTOCOL_VERSION;
 pub use vocabulary::{
-    CheckKind, ConstraintKind, FieldType, FieldWriter, GUARD_PHASE, JudgementState, ProofRole,
+    CheckKind, ConstraintKind, FieldType, FieldWriter, GUARD_PHASE, JudgementState, OwnerState,
+    ProofRole,
 };
 
 /// Errors that can occur during the extension protocol lifecycle.
@@ -501,6 +510,10 @@ pub struct AutoDetectConfig {
     pub file_patterns: Vec<String>,
     #[serde(default)]
     pub env_vars: Vec<String>,
+    /// Also detected in any git repository: the project root or a directory above it holds `.git` (a directory, or a
+    /// linked worktree's file), so a project in a repository's subdirectory is detected too (protocol 2.0.0).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub repository: bool,
 }
 
 /// Describes a test result collector.
@@ -534,91 +547,22 @@ pub struct CollectorDescriptor {
     /// What the host serves the collector before the call: `files` (ADR 0293, ADR 0337 D2).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inputs: Vec<Input>,
+    /// The collected kinds whose facts it answers (ADR 0345 D3): what orders it before a collector whose `facts`
+    /// input names one, and the only kinds whose facts the host admits from it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub answers: Vec<String>,
+    /// What to run to install its program, said when the program is not found on PATH (ADR 0348 D4): one printable
+    /// line of at most [`INSTALL_LINE_MAX`] bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub install: Option<String>,
 }
 
-// ── Analyzer Protocol Types ──
+/// The most bytes a collector's install line holds.
+pub const INSTALL_LINE_MAX: usize = 200;
 
-/// Request to scan a source file for public items.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ScanRequest {
-    pub file_path: String,
-    pub content: String,
-}
-
-/// A single scanned item from source code.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ScannedItem {
-    pub name: String,
-    pub item_kind: String,
-    pub line: usize,
-    #[serde(default)]
-    pub visibility: Option<String>,
-    #[serde(default)]
-    pub signature: Option<String>,
-}
-
-/// Response from scanning a source file.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ScanResponse {
-    pub items: Vec<ScannedItem>,
-    #[serde(default)]
-    pub language: Option<String>,
-}
-
-/// Request to classify scanned items into specforge entity categories.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ClassifyRequest {
-    pub items: Vec<ScannedItem>,
-    pub file_path: String,
-}
-
-/// Classification result for a scanned item.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ClassifiedItem {
-    pub name: String,
-    pub item_kind: String,
-    pub suggested_entity_kind: Option<String>,
-    pub confidence: f64,
-    pub line: usize,
-}
-
-/// Response from classifying scanned items.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ClassifyResponse {
-    pub items: Vec<ClassifiedItem>,
-}
-
-/// Request to map a source symbol to a specforge entity ID.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct MapSymbolRequest {
-    pub name: String,
-    pub item_kind: String,
-    pub file_path: String,
-    #[serde(default)]
-    pub existing_entity_ids: Vec<String>,
-}
-
-/// Response from mapping a symbol to an entity ID.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct MapSymbolResponse {
-    pub entity_id: Option<String>,
-    pub mapping_strategy: String,
-}
-
-// ── Analyzer Descriptor ──
-
-/// Describes a language analyzer contributed by an extension.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct AnalyzerDescriptor {
-    pub language: String,
-    pub file_extensions: Vec<String>,
-    #[serde(default)]
-    pub excluded_dirs: Vec<String>,
-    pub scan_export: String,
-    pub classify_export: String,
-    pub map_export: String,
-    #[serde(default)]
-    pub description: Option<String>,
+/// Whether `line` is an install line: non-empty, at most [`INSTALL_LINE_MAX`] bytes, every character printable.
+pub fn is_install_line(line: &str) -> bool {
+    !line.trim().is_empty() && line.len() <= INSTALL_LINE_MAX && !line.chars().any(char::is_control)
 }
 
 // ── Compiler Pass Descriptor ──

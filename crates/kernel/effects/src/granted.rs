@@ -132,6 +132,15 @@ impl Fs for GrantedPort<dyn Fs> {
             Err(_) => FsOutcome::of(OutcomeClass::Denied),
         }
     }
+
+    /// A whole-file read the host makes for a granted guest request (its source parsed through `syntax`): the same
+    /// grant, held to [`crate::fs::FILE_CEILING`] by the port.
+    fn read_whole(&self, roots: &Roots, request: &FsRequest) -> FsOutcome {
+        match self.check(EffectRequest::Fs(request.clone())) {
+            Ok(()) => self.port.read_whole(roots, request),
+            Err(_) => FsOutcome::of(OutcomeClass::Denied),
+        }
+    }
 }
 
 impl Process for GrantedPort<dyn Process> {

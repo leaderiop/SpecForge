@@ -89,6 +89,47 @@ fn an_entity_lists_each_checked_values_outcome() {
     );
 }
 
+/// `plan`, complete on `state ∈ [done]`, whose `files` `no_todo` reads once it is.
+fn planned() -> ContributionsBuilder {
+    let mut c = extension();
+    c.kind("plan", |k| {
+        k.complete_when("state", &["done"])
+            .field("state", |f| {
+                f.vocabulary(&Vocabulary::new(&["open", "done"]));
+            })
+            .field("files", |f| {
+                f.field_type(FieldType::String).check("no_todo").planned();
+            });
+    });
+    c
+}
+
+#[specforge_test(
+    behavior = "inspect_entity_facts",
+    verify = "an entity lists a value waiting for its owner as planned, with no outcome"
+)]
+fn an_entity_lists_a_planned_value_as_planned() {
+    let project = TestProject::new()
+        .config(|c| c["name"] = "p".into())
+        .enabling(&[EXT])
+        .installing_enabled()
+        .file(
+            "a.spec",
+            "plan p \"P\" {\n  state open\n  files \"TODO later\"\n}\n",
+        )
+        .compile_in(Arc::new(InProcessRuntime::new().with(planned)));
+    let view = ProjectView::of(&project);
+    let checks = inspect::inspect(&view, "p").unwrap().checks;
+    assert_eq!(checks.len(), 1, "{checks:?}");
+    assert_eq!(checks[0].status, CheckStatus::Planned);
+    assert_eq!(
+        (checks[0].outcome.as_deref(), checks[0].codes.len()),
+        (None, 0)
+    );
+    let written = serde_json::to_value(&checks[0]).unwrap();
+    assert_eq!(written["status"], "planned");
+}
+
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "with_checks adds each value's outcomes to a graph or context export, and a plain export is unchanged"

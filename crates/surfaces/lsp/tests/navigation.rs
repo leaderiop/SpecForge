@@ -286,3 +286,61 @@ fn go_to_definition_on_a_use_answers_while_the_session_is_out() {
         ))
     );
 }
+
+// -- go-to-definition on a fact reference --------------------------------------
+
+/// A project citing the test fact `js:a.test.js#adds` from `truths.spec` (line 1, the quoted id from
+/// character 10), the fact collected in `a.test.js` at lines 3-5, its store recording that file's digest.
+fn citing_a_located_fact() -> crate::served::Served {
+    use specforge_project::testing::{COLLECTED_EXTENSIONS, Collected, stored_with};
+    let source = "// tests\n\ntest('adds', () => {\n  add(1, 2);\n});\n";
+    let dir = tempfile::TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("truths.spec"),
+        "truth T1 \"One\" {\n  proof [\"js:a.test.js#adds\"]\n}\n",
+    )
+    .unwrap();
+    fs::write(dir.path().join("a.test.js"), source).unwrap();
+    let at = serde_json::json!([{"file": "a.test.js", "start_line": 3, "start_col": 1, "end_line": 5, "end_col": 4}]);
+    stored_with(
+        dir.path(),
+        "node",
+        "0123456789abcdef0123456789abcdef01234567",
+        serde_json::json!([{"kind": "test", "id": "js:a.test.js#adds", "at": at,
+                             "fields": {"file": "a.test.js"}}]),
+        [(
+            "a.test.js".to_string(),
+            specforge_ops::revision::of_bytes(source.as_bytes()),
+        )]
+        .into(),
+    );
+    crate::served::Served::served_by(dir, Collected::new().runtime(), &COLLECTED_EXTENSIONS)
+        .open(&["truths.spec"])
+}
+
+#[spec(
+    behavior = "go_to_definition",
+    verify = "definition on a fact reference opens the source range it was collected from"
+)]
+fn definition_on_a_fact_reference_opens_its_source() {
+    let served = citing_a_located_fact();
+    let truths = served.uri("truths.spec");
+    let definition = specforge_lsp::answers::definition(
+        &served.state(),
+        &truths,
+        tower_lsp::lsp_types::Position::new(1, 12),
+    );
+    // The fact is declared where its collector placed it: `a.test.js`, lines 3-5.
+    assert_eq!(
+        definition,
+        Some(tower_lsp::lsp_types::GotoDefinitionResponse::Scalar(
+            tower_lsp::lsp_types::Location {
+                uri: served.uri("a.test.js"),
+                range: tower_lsp::lsp_types::Range::new(
+                    tower_lsp::lsp_types::Position::new(2, 0),
+                    tower_lsp::lsp_types::Position::new(4, 3),
+                ),
+            }
+        ))
+    );
+}

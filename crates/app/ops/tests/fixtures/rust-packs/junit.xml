@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="nextest-run" tests="3" skipped="0" failures="0" errors="0" uuid="9fcc68ad-46db-4daa-a806-5a59e328e3d4" timestamp="2026-11-09T21:41:51.031+01:00" time="0.034">
+    <testsuite name="adder::api" tests="1" skipped="0" errors="0" failures="0">
+        <testcase name="tests::adds" classname="adder::api" timestamp="2026-11-09T21:41:51.037+01:00" time="0.027"/>
+    </testsuite>
+    <testsuite name="adder::bin/adder" tests="1" skipped="0" errors="0" failures="0">
+        <testcase name="tests::adds" classname="adder::bin/adder" timestamp="2026-11-09T21:41:51.037+01:00" time="0.027"/>
+    </testsuite>
+    <testsuite name="adder" tests="1" skipped="0" errors="0" failures="0">
+        <testcase name="tests::adds" classname="adder" timestamp="2026-11-09T21:41:51.038+01:00" time="0.027"/>
+    </testsuite>
+</testsuites>

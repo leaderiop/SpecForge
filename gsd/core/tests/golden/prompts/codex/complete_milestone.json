@@ -61,7 +61,7 @@
     "   chain. Or proceed anyway to accept the gaps as tech debt.",
     ""
   ],
-  "bytes": 21934,
+  "bytes": 21965,
   "end": [
     "",
     "7. **Commit and tag:**",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:ac030a70d66aa6a58a85ad23b93d3885d22299525be5c22272d35817bd283728",
+    "digest": "sha256:ce90e03308cb305be9e3e671c063a6820b0fb33ddb32e69c63048c4ccb942992",
     "prompt": "@gsd/core@VERSION:complete_milestone",
     "steps": [
       {
@@ -229,5 +229,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "ac030a70d66aa6a58a85ad23b93d3885d22299525be5c22272d35817bd283728"
+  "sha256": "ce90e03308cb305be9e3e671c063a6820b0fb33ddb32e69c63048c4ccb942992"
 }

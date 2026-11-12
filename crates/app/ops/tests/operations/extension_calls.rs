@@ -1,4 +1,4 @@
-//! What the host sends the command, collector, scanner and migration-hook
+//! What the host sends the command, collector and migration-hook
 //! exports, compared with the wire goldens in
 //! `crates/runtime/wasm/tests/wire/`, and what a collector's failure
 //! becomes. They began as characterization pins; the ones that pinned a bug
@@ -71,12 +71,16 @@ fn collector() -> Collector {
         name: "x".to_string(),
         export: "collect__x".to_string(),
         detect: Vec::new(),
+        detect_repository: false,
         run: Vec::new(),
-        report: "report.json".to_string(),
+        report: Some("report.json".to_string()),
         capture: None,
         writes: false,
         inputs: Vec::new(),
         capability: None,
+        answers: Vec::new(),
+        config: None,
+        install: None,
     }
 }
 

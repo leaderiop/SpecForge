@@ -66,9 +66,10 @@ const SUBCOMMANDS: [&str; 39] = [
 ];
 const PROGRAMS: [&str; 3] = ["specforge ", "cargo ", "z3 "];
 /// Relative to `crates/`.
-const EXEMPT: [&str; 2] = [
+const EXEMPT: [&str; 3] = [
     "leaf/diagnostics/src/catalog.rs",
     "leaf/diagnostics/src/catalog_checks.rs",
+    "leaf/diagnostics/src/catalog_registry.rs",
 ];
 
 /// Whether the flag that follows `clause` belongs to a whole command: the last program in the clause is followed by

@@ -110,20 +110,24 @@ pub fn printable_lines_at(text: &str, at: usize) -> usize {
         .sum::<usize>()
 }
 
-/// The keys of a declaration whose text is a file's (a starter template): held printable but for
-/// their newlines and tabs (ADR 0244).
-pub const DECLARED_LINES: &[&str] = &["starter_template"];
+/// The keys of a declaration whose text is a file's (a starter template, the template of the config
+/// file a process capability declares, under its `config`): held printable but for their newlines and
+/// tabs (ADR 0244).
+pub const DECLARED_LINES: &[&str] = &["starter_template", "config.template"];
 
-/// Every string of `value`, and every object key, held [`printable`]; a string under a key named in
-/// `lines` keeps its newlines and tabs, every other control and bidirectional character escaped.
+/// Every string of `value`, and every object key, held [`printable`]; a string under a key `lines`
+/// names keeps its newlines and tabs, every other control and bidirectional character escaped. A line
+/// `key` names that key wherever it is; `parent.key` names it only directly in an object held at the key
+/// `parent` (or in an array's object there).
 /// Text another program sends as JSON is held here once, where it is read (an extension's answer,
 /// a registry's manifest), so every surface that later prints it carries the same harmless text.
 /// Idempotent, as [`printable`] is.
 pub fn hold_printable(value: &mut serde_json::Value, lines: &[&str]) {
-    hold(value, false, lines);
+    hold(value, false, lines, "");
 }
 
-fn hold(value: &mut serde_json::Value, keep_lines: bool, lines: &[&str]) {
+/// `value`, held at the key `parent` ("" at the top).
+fn hold(value: &mut serde_json::Value, keep_lines: bool, lines: &[&str], parent: &str) {
     use serde_json::Value;
     match value {
         Value::String(text) => {
@@ -131,7 +135,9 @@ fn hold(value: &mut serde_json::Value, keep_lines: bool, lines: &[&str]) {
                 *text = held;
             }
         }
-        Value::Array(items) => items.iter_mut().for_each(|item| hold(item, false, lines)),
+        Value::Array(items) => items
+            .iter_mut()
+            .for_each(|item| hold(item, false, lines, parent)),
         Value::Object(map) => {
             let renamed: Vec<String> = map
                 .keys()
@@ -144,7 +150,11 @@ fn hold(value: &mut serde_json::Value, keep_lines: bool, lines: &[&str]) {
                 }
             }
             for (key, item) in map.iter_mut() {
-                hold(item, lines.contains(&key.as_str()), lines);
+                let keeps = lines.iter().any(|line| match line.split_once('.') {
+                    Some((under, named)) => under == parent && named == key,
+                    None => line == key,
+                });
+                hold(item, keeps, lines, key);
             }
         }
         _ => {}
@@ -278,6 +288,25 @@ mod tests {
         assert_eq!(
             value,
             serde_json::json!({"starter_template": "a\r\n\tb\\u{1b}", "other": "a\\n"})
+        );
+    }
+
+    #[test]
+    fn a_config_template_keeps_its_lines_and_its_name_does_not() {
+        let config = serde_json::json!({"name": "a.toml\n", "template": "[a]\n\tb = 1\u{7}\n"});
+        let mut value = serde_json::json!([{"scope": {"config": config}}]);
+        hold_printable(&mut value, DECLARED_LINES);
+        let held = serde_json::json!({"name": "a.toml\\n", "template": "[a]\n\tb = 1\\u{7}\n"});
+        assert_eq!(value, serde_json::json!([{"scope": {"config": held}}]));
+    }
+
+    #[test]
+    fn a_template_outside_a_config_is_escaped() {
+        let mut value = serde_json::json!({"template": "a\n", "x": {"template": "b\n"}});
+        hold_printable(&mut value, DECLARED_LINES);
+        assert_eq!(
+            value,
+            serde_json::json!({"template": "a\\n", "x": {"template": "b\\n"}})
         );
     }
 

@@ -25,6 +25,7 @@ pub fn initialize_result() -> InitializeResult {
                 ..Default::default()
             }),
             definition_provider: Some(OneOf::Left(true)),
+            implementation_provider: Some(ImplementationProviderCapability::Simple(true)),
             references_provider: Some(OneOf::Left(true)),
             rename_provider: Some(OneOf::Right(RenameOptions {
                 prepare_provider: Some(true),

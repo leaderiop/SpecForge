@@ -97,6 +97,13 @@ module specforge_shape_macros "specforge-shape-macros" {
   tags        ["kernel"]
 }
 
+module specforge_source "specforge-source" {
+  family      core
+  description "The host's one source reader: tree-sitter with the rust, typescript and tsx grammars, running a pack's query in the tags convention, its parses cached by content and bounded by a per-file deadline (ADR 0344)"
+  depends_on  [specforge_common, specforge_protocol_types]
+  tags        ["kernel"]
+}
+
 module tree_sitter_specforge "tree-sitter-specforge" {
   family      core
   description "The tree-sitter grammar of the .spec language: grammar.js, the generated parser and its scanner, the node-kind and field vocabulary, and the editor queries"
@@ -215,6 +222,7 @@ module specforge_wasm "specforge-wasm" {
     specforge_effects,
     specforge_extension_sdk,
     specforge_protocol_types,
+    specforge_source,
   ]
   tags        ["wasm", "runtime"]
 }
@@ -236,6 +244,7 @@ module specforge_project "specforge-project" {
     specforge_protocol_types,
     specforge_registry,
     specforge_resolver,
+    specforge_source,
     specforge_wasm,
   ]
   tags        ["session"]
@@ -267,6 +276,7 @@ module specforge_ops "specforge-ops" {
     specforge_project,
     specforge_protocol_types,
     specforge_registry,
+    specforge_source,
     specforge_wasm,
   ]
   tags        ["app"]
@@ -521,7 +531,22 @@ module specforge_package_javascript_node_test "specforge-package-javascript-node
   family      extension
   description "Wasm package for @javascript/node-test: runs node --test for specforge collect and answers its tests as @code/core test facts"
   features    [nt_node_test_collection, test_result_collection]
-  depends_on  [specforge_wasm]
+  depends_on  [specforge_wasm, specforge_package_javascript_workspace]
+  tags        ["extension", "traceability"]
+}
+
+module specforge_package_javascript_workspace "specforge-javascript-workspace" {
+  family      extension
+  description "Extension library the JavaScript packs link: names the package that owns a project file from every package.json the host read"
+  features    [nt_node_test_collection, js_item_facts]
+  tags        ["extension", "traceability"]
+}
+
+module specforge_package_javascript_source "specforge-package-javascript-source" {
+  family      extension
+  description "Wasm package for @javascript/source: has the host's reader parse a JavaScript or TypeScript project's source and answers its items and npm packages as @code/core facts"
+  features    [js_item_facts]
+  depends_on  [specforge_wasm, specforge_package_javascript_workspace]
   tags        ["extension", "traceability"]
 }
 

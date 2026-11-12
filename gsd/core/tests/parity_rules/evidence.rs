@@ -9,7 +9,7 @@ pub enum Evidence {
     },
 }
 
-pub const RULE_EVIDENCE: [(&str, Evidence); 64] = [
+pub const RULE_EVIDENCE: [(&str, Evidence); 68] = [
     (
         "E101",
         Evidence::Tests {
@@ -189,7 +189,7 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 64] = [
         "E312",
         Evidence::Tests {
             fires: "an_action_for_now_static_is_e312",
-            silent: "the_clean_twin_is_silent_for_the_unjudged_codes",
+            silent: "a_version_and_a_hit_its_decision_states_are_not_e312",
         },
     ),
     (
@@ -385,7 +385,7 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 64] = [
         "W506",
         Evidence::Tests {
             fires: "a_decision_nothing_shipped_is_w506_on_the_decision",
-            silent: "w506_a_summary_or_a_commit_that_names_the_decision_covers_it",
+            silent: "w506_a_complete_plan_listing_the_decision_covers_it",
         },
     ),
     (
@@ -456,6 +456,34 @@ pub const RULE_EVIDENCE: [(&str, Evidence); 64] = [
         Evidence::Tests {
             fires: "an_audit_without_a_verdict_reports_e518",
             silent: "a_passing_verdict_silences_each_judged_code",
+        },
+    ),
+    (
+        "E519",
+        Evidence::Tests {
+            fires: "a_truth_without_a_requirement_is_e519",
+            silent: "truth_without_requirement_is_e519_only_when_truth_requirements_is_on",
+        },
+    ),
+    (
+        "W520",
+        Evidence::Tests {
+            fires: "an_untouched_planned_path_is_w520",
+            silent: "an_untouched_path_is_w520_only_when_plan_paths_touched_is_on",
+        },
+    ),
+    (
+        "E521",
+        Evidence::Tests {
+            fires: "a_title_linked_commit_is_e521",
+            silent: "a_title_linked_commit_is_e521_only_when_task_trailers_is_on",
+        },
+    ),
+    (
+        "W522",
+        Evidence::Tests {
+            fires: "an_item_of_a_plan_with_no_requirement_is_w522",
+            silent: "an_item_reached_by_a_truths_requirement_is_not_w522",
         },
     ),
 ];

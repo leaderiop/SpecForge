@@ -1,0 +1,7 @@
+# A fixture crate the Rust packs collect (crates/app/ops/tests/rust_packs.rs); never built by the workspace.
+[package]
+name = "adder"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]

@@ -1,0 +1,19 @@
+{
+  "protocol_version": "2.0.0",
+  "name": "@rust/test",
+  "version": "1.0.0",
+  "peer_dependencies": [
+    {
+      "name": "@code/core",
+      "version": "^1.1",
+      "optional": false
+    },
+    {
+      "name": "@rust/source",
+      "version": "^1.0",
+      "optional": false
+    }
+  ],
+  "sandbox_policy": null,
+  "description": "Runs cargo-nextest and records its tests as test facts (@code/core)"
+}

@@ -33,6 +33,8 @@ fn node(id: &str, kind: &str, fields: FieldMap) -> Node {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
+        dangling: Vec::new(),
     }
 }
 

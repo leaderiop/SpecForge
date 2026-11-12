@@ -23,7 +23,7 @@ SPEC LAYER (SpecForge lives here ONLY)
 BRIDGE (extensions that cross the boundary)
 ├── @specforge/gherkin — reads .feature files into graph
 ├── @specforge/coverage — reads test artifacts (JUnit XML, reports)
-└── @specforge/rust, @specforge/typescript — hypothetical code-layer experts
+└── @code/core and its source packs — code-layer facts
 
 IMPLEMENTATION LAYER (SpecForge does NOT touch)
 ├── .ts .rs .go .py .css files

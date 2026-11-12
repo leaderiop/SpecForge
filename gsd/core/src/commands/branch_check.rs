@@ -88,7 +88,10 @@ fn branch_check(call: &CommandCall<'_>) -> Result<CommandOutput, String> {
 }
 
 pub fn declare(c: &mut ContributionsBuilder) {
-    c.capability(Capability::git("repo").why("read the branch HEAD is on"));
+    c.capability(
+        Capability::git("repo")
+            .why("read the branch HEAD is on, and the history gsd-git records commits from"),
+    );
     c.command("branch_check", |cmd| {
         cmd.description("Answer whether the branch HEAD is on may take a commit: protected, an agent's, overridden. Read-only")
             .input(Input::files("manifest", FileReadSpec::glob("specforge.json").text()))

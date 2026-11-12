@@ -142,3 +142,33 @@ fn a_post_query_body_is_json_of_at_most_16_kib() {
     let not_json = probe("package=serde").unwrap_err().to_string();
     assert!(not_json.contains("is not JSON"), "{not_json}");
 }
+
+#[test]
+fn a_field_gate_round_trips_and_an_ungated_field_writes_none() {
+    use specforge_protocol_types::{CheckStatus, FieldDescriptor, OwnerState};
+    let gated = FieldDescriptor {
+        name: "files".into(),
+        checks_while: Some(OwnerState::Complete.as_str().into()),
+        ..Default::default()
+    };
+    let wire = serde_json::to_value(&gated).unwrap();
+    assert_eq!(wire["checks_while"], "complete");
+    assert_eq!(
+        serde_json::from_value::<FieldDescriptor>(wire).unwrap(),
+        gated
+    );
+    let ungated = serde_json::to_value(FieldDescriptor::default()).unwrap();
+    assert!(ungated.get("checks_while").is_none(), "{ungated}");
+
+    for state in OwnerState::ALL {
+        assert_eq!(OwnerState::parse(state.as_str()), Some(*state));
+    }
+    assert_eq!(OwnerState::parse("later"), None);
+    for (status, word) in [
+        (CheckStatus::Planned, "planned"),
+        (CheckStatus::Closed, "closed"),
+    ] {
+        assert_eq!(status.as_str(), word);
+        assert_eq!(serde_json::to_value(status).unwrap(), word);
+    }
+}

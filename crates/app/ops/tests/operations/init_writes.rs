@@ -301,6 +301,40 @@ fn init_enables_a_builtin_after_the_builtins_it_requires() {
 }
 
 #[specforge_test_macros::test(
+    behavior = "scaffold_new_project",
+    verify = "init enables @code/core, @rust/cargo and @rust/source for a Cargo.toml and @code/core and @javascript/source for a package.json"
+)]
+fn init_enables_the_code_packs_of_a_cargo_project() {
+    use specforge_ops::authoring::init;
+    let runtime = runtime();
+    let init_beside = |file: &str| {
+        let scratch = TempDir::new().unwrap();
+        std::fs::write(scratch.path().join(file), "{}").unwrap();
+        let extensions = vec!["@specforge/product".to_string()];
+        let request = init::Request {
+            dir: scratch.path(),
+            name: Some("demo"),
+            version: init::DEFAULT_VERSION,
+            extensions: &extensions,
+            caller: specforge_ops::testing::caller(),
+        };
+        init::init(&request, &*runtime).unwrap().extensions
+    };
+
+    // After the extensions asked, each once, after what it requires.
+    let cargo = init_beside("Cargo.toml");
+    let packs = ["@code/core", "@rust/cargo", "@rust/source"];
+    assert_eq!(cargo[0], "@specforge/product", "{cargo:?}");
+    let at = |name: &str| cargo.iter().position(|e| e == name).expect(name);
+    assert!(packs.windows(2).all(|w| at(w[0]) < at(w[1])), "{cargo:?}");
+    let node = init_beside("package.json");
+    assert_eq!(
+        node,
+        ["@specforge/product", "@code/core", "@javascript/source"]
+    );
+}
+
+#[specforge_test_macros::test(
     behavior = "non_interactive_init",
     verify = "init enables a builtin after the builtins it requires, as add does"
 )]

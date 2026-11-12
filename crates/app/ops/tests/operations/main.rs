@@ -70,6 +70,7 @@ mod kinds;
 mod lent_denials;
 mod lent_effects;
 mod lent_process;
+mod lent_syntax;
 mod local_component;
 mod lock_records;
 mod locked_requirers;

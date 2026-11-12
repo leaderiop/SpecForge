@@ -14,10 +14,11 @@
     {
       "name": "probe-fs",
       "ops": [
-        "stat"
+        "stat",
+        "read"
       ],
       "port": "fs",
-      "why": "prove the same of the fs port"
+      "why": "prove the same of the fs and syntax ports"
     },
     {
       "argv": [

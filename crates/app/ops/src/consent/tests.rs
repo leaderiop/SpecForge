@@ -13,6 +13,7 @@ fn approval(scope: &str) -> Approval {
             argv: vec!["cargo".into(), "test".into()],
             deadline_ms: None,
             env: Vec::new(),
+            config: None,
         }),
         call_kinds: Vec::new(),
         secret_env: None,

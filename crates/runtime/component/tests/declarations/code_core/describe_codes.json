@@ -3,13 +3,13 @@
   "items": [
     {
       "code": "E101",
-      "explanation": "A reference written in a test fact's scheme (`js:<package>/<file>#<name>`) names a test that the fact stores the session served do not hold, while a store does hold facts of that scheme: the test was renamed, moved or deleted, or the reference is misspelled. The finding suggests the closest test of the same file. It is not reported while the citing entity's owner is pending (ADR 0329 D4): a test not written yet is TDD. Fix the reference, or run `specforge collect` if the test is new.",
+      "explanation": "A reference names no collected fact of the kinds its field admits, narrowed to those its id is shaped as (a test id holds `#`, an item id never does), while a fact store the session served holds facts of one of those kinds in its scheme: the test, item or package was renamed, moved or deleted, or the reference is misspelled. A test or run reference is told the closest one of the same file or binary. It is not reported while the citing entity's owner is pending (ADR 0329 D4): a test not written yet is TDD. Fix the reference, or run `specforge collect` if what it names is new. A reference one of its own facts holds (a test run's test) that no fact or entity answers, or that names an entity of another kind, is reported at the place its collector read it, addressed to that collector: its facts disagree, and running `specforge collect` again, or fixing the pack, is the remedy (ADR 0346).",
       "title": "A fact reference names no fact"
     },
     {
       "code": "W102",
-      "explanation": "A reference written in a test fact's scheme (`js:…`) names no fact, and no fact store the session served holds facts of that scheme: on a fresh clone, or before the runner pack's collector ran, there is nothing to check it against. It is reported once per cited reference, and not while the citing entity's owner is pending. Run `specforge collect` with the runner pack that writes that scheme (`@javascript/node-test` for `js`).",
-      "title": "No facts of the reference's scheme were collected"
+      "explanation": "A reference names no collected fact, and no fact store the session served holds facts of the kinds its field admits (narrowed to those its id is shaped as) in its scheme: on a fresh clone, or before the pack that writes them ran, there is nothing to check it against. It is reported once per cited reference, and not while the citing entity's owner is pending. Run `specforge collect` with the pack the finding names: `@javascript/node-test` for `js` tests, `@rust/test` for `rust` tests, `@rust/source` for `rust` items, `@javascript/source` for `js` items, `@rust/cargo` for `pkg:cargo` packages, `@javascript/source` for `pkg:npm` packages.",
+      "title": "No facts of the reference's kinds were collected"
     },
     {
       "code": "W401",
@@ -18,8 +18,8 @@
     },
     {
       "code": "I402",
-      "explanation": "A test fact's `names` (the entities its runner's idiom says it proves) holds an id no entity of the project has: the entity was renamed or deleted, or the name is misspelled. Fix the name in the test, then collect again.",
-      "title": "A test names an entity that does not exist"
+      "explanation": "A test or item fact's `names` (the entities its source's idiom says it proves or implements) holds a name that is no entity of the project, or the short name of several: the entity was renamed or deleted, or the name is misspelled. Fix the name in the source, then collect again.",
+      "title": "A test or item names an entity that does not exist"
     }
   ]
 }

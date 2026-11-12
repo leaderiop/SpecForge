@@ -38,6 +38,8 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
+        dangling: Vec::new(),
     }
 }
 
@@ -153,6 +155,8 @@ fn json_includes_fields() {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
+        dangling: Vec::new(),
     });
 
     let json = crate::support::emit_json(&graph);
@@ -248,6 +252,8 @@ fn json_includes_source_location() {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
+        dangling: Vec::new(),
     });
 
     let json = crate::support::emit_json(&graph);

@@ -102,7 +102,8 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
     of its edge type, whichever fields write them (every entity of a
     strongly connected set of those edges, whichever entity the cycle
     closes through).
-    A rule without a target kind applies to entities of every kind. No
+    A rule without a target kind applies to the authored entities of every
+    kind and to no fact (ADR 0353): a rule over a collector's kind names it. No
     rule reads a path: a field whose value names a file carries a value
     check (`@specforge/checks:file`), and a declared `file_exists` rule is
     W112 naming it. custom MUST dispatch to the Wasm function registered by
@@ -130,6 +131,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "an edge from an entity to itself is no incoming edge: a builtin no_incoming_edges rule reports an entity only it references"
   verify unit "a reference an entity writes to itself gives its field its link: no_edges stays quiet and W061 reports it"
   verify unit "a field_value_constraint over a declared member path judges each item of a typed block"
+  verify unit "a validation rule that names no kind judges no fact"
   verify contract "Execute Validation Pattern: declarative validation holds — all_entities_matched, violations_diagnosed, deterministic_order"
 }
 
@@ -273,6 +275,10 @@ behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
     count by declaring some), stats and the verify-stub fix all read this
     one standing; every pass reads the pass entity's facts unaltered
     (ADR 0269).
+
+    History: an unheld reference whose field its kind declares written
+    by the harness and immutable is marked history (ADR 0352 D2): it
+    records what held when it was written, never a missing fact.
   """
   verify unit "every field an entity writes has one text, the same for declarative rules, custom validators and compiler passes"
   verify unit "a variant list or type union is its members joined by ' | ', a list or expression group its items joined by ', '"
@@ -289,6 +295,7 @@ behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
   verify unit "the coverage rule reads each entity as the pass input carries it"
   verify unit "the standing counts an entity toward coverage exactly as the coverage rule counts the pass entity it sends"
   verify unit "an entity's edge counts leave out an edge from it to itself, as its degree does, and the pass input carries those counts"
+  verify unit "an unheld reference of a field the harness writes once is history"
 }
 
 // -- Entity Checks -----------------------------------------------------------
@@ -480,7 +487,7 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "a value that is not the declared integer, bool or enum type is an error"
   verify unit "no reference field of the repository's spec holds a bare number, date or boolean"
   verify unit "a block field with no declared members is an open map of named text entries"
-  verify unit "no builtin or pinned example declaration declares a member, a target union, a bound, an enum list or a block list"
+  verify unit "no authored kind of a builtin or pinned example declares a member, a target union, a bound, an enum list or a block list"
   verify unit "a reference field reads a bare word as the name it spells, whether or not the word could be a number or a date"
   verify unit "a bare word is read by its field's declared type: a reference its name, an integer its difference, a date its day"
   verify unit "a list on a field declared as a single value is an error"

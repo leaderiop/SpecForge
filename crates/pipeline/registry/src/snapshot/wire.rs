@@ -13,11 +13,18 @@ use super::{EntitySnapshot, Standing};
 use crate::entity::EntityRecord;
 
 impl EntitySnapshot {
-    /// `PassInput::entities`: one [`pass_entity`] per entity, in id order.
-    pub fn pass_entities(&self) -> Vec<PassEntity> {
+    /// `PassInput::entities` of a pass that declares the facts of `facts` (ADR 0353 D2): one [`pass_entity`] per
+    /// authored entity and per fact of those kinds, in id order. With no kind, no fact.
+    pub fn pass_entities(&self, facts: &[&str]) -> Vec<PassEntity> {
         self.iter()
+            .filter(|(record, _)| self.sent(&record.kind, facts))
             .map(|(record, standing)| pass_entity(record, standing, self.is_pending(record)))
             .collect()
+    }
+
+    /// Whether a pass that declares the facts of `facts` is sent an entity of `kind`: authored, or of one of them.
+    fn sent(&self, kind: &str, facts: &[&str]) -> bool {
+        !self.is_collected(kind) || facts.contains(&kind)
     }
 
     /// Whether `record`'s owner is not complete (ADR 0329 D4): its own kind's `complete_when`, else the nearest
@@ -42,10 +49,13 @@ impl EntitySnapshot {
         false
     }
 
-    /// `PassInput::edges`, in graph order.
-    pub fn pass_edges(&self) -> Vec<PassEdge> {
+    /// `PassInput::edges` of a pass that declares the facts of `facts`, in graph order: the edges whose two ends it is
+    /// sent ([`Self::pass_entities`], ADR 0353 D3).
+    pub fn pass_edges(&self, facts: &[&str]) -> Vec<PassEdge> {
+        let sent = |id: &str| self.kind_of(id).is_some_and(|kind| self.sent(kind, facts));
         self.edges()
             .iter()
+            .filter(|e| sent(&e.source) && sent(&e.target))
             .map(|e| PassEdge {
                 source: e.source.clone(),
                 target: e.target.clone(),
@@ -123,11 +133,11 @@ impl EntitySnapshot {
     }
 
     /// The coverage rule's entities, in id order. They are the pass
-    /// entities, read as the `@specforge/testing:coverage` pass reads them
+    /// entities of a pass that declares no fact, read as the `@specforge/testing:coverage` pass reads them
     /// (`specforge_coverage::Entity::from`), so a per-entity view and the
     /// pass cannot disagree.
     pub fn coverage_entities(&self) -> Vec<specforge_coverage::Entity> {
-        self.pass_entities()
+        self.pass_entities(&[])
             .iter()
             .map(specforge_coverage::Entity::from)
             .collect()
@@ -158,6 +168,7 @@ pub(super) fn pass_entity(record: &EntityRecord, standing: &Standing, pending: b
         verify_texts: record.obligations.iter().map(|o| o.text.clone()).collect(),
         judgements: Vec::new(),
         unheld: record.unheld.clone(),
+        dangling: record.dangling.clone(),
         pending,
     }
 }

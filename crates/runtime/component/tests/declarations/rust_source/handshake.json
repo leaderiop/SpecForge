@@ -1,0 +1,19 @@
+{
+  "protocol_version": "2.0.0",
+  "name": "@rust/source",
+  "version": "1.0.0",
+  "peer_dependencies": [
+    {
+      "name": "@code/core",
+      "version": "^1.1",
+      "optional": false
+    },
+    {
+      "name": "@rust/cargo",
+      "version": "^1.0",
+      "optional": false
+    }
+  ],
+  "sandbox_policy": null,
+  "description": "Reads each cargo target's module tree with the host's parser into item facts (@code/core)"
+}

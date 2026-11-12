@@ -108,6 +108,18 @@ async function enhanceHover(hover: vscode.Hover): Promise<vscode.Hover> {
   return new vscode.Hover(parts, hover.range);
 }
 
+/**
+ * The languages of the source files the server answers in (ADR 0349 D7): `.rs`, `.ts`, `.tsx`, `.js`, `.jsx`.
+ * Paired with the server's `EXTENSIONS` (`crates/surfaces/lsp/src/source_document.rs`): change both.
+ */
+const SOURCE_LANGUAGES = [
+  "rust",
+  "typescript",
+  "typescriptreact",
+  "javascript",
+  "javascriptreact",
+];
+
 export async function startClient(
   context: vscode.ExtensionContext
 ): Promise<LanguageClient> {
@@ -120,9 +132,12 @@ export async function startClient(
   const clientOptions: LanguageClientOptions = {
     // The project's own specforge.json too: the server completes, hovers and checks its `settings`
     // (ADR 0288). Only each workspace folder's root file: a nested project's specforge.json is that
-    // project's, not the served one's.
+    // project's, not the served one's. Rust, TypeScript and JavaScript files too: where a collector placed
+    // facts, the server answers lenses, hover, definition, implementation, references and rename on the
+    // names they hold (ADR 0349 D8), and nothing elsewhere in them.
     documentSelector: [
       { scheme: "file", language: "specforge" },
+      ...SOURCE_LANGUAGES.map((language) => ({ scheme: "file", language })),
       ...(vscode.workspace.workspaceFolders ?? []).map((folder) => ({
         scheme: "file",
         pattern: `${folder.uri.path.replace(/[*?[\]{}]/g, "[$&]")}/specforge.json`,

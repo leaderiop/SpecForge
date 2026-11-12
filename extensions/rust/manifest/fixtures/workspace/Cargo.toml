@@ -1,0 +1,13 @@
+# A virtual workspace: its members inherit its package fields and its path dependency.
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.package]
+version = "0.3.0"
+edition = "2021"
+rust-version = "1.80"
+
+[workspace.dependencies]
+base = { path = "crates/base" }
+serde = "1"

@@ -59,9 +59,16 @@ The server exposes 39 core tools, plus the commands of the extensions your proje
 | **Learn the vocabulary** | `specforge.schema` (every kind the loaded extensions declare, with its fields and edges), `specforge.model`, `specforge.extensions`, `specforge.outline_extensions`, `specforge.explain` (a diagnostic code) |
 | **Change the graph** | `specforge.edit` (typed edits: create, set, unset, append, remove, retitle, link, unlink, add_verify, remove_verify, delete — all or nothing), `specforge.rename` (an entity, across every file), `specforge.format`, `specforge.migrate`, `specforge.suggest_fixes` (the fixes the LSP offers, with their edits) |
 | **Check it** | `specforge.validate` (recompile and report diagnostics), `specforge.analyze` (analysis passes, coverage among them; the SMT `--prove` pass is CLI-only), `specforge.coverage`, `specforge.doctor` |
-| **Navigate to the source** | `specforge.find_definition`, `specforge.find_references`, `specforge.find_implementation`, `specforge.find_spec_for_source` |
+| **Navigate to the source** | `specforge.find_definition`, `specforge.find_references`, `specforge.find_implementation` (the code anchored to an entity, by file and line), `specforge.find_spec_for_source` (the entities anchored in a source file) |
 | **Set up the project** | `specforge.init`, `specforge.add_extension`, `specforge.remove_extension`, `specforge.settings_set` (write or remove one setting of `specforge.json`; never a secret), `specforge.providers` |
 | **Proof and inference** | `specforge.collect` (record what the project's tests prove; it runs a test runner only with `run: true` and your prior approval), `specforge.infer_session`, `specforge.infer_progress`, `specforge.infer_gaps` (guides for writing specs from existing code) |
+
+**Anchors come from a collect.** An anchor is an edge between an entity and a fact a collector placed in source:
+a Rust test whose `#[specforge_test(behavior = "...")]` names the behavior, or an entity that cites an item (a GSD
+task's `items`). Enable a source pack (`@rust/source`, `@javascript/source`; `specforge init` does it for a
+`Cargo.toml` or `package.json`) and run `specforge collect` (`specforge collect --no-run` collects the facts
+without asking to run a test runner); until then `find_implementation` answers nothing and says so (I212), and a file edited since the collect keeps its rows with a W198. `specforge anchors` gives the same
+rows on the command line.
 
 **Extension commands become tools.** Each command an enabled extension declares is served as
 `specforge.<extension>.<command>`. With `@specforge/product`, an agent can call

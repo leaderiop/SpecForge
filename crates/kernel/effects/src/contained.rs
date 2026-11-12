@@ -202,6 +202,27 @@ pub fn landing(lookup: &dyn Lookup, path: &Path) -> PathBuf {
     landed
 }
 
+/// `written` as a rooted path, a `\\` read as `/`: a prefix [`RootedPath::parse`] refuses names no root (E095).
+fn rooted(written: &str, default: Root) -> Result<RootedPath, Refused> {
+    let text = written.replace('\\', "/");
+    RootedPath::parse(&text, default).map_err(|problem| match problem {
+        PrefixProblem::BadRootName { at } => Refused::UnknownRoot(text[at].to_string()),
+        PrefixProblem::UnclosedRoot | PrefixProblem::Backslash { .. } => {
+            Refused::UnknownRoot(text.clone())
+        }
+    })
+}
+
+/// A written path read without the disk ([`Contained::lexical`]): its root and where it lies in it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Lexical {
+    pub root: Root,
+    /// Relative to the root, `/` joined, lexically normal.
+    pub rel: String,
+    /// It was written with `\\` (W175).
+    pub backslashes: bool,
+}
+
 /// Why a written path is not one its root holds.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Refused {
@@ -269,24 +290,29 @@ impl<'a> Contained<'a> {
     /// `written`, in the root its `<name>/` prefix names, else in `default`: a `\\` is read as `/` and told (W175), and
     /// a prefix [`RootedPath::parse`] refuses names no root (E095).
     pub fn resolve(&self, written: &str, default: Root) -> Result<Resolved, Refused> {
-        let text = written.replace('\\', "/");
-        let rooted = RootedPath::parse(&text, default).map_err(|problem| match problem {
-            PrefixProblem::BadRootName { at } => Refused::UnknownRoot(text[at].to_string()),
-            PrefixProblem::UnclosedRoot | PrefixProblem::Backslash { .. } => {
-                Refused::UnknownRoot(text.clone())
-            }
-        })?;
-        let mut resolved = self.resolve_rooted(&rooted)?;
+        let mut resolved = self.resolve_rooted(&rooted(written, default)?)?;
         resolved.backslashes = written.contains('\\');
         Ok(resolved)
     }
 
-    /// `rooted`, in the root it names.
-    pub fn resolve_rooted(&self, rooted: &RootedPath) -> Result<Resolved, Refused> {
-        let root = rooted.root.clone();
+    /// [`Self::resolve`]'s lexical half (ADR 0350 D5): `written` read in its root without asking the disk. It refuses
+    /// what `resolve` refuses before the disk (an unknown root, an absolute path, a climb out, a path naming nothing);
+    /// a link, a case difference and existence are the disk's to say.
+    pub fn lexical(&self, written: &str, default: Root) -> Result<Lexical, Refused> {
+        let rooted = rooted(written, default)?;
+        let (_, parts) = self.lexical_parts(&rooted)?;
+        Ok(Lexical {
+            root: rooted.root.clone(),
+            rel: parts.join("/"),
+            backslashes: written.contains('\\'),
+        })
+    }
+
+    /// The base of `rooted`'s root and its lexically normal parts, or what refuses it before the disk.
+    fn lexical_parts<'r>(&self, rooted: &'r RootedPath) -> Result<(&Path, Vec<&'r str>), Refused> {
         let rest = rooted.path.as_str();
-        let Some(base) = self.roots.get(&root) else {
-            return Err(Refused::UnknownRoot(root.to_string()));
+        let Some(base) = self.roots.get(&rooted.root) else {
+            return Err(Refused::UnknownRoot(rooted.root.to_string()));
         };
         if absolute(rest) {
             return Err(Refused::Absolute);
@@ -305,6 +331,13 @@ impl<'a> Contained<'a> {
         if parts.is_empty() && rooted.written_root.is_none() {
             return Err(Refused::Empty);
         }
+        Ok((base, parts))
+    }
+
+    /// `rooted`, in the root it names.
+    pub fn resolve_rooted(&self, rooted: &RootedPath) -> Result<Resolved, Refused> {
+        let root = rooted.root.clone();
+        let (base, parts) = self.lexical_parts(rooted)?;
         let rel = parts.join("/");
         let at = parts.iter().fold(base.to_path_buf(), |at, p| at.join(p));
         let real_root = self.lookup.canonical(base);

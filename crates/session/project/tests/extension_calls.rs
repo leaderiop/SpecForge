@@ -155,11 +155,14 @@ fn c4_the_pass_input_of_an_analysis() {
     }))
     .unwrap();
     let proved: HashSet<String> = ["b".to_string(), "a".to_string()].into();
-    let input = pass_input(&PassContext {
-        test_results: Some(&report),
-        proved_claims: Some(&proved),
-        ..PassContext::of(compiled.entities())
-    });
+    let input = pass_input(
+        &PassContext {
+            test_results: Some(&report),
+            proved_claims: Some(&proved),
+            ..PassContext::of(compiled.entities())
+        },
+        &[],
+    );
     // flipped: a test's `runner` is the report's own
     // key and not sent; its name, status, `verify` and `duration_ms` are
     golden("pass.input.json", &serde_json::to_value(&input).unwrap());

@@ -61,7 +61,7 @@
     "",
     "If no active validate-phase step hook exists: exit with \"Nyquist validation is disabled. Enable via /gsd-settings.\""
   ],
-  "bytes": 18290,
+  "bytes": 18321,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -130,7 +130,7 @@
     "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
-    "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
+    "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
     "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b1ee33c70e87d784d8de53a1c7804d95d817f418bf0a18bae47c2c5d54d481a7",
+    "digest": "sha256:12de793d83f0defdf5dc8522c2d8c4a41f22cbbc8cdf29e07338e24b449f7068",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "b1ee33c70e87d784d8de53a1c7804d95d817f418bf0a18bae47c2c5d54d481a7"
+  "sha256": "12de793d83f0defdf5dc8522c2d8c4a41f22cbbc8cdf29e07338e24b449f7068"
 }

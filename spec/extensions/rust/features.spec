@@ -1,4 +1,4 @@
-// @specforge/rust extension features — Rust test traceability
+// Rust test traceability (the #[specforge_test] macros, @specforge/cargo-test): features
 
 use "extensions/rust/behaviors"
 

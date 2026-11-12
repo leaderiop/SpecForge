@@ -178,6 +178,17 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     are never edited, and an ID declared only there is not found.
     A rename whose write fails MUST put back every file it wrote; a file it
     cannot put back MUST be listed in the failure's files_written.
+    A rename of a collected entity is refused (collected). One of an entity a
+    collected fact names rewrites the source file at every place the fact's
+    store records the name written, its written suffix becoming the same
+    suffix of the new path, and writes the store's stale line to
+    specforge-harness; it is refused as collected when the fact records no
+    place, and as source_moved when a file changed since the collect read it
+    or no longer spells the name there, a second rename before the next
+    collect of a name the first rewrote included; a plan whose second rename
+    needs a file its first rewrote is refused as source_rewritten (ADR 0346
+    D7). A delete that unlinks
+    an entity a fact names stays refused.
   """
   verify unit "specforge.rename renames entity and all references"
   verify unit "non-existent entity returns error response"
@@ -197,7 +208,9 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
   verify unit "a rename edits a declaration whose name is written below its kind"
   verify unit "a rename whose file changed on disk since the compile is refused as conflict, and nothing is written"
   verify integration "a rename that cannot put a file back names it in files_written"
-  verify integration "a rename of a collected entity, or of one a fact names, is refused with why"
+  verify integration "a rename of a collected entity, or of one a fact names with no place, is refused with why"
+  verify integration "a rename of an entity a fact names rewrites the source where the fact read it and marks its store stale"
+  verify integration "a rename whose source changed since the collect is refused as source_moved"
 }
 
 behavior provide_mcp_edit_tool "Provide MCP Edit Tool" {

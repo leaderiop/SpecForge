@@ -15,11 +15,10 @@ use specforge_project::RuntimeSource;
 use std::collections::BTreeMap;
 use tower_lsp::jsonrpc::{Error, ErrorCode};
 use tower_lsp::lsp_types::{
-    ClientCapabilities, CodeAction, CodeActionOrCommand, CodeActionResponse, CodeLens, Command,
-    CompletionResponse, DocumentSymbolResponse, FormattingOptions, GotoDefinitionResponse, Hover,
-    HoverContents, Location, LocationLink, MarkupContent, MarkupKind, Position,
-    PrepareRenameResponse, Range, SemanticTokens, SemanticTokensResult, SymbolInformation,
-    TextEdit, Url, WorkspaceEdit,
+    CodeAction, CodeActionOrCommand, CodeActionResponse, CodeLens, Command, CompletionResponse,
+    DocumentSymbolResponse, FormattingOptions, GotoDefinitionResponse, Hover, HoverContents,
+    Location, LocationLink, MarkupContent, MarkupKind, Position, PrepareRenameResponse, Range,
+    SemanticTokens, SemanticTokensResult, SymbolInformation, TextEdit, Url, WorkspaceEdit,
 };
 
 use crate::document::{LineIndex, Target};
@@ -31,90 +30,7 @@ use crate::navigation::{
 use crate::publish::diagnostic_to_lsp;
 use crate::{LspState, hover};
 
-/// What the client declared at initialize that shapes an answer or a
-/// reaction.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct ClientSupport {
-    /// `textDocument.definition.linkSupport`: a definition is a
-    /// `LocationLink` (the block, its name selected), else a `Location` at
-    /// the name.
-    pub definition_links: bool,
-    /// `textDocument.documentSymbol.hierarchicalDocumentSymbolSupport`: the
-    /// outline nests.
-    pub hierarchical_symbols: bool,
-    /// `textDocument.completion.completionItem.insertReplaceSupport`: a
-    /// completion item's edit inserts over the word's start to the cursor
-    /// and replaces the whole word, else it is a plain edit.
-    pub insert_replace: bool,
-    /// `workspace.semanticTokens.refreshSupport`: only then is the editor
-    /// asked to refresh its semantic tokens.
-    pub tokens_refresh: bool,
-    /// `workspace.codeLens.refreshSupport`: only then is the editor asked to refresh its code
-    /// lenses after a rebuild.
-    pub lens_refresh: bool,
-    /// `workspace.didChangeWatchedFiles.relativePatternSupport`: the
-    /// watchers are patterns relative to each input's directory, else
-    /// absolute globs.
-    pub relative_patterns: bool,
-    /// `textDocument.codeAction.resolveSupport` names `edit`: a stub's edits
-    /// are made when the editor resolves the action, not when it lists them.
-    pub code_action_resolve: bool,
-    /// `experimental.specforgeGraphChanged`: only then is the editor sent `specforge/graphChanged`
-    /// after a rebuild (ADR 0268 D2), a method no other client knows.
-    pub graph_changed: bool,
-    /// `workspace.workspaceEdit.documentChanges`: an edit names the version of the buffer it applies to
-    /// (`documentChanges`), else it is a bare `changes` map (ADR 0289).
-    pub document_changes: bool,
-}
-
-impl ClientSupport {
-    /// What `capabilities` declare of these.
-    pub fn of(capabilities: &ClientCapabilities) -> ClientSupport {
-        let text_document = capabilities.text_document.as_ref();
-        let workspace = capabilities.workspace.as_ref();
-        ClientSupport {
-            definition_links: text_document
-                .and_then(|t| t.definition.as_ref())
-                .and_then(|d| d.link_support)
-                .unwrap_or(false),
-            hierarchical_symbols: text_document
-                .and_then(|t| t.document_symbol.as_ref())
-                .and_then(|d| d.hierarchical_document_symbol_support)
-                .unwrap_or(false),
-            insert_replace: text_document
-                .and_then(|t| t.completion.as_ref())
-                .and_then(|c| c.completion_item.as_ref())
-                .and_then(|i| i.insert_replace_support)
-                .unwrap_or(false),
-            tokens_refresh: workspace
-                .and_then(|w| w.semantic_tokens.as_ref())
-                .and_then(|t| t.refresh_support)
-                .unwrap_or(false),
-            lens_refresh: workspace
-                .and_then(|w| w.code_lens.as_ref())
-                .and_then(|l| l.refresh_support)
-                .unwrap_or(false),
-            relative_patterns: workspace
-                .and_then(|w| w.did_change_watched_files.as_ref())
-                .and_then(|w| w.relative_pattern_support)
-                .unwrap_or(false),
-            code_action_resolve: text_document
-                .and_then(|t| t.code_action.as_ref())
-                .and_then(|c| c.resolve_support.as_ref())
-                .is_some_and(|r| r.properties.iter().any(|p| p == "edit")),
-            document_changes: workspace
-                .and_then(|w| w.workspace_edit.as_ref())
-                .and_then(|e| e.document_changes)
-                .unwrap_or(false),
-            graph_changed: capabilities
-                .experimental
-                .as_ref()
-                .and_then(|e| e.get(crate::views::GRAPH_CHANGED_CAPABILITY))
-                .and_then(serde_json::Value::as_bool)
-                .unwrap_or(false),
-        }
-    }
-}
+pub use crate::client_support::ClientSupport;
 
 /// A request refused because the editor's buffer is not the text the
 /// project was compiled from (LSP's `ContentModified`, -32801): the answer
@@ -213,7 +129,9 @@ pub fn hover(state: &LspState, uri: &Url, position: Position) -> Option<Hover> {
                 })
         }
         Some(Target::Field { kind, field }) => {
-            let checks = hover::checks_line(state.registries().checks().on(&kind, &field));
+            let registered = state.registries().checks();
+            let checks =
+                hover::checks_line(registered.on(&kind, &field), registered.gate(&kind, &field));
             hover::hover_field_info(&field, &kind, state.field_registry()).map(
                 |info| match checks {
                     Some(checks) => format!("{info}  \n{checks}"),
@@ -260,7 +178,8 @@ pub fn completion(state: &LspState, uri: &Url, position: Position) -> Option<Com
 
 /// Where what the cursor names is declared: a `use` path's file (its
 /// start), an entity's block with its name selected as a `LocationLink` for
-/// a client declaring links, else a `Location` at its name. `None` when its
+/// a client declaring links, else a `Location` at its name; a located fact's
+/// place in its source file (ADR 0349 D8), the whole place selected. `None` when its
 /// file's editor text is not the compiled text.
 pub fn definition(
     state: &LspState,
@@ -288,7 +207,14 @@ pub fn definition(
             }))
         }
         Some(Target::Entity { id, origin }) => {
-            let definition = compiled.navigator().definition(id.as_str()).ok()?;
+            let mut definition = compiled.navigator().definition(id.as_str()).ok()?;
+            if let Some(place) = state
+                .graph()
+                .node(id.as_str())
+                .and_then(|n| n.located.first())
+            {
+                (definition.block, definition.name) = (place.clone(), place.clone());
+            }
             // A definition in a file whose editor text is not the compiled text is not answered
             // (no range of it is honest).
             if state.client().definition_links {
@@ -311,6 +237,31 @@ pub fn definition(
     }
 }
 
+/// The source places of the anchors of the entity the cursor names (ADR 0349 D8): each located fact an edge links
+/// it to, at its first place, once each, by file and line; one whose file's text is not the one collected is left
+/// out. `None` when none.
+pub fn implementation(
+    state: &LspState,
+    uri: &Url,
+    position: Position,
+) -> Option<tower_lsp::lsp_types::request::GotoImplementationResponse> {
+    let compiled = Compiled::new(state);
+    let id = entity_under_cursor(&compiled, &state.key_of(uri), position)?;
+    let view = state.view();
+    let anchors = specforge_ops::read::navigate::anchors_in(&view);
+    let mut places: Vec<&specforge_common::SourceSpan> = anchors
+        .of_entity(id.as_str())
+        .map(|edge| edge.fact.place())
+        .collect();
+    places.sort_by_key(|p| (p.file, p.start_line, p.start_col));
+    places.dedup();
+    let locations: Vec<Location> = places
+        .into_iter()
+        .filter_map(|p| compiled.location(p))
+        .collect();
+    (!locations.is_empty()).then_some(GotoDefinitionResponse::Array(locations))
+}
+
 /// The references to the entity the cursor names: incoming, its
 /// declaration when asked (ADR 0016); an occurrence whose file has no
 /// compiled text is left out; each written token once (an inherited
@@ -323,7 +274,11 @@ pub fn references(
     include_declaration: bool,
 ) -> Option<Vec<Location>> {
     let compiled = Compiled::new(state);
-    let id = entity_under_cursor(&compiled, &state.key_of(uri), position)?;
+    let key = state.key_of(uri);
+    let Some(id) = entity_under_cursor(&compiled, &key, position) else {
+        let found = crate::source_document::fact_references(&compiled, &key, position)?;
+        return (!found.is_empty()).then_some(found);
+    };
     let refs = compiled
         .navigator()
         .tokens(id.as_str(), include_declaration)
@@ -345,6 +300,10 @@ pub fn prepare_rename(
     position: Position,
 ) -> tower_lsp::jsonrpc::Result<Option<PrepareRenameResponse>> {
     let file = state.key_of(uri);
+    if crate::source_document::is_source(state, uri) {
+        let found = crate::source_document::renamed_at(&Compiled::new(state), &file, position)?;
+        return Ok(found.map(|(_, range)| PrepareRenameResponse::Range(range)));
+    }
     let Some(cursor) = state
         .files()
         .document(&file)
@@ -379,12 +338,17 @@ pub fn rename(
 ) -> tower_lsp::jsonrpc::Result<Option<WorkspaceEdit>> {
     let compiled = Compiled::new(state);
     let key = state.key_of(uri);
-    // The edits come from the compile: asked from a document typed in since,
-    // the rename waits for it, whatever the cursor names (ADR 0023 D7).
-    if state.files().document(&key).is_none() || !renames_in(&compiled, &key)? {
-        return Ok(None);
-    }
-    let Some(id) = entity_under_cursor(&compiled, &key, position) else {
+    let id = if crate::source_document::is_source(state, uri) {
+        // A name a fact holds in a source file, while the file is the text collected (ADR 0349 D8).
+        crate::source_document::renamed_at(&compiled, &key, position)?.map(|(id, _)| id)
+    } else if state.files().document(&key).is_none() || !renames_in(&compiled, &key)? {
+        // The edits come from the compile: asked from a document typed in since,
+        // the rename waits for it, whatever the cursor names (ADR 0023 D7).
+        None
+    } else {
+        entity_under_cursor(&compiled, &key, position)
+    };
+    let Some(id) = id else {
         return Ok(None);
     };
 
@@ -403,9 +367,11 @@ pub fn rename(
     };
 
     // The edits are positions in the compiled text and apply to the editor's buffer: a file
-    // typed in since is not that text, so the rename waits for the compile (ContentModified).
+    // typed in since is not that text, so the rename waits for the compile (ContentModified); a
+    // source file typed in since the collect is refused, as its file changed on disk is (W198).
+    crate::source_document::rewrites_held_text(state, &plan)?;
     let edit = compiled
-        .workspace_edit(plan.edits().to_vec())
+        .rename_edit(&plan)
         .map_err(|Unplaced(file)| content_modified(file.as_str()))?;
     hold_ledger(state, id.as_str(), new_name, &plan);
     Ok(Some(edit))
@@ -437,6 +403,7 @@ fn hold_ledger(
     if let Some(pending) = crate::pending::PendingLedger::of(
         state.compiled_project(),
         plan.moved().to_vec(),
+        plan.stale().to_vec(),
         node.source_span.file.to_string(),
         node.name().to_string(),
         new_name.to_string(),
@@ -560,6 +527,9 @@ pub const FIND_REFERENCES: &str = "specforge.findReferences";
 /// [`FIND_REFERENCES`] with the URI and the name's start) and, when it declares any, its `verify`
 /// statements (no command). An entity whose file's editor text is not the compiled text gets none.
 pub fn code_lenses(state: &LspState, uri: &Url) -> Option<Vec<CodeLens>> {
+    if crate::source_document::is_source(state, uri) {
+        return crate::source_document::lenses(state, uri);
+    }
     let compiled = Compiled::new(state);
     let navigator = compiled.navigator();
     let entries = outline(&navigator, &state.key_of(uri)).ok()?;

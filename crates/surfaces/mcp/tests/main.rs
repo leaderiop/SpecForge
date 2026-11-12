@@ -3,6 +3,7 @@
     reason = "a test's unwrap is its assertion: a None or an Err fails the test"
 )]
 
+mod anchors;
 mod asking;
 mod call_target;
 mod collect_machine;
@@ -25,6 +26,7 @@ mod infer_gaps;
 mod infer_session_arguments;
 mod infer_sources;
 mod init_enclosing;
+mod inspect_located;
 mod invariants;
 mod judged_inputs;
 mod lent_effects;

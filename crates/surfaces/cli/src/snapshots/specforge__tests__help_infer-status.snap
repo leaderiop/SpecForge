@@ -25,7 +25,7 @@ Options:
           Show stale and deleted files
 
       --gaps-detail
-          Show detailed gap analysis (pub Rust items without spec entities)
+          Show detailed gap analysis (public item facts no entity cites)
 
   -h, --help
           Print help

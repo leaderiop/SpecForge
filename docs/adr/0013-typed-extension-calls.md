@@ -1,6 +1,8 @@
 # Extension calls are typed, in one module
 
-**Status:** accepted (2026-10-06) Extended by [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) (`CommandOutput.plan`, `CollectOutput.plan`).
+**Status:** accepted (2026-10-06) Extended by [ADR 0289](0289-an-extension-writes-through-an-edit-plan-the-host-applies.md) (`CommandOutput.plan`, `CollectOutput.plan`). Amended
+2026-11-09 (R2 of the Beyond Parity build plan, below): there is no scan operation; source code reaches the graph as
+collected facts.
 
 The host performs ten operations on a loaded extension: the handshake and describe that read its
 declaration (ADR 0012), a command, an MCP tool, an MCP resource, a compiler pass, a collector, a
@@ -206,6 +208,25 @@ registration wins). `call_extension_exports` replaces `dispatch_contribution_exp
 - ADR 0008's command input is the protocol's `CommandInput` now (same fields, same defaults);
   ADR 0009 C's `PassBuildCache` keeps its shape, now a protocol type.
 - `docs/extension-protocol.md` documents every operation's export, input and answer.
+
+## Amendment (2026-11-09, R2 of the Beyond Parity build plan): no scan operation
+
+Source code reaches the graph as the `item` facts a source pack collects
+([ADR 0199](0199-a-source-item-is-covered-by-the-anchor-that-names-it.md)), so the string scanners, their describe
+category and their operation are retired with the builtins that declared them.
+
+- **D1, amended.** The scan payloads (`ScanRequest`, `ScannedItem`, `ScanResponse`, the classify and map types) and
+  `AnalyzerDescriptor` are gone from the protocol and the SDK.
+- **D3, amended.** `ExtensionCalls` has no `scan`; `Operation` has no `Scan` (thirteen operations).
+- **D4, amended.** What a failure costs no longer includes a scanner's: there is no `scan_failures` entry, and the gap
+  report is approximate only when a fact store was not served.
+- **D10, amended.** `ContributionsBuilder::analyzer` and `AnalyzerBuilder` are gone; a pass, a collector, a custom rule
+  and the migration hook are declared with their handlers.
+- **D11, amended.** No extension declares `classify_export` or `map_export`: the `analyzers` category is gone, so there
+  is nothing left for a host to call.
+- D12 stands.
+- **Consequences, amended.** A scanner failure is no longer a consequence of this decision: inference reads facts,
+  and a collector's failure is the `collect` error.
 
 ## What would reopen it
 

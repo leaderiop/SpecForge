@@ -457,11 +457,11 @@ fn the_checks_passes_and_coverage_of_one_compile_read_one_snapshot() {
         .input;
     assert_eq!(
         pass_input["entities"],
-        serde_json::to_value(entities.pass_entities()).unwrap()
+        serde_json::to_value(entities.pass_entities(&[])).unwrap()
     );
     assert_eq!(
         pass_input["edges"],
-        serde_json::to_value(entities.pass_edges()).unwrap()
+        serde_json::to_value(entities.pass_edges(&[])).unwrap()
     );
 
     // And each custom validator call its context.

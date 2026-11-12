@@ -65,23 +65,13 @@ fn first_difference(a: &str, b: &str) -> String {
     )
 }
 
-/// `entities`' Debug text without source positions, and without
-/// the whitespace of a method's types: what formatting may change.
+/// `entities`' Debug text without source positions: what formatting may change.
 fn layout_free(entities: &[specforge_parser::Entity]) -> String {
     static SPANS: OnceLock<regex::Regex> = OnceLock::new();
     let spans = SPANS.get_or_init(|| {
         regex::Regex::new(r#"(SourceSpan|ExprSpan) \{[^}]*\}|span: \d+\.\.\d+"#).unwrap()
     });
-    static TYPES: OnceLock<regex::Regex> = OnceLock::new();
-    let types = TYPES
-        .get_or_init(|| regex::Regex::new(r#"(ty: |returns: Some\()"((?:[^"\\]|\\.)*)""#).unwrap());
-    let text = spans.replace_all(&format!("{entities:?}"), "").into_owned();
-    types
-        .replace_all(&text, |c: &regex::Captures| {
-            let squeezed = c[2].replace("\\t", "").replace(' ', "");
-            format!("{}\"{squeezed}\"", &c[1])
-        })
-        .into_owned()
+    spans.replace_all(&format!("{entities:?}"), "").into_owned()
 }
 
 fn fail<V: std::fmt::Debug>(result: Result<(), proptest::test_runner::TestError<V>>) {

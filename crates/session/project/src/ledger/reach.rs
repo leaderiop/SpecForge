@@ -9,7 +9,7 @@ use specforge_common::PROJECT_FILE;
 use super::inputs::SessionInputs;
 use super::key::{canonical, relative_canonical};
 use super::recorded::Class;
-use crate::facts::FACTS_DIR;
+use specforge_common::facts::FACTS_DIR;
 
 /// What a batch of changed paths reaches of what a session read
 /// ([`SessionInputs::reach`]).

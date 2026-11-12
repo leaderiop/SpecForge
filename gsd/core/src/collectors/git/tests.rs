@@ -1,8 +1,16 @@
+use std::rc::Rc;
+
 use super::subject::{Header, parse as header};
+use specforge_extension_sdk::host::in_process::{self, InProcessHost};
+use specforge_extension_sdk::host::{
+    GitDiffAnswer, GitFileChange, GitLogAnswer, GitRepo, GitSignature, GitTrailer,
+};
 use specforge_extension_sdk::{GraphWire, PlanOp};
 
 use super::*;
 
+mod items;
+mod port;
 mod trailers;
 
 fn head(kind: &str, scope: Option<&str>, description: &str) -> Option<Header<'static>> {
@@ -98,48 +106,208 @@ fn the_header_grammar_agrees_with_the_regex() {
     }
 }
 
-#[test]
-fn a_quoted_path_is_unquoted() {
-    assert_eq!(unquote("src/a.js"), "src/a.js");
-    assert_eq!(unquote("\"a\\tb.txt\""), "a\tb.txt");
-    assert_eq!(unquote("\"say \\\"hi\\\".txt\""), "say \"hi\".txt");
-    assert_eq!(unquote("\"back\\\\slash\""), "back\\slash");
-    assert_eq!(unquote("\"caf\\303\\251.txt\""), "café.txt");
+/// A repository the in-process host serves: its top, `HEAD` (the newest commit of the log), the log, and each
+/// commit's diff by its sha. It counts the questions asked.
+#[derive(Default)]
+pub(super) struct Repo {
+    /// The project is in no repository.
+    pub(super) outside: bool,
+    pub(super) top: String,
+    pub(super) log: Vec<GitLogCommit>,
+    pub(super) diffs: HashMap<String, Vec<GitFileChange>>,
+    /// Each commit's diff against the worktree, by the commit's sha.
+    pub(super) worktree: HashMap<String, Vec<GitFileChange>>,
+    pub(super) truncated: bool,
+    /// How many paths a diff answer holds the text of: past them it drops each file's hunks and says `truncated`, as
+    /// the host's port does past its answer cap. `None` holds every one.
+    pub(super) room: Option<usize>,
+    pub(super) logs: std::cell::Cell<usize>,
+    pub(super) asked: std::cell::RefCell<Vec<GitDiffQuery>>,
 }
 
-#[test]
-fn a_binary_numstat_counts_zero() {
-    let log = "\u{0}aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u{1f}\u{1f}0\u{1f}\u{1f}feat(01-01): x\n\n3\t1\tsrc/a.js\n-\t-\timg/logo.png\n create mode 100644 src/a.js\n create mode 100644 img/logo.png\n";
-    let [commit] = &parse(log)[..] else {
-        panic!("one commit");
-    };
-    assert_eq!((commit.insertions, commit.deletions), (3, 1));
-    assert_eq!(commit.files, ["src/a.js", "img/logo.png"]);
-    assert_eq!(commit.created, ["src/a.js", "img/logo.png"]);
-}
-
-#[test]
-fn a_created_path_may_hold_spaces() {
-    let log = "\u{0}bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\u{1f}\u{1f}60\u{1f}\u{1f}docs: x\n\n1\t0\tmy notes.md\n create mode 100644 my notes.md\n";
-    assert_eq!(parse(log)[0].created, ["my notes.md"]);
-    assert_eq!(parse(log)[0].at, "1970-01-01T00:01:00Z");
-}
-
-#[test]
-fn an_empty_log_is_no_plan() {
-    assert!(parse("").is_empty());
-    for stdout in ["", "\n", "garbage without a record separator"] {
-        let input = CollectInput {
-            stdout: Some(stdout.to_string()),
-            graph: Some(Default::default()),
-            ..Default::default()
-        };
-        let output = collect(&input).expect("an answer");
-        assert!(
-            output.plan.is_none() && output.entity_results.is_empty(),
-            "{stdout:?}"
-        );
+impl InProcessHost for Repo {
+    fn git_locate(&self) -> Result<Option<GitRepo>, HostError> {
+        if self.outside {
+            return Ok(None);
+        }
+        Ok(Some(GitRepo {
+            toplevel: self.top.clone(),
+            shallow: false,
+        }))
     }
+    fn git_commit(&self, revision: &str) -> Result<Option<String>, HostError> {
+        assert_eq!(revision, "HEAD");
+        Ok(self.log.first().map(|c| c.sha.clone()))
+    }
+    fn git_log(&self, query: &GitLogQuery) -> Result<GitLogAnswer, HostError> {
+        self.logs.set(self.logs.get() + 1);
+        assert_eq!(query.tips, [self.log[0].sha.clone()]);
+        Ok(GitLogAnswer {
+            count: Some(self.log.len() as u64),
+            commits: self.log.clone(),
+            truncated: self.truncated,
+        })
+    }
+    fn git_diff(&self, query: &GitDiffQuery) -> Result<GitDiffAnswer, HostError> {
+        self.asked.borrow_mut().push(query.clone());
+        let files = match (&query.head, &query.base) {
+            (GitDiffHead::Commit(sha), _) => self.diffs.get(sha),
+            (GitDiffHead::Worktree, Some(base)) => self.worktree.get(base),
+            _ => panic!("a commit's diff, or a commit's against the worktree: {query:?}"),
+        };
+        // A path keeps itself and what is under it, as the port's literal paths do.
+        let kept = |path: &str| {
+            query.paths.is_empty()
+                || query.paths.iter().any(|p| {
+                    path == p
+                        || path
+                            .strip_prefix(p.as_str())
+                            .is_some_and(|r| r.starts_with('/'))
+                })
+        };
+        let mut files: Vec<GitFileChange> = files
+            .into_iter()
+            .flatten()
+            .filter(|f| kept(&f.path))
+            .cloned()
+            .collect();
+        let mut truncated = false;
+        for file in files.iter_mut().skip(self.room.unwrap_or(usize::MAX)) {
+            truncated |= file.hunks.take().is_some();
+            file.patch = None;
+        }
+        Ok(GitDiffAnswer { files, truncated })
+    }
+}
+
+/// A commit of the log: `hash`, its `parents`, its author time `at`, its subject and its `Gsd-Task:` values.
+pub(super) fn logged(
+    hash: &str,
+    parents: &[String],
+    at: i64,
+    subject: &str,
+    task: &[&str],
+) -> GitLogCommit {
+    let signature = GitSignature {
+        seconds: at,
+        ..GitSignature::default()
+    };
+    GitLogCommit {
+        sha: hash.to_string(),
+        parents: parents.to_vec(),
+        author: signature.clone(),
+        committer: signature,
+        subject: subject.to_string(),
+        trailers: if task.is_empty() {
+            Vec::new()
+        } else {
+            vec![GitTrailer {
+                token: "Gsd-Task".into(),
+                values: task.iter().map(|v| v.to_string()).collect(),
+            }]
+        },
+        ..GitLogCommit::default()
+    }
+}
+
+/// A changed file of a diff.
+pub(super) fn changed(path: &str, status: GitChange, added: u32, removed: u32) -> GitFileChange {
+    GitFileChange {
+        path: path.into(),
+        old_path: None,
+        status,
+        added,
+        removed,
+        binary: false,
+        truncated: false,
+        withheld: false,
+        patch: None,
+        hunks: None,
+    }
+}
+
+/// What `collect` answers with `repo` served (its top `/r` when none is set).
+pub(super) fn served(
+    mut repo: Repo,
+    input: &CollectInput,
+) -> (Result<CollectOutput, String>, Rc<Repo>) {
+    if repo.top.is_empty() {
+        repo.top = "/r".into();
+    }
+    let repo = Rc::new(repo);
+    let output = in_process::serve(Rc::clone(&repo) as Rc<dyn InProcessHost>, || collect(input));
+    (output, repo)
+}
+
+/// What `collect` answers over `log`, no commit changing a file.
+pub(super) fn collected_over(log: Vec<GitLogCommit>, input: CollectInput) -> CollectOutput {
+    served(
+        Repo {
+            log,
+            ..Repo::default()
+        },
+        &input,
+    )
+    .0
+    .expect("an answer")
+}
+
+#[test]
+fn an_empty_or_unborn_repository_is_no_plan() {
+    let input = CollectInput {
+        graph: Some(Default::default()),
+        ..Default::default()
+    };
+    let (output, repo) = served(Repo::default(), &input);
+    let output = output.expect("an answer");
+    assert!(output.plan.is_none() && output.entity_results.is_empty());
+    assert_eq!(repo.logs.get(), 0, "no log is read without a HEAD");
+}
+
+#[test]
+fn a_history_past_one_answer_fails_the_collect() {
+    let repo = Repo {
+        log: vec![logged(&"a".repeat(40), &[], 10, "feat(01-01): x", &[])],
+        truncated: true,
+        ..Repo::default()
+    };
+    let (output, _) = served(repo, &CollectInput::default());
+    assert!(output.is_err_and(|e| e.contains("past one answer")));
+}
+
+#[test]
+fn a_project_outside_any_repository_fails_the_collect() {
+    let repo = Repo {
+        outside: true,
+        ..Repo::default()
+    };
+    let (output, _) = served(repo, &CollectInput::default());
+    assert!(output.is_err_and(|e| e.contains("in no git repository")));
+}
+
+/// A project root the host lends outside the repository's top (a top read another way, through a link) is an error
+/// naming both, never the top taken silently.
+#[test]
+fn a_project_root_outside_its_repositorys_top_fails_the_collect() {
+    let repo = || Repo {
+        log: vec![logged(&"a".repeat(40), &[], 10, "feat(01-01): x", &[])],
+        ..Repo::default()
+    };
+    let input = CollectInput {
+        cwd: Some("/elsewhere/project".into()),
+        ..CollectInput::default()
+    };
+    let (output, _) = served(repo(), &input);
+    let error = output.unwrap_err();
+    assert!(
+        error.contains("/elsewhere/project") && error.contains("/r"),
+        "{error}"
+    );
+    let inside = CollectInput {
+        cwd: Some("/r/sub".into()),
+        ..CollectInput::default()
+    };
+    assert!(served(repo(), &inside).0.is_ok());
 }
 
 fn node(id: &str, kind: &str, title: &str) -> GraphNode {
@@ -173,17 +341,17 @@ fn created(output: &CollectOutput) -> Vec<(String, BTreeMap<String, Value>)> {
 
 #[test]
 fn only_commits_naming_a_plan_are_recorded_oldest_first() {
-    let log = [
-        "\u{0}2222222222222222222222222222222222222222\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): Store module\n\n1\t0\ta.js\n",
-        "\u{0}1111111111111111111111111111111111111111\u{1f}\u{1f}10\u{1f}\u{1f}docs(pause): wip\n",
-        "\u{0}3333333333333333333333333333333333333333\u{1f}\u{1f}30\u{1f}\u{1f}docs(01-01): complete store plan\n",
-        "\u{0}4444444444444444444444444444444444444444\u{1f}\u{1f}40\u{1f}\u{1f}feat(gsd): x\n",
-        "\u{0}5555555555555555555555555555555555555555\u{1f}\u{1f}50\u{1f}\u{1f}feat(01-01): STORE   module\n",
-        "\u{0}6666666666666666666666666666666666666666\u{1f}\u{1f}60\u{1f}\u{1f}feat(02-01): unknown plan\n",
-    ]
-    .concat();
+    let commit =
+        |c: char, at: i64, subject: &str| logged(&c.to_string().repeat(40), &[], at, subject, &[]);
+    let log = vec![
+        commit('2', 20, "feat(01-01): Store module"),
+        commit('1', 10, "docs(pause): wip"),
+        commit('3', 30, "docs(01-01): complete store plan"),
+        commit('4', 40, "feat(gsd): x"),
+        commit('5', 50, "feat(01-01): STORE   module"),
+        commit('6', 60, "feat(02-01): unknown plan"),
+    ];
     let input = CollectInput {
-        stdout: Some(log),
         graph: Some(GraphWire {
             nodes: vec![
                 node("v1.0/01/01-01", "plan", "Store"),
@@ -195,8 +363,8 @@ fn only_commits_naming_a_plan_are_recorded_oldest_first() {
         revisions: [("spec/plans.spec".to_string(), "sha256:x".to_string())].into(),
         ..Default::default()
     };
-    let made = created(&collect(&input).expect("an answer"));
-    // Oldest first: git prints the newest first, the log above is in that order reversed by `rev`.
+    let made = created(&collected_over(log, input));
+    // Oldest first: the log answers the newest first, the log above is in that order reversed by `rev`.
     assert_eq!(
         made.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>(),
         ["555555555555", "333333333333", "222222222222"]
@@ -217,10 +385,6 @@ fn only_commits_naming_a_plan_are_recorded_oldest_first() {
 #[test]
 fn a_commit_the_project_holds_is_not_recorded_again() {
     let input = CollectInput {
-        stdout: Some(
-            "\u{0}2222222222222222222222222222222222222222\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): x\n"
-                .to_string(),
-        ),
         graph: Some(GraphWire {
             nodes: vec![
                 node("v1.0/01/01-01", "plan", "Store"),
@@ -230,16 +394,21 @@ fn a_commit_the_project_holds_is_not_recorded_again() {
         }),
         ..Default::default()
     };
-    assert!(collect(&input).expect("an answer").plan.is_none());
+    let log = vec![logged(&"2".repeat(40), &[], 20, "feat(01-01): x", &[])];
+    let (output, repo) = served(
+        Repo {
+            log,
+            ..Repo::default()
+        },
+        &input,
+    );
+    assert!(output.expect("an answer").plan.is_none());
+    assert!(repo.asked.borrow().is_empty(), "no diff for a held commit");
 }
 
 #[test]
 fn two_tasks_with_one_title_name_the_plan_only() {
     let input = CollectInput {
-        stdout: Some(
-            "\u{0}2222222222222222222222222222222222222222\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): Same\n"
-                .to_string(),
-        ),
         graph: Some(GraphWire {
             nodes: vec![
                 node("v1.0/01/01-01", "plan", "Store"),
@@ -250,7 +419,8 @@ fn two_tasks_with_one_title_name_the_plan_only() {
         }),
         ..Default::default()
     };
-    let made = created(&collect(&input).expect("an answer"));
+    let log = vec![logged(&"2".repeat(40), &[], 20, "feat(01-01): Same", &[])];
+    let made = created(&collected_over(log, input));
     assert_eq!(made.len(), 1);
     assert!(!made[0].1.contains_key("task"));
 }
@@ -270,89 +440,70 @@ fn plan_graph() -> Option<GraphWire> {
 
 #[test]
 fn control_characters_in_a_subject_or_a_path_are_replaced() {
-    let log = format!(
-        "\u{0}{HASH}\u{1f}\u{1f}20\u{1f}\u{1f}fix(01-01): colour \u{1b}[31mred\u{1b}[0m\u{2028}x\u{7f}\n\n1\t0\tdir/\u{1b}a\u{2028}b.js\n create mode 100644 dir/\u{1b}a\u{2028}b.js\n"
-    );
-    let [commit] = &parse(&log)[..] else {
-        panic!("one commit");
+    let path = "dir/\u{1b}a\u{2028}b.js";
+    let repo = Repo {
+        log: vec![logged(
+            HASH,
+            &[],
+            20,
+            "fix(01-01): colour \u{1b}[31mred\u{1b}[0m\u{2028}x\u{7f}",
+            &[],
+        )],
+        diffs: [(
+            HASH.to_string(),
+            vec![changed(path, GitChange::Added, 1, 0)],
+        )]
+        .into(),
+        ..Repo::default()
     };
+    let input = CollectInput {
+        graph: plan_graph(),
+        ..Default::default()
+    };
+    let made = created(&served(repo, &input).0.expect("an answer"));
+    let fields = &made[0].1;
     assert_eq!(
-        commit.subject,
+        fields["subject"],
         "fix(01-01): colour \u{fffd}[31mred\u{fffd}[0m\u{fffd}x\u{fffd}"
     );
-    assert_eq!(commit.files, ["dir/\u{fffd}a\u{fffd}b.js"]);
-    assert_eq!(commit.created, commit.files);
-    assert_eq!(unquote("\"a\\ab\\vc\""), "a\u{fffd}b\u{fffd}c");
+    assert_eq!(fields["files"], json!(["dir/\u{fffd}a\u{fffd}b.js"]));
+    assert_eq!(fields["created"], fields["files"]);
 }
 
 #[test]
-fn a_subject_cannot_forge_a_record() {
-    // The separators the collector used to split on are plain text in a subject now.
-    let log = format!(
-        "\u{0}{HASH}\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): forged\u{1e}deadbeef\u{1f}0\u{1f}feat(01-01): Store module\n"
-    );
-    let (commits, skipped) = parse_all(&log);
-    assert_eq!(commits.len(), 1);
-    assert!(skipped.is_empty());
-    assert!(commits[0].subject.starts_with("feat(01-01): forged"));
-}
-
-#[test]
-fn a_bad_header_skips_its_commit_and_is_named() {
-    let ok = format!("\u{0}{HASH}\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): Store module\n");
-    for bad in [
-        "\u{0}deadbeef\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): x\n".to_string(),
-        format!(
-            "\u{0}{}\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): x\n",
-            "g".repeat(40)
-        ),
-        format!(
-            "\u{0}{}\u{1f}\u{1f}20\u{1f}\u{1f}feat(01-01): x\n",
-            "A".repeat(40)
-        ),
-        format!("\u{0}{HASH}\u{1f}\u{1f}999999999999999\u{1f}\u{1f}feat(01-01): x\n"),
-        format!("\u{0}{HASH}\u{1f}\u{1f}-1\u{1f}\u{1f}feat(01-01): x\n"),
-        format!("\u{0}{HASH}\u{1f}deadbeef\u{1f}20\u{1f}\u{1f}feat(01-01): x\n"),
-    ] {
+fn a_time_out_of_range_skips_its_commit_and_is_named() {
+    let ok = logged(HASH, &[], 20, "feat(01-01): Store module", &[]);
+    for at in [253_402_300_800, -1] {
+        let bad = logged(&"d".repeat(40), &[], at, "feat(01-01): x", &[]);
         let input = CollectInput {
-            stdout: Some(format!("{bad}{ok}")),
             graph: plan_graph(),
             ..Default::default()
         };
-        let output = collect(&input).expect("an answer");
-        assert_eq!(created(&output).len(), 1, "{bad:?}");
+        let output = collected_over(vec![bad, ok.clone()], input);
+        assert_eq!(created(&output).len(), 1, "{at}");
         let title = output.plan.and_then(|p| p.title).unwrap_or_default();
-        assert!(title.contains("skipped 1"), "{bad:?}: {title}");
+        assert!(
+            title.contains("skipped 1") && title.contains("dddddddddddd"),
+            "{at}: {title}"
+        );
     }
 }
 
 #[test]
 fn a_task_is_named_as_the_executor_words_it() {
-    let log = [
-        format!(
-            "\u{0}{}\u{1f}\u{1f}50\u{1f}\u{1f}feat(01-01): implement store module (#12)\n",
-            "5".repeat(40)
-        ),
-        format!(
-            "\u{0}{}\u{1f}\u{1f}40\u{1f}\u{1f}test(01-01): add failing test for store module\n",
-            "4".repeat(40)
-        ),
-        format!(
-            "\u{0}{}\u{1f}\u{1f}30\u{1f}\u{1f}feat(01-01): scaffold the thing\n",
-            "3".repeat(40)
-        ),
-        format!(
-            "\u{0}{}\u{1f}\u{1f}20\u{1f}\u{1f}Revert \"feat(01-01): Store module\"\n",
-            "2".repeat(40)
-        ),
-    ]
-    .concat();
+    let commit =
+        |c: char, at: i64, subject: &str| logged(&c.to_string().repeat(40), &[], at, subject, &[]);
+    let log = vec![
+        commit('5', 50, "feat(01-01): implement store module (#12)"),
+        commit('4', 40, "test(01-01): add failing test for store module"),
+        commit('3', 30, "feat(01-01): scaffold the thing"),
+        commit('2', 20, "Revert \"feat(01-01): Store module\""),
+    ];
     let input = CollectInput {
-        stdout: Some(log),
         graph: plan_graph(),
         ..Default::default()
     };
-    let made = created(&collect(&input).expect("an answer"));
+    let made = created(&collected_over(log, input));
     let by = |name: &str| {
         made.iter()
             .find(|(id, _)| id == name)
@@ -373,13 +524,10 @@ fn git_collector_writes_line_counts_as_numbers() {
     let commit = Commit {
         hash: "a".repeat(40),
         at: "2026-10-01T00:00:00Z".into(),
-        trailers: String::new(),
         subject: "feat(01-01): x".into(),
-        parents: Vec::new(),
-        files: Vec::new(),
-        created: Vec::new(),
         insertions: 12,
         deletions: 3,
+        ..Commit::default()
     };
     let plan = node("v1.0/01/01-01", "plan", "Store");
     let linked = Linked {
@@ -393,14 +541,10 @@ fn git_collector_writes_line_counts_as_numbers() {
     assert_eq!(written["deletions"], serde_json::json!(3));
 }
 
-/// A record of `git log` with [`FORMAT`]: the hash of `c`, the parents' hashes, the time, no trailer, the subject.
-fn line(c: char, parents: &[char], at: u32, subject: &str) -> String {
+/// A commit of the log: the hash of `c`, the parents' hashes, the time, no trailer, the subject.
+fn line(c: char, parents: &[char], at: i64, subject: &str) -> GitLogCommit {
     let parents: Vec<String> = parents.iter().map(|p| p.to_string().repeat(40)).collect();
-    format!(
-        "\u{0}{}\u{1f}{}\u{1f}{at}\u{1f}\u{1f}{subject}\n",
-        c.to_string().repeat(40),
-        parents.join(" ")
-    )
+    logged(&c.to_string().repeat(40), &parents, at, subject, &[])
 }
 
 fn name(c: char) -> String {
@@ -413,7 +557,7 @@ fn a_commit_descends_from_the_recorded_commits_of_its_plan_through_merges() {
     //  ╲              m ─ g ─ e           (m merges the side branch; g: GREEN, made with an earlier clock)
     //   ╰──────────────╯
     //  ╲ s                                 (s: a RED on a sibling branch nothing merged)
-    let log = [
+    let log = vec![
         line('e', &['d'], 60, "feat(01-01): implement another"),
         line('a', &['b'], 50, "test(01-01): add failing test for another"),
         line('d', &['c'], 20, "feat(01-01): implement store module"),
@@ -426,16 +570,14 @@ fn a_commit_descends_from_the_recorded_commits_of_its_plan_through_merges() {
         ),
         line('9', &['b'], 25, "feat(01-02): other work"),
         line('b', &[], 10, "docs(01-01): plan"),
-    ]
-    .concat();
+    ];
     let mut graph = plan_graph().expect("a graph");
     graph.nodes.push(node("v1.0/01/01-02", "plan", "Other"));
     let input = CollectInput {
-        stdout: Some(log),
         graph: Some(graph),
         ..Default::default()
     };
-    let made = created(&collect(&input).expect("an answer"));
+    let made = created(&collected_over(log, input));
     let by = |c: char| {
         made.iter()
             .find(|(id, _)| *id == name(c))
@@ -462,7 +604,7 @@ fn a_commit_descends_from_the_recorded_commits_of_its_plan_through_merges() {
 
 #[test]
 fn a_commit_already_recorded_is_an_ancestor_but_is_not_written_again() {
-    let log = [
+    let log = vec![
         line('d', &['b'], 20, "feat(01-01): implement store module"),
         line(
             'b',
@@ -470,16 +612,14 @@ fn a_commit_already_recorded_is_an_ancestor_but_is_not_written_again() {
             10,
             "test(01-01): add failing test for store module",
         ),
-    ]
-    .concat();
+    ];
     let mut graph = plan_graph().expect("a graph");
     graph.nodes.push(node(&name('b'), "commit", "test"));
     let input = CollectInput {
-        stdout: Some(log),
         graph: Some(graph),
         ..Default::default()
     };
-    let made = created(&collect(&input).expect("an answer"));
+    let made = created(&collected_over(log, input));
     assert_eq!(made.len(), 1, "{made:?}");
     assert_eq!(made[0].1["descends_from"], serde_json::json!([name('b')]));
 }
@@ -501,11 +641,10 @@ fn coded_graph(code: Option<&str>) -> Option<GraphWire> {
 
 fn recorded_plans(code: Option<&str>, subject: &str) -> Vec<Value> {
     let input = CollectInput {
-        stdout: Some(line('a', &[], 10, subject)),
         graph: coded_graph(code),
         ..Default::default()
     };
-    created(&collect(&input).expect("an answer"))
+    created(&collected_over(vec![line('a', &[], 10, subject)], input))
         .into_iter()
         .map(|(_, fields)| fields["plan"].clone())
         .collect()
@@ -529,7 +668,7 @@ fn hash_of(i: usize) -> String {
 
 /// A synthetic log, newest first, of `parents.len()` commits: commit `i` has the parents `parents[i]` and the scope
 /// `scopes[i]` (`None`: no plan).
-fn synthetic(parents: &[Vec<usize>], scopes: &[Option<String>]) -> String {
+fn synthetic(parents: &[Vec<usize>], scopes: &[Option<String>]) -> Vec<GitLogCommit> {
     (0..parents.len())
         .rev()
         .map(|i| {
@@ -537,24 +676,18 @@ fn synthetic(parents: &[Vec<usize>], scopes: &[Option<String>]) -> String {
             let subject = scopes[i].as_ref().map_or(format!("chore: step {i}"), |s| {
                 format!("feat({s}): step {i}")
             });
-            format!(
-                "\u{0}{}\u{1f}{}\u{1f}{}\u{1f}\u{1f}{subject}\n",
-                hash_of(i),
-                ps.join(" "),
-                1000 + i
-            )
+            logged(&hash_of(i), &ps, 1000 + i as i64, &subject, &[])
         })
         .collect()
 }
 
 /// Every recorded commit's `descends_from`, by 12-hex name.
-fn ancestry_of(log: String, graph: GraphWire) -> BTreeMap<String, Value> {
+fn ancestry_of(log: Vec<GitLogCommit>, graph: GraphWire) -> BTreeMap<String, Value> {
     let input = CollectInput {
-        stdout: Some(log),
         graph: Some(graph),
         ..Default::default()
     };
-    created(&collect(&input).expect("an answer"))
+    created(&collected_over(log, input))
         .into_iter()
         .map(|(id, fields)| (id, fields["descends_from"].clone()))
         .collect()

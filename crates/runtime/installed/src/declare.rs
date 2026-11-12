@@ -42,7 +42,7 @@ pub fn declaration_of(bytes: &[u8], runtime: &dyn WasmRuntime) -> Result<Loaded,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta, SandboxPolicy};
+    use specforge_extension_sdk::{Capability, ContributionsBuilder, ExtensionMeta, SandboxPolicy};
     use specforge_protocol_types::DeclaredCategory;
     use specforge_wasm::testing::InProcessRuntime;
 
@@ -85,6 +85,52 @@ mod tests {
             "{}",
             refused.message
         );
+    }
+
+    const SYNTAX: &str = "specforge:host/syntax@0.1.0";
+
+    #[specforge_test_macros::test(
+        behavior = "refuse_an_unbacked_port_import",
+        verify = "a syntax import is backed by an fs or a git capability"
+    )]
+    fn a_syntax_import_backed_by_an_fs_capability_loads() {
+        let bytes = b"\0asm a candidate that reads source";
+        let ports: [fn(&str) -> Capability; 2] = [Capability::fs, Capability::git];
+        for port in ports {
+            let runtime = InProcessRuntime::new()
+                .binary(bytes, move || {
+                    let mut b =
+                        ContributionsBuilder::new(ExtensionMeta::new("@acme/reader", "0.1.0"));
+                    b.capability(port("source").why("parse the project's source"));
+                    b
+                })
+                .importing(CANDIDATE, &[SYNTAX]);
+
+            let loaded = declaration_of(bytes, &runtime).unwrap();
+
+            assert_eq!(loaded.declaration.name(), "@acme/reader");
+        }
+    }
+
+    #[test]
+    fn a_syntax_import_with_no_fs_or_git_capability_is_e089() {
+        let bytes = b"\0asm a candidate that reads source";
+        let runtime = InProcessRuntime::new()
+            .binary(bytes, || {
+                let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/reader", "0.1.0"));
+                b.capability(
+                    Capability::http("api")
+                        .hosts(&["example.test"])
+                        .why("an http capability backs no syntax import"),
+                );
+                b
+            })
+            .importing(CANDIDATE, &[SYNTAX]);
+
+        let refused = declaration_of(bytes, &runtime).unwrap_err();
+
+        assert_eq!(refused.code, "E089");
+        assert!(refused.message.contains(SYNTAX), "{}", refused.message);
     }
 
     #[test]

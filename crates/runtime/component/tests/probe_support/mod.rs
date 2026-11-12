@@ -135,6 +135,7 @@ pub fn lent(ports: &Ports) -> PortCall {
         &MemoryConsent::approving_everything(),
     );
     PortCall::online(ports, EffectJournal::detached(), roots, grant, Vec::new())
+        .with_syntax(specforge_wasm::testing::counted_reader())
 }
 
 /// What the probe's `cmd__ports` reports of calling `port` on `target`.

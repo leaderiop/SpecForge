@@ -7,6 +7,7 @@ use specforge_common::Sym;
 use specforge_parser::{FieldValue, VerdictMember, Written};
 
 use crate::field_form::{FieldForm, FieldJson, write};
+use crate::graph::is_fact;
 use crate::members::MethodJson;
 use crate::scope::Found;
 use crate::{FieldForms, Graph, Node, Reading};
@@ -30,10 +31,17 @@ pub fn resolved(graph: &Graph, forms: &FieldForms, node: &Node, field: &str) -> 
 
 /// The path `text` names for a reference of `form` held by `node`, as the graph's link resolves it: by the node's
 /// scope chain among the kinds the field takes, else (the scope field, which has no chain yet) from the project, where
-/// a unique suffix names it (`phase 03` and `phase v1.0/03` are one value). Else the text as written.
+/// a unique suffix names it (`phase 03` and `phase v1.0/03` are one value). A fact has no scope chain: each of its
+/// references reads from the project, a unique suffix taken (ADR 0346 D4). Else the text as written.
 fn target(graph: &Graph, node: &Node, form: &FieldForm, text: &str) -> String {
     let kinds = form.target_kinds();
     let admits = |kind: &str| kinds.is_empty() || kinds.iter().any(|k| k == kind);
+    if is_fact(node) {
+        return match graph.scopes().resolve(None, text, &admits) {
+            Found::One(path) => path.to_string(),
+            _ => text.to_string(),
+        };
+    }
     let from = node.id.raw;
     match graph.scopes().chain(Some(from), text, &admits) {
         Found::One(path) | Found::Mistyped(path) => return path.to_string(),

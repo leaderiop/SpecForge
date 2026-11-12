@@ -75,11 +75,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   applied where it stands (the named spec file's mint), or refused once (`not_a_source_path`, in the named spec file's
   sentence shape) when its key lies outside the project root or it names nothing; the reader opens no file
   (`ProjectView::source_path`, ADR 0253).
-- **Recorded source path**: a source-code path a manifest records (an anchor's `file`, an inference index entry's
-  `path`, a source root): read from the project root into its key by the reader a named source path uses, an absolute
+- **Recorded source path**: a source-code path a manifest records (an inference index entry's `path`, a source
+  root): read from the project root into its key by the reader a named source path uses, an absolute
   path under the root being that path and a `..` applied where it stands; one whose key lies outside the root, or that
-  names nothing, is no key (it covers nothing, is deleted, is not walked; navigation still lists such an anchor by its
-  text) (`SourceKey::read`, ADR 0271).
+  names nothing, is no key (it is deleted, is not walked) (`SourceKey::read`, ADR 0271).
 - **Source key**: a source's project path, minted only by `SourceRoot::key` and opened only by `SourceRoot::path`; the
   text a span, a diagnostic, an export node and every plan name it by (ADR 0242); a source under a spec root outside the project is keyed absolute, its directory canonical (ADR 0246).
 - **Spec root prefix**: `SourceRoot::prefix`, the spec root as a prefix of every key it holds: the directory of the key a file directly in it gets (`""`, `spec`, or an absolute canonical path outside the project); where an import path is read from (ADR 0246).
@@ -298,8 +297,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   path outside its root.
 - **Input (of a call)**: one thing a call declares the host serves it before the call, one variant of
   `inputs: Vec<Input>` on a pass, command, prompt, hook or collector: `files` (a `FileRead`), `tests`, `state`,
-  `graph`, `slash_commands`, `git { status, when }` (its status a typed `GitStatus`), `setting { extension, name }` or
-  `check_outcomes` (a collector's).
+  `graph`, `slash_commands`, `git { status, when }` (its status a typed `GitStatus`), `setting { extension, name }`,
+  `check_outcomes` or `facts { kinds }` (a pass's or a collector's: the facts of those kinds, ADR 0353 D1).
   One table says what each call kind is served; an input it is not served is W021 and is served empty (ADR 0337 D2).
 - **Effect record**: one performed effect as the journal keeps it (`specforge_effects::EffectRecord`, ADR 0335 D3,
   ADR 0337 D3): what may be shown of the request (never a secret) and its digest, the outcome's class and digest,
@@ -355,6 +354,16 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Port session**: what one call may do through the ports, made from its kind, what its caller lent and its limits. It
   decides each request before any effect, sets what only the host may set, holds an answer to a quarter of the guest's
   memory and spends the call's port budget (`specforge_wasm::PortSession`, ADR 0335 D4).
+- **Source reader**: the host's one parser of source code (`specforge_source::SourceReader`, ADR 0344): tree-sitter
+  with the Rust, TypeScript and TSX grammars compiled in, a query compiled once per reader, each file held to a deadline
+  (5 s), its answer cached under `.specforge/cache/syntax/` by grammar, query and file digest. One per collect, lent to
+  every collector's **Port session**.
+- **Syntax import**: the `specforge:host/syntax` port: source files a guest names parsed by the **Source reader** with
+  the guest's query, inside its fs grant (git's at a revision); an `fs` or `git` capability backs it (ADR 0345 D1).
+  What it could not parse is W196, what it parsed with syntax errors I211, each once per call.
+- **Capture convention**: the shape a syntax query must have: exactly one role capture per pattern,
+  `@definition.<kind>` or `@reference.<kind>`, never optional or repeated; every other capture not starting with `_` is
+  answered, on named and anonymous nodes; only text predicates (ADR 0344 D1).
 - **Approval**: this machine's consent to a capability (per project, extension, **Provenance** and scope name; it
   covers any narrower grant) or to a named root outside the project (per project and canonical target). File and git
   reads inside the project need none; http, process and writes do. Settled before a run's first effect, asked only
@@ -527,7 +536,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Extension family**: a directory under `extensions/` that holds crates and is no crate itself
   (`extensions/code/`); its builtins are named `@<family>/<pack>`. The family `specforge` is refused (ADR 0328 D3).
 - **Extension library**: a crate in an extension family with no `wasm/` dir: an rlib named `specforge-<family>-<dir>`,
-  never embedded, that builtins link (`extensions/code/junit`). Editing it re-vendors the builtins that link it.
+  never embedded, that builtins link (`extensions/code/junit`, `extensions/code/facts`). Editing it re-vendors the
+  builtins that link it.
 - **Builtin's name**: the name a builtin this specforge embeds declares. Only that builtin loads under it: a `.wasm` file entry whose component declares it is refused by the load's admit (E028), and add, update, init, publish, extension validate and extension init refuse a candidate declaring it (`extension_conflict`). One predicate, `Builtins::contains` (ADR 0028 D7, ADR 0214).
 - **Load key**: the key the runtime holds an entry's component under while its declaration is read: a builtin's or a locked entry's name, a `.wasm` file entry's `file:<entry>`, a candidate's `__candidate`. Every name the load admits is a package name and no temporary key is one, so a load never replaces another entry's extension (`load_key`, ADR 0223).
 - **Extension inventory**: every extension a project has, one row per name: enabled by a
@@ -969,9 +979,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   kinds, fields, edges, rules, the extension declarations and their ordered passes), the root it was
   compiled from, and what the surface reports for it; the runtime its environment's extensions were
   loaded in (`ProjectView::runtime`), the one every operation that calls an extension over the view
-  calls it in (analyze's passes, collect's collectors, inference gaps' scanners, an extension
-  command), so none takes a runtime of its own; its entity snapshot, through the per-compile
-  memo (`ProjectView::entities`) (`specforge_ops::view::ProjectView`). It reads
+  calls it in (analyze's passes, collect's collectors, an extension command), so none takes a
+  runtime of its own; its entity snapshot, through the per-compile memo (`ProjectView::entities`)
+  (`specforge_ops::view::ProjectView`). It reads
   the project's recorded test report through its compiled project, over MCP held inside the root
   through the containment it carries (`ProjectView::bounded_by`, ADR 0183): the recorded report, the schema cache,
   a typed edit's format configuration, and its versioned schema, both at that root and never an
@@ -986,7 +996,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   selection over the view returns, `specforge_ops::read::query`), the exploration and the review
   (`specforge_ops::read::{explore, review}`), the entities a trace's chains reach (`specforge_ops::read::trace::affected`, the trace prompt's
   affected and unverified entities), the plan check (`specforge_ops::read::plan::check`), the anchors of a source file and of an entity
-  (`specforge_ops::read::navigate::{anchors_of_file, anchors_of_entity}`, ADR 0140), and the inference guide and plan
+  (`specforge_ops::read::navigate::{anchors_of_file, anchors_of_entity}`, ADR 0349), and the inference guide and plan
   (`specforge_ops::read::infer::{guide, kind_guide, inference_plan}`), and the route trace (`specforge_ops::read::trace::route`, a
   **Thread**, ADR 0330). Each returns a typed outcome; the CLI,
   MCP (its tools and its prompts) and the LSP only render it. Its rules are tested in ops and stated by an ops-level
@@ -1103,22 +1113,26 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   beside the decisions, constraints and failure modes that protect or threaten it; a behavior (software) enforces it,
   an axiom or property (formal) relies on it, and W003 reports one nothing references. No builtin needs the software
   extension to state one (ADR 0280).
-- **Inference sources**: the files inference covers: under the inference manifest's source roots (the project
-  root when none), each file an enabled analyzer claims by its extension, keyed by the source path rule
-  (root-relative, `/`-separated, no `..`), every recorded path read as a recorded source path. They are walked by the shared discovery policy
-  (`specforge_common::walk_files`): no symlinked directory, no hidden name, no nested project, and the default
-  skipped directories united with any analyzer's `excluded_dirs`. A source root, a file or an indexed path that lands
-  outside the project root is none of them and is never read. Progress, gaps, the `inferred` lint and the mark read
-  them through one module (`specforge_ops::read::infer::sources`, ADR 0113).
-- **Anchors manifest**: `<root>/specforge-anchors.json`, which source item each entity is anchored
-  to. Read only by navigation's anchors read view (`specforge_ops::read::navigate::{anchors_of_file,
-  anchors_of_entity}`, and the covered source items inference gaps leave out): the entities anchored to a source file, each with its kind, and the anchors of an entity;
-  E071 when it cannot be used, `no_project` without a project, E003 for an id neither the graph nor the manifest
-  knows (ADR 0140).
-- **Covered source item**: a public item a scanner found that the anchors manifest anchors, by its file and its
-  name, to an entity the graph declares; or, when no anchor names that entity, whose name is the entity's id
-  (`specforge_ops::read::navigate` `CoveredItems`, ADR 0199). Inference gaps are the items that are not covered. An
-  anchor to an entity the graph does not declare covers nothing.
+- **Inference sources**: the files inference covers: the files the item facts of the compiled graph locate
+  (`specforge_ops::read::infer::ITEM_KIND`, each item's first place), under the inference manifest's source roots (the
+  project root when none), keyed by the source path rule (root-relative, `/`-separated, no `..`), every recorded path
+  read as a recorded source path. Which files exist is the source packs' collectors' to say: nothing is walked, so
+  without a source pack's facts there are none. An item, a source root or an indexed path that lands outside the
+  project root adds none and is never read. Progress, the inference plan, the `inferred` lint and the mark read them
+  through one module (`specforge_ops::read::infer::sources`, ADR 0113, ADR 0199).
+- **Anchor**: an edge of the compiled graph between an authored entity and a located fact, either way: a `.spec`
+  field citing the fact (`proof ["rust:…"]`, a gsd task's `items`), or a fact naming the entity (`item.names`,
+  `test.names`). Its `via` is `<holder kind>.<field>`. An edge between two facts or two authored entities is none.
+  Read in one walk (`specforge_ops::read::navigate::anchors_in`) by the anchors of an entity and of a source file
+  (`anchors_of_entity`, `anchors_of_file`: rows `{fact_id, file, line, end_line, item_kind, collector, via}`, I212
+  when no located fact is served, W198 for a file changed since its store recorded it), covered items and the
+  language server (ADR 0349).
+- **Located fact**: a fact with at least one place in source (`Fact.at`, `Node::location()`): what an anchor's fact
+  end is.
+- **Covered source item**: a public `item` fact (`specforge_ops::read::infer::ITEM_KIND`, the definitions a source
+  pack collects) with an anchor to an entity the graph declares (`specforge_ops::read::navigate` `CoveredItems`,
+  ADR 0349). Inference gaps are the items that are not covered. An entity that only shares an item's name covers
+  nothing.
 - **Obligation**: one `verify` statement on an entity, its own member beside its methods (ADR 0094), never a field. Every output writes it as one record, its kind (absent for a bare `verify "…"`) and its text (`specforge_graph::Obligation`); `specforge.edit` reads the same record (ADR 0273). **Proven** when a passing test names its
   exact text, or a formal claim discharges it. Who owes obligations is the entity's standing. Where each is written is the parse's
   (`Entity::obligation_spans`), never the graph's; an entry named `verify` inside a block field is a field, not an
@@ -1378,8 +1392,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `WasmRuntime` port (`specforge_mcp`'s `extension_dispatch`). A contribution it does not serve is
   reported with I017 (`specforge_mcp`'s `ExtensionSurfaceTable`, ADR 0017).
 - **Extension call**: one typed operation the host performs on a loaded extension — handshake,
-  describe, command, MCP tool, MCP resource, compiler pass, collector, custom validator, scanner,
-  migration hook — over the `WasmRuntime` port. Its input and answer are protocol types
+  describe, command, MCP tool, MCP resource, compiler pass, collector, custom validator, migration
+  hook — over the `WasmRuntime` port. Its input and answer are protocol types
   (`specforge_protocol_types`) the SDK shares; every failure is one `CallError`, E028, naming the
   operation, the export and the extension (`specforge_wasm::calls::ExtensionCalls`, ADR 0013).
 - **Sandbox**: what the host holds an extension to. It gets no WASI capability (no preopened
@@ -1758,21 +1772,75 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Writing command**: a command (or collector) that declares `writes`: it receives `revisions`, may answer a plan,
   takes the host's `--dry-run` and is a mutation on MCP (ADR 0289).
 - **Fact**: an entity a collector writes, of a kind that declares `writer: "collector"`. It is never typed or edited,
-  and is served read-only from the fact store (ADR 0327).
+  and is served read-only from the fact store (ADR 0327), and sent to a pass that declares its kind in a `facts`
+  input; a validation rule that names no kind judges none (ADR 0353 D2, D5).
+- **Counted work**: what a perf pin asserts, never time: files parsed and files read from the syntax cache, entities
+  and facts a pass is sent, custom-rule calls, guest fuel spent. Time is measured by `xtask perf-report` against the
+  budget, not tested (ADR 0353 D8).
+- **Reading collector**: a collector with no command (`capability`), no `report` and no `check_outcomes` input: it reads
+  through its ports, is called under a run and a no-run alike with no report, and needs no approval (ADR 0345 D2).
+- **Answers**: the collected kinds a collector lists as those whose facts it answers (`CollectorDescriptor.answers`): a
+  fact of another kind is E116, and they order the collect before a **Facts input** naming one (ADR 0345 D3).
+- **Facts input**: a collector's `facts { kinds }` input: it runs after the collectors whose **Answers** hold one of the
+  kinds and receives their admitted facts in `CollectInput.facts`; a kind no collector that ran answers is served from
+  the recorded fact stores. A cycle of such collectors is E119 (ADR 0345 D3). A pass's `facts { kinds }` input adds
+  the facts of those kinds to the authored entities it is sent (ADR 0353 D2).
 - **Collector-written kind**: a kind whose `writer` is `collector`; it declares its `schemes`.
+- **Collector config file**: the one file a collector's `process` capability may declare (`config`: a name and a
+  template): the host writes it, `{report}` expanded and escaped for a quoted string, to
+  `.specforge/reports/<collector>.<name>` before the run, and `{config}` in the argv names it. Its text is part of the
+  approved scope: a changed template asks again (ADR 0348 D1–D3).
+- **Install line**: what a collector says to run when its program is not found on PATH
+  (`CollectorDescriptor.install`, `cargo install cargo-nextest --locked`), in the E045 or the skip reason (ADR 0348 D4).
+- **Binary id**: nextest's name of a test binary, the JUnit `<testsuite>` of its tests: `<package>` for the lib,
+  `<package>::<test>` for an integration test, `<package>::bin/<name>`, `<package>::example/<name>`,
+  `<package>::bench/<name>`; the container of a Rust test id (ADR 0347 D4, ADR 0348 D8).
+- **Module tree**: the files of one cargo target, walked from its root by rustc's rules (`mod b;` → `b.rs` or
+  `b/mod.rs`, a non-mod-rs file's children in its own directory, `#[path]`, `cfg_attr` paths): what `@rust/source` reads
+  its items from (ADR 0348 D6).
 - **Fact store**: `.specforge/facts/<key>/<collector>.json`, git-ignored, one file per collector and key, recorded by a
   `<collector> facts:<key> <digest>` line of the harness ledger.
 - **Fact key**: the commit a collect ran at (`<sha>`, `<sha>-dirty`), or `worktree`.
 - **Fact scheme**: a scheme a collector-written kind declares. A reference written in it that names no fact is
   **unheld**: no edge and no core diagnostic; the kind's extension judges it.
+- **Fact location**: where a fact is written in source (`Fact.at`, one `FactLocation` per place: a project-relative
+  file, 1-based lines, 1-based byte columns, end exclusive). A served fact keeps its store span as its identity and
+  carries its places as `located`; `Node::location()` is the first (ADR 0346 D1, D3).
+- **Name span**: where a name a fact holds is written (`Fact.named_at`, field → id → places): the span its reference
+  value is served at, and what a rename of the named entity rewrites (ADR 0346 D3, D7).
+- **Dangling reference**: a fact's reference that names no entity, one of another kind, or several: no kernel
+  diagnostic; the node keeps it and every pass is sent it (`PassEntity.dangling`), judged by the extension that declares
+  the holder's kind (ADR 0346 D4).
+- **Stale fact store**: a store collected before a rename that moved what its facts name, marked by a
+  `<collector> stale:<key> <digest>` ledger line: served with its references followed through the ledger's moves, and
+  W197, until the next collect (ADR 0346 D7).
 - **Test fact**: a `test` or `test_run` fact of `@code/core` (ADR 0329): a test a runner ran, its status its result
-  (`result("status")`), and the run of it. A runner pack mints both with `specforge_code_junit::facts`.
+  (`result("status")`), and the run of it. A runner pack mints both with `specforge_code_facts::test_facts`.
 - **Test id**: a test fact's id, `js:<package>/<file>#<s1 > … > name>`: the package the pack assigns it to, its file
-  under that package and its suite path; a top-level test is `#<name>`. Its run is `run:<test id>` (ADR 0329 D2).
+  under that package and its suite path; a top-level test is `#<name>`. A Rust test is
+  `rust:<nextest binary id>#<test path>`. Its run is `run:<test id>` (ADR 0329 D2, ADR 0347 D4).
+- **Item fact**: an `item` fact of `@code/core` (ADR 0347): one definition path of a source pack, every definition it
+  reaches listed in `at` and `kind`, with its package, visibility, signature digest and the entities it names.
+- **Item id**: an item fact's id, `rust:<crate segment>::<mod>::…::<name>` (a member `…::<Type>::m` or
+  `…::<Type as Trait>::m`) or `js:<package>/<file>::<name>[.<member>]`; it never holds `#` (ADR 0347 D4).
+- **Item scope**: where a JavaScript declaration is an item: the top level of a file or a namespace body, and a method
+  or field of a class or interface at item scope. Nothing inside a function, a block, `declare module "x"` or
+  `declare global` is one (ADR 0347, "JavaScript items").
+- **Crate segment**: the part of a Rust item id before its module path: the cargo package name for the lib,
+  `<package>/<kind>/<target>` for another target, `@<dir>` appended for a second package of one name (ADR 0347 D2).
+- **Package fact**: a `package` fact of `@code/core`: a cargo or npm package, its version, targets, directory and the
+  project packages it depends on (ADR 0347).
+- **Package id**: a package fact's id, a purl without version: `pkg:cargo/<name>`, `pkg:cargo/<name>#<dir>`,
+  `pkg:npm/<name>` (ADR 0347 D5).
 - **Owner state**: whether an entity is **pending**: its kind's `complete_when` (a field and the values that make it
   complete) does not hold, or, when its kind declares none, its nearest scope ancestor's that declares one does not.
   With no declaration in the chain it is not pending. A pass reads it as `PassEntity.pending`; `@code/core` leaves a
-  pending entity's fact references unchecked (ADR 0329 D4).
+  pending entity's fact references unchecked (ADR 0329 D4). The values phase reads it too, after the compute passes
+  (ADR 0350).
+- **Planned value**: a value of a field whose checks run once its owner is complete (`checks_while: complete`); until
+  then its row says `planned`, no checker is called and only its written form is read (ADR 0350).
+- **Closed value**: a value of a field whose checks run only while its owner is pending (`checks_while: pending`);
+  once the owner is complete its row says `closed` and no checker is called (ADR 0350).
 - **Route**: what an extension declares (the `routes` category) for `specforge trace` to follow from a start kind:
   ordered steps, each going on from the start or an earlier step through selector steps (`<plan.requirements`), and
   annotations that print a field, a value reached through a selector, or a judgement. One the registry can't follow is
@@ -1783,9 +1851,15 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Result field**: the enum field of a collector-written kind that holds a fact's result, its values `TestStatus`
   names (`KindBuilder::result`, ADR 0329 D3); what a judged `test(..)` input and a reader of a reference to the fact
   take as its result (ADR 0331 D6).
-- **Requirement thread**: requirement → plan → task → commit (found by its `Gsd-Task:` trailer or its title,
-  `commit.linked_by`) → the proving test (`truth.proof`) → its result → the truth's verdict: what `@gsd/core`'s route
-  `requirement-thread` (`gsd/requirement-thread`) declares and `specforge trace` prints (ADR 0331).
+- **Requirement thread**: requirement → plan → task → the code items it targets (`task.items`) → commit (found by its
+  `Gsd-Task:` trailer or its title, `commit.linked_by`) → the proving test (`truth.proof`) → its result → the truth's
+  verdict: what `@gsd/core`'s route `requirement-thread` (`gsd/requirement-thread`) declares and `specforge trace`
+  prints (ADR 0331, ADR 0352).
+- **History reference**: a reference held by a field declared `writer: harness` and `immutable` (`commit.items_changed`):
+  it records what held when the harness wrote it, so an unheld one is marked `history` and is never a finding
+  (ADR 0352 D2).
+- **Decision coverage**: a planned phase's context decisions each listed in the `decisions` of one of its plans:
+  typed references resolved in the phase, never a match on the plan's text (gsd/E310, W317, W506; ADR 0351).
 - **Human-only value**: a kind, field or member declared `writer: "human"`; an extension's plan, the MCP tools and a
   non-interactive CLI are refused `human_only` (ADR 0289), also when they edit an existing entity of a human-only kind or
   delete an entity holding a person's value (ADR 0298).

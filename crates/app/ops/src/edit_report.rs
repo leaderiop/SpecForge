@@ -49,6 +49,16 @@ pub struct CollectedPlan {
 pub struct CollectedFacts {
     /// The key they are filed under: the commit they were collected at, `<sha>-dirty` or `worktree`.
     pub key: String,
-    /// Each collector's facts, in collector order: its name, its extension and its facts.
-    pub stores: Vec<(String, String, Vec<Fact>)>,
+    /// Each collector's facts, in collector order.
+    pub stores: Vec<CollectorFacts>,
+}
+
+/// One collector's admitted facts: whose they are and the digest of each source file their places name (ADR 0346 D2).
+#[derive(Debug, Clone, Default)]
+pub struct CollectorFacts {
+    pub collector: String,
+    pub extension: String,
+    pub facts: Vec<Fact>,
+    /// `sha256:<hex>` by the file's key from the project root.
+    pub sources: std::collections::BTreeMap<String, String>,
 }

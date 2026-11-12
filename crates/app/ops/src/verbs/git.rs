@@ -7,7 +7,7 @@ use serde::Serialize;
 use specforge_effects::git::{
     DiffQuery, DiffSide, GitBranchRef, GitChange, GitCommit, GitEntry, GitEntryKind, GitError,
     GitFileDiff, GitPlace, GitRemote, GitStatus, GitSubmodule, LOG_MAX, Located, LogQuery,
-    ObjectKind, Sha, Tracking, is_binary,
+    ObjectKind, PickaxeReads, Sha, Tracking, is_binary,
 };
 
 use super::{USER, Verbs, slashed};
@@ -630,6 +630,8 @@ pub fn log(verbs: &Verbs, request: &LogRequest) -> Result<LogAnswer, OpError> {
         until: date(&request.until)?,
         no_merges: request.no_merges,
         pickaxe: pickaxe.map(checked).transpose()?,
+        pickaxe_reads: PickaxeReads::All,
+        budget: None,
     };
     let mut log = verbs.ports().git.log(&place, &query).map_err(failed)?;
     if request.reverse {
@@ -678,10 +680,13 @@ pub fn diff(verbs: &Verbs, request: &DiffRequest) -> Result<DiffAnswer, OpError>
             })?;
     }
     let query = DiffQuery {
-        base: base.clone(),
+        base: Some(base.clone()),
         head,
         paths: request.paths.clone(),
         patch: request.patch,
+        hunks: false,
+        renames: true,
+        budget: None,
     };
     let files = verbs.ports().git.diff(&place, &query).map_err(failed)?;
     let text = || files.iter().filter(|file| !file.binary);

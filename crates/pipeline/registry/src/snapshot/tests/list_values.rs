@@ -50,7 +50,7 @@ fn snapshot(source: &str) -> EntitySnapshot {
 /// `a`'s `values` as a pass is sent them, and as a validator is.
 fn values_of(snapshot: &EntitySnapshot, id: &str) -> (Value, Value) {
     let pass = snapshot
-        .pass_entities()
+        .pass_entities(&[])
         .into_iter()
         .find(|e| e.id == id)
         .expect("a pass entity");
@@ -64,7 +64,7 @@ fn a_list_item_holding_the_joiner_reaches_a_pass_whole() {
     let (pass, _) = values_of(&snapshot, "a");
     assert_eq!(pass["tags"], json!(["ships, fast", "works"]));
     // The joined text stays for a 1.10 guest.
-    let entity = &snapshot.pass_entities()[0];
+    let entity = &snapshot.pass_entities(&[])[0];
     assert_eq!(entity.fields["tags"], "ships, fast, works");
 }
 

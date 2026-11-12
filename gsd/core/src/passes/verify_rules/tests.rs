@@ -1,31 +1,40 @@
-use serde_json::{Value, json};
+use serde_json::json;
 
 use super::*;
+use crate::passes::thread::fixture::add_test;
 
 const TR: &str = "v1.0/01/01-01/TR1";
 
-fn input(verification: &str, cited: &[&str], report: Option<Value>) -> PassInput {
+/// Test facts `(name, status, whether it names the truth)`.
+type Facts = Vec<(&'static str, TestStatus, bool)>;
+
+fn input(verification: &str, cited: &[&str], facts: Option<Facts>) -> PassInput {
     let judgement = json!({ "rule": "gsd/E501", "state": "fresh", "passed": true, "outcome": "verified",
                             "cited_tests": cited });
-    let mut value = json!({
+    let value = json!({
         "entities": [
             { "id": TR, "kind": "truth", "fields": { "verification": verification }, "judgements": [judgement] },
         ],
         "edges": [],
     });
-    if let Some(report) = report {
-        value["test_results"] = report;
+    let mut input: PassInput =
+        serde_json::from_value(crate::passes::plans::with_field_edges(value))
+            .expect("a pass input");
+    for (name, status, names) in facts.into_iter().flatten() {
+        let named: &[&str] = if names { &[TR] } else { &[] };
+        let id = format!("js:taskboard/test/tasks.test.js#{name}");
+        add_test(&mut input, &id, name, "test/tasks.test.js", status, named);
     }
-    serde_json::from_value(crate::passes::plans::with_field_edges(value)).expect("a pass input")
+    input
 }
 
-fn report(linked: &[(&str, &str)], others: &[(&str, &str)]) -> Value {
-    let tests = |rows: &[(&str, &str)]| {
-        rows.iter()
-            .map(|(name, status)| json!({ "name": name, "status": status }))
-            .collect::<Vec<_>>()
-    };
-    json!({ "results": { TR: { "tests": tests(linked) }, "other": { "tests": tests(others) } } })
+/// Facts: `linked` name the truth, `others` name nothing.
+fn report(linked: &[(&'static str, TestStatus)], others: &[(&'static str, TestStatus)]) -> Facts {
+    linked
+        .iter()
+        .map(|(name, status)| (*name, *status, true))
+        .chain(others.iter().map(|(name, status)| (*name, *status, false)))
+        .collect()
 }
 
 #[test]
@@ -33,7 +42,10 @@ fn a_cited_failing_test_contradicts_verified() {
     let found = e502(&input(
         "explicit",
         &["cited_one"],
-        Some(report(&[("linked", "passed")], &[("cited_one", "failed")])),
+        Some(report(
+            &[("linked", TestStatus::Passed)],
+            &[("cited_one", TestStatus::Failed)],
+        )),
     ));
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].code, "E502");
@@ -42,24 +54,29 @@ fn a_cited_failing_test_contradicts_verified() {
 
 #[test]
 fn a_passing_cited_test_backs_the_verdict_and_an_uncited_failure_is_not_counted() {
-    let passing = report(&[], &[("cited_one", "passed"), ("stray", "failed")]);
+    let passing = report(
+        &[],
+        &[
+            ("cited_one", TestStatus::Passed),
+            ("stray", TestStatus::Failed),
+        ],
+    );
     assert!(e502(&input("explicit", &["cited_one"], Some(passing))).is_empty());
 }
 
 #[test]
 fn a_backstop_or_unreported_truth_is_never_contradicted() {
-    let failing = report(&[("linked", "failed")], &[]);
+    let failing = report(&[("linked", TestStatus::Failed)], &[]);
     assert!(e502(&input("backstop", &[], Some(failing))).is_empty());
     assert!(e502(&input("explicit", &[], None)).is_empty());
 }
 
 #[test]
 fn a_report_with_no_result_is_no_run_for_e502() {
-    // What `collect --runner gsd-git` leaves: a report, and no test in it.
-    let empty = json!({ "results": {} });
-    assert!(e502(&input("explicit", &[], Some(empty))).is_empty());
+    // What `collect --runner gsd-git` leaves: no test fact.
+    assert!(e502(&input("explicit", &[], Some(Vec::new()))).is_empty());
     // A run that links nothing to the truth is "no passing test".
-    let other = report(&[], &[("stray", "passed")]);
+    let other = report(&[], &[("stray", TestStatus::Passed)]);
     let found = e502(&input("explicit", &[], Some(other)));
     assert_eq!(found.len(), 1);
     assert!(
@@ -73,7 +90,7 @@ fn a_report_with_no_result_is_no_run_for_e502() {
 fn a_failing_proof_contradicts_a_verified_explicit_truth() {
     let fact = "js:taskboard/test/tasks.test.js#adds";
     let with_proof = |status: &str| {
-        // No report at all: the proof's fact is the test run (`collect --runner node-test`).
+        // The proof's fact is the test run (`collect --runner node-test`).
         let mut proved = input("explicit", &[], None);
         proved.entities.push(
             serde_json::from_value(

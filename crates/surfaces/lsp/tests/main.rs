@@ -53,6 +53,7 @@ mod session;
 mod session_graph;
 mod settings;
 mod snippets;
+mod sources;
 mod stale;
 mod state;
 mod token_agreement;

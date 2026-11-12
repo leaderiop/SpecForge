@@ -20,7 +20,7 @@ nothing is kept as Markdown.
  str     quoted string            text   triple-quoted prose          int     integer        int{1..4}  bounded
  bool    true/false               date   YYYY-MM-DD                   ts      RFC 3339 UTC string (a `str` that `matches`, gsd/E107)
  enum{}  one closed value         enums{} list of closed values       id      bare identifier
- strs    list of strings          file   path, existence-checked      files   list of paths
+ strs    list of strings          path<mode>  path                    paths<mode>  list of paths (mode planned | present | open | history)
  → K     reference to kind K      →* K   list of references           → A|B   reference to a kind union
  {..}    repeatable typed block, its own fields inside
 ```
@@ -148,20 +148,33 @@ the plan's summary, written by the executor at the end, lands in the same file.
 
 ## Route
 
-`@gsd/core` declares one route, `gsd/requirement-thread` (ADR 0331 D8): `specforge trace <requirement>` follows it
-and prints the requirement's thread on one line, or as a tree when a step has several matches.
+`@gsd/core` declares one route, `gsd/requirement-thread` (ADR 0331 D8, ADR 0352 D3): `specforge trace <requirement>`
+follows it and prints the requirement's thread on one line, or as a tree when a step has several matches.
 
 | Step | From | Via | Prints |
 |---|---|---|---|
 | plan | the requirement | `<plan.requirements` | `plan <id>` |
 | task | each plan | `<task.plan` | `<id>` |
+| item | each task | `.items` | the item's id |
 | commit | each task | `<commit.task` | the short hash and `(linked_by)`: `(Gsd-Task)` or `(title)` |
 | test | the requirement | `<truth.requirement.proof` | the test fact and `(status)`, else `(not run)` |
 | truth | the requirement | `<truth.requirement` | `<id>` and its E501 judgement: outcome and freshness |
 
-The `test` step reads `@code/core`'s `test` facts; without that optional peer it is skipped (I210), never a failure.
-A requirement traced through every step reads like
-`TASK-01 → plan 01-01 → T1 → <sha> (Gsd-Task) → js:taskboard/test/tasks.test.js#a task is added with the next id (passed) → TR1 verified, fresh`.
+The `item` and `test` steps read `@code/core`'s `item` and `test` facts; without that optional peer both are skipped
+(I210), never a failure. The `item` step is required otherwise: a task that names no held item leaves the thread
+incomplete, which `--partial` shows. A task naming two items is two matches, so the thread of the taskboard twin, traced
+through every step, prints as a tree:
+
+```text
+TASK-01
+  → plan 01-01
+    → T1
+      → js:taskboard/src/tasks.js::addTask
+      → js:taskboard/src/tasks.js::createBoard
+      → <sha> (Gsd-Task)
+  → js:taskboard/test/tasks.test.js#a task is added with the next id (passed)
+  → TR1 verified, fresh
+```
 
 ## Every GSD file maps to a kind
 
@@ -183,7 +196,7 @@ A requirement traced through every step reads like
 | `NN-UAT.md` | uat_session, uat_test, uat_gap | core |
 | `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check | core |
 | `v<version>-MILESTONE-AUDIT.md` | milestone_audit | core |
-| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities | core |
+| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity | core |
 | `WINDOWS.md` | broken_window | core |
 | `NN-REFACTOR.md` | refactor_proposal | core |
 | `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) | core |

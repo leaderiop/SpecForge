@@ -484,7 +484,7 @@ pub fn assert_registry_contract(registry: &dyn Registry, published: &[Published]
         "R-S: a published package is found by a substring of its name"
     );
     let searched = registry
-        .search("contract/fresh", Some(DeclaredCategory::Analyzers))
+        .search("contract/fresh", Some(DeclaredCategory::Collectors))
         .unwrap_or_else(|e| panic!("R-S: filtered search fails: {e:?}"));
     assert!(
         searched.found.is_empty(),

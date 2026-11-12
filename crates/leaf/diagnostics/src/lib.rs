@@ -4,7 +4,8 @@
 //! `specforge explain <CODE>` and the MCP `specforge.explain` tool print an
 //! entry, MCP diagnostics and the LSP carry its title and docs link, doctor
 //! quotes its explanation, and `docs/diagnostics.md` is generated from
-//! [`CATALOG`]. The catalog is the table in `catalog.rs`, with `catalog_checks.rs` merged in, and it generates
+//! [`CATALOG`]. The catalog is the table in `catalog.rs`, with `catalog_checks.rs` and `catalog_registry.rs` merged
+//! in, and it generates
 //! [`CATALOG`] and a typed constant for every core code ([`codes`]): the
 //! host names a core code as `codes::W112`, a [`Code`] whose level is the
 //! catalogued one. The tests in `tests.rs` fail when an emitted
@@ -16,12 +17,19 @@ mod catalog_macro;
 mod catalog;
 mod catalog_checks;
 mod catalog_merged;
+mod catalog_registry;
 mod code;
 mod codebook;
 mod extension;
 mod namespace;
 
-pub use catalog::codes;
+/// A typed constant for every core code in [`CATALOG`]: `codes::W112` is a [`Code`] at the code's level,
+/// `codes::R_RES_005` names `R-RES-005` (`-` becomes `_`), and `codes::A010` is a [`GradedCode`]. Extension-owned
+/// codes have none: extensions report codes as text, checked where they enter the host.
+pub mod codes {
+    pub use crate::catalog::codes::*;
+    pub use crate::catalog_registry::codes::*;
+}
 pub use catalog_merged::CATALOG;
 #[doc(hidden)]
 pub use code::prefix_states;

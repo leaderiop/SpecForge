@@ -89,7 +89,7 @@ mod greet;
 /// Every call a host makes to greet, with its input: the handshake, a
 /// describe of every category the protocol has and one it does not, and
 /// each export its declaration names (its commands, MCP tools and
-/// resources, passes, collectors, custom rules and scanners), plus one it
+/// resources, passes, collectors and custom rules), plus one it
 /// does not route.
 fn every_call(
     declaration: &specforge_protocol_types::ExtensionDeclaration,
@@ -130,10 +130,6 @@ fn every_call(
             let input = br#"{"entity":{"id":"hi","kind":"greeting","fields":[],"methods":[]},"referenced":[],"declared_types":[],"primitives":[]}"#;
             calls.push((function.clone(), input.to_vec()));
         }
-    }
-    for analyzer in &declaration.analyzers {
-        let input = br#"{"file_path":"a.txt","content":"hi\n"}"#;
-        calls.push((analyzer.scan_export.clone(), input.to_vec()));
     }
     calls.push(("greet__no_such_export".to_string(), b"{}".to_vec()));
     calls

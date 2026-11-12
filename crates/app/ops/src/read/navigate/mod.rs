@@ -30,8 +30,9 @@ use crate::view::ProjectView;
 
 pub(crate) use anchors::CoveredItems;
 pub use anchors::{
-    AnchoredEntity, EntityAnchors, FileAnchors, FileAnchorsField, Implementation,
-    anchors_of_entity, anchors_of_file,
+    Anchor, AnchorEdge, AnchoredEntity, Anchors, CollectedSources, EntityAnchors, FileAnchors,
+    FileAnchorsDocument, FileAnchorsField, anchors_in, anchors_of_entity, anchors_of_file,
+    read_placed, stale_notice,
 };
 pub use attribution::{is_about, subjects};
 pub use edits::{TextEdit, apply_edits};

@@ -166,6 +166,92 @@ interface git {
     branch: branch-status,
     entries: list<entry>,
   }
+  /// One changed range of a diff, no context: old lines `before-start..before-end` became new lines
+  /// `after-start..after-end` (0-based, end exclusive).
+  record hunk {
+    before-start: u32,
+    before-end: u32,
+    after-start: u32,
+    after-end: u32,
+  }
+  /// The commits `tips` reach that `hidden` do not, newest first: commits by id, paths from the repository's top.
+  /// `max` none lists every commit the answer holds. `since` and `until` are seconds since the epoch.
+  record log-query {
+    tips: list<string>,
+    hidden: list<string>,
+    paths: list<string>,
+    first-parent: bool,
+    max: option<u32>,
+    oldest: bool,
+    grep: option<string>,
+    since: option<s64>,
+    until: option<s64>,
+    no-merges: bool,
+    pickaxe: option<string>,
+  }
+  /// Who made a commit, and when: a name and epoch seconds, never an email address nor the signer's offset.
+  record signature {
+    name: string,
+    seconds: s64,
+  }
+  /// A trailer of the message's last paragraph: every value of its token, in order.
+  record trailer {
+    token: string,
+    values: list<string>,
+  }
+  record log-commit {
+    sha: string,
+    parents: list<string>,
+    author: signature,
+    committer: signature,
+    subject: string,
+    body: string,
+    trailers: list<trailer>,
+  }
+  /// `count`: every commit the log keeps (none past a pickaxe's listing, or when the walk stopped). `truncated`: the
+  /// answer's cap stopped the listing, or the host's counted walk stopped (then no `count`).
+  record log-answer {
+    count: option<u64>,
+    commits: list<log-commit>,
+    truncated: bool,
+  }
+  variant diff-head {
+    commit(string),
+    index,
+    worktree,
+  }
+  /// `base` none: the empty tree (a root commit's diff). `hunks`: each text file's changed line ranges. `renames`
+  /// pairs renames by the host's rules, never the repository's config; false lists a rename as a deletion and an
+  /// addition.
+  record diff-query {
+    base: option<string>,
+    head: diff-head,
+    paths: list<string>,
+    patch: bool,
+    hunks: bool,
+    renames: bool,
+  }
+  /// `withheld`: a file whose text this guest may not read (a withheld name, or a worktree file its fs grant does not
+  /// read); it has no patch and no hunks, its status and counts stay. `truncated`: a side over the blob cap, a cut
+  /// patch, or a file past the bytes the host reads for one diff (no lines counted).
+  record file-change {
+    path: string,
+    old-path: option<string>,
+    status: change,
+    added: u32,
+    removed: u32,
+    binary: bool,
+    truncated: bool,
+    withheld: bool,
+    patch: option<string>,
+    hunks: option<list<hunk>>,
+  }
+  /// `truncated`: the answer's cap stopped the patches, so the files after it have none, or the host's counted read
+  /// stopped, so the files past it count no lines.
+  record diff-answer {
+    files: list<file-change>,
+    truncated: bool,
+  }
   /// None: the project is in no repository.
   locate: func() -> result<option<repo>, host-error>;
   /// The commit a revision names; none when it names none.
@@ -176,6 +262,96 @@ interface git {
   blobs: func(commit: string, paths: list<string>) -> result<blobs-answer, host-error>;
   branch: func() -> result<string, host-error>;
   status: func() -> result<status-answer, host-error>;
+  /// The log of the project's repository; a pickaxe never reads a withheld file.
+  log: func(query: log-query) -> result<log-answer, host-error>;
+  /// A diff of the project's repository; a withheld file's text is never in it, nor a worktree file's the fs grant
+  /// does not read.
+  diff: func(query: diff-query) -> result<diff-answer, host-error>;
+}
+
+/// Source files parsed by the host's reader with the guest's tags query, inside the call's fs grant (git's at a
+/// revision). A file not parsed says why; the answer keeps the order asked.
+interface syntax {
+  use types.{host-error};
+  /// Where the files are read: under a named root, or in a commit of the project's repository.
+  variant read-at {
+    worktree(string),
+    revision(string),
+  }
+  /// The files asked: named, or every file a glob matches.
+  variant file-set {
+    paths(list<string>),
+    glob(string),
+  }
+  /// `language`: `rust`, `typescript` or `tsx`. `query`: one role capture per pattern
+  /// (`definition.<kind>` or `reference.<kind>`); every capture not starting with `_` is answered.
+  record request {
+    source: read-at,
+    files: file-set,
+    language: string,
+    query: string,
+  }
+  /// `byte` from 0; `line`, `col` (characters) and `byte-col` from 1.
+  record point {
+    byte: u32,
+    line: u32,
+    col: u32,
+    byte-col: u32,
+  }
+  record span {
+    start: point,
+    end: point,
+  }
+  enum role {
+    definition,
+    reference,
+  }
+  /// `cut`: the text stopped at the host's capture cap.
+  record capture {
+    name: string,
+    text: string,
+    cut: bool,
+    span: span,
+  }
+  /// `parent`: the index of the innermost match holding this one.
+  record syntax-match {
+    role: role,
+    kind: string,
+    span: span,
+    parent: option<u32>,
+    captures: list<capture>,
+  }
+  /// `errors`: the syntax errors the parse recovered from.
+  record parsed {
+    matches: list<syntax-match>,
+    errors: u32,
+  }
+  enum not-parsed {
+    deadline,
+    too-large,
+    missing,
+    unreadable,
+    denied,
+    capped,
+  }
+  variant outcome {
+    parsed(parsed),
+    not-parsed(not-parsed),
+  }
+  record file {
+    path: string,
+    digest: option<string>,
+    outcome: outcome,
+  }
+  /// `truncated`: a glob's walk stopped short, so the files past it are not in the answer (a file the answer's cap
+  /// stopped is `not-parsed(capped)`). `parsed` and `cached`: files parsed now and answered from the host's cache.
+  record syntax-answer {
+    files: list<file>,
+    truncated: bool,
+    parsed: u32,
+    cached: u32,
+  }
+  parse: func(req: request) -> result<syntax-answer, host-error>;
 }
 
 world ports {
@@ -183,4 +359,5 @@ world ports {
   import fs;
   import process;
   import git;
+  import syntax;
 }

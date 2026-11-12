@@ -187,37 +187,30 @@ behavior discover_inference_sources "Discover Inference Sources" {
   types    [InferenceManifest, SourceFileEntry]
   category computation
   ensures {
-    claimed      "a source is a file an enabled analyzer claims by its extension, under a source root"
-    shared_walk  "no symlinked directory is entered, and a symlink is a source only when it resolves to a file inside the project root"
-    skips_united "the default skipped directories hold whatever the analyzers declare; their excluded_dirs add to them"
-    inside_root  "a source root, a file or an indexed path that lands outside the project root is never read"
-    one_key      "every source is keyed by the source path rule and listed once"
-    nested       "a nested project's files are its own project's sources"
+    claimed     "a source is a file an item fact locates, under a source root"
+    inside_root "a source root, a file or an indexed path that lands outside the project root is never read"
+    one_key     "every source is keyed by the source path rule and listed once"
   }
   contract """
-    The inference sources are the files under the inference manifest's
-    source_roots (the project root when there are none) that an enabled
-    analyzer claims by its file extension (the longest extension that
-    matches; for one extension, the first analyzer that declares it). The
-    walk is the shared discovery policy: no symlinked directory is
-    entered; a symlink is a source when it resolves to a file inside the
-    project root; no directory is entered whose name starts with a dot,
-    that the defaults skip (target, node_modules, dist, build, .git, .hg,
-    __pycache__, vendor), that an enabled analyzer's excluded_dirs names,
-    or that holds specforge.json below a source root. Each source is keyed
-    by the source path rule and listed once, whatever source roots reach
-    it; every path the manifest records (a source root, an index entry) is
-    read as read_a_recorded_source_path reads it. A source root, a file or
-    an indexed path whose key lies outside the project root, by .. or an
-    absolute name, or that lands outside through a symlink, is not read:
-    such a root is not walked and such an indexed path is deleted.
+    The inference sources are the files the item facts of the compiled
+    graph locate (each item's first place, public or not), under the
+    inference manifest's source_roots (the project root when there are
+    none). Which files exist is the source packs' collectors' to say:
+    no directory is walked and no file extension is claimed, so a project
+    that loads no source pack, or has not collected, has no inference
+    source. Each source is keyed by the source path rule and listed once,
+    whatever source roots reach it; every path the manifest records (a
+    source root, an index entry) is read as read_a_recorded_source_path
+    reads it. An item whose place, or a source root whose key, lies
+    outside the project root, by .. or an absolute name, adds no source;
+    an indexed path that lands outside, through a symlink as well, is
+    deleted, never read.
   """
-  verify unit "no symlinked directory is entered, so a symlink cycle adds no source"
-  verify unit "an analyzer's excluded_dirs add to the default skipped directories"
   verify unit "a file two source roots reach is one source"
   verify unit "no inference source lands outside the project root"
   verify unit "an indexed path outside the project root is deleted, never read"
-  verify unit "a nested project's files are not the outer project's inference sources"
+  verify unit "a source is a file an item fact locates"
+  verify unit "with no item facts, progress counts no source file"
 }
 
 // A source-code path a manifest records (specforge_ops source_key::SourceKey::read, ADR 0271).
@@ -225,18 +218,15 @@ behavior read_a_recorded_source_path "Read a Source-Code Path a Manifest Records
   features [infer_progress_tracking, infer_gap_analysis]
   category computation
   contract """
-    A source-code path a manifest records (an anchor's file in
-    specforge-anchors.json, an index entry's path or a source root in
-    specforge-infer.json) MUST be read from the project root into its key by
-    the reader a source-code path a request names is read by
+    A source-code path a manifest records (an index entry's path or a
+    source root in specforge-infer.json) MUST be read from the project root
+    into its key by the reader a source-code path a request names is read by
     (read_a_named_source_path): every spelling of one path is that path, its
     absolute path under the project root included, a .. applied where it
     stands. One whose key lies outside the project root, or that names
-    nothing, is no key: it covers no item, such an index entry is deleted and
-    such a source root is not walked; navigation still lists such an anchor,
-    matched by its text. Each recorded path is read once per operation.
+    nothing, is no key: such an index entry is deleted and such a source
+    root is not walked. Each recorded path is read once per operation.
   """
-  verify unit "an anchor recorded by its absolute path under the project root is that file"
   verify unit "an index entry recorded by its absolute path under the project root is that file"
   verify unit "a source root recorded by its absolute path under the project root is walked"
 }
@@ -331,45 +321,48 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
   types    [InferenceGapReport, DirectoryGaps, InferenceGap, McpInferGapsResult]
   category mcp
   ensures {
-    source_scanned   "source files scanned for public items"
-    graph_crossed    "public items cross-referenced with the anchors manifest and graph entities"
+    items_read       "public items are the item facts the compiled graph holds"
+    cited            "an item an authored entity cites, or that names an authored entity, is covered"
     anchored_only    "an anchored entity covers only the items its anchors name"
     per_dir_gaps     "gaps computed per directory"
-    approximate_flag "output marked approximate when a scanner failed on a file"
+    approximate_flag "output marked approximate when a fact store was not served"
   }
   contract """
-    Register an MCP tool specforge.infer_gaps that scans source files in
-    source_roots for public items. Public items are what the enabled
-    analyzers' scanners report; a scanner that fails on a file makes the
-    report approximate. An item is covered when the project's
-    specforge-anchors.json anchors it, by its file (read as
-    read_a_recorded_source_path reads it) and its name, to an entity
-    the compiled graph declares, or, when no anchor names that entity, when its
-    name is the entity's id. An anchor to an entity the graph does not declare
-    covers nothing. An anchors manifest that cannot be used is refused with
-    E071, as specforge.find_spec_for_source refuses it, before any file is
-    scanned. Returns an
-    InferenceGapReport with per-directory breakdowns including structured
-    InferenceGap items (name, item_kind, file, line). A scanner that fails
-    on a file (it traps, or answers what is not a scan response) is
-    reported in scan_failures (the file and its E028), never counted as a
-    file without public items, and makes the report approximate.
-    Items in test files, build scripts, and standard trait impls are excluded.
-    With no project served and none named, the tool is the no-project
-    refusal (precondition_failed), as the gap analysis refuses a view
-    without a root.
+    Register an MCP tool specforge.infer_gaps that reads the public items
+    the compiled graph holds: the facts of the collected kind item (the
+    kind @code/core declares, written by a source pack's collector) whose
+    visibility is public and whose first place is a file under the
+    inference manifest's source_roots (the project when there are none).
+    No source file is read. An item whose place is no file under the
+    project root is not counted. An item is covered when an authored
+    entity (one of a kind no collector writes) cites it: a graph edge
+    either way between them, so a .spec reference to the item or a name
+    the item's source gives the entity: an anchor, as the anchors read
+    view reads it (ADR 0349). An entity that only shares an item's name
+    does not cover it; a name the item gives that no entity declares links
+    nothing and covers nothing. Returns an InferenceGapReport with per-directory
+    breakdowns including structured InferenceGap items (name, item_kind,
+    file, line) and the collectors whose stores held the counted items.
+    The report is approximate when the compile could not serve a fact
+    store (W191, W192): its items are unknown. With no item facts it
+    counts nothing and names no collector. With no project served and
+    none named, the tool is the no-project refusal (precondition_failed),
+    as the gap analysis refuses a view without a root.
   """
-  verify unit "scans each source file with its analyzer's scanner"
-  verify unit "excludes test files and build scripts"
   verify unit "returns structured InferenceGap items with file and line"
   verify unit "marks output as approximate"
   verify unit "with no project served, infer_gaps is the no-project refusal"
-  verify unit "an item an anchor names for a declared entity is covered"
+  verify unit "an item fact with an anchor to a declared entity is no gap"
   verify unit "an anchored entity covers only the items its anchors name"
-  verify unit "an unusable anchors manifest refuses the gaps with E071"
   verify unit "every item find_spec_for_source anchors to a declared entity is no gap"
-  verify unit "an item whose name is an unanchored entity's id is covered"
   verify unit "an anchor to an entity the graph does not declare covers nothing"
+  verify unit "gaps never read source text: a public item only a string literal spells is no gap"
+  verify unit "an entity that only shares an item's name does not cover it"
+  verify unit "an item an authored entity cites is covered"
+  verify unit "an item that names an authored entity is covered"
+  verify unit "only public items are counted"
+  verify unit "with no item facts, gaps count nothing and name no collector"
+  verify unit "the report is approximate when a fact store is not served"
 }
 
 // ---------------------------------------------------------------------------
@@ -390,7 +383,9 @@ behavior compute_inference_guide "Compute Inference Guide" {
   contract   """
     The inference guide (specforge_ops::read::infer::guide, kind_guide) MUST give,
     for every kind a loaded extension declares (once, as the extension the
-    kind registry registered it for declares it), in declaration order:
+    kind registry registered it for declares it), in declaration order, and
+    in the project's guide only the authored ones (never a kind a collector
+    writes: its entities are facts, not inferred):
     its keyword, extension and description; every field the registry
     build registered on it, sorted by name, with its type, whether it is
     required, its description and, for an enum, its values and the value an
@@ -416,6 +411,7 @@ behavior compute_inference_guide "Compute Inference Guide" {
   verify unit "a kind declared by two extensions is guided by the one that registered it"
   verify unit "the guide's spec directory is the project's spec root, relative to its root"
   verify unit "the guide lists each loaded extension, every declared kind in declaration order, and the entities of every written kind"
+  verify unit "the guide lists no kind a collector writes"
   verify integration "every builtin kind's example parses and holds no value of the wrong type"
 }
 
@@ -531,9 +527,10 @@ behavior provide_infer_file_scope "Provide Infer Prompt File Scope" {
   }
   contract """
     When specforge://prompts/infer is invoked with scope=file:<path>,
-    list the entities that belong to that source file under the one
-    file rule MCP navigation and the LSP share, with each one's kind,
-    line and symbol, and each kind's guide
+    list the entities anchored to the located facts of that source file
+    under the one file rule MCP navigation and the LSP share (the anchors
+    read view over the graph), with each one's kind, the fact, its lines
+    and the edge, and each kind's guide
     (compute_inference_guide). The list is the one
     specforge.find_spec_for_source returns for the same path; a file: path
     whose key lies outside the project root is the same refusal, on scope.

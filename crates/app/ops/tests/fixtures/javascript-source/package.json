@@ -1,0 +1,6 @@
+{
+  "name": "app",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "dependencies": { "@acme/core": "*" }
+}

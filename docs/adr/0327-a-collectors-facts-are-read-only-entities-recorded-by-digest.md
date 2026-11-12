@@ -2,6 +2,9 @@
 
 **Status:** accepted (2026-11-02, R1 of the Beyond Parity build plan, K23). Amends the "Linkage" section of
 [ADR 0002](0002-test-runner-extensions.md) (D10). Ships in extension protocol 1.15.0.
+Amended by [ADR 0345](0345-the-syntax-import-and-collectors-that-read-answer-and-are-served-facts.md) (D5: facts are also served to a collector's `facts` input; a fact of a kind its collector does not answer is E116).
+Amended by [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md) (D2: store version 2 records `sources`; D5: a served fact is `located`; D6: a fact's own references are dangling, not a kernel error; D7: a rename of an entity a fact names rewrites the source).
+Amended by [ADR 0353](0353-a-pass-reads-the-facts-it-declares.md) (a pass is sent the facts of the kinds its `facts` input names, not every fact; a validation rule that names no kind judges no fact).
 
 ## Context
 
@@ -43,6 +46,7 @@ The kernel explore (2026-11-02) found:
 
   The file is written canonically: facts sorted by `(kind, id)`, fields in key order, two-space JSON and a final
   newline. Equal facts give equal bytes, and so an equal digest.
+  Amended by [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md): the store is version 2 and records the digest of every file its facts' places name (D2).
 - **D3. The key** is asked through the History port, with no new git call:
   - HEAD's full sha when `status` shows nothing;
   - `<sha>-dirty` when `status` lists a tracked change, a conflict or an untracked file;
@@ -69,6 +73,7 @@ The kernel explore (2026-11-02) found:
   - When no loaded kind is collector-written, `.specforge/facts/` and the ledger are not read for facts: the build is
     byte-identical.
   - A fresh clone has no store, so it serves nothing, and its fact references are unheld (D6).
+  Amended by [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md): a served fact keeps its store span and is `located` where its collector says it is written; its names are spanned where they are written (D3).
 - **D6. Resolution.**
   - `GraphInputs.fact_schemes` maps each scheme to the collector-written kinds that declare it.
   - A reference finds no entity, its id starts with `<scheme>:`, the scheme is in `fact_schemes`, and the field's
@@ -77,11 +82,13 @@ The kernel explore (2026-11-02) found:
   - `Mistyped` (E022) and `Unavailable` (I004, the target kind not loaded) are decided first.
   - The node keeps its unheld references, and a pass is sent them (`PassEntity.unheld`), with the stores the session
     served (`PassInput.fact_stores`). Whether an unheld reference is wrong is the kind's extension's to judge.
+  Amended by [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md): a fact's own reference resolves from the project with a unique suffix; one that names no entity, the wrong kind or several is dangling, judged by its kind's extension (D4).
 - **D7. Refusals.**
   - A collected entity is created, set, unset, deleted and renamed only by `collect`. Every caller is refused, a
     person in the editor too, with the code `collected`.
   - A rename of an authored entity that a fact names is refused too: the fact has no text to rewrite.
   - The LSP answers its rename with that reason (`invalid_params`), not a `ContentModified` retried forever.
+  Amended by [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md): a rename of an entity a fact names rewrites the source where the fact read it; a delete stays refused (D7).
 - **D8.** A collected entity's id is exempt from E014. Its length is its tool's (a test's name).
 - **D9.** The session records the ledger, the store listing and each store file as inputs. A change re-reads the
   facts and applies them as source changes, and the LSP's watchers follow the recorded inputs.

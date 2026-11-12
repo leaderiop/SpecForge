@@ -1,6 +1,6 @@
 # Execution, results and state
 
-**Status: built (r38): the seven kinds below, `gsd/E401` to `gsd/E405` (E403 is `gsd/W403`), `gsd/W407` and `gsd/W408`, the computed values of execution (plan, task and check status, duration, actuals, key files) and the collectors `gsd-git` and `gsd-junit`. The session state is not modelled.**
+**Status: built: the seven kinds below, `gsd/E401` to `gsd/E405` (E403 is `gsd/W403`), `gsd/W407` and `gsd/W408`, the computed values of execution (plan, task and check status, duration, actuals, key files) and the collector `gsd-git`; tests are `@code/core`'s test facts a runner pack collects. The session state is not modelled.**
 
 ```
  plan ─1──0..1─ summary ─1──*─ deliverable
@@ -56,23 +56,24 @@ GSD: a `coverage:` item. Name `D1`, scoped by the summary.
 `summary → summary R I`, `description str R`, `requirement → requirement`, `human_judgment bool R`,
 `rationale str` (required when `human_judgment`), `checks {kind enum{unit, integration, e2e, automated_ui, manual_procedural, other} R, ref str R, status enum{pass, fail, unknown} C}`.
 Each check's `status` is a **computed member** of an authored block: the derive pass lists it as `deliverable.checks.status`
-(`dsl::computed`), and a status written inside `checks` is E082. It is computed from the test report (K12: a compute pass
-that declares the `tests` input receives it): `fail` when a test named exactly its `ref` failed, `pass` when one passed, `unknown`
-when none was recorded, and no status without a report. Because the derive pass reads the report, a compile without
-`specforge-report.json` says I205 once. A check's `ref` is GSD's own coverage reference, `path#test name`
-(`test/tasks.test.js#adds a task`), or a test tagged with its entity (the test link, under commit below).
+(`dsl::computed`), and a status written inside `checks` is E082. It is computed from `@code/core`'s test facts (kind
+`test`, which a runner pack collects): `fail` when a test fact its `ref` names failed, `pass` when one passed, `unknown`
+when test facts are collected and none its `ref` names passed or failed, and no status while no test fact is collected.
+A check's `ref` is GSD's own coverage reference, `path#test name` (`test/tasks.test.js#adds a task`), or a test fact's
+id (the test link, under commit below).
 
 ## deviation
 
 GSD: `## Deviations from Plan` and `## Issues Encountered`. Append-only. Name `DV1`, scoped by the summary.
-`summary → summary R I`, `kind enum{deviation, issue} R I`, `rule str I`, `text str R I`, `files strs I`: a deviation is a log line, so
+`summary → summary R I`, `kind enum{deviation, issue} R I`, `rule str I`, `text str R I`, `files paths<history> I` (never file-checked: a later commit may delete one): a deviation is a log line, so
 every field is immutable and the kind is append-only (E084, E085).
 
 ## commit
 
 Written by the git collector, not by an agent: every field is `H` (a command's or collector's plan sets it; the host
-refuses any other writer). The collector (`gsd-git`) runs the whole `git log` with `capture_stdout` and is named
-explicitly (`specforge collect --runner gsd-git`); an incremental `{since}` is not needed at core's scale. It reads GSD's
+refuses any other writer). The collector (`gsd-git`) reads the whole log through the host's git port (ADR 0352) and is
+named explicitly (`specforge collect --runner gsd-git`) or detected; an incremental `{since}` is not needed at core's
+scale. It reads GSD's
 own subject convention, `{type}({phase}-{plan}): {task-name}` (`feat(03-02): issue a token on sign-in`), and matches the
 task by its title. A `Gsd-Task: <plan>/<task>` trailer comes first (ADR 0331 D3): one that names a task fixes the plan
 and the task, whatever the subject says (`linked_by Gsd-Task`); otherwise the subject decides (`linked_by title`). A
@@ -89,22 +90,21 @@ write the same file), in the project scope, named by the first 12 hex digits of 
 | type | str | H | `feat`, `fix` …; absent for a subject with no `type:` header (a commit its trailer links) |
 | subject | str | H | |
 | at | ts | H | the author time, UTC |
-| files | strs | H | repository-relative paths, as git prints them; text, not `files`, since a later commit may delete one |
-| created | strs | H | the paths `git log --summary` reports `create mode` for (GSD's `key-files.created`) |
-| insertions, deletions | int | H | `git log --numstat` |
+| files | strs | H | the paths it touched under the project, project-relative (a path outside it is left out); a rename touches both paths; text, not `files`, since a later commit may delete one |
+| created | strs | H | the paths under the project it added (GSD's `key-files.created`), project-relative |
+| insertions, deletions | int | H | the lines it added and removed, of every file it touched |
+| items_changed | →* item | H I | the `@code/core` items whose lines it wrote, or deleted inside, as named when it is recorded: its diff's line ranges carried to the worktree by one more diff and met with the stored item facts' spans (ADR 0352 D1); written once (a history reference, never `code/E101`); a commit recorded before item facts were served gets it on the first collect that serves them; absent without `@code/core` |
 | descends_from | →* commit | H | the recorded commits of the same plan this one reaches through its parents (`%P`, merges included), oldest first; `[]` for none, absent on a commit recorded before ancestry was collected. W403 reads it (#5275) |
 
-**Collecting.** `specforge collect --runner gsd-git --yes` (or without `--yes`, to be asked) runs
-`git -c core.quotepath=off log --no-renames --numstat --summary
---format=%x00%H%x1f%P%x1f%at%x1f%(trailers:key=Gsd-Task,valueonly,unfold,separator=%x1e)%x1f%s` once in the
-project root and hands the captured output to the collector, which is a *writing* one: it is also given the graph, and
-answers an edit plan (`Record N commits`) that creates the new `commit` entities in their plans' files, oldest first.
+**Collecting.** `specforge collect --runner gsd-git --yes` (or without `--yes`, to be asked) runs the collector, which
+runs no program: it asks the host's git port for the typed log from `HEAD` (its trailers and author times), then one
+diff of each commit it records against its first parent (a root commit's against the empty tree), renames apart, so a
+rename touches both paths (ADR 0352). It is a *writing* collector: it is also given the graph, and answers an edit plan (`Record N commits`) that creates the new `commit` entities in their plans' files, oldest first.
 The host applies the plan and records each field in `specforge-harness`. A commit whose 12-hex name the graph already
-holds is not recorded again, so a second run changes nothing. The collector is detected by a branch ref
-(`.git/refs/heads/*` or `.git/packed-refs`, ADR 0331 D4), or named (`--runner gsd-git`): a plain `specforge collect` in
-a repository with a commit runs it, and one with no commit yet (unborn) does not detect it. Detected and giving no
-evidence (`--no-run`, no `git` on PATH), it is skipped and the collect goes on; named, a repository with no commit (or a
-directory that is none) prints nothing, and `collect` says so with E045 ("produced no report"). The header is read as `/gsd-undo` reads it: one `fixup! `, `squash! `
+holds is not recorded again, so a second run changes nothing. The collector is detected by `.git` (a directory, or a
+linked worktree's file, ADR 0352), or named (`--runner gsd-git`): a plain `specforge collect` in any repository runs it,
+and an unborn one (no commit yet) records nothing. It needs neither a run nor a `git` on PATH, so `--no-run` records the
+commits too; named, a directory in no repository fails ("the project is in no git repository"). The header is read as `/gsd-undo` reads it: one `fixup! `, `squash! `
 or `Revert "…"` layer is unwrapped, then `type[(scope)][!]: description`, case-insensitively; the scope is the plan's GSD
 id (`03-02`, `03.1-01`, a quick id), resolved over the graph as a path, a rooted path or a unique short form. A scope that
 names no plan, several plans (`01-01` in two milestones: write the full path) or a non-plan is skipped, except that a
@@ -120,7 +120,8 @@ and `-`) is resolved as a task over the graph, as written or with the `project_c
 Two different values, or one of another form, is unreadable (as upstream's `ship.md:335` counts a doubled
 `gate-status:` as missing). An unreadable trailer, or one that names no task, falls back to the subject, and the plan's
 title notes `(trailer of <12 hex> names no task: <value or "unreadable">)`. A revert names no task, even with a trailer.
-GSD's executor writes no trailer yet: S1 adds it to `gsd-executor.md`'s commit step (`gsd/core/assets/**`).
+GSD's executor writes the trailer: `gsd-executor.md`'s commit step ends the message with it as a second `-m`, its last
+paragraph (ADR 0351).
 
 A plan op refused `stale_revision` (the plan's file changed since the compile) writes
 nothing, and the next run records the same commits. Merges are read for their parents and never recorded.
@@ -128,34 +129,26 @@ nothing, and the next run records the same commits. Merges are read for their pa
 Schema drift reads the subjects, and a milestone's `stats.loc` the line counts. `/gsd-undo` reads the commits of a plan or a
 phase from here instead of a manifest file.
 
-**Test link.** A test links to an entity two ways, and the JUnit collector (`gsd-junit`) does both.
-- A **tag** in the test's name, `[gsd:<id>]` (`[gsd:03-02/TR1] stays signed in`), links it to any entity. The id is a path,
-  a rooted path or a unique suffix; the collector resolves it over the graph as the host's `find` does. A tag that names
-  nothing, or several entities, links nothing.
-- A **coverage reference** links a deliverable's check, GSD's own test link (`gsd-core/templates/summary.md:59`): the check's
-  `ref` is `test/tasks.test.js#a task is added`, and a test named `a task is added` whose `file` attribute (made
-  project-relative by stripping the project root) is `test/tasks.test.js` proves it. A `ref` with an empty file part
-  (`#name`) matches on the name alone. The file part ends at the first `#`, so a test name may hold one (`fixes #42`). The result is recorded under the deliverable and named by the `ref` exactly, which
-  is what the derive pass looks a check's status up by.
+**Test link.** Tests are `@code/core`'s test facts, which a runner pack collects (`@javascript/node-test` reads node's
+JUnit report: `specforge collect --runner node-test --no-run`, or `--report <file>`). A test fact links to an entity two
+ways, and the passes read both from the graph (`src/passes/thread.rs`):
+- A **tag** in the test's name, `[gsd:<id>]` (`[gsd:03-02/TR1] stays signed in`), is one of the fact's `names`, and the
+  graph links the fact to that entity by a `names` edge. The id is a path, a rooted path or a unique suffix, resolved
+  as any reference is; a tag that names nothing, or several entities, is a dangling name `@code/core` reports
+  (`code/I402`) and links nothing.
+- A **coverage reference** links a deliverable's check, GSD's own test link (`gsd-core/templates/summary.md:59`): the
+  check's `ref` is `test/tasks.test.js#a task is added`, and a test fact named `a task is added` whose project-relative
+  `file` is `test/tasks.test.js` proves it. A `ref` with an empty file part (`#name`), or none, matches on the name
+  alone, and a `ref` equal to a fact's id names that fact. The file part ends at the first `#`, so a test name may hold
+  one (`fixes #42`).
 
-  Limits of the link, by design: a reporter that writes no `file` attribute (jest-junit and pytest by default) matches
-  only a `ref` with an empty file part; the root is stripped as the collector is given it, so a report written under a
-  symlinked root (`/tmp` and `/private/tmp`) does not link by file; a `time` that is negative, not a number or spelled
-  with a thousands separator gives no duration. A report cut inside a `<testcase>`, or that holds no `<testsuite>`, is
-  refused; a tag that names no entity, or several, lists the test as unlinked even when another tag linked it.
+`gsd-git` reads the whole log on every run (no `--since`): a repository of ten thousand commits costs seconds, and the
+port's answer cap and the host's 512 MB / 30 s guest limit are the bound (a log past one answer fails the collect).
+Control characters in a subject or path become U+FFFD, and a commit whose time is out of range is skipped and named in
+the plan's title. The host decides the repository; the guest names commits by id only.
 
-`gsd-git` reads the whole `git log` on every run (no `--since`): a repository of ten thousand commits costs seconds and
-the host's 512 MB / 30 s guest limit is the bound. Its records start at a NUL, control characters in a subject or path
-become U+FFFD, and a commit with a bad hash or time is skipped and named in the plan's title. It does not clear
-`GIT_DIR` and the like (the host runs the command).
-
-A test that links neither way is reported unlinked, for the host's naming convention (`entity_id__slug`, a module named
-after an entity), which cannot spell a scoped id. The collector has no command (GSD is language-agnostic) and reads the
-report the project's own test run wrote: `specforge collect --runner gsd-junit --no-run` (the declared report is
-`junit.xml` at the project root), or `--report <file>`. It declares `writes` only to be handed the graph and the project
-root: the host's `collect` keeps a full entity path and drops any other id as W115, so a collector that is given a short
-form resolves it itself. It answers results, never a plan. A report that stops short of its last tag is an error naming
-the file, not a smaller report.
+A test fact that links neither way is still a test fact: it counts for "a test ran" (a check no fact names is then
+`unknown`), and a verdict may cite it by id or by `file#name`.
 
 ## pause, handoff and blocker
 

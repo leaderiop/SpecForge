@@ -5,7 +5,7 @@
 
 use serde_json::{Value, json};
 
-use super::execute_rules::{T0, T1, junit, repository, tdd, touch_schema};
+use super::execute_rules::{T0, T1, collect_tests, repository, tdd, touch_schema};
 use super::harness::{Project, project};
 use super::parity_plans::{diagnostics, e310_ids, printed, without_decision};
 use super::prompts_gates::{
@@ -177,7 +177,7 @@ fn gate_cutover_tdd_verdicts_reproduce() {
     );
     p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T1);
     assert_eq!(p.collect(&["--runner", "gsd-git"]).code, 0);
-    junit(&p, &[("adds a task", true)]);
+    collect_tests(&p, &[("adds a task", true)]);
     assert!(messages(&p, "W403").is_empty());
 
     // A phase with no TDD plan has nothing to review.
@@ -191,7 +191,7 @@ fn gate_cutover_tdd_verdicts_reproduce() {
     p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T1);
     // W403 is silent until the collector has run, so the silence is only evidence after `collect`.
     assert_eq!(p.collect(&["--runner", "gsd-git"]).code, 0);
-    junit(&p, &[("adds a task", true)]);
+    collect_tests(&p, &[("adds a task", true)]);
     assert!(messages(&p, "W403").is_empty());
     // The same commits with the plan typed `tdd` and no RED first: W403, so the silence above is the missing plan.
     let p = repository();
@@ -199,7 +199,7 @@ fn gate_cutover_tdd_verdicts_reproduce() {
     tdd(&p);
     p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T1);
     assert_eq!(p.collect(&["--runner", "gsd-git"]).code, 0);
-    junit(&p, &[("adds a task", true)]);
+    collect_tests(&p, &[("adds a task", true)]);
     assert_eq!(messages(&p, "W403").len(), 1);
 }
 

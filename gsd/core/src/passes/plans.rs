@@ -2,7 +2,7 @@
 //!
 //! Also ports gsd-core bin/lib modules: plan-*.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use specforge_extension_sdk::prelude::*;
 
@@ -37,6 +37,32 @@ pub fn links<'a>(input: &'a PassInput, entity: &PassEntity, field: &str) -> Vec<
         .iter()
         .filter(|e| e.source == entity.id && e.label == field)
         .map(|e| e.target.as_str())
+        .collect()
+}
+
+/// The decisions the plans `plans` (ids) list in `decisions`, each resolved id once: what E310, W317, W506 and E312
+/// read as covered, shipped or decided.
+pub fn listed_decisions<'a, 'b>(
+    input: &'a PassInput,
+    plans: impl IntoIterator<Item = &'b str>,
+) -> BTreeSet<&'a str> {
+    plans
+        .into_iter()
+        .flat_map(|plan| {
+            input
+                .edges
+                .iter()
+                .filter(move |e| e.source == plan && e.label == "decisions")
+                .map(|e| e.target.as_str())
+        })
+        .collect()
+}
+
+/// The decisions of a phase's context (`origin context`), in id order: the ones its plans must list.
+pub fn context_decisions<'a>(input: &'a PassInput, phase: &str) -> Vec<&'a PassEntity> {
+    children(input, phase, "decision")
+        .into_iter()
+        .filter(|d| text(d, "origin") == Some("context"))
         .collect()
 }
 

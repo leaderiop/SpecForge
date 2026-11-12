@@ -54,7 +54,8 @@ fn a_capability_key_its_port_does_not_define_is_unknown() {
     let items = json!([
         {"name": "api", "why": "ask", "port": "http", "hosts": {"list": ["a.example"]}, "argv": ["x"],
          "secret_header": {"header": "X-Key", "secret": "key", "shceme": "Bearer"}},
-        {"name": "tests", "why": "run", "port": "process", "argv": ["t"], "deadline": 5},
+        {"name": "tests", "why": "run", "port": "process", "argv": ["t"], "deadline": 5,
+         "config": {"name": "t.toml", "template": "x", "tmpl": "y"}},
     ]);
     let handshake = HandshakeResponse {
         protocol_version: PROTOCOL_VERSION.to_string(),
@@ -81,6 +82,45 @@ fn a_capability_key_its_port_does_not_define_is_unknown() {
     assert_eq!(declaration.capabilities.len(), 2);
     assert_eq!(
         unknown,
-        ["api:argv", "api.secret_header:shceme", "tests:deadline"]
+        [
+            "api:argv",
+            "api.secret_header:shceme",
+            "tests:deadline",
+            "tests.config:tmpl"
+        ]
+    );
+}
+
+#[test]
+fn a_process_capability_carries_its_config_on_the_wire() {
+    let wire = json!({
+        "name": "tests", "why": "run the tests", "call_kinds": ["collect"], "port": "process",
+        "argv": ["cargo-nextest", "nextest", "run", "--tool-config-file", "specforge:{config}"],
+        "config": {"name": "nextest.toml", "template": "[profile.specforge.junit]\npath = \"{report}\"\n"}
+    });
+    let parsed: CapabilityDescriptor = serde_json::from_value(wire.clone()).unwrap();
+    let PortScope::Process(process) = &parsed.port else {
+        panic!("a process capability: {parsed:?}");
+    };
+    assert_eq!(
+        process.config,
+        Some(ProcessConfig {
+            name: "nextest.toml".to_string(),
+            template: "[profile.specforge.junit]\npath = \"{report}\"\n".to_string(),
+        })
+    );
+    assert_eq!(serde_json::to_value(&parsed).unwrap(), wire);
+    let declaration = ExtensionDeclaration {
+        capabilities: vec![parsed],
+        ..Default::default()
+    };
+    assert_eq!(capability_problems(&declaration), []);
+    let bare: CapabilityDescriptor = serde_json::from_value(json!(
+        {"name": "tests", "why": "run", "port": "process", "argv": ["cargo", "test"]}
+    ))
+    .unwrap();
+    assert!(
+        serde_json::to_value(&bare).unwrap().get("config").is_none(),
+        "an absent config is not serialised"
     );
 }

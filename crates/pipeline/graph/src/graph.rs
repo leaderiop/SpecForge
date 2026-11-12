@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 mod degree;
 mod link;
+pub(crate) use link::is_fact;
 mod linked;
 mod reach;
 mod select;
@@ -37,17 +38,46 @@ pub struct Node {
     /// The references it writes in a fact scheme that name no fact (ADR 0327 D6), in written order: no edge, no
     /// diagnostic. The linker sets them.
     pub unheld: Vec<Unheld>,
+    /// Where a collected fact is written in source, once per place (ADR 0346 D3): project-relative files, 1-based
+    /// lines, 1-based byte columns, end exclusive. Empty for an authored entity; `source_span` stays the fact's store.
+    pub located: Vec<SourceSpan>,
+    /// A fact's references that name no entity, one of another kind, or several (ADR 0346 D4), in written order: no
+    /// kernel diagnostic; the extension that declares the fact's kind judges them. The linker sets them.
+    pub dangling: Vec<Dangling>,
 }
 
-/// A reference in a fact scheme that names no fact: the field (its declared path) and the id written, and where.
+/// A reference in a fact scheme that names no fact: the field (its declared path) and the id written, where, and the
+/// collected kinds of its scheme its field admits, sorted (ADR 0347 D9).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Unheld {
     pub field: Sym,
     pub id: String,
     pub span: Option<SourceSpan>,
+    pub kinds: Vec<Sym>,
+}
+
+/// A fact's reference that names no entity, one of another kind, or several (ADR 0346 D4): the field (its declared
+/// path), the id written, where (its name span), why, and what the kernel would have suggested.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Dangling {
+    pub field: Sym,
+    pub id: String,
+    pub span: Option<SourceSpan>,
+    pub reason: specforge_protocol_types::DanglingReason,
+    /// The kind of the entity it names, when it is mistyped.
+    pub actual: Option<String>,
+    pub did_you_mean: Option<String>,
+    /// The entities an ambiguous short name matches, or that bear its name elsewhere.
+    pub candidates: Vec<String>,
 }
 
 impl Node {
+    /// Where a finding about it is placed: a fact's first place in source, else its span (ADR 0346 D3), as
+    /// `EntityRecord::place` places one.
+    pub fn place(&self) -> &SourceSpan {
+        self.located.first().unwrap_or(&self.source_span)
+    }
+
     /// The name the entity is declared with: its path without its scope's.
     pub fn name(&self) -> &str {
         match self.scope {
@@ -78,6 +108,8 @@ impl Node {
             verdicts: Vec::new(),
             scope: None,
             unheld: Vec::new(),
+            located: Vec::new(),
+            dangling: Vec::new(),
         }
     }
 }

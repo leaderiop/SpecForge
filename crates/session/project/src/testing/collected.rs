@@ -106,10 +106,33 @@ impl Collected {
 /// Write `collector`'s store of `facts` (as the wire carries them, from [`NODE`]) under `key` in the project at
 /// `root`, and the `specforge-harness` line that records it, as a collect leaves them (ADR 0327 D2, D4).
 pub fn stored(root: &std::path::Path, collector: &str, key: &str, facts: Value) {
+    stored_with(root, collector, key, facts, Default::default());
+}
+
+/// [`stored`], the store recording the digests of the `sources` its facts' places name, by key (ADR 0346 D2).
+pub fn stored_with(
+    root: &std::path::Path,
+    collector: &str,
+    key: &str,
+    facts: Value,
+    sources: std::collections::BTreeMap<String, String>,
+) {
+    store_of(root, collector, NODE, key, facts, sources);
+}
+
+/// [`stored_with`], the store naming `extension` as the one whose collector wrote it.
+pub(crate) fn store_of(
+    root: &std::path::Path,
+    collector: &str,
+    extension: &str,
+    key: &str,
+    facts: Value,
+    sources: std::collections::BTreeMap<String, String>,
+) {
     use crate::facts::Store;
     use crate::harness::{LEDGER_FILE, Ledger, Line};
     let facts = serde_json::from_value(facts).expect("facts as the wire carries them");
-    let bytes = Store::new(collector, NODE, key, facts).bytes();
+    let bytes = Store::new(collector, extension, key, facts, sources).bytes();
     let path = root.join(Store::path(collector, key));
     std::fs::create_dir_all(path.parent().expect("a store path has a directory"))
         .expect("the store's directory is made");
@@ -134,7 +157,8 @@ fn node(peer: &str) -> ContributionsBuilder {
         DeclaredCategory::Collectors,
         json!([
             {"name": "node", "input_formats": ["junit"], "export": "collect__node",
-             "auto_detect": {"file_patterns": ["package.json"], "env_vars": []}, "report": NODE_REPORT},
+             "auto_detect": {"file_patterns": ["package.json"], "env_vars": []}, "report": NODE_REPORT,
+             "answers": ["test"]},
             {"name": "unit", "input_formats": ["json"], "export": "collect__unit",
              "auto_detect": {"file_patterns": ["package.json"], "env_vars": []}, "report": UNIT_REPORT},
         ]),

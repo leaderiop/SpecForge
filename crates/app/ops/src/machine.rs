@@ -49,6 +49,8 @@ pub struct Ran {
 /// Why a command produced no [`Ran`].
 #[derive(Debug)]
 pub enum RunFailure {
+    /// Its program is not found on PATH: collect names the collector's install line (ADR 0348 D4).
+    NotFound,
     /// It could not be started, or not waited for.
     NotRun(std::io::Error),
     /// Its standard output could not be written to the capture.

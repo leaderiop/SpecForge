@@ -8,7 +8,9 @@ use specforge_project::harness::{LedgerChange, Line};
 use super::{Origin, UNDECLARED_WRITE, apply_plan};
 use crate::authoring::planned::PlannedChange;
 use crate::view::ProjectView;
-use crate::{Caller, CollectedFacts, CollectedPlan, EditDocument, OpError, OpErrorKind};
+use crate::{
+    Caller, CollectedFacts, CollectedPlan, CollectorFacts, EditDocument, OpError, OpErrorKind,
+};
 
 /// Store `facts` (nothing on a `dry_run`), then apply each of `plans`, in collector order, over the project `view` read and checked again over the disk as the
 /// collect left it, its report included (ADR 0297: an error the recorded results alone cause refuses no plan; a second
@@ -74,8 +76,14 @@ fn store(view: &ProjectView<'_>, facts: CollectedFacts, caller: Caller<'_>) -> R
         return Ok(());
     }
     let (mut files, mut lines) = (Vec::new(), Vec::new());
-    for (collector, extension, facts) in stores {
-        let bytes = Store::new(&collector, &extension, &key, facts).bytes();
+    for CollectorFacts {
+        collector,
+        extension,
+        facts,
+        sources,
+    } in stores
+    {
+        let bytes = Store::new(&collector, &extension, &key, facts, sources).bytes();
         lines.push(Line::facts(&collector, &key, &bytes));
         files.push((collector, bytes));
     }

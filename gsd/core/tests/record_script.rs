@@ -1,4 +1,5 @@
-//! `gsd/parity/record.sh` and `record-security.sh` record a golden only from a `gsd-tools` run that succeeded.
+//! `gsd/parity/record.sh`, `record-security.sh` and `record-ledger.sh` record a golden only from a `gsd-tools` run
+//! that succeeded: each runs a fake `gsd-tools` that prints JSON and fails, and must fail there, writing nothing.
 
 use std::path::Path;
 use std::process::Command;
@@ -37,13 +38,13 @@ fn check(script: &str, goldens_dir: &str) {
     std::fs::create_dir_all(&bin).expect("dirs");
     std::fs::write(
         bin.join("gsd-tools.cjs"),
-        "process.stdout.write('{\"bogus\": true}\\n'); process.exit(1);\n",
+        "require('fs').writeFileSync(__dirname + '/ran', ''); process.stdout.write('{\"bogus\": true}\\n'); process.exit(1);\n",
     )
     .expect("write");
 
     let parity = Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity");
     let before = goldens(&parity.join(goldens_dir));
-    let run = Command::new("sh")
+    let run = Command::new("bash")
         .arg(parity.join(script))
         .env("GSD_CORE_DIR", fake.path())
         .output()
@@ -51,6 +52,11 @@ fn check(script: &str, goldens_dir: &str) {
     assert!(
         !run.status.success(),
         "a failing gsd-tools fails the script"
+    );
+    assert!(
+        bin.join("ran").is_file(),
+        "{script} failed before it ran gsd-tools: {}",
+        String::from_utf8_lossy(&run.stderr)
     );
     assert_eq!(
         goldens(&parity.join(goldens_dir)),
@@ -67,4 +73,10 @@ fn a_failing_gsd_tools_that_still_prints_json_records_nothing() {
 #[test]
 fn record_security_records_nothing_from_a_failing_gsd_tools_either() {
     check("record-security.sh", "goldens/vault");
+}
+
+#[test]
+fn record_ledger_records_nothing_from_a_failing_gsd_tools_either() {
+    // The verbs run before the tests, so the script stops at the fake gsd-tools, before any cargo-nextest run.
+    check("record-ledger.sh", "goldens/ledger");
 }

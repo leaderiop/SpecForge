@@ -11,12 +11,14 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use specforge_common::{Diagnostic, codes};
+use specforge_effects::git::GUEST_LOG_WALK;
 use specforge_effects::journal::{Answer, Blob, LentRecord};
 use specforge_effects::{
     Denial as Refusal, Denied, EffectJournal, EffectRequest, Effects, Grant, Granted, Outcome,
     OutcomeClass, Ports, Roots, SharedFs, SharedGit, UnixMillis,
 };
-use specforge_protocol_types::{Denial, Failure, HostError, Operation};
+use specforge_protocol_types::{Denial, Failure, HostError, NotParsed, Operation};
+use specforge_source::{SourceReader, SyntaxCache, SyntaxWork};
 
 use crate::sandbox::{ANSWER_SHARE_OF_MEMORY, Limits, PORT_BUDGET_MS};
 
@@ -25,6 +27,7 @@ mod git;
 mod http;
 mod process;
 mod record;
+mod syntax;
 
 /// What an effectful call is lent: the effects its http and process requests are served through (the mode, the ports
 /// a live mode holds, the journal), the local ports every mode performs, and its extension's grant.
@@ -37,8 +40,50 @@ pub struct PortCall {
     pub grant: Arc<Grant>,
     /// Every variable a declared secret names, of any extension: no program a guest runs inherits one.
     pub secrets: Vec<String>,
+    /// The host's source reader a `syntax` request parses with: the project's one (its environment's), so its
+    /// queries are memoised and its cache shared by every call over the project; a detached cache until one is lent.
+    pub syntax: Arc<SourceReader>,
     /// What the caller reports of this call's refused requests.
     denials: Arc<Mutex<Denials>>,
+    /// What the caller reports of the source files its `syntax` requests could not parse or parsed broken, and the
+    /// work they took.
+    notes: Arc<Mutex<SyntaxNotes>>,
+}
+
+/// How many source files a W196 or an I211 names; past them it counts.
+const NAMED_FILES: usize = 8;
+
+/// The source files of one call's `syntax` requests that a note names: how many, and the first [`NAMED_FILES`].
+#[derive(Default)]
+struct Named {
+    count: usize,
+    first: Vec<String>,
+}
+
+impl Named {
+    fn add(&mut self, path: &str, why: String) {
+        self.count += 1;
+        if self.first.len() < NAMED_FILES {
+            self.first.push(format!("`{path}` ({why})"));
+        }
+    }
+
+    /// `<count> <what>: <first>, …, and N more`.
+    fn said(&self, what: &str) -> String {
+        let mut said = format!("{} {what}: {}", self.count, self.first.join(", "));
+        if self.count > self.first.len() {
+            said.push_str(&format!(", and {} more", self.count - self.first.len()));
+        }
+        said
+    }
+}
+
+/// One call's notes of its `syntax` requests.
+#[derive(Default)]
+struct SyntaxNotes {
+    not_parsed: Named,
+    broken: Named,
+    work: SyntaxWork,
 }
 
 /// How many denials one call keeps: a guest in a loop may not fill the host's memory with its own requests.
@@ -80,8 +125,40 @@ impl PortCall {
             roots: Arc::new(roots),
             grant: Arc::new(grant),
             secrets,
+            syntax: Arc::new(SourceReader::new(SyntaxCache::detached())),
             denials: Arc::default(),
+            notes: Arc::default(),
         }
+    }
+
+    /// This call, its `syntax` requests parsed by `reader` (the project's, shared by every call over it).
+    pub fn with_syntax(mut self, reader: Arc<SourceReader>) -> Self {
+        self.syntax = reader;
+        self
+    }
+
+    /// The work this call's `syntax` requests took so far, taken.
+    pub fn take_syntax_work(&self) -> SyntaxWork {
+        std::mem::take(&mut self.notes().work)
+    }
+
+    fn notes(&self) -> std::sync::MutexGuard<'_, SyntaxNotes> {
+        self.notes
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// A file a `syntax` request could not parse (W196), parsed with `errors` (I211), and the work it took.
+    fn noted(&self, not_parsed: &[(&str, NotParsed)], broken: &[(&str, u32)], work: SyntaxWork) {
+        let mut notes = self.notes();
+        for (path, reason) in not_parsed {
+            notes.not_parsed.add(path, reason.name().to_string());
+        }
+        for (path, errors) in broken {
+            let plural = if *errors == 1 { "" } else { "s" };
+            notes.broken.add(path, format!("{errors} error{plural}"));
+        }
+        notes.work += work;
     }
 
     /// [`Self::new`], `online`, with a record in `journal`.
@@ -119,15 +196,37 @@ impl PortCall {
         }
     }
 
-    /// The denials kept so far, taken, the last one saying how many were not kept: what the caller reports once the
-    /// call ended.
+    /// The denials kept so far, taken, the last one saying how many were not kept, then once each the source files
+    /// its `syntax` requests did not parse (W196) and parsed with syntax errors (I211): what the caller reports once
+    /// the call ended.
     pub fn take_denials(&self) -> Vec<Diagnostic> {
         let Denials { mut kept, more, .. } = std::mem::take(&mut *self.denials());
+        let extension = self.grant.extension();
         if more > 0 {
-            let extension = self.grant.extension();
             kept.push(Diagnostic::new(
                 codes::E090,
                 format!("extension '{extension}': {more} more requests were refused"),
+            ));
+        }
+        let mut notes = self.notes();
+        let not_parsed = std::mem::take(&mut notes.not_parsed);
+        if not_parsed.count > 0 {
+            kept.push(Diagnostic::new(
+                codes::W196,
+                format!(
+                    "extension '{extension}': {}",
+                    not_parsed.said("source files were not parsed")
+                ),
+            ));
+        }
+        let broken = std::mem::take(&mut notes.broken);
+        if broken.count > 0 {
+            kept.push(Diagnostic::new(
+                codes::I211,
+                format!(
+                    "extension '{extension}': {}",
+                    broken.said("source files parsed with syntax errors")
+                ),
             ));
         }
         kept
@@ -139,8 +238,10 @@ pub struct PortSession {
     extension: String,
     kind: Option<Operation>,
     lent: Option<PortCall>,
-    /// Any byte payload of an answer is held to this.
+    /// Any byte payload of an answer is held to this, and a git read's bytes too.
     answer_cap: u64,
+    /// The most commits a git log steps onto.
+    log_walk: usize,
     memory_mb: u32,
     /// What its requests took so far: not the guest's time, and held to the port budget.
     in_ports: Duration,
@@ -188,6 +289,7 @@ impl PortSession {
             kind: None,
             lent: None,
             answer_cap: 0,
+            log_walk: 0,
             memory_mb: 0,
             in_ports: Duration::ZERO,
         }
@@ -206,6 +308,7 @@ impl PortSession {
             kind: Some(kind),
             lent,
             answer_cap: u64::from(limits.memory_mb) * 1024 * 1024 / ANSWER_SHARE_OF_MEMORY,
+            log_walk: GUEST_LOG_WALK,
             memory_mb: limits.memory_mb,
             in_ports: Duration::ZERO,
         }

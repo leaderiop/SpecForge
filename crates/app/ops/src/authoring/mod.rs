@@ -6,6 +6,7 @@
 pub mod apply;
 pub mod edit;
 pub mod entity_id;
+mod fact_names;
 pub mod fix;
 pub mod format;
 pub mod harness;

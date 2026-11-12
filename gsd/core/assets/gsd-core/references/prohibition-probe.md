@@ -114,7 +114,7 @@ lifecycle is identical to the edge-probe, the verification tiers differ):
   At verify time these tiers are routed differently (ADR-550 D4):
   - A **test**-tier prohibition is enforced + hard-gates via the deterministic
     `check prohibition-enforcement` sub-command (#1259 + #1279, ADR-550 D5d): it locates the wired
-    mechanical check (a `node --test` negative test OR a lint/AST rule run as
+    mechanical check (a negative test `@javascript/node-test` collects OR a lint/AST rule run as
     `eslint --format json` and filtered by `ruleId`), **machine-proves it is fail-first** against a
     known violation, runs it for a genuine **non-vacuous** pass, and emits the
     `dispositionForProhibition()` verdict. A passing, fail-first-proven wired check disposes **green**
@@ -141,7 +141,7 @@ lifecycle is identical to the edge-probe, the verification tiers differ):
 
     > **PROPOSED, renamable conventions (zero live consumers).** Both `GSD_PROHIB_SUBJECT` and
     > `violationFixture` are net-new surface with **no live in-tree consumer yet** — there is no
-    > in-tree `node --test` prohibition; node-test fail-first proof is exercised only by SYNTHETIC
+    > in-tree node test prohibition; node-test fail-first proof is exercised only by SYNTHETIC
     > temp fixtures in the tests, and the real dogfood remains the LINT-rule `local/no-source-grep`.
     > They are therefore **open to maintainer adjustment (rename, or replacing the env var with an
     > argv) at PR review with zero migration cost.** See the ADR-550 2026-06-15 addendum (#1279).

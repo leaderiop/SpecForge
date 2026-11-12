@@ -527,47 +527,44 @@ fn non_interactive_with_extensions() {
     );
 }
 
-/// `init` enables the runner extensions for the test runners it finds: a
-/// Cargo.toml, a vitest config, or vitest in package.json.
+/// `init` enables the packs of the project it finds: the code and Rust packs and cargo-test's runner for a Cargo.toml,
+/// the code and JavaScript packs for a package.json, vitest's runner for a vitest config or dependency.
 #[test]
-fn init_enables_runner_extensions_for_detected_test_runners() {
-    let init = |setup: &dyn Fn(&std::path::Path)| {
+fn init_enables_the_packs_of_the_detected_project() {
+    // The extensions detection adds when `init` runs where `file` holds `text`, sorted.
+    let init = |file: &str, text: &str| {
         let dir = scratch();
-        setup(dir.root());
-        Cli::on(&dir)
-            .bare_command(&[
-                "init",
-                "--name",
-                "demo",
-                "--extensions",
-                "@specforge/software",
-            ])
-            .assert()
-            .success();
+        if !file.is_empty() {
+            fs::write(dir.root().join(file), text).unwrap();
+        }
+        let args = [
+            "init",
+            "--name",
+            "demo",
+            "--extensions",
+            "@specforge/software",
+        ];
+        Cli::on(&dir).bare_command(&args).assert().success();
         let content = fs::read_to_string(dir.root().join("specforge.json")).unwrap();
+        let detected = ["@code/core", "@rust/", "@javascript/", "-test", "vitest"];
         let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-        json["extensions"].clone()
+        let mut found: Vec<String> = serde_json::from_value(json["extensions"].clone()).unwrap();
+        found.retain(|e| detected.iter().any(|d| e.contains(d)));
+        found.sort();
+        found
     };
-    let has =
-        |exts: &serde_json::Value, name: &str| exts.as_array().unwrap().iter().any(|e| e == name);
-
-    let none = init(&|_| {});
-    assert!(!has(&none, "@specforge/cargo-test") && !has(&none, "@specforge/vitest"));
-
-    let rust = init(&|d| fs::write(d.join("Cargo.toml"), "").unwrap());
-    assert!(has(&rust, "@specforge/cargo-test") && !has(&rust, "@specforge/vitest"));
-
-    let config = init(&|d| fs::write(d.join("vitest.config.ts"), "").unwrap());
-    assert!(has(&config, "@specforge/vitest"));
-
-    let dependency = init(&|d| {
-        fs::write(
-            d.join("package.json"),
-            r#"{"devDependencies":{"vitest":"^5.0.0"}}"#,
-        )
-        .unwrap()
-    });
-    assert!(has(&dependency, "@specforge/vitest"));
+    assert!(init("", "").is_empty());
+    let rust = [
+        "@code/core",
+        "@rust/cargo",
+        "@rust/source",
+        "@specforge/cargo-test",
+    ];
+    assert_eq!(init("Cargo.toml", ""), rust);
+    assert_eq!(init("vitest.config.ts", ""), ["@specforge/vitest"]);
+    let vitest = r#"{"devDependencies":{"vitest":"^5.0.0"}}"#;
+    let js = ["@code/core", "@javascript/source", "@specforge/vitest"];
+    assert_eq!(init("package.json", vitest), js);
 }
 
 #[specforge_test(

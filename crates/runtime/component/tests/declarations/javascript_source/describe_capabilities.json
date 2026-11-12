@@ -1,0 +1,19 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "call_kinds": [
+        "collect"
+      ],
+      "name": "javascript-source",
+      "ops": [
+        "read"
+      ],
+      "port": "fs",
+      "roots": [
+        "project"
+      ],
+      "why": "parse the project's JavaScript and TypeScript source with the host's reader"
+    }
+  ]
+}

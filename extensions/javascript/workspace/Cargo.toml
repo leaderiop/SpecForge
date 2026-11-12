@@ -1,0 +1,19 @@
+[package]
+name = "specforge-javascript-workspace"
+version = "1.0.0"
+edition = "2021"
+description = "Names the package that owns a project file from every package.json the host read; no guest"
+publish = false
+
+# An extension library (ADR 0328 D3): an rlib a builtin links, never embedded.
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+specforge-extension-sdk = { path = "../../../crates/runtime/extension-sdk" }
+specforge-code-facts = { path = "../../code/facts" }
+serde_json = "1.0"
+
+[dev-dependencies]
+# Spec links: #[specforge_test(behavior = "…", verify = "…")] (ADR 0002).
+specforge-test = { path = "../../../integrations/rust/specforge-test" }

@@ -1,82 +1,15 @@
-//! The inference sources (ADR 0113): the files the enabled analyzers claim under the manifest's
-//! source roots, keyed by one source path rule, and read inside the project root.
+//! The inference sources (ADR 0113, ADR 0199): the files the item facts of the compiled graph locate under the
+//! manifest's source roots, keyed by one source path rule, and read inside the project root.
 
-use std::collections::BTreeSet;
 use std::path::Path;
 
 use sha2::{Digest, Sha256};
-use specforge_common::{ProjectRoot, walk_files};
-use specforge_protocol_types::ExtensionDeclaration;
 
+use super::items::item_facts;
 use super::manifest::{InferenceManifest, SourceFileEntry};
 use crate::source_key::SourceKey;
+use crate::view::ProjectView;
 use crate::{Containment, Outside, ReadFailure};
-
-/// Directories inference skips beyond the shared walk's own list.
-const INFERENCE_SKIP: &[&str] = &["__pycache__", "vendor"];
-
-/// One extension an enabled analyzer claims.
-#[derive(Debug, Clone)]
-pub(crate) struct Claim {
-    /// With its dot (`.rs`).
-    pub(crate) extension: String,
-    /// The extension that declares the analyzer.
-    pub(crate) analyzer: String,
-    pub(crate) scan_export: String,
-}
-
-/// The enabled analyzers' claims, in declaration order, and the directories they never scan.
-#[derive(Debug, Default)]
-pub(crate) struct Analyzers {
-    claims: Vec<Claim>,
-    skipped: BTreeSet<String>,
-}
-
-impl Analyzers {
-    pub(crate) fn of(declarations: &[ExtensionDeclaration]) -> Self {
-        let mut analyzers = Analyzers::default();
-        for declaration in declarations {
-            for analyzer in &declaration.analyzers {
-                for extension in &analyzer.file_extensions {
-                    let extension = if extension.starts_with('.') {
-                        extension.clone()
-                    } else {
-                        format!(".{extension}")
-                    };
-                    analyzers.claims.push(Claim {
-                        extension,
-                        analyzer: declaration.name().to_string(),
-                        scan_export: analyzer.scan_export.clone(),
-                    });
-                }
-                analyzers
-                    .skipped
-                    .extend(analyzer.excluded_dirs.iter().cloned());
-            }
-        }
-        analyzers
-    }
-
-    /// The claim whose extension `file_name` ends with: the longest such extension; for one
-    /// extension, the first declarer.
-    pub(crate) fn claim(&self, file_name: &str) -> Option<&Claim> {
-        let mut found: Option<&Claim> = None;
-        for claim in &self.claims {
-            if file_name.ends_with(claim.extension.as_str())
-                && found.is_none_or(|f| claim.extension.len() > f.extension.len())
-            {
-                found = Some(claim);
-            }
-        }
-        found
-    }
-
-    /// Whether the walk enters no directory named `name`: a hidden name, one inference skips,
-    /// or one an analyzer never scans (the shared walk's own list applies besides).
-    pub(crate) fn skips(&self, name: &str) -> bool {
-        name.starts_with('.') || INFERENCE_SKIP.contains(&name) || self.skipped.contains(name)
-    }
-}
 
 /// What reading a source file found.
 #[derive(Debug)]
@@ -175,28 +108,25 @@ impl ProjectFiles {
     }
 }
 
-/// The inference sources of one project, walked once.
+/// The inference sources of one project: the files its item facts locate.
 #[derive(Debug)]
 pub(crate) struct InferenceSources {
     files: ProjectFiles,
-    analyzers: Analyzers,
     keys: Vec<SourceKey>,
 }
 
 impl InferenceSources {
-    /// The files `declarations`' analyzers claim under `manifest`'s source roots (the project
-    /// root when it has none), inside `root`.
-    pub(crate) fn of(
-        root: &Path,
-        declarations: &[ExtensionDeclaration],
-        manifest: &InferenceManifest,
-    ) -> Self {
-        let files = ProjectFiles::at(root);
-        let analyzers = Analyzers::of(declarations);
-        let keys = walk(&files, &analyzers, &manifest.source_roots);
+    /// The files the item facts of `view`'s graph (public or not) locate under `manifest`'s source roots (the
+    /// project root when it has none), read from the project `root`: which files exist is the collectors' to say.
+    pub(crate) fn of(view: &ProjectView, root: &Path, manifest: &InferenceManifest) -> Self {
+        let mut keys: Vec<SourceKey> = item_facts(view, root, &manifest.source_roots)
+            .into_iter()
+            .map(|item| item.key)
+            .collect();
+        keys.sort();
+        keys.dedup();
         InferenceSources {
-            files,
-            analyzers,
+            files: ProjectFiles::at(root),
             keys,
         }
     }
@@ -206,84 +136,9 @@ impl InferenceSources {
         &self.keys
     }
 
-    pub(crate) fn claim(&self, key: &SourceKey) -> Option<&Claim> {
-        let name = key.as_str().rsplit('/').next().unwrap_or_default();
-        self.analyzers.claim(name)
-    }
-
     pub(crate) fn files(&self) -> &ProjectFiles {
         &self.files
     }
-
-    /// Sources at the given keys, walked by nobody (a scan of a file that is gone).
-    #[cfg(test)]
-    pub(crate) fn with_keys(
-        root: &Path,
-        declarations: &[ExtensionDeclaration],
-        keys: &[impl AsRef<str>],
-    ) -> Self {
-        InferenceSources {
-            files: ProjectFiles::at(root),
-            analyzers: Analyzers::of(declarations),
-            keys: keys
-                .iter()
-                .map(|k| SourceKey::read(root, k.as_ref()).unwrap())
-                .collect(),
-        }
-    }
-}
-
-/// The keys of the files `analyzers` claim under `roots`, held inside the project root.
-fn walk(files: &ProjectFiles, analyzers: &Analyzers, roots: &[String]) -> Vec<SourceKey> {
-    let Some(project) = files.held.root() else {
-        return Vec::new();
-    };
-    let roots: Vec<&str> = if roots.is_empty() {
-        vec!["."]
-    } else {
-        roots.iter().map(String::as_str).collect()
-    };
-    let mut keys: Vec<SourceKey> = Vec::new();
-    for root in roots {
-        let Ok(root) = SourceKey::read_root(project, root) else {
-            continue;
-        };
-        let Ok(held) = files.held.resolve(Path::new(root.as_str())) else {
-            continue;
-        };
-        if !held.real.is_dir() {
-            continue;
-        }
-        let walked = walk_files(
-            &held.real,
-            |name| analyzers.skips(name),
-            |path| {
-                path.file_name()
-                    .and_then(|name| name.to_str())
-                    .is_some_and(|name| !name.starts_with('.') && analyzers.claim(name).is_some())
-            },
-            ProjectRoot::is_root,
-        );
-        for path in walked.files {
-            let a_link = path.symlink_metadata().is_ok_and(|m| m.is_symlink());
-            if a_link && files.held.resolve(&path).is_err() {
-                continue;
-            }
-            let Ok(relative) = path.strip_prefix(project) else {
-                continue;
-            };
-            let parts: Option<Vec<&str>> = relative
-                .components()
-                .map(|c| c.as_os_str().to_str())
-                .collect();
-            if let Some(key) = parts.and_then(|p| SourceKey::read(project, &p.join("/")).ok()) {
-                keys.push(key);
-            }
-        }
-    }
-    keys.sort();
-    keys.dedup();
-    keys
 }
 
 /// The SHA-256 of `bytes`, lowercase hex.

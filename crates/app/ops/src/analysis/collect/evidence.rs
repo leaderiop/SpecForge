@@ -3,7 +3,10 @@
 //! declared report and captured output, so only they resolve and check them; `--report` reads the files it
 //! names and nothing the collector declares.
 
-use super::collector::{capture_path, captures_stdout, command_line, read_capture, report_path};
+use super::collector::{
+    ConfigFile, capture_path, captures_stdout, command_line, config_file, read_capture,
+    reads_no_report, report_path,
+};
 use super::dispatch::read_report;
 use super::{Collector, Mode, fail};
 use crate::machine::{CollectorCommand, CollectorMachine, Ran, RunFailure, RunnerOutput};
@@ -41,10 +44,13 @@ impl Declared {
 
 /// Where one collector's evidence comes from: decided for every selected collector before any command runs.
 pub(super) enum Source<'m> {
-    /// Run the approved `argv`, then read the declared report written since it started, and the capture.
+    /// Write the config file, run the approved `argv`, then read the declared report written since it started, and
+    /// the capture.
     Run {
         output: RunnerOutput,
         declared: Declared,
+        /// The config file the command reads (ADR 0348 D2).
+        config: Option<ConfigFile>,
         argv: Vec<String>,
     },
     /// Read the declared report and the capture the runner already wrote.
@@ -53,6 +59,8 @@ pub(super) enum Source<'m> {
     Given(&'m [PathBuf]),
     /// Read nothing: the collector declares `check_outcomes`, and the served rows are its evidence.
     Outcomes,
+    /// Read nothing: the collector reads through its ports when it is called (ADR 0345 D2).
+    Ports,
 }
 
 /// What one collector's source gave.
@@ -75,12 +83,19 @@ impl<'m> Source<'m> {
         containment: &Containment,
     ) -> Result<Self, OpError> {
         match mode {
+            Mode::Reports(_) if collector.reads_ports() => Err(reads_no_report(collector)),
             Mode::Reports(paths) => Ok(Source::Given(paths)),
             _ if collector.reads_outcomes() => Ok(Source::Outcomes),
+            _ if collector.reads_ports() => Ok(Source::Ports),
             Mode::NoRun => Declared::of(collector, root, containment).map(Source::Written),
             Mode::Run(output) => {
                 let declared = Declared::of(collector, root, containment)?;
-                let argv = command_line(collector, &declared.report.at);
+                let config = config_file(collector, root, containment, &declared.report.at)?;
+                let argv = command_line(
+                    collector,
+                    &declared.report.at,
+                    config.as_ref().map(|config| config.held.at.as_path()),
+                );
                 if argv.is_empty() {
                     return Err(fail(
                         OpErrorKind::SchemaMismatch,
@@ -95,6 +110,7 @@ impl<'m> Source<'m> {
                 Ok(Source::Run {
                     output,
                     declared,
+                    config,
                     argv,
                 })
             }
@@ -115,6 +131,7 @@ impl<'m> Source<'m> {
             Source::Run {
                 output,
                 declared,
+                config,
                 argv,
             } => {
                 announce(collector, argv);
@@ -123,10 +140,14 @@ impl<'m> Source<'m> {
                     root,
                     &declared.report,
                     declared.capture.as_ref(),
+                    config.as_ref(),
                     argv,
                     *output,
                 )
-                .map_err(|m| fail(OpErrorKind::SchemaMismatch, codes::E045, m))?;
+                .map_err(|failure| {
+                    let message = failure.said(collector, argv);
+                    fail(OpErrorKind::SchemaMismatch, codes::E045, message)
+                })?;
                 let files = read_report(&declared.report, root, Some(ran.started), containment)?;
                 (files, declared.stdout(), ran.exit_code, true)
             }
@@ -144,10 +165,10 @@ impl<'m> Source<'m> {
                     .collect();
                 (files, None, None, false)
             }
-            Source::Outcomes => (Vec::new(), None, None, false),
+            Source::Outcomes | Source::Ports => (Vec::new(), None, None, false),
         };
-        // The served rows are all a reader of the checks' outcomes needs, however few.
-        if !matches!(self, Source::Outcomes)
+        // The served rows are all a reader of the checks' outcomes needs, however few; a ports reader reads its own.
+        if !matches!(self, Source::Outcomes | Source::Ports)
             && files.is_empty()
             && stdout.as_deref().is_none_or(str::is_empty)
         {
@@ -180,35 +201,82 @@ impl<'m> Source<'m> {
             ),
             Source::Given(_) => "the report files given don't exist".to_string(),
             Source::Outcomes => format!("{} read no outcome", collector.name),
+            Source::Ports => format!("{} read nothing through its ports", collector.name),
         }
+    }
+}
+
+/// Why a collector's command did not run to its end.
+enum NotRan {
+    /// Its program is not on PATH.
+    NotFound,
+    /// Anything else, said.
+    Said(String),
+}
+
+impl NotRan {
+    /// What E045 (or the skip reason) says: a missing program names the collector's install line (ADR 0348 D4).
+    fn said(self, collector: &Collector, argv: &[String]) -> String {
+        match self {
+            NotRan::Said(message) => message,
+            NotRan::NotFound => {
+                let program = argv.first().map_or("", String::as_str);
+                match &collector.install {
+                    Some(line) => {
+                        format!("`{program}` was not found on PATH; install it: `{line}`")
+                    }
+                    None => format!("`{program}` was not found on PATH"),
+                }
+            }
+        }
+    }
+}
+
+impl From<String> for NotRan {
+    fn from(message: String) -> Self {
+        NotRan::Said(message)
     }
 }
 
 /// Run the collector's declared command in the project root through `machine`. A report *file* left by
 /// an earlier run is removed first; a report *directory* is left alone (other tools may keep files
-/// there) and filtered by modification time when it's read. A captured standard output still reaches
-/// the chosen output as it's produced, and is also written to `capture`. Every file it removes,
-/// creates or writes is a held one.
+/// there) and filtered by modification time when it's read. The config file the command reads is written
+/// fresh before it starts (ADR 0348 D2). A captured standard output still reaches the chosen output as it's
+/// produced, and is also written to `capture`. Every file it removes, creates or writes is a held one, and the
+/// report, the capture and the config are names the run owns: a link at one is replaced, never followed.
 fn run_command(
     machine: &dyn CollectorMachine,
     root: &Path,
     report: &Held,
     capture: Option<&Held>,
+    config: Option<&ConfigFile>,
     argv: &[String],
     output: RunnerOutput,
-) -> Result<Ran, String> {
-    if report.real.is_file() {
-        report
-            .remove()
-            .map_err(|e| format!("{}: {e}", report.named.display()))?;
+) -> Result<Ran, NotRan> {
+    // The report's name is the run's (ADR 0171): a file or a link at it is unlinked, never what a link names.
+    if !report.real.is_dir() {
+        match report.remove() {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                return Err(format!("{}: {e}", report.named.display()).into());
+            }
+            _ => {}
+        }
     }
-    for file in std::iter::once(report).chain(capture) {
+    for file in std::iter::once(report)
+        .chain(capture)
+        .chain(config.map(|config| &config.held))
+    {
         file.create_parent()
             .map_err(|e| format!("{}: {e}", file.named.display()))?;
     }
+    if let Some(ConfigFile { held, text }) = config {
+        held.create_owned_file()
+            .and_then(|mut file| std::io::Write::write_all(&mut file, text.as_bytes()))
+            .map_err(|e| format!("{}: {e}", held.named.display()))?;
+    }
     let mut kept = match capture {
         Some(held) => Some(
-            held.create_fresh()
+            held.create_owned_file()
                 .map_err(|e| format!("{}: {e}", held.named.display()))?,
         ),
         None => None,
@@ -225,10 +293,13 @@ fn run_command(
             kept.as_mut().map(|f| f as &mut dyn std::io::Write),
         )
         .map_err(|failure| match (failure, capture) {
-            (RunFailure::Capture(e), Some(held)) => format!("{}: {e}", held.named.display()),
-            (RunFailure::Capture(e) | RunFailure::NotRun(e), _) => {
-                format!("failed to run `{}`: {e}", argv.join(" "))
+            (RunFailure::NotFound, _) => NotRan::NotFound,
+            (RunFailure::Capture(e), Some(held)) => {
+                NotRan::Said(format!("{}: {e}", held.named.display()))
             }
-            (RunFailure::Stopped { why }, _) => format!("`{}` {why}", argv.join(" ")),
+            (RunFailure::Capture(e) | RunFailure::NotRun(e), _) => {
+                NotRan::Said(format!("failed to run `{}`: {e}", argv.join(" ")))
+            }
+            (RunFailure::Stopped { why }, _) => NotRan::Said(format!("`{}` {why}", argv.join(" "))),
         })
 }

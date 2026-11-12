@@ -206,6 +206,10 @@ pub(crate) fn declarations<'a>(
         match outcome {
             Outcome::Wins => {}
             Outcome::Duplicate(first) => {
+                if let Some(e117) = collected_twice(entity, path, &first) {
+                    diagnostics.push(e117);
+                    continue;
+                }
                 let (what, site, fix) = if entity.kind.raw == structural::SPEC {
                     (
                         "a second spec block",
@@ -326,6 +330,8 @@ fn node_from_entity(path: Sym, winner: &Winner<'_>, defaults: Option<&FileDefaul
         verdicts: entity.verdicts.clone(),
         scope: winner.scope,
         unheld: Vec::new(),
+        located: entity.located.clone(),
+        dangling: Vec::new(),
     }
 }
 
@@ -346,6 +352,30 @@ fn repeated_field_errors(entity: &Entity, path: Sym) -> impl Iterator<Item = Dia
             "delete this line, or give every value in the first: a list takes all its items in one [...]",
         )
     })
+}
+
+/// E117 when `entity` and its `first` declaration are both collected facts, of two stores (ADR 0346 D5): two collectors
+/// mint the id `path`, and there is no entity to rename. `None` for any other duplicate (E002).
+fn collected_twice(entity: &Entity, path: Sym, first: &SourceSpan) -> Option<Diagnostic> {
+    use specforge_common::facts::filed;
+    let (second_store, first_store) = (entity.span.file.as_str(), first.file.as_str());
+    let (second_by, _) = filed(second_store)?;
+    let (first_by, _) = filed(first_store)?;
+    Some(
+        Diagnostic::new(
+            codes::E117,
+            format!(
+                "fact '{path}' is collected by both '{first_by}' ({first_store}) and '{second_by}' ({second_store}); \
+                 the first is served"
+            ),
+        )
+        .with_span(entity.span.clone())
+        .with_data(about(path))
+        .with_suggestion(
+            "two collectors mint one id: load only one of them, or fix the pack that mints it, then run \
+             `specforge collect`",
+        ),
+    )
 }
 
 /// W143: a define block, which declares nothing.

@@ -3,6 +3,7 @@ plan 01-01 "Typing" {
   type           execute
   files_modified ["src/impl.txt"]
   requirements   [REQ-00]
+  decisions      [D-01, D-02]
   objective      "Implement D-01 typing"
 }
 
@@ -93,6 +94,7 @@ plan 04-01 "Sign in" {
   type           execute
   files_modified ["src/auth.js"]
   requirements   [REQ-01]
+  decisions      [D-01]
   objective      "Implement D-01 and REQ-01 sign in"
 }
 

@@ -1,0 +1,19 @@
+{
+  "category": "capabilities",
+  "items": [
+    {
+      "call_kinds": [
+        "collect"
+      ],
+      "name": "rust-source",
+      "ops": [
+        "read"
+      ],
+      "port": "fs",
+      "roots": [
+        "project"
+      ],
+      "why": "parse the project's Rust source with the host's reader"
+    }
+  ]
+}

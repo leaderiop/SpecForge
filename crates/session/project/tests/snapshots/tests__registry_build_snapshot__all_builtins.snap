@@ -1275,6 +1275,44 @@ expression: "digest(&load(&runtime, &all))"
         "@specforge/software type.extends -> type"
       ]
     },
+    "in_package": {
+      "description": "The package an item is defined in",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "in_package",
+      "source_extension": "@code/core",
+      "source_kind": "item",
+      "sources": [
+        "item"
+      ],
+      "target_kind": "package",
+      "targets": [
+        "package"
+      ],
+      "writers": [
+        "@code/core item.package -> package"
+      ]
+    },
+    "names": {
+      "description": "An entity a test or an item says it proves or implements",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "names",
+      "source_extension": "@code/core",
+      "source_kind": null,
+      "sources": [
+        "item",
+        "test"
+      ],
+      "target_kind": null,
+      "targets": [],
+      "writers": [
+        "@code/core item.names",
+        "@code/core test.names"
+      ]
+    },
     "run_of": {
       "description": "A run of a test",
       "edge_arrowhead": null,
@@ -1293,20 +1331,60 @@ expression: "digest(&load(&runtime, &all))"
       "writers": [
         "@code/core test_run.test -> test"
       ]
+    },
+    "runs_as": {
+      "description": "The test a function runs as",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "runs_as",
+      "source_extension": "@code/core",
+      "source_kind": "item",
+      "sources": [
+        "item"
+      ],
+      "target_kind": "test",
+      "targets": [
+        "test"
+      ],
+      "writers": [
+        "@code/core item.test_id -> test"
+      ]
+    },
+    "uses_package": {
+      "description": "A project package a package depends on",
+      "edge_arrowhead": null,
+      "edge_color": null,
+      "edge_style": null,
+      "label": "uses_package",
+      "source_extension": "@code/core",
+      "source_kind": "package",
+      "sources": [
+        "package"
+      ],
+      "target_kind": "package",
+      "targets": [
+        "package"
+      ],
+      "writers": [
+        "@code/core package.depends_on -> package"
+      ]
     }
   },
   "ext_short": {
     "@code/core": "core",
     "@javascript/node-test": "node-test",
+    "@javascript/source": "source",
+    "@rust/cargo": "cargo",
+    "@rust/source": "source",
+    "@rust/test": "test",
     "@specforge/cargo-test": "cargo-test",
     "@specforge/checks": "checks",
     "@specforge/formal": "formal",
     "@specforge/governance": "governance",
     "@specforge/product": "product",
-    "@specforge/rust": "rust",
     "@specforge/software": "software",
     "@specforge/testing": "testing",
-    "@specforge/typescript": "typescript",
     "@specforge/vitest": "vitest"
   },
   "extension_info": [
@@ -1339,16 +1417,8 @@ expression: "digest(&load(&runtime, &all))"
       "1.0.0"
     ],
     [
-      "@specforge/rust",
-      "1.0.0"
-    ],
-    [
-      "@specforge/typescript",
-      "1.0.0"
-    ],
-    [
       "@code/core",
-      "1.0.0"
+      "1.1.0"
     ],
     [
       "@javascript/node-test",
@@ -1356,6 +1426,22 @@ expression: "digest(&load(&runtime, &all))"
     ],
     [
       "@specforge/checks",
+      "1.0.0"
+    ],
+    [
+      "@rust/cargo",
+      "1.0.0"
+    ],
+    [
+      "@rust/source",
+      "1.0.0"
+    ],
+    [
+      "@rust/test",
+      "1.0.0"
+    ],
+    [
+      "@javascript/source",
       "1.0.0"
     ]
   ],
@@ -3376,6 +3462,150 @@ expression: "digest(&load(&runtime, &all))"
       "source_extension": "@specforge/governance",
       "target_kind": null
     },
+    "item.attrs": {
+      "derived_from": null,
+      "description": "Its definitions' attributes: test, ignore, cfg(<predicate>), export, …",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "attrs",
+      "field_type": "StringList",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "item",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "item.doc": {
+      "derived_from": null,
+      "description": "Its first definition's doc comment",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "doc",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "item",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "item.file": {
+      "derived_from": null,
+      "description": "The file of its first definition, project-relative, with / separators",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "file",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "item",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "item.kind": {
+      "derived_from": null,
+      "description": "What each of its definitions is, in vocabulary order",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "kind",
+      "field_type": "EnumList",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "item",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "item.names": {
+      "derived_from": null,
+      "description": "The entities the item says it implements, in its source's idiom (I402 when one is no entity)",
+      "edge": "names",
+      "exempts_obligations": false,
+      "field_name": "names",
+      "field_type": "ReferenceList",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "item",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "item.package": {
+      "derived_from": null,
+      "description": "The package the item is defined in",
+      "edge": "in_package",
+      "exempts_obligations": false,
+      "field_name": "package",
+      "field_type": "Reference",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "item",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": "package"
+    },
+    "item.signature": {
+      "derived_from": null,
+      "description": "sha256:<hex> over its definitions' signature texts, whitespace-collapsed: it changes when a signature does",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "signature",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "item",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "item.test_id": {
+      "derived_from": null,
+      "description": "The test this function runs as, when it is one",
+      "edge": "runs_as",
+      "exempts_obligations": false,
+      "field_name": "test_id",
+      "field_type": "Reference",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "item",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": "test"
+    },
+    "item.visibility": {
+      "derived_from": null,
+      "description": "Who may name it: the widest of its definitions'",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "visibility",
+      "field_type": "Enum([\"public\", \"crate\", \"restricted\", \"private\"])",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "item",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
     "journey.channels": {
       "derived_from": null,
       "description": "Communication or distribution channels used in this journey",
@@ -3870,6 +4100,150 @@ expression: "digest(&load(&runtime, &all))"
       "proof_role": null,
       "required": false,
       "source_extension": "@specforge/product",
+      "target_kind": null
+    },
+    "package.depends_on": {
+      "derived_from": null,
+      "description": "The project's own packages it depends on",
+      "edge": "uses_package",
+      "exempts_obligations": false,
+      "field_name": "depends_on",
+      "field_type": "ReferenceList",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "package",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": "package"
+    },
+    "package.edition": {
+      "derived_from": null,
+      "description": "A cargo package's Rust edition",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "edition",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "package",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "package.engines": {
+      "derived_from": null,
+      "description": "An npm package's engines, each <engine> <range>",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "engines",
+      "field_type": "StringList",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "package",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "package.features": {
+      "derived_from": null,
+      "description": "A cargo package's features",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "features",
+      "field_type": "StringList",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "package",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "package.name": {
+      "derived_from": null,
+      "description": "The name its manifest gives it",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "name",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "package",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "package.path": {
+      "derived_from": null,
+      "description": "Its directory, project-relative, empty at the root",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "path",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "package",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "package.rust_version": {
+      "derived_from": null,
+      "description": "A cargo package's minimum supported Rust version",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "rust_version",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "package",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "package.targets": {
+      "derived_from": null,
+      "description": "A cargo package's targets, each <kind>:<name>:<root>",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "targets",
+      "field_type": "StringList",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "package",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
+    "package.version": {
+      "derived_from": null,
+      "description": "The version its manifest gives it",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "version",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "package",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
       "target_kind": null
     },
     "persona.description": {
@@ -4800,6 +5174,22 @@ expression: "digest(&load(&runtime, &all))"
       "source_extension": "@specforge/product",
       "target_kind": null
     },
+    "test.binary": {
+      "derived_from": null,
+      "description": "The nextest binary id of a Rust test",
+      "edge": null,
+      "exempts_obligations": false,
+      "field_name": "binary",
+      "field_type": "String",
+      "headline": false,
+      "inverse_of": null,
+      "kind_name": "test",
+      "normative": false,
+      "proof_role": null,
+      "required": false,
+      "source_extension": "@code/core",
+      "target_kind": null
+    },
     "test.file": {
       "derived_from": null,
       "description": "The test file, project-relative, with / separators",
@@ -4834,11 +5224,11 @@ expression: "digest(&load(&runtime, &all))"
     },
     "test.names": {
       "derived_from": null,
-      "description": "The ids of the entities the test says it proves, in its runner's idiom (I402 when one is no entity)",
-      "edge": null,
+      "description": "The entities the test says it proves: each [<ns>:<id>] tag in its JUnit name, or its source's idiom (I402 when one is no entity)",
+      "edge": "names",
       "exempts_obligations": false,
       "field_name": "names",
-      "field_type": "StringList",
+      "field_type": "ReferenceList",
       "headline": false,
       "inverse_of": null,
       "kind_name": "test",
@@ -5152,6 +5542,15 @@ expression: "digest(&load(&runtime, &all))"
       "invariant.guarantee": "string",
       "invariant.refs": "string_list",
       "invariant.risk": "enum (critical, high, medium, low)",
+      "item.attrs": "string_list",
+      "item.doc": "string",
+      "item.file": "string",
+      "item.kind": "enum_list (module, function, method, field, struct, enum, union, trait, type, const, static, macro, class, interface, variable, namespace)",
+      "item.names": "reference_list",
+      "item.package": "reference",
+      "item.signature": "string",
+      "item.test_id": "reference",
+      "item.visibility": "enum (public, crate, restricted, private)",
       "journey.channels": "reference_list",
       "journey.description": "string",
       "journey.features": "reference_list",
@@ -5183,6 +5582,15 @@ expression: "digest(&load(&runtime, &all))"
       "module.ports_defined": "reference_list",
       "module.reason": "string",
       "module.tags": "string_list",
+      "package.depends_on": "reference_list",
+      "package.edition": "string",
+      "package.engines": "string_list",
+      "package.features": "string_list",
+      "package.name": "string",
+      "package.path": "string",
+      "package.rust_version": "string",
+      "package.targets": "string_list",
+      "package.version": "string",
       "persona.description": "string",
       "persona.goals": "string_list",
       "persona.key_features": "reference_list",
@@ -5241,9 +5649,10 @@ expression: "digest(&load(&runtime, &all))"
       "term.module": "reference",
       "term.see_also": "reference_list",
       "term.tags": "string_list",
+      "test.binary": "string",
       "test.file": "string",
       "test.name": "string",
-      "test.names": "string_list",
+      "test.names": "reference_list",
       "test.package": "string",
       "test.status": "enum (passed, failed, skipped)",
       "test.suite": "string_list",
@@ -5486,6 +5895,24 @@ expression: "digest(&load(&runtime, &all))"
       "supports_verify": true,
       "testable": true
     },
+    "item": {
+      "allowed_verify_kinds": [],
+      "contract_target": false,
+      "declares_types": false,
+      "description": "A definition a source pack read (ADR 0347): every definition one path reaches is one item, cited by its id, rust:<crate>::<module path>::<name> or js:<package>/<file>::<name>[.<member>]",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "has_body_parser": false,
+      "kind_name": "item",
+      "lsp_icon": null,
+      "open_fields": false,
+      "semantic_token": null,
+      "singleton": false,
+      "source_extension": "@code/core",
+      "supports_verify": false,
+      "testable": false
+    },
     "journey": {
       "allowed_verify_kinds": [],
       "contract_target": false,
@@ -5537,6 +5964,24 @@ expression: "digest(&load(&runtime, &all))"
       "semantic_token": "namespace",
       "singleton": false,
       "source_extension": "@specforge/product",
+      "supports_verify": false,
+      "testable": false
+    },
+    "package": {
+      "allowed_verify_kinds": [],
+      "contract_target": false,
+      "declares_types": false,
+      "description": "A package a manifest pack read (ADR 0347): pkg:cargo/<name>, pkg:cargo/<name>#<dir> or pkg:npm/<name>, a purl without its version",
+      "dot_color": null,
+      "dot_fillcolor": null,
+      "dot_shape": null,
+      "has_body_parser": false,
+      "kind_name": "package",
+      "lsp_icon": null,
+      "open_fields": false,
+      "semantic_token": null,
+      "singleton": false,
+      "source_extension": "@code/core",
       "supports_verify": false,
       "testable": false
     },
@@ -5691,7 +6136,7 @@ expression: "digest(&load(&runtime, &all))"
       "allowed_verify_kinds": [],
       "contract_target": false,
       "declares_types": false,
-      "description": "A test a runner ran, written by its runner pack's collector (ADR 0329): cite it by its id, js:<package>/<file>#<suite > … > name>",
+      "description": "A test a runner ran, written by its runner pack's collector (ADR 0329): cite it by its id, js:<package>/<file>#<suite > … > name> or rust:<nextest binary id>#<test path>",
       "dot_color": null,
       "dot_fillcolor": null,
       "dot_shape": null,

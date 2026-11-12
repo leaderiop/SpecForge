@@ -126,8 +126,6 @@ behavior call_extension_exports "Call Extension Exports" {
     CollectOutput,
     ValidatorContext,
     ValidatorVerdict,
-    ScanRequest,
-    ScanResponse,
     MigrationInput,
     WasmTrapInfo,
   ]
@@ -139,18 +137,17 @@ behavior call_extension_exports "Call Extension Exports" {
     one_protocol_type  "each operation's input and answer is one specforge_protocol_types type the host and the SDK share"
     strict_answers     "an answer that does not decode as its protocol type is E028; unknown fields are ignored and absent optional fields take their defaults"
     one_failure        "a trap, an unrouted export, an extension not loaded or a malformed answer is E028 naming the operation, the export and the extension"
-    no_silent_failure  "no operation drops a failure: a pass's is a finding, a scanner's is reported, a command's is the command's error"
+    no_silent_failure  "no operation drops a failure: a pass's is a finding, a command's is the command's error"
     runtimes_agree     "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
-    printable_text     "the text of a handshake, describe, pass or validator answer, and of a call's failure, is read printable; a command's output, an MCP tool's or resource's answer, a collector's and a scanner's are read as answered"
+    printable_text     "the text of a handshake, describe, pass or validator answer, and of a call's failure, is read printable; a command's output, an MCP tool's or resource's answer and a collector's are read as answered"
     pass_codes_checked "a pass diagnostic whose code its extension may not use is kept and reported (W150)"
   }
   contract   """
-    The host performs thirteen operations on a loaded extension, each one call
+    The host performs twelve operations on a loaded extension, each one call
     of one export over the WasmRuntime port: handshake and describe (the
     declaration, ADR 0012), a command (cmd__), an MCP tool or resource
     (mcp__), a compiler pass (__pass_<name>, one rule the SDK and the host share), a collector (collect__), a
-    custom validator (the rule's wasm_function), a scanner (the analyzer's
-    scan export), a migration hook, an MCP prompt (prompt__, ADR 0291), the body of an agent or skill (render__, ADR 0292) and a host hook (hook__, ADR 0292). Each sends one protocol type as
+    custom validator (the rule's wasm_function), a migration hook, an MCP prompt (prompt__, ADR 0291), the body of an agent or skill (render__, ADR 0292) and a host hook (hook__, ADR 0292). Each sends one protocol type as
     JSON and reads one protocol type back (specforge_protocol_types); an
     optional field the host leaves unset is absent, never null. A trap, an
     export the guest does not route, an extension the runtime did not load,
@@ -158,12 +155,11 @@ behavior call_extension_exports "Call Extension Exports" {
     export and the extension, with the suggestion to report it to the
     extension's author. What a failure means is the operation's: a check
     pass's is a compile diagnostic, an analyze pass's a finding of that
-    pass, a command's its E028 error, a scanner's a reported failure that
-    makes the gap report approximate, a collector's the collect error. A
+    pass, a command's its E028 error, a collector's the collect error. A
     migration hook's answer is not read. The text of a handshake, describe,
     pass or validator answer, and of a call's failure, MUST be read
     printable (ADR 0244); a command's output, an MCP tool's or resource's
-    answer, a collector's and a scanner's are read as answered.
+    answer and a collector's are read as answered.
     A component guest builds its declaration once per instance and answers
     the handshake and every describe from it.
 
@@ -187,8 +183,7 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "a pass answer may be bare diagnostics or diagnostics with a summary, and its diagnostics come back in canonical order with an entity's span attached"
   verify unit "an analyze pass that traps is reported as an E028 finding of that pass"
   verify unit "an analyze pass runs in the view's runtime whether or not the view has a root"
-  verify unit "a scanner that traps or answers malformed output is reported, not dropped"
-  verify unit "a pass, collector, custom rule, scanner or migration hook is declared with its handler, and its export answers through it"
+  verify unit "a pass, collector, custom rule or migration hook is declared with its handler, and its export answers through it"
   verify unit "the SDK routes a compiler pass at the export the host calls it by"
   verify unit "a pass input that does not encode fails each pass's call, naming its export, and nothing is sent"
   verify unit "an export the guest's handler answers decodes its input and encodes its answer as a declared handler does"
@@ -218,6 +213,7 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
     declared_order         "check passes run in the order their after/before constraints give, extension by extension in load order"
     trap_is_diagnostic     "a check pass that traps or answers output that does not parse is E028, never a crash"
     entity_span_attached   "a pass diagnostic with no span that names an entity gets that entity's span"
+    facts_as_declared      "a pass is sent the authored entities and the facts of the kinds its facts input names, and only the edges between what it is sent"
   }
   contract   """
     An extension declares its compiler passes in `__describe passes`
@@ -230,9 +226,13 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
     The pass export `__pass_<name>` receives the same input an analyze
     pass does (`entities`, `edges`; each entity carries `testable` and
     `exempt`: it owes no obligations of its own, decided from the
-    registries), with no `test_results` or
+    registries; of the facts a collector wrote, only those of the kinds
+    its `facts` input names, and only the edges whose two ends it is
+    sent, ADR 0353), with no `test_results` or
     `proved_claims` (a compile has neither) and with `previous`, the
-    git baseline of the kinds the pass names in `baseline`. It answers the same
+    git baseline of the kinds the pass names in `baseline`. Passes that
+    declare the same facts and baseline kinds are sent one input, encoded
+    once (ADR 0353 D4). It answers the same
     output: diagnostics, bare or as `{diagnostics, summary}`; the summary
     is ignored. Each diagnostic keeps the code and severity the pass gave
     it (W150 beside it when the extension may not use the code). One
@@ -253,6 +253,9 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
   verify unit "a trapping check pass is a diagnostic, not a crash"
   verify unit "a pass diagnostic naming an entity gets that entity's span"
   verify unit "a pass entity carries whether the host found it exempt"
+  verify unit "a pass that declares no facts input is sent no fact"
+  verify unit "a pass is sent exactly the facts of the kinds it declares"
+  verify unit "passes that declare the same facts and baseline kinds are sent one encoded input"
   verify unit "the pass input carries each entity's exemption, which the SDK's PassEntity reads"
   verify unit "a pass receives a typed block and a block list structured beside their text"
   verify unit "previous is the baseline of the kinds a pass names"
@@ -308,7 +311,8 @@ behavior register_collector_contributions "Register Collector Contributions" {
   }
   ensures {
     collectors_listed       "every declared collector is listed with its extension, export, detection files, command and report location"
-    default_report_location "a collector that names no report location reads .specforge/reports/<name>.json"
+    default_report_location "a collector with a command that names no report reads .specforge/reports/<name>.json"
+    ports_reader            "a collector with no command and no report is called with no report under run and no-run"
   }
   contract   """
     Collectors come from the `collectors` describe payload of each enabled
@@ -317,15 +321,25 @@ behavior register_collector_contributions "Register Collector Contributions" {
     that runs its test runner (elements may contain the `{report}`
     placeholder) and the report file or directory the runner writes,
     relative to the project root, with no `..`; where it lands is the
-    request's containment. A collector without a report location
-    reads `.specforge/reports/<name>.json`.
+    request's containment. A collector with a command and no report
+    location reads `.specforge/reports/<name>.json`. A collector with no
+    command and no report reads through its ports: it is called under a
+    run and a no-run alike, reads no report, needs no approval, and a
+    `--report` run naming it is E058.
   """
   produces   [collector_registered]
   verify unit "collector contribution parsed from manifest"
   verify unit "a collector's declared reads are checked as a pass's (W021) and listed with their owner"
   verify unit "a kind may declare writer collector and its schemes, and a field that declares writer collector is W021"
   verify unit "a kind's writer is human or collector, and only a collector-written kind declares schemes"
-  verify contract "Register Collector Contributions: collector contribution registration holds — manifest_declares_collectors, collectors_listed, default_report_location"
+  verify unit "a facts input is served to a pass or a collector, and an empty or unknown kind or a second one is W021"
+  verify unit "a pass naming an authored kind in its facts input is W021"
+  verify unit "the SDK declares a facts input and the kinds a collector answers"
+  verify integration "a collector with no command and no report is called under run and no-run, and ran is false"
+  verify integration "a report run naming a collector that reads through its ports is E058"
+  verify integration "a collector that reads through its ports is lent its fs reads without an approval"
+  verify integration "a collector parses source through the syntax import, and what it found broken is noted once"
+  verify contract "Register Collector Contributions: collector contribution registration holds — manifest_declares_collectors, collectors_listed, default_report_location, ports_reader"
 }
 
 // NOTE: auto_detect_collector does not produce an event because dispatch is
@@ -344,17 +358,26 @@ behavior auto_detect_collector "Auto-Detect Collector" {
     runner_flag_selects_one "--runner selects exactly the collector with that name or extension"
     single_collector_used   "a single enabled collector is used without detection"
     no_match_diagnosed      "no collector, no match among several or an unknown --runner is E058, listing the available collectors"
+    ordered_by_facts        "a collector whose facts input names a kind another selected collector answers runs after it; a cycle is E119 before any runs"
+    repository_detected     "a collector detecting a repository is selected when the project root or a directory above it holds .git"
   }
   contract   """
     Without `--runner`, `specforge collect` selects every collector whose
     detection files exist at the project root; the last segment of a
     detection pattern may use `*` wildcards (`vitest.config.*`). A project
     with Rust and TypeScript tests therefore collects from both runners.
+    A collector that detects a repository is also selected when the
+    project root or any directory above it holds `.git` (a directory, or
+    a linked worktree's file), so a project in a subdirectory of its
+    repository is detected.
     `--runner` names one collector by name or extension. When only one
     collector is enabled, it is selected without detection: detection
     only decides between several. When nothing can be
     selected, the command fails with E058 and lists the collectors that are
-    available.
+    available. The selected collectors run in declaration order, except that
+    a collector whose `facts` input names a kind another answers runs after
+    it; collectors whose inputs and answers form a cycle are E119, reported by
+    the registry build and refused by collect before anything runs.
   """
   produces   []
   verify unit "a collector reading check outcomes is not run by a plain collect"
@@ -363,9 +386,14 @@ behavior auto_detect_collector "Auto-Detect Collector" {
   verify unit "a collect owes the values phase only when a selected collector reads check outcomes"
   verify unit "file pattern match selects collector"
   verify unit "wildcards match within the last path segment"
+  verify unit "a repository above the project root selects a collector detecting a repository"
   verify unit "no match emits E058 with available collectors"
   verify integration "a single enabled collector is used without detection"
-  verify contract "Auto-Detect Collector: collector auto-detection holds — collector_registered_fired, all_matches_selected, runner_flag_selects_one, single_collector_used, no_match_diagnosed"
+  verify unit "collectors run in declaration order unless a facts input orders a producer first, and a cycle is E119"
+  verify unit "collectors whose facts inputs and answers form a cycle are E119 in the registry build"
+  verify integration "a collector whose facts input names a kind another answers runs after it"
+  verify integration "collectors whose facts inputs form a cycle are E119 before any of them runs"
+  verify contract "Auto-Detect Collector: collector auto-detection holds — collector_registered_fired, all_matches_selected, runner_flag_selects_one, single_collector_used, no_match_diagnosed, ordered_by_facts, repository_detected"
 }
 
 behavior approve_capability "Approve Capability" {
@@ -388,6 +416,9 @@ behavior approve_capability "Approve Capability" {
     command is its extension's process capability, so `specforge collect`
     runs it only once this machine approves that capability, and a root
     outside the project an fs capability reads needs its own approval.
+    The command's placeholders (`{report}`, `{config}`) are the host's to
+    fill with its own paths: no request, a guest's or a person's, is
+    admitted by a capability whose argv names one.
     Every approval a run needs is decided before its first effect: a
     terminal is asked once per scope or root, showing the extension and
     the command or what the scope allows (y or yes, in any case, approves;
@@ -409,6 +440,10 @@ behavior approve_capability "Approve Capability" {
   """
   produces   []
   verify unit "an approval is keyed by project, extension provenance and scope, and covers narrower grants"
+  verify unit "a changed config file asks again, as a changed command does"
+  verify unit "a command whose argv names a placeholder admits no request, its expansion included"
+  verify integration "a guest never runs its collector's command with a placeholder filled by itself"
+  verify unit "the terminal shows a collector's config file under its command"
   verify unit "the consent store is replaced privately and atomically, never through a link"
   verify unit "an approval is never written over a consent store that cannot be read"
   verify integration "a third-party collector asks again after its blob changes"
@@ -470,6 +505,10 @@ behavior run_collector_command "Run Collector Command" {
   verify unit "a collector command past its deadline is stopped"
   verify unit "a .cmd shim on PATH runs as a collector command on Windows"
   verify contract "Run Collector Command: collector command execution holds — command_approved, report_inside_project, stale_report_ignored, report_path_exported, failing_tests_recorded, refused_before_running"
+  verify integration "a declared config file is written before the run with {report} expanded, and {config} names it"
+  verify integration "a program that cannot be found names the collector's install line"
+  verify unit "the config's report path is escaped for a quoted TOML or JSON string"
+  verify integration "a link at the report, capture or config name is replaced, never written through"
 }
 
 behavior dispatch_collector "Dispatch Collector" {
@@ -487,6 +526,8 @@ behavior dispatch_collector "Dispatch Collector" {
     named_reports_only           "with --report only the named files are read: nothing the collector declares about its report, capture or command is resolved or refused"
     declared_files_passed        "a collector that declares reads receives their files' facts, held to the project as a pass's are"
     facts_stored                 "a collector's admitted facts are stored under the collect's key and recorded by digest in specforge-harness, in one change under the write lock"
+    facts_served                 "a facts input is served the admitted facts of its kinds that earlier collectors answered, else the recorded stores'"
+    syntax_work_reported         "a collector that read source files through the host's syntax reader reports how many were parsed and how many came from the syntax cache (I214), and a cache that cannot be written is W200 once"
   }
   contract   """
     The host reads the report (the file itself, or every `*.json` file
@@ -518,16 +559,36 @@ behavior dispatch_collector "Dispatch Collector" {
     may carry `facts`, the entities it observed (ADR 0327): facts of a kind
     no loaded extension declares a collector writes, an empty id, an id in
     none of its kind's schemes or a repeated id are E116, and none of that
-    collector's facts is stored. The others are stored after every collector
+    collector's facts is stored; so is a fact of a kind the collector does
+    not list in its `answers` (ADR 0345 D3), and so is a fact placed (`at`,
+    `named_at`) at a file that is no key under the project root or no
+    regular file there (ADR 0346 D2). Each place's file is keyed from the
+    root, and the store records the sha256 of every file a place names, in
+    `sources`. The others are stored after every collector
     ran, in `.specforge/facts/<key>/<collector>.json` (canonical JSON), under
     HEAD's sha, `<sha>-dirty` for a dirty tree, or `worktree` with no commit
     (I209 for either), and `specforge-harness` records one line per
     collector, `<collector> facts:<key> <digest>`, replacing its last; the
     store, the removal of its stores under other keys and the line are one
-    change under the write lock.
+    change under the write lock. A collector that declares a `facts` input
+    receives `facts`, sorted by kind and id: for each kind, the admitted facts
+    the collectors that ran before it in this collect answered, or, for a
+    kind none of them answers, the facts of the stores specforge-harness
+    records (ADR 0345 D3). A kind served from the stores that none of them
+    holds a fact of is W201, naming the collector, the kind and the declared
+    collectors that answer it (`--runner` still runs only what it names).
+    A collector whose guest asked the host to parse source files
+    (`specforge:host/syntax`, ADR 0345) reports that work (ADR 0353 D7):
+    its `syntax` in the answer counts the files parsed now, the files read
+    from the syntax cache and the bytes parsed, and I214 says it; a second
+    collect of an unchanged tree parses none. Parsed files the cache could
+    not take are W200, once per collect, with the error of the first write
+    that failed; the facts are still stored.
   """
   produces   [collector_dispatched]
   verify unit "a collector named by the runner receives each checked value's outcome"
+  verify unit "a fact's places are stored as project keys with the digest of each file they name"
+  verify unit "a fact placed outside the project root is E116 and none of its collector's facts is stored"
   verify unit "a collector reading check outcomes needs no command and no report"
   verify unit "published outcomes are stored under the collect key"
   verify unit "reads a file or every json file in a directory"
@@ -540,8 +601,17 @@ behavior dispatch_collector "Dispatch Collector" {
   verify unit "every collector is sent the project root as cwd; only a writing collector the date, the graph and the revisions"
   verify unit "a collector's facts are stored under the key of the commit they were collected at and their digest is recorded in specforge-harness"
   verify unit "facts that name a kind no collector writes, or an id outside its kind's schemes, are E116 and none of them is stored"
+  verify unit "a fact of a kind its collector does not declare it answers is E116 and none of its facts is stored"
   verify unit "a dirty tree or a project in no repository files its facts under a key that says so, with I209"
-  verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only, declared_files_passed, facts_stored"
+  verify integration "a facts input is served the admitted facts of its kinds that earlier collectors answered, sorted"
+  verify integration "a facts input no collector of the collect answers is served the recorded stores"
+  verify integration "a facts input served no fact of a kind is W201 naming the collectors that answer it"
+  verify unit "the recorded facts of a kind are those of the stores the ledger records, sorted"
+  verify integration "a second collect of an unchanged tree parses no file: each is read from the syntax cache"
+  verify integration "a collect after one file's edit parses that file alone"
+  verify integration "a syntax cache that cannot be written is W200 and the facts are still stored"
+  verify integration "storing a collect's facts checks the project no second time"
+  verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported, named_reports_only, declared_files_passed, facts_stored, facts_served, syntax_work_reported"
 }
 
 behavior ingest_collector_report "Ingest Collector Report" {

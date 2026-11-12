@@ -1,6 +1,6 @@
 # Source anchors are a read view
 
-**Status:** accepted (2026-10-17, architecture round 14, plan 08). Amends ADR 0016 D1 (navigation's interface),
+**Status:** accepted (2026-10-17, architecture round 14, plan 08). Superseded by [ADR 0349](0349-an-anchor-is-a-graph-edge-between-an-entity-and-a-located-fact.md) (D1: the manifest; D3: stale rows): an anchor is a graph edge between an entity and a located fact. Amends ADR 0016 D1 (navigation's interface),
 ADR 0015 M14 and P1 (what reads the anchors manifest), extends ADR 0052 D1's list of documents. Amended by [ADR 0199](0199-a-source-item-is-covered-by-the-anchor-that-names-it.md) (D1: the read view also answers which source items are covered; inference gaps read it). D1: `anchors_of_file` refuses a path outside the project, [ADR 0253](0253-a-source-code-path-a-request-names-has-one-reader.md).
 
 Ops offered the anchors manifest as two steps, `source_anchors` (read) and `anchors_of_file` /

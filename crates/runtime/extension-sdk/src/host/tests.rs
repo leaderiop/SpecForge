@@ -13,7 +13,7 @@ use super::*;
     verify = "every port request and answer survives the SDK's WIT conversion"
 )]
 fn every_port_request_and_answer_survives_the_wit_conversion() {
-    use bindings::specforge::host::{fs, git, process, types};
+    use bindings::specforge::host::{fs, git, process, syntax, types};
     let request = HttpRequest {
         method: "POST".into(),
         url: "https://example.test/a".into(),
@@ -36,6 +36,132 @@ fn every_port_request_and_answer_survives_the_wit_conversion() {
         inherit: None,
     };
     assert_eq!(convert::run_request_back((&run).into()), run);
+    for (source, files) in [
+        (
+            SyntaxSource::Worktree {
+                root: "project".into(),
+            },
+            SyntaxFiles::Paths(vec!["src/lib.rs".into()]),
+        ),
+        (
+            SyntaxSource::Revision {
+                commit: "a".repeat(40),
+            },
+            SyntaxFiles::Glob("src/**/*.rs".into()),
+        ),
+    ] {
+        let asked = SyntaxRequest {
+            source,
+            files,
+            language: "rust".into(),
+            query: "(identifier) @reference.name".into(),
+        };
+        assert_eq!(convert::syntax_request_back((&asked).into()), asked);
+    }
+    let point = |n: u32| syntax::Point {
+        byte: n,
+        line: n + 1,
+        col: n + 2,
+        byte_col: n + 3,
+    };
+    let our_point = |n: u32| SyntaxPoint {
+        byte: n,
+        line: n + 1,
+        col: n + 2,
+        byte_col: n + 3,
+    };
+    let reasons = [
+        (syntax::NotParsed::Deadline, NotParsed::Deadline),
+        (syntax::NotParsed::TooLarge, NotParsed::TooLarge),
+        (syntax::NotParsed::Missing, NotParsed::Missing),
+        (syntax::NotParsed::Unreadable, NotParsed::Unreadable),
+        (syntax::NotParsed::Denied, NotParsed::Denied),
+        (syntax::NotParsed::Capped, NotParsed::Capped),
+    ];
+    for ((wit_role, role), (wit_reason, reason)) in [
+        (syntax::Role::Definition, SyntaxRole::Definition),
+        (syntax::Role::Reference, SyntaxRole::Reference),
+    ]
+    .into_iter()
+    .cycle()
+    .zip(reasons)
+    {
+        let parsed = syntax::File {
+            path: "a.rs".into(),
+            digest: Some("sha256:00".into()),
+            outcome: syntax::Outcome::Parsed(syntax::Parsed {
+                matches: vec![syntax::SyntaxMatch {
+                    role: wit_role,
+                    kind: "function".into(),
+                    span: syntax::Span {
+                        start: point(1),
+                        end: point(5),
+                    },
+                    parent: Some(0),
+                    captures: vec![syntax::Capture {
+                        name: "name".into(),
+                        text: "f".into(),
+                        cut: true,
+                        span: syntax::Span {
+                            start: point(2),
+                            end: point(3),
+                        },
+                    }],
+                }],
+                errors: 2,
+            }),
+        };
+        let not_parsed = syntax::File {
+            path: "b.rs".into(),
+            digest: None,
+            outcome: syntax::Outcome::NotParsed(wit_reason),
+        };
+        assert_eq!(
+            SyntaxAnswer::from(syntax::SyntaxAnswer {
+                files: vec![parsed, not_parsed],
+                truncated: true,
+                parsed: 1,
+                cached: 3,
+            }),
+            SyntaxAnswer {
+                files: vec![
+                    SyntaxFile {
+                        path: "a.rs".into(),
+                        digest: Some("sha256:00".into()),
+                        outcome: SyntaxOutcome::Parsed {
+                            matches: vec![SyntaxMatch {
+                                role,
+                                kind: "function".into(),
+                                span: SyntaxSpan {
+                                    start: our_point(1),
+                                    end: our_point(5),
+                                },
+                                parent: Some(0),
+                                captures: vec![SyntaxCapture {
+                                    name: "name".into(),
+                                    text: "f".into(),
+                                    cut: true,
+                                    span: SyntaxSpan {
+                                        start: our_point(2),
+                                        end: our_point(3),
+                                    },
+                                }],
+                            }],
+                            errors: 2,
+                        },
+                    },
+                    SyntaxFile {
+                        path: "b.rs".into(),
+                        digest: None,
+                        outcome: SyntaxOutcome::NotParsed { reason },
+                    },
+                ],
+                truncated: true,
+                parsed: 1,
+                cached: 3,
+            }
+        );
+    }
     let response = HttpResponse {
         status: 404,
         headers: vec![("etag".into(), "x".into())],
@@ -221,6 +347,115 @@ fn every_port_request_and_answer_survives_the_wit_conversion() {
     }
 }
 
+/// A guest's log and diff queries, and their answers, there and back.
+#[test]
+fn a_guest_log_and_diff_survive_the_wit_conversion() {
+    use bindings::specforge::host::git as wit;
+    let log = GitLogQuery {
+        tips: vec!["a1".into()],
+        hidden: vec!["b2".into()],
+        paths: vec!["src".into()],
+        first_parent: true,
+        max: Some(3),
+        oldest: true,
+        grep: Some("feat".into()),
+        since: Some(-1),
+        until: Some(2),
+        no_merges: true,
+        pickaxe: Some("x".into()),
+    };
+    assert_eq!(convert::log_query_back((&log).into()), log);
+    for head in [
+        GitDiffHead::Commit("c3".into()),
+        GitDiffHead::Index,
+        GitDiffHead::Worktree,
+    ] {
+        let diff = GitDiffQuery {
+            base: Some("d4".into()),
+            head,
+            paths: vec!["a".into()],
+            patch: true,
+            hunks: true,
+            renames: false,
+        };
+        assert_eq!(convert::diff_query_back((&diff).into()), diff);
+    }
+    let signed = |seconds| wit::Signature {
+        name: "n".into(),
+        seconds,
+    };
+    let answer = GitLogAnswer::from(wit::LogAnswer {
+        count: Some(1),
+        commits: vec![wit::LogCommit {
+            sha: "a1".into(),
+            parents: vec!["b2".into()],
+            author: signed(1),
+            committer: signed(2),
+            subject: "s".into(),
+            body: "b".into(),
+            trailers: vec![wit::Trailer {
+                token: "Gsd-Task".into(),
+                values: vec!["1".into(), "2".into()],
+            }],
+        }],
+        truncated: true,
+    });
+    let commit = &answer.commits[0];
+    assert_eq!((answer.count, answer.truncated), (Some(1), true));
+    assert_eq!((commit.author.seconds, commit.committer.seconds), (1, 2));
+    assert_eq!(commit.parents, ["b2"]);
+    assert_eq!(
+        commit.trailers,
+        [GitTrailer {
+            token: "Gsd-Task".into(),
+            values: vec!["1".into(), "2".into()],
+        }]
+    );
+    let diff = GitDiffAnswer::from(wit::DiffAnswer {
+        files: vec![wit::FileChange {
+            path: "b".into(),
+            old_path: Some("a".into()),
+            status: wit::Change::Renamed,
+            added: 1,
+            removed: 2,
+            binary: false,
+            truncated: true,
+            withheld: true,
+            patch: Some("p".into()),
+            hunks: Some(vec![wit::Hunk {
+                before_start: 1,
+                before_end: 2,
+                after_start: 3,
+                after_end: 4,
+            }]),
+        }],
+        truncated: true,
+    });
+    assert_eq!(
+        diff,
+        GitDiffAnswer {
+            files: vec![GitFileChange {
+                path: "b".into(),
+                old_path: Some("a".into()),
+                status: GitChange::Renamed,
+                added: 1,
+                removed: 2,
+                binary: false,
+                truncated: true,
+                withheld: true,
+                patch: Some("p".into()),
+                hunks: Some(vec![GitHunk {
+                    before_start: 1,
+                    before_end: 2,
+                    after_start: 3,
+                    after_end: 4,
+                }]),
+            }],
+            truncated: true,
+        }
+    );
+}
+
 #[test]
 fn a_request_has_no_place_for_what_only_the_host_sets() {
     let asked = HttpRequest {
@@ -290,4 +525,56 @@ fn a_served_host_answers_the_guest() {
     ));
     assert!(http::send(&request).is_err());
     assert_eq!(fake.asked.borrow().len(), 1);
+}
+
+/// A host that answers a log and a diff, and records what it was asked.
+#[derive(Default)]
+struct History {
+    asked: RefCell<Vec<String>>,
+}
+
+impl InProcessHost for History {
+    fn git_log(&self, query: &GitLogQuery) -> Result<GitLogAnswer, HostError> {
+        self.asked
+            .borrow_mut()
+            .push(format!("log {:?}", query.tips));
+        Ok(GitLogAnswer {
+            count: Some(0),
+            ..GitLogAnswer::default()
+        })
+    }
+    fn git_diff(&self, query: &GitDiffQuery) -> Result<GitDiffAnswer, HostError> {
+        self.asked
+            .borrow_mut()
+            .push(format!("diff {:?}", query.base));
+        Ok(GitDiffAnswer::default())
+    }
+}
+
+#[test]
+fn a_served_host_answers_a_guests_log_and_diff() {
+    let host = Rc::new(History::default());
+    let (log, diff) = in_process::serve(Rc::clone(&host) as Rc<dyn InProcessHost>, || {
+        let log = git::log(&GitLogQuery {
+            tips: vec!["a1".into()],
+            ..GitLogQuery::default()
+        });
+        let diff = git::diff(&GitDiffQuery {
+            base: None,
+            head: GitDiffHead::Worktree,
+            paths: Vec::new(),
+            patch: false,
+            hunks: true,
+            renames: false,
+        });
+        (log, diff)
+    });
+    assert_eq!(log.unwrap().count, Some(0));
+    assert_eq!(diff.unwrap(), GitDiffAnswer::default());
+    assert_eq!(*host.asked.borrow(), ["log [\"a1\"]", "diff None"]);
+    // no host: a pure call's answer
+    assert!(matches!(
+        git::log(&GitLogQuery::default()),
+        Err(HostError::Denied(Denial::CallKind(_)))
+    ));
 }

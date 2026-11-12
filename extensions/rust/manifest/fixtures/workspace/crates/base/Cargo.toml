@@ -1,0 +1,14 @@
+# No automatic tests: only the declared one is a target.
+
+[package]
+name = "base"
+version.workspace = true
+edition.workspace = true
+autotests = false
+
+[[test]]
+name = "only"
+path = "tests/only.rs"
+
+[build-dependencies]
+standalone = { path = "../../standalone" }

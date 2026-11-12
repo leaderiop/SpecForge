@@ -14,12 +14,16 @@ An encrypted store for secrets on the command line: `VAULT_KEY=<hex> node src/cl
   - Phase 2 (planned): one plan without a threat register, no summary and no `SECURITY.md`. Upstream's state B needs a
     summary (`secure-phase.md` step 1), so it calls this state C, "not executed"; the retroactive case is exercised by
     the `record_security_audit` tests, not by this phase.
-- `src/`, `test/`: what phase 1 built. `npm test` runs `node --test`.
-- `spec/`: the SpecForge twin: the phases and plans, and the security model's entities for them (trust boundaries,
-  threats, the audit, the accepted risk and the audit run). It checks with `@gsd/core` and `@gsd/security` loaded and
-  reports one thing, the duplicate `T-01-02` (`gsd.security/E101`, once per claim) that the fixture exists to carry.
-  The twin has no `summary` entities (the summaries stay in `.planning/`), so the ported state detection
-  (`specforge query v1.0/01 --depth 2 --kinds summary`) finds none and `/gsd-secure-phase 01` on it exits at state C.
+- `src/`, `test/`: what phase 1 built. `npm test` runs `node --test`; `record-security.sh` records its JUnit report in
+  `goldens/vault/junit.xml`.
+- `spec/`: the SpecForge twin, mirroring `.planning/`: the phases and plans, each plan's `must_haves` (truths,
+  artifacts, key links), phase 1's two summaries, and the security model's entities (trust boundaries, threats, the
+  audit, the accepted risk and the audit run). Plan 01-01's truth cites the three tests of `test/vault.test.js`
+  (`proof`, `js:vault/test/vault.test.js#<test name>`); the command line has no test, so 01-02's truth cites none.
+  It loads the thread's builtins as the taskboard twin does, and checks with `@gsd/core` and `@gsd/security` loaded:
+  its one error is the duplicate `T-01-02` (`gsd.security/E101`, once per claim) that the fixture exists to carry,
+  besides the verifier's `no verdict` on each truth, artifact and key link (no verifier has run, as `.planning/` has
+  no `VERIFICATION.md`). With the summaries, the ported state detection finds them, as upstream's does.
   A threat's `status` and `evidence` and the audit run's counts are harness fields (written by
   `record-security-audit`, never by hand); the twin holds them as the audit left them, and `specforge-harness` vouches
   for each, as the taskboard's verdicts are. The threats' statuses are `01-SECURITY.md`'s (`T-01-02` of plan 01-02 open,

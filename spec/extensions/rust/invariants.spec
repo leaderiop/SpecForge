@@ -1,4 +1,4 @@
-// @specforge/rust extension invariants
+// Rust test traceability (the #[specforge_test] macros, @specforge/cargo-test): invariants
 
 invariant entity_mapping_precedence "Entity Mapping Precedence" {
   guarantee """

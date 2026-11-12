@@ -4,29 +4,29 @@ use specforge_common::{Diagnostic, codes};
 
 use crate::FieldRegistry;
 
-/// W162 (ADR 0150): a relation declared from both of its ends. (a) A
+/// W162 (ADR 0150, ADR 0354): a relation declared from both of its ends. (a) A
 /// reference field whose `inverse_of` names a field its target kind
 /// registers; (b) two different kinds that each register a reference field
-/// targeting the other, reported once per kind pair, lesser kind first.
-/// The fields still register; nothing else changes.
+/// targeting the other, reported once per kind pair, lesser kind first. A
+/// field that names its reverse (`inverse_of`) is its own relation and pairs
+/// with nothing in (b): two relations between the same kinds are declared
+/// apart that way. The fields still register; nothing else changes.
 pub(super) fn both_sides(fields: &FieldRegistry) -> Vec<Diagnostic> {
-    // (kind, field) -> (target kind, extension), reference fields only.
-    let mut refs: BTreeMap<(&str, &str), (&str, &str)> = BTreeMap::new();
+    // (kind, field) -> (target kind, extension, inverse_of), reference fields only.
+    let mut refs: BTreeMap<(&str, &str), (&str, &str, Option<&str>)> = BTreeMap::new();
     for (kind, name, entry) in fields.iter() {
         if let (true, Some(target)) = (
             entry.field_type().is_reference(),
             entry.declared().target_kind.as_deref(),
         ) {
-            refs.insert((kind, name), (target, entry.source_extension()));
+            let inverse = entry.declared().inverse_of.as_deref();
+            refs.insert((kind, name), (target, entry.source_extension(), inverse));
         }
     }
 
     let mut diagnostics = Vec::new();
-    for (&(kind, name), &(target, extension)) in &refs {
-        let Some(inverse) = fields
-            .get(kind, name)
-            .and_then(|entry| entry.declared().inverse_of.as_deref())
-        else {
+    for (&(kind, name), &(target, extension, inverse)) in &refs {
+        let Some(inverse) = inverse else {
             continue;
         };
         if fields.contains(target, inverse) {
@@ -42,10 +42,10 @@ pub(super) fn both_sides(fields: &FieldRegistry) -> Vec<Diagnostic> {
         }
     }
 
-    // (b) the first field of each ordered pair, then each unordered pair once.
+    // (b) the first field of each ordered pair that names no reverse, then each unordered pair once.
     let mut first: BTreeMap<(&str, &str), (&str, &str)> = BTreeMap::new();
-    for (&(kind, name), &(target, extension)) in &refs {
-        if kind != target {
+    for (&(kind, name), &(target, extension, inverse)) in &refs {
+        if kind != target && inverse.is_none() {
             first.entry((kind, target)).or_insert((name, extension));
         }
     }

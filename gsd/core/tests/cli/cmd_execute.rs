@@ -414,6 +414,8 @@ fn an_unexecuted_plans_stale_plan_check_still_refuses() {
 #[test]
 fn the_executors_new_examples_run() {
     let p = super::harness::project("execute");
+    // The executor writes the plan's file before its summary says complete (E016 otherwise, ADR 0350).
+    p.write("src/complete.js", "// complete\n");
     let summary = p.run(&[
         "new",
         "summary",

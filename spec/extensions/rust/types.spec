@@ -1,4 +1,4 @@
-// @specforge/rust extension types — Rust test traceability
+// Rust test traceability (the #[specforge_test] macros, @specforge/cargo-test): types
 
 type TestGuard "Test Guard" {
   entity_kind string  @readonly

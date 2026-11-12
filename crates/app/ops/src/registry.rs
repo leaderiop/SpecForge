@@ -416,7 +416,6 @@ pub const CONTRIBUTES: OptionTable<DeclaredCategory> = OptionTable {
             "test collectors",
             DeclaredCategory::Collectors,
         ),
-        category("analyzers", "source analyzers", DeclaredCategory::Analyzers),
         category("passes", "compiler passes", DeclaredCategory::Passes),
         category(
             "feature_flags",

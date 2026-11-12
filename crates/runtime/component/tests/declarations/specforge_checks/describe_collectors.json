@@ -2,6 +2,9 @@
   "category": "collectors",
   "items": [
     {
+      "answers": [
+        "check_outcome"
+      ],
       "auto_detect": null,
       "export": "collect__checks",
       "input_formats": [],

@@ -2,6 +2,7 @@
 //! entity's methods and its fields' annotations.
 
 use serde_json::{Value, json};
+use specforge_common::SourceSpan;
 use specforge_emitter::EmitFormat;
 use specforge_graph::{Graph, Node};
 use specforge_test_macros::test as specforge_test;
@@ -128,4 +129,35 @@ fn a_section_lists_methods_and_annotations() {
         "{export}"
     );
     assert!(export.contains("- street: string @optional"), "{export}");
+}
+
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "graph format writes a fact's places under located, and markdown shows its first"
+)]
+fn a_facts_graph_node_carries_its_located_range() {
+    let store = ".specforge/facts/k/node.json";
+    let at = |file: &str, line| SourceSpan {
+        file: file.into(),
+        start_line: line,
+        start_col: 3,
+        end_line: line,
+        end_col: 9,
+    };
+    let mut graph = graph();
+    graph.add_node(Node {
+        located: vec![at("src/a.test.js", 4), at("src/a.test.js", 12)],
+        ..Node::new("js:p1", "test", at(store, 1))
+    });
+
+    let export = crate::export(&graph, EmitFormat::Json, None);
+    let fact = node(&export, "js:p1");
+    assert_eq!((&fact["file"], &fact["line"]), (&json!(store), &json!(1)));
+    let place = |line| json!({"file": "src/a.test.js", "start_line": line, "start_col": 3, "end_line": line, "end_col": 9});
+    assert_eq!(fact["located"], json!([place(4), place(12)]), "{fact}");
+    assert!(node(&export, "Order").get("located").is_none());
+
+    let markdown = crate::export(&graph, EmitFormat::Markdown, None);
+    assert!(markdown.contains("`src/a.test.js:4`"), "{markdown}");
+    assert!(!markdown.contains(store), "{markdown}");
 }

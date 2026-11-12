@@ -106,6 +106,7 @@ The .spec language and what every host crate shares: the grammar, the lexer and 
 | [`effects`](kernel/effects/) | `specforge-effects` | The effect plane: the Process, Http, Fs and Git ports every host effect goes through, their canonical digests, the one path containment, and the grant, ceiling and consent policy that decide each effect (ADR 0335) |
 | [`parser`](kernel/parser/) | `specforge-parser` | The .spec language read from text: the one lexer, the recovered syntax, the AST, the expression grammar and the format version (ADR 0038, ADR 0063) |
 | [`shape-macros`](kernel/shape-macros/) | `specforge-shape-macros` | Derive macro for specforge-common: a type's JSON shape is derived beside its serialization (ADR 0048) |
+| [`source`](kernel/source/) | `specforge-source` | The host's one source reader: tree-sitter with the rust, typescript and tsx grammars, running a pack's query in the tags convention, its parses cached by content and bounded by a per-file deadline (ADR 0344) |
 | [`tree-sitter`](kernel/tree-sitter/) | `tree-sitter-specforge` | The tree-sitter grammar of the .spec language: grammar.js, the generated parser and its scanner, the node-kind and field vocabulary, and the editor queries |
 
 ### `leaf`
@@ -129,6 +130,6 @@ Crates with no SpecForge dependency but the guest wire: the wire itself, the dia
 | [`gate`](../gate/) | `gate` | The repository's check list: every check CI, cargo gate and the pre-commit hook run, each written once (ADR 0066) |
 | [`integrations/rust/specforge-test`](../integrations/rust/specforge-test/) | `specforge-test` | Test traceability for SpecForge — link Rust tests to spec entities |
 | [`integrations/rust/specforge-test-macros`](../integrations/rust/specforge-test-macros/) | `specforge-test-macros` | Proc macros for specforge-test |
-| [`xtask`](../xtask/) | `xtask` | Repository tasks that link the workspace: build-blobs, revendor, check-links, check-modules and clean-target |
+| [`xtask`](../xtask/) | `xtask` | Repository tasks that link the workspace: build-blobs, revendor, check-links, check-modules, clean-target and perf-report |
 
 <!-- crate-map:end -->

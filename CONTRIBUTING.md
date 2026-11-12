@@ -51,6 +51,13 @@ through one driver: `compile()`/`session()` in process, `specforge_mcp::testing:
 only the binary's contract (arguments, exit codes, streams, environment) and cross-surface comparisons are CLI
 tests ([ADR 0078](docs/adr/0078-a-tests-project-is-one-fixture.md)).
 
+SpecForge's own project loads the Rust source packs: `specforge collect --no-run` at the root runs rust-cargo, then
+rust-source, and skips cargo-test (a plain `specforge collect` would ask to run the whole test suite first). It stores
+the facts of every crate's items in `.specforge/` (ignored, as the rename ledger `specforge-harness` is), and
+`specforge anchors <behavior>` then lists the tests whose `#[specforge_test]` names it.
+Nothing it writes is committed: the one line the ledger's first write would add to `.gitattributes` is committed
+already, so the file stays unchanged.
+
 A test or tool that reads a file outside its own crate finds it from `specforge_repo_root::repo_root()`
 (`crates/leaf/repo-root`), never by counting `..` from `CARGO_MANIFEST_DIR`: crates sit at different depths
 under `crates/` ([ADR 0081](docs/adr/0081-the-repository-root-is-found-not-counted.md)).
@@ -69,6 +76,15 @@ measurement: no gate reads it
 ([ADR 0090](docs/adr/0090-text-a-user-types-is-tested-by-properties-over-the-corpus.md)). The parser and formatter
 property tests run 256 cases per run; the deep run is `PROPTEST_CASES=20000 cargo test -p specforge-parser -p
 specforge-formatter --test tests` (about 4 minutes; nextest's 60 s timeout is too short for it).
+
+## Performance
+
+Tests bound work by counts (files parsed, facts sent, a guest's fuel), never by time
+([ADR 0353](docs/adr/0353-a-pass-reads-the-facts-it-declares.md)). Time is measured apart: `cargo run -p xtask --bin
+perf-report` builds `specforge` in release, copies the tracked tree to `target/perf/tree` and times `specforge check`
+and `specforge collect --no-run` cold, warm (no file parsed) and after one edit (one file parsed) against the budget
+(collect cold 10 s, warm 2 s, check 2 s), writing `target/perf/report.json`; `--specforge <path>` measures another
+build. CI runs it nightly (`.github/workflows/perf.yml`) and uploads the report. It is a measurement: no gate reads it.
 
 ## Releasing
 
@@ -113,10 +129,11 @@ What documents it:
 
 What builds and checks it:
 
-- [`gate/`](gate/) (`cargo gate`, the check list), [`xtask/`](xtask/) (build-blobs, revendor, check-links),
+- [`gate/`](gate/) (`cargo gate`, the check list), [`xtask/`](xtask/) (build-blobs, revendor, check-links, perf-report),
   [`scripts/`](scripts/) (shell helpers the gate and the release run).
 - [`fixtures/`](fixtures/): extension fixtures the tests load; [`evaluation/`](evaluation/): the first-attempt
   accuracy eval.
 - `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `clippy.toml`, `.cargo/`, `.config/` (nextest),
-  `.github/` (CI, release), `.githooks/` (the pre-commit hook).
+  `.github/` (CI, release), `.githooks/` (the pre-commit hook), `.gitignore`, and `.gitattributes` (the rename
+  ledger `specforge-harness` merges by union, the line `specforge collect` would otherwise add).
 - `.claude/`, `.codex/`, `.mcp.json`: agent configuration for working on this repository.

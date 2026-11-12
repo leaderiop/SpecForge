@@ -75,6 +75,9 @@ fn bound(subject: &str) -> Option<&'static str> {
         | "$UNDO_MILESTONE/${N}" => "v1.0/01",
         "$PLAN_ID" | "$PLAN_ENTITY" | "$PLAN_FULL_ID" | "${TARGET_PLAN_ID}" | "$plan_id"
         | "$plan" => "v1.0/01/01-01",
+        // facts: `the_verifiers_fact_spot_checks_print_what_they_promise` collects them first
+        "$TEST_ID" => TWIN_TEST,
+        "js:$PACKAGE/$MODULE_FILE::$FUNCTION_NAME" => TWIN_FUNCTION,
         _ => return None,
     })
 }
@@ -142,6 +145,11 @@ const UNBOUND: &[&str] = &[
     "RESEARCH",
     "RESEARCH`)",
 ];
+
+/// A test fact of the twin, once `collect_node_test_golden` has run.
+const TWIN_TEST: &str = "js:taskboard/test/tasks.test.js#a task is added with the next id";
+/// An item fact of the twin, once `@javascript/source` has collected.
+const TWIN_FUNCTION: &str = "js:taskboard/src/tasks.js::addTask";
 
 /// The kinds a `project` links to (a requirement or a project-level decision): nothing links it to a milestone, a
 /// phase, a pause, a handoff, a blocker or a lesson, so a `$PROJECT` query for those is empty.
@@ -250,6 +258,49 @@ fn a_query_reaches_the_kinds_it_asks_for() {
         empty.is_empty(),
         "queries that return nothing:\n{}",
         empty.join("\n")
+    );
+}
+
+/// The verifier's spot-checks of collected facts (`agents/gsd-verifier.md`: an exported function, a test that exists,
+/// a test's status), each `specforge query` as written, run on the twin once its tests and items are collected, its
+/// subject bound to a fact of the twin.
+#[test]
+fn the_verifiers_fact_spot_checks_print_what_they_promise() {
+    let p = twin();
+    let tests = p.collect_node_test_golden();
+    assert_eq!(tests.code, 0, "{}", tests.all());
+    let items = p.collect(&["--runner", "javascript-source"]);
+    assert_eq!(items.code, 0, "{}", items.all());
+    let verifier = Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/agents/gsd-verifier.md");
+    let text = std::fs::read_to_string(verifier).expect("the verifier's prompt");
+    let line =
+        Regex::new(r#"specforge query "([^"]+)" --depth 0 --pick '([^']+)'"#).expect("a regex");
+    let mut printed = Vec::new();
+    for cap in text.lines().flat_map(|l| line.captures_iter(l)) {
+        if ![TWIN_TEST, TWIN_FUNCTION].contains(&bound(&cap[1]).unwrap_or_default()) {
+            continue;
+        }
+        let run = p.run(&[
+            "query",
+            bound(&cap[1]).expect("bound"),
+            "--depth",
+            "0",
+            "--pick",
+            &cap[2],
+        ]);
+        assert_eq!(run.code, 0, "{}: {}", &cap[0], run.all());
+        printed.push((cap[2].to_string(), run.stdout.trim().to_string()));
+    }
+    assert_eq!(
+        printed,
+        [
+            (
+                ".nodes[0].fields.kind[]".to_string(),
+                "function".to_string()
+            ),
+            (".nodes[0].id".to_string(), TWIN_TEST.to_string()),
+            (".nodes[0].fields.status".to_string(), "passed".to_string()),
+        ]
     );
 }
 

@@ -2,9 +2,8 @@ use std::collections::BTreeMap;
 
 use serde_json::json;
 
-use specforge_extension_sdk::EntityTests;
-
 use super::*;
+use crate::passes::thread::fixture::add_test;
 
 const PHASE: &str = "v1.0/01";
 
@@ -193,37 +192,20 @@ fn deliverable(refs: &[&str]) -> PassEntity {
     d
 }
 
-fn report(tests: &[(&str, TestStatus)]) -> TestResults {
-    let mut r = TestResults::default();
-    r.results.insert(
-        "v1.0/01/a/S/D1".into(),
-        EntityTests {
-            tests: tests
-                .iter()
-                .map(|(name, status)| TestResult {
-                    name: name.to_string(),
-                    status: *status,
-                    verify: None,
-                    duration_ms: None,
-                })
-                .collect(),
-        },
-    );
-    r
-}
-
 #[test]
-fn a_check_status_is_pass_fail_or_unknown_from_the_report() {
+fn a_check_status_is_pass_fail_or_unknown_from_the_test_facts() {
     let d = deliverable(&["t#a", "t#b", "t#c"]);
     let mut input = PassInput::default();
-    // No report, no status.
+    // No test fact, no status.
     assert!(check_statuses(&input, &d).is_empty());
-    input.test_results = Some(report(&[
-        ("t#a", TestStatus::Passed),
-        ("t#b", TestStatus::Passed),
-        ("t#b", TestStatus::Failed),
-        ("other", TestStatus::Failed),
-    ]));
+    for (id, name, status) in [
+        ("js:p/t#a", "a", TestStatus::Passed),
+        ("js:p/t#b", "b", TestStatus::Passed),
+        ("js:q/t#b", "b", TestStatus::Failed),
+        ("js:p/t#other", "other", TestStatus::Failed),
+    ] {
+        add_test(&mut input, id, name, "t", status, &[]);
+    }
     let given: Vec<(String, Value)> = check_statuses(&input, &d)
         .into_iter()
         .map(|v| (v.field, v.value))
@@ -332,13 +314,13 @@ fn statuses(input: &PassInput, d: &PassEntity) -> Vec<Value> {
 }
 
 #[test]
-fn a_deliverable_check_reads_its_status_from_a_test_fact_when_no_report_is_written() {
+fn a_deliverable_check_reads_its_status_from_a_test_fact() {
     let d = deliverable(&[
         "test/tasks.test.js#adds",
         "test/tasks.test.js#lists",
         "test/tasks.test.js#gone",
     ]);
-    let mut input = PassInput {
+    let input = PassInput {
         entities: vec![
             fact("adds", "test/tasks.test.js", "passed"),
             fact("lists", "test/tasks.test.js", "failed"),
@@ -349,9 +331,6 @@ fn a_deliverable_check_reads_its_status_from_a_test_fact_when_no_report_is_writt
         statuses(&input, &d),
         [json!("pass"), json!("fail"), json!("unknown")]
     );
-    // A report's result still counts, and a failure in either source wins.
-    input.test_results = Some(report(&[("test/tasks.test.js#adds", TestStatus::Failed)]));
-    assert_eq!(statuses(&input, &d)[0], json!("fail"));
 }
 
 #[test]

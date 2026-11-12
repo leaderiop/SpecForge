@@ -4,6 +4,16 @@
 [ADR 0002](0002-test-runner-extensions.md) together with [ADR 0327](0327-a-collectors-facts-are-read-only-entities-recorded-by-digest.md)
 (D10): it says which extension judges a cited test fact, and how. Ships in extension protocol 1.15.0 (D4, D3's
 `result`).
+Amended by [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md) (D3: `names` is a fact-held reference).
+Amended by [ADR 0347](0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md) (D2: the `<file>` escape, Rust tests; D3: `rust` ids, `binary`, `file` project-relative as
+given, `names` a reference list; D5: judged by the kinds a field admits, `held`; D7: the minting moves to `code/facts`).
+Amended by [ADR 0352](0352-gsd-git-reads-the-host-git-port-and-commits-name-their-items.md) (D5: a history reference
+is never unheld).
+Amended in place (2026-11-10, [Amendment](#amendment-2026-11-10-test-names-from-tags-and-one-junit-reader)) (D3: the
+reader fills `names` from `[<ns>:<id>]` tags, `file` is project-relative; D7: gsd-junit is deleted).
+
+**Amended by [ADR 0350](0350-a-fields-checks-may-wait-for-its-owner.md)** (D4: the values phase reads owner state
+too, on the merged snapshot, to decide whether a field's checks wait).
 
 ## Context
 
@@ -37,6 +47,8 @@ Four facts shape it:
 
   A `test_run`'s id is `run:<test id>`. A store is per key (ADR 0327 D3), so the run of another commit is in another
   store: R1 needs no `commit` field.
+  Amended by [ADR 0347](0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md): a `%`, `#` or `:` in `<file>` is percent-encoded, and a Rust test is
+  `rust:<nextest binary id>#<test path>` (D4).
 - **D3. The kinds.** Both are collector-written (`KindBuilder::collected`) and neither is scoped: a scheme ref names
   the fact whole.
 
@@ -57,6 +69,9 @@ Four facts shape it:
   - `names` lists the entities a test says it proves. A later pack fills it from its runner's idiom (vitest's
     `meta.specforge`, `@rust/test`'s attribute); no R1 collector writes it. It is a string list, not a reference
     list: a fact's reference to an authored entity would need its own kernel rule, which comes with the first writer.
+  Amended by [ADR 0346](0346-a-fact-says-where-it-is-written-and-what-it-names.md): `names` is a fact-held reference (ADR 0346).
+  Amended by [ADR 0347](0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md): `test` takes `rust` ids and a `binary` field, `file` is the project-relative path the pack gives,
+  and `names` is a reference list with no target kind, edge `names` (D8, D11).
 - **D4. Owner state (protocol 1.15.0).** A kind may declare `complete_when { field, values }`: its entities are
   complete while `field` holds one of `values`, and pending otherwise (unwritten included). The registry keeps it
   when `field` is an `enum` field the kind declares and every value is one of its values; anything else is W021 and
@@ -79,6 +94,8 @@ Four facts shape it:
   collected" is the true and actionable answer for a `ts:` reference beside a store of `js` facts, where E101 would
   claim a test is missing that no collector looked for. A fact nothing cites is never a finding, and there is no
   project-level "no facts yet" note: a project that cites nothing hears nothing.
+  Amended by [ADR 0347](0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md): E101 when a served store holds a fact of a kind the reference's field admits, in its scheme
+  (`UnheldReference.kinds`, `FactStore.held`); W102 names the kind and the pack that writes it (D9).
 - **D6. A failing proof and a dangling name.** The pass `proof` reports:
   - **`code/W401`** on each entity outside `@code/core`'s kinds that is not pending and has an edge to a `test` whose
     `status` is `failed`;
@@ -89,6 +106,7 @@ Four facts shape it:
   case-insensitively and tries the other spelling of macOS's `/private` alias), `TestId`, and `facts()`, the one
   function that mints `test` and `test_run` facts. A runner pack links it. gsd-junit stays a copy, since gsd may not
   depend outside `gsd/` (R-9).
+  Amended by [ADR 0347](0347-item-and-package-facts-and-ids-a-scip-symbol-maps-into.md): `TestId` and the minting move to `extensions/code/facts`; `code/junit` keeps the reader (D1).
 
 ## Rejected
 
@@ -120,3 +138,17 @@ Four facts shape it:
 - A runner whose tests have no stable name (generated, parameterised beyond a name): the id grammar would need a
   parameter part.
 - A second notion of "done" an owner cannot state as one enum field.
+
+## Amendment (2026-11-10): test names from tags, and one JUnit reader
+
+- **D3.** A test fact's `file` is the project-relative path the pack gives, in a nested package too; its id keeps the
+  package-relative file, so two packages' tests stay apart. The reader fills `names`: each `[<ns>:<id>]` tag in a test's
+  JUnit name is one of its names (`specforge_code_junit::names`, `Case::names`), and two cases that merge into one fact
+  take the union of their names, sorted: a fact's `names` is in id order, whatever order the tags are written in (a
+  sorted field digests the same however a runner orders its cases). The type is ADR 0346's fact-held reference list, so
+  a tag the linker resolves is a `names` edge, and one that names nothing or several entities is a dangling name
+  `@code/core` reports (`code/I402`). A runner's own idiom (vitest's `meta.specforge`, `@rust/test`'s attribute) may add
+  more.
+- **D7.** gsd-junit, the copy, is deleted. `@gsd/core` reads `@code/core`'s test facts ([ADR
+  0331](0331-the-gsd-requirement-thread.md), amended), so it needs no reader of its own, and `specforge-code-junit` is
+  the one JUnit reader.

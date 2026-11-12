@@ -193,10 +193,17 @@ pub fn init(req: &Request, runtime: &dyn WasmRuntime) -> Result<Outcome, Refusal
     let version = req.version.to_string();
 
     // The extensions it names, as `add` reads them: a relative local path is read from the
-    // directory init creates.
+    // directory init creates. The code packs of the project found there follow them, named as
+    // asked, so the lock plan judges them as it judges the rest (ADR 0349).
     let about = |error: OpError| error.about(InitField::Extensions);
+    let mut asked = req.extensions.to_vec();
+    for pack in detected_packs(req.dir) {
+        if !asked.iter().any(|named| named.trim() == pack) {
+            asked.push(pack.to_string());
+        }
+    }
     let names = Names::read(
-        req.extensions,
+        &asked,
         Place {
             root: req.dir,
             containment: req.caller.containment(),
@@ -493,6 +500,24 @@ fn lines_with(existing: &[u8], entries: &[&str]) -> Option<Vec<u8>> {
     Some(bytes)
 }
 
+/// The code packs of the project at `path` (ADR 0349): a `Cargo.toml` gets `@code/core`, `@rust/cargo` and
+/// `@rust/source`; a `package.json` `@code/core` and `@javascript/source`.
+fn detected_packs(path: &Path) -> Vec<&'static str> {
+    let cargo = path.join("Cargo.toml").is_file();
+    let node = path.join("package.json").is_file();
+    let mut packs = Vec::new();
+    if cargo || node {
+        packs.push("@code/core");
+    }
+    if cargo {
+        packs.extend(["@rust/cargo", "@rust/source"]);
+    }
+    if node {
+        packs.push("@javascript/source");
+    }
+    packs
+}
+
 /// Runner extensions for the test runners the project at `path` uses.
 fn detected_runners(path: &Path, containment: &Containment) -> Vec<&'static str> {
     let mut runners = Vec::new();
@@ -673,5 +698,14 @@ mod tests {
             init_with("n5", Some("demo"), &specifiers(&["@acme/x"])),
             ("E063".to_string(), None)
         );
+    }
+
+    /// A collect on SpecForge's own repository writes the ledger: the line that write would add to
+    /// `.gitattributes` is committed, so the write leaves the tracked file as it is.
+    #[test]
+    fn this_repository_commits_the_gitattributes_line_a_ledger_write_adds() {
+        let committed =
+            std::fs::read(specforge_repo_root::repo_root().join(".gitattributes")).unwrap();
+        assert_eq!(gitattributes_with(&committed), None);
     }
 }

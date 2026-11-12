@@ -105,6 +105,53 @@ fn a_parameters_type_and_a_methods_return_keep_their_spans() {
 }
 
 #[test]
+fn a_method_type_reads_in_one_spelling_whatever_its_layout() {
+    let types = |source: &str| {
+        let result = parse(source, "ports.spec");
+        assert!(result.errors.is_empty(), "errors: {:?}", result.errors);
+        let method = result.entities[0].methods[0].clone();
+        (method.params[0].ty.clone(), method.returns)
+    };
+    let spelled = (
+        "Map<K, fn(A[], ()) -> B>".to_string(),
+        Some("Result<Map<K, V>, E>".to_string()),
+    );
+    for source in [
+        "port P {\n    method m(a: Map<K, fn(A[], ()) -> B>) -> Result<Map<K, V>, E>\n}\n",
+        "port P {\n    method m(a: Map< K ,fn( A[] , ( ) )->B >) -> Result<Map<K,V>,E>\n}\n",
+        "port P {\n    method m(a: Map<K,\n      fn(A[],\n ()) -> B\n  >) -> Result<\n Map<K, // the map\n V>, E\n>\n}\n",
+    ] {
+        assert_eq!(types(source), spelled, "{source}");
+    }
+}
+
+#[test]
+fn each_lexeme_of_a_method_type_keeps_where_it_is_written() {
+    let source = "port P {\n    method m(a: Map<K,\n      V>) -> R\n}\n";
+    let result = parse(source, "ports.spec");
+    assert!(result.errors.is_empty(), "errors: {:?}", result.errors);
+    let method = &result.entities[0].methods[0];
+    let at: Vec<_> = method.params[0]
+        .ty_lexemes
+        .iter()
+        .map(|s| (s.start_line, s.start_col, s.end_line, s.end_col))
+        .collect();
+    assert_eq!(
+        at,
+        [
+            (2, 17, 2, 20),
+            (2, 20, 2, 21),
+            (2, 21, 2, 22),
+            (2, 22, 2, 23),
+            (3, 7, 3, 8),
+            (3, 8, 3, 9)
+        ]
+    );
+    let returns: Vec<_> = method.returns_lexemes.iter().map(columns).collect();
+    assert_eq!(returns, [(3, 14, 15)]);
+}
+
+#[test]
 fn a_unions_members_keep_their_spans_and_how_they_were_written() {
     let field = "entity_kind EK \"Example\" {\n    kind Open | \"none\" | Closed[]\n}\n";
     let result = parse(field, "union.spec");

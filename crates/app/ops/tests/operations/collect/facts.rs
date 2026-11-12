@@ -9,7 +9,9 @@ use serde_json::{Value, json};
 use specforge_effects::SharedGit;
 use specforge_effects::testing::FakeGit;
 use specforge_ops::analysis::collect::{self, Mode, Outcome, Request};
-use specforge_ops::authoring::apply::apply_collected;
+use specforge_ops::authoring::apply::{Origin, apply_collected};
+use specforge_ops::authoring::rename;
+use specforge_ops::read::navigate::Navigator;
 use specforge_ops::testing::{ScriptedMachine, caller};
 use specforge_ops::view::ProjectView;
 use specforge_project::facts::Store;
@@ -23,7 +25,7 @@ use specforge_test_macros::test as specforge_test;
 use specforge_wasm::WasmCallResult;
 use specforge_wasm::testing::InProcessRuntime;
 
-const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
+pub(super) const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
 
 /// A project enabling the fixture, a truth to report on, and both collectors' reports.
 fn project() -> TestProject {
@@ -38,7 +40,7 @@ fn project() -> TestProject {
 }
 
 /// `node`'s facts: two tests of `a.test.js`, as the wire carries them.
-fn two_tests() -> Value {
+pub(super) fn two_tests() -> Value {
     json!([
         {"kind": "test", "id": "js:a.test.js#subtracts", "fields": {"file": "a.test.js", "status": "failed"}},
         {"kind": "test", "id": "js:a.test.js#adds", "title": "adds", "fields": {"file": "a.test.js", "status": "passed"}},
@@ -55,7 +57,7 @@ fn proving() -> WasmCallResult {
 }
 
 /// The empty answer of a collector that found nothing.
-fn nothing() -> WasmCallResult {
+pub(super) fn nothing() -> WasmCallResult {
     WasmCallResult::Ok(json!({"entity_results": []}).to_string().into_bytes())
 }
 
@@ -94,7 +96,7 @@ fn serving(facts: Value, unit: WasmCallResult) -> InProcessRuntime {
         .runtime()
 }
 
-fn ledger(project: &TestProject) -> String {
+pub(super) fn ledger(project: &TestProject) -> String {
     std::fs::read_to_string(project.root().join("specforge-harness")).unwrap_or_default()
 }
 
@@ -118,7 +120,7 @@ fn collect_stores_a_collectors_facts_under_the_head_commit_and_records_their_dig
 
     let bytes = std::fs::read(p.root().join(Store::path("node", SHA))).unwrap();
     let facts: Vec<Fact> = serde_json::from_value(two_tests()).unwrap();
-    let canonical = Store::new("node", NODE, SHA, facts).bytes();
+    let canonical = Store::new("node", NODE, SHA, facts, Default::default()).bytes();
     assert_eq!(
         String::from_utf8_lossy(&bytes),
         String::from_utf8_lossy(&canonical)
@@ -245,6 +247,42 @@ fn a_fact_of_a_kind_no_collector_writes_is_e116_and_nothing_is_stored() {
         outcome.diagnostics[0]
             .message
             .contains("of the kind 'truth'"),
+        "{:?}",
+        outcome.diagnostics
+    );
+    assert!(!p.root().join(".specforge/facts").exists());
+    assert_eq!(ledger(&p), "");
+    assert_eq!(outcome.runners[0].facts, 0);
+}
+
+#[specforge_test(
+    behavior = "dispatch_collector",
+    verify = "a fact of a kind its collector does not declare it answers is E116 and none of its facts is stored"
+)]
+fn a_fact_of_a_kind_its_collector_does_not_answer_is_e116() {
+    let p = project();
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
+
+    // `unit` answers no kind, so even a well-formed test fact of it is refused.
+    let outcome = collect(
+        &p,
+        &git,
+        serving(json!([]), collected_answer(two_tests())),
+        Some("unit"),
+    );
+
+    assert_eq!(codes(&outcome), ["E116"]);
+    assert!(
+        outcome.diagnostics[0]
+            .message
+            .contains("collector 'unit' (@t/node)"),
+        "{:?}",
+        outcome.diagnostics
+    );
+    assert!(
+        outcome.diagnostics[0]
+            .message
+            .contains("which the collector does not list in its answers"),
         "{:?}",
         outcome.diagnostics
     );
@@ -447,7 +485,7 @@ fn a_pass_is_sent_the_fact_stores_the_session_served() {
         .expect("the check pass ran");
     assert_eq!(
         call.input["fact_stores"],
-        json!([{"collector": "node", "key": SHA, "schemes": ["js"], "facts": 2}])
+        json!([{"collector": "node", "key": SHA, "held": {"js": ["test"]}, "facts": 2}])
     );
 }
 
@@ -512,7 +550,7 @@ fn a_pass_is_sent_each_unheld_reference() {
         t1["unheld"],
         json!([{"field": "proof", "id": "js:a.test.js#adds", "span": {
             "file": "truths.spec", "start_line": 2, "start_col": 11, "end_line": 2, "end_col": 28,
-        }}])
+        }, "kinds": ["test"]}])
     );
     assert!(
         call.input.get("fact_stores").is_none(),
@@ -618,4 +656,124 @@ fn checks_a_plain_collect_leaves_the_checks_collector_out() {
         None,
         &Mode::NoRun
     ));
+}
+
+#[specforge_test(
+    behavior = "dispatch_collector",
+    verify = "a fact's places are stored as project keys with the digest of each file they name"
+)]
+fn a_facts_places_are_keyed_and_their_files_digested_in_the_store() {
+    let p = project().file("src/a.test.js", "test('adds', () => {})\n");
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
+    // The places spell the file two ways: the key replaces each spelling.
+    let at = |file: &str, line: usize| json!({"file": file, "start_line": line, "start_col": 1, "end_line": line, "end_col": 10});
+    let facts = json!([
+        {"kind": "test", "id": "js:a.test.js#adds", "fields": {"covers": ["T1"]},
+         "at": [at("./src/a.test.js", 1)], "named_at": {"covers": {"T1": [at("src/../src/a.test.js", 1)]}}},
+    ]);
+
+    let outcome = collect(&p, &git, serving(facts, nothing()), Some("node"));
+
+    assert!(outcome.diagnostics.is_empty(), "{:?}", outcome.diagnostics);
+    let bytes = std::fs::read(p.root().join(Store::path("node", SHA))).unwrap();
+    let store: Store = serde_json::from_slice(&bytes).unwrap();
+    let digest = specforge_ops::revision::of_bytes(b"test('adds', () => {})\n");
+    assert_eq!(
+        store.sources,
+        [("src/a.test.js".to_string(), digest)].into()
+    );
+    let fact = &store.facts[0];
+    assert_eq!(fact.at[0].file, "src/a.test.js");
+    assert_eq!(fact.named_at["covers"]["T1"][0].file, "src/a.test.js");
+}
+
+#[specforge_test(
+    behavior = "dispatch_collector",
+    verify = "a fact placed outside the project root is E116 and none of its collector's facts is stored"
+)]
+fn a_fact_placed_outside_the_root_is_e116_and_nothing_is_stored() {
+    let p = project();
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
+    let at = |file: &str| json!([{"file": file, "start_line": 1, "start_col": 1, "end_line": 1, "end_col": 2}]);
+    let facts = json!([
+        {"kind": "test", "id": "js:a.test.js#adds", "at": at("../elsewhere.js")},
+        {"kind": "test", "id": "js:a.test.js#subtracts", "at": at("missing.js")},
+    ]);
+
+    let outcome = collect(&p, &git, serving(facts, nothing()), Some("node"));
+
+    assert_eq!(codes(&outcome), ["E116"]);
+    assert!(
+        outcome.diagnostics[0].message.ends_with(
+            "fact 'js:a.test.js#adds' is placed at '../elsewhere.js', which is no file under the project root \
+             (and 1 more)"
+        ),
+        "{}",
+        outcome.diagnostics[0].message
+    );
+    assert!(!p.root().join(Store::path("node", SHA)).exists());
+    assert_eq!(outcome.runners[0].facts, 0);
+}
+
+/// `node`'s fact `js:a.test.js#adds`, naming `name` in `covers` where `a.test.js` writes it: line 1, columns 11..13.
+fn naming(name: &str) -> Value {
+    json!([{"kind": "test", "id": "js:a.test.js#adds", "fields": {"file": "a.test.js", "covers": [name]},
+            "named_at": {"covers": {name: [
+                {"file": "a.test.js", "start_line": 1, "start_col": 11, "end_line": 1, "end_col": 13}]}}}])
+}
+
+#[specforge_test(
+    behavior = "build_in_memory_graph",
+    verify = "a fact store a rename marked stale is served through the ledger's moves with W197 until the next collect"
+)]
+fn the_next_collect_after_a_rename_replaces_the_stale_store_and_its_w197() {
+    let p = project();
+    std::fs::write(p.root().join("a.test.js"), "// covers T1\n").unwrap();
+    let git: SharedGit = Arc::new(FakeGit::repo(p.root(), SHA, Vec::new()));
+    collect(&p, &git, serving(naming("T1"), nothing()), Some("node"));
+    let compile = |answer: &str| {
+        p.compile_with(
+            Arc::new(serving(naming(answer), nothing())),
+            Some(Arc::clone(&git)),
+        )
+    };
+    let collected = compile("T1");
+    rename::run(
+        &Navigator::new(ProjectView::of(&collected)),
+        "T1",
+        "T2",
+        false,
+        &Origin::cli(true),
+        caller(),
+    )
+    .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(p.root().join("a.test.js")).unwrap(),
+        "// covers T2\n"
+    );
+    assert!(ledger(&p).contains("node stale:"), "{}", ledger(&p));
+    let stale = compile("T1");
+    assert!(
+        stale.diagnostics().iter().any(|d| d.code == "W197"),
+        "{:?}",
+        stale.diagnostics()
+    );
+
+    // The collector reads the source the rename rewrote.
+    collect(&p, &git, serving(naming("T2"), nothing()), Some("node"));
+
+    assert!(!ledger(&p).contains(" stale:"), "{}", ledger(&p));
+    let fresh = compile("T2");
+    assert!(
+        !fresh.diagnostics().iter().any(|d| d.code == "W197"),
+        "{:?}",
+        fresh.diagnostics()
+    );
+    let covered: Vec<&str> = fresh
+        .graph()
+        .edges_from("js:a.test.js#adds")
+        .iter()
+        .map(|e| e.target.as_str())
+        .collect();
+    assert_eq!(covered, ["T2"], "{:?}", fresh.diagnostics());
 }

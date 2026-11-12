@@ -150,7 +150,7 @@ fn a_failing_category_fails_the_load_naming_it() {
 
 fn dispatch(export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
     match export {
-        "scan__x" => Some(Ok(b"scanned".to_vec())),
+        "cmd__x" => Some(Ok(b"answered".to_vec())),
         "fails" => Some(Err("boom".to_string())),
         "panics" => panic!("guest panicked"),
         _ => None,
@@ -167,8 +167,8 @@ fn trap(result: WasmCallResult) -> WasmTrapInfo {
 #[test]
 fn the_in_process_runtime_maps_guest_failures_to_traps() {
     let runtime = InProcessRuntime::new().with_handler(reports, dispatch);
-    let ok = runtime.call_export("@acme/reports", "scan__x", b"");
-    assert!(matches!(ok, WasmCallResult::Ok(bytes) if bytes == b"scanned"));
+    let ok = runtime.call_export("@acme/reports", "cmd__x", b"");
+    assert!(matches!(ok, WasmCallResult::Ok(bytes) if bytes == b"answered"));
 
     let missing = trap(runtime.call_export("@acme/nope", "__handshake", b"{}"));
     assert_eq!(missing.kind, "extension_not_found");

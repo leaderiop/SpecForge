@@ -39,7 +39,7 @@ pub(crate) fn read(
     relative: &str,
     recorded: Option<&crate::harness::Ledger>,
 ) -> Read {
-    if facts::is_fact_store(relative) {
+    if specforge_common::facts::is_fact_store(relative) {
         return facts::read(disk, sources, relative, recorded);
     }
     match disk.read(&sources.path(relative)) {
@@ -83,6 +83,8 @@ pub(crate) struct SourceCache {
     trees: HashMap<String, tree_sitter::Tree>,
     /// E025 of each source that is there and could not be read, by path.
     unreadable: BTreeMap<String, Diagnostic>,
+    /// The digests each served fact store records of the source files its places name, by store key.
+    fact_sources: HashMap<String, Arc<BTreeMap<String, String>>>,
 }
 
 impl SourceCache {
@@ -91,6 +93,7 @@ impl SourceCache {
             texts: HashMap::new(),
             trees: HashMap::new(),
             unreadable: BTreeMap::new(),
+            fact_sources: HashMap::new(),
         }
     }
 
@@ -145,10 +148,11 @@ impl SourceCache {
     /// One cold-read source: parsed whole, or recorded unreadable.
     fn add(&mut self, key: String, read: Read, files: &mut Vec<SpecFile>, forms: &FieldForms) {
         match read {
-            Read::Text(text) if facts::is_fact_store(&key) => {
+            Read::Text(text) if specforge_common::facts::is_fact_store(&key) => {
                 match facts::served(&key, &text, forms) {
-                    Ok(file) => {
+                    Ok((file, sources)) => {
                         files.push(file);
+                        self.fact_sources.insert(key.clone(), Arc::new(sources));
                         self.texts.insert(key, Arc::from(text));
                     }
                     Err(w192) => {
@@ -174,11 +178,13 @@ impl SourceCache {
     pub fn change(&mut self, path: &str, read: Read, forms: &FieldForms) -> FileChange {
         match read {
             // A fact store is served, with no tree, or W192 when its text is no store.
-            Read::Text(text) if facts::is_fact_store(path) => {
+            Read::Text(text) if specforge_common::facts::is_fact_store(path) => {
                 match facts::served(path, &text, forms) {
-                    Ok(served) => {
+                    Ok((served, sources)) => {
                         self.unreadable.remove(path);
                         self.trees.remove(path);
+                        self.fact_sources
+                            .insert(path.to_string(), Arc::new(sources));
                         self.texts.insert(path.to_string(), Arc::from(text));
                         FileChange::Parsed(served)
                     }
@@ -274,6 +280,22 @@ impl SourceCache {
     fn forget(&mut self, path: &str) {
         self.trees.remove(path);
         self.texts.remove(path);
+        self.fact_sources.remove(path);
+    }
+
+    /// The digest each served fact store records of each source file its places name, by the file's key, then by the
+    /// store's path: two stores collected at different times each keep their own.
+    pub fn fact_sources(&self) -> BTreeMap<&str, BTreeMap<&str, &str>> {
+        let mut by_file: BTreeMap<&str, BTreeMap<&str, &str>> = BTreeMap::new();
+        for (store, sources) in &self.fact_sources {
+            for (file, digest) in sources.iter() {
+                by_file
+                    .entry(file.as_str())
+                    .or_default()
+                    .insert(store.as_str(), digest.as_str());
+            }
+        }
+        by_file
     }
 
     /// Parse `text` as `path`, reusing the retained tree.

@@ -1,6 +1,7 @@
 //! `@code/core`'s check passes over a project (ADR 0329 D5, D6): the builtin's component loads beside the in-process
 //! `Collected` fixture peering it (`@t/node` collects, `@t/spec`'s `truth` cites `test`), and `@t/owner` scopes a
-//! citing `step` by a `plan` complete on `status ∈ [complete]`.
+//! citing `step` by a `plan` complete on `status ∈ [complete]` and declares `api`, whose `items` cites `item` facts
+//! (ADR 0347 D9), and `change`, whose `items_changed` the harness writes once (a history reference, ADR 0352 D2).
 
 use std::sync::Arc;
 
@@ -27,7 +28,8 @@ fn adds(status: &str, names: &[&str]) -> Value {
     ])
 }
 
-/// `@t/owner`: a `plan` complete on `status ∈ [complete]`, and a `step` it scopes that cites tests in `proof`.
+/// `@t/owner`: a `plan` complete on `status ∈ [complete]`, a `step` it scopes that cites tests in `proof`, and an
+/// `api` that cites items in `items`.
 fn owner() -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(OWNER, "1.0.0"));
     c.peer(CODE_CORE, "^1.0");
@@ -46,7 +48,35 @@ fn owner() -> ContributionsBuilder {
                 f.field_type(FieldType::ReferenceList).target_kind("test");
             });
     });
+    c.kind("api", |k| {
+        k.field("items", |f| {
+            f.field_type(FieldType::ReferenceList).target_kind("item");
+        });
+    });
+    c.kind("change", |k| {
+        k.field("items_changed", |f| {
+            f.field_type(FieldType::ReferenceList)
+                .target_kind("item")
+                .harness()
+                .immutable();
+        });
+    });
     c
+}
+
+/// A source pack's store: the Rust items `ids`, each a function of `src/lib.rs`.
+fn items(ids: &[&str]) -> Value {
+    ids.iter()
+        .map(|id| {
+            json!({"kind": "item", "id": id,
+                   "fields": {"file": "src/lib.rs", "kind": ["function"], "visibility": "public"}})
+        })
+        .collect()
+}
+
+/// An api citing `cited` in `items`, its reference on line 2.
+fn api(cited: &str) -> String {
+    format!("api A1 \"One\" {{\n  items [\"{cited}\"]\n}}\n")
 }
 
 /// A project enabling `@code/core`, the fixture peering it and `@t/owner`, with `files`.
@@ -225,4 +255,152 @@ fn a_test_naming_a_missing_entity_is_code_i402() {
         "{:?}",
         compiled.diagnostics()
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "cc_check_fact_refs",
+    verify = "a test run's dangling test reference is code/E101 at the fact, addressed to its collector"
+)]
+fn a_test_runs_dangling_test_reference_is_code_e101_at_the_fact() {
+    let p = project(&[("truths.spec", &citing(ADDS))]);
+    let mut facts = adds("passed", &[]);
+    facts.as_array_mut().unwrap().push(json!({
+        "kind": "test_run", "id": "run:zz", "fields": {"test": "zz", "status": "passed"},
+        "at": [{"file": "test/a.test.js", "start_line": 7, "start_col": 1, "end_line": 7, "end_col": 20}],
+    }));
+    stored(p.root(), "node", KEY, facts);
+
+    let compiled = compiled(&p);
+
+    let codes: Vec<String> = compiled
+        .diagnostics()
+        .iter()
+        .map(|d| d.code.to_string())
+        .collect();
+    assert!(
+        !codes.iter().any(|c| c == "E022" || c == "E003"),
+        "{:?}",
+        compiled.diagnostics()
+    );
+    assert_eq!(
+        about(&compiled),
+        [(
+            "code/E101".to_string(),
+            "run:zz".to_string(),
+            "the fact 'run:zz' names 'zz', which no collected fact holds (its collector's facts disagree)"
+                .to_string()
+        )],
+        "{:?}",
+        compiled.diagnostics()
+    );
+    let finding = compiled
+        .diagnostics()
+        .into_iter()
+        .find(|d| d.code == "code/E101")
+        .unwrap();
+    let span = finding.span.as_ref().expect("placed at the fact");
+    assert_eq!((span.file.as_str(), span.start_line), ("test/a.test.js", 7));
+}
+
+#[specforge_test_macros::test(
+    behavior = "cc_check_fact_refs",
+    verify = "a rust test ref beside only item facts is code/W102"
+)]
+fn a_rust_test_ref_beside_only_item_facts_is_code_w102() {
+    let p = project(&[("truths.spec", &citing("rust:toy#tests::adds"))]);
+    stored(
+        p.root(),
+        "rust-source",
+        KEY,
+        items(&["rust:toy::tests::adds"]),
+    );
+
+    let compiled = compiled(&p);
+
+    assert_eq!(
+        about(&compiled),
+        [(
+            "code/W102".to_string(),
+            "T1".to_string(),
+            "`proof` names `rust:toy#tests::adds`, but no `rust` `test` facts were collected: run \
+             `specforge collect` with `@rust/test`"
+                .to_string()
+        )],
+        "{:?}",
+        compiled.diagnostics()
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "cc_check_fact_refs",
+    verify = "a missing item of a collected crate is code/E101"
+)]
+fn a_missing_item_of_a_collected_crate_is_code_e101() {
+    let p = project(&[("apis.spec", &api("rust:toy::Board::ad"))]);
+    stored(
+        p.root(),
+        "rust-source",
+        KEY,
+        items(&["rust:toy::Board::add"]),
+    );
+
+    let compiled = compiled(&p);
+
+    assert_eq!(
+        found(&compiled),
+        [("code/E101".to_string(), 2, None)],
+        "{:?}",
+        compiled.diagnostics()
+    );
+    assert_eq!(
+        about(&compiled)[0].2,
+        "`items` names `rust:toy::Board::ad`, which no collected `rust` `item` fact holds"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "cc_check_fact_refs",
+    verify = "an item ref links to its fact"
+)]
+fn an_item_ref_links_to_its_fact() {
+    let p = project(&[("apis.spec", &api("rust:toy::Board::add"))]);
+    stored(
+        p.root(),
+        "rust-source",
+        KEY,
+        items(&["rust:toy::Board::add"]),
+    );
+
+    let compiled = compiled(&p);
+
+    assert_eq!(found(&compiled), [], "{:?}", compiled.diagnostics());
+    assert!(
+        compiled
+            .graph()
+            .edges_from("A1")
+            .iter()
+            .any(|e| e.target.as_str() == "rust:toy::Board::add"),
+        "A1 links the item"
+    );
+}
+
+/// An item the harness recorded once and the code has since renamed is history: what held when it was written, never
+/// a finding, where an authored reference to it is `code/E101`.
+#[specforge_test_macros::test(
+    behavior = "cc_check_fact_refs",
+    verify = "an unheld history reference is no finding"
+)]
+fn a_harness_immutable_reference_is_no_finding() {
+    let change = "change C1 \"One\" {\n  items_changed [\"rust:toy::Board::ad\"]\n}\n";
+    let p = project(&[("changes.spec", change)]);
+    stored(
+        p.root(),
+        "rust-source",
+        KEY,
+        items(&["rust:toy::Board::add"]),
+    );
+
+    let compiled = compiled(&p);
+
+    assert_eq!(found(&compiled), [], "{:?}", compiled.diagnostics());
 }

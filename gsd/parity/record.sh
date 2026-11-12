@@ -86,7 +86,8 @@ record gap-analysis-plan-post-1 query check.gap-analysis-plan-post .planning/pha
 record gap-analysis-plan-post-2 query check.gap-analysis-plan-post .planning/phases/02-persistence STORE-01,STORE-02
 record audit-uat audit-uat
 # The recorded tests: what `npm test` writes (node's JUnit reporter), with the machine's paths and timings out, so a
-# second run changes nothing. `gsd-junit` links its tests to the twin's deliverables by name and project-relative file.
+# second run changes nothing. `@javascript/node-test` reads it as the twin's test facts, which its deliverables' checks
+# name by project-relative file and test name.
 (cd "$work" && npm test >/dev/null)
 real=$(cd "$work" && pwd -P)
 sed -e "s|file=\"$real/|file=\"|g" -e 's/time="[^"]*"/time="0"/g' -e '/<!-- duration_ms /d' -e 's/ hostname="[^"]*"//g' "$work/junit.xml" >"$staged/junit.xml"

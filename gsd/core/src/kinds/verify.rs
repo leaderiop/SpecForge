@@ -26,7 +26,7 @@ const ANTI_PATTERNS: &[Field] = &[
     str("text"),
     en("severity", SEVERITY),
 ];
-const GAP_ARTIFACTS: &[Field] = &[str("path"), str("issue")];
+const GAP_ARTIFACTS: &[Field] = &[path("path", Mode::Present), str("issue")];
 
 /// `NN-VERIFICATION.md`, named `01-VERIFICATION` and scoped by its phase.
 pub const VERIFICATION: Kind = Kind::new(
@@ -42,7 +42,7 @@ pub const VERIFICATION: Kind = Kind::new(
         ts("verified")
             .c()
             .doc("`verified:`; the latest verdict's time"),
-        files("covered_files")
+        paths("covered_files", Mode::Present)
             .c()
             .doc("the files the phase's verdicts name"),
         str("covered_digest")

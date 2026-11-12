@@ -3,7 +3,8 @@
 
 use serde_json::json;
 
-use crate::harness::{Project, project};
+use crate::harness::{Project, project, project_at};
+use specforge_extension_sdk::prelude::TestStatus;
 
 const SUMMARY: &str = "v1.0/01/01-01/01-01-SUMMARY";
 pub(super) const T0: &str = "2026-10-29T09:00:00Z";
@@ -87,7 +88,7 @@ fn w403_needs_a_red_commit_first_and_tdd_mode_on() {
     // A warning cannot make the host refuse the collector's write: the GREEN commit is recorded.
     let run = p.collect(&["--runner", "gsd-git"]);
     assert_eq!(run.code, 0, "{}", run.all());
-    junit(&p, &[("adds a task", true)]);
+    collect_tests(&p, &[("adds a task", true)]);
     let found = report(&p);
     assert_eq!(codes(&p), ["gsd/W403"], "{found:?}");
     assert!(
@@ -107,9 +108,18 @@ fn a_green_without_red_does_not_stop_the_other_commits() {
     let p = repository();
     tdd(&p);
     p.settings(json!({ "workflow.tdd_mode": true }));
-    let first = p.git_commit("feat(01-02): Complete a task", &[("src/c.js", "c\n")], T0);
+    // Each commit writes its plan's file: a task a commit names is done, and its files are checked (ADR 0350).
+    let first = p.git_commit(
+        "feat(01-02): Complete a task",
+        &[("src/complete.js", "c\n")],
+        T0,
+    );
     let green = p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T1);
-    let last = p.git_commit("feat(02-01): Write the file", &[("src/w.js", "w\n")], T1);
+    let last = p.git_commit(
+        "feat(02-01): Write the file",
+        &[("src/store.js", "w\n")],
+        T1,
+    );
     let run = p.collect(&["--runner", "gsd-git"]);
     assert_eq!(run.code, 0, "{}", run.all());
     let mut all = [&first[..12], &green[..12], &last[..12]];
@@ -122,7 +132,7 @@ fn a_green_without_red_does_not_stop_the_other_commits() {
             .collect::<std::collections::BTreeSet<_>>(),
         all.iter().map(|h| h.to_string()).collect()
     );
-    junit(&p, &[("adds a task", true)]);
+    collect_tests(&p, &[("adds a task", true)]);
     assert_eq!(codes(&p), ["gsd/W403"], "{:?}", report(&p));
 }
 
@@ -138,7 +148,7 @@ fn a_plan_only_commit_for_a_sibling_task_is_not_a_green() {
         T0,
     );
     assert_eq!(p.collect(&["--runner", "gsd-git"]).code, 0);
-    junit(&p, &[("adds a task", true)]);
+    collect_tests(&p, &[("adds a task", true)]);
     assert_eq!(codes(&p), Vec::<String>::new(), "{:?}", report(&p));
 }
 
@@ -155,7 +165,7 @@ fn e403_is_clean_with_a_test_commit_first() {
     p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T1);
     let run = p.collect(&["--runner", "gsd-git"]);
     assert_eq!(run.code, 0, "{}", run.all());
-    junit(&p, &[("adds a task", true)]);
+    collect_tests(&p, &[("adds a task", true)]);
     assert_eq!(codes(&p), Vec::<String>::new());
 }
 
@@ -187,7 +197,7 @@ fn w403_follows_commit_ancestry_through_a_merge() {
     let run = p.collect(&["--runner", "gsd-git"]);
     assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(p.nodes_of("commit").len(), 2, "the merge is not recorded");
-    junit(&p, &[("adds a task", true)]);
+    collect_tests(&p, &[("adds a task", true)]);
     assert_eq!(codes(&p), Vec::<String>::new(), "{:?}", report(&p));
 
     // A RED on a branch never merged, made before GREEN: the clock is not evidence.
@@ -214,13 +224,15 @@ fn w403_follows_commit_ancestry_through_a_merge() {
         T1,
     );
     assert_eq!(p.collect(&["--runner", "gsd-git"]).code, 0);
-    junit(&p, &[("adds a task", true)]);
+    collect_tests(&p, &[("adds a task", true)]);
     let found = report(&p);
     assert_eq!(codes(&p), ["gsd/W403"], "{found:?}");
     assert!(found[0].1.contains("green_before_red"), "{found:?}");
 }
 
 pub(super) fn touch_schema(p: &Project) {
+    // The complete plan's planned file is there (E016 otherwise, ADR 0350).
+    p.write("prisma/schema.prisma", "// the schema\n");
     p.edit(
         "spec/plans.spec",
         FILES,
@@ -278,14 +290,18 @@ fn e405_is_clean_with_push_evidence_with_the_gate_off_and_before_execution() {
         "files_modified [\"src/store.js\"]",
         "files_modified [\"src/store.js\", \"prisma/schema.prisma\"]",
     );
+    // The commit writes the task's file too: the task it names is done, and its files are checked (ADR 0350).
     p.git_commit(
         "feat(02-01): Write the file",
-        &[("prisma/schema.prisma", "model A {}\n")],
+        &[
+            ("prisma/schema.prisma", "model A {}\n"),
+            ("src/store.js", "w\n"),
+        ],
         T0,
     );
     let run = p.collect(&["--runner", "gsd-git"]);
     assert_eq!(run.code, 0, "{}", run.all());
-    junit(&p, &[("adds a task", true)]);
+    collect_tests(&p, &[("adds a task", true)]);
     assert_eq!(codes(&p), Vec::<String>::new(), "{:?}", report(&p));
 }
 
@@ -341,7 +357,7 @@ fn task_without_commit_is_w407_only_when_task_commits_is_on() {
     );
     let run = p.collect(&["--runner", "gsd-git"]);
     assert_eq!(run.code, 0, "{}", run.all());
-    junit(&p, &[("adds a task", true)]);
+    collect_tests(&p, &[("adds a task", true)]);
     p.settings(commit_gate(true));
     assert_eq!(codes(&p), Vec::<String>::new());
 }
@@ -355,35 +371,134 @@ fn w407_is_on_under_gsd_strict() {
     assert_eq!(codes(&p), Vec::<String>::new());
 }
 
+#[test]
+fn a_title_linked_commit_is_e521_only_when_task_trailers_is_on() {
+    let p = repository();
+    let titled = p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
+    // A plan's metadata commit names no task by design.
+    p.git_commit("docs(01-01): complete the task store plan", &[], T1);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    collect_tests(&p, &[("adds a task", true)]);
+    assert_eq!(codes(&p), Vec::<String>::new(), "off by default");
+    p.settings(json!({ "specforge.task_trailers": true }));
+    let found = report(&p);
+    assert_eq!(codes(&p), ["gsd/E521"], "{found:?}");
+    assert!(
+        found[0].1.contains(&titled[..12]) && found[0].1.contains("by its subject's title"),
+        "{found:?}"
+    );
+    // The trailer links it.
+    let p = repository();
+    p.git_commit(
+        "feat(01-01): Store module\n\nGsd-Task: 01-01/T1\n",
+        &[("src/tasks.js", "a\n")],
+        T0,
+    );
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    collect_tests(&p, &[("adds a task", true)]);
+    p.settings(json!({ "specforge.task_trailers": true }));
+    assert_eq!(codes(&p), Vec::<String>::new(), "{:?}", report(&p));
+}
+
+#[test]
+fn an_untouched_path_is_w520_only_when_plan_paths_touched_is_on() {
+    let p = repository();
+    p.edit(
+        "spec/plans.spec",
+        "  requirements   [TASK-01]\n  decisions      [D-01]",
+        "  files_deleted  [\"src/old.js\"]\n  requirements   [TASK-01]\n  decisions      [D-01]",
+    );
+    p.write("src/old.js", "old\n");
+    p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    collect_tests(&p, &[("adds a task", true)]);
+    assert_eq!(codes(&p), Vec::<String>::new(), "off by default");
+    p.settings(json!({ "specforge.plan_paths_touched": true }));
+    let found = report(&p);
+    assert_eq!(codes(&p), ["gsd/W520", "gsd/W520"], "{found:?}");
+    assert!(
+        found
+            .iter()
+            .any(|(_, m)| m.ends_with("none of its commits touched: test/tasks.test.js")),
+        "{found:?}"
+    );
+    assert!(
+        found
+            .iter()
+            .any(|(_, m)| m.ends_with("files it deletes are still present: src/old.js")),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn w520_is_on_under_gsd_strict() {
+    let p = repository();
+    p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    collect_tests(&p, &[("adds a task", true)]);
+    p.settings(json!({ "profile": "gsd-strict" }));
+    let found = report(&p);
+    assert!(found.iter().any(|(c, _)| c == "gsd/W520"), "{found:?}");
+    p.settings(json!({ "profile": "gsd-compat" }));
+    assert!(!codes(&p).contains(&"gsd/W520".to_string()));
+}
+
+/// The path base of W520: in a project under `sub/` of its repository the git collector records a commit's paths
+/// project-relative (`src/tasks.js`), as the plan names them, so W520 names only the path no commit touched.
+#[test]
+fn w520_reads_a_subdirectory_projects_commit_paths_project_relative() {
+    let p = project_at("execute", "sub");
+    p.git(&["-C", "..", "init", "-q", "-b", "main"], T0);
+    p.git(&["add", "-A"], T0);
+    p.git(&["commit", "-q", "-m", "baseline"], T0);
+    p.write("src/tasks.js", "a\n");
+    p.git(&["add", "--", "src/tasks.js"], T1);
+    p.git(&["commit", "-q", "-m", "feat(01-01): Store module"], T1);
+    let head = p.git(&["rev-parse", "HEAD"], T1);
+    let run = p.collect(&["--runner", "gsd-git"]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let fields = p.fields_of(&head.trim()[..12]);
+    assert_eq!(fields["files"], json!(["src/tasks.js"]), "{fields}");
+    collect_tests(&p, &[("adds a task", true)]);
+    p.settings(json!({ "specforge.plan_paths_touched": true }));
+    let found = report(&p);
+    assert_eq!(codes(&p), ["gsd/W520"], "{found:?}");
+    assert!(
+        found[0]
+            .1
+            .ends_with("none of its commits touched: test/tasks.test.js"),
+        "{found:?}"
+    );
+}
+
 const CHECKS: &str = "{ kind unit ref \"test/tasks.test.js#adds a task\" }";
 
-/// A JUnit report whose tests are named by `names`, each linked to the deliverable by the file it ran in.
-pub(super) fn junit(p: &Project, cases: &[(&str, bool)]) {
-    let file = format!(
-        "{}/test/tasks.test.js",
-        p.root().canonicalize().expect("root").display()
-    );
-    let body: String = cases
+/// Collects the tests `cases` (`(name, passed)`) of `test/tasks.test.js` as test facts: the deliverable's check names
+/// one by its file and name, and a `[gsd:<id>]` tag in a name links the test to that entity.
+pub(super) fn collect_tests(p: &Project, cases: &[(&str, bool)]) {
+    let cases: Vec<(&str, &str, TestStatus)> = cases
         .iter()
         .map(|(name, ok)| {
-            let inner = if *ok { "" } else { "<failure/>" };
-            format!(
-                "<testcase name=\"{name}\" classname=\"test\" file=\"{file}\">{inner}</testcase>\n"
-            )
+            let status = if *ok {
+                TestStatus::Passed
+            } else {
+                TestStatus::Failed
+            };
+            ("test/tasks.test.js", *name, status)
         })
         .collect();
-    p.write(
-        "junit.xml",
-        &format!("<?xml version=\"1.0\"?>\n<testsuites>\n<testsuite name=\"s\">\n{body}</testsuite>\n</testsuites>\n"),
-    );
-    let run = p.collect(&["--runner", "gsd-junit", "--no-run"]);
+    let run = p.node_tests(&cases);
     assert_eq!(run.code, 0, "{}", run.all());
 }
 
 #[test]
 fn a_failing_check_is_w408() {
     let p = project("execute");
-    junit(&p, &[("adds a task", false)]);
+    collect_tests(&p, &[("adds a task", false)]);
     let found = report(&p);
     assert_eq!(codes(&p), ["gsd/W408"], "{found:?}");
     assert!(
@@ -393,7 +508,7 @@ fn a_failing_check_is_w408() {
         "{found:?}"
     );
     // A check that passes is clean.
-    junit(&p, &[("adds a task", true)]);
+    collect_tests(&p, &[("adds a task", true)]);
     assert_eq!(codes(&p), Vec::<String>::new());
 }
 
@@ -402,7 +517,7 @@ fn an_unknown_check_is_w408() {
     let p = project("execute");
     // The report has a test for the deliverable, but not the one the second check names.
     p.edit("spec/plans.spec", CHECKS, "{ kind unit ref \"test/tasks.test.js#adds a task\" }\n    { kind unit ref \"test/tasks.test.js#lists tasks\" }");
-    junit(&p, &[("lists tasks", true)]);
+    collect_tests(&p, &[("lists tasks", true)]);
     let found = report(&p);
     assert_eq!(codes(&p), ["gsd/W408"], "{found:?}");
     assert!(
@@ -487,7 +602,7 @@ fn e515_refuses_close_milestone_under_plus_until_the_requirement_traces() {
     p.git_commit("feat(01-01): Store module", &[("src/tasks.js", "a\n")], T0);
     let run = p.collect(&["--runner", "gsd-git"]);
     assert_eq!(run.code, 0, "{}", run.all());
-    junit(&p, &[("[gsd:v1.0/01/01-01/T1] adds a task", true)]);
+    collect_tests(&p, &[("[gsd:v1.0/01/01-01/T1] adds a task", true)]);
     let after = close(&p);
     assert!(!after.contains("gsd/E515"), "{after}");
 }

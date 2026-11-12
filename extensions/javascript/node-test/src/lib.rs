@@ -6,20 +6,22 @@
 //! `.specforge/reports/node-test.xml`, the report this pack reads. Node needs 20.10 or later for the JUnit reporter.
 //!
 //! Each test is named `js:<package>/<file>#<suite > … > name>` (ADR 0329 D2): `<package>` is the `name` of the
-//! nearest `package.json` at or above the test's file, read through the collector's `reads` (a guest has no file
-//! system, ADR 0293), and `<file>` is the path under that package's directory. The answer is facts only, a `test` and
-//! a `test_run` per test, minted by `specforge-code-junit` so every runner pack names a test alike: an entity cites a
-//! test by its id, and `@code/core` checks the reference.
+//! nearest `package.json` at or above the test's file (`<name>@<dir>` for a second package of that name;
+//! `specforge-javascript-workspace`, which `@javascript/source` names its items by too), and `<file>` is the path
+//! under that package's directory. The answer is facts only, a
+//! `test` and a `test_run` per test, read by `specforge-code-junit` and minted by `specforge-code-facts` so every
+//! runner pack names a test alike: an entity cites a test by its id, and `@code/core` checks the reference. A test
+//! fact's `file` is the project-relative path (ADR 0347 D8).
 
-use specforge_code_junit::{cases, facts, relative, Case, TestId};
+use specforge_code_facts::{test_facts, TestCase, TestId};
+use specforge_code_junit::{cases, relative, Case};
 use specforge_extension_sdk::prelude::*;
+use specforge_javascript_workspace::{packages_input, Workspace};
 
 const COLLECTOR: &str = "node-test";
 /// The JUnit report node writes, relative to the project root: a file, since a report directory is read for its
 /// `*.json` only.
 const REPORT: &str = ".specforge/reports/node-test.xml";
-/// The read holding every `package.json` with its text.
-const PACKAGES: &str = "packages";
 
 #[specforge_extension_sdk::extension(
     name = "@javascript/node-test",
@@ -44,63 +46,18 @@ impl Contributions for NodeTest {
                     "--test-reporter-destination={report}",
                 ])
                 .report(REPORT)
-                .input(Input::files(
-                    PACKAGES,
-                    FileReadSpec::glob("**/package.json").text(),
-                ))
+                .answers(&["test", "test_run"])
+                .input(packages_input())
                 .collect(collect);
         });
     }
 }
 
-/// A package of the project: the directory of a read `package.json` (`""` at the root) and the `name` it gives.
-struct Package {
-    dir: String,
-    name: String,
-}
-
-impl Package {
-    /// The path of the project-relative `file` under this package's directory, when the file is in it.
-    fn holds<'f>(&self, file: &'f str) -> Option<&'f str> {
-        if self.dir.is_empty() {
-            Some(file)
-        } else {
-            file.strip_prefix(self.dir.as_str())?.strip_prefix('/')
-        }
-    }
-}
-
-/// The packages the host read for `input`: each `package.json` with a string `name`. A file that could not be read,
-/// or whose text is not JSON naming the package, is no package.
-fn packages(input: &CollectInput) -> Vec<Package> {
-    input
-        .files
-        .get(PACKAGES)
-        .into_iter()
-        .flat_map(|read| &read.facts)
-        .filter(|file| file.error.is_none())
-        .filter_map(|file| {
-            let json: serde_json::Value = serde_json::from_str(file.text.as_deref()?).ok()?;
-            let name = json.get("name")?.as_str()?.to_string();
-            let dir = file
-                .path
-                .strip_suffix("package.json")?
-                .trim_end_matches('/');
-            Some(Package {
-                dir: dir.to_string(),
-                name,
-            })
-        })
-        .collect()
-}
-
-/// The id of `case`, whose project-relative file is `file`: named after the nearest of `packages` at or above it.
-fn id(packages: &[Package], file: &str, case: &Case) -> Result<TestId, String> {
-    packages
-        .iter()
-        .filter_map(|package| Some((package, package.holds(file)?)))
-        .max_by_key(|(package, _)| package.dir.len())
-        .map(|(package, under)| TestId::js(&package.name, under, case))
+/// The id of `case`, whose project-relative file is `file`: named after the package of `workspace` that owns it.
+fn id(workspace: &Workspace, file: &str, case: &Case) -> Result<TestId, String> {
+    workspace
+        .owner(file)
+        .map(|(package, under)| TestId::js(&package.segment(), under, &case.path()))
         .ok_or_else(|| {
             format!(
                 "{file}: no package.json with a name at or above it; node-test names a test \
@@ -123,7 +80,7 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
     let cwd = input.cwd.as_deref().ok_or(
         "the host sent no cwd: node writes absolute test files, read against the project root",
     )?;
-    let packages = packages(input);
+    let workspace = Workspace::of(input);
     let named = found
         .into_iter()
         .map(|case| {
@@ -135,11 +92,15 @@ fn collect(input: &CollectInput) -> Result<CollectOutput, String> {
             })?;
             let file = relative(written, cwd)
                 .ok_or_else(|| format!("{written}: the test file is outside the project {cwd}"))?;
-            Ok((id(&packages, &file, &case)?, case))
+            Ok(TestCase::of(
+                id(&workspace, &file, &case)?,
+                &case,
+                Some(file),
+            ))
         })
         .collect::<Result<Vec<_>, String>>()?;
     Ok(CollectOutput {
-        facts: facts(named),
+        facts: test_facts(named),
         ..CollectOutput::default()
     })
 }

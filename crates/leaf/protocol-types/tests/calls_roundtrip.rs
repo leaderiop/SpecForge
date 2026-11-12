@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 use specforge_protocol_types::{
     CollectInput, CommandError, CommandFormat, CommandInput, CommandOutput, GraphWire,
     McpResourceContent, McpResourceRequest, MigrationInput, PassAnswer, PassDiagnostic, PassInput,
-    PassOutput, PassSeverity, ScanRequest, TestStatus, ValidatorContext,
+    PassOutput, PassSeverity, TestStatus, ValidatorContext,
 };
 
 fn wire(name: &str) -> Value {
@@ -90,7 +90,6 @@ fn the_host_payloads_decode_as_their_protocol_types() {
     for context in &contexts {
         round_trips::<ValidatorContext>(context);
     }
-    round_trips::<ScanRequest>(&wire("scan.input.json"));
     round_trips::<MigrationInput>(&wire("migrate.input.json"));
 }
 
@@ -343,4 +342,157 @@ fn a_pass_entity_carries_pending_and_its_unheld_spans_and_omits_them_when_absent
         plain.get("pending").is_none() && plain.get("unheld").is_none(),
         "{plain}"
     );
+}
+
+/// A fact store's kinds by scheme and an unheld reference's collected kinds (ADR 0347 D9), each omitted when empty.
+#[test]
+fn a_fact_store_carries_its_held_kinds_and_an_unheld_reference_its_kinds() {
+    use specforge_protocol_types::{FactStore, UnheldReference};
+
+    let store: FactStore = round_trips(&json!({
+        "collector": "rust-source", "key": "abc", "held": {"rust": ["item"], "pkg": ["package"]}, "facts": 3
+    }));
+    assert_eq!(store.held["rust"], ["item"]);
+    let unheld: UnheldReference = round_trips(&json!({
+        "field": "proof", "id": "rust:toy#tests::adds", "kinds": ["test"]
+    }));
+    assert_eq!(unheld.kinds, ["test"]);
+
+    let store = serde_json::to_value(FactStore::default()).unwrap();
+    let unheld = serde_json::to_value(UnheldReference::default()).unwrap();
+    assert!(
+        store.get("held").is_none()
+            && store.get("schemes").is_none()
+            && unheld.get("kinds").is_none(),
+        "{store} {unheld}"
+    );
+}
+
+/// The syntax wire (ADR 0345 D1): a request's two variants and an answer's two outcomes, with what is absent left out.
+#[test]
+fn a_syntax_request_and_answer_round_trip() {
+    use specforge_protocol_types::{
+        NotParsed, SyntaxAnswer, SyntaxFiles, SyntaxOutcome, SyntaxRequest, SyntaxRole,
+        SyntaxSource,
+    };
+
+    let request: SyntaxRequest = round_trips(&json!({
+        "source": {"at": "worktree", "root": "project"},
+        "files": {"glob": "src/**/*.rs"},
+        "language": "rust",
+        "query": "(function_item name: (identifier) @name) @definition.function"
+    }));
+    assert_eq!(
+        request.source,
+        SyntaxSource::Worktree {
+            root: "project".into()
+        }
+    );
+    assert_eq!(request.files, SyntaxFiles::Glob("src/**/*.rs".into()));
+    let at_a_commit: SyntaxRequest = round_trips(&json!({
+        "source": {"at": "revision", "commit": "abc123"},
+        "files": {"paths": ["src/lib.rs"]},
+        "language": "tsx",
+        "query": "(x) @definition.x"
+    }));
+    assert_eq!(
+        at_a_commit.files,
+        SyntaxFiles::Paths(vec!["src/lib.rs".into()])
+    );
+
+    let point = |byte, line, col| json!({"byte": byte, "line": line, "col": col, "byte_col": col});
+    let span = json!({"start": point(0, 1, 1), "end": point(9, 1, 10)});
+    let answer: SyntaxAnswer = round_trips(&json!({
+        "files": [
+            {"path": "src/lib.rs", "digest": "sha256:00", "outcome": "parsed", "errors": 1,
+             "matches": [
+                 {"role": "definition", "kind": "function", "span": span, "captures": [
+                     {"name": "name", "text": "first", "span": span},
+                     {"name": "doc", "text": "long", "cut": true, "span": span}]},
+                 {"role": "reference", "kind": "call", "span": span, "parent": 0, "captures": []}]},
+            {"path": "src/gone.rs", "outcome": "not_parsed", "reason": "missing"}
+        ],
+        "truncated": true,
+        "parsed": 1,
+        "cached": 0
+    }));
+    let SyntaxOutcome::Parsed { matches, errors } = &answer.files[0].outcome else {
+        panic!("{answer:?}");
+    };
+    assert_eq!((matches.len(), *errors), (2, 1));
+    assert_eq!(matches[1].role, SyntaxRole::Reference);
+    assert_eq!(matches[1].parent, Some(0));
+    assert!(matches[0].captures[1].cut);
+    assert_eq!(
+        answer.files[1].outcome,
+        SyntaxOutcome::NotParsed {
+            reason: NotParsed::Missing
+        }
+    );
+    let quiet = serde_json::to_value(SyntaxAnswer::default()).unwrap();
+    assert!(quiet.get("truncated").is_none(), "{quiet}");
+}
+
+#[specforge_test_macros::test(type = "Fact", verify = "Fact schema is valid")]
+fn a_fact_carries_its_places_and_named_places_and_omits_them_when_absent() {
+    use specforge_protocol_types::{Fact, FactLocation};
+
+    let place = |line| FactLocation {
+        file: "src/lib.rs".into(),
+        start_line: line,
+        start_col: 5,
+        end_line: line,
+        end_col: 9,
+    };
+    let wire = json!({
+        "kind": "item", "id": "rust:a::adds", "fields": {"names": ["TR1"]},
+        "at": [{"file": "src/lib.rs", "start_line": 12, "start_col": 5, "end_line": 12, "end_col": 9},
+               {"file": "src/lib.rs", "start_line": 20, "start_col": 5, "end_line": 20, "end_col": 9}],
+        "named_at": {"names": {"TR1": [{"file": "src/lib.rs", "start_line": 11, "start_col": 5,
+                                        "end_line": 11, "end_col": 9}]}}
+    });
+    let fact: Fact = round_trips(&wire);
+    assert_eq!(
+        fact,
+        Fact::new("item", "rust:a::adds")
+            .at(place(12))
+            .at(place(20))
+            .name("names", "TR1", place(11))
+    );
+
+    let plain = serde_json::to_value(Fact::new("test", "js:a#b")).unwrap();
+    assert!(
+        plain.get("at").is_none() && plain.get("named_at").is_none(),
+        "{plain}"
+    );
+}
+
+#[specforge_test_macros::test(type = "PassEntity", verify = "PassEntity schema is valid")]
+fn a_pass_entity_carries_its_dangling_references_and_omits_them_when_absent() {
+    use specforge_protocol_types::{DanglingReason, PassEntity};
+
+    let wire = json!({
+        "id": "run:js:a#b", "kind": "test_run", "fields": {}, "incoming_edge_count": 0, "outgoing_edge_count": 0,
+        "testable": false, "owes_none": false, "verify_kinds": [], "verify_texts": [],
+        "dangling": [
+            {"field": "test", "id": "add_one", "reason": "mistyped", "actual": "behavior",
+             "span": {"file": "src/a.rs", "start_line": 3, "start_col": 10, "end_line": 3, "end_col": 17}},
+            {"field": "names", "id": "TR", "reason": "ambiguous", "candidates": ["v1/TR", "v2/TR"]},
+            {"field": "names", "id": "gone", "reason": "unresolved", "did_you_mean": "done"}
+        ]
+    });
+    let entity: PassEntity = round_trips(&wire);
+    let reasons: Vec<DanglingReason> = entity.dangling.iter().map(|d| d.reason).collect();
+    assert_eq!(
+        reasons,
+        [
+            DanglingReason::Mistyped,
+            DanglingReason::Ambiguous,
+            DanglingReason::Unresolved
+        ]
+    );
+    assert_eq!(entity.dangling[0].actual.as_deref(), Some("behavior"));
+
+    let plain = serde_json::to_value(PassEntity::default()).unwrap();
+    assert!(plain.get("dangling").is_none(), "{plain}");
 }

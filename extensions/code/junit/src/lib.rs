@@ -1,25 +1,19 @@
-//! `specforge-code-junit`: the JUnit reader every runner pack links (ADR 0329 D7), and the one function that mints
-//! `@code/core`'s test facts from it.
+//! `specforge-code-junit`: the JUnit reader every runner pack links (ADR 0329 D7).
 //!
 //! An extension library (ADR 0328 D3): an rlib a builtin links, never a component of its own. The wire has no
 //! guest-to-guest call, so `@javascript/node-test` (and the vitest and `@rust/test` packs after it) read their report
-//! here, name each test with [`TestId`] and answer [`facts`], and so mint identical ids.
+//! here; `specforge-code-facts` names each test and mints its facts (ADR 0347 D1).
 //!
-//! - [`cases`] reads a report's `<testcase>`s, each with the `<testsuite>`s around it.
+//! - [`cases`] reads a report's `<testcase>`s, each with the `<testsuite>`s around it and the [`names`] its name
+//!   tags.
+//! - [`names`] reads the `[<ns>:<id>]` tags in a test's name: the entities the test says it proves.
 //! - [`relative`] makes a report's absolute file path project-relative, whatever spelling the host's root has.
-//! - [`TestId`] names a test `js:<package>/<file>#<s1 > … > name>` (ADR 0329 D2).
-//! - [`facts`] mints a `test` and a `test_run` fact per id from the same case, so their statuses agree.
-//!
-//! gsd-junit keeps its own copy of the reader: gsd may not depend outside `gsd/` (R-9).
 
 #[cfg(test)]
 mod tests;
 mod xml;
 
-use std::collections::BTreeMap;
-use std::fmt;
-
-use specforge_extension_sdk::prelude::{Fact, TestStatus};
+use specforge_extension_sdk::prelude::TestStatus;
 
 use xml::{events, Event};
 
@@ -30,12 +24,20 @@ pub struct Case {
     pub suites: Vec<String>,
     pub name: String,
     pub classname: String,
-    /// The `file` attribute as the report wrote it; a pack makes it project-relative with [`relative`] for its
-    /// [`TestId`].
+    /// The `file` attribute as the report wrote it; a pack makes it project-relative with [`relative`].
     pub file: Option<String>,
     pub seconds: Option<f64>,
     /// `<failure>` or `<error>`: failed; `<skipped>` (a `todo` too): skipped; neither: passed.
     pub status: TestStatus,
+    /// The ids its name tags, [`names`] of `name`.
+    pub names: Vec<String>,
+}
+
+impl Case {
+    /// Its test path: the suites it is nested in, outermost first, then its name. What a runner pack names it by.
+    pub fn path(&self) -> Vec<String> {
+        self.suites.iter().chain([&self.name]).cloned().collect()
+    }
 }
 
 /// Every `<testcase>` of the JUnit report `text`, in document order. A report that stops inside a test, or holds no
@@ -56,9 +58,11 @@ pub fn cases(text: &str) -> Result<Vec<Case>, String> {
             Event::Open { name, .. } if name == "testsuites" => rooted = true,
             Event::Open { name, attrs, empty } if name == "testcase" => {
                 let file = attr(&attrs, "file");
+                let name = attr(&attrs, "name");
                 let case = Case {
                     suites: suites.clone(),
-                    name: attr(&attrs, "name"),
+                    names: names(&name),
+                    name,
                     classname: attr(&attrs, "classname"),
                     file: (!file.is_empty()).then_some(file),
                     seconds: attr(&attrs, "time")
@@ -101,6 +105,38 @@ pub fn cases(text: &str) -> Result<Vec<Case>, String> {
         );
     }
     Ok(found)
+}
+
+/// The entity ids the `[<ns>:<id>]` tags in `test_name` name, in order of first appearance, each once: the test says
+/// it proves them. `<ns>` is an ASCII lower-case letter, then lower-case letters, digits, `-` or `_`; it marks the
+/// text as a tag and is not read further, since entity ids are not namespaced (`[gsd:T1]` and `[req:T1]` both name
+/// `T1`). `<id>` is the text up to the next `]`, trimmed: non-empty, with no whitespace, `:`, `[` or `]`. Anything
+/// else is prose, not a tag: `[1]`, `[TR1]`, `[GSD:x]`, `[gsd: a b]`, `[gsd:dispatch phase="03"]`, an unclosed `[`.
+pub fn names(test_name: &str) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
+    let mut rest = test_name;
+    while let Some(open) = rest.find('[') {
+        rest = &rest[open + 1..];
+        if let Some(id) = tag(rest) {
+            if !found.iter().any(|f| f == id) {
+                found.push(id.to_string());
+            }
+        }
+    }
+    found
+}
+
+/// The id of the tag `text` holds, `text` being what follows a `[`: `<ns>:<id>]…`, by the grammar of [`names`].
+fn tag(text: &str) -> Option<&str> {
+    let (ns, after) = text.split_once(':')?;
+    let mut ns = ns.chars();
+    let marked = ns.next().is_some_and(|c| c.is_ascii_lowercase())
+        && ns.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_');
+    let (id, _) = after.split_once(']')?;
+    let id = id.trim();
+    let plain =
+        !id.is_empty() && !id.contains(|c: char| c.is_whitespace() || matches!(c, ':' | '[' | ']'));
+    (marked && plain).then_some(id)
 }
 
 /// The value of the attribute `key`, or `""`.
@@ -201,100 +237,4 @@ fn under(path: &str, root: &str) -> Option<String> {
     let rest = path.strip_prefix(root.trim_end_matches('/'))?;
     let rest = rest.strip_prefix('/')?;
     (!rest.is_empty()).then(|| rest.to_string())
-}
-
-/// A test's id (ADR 0329 D2): `js:<package>/<file>#<s1 > … > name>`, the suite path outermost first and a top-level
-/// test `#<name>`. An unscoped npm name cannot start with `@`, so a scoped package kept whole stays injective.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TestId {
-    package: String,
-    file: String,
-    path: Vec<String>,
-}
-
-impl TestId {
-    /// `case` in the JavaScript package `package` (its name, `@scope/` kept), its `file` the path under the
-    /// package's directory.
-    pub fn js(package: &str, file: &str, case: &Case) -> TestId {
-        TestId {
-            package: package.to_string(),
-            file: file.to_string(),
-            path: case.suites.iter().chain([&case.name]).cloned().collect(),
-        }
-    }
-
-    /// The id of the run of this test: `run:<test id>`.
-    pub fn run(&self) -> String {
-        format!("run:{self}")
-    }
-}
-
-impl fmt::Display for TestId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "js:{}/{}#{}",
-            self.package,
-            self.file,
-            self.path.join(" > ")
-        )
-    }
-}
-
-/// The `test` and `test_run` facts of `cases`, two per distinct id, by id (ADR 0329 D3):
-///
-/// - `test` (id the test id, titled by its suite path and name): `package`, `file` (the id's, project-relative with
-///   `/`, so the two never disagree), `suite`, `name` and `status`;
-/// - `test_run` (`run:<test id>`): `test`, `status` and `duration_ms`, when the report timed it.
-///
-/// Both statuses come from the same case. Cases sharing an id merge: the worst status wins (failed, then skipped,
-/// then passed) and their durations add up.
-pub fn facts(cases: impl IntoIterator<Item = (TestId, Case)>) -> Vec<Fact> {
-    let mut merged: BTreeMap<TestId, Case> = BTreeMap::new();
-    for (id, case) in cases {
-        match merged.get_mut(&id) {
-            Some(kept) => {
-                if rank(case.status) > rank(kept.status) {
-                    kept.status = case.status;
-                }
-                kept.seconds = match (kept.seconds, case.seconds) {
-                    (Some(a), Some(b)) => Some(a + b),
-                    (a, b) => a.or(b),
-                };
-            }
-            None => {
-                merged.insert(id, case);
-            }
-        }
-    }
-    merged
-        .into_iter()
-        .flat_map(|(id, case)| {
-            let status = case.status.as_str();
-            let test = Fact::new("test", id.to_string())
-                .title(id.path.join(" > "))
-                .field("package", id.package.as_str())
-                .field("file", id.file.as_str())
-                .field("suite", case.suites.clone())
-                .field("name", case.name.as_str())
-                .field("status", status);
-            let mut run = Fact::new("test_run", id.run())
-                .field("test", id.to_string())
-                .field("status", status);
-            if let Some(seconds) = case.seconds {
-                // shortcut: a fact's number is read as an integer (ADR 0327 D5), so a run under 1 ms is 0.
-                run = run.field("duration_ms", (seconds * 1000.0).round() as u64);
-            }
-            [test, run]
-        })
-        .collect()
-}
-
-/// How bad a status is: a merge keeps the worst.
-fn rank(status: TestStatus) -> u8 {
-    match status {
-        TestStatus::Passed => 0,
-        TestStatus::Skipped => 1,
-        TestStatus::Failed => 2,
-    }
 }

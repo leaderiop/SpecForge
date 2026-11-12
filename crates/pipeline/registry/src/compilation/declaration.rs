@@ -20,8 +20,7 @@ fn e030(message: String) -> Diagnostic {
 
 /// E030: a declaration the host cannot use as declared: an empty name or
 /// version, an `ext_short` that is not lowercase kebab case (it names a CLI
-/// subcommand and an MCP tool prefix), an analyzer without a language,
-/// file extensions or exports, or a malformed `codes` entry.
+/// subcommand and an MCP tool prefix), or a malformed `codes` entry.
 pub(crate) fn shape(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
     let name = declaration.name();
     let mut diagnostics = Vec::new();
@@ -44,31 +43,6 @@ pub(crate) fn shape(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
         );
     }
     diagnostics.extend(code_entries(declaration));
-    for analyzer in &declaration.analyzers {
-        if analyzer.language.is_empty() {
-            diagnostics.push(e030(format!(
-                "extension '{name}': an analyzer has an empty language"
-            )));
-        }
-        if analyzer.file_extensions.is_empty() {
-            diagnostics.push(e030(format!(
-                "extension '{name}': the analyzer for '{}' has no file extensions",
-                analyzer.language
-            )));
-        }
-        for export in [
-            &analyzer.scan_export,
-            &analyzer.classify_export,
-            &analyzer.map_export,
-        ] {
-            if export.is_empty() {
-                diagnostics.push(e030(format!(
-                    "extension '{name}': the analyzer for '{}' has an empty export name",
-                    analyzer.language
-                )));
-            }
-        }
-    }
     diagnostics
 }
 
@@ -163,6 +137,7 @@ fn derived_from_problem(field: &FieldDescriptor, source: &str) -> Option<&'stati
 pub(crate) fn consistency(
     declaration: &ExtensionDeclaration,
     loaded: &[ExtensionDeclaration],
+    candidates: &super::CandidateVocabulary,
 ) -> Vec<Diagnostic> {
     let name = declaration.name();
     let mut diagnostics = Vec::new();
@@ -370,9 +345,12 @@ pub(crate) fn consistency(
             }
         }
     }
-    // ADR 0293, ADR 0337 D2: an input the host would serve empty is told, once.
+    // ADR 0293, ADR 0337 D2: an input the host would serve empty is told, once; one into an unloaded optional peer's
+    // kind is inert (ADR 0331 D7).
+    let names: Vec<&str> = loaded.iter().map(ExtensionDeclaration::name).collect();
+    let unloaded = super::UnloadedPeers::of(declaration, &names, candidates);
     diagnostics.extend(
-        crate::inputs::problems(declaration, loaded)
+        crate::inputs::problems(declaration, loaded, &unloaded)
             .into_iter()
             .map(warn),
     );

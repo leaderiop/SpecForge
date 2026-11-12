@@ -14,8 +14,8 @@ use gix::sec::trust::DefaultForLevel as _;
 use specforge_effects::git::{
     Blob, CommitFile, Committed, DiffQuery, DiffSide, Git, GitBlob, GitBranch, GitBranchRef,
     GitError, GitFileDiff, GitLog, GitPlace, GitRemote, GitStash, GitStatus, GitSubmodule,
-    GitWorktree, Located, LogQuery, Merged, Merging, ObjectKind, Recording, Removal, ResetMode,
-    Restoring, Sha, Sized, Staging, TreeEntry,
+    GitWorktree, Located, LogQuery, Merged, Merging, ObjectKind, RENAME_PAIRS, Recording, Removal,
+    ResetMode, Restoring, Sha, Sized, Staging, TreeEntry,
 };
 
 mod branching;
@@ -29,7 +29,7 @@ mod status;
 pub mod testing;
 mod write;
 
-use history::{file_diff, index_tree, tree_of, wanted_paths};
+use history::{Reads, file_diff, index_tree, tree_of, wanted_paths};
 
 /// The `Git` port read through gix.
 #[derive(Debug, Clone, Copy, Default)]
@@ -434,12 +434,18 @@ impl Git for Gix {
         // the index and the worktree are written as trees kept in memory, so every diff is tree to tree and nothing
         // lands in the object store
         let repo = open(place)?.with_object_memory();
-        let base = tree_of(&repo, &query.base)?;
+        // no base: the empty tree, what a root commit adds everything to
+        let base = match &query.base {
+            Some(base) => tree_of(&repo, base)?,
+            None => repo.empty_tree().id,
+        };
         let paths = wanted_paths(&query.paths);
-        let (head, unread) = match &query.head {
+        // the bound twice over: once for the worktree's files on disk, once for the repository's sides
+        let (on_disk, reads) = (Reads::up_to(query.budget), Reads::up_to(query.budget));
+        let (head, disk) = match &query.head {
             DiffSide::Commit(sha) => (tree_of(&repo, sha)?, Default::default()),
-            DiffSide::Index => index_tree(&repo, false, &paths)?,
-            DiffSide::Worktree => index_tree(&repo, true, &paths)?,
+            DiffSide::Index => index_tree(&repo, false, &paths, &on_disk)?,
+            DiffSide::Worktree => index_tree(&repo, true, &paths, &on_disk)?,
         };
         let old = repo
             .find_tree(base)
@@ -447,14 +453,46 @@ impl Git for Gix {
         let new = repo
             .find_tree(head)
             .map_err(|e| failed("read a tree", &e))?;
+        // the host's own rename rules, never the repository's `diff.renames` and `diff.renameLimit`: a configured limit
+        // of 0 would compare every deletion with every addition; the default options track none
+        let rewrites = query.renames.then_some(gix::diff::Rewrites {
+            copies: None,
+            percentage: Some(0.5),
+            limit: RENAME_PAIRS,
+            track_empty: false,
+        });
+        let options = gix::diff::Options::default().with_rewrites(rewrites);
         let changes = repo
-            .diff_tree_to_tree(&old, &new, None)
+            .diff_tree_to_tree(&old, &new, Some(options))
             .map_err(|e| failed("diff two trees", &e))?;
         let mut files = Vec::new();
         for change in changes {
-            if let Some(file) = file_diff(&repo, change, &paths, query.patch, &unread)? {
+            if let Some(file) = file_diff(&repo, change, &paths, query, &disk, &reads)? {
                 files.push(file);
             }
+        }
+        // a worktree file a bounded diff did not read: changed on disk, so listed, with no counts
+        for (path, bound) in disk.past {
+            let file = match files.iter_mut().find(|file| file.path == path) {
+                Some(file) => file,
+                None => {
+                    files.push(GitFileDiff {
+                        path,
+                        old_path: None,
+                        status: specforge_effects::git::DiffStatus::Modified,
+                        added: 0,
+                        removed: 0,
+                        binary: false,
+                        truncated: false,
+                        patch: None,
+                        hunks: None,
+                        unread: false,
+                    });
+                    files.last_mut().expect("just pushed")
+                }
+            };
+            (file.added, file.removed, file.patch, file.hunks) = (0, 0, None, None);
+            (file.truncated, file.unread) = (true, bound);
         }
         files.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(files)

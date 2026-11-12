@@ -12,6 +12,10 @@ pub const ROOT: &[(&str, &str)] = &[
     (".codex", "Codex's MCP server for this repository"),
     (".config", "nextest's profiles"),
     (
+        ".gitattributes",
+        "the rename ledger's union merge, the line a ledger write would add",
+    ),
+    (
         ".githooks",
         "the pre-commit hook (`scripts/setup-hooks.sh`)",
     ),

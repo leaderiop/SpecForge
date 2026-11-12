@@ -93,6 +93,7 @@ fn initialize_answers_a_static_result() {
                 "documentRangeFormattingProvider": true,
                 "documentSymbolProvider": true,
                 "hoverProvider": true,
+                "implementationProvider": true,
                 "referencesProvider": true,
                 "renameProvider": {"prepareProvider": true},
                 "semanticTokensProvider": {

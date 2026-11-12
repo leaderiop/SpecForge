@@ -2,9 +2,10 @@
 //! it, whether a stored one covers another, its line for a person and the requests it admits. A new scope is one
 //! [`ScopeRules`] and one arm of [`rules`], the one dispatch over `PortScope` these answers go through.
 
+use specforge_package::Sha256;
 use specforge_protocol_types::{
-    EffectRequest, FsAccess, FsOp, FsScope, GitScope, Hosts, HttpMethod, HttpScope, Operation,
-    PortScope, ProcessScope,
+    ARGV_PLACEHOLDERS, EffectRequest, FsAccess, FsOp, FsScope, GitScope, Hosts, HttpMethod,
+    HttpScope, Operation, PortScope, ProcessScope,
 };
 use url::Url;
 
@@ -265,19 +266,28 @@ impl ScopeRules for ProcessScope {
     }
 
     fn summary(&self) -> String {
-        let command = format!("process {}", self.argv.join(" "));
-        if self.env.is_empty() {
-            command
-        } else {
-            format!("{command}, inherits or sets {}", self.env.join(","))
+        let mut line = format!("process {}", self.argv.join(" "));
+        if !self.env.is_empty() {
+            line.push_str(&format!(", inherits or sets {}", self.env.join(",")));
         }
+        if let Some(config) = &self.config {
+            let digest = Sha256::of(config.template.as_bytes()).to_string();
+            line.push_str(&format!(
+                ", writes {} (sha256:{})",
+                config.name,
+                &digest[..12]
+            ));
+        }
+        line
     }
 
     fn admits(&self, request: &EffectRequest, user: bool) -> bool {
         let EffectRequest::Process(request) = request else {
             return false;
         };
-        (user && self.argv.is_empty()) || argv_matches(&self.argv, &request.argv)
+        // A placeholder is the host's to fill with its own paths (ADR 0348 D3): no request fills one, so a capability
+        // whose argv names one admits none; the host's own run is `Grant::permits_command`.
+        !templated(&self.argv) && ((user && self.argv.is_empty()) || self.argv == request.argv)
     }
 }
 
@@ -330,20 +340,13 @@ fn lowercase_list<T: std::fmt::Debug>(items: &[T]) -> String {
         .join(",")
 }
 
-/// Whether `argv` is `template` with each `{report}` replaced.
-fn argv_matches(template: &[String], argv: &[String]) -> bool {
-    template.len() == argv.len()
-        && template
+/// Whether `argv` names a placeholder the host fills (`{report}`, `{config}`): a command only the host runs.
+fn templated(argv: &[String]) -> bool {
+    argv.iter().any(|arg| {
+        ARGV_PLACEHOLDERS
             .iter()
-            .zip(argv)
-            .all(|(t, a)| match t.split_once("{report}") {
-                None => t == a,
-                Some((before, after)) => {
-                    a.len() >= before.len() + after.len()
-                        && a.starts_with(before)
-                        && a.ends_with(after)
-                }
-            })
+            .any(|placeholder| arg.contains(placeholder))
+    })
 }
 
 fn off(port: &str, removed: &mut Vec<Removed>) -> Option<PortScope> {
@@ -428,3 +431,6 @@ fn meet_hosts(declared: &[String], ceiling: &[String]) -> Vec<String> {
     }
     kept
 }
+
+#[cfg(test)]
+mod tests;

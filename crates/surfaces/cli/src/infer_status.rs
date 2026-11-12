@@ -45,7 +45,7 @@ pub(crate) struct Args {
     #[arg(long)]
     stale: bool,
 
-    /// Show detailed gap analysis (pub Rust items without spec entities)
+    /// Show detailed gap analysis (public item facts no entity cites)
     #[arg(long)]
     gaps_detail: bool,
 }
@@ -188,31 +188,25 @@ fn render_human(progress: &Progress, gaps: bool, stale: bool, detail: Option<&Ga
     }
 
     if let Some(report) = detail {
-        let scanners = if report.scanners_used.is_empty() {
-            "no scanners".to_string()
-        } else {
-            report.scanners_used.join(", ")
-        };
         line!();
-        line!("Gap Analysis (via {scanners})");
-        line!("  Public items: {}", report.total_pub_items);
-        line!("  Covered:      {}", report.covered_items);
-        line!("  Gaps:         {}", report.gap_count());
-        if !report.scan_failures.is_empty() {
+        if report.item_facts == 0 {
+            line!("Gap Analysis");
+            line!("  {}", infer::NO_ITEM_FACTS);
+        } else {
+            if report.collectors.is_empty() {
+                line!("Gap Analysis");
+            } else {
+                line!("Gap Analysis (from {})", report.collectors.join(", "));
+            }
+            line!("  Public items: {}", report.total_pub_items);
+            line!("  Covered:      {}", report.covered_items);
+            line!("  Gaps:         {}", report.gap_count());
+        }
+        if report.approximate {
             line!();
             line!(
-                "  Approximate: a scanner failed on {} file(s):",
-                report.scan_failures.len()
+                "  Approximate: a fact store was not served (W191/W192): run `specforge collect`"
             );
-            for failure in &report.scan_failures {
-                let diagnostic = failure.error.diagnostic();
-                line!(
-                    "    {}: error[{}]: {}",
-                    failure.file,
-                    diagnostic.code,
-                    diagnostic.message
-                );
-            }
         }
         if report.gap_count() > 0 {
             line!();

@@ -55,7 +55,7 @@ fn e401_names_the_missing_and_the_extra_ids() {
 fn commit(kind: &str, task: Option<&str>) -> Commit {
     Commit {
         id: format!("P/{kind}0123456789"),
-        kind: kind.into(),
+        kind: CommitType::parse(kind),
         plan: Some("P".into()),
         task: task.map(String::from),
         ..Default::default()
@@ -246,7 +246,7 @@ fn w408_judges_checks_that_have_a_status_and_rationales() {
     };
     let auto = [("human_judgment", "false")];
     assert!(judged(&auto, &[("a", Some("pass"))]).is_empty());
-    // No report: no status, no judgement.
+    // No test fact: no status, no judgement.
     assert!(judged(&auto, &[("a", None)]).is_empty());
     assert_eq!(
         judged(&auto, &[("a", Some("pass")), ("b", Some("fail"))]).len(),

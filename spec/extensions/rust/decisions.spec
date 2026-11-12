@@ -1,4 +1,4 @@
-// @specforge/rust extension Architecture Decision Records
+// Rust test traceability (the #[specforge_test] macros, @specforge/cargo-test): Architecture Decision Records
 //
 // Decisions specific to the Rust language integration:
 // test guard design, report format, naming conventions, delivery phases.

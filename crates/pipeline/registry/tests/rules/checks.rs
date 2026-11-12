@@ -356,9 +356,12 @@ fn applies_to_reads_target_kind_once() {
         (iter.next().unwrap(), iter.next().unwrap())
     };
     assert_eq!((p300.code(), w004.code()), ("test/E300", "test/W004"));
-    assert!(w004.applies_to("behavior"));
-    assert!(!w004.applies_to("event"));
-    assert!(p300.applies_to("behavior") && p300.applies_to("event"));
+    assert!(w004.applies_to("behavior", false));
+    assert!(!w004.applies_to("event", false));
+    assert!(p300.applies_to("behavior", false) && p300.applies_to("event", false));
+    // A collector's kind: an untargeted rule judges none of its facts, a rule that names it does.
+    assert!(!p300.applies_to("behavior", true));
+    assert!(w004.applies_to("behavior", true));
 
     // The rules read it the same way: an untargeted rule runs on every
     // kind, a targeted one on its own.
@@ -388,18 +391,23 @@ fn applies_to_reads_target_kind_once() {
         obligation_rule("E300", None, "verify"),
         obligation_rule("W009", Some("event"), "verify"),
     ]);
-    let code = |kind| built.rules.verify_rule_for(kind).map(|r| r.code());
+    let code = |kind| built.rules.verify_rule_for(kind, false).map(|r| r.code());
     assert_eq!(code("behavior"), Some("test/E300"));
     assert_eq!(code("event"), Some("test/E300"));
     assert_eq!(code("type"), Some("test/E300"));
-    assert!(built.rules.obligates("type"));
+    assert!(built.rules.obligates("type", false));
+    assert!(!built.rules.obligates("type", true));
     let only_w004 = one(obligation_rule("W004", Some("behavior"), "verify"));
     assert_eq!(
-        only_w004.rules.verify_rule_for("behavior").unwrap().code(),
+        only_w004
+            .rules
+            .verify_rule_for("behavior", false)
+            .unwrap()
+            .code(),
         "test/W004"
     );
-    assert!(only_w004.rules.verify_rule_for("type").is_none());
-    assert!(!only_w004.rules.obligates("type"));
+    assert!(only_w004.rules.verify_rule_for("type", false).is_none());
+    assert!(!only_w004.rules.obligates("type", false));
 }
 
 #[spec(

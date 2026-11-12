@@ -9,7 +9,7 @@
     "crates/kernel/parser/tests/parse_test.rs": 2440,
     "crates/pipeline/emitter/tests/contracts.rs": 841,
     "crates/pipeline/emitter/tests/model.rs": 1518,
-    "crates/pipeline/emitter/tests/outline.rs": 1150,
+    "crates/pipeline/emitter/tests/outline.rs": 1149,
     "crates/pipeline/emitter/tests/schema.rs": 1596,
     "crates/pipeline/graph/tests/graph.rs": 1596,
     "crates/session/project/tests/compile.rs": 1178,
@@ -21,11 +21,11 @@
     "crates/surfaces/cli/tests/export.rs": 839,
     "crates/surfaces/cli/tests/extensions.rs": 2173,
     "crates/surfaces/cli/tests/format.rs": 1025,
-    "crates/surfaces/cli/tests/init.rs": 1426,
+    "crates/surfaces/cli/tests/init.rs": 1423,
     "crates/surfaces/cli/tests/installed_extensions.rs": 1090,
     "crates/surfaces/cli/tests/migrate.rs": 1632,
     "crates/surfaces/cli/tests/navigation_parity.rs": 1289,
-    "crates/surfaces/cli/tests/parity.rs": 1231,
+    "crates/surfaces/cli/tests/parity.rs": 1124,
     "crates/surfaces/cli/tests/read_views.rs": 1288,
     "crates/surfaces/cli/tests/registry.rs": 1623,
     "crates/surfaces/cli/tests/watch.rs": 950,
@@ -43,15 +43,13 @@
     "crates/surfaces/mcp/tests/surface_wiring.rs": 1599,
     "crates/surfaces/mcp/tests/tool_arguments.rs": 876,
     "crates/surfaces/mcp/tests/tools_core.rs": 2091,
-    "crates/surfaces/mcp/tests/tools_inference.rs": 817,
-    "crates/surfaces/mcp/tests/tools_navigation.rs": 820,
+    "crates/surfaces/mcp/tests/tools_inference.rs": 806,
     "crates/surfaces/registry-server/tests/server_contracts.rs": 1144
   },
   "specs": {
     ".": {
       "W003": 1,
-      "W004": 1,
-      "W005": 1
+      "W004": 1
     },
     "integrations/rust/spec": {
       "W004": 7

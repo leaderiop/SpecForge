@@ -15,6 +15,7 @@ members = [
     "crates/kernel/effects",
     "crates/kernel/parser",
     "crates/kernel/shape-macros",
+    "crates/kernel/source",
     "crates/kernel/tree-sitter",
     # pipeline
     "crates/pipeline/emitter",

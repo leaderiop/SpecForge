@@ -7,6 +7,7 @@
 
 mod add;
 mod analyze;
+mod anchors;
 mod asking;
 #[cfg(test)]
 #[path = "../build/commit.rs"]
@@ -118,6 +119,8 @@ enum Commands {
     Stats(stats::Args),
     /// Where to start reading the graph: starting points, hubs and unconnected entities
     Explore(explore::Args),
+    /// The source places an entity is anchored to, or the entities a source file's facts are anchored to
+    Anchors(anchors::Args),
     /// Coverage gaps around an entity, or of the whole project
     Review(review::Args),
     /// What to look for in code to write a kind's entities
@@ -325,6 +328,7 @@ fn run(command: Commands, terminal: &Terminal, ports: &Ports) -> Exit {
         Commands::Format(args) => args.run(terminal),
         Commands::Stats(args) => args.run(terminal, ports),
         Commands::Explore(args) => args.run(terminal, ports),
+        Commands::Anchors(args) => args.run(terminal, ports),
         Commands::Review(args) => args.run(terminal, ports),
         Commands::InferGuide(args) => args.run(terminal, ports),
         Commands::Prompt(args) => args.run(terminal, ports),

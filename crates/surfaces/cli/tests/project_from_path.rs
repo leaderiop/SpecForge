@@ -31,7 +31,7 @@ const CONFIG: &str = r#"{
     { "alias": "offline", "url": "http://127.0.0.1:9", "default_registry": true }
   ],
   "providers": [
-    { "scheme": "file", "alias": "junit", "extension": "@specforge/rust" }
+    { "scheme": "file", "alias": "junit", "extension": "@specforge/testing" }
   ]
 }
 "#;

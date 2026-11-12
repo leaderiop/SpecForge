@@ -21,7 +21,8 @@ plan's text) and your plan, in full.
    macOS-only `cfg` code. A ticket that shrinks, splits or moves a file listed in `gate/baseline.json`'s `file-size`
    section runs `cargo gate baseline --only file-size` and commits the file with the ticket; no ticket adds lines to a
    listed file.
-5. Builtin blob rebuilds do not run in worktrees: a re-vendor ticket changes the source, stops before the rebuild,
+5. Builtin blobs are rebuilt as [`revendor.md`](../revendor.md) says: from the main checkout, or from a worktree
+   outside the repository directory, with `CARGO_TARGET_DIR` unset; a worktree inside it stops before the rebuild,
    and says so.
 6. Code that moved since the plan: adapt and record the deviation. A ticket that needs another plan's missing ticket:
    stop before it and say which.

@@ -83,7 +83,6 @@ These extensions ship inside the binary, as a starter set:
 | `@specforge/governance` | Rules that must always hold (invariants), decisions, constraints, and failure modes |
 | `@specforge/formal` | Properties and axioms that an SMT solver proves or refutes |
 | `@specforge/testing`, `@specforge/cargo-test`, `@specforge/vitest` | Which of your tests prove which entities |
-| `@specforge/rust`, `@specforge/typescript` | Source analysis that helps an agent write a spec from existing code |
 
 Turn one on with `specforge add @specforge/product`. The full list is in the
 [extension inventory](docs/extension-inventory.md). To teach SpecForge your own field, see

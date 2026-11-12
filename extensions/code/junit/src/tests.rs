@@ -12,11 +12,7 @@ const TASKBOARD: &str = include_str!("../fixtures/taskboard.xml");
 fn summary(found: &[Case]) -> Vec<(String, TestStatus)> {
     found
         .iter()
-        .map(|c| {
-            let mut path = c.suites.clone();
-            path.push(c.name.clone());
-            (path.join(" > "), c.status)
-        })
+        .map(|c| (c.path().join(" > "), c.status))
         .collect()
 }
 
@@ -87,20 +83,6 @@ fn nested_suites_make_the_path() {
             ("board > inner > adds".to_string(), TestStatus::Failed),
             ("skipped".to_string(), TestStatus::Skipped),
             ("todo one".to_string(), TestStatus::Skipped),
-        ]
-    );
-    let ids: Vec<String> = found
-        .iter()
-        .map(|c| TestId::js("probe", "test/a.test.js", c).to_string())
-        .collect();
-    assert_eq!(
-        ids,
-        [
-            "js:probe/test/a.test.js#top",
-            "js:probe/test/a.test.js#board > adds",
-            "js:probe/test/a.test.js#board > inner > adds",
-            "js:probe/test/a.test.js#skipped",
-            "js:probe/test/a.test.js#todo one",
         ]
     );
     assert_eq!(
@@ -186,70 +168,6 @@ fn a_file_that_climbs_out_through_dot_dot_is_outside() {
 }
 
 #[test]
-fn a_duplicate_id_keeps_the_worst_status() {
-    let case = |status, seconds| Case {
-        suites: vec!["board".to_string()],
-        name: "adds".to_string(),
-        classname: "board".to_string(),
-        file: Some("test/a.test.js".to_string()),
-        seconds,
-        status,
-    };
-    let id = |c: &Case| TestId::js("@acme/app", "test/a.test.js", c);
-    let a = case(TestStatus::Passed, Some(0.002));
-    let b = case(TestStatus::Failed, Some(0.003));
-    let c = case(TestStatus::Skipped, None);
-    let facts = facts([(id(&a), a), (id(&b), b), (id(&c), c)]);
-
-    let wanted = [
-        Fact::new("test", "js:@acme/app/test/a.test.js#board > adds")
-            .title("board > adds")
-            .field("package", "@acme/app")
-            .field("suite", vec!["board"])
-            .field("name", "adds")
-            .field("status", "failed")
-            .field("file", "test/a.test.js"),
-        Fact::new("test_run", "run:js:@acme/app/test/a.test.js#board > adds")
-            .field("test", "js:@acme/app/test/a.test.js#board > adds")
-            .field("status", "failed")
-            .field("duration_ms", 5),
-    ];
-    assert_eq!(facts, wanted);
-}
-
-#[test]
-fn the_taskboard_test_id_is_the_exit_string() {
-    let found = cases(TASKBOARD).expect("the twin's report");
-    let minted = facts(found.into_iter().map(|case| {
-        let file = relative(case.file.as_deref().unwrap(), "/anywhere").unwrap();
-        (TestId::js("taskboard", &file, &case), case)
-    }));
-    let tests: Vec<(&str, Option<&str>)> = minted
-        .iter()
-        .filter(|f| f.kind == "test")
-        .map(|f| (f.id.as_str(), f.fields["status"].as_str()))
-        .collect();
-    assert_eq!(
-        tests,
-        [
-            (
-                "js:taskboard/test/tasks.test.js#a task is added with the next id",
-                Some("passed")
-            ),
-            (
-                "js:taskboard/test/tasks.test.js#a task is completed by its id",
-                Some("passed")
-            ),
-            (
-                "js:taskboard/test/tasks.test.js#completing an unknown id throws",
-                Some("passed")
-            ),
-        ]
-    );
-    assert_eq!(minted.len(), 6, "a test and a run per case");
-}
-
-#[test]
 fn a_time_is_a_finite_non_negative_number() {
     for (time, seconds) in [
         ("1.5", Some(1.5)),
@@ -274,11 +192,59 @@ fn a_malformed_entity_costs_no_more_than_its_length() {
 }
 
 #[test]
-fn a_tests_file_is_its_ids_whatever_the_report_wrote() {
-    let report = r#"<testsuites><testsuite name="board"><testcase name="adds" file="C:\work\app\test\a.test.js"/></testsuite></testsuites>"#;
-    let case = cases(report).expect("a report").remove(0);
-    let file = relative(case.file.as_deref().unwrap(), r"\\?\C:\work\app").unwrap();
-    let minted = facts([(TestId::js("app", &file, &case), case)]);
-    assert_eq!(minted[0].id, "js:app/test/a.test.js#board > adds");
-    assert_eq!(minted[0].fields["file"].as_str(), Some("test/a.test.js"));
+fn the_taskboard_report_holds_three_top_level_tests() {
+    let found = cases(TASKBOARD).expect("the twin's report");
+    assert_eq!(
+        summary(&found),
+        [
+            "a task is added with the next id",
+            "a task is completed by its id",
+            "completing an unknown id throws",
+        ]
+        .map(|name| (name.to_string(), TestStatus::Passed))
+    );
+    assert!(found.iter().all(|c| c.suites.is_empty()));
+}
+
+#[test]
+fn a_tag_is_a_lower_case_namespace_and_an_id() {
+    assert_eq!(names("[gsd:01-01/TR1] adds a task"), ["01-01/TR1"]);
+    assert_eq!(names("adds [req-2_x:T1]"), ["T1"]);
+    let found = cases(r#"<testsuites><testcase name="adds [gsd:T1]"/></testsuites>"#).unwrap();
+    assert_eq!(found[0].names, ["T1"]);
+    assert_eq!(found[0].name, "adds [gsd:T1]");
+}
+
+#[test]
+fn two_tags_give_two_names_and_a_repeat_counts_once() {
+    assert_eq!(
+        names("[gsd:B] adds [req:A] then [gsd:B] again [x:A]"),
+        ["B", "A"]
+    );
+}
+
+#[test]
+fn a_bracket_that_is_no_tag_names_nothing() {
+    for prose in [
+        "adds [1]",
+        "adds [TR1]",
+        "[GSD:x] adds",
+        "[gsd:] adds",
+        "[gsd: a b] adds",
+        "[gsd:a:b] adds",
+        r#"[gsd:dispatch phase="03"] adds"#,
+        "[gsd:x adds",
+        "[1gsd:x] adds",
+        "[gsd:a[b] adds",
+    ] {
+        assert_eq!(names(prose), Vec::<String>::new(), "{prose}");
+    }
+    // A tag after a bracket that is none is still read.
+    assert_eq!(names("[[gsd:x] adds"), ["x"]);
+    assert_eq!(names("[gsd:a [gsd:b] adds"), ["b"]);
+}
+
+#[test]
+fn an_id_is_trimmed() {
+    assert_eq!(names("[gsd:  T1 ] adds"), ["T1"]);
 }

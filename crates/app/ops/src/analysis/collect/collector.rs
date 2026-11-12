@@ -4,7 +4,10 @@
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
 use specforge_effects::Uses;
-use specforge_protocol_types::{ExtensionDeclaration, Input, Inputs, Operation, PortScope};
+use specforge_protocol_types::{
+    CONFIG_PLACEHOLDER, ExtensionDeclaration, Input, Inputs, Operation, PortScope, ProcessConfig,
+    REPORT_PLACEHOLDER,
+};
 use std::path::Path;
 
 /// A collector contributed by an enabled extension.
@@ -14,9 +17,12 @@ pub struct Collector {
     pub name: String,
     pub export: String,
     pub detect: Vec<String>,
+    /// Also detected in any git repository, at its top or below ([`in_a_repository`]).
+    pub detect_repository: bool,
     pub run: Vec<String>,
-    /// Report file or directory, relative to the project root.
-    pub report: String,
+    /// Report file or directory, relative to the project root: none for a collector with no command that names
+    /// none, which reads through its ports (ADR 0345 D2).
+    pub report: Option<String>,
     /// What else the host keeps from the run: `"stdout"` or nothing.
     pub capture: Option<String>,
     /// It answers an edit plan, so it receives the graph and the revisions (ADR 0289).
@@ -26,6 +32,13 @@ pub struct Collector {
     pub inputs: Vec<Input>,
     /// The process capability its command is (ADR 0335 D2.1): the scope a run is granted and approved under.
     pub capability: Option<String>,
+    /// The collected kinds whose facts it answers (ADR 0345 D3): it runs before a collector whose `facts` input names
+    /// one, and serves it this collect's facts of that kind.
+    pub answers: Vec<String>,
+    /// The config file its command reads, from its process capability (ADR 0348 D1): written before a run.
+    pub config: Option<ProcessConfig>,
+    /// What installs its program, said when the program is not found (ADR 0348 D4).
+    pub install: Option<String>,
 }
 
 impl Collector {
@@ -33,6 +46,12 @@ impl Collector {
     /// project's one runner, and it runs when named or under `checks.publish`.
     pub(super) fn reads_outcomes(&self) -> bool {
         Inputs(&self.inputs).check_outcomes()
+    }
+
+    /// Whether it reads through its ports (ADR 0345 D2): no command, no report and not the checks' outcomes. It is
+    /// called under a run and a no-run alike with no report, and needs no approval.
+    pub(super) fn reads_ports(&self) -> bool {
+        self.report.is_none() && !self.reads_outcomes()
     }
 }
 
@@ -45,43 +64,72 @@ pub fn collectors(declarations: &[ExtensionDeclaration]) -> Vec<Collector> {
         .iter()
         .flat_map(|d| {
             let sound = d.sound_capabilities();
-            d.collectors.iter().map(move |c| Collector {
-                extension: d.name().to_string(),
-                name: c.name.clone(),
-                export: c.export.clone(),
-                detect: c
-                    .auto_detect
-                    .as_ref()
-                    .map(|d| d.file_patterns.clone())
-                    .unwrap_or_default(),
-                run: c
+            d.collectors.iter().map(move |c| {
+                let process = c
                     .capability
                     .as_ref()
                     .and_then(|name| sound.iter().find(|s| &s.name == name))
                     .and_then(|s| match &s.port {
-                        PortScope::Process(process) => Some(process.argv.clone()),
+                        PortScope::Process(process) => Some(process),
                         _ => None,
-                    })
-                    .unwrap_or_default(),
-                report: c
-                    .report
-                    .clone()
-                    .unwrap_or_else(|| format!(".specforge/reports/{}.json", c.name)),
-                capture: c.capture.clone(),
-                writes: c.writes,
-                inputs: c.inputs.clone(),
-                capability: c.capability.clone(),
+                    });
+                collector(d, c, process)
             })
         })
         .collect()
 }
 
-/// Collectors whose detection files are present at the project root.
+/// The collector `c` of `d`, running `process` when its capability is a sound process one.
+fn collector(
+    d: &ExtensionDeclaration,
+    c: &specforge_protocol_types::CollectorDescriptor,
+    process: Option<&specforge_protocol_types::ProcessScope>,
+) -> Collector {
+    Collector {
+        extension: d.name().to_string(),
+        name: c.name.clone(),
+        export: c.export.clone(),
+        detect: c
+            .auto_detect
+            .as_ref()
+            .map(|d| d.file_patterns.clone())
+            .unwrap_or_default(),
+        detect_repository: c.auto_detect.as_ref().is_some_and(|d| d.repository),
+        run: process.map(|p| p.argv.clone()).unwrap_or_default(),
+        // The default report is a command's: a collector with none that names none reads through its ports.
+        report: c.report.clone().or_else(|| {
+            c.capability
+                .as_ref()
+                .map(|_| format!(".specforge/reports/{}.json", c.name))
+        }),
+        capture: c.capture.clone(),
+        writes: c.writes,
+        inputs: c.inputs.clone(),
+        capability: c.capability.clone(),
+        answers: c.answers.clone(),
+        config: process.and_then(|p| p.config.clone()),
+        install: c.install.clone(),
+    }
+}
+
+/// Collectors whose detection files are present at the project root, or that detect a repository the root is in.
 pub(super) fn detect<'a>(collectors: &'a [Collector], root: &Path) -> Vec<&'a Collector> {
     collectors
         .iter()
-        .filter(|c| !c.reads_outcomes() && c.detect.iter().any(|p| pattern_matches(root, p)))
+        .filter(|c| {
+            !c.reads_outcomes()
+                && (c.detect.iter().any(|p| pattern_matches(root, p))
+                    || c.detect_repository && in_a_repository(root))
+        })
         .collect()
+}
+
+/// Whether `root` is in a git repository: it or a directory above it holds `.git`, a directory or a linked worktree's
+/// file, as git discovers one.
+// shortcut: no GIT_DIR nor GIT_CEILING_DIRECTORIES, which a guest's own `locate` honours; upgrade when detection reads
+// the git port
+fn in_a_repository(root: &Path) -> bool {
+    root.ancestors().any(|dir| dir.join(".git").exists())
 }
 
 /// The scopes a collect run here would use, per extension: each detected collector's process capability (ADR 0335
@@ -146,17 +194,32 @@ pub(super) fn report_path(
     root: &Path,
     containment: &Containment,
 ) -> Result<Held, OpError> {
-    let Some(relative) = crate::containment::declared(Path::new(&collector.report)) else {
+    let Some(report) = &collector.report else {
+        return Err(reads_no_report(collector));
+    };
+    let Some(relative) = crate::containment::declared(Path::new(report)) else {
         return Err(OpError::coded(
             OpErrorKind::PreconditionFailed,
             codes::E058,
             format!(
-                "collector '{}' of {} declares report path '{}' outside the project",
-                collector.name, collector.extension, collector.report
+                "collector '{}' of {} declares report path '{report}' outside the project",
+                collector.name, collector.extension
             ),
         ));
     };
     Ok(containment.resolve(&root.join(relative))?)
+}
+
+/// E058 for a report asked of a collector that reads through its ports.
+pub(super) fn reads_no_report(collector: &Collector) -> OpError {
+    OpError::coded(
+        OpErrorKind::PreconditionFailed,
+        codes::E058,
+        format!(
+            "collector '{}' of {} reads no report: it reads through its ports; collect without report files",
+            collector.name, collector.extension
+        ),
+    )
 }
 
 /// Whether the collector keeps its command's standard output. Any value
@@ -199,12 +262,64 @@ pub(super) fn read_capture(held: &Held) -> Option<String> {
         .map(|bytes| specforge_effects::process::text(&bytes))
 }
 
-/// The declared command with `{report}` expanded.
-pub(super) fn command_line(collector: &Collector, report: &Path) -> Vec<String> {
+/// The config file a collector's command reads (ADR 0348 D2): where it is written, held, and its text.
+pub(super) struct ConfigFile {
+    /// `.specforge/reports/<collector>.<name>`, a name the run owns.
+    pub(super) held: Held,
+    /// The template, each `{report}` the report's absolute path.
+    pub(super) text: String,
+}
+
+/// The collector's config file for a run whose report is at `report`; none when its command reads no config.
+pub(super) fn config_file(
+    collector: &Collector,
+    root: &Path,
+    containment: &Containment,
+    report: &Path,
+) -> Result<Option<ConfigFile>, OpError> {
+    let Some(config) = &collector.config else {
+        return Ok(None);
+    };
+    let named = root
+        .join(".specforge/reports")
+        .join(format!("{}.{}", collector.name, config.name));
+    Ok(Some(ConfigFile {
+        held: containment.resolve(&named)?,
+        text: expanded_config(&config.template, report),
+    }))
+}
+
+/// `template` with each `{report}` replaced by `report`, escaped for the inside of a double-quoted TOML or JSON string
+/// (ADR 0348 D2): `\` and `"` take a backslash, a control character is `\uXXXX`.
+pub(super) fn expanded_config(template: &str, report: &Path) -> String {
+    let mut escaped = String::new();
+    for c in report.display().to_string().chars() {
+        match c {
+            '\\' | '"' => {
+                escaped.push('\\');
+                escaped.push(c);
+            }
+            c if c.is_control() => escaped.push_str(&format!("\\u{:04X}", u32::from(c))),
+            c => escaped.push(c),
+        }
+    }
+    template.replace(REPORT_PLACEHOLDER, &escaped)
+}
+
+/// The declared command with `{report}` and `{config}` expanded.
+pub(super) fn command_line(
+    collector: &Collector,
+    report: &Path,
+    config: Option<&Path>,
+) -> Vec<String> {
     let report = report.display().to_string();
+    let config = config.map(|c| c.display().to_string()).unwrap_or_default();
     collector
         .run
         .iter()
-        .map(|arg| arg.replace("{report}", &report))
+        .map(|arg| {
+            arg.replace(REPORT_PLACEHOLDER, &report)
+                .replace(CONFIG_PLACEHOLDER, &config)
+        })
         .collect()
 }

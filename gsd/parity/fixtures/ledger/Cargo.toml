@@ -1,0 +1,11 @@
+[package]
+name = "ledger"
+version = "0.1.0"
+edition = "2021"
+description = "A ledger of entries in integer cents, on the command line"
+license = "MIT"
+
+[dependencies]
+
+# Its own workspace: the fixture is no member of the repository's.
+[workspace]

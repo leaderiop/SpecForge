@@ -19,6 +19,7 @@ fn each() -> Vec<Input> {
         Input::git().status().when("x.y"),
         Input::setting("@a/b", "x.y"),
         Input::CheckOutcomes,
+        Input::facts(&["package"]),
     ]
 }
 
@@ -40,4 +41,19 @@ fn the_kind_table_spells_each_inputs_wire_tag_and_keys() {
             assert!(input_keys().contains(&key.as_str()), "{key}");
         }
     }
+}
+
+#[test]
+fn a_facts_input_reads_and_writes_its_kinds() {
+    let input = Input::facts(&["package", "item"]);
+    let wire = serde_json::json!({"input": "facts", "kinds": ["package", "item"]});
+    assert_eq!(serde_json::to_value(&input).unwrap(), wire);
+    assert_eq!(serde_json::from_value::<Input>(wire).unwrap(), input);
+    let inputs = [
+        Input::facts(&["package", "item"]),
+        Input::Tests,
+        Input::facts(&["item", "test"]),
+    ];
+    assert_eq!(Inputs(&inputs).facts(), ["package", "item", "test"]);
+    assert!(Inputs(&[Input::Tests]).facts().is_empty());
 }

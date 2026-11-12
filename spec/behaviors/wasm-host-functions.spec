@@ -24,20 +24,20 @@ behavior link_host_ports "Link Host Ports" {
     instance_built "the host is building an instance of a loaded component"
   }
   ensures {
-    four_linked           "every instance links specforge:host/{http,fs,process,git}@0.1.0, whatever its grant"
+    five_linked           "every instance links specforge:host/{http,fs,process,git,syntax}@0.1.0, whatever its grant"
     pure_kind_denied      "a call kind the gate keeps from the port is answered denied(call-kind) and nothing runs"
     never_prompted        "no port call prompts: an approval is settled before the call's first effect"
     imports_what_it_calls "a guest imports only the interfaces it calls, so a guest that calls none imports none"
   }
   contract """
-    Every instance MUST link the four specforge:host ports and their
+    Every instance MUST link the five specforge:host ports and their
     shared types interface. A port call from a call kind the gate
     (ADR 0335 D2.2) keeps from that port MUST be answered denied(call-kind)
     without running. A port call MUST NOT prompt: what a call may do is
     settled before it starts.
   """
   verify unit "a pure call that calls a port is answered denied(call-kind) and no port runs"
-  verify integration "every instance links the four ports, and a guest that calls none imports none"
+  verify integration "every instance links the five ports, and a guest that calls none imports none"
 }
 
 behavior grant_a_host_port_call "Grant a Host Port Call" {
@@ -73,7 +73,9 @@ behavior grant_a_host_port_call "Grant a Host Port Call" {
   verify unit "a secret the host attaches never shows in what a guest is answered"
   verify unit "a program a guest runs inherits no declared secret and cannot set its PATH or loader"
   verify unit "a guest cannot open the private-address opt-in or read a withheld file at a commit"
-  verify integration "the sandbox probe reaches each of the four ports through its grant: a command three, a collector process"
+  verify unit "a guest diff never carries the text of a withheld file"
+  verify unit "a guest diff never carries a worktree file's text its fs grant does not read"
+  verify integration "the sandbox probe reaches each of the five ports through its grant: a command four, a collector process"
 }
 
 behavior bound_a_host_port_call "Bound a Host Port Call" {
@@ -85,6 +87,7 @@ behavior bound_a_host_port_call "Bound a Host Port Call" {
     guest_time_only "the epoch deadline counts the guest's own time: a port call's time is not spent from it"
     port_bounded    "a port call is bounded by its own deadline and the call's port budget"
     lock_free       "an effectful call of a guest that imports a port holds no lock of its extension while it runs"
+    git_counted     "a guest's git log and diff stop at counted ceilings of commits walked and bytes read, and say so"
   }
   contract """
     Epoch interruption MUST bound a call's guest time only (ADR 0037 D3): a
@@ -92,11 +95,18 @@ behavior bound_a_host_port_call "Bound a Host Port Call" {
     budget of 600 s. An effectful call of a guest that imports a port MUST
     run on its own instance, so it holds no lock of its extension. Fuel
     counts guest instructions only, so a work budget is untouched by a
-    port's time.
+    port's time. A guest's git log MUST step onto at most 100,000 commits
+    and read at most its answer cap, and a diff MUST read at most its
+    answer cap of files, then stop and say truncated; a rename search
+    MUST follow the host's own limit, never the repository's config
+    (ADR 0352). Each bound is a count, never a clock.
   """
   verify unit "a port call that outlasts the guest's deadline does not trap the guest"
   verify unit "a guest that spins after a port call still traps at its own deadline"
   verify unit "a port call does not hold its extension's lock"
+  verify unit "a guest log stops at the commits the host walks, with no count"
+  verify unit "a guest diff reads no more files than its answer holds"
+  verify unit "a guest diff searches renames by the host's rules, not the repository's config"
 }
 
 behavior refuse_an_unbacked_port_import "Refuse an Unbacked Port Import" {
@@ -105,15 +115,18 @@ behavior refuse_an_unbacked_port_import "Refuse an Unbacked Port Import" {
     declaration_read "the extension's declaration was read from its describe"
   }
   ensures {
-    e089_refused "a port the component imports with no capability of that port declared fails the load with E089, every such port listed"
+    e089_refused  "a port the component imports with no capability backing it fails the load with E089, every such port listed"
+    syntax_backed "a syntax import is backed by an fs or a git capability: it reads through their grants"
   }
   contract """
     An extension that imports a specforge:host port (types aside) MUST
-    declare a capability of that port; otherwise it is not loaded (E089).
+    declare a capability of that port (of fs or git for syntax, which reads
+    through their grants); otherwise it is not loaded (E089).
     A capability without an import is legitimate: declared probes use
     capabilities too.
   """
   verify unit "an extension that imports a port no capability backs is not loaded (E089)"
+  verify unit "a syntax import is backed by an fs or a git capability"
   verify integration "the environment load reports E089 naming the extension and the port"
 }
 
@@ -123,7 +136,7 @@ behavior call_host_ports_from_the_sdk "Call Host Ports from the SDK" {
     sdk_linked "an extension is built against the SDK"
   }
   ensures {
-    typed_client   "host::{http,fs,process,git} call the ports in the protocol's types"
+    typed_client   "host::{http,fs,process,git,syntax} call the ports in the protocol's types"
     outside_denied "a port called where no host serves it is answered denied(call-kind)"
     declared       "an extension declares each capability its imports use, with its port, scope, call kinds and reason"
   }
@@ -137,4 +150,73 @@ behavior call_host_ports_from_the_sdk "Call Host Ports from the SDK" {
   verify unit "every port request and answer survives the SDK's WIT conversion"
   verify unit "a port called outside any host is answered denied(call-kind)"
   verify unit "an extension declares a capability with its port, scope, call kinds and reason"
+}
+
+behavior read_source_syntax "Read Source Syntax" {
+  category query
+  requires {
+    query_given "a pack handed the host a query in the tags convention and the language of its files"
+  }
+  ensures {
+    every_capture   "every match answers its role, kind, span, parent and every named capture"
+    error_tolerant  "a file with syntax errors answers what the parse recovered and counts its ERROR and MISSING nodes"
+    convention_held "a pattern without exactly one role capture, or with a predicate the reader does not evaluate as text, is a fault"
+    columns         "a span's columns count characters and bytes, its lines from 1"
+    cached          "a file parsed before with the same grammar and query is answered from the syntax cache, and the work is counted"
+    deadline_held   "a file past its per-file deadline is not parsed and not cached"
+  }
+  contract """
+    The host's one source reader (ADR 0344) MUST parse rust, typescript and
+    tsx with the grammars it pins, run a pack's query in the tags convention
+    and answer every named capture of every match with its span and the
+    enclosing definition. A query that breaks the convention MUST be refused
+    with its row and column. The reader knows grammars, not items.
+  """
+  verify unit "a rust file answers every named capture with spans and parents"
+  verify unit "a broken file answers what the parse recovered and counts its errors"
+  verify unit "a query without exactly one role capture or with a general predicate is a fault"
+  verify unit "a capture's text is cut at 4096 bytes on a character boundary"
+  verify unit "the grammar versions are the locked ones"
+  verify unit "a file past its deadline is not parsed and not cached"
+  verify unit "the parse deadline is per file"
+  verify unit "a second read parses nothing and answers every file from the cache"
+  verify unit "an edited file is the only one parsed again"
+  verify unit "another query misses the cache"
+  verify unit "a detached cache parses every time"
+  verify unit "an unreadable cache entry is a miss and is rewritten"
+  verify unit "a cache that cannot be written counts unwritten and still answers"
+  verify unit "files of one content read at once are all cached and none is unwritten"
+  verify unit "a prune removes the entries untouched past the age"
+  verify unit "a read answers in the order asked whatever the workers"
+  verify integration "a second collect answers every file from the project's syntax cache"
+  verify integration "a command's syntax request is answered from the cache a collect filled"
+}
+
+behavior parse_source_through_the_syntax_import "Parse Source through the Syntax Import" {
+  category query
+  ports    [WasmRuntime, Fs, Git]
+  requires {
+    call_lent "an effectful call was lent its extension's grant and the ports"
+  }
+  ensures {
+    inside_parsed  "a syntax request inside the fs grant (git's at a revision) is read whole and parsed by the host's reader"
+    outside_denied "a file whose read the grant refuses makes the whole request denied(scope), reported as E090"
+    per_file       "a missing, withheld, too large or unreadable file is answered not_parsed with its reason"
+    held           "the answer is held to the call's answer cap: the files past it are not_parsed(capped), and truncated says only a glob's short walk"
+    noted_once     "the files a call could not parse are one W196 and those parsed broken one I211, once per call"
+  }
+  contract """
+    A syntax request (ADR 0345 D1) MUST be granted on the fs port's read
+    scope (a read per path, a walk for a glob), or git's at a revision, and
+    MUST NOT need a capability of its own. Each file is parsed by the host's
+    one source reader (ADR 0344). What a call could not parse MUST be said
+    once per call, naming the first files.
+  """
+  verify unit "a collector's syntax request inside its grant is parsed"
+  verify unit "a syntax request outside the grant is answered denied(scope) and reported as E090"
+  verify unit "a missing, a withheld and a too large file are each answered not_parsed"
+  verify unit "a revision's files are parsed from the commit's blobs"
+  verify unit "a syntax answer past the cap names the rest capped and is not truncated"
+  verify unit "files past the deadline are one W196 and broken files one I211 per call"
+  verify unit "a syntax request over a link out of its root, a hard link or a .. path parses nothing outside"
 }

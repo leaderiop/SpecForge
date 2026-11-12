@@ -4,10 +4,17 @@
 //! `SPECFORGE_BIN` is the binary and `GSD_CORE_WASM` the component (`GSD_SECURITY_WASM` for `@gsd/security`); a
 //! missing one fails the test naming the command that builds it.
 
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build --profile test -p specforge-cli) and (cd gsd && cargo build -p gsd-core -p gsd-security --release --target wasm32-wasip2), then set SPECFORGE_BIN, GSD_CORE_WASM and GSD_SECURITY_WASM to the artifacts";
+#[path = "harness_collect.rs"]
+mod collect;
+
+#[path = "harness_ab.rs"]
+pub mod ab;
+
+pub(crate) const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build --profile test -p specforge-cli) and (cd gsd && cargo build -p gsd-core -p gsd-security --release --target wasm32-wasip2), then set SPECFORGE_BIN, GSD_CORE_WASM and GSD_SECURITY_WASM to the artifacts";
 
 fn required(var: &str) -> PathBuf {
     match std::env::var_os(var).map(|value| existing_file(var, &value)) {
@@ -72,7 +79,7 @@ impl Run {
 }
 
 /// Whether a diagnostic code (`gsd/W311`) is one of the judged rules'.
-fn is_judged(code: &str) -> bool {
+pub fn is_judged(code: &str) -> bool {
     let local = code.strip_prefix("gsd/").unwrap_or(code);
     gsd_core::judged::JUDGED.iter().any(|j| j.code == local)
 }
@@ -106,26 +113,30 @@ pub fn unjudged(report: &[(String, String)]) -> Vec<(String, String)> {
 
 /// A copy of `tests/projects/<name>/` in a temp dir, with `@gsd/core` loaded from `GSD_CORE_WASM`.
 pub struct Project {
-    dir: tempfile::TempDir,
+    /// The temp dir, removed when the project drops.
+    _dir: tempfile::TempDir,
     /// The project's root: the temp dir, or a directory inside it.
     root: PathBuf,
-    /// The loaded extensions as `(name, component)`, `@gsd/core` first; a builtin has no component.
-    extensions: Vec<(String, Option<PathBuf>)>,
+    /// The loaded extensions as `(name, component)`, `@gsd/core` first; a builtin has no component. A cell:
+    /// [`Project::node_tests`] loads the test packs on a shared project.
+    extensions: RefCell<Vec<(String, Option<PathBuf>)>>,
     /// The codes the fixture says by its own design, left out of [`Project::report_all`] ([`Project::quieting`]).
     quiet: Vec<&'static str>,
 }
 
 pub fn project(name: &str) -> Project {
-    from_dir(
-        &Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/projects")
-            .join(name),
-    )
+    project_at(name, "")
 }
 
-/// The builtins the taskboard twin loads beside `@gsd/core`: the test facts and the runner pack that collects them,
-/// so its tests run against the project as the requirement thread configures it.
-pub const TWIN_BUILTINS: [&str; 2] = ["@code/core", "@javascript/node-test"];
+/// [`project`] under `inside` of its temp dir: a project in a subdirectory of the repository a test makes there.
+pub fn project_at(name: &str, inside: &str) -> Project {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/projects");
+    from_dir_at(&fixtures.join(name), inside)
+}
+
+/// The builtins the taskboard twin loads beside `@gsd/core`, as the requirement thread configures the project: the
+/// code facts, the runner pack that collects its tests and the source pack whose items the thread's code step reads.
+pub const TWIN_BUILTINS: [&str; 3] = ["@code/core", "@javascript/node-test", "@javascript/source"];
 
 /// The parity suite's taskboard fixture: its `spec/` twin of the GSD project beside its `.planning/`, loading
 /// [`TWIN_BUILTINS`].
@@ -133,13 +144,78 @@ pub fn taskboard() -> Project {
     from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/taskboard")).twin()
 }
 
-/// The security parity suite's vault fixture: its `spec/` twin of the GSD project beside its `.planning/`.
+/// The security parity suite's vault fixture: its `spec/` twin of the GSD project beside its `.planning/`, loading
+/// [`TWIN_BUILTINS`] as the taskboard does.
 #[allow(
     dead_code,
     reason = "core's own tests do not use it; @gsd/security's include this harness"
 )]
 pub fn vault() -> Project {
-    from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/vault"))
+    from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/vault")).twin()
+}
+
+/// The collectors whose facts `rust-test` reads before a recorded nextest report: the manifest's (`rust-cargo`) and
+/// the items' (`rust-source`).
+pub const RUST_TEST_COLLECTORS: [&str; 2] = ["rust-cargo", "rust-source"];
+
+/// The parity suite's ledger fixture: a Rust project whose CI is red, its `spec/` twin beside its `.planning/`,
+/// loading beside `@gsd/core` the builtins `evaluation/gsd-ab/tasks.json` names as the ledger's `thread` (the code
+/// facts and the Rust packs whose collectors read its manifest, its items and a nextest report); its proofs and items
+/// quiet until collected (`code/W102`), as the taskboard's.
+#[allow(
+    dead_code,
+    reason = "@gsd/security's tests include this harness and do not use it"
+)]
+pub fn ledger() -> Project {
+    let tasks = ab::ab_tasks();
+    let thread: Vec<&str> = tasks["fixtures"]
+        .as_array()
+        .expect("fixtures")
+        .iter()
+        .find(|fixture| fixture["id"] == "ledger")
+        .expect("the ledger fixture")["thread"]
+        .as_array()
+        .expect("its thread")
+        .iter()
+        .map(|builtin| builtin.as_str().expect("a builtin"))
+        .collect();
+    from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/fixtures/ledger"))
+        .with_builtins(&thread)
+        .quieting("code/W102")
+}
+
+/// What a twin's `truth` and `summary` entities mirror in the `.planning/` at `planning`: each `must_haves` truth of
+/// every `*-PLAN.md` as `(plan, text)` and the plan of every `*-SUMMARY.md`, from the directories under `phases/` and
+/// `quick/` (when there is one), both sorted.
+pub fn planning_truths_and_summaries(planning: &Path) -> (Vec<(String, String)>, Vec<String>) {
+    let (mut truths, mut summaries) = (Vec::new(), Vec::new());
+    for parent in ["phases", "quick"].map(|parent| planning.join(parent)) {
+        if !parent.is_dir() {
+            continue;
+        }
+        for dir in std::fs::read_dir(&parent).expect("a planning dir") {
+            for file in std::fs::read_dir(dir.expect("a dir").path()).expect("a dir") {
+                let path = file.expect("a file").path();
+                let name = path
+                    .file_name()
+                    .expect("a name")
+                    .to_string_lossy()
+                    .into_owned();
+                if let Some(plan) = name.strip_suffix("-PLAN.md") {
+                    let text = std::fs::read_to_string(&path).expect("a planning file");
+                    let block = text.split("  truths:\n").nth(1).expect("must_haves truths");
+                    for line in block.lines().take_while(|l| l.starts_with("    - ")) {
+                        truths.push((plan.to_string(), line[6..].trim_matches('"').to_string()));
+                    }
+                } else if let Some(plan) = name.strip_suffix("-SUMMARY.md") {
+                    summaries.push(plan.to_string());
+                }
+            }
+        }
+    }
+    truths.sort();
+    summaries.sort();
+    (truths, summaries)
 }
 
 /// [`taskboard`] under `inside` of its temp dir.
@@ -163,13 +239,13 @@ fn from_dir_at(source: &Path, inside: &str) -> Project {
     std::fs::create_dir_all(&root).expect("the project's directory");
     copy_dir(source, &root);
     let p = Project {
-        dir,
+        _dir: dir,
         root,
         // `@specforge/checks` is a required peer of `@gsd/core`: its `files` fields are read by `@specforge/checks:file`.
-        extensions: vec![
+        extensions: RefCell::new(vec![
             ("@gsd/core".to_string(), Some(wasm)),
             ("@specforge/checks".to_string(), None),
-        ],
+        ]),
         quiet: Vec::new(),
     };
     p.settings(serde_json::json!({}));
@@ -193,6 +269,7 @@ impl Project {
         blocks["@gsd/core"] = settings;
         let extensions: Vec<String> = self
             .extensions
+            .borrow()
             .iter()
             .map(|(name, wasm)| match wasm {
                 Some(wasm) => format!("{name}={}", wasm.display()),
@@ -216,6 +293,7 @@ impl Project {
     )]
     pub fn with_extension(mut self, name: &str, var: &str) -> Self {
         self.extensions
+            .get_mut()
             .push((name.to_string(), Some(required(var))));
         self.rewrite_extensions();
         self
@@ -237,6 +315,7 @@ impl Project {
     /// Loads the builtins `names` too, by name, after `@gsd/core`.
     pub fn with_builtins(mut self, names: &[&str]) -> Self {
         self.extensions
+            .get_mut()
             .extend(names.iter().map(|name| (name.to_string(), None)));
         self.rewrite_extensions();
         self
@@ -399,11 +478,13 @@ impl Project {
     }
 
     /// `(code, message)` of every diagnostic of `specforge check --format json` (kernel and `gsd/`), in report order,
-    /// the `I204` note and the `I205` note ("no test report") left out: the compute pass reads the report, so every
-    /// project that has none says I205 once, and the tests of the rules are not about that. The judged rules'
-    /// diagnostics (`no verdict`, `stale`, the outcome) are left out too: every plan, truth and so on of every
-    /// fixture has one, and the tests of the other rules are not about them. [`Project::report_all`] has them, and
-    /// the clean-report invariants and the judged tests use it.
+    /// the `I204` note and the `I205` note ("not judged: no test results") left out: `gsd/E501`'s `test(..)` input is
+    /// unjudged while a recorded verdict's tests are not collected, and the tests of the rules are not about that.
+    /// The `I213` note (values that wait for their owner) is left out for the same reason: every project with a
+    /// pending plan says it once.
+    /// The judged rules' diagnostics (`no verdict`, `stale`, the outcome) are left out too: every plan, truth and so
+    /// on of every fixture has one, and the tests of the other rules are not about them. [`Project::report_all`] has
+    /// them, and the clean-report invariants and the judged tests use it.
     pub fn report(&self) -> Vec<(String, String)> {
         self.report_all()
             .into_iter()
@@ -478,12 +559,13 @@ impl Project {
     pub fn report_all(&self) -> Vec<(String, String)> {
         self.checked()
             .into_iter()
-            .filter(|(code, _)| code != "I204" && code != "I205")
+            .filter(|(code, _)| !matches!(code.as_str(), "I204" | "I205" | "I213"))
             .filter(|(code, _)| !self.quiet.contains(&code.as_str()))
             .collect()
     }
 
-    /// Every code of `specforge check --format json` (kernel and `gsd/`, `I204` and `I205` left out), in report order.
+    /// Every code of `specforge check --format json` (kernel and `gsd/`, `I204`, `I205` and `I213` left out), in
+    /// report order.
     pub fn codes(&self) -> Vec<String> {
         self.report().into_iter().map(|(code, _)| code).collect()
     }
@@ -494,117 +576,6 @@ impl Project {
         let graph: serde_json::Value = serde_json::from_str(&query.stdout)
             .unwrap_or_else(|e| panic!("query is JSON ({e}): {}", query.all()));
         graph["nodes"][0]["fields"].clone()
-    }
-
-    /// Commits the project as it is now: the baseline the history rules (`I`, `+`, append-only) compare against.
-    /// Git runs with its identity on the command line, never the global configuration, and its dates are pinned.
-    pub fn commit(&self) {
-        self.ensure_repository();
-        self.git(&["add", "-A"], BASELINE_AT);
-        self.git(
-            &["commit", "-q", "--allow-empty", "-m", "baseline"],
-            BASELINE_AT,
-        );
-    }
-
-    /// Writes `files` (path, text) and commits just them with `subject`, the author and committer time `at`
-    /// (`YYYY-MM-DDTHH:MM:SSZ`). It answers the commit's full hash.
-    pub fn git_commit(&self, subject: &str, files: &[(&str, &str)], at: &str) -> String {
-        self.ensure_repository();
-        for (path, text) in files {
-            self.write(path, text);
-            self.git(&["add", "--", path], at);
-        }
-        self.git(&["commit", "-q", "--allow-empty", "-m", subject], at);
-        let head = self.git(&["rev-parse", "HEAD"], at);
-        head.trim().to_string()
-    }
-
-    /// `git init` in the project, with no commit; a repository already there is left as it is.
-    pub fn init_repository(&self) {
-        self.ensure_repository();
-    }
-
-    fn ensure_repository(&self) {
-        if !self.root.join(".git").exists() {
-            self.git(&["init", "-q", "-b", "main"], BASELINE_AT);
-        }
-    }
-
-    /// `git <args>` in the project with a pinned identity and pinned dates; it answers standard output.
-    pub fn git(&self, args: &[&str], at: &str) -> String {
-        let output = Command::new("git")
-            .args(["-c", "user.name=gsd", "-c", "user.email=gsd@example.com"])
-            .args([
-                "-c",
-                "commit.gpgsign=false",
-                "-c",
-                "core.hooksPath=/dev/null",
-            ])
-            .args([
-                "-c",
-                "core.excludesFile=/dev/null",
-                "-c",
-                "tag.gpgSign=false",
-            ])
-            .args(args)
-            // Not the developer's configuration, hooks, signing or repository.
-            .env("GIT_CONFIG_GLOBAL", "/dev/null")
-            .env("GIT_CONFIG_NOSYSTEM", "1")
-            .env_remove("GIT_DIR")
-            .env_remove("GIT_WORK_TREE")
-            .env_remove("GIT_INDEX_FILE")
-            .env("GIT_AUTHOR_DATE", at)
-            // The committer's date differs from the author's, so `%at` is told from `%ct`.
-            .env("GIT_COMMITTER_DATE", "2030-01-01T00:00:00Z")
-            .current_dir(&self.root)
-            .output()
-            .expect("run git");
-        assert!(
-            output.status.success(),
-            "git {args:?}: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        String::from_utf8_lossy(&output.stdout).into_owned()
-    }
-
-    /// `specforge collect <args> --yes --format json`.
-    pub fn collect(&self, args: &[&str]) -> Run {
-        let mut all = vec!["collect"];
-        all.extend_from_slice(args);
-        all.extend(["--yes", "--format", "json"]);
-        self.run(&all)
-    }
-
-    /// `collect --runner node-test --no-run` over the twin's recorded JUnit report (`goldens/taskboard/junit.xml`),
-    /// put where `@javascript/node-test` reads it: the thread's test facts without running node.
-    pub fn collect_node_test_golden(&self) -> Run {
-        let golden =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/goldens/taskboard/junit.xml");
-        let report = std::fs::read_to_string(&golden).expect("the twin's recorded JUnit report");
-        self.write(".specforge/reports/node-test.xml", &report);
-        self.collect(&["--runner", "node-test", "--no-run"])
-    }
-
-    /// Records one passing test for the `execute` project's deliverable check (`test/tasks.test.js#adds a task`), as
-    /// `gsd-junit` reads a JUnit report. Once a test runner has recorded a result, a check no test ran is `unknown`
-    /// and `gsd/W408` says so; this settles it.
-    pub fn passing_tests(&self) {
-        let file = self
-            .dir
-            .path()
-            .canonicalize()
-            .expect("root")
-            .join("test/tasks.test.js");
-        self.write(
-            "junit.xml",
-            &format!(
-                "<?xml version=\"1.0\"?>\n<testsuites>\n<testsuite name=\"s\">\n<testcase name=\"adds a task\" classname=\"test\" file=\"{}\"/>\n</testsuite>\n</testsuites>\n",
-                file.display()
-            ),
-        );
-        let run = self.collect(&["--runner", "gsd-junit", "--no-run"]);
-        assert_eq!(run.code, 0, "{}", run.all());
     }
 
     /// The nodes of `kind` in the graph, as `specforge export --format graph` writes them.

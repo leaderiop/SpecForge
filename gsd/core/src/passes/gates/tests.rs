@@ -348,7 +348,7 @@ fn every_guard_answers_a_gate_and_is_silent_on_a_write() {
         json!({ "entities": entities, "edges": edges }),
     ))
     .expect("input");
-    for (name, code, check) in GUARDS {
+    for (name, code, _, check) in GUARDS {
         let answered = codes(check(&gate));
         assert!(
             !answered.is_empty() && answered.iter().all(|c| c == code),
@@ -362,13 +362,13 @@ fn every_guard_answers_a_gate_and_is_silent_on_a_write() {
 
 const TASK: &str = "v1.0/01/01-01/T1";
 
-/// A phase whose requirement R1 is complete, a plan that names it and this task; `tests` are the recorded results
-/// `(entity, status)`, `commit` whether a commit names the task.
+/// A phase whose requirement R1 is complete, a plan that names it and this task; `tests` are test facts
+/// `(entity it names, status)`, `commit` whether a commit names the task.
 fn traced(
     subject: Option<&str>,
     task_type: &str,
     commit: bool,
-    tests: &[(&str, &str)],
+    tests: &[(&str, TestStatus)],
 ) -> PassInput {
     let mut entities = vec![
         json!({ "id": "v1.0/01", "kind": "phase", "values": { "requirements": ["R1"] } }),
@@ -383,18 +383,22 @@ fn traced(
                               "fields": { "task": TASK, "at": "2026-10-29T10:00:00Z" } }),
         );
     }
-    let mut value = json!({ "entities": entities, "edges": [], "trigger": ship(subject) });
-    let mut results = serde_json::Map::new();
-    for (entity, status) in tests {
-        let recorded = results
-            .entry(entity.to_string())
-            .or_insert_with(|| json!({ "tests": [] }));
-        if let Some(all) = recorded["tests"].as_array_mut() {
-            all.push(json!({ "name": "t", "status": status }));
-        }
+    let value = json!({ "entities": entities, "edges": [], "trigger": ship(subject) });
+    let mut input: PassInput =
+        serde_json::from_value(crate::passes::plans::with_field_edges(value))
+            .expect("a pass input");
+    for (n, (entity, status)) in tests.iter().enumerate() {
+        let id = format!("js:app/test/t.test.js#t{n}");
+        crate::passes::thread::fixture::add_test(
+            &mut input,
+            &id,
+            &format!("t{n}"),
+            "test/t.test.js",
+            *status,
+            &[entity],
+        );
     }
-    value["test_results"] = json!({ "results": results });
-    serde_json::from_value(crate::passes::plans::with_field_edges(value)).expect("a pass input")
+    input
 }
 
 #[test]
@@ -406,7 +410,7 @@ fn e515_is_silent_outside_a_gate() {
 
 #[test]
 fn a_complete_requirement_without_a_task_is_e515() {
-    let mut found = traced(Some("v1.0/01"), "auto", true, &[(TASK, "passed")]);
+    let mut found = traced(Some("v1.0/01"), "auto", true, &[(TASK, TestStatus::Passed)]);
     found
         .entities
         .retain(|e| e.kind != "task" && e.kind != "commit");
@@ -420,7 +424,12 @@ fn a_commit_alone_does_not_trace() {
     let refused = e515(&traced(Some("v1.0/01"), "auto", true, &[]));
     assert_eq!(codes(refused.clone()), ["E515"]);
     assert!(refused[0].message.contains("no passing test of its tasks"));
-    let no_commit = e515(&traced(Some("v1.0/01"), "auto", false, &[(TASK, "passed")]));
+    let no_commit = e515(&traced(
+        Some("v1.0/01"),
+        "auto",
+        false,
+        &[(TASK, TestStatus::Passed)],
+    ));
     assert!(no_commit[0].message.contains("no commit of its tasks"));
 }
 
@@ -430,20 +439,36 @@ fn a_manual_task_does_not_trace() {
         Some("v1.0/01"),
         "manual",
         true,
-        &[(TASK, "passed")],
+        &[(TASK, TestStatus::Passed)],
     ));
     assert!(refused[0].message.contains("no task of its plans"));
 }
 
 #[test]
 fn a_passing_test_naming_the_task_traces() {
-    assert!(e515(&traced(Some("v1.0/01"), "auto", true, &[(TASK, "passed")])).is_empty());
-    assert!(e515(&traced(Some("v1.0/01"), "tdd", true, &[("R1", "passed")])).is_empty());
+    assert!(
+        e515(&traced(
+            Some("v1.0/01"),
+            "auto",
+            true,
+            &[(TASK, TestStatus::Passed)]
+        ))
+        .is_empty()
+    );
+    assert!(
+        e515(&traced(
+            Some("v1.0/01"),
+            "tdd",
+            true,
+            &[("R1", TestStatus::Passed)]
+        ))
+        .is_empty()
+    );
 }
 
 #[test]
 fn a_failing_linked_test_does_not_trace() {
-    let tests = [(TASK, "passed"), (TASK, "failed")];
+    let tests = [(TASK, TestStatus::Passed), (TASK, TestStatus::Failed)];
     let refused = e515(&traced(Some("v1.0/01"), "auto", true, &tests));
     assert!(refused[0].message.contains("no passing test of its tasks"));
 }

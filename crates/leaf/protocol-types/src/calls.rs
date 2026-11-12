@@ -9,7 +9,6 @@
 //! | `__pass_<name>` (pass)        | [`PassInput`]          | [`PassAnswer`]               |
 //! | `collect__<name>` (collector) | [`CollectInput`]       | [`CollectOutput`]            |
 //! | a rule's `wasm_function`      | [`crate::ValidatorContext`] | [`crate::ValidatorVerdict`] |
-//! | an analyzer's `scan_export`   | [`crate::ScanRequest`] | [`crate::ScanResponse`]      |
 //! | the migration hook            | [`MigrationInput`]     | not read                     |
 //!
 //! The rules every type here follows: an optional field is absent from the
@@ -337,8 +336,10 @@ pub fn pass_export(pass: &str) -> String {
 /// names when the host has one.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct PassInput {
+    /// The authored entities and the facts of the kinds the pass's `facts` input names (ADR 0353): a pass that
+    /// declares none is sent no fact.
     pub entities: Vec<PassEntity>,
-    /// Resolved references between snapshot entities. Defaults keep passes
+    /// Resolved references between the entities it is sent: an edge whose two ends it is sent. Defaults keep passes
     /// written against the entities-only input compatible.
     #[serde(default)]
     pub edges: Vec<PassEdge>,
@@ -420,6 +421,10 @@ pub struct PassEntity {
     /// and no core diagnostic; whether one is wrong is the kind's extension's to judge.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub unheld: Vec<UnheldReference>,
+    /// A fact's references that name no entity, one of another kind, or several (protocol 2.0.0, ADR 0346 D4): no core
+    /// diagnostic; sent to every pass, and the extension declaring the entity's kind is the one that judges them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dangling: Vec<DanglingReference>,
     /// Its owner is not complete (protocol 1.15.0, ADR 0329 D4): its kind's `complete_when` does not hold, or, when
     /// its kind declares none, the nearest scope ancestor's whose kind declares one does not. Sent only when true.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -685,97 +690,6 @@ impl TestResults {
     }
 }
 
-// ── Collector (`collect__<name>`) ──────────────────────────────────────────
-
-/// What the host passes to a `collect__<name>` export: the runner's report
-/// files, read from the declared report location, and the command's
-/// standard output when the collector captures it.
-///
-/// Every collector receives the project root as `cwd`, canonical (protocol 1.15.0, ADR 0327). A collector that
-/// declares `writes` also receives the host's date, the graph and the revisions of the sources (protocol 1.9.0).
-/// `G` is how the graph is held, as in [`CommandInput`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CollectInput<G = GraphWire> {
-    #[serde(default)]
-    pub reports: Vec<CollectReportFile>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stdout: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cwd: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub today: Option<String>,
-    /// [`CommandInput::now`], for a collector that declares `writes` (protocol 1.11.0).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub now: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub graph: Option<G>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub revisions: BTreeMap<String, String>,
-    /// The facts of the files the collector's `files` inputs name, by read name (ADR 0293).
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub files: crate::FileMap,
-    /// Each checked value's outcome, for a collector that declares `check_outcomes` (ADR 0336).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub check_outcomes: Vec<crate::CheckOutcome>,
-}
-
-impl<G> Default for CollectInput<G> {
-    fn default() -> Self {
-        CollectInput {
-            reports: Vec::new(),
-            stdout: None,
-            cwd: None,
-            today: None,
-            now: None,
-            graph: None,
-            revisions: BTreeMap::new(),
-            files: crate::FileMap::new(),
-            check_outcomes: Vec::new(),
-        }
-    }
-}
-
-/// One report file: its path relative to the project root, and its text.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CollectReportFile {
-    pub path: String,
-    pub content: String,
-}
-
-/// What a `collect__<name>` export returns: test results grouped by the
-/// entity each test proves, and the tests the report doesn't link to any
-/// entity, which the host links by naming convention when it can.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct CollectOutput {
-    #[serde(default)]
-    pub entity_results: Vec<CollectEntityResult>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub unlinked: Vec<CollectUnlinkedTest>,
-    /// What a collector that declares `writes` asks the host to write (protocol 1.9.0).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub plan: Option<EditPlan>,
-    /// The entities the collector observed (protocol 1.15.0, ADR 0327): stored by the host, served read-only.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub facts: Vec<Fact>,
-}
-
-/// A test the report doesn't link to an entity: its name, the name split
-/// into its path segments (`["tests", "add_item", "rejects_a_duplicate"]`,
-/// the test's own name last), and its [`TestStatus`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CollectUnlinkedTest {
-    pub name: String,
-    pub path: Vec<String>,
-    pub status: TestStatus,
-}
-
-/// The tests a report links to one entity.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CollectEntityResult {
-    pub entity_id: String,
-    pub test_results: Vec<TestResult>,
-}
-
 // ── Migration hook (the handshake's `migration_hook`) ──────────────────────
 
 /// What the migration hook receives before `specforge migrate` writes the
@@ -788,10 +702,16 @@ pub struct MigrationInput {
     pub files: Vec<String>,
 }
 
+mod collect;
 mod evidence;
 mod facts;
+pub use collect::{
+    CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectUnlinkedTest,
+};
 pub use evidence::{CommandEvidence, EntityEvidence};
-pub use facts::{Fact, FactStore, UnheldReference};
+pub use facts::{
+    DanglingReason, DanglingReference, Fact, FactLocation, FactStore, UnheldReference,
+};
 
 #[cfg(test)]
 mod tests;

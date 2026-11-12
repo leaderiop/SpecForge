@@ -381,6 +381,87 @@ impl Navigator<'_> {
     }
 }
 
+impl Navigator<'_> {
+    /// The name a fact holds where its source writes it (`Fact.named_at`, ADR 0346) whose span in `file`, a source file
+    /// the fact is placed in, holds the byte position (1-based `line` and `col`; just past the end counts): the
+    /// innermost. A value spanned at its fact's own place (no name place recorded) is no name written there. What the
+    /// language server answers on in a source file (ADR 0349 D8).
+    pub fn source_token_at(&self, file: &str, line: usize, col: usize) -> Option<Token> {
+        let at = SourceSpan {
+            file: Sym::new(file),
+            start_line: line,
+            start_col: col,
+            end_line: line,
+            end_col: col,
+        };
+        let graph = self.view.graph();
+        let placed_at_fact = |token: &WrittenToken| {
+            token.held_by.iter().any(|holder| {
+                graph
+                    .node(holder.as_str())
+                    .is_some_and(|node| node.located.contains(&token.span))
+            })
+        };
+        self.written()
+            .iter()
+            .filter(|t| t.span.file.as_str() == file && contains(&t.span, &at))
+            .filter(|t| !placed_at_fact(t))
+            .min_by_key(|t| (t.span.end_line - t.span.start_line, t.span.end_col))
+            .map(|t| Token {
+                target: t.target,
+                span: t.span.clone(),
+                precision: Precision::Token,
+            })
+    }
+
+    /// The references from inside a located fact placed in source file `file` at the byte position (1-based `line`
+    /// and `col`), the innermost fact whose place holds it (ADR 0349 D8): where a `.spec` writes the fact's id, and
+    /// the name of each entity it is anchored to, by file and position, once each. `None` when no located fact's
+    /// place holds the position. What the language server answers references with in a source file.
+    pub fn fact_references_at(
+        &self,
+        file: &str,
+        line: usize,
+        col: usize,
+    ) -> Option<Vec<SourceSpan>> {
+        let at = SourceSpan {
+            file: Sym::new(file),
+            start_line: line,
+            start_col: col,
+            end_line: line,
+            end_col: col,
+        };
+        let kinds = self.view.registries().kinds();
+        let fact = self
+            .view
+            .graph()
+            .nodes()
+            .into_iter()
+            .filter(|node| kinds.is_collected(node.kind.raw.as_str()))
+            .filter_map(|node| {
+                let place = node.located.iter().find(|place| contains(place, &at))?;
+                Some((node, place.end_line - place.start_line))
+            })
+            .min_by_key(|(_, lines)| *lines)?
+            .0;
+        let id = fact.id.raw.as_str();
+        let mut spans: Vec<SourceSpan> = self
+            .tokens(id, false)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|token| token.span)
+            .collect();
+        for edge in super::anchors_in(&self.view).of_fact(id) {
+            if let Ok(definition) = self.definition(edge.entity.id.raw.as_str()) {
+                spans.push(definition.name);
+            }
+        }
+        spans.sort_by_key(|s| (s.file, s.start_line, s.start_col));
+        spans.dedup();
+        Some(spans)
+    }
+}
+
 /// `tokens` sorted by (file, line, column) and deduplicated.
 fn sort_tokens(tokens: &mut Vec<Token>) {
     tokens.sort_by_key(|t| {

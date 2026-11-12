@@ -1,6 +1,6 @@
 //! The component-model runtime (wasmtime): the production adapter of
 //! [`WasmRuntime`]. Every extension call (the declaration, commands, passes,
-//! collectors, custom rules, scanners, migration hooks) reaches a guest
+//! collectors, custom rules, migration hooks) reaches a guest
 //! through that trait, here or in the in-process test adapter
 //! (`specforge_wasm::testing::InProcessRuntime`).
 //!

@@ -18,8 +18,6 @@ type ExtensionDeclaration "Everything one extension declares: its handshake and 
   surfaces         SurfaceDescriptor             @optional
   // Test result collectors (see register_collector_contributions)
   collectors       CollectorDescriptor[]         @optional
-  // Language analyzers (specforge infer)
-  analyzers        AnalyzerDescriptor[]          @optional
   passes           CompilerPassDeclaration[]     @optional
   feature_flags    FeatureFlagDeclaration[]      @optional
   verify unit "ExtensionDeclaration schema is valid"
@@ -143,17 +141,6 @@ type EntityEnhancementDescriptor "Fields and verify kinds one extension adds to 
   // Makes the target kind testable with exactly these verify kinds (ADR 0002)
   verify_kinds string[]          @optional
   verify unit "EntityEnhancementDescriptor schema is valid"
-}
-
-type AnalyzerDescriptor "A language analyzer specforge infer runs over source files." {
-  language        string   @readonly
-  file_extensions string[]
-  excluded_dirs   string[] @optional
-  scan_export     string
-  classify_export string
-  map_export      string
-  description     string   @optional
-  verify unit "AnalyzerDescriptor schema is valid"
 }
 
 type FieldDescriptor "Field Descriptor" {

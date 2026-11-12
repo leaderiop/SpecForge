@@ -45,6 +45,8 @@ fn emit_graph_includes_all_fields_and_metadata() {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
+        dangling: Vec::new(),
     });
 
     let json = crate::support::emit_json(&graph);
@@ -87,6 +89,8 @@ fn emit_graph_equals_emit_json() {
             verdicts: Vec::new(),
             scope: None,
             unheld: Vec::new(),
+            located: Vec::new(),
+            dangling: Vec::new(),
         });
     }
     for (source, target, label) in [
@@ -148,6 +152,8 @@ fn graph_format_conforms_to_graph_protocol_schema() {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
+        dangling: Vec::new(),
     });
     graph.add_node(Node {
         id: EntityId {
@@ -164,6 +170,8 @@ fn graph_format_conforms_to_graph_protocol_schema() {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
+        dangling: Vec::new(),
     });
     graph.add_edge(Edge {
         source: Sym::new("beta"),
@@ -211,6 +219,8 @@ fn graph_format_includes_schema_version() {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
+        dangling: Vec::new(),
     });
 
     let json = crate::support::emit_json(&graph);
@@ -245,6 +255,8 @@ fn structural_only_graph_exports_raw_keywords() {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
+        dangling: Vec::new(),
     });
     graph.add_node(Node {
         id: EntityId {
@@ -261,6 +273,8 @@ fn structural_only_graph_exports_raw_keywords() {
         verdicts: Vec::new(),
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
+        dangling: Vec::new(),
     });
 
     let json = crate::support::emit_json(&graph);
@@ -294,6 +308,8 @@ fn without_verdicts_no_node_carries_a_coverage_status() {
             verdicts: Vec::new(),
             scope: None,
             unheld: Vec::new(),
+            located: Vec::new(),
+            dangling: Vec::new(),
         });
     }
     let verdicts = BTreeMap::from([("alpha".to_string(), specforge_coverage::Status::Covered)]);

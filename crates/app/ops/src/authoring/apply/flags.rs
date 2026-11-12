@@ -74,8 +74,8 @@ pub(crate) fn check(
             Step::Rename { entity, to } => {
                 if let Some(kind) = kinds.of(entity) {
                     let original = kinds.original(entity);
+                    // The facts that name it are the rename plan's to rewrite in their source (ADR 0346 D7).
                     collected(view, op.number, plan, &kind, Some(&original))?;
-                    collected_referrers(view, op.number, plan, &original, "rename")?;
                     human_kind(view, origin, op.number, plan, &kind)?;
                     human_referrers(view, origin, op.number, plan, &kinds.original(entity))?;
                     let from = kinds.original(entity);
@@ -212,7 +212,7 @@ fn edit_flags(
                 human_held(view, origin, number, plan, kinds.of(entity_id), &original)?;
                 // The references it removes are writes to the entities that hold them.
                 if *unlink_references {
-                    collected_referrers(view, number, plan, &original, "delete")?;
+                    collected_referrers(view, number, plan, &original)?;
                     human_referrers(view, origin, number, plan, &original)?;
                 }
                 Ok(())
@@ -663,7 +663,7 @@ fn collected(
                     .map(|n| n.source_span.file.to_string()),
                 _ => None,
             };
-            let by = match file.as_deref().and_then(specforge_project::facts::filed) {
+            let by = match file.as_deref().and_then(specforge_common::facts::filed) {
                 Some((collector, _)) => {
                     format!("'{collector}' ({})", file.as_deref().unwrap_or_default())
                 }
@@ -678,14 +678,14 @@ fn collected(
     Err(fact(number, plan, what))
 }
 
-/// A rename of `id`, or a delete that unlinks the references to it (`change`), would rewrite the facts that name it:
-/// refused for every caller, since a fact is no edit's to change.
+/// A delete of `id` that unlinks the references to it would drop the names the facts that name it hold: refused for
+/// every caller, since a fact is no edit's to change, and a source attribute is no text to delete without guessing
+/// (ADR 0346 D7).
 fn collected_referrers(
     view: &ProjectView<'_>,
     number: usize,
     plan: bool,
     id: &str,
-    change: &str,
 ) -> Result<(), OpError> {
     let scopes = view.graph().scopes();
     let Found::One(path) = scopes.find(id) else {
@@ -706,8 +706,8 @@ fn collected_referrers(
             number,
             plan,
             format!(
-                "{id} is named by '{}' of the fact '{}', which an edit cannot rewrite; {change} it, then run \
-                 `specforge collect`",
+                "{id} is named by '{}' of the fact '{}', which an edit cannot rewrite; change the source it is read \
+                 from, run `specforge collect`, then delete it",
                 edge.label, edge.source
             ),
         )),
@@ -715,18 +715,19 @@ fn collected_referrers(
     }
 }
 
-/// A rename of `id` refused for every caller, the editor's own included: a collected entity, or one a fact names
-/// (ADR 0327). `rename::plan` asks it first, so the LSP's direct call is refused too.
+/// A rename of `id` refused for every caller, the editor's own included: a collected entity (ADR 0327). The facts
+/// that name it are the rename plan's to rewrite (ADR 0346 D7). `rename::plan` asks it first, so the LSP's direct call
+/// is refused too.
 pub(crate) fn collected_rename(view: &ProjectView<'_>, id: &str) -> Result<(), OpError> {
     let kinds = Kinds {
         view,
         made: BTreeMap::new(),
         renamed: BTreeMap::new(),
     };
-    if let Some(kind) = kinds.of(id) {
-        collected(view, 1, false, &kind, Some(id))?;
+    match kinds.of(id) {
+        Some(kind) => collected(view, 1, false, &kind, Some(id)),
+        None => Ok(()),
     }
-    collected_referrers(view, 1, false, id, "rename")
 }
 
 fn fact(number: usize, plan: bool, what: String) -> OpError {

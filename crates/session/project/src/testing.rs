@@ -26,6 +26,7 @@ pub mod gsd_facts;
 pub mod gsd_hosts;
 pub mod gsd_prompts;
 pub mod gsd_writes;
+pub mod items;
 pub mod judged;
 pub mod routed;
 pub mod scoped;
@@ -36,7 +37,7 @@ pub mod typed;
 pub use assembled::Assembled;
 pub use collected::{
     CODE, COLLECTED_EXTENSIONS, Collected, NODE, NODE_REPORT, SPEC, UNIT_REPORT, collected_answer,
-    collected_wire, stored,
+    collected_wire, stored, stored_with,
 };
 pub use gsd::{
     GSD_EXTENSION, gsd_history_extension, gsd_history_kinds, gsd_history_runtime,
@@ -51,6 +52,10 @@ pub use gsd_prompts::{GSD_PROMPTS_EXTENSIONS, GsdPrompts, NO_CONTEXT, gsd_prompt
 pub use gsd_writes::{
     CORE, GSD_WRITES_EXTENSIONS, GUARDED, GsdWrites, OTHER, UI, gsd_writes_answer, gsd_writes_wire,
     revision_of,
+};
+pub use items::{
+    CITES, ITEM_EXTENSIONS, ITEMS, WORKTREE, declare_cites, declare_items, item, item_declarations,
+    item_node, items_over, items_runtime, naming, stored_items, stored_items_with,
 };
 pub use judged::{
     CODE_CORE, GSD_JUDGED, GSD_JUDGED_SPEC, PLAN_CHECK_INPUTS, code_core_builder, code_core_tests,
@@ -95,6 +100,9 @@ pub struct TestProject {
     served: Option<Arc<InProcessRuntime>>,
     /// The git port every load asks of version control ([`Self::with_git`]); none: no port.
     git: Option<SharedGit>,
+    /// The counted work each guest call of the component runtime may spend ([`Self::within_work`]); none: the
+    /// production limit.
+    work_budget: Option<u64>,
 }
 
 impl Default for TestProject {
@@ -113,6 +121,7 @@ impl TestProject {
             extensions: None,
             served: None,
             git: None,
+            work_budget: None,
         };
         project.write_config();
         project
@@ -129,6 +138,7 @@ impl TestProject {
             extensions: None,
             served: None,
             git: None,
+            work_budget: None,
         };
         copy_tree(fixture.as_ref(), project.root());
         let config = std::fs::read(project.root().join("specforge.json"))
@@ -198,6 +208,13 @@ impl TestProject {
     pub fn serving(mut self, runtime: InProcessRuntime) -> Self {
         self.served = Some(Arc::new(runtime));
         self.refresh();
+        self
+    }
+
+    /// Bound every guest call of the component runtime this project compiles with by `fuel` counted instructions
+    /// (`ComponentRuntime::with_work_budget`): for a test that pins a guest's work on any machine.
+    pub fn within_work(mut self, fuel: u64) -> Self {
+        self.work_budget = Some(fuel);
         self
     }
 
@@ -379,9 +396,10 @@ impl TestProject {
         self.open(RuntimeSource::Fixed(None))
     }
 
-    /// The project's environment in `runtime`, asking `git`.
+    /// The project's environment in `runtime`, asking `git`, parsing source within a counted deadline.
     fn load(&self, runtime: Option<SharedRuntime>, git: Option<SharedGit>) -> crate::Environment {
-        let env = crate::Environment::load(&self.project_root(), runtime);
+        let env = crate::Environment::load(&self.project_root(), runtime)
+            .with_parse_deadline(specforge_source::COUNTED_DEADLINE);
         match git {
             Some(git) => env.with_git(git),
             None => env,
@@ -411,9 +429,14 @@ impl TestProject {
     }
 
     /// The component runtime every CLI command compiles with, as its concrete type (for a test that asks it what it
-    /// loaded).
+    /// loaded), bounded by [`Self::within_work`] when a test set it.
     pub fn component_runtime(&self) -> Arc<specforge_component::ComponentRuntime> {
-        component_runtime()
+        match self.work_budget {
+            Some(fuel) => Arc::new(
+                specforge_component::ComponentRuntime::with_user_cache().with_work_budget(fuel),
+            ),
+            None => component_runtime(),
+        }
     }
 
     /// Bring the disk up to the value: `specforge.json`, and the installs a served runtime needs.

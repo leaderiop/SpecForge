@@ -41,6 +41,8 @@ fn build_graph() -> Graph {
             verdicts: Vec::new(),
             scope: None,
             unheld: Vec::new(),
+            located: Vec::new(),
+            dangling: Vec::new(),
         });
     }
 

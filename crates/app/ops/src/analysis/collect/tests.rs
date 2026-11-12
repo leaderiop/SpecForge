@@ -1,4 +1,4 @@
-use super::collector::{report_path, wildcard};
+use super::collector::{command_line, expanded_config, report_path, wildcard};
 use super::*;
 use crate::Containment;
 use crate::testing::Viewed;
@@ -12,12 +12,16 @@ fn collector(report: &str) -> Collector {
         name: "acme".into(),
         export: "collect__acme".into(),
         detect: vec!["acme.config.*".into()],
+        detect_repository: false,
         run: vec!["acme".into(), "--out={report}".into()],
-        report: report.into(),
+        report: Some(report.into()),
         capture: None,
         writes: false,
         inputs: Vec::new(),
         capability: None,
+        answers: Vec::new(),
+        config: None,
+        install: None,
     }
 }
 
@@ -31,6 +35,31 @@ fn wildcard_matches_segments() {
     assert!(wildcard("a*b*c", "a-b-c"));
     assert!(!wildcard("vitest.config.*", "vite.config.ts"));
     assert!(!wildcard("a*a", "a"));
+}
+
+#[specforge_test(
+    behavior = "auto_detect_collector",
+    verify = "a repository above the project root selects a collector detecting a repository"
+)]
+fn a_repository_above_the_project_root_selects_a_collector_detecting_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("repo/sub/project");
+    std::fs::create_dir_all(&root).unwrap();
+    let repository = Collector {
+        detect: Vec::new(),
+        detect_repository: true,
+        ..collector("r.json")
+    };
+    let collectors = [repository];
+    assert!(detect(&collectors, &root).is_empty());
+    // a repository's directory, then a linked worktree's file, two levels up
+    std::fs::create_dir(dir.path().join("repo/.git")).unwrap();
+    assert_eq!(detect(&collectors, &root).len(), 1);
+    std::fs::remove_dir(dir.path().join("repo/.git")).unwrap();
+    std::fs::write(dir.path().join("repo/.git"), "gitdir: /elsewhere\n").unwrap();
+    assert_eq!(detect(&collectors, &root).len(), 1);
+    // files alone, as before
+    assert!(detect(&[collector("r.json")], &root).is_empty());
 }
 
 #[specforge_test(
@@ -113,6 +142,8 @@ fn known_entities_are_the_snapshots_records() {
         ],
         scope: None,
         unheld: Vec::new(),
+        located: Vec::new(),
+        dangling: Vec::new(),
         verdicts: Vec::new(),
     });
     let fixture = specforge_project::testing::Assembled::new().graph(graph);
@@ -463,4 +494,47 @@ fn a_rooted_unknown_id_stays_unknown() {
     assert!(report.results.is_empty());
     assert_eq!(diags.len(), 1);
     assert_eq!(diags[0].code, "W115");
+}
+
+#[specforge_test(
+    behavior = "run_collector_command",
+    verify = "the config's report path is escaped for a quoted TOML or JSON string"
+)]
+fn the_config_expands_the_report_path_escaped_for_a_quoted_string() {
+    let template = "[profile.specforge.junit]\npath = \"{report}\"\n";
+    assert_eq!(
+        expanded_config(template, Path::new("C:\\a \"b\"\\x\ty's.xml")),
+        "[profile.specforge.junit]\npath = \"C:\\\\a \\\"b\\\"\\\\x\\u0009y's.xml\"\n"
+    );
+    let json = serde_json::json!({"path": "C:\\a \"b\"\\x\ty's.xml"}).to_string();
+    let read: serde_json::Value = serde_json::from_str(&expanded_config(
+        "{\"path\": \"{report}\"}",
+        Path::new("C:\\a \"b\"\\x\ty's.xml"),
+    ))
+    .unwrap();
+    assert_eq!(read.to_string(), json, "JSON reads the escape back");
+}
+
+#[test]
+fn the_command_line_expands_the_config_placeholder() {
+    let mut nextest = collector("out/r.xml");
+    nextest.run = vec![
+        "cargo-nextest".into(),
+        "--tool-config-file".into(),
+        "specforge:{config}".into(),
+        "--out={report}".into(),
+    ];
+    assert_eq!(
+        command_line(
+            &nextest,
+            Path::new("/p/out/r.xml"),
+            Some(Path::new("/p/.specforge/reports/acme.nextest.toml"))
+        ),
+        [
+            "cargo-nextest",
+            "--tool-config-file",
+            "specforge:/p/.specforge/reports/acme.nextest.toml",
+            "--out=/p/out/r.xml"
+        ]
+    );
 }

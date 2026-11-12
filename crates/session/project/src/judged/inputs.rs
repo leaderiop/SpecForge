@@ -3,17 +3,17 @@
 //! one whose digests all agree.
 
 use std::cell::OnceCell;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::ErrorKind;
 use std::path::Path;
 
 use serde_json::{Value, json};
 use specforge_effects::Root;
 use specforge_effects::contained::{Contained, Refused};
-use specforge_graph::{Graph, Node, wire};
+use specforge_graph::{Graph, Node, Unheld, wire};
 use specforge_package::Sha256;
 use specforge_protocol_types::JudgedFile;
-use specforge_registry::judged::{CITED, CITED_TESTS, Chain, JudgedRule, Selector};
+use specforge_registry::judged::{CITED, CITED_TESTS, Chain, JudgedRule, Selector, Step};
 use specforge_registry::{Disk, DiskLookup, EntitySnapshot, FileStamp};
 
 use super::{DigestMemo, entity_digest, file_digest};
@@ -66,7 +66,7 @@ pub struct Inputs {
     pub files: Vec<JudgedFile>,
     /// The names of the inputs that could not be judged, `cited_tests` included: a `test(..)` input none of whose
     /// chains could be read (entities that are no facts with no usable report, references whose facts no collect has
-    /// stored; ADR 0331 D7), and `cited_tests` with no usable report. Each digests as `none`, and freshness skips it.
+    /// stored, referrers of collected kinds no store holds; ADR 0331 D7), and `cited_tests` with no usable report. Each digests as `none`, and freshness skips it.
     pub unjudged: Vec<String>,
     /// The inputs of [`Self::unjudged`] left unjudged because a value they read was not checked on this machine
     /// (`unknown`, I206): counted for I207, not I205 (ADR 0337 §6).
@@ -132,8 +132,8 @@ pub(super) struct Cx<'a> {
     checked: &'a CheckedValues,
     report: OnceCell<ReportRead>,
     selection: Selection<'a>,
-    /// The schemes the served fact stores hold facts of, read once.
-    held: OnceCell<BTreeSet<String>>,
+    /// By scheme, the kinds of the facts the served fact stores hold, read once.
+    held: OnceCell<BTreeMap<String, BTreeSet<String>>>,
 }
 
 /// What a `test(..)` input reads now (ADR 0331 D7).
@@ -304,24 +304,40 @@ impl<'a> Cx<'a> {
         value
     }
 
-    /// Whether a served store holds facts of `scheme`.
-    fn holds(&self, scheme: &str) -> bool {
-        self.held
-            .get_or_init(|| {
-                crate::facts::stores(self.entities)
-                    .into_iter()
-                    .flat_map(|store| store.schemes)
-                    .collect()
+    /// The kinds the served stores hold, by scheme.
+    fn held(&self) -> &BTreeMap<String, BTreeSet<String>> {
+        self.held.get_or_init(|| {
+            let mut held: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+            for (scheme, kinds) in crate::facts::stores(self.entities)
+                .into_iter()
+                .flat_map(|store| store.held)
+            {
+                held.entry(scheme).or_default().extend(kinds);
+            }
+            held
+        })
+    }
+
+    /// Whether a served store holds, in the scheme of `unheld`, facts of a kind its field admits (ADR 0347 D9).
+    fn holds(&self, unheld: &Unheld) -> bool {
+        specforge_common::scheme::of(&unheld.id)
+            .and_then(|scheme| self.held().get(scheme))
+            .is_some_and(|kinds| {
+                unheld
+                    .kinds
+                    .iter()
+                    .any(|kind| kinds.contains(kind.as_str()))
             })
-            .contains(scheme)
     }
 
     /// What `test(chains)` reads from `this`. Each chain counts on its own: it reads the entities it picks and the
     /// references it names that are no held fact. A fact whose kind names its result field is `[id, status]`
     /// (`unknown` while unwritten); any other entity is `[id, [[name, status]…]]` from the report, nothing when it has
-    /// none, unrecorded without a usable report; an unheld reference is `[id, absent]` while a store holds its scheme
-    /// (the test is gone), unrecorded while none does (a fresh clone). A chain that reads only unrecorded items is not
-    /// judged and adds nothing; the input is judged when one chain is, or when no chain picks anything.
+    /// none, unrecorded without a usable report; an unheld reference is `[id, absent]` while a store holds a kind its
+    /// field admits in its scheme (the test is gone), unrecorded while none does (a fresh clone, or a store of other
+    /// kinds only). A chain that picks nothing through a referrer step over collected kinds no store holds is
+    /// unrecorded by the same rule: what it would pick is not collected here. A chain that reads only unrecorded items
+    /// is not judged and adds nothing; the input is judged when one chain is, or when no chain picks anything.
     fn tests(&self, this: &str, chains: &[Chain]) -> Tested {
         let select = &self.selection;
         let mut members = BTreeSet::new();
@@ -332,11 +348,12 @@ impl<'a> Cx<'a> {
             let reads: Vec<Read> = picked
                 .iter()
                 .map(|id| self.read(id))
-                .chain(unheld.iter().map(|id| self.unheld(id)))
+                .chain(unheld.iter().map(|unheld| self.unheld(unheld)))
                 .collect();
             members.extend(picked);
-            members.extend(unheld);
+            members.extend(unheld.iter().map(|unheld| unheld.id.clone()));
             if reads.is_empty() {
+                unjudged |= self.uncollected(chain);
                 continue;
             }
             if reads.iter().all(|read| matches!(read, Read::Unrecorded)) {
@@ -355,6 +372,18 @@ impl<'a> Cx<'a> {
             members: members.into_iter().collect(),
             results: (judged || !unjudged).then_some(results),
         }
+    }
+
+    /// Whether a referrer step of `chain` reads only collected kinds that no served store holds (ADR 0331 D7).
+    fn uncollected(&self, chain: &Chain) -> bool {
+        let kinds = self.env.registries().kinds();
+        chain.steps.iter().any(|step| match step {
+            Step::Referrers { kinds: from, .. } => from.iter().all(|kind| {
+                kinds.collected(kind).is_some()
+                    && !self.held().values().any(|held| held.contains(kind))
+            }),
+            Step::Path(_) => false,
+        })
     }
 
     /// What a `test(..)` chain reads of `id`, an entity it picks.
@@ -382,10 +411,10 @@ impl<'a> Cx<'a> {
         }
     }
 
-    /// What a `test(..)` chain reads of `id`, a reference it names that is no held fact.
-    fn unheld(&self, id: &str) -> Read {
-        match specforge_common::scheme::of(id).is_some_and(|scheme| self.holds(scheme)) {
-            true => Read::Result(json!([id, "absent"])),
+    /// What a `test(..)` chain reads of `unheld`, a reference it names that is no held fact.
+    fn unheld(&self, unheld: &Unheld) -> Read {
+        match self.holds(unheld) {
+            true => Read::Result(json!([unheld.id, "absent"])),
             false => Read::Unrecorded,
         }
     }

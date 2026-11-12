@@ -15,7 +15,7 @@ fn plan_checker_inputs_match_rules_md() {
         .find(|r| r.codes.iter().any(|c| c == "W311"))
         .expect("the plan check row");
     assert_eq!(row.codes, ["W311", "W313", "W315", "W316"]);
-    assert_eq!(row.inputs.len(), 11, "{:?}", row.inputs);
+    assert_eq!(row.inputs.len(), 12, "{:?}", row.inputs);
     for code in &row.codes {
         assert_inputs_match_rules_md(code);
         let judged = judged_descriptor(code).expect("judged");
@@ -25,8 +25,8 @@ fn plan_checker_inputs_match_rules_md() {
     }
 }
 
-/// E501 reads a truth's tests two ways (ADR 0331 D7): its `[gsd:<id>]` tags and its proof's
-/// test facts; without `@code/core` the proof chain is inert.
+/// E501 reads a truth's tests two ways (ADR 0331 D7, amended): its proof's test facts and the test facts that name it
+/// (a `[gsd:<id>]` tag in a test's name, `@code/core`'s `test.names`); without `@code/core` both chains are inert.
 #[test]
 fn the_truth_verdict_reads_its_tags_and_its_proof() {
     assert_inputs_match_rules_md("E501");
@@ -39,5 +39,5 @@ fn the_truth_verdict_reads_its_tags_and_its_proof() {
         .as_array()
         .and_then(|inputs| inputs.iter().find(|i| i["name"] == "tests"))
         .expect("a tests input");
-    assert_eq!(tests["selector"], "test(self, self.proof)");
+    assert_eq!(tests["selector"], "test(self.proof, self<test.names)");
 }

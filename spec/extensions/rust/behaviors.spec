@@ -1,4 +1,4 @@
-// @specforge/rust extension behaviors — linking Rust tests to spec entities
+// Rust test traceability (the #[specforge_test] macros, @specforge/cargo-test): behaviors — linking Rust tests to spec entities
 //
 // Running the tests and reading their reports belongs to
 // @specforge/cargo-test (spec/extensions/cargo-test); these behaviors

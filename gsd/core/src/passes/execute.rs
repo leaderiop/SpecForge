@@ -1,18 +1,18 @@
 //! The execute pass: `gsd/E401` (a summary's requirements are its plan's), `gsd/W403` (a `tdd` task has a RED commit
 //! before its GREEN one), `gsd/W407` (an executed task has a commit) and `gsd/W408` (a deliverable's checks pass, or a
 //! person judged it). `gsd/E402` is declarative (`rules.rs`) and `gsd/E405` is the schema-drift pass. The pass reads
-//! the test report only for the checks' computed status, so a project with no report is not judged on them.
+//! the checks' computed status, from the test facts; a project with no test fact is not judged on them.
 
 use std::collections::BTreeSet;
 
 use specforge_extension_sdk::prelude::*;
 
-use super::commits::{Commit, commits};
+use super::commits::{Commit, CommitType, commits};
 use super::plans::{children, name_of, of_kind, rows, text};
 
 pub fn declare(c: &mut ContributionsBuilder) {
     c.pass("execute", |p| {
-        p.phase("check").input(Input::Tests).run(check);
+        p.phase("check").run(check);
     });
 }
 
@@ -106,13 +106,13 @@ fn red_before_green(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic
                             && c.plan.as_deref() == Some(plan.id.as_str()))
                 })
                 .collect();
-            let is_green = |c: &Commit| matches!(c.kind.as_str(), "feat" | "fix");
+            let is_green = |c: &Commit| matches!(c.kind, Some(CommitType::Feat | CommitType::Fix));
             let Some(green) = named.iter().position(|c| is_green(c)) else {
                 continue;
             };
             let reds: Vec<&str> = named
                 .iter()
-                .filter(|c| c.kind == "test")
+                .filter(|c| c.kind == Some(CommitType::Test))
                 .map(|c| c.id.as_str())
                 .collect();
             // Each GREEN by its own record: one recorded before the collector read parents has no list, and a newer
@@ -121,7 +121,7 @@ fn red_before_green(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic
                 is_green(g)
                     && match &g.descends_from {
                         Some(list) => list.iter().any(|a| reds.contains(&a.as_str())),
-                        None => named[..i].iter().any(|c| c.kind == "test"),
+                        None => named[..i].iter().any(|c| c.kind == Some(CommitType::Test)),
                     }
             });
             if follows {
@@ -175,7 +175,7 @@ fn task_commits(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic> {
                 ),
             )
             .with_suggestion(
-                "commit it as `type(plan-id): task title`, then run the gsd-git collector",
+                "commit it with the trailer `Gsd-Task: <plan>/<task>` (or as `type(plan-id): task title`), then run the gsd-git collector",
             )
             .with_entity(&task.id)
         })
@@ -183,7 +183,7 @@ fn task_commits(input: &PassInput, commits: &[Commit]) -> Vec<PassDiagnostic> {
 }
 
 /// W408, per deliverable: one that is not human-judged has checks and none failed or went unrun; one that is has a
-/// rationale. A check with no status (no report) is not judged: GSD's auto-pass rule (`summary.md:195`).
+/// rationale. A check with no status (no test fact) is not judged: GSD's auto-pass rule (`summary.md:195`).
 fn deliverables(input: &PassInput) -> Vec<PassDiagnostic> {
     of_kind(input, "deliverable")
         .filter_map(|d| {

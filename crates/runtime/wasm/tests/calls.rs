@@ -12,8 +12,7 @@ use serde_json::{Map, Value, json};
 use specforge_common::{Severity, SourceSpan, Sym};
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::{
-    McpResourceContent, McpResourceRequest, MigrationInput, PassAnswer, ScanRequest, ScanResponse,
-    ScannedItem, Served,
+    McpResourceContent, McpResourceRequest, MigrationInput, PassAnswer, Served,
 };
 use specforge_protocol_types::{
     CommandInput as WireCommandInput, DeclaredCategory, Operation, RawGraph,
@@ -126,19 +125,6 @@ fn verdict_answer() -> ValidatorVerdict {
     }
 }
 
-fn scan_answer(request: &ScanRequest) -> ScanResponse {
-    ScanResponse {
-        items: vec![ScannedItem {
-            name: request.file_path.clone(),
-            item_kind: "function".into(),
-            line: 1,
-            visibility: Some("pub".into()),
-            signature: None,
-        }],
-        language: Some("rust".into()),
-    }
-}
-
 /// The exports no declaration answers, as a guest's `handler` serves them:
 /// each decodes its input as the SDK's type and answers the SDK's type.
 fn guest(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
@@ -159,9 +145,6 @@ fn guest(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
         }
         "validate__x" => {
             receive::<ValidatorContext>(export, input).and_then(|_| answer(&verdict_answer()))
-        }
-        "scan__x" => {
-            receive::<ScanRequest>(export, input).and_then(|request| answer(&scan_answer(&request)))
         }
         _ => return None,
     })
@@ -285,11 +268,6 @@ fn every_call_encodes_its_input_as_the_protocol_type() {
     assert_eq!(sent(&runtime), wire("validate.input.json")[1]);
     assert_eq!(received("validate__x"), wire("validate.input.json")[1]);
 
-    let request: ScanRequest = typed(&wire("scan.input.json"));
-    calls.scan(EXT, "scan__x", &request).unwrap();
-    assert_eq!(sent(&runtime), wire("scan.input.json"));
-    assert_eq!(received("scan__x"), wire("scan.input.json"));
-
     let input: MigrationInput = typed(&wire("migrate.input.json"));
     calls.migrate(EXT, "migrate__x", &input).unwrap();
     assert_eq!(sent(&runtime), wire("migrate.input.json"));
@@ -340,14 +318,6 @@ fn every_call_decodes_the_protocol_type() {
             .validate(EXT, "validate__x", &validator_context())
             .unwrap(),
         verdict_answer()
-    );
-    let request = ScanRequest {
-        file_path: "a.rs".into(),
-        content: String::new(),
-    };
-    assert_eq!(
-        calls.scan(EXT, "scan__x", &request).unwrap(),
-        scan_answer(&request)
     );
     assert_eq!(
         calls.migrate(EXT, "migrate__x", &MigrationInput::default()),
@@ -427,7 +397,7 @@ fn an_answer_that_does_not_decode_is_e028() {
     // Per operation: the type it owes, and answers that are not one —
     // not JSON, the wrong JSON type, a required field missing. Any JSON
     // value is a tool's answer; a migration hook's is not read.
-    let table: [(Operation, &str, &[&[u8]]); 9] = [
+    let table: [(Operation, &str, &[&[u8]]); 8] = [
         (
             Operation::Handshake,
             "HandshakeResponse",
@@ -482,11 +452,6 @@ fn an_answer_that_does_not_decode_is_e028() {
             Operation::Validate,
             "ValidatorVerdict",
             &[b"not json", br#""pass""#, br#"{"field":"x"}"#],
-        ),
-        (
-            Operation::Scan,
-            "ScanResponse",
-            &[b"not json", b"[]", br#"{"language":"rust"}"#],
         ),
     ];
     for (operation, expected, answers) in table {
@@ -567,19 +532,6 @@ fn unknown_fields_are_ignored_and_absent_optional_fields_default() {
         .unwrap();
     assert!(collected.unlinked.is_empty());
     assert_eq!(collected.entity_results[0].test_results[0].verify, None);
-
-    let runtime = answering("scan__x", r#"{"items":[],"newer":1}"#);
-    let scanned = ExtensionCalls::new(&runtime)
-        .scan(
-            EXT,
-            "scan__x",
-            &ScanRequest {
-                file_path: "a.rs".into(),
-                content: String::new(),
-            },
-        )
-        .unwrap();
-    assert_eq!(scanned.language, None);
 
     let runtime = answering("validate__x", r#"{"verdict":"fail","newer":1}"#);
     let verdict = ExtensionCalls::new(&runtime)

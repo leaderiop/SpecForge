@@ -23,9 +23,12 @@ use specforge_extension_sdk::{
     no_other_exports,
 };
 use specforge_protocol_types::{
-    FileSize, FsContent, FsEntry, FsListing, GitBlobs, GitRepo, GitStatus, GitTreeEntry, HostError,
-    HttpRequest, HttpResponse, Operation, ProcessOutput, ProcessRequest,
+    FileSize, FsContent, FsEntry, FsListing, GitBlobs, GitDiffAnswer, GitDiffQuery, GitLogAnswer,
+    GitLogQuery, GitRepo, GitStatus, GitTreeEntry, HostError, HttpRequest, HttpResponse, Operation,
+    ProcessOutput, ProcessRequest, SyntaxAnswer, SyntaxRequest,
 };
+
+use specforge_source::{COUNTED_DEADLINE, SourceReader, SyntaxCache};
 
 use crate::ports::{PortCall, PortSession};
 use crate::runtime::{ExtensionSettings, LoadError, WasmCallResult, WasmRuntime, WasmTrapInfo};
@@ -35,8 +38,7 @@ use specforge_effects::Provenance;
 /// What builds an extension's contributions, per call (as its guest does).
 type Build = Arc<dyn Fn() -> ContributionsBuilder + Send + Sync>;
 
-/// An extension served under a name: what builds it, and what answers the
-/// exports its declarations do not.
+/// An extension served under a name: what builds it, and what answers the exports its declarations do not.
 type Served = (Build, ExportHandler);
 
 /// What starts the bytes [`spelled_module`] makes.
@@ -66,10 +68,11 @@ pub struct RecordedCall {
     pub export: String,
     /// The input as JSON (a string of the bytes when they are not JSON).
     pub input: serde_json::Value,
+    /// The address of the input bytes the host handed over: calls handed one encoding share it, while it lives.
+    pub encoding: usize,
 }
 
-/// An answer given instead of routing a call: to one export, or to one
-/// export called with one input.
+/// An answer given instead of routing a call: to one export, or to one export called with one input.
 type Overrides = Vec<(String, String, Option<serde_json::Value>, WasmCallResult)>;
 
 /// Serves SDK-declared extensions in process; see the module docs.
@@ -78,8 +81,7 @@ pub struct InProcessRuntime {
     /// The extensions served, by the name each is loaded as. Behind a lock:
     /// loading, renaming and unloading change it through the port.
     extensions: Mutex<BTreeMap<String, Served>>,
-    /// Binaries that serve an extension under whatever name they are
-    /// loaded as ([`InProcessRuntime::binary`]).
+    /// Binaries that serve an extension under whatever name they are loaded as ([`InProcessRuntime::binary`]).
     binaries: Vec<(Vec<u8>, Served)>,
     /// Bytes whose load answers a refusal ([`InProcessRuntime::refusing`]).
     refusals: Vec<(Vec<u8>, LoadError)>,
@@ -511,6 +513,17 @@ impl InProcessHost for ServedPorts {
     fn git_status(&self) -> Result<GitStatus, HostError> {
         self.0.borrow_mut().timed(|session| session.git_status())
     }
+    fn git_log(&self, query: &GitLogQuery) -> Result<GitLogAnswer, HostError> {
+        self.0.borrow_mut().timed(|session| session.git_log(query))
+    }
+    fn git_diff(&self, query: &GitDiffQuery) -> Result<GitDiffAnswer, HostError> {
+        self.0.borrow_mut().timed(|session| session.git_diff(query))
+    }
+    fn syntax_parse(&self, request: &SyntaxRequest) -> Result<SyntaxAnswer, HostError> {
+        self.0
+            .borrow_mut()
+            .timed(|session| session.syntax_parse(request.clone()))
+    }
 }
 
 impl InProcessRuntime {
@@ -537,6 +550,7 @@ impl InProcessRuntime {
             extension: extension.to_string(),
             export: export.to_string(),
             input: input_json.clone(),
+            encoding: input.as_ptr() as usize,
         });
         if self
             .faults
@@ -777,4 +791,10 @@ pub fn assert_module_contract(runtime: &dyn WasmRuntime, bytes: &[u8], declared:
     assert!(!answers("renamed"), "an unloaded module is not loaded");
     assert!(!runtime.unload("renamed"), "nothing is left to unload");
     assert_eq!(runtime.provenance("renamed"), None, "an unload drops it");
+}
+
+/// A source reader with no cache, each file held to [`COUNTED_DEADLINE`]: what a test lends a call
+/// ([`PortCall::with_syntax`]) so no parse reads a clock.
+pub fn counted_reader() -> Arc<SourceReader> {
+    Arc::new(SourceReader::new(SyntaxCache::detached()).with_deadline(COUNTED_DEADLINE))
 }

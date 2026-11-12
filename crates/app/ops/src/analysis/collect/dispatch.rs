@@ -5,7 +5,7 @@ use crate::view::ProjectView;
 use crate::{Containment, Held, OpError, OpErrorKind};
 use specforge_common::codes;
 use specforge_protocol_types::Operation;
-use specforge_protocol_types::{CollectInput, CollectOutput, CollectReportFile, RawGraph};
+use specforge_protocol_types::{CollectInput, CollectOutput, CollectReportFile, Fact, RawGraph};
 use specforge_wasm::{CallError, CallFailure, ExtensionCalls, PortCall};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
@@ -78,12 +78,12 @@ pub fn dispatch(
     reports: &[CollectReportFile],
     stdout: Option<&str>,
 ) -> Result<CollectOutput, CallError> {
-    dispatch_over(runtime, collector, reports, stdout, None, None)
+    dispatch_over(runtime, collector, reports, stdout, None, None, Vec::new())
 }
 
 /// [`dispatch`], with `view`'s project root as `cwd` (ADR 0327); a collector that declares `writes` also receives the
 /// date, the graph and the revisions of `view`'s sources, so its plan can place entities and name what it read
-/// (ADR 0289).
+/// (ADR 0289). `facts` is what its `facts` input is served (ADR 0345 D3).
 pub(super) fn dispatch_over(
     runtime: Option<&dyn specforge_wasm::runtime::WasmRuntime>,
     collector: &Collector,
@@ -91,6 +91,7 @@ pub(super) fn dispatch_over(
     stdout: Option<&str>,
     view: Option<&ProjectView<'_>>,
     lent: Option<PortCall>,
+    facts: Vec<Fact>,
 ) -> Result<CollectOutput, CallError> {
     let writing = view.filter(|_| collector.writes);
     let serve = view.map(|view| {
@@ -123,6 +124,7 @@ pub(super) fn dispatch_over(
             .as_ref()
             .map(|serve| serve.check_outcomes())
             .unwrap_or_default(),
+        facts,
     };
     let Some(runtime) = runtime else {
         return Err(CallError::new(

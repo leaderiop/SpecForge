@@ -61,7 +61,7 @@
     "fi",
     "```"
   ],
-  "bytes": 28493,
+  "bytes": 28524,
   "end": [
     "| Phase | Status | Plans | Progress |",
     "|-------|--------|-------|----------|",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:298550149712ed586fba1ebf6b92a4b84b823770d53cf868f3552ddc4eddd6ae",
+    "digest": "sha256:726e8594601d0c87cdd897081c1b2073450c0e83ddd6c7d769f0bf0f2d2672e9",
     "prompt": "@gsd/core@VERSION:ultraplan_phase",
     "steps": [
       {
@@ -213,5 +213,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "298550149712ed586fba1ebf6b92a4b84b823770d53cf868f3552ddc4eddd6ae"
+  "sha256": "726e8594601d0c87cdd897081c1b2073450c0e83ddd6c7d769f0bf0f2d2672e9"
 }

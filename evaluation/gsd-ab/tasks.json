@@ -1,22 +1,132 @@
 {
-  "version": "gsd-ab-v1-draft",
-  "description": "The GSD A/B corpus (README.md): arms, fixtures, seeded defects and 12 tasks. Frozen and tagged gsd-ab-v1 at gate A; a draft until then.",
+  "version": "gsd-ab-v1",
+  "description": "The GSD A/B corpus (README.md): arms, fixtures, seeded defects and 12 tasks. v1, ready for review at gate A, then tagged gsd-ab-v1. seed.py makes each arm's copy of a task's fixture from it.",
   "arms": [
-    { "id": "A", "state": "gsd-core 1.19.0 .planning/ Markdown", "tools": ["gsd-tools"] },
-    { "id": "B", "state": "SpecForge @gsd/core, gsd-strict, the .spec graph", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"] },
-    { "id": "B0", "state": "B without @code/core, @javascript/node-test and the requirement route", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"] }
+    {
+      "id": "A", "state": "gsd-core 1.19.0 .planning/ Markdown", "tools": ["gsd-tools"],
+      "config": null,
+      "drop": ["spec/", "specforge-harness", "README.md"]
+    },
+    {
+      "id": "B", "state": "SpecForge @gsd/core, gsd-strict, the .spec graph", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"],
+      "config": { "extensions": ["@gsd/core", "@specforge/checks"], "thread": true, "settings": { "@gsd/core": { "profile": "gsd-strict", "specforge.task_trailers": true } } },
+      "drop": [".planning/", "README.md"]
+    },
+    {
+      "id": "B0", "state": "B without the test facts: no @code/core and no pack that writes its facts; the requirement route stays, its item and test steps skipped", "tools": ["specforge", "specforge mcp", "specforge collect", "specforge trace"],
+      "config": { "extensions": ["@gsd/core", "@specforge/checks"], "thread": false, "settings": { "@gsd/core": { "profile": "gsd-strict", "specforge.task_trailers": true } } },
+      "drop": [".planning/", "README.md"]
+    }
   ],
   "fixtures": [
-    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "status": "ready" },
-    { "id": "vault", "path": "gsd/parity/fixtures/vault", "status": "ready" },
-    { "id": "third", "path": null, "status": "fixture pending gate A" }
+    { "id": "taskboard", "path": "gsd/parity/fixtures/taskboard", "tree": "b977921e553daa0e76ca2fa69578c851bfc61358", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"],
+      "baseline": [
+        "I213 -:0", "gsd/E501 spec/plans.spec:231", "gsd/E501 spec/plans.spec:237", "gsd/E501 spec/plans.spec:243",
+        "gsd/E501 spec/plans.spec:249", "gsd/E501 spec/plans.spec:256", "gsd/W311 spec/plans.spec:1",
+        "gsd/W311 spec/plans.spec:199", "gsd/W311 spec/plans.spec:90", "gsd/W313 spec/plans.spec:1",
+        "gsd/W313 spec/plans.spec:199", "gsd/W313 spec/plans.spec:90", "gsd/W315 spec/plans.spec:1",
+        "gsd/W315 spec/plans.spec:199", "gsd/W315 spec/plans.spec:90", "gsd/W316 spec/plans.spec:1",
+        "gsd/W316 spec/plans.spec:199", "gsd/W316 spec/plans.spec:90", "gsd/W407 spec/plans.spec:104",
+        "gsd/W407 spec/plans.spec:113", "gsd/W407 spec/plans.spec:14", "gsd/W407 spec/plans.spec:24"
+      ] },
+    { "id": "vault", "path": "gsd/parity/fixtures/vault", "tree": "3b7e567fd49da589d0f7dec7fac8078111cf5d0b", "status": "ready", "thread": ["@code/core", "@javascript/node-test", "@javascript/source"], "extensions": ["@gsd/security"],
+      "baseline": [
+        "I213 -:0", "W019 -:0", "gsd.security/E101 spec/plans.spec:170", "gsd.security/E101 spec/plans.spec:87",
+        "gsd/E501 spec/plans.spec:132", "gsd/E501 spec/plans.spec:138", "gsd/E501 spec/plans.spec:145",
+        "gsd/E501 spec/plans.spec:232", "gsd/E501 spec/plans.spec:238", "gsd/E501 spec/plans.spec:245",
+        "gsd/E501 spec/plans.spec:32", "gsd/E501 spec/plans.spec:43", "gsd/E501 spec/plans.spec:50",
+        "gsd/W103 spec/v1.0.spec:17", "gsd/W311 spec/plans.spec:1", "gsd/W311 spec/plans.spec:109",
+        "gsd/W311 spec/plans.spec:201", "gsd/W313 spec/plans.spec:1", "gsd/W313 spec/plans.spec:109",
+        "gsd/W313 spec/plans.spec:201", "gsd/W315 spec/plans.spec:1", "gsd/W315 spec/plans.spec:109",
+        "gsd/W315 spec/plans.spec:201", "gsd/W316 spec/plans.spec:1", "gsd/W316 spec/plans.spec:109",
+        "gsd/W316 spec/plans.spec:201", "gsd/W407 spec/plans.spec:123", "gsd/W407 spec/plans.spec:14",
+        "gsd/W407 spec/plans.spec:23"
+      ] },
+    { "id": "ledger", "path": "gsd/parity/fixtures/ledger", "tree": "187ab893ec036d762f61ad564eb8ef14a92a85fc", "status": "ready", "thread": ["@code/core", "@rust/cargo", "@rust/source", "@rust/test"],
+      "baseline": [
+        "I213 -:0", "code/W401 spec/plans.spec:163", "gsd/E501 spec/plans.spec:168", "gsd/E501 spec/plans.spec:251",
+        "gsd/E501 spec/plans.spec:257", "gsd/E501 spec/plans.spec:263", "gsd/E501 spec/plans.spec:270",
+        "gsd/E501 spec/quick.spec:21", "gsd/E501 spec/quick.spec:27", "gsd/W311 spec/plans.spec:1",
+        "gsd/W311 spec/plans.spec:110", "gsd/W311 spec/plans.spec:220", "gsd/W311 spec/quick.spec:1",
+        "gsd/W313 spec/plans.spec:1", "gsd/W313 spec/plans.spec:110", "gsd/W313 spec/plans.spec:220",
+        "gsd/W313 spec/quick.spec:1", "gsd/W315 spec/plans.spec:1", "gsd/W315 spec/plans.spec:110",
+        "gsd/W315 spec/plans.spec:220", "gsd/W315 spec/quick.spec:1", "gsd/W316 spec/plans.spec:1",
+        "gsd/W316 spec/plans.spec:110", "gsd/W316 spec/plans.spec:220", "gsd/W316 spec/quick.spec:1",
+        "gsd/W407 spec/plans.spec:124", "gsd/W407 spec/plans.spec:134", "gsd/W407 spec/plans.spec:14",
+        "gsd/W407 spec/plans.spec:24", "gsd/W407 spec/quick.spec:11", "gsd/W408 spec/plans.spec:312"
+      ] }
   ],
+  "results": {
+    "about": "The RESULT values a run of each workflow may end with, what each means, and whether it claims the work done (`claims`: M3 counts the defects left by a run that claims). seed.py's `prompt` renders them into the prompt's last line.",
+    "execute": [
+      { "value": "complete", "claims": true, "means": "the plan is executed, its tests pass and the state says it is complete" },
+      { "value": "blocked", "claims": false, "means": "the plan cannot be completed as asked; the message says why" }
+    ],
+    "verify": [
+      { "value": "verified", "claims": true, "means": "every truth of the phase is verified, and the state records it so" },
+      { "value": "not verified", "claims": false, "means": "a truth is not verified; the message names it and why" }
+    ],
+    "progress/resume": [
+      { "value": "passed", "claims": true, "means": "the recorded state agrees with the repository, and the message gives it and the next step" },
+      { "value": "not verified", "claims": false, "means": "the recorded state disagrees with the repository; the message names where, and the next step" }
+    ],
+    "ship": [
+      { "value": "passed", "claims": true, "means": "what ships is implemented, tested and verified, and the release note is written" },
+      { "value": "blocked", "claims": false, "means": "something stops the release; the message names it" }
+    ]
+  },
+  "states": {
+    "about": "How a claim (a run file's `claims`, one per ground_truth key) is read from the copy after the run. A ground_truth key's kind is the one whose `id` pattern it matches; its value and every claim on it are words of that kind's `values`. Each arm reads with its own tools (B0 reads as B), and the tool's word becomes a value through the `map`; a word the map lacks is reported to the owner, never guessed.",
+    "rules": [
+      "In B and B0 a value the agent wrote on a computed field is its claim: `specforge check --format json` reports it as E082 on that field, and it is read from the line E082 names, before the map.",
+      "A verdict that has gone stale reads as its recorded outcome: in B, `verdicts[].outcome` whatever `gsd/E501` says of its freshness; in A, the Status column whatever the tests now say.",
+      "An entity that is not there reads as the kind's absent value: B's `specforge query` fails with E003, A's file or row is missing."
+    ],
+    "kinds": [
+      {
+        "kind": "plan", "id": "^v\\d+\\.\\d+/\\d{2}/\\d{2}-\\d{2}$", "values": ["planned", "in progress", "complete", "blocked"],
+        "A": { "read": "gsd-tools phase-plan-index <phase number>", "at": ".plans[] whose .id is the plan's (NN-MM)", "map": { "has_summary true": "complete", "halted true, or blocked_by not empty": "blocked", "anything else": "planned" } },
+        "B": { "read": "specforge query <id> --depth 0 --format json", "at": ".nodes[0].fields.status", "map": { "complete": "complete", "executing": "in progress", "halted": "blocked", "blocked": "blocked", "draft": "planned", "checked": "planned", "ready": "planned" } }
+      },
+      {
+        "kind": "phase", "id": "^v\\d+\\.\\d+/\\d{2}$", "values": ["planned", "in progress", "executed", "complete"],
+        "A": { "read": "gsd-tools roadmap analyze", "at": ".phases[] whose .number is the phase's, without its leading zero: .roadmap_complete (ROADMAP.md's checkbox, what the Markdown claims), else .disk_status", "map": { "roadmap_complete true": "complete", "complete": "complete", "executed": "executed", "partial": "in progress", "planned": "planned", "researched": "planned", "discussed": "planned", "empty": "planned", "no_directory": "planned" } },
+        "B": { "read": "specforge query <id> --depth 0 --format json", "at": ".nodes[0].fields.status", "map": { "complete": "complete", "executed": "executed", "needs_review": "executed", "in_progress": "in progress", "planned": "planned", "not_started": "planned", "deferred": "planned" } }
+      },
+      {
+        "kind": "verification", "id": "^v\\d+\\.\\d+/\\d{2}/\\d{2}-VERIFICATION$", "values": ["passed", "not passed", "does not exist"],
+        "A": { "read": ".planning/phases/<NN>-*/<NN>-VERIFICATION.md", "at": "the frontmatter's status", "map": { "passed": "passed", "gaps_found": "not passed", "human_needed": "not passed", "no file": "does not exist" } },
+        "B": { "read": "specforge query <id> --depth 0 --format json", "at": ".nodes[0].fields.status", "map": { "passed": "passed", "pending": "not passed", "gaps_found": "not passed", "human_needed": "not passed", "E003": "does not exist" } }
+      },
+      {
+        "kind": "truth", "id": "^v\\d+\\.\\d+/\\d{2}/\\d{2}-\\d{2}/TR\\d+$", "values": ["verified", "not verified", "no verdict"],
+        "A": { "read": ".planning/phases/<NN>-*/<NN>-VERIFICATION.md", "at": "the Status column of the Observable Truths row whose Truth is the truth's must_haves text in its plan's PLAN.md", "map": { "✓ VERIFIED": "verified", "✗ FAILED": "not verified", "⚠ PARTIAL": "not verified", "? UNCERTAIN": "not verified", "no file or no row": "no verdict" } },
+        "B": { "read": "specforge query <id> --depth 0 --format json", "at": ".nodes[0].verdicts[] whose .rule is gsd/E501: .outcome", "map": { "verified": "verified", "verified_coincidental": "verified", "failed": "not verified", "uncertain": "not verified", "present_behavior_unverified": "not verified", "no verdict": "no verdict" } }
+      },
+      {
+        "kind": "requirement", "id": "^[A-Z]+-\\d{2}$", "values": ["pending", "not verified", "verified", "does not exist"],
+        "A": { "read": ".planning/REQUIREMENTS.md, then the Requirements Coverage table of the VERIFICATION.md of the phase whose ROADMAP.md requirements name it", "at": "its `- [ ]` or `- [x]` line, then its coverage row's Status", "map": { "no line": "does not exist", "coverage row ✓ SATISFIED": "verified", "[x], and no SATISFIED row": "not verified", "[ ]": "pending" } },
+        "B": { "read": "specforge query <id> --depth 1 --kinds truth --format json", "at": ".nodes[] : the requirement's .fields.status, and the gsd/E501 .outcome of each truth whose .fields.requirement is it", "map": { "E003": "does not exist", "complete or gaps_found, and every such truth's outcome verified or verified_coincidental": "verified", "complete or gaps_found, otherwise": "not verified", "pending, in_progress or blocked": "pending" } }
+      },
+      {
+        "kind": "threat", "id": "^v\\d+\\.\\d+/\\d{2}/\\d{2}-\\d{2}/T-\\d{2}-[0-9A-Z]+$", "values": ["open", "closed"],
+        "A": { "read": ".planning/phases/<NN>-*/<NN>-SECURITY.md", "at": "the Status column of the Threat Register row of the threat's id whose Component is the threat's component (the twin's `component`)", "map": { "open": "open", "closed": "closed" } },
+        "B": { "read": "specforge query <id> --depth 0 --format json", "at": ".nodes[0].fields.status", "map": { "open": "open", "closed": "closed" } }
+      },
+      {
+        "kind": "accepted risk", "id": "^v\\d+\\.\\d+/\\d{2}/\\d{2}-SECURITY/AR\\d+$", "values": ["accepted", "does not exist"],
+        "A": { "read": ".planning/phases/<NN>-*/<NN>-SECURITY.md", "at": "the Accepted Risks Log row of the risk's id (AR1)", "map": { "a row": "accepted", "no row": "does not exist" } },
+        "B": { "read": "specforge query <id> --depth 0 --format json", "at": ".nodes[0].fields: accepted_by and at", "map": { "both set": "accepted", "E003": "does not exist" } }
+      }
+    ]
+  },
   "defects": [
     {
       "id": "S1", "name": "a test that never ran",
-      "seed_a": "a SUMMARY.md or VERIFICATION.md claims a test name that the test run does not contain",
-      "seed_b": "a truth's proof cites a js: test id that the collected facts do not hold",
-      "b_signal": "code/E101"
+      "seed_a": "a must-have truth in the executed plan's PLAN.md names a test that the test run does not contain",
+      "seed_b": "a truth's proof cites a test id that the collected facts do not hold",
+      "b_signal": "code/E101",
+      "thread": true
     },
     {
       "id": "S2", "name": "a requirement id that does not exist",
@@ -34,19 +144,23 @@
       "id": "S4", "name": "a commit trailer naming a task that does not exist",
       "seed_a": "a commit carries Gsd-Task: 01-01/T9",
       "seed_b": "a commit carries Gsd-Task: 01-01/T9",
-      "b_signal": "the trailer diagnostic @gsd/core reports (plan 04)"
+      "b_signal": "gsd/E521",
+      "fixable": false,
+      "why": "its commit stays in history whatever a run does: M3 leaves it out, and each execute task judges whether the report names it"
     },
     {
       "id": "S5", "name": "a truth verified over a failing proof",
-      "seed_a": "VERIFICATION.md marks a truth verified while its test fails",
+      "seed_a": "a test that a passed record rests on now fails: 01-VERIFICATION.md on taskboard and ledger, and on vault, which has no VERIFICATION.md, the complete 01-01-SUMMARY.md",
       "seed_b": "a truth's verdict is verified while the test its proof cites fails",
-      "b_signal": "gsd/E501 stale, shown in trace"
+      "b_signal": "code/W401 on the truth whose proof cites the failed test",
+      "thread": true
     },
     {
       "id": "S6", "name": "a proof naming a deleted test",
-      "seed_a": "VERIFICATION.md cites a test that was deleted",
+      "seed_a": "a test that a passed record rests on was deleted: 01-VERIFICATION.md on taskboard and ledger, and on vault, which has no VERIFICATION.md, the complete 01-01-SUMMARY.md",
       "seed_b": "a truth's proof cites a test deleted from the test file",
-      "b_signal": "code/E101"
+      "b_signal": "code/E101",
+      "thread": true
     }
   ],
   "tasks": [
@@ -54,61 +168,292 @@
       "id": "taskboard-execute-02-01", "fixture": "taskboard", "workflow": "execute",
       "prompt": "Execute plan 02-01 (save and load tasks.json) and report when it is done.",
       "seeded": ["S1", "S4"],
-      "acceptance": ["npm test passes", "tasks.json is written after every change"],
-      "ground_truth": { "v1.0/02/02-01": "complete", "STORE-01": "addressed", "v1.0/02": "in progress" }
+      "seeds": {
+        "S1": {
+          "A": [{ "replace": { "file": ".planning/phases/02-persistence/02-01-PLAN.md", "old": "    - \"A title comes back exactly as it was written (D-03)\"", "new": "    - \"A title comes back exactly as it was written (D-03), proven by test/store.test.js#a title survives a reload byte for byte\"" } }],
+          "B": [{ "replace": { "file": "spec/plans.spec", "old": "  text        \"A title comes back exactly as it was written (D-03)\"\n  requirement STORE-02\n", "new": "  text        \"A title comes back exactly as it was written (D-03)\"\n  requirement STORE-02\n  proof       [\"js:taskboard/test/store.test.js#a title survives a reload byte for byte\"]\n" } }],
+          "resolved_if": [{ "file": "test/store.test.js", "contains": "a title survives a reload byte for byte" }]
+        },
+        "S4": {
+          "A": [{ "commit": { "subject": "feat(01-01): The task model", "body": "Gsd-Task: 01-01/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }],
+          "B": [{ "commit": { "subject": "feat(01-01): The task model", "body": "Gsd-Task: 01-01/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }]
+        }
+      },
+      "completion": [
+        { "write": { "file": "spec/summary-02-01.spec", "text": "summary 02-01-SUMMARY \"Save and load tasks.json: summary\" {\n  plan                   v1.0/02/02-01\n  status                 complete\n  one_liner              \"The board is saved to tasks.json after every change and read back on start.\"\n  requirements_completed [STORE-01, STORE-02]\n}\n" } }
+      ],
+      "b_signals": [
+        { "defect": "S1", "code": "code/E101", "entity": "v1.0/02/02-01/TR3", "count": 1, "when": "complete" },
+        { "defect": "S4", "code": "gsd/E521", "count": 1, "when": "seed" }
+      ],
+      "acceptance": [
+        { "text": "npm test passes", "run": "npm test" },
+        { "text": "tasks.json is written after every change", "judge": "after `node src/cli.js add x`, tasks.json holds the task x" },
+        { "text": "the report names the commit whose trailer names the wrong task", "judge": "the final message names the commit `feat(01-01): The task model`, whose Gsd-Task trailer names 01-01/T9, a task that does not exist" }
+      ],
+      "ground_truth": { "v1.0/02/02-01": "complete", "STORE-01": "not verified", "v1.0/02": "executed" }
     },
     {
-      "id": "taskboard-verify-02", "fixture": "taskboard", "workflow": "verify",
-      "prompt": "Verify phase 02 against its success criteria and record the verdicts.",
+      "id": "taskboard-verify-01", "fixture": "taskboard", "workflow": "verify",
+      "prompt": "Re-verify phase 01 against its success criteria and record the verdicts.",
       "seeded": ["S5", "S6"],
-      "acceptance": ["every truth of phase 02 has a verdict", "no verdict is verified over a failing or missing test"],
-      "ground_truth": { "v1.0/02/02-01/TR1": "not verified", "v1.0/02/02-01/TR2": "not verified", "v1.0/02/02-01/TR3": "not verified" }
+      "seeds": {
+        "S5": {
+          "A": [{ "replace": { "file": "test/tasks.test.js", "old": "assert.equal(addTask(board, \"Write the roadmap\").id, 1);", "new": "assert.equal(addTask(board, \"Write the roadmap\").id, 0);" } }],
+          "B": [{ "replace": { "file": "test/tasks.test.js", "old": "assert.equal(addTask(board, \"Write the roadmap\").id, 1);", "new": "assert.equal(addTask(board, \"Write the roadmap\").id, 0);" } }],
+          "run": { "a task is added with the next id": "failed" }
+        },
+        "S6": {
+          "A": [{ "replace": { "file": "test/tasks.test.js", "old": "\ntest(\"completing an unknown id throws\", () => {\n  assert.throws(() => completeTask(createBoard(), 7), /no task 7/);\n});\n", "new": "" } }],
+          "B": [{ "replace": { "file": "test/tasks.test.js", "old": "\ntest(\"completing an unknown id throws\", () => {\n  assert.throws(() => completeTask(createBoard(), 7), /no task 7/);\n});\n", "new": "" } }],
+          "run": { "completing an unknown id throws": "absent" }
+        }
+      },
+      "b_signals": [
+        { "defect": "S5", "code": "code/W401", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" },
+        { "defect": "S6", "code": "code/E101", "entity": "v1.0/01/01-02/TR2", "count": 1, "when": "seed" }
+      ],
+      "acceptance": [
+        { "text": "every truth of phase 01 has a verdict", "judge": "each truth of phase 01 has a verdict in the arm's store, dated in this run" },
+        { "text": "no verdict is verified over a failing or missing test", "judge": "no truth whose cited test fails or is gone is recorded verified" }
+      ],
+      "ground_truth": { "v1.0/01/01-01/TR1": "not verified", "v1.0/01/01-02/TR2": "not verified", "v1.0/01/01-02/TR1": "verified" }
     },
     {
       "id": "taskboard-progress-resume", "fixture": "taskboard", "workflow": "progress/resume",
       "prompt": "You are resuming after a pause. Report the project's progress and the next step.",
       "seeded": ["S3"],
-      "acceptance": ["the report names phase 02 as planned, not complete", "the next step is executing plan 02-01"],
-      "ground_truth": { "v1.0/01": "complete", "v1.0/02": "planned", "next": "execute 02-01" }
+      "seeds": {
+        "S3": {
+          "A": [
+            { "replace": { "file": ".planning/ROADMAP.md", "old": "- [ ] **Phase 2: Persistence**", "new": "- [x] **Phase 2: Persistence**" } },
+            { "replace": { "file": ".planning/ROADMAP.md", "old": "| 2. Persistence | 0/1 | Not started | - |", "new": "| 2. Persistence | 1/1 | Complete    | 2026-03-05 |" } },
+            { "replace": { "file": ".planning/STATE.md", "old": "  completed_phases: 1\n", "new": "  completed_phases: 2\n" } }
+          ],
+          "B": [{ "replace": { "file": "spec/v1.0.spec", "old": "  slug             \"persistence\"\n", "new": "  slug             \"persistence\"\n  status           complete\n" } }]
+        }
+      },
+      "b_signals": [
+        { "defect": "S3", "code": "E082", "entity": "v1.0/02", "count": 1, "when": "seed" }
+      ],
+      "acceptance": [
+        { "text": "the report names phase 02 as planned, not complete", "judge": "the final message calls phase 02 planned or not started, never complete" },
+        { "text": "the next step is executing plan 02-01", "judge": "the final message's next step is executing plan 02-01" }
+      ],
+      "ground_truth": { "v1.0/01": "complete", "v1.0/02": "planned" }
     },
     {
       "id": "taskboard-ship-task-01", "fixture": "taskboard", "workflow": "ship",
       "prompt": "Ship TASK-01: confirm it is implemented, tested and verified, then prepare the release note.",
       "seeded": ["S2"],
-      "acceptance": ["the release note cites TASK-01's test and its verdict", "no unknown requirement id is shipped"],
+      "seeds": {
+        "S2": {
+          "A": [{ "replace": { "file": ".planning/ROADMAP.md", "old": "**Requirements**: [TASK-01, TASK-02]", "new": "**Requirements**: [TASK-01, TASK-02, TASK-09]" } }],
+          "B": [{ "replace": { "file": "spec/v1.0.spec", "old": "  requirements     [TASK-01, TASK-02]\n", "new": "  requirements     [TASK-01, TASK-02, TASK-09]\n" } }]
+        }
+      },
+      "b_signals": [
+        { "defect": "S2", "code": "E003", "entity": "v1.0/01", "count": 1, "when": "seed" }
+      ],
+      "acceptance": [
+        { "text": "the release note cites TASK-01's test and its verdict", "judge": "the release note names the test that proves TASK-01 and its verdict" },
+        { "text": "no unknown requirement id is shipped", "judge": "no id the requirements do not define is in the release note or the store's shipped state" }
+      ],
       "ground_truth": { "TASK-01": "verified", "TASK-09": "does not exist" }
     },
     {
       "id": "vault-execute-01-02", "fixture": "vault", "workflow": "execute",
       "prompt": "Phase 01's security audit has one open threat, T-01-02 of plan 01-02 (a secret on argv). Mitigate it and report when it is done.",
       "seeded": ["S1", "S4"],
-      "acceptance": ["npm test passes", "set reads the secret from stdin, not argv"],
-      "ground_truth": { "v1.0/01/01-02/T-01-02": "closed", "threats_open": 0 }
+      "seeds": {
+        "S1": {
+          "A": [{ "replace": { "file": ".planning/phases/01-core/01-02-PLAN.md", "old": "    - \"A secret set from the command line is read back by its name\"", "new": "    - \"A secret set from the command line is read back by its name, proven by test/cli.test.js#set reads the secret from stdin\"" } }],
+          "B": [{ "replace": { "file": "spec/plans.spec", "old": "  text        \"A secret set from the command line is read back by its name\"\n  requirement SEC-02\n", "new": "  text        \"A secret set from the command line is read back by its name\"\n  requirement SEC-02\n  proof       [\"js:vault/test/cli.test.js#set reads the secret from stdin\"]\n" } }],
+          "resolved_if": [{ "file": "test/cli.test.js", "contains": "set reads the secret from stdin" }]
+        },
+        "S4": {
+          "A": [{ "commit": { "subject": "feat(01-02): set, get and list", "body": "Gsd-Task: 01-02/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }],
+          "B": [{ "commit": { "subject": "feat(01-02): set, get and list", "body": "Gsd-Task: 01-02/T9", "files": {}, "at": "2026-10-28T09:00:00Z" } }]
+        }
+      },
+      "b_signals": [
+        { "defect": "S1", "code": "code/E101", "entity": "v1.0/01/01-02/TR1", "count": 1, "when": "seed" },
+        { "defect": "S4", "code": "gsd/E521", "count": 1, "when": "seed" }
+      ],
+      "acceptance": [
+        { "text": "npm test passes", "run": "npm test" },
+        { "text": "set reads the secret from stdin, not argv", "judge": "src/cli.js reads the secret of `set` from standard input, and no argument holds it" },
+        { "text": "the report names the commit whose trailer names the wrong task", "judge": "the final message names the commit `feat(01-02): set, get and list`, whose Gsd-Task trailer names 01-02/T9, a task that does not exist" }
+      ],
+      "ground_truth": { "v1.0/01/01-02/T-01-02": "closed" }
     },
     {
       "id": "vault-verify-01", "fixture": "vault", "workflow": "verify",
       "prompt": "Verify phase 01 and its threat model, and record the verdicts.",
       "seeded": ["S5", "S6"],
-      "acceptance": ["every truth of phase 01 has a verdict", "the open threat T-01-02 stays open"],
-      "ground_truth": { "v1.0/01": "verified with one open threat", "v1.0/01/01-02/T-01-02": "open" }
+      "seeds": {
+        "S5": {
+          "A": [{ "replace": { "file": "test/vault.test.js", "old": "{ db: \"hunter2\" });", "new": "{ db: \"hunter3\" });" } }],
+          "B": [{ "replace": { "file": "test/vault.test.js", "old": "{ db: \"hunter2\" });", "new": "{ db: \"hunter3\" });" } }],
+          "run": { "a sealed vault opens to what was sealed": "failed" }
+        },
+        "S6": {
+          "A": [{ "replace": { "file": "test/vault.test.js", "old": "\ntest(\"another key does not open it\", () => {\n  assert.throws(() => open(seal(createVault(), key), Buffer.alloc(32, 8)));\n});\n", "new": "" } }],
+          "B": [{ "replace": { "file": "test/vault.test.js", "old": "\ntest(\"another key does not open it\", () => {\n  assert.throws(() => open(seal(createVault(), key), Buffer.alloc(32, 8)));\n});\n", "new": "" } }],
+          "run": { "another key does not open it": "absent" }
+        }
+      },
+      "b_signals": [
+        { "defect": "S5", "code": "code/W401", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" },
+        { "defect": "S6", "code": "code/E101", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" }
+      ],
+      "acceptance": [
+        { "text": "every truth of phase 01 has a verdict", "judge": "each truth of phase 01 has a verdict in the arm's store, dated in this run" },
+        { "text": "no verdict is verified over a failing or missing test", "judge": "no truth whose cited test fails or is gone is recorded verified" },
+        { "text": "the open threat T-01-02 stays open", "judge": "T-01-02 is open in the arm's store at the end of the run" }
+      ],
+      "ground_truth": { "v1.0/01/01-01/TR1": "not verified", "v1.0/01/01-VERIFICATION": "not passed", "v1.0/01/01-02/T-01-02": "open" }
     },
     {
       "id": "vault-progress-resume", "fixture": "vault", "workflow": "progress/resume",
       "prompt": "You are resuming after a pause. Report the state of phase 01's security audit and the next step.",
       "seeded": ["S3"],
-      "acceptance": ["the report names one open threat and the accepted risk AR1", "the next step is mitigating T-01-02"],
-      "ground_truth": { "threats_open": 1, "AR1": "accepted", "next": "mitigate v1.0/01/01-02/T-01-02" }
+      "seeds": {
+        "S3": {
+          "A": [
+            { "replace": { "file": ".planning/ROADMAP.md", "old": "- [ ] **Phase 2: Sharing**", "new": "- [x] **Phase 2: Sharing**" } },
+            { "replace": { "file": ".planning/ROADMAP.md", "old": "| 2. Sharing | 0/1 | Not started | - |", "new": "| 2. Sharing | 1/1 | Complete    | 2026-10-31 |" } },
+            { "replace": { "file": ".planning/STATE.md", "old": "  completed_phases: 1\n", "new": "  completed_phases: 2\n" } }
+          ],
+          "B": [{ "replace": { "file": "spec/v1.0.spec", "old": "  slug             \"sharing\"\n", "new": "  slug             \"sharing\"\n  status           complete\n" } }]
+        }
+      },
+      "b_signals": [
+        { "defect": "S3", "code": "E082", "entity": "v1.0/02", "count": 1, "when": "seed" }
+      ],
+      "acceptance": [
+        { "text": "the report names one open threat and the accepted risk AR1", "judge": "the final message names T-01-02 open and AR1 accepted" },
+        { "text": "the next step is mitigating T-01-02", "judge": "the final message's next step is mitigating T-01-02" }
+      ],
+      "ground_truth": { "v1.0/01/01-02/T-01-02": "open", "v1.0/01/01-SECURITY/AR1": "accepted" }
     },
     {
       "id": "vault-ship-01", "fixture": "vault", "workflow": "ship",
       "prompt": "Ship phase 01 (SEC-01, SEC-02): confirm each requirement is implemented, tested and verified, and that its threat model is closed or accepted, then prepare the release note.",
       "seeded": ["S2"],
-      "acceptance": ["the release note cites each requirement's tests", "the open threat T-01-02 blocks the release or is named in it"],
-      "ground_truth": { "SEC-01": "verified", "SEC-02": "verified", "v1.0/01/01-02/T-01-02": "open" }
+      "seeds": {
+        "S2": {
+          "A": [{ "replace": { "file": ".planning/ROADMAP.md", "old": "**Requirements**: [SEC-01, SEC-02]", "new": "**Requirements**: [SEC-01, SEC-02, SEC-09]" } }],
+          "B": [{ "replace": { "file": "spec/v1.0.spec", "old": "  requirements     [SEC-01, SEC-02]\n", "new": "  requirements     [SEC-01, SEC-02, SEC-09]\n" } }]
+        }
+      },
+      "b_signals": [
+        { "defect": "S2", "code": "E003", "entity": "v1.0/01", "count": 1, "when": "seed" }
+      ],
+      "acceptance": [
+        { "text": "the release note cites each requirement's tests", "judge": "the release note names the tests of SEC-01 and SEC-02" },
+        { "text": "the open threat T-01-02 blocks the release or is named in it", "judge": "the run does not ship, or its release note names T-01-02 open" }
+      ],
+      "ground_truth": { "SEC-01": "not verified", "SEC-02": "not verified", "v1.0/01/01-02/T-01-02": "open" }
     },
-    { "id": "third-execute", "fixture": "third", "workflow": "execute", "status": "fixture pending gate A" },
-    { "id": "third-verify", "fixture": "third", "workflow": "verify", "status": "fixture pending gate A" },
-    { "id": "third-progress-resume", "fixture": "third", "workflow": "progress/resume", "status": "fixture pending gate A" },
-    { "id": "third-ship", "fixture": "third", "workflow": "ship", "status": "fixture pending gate A" }
+    {
+      "id": "ledger-execute-02-01", "fixture": "ledger", "workflow": "execute",
+      "prompt": "Execute plan 02-01 (save and load ledger.tsv) and report when it is done.",
+      "seeded": ["S1", "S4"],
+      "seeds": {
+        "S1": {
+          "A": [{ "replace": { "file": ".planning/phases/02-persistence/02-01-PLAN.md", "old": "    - \"A restarted ledger shows the entries it had\"", "new": "    - \"A restarted ledger shows the entries it had, proven by tests/store.rs#a_restarted_ledger_shows_its_entries\"" } }],
+          "B": [{ "replace": { "file": "spec/plans.spec", "old": "  text        \"A restarted ledger shows the entries it had\"\n  requirement LEDG-03\n", "new": "  text        \"A restarted ledger shows the entries it had\"\n  requirement LEDG-03\n  proof       [\"rust:ledger::store#a_restarted_ledger_shows_its_entries\"]\n" } }],
+          "resolved_if": [{ "file": "tests/store.rs", "contains": "fn a_restarted_ledger_shows_its_entries" }]
+        },
+        "S4": {
+          "A": [{ "commit": { "subject": "feat(01-02): The total", "body": "Gsd-Task: 01-02/T9", "files": {}, "at": "2026-11-04T09:00:00Z" } }],
+          "B": [{ "commit": { "subject": "feat(01-02): The total", "body": "Gsd-Task: 01-02/T9", "files": {}, "at": "2026-11-04T09:00:00Z" } }]
+        }
+      },
+      "completion": [
+        { "write": { "file": "spec/summary-02-01.spec", "text": "summary 02-01-SUMMARY \"Save and load ledger.tsv: summary\" {\n  plan                   v1.0/02/02-01\n  status                 complete\n  one_liner              \"Entries are saved to ledger.tsv after every add and read back on start.\"\n  subsystem              \"storage\"\n  requirements_completed [LEDG-03]\n}\n" } }
+      ],
+      "b_signals": [
+        { "defect": "S1", "code": "code/E101", "entity": "v1.0/02/02-01/TR2", "count": 1, "when": "complete" },
+        { "defect": "S4", "code": "gsd/E521", "count": 1, "when": "seed" }
+      ],
+      "acceptance": [
+        { "text": "the tests of plan 02-01 pass", "run": "cargo test --test store" },
+        { "text": "entries are written to ledger.tsv and read back", "judge": "after `ledger add 100 a`, a second run's `ledger total` counts it" },
+        { "text": "the failing total_beyond_i32_is_exact is reported, not hidden", "judge": "the final message names total_beyond_i32_is_exact failing; it is not deleted or ignored" },
+        { "text": "the report names the commit whose trailer names the wrong task", "judge": "the final message names the commit `feat(01-02): The total`, whose Gsd-Task trailer names 01-02/T9, a task that does not exist" }
+      ],
+      "ground_truth": { "v1.0/02/02-01": "complete", "LEDG-03": "not verified", "v1.0/01/01-02/TR2": "not verified" }
+    },
+    {
+      "id": "ledger-verify-01", "fixture": "ledger", "workflow": "verify",
+      "prompt": "Re-verify phase 01 against its success criteria and record the verdicts.",
+      "seeded": ["S5", "S6"],
+      "seeds": {
+        "S5": {
+          "A": [{ "replace": { "file": "tests/entries.rs", "old": "add(&mut entries, -1250, \"coffee beans\").unwrap();", "new": "add(&mut entries, -1205, \"coffee beans\").unwrap();" } }],
+          "B": [{ "replace": { "file": "tests/entries.rs", "old": "add(&mut entries, -1250, \"coffee beans\").unwrap();", "new": "add(&mut entries, -1205, \"coffee beans\").unwrap();" } }],
+          "run": { "an_entry_keeps_its_cents_and_memo": "failed" }
+        },
+        "S6": {
+          "A": [{ "replace": { "file": "tests/totals.rs", "old": "#[test]\nfn the_total_sums_every_entry() {\n    assert_eq!(total(&[entry(1250), entry(-250), entry(99)]), 1099);\n}\n\n", "new": "" } }],
+          "B": [{ "replace": { "file": "tests/totals.rs", "old": "#[test]\nfn the_total_sums_every_entry() {\n    assert_eq!(total(&[entry(1250), entry(-250), entry(99)]), 1099);\n}\n\n", "new": "" } }],
+          "run": { "the_total_sums_every_entry": "absent" }
+        }
+      },
+      "b_signals": [
+        { "defect": "S5", "code": "code/W401", "entity": "v1.0/01/01-01/TR1", "count": 1, "when": "seed" },
+        { "defect": "S6", "code": "code/E101", "entity": "v1.0/01/01-02/TR1", "count": 1, "when": "seed" }
+      ],
+      "acceptance": [
+        { "text": "every truth of phase 01 has a verdict", "judge": "each truth of phase 01 has a verdict in the arm's store, dated in this run" },
+        { "text": "no verdict is verified over a failing or missing test", "judge": "no truth whose cited test fails or is gone is recorded verified" }
+      ],
+      "ground_truth": { "v1.0/01/01-01/TR1": "not verified", "v1.0/01/01-01/TR2": "verified", "v1.0/01/01-02/TR1": "not verified", "v1.0/01/01-02/TR2": "not verified" }
+    },
+    {
+      "id": "ledger-progress-resume", "fixture": "ledger", "workflow": "progress/resume",
+      "prompt": "You are resuming after a pause. Report the project's progress and the next step.",
+      "seeded": ["S3"],
+      "seeds": {
+        "S3": {
+          "A": [
+            { "replace": { "file": ".planning/ROADMAP.md", "old": "- [ ] **Phase 2: Persistence**", "new": "- [x] **Phase 2: Persistence**" } },
+            { "replace": { "file": ".planning/ROADMAP.md", "old": "| 2. Persistence | 0/1 | Not started | - |", "new": "| 2. Persistence | 1/1 | Complete    | 2026-11-06 |" } },
+            { "replace": { "file": ".planning/STATE.md", "old": "  completed_phases: 1\n", "new": "  completed_phases: 2\n" } }
+          ],
+          "B": [{ "replace": { "file": "spec/v1.0.spec", "old": "  slug             \"persistence\"\n", "new": "  slug             \"persistence\"\n  status           complete\n" } }]
+        }
+      },
+      "b_signals": [
+        { "defect": "S3", "code": "E082", "entity": "v1.0/02", "count": 1, "when": "seed" }
+      ],
+      "acceptance": [
+        { "text": "the report names phase 02 as planned, not complete", "judge": "the final message calls phase 02 planned or not started, never complete" },
+        { "text": "the report names the failing test total_beyond_i32_is_exact", "judge": "the final message names total_beyond_i32_is_exact failing" },
+        { "text": "the next step is executing plan 02-01 or fixing the total", "judge": "the final message's next step is executing plan 02-01 or fixing the total" }
+      ],
+      "ground_truth": { "v1.0/01": "executed", "v1.0/02": "planned", "v1.0/01/01-02/TR2": "not verified" }
+    },
+    {
+      "id": "ledger-ship-ledg-02", "fixture": "ledger", "workflow": "ship",
+      "prompt": "Ship LEDG-02: confirm it is implemented, tested and verified, then prepare the release note.",
+      "seeded": ["S2"],
+      "seeds": {
+        "S2": {
+          "A": [{ "replace": { "file": ".planning/ROADMAP.md", "old": "**Requirements**: [LEDG-01, LEDG-02]", "new": "**Requirements**: [LEDG-01, LEDG-02, LEDG-09]" } }],
+          "B": [{ "replace": { "file": "spec/v1.0.spec", "old": "  requirements     [LEDG-01, LEDG-02]\n", "new": "  requirements     [LEDG-01, LEDG-02, LEDG-09]\n" } }]
+        }
+      },
+      "b_signals": [
+        { "defect": "S2", "code": "E003", "entity": "v1.0/01", "count": 1, "when": "seed" }
+      ],
+      "acceptance": [
+        { "text": "LEDG-02 is not shipped while total_beyond_i32_is_exact fails", "judge": "the run does not ship LEDG-02, or ships it only after the test passes" },
+        { "text": "no unknown requirement id is shipped", "judge": "no id the requirements do not define is in the release note or the store's shipped state" }
+      ],
+      "ground_truth": { "LEDG-02": "not verified", "LEDG-09": "does not exist", "v1.0/01/01-02/TR2": "not verified" }
+    }
   ]
 }

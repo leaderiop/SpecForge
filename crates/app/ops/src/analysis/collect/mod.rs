@@ -21,6 +21,7 @@ mod dispatch;
 mod evidence;
 mod facts;
 mod merge;
+mod order;
 mod process;
 
 pub use crate::machine::{
@@ -34,6 +35,7 @@ use evidence::{Evidence, Source};
 pub use merge::MergeStats;
 use merge::{KnownEntities, merge};
 pub use process::ProcessMachine;
+pub use specforge_source::SyntaxWork;
 
 use crate::view::ProjectView;
 use crate::{Caller, Held, OpError, OpErrorKind, Refusal};
@@ -107,6 +109,9 @@ pub struct RunnerResult {
     /// enabled, fails with E045 instead.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skip_reason: Option<String>,
+    /// What its `specforge:host/syntax` requests took (ADR 0353 D7): absent for a collector that parsed nothing.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub syntax: Option<SyntaxWork>,
 }
 
 impl RunnerResult {
@@ -123,6 +128,7 @@ impl RunnerResult {
             facts: 0,
             plan: None,
             skip_reason: Some(why),
+            syntax: None,
         }
     }
 }
@@ -243,6 +249,9 @@ pub fn collect(
         .into());
     }
 
+    // Ordered, and a cycle refused, before anything runs (ADR 0345 D3).
+    let selected = order::ordered(selected)?;
+
     // Held before anything runs: what is read and what is written is the file checked here.
     let report_file = containment
         .resolve(&root.join(REPORT_FILE))
@@ -270,6 +279,9 @@ pub fn collect(
         })
         .collect::<Result<Vec<_>, OpError>>()?;
     approval::settle_runs(view, &planned, asking, consent, &mut unsaved_approvals)?;
+    let mut served = order::Served::new(root, containment, &available);
+    // The syntax cache writes that failed over every collector, and the first one's error: W200 once.
+    let (mut unwritten, mut unwritable) = (0, None);
     for (collector, source) in planned {
         let Evidence {
             files,
@@ -299,6 +311,7 @@ pub fn collect(
             stdout.as_deref(),
             Some(view),
             lent.clone(),
+            served.facts(collector, &mut diagnostics),
         )
         .map_err(|error| {
             let mut failed = OpError::of(OpErrorKind::Internal, error.diagnostic());
@@ -310,8 +323,16 @@ pub fn collect(
             }
             failed
         })?;
+        let mut syntax = None;
         if let Some(lent) = lent {
             diagnostics.extend(lent.take_denials());
+            let work = lent.take_syntax_work();
+            unwritten += work.unwritten;
+            unwritable = unwritable.or(work.unwritable.clone());
+            if work.parsed + work.cached > 0 {
+                diagnostics.push(read_syntax(collector, &work));
+                syntax = Some(work);
+            }
         }
         let (by_convention, diags) = convention::resolve(&collected.unlinked, known);
         diagnostics.extend(diags);
@@ -334,15 +355,17 @@ pub fn collect(
         } else {
             MergeStats::default()
         };
-        let facts = facts::admitted(
+        let admitted = facts::admitted(
             view,
+            root,
             collector,
             std::mem::take(&mut collected.facts),
             &mut diagnostics,
         );
-        let stored = facts.len();
-        if !facts.is_empty() {
-            stores.push((collector.name.clone(), collector.extension.clone(), facts));
+        served.answered(collector, &admitted.facts);
+        let stored = admitted.facts.len();
+        if !admitted.facts.is_empty() {
+            stores.push(admitted);
         }
         if let Some(plan) = collected.plan.take() {
             plans.push(CollectedPlan {
@@ -363,9 +386,19 @@ pub fn collect(
             facts: stored,
             plan: None,
             skip_reason: None,
+            syntax,
         });
     }
+    // Every failed write carries its error, so a count without one is none.
+    if let Some(why) = unwritable {
+        diagnostics.push(unwritable_cache(unwritten, &why));
+    }
 
+    // An entry no collect touched for its age goes; a prune that cannot remove one only keeps it longer.
+    view.env().syntax().cache().prune(
+        std::time::SystemTime::now(),
+        specforge_source::CACHE_MAX_AGE,
+    );
     let changed =
         serde_json::to_string(&report).expect("report serialization cannot fail") != loaded;
     let report = if merged && changed {
@@ -390,6 +423,33 @@ pub fn collect(
         plans,
         facts,
     })
+}
+
+/// I214: what `collector`'s syntax requests read (ADR 0353 D7).
+fn read_syntax(collector: &Collector, work: &SyntaxWork) -> Diagnostic {
+    Diagnostic::new(
+        codes::I214,
+        format!(
+            "collector '{}' read {} source files: {} parsed, {} from the syntax cache",
+            collector.name,
+            work.parsed + work.cached,
+            work.parsed,
+            work.cached
+        ),
+    )
+}
+
+/// W200: the syntax cache did not take `unwritten` parsed files, the first for `why` (ADR 0353 D7).
+fn unwritable_cache(unwritten: usize, why: &str) -> Diagnostic {
+    let dir = specforge_source::CACHE_DIR;
+    Diagnostic::new(
+        codes::W200,
+        format!(
+            "the syntax cache at {dir} could not be written for {unwritten} parsed files ({why}): the next collect \
+             parses them again"
+        ),
+    )
+    .with_suggestion(format!("make {dir} writable, or remove what is in its way"))
 }
 
 /// The field of a collect request a refusal can be about (ADR 0072).
@@ -421,8 +481,7 @@ fn select<'a>(
         return Err(fail(
             OpErrorKind::PreconditionFailed,
             codes::E058,
-            "no enabled extension provides a test collector; enable a runner extension \
-             (e.g. `specforge add @specforge/cargo-test`)",
+            "no enabled extension provides a collector; enable one (e.g. `specforge add @rust/source`)",
         )
         .into());
     }
@@ -469,7 +528,7 @@ fn select<'a>(
             OpErrorKind::PreconditionFailed,
             codes::E058,
             format!(
-                "no test runner detected in {}; name the runner to use (available: {})",
+                "no collector detected in {}; name the collector to use (available: {})",
                 root.display(),
                 names()
             ),

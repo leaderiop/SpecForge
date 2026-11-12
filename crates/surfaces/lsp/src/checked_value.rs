@@ -7,6 +7,9 @@ use crate::state::LspState;
 
 /// What the checkers said of the string value under the cursor (ADR 0336).
 pub(crate) fn hover(state: &LspState, uri: &Url, position: Position) -> Option<String> {
+    if crate::source_document::is_source(state, uri) {
+        return None;
+    }
     let doc = state.document(uri)?;
     let cursor = doc.at(position)?;
     let value = cursor.string_value()?;

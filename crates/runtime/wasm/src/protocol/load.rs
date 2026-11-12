@@ -87,7 +87,8 @@ pub fn load_declaration(
 }
 
 /// The ports among `imports` no capability of `declaration` backs (ADR 0335 D5), in import order. `types` holds only
-/// what the four share: importing it alone asks for nothing.
+/// what the others share: importing it alone asks for nothing. `syntax` reads through the fs grant (git's at a
+/// revision), so an fs or a git capability backs it (ADR 0345 D1).
 fn unbacked(imports: &[String], declaration: &ExtensionDeclaration) -> Vec<String> {
     imports
         .iter()
@@ -96,11 +97,15 @@ fn unbacked(imports: &[String], declaration: &ExtensionDeclaration) -> Vec<Strin
                 .strip_prefix("specforge:host/")
                 .and_then(|rest| rest.split_once('@'))
                 .map_or(name.as_str(), |(port, _)| port);
+            let backing: &[&str] = match port {
+                "syntax" => &["fs", "git"],
+                port => &[port],
+            };
             port != "types"
                 && !declaration
                     .capabilities
                     .iter()
-                    .any(|capability| capability.port.port() == port)
+                    .any(|capability| backing.contains(&capability.port.port()))
         })
         .cloned()
         .collect()

@@ -61,7 +61,7 @@
     "- `--branch` → `BRANCH_NAME` (defaults to `workspace/$WORKSPACE_NAME`)",
     "- `--auto` → skip interactive questions"
   ],
-  "bytes": 32732,
+  "bytes": 32763,
   "end": [
     "- Box panels drawn with double-line box characters (U+2554, U+2557, U+255A, U+255D, U+2551, U+2560, U+2563) — the borders wrap independently of their contents. They are named here by code point rather than shown, because the guard below rejects the characters themselves anywhere in shipped content.",
     "- A `---` directly under a line of text with no blank line between — that is a setext heading underline, not a break, and it swallows the line above",
@@ -149,7 +149,7 @@
     "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
-    "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
+    "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
     "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:3109404165d5f2b50eb18837043f3caa50aed930498b0e772804bbebb9e1899b",
+    "digest": "sha256:895d6c9f197ab1b07dbd7d348603260ba88f167dc461031305f27c29b751b085",
     "prompt": "@gsd/core@VERSION:workspace"
   },
-  "sha256": "3109404165d5f2b50eb18837043f3caa50aed930498b0e772804bbebb9e1899b"
+  "sha256": "895d6c9f197ab1b07dbd7d348603260ba88f167dc461031305f27c29b751b085"
 }

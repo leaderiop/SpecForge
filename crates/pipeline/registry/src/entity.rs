@@ -42,6 +42,11 @@ pub struct EntityRecord {
     pub methods: Vec<MethodRecord>,
     /// Its references in a fact scheme that name no fact (ADR 0327 D6), in written order.
     pub unheld: Vec<specforge_protocol_types::UnheldReference>,
+    /// Where a collected fact is written in source, once per place (ADR 0346 D3); empty for an authored entity, whose
+    /// `span` is where it is written.
+    pub located: Vec<SourceSpan>,
+    /// A fact's references that name no entity, one of another kind, or several (ADR 0346 D4), in written order.
+    pub dangling: Vec<specforge_protocol_types::DanglingReference>,
     /// The path of the entity it is scoped by, as its scope field names it (ADR 0284); `None`: the project. What its
     /// owner state is read up (ADR 0329 D4). Host-internal: never on the wire.
     pub scope: Option<String>,
@@ -194,15 +199,29 @@ pub enum Direction {
     Outgoing,
 }
 
-/// What the rules run over: the snapshot's records in id order and its edges in graph order. No
-/// rule reads the file system: a path is read by a value checker (ADR 0338).
+/// What the rules run over: the snapshot's records in id order, its edges in graph order and the loaded kinds a
+/// collector writes, whose facts a rule that names no kind does not judge (ADR 0353 D5). No rule reads the file
+/// system: a path is read by a value checker (ADR 0338).
 #[derive(Debug, Clone, Copy)]
 pub struct RuleInput<'a> {
     pub entities: &'a [EntityRecord],
     pub edges: &'a [EdgeRecord],
+    pub collected: &'a std::collections::BTreeSet<String>,
+}
+
+impl RuleInput<'_> {
+    /// Whether `rule` judges `record`: a rule that names no kind judges no fact (ADR 0353 D5).
+    pub fn judged_by(&self, rule: &crate::rules::Rule, record: &EntityRecord) -> bool {
+        rule.applies_to(&record.kind, self.collected.contains(&record.kind))
+    }
 }
 
 impl EntityRecord {
+    /// Where a finding about it is placed: a fact's first place in source, else its span (ADR 0346 D3).
+    pub fn place(&self) -> &SourceSpan {
+        self.located.first().unwrap_or(&self.span)
+    }
+
     /// A record with nothing written (the test builder's start).
     pub fn new(kind: &str, id: &str, span: &SourceSpan) -> Self {
         EntityRecord {
@@ -218,6 +237,8 @@ impl EntityRecord {
             exemption: None,
             methods: Vec::new(),
             unheld: Vec::new(),
+            located: Vec::new(),
+            dangling: Vec::new(),
             scope: None,
         }
     }

@@ -56,10 +56,10 @@ fn trace_follows_a_requirement_to_its_commit() {
         found.contains(&(s("commit"), hash[..12].to_string(), s("(Gsd-Task)"))),
         "{trace:#}"
     );
-    // Without `@code/core` the step into its `test` kind is inert, named, and never a failure.
+    // Without `@code/core` the steps into its `item` and `test` kinds are inert, named, and never a failure.
     assert_eq!(
         trace["skipped"],
-        serde_json::json!(["step 'test'"]),
+        serde_json::json!(["step 'item'", "step 'test'"]),
         "{trace:#}"
     );
     assert!(run.stderr.contains("I210"), "{}", run.all());

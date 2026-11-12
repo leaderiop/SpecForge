@@ -393,19 +393,18 @@ entry writes, the name of a builtin, or an extension another entry already
 loads); its handshake or one of its describe categories failed or does not
 parse, so its declaration cannot be read (`specforge add` and `specforge
 publish` refuse such a binary); or a call the host makes on the loaded extension
-failed. The host calls fourteen exports: the handshake and describe, a command,
+failed. The host calls thirteen exports: the handshake and describe, a command,
 an MCP tool, an MCP resource, a compiler pass, a collector, a custom validator,
-a scanner, the migration hook, an MCP prompt, the renderer of an agent's or
-skill's body, a hook and a value checker. Each call fails when the export traps
-(a limit of its sandbox included: its time, its fuel or its memory, the trap
-naming which), when the extension does not route it, or when it answers output
-that is not the protocol type the operation owes (a collector's test whose
-status is not `passed`, `failed` or `skipped`, say); the message names the
-operation, the export and the extension (`command cmd__x() of '@acme/x' trapped:
-...`). What the failure costs is the operation's: a check pass's is the
-compile's error, an analyze pass's a finding of that pass, a scanner's makes
-`infer` approximate. Report the failure to the extension's author, and confirm
-the extension is installed and up to date.
+the migration hook, an MCP prompt, the renderer of an agent's or skill's body, a
+hook and a value checker. Each call fails when the export traps (a limit of its
+sandbox included: its time, its fuel or its memory, the trap naming which), when
+the extension does not route it, or when it answers output that is not the
+protocol type the operation owes (a collector's test whose status is not
+`passed`, `failed` or `skipped`, say); the message names the operation, the
+export and the extension (`command cmd__x() of '@acme/x' trapped: ...`). What
+the failure costs is the operation's: a check pass's is the compile's error, an
+analyze pass's a finding of that pass. Report the failure to the extension's
+author, and confirm the extension is installed and up to date.
 
 Owner: core
 Level: error
@@ -419,8 +418,7 @@ E030: Invalid extension declaration
 An extension's declaration (its handshake and describe answers) can't be used as
 declared: its name or version is empty, its `ext_short` isn't lowercase kebab
 case (`[a-z][a-z0-9-]*`; it names the extension's CLI subcommand and MCP tool
-prefix), an analyzer has no language, no file extensions or an empty export
-name, or a `codes` entry is malformed: a code that is not `E`, `W` or `I` and
+prefix), or a `codes` entry is malformed: a code that is not `E`, `W` or `I` and
 three digits (a `/` included: the host adds the namespace), a code catalogued
 twice, an empty title or explanation, or a `docs` that is not an absolute
 `http(s)` URL; a first-party extension declares no `codes`, its codes are in
@@ -703,14 +701,14 @@ Level: error
 ## E058
 
 ```
-E058: No test collector
+E058: No collector
 
 `specforge collect` found no collector to use: no enabled extension provides
 one, none of the enabled collectors' detection files (such as `Cargo.toml`) are
 present at the project root, the `--runner` name matches no collector, a
 collector declares a report path outside the project, or `--report` was passed
-while several collectors apply. Enable a runner extension (e.g. `specforge add
-@specforge/cargo-test`) or pick one with `--runner`. Over MCP an unknown
+while several collectors apply. Enable an extension that declares one (e.g.
+`specforge add @rust/source`) or pick one with `--runner`. Over MCP an unknown
 `runner` is `invalid_input` naming `runner`; the other cases are
 `precondition_failed`.
 
@@ -937,22 +935,18 @@ Level: error
 ```
 E071: Unusable inference manifest
 
-A file inference keeps at the project root is there and can't be used as
-written: `specforge-infer.json` (the analyzed source files and the inference
-sessions) or `specforge-anchors.json` (the source anchors navigation reads). It
-can't be read, isn't valid JSON, doesn't have the manifest's shape (a field
-missing or of the wrong type, a session status other than `active`, `paused` or
-`completed`), or, for `specforge-infer.json`, has a `version` other than 1.
-Nothing reads such a file as empty, and nothing writes over it: `specforge
-infer-status`, `specforge.infer_progress`, `specforge.infer_gaps`, the infer
-prompt's plan and every `specforge.infer_session` action refuse with this code,
-`specforge.find_implementation`, `specforge.find_spec_for_source`,
-`specforge.infer_gaps`, `specforge infer-status --gaps-detail` and the infer
-prompt's file scope refuse when it is the anchors manifest, and `specforge check
---lint inferred` reports it as an error instead of I200 and I202. Fix the file
-where the message says (it names the line and column of a JSON or shape error),
-or move it aside to start over. A missing file is not this: inference has
-recorded nothing yet.
+The file inference keeps at the project root, `specforge-infer.json` (the
+analyzed source files and the inference sessions), is there and can't be used as
+written. It can't be read, isn't valid JSON, doesn't have the manifest's shape
+(a field missing or of the wrong type, a session status other than `active`,
+`paused` or `completed`), or has a `version` other than 1. Nothing reads such a
+file as empty, and nothing writes over it: `specforge infer-status`,
+`specforge.infer_progress`, `specforge.infer_gaps`, the infer prompt's plan and
+every `specforge.infer_session` action refuse with this code, and `specforge
+check --lint inferred` reports it as an error instead of I200 and I202. Fix the
+file where the message says (it names the line and column of a JSON or shape
+error), or move it aside to start over. A missing file is not this: inference
+has recorded nothing yet.
 
 Owner: core
 Level: error
@@ -1304,14 +1298,14 @@ E090: Effect outside the granted scope
 
 An extension asked the host for an effect its grant does not cover (ADR 0335
 D2): the call kind may not use that port at all (a pass, validator, prompt,
-renderer, scanner, migration or hook never reaches the network or runs a
-command, and only `collect` runs a process), no capability it declares covers
-the request (another host, method, scheme, root, op or command), or the
-project's effects ceiling (`effects` in `specforge.json`) narrows the capability
-that would. The host does not perform it. The message names the extension, the
-request in one line (no header or body) and the capability that came closest.
-Declare a capability that covers it, or widen `effects` if the project means to
-allow it; an effect a call kind may never make is the extension's to remove.
+renderer, migration or hook never reaches the network or runs a command, and
+only `collect` runs a process), no capability it declares covers the request
+(another host, method, scheme, root, op or command), or the project's effects
+ceiling (`effects` in `specforge.json`) narrows the capability that would. The
+host does not perform it. The message names the extension, the request in one
+line (no header or body) and the capability that came closest. Declare a
+capability that covers it, or widen `effects` if the project means to allow it;
+an effect a call kind may never make is the extension's to remove.
 
 Owner: core
 Level: error
@@ -1612,12 +1606,30 @@ Level: error
 E116: Facts a collector answered that the host refuses
 
 A collector answered `facts` (ADR 0327) the host does not store: a fact of a
-kind no loaded extension declares `writer: "collector"`, an empty id, an id that
-names none of its kind's `schemes` (`js:` for `js:pkg/a.test.js#adds`), or an id
-the answer repeats. The message names the collector and the first reason. None
-of that collector's facts is stored, so its earlier store stays; the other
-collectors and the report merge go on (ADR 0303: an extension's error refuses no
-other fact). Fix the collector, or load the extension that declares the kind.
+kind no loaded extension declares `writer: "collector"`, of a kind the collector
+does not list in its `answers` (ADR 0345 D3), an empty id, an id that names none
+of its kind's `schemes` (`js:` for `js:pkg/a.test.js#adds`), or an id the answer
+repeats. The message names the collector and the first reason. None of that
+collector's facts is stored, so its earlier store stays; the other collectors
+and the report merge go on (ADR 0303: an extension's error refuses no other
+fact). Fix the collector (list every kind it answers in `answers`), or load the
+extension that declares the kind.
+
+Owner: core
+Level: error
+```
+
+## E117
+
+```
+E117: Fact collected twice
+
+Two fact stores the session serves hold one fact id (ADR 0346 D5): two
+collectors mint it, each in its own store
+(`.specforge/facts/<key>/<collector>.json`). The message names both collectors
+and both stores; the first in path order is served and the second is not. A fact
+is written by its collector, so there is no entity to rename: load only one of
+the collectors, or fix the pack that mints the id, then run `specforge collect`.
 
 Owner: core
 Level: error
@@ -1643,6 +1655,40 @@ route is not registered, so `trace` reads the generic reach for its kind. A part
 that reaches a kind of an optional peer the project does not load is not an
 error: it is skipped, and the trace says so (I210). Fix the route's declaration
 in the extension.
+
+Owner: core
+Level: error
+```
+
+## E119
+
+```
+E119: Collectors whose facts inputs form a cycle
+
+Collectors read one another's facts in a cycle (ADR 0345 D3): each collector
+whose `facts` input names a kind another collector `answers` runs after it, and
+here every collector of the cycle waits on another, so none can run first. The
+message names the collectors of the cycle. The registry build reports it over
+the loaded collectors, and `specforge collect` refuses a selection holding one
+before any collector runs or any command starts. Drop a kind from one
+collector's `facts` input, or from what another answers.
+
+Owner: core
+Level: error
+```
+
+## E120
+
+```
+E120: Colon reference written bare
+
+A field value writes a reference holding `:` without its quotes (`notes
+[js:p1]`, `proof run:js:a.test.js#adds`), whatever its scheme (ADR 0346 D6). The
+grammar reads `js` and fails on the rest, so the reference is one E120 spanning
+the whole `word:rest`, and no word of it is kept in the value: nothing links as
+`js`. The file still counts as unparsed and cannot be rewritten until it is
+fixed. Write it quoted: `notes ["js:p1"]`. A provider ref in a list
+(`[jira.issue:PROJ-1]`, `scheme.kind:id`) is read as one and is not this.
 
 Owner: core
 Level: error
@@ -2334,6 +2380,75 @@ skipped it (it is not E118). The trace goes on without it and says so: the
 message names the route, the step (or `<step>.<annotation>`) and the kind.
 Nothing is wrong with the project. Install the extension that declares the kind
 to follow the whole route.
+
+Owner: core
+Level: info
+```
+
+## I211
+
+```
+I211: Source files parsed with syntax errors
+
+An extension's `specforge:host/syntax` request (ADR 0345) parsed source files
+whose tree holds ERROR or MISSING nodes (ADR 0344 D1). The reader is error
+tolerant, so what the parse recovered was answered, but a definition inside the
+broken region may be missing or cut. Reported once per call, naming the first 8
+files and their error counts, then how many more. Fix the syntax errors and
+collect again.
+
+Owner: core
+Level: info
+```
+
+## I212
+
+```
+I212: No located facts to anchor to
+
+An anchors read (ADR 0349) answered over a session that serves no located fact:
+no fact a collector wrote carries a place in source, so no entity can be
+anchored to one and an empty answer says nothing about the entity or file asked.
+Said by the anchors read view, so by `specforge.find_implementation`,
+`specforge.find_spec_for_source`, the infer prompt's file scope and `specforge
+anchors`, once per answer; never by `check`. Load a source pack (`specforge add
+@rust/source`) and run `specforge collect`.
+
+Owner: core
+Level: info
+```
+
+## I213
+
+```
+I213: Values wait for their owner
+
+Some values belong to fields whose checks wait for their owner (`checks_while:
+complete`, ADR 0350), and their owner is still pending: a path to a file the
+owner's work will create, say. Their owner is the entity's kind, or its nearest
+scope ancestor, that declares `complete_when`, read after the compute passes. No
+checker is called for them: each row says `planned`, only the written form of a
+path is read (E094, E095, W175), and nothing counts toward I206 or I207. One
+summary per compile counts them, by declared field path and how many values each
+holds. They are checked once their owner is complete; nothing is wrong with the
+project.
+
+Owner: core
+Level: info
+```
+
+## I214
+
+```
+I214: A collector's syntax work
+
+`specforge collect` called a collector that asked the host to parse source files
+through `specforge:host/syntax` (ADR 0345), and says what that took (ADR 0353
+D7): how many source files it read, how many were parsed now and how many were
+answered from the syntax cache (`.specforge/cache/syntax`, keyed by grammar,
+query and file digest). Once per collector that read a file; the same counts are
+its `syntax` in `specforge collect --format json`. A second collect of an
+unchanged tree parses none. Nothing is wrong with the project.
 
 Owner: core
 Level: info
@@ -3968,9 +4083,9 @@ and `max_memory_mb` that asks for something (`network_access: true`, a non-empty
 surface's `sandbox` override grant nothing. A declared limit above the host's
 ceiling (30000 ms per call, 512 MB of linear memory) is held to the ceiling. The
 message names the extension and the key. Remove the key, or lower the limit. An
-extension that needs a file's content gets it in its input (an analyzer is
-handed each file); one that needs the network, a file outside its input or a
-command declares a capability (ADR 0335 D2).
+extension that needs a file's content gets it in its input; one that needs the
+network, a file outside its input or a command declares a capability (ADR 0335
+D2).
 
 Owner: core
 Level: warning
@@ -4084,11 +4199,12 @@ A relation has two fields: one extension declares it from both of its ends.
 Either a reference field's `inverse_of` names a field its target kind registers
 (`milestone.behaviors` naming `features`, when `behavior` has its own
 `features`), or two different kinds each register a reference field targeting
-the other (`parent.children` and `child.parent`). A relation is written from one
-side (ADR 0150): the other side is derived, so `query` and `trace` already show
-it. Both fields still register, and an entity can write either. Remove one
-field, or drop the `inverse_of` or name a word the target kind does not use. The
-builtin extensions declare none.
+the other (`parent.children` and `child.parent`) and neither names its reverse.
+A relation is written from one side (ADR 0150): the other side is derived, so
+`query` and `trace` already show it. Both fields still register, and an entity
+can write either. Remove one field, or drop the `inverse_of` or name a word the
+target kind does not use; two relations between the same kinds are told apart by
+giving one an `inverse_of` (ADR 0354). The builtin extensions declare none.
 
 Owner: core
 Level: warning
@@ -4506,6 +4622,118 @@ not exactly one of them is marked `default`: none is, or several are. `specforge
 trace` follows the first in load order from that kind, which the message names
 with every route. Mark one route `default` in its extension, or pass `--route
 <name>` to trace along another.
+
+Owner: core
+Level: warning
+```
+
+## W196
+
+```
+W196: Source files not parsed
+
+An extension asked the host to parse source files through
+`specforge:host/syntax` (ADR 0345) and some were not parsed: a file passed its
+parse deadline (5 s for its parse and its query run, ADR 0344 D3), is over the
+64 MiB file ceiling (or a blob the git port does not read), or could not be
+read. Its call goes on with the files that parsed, so what the extension derives
+from them is missing for these. Reported once per call, naming the first 8 files
+and why, then how many more. Split a generated file, or leave it out of the
+pack's glob; a file another process holds may parse on the next collect.
+
+Owner: core
+Level: warning
+```
+
+## W197
+
+```
+W197: Fact store stale after a rename
+
+A rename (`specforge rename`, the MCP tool or the editor's rename) moved an
+entity that a collected fact names, and rewrote the source file where the
+collector read the name (ADR 0346 D7). The fact store itself is the collector's
+bytes and was not rewritten; the rename wrote `<collector>
+stale:<key>:<field>:<name>:<new name>` to `specforge-harness` for each name it
+rewrote. Until that collector collects again, exactly those names are read as
+the rename wrote them, so they still link, and this warning names what moved.
+The places the store records in the rewritten files may be off by the rename's
+change of length. Run `specforge collect` to collect the facts again: it
+replaces the store and drops the stale line. A store collected after the rename
+is not stale: if it still names the old id, its collector's facts disagree.
+
+Owner: core
+Level: warning
+```
+
+## W198
+
+```
+W198: A source anchor is stale
+
+An anchors answer (ADR 0349) names a source file that no longer hashes to the
+digest its fact store recorded when `specforge collect` read it (ADR 0346 D2),
+or that is gone: the file was edited, by hand or by a rename, since the collect,
+so the lines its rows give may have moved. One per such file the answer names
+(only those are hashed); its rows are still listed. Said by the anchors read
+view, so by `specforge.find_implementation`, `specforge.find_spec_for_source`,
+the infer prompt's file scope, `specforge anchors` and the editor's source
+lenses; never by `check`, which hashes no source file. Run `specforge collect`
+again.
+
+Owner: core
+Level: warning
+```
+
+## W199
+
+```
+W199: Owner gate refused
+
+A field declares `checks_while` (ADR 0350), whether its checks wait for its
+holder's owner, and the registry cannot honour it: the word is neither
+`complete` nor `pending`, the field declares no check, or neither its kind nor a
+kind along its `scoped_by` chain declares `complete_when`, so no owner state
+decides it. The gate is dropped and the field's checks run on every value, as if
+it declared none; nothing is lost. Declare a check on the field, or
+`complete_when` on its kind or a scope ancestor, and rebuild the extension.
+
+Owner: core
+Level: warning
+```
+
+## W200
+
+```
+W200: The syntax cache cannot be written
+
+`specforge collect` parsed source files for a collector (ADR 0345) and could not
+write some of their answers to the syntax cache at `.specforge/cache/syntax`
+(ADR 0353 D7): a file is in the way of its directory, or the directory is
+read-only or full. The collect's facts are stored as usual, but the next collect
+parses those files again instead of reading them from the cache, so it is as
+slow as a first one. Reported once per collect, with how many parsed files were
+not cached and the error of the first write that failed. Make
+`.specforge/cache/syntax` writable, or remove what is in its way.
+
+Owner: core
+Level: warning
+```
+
+## W201
+
+```
+W201: A collector's facts input served nothing
+
+A collector declares a `facts` input (ADR 0345 D3) naming a kind, and it was
+served no fact of that kind: no collector of this collect answers the kind
+(`specforge collect --runner` runs only the collectors it names, and detection
+may skip one), and no store the harness ledger records holds a fact of it. The
+collector runs on an empty input, so what it derives from those facts is
+missing. The message names the collector, the kind and the declared collectors
+that answer it, or says no loaded collector does. Collect with them first
+(`specforge collect --runner <name>`), or run `specforge collect` without
+`--runner`; with none, load the extension whose collector answers the kind.
 
 Owner: core
 Level: warning

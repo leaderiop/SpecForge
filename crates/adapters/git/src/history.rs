@@ -1,16 +1,21 @@
-//! The log and the diff `Gix` answers: which commits a log keeps and how a commit reads, and the trees a diff
-//! compares and how a changed file reads.
+//! The log `Gix` answers: which commits a log keeps and how a commit reads, and the bytes a bounded read may take;
+//! the diff is in [`diff`].
 
+use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::path::Path;
 
 use gix::bstr::ByteSlice as _;
+use specforge_effects::contained::withheld;
 use specforge_effects::git::{
-    BLOB_CAP, DiffStatus, GitCommit, GitError, GitFileDiff, GitLog, GitPerson, LogQuery, PATCH_CAP,
-    Sha, is_binary,
+    BLOB_CAP, GitCommit, GitError, GitLog, GitPerson, LogQuery, PickaxeReads, Sha, is_binary,
 };
 
 use crate::{failed, id};
+
+mod diff;
+
+pub(crate) use diff::{file_diff, index_tree, tree_of};
 
 /// The commits `query` keeps, newest first, or the oldest ones with `query.oldest`.
 pub(crate) fn log(repo: &gix::Repository, query: &LogQuery) -> Result<GitLog, GitError> {
@@ -32,7 +37,17 @@ pub(crate) fn log(repo: &gix::Repository, query: &LogQuery) -> Result<GitLog, Gi
     let mut count = 0;
     // with `oldest`, the last `max` kept, newest first: only their ids until the walk ends
     let mut oldest = std::collections::VecDeque::new();
+    // the work done so far: commits stepped onto, and bytes read (commit objects and the blobs a pickaxe searches)
+    let mut walked = 0;
+    let read = Reads::up_to(query.budget.map(|budget| budget.bytes));
     for info in walk {
+        if let Some(budget) = query.budget {
+            if walked >= budget.commits || read.spent() {
+                log.stopped = true;
+                break;
+            }
+            walked += 1;
+        }
         let info = info.map_err(|e| failed("walk the history", &e))?;
         let listed = query.oldest || query.max.is_none_or(|max| log.commits.len() < max);
         if paths.is_empty() && filter.is_none() && !listed {
@@ -43,7 +58,8 @@ pub(crate) fn log(repo: &gix::Repository, query: &LogQuery) -> Result<GitLog, Gi
         let commit = repo
             .find_commit(info.id)
             .map_err(|e| failed(&format!("read {}", info.id), &e))?;
-        if !keeps(filter.as_ref(), repo, &commit, &paths)? {
+        read.take(commit.data.len() as u64);
+        if !keeps(filter.as_ref(), repo, &commit, &paths, &read)? {
             continue;
         }
         if !paths.is_empty() && !touches(repo, &commit, &paths, query.first_parent)? {
@@ -69,8 +85,54 @@ pub(crate) fn log(repo: &gix::Repository, query: &LogQuery) -> Result<GitLog, Gi
             .map_err(|e| failed(&format!("read {kept}"), &e))?;
         log.commits.push(commit_of(&commit)?);
     }
-    log.count = Some(count);
+    // a walk that stopped did not count the rest
+    log.count = (!log.stopped).then_some(count);
     Ok(log)
+}
+
+/// The bytes a log or a diff read so far, against the most it may (none: no bound). Counted before each read, so the
+/// work past the bound is one object at most.
+pub(crate) struct Reads {
+    read: Cell<u64>,
+    limit: Option<u64>,
+    /// Nothing was taken yet: the first read is always allowed, so one file's diff always reads it.
+    first: Cell<bool>,
+}
+
+impl Reads {
+    pub(crate) fn up_to(limit: Option<u64>) -> Self {
+        Reads {
+            read: Cell::new(0),
+            limit,
+            first: Cell::new(true),
+        }
+    }
+
+    /// Whether `bytes` more may be read, counting them when they may: the first always may, and once one may not, none
+    /// may after it.
+    pub(crate) fn take(&self, bytes: u64) -> bool {
+        let first = self.first.replace(false);
+        let total = self.read.get().saturating_add(bytes);
+        if let Some(limit) = self.limit
+            && !first
+            && total > limit
+        {
+            self.read.set(u64::MAX);
+            return false;
+        }
+        self.read.set(total);
+        true
+    }
+
+    /// Whether there is a bound at all.
+    pub(crate) fn bounded(&self) -> bool {
+        self.limit.is_some()
+    }
+
+    /// Whether the bound is reached: nothing more is read.
+    pub(crate) fn spent(&self) -> bool {
+        self.limit.is_some_and(|limit| self.read.get() >= limit)
+    }
 }
 
 /// The most bytes a compiled `--grep` or `-S` pattern may take: a larger one is refused, never built.
@@ -92,6 +154,7 @@ pub(crate) struct Filter {
     until: Option<i64>,
     no_merges: bool,
     pickaxe: Option<regex::bytes::Regex>,
+    pickaxe_reads: PickaxeReads,
 }
 
 impl Filter {
@@ -111,6 +174,7 @@ impl Filter {
                 .as_deref()
                 .map(|p| pattern("-S", p))
                 .transpose()?,
+            pickaxe_reads: query.pickaxe_reads,
         };
         let none = filter.grep.is_none()
             && filter.since.is_none()
@@ -127,6 +191,7 @@ pub(crate) fn keeps(
     repo: &gix::Repository,
     commit: &gix::Commit<'_>,
     paths: &[String],
+    read: &Reads,
 ) -> Result<bool, GitError> {
     let Some(filter) = filter else {
         return Ok(true);
@@ -156,23 +221,35 @@ pub(crate) fn keeps(
         }
     }
     match &filter.pickaxe {
-        Some(pickaxe) => picked(repo, commit, pickaxe, paths, parents),
+        Some(pickaxe) => picked(
+            repo,
+            commit,
+            pickaxe,
+            paths,
+            parents,
+            filter.pickaxe_reads,
+            read,
+        ),
         None => Ok(true),
     }
 }
 
-/// How many times `rx` matches the blob `id` names; none for a binary blob or one over [`BLOB_CAP`], which `-S` does
-/// not read.
+/// How many times `rx` matches the blob `id` names, its bytes taken from `read`; none for a binary blob, one over
+/// [`BLOB_CAP`], which `-S` does not read, or one past what `read` has left.
 fn matches(
     repo: &gix::Repository,
     id: Option<gix::ObjectId>,
     rx: &regex::bytes::Regex,
+    read: &Reads,
 ) -> Option<usize> {
     let Some(id) = id else {
         return Some(0);
     };
     let header = repo.find_header(id).ok()?;
     if header.kind() != gix::objs::Kind::Blob || header.size() > BLOB_CAP {
+        return None;
+    }
+    if !read.take(header.size()) {
         return None;
     }
     let blob = repo.find_blob(id).ok()?;
@@ -187,6 +264,8 @@ fn picked(
     rx: &regex::bytes::Regex,
     paths: &[String],
     parents: usize,
+    reads: PickaxeReads,
+    read: &Reads,
 ) -> Result<bool, GitError> {
     use gix::object::tree::diff::ChangeDetached as Change;
     if parents > 1 {
@@ -206,19 +285,19 @@ fn picked(
         .diff_tree_to_tree(&old, &new, None)
         .map_err(|e| failed("diff two trees", &e))?;
     for change in changes {
-        let (location, old, new) = match change {
+        let (location, source, old, new) = match change {
             Change::Addition {
                 location,
                 entry_mode,
                 id,
                 ..
-            } => (location, None, entry_mode.is_blob().then_some(id)),
+            } => (location, None, None, entry_mode.is_blob().then_some(id)),
             Change::Deletion {
                 location,
                 entry_mode,
                 id,
                 ..
-            } => (location, entry_mode.is_blob().then_some(id), None),
+            } => (location, None, entry_mode.is_blob().then_some(id), None),
             Change::Modification {
                 location,
                 previous_entry_mode,
@@ -227,11 +306,13 @@ fn picked(
                 id,
             } => (
                 location,
+                None,
                 previous_entry_mode.is_blob().then_some(previous_id),
                 entry_mode.is_blob().then_some(id),
             ),
             Change::Rewrite {
                 location,
+                source_location,
                 source_entry_mode,
                 source_id,
                 entry_mode,
@@ -239,6 +320,7 @@ fn picked(
                 ..
             } => (
                 location,
+                Some(source_location),
                 source_entry_mode.is_blob().then_some(source_id),
                 entry_mode.is_blob().then_some(id),
             ),
@@ -246,7 +328,14 @@ fn picked(
         if old.is_none() && new.is_none() || !kept(&location.to_str_lossy(), paths) {
             continue;
         }
-        if let (Some(before), Some(after)) = (matches(repo, old, rx), matches(repo, new, rx))
+        let hidden = |path: &gix::bstr::BStr| withheld(&path.to_str_lossy());
+        if reads == PickaxeReads::NoWithheld
+            && (hidden(location.as_ref()) || source.as_ref().is_some_and(|s| hidden(s.as_ref())))
+        {
+            continue;
+        }
+        if let (Some(before), Some(after)) =
+            (matches(repo, old, rx, read), matches(repo, new, rx, read))
             && before != after
         {
             return Ok(true);
@@ -341,14 +430,14 @@ fn touches(
 
 /// A signature as a log prints it.
 fn person(signature: gix::actor::SignatureRef<'_>) -> GitPerson {
-    let time = signature
-        .time()
-        .map(|t| t.format_or_unix(gix::date::time::format::ISO8601_STRICT))
-        .unwrap_or_default();
+    let time = signature.time().ok();
     GitPerson {
         name: signature.name.to_str_lossy().trim().to_string(),
         email: signature.email.to_str_lossy().trim().to_string(),
-        time,
+        time: time
+            .map(|t| t.format_or_unix(gix::date::time::format::ISO8601_STRICT))
+            .unwrap_or_default(),
+        seconds: time.map_or(0, |t| t.seconds),
     }
 }
 
@@ -380,326 +469,6 @@ fn commit_of(commit: &gix::Commit<'_>) -> Result<GitCommit, GitError> {
             .unwrap_or_default(),
         trailers,
     })
-}
-
-/// The tree of the commit `sha` names.
-pub(crate) fn tree_of(repo: &gix::Repository, sha: &Sha) -> Result<gix::ObjectId, GitError> {
-    let read = |e: &dyn std::fmt::Display| failed(&format!("read {}", sha.short()), e);
-    repo.find_commit(id(sha)?)
-        .map_err(|e| read(&e))?
-        .tree_id()
-        .map(|t| t.detach())
-        .map_err(|e| read(&e))
-}
-
-/// Blobs a diff names but never reads: worktree files over [`BLOB_CAP`], hashed as they stream and kept out of memory.
-pub(crate) type Unread = std::collections::HashSet<gix::ObjectId>;
-
-/// The index as a tree, kept in memory; with `worktree`, each tracked file as it is on disk instead, and the files over
-/// the cap it hashed without keeping. A changed file `paths` keeps with more than one name is refused (ADR 0146); one
-/// it does not keep stays as the index has it, unread.
-// shortcut: no clean filters (autocrlf, LFS) are applied to a worktree file; upgrade when a block diffs one
-pub(crate) fn index_tree(
-    repo: &gix::Repository,
-    worktree: bool,
-    paths: &[String],
-) -> Result<(gix::ObjectId, Unread), GitError> {
-    let mut unread = Unread::new();
-    let index = repo
-        .index_or_empty()
-        .map_err(|e| failed("read the index", &e))?;
-    let mut tree = repo
-        .edit_tree(repo.empty_tree().id)
-        .map_err(|e| failed("build a tree", &e))?;
-    for entry in index.entries() {
-        if entry.stage() != gix::index::entry::Stage::Unconflicted {
-            continue;
-        }
-        // a mode no tree entry has is no file to diff
-        let Some(kind) = entry.mode.to_tree_entry_mode().map(|mode| mode.kind()) else {
-            continue;
-        };
-        tree.upsert(entry.path(&index), kind, entry.id)
-            .map_err(|e| failed("build a tree", &e))?;
-    }
-    if worktree {
-        use gix::status::index_worktree::Item;
-        use gix::status::plumbing::index_as_worktree::{Change, EntryStatus};
-        let top = repo
-            .workdir()
-            .ok_or_else(|| GitError("a bare repository has no working tree".into()))?
-            .to_path_buf();
-        let items = repo
-            .status(gix::progress::Discard)
-            .map_err(|e| failed("read the status", &e))?
-            .untracked_files(gix::status::UntrackedFiles::None)
-            .into_index_worktree_iter(Vec::new())
-            .map_err(|e| failed("read the status", &e))?;
-        for item in items {
-            let Item::Modification {
-                rela_path, status, ..
-            } = item.map_err(|e| failed("read the status", &e))?
-            else {
-                continue;
-            };
-            match status {
-                EntryStatus::Change(Change::Removed) => {
-                    tree.remove(rela_path.as_bstr())
-                        .map_err(|e| failed("build a tree", &e))?;
-                }
-                EntryStatus::Change(Change::Modification { .. } | Change::Type { .. })
-                | EntryStatus::Conflict { .. }
-                | EntryStatus::IntentToAdd => {
-                    let file = top.join(gix::path::from_bstr(rela_path.as_bstr()));
-                    let Some((kind, content)) = on_disk(&file, repo.object_hash()) else {
-                        continue;
-                    };
-                    let blob = match content {
-                        OnDisk::SecondName(_) if !kept(&rela_path.to_string(), paths) => continue,
-                        OnDisk::SecondName(why) => {
-                            return Err(GitError(format!(
-                                "{rela_path}: {why}, so it is not diffed: replace it with a plain copy (copy it to a \
-                                 new name, then move the copy over it), or diff other paths with -- <path>"
-                            )));
-                        }
-                        OnDisk::Bytes(bytes) => repo
-                            .write_blob(bytes)
-                            .map_err(|e| failed("hash a file", &e))?
-                            .detach(),
-                        OnDisk::Over(id) => {
-                            unread.insert(id);
-                            id
-                        }
-                    };
-                    tree.upsert(rela_path.as_bstr(), kind, blob)
-                        .map_err(|e| failed("build a tree", &e))?;
-                }
-                _ => {}
-            }
-        }
-    }
-    tree.write()
-        .map(|id| (id.detach(), unread))
-        .map_err(|e| failed("build a tree", &e))
-}
-
-/// What a worktree file gives a tree: its bytes, or, over [`BLOB_CAP`], only its blob id, hashed as it streams.
-enum OnDisk {
-    Bytes(Vec<u8>),
-    Over(gix::ObjectId),
-    /// More than one name: unread, and why.
-    SecondName(std::io::Error),
-}
-
-/// A file on disk as a tree holds it: its kind and its content (a link's target); `None` when it is gone or is no
-/// regular file.
-fn on_disk(file: &Path, hash: gix::hash::Kind) -> Option<(gix::objs::tree::EntryKind, OnDisk)> {
-    use gix::objs::tree::EntryKind;
-    let meta = std::fs::symlink_metadata(file).ok()?;
-    if meta.file_type().is_symlink() {
-        let target = std::fs::read_link(file).ok()?;
-        return Some((
-            EntryKind::Link,
-            OnDisk::Bytes(gix::path::into_bstr(target).into_owned().into()),
-        ));
-    }
-    let kind = if executable(&meta) {
-        EntryKind::BlobExecutable
-    } else {
-        EntryKind::Blob
-    };
-    let mut opened = specforge_common::regular::open_any(file).ok()?;
-    if let Err(why) = specforge_common::regular::refuse_if_linked(&opened) {
-        return Some((kind, OnDisk::SecondName(why)));
-    }
-    let length = opened.metadata().ok()?.len();
-    if length > BLOB_CAP {
-        let id = gix::objs::compute_stream_hash(
-            hash,
-            gix::objs::Kind::Blob,
-            &mut opened,
-            length,
-            &mut gix::progress::Discard,
-            &std::sync::atomic::AtomicBool::new(false),
-        )
-        .ok()?;
-        return Some((kind, OnDisk::Over(id)));
-    }
-    let mut bytes = Vec::new();
-    std::io::Read::read_to_end(&mut std::io::Read::take(opened, BLOB_CAP), &mut bytes).ok()?;
-    Some((kind, OnDisk::Bytes(bytes)))
-}
-
-#[cfg(unix)]
-fn executable(meta: &std::fs::Metadata) -> bool {
-    use std::os::unix::fs::PermissionsExt as _;
-    meta.permissions().mode() & 0o111 != 0
-}
-
-#[cfg(not(unix))]
-fn executable(_: &std::fs::Metadata) -> bool {
-    false
-}
-
-/// One tree change as a diff answers it; `None` for a directory or a path the query does not keep.
-pub(crate) fn file_diff(
-    repo: &gix::Repository,
-    change: gix::object::tree::diff::ChangeDetached,
-    paths: &[String],
-    patch: bool,
-    unread: &Unread,
-) -> Result<Option<GitFileDiff>, GitError> {
-    use gix::object::tree::diff::ChangeDetached as Change;
-    type Side = Option<(gix::objs::tree::EntryMode, gix::ObjectId)>;
-    let (path, old_path, status, old, new): (_, _, _, Side, Side) = match change {
-        Change::Addition {
-            location,
-            entry_mode,
-            id,
-            ..
-        } => (
-            location,
-            None,
-            DiffStatus::Added,
-            None,
-            Some((entry_mode, id)),
-        ),
-        Change::Deletion {
-            location,
-            entry_mode,
-            id,
-            ..
-        } => (
-            location,
-            None,
-            DiffStatus::Deleted,
-            Some((entry_mode, id)),
-            None,
-        ),
-        Change::Modification {
-            location,
-            previous_entry_mode,
-            previous_id,
-            entry_mode,
-            id,
-        } => {
-            let status = if previous_entry_mode.kind() == entry_mode.kind() {
-                DiffStatus::Modified
-            } else {
-                DiffStatus::TypeChanged
-            };
-            (
-                location,
-                None,
-                status,
-                Some((previous_entry_mode, previous_id)),
-                Some((entry_mode, id)),
-            )
-        }
-        Change::Rewrite {
-            source_location,
-            source_entry_mode,
-            source_id,
-            entry_mode,
-            id,
-            location,
-            copy,
-            ..
-        } => {
-            let status = if copy {
-                DiffStatus::Copied
-            } else {
-                DiffStatus::Renamed
-            };
-            (
-                location,
-                Some(source_location.to_string()),
-                status,
-                Some((source_entry_mode, source_id)),
-                Some((entry_mode, id)),
-            )
-        }
-    };
-    let path = path.to_string();
-    let is_tree = |side: &Side| side.is_some_and(|(mode, _)| mode.is_tree());
-    if is_tree(&old) || is_tree(&new) {
-        return Ok(None);
-    }
-    if !kept(&path, paths) && !old_path.as_deref().is_some_and(|p| kept(p, paths)) {
-        return Ok(None);
-    }
-    // a submodule's commit is no blob: it counts no lines
-    let over = |side: Side| -> Result<bool, GitError> {
-        match side {
-            Some((mode, object)) if mode.is_blob_or_symlink() => Ok(unread.contains(&object)
-                || repo
-                    .find_header(object)
-                    .map_err(|e| failed(&format!("give {object}"), &e))?
-                    .size()
-                    > BLOB_CAP),
-            _ => Ok(false),
-        }
-    };
-    let bytes = |side: Side| -> Result<Option<Vec<u8>>, GitError> {
-        match side {
-            Some((mode, object)) if mode.is_blob_or_symlink() => repo
-                .find_blob(object)
-                .map(|mut blob| Some(blob.take_data()))
-                .map_err(|e| failed(&format!("give {object}"), &e)),
-            Some(_) => Ok(None),
-            None => Ok(Some(Vec::new())),
-        }
-    };
-    let mut file = GitFileDiff {
-        path,
-        old_path,
-        status,
-        added: 0,
-        removed: 0,
-        binary: false,
-        truncated: false,
-        patch: None,
-    };
-    if over(old)? || over(new)? {
-        file.truncated = true;
-        return Ok(Some(file));
-    }
-    let (Some(before), Some(after)) = (bytes(old)?, bytes(new)?) else {
-        return Ok(Some(file));
-    };
-    if is_binary(&before) || is_binary(&after) {
-        file.binary = true;
-        return Ok(Some(file));
-    }
-    use gix::diff::blob::{Algorithm, Diff, InternedInput, UnifiedDiff, unified_diff};
-    let input = InternedInput::new(before.as_slice(), after.as_slice());
-    let diff = Diff::compute(Algorithm::Histogram, &input);
-    file.added = diff.count_additions();
-    file.removed = diff.count_removals();
-    if patch {
-        let text = UnifiedDiff::new(
-            &diff,
-            &input,
-            unified_diff::ConsumeBinaryHunk::new(String::new(), "\n"),
-            unified_diff::ContextSize::symmetrical(3),
-        )
-        .consume()
-        .map_err(|e| failed("write a patch", &e))?;
-        file.truncated = text.len() > PATCH_CAP;
-        file.patch = Some(cut_at_line(text, PATCH_CAP));
-    }
-    Ok(Some(file))
-}
-
-/// `text` cut after its last whole line within `max` bytes.
-fn cut_at_line(mut text: String, max: usize) -> String {
-    if text.len() > max {
-        let end = text[..text.floor_char_boundary(max)]
-            .rfind('\n')
-            .map_or(0, |at| at + 1);
-        text.truncate(end);
-    }
-    text
 }
 
 #[cfg(test)]

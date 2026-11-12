@@ -89,7 +89,8 @@ fn section(graph: &Graph, node: &Node, options: &EmitOptions<'_>) -> String {
     if let Some(title) = &node.title {
         heading.push_str(&format!(" — {}", cell(title)));
     }
-    let span = &node.source_span;
+    // A collected fact is shown where it is written, not at its store (ADR 0346).
+    let span = node.place();
     let mut blocks = vec![heading, format!("`{}:{}`", span.file, span.start_line)];
 
     let members = crate::emit::members_of(node, options.computed);

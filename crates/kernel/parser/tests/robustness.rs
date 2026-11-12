@@ -3,7 +3,7 @@
 use proptest::test_runner::TestRunner;
 use specforge_parser::lex::{MAX_NESTING, nested_too_deep};
 use specforge_parser::testing::{edited_corpus, property_config};
-use specforge_parser::{Previous, parse, parse_incremental};
+use specforge_parser::{FieldValue, Previous, parse, parse_incremental};
 use specforge_test_macros::test as specforge_test;
 
 #[specforge_test(
@@ -234,5 +234,89 @@ fn a_source_nested_past_the_limit_reports_the_first_bracket_past_it() {
     assert_eq!(
         (error.span.start_line, error.span.start_col),
         (1, 2 + MAX_NESTING + 1)
+    );
+}
+
+#[specforge_test(
+    behavior = "recover_from_syntax_errors",
+    verify = "a reference holding a colon written bare is one E120 that says to quote it, and no E001 or E003 for it"
+)]
+fn a_bare_colon_reference_in_a_list_is_one_e120_spanning_it() {
+    let file = parse(
+        "truth T1 \"One\" {\n  proof [\"ok\", js:a.test.js, run:x, b]\n}\n",
+        "a.spec",
+    );
+    let found: Vec<_> = file
+        .errors
+        .iter()
+        .map(|e| (e.code.to_string(), e.span.start_col, e.span.end_col))
+        .collect();
+    assert_eq!(
+        found,
+        [("E120".to_string(), 16, 28), ("E120".to_string(), 30, 35)],
+        "{:?}",
+        file.errors
+    );
+    assert_eq!(
+        file.errors[0].message,
+        "a reference holding ':' is written quoted: \"js:a.test.js\""
+    );
+    assert_eq!(
+        file.errors[0].suggestion.as_deref(),
+        Some("write \"js:a.test.js\"")
+    );
+    // No word of a bare reference stays in the value: nothing links as `js`.
+    let Some(FieldValue::List(items)) = file.entities[0].fields.get("proof") else {
+        panic!("{:?}", file.entities[0].fields);
+    };
+    let texts: Vec<_> = items.iter().map(|item| item.text.as_str()).collect();
+    assert_eq!(texts, ["ok", "b"]);
+}
+
+#[test]
+fn a_bare_colon_reference_as_a_single_value_is_one_e120() {
+    for (source, text) in [
+        ("truth T1 \"One\" {\n  proof js:p1\n}\n", "js:p1"),
+        (
+            "truth T1 \"One\" {\n  proof js:a.test.js#adds\n}\n",
+            "js:a.test.js#adds",
+        ),
+    ] {
+        let file = parse(source, "a.spec");
+        assert_eq!(file.errors.len(), 1, "{source}: {:?}", file.errors);
+        let error = &file.errors[0];
+        assert!(error.code.matches("E120"), "{error:?}");
+        assert_eq!(
+            (error.span.start_col, error.span.end_col),
+            (9, 9 + text.len())
+        );
+        assert!(error.message.ends_with(&format!("\"{text}\"")));
+        // The field the grammar read for the scheme word, and the ones its recovery made up, are gone.
+        assert!(
+            file.entities[0].fields.get("proof").is_none(),
+            "{:?}",
+            file.entities[0].fields
+        );
+    }
+}
+
+#[test]
+fn a_bare_scheme_kind_ref_is_still_a_provider_ref() {
+    let file = parse(
+        "truth T1 \"One\" {\n  proof [jira.issue:PROJ-1]\n}\n",
+        "a.spec",
+    );
+    assert!(file.errors.is_empty(), "{:?}", file.errors);
+    let Some(FieldValue::List(items)) = file.entities[0].fields.get("proof") else {
+        panic!("{:?}", file.entities[0].fields);
+    };
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].text, "jira.issue:PROJ-1");
+    // Spaced around its colon, a list is no bare reference: the grammar's own error stands.
+    let file = parse("truth T1 \"One\" {\n  proof [js : p1]\n}\n", "a.spec");
+    assert!(
+        file.errors.iter().all(|e| e.code.matches("E001")),
+        "{:?}",
+        file.errors
     );
 }

@@ -3,6 +3,7 @@
 //! tests on the `execute` project.
 
 use crate::harness::{Project, project};
+use specforge_extension_sdk::prelude::TestStatus;
 
 const T0: &str = "2026-10-29T09:00:00Z";
 const T1: &str = "2026-10-29T09:30:00Z";
@@ -123,21 +124,13 @@ fn actuals_and_key_files_come_from_commits_through_the_host() {
         serde_json::json!({"tasks": 2, "commits": 3}),
         "{fields}"
     );
+    // The fixture holds the complete plan's files, so its commits modify them.
     assert_eq!(
-        fields["files_created"],
+        fields["files_modified"],
         serde_json::json!(["src/tasks.js", "test/tasks.test.js"]),
         "{fields}"
     );
-    assert!(fields.get("files_modified").is_none(), "{fields}");
-}
-
-fn junit(p: &Project, testcases: &str) {
-    p.write(
-        "junit.xml",
-        &format!("<?xml version=\"1.0\"?>\n<testsuites>\n<testsuite name=\"s\">\n{testcases}\n</testsuite>\n</testsuites>\n"),
-    );
-    let run = p.collect(&["--runner", "gsd-junit", "--no-run"]);
-    assert_eq!(run.code, 0, "{}", run.all());
+    assert!(fields.get("files_created").is_none(), "{fields}");
 }
 
 fn statuses(p: &Project) -> Vec<String> {
@@ -150,7 +143,7 @@ fn statuses(p: &Project) -> Vec<String> {
 }
 
 #[test]
-fn a_check_status_is_pass_fail_or_unknown_from_the_report() {
+fn a_check_status_is_pass_fail_or_unknown_from_the_test_facts() {
     let p = project("execute");
     // Two more checks: one a test that fails, one that nobody ran.
     p.edit(
@@ -158,35 +151,13 @@ fn a_check_status_is_pass_fail_or_unknown_from_the_report() {
         "{ kind unit ref \"test/tasks.test.js#adds a task\" }",
         "{ kind unit ref \"test/tasks.test.js#adds a task\" }\n    { kind unit ref \"test/tasks.test.js#lists tasks\" }\n    { kind unit ref \"test/tasks.test.js#never ran\" }",
     );
-    assert_eq!(statuses(&p), ["-", "-", "-"], "no report, no status");
-    let file = format!(
-        "{}/test/tasks.test.js",
-        p.root().canonicalize().expect("root").display()
-    );
-    junit(
-        &p,
-        &format!(
-            "<testcase name=\"adds a task\" classname=\"test\" file=\"{file}\"/>\n<testcase name=\"lists tasks\" classname=\"test\" file=\"{file}\"><failure/></testcase>"
-        ),
-    );
+    assert_eq!(statuses(&p), ["-", "-", "-"], "no test fact, no status");
+    let run = p.node_tests(&[
+        ("test/tasks.test.js", "adds a task", TestStatus::Passed),
+        ("test/tasks.test.js", "lists tasks", TestStatus::Failed),
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
     assert_eq!(statuses(&p), ["pass", "fail", "unknown"]);
-}
-
-#[test]
-fn without_a_report_the_compile_says_i205_once_and_a_collect_that_records_a_test_silences_it() {
-    let p = project("execute");
-    let noted = |p: &Project| {
-        p.run(&["check", "--format", "json"])
-            .stdout
-            .matches("\"I205\"")
-            .count()
-    };
-    assert_eq!(noted(&p), 1);
-    // A collect that records no test writes no report: the note stays.
-    junit(&p, "<testcase name=\"unrelated\" classname=\"test\"/>");
-    assert_eq!(noted(&p), 1);
-    junit(&p, "<testcase name=\"[gsd:01-01/TR1] holds\"/>");
-    assert_eq!(noted(&p), 0);
 }
 
 #[test]

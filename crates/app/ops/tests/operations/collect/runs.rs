@@ -513,15 +513,19 @@ fn auto_performs_what_a_grant_approves_and_nothing_else() {
     use specforge_effects::{EffectRequest, EffectsMode, ProcessRequest, Served, UnixMillis};
     use specforge_ops::testing::Viewed;
 
-    let fx = acme();
+    // A command without a placeholder: one that names one is the host's alone to run.
+    let fx = Fixture::new(vec![
+        Runner::new("acme")
+            .run(&["acme", "--all"])
+            .proving("a", "proves_a"),
+    ]);
     let request = |argv: &[String]| {
         EffectRequest::Process(ProcessRequest {
             argv: argv.to_vec(),
             ..ProcessRequest::default()
         })
     };
-    let report = fx.report_of("acme");
-    let declared = request(&["acme".to_string(), format!("--out={}", report.display())]);
+    let declared = request(&["acme".to_string(), "--all".to_string()]);
     let served = |machine: &Machine, request: &EffectRequest| {
         let view = fx.project.view();
         let root = specforge_common::ProjectRoot::of(fx.root()).unwrap();
@@ -600,4 +604,121 @@ fn publish_never_joins_a_reports_run() {
         .map(|call| call.export)
         .collect();
     assert_eq!(called, ["collect__unit"]);
+}
+
+/// Runner `nextest`, detected, whose command reads its config file `nextest.toml`.
+fn configuring() -> Fixture {
+    let fx = Fixture::new(vec![
+        Runner::new("nextest")
+            .run(&["cargo-nextest", "--tool-config-file", "specforge:{config}"])
+            .configuring(
+                "nextest.toml",
+                "[profile.specforge.junit]\npath = \"{report}\"\n",
+            )
+            .installing("cargo install cargo-nextest --locked")
+            .proving("a", "t"),
+    ]);
+    fx.write("nextest.cfg", "");
+    fx
+}
+
+const CONFIG: &str = ".specforge/reports/nextest.nextest.toml";
+
+#[specforge_test(
+    behavior = "run_collector_command",
+    verify = "a declared config file is written before the run with {report} expanded, and {config} names it"
+)]
+fn a_declared_config_is_written_before_the_run_with_the_report_path() {
+    let fx = configuring();
+    // A file an earlier run left is replaced, never appended to or read.
+    fx.write(CONFIG, "stale = true\n");
+    let machine = Machine::new()
+        .approving(fx.approval("nextest"))
+        .answering(reports());
+
+    fx.run(Asking::Nobody, &machine).unwrap();
+
+    let config = fx.root().join(CONFIG);
+    assert_eq!(
+        machine.runs()[0].argv,
+        [
+            "cargo-nextest".to_string(),
+            "--tool-config-file".to_string(),
+            format!("specforge:{}", config.display()),
+        ],
+        "the grant admitted the expanded argv"
+    );
+    let report = fx.report_of("nextest").display().to_string();
+    let quoted = report.replace('\\', "\\\\").replace('"', "\\\"");
+    assert_eq!(
+        fx.read(CONFIG),
+        format!("[profile.specforge.junit]\npath = \"{quoted}\"\n")
+    );
+}
+
+#[test]
+fn no_run_writes_no_config() {
+    let fx = configuring();
+    fx.write("out/nextest.json", "{}");
+
+    let machine = Machine::new();
+
+    fx.no_run(Some("nextest"), &machine).unwrap();
+
+    assert!(!fx.exists(CONFIG));
+    assert!(machine.runs().is_empty());
+}
+
+#[specforge_test(
+    behavior = "run_collector_command",
+    verify = "a program that cannot be found names the collector's install line"
+)]
+fn a_program_not_found_names_the_install_line() {
+    let missing = || ScriptedRun {
+        fails: Some(specforge_ops::testing::ScriptedFailure::NotFound),
+        ..ScriptedRun::default()
+    };
+    let said =
+        "`cargo-nextest` was not found on PATH; install it: `cargo install cargo-nextest --locked`";
+    let fx = configuring();
+    let machine = Machine::new().approving_everything().answering(missing());
+    let outcome = fx.run(Asking::Nobody, &machine).unwrap();
+    assert_eq!(outcome.runners[0].skip_reason.as_deref(), Some(said));
+
+    let machine = Machine::new().approving_everything().answering(missing());
+    let refusal = fx
+        .collect_with(
+            Some("nextest"),
+            Mode::Run(RunnerOutput::Discard),
+            &specforge_ops::Containment::unbounded(),
+            Asking::Nobody,
+            &machine,
+        )
+        .unwrap_err();
+    assert_eq!(refusal.error.code, "E045");
+    assert_eq!(refusal.error.message, said);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_config_path_that_leaves_the_project_is_refused() {
+    let fx = configuring();
+    let outside = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(fx.root().join(".specforge")).unwrap();
+    std::os::unix::fs::symlink(outside.path(), fx.root().join(".specforge/reports")).unwrap();
+    let machine = Machine::new().approving_everything();
+
+    let refusal = fx
+        .collect_with(
+            Some("nextest"),
+            Mode::Run(RunnerOutput::Discard),
+            &specforge_ops::Containment::within(fx.root()),
+            Asking::Nobody,
+            &machine,
+        )
+        .unwrap_err();
+
+    assert_eq!(refusal.error.code, specforge_ops::OUTSIDE_ROOT);
+    assert!(machine.runs().is_empty(), "refused before anything ran");
+    assert!(std::fs::read_dir(outside.path()).unwrap().next().is_none());
 }

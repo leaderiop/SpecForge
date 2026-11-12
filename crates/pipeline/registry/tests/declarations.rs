@@ -4,6 +4,7 @@
 
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::{ExtensionDeclaration, PeerDependency};
+use specforge_protocol_types::OwnerState;
 use specforge_registry::build_registries;
 
 use crate::support::{codes, diagnostics};
@@ -413,6 +414,83 @@ fn complete_when_names_an_enum_value_of_its_kind() {
     );
 }
 
+#[specforge_test_macros::test(
+    behavior = "check_values_by_owner_state",
+    verify = "an owner gate needs a check and a complete_when on its kind or a scope ancestor, else W199"
+)]
+fn an_owner_gate_needs_a_check_and_an_owner_state() {
+    let states = Vocabulary::new(&["draft", "complete"]);
+    let mut declaration = crate::support::declare("@acme/plans", |c| {
+        c.checker("named", |k| {
+            k.applies_to(&["string", "string_list"])
+                .plan(|_| PlannedItem::findings(Vec::new()));
+        });
+        c.kind("plan", |k| {
+            k.complete_when("status", &["complete"])
+                .field("status", |f| {
+                    f.vocabulary(&states);
+                })
+                .field("title", |f| {
+                    f.field_type(FieldType::String).planned();
+                })
+                .field("files", |f| {
+                    f.field_type(FieldType::StringList).check("named");
+                });
+        });
+        c.kind("task", |k| {
+            k.scoped_by("plan")
+                .field("plan", |f| {
+                    f.field_type(FieldType::Reference).target_kind("plan");
+                })
+                .field("files", |f| {
+                    f.field_type(FieldType::StringList).check("named").planned();
+                })
+                .field("gone", |f| {
+                    f.field_type(FieldType::StringList)
+                        .check("named")
+                        .while_open();
+                });
+        });
+        c.kind("note", |k| {
+            k.field("files", |f| {
+                f.field_type(FieldType::StringList).check("named").planned();
+            });
+        });
+    });
+    // A word the SDK never writes, as a hand-written declaration may.
+    let plan = declaration
+        .entities
+        .iter_mut()
+        .find(|k| k.name == "plan")
+        .unwrap();
+    let files = plan.fields.iter_mut().find(|f| f.name == "files").unwrap();
+    files.checks_while = Some("later".into());
+    let build = build_registries(vec![declaration]);
+
+    let checks = build.checks();
+    assert_eq!(checks.gate("task", "files"), Some(OwnerState::Complete));
+    assert_eq!(checks.gate("task", "gone"), Some(OwnerState::Pending));
+    for (kind, path) in [("note", "files"), ("plan", "title"), ("plan", "files")] {
+        assert_eq!(checks.gate(kind, path), None, "{kind}.{path}");
+    }
+    // The gate is dropped, the checks stay.
+    assert_eq!(checks.on("note", "files").len(), 1);
+    assert_eq!(checks.on("plan", "files").len(), 1);
+    let mut refused: Vec<&str> = crate::support::coded(&build, "W199")
+        .into_iter()
+        .map(|d| d.message.as_str())
+        .collect();
+    refused.sort();
+    assert_eq!(
+        refused,
+        [
+            "field 'files' on kind 'note' declares checks_while 'complete', but neither kind 'note' nor a kind along its scoped_by chain declares complete_when, so no owner state decides it: the gate is dropped and its checks run on every value",
+            "field 'files' on kind 'plan' declares checks_while 'later', which is no owner state (expected 'complete' or 'pending'): the gate is dropped and its checks run on every value",
+            "field 'title' on kind 'plan' declares checks_while 'complete', but declares no check: the gate is dropped and its checks run on every value",
+        ]
+    );
+}
+
 fn capability_problems_of(declare: impl FnOnce(&mut ContributionsBuilder)) -> Vec<String> {
     let mut c = declaration("@acme/caps", "1.0.0");
     declare(&mut c);
@@ -510,6 +588,80 @@ fn capabilities_a_collector_names_must_be_a_process_one() {
 
 #[specforge_test_macros::test(
     behavior = "build_registries_from_declarations",
+    verify = "a config file that is not sound is W021 and grants nothing"
+)]
+fn capabilities_with_a_config_that_is_not_sound_are_w021() {
+    let collect = |c: Capability| c.call_kinds(&[Operation::Collect]).why("run");
+    let found = capability_problems_of(|c| {
+        c.capability(
+            collect(Capability::process("sound").argv(&["t", "{config}"])).config("t.toml", "x"),
+        );
+        c.capability(
+            collect(Capability::process("named").argv(&["t", "{config}"])).config("../t.yml", "x"),
+        );
+        c.capability(
+            collect(Capability::process("empty").argv(&["t", "{config}"])).config("t.json", ""),
+        );
+        c.capability(
+            Capability::process("kinds")
+                .argv(&["t", "{config}"])
+                .why("run")
+                .config("t.toml", "x"),
+        );
+        c.capability(
+            collect(Capability::process("twice").argv(&["{config}", "{config}"]))
+                .config("t.toml", "x"),
+        );
+        c.capability(collect(Capability::process("unnamed").argv(&["t"])).config("t.toml", "x"));
+        c.capability(collect(
+            Capability::process("missing").argv(&["t", "{config}"]),
+        ));
+        c.capability(
+            collect(Capability::process("both").argv(&["{report}{config}"])).config("t.toml", "x"),
+        );
+        c.collector("noisy", |k| {
+            k.install("cargo install\u{7}")
+                .collect(|_| Ok(CollectOutput::default()));
+        });
+    });
+    let expect = [
+        "capability 'named' grants nothing: its config name '../t.yml' is not one segment ending .toml or .json",
+        "capability 'empty' grants nothing: its config template is empty or over 16 KiB",
+        "capability 'kinds' grants nothing: it declares a config, so its call_kinds must be exactly collect",
+        "capability 'twice' grants nothing: its argv names {config} 2 times; a config needs it once",
+        "capability 'unnamed' grants nothing: its argv names {config} 0 times; a config needs it once",
+        "capability 'missing' grants nothing: its argv names {config} but it declares no config",
+        "capability 'both' grants nothing: its argv element '{report}{config}' holds two placeholders",
+        "collector 'noisy': its install line is empty, over 200 bytes or not printable",
+    ];
+    for expected in expect {
+        assert!(
+            found.iter().any(|m| m.contains(expected)),
+            "{expected}\nin {found:#?}"
+        );
+    }
+    assert_eq!(found.len(), expect.len(), "{found:#?}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "build_registries_from_declarations",
+    verify = "a collector that keeps a capture with no command is W021"
+)]
+fn a_collector_capture_without_a_command_is_w021() {
+    let found = capability_problems_of(|c| {
+        c.collector("reader", |k| {
+            k.capture_stdout().collect(|_| Ok(CollectOutput::default()));
+        });
+    });
+    assert_eq!(found.len(), 1, "{found:#?}");
+    assert!(
+        found[0].contains("collector 'reader' keeps a capture but declares no command"),
+        "{found:#?}"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "build_registries_from_declarations",
     verify = "a capability that may POST to the hosts values name is W021"
 )]
 fn capabilities_a_post_from_a_from_values_capability_is_w021() {
@@ -581,4 +733,42 @@ fn capabilities_max_bytes_over_a_sixteenth_of_memory_is_w021() {
         );
     }
     assert_eq!(found.len(), expect.len(), "{found:#?}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "auto_detect_collector",
+    verify = "collectors whose facts inputs and answers form a cycle are E119 in the registry build"
+)]
+fn a_cycle_among_loaded_collectors_is_e119() {
+    let mut first = declaration("@acme/first", "1.0.0");
+    first.kind("package", |k| {
+        k.collected(&["pkg"]);
+    });
+    first.collector("packages", |k| {
+        k.input(Input::facts(&["item"]))
+            .answers(&["package"])
+            .collect(|_| Ok(CollectOutput::default()));
+    });
+    let mut second = declaration("@acme/second", "1.0.0");
+    second.kind("item", |k| {
+        k.collected(&["itm"]);
+    });
+    second.collector("items", |k| {
+        k.input(Input::facts(&["package"]))
+            .answers(&["item"])
+            .collect(|_| Ok(CollectOutput::default()));
+    });
+
+    let build = build_registries(vec![first.declaration(), second.declaration()]);
+
+    let cycles: Vec<String> = diagnostics(&build)
+        .into_iter()
+        .filter(|d| d.code == "E119")
+        .map(|d| d.message.clone())
+        .collect();
+    assert_eq!(cycles.len(), 1, "{cycles:?}");
+    assert!(
+        cycles[0].starts_with("collectors 'packages', 'items' read one another's facts"),
+        "{cycles:?}"
+    );
 }

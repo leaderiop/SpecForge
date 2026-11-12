@@ -5,6 +5,7 @@ use crate::support::*;
 use serde_json::{Value, json};
 use specforge_extension_sdk::prelude::*;
 use specforge_mcp::McpServer;
+use specforge_project::testing::{item, stored_items};
 use specforge_test::prelude::*;
 
 /// The infer prompt's reply for `arguments`.
@@ -43,21 +44,29 @@ fn state_with_my_behavior() -> Served {
         .serve(&[test_extension("behavior", Some("guide text"))])
 }
 
-/// A served project with `count` Rust sources under `src/`, and an
-/// extension that analyzes `.rs` files.
+/// A served project with `count` Rust sources under `src/`, each with an
+/// item fact a `rust-source` store holds.
 fn plan_state_with_sources(count: usize) -> Served {
     let project = (0..count).fold(TestProject::new(), |project, i| {
         project.file(&format!("src/mod_{i:02}.rs"), "fn stub() {}\n")
     });
+    let facts = (0..count)
+        .map(|i| {
+            let file = format!("src/mod_{i:02}.rs");
+            item(
+                &format!("rust:p::mod_{i:02}::stub"),
+                &file,
+                1,
+                "function",
+                "private",
+                "stub",
+            )
+        })
+        .collect();
+    stored_items(project.root(), "rust-source", facts);
     project.serve(&[
-        test_extension("behavior", Some("guide text")).declaring(|c| {
-            c.analyzer("rust", |a| {
-                a.file_extensions(&[".rs"]).scan(|_| ScanResponse {
-                    items: Vec::new(),
-                    language: None,
-                });
-            });
-        }),
+        test_extension("behavior", Some("guide text")),
+        TestExtension::items(),
     ])
 }
 
@@ -267,6 +276,20 @@ fn plan_scope_includes_progress() {
     assert!(content["progress"]["files_total"].is_number());
 }
 
+#[test]
+fn plan_scope_without_item_facts_says_how_to_get_them() {
+    let mut state = make_state_with_kind("behavior", Some("guide text"));
+    let resp = infer(&mut state, json!({"scope": "plan"}));
+    let instruction = resp["result"]["messages"][0]["content"]["text"]
+        .as_str()
+        .unwrap();
+    assert!(
+        instruction.starts_with("No item facts locate a source file: load a source pack"),
+        "{instruction}"
+    );
+    assert_eq!(prompt_payload(&resp)["progress"]["files_total"], 0);
+}
+
 #[specforge_test(
     behavior = "provide_infer_workflow_scope",
     verify = "workflow returns step-by-step protocol"
@@ -396,22 +419,43 @@ fn the_last_plan_page_has_no_next_cursor() {
 
 #[test]
 fn file_scope_lists_the_entities_anchored_to_the_file() {
-    // auth_login (auth.spec) is anchored to src/auth.rs:3; cache_get, which
-    // no spec declares, to src/cache.rs.
-    let mut state = TestProject::new()
+    // `login` (src/auth.rs:3) names auth_login; `get` (src/cache.rs) names cache_get, which no spec declares.
+    use specforge_project::testing::{item, naming, stored_items};
+    let project = TestProject::new()
         .file("auth.spec", "behavior auth_login {\n}\n")
-        .file("src/auth.rs", "\n\npub fn login() {}\n")
-        .file(
-            "specforge-anchors.json",
-            json!({"version": 1, "anchors": [
-                {"entity_id": "auth_login", "file": "src/auth.rs", "line": 3,
-                 "symbol_name": "login", "item_kind": "fn", "scanner": "manual"},
-                {"entity_id": "cache_get", "file": "src/cache.rs", "line": 1,
-                 "symbol_name": "get", "item_kind": "fn", "scanner": "manual"},
-            ]})
-            .to_string(),
-        )
-        .serve(&[test_extension("behavior", Some("guide text"))]);
+        .file("src/auth.rs", "\n\npub fn login() {}\n");
+    stored_items(
+        project.root(),
+        "rust-source",
+        vec![
+            naming(
+                item(
+                    "rust:p::login",
+                    "src/auth.rs",
+                    3,
+                    "function",
+                    "public",
+                    "login",
+                ),
+                &["auth_login"],
+            ),
+            naming(
+                item(
+                    "rust:p::get",
+                    "src/cache.rs",
+                    1,
+                    "function",
+                    "public",
+                    "get",
+                ),
+                &["cache_get"],
+            ),
+        ],
+    );
+    let mut state = project.serve(&[
+        test_extension("behavior", Some("guide text")),
+        TestExtension::items(),
+    ]);
 
     let content = prompt_payload(&infer(&mut state, json!({"scope": "file:src/auth.rs"})));
     assert_eq!(content["match_mode"], "exact");
@@ -422,23 +466,23 @@ fn file_scope_lists_the_entities_anchored_to_the_file() {
     assert_eq!(refs[0]["entity_id"], "auth_login");
     assert_eq!(refs[0]["kind"], "behavior");
     assert_eq!(refs[0]["line"], 3);
-    assert_eq!(refs[0]["symbol_name"], "login");
+    assert_eq!(refs[0]["fact_id"], "rust:p::login");
 
-    // A directory lists the files under it; a substring is no match.
+    // A directory lists the files under it; a name no entity declares is no anchor; a substring is no match.
     let content = prompt_payload(&infer(&mut state, json!({"scope": "file:src"})));
     assert_eq!(content["match_mode"], "directory");
     assert_eq!(
         content["existing_entities_referencing_file"]
             .as_array()
             .map(Vec::len),
-        Some(2)
+        Some(1)
     );
     let content = prompt_payload(&infer(&mut state, json!({"scope": "file:e.rs"})));
     assert_eq!(content["match_mode"], "none");
 }
 
-/// A project on disk, compiled with `@specforge/software`: behavior
-/// `alpha` declared in `spec/main.spec` and anchored to `src/login.rs:1`;
+/// A project on disk, compiled with `@specforge/software` and `@code/core`: behavior
+/// `alpha` declared in `spec/main.spec`, named by the item `login` collected at `src/login.rs:1`;
 /// `src/other.rs` anchors nothing.
 fn anchored_project() -> (McpServer, tempfile::TempDir) {
     let dir = tempfile::TempDir::new().unwrap();
@@ -448,7 +492,7 @@ fn anchored_project() -> (McpServer, tempfile::TempDir) {
     std::fs::write(
         root.join("specforge.json"),
         json!({"name": "probe", "version": "0.1.0", "spec_root": "spec",
-               "extensions": ["@specforge/software"]})
+               "extensions": ["@specforge/software", "@code/core"]})
         .to_string(),
     )
     .unwrap();
@@ -459,13 +503,19 @@ fn anchored_project() -> (McpServer, tempfile::TempDir) {
     .unwrap();
     std::fs::write(root.join("src/login.rs"), "pub fn login() {}\n").unwrap();
     std::fs::write(root.join("src/other.rs"), "pub fn other() {}\n").unwrap();
-    std::fs::write(
-        root.join("specforge-anchors.json"),
-        json!({"version": 1, "anchors": [{"entity_id": "alpha", "file": "src/login.rs",
-               "line": 1, "symbol_name": "login", "item_kind": "fn", "scanner": "manual"}]})
-        .to_string(),
-    )
-    .unwrap();
+    let login = specforge_project::testing::item(
+        "rust:probe::login",
+        "src/login.rs",
+        1,
+        "function",
+        "public",
+        "login",
+    );
+    specforge_project::testing::stored_items(
+        root,
+        "rust-source",
+        vec![specforge_project::testing::naming(login, &["alpha"])],
+    );
     let mut server = McpServer::with_project_root(root.to_path_buf());
     server.handle_message(
         &json!({"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {}}).to_string(),
@@ -520,7 +570,7 @@ fn infer_file_scope_agrees_with_find_spec_for_source() {
     let alpha = &tool["entities"][0];
     assert_eq!(alpha["kind"], "behavior");
     assert_eq!(alpha["line"], 1);
-    assert_eq!(alpha["symbol_name"], "login");
+    assert_eq!(alpha["fact_id"], "rust:probe::login");
 }
 
 #[specforge_test(
@@ -556,14 +606,8 @@ fn the_plan_refuses_an_unusable_manifest() {
         .file("src/lib.rs", "fn stub() {}\n")
         .file("specforge-infer.json", "{ nope")
         .serve(&[
-            test_extension("behavior", Some("guide text")).declaring(|c| {
-                c.analyzer("rust", |a| {
-                    a.file_extensions(&[".rs"]).scan(|_| ScanResponse {
-                        items: Vec::new(),
-                        language: None,
-                    });
-                });
-            }),
+            test_extension("behavior", Some("guide text")),
+            TestExtension::items(),
         ]);
     let resp = infer(&mut state, json!({"scope": "plan"}));
     assert!(resp.get("result").is_none(), "{resp}");

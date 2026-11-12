@@ -1,5 +1,7 @@
 //! Black-box tests: the `specforge` binary on small projects that load the built `@gsd/core` (ADR gsd/0001 D5, D7).
 
+mod ab_protocol;
+mod ab_seeds;
 mod agents;
 // The extension's own UTC clock text, to build times relative to now.
 #[path = "../../src/time.rs"]
@@ -71,6 +73,7 @@ mod node;
 mod node_test;
 mod parity_discuss;
 mod parity_gate_cutover;
+mod parity_ledger;
 mod parity_plans;
 mod parity_roadmap;
 mod parity_scenario;
@@ -79,6 +82,7 @@ mod parity_thread;
 mod parity_verify;
 mod plan;
 mod plan_rules;
+mod planned_paths;
 mod progress;
 mod prompts_audit;
 mod prompts_autonomous;
@@ -114,6 +118,7 @@ mod route;
 mod rules_silent;
 mod scan;
 mod settings;
+mod source_items;
 #[path = "../common/specforge_only.rs"]
 mod specforge_only;
 mod verify_paths;

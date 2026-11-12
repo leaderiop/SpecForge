@@ -250,3 +250,22 @@ fn the_tracked_release_is_the_manifests() {
     );
     assert_eq!(gsd_security::TRACKS, gsd_core::TRACKS);
 }
+
+/// A threat's files are the mitigation its plan writes: checked once the plan is complete (ADR 0350).
+#[test]
+fn threat_files_is_a_planned_path() {
+    let entities = describe("entities");
+    let files = entities["items"]
+        .as_array()
+        .and_then(|kinds| kinds.iter().find(|k| k["name"] == "threat"))
+        .and_then(|threat| threat["fields"].as_array())
+        .and_then(|fields| fields.iter().find(|f| f["name"] == "files"))
+        .cloned()
+        .expect("threat.files");
+    assert_eq!(files["field_type"], "string_list");
+    assert_eq!(
+        files["checks"][0]["checker"], "@specforge/checks:file",
+        "{files}"
+    );
+    assert_eq!(files["checks_while"], "complete", "{files}");
+}

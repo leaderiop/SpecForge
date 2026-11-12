@@ -379,6 +379,32 @@ pub fn is_bare_word(text: &str) -> bool {
     word_end(text.as_bytes(), 0, true) == Some(text.len())
 }
 
+/// A type as written (`Result<A,\n  B >`) in its one spelling (`Result<A, B>`): its lexemes, comments left out, with
+/// one space after `,` and around `->` and none elsewhere. What a method's parameter and return types read as and
+/// what `specforge format` writes for them, so a type's identity never depends on its layout. With it, the lexemes
+/// it is spelled from, in `text`: lexing the spelling cuts the same ones, in order.
+pub fn type_spelling(text: &str) -> (String, Vec<Lexeme>) {
+    let lexemes: Vec<Lexeme> = lex(text)
+        .into_iter()
+        .filter(|l| l.kind != LexemeKind::Comment)
+        .collect();
+    let arrow = |dash: &Lexeme, head: &Lexeme| {
+        dash.is_punct('-') && head.is_punct('>') && dash.end == head.start
+    };
+    let mut spelling = String::with_capacity(text.len());
+    for (i, lexeme) in lexemes.iter().enumerate() {
+        if lexemes.get(i + 1).is_some_and(|next| arrow(lexeme, next)) && !spelling.is_empty() {
+            spelling.push(' ');
+        }
+        spelling.push_str(lexeme.text(text));
+        if lexeme.is_punct(',') || (i > 0 && arrow(&lexemes[i - 1], lexeme)) {
+            spelling.push(' ');
+        }
+    }
+    spelling.truncate(spelling.trim_end().len());
+    (spelling, lexemes)
+}
+
 /// What a bare word is by its shape alone: the parser's tag, which loses nothing (ADR 0283). The field's declared
 /// type, which the parser never reads, decides what a word means.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

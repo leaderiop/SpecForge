@@ -61,7 +61,7 @@
     "- **Default**: no detectable context → the project's handoff, note the ambiguity in `<current_state>`",
     ""
   ],
-  "bytes": 19811,
+  "bytes": 19842,
   "end": [
     "To resume: /gsd-resume-work",
     "",
@@ -149,7 +149,7 @@
     "| `NN-UAT.md` | uat_session, uat_test, uat_gap |",
     "| `NN-VALIDATION.md` | validation, validation_row, wave0_item, manual_check |",
     "| `v<version>-MILESTONE-AUDIT.md` | milestone_audit |",
-    "| git history (no GSD file) | commit (written by the git collector, never by an agent); a JUnit report is read by the `gsd-junit` collector, which records tests, not entities |",
+    "| git history (no GSD file) | commit (written by the git collector, never by an agent); tests are `@code/core`'s test facts a runner pack collects, and a `[gsd:<id>]` tag in a test's name names that entity |",
     "| `WINDOWS.md` | broken_window |",
     "| `NN-REFACTOR.md` | refactor_proposal |",
     "| `quick/*` | plan, summary, context, decision, research (a quick plan has no phase) |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5a014b209390f05ccabd2c543c59c7d06348af5ebafc0f79d4853bfc331ad2f4",
+    "digest": "sha256:6e60138da9535d5e78c6aad1bd85f111abd0ef5830c547af0f36f456997742fa",
     "prompt": "@gsd/core@VERSION:pause_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "5a014b209390f05ccabd2c543c59c7d06348af5ebafc0f79d4853bfc331ad2f4"
+  "sha256": "6e60138da9535d5e78c6aad1bd85f111abd0ef5830c547af0f36f456997742fa"
 }

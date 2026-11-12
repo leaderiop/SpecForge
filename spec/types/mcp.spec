@@ -217,6 +217,9 @@ type McpInspectResult "Mcp Inspect Result" {
   /// it): why an exempt entity is exempt.
   obligated           boolean
   source_span         SourceSpan       @readonly
+  /// Where a collected fact is written in source, each place of it (ADR 0346); source_span and file
+  /// stay its store's. Absent when it has none.
+  located             SourceSpan[]     @optional
   /// The file the entity is written in, relative to the spec root.
   file                string           @readonly
   /// The revision of that file as the project was read (sha256:<digest>): what specforge.edit and
@@ -1049,12 +1052,12 @@ type McpCollectResult "Mcp Collect Result" {
 
 type McpCollectRunner "What one runner's collection found" {
   /// The collector's name, e.g. cargo-test.
-  name          string         @readonly
+  name          string           @readonly
   /// The extension contributing the collector.
-  extension     string         @readonly
+  extension     string           @readonly
   /// Whether the runner's command ran (run=true), or its report was read.
   ran           boolean
-  exit_code     integer        @optional
+  exit_code     integer          @optional
   /// Report files read.
   files         integer
   /// Entities the results name.
@@ -1067,10 +1070,26 @@ type McpCollectRunner "What one runner's collection found" {
   /// The facts stored for it (ADR 0327): none when it answered none, or they were refused (E116).
   facts         integer
   /// What a writing collector's plan did to the project (ADR 0289), as an edit reports it; absent when it answered none.
-  plan          McpCollectPlan @optional
+  plan          McpCollectPlan   @optional
   /// Why a collector chosen by detection was skipped (its E045 message, ADR 0331); absent when it was not.
-  skip_reason   string         @optional
+  skip_reason   string           @optional
+  /// What its source-file parses took (ADR 0353 D7); absent for a collector that read no source file.
+  syntax        McpCollectSyntax @optional
   verify unit "McpCollectRunner schema is valid"
+}
+
+type McpCollectSyntax "What a collector's syntax requests took" {
+  /// Source files parsed now.
+  parsed     integer
+  /// Source files answered from the syntax cache.
+  cached     integer
+  /// The bytes parsed now.
+  bytes      integer
+  /// Parsed files the syntax cache could not take (W200).
+  unwritten  integer
+  /// Why the first of them could not be written.
+  unwritable string @optional
+  verify unit "McpCollectSyntax schema is valid"
 }
 
 type McpCollectPlan "What a writing collector's plan did to the project" {
@@ -1260,21 +1279,15 @@ type McpInferSessionRow "Mcp Infer Session Row" {
 }
 
 type McpInferGapsResult "Mcp Infer Gaps Result" {
+  /// The item facts under the source roots, public or not; none when no source pack collected any.
+  item_facts      integer
   total_pub_items integer
   covered_items   integer
   gap_count       integer
   approximate     boolean
-  scanners_used   string[]
-  scan_failures   McpScanFailure[]
+  collectors      string[]
   by_directory    McpDirectoryGaps[]
   verify unit "McpInferGapsResult schema is valid"
-}
-
-type McpScanFailure "Mcp Scan Failure" {
-  file    string @readonly
-  code    string
-  message string
-  verify unit "McpScanFailure schema is valid"
 }
 
 type McpDirectoryGaps "Mcp Directory Gaps" {
@@ -1309,11 +1322,18 @@ type McpImplementationResult "Mcp Implementation Result" {
 }
 
 type McpImplementation "Mcp Implementation" {
-  file        string
-  line        integer
-  symbol_name string
-  item_kind   string
-  scanner     string
+  /// The located fact the entity is anchored to.
+  fact_id   string
+  /// Its first place: a source file from the project root, its first and last lines.
+  file      string
+  line      integer
+  end_line  integer
+  /// What the fact's `kind` field lists (`function`, `struct, module`), else the fact's kind.
+  item_kind string
+  /// The collector whose store holds the fact.
+  collector string
+  /// The edge, `<holder kind>.<field>`: `item.names` when the fact names the entity.
+  via       string
   verify unit "McpImplementation schema is valid"
 }
 
@@ -1326,15 +1346,15 @@ type McpSpecForSourceResult "Mcp Spec For Source Result" {
 }
 
 type McpSpecForSourceEntity "Mcp Spec For Source Entity" {
-  entity_id   string @readonly
-  /// The entity's kind; absent when the graph does not have it.
-  kind        string @optional
-  file        string
-  line        integer
-  symbol_name string
-  item_kind   string
-  /// The anchor's confidence; absent when the manifest gives none.
-  confidence  float  @optional
+  entity_id string @readonly
+  kind      string
+  fact_id   string
+  file      string
+  line      integer
+  end_line  integer
+  item_kind string
+  collector string
+  via       string
   verify unit "McpSpecForSourceEntity schema is valid"
 }
 
@@ -1489,13 +1509,15 @@ type McpInferGuideField "Mcp Infer Guide Field" {
 }
 
 type McpInferFileGuide "Infer prompt, scope file:<path>: what a source file already has" {
-  scope                              "file" @literal
-  file                               string @readonly
+  scope                              "file"       @literal
+  file                               string       @readonly
   match_mode                         "exact" | "directory" | "suffix_path" | "none"
   existing_entities_referencing_file McpSpecForSourceEntity[]
   kinds                              McpInferFileKind[]
   project_conventions                string
   validation                         string
+  /// What the anchors read noticed: I212 (nothing collected), W198 (a stale file); absent when nothing.
+  notices                            Diagnostic[] @optional
   verify unit "McpInferFileGuide schema is valid"
 }
 

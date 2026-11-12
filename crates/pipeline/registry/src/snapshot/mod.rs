@@ -11,7 +11,7 @@ mod standing;
 mod text;
 mod wire;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use specforge_graph::{GraphBuild, written_fields};
 
@@ -19,7 +19,7 @@ use crate::compilation::RegistryBuild;
 use crate::entity::{EdgeRecord, EntityRecord, RuleInput};
 use specforge_common::Sym;
 use specforge_graph::Found;
-use specforge_protocol_types::CompleteWhen;
+use specforge_protocol_types::{CompleteWhen, DanglingReason};
 
 pub use standing::Standing;
 pub use text::{field_items, field_text};
@@ -43,6 +43,9 @@ pub struct EntitySnapshot {
     /// Each loaded kind's `complete_when`, by kind, as the registry kept it (ADR 0329 D4): what an entity's owner
     /// state is read from.
     complete_when: HashMap<String, CompleteWhen>,
+    /// The loaded kinds a collector writes (ADR 0327): a pass is sent their facts only when it declares them, and a
+    /// rule that names no kind judges none of them (ADR 0353).
+    collected: BTreeSet<String>,
 }
 
 impl EntitySnapshot {
@@ -76,9 +79,16 @@ impl EntitySnapshot {
                 )
             })
             .unzip();
+        // The one answer to "is this kind collected" that the rules and the obligation rule read.
+        let collected: BTreeSet<String> = registries
+            .kinds()
+            .iter()
+            .filter(|(_, entry)| entry.is_collected())
+            .map(|(kind, _)| kind.clone())
+            .collect();
         let standings = records
             .iter()
-            .map(|record| Standing::of(record, registries))
+            .map(|record| Standing::of(record, registries, collected.contains(&record.kind)))
             .collect();
         let index = records
             .iter()
@@ -123,6 +133,28 @@ impl EntitySnapshot {
             edges,
             declared_types,
             complete_when,
+            collected,
+        }
+    }
+
+    /// Each dangling reference a fact holds that names a path a rename moved (`moved`: old path → the path it is now)
+    /// suggests the path it is now, written as it writes the old one (ADR 0346 D7): a store collected after the rename
+    /// that still names the old id is told the new one. It names the old path as a fact's reference names one (the
+    /// path, or its end after a `/`, `specforge_common::facts::names`), and one moved path only; the kernel's close
+    /// match stays the suggestion of the rest, and of a mistyped reference, which names an entity.
+    pub fn suggest_moved(&mut self, moved: &BTreeMap<String, String>) {
+        if moved.is_empty() {
+            return;
+        }
+        let dangling = self.records.iter_mut().flat_map(|r| r.dangling.iter_mut());
+        for reference in dangling.filter(|d| d.reason != DanglingReason::Mistyped) {
+            let mut named = moved
+                .iter()
+                .filter(|(old, _)| specforge_common::facts::names(old, &reference.id));
+            if let (Some((_, now)), None) = (named.next(), named.next()) {
+                reference.did_you_mean =
+                    Some(specforge_common::facts::respelled(now, &reference.id));
+            }
         }
     }
 
@@ -136,7 +168,13 @@ impl EntitySnapshot {
         RuleInput {
             entities: &self.records,
             edges: &self.edges,
+            collected: &self.collected,
         }
+    }
+
+    /// Whether a collector writes the loaded kind `kind` (ADR 0327): its entities are facts.
+    pub fn is_collected(&self, kind: &str) -> bool {
+        self.collected.contains(kind)
     }
 
     /// Every entity with its standing, in id order.

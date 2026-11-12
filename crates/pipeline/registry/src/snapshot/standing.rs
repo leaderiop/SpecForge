@@ -22,8 +22,8 @@ pub struct Standing {
 }
 
 impl Standing {
-    /// The one obligation rule: read from the record and the registry build.
-    pub fn of(record: &EntityRecord, registries: &RegistryBuild) -> Standing {
+    /// The one obligation rule: read from the record, the registry build and whether a collector writes its kind.
+    pub fn of(record: &EntityRecord, registries: &RegistryBuild, collected: bool) -> Standing {
         Standing {
             testable: registries
                 .kinds()
@@ -31,7 +31,7 @@ impl Standing {
                 .is_some_and(|kind| kind.testable),
             rule: registries
                 .rules()
-                .verify_rule_for(&record.kind)
+                .verify_rule_for(&record.kind, collected)
                 .map(|rule| rule.code().to_string()),
             exemption: record.exemption.clone(),
             declared: record.obligations.len(),

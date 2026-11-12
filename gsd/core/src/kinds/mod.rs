@@ -89,6 +89,12 @@ pub fn structured() -> Vec<String> {
     dsl::structured(KINDS)
 }
 
+/// Every path field and block member path, with the mode its file check follows and its writer (see
+/// `dsl::path_fields`).
+pub fn path_fields() -> Vec<dsl::PathField> {
+    dsl::path_fields(KINDS)
+}
+
 /// `kind.field` of every computed field: what the derive pass answers.
 pub fn computed() -> Vec<String> {
     dsl::computed(KINDS)

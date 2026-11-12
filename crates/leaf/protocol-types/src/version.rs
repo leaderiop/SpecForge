@@ -13,7 +13,28 @@
 ///   approvals, its network or its effects journal), so it never fails `--strict` or the gate's warning baseline;
 /// - an extension declares `capabilities` (a describe category): what it may make the host do, each on one port under
 ///   a scope name, and a collector names the process `capability` it runs instead of carrying `run` (ADR 0335 D2);
-/// - a command's input carries `nonce`, 32 hex digits of the host's entropy, fresh per call (ADR 0341).
+/// - a command's input carries `nonce`, 32 hex digits of the host's entropy, fresh per call (ADR 0341);
+/// - a guest may import `specforge:host/syntax`: the host parses source files with a pack's query (ADR 0344, 0345);
+/// - a collector may declare a `facts` input (`kinds`), and `CollectInput.facts` carries the facts of those kinds that
+///   earlier collectors answered or the recorded stores hold (ADR 0345 D3);
+/// - a pass may declare the `facts` input: a pass is sent the authored entities and the facts of the kinds it names,
+///   and only the edges between what it is sent; one that declares none is sent no fact (ADR 0353);
+/// - a collector declares `answers`, the collected kinds whose facts it answers: they order the collect (E119 for a
+///   cycle) and admit its facts (E116 otherwise);
+/// - a collector with no `capability` and no `report` reads no report: it is called with no reports and reads through
+///   its ports (ADR 0345 D2);
+/// - a fact carries `at` (where it is written) and `named_at` (where each name a field holds is written), and a pass
+///   entity carries `dangling`, a fact's references that name no entity, the wrong kind or several, judged by the
+///   extension declaring the holder's kind (ADR 0346);
+/// - an unheld reference carries `kinds`, the collected kinds of its scheme its field admits, and a fact store
+///   `held`, the kinds of its facts by scheme, replacing `schemes` (ADR 0347 D9);
+/// - a field may declare `checks_while` (`complete`, `pending`), and a check row's status may be `planned` or `closed`
+///   (ADR 0350);
+/// - the source scanners' describe category and their operation are gone: source code reaches the graph as the facts
+///   a source pack collects (ADR 0199).
+/// - a `process` capability may declare one `config` (`name`, `template`): the host writes it before a collector's
+///   run, `{report}` expanded, and `{config}` in the argv names it; a collector may declare an `install` line, said
+///   when its program is not found (ADR 0348).
 ///
 /// A change that adds to 2.0.0 (grants, host imports, value checks) adds its item here and to the 2.0.0 row of
 /// `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0 included; it does

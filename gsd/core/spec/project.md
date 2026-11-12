@@ -91,7 +91,7 @@ Scoped by milestone.
 | backlog | bool | C | a `999.x` name; only `--promote` and `--remove` of `phase` act on it |
 | branch | str | C | the branch it is executed on, from `git.branching_strategy` and its template (`{phase}`, `{slug}`); `phase`: each non-backlog phase; `milestone`: its milestone's; `none`: absent |
 | frontend | bool | C | the ui gate's `frontend` detection (`@gsd/ui`'s; core never answers it) |
-| status | enum{not_started, planned, in_progress, executed, needs_review, complete, deferred} | C | the GSD phase-status ladder (`phase-status.cts:160-196`): no plan is `not_started`, no summary `planned`, fewer summaries than plans `in_progress`, `needs_review` when the verification is `human_needed`, `complete` when it passed (`phase-status.cts:174-197`; UAT does not feed it), else `executed`. `passed` needs r40's verdicts; `deferred` is never derived |
+| status | enum{not_started, planned, in_progress, executed, needs_review, complete, deferred} | C | the GSD phase-status ladder (`phase-status.cts:160-196`): no plan is `not_started`, no summary `planned`, fewer summaries than plans `in_progress`, `needs_review` when the verification is `human_needed`, `complete` when it passed (`phase-status.cts:174-197`; UAT does not feed it), else `executed`. `passed` needs r40's verdicts; `deferred` is never derived. The phase is complete (ADR 0350 owner state) once `executed`, `needs_review` or `complete`: its scoped kinds' planned paths are checked from then on |
 | plans_complete | str `N/M` | C | Progress `Plans Complete`: plans with a summary over plans |
 | completed | date | C | Progress `Completed` |
 

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="nextest-run" tests="6" skipped="0" failures="1" errors="0" uuid="31878a03-66fe-4a2b-9287-41566ef88f3f" timestamp="2026-11-09T21:34:52.388+01:00" time="0.029">
+    <testsuite name="toy-crate" tests="3" skipped="0" errors="0" failures="1">
+        <testcase name="tests::adds" classname="toy-crate" timestamp="2026-11-09T21:34:52.389+01:00" time="0.024"/>
+        <testcase name="tests::nested::deep" classname="toy-crate" timestamp="2026-11-09T21:34:52.388+01:00" time="0.024"/>
+        <testcase name="tests::fails" classname="toy-crate" timestamp="2026-11-09T21:34:52.389+01:00" time="0.024">
+            <failure message="thread &apos;tests::fails&apos; (31064029) panicked at src/lib.rs:5:26" type="test failure with exit code 101">thread &apos;tests::fails&apos; (31064029) panicked at src/lib.rs:5:26:
+assertion `left == right` failed
+  left: 3
+ right: 4
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace</failure>
+        </testcase>
+    </testsuite>
+    <testsuite name="toy-crate::bin/extra" tests="1" skipped="0" errors="0" failures="0">
+        <testcase name="extra_test" classname="toy-crate::bin/extra" timestamp="2026-11-09T21:34:52.388+01:00" time="0.024"/>
+    </testsuite>
+    <testsuite name="toy-crate::tests" tests="1" skipped="0" errors="0" failures="0">
+        <testcase name="tests::adds" classname="toy-crate::tests" timestamp="2026-11-09T21:34:52.388+01:00" time="0.024"/>
+    </testsuite>
+    <testsuite name="toy-crate::bin/toy-crate" tests="1" skipped="0" errors="0" failures="0">
+        <testcase name="tests::adds" classname="toy-crate::bin/toy-crate" timestamp="2026-11-09T21:34:52.388+01:00" time="0.024"/>
+    </testsuite>
+</testsuites>

@@ -59,7 +59,7 @@ fn the_process_machine_keeps_the_port_contract() {
         RunnerOutput::Discard,
     )
     .unwrap_err();
-    assert!(matches!(failure, RunFailure::NotRun(_)));
+    assert!(matches!(failure, RunFailure::NotFound));
 }
 
 #[cfg(unix)]

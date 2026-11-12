@@ -137,6 +137,21 @@ impl TestExtension {
         ext
     }
 
+    /// `@t/items`: the kind `item` a collector writes, shaped as `@code/core`'s
+    /// (`specforge_project::testing::declare_items`): the item facts a test
+    /// stores with `specforge_project::testing::stored_items`.
+    pub fn items() -> Self {
+        Self::named(specforge_project::testing::ITEMS)
+            .declaring(specforge_project::testing::declare_items)
+    }
+
+    /// `@t/cites`: the kind `task`, whose `items` cites items
+    /// (`specforge_project::testing::declare_cites`).
+    pub fn cites() -> Self {
+        Self::named(specforge_project::testing::CITES)
+            .declaring(specforge_project::testing::declare_cites)
+    }
+
     /// Also declare `kind` (or redeclare it, keeping its fields): a testable
     /// kind accepts `verify` obligations.
     pub fn kind(mut self, kind: &str, testable: bool) -> Self {
@@ -201,7 +216,7 @@ impl TestExtension {
     }
 
     /// Anything else, declared with the SDK builders: a provider, an
-    /// analyzer, an inference guide, a command.
+    /// inference guide, a command.
     pub fn declaring(
         mut self,
         declare: impl Fn(&mut ContributionsBuilder) + Send + Sync + 'static,

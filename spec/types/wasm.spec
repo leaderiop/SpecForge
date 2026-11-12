@@ -139,6 +139,7 @@ type CollectorDescriptor "Collector Descriptor" {
 type CollectorAutoDetect "Collector Auto Detect" {
   file_patterns string[]
   env_vars      string[] @optional
+  repository    bool     @optional
   verify unit "CollectorAutoDetect schema is valid"
 }
 
@@ -314,27 +315,6 @@ type ValidatorVerdict "{\"verdict\": \"pass\"} or {\"verdict\": \"fail\", \"fiel
 }
 
 type ValidatorVerdictKind "Validator Verdict Kind" = pass | fail
-
-type ScanRequest "What an analyzer's scan export receives: one source file." {
-  file_path string
-  content   string
-  verify unit "ScanRequest schema is valid"
-}
-
-type ScanResponse "The public items the scan found." {
-  items    ScannedItem[]
-  language string @optional
-  verify unit "ScanResponse schema is valid"
-}
-
-type ScannedItem "Scanned Item" {
-  name       string
-  item_kind  string
-  line       integer
-  visibility string @optional
-  signature  string @optional
-  verify unit "ScannedItem schema is valid"
-}
 
 type McpResourceRequest "What an MCP resource's export receives, and answers." {
   uri string

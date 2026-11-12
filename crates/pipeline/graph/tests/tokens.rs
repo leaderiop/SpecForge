@@ -319,6 +319,19 @@ iface Detector "Detector" {
 }
 
 #[test]
+fn a_name_of_a_signature_written_across_lines_is_a_token_where_it_is_written() {
+    let source = "shape Config \"Config\" {\n  root string\n}\niface X \"X\" {\n  method keep(c: Map<string,\n      Config>) -> Map<string,   Config\n  >\n}\n";
+    let (_, tokens) = find(source, derived_inputs);
+    assert_eq!(
+        show(&tokens),
+        [
+            "Config X uses Derived 6:7-6:13",
+            "Config X uses Derived 6:33-6:39"
+        ]
+    );
+}
+
+#[test]
 fn a_parameters_name_is_no_token_and_its_type_is() {
     let source = "shape Config \"Config\" {\n  root string\n}\niface X \"X\" {\n  method keep(Config: Config) -> Config\n}\n";
     let (_, tokens) = find(source, derived_inputs);

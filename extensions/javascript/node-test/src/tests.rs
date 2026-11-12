@@ -1,5 +1,6 @@
 use super::*;
 use serde_json::{json, Value};
+use specforge_javascript_workspace::PACKAGES;
 use specforge_test::prelude::*;
 
 /// The taskboard twin's recorded report (`gsd/parity/goldens/taskboard/junit.xml`, kept by the JUnit library):
@@ -117,6 +118,47 @@ fn a_workspace_test_is_named_after_its_nearest_package() {
             "js:app/test/z.test.js#boots",
         ]
         .map(|id| (id.to_string(), "passed".to_string()))
+    );
+}
+
+#[specforge_test(
+    behavior = "nt_map_node_test_report",
+    verify = "a test fact's file is project-relative in a nested package"
+)]
+fn a_nested_packages_test_fact_files_its_project_relative_path() {
+    let packages = [
+        ("package.json", r#"{"name":"app"}"#),
+        ("packages/core/package.json", r#"{"name":"@acme/core"}"#),
+    ];
+    let out = collect(&input(
+        &one("/work/app/packages/core/test/x.test.js"),
+        "/work/app",
+        &packages,
+    ))
+    .unwrap();
+    assert_eq!(out.facts[0].id, "js:@acme/core/test/x.test.js#adds");
+    assert_eq!(out.facts[0].fields["file"], "packages/core/test/x.test.js");
+}
+
+#[specforge_test(
+    behavior = "nt_map_node_test_report",
+    verify = "a [<ns>:<id>] tag in a test's name is one of its names"
+)]
+fn a_tag_in_a_tests_name_is_one_of_its_names() {
+    let report = r#"<testsuites><testcase name="[gsd:01-01/TR1] adds [req:TASK-01]" file="/p/test/a.test.js"/></testsuites>"#;
+    let out = collect(&input(
+        report,
+        "/p",
+        &[("package.json", r#"{"name":"app"}"#)],
+    ))
+    .unwrap();
+    assert_eq!(
+        out.facts[0].id,
+        "js:app/test/a.test.js#[gsd:01-01/TR1] adds [req:TASK-01]"
+    );
+    assert_eq!(
+        out.facts[0].fields["names"],
+        json!(["01-01/TR1", "TASK-01"])
     );
 }
 
@@ -246,4 +288,39 @@ fn a_report_that_is_not_junit_is_the_collectors_error() {
     let why = collect(&input(r#"{"testResults":[]}"#, "/w", &[])).unwrap_err();
     assert!(why.starts_with(&format!("{REPORT}: ")), "{why}");
     assert!(why.contains("not a JUnit report"), "{why}");
+}
+
+#[test]
+fn the_collector_answers_the_test_and_test_run_kinds() {
+    let declaration = crate::specforge_extension_build().declaration();
+    let collector = declaration
+        .collectors
+        .iter()
+        .find(|c| c.name == COLLECTOR)
+        .expect("the node-test collector");
+    assert_eq!(collector.answers, ["test", "test_run"]);
+}
+
+#[specforge_test(
+    behavior = "nt_map_node_test_report",
+    verify = "a second package of one name names its tests after its directory"
+)]
+fn a_second_package_of_one_name_names_its_tests_after_its_directory() {
+    let packages = [
+        ("package.json", r#"{"name":"app"}"#),
+        ("examples/app/package.json", r#"{"name":"app"}"#),
+    ];
+    let report = r#"<testsuites>
+        <testcase name="adds" file="/work/app/test/a.test.js"/>
+        <testcase name="adds" file="/work/app/examples/app/test/a.test.js"/>
+    </testsuites>"#;
+    let out = collect(&input(report, "/work/app", &packages)).unwrap();
+    assert_eq!(
+        tests(&out),
+        [
+            "js:app/test/a.test.js#adds",
+            "js:app@examples%2Fapp/test/a.test.js#adds"
+        ]
+        .map(|id| (id.to_string(), "passed".to_string()))
+    );
 }

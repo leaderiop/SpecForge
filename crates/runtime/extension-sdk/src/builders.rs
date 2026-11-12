@@ -1,13 +1,12 @@
 use crate::{
     CheckKind, CollectInput, CollectOutput, ConstraintKind, EdgeTypeDescriptor,
     EntityEnhancementDescriptor, EntityKindDescriptor, FieldConstraintDescriptor, FieldDescriptor,
-    FieldType, FieldWriter, PassAnswer, PassInput, ScanRequest, ScanResponse,
-    ValidationRuleDescriptor, ValidationSeverity, ValidatorContext, ValidatorVerdict, Vocabulary,
-    operations,
+    FieldType, FieldWriter, PassAnswer, PassInput, ValidationRuleDescriptor, ValidationSeverity,
+    ValidatorContext, ValidatorVerdict, Vocabulary, operations,
 };
 use specforge_protocol_types::{
-    AnalyzerDescriptor, AutoDetectConfig, CodeDescriptor, CollectorDescriptor,
-    CompilerPassDescriptor, GUARD_PHASE, JudgedDescriptor, JudgedInput, JudgedTarget,
+    AutoDetectConfig, CodeDescriptor, CollectorDescriptor, CompilerPassDescriptor, GUARD_PHASE,
+    JudgedDescriptor, JudgedInput, JudgedTarget, ProcessConfig,
 };
 
 /// Builder for [`EntityKindDescriptor`].
@@ -642,69 +641,14 @@ impl PassBuilder {
     }
 }
 
-/// Builder for [`AnalyzerDescriptor`], with its scanner.
-pub struct AnalyzerBuilder {
-    pub(crate) descriptor: AnalyzerDescriptor,
-    pub(crate) scan: Option<operations::Wire>,
-}
-
-impl AnalyzerBuilder {
-    pub(crate) fn new(language: &str) -> Self {
-        Self {
-            descriptor: AnalyzerDescriptor {
-                language: language.to_string(),
-                file_extensions: Vec::new(),
-                excluded_dirs: Vec::new(),
-                scan_export: format!("scan__{language}"),
-                classify_export: format!("classify__{language}"),
-                map_export: format!("map__{language}"),
-                description: None,
-            },
-            scan: None,
-        }
-    }
-    /// The scanner: `handler` receives one source file ([`ScanRequest`])
-    /// and answers the public items it found ([`ScanResponse`]).
-    pub fn scan(&mut self, handler: impl Fn(&ScanRequest) -> ScanResponse + 'static) -> &mut Self {
-        self.scan = Some(operations::wire("scan", move |request: &ScanRequest| {
-            Ok::<_, String>(handler(request))
-        }));
-        self
-    }
-    /// The file extensions it scans, with their dot (`.rs`).
-    pub fn file_extensions(&mut self, extensions: &[&str]) -> &mut Self {
-        self.descriptor.file_extensions = extensions.iter().map(|e| e.to_string()).collect();
-        self
-    }
-    /// Directories it never scans (`target`, `node_modules`).
-    pub fn excluded_dirs(&mut self, dirs: &[&str]) -> &mut Self {
-        self.descriptor.excluded_dirs = dirs.iter().map(|d| d.to_string()).collect();
-        self
-    }
-    pub fn scan_export(&mut self, export: &str) -> &mut Self {
-        self.descriptor.scan_export = export.to_string();
-        self
-    }
-    pub fn classify_export(&mut self, export: &str) -> &mut Self {
-        self.descriptor.classify_export = export.to_string();
-        self
-    }
-    pub fn map_export(&mut self, export: &str) -> &mut Self {
-        self.descriptor.map_export = export.to_string();
-        self
-    }
-    pub fn description(&mut self, d: &str) -> &mut Self {
-        self.descriptor.description = Some(d.to_string());
-        self
-    }
-}
-
 /// Builder for [`CollectorDescriptor`], with the collector's handler.
 pub struct CollectorBuilder {
     pub(crate) descriptor: CollectorDescriptor,
     pub(crate) collect: Option<operations::Wire>,
     /// The argv [`CollectorBuilder::run`] gave: the collector's process capability, declared with it.
     pub(crate) run: Option<Vec<String>>,
+    /// The config file [`CollectorBuilder::config`] gave, declared on that capability.
+    pub(crate) config: Option<ProcessConfig>,
 }
 
 impl CollectorBuilder {
@@ -720,9 +664,12 @@ impl CollectorBuilder {
                 capture: None,
                 writes: false,
                 inputs: Vec::new(),
+                answers: Vec::new(),
+                install: None,
             },
             collect: None,
             run: None,
+            config: None,
         }
     }
     /// What the collector does: `handler` receives the report files
@@ -753,13 +700,19 @@ impl CollectorBuilder {
         let detect = self
             .descriptor
             .auto_detect
-            .get_or_insert_with(|| AutoDetectConfig {
-                file_patterns: Vec::new(),
-                env_vars: Vec::new(),
-            });
+            .get_or_insert_with(AutoDetectConfig::default);
         detect
             .file_patterns
             .extend(patterns.iter().map(|p| p.to_string()));
+        self
+    }
+
+    /// Detect the collector in any git repository: at its top or in a subdirectory, a linked worktree's included.
+    pub fn detect_repository(&mut self) -> &mut Self {
+        self.descriptor
+            .auto_detect
+            .get_or_insert_with(AutoDetectConfig::default)
+            .repository = true;
         self
     }
     /// The command the host runs once this machine approves it (`{report}` in an argument: the absolute report path).
@@ -767,6 +720,22 @@ impl CollectorBuilder {
     pub fn run(&mut self, argv: &[&str]) -> &mut Self {
         self.run = Some(argv.iter().map(|a| a.to_string()).collect());
         self.descriptor.capability = Some(self.descriptor.name.clone());
+        self
+    }
+    /// The config file the host writes before [`CollectorBuilder::run`]'s command (ADR 0348): `name` is one segment
+    /// ending `.toml` or `.json`, written at `.specforge/reports/<collector>.<name>`; `template` its text, `{report}`
+    /// in it the report's absolute path escaped for a quoted string. `{config}` in an argument is the file's absolute
+    /// path. A person approves the text with the command.
+    pub fn config(&mut self, name: &str, template: &str) -> &mut Self {
+        self.config = Some(ProcessConfig {
+            name: name.to_string(),
+            template: template.to_string(),
+        });
+        self
+    }
+    /// What to run to install the command's program, said when it is not found on PATH (ADR 0348 D4).
+    pub fn install(&mut self, line: &str) -> &mut Self {
+        self.descriptor.install = Some(line.to_string());
         self
     }
     /// The `process` capability (one the extension declares with
@@ -780,6 +749,14 @@ impl CollectorBuilder {
     /// root. A directory is read as every `*.json` file directly inside it.
     pub fn report(&mut self, path: &str) -> &mut Self {
         self.descriptor.report = Some(path.to_string());
+        self
+    }
+    /// The collected kinds whose facts it answers (ADR 0345 D3): a collector whose `facts` input names one of them runs
+    /// after it, and a fact of a kind it does not list is refused.
+    pub fn answers(&mut self, kinds: &[&str]) -> &mut Self {
+        self.descriptor
+            .answers
+            .extend(kinds.iter().map(ToString::to_string));
         self
     }
     /// Keep the command's standard output and pass it to the export as

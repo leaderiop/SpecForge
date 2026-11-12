@@ -18,6 +18,9 @@ pub const SPANS: &[(&str, usize, usize)] = &[
         41,
     ),
     ("gsd-core/references/tdd.md", 344, 344),
+    // a node test prohibition is a negative test `@javascript/node-test` collects, not a `node --test` run
+    ("gsd-core/references/prohibition-probe.md", 115, 115),
+    ("gsd-core/references/prohibition-probe.md", 142, 142),
     ("gsd-core/references/ui-brand.md", 50, 61),
     ("gsd-core/workflows/autonomous.md", 249, 249),
     ("gsd-core/workflows/autonomous.md", 461, 461),

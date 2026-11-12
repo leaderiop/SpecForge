@@ -2,7 +2,8 @@
 //! The files a rule's `file(..)` inputs and `cited` read are not among those a baseline compiles (specs and the
 //! ledger), so the evaluation runs once, notes the paths its disk was asked for and did not hold, asks the history for
 //! them in one question, and runs again. There is no test report at a commit: test inputs are not compared, and the
-//! I205 the evaluation says is dropped with the rest of its diagnostics.
+//! I205 the evaluation says is dropped with the rest of its diagnostics. What the checks found at the commit is given,
+//! as a verdict digests it now.
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
@@ -16,7 +17,7 @@ use crate::Environment;
 use crate::judged::{DigestMemo, Evaluated, evaluate};
 
 /// Asks for files by their path from the project's root; answers in the order asked, `None` for one that is not there.
-pub(crate) type Fetch<'a> = &'a dyn Fn(&[String]) -> Vec<(String, Option<Vec<u8>>)>;
+pub type Fetch<'a> = &'a dyn Fn(&[String]) -> Vec<(String, Option<Vec<u8>>)>;
 
 /// The files of one commit, by path from the project's root, as a [`Disk`] under `root`.
 struct CommitDisk<'a> {
@@ -82,7 +83,7 @@ impl Disk for CommitDisk<'_> {
 }
 
 /// The judged evaluation of `graph` at a commit: `files` are what the commit holds that a baseline compiles, `ledger`
-/// its `specforge-harness`, `fetch` the rest on demand.
+/// its `specforge-harness`, `fetch` the rest on demand, `checked` the outcome classes of its ungated checked values.
 pub(crate) fn judge(
     env: &Environment,
     graph: &Graph,
@@ -90,6 +91,7 @@ pub(crate) fn judge(
     mut files: BTreeMap<String, Vec<u8>>,
     ledger: &[u8],
     fetch: Fetch<'_>,
+    checked: &crate::CheckedValues,
 ) -> Evaluated {
     let mut asked: BTreeSet<String> = BTreeSet::new();
     loop {
@@ -104,7 +106,7 @@ pub(crate) fn judge(
             entities,
             &disk,
             &DigestMemo::default(),
-            &crate::CheckedValues::default(),
+            checked,
             ledger,
         );
         let wanted: Vec<String> = disk

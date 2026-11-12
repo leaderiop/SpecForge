@@ -4,8 +4,11 @@
 
 use std::collections::HashSet;
 
-use specforge_protocol_types::{ExtensionDeclaration, FileRead, Input, InputKind, Root};
+use specforge_protocol_types::{
+    ExtensionDeclaration, FieldWriter, FileRead, Input, InputKind, Root,
+};
 
+use crate::compilation::UnloadedPeers;
 use crate::compilation::populate::keyword;
 
 /// The kinds of call that declare inputs.
@@ -18,9 +21,9 @@ pub enum CallKind {
     Collector,
 }
 
-/// Whether a call of `kind` is served `input`: exactly what each kind was served before the fold. A pass gets the
-/// entities and a command and a writing collector the graph without asking; a hook's files are its tool's paths
-/// (ADR 0293 D6).
+/// Whether a call of `kind` is served `input`: exactly what each kind was served before the fold, and the facts of the
+/// kinds a pass or a collector names (ADR 0345 D3, ADR 0353 D1). A pass gets the authored entities and a command and a
+/// writing collector the graph without asking; a hook's files are its tool's paths (ADR 0293 D6).
 pub fn served(kind: CallKind, input: &Input) -> bool {
     use CallKind::*;
     match input.kind() {
@@ -31,6 +34,7 @@ pub fn served(kind: CallKind, input: &Input) -> bool {
         InputKind::SlashCommands => kind == Prompt,
         InputKind::Git | InputKind::Setting => kind == Hook,
         InputKind::CheckOutcomes => kind == Collector,
+        InputKind::Facts => matches!(kind, Pass | Collector),
     }
 }
 
@@ -117,10 +121,12 @@ pub fn setting_problem(owner: &str, extension: &str, name: &str) -> Option<&'sta
 
 /// The messages (W021) about the inputs `declaration` makes: an input its call kind is not served, a second input of
 /// a tag that is one per call (all but `files` and `setting`), a `setting` with a [`setting_problem`], a read with a
-/// [`read_problem`], a name two reads of one owner share, and a field no loaded extension declares.
+/// [`read_problem`], a name two reads of one owner share, and a field no loaded extension declares. A facts input of a
+/// kind an unloaded optional peer declares is inert, as a route part into one is (ADR 0331 D7): served empty, untold.
 pub(crate) fn problems(
     declaration: &ExtensionDeclaration,
     loaded: &[ExtensionDeclaration],
+    unloaded: &UnloadedPeers<'_>,
 ) -> Vec<String> {
     let name = declaration.name();
     let mut messages = Vec::new();
@@ -147,6 +153,23 @@ pub(crate) fn problems(
                 } => {
                     if let Some(why) = setting_problem(name, extension, setting) {
                         messages.push(said(format!("the input '{extension}:{setting}'"), why));
+                    }
+                    continue;
+                }
+                Input::Facts { kinds } => {
+                    if !tags.insert(tag) {
+                        messages.push(said(format!("the input '{tag}'"), "it is declared twice"));
+                    } else if kinds.is_empty() {
+                        messages.push(said(format!("the input '{tag}'"), "it names no kind"));
+                    }
+                    for kind in kinds
+                        .iter()
+                        .filter(|kind| !declares_collected(loaded, kind) && !unloaded.declare(kind))
+                    {
+                        messages.push(said(
+                            format!("the facts of kind '{kind}'"),
+                            "no loaded extension declares it collector-written",
+                        ));
                     }
                     continue;
                 }
@@ -197,7 +220,30 @@ pub(crate) fn problems(
         let owner = format!("collector '{}'", collector.name);
         check(owner, CallKind::Collector, &collector.inputs);
     }
+    // ADR 0345 D3: what a collector answers orders the collect and admits its facts, so it names collected kinds.
+    for collector in &declaration.collectors {
+        for kind in collector
+            .answers
+            .iter()
+            .filter(|kind| !declares_collected(loaded, kind))
+        {
+            messages.push(format!(
+                "extension '{name}': collector '{}' answers the kind '{kind}', which no loaded extension declares \
+                 collector-written",
+                collector.name
+            ));
+        }
+    }
     messages
+}
+
+/// Whether a loaded extension declares `kind` collector-written (ADR 0327).
+fn declares_collected(loaded: &[ExtensionDeclaration], kind: &str) -> bool {
+    loaded.iter().any(|d| {
+        d.entities.iter().any(|k| {
+            keyword(k) == kind && k.writer.as_deref() == Some(FieldWriter::Collector.as_str())
+        })
+    })
 }
 
 /// Whether a loaded extension declares `kind.field` or `kind.field.member` (a kind's own fields, the fields every kind
@@ -221,4 +267,131 @@ fn declares_field(loaded: &[ExtensionDeclaration], path: &str) -> bool {
                 .iter()
                 .any(|e| e.target_kind == kind && found(&e.fields))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use specforge_extension_sdk::prelude::*;
+
+    use super::*;
+
+    /// `@acme/facts` declaring the collected kind `package`, then what `declare` adds.
+    fn problems_of(declare: impl FnOnce(&mut ContributionsBuilder)) -> Vec<String> {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/facts", "1.0.0"));
+        c.kind("package", |k| {
+            k.collected(&["pkg"]);
+        });
+        declare(&mut c);
+        let declaration = c.declaration();
+        let none = crate::CandidateVocabulary::default();
+        let unloaded = UnloadedPeers::of(&declaration, &[], &none);
+        problems(&declaration, std::slice::from_ref(&declaration), &unloaded)
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "register_collector_contributions",
+        verify = "a facts input is served to a pass or a collector, and an empty or unknown kind or a second one is W021"
+    )]
+    fn a_pass_is_served_the_facts_input() {
+        let found = problems_of(|c| {
+            for phase in ["check", "compute", "guard", "analyze"] {
+                c.pass(phase, |p| {
+                    p.phase(phase)
+                        .input(Input::facts(&["package"]))
+                        .run(|_| Vec::new());
+                });
+            }
+            c.collector("reader", |k| {
+                k.input(Input::facts(&["package"]))
+                    .collect(|_| Ok(CollectOutput::default()));
+            });
+        });
+        assert_eq!(found, Vec::<String>::new());
+        let found = problems_of(|c| {
+            c.collector("reader", |k| {
+                k.input(Input::facts(&[]))
+                    .input(Input::facts(&["package", "nothing"]))
+                    .collect(|_| Ok(CollectOutput::default()));
+            });
+        });
+        assert_eq!(
+            found,
+            [
+                "extension '@acme/facts': collector 'reader' declares the input 'facts', which is not served: it \
+                 names no kind",
+                "extension '@acme/facts': collector 'reader' declares the input 'facts', which is not served: it \
+                 is declared twice",
+                "extension '@acme/facts': collector 'reader' declares the facts of kind 'nothing', which is not \
+                 served: no loaded extension declares it collector-written",
+            ]
+        );
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "register_collector_contributions",
+        verify = "a pass naming an authored kind in its facts input is W021"
+    )]
+    fn a_pass_naming_an_authored_kind_in_facts_is_w021() {
+        let found = problems_of(|c| {
+            c.kind("note", |_| {});
+            c.pass("audit", |p| {
+                p.phase("check")
+                    .input(Input::facts(&["package", "note"]))
+                    .run(|_| Vec::new());
+            });
+        });
+        assert_eq!(
+            found,
+            [
+                "extension '@acme/facts': pass 'audit' declares the facts of kind 'note', which is not served: no \
+                 loaded extension declares it collector-written"
+            ]
+        );
+    }
+
+    /// A collector reading the facts of a kind its optional peer declares: inert while the peer is not loaded, as a
+    /// route part into the peer's kind is (ADR 0331 D7); a kind no candidate declares is still W021.
+    #[test]
+    fn a_facts_input_of_an_unloaded_optional_peers_kind_is_inert() {
+        let mut peer = ContributionsBuilder::new(ExtensionMeta::new("@acme/code", "1.0.0"));
+        peer.kind("item", |k| {
+            k.collected(&["js"]);
+        });
+        let candidates = crate::CandidateVocabulary::of(&[peer.declaration()]).unwrap();
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/plans", "1.0.0"));
+        c.optional_peer("@acme/code", "^1.0");
+        c.collector("reader", |k| {
+            k.input(Input::facts(&["item", "nothing"]))
+                .collect(|_| Ok(CollectOutput::default()));
+        });
+        let declaration = c.declaration();
+        let unloaded = UnloadedPeers::of(&declaration, &["@acme/plans"], &candidates);
+        assert_eq!(
+            problems(&declaration, std::slice::from_ref(&declaration), &unloaded),
+            [
+                "extension '@acme/plans': collector 'reader' declares the facts of kind 'nothing', which is not \
+                 served: no loaded extension declares it collector-written"
+            ]
+        );
+    }
+
+    #[test]
+    fn an_answers_kind_that_no_extension_declares_collected_is_w021() {
+        let found = problems_of(|c| {
+            c.kind("note", |_| {});
+            c.collector("reader", |k| {
+                k.answers(&["package", "note", "nothing"])
+                    .collect(|_| Ok(CollectOutput::default()));
+            });
+        });
+        assert_eq!(
+            found,
+            [
+                "extension '@acme/facts': collector 'reader' answers the kind 'note', which no loaded extension \
+                 declares collector-written",
+                "extension '@acme/facts': collector 'reader' answers the kind 'nothing', which no loaded extension \
+                 declares collector-written",
+            ]
+        );
+    }
 }

@@ -1,6 +1,6 @@
 # The editor client is an adapter over the language server and the specforge binary
 
-**Status:** accepted (2026-10-26, architecture round 27, plan 07). Amends the code lens consequence of [ADR 0016](0016-navigation-is-one-module.md); keeps [ADR 0010](0010-operations-reach-the-registry-through-a-port.md) (the language server is its own binary). Reopened by [ADR 0268](0268-the-editor-client-asks-the-language-server-for-every-entity-fact.md): the entity under the cursor, the entity tree and the graph are the language server's answers; the client runs `specforge` only for project-level commands.
+**Status:** accepted (2026-10-26, architecture round 27, plan 07). Amends the code lens consequence of [ADR 0016](0016-navigation-is-one-module.md); keeps [ADR 0010](0010-operations-reach-the-registry-through-a-port.md) (the language server is its own binary). Amended by [ADR 0349](0349-an-anchor-is-a-graph-edge-between-an-entity-and-a-located-fact.md) (D2: the server answers code lenses on source files too; D1 unchanged). Reopened by [ADR 0268](0268-the-editor-client-asks-the-language-server-for-every-entity-fact.md): the entity under the cursor, the entity tree and the graph are the language server's answers; the client runs `specforge` only for project-level commands.
 
 ## Context
 

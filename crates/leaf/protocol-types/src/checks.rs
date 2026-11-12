@@ -21,6 +21,11 @@ pub enum CheckStatus {
     Failed,
     /// Not performed or not answered: not judged, and nothing goes red for it.
     NotRun,
+    /// A planned value whose owner is pending (ADR 0350): no checker was called; it is checked once the owner is
+    /// complete.
+    Planned,
+    /// A while-open value whose owner is complete (ADR 0350): no checker was called, and none will be.
+    Closed,
 }
 
 impl CheckStatus {
@@ -30,6 +35,8 @@ impl CheckStatus {
             CheckStatus::Passed => "passed",
             CheckStatus::Failed => "failed",
             CheckStatus::NotRun => "not_run",
+            CheckStatus::Planned => "planned",
+            CheckStatus::Closed => "closed",
         }
     }
 }

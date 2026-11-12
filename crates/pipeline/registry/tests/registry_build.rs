@@ -371,7 +371,7 @@ fn the_code_book_is_the_verdict_w150_reports() {
         Ok(())
     );
     assert_eq!(
-        check("@specforge/rust", "W950", ValidationSeverity::Warning),
+        check("@specforge/testing", "W950", ValidationSeverity::Warning),
         Err(CodeMisuse::Uncatalogued)
     );
 }
@@ -407,7 +407,7 @@ fn a_first_party_rule_is_checked_against_the_catalog() {
     assert!(w150.message.contains("another level"), "{}", w150.message);
 
     let uncatalogued = build_registries(vec![one_rule(
-        "@specforge/rust",
+        "@specforge/testing",
         "W500",
         ValidationSeverity::Warning,
     )]);

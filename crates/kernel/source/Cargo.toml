@@ -1,0 +1,34 @@
+[package]
+name = "specforge-source"
+description = "The host's one source reader: tree-sitter with the rust, typescript and tsx grammars, running a pack's query in the tags convention, its parses cached by content and bounded by a per-file deadline (ADR 0344)"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+autotests = false
+
+[dependencies]
+# The answer is the guest wire's (`SyntaxMatch`, `SyntaxFile`, ...).
+specforge-protocol-types = { path = "../../leaf/protocol-types" }
+# `#[derive(Shape)]` on the counted work, which a collect reports as it is.
+specforge-common = { path = "../common" }
+tree-sitter = { workspace = true }
+# The grammars, pinned exactly here and not in `[workspace.dependencies]`, which every blob inherits.
+tree-sitter-rust = "=0.24.2"
+tree-sitter-typescript = "=0.23.2"
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+specforge-repo-root = { path = "../../leaf/repo-root" }
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true
+
+[[test]]
+name = "suite"
+path = "tests/suite.rs"

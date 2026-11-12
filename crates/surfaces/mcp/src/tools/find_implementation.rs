@@ -4,7 +4,7 @@ use specforge_ops::read::navigate;
 
 use crate::args::Arguments;
 use crate::refusal::ArgumentOf;
-use crate::reply::Answered;
+use crate::reply::{Answer, Answered};
 use crate::target::ProjectRef;
 use specforge_ops::view::EntityField;
 
@@ -15,11 +15,11 @@ pub struct Args {
     entity_id: String,
 }
 
-/// `specforge.find_implementation`'s reply: the anchors read view's entity document (ADR 0140).
+/// `specforge.find_implementation`'s reply: the anchors read view's entity document (ADR 0349).
 pub use specforge_ops::read::navigate::EntityAnchors as Reply;
 
-/// The source items the anchors manifest anchors the entity to
-/// (`specforge_ops::read::navigate::anchors_of_entity`), in manifest order.
+/// The located facts the entity is anchored to, the anchors read view over the graph
+/// (`specforge_ops::read::navigate::anchors_of_entity`), by file and line.
 pub(crate) struct Tool;
 
 impl ArgumentOf<EntityField> for Tool {
@@ -45,6 +45,6 @@ impl CoreTool for Tool {
     fn call(project: ProjectRef<'_>, args: Args) -> Answered<Reply> {
         let found =
             navigate::anchors_of_entity(&project.view(), &args.entity_id).map_err(Self::refused)?;
-        Ok(found.into())
+        Ok(Answer::noticed(found))
     }
 }

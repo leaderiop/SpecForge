@@ -1,22 +1,29 @@
 //! `gsd/E502`: an explicit truth is verified only with a passing test recorded for it. The
-//! pass needs a fresh passing `gsd/E501` judgement and a recorded report, and both of E501's test inputs stale the
+//! pass needs a fresh passing `gsd/E501` judgement and a collected test, and both of E501's test inputs stale the
 //! verdict first, so a recorded result never makes E502 appear (D-r39-1); it appears only when a verifier records
 //! `verified` over results that contradict it, and that record is refused (E080 names `gsd/E502`). The verifier records
 //! `failed` instead, which the host lets it do since ADR 0297.
 
 use super::harness::{Project, project};
+use specforge_extension_sdk::prelude::TestStatus;
 
 const TRUTH: &str = "v1.0/01/01-01/TR1";
-const FAILING: &str =
-    "<testcase name=\"[gsd:01-01/TR1] fails\"><failure message=\"no\"/></testcase>";
-const PASSING: &str = "<testcase name=\"[gsd:01-01/TR1] works\"/>";
+/// A test of the truth, by the `[gsd:<id>]` tag in its name, that fails.
+const FAILING: (&str, &str, TestStatus) = (
+    "test/tasks.test.js",
+    "[gsd:01-01/TR1] fails",
+    TestStatus::Failed,
+);
+/// A test of the truth that passes.
+const PASSING: (&str, &str, TestStatus) = (
+    "test/tasks.test.js",
+    "[gsd:01-01/TR1] works",
+    TestStatus::Passed,
+);
 
-fn report(p: &Project, case: &str) {
-    p.write(
-        "junit.xml",
-        &format!("<?xml version=\"1.0\"?>\n<testsuites>\n<testsuite name=\"s\">\n{case}\n</testsuite>\n</testsuites>\n"),
-    );
-    let run = p.collect(&["--runner", "gsd-junit", "--no-run"]);
+/// Collects `case` as the project's one test fact.
+fn report(p: &Project, case: (&str, &str, TestStatus)) {
+    let run = p.node_tests(&[case]);
     assert_eq!(run.code, 0, "{}", run.all());
 }
 

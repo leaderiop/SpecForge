@@ -3,7 +3,7 @@
 use "types/wasm"
 
 behavior vt_declare_vitest_collector "Declare the vitest Collector" {
-  features [vt_vitest_collection, ts_test_collection]
+  features [vt_vitest_collection]
   category query
   types    [CollectorDescriptor]
   contract """

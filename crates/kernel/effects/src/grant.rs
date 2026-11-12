@@ -493,6 +493,22 @@ impl Grant {
         })
     }
 
+    /// Whether a call of kind `op` may run the command `template` the host fills itself: a collector's declared
+    /// command, its placeholders (`{report}`, `{config}`) still in it, filled after with the host's own paths for
+    /// this run. Only a process capability whose argv is `template`, placeholders included, admits it; no request
+    /// ([`Grant::permits`], a guest's or a person's) is admitted by such a capability (ADR 0348 D3).
+    pub fn permits_command(&self, op: Operation, template: &[String]) -> Result<(), Denial> {
+        let declares = |scope: &PortScope| matches!(scope, PortScope::Process(process) if process.argv == template);
+        self.decided(
+            op,
+            (Port::Process, false),
+            template.join(" "),
+            None,
+            &declares,
+        )
+        .map(|_| ())
+    }
+
     /// Whether a call of kind `op` may ask git `question`: git is read-only and no [`EffectRequest`], so its scope
     /// is judged by the port alone.
     pub fn permits_git(&self, op: Operation, question: &str) -> Result<(), Denial> {

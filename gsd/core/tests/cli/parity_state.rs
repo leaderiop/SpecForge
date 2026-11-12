@@ -328,20 +328,10 @@ fn statuses(p: &Project, id: &str) -> Vec<String> {
 #[test]
 fn taskboard_coverage_matches_recorded_tests() {
     let p = taskboard();
-    // Before any report: no status.
+    // Before any test is collected: no status.
     assert_eq!(statuses(&p, "v1.0/01/01-01/01-01-SUMMARY/D1"), ["-"]);
-    // The truths' proofs collected first: a report beside proofs no store holds stales their verdicts (ADR 0331 D7).
     let facts = p.collect_node_test_golden();
     assert_eq!(facts.code, 0, "{}", facts.all());
-    let report =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/goldens/taskboard/junit.xml");
-    let run = p.collect(&[
-        "--runner",
-        "gsd-junit",
-        "--report",
-        &report.display().to_string(),
-    ]);
-    assert_eq!(run.code, 0, "{}", run.all());
     for (path, id) in SUMMARIES {
         for d in read_summary(path).deliverables {
             let expected: Vec<String> = d.checks.iter().map(|(_, _, s)| s.clone()).collect();
@@ -349,33 +339,24 @@ fn taskboard_coverage_matches_recorded_tests() {
             assert_eq!(given, expected, "{id}/{}", d.id);
         }
     }
-    // A report that links no test to a truth stales none of its verdicts (ADR 0331 D7).
+    // Test facts that name no truth stale none of its verdicts (ADR 0331 D7).
     assert_eq!(p.verify_phase("v1.0/01"), 0);
     p.check_exact(&[]);
+    // The facts judge every `tests` input: no verdict is left unjudged. The harness hides I205, so count it raw.
     let check = p.run(&["check"]);
     assert!(!check.all().contains("I205"), "{}", check.all());
 }
 
 #[test]
-fn the_twin_reports_only_unrecorded_verdicts_with_and_without_a_report() {
+fn the_twin_reports_only_unrecorded_verdicts_with_and_without_test_facts() {
     let p = taskboard();
     p.check_exact(&[]);
-    // The truths' proofs collected first: a report beside proofs no store holds stales their verdicts (ADR 0331 D7).
     let facts = p.collect_node_test_golden();
     assert_eq!(facts.code, 0, "{}", facts.all());
-    let report =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../parity/goldens/taskboard/junit.xml");
-    let run = p.collect(&[
-        "--runner",
-        "gsd-junit",
-        "--report",
-        &report.display().to_string(),
-    ]);
-    assert_eq!(run.code, 0, "{}", run.all());
-    // A report that links no test to a truth stales none of its verdicts (ADR 0331 D7).
+    // Test facts that name no truth stale none of its verdicts (ADR 0331 D7).
     assert_eq!(p.verify_phase("v1.0/01"), 0);
     p.check_exact(&[]);
-    // With a report the harness hides I205 for every project: a stray one would be invisible, so count it raw.
+    // The facts judge every `tests` input: no verdict is left unjudged. The harness hides I205, so count it raw.
     let check = p.run(&["check"]);
     assert!(!check.all().contains("I205"), "{}", check.all());
 }

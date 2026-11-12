@@ -23,7 +23,6 @@ fn operation_wire_names_are_snake_case() {
             "pass",
             "collect",
             "validate",
-            "scan",
             "migrate",
             "prompt",
             "render",

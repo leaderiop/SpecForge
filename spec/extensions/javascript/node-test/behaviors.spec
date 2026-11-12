@@ -35,11 +35,14 @@ behavior nt_map_node_test_report "Map a node --test Report to Test Facts" {
   types    [CollectInput, CollectOutput, Fact]
   contract """
     `collect__node_test` MUST answer facts only, a test and a test_run per
-    test of the JUnit report, minted by specforge-code-junit with the status
-    node gave it. A test is named js:<package>/<file>#<suite > … > name>:
-    its file is made relative to the project root (a Windows verbatim root
-    included), and <package> is the name of the nearest read package.json at
-    or above it, <file> the path under that package's directory. A report
+    test of the JUnit report, read by specforge-code-junit and minted by
+    specforge-code-facts with the status node gave it. A test is named
+    js:<package>/<file>#<suite > … > name>: its file is made relative to the
+    project root (a Windows verbatim root included), and <package> is the
+    name of the nearest read package.json at or above it (<name>@<dir>, the
+    dir percent-encoded, for a second package of one name), <file> the path
+    under that package's directory; the fact's file is the project-relative
+    path. A [<ns>:<id>] tag in a test's name puts <id> in its names. A report
     that is not JUnit, a test with no file, a file outside the project and a
     test with no named package at or above it are the collector's error,
     never a test dropped silently.
@@ -51,6 +54,9 @@ behavior nt_map_node_test_report "Map a node --test Report to Test Facts" {
   }
   verify unit "the twin's tests are named after its package"
   verify unit "a workspace test is named after its nearest package"
+  verify unit "a test fact's file is project-relative in a nested package"
+  verify unit "a second package of one name names its tests after its directory"
+  verify unit "a [<ns>:<id>] tag in a test's name is one of its names"
   verify unit "an absolute file is made relative to the project root"
   verify unit "a Windows file is made relative to a verbatim cwd"
   verify unit "a failing and a skipped test keep their status"

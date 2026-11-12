@@ -1,5 +1,5 @@
 use super::*;
-use crate::lex::{LiteralShape, is_number_word, literal_shape};
+use crate::lex::{LiteralShape, is_number_word, literal_shape, type_spelling};
 
 /// What a block's members read to; `obligations` and `obligation_spans` are pushed together, at one site.
 #[derive(Default)]
@@ -20,12 +20,17 @@ pub(super) struct Body {
 impl<'a> ParseContext<'a> {
     pub(super) fn parse_block_body(&mut self, node: Node) -> Body {
         let mut body = Body::default();
+        self.report_bare_references(node);
         let mut cursor = node.walk();
         // The row where the previous item ends: a comment on it trails that item.
         let mut trailed: Option<usize> = None;
         for child in node.children(&mut cursor) {
             match child.kind() {
-                _ if child.is_error() => self.push_error_node(child),
+                _ if child.is_error() => {
+                    if !self.in_bare(&self.span(child)) {
+                        self.push_error_node(child);
+                    }
+                }
                 kind::COMMENT if own_line(child, trailed) => {
                     self.body_comments.push(self.span(child));
                 }
@@ -61,17 +66,24 @@ impl<'a> ParseContext<'a> {
     fn parse_field(&mut self, node: Node) -> Option<FieldEntry> {
         let key = node.child_by_field_name(field::KEY)?;
         let value = node.child_by_field_name(field::VALUE)?;
+        // A key or a single value inside a reference written bare is the grammar's recovery, not a member (E120).
+        if self.in_bare(&self.span(key)) || self.in_bare(&self.span(value)) {
+            return None;
+        }
         // Tree-sitter may recover from a syntax error deep inside a value
         // (e.g. a dangling operator in an expression group); surface it.
         if let Some(broken) = find_error_descendant(value) {
             let span = self.span(broken);
-            self.errors.push(ParseError {
-                message: "syntax error in field value".to_string(),
-                span,
-            });
+            if !self.in_bare(&span) {
+                self.errors
+                    .push(ParseError::syntax("syntax error in field value", span));
+            }
         }
         let key_sym = Sym::new(self.text(key));
-        let field_value = self.parse_value(value);
+        let mut field_value = self.parse_value(value);
+        if let FieldValue::List(items) = &mut field_value {
+            items.retain(|item| !self.in_bare(&item.span));
+        }
         self.comments_inside(value);
 
         // Extract annotations (children with kind "annotation")
@@ -226,7 +238,9 @@ impl<'a> ParseContext<'a> {
             .map(|n| self.text(n).to_string())
             .unwrap_or_default();
         let returns_node = node.child_by_field_name(field::RETURNS);
-        let returns = returns_node.map(|n| self.text(n).trim().to_string());
+        let (returns, returns_lexemes) = returns_node
+            .map(|n| self.type_text(n))
+            .map_or((None, Vec::new()), |(text, at)| (Some(text), at));
         let mut params = Vec::new();
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
@@ -238,9 +252,7 @@ impl<'a> ParseContext<'a> {
                 .map(|n| self.text(n).to_string())
                 .unwrap_or_default();
             let ty_node = child.child_by_field_name(field::TYPE);
-            let pty = ty_node
-                .map(|n| self.text(n).trim().to_string())
-                .unwrap_or_default();
+            let (pty, ty_lexemes) = ty_node.map(|n| self.type_text(n)).unwrap_or_default();
             let mut annotations = Vec::new();
             let mut param_cursor = child.walk();
             for part in child.children(&mut param_cursor) {
@@ -252,6 +264,7 @@ impl<'a> ParseContext<'a> {
                 name: pname,
                 ty: pty,
                 ty_span: ty_node.map(|n| self.span(n)),
+                ty_lexemes,
                 optional: child.child_by_field_name(field::OPTIONAL).is_some(),
                 annotations,
             });
@@ -262,8 +275,49 @@ impl<'a> ParseContext<'a> {
             params,
             returns,
             returns_span: returns_node.map(|n| self.span(n)),
+            returns_lexemes,
             span: self.span(node),
         }
+    }
+
+    /// A method's type in its one spelling, and where each of its lexemes is written.
+    fn type_text(&self, node: Node) -> (String, Vec<SourceSpan>) {
+        let written = self.text(node);
+        let (spelling, lexemes) = type_spelling(written);
+        let start = node.start_position();
+        // Where the text scanned so far ends: its row, its byte column, its offset. The lexemes' offsets only grow,
+        // so each is reached from the one before, never by scanning the text from its start again.
+        let (mut row, mut column, mut scanned) = (start.row, start.column, 0);
+        let mut at = |offset: usize| {
+            let gap = &written[scanned..offset];
+            match gap.rfind('\n') {
+                None => column += gap.len(),
+                Some(newline) => {
+                    row += gap.matches('\n').count();
+                    column = gap.len() - newline - 1;
+                }
+            }
+            scanned = offset;
+            self.position(
+                node.start_byte() + offset,
+                tree_sitter::Point::new(row, column),
+            )
+        };
+        let spans = lexemes
+            .iter()
+            .map(|lexeme| {
+                let ((start_line, start_col), (end_line, end_col)) =
+                    (at(lexeme.start), at(lexeme.end));
+                SourceSpan {
+                    file: self.file_sym,
+                    start_line,
+                    start_col,
+                    end_line,
+                    end_col,
+                }
+            })
+            .collect();
+        (spelling, spans)
     }
 
     fn parse_verify_statement(&self, node: Node) -> Option<VerifyStatement> {

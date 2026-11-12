@@ -40,9 +40,8 @@ do, aimed at software and product work, not a base every project needs. The kind
 | `@specforge/formal` | `property`, `axiom`, `protocol`, `refinement`, `process` | Formal methods ([guide](guides/formal-verification.md)) |
 
 With the two structural node kinds that makes 2 + 22 = 24 entity kinds in a project that loads all four. Other
-builtins declare no kinds: `@specforge/testing` makes kinds testable (`verify` lines), `@specforge/cargo-test` and
-`@specforge/vitest` collect test results, `@specforge/rust` and `@specforge/typescript` read source code for
-`specforge infer`. The [extension inventory](extension-inventory.md) lists what each one declares.
+builtins declare no kinds: `@specforge/testing` makes kinds testable (`verify` lines), and `@specforge/cargo-test` and
+`@specforge/vitest` collect test results. The [extension inventory](extension-inventory.md) lists what each one declares.
 
 A pharma team, a marketing team or a team using another spec framework writes its own extension and gets its own
 kinds: `sop`, `batch_record`, `campaign`, `audience`. See the [extension model](extension-model.md).

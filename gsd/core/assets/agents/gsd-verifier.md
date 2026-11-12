@@ -420,7 +420,7 @@ Anti-pattern scanning (Step 7) checks for code smells. Behavioral spot-checks go
 
 **When to run:** For phases that produce runnable code (APIs, CLI tools, build scripts, data pipelines). Skip for documentation-only or config-only phases.
 
-**Behavioral evidence for behavior-dependent truths (Step 3).** When a truth asserts a state transition or a cancellation/cleanup/ordering invariant, the single named test below is what upgrades it from ⚠️ PRESENT_BEHAVIOR_UNVERIFIED to ✓ VERIFIED. Run only the one named test that exercises the transition/invariant — never the full suite (per #25/#753). If no such test exists, leave the truth ⚠️ PRESENT_BEHAVIOR_UNVERIFIED and route it to human verification (Step 8); do not mark it VERIFIED on presence.
+**Behavioral evidence for behavior-dependent truths (Step 3).** When a truth asserts a state transition or a cancellation/cleanup/ordering invariant, the single named test below is what upgrades it from ⚠️ PRESENT_BEHAVIOR_UNVERIFIED to ✓ VERIFIED. Read only the collected status of the one named test that exercises the transition/invariant — `specforge collect` runs the suite once and every test's status is a fact (per #25/#753). If no such test exists, leave the truth ⚠️ PRESENT_BEHAVIOR_UNVERIFIED and route it to human verification (Step 8); do not mark it VERIFIED on presence.
 
 **How:**
 
@@ -436,14 +436,14 @@ node $CLI_PATH --help 2>&1 | grep -q "$EXPECTED_SUBCOMMAND"
 # Build produces output files
 specforge files list $BUILD_OUTPUT_DIR --depth 1 --kind file --no-ignore --glob '*.js' --glob '*.css' --pick .count 2>/dev/null || echo 0
 
-# Module exports expected functions
-node -e "const m = require('$MODULE_PATH'); console.log(typeof m.$FUNCTION_NAME)" 2>/dev/null | grep -q "function"
+# Module exports expected functions (@javascript/source's item fact)
+specforge query "js:$PACKAGE/$MODULE_FILE::$FUNCTION_NAME" --depth 0 --pick '.nodes[0].fields.kind[]' 2>/dev/null   # it passes when it prints function
 
-# A test EXISTS (existence proof — enumerate, do NOT run the suite)
-cargo test -- --list 2>/dev/null | grep -q "$PHASE_TEST_PATTERN"   # pytest --collect-only -q · npx vitest list · go test -list '.*'
+# A test EXISTS (its collected fact, nothing runs)
+specforge query "$TEST_ID" --depth 0 --pick '.nodes[0].id' 2>/dev/null   # a test fact (js:<package>/<file>#<name>, rust:<binary>#<path>), or with nothing run its item (rust:<crate>::<path>); a refusal: it does not exist
 
-# A specific test PASSES (run ONE named test, never the whole suite)
-cargo test "$TEST_NAME" -- --exact   # pytest -k "$TEST_NAME" · npx vitest run -t "$TEST_NAME"
+# A specific test PASSES (its collected status)
+specforge collect --yes >/dev/null && specforge query "$TEST_ID" --depth 0 --pick '.nodes[0].fields.status'   # passed, failed or skipped
 ```
 
 2. **Run each check** and record pass/fail:

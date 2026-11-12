@@ -100,6 +100,11 @@ pub struct Entity {
     /// [`Self::trailing_comments`]) nor one between a key and its value. In source order. Read through
     /// [`Self::holds_comment`]. The parse's only (ADR 0267).
     pub value_comments: Vec<SourceSpan>,
+    /// Where a collected fact is written in source, once per place (ADR 0346 D3): its `span` stays its store's, which
+    /// is what identifies a fact. Empty for a parsed block. The parser never sets it: a `SpecFile` is the graph
+    /// build's one input, which the parser makes of a `.spec` file and the session makes of a fact store, and the graph
+    /// keeps it on the node (`Node.located`); a second input type for facts would be a second path into the graph.
+    pub located: Vec<SourceSpan>,
 }
 
 /// One `method` member of an entity body.
@@ -110,10 +115,14 @@ pub struct MethodDecl {
     #[serde(skip)]
     pub name_span: Option<SourceSpan>,
     pub params: Vec<Parameter>,
+    /// The return type in its one spelling ([`crate::lex::type_spelling`]), whatever its layout.
     pub returns: Option<String>,
     /// Where `returns` is written; never serialized (a written form has no positions).
     #[serde(skip)]
     pub returns_span: Option<SourceSpan>,
+    /// Where each lexeme of `returns` is written, in order; never serialized.
+    #[serde(skip)]
+    pub returns_lexemes: Vec<SourceSpan>,
     pub span: SourceSpan,
 }
 
@@ -121,10 +130,14 @@ pub struct MethodDecl {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Parameter {
     pub name: String,
+    /// The type in its one spelling ([`crate::lex::type_spelling`]), whatever its layout.
     pub ty: String,
     /// Where `ty` is written; never serialized.
     #[serde(skip)]
     pub ty_span: Option<SourceSpan>,
+    /// Where each lexeme of `ty` is written, in order; never serialized.
+    #[serde(skip)]
+    pub ty_lexemes: Vec<SourceSpan>,
     /// Declared `name?: Type`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub optional: bool,
@@ -418,14 +431,34 @@ pub struct VerifyStatement {
     pub description: String,
 }
 
+/// What the parse could not read: a syntax error (E001) unless it says otherwise, at `span`.
 #[derive(Debug, Clone)]
 pub struct ParseError {
+    pub code: specforge_common::Code,
     pub message: String,
     pub span: SourceSpan,
+    pub suggestion: Option<String>,
+}
+
+impl ParseError {
+    /// A syntax error (E001) saying `message` at `span`.
+    pub fn syntax(message: impl Into<String>, span: SourceSpan) -> Self {
+        ParseError {
+            code: codes::E001,
+            message: message.into(),
+            span,
+            suggestion: None,
+        }
+    }
 }
 
 impl From<&ParseError> for specforge_common::Diagnostic {
     fn from(err: &ParseError) -> Self {
-        specforge_common::Diagnostic::new(codes::E001, &err.message).with_span(err.span.clone())
+        let diagnostic =
+            specforge_common::Diagnostic::new(err.code, &err.message).with_span(err.span.clone());
+        match &err.suggestion {
+            Some(suggestion) => diagnostic.with_suggestion(suggestion),
+            None => diagnostic,
+        }
     }
 }

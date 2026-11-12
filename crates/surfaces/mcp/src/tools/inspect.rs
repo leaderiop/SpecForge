@@ -46,6 +46,10 @@ pub struct Reply {
     #[serde(skip_serializing_if = "Option::is_none")]
     source_extension: Option<String>,
     source_span: SourceSpan,
+    /// Where a collected fact is written in source, each place of it (ADR 0346); absent when it has none.
+    /// `source_span` and `file` stay its store's.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    located: Vec<SourceSpan>,
     /// The file it is written in, relative to the spec root.
     file: String,
     /// The revision of that file as the project was read (`sha256:<digest>`): what a later `specforge.edit` or
@@ -149,6 +153,7 @@ impl Reply {
             obligated: facts.standing.obligated(),
             source_extension: facts.kind.map(|kind| kind.source_extension.to_string()),
             source_span: node.source_span.clone(),
+            located: node.located.clone(),
             revision: specforge_ops::revision::of_file(view.project(), &file),
             file,
             contract: facts.headline.as_ref().map(ToString::to_string),
