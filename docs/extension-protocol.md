@@ -547,7 +547,13 @@ describe files written into an agent host's project directory by `specforge inst
 
 A `tools` item is a class, not a host's tool name: `read`, `write`, `edit`, `shell`, `search`, `web_fetch`,
 `web_search`, `ask_user`, `agent`, `skill`, `todo`, or `mcp:<server>/<glob>`. Each host's adapter maps a class to its
-own names. `model` is `heavy`, `standard`, `light` or `inherit`, or `setting:<name>` whose value is one of them (or,
+own names. An agent, skill or slash command names SpecForge's own tools as engine tool classes (2.1.0, ADR 0334):
+`specforge:<tool>` (a row of `specforge_protocol_types::engine_tools::ENGINE_TOOLS`), `specforge:<group>` (`reads`,
+`navigation`, `edits`, `output`, `setup`) or `specforge:<short>.<command>` (a command of a loaded extension that is
+neither human-attested nor refused). Install resolves them; one that names no `specforge:` class gets the read and
+navigation tools, the edit and output tools when it holds `write` or `edit`, and its extension's own commands, and a
+slash command also gets the tool its trampoline calls. Each installed agent and skill body lists its tools in a
+generated `## SpecForge tools` section. `model` is `heavy`, `standard`, `light` or `inherit`, or `setting:<name>` whose value is one of them (or,
 for Codex, a model id); `effort` is `minimal`, `low`, `medium`, `high`, `max` or `inherit`, or `setting:<name>`. A
 `when` names a bool setting of the extension, or a list of them (1.13.0, ADR 0317): while any is false the agent, skill, slash command or hook is not
 rendered, and a hook is a no-op. A hook `event` is `pre_tool`, `post_tool`, `pre_commit`, `user_prompt`,
@@ -556,8 +562,9 @@ rendered, and a hook is a no-op. A hook `event` is `pre_tool`, `post_tool`, `pre
 
 A host name is one namespace per project: an agent id, a skill id and a slash command's `<short>-<route>` claimed
 twice are E039, and the later claimant is not rendered. A contribution the registry refuses (an unknown tool class,
-`tools` on an event that takes none, a `timeout_ms` over the sandbox ceiling, a `when` that is no bool setting) is
-W021 and dropped; the rest of the declaration is kept.
+a `specforge:` class naming no engine tool, group or command an agent may run, `mcp:specforge/<glob>`, a `specforge:`
+class on a hook, `tools` on an event that takes none, a `timeout_ms` over the sandbox ceiling, a `when` that is no
+bool setting) is W021 and dropped; the rest of the declaration is kept.
 
 `render__` is called once per agent and skill and host with a `RenderInput` (`kind`, `id`, `host`, `variant`,
 `today`) and answers a `RenderOutput` (`body`): the body without the host's frontmatter or marker.

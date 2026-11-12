@@ -3240,23 +3240,28 @@ skill, slash command or hook the registry refuses and drops, alone — an agent
 or skill id that is not kebab-case or is declared twice, a hook id that is not
 snake_case, a tool class outside the host-neutral vocabulary (`read`, `write`,
 `edit`, `shell`, `search`, `web_fetch`, `web_search`, `ask_user`, `agent`,
-`skill`, `todo`, `mcp:<server>/<glob>`), a `model` or `effort` outside its tiers
-that is not a `setting:` naming a string or enum setting of the extension,
-variants without a `variant_setting` (or the reverse), a `when` that is not a
-bool setting of the extension, a slash command that names no single prompt or
-command the extension declares, `tools` or `paths` on a hook of an event that
-takes none, a `timeout_ms` of 0 or above the ceiling (30 s, or the sandbox's),
-`writes` on a `statusline` hook, a hook export that is not `hook__<id>`, an
-attribution with an empty field, and a prompt step whose `agent` is no agent of
-the extension or of a declared peer. An input the host would serve empty is W021
-too (ADR 0293, ADR 0337), the call being kept: an input its call kind is not
-served, a collector's included, or a second one of a kind served once (`tests`,
-`state`, `graph`, `slash_commands`, `git`), a `setting` input naming the call's
-own extension or no extension and setting, and a `files` input whose name is no
-word or is repeated, that names neither or both of `field` and `glob`, a `field`
-that is not `kind.field` or that no loaded extension declares, a `root` on a
-glob or that is no root's name, and a glob that is empty, absolute, climbs with
-`..`, or has more than four `**` segments.
+`skill`, `todo`, `mcp:<server>/<glob>`, or a `specforge:<tool>`,
+`specforge:<group>` or `specforge:<short>.<command>` naming an engine tool,
+engine group or a command an agent may run (ADR 0334), but never on a hook),
+`mcp:specforge/<glob>` (SpecForge's whole server, which the `specforge:` classes
+name tool by tool), a `specforge:` class naming a human-attested or refused
+command, a `model` or `effort` outside its tiers that is not a `setting:` naming
+a string or enum setting of the extension, variants without a `variant_setting`
+(or the reverse), a `when` that is not a bool setting of the extension, a slash
+command that names no single prompt or command the extension declares, `tools`
+or `paths` on a hook of an event that takes none, a `timeout_ms` of 0 or above
+the ceiling (30 s, or the sandbox's), `writes` on a `statusline` hook, a hook
+export that is not `hook__<id>`, an attribution with an empty field, and a
+prompt step whose `agent` is no agent of the extension or of a declared peer. An
+input the host would serve empty is W021 too (ADR 0293, ADR 0337), the call
+being kept: an input its call kind is not served, a collector's included, or a
+second one of a kind served once (`tests`, `state`, `graph`, `slash_commands`,
+`git`), a `setting` input naming the call's own extension or no extension and
+setting, and a `files` input whose name is no word or is repeated, that names
+neither or both of `field` and `glob`, a `field` that is not `kind.field` or
+that no loaded extension declares, a `root` on a glob or that is no root's name,
+and a glob that is empty, absolute, climbs with `..`, or has more than four `**`
+segments.
 
 Owner: core
 Level: warning

@@ -372,3 +372,91 @@ fn each_when_name_is_a_bool_setting() {
         "{messages:#?}"
     );
 }
+
+/// The commands of `@t/core` an engine tool class may name: `stats` reads, `approve` is human-attested.
+fn commands() -> Value {
+    json!([
+        {"id": "stats", "title": "S", "description": "S", "export": "cmd__stats"},
+        {"id": "approve", "title": "A", "description": "A", "export": "cmd__approve", "human": true, "writes": true},
+    ])
+}
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "a contribution names SpecForge's engine tools as specforge:<tool>, specforge:<group> or specforge:<short>.<command>, and keeps them"
+)]
+fn an_engine_tool_class_names_a_tool_a_group_or_a_declared_command() {
+    let tools = json!([
+        "read",
+        "specforge:trace",
+        "specforge:reads",
+        "specforge:t.stats"
+    ]);
+    let build = build_registries(vec![core(json!({
+        "commands": commands(),
+        "agents": [{"id": "t-checker", "description": "A", "tools": tools}],
+        "skills": [{"id": "t-skill", "description": "S", "tools": tools}],
+        "slash_commands": [{"command": "stats", "tools": tools}],
+    }))]);
+    assert_eq!(w021(&build), Vec::<String>::new());
+    assert_eq!(asked::agents(&build), ["t-checker"]);
+    assert_eq!(asked::skills_and_slashes(&build), 2);
+    let (_, agent) = build.agent("t-checker").unwrap();
+    assert_eq!(agent.tools, tools.as_array().unwrap().clone());
+}
+
+#[specforge_test(
+    behavior = "install_into_a_host",
+    verify = "an engine tool class naming no tool, group or command an agent may run, SpecForge's server through mcp:, or set on a hook is W021 and drops the item"
+)]
+fn an_engine_tool_class_the_registry_refuses_is_w021() {
+    let agent =
+        |id: &str, class: &str| json!({"id": id, "description": "A", "tools": ["read", class]});
+    let build = build_registries(vec![core(json!({
+        "commands": commands(),
+        "agents": [
+            agent("t-fine", "specforge:navigation"),
+            agent("t-nope", "specforge:nope"),
+            agent("t-no-command", "specforge:t.nope"),
+            agent("t-human", "specforge:t.approve"),
+            agent("t-server", "mcp:specforge/*"),
+        ],
+        "hooks": [
+            hook("engine_hook", "pre_tool", json!({"tools": ["specforge:query"]})),
+            hook("host_hook", "pre_tool", json!({"tools": ["write"]})),
+        ],
+    }))]);
+    let messages = w021(&build);
+    for (named, why) in [
+        (
+            "t-nope",
+            "its tool class 'specforge:nope' names no engine tool, engine group or command an agent may run",
+        ),
+        (
+            "t-no-command",
+            "its tool class 'specforge:t.nope' names no engine tool",
+        ),
+        (
+            "t-human",
+            "its tool class 'specforge:t.approve' names 't.approve', which only a person runs",
+        ),
+        (
+            "t-server",
+            "its tool class 'mcp:specforge/*' names SpecForge's own server",
+        ),
+        (
+            "engine_hook",
+            "its tool class 'specforge:query' is on a hook",
+        ),
+    ] {
+        let hits: Vec<&String> = messages
+            .iter()
+            .filter(|m| m.contains(&format!("'{named}'")))
+            .collect();
+        assert_eq!(hits.len(), 1, "{named}: {messages:#?}");
+        assert!(hits[0].contains(why), "{named}: {hits:#?}");
+    }
+    assert_eq!(messages.len(), 5, "{messages:#?}");
+    assert_eq!(asked::agents(&build), ["t-fine"]);
+    assert_eq!(asked::hooks(&build), ["host_hook"]);
+}

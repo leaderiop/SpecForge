@@ -461,6 +461,13 @@ c.hook("write_guard", HookEvent::PreTool, |h| {
 c.render(|call| Ok(format!("# {}\n", call.id())));
 ```
 
+A `tools` list names SpecForge's own tools as engine tool classes (ADR 0334): `specforge:trace`, a group such as
+`specforge:navigation`, or a command as `specforge:<short>.<command>`. The catalogue they name is
+`specforge_extension_sdk::engine_tools` (`ENGINE_TOOLS`, `parse_class`). An agent that names no `specforge:` class gets
+the read and navigation tools, the edit and output tools when it holds `write` or `edit`, and the extension's own
+commands. An extension whose agents play roles keeps its own table of the classes each role needs and builds each
+agent's `tools` from it; the host knows no role. A hook takes no `specforge:` class.
+
 `agent`, `skill` and `hook` panic on a name already declared, so the extension's first test finds it. A hook builder
 has `tools`, `paths`, `timeout_ms`, `on_failure_deny`, `input` (`Graph`, `State`, `git()`, `setting(..)`), `writes`
 and `when`; its handler

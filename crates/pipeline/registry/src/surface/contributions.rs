@@ -4,14 +4,17 @@
 //! `model` or `effort` outside its vocabulary, a `setting:` that names no setting of the right type, a variant
 //! without its setting, a `when` that is no bool setting, a slash target the extension does not declare, `tools` or
 //! `paths` on an event that takes none, a `timeout_ms` of 0 or above the ceiling, `writes` on an event that cannot,
+//! a `specforge:` class naming no engine tool, engine group or command an agent may run, `mcp:specforge/…` (the whole
+//! server, which the engine tool classes name tool by tool), a `specforge:` class on a hook (ADR 0334),
 //! a hook export that is not `hook__<id>`, a hook event this host does not know, a hook host outside claude-code,
 //! codex and cursor. Host names are one namespace per project: two claimants of one name, across kinds and
 //! extensions, are E039, and the later is not rendered. Hooks route as `<short>.<id>`.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use specforge_common::{Diagnostic, codes};
-use specforge_protocol_types::command_args::option_name;
+use specforge_protocol_types::command_args::{option_name, refusal_of};
+use specforge_protocol_types::engine_tools::{CLASS_PREFIX, EngineClass, parse_class};
 use specforge_protocol_types::{
     AgentDescriptor, Attribution, ExtensionDeclaration, FieldType, HOOK_HOSTS, HookDescriptor,
     SkillDescriptor, SlashCommandDescriptor,
@@ -86,11 +89,44 @@ fn warn(kind: &str, id: &str, extension: &str, reason: &str) -> Diagnostic {
     )
 }
 
-/// What the checks of one extension read: its settings and its sandbox.
+/// Whether an agent may run a command a loaded extension declares.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Runnable {
+    Yes,
+    /// Human-attested: only a person runs it (ADR 0301).
+    Human,
+    /// Its args break the one arg rule: the host serves it on no surface.
+    Refused,
+}
+
+/// Every command the loaded extensions declare, by `<short>.<id>`: what a `specforge:<short>.<command>` class names.
+type Commands = BTreeMap<String, Runnable>;
+
+fn commands(declarations: &[ExtensionDeclaration]) -> Commands {
+    let mut out = Commands::new();
+    for declaration in declarations {
+        let short = declaration.short();
+        for command in &declaration.surfaces.commands {
+            let runnable = if command.human {
+                Runnable::Human
+            } else if refusal_of(&command.args, command.writes).is_some() {
+                Runnable::Refused
+            } else {
+                Runnable::Yes
+            };
+            out.entry(format!("{short}.{}", command.id))
+                .or_insert(runnable);
+        }
+    }
+    out
+}
+
+/// What the checks of one extension read: its settings, its sandbox and the commands of every loaded extension.
 struct Ctx<'a> {
     settings: &'a SettingsRegistry,
     extension: &'a str,
     ceiling_ms: u32,
+    commands: &'a Commands,
 }
 
 impl Ctx<'_> {
@@ -103,16 +139,47 @@ impl Ctx<'_> {
 
     fn tools(&self, tools: &[String]) -> Result<(), String> {
         for tool in tools {
-            let known = CLASSES.contains(&tool.as_str())
-                || tool
-                    .strip_prefix("mcp:")
-                    .and_then(|rest| rest.split_once('/'))
-                    .is_some_and(|(server, glob)| !server.is_empty() && !glob.is_empty());
-            if !known {
+            if tool.starts_with(CLASS_PREFIX) {
+                self.engine_class(tool)?;
+                continue;
+            }
+            let mcp = tool
+                .strip_prefix("mcp:")
+                .and_then(|rest| rest.split_once('/'))
+                .filter(|(server, glob)| !server.is_empty() && !glob.is_empty());
+            if mcp.is_some_and(|(server, _)| server == "specforge") {
+                return Err(format!(
+                    "its tool class '{tool}' names SpecForge's own server: name its tools as specforge:<tool>, \
+                     specforge:<group> or specforge:<short>.<command>"
+                ));
+            }
+            if !CLASSES.contains(&tool.as_str()) && mcp.is_none() {
                 return Err(format!("its tool class '{tool}' is not one a host maps"));
             }
         }
         Ok(())
+    }
+
+    /// A `specforge:` class names an engine tool, an engine group, or a command of a loaded extension that an agent
+    /// may run (ADR 0334).
+    fn engine_class(&self, class: &str) -> Result<(), String> {
+        let unknown = || {
+            format!(
+                "its tool class '{class}' names no engine tool, engine group or command an agent may run"
+            )
+        };
+        match parse_class(class).ok_or_else(unknown)? {
+            EngineClass::Tool(_) | EngineClass::Group(_) => Ok(()),
+            EngineClass::Command { short, id } => {
+                match self.commands.get(&format!("{short}.{id}")) {
+                    Some(Runnable::Yes) => Ok(()),
+                    Some(Runnable::Human) => Err(format!(
+                        "its tool class '{class}' names '{short}.{id}', which only a person runs"
+                    )),
+                    Some(Runnable::Refused) | None => Err(unknown()),
+                }
+            }
+        }
     }
 
     /// `value` is one of `words`, or `setting:<name>` naming a string or enum setting of the extension.
@@ -230,6 +297,11 @@ impl Ctx<'_> {
                 ));
             }
         }
+        if let Some(class) = hook.tools.iter().find(|t| t.starts_with(CLASS_PREFIX)) {
+            return Err(format!(
+                "its tool class '{class}' is on a hook: a hook matches the host's own tools, not SpecForge's engine tools"
+            ));
+        }
         self.tools(&hook.tools)?;
         let inputs = specforge_protocol_types::Inputs(&hook.inputs);
         if let Some(setting) = inputs.git().and_then(|git| git.when) {
@@ -305,7 +377,11 @@ fn clean(
     }
 }
 
-fn ctx<'a>(settings: &'a SettingsRegistry, declaration: &'a ExtensionDeclaration) -> Ctx<'a> {
+fn ctx<'a>(
+    settings: &'a SettingsRegistry,
+    declaration: &'a ExtensionDeclaration,
+    commands: &'a Commands,
+) -> Ctx<'a> {
     let sandbox = declaration
         .handshake
         .sandbox_policy
@@ -315,6 +391,7 @@ fn ctx<'a>(settings: &'a SettingsRegistry, declaration: &'a ExtensionDeclaration
         settings,
         extension: declaration.name(),
         ceiling_ms: sandbox.map_or(HOOK_CEILING_MS, |ms| ms.min(HOOK_CEILING_MS)),
+        commands,
     }
 }
 
@@ -324,10 +401,11 @@ pub fn refuse_host_contributions(
     settings: &SettingsRegistry,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
+    let commands = commands(declarations);
     for declaration in declarations.iter_mut() {
         let name = declaration.name().to_string();
         let mut surfaces = std::mem::take(&mut declaration.surfaces);
-        let ctx = ctx(settings, declaration);
+        let ctx = ctx(settings, declaration, &commands);
         let mut seen = BTreeSet::new();
         surfaces.agents.retain_mut(|agent| {
             let verdict = if seen.insert(agent.id.clone()) {
@@ -396,10 +474,11 @@ pub fn refuse_slash_commands(
     settings: &SettingsRegistry,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
+    let commands = commands(declarations);
     for declaration in declarations.iter_mut() {
         let name = declaration.name().to_string();
         let mut slashes = std::mem::take(&mut declaration.surfaces.slash_commands);
-        let ctx = ctx(settings, declaration);
+        let ctx = ctx(settings, declaration, &commands);
         let mut seen = BTreeSet::new();
         slashes.retain_mut(|slash| {
             let target = slash

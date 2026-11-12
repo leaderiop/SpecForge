@@ -48,6 +48,8 @@ behavior install_into_a_host "Install Into a Host" {
   verify unit "Codex gets agent TOML without an Anthropic model, skills, hooks.json and config.toml"
   verify unit "Cursor gets agents, skills, hooks.json and mcp.json, and reports the statusline and pre_compact as not rendered"
   verify unit "Claude Code grants an agent, a skill or a slash command only the SpecForge tools it resolves, each by its name, never the whole server"
+  verify unit "a contribution names SpecForge's engine tools as specforge:<tool>, specforge:<group> or specforge:<short>.<command>, and keeps them"
+  verify unit "an engine tool class naming no tool, group or command an agent may run, SpecForge's server through mcp:, or set on a hook is W021 and drops the item"
   verify unit "install writes the tree and a second install writes nothing"
   verify unit "install refuses a file it did not write and writes nothing"
   verify unit "install refuses a marked file edited since unless forced"
