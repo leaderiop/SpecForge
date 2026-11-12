@@ -504,3 +504,73 @@ fn a_rendered_prompt_calls_only_specforge() {
         super::specforge_only::pending(|f| f.starts_with("prompt:")),
     );
 }
+
+/// The distinct graph tools of the engine-tool catalogue (every group but setup) that the 44 claude-code renders and
+/// the installed claude-code agent bodies name, by `tool_names::named`: the port's tool measure (ADR 0332). The count
+/// may not fall below it, and a rise raises it in the commit that names the new tool.
+const AT_LEAST: usize = 6;
+
+#[test]
+fn the_graph_tools_the_prompts_name_are_a_ratchet() {
+    let p = super::harness::project("empty");
+    super::agents::installed(&p, "claude-code");
+    // the generated tools section is the catalogue rendered, not a body using it
+    let agents = gsd_core::agents::roster::AGENTS.iter().map(|agent| {
+        let (_, body) = super::agents::split(&super::agents::claude_agent(&p, agent.id));
+        let cut = body.find("\n## SpecForge tools").unwrap_or(body.len());
+        (format!("agent:{}", agent.id), body[..cut].to_string())
+    });
+    let corpus = rendered()
+        .iter()
+        .map(|(id, text)| (format!("prompt:{id}"), text.clone()))
+        .chain(agents);
+    let mut counted: Vec<(&'static str, String)> = Vec::new();
+    for (source, text) in corpus {
+        for tool in super::tool_names::named(&text) {
+            if tool.group.graph() && !counted.iter().any(|(name, _)| *name == tool.name) {
+                counted.push((tool.name, source.clone()));
+            }
+        }
+    }
+    let catalogue = specforge_extension_sdk::engine_tools::ENGINE_TOOLS;
+    counted.sort_by_key(|(name, _)| catalogue.iter().position(|t| t.name == *name));
+    let set: Vec<String> = counted
+        .iter()
+        .map(|(name, source)| format!("  {name} (first in {source})"))
+        .collect();
+    let n = counted.len();
+    assert!(
+        n >= AT_LEAST,
+        "{n} graph tools named, below AT_LEAST = {AT_LEAST}: a tool was lost. Named now:\n{}",
+        set.join("\n")
+    );
+    assert!(
+        n <= AT_LEAST,
+        "{n} graph tools named: raise AT_LEAST to {n} in this commit. Named now:\n{}",
+        set.join("\n")
+    );
+}
+
+/// The counter's rule: an MCP name counts anywhere, a CLI line only as a command in code.
+#[test]
+fn a_tool_is_named_by_its_mcp_name_or_a_cli_line_in_code() {
+    let names = |text: &str| -> Vec<&str> {
+        super::tool_names::named(text)
+            .iter()
+            .map(|t| t.name)
+            .collect()
+    };
+    assert_eq!(names("Call `specforge.trace` on it."), ["trace"]);
+    assert_eq!(names("Then call specforge.edit."), ["edit"]);
+    assert!(names("Then run specforge check on the project.").is_empty());
+    assert_eq!(names("Then run `specforge check`."), ["validate"]);
+    assert_eq!(
+        names("```bash\nspecforge query X --inputs gsd/E501\n```\n"),
+        ["verdict_inputs"]
+    );
+    assert_eq!(
+        names("```bash\nP=$(specforge query X \\\n  --depth 1)\n# specforge check\n```\n"),
+        ["query"]
+    );
+    assert!(names("Edit `specforge.json` by hand.").is_empty());
+}

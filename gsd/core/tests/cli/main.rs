@@ -121,6 +121,8 @@ mod settings;
 mod source_items;
 #[path = "../common/specforge_only.rs"]
 mod specforge_only;
+#[path = "../common/tool_names.rs"]
+mod tool_names;
 mod verify_paths;
 mod verify_rules;
 mod verify_status;
