@@ -61,7 +61,7 @@
     "- gsd-verifier — Verifies phase completion, checks quality gates",
     "- gsd-code-reviewer — Reviews source files for bugs, security issues, and code quality"
   ],
-  "bytes": 57771,
+  "bytes": 57755,
   "end": [
     "Execute end-to-end.",
     "Preserve all workflow gates (validation, task description, planning, execution, state updates, commits).",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 1095,
+  "lines": 1079,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:8c6011745ccdfea415ca8e145d8f5774569691bc7141f93d30d65792bd64544e",
+    "digest": "sha256:0cd5e7e8c6d23183b2529f8d98bf1b7a4d65596bfa81daa7ada52edab75873b3",
     "prompt": "@gsd/core@VERSION:quick",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "8c6011745ccdfea415ca8e145d8f5774569691bc7141f93d30d65792bd64544e"
+  "sha256": "0cd5e7e8c6d23183b2529f8d98bf1b7a4d65596bfa81daa7ada52edab75873b3"
 }

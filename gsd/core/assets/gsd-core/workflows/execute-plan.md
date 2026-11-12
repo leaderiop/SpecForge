@@ -386,7 +386,6 @@ If `NODE_REPAIR` is `false` OR repair returns ESCALATE: STOP. Present: "Verifica
 ```bash
 # the plan closes at the end of create_summary: its summary must exist first
 
-
 ```
 </step>
 

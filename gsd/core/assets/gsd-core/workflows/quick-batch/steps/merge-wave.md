@@ -1,11 +1,3 @@
 <!-- Ported from gsd-core v1.19.0 gsd-core/workflows/quick-batch/steps/merge-wave.md, MIT, Copyright (c) 2026 Open GSD; see gsd/core/LICENSE-GSD -->
 Not reached: `@gsd/core` runs no worktree isolation (every quick-batch executor commits on the working tree in Step 6, `worktree-dispatch.md`).
 
-
-
-
-
-
-
-
-

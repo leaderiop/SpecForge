@@ -78,26 +78,6 @@ Mode:    {PR_MODE}
 <step name="handle_sub_repos">
 There are no sub-repositories: a sub-repository is another SpecForge project, and `planning.sub_repos` is not a setting here. Continue to `analyze_commits`.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 </step>
 
 <step name="analyze_commits">

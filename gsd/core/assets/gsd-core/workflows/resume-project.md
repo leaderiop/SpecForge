@@ -286,19 +286,12 @@ Resume-specific exception: do **not** emit `/clear then:` here. Resume is alread
 <step name="update_session">
 The session continuity is computed from the spec: nothing is written before proceeding to the routed workflow.
 
-
-
-
 </step>
 
 </process>
 
 <reconstruction>
 The project state is computed from the spec, so there is nothing to reconstruct. If the spec holds no project, route to /gsd:new-project.
-
-
-
-
 
   </reconstruction>
 

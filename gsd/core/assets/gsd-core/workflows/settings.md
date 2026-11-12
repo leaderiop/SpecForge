@@ -558,8 +558,6 @@ GSD's own defaults store: writing it would change that tool's defaults, and no s
 new project would not start from these settings. The settings are this project's `specforge.json`; a new project is set
 up with the same `specforge settings set @gsd/core <key> <value>` lines. Tell the user so if they ask for defaults.
 
-
-
 </step>
 
 <step name="confirm">

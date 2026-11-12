@@ -128,10 +128,6 @@ EXECUTOR_STALL_THRESHOLD_MINUTES="{{setting:executor.stall_threshold_minutes|10}
 Executors run in sequential mode on the working tree: `@gsd/core` has no worktree isolation (no submodule check, no base-check degrade).
 
 
-
-
-
-
 Read context window size for adaptive prompt enrichment:
 
 ```bash
@@ -608,8 +604,6 @@ increases monotonically across waves. `{status}` is `complete` (success),
    ```
 
 
-
-
    ```text
    Agent(
     subagent_type="{EXECUTOR_TYPE}",
@@ -775,21 +769,6 @@ increases monotonically across waves. `{status}` is `complete` (success),
 5.5. **Worktree cleanup (when `isolation="worktree"` was used):**
 
    No worktree was created: there is nothing to merge back or clean up.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 5.6. **Post-merge build & test gate:**

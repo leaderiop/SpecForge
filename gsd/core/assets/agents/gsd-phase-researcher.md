@@ -558,11 +558,6 @@ specforge query "<capability-keyword>" --depth 1 --format json
 If nothing comes back, continue to Step 1.5 without graph context.
 
 
-
-
-
-
-
 Derive query terms from the phase goal and requirement descriptions. Examples:
 - Phase "user authentication and session management" -> query "authentication", "session", "token"
 - Phase "payment integration" -> query "payment", "billing"

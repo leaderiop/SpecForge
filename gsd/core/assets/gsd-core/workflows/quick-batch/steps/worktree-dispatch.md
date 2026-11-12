@@ -113,9 +113,6 @@ QB_SPAWN_JSON='{"spawn":[],"pending":[]}'   # quick-batch spawn-plan: the batch 
    ```
    No worktree is created or recorded: the executor commits on the working tree, so Step 7 has nothing to merge.
 
-
-
-
    > **ORCHESTRATOR RULE — CODEX RUNTIME**: after each `Agent()` call above, wait for it to return before dispatching the next item.
 
 4. **After every item dispatched this round returns:** verify

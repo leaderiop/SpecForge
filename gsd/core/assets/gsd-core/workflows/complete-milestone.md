@@ -327,21 +327,9 @@ After `milestone complete` has archived, reorganize ROADMAP.md with milestone gr
 **Reorganize ROADMAP.md**: the roadmap is the `milestone` and `phase` entities: there is no ROADMAP.md to reorganize, no sentinel to arm and no Backlog section to re-append (backlog phases stay entities of the milestone).
 
 
-
-
 ```bash
 
 ```
-
-
-
-
-
-
-
-
-
-
 
 
 **Safety commit — commit archive files BEFORE deleting any originals:**

@@ -14,16 +14,6 @@ If user chooses [A] (Acknowledge): the open items are `specforge check` findings
 3. Re-run `specforge check --format json`: gsd/E106 passes once the milestone's latest audit is `passed`, or `tech_debt` with a `debt_accepted`; that is all [A] clears.
 4. Proceed with the close (`specforge gsd close-milestone`) only when none of its gate codes is reported (gsd/E106, gsd/E511, gsd/E515 and gsd/E516); an open UAT or verification item (gsd/E511, gsd/E515, gsd/E516) still blocks: stop, report it and resolve it through [R]. The audit's `tech_debt` entries are the disclosure record: no other file is written.
 
-
-
-
-
-
-
-
-
-
-
 Accepting is a person's act on one audit: a later audit of the milestone carries no `debt_accepted` until a person writes one again.
 
 If output shows all clear (no open items): proceed with the close.

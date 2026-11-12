@@ -50,14 +50,6 @@ If `next_action.kind == "map-codebase"`:
 
 - Do not ask: `/gsd:map-codebase` is served by `@gsd/codebase`, which is not installed here. Print one line, "Codebase mapping is not available here (`@gsd/codebase` is not installed): continuing without a map.", then take the "Skip mapping" path:
 
-
-
-
-
-
-
-
-
 On the "Skip mapping" path:
 
 - If some but not all of the four exist (project, requirements, roadmap, state), route the skip to the partial planning guard instead:

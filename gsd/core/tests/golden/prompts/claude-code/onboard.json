@@ -61,7 +61,7 @@
     "Set:",
     "- `TEXT_MODE=true` if `--text` is present or `text_mode` is true. When `TEXT_MODE` is active, replace every `AskUserQuestion` call below with a plain-text numbered list and ask the user to type their choice number — required for non-Claude runtimes (OpenAI Codex, Antigravity, etc.) where `AskUserQuestion` is not available."
   ],
-  "bytes": 30303,
+  "bytes": 30295,
   "end": [
     "- options: Quick (3-5 phases, skip research) | Standard (5-8 phases, default) | Comprehensive (8-12 phases, deep research)",
     "",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 796,
+  "lines": 788,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:066225fb3e66bc64e3b42b918bdb84dc8d353b1d1eb97cc0da231f12e8bfcae9",
+    "digest": "sha256:db41adb8e5b5b0473c424c5c9a291caa4c302802b4be4f7dd90313f254158ded",
     "prompt": "@gsd/core@VERSION:onboard",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "066225fb3e66bc64e3b42b918bdb84dc8d353b1d1eb97cc0da231f12e8bfcae9"
+  "sha256": "db41adb8e5b5b0473c424c5c9a291caa4c302802b4be4f7dd90313f254158ded"
 }

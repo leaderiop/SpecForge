@@ -61,13 +61,13 @@
     "Read and parse STATE.md, then PROJECT.md:",
     ""
   ],
-  "bytes": 20174,
+  "bytes": 20167,
   "end": [
+    "",
+    "</process>",
+    "",
+    "<reconstruction>",
     "The project state is computed from the spec, so there is nothing to reconstruct. If the spec holds no project, route to /gsd-new-project.",
-    "",
-    "",
-    "",
-    "",
     "",
     "  </reconstruction>",
     "",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 529,
+  "lines": 522,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:0ff620cc8070fe79db7da2741cf7bad3e33d0ba1297a78b2e339d63cdd56d875",
+    "digest": "sha256:6afa4df8e17f0fc9cf450f265a92ac632eb2b5cc3f134e628c8ddff2c0a70519",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "0ff620cc8070fe79db7da2741cf7bad3e33d0ba1297a78b2e339d63cdd56d875"
+  "sha256": "6afa4df8e17f0fc9cf450f265a92ac632eb2b5cc3f134e628c8ddff2c0a70519"
 }

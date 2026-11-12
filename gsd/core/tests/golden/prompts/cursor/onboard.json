@@ -61,7 +61,7 @@
     "Set:",
     "- `TEXT_MODE=true` if `--text` is present or `text_mode` is true. When `TEXT_MODE` is active, replace every `conversational prompting` call below with a plain-text numbered list and ask the user to type their choice number — required for non-Claude runtimes (OpenAI Codex, Antigravity, etc.) where `conversational prompting` is not available."
   ],
-  "bytes": 31084,
+  "bytes": 31076,
   "end": [
     "- options: Quick (3-5 phases, skip research) | Standard (5-8 phases, default) | Comprehensive (8-12 phases, deep research)",
     "",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 815,
+  "lines": 807,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:c366ffe6b06ffd210ad33888bd4af117e94cfa4f513b6458d08ecd85f28287b3",
+    "digest": "sha256:cdfdd5a0736ae1afeb7e6bb184d966e97bceed1696613c99a235a12186587c6d",
     "prompt": "@gsd/core@VERSION:onboard",
     "steps": [
       {
@@ -215,5 +215,5 @@
       }
     ]
   },
-  "sha256": "c366ffe6b06ffd210ad33888bd4af117e94cfa4f513b6458d08ecd85f28287b3"
+  "sha256": "cdfdd5a0736ae1afeb7e6bb184d966e97bceed1696613c99a235a12186587c6d"
 }

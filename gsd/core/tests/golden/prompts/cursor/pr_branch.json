@@ -61,7 +61,7 @@
     "fi",
     ""
   ],
-  "bytes": 23148,
+  "bytes": 23128,
   "end": [
     "Planning paths in diff: {FORBIDDEN} — must be 0",
     "Planning deletions: {PLANNING_DELETIONS} (must be 0 — #3679)",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 545,
+  "lines": 525,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5b983509ffd34a1722d5cad730df2945e6c0056e46014560b36d2c6bccde4643",
+    "digest": "sha256:6fd50baec8e2fae35fb2197cefa89523d1e993e3044f7a38cb2d13ffcca93a9f",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "5b983509ffd34a1722d5cad730df2945e6c0056e46014560b36d2c6bccde4643"
+  "sha256": "6fd50baec8e2fae35fb2197cefa89523d1e993e3044f7a38cb2d13ffcca93a9f"
 }

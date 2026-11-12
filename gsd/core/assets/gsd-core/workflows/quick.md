@@ -632,22 +632,6 @@ If `section_manifest` is `null` or `"quick-verification"` is in its `included` l
 A quick plan with its summary is the record of the task, and the computed project state lists it: nothing is written to a state file. Continue with Step 8.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ---
 
 **Step 8: Final commit and completion**

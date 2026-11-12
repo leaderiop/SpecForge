@@ -61,7 +61,7 @@
     "",
     "<available_agent_types>"
   ],
-  "bytes": 23332,
+  "bytes": 23330,
   "end": [
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
     "capacity/isolation, and dispatch wave-by-wave.",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 471,
+  "lines": 469,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:8c900bfc2393cb187dff0767d5dcb014f4dfd9c96f5a71b3b433ee8ff6623c84",
+    "digest": "sha256:3d3b8699a17e2e6c027fe55ea1bec83d82cb5afacfdaafd62442f464437a7627",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "8c900bfc2393cb187dff0767d5dcb014f4dfd9c96f5a71b3b433ee8ff6623c84"
+  "sha256": "3d3b8699a17e2e6c027fe55ea1bec83d82cb5afacfdaafd62442f464437a7627"
 }

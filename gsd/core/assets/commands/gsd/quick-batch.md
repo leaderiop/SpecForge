@@ -54,8 +54,6 @@ does not declare (`--discuss`, `--full`) before this text renders, so nothing he
 The workflow's Step 1 reads the typed values (`--jobs`, `--validate`, `--research`, `--resume`,
 `--file` and the task list) and checks `--jobs` (`auto` or a number) before any dispatch.
 
-
-
 **If `--jobs` is neither `auto` nor a number,** Step 1 prints why and stops: no `BATCH.json`, no
 dispatch.
 

@@ -61,7 +61,7 @@
     "fi",
     ""
   ],
-  "bytes": 22403,
+  "bytes": 22383,
   "end": [
     "Planning paths in diff: {FORBIDDEN} — must be 0",
     "Planning deletions: {PLANNING_DELETIONS} (must be 0 — #3679)",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 526,
+  "lines": 506,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:16481897b10f9401038d6b51c497334eda1399d715bd0006598b388074da70e9",
+    "digest": "sha256:0ed3ea08c81485cb66254a791d5bd7533e711e9b0fbb60b8adf55642f9fb7144",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "16481897b10f9401038d6b51c497334eda1399d715bd0006598b388074da70e9"
+  "sha256": "0ed3ea08c81485cb66254a791d5bd7533e711e9b0fbb60b8adf55642f9fb7144"
 }
