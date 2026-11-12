@@ -11,6 +11,7 @@ mod help;
 mod milestone;
 mod milestone_branches;
 mod phase;
+mod probe_rows;
 mod quick;
 mod refactor;
 mod reference;
@@ -92,6 +93,7 @@ pub fn declare(c: &mut ContributionsBuilder) {
     reference::declare(c);
     user_story::declare(c);
     edge_probe::declare(c);
+    probe_rows::declare(c);
     plan_coverage::declare(c);
     verification_debt::declare(c);
     gate::declare(c);

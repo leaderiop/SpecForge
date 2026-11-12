@@ -272,7 +272,7 @@ fn a_failing_gate_refuses_and_an_off_setting_allows() {
 
 #[test]
 fn every_command_refuses_an_unknown_entity_with_its_name() {
-    let unknown: [(&str, Vec<&str>); 16] = [
+    let unknown: [(&str, Vec<&str>); 18] = [
         ("start-plan", vec!["NOPE"]),
         ("complete-plan", vec!["NOPE"]),
         (
@@ -292,6 +292,8 @@ fn every_command_refuses_an_unknown_entity_with_its_name() {
         ("workstreams", vec!["switch", "--name", "NOPE"]),
         ("phase", vec!["--edit", "NOPE", "--goal", "x"]),
         ("edge-probe", vec!["NOPE"]),
+        ("resolve-edge", vec!["NOPE", "boundary", "unresolved"]),
+        ("resolve-prohibition", vec!["NOPE", "unresolved"]),
     ];
     for (command, args) in unknown {
         let p = twin();

@@ -247,3 +247,154 @@ fn the_probe_refuses_what_upstream_refuses() {
         run.all()
     );
 }
+
+/// `resolve-edge` under `--format json`: the envelope's `output`.
+fn resolve(p: &Project, args: &[&str]) -> serde_json::Value {
+    let mut all = args.to_vec();
+    all.extend(["--format", "json"]);
+    let run = gsd(p, "resolve-edge", &all);
+    assert_eq!(run.code, 0, "{}", run.all());
+    json(&run)["output"].clone()
+}
+
+#[test]
+fn a_resolution_moves_a_row_in_one_edit() {
+    let p = project("discuss");
+    let lr1 = format!("{SPEC}/LR1");
+    let ec1 = format!("{SPEC}/EC1");
+    let first = resolve(&p, &[&lr1, "unclassified", "unresolved"]);
+    assert_eq!(
+        (&first["created"], &first["wrote"][0]),
+        (&true.into(), &ec1.clone().into())
+    );
+    let resolved = resolve(
+        &p,
+        &[
+            &lr1,
+            "unclassified",
+            "resolved",
+            "--verification",
+            "explicit",
+            "--resolution",
+            "AC#1 restarts it",
+        ],
+    );
+    assert_eq!(
+        (&resolved["created"], &resolved["edge"]["status"]),
+        (&false.into(), &"resolved".into())
+    );
+    let report = probe(&p, SPEC);
+    assert_eq!(report["coverage"]["resolved"], 1, "{report:#}");
+    resolve(
+        &p,
+        &[
+            &lr1,
+            "unclassified",
+            "dismissed",
+            "--reason",
+            "a restart is the test",
+        ],
+    );
+    let fields = p.fields_of(&ec1);
+    assert_eq!(fields["status"], "dismissed", "{fields:#}");
+    assert!(
+        fields.get("verification").is_none() && fields.get("resolution").is_none(),
+        "{fields:#}"
+    );
+    p.check_exact(&[]);
+}
+
+#[test]
+fn a_bad_resolution_writes_nothing() {
+    let p = project("discuss");
+    let lr1 = format!("{SPEC}/LR1");
+    let before = bytes(&p);
+    for (args, needle) in [
+        (
+            vec![lr1.as_str(), "boundary", "resolved", "--resolution", "x"],
+            "resolved requires a verification tier",
+        ),
+        (
+            vec![lr1.as_str(), "boundary", "dismissed"],
+            "dismissed requires a reason",
+        ),
+        (
+            vec![lr1.as_str(), "boundary", "unresolved", "--reason", "why"],
+            "unresolved must not carry a reason",
+        ),
+        (
+            vec![lr1.as_str(), "corner", "unresolved"],
+            "unknown category \"corner\"",
+        ),
+    ] {
+        let run = gsd(&p, "resolve-edge", &args);
+        assert_eq!(run.code, 1, "{args:?}: {}", run.all());
+        assert!(run.all().contains(needle), "{args:?}: {}", run.all());
+        unchanged(&p, &before);
+    }
+}
+
+#[test]
+fn a_prohibition_leaves_its_check_when_it_stops_being_tested() {
+    let p = project("discuss");
+    let run = p.run(&[
+        "new",
+        "spec_prohibition",
+        "SP1",
+        "No plaintext",
+        "--in",
+        "spec/discuss.spec",
+        "--spec",
+        SPEC,
+        "--requirement",
+        "LR1",
+        "--statement",
+        "MUST NOT store tasks in plaintext",
+        "--status",
+        "resolved",
+        "--verification",
+        "test",
+        "--check_kind",
+        "node_test",
+        "--check_target",
+        "tests/no-plaintext.test.cjs",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let sp1 = format!("{SPEC}/SP1");
+    let run = gsd(
+        &p,
+        "resolve-prohibition",
+        &[&sp1, "dismissed", "--reason", "no secrets in a task"],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    let fields = p.fields_of(&sp1);
+    assert_eq!(fields["status"], "dismissed", "{fields:#}");
+    for gone in ["verification", "check_kind", "check_target"] {
+        assert!(fields.get(gone).is_none(), "{gone}: {fields:#}");
+    }
+    let run = gsd(
+        &p,
+        "resolve-prohibition",
+        &[&sp1, "resolved", "--verification", "judgment"],
+    );
+    assert_eq!(run.code, 0, "{}", run.all());
+    assert_eq!(p.fields_of(&sp1)["verification"], "judgment");
+    p.check_exact(&[]);
+}
+
+/// Why the commands exist: a resolution is three fields, and gsd/E523 refuses each edit that writes one of them alone.
+#[test]
+fn two_set_calls_cannot_resolve_an_edge() {
+    let p = project("discuss");
+    let lr1 = format!("{SPEC}/LR1");
+    resolve(&p, &[&lr1, "unclassified", "unresolved"]);
+    let before = bytes(&p);
+    let run = p.run(&["set", &format!("{SPEC}/EC1"), "status", "resolved"]);
+    assert_ne!(run.code, 0, "{}", run.all());
+    assert!(
+        run.all().contains("E080") && run.all().contains("gsd/E523"),
+        "{}",
+        run.all()
+    );
+    unchanged(&p, &before);
+}
