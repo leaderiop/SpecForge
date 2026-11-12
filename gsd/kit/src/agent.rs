@@ -37,7 +37,7 @@ pub const RESEARCHER: Role = Role {
         "specforge:find_implementation",
         "specforge:explain",
     ],
-    writes: &["specforge:edit"],
+    writes: &["specforge:edit", "specforge:collect"],
 };
 
 /// Turns a phase into plans and checks them against the graph.
@@ -51,8 +51,9 @@ pub const PLANNER: Role = Role {
         "specforge:find_implementation",
         "specforge:validate",
         "specforge:explain",
+        "specforge:export",
     ],
-    writes: &["specforge:edit"],
+    writes: &["specforge:edit", "specforge:collect"],
 };
 
 /// Judges a plan or a whole against the graph; writes nothing.
@@ -79,6 +80,7 @@ pub const EXECUTOR: Role = Role {
         "specforge:find_spec_for_source",
         "specforge:validate",
         "specforge:explain",
+        "specforge:gsd.branch_check",
     ],
     writes: &[
         "specforge:edit",
@@ -87,6 +89,7 @@ pub const EXECUTOR: Role = Role {
         "specforge:gsd.complete_plan",
         "specforge:gsd.raise_blocker",
         "specforge:gsd.record_window",
+        "specforge:gsd.pause",
     ],
 };
 
@@ -100,6 +103,7 @@ pub const VERIFIER: Role = Role {
         "specforge:find_references",
         "specforge:validate",
         "specforge:explain",
+        "specforge:gsd.user_story_validate",
     ],
     writes: &["specforge:collect"],
 };
@@ -180,13 +184,13 @@ mod tests {
     }
 
     #[test]
-    fn the_roles_name_twelve_graph_tools() {
+    fn the_roles_name_thirteen_graph_tools() {
         let graph: BTreeSet<&str> = classes()
             .filter_map(|c| match parse_class(c) {
                 Some(EngineClass::Tool(t)) if t.group.graph() => Some(t.name),
                 _ => None,
             })
             .collect();
-        assert_eq!(graph.len(), 12, "{graph:?}");
+        assert_eq!(graph.len(), 13, "{graph:?}");
     }
 }

@@ -10,6 +10,9 @@ use roster::{Owner, ROSTER};
 #[path = "common/roster.rs"]
 mod roster;
 
+#[path = "roster/agent_tools.rs"]
+mod agent_tools;
+
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
 }
