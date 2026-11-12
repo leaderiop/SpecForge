@@ -1,8 +1,30 @@
 //! Upstream's state, read here as the graph's: the UI gate reads a computed field, and closing a milestone writes no
 //! roadmap file (ADR 0343 D3); the review agent's return is written by the model and only checked here (D6).
 
-use super::{Shell, asset, block, q};
+use super::{Shell, asset, block, fence_after, q};
 use crate::harness::taskboard;
+
+/// After `/gsd-complete-milestone`, autonomous checks the close by reading what it left behind. Today it picks
+/// `.archive_dir`, a member `progress-report` never prints, and stats an archive file no close writes: even after a
+/// real close the step reads "no archive" and routes to the blocker. The fix reads the milestone's computed `state`.
+#[test]
+fn the_autonomous_close_check_reads_the_milestones_completion() {
+    let Some(sh) = Shell::without_jq() else {
+        return;
+    };
+    let p = crate::cmd_milestone::ready();
+    let close = p.run(&["gsd", "close-milestone", "v1.0"]);
+    assert_eq!(close.code, 0, "{}", close.all());
+    let check = fence_after(
+        &asset("gsd-core/workflows/autonomous.md"),
+        "After complete-milestone returns, verify it produced output:",
+    );
+    let (out, err, _) = sh.run_in(
+        p.root(),
+        &format!("milestone_version=v1.0\n{check}\nprintf '[%s]' \"$ARCHIVE_DIR\""),
+    );
+    assert_eq!(out, "[]", "{err}");
+}
 
 /// The UI gate reads the phase's computed `frontend` field (`@gsd/ui` computes it): no field holds upstream's
 /// `**UI hint**: yes`, so a grep of the phase's text for it is always false.
