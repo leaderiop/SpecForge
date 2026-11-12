@@ -284,6 +284,9 @@ impl<E: Editor> Reaction<E> {
                 format!("an incremental rebuild diverged from a cold build: {divergence}"),
             );
         }
+        for told in &applied.told {
+            self.editor.log(MessageType::WARNING, told.clone());
+        }
         self.publish(&applied);
         debug_assert!(applied.divergences.is_empty(), "{:?}", applied.divergences);
         Some(applied)

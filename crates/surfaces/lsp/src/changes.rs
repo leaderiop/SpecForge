@@ -198,7 +198,7 @@ impl Plan {
             Step::Open(root) => applied.opened(session.reopen(&root, runtime, loaded)),
             Step::Disk { changes, landing } => {
                 // The renames the saved files finish write their ledger first; the checks then read it.
-                if landing.land(session) {
+                if landing.land(session, &mut applied.told) {
                     applied.record(session.recheck());
                     applied.changed = true;
                 }
@@ -213,7 +213,7 @@ impl Plan {
                 // The file is read from disk again; a rename none of whose files holds a buffer unsaved lands what the
                 // disk says, and the checks read the ledger as the buffers left open say.
                 applied.close(session, &path);
-                if landing.land(session) {
+                if landing.land(session, &mut applied.told) {
                     applied.record(session.recheck());
                     applied.changed = true;
                 }
@@ -268,6 +268,9 @@ pub struct Applied {
     /// Where an incremental rebuild differed from a cold build, when the
     /// session verifies its updates (debug builds).
     pub divergences: Vec<String>,
+    /// What the editor is told of the pending renames: a history whose files closed while they disagreed, which
+    /// landed nothing.
+    pub told: Vec<String>,
     edited: Option<String>,
     touched: Vec<String>,
     /// A document was closed: the editor showed its buffer's diagnostics for this file, so the

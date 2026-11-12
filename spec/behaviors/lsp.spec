@@ -1276,11 +1276,13 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
     undone, the last made first, those taken up done in the order made, and each stale line whose rename moved. So an
     undo in one buffer and not another, part way, by hand, or a redo, before a save or after, shows and lands what the
     buffers hold; texts in which a rename is in effect without one it was planned after (an earlier rename undone by
-    hand before a later one) show and land nothing, as do texts holding a rename in some files and not others. A
-    landing that writes nothing leaves the project the ledger was written over as it was. A history spans every file
-    its renames edit and is kept while any of them is open and the ledger reads as it last left it: a ledger write the
-    editor did not make that touches its entities or stale lines ends it. A rename answered and never applied is
-    dropped at the first change of its declaring file that is not its edit (ADR 0346 D7).
+    hand before a later one) show and land nothing, as do texts holding a rename in some files and not others; a
+    history whose files all close so ends having landed nothing, and the editor is told which files disagree and that
+    `specforge rename` finishes the rename. A landing that writes nothing leaves the project the ledger was written
+    over as it was. A history spans every file its renames edit and is kept while any of them is open and the ledger
+    reads as it last left it: a ledger write the editor did not make that touches its entities or stale lines ends it.
+    A rename answered and never applied is dropped at the first change of its declaring file that is not its edit (ADR
+    0346 D7).
   """
   verify unit "the LSP rename writes its ledger change once the rename lands on disk"
   verify unit "an undone LSP rename writes no ledger change"

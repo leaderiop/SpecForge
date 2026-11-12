@@ -48,11 +48,12 @@ struct Node {
     applied: Edit,
 }
 
-/// What the texts hold of a rename: a file it edited holds it (or a later rename of its entity), one went back.
-#[derive(Debug, Clone, Copy, Default)]
-struct State {
-    held: bool,
-    undone: bool,
+/// What the texts hold of a rename: the files it edited that hold it (or a later rename of its entity), and those
+/// that went back.
+#[derive(Debug, Clone, Default)]
+struct State<'t> {
+    held: BTreeSet<&'t str>,
+    undone: BTreeSet<&'t str>,
 }
 
 /// A node of the history, `None` for the entities before any rename.
@@ -208,14 +209,13 @@ impl Tree {
     /// declaring file: declares it, counted), or holds a later rename of the same entity made over it; it went back
     /// while it reads the name the rename read at its places instead (the declaring file: counted as when planned).
     /// Source files are not asked: their stale lines are read apart.
-    fn states(&self, text: &dyn Fn(&str) -> Option<String>, parses: &Parses) -> Vec<State> {
+    fn states(&self, text: &dyn Fn(&str) -> Option<String>, parses: &Parses) -> Vec<State<'_>> {
         let mut children: Vec<Vec<usize>> = vec![Vec::new(); self.nodes.len()];
         for i in self.live() {
             if let Some(parent) = self.nodes[i].parent {
                 children[parent].push(i);
             }
         }
-        let mut holding: Vec<BTreeSet<&str>> = vec![BTreeSet::new(); self.nodes.len()];
         let mut states = vec![State::default(); self.nodes.len()];
         for i in self.live().rev() {
             let rename = &self.nodes[i].rename;
@@ -237,12 +237,11 @@ impl Tree {
                         }
                     }
                 };
-                let later = children[i].iter().any(|&c| holding[c].contains(file));
+                let later = children[i].iter().any(|&c| states[c].held.contains(file));
                 if says == Says::Written || later {
-                    holding[i].insert(file);
-                    states[i].held = true;
+                    states[i].held.insert(file);
                 } else if says == Says::Read {
-                    states[i].undone = true;
+                    states[i].undone.insert(file);
                 }
             }
         }
@@ -253,7 +252,7 @@ impl Tree {
     /// one node (a branch) the later only, and the renames each came from.
     fn effect(&self, states: &[State]) -> Vec<usize> {
         let mut effect: BTreeSet<usize> = BTreeSet::new();
-        for i in self.live().rev().filter(|&i| states[i].held) {
+        for i in self.live().rev().filter(|&i| !states[i].held.is_empty()) {
             let node = &self.nodes[i];
             let branch = effect.iter().any(|&a| {
                 let other = &self.nodes[a];
@@ -471,6 +470,8 @@ impl Tree {
         }
         let states = self.states(text, parses);
         let effect = self.effect(&states);
+        let partial = effect.iter().any(|&i| !states[i].undone.is_empty());
+        drop(states);
         let mut keys: Vec<(Key, Vec<String>)> = Vec::new();
         for marked in self.renames().flat_map(|r| &r.stale) {
             let Some(key) = key_of(&marked.line) else {
@@ -508,9 +509,54 @@ impl Tree {
             };
             lines.push((key, at));
         }
-        let partial = effect.iter().any(|&i| states[i].undone);
         let effect = (self.holds(&effect) && !partial).then_some(effect);
         Reading { effect, lines }
+    }
+
+    /// What to tell the editor of `reading`, read from the texts `text` answers, when the history ends on it: nothing
+    /// when it is a state; else which files hold each rename some of them hold while others went back (or, with none,
+    /// the history's files), that the ledger keeps what it last landed, and that `specforge rename` finishes it.
+    pub(super) fn unfinished(
+        &self,
+        reading: &Reading,
+        text: &dyn Fn(&str) -> Option<String>,
+        parses: &Parses,
+    ) -> Option<String> {
+        if reading.effect.is_some() {
+            return None;
+        }
+        let states = self.states(text, parses);
+        let list = |files: &BTreeSet<&str>| files.iter().copied().collect::<Vec<_>>().join(", ");
+        let split: Vec<String> = self
+            .live()
+            .filter(|&i| !states[i].held.is_empty() && !states[i].undone.is_empty())
+            .map(|i| {
+                let rename = &self.nodes[i].rename;
+                format!(
+                    "the rename of '{}' to '{}' is in {} and undone in {}",
+                    rename.old_id,
+                    rename.new_id,
+                    list(&states[i].held),
+                    list(&states[i].undone)
+                )
+            })
+            .collect();
+        let said = if split.is_empty() {
+            let renames: Vec<String> = self
+                .renames()
+                .map(|r| format!("'{}' to '{}'", r.old_id, r.new_id))
+                .collect();
+            format!(
+                "the renames of {} hold a later one without one it was made after",
+                renames.join(", ")
+            )
+        } else {
+            split.join("; ")
+        };
+        Some(format!(
+            "specforge-lsp: the files of an editor rename closed while {said}, so the ledger keeps what \
+             it last landed; make the files agree, then `specforge rename` finishes the rename"
+        ))
     }
 
     /// The latest rename marking `key` that each of `held` is or came after; none when one is none.

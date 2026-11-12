@@ -442,12 +442,14 @@ impl Chain {
 
     /// Land what the disk says of the tree, over the project the session shows: the change from what the ledger holds
     /// of it. `Ok(true)` when the ledger was written; `Err` when the write failed, the tree left as it was. The tree is
-    /// kept while `open` says a file of it is open, and is over when none is.
+    /// kept while `open` says a file of it is open, and is over when none is: over on texts that are no state of it, it
+    /// adds to `told` what the editor is told ([`Tree::unfinished`]).
     fn land(
         &self,
         session: &ProjectSession,
         open: &dyn Fn(&str) -> bool,
         parses: &Parses,
+        told: &mut Vec<String>,
     ) -> Result<bool, ()> {
         let files = self.files();
         let mut links = self.links();
@@ -473,6 +475,11 @@ impl Chain {
         links.tree.mark(&reading, false);
         links.shown = None;
         if !files.iter().any(|file| open(file)) {
+            told.extend(
+                links
+                    .tree
+                    .unfinished(&reading, &|key| on_disk(project, key), parses),
+            );
             links.tree.end();
         }
         Ok(written)
@@ -570,7 +577,7 @@ impl Pending {
         let chains = self.chains().clone();
         let parses = Parses::default();
         for chain in chains {
-            let _ = chain.land(session, &|_| false, &parses);
+            let _ = chain.land(session, &|_| false, &parses, &mut Vec::new());
         }
     }
 }
@@ -631,8 +638,8 @@ impl Landing {
 
     /// Land each tree the event names none of whose files holds a buffer the disk does not, then show what every
     /// tree shows as the buffers say (a file closed is read from disk now). `true` when the session needs its checks
-    /// again.
-    pub fn land(&self, session: &mut ProjectSession) -> bool {
+    /// again; what the editor is told of a tree over on texts that are no state of it is added to `told`.
+    pub fn land(&self, session: &mut ProjectSession, told: &mut Vec<String>) -> bool {
         let mut landed = false;
         let parses = Parses::default();
         for (chain, _, _) in &self.chains {
@@ -648,7 +655,7 @@ impl Landing {
             });
             if saved {
                 let open = |key: &str| buffers.get(key).is_some_and(Option::is_some);
-                if chain.land(session, &open, &parses).unwrap_or(false) {
+                if chain.land(session, &open, &parses, told).unwrap_or(false) {
                     landed = true;
                     for (other, _, _) in &self.chains {
                         other.rebase(session.project());
