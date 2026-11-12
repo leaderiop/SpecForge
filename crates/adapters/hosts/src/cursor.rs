@@ -12,7 +12,7 @@ use specforge_ops::host::{
 use specforge_protocol_types::{Attribution, Decision, HookEvent};
 
 use crate::markdown::{document, field, short};
-use crate::tools::cursor_class;
+use crate::tools::{MCP_SERVER, cursor_class};
 use crate::{json_merge, trampoline};
 
 const HOOKS: &str = ".cursor/hooks.json";
@@ -105,7 +105,7 @@ impl HostRenderer for Cursor {
             path: MCP.into(),
             entries: vec![MergedEntry {
                 keys: vec!["mcpServers".into()],
-                name: Some("specforge".into()),
+                name: Some(MCP_SERVER.into()),
                 value: json!({"command": "specforge", "args": ["mcp", "."]}),
             }],
         });
@@ -129,7 +129,7 @@ impl HostRenderer for Cursor {
     ) -> Result<Merged, String> {
         let version = [("version", json!(1))];
         let scaffold: &[(&str, Value)] = if path == HOOKS { &version } else { &[] };
-        let mcp: [json_merge::Named<'_>; 1] = [(&["mcpServers"], "specforge")];
+        let mcp: [json_merge::Named<'_>; 1] = [(&["mcpServers"], MCP_SERVER)];
         json_merge::merge(
             existing,
             entries,
