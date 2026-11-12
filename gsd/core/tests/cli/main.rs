@@ -3,6 +3,7 @@
 mod ab_protocol;
 mod ab_seeds;
 mod agents;
+mod answer_members;
 // The extension's own UTC clock text, to build times relative to now.
 #[path = "../../src/time.rs"]
 #[allow(dead_code, reason = "only utc is used here")]

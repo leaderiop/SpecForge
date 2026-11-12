@@ -14,35 +14,9 @@ mod collect;
 #[path = "harness_ab.rs"]
 pub mod ab;
 
-#[path = "../common/answers.rs"]
-mod answers;
-
-/// Holds `tests/common/answers.rs` to the answer a test reads: a whole JSON answer of a listed `specforge gsd
-/// <command>` prints only members its row lists. A `--pick` may print an inner object, and `--dry-run` prints the host's
-/// preview (`output` and `plan`), so neither is the answer.
-fn answers_listed(args: &[&str], stdout: &str) {
-    let ["gsd", command, rest @ ..] = args else {
-        return;
-    };
-    let Some(row) = answers::members(command) else {
-        return;
-    };
-    if rest
-        .iter()
-        .any(|a| a.starts_with("--pick") || *a == "--dry-run")
-    {
-        return;
-    }
-    let Ok(serde_json::Value::Object(answer)) = serde_json::from_str(stdout) else {
-        return;
-    };
-    for key in answer.keys() {
-        assert!(
-            row.contains(&key.as_str()),
-            "{command} answered '{key}', which tests/common/answers.rs does not list"
-        );
-    }
-}
+#[path = "harness_answers.rs"]
+pub mod answer_check;
+use answer_check::answers_listed;
 
 pub(crate) const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build --profile test -p specforge-cli) and (cd gsd && cargo build -p gsd-core -p gsd-security --release --target wasm32-wasip2), then set SPECFORGE_BIN, GSD_CORE_WASM and GSD_SECURITY_WASM to the artifacts";
 
