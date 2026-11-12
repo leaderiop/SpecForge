@@ -61,7 +61,7 @@
     "- Extract milestone definition of done from ROADMAP.md",
     "- Extract requirements mapped to this milestone from REQUIREMENTS.md"
   ],
-  "bytes": 25559,
+  "bytes": 25373,
   "end": [
     "",
     "<success_criteria>",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 623,
+  "lines": 617,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:14a01febc594bcd85bcb635aaa04074c031b3817fbcb1f6653ab98308ea5819e",
+    "digest": "sha256:133c54534d50af99eee3b9f0ad8fc9f6121d16307fac2f688f403fb99d247932",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "14a01febc594bcd85bcb635aaa04074c031b3817fbcb1f6653ab98308ea5819e"
+  "sha256": "133c54534d50af99eee3b9f0ad8fc9f6121d16307fac2f688f403fb99d247932"
 }

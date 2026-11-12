@@ -70,9 +70,8 @@ fn the_next_phases_context_is_read_from_the_graph() {
     }
 }
 
-/// The milestone audit's 5c reads each summary's `requirements_completed`. Its loop keeps upstream's `[ -e
-/// "$summary" ] || continue` over entity ids, which name no file, so it skips every summary and reads nothing. The fix
-/// reads both of the taskboard's summaries.
+/// The milestone audit's 5c reads every summary of the milestone in one pick: a row per summary, its id, then its
+/// requirement ids as a JSON list. No guard over a file path is left to skip an entity id.
 #[test]
 fn the_audit_reads_every_summarys_requirements() {
     let Some(sh) = Shell::without_jq() else {
@@ -81,7 +80,15 @@ fn the_audit_reads_every_summarys_requirements() {
     let p = taskboard();
     let check = fence_after(&asset("gsd-core/workflows/audit-milestone.md"), "### 5c.");
     let (out, err, _) = sh.run_in(p.root(), &format!("MILESTONE=v1.0\n{check}"));
-    assert_eq!(out, "", "{err}");
+    let rows: Vec<Vec<&str>> = out.lines().map(|l| l.split('\u{1f}').collect()).collect();
+    assert_eq!(
+        rows,
+        [
+            ["v1.0/01/01-01/01-01-SUMMARY", "[\"TASK-01\"]"],
+            ["v1.0/01/01-02/01-02-SUMMARY", "[\"TASK-02\"]"],
+        ],
+        "{err}"
+    );
 }
 
 /// The UI gate reads the phase's computed `frontend` field (`@gsd/ui` computes it): no field holds upstream's

@@ -129,13 +129,7 @@ For each phase's VERIFICATION.md, extract the expanded requirements table:
 
 For each phase's SUMMARY.md, extract `requirements-completed` from YAML frontmatter:
 ```bash
-# #2962: zsh aborts the block on an unmatched for-list glob (nomatch); bash passes it through. nullglob both.
-shopt -s nullglob 2>/dev/null; setopt NULL_GLOB 2>/dev/null
-
-for summary in $(specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary].id'); do
-  [ -e "$summary" ] || continue
-  specforge query "$summary" --depth 0 --pick '.nodes[0].fields.requirements_completed'
-done
+specforge query "$MILESTONE" --depth 3 --kinds summary --pick '.nodes[kind=summary]' --fields id,fields.requirements_completed   # a row per summary: its id, then its requirement ids as a JSON list (cells split at 0x1f)
 ```
 
 ### 5d. Status Determination Matrix
