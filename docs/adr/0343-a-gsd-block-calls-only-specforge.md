@@ -6,7 +6,7 @@
 D7–D9 say how prose names a tool, how an optional integration routes and where a person's own chores go.
 D4's second paragraph is amended by
 [ADR 0332](0332-the-gsd-port-is-span-by-span-and-its-kept-spans-are-locked.md) (D5). D10 added in place (2026-11-12;
-see ADR 0332 D8–D10).
+see ADR 0332 D8–D10). D3's guards widened 2026-11-12.
 
 ## Context
 
@@ -50,7 +50,10 @@ upstream init-bundle key or a phase directory. A variable that named a file name
 `specforge query "$ID" --format context`.
 
 The tests `port_tools::every_graph_read_picks_nodes_or_edges` and `port_tools::no_shell_line_reads_a_phase_directory`
-hold it.
+hold it. No `specforge files` run, in a fence or an inline run, names a GSD state file (a `PLANNING_FILES` pattern):
+`port_tools::no_files_verb_reads_a_gsd_file` holds it. A pick of a `specforge gsd` command's answer names a member the
+command prints: `ported_text::every_command_pick_names_a_member_of_its_answer` holds it, over the table in
+`tests/common/answers.rs` that the CLI tests check against every JSON answer they read.
 
 ## D4. Dead code is deleted, not ported
 
