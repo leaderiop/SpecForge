@@ -1162,8 +1162,8 @@ gsd-core/references/planning-config.md	kept	226+37	cd57fb3f8176
 gsd-core/references/planning-config.md	own	263+1	1	cb842bd5c2cc	51c354b85192	ported-name
 gsd-core/references/planning-config.md	kept	264+30	048abc6d312e
 gsd-core/references/planning-config.md	own	294+1	1	5613bbc25298	d08a9cc9bfa6	ported-name
-gsd-core/references/planning-config.md	kept	295+12	db6196991302
-gsd-core/references/planning-config.md	own	307+1	1	558db681a52f	74dce8daadfa	served
+gsd-core/references/planning-config.md	kept	295+11	1b8ed530c2f8
+gsd-core/references/planning-config.md	own	306+2	2	380fdb5b85b8	39b7292a1d43	served
 gsd-core/references/planning-config.md	kept	308+8	ebb9da61dbf2
 gsd-core/references/planning-config.md	own	316+1	1	7202781f4738	d3192305c22e	prose
 gsd-core/references/planning-config.md	kept	317+7	cc4ff5743f23
@@ -1216,24 +1216,26 @@ gsd-core/references/scout-codebase.md	own	37+3	3	112747a98bdc	f36879932e85	files
 gsd-core/references/scout-codebase.md	kept	40+13	1224ead6ae93
 gsd-core/references/security-asvs-levels.md	kept	1+28	4774fac3b94b
 gsd-core/references/skeleton-template.md	kept	1+49	f11e9cd2948b
-gsd-core/references/specless-probe-fallback.md	kept	1+19	2f1a438bb9b2
+gsd-core/references/specless-probe-fallback.md	kept	1+7	c584670e3b39
+gsd-core/references/specless-probe-fallback.md	own	8+1	2	0d9ba8119a08	a02c0f0ff510	answer
+gsd-core/references/specless-probe-fallback.md	kept	9+4	37e6f9ba1b56
+gsd-core/references/specless-probe-fallback.md	own	13+2	2	7322c53167b5	628407a8d29e	answer
+gsd-core/references/specless-probe-fallback.md	kept	15+5	1d9012af4aba
 gsd-core/references/specless-probe-fallback.md	own	20+1	1	da33276f4b38	3e814c2c1ccd	ported-name
-gsd-core/references/specless-probe-fallback.md	kept	21+7	3ea7111dcdc0
-gsd-core/references/specless-probe-fallback.md	own	28+1	1	0ab52abc1149	e9009e4baf4f	served
-gsd-core/references/specless-probe-fallback.md	kept	29+18	dce2d91ce843
-gsd-core/references/specless-probe-fallback.md	own	47+6	6	5e1766317187	46aab58d4767	prose
-gsd-core/references/specless-probe-fallback.md	kept	53+16	3991d98a728a
-gsd-core/references/specless-probe-fallback.md	own	69+1	1	0ab52abc1149	e9009e4baf4f	served
-gsd-core/references/specless-probe-fallback.md	kept	70+20	31a1008f1836
-gsd-core/references/specless-probe-fallback.md	own	90+2	2	f6cbc05df193	98dbe3639ae1	served
-gsd-core/references/specless-probe-fallback.md	kept	92+4	bc19cfb547ff
-gsd-core/references/specless-probe-fallback.md	own	96+1	1	8a26df471005	ffffb88f2b6f	prose
-gsd-core/references/specless-probe-fallback.md	kept	97+1	3054fd338d48
-gsd-core/references/specless-probe-fallback.md	own	98+2	2	30cb9505dcf2	7f65070f604c	served
-gsd-core/references/specless-probe-fallback.md	kept	100+5	09ef5e7e97b0
-gsd-core/references/specless-probe-fallback.md	own	105+1	1	7da0042744c7	071b6a0b7678	served
+gsd-core/references/specless-probe-fallback.md	kept	21+2	c4bcfd3ba6db
+gsd-core/references/specless-probe-fallback.md	own	23+10	8	3d892687d944	b071bd625724	served
+gsd-core/references/specless-probe-fallback.md	kept	33+1	b4bdc8481097
+gsd-core/references/specless-probe-fallback.md	own	34+4	0	36022247c65b	e3b0c44298fc	served
+gsd-core/references/specless-probe-fallback.md	kept	38+9	89b976f89a69
+gsd-core/references/specless-probe-fallback.md	own	47+7	5	2a529eba63d3	a4b008f99acc	answer
+gsd-core/references/specless-probe-fallback.md	kept	54+8	4ad13732d079
+gsd-core/references/specless-probe-fallback.md	own	62+2	2	c092206e35a4	5f5bc20ae510	answer
+gsd-core/references/specless-probe-fallback.md	kept	64+3	938dba4e27ef
+gsd-core/references/specless-probe-fallback.md	own	67+36	2	da71544cbe5a	9dfc4606de26	served
+gsd-core/references/specless-probe-fallback.md	kept	103+1	d4ca26d72857
+gsd-core/references/specless-probe-fallback.md	own	104+2	1	3eff1ccb4fb6	010e0da6924e	served
 gsd-core/references/specless-probe-fallback.md	kept	106+3	b07ca32be38c
-gsd-core/references/specless-probe-fallback.md	own	109+1	1	2748c965cd5e	ea587ee1b76e	served
+gsd-core/references/specless-probe-fallback.md	own	109+1	0	2748c965cd5e	e3b0c44298fc	served
 gsd-core/references/specless-probe-fallback.md	kept	110+1	56519873f916
 gsd-core/references/specless-probe-fallback.md	own	111+1	1	37930a341de7	ed9f11337f6e	served
 gsd-core/references/specless-probe-fallback.md	kept	112+4	1292bd9ff533
@@ -3117,7 +3119,9 @@ gsd-core/workflows/plan-phase.md	kept	709+4	a0f738f32f4e
 gsd-core/workflows/plan-phase.md	own	713+1	1	d11219864b5e	9d1ed3076952	relic
 gsd-core/workflows/plan-phase.md	kept	714+12	32b846ac8a1d
 gsd-core/workflows/plan-phase.md	own	726+2	2	03411cbf64c6	7218cd153fc2	ported-name
-gsd-core/workflows/plan-phase.md	kept	728+19	70c5877c76de
+gsd-core/workflows/plan-phase.md	kept	728+13	798e870bf428
+gsd-core/workflows/plan-phase.md	own	741+1	2	c6584ad07762	81744e9fddc4	answer
+gsd-core/workflows/plan-phase.md	kept	742+5	7731bff1c300
 gsd-core/workflows/plan-phase.md	own	747+2	2	429243add2a3	09dca53c7b21	wait
 gsd-core/workflows/plan-phase.md	kept	749+13	47262067949b
 gsd-core/workflows/plan-phase.md	own	762+1	1	307c96a4d2ab	307c96a4d2ab	markdown

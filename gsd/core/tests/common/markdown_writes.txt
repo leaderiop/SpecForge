@@ -95,7 +95,6 @@ gsd-core/references/planner-gap-closure.md	**8. Write PLAN.md files:**
 gsd-core/references/planner-reviews.md	### Step 5: Write the ledger into PLAN.md (#3806)
 gsd-core/references/planner-reviews.md	Add or extend a `## Review Dispositions Ledger` section in the affected PLAN.md, containing one
 gsd-core/references/planner-reviews.md	PLAN.md content written before this convention existed is not migrated or flagged by it.
-gsd-core/references/planning-config.md	| `workflow.specless_probe_fallback` | boolean | `true` | `true`, `false` | Gate the SPEC-less probe fallback in `plan-phase`. When `true` (default), a phase that did not supply a `## Edge Coverage` / `## Prohibitions` SPEC section (header absent or present-but-empty) runs the existing probe protocol — the deterministic `edge-probe.cjs` for edges and an in-planner LLM recall pass for prohibitions — and authors the resulting predicates into PLAN.md `must_haves` (section-level precedence: a SPEC-supplied section is never re-run or overwritten). When `false`, the fallback is skipped but the skip is recorded: plan-phase emits a visible "probe fallback disabled" marker, never a silent skip. |
 gsd-core/references/questioning.md	By the end of questioning, you need enough clarity to write a PROJECT.md that downstream phases can act on:
 gsd-core/references/questioning.md	When you could write a clear PROJECT.md, offer to proceed:
 gsd-core/references/questioning.md	- question: "I think I understand what you're after. Ready to create PROJECT.md?"

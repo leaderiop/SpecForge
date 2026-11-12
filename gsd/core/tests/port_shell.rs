@@ -296,10 +296,7 @@ fn a_heredoc_is_redirected_only_into_a_temp_file() {
             }
         }
     }
-    assert!(
-        checked >= 2,
-        "specless-probe-fallback and regression-gate redirect a heredoc"
-    );
+    assert!(checked >= 1, "regression-gate redirects a heredoc");
     assert!(
         wrong.is_empty(),
         "a heredoc redirected outside a temp file: {wrong:#?}"

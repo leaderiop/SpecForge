@@ -227,18 +227,11 @@ fn filled_assignment(text: &str, placeholder: &str) -> Vec<String> {
 #[test]
 fn a_model_filled_list_runs_nothing() {
     let p = crate::harness::project("empty");
-    for (path, placeholder, var) in [
-        (
-            "gsd-core/workflows/review.md",
-            "{selected_reviewers}",
-            "SELECTED_REVIEWERS",
-        ),
-        (
-            "gsd-core/references/specless-probe-fallback.md",
-            "{phase_req_ids}",
-            "SPECLESS_REQ_IDS",
-        ),
-    ] {
+    for (path, placeholder, var) in [(
+        "gsd-core/workflows/review.md",
+        "{selected_reviewers}",
+        "SELECTED_REVIEWERS",
+    )] {
         let text = asset(path);
         let holders = filled_assignment(&text, placeholder);
         assert!(!holders.is_empty(), "{path}: no {placeholder}");

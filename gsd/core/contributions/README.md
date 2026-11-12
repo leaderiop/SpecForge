@@ -176,9 +176,9 @@ The assets are upstream's text; where the spec has no counterpart a line was def
   (plans 03 and 05, F9 and G4; `tests/port_tools.rs` forbids a `jq` command word, `tests/cli/assets_shell/` runs each
   rewritten line with no jq and no node). node stays where the user's own JavaScript project runs (`KEEP` in
   `tests/port_tools.rs`); `code-review-disposition.md`'s ledger builder is gone, the ledger being `@gsd/ops`'s. The
-  edge-probe steps of `spec-phase` and `specless-probe-fallback` still run upstream's
-  `edge-probe.cjs` / `spec-section.cjs` with `node <file>` (also `PENDING_NODE`, each line pinned): `@gsd/core` installs
-  no runtime library (#5640), so the steps stop at "not found" unless an upstream GSD install provides one.
+  edge-probe steps of `spec-phase` and `specless-probe-fallback` run `specforge gsd edge-probe` and read the
+  graph's counts of a spec's `edge` and `spec_prohibition` rows (ADR 0333), where upstream ran its runtime
+  libraries `edge-probe.cjs` / `spec-section.cjs` with node.
 - `gsd/W506` reads what a complete plan lists in `decisions` (ADR 0351): a decision cited only in prose covers nothing,
   where upstream reads the plans' text, the modified files and the commit bodies.
 - The ledger scope in `ship` (`ship.md`, the broken-window step) is the milestone's (`"$MILESTONE" --depth 2`: every phase of it), not upstream's project-wide file: the graph links a window to its phase, not to the project. The `windows_enforce` gate (E512) still refuses on an open window anywhere in the project.
@@ -270,7 +270,6 @@ are the ids with `-`: `specforge gsd complete-plan`.
 | `edge_probe <subject>` (`specforge gsd edge-probe`; edge-probe.cjs's CLI, `runProbeCli`, ADR 0333) | nothing: it is read-only, and answers upstream's coverage report of a phase spec (its locked requirements and its recorded `edge` rows) or of a phase (its requirements; it records none): `{subject, kind, items, coverage}`, each item with its `edge` id (or null) and whether the engine `proposed` it. Divergence: the requirements and resolutions are the graph's, not two JSON files; an edge the engine did not propose (the agent raised it) is an unresolved item of the report before the roll-up, where upstream refuses it as an orphan |
 | `resolve_edge <requirement> <category> <status> [--verification V] [--resolution TEXT] [--reason TEXT]` (`specforge gsd resolve-edge`; ADR 0333, no gsd-tools verb: upstream's agent edited a resolutions JSON file) | an `edge` of the requirement's spec, created when no edge holds the pair: its `status`, `verification`, `resolution` and `reason`, set or unset in one plan so the row holds exactly the resolution given, judged by the probe engine first (gsd/E523 refuses a half-written row) |
 | `resolve_prohibition <prohibition> <status> [--verification V] [--reason TEXT]` (`specforge gsd resolve-prohibition`; ADR 0333) | a `spec_prohibition`'s `status`, `verification` and `reason` in one plan, its `check_*` descriptor cleared unless the row is resolved with the `test` tier (upstream's descriptor rides only a resolved/test row) |
-| `edge_probe_requirements --requirements <json>` (`specforge gsd edge-probe-requirements`; spec-phase.md's inline node guard, no gsd-tools verb) | nothing: it is read-only, and answers `{valid, errors, count}`: whether the requirements an agent wrote for the edge probe are a non-empty JSON array whose every item has a string `text`, not blank and with no `<replace:` placeholder, for `/gsd-spec-phase` and the specless probe fallback. Divergence: each failure is named (upstream's node only exits 1); the JSON is an argument, so a list over the platform's argument size cannot be checked |
 | `phase`, `workstreams` (the slash commands `/gsd-phase`, `/gsd-workstreams`) | phase and workstream entities: add, insert, remove (renumbering), edit; create, complete, switch |
 | `record_verdict` (built, r40: `specforge gsd record-verdict`, MCP `specforge.gsd.record_verdict`) | a verdict (`V` fields), through `set_verdict` |
 | the `gsd-git` collector (built, r38): `specforge collect --runner gsd-git --yes` | commit (every field) |

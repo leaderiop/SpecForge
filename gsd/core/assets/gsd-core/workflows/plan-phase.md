@@ -721,7 +721,8 @@ and authors the predicates into PLAN.md `must_haves` (ADR-857 Phase 6 — the *e
 after `$SPEC_FILE` (Step 7), before the gsd-planner spawn (Step 8).
 
 **Read and run** the gate + edge probe in `~/.claude/gsd-core/references/specless-probe-fallback.md`
-(§0 default-ON toggle + per-section absence via the `spec-section` helper, visibly skipping when
+(§0 default-ON toggle + per-section absence read from the spec's `edge` and `spec_prohibition`
+entities, visibly skipping when
 disabled or no requirement IDs; §A deterministic edge probe → `$COVERAGE` when `EDGE_ABSENT`; §B
 prohibition recall in the planner). Pass `$COVERAGE` and `$SPECLESS_FALLBACK_DISABLED` into Step 8.
 

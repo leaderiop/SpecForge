@@ -6,13 +6,14 @@ planner block. When a phase SPEC did NOT supply `## Edge Coverage` / `## Prohibi
 runs the same probe protocol the SPEC path uses and authors the predicates into PLAN.md `must_haves`
 (ADR-857 Phase 6 — the *else branch* of the `<downstream_consumer>` SPEC-conditional lift). This is
 core workflow-body substrate — NOT the `PLAN_PRE_HOOKS_JSON contribution into planner` capability rail
-(D-03). Section absence is detected by the shared `spec-section` helper in the gate; this file holds the
+(D-03). Section absence is read from the graph in the gate: the spec's `edge` and `spec_prohibition`
+entities; this file holds the
 *run-the-probe* half so the capped plan-phase.md stays lean (#717/#1074 budget).
 
 ## 0. Gate — toggle + per-section absence (run first, in the orchestrator)
 
-Reads the default-ON toggle and computes `EDGE_ABSENT` / `PROHIB_ABSENT` via the shared `spec-section`
-helper; records a VISIBLE skip when disabled or when the phase has no requirement IDs (never a silent
+Reads the default-ON toggle and computes `EDGE_ABSENT` / `PROHIB_ABSENT` from the spec's `edge` /
+`spec_prohibition` entities; records a VISIBLE skip when disabled or when the phase has no requirement IDs (never a silent
 skip, never a hard-fail). Sets `SPECLESS_FALLBACK`, `EDGE_ABSENT`, `PROHIB_ABSENT`, and
 `SPECLESS_FALLBACK_DISABLED` for §A and the planner prompt.
 
@@ -21,21 +22,15 @@ skip, never a hard-fail). Sets `SPECLESS_FALLBACK`, `EDGE_ABSENT`, `PROHIB_ABSEN
 SPECLESS_CFG="{{setting:workflow.specless_probe_fallback|true}}"   # workflow.specless_probe_fallback (the settings)
 SPECLESS_FALLBACK=true; [[ "$SPECLESS_CFG" == "false" ]] && SPECLESS_FALLBACK=false
 
-# Per-section absence (D-05 / RAIL-03): "not supplied" = header absent OR present-but-empty. The
-# shared, tested `spec-section` helper (src/spec-section.cts -> bin/lib/spec-section.cjs) is the SINGLE
-# source of truth for the canonical SPEC headings (suffix-tolerant) and table-row counting, replacing
-# ad-hoc awk (contract pinned by tests/spec-section.test.cjs). Resolve via the edge-probe install-dir
-# idiom; build only in a source checkout, else fail loud (never silently mis-detect).
-_GSD_RT="${RUNTIME_DIR:-$(specforge git repo --pick .top 2>/dev/null || pwd)}"
-_gsd_lib() { for _d in "$_GSD_RT/gsd-core/bin/lib" "$_GSD_RT/bin/lib" "$_GSD_RT/.claude/bin/lib" "$HOME/.claude/gsd-core/bin/lib" "$HOME/.claude/bin/lib"; do [ -f "$_d/$1" ] && { echo "$_d/$1"; return; }; done; }
-SPEC_SECTION_JS=$(_gsd_lib spec-section.cjs)
-if [ -z "$SPEC_SECTION_JS" ] && [ -f "$_GSD_RT/tsconfig.build.json" ] && [ -f "$_GSD_RT/src/spec-section.cts" ]; then
-  npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true; SPEC_SECTION_JS=$(_gsd_lib spec-section.cjs)
+# Per-section absence (D-05 / RAIL-03): "not supplied" = the spec holds no row of the section's kind;
+# no spec ($SPEC_FILE empty) => not supplied => fallback fires.
+EDGE_ABSENT=1; PROHIB_ABSENT=1
+if [ -n "$SPEC_FILE" ]; then
+  EDGES=$(specforge query "$SPEC_FILE" --depth 1 --kinds edge --pick '.nodes[kind=edge].id' --count) || exit 1
+  PROHIBS=$(specforge query "$SPEC_FILE" --depth 1 --kinds spec_prohibition --pick '.nodes[kind=spec_prohibition].id' --count) || exit 1
+  [ "$EDGES" -gt 0 ] && EDGE_ABSENT=0
+  [ "$PROHIBS" -gt 0 ] && PROHIB_ABSENT=0
 fi
-[ -n "$SPEC_SECTION_JS" ] || { echo "ERROR: spec-section.cjs not found - reinstall GSD or run build:lib." >&2; exit 1; }
-# supplied => header present AND >=1 row; missing $SPEC_FILE => supplied:false => fallback fires.
-EDGE_ABSENT=1;   node "$SPEC_SECTION_JS" "$SPEC_FILE" edges       2>/dev/null | grep -q '"supplied":true' && EDGE_ABSENT=0
-PROHIB_ABSENT=1; node "$SPEC_SECTION_JS" "$SPEC_FILE" prohibitions 2>/dev/null | grep -q '"supplied":true' && PROHIB_ABSENT=0
 
 # Disabled path - record the skip VISIBLY, never silently (RAIL-05 / PROH-4); the note rides into the
 # planner prompt (Step 8) so the plan records that no probe predicates were generated.
@@ -47,11 +42,9 @@ fi
 
 # Nothing-to-probe guard: the fallback derives predicates from requirement TEXT, so zero requirement IDs => nothing to
 # probe => skip VISIBLY (like the disabled path), NOT a hard-fail: a no-SPEC + no-requirements phase does not abort
-# under the default-ON fallback. The orchestrator substitutes the ids as text; empty/whitespace/TBD => no requirements.
-read -r SPECLESS_REQ_IDS <<'GSD_REQ_IDS' || true   # a still-literal token is non-empty: an unsubstituted run hits the fail-loud guard
-{phase_req_ids}
-GSD_REQ_IDS
-if [[ "$SPECLESS_FALLBACK" == "true" ]] && { [ -z "${SPECLESS_REQ_IDS// /}" ] || [ "${SPECLESS_REQ_IDS}" = "TBD" ]; }; then
+# under the default-ON fallback. The phase's requirement entities are counted; none => no requirements.
+SPECLESS_REQ_N=$(specforge query "$PHASE_ID" --depth 1 --kinds requirement --pick '.nodes[kind=requirement].id' --count) || exit 1
+if [[ "$SPECLESS_FALLBACK" == "true" ]] && [ "$SPECLESS_REQ_N" -eq 0 ]; then
   echo "info: spec-less probe fallback: phase has no requirement IDs - nothing to probe; skipping (visible skip)." >&2
   SPECLESS_FALLBACK=false
   SPECLESS_FALLBACK_DISABLED="spec-less probe fallback skipped: phase has no requirement IDs to probe (visible skip)."
@@ -60,54 +53,18 @@ fi
 
 ## A. Edge probe (deterministic) — run when `SPECLESS_FALLBACK=true` AND `EDGE_ABSENT=1`
 
-Mirrors spec-phase Step 5.5 verbatim; the ONLY divergence (D-02) is sourcing `$REQS_JSON` from the
-phase requirement IDs (`{phase_req_ids}`) instead of a SPEC interview. Leave `$COVERAGE` empty when
+Mirrors spec-phase Step 5.5 verbatim; the ONLY divergence (D-02) is the subject: the phase, whose
+requirement entities are probed, instead of the spec. Leave `$COVERAGE` empty when
 `EDGE_ABSENT=0` — a SPEC-supplied section is never re-run (section-level precedence).
 
 ```bash
-# Resolve the compiled edge-probe.cjs against the GSD install dir via RUNTIME_DIR (#448) — NOT the
-# consuming project's git root — falling back to git toplevel / $HOME/.claude (spec-phase.md:198 idiom).
-_GSD_RT="${RUNTIME_DIR:-$(specforge git repo --pick .top 2>/dev/null || pwd)}"
-EDGE_PROBE_JS=$(for _c in \
-  "$_GSD_RT/gsd-core/bin/lib/edge-probe.cjs" "$_GSD_RT/bin/lib/edge-probe.cjs" \
-  "$_GSD_RT/.claude/bin/lib/edge-probe.cjs" "$HOME/.claude/gsd-core/bin/lib/edge-probe.cjs" \
-  "$HOME/.claude/bin/lib/edge-probe.cjs"; do [ -f "$_c" ] && { echo "$_c"; break; }; done)
-# Build ONLY inside a verified GSD source checkout; --prefix pins npm so we never trigger the
-# consuming project's build:lib. Never silent-skip (RR-04) — fail loud if unresolvable.
-if [ -z "$EDGE_PROBE_JS" ]; then
-  if [ -f "$_GSD_RT/tsconfig.build.json" ] && [ -f "$_GSD_RT/src/edge-probe.cts" ]; then
-    npm --prefix "$_GSD_RT" run build:lib 2>/dev/null || true
-    EDGE_PROBE_JS=$(for _c in \
-      "$_GSD_RT/gsd-core/bin/lib/edge-probe.cjs" "$_GSD_RT/bin/lib/edge-probe.cjs" \
-      "$_GSD_RT/.claude/bin/lib/edge-probe.cjs" "$HOME/.claude/gsd-core/bin/lib/edge-probe.cjs" \
-      "$HOME/.claude/bin/lib/edge-probe.cjs"; do [ -f "$_c" ] && { echo "$_c"; break; }; done)
-  fi
-  [ -n "$EDGE_PROBE_JS" ] || { echo "ERROR: edge-probe.cjs not found — reinstall GSD or run \`npm run build:lib\`." >&2; exit 1; }
-fi
-
-# THE ONE DIVERGENCE (D-02): source requirements from THIS phase. Populate the heredoc from
-# {phase_req_ids}, pulling each requirement's text from REQUIREMENTS.md: {"id","text","shapes"?}.
-# mktemp suffix trick is BSD/GNU portable (#1520).
-REQS_JSON=$(specforge files temp --prefix edge-probe-reqs- --suffix .json --pick .path) || exit 1
-IFS= read -rd '' REQS <<'JSON' || true
-[
-  { "id": "R1", "text": "<replace: requirement text from REQUIREMENTS.md for each {phase_req_ids} id>" }
-]
-JSON
-printf '%s' "$REQS" > "$REQS_JSON"   # Guard — fail loud on empty/invalid array OR a still-present `<replace:>` placeholder (forgotten
-# substitution would yield a bogus report). Never a silent no-op.
-if [ "$(specforge gsd edge-probe-requirements --requirements "$(< "$REQS_JSON")" --pick .valid)" != true ]; then
-  echo "ERROR: edge-probe requirements JSON is empty/invalid or still holds the <replace: …> placeholder — populate \$REQS_JSON from {phase_req_ids} before running." >&2   # also when the JSON is over the command line's limit (32,767 characters on Windows): it is passed as an argument
-  exit 1
-fi
-# Invoke + CAPTURE, exit-checked (engine FAILS CLOSED exit 2 on bad shape; a bare COVERAGE=$(node …)
+# THE ONE DIVERGENCE (D-02): the subject is THIS phase; its requirement entities are probed.
+# Invoke + CAPTURE, exit-checked (engine FAILS CLOSED exit 1 on bad shape; a bare capture
 # would swallow it and fall through to prose re-derivation = fail-OPEN).
-if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then
-  specforge files remove --force "$REQS_JSON" >/dev/null
+if ! COVERAGE=$(specforge gsd edge-probe "$PHASE_ID" --format json); then
   echo "ERROR: edge-probe engine failed (invalid shapes or bad input) — fix the requirement(s); never proceed with empty coverage." >&2
   exit 1
 fi
-specforge files remove --force "$REQS_JSON" >/dev/null
 # Exit-0-but-garbage guard: report must parse as JSON with { items[], coverage{} }.
 if [ -z "$COVERAGE" ]; then
   echo "ERROR: edge-probe produced an unparseable/malformed coverage report — refusing to proceed." >&2

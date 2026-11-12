@@ -118,34 +118,12 @@ const KEEP: &[(&str, &str)] = &[
     ),
 ];
 
-/// The `node` lines still to port, as `(asset, trimmed line)`, each with its reason. Each must match exactly one line,
-/// as a KEEP row must, so the list cannot go stale. None reads SpecForge's JSON. They run upstream code that @gsd/core
-/// does not install, and the step that holds them is optional; gsd/core/README.md names them.
-const PENDING_NODE: &[(&str, &str)] = &[
-    // upstream's runtime library spec-section.cjs (found under `$_GSD_RT`, built with npm): it parses a SPEC.md's
-    // sections, which no `specforge` command answers
-    (
-        "gsd-core/references/specless-probe-fallback.md",
-        r#"EDGE_ABSENT=1;   node "$SPEC_SECTION_JS" "$SPEC_FILE" edges       2>/dev/null | grep -q '"supplied":true' && EDGE_ABSENT=0"#,
-    ),
-    (
-        "gsd-core/references/specless-probe-fallback.md",
-        r#"PROHIB_ABSENT=1; node "$SPEC_SECTION_JS" "$SPEC_FILE" prohibitions 2>/dev/null | grep -q '"supplied":true' && PROHIB_ABSENT=0"#,
-    ),
-    // upstream's edge-probe library (found by the candidates loop above it): it derives the edge-coverage answer
-    // from the requirements JSON, which no `specforge` command answers
-    (
-        "gsd-core/references/specless-probe-fallback.md",
-        r#"if ! COVERAGE=$(node "$EDGE_PROBE_JS" "$REQS_JSON"); then"#,
-    ),
-];
-
 /// A shell block runs no node: a project that uses SpecForge may have no node at all. Only code counts:
 /// a line inside a fence that is not a `#` comment. Prose about a node script is not code.
 #[test]
 fn a_shell_block_runs_no_node() {
     let mut found = Vec::new();
-    let listed: Vec<&(&str, &str)> = KEEP.iter().chain(PENDING_NODE).collect();
+    let listed: Vec<&(&str, &str)> = KEEP.iter().collect();
     let mut matched = vec![0; listed.len()];
     // a node invocation: `node -e|-p|--eval|--print`, `node "<file>"` / `node '<file>'` / `node $X`, `node <<`, or
     // `node \` continued on the next line
@@ -186,10 +164,7 @@ fn a_shell_block_runs_no_node() {
         found.join("\n")
     );
     for ((path, line), count) in listed.iter().zip(&matched) {
-        assert_eq!(
-            *count, 1,
-            "KEEP/PENDING_NODE ({path}, {line}) matches {count} lines"
-        );
+        assert_eq!(*count, 1, "KEEP ({path}, {line}) matches {count} lines");
     }
 }
 

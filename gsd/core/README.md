@@ -64,11 +64,7 @@ data a prompt owns (the quick batch's list) is tab-separated lines. `gh` and the
 lanes' own CLIs (codex, gemini, opencode, ollama, ...) are needed only for the steps that call those services. node is
 needed only where the user's own project is JavaScript: the verifier's module and CLI checks
 (`node -e "…require('$MODULE_PATH')…"`, `node $CLI_PATH`, at `agents/gsd-verifier.md`) (`KEEP` in
-`tests/port_tools.rs`); a dev server is waited for with `specforge wait --url`. Beyond those, node is optional, only for these steps, which run upstream code
-@gsd/core does not install (`PENDING_NODE`): the edge probe `node "$EDGE_PROBE_JS"` (`workflows/spec-phase.md`,
-`references/specless-probe-fallback.md`) and the spec-section check `node "$SPEC_SECTION_JS"`
-(`references/specless-probe-fallback.md`). There is no health check for them: `health` is a guest
-command and cannot see the host's `PATH`. `tests/port_tools.rs` keeps jq out of every shell block and inline code run,
+`tests/port_tools.rs`); a dev server is waited for with `specforge wait --url`. `tests/port_tools.rs` keeps jq out of every shell block and inline code run,
 and `tests/cli/assets_shell/` runs the rewritten lines with no jq and no node on the `PATH`.
 
 ## Folders

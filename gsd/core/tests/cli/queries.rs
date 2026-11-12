@@ -105,6 +105,7 @@ const UNBOUND: &[&str] = &[
     "$m",
     "$TASK_ID",
     "$SPEC_ID",
+    "$SPEC_FILE",
     "$SUMMARY_FILE",
     "$SUMMARY_ID",
     "$RESEARCH_ID",

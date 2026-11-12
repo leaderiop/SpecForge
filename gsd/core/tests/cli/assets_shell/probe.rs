@@ -85,25 +85,85 @@ fn the_spec_phase_edge_probe_runs_in_a_project() {
     assert!(err.contains("record the phase spec"), "{err}");
 }
 
-/// The spec-less gate (section 0 of the probe fallback) on the taskboard twin, whose phase 02 has no spec.
-// Pin: the gate still resolves upstream's compiled spec-section.cjs from install dirs SpecForge never creates, so it
-// stops before it reads its toggle. The fix that reads the spec's rows from the graph flips this test.
+/// The spec-less gate (section 0 of the probe fallback) and its edge probe (section A): absence is read from the spec's
+/// `edge` and `spec_prohibition` rows, and the probe runs on the phase's requirement entities.
 #[test]
 fn the_specless_gate_and_probe_run_in_a_project() {
     let Some(sh) = Shell::only(&[]) else {
         return;
     };
+    let text = asset("gsd-core/references/specless-probe-fallback.md");
+    let gate = fence_after(&text, "## 0. Gate");
+    let probe = fence_after(&text, "## A. Edge probe");
+    let said = "echo \"EDGE_ABSENT=$EDGE_ABSENT PROHIB_ABSENT=$PROHIB_ABSENT SPECLESS_FALLBACK=$SPECLESS_FALLBACK\"";
+    // the taskboard's phase 02 has no spec: both sections are absent, and the phase's requirements are probed
     let p = taskboard();
-    let gate = fence_after(
-        &asset("gsd-core/references/specless-probe-fallback.md"),
-        "## 0. Gate",
-    );
-    let (_, err, code) = sh.run_in(
+    let (out, err, code) = sh.run_in(
         p.root(),
-        &format!(
-            "export HOME=\"$PWD/.home\"; unset RUNTIME_DIR; PHASE_ID=v1.0/02; SPEC_FILE=\n{gate}"
-        ),
+        &format!("unset RUNTIME_DIR; PHASE_ID=v1.0/02; SPEC_FILE=\n{gate}\n{said}\n{probe}\nprintf '%s\\n' \"$COVERAGE\""),
     );
-    assert_eq!(code, 1, "{err}");
-    assert!(err.contains("spec-section.cjs not found"), "{err}");
+    assert_eq!(code, 0, "{err}");
+    let mut lines = out.lines();
+    assert_eq!(
+        lines.next(),
+        Some("EDGE_ABSENT=1 PROHIB_ABSENT=1 SPECLESS_FALLBACK=true"),
+        "{out}"
+    );
+    let report: serde_json::Value = serde_json::from_str(&lines.collect::<Vec<_>>().join("\n"))
+        .unwrap_or_else(|e| panic!("{e}: {out}"));
+    assert_eq!(
+        (
+            &report["coverage"]["applicable"],
+            &report["coverage"]["unclassified"]
+        ),
+        (&4.into(), &1.into()),
+        "{out}"
+    );
+    // phase 02.1 has no requirements: a visible skip, not a failure
+    let (out, err, code) = sh.run_in(
+        p.root(),
+        &format!("unset RUNTIME_DIR; PHASE_ID=v1.0/02.1; SPEC_FILE=\n{gate}\n{said}"),
+    );
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("SPECLESS_FALLBACK=false"), "{out}");
+    assert!(err.contains("nothing to probe"), "{err}");
+    // the discuss project's spec supplies its edges once a row is recorded, and its prohibitions once one is
+    let p = project("discuss");
+    let script =
+        format!("unset RUNTIME_DIR; PHASE_ID=v1.0/02; SPEC_FILE=v1.0/02/02-SPEC\n{gate}\n{said}");
+    let run = p.run(&[
+        "gsd",
+        "resolve-edge",
+        "v1.0/02/02-SPEC/LR1",
+        "unclassified",
+        "dismissed",
+        "--reason",
+        "edge-free",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let (out, err, code) = sh.run_in(p.root(), &script);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("EDGE_ABSENT=0 PROHIB_ABSENT=1"), "{out}");
+    let run = p.run(&[
+        "new",
+        "spec_prohibition",
+        "SP1",
+        "No plaintext",
+        "--in",
+        "spec/discuss.spec",
+        "--spec",
+        "v1.0/02/02-SPEC",
+        "--requirement",
+        "LR1",
+        "--statement",
+        "MUST NOT store tasks in plaintext",
+        "--status",
+        "dismissed",
+        "--reason",
+        "no secrets in a task",
+    ]);
+    assert_eq!(run.code, 0, "{}", run.all());
+    let (out, err, code) = sh.run_in(p.root(), &script);
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("PROHIB_ABSENT=0"), "{out}");
 }
