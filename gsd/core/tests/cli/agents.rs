@@ -254,9 +254,9 @@ fn judged_section(file: &str) -> Option<Vec<String>> {
     Some(
         section
             .lines()
-            .filter_map(|l| l.strip_prefix("- `"))
-            .filter_map(|l| l.split('`').next())
-            .map(String::from)
+            .filter(|l| l.starts_with("- `"))
+            .filter_map(|l| gsd_kit::markdown::inline_code(l).into_iter().next())
+            .map(|(_, name)| name)
             .collect(),
     )
 }

@@ -111,9 +111,9 @@ fn agent_owners() -> BTreeMap<String, String> {
         if cells.len() < 4 || !cells[1].starts_with("@gsd/") {
             continue;
         }
-        for name in cells[2].split('`').skip(1).step_by(2) {
+        for (_, name) in gsd_kit::markdown::inline_code(cells[2]) {
             assert!(
-                out.insert(name.to_string(), cells[1].to_string()).is_none(),
+                out.insert(name.clone(), cells[1].to_string()).is_none(),
                 "{name} is in two rows"
             );
         }
@@ -492,8 +492,11 @@ fn each_acceptance_where_path_exists() {
         .take_while(|l| l.starts_with('|'))
     {
         let where_ = line.split('|').nth(7).unwrap_or_default();
-        let path = where_.split('`').nth(1).expect("a `path` in Where");
-        assert!(root.join(path).is_file(), "{path}: no such file");
+        let (_, path) = gsd_kit::markdown::inline_code(where_)
+            .into_iter()
+            .next()
+            .expect("a `path` in Where");
+        assert!(root.join(&path).is_file(), "{path}: no such file");
         checked += 1;
     }
     assert_eq!(checked, 9);

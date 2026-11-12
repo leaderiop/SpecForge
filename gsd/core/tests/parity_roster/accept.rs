@@ -123,8 +123,12 @@ pub fn cli_modules() -> Counts {
     counts(built, owned, na, 0)
 }
 
-fn backticked(cell: &str) -> Vec<&str> {
-    cell.split('`').skip(1).step_by(2).collect()
+/// The code spans of a table cell.
+fn backticked(cell: &str) -> Vec<String> {
+    gsd_kit::markdown::inline_code(cell)
+        .into_iter()
+        .map(|(_, code)| code)
+        .collect()
 }
 
 fn names(token: &str, key: &str) -> bool {
@@ -151,7 +155,7 @@ pub fn config_keys() -> Counts {
             .keys()
             .map(String::as_str),
     );
-    let owners: Vec<Vec<&str>> = SETTINGS_MD
+    let owners: Vec<Vec<String>> = SETTINGS_MD
         .lines()
         .filter(|l| l.starts_with("| `@gsd/") && !l.starts_with("| `@gsd/core`"))
         .map(|l| {
@@ -164,7 +168,7 @@ pub fn config_keys() -> Counts {
             )
         })
         .collect();
-    let na: Vec<&str> = SETTINGS_MD
+    let na: Vec<String> = SETTINGS_MD
         .split("\n## ")
         .find(|s| s.starts_with("Not applicable"))
         .expect("a Not applicable section")

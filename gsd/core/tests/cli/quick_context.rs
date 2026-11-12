@@ -113,9 +113,9 @@ fn a_research_of_a_quick_plan_named_research_is_e206() {
 fn planned_checks(p: &Project) -> Vec<String> {
     let mut found = Vec::new();
     for file in ["quick.md", "quick-batch/steps/planner-wave.md"] {
-        for code in served(p, file).split('`').skip(1).step_by(2) {
-            if !code.contains('\n') && code.contains("specforge query \"${quick_id}\" --kinds") {
-                found.push(code.to_string());
+        for (_, code) in gsd_kit::markdown::inline_code(&served(p, file)) {
+            if code.contains("specforge query \"${quick_id}\" --kinds") {
+                found.push(code);
             }
         }
     }
@@ -213,17 +213,27 @@ fn served(p: &Project, file: &str) -> String {
     run.stdout
 }
 
-/// The commands of `text` that contain `needle`: a backticked span, or a whole line outside backticks (a bash block).
+/// The commands of `text` that contain `needle`, in line order: a code span, or a fence's code line (trimmed), or
+/// a code span of the Markdown a fence's code line builds (a prompt template's string).
 fn commands(text: &str, needle: &str) -> Vec<String> {
-    let mut found = Vec::new();
-    for line in text.lines().filter(|l| l.contains(needle)) {
-        let spans: Vec<&str> = line.split('`').collect();
-        match spans.iter().skip(1).step_by(2).find(|s| s.contains(needle)) {
-            Some(span) => found.push(span.to_string()),
-            None => found.push(line.trim().to_string()),
+    use gsd_kit::markdown::{fences, inline_code};
+    let mut found: Vec<(usize, String)> = inline_code(text)
+        .into_iter()
+        .filter(|(_, span)| span.contains(needle))
+        .collect();
+    for fence in fences(text) {
+        for (n, line) in fence.text.lines().enumerate() {
+            if line.contains(needle) {
+                let span = inline_code(line)
+                    .into_iter()
+                    .find(|(_, s)| s.contains(needle));
+                let command = span.map_or_else(|| line.trim().to_string(), |(_, s)| s);
+                found.push((fence.code.start + n, command));
+            }
         }
     }
-    found
+    found.sort_by_key(|(n, _)| *n);
+    found.into_iter().map(|(_, command)| command).collect()
 }
 
 /// The plan exists before any step that names it (the fence that mints its id wrote it), so a research step writes no

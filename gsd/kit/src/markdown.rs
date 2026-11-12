@@ -1,5 +1,7 @@
 //! The gsd family's one Markdown reader (ADR 0332 D7): CommonMark through pulldown-cmark, with no extension, read
-//! the way an agent reads a prompt. No other gsd code splits Markdown on a fence mark or a backtick.
+//! the way an agent reads a prompt. No other gsd code finds a fence or a code span of Markdown by hand; a table row is
+//! still cut on `|` by hand (and `core/tests/common/mod.rs::input_of` reads one table cell's own grammar), as tables
+//! are not read here.
 //!
 //! Plain CommonMark swallows the text under an XML section tag (`<step name="x">` and the lines after it, up to a
 //! blank line) into one HTML block, and an agent reads that text as Markdown. So when an HTML block that is not a

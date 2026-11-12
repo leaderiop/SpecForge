@@ -95,8 +95,12 @@ fn names(token: &str, key: &str) -> bool {
     }
 }
 
-fn backticked(cell: &str) -> Vec<&str> {
-    cell.split('`').skip(1).step_by(2).collect()
+/// The code spans of a table cell.
+fn backticked(cell: &str) -> Vec<String> {
+    gsd_kit::markdown::inline_code(cell)
+        .into_iter()
+        .map(|(_, code)| code)
+        .collect()
 }
 
 /// `(extension, tokens)` of each non-core row of the owner table.
@@ -106,11 +110,8 @@ fn other_owners() -> Vec<(String, Vec<String>)> {
         .filter(|l| l.starts_with("| `@gsd/") && !l.starts_with("| `@gsd/core`"))
         .map(|line| {
             let cells: Vec<&str> = line.trim().trim_matches('|').split('|').collect();
-            let owner = backticked(cells[0])[0].to_string();
-            (
-                owner,
-                backticked(cells[1]).into_iter().map(String::from).collect(),
-            )
+            let owner = backticked(cells[0])[0].clone();
+            (owner, backticked(cells[1]))
         })
         .collect()
 }
@@ -126,7 +127,6 @@ fn not_applicable() -> Vec<String> {
         .filter_map(|l| l.trim().trim_matches('|').split('|').next())
         .filter(|cell| !cell.contains("API key half"))
         .flat_map(backticked)
-        .map(String::from)
         .collect()
 }
 
