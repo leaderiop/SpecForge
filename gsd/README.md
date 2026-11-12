@@ -102,6 +102,7 @@ list fields as items, **K14** a writing call knows the time (`now`), **K15** a j
 | Hooks | Typed contributions; `specforge install <host>` wires them into the host as `specforge hook <id>` (K9). |
 | Git | The agent runs git; a collector records commits as evidence linked to their tasks. |
 | Hosts | Claude Code, Codex and Cursor first, plus any MCP client. Host Markdown (agents, skills, commands) is rendered output, never source. `specforge install <host>` writes project-local files only and owns only what it marks. |
+| Agents | Each agent keeps upstream's tools and gains its role's SpecForge engine tools (`gsd_kit::agent`: researcher, planner, checker, executor, verifier); a role's writing tools go only to an agent whose upstream tools write, and a judge also gets `verdict_inputs` and `record_verdict` ([ADR 0334](../docs/adr/0334-engine-tools-are-one-catalogue-below-the-surfaces.md)). |
 | Prompts | GSD's agent and workflow prompts are ported under MIT with attribution; upstream's text is kept span by span, and every span of ours carries the reason it differs (`gsd/core/tests/port.lock`). |
 
 ### A project's layout

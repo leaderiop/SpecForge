@@ -12,8 +12,12 @@ pub const ID: &str = "gsd-security-auditor";
 pub fn declare(c: &mut ContributionsBuilder) {
     c.agent(ID, |a| {
         a.description("Verifies threat mitigations from PLAN.md threat model exist in implemented code. Returns structured security verdict (SECURED / OPEN_THREATS / ESCALATE). Spawned by /gsd:secure-phase.")
-            // Upstream's Read, Bash, Glob, Grep, Skill; no write tool (#2119).
-            .tools(&["read", "shell", "search", "skill"])
+            // Upstream's Read, Bash, Glob, Grep, Skill, then the checker's SpecForge reads; no write tool (#2119).
+            .tools(&gsd_kit::agent::tools(
+                &["read", "shell", "search", "skill"],
+                &gsd_kit::agent::CHECKER,
+                false,
+            ))
             .color("red")
             .model(&format!("setting:model_overrides.{ID}"))
             .attribution(gsd_kit::agent::attribution(&format!("agents/{ID}.md")))

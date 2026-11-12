@@ -1,9 +1,13 @@
 //! The 15 `@gsd/core` agents: id, description, host-neutral tool classes and colour, as gsd-core v1.19.0 declares
 //! them (`agents/gsd-<name>.md` frontmatter), and the embedded bodies.
 
+use gsd_kit::agent::{CHECKER, EXECUTOR, PLANNER, RESEARCHER, Role, VERIFIER};
+
 /// One agent.
 pub struct Agent {
     pub id: &'static str,
+    /// The role whose SpecForge engine tools it is granted beside its upstream tools.
+    pub role: &'static Role,
     pub description: &'static str,
     pub tools: &'static [&'static str],
     pub color: &'static str,
@@ -16,6 +20,7 @@ pub struct Agent {
 pub const AGENTS: &[Agent] = &[
     Agent {
         id: "gsd-advisor-researcher",
+        role: &RESEARCHER,
         description: "Researches a single gray area decision and returns a structured comparison table with rationale. Spawned by discuss-phase advisor mode.",
         tools: &[
             "read",
@@ -35,6 +40,7 @@ pub const AGENTS: &[Agent] = &[
     },
     Agent {
         id: "gsd-assumptions-analyzer",
+        role: &RESEARCHER,
         description: "Deeply analyzes codebase for a phase and returns structured assumptions with evidence. Spawned by discuss-phase assumptions mode.",
         tools: &["read", "shell", "search", "skill"],
         color: "cyan",
@@ -45,6 +51,7 @@ pub const AGENTS: &[Agent] = &[
     },
     Agent {
         id: "gsd-doc-classifier",
+        role: &RESEARCHER,
         description: "Classifies a single planning document as ADR, PRD, SPEC, DOC, or UNKNOWN. Extracts title, scope summary, and cross-references. Spawned in parallel by /gsd:ingest-docs. Writes a JSON classification file and returns a one-line confirmation.",
         tools: &["read", "write", "search"],
         color: "yellow",
@@ -55,6 +62,7 @@ pub const AGENTS: &[Agent] = &[
     },
     Agent {
         id: "gsd-doc-synthesizer",
+        role: &RESEARCHER,
         description: "Synthesizes classified planning docs into a single consolidated context. Applies precedence rules, detects cross-ref cycles, enforces LOCKED-vs-LOCKED hard-blocks, and writes INGEST-CONFLICTS.md with three buckets (auto-resolved, competing-variants, unresolved-blockers). Spawned by /gsd:ingest-docs.",
         tools: &["read", "write", "search", "shell"],
         color: "orange",
@@ -65,6 +73,7 @@ pub const AGENTS: &[Agent] = &[
     },
     Agent {
         id: "gsd-executor",
+        role: &EXECUTOR,
         description: "Executes GSD plans with atomic commits, deviation handling, checkpoint protocols, and state management. Spawned by execute-phase orchestrator or execute-plan command.",
         tools: &[
             "read",
@@ -82,6 +91,7 @@ pub const AGENTS: &[Agent] = &[
     },
     Agent {
         id: "gsd-integration-checker",
+        role: &CHECKER,
         description: "Verifies cross-phase integration and E2E flows. Checks that phases connect properly and user workflows complete end-to-end.",
         tools: &["read", "shell", "search", "skill"],
         color: "blue",
@@ -92,6 +102,7 @@ pub const AGENTS: &[Agent] = &[
     },
     Agent {
         id: "gsd-nyquist-auditor",
+        role: &VERIFIER,
         description: "Fills Nyquist validation gaps by generating tests and verifying coverage for phase requirements",
         tools: &["read", "write", "edit", "shell", "search", "skill"],
         color: "purple",
@@ -102,6 +113,7 @@ pub const AGENTS: &[Agent] = &[
     },
     Agent {
         id: "gsd-pattern-mapper",
+        role: &RESEARCHER,
         description: "Analyzes codebase for existing patterns and produces PATTERNS.md mapping new files to closest analogs. Read-only codebase analysis spawned by /gsd:plan-phase orchestrator before planning.",
         tools: &["read", "shell", "search", "write"],
         color: "purple",
@@ -112,6 +124,7 @@ pub const AGENTS: &[Agent] = &[
     },
     Agent {
         id: "gsd-phase-researcher",
+        role: &RESEARCHER,
         description: "Researches how to implement a phase before planning. Produces RESEARCH.md consumed by gsd-planner. Spawned by /gsd:plan-phase orchestrator.",
         tools: &[
             "read",
@@ -137,6 +150,7 @@ pub const AGENTS: &[Agent] = &[
     },
     Agent {
         id: "gsd-plan-checker",
+        role: &CHECKER,
         description: "Verifies plans will achieve phase goal before execution. Goal-backward analysis of plan quality. Spawned by /gsd:plan-phase orchestrator.",
         tools: &["read", "shell", "search", "skill"],
         color: "green",
@@ -145,6 +159,7 @@ pub const AGENTS: &[Agent] = &[
     },
     Agent {
         id: "gsd-planner",
+        role: &PLANNER,
         description: "Creates executable phase plans with task breakdown, dependency analysis, and goal-backward verification. Spawned by /gsd:plan-phase orchestrator.",
         tools: &[
             "read",
@@ -163,6 +178,7 @@ pub const AGENTS: &[Agent] = &[
     },
     Agent {
         id: "gsd-project-researcher",
+        role: &RESEARCHER,
         description: "Researches domain ecosystem before roadmap creation. Produces files in spec/gsd/research/ consumed during roadmap creation. Spawned by /gsd:new-project or /gsd:new-milestone orchestrators.",
         tools: &[
             "read",
@@ -189,6 +205,7 @@ pub const AGENTS: &[Agent] = &[
     },
     Agent {
         id: "gsd-research-synthesizer",
+        role: &RESEARCHER,
         description: "Synthesizes research outputs from parallel researcher agents into SUMMARY.md. Spawned by /gsd:new-project after 4 researcher agents complete.",
         tools: &["read", "write", "shell", "skill"],
         color: "purple",
@@ -199,6 +216,7 @@ pub const AGENTS: &[Agent] = &[
     },
     Agent {
         id: "gsd-roadmapper",
+        role: &PLANNER,
         description: "Creates project roadmaps with phase breakdown, requirement mapping, success criteria derivation, and coverage validation. Spawned by /gsd:new-project orchestrator.",
         tools: &["read", "write", "shell", "search", "skill"],
         color: "purple",
@@ -209,6 +227,7 @@ pub const AGENTS: &[Agent] = &[
     },
     Agent {
         id: "gsd-verifier",
+        role: &VERIFIER,
         description: "Verifies phase goal achievement through goal-backward analysis. Checks codebase delivers what phase promised, not just that tasks completed. Creates VERIFICATION.md report.",
         tools: &["read", "write", "shell", "search", "skill"],
         color: "green",

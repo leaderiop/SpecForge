@@ -154,3 +154,32 @@ fn a_core_command_and_an_extension_command_are_told_apart() {
     assert!(roster::owner("plan-phase").is_some_and(Owner::is_core));
     assert_eq!(roster::owner("no-such-command"), None);
 }
+
+/// Each core agent is granted the SpecForge engine tools of the role its work needs (ADR 0334).
+#[test]
+fn every_agent_takes_the_role_its_work_needs() {
+    let want: BTreeMap<&str, &str> = [
+        ("gsd-advisor-researcher", "researcher"),
+        ("gsd-assumptions-analyzer", "researcher"),
+        ("gsd-doc-classifier", "researcher"),
+        ("gsd-doc-synthesizer", "researcher"),
+        ("gsd-executor", "executor"),
+        ("gsd-integration-checker", "checker"),
+        ("gsd-nyquist-auditor", "verifier"),
+        ("gsd-pattern-mapper", "researcher"),
+        ("gsd-phase-researcher", "researcher"),
+        ("gsd-plan-checker", "checker"),
+        ("gsd-planner", "planner"),
+        ("gsd-project-researcher", "researcher"),
+        ("gsd-research-synthesizer", "researcher"),
+        ("gsd-roadmapper", "planner"),
+        ("gsd-verifier", "verifier"),
+    ]
+    .into_iter()
+    .collect();
+    let have: BTreeMap<&str, &str> = gsd_core::agents::roster::AGENTS
+        .iter()
+        .map(|a| (a.id, a.role.id))
+        .collect();
+    assert_eq!(have, want);
+}

@@ -53,8 +53,9 @@ pub fn repointed(text: &str) -> String {
 pub fn declare(c: &mut ContributionsBuilder) {
     for agent in roster::AGENTS {
         c.agent(agent.id, |a| {
+            let judges = crate::judged::JUDGED.iter().any(|j| j.judge == agent.id);
             a.description(agent.description)
-                .tools(agent.tools)
+                .tools(&gsd_kit::agent::tools(agent.tools, agent.role, judges))
                 .color(agent.color)
                 .model(&format!(
                     "setting:{}",

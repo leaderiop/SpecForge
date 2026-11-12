@@ -45,11 +45,11 @@ fn the_descriptor_is_upstreams_with_the_compact_variant() {
     let (front, _) = upstream("gsd-security-auditor.md");
     assert_eq!(a["id"], AGENT);
     assert_eq!(a["description"], field(&front, "description:"));
-    // Upstream's Read, Bash, Glob, Grep, Skill as core maps them (`gsd/core/tests/port.rs` `class`).
-    assert_eq!(
-        a["tools"],
-        serde_json::json!(["read", "shell", "search", "skill"])
-    );
+    // Upstream's Read, Bash, Glob, Grep, Skill as core maps them (`gsd/core/tests/port.rs` `class`), then the
+    // checker role's SpecForge reads.
+    let mut tools = vec!["read", "shell", "search", "skill"];
+    tools.extend(gsd_kit::agent::CHECKER.reads);
+    assert_eq!(a["tools"], serde_json::json!(tools));
     assert_eq!(a["color"], field(&front, "color:"));
     assert_eq!(a["color"], "red");
     assert_eq!(a["model"], "setting:model_overrides.gsd-security-auditor");
