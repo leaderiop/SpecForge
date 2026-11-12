@@ -187,18 +187,20 @@ pub enum Span {
     },
 }
 
-/// The words of `lines`: no blank line, each line trimmed, a leading run of three or more backticks or tildes
-/// shortened to three, joined by `\n`. A layout edit keeps a span's words.
+/// The words of `lines`: no blank line, a fence-mark line trimmed and its run of three or more backticks or tildes
+/// shortened to three, every other line as written (its indentation is code in a fence, a heredoc's `EOF` among it),
+/// joined by `\n`. A blank-line or fence-mark edit keeps a span's words.
 pub fn words(lines: &[impl AsRef<str>]) -> String {
     lines
         .iter()
-        .map(|l| l.as_ref().trim())
-        .filter(|l| !l.is_empty())
+        .map(AsRef::as_ref)
+        .filter(|l| !l.trim().is_empty())
         .map(|l| {
-            let mark = l.chars().next().filter(|c| *c == '`' || *c == '~');
-            let run = mark.map_or(0, |m| l.chars().take_while(|c| *c == m).count());
+            let t = l.trim();
+            let mark = t.chars().next().filter(|c| *c == '`' || *c == '~');
+            let run = mark.map_or(0, |m| t.chars().take_while(|c| *c == m).count());
             match mark {
-                Some(m) if run >= 3 => format!("{}{}", m.to_string().repeat(3), &l[run..]),
+                Some(m) if run >= 3 => format!("{}{}", m.to_string().repeat(3), &t[run..]),
                 _ => l.to_string(),
             }
         })

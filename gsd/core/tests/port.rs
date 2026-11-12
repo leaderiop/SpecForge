@@ -152,12 +152,14 @@ fn a_span_map_tiles_both_bodies() {
 }
 
 #[test]
-fn words_ignore_blank_lines_indentation_and_fence_width() {
+fn words_ignore_blank_lines_and_fence_width_but_keep_indentation() {
     assert_eq!(
         port_map::words(&["  ````bash", "", "   x  ", "~~~~", "\t", "``a``"]),
-        "```bash\nx\n~~~\n``a``"
+        "```bash\n   x  \n~~~\n``a``"
     );
     assert_eq!(port_map::words(&["", "  "]), "");
+    // a re-indented heredoc end changes the code, so it changes the words
+    assert_ne!(port_map::words(&["EOF"]), port_map::words(&["  EOF"]));
 }
 
 #[test]
@@ -178,9 +180,11 @@ fn the_computed_groups_judge_both_sides() {
     // a program upstream's span does not run is not served
     assert_eq!(computed(&["jq -r .a f"], &["specforge x | sed 1d"]), None);
     assert_eq!(
-        computed(&["```", "  x", ""], &["````", "x", "````"][..2]),
+        computed(&["```", "  x", ""], &["  ````", "  x", "````"][..2]),
         Some("markdown")
     );
+    // a re-indented code line is a code edit, not layout
+    assert_eq!(computed(&["  EOF"], &["EOF"]), None);
     assert_eq!(computed(&["Read the file."], &["Read the entity."]), None);
 }
 
