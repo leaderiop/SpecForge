@@ -38,9 +38,30 @@ struct Pair {
     mine: Vec<String>,
     theirs: Vec<String>,
     spans: Vec<port_map::Span>,
+    /// Whether each upstream line is a fence's code line.
+    theirs_code: Vec<bool>,
 }
 
 impl Pair {
+    fn new(
+        label: String,
+        mine: Vec<String>,
+        theirs: Vec<String>,
+        spans: Vec<port_map::Span>,
+    ) -> Self {
+        let mut theirs_code = vec![false; theirs.len()];
+        for f in gsd_kit::markdown::fences(&theirs.join("\n")) {
+            theirs_code[f.code].fill(true);
+        }
+        Pair {
+            label,
+            mine,
+            theirs,
+            spans,
+            theirs_code,
+        }
+    }
+
     /// Whether line `n` of ours lies in an own span: text that is not upstream's.
     fn own(&self, n: usize) -> bool {
         self.spans
@@ -48,8 +69,9 @@ impl Pair {
             .any(|s| matches!(s, port_map::Span::Own { asset, .. } if asset.contains(&n)))
     }
 
-    /// Upstream's lines that ours `s..e` stands for: the upstream range of the spans over it.
-    fn upstream_of(&self, s: usize, e: usize) -> &[String] {
+    /// The fence code lines of upstream that ours `s..e` stands for: the upstream range of the spans over it, without
+    /// the marks and prose an own span's range also holds.
+    fn upstream_of(&self, s: usize, e: usize) -> Vec<&str> {
         let (mut from, mut to) = (usize::MAX, 0);
         for span in &self.spans {
             let (asset, up) = match span {
@@ -70,11 +92,10 @@ impl Pair {
                 to = to.max(b);
             }
         }
-        if from > to {
-            &[]
-        } else {
-            &self.theirs[from..to]
-        }
+        (from..to)
+            .filter(|&n| self.theirs_code[n])
+            .map(|n| self.theirs[n].as_str())
+            .collect()
     }
 }
 
@@ -85,12 +106,8 @@ fn pairs() -> Vec<Pair> {
         .filter(|a| !a.starts_with("../") && !a.ends_with(".compact.md"))
         .map(|label| {
             let (theirs, _) = port_map::upstream_body(&label);
-            Pair {
-                mine: port_map::asset_body(&label),
-                spans: port_map::map(&label),
-                theirs,
-                label,
-            }
+            let (mine, spans) = (port_map::asset_body(&label), port_map::map(&label));
+            Pair::new(label, mine, theirs, spans)
         })
         .collect()
 }
@@ -132,24 +149,48 @@ fn parses(bash: &str, code: &str) -> bool {
     child.wait().expect("bash -n").success()
 }
 
+/// The bash fences of `pair` that hold an own line, and those of them that no longer parse where upstream's code did.
+fn changed_blocks(pair: &Pair) -> (usize, Vec<String>) {
+    let (mut checked, mut broken) = (0, Vec::new());
+    for (s, e) in fences(&pair.mine) {
+        if !(s..e).any(|n| pair.own(n)) {
+            continue;
+        }
+        checked += 1;
+        let theirs = pair.upstream_of(s, e).join("\n");
+        let mine = pair.mine[s..e].join("\n");
+        for bash in shells() {
+            if parses(bash, &theirs) && !parses(bash, &mine) {
+                broken.push(format!("{}:{} ({bash})", pair.label, s + 2));
+            }
+        }
+    }
+    (checked, broken)
+}
+
+#[test]
+fn a_broken_own_fence_over_a_parsing_one_is_found() {
+    let lines = |text: &str| text.split('\n').map(String::from).collect::<Vec<_>>();
+    // the own span folds the closing mark and the prose after it in: upstream's side must still be code only
+    let theirs = lines("Run it:\n\n```bash\necho one\n```\nThen read the answer.");
+    let mine = lines("Run it:\n\n```bash\nif then\n```\nThen read the answer twice.");
+    let spans = port_map::spans(&theirs, &mine);
+    assert!(
+        matches!(&spans[1], port_map::Span::Own { asset, .. } if *asset == (3..6)),
+        "{spans:?}"
+    );
+    let (checked, broken) = changed_blocks(&Pair::new("x.md".into(), mine, theirs, spans));
+    assert_eq!((checked, broken.len()), (1, shells().len()), "{broken:?}");
+}
+
 #[test]
 fn a_changed_bash_block_still_parses() {
     let mut checked = 0;
     let mut broken = Vec::new();
     for pair in pairs() {
-        for (s, e) in fences(&pair.mine) {
-            if !(s..e).any(|n| pair.own(n)) {
-                continue;
-            }
-            checked += 1;
-            let theirs = pair.upstream_of(s, e).join("\n");
-            let mine = pair.mine[s..e].join("\n");
-            for bash in shells() {
-                if parses(bash, &theirs) && !parses(bash, &mine) {
-                    broken.push(format!("{}:{} ({bash})", pair.label, s + 2));
-                }
-            }
-        }
+        let (c, b) = changed_blocks(&pair);
+        checked += c;
+        broken.extend(b);
     }
     assert!(checked > 100, "{checked} changed blocks");
     assert!(
