@@ -274,14 +274,10 @@ fn a_broken_head_warns_that_it_could_not_determine() {
         return;
     };
     let fences = |p: &Project| {
-        let ship = served(p, "gsd-core/workflows/ship.md");
-        let ship = ship
-            .split_once("**On correct branch?**")
-            .and_then(|(_, after)| after.split_once("```bash\n"))
-            .and_then(|(_, body)| body.split_once("\n   ```"))
-            .expect("ship's fence")
-            .0
-            .to_string();
+        let ship = fence_after(
+            &served(p, "gsd-core/workflows/ship.md"),
+            "**On correct branch?**",
+        );
         [
             fence_after(&served(p, PROTECTED_BRANCH), "# Protected-branch warning"),
             ship,

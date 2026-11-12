@@ -39,21 +39,15 @@ fn the_milestone_close_writes_no_scratch_file() {
     };
     let text = asset("gsd-core/workflows/complete-milestone.md");
     let step = block(&text, "**Reorganize ROADMAP.md**", "**Safety commit");
-    let mut code = Vec::new();
-    let mut fenced = false;
-    for l in step.lines() {
-        if l.trim_start().starts_with("```") {
-            fenced = !fenced && l.trim() == "```bash";
-            continue;
-        }
-        if fenced {
-            code.push(l);
-        }
-    }
+    let code: Vec<String> = gsd_kit::markdown::fences(&step)
+        .into_iter()
+        .filter(|f| f.language == "bash")
+        .map(|f| f.text)
+        .collect();
     let tmp = tempfile::tempdir().expect("a dir");
     let (_, err, _) = sh.run_in(
         tmp.path(),
-        &format!("specforge() {{ :; }}\n{}", code.join("\n")),
+        &format!("specforge() {{ :; }}\n{}", code.concat()),
     );
     let left: Vec<_> = std::fs::read_dir(tmp.path())
         .expect("the dir")

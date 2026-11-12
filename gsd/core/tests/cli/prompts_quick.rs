@@ -458,13 +458,10 @@ mod worktree {
             &["gsd-core/workflows/quick/steps/worktree-pre-dispatch-commit.md"],
         );
         assert_eq!(served.code, 0, "{}", served.all());
-        served
-            .stdout
-            .split("```bash\n")
-            .nth(1)
-            .and_then(|b| b.split("\n```").next())
+        crate::rendered_lines::bash_fences(&served.stdout)
+            .into_iter()
+            .next()
             .expect("the pre-dispatch block")
-            .to_string()
     }
 
     /// Runs the pre-dispatch block in `p` and answers `(QUICK_PLAN_COMMIT, QUICK_PLAN_PARENT)`.

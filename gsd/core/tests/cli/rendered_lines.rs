@@ -55,23 +55,16 @@ pub fn parses(code: &str) -> bool {
     child.wait().expect("bash -n").success()
 }
 
-/// The bash and sh fences of `text`, as the code between the marks.
+/// The bash and sh fences of `text`, as the code between the marks, as gsd-kit's Markdown reader reads them.
 pub fn bash_fences(text: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut open: Option<Vec<&str>> = None;
-    for line in text.lines() {
-        let mark = line.trim_start();
-        match &mut open {
-            Some(code) if mark.starts_with("```") => {
-                out.push(code.join("\n"));
-                open = None;
-            }
-            Some(code) => code.push(line),
-            None if mark == "```bash" || mark == "```sh" => open = Some(Vec::new()),
-            None => {}
-        }
-    }
-    out
+    gsd_kit::markdown::fences(text)
+        .into_iter()
+        .filter(|f| matches!(f.language.as_str(), "bash" | "sh"))
+        .map(|f| match f.text.strip_suffix('\n') {
+            Some(code) => code.to_string(),
+            None => f.text,
+        })
+        .collect()
 }
 
 /// The text a prompt's Rust side appends (`In the shell blocks above, ...` to the end).

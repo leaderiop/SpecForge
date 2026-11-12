@@ -2,7 +2,7 @@
 //! under bash with no jq on the `PATH`. The taskboard fixture: phase 02 depends on phase 01, so a query of phase 01
 //! at depth 2 also reaches 02's plan 02-01.
 
-use super::{Shell, asset};
+use super::{Shell, asset, fence_from};
 use crate::harness::taskboard;
 
 /// The inline code run of `line` that starts with `start`, without its backticks.
@@ -147,8 +147,7 @@ fn the_review_block_keeps_only_lane_evidence() {
     };
     let p = taskboard();
     let text = asset("gsd-core/workflows/review.md");
-    let tail = &text[text.rfind("shopt -s nullglob").expect("the last block")..];
-    let script = &tail[..tail.find("\n```").expect("the end of the fence")];
+    let script = &fence_from(&text, "shopt -s nullglob");
     let run_dir = p.root().join(".specforge/tmp/gsd-review-run");
     let block = script.replace("{run_dir}", &run_dir.display().to_string());
     let fill = |files: &[(&str, &str)]| {
@@ -197,8 +196,7 @@ fn the_review_block_keeps_only_lane_evidence() {
 #[test]
 fn the_review_cleanup_holds_no_rule() {
     let text = asset("gsd-core/workflows/review.md");
-    let tail = &text[text.rfind("shopt -s nullglob").expect("the last block")..];
-    let script = &tail[..tail.find("\n```").expect("the end of the fence")];
+    let script = &fence_from(&text, "shopt -s nullglob");
     for rule in ["case ", "$((", "[ -s "] {
         assert!(!script.contains(rule), "the cleanup decides with {rule:?}");
     }

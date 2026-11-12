@@ -1,6 +1,6 @@
 //! A count a block takes from a graph query: a query that fails is not a count of zero.
 
-use super::{Shell, asset, line};
+use super::{Shell, asset, fence_from, line};
 
 /// The line of `path` that starts with `start`, run after `setup` in a project without that id, then `echo`ed:
 /// `(stdout, stderr, exit code)`.
@@ -97,19 +97,7 @@ fn the_walking_skeleton_gate_reads_its_own_answers() {
         return;
     };
     let text = asset("gsd-core/workflows/plan-phase.md");
-    let fence = {
-        let lines: Vec<&str> = text.lines().collect();
-        let at = lines
-            .iter()
-            .position(|l| l.starts_with("WALKING_SKELETON=false;"))
-            .expect("the gate");
-        let end = at
-            + lines[at..]
-                .iter()
-                .position(|l| *l == "```")
-                .expect("its fence's end");
-        lines[at..end].join("\n")
-    };
+    let fence = fence_from(&text, "WALKING_SKELETON=false;");
     let p = crate::harness::taskboard();
     p.write(
         "spec/v2.spec",

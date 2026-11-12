@@ -100,20 +100,33 @@ fn line<'a>(text: &'a str, start: &str) -> &'a str {
         .unwrap_or_else(|| panic!("no line starts with {start}"))
 }
 
-/// The first shell fence of `text` after the first line holding `mark`.
+/// The code of the first bash fence of `text` that opens after the first line holding `mark`, as gsd-kit's Markdown
+/// reader reads it (an indented fence loses its indentation).
 fn fence_after(text: &str, mark: &str) -> String {
-    let after = text
-        .split_once(mark)
-        .unwrap_or_else(|| panic!("no {mark}"))
-        .1;
-    let body = after
-        .split_once("```bash\n")
-        .unwrap_or_else(|| panic!("no fence after {mark}"))
-        .1;
-    body.split_once("\n```")
-        .unwrap_or_else(|| panic!("the fence after {mark} ends"))
-        .0
-        .to_string()
+    let at = text
+        .lines()
+        .position(|l| l.contains(mark))
+        .unwrap_or_else(|| panic!("no {mark}"));
+    let fence = gsd_kit::markdown::fences(text)
+        .into_iter()
+        .find(|f| f.language == "bash" && f.open > at)
+        .unwrap_or_else(|| panic!("no fence after {mark}"));
+    code(&fence.text).to_string()
+}
+
+/// The code of the last fence of `text` holding `mark`, from the last `mark` to the fence's end.
+fn fence_from(text: &str, mark: &str) -> String {
+    let fence = gsd_kit::markdown::fences(text)
+        .into_iter()
+        .rfind(|f| f.text.contains(mark))
+        .unwrap_or_else(|| panic!("no fence holds {mark}"));
+    let at = fence.text.rfind(mark).expect("the fence holds it");
+    code(&fence.text[at..]).to_string()
+}
+
+/// A fence's code without the line break that ends its last line.
+fn code(text: &str) -> &str {
+    text.strip_suffix('\n').unwrap_or(text)
 }
 
 /// Single-quotes `s` for bash.

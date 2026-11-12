@@ -367,9 +367,10 @@ fn every_fence_is_read_as_written() {
                 }
             }
         }
+        // the raw lines are what the reader is checked against
         for (n, line) in lines.iter().enumerate() {
             let t = line.trim_start();
-            if (t.starts_with("```") || t.starts_with("~~~")) && !covered[n] {
+            if ["```", "~~~"].iter().any(|m| t.starts_with(m)) && !covered[n] {
                 offences.push(format!("{asset}:{}: a mark outside every fence", n + 2));
             }
         }
