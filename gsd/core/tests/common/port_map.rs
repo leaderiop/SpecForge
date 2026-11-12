@@ -2,7 +2,8 @@
 //! by a patience diff. Kept spans are upstream's text byte for byte, the quotes; own spans are the rest, each with a
 //! group that says why it differs. `tests/port.lock` records every span, and [`check_lock`] recomputes it.
 //!
-//! It includes nothing: it uses its includer's root modules `command_word`, `files` and `specforge_only`.
+//! It includes nothing: it uses its includer's root modules `command_word`, `files` and `specforge_only`. [`changed`]
+//! names the spans an upstream bump touches.
 #![allow(
     dead_code,
     reason = "each test crate that includes this module uses some of it"
@@ -487,6 +488,36 @@ pub fn rows(lock: &str) -> Vec<Row> {
 /// The rows of `gsd/core/tests/port.lock` (none before its first bless).
 pub fn lock_rows() -> Vec<Row> {
     rows(&std::fs::read_to_string(lock_path()).unwrap_or_default())
+}
+
+/// The rows of the upstream file `path` whose upstream lines a patience diff of its text `old` to `new` touches, in
+/// lock order. A change of old lines `[o, o+len)` touches the rows it intersects, and an insertion before old line `o`
+/// the rows that hold line `o-1` or line `o`. An insertion row holds the line it precedes.
+pub fn changed<'a>(rows: &'a [Row], path: &str, old: &str, new: &str) -> Vec<&'a Row> {
+    let old: Vec<&str> = old.lines().collect();
+    let new: Vec<&str> = new.lines().collect();
+    let touched: Vec<Range<usize>> = capture_diff_slices(Algorithm::Patience, &old, &new)
+        .into_iter()
+        .filter_map(|op| match op {
+            DiffOp::Equal { .. } => None,
+            DiffOp::Insert { old_index, .. } => Some(old_index.saturating_sub(1)..old_index + 1),
+            DiffOp::Delete {
+                old_index, old_len, ..
+            }
+            | DiffOp::Replace {
+                old_index, old_len, ..
+            } => Some(old_index..old_index + old_len),
+        })
+        .collect();
+    rows.iter()
+        .filter(|r| upstream_path(&r.asset) == path)
+        .filter(|r| {
+            let held = r.up - 1..r.up - 1 + r.n.max(1);
+            touched
+                .iter()
+                .any(|t| t.start < held.end && held.start < t.end)
+        })
+        .collect()
 }
 
 /// How a bless writes an own span it cannot carry.

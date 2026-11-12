@@ -43,7 +43,7 @@ milestone to sit in; the test asserts both so a change to either is noticed.
 
 `core/tests/cli/parity_thread.rs` (build-plan R1) is the requirement thread, SpecForge's own: gsd-tools has no such command, so its golden is `core/tests/golden/trace/taskboard-TASK-01.txt` and `parity_scenario` does not list it. On a copy of the twin it commits `package.json` and `src/tasks.js` under a subject that names no plan, with the trailer `Gsd-Task: 01-01/T1`, then runs the exit, `specforge collect --yes && specforge trace TASK-01` (or, where node does not run, collects the recorded `junit.xml` through `collect --runner node-test --no-run` and the commit through `--runner gsd-git`), and compares the one line `trace` prints with the golden. The commit's sha is the one varying part: its 12-digit name is replaced by `<sha>`, and no other run of 12 hex digits may be left. The same file pins the rest of the thread: the bare twin checks green (`check_exact(&[])`, with `code/W102` once per proof), a failing proof prints `(failed)` and stales TR1's verdict, and the commit's `linked_by` is `Gsd-Task`.
 
-`upgrade.sh <gsd-core-dir> <tag> [<from-tag>]` (r44) is the upgrade check. It extracts the inventory manifest, capability ids and config manifest of `<tag>` and of `<from-tag>` (default: the tracked tag; name the previous one to re-write a backlog after `tracks` has moved), and the list of files changed between them (`git diff --name-status`) under the watched paths and the suites the snapshot copies (`upstream/<tracked>/tests/*.test.cjs`), then runs `core/tests/upgrade.rs`'s `write_the_backlog`, which writes `backlog/<tag>.md`: one row per change, with its family, the upstream path and the table of `@gsd/core` it lands in (`ROSTER`, `AGENTS`, `HOOK_ROSTER`, the asset table, `NOT_EMBEDDED`, `MODULES`, the README capability table, `spec/settings.md`, `GATE_CUTOVER`, and `upgrade.rs`'s `NOT_IN_MANIFEST` for the router, the config manifests, the hook registration, the section manifest and the unembedded templates), the files of `gsd/core/src` whose header cites the path, the files of `gsd/` that port a copied suite, or `unowned`. A `src/**/*.cts` and its built `gsd-core/bin/lib/**/*.cjs` are the same `MODULES` item. It needs git and cargo, not the network, and reads the checkout without writing to it. Its other tests run offline on the vendored snapshot: the diff of the tracked tag against itself is empty, every path a header cites is in the snapshot, and `core/tests/declaration.rs` requires `tracks` to name the one vendored directory, so moving it fails the build until every check reads the new snapshot.
+`upgrade.sh <gsd-core-dir> <tag> [<from-tag>]` (r44) is the upgrade check. It extracts the inventory manifest, capability ids and config manifest of `<tag>` and of `<from-tag>` (default: the tracked tag; name the previous one to re-write a backlog after `tracks` has moved), the list of files changed between them (`git diff --name-status`) under the watched paths and the suites the snapshot copies (`upstream/<tracked>/tests/*.test.cjs`), and both tags' copies of each changed or deleted prompt under `agents/`, `commands/` and `gsd-core/`, then runs `core/tests/upgrade.rs`'s `write_the_backlog`, which writes `backlog/<tag>.md`: one row per change, with its family, the upstream path and the table of `@gsd/core` it lands in (`ROSTER`, `AGENTS`, `HOOK_ROSTER`, the asset table, `NOT_EMBEDDED`, `MODULES`, the README capability table, `spec/settings.md`, `GATE_CUTOVER`, and `upgrade.rs`'s `NOT_IN_MANIFEST` for the router, the config manifests, the hook registration, the section manifest and the unembedded templates), the files of `gsd/core/src` whose header cites the path, the files of `gsd/` that port a copied suite, or `unowned`; and the `core/tests/port.lock` spans each changed prompt touches. A `src/**/*.cts` and its built `gsd-core/bin/lib/**/*.cjs` are the same `MODULES` item. It needs git and cargo, not the network, and reads the checkout without writing to it. Its other tests run offline on the vendored snapshot: the diff of the tracked tag against itself is empty, every path a header cites is in the snapshot, and `core/tests/declaration.rs` requires `tracks` to name the one vendored directory, so moving it fails the build until every check reads the new snapshot.
 
 ### Re-recording
 
@@ -63,7 +63,9 @@ reporter) for `junit.xml`, and normalises timestamps, hashes, paths and timings,
 As the move from 1.18.0 to 1.19.0 did it (round `gsd-upgrade-1.19.0`):
 
 1. **The backlog first.** `upgrade.sh ~/Projects/OpenSource/gsd-core <tag>` writes `backlog/<tag>.md` against the
-   tracked tag; every `unowned` row is new work (a missing roster row, an upstream path `locate` cannot place).
+   tracked tag; every `unowned` row is new work (a missing roster row, an upstream path `locate` cannot place). Its
+   section "Port spans the tag changes" names each `core/tests/port.lock` row (asset, upstream lines, kept or own, group)
+   whose upstream lines a changed or deleted prompt's diff touches (`port_map::changed`): the re-ports of step 4.
 2. **The version, once.** The release is the one literal `gsd_kit::tracked_version!()` (`kit/src/lib.rs`); `tracks` in
    `core/Cargo.toml` and `security/Cargo.toml` and the version check of `record.sh`, `record-security.sh` and `record-ledger.sh` follow it
    (`core/tests/declaration.rs` requires `tracks` to name the one vendored directory).
@@ -82,8 +84,10 @@ As the move from 1.18.0 to 1.19.0 did it (round `gsd-upgrade-1.19.0`):
 5. **Re-record** the taskboard goldens (above), the security goldens (`record-security.sh`), the ledger goldens (`record-ledger.sh`) and the hook cases
    (`record-hook-cases.cjs`) on the new tag. These run upstream under node; review the diff of the goldens.
 6. **Close the backlog.** `upgrade.sh <dir> <tag> <old-tag>` (the optional third argument is the tag to diff from,
-   needed once `tracks` names the new tag) re-writes `backlog/<tag>.md`; it must have no `unowned` row. Append by hand
-   what each upstream change meant and where it landed, and what stays open (`backlog/v1.19.0.md`).
+   needed once `tracks` names the new tag) re-writes `backlog/<tag>.md`; it must have no `unowned` row. Its port-span
+   section reads the lock in the old tag's line numbers, so keep step 1's and record against it how the re-ports
+   worked through each span. Append by hand what each upstream change meant and where it landed, and what stays open
+   (`backlog/v1.19.0.md`).
 
 ### How the taskboard was made
 

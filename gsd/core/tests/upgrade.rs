@@ -44,6 +44,18 @@ use roster::ROSTER;
 #[path = "common/roster.rs"]
 mod roster;
 
+// `port_map` and the root modules it uses, once each.
+#[path = "common/asset_code.rs"]
+mod asset_code;
+#[path = "common/command_word.rs"]
+mod command_word;
+#[path = "common/files.rs"]
+mod files;
+#[path = "common/port_map.rs"]
+mod port_map;
+#[path = "common/specforge_only.rs"]
+mod specforge_only;
+
 const MANIFEST: &str = include_str!(gsd_kit::snapshot!("INVENTORY-MANIFEST.json"));
 const CAPABILITY_IDS: &str = include_str!(gsd_kit::snapshot!("capability-ids.json"));
 const CONFIG: &str = include_str!(gsd_kit::snapshot!("config-schema.manifest.json"));
@@ -212,7 +224,7 @@ fn upgrade_diff_of_the_tracked_release_is_empty() {
     let old = snapshot();
     let rows = diff::backlog(&old, &old, &[], &owner, &BTreeMap::new());
     assert!(rows.is_empty(), "{rows:?}");
-    let text = diff::render(&tracked(), &tracked(), &rows);
+    let text = diff::render(&tracked(), &tracked(), &rows, &[]);
     assert!(text.contains("Nothing changed"), "{text}");
     assert_eq!(tracked(), concat!("v", gsd_kit::tracked_version!()));
 }
@@ -334,11 +346,48 @@ fn a_changed_upstream_file_lands_in_the_backlog_with_its_owner() {
             .count(),
         1
     );
-    let text = diff::render("v9.9.9", &tracked(), &rows);
+    let text = diff::render("v9.9.9", &tracked(), &rows, &[]);
     assert!(
         text.contains("| commands | added | `commands/gsd/brand-new.md` | unowned |"),
         "{text}"
     );
+    assert!(
+        text.contains("## Port spans the tag changes\n\nNone.\n"),
+        "{text}"
+    );
+}
+
+/// An upstream bump names the lock rows over each line it changes: one line inside a kept row and one inside an own
+/// row of `plan-phase.md` touch exactly those two rows.
+#[test]
+fn a_changed_upstream_line_lists_the_spans_over_it() {
+    let path = "gsd-core/workflows/plan-phase.md";
+    let rows = port_map::lock_rows();
+    let of: Vec<&port_map::Row> = rows.iter().filter(|r| r.asset == path).collect();
+    let kept = *of.iter().find(|r| r.kept).expect("a kept row");
+    let own = *of.iter().find(|r| !r.kept && r.n > 0).expect("an own row");
+    // a workflow has no frontmatter: the body is the whole upstream file
+    let (mut lines, offset) = port_map::upstream_body(path);
+    assert_eq!(offset, 0);
+    let old = lines.join("\n");
+    // a middle line: an insertion row holds the line it precedes, the first of a kept run
+    for row in [kept, own] {
+        lines[row.up - 1 + row.n / 2].push_str(" (changed upstream)");
+    }
+    let new = lines.join("\n");
+    let touched = port_map::changed(&rows, path, &old, &new);
+    let mut both = vec![kept, own];
+    both.sort_by_key(|r| r.up);
+    assert_eq!(touched, both);
+    let text = diff::render("v9.9.9", &tracked(), &[], &touched);
+    let section = text
+        .split_once("## Port spans the tag changes")
+        .expect("the section")
+        .1;
+    for row in [kept, own] {
+        let line = format!("| `{path}` | {}+{} |", row.up, row.n);
+        assert!(section.contains(&line), "{line} in {section}");
+    }
 }
 
 #[test]
@@ -388,7 +437,7 @@ fn upgrade_sh_parses() {
 
 /// Writes `gsd/parity/backlog/<tag>.md`. Run by `upgrade.sh`, which extracts the documents of the tag into
 /// `GSD_UPGRADE_DIR/to` and of the tag it compares against (`GSD_UPGRADE_FROM`, the tracked one by default) into
-/// `GSD_UPGRADE_DIR/from`.
+/// `GSD_UPGRADE_DIR/from`, with both tags' copies of each changed upstream prompt under `{from,to}/files`.
 #[test]
 #[ignore = "run by gsd/parity/upgrade.sh"]
 fn write_the_backlog() {
@@ -413,11 +462,25 @@ fn write_the_backlog() {
         &owner,
         &citations::index(&core_dir()),
     );
+    // the port spans each changed upstream file's diff touches; a file the tag deletes reads as empty
+    let lock = port_map::lock_rows();
+    let paths: BTreeSet<&str> = lock
+        .iter()
+        .map(|r| port_map::upstream_path(&r.asset))
+        .collect();
+    let mut spans = Vec::new();
+    for path in paths {
+        let Ok(old) = std::fs::read_to_string(dir.join("from/files").join(path)) else {
+            continue;
+        };
+        let new = std::fs::read_to_string(dir.join("to/files").join(path)).unwrap_or_default();
+        spans.extend(port_map::changed(&lock, path, &old, &new));
+    }
     let out = core_dir().join("../parity/backlog");
     std::fs::create_dir_all(&out).expect("the backlog dir");
     std::fs::write(
         out.join(format!("{tag}.md")),
-        diff::render(&tag, &from, &rows),
+        diff::render(&tag, &from, &rows, &spans),
     )
     .expect("the backlog");
     let kinds: BTreeSet<&str> = rows.iter().map(|r| r.change).collect();

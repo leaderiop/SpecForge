@@ -184,10 +184,10 @@ pub fn backlog(
     rows
 }
 
-/// The backlog as `gsd/parity/backlog/<tag>.md`.
-pub fn render(tag: &str, tracked: &str, rows: &[Row]) -> String {
+/// The backlog as `gsd/parity/backlog/<tag>.md`, with the port spans (`port.lock` rows) the tag's changes touch.
+pub fn render(tag: &str, tracked: &str, rows: &[Row], spans: &[&super::port_map::Row]) -> String {
     let mut out = format!("# Parity backlog: gsd-core {tag} against {tracked}\n\n");
-    if rows.is_empty() {
+    if rows.is_empty() && spans.is_empty() {
         out.push_str("Nothing changed in the families the parity suite compares.\n");
         return out;
     }
@@ -200,6 +200,23 @@ pub fn render(tag: &str, tracked: &str, rows: &[Row]) -> String {
         out.push_str(&format!(
             "| {} | {} | `{}` | {} |\n",
             row.family, row.change, row.path, row.owner
+        ));
+    }
+    out.push_str("\n## Port spans the tag changes\n\n");
+    if spans.is_empty() {
+        out.push_str("None.\n");
+        return out;
+    }
+    out.push_str("Each is re-ported, or re-blessed when its text still holds.\n\n");
+    out.push_str("| Asset | Upstream lines | Span | Group |\n|---|---|---|---|\n");
+    for span in spans {
+        out.push_str(&format!(
+            "| `{}` | {}+{} | {} | {} |\n",
+            span.asset,
+            span.up,
+            span.n,
+            if span.kept { "kept" } else { "own" },
+            if span.kept { "" } else { span.group.as_str() }
         ));
     }
     out

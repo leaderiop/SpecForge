@@ -2,8 +2,10 @@
 # The upgrade check: what a newer gsd-core tag changes against the tracked release (D-r44-19).
 #   usage: upgrade.sh <gsd-core-dir> <tag> [<from-tag>]
 # Extracts the inventory manifest, capability ids and config manifest of <tag> and of <from-tag> (default: the tracked
-# release), and the list of files changed between them, into a temp dir, then runs the `write_the_backlog` test of
-# @gsd/core, which writes gsd/parity/backlog/<tag>.md. <from-tag> re-writes a backlog after `tracks` has moved.
+# release), the list of files changed between them, and both tags' copies of each changed or deleted prompt under
+# agents/, commands/ and gsd-core/ (into {from,to}/files/<path>), into a temp dir, then runs the `write_the_backlog`
+# test of @gsd/core, which writes gsd/parity/backlog/<tag>.md with the port.lock spans each change touches.
+# <from-tag> re-writes a backlog after `tracks` has moved.
 # Read-only on the gsd-core checkout (git show/diff only, nothing of it runs); needs git and cargo, not the network.
 set -euo pipefail
 
@@ -47,6 +49,17 @@ for suite in "$here/upstream/$tracked"/tests/*.test.cjs; do
 done
 git -C "$repo" diff --name-status --no-renames "$from" "$tag" -- \
   commands agents hooks gsd-core src capabilities tests/fixtures/gate-cutover ${suites[@]+"${suites[@]}"} > "$tmp/changes.txt"
+# Both tags' copies of each changed (M) or deleted (D) prompt, for the port spans the change touches.
+while IFS=$'\t' read -r status path; do
+  case "$status" in M | D) ;; *) continue ;; esac
+  case "$path" in agents/* | commands/* | gsd-core/*) ;; *) continue ;; esac
+  mkdir -p "$tmp/from/files/$(dirname "$path")"
+  git -C "$repo" show "$from:$path" > "$tmp/from/files/$path"
+  if [ "$status" = M ]; then
+    mkdir -p "$tmp/to/files/$(dirname "$path")"
+    git -C "$repo" show "$tag:$path" > "$tmp/to/files/$path"
+  fi
+done < "$tmp/changes.txt"
 
 cd "$here/.."
 GSD_UPGRADE_DIR=$tmp GSD_UPGRADE_TAG=$tag GSD_UPGRADE_FROM=$from \
