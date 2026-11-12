@@ -34,19 +34,20 @@ fn requires(router: &str) -> Vec<String> {
 
 /// The `/gsd-x` targets of the route table the render appended, in order, with their second column.
 fn route_rows(text: &str) -> Vec<(String, String)> {
-    let table = text
-        .split("## Route table on this install")
-        .nth(1)
+    let table = gsd_kit::markdown::tables(text)
+        .into_iter()
+        .find(|t| t.heading == "Route table on this install")
         .expect("a route table");
     table
-        .lines()
-        .filter_map(|l| {
-            l.strip_prefix("| `/gsd-")
-                .or_else(|| l.strip_prefix("| `$gsd-"))
-        })
-        .map(|l| {
-            let (name, rest) = l.split_once("` | ").expect("a row");
-            (name.to_string(), rest.trim_end_matches(" |").to_string())
+        .rows
+        .into_iter()
+        .map(|row| {
+            let name = row[0].trim_matches('`');
+            let name = name
+                .strip_prefix("/gsd-")
+                .or_else(|| name.strip_prefix("$gsd-"))
+                .expect("a /gsd- target");
+            (name.to_string(), row[1].clone())
         })
         .collect()
 }

@@ -14,6 +14,9 @@ const NEEDLES: &[&str] = &[
     concat!("split_terminator", "('|')"),
     concat!("rsplit", "('|')"),
     concat!("trim_matches", "('|')"),
+    concat!("split_once", "(\" | \")"),
+    concat!("split_once", "(\"` | \")"),
+    concat!("trim_end_matches", "(\" |\")"),
 ];
 
 /// The files that may split at a pipe, each with why.
