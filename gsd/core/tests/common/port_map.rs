@@ -540,8 +540,14 @@ pub fn bless() -> Option<Bless> {
 
 /// The groups of `new` (rows whose own groups are computed, or empty): a computed group stays, an empty one takes the
 /// group of the first unused `old` row with the same asset, upstream hash and words hash, or else what `mode` writes.
+/// Under [`Bless::Resync`] a computed span whose upstream text no old row of its asset holds is `resync` too: an
+/// upstream rewording of it waits for review like any other.
 pub fn carry(old: &[Row], new: Vec<Row>, mode: Bless) -> Vec<Row> {
     let key = |r: &Row| (r.asset.clone(), r.sha_up.clone(), r.sha_own.clone());
+    let held: std::collections::BTreeSet<(&str, &str)> = old
+        .iter()
+        .map(|o| (o.asset.as_str(), o.sha_up.as_str()))
+        .collect();
     let mut groups: BTreeMap<(String, String, String), VecDeque<String>> = BTreeMap::new();
     for o in old
         .iter()
@@ -551,7 +557,13 @@ pub fn carry(old: &[Row], new: Vec<Row>, mode: Bless) -> Vec<Row> {
     }
     new.into_iter()
         .map(|mut row| {
-            if !row.kept && row.group.is_empty() {
+            if !row.kept
+                && mode == Bless::Resync
+                && !row.group.is_empty()
+                && !held.contains(&(row.asset.as_str(), row.sha_up.as_str()))
+            {
+                row.group = "resync".to_string();
+            } else if !row.kept && row.group.is_empty() {
                 let found = groups.get_mut(&key(&row)).and_then(VecDeque::pop_front);
                 row.group = match (found, mode) {
                     (Some(group), _) => group,
@@ -635,8 +647,8 @@ pub fn map(path: &str) -> Vec<Span> {
 }
 
 /// The lock test: under `GSD_BLESS`, rewrites the lock from the assets first; then the lock must equal the computed
-/// map, every own row must hold a group of [`GROUPS`] (its computed group when it qualifies, no computed group when
-/// it does not), and none may be `unreviewed`.
+/// map, every own row must hold a group of [`GROUPS`] (its computed group, or `resync`, when it qualifies; no computed
+/// group when it does not), and none may be `unreviewed`.
 pub fn check_lock() {
     let before = lock_rows();
     let computed = computed_rows();
@@ -712,9 +724,12 @@ pub fn check_lock() {
                 row.group
             );
         } else {
-            assert_eq!(
-                row.group, now.group,
-                "{at}: qualifies for its computed group"
+            // a computed span whose upstream moved waits as `resync` until its re-port
+            assert!(
+                row.group == now.group || row.group == "resync",
+                "{at}: holds `{}`, but qualifies for its computed group `{}`",
+                row.group,
+                now.group
             );
         }
         if row.group == "unreviewed" {

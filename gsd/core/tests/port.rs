@@ -218,6 +218,38 @@ fn a_bless_carries_a_reviewed_group_and_marks_a_new_span() {
     assert_eq!(groups, ["relic", "resync"]);
 }
 
+/// After an upstream move, a span with a computed group whose upstream text changed waits for review as `resync`; one
+/// over unchanged upstream text keeps its computed group, and a review bless never marks it.
+#[test]
+fn a_resync_marks_a_computed_span_whose_upstream_moved() {
+    use port_map::{Bless, Row, carry};
+    let row = |sha_up: &str, group: &str| Row {
+        asset: "gsd-core/workflows/x.md".to_string(),
+        kept: false,
+        up: 3,
+        n: 1,
+        m: 1,
+        sha_up: sha_up.to_string(),
+        sha_own: "bbbbbbbbbbbb".to_string(),
+        group: group.to_string(),
+    };
+    let old = [row("aaaaaaaaaaaa", "ported-name")];
+    let new = || {
+        vec![
+            row("aaaaaaaaaaaa", "ported-name"),
+            row("cccccccccccc", "served"),
+        ]
+    };
+    let groups = |mode| -> Vec<String> {
+        carry(&old, new(), mode)
+            .into_iter()
+            .map(|r| r.group)
+            .collect()
+    };
+    assert_eq!(groups(Bless::Resync), ["ported-name", "resync"]);
+    assert_eq!(groups(Bless::Review), ["ported-name", "served"]);
+}
+
 #[test]
 fn the_lock_round_trips() {
     let lock = std::fs::read_to_string(port_map::lock_path()).expect("port.lock");
