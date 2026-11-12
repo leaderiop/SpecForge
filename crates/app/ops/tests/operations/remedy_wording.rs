@@ -2,7 +2,8 @@
 //! `src/` of every crate below the surfaces is read (in code and in macro arguments; not in attributes, doc
 //! comments or `#[cfg(test)]` modules), and a `--flag` in one is refused unless a program (`specforge`, `cargo`,
 //! `z3`) precedes it in its clause: a whole command reads the same on every surface. The diagnostic catalog's
-//! explanations are exempt: they name each surface's spelling side by side.
+//! explanations are exempt: they name each surface's spelling side by side. So is the engine-tool catalogue, whose
+//! CLI twins are the words after `specforge`, a table of the CLI's spellings and no remedy (ADR 0334).
 //!
 //! A command a remedy names with a value is written by `specforge_common::remedy::command`, never by hand
 //! (ADR 0230): a literal below the surfaces holding `specforge <subcommand> … {value}` is refused, since the value
@@ -66,10 +67,11 @@ const SUBCOMMANDS: [&str; 39] = [
 ];
 const PROGRAMS: [&str; 3] = ["specforge ", "cargo ", "z3 "];
 /// Relative to `crates/`.
-const EXEMPT: [&str; 3] = [
+const EXEMPT: [&str; 4] = [
     "leaf/diagnostics/src/catalog.rs",
     "leaf/diagnostics/src/catalog_checks.rs",
     "leaf/diagnostics/src/catalog_registry.rs",
+    "leaf/protocol-types/src/engine_tools.rs",
 ];
 
 /// Whether the flag that follows `clause` belongs to a whole command: the last program in the clause is followed by
