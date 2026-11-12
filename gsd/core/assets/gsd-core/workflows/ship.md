@@ -30,6 +30,7 @@ Parse arguments and load project state:
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
 
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
+PHASE_NUMBER="${PHASE_ID##*/}"   # the phase number is the last segment of its id
 
 ```
 
@@ -563,11 +564,11 @@ Read the `activeHooks` of every line of `SHIP_POST_HOOKS_JSON`, one per capabili
 
   With a resolved model (`{HOOK_AGENT_MODEL}` is the value the command above printed; `${…}` are bound shell variables):
 
-  `Agent(subagent_type=ref.agent, prompt="Ship-time capability hook for phase ${PHASE_NUMBER}. Phase: ${PHASE_ID}. Consume: ${consumed_files}. Follow your agent instructions.", model="{HOOK_AGENT_MODEL}")`
+  `Agent(subagent_type=ref.agent, prompt="Ship-time capability hook for phase ${PHASE_NUMBER}. Phase: ${PHASE_ID}. Consume: ${UAT_SESSION}. Follow your agent instructions.", model="{HOOK_AGENT_MODEL}")`
 
   When it resolved to `inherit` or empty, drop the parameter:
 
-  `Agent(subagent_type=ref.agent, prompt="Ship-time capability hook for phase ${PHASE_NUMBER}. Phase: ${PHASE_ID}. Consume: ${consumed_files}. Follow your agent instructions.")`
+  `Agent(subagent_type=ref.agent, prompt="Ship-time capability hook for phase ${PHASE_NUMBER}. Phase: ${PHASE_ID}. Consume: ${UAT_SESSION}. Follow your agent instructions.")`
 - If `ref.skill` is set, dispatch with `Skill(skill="gsd-${ref.skill}", args="${PHASE_NUMBER} --auto")` (prepend `gsd-` to `ref.skill`).
 
 Each dispatch is best-effort: if it errors, record a warning and continue — never re-raise (`onError: skip`).

@@ -109,6 +109,28 @@ fn a_ship_hook_is_handed_the_phases_uat_session() {
         );
         assert_eq!(out, want, "{phase}: {err}");
     }
+    // The hook's agent prompts hand it that id, and every variable they name is assigned before them (`PHASE_ID` is
+    // the prompt's subject, bound by its closing line).
+    let var = regex::Regex::new(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}").expect("a regex");
+    let agents: Vec<(usize, &str)> = text
+        .match_indices('\n')
+        .map(|(at, _)| at + 1)
+        .map(|at| (at, text[at..].lines().next().unwrap_or_default()))
+        .filter(|(_, l)| l.trim_start().starts_with("`Agent("))
+        .collect();
+    assert_eq!(agents.len(), 2, "{agents:?}");
+    for (at, agent) in agents {
+        assert!(agent.contains("Consume: ${UAT_SESSION}."), "{agent}");
+        for name in var.captures_iter(agent).map(|c| c[1].to_string()) {
+            let assigned = text[..at]
+                .lines()
+                .any(|l| l.trim_start().starts_with(&format!("{name}=")));
+            assert!(
+                name == "PHASE_ID" || assigned,
+                "{name} is unset before: {agent}"
+            );
+        }
+    }
 }
 
 /// The UI gate reads the phase's computed `frontend` field (`@gsd/ui` computes it): no field holds upstream's

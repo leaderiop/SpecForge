@@ -4225,7 +4225,7 @@ gsd-core/workflows/settings.md	kept	616+53	db303fd0d45a
 gsd-core/workflows/settings.md	own	669+1	1	421af67f908b	8ca276a3c89d	workflow
 gsd-core/workflows/settings.md	kept	670+3	b75f7be1d6e5
 gsd-core/workflows/ship.md	kept	1+26	6d72d05fb9b8
-gsd-core/workflows/ship.md	own	27+10	6	6c8903ffe0a4	34fabfa37511	ported-name
+gsd-core/workflows/ship.md	own	27+10	7	6c8903ffe0a4	280552b16bda	ported-name
 gsd-core/workflows/ship.md	kept	37+4	b28fac2a3468
 gsd-core/workflows/ship.md	own	41+1	1	4feb163f7ec8	ecd588aa2d80	prose
 gsd-core/workflows/ship.md	kept	42+3	c5afce15376a
@@ -4327,9 +4327,9 @@ gsd-core/workflows/ship.md	own	553+1	1	98fd755a54b7	5ddccb406252	ported-name
 gsd-core/workflows/ship.md	kept	554+10	b18641b09370
 gsd-core/workflows/ship.md	own	564+1	1	d115e21d9bc5	37af06e341f8	ported-name
 gsd-core/workflows/ship.md	kept	565+6	35acd9dab07a
-gsd-core/workflows/ship.md	own	571+1	1	f3dac2ee96a3	45720085a191	relic
+gsd-core/workflows/ship.md	own	571+1	1	f3dac2ee96a3	f9bb18deac86	relic
 gsd-core/workflows/ship.md	kept	572+3	7c9f5263999a
-gsd-core/workflows/ship.md	own	575+2	2	437877ccb238	9045b9aab921	relic
+gsd-core/workflows/ship.md	own	575+2	2	437877ccb238	c723a9cdda28	relic
 gsd-core/workflows/ship.md	kept	577+5	0da7f070b330
 gsd-core/workflows/ship.md	own	582+0	1	e3b0c44298fc	e3b0c44298fc	markdown
 gsd-core/workflows/ship.md	kept	582+39	1b24e6bbb0fb
