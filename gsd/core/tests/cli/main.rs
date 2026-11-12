@@ -68,6 +68,8 @@ mod judged;
 mod judged_flow;
 mod judged_refusals;
 mod ladder;
+#[path = "../common/ledger.rs"]
+mod ledger;
 #[path = "../common/node.rs"]
 mod node;
 mod node_test;

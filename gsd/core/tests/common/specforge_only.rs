@@ -12,6 +12,7 @@ use regex::Regex;
 
 use super::asset_code::{At, assets_under, walk};
 use super::command_word;
+use super::ledger;
 
 /// What a block may run besides `specforge`: the shell's own keywords and builtins.
 pub const SHELL_WORDS: &[&str] = &[
@@ -29,17 +30,11 @@ pub const PENDING_TOOLS: &str = include_str!("pending_tools.txt");
 
 /// The rows of [`PENDING_TOOLS`] whose file `keep` takes.
 pub fn pending(keep: impl Fn(&str) -> bool) -> Vec<Row> {
-    PENDING_TOOLS
-        .lines()
-        .filter(|l| !l.is_empty() && !l.starts_with('#'))
-        .map(|l| {
-            let mut cells = l.splitn(3, '\t').map(String::from);
-            let mut cell = || {
-                cells
-                    .next()
-                    .unwrap_or_else(|| panic!("a row of three cells: {l}"))
-            };
-            (cell(), cell(), cell())
+    ledger::rows(PENDING_TOOLS, 3)
+        .into_iter()
+        .map(|row| {
+            let [file, tool, line]: [String; 3] = row.try_into().expect("three cells");
+            (file, tool, line)
         })
         .filter(|(file, _, _)| keep(file))
         .collect()
@@ -47,24 +42,12 @@ pub fn pending(keep: impl Fn(&str) -> bool) -> Vec<Row> {
 
 /// Fails with the hits not listed and the listed rows not hit, each as a row to add or take off.
 pub fn assert_pending(hits: &[Row], listed: Vec<Row>) {
-    let mut left = listed;
-    let mut new = Vec::new();
-    for hit in hits {
-        match left.iter().position(|row| row == hit) {
-            Some(k) => {
-                left.swap_remove(k);
-            }
-            None => new.push(hit),
-        }
-    }
-    let row = |(f, t, l): &Row| format!("{f}\t{t}\t{l}");
-    assert!(
-        new.is_empty() && left.is_empty(),
-        "{} hits not in pending_tools.txt (ask specforge instead):\n{}\n{} rows no longer hit (take them off):\n{}",
-        new.len(),
-        new.iter().map(|h| row(h)).collect::<Vec<_>>().join("\n"),
-        left.len(),
-        left.iter().map(row).collect::<Vec<_>>().join("\n")
+    let cells = |(f, t, l): &Row| vec![f.clone(), t.clone(), l.clone()];
+    ledger::assert_rows(
+        "pending_tools.txt",
+        "ask specforge instead",
+        &hits.iter().map(cells).collect::<Vec<_>>(),
+        listed.iter().map(cells).collect(),
     );
 }
 

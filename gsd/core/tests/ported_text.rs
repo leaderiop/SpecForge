@@ -15,6 +15,8 @@ mod asset_code;
 mod command_word;
 #[path = "common/files.rs"]
 mod files;
+#[path = "common/ledger.rs"]
+mod ledger;
 #[path = "common/roster.rs"]
 mod roster;
 #[path = "common/specforge_only.rs"]

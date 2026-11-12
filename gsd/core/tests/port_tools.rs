@@ -16,6 +16,8 @@ mod command_word;
 mod files;
 #[path = "common/host_options.rs"]
 mod host_options;
+#[path = "common/ledger.rs"]
+mod ledger;
 #[path = "common/port_map.rs"]
 mod port_map;
 #[path = "common/specforge_only.rs"]

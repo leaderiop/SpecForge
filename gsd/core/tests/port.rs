@@ -13,6 +13,8 @@ mod asset_code;
 mod command_word;
 #[path = "common/files.rs"]
 mod files;
+#[path = "common/ledger.rs"]
+mod ledger;
 #[path = "common/port_map.rs"]
 mod port_map;
 #[path = "common/specforge_only.rs"]
