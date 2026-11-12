@@ -4,26 +4,32 @@
 use super::{Shell, asset, block, fence_after, q};
 use crate::harness::taskboard;
 
-/// After `/gsd-complete-milestone`, autonomous checks the close by reading what it left behind. Today it picks
-/// `.archive_dir`, a member `progress-report` never prints, and stats an archive file no close writes: even after a
-/// real close the step reads "no archive" and routes to the blocker. The fix reads the milestone's computed `state`.
+/// After `/gsd-complete-milestone`, autonomous checks the close by reading the milestone's computed `state`: it is
+/// `shipped` once the close recorded the milestone's completion, and anything else routes to the blocker. No archive
+/// file is looked up: a close writes none.
 #[test]
 fn the_autonomous_close_check_reads_the_milestones_completion() {
     let Some(sh) = Shell::without_jq() else {
         return;
     };
     let p = crate::cmd_milestone::ready();
-    let close = p.run(&["gsd", "close-milestone", "v1.0"]);
-    assert_eq!(close.code, 0, "{}", close.all());
     let check = fence_after(
         &asset("gsd-core/workflows/autonomous.md"),
         "After complete-milestone returns, verify it produced output:",
     );
-    let (out, err, _) = sh.run_in(
-        p.root(),
-        &format!("milestone_version=v1.0\n{check}\nprintf '[%s]' \"$ARCHIVE_DIR\""),
-    );
-    assert_eq!(out, "[]", "{err}");
+    let state = || {
+        let (out, err, _) = sh.run_in(
+            p.root(),
+            &format!("milestone_version=v1.0\n{check}\nprintf %s \"$MILESTONE_STATE\""),
+        );
+        (out, err)
+    };
+    let (before, err) = state();
+    assert_eq!(before, "in_progress", "{err}");
+    let close = p.run(&["gsd", "close-milestone", "v1.0"]);
+    assert_eq!(close.code, 0, "{}", close.all());
+    let (after, err) = state();
+    assert_eq!(after, "shipped", "{err}");
 }
 
 /// The UI gate reads the phase's computed `frontend` field (`@gsd/ui` computes it): no field holds upstream's

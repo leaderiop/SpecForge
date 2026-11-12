@@ -606,17 +606,6 @@ fn every_dispatch_forwards_only_options_its_prompt_declares() {
     assert!(offenders.is_empty(), "{offenders:#?}");
 }
 
-/// Picks the guard lets through though their answer never prints the member, as `(source, command, member)` (an asset,
-/// or `prompt:<command>` for a render that inlines it): each one a relic a later fix deletes. A row with no hit fails.
-const LISTED: &[(&str, &str, &str)] = &[
-    (
-        "gsd-core/workflows/autonomous.md",
-        "progress-report",
-        "archive_dir",
-    ),
-    ("prompt:autonomous", "progress-report", "archive_dir"),
-];
-
 /// `(command, member)` for each `specforge gsd <command> … --pick <path>` of the shell `line`: the member `<path>`
 /// reads first (each `--fields` key's first segment when `<path>` is `.`, nothing when it starts with `[`). The comment
 /// is cut where `command_word::mask` ends the line, and the original text before it is read by the SDK shell reader,
@@ -720,7 +709,6 @@ fn every_command_pick_names_a_member_of_its_answer() {
         sources.push((format!("prompt:{command}"), text));
     }
     let mut bad = BTreeSet::new();
-    let mut hit = BTreeSet::new();
     let mut picks = 0;
     for (path, text) in &sources {
         for line in code_lines(text) {
@@ -734,19 +722,8 @@ fn every_command_pick_names_a_member_of_its_answer() {
                     bad.insert(format!("{path}: `specforge gsd {command}` has no row: add its row to tests/common/answers.rs"));
                     continue;
                 };
-                if row.contains(&member.as_str()) {
-                    continue;
-                }
-                let listed = LISTED
-                    .iter()
-                    .find(|(p, c, m)| path == p && *c == command && *m == member);
-                match listed {
-                    Some(row) => {
-                        hit.insert(*row);
-                    }
-                    None => {
-                        bad.insert(format!("{path}: `specforge gsd {command}` picks '{member}', which its answer never prints: {}", line.trim()));
-                    }
+                if !row.contains(&member.as_str()) {
+                    bad.insert(format!("{path}: `specforge gsd {command}` picks '{member}', which its answer never prints: {}", line.trim()));
                 }
             }
         }
@@ -757,6 +734,4 @@ fn every_command_pick_names_a_member_of_its_answer() {
         "{}",
         bad.into_iter().collect::<Vec<_>>().join("\n")
     );
-    let stale: Vec<_> = LISTED.iter().filter(|row| !hit.contains(row)).collect();
-    assert!(stale.is_empty(), "listed picks no asset makes: {stale:?}");
 }

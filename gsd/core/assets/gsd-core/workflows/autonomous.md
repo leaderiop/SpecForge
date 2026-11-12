@@ -664,13 +664,10 @@ Skill(skill="gsd-complete-milestone", args="${milestone_version}")
 After complete-milestone returns, verify it produced output:
 
 ```bash
-
-# a field of the answer is read with --pick, never jq
-ARCHIVE_DIR=$(specforge gsd progress-report --pick .archive_dir)
-specforge files stat "${ARCHIVE_DIR}/v${milestone_version}-ROADMAP.md" --format human 2>/dev/null || true
+MILESTONE_STATE=$(specforge query "${milestone_version}" --depth 0 --pick '.nodes[0].fields.state')   # shipped once complete-milestone recorded the milestone's completion
 ```
 
-If the archive file does not exist, go to handle_blocker: "Complete milestone did not produce expected archive files."
+If `MILESTONE_STATE` is not `shipped`, go to handle_blocker: "Complete milestone did not record the milestone's completion."
 
 **5c. Cleanup**
 
