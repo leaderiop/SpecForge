@@ -61,7 +61,7 @@
     "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id; `name` is its field). `response_language` is a setting: `specforge settings --format json --extension @gsd/core`.",
     ""
   ],
-  "bytes": 22948,
+  "bytes": 22972,
   "end": [
     "",
     "---",
@@ -140,7 +140,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:ff51efcb26c48f89843bc9407e484850e46f5f0d035abb01a41acc9e8647e9b8",
+    "digest": "sha256:2540bbeaaf80a4de042285f9c48e33daac7e8131ea91f68d363731d5aa7c65f2",
     "prompt": "@gsd/core@VERSION:add_tests",
     "subject": "v1.0/02"
   },
-  "sha256": "ff51efcb26c48f89843bc9407e484850e46f5f0d035abb01a41acc9e8647e9b8"
+  "sha256": "2540bbeaaf80a4de042285f9c48e33daac7e8131ea91f68d363731d5aa7c65f2"
 }

@@ -61,7 +61,7 @@
     "",
     "<available_agent_types>"
   ],
-  "bytes": 24075,
+  "bytes": 24099,
   "end": [
     "(inline or `--file`), create the batch (`quick-batch create`), resolve",
     "capacity/isolation, and dispatch wave-by-wave.",
@@ -140,7 +140,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:3861216e8bee79da846f2a7d361cf288d1435d8e51575957d1eef4f11511d46d",
+    "digest": "sha256:05e94ce89fb3e473e1fa6ea3987fab0112205aa1dd064e57a04d627926dffabf",
     "prompt": "@gsd/core@VERSION:quick_batch",
     "steps": [
       {
@@ -263,5 +263,5 @@
       }
     ]
   },
-  "sha256": "3861216e8bee79da846f2a7d361cf288d1435d8e51575957d1eef4f11511d46d"
+  "sha256": "05e94ce89fb3e473e1fa6ea3987fab0112205aa1dd064e57a04d627926dffabf"
 }

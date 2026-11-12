@@ -28,7 +28,10 @@ pub const FILES: &[(&str, &str)] = &[
         "`NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md`",
         "context, decision, deferred_idea, discussion",
     ),
-    ("`NN-SPEC.md`", "phase_spec, locked_req, interview"),
+    (
+        "`NN-SPEC.md`",
+        "phase_spec, locked_req, interview, edge, spec_prohibition",
+    ),
     (
         "`NN-RESEARCH.md`, `research/*.md`",
         "research and its items",

@@ -61,7 +61,7 @@
     "| `/gsd-mvp-phase` | prompt `specforge.gsd.mvp_phase` (served by @gsd/core) |",
     "| `/gsd-quick` | prompt `specforge.gsd.quick` (served by @gsd/core) |"
   ],
-  "bytes": 12485,
+  "bytes": 12509,
   "end": [
     "| Advance to the next logical step | gsd-progress |",
     "| Open the state-aware smart-entry launcher | gsd-next |",
@@ -140,7 +140,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:1f6300b7844668df72396f824a8c3fe5d4390c9430a704b4fc52113dbc61934d",
+    "digest": "sha256:3741fb604ce9f212397a45812347be8083357330d8c522edf042ac2446d33f55",
     "prompt": "@gsd/core@VERSION:ns_workflow"
   },
-  "sha256": "1f6300b7844668df72396f824a8c3fe5d4390c9430a704b4fc52113dbc61934d"
+  "sha256": "3741fb604ce9f212397a45812347be8083357330d8c522edf042ac2446d33f55"
 }

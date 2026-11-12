@@ -61,7 +61,7 @@
     "",
     "## 1. Detect Input State"
   ],
-  "bytes": 18317,
+  "bytes": 18341,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -121,7 +121,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:e31bd169bba95bb846a4b6b19e0ee00b13be26b9d56a0b97a35c7bd02dc785ee",
+    "digest": "sha256:02a7b28af1c1b1bbf6f7262a8716b17323066a7cad16becb1a9b557eafe7040c",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "e31bd169bba95bb846a4b6b19e0ee00b13be26b9d56a0b97a35c7bd02dc785ee"
+  "sha256": "02a7b28af1c1b1bbf6f7262a8716b17323066a7cad16becb1a9b557eafe7040c"
 }

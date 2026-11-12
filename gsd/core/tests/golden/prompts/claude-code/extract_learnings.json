@@ -61,7 +61,7 @@
     "Track which optional artifacts are missing for the `missing_artifacts` frontmatter field.",
     "</step>"
   ],
-  "bytes": 20648,
+  "bytes": 20672,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -121,7 +121,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:94e75c9bd71fae481fb4962c876a17f40f45c8d89e3752c91fcb02f40a8fbaba",
+    "digest": "sha256:b79b757d429bf8393386bb87e603c9d44ce9f74536682571032e9f3f932666ab",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "94e75c9bd71fae481fb4962c876a17f40f45c8d89e3752c91fcb02f40a8fbaba"
+  "sha256": "b79b757d429bf8393386bb87e603c9d44ce9f74536682571032e9f3f932666ab"
 }

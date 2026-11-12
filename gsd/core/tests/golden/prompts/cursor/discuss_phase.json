@@ -61,7 +61,7 @@
     "- User chose which areas to discuss",
     "- Each selected area explored until satisfied"
   ],
-  "bytes": 12266,
+  "bytes": 12290,
   "end": [
     "",
     "Context files are resolved in-workflow using `init phase-op` and roadmap/state tool calls.",
@@ -140,7 +140,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:24a26b691812c45584c7ae9e2a2bb5db9eb692982af2f5e822053fa065136125",
+    "digest": "sha256:17b90f97b48cd247630393a0821a9d7d5268becc7a08662fea68e8c2b35db2e7",
     "prompt": "@gsd/core@VERSION:discuss_phase",
     "steps": [
       {
@@ -216,5 +216,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "24a26b691812c45584c7ae9e2a2bb5db9eb692982af2f5e822053fa065136125"
+  "sha256": "17b90f97b48cd247630393a0821a9d7d5268becc7a08662fea68e8c2b35db2e7"
 }

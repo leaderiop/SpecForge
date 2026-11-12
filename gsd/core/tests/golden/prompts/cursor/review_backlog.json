@@ -61,7 +61,7 @@
     "",
     "In the shell blocks above, `$MILESTONE` is `v1.0` and `$PROJECT` is `taskboard`."
   ],
-  "bytes": 11894,
+  "bytes": 11918,
   "end": [
     "",
     "3. **Present the list to the user** via conversational prompting:",
@@ -140,7 +140,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:18feb509b00a7160b11b0b959c8e5263c2323dfdeee9f9a493c65572dda5850d",
+    "digest": "sha256:bd15366f8fc943a20c37e58f1e3586cec17f963727663fa9afc6e5dd5360b21a",
     "prompt": "@gsd/core@VERSION:review_backlog",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "18feb509b00a7160b11b0b959c8e5263c2323dfdeee9f9a493c65572dda5850d"
+  "sha256": "bd15366f8fc943a20c37e58f1e3586cec17f963727663fa9afc6e5dd5360b21a"
 }

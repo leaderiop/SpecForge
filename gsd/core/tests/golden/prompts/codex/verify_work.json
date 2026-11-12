@@ -61,7 +61,7 @@
     "# the commands below are specforge commands: there is no launcher to define",
     ""
   ],
-  "bytes": 73380,
+  "bytes": 73404,
   "end": [
     "## Gaps",
     "",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:78b86195a5460b4c9bbfa1198c3749b0632397a36fcb188cb88b0aa0d48bfb1b",
+    "digest": "sha256:055d390726faca2d68de742fa0634699aa2c7c43564f5c70e93e925aab31b410",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "78b86195a5460b4c9bbfa1198c3749b0632397a36fcb188cb88b0aa0d48bfb1b"
+  "sha256": "055d390726faca2d68de742fa0634699aa2c7c43564f5c70e93e925aab31b410"
 }

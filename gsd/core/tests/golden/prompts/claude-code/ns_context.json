@@ -38,7 +38,7 @@
     "| `/gsd-mempalace-recall` | not served on this project |",
     "| `/gsd-mempalace-capture` | not served on this project |"
   ],
-  "bytes": 10082,
+  "bytes": 10106,
   "end": [
     "}",
     "```",
@@ -98,7 +98,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -172,8 +172,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b23f80c5c06ba09677167d216e98a42c2e4ea7fbd395118b7ef5018d20a6b3d6",
+    "digest": "sha256:cfc24a6c9c8737b3b11e4e9a3480acb7147a6bf86143a79c172ba104828da2b9",
     "prompt": "@gsd/core@VERSION:ns_context"
   },
-  "sha256": "b23f80c5c06ba09677167d216e98a42c2e4ea7fbd395118b7ef5018d20a6b3d6"
+  "sha256": "cfc24a6c9c8737b3b11e4e9a3480acb7147a6bf86143a79c172ba104828da2b9"
 }

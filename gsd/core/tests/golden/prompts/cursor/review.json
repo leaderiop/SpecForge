@@ -61,7 +61,7 @@
     "",
     "Parse flags from `02 --codex`:"
   ],
-  "bytes": 59174,
+  "bytes": 59198,
   "end": [
     "- [ ] Consensus summary synthesized from multiple reviewers",
     "- [ ] Temp files cleaned up",
@@ -140,7 +140,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:6868eef456f4663dc0288950f2a728cd314b92389c8d0563b1bd5f6fd7d2974b",
+    "digest": "sha256:4bfe60204e356b50b09808bca3512233bdb27a7c8f7444ed0db112a4831809ef",
     "prompt": "@gsd/core@VERSION:review",
     "subject": "v1.0/02"
   },
-  "sha256": "6868eef456f4663dc0288950f2a728cd314b92389c8d0563b1bd5f6fd7d2974b"
+  "sha256": "4bfe60204e356b50b09808bca3512233bdb27a7c8f7444ed0db112a4831809ef"
 }

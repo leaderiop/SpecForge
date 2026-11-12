@@ -61,7 +61,7 @@
     "# the commands below are specforge commands: there is no launcher to define",
     ""
   ],
-  "bytes": 65678,
+  "bytes": 65702,
   "end": [
     "## Gaps",
     "",
@@ -140,7 +140,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:4fdb1a077c940a72a0ba12e577501912610fc2b3609989bac2e7491c96232b07",
+    "digest": "sha256:9d98e7dbd02c8b74295f03fa898443adf2e5d590d9d209b7164b96593cadaa54",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "4fdb1a077c940a72a0ba12e577501912610fc2b3609989bac2e7491c96232b07"
+  "sha256": "9d98e7dbd02c8b74295f03fa898443adf2e5d590d9d209b7164b96593cadaa54"
 }

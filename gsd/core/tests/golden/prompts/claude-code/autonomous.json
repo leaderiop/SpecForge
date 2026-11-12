@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 53380,
+  "bytes": 53404,
   "end": [
     "- Missing Next Up block after completions",
     "",
@@ -121,7 +121,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:fab28ceab30f38364192351efec65f3b988dd18d6e1b376ed88c11d452a581e3",
+    "digest": "sha256:518e61b769015599b01e1cd4bb36c65cde65217578f0e9edd06935f3508ed659",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "fab28ceab30f38364192351efec65f3b988dd18d6e1b376ed88c11d452a581e3"
+  "sha256": "518e61b769015599b01e1cd4bb36c65cde65217578f0e9edd06935f3508ed659"
 }

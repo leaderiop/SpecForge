@@ -61,7 +61,7 @@
     "",
     "Examples:"
   ],
-  "bytes": 47397,
+  "bytes": 47421,
   "end": [
     "- question: \"How thorough should planning be?\"",
     "- header: \"Depth\"",
@@ -121,7 +121,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:7a3f8d65e65d0aa8c0f329de6b290c645fbcbc0b8d5ba0081d260498f9512065",
+    "digest": "sha256:1a55e01ac3203c90b0a723c1b5f77813ec528fa7ffcce4a8852aaf2e55be78c1",
     "prompt": "@gsd/core@VERSION:undo"
   },
-  "sha256": "7a3f8d65e65d0aa8c0f329de6b290c645fbcbc0b8d5ba0081d260498f9512065"
+  "sha256": "1a55e01ac3203c90b0a723c1b5f77813ec528fa7ffcce4a8852aaf2e55be78c1"
 }

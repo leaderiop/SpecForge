@@ -205,6 +205,42 @@
         "edge_arrowhead": null,
         "edge_color": null,
         "edge_style": null,
+        "label": "EdgeSpec",
+        "source_kind": "edge",
+        "target_kind": "phase_spec"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "EdgeRequirement",
+        "source_kind": "edge",
+        "target_kind": "locked_req"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "SpecProhibitionSpec",
+        "source_kind": "spec_prohibition",
+        "target_kind": "phase_spec"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
+        "label": "SpecProhibitionRequirement",
+        "source_kind": "spec_prohibition",
+        "target_kind": "locked_req"
+      },
+      {
+        "description": null,
+        "edge_arrowhead": null,
+        "edge_color": null,
+        "edge_style": null,
         "label": "DiscussionPhase",
         "source_kind": "discussion",
         "target_kind": "phase"
@@ -1329,6 +1365,33 @@
             "required": false,
             "target_kind": null,
             "writer": "computed"
+          },
+          {
+            "default_value": null,
+            "description": "upstream's authored shapes override; an empty list proposes no edge",
+            "edge": null,
+            "enum_values": [
+              "numeric_range",
+              "collection",
+              "text",
+              "stateful",
+              "io"
+            ],
+            "field_type": "enum_list",
+            "inverse_of": null,
+            "name": "shapes",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "an English translation the edge probe classifies instead (response_language)",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "text_en",
+            "required": false,
+            "target_kind": null
           }
         ],
         "has_body_parser": false,
@@ -2874,6 +2937,33 @@
             "name": "traces",
             "required": false,
             "target_kind": "requirement"
+          },
+          {
+            "default_value": null,
+            "description": "upstream's authored shapes override; an empty list proposes no edge",
+            "edge": null,
+            "enum_values": [
+              "numeric_range",
+              "collection",
+              "text",
+              "stateful",
+              "io"
+            ],
+            "field_type": "enum_list",
+            "inverse_of": null,
+            "name": "shapes",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "an English translation the edge probe classifies instead (response_language)",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "text_en",
+            "required": false,
+            "target_kind": null
           }
         ],
         "has_body_parser": false,
@@ -2976,6 +3066,263 @@
         "keyword": null,
         "lsp_icon": null,
         "name": "interview",
+        "open_fields": false,
+        "scoped_by": "spec",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "One edge-coverage row of a phase spec (GSD NN-SPEC.md ## Edge Coverage)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "EdgeSpec",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "spec",
+            "required": true,
+            "target_kind": "phase_spec"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "EdgeRequirement",
+            "field_type": "reference",
+            "inverse_of": null,
+            "name": "requirement",
+            "required": true,
+            "target_kind": "locked_req"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "boundary",
+              "adjacency",
+              "empty",
+              "encoding",
+              "ordering",
+              "precision",
+              "idempotency",
+              "concurrency",
+              "unclassified"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "category",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "resolved",
+              "dismissed",
+              "unresolved"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "explicit",
+              "backstop"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "verification",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "the acceptance criterion or backstop test note",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "resolution",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": "why it is dismissed",
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "reason",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "edge",
+        "open_fields": false,
+        "scoped_by": "spec",
+        "semantic_token": null,
+        "singleton": false,
+        "supports_verify": false,
+        "testable": false,
+        "verify_kinds": []
+      },
+      {
+        "description": "One must-NOT row of a phase spec (GSD NN-SPEC.md ## Prohibitions)",
+        "dot_color": null,
+        "dot_fillcolor": null,
+        "dot_shape": null,
+        "fields": [
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "SpecProhibitionSpec",
+            "field_type": "reference",
+            "immutable": true,
+            "inverse_of": null,
+            "name": "spec",
+            "required": true,
+            "target_kind": "phase_spec"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": "SpecProhibitionRequirement",
+            "field_type": "reference",
+            "inverse_of": null,
+            "name": "requirement",
+            "required": true,
+            "target_kind": "locked_req"
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "statement",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "resolved",
+              "dismissed",
+              "unresolved"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "status",
+            "required": true,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "test",
+              "judgment"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "verification",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "reason",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "enum_values": [
+              "node_test",
+              "lint_rule"
+            ],
+            "field_type": "enum",
+            "inverse_of": null,
+            "name": "check_kind",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "check_target",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "check_rule",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "check_violation_fixture",
+            "required": false,
+            "target_kind": null
+          },
+          {
+            "default_value": null,
+            "description": null,
+            "edge": null,
+            "field_type": "string",
+            "inverse_of": null,
+            "name": "check_clean_fixture",
+            "required": false,
+            "target_kind": null
+          }
+        ],
+        "has_body_parser": false,
+        "incremental": null,
+        "inference_guide": null,
+        "keyword": null,
+        "lsp_icon": null,
+        "name": "spec_prohibition",
         "open_fields": false,
         "scoped_by": "spec",
         "semantic_token": null,

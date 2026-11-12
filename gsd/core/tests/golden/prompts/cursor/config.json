@@ -61,7 +61,7 @@
     "",
     "**If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated."
   ],
-  "bytes": 99121,
+  "bytes": 99145,
   "end": [
     "- [ ] `agent_skills.<agent-type>` slugs validated against `[a-zA-Z0-9_-]+` before write; `review.models.<cli>` slugs accepted only from the registry-derived settable set; skill lists written as JSON arrays (never comma-joined strings)",
     "- [ ] Config merge preserves all keys outside the three sections this workflow owns",
@@ -140,7 +140,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:15e5fa5bab6245fcad33175a94ae68b52c2a8ff535b51760661af93ea951bc35",
+    "digest": "sha256:5053878929c772a5b0513e72183b36c5fb3666737647bce475ea08a599c40d88",
     "prompt": "@gsd/core@VERSION:config"
   },
-  "sha256": "15e5fa5bab6245fcad33175a94ae68b52c2a8ff535b51760661af93ea951bc35"
+  "sha256": "5053878929c772a5b0513e72183b36c5fb3666737647bce475ea08a599c40d88"
 }

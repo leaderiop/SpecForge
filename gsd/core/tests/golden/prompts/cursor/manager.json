@@ -61,7 +61,7 @@
     "",
     "**If error:** Display the error message and exit."
   ],
-  "bytes": 38541,
+  "bytes": 38565,
   "end": [
     "",
     "Table rules use ASCII `-`, never box-drawing characters.",
@@ -140,7 +140,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:caeaa0ee1d338d9a79f0fb27d0fee3ee48cee9050def6a24ee036f5f94f1437c",
+    "digest": "sha256:95b76bed2ed8f17a6e7c8681826f5e67f30afed3a104d121e0d832dd8d1c168d",
     "prompt": "@gsd/core@VERSION:manager",
     "steps": [
       {
@@ -232,5 +232,5 @@
       }
     ]
   },
-  "sha256": "caeaa0ee1d338d9a79f0fb27d0fee3ee48cee9050def6a24ee036f5f94f1437c"
+  "sha256": "95b76bed2ed8f17a6e7c8681826f5e67f30afed3a104d121e0d832dd8d1c168d"
 }

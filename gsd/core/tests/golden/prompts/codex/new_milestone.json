@@ -61,7 +61,7 @@
     "",
     "MILESTONE_NAME=\"Next\""
   ],
-  "bytes": 76033,
+  "bytes": 76057,
   "end": [
     "| CONT-03 | Phase 3 | Pending |",
     "| CONT-04 | Phase 3 | Pending |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:870bebbaf3690bb4b6559fae1af9977d4bd4d7132ea4b0faf7d6d6de210e3cc0",
+    "digest": "sha256:e41a536efbfb3ae6a5396ad39c80f4d6f851422499070a6bfb5f1c94173c221b",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "870bebbaf3690bb4b6559fae1af9977d4bd4d7132ea4b0faf7d6d6de210e3cc0"
+  "sha256": "e41a536efbfb3ae6a5396ad39c80f4d6f851422499070a6bfb5f1c94173c221b"
 }

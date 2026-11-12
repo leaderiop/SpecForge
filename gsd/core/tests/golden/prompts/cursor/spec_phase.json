@@ -61,7 +61,7 @@
     "- \"If you had to cut 50%, what's the irreducible core?\"",
     "- \"What would make this phase a success even without the nice-to-haves?\""
   ],
-  "bytes": 61499,
+  "bytes": 61523,
   "end": [
     "<context>",
     "Phase number: the `<arguments>` block (required)",
@@ -140,7 +140,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:c94c6e43735bd76e980dfa4819ee8a680c34760ee7e46cdb7a4a601d2647fea2",
+    "digest": "sha256:c347bf245f7957d2d36e526b97e51257d418d861bd4aaf9f2e927bb6344dcbde",
     "judged": [
       {
         "outcomes": [
@@ -235,5 +235,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "c94c6e43735bd76e980dfa4819ee8a680c34760ee7e46cdb7a4a601d2647fea2"
+  "sha256": "c347bf245f7957d2d36e526b97e51257d418d861bd4aaf9f2e927bb6344dcbde"
 }

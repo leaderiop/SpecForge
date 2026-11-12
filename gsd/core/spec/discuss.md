@@ -2,7 +2,9 @@
 
 ```
  phase | plan(quick) ─1──0..1─ context ─1──*─ decision     phase ─1──0..1─ phase_spec ─1──*─ locked_req
-                                  ├──*─ deferred_idea (a phase's only)            └──*─ interview
+                                  ├──*─ deferred_idea (a phase's only)            ├──*─ interview
+                                  │                                               ├──*─ edge
+                                  │                                               └──*─ spec_prohibition
                                   └──*─ canonical_refs (a block of the context)
  phase ─1──0..1─ discussion (audit log, append-only)
  phase | project | plan(quick) ─1──0..1─ research ─1──*─ finding | stack_choice | pattern | pitfall
@@ -57,9 +59,9 @@ in `plan`, and is named `<quick_id>-D-01` so it cannot collide with a project de
 
 GSD: `<deferred>`. `text str R`, `phase → phase R`, `why str`. Excluded from every coverage rule.
 
-## phase_spec, locked_req, interview
+## phase_spec, locked_req, interview, edge, spec_prohibition
 
-GSD: `NN-SPEC.md`, written by `/gsd-spec-phase`. Names `03-SPEC`, `LR1`, `IV1`.
+GSD: `NN-SPEC.md`, written by `/gsd-spec-phase`. Names `03-SPEC`, `LR1`, `IV1`, `EC1`, `SP1`.
 
 **phase_spec**: `phase → phase R I`, `context_digest str H` (the digest of the phase's context, written by the command that records the spec; gsd/W406), `created date I`, `goal str R` (X changes from A to B), `background text`,
 `in_scope strs`, `out_of_scope strs`, `constraints strs`, `acceptance strs`;
@@ -68,11 +70,44 @@ is `V`: the judged verdict of the `spec_phase` prompt (a `prompt:spec_phase` jud
 goal ≥ 75, boundary ≥ 70, constraint ≥ 65, acceptance ≥ 70, ambiguity ≤ 20. It is `V`: the `values` of the `spec_phase` prompt's verdict on `gsd/E202` (bounds 0..100 enforced), so a hand-written `scores` is E082. `record_verdict` refuses a `passed` on `gsd/E202` whose `scores` are missing, outside 0..100 or outside the gates above.
 
 **locked_req**: a numbered SPEC requirement. `spec → phase_spec R`, `title str R`, `current str R`, `target str R`,
-`acceptance str R` (falsifiable), `traces →* requirement`.
+`acceptance str R` (falsifiable), `traces →* requirement`, `shapes enum{numeric_range, collection, text, stateful, io}*`
+(upstream's authored shapes, `-` written `_`: they override the edge probe's classifier, and an empty list proposes no
+edge), `text_en str` (an English translation the edge probe classifies instead, when `response_language` is set).
 
 **interview**: one `## Interview Log` row, append-only. `spec → phase_spec R`, `round int R`,
 `perspective enum{researcher, simplifier, boundary_keeper, failure_analyst} R`, `question str R`, `answer str`,
 `locked str`.
+
+**edge**: one `## Edge Coverage` row: the edge probe's category of a locked requirement and its resolution (ADR 0333).
+Written whole by `specforge gsd resolve-edge`, which keys a row by its requirement and category.
+
+| Field | Type | Flags | GSD |
+|---|---|---|---|
+| spec | → phase_spec | R I | the SPEC the table is in |
+| requirement | → locked_req | R | `Requirement` (a locked requirement of the same spec, gsd/E523) |
+| category | enum{boundary, adjacency, empty, encoding, ordering, precision, idempotency, concurrency, unclassified} | R | `Category` |
+| status | enum{resolved, dismissed, unresolved} | R | `Status` |
+| verification | enum{explicit, backstop} | | `Verification`: a resolved row's tier, absent otherwise (gsd/E523) |
+| resolution | str | | `Resolution`: the acceptance criterion or backstop note a resolved row requires |
+| reason | str | | the reason a dismissed row requires |
+
+**spec_prohibition**: one `## Prohibitions` row: a must-NOT statement of a locked requirement and its resolution. The
+plan's `prohibition` is lifted from it. The `check_*` scalars are a resolved `test` row's check descriptor, read
+fail-closed where it is used, not judged here.
+
+| Field | Type | Flags | GSD |
+|---|---|---|---|
+| spec | → phase_spec | R I | the SPEC the table is in |
+| requirement | → locked_req | R | `Requirement` |
+| statement | str | R | `Statement` (the must-NOT sentence) |
+| status | enum{resolved, dismissed, unresolved} | R | `Status` |
+| verification | enum{test, judgment} | | `Verification`: a resolved row's tier, absent otherwise (gsd/E523) |
+| reason | str | | the reason a dismissed row requires |
+| check_kind | enum{node_test, lint_rule} | | `check_kind` (`node-test`, `lint-rule`) |
+| check_target | str | | `check_target` |
+| check_rule | str | | `check_rule` (a lint rule's) |
+| check_violation_fixture | str | | `check_violation_fixture` |
+| check_clean_fixture | str | | `check_clean_fixture` |
 
 ## discussion
 

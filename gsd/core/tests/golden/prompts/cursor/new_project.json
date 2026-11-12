@@ -61,7 +61,7 @@
     "```bash",
     ""
   ],
-  "bytes": 81744,
+  "bytes": 81768,
   "end": [
     "| AUTH-03 | Phase 1 | Pending |",
     "| AUTH-04 | Phase 1 | Pending |",
@@ -140,7 +140,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:0ab429af5452ce9b83a50256c40f6d8d1f9e7f1b9beb46a4de4a4cfedc378577",
+    "digest": "sha256:16a8fa89583a951718f5e92d25e7b6621e1a8fcd5949ad59034b0693fedf762e",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "0ab429af5452ce9b83a50256c40f6d8d1f9e7f1b9beb46a4de4a4cfedc378577"
+  "sha256": "16a8fa89583a951718f5e92d25e7b6621e1a8fcd5949ad59034b0693fedf762e"
 }

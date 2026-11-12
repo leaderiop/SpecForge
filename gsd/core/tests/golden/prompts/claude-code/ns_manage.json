@@ -61,7 +61,7 @@
     "| `/gsd-surface` | command `specforge gsd surface` (served by @gsd/core) |",
     "| `/gsd-help` | command `specforge gsd help` (served by @gsd/core) |"
   ],
-  "bytes": 11460,
+  "bytes": 11484,
   "end": [
     "| Process inbox items | gsd-inbox |",
     "| Create a clean PR branch | gsd-pr-branch |",
@@ -121,7 +121,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:38954ac72210d7a38cb6d51afc8ad7fdc4b86c35157d37a5aa69715b678b12fb",
+    "digest": "sha256:17ef17397a4e51de70b1968e301245aeb2907ebc98ae8c458322fb4b300417cb",
     "prompt": "@gsd/core@VERSION:ns_manage"
   },
-  "sha256": "38954ac72210d7a38cb6d51afc8ad7fdc4b86c35157d37a5aa69715b678b12fb"
+  "sha256": "17ef17397a4e51de70b1968e301245aeb2907ebc98ae8c458322fb4b300417cb"
 }

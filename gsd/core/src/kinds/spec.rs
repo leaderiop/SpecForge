@@ -1,4 +1,4 @@
-//! `phase_spec`, `locked_req` and `interview` (`spec/discuss.md`).
+//! `phase_spec`, `locked_req`, `interview`, `edge` and `spec_prohibition` (`spec/discuss.md`).
 
 use gsd_kit::dsl::*;
 
@@ -32,6 +32,9 @@ pub const PHASE_SPEC: Kind = Kind::new(
 )
 .scoped_by("phase");
 
+/// The shapes an edge probe classifies a requirement into: upstream's names with `_` for `-`.
+pub const SHAPES: &[&str] = &["numeric_range", "collection", "text", "stateful", "io"];
+
 /// A numbered requirement of a SPEC, named `LR1`.
 pub const LOCKED_REQ: Kind = Kind::new(
     "locked_req",
@@ -43,6 +46,10 @@ pub const LOCKED_REQ: Kind = Kind::new(
         str("target").r(),
         str("acceptance").r().doc("falsifiable"),
         rfs("traces", "requirement"),
+        ens("shapes", SHAPES)
+            .doc("upstream's authored shapes override; an empty list proposes no edge"),
+        str("text_en")
+            .doc("an English translation the edge probe classifies instead (response_language)"),
     ],
 )
 .scoped_by("spec");
@@ -70,3 +77,58 @@ pub const INTERVIEW: Kind = Kind::new(
 )
 .scoped_by("spec")
 .append_only();
+
+/// The lifecycle of a probe row (upstream's `VALID_STATUS`).
+const PROBE_STATUS: &[&str] = &["resolved", "dismissed", "unresolved"];
+
+/// The eight edge categories of upstream's taxonomy, and its `unclassified` row.
+const EDGE_CATEGORIES: &[&str] = &[
+    "boundary",
+    "adjacency",
+    "empty",
+    "encoding",
+    "ordering",
+    "precision",
+    "idempotency",
+    "concurrency",
+    "unclassified",
+];
+
+/// One `## Edge Coverage` row, named `EC1`: a requirement's edge category and its resolution. gsd/E523 holds the
+/// lifecycle; `specforge gsd resolve-edge` writes it in one edit.
+pub const EDGE: Kind = Kind::new(
+    "edge",
+    "One edge-coverage row of a phase spec (GSD NN-SPEC.md ## Edge Coverage)",
+    &[
+        rf("spec", "phase_spec").r().i(),
+        rf("requirement", "locked_req").r(),
+        en("category", EDGE_CATEGORIES).r(),
+        en("status", PROBE_STATUS).r(),
+        en("verification", &["explicit", "backstop"]),
+        str("resolution").doc("the acceptance criterion or backstop test note"),
+        str("reason").doc("why it is dismissed"),
+    ],
+)
+.scoped_by("spec");
+
+/// One `## Prohibitions` row, named `SP1`: a must-NOT statement of a requirement and its resolution, with the check
+/// descriptor a resolved `test` row may carry. gsd/E523 holds the lifecycle; `specforge gsd resolve-prohibition` writes
+/// it in one edit.
+pub const SPEC_PROHIBITION: Kind = Kind::new(
+    "spec_prohibition",
+    "One must-NOT row of a phase spec (GSD NN-SPEC.md ## Prohibitions)",
+    &[
+        rf("spec", "phase_spec").r().i(),
+        rf("requirement", "locked_req").r(),
+        str("statement").r(),
+        en("status", PROBE_STATUS).r(),
+        en("verification", &["test", "judgment"]),
+        str("reason"),
+        en("check_kind", &["node_test", "lint_rule"]),
+        str("check_target"),
+        str("check_rule"),
+        str("check_violation_fixture"),
+        str("check_clean_fixture"),
+    ],
+)
+.scoped_by("spec");

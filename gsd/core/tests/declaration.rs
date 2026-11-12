@@ -233,7 +233,9 @@ fn project_and_requirement_declare_the_fields_of_the_model() {
     );
     assert_eq!(
         fields_of("requirement"),
-        ["text", "category", "tier", "reason", "defined", "status"]
+        [
+            "text", "category", "tier", "reason", "defined", "status", "shapes", "text_en"
+        ]
     );
 }
 
@@ -349,7 +351,8 @@ fn the_roadmap_kinds_declare_every_field_of_project_md() {
         "methodology",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    assert_eq!(total, 72 + 3 - 2 + 1 + 2, "the kinds' fields");
+    // + 2: the requirement's `shapes` and `text_en`, which the spec-less edge probe reads (ADR 0333).
+    assert_eq!(total, 72 + 3 - 2 + 1 + 2 + 2, "the kinds' fields");
 }
 
 #[test]
@@ -446,7 +449,16 @@ fn the_spec_kinds_declare_the_fields_of_the_model() {
     );
     assert_eq!(
         fields_of("locked_req"),
-        ["spec", "title", "current", "target", "acceptance", "traces"]
+        [
+            "spec",
+            "title",
+            "current",
+            "target",
+            "acceptance",
+            "traces",
+            "shapes",
+            "text_en"
+        ]
     );
     let scores = field_of("phase_spec", "scores");
     let members: Vec<(&str, i64, i64)> = scores["members"]
@@ -471,6 +483,96 @@ fn the_spec_kinds_declare_the_fields_of_the_model() {
             ("ambiguity", 0, 100)
         ]
     );
+}
+
+/// The edge probe's rows of a phase spec (ADR 0333): each scoped by its spec, which it never changes.
+#[test]
+fn the_probe_kinds_declare_the_fields_of_the_model() {
+    assert_eq!(
+        fields_of("edge"),
+        [
+            "spec",
+            "requirement",
+            "category",
+            "status",
+            "verification",
+            "resolution",
+            "reason"
+        ]
+    );
+    assert_eq!(
+        fields_of("spec_prohibition"),
+        [
+            "spec",
+            "requirement",
+            "statement",
+            "status",
+            "verification",
+            "reason",
+            "check_kind",
+            "check_target",
+            "check_rule",
+            "check_violation_fixture",
+            "check_clean_fixture"
+        ]
+    );
+    let entities = describe("entities");
+    for kind in ["edge", "spec_prohibition"] {
+        let entity = entities["items"]
+            .as_array()
+            .and_then(|k| k.iter().find(|k| k["name"] == kind))
+            .expect(kind);
+        assert_eq!(entity["scoped_by"], "spec", "{kind}");
+        assert_eq!(field_of(kind, "spec")["immutable"], true, "{kind}");
+        assert_eq!(
+            field_of(kind, "spec")["target_kind"],
+            "phase_spec",
+            "{kind}"
+        );
+        assert_eq!(
+            field_of(kind, "requirement")["target_kind"],
+            "locked_req",
+            "{kind}"
+        );
+        assert_eq!(
+            field_of(kind, "status")["enum_values"],
+            serde_json::json!(["resolved", "dismissed", "unresolved"]),
+            "{kind}"
+        );
+    }
+    assert_eq!(
+        field_of("edge", "category")["enum_values"],
+        serde_json::json!([
+            "boundary",
+            "adjacency",
+            "empty",
+            "encoding",
+            "ordering",
+            "precision",
+            "idempotency",
+            "concurrency",
+            "unclassified"
+        ])
+    );
+    assert_eq!(
+        field_of("edge", "verification")["enum_values"],
+        serde_json::json!(["explicit", "backstop"])
+    );
+    assert_eq!(
+        field_of("spec_prohibition", "verification")["enum_values"],
+        serde_json::json!(["test", "judgment"])
+    );
+    assert_eq!(
+        field_of("spec_prohibition", "check_kind")["enum_values"],
+        serde_json::json!(["node_test", "lint_rule"])
+    );
+    for kind in ["locked_req", "requirement"] {
+        assert_eq!(
+            field_of(kind, "shapes")["enum_values"],
+            serde_json::json!(["numeric_range", "collection", "text", "stateful", "io"]),
+            "{kind}"
+        );
+    }
 }
 
 /// The description lists the kind as append-only (a removed interview is E085, proven black-box too).
@@ -517,6 +619,8 @@ fn the_discuss_kinds_declare_every_field_of_discuss_md() {
         "phase_spec",
         "locked_req",
         "interview",
+        "edge",
+        "spec_prohibition",
         "discussion",
         "research",
         "finding",
@@ -529,8 +633,9 @@ fn the_discuss_kinds_declare_every_field_of_discuss_md() {
         "package_audit",
     ];
     let total: usize = kinds.iter().map(|k| fields_of(k).len()).sum();
-    // + 3: the quick plan's `plan` on context, decision and research.
-    assert_eq!(total, 95 - 1 + 1 + 1 + 3, "the kinds' fields");
+    // + 3: the quick plan's `plan` on context, decision and research. + 2 + 7 + 11: the edge probe's `shapes` and
+    // `text_en` on locked_req, and its two row kinds, edge (7 fields) and spec_prohibition (11) (ADR 0333).
+    assert_eq!(total, 95 - 1 + 1 + 1 + 3 + 2 + 7 + 11, "the kinds' fields");
 }
 
 #[test]

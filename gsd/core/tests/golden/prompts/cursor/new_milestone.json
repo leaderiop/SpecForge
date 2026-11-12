@@ -61,7 +61,7 @@
     "",
     "MILESTONE_NAME=\"Next\""
   ],
-  "bytes": 68475,
+  "bytes": 68499,
   "end": [
     "| CONT-03 | Phase 3 | Pending |",
     "| CONT-04 | Phase 3 | Pending |",
@@ -140,7 +140,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:136151b37fcec50a374b62329d51cbecda19300c496015ddc2e84beeba075ba0",
+    "digest": "sha256:6a12755d9771c4858fb3a6ba2c73caf31f97abd57fbeda945fd44b8892d4348c",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "136151b37fcec50a374b62329d51cbecda19300c496015ddc2e84beeba075ba0"
+  "sha256": "6a12755d9771c4858fb3a6ba2c73caf31f97abd57fbeda945fd44b8892d4348c"
 }

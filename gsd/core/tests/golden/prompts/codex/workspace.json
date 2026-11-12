@@ -61,7 +61,7 @@
     "- `--branch` → `BRANCH_NAME` (defaults to `workspace/$WORKSPACE_NAME`)",
     "- `--auto` → skip interactive questions"
   ],
-  "bytes": 40391,
+  "bytes": 40415,
   "end": [
     "- Box panels drawn with double-line box characters (U+2554, U+2557, U+255A, U+255D, U+2551, U+2560, U+2563) — the borders wrap independently of their contents. They are named here by code point rather than shown, because the guard below rejects the characters themselves anywhere in shipped content.",
     "- A `---` directly under a line of text with no blank line between — that is a setext heading underline, not a break, and it swallows the line above",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:3e8c5f024b98cab316109f76a4ce15305cfed4fe75bad40fdcee1184396f4a80",
+    "digest": "sha256:28e215b98597395b276c303f08950cad3346e4eb552f32a99fd5c5ef99b3c2e6",
     "prompt": "@gsd/core@VERSION:workspace"
   },
-  "sha256": "3e8c5f024b98cab316109f76a4ce15305cfed4fe75bad40fdcee1184396f4a80"
+  "sha256": "28e215b98597395b276c303f08950cad3346e4eb552f32a99fd5c5ef99b3c2e6"
 }

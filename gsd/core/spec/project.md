@@ -43,6 +43,8 @@ GSD: one bullet of `REQUIREMENTS.md`. Name: `AUTH-01`. A requirement id is uniqu
 | reason | str | | Out of Scope `Reason` (required when `out_of_scope`) |
 | defined | date | I | `**Defined:**` |
 | status | enum{pending, in_progress, complete, blocked, gaps_found} | C | Traceability `Status`: complete when a plan naming it is complete (GSD marks it when the plan's summary is written, `gsd-executor.md:801-813`); blocked when it is not and every plan naming it is halted or blocked; in_progress when one is executing; else pending. `gaps_found` when the requirement would be complete and a phase it traces to has a `gaps_found` verification (`milestone.cts:453-514`) |
+| shapes | enum{numeric_range, collection, text, stateful, io}* | | the spec-less edge probe's authored shapes (an empty list proposes no edge) |
+| text_en | str | | an English translation the spec-less edge probe classifies instead |
 
 The requirement's phase (Traceability `Phase`) is the inverse of `phase.requirements`, read back as `phase`: a relation
 is written from one side, never both (W162).

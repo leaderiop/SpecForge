@@ -26,7 +26,7 @@
     "4. Tell the user to restart the host, so that it reads the new skills.",
     "</process>"
   ],
-  "bytes": 10506,
+  "bytes": 10530,
   "end": [
     "  \"effort.routing_tier_defaults.heavy\": \"xhigh\",",
     "  \"effort.routing_tier_defaults.light\": \"low\",",
@@ -86,7 +86,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -153,8 +153,8 @@
   ],
   "lines": 203,
   "payload": {
-    "digest": "sha256:bcb37e43c4e3385e91f4ef7d0acfc49b0d1211a3e4a96f65454ad441b7ab9fa9",
+    "digest": "sha256:b0e2b22417859942590698ddf63a9f4d0c217e382dd9338a3f3e62c0f91b741d",
     "prompt": "@gsd/core@VERSION:update"
   },
-  "sha256": "bcb37e43c4e3385e91f4ef7d0acfc49b0d1211a3e4a96f65454ad441b7ab9fa9"
+  "sha256": "b0e2b22417859942590698ddf63a9f4d0c217e382dd9338a3f3e62c0f91b741d"
 }

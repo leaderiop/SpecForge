@@ -39,7 +39,10 @@ pub const PLANNING_FILES: &[(&str, &str)] = &[
         "NN-DISCUSSION-LOG.md",
         "context, decision, deferred_idea, discussion",
     ),
-    ("NN-SPEC.md", "phase_spec, locked_req, interview"),
+    (
+        "NN-SPEC.md",
+        "phase_spec, locked_req, interview, edge, spec_prohibition",
+    ),
     ("NN-RESEARCH.md", "research and its items"),
     ("research/*.md", "research and its items"),
     (

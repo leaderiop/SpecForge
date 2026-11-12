@@ -37,6 +37,8 @@ const KINDS: &[&Kind] = &[
     &spec::PHASE_SPEC,
     &spec::LOCKED_REQ,
     &spec::INTERVIEW,
+    &spec::EDGE,
+    &spec::SPEC_PROHIBITION,
     &discuss::DISCUSSION,
     &research::RESEARCH,
     &research::FINDING,

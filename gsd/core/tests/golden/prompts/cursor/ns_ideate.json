@@ -36,7 +36,7 @@
     "| `/gsd-spike` | not served on this project |",
     "| `/gsd-spec-phase` | prompt `specforge.gsd.spec_phase` (served by @gsd/core) |"
   ],
-  "bytes": 10622,
+  "bytes": 10646,
   "end": [
     "  \"parallelization.skip_checkpoints\": true,",
     "  \"parallelization.task_level\": false",
@@ -115,7 +115,7 @@
     "| `config.json` | settings |",
     "| `RETROSPECTIVE.md`, `LEARNINGS.md`, `METHODOLOGY.md` | retrospective, lesson, methodology |",
     "| `NN-CONTEXT.md`, `NN-DISCUSSION-LOG.md` | context, decision, deferred_idea, discussion |",
-    "| `NN-SPEC.md` | phase_spec, locked_req, interview |",
+    "| `NN-SPEC.md` | phase_spec, locked_req, interview, edge, spec_prohibition |",
     "| `NN-RESEARCH.md`, `research/*.md` | research and its items |",
     "| `NN-MM-PLAN.md` | plan, task, checkpoint, truth, artifact, key_link, prohibition, disposition, user_setup |",
     "| `NN-MM-SUMMARY.md` | summary, deliverable, deviation, decision |",
@@ -170,8 +170,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:99b96b69cb69b62f85d25e56ca84956c5005e95f7d44bba96e331680e26c0874",
+    "digest": "sha256:25112f3516a0f8cacb8abb5bb91c3397db17ae6616461e0b3a48fc14e56b8785",
     "prompt": "@gsd/core@VERSION:ns_ideate"
   },
-  "sha256": "99b96b69cb69b62f85d25e56ca84956c5005e95f7d44bba96e331680e26c0874"
+  "sha256": "25112f3516a0f8cacb8abb5bb91c3397db17ae6616461e0b3a48fc14e56b8785"
 }

@@ -47,7 +47,7 @@
     "| `$gsd-review` | prompt `specforge.gsd.review` (served by @gsd/core) |",
     "| `$gsd-ui-phase` | not served on this project |"
   ],
-  "bytes": 18966,
+  "bytes": 18990,
   "end": [
     "Route to the appropriate quality / review skill based on the user's intent.",
     "`gsd-code-review-fix` was absorbed by `$gsd-code-review --fix` in #2790.",
@@ -181,8 +181,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:416c44351917e5d5e6a3f59ade0004e7c340b50d29a57209e3e8ccbee114b911",
+    "digest": "sha256:20a4a34e510779086338e7aab802a86f91770803796866548acda4709e43df68",
     "prompt": "@gsd/core@VERSION:ns_review"
   },
-  "sha256": "416c44351917e5d5e6a3f59ade0004e7c340b50d29a57209e3e8ccbee114b911"
+  "sha256": "20a4a34e510779086338e7aab802a86f91770803796866548acda4709e43df68"
 }
