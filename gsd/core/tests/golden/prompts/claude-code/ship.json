@@ -61,7 +61,7 @@
     "",
     "Detect base branch for PRs and merges:"
   ],
-  "bytes": 45924,
+  "bytes": 46003,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 814,
+  "lines": 815,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:9b6963446d6c12103710cf5ac1dc636dec02b65008466b1bd3b45e89bc5d4c7f",
+    "digest": "sha256:e76b35256626922c45c1fcd73796fa97947563627c3d2dc39d62caa35b75a626",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "9b6963446d6c12103710cf5ac1dc636dec02b65008466b1bd3b45e89bc5d4c7f"
+  "sha256": "e76b35256626922c45c1fcd73796fa97947563627c3d2dc39d62caa35b75a626"
 }

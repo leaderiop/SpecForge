@@ -164,7 +164,7 @@ Verify the work is ready to ship:
      GATE_RESULT=$(specforge check --format json) && CHECK_EXIT=0 || CHECK_EXIT=$?
      ```
 
-     (The named-query argument convention — a single `"${PHASE_DIR}"` positional — mirrors `verify-work.md`'s `verify:pre` arm verbatim. No capability declares a `check.query` gate at `ship:pre` today; the arm exists so the documented check contract is complete rather than half-implemented.)
+     (The named-query arm runs `specforge check` over the whole spec, as `verify-work.md`'s `verify:pre` arm does. No capability declares a `check.query` gate at `ship:pre` today; the arm exists so the documented check contract is complete rather than half-implemented.)
 
      For a `predicate` gate (ADR-2008 / #2008), serialize `hook.check.predicate` to compact JSON and pass it as a **single argv element**:
      ```bash
@@ -528,6 +528,7 @@ fi
 
 ```bash
 SHIP_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" ship:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
+UAT_SESSION=$(specforge query "$PHASE_ID" --depth 1 --kinds uat_session --pick '.nodes[kind=uat_session].id' --first 1)   # what a hook that consumes the UAT is handed: the phase's uat_session, empty when it has none
 ```
 
 Read the `activeHooks` of every line of `SHIP_POST_HOOKS_JSON`, one per capability extension, in-context (do NOT pipe it through a shell parser).
@@ -535,7 +536,7 @@ Read the `activeHooks` of every line of `SHIP_POST_HOOKS_JSON`, one per capabili
 **Branch 1 — no active `ship:post` step hooks (`activeHooks` has no entry with `kind == "step"`):** Skip silently to the report.
 
 **Generic step hook dispatch contract:** For each active entry where `kind == "step"`:
-- Honor `consumes`: if it lists `UAT.md`, resolve `specforge files list "${PHASE_DIR}" --depth 1 --kind file --no-ignore --glob '*-UAT.md' --pick '.entries[0].path' 2>/dev/null` and pass it to the dispatch; if a consumed artifact is absent, skip that hook.
+- Honor `consumes`: if it lists the phase's UAT, pass `UAT_SESSION` (read above) to the dispatch as the consumed artifact; if it is empty, skip that hook.
 - If `ref.agent` is set, first show the spawn banner, then dispatch the agent named by `ref.agent` (use the exact `ref.agent` value as the subagent type — e.g. `gsd-mempalace-curator` — never `general-purpose`):
 
   ```
@@ -562,11 +563,11 @@ Read the `activeHooks` of every line of `SHIP_POST_HOOKS_JSON`, one per capabili
 
   With a resolved model (`{HOOK_AGENT_MODEL}` is the value the command above printed; `${…}` are bound shell variables):
 
-  `Agent(subagent_type=ref.agent, prompt="Ship-time capability hook for phase ${PHASE_NUMBER}. Phase dir: ${PHASE_DIR}. Consume: ${consumed_files}. Follow your agent instructions.", model="{HOOK_AGENT_MODEL}")`
+  `Agent(subagent_type=ref.agent, prompt="Ship-time capability hook for phase ${PHASE_NUMBER}. Phase: ${PHASE_ID}. Consume: ${consumed_files}. Follow your agent instructions.", model="{HOOK_AGENT_MODEL}")`
 
   When it resolved to `inherit` or empty, drop the parameter:
 
-  `Agent(subagent_type=ref.agent, prompt="Ship-time capability hook for phase ${PHASE_NUMBER}. Phase dir: ${PHASE_DIR}. Consume: ${consumed_files}. Follow your agent instructions.")`
+  `Agent(subagent_type=ref.agent, prompt="Ship-time capability hook for phase ${PHASE_NUMBER}. Phase: ${PHASE_ID}. Consume: ${consumed_files}. Follow your agent instructions.")`
 - If `ref.skill` is set, dispatch with `Skill(skill="gsd-${ref.skill}", args="${PHASE_NUMBER} --auto")` (prepend `gsd-` to `ref.skill`).
 
 Each dispatch is best-effort: if it errors, record a warning and continue — never re-raise (`onError: skip`).

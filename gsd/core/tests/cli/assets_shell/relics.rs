@@ -1,7 +1,7 @@
 //! Upstream's state, read here as the graph's: the UI gate reads a computed field, and closing a milestone writes no
 //! roadmap file (ADR 0343 D3); the review agent's return is written by the model and only checked here (D6).
 
-use super::{Shell, asset, block, fence_after, q};
+use super::{Shell, asset, block, fence_after, line, q};
 use crate::harness::taskboard;
 
 /// After `/gsd-complete-milestone`, autonomous checks the close by reading the milestone's computed `state`: it is
@@ -91,9 +91,8 @@ fn the_audit_reads_every_summarys_requirements() {
     );
 }
 
-/// A `ship:post` hook that consumes `UAT.md` is handed the phase's UAT. Today ship.md resolves it under
-/// `"${PHASE_DIR}"`, which nothing assigns: `files list ""` is a usage error hidden by `2>/dev/null`, so the hook always
-/// reads as absent and is skipped, though the graph holds the phase's `uat_session`. The fix hands it that entity.
+/// A `ship:post` hook that consumes `UAT.md` is handed the phase's `uat_session` id, read once in the step's first
+/// fence, and is skipped only when the phase has none. Ship names no phase directory.
 #[test]
 fn a_ship_hook_is_handed_the_phases_uat_session() {
     let Some(sh) = Shell::without_jq() else {
@@ -101,28 +100,15 @@ fn a_ship_hook_is_handed_the_phases_uat_session() {
     };
     let p = taskboard();
     let text = asset("gsd-core/workflows/ship.md");
-    assert!(!text.contains("PHASE_DIR="), "ship.md assigns PHASE_DIR");
-    let entity = p.run(&[
-        "query",
-        "v1.0/01",
-        "--depth",
-        "1",
-        "--kinds",
-        "uat_session",
-        "--pick",
-        ".nodes[kind=uat_session].id",
-    ]);
-    assert_eq!(entity.stdout.trim(), "v1.0/01/01-UAT", "{}", entity.all());
-    let run = gsd_kit::markdown::inline_code(&text)
-        .into_iter()
-        .map(|(_, run)| run)
-        .find(|run| run.starts_with("specforge files list") && run.contains("*-UAT.md"))
-        .expect("the consumes bullet's run");
-    let (out, err, _) = sh.run_in(
-        p.root(),
-        &format!("PHASE_ID=v1.0/01\nprintf '[%s]' \"$({run})\""),
-    );
-    assert_eq!(out, "[]", "{err}");
+    assert!(!text.contains("PHASE_DIR"), "ship.md names PHASE_DIR");
+    let read = line(&text, "UAT_SESSION=");
+    for (phase, want) in [("v1.0/01", "v1.0/01/01-UAT"), ("v1.0/02", "")] {
+        let (out, err, _) = sh.run_in(
+            p.root(),
+            &format!("PHASE_ID={phase}\n{read}\nprintf %s \"$UAT_SESSION\""),
+        );
+        assert_eq!(out, want, "{phase}: {err}");
+    }
 }
 
 /// The UI gate reads the phase's computed `frontend` field (`@gsd/ui` computes it): no field holds upstream's
