@@ -58,24 +58,21 @@ fn the_roster_matches_upstreams_commands() {
 /// The owner label of each row of the README's Commands table, with the stems it lists.
 fn readme_rows() -> BTreeMap<String, BTreeSet<String>> {
     let text = std::fs::read_to_string(root().join("contributions/README.md")).expect("README");
-    let start = text.find("## Commands").expect("the Commands table");
-    let table: Vec<&str> = text[start..]
-        .lines()
-        .skip(1)
-        .skip_while(|l| !l.starts_with('|'))
-        .take_while(|l| l.starts_with('|'))
-        .collect();
+    let table = gsd_kit::markdown::tables(&text)
+        .into_iter()
+        .find(|t| t.heading == "Commands")
+        .expect("the Commands table");
     let stem = Regex::new(r"`/gsd-([a-z0-9-]+)`").expect("a regex");
     table
+        .rows
         .iter()
-        .filter(|l| l.contains("`/gsd-"))
-        .map(|l| {
-            let cells: Vec<&str> = l.split('|').map(str::trim).collect();
+        .filter(|cells| cells[1].contains("`/gsd-"))
+        .map(|cells| {
             let names = stem
-                .captures_iter(cells[2])
+                .captures_iter(&cells[1])
                 .map(|c| c[1].to_string())
                 .collect();
-            (cells[1].to_string(), names)
+            (cells[0].clone(), names)
         })
         .collect()
 }

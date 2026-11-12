@@ -352,10 +352,15 @@ fn the_quick_id_is_made_once_and_the_branch_template_is_expanded() {
     let (said, err, _) = sh.run_in(
         p.root(),
         &format!(
-            "DESCRIPTION='Trim titles'\n{line}\nprintf '%s|%s|%s|%s|%s\\n' \"$quick_id\" \"$slug\" \"$branch_name\" \"$date\" \"$task_dir\""
+            "DESCRIPTION='Trim titles'\n{line}\nprintf '%s\\t%s\\t%s\\t%s\\t%s\\n' \"$quick_id\" \"$slug\" \"$branch_name\" \"$date\" \"$task_dir\""
         ),
     );
-    let cells: Vec<&str> = said.lines().last().unwrap_or_default().split('|').collect();
+    let cells: Vec<&str> = said
+        .lines()
+        .last()
+        .unwrap_or_default()
+        .split('\t')
+        .collect();
     let [id, slug, branch, date, task_dir] = cells[..] else {
         panic!("{said}: {err}");
     };

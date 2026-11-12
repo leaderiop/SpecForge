@@ -116,15 +116,13 @@ fn taskboard_discuss_matches_planning() {
 
     // PROJECT.md's Key Decisions rows are the twin's project decisions.
     let project = parity("fixtures/taskboard/.planning/PROJECT.md");
-    let rows: Vec<String> = project
-        .split("## Key Decisions")
-        .nth(1)
-        .and_then(|rest| rest.split("\n---").next())
-        .expect("a Key Decisions section")
-        .lines()
-        .filter(|l| l.starts_with('|') && !l.contains("---") && !l.contains("| Decision |"))
-        .filter_map(|l| l.trim_matches('|').split('|').next())
-        .map(|decision| decision.trim().to_string())
+    let rows: Vec<String> = gsd_kit::markdown::tables(&project)
+        .into_iter()
+        .find(|t| t.heading == "Key Decisions")
+        .expect("a Key Decisions table")
+        .rows
+        .into_iter()
+        .map(|cells| cells[0].clone())
         .collect();
     let mut kept: Vec<String> = neighbours(&p, "taskboard")
         .iter()

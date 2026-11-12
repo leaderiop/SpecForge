@@ -22,21 +22,12 @@ struct Row {
 
 /// The rows of the "Codes" section: six cells, the first `gsd.security/` and a letter and three digits.
 fn codes_table() -> Vec<Row> {
-    let section = SPEC
-        .split("\n## Codes\n")
-        .nth(1)
-        .and_then(|s| s.split("\n## ").next())
-        .expect("a Codes section");
-    section
-        .lines()
-        .filter_map(|line| {
-            let cells: Vec<&str> = line
-                .trim()
-                .trim_matches('|')
-                .split('|')
-                .map(str::trim)
-                .collect();
-            let [code, _, severity, gated_by, _, _] = cells[..] else {
+    gsd_kit::markdown::tables(SPEC)
+        .into_iter()
+        .filter(|t| t.heading == "Codes")
+        .flat_map(|t| t.rows)
+        .filter_map(|cells| {
+            let [code, _, severity, gated_by, _, _] = &cells[..] else {
                 return None;
             };
             let local = code.trim_matches('`').strip_prefix("gsd.security/")?;

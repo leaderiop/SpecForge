@@ -23,14 +23,14 @@ fn a_task_list_becomes_one_line_per_quick_task() {
             p.root(),
             &format!(
                 "INLINE_TASK_LIST={}\n{lines}\n\
-                 printf '%s|%s|%s\\n' \"$QB_CREATE_RC\" \"$ITEM_COUNT\" \"$BATCH_ID\"; printf '%s\\n' \"$BATCH_MANIFEST_JSON\"",
+                 printf '%s\\t%s\\t%s\\n' \"$QB_CREATE_RC\" \"$ITEM_COUNT\" \"$BATCH_ID\"; printf '%s\\n' \"$BATCH_MANIFEST_JSON\"",
                 q(list)
             ),
         )
     };
     let (out, err, _) = run("- Add a task\n\n2. Remove a task\n* List tasks\n");
     let lines: Vec<&str> = out.lines().collect();
-    let head: Vec<&str> = lines[0].split('|').collect();
+    let head: Vec<&str> = lines[0].split('\t').collect();
     assert_eq!(&head[..2], ["0", "3"], "{out}{err}");
     assert!(
         head[2].len() == 12 && head[2].ends_with("-batch"),

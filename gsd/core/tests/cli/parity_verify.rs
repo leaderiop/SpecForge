@@ -129,11 +129,11 @@ fn verification_is_three_of_three_on_both_sides() {
     assert_eq!(twin["status"], get(&file, "status"), "{twin}");
     assert_eq!(twin["score"], "3/3", "{twin}");
     // The file's rows, each paired with the twin truth that says it.
-    let rows: Vec<String> = p
-        .read(VERIFICATION_MD)
-        .lines()
-        .filter(|l| l.starts_with("| ") && l.contains("VERIFIED"))
-        .map(|l| l.split('|').nth(2).unwrap_or_default().trim().to_string())
+    let rows: Vec<String> = gsd_kit::markdown::tables(&p.read(VERIFICATION_MD))
+        .into_iter()
+        .flat_map(|t| t.rows)
+        .filter(|cells| cells.iter().any(|c| c.contains("VERIFIED")))
+        .map(|cells| cells.get(1).cloned().unwrap_or_default())
         .collect();
     assert_eq!(rows.len(), 3, "{rows:?}");
     let truths = p.nodes_of("truth");

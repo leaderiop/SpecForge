@@ -105,26 +105,28 @@ fn backticked(cell: &str) -> Vec<String> {
 
 /// `(extension, tokens)` of each non-core row of the owner table.
 fn other_owners() -> Vec<(String, Vec<String>)> {
-    SETTINGS_MD
-        .lines()
-        .filter(|l| l.starts_with("| `@gsd/") && !l.starts_with("| `@gsd/core`"))
-        .map(|line| {
-            let cells: Vec<&str> = line.trim().trim_matches('|').split('|').collect();
-            let owner = backticked(cells[0])[0].clone();
-            (owner, backticked(cells[1]))
-        })
+    table(|t| t.header[0] == "Owner")
+        .rows
+        .iter()
+        .filter(|cells| cells[0].starts_with("`@gsd/") && cells[0] != "`@gsd/core`")
+        .map(|cells| (backticked(&cells[0])[0].clone(), backticked(&cells[1])))
         .collect()
+}
+
+/// The table of `settings.md` that `pick` takes.
+fn table(pick: impl Fn(&gsd_kit::markdown::Table) -> bool) -> gsd_kit::markdown::Table {
+    gsd_kit::markdown::tables(SETTINGS_MD)
+        .into_iter()
+        .find(pick)
+        .expect("a settings.md table")
 }
 
 /// The tokens of the "Not applicable" table's first column, except the secrets row.
 fn not_applicable() -> Vec<String> {
-    SETTINGS_MD
-        .split("\n## ")
-        .find(|section| section.starts_with("Not applicable"))
-        .expect("a Not applicable section")
-        .lines()
-        .filter(|l| l.starts_with("| ") && !l.starts_with("| GSD key") && !l.starts_with("|---"))
-        .filter_map(|l| l.trim().trim_matches('|').split('|').next())
+    table(|t| t.heading == "Not applicable")
+        .rows
+        .iter()
+        .map(|cells| cells[0].as_str())
         .filter(|cell| !cell.contains("API key half"))
         .flat_map(backticked)
         .collect()

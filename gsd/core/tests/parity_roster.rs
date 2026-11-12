@@ -102,18 +102,14 @@ fn embedded() -> BTreeSet<&'static str> {
 /// The agents the extensions own, from the contributions README's Agents table.
 fn agent_owners() -> BTreeMap<String, String> {
     let mut out = BTreeMap::new();
-    let section = CONTRIBUTIONS
-        .split("\n## Agents\n")
-        .nth(1)
-        .expect("an Agents section");
-    for row in section.lines().take_while(|l| !l.starts_with("###")) {
-        let cells: Vec<&str> = row.split('|').map(str::trim).collect();
-        if cells.len() < 4 || !cells[1].starts_with("@gsd/") {
-            continue;
-        }
-        for (_, name) in gsd_kit::markdown::inline_code(cells[2]) {
+    let table = gsd_kit::markdown::tables(CONTRIBUTIONS)
+        .into_iter()
+        .find(|t| t.heading == "Agents" && t.header[0] == "Owner")
+        .expect("the Agents table");
+    for cells in table.rows.iter().filter(|c| c[0].starts_with("@gsd/")) {
+        for (_, name) in gsd_kit::markdown::inline_code(&cells[1]) {
             assert!(
-                out.insert(name.clone(), cells[1].to_string()).is_none(),
+                out.insert(name.clone(), cells[0].clone()).is_none(),
                 "{name} is in two rows"
             );
         }
@@ -343,20 +339,14 @@ fn cli_modules_match_the_snapshot() {
 
 /// The capability names the README's table lands.
 fn readme_capabilities() -> Vec<String> {
-    let section = README
-        .split("## GSD capabilities, one by one")
-        .nth(1)
-        .and_then(|s| s.split("\n## ").next())
-        .expect("the capabilities section");
-    section
-        .lines()
-        .filter(|l| {
-            l.starts_with("| ") && !l.starts_with("| GSD capability") && !l.starts_with("|---")
-        })
-        .flat_map(|l| {
-            l.split('|')
-                .nth(1)
-                .unwrap_or_default()
+    gsd_kit::markdown::tables(README)
+        .into_iter()
+        .find(|t| t.heading == "GSD capabilities, one by one")
+        .expect("the capabilities table")
+        .rows
+        .iter()
+        .flat_map(|cells| {
+            cells[0]
                 .split(',')
                 .map(|n| n.trim().to_string())
                 .collect::<Vec<_>>()
@@ -485,13 +475,12 @@ fn the_acceptance_counts_match() {
 fn each_acceptance_where_path_exists() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
     let mut checked = 0;
-    for line in ACCEPTANCE
-        .lines()
-        .skip_while(|l| !l.starts_with("| Family | Total"))
-        .skip(2)
-        .take_while(|l| l.starts_with('|'))
-    {
-        let where_ = line.split('|').nth(7).unwrap_or_default();
+    let table = gsd_kit::markdown::tables(ACCEPTANCE)
+        .into_iter()
+        .find(|t| t.header[..2] == ["Family", "Total"])
+        .expect("the family table");
+    for cells in &table.rows {
+        let where_ = cells.get(6).map_or("", String::as_str);
         let (_, path) = gsd_kit::markdown::inline_code(where_)
             .into_iter()
             .next()
