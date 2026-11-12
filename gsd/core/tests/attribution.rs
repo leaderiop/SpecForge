@@ -82,6 +82,12 @@ fn every_ported_source_is_attributed() {
             )
         )
     }));
+    // the JavaScript regex reader (moved out of the injection hook) and its test oracle
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    all.extend([
+        root.join("src/js_regex.rs"),
+        root.join("src/js_regex/oracle.rs"),
+    ]);
     for path in all {
         let text = std::fs::read_to_string(&path).expect("a source");
         let first = text.lines().next().unwrap_or_default();

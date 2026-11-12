@@ -21,6 +21,9 @@
 //! for size (opt-level z), so each check costs tens of instructions there: the scan of a start is one tight loop.
 //! A look-ahead's body has no `+` or `*` (asserted when built), and its answer is kept per position.
 
+#[cfg(test)]
+pub(crate) mod oracle;
+
 /// `\s` as JavaScript means it.
 fn js_space(c: char) -> bool {
     matches!(
@@ -37,14 +40,14 @@ fn js_space(c: char) -> bool {
 }
 
 #[derive(Debug, Clone)]
-pub(super) enum Item {
+pub(crate) enum Item {
     Ch(char),
     Space,
 }
 
 /// A parsed pattern, shared by the matcher and the test oracle of its differential test.
 #[derive(Debug, Clone)]
-pub(super) enum Node {
+pub(crate) enum Node {
     Char(char),
     Space,
     Class {
@@ -68,12 +71,12 @@ pub(super) enum Node {
 #[cfg(test)]
 thread_local! {
     /// The steps the matcher took on this thread: a test bounds its work by them, not by the clock.
-    pub(super) static STEPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    pub(crate) static STEPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 /// A compiled pattern of the `i` flag.
 #[derive(Debug, Clone)]
-pub struct Regex {
+pub(crate) struct Regex {
     /// The pattern's program first, then its look-ahead bodies.
     progs: Vec<Prog>,
 }
@@ -193,7 +196,7 @@ impl Parser<'_> {
 /// # Panics
 ///
 /// On syntax this matcher does not support.
-pub(super) fn parse(source: &str) -> Node {
+pub(crate) fn parse(source: &str) -> Node {
     let chars: Vec<char> = source.chars().collect();
     let mut p = Parser { src: &chars, at: 0 };
     let node = p.alt();
@@ -606,7 +609,7 @@ impl Regex {
     /// # Panics
     ///
     /// On syntax this matcher does not support, and on a `+` or `*` inside a look-ahead.
-    pub fn new(source: &str) -> Regex {
+    pub(crate) fn new(source: &str) -> Regex {
         let mut progs = Vec::new();
         compile(&parse(source), false, &mut progs);
         Regex { progs }
@@ -617,7 +620,7 @@ impl Regex {
     }
 
     /// Whether the one-character node `n` accepts `c`.
-    pub(super) fn one(n: &Node, c: char) -> Option<bool> {
+    pub(crate) fn one(n: &Node, c: char) -> Option<bool> {
         match n {
             Node::Char(x) => Some(Self::same(c, *x)),
             Node::Space => Some(js_space(c)),
@@ -634,12 +637,12 @@ impl Regex {
 
     /// The bytes of the visited set a search of `chars` characters allocates.
     #[cfg(test)]
-    pub(super) fn seen_bytes(&self, chars: usize) -> usize {
+    pub(crate) fn seen_bytes(&self, chars: usize) -> usize {
         (self.progs[0].splits * (chars + 1)).div_ceil(64) * 8
     }
 
     /// The first match in `text`: where it starts and ends, in characters.
-    pub fn find(&self, text: &[char]) -> Option<(usize, usize)> {
+    pub(crate) fn find(&self, text: &[char]) -> Option<(usize, usize)> {
         let prog = &self.progs[0];
         // A start whose character no first node accepts cannot begin a match: one tight pass over the text skips it
         // unrun, so a text with no start (a line of a 4 MiB text of newlines) sets up no search.
@@ -691,13 +694,13 @@ impl Regex {
         })
     }
 
-    pub fn is_match(&self, text: &[char]) -> bool {
+    pub(crate) fn is_match(&self, text: &[char]) -> bool {
         self.find(text).is_some()
     }
 
     /// The splits of the pattern outside its look-aheads: one per `?`, `+`, `*` and extra alternative.
     #[cfg(test)]
-    pub(super) fn splits(&self) -> usize {
+    pub(crate) fn splits(&self) -> usize {
         self.progs[0].splits
     }
 }

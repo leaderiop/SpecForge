@@ -9,6 +9,7 @@ mod collectors;
 pub mod commands;
 mod digest;
 pub mod hooks;
+mod js_regex;
 pub mod judged;
 mod kinds;
 mod passes;

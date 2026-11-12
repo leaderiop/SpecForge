@@ -8,17 +8,16 @@
 //! setting is on (`gsd/security/tests/cli/injection.rs`); without it the setting is absent and the scanner is advisory.
 
 mod patterns;
-mod regex;
 
 use serde_json::Value;
 use specforge_extension_sdk::prelude::*;
 
 use super::facts::{Facts, truthy};
+use crate::js_regex::Regex;
 use patterns::{
     DATA_LINK_START, DATA_URI_SAFE, INJECTION_PATTERNS, LINK_RULES, SUMMARISATION_PATTERNS,
     describe,
 };
-use regex::Regex;
 
 /// A thing a scan found: the rule, and what matched (none for the invisible-character rules).
 #[derive(Debug, Clone, PartialEq, Eq)]

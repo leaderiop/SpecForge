@@ -1,7 +1,7 @@
 //! The link rules' line-by-line shortcut in `link_findings`.
 
 use super::super::patterns::LINK_RULES;
-use super::super::regex::{Node, parse};
+use crate::js_regex::{Node, parse};
 
 /// `link_findings` runs a rule line by line only when the whole text matches it: sound while no link rule can match a
 /// line without matching the text, so none has `^` or a look-around.
