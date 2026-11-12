@@ -6,7 +6,6 @@
 use std::path::Path;
 
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 
 use super::harness::{Project, project};
 use super::hooks_support::Home;
@@ -46,19 +45,6 @@ fn normalised(text: &str) -> String {
         rest = &tail[end..];
     }
     out + rest
-}
-
-/// A file as a golden: its first 40 lines, then the count, size and digest of the whole.
-fn summary(text: &str) -> String {
-    let text = normalised(text);
-    let head: Vec<&str> = text.lines().take(40).collect();
-    format!(
-        "{}\n\n--- lines: {}, bytes: {}, sha256: {:x}\n",
-        head.join("\n"),
-        text.lines().count(),
-        text.len(),
-        Sha256::digest(text.as_bytes())
-    )
 }
 
 fn check_golden(host: &str, name: &str, actual: &str) {
@@ -117,7 +103,7 @@ fn install_writes_the_auditor_and_the_skill_on_three_hosts() {
             } else {
                 "skills"
             };
-            check_golden(host, &format!("{dir}-{name}"), &summary(&p.read(file)));
+            check_golden(host, &format!("{dir}-{name}"), &normalised(&p.read(file)));
         }
         let rows = rows(&report, host);
         assert_eq!(rows.as_array().map(Vec::len), Some(2), "{host}: {rows}");
@@ -162,7 +148,7 @@ fn the_compact_body_is_for_codex_and_cursor_the_full_one_for_claude_code() {
                 agent.contains(compact.trim()) && !agent.contains(full.trim()),
                 "{host}"
             );
-            check_golden(host, "agents-compact", &summary(&agent));
+            check_golden(host, "agents-compact", &normalised(&agent));
         }
     }
 }
