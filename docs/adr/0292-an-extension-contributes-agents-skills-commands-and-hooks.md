@@ -97,8 +97,8 @@ reader on both sides keeps a hook's facts and a command's judgement from disagre
 nothing to the wire.
 
 It holds what a word is and what ends one: a redirect ends the word before it and is no part of a command's words
-(`Segment::redirects` holds its target), and a command substitution stays in its word and is read beside it
-(`Segment::substitutions`), to a bound. It has no dependency, and its tests sit out of line.
+(`Segment::redirects` holds each redirect's descriptor, operator and target), and a command substitution stays in its
+word and is read beside it (`Segment::substitutions`), to a bound. It has no dependency, and its tests sit out of line.
 
 An edit to it stales every builtin blob (ADR 0050): the reader is an input of each one, so the change re-vendors
 ([docs/agents/revendor.md](../agents/revendor.md)).
