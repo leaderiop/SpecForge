@@ -207,6 +207,8 @@ TASK-01
 | `codebase/*`, `intel/*`, `NN-PATTERNS.md` | codebase kinds, pattern_map | codebase |
 | `debug/*`, `NN-REVIEW.md`, `todos/*`, `seeds/*`, `threads/*`, `BACKLOG.md`, `USER-PROFILE.md` | ops kinds | ops |
 
+`gsd_kit::files::PLANNING_FILES` holds these names and the names upstream's text keeps under `.planning/` that the table lacks; its tests hold it equal to this table and complete against the vendored release.
+
 `/gsd-extract-learnings` writes `lesson` entities (`L-<phase>-<n>` in `spec/lessons.spec`; a lesson has no phase field, its id carries it).
 
 Written nowhere, on purpose: a prompt shows these to the user and stores no file, because no kind holds them (a later model round may add one):

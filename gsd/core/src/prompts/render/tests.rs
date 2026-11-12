@@ -97,13 +97,14 @@ fn the_text_has_the_preamble_the_header_and_the_tail() {
 
 /// The rows of `spec/README.md`'s "Every GSD file maps to a kind" table whose extension is `core`.
 fn readme_core_rows() -> Vec<(String, String)> {
-    include_str!("../../../spec/README.md")
-        .lines()
-        .filter(|l| l.starts_with("| ") && l.ends_with("| core |"))
-        .map(|l| {
-            let cells: Vec<&str> = l.trim_matches('|').split(" | ").map(str::trim).collect();
-            (cells[0].to_string(), cells[1].to_string())
-        })
+    gsd_kit::markdown::tables(include_str!("../../../spec/README.md"))
+        .into_iter()
+        .find(|t| t.heading == "Every GSD file maps to a kind")
+        .expect("the README's file table")
+        .rows
+        .into_iter()
+        .filter(|row| row[2] == "core")
+        .map(|row| (row[0].clone(), row[1].clone()))
         .collect()
 }
 

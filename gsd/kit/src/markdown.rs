@@ -1,12 +1,11 @@
-//! The gsd family's one Markdown reader (ADR 0332 D7): CommonMark through pulldown-cmark, with no extension, read
-//! the way an agent reads a prompt. No other gsd code finds a fence or a code span of Markdown by hand; a table row is
-//! still cut on `|` by hand (and `core/tests/common/mod.rs::input_of` reads one table cell's own grammar), as tables
-//! are not read here.
+//! The gsd family's one Markdown reader (ADR 0332 D7): CommonMark through pulldown-cmark, read the way an agent reads
+//! a prompt. No other gsd code finds a fence, a code span or a table cell of Markdown by hand.
 //!
 //! Plain CommonMark swallows the text under an XML section tag (`<step name="x">` and the lines after it, up to a
 //! blank line) into one HTML block, and an agent reads that text as Markdown. So when an HTML block that is not a
 //! comment ends, its leading tag-only lines are skipped and the rest is read again as Markdown, at its own lines,
-//! at any depth. A comment is never read again. GFM tables stay off: they would split a code span at a `|`.
+//! at any depth. A comment is never read again. GFM tables are on for [`tables`] alone: everywhere else they would
+//! split a code span at a `|`.
 //!
 //! Lines are 0-based indices over `text.split('\n')`.
 
@@ -33,20 +32,39 @@ pub struct Fence {
     pub width: usize,
 }
 
+/// A GFM table.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Table {
+    /// The text of the nearest heading before it (its code spans in backticks), or empty.
+    pub heading: String,
+    /// The header row's cells.
+    pub header: Vec<String>,
+    /// The body rows, each its cells.
+    pub rows: Vec<Vec<String>>,
+    /// The table's first line.
+    pub line: usize,
+}
+
 /// Every fenced code block of `text`, from every level, in line order.
 pub fn fences(text: &str) -> Vec<Fence> {
-    read(text).fences
+    read(text, Options::empty()).fences
 }
 
 /// The line ranges of the HTML blocks of `text`, from every level, in line order.
 pub fn html_blocks(text: &str) -> Vec<Range<usize>> {
-    read(text).html
+    read(text, Options::empty()).html
 }
 
 /// Each code span of `text` outside a fence, with the line it starts on. A span may cross lines; its content is
 /// CommonMark's (a line break reads as a space), double-backtick spans whole.
 pub fn inline_code(text: &str) -> Vec<(usize, String)> {
-    read(text).code
+    read(text, Options::empty()).code
+}
+
+/// Every GFM table of `text`, from every level, in line order. A cell is its source text, trimmed, its code spans
+/// kept in backticks and each `\|` unescaped, as GFM reads a cell.
+pub fn tables(text: &str) -> Vec<Table> {
+    read(text, Options::ENABLE_TABLES).tables
 }
 
 #[derive(Default)]
@@ -54,16 +72,19 @@ struct Reading {
     fences: Vec<Fence>,
     html: Vec<Range<usize>>,
     code: Vec<(usize, String)>,
+    tables: Vec<Table>,
+    /// The text of the last heading read, kept across the fragments read again.
+    heading: String,
 }
 
-fn read(text: &str) -> Reading {
+fn read(text: &str, options: Options) -> Reading {
     let mut out = Reading::default();
-    read_at(text, 0, &mut out);
+    read_at(text, 0, options, &mut out);
     out
 }
 
 /// Reads `frag`, whose first line is line `base` of the whole text, into `out`.
-fn read_at(frag: &str, base: usize, out: &mut Reading) {
+fn read_at(frag: &str, base: usize, options: Options, out: &mut Reading) {
     let starts: Vec<usize> = std::iter::once(0)
         .chain(frag.match_indices('\n').map(|(i, _)| i + 1))
         .collect();
@@ -72,8 +93,46 @@ fn read_at(frag: &str, base: usize, out: &mut Reading) {
     let last = |r: &Range<usize>| line(r.end.saturating_sub(1).max(r.start));
     let mut fence: Option<Fence> = None;
     let mut html: Option<usize> = None;
-    for (event, r) in Parser::new_ext(frag, Options::empty()).into_offset_iter() {
+    let mut heading: Option<String> = None;
+    let mut table: Option<Table> = None;
+    let mut row: Vec<String> = Vec::new();
+    for (event, r) in Parser::new_ext(frag, options).into_offset_iter() {
         match event {
+            Event::Start(Tag::Heading { .. }) => heading = Some(String::new()),
+            Event::End(TagEnd::Heading(_)) => {
+                if let Some(h) = heading.take() {
+                    out.heading = h.trim().to_string();
+                }
+            }
+            Event::Text(text) if heading.is_some() => {
+                heading.get_or_insert_default().push_str(&text);
+            }
+            Event::Code(code) if heading.is_some() => {
+                heading
+                    .get_or_insert_default()
+                    .push_str(&format!("`{code}`"));
+                out.code.push((base + line(r.start), code.into_string()));
+            }
+            Event::Start(Tag::Table(_)) => {
+                table = Some(Table {
+                    heading: out.heading.clone(),
+                    header: Vec::new(),
+                    rows: Vec::new(),
+                    line: base + line(r.start),
+                });
+            }
+            Event::End(TagEnd::TableCell) => row.push(frag[r].trim().replace("\\|", "|")),
+            Event::End(TagEnd::TableHead) => {
+                if let Some(t) = table.as_mut() {
+                    t.header = std::mem::take(&mut row);
+                }
+            }
+            Event::End(TagEnd::TableRow) => {
+                if let Some(t) = table.as_mut() {
+                    t.rows.push(std::mem::take(&mut row));
+                }
+            }
+            Event::End(TagEnd::Table) => out.tables.extend(table.take()),
             Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) => {
                 let (a, b) = (line(r.start), last(&r));
                 // container marks (`>`, `-`, `1.`) hold neither fence character
@@ -116,7 +175,7 @@ fn read_at(frag: &str, base: usize, out: &mut Reading) {
                 // `k > a`: the fragment read again is always shorter, so the reading ends
                 if k > a && k <= b {
                     let end = starts.get(b + 1).copied().unwrap_or(frag.len());
-                    read_at(&frag[starts[k]..end], base + k, out);
+                    read_at(&frag[starts[k]..end], base + k, options, out);
                 }
             }
             _ => {}
@@ -139,7 +198,7 @@ fn tag_only(line: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{fences, html_blocks, inline_code};
+    use super::{fences, html_blocks, inline_code, tables};
 
     #[test]
     fn a_fence_under_a_section_tag_is_a_fence() {
@@ -215,5 +274,24 @@ mod tests {
         let text = "<task>\n<name>x</name>\nSee `a`.\n<!-- note -->\n</task>\n";
         assert_eq!(inline_code(text), [(2, "a".to_string())]);
         assert_eq!(html_blocks(text), [0..5, 3..4, 4..5]);
+    }
+
+    #[test]
+    fn a_table_cell_keeps_its_code_and_unescapes_a_pipe() {
+        let text = "# Intro\n\n<rules>\n## The `gsd/E101` table\n\n| Code | Means |\n|---|---|\n| `gsd/E101` | `a \\| b` or *c* |\n| x |  |\n\n</rules>\n";
+        let found = tables(text);
+        assert_eq!(found.len(), 1, "{found:?}");
+        let t = &found[0];
+        assert_eq!((t.heading.as_str(), t.line), ("The `gsd/E101` table", 5));
+        assert_eq!(t.header, ["Code", "Means"]);
+        assert_eq!(
+            t.rows,
+            [
+                vec!["`gsd/E101`".to_string(), "`a | b` or *c*".to_string()],
+                vec!["x".to_string(), String::new()]
+            ]
+        );
+        // only `tables` reads GFM tables: elsewhere the `|` stays in its code span
+        assert!(inline_code(text).contains(&(7, "a \\| b".to_string())));
     }
 }
