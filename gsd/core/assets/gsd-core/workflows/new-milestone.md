@@ -299,9 +299,9 @@ Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (`nam
   {missing_agents joined with newline}
 
 Subagent spawns (gsd-project-researcher, gsd-research-synthesizer, gsd-roadmapper) will fail
-with "agent type not found". Run the installer with --global to make agents available:
+with "agent type not found". Install them for this host (they are project files) to make them available:
 
-  npx @opengsd/gsd-core@latest --global
+  specforge install <host>   (claude-code, codex or cursor)
 
 Proceeding without research subagents — roadmap will be generated inline.
 ```

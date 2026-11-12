@@ -17,10 +17,8 @@ When you need library or framework documentation, check in this order:
    - Resolve library ID: `mcp__context7__resolve-library-id` with `libraryName`
    - Fetch docs: `mcp__context7__query-docs` with `libraryId` (the ID from step 1) and `query`
 
-2. If Context7 MCP is not available (custom subagents cannot see project-scoped
-   `.mcp.json` servers — they only inherit user-scoped `~/.claude/mcp.json`, so a
-   context7 server configured at the project scope is invisible to spawned
-   agents), use the CLI fallback via Bash:
+2. If Context7 MCP is not available (a subagent has the MCP tools of the conversation
+   that spawned it, narrowed by its own tool list), use the CLI fallback via Bash:
 
    Step 1 — Resolve library ID:
    ```bash

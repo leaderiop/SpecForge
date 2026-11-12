@@ -737,25 +737,10 @@ const UPSTREAM_RELICS: [&str; 3] = [
     "cannot see project-scoped",
 ];
 
-/// The assets that still make one of [`UPSTREAM_RELICS`]' claims, as `(asset, claim)`: the list only shrinks.
-const STILL_SAID: &[(&str, &str)] = &[
-    ("agents/gsd-executor.md", "cannot see project-scoped"),
-    ("agents/gsd-planner.md", "use `node` to invoke"),
-    (
-        "gsd-core/references/research-documentation-lookup.md",
-        "cannot see project-scoped",
-    ),
-    (
-        "gsd-core/workflows/new-milestone.md",
-        "npx @opengsd/gsd-core",
-    ),
-    ("gsd-core/workflows/new-project.md", "npx @opengsd/gsd-core"),
-];
-
 /// No asset tells the user or an agent to run upstream's installer or runtime, or repeats its false MCP claim.
 #[test]
 fn no_asset_names_an_upstream_installer_or_runtime() {
-    let mut hits: Vec<(String, &str)> = asset_files()
+    let hits: Vec<(String, &str)> = asset_files()
         .into_iter()
         .flat_map(|(path, text)| {
             UPSTREAM_RELICS
@@ -765,10 +750,5 @@ fn no_asset_names_an_upstream_installer_or_runtime() {
                 .collect::<Vec<_>>()
         })
         .collect();
-    hits.sort();
-    let still: Vec<(String, &str)> = STILL_SAID
-        .iter()
-        .map(|(path, relic)| (path.to_string(), *relic))
-        .collect();
-    assert_eq!(hits, still);
+    assert!(hits.is_empty(), "{hits:?}");
 }

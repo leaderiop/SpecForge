@@ -64,7 +64,9 @@ agents/gsd-doc-synthesizer.md	own	82+2	2	55874cd7affb	c1878d2035e0	ported-name
 agents/gsd-doc-synthesizer.md	kept	84+1	1849f8509271
 agents/gsd-doc-synthesizer.md	own	85+1	1	206af071b7c4	1a22908f0c24	ported-name
 agents/gsd-doc-synthesizer.md	kept	86+181	b94dc68483b3
-agents/gsd-executor.md	kept	13+25	45d658b8ac56
+agents/gsd-executor.md	kept	13+18	a4e327482426
+agents/gsd-executor.md	own	31+4	2	efd106d1b1ea	3b62c3bf14ff	prose
+agents/gsd-executor.md	kept	35+3	e843f9acbe21
 agents/gsd-executor.md	own	38+5	3	e8dbaa57778c	703d37dde72f	served
 agents/gsd-executor.md	kept	43+4	51fde0765d5b
 agents/gsd-executor.md	own	47+11	9	b3210e524df6	35c8fe7e8ce6	agent
@@ -374,8 +376,8 @@ agents/gsd-planner.md	own	413+1	1	ce8f08b12d49	93a3c21634c9	thread
 agents/gsd-planner.md	kept	414+43	3157546ed8a5
 agents/gsd-planner.md	own	457+1	1	72e6091214cc	0d795f85e8f6	agent
 agents/gsd-planner.md	kept	458+116	2518f9f10c70
-agents/gsd-planner.md	own	574+5	5	183b8ac068a3	e0a24f33910f	ported-name
-agents/gsd-planner.md	kept	579+3	c97a01c8d6a4
+agents/gsd-planner.md	own	574+7	7	5241625da65f	4bc91604ba82	ported-name
+agents/gsd-planner.md	kept	581+1	ad332335cfaa
 agents/gsd-planner.md	own	582+3	3	17e2bc87ab27	a007659b7140	ported-name
 agents/gsd-planner.md	kept	585+19	e01eafd4f8dd
 agents/gsd-planner.md	own	604+1	1	f10214078d93	808351c79d1e	ported-name
@@ -1184,7 +1186,9 @@ gsd-core/references/prohibition-probe.md	own	143+1	1	d5640b7c1354	e043c9c31d82	s
 gsd-core/references/prohibition-probe.md	kept	144+190	bafaf8bce80e
 gsd-core/references/project-skills-discovery.md	kept	1+20	c155e03dce8d
 gsd-core/references/questioning.md	kept	1+163	a8c988cab05f
-gsd-core/references/research-documentation-lookup.md	kept	1+13	44ccc9899ea0
+gsd-core/references/research-documentation-lookup.md	kept	1+6	e4b2d93ba47a
+gsd-core/references/research-documentation-lookup.md	own	7+4	2	efd106d1b1ea	3b62c3bf14ff	prose
+gsd-core/references/research-documentation-lookup.md	kept	11+3	e843f9acbe21
 gsd-core/references/research-documentation-lookup.md	own	14+5	3	e8dbaa57778c	703d37dde72f	served
 gsd-core/references/research-documentation-lookup.md	kept	19+3	096f54aea0ed
 gsd-core/references/research-documentation-lookup.md	own	22+10	8	f72000724406	7903fd80a1f1	prose
@@ -2734,7 +2738,9 @@ gsd-core/workflows/new-milestone.md	kept	289+2	5f046190424d
 gsd-core/workflows/new-milestone.md	own	291+7	2	fcfbcbb0fb4a	0c8751661510	ported-name
 gsd-core/workflows/new-milestone.md	kept	298+5	36eaef62affb
 gsd-core/workflows/new-milestone.md	own	303+18	12	c773d981c5af	b818fdf294f8	ported-name
-gsd-core/workflows/new-milestone.md	kept	321+47	a042bdccc903
+gsd-core/workflows/new-milestone.md	kept	321+7	545a6f038062
+gsd-core/workflows/new-milestone.md	own	328+3	3	403f45877360	111c77abb103	prose
+gsd-core/workflows/new-milestone.md	kept	331+37	12d49ee4c5e2
 gsd-core/workflows/new-milestone.md	own	368+1	1	64a3f6f424a2	6a94b915a4da	ported-name
 gsd-core/workflows/new-milestone.md	kept	369+33	03a7af187543
 gsd-core/workflows/new-milestone.md	own	402+1	1	98fd755a54b7	6039c0176254	ported-name
@@ -2764,7 +2770,9 @@ gsd-core/workflows/new-milestone/steps/reset-phase-safety.md	own	19+1	1	f2a17af0
 gsd-core/workflows/new-milestone/steps/reset-phase-safety.md	kept	20+1	e3b0c44298fc
 gsd-core/workflows/new-project.md	kept	1+32	064fb70656f5
 gsd-core/workflows/new-project.md	own	33+14	11	0535c9ae5536	999509a2964c	ported-name
-gsd-core/workflows/new-project.md	kept	47+47	75e25a10d64a
+gsd-core/workflows/new-project.md	kept	47+21	6fa4a41429c1
+gsd-core/workflows/new-project.md	own	68+3	3	0d55d89b0245	94a422da57c8	prose
+gsd-core/workflows/new-project.md	kept	71+23	5db3dff00a01
 gsd-core/workflows/new-project.md	own	94+1	1	7e06c2a5ab9b	8b7b836e36a0	ported-name
 gsd-core/workflows/new-project.md	kept	95+1	ad332335cfaa
 gsd-core/workflows/new-project.md	own	96+1	1	92c6c9fc1cfd	9007a43bbdd9	ported-name

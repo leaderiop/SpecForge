@@ -63,9 +63,9 @@ Skill payloads only provide prompt context. Named subagent spawns still require 
 definitions to be installed for this runtime.
 
 Subagent spawns (gsd-project-researcher, gsd-research-synthesizer, gsd-roadmapper) will fail
-with "agent type not found" if `required_agents_installed` is false. Run the installer with --global to make agents available:
+with "agent type not found" if `required_agents_installed` is false. Install them for this host (they are project files) to make them available:
 
-  npx @opengsd/gsd-core@latest --global
+  specforge install <host>   (claude-code, codex or cursor)
 
 Proceeding without research subagents — roadmap will be generated inline.
 ```

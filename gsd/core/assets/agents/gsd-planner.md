@@ -566,7 +566,7 @@ INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id), and its `research` and `context` entities, when it has them, are among the other nodes. `commit_docs` and `workflow.research` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model.
 
-Also load planning state (position, decisions, blockers) via the SDK — **use `node` to invoke the CLI** (not `npx`):
+Also load planning state (position, decisions, blockers) from the graph:
 ```bash
 specforge query "$MILESTONE" --depth 2 --kinds milestone,phase,decision --format context 2>/dev/null
 ```
