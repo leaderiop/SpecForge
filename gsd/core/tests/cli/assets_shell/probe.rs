@@ -1,7 +1,7 @@
 //! The edge probe of spec-phase's Step 5.5 and plan-phase's spec-less gate, run as the assets write them.
 
 use super::{Shell, asset, fence_after};
-use crate::harness::project;
+use crate::harness::{project, taskboard};
 
 /// Step 5.5's fence on the discuss project, whose phase 02 has a spec and a locked requirement.
 // Pin: the fence still resolves upstream's compiled edge-probe.cjs from install dirs SpecForge never creates, so it
@@ -22,4 +22,27 @@ fn the_spec_phase_edge_probe_runs_in_a_project() {
     );
     assert_eq!(code, 1, "{err}");
     assert!(err.contains("edge-probe.cjs not found"), "{err}");
+}
+
+/// The spec-less gate (section 0 of the probe fallback) on the taskboard twin, whose phase 02 has no spec.
+// Pin: the gate still resolves upstream's compiled spec-section.cjs from install dirs SpecForge never creates, so it
+// stops before it reads its toggle. The fix that reads the spec's rows from the graph flips this test.
+#[test]
+fn the_specless_gate_and_probe_run_in_a_project() {
+    let Some(sh) = Shell::only(&[]) else {
+        return;
+    };
+    let p = taskboard();
+    let gate = fence_after(
+        &asset("gsd-core/references/specless-probe-fallback.md"),
+        "## 0. Gate",
+    );
+    let (_, err, code) = sh.run_in(
+        p.root(),
+        &format!(
+            "export HOME=\"$PWD/.home\"; unset RUNTIME_DIR; PHASE_ID=v1.0/02; SPEC_FILE=\n{gate}"
+        ),
+    );
+    assert_eq!(code, 1, "{err}");
+    assert!(err.contains("spec-section.cjs not found"), "{err}");
 }
