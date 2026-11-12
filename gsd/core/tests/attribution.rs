@@ -126,3 +126,20 @@ fn the_vendored_router_is_the_file_the_port_names() {
         assert!(text.contains(word), "{file}");
     }
 }
+
+/// The vendored edge probe, its probe core, the SPEC section reader and their suites are the files the port names.
+#[test]
+fn the_vendored_probe_is_the_file_the_port_names() {
+    let upstream = Path::new(gsd_kit::snapshot!());
+    for (file, word) in [
+        ("src/edge-probe.cts", "SHAPE_CUES"),
+        ("src/probe-core.cts", "validateResolution"),
+        ("src/spec-section.cts", "countSectionDataRows"),
+        ("tests/edge-probe.test.cjs", "edge-probe: classifyShape"),
+        ("tests/probe-core.test.cjs", "probe-core: VALID_STATUS"),
+        ("tests/spec-section.test.cjs", "spec-section"),
+    ] {
+        let text = std::fs::read_to_string(upstream.join(file)).expect("a vendored file");
+        assert!(text.contains(word), "{file}");
+    }
+}

@@ -59,6 +59,23 @@ ports `CLUSTERS` (names, order and members) and declares one `specforge.surface.
 `tests/cli/cmd_surface.rs` pins the port against the vendored file. Both files are MIT, Copyright (c) 2026 Open GSD
 (`gsd/core/LICENSE-GSD`).
 
+## The edge probe: `src/edge-probe.cts`, `src/probe-core.cts`, `src/spec-section.cts` and their unit suites
+
+The spec-phase edge probe's engine (the edge adapter and the generic probe core) and the SPEC section reader, with
+their own unit suites, copied unchanged by `git -C <gsd-core> show v1.19.0:<path>`. `gsd/core/src/probe/` ports the
+first two and their suites' cases (`probe/tests.rs` names each case it ports and each it leaves out), and `specforge
+query` answers the third: a section is supplied when the spec holds an `edge` or `spec_prohibition` entity. All six
+are MIT, Copyright (c) 2026 Open GSD (`gsd/core/LICENSE-GSD`).
+
+| File | sha256 |
+|---|---|
+| `src/edge-probe.cts` | `db6733c3a54533536cf745cade784f0b3229f04f743aa09485adba52d1c7a092` |
+| `src/probe-core.cts` | `67c43d89356ceab957cda803569ace8512c0b3be861d0e095da728928f3dca75` |
+| `src/spec-section.cts` | `dc597185394651f0cb270dceefb8c86fde91b7ec3fac921e760ed635a4afa8dc` |
+| `tests/edge-probe.test.cjs` | `208d6e3b70c5e1b38decdfeb0a9b85755dc085ecf245037aec71e18c371e9b54` |
+| `tests/probe-core.test.cjs` | `88bd7a08aeca554962d3169a023bb22fb1ec09a8e71a25a729bf449f54fed348` |
+| `tests/spec-section.test.cjs` | `2066e0a4d60c3bb9a89222ecb97f1c96337ecc32b7362f91962388fc68ff1c38` |
+
 <!-- r42 workflows begin -->
 ## `gsd-core/`, `commands/gsd/`: the lifecycle workflows (r42)
 
