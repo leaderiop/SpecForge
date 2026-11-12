@@ -727,3 +727,48 @@ fn every_command_pick_names_a_member_of_its_answer() {
         bad.into_iter().collect::<Vec<_>>().join("\n")
     );
 }
+
+/// Upstream's install, runtime and host claims: its installer, its `node` runtime and its claim that a subagent cannot
+/// see project-scoped MCP servers (a subagent has the MCP tools of the conversation that spawned it, narrowed by its
+/// own tool list). Agents are project files `specforge install <host>` writes.
+const UPSTREAM_RELICS: [&str; 3] = [
+    "npx @opengsd/gsd-core",
+    "use `node` to invoke",
+    "cannot see project-scoped",
+];
+
+/// The assets that still make one of [`UPSTREAM_RELICS`]' claims, as `(asset, claim)`: the list only shrinks.
+const STILL_SAID: &[(&str, &str)] = &[
+    ("agents/gsd-executor.md", "cannot see project-scoped"),
+    ("agents/gsd-planner.md", "use `node` to invoke"),
+    (
+        "gsd-core/references/research-documentation-lookup.md",
+        "cannot see project-scoped",
+    ),
+    (
+        "gsd-core/workflows/new-milestone.md",
+        "npx @opengsd/gsd-core",
+    ),
+    ("gsd-core/workflows/new-project.md", "npx @opengsd/gsd-core"),
+];
+
+/// No asset tells the user or an agent to run upstream's installer or runtime, or repeats its false MCP claim.
+#[test]
+fn no_asset_names_an_upstream_installer_or_runtime() {
+    let mut hits: Vec<(String, &str)> = asset_files()
+        .into_iter()
+        .flat_map(|(path, text)| {
+            UPSTREAM_RELICS
+                .into_iter()
+                .filter(|relic| text.contains(relic))
+                .map(|relic| (path.clone(), relic))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    hits.sort();
+    let still: Vec<(String, &str)> = STILL_SAID
+        .iter()
+        .map(|(path, relic)| (path.to_string(), *relic))
+        .collect();
+    assert_eq!(hits, still);
+}
