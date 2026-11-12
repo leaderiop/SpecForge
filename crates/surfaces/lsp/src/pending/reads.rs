@@ -3,12 +3,14 @@
 //! edge of the stretch it is in, or moved whole: the only line of its text in either) keeps its names. Inside a
 //! changed stretch the name is counted where it reads whole (nothing beside it that could extend it: `T2,` reads
 //! `T2`, `T2x` does not) in the stretch of each text: when the counts match, the place is the occurrence of the same
-//! ordinal, and reads; otherwise it reads as gone (typed over, grown, or written once more in the stretch).
+//! ordinal, and reads while it is beside what the place was beside, the text before it on its line or the text after
+//! it, whitespace collapsed (a re-indent, a formatter run, `// covers T2, T5`). Otherwise it reads as gone: typed
+//! over, grown, written once more in the stretch, or found on another line or among other text.
 //!
 //! The work is counted, never timed, and is linear in the two texts whatever their size and however many places are
 //! read: the lines no other line of either text repeats anchor the two texts (the longest run of them in the same
 //! order in both), and each changed stretch holding a place is trimmed of the lines both share at its edges and
-//! scanned once in each text, for every place in it.
+//! scanned once in each text, for every place in it; the text beside each name is compared once.
 
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -122,7 +124,8 @@ impl<'t> Aligned<'t> {
     }
 
     /// Whether `now` reads `name`, which `then` reads at `r` (on one line): its line kept, or else the name read whole
-    /// as often in the changed stretch of each text, `r` among them. Each stretch is trimmed and scanned once, for every place in it (`stretches`, by the
+    /// as often in the changed stretch of each text, the one of `r`'s ordinal in `now` beside what `r` was beside
+    /// ([`Stretch::beside`]). Each stretch is trimmed and scanned once, for every place in it (`stretches`, by the
     /// anchor after it).
     fn keeps(
         &self,
@@ -146,7 +149,10 @@ impl<'t> Aligned<'t> {
         if !stretch.lines.contains(&at) {
             return true;
         }
-        stretch.read.binary_search(&r.start).is_ok() && stretch.read.len() == stretch.now.len()
+        let Ok(k) = stretch.read.binary_search(&r.start) else {
+            return false;
+        };
+        stretch.read.len() == stretch.now.len() && stretch.beside(self, k, name.len(), work)
     }
 
     /// The changed stretch of lines before anchor `next`, trimmed of the lines both texts share at its edges, and
@@ -179,6 +185,37 @@ struct Stretch {
     lines: Range<usize>,
     read: Vec<usize>,
     now: Vec<usize>,
+}
+
+impl Stretch {
+    /// Whether the `k`-th whole name of the stretch in `now` is beside what the `k`-th is beside in `then`: the text
+    /// before it on its line or the text after it, up to the line's edge or the next whole name, whitespace collapsed
+    /// (a side that is blank in `then` keeps nothing; with both blank, both must stay blank). Each side is read for at
+    /// most two names, so the stretch is compared once.
+    fn beside(&self, aligned: &Aligned<'_>, k: usize, len: usize, work: &Cell<usize>) -> bool {
+        let sides = |starts: &[usize], at: &[usize]| -> (Range<usize>, Range<usize>) {
+            let line = starts.partition_point(|&start| start <= at[k]) - 1;
+            let (start, end) = (starts[line], starts[line + 1]);
+            let before = k
+                .checked_sub(1)
+                .map(|p| at[p] + len)
+                .filter(|&p| p > start)
+                .unwrap_or(start);
+            let after = at.get(k + 1).copied().filter(|&n| n < end).unwrap_or(end);
+            (before..at[k], at[k] + len..after)
+        };
+        let (old_before, old_after) = sides(&aligned.old, &self.read);
+        let (new_before, new_after) = sides(&aligned.new, &self.now);
+        for side in [&old_before, &old_after, &new_before, &new_after] {
+            add(work, side.len());
+        }
+        let blank = |s: &str| s.split_whitespace().next().is_none();
+        let same = |a: &str, b: &str| !blank(a) && a.split_whitespace().eq(b.split_whitespace());
+        let (then, now) = (aligned.then, aligned.now);
+        let (ob, oa) = (&then[old_before], &then[old_after]);
+        let (nb, na) = (&now[new_before], &now[new_after]);
+        same(ob, nb) || same(oa, na) || (blank(ob) && blank(oa) && blank(nb) && blank(na))
+    }
 }
 
 /// Where in `within` of `text` the name reads whole: neither byte beside it one that would extend it.
@@ -279,11 +316,13 @@ mod tests {
         for now in [
             "// covers T2, T5\ntest('adds', () => {});\n",
             "// covers T2 // and more\ntest('adds', () => {});\n",
-            "// covers (T2)\ntest('adds', () => {});\n",
+            "//   covers T2\ntest('adds', () => {});\n",
         ] {
             assert!(reads(then, now, &AT, "T2"), "{now}");
         }
         for now in [
+            // Changed on both sides: nothing it was beside is kept.
+            "// covers (T2)\ntest('adds', () => {});\n",
             "// covers T2x\ntest('adds', () => {});\n",
             "// covers xT2\ntest('adds', () => {});\n",
             "// covers T2_\ntest('adds', () => {});\n",
@@ -454,7 +493,7 @@ mod tests {
     /// Work no more than a few passes over both texts.
     fn linear(then: &str, now: &str, work: &Cell<usize>) {
         assert!(
-            work.get() <= 4 * (then.len() + now.len()),
+            work.get() <= 6 * (then.len() + now.len()),
             "{} bytes compared",
             work.get()
         );
