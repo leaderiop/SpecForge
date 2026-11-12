@@ -47,10 +47,6 @@ Load execution context (paths only to minimize orchestrator context):
 
 ```bash
 
-
-
-
-
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 ```
@@ -389,16 +385,6 @@ If `NODE_REPAIR` is `false` OR repair returns ESCALATE: STOP. Present: "Verifica
 # the plan closes at the end of create_summary: its summary must exist first
 
 
-
-
-
-
-
-
-
-
-
-
 ```
 </step>
 
@@ -520,9 +506,6 @@ Extract requirement IDs from the plan's frontmatter (e.g., `requirements: [AUTH-
 
 ```bash
 : # a requirement is complete when a summary lists it in requirements_completed: nothing to mark here
-
-
-
 
 ```
 

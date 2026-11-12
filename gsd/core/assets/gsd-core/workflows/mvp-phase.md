@@ -43,7 +43,6 @@ PHASE_NAME=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.name
 PHASE_GOAL=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal' 2>/dev/null)
 PHASE_MODE=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode' 2>/dev/null)
 
-
 DISK_STATUS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.status' 2>/dev/null)
 # ADR-3180 §7.4 (issue #3186, disk-strict, #2957): DISK_STATUS alone decides
 # completion — a ROADMAP checkbox carries no machine authority and is never

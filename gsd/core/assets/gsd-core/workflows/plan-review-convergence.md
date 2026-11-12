@@ -23,9 +23,6 @@ The host has parsed the phase, the reviewer flags (the declared reviewer lane fl
 
 ```bash
 
-
-
-
 # #4748: canonical phase grammar (digits, optional [A-Z], dotted segments) —
 # `12A` / `23.1.2` extract whole instead of truncating to `12` / `23.1`.
 PHASE="{{arg:phase|}}"
@@ -36,9 +33,6 @@ PHASE="{{arg:phase|}}"
 
 MAX_CYCLES="{{arg:max_cycles|3}}"
 
-
-
-
 ```
 
 ## 1.5. Config Gate (feature disabled by default)
@@ -48,9 +42,6 @@ operator's explicit flag overrides this gate for that run. Standalone invocation
 flag and remains gated by the config below.
 
 ```bash
-
-
-
 
 # the commands below are specforge commands: there is no launcher to define
 # --override-gate is appended ONLY by the autonomous --converge dispatch (#4600); it must be
@@ -80,9 +71,6 @@ Then re-run: /gsd:plan-review-convergence {PHASE}
 ```
 
 ```bash
-
-
-
 
 # Reviewer flags are DERIVED from the declared lane roster (#2800/#2272), never hand-listed.
 # Three surfaces used to enumerate them independently and had drifted: --coderabbit was missing
@@ -114,15 +102,6 @@ REVIEWER_FLAGS=""
 if [ -z "$REVIEWER_FLAGS" ]; then
 
   DEFAULT_REVIEWERS=$(specforge settings --extension @gsd/core --pick '.extensions[0].settings[name=review.default_reviewers].value[]')   # one slug per line
-
-
-
-
-
-
-
-
-
 
     if [ -n "$DEFAULT_REVIEWERS" ]; then
       : # leave REVIEWER_FLAGS empty — gsd-review applies review.default_reviewers itself
@@ -412,9 +391,6 @@ case "$ACTIONABLE_COUNT" in ''|*[!0-9]*)
 esac
 
 UNRESOLVED_COUNT=$((HIGH_COUNT + ACTIONABLE_COUNT))
-
-
-
 
 
 if [ "${HIGH_COUNT}" -gt 0 ] && [ -z "${HIGH_LINES}" ]; then

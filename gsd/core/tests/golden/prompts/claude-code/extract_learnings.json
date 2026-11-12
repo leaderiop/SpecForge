@@ -33,11 +33,7 @@
     "",
     "```bash",
     "",
-    "",
-    "",
-    "",
     "# the commands below are specforge commands: there is no launcher to define",
-    "",
     "",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 2 --format json)",
     "PHASE_NUMBER=\"${PHASE_ID##*/}\"   # the phase number is the last segment of its id",
@@ -59,9 +55,13 @@
     "",
     "**Optional artifacts (read if available, skip if not found):**",
     "- the phase's `verification` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds verification --format context`) — verification results",
-    "- the phase's `uat_session` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds uat_session --format context`) — user acceptance test results"
+    "- the phase's `uat_session` entities (`specforge query \"$PHASE_ID\" --depth 2 --kinds uat_session --format context`) — user acceptance test results",
+    "- the project state (`specforge gsd progress-report --format json`) — with decisions and blockers",
+    "",
+    "Track which optional artifacts are missing for the `missing_artifacts` frontmatter field.",
+    "</step>"
   ],
-  "bytes": 20656,
+  "bytes": 20647,
   "end": [
     "",
     "---------------------------------------------------------------",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 475,
+  "lines": 466,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:143f4ab56ffcc923df7de45be12ea506c55ff18c52fb2f8226fc1541043248e3",
+    "digest": "sha256:558d3936696800f954529fdb7348f7216b30567c17420ada4a161d50ab8d6c37",
     "prompt": "@gsd/core@VERSION:extract_learnings",
     "subject": "v1.0/02"
   },
-  "sha256": "143f4ab56ffcc923df7de45be12ea506c55ff18c52fb2f8226fc1541043248e3"
+  "sha256": "558d3936696800f954529fdb7348f7216b30567c17420ada4a161d50ab8d6c37"
 }

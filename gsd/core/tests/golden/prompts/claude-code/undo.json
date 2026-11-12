@@ -61,7 +61,7 @@
     "",
     "Examples:"
   ],
-  "bytes": 47443,
+  "bytes": 47403,
   "end": [
     "- question: \"How thorough should planning be?\"",
     "- header: \"Depth\"",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 1161,
+  "lines": 1121,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:ce83d375a6cb40919956543e03da9d1b2a643b63fda9c97944affc49387dff08",
+    "digest": "sha256:f61576b41387b1954d951fd0ac3919cec452c2b176d6c5228acde976116b9982",
     "prompt": "@gsd/core@VERSION:undo"
   },
-  "sha256": "ce83d375a6cb40919956543e03da9d1b2a643b63fda9c97944affc49387dff08"
+  "sha256": "f61576b41387b1954d951fd0ac3919cec452c2b176d6c5228acde976116b9982"
 }

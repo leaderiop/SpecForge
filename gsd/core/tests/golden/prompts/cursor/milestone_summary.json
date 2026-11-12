@@ -28,9 +28,6 @@
     "",
     "```bash",
     "",
-    "",
-    "",
-    "",
     "VERSION=\"v1.0\"; VERSION=${VERSION#v}   # --milestone, else the milestone the run is about",
     "```",
     "",
@@ -59,9 +56,12 @@
     "REQUIREMENTS_QUERY='specforge query \"v${VERSION}\" --depth 3 --kinds requirement --format context'",
     "AUDIT_QUERY='specforge query \"v${VERSION}\" --depth 1 --kinds milestone_audit --format context'",
     "```",
-    ""
+    "",
+    "Note: nothing moves when a milestone closes: the audit is the `milestone_audit` entity of the milestone in both cases, so there is no second location to check.",
+    "",
+    "**Always available:**"
   ],
-  "bytes": 20186,
+  "bytes": 20175,
   "end": [
     "```",
     "</file>",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 486,
+  "lines": 475,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:f9a87f1dea5b0fd19b341305a46ec2b850c40d6c232a1d4838149052881eddb3",
+    "digest": "sha256:1836e870734cd59303bb279aa440b0ea25e2b8d1deeeacb5c0886abd725c4031",
     "prompt": "@gsd/core@VERSION:milestone_summary",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "f9a87f1dea5b0fd19b341305a46ec2b850c40d6c232a1d4838149052881eddb3"
+  "sha256": "1836e870734cd59303bb279aa440b0ea25e2b8d1deeeacb5c0886abd725c4031"
 }

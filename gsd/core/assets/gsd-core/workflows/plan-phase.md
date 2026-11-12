@@ -72,13 +72,7 @@ Load all context in one call (paths only to minimize orchestrator context):
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
-
-
-
 
 REVIEWS="{{arg:reviews|false}}"   # closed-phase-gate.md and chunked-planning-mode.md read it
 
@@ -133,9 +127,6 @@ In research-only mode, two modifiers control behavior when `RESEARCH.md` already
 
 ```bash
 
-
-
-
 RESEARCH_PHASE="{{arg:research_phase|}}"
 RESEARCH_ONLY=false; VIEW_ONLY=false
 if [ -n "$RESEARCH_PHASE" ]; then
@@ -154,9 +145,6 @@ Set `TEXT_MODE=true` if `--text` is present in $ARGUMENTS OR `text_mode` from in
 **MVP_MODE resolution.** Resolve `MVP_MODE` once via the centralized `phase.mvp-mode` query verb. Precedence (first hit wins): CLI flag → ROADMAP.md `**Mode:** mvp` → `workflow.mvp_mode` config → false. The verb is the single source of truth — do not re-implement the chain.
 
 ```bash
-
-
-
 
 MVP_FLAG_ARG=""
 [ "{{arg:mvp|false}}" = true ] && MVP_FLAG_ARG="--cli-flag"
@@ -208,9 +196,6 @@ Set `phase_dir="${expected_phase_dir}"` after creation.
 
 Set `CHUNKED_MODE` from flag or config:
 ```bash
-
-
-
 
 CHUNKED_CFG="{{setting:workflow.plan_chunked|false}}"   # workflow.plan_chunked (the settings)
 CHUNKED_MODE=false
@@ -301,9 +286,6 @@ AI integration activation is owned by the `ai-integration` capability's `plan:pr
 ```bash
 AI_SPEC_FILE=$(specforge query "$PHASE_ID" --depth 1 --kinds ai_spec --pick '.nodes[kind=ai_spec].id' 2>/dev/null)   # @gsd/ai's: empty when it is not loaded
 AI_SPEC_PATH="${AI_SPEC_FILE}"
-
-
-
 
 ```
 
@@ -1237,53 +1219,11 @@ fi
   return of this loop whatever property it names.
 - No conflict line is written (see the record channel above), so nothing is sanitized or inserted.
 
-
-
 <!-- the conflict insert ran only on a REVIEWS.md, which this port never has (REVIEWS_PATH is empty) -->
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 **Otherwise (revised plans, not `## REVISION_CONFLICT`):** there is no conflict record to close.
 
-
-
-
 <!-- the conflict close ran only on a REVIEWS.md, which this port never has (REVIEWS_PATH is empty) -->
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 Spawn checker again (step 10), then increment `iteration_count`.
 
@@ -1462,9 +1402,6 @@ Proactive, non-blocking coverage report gated on `workflow.post_planning_gaps`
 `<decisions>` and cross-references each REQ-ID / D-ID against the phase's plan entities.
 
 ```bash
-
-
-
 
 PLAN_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" plan:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
 

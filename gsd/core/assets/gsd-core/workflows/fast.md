@@ -77,20 +77,9 @@ Use conventional commit format: `fix:`, `feat:`, `docs:`, `chore:`, `refactor:` 
 <step name="log_to_state">
 A fast task writes nothing to the project state: it is computed. Skip silently.
 
-
-
-
-
-
-
 ```bash
 # a fast task leaves no record: the project state is computed
 true   # nothing to log: the project state is computed
-
-
-
-
-
 
 ```
 </step>

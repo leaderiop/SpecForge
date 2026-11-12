@@ -22,9 +22,6 @@ security posture, through `specforge files read`).
 ```bash
 QB_TASKS=$INLINE_TASK_LIST
 
-
-
-
 ```
 
 ```bash

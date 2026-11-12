@@ -61,7 +61,7 @@
     "```",
     ""
   ],
-  "bytes": 12594,
+  "bytes": 12583,
   "end": [
     "",
     "<step name=\"done\">",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 331,
+  "lines": 320,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a9e149bd6ff612716b7312680050b0941a9ef4466cd8995a3169ea5ea961bd17",
+    "digest": "sha256:62634d25583c94d8e39532c48d16fdc67acab4c5c291da3f9f24605ae9d03f8b",
     "prompt": "@gsd/core@VERSION:fast"
   },
-  "sha256": "a9e149bd6ff612716b7312680050b0941a9ef4466cd8995a3169ea5ea961bd17"
+  "sha256": "62634d25583c94d8e39532c48d16fdc67acab4c5c291da3f9f24605ae9d03f8b"
 }

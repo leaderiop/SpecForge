@@ -32,9 +32,6 @@ If `section_manifest` is `null` or `"auto-mode-detection"` is in its `included` 
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 
 INIT=$(specforge check --format json)
@@ -305,9 +302,6 @@ specforge git commit --add spec -m "docs: initialize project" && specforge colle
 **If auto mode:** Skip — config was collected in Step 2a. Proceed to Step 5.5.
 
 **Check for global defaults** at `${GSD_HOME:-$HOME}/.gsd/defaults.json` (`~/.gsd/defaults.json` unless `GSD_HOME` is set). If the file exists, read it with your Read tool (it is the user's, outside the project's roots, which no block reaches) and display its contents before asking.
-
-
-
 
 
 Format the JSON into human-readable bullets using these label mappings:
@@ -672,7 +666,6 @@ Use AskUserQuestion:
 
 - Write nothing here: `planning.sub_repos` is not a setting of the port, and this project's commits never reach a sub-repository
 - Suggest running `/gsd:new-project` inside each selected directory, so its own spec tracks its work
-
 
 The spec stays committed like code: `commit_docs` is not a setting here.
 

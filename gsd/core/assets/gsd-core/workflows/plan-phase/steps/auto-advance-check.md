@@ -11,12 +11,6 @@ Check for auto-advance trigger using values already loaded in step 1:
    ```bash
 # the commands below are specforge commands: there is no launcher to define
 
-
-
-
-
-
-
    ```
 
 Set local variables from INIT (parsed once in step 1):
@@ -25,12 +19,6 @@ Set local variables from INIT (parsed once in step 1):
 
 **If `--auto` or `--chain` flag present AND `AUTO_CHAIN` is not true:** Persist chain flag to config (handles direct invocation without prior discuss-phase):
 ```bash
-
-
-
-
-
-
 
 ```
 

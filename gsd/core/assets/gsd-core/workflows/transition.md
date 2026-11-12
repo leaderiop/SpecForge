@@ -448,10 +448,6 @@ This returns all phases with goals, disk status, and completion info.
 
 ```bash
 
-
-
-
-
 INIT_TRANSITION=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 ```

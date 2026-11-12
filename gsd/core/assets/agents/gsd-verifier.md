@@ -74,7 +74,6 @@ At verification decision points, reference calibration examples:
 `specforge query` and `specforge gsd record-verdict` are used in initial and re-verification mode alike. Each Bash call is a fresh shell: every snippet below names what it needs. The phase is `$PHASE_ID` (for example `v1.0/03`); if you cannot resolve it, run `specforge query "$MILESTONE" --kinds phase` and never search the filesystem.
 
 
-
 ## Step 0: Check for Previous Verification
 
 ```bash
@@ -824,8 +823,6 @@ specforge query "$PHASE_ID/${PHASE_NUM}-VERIFICATION" --format json
 
 A status that differs from your decision (e.g. `stale`) means a verdict is stale or missing:
 record it again from fresh inputs. Never edit `status` to match your decision — it is computed.
-
-
 
 ## Return to Orchestrator
 

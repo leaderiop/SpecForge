@@ -58,7 +58,6 @@ DATA_END
 
 <required_reading>
 
-
 - ./CLAUDE.md or ./.claude/CLAUDE.md (if exists — project-specific guidelines)
 </required_reading>
 

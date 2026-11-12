@@ -117,9 +117,6 @@ Phase number from argument (required).
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)

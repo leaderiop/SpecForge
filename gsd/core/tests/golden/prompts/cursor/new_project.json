@@ -61,7 +61,7 @@
     "```bash",
     ""
   ],
-  "bytes": 81713,
+  "bytes": 81706,
   "end": [
     "| AUTH-03 | Phase 1 | Pending |",
     "| AUTH-04 | Phase 1 | Pending |",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 2289,
+  "lines": 2282,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:47e92eb3ae6ab07273a7ed98550a508ad3116bc5097df528d5ef645d7e91eb06",
+    "digest": "sha256:0a111b5a267e34a6b99afd0be674064e8fa1f4802c935bc8274866f395d20c9a",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "47e92eb3ae6ab07273a7ed98550a508ad3116bc5097df528d5ef645d7e91eb06"
+  "sha256": "0a111b5a267e34a6b99afd0be674064e8fa1f4802c935bc8274866f395d20c9a"
 }

@@ -149,11 +149,6 @@ To use uncommitted mode:
 
 3. **Existing tracked files:** keep them tracked. `git rm -r --cached spec/` would stage the deletion of the whole spec.
 
-
-
-
-
-
 4. **Branch merges:** When using `branching_strategy: phase` or `milestone`, the `complete-milestone` workflow automatically strips the spec files from staging before merge commits when `commit_docs: false`.
 
 </setup_uncommitted_mode>

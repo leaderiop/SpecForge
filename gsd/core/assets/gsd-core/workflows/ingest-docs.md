@@ -57,7 +57,6 @@ INIT=$(specforge export --kinds project,requirement,decision --format brief 2>/d
 if [ -n "$(specforge export --kinds project --pick '.nodes[].id' 2>/dev/null)" ]; then PROJECT_EXISTS=1; else PROJECT_EXISTS=0; fi   # 1 when the project already exists
 : # model resolution: the installed agents carry their model
 
-
 ```
 
 **If `response_language` is set:** All user-facing output of this workflow — narration between tool calls, status updates, progress notes, findings, questions, prompts, and explanations — MUST be presented in `{response_language}`. Technical terms, code, file paths, and subagent prompts stay in English — only user-facing output is translated.
@@ -344,11 +343,6 @@ The entities are written through `specforge new` and `specforge set`, so there i
 ```bash
 : # no commit: the entities are written by the roadmapper, the staged intel is not committed
 [ -n "$INTEL_DIR" ] && specforge files remove --recursive "$INTEL_DIR" >/dev/null   # it holds the documents' text; the conflict report was shown at the gate
-
-
-
-
-
 
 ```
 

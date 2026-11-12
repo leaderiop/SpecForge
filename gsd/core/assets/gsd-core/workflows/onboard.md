@@ -58,25 +58,6 @@ If `next_action.kind == "map-codebase"`:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 On the "Skip mapping" path:
 
 - If some but not all of the four exist (project, requirements, roadmap, state), route the skip to the partial planning guard instead:

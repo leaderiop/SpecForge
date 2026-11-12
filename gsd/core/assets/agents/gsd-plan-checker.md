@@ -746,8 +746,6 @@ specforge query "$PHASE_ID" --depth 2 --kinds summary --format json
 # A plan's `estimate_slices` is a field of the plan entity; read it from the plan query above.
 # Over 1: note it as a warning; never fail the check on it.
 
-
-
 ```
 
 **Extract:** Phase goal, requirements (decompose goal), locked decisions, deferred ideas.
@@ -761,10 +759,6 @@ Use `specforge check` to validate plan structure:
 PLAN_STRUCTURE=$(specforge check --format json) && STRUCTURE_EXIT=0 || STRUCTURE_EXIT=$?
 echo "$PLAN_STRUCTURE"
 echo "structure_exit=$STRUCTURE_EXIT"
-
-
-
-
 
 ```
 
@@ -850,8 +844,6 @@ Inspect the tasks in the JSON; open the plan in the editor for prose-level revie
 ## Step 6: Verify Dependency Graph
 
 ```bash
-
-
 
 for plan in $(specforge query "$PHASE_ID" --kinds plan --pick '.nodes[kind=plan].id'); do
   echo "$plan depends_on: $(specforge query "$plan" --depth 0 --pick '.nodes[0].fields.depends_on[]')"

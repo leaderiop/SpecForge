@@ -43,9 +43,6 @@
     "",
     "```bash",
     "",
-    "",
-    "",
-    "",
     "# #4748: canonical phase grammar (digits, optional [A-Z], dotted segments) —",
     "# `12A` / `23.1.2` extract whole instead of truncating to `12` / `23.1`.",
     "PHASE=\"v1.0/02\"",
@@ -56,12 +53,15 @@
     "",
     "MAX_CYCLES=\"3\"",
     "",
+    "```",
     "",
+    "## 1.5. Config Gate (feature disabled by default)",
     "",
-    "",
-    "```"
+    "An explicit dispatch from `/gsd-autonomous --converge` carries `--override-gate` (#4600): the",
+    "operator's explicit flag overrides this gate for that run. Standalone invocation carries no such",
+    "flag and remains gated by the config below."
   ],
-  "bytes": 76215,
+  "bytes": 76191,
   "end": [
     "- `## Self-Check: FAILED` (summary self-check)",
     "",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 1253,
+  "lines": 1229,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:aac8116e0d327c5b1233d60fb88410e2aecdf20e026bb0e699d3b2ac71b3ecda",
+    "digest": "sha256:210af83dc25edde55763e86cf4a50aa801eda1b49b2fda74e82d906d63426d2b",
     "prompt": "@gsd/core@VERSION:plan_review_convergence",
     "steps": [
       {
@@ -211,5 +211,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "aac8116e0d327c5b1233d60fb88410e2aecdf20e026bb0e699d3b2ac71b3ecda"
+  "sha256": "210af83dc25edde55763e86cf4a50aa801eda1b49b2fda74e82d906d63426d2b"
 }

@@ -32,9 +32,6 @@ Bind `WS` and `MILESTONE_NAME` from the typed values:
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 WS="{{arg:ws|}}"
 
@@ -55,7 +52,6 @@ RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the se
 # safe; only `section_manifest` is consumed from this early call.
 # #4456: the section manifest is the milestone's own: this query takes no
 # workstream, so the ws argument is forwarded to none of these commands.
-
 
 INIT_EARLY=$(specforge query "$MILESTONE" --depth 1 --format json)
 
@@ -266,21 +262,9 @@ fi
 Nothing is cleared or archived, with or without an outgoing milestone: the phases stay with their
 milestone (upstream's phases.clear is not part of @gsd/core).
 
-
-
-
 The archived phases are entities: Step 6's commit carries them (`--add spec`), so there is nothing to stage here.
 
 ```bash
-
-
-
-
-
-
-
-
-
 
 ```
 
@@ -290,22 +274,12 @@ Stage PROJECT.md in both modes. Step 4's Part A guard — not this commit — is
 
 ```bash
 
-
-
-
-
-
 specforge git commit --add spec -m "docs: start milestone v[X.Y] [Name]" && specforge collect --runner gsd-git --yes
 ```
 
 ## 7. Load Context and Resolve Models
 
 ```bash
-
-
-
-
-
 
 INIT=$(specforge query "$MILESTONE" --depth 1 --format json)
 
@@ -316,7 +290,6 @@ AGENT_SKILLS_ROADMAPPER=""   # the host install carries the skills of gsd-roadma
 <!-- #4456: the workstream is not carried between steps: a block that
 needs it sets WS from the ws argument itself, so no file holds it and
 none is removed in Step 10. -->
-
 
 Read from the answer: the node whose `id` is `$MILESTONE` is the milestone (`name` and `state` are its fields), and its phases are among the other nodes. `commit_docs` and `workflow.research` are settings: `specforge settings --format json --extension @gsd/core`; an installed agent carries its own model; the project, its roadmap and its requirements are entities, read with `specforge query`, so no path is read.
 
@@ -532,10 +505,6 @@ If "adjust": Return to scoping.
 **Commit requirements:**
 ```bash
 
-
-
-
-
 specforge git commit --add spec -m "docs: define milestone v[X.Y] requirements" && specforge collect --runner gsd-git --yes
 ```
 
@@ -620,12 +589,6 @@ Success criteria:
 
 **Commit roadmap** (after approval):
 ```bash
-
-
-
-
-
-
 
 specforge git commit --add spec -m "docs: create milestone v[X.Y] roadmap ([N] phases)" && specforge collect --runner gsd-git --yes
 # #4456: no workstream file was persisted, so nothing is removed here.

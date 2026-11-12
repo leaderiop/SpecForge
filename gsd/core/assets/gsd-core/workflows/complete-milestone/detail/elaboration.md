@@ -24,116 +24,6 @@ If user chooses [A] (Acknowledge): the open items are `specforge check` findings
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 Accepting is a person's act on one audit: a later audit of the milestone carries no `debt_accepted` until a person writes one again.
 
 If output shows all clear (no open items): proceed with the close.
@@ -147,10 +37,6 @@ Check branching strategy and offer merge options.
 Use `init milestone-op` for context, or load config directly:
 
 ```bash
-
-
-
-
 
 : "${PHASE_ID:?PHASE_ID is not set: the phase being completed}"; INIT=$(specforge query "$PHASE_ID" --depth 1 --format json) || exit 1
 
@@ -217,14 +103,6 @@ while IFS= read -r branch; do
 done <<<"$BRANCHES"
 
 
-
-
-
-
-
-
-
-
 specforge git switch "$CURRENT_BRANCH"
 ```
 
@@ -249,14 +127,6 @@ while IFS= read -r branch; do
 done <<<"$BRANCHES"
 
 
-
-
-
-
-
-
-
-
 specforge git switch "$CURRENT_BRANCH"
 ```
 
@@ -269,11 +139,6 @@ while IFS= read -r branch; do
   [ -n "$branch" ] || continue
   specforge git branch delete "$branch" --pick .name 2>/dev/null || specforge git branch delete "$branch" --force || exit 1
 done <<<"$BRANCHES"
-
-
-
-
-
 
 ```
 

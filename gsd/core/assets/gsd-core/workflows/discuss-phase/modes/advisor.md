@@ -49,9 +49,6 @@ Resolve advisor model:
 Read `~/.claude/gsd-core/USER-PROFILE.md` with your Read tool when it exists (it is the user's, written by `@gsd/ops`, outside the project's roots, which no block reaches) and check it for product-owner signals; with no such file there are none:
 
 
-
-
-
 Set `NON_TECHNICAL_OWNER = true` if ANY of the following are present:
 - `learning_style: guided`
 - The word `jargon` appears in a `frustration_triggers` section

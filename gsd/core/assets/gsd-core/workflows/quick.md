@@ -119,14 +119,6 @@ If `$VALIDATE_MODE` only:
 
 ```bash
 
-
-
-
-
-
-
-
-
 IFS=$'\x1f' read -r quick_id slug branch_name title date < <(specforge gsd quick-init --description="$DESCRIPTION" --template="{{setting:git.quick_branch_template|}}" --pick '.items[0]' --fields id,slug,branch_name,title,date) && [ -n "$quick_id" ] && [ -n "$slug" ] || exit 1; specforge new --in spec/quick.spec --field type=execute --field files_modified= --field "objective=$DESCRIPTION" --field "slug=$slug" -- plan "$quick_id" "$title" >/dev/null || exit 1; task_dir="$quick_id"; quick_dir="$quick_id"; INIT=""; echo "quick_id=$quick_id slug=$slug branch_name=$branch_name date=$date"   # one call answers the id (<yymmdd>-<3 base-36>, free in the graph), its slug, branch and title, and this fence writes the plan from them: a later fence may be another shell, so the slug never crosses one, and a later fence with no $quick_id takes the printed one; the second call is read for its date, its id discarded
 
 AGENT_SKILLS_PLANNER=""   # the host install carries the skills of gsd-planner
@@ -602,7 +594,6 @@ If no active code-review step hook exists, skip with message "Code review skippe
 QUICK_SCOPE_RC=0
 CHANGED_FILES=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge query "${quick_id}" --depth 0 --pick '.nodes[0].fields.files_touched[]') || QUICK_SCOPE_RC=$?
 
-
 if [ -z "$CHANGED_FILES" ]; then
   # Say WHY the scope is empty: no commit names this task, or its commits could not be read.
   QUICK_SCOPE_WHY=$([ "$QUICK_SCOPE_RC" -eq 0 ] && echo 'no commit names this task' || echo "its commits could not be read (exit $QUICK_SCOPE_RC)")
@@ -657,51 +648,6 @@ A quick plan with its summary is the record of the task, and the computed projec
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ---
 
 **Step 8: Final commit and completion**
@@ -721,10 +667,6 @@ Build file list:
 # every spec change is committed with the work: stage the files the task touched, and spec
 
 # the quick plan, its summary and the spec changes are committed with the work (#1783)
-
-
-
-
 
 ADDS=(); for f in ${file_list}; do [ -e "$f" ] || [ -n "$(specforge git show "HEAD:$f" --pick .sha 2>/dev/null)" ] && ADDS+=(--add "$f"); done
 

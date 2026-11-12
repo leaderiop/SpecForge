@@ -29,12 +29,7 @@ Apply response_language to all user-facing prose — narration between tool call
    (the user's persistent settings preference):
    ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
-
-
 
    ```
 

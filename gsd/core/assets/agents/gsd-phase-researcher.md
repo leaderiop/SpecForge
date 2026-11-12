@@ -110,7 +110,6 @@ Pick the provider for each question by its `kind`: `docs` goes to `context7`; `w
 
 Reuse what the phase already holds: `specforge query "$PHASE_ID" --depth 2 --kinds finding --format json`.
 
-
 There is no cache seam. Before you fetch, look at the phase's `finding` entities:
 
 - a finding already answers the question → reuse it; no fetch needed.
@@ -150,7 +149,6 @@ specforge new finding "<id>" "<short title>" --in <file> \
   --confidence "<high|medium|low>"
 ```
 
-
 `confidence` comes from the tiers below (see `<source_hierarchy>`); the source and provider go in the text.
 
 </tool_strategy>
@@ -165,7 +163,6 @@ Pick the confidence tier from this hierarchy — do not improvise tiers in your 
 - A finding cross-checked by two independent sources moves up one tier.
 
 Use that tier when tagging claims and as a `finding`'s `confidence`.
-
 
 Keep using the provenance tags in RESEARCH.md:
 - `[VERIFIED: source]` — confirmed via tool AND from an authoritative source (HIGH confidence)
@@ -211,10 +208,6 @@ specforge gsd record-verdict <package_audit> W205 <legitimate|suspicious|unknown
 ```
 
 The `basis` is copied verbatim from the query. The outcome is one of `legitimate`, `suspicious` or `unknown`.
-
-
-
-
 
 **Interpreting verdicts:**
 - `unknown` — not found on the registry: hallucinated or dangerously new package. **Remove entirely** from all the research recommendations. List in audit table under `Disposition: REMOVED`.
@@ -563,19 +556,6 @@ specforge query "<capability-keyword>" --depth 1 --format json
 ```
 
 If nothing comes back, continue to Step 1.5 without graph context.
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

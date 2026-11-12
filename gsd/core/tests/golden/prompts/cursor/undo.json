@@ -61,7 +61,7 @@
     "",
     "Examples:"
   ],
-  "bytes": 48256,
+  "bytes": 48216,
   "end": [
     "- question: \"How thorough should planning be?\"",
     "- header: \"Depth\"",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 1180,
+  "lines": 1140,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5a91c48132ed3cb2ec81c1a88f3e499ac1495d3562e4861552a8a83ac4365bad",
+    "digest": "sha256:9804f51abbc03dc9054088b211dd49715d2c15e3b05c781eddd50c51e7164de6",
     "prompt": "@gsd/core@VERSION:undo"
   },
-  "sha256": "5a91c48132ed3cb2ec81c1a88f3e499ac1495d3562e4861552a8a83ac4365bad"
+  "sha256": "9804f51abbc03dc9054088b211dd49715d2c15e3b05c781eddd50c51e7164de6"
 }

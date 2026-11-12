@@ -10,11 +10,7 @@
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
-
 
 PHASE_GOAL=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.goal')
 USER_STORY_VALID=$(specforge gsd user-story-validate --story "$PHASE_GOAL" --pick .valid)

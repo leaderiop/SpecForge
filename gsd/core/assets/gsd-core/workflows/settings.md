@@ -560,60 +560,6 @@ up with the same `specforge settings set @gsd/core <key> <value>` lines. Tell th
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 </step>
 
 <step name="confirm">

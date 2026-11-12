@@ -80,39 +80,6 @@ Report any summaries with placeholder content as incomplete items.
 ```bash
 specforge new handoff HO1 "{context-name} paused at {X}/{Y}" --in spec/handoff.spec --phase "$MILESTONE/{phase_number}" --state in_progress --current_state "{where exactly are we}" --next_action "{specific first action when resuming}" --context "{mental state, approach, what you were thinking}"
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ```
 
 The `completed_work` blocks, `remaining_work`, `decisions_made` (references to `decision` entities) and `blockers` (references to `blocker` entities) of the handoff are authored through the MCP tool `specforge.edit`. The `pause` that follows names the handoff, so `/gsd:resume-work` finds both.

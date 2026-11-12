@@ -90,7 +90,6 @@ out of the argument text, so a stale or malformed value never leaks in:
 - Routing suggestions (`/gsd:plan-phase {X}`) carry no `--ws`: the next command is started
   for the workstream the person names, or none.
 
-
 - Project and workspace lifecycle workflows (`new-project`, `new-workspace`,
   `list-workspaces`, `remove-workspace`, `update`) are root-scoped and do not forward it.
 

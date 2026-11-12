@@ -7,13 +7,7 @@ Parse `phase_status` from the init JSON, and take `REVIEWS` from step 1 (`--revi
 
 ```bash
 
-
-
-
 FORCE_REPLAN=false
-
-
-
 
 if [ "${phase_status}" = "Complete" ]; then
   if [ "${REVIEWS:-false}" = true ]; then

@@ -23,45 +23,18 @@ The host has parsed `--from N`, `--to N`, `--only N`, `--interactive` and `--con
 
 ```bash
 
-
-
-
 # #4748: the phase token is the canonical grammar (src/phase-id.cts) — digits,
 # an optional uppercase letter, any number of dotted segments — so `12A` and
 # `23.1.2` extract whole instead of truncating to `12` / `23.1`.
 FROM_PHASE="{{arg:from|}}"
 
-
-
-
 TO_PHASE="{{arg:to|}}"
-
-
-
 
 ONLY_PHASE="{{arg:only|}}"; [ -n "$ONLY_PHASE" ] && FROM_PHASE="$ONLY_PHASE"
 
-
-
-
-
 INTERACTIVE=""; [ "{{arg:interactive|false}}" = true ] && INTERACTIVE=true
 
-
-
-
 PLAN_STRATEGY=local; [ "{{arg:converge|false}}" = true ] && PLAN_STRATEGY=converge
-
-
-
-
-
-
-
-
-
-
-
 
 ```
 
@@ -74,9 +47,6 @@ When `PLAN_STRATEGY=converge`, the planning step MUST invoke the plan-review con
 Bootstrap via milestone-level init:
 
 ```bash
-
-
-
 
 # the commands below are specforge commands: there is no launcher to define
 
@@ -92,24 +62,9 @@ If `PLAN_STRATEGY` is `converge`, the dispatch below carries `--override-gate` (
 
 ```bash
 
-
-
-
 # autonomous declares no reviewer lane and no --max-cycles: convergence takes its own defaults.
 
-
-
 CONVERGENCE_ARGS=""
-
-
-
-
-
-
-
-
-
-
 
 
 # #4600: the dispatched convergence workflow re-checks the feature gate in its own §1.5 —
@@ -157,12 +112,6 @@ If `section_manifest` is `null` or `"converge-banner"` is in its `included` list
 Run phase discovery:
 
 ```bash
-
-
-
-
-
-
 
 # a field of the answer is read with --pick, never jq
 STATE_PATH=""   # the project state is computed: specforge gsd progress-report
@@ -256,10 +205,6 @@ Check if CONTEXT.md already exists for this phase:
 
 ```bash
 
-
-
-
-
 PHASE_STATE=$(specforge query "$MILESTONE/${PHASE_NUM}" --depth 1 --format json)
 ```
 
@@ -317,10 +262,6 @@ Skill(skill="gsd-discuss-phase", args="${PHASE_NUM}")
 After discuss completes (either mode), verify context was written:
 
 ```bash
-
-
-
-
 
 PHASE_STATE=$(specforge query "$MILESTONE/${PHASE_NUM}" --depth 1 --format json)
 ```
@@ -453,7 +394,6 @@ After execute, read canonical verification:
 VERIFY_ERROR=""  # reset every loop iteration — a prior phase's refusal must not leak into this one
 VERIFY_STATUS=$(specforge query "${PHASE_NUM}" --kinds verification --pick '.nodes[kind=verification].fields.status') || VERIFY_ERROR=1; VERIFY_STATUS=${VERIFY_STATUS%%$'\n'*}; VERIFY_STATUS=${VERIFY_STATUS:-pending}
 ```
-
 
 
 If `VERIFY_ERROR` is set, handle_blocker with the error printed above — the report's `status` is outside the closed set (#5118); never read it as "no results".
@@ -605,12 +545,6 @@ Proceed to lifecycle step (partial completion skips audit/complete/cleanup). Exi
 
 ```bash
 
-
-
-
-
-
-
 # a field of the answer is read with --pick, never jq
 STATE_PATH=""   # the project state is computed: specforge gsd progress-report
 STATE_CONTENT=$(specforge gsd progress-report 2>/dev/null || true)
@@ -730,12 +664,6 @@ Skill(skill="gsd-complete-milestone", args="${milestone_version}")
 After complete-milestone returns, verify it produced output:
 
 ```bash
-
-
-
-
-
-
 
 # a field of the answer is read with --pick, never jq
 ARCHIVE_DIR=$(specforge gsd progress-report --pick .archive_dir)

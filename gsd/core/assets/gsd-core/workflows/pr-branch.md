@@ -98,137 +98,6 @@ There are no sub-repositories: a sub-repository is another SpecForge project, an
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 </step>
 
 <step name="analyze_commits">
@@ -255,18 +124,8 @@ TRANSIENT_FILES="specforge-harness"
 
 # Structural planning files: none here. Every spec file is reviewer noise, so the filter has one mode.
 
-
 # The spec files, as a pathspec: the spec root's tree, or with the spec root at the project root (`.`) the .spec files at any depth (`./` would name every path)
 SPEC_PATHSPEC=$(specforge git repo --pick .spec_pathspec)
-
-
-
-
-
-
-
-
-
 
 ```
 
@@ -277,37 +136,6 @@ cherry-picked commit; `verify` asserts on the diff's `spec` flags:
 
 FILTER_PATHS=$(printf '%s\n' "$SPEC_PATHSPEC"; for f in $TRANSIENT_FILES; do printf '%s\n' "$f"; done)
 # verify reads the diff's spec flags
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ```
 
@@ -324,30 +152,11 @@ PLANNING_COUNT=$(specforge git diff --base "$HASH~1" --head "$HASH" --pick '.fil
 Classify: a commit with `NON_PLANNING > 0` is INCLUDED (its spec paths are filtered by `create_pr_branch`); any other is EXCLUDED.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 Display analysis:
 ```
 Commits to include: {N} (code changes)
 Commits to exclude: {N} (planning-only)
 Mixed commits: {N} (code + planning — included, planning paths filtered)
-
 
 ```
 </step>
@@ -401,58 +210,6 @@ FILTER_PATHS_EOF
 
   # every spec path is in FILTER_PATHS, resolved by the loop above: a path still unmerged below is a real conflict
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   # Anything still unmerged is a REAL conflict, outside the filter. Halt — do not
   # improvise a resolution and do not continue, which would drop the rest of the queue.
   # Unwind first: this loop runs in the user's own checkout, so exiting mid-sequence
@@ -500,8 +257,6 @@ specforge git switch "$CURRENT_BRANCH"
 Assert against the filter's contract — the diff's `spec` flag, the project's own word for
 what `create_pr_branch` filtered on: no spec file and no harness ledger may remain.
 
-
-
 ```bash
 
 FORBIDDEN=$(specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick '.files[spec=true].path' --count)
@@ -516,10 +271,6 @@ PR_COMMITS=$(specforge git log "$TARGET".."$PR_BRANCH" --pick .count)
 # status (a deleted structural/allowed path verifies clean there), so gate on
 # deletions explicitly, across every planning category.
 PLANNING_DELETIONS=$(specforge git diff --base "$TARGET" --head "$PR_BRANCH" --pick '.files[spec_removed=true].path' --count)
-
-
-
-
 
 ```
 
@@ -548,12 +299,6 @@ Next steps:
 
 Or use /gsd:ship to create the PR automatically.
 ```
-
-
-
-
-
-
 
 </step>
 

@@ -56,12 +56,12 @@
     "",
     "```bash",
     "",
+    "# the commands below are specforge commands: there is no launcher to define",
+    "WS=\"\"",
     "",
-    "",
-    "",
-    "# the commands below are specforge commands: there is no launcher to define"
+    "MILESTONE_NAME=\"Next\""
   ],
-  "bytes": 68474,
+  "bytes": 68437,
   "end": [
     "| CONT-03 | Phase 3 | Pending |",
     "| CONT-04 | Phase 3 | Pending |",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 1777,
+  "lines": 1740,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:64d53d01a23f8980e1a982d36252de1f9934a9a2f97ed4e793239eb7230f2d20",
+    "digest": "sha256:6c34bd40483e419805fe2633806568dea7b601da177f18c490eaef203a23e46e",
     "prompt": "@gsd/core@VERSION:new_milestone",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "64d53d01a23f8980e1a982d36252de1f9934a9a2f97ed4e793239eb7230f2d20"
+  "sha256": "6c34bd40483e419805fe2633806568dea7b601da177f18c490eaef203a23e46e"
 }

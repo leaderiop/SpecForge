@@ -324,8 +324,6 @@ echo "### (end edge-probe coverage report)"
 # #4656: all-unclassified is the accidental-miss case the applicable:0 guard could never
 # reach — #1110's soft-signal rows make applicable non-zero by construction there.
 
-
-
 ```
 
 If the report's `coverage.applicable` is `0`, or every requirement is unclassified (`coverage.unclassified` equals it, #4656), do NOT proceed silently: ask the author to confirm via AskUserQuestion

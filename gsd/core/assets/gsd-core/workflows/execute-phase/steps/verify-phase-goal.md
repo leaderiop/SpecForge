@@ -23,12 +23,8 @@ value for both callers, never left for the model to resolve. Resolve the rest th
 
 ```bash
 
-
-
-
 PHASE_NUMBER="${PHASE_ID##*/}"; PHASE_REQ_IDS=$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.requirements[]')   # the phase's inputs; the commands below are specforge commands: there is no launcher to define
 TDD_MODE=${TDD_MODE:-false}   # the loop capability is not part of @gsd/core: --tdd is read from the arguments
-
 
 VERIFIER_SKILLS=""; RESPONSE_LANGUAGE=$(specforge settings --extension @gsd/core --pick '.extensions[0].settings[name=response_language].value' 2>/dev/null)   # the host install carries the skills of gsd-verifier; the language is a setting
 CONTEXT_WINDOW="{{setting:context_window|200000}}"   # context_window (the settings)
@@ -83,10 +79,6 @@ Skill(skill="gsd-${ref.skill}", args="${PHASE_NUMBER}")
 ```
 
 **Report the review, and record what happened to each finding.** The disposition ledger is `@gsd/ops`'s: its code-review hook records each finding as an entity, and with `@gsd/core` alone this step reports the review and stops (`gsd-core/workflows/execute-phase/steps/code-review-disposition.md`).
-
-
-
-
 
 **Error handling:** If the Skill invocation fails or throws, catch the error, display "Code review encountered an error (non-blocking): {error}" and proceed to gate dispatch. Review failures must never block execution.
 

@@ -15,15 +15,11 @@ When you need library or framework documentation, check in this order:
    # ctx7 is the user's own program, not part of SpecForge or @gsd/core: exit 127 means it is not installed
    specforge run -- ctx7 library <name> "<query>"
 
-
-
    ```
    Step 2 — Fetch documentation:
    ```bash
    # ctx7 is the user's own program, not part of SpecForge or @gsd/core: exit 127 means it is not installed
    specforge run -- ctx7 docs <libraryId> "<query>"
-
-
 
    ```
 

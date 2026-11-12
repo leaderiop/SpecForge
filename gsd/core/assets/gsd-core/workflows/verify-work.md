@@ -41,13 +41,7 @@ If $ARGUMENTS contains a phase number, load context:
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
-
-
-
 
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
@@ -182,37 +176,6 @@ specforge query "$PHASE_ID" --depth 2 --kinds summary --format context
 Read each summary to extract testable deliverables.
 
 **Commit counts are the graph's.** A summary's `actuals.commits` is computed from the plan's recorded commits, so it cannot claim a count: there is nothing to reconcile.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 </step>
 
@@ -684,16 +647,6 @@ itself (its only write is the canonicalization, #4663).
 The step reads its own inputs (the phase's number and requirement ids from the graph, the response language from the settings); include it with `PHASE_ID` set:
 
 ```bash
-
-
-
-
-
-
-
-
-
-
 
 ```
 

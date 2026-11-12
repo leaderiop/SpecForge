@@ -58,10 +58,10 @@
     "",
     "```bash",
     "",
-    "",
+    "# the commands below are specforge commands: there is no launcher to define",
     ""
   ],
-  "bytes": 64934,
+  "bytes": 64887,
   "end": [
     "## Gaps",
     "",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 1440,
+  "lines": 1393,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:726d193d071398bf1fddb96fd7e4331636f3d6928c21eb4c5cb2936603ee5d7e",
+    "digest": "sha256:72772f52cb8e8cd989a780602442fab12e2aacb0ce088484620521007fcb91e1",
     "prompt": "@gsd/core@VERSION:verify_work",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "726d193d071398bf1fddb96fd7e4331636f3d6928c21eb4c5cb2936603ee5d7e"
+  "sha256": "72772f52cb8e8cd989a780602442fab12e2aacb0ce088484620521007fcb91e1"
 }

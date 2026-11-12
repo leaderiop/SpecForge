@@ -45,23 +45,23 @@
     "",
     "```bash",
     "",
-    "",
-    "",
-    "",
     "# #4748: the phase token is the canonical grammar (src/phase-id.cts) — digits,",
     "# an optional uppercase letter, any number of dotted segments — so `12A` and",
     "# `23.1.2` extract whole instead of truncating to `12` / `23.1`.",
     "FROM_PHASE=\"01\"",
     "",
-    "",
-    "",
-    "",
     "TO_PHASE=\"02\"",
     "",
+    "ONLY_PHASE=\"\"; [ -n \"$ONLY_PHASE\" ] && FROM_PHASE=\"$ONLY_PHASE\"",
     "",
+    "INTERACTIVE=\"\"; [ \"false\" = true ] && INTERACTIVE=true",
+    "",
+    "PLAN_STRATEGY=local; [ \"true\" = true ] && PLAN_STRATEGY=converge",
+    "",
+    "```",
     ""
   ],
-  "bytes": 54346,
+  "bytes": 54274,
   "end": [
     "- Missing Next Up block after completions",
     "",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 1306,
+  "lines": 1234,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:5d482d7ec6dc8051ca0c1565938089b3361f51dd32804fa443f3a74118b6c4a6",
+    "digest": "sha256:ef24aa7834d3cd6db553baa3c9e3d7c09d468e3004d1c6b00f49b4b59ffad81e",
     "prompt": "@gsd/core@VERSION:autonomous",
     "steps": [
       {
@@ -242,5 +242,5 @@
       }
     ]
   },
-  "sha256": "5d482d7ec6dc8051ca0c1565938089b3361f51dd32804fa443f3a74118b6c4a6"
+  "sha256": "ef24aa7834d3cd6db553baa3c9e3d7c09d468e3004d1c6b00f49b4b59ffad81e"
 }

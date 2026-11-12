@@ -24,9 +24,6 @@ Load all context in one call:
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 
 INIT=$(specforge gsd progress-report --format json)
@@ -85,25 +82,16 @@ specforge export --kinds pause,handoff,blocker --format graph || true   # the pa
 
 #  - the query reads them from the spec, so no shell glob is involved;
 
-
-
 # Pauses are found by the query, not by searching files.
 : # (there are no continue-here files: a handoff is an entity)
 
-
-
 # (no async-job manifests: the external-job harness is not part of @gsd/core)
 
-
-
 : # (there are no async-job manifests: the external-job harness is not part of @gsd/core)
-
-
 
 # Check for plans without summaries (incomplete execution)
 for plan in $(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=plan].id' | grep -vxF -f <(specforge query "$MILESTONE" --depth 3 --kinds plan,summary --pick '.nodes[kind=summary].fields.plan')); do   # each plan no summary names
   [ -n "$plan" ] || continue
-
 
   echo "Incomplete: $plan"
 done 2>/dev/null || true
@@ -185,13 +173,6 @@ Last activity: [date] - [what happened]
 Based on project state, determine the most logical next action:
 
 **An async-job manifest does not exist here** (the external-job harness is not part of @gsd/core): skip this branch.
-
-
-
-
-
-
-
 
 **If interrupted agent exists:**
 → Primary: Resume interrupted agent (Task tool with resume parameter)
@@ -308,31 +289,12 @@ The session continuity is computed from the spec: nothing is written before proc
 
 
 
-
-
-
-
-
-
-
-
 </step>
 
 </process>
 
 <reconstruction>
 The project state is computed from the spec, so there is nothing to reconstruct. If the spec holds no project, route to /gsd:new-project.
-
-
-
-
-
-
-
-
-
-
-
 
 
 

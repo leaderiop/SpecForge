@@ -124,9 +124,6 @@ path regardless of `CHUNKED_PARALLEL` — there is nothing to batch.
    before dispatch rather than immediately before each individual spawn:
    ```bash
 
-
-
-
    PLAN_ENTITY="${PHASE_ID}/${plan_id}"   # the plan entity: an unknown id is refused (exit 1)
    if specforge query "$PLAN_ENTITY" --depth 0 --pick '.nodes[0].id' >/dev/null 2>&1 && [ "${REVIEWS:-false}" != true ]; then
      : # resume safety — skip this plan, remove from the batch's runnable set — NOT under --reviews (replan)

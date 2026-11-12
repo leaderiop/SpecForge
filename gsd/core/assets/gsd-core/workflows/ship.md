@@ -26,12 +26,8 @@ Parse arguments and load project state:
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-
 
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
@@ -437,9 +433,6 @@ If `REVIEW_CMD` is non-empty and not `"null"`, run the external review:
    # The review command's raw answer: read it yourself. One JSON object whose verdict is APPROVED or REVISE;
    # anything else (none, two, not an object) is INVALID_JSON
      printf '%s\n' "${REVIEW_OUTPUT}"
-
-
-
 
    ```
    - If `verdict` is `"APPROVED"`: report approval with confidence and summary.

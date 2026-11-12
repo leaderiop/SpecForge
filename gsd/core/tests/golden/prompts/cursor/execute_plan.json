@@ -55,13 +55,13 @@
     "",
     "```bash",
     "",
+    "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)",
     "",
+    "```",
     "",
-    "",
-    "",
-    "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)"
+    "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id), and its `plan` entities are among the other nodes (a plan whose `status` is not `complete` has no summary yet). `commit_docs` and `response_language` are settings: `specforge settings --format json --extension @gsd/core`; the sub-repositories are `specforge git repos`' answer; an installed agent carries its own model."
   ],
-  "bytes": 49177,
+  "bytes": 49160,
   "end": [
     "",
     "| Condition | Route | Action |",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 827,
+  "lines": 810,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:05864b9097d9248a69b2e95832f3348fc88c1d63fd476c77c6bcffb67c85f2c3",
+    "digest": "sha256:d2773960a209beff4905dfc54b4b7d898cff4d606dc253a424fa5c304e265cdc",
     "prompt": "@gsd/core@VERSION:execute_plan",
     "steps": [
       {
@@ -258,5 +258,5 @@
     ],
     "subject": "v1.0/02/02-01"
   },
-  "sha256": "05864b9097d9248a69b2e95832f3348fc88c1d63fd476c77c6bcffb67c85f2c3"
+  "sha256": "d2773960a209beff4905dfc54b4b7d898cff4d606dc253a424fa5c304e265cdc"
 }

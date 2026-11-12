@@ -26,26 +26,6 @@ fi
 REG_TEST_WORDS=$(specforge gsd gate-command test --scope regression --files="$REGRESSION_FILES" --pick '.argv[]') || exit 1
 REG_TEST_ARGV=(); while IFS= read -r _w; do [ -z "$_w" ] || REG_TEST_ARGV+=("$_w"); done <<<"$REG_TEST_WORDS"
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # #1857: normalize to a one-shot form (defeat vitest/jest watch mode) and bound
 # with a timeout so a watch-mode runner cannot hang the gate indefinitely.
 # normalize-test-command is not part of @gsd/core: the command runs as configured

@@ -61,7 +61,7 @@
     "```bash",
     ""
   ],
-  "bytes": 80761,
+  "bytes": 80754,
   "end": [
     "| AUTH-03 | Phase 1 | Pending |",
     "| AUTH-04 | Phase 1 | Pending |",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 2270,
+  "lines": 2263,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a989afd5385f4d2e3638b3b195700bac716914a10b73f6a8eec1cf3253f5a4fe",
+    "digest": "sha256:47cceda0abb917d73a6da1eb0672f0de7ea585dea2abe8b4b79e8b6d4523096e",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "a989afd5385f4d2e3638b3b195700bac716914a10b73f6a8eec1cf3253f5a4fe"
+  "sha256": "47cceda0abb917d73a6da1eb0672f0de7ea585dea2abe8b4b79e8b6d4523096e"
 }

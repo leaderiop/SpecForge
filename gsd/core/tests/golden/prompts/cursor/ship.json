@@ -41,12 +41,8 @@
     "",
     "```bash",
     "",
-    "",
-    "",
-    "",
     "# the commands below are specforge commands: there is no launcher to define",
     "RESPONSE_LANGUAGE=\"\"   # response_language (the settings)",
-    "",
     "",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)",
     "",
@@ -59,9 +55,13 @@
     "Also load config for branching strategy:",
     "```bash",
     "CONFIG=$(specforge settings)",
-    "```"
+    "```",
+    "",
+    "The strategy is `git.branching_strategy` in these settings; the branch is the phase's computed `branch`.",
+    "",
+    "Detect base branch for PRs and merges:"
   ],
-  "bytes": 46702,
+  "bytes": 46695,
   "end": [
     "Commits: {count}",
     "Verification: ✓ Passed",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 839,
+  "lines": 832,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:974ea4f8b90bc04fc8fecf0d84d612d42a8be753ecdffff720d2a250a48014a2",
+    "digest": "sha256:d7bef977aa80664f696dc7e4d52820f2edcc8a6541fb1e46204948a5540a719d",
     "prompt": "@gsd/core@VERSION:ship",
     "steps": [
       {
@@ -215,5 +215,5 @@
     ],
     "subject": "v1.0/01"
   },
-  "sha256": "974ea4f8b90bc04fc8fecf0d84d612d42a8be753ecdffff720d2a250a48014a2"
+  "sha256": "d7bef977aa80664f696dc7e4d52820f2edcc8a6541fb1e46204948a5540a719d"
 }

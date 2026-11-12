@@ -61,7 +61,7 @@
     "```bash",
     ""
   ],
-  "bytes": 89230,
+  "bytes": 89223,
   "end": [
     "| AUTH-03 | Phase 1 | Pending |",
     "| AUTH-04 | Phase 1 | Pending |",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 2382,
+  "lines": 2375,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:b0565f927895067173796d773346b334788ec47b0c0dc71d9c450844299a6bac",
+    "digest": "sha256:36e44e927f24ce827c82dfe28716bf9954575a4942462673fae0400f8b943f00",
     "prompt": "@gsd/core@VERSION:new_project",
     "steps": [
       {
@@ -227,5 +227,5 @@
       }
     ]
   },
-  "sha256": "b0565f927895067173796d773346b334788ec47b0c0dc71d9c450844299a6bac"
+  "sha256": "36e44e927f24ce827c82dfe28716bf9954575a4942462673fae0400f8b943f00"
 }

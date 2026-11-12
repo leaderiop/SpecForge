@@ -61,7 +61,7 @@
     "- **Default**: no detectable context → the project's handoff, note the ambiguity in `<current_state>`",
     ""
   ],
-  "bytes": 27581,
+  "bytes": 27548,
   "end": [
     "To resume: $gsd-resume-work",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 605,
+  "lines": 572,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:89a775d29fe5d4b4b26777aa42d9da9601c1dbd4b571323351429df0bdc4f3e7",
+    "digest": "sha256:89c19149c3406d8a9ba0d557847faf844fbbd651854eab3ece5858abbfa68250",
     "prompt": "@gsd/core@VERSION:pause_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "89a775d29fe5d4b4b26777aa42d9da9601c1dbd4b571323351429df0bdc4f3e7"
+  "sha256": "89c19149c3406d8a9ba0d557847faf844fbbd651854eab3ece5858abbfa68250"
 }

@@ -146,10 +146,6 @@ For "Clear", the user removes the variable from that same place. To force a sour
 specforge settings set @gsd/core brave_search false   # firecrawl and exa_search likewise
 ```
 
-
-
-
-
 </step>
 
 <step name="section_2_review_models">

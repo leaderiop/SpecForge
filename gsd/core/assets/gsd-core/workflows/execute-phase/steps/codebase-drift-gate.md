@@ -68,14 +68,7 @@ from step `init_context` is for `gsd-executor`, not the mapper):
 
 ```bash
 
-
-
-
 # the auto-remap directive is never reached here: the codebase map is not part of @gsd/core
-
-
-
-
 
 AGENT_SKILLS_MAPPER=""   # the host install carries the skills of gsd-codebase-mapper
 ```

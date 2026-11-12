@@ -61,7 +61,7 @@
     "- **Default**: no detectable context → the project's handoff, note the ambiguity in `<current_state>`",
     ""
   ],
-  "bytes": 19842,
+  "bytes": 19809,
   "end": [
     "To resume: /gsd-resume-work",
     "",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 506,
+  "lines": 473,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:6e60138da9535d5e78c6aad1bd85f111abd0ef5830c547af0f36f456997742fa",
+    "digest": "sha256:30db05324c2cbfc9337aa136d4487539b75d1920b7e716a3443cdca9772ddb80",
     "prompt": "@gsd/core@VERSION:pause_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "6e60138da9535d5e78c6aad1bd85f111abd0ef5830c547af0f36f456997742fa"
+  "sha256": "30db05324c2cbfc9337aa136d4487539b75d1920b7e716a3443cdca9772ddb80"
 }

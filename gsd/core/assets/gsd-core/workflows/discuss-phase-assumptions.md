@@ -64,12 +64,8 @@ Phase number from argument (required).
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-
 
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
@@ -673,12 +669,6 @@ Check for auto-advance trigger:
 1. Parse `--auto` flag from $ARGUMENTS
 2. Sync chain flag:
    ```bash
-
-
-
-
-
-
 
    ```
 3. Read consolidated auto-mode (`active` = chain flag OR user preference):

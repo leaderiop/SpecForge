@@ -41,9 +41,6 @@
     "",
     "```bash",
     "",
-    "",
-    "",
-    "",
     "# the commands below are specforge commands: there is no launcher to define",
     "",
     "INIT=$(specforge gsd progress-report --format json)",
@@ -59,11 +56,14 @@
     "**If `planning_exists` is false:** This is a new project - route to $gsd-new-project",
     "</step>",
     "",
-    "<step name=\"load_state\">"
-  ],
-  "bytes": 28694,
-  "end": [
+    "<step name=\"load_state\">",
     "",
+    "Read and parse STATE.md, then PROJECT.md:",
+    ""
+  ],
+  "bytes": 28656,
+  "end": [
+    "The project state is computed from the spec, so there is nothing to reconstruct. If the spec holds no project, route to $gsd-new-project.",
     "",
     "",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 685,
+  "lines": 647,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:4dc3a1051c9cf8100cb0ba4e6e6b9a804fee43ece2407eef33d022488a0655af",
+    "digest": "sha256:4d7450845afb872b6b39f4502306d09e25243a1e34552c72f2cfb01d4ae73976",
     "prompt": "@gsd/core@VERSION:resume_work",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "4dc3a1051c9cf8100cb0ba4e6e6b9a804fee43ece2407eef33d022488a0655af"
+  "sha256": "4d7450845afb872b6b39f4502306d09e25243a1e34552c72f2cfb01d4ae73976"
 }

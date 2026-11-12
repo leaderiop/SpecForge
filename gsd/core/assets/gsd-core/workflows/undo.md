@@ -130,43 +130,15 @@ MILESTONE_STATE=$(specforge query "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}" --depth 
 PHASE_DIR_ARCHIVED=""; case "$MILESTONE_STATE" in shipped|abandoned) PHASE_DIR_ARCHIVED="$PHASE_DIR";; esac
 # (no archive directory to match)
 
-
-
-
-
-
-
 # The recorded commits are this repository's own: there is no other repository to refuse.
-
-
-
-
 
 PHASE_DIR_FOREIGN=""
 # (nothing to compare)
 
-
-
-
-
-
 # (a phase entity has no path that a previous occupant could have used)
-
-
-
-
-
-
-
-
 
 PHASE_DIR_REUSED=""; PHASE_DIR_LIVE=""
 # (nothing to check)
-
-
-
-
-
 
 ```
 
@@ -274,26 +246,14 @@ MILESTONE_STATE=$(specforge query "${UNDO_MILESTONE:-${PHASE_DIR%%/*}}" --depth 
 PHASE_DIR_ARCHIVED=""; case "$MILESTONE_STATE" in shipped|abandoned) PHASE_DIR_ARCHIVED="$PHASE_DIR";; esac
 # (no archive directory to match)
 
-
 # Same-repository refusal as MODE=phase: a phase planned in another repository cannot anchor here.
 PHASE_DIR_FOREIGN=""
 # (the recorded commits are this repository's own)
 
-
-
-
-
-
 # (a plan entity has no path that a previous occupant could have used)
-
 
 PHASE_DIR_REUSED=""; PHASE_DIR_LIVE=""
 # (nothing to check)
-
-
-
-
-
 
 PHASE_START=$(specforge git rev --sorted --reverse $(specforge query "${TARGET_PLAN_ID}" --depth 2 --kinds commit --pick '.nodes[kind=commit].fields.hash') --pick '.revs[0].sha' 2>/dev/null)
 # As in MODE=phase: an anchor outside HEAD's own history never reaches the root-commit arm.

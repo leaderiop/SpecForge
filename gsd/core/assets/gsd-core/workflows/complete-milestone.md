@@ -79,10 +79,6 @@ The [A] branch in full: `gsd-core/workflows/complete-milestone/detail/elaboratio
 
 ```bash
 
-
-
-
-
 : "${MILESTONE:?MILESTONE is not set: the milestone being completed}"; INIT_MANAGER=$(specforge query "$MILESTONE" --depth 1 --format json) || exit 1
 
 ```
@@ -96,8 +92,6 @@ Compute readiness from `INIT_MANAGER`, not from roadmap counts:
 
 ```bash
 ALL_PHASES_VERIFIED=false; : "${MILESTONE:?MILESTONE is not set: the milestone being completed}"; PHASES=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.progress.phases') && PHASES_COMPLETE=$(specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.progress.phases_complete') && [ -n "$PHASES" ] && [ "$PHASES" = "$PHASES_COMPLETE" ] && ALL_PHASES_VERIFIED=true   # progress leaves the 999 backlog out (#3167); a phase is complete only once its verification passed; a failed query or an empty count verifies nothing
-
-
 
 ```
 
@@ -189,9 +183,6 @@ Calculate milestone statistics:
 ```bash
 : "${MILESTONE:?MILESTONE is not set: the milestone being completed}"; specforge query "$MILESTONE" --depth 0 --pick '.nodes[0].fields.stats'   # {files, loc, phases, plans, tasks, days}: loc counts inserted + deleted lines
 
-
-
-
 ```
 
 Present:
@@ -248,10 +239,6 @@ If additional details are needed (e.g., user-provided "Delivered" summary, git r
 **Resolve the PROJECT.md review gate first.** PROJECT.md is shared across workstreams, so the review runs in flat mode only: no `--ws` in the arguments and no active workstream (`specforge gsd workstreams progress` answers the one `specforge gsd workstreams switch` made active as `active`). SpecForge's INIT carries no `section_manifest`, so the gate reads the workstream itself; when it cannot be read, the review is skipped rather than rewrite the shared PROJECT.md under a workstream (#5195).
 
 ```bash
-
-
-
-
 
 GSD_ACTIVE_WS=$(specforge gsd workstreams progress --pick .active) || GSD_ACTIVE_WS='(unreadable)'
 # GSD_ACTIVE_WS is the active workstream: empty when none is, "(unreadable)" when the command failed
@@ -331,18 +318,9 @@ After `milestone complete` has archived, reorganize ROADMAP.md with milestone gr
 **Backlog preservation:** backlog phases (`phase.backlog`) are entities of the milestone, so nothing is extracted or re-appended.
 
 
-
 ```bash
 
-
-
-
-
-
-
 # the roadmap is the milestone's phase entities: backlog phases stay entities, nothing to extract
-
-
 
 ```
 
@@ -351,38 +329,9 @@ After `milestone complete` has archived, reorganize ROADMAP.md with milestone gr
 
 
 
-
-
-
 ```bash
 
-
-
-
-
-
-
-
-
-
-
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -399,20 +348,7 @@ After `milestone complete` has archived, reorganize ROADMAP.md with milestone gr
 
 ```bash
 
-
-
-
-
-
-
 # the commit stages spec: the archive is entities, with no state, roadmap or project file to name
-
-
-
-
-
-
-
 
 specforge git commit --add spec -m "chore: archive v[X.Y] milestone files" && specforge collect --runner gsd-git --yes
 ```
@@ -424,12 +360,6 @@ MILESTONES.md is workstream-scoped the same way STATE.md/ROADMAP.md are (the mil
 **The `requirement` entities stay** (they are the milestone's history; no file is archived or cleared):
 
 ```bash
-
-
-
-
-
-
 
 # a field of the answer is read with --pick, never jq
 : # no requirements file: the requirement entities are the archive

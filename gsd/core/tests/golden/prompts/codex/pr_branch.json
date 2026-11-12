@@ -61,17 +61,17 @@
     "fi",
     ""
   ],
-  "bytes": 31139,
+  "bytes": 30884,
   "end": [
+    "Planning paths in diff: {FORBIDDEN} — must be 0",
+    "Planning deletions: {PLANNING_DELETIONS} (must be 0 — #3679)",
+    "",
+    "Next steps:",
+    "  git push origin {PR_BRANCH}",
+    "  gh pr create --base {TARGET} --head {PR_BRANCH}",
     "",
     "Or use $gsd-ship to create the PR automatically.",
     "```",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
     "",
     "</step>",
     "",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 898,
+  "lines": 643,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,8 +195,8 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:bfe6e41a06772ef95389f33198dd04192cba53d0729c9288f1d8c42b3de61638",
+    "digest": "sha256:aad03b1039329a3e2457e1f75f45c29e5786173f222dfb736f925a1d88dd1065",
     "prompt": "@gsd/core@VERSION:pr_branch"
   },
-  "sha256": "bfe6e41a06772ef95389f33198dd04192cba53d0729c9288f1d8c42b3de61638"
+  "sha256": "aad03b1039329a3e2457e1f75f45c29e5786173f222dfb736f925a1d88dd1065"
 }

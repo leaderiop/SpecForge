@@ -35,9 +35,6 @@
     "",
     "```bash",
     "",
-    "",
-    "",
-    "",
     "# the commands below are specforge commands: there is no launcher to define",
     "",
     "INIT=$(specforge query \"$MILESTONE\" --depth 1 --format json)",
@@ -59,9 +56,12 @@
     "specforge query \"$MILESTONE\" --kinds phase --format json",
     "```",
     "",
-    "- Parse version from arguments or detect current from ROADMAP.md"
+    "- Parse version from arguments or detect current from ROADMAP.md",
+    "- Identify all phase directories in scope",
+    "- Extract milestone definition of done from ROADMAP.md",
+    "- Extract requirements mapped to this milestone from REQUIREMENTS.md"
   ],
-  "bytes": 24817,
+  "bytes": 24814,
   "end": [
     "",
     "<success_criteria>",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 607,
+  "lines": 604,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:4b7c407bf8d0c381beabab74419f8360e4d8cc90d741eec8d277cb257a2d9799",
+    "digest": "sha256:0e140829ff04803bdbbf01a95df6207f2feb8cb7398cab63c535a39013c33de5",
     "prompt": "@gsd/core@VERSION:audit_milestone",
     "steps": [
       {
@@ -218,5 +218,5 @@
     ],
     "subject": "v1.0"
   },
-  "sha256": "4b7c407bf8d0c381beabab74419f8360e4d8cc90d741eec8d277cb257a2d9799"
+  "sha256": "0e140829ff04803bdbbf01a95df6207f2feb8cb7398cab63c535a39013c33de5"
 }

@@ -56,28 +56,8 @@ The workflow's Step 1 reads the typed values (`--jobs`, `--validate`, `--researc
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 **If `--jobs` is neither `auto` nor a number,** Step 1 prints why and stops: no `BATCH.json`, no
 dispatch.
-
-
 
 **If `--resume <batch-id>` is present:** proceed straight to the workflow's
 resume path — it loads the batch via `quick-batch resume` and dispatches only

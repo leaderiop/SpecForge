@@ -77,6 +77,29 @@ fn no_span_waits_for_resync() {
     assert!(waiting.is_empty(), "spans to re-port: {waiting:#?}");
 }
 
+/// Deleted upstream text leaves no padding: an own span whose upstream side has words and whose own side has none
+/// keeps at most one line, a paragraph break (ADR 0332 D5).
+#[test]
+fn no_deleted_span_keeps_blank_padding() {
+    let mut padded = Vec::new();
+    for asset in port_map::assets() {
+        let (up, _) = port_map::upstream_body(port_map::upstream_path(&asset));
+        let own = port_map::asset_body(&asset);
+        for span in port_map::map(&asset) {
+            if let port_map::Span::Own {
+                asset: a, up: u, ..
+            } = span
+                && a.len() > 1
+                && port_map::words(&own[a.clone()]).is_empty()
+                && !port_map::words(&up[u]).is_empty()
+            {
+                padded.push(format!("{asset}: body lines {}..{}", a.start, a.end));
+            }
+        }
+    }
+    assert!(padded.is_empty(), "blank padding: {padded:#?}");
+}
+
 #[test]
 fn a_span_map_tiles_both_bodies() {
     use port_map::Span;

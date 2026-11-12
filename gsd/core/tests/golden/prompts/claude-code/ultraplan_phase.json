@@ -61,7 +61,7 @@
     "fi",
     "```"
   ],
-  "bytes": 20052,
+  "bytes": 20049,
   "end": [
     "| Phase | Status | Plans | Progress |",
     "|-------|--------|-------|----------|",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 617,
+  "lines": 614,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:93720da65de076cac9c7168f4c3845b3aaed78a83b87bf617ced18f9e36a0371",
+    "digest": "sha256:c9c9b58b1fe7c479d9437e5de42263db7f24c221245ce5121324e00403b70741",
     "prompt": "@gsd/core@VERSION:ultraplan_phase",
     "steps": [
       {
@@ -213,5 +213,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "93720da65de076cac9c7168f4c3845b3aaed78a83b87bf617ced18f9e36a0371"
+  "sha256": "c9c9b58b1fe7c479d9437e5de42263db7f24c221245ce5121324e00403b70741"
 }

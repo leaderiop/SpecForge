@@ -116,8 +116,6 @@ fi
 # Zero-applicable guard: surface a likely classification miss loudly (spec-phase 5.5:277 shape).
 # Read the report: check its { items[], coverage{} } shape; coverage.applicable 0 is likely a classification miss: say so
 
-
-
 ```
 
 **Edge `--auto` resolution rules (reuse spec-phase 5.5 verbatim, D-06):** auto-`resolved`

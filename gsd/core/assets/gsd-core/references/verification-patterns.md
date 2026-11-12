@@ -319,9 +319,6 @@ export function useUser() {
 The variable is defined in the environment the checks run in, and its value is neither empty
 nor a placeholder: `your-…-here`, `xxx`, `placeholder` or `todo`, in any case.
 
-
-
-
 # Value looks valid for type:
 # - URLs should start with http
 # - Keys should be long enough

@@ -27,16 +27,12 @@ When you need library or framework documentation, check in this order:
    # ctx7 is the user's own program, not part of SpecForge or @gsd/core: exit 127 means it is not installed
    specforge run -- ctx7 library <name> "<query>"
 
-
-
    ```
 
    Step 2 — Fetch documentation:
    ```bash
    # ctx7 is the user's own program, not part of SpecForge or @gsd/core: exit 127 means it is not installed
    specforge run -- ctx7 docs <libraryId> "<query>"
-
-
 
    ```
 
@@ -483,10 +479,6 @@ if [ "$DETACHED" = true ]; then
 fi
 # #3819: the protected set and the override git.allow_default_branch_commits are the answer's.
 
-
-
-
-
 if [ "$BLOCKS" != "false" ]; then
   echo "FATAL: refusing to commit — HEAD is on '$ACTUAL_BRANCH' (protected/default branch)." >&2
   echo "Re-home onto a phase/agent branch (#2924, #3819); override: the setting git.allow_default_branch_commits (specforge settings set @gsd/core git.allow_default_branch_commits true)." >&2
@@ -716,7 +708,6 @@ specforge gsd record-window stub "${PHASE_NUMBER}" \
   --file "<path-relative-to-repo-root>" \
   --line "<line-number-or-omit>"
 
-
 ```
 
 Use `skipped_test` as the kind for a `t.skip(...)` / `test.todo(...)` you left behind, `unrun_verify` for a `<verify>` you could not run, or `deviation` for a documented plan deviation. The full kind vocabulary: `stub | todo | fixme | skipped_test | lint_warning | unmet_truth | unrun_verify | deviation`.
@@ -795,20 +786,6 @@ with `specforge new decision`.
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <final_commit>
 This commit must re-run the Step 0 assertion above (#3819).
 ```bash
@@ -837,17 +814,6 @@ Separate from per-task commits — captures execution results only.
 the `.spec` files out of git history; force-staging them is forbidden — that bug is exactly the regression #3678
 reported, where the agent leaks planning artifacts into the user's project history.
 </final_commit>
-
-
-
-
-
-
-
-
-
-
-
 
 </final_commit>
 

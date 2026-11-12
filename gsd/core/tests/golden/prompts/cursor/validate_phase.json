@@ -36,12 +36,8 @@
     "",
     "```bash",
     "",
-    "",
-    "",
-    "",
     "# the commands below are specforge commands: there is no launcher to define",
     "RESPONSE_LANGUAGE=\"\"   # response_language (the settings)",
-    "",
     "",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)",
     "",
@@ -59,9 +55,13 @@
     "",
     "Resolve active step hooks from `VERIFY_POST_HOOKS_JSON` where `kind == \"step\"` and `ref.skill == \"validate-phase\"`.",
     "",
-    "If no active validate-phase step hook exists: exit with \"Nyquist validation is disabled. Enable via /gsd-settings.\""
+    "If no active validate-phase step hook exists: exit with \"Nyquist validation is disabled. Enable via /gsd-settings.\"",
+    "",
+    "Display banner: `GSD > VALIDATE PHASE {N}: {name}`",
+    "",
+    "## 1. Detect Input State"
   ],
-  "bytes": 19107,
+  "bytes": 19103,
   "end": [
     "```",
     "GSD > PHASE {N} VALIDATED (PARTIAL)",
@@ -186,7 +186,7 @@
     "```json",
     "{"
   ],
-  "lines": 427,
+  "lines": 423,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:850e617a73b2b320092e3e0319f70ae3fea5de39c1995e386ed5d9a337962616",
+    "digest": "sha256:4d7676a6e0bbc2647fe42c2899ede9f287686583a434ebe30a2484a4b80b4695",
     "prompt": "@gsd/core@VERSION:validate_phase",
     "steps": [
       {
@@ -220,5 +220,5 @@
     ],
     "subject": "v1.0/02"
   },
-  "sha256": "850e617a73b2b320092e3e0319f70ae3fea5de39c1995e386ed5d9a337962616"
+  "sha256": "4d7676a6e0bbc2647fe42c2899ede9f287686583a434ebe30a2484a4b80b4695"
 }

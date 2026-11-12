@@ -92,11 +92,6 @@ For each phase, extract what it provides and what it should consume.
 # Key exports from each phase: the summary entities (each one's key_files and what it provides)
 specforge query "$MILESTONE" --depth 3 --kinds summary --format json
 
-
-
-
-
-
 ```
 
 **Build provides/consumes map:**
@@ -165,8 +160,6 @@ Check that API routes have consumers.
 specforge files list src/app/api --kind file --glob route.ts --pick '.entries[].path' 2>/dev/null
 # A route's URL is /api and the route's directory below src/app/api:
 # src/app/api/users/[id]/route.ts serves /api/users/[id].
-
-
 
 # Next.js Pages Router
 specforge files list src/pages/api --kind file --glob '*.ts' --pick '.entries[].path' 2>/dev/null

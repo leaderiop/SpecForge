@@ -52,16 +52,16 @@
     "",
     "```bash",
     "",
-    "",
-    "",
-    "",
     "# the commands below are specforge commands: there is no launcher to define",
     "",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)",
     "",
-    "```"
+    "```",
+    "",
+    "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id; `name` is its field). `response_language` is a setting: `specforge settings --format json --extension @gsd/core`.",
+    ""
   ],
-  "bytes": 22175,
+  "bytes": 22172,
   "end": [
     "",
     "---",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 570,
+  "lines": 567,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:c3f9115211eeec608137fa9726753f5043b9d55629f17de319c5c5f9367c7a5e",
+    "digest": "sha256:d1597d7a94226ae37de6dba06637fc1473d94550050fc50b01598a4d1771d51a",
     "prompt": "@gsd/core@VERSION:add_tests",
     "subject": "v1.0/02"
   },
-  "sha256": "c3f9115211eeec608137fa9726753f5043b9d55629f17de319c5c5f9367c7a5e"
+  "sha256": "d1597d7a94226ae37de6dba06637fc1473d94550050fc50b01598a4d1771d51a"
 }

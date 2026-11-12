@@ -99,10 +99,6 @@ This runs in parallel - all gaps investigated simultaneously.
 
 ```bash
 
-
-
-
-
 AGENT_SKILLS_DEBUGGER=""   # the host install carries the skills of gsd-debugger
 EXPECTED_BASE=$(specforge git head --pick .sha)
 ```

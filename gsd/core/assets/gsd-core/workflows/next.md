@@ -273,27 +273,9 @@ Parse the arguments passed to this workflow to detect the plan strategy and buil
 
 ```bash
 
-
-
-
 PLAN_STRATEGY=local; [ "{{arg:converge|false}}" = true ] && PLAN_STRATEGY=converge
 
-
-
-
 CONVERGENCE_ARGS=""
-
-
-
-
-
-
-
-
-
-
-
-
 
 ```
 

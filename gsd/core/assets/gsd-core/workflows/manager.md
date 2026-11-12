@@ -21,9 +21,6 @@ Bootstrap via manager init:
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 
 INIT=$(specforge gsd progress-report --format json)
@@ -68,10 +65,6 @@ Proceed to dashboard step.
 **Every time this step is reached**, re-read state from disk to pick up changes from background agents:
 
 ```bash
-
-
-
-
 
 INIT=$(specforge gsd progress-report --format json)
 

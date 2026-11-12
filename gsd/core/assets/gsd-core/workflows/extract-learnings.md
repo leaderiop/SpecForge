@@ -20,11 +20,7 @@ Parse arguments and load project state:
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
-
 
 INIT=$(specforge query "$PHASE_ID" --depth 2 --format json)
 PHASE_NUMBER="${PHASE_ID##*/}"   # the phase number is the last segment of its id
@@ -205,11 +201,6 @@ Rebuild the estimate-vs-actual calibration from every completed phase (#2632, AD
 This step is not available here: the planner's estimate correction is a gap, so there is no calibration
 to rebuild and no `factor`, `sample_count` or `confidence` to report.
 Skip this step, and leave it out of the report.
-
-
-
-
-
 
 
 Phases missing either side are skipped rather than guessed: a fabricated sample would

@@ -44,11 +44,7 @@
     "",
     "```bash",
     "",
-    "",
-    "",
-    "",
     "# the commands below are specforge commands: there is no launcher to define",
-    "",
     "",
     "INIT=$(specforge gsd progress-report --format json)",
     "",
@@ -59,9 +55,13 @@
     "```bash",
     "DISCUSS_MODE=\"discuss\"   # workflow.discuss_mode (the settings)",
     "```",
+    "",
+    "**If `init_incomplete` is true (#4040 — interrupted bootstrap):**",
+    "",
+    "the spec exists but the core initialization artifacts are missing (one or more of `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md` were never created — a bootstrap that stopped partway, e.g. after PROJECT.md). This is NOT a new project, NOT a missing STATE.md, and NOT a between-milestones state — do not fall through to any of those routes. Route to initialization recovery:",
     ""
   ],
-  "bytes": 68537,
+  "bytes": 68514,
   "end": [
     "| 3     | ○      | 0/2   | 0%       |",
     "```",
@@ -186,7 +186,7 @@
     "  \"gates.confirm_milestone_scope\": true,",
     "  \"gates.confirm_transition\": true,"
   ],
-  "lines": 1659,
+  "lines": 1636,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,7 +195,7 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:daa520fc6ce3e7ff9584fb3d733e8537daad8b15f4896a8887e0be1462076a56",
+    "digest": "sha256:ff0da2c3a86146cdcd88b1fc318d37d1dfea9a3b91ec3350a7c7a8edcbd7961f",
     "prompt": "@gsd/core@VERSION:progress",
     "steps": [
       {
@@ -207,5 +207,5 @@
       }
     ]
   },
-  "sha256": "daa520fc6ce3e7ff9584fb3d733e8537daad8b15f4896a8887e0be1462076a56"
+  "sha256": "ff0da2c3a86146cdcd88b1fc318d37d1dfea9a3b91ec3350a7c7a8edcbd7961f"
 }

@@ -7,19 +7,6 @@ unlike planning/research above.
 
 No fork base to check: no worktree is created, so nothing degrades to sequential mode.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 **Effective concurrency for this MUTATING wave** (sequential mode runs
 one item at a time regardless of `--jobs`/capacity — row 6):
 ```bash
@@ -65,8 +52,6 @@ QB_FILTER_JSON='{"spawnEligible":[],"alreadyExecuted":[]}'   # quick-batch filte
    working tree, and Step 9 completes any `pending` item whose summary exists,
    independent of this eligible/spawn list — dropping it here only prevents
    the duplicate dispatch, it does not remove it from the batch.
-
-
 
 2. **Backpressure.** Not every eligible item necessarily spawns this round —
    cap fan-out at `$EXEC_CONCURRENCY` minus current in-flight count (row
@@ -127,34 +112,6 @@ QB_SPAWN_JSON='{"spawn":[],"pending":[]}'   # quick-batch spawn-plan: the batch 
    )
    ```
    No worktree is created or recorded: the executor commits on the working tree, so Step 7 has nothing to merge.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

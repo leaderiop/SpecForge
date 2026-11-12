@@ -18,12 +18,8 @@ Valid GSD subagent types (use exact names — do not fall back to 'general-purpo
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 RESPONSE_LANGUAGE="{{setting:response_language|}}"   # response_language (the settings)
-
 
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 

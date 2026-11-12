@@ -20,14 +20,6 @@ No AI CLI is probed: a selected lane runs its CLI through `specforge run --`, wh
 # the commands below are specforge commands: there is no launcher to define
 # no CLI is probed: each lane runs its own (claude, codex, coderabbit, opencode, qwen, cursor-agent, agy, kimi)
 
-
-
-
-
-
-
-
-
 # Check local model servers (OpenAI-compatible HTTP API — no CLI binary required);
 # hosts come from the review.*_host settings (there is no lane descriptor: no lane runner here)
 for lane in "ollama http://localhost:11434 {{setting:review.ollama_host|}}" "lm_studio http://localhost:1234 {{setting:review.lm_studio_host|}}" "llama_cpp http://localhost:8080 {{setting:review.llama_cpp_host|}}"; do read -r name def host <<<"$lane"; { [ -z "$host" ] || [ "$host" = null ]; } && host=$def; [ "$(specforge http get "$host/v1/models" --timeout 2s --pick .ok 2>/dev/null)" = true ] && echo "$name:available" || echo "$name:missing"; done
@@ -36,8 +28,6 @@ for lane in "ollama http://localhost:11434 {{setting:review.ollama_host|}}" "lm_
 # a structured lane answer (an OpenAI-compatible /v1/chat/completions response,
 # opencode's JSONL event stream, agy's conversation cache) is written raw to the
 # lane's output file for the agent to read, so no lane has a jq prerequisite.
-
-
 
 ```
 
@@ -50,14 +40,6 @@ depends on how the lane was selected (see the precedence rules below): reached
 through `review.default_reviewers` or `--all` it is an info note and the lane is
 ignored; named by an explicit flag it is an **error**, because the user asserted
 that lane.
-
-
-
-
-
-
-
-
 
 
 Parse flags from `$ARGUMENTS`:
@@ -149,13 +131,7 @@ Collect phase artifacts for the review prompt:
 
 ```bash
 
-
-
-
-
-
 INIT=$(specforge query "$PHASE_ID" --depth 2 --format json)
-
 
 # #2358: ONE run-scoped temp dir (portable via ${TMPDIR:-/tmp}) so overlapping
 # runs never collide or read each other's stale files.
@@ -430,17 +406,10 @@ prepare_trimmed_prompt_for_reviewer() {
 
   : # prompt-budget: the installed agent carries its limits, so no reviewer prompt is trimmed
 
-
-
-
-
-
   return $?
 }
 
 : # review-lane plan: the lanes are the reviewers selected above; there is no lane manifest to resolve
-
-
 
 # One lane, start to finish. Hoisted into a function so the sequential and concurrent paths share
 # ONE body: two dispatch bodies kept in sync by hand is the generative-fix divergence ADR-2782 spent
@@ -460,7 +429,6 @@ run_review_lane() {
   # applying #2797's sentinel rule (-1 = unset → fall back to the global budget; 0 legitimately
   # means "do not trim this lane"). Trimming itself stays in prompt-budget, which owns it.
   LANE_BUDGET=""   # prompt-budget: the installed agent carries its limits, so no lane is trimmed
-
 
   PROMPT_ARG=""
   if [ -n "$LANE_BUDGET" ] && [ "$LANE_BUDGET" != "null" ] && [ "$LANE_BUDGET" -gt 0 ] 2>/dev/null; then
@@ -659,16 +627,6 @@ done
 # slug onto one iteration there whenever 2+ reviewers were selected.
 # @gsd/core installs no runtime lib (#5640): the check below is `specforge gsd plan-coverage`, which escapes no regex
 
-
-
-
-
-
-
-
-
-
-
 for SLUG in $(printf '%s' "$DISPATCH_SLUGS"); do
   [ "$SLUG" = "coderabbit" ] && continue
   REVIEW_FILE="$RUN_DIR/gsd-review-$SLUG.md"
@@ -678,19 +636,6 @@ for SLUG in $(printf '%s' "$DISPATCH_SLUGS"); do
   specforge files search -q -F "failed or returned empty output" "$REVIEW_FILE" 2>/dev/null && continue
 
   specforge gsd plan-coverage "$PHASE_ID" --review "$(< "$REVIEW_FILE")" --format json > "$RUN_DIR/.plan-coverage-$SLUG.json" || { echo "⚠ plan-coverage failed for $SLUG (see the error above; the review is passed as an argument, and a command line over the platform's limit, 32,767 characters on Windows, cannot be run): its coverage is unknown" >&2; printf '%s\n' '{"complete":false,"missing_ids":null,"total":null,"error":"plan-coverage failed"}' > "$RUN_DIR/.plan-coverage-$SLUG.json"; }   # the phase's plans, each id standing alone in the review; a failed check is an incomplete report, never an empty one
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 done
 ```
@@ -891,40 +836,6 @@ done < <(specforge files list "$RUN_DIR" --glob 'gsd-review-{prompt,instructions
 # what is left is evidence: a lane's report or stub, and a stderr file with text; a failed listing
 # leaves its files, and an unread count keeps the directory
 _EVIDENCE=$(specforge files list "$RUN_DIR" --glob 'gsd-review-*.{md,err}' --pick '.entries[].path' --count) || _PRESERVE_OK=false
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 if [ "$_PRESERVE_OK" != "true" ]; then
   echo "WARNING: a review input could not be removed — leaving the run directory intact at: $RUN_DIR" >&2

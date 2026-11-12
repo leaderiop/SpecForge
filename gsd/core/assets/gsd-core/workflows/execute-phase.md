@@ -89,11 +89,6 @@ Load all context in one call:
 
 ```bash
 
-
-
-
-
-
 INIT=$(specforge query "$PHASE_ID" --depth 1 --format json)
 
 AGENT_SKILLS=""   # the host install carries the skills of gsd-executor
@@ -128,25 +123,9 @@ EXECUTOR_STALL_THRESHOLD_MINUTES="{{setting:executor.stall_threshold_minutes|10}
 
 # every plan dispatches in sequential mode: there is no isolation to resolve
 
-
-
-
 ```
 
 Executors run in sequential mode on the working tree: `@gsd/core` has no worktree isolation (no submodule check, no base-check degrade).
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -187,22 +166,10 @@ inline path for each plan.
 **REQUIRED — Sync chain flag with intent.** If user invoked manually (no `--auto`), clear the ephemeral chain flag from any previous interrupted `--auto` chain. This prevents stale `_auto_chain_active: true` from causing unwanted auto-advance. This does NOT touch `workflow.auto_advance` (the user's persistent settings preference). You MUST execute this bash block before any config reads:
 ```bash
 
-
-
-
-
-
-
-
 ```
 
 Resolve `MVP_MODE` once via the centralized `phase.mvp-mode` query verb (precedence chain: CLI flag → ROADMAP `**Mode:** mvp` → `workflow.mvp_mode` config → false):
 ```bash
-
-
-
-
-
 
 MVP_MODE=$([ "$(specforge query "$PHASE_ID" --depth 0 --pick '.nodes[0].fields.mode')" = mvp ] && echo true || echo false)
 EXECUTE_POST_HOOKS_JSON=$(for c in ai codebase ops security ui; do specforge gsd "$c-hooks" execute:post --pick . 2>/dev/null || [ $? -eq 2 ] || echo "⚠ $c-hooks failed: its hooks are left out" >&2; done)   # one compact JSON answer per line, one per capability extension: its activeHooks / skippedHooks are those of every line, in order
@@ -606,14 +573,6 @@ increases monotonically across waves. `{status}` is `complete` (success),
    - Bad: "Executing terrain generation plan"
    - Good: "Procedural terrain generator using Perlin noise — creates height maps and biome zones. Required before vehicle physics."
 
-
-
-
-
-
-
-
-
 2.75. **Execute:wave:pre capability dispatch:**
 
    ```bash
@@ -636,7 +595,6 @@ increases monotonically across waves. `{status}` is `complete` (success),
    **Substitute `{plan_id}` in the prompt below with this plan's `id` field** from the `phase-plan-index` JSON loaded in step 1 (the same field referred to elsewhere in this workflow as `plan.id`) — unmodified and un-truncated, never a paraphrase.
 
 
-
    **Executor routing (#1689/#3370).** Per plan, run `gsd-core/workflows/execute-phase/steps/per-plan-executor-routing.md` to set `EXECUTOR_TYPE` for `subagent_type="{EXECUTOR_TYPE}"` below.
 
    **TDD-applicability resolution (#4266/#4272).** Run `gsd-core/workflows/execute-phase/steps/tdd-applicability-resolution.md`.
@@ -647,27 +605,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
    ```bash
    EXPECTED_BASE=$(specforge git head --pick .sha)
 
-
-
-
-
-
-
-
-
-
-
-
    ```
-
-
-
-
-
-
-
-
-
 
 
 
@@ -681,9 +619,6 @@ increases monotonically across waves. `{status}` is `complete` (success),
      # Claude Code inherits the orchestrator model automatically.
      model="{executor_model}",  # omit this line when executor_model == "inherit"
 
-
-
-
      prompt="
        <objective>
        Execute plan {plan_number} of phase {phase_number}-{phase_name}.
@@ -691,10 +626,6 @@ increases monotonically across waves. `{status}` is `complete` (success),
        Commit each task atomically. Create SUMMARY.md.
        Do NOT update STATE.md or ROADMAP.md — the orchestrator owns those writes after every plan in the wave completes (sequential mode).
        </objective>
-
-
-
-
 
 
        <parallel_execution>
@@ -765,10 +696,7 @@ increases monotonically across waves. `{status}` is `complete` (success),
 
 
 
-
-
    > **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above to spawn executor agent(s), stop working on this task immediately. Do not read more files, edit code, or run tests related to this task while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available. While waiting, run the step-4 completion surveillance; if the child's session ends abnormally — including `turn_aborted` — reconcile artifacts per `execute-phase/steps/completion-reconciliation.md` before classifying the plan (#4217).
-
 
 
    **Sequential mode** (every plan):
@@ -847,74 +775,6 @@ increases monotonically across waves. `{status}` is `complete` (success),
 5.5. **Worktree cleanup (when `isolation="worktree"` was used):**
 
    No worktree was created: there is nothing to merge back or clean up.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1352,29 +1212,6 @@ Copy failure must NOT block phase completion.
 
 ```bash
 : # todos are @gsd/ops entities: with @gsd/core alone there is none to close
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ```
 

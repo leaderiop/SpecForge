@@ -52,16 +52,16 @@
     "",
     "```bash",
     "",
-    "",
-    "",
-    "",
     "# the commands below are specforge commands: there is no launcher to define",
     "",
     "INIT=$(specforge query \"$PHASE_ID\" --depth 1 --format json)",
     "",
-    "```"
+    "```",
+    "",
+    "Read from the answer: the node whose `id` is `$PHASE_ID` is the phase (its number is the last segment of that id; `name` is its field). `response_language` is a setting: `specforge settings --format json --extension @gsd/core`.",
+    ""
   ],
-  "bytes": 30647,
+  "bytes": 30644,
   "end": [
     "",
     "---",
@@ -186,7 +186,7 @@
     "",
     "Generic-agent workaround (multi_agent_v1 schema — NO agent_type field):"
   ],
-  "lines": 688,
+  "lines": 685,
   "payload": {
     "attribution": {
       "copyright": "Copyright (c) 2026 Open GSD",
@@ -195,9 +195,9 @@
       "upstream": "gsd-core",
       "version": "v1.19.0"
     },
-    "digest": "sha256:a7b7991d7e8d3fd0f2fb21f64bd4c4b78c26ba115e53a9546fd3eb3122ab95f9",
+    "digest": "sha256:83824f2b7fe297518f850c660be0a88970a7f66525598e4328f326398fab6a13",
     "prompt": "@gsd/core@VERSION:add_tests",
     "subject": "v1.0/02"
   },
-  "sha256": "a7b7991d7e8d3fd0f2fb21f64bd4c4b78c26ba115e53a9546fd3eb3122ab95f9"
+  "sha256": "83824f2b7fe297518f850c660be0a88970a7f66525598e4328f326398fab6a13"
 }

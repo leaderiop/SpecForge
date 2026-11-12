@@ -12,9 +12,6 @@ Designed for team onboarding — a new contributor can read the output and under
 
 ```bash
 
-
-
-
 VERSION="{{arg:milestone|$MILESTONE}}"; VERSION=${VERSION#v}   # --milestone, else the milestone the run is about
 ```
 
@@ -61,9 +58,6 @@ Find all phases of the milestone:
 
 ```bash
 
-
-
-
 # the commands below are specforge commands: there is no launcher to define
 
 specforge gsd progress-report --format json
@@ -102,8 +96,6 @@ FIRST=$(specforge collect --runner gsd-git --yes >/dev/null 2>&1; specforge quer
 
 **Method 3 — Earliest recorded commit** (if no date was recorded):
 `first_commit` is the milestone's first recorded commit, so Method 2 has already read it.
-
-
 
 An empty `first_commit` means no commit is recorded.
 
@@ -193,8 +185,6 @@ Present as a bulleted list of decisions with brief rationale:
 
 **Nothing is written:** the summary is shown and not stored, so there is no earlier summary to overwrite and no reports directory to create.
 
-
-
 There is no commit either: the summary is not a file.
 ```bash
 : # no reports directory and no commit: the summary is not a file
@@ -231,6 +221,5 @@ If the user is done:
 
 ```bash
 : # state.record-session: the project state is computed from the entities, so there is nothing to record
-
 
 ```
