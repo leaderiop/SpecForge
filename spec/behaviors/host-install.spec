@@ -57,6 +57,7 @@ behavior install_into_a_host "Install Into a Host" {
   verify unit "a human-attested or refused extension command is never granted"
   verify unit "a non-empty tool declaration that resolves to no SpecForge tool keeps its host classes and specforge:query, never an empty list"
   verify unit "the SpecForge tools section names each tool by its MCP name, its CLI line or MCP only, and when to use it"
+  verify unit "Claude Code names an engine tool class as it names an MCP tool of the specforge server"
   verify unit "install writes the tree and a second install writes nothing"
   verify unit "install refuses a file it did not write and writes nothing"
   verify unit "install refuses a marked file edited since unless forced"

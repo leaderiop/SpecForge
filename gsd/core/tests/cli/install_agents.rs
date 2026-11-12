@@ -4,7 +4,7 @@
 use sha2::{Digest, Sha256};
 use std::path::Path;
 
-use super::agents::{claude_agent, installed, split};
+use super::agents::{claude_agent, installed, split, value};
 use super::harness::project;
 use super::install_hosts::normalised;
 use gsd_core::agents::repointed;
@@ -202,4 +202,64 @@ fn the_installed_agents_name_at_least_twelve_engine_tools() {
         }
     }
     assert!(named.len() >= 12, "{} graph tools: {named:?}", named.len());
+}
+
+/// Claude Code grants an installed agent its upstream tools and its role's SpecForge tools by name, never the whole
+/// server; every installed agent and skill that lists tools names at least one of SpecForge's.
+#[test]
+fn an_installed_agent_is_granted_only_its_roles_specforge_tools() {
+    use specforge_extension_sdk::engine_tools::ENGINE_TOOLS;
+    let p = project("empty");
+    installed(&p, "claude-code");
+    let checker = claude_agent(&p, "gsd-plan-checker");
+    let (front, _) = split(&checker);
+    let tools = value(&front, "tools").expect("a tools line");
+    // The checker's reads and the judge's inputs, in catalogue order, then the command recording a verdict.
+    let granted: Vec<&str> = gsd_kit::agent::CHECKER
+        .reads
+        .iter()
+        .chain(&["specforge:verdict_inputs"])
+        .map(|c| c.trim_start_matches("specforge:"))
+        .collect();
+    let mut want: Vec<String> = ["Read", "Bash", "Glob", "Grep", "Skill"]
+        .map(String::from)
+        .to_vec();
+    want.extend(
+        ENGINE_TOOLS
+            .iter()
+            .filter(|t| granted.contains(&t.name))
+            .map(|t| format!("mcp__specforge__specforge_{}", t.name)),
+    );
+    want.push("mcp__specforge__specforge_gsd_record_verdict".into());
+    assert_eq!(tools.split(", ").collect::<Vec<_>>(), want);
+
+    let root = p.root().join(".claude");
+    let mut files = Vec::new();
+    for dir in ["agents", "skills"] {
+        let mut stack = vec![root.join(dir)];
+        while let Some(at) = stack.pop() {
+            for entry in std::fs::read_dir(&at).expect("a folder") {
+                let path = entry.expect("an entry").path();
+                if path.is_dir() {
+                    stack.push(path);
+                } else {
+                    files.push(path);
+                }
+            }
+        }
+    }
+    assert!(files.len() > 60, "{} files", files.len());
+    for path in files {
+        let text = std::fs::read_to_string(&path).expect("a file");
+        assert!(!text.contains("mcp__specforge__*"), "{}", path.display());
+        let (front, _) = split(&text);
+        let lists = value(&front, "tools").is_some() || text.contains("\nallowed-tools:\n");
+        if lists {
+            assert!(
+                text.contains("mcp__specforge__specforge_"),
+                "{} grants no SpecForge tool",
+                path.display()
+            );
+        }
+    }
 }

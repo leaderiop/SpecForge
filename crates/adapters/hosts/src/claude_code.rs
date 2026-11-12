@@ -12,7 +12,7 @@ use specforge_protocol_types::HookEvent;
 use crate::hook_json;
 use crate::json_merge;
 use crate::markdown::{document, field, list};
-use crate::tools::{claude_class, claude_names, unique};
+use crate::tools::{MCP_SERVER, claude_class, claude_names, unique};
 use crate::trampoline;
 
 const SETTINGS: &str = ".claude/settings.json";
@@ -22,13 +22,6 @@ pub struct ClaudeCode;
 
 fn names(classes: &[String]) -> Vec<String> {
     unique(classes.iter().flat_map(|c| claude_names(c)))
-}
-
-/// A tool list that always lets the agent call SpecForge's own MCP tools.
-fn with_specforge(classes: &[String]) -> Vec<String> {
-    let mut out = names(classes);
-    out.push("mcp__specforge__*".to_string());
-    unique(out)
 }
 
 fn model(choice: &ModelChoice) -> Option<String> {
@@ -94,7 +87,7 @@ impl HostRenderer for ClaudeCode {
         for a in &rendered.agents {
             let mut front = field("name", &a.id) + &field("description", &a.description);
             if !a.tools.is_empty() {
-                front += &field("tools", &with_specforge(&a.tools).join(", "));
+                front += &field("tools", &names(&a.tools).join(", "));
             }
             if let Some(m) = model(&a.model) {
                 front += &field("model", &m);
@@ -117,7 +110,7 @@ impl HostRenderer for ClaudeCode {
         for s in &rendered.skills {
             let mut front = field("name", &s.id) + &field("description", &s.description);
             if !s.tools.is_empty() {
-                front += &list("allowed-tools", &with_specforge(&s.tools));
+                front += &list("allowed-tools", &names(&s.tools));
             }
             if let Some(h) = &s.argument_hint {
                 front += &field("argument-hint", h);
@@ -136,7 +129,7 @@ impl HostRenderer for ClaudeCode {
             if let Some(h) = &s.argument_hint {
                 front += &field("argument-hint", h);
             }
-            front += &list("allowed-tools", &with_specforge(&s.tools));
+            front += &list("allowed-tools", &names(&s.tools));
             // `effort` is not written: upstream #3151, ADR 0317 D2.
             tree.owned.push(file(
                 host,
@@ -192,7 +185,7 @@ impl HostRenderer for ClaudeCode {
             path: MCP.into(),
             entries: vec![MergedEntry {
                 keys: vec!["mcpServers".into()],
-                name: Some("specforge".into()),
+                name: Some(MCP_SERVER.into()),
                 value: json!({"command": "specforge", "args": ["mcp", "."]}),
             }],
         });
@@ -215,7 +208,7 @@ impl HostRenderer for ClaudeCode {
         made: &[Vec<String>],
     ) -> Result<Merged, String> {
         let status: [json_merge::Named<'_>; 1] = [(&[], "statusLine")];
-        let mcp: [json_merge::Named<'_>; 1] = [(&["mcpServers"], "specforge")];
+        let mcp: [json_merge::Named<'_>; 1] = [(&["mcpServers"], MCP_SERVER)];
         json_merge::merge(
             existing,
             entries,

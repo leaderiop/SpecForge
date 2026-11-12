@@ -28,6 +28,25 @@ A slash command is a skill named `<short>-<route>` holding a trampoline: it call
 through its own surface (the MCP tool, or the CLI without the MCP server), so the workflow, its gates and its writes
 are the same as from any other surface.
 
+## Which SpecForge tools an agent gets
+
+An agent, skill or slash command names SpecForge's own tools in its `tools` as `specforge:<tool>` (`specforge:trace`),
+`specforge:<group>` (`reads`, `navigation`, `edits`, `output`, `setup`) or `specforge:<short>.<command>` (an
+extension's command); the catalogue is `specforge_protocol_types::engine_tools` (ADR 0334). Install resolves them. One
+that names none gets the read and navigation tools, the edit and output tools when it holds `write` or `edit`, and its
+extension's own commands; a slash command also gets the tool its trampoline calls. A setup tool (`init`, `add`,
+`remove`, `migrate`, `settings set`, …) and a human-attested command are granted only by name, and never the latter.
+
+- **Claude Code** lists each resolved tool by name in the agent's `tools` (or the skill's `allowed-tools`):
+  `mcp__specforge__` and the MCP tool's name with every character outside `[A-Za-z0-9_-]` written `_`, so
+  `specforge.trace` is `mcp__specforge__specforge_trace` and `specforge.gsd.record_verdict` is
+  `mcp__specforge__specforge_gsd_record_verdict`. Nothing grants the whole server. The names hold while the server
+  entry is named `specforge`, as install writes it into `.mcp.json`.
+- **Codex and Cursor** carry no per-agent MCP list: their agents see every tool of the server.
+
+On every host, each agent and skill body ends with a generated `## SpecForge tools` section: one line per resolved
+tool, with its MCP name, its CLI line (or "MCP only") and when to use it.
+
 **Codex and Cursor are unverified.** The Claude Code layout and hook protocol follow its documentation. The Codex and
 Cursor file layouts and hook protocols were written from the plan and could not be checked against those hosts here:
 their golden files and recorded hook inputs are the plan's, not the hosts'. Whatever a host cannot take (Cursor's
