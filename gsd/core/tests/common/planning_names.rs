@@ -14,21 +14,12 @@ use super::ledger;
 /// The ledger's rows.
 pub const PLANNING_NAMES: &str = include_str!("planning_names.txt");
 
-/// What a link into the tracked release's blobs starts with: upstream's text, quoted by its address.
-pub fn upstream_blob() -> String {
-    format!(
-        "https://github.com/open-gsd/gsd-core/blob/v{}/",
-        gsd_kit::tracked_version!()
-    )
-}
-
 /// The 0-based lines of `text` that name a GSD file outside a link into the tracked release's blobs, each with the
 /// rows it names (`.planning` among them).
 pub fn naming_lines(text: &str) -> BTreeMap<usize, Vec<&'static str>> {
-    let blob = upstream_blob();
     let quoted: Vec<std::ops::Range<usize>> = gsd_kit::markdown::links(text)
         .into_iter()
-        .filter(|(_, dest)| dest.starts_with(&blob))
+        .filter(|(_, dest)| dest.starts_with(gsd_kit::files::UPSTREAM_BLOB))
         .map(|(range, _)| range)
         .collect();
     let mut out: BTreeMap<usize, Vec<&'static str>> = BTreeMap::new();

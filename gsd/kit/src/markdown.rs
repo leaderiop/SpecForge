@@ -45,6 +45,25 @@ pub struct Table {
     pub line: usize,
 }
 
+/// The inline text of one leaf block: a paragraph, a heading, a list item's own text, or the lines of an HTML block
+/// that are not read again as Markdown.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct InlineBlock {
+    /// Its text as an agent reads it: code spans kept in backticks, a line break as a space, a link as its text.
+    pub text: String,
+    /// The line each byte of `text` comes from.
+    pub lines: Vec<usize>,
+    /// Each link's byte range in `text`, with its destination.
+    pub links: Vec<(Range<usize>, String)>,
+}
+
+impl InlineBlock {
+    fn push(&mut self, text: &str, line: usize) {
+        self.text.push_str(text);
+        self.lines.resize(self.text.len(), line);
+    }
+}
+
 /// Every fenced code block of `text`, from every level, in line order.
 pub fn fences(text: &str) -> Vec<Fence> {
     read(text, Options::empty()).fences
@@ -66,6 +85,11 @@ pub fn links(text: &str) -> Vec<(Range<usize>, String)> {
     read(text, Options::empty()).links
 }
 
+/// The inline text of every leaf block of `text` outside a fence, from every level, in line order.
+pub fn inline_blocks(text: &str) -> Vec<InlineBlock> {
+    read(text, Options::empty()).blocks
+}
+
 /// Every GFM table of `text`, from every level, in line order. A cell is its source text, trimmed, its code spans
 /// kept in backticks and each `\|` unescaped, as GFM reads a cell.
 pub fn tables(text: &str) -> Vec<Table> {
@@ -79,6 +103,7 @@ struct Reading {
     code: Vec<(usize, String)>,
     tables: Vec<Table>,
     links: Vec<(Range<usize>, String)>,
+    blocks: Vec<InlineBlock>,
     /// The text of the last heading read, kept across the fragments read again.
     heading: String,
 }
@@ -102,7 +127,27 @@ fn read_at(frag: &str, base: usize, at: usize, options: Options, out: &mut Readi
     let mut heading: Option<String> = None;
     let mut table: Option<Table> = None;
     let mut row: Vec<String> = Vec::new();
+    let mut block = InlineBlock::default();
+    let mut link: Vec<(usize, String)> = Vec::new();
     for (event, r) in Parser::new_ext(frag, options).into_offset_iter() {
+        let here = base + line(r.start);
+        match &event {
+            Event::Start(Tag::Link { dest_url, .. }) => {
+                link.push((block.text.len(), dest_url.to_string()));
+            }
+            Event::End(TagEnd::Link) => {
+                if let Some((start, dest)) = link.pop() {
+                    block.links.push((start..block.text.len(), dest));
+                }
+            }
+            Event::Start(tag) if !inline(tag) => flush(&mut block, out),
+            Event::End(tag) if !inline_end(*tag) => flush(&mut block, out),
+            Event::Text(text) if fence.is_none() && html.is_none() => block.push(text, here),
+            Event::Code(code) => block.push(&format!("`{code}`"), here),
+            Event::InlineHtml(text) => block.push(text, here),
+            Event::SoftBreak | Event::HardBreak => block.push(" ", here),
+            _ => {}
+        }
         match event {
             Event::Start(Tag::Heading { .. }) => heading = Some(String::new()),
             Event::End(TagEnd::Heading(_)) => {
@@ -178,10 +223,21 @@ fn read_at(frag: &str, base: usize, at: usize, options: Options, out: &mut Readi
                 let Some(start) = html.take() else { continue };
                 let (a, b) = (line(start), last(&(start..r.end)));
                 out.html.push(base + a..base + b + 1);
-                if lines[a].trim_start().starts_with("<!--") {
+                let comment = lines[a].trim_start().starts_with("<!--");
+                let k = if comment {
+                    b + 1
+                } else {
+                    (a..=b).find(|&l| !tag_only(lines[l])).unwrap_or(b + 1)
+                };
+                // the lines not read again are read as they stand
+                for (l, raw) in lines.iter().enumerate().take(k).skip(a) {
+                    block.push(raw, base + l);
+                    block.push(" ", base + l);
+                }
+                flush(&mut block, out);
+                if comment {
                     continue;
                 }
-                let k = (a..=b).find(|&l| !tag_only(lines[l])).unwrap_or(b + 1);
                 // `k > a`: the fragment read again is always shorter, so the reading ends
                 if k > a && k <= b {
                     let end = starts.get(b + 1).copied().unwrap_or(frag.len());
@@ -196,6 +252,43 @@ fn read_at(frag: &str, base: usize, at: usize, options: Options, out: &mut Readi
             }
             _ => {}
         }
+    }
+    flush(&mut block, out);
+}
+
+/// Whether `tag` sits inside a leaf block's text rather than starting a block.
+fn inline(tag: &Tag<'_>) -> bool {
+    matches!(
+        tag,
+        Tag::Emphasis
+            | Tag::Strong
+            | Tag::Strikethrough
+            | Tag::Superscript
+            | Tag::Subscript
+            | Tag::Link { .. }
+            | Tag::Image { .. }
+    )
+}
+
+/// [`inline`] for a closing tag.
+fn inline_end(tag: TagEnd) -> bool {
+    matches!(
+        tag,
+        TagEnd::Emphasis
+            | TagEnd::Strong
+            | TagEnd::Strikethrough
+            | TagEnd::Superscript
+            | TagEnd::Subscript
+            | TagEnd::Link
+            | TagEnd::Image
+    )
+}
+
+/// Ends the leaf block being read: a block with text joins `out`.
+fn flush(block: &mut InlineBlock, out: &mut Reading) {
+    let done = std::mem::take(block);
+    if !done.text.trim().is_empty() {
+        out.blocks.push(done);
     }
 }
 
@@ -214,7 +307,7 @@ fn tag_only(line: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{fences, html_blocks, inline_code, links, tables};
+    use super::{fences, html_blocks, inline_blocks, inline_code, links, tables};
 
     #[test]
     fn a_fence_under_a_section_tag_is_a_fence() {
@@ -323,5 +416,36 @@ mod tests {
         assert_eq!(found[0].1, "https://example.com/CONTEXT.md");
         assert_eq!(&text[found[1].0.clone()], "<https://a.b/c>");
         assert_eq!(found[1].1, "https://a.b/c");
+    }
+
+    #[test]
+    fn a_leaf_block_gives_its_inline_text_by_line() {
+        let text = "<step>\nWrite `STATE.md`\nnow.\n</step>\n\n- one *item*\n  - two [x](https://a.b/x)\n\n```md\nnot prose\n```\n<!-- a note -->\n";
+        let found = inline_blocks(text);
+        let texts: Vec<&str> = found.iter().map(|b| b.text.as_str()).collect();
+        assert_eq!(
+            texts,
+            [
+                "<step> ",
+                // a tag line cannot interrupt a paragraph: it is the paragraph's own text
+                "Write `STATE.md` now. </step>",
+                "one item",
+                "two x",
+                "<!-- a note --> "
+            ]
+        );
+        let write = &found[1];
+        assert_eq!(write.lines.len(), write.text.len());
+        let now = write.text.find("now").expect("now");
+        assert_eq!(
+            (
+                write.lines[0],
+                write.lines[now],
+                write.lines[write.text.len() - 1]
+            ),
+            (1, 2, 3)
+        );
+        assert_eq!(found[3].links, [(4..5, "https://a.b/x".to_string())]);
+        assert_eq!(found[3].lines[0], 6);
     }
 }

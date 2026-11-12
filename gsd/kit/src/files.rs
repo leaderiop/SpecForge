@@ -4,6 +4,14 @@
 
 use std::ops::Range;
 
+/// What a link into the tracked release's blobs starts with: upstream's text quoted by its address (ADR 0332 D4), which
+/// names upstream's files, not a project's.
+pub const UPSTREAM_BLOB: &str = concat!(
+    "https://github.com/open-gsd/gsd-core/blob/v",
+    crate::tracked_version!(),
+    "/"
+);
+
 /// What a "written nowhere" name became: the README's list of what a prompt shows and stores nowhere.
 const SHOWN: &str = "none: shown to the user, not stored";
 

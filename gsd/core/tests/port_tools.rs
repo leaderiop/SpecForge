@@ -18,10 +18,14 @@ mod files;
 mod host_options;
 #[path = "common/ledger.rs"]
 mod ledger;
+#[path = "common/markdown_writes.rs"]
+mod markdown_writes;
 #[path = "common/port_map.rs"]
 mod port_map;
 #[path = "common/specforge_only.rs"]
 mod specforge_only;
+#[path = "port_tools/writes.rs"]
+mod writes;
 
 fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()

@@ -1,0 +1,367 @@
+# The write ledger (ADR 0332 D9): `<asset>\t<trimmed line>`, one row per line that tells an agent to write a GSD file,
+# kept and own text alike: a write verb and a GSD file name in one sentence of prose, or an output redirect or `tee`
+# into one in a shell fence. Its row count is the port's write measure. A row with no hit fails, and so does a hit
+# with no row: take a row off in the commit that rewrites its line; never add a row.
+agents/gsd-doc-synthesizer.compact.md	- `CONFLICTS_PATH` — `INGEST-CONFLICTS.md` output (absolute, from the orchestrator, which gates on it: always write it)
+agents/gsd-doc-synthesizer.compact.md	Do NOT: pick a winner between two LOCKED ADRs (always BLOCK); merge competing PRD acceptance criteria into one "combined" criterion (preserve all variants); write PROJECT.md, REQUIREMENTS.md, ROADMAP.md, or STATE.md (roadmapper's job); skip cycle detection; use markdown tables in the conflicts report (violates doc-conflict-engine contract); auto-resolve by filename order, timestamp, or arbitrary tiebreaker (precedence rules only); silently drop `UNKNOWN`-confidence-low docs (must surface as blockers).
+agents/gsd-doc-synthesizer.compact.md	- [ ] INGEST-CONFLICTS.md written with three buckets, format per `doc-conflict-engine.md`
+agents/gsd-doc-synthesizer.md	You do NOT prompt the user. You do NOT write PROJECT.md, REQUIREMENTS.md, or ROADMAP.md — those are produced downstream by `gsd-roadmapper` using your output. Your job is synthesis + conflict surfacing.
+agents/gsd-doc-synthesizer.md	- `CONFLICTS_PATH` — where to write `INGEST-CONFLICTS.md` (absolute, given by the orchestrator: it reads this file to gate the ingest, so always write it, with the three-bucket header)
+agents/gsd-doc-synthesizer.md	- Write PROJECT.md, REQUIREMENTS.md, ROADMAP.md, or STATE.md — those are the roadmapper's job
+agents/gsd-doc-synthesizer.md	- [ ] INGEST-CONFLICTS.md written with three buckets, format per `doc-conflict-engine.md`
+agents/gsd-executor.md	You are a GSD plan executor. You execute PLAN.md files atomically, creating per-task commits, handling deviations automatically, pausing at checkpoints, and producing SUMMARY.md files.
+agents/gsd-executor.md	Your job: Execute the plan completely, commit each task, create SUMMARY.md, update STATE.md.
+agents/gsd-executor.md	3. Update `STATE.md` with `last_gate_trip: {plan_id}/{task_id}`.
+agents/gsd-executor.md	After writing SUMMARY.md, verify claims before proceeding.
+agents/gsd-executor.md	**3. Append result to SUMMARY.md:** `## Self-Check: PASSED` or `## Self-Check: FAILED` with missing items listed.
+agents/gsd-executor.md	- [ ] SUMMARY.md created with substantive content
+agents/gsd-executor.md	- [ ] STATE.md updated (position, decisions, issues, session)
+agents/gsd-executor.md	- [ ] ROADMAP.md updated with plan progress (via `roadmap update-plan-progress`)
+agents/gsd-pattern-mapper.compact.md	**Tracked-source gate (#3645):** every analog path must be git-TRACKED source, never a gitignored install/runtime mirror (e.g. `<root>/.gsd/capabilities/<id>/...` synced from a plugin's tracked tree). Before naming an analog whose file exists on disk, verify `git ls-files -- <path>` prints it (non-empty = tracked); if the closest analog is a gitignored mirror, substitute its tracked origin (e.g. `plugins/*/.gsd/capabilities/<id>/...`, or root `capabilities/<id>/...`). PATTERNS.md must never emit mirror paths — the planner builds later phases on your output, so one mirror path self-propagates across phases and the executor's edits die on the next capability sync. For files inside a nested submodule, run the check from within the submodule.
+agents/gsd-pattern-mapper.md	- Extract list of files to be created or modified from CONTEXT.md and RESEARCH.md
+agents/gsd-pattern-mapper.md	`capabilities/<id>/...`). PATTERNS.md must never emit mirror paths — the
+agents/gsd-pattern-mapper.md	Write to: nothing — the report is your reply: @gsd/core keeps no PATTERNS.md, and the pattern map entity is @gsd/codebase's
+agents/gsd-phase-researcher.md	- Write RESEARCH.md with sections the planner expects
+agents/gsd-phase-researcher.md	**Claim-disposition mode (the `/gsd:explore` quick-research pass).** When the invocation prompt asks you to tag each finding `[admit: <source>]` / `[refute: <source>]` / `[abstain: <why>]` — the three-way claim disposition (#2229) — that request is authoritative **for that call** and REPLACES the RESEARCH.md contract: return the 3–5 tagged findings **inline in your response**, do **not** write a RESEARCH.md file, and do **not** use the *Research Complete* structured return. Derive each disposition from the same source work you already do:
+agents/gsd-phase-researcher.md	Research complete. Planner can now create PLAN.md files.
+agents/gsd-plan-checker.md	Spawned by `/gsd:plan-phase` orchestrator (after planner creates PLAN.md) or re-verification (after planner revises).
+agents/gsd-plan-checker.md	- Plan creates a file listed in PATTERNS.md but does not reference the analog
+agents/gsd-plan-checker.md	description: "Plan 01-03 creates src/controllers/auth.ts but does not reference analog src/controllers/users.ts from PATTERNS.md"
+agents/gsd-plan-checker.md	description: "Plan 01-02 creates a controller but does not include the shared auth middleware pattern from PATTERNS.md"
+agents/gsd-plan-checker.md	- Measurement confirms plan → WARNING: RESEARCH.md is stale; recommend updating it.
+agents/gsd-planner.md	**Write is for net-new PLAN.md only.** For any existing file (`ROADMAP.md`, the spec files) use `Edit` (scoped replacement), never `Write`. See `update_roadmap`.
+agents/gsd-planner.md	1. **Default: write each PLAN.md in a single `Write` call.** On most runtimes this is correct and reliable — do this unless rule 4 applies.
+agents/gsd-planner.md	5. **Verify the write landed (#4927).** A `Write` that returns success can still have stored a truncated payload. After writing each PLAN.md, run `verify.plan-structure` on it (see below) and read the file's last lines with your Read tool: it must end with the closing `</output>` (or the last closing tag of the template) and must not contain `<!-- gsd:write-continue -->`. If it ends mid-tag, rewrite it with the incremental method in rule 4.
+agents/gsd-planner.md	Update ROADMAP.md to finalize phase placeholders:
+agents/gsd-planner.md	**CRITICAL — use `Edit` (scoped), NOT `Write`, for ROADMAP.md.** A whole-file `Write` destroys all phase entries outside your diff window. Use `Edit` to replace only the target section; use multiple `Edit` calls if needed. NEVER pass the entire ROADMAP.md content to `Write`.
+agents/gsd-research-synthesizer.compact.md	- Identify confidence levels and gaps; write SUMMARY.md
+agents/gsd-research-synthesizer.compact.md	## Step 6: Write SUMMARY.md
+agents/gsd-research-synthesizer.compact.md	5. **If Write errors,** surface the actual error in your return message. Do not silently fall back to returning content — that hides the failure. **Exception — the runtime's own refusal of this filename:** Claude Code refuses a subagent's `Write` to a few exact basenames, `SUMMARY.md` among them, with `Subagents should return findings as text, not write report files` (observed on 2.1.301; name-based, not tied to your tools or effort). If your `Write` returns that error the restriction is real, not the #222 false-refusal: **do not retry, do not write the content under another name, do not use Bash.** Finish Step 7, then in Step 8 append the complete SUMMARY.md document under `### SUMMARY.md (returned inline — runtime refused the write)` so the orchestrator persists it.
+agents/gsd-research-synthesizer.compact.md	When SUMMARY.md is written and committed:
+agents/gsd-research-synthesizer.md	- Write SUMMARY.md
+agents/gsd-research-synthesizer.md	## Step 6: Write SUMMARY.md
+agents/gsd-research-synthesizer.md	5. **If the Write tool errors,** surface the actual error in your return message. Do not silently fall back to returning content; that hides the failure from the orchestrator. **The one exception is the runtime's own refusal of this filename.** Claude Code refuses a subagent's `Write` to a few exact basenames, `SUMMARY.md` among them, with `Subagents should return findings as text, not write report files` (observed on Claude Code 2.1.301; it depends on the file name, not on your tools or effort). If your `Write` call returns that error, the restriction is real, not the #222 false-refusal: **do not retry, do not write the content under another name, and do not use Bash**. Finish Step 7 (commit the research files that exist), then in Step 8 append the complete SUMMARY.md document after the confirmation, under the heading `### SUMMARY.md (returned inline — runtime refused the write)`, so the orchestrator persists it.
+agents/gsd-research-synthesizer.md	When SUMMARY.md is written and committed:
+agents/gsd-roadmapper.compact.md	- Write ROADMAP.md and STATE.md immediately (durability), then return a structured summary for the orchestrator to present; approval is the orchestrator's gate, revision is a re-run (#3797)
+agents/gsd-roadmapper.compact.md	Options: 1) Create Phase 6: Notifications 2) Add to existing Phase 5 3) Defer to v2 (update REQUIREMENTS.md)
+agents/gsd-roadmapper.compact.md	1. **Write ROADMAP.md** — an entity is never written as a file: there is no sentinel to arm; `specforge new` / `specforge set` write it.
+agents/gsd-roadmapper.compact.md	2. **Write STATE.md** — STATE is computed: nothing to arm or write.
+agents/gsd-roadmapper.compact.md	3. **Update REQUIREMENTS.md traceability section.**
+agents/gsd-roadmapper.compact.md	- [ ] REQUIREMENTS.md traceability update prepared
+agents/gsd-roadmapper.md	- Write ROADMAP.md and STATE.md immediately (durability — artifacts persist even if context is lost), then return a structured summary for the orchestrator to present; approval is the orchestrator's gate, revision is a re-run (#3797)
+agents/gsd-roadmapper.md	3. Defer to v2 (update REQUIREMENTS.md)
+agents/gsd-roadmapper.md	After roadmap creation, REQUIREMENTS.md gets updated with phase mappings:
+agents/gsd-roadmapper.md	1. **Write ROADMAP.md** using output format — arm first, then Write:
+agents/gsd-roadmapper.md	2. **Write STATE.md** using output format — arm first, then Write:
+agents/gsd-roadmapper.md	3. **Update REQUIREMENTS.md traceability section**
+agents/gsd-roadmapper.md	- [ ] REQUIREMENTS.md traceability update prepared
+agents/gsd-verifier.md	**Never write a VERIFICATION.md.** The phase's `verification` entity exists already; its status, score and covered files are computed from your verdicts, so you record verdicts and never a status.
+commands/gsd/complete-milestone.md	Mark milestone {{version}} complete, archive to milestones/, and update ROADMAP.md and REQUIREMENTS.md.
+commands/gsd/complete-milestone.md	- Update ROADMAP.md to one-line summary with link
+commands/gsd/complete-milestone.md	6. **Update PROJECT.md:**
+commands/gsd/complete-milestone.md	- PROJECT.md updated with current state
+commands/gsd/discuss-phase.md	6. Create CONTEXT.md with decisions that guide research and planning
+commands/gsd/mvp-phase.md	3. Writes `**Mode:** mvp` and the reformatted `**Goal:**` to the phase's ROADMAP.md section
+commands/gsd/mvp-phase.md	The phase must already exist in ROADMAP.md (created via `/gsd:new-project`, `/gsd:phase`, or `/gsd:phase --insert`). This command does not create new phases — it converts an existing phase to MVP mode.
+commands/gsd/new-milestone.md	Brownfield equivalent of new-project. Project exists, PROJECT.md has history. Gathers "what's next", updates PROJECT.md, then runs requirements → roadmap cycle.
+commands/gsd/plan-phase.md	Create executable phase prompts (PLAN.md files) for a roadmap phase with integrated research and verification.
+commands/gsd/plan-phase.md	**Research-only mode (`--research-phase <N>`):** Spawn `gsd-phase-researcher` for phase `N`, write `RESEARCH.md`, then exit before the planner runs. Useful for cross-phase research, doc review before committing to a planning approach, and correction-without-replanning loops where iterating on research alone is dramatically cheaper than re-spawning the planner. Replaces the deleted research-phase command (#3042).
+commands/gsd/quick-batch.md	leaves, and owns every shared write (`BATCH.json`, STATE.md, worktree
+commands/gsd/quick.md	- Updates STATE.md "Quick Tasks Completed" table (NOT ROADMAP.md)
+commands/gsd/quick.md	- STATE.md "Quick Tasks Completed" table is updated on completion
+commands/gsd/spec-phase.md	5. Gate: ambiguity ≤ 0.20 AND all dimensions meet minimums → write SPEC.md
+commands/gsd/spec-phase.md	- `--auto` — Skip interactive questions; Claude selects recommended defaults and writes SPEC.md
+commands/gsd/spec-phase.md	- SPEC.md written with falsifiable requirements, explicit boundaries, and acceptance criteria
+commands/gsd/validate-phase.md	Output: updated VALIDATION.md + generated test files.
+gsd-core/references/agent-contracts.md	| gsd-ai-researcher | AI framework research | No marker (writes the AI-SPEC.md framework section via Edit) | `gsd-core/workflows/ai-integration-phase.md` reads the AI-SPEC.md section after the agent returns | artifact+query |
+gsd-core/references/autonomous-smart-discuss.md	## Sub-step 5: Write CONTEXT.md
+gsd-core/references/autonomous-smart-discuss.md	After all areas are resolved (or infrastructure skip), write the CONTEXT.md file.
+gsd-core/references/execute-mvp-tdd.md	4. Update `STATE.md` with `last_gate_trip: {plan_id}/{task_id}` so the user can resume after writing the test.
+gsd-core/references/execute-phase-response-language.md	**The `gsd-verifier` subagent has no workflow file of its own (#2529):** the shared verification step (`workflows/execute-phase/steps/verify-phase-goal.md`, included by execute-phase's `verify_phase_goal` and by verify-work, #5118) reaches it by dispatch, not by reading a workflow, so there is no file in which to place a directive — the dispatch prompt is the only place its coverage can live. That prompt MUST carry this line verbatim, immediately after `Create VERIFICATION.md.` (the shared step's prompt carries it inline, so both callers inject it):
+gsd-core/references/executor-examples.md	### Writing `deferred-items.md`
+gsd-core/references/git-integration.md	| PLAN.md created         | NO      | Intermediate - commit with plan completion       |
+gsd-core/references/mvp-concepts.md	- **Per-phase mode authoring** — `workflows/mvp-phase.md` (writes `**Mode:** mvp` to ROADMAP.md after collecting the user story).
+gsd-core/references/mvp-concepts.md	- **`--mvp` and `--prd <file>` together on Phase 1.** Both paths converge at the planner spawn. The PRD express path creates `CONTEXT.md` from the PRD file and continues to the research step; the Walking Skeleton gate fires independently when Phase 1 + new project + `--mvp`. The planner therefore receives both `WALKING_SKELETON=true` and PRD-derived context. This is intentional: the PRD informs what the skeleton should prove.
+gsd-core/references/planner-chunked.md	Write **only** `{OUTLINE_FILE}`, the path the orchestrator names. Do not write any PLAN.md files.
+gsd-core/references/planner-chunked.md	Write **exactly one** `{PHASE_DIR}/{plan_id}-PLAN.md`. Do not write any other plan files.
+gsd-core/references/planner-gap-closure.md	**8. Write PLAN.md files:**
+gsd-core/references/planner-reviews.md	### Step 5: Write the ledger into PLAN.md (#3806)
+gsd-core/references/planner-reviews.md	Add or extend a `## Review Dispositions Ledger` section in the affected PLAN.md, containing one
+gsd-core/references/planner-reviews.md	PLAN.md content written before this convention existed is not migrated or flagged by it.
+gsd-core/references/planning-config.md	| `workflow.specless_probe_fallback` | boolean | `true` | `true`, `false` | Gate the SPEC-less probe fallback in `plan-phase`. When `true` (default), a phase that did not supply a `## Edge Coverage` / `## Prohibitions` SPEC section (header absent or present-but-empty) runs the existing probe protocol — the deterministic `edge-probe.cjs` for edges and an in-planner LLM recall pass for prohibitions — and authors the resulting predicates into PLAN.md `must_haves` (section-level precedence: a SPEC-supplied section is never re-run or overwritten). When `false`, the fallback is skipped but the skip is recorded: plan-phase emits a visible "probe fallback disabled" marker, never a silent skip. |
+gsd-core/references/questioning.md	By the end of questioning, you need enough clarity to write a PROJECT.md that downstream phases can act on:
+gsd-core/references/questioning.md	When you could write a clear PROJECT.md, offer to proceed:
+gsd-core/references/questioning.md	- question: "I think I understand what you're after. Ready to create PROJECT.md?"
+gsd-core/references/questioning.md	- "Create PROJECT.md" — Let's move forward
+gsd-core/references/questioning.md	Loop until "Create PROJECT.md" selected.
+gsd-core/references/revision-loop.md	and the phase `*-REVIEWS.md` already exists, `plan-phase` appends one line per conflict under
+gsd-core/references/tdd.md	After completion, create SUMMARY.md with:
+gsd-core/references/thinking-models-execution.md	Before removing, replacing, or significantly modifying existing code that the plan touches, determine WHY it exists. Check: git blame for the commit that introduced it, comments explaining the rationale, test cases that exercise it, the PLAN.md or SUMMARY.md that created it. If the purpose is unclear, keep it and add a comment noting the uncertainty -- do NOT remove code whose purpose you don't understand. If the plan explicitly says to remove it, still document what it did in the deviation notes.
+gsd-core/references/thinking-models-verification.md	Before flagging any existing code as dead, redundant, or overcomplicated, determine WHY it was written that way. Check git blame, comments, test cases, and the PLAN.md that created it. If the reason is unclear, flag as "purpose unknown -- recommend keeping with WARNING, not removing" and include the git blame hash for the commit that introduced it.
+gsd-core/references/universal-anti-patterns.md	27. **Do not start executing the next plan before writing the SUMMARY.md for the current plan** -- downstream plans may reference it via `@` includes.
+gsd-core/references/verification-overrides.md	- A requirement changed after planning but ROADMAP.md hasn't been updated yet
+gsd-core/references/verifier-phase-gates.md	section) to VERIFICATION.md regardless of outcome — even when all
+gsd-core/references/verify-mvp-mode.md	Standard technical-check sections of VERIFICATION.md remain (API verification, error handling, etc.) but are appended below "User Flow Coverage", not above.
+gsd-core/templates/UAT.md	step finds an executed gap-closure plan (a `*-PLAN.md` naming this entry's
+gsd-core/templates/UAT.md	4. UAT.md Gaps section updated with diagnosis:
+gsd-core/templates/milestone-archive.md	- Update ROADMAP.md to collapse completed milestone in `<details>` tag
+gsd-core/templates/milestone-archive.md	- Update PROJECT.md to brownfield format with Current State section
+gsd-core/templates/milestone.md	If MILESTONES.md doesn't exist, create it with header:
+gsd-core/templates/spec.md	**SPEC.md is a one-way door for requirements.** discuss-phase will treat these as locked. If requirements change after SPEC.md is written, the user should update SPEC.md first, then re-run discuss-phase.
+gsd-core/templates/state.md	**Creation:** After ROADMAP.md is created (during init)
+gsd-core/templates/state.md	- execute: After SUMMARY.md created
+gsd-core/templates/summary.md	**After creation:** STATE.md updated with position, decisions, issues.
+gsd-core/templates/verification-report.md	covered_files: # #4155 — see agents/gsd-verifier.md's "Create VERIFICATION.md" step for what belongs here and how to compute it
+gsd-core/workflows/add-tests.md	2. **Create test file** targeting the user scenario from CONTEXT.md/VERIFICATION.md
+gsd-core/workflows/analyze-dependencies.md	Suggested ROADMAP.md updates:
+gsd-core/workflows/analyze-dependencies.md	- **yes** — Write all suggested `Depends on` entries to ROADMAP.md. Confirm each write.
+gsd-core/workflows/analyze-dependencies.md	When writing to ROADMAP.md:
+gsd-core/workflows/analyze-dependencies.md	After applying: "ROADMAP.md updated. Run `/gsd:manager` to execute phases in the correct order."
+gsd-core/workflows/audit-milestone.md	| VERIFICATION.md Status | SUMMARY Frontmatter | REQUIREMENTS.md | → Final Status |
+gsd-core/workflows/audit-milestone.md	> **NOT-VALIDATED vs PARTIAL (#2117):** A phase reads `status: draft` when it was seeded by plan-phase but never reconciled by validate-phase, OR when its `VALIDATION.md` predates the `status` field (files written before #2117 stay `draft` whether or not validation ran). In both cases `nyquist_compliant` is not authoritative, so this is a coverage TODO ("run validate-phase") — not a compliance failure. Re-running validate-phase promotes the file to `status: validated` and yields the real COMPLIANT/PARTIAL verdict. Only `status: validated` + `nyquist_compliant: false` is a genuine PARTIAL.
+gsd-core/workflows/audit-milestone.md	- [ ] v{version}-MILESTONE-AUDIT.md created with structured requirement gap objects
+gsd-core/workflows/autonomous.md	Write a minimal CONTEXT.md so downstream plan-phase has valid input. Get phase details:
+gsd-core/workflows/complete-milestone/steps/project-md-evolution-review.md	Update PROJECT.md inline. Update "Last updated" footer:
+gsd-core/workflows/complete-milestone.md	Mark a shipped version (v1.0, v1.1, v2.0) as complete. Creates historical record in MILESTONES.md, performs the full PROJECT.md evolution review (flat mode only; skipped under `--ws`, because PROJECT.md is shared across workstreams), reorganizes ROADMAP.md with milestone groupings, and tags the release in git.
+gsd-core/workflows/complete-milestone.md	3. Update ROADMAP.md — overwrite in place with milestone grouping (preserve Backlog section)
+gsd-core/workflows/complete-milestone.md	4. Safety commit archive files + updated ROADMAP.md, then nothing is removed: the `requirement` entities stay with the completed milestone (new ones are added for the next)
+gsd-core/workflows/complete-milestone.md	**Note:** MILESTONES.md entry is now created automatically by `specforge gsd close-milestone` in the archive_milestone step. The entry includes version, date, phase/plan/task counts, and accomplishments extracted from SUMMARY.md files.
+gsd-core/workflows/complete-milestone.md	- Updating STATE.md (status, last activity)
+gsd-core/workflows/complete-milestone.md	- When `ARCHIVE_QUICK_FLAG` is `--archive-quick`: moving every directory under the quick plans into the milestone's quick archive, writing a `README.md` index into that archive directory (generated by scanning the archive directory itself), and clearing the data rows of STATE.md's `### Quick Tasks Completed` table — preserving the table's header and whichever column variant (with/without a Status column) was detected
+gsd-core/workflows/complete-milestone.md	- Reorganizing ROADMAP.md with milestone grouping (requires judgment) — overwrite in place after extracting Backlog section, with the write-guard's single-use sentinel armed first (a per-step env var cannot reach a hook — see the reorganize step for the sentinel mechanics)
+gsd-core/workflows/complete-milestone.md	- Safety commit of archive files + updated ROADMAP.md, then continue (the `requirement` entities stay as they are)
+gsd-core/workflows/complete-milestone.md	**Reorganize ROADMAP.md**: the roadmap is the `milestone` and `phase` entities: there is no ROADMAP.md to reorganize, no sentinel to arm and no Backlog section to re-append (backlog phases stay entities of the milestone).
+gsd-core/workflows/complete-milestone.md	MILESTONES.md is workstream-scoped the same way STATE.md/ROADMAP.md are (the milestone is a `.spec` file) — under an active workstream this commits the actual files `milestone complete` wrote, not the root copies. PROJECT.md is NOT: it is shared across workstreams, so under an active workstream it is neither reviewed nor staged here (#5195).
+gsd-core/workflows/complete-milestone.md	Most STATE.md updates were handled by `milestone complete`, but verify and update remaining fields:
+gsd-core/workflows/complete-milestone.md	- [ ] MILESTONES.md entry created with stats and accomplishments
+gsd-core/workflows/complete-milestone.md	- [ ] ROADMAP.md Backlog section extracted before rewrite, re-appended after (skipped if absent)
+gsd-core/workflows/complete-milestone.md	- [ ] ROADMAP.md reorganized with milestone grouping (overwritten in place, not deleted)
+gsd-core/workflows/complete-milestone.md	- [ ] Roadmap archive created (milestones/v[X.Y]-ROADMAP.md)
+gsd-core/workflows/complete-milestone.md	- [ ] Requirements archive created (milestones/v[X.Y]-REQUIREMENTS.md)
+gsd-core/workflows/complete-milestone.md	- [ ] Safety commit made (archive files + updated ROADMAP.md) BEFORE the final commit
+gsd-core/workflows/complete-milestone.md	- [ ] STATE.md updated with fresh project reference
+gsd-core/workflows/complete-milestone.md	- [ ] RETROSPECTIVE.md updated with milestone section
+gsd-core/workflows/diagnose-issues.md	After UAT finds gaps, spawn one debug agent per gap. Each agent investigates autonomously with symptoms pre-filled from UAT. Collect root causes, update UAT.md gaps with diagnosis, then hand off to plan-phase --gaps with actual diagnoses.
+gsd-core/workflows/diagnose-issues.md	**Update UAT.md gaps with diagnosis:**
+gsd-core/workflows/diagnose-issues.md	Commit the updated UAT.md:
+gsd-core/workflows/diagnose-issues.md	- [ ] UAT.md gaps updated with artifacts and missing
+gsd-core/workflows/discuss-phase/modes/auto.md	- **`check_existing`**: if CONTEXT.md exists, auto-select "Update it" — load
+gsd-core/workflows/discuss-phase/modes/auto.md	writing CONTEXT.md once, you are DONE — proceed immediately to
+gsd-core/workflows/discuss-phase/modes/auto.md	If you have already written and committed CONTEXT.md, the discuss step is
+gsd-core/workflows/discuss-phase/modes/power.md	CONTEXT.md, the chain auto-advance still applies (Read `chain.md`).
+gsd-core/workflows/discuss-phase/templates/context.md	# CONTEXT.md template — for discuss-phase write_context step
+gsd-core/workflows/discuss-phase/templates/context.md	> `${phase_dir}/${padded_phase}-CONTEXT.md`. Do not put a reference to this
+gsd-core/workflows/discuss-phase/templates/discussion-log.md	> `${phase_dir}/${padded_phase}-DISCUSSION-LOG.md`.
+gsd-core/workflows/discuss-phase-assumptions.md	- In `present_assumptions`: skip confirmation gate, proceed directly to write CONTEXT.md
+gsd-core/workflows/discuss-phase-assumptions.md	If "View": Display CONTEXT.md, then offer update/skip
+gsd-core/workflows/discuss-phase-assumptions.md	- "Yes, proceed" — Write CONTEXT.md with these assumptions as decisions
+gsd-core/workflows/discuss-phase-assumptions.md	Create phase directory if needed. Write CONTEXT.md using the standard 6-section format.
+gsd-core/workflows/discuss-phase-assumptions.md	Update STATE.md with session info:
+gsd-core/workflows/discuss-phase-assumptions.md	- STATE.md updated with session info
+gsd-core/workflows/discuss-phase-power.md	5. Write CONTEXT.md using the standard context template format:
+gsd-core/workflows/discuss-phase-power.md	CONTEXT.md written: {phase_dir}/{padded_phase}-CONTEXT.md
+gsd-core/workflows/discuss-phase.md	- **Incremental checkpoint** — after each area completes, write the `CHECKPOINT` path the check for an interrupted discussion printed. Read `workflows/discuss-phase/templates/checkpoint.json` for the schema. The checkpoint is structured state, not the canonical CONTEXT.md (`write_context` produces the canonical output). On session resume, the parent's `check_existing` step detects the checkpoint and offers to resume.
+gsd-core/workflows/discuss-phase.md	- **Discussion log accumulation** — for each question asked, accumulate area name, options presented, user's selection, follow-up notes. Used by `git_commit` to write DISCUSSION-LOG.md.
+gsd-core/workflows/discuss-phase.md	Create CONTEXT.md and DISCUSSION-LOG.md.
+gsd-core/workflows/discuss-phase.md	**Write DISCUSSION-LOG.md before committing.**
+gsd-core/workflows/discuss-phase.md	Update STATE.md with session info:
+gsd-core/workflows/discuss-phase.md	- STATE.md updated with session info
+gsd-core/workflows/discuss-phase.md	- Checkpoint file cleaned up after successful CONTEXT.md write
+gsd-core/workflows/execute-phase/detail/elaboration.md	e. **After plan complete:** Show results, commit, create SUMMARY.md, then present next plan.
+gsd-core/workflows/execute-phase/detail/elaboration.md	- Append PROJECT.md context (project name, description, tech stack)
+gsd-core/workflows/execute-phase/detail/elaboration.md	- Write it as the plan's SUMMARY.md file
+gsd-core/workflows/execute-phase/detail/elaboration.md	- Update STATE.md plan status to complete
+gsd-core/workflows/execute-phase/detail/elaboration.md	- Update ROADMAP.md progress
+gsd-core/workflows/execute-phase/steps/regression-gate.md	- File patterns from `key-files.created` in corresponding SUMMARY.md files that match `*.test.*` or `*.spec.*`
+gsd-core/workflows/execute-phase/steps/verify-phase-goal.md	Create VERIFICATION.md.
+gsd-core/workflows/execute-phase.md	- gsd-executor — Executes plan tasks, commits, creates SUMMARY.md
+gsd-core/workflows/execute-phase.md	- `close out manually` — inspect commits, write SUMMARY.md, then update STATE/ROADMAP.
+gsd-core/workflows/execute-phase.md	**Update STATE.md for phase start:**
+gsd-core/workflows/execute-phase.md	This updates Status, Last Activity, Current focus, Current Position, and plan counts in STATE.md so frontmatter and body text reflect the active phase immediately.
+gsd-core/workflows/execute-phase.md	leaving a phase that looks complete from every index yet never produced `*-VERIFICATION.md`. A
+gsd-core/workflows/execute-phase.md	For each marked plan: build a self-contained prompt from the plan's `<objective>`/`<tasks>` plus PROJECT.md context, warn on a dirty working tree, then run the configured command **wrapped in `specforge run --deadline "${CROSS_AI_TIMEOUT}"` (config `workflow.cross_ai_timeout`, default 300s) — never run it unbounded** — with the prompt piped to **stdin, never shell-interpolated, to prevent injection**. On success (exit 0): validate the captured SUMMARY output is non-empty and structurally valid before writing it as the plan's SUMMARY.md, update STATE/ROADMAP, mark handled. On failure (non-zero exit, or the summary fails that validation): show the error, warn about possible partial edits, and offer **retry** / **skip** (falls back to the normal executor) / **abort**. Successfully handled plans are removed from execute_waves' list; skipped-to-fallback plans remain in it.
+gsd-core/workflows/execute-phase.md	Commit each task atomically. Create SUMMARY.md.
+gsd-core/workflows/execute-phase.md	Do NOT update STATE.md or ROADMAP.md — the orchestrator owns those writes after every plan in the wave completes (sequential mode).
+gsd-core/workflows/execute-phase.md	REQUIRED ORDER: Write SUMMARY.md → commit → only then any narration. No text between Write and commit (truncation risk; #2070 rescue is not primary defense).
+gsd-core/workflows/execute-phase.md	- [ ] SUMMARY.md created in plan directory
+gsd-core/workflows/execute-phase.md	REQUIRED ORDER: Write SUMMARY.md → commit → only then any narration. No text between Write and commit (truncation risk; #2070 rescue is not primary defense).
+gsd-core/workflows/execute-phase.md	- [ ] SUMMARY.md created in plan directory
+gsd-core/workflows/execute-phase.md	- [ ] STATE.md updated with position and decisions
+gsd-core/workflows/execute-phase.md	- [ ] ROADMAP.md updated with plan progress (via `roadmap update-plan-progress`)
+gsd-core/workflows/execute-phase.md	When **any** executor agent in this wave ran with `isolation="worktree"`, that agent skipped STATE.md and ROADMAP.md updates to avoid last-merge-wins overwrites. The orchestrator is the single writer for these files. After worktrees are merged back, update shared artifacts once for every completed plan in the wave (worktree-mode plans **and** sequential plans that ran on the main tree but deferred to the orchestrator for tracking writes).
+gsd-core/workflows/execute-phase.md	**Every plan ran in sequential mode** (`@gsd/core` runs no worktree isolation): sequential agents already updated STATE.md and ROADMAP.md themselves — skip this step.
+gsd-core/workflows/execute-phase.md	Create `{phase_dir}/{phase_num}-UAT.md` using UAT template format:
+gsd-core/workflows/execute-phase.md	Tests saved to `{phase_num}-UAT.md`.
+gsd-core/workflows/execute-phase.md	Gap closure cycle: `/gsd:plan-phase {X} --gaps` reads VERIFICATION.md → creates gap plans with `gap_closure: true` → user runs `/gsd:execute-phase {X} --gaps-only` → verifier re-runs.
+gsd-core/workflows/execute-phase.md	- Updating REQUIREMENTS.md traceability
+gsd-core/workflows/execute-phase.md	This step runs AFTER phase completion and SUMMARY.md is written. It produces the phase's
+gsd-core/workflows/execute-phase.md	`write_learnings` step writes `{phase_dir}/{PADDED_PHASE}-LEARNINGS.md`). Extraction
+gsd-core/workflows/execute-plan.md	Execute a phase prompt (PLAN.md) and create the outcome summary (SUMMARY.md).
+gsd-core/workflows/execute-plan.md	- gsd-executor — Executes plan tasks, commits, creates SUMMARY.md
+gsd-core/workflows/execute-plan.md	**Tracking protocol:** On spawn: write agent_id to `current-agent-id.txt`, append to agent-history.json: `{"agent_id":"[id]","task_description":"[desc]","phase":"[phase]","plan":"[plan]","segment":[num|null],"timestamp":"[ISO]","status":"spawned","completion_timestamp":null}`. On completion: status → "completed", set completion_timestamp, delete current-agent-id.txt. Prune: if entries > max_entries, remove oldest "completed" (never "spawned").
+gsd-core/workflows/execute-plan.md	3. **Critical ordering — write and commit SUMMARY.md as one atomic block.** Do NOT
+gsd-core/workflows/execute-plan.md	After ALL segments: aggregate files/deviations/decisions → create SUMMARY.md → self-check:
+gsd-core/workflows/execute-plan.md	**Critical ordering — write and commit SUMMARY.md as one atomic block.** Do NOT
+gsd-core/workflows/execute-plan.md	Create `{phase}-{plan}-SUMMARY.md` at the phase `XX-name`. Use the template at `~/.claude/gsd-core/templates/summary.md` (or `summary.compact.md` — same `compact-content-gate.md` resolution as the USER-SETUP template above).
+gsd-core/workflows/execute-plan.md	**Frontmatter:** phase, plan, subsystem, tags | requires/provides/affects | tech-stack.added/patterns | key-files.created/modified | key-decisions | requirements-completed (**MUST** copy `requirements` array from PLAN.md frontmatter verbatim) | never `started`, `completed` or `duration`: `complete-plan` writes the times and `duration` is computed from them.
+gsd-core/workflows/execute-plan.md	handles STATE.md/ROADMAP.md updates centrally after merging worktrees to avoid
+gsd-core/workflows/execute-plan.md	worktree has its own ROADMAP.md, so per-plan writes here would diverge
+gsd-core/workflows/execute-plan.md	**Critical ordering — write and commit SUMMARY.md as one atomic block.** Do NOT
+gsd-core/workflows/execute-plan.md	- SUMMARY.md created with substantive content
+gsd-core/workflows/execute-plan.md	- STATE.md updated (position, decisions, issues, session) — unless parallel mode (orchestrator handles)
+gsd-core/workflows/execute-plan.md	- ROADMAP.md updated — same exception
+gsd-core/workflows/fast.md	- NEVER create PLAN.md or SUMMARY.md files
+gsd-core/workflows/fast.md	- [ ] STATE.md updated if it exists
+gsd-core/workflows/graduation.md	| `decisions` | `PROJECT.md` — append under `## Validated Decisions` (create section if absent) |
+gsd-core/workflows/graduation.md	3. For each source LEARNINGS.md item in the cluster, append `**Graduated:** {target-file}:{ISO_DATE}` after its last existing field
+gsd-core/workflows/ingest-docs.md	> **ORCHESTRATOR RULE — CODEX RUNTIME**: After calling Agent() above, stop working on this task immediately. Do not read more intel files, write planning artifacts, or create ROADMAP.md independently while the subagent is active. Wait for the subagent to return its result. This prevents duplicate work, conflicting edits, and wasted context. Only resume when the subagent result is available.
+gsd-core/workflows/list-phase-assumptions.md	If "Discuss context": Note that CONTEXT.md will incorporate any corrections discussed here
+gsd-core/workflows/manager.md	Important: You are running in the background. Do NOT use AskUserQuestion — make autonomous decisions based on project context. If you hit a blocker, write it to STATE.md as a blocker and stop. Do NOT silently work around permission or file access errors — let them fail so the manager can surface them with resolution hints. Do NOT use --no-verify on git commits."
+gsd-core/workflows/manager.md	Important: You are running in the background. Do NOT use AskUserQuestion — make autonomous decisions. Do NOT use --no-verify on git commits — let pre-commit hooks run normally. If you hit a permission error, file lock, or any access issue, do NOT work around it — let it fail and write the error to STATE.md as a blocker so the manager can surface it with resolution guidance."
+gsd-core/workflows/mvp-phase.md	## 5. Update ROADMAP.md
+gsd-core/workflows/mvp-phase.md	On Apply, write the updated `ROADMAP.md` atomically (read-edit-write).
+gsd-core/workflows/new-milestone.md	Start a new milestone cycle for an existing project. Loads project context, gathers milestone goals (from MILESTONE-CONTEXT.md or conversation), updates PROJECT.md and STATE.md, optionally runs parallel research, defines scoped requirements with REQ-IDs, spawns the roadmapper to create phased execution plan, and commits all artifacts. Brownfield equivalent of new-project.
+gsd-core/workflows/new-milestone.md	- "Looks good" — Proceed to write PROJECT.md
+gsd-core/workflows/new-milestone.md	## 4. Update PROJECT.md
+gsd-core/workflows/new-milestone.md	## 5. Update STATE.md
+gsd-core/workflows/new-milestone.md	SDK handler above — do not hand-edit STATE.md here.
+gsd-core/workflows/new-milestone.md	Stage PROJECT.md in both modes. Step 4's Part A guard — not this commit — is what protects the shared `## Current Milestone` heading (#2308): when a workstream is active Part A never writes it, so the only change PROJECT.md can carry here is Part B's idempotent `## Evolution` backfill, which must be committed rather than stranded as a dangling edit. Do NOT reintroduce a `[ -n "$WS" ]` branch around this commit: `WS` is set in Step 1's shell and each step's bash block runs in its own shell (the same reason Step 6 repeats `OUTGOING_MILESTONE` by hand), so such a guard reads an unset variable, always takes the flat-mode branch, and only appears to work. STATE.md, unlike PROJECT.md, is computed, so there is no state file to stage.
+gsd-core/workflows/new-milestone.md	Write to: {research_dir}/SUMMARY.md
+gsd-core/workflows/new-milestone.md	**Synthesizer output self-heal (#222) — verify SUMMARY.md materialized:** The synthesizer's canonical output is the `research` entity for SUMMARY on disk; its brief structured return (`## SYNTHESIS COMPLETE` plus a few `###` confirmation lines) is NOT the file content. The restriction is not always fabricated: Claude Code refuses a subagent's `Write` to a few exact basenames — `SUMMARY.md` among them — with `Subagents should return findings as text, not write report files` (observed on Claude Code 2.1.301), and the synthesizer is told to return the full document inline when its `Write` hits that error; the refusal is real, not fabricated. It depends on the exact basename (`SUMMARY.md`, `REPORT.md`, `FINDINGS.md`, `ANALYSIS.md`, case-insensitive; a prefixed name such as `01-01-SUMMARY.md` and other agents' files write fine), so do not tell other agents to avoid `Write`. Either cause lands in step 2. A known LLM false-refusal (issue #222) sometimes makes the agent return the full SUMMARY.md document inline — fabricating a write restriction (e.g. "the runtime is blocking file writes") — instead of writing the file. Prompt hardening alone does not fully eliminate it, so the orchestrator MUST absorb either cause deterministically before spawning `gsd-roadmapper`:
+gsd-core/workflows/new-milestone.md	2. If it is MISSING or invalid AND the synthesizer's return message contains the FULL SUMMARY.md document — recognizable by the template's top-level markers `# Project Research Summary`, `## Key Findings`, `## Implications for Roadmap`, and `## Sources`, not merely the brief `## SYNTHESIS COMPLETE` confirmation — the synthesizer returned the document inline (the #222 false-refusal, or the runtime's real refusal of the name `SUMMARY.md`): write that returned document to the `research` entity for SUMMARY with the Write tool, then commit ALL research artifacts the synthesizer owns (it commits on behalf of the four researchers) with `git commit -m "docs: complete project research"`, then `specforge collect --runner gsd-git --yes` unless they are already committed. Log `⚠ #222 self-heal: synthesizer returned SUMMARY.md inline without writing it; orchestrator persisted the file.`
+gsd-core/workflows/new-milestone.md	6. Write files immediately (ROADMAP.md, STATE.md, update REQUIREMENTS.md traceability)
+gsd-core/workflows/new-milestone.md	**If `## ROADMAP CREATED`:** Read ROADMAP.md, present inline:
+gsd-core/workflows/new-milestone.md	- [ ] PROJECT.md updated with Current Milestone section (skipped when a workstream is active — shared file, see Step 4)
+gsd-core/workflows/new-milestone.md	- [ ] REQUIREMENTS.md created with REQ-IDs
+gsd-core/workflows/new-project/steps/auto-mode-config.md	{ label: "Risks & Dependencies", description: "Append rollout risks, dependencies, and rollback notes from PLAN.md" },
+gsd-core/workflows/new-project.md	**If `project_exists` is true and `init_incomplete` is true (#4040 — interrupted bootstrap):** Resume initialization instead of erroring. the spec exists but initialization stopped before all core artifacts landed. Keep the existing `PROJECT.md` and any already-created artifacts (`REQUIREMENTS.md` if present, `config.json`); skip the steps that would recreate them and continue the flow from the first missing artifact in init order — `REQUIREMENTS.md` → `ROADMAP.md` + `STATE.md` — until all exist. Do not error and do not bounce the user back to `/gsd:progress` (that routing loop is the #4040 bug).
+gsd-core/workflows/new-project.md	When you could write a clear PROJECT.md, use AskUserQuestion:
+gsd-core/workflows/new-project.md	- question: "I think I understand what you're after. Ready to create PROJECT.md?"
+gsd-core/workflows/new-project.md	- "Create PROJECT.md" — Let's move forward
+gsd-core/workflows/new-project.md	Loop until "Create PROJECT.md" selected.
+gsd-core/workflows/new-project.md	## 4. Write PROJECT.md
+gsd-core/workflows/new-project.md	After all 4 agents complete, spawn synthesizer to create SUMMARY.md:
+gsd-core/workflows/new-project.md	Write to: {research_dir}/SUMMARY.md
+gsd-core/workflows/new-project.md	**Synthesizer output self-heal (#222) — verify SUMMARY.md materialized:** The synthesizer's canonical output is the `research` entity for SUMMARY on disk; its brief structured return (`## SYNTHESIS COMPLETE` plus a few `###` confirmation lines) is NOT the file content. The restriction is not always fabricated: Claude Code refuses a subagent's `Write` to a few exact basenames — `SUMMARY.md` among them — with `Subagents should return findings as text, not write report files` (observed on Claude Code 2.1.301), and the synthesizer is told to return the full document inline when its `Write` hits that error; the refusal is real, not fabricated. It depends on the exact basename (`SUMMARY.md`, `REPORT.md`, `FINDINGS.md`, `ANALYSIS.md`, case-insensitive; a prefixed name such as `01-01-SUMMARY.md` and other agents' files write fine), so do not tell other agents to avoid `Write`. Either cause lands in step 2. A known LLM false-refusal (issue #222) sometimes makes the agent return the full SUMMARY.md document inline — fabricating a write restriction (e.g. "the runtime is blocking file writes") — instead of writing the file. Prompt hardening alone does not fully eliminate it, so the orchestrator MUST absorb either cause deterministically before spawning `gsd-roadmapper`:
+gsd-core/workflows/new-project.md	2. If it is MISSING or invalid AND the synthesizer's return message contains the FULL SUMMARY.md document — recognizable by the template's top-level markers `# Project Research Summary`, `## Key Findings`, `## Implications for Roadmap`, and `## Sources`, not merely the brief `## SYNTHESIS COMPLETE` confirmation — the synthesizer returned the document inline (the #222 false-refusal, or the runtime's real refusal of the name `SUMMARY.md`): write that returned document to the `research` entity for SUMMARY with the Write tool, then commit ALL research artifacts the synthesizer owns (it commits on behalf of the four researchers) with `git commit -m "docs: complete project research"`, then `specforge collect --runner gsd-git --yes` unless they are already committed. Log `⚠ #222 self-heal: synthesizer returned SUMMARY.md inline without writing it; orchestrator persisted the file.`
+gsd-core/workflows/new-project.md	5. Write files immediately (ROADMAP.md, STATE.md, update REQUIREMENTS.md traceability)
+gsd-core/workflows/new-project.md	Read the created ROADMAP.md and present it nicely inline:
+gsd-core/workflows/new-project.md	- [ ] REQUIREMENTS.md created with REQ-IDs → **committed**
+gsd-core/workflows/new-project.md	- [ ] ROADMAP.md created with phases, requirement mappings, success criteria
+gsd-core/workflows/new-project.md	- [ ] REQUIREMENTS.md traceability updated
+gsd-core/workflows/new-workspace.md	## 7. Write WORKSPACE.md
+gsd-core/workflows/new-workspace.md	Write the workspace manifest at `$TARGET_PATH/WORKSPACE.md`:
+gsd-core/workflows/new-workspace.md	- [ ] WORKSPACE.md manifest written with correct repo table
+gsd-core/workflows/next.md	1. For each incomplete item, create a backlog entry in `ROADMAP.md` under `## Backlog` using the existing `999.x` numbering scheme:
+gsd-core/workflows/plan-phase/detail/elaboration.md	**If "Prioritize":** Use AskUserQuestion (multiSelect) to let user pick which items are "now" vs "later". Create CONTEXT.md for each sub-phase with the selected items.
+gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	PLAN.md files:
+gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	Do NOT write any PLAN.md files in this Task.
+gsd-core/workflows/plan-phase/steps/chunked-planning-mode.md	4. Spawn the planner in **single-plan** mode — it must write exactly one PLAN.md file. The prompt
+gsd-core/workflows/plan-phase/steps/prd-express-path.md	- Create CONTEXT.md in the phase directory
+gsd-core/workflows/plan-phase/steps/prd-express-path.md	4. Write CONTEXT.md:
+gsd-core/workflows/plan-phase/steps/prd-express-path.md	**Effect:** This completely bypasses step 4 (Load CONTEXT.md) since we just created it. The rest of the workflow (research, planning, verification) proceeds normally with the PRD-derived context.
+gsd-core/workflows/plan-phase.md	Create executable phase prompts (PLAN.md files) for a roadmap phase with integrated research and verification. Default flow: Research (if needed) -> Plan -> Verify -> Done. Orchestrates gsd-phase-researcher, gsd-planner, and gsd-plan-checker agents with a revision loop (max 3 iterations).
+gsd-core/workflows/plan-phase.md	- **`--research`** — force-refresh re-research without prompting. Re-spawns the researcher unconditionally and overwrites the existing RESEARCH.md. (This is the existing `--research` flag's standard "force re-research" semantics, reused here.)
+gsd-core/workflows/plan-phase.md	**Interaction with `--prd <filepath>`.** `--mvp` and `--prd` compose. The PRD express path (Step 3.5) creates `CONTEXT.md` from the PRD file and continues to research; the Walking Skeleton gate fires independently from the conditions above. When both are active on Phase 1 of a new project, the planner receives `WALKING_SKELETON=true` and PRD-derived context simultaneously — the PRD informs *what the skeleton should prove*. No precedence is needed; the two signals are orthogonal. See [`gsd-core/references/mvp-concepts.md`](../references/mvp-concepts.md) for the broader interaction map.
+gsd-core/workflows/plan-phase.md	**Skip if:** PRD express path or ADR ingest express path was used (CONTEXT.md already created in step 3.5/3.6).
+gsd-core/workflows/plan-phase.md	If `research_enabled` is false and `nyquist_validation_enabled` is true: warn "Nyquist validation enabled but research disabled — VALIDATION.md cannot be created without RESEARCH.md. Plans will lack validation requirements (Dimension 8)." Continue to step 6.
+gsd-core/workflows/plan-phase.md	**Tracked-source paths (#3645):** Every path you write into PLAN.md —
+gsd-core/workflows/plan-phase.md	- [ ] PLAN.md files created in phase directory
+gsd-core/workflows/plan-phase.md	- [ ] Every PLAN.md includes an "Artifacts this phase produces" section listing symbols created by this phase (decorators, classes, functions, CLI flags, struct/dataclass fields, new file paths)
+gsd-core/workflows/plan-phase.md	When the planner returns `## PHASE SPLIT RECOMMENDED`, the phase's source items exceed the context budget for full-fidelity implementation. Extract the planner's proposed sub-phase groupings and present the user three options via AskUserQuestion: Split into sub-phases (use `/gsd:phase --insert`, then replan each), Proceed anyway (return to planner accepting degraded quality), or Prioritize (AskUserQuestion multiSelect to choose now vs. later, create CONTEXT.md per sub-phase). Full banner text: `gsd-core/workflows/plan-phase/detail/elaboration.md` § 9b.
+gsd-core/workflows/plan-phase.md	- Record channel: none here. The port keeps no REVIEWS.md (`REVIEWS_PATH` is empty), so plan-phase
+gsd-core/workflows/plan-phase.md	2. Edit CONTEXT.md to mark dropped decisions as [informational] / Discretion
+gsd-core/workflows/plan-phase.md	This commits all PLAN.md files for the phase plus the updated STATE.md and ROADMAP.md to version-control the planning artifacts. Skip this step if `commit_docs` is false.
+gsd-core/workflows/plan-review-convergence.md	Display: `Initial planning complete: ${PLAN_COUNT} PLAN.md files created.`
+gsd-core/workflows/plan-review-convergence.md	These two sections MUST be the final content of your response, in this exact order, with no additional "## " headings after them (the source-grounding "Verification coverage" block is appended to REVIEWS.md, not to this return message).",
+gsd-core/workflows/plan-review-convergence.md	5. **Coverage block.** Append a "Verification coverage" section to `REVIEWS.md` listing every UNCHECKABLE/skipped symbol and why — a clean review must never silently mean "nothing was checked."
+gsd-core/workflows/plan-review-convergence.md	**Do NOT flag:** a wording-only difference that asserts the same thing; a fact that appears in one artifact only — single-source is the target state, not a finding; a PLAN that ADDS a truth beyond the roadmap Success Criteria, which is sanctioned (plans may add, never subtract); a `lag` verdict from step 1 — two non-terminal statuses a single lifecycle step apart, in either direction, since STATE.md is written at planning time independently of ROADMAP.md and can lead as readily as trail (a disagreement about *completion* is never lag, and step 1 already reports it as `drifted`); anything under CONTEXT.md's `Claude's Discretion` or `Deferred Ideas`, which are non-authoritative by design.
+gsd-core/workflows/plan-review-convergence.md	agent with write access to REVIEWS.md must leave it alone. Appending, editing, reordering or
+gsd-core/workflows/plan-review-convergence.md	Run plan-phase **inline** (do NOT wrap it in Agent()). Same rationale as step 4: the convergence orchestrator runs at depth 0 with Agent available, so inline plan-phase can spawn gsd-planner and gsd-plan-checker at depth 1. Wrapping in Agent() pushes plan-phase to depth 1 where the Agent tool is absent — the replan loop can never produce a revised plan when HIGHs are found. This is the root cause of bug #936. Actionable MEDIUM/LOW findings must be incorporated into executable PLAN.md content or explicitly deferred/rejected in the relevant PLAN.md before convergence can complete. The same holds for any open `## Plan-Revision Conflicts` entry (#3771): the replan must resolve it by adopting one of its recorded alternatives, overriding the named constraint, or amending the constraint — and mark the entry resolved. Re-running the planner against an unchanged conflict cannot resolve it and only burns a cycle. Wait until plan-phase completes (outputs '## PLANNING COMPLETE') and updated PLAN.md files are committed before continuing.
+gsd-core/workflows/plan-review-convergence.md	- [ ] OPEN_CONFLICTS read from REVIEWS.md and evaluated BEFORE the converged branch writes state or prints the banner
+gsd-core/workflows/plan-review-convergence.md	- [ ] STATE.md updated on convergence completion
+gsd-core/workflows/progress/steps/forensic-audit.md	- Check 3 (deferred scope): `Add the missing phases to ROADMAP.md or update the deferred references`
+gsd-core/workflows/progress.md	the spec exists but the core initialization artifacts are missing (one or more of `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md` were never created — a bootstrap that stopped partway, e.g. after PROJECT.md). This is NOT a new project, NOT a missing STATE.md, and NOT a between-milestones state — do not fall through to any of those routes. Route to initialization recovery:
+gsd-core/workflows/progress.md	`/gsd:new-project` — resumes initialization from the first missing artifact; existing PROJECT.md (and any already-created artifacts) are kept, not regenerated.
+gsd-core/workflows/quick/steps/quick-verification.md	Check must_haves against actual codebase. Create VERIFICATION.md at ${QUICK_DIR}/${quick_id}-VERIFICATION.md.",
+gsd-core/workflows/quick-batch/steps/planner-wave.md	Write plan to: ${item_dir}/${quick_id}-PLAN.md
+gsd-core/workflows/quick-batch/steps/planner-wave.md	writer): for each item that produced a PLAN.md this round, read its
+gsd-core/workflows/quick-batch/steps/research-phase.md	only writes `${item_dir}/${quick_id}-RESEARCH.md`, never touches git), so the
+gsd-core/workflows/quick-batch/steps/resume-mode.md	which artifacts already exist on disk (PLAN.md/SUMMARY.md/VERIFICATION.md),
+gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	(executor committed, `SUMMARY.md` written) and Step 9's completion leaves
+gsd-core/workflows/quick-batch/steps/worktree-dispatch.md	- Do NOT update STATE.md or ROADMAP.md — the orchestrator owns those writes after every item in this dispatch round completes (ADR-1239 single-writer invariant)
+gsd-core/workflows/quick-batch.md	write — `BATCH.json`, STATE.md, each executor's dispatch — and never
+gsd-core/workflows/quick-batch.md	never touch `BATCH.json`, and never write STATE.md/ROADMAP.md themselves
+gsd-core/workflows/quick-batch.md	- gsd-executor — Executes one item's plan, commits, creates SUMMARY.md
+gsd-core/workflows/quick-batch.md	complete item, updates STATE.md, and prints the final batch report.
+gsd-core/workflows/quick-batch.md	- [ ] `completeQuickItem` called only for genuinely complete items; STATE.md updated; artifacts committed
+gsd-core/workflows/quick.md	Execute small, ad-hoc tasks with GSD guarantees (atomic commits, STATE.md tracking). Quick mode spawns gsd-planner (quick mode) + gsd-executor(s), tracks each task as a plan of `spec/quick.spec`, and updates STATE.md's "Quick Tasks Completed" table.
+gsd-core/workflows/quick.md	- gsd-executor — Executes plan tasks, commits, creates SUMMARY.md
+gsd-core/workflows/quick.md	**Step 4 ordering (#3894):** Check whether `workflow.research_before_questions` is enabled in the settings (or the config from init context) — the same check `/gsd:discuss-phase` and `/gsd:new-project` already make. When **enabled**, execute the research-phase section BELOW BEFORE the discussion-phase section: a gray-area answer given without research is written to `<quick_id>-CONTEXT.md` as a locked decision downstream agents are told not to revisit, so the evidence must come first. When **false or unset**, keep the written order (discussion, then research) — behavior unchanged. With both `--discuss` and `--research`, once both sections have run (in either order), record the digest of the context the research was made against: `specforge gsd record-research "${quick_id}-RESEARCH"`.
+gsd-core/workflows/quick.md	- MUTABLE-SCOPE AUTHORITY (#3786): when concrete edit or verification scope depends on mutable external state (a merge index, PR/base diffs, the working tree), authorize scope ONLY from a live observation made at planning time — for conflict resolution that is the fresh merge index via `git diff --name-only --diff-filter=U` — or keep `files`/`verify` CONDITIONAL on that observation. Historical STATE.md entries, recovery notes, and cached PR/base diff paths may guide investigation only; they are never edit or verification authority, and a plan must not enumerate them as authorized files "pending replacement".
+gsd-core/workflows/quick.md	Write plan to: ${QUICK_DIR}/${quick_id}-PLAN.md
+gsd-core/workflows/quick.md	- Do NOT update ROADMAP.md (quick tasks are separate from planned phases)
+gsd-core/workflows/quick.md	- [ ] (--research) Research agent spawned, `${quick_id}-RESEARCH.md` created
+gsd-core/workflows/quick.md	- [ ] `${quick_id}-PLAN.md` created by planner (honors CONTEXT.md decisions when --discuss, uses RESEARCH.md findings when --research)
+gsd-core/workflows/quick.md	- [ ] `${quick_id}-SUMMARY.md` created by executor
+gsd-core/workflows/quick.md	- [ ] (--validate) `${quick_id}-VERIFICATION.md` created by verifier
+gsd-core/workflows/review.md	- **If `ALL_LANES_SKIPPED=true`:** do NOT write `REVIEWS.md` and do NOT run the commit below —
+gsd-core/workflows/review.md	- **If `TOTAL_LANE_FAILURE=true`:** do NOT write `REVIEWS.md` and do NOT run the commit below.
+gsd-core/workflows/review.md	summary below entirely** — no `REVIEWS.md` was written or committed, so there is nothing to
+gsd-core/workflows/session-report.md	Generate a post-session summary document capturing work performed, outcomes achieved, and estimated resource usage. Writes SESSION_REPORT.md to `reports/` in the repository for human review and stakeholder sharing.
+gsd-core/workflows/session-report.md	- [ ] Report written to `reports/`
+gsd-core/workflows/settings.md	Store `$GSD_CONFIG_PATH` — all subsequent reads and writes use this path, not a hardcoded path, so active-workstream installs target the correct file (#2282).
+gsd-core/workflows/ship.md	{key-files.created and key-files.modified from SUMMARY.md frontmatter}
+gsd-core/workflows/ship.md	Update STATE.md to reflect the shipping action. Write the activity line only, with its description; do not write `Status`. At ship time the Current Position block already describes the next phase, and `Status` feeds the frontmatter `status` field, so a free-text value such as "Phase N shipped" does not belong there (#5165).
+gsd-core/workflows/ship.md	- [ ] STATE.md updated with shipping status
+gsd-core/workflows/spec-phase.md	**Gate:** ambiguity ≤ 0.20 AND all dimensions ≥ their minimums → ready to write SPEC.md.
+gsd-core/workflows/spec-phase.md	message the interactive "Skip" prints. Log: `[auto] SPEC.md exists — reusing as-is.` An unattended
+gsd-core/workflows/spec-phase.md	If "Update": Load existing SPEC.md, continue to Step 3.
+gsd-core/workflows/spec-phase.md	- question: "Ambiguity is [score] — requirements are clear enough to write SPEC.md. Proceed?"
+gsd-core/workflows/spec-phase.md	- "Yes — write SPEC.md" → Jump to Step 5.5
+gsd-core/workflows/spec-phase.md	**If `--auto`:** Write SPEC.md anyway — flag unresolved dimensions. Log: `[auto] Max rounds reached. Writing SPEC.md with [N] dimensions below minimum. Planner will need to treat these as assumptions.`
+gsd-core/workflows/spec-phase.md	- "Write SPEC.md anyway — flag gaps" → Write SPEC.md, mark unresolved dimensions in Ambiguity Report
+gsd-core/workflows/spec-phase.md	- options: "Resolve now" (loop back) / "Write SPEC.md anyway — flag unresolved" /
+gsd-core/workflows/spec-phase.md	- On "anyway": write SPEC.md with those rows marked `⚠ Edge unresolved — planner must
+gsd-core/workflows/spec-phase.md	- options: "Resolve now" (loop back) / "Write SPEC.md anyway — flag unresolved" /
+gsd-core/workflows/spec-phase.md	- On "anyway": write SPEC.md with those rows marked `⚠ Prohibition unresolved — planner
+gsd-core/workflows/spec-phase.md	Write to: `{phase_dir}/{padded_phase}-SPEC.md`
+gsd-core/workflows/spec-phase.md	If `commit_docs` is false the CLI returns `skipped`; SPEC.md is written, not committed.
+gsd-core/workflows/spec-phase.md	SPEC.md written — {N} requirements locked.
+gsd-core/workflows/spec-phase.md	- SPEC.md is NEVER written if the user selects "Abandon"
+gsd-core/workflows/transition.md	(re-running `phase.complete` would double-write STATE.md/ROADMAP.md). Run
+gsd-core/workflows/transition.md	**Delegate ROADMAP.md and STATE.md updates to the computed phase status:**
+gsd-core/workflows/transition.md	**Update PROJECT.md:**
+gsd-core/workflows/transition.md	This step is fully delegated to `graduation.md`. It handles guard checks (feature flag, window size, threshold), clustering, backlog filtering, HITL prompting, promotion writes, and STATE.md updates.
+gsd-core/workflows/transition.md	Verify the updates are correct by reading STATE.md. If the progress bar needs updating, use:
+gsd-core/workflows/transition.md	Update the progress bar line in STATE.md with the result.
+gsd-core/workflows/transition.md	Update Project Reference section in STATE.md.
+gsd-core/workflows/transition.md	Review and update Accumulated Context section in STATE.md.
+gsd-core/workflows/transition.md	Update Session Continuity section in STATE.md to reflect transition completion.
+gsd-core/workflows/transition.md	- [ ] ROADMAP.md updated with completion status and plan count
+gsd-core/workflows/transition.md	- [ ] STATE.md updated (position, project reference, context, session)
+gsd-core/workflows/ultraplan-phase.md	validate via plan-checker, update ROADMAP.md, and commit.
+gsd-core/workflows/undo.md	`milestones/v<X.Y>-phases/<phase>/` archive and the workstream archive
+gsd-core/workflows/undo.md	commits; a workstream completed into `milestones/ws-feat-<date>/` and then re-created as `feat`
+gsd-core/workflows/validate-phase.md	Audit Nyquist validation gaps for a completed phase. Generate missing tests. Update VALIDATION.md.
+gsd-core/workflows/validate-phase.md	- [ ] VALIDATION.md created or updated
+gsd-core/workflows/verify-work/detail/elaboration.md	2. If such a plan exists AND has a matching `*-SUMMARY.md` in the phase dir (the plan was executed by `--gaps-only`), the gap is **resolved** — update its YAML in place:
+gsd-core/workflows/verify-work/detail/elaboration.md	- Update UAT.md with root causes
+gsd-core/workflows/verify-work/detail/elaboration.md	**Gap linkage (#1921):** each created `*-PLAN.md` MUST list the UAT gap ids it addresses in its frontmatter:
+gsd-core/workflows/verify-work.md	Validate built features through conversational testing with persistent state. Creates UAT.md that tracks test progress, survives /clear, and feeds gaps into /gsd:plan-phase --gaps.
+gsd-core/workflows/verify-work.md	- Each `auto_passed[]` entry is recorded in UAT.md as `result: pass`, `source: automated` (see `create_uat_file`) — **do not present it as a checkpoint.** It is deterministically covered by the passing tests in its `verification` refs.
+gsd-core/workflows/verify-work.md	Append to UAT.md `## Deferred Follow-Ups` (create the section if absent):
+gsd-core/workflows/verify-work.md	`NEXT_COMMAND` (execute-phase) exactly as before #5118. This workflow never rewrites VERIFICATION.md
+gsd-core/workflows/verify-work.md	Spawn gsd-planner in --gaps mode against the UAT (with diagnoses), `{state_path}` (Project State), and `{roadmap_path}` (Roadmap). Each created PLAN.md MUST carry `gap_closure: true` and `gap_ids: [...]` in its frontmatter (#1921) so a later verify-work resume can reconcile it.
+gsd-core/workflows/verify-work.md	- [ ] UAT file created with all tests from SUMMARY.md
+../security/assets/agents/gsd-security-auditor.compact.md	A phase has been submitted for security audit. Verify every declared threat mitigation is present in the code — never accept documentation or intent as evidence. Does NOT scan blindly for new vulnerabilities — verifies each threat in `<threat_model>` by its declared disposition (mitigate / accept / transfer) and reports gaps. Orchestrator owns the SECURITY.md write (#2119: single-writer contract).
+../security/assets/agents/gsd-security-auditor.compact.md	**Implementation files are READ-ONLY.** Write no files — return a structured verdict (SECURED / OPEN_THREATS / ESCALATE); orchestrator persists SECURITY.md. Implementation gaps → OPEN_THREATS or ESCALATE. Never patch implementation.
+../security/assets/agents/gsd-security-auditor.compact.md	Return SECURED / OPEN_THREATS / ESCALATE with `threats_open` set to the severity-filtered count. The orchestrator writes SECURITY.md from this data — you write no files (#2119).
+../security/assets/agents/gsd-security-auditor.compact.md	- [ ] No files written — structured verdict returned only (orchestrator writes SECURITY.md)
+../security/assets/agents/gsd-security-auditor.md	Does NOT scan blindly for new vulnerabilities. Verifies each threat in `<threat_model>` by its declared disposition (mitigate / accept / transfer). Reports gaps. Returns a structured verdict — the orchestrator owns the SECURITY.md file write (#2119: single-writer contract).
+../security/assets/agents/gsd-security-auditor.md	Return the structured result (SECURED / OPEN_THREATS / ESCALATE) with `threats_open` set to the severity-filtered count. The orchestrator writes SECURITY.md from this data — the auditor does NOT write any files (#2119).
+../security/assets/agents/gsd-security-auditor.md	- [ ] No files written — structured verdict returned only (orchestrator writes SECURITY.md)
+../security/assets/commands/gsd/secure-phase.md	Output: updated SECURITY.md.
+../security/assets/gsd-core/workflows/secure-phase.md	Verify threat mitigations for a completed phase. Confirm the plans' threat dispositions are resolved. Update the phase's SECURITY.md, the security audit.
+../security/assets/gsd-core/workflows/secure-phase.md	"<constraints>Never modify implementation files. Verify mitigations exist — do not scan for new threats. Escalate implementation gaps. Return a structured verdict only — do NOT write SECURITY.md (the orchestrator owns the file write).</constraints>" +
+../security/assets/gsd-core/workflows/secure-phase.md	- [ ] SECURITY.md created or updated
