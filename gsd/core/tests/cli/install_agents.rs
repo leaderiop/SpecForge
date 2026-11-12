@@ -1,5 +1,5 @@
-//! What `specforge install claude-code` writes for the 15 core agents: a golden per file (its frontmatter, its judged
-//! section and the digest of its body), and the body is the asset.
+//! What `specforge install claude-code` writes for the 15 core agents: a golden per file (its frontmatter, the
+//! sections the host generates after the body and the digest of the body), and the body is the asset.
 
 use sha2::{Digest, Sha256};
 use std::path::Path;
@@ -11,14 +11,22 @@ use gsd_core::agents::repointed;
 use gsd_core::agents::roster::AGENTS;
 
 const JUDGED: &str = "\n## Judged rules\n";
+/// The first section the host generates after an agent's body.
+const TOOLS: &str = "\n## SpecForge tools\n";
+const NOTICE: &str = "\n<!-- Ported from gsd-core agents/";
 
-/// The body of an installed file: after its frontmatter, before the judged section and the attribution notice.
+/// The body of an installed file: after its frontmatter, before the generated sections and the attribution notice.
 fn body(file: &str) -> String {
     let (_, rest) = split(file);
-    let end = rest
-        .find(JUDGED)
-        .or_else(|| rest.find("\n<!-- Ported from gsd-core agents/"));
+    let end = rest.find(TOOLS).or_else(|| rest.find(NOTICE));
     rest[..end.unwrap_or(rest.len())].trim().to_string()
+}
+
+/// The sections the host generated after the body: from the tools section to the notice.
+fn generated(file: &str) -> Option<&str> {
+    let start = file.find(TOOLS)?;
+    let tail = &file[start..];
+    Some(tail[..tail.find(NOTICE).unwrap_or(tail.len())].trim())
 }
 
 /// The golden of one installed file.
@@ -29,12 +37,9 @@ fn golden_of(file: &str) -> String {
         out += &format!("{k}: {v}\n");
     }
     out += "---\n";
-    match file.split(JUDGED).nth(1) {
-        Some(section) => {
-            let section = section.split("\n<!-- ").next().unwrap_or(section).trim();
-            out += &format!("\n## Judged rules\n\n{section}\n");
-        }
-        None => out += "\n(no judged rules)\n",
+    match generated(file) {
+        Some(sections) => out += &format!("\n{sections}\n"),
+        None => out += "\n(no generated sections)\n",
     }
     let body = body(file);
     let digest = Sha256::digest(body.as_bytes());
@@ -153,4 +158,48 @@ fn an_installed_agent_body_names_no_claude_gsd_core_path() {
         pointed > 50,
         "only {pointed} references were pointed at the command"
     );
+}
+
+/// Every installed agent lists its SpecForge tools once, before the rules a judge judges, and only a judge is granted
+/// the command that records a verdict.
+#[test]
+fn every_agent_lists_its_specforge_tools_before_its_judged_rules() {
+    let p = project("empty");
+    installed(&p, "claude-code");
+    for agent in AGENTS {
+        let file = claude_agent(&p, agent.id);
+        assert_eq!(file.matches(TOOLS).count(), 1, "{}", agent.id);
+        let tools = file.find(TOOLS).unwrap_or_default();
+        match file.find(JUDGED) {
+            Some(judged) => {
+                assert!(tools < judged, "{}", agent.id);
+                assert!(
+                    file[tools..judged].contains("`specforge.gsd.record_verdict`"),
+                    "{}",
+                    agent.id
+                );
+            }
+            None => assert!(!file.contains("record-verdict"), "{}", agent.id),
+        }
+    }
+}
+
+/// The installed agents name at least twelve distinct graph tools of the engine-tool catalogue.
+#[test]
+fn the_installed_agents_name_at_least_twelve_engine_tools() {
+    use specforge_extension_sdk::engine_tools::by_mcp_name;
+    let p = project("empty");
+    installed(&p, "claude-code");
+    let mut named = std::collections::BTreeSet::new();
+    for agent in AGENTS {
+        let file = claude_agent(&p, agent.id);
+        for (i, _) in file.match_indices("`specforge.") {
+            let rest = &file[i + 1..];
+            let Some(end) = rest.find('`') else { continue };
+            if let Some(tool) = by_mcp_name(&rest[..end]).filter(|t| t.group.graph()) {
+                named.insert(tool.name);
+            }
+        }
+    }
+    assert!(named.len() >= 12, "{} graph tools: {named:?}", named.len());
 }

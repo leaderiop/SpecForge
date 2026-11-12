@@ -1,63 +1,63 @@
 {
   ".claude/agents/gsd-advisor-researcher.md": {
-    "bytes": 5296,
-    "sha256": "8b38b93dadfd3bd8d2d0c2a2e6a5c77b0a46d40d72d24f0ff069169aa166fcde"
+    "bytes": 6196,
+    "sha256": "f251289ffcae2898de3ee9e612756c14e3ff7003b99b657ad30165b42891df1a"
   },
   ".claude/agents/gsd-assumptions-analyzer.md": {
-    "bytes": 5235,
-    "sha256": "e06fdd1437410efa3589ad169d217120d03512397a3d1d23dab7e380af146a22"
+    "bytes": 6135,
+    "sha256": "ef44d6251bdd304a25027c484b29e25ad396d3b6705b54406bfb4e4c6dc2ddf6"
   },
   ".claude/agents/gsd-doc-classifier.md": {
-    "bytes": 12172,
-    "sha256": "eb3f12f77d0b97e357592ce15a0b90d31694fc3a8cc5fd74dcd7cbe58335a070"
+    "bytes": 13301,
+    "sha256": "ef2e9e6db10c3608d74ce05d029fd19cf56b3a2317024533e4de4390515b7c1d"
   },
   ".claude/agents/gsd-doc-synthesizer.md": {
-    "bytes": 13700,
-    "sha256": "715f5ce0371cd25bf3ebd6c385b4881fb3da6cb9ecfa09593cd799ded9703e3a"
+    "bytes": 14829,
+    "sha256": "aa78468555cbcb2b43d6e546fd422a6299befc2c1177494908b63ee47c2674d5"
   },
   ".claude/agents/gsd-executor.md": {
-    "bytes": 46968,
-    "sha256": "0a8d196c722a3cb36b09b22e61202616eba9b0aa8e64c0d334d572de3dc7fb62"
+    "bytes": 48790,
+    "sha256": "3178849eaf0ca3bd2cedd3fbc41e375e17c98af4784fca8d88406c72fda21422"
   },
   ".claude/agents/gsd-integration-checker.md": {
-    "bytes": 18485,
-    "sha256": "4936b0bff3f1adef442f929ed450a4b519df306528dd1cdeca54be68669e68d8"
+    "bytes": 19800,
+    "sha256": "2d99c516e4a790d783dfecf0b1255a988c7b47a5b001ec3f7041b9903efedc4a"
   },
   ".claude/agents/gsd-nyquist-auditor.md": {
-    "bytes": 7861,
-    "sha256": "354abeed629e2b30bc5d5e663e70c915c01a41815c0ec3d24f54bc3ff3273253"
+    "bytes": 8815,
+    "sha256": "6f7780886efc0695723ebcf836121e93bef739913f48e210369ad9da9f98a0ce"
   },
   ".claude/agents/gsd-pattern-mapper.md": {
-    "bytes": 13614,
-    "sha256": "4be4d8380cef0aab1c129031d26abaf5361e9552673daefcc3349f2343cf46bc"
+    "bytes": 14743,
+    "sha256": "2ba37d161d61d9dd36ffca0158cfb657e9b58b74d877828d77073d297f87f00f"
   },
   ".claude/agents/gsd-phase-researcher.md": {
-    "bytes": 44160,
-    "sha256": "8f9c0849ff699d2ce7efcb2791ab804abc805e32998a0cf510ecd66c3aee3155"
+    "bytes": 45673,
+    "sha256": "b6b5313da175921fca47b510af48a703e6c3153a251bb5a61795f6003cdc8b69"
   },
   ".claude/agents/gsd-plan-checker.md": {
-    "bytes": 49628,
-    "sha256": "6352e20b9ee207c7b36b7fae47d33a7d5d8d0cb50366f82c395e4163d692af09"
+    "bytes": 50943,
+    "sha256": "32b7e2e9a237cc74af2f4083ecb93ed5b463b57a3998d769ddbd4d5332b75ece"
   },
   ".claude/agents/gsd-planner.md": {
-    "bytes": 50395,
-    "sha256": "ed0ed850f01731cf2153f24429c25cd318cadd824759f05f001f2d7a1206a99b"
+    "bytes": 51573,
+    "sha256": "a855832c7362577b0b1870eedea7a6f5bb1fc012ff86d0afb715119ab84506bc"
   },
   ".claude/agents/gsd-project-researcher.md": {
-    "bytes": 18564,
-    "sha256": "a7984b6490ca737a5a075e6ea70052cea0266c3fbe68d1d091f21ac99d0e2e31"
+    "bytes": 19693,
+    "sha256": "710551f136011833b3130bb8c1a1fb970e4be1f106617eee12391cd10968d565"
   },
   ".claude/agents/gsd-research-synthesizer.md": {
-    "bytes": 11106,
-    "sha256": "7eaa5314a60e3adc06a90ba4478c09c9c9d4c68776890b27d398f2457a258014"
+    "bytes": 12235,
+    "sha256": "a465fa4a21ab7e88dfc8504a3f9689ed033708858dec83e27871583271bef2c7"
   },
   ".claude/agents/gsd-roadmapper.md": {
-    "bytes": 24920,
-    "sha256": "0b26fd888ae3d3e420e858eec73e06d274de52d7dadb8295a9cd589bda0f70bd"
+    "bytes": 26098,
+    "sha256": "c220e642dedf6a031e42a07193c1c7c9983fb58c0a110ee962198f99d483fb87"
   },
   ".claude/agents/gsd-verifier.md": {
-    "bytes": 51568,
-    "sha256": "e99a0a8b00e562781629ebcbcf8c78ecc750c068b795e7f1f103212e2f760ce5"
+    "bytes": 52906,
+    "sha256": "ed160267edcb6412bf6943609515be23faa8a72c57b1b01675967ab706accd4a"
   },
   ".claude/settings.json": {
     "bytes": 3736,

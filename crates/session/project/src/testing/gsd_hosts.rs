@@ -6,7 +6,8 @@
 //!   (a string, default `standard`), `context_profile` (`full` or `compact`) and `workflow.hooks` (a bool); the
 //!   command `stats` (reads state) and the prompt `plan_phase`; the agents `t-planner` (tools read, write, shell,
 //!   search and `mcp:context7/*`; model `setting:models.planner`; variant `compact` chosen by `context_profile`;
-//!   an attribution) and `t-plan-checker` (read, search); the skill `t-ns-context`; the slash commands of the prompt
+//!   an attribution) and `t-plan-checker` (read, search and the SpecForge tools `trace`, the navigation group and
+//!   `t.stats`); the skill `t-ns-context`; the slash commands of the prompt
 //!   `plan_phase` and the command `stats`; and the hooks `write_guard` (pre_tool write, `on_failure: deny`),
 //!   `injection_scan` (post_tool read), `isolation` (pre_tool agent, Claude Code only, reads `@t/ui`'s
 //!   `workflow.ui_phase` and an extension that is not there), `validate_commit` (pre_commit), `statusline`
@@ -90,7 +91,8 @@ fn surfaces() -> Value {
              "tools": ["read", "write", "shell", "search", "mcp:context7/*"],
              "model": "setting:models.planner", "effort": "high", "color": "green",
              "variants": ["compact"], "variant_setting": "context_profile", "attribution": attribution()},
-            {"id": "t-plan-checker", "description": "Checks a plan", "tools": ["read", "search"]},
+            {"id": "t-plan-checker", "description": "Checks a plan",
+             "tools": ["read", "search", "specforge:trace", "specforge:navigation", "specforge:t.stats"]},
         ],
         "skills": [
             {"id": "t-ns-context", "description": "Routes a request about the codebase", "tools": ["read", "skill"]},
