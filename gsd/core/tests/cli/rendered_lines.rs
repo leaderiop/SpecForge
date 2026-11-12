@@ -574,3 +574,51 @@ fn a_tool_is_named_by_its_mcp_name_or_a_cli_line_in_code() {
     );
     assert!(names("Edit `specforge.json` by hand.").is_empty());
 }
+
+/// Each line of every asset as the claude-code render shows it: re-pointed and converted, trimmed. The names ledger
+/// judges asset lines by their spans; a rendered line outside this set is the prompt's own Rust-authored text.
+// shortcut: an asset line with a {{setting:}} or {{arg:}} token renders filled and is not matched; strip the tokens
+// from both sides if one starts naming a GSD file
+fn asset_lines() -> std::collections::HashSet<String> {
+    gsd_core::prompts::asset_paths()
+        .flat_map(|path| {
+            let text = gsd_core::prompts::asset(path).unwrap_or_default();
+            gsd_core::prompts::without_notice(text)
+                .lines()
+                .map(|line| {
+                    gsd_kit::prompt::host::convert("claude-code", &gsd_core::prompts::repoint(line))
+                        .trim()
+                        .to_string()
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+/// The names ledger over what a prompt's Rust side writes (ADR 0332 D8): a rendered line that is no asset line, no row
+/// of the preamble's file table (held equal to the README) and names a GSD file is a `prompt:<id>` row of
+/// `planning_names.txt`.
+#[test]
+fn no_rendered_tail_names_a_gsd_file() {
+    let assets = asset_lines();
+    let mut hits = Vec::new();
+    for (id, text) in rendered() {
+        let preamble = text.find("</specforge_gsd_preamble>").unwrap_or(0);
+        let lines: Vec<&str> = text.split('\n').collect();
+        let mut at = 0;
+        let starts: Vec<usize> = lines
+            .iter()
+            .map(|l| {
+                let start = at;
+                at += l.len() + 1;
+                start
+            })
+            .collect();
+        let source = format!("prompt:{id}");
+        hits.extend(super::planning_names::hits(&source, text, |n| {
+            let line = lines[n].trim();
+            !(line.starts_with('|') && starts[n] < preamble) && !assets.contains(line)
+        }));
+    }
+    super::planning_names::assert_listed(&hits, |source| source.starts_with("prompt:"));
+}

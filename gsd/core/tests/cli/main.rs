@@ -85,6 +85,8 @@ mod parity_verify;
 mod plan;
 mod plan_rules;
 mod planned_paths;
+#[path = "../common/planning_names.rs"]
+mod planning_names;
 mod progress;
 mod prompts_audit;
 mod prompts_autonomous;

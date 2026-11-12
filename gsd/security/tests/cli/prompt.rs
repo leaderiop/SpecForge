@@ -244,3 +244,41 @@ fn the_prompt_honours_core_response_language() {
     let text = text_of(&render(&p, &[PHASE], "claude-code"));
     assert!(text.contains("RESPONSE_LANGUAGE=\"French\""), "{text}");
 }
+
+/// The names ledger over what `secure_phase`'s Rust side writes (ADR 0332 D8): a rendered line that is no asset
+/// line, no row of a preamble table and names a GSD file is a `security-prompt:secure_phase` row of core's
+/// `planning_names.txt`.
+#[test]
+fn the_rendered_tail_names_no_gsd_file() {
+    let text = text_of(&render(&model(), &[PHASE], "claude-code"));
+    let assets: std::collections::HashSet<String> = gsd_security::prompts::ASSETS
+        .iter()
+        .flat_map(|(_, text)| {
+            gsd_kit::prompt::render::without_notice(text)
+                .lines()
+                .map(|line| {
+                    let line = gsd_kit::prompt::repoint::repoint(line, "claude-code", &|_| true);
+                    gsd_kit::prompt::host::convert("claude-code", &line)
+                        .trim()
+                        .to_string()
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let preamble = text.find("</specforge_gsd_preamble>").unwrap_or(0);
+    let lines: Vec<&str> = text.split('\n').collect();
+    let mut at = 0;
+    let starts: Vec<usize> = lines
+        .iter()
+        .map(|l| {
+            let start = at;
+            at += l.len() + 1;
+            start
+        })
+        .collect();
+    let hits = super::planning_names::hits("security-prompt:secure_phase", &text, |n| {
+        let line = lines[n].trim();
+        !(line.starts_with('|') && starts[n] < preamble) && !assets.contains(line)
+    });
+    super::planning_names::assert_listed(&hits, |source| source.starts_with("security-prompt:"));
+}
