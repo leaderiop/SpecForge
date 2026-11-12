@@ -469,7 +469,8 @@ Read ROADMAP.md to get the next phase's name and goal.
 **Check if next phase has CONTEXT.md:**
 
 ```bash
-specforge files list --kind file --no-ignore --glob '*-CONTEXT.md' --format human 2>/dev/null || true  # the next phase's
+NEXT_PHASE="{next_phase}"   # the next phase's number as its id writes it (02, 02.1), from the phases read above
+NEXT_CONTEXT=$(specforge query "$MILESTONE/$NEXT_PHASE" --depth 1 --kinds context --pick '.nodes[kind=context].id')   # its context entity; empty when it has none
 ```
 
 **If next phase exists:**
