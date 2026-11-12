@@ -36,7 +36,11 @@
 ///   run, `{report}` expanded, and `{config}` in the argv names it; a collector may declare an `install` line, said
 ///   when its program is not found (ADR 0348).
 ///
-/// A change that adds to 2.0.0 (grants, host imports, value checks) adds its item here and to the 2.0.0 row of
-/// `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0 included; it does
-/// not bump. A 2.0.0 describe category goes after `routes`.
-pub const PROTOCOL_VERSION: &str = "2.0.0";
+/// 2.1.0 adds: a contribution's `tools` may name `specforge:<tool>`, `specforge:<group>` and
+/// `specforge:<short>.<command>` (ADR 0334); `specforge_protocol_types::engine_tools` is the catalogue they name.
+/// A 2.0.0 guest still loads, being an older minor.
+///
+/// A change that adds to the current minor (grants, host imports, value checks) adds its item here and to that
+/// minor's row of `docs/extension-protocol.md` ("Protocol Versions"), which also keeps the 1.x history, 1.15.0
+/// included; it does not bump. A new describe category goes after `routes`.
+pub const PROTOCOL_VERSION: &str = "2.1.0";

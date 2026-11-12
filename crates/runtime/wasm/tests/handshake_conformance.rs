@@ -186,7 +186,7 @@ fn a_1_x_guest_is_refused_with_e088_as_older() {
     use specforge_protocol_types::{PROTOCOL_VERSION, ProtocolError};
     use specforge_wasm::protocol::load_declaration;
 
-    assert_eq!(PROTOCOL_VERSION, "2.0.0");
+    assert_eq!(PROTOCOL_VERSION, "2.1.0");
     // Every 1.x guest, the 1.15.0 every builtin was before 2.0.0 included, was built for the protocol of the `reads*`
     // keys: it is refused, named older.
     for version in [
@@ -237,7 +237,7 @@ fn a_newer_minor_protocol_is_refused() {
     load_declaration(&guest_answering(&patch), "@test/older").expect("a newer patch loads");
 }
 
-/// The minor after the host's (`2.1.0` under `2.0.0`): what a newer guest speaks.
+/// The minor after the host's (`2.2.0` under `2.1.0`): what a newer guest speaks.
 fn newer_minor() -> String {
     let mut parts = specforge_protocol_types::PROTOCOL_VERSION.split('.');
     let major = parts.next().unwrap();
