@@ -9,6 +9,7 @@ use specforge_project::testing::gsd::{gsd_history_passes, gsd_history_wire};
 use specforge_test_macros::test as spec;
 use tower_lsp::lsp_types::Position;
 
+use crate::recorder::logs;
 use crate::rename::apply_to_buffers;
 use crate::rename_pending::{ledger, save};
 use crate::served::Served;
@@ -384,4 +385,48 @@ fn a_joined_history_undone_file_by_file_lands_once_every_file_is_back() {
         ("v1.0/06/U5", "v1.1/06/U5"),
     ];
     assert_eq!(held(&served), says(&moved, &["v1.0/04/U1", "v1.0/06/U5"]));
+}
+
+/// The milestone renamed and saved, `q.spec` closed holding it, the rename undone in every other file and saved, then
+/// those closed too: the files disagree as the history ends, so it lands nothing, and the editor is told which files
+/// disagree and that `specforge rename` finishes the rename.
+#[spec(
+    behavior = "land_rename_ledger",
+    verify = "an editor rename whose files disagree when they all close lands nothing and says so"
+)]
+fn a_history_ending_with_its_files_disagreeing_lands_nothing_and_says_so() {
+    let mut served = served();
+    let first = texts(&served);
+    rename(&mut served, "m.spec", "v1.1");
+    save(&mut served, &FILES);
+    let renamed = says(
+        &[
+            ("v1.1", "v1.0"),
+            ("v1.1/03", "v1.0/03"),
+            ("v1.1/03/U1", "v1.0/03/U1"),
+            ("v1.1/05", "v1.0/05"),
+            ("v1.1/05/U5", "v1.0/05/U5"),
+        ],
+        &["v1.1/03/U1", "v1.1/05/U5"],
+    );
+    assert_eq!(held(&served), renamed);
+    served.close("q.spec");
+    for (at, file) in [(0, "m.spec"), (1, "p.spec"), (3, "u.spec")] {
+        served.edit(file, &first[at]);
+        save(&mut served, &[file]);
+    }
+    served.sent();
+    for file in ["m.spec", "p.spec", "u.spec"] {
+        served.close(file);
+    }
+    assert!(served.state().pending().open().is_empty());
+    assert_eq!(held(&served), renamed);
+    let told: Vec<String> = logs(&served.sent())
+        .into_iter()
+        .filter(|message| message.contains("specforge rename"))
+        .collect();
+    assert_eq!(told.len(), 1, "{told:?}");
+    for named in ["v1.0", "v1.1", "q.spec", "m.spec", "p.spec", "u.spec"] {
+        assert!(told[0].contains(named), "{named}: {}", told[0]);
+    }
 }

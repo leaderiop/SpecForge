@@ -345,6 +345,75 @@ mod tests {
         }
     }
 
+    /// The span of the first `name` on line `line` (1-based) of `text`.
+    fn on(text: &str, line: usize, name: &str) -> [(usize, usize, usize, usize); 1] {
+        let col = text
+            .lines()
+            .nth(line - 1)
+            .and_then(|l| l.find(name))
+            .expect("the name")
+            + 1;
+        [(line, col, line, col + name.len())]
+    }
+
+    #[test]
+    fn a_name_counted_in_a_changed_stretch_reads_only_beside_what_it_was_beside() {
+        for (then, now, what) in [
+            ("a T2\n", "a T1 T2\n", "typed over, then typed after it"),
+            (
+                "// covers T2\n",
+                "// covers T1 T2\n",
+                "typed over, then typed after it",
+            ),
+            (
+                "// covers T2\ntest('a');\n",
+                "// covers T1\n// see T2\ntest('a');\n",
+                "typed over, then typed on a line under it",
+            ),
+            (
+                "x\n// covers T2\n// note\ny\n",
+                "x\n// covers T1\n// note T2\ny\n",
+                "typed over, then typed on the next line",
+            ),
+            (
+                "// covers T2\nz\n",
+                "// covers T1\nT2\nz\n",
+                "moved onto a line of its own",
+            ),
+        ] {
+            let line = then.lines().position(|l| l.contains("T2")).expect("T2") + 1;
+            assert!(!reads(then, now, &on(then, line, "T2"), "T2"), "{what}");
+        }
+        // Limits of reading by count and by what is beside the name (D7): one written over and another added beside
+        // what the first was beside reads; so does a line moved whole, though a copy pasted with the first undone is
+        // the same texts. W198 says so at the next collect.
+        let then = "// covers T2\n// covers T2\nz\n";
+        let now = "// covers T9\n// covers T2 T2\nz\n";
+        assert!(reads(then, now, &on(then, 1, "T2"), "T2"));
+        let then = "a\n// covers T2\nb\n";
+        let now = "a\n// covers T1\nb\n// covers T2\n";
+        assert!(reads(then, now, &on(then, 2, "T2"), "T2"));
+    }
+
+    #[test]
+    fn many_places_in_one_changed_stretch_read_in_work_linear_in_the_texts() {
+        let mut then = String::new();
+        for i in 0..1500 {
+            then.push_str(&format!(
+                "// covers T2\n    test('case {i}', () => {{ expect(f({i})).toBe(1); }});\n"
+            ));
+        }
+        assert!(then.len() > 100_000);
+        let now: String = then
+            .lines()
+            .map(|line| format!("  {}\n", line.trim_start()))
+            .collect();
+        let spans: Vec<_> = (0..1500).map(|i| (2 * i + 1, 11, 2 * i + 1, 13)).collect();
+        let work = Cell::new(0);
+        assert!(counted(&then, &now, &spans, "T2", &work));
+        linear(&then, &now, &work);
+    }
+
     /// A text of more than 200 KB, every line distinct: the name on its first line.
     fn large() -> String {
         let mut text = String::from("// covers T2\n");

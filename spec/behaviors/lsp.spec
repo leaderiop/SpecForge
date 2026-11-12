@@ -1305,6 +1305,7 @@ behavior land_rename_ledger "Land a Rename's Ledger" {
   verify unit "an earlier editor rename undone by hand before a later one it led to lands nothing"
   verify unit "an editor rename held in some of the files it edited and not in others lands nothing"
   verify unit "a landing of an editor rename that writes nothing leaves the project the ledger was written over"
+  verify unit "an editor rename whose files disagree when they all close lands nothing and says so"
   verify unit "the LSP rename and fixes are versioned for a client that takes document changes"
   verify unit "a fix names the version of the buffer it edits for a client that takes document changes"
 }
