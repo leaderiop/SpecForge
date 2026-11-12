@@ -14,6 +14,36 @@ mod collect;
 #[path = "harness_ab.rs"]
 pub mod ab;
 
+#[path = "../common/answers.rs"]
+mod answers;
+
+/// Holds `tests/common/answers.rs` to the answer a test reads: a whole JSON answer of a listed `specforge gsd
+/// <command>` prints only members its row lists. A `--pick` may print an inner object, and `--dry-run` prints the host's
+/// preview (`output` and `plan`), so neither is the answer.
+fn answers_listed(args: &[&str], stdout: &str) {
+    let ["gsd", command, rest @ ..] = args else {
+        return;
+    };
+    let Some(row) = answers::members(command) else {
+        return;
+    };
+    if rest
+        .iter()
+        .any(|a| a.starts_with("--pick") || *a == "--dry-run")
+    {
+        return;
+    }
+    let Ok(serde_json::Value::Object(answer)) = serde_json::from_str(stdout) else {
+        return;
+    };
+    for key in answer.keys() {
+        assert!(
+            row.contains(&key.as_str()),
+            "{command} answered '{key}', which tests/common/answers.rs does not list"
+        );
+    }
+}
+
 pub(crate) const HOW_TO_BUILD: &str = "build it: (cd <repo> && cargo build --profile test -p specforge-cli) and (cd gsd && cargo build -p gsd-core -p gsd-security --release --target wasm32-wasip2), then set SPECFORGE_BIN, GSD_CORE_WASM and GSD_SECURITY_WASM to the artifacts";
 
 fn required(var: &str) -> PathBuf {
@@ -394,11 +424,13 @@ impl Project {
             .write_all(stdin.as_bytes())
             .expect("write stdin");
         let output = child.wait_with_output().expect("wait for specforge");
-        Run {
+        let run = Run {
             code: output.status.code().unwrap_or(-1),
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
-        }
+        };
+        answers_listed(args, &run.stdout);
+        run
     }
 
     /// Runs `specforge <args>` as a person at a terminal would: stdin is the slave side of a pty, so the host sees an
